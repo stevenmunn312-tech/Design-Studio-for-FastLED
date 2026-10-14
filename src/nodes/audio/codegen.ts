@@ -2,6 +2,7 @@ import { BEAT_DETECT_DEFAULT_THRESHOLD, BEAT_PARAM_RANGES, FLUX_GAIN } from '../
 import { nativeBeatGateCpp } from '../../codegen/audio/nativeBeatGateCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
+import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { audioHueWeight } from './evaluate'
 import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS } from '../../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
@@ -26,15 +27,7 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     // into bass/mids/treble. `bands` is baked in at generation time, so
     // the group boundaries are plain compile-time constants.
     const bands = Math.max(8, Math.min(32, Math.round(Number(p.bands ?? 24))))
-    const groupBounds = (start: number, end: number): [number, number] => {
-      const from = Math.max(0, Math.floor(start))
-      const to = Math.max(from + 1, Math.min(bands, Math.ceil(end)))
-      return [from, to]
-    }
-    const third = bands / 3
-    const [bassFrom, bassTo] = groupBounds(0, third)
-    const [midsFrom, midsTo] = groupBounds(third, third * 2)
-    const [trebleFrom, trebleTo] = groupBounds(third * 2, bands)
+    const [[bassFrom, bassTo], [midsFrom, midsTo], [trebleFrom, trebleTo]] = spectrumThirdBounds(bands)
     const bandsVar = `_fftBands_${id}`
     const groupExpr = (from: number, to: number) =>
       `(${Array.from({ length: to - from }, (_, i) => `${bandsVar}[${from + i}]`).join('+')}) / ${(to - from).toFixed(1)}f`

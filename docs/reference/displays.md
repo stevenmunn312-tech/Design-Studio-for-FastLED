@@ -3,7 +3,7 @@
 Physical displays are root-level Hardware parts. A colour panel may
 carry a **screen design** on itself (`displayId`); there is no separate
 document node and no Screen Design cable. Widget outputs leave through
-the companion **Touch** node. The
+the companion **Touch Screen** node. The
 [workbench guide](../user/hardware-workbench.md#add-and-connect-a-display)
 describes the current flow; in-app Help describes the same ownership.
 
@@ -75,7 +75,7 @@ route **Touch Controls → Control Map Controls In → Music Player
 Controls** when you want one compact bundle, continuous
 volume/brightness, chaining or repeat settings. Show Status and Clock
 are read-only. For custom touch, wire individual widget outputs from
-the companion **Touch** node; the fixed-layout Controls output does not
+the companion **Touch Screen** node; the fixed-layout Controls output does not
 replace those widget ports. **Connect template controls** draws the
 obvious wires (Volume direct, Play/Pause through a Changed Trigger,
 Blackout through a Not) without overriding a connection you already
@@ -94,7 +94,7 @@ connected. Diagnostics shows mapped touch coordinates on XPT2046 modules and
 identifies a non-touch panel as such. Choose the previous layout to return to
 your content. Upload the changed design to run the check on the device.
 
-The companion **Touch** node owns **Touch X Min/Max** and **Touch Y Min/Max**.
+The companion **Touch Screen** node owns **Touch X Min/Max** and **Touch Y Min/Max**.
 These are raw 0–4095 bounds from the exact digitiser; the 200/3900 defaults are
 provisional. **Calibrate touch** measures them.
 
@@ -104,7 +104,7 @@ no LED output, no graph validation, no FastLED — then opens serial and reads
 the `FLS_STAT touchx=<value> touchy=<value>` lines it prints while the glass is
 held. The panel shows four numbered boxes matching the wizard's corner map;
 press the middle of the one it asks for, and a dot is left where the press
-landed. Saving writes the bounds to the Touch node and releases the port. The
+landed. Saving writes the bounds to the Touch Screen node and releases the port. The
 board is left running the measuring sketch, so upload your project again
 afterwards.
 
@@ -123,24 +123,24 @@ re-run measures the hardware rather than its own previous answer.
 Diagnostics still shows mapped pixels, not raw samples, and browser touches
 cannot calibrate the physical controller.
 
-## Touch
+## Touch Screen
 
 A touch-capable panel arrives as two nodes: the **Display Panel** and a
-**Touch** node beside it, added together by taking the module off the shelf and
+**Touch Screen** node beside it, added together by taking the module off the shelf and
 linked from that moment. The digitiser is a separate chip from the display
 controller, which is why it is a separate node; its five lines are still pins on
 the panel, where the Build Diagram and the pin checker look for them.
 
-Touch has no inputs. It has a compact **Controls** output plus named outputs for
+Touch Screen has no inputs. It has a compact **Controls** output plus named outputs for
 the actions the current fixed layout defines — Previous, Play/Pause, Next and
 volume on **Fixed Transport**; play/pause and volume on **Now Playing**; nothing
 on read-only layouts such as Show Status or Waiting. Wire a named output
 directly to the destination that owns it, or wire **Controls** to **Control Map**
 when you want a bundled path.
 
-A panel showing a screen design has no fixed layout underneath for Touch to
+A panel showing a screen design has no fixed layout underneath for Touch Screen to
 read. The design owns the touch instead: each Button, Toggle, Slider and Dial
-publishes on its own output on the companion Touch node. The controls a
+publishes on its own output on the companion Touch Screen node. The controls a
 template placed (Previous, Play, Next, Volume, Brightness and Blackout) also
 travel on **Controls**, so a Now Playing design drives Music Player through that
 one wire. A control whose own output you have wired keeps that job and leaves
@@ -213,7 +213,7 @@ pick a colour; the output is that hue at the picker's own **Saturation** and
 **Brightness**. A colour wired to Set moves the marker to that colour's hue, so
 a grey or black moves it to red. Its colour wire works in all three firmware
 builds. Unlike FastLED's `CHSV`, the colours match the strip drawn under your
-finger exactly, with no boosted yellow. Drag from the Touch node's **Add
+finger exactly, with no boosted yellow. Drag from the Touch Screen node's **Add
 control…** socket onto any colour input that holds a colour of its own — a
 Solid Colour's Color, a Blend's A or B, a Circle's Fill — and a picker is made
 that starts at that colour. Picking a colour in that node's own colour row
@@ -241,12 +241,12 @@ fields on offer are whatever the source wired into the panel publishes, narrowed
 to those the widget can show, so a track title is never offered to a progress
 bar.
 
-The panel exposes widget input roles, and the companion Touch node exposes
+The panel exposes widget input roles, and the companion Touch Screen node exposes
 widget output roles, so a new empty screen adds no widget ports to either node.
 A widget with one port uses its widget label on the graph socket; a control with
 multiple ports appends Output or Set. The inspector shows the role and type. For
 a first connection, add a Slider and Numeric Readout and connect the slider's
-Output on Touch to the readout's Value on the panel. For formatted text, insert
+Output on Touch Screen to the readout's Value on the panel. For formatted text, insert
 Format Number between the slider and a Text widget. For music-player actions,
 connect widget outputs directly to named action inputs where available, or use
 Control Map when you need chaining, repeat settings or a bundle. A player's
@@ -341,7 +341,7 @@ scales that clock and a wired speed applies on the next pass; dwell and
 transitions keep elapsed time. In an SD player, root Time/Wave controls use
 elapsed time and remain separate from the track-position clock used to render
 patterns. Time's Delta Time output retains its nominal 1/60-second value.
-Clock, Envelope, BeatSin, Noise LFO, Counter and Schedule Trigger share the
+Clock, Envelope, Noise LFO and Schedule Trigger share the
 normal emitters and keep wall-clock milliseconds, so Master Speed does not
 scale them. A wired RTC Clock of any source can feed a Schedule Trigger and a
 Clock layout; an NTP clock brings the network bootstrap into the build.
@@ -361,7 +361,7 @@ evaluate every wire connected to it.
 
 | Symptom | What to check |
 | --- | --- |
-| No widget graph ports | Add widgets in Edit screen design; an empty design has no widget ports yet. Bound readouts mint none. Control outputs appear on the companion Touch node. |
+| No widget graph ports | Add widgets in Edit screen design; an empty design has no widget ports yet. Bound readouts mint none. Control outputs appear on the companion Touch Screen node. |
 | Control snaps back after release | Inspect its Set wire; that source becomes authoritative after touch. |
 | Template does not control playback | Use **Connect template controls**, or wire Touch outputs to Music Player action inputs (or through Control Map when the control is bundled). |
 | Build reports an unsupported widget input | Replace the upstream path with supported scalar nodes, or use a normal sketch where that path is supported. |

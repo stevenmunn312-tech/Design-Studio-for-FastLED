@@ -1,5 +1,5 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from './limits'
+import { SPIRAL_ARMS } from './limits'
 import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
@@ -115,6 +115,38 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`      for(int _o=0;_o<3;_o++){ _v+=_amp*sin(_x*_fr+${tp}+_o*1.7f)*cos(_y*_fr*1.3f+${tp}*0.8f+_o*2.3f); _amp*=0.5f; _fr*=2.1f; }`)
         ln(`      float _nf=fmodf(_v*0.5f+0.5f,1.0f); if(_nf<0)_nf+=1.0f;`)
         ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
+        break
+      }
+      case 'fbm': {
+        ln(`  { // Fractal noise (fBm via inoise8)`)
+        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+        const tp = phase()
+        ln(`    uint16_t _z=(uint16_t)(${tp}*40);`)
+        ln(`    int _octv=(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f);`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
+        ln(`      for(int _o=0;_o<_octv;_o++){`)
+        ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
+        ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
+        ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
+        break
+      }
+      case 'gabor': {
+        needsWorley.v = true
+        // The seed reshuffles the cells through the hash, exactly as
+        // `gaborCellHashes` does in the preview, rather than shifting time.
+        ln(`  { // Gabor noise`)
+        ln(`    float _spd=${speed},_sc=${scale},_fr=${f('frequency', 'frequency', 1.2)},_om=${f('orientation', 'orientation', 45)}*0.01745329f,_co=cos(_om),_si=sin(_om);`)
+        const tp = speedPhaseCpp(ln, phaseTag(id), '_spd')
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _v=0;`)
+        ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
+        ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy,${seed}u),_h2=_worleyHash(_cx+31,_cy-17,${seed}u);`)
+        ln(`        float _fx=_cx+0.5f+(_h-0.5f),_fy=_cy+0.5f+(_h2-0.5f);`)
+        ln(`        float _dx=_px-_fx,_dy=_py-_fy,_g=expf(-2.5f*(_dx*_dx+_dy*_dy));`)
+        ln(`        float _proj=_dx*_co+_dy*_si,_w=_h2<0.5f?1.0f:-1.0f;`)
+        ln(`        _v+=_w*_g*cosf(6.2831853f*_fr*_proj+${tp}+_h*6.2831853f); }`)
+        ln(`      ${of}[_y*WIDTH+_x]=constrain(_v*0.5f+0.5f,0.0f,1.0f);}}`)
         break
       }
       case 'field':
@@ -387,72 +419,6 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
     ln(`    float _a=atan2(_y-HEIGHT/2.0f,_x-WIDTH/2.0f);float _s=(_a+_d*12.57f-${ph}*3.14159f)*_arms;`)
     ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_d+t*0.083f)*255)); ${ob}[_y*WIDTH+_x].nscale8((uint8_t)((sin(_s)+1)/2.0f*230));}}`)
-  },
-  // Wedge mirror — folds each pixel's polar angle into a single segment,
-  // reflects it about the segment's midline, and samples the source there.
-  // Mirrors evalKaleidoscope in graphEvaluator.ts: same W/2,H/2 centre, the
-  // same two-step fold, and floorf(v+0.5f) to match JS Math.round, so the
-  // preview and the flashed sketch produce identical frames.
-  Kaleidoscope({ ln, f, ownBuf, srcBuf }) {
-    const ob = ownBuf()
-    const src = srcBuf('frame')
-    if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Kaleidoscope: no input`); return }
-    // `segments` is wireable, so the wedge angle is computed per frame.
-    const seg = f('segments', 'segments', 6)
-    ln(`  { float _kCx=WIDTH/2.0f,_kCy=HEIGHT/2.0f;`)
-    ln(`    float _kSeg=6.2831853f/constrain((float)(${seg}),${KALEIDOSCOPE_SEGMENTS.min}.0f,${KALEIDOSCOPE_SEGMENTS.max}.0f);`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _kdx=_x-_kCx,_kdy=_y-_kCy,_kd=sqrtf(_kdx*_kdx+_kdy*_kdy);`)
-    ln(`      float _ka=fmodf(fmodf(atan2f(_kdy,_kdx),_kSeg)+_kSeg,_kSeg);`)
-    ln(`      if(_ka>_kSeg*0.5f) _ka=_kSeg-_ka;`)
-    ln(`      int _ksx=(int)floorf(_kCx+_kd*cosf(_ka)+0.5f),_ksy=(int)floorf(_kCy+_kd*sinf(_ka)+0.5f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?CRGB::Black:${src}[_ksy*WIDTH+_ksx];`)
-    ln(`    } }`)
-  },
-  FractalNoise({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
-    needsT.v = true
-    const ob = ownBuf()
-    const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FractalNoise), scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FractalNoise)
-    const octaves = `_octv_${id}`
-    const octavesDecl = `    int ${octaves}=(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f);`
-    const pal = paletteExpr(node.id, 'paletteIn', p)
-    const seed = seedProp(p)
-    const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
-    ln(`  { // Fractal noise (fBm via inoise8)`)
-    ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
-    const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    ln(`    uint16_t _z=(uint16_t)((${ph}${seed ? '+(_t-t)*_spd' : ''})*40);`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
-    ln(octavesDecl)
-    ln(`      for(int _o=0;_o<${octaves};_o++){`)
-    ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
-    ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(${noiseShapeCpp(noiseShape(p.noiseShape), '(_v/_norm)')}*255));}}`)
-  },
-  GaborNoise({ node, id, p, ln, f, ownBuf, paletteExpr, needsWorley, needsT }) {
-    needsT.v = true
-    needsWorley.v = true
-    const ob = ownBuf()
-    const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.GaborNoise), scale = rateCpp(f('scale', 'scale', 0.7), SCALE_MAX.GaborNoise)
-    const freq = f('frequency', 'frequency', 1.2)
-    const orientation = f('orientation', 'orientation', 45)
-    const pal = paletteExpr(node.id, 'paletteIn', p)
-    // The seed reshuffles the cells through the hash, exactly as
-    // `gaborCellHashes` does in the preview; it once shifted time here instead.
-    const seed = seedProp(p)
-    ln(`  { // Gabor noise`)
-    ln(`    float _spd=${speed},_sc=${scale},_fr=${freq},_om=${orientation}*0.01745329f,_co=cos(_om),_si=sin(_om);`)
-    const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _v=0;`)
-    ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
-    ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy,${seed}u),_h2=_worleyHash(_cx+31,_cy-17,${seed}u);`)
-    ln(`        float _fx=_cx+0.5f+(_h-0.5f),_fy=_cy+0.5f+(_h2-0.5f);`)
-    ln(`        float _dx=_px-_fx,_dy=_py-_fy,_g=expf(-2.5f*(_dx*_dx+_dy*_dy));`)
-    ln(`        float _proj=_dx*_co+_dy*_si,_w=_h2<0.5f?1.0f:-1.0f;`)
-    ln(`        _v+=_w*_g*cosf(6.2831853f*_fr*_proj+${ph}+_h*6.2831853f); }`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v*0.5f+0.5f)*255));}}`)
   },
   Blobs({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true

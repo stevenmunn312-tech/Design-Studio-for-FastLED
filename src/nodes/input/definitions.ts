@@ -11,9 +11,6 @@ import { JOYSTICK_DEFAULT_DEADZONE, KY023_PART_ID } from '../../state/peripheral
 import { KEYPAD_PART_ID } from '../../state/peripherals/keypad'
 import { BH1750_DEFAULT_ADDRESS, DEFAULT_LIGHT_SENSOR_PART_ID, LIGHT_SENSOR_DEFAULT_MAX_LUX, formatLightSensorAddress } from '../../state/peripherals/lightSensor'
 import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorSpec } from '../../state/peripherals/motionVector'
-import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTrigger'
-import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from '../../state/peripherals/powerConverter'
-import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, formatI2cAddress, powerMonitorSpec } from '../../state/peripherals/powerMonitor'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from '../../state/peripherals/presenceSensor'
 import { DS18B20_PART_ID } from '../../state/peripherals/temperatureSensor'
@@ -125,7 +122,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
      * catalogue id is, and the node body states the panel in words instead.
      */
     type: 'TouchInput',
-    label: 'Touch',
+    label: 'Touch Screen',
     category: 'input',
     inputs: [],
     outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
@@ -512,88 +509,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { note: 60, cc: 1, channel: 0, midiSource: 'Web MIDI', midiUart: 1, midiRxPin: 16 },
   },
   {
-    // Wired Ethernet for the sketch's network. It carries no signal: Art-Net
-    // receive and NTP time sync keep their own settings and simply reach the
-    // network through this module instead of Wi-Fi when it is on the bench.
-    // See state/peripherals/ethernetModule.ts.
-    //
-    // Config only, like SD Card: no ports, no evaluation, found by scanning.
-    type: 'EthernetModule',
-    label: 'Ethernet',
-    category: 'input',
-    inputs: [],
-    outputs: [],
-    defaultProperties: {
-      partId: 'wiz850io-ethernet-module',
-      // Classic-ESP32 fallbacks; adding the part and every board change hand
-      // out free pins through its pin plan. Not HSPI's customary 12-15: the
-      // module has the host to itself through the GPIO matrix, and GPIO12 and
-      // GPIO15 are strapping pins — MISO held high on GPIO12 at reset selects
-      // the wrong flash voltage. MISO, which only reads, takes input-only 35.
-      sckPin: 25,
-      mosiPin: 26,
-      misoPin: 35,
-      csPin: 32,
-      intPin: 33,
-      resetPin: 27,
-    },
-  },
-  {
-    // A DC-DC converter from a higher-voltage source to 5 V. It carries no
-    // signal: the Build Diagram reads the selected part's role to power either
-    // the controller or the LED rail. See state/peripherals/powerConverter.ts.
-    //
-    // Config only, like SD Card: no ports, no evaluation, found by scanning.
-    type: 'PowerConverter',
-    label: 'Buck Converter',
-    category: 'input',
-    inputs: [],
-    outputs: [],
-    defaultProperties: {
-      partId: DEFAULT_POWER_CONVERTER_PART_ID,
-      sourceVoltage: DEFAULT_SOURCE_VOLTAGE,
-    },
-  },
-  {
-    // Physical DC source. Cell count and exact cell are the only authored
-    // facts; voltage, capacity, energy and current are derived from catalogue data.
-    type: 'BatteryPack',
-    label: 'Battery Pack',
-    category: 'input',
-    inputs: [],
-    outputs: [],
-    defaultProperties: {
-      partId: DEFAULT_BATTERY_CELL_PART_ID,
-      series: 4,
-      parallel: 1,
-    },
-  },
-  {
-    // One real pack board. Its catalogue block declares every function it has.
-    type: 'BatteryModule',
-    label: 'Pack Electronics',
-    category: 'input',
-    inputs: [],
-    outputs: [],
-    defaultProperties: {
-      partId: 'hx-4s-f30a-bms-balance',
-    },
-  },
-  {
-    // A USB-C PD trigger: the upstream DC source. It carries no signal; the
-    // electrical plan reads the voltage it requests and checks it against the
-    // converter it feeds. Config only, like the converter. See state/peripherals/pdTrigger.ts.
-    type: 'PdTriggerSource',
-    label: 'USB-C PD Trigger',
-    category: 'input',
-    inputs: [],
-    outputs: [],
-    defaultProperties: {
-      partId: PD_TRIGGER_PART_ID,
-      requestedVoltage: String(pdTriggerSpec(PD_TRIGGER_PART_ID).defaultVoltageV),
-    },
-  },
-  {
     // Pixels from the network: DDP (Distributed Display Protocol, UDP 4048),
     // the frame feed xLights, LedFx and WLED speak. The preview reads the
     // local helper's listener; firmware listens on the board. A network
@@ -644,9 +559,4 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   PowerMonitorInput: 'Measures volts, amps and watts over I2C and reports them to displays.',
   RTCInput: 'Clock for preview/firmware via build stamp, manual seed, NTP, or DS3231.',
   MidiInput: 'Note velocity, gate and a CC from Web MIDI, or a DIN jack on a UART in firmware.',
-  EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
-  PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
-  BatteryPack: 'Defines a lithium pack from an exact cell and its series-parallel count.',
-  BatteryModule: 'Adds pack protection, balancing, charging, or an integrated 5 V output.',
-  PdTriggerSource: 'Asks a USB-C charger for a fixed voltage to feed a converter or load.',
 }

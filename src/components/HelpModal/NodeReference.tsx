@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useRef } from 'react'
 import type { NodeCategory, NodeDefinition } from '../../types'
-import { CATEGORIES, CATEGORY_COLOR, isPortlessNodeType, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor } from '../../state/nodeLibrary'
+import { CATEGORIES, CATEGORY_COLOR, HARDWARE_CATEGORY, isPortlessNodeType, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor } from '../../state/nodeLibrary'
 import { exposableInputsFor } from '../../state/propertyInputs'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
@@ -37,10 +37,10 @@ interface ExampleRecipe {
 }
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
-  CATEGORIES.map((category) => [category.id, category.label]),
+  [...CATEGORIES, HARDWARE_CATEGORY].map((category) => [category.id, category.label]),
 )
 
-const CATEGORY_ORDER: NodeCategory[] = ['input', 'audio', 'signal', 'math', 'color', 'pattern', 'field', 'composite', 'show', 'output', 'note']
+const CATEGORY_ORDER: NodeCategory[] = ['input', 'audio', 'signal', 'math', 'color', 'pattern', 'field', 'composite', 'show', 'output', 'hardware', 'note']
 
 const NODE_INTRO_TYPE = '__using_nodes__'
 
@@ -445,9 +445,9 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
   const fallbackPresets: Record<string, { label: string; category: NodeCategory }> = {
     audio: { label: 'FFT Analyzer', category: 'audio' },
     bool: { label: 'Interval', category: 'signal' },
-    color: { label: 'Blend Colors', category: 'color' },
+    color: { label: 'Gradient Sampler', category: 'color' },
     field: { label: 'Field Formula', category: 'field' },
-    float: { label: 'Counter', category: 'signal' },
+    float: { label: 'Wave', category: 'signal' },
     frame: { label: 'Gradient Frame', category: 'pattern' },
     palette: { label: 'Custom Palette', category: 'color' },
     patternset: { label: 'Music Player', category: 'show' },
@@ -556,13 +556,13 @@ function buildPaletteRecipe(node: NodeDefinition): ExampleRecipe {
   const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
   return {
     columns: [
-      sources.length > 0 ? sources : [makeNode('source-fallback', 'Counter', 'math')],
+      sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'signal')],
       [makeNode('target', node.label, node.category, true)],
       [makeNode('pattern', 'Noise', 'pattern')],
       [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
-      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Counter', 'math')]).map((source) => ({ from: source.id, to: 'target' })),
+      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'signal')]).map((source) => ({ from: source.id, to: 'target' })),
       { from: 'target', to: 'pattern' },
       { from: 'pattern', to: 'sink' },
     ],
@@ -803,7 +803,7 @@ function buildUseCases(node: NodeDefinition): string[] {
   }
   const inputDrivenUse = node.inputs.length === 0
     ? 'It also works well as a drop-in starting point when you want immediate visible output before wiring anything more advanced.'
-    : 'Try driving its inputs from Wave, Counter, BeatSin, Microphone, or palette/color helper nodes to make the result feel more alive.'
+    : 'Try driving its inputs from Wave, Noise LFO, Microphone, or palette/color helper nodes to make the result feel more alive.'
   return uniqueSentences([
     primaryUse,
     categoryUseCases[node.category] ?? '',

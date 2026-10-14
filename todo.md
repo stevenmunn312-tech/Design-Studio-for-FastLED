@@ -464,17 +464,27 @@ library defaults.
   into FieldMath's `mix` with a wireable T; Fade into Brightness; XYMapper
   removed. Temperature's `kelvin` is now `warmth`. Pre-1.0, no migration: a
   save holding a merged node shows it as an unknown type until replaced; the
-  bundled patterns, live examples and node cards are regenerated. Still to
-  decide, then apply in a second pass: Fire into Fire2012 as a style;
-  Particles `swarm` into Boids; FractalNoise and GaborNoise as Noise variants;
-  Counter and BeatSin into Wave once Wave has offset, unipolar and a Hz/BPM
-  unit; DistanceField into ShapeField; SpectrumBars into SpectrumVisualizer.
-  Renames: Formula Field (clashes with Field Formula); Fractal (clashes with
-  Fractal Noise); TouchInput to Touch Screen; MotionInput to PIR Motion
-  Sensor; PowerConverter's "Buck Converter" to "DC-DC Converter";
-  TransitionSet to Transition Pool. Moves: Kaleidoscope to Effects; Image and
-  SDVideo to a Media subcategory; the portless power and network parts out of
-  Inputs into a non-sidebar hardware category. Open questions: Sunrise's
+  bundled patterns, live examples and node cards are regenerated. Second
+  pass applied and compiled on 2026-10-14 (`d089` normal sketch, `d089show`
+  show controller). Merged: Fire2012 into Fire's `fire2012` style
+  (`fire2012Cpp`, Intensity gated off); Particles `swarm` removed for Boids
+  (pool size now `particlePoolSize`, shared with the RAM estimate);
+  FractalNoise and GaborNoise into Noise's `fbm` and `gabor` types, with
+  wireable Octaves, Frequency and Orientation and the Noise field output;
+  Counter and BeatSin into Wave, which gains `rateUnit` (Hz or BPM), `bpm`,
+  `offset` and `unipolar` (`statefulSignalParity.test.ts` runs the ramp and
+  the beatsin form on both sides; BeatSin left the wall clock for `t`);
+  DistanceField into ShapeField's `falloff` mode; SpectrumBars into
+  SpectrumVisualizer's `Three Band` style, whose unwired bands read the
+  spectrum's thirds (`spectrumThirdBounds`, shared with FFT Analyzer).
+  Renamed (labels only, types kept): Formula Shapes, Fractal Field, Touch
+  Screen, DC-DC Converter, Transition Pool. Moved: Kaleidoscope to Effects;
+  Image and SD Video to a Media subcategory; Ethernet, DC-DC Converter,
+  Battery Pack, Pack Electronics and USB-C PD Trigger to a `hardware`
+  category (`src/nodes/hardware/`, `HARDWARE_CATEGORY`) that the Help
+  reference lists and the sidebar does not. Still open: MotionInput's
+  "PIR Motion Sensor" label was held back because the node also hosts the
+  RCWL-0516 microwave sensor, so it needs another name or none; Sunrise's
   clock source, Transform's one-way zoom and 0–360 rate, ClockDisplay's
   legacy scalar ports.
 - [x] **D-08.10 · Nodes the library lacks.** Both batches built and compiled

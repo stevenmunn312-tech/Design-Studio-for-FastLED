@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SIGNAL_EVALUATORS } from '../evaluate'
 import { MATH_EVALUATORS } from '../../math/evaluate'
-import { counterCpp, timedControlCpp } from '../../../codegen/signalControlCpp'
+import { timedControlCpp } from '../../../codegen/signalControlCpp'
 import { scalarControlCpp } from '../../../codegen/scalarControlCpp'
 import { timeNodeCpp } from '../../../codegen/signalTimeCpp'
 import { compileCppSnippet } from '../../../test-utils/cppSnippet'
@@ -91,10 +91,16 @@ describe('stateful signal nodes: preview and firmware agree frame by frame', () 
     }
   })
 
-  it('Counter ramps at its rate on the shared clock', () => {
-    const props = { ...libraryDefaults('Counter'), rate: 0.7 }
+  // The two oscillators Wave absorbed: Counter's 0–1 ramp and BeatSin.
+  it.each([
+    ['a unipolar sawtooth ramp', { waveform: 'sawtooth', unipolar: true, frequency: 0.7 }],
+    ['a unipolar sine at a BPM with an offset', { waveform: 'sine', unipolar: true, rateUnit: 'BPM', bpm: 75, amplitude: 0.6, offset: 0.2 }],
+    ['a bipolar triangle', { waveform: 'triangle', frequency: 1.3, amplitude: 2, offset: -0.5 }],
+  ])('Wave runs %s on the shared clock', (_name, overrides) => {
+    const props: Record<string, unknown> = { ...libraryDefaults('Wave'), ...overrides }
     const run = frames(200)
-    expectSame(preview(SIGNAL_EVALUATORS.Counter, props, 'value', run), firmware([`  float t = millis() / 1000.0f;`, ...counterCpp('n', (port) => `n_n_${port}`, '0.7', 't')], [], 'n_n_value', run))
+    const lines = scalarControlCpp('Wave', 'n', props, (port, fallback) => String(props[port] ?? fallback))!.loop
+    expectSame(preview(SIGNAL_EVALUATORS.Wave, props, 'result', run), firmware([`  float t = millis() / 1000.0f;`, ...lines], [], 'n_n_result', run))
   })
 
   it('Time measures dt between passes', () => {

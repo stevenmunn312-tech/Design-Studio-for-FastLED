@@ -23,7 +23,7 @@ describe('insertMapRangeOnEdge', () => {
   } as unknown as StudioEdge
 
   beforeEach(() => {
-    useGraphStore.getState().loadGraph([node('fft', 'FFTAnalyzer'), node('fire', 'Fire2012')], [wire])
+    useGraphStore.getState().loadGraph([node('fft', 'FFTAnalyzer'), node('fire', 'Fire', { fireStyle: 'fire2012' })], [wire])
   })
 
   it('splices a configured Map Range onto the wire', () => {

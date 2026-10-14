@@ -27,7 +27,9 @@ describe('scalar numeric expressions', () => {
 
   it('resolves formulas only for free-entry creative numeric properties', () => {
     expect(supportsScalarExpression('Random', 'max')).toBe(true)
-    expect(supportsScalarExpression('BeatSin', 'high')).toBe(true)
+    expect(supportsScalarExpression('Wave', 'offset')).toBe(true) // BeatSin's low, now a free field
+    expect(supportsScalarExpression('Wave', 'bpm')).toBe(false) // bounded slider
+    expect(supportsScalarExpression('Wave', 'amplitude')).toBe(true)
     expect(supportsScalarExpression('Noise', 'speed')).toBe(false) // bounded slider
     expect(supportsScalarExpression('MatrixOutput', 'width')).toBe(false)
 

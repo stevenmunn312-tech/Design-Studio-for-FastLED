@@ -309,7 +309,7 @@ describe('StudioNode', () => {
   })
 
   /*
-   * Formula Field's knobs became property inputs, and the row renderer is
+   * Formula Shapes' knobs became property inputs, and the row renderer is
    * generic — it reads the registry rather than a list of node types — so this
    * asserts the registry change reaches the canvas, and that a knob belonging
    * to another formulaType is still a drop target (the wire is allowed; it
@@ -1095,20 +1095,20 @@ describe('StudioNode', () => {
   })
 
   it('disables wired AudioFlow sliders but keeps their live values visible', () => {
-    const speedSrc = { ...makeNode('Counter', { rate: 1 }), id: 'speedSrc' } as StudioNodeT
-    const scaleSrc = { ...makeNode('Counter', { rate: 1 }), id: 'scaleSrc' } as StudioNodeT
+    const speedSrc = { ...makeNode('Wave', { waveform: 'sawtooth', unipolar: true, frequency: 1 }), id: 'speedSrc' } as StudioNodeT
+    const scaleSrc = { ...makeNode('Wave', { waveform: 'sawtooth', unipolar: true, frequency: 1 }), id: 'scaleSrc' } as StudioNodeT
     const af = makeNode('AudioFlow', { speed: 0.5, scale: 0.5, palette: 'party' })
     useGraphStore.setState({
       nodes: [speedSrc, scaleSrc, af],
       edges: [
-        { id: 'e1', source: speedSrc.id, target: af.id, sourceHandle: 'value', targetHandle: 'speed' } as never,
-        { id: 'e2', source: scaleSrc.id, target: af.id, sourceHandle: 'value', targetHandle: 'scale' } as never,
+        { id: 'e1', source: speedSrc.id, target: af.id, sourceHandle: 'result', targetHandle: 'speed' } as never,
+        { id: 'e2', source: scaleSrc.id, target: af.id, sourceHandle: 'result', targetHandle: 'scale' } as never,
       ],
     })
     usePreviewStore.setState({
       outputs: new Map([
-        [speedSrc.id, { value: 0.17 }],
-        [scaleSrc.id, { value: 0.83 }],
+        [speedSrc.id, { result: 0.17 }],
+        [scaleSrc.id, { result: 0.83 }],
       ]),
     })
     const props = { id: af.id, data: af.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
@@ -1128,17 +1128,17 @@ describe('StudioNode', () => {
   })
 
   it('disables a wired Math input field and shows the live upstream value', () => {
-    const src = { ...makeNode('Counter', { rate: 1 }), id: 'src' } as StudioNodeT
+    const src = { ...makeNode('Wave', { waveform: 'sawtooth', unipolar: true, frequency: 1 }), id: 'src' } as StudioNodeT
     const math = makeNode('Math', { mathOp: 'add', a: 0, b: 0 })
     useGraphStore.setState({
       nodes: [src, math],
       edges: [
-        { id: 'e1', source: src.id, target: math.id, sourceHandle: 'value', targetHandle: 'a' } as never,
+        { id: 'e1', source: src.id, target: math.id, sourceHandle: 'result', targetHandle: 'a' } as never,
       ],
     })
     usePreviewStore.setState({
       outputs: new Map([
-        [src.id, { value: 0.17 }],
+        [src.id, { result: 0.17 }],
       ]),
     })
     const props = { id: math.id, data: math.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>

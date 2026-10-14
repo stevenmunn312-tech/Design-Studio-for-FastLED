@@ -4,7 +4,8 @@ import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, 
 import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
 import { EASE_TYPES } from '../../nodes/math/easing'
-import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from '../../nodes/generative/limits'
+import { SPIRAL_ARMS } from '../../nodes/generative/limits'
+import { KALEIDOSCOPE_SEGMENTS } from '../../nodes/composite/kaleidoscope'
 import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../../nodes/shapes/clockTimer'
 import { PLAYER_CONTROL_FUNCTIONS, playerControlActionPortsFor } from '../player/playerControlAssignments'
@@ -457,12 +458,21 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('MidrangeWaves', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('SpectrumBars exposes palette-driven energy and speed controls', () => {
-    const sb = NODE_LIBRARY.find((n) => n.type === 'SpectrumBars')
-    expect(sb?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn'])
-    expect(sb?.defaultProperties).toMatchObject({ energy: 0.7, speed: 0.6, palette: 'rainbow', mirror: true })
-    expect(propertyMeta('SpectrumBars', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
-    expect(propertyMeta('SpectrumBars', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  it('SpectrumVisualizer Three Band exposes palette-driven energy and speed controls', () => {
+    const visualizer = NODE_LIBRARY.find((n) => n.type === 'SpectrumVisualizer')
+    expect(visualizer?.inputs.map((p) => p.id)).toEqual(expect.arrayContaining(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn']))
+    expect(visualizer?.propertyInputs).toMatchObject({ energy: 'energy', speed: 'speed' })
+    expect(visualizer?.defaultProperties).toMatchObject({ energy: 0.7, speed: 0.6, mirror: true })
+    expect(propertyMeta('SpectrumVisualizer', 'style')).toMatchObject({ options: expect.arrayContaining(['Three Band']) })
+    expect(propertyMeta('SpectrumVisualizer', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('SpectrumVisualizer', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    for (const key of ['energy', 'speed', 'mirror']) {
+      expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Three Band' }), key).toBe(true)
+      expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Bars' }), key).toBe(false)
+    }
+    for (const key of ['smoothing', 'tilt', 'peakHold', 'peakGravity']) {
+      expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Three Band' }), key).toBe(false)
+    }
   })
 
   it('SpectrumVisualizer exposes full-spectrum display and falling-peak controls', () => {
@@ -471,6 +481,7 @@ describe('nodeLibrary', () => {
     expect(visualizer?.inputs.map((p) => p.id)).toEqual([
       'audio', 'paletteIn',
       'gain', 'smoothing', 'tilt', 'peakHold', 'peakGravity', 'waterfallSpeed',
+      'bass', 'mids', 'treble', 'energy', 'speed',
     ])
     // `bands` sizes the emitted band array, so it has no socket.
     expect(visualizer?.inputs.map((p) => p.id)).not.toContain('bands')
@@ -480,7 +491,7 @@ describe('nodeLibrary', () => {
       peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
     })
     expect(propertyMeta('SpectrumVisualizer', 'style')).toMatchObject({
-      control: 'select', options: ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall'],
+      control: 'select', options: ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall', 'Three Band'],
     })
     expect(propertyMeta('SpectrumVisualizer', 'bands')).toMatchObject({ control: 'slider', min: 4, max: 32 })
     expect(propertyMeta('SpectrumVisualizer', 'peakHold')).toMatchObject({ control: 'slider', min: 0, max: 2 })
@@ -732,9 +743,9 @@ describe('nodeLibrary', () => {
 
     // `size` applies to every mode; the rest are gated to the modes that read them.
     expect(isPropertyEnabled('Particles', 'size', { particleType: 'fountain' })).toBe(true)
-    expect(isPropertyEnabled('Particles', 'size', { particleType: 'swarm' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'size', { particleType: 'fireflies' })).toBe(true)
 
-    expect(isPropertyEnabled('Particles', 'count', { particleType: 'swarm' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'count', { particleType: 'fireflies' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'count', { particleType: 'orbit' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'count', { particleType: 'fountain' })).toBe(false)
 
@@ -748,18 +759,21 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'fountain' })).toBe(false)
   })
 
-  it('Fire and Fire2012 share the direction/turbulence/paletteMix/mirror/seed controls', () => {
-    for (const type of ['Fire', 'Fire2012']) {
-      const n = NODE_LIBRARY.find((nd) => nd.type === type)
-      expect(n?.defaultProperties, type).toMatchObject({
-        direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
-      })
-      expect(propertyMeta(type, 'direction'), type).toMatchObject({ control: 'select' })
-      expect((propertyMeta(type, 'direction') as { options?: string[] }).options, type)
-        .toEqual(['up', 'down', 'left', 'right'])
-      expect(propertyMeta(type, 'turbulence'), type).toMatchObject({ control: 'slider', min: 0, max: 2 })
-      expect(propertyMeta(type, 'paletteMix'), type).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  it('Fire keeps the direction/turbulence/paletteMix/mirror/seed controls for every style', () => {
+    const n = NODE_LIBRARY.find((nd) => nd.type === 'Fire')
+    expect(n?.defaultProperties).toMatchObject({
+      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
+    })
+    expect(propertyMeta('Fire', 'direction')).toMatchObject({ control: 'select' })
+    expect((propertyMeta('Fire', 'direction') as { options?: string[] }).options)
+      .toEqual(['up', 'down', 'left', 'right'])
+    expect(propertyMeta('Fire', 'turbulence')).toMatchObject({ control: 'slider', min: 0, max: 2 })
+    expect(propertyMeta('Fire', 'paletteMix')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    for (const key of ['direction', 'turbulence', 'paletteMix', 'mirror', 'seed']) {
+      expect(isPropertyEnabled('Fire', key, { fireStyle: 'fire2012' }), key).toBe(true)
     }
+    // The classic Fire2012 style runs on cooling/sparking, not intensity.
+    expect(isPropertyEnabled('Fire', 'intensity', { fireStyle: 'fire2012' })).toBe(false)
   })
 
   it('Comment has no ports and a text + color default', () => {
@@ -936,7 +950,7 @@ describe('nodeLibrary', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Envelope')?.defaultProperties).toMatchObject({ attack: 0, decay: 0.5 })
     expect(propertyMeta('Envelope', 'attack')).toEqual({ control: 'slider', min: 0, max: 5, step: 0.05 })
     expect(propertyMeta('Envelope', 'decay')).toEqual({ control: 'slider', min: 0.05, max: 5, step: 0.05 })
-    expect(propertyMeta('BeatSin', 'bpm')).toEqual({ control: 'slider', min: 1, max: 220, step: 1 })
+    expect(propertyMeta('Wave', 'bpm')).toEqual({ control: 'slider', min: 1, max: 220, step: 1 })
   })
 
   it('explains that Function needs an explicit X signal to animate', () => {

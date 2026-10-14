@@ -11,7 +11,7 @@ import { isPinnableProperty } from '../../state/player/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/upload/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../nodes/shared/scalarExpression'
 import { nodeFormulaError, scalarFormulaError } from '../../nodes/shared/formulaLang'
-import { waveNodeSamples } from '../../nodes/signal/wave'
+import { waveHz, waveNodeSamples } from '../../nodes/signal/wave'
 import WaveScope from './WaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
@@ -1054,6 +1054,8 @@ const CATEGORY_CLASS: Record<string, string> = {
   composite: styles.categoryComposite,
   show: styles.categoryShow,
   output: styles.categoryOutput,
+  // The bench parts keep the input texture they had before their own category.
+  hardware: styles.categoryInput,
   note: styles.categoryNote,
 }
 
@@ -1357,7 +1359,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
    */
   const partRender = partRenderForNodeType(d.nodeType, props)
   const waveSamples = isWave
-    ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
+    ? waveNodeSamples(
+      String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1),
+      waveHz(props.rateUnit, Number(props.frequency ?? 1), Number(props.bpm ?? 60)), Number(props.phase ?? 0),
+      { unipolar: props.unipolar === true, offset: Number(props.offset ?? 0) },
+    )
     : null
   // Frame / palette / colour nodes show a live preview of their primary output,
   // driven from the shared evaluation pass (previewStore).

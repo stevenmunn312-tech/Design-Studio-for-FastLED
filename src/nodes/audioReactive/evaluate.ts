@@ -19,7 +19,7 @@ import {
   byte,
 } from '../../state/evaluator/frames'
 import { _snoise2, worleyHash, normalizedSeed } from '../../state/evaluator/random'
-import { resampleSpectrumBins, isAudioSignal } from '../../state/evaluator/signals'
+import { resampleSpectrumBins, isAudioSignal, spectrumThirdBounds } from '../../state/evaluator/signals'
 import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
@@ -104,7 +104,7 @@ function advanceDrift(key: string, t: number, rateA: number, rateB = 0): DriftPh
   return state
 }
 
-function evalSpectrumBars(
+function evalThreeBand(
   key: string,
   bass: number,
   mids: number,
@@ -1241,18 +1241,6 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       return samplePaletteClamped(palette, span > 1 ? d / (span - 1) : 0)
     }) }
   },
-  SpectrumBars({ num, pal, t, W, H, stateKey }, id, props) {
-    // Unwired bands rest at 0 unless the Test Signal toggle drives a demo.
-    const demo = useUiStore.getState().testSignal
-    const bass   = num(id, 'bass',   props, 'bass',   demo ? (Math.sin(t * 2.1) + 1) / 2 : 0)
-    const mids   = num(id, 'mids',   props, 'mids',   demo ? (Math.sin(t * 3.7 + 1) + 1) / 2 : 0)
-    const treble = num(id, 'treble', props, 'treble', demo ? (Math.sin(t * 5.3 + 2) + 1) / 2 : 0)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 0.6)
-    const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    const mirror = !!props.mirror
-    return { frame: evalSpectrumBars(stateKey(id), bass, mids, treble, energy, speed, t, palette, mirror, W, H) }
-  },
   SpectrumVisualizer({ input, num, pal, t, W, H, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
     const audio = isAudioSignal(audioValue) ? audioValue : null
@@ -1266,6 +1254,18 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
           })
         : []
     const palette = pal(id, 'paletteIn', props, 'palette', 'citrus')
+    if (props.style === 'Three Band') {
+      // A wired band wins; an unwired one is that third of the spectrum.
+      const bands = Math.max(4, Math.min(32, Math.round(Number(props.bands ?? 16))))
+      const sampled = resampleSpectrumBins(spectrum, bands)
+      const gain = Math.max(0.25, Math.min(4, num(id, 'gain', props, 'gain', 1.25)))
+      const [bass, mids, treble] = spectrumThirdBounds(bands).map(([from, to], i) =>
+        num(id, ['bass', 'mids', 'treble'][i], props, ['bass', 'mids', 'treble'][i],
+          clamp01(sampled.slice(from, to).reduce((sum, v) => sum + v, 0) / (to - from) * gain)))
+      const energy = num(id, 'energy', props, 'energy', 0.7)
+      const speed = num(id, 'speed', props, 'speed', 0.6)
+      return { frame: evalThreeBand(stateKey(id), bass, mids, treble, energy, speed, t, palette, props.mirror !== false, W, H) }
+    }
     return { frame: evalSpectrumVisualizer(stateKey(id), spectrum, {
       style: String(props.style ?? 'Bars'),
       // `bands` sizes the band array and stays a property; the rest read

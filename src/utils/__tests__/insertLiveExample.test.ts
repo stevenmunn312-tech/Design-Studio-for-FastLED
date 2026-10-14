@@ -14,7 +14,7 @@ const example: LiveExampleSpec = {
   nodes: [
     { key: 'mic', type: 'MicInput', dx: -600, dy: -200 },
     { key: 'fft', type: 'FFTAnalyzer', dx: -300, dy: -150 },
-    { key: 'bars', type: 'SpectrumBars', dx: 0, dy: -150 },
+    { key: 'bars', type: 'SpectrumVisualizer', dx: 0, dy: -150, properties: { style: 'Three Band' } },
     { key: 'out', type: 'MatrixOutput', dx: 320, dy: -200 },
   ],
   edges: [
@@ -101,7 +101,7 @@ const fftAnalyzerExample: LiveExampleSpec = {
   nodes: [
     { key: 'mic', type: 'MicInput', dx: -650, dy: -220 },
     { key: 'fft', type: 'FFTAnalyzer', dx: -350, dy: -155 },
-    { key: 'bars', type: 'SpectrumBars', dx: -35, dy: -145 },
+    { key: 'bars', type: 'SpectrumVisualizer', dx: -35, dy: -145, properties: { style: 'Three Band' } },
     { key: 'out', type: 'MatrixOutput', dx: 330, dy: -220 },
   ],
   edges: [
@@ -320,7 +320,7 @@ describe('insertLiveExample', () => {
     expect(inputIds(frameSwitch)).toContain('sel')
   })
 
-  it('adds the FFT Analyzer example with bass, mids, and treble routed to Spectrum Bars', () => {
+  it('adds the FFT Analyzer example with bass, mids, and treble routed to a Three Band Spectrum Visualizer', () => {
     const result = insertLiveExample(fftAnalyzerExample, { x: 1000, y: 500 })
     const state = useGraphStore.getState()
 

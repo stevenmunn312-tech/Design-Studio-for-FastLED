@@ -1,6 +1,6 @@
 export type NodeCategory =
   | 'input' | 'audio' | 'signal' | 'math' | 'color' | 'pattern' | 'field'
-  | 'composite' | 'show' | 'output' | 'note'
+  | 'composite' | 'show' | 'output' | 'hardware' | 'note'
 
 export interface NodePort {
   id: string

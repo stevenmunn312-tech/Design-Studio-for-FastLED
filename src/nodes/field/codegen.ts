@@ -435,17 +435,6 @@ export const FIELD_EMITTERS: NodeEmitters = {
       ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=(${src}[_i].r+${src}[_i].g+${src}[_i].b)/3.0f/255.0f;`)
     }
   },
-  DistanceField({ ln, f, ownField }) {
-    const of = ownField()
-    const px = f('px', 'px', 0.5), py = f('py', 'py', 0.5), scale = f('scale', 'scale', 1)
-    ln(`  { /* DistanceField */`)
-    ln(`    float _px=${px}, _py=${py}, _sc=${scale}; if(_sc<0.0001f)_sc=0.0001f;`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _nx=(float)_x/(WIDTH-1>0?WIDTH-1:1),_ny=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
-    ln(`      float _dx=_nx-_px,_dy=_ny-_py;`)
-    ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/1.41421356f*_sc;`)
-    ln(`      ${of}[_y*WIDTH+_x]=constrain(_d,0.0f,1.0f);}}`)
-  },
   FieldMath({ p, ln, f, ownField, srcField }) {
     const of = ownField()
     const op = String(p.fieldOp ?? 'add')
@@ -516,10 +505,11 @@ export const FIELD_EMITTERS: NodeEmitters = {
     needsSdf.v = true
     const of = ownField()
     const shape = ['rect', 'polygon'].includes(String(p.shape)) ? String(p.shape) : 'circle'
-    const distance = String(p.fieldMode ?? 'fill') === 'distance'
+    const mode = ['distance', 'falloff'].includes(String(p.fieldMode)) ? String(p.fieldMode) : 'fill'
+    const distance = mode !== 'fill'
     const softness = floatLit(Math.max(0, Number(p.softness ?? 0.1)))
     const range = floatLit(Math.max(1e-4, Number(p.range ?? 0.5)))
-    ln(`  { /* ShapeField: ${shape} ${distance ? 'distance' : 'fill'} */`)
+    ln(`  { /* ShapeField: ${shape} ${mode} */`)
     ln(`    float _short=(float)min(WIDTH,HEIGHT),_size=fmaxf(1e-4f,${f('size', 'size', 0.3)}*_short);`)
     ln(`    float _cx=constrain(${f('cx', 'cx', 0.5)},0.0f,1.0f)*(WIDTH-1)+0.5f,_cy=constrain(${f('cy', 'cy', 0.5)},0.0f,1.0f)*(HEIGHT-1)+0.5f;`)
     ln(`    float _ra=-(${f('rotation', 'rotation', 0)})*0.017453292519943f,_cr=cosf(_ra),_sr=sinf(_ra);`)
@@ -535,7 +525,9 @@ export const FIELD_EMITTERS: NodeEmitters = {
     if (shape === 'rect') ln(`      float _sd=_sdfRect(_lx,_ly,_size*_aspect,_size);`)
     else if (shape === 'polygon') ln(`      float _sd=_sdfMorphPolygon(_lx,_ly,_sides,_size);`)
     else ln(`      float _sd=_sdfEllipse(_lx,_ly,_size*_aspect,_size);`)
-    if (distance) {
+    if (mode === 'falloff') {
+      ln(`      ${of}[_y*WIDTH+_x]=constrain(fmaxf(0.0f,_sd)/_range,0.0f,1.0f); } }`)
+    } else if (distance) {
       ln(`      ${of}[_y*WIDTH+_x]=constrain(0.5f-_sd/(2.0f*_range),0.0f,1.0f); } }`)
     } else {
       ln(`      float _v=_soft<=0.0f?(_sd<=0.0f?1.0f:0.0f):constrain(0.5f-_sd/(2.0f*_soft),0.0f,1.0f);`)

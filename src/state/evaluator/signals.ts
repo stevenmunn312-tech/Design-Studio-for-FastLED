@@ -71,6 +71,20 @@ export function resampleSpectrumBins(source: readonly number[], count: number): 
   })
 }
 
+/**
+ * The bass, mids and treble groups of a `count`-bin spectrum: contiguous
+ * thirds as [from, to) bin ranges. FFT Analyzer splits its bands this way,
+ * and Spectrum Visualizer's Three Band style reads the same split.
+ */
+export function spectrumThirdBounds(count: number): [number, number][] {
+  const third = count / 3
+  const bounds = (start: number, end: number): [number, number] => {
+    const from = Math.max(0, Math.floor(start))
+    return [from, Math.max(from + 1, Math.min(count, Math.ceil(end)))]
+  }
+  return [bounds(0, third), bounds(third, third * 2), bounds(third * 2, count)]
+}
+
 export function isAudioSignal(value: PortValue): value is AudioSignal {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const candidate = value as Partial<AudioSignal>

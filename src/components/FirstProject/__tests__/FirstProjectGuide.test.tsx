@@ -45,7 +45,7 @@ describe('starting the guide', () => {
   })
 
   it('takes a project you already have as the starting point, without replacing it', () => {
-    useGraphStore.getState().loadGraph([node('mine', 'Fire2012')], [], graphs)
+    useGraphStore.getState().loadGraph([node('mine', 'Fire', { fireStyle: 'fire2012' })], [], graphs)
     const before = rootGraphNodes(useGraphStore.getState()).map((n) => n.id).sort()
     act(() => useFirstProjectGuide.getState().start())
     const { container } = render(<FirstProjectGuide />)

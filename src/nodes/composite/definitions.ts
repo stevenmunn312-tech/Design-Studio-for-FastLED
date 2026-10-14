@@ -239,6 +239,20 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { mirrorMode: 'horizontal', glow: false, glowAmount: 0.35, r: 255, g: 255, b: 255 },
   },
   {
+    // Wedge mirror: folds each pixel's polar angle into one segment and
+    // samples the source there, beside Mirror's axes and Symmetry's lattices.
+    type: 'Kaleidoscope',
+    label: 'Kaleidoscope',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'segments', label: 'Segments', dataType: 'float' },
+    ],
+    propertyInputs: { segments: 'segments' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { segments: 6 },
+  },
+  {
     // Feedback/trails buffer — persists its own output across frames, fading
     // by `decay` each tick and re-lightening wherever the incoming frame is
     // brighter (per-channel max). The canonical fadeToBlackBy()-and-accumulate
@@ -393,6 +407,7 @@ export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',
   Mirror: 'Mirrors a frame into symmetry (4 axes) with an optional tinted glow bloom.',
+  Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   FrameWarp: 'Displaces a frame per pixel with two fields, plus centred zoom and rotation.',
   Symmetry: 'Repeats a frame through a square or hexagonal wallpaper symmetry group.',

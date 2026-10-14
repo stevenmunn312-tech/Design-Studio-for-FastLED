@@ -49,7 +49,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     type: 'SDVideo',
     label: 'SD Video',
     category: 'pattern',
-    subcategory: 'Shapes & Text',
+    subcategory: 'Media',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
     ],
@@ -369,7 +369,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     type: 'Image',
     label: 'Image',
     category: 'pattern',
-    subcategory: 'Shapes & Text',
+    subcategory: 'Media',
     inputs: [
       { id: 'positionX', label: 'Pos X', dataType: 'float' },
       { id: 'positionY', label: 'Pos Y', dataType: 'float' },

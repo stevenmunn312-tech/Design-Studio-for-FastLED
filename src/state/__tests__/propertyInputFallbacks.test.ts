@@ -20,7 +20,7 @@
  * `f('port', 'key', LIT)` have the same shape and the same meaning, which is
  * also what lets this compare the two against each other. A fallback that is
  * an expression rather than a plain number is skipped and counted — a handful
- * are deliberately computed (SpectrumBars' demo animation, Image's transform
+ * are deliberately computed (Spectrum Visualizer's Three Band spectrum thirds, Image's transform
  * variables) and there is nothing to compare them to.
  */
 

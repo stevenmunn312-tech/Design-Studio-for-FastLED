@@ -474,7 +474,7 @@ const cydCustomTelemetryNodes = [
  * separate registry rather than extra keys on the shared one, so the existing
  * show and player fixtures keep the exact bytes their records are keyed to.
  *
- * Plasma and Fire2012 rather than two SolidColors: a bench figure for "the
+ * Plasma and a Fire2012-style Fire rather than two SolidColors: a bench figure for "the
  * show generator" should include the per-frame cost of patterns someone would
  * actually put in a collection, and a solid fill costs nothing to render.
  */
@@ -484,7 +484,7 @@ const cydGroups = {
     edges: [edge('plasma', 'frame', 'end-a', 'frame')],
   },
   'pattern-b': {
-    nodes: [node('fire', 'Fire2012'), node('end-b', 'GroupOutput')],
+    nodes: [node('fire', 'Fire', { fireStyle: 'fire2012', palette: 'heat' }), node('end-b', 'GroupOutput')],
     edges: [edge('fire', 'frame', 'end-b', 'frame')],
   },
 }

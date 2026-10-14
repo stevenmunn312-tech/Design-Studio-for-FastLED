@@ -25,7 +25,6 @@ const AUDIO_NODE_TYPES = new Set([
   'ColorTrails',
   'ChromasonicVortex',
   'SpectraMosaic',
-  'SpectrumBars',
   'SpectrumVisualizer',
   'VocalAurora',
   'KickShock',

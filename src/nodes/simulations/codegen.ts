@@ -11,11 +11,12 @@ import {
 } from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack } from '../../state/evaluator/stringTrack'
 import { particleRadius } from './particleScale'
-import type { NodeEmitters } from '../../codegen/emitContext'
+import { particleMode, particlePoolSize } from './particleModes'
+import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { reactionDiffusionRates } from './reactionDiffusionPresets'
 
-// Fire/Fire2012 share these direction/turbulence/paletteMix/mirror/seed
+// Fire's styles share these direction/turbulence/paletteMix/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
 // fireToXY. The heat simulation always runs in a canonical [P][S] grid (P =
 // distance from the flame base where sparks land, S = position across the
@@ -38,8 +39,69 @@ function fireXYExpr(direction: string, pExpr: string, sExpr: string): { x: strin
   }
 }
 
+/** Fire's `fire2012` style: FastLED's Fire2012 heat algorithm. */
+function fire2012Cpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }: EmitContext): void {
+  const ob = ownBuf()
+  const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
+  const pal = paletteExpr(node.id, 'paletteIn', p)
+  const direction = String(p.direction ?? 'up')
+  // The diffusion window is a loop bound and a divisor, not an array
+  // size, so both become runtime reads of one local.
+  const spread = `_fireSpread_${id}`
+  const spreadDecl = `    int ${spread}=(int)constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f);`
+  // The palette blend picks between two emitted blocks, so the mix arm is
+  // emitted whenever the knob can move — wired, or already below 1.
+  const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
+  const paletteMixWired = incoming.has(`${node.id}:paletteMix`)
+  const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
+  const mirrorP = Boolean(p.mirror)
+  const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
+  const { P, S } = fireGrid(direction)
+  const HB = `_heat_${id}`
+  const useLcg = seedP > 0
+  const rnd01 = useLcg
+    ? `((_fireLcg_${id}=_fireLcg_${id}*1664525u+1013904223u)/4294967296.0f)`
+    : `(random8()/255.0f)`
+  ln(`  { // Fire2012`)
+  ln(spreadDecl)
+  ln(`    static uint8_t ${HB}[${P}][${S}] = {};`)
+  if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
+  ln(`    for(int _p=0;_p<${P};_p++) for(int _s=0;_s<${S};_s++)`)
+  ln(`      ${HB}[_p][_s]=qsub8(${HB}[_p][_s],(uint8_t)(${rnd01}*((${cooling}*10/(${P}))+2)));`)
+  // Classic two-row lookahead: row _p from the single row _p-1 (closer to
+  // the base) plus a turbulence-wide sideways window at _p-2 (spread=1
+  // reproduces the original fixed 4-sample kernel). Mirrors evalFire2012.
+  ln(`    for(int _p=(${P})-1;_p>=2;_p--) for(int _s=0;_s<${S};_s++) {`)
+  ln(`      int _sum=${HB}[_p-1][_s]; for (int _ds=-${spread}; _ds<=${spread}; _ds++) _sum += ${HB}[_p-2][max(0,min((${S})-1,_s+_ds))];`)
+  ln(`      ${HB}[_p][_s]=_sum/(${spread}*2+2); }`)
+  ln(`    for(int _s=0;_s<${S};_s++) if(${rnd01}*255 < ${sparking}) ${HB}[0][_s]=qadd8(${HB}[0][_s],(uint8_t)(${rnd01}*95+160));`)
+  ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
+  const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
+  ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
+  if (paletteMixP >= 1 && !paletteMixWired) {
+    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
+  } else if (paletteMixWired) {
+    ln(`      float _pmix=${paletteMixE}, _pkeep=1.0f-_pmix;`)
+    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*_pkeep+_c.r*_pmix),(uint8_t)(_h*_pkeep+_c.g*_pmix),(uint8_t)(_h*_pkeep+_c.b*_pmix));`)
+  } else {
+    const keep = floatLit(1 - paletteMixP)
+    const mix = floatLit(paletteMixP)
+    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
+  }
+  ln(`    }`)
+  if (mirrorP) {
+    if (direction === 'left' || direction === 'right')
+      ln(`    for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`)
+    else
+      ln(`    for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`)
+  }
+  ln(`  }`)
+}
+
 export const SIMULATIONS_EMITTERS: NodeEmitters = {
-  Fire({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
+  Fire(ctx) {
+    if (fireStyle(ctx.p.fireStyle) === 'fire2012') { fire2012Cpp(ctx); return }
+    const { node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT } = ctx
     const ob = ownBuf()
     const intensity = f('intensity', 'intensity', 0.7)
     const cooling = f('cooling', 'cooling', 55)
@@ -112,7 +174,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
   },
   Particles({ node, id, p, ln, f, ownBuf, width, height, paletteExpr, needsT }) {
     const ob = ownBuf()
-    const mode = String(p.particleType ?? 'fountain')
+    const mode = particleMode(p.particleType)
     if (['comet', 'snow', 'embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor', 'luminova'].includes(mode)) needsT.v = true
     // Both are 0–1 sliders and both are wireable; bounded here as in the
     // preview, since a rate over 1 wraps the uint8_t spawn test round to 0 and
@@ -123,19 +185,14 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     // Extra variant-specific controls — see PARTICLE_*_MODES in
     // nodeLibrary.ts for which mode reads which. Compile-time constants
     // (not wired ports), mirroring the evaluator's ParticleOpts.
-    // `count` stays a property. It is only a loop bound in most variants,
-    // but `swarm` sizes its pool from it directly — the cap is what bounds
-    // that mode's O(N^2) neighbour step — so it has to be known when the
-    // array is declared. The other four become per-frame locals, each
-    // bounded to the domain its own slider declares so the bound still
-    // holds on a wired value.
+    // `count` stays a property, baked as a loop bound. The other four become
+    // per-frame locals, each bounded to the domain its own slider declares so
+    // the bound still holds on a wired value.
     const countP = Math.max(2, Math.min(80, Math.round(Number(p.count ?? 24))))
     const sizeE = `constrain(${f('size', 'size', 1)},0.25f,3.0f)`
     const seed = seedProp(p)
-    // Fixed-size pool (SoA): l[i] <= 0.04 marks a free slot. swarm keeps every
-    // slot live (boids), so its pool is sized directly from `count` (capped
-    // for the O(N^2) step) instead of a fixed 40.
-    const cap = mode === 'swarm' ? Math.max(2, Math.min(80, countP)) : mode === 'luminova' ? 240 : 120
+    // Fixed-size pool (SoA): l[i] <= 0.04 marks a free slot.
+    const cap = particlePoolSize(mode)
     const A = `_pa_${id}`
     ln(`  { // Particles: ${mode}`)
     ln(`    const int _PN=${cap};`)
@@ -156,17 +213,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
      * mentions it. A variant added later joins the rule for free.
      */
     const variantLines: string[] = []
-    if (mode === 'swarm') {
-      ln(`    if(!${A}init){ for(int i=0;i<_PN;i++){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.6f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; } ${A}init=true; }`)
-      ln(`    float _R=max(3.0f, min(WIDTH,HEIGHT)*0.5f); static float ${A}nvx[_PN], ${A}nvy[_PN];`)
-      ln(`    for(int i=0;i<_PN;i++){ float cx=0,cy=0,ax=0,ay=0,sx=0,sy=0; int n=0;`)
-      ln(`      for(int j=0;j<_PN;j++){ if(j==i) continue; float dx=${A}x[j]-${A}x[i], dy=${A}y[j]-${A}y[i]; float d=sqrtf(dx*dx+dy*dy);`)
-      ln(`        if(d<_R&&d>0){ cx+=${A}x[j]; cy+=${A}y[j]; ax+=${A}vx[j]; ay+=${A}vy[j]; n++; if(d<_R*0.4f){ sx-=dx/d; sy-=dy/d; } } }`)
-      ln(`      float vx=${A}vx[i], vy=${A}vy[i];`)
-      ln(`      if(n>0){ vx+=(cx/n-${A}x[i])*0.0008f+(ax/n-${A}vx[i])*0.05f+sx*0.04f; vy+=(cy/n-${A}y[i])*0.0008f+(ay/n-${A}vy[i])*0.05f+sy*0.04f; }`)
-      ln(`      float sp=sqrtf(vx*vx+vy*vy); if(sp>0.7f){ vx=vx/sp*0.7f; vy=vy/sp*0.7f; } ${A}nvx[i]=vx; ${A}nvy[i]=vy; }`)
-      ln(`    for(int i=0;i<_PN;i++){ ${A}vx[i]=${A}nvx[i]; ${A}vy[i]=${A}nvy[i]; ${A}x[i]=fmodf(${A}x[i]+${A}vx[i]+WIDTH,WIDTH); ${A}y[i]=fmodf(${A}y[i]+${A}vy[i]+HEIGHT,HEIGHT); }`)
-    } else {
+    {
       const ln = (line: string) => { variantLines.push(line) }
       ln(`    if(!${A}init){ for(int i=0;i<_PN;i++) ${A}l[i]=0; ${A}init=true; }`)
 
@@ -663,62 +710,5 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      if (_gst_${id}>3) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; _gst_${id}=0; }`)
     ln(`      _gt_${id}=millis(); }`)
     ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${fadeL}; ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${br}[_i]*255)); ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
-  },
-  Fire2012({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }) {
-    const ob = ownBuf()
-    const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
-    const pal = paletteExpr(node.id, 'paletteIn', p)
-    const direction = String(p.direction ?? 'up')
-    // The diffusion window is a loop bound and a divisor, not an array
-    // size, so both become runtime reads of one local.
-    const spread = `_fireSpread_${id}`
-    const spreadDecl = `    int ${spread}=(int)constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f);`
-    // The palette blend picks between two emitted blocks, so the mix arm is
-    // emitted whenever the knob can move — wired, or already below 1.
-    const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
-    const paletteMixWired = incoming.has(`${node.id}:paletteMix`)
-    const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
-    const mirrorP = Boolean(p.mirror)
-    const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
-    const { P, S } = fireGrid(direction)
-    const HB = `_heat_${id}`
-    const useLcg = seedP > 0
-    const rnd01 = useLcg
-      ? `((_fireLcg_${id}=_fireLcg_${id}*1664525u+1013904223u)/4294967296.0f)`
-      : `(random8()/255.0f)`
-    ln(`  { // Fire2012`)
-    ln(spreadDecl)
-    ln(`    static uint8_t ${HB}[${P}][${S}] = {};`)
-    if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
-    ln(`    for(int _p=0;_p<${P};_p++) for(int _s=0;_s<${S};_s++)`)
-    ln(`      ${HB}[_p][_s]=qsub8(${HB}[_p][_s],(uint8_t)(${rnd01}*((${cooling}*10/(${P}))+2)));`)
-    // Classic two-row lookahead: row _p from the single row _p-1 (closer to
-    // the base) plus a turbulence-wide sideways window at _p-2 (spread=1
-    // reproduces the original fixed 4-sample kernel). Mirrors evalFire2012.
-    ln(`    for(int _p=(${P})-1;_p>=2;_p--) for(int _s=0;_s<${S};_s++) {`)
-    ln(`      int _sum=${HB}[_p-1][_s]; for (int _ds=-${spread}; _ds<=${spread}; _ds++) _sum += ${HB}[_p-2][max(0,min((${S})-1,_s+_ds))];`)
-    ln(`      ${HB}[_p][_s]=_sum/(${spread}*2+2); }`)
-    ln(`    for(int _s=0;_s<${S};_s++) if(${rnd01}*255 < ${sparking}) ${HB}[0][_s]=qadd8(${HB}[0][_s],(uint8_t)(${rnd01}*95+160));`)
-    ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
-    const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
-    ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
-    if (paletteMixP >= 1 && !paletteMixWired) {
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
-    } else if (paletteMixWired) {
-      ln(`      float _pmix=${paletteMixE}, _pkeep=1.0f-_pmix;`)
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*_pkeep+_c.r*_pmix),(uint8_t)(_h*_pkeep+_c.g*_pmix),(uint8_t)(_h*_pkeep+_c.b*_pmix));`)
-    } else {
-      const keep = floatLit(1 - paletteMixP)
-      const mix = floatLit(paletteMixP)
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
-    }
-    ln(`    }`)
-    if (mirrorP) {
-      if (direction === 'left' || direction === 'right')
-        ln(`    for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`)
-      else
-        ln(`    for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`)
-    }
-    ln(`  }`)
   },
 }

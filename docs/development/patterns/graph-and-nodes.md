@@ -106,7 +106,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   level-modulated rate uses the helper on both sides from the start.
 - Most numeric node inputs are **not** normalised: `num()` in
   `graphEvaluator.ts` passes a wired value straight through, so a raw 0–1 signal
-  (an audio band, say) wired into `Fire2012.sparking` (0–255),
+  (an audio band, say) wired into Fire's `sparking` (0–255),
   `ReactionDiffusion.feed`/`kill` (~0.03–0.065), or `Starfield.count` silently
   kills the effect rather than driving it. Only `speed`/`scale`-class inputs are
   denormalised for you, via `src/nodes/shared/speedRange.ts` (mirrored by
@@ -221,7 +221,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   to 25 where the preview's `hsv()` clamps it.
 - A rate that accumulates does so on the clock, never per pass. Counter added
   `rate / 60` every evaluation, so it ran with the frame rate and ignored
-  Master Speed; it now integrates through `speedPhase` like Wave. Time's `dt`
+  Master Speed; its ramp is now Wave's unipolar sawtooth, integrated through
+  `speedPhase`. Time's `dt`
   is the time since that node's previous pass (0 on its first), measured on
   both sides, where it was a fixed 1/60.
 - Two node-authoring facts are derived rather than listed, and were each written
@@ -488,6 +489,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and one that does (a DIN jack on a UART) share the MIDI node:
   `midiUsesUart` (`state/peripherals/midiSource.ts`) is what the emitter,
   the preview-only warning, the pin walk and the row gating ask.
+- A merged node keeps each old node's behaviour as a select value rather
+  than a lookalike: Fire's `fire2012` style runs the Fire2012 algorithm, Noise's
+  `fbm` and `gabor` types the old Fractal and Gabor Noise, Shape Field's
+  `falloff` the distance from a point, Spectrum Visualizer's `Three Band` the
+  stylised bars, and Wave's `rateUnit`, `unipolar` and `offset` reproduce
+  Counter and BeatSin exactly (`statefulSignalParity.test.ts` runs both on
+  each side). A knob only one value reads is gated by `isPropertyEnabled`,
+  and an emitter whose value needs a different block delegates to its own
+  function (`fire2012Cpp`, `threeBandCpp`) before destructuring the context.
+  Bundled content is converted, not migrated: pre-1.0, a save holding a
+  removed type shows it as unknown.
 - Loop pacing is one helper, `loopPacingCpp` (`codegen/loopPacing.ts`),
   fed by the Board's `frameRate` through `controllerSettings`: the normal
   sketch, the show controller and the player all end their loop with it, and

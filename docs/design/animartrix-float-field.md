@@ -115,6 +115,9 @@ Codegen: a per-pixel
 
 ### `DistanceField` (category: `pattern`)
 
+Later merged into Shape Field as its `falloff` mode (a tiny circle is the
+distance from a point); the history below is kept as written.
+
 Emits the Euclidean distance from each pixel to a movable point.
 
 - **Inputs:** `px` (float, 0–1 normalised X of the target point), `py` (float, 0–1 Y)

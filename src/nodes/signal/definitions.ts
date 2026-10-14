@@ -5,19 +5,25 @@ import type { NodeDefinition } from '../../types'
 
 export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
   {
-    // Waveform oscillator over time: amplitude · wave(frequency·t + phase).
+    // Waveform oscillator over time: offset + amplitude · wave(rate·t + phase).
+    // `rateUnit` reads the rate as `frequency` in Hz or `bpm`, one cycle a
+    // beat; `unipolar` swings 0 to amplitude instead of ±amplitude. A unipolar
+    // sawtooth is a 0–1 ramp and a unipolar sine at a BPM is FastLED beatsin,
+    // the two oscillators that were nodes of their own.
     type: 'Wave',
     label: 'Wave',
     category: 'signal',
     inputs: [
       { id: 'amplitude', label: 'Amplitude', dataType: 'float' },
       { id: 'frequency', label: 'Frequency', dataType: 'float' },
+      { id: 'bpm', label: 'BPM', dataType: 'float' },
       { id: 'phase', label: 'Phase', dataType: 'float' },
+      { id: 'offset', label: 'Offset', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    propertyInputs: { amplitude: 'amplitude', frequency: 'frequency', phase: 'phase' },
+    propertyInputs: { amplitude: 'amplitude', frequency: 'frequency', bpm: 'bpm', phase: 'phase', offset: 'offset' },
     defaultExposedInputs: ['amplitude', 'frequency', 'phase'],
-    defaultProperties: { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' },
+    defaultProperties: { amplitude: 1, frequency: 1, rateUnit: 'Hz', bpm: 60, phase: 0, offset: 0, unipolar: false, waveform: 'sine' },
   },
   {
     // Metronome — emits a boolean pulse once every `interval` seconds (a non-audio
@@ -87,16 +93,6 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { speed: 0.25, min: 0, max: 1, octaves: 1, seed: 0 },
   },
   {
-    type: 'Counter',
-    label: 'Counter',
-    category: 'signal',
-    inputs: [{ id: 'rate', label: 'Rate', dataType: 'float' }],
-    outputs: [{ id: 'value', label: 'Value 0–1', dataType: 'float' }],
-    propertyInputs: { rate: 'rate' },
-    defaultExposedInputs: ['rate'],
-    defaultProperties: { rate: 0.5 },
-  },
-  {
     // Scheduled trigger/window logic driven by RTCInput's clock/date fields.
     // `active` stays high while the schedule is in-range; `start`/`end` pulse
     // once on the transitions. Trigger mode collapses the window to a single
@@ -145,20 +141,8 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    type: 'BeatSin',
-    label: 'BeatSin',
-    category: 'signal',
-    inputs: [
-            { id: 'bpm', label: 'BPM', dataType: 'float' },
-    ],
-    propertyInputs: { bpm: 'bpm' },
-
-    outputs: [{ id: 'value', label: 'Value (0–1)', dataType: 'float' }],
-    defaultProperties: { bpm: 60, low: 0, high: 1 },
-  },
-  {
     // Free-running BPM clock / transport — the show-timing counterpart to
-    // BeatSin's single oscillator. Free-runs from the `bpm` property; wiring a
+    // Wave's BPM oscillator. Free-runs from the `bpm` property; wiring a
     // pulse (e.g. a BeatDetect.beat) into `sync` locks phase + derives a live
     // BPM from the pulse interval — the same mechanism `tap` uses for manual
     // tap-tempo. `reset` re-zeros phase/bar/subdivision counters.
@@ -207,15 +191,13 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const SIGNAL_DESCRIPTIONS: Record<string, string> = {
-  Wave: 'Oscillator — sine, triangle, square or sawtooth over time.',
+  Wave: 'Oscillator: sine, triangle, square or sawtooth, at a rate in Hz or BPM.',
   Interval: 'Metronome — pulses true every N seconds (EVERY_N_MILLISECONDS).',
   Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Random: 'Random value in a range.',
   NoiseSignal: 'Smooth random value drifting between min and max: a noise-driven LFO.',
-  Counter: 'Ramps 0→1 over time at a set rate.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
-  BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
   DMXChannel: 'Reads one channel from a raw DMX/Art-Net universe buffer.',
 }

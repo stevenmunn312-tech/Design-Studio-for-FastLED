@@ -446,28 +446,50 @@
      "y": 320
     },
     "data": {
-     "label": "Distance Field",
-     "nodeType": "DistanceField",
+     "label": "Shape Field",
+     "nodeType": "ShapeField",
      "category": "field",
      "properties": {
-      "px": 0.5,
-      "py": 0.5,
-      "scale": 1.25
+      "shape": "circle",
+      "fieldMode": "falloff",
+      "cx": 0.5,
+      "cy": 0.5,
+      "size": 0.01,
+      "rotation": 0,
+      "sides": 5,
+      "aspect": 1,
+      "softness": 0.1,
+      "range": 1.13
      },
      "inputs": [
       {
-       "id": "px",
-       "label": "X",
+       "id": "cx",
+       "label": "Center X",
        "dataType": "float"
       },
       {
-       "id": "py",
-       "label": "Y",
+       "id": "cy",
+       "label": "Center Y",
        "dataType": "float"
       },
       {
-       "id": "scale",
-       "label": "Scale",
+       "id": "size",
+       "label": "Size",
+       "dataType": "float"
+      },
+      {
+       "id": "rotation",
+       "label": "Rotation",
+       "dataType": "float"
+      },
+      {
+       "id": "sides",
+       "label": "Sides",
+       "dataType": "float"
+      },
+      {
+       "id": "aspect",
+       "label": "Aspect",
        "dataType": "float"
       }
      ],

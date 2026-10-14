@@ -257,14 +257,18 @@ describe('evaluateGraph', () => {
     expect(new Set(vals).size).toBeGreaterThan(1)
   })
 
-  it('BeatSin outputs a normalized low-to-high range', () => {
-    const run = (tick: number, props: Record<string, unknown> = {}) =>
-      evaluateScalar([node('bs', 'BeatSin', 'signal', { bpm: 60, low: 0, high: 1, ...props })], [], 'bs', 'value', tick)
+  it('a BPM-rate unipolar Wave outputs a normalized low-to-high range', () => {
+    // The old BeatSin{bpm, low, high} is Wave{rateUnit: BPM, unipolar,
+    // amplitude: high - low, offset: low}.
+    const run = (tick: number, low = 0, high = 1) =>
+      evaluateScalar([node('bs', 'Wave', 'signal', {
+        waveform: 'sine', rateUnit: 'BPM', bpm: 60, unipolar: true, amplitude: high - low, offset: low,
+      })], [], 'bs', 'result', tick)
 
     expect(run(0)).toBeCloseTo(0.5, 5)
     expect(run(15)).toBeCloseTo(1, 5)
     expect(run(45)).toBeCloseTo(0, 5)
-    expect(run(0, { low: 0.2, high: 0.8 })).toBeCloseTo(0.5, 5)
+    expect(run(0, 0.2, 0.8)).toBeCloseTo(0.5, 5)
   })
 
   it('Noise LFO drifts smoothly inside min..max and is seed-deterministic', () => {
@@ -281,9 +285,9 @@ describe('evaluateGraph', () => {
     expect(run(90, { speed: 0 })).toBe(run(10, { speed: 0 }))
   })
 
-  it('resolves matrix expressions in BeatSin and Random properties', () => {
-    const beatSin = node('bs-expr', 'BeatSin', 'signal', { bpm: 60, low: 'h - 2', high: 'w / 2' })
-    expect(evaluateScalar([beatSin], [], beatSin.id, 'value', 0, 12, 4)).toBeCloseTo(4, 5)
+  it('resolves matrix expressions in Constant and Random properties', () => {
+    const constant = node('const-expr', 'Constant', 'math', { value: '(h - 2 + w / 2) / 2' })
+    expect(evaluateScalar([constant], [], constant.id, 'value', 0, 12, 4)).toBeCloseTo(4, 5)
 
     const random = node('random-expr', 'Random', 'signal', { min: 'max_y', max: 'center_x' })
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5)
@@ -1206,7 +1210,7 @@ describe('evaluateGraph', () => {
 
   describe('Particles modes', () => {
     const modes = [
-      'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
+      'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow',
       'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
       'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
     ]
@@ -1228,14 +1232,14 @@ describe('evaluateGraph', () => {
       })
     }
 
-    it('reflects a live colour change on persistent particles (swarm)', () => {
+    it('reflects a live colour change on persistent particles (bounce)', () => {
       const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
       try {
-        // Seed the swarm green, advance, then switch to red — already-live
-        // particles should render the new colour (no green left).
-        const green = withOutput(node('ppC', 'Particles', 'pattern', { particleType: 'swarm', rate: 1, r: 0, g: 255, b: 0 }))
+        // Seed the fixed population green, advance, then switch to red —
+        // already-live particles should render the new colour (no green left).
+        const green = withOutput(node('ppC', 'Particles', 'pattern', { particleType: 'bounce', rate: 1, r: 0, g: 255, b: 0 }))
         for (let f = 0; f < 4; f++) evaluateGraph(green.nodes, green.edges, f, W, H)
-        const red = withOutput(node('ppC', 'Particles', 'pattern', { particleType: 'swarm', rate: 1, r: 255, g: 0, b: 0 }))
+        const red = withOutput(node('ppC', 'Particles', 'pattern', { particleType: 'bounce', rate: 1, r: 255, g: 0, b: 0 }))
         const frame = evaluateGraph(red.nodes, red.edges, 4, W, H)!
         const lit = frame.flat().filter((px) => px.r + px.g + px.b > 0)
         expect(lit.length).toBeGreaterThan(0)
@@ -1272,11 +1276,11 @@ describe('evaluateGraph', () => {
     }
     const litPixelCount = (frame: Frame) => frame.flat().filter((px) => px.r + px.g + px.b > 0).length
 
-    it('count sizes the fixed-population pool independent of rate (swarm)', () => {
+    it('count sizes the fixed-population pool independent of rate (bounce)', () => {
       const runWithCount = (id: string, count: number) => {
         const spy = seedRandom(1)
         try {
-          const { nodes, edges } = withOutput(node(id, 'Particles', 'pattern', { particleType: 'swarm', rate: 1, count }))
+          const { nodes, edges } = withOutput(node(id, 'Particles', 'pattern', { particleType: 'bounce', rate: 1, count }))
           return litPixelCount(evaluateGraph(nodes, edges, 0, 32, 32)!)
         } finally {
           spy.mockRestore()
@@ -1752,9 +1756,9 @@ describe('evaluateGraph', () => {
     expect(blended[15]).toEqual({ r: 255, g: 243, b: 176 })
   })
 
-  it('FractalNoise produces a varied frame; octaves change the result', () => {
+  it('fBm Noise produces a varied frame; octaves change the result', () => {
     const mk = (octaves: number) => {
-      const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0, scale: 0.2, octaves, palette: 'rainbow' })
+      const fn = node('fn', 'Noise', 'pattern', { noiseType: 'fbm', speed: 0, scale: 0.2, octaves, palette: 'rainbow' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([fn, out], [edge('e', 'fn', 'frame', 'out', 'frame')], 0, 8, 8)!
     }
@@ -2025,9 +2029,10 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(0.95)).toBeGreaterThan(brightnessAt(0.65))
   })
 
-  it('SpectrumBars responds to energy, palette, and motion controls', () => {
+  it('Three Band Spectrum Visualizer responds to energy, palette, and motion controls', () => {
     const render = (props: Record<string, unknown>, tick: number) => {
-      const sb = node('sb', 'SpectrumBars', 'pattern', {
+      const sb = node('sb', 'SpectrumVisualizer', 'pattern', {
+        style: 'Three Band',
         bass: 0.85,
         mids: 0.55,
         treble: 0.9,
@@ -2051,14 +2056,14 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(moving)).not.toEqual(JSON.stringify(still))
   })
 
-  it('SpectrumBars mirror gives each mirrored pixel its own object (no pool aliasing)', () => {
+  it('Three Band Spectrum Visualizer mirror gives each mirrored pixel its own object (no pool aliasing)', () => {
     // Regression: mirror used to assign the *same* pixel object to both x and
     // W-1-x. That aliased object then re-entered the pooled-frame free list, so
     // a later, unrelated pattern reusing the buffer got silently corrupted
     // wherever buildFrame() mutated one aliased slot in place — the mirrored
     // slot changed with it. Every slot must be a distinct object.
-    const sb = node('sb', 'SpectrumBars', 'pattern', {
-      bass: 0.9, mids: 0.9, treble: 0.9, energy: 1, speed: 0.6, palette: 'rainbow', mirror: true,
+    const sb = node('sb', 'SpectrumVisualizer', 'pattern', {
+      style: 'Three Band', bass: 0.9, mids: 0.9, treble: 0.9, energy: 1, speed: 0.6, palette: 'rainbow', mirror: true,
     })
     const out = node('out', 'MatrixOutput', 'output', {})
     const f = evaluateGraph([sb, out], [edge('e', 'sb', 'frame', 'out', 'frame')], 0, 8, 8)!
@@ -2143,9 +2148,9 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(at(120))).not.toEqual(JSON.stringify(f0))                   // animates
   })
 
-  it('GaborNoise produces a varied frame that animates', () => {
+  it('Gabor Noise produces a varied frame that animates', () => {
     const at = (tick: number) => {
-      const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
+      const g = node('g', 'Noise', 'pattern', { noiseType: 'gabor', speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([g, out], [edge('e', 'g', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -2539,7 +2544,8 @@ describe('evaluateGraph', () => {
       { type: 'Noise', extra: { noiseType: 'noise4d' } },
       { type: 'Noise', extra: { noiseType: 'worley' } },
       { type: 'Noise', extra: { noiseType: 'plasma' } },
-      { type: 'FractalNoise' }, { type: 'GaborNoise' },
+      { type: 'Noise', extra: { noiseType: 'fbm' } },
+      { type: 'Noise', extra: { noiseType: 'gabor' } },
       { type: 'PaletteGradient' }, { type: 'Blobs' }, { type: 'FlowField' },
       { type: 'AudioFlow' }, { type: 'ColorTrails' }, { type: 'MidrangeWaves' }, { type: 'MidrangeBloom' }, { type: 'AudioCascade' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
     ]
@@ -3209,11 +3215,13 @@ describe('evaluateGraph', () => {
     evaluateGraph([clamp], [], 0, W, H)
   })
 
-  it('Counter value stays in 0–1 range across ticks', () => {
-    // Run 200 ticks to check Counter doesn't exceed 1
-    const counter = node('cnt', 'Counter', 'math', { rate: 1.0 })
+  it('a unipolar sawtooth Wave (the old Counter) stays in 0–1 range across ticks', () => {
+    // Run 200 ticks to check the ramp doesn't exceed 1
+    const counter = node('cnt', 'Wave', 'signal', { waveform: 'sawtooth', unipolar: true, frequency: 1.0 })
     for (let tick = 0; tick < 200; tick++) {
-      evaluateGraph([counter], [], tick, W, H)
+      const value = Number(evaluateGraphFull([counter], [], tick, W, H).outputs.get('cnt')?.result)
+      expect(value).toBeGreaterThanOrEqual(0)
+      expect(value).toBeLessThanOrEqual(1)
     }
   })
 
@@ -3479,23 +3487,24 @@ describe('evaluateGraph — groups', () => {
   })
 
   it('keeps stateful node state isolated per group instance', () => {
-    // A group that fades a white frame by a per-instance Counter.
+    // A group that fades a white frame by a per-instance 0–1 ramp (a unipolar
+    // sawtooth Wave, which integrates its phase per instance).
     const groups = {
       fade: {
         nodes: [
           node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
-          node('cnt', 'Counter', 'math', { rate: 3 }),
+          node('cnt', 'Wave', 'signal', { waveform: 'sawtooth', unipolar: true, frequency: 3 }),
           node('bm', 'BrightnessMod', 'composite', {}),
           node('go', 'GroupOutput', 'output', {}),
         ],
         edges: [
           edge('e1', 'white', 'frame', 'bm', 'frame'),
-          edge('e2', 'cnt', 'value', 'bm', 'brightness'),
+          edge('e2', 'cnt', 'result', 'bm', 'brightness'),
           edge('e3', 'bm', 'frame', 'go', 'frame'),
         ],
       },
     }
-    // Instance g1 evaluated five times — its counter accumulates to ~0.25.
+    // Instance g1 evaluated five times — its ramp accumulates to ~0.25.
     let g1Frame = null as ReturnType<typeof evaluateGraph>
     for (let tk = 1; tk <= 5; tk++) {
       g1Frame = evaluateGraph(
@@ -3503,7 +3512,7 @@ describe('evaluateGraph — groups', () => {
         [edge('a', 'g1', 'frame', 'out', 'frame')], tk, 1, 1, groups,
       )
     }
-    // A fresh instance g2 on its first tick must be dimmer (counter ~0.05) —
+    // A fresh instance g2 on its first tick must be dimmer (ramp ~0.05) —
     // proving it did not inherit g1's accumulated state.
     const g2Frame = evaluateGraph(
       [node('g2', 'Group', 'pattern', { groupId: 'fade' }), out()],
@@ -3705,9 +3714,9 @@ describe('noise shaping, Worley modes and curl flow', () => {
     }
   })
 
-  it('shapes Fractal Noise colours', () => {
+  it('shapes fBm Noise colours', () => {
     const frame = (props: Record<string, unknown>) => {
-      const f = node('f', 'FractalNoise', 'pattern', { speed: 0.4, scale: 0.6, palette: 'ocean', ...props })
+      const f = node('f', 'Noise', 'pattern', { noiseType: 'fbm', speed: 0.4, scale: 0.6, palette: 'ocean', ...props })
       const out = node('out', 'MatrixOutput', 'output', {})
       return JSON.stringify(evaluateGraph([f, out], [edge('e', 'f', 'frame', 'out', 'frame')], 3, 12, 12)!)
     }
@@ -3822,7 +3831,7 @@ describe('Wave Sim options', () => {
   })
 })
 
-describe('Float Field — Phase 2 (DistanceField / FieldMath / FieldWarp)', () => {
+describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)', () => {
   // Read a node's `field` output directly.
   function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
     const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)
@@ -3838,21 +3847,22 @@ describe('Float Field — Phase 2 (DistanceField / FieldMath / FieldWarp)', () =
     }
   }
 
-  it('DistanceField is 0 at the point and grows outward', () => {
-    const df = node('df', 'DistanceField', 'pattern', { px: 0, py: 0, scale: 1 })
+  it('a point-sized ShapeField falloff is 0 at the point and grows outward', () => {
+    const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'circle', size: 0.01, cx: 0, cy: 0, range: 1 })
     const g = withFieldTail('df', [df], [])
     const fld = fieldOut('df', g.nodes, g.edges)
     expect(fld[0]).toBeCloseTo(0)                 // pixel (0,0) is the point
     expect(fld[H * W - 1]).toBeGreaterThan(fld[0]) // opposite corner is farther
   })
 
-  it('DistanceField scale stretches the ramp (reaches 1 sooner)', () => {
-    const mk = (scale: number) => {
-      const df = node('df', 'DistanceField', 'pattern', { px: 0, py: 0, scale })
+  it('ShapeField falloff range sets the ramp length (a shorter range reaches 1 sooner)', () => {
+    const mk = (range: number) => {
+      const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'circle', size: 0.01, cx: 0, cy: 0, range })
       const g = withFieldTail('df', [df], [])
       return fieldOut('df', g.nodes, g.edges)[H * W - 1]
     }
-    expect(mk(4)).toBeGreaterThanOrEqual(mk(1))
+    expect(mk(2)).toBeLessThan(1)
+    expect(mk(0.5)).toBeGreaterThan(mk(2))
   })
 
   it('FieldMath multiply combines two constant fields', () => {
@@ -4762,13 +4772,18 @@ describe('Zones', () => {
   })
 })
 
-// ── Fire / Fire2012 extra controls (direction, turbulence, paletteMix,
-//    mirror, seed) ────────────────────────────────────────────────────────────
+// ── Fire extra controls, default and Fire2012 styles (direction, turbulence,
+//    paletteMix, mirror, seed) ───────────────────────────────────────────────
 
-describe.each(['Fire', 'Fire2012'] as const)('%s extra controls', (type) => {
+describe.each([
+  { label: 'Fire', style: {} },
+  // The Fire2012 style was once its own node, whose default palette was 'heat'.
+  { label: 'Fire (fire2012 style)', style: { fireStyle: 'fire2012', palette: 'heat' } },
+])('$label extra controls', ({ style }) => {
+  const type = 'Fire'
   // Force sparks to fire on (almost) every column/tick so direction is easy
   // to observe without waiting out real randomness.
-  const hotProps = { cooling: 55, sparking: 200, intensity: 1 }
+  const hotProps = { cooling: 55, sparking: 200, intensity: 1, ...style }
 
   it('sparks from the base row (up, default) vs. the opposite edge (down)', () => {
     // Compare total row brightness rather than an exact-zero pixel: some
@@ -5785,11 +5800,10 @@ describe('frame pool pruning', () => {
 })
 
 describe('resetEvaluatorState', () => {
-  // Counter is the crispest witness of carried-over state: it accumulates
-  // monotonically, is fully deterministic, and draws no randomness — so any
-  // difference between two identical runs is leftover state and nothing else.
-  // A seeded Random carries its draw sequence from frame to frame. (A Counter
-  // no longer would: it integrates on the clock, so it is a function of t.)
+  // A seeded Random carries its draw sequence from frame to frame and is fully
+  // deterministic, so any difference between two identical runs is leftover
+  // state and nothing else. (A clock-integrated ramp would not witness it: its
+  // value is a function of t.)
   const runCounter = (ticks = 20): number => {
     const n = node('ctr', 'Random', 'signal', { seed: 7 })
     let value = 0
@@ -5842,7 +5856,7 @@ describe('resetEvaluatorState', () => {
       node('fire', 'Fire', 'pattern', {}),
       node('gol', 'GameOfLife', 'pattern', {}),
       node('trail', 'Trails', 'composite', {}),
-      node('ctr', 'Counter', 'signal', {}),
+      node('ctr', 'Wave', 'signal', {}),
       node('bank', 'PaletteBank', 'color', {}),
     ]
     for (const n of populate) evaluateGraphFull([n], [], 0, 8, 8)

@@ -342,13 +342,13 @@ in independently compiled slices:
    does not fold in master brightness. A second, undriven output stays
    unresolved.
 5. Other time-dependent sources and a wired RTC: implemented. Clock, Envelope,
-   BeatSin, Noise LFO, Counter and Schedule Trigger share the normal emitters.
+   Noise LFO and Schedule Trigger share the normal emitters.
    They keep wall-clock `millis()`, static state keyed by node id, and Clock's
    rising-edge reset. Master Speed does not scale them, and the player's
    track-position clock is untouched. The preview resets a Clock when animation
    time jumps backward; firmware does not, because these nodes do not read that
-   clock. Counter still steps by `rate/60` each pass. Complex Wave, Random and
-   DMX Channel still fail explicitly.
+   clock. Random and DMX Channel still fail explicitly. The ramp and beatsin
+   oscillators are Wave, which follows the control graph's own clock.
 
    The RTC is the wired RTC Clock node, not a scene-wide clock. Show and player
    graphs emit Compile Time, Manual and DS3231 through the normal sketch's RTC

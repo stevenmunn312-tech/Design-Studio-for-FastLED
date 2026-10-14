@@ -96,7 +96,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     // FieldFormula (free-text) and FieldNoise (fBm). See
     // docs/design/formula-pattern-nodes.md.
     type: 'FormulaField',
-    label: 'Formula Field',
+    label: 'Formula Shapes',
     category: 'field',
     /*
      * Every knob is a property input, so a touch control or an LFO can drive
@@ -213,7 +213,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     // Escape-time and Newton fractals as a field. c, zoom, centre and spin are
     // ports, so an LFO can morph a Julia set or fly into a Mandelbrot one.
     type: 'FractalField',
-    label: 'Fractal',
+    label: 'Fractal Field',
     category: 'field',
     inputs: [
       { id: 'cRe', label: 'C Real', dataType: 'float' },
@@ -276,20 +276,6 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { palette: 'ocean', brightness: 1 },
   },
   // Phase 2 field-composition nodes.
-  {
-    type: 'DistanceField',
-    label: 'Distance Field',
-    category: 'field',
-    inputs: [
-      { id: 'px', label: 'X', dataType: 'float' },
-      { id: 'py', label: 'Y', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-    ],
-    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    propertyInputs: { px: 'px', py: 'py', scale: 'scale' },
-    defaultExposedInputs: ['px', 'py', 'scale'],
-    defaultProperties: { px: 0.5, py: 0.5, scale: 1 },
-  },
   {
     // The inverse of Field → Frame: extracts a 0–1 brightness field from a
     // rendered frame (average of r,g,b — the same convention Mask uses for a
@@ -479,14 +465,13 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   Automaton: 'Cellular automata as a field: rows, spirals, Brian\'s Brain, sand.',
   TuringField: 'Multi-scale Turing pattern field: labyrinths that keep reorganising.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
-  DistanceField: 'Scalar field of distance from each pixel to a movable point.',
   FrameToField: 'Extracts a brightness field from a rendered frame.',
   FieldMath: 'Combines two fields: add, subtract, multiply, min, max, difference, or mix by T.',
   FieldLevels: 'Remaps, thresholds, quantises or inverts a scalar field.',
   GradientField: 'A linear, radial or angular ramp across the matrix, with offset and repeat.',
   FloatToField: 'Fills a field with one number, so a level can enter the field chain.',
   FieldBlur: 'Box-blurs a field by a radius in pixels.',
-  ShapeField: 'Circle, rectangle or morphing polygon as a fill or signed-distance field.',
+  ShapeField: 'Circle, rectangle or polygon as a fill, a distance field, or a falloff.',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   FieldRotate: 'Rotates a field around its centre (angle + spin over time).',
   FieldTile: 'Tiles/repeats a field across the matrix.',

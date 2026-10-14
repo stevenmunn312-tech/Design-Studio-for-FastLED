@@ -49,7 +49,7 @@ describe('numeric property guard', () => {
     ['PercussionBlobs', {}],
     ['RainRipples', {}],
     ['SpectrumVisualizer', {}],
-    ['Particles', { particleType: 'swarm' }],
+    ['Particles', { particleType: 'fireflies' }],
   ] as const)('%s previews and compiles from a corrupt save the same as from its defaults', (nodeType, extra) => {
     for (const value of CORRUPT) {
       const nodes = [

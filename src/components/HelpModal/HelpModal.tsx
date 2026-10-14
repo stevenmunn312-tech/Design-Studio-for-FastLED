@@ -196,7 +196,7 @@ function QuickStartTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Dimension-aware numeric expressions</div>
         <div className={styles.text}>
-          A free-entry number field on a creative node can use a safe expression instead of a fixed number. For example, set BeatSin <code>high</code> to <code>h - 2</code> or Random <code>max</code> to <code>w / 2</code>. Preview and firmware both resolve the expression from the active LED output size.
+          A free-entry number field on a creative node can use a safe expression instead of a fixed number. For example, set Constant <code>value</code> to <code>h - 2</code> or Random <code>max</code> to <code>w / 2</code>. Preview and firmware both resolve the expression from the active LED output size.
         </div>
         <div className={styles.expressionBox}>
           <div>

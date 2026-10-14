@@ -97,7 +97,7 @@ describe('Sidebar equipment rack', () => {
     fireEvent.click(getByRole('button', { name: /Signals/i }))
 
     expect(queryByLabelText('Add FFT Analyzer')).toBeNull()
-    expect(getByLabelText('Add Counter')).toBeTruthy()
+    expect(getByLabelText('Add Wave')).toBeTruthy()
   })
 
   it('supports beginner vs all views', () => {

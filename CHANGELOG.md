@@ -45,6 +45,22 @@ versioning (`0.y.z`) until the first stable release.
   wireable T; Fade to Black is Brightness; XY → Index is removed. Color
   Temperature's control is now named `warmth`. A saved pattern that holds one
   of the merged nodes shows it as an unknown type until it is replaced.
+- A second round of merges: Fire 2012 is Fire's **fire2012** style; Fractal
+  Noise and Gabor Noise are Noise's **fbm** and **gabor** types, with
+  Octaves, Frequency and Orientation inputs and a field output they lacked;
+  Counter and BeatSin are **Wave**, which gains a Hz or BPM rate, an Offset
+  and a Unipolar switch (a unipolar sawtooth is the 0–1 ramp, a unipolar sine
+  at a BPM is beatsin, now on the shared clock so Master Speed reaches it);
+  Distance Field is Shape Field's **falloff** mode (0 on the shape, rising to
+  1 at Range beyond it); Spectrum Bars is Spectrum Visualizer's **Three
+  Band** style, whose unwired bands read the spectrum's thirds; the
+  Particles **swarm** mode is gone, as Boids does it. Renamed: Formula Field
+  is **Formula Shapes**, Fractal is **Fractal Field**, Touch is **Touch
+  Screen**, Buck Converter is **DC-DC Converter** and Transitions is **Transition Pool**. Moved:
+  Kaleidoscope to Effects, Image and SD Video to a **Media** shelf, and the
+  Ethernet, DC-DC Converter, battery and PD trigger parts to a **Hardware**
+  category of their own in the Help reference. The bundled patterns, live
+  examples and node cards follow; pre-1.0, no save migration.
 
 - A generative show compiles as a controller sketch plus one header per
   pattern (`pattern_0.h`, `pattern_1.h`, …) in the helper's sketch folder, for

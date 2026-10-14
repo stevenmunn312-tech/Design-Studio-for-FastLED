@@ -1,4 +1,5 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { particleMode } from './particleModes'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
 import { particleRadius } from './particleScale'
@@ -244,33 +245,6 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       if (rnd() < rate) particles.push({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: 0, vy: rnd() * 0.12 + 0.05, life: 0.7 + rnd() * 0.3, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
       for (const p of particles) { p.y += p.vy; p.x += Math.sin(t * 1.5 + (p.seed ?? 0)) * 0.12 }
       particles = particles.filter(p => p.y < H)
-      break
-    }
-    case 'swarm': {
-      // Boids — cohesion, alignment, separation; wrap at the edges.
-      const N = Math.max(2, Math.min(80, Math.round(count)))
-      while (particles.length < N) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.6, vy: (rnd() - 0.5) * 0.6, life: 1, r: color.r, g: color.g, b: color.b })
-      if (particles.length > N) particles = particles.slice(0, N)
-      const R = Math.max(3, Math.min(W, H) * 0.5)
-      particles = particles.map(p => {
-        let cx = 0, cy = 0, ax = 0, ay = 0, sx = 0, sy = 0, n = 0
-        for (const q of particles) {
-          if (q === p) continue
-          const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy)
-          if (d < R && d > 0) {
-            cx += q.x; cy += q.y; ax += q.vx; ay += q.vy; n++
-            if (d < R * 0.4) { sx -= dx / d; sy -= dy / d }
-          }
-        }
-        let vx = p.vx, vy = p.vy
-        if (n > 0) {
-          vx += (cx / n - p.x) * 0.0008 + (ax / n - p.vx) * 0.05 + sx * 0.04
-          vy += (cy / n - p.y) * 0.0008 + (ay / n - p.vy) * 0.05 + sy * 0.04
-        }
-        const sp = Math.hypot(vx, vy), max = 0.7
-        if (sp > max) { vx = (vx / sp) * max; vy = (vy / sp) * max }
-        return { ...p, x: (p.x + vx + W) % W, y: (p.y + vy + H) % H, vx, vy }
-      })
       break
     }
     case 'rain': {
@@ -1003,10 +977,12 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const paletteMix = Math.max(0, Math.min(1, num(id, 'paletteMix', props, 'paletteMix', 1)))
     const mirror = Boolean(props.mirror)
     const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
-    return { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed, fireStyle(props.fireStyle) === 'smoke', t) }
+    const style = fireStyle(props.fireStyle)
+    if (style === 'fire2012') return { frame: evalFire2012(stateKey(id), cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed) }
+    return { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed, style === 'smoke', t) }
   },
   Particles({ num, pal, t, W, H, stateKey }, id, props) {
-    const mode = String(props.particleType ?? 'fountain')
+    const mode = particleMode(props.particleType)
     const rate = clamp01(num(id, 'rate', props, 'rate', 0.3))
     const decay = clamp01(num(id, 'decay', props, 'decay', 0.92))
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
@@ -1016,8 +992,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
      * before, which cost nothing while a bounded slider was the only
      * source; a wire has no ceiling of its own.
      *
-     * `count` stays a property — the swarm variant sizes its pool from it,
-     * so the firmware has to know it when the array is declared.
+     * `count` stays a property: firmware bakes it as a loop bound.
      */
     const opts: ParticleOpts = {
       size: Math.max(0.25, Math.min(3, num(id, 'size', props, 'size', 1))),
@@ -1111,16 +1086,5 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const speed = num(id, 'speed', props, 'speed', 8)
     const fade = num(id, 'fade', props, 'fade', 0.75)
     return { frame: evalGameOfLife(stateKey(id), palette, speed, fade, tick, W, H, normalizedSeed(props.seed)) }
-  },
-  Fire2012({ num, pal, W, H, stateKey }, id, props) {
-    const cooling  = num(id, 'cooling', props, 'cooling', 55)
-    const sparking = num(id, 'sparking', props, 'sparking', 120)
-    const palette = pal(id, 'paletteIn', props, 'palette', 'heat')
-    const direction = (String(props.direction ?? 'up')) as FireDirection
-    const turbulence = Math.max(0, Math.min(2, num(id, 'turbulence', props, 'turbulence', 1)))
-    const paletteMix = Math.max(0, Math.min(1, num(id, 'paletteMix', props, 'paletteMix', 1)))
-    const mirror = Boolean(props.mirror)
-    const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
-    return { frame: evalFire2012(stateKey(id), cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed) }
   },
 }

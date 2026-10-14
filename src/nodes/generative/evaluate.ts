@@ -1,5 +1,5 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from './limits'
+import { SPIRAL_ARMS } from './limits'
 import {
   BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, breatheCurve, breatheEnvelope, chaseSpacing, wipePalettePosition, wipeReversed,
 } from './classics1d'
@@ -26,7 +26,7 @@ import {
   tvColor, tvLayout, type LightningState,
 } from '../../state/evaluator/classics'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
-import { noiseShape, shapeNoise, worleyMode, worleyValue, type NoiseShape, type WorleyMode } from '../../state/evaluator/noiseShape'
+import { noiseShape, shapeNoise, worleyMode, worleyValue, type WorleyMode } from '../../state/evaluator/noiseShape'
 import {
   seededRandom,
   seededRngState,
@@ -313,21 +313,6 @@ function evalSpiral(key: string, speed: number, arms: number, palette: Palette, 
     })
 }
 
-function evalKaleidoscope(src: Frame, segments: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const cx = W / 2, cy = H / 2
-  const segAngle = (Math.PI * 2) / Math.max(KALEIDOSCOPE_SEGMENTS.min, Math.min(KALEIDOSCOPE_SEGMENTS.max, segments))
-  return buildFrame(W, H, (x, y) => {
-      const dx = x - cx, dy = y - cy
-      const dist = Math.hypot(dx, dy)
-      let angle = ((Math.atan2(dy, dx) % segAngle) + segAngle) % segAngle
-      if (angle > segAngle / 2) angle = segAngle - angle
-      const sx = Math.round(cx + dist * Math.cos(angle))
-      const sy = Math.round(cy + dist * Math.sin(angle))
-      if (sx < 0 || sx >= W || sy < 0 || sy >= H) return { r: 0, g: 0, b: 0 }
-      return { ...src[sy][sx] }
-    })
-}
-
 function wrap01(v: number): number {
   return ((v % 1) + 1) % 1
 }
@@ -336,21 +321,27 @@ function wrap01(v: number): number {
 // All variants share the (speed, scale)→field signature, then the node maps
 // that field through a palette for its normal `frame` output. Keep the cases
 // in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
-function evalNoiseFieldByType(key: string, noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, wrapX = false, worley: WorleyMode = 'f1'): Field {
-  if (!wrapX) return evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, 0, worley)
+/** The knobs only some noise types read. */
+interface NoiseVariantOpts { worley: WorleyMode; octaves: number; frequency: number; orientation: number }
+
+function evalNoiseFieldByType(key: string, noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, wrapX: boolean, opts: NoiseVariantOpts): Field {
+  if (!wrapX) return evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, 0, opts)
   // Seamless left/right join: the plain field blended with itself shifted a
   // canvas width (see state/evaluator/wrapX.ts).
-  const plain = evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, 0, worley)
-  return wrapXBlend(plain, evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, W, worley), W, H)
+  const plain = evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, 0, opts)
+  return wrapXBlend(plain, evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, W, opts), W, H)
 }
 
-function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, worley: WorleyMode): Field {
+function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, opts: NoiseVariantOpts): Field {
   const ts = t + seedOffset(seed, 0)
   switch (noiseType) {
+    case 'fbm':     return evalFbmField(key, speed, scale, opts.octaves, ts, W, H, xo)
+    // Gabor's seed reshuffles its cells rather than shifting time.
+    case 'gabor':   return evalGaborField(key, speed, scale, opts.frequency, opts.orientation, t, W, H, seed, xo)
     case 'simplex': return evalSimplex2DField(key, speed, scale, ts, W, H, xo)
     case 'noise3d': return evalNoise3DField(key, speed, scale, ts, W, H, xo)
     case 'noise4d': return evalNoise4DField(key, speed, scale, ts, W, H, xo)
-    case 'worley':  return evalWorleyField(key, speed, scale, ts, W, H, xo, worley)
+    case 'worley':  return evalWorleyField(key, speed, scale, ts, W, H, xo, opts.worley)
     case 'plasma':  return evalPlasmaFractalField(key, speed, scale, ts, W, H, xo)
     case 'sine':    return evalSineField(key, speed, scale, ts, W, H, xo)
     case 'field':
@@ -468,13 +459,15 @@ export function gaborCellHashes(cx: number, cy: number, seed: number): [number, 
 // Gabor noise: sparse-convolution noise summing one Gaussian-windowed cosine
 // (Gabor) kernel per grid cell. `orientation` fixes the band direction (the
 // anisotropic variant) and `frequency` the band spacing; phase animates over
-// time. Coloured through a palette.
-function evalGaborNoise(key: string, speed: number, scale: number, frequency: number, orientation: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+// time. The summed kernels can overshoot 0–1, so the field holds its ends.
+function evalGaborField(key: string, speed: number, scale: number, frequency: number, orientation: number, t: number, W: number, H: number, seed: number, xo: number): Field {
   const omega = (orientation * Math.PI) / 180
   const cosO = Math.cos(omega), sinO = Math.sin(omega)
   const TAU = Math.PI * 2
   const ph = speedPhase(key, t, speed)
-  return buildFrame(W, H, (x, y) => {
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = xo; x < W + xo; x++) {
       const px = x * scale, py = y * scale
       const xi = Math.floor(px), yi = Math.floor(py)
       let v = 0
@@ -490,24 +483,29 @@ function evalGaborNoise(key: string, speed: number, scale: number, frequency: nu
           const w = h2 < 0.5 ? 1 : -1
           v += w * gauss * Math.cos(TAU * frequency * proj + ph + h * TAU)
         }
-      return samplePalette(palette, v * 0.5 + 0.5)
-    })
+      out[y * W + x - xo] = clamp01(v * 0.5 + 0.5)
+    }
+  }
+  return out
 }
 
 // Fractal (fBm) noise: sum simplex octaves at doubling frequency / halving
-// amplitude for a detailed, cloud-like field, coloured through a palette.
-function evalFractalNoise(key: string, speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0, shape: NoiseShape = 'plain'): Frame {
-  const z = speedPhase(key, t + seedOffset(seed, 0), speed) * 0.15
+// amplitude for a detailed, cloud-like field.
+function evalFbmField(key: string, speed: number, scale: number, octaves: number, t: number, W: number, H: number, xo: number): Field {
+  const z = speedPhase(key, t, speed) * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
-  return buildFrame(W, H, (x, y) => {
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = xo; x < W + xo; x++) {
       let v = 0, amp = 0.5, freq = scale, norm = 0
       for (let o = 0; o < oct; o++) {
         v += amp * _snoise2(x * freq + z, y * freq - z * 0.5)
         norm += amp; amp *= 0.5; freq *= 2
       }
-      const n = shapeNoise((v / norm) * 0.5 + 0.5, shape)
-      return samplePalette(palette, ((n % 1) + 1) % 1)
-    })
+      out[y * W + x - xo] = clamp01((v / norm) * 0.5 + 0.5)
+    }
+  }
+  return out
 }
 
 // Metaballs: several moving charges; each pixel's field is the summed inverse-
@@ -546,7 +544,7 @@ function evalPlasmaFractalField(key: string, speed: number, scale: number, t: nu
 
 const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   // Bundled noise generators (NoiseField / Simplex2D / Noise3D / Noise4D /
-  // Worley / PlasmaFractal). All share the same scalar-field core; the
+  // Worley / PlasmaFractal / Sine 2D / fBm / Gabor). All share the same scalar-field core; the
   // node exposes that raw `field` output and also maps it through a palette
   // to its normal `frame` output. Keep in sync with PROPERTY_META.noiseType
   // and the `Noise` case in cppGenerator.ts.
@@ -555,7 +553,12 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    const field = evalNoiseFieldByType(stateKey(id), noiseType, speed, scale, t, W, H, normalizedSeed(props.seed), props.wrapX === true, worleyMode(props.worleyMode))
+    const field = evalNoiseFieldByType(stateKey(id), noiseType, speed, scale, t, W, H, normalizedSeed(props.seed), props.wrapX === true, {
+      worley: worleyMode(props.worleyMode),
+      octaves: num(id, 'octaves', props, 'octaves', 4),
+      frequency: num(id, 'frequency', props, 'frequency', 1.2),
+      orientation: num(id, 'orientation', props, 'orientation', 45),
+    })
     const shape = noiseShape(props.noiseShape)
     if (shape !== 'plain') for (let i = 0; i < field.length; i++) field[i] = shapeNoise(field[i], shape)
     return { field, frame: evalFieldToFrame(field, palette, 1, W, H) }
@@ -664,27 +667,6 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
     const arms = Math.max(SPIRAL_ARMS.min, Math.min(SPIRAL_ARMS.max, num(id, 'arms', props, 'arms', 2)))
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalSpiral(stateKey(id), speed, arms, palette, t, W, H) }
-  },
-  Kaleidoscope({ input, num, W, H }, id, props) {
-    const src = input(id, 'frame', null) as Frame | null
-    const segments = num(id, 'segments', props, 'segments', 6)
-    if (!src) { return { frame: blankFrame(W, H) } }
-    return { frame: evalKaleidoscope(src, segments, W, H) }
-  },
-  FractalNoise({ num, pal, t, W, H, stateKey }, id, props) {
-    const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FractalNoise)
-    const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FractalNoise)
-    const octaves = num(id, 'octaves', props, 'octaves', 4)
-    const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
-    return { frame: evalFractalNoise(stateKey(id), speed, scale, octaves, t, palette, W, H, normalizedSeed(props.seed), noiseShape(props.noiseShape)) }
-  },
-  GaborNoise({ num, pal, t, W, H, stateKey }, id, props) {
-    const speed       = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.GaborNoise)
-    const scale       = denormRate(num(id, 'scale', props, 'scale', 0.7), SCALE_MAX.GaborNoise)
-    const frequency   = num(id, 'frequency', props, 'frequency', 1.2)
-    const orientation = num(id, 'orientation', props, 'orientation', 45)
-    const palette     = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return { frame: evalGaborNoise(stateKey(id), speed, scale, frequency, orientation, t, palette, W, H, normalizedSeed(props.seed)) }
   },
   Blobs({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Blobs)

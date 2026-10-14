@@ -820,18 +820,18 @@ describe('displayWidgetWires', () => {
   const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
   const touch = node('touch', 'TouchInput', { panelId: 'panel' })
   const juggle = node('juggle', 'Juggle', { count: 4 })
-  const beat = node('beat', 'BeatSin')
+  const beat = node('beat', 'Wave')
   const nodes = [panel, touch, juggle, beat]
 
   it('lists a Toggle wired at both ends as both, each naming its other end', () => {
     const wires = displayWidgetWires('screen', 'toggle', nodes, [
       { id: 'out', source: 'touch', sourceHandle: 'widget:toggle:out', target: 'juggle', targetHandle: 'count' },
-      { id: 'set', source: 'beat', sourceHandle: 'out', target: 'panel', targetHandle: 'widget:toggle:set' },
+      { id: 'set', source: 'beat', sourceHandle: 'result', target: 'panel', targetHandle: 'widget:toggle:set' },
       { id: 'other', source: 'touch', sourceHandle: 'widget:slider:out', target: 'juggle', targetHandle: 'count' },
     ] as never)
     expect(wires.map((wire) => [wire.edge.id, wire.direction, wire.role, wire.otherEnd])).toEqual([
       ['out', 'out', 'out', 'Juggle · Count'],
-      ['set', 'in', 'set', 'BeatSin'],
+      ['set', 'in', 'set', 'Wave'],
     ])
   })
 

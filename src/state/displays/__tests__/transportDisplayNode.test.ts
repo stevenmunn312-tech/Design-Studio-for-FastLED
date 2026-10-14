@@ -44,7 +44,7 @@ describe('TransportDisplay registration', () => {
 
   it('sends the glass out through a Touch node instead', () => {
     const touch = NODE_LIBRARY.find((entry) => entry.type === 'TouchInput')!
-    expect(touch.label).toBe('Touch')
+    expect(touch.label).toBe('Touch Screen')
     expect(touch.inputs).toEqual([])
     expect(touch.outputs).toEqual([{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }])
     // Its pins are not here: the digitiser's five lines are wiring on the same

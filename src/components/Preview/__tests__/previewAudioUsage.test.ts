@@ -30,7 +30,7 @@ describe('graphConsumesAudio', () => {
       [
         node('mic', 'MicInput'),
         node('fft', 'FFTAnalyzer'),
-        node('bars', 'SpectrumBars'),
+        node('bars', 'SpectrumVisualizer', { style: 'Three Band' }),
         node('out', 'MatrixOutput'),
       ],
       [
@@ -46,7 +46,7 @@ describe('graphConsumesAudio', () => {
       [
         node('mic', 'MicInput'),
         node('fft', 'FFTAnalyzer'),
-        node('bars', 'SpectrumBars'),
+        node('bars', 'SpectrumVisualizer', { style: 'Three Band' }),
         node('out', 'MatrixOutput'),
       ],
       [
@@ -59,7 +59,7 @@ describe('graphConsumesAudio', () => {
   it('requires an Audio capability node to resolve attached hardware', () => {
     const audio = node('audio', 'Audio', { sourceId: 'mic' })
     const fft = node('fft', 'FFTAnalyzer')
-    const bars = node('bars', 'SpectrumBars')
+    const bars = node('bars', 'SpectrumVisualizer', { style: 'Three Band' })
     const out = node('out', 'MatrixOutput')
     const edges = [
       edge('e1', 'audio', 'audio', 'fft', 'audio'),

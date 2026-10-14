@@ -94,6 +94,7 @@ import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { dmxUsesNetwork } from '../state/peripherals/dmxTransceiver'
 import { streamUsesNetwork } from '../nodes/output/frameStream'
+import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
 import { midiUsesUart } from '../state/peripherals/midiSource'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
@@ -632,7 +633,7 @@ const PALETTE_BUILDER_TYPES = PALETTE_BUILDER_NODE_TYPES
 // each (see the matching `case`). Not tracked for every node, just the ones
 // with materially large fixed per-LED overhead.
 const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
-  Fire2012: 1,            // uint8 heat[HEIGHT][WIDTH]
+  Fire: 1,                // uint8 heat[HEIGHT][WIDTH], every style
   GameOfLife: 6,          // uint8 cells + uint8 next + float bright
   ReactionDiffusion: 12,  // 3 float arrays (u, un, vn); v is its own field buffer
   FluidSim: 24,           // six float arrays (u, v, u0, v0, d, d0); the outputs are their own field buffers
@@ -644,7 +645,6 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
 // Particles uses a fixed-size pool independent of matrix size (see the
 // `Particles` case in cppGenerator.ts): 6 floats + 3 uint8 per slot.
 const PARTICLE_BYTES_PER_SLOT = 27
-const PARTICLE_POOL_SIZE = (mode: string) => (mode === 'swarm' ? 40 : 120)
 // Two float history arrays plus the aligned StereoVuState emitted by
 // stereoVuMeterCpp.ts. The two CRGB rail arrays are counted as physical LED
 // storage below, not as state.
@@ -779,8 +779,8 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
       && paletteBankBlend(n.data.properties as Record<string, unknown>) > 0
       && paletteBankEntries(n.data.properties as Record<string, unknown>).length > 0) statefulBytes += 48
     if (n.data.nodeType === 'Particles') {
-      const mode = String((n.data.properties as Record<string, unknown>)?.particleType ?? 'fountain')
-      statefulBytes += PARTICLE_POOL_SIZE(mode) * PARTICLE_BYTES_PER_SLOT
+      const mode = particleMode((n.data.properties as Record<string, unknown>)?.particleType)
+      statefulBytes += particlePoolSize(mode) * PARTICLE_BYTES_PER_SLOT
     }
     if (n.data.nodeType === 'FrameFeedback') {
       const delay = Math.max(1, Math.min(32, Math.round(Number((n.data.properties as Record<string, unknown>)?.delayFrames ?? 2))))

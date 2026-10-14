@@ -3,9 +3,11 @@
 // The preview samples `_snoise2` and the sketch samples `inoise8`; `inoise8`
 // takes 8.8 fixed point, so one noise unit is 256 there.
 
-export const FIRE_STYLES = ['classic', 'smoke'] as const
+// `fire2012` is FastLED's own Fire2012 heat algorithm (the two-row lookahead
+// and its cooling and sparking scales), which was a node of its own.
+export const FIRE_STYLES = ['classic', 'smoke', 'fire2012'] as const
 export type FireStyle = typeof FIRE_STYLES[number]
-export const fireStyle = (v: unknown): FireStyle => (v === 'smoke' ? 'smoke' : 'classic')
+export const fireStyle = (v: unknown): FireStyle => (FIRE_STYLES as readonly unknown[]).includes(v) ? v as FireStyle : 'classic'
 
 /** How much of the flame the noise can take away at its darkest. */
 export const FIRE_SMOKE_DEPTH = 0.65

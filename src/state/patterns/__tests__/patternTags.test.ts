@@ -81,7 +81,7 @@ describe('patternFit', () => {
   it('does not treat a field or noise pattern as two-dimensional', () => {
     // A plasma sampled along one row is still a plasma. Only content that has
     // no one-line reading at all belongs in the derived set.
-    for (const type of ['FieldNoise', 'Fire2012', 'Particles', 'SpectrumBars', 'ReactionDiffusion']) {
+    for (const type of ['FieldNoise', 'Fire', 'Particles', 'SpectrumVisualizer', 'ReactionDiffusion']) {
       expect(needsTwoDimensions([node(type)])).toBe(false)
     }
   })

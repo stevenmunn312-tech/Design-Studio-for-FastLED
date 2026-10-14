@@ -305,14 +305,14 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     level: 'Easy',
     preview: 'Runs in the browser — nothing to plug in to start.',
     name: 'Fire',
-    description: 'Shape a classic Fire2012 simulation, then match its direction to the way your matrix is mounted.',
+    description: 'Shape the classic Fire2012 simulation, then match its direction to the way your matrix is mounted.',
     completionSteps: [
       'Raise Sparking for more embers; raise Cooling for shorter, faster-fading flames.',
       'Try Direction and Mirror so the effect fits your physical matrix orientation.',
       'Choose another built-in Palette, then compare the node and main previews.',
     ],
     nodeSpecs: [
-      { id: 'fire', type: 'Fire2012', col: 0 },
+      { id: 'fire', type: 'Fire', properties: { fireStyle: 'fire2012', palette: 'heat' }, col: 0 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 1 },
       tutorialNote(
         'guide', 0, -1,

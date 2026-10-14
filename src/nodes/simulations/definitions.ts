@@ -12,8 +12,9 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     // `mirror` folds the flame symmetric across its width; `seed` (0 = free-
     // running) switches cooling/sparking to a deterministic per-instance PRNG
     // so the same seed reproduces the same flame. See PROPERTY_META overrides
-    // and the `Fire`/`Fire2012` cases in graphEvaluator/cppGenerator, which
-    // share this exact set of controls but keep their own heat algorithms.
+    // and the Fire cases in evaluate.ts/codegen.ts. `fireStyle` picks the heat
+    // algorithm: classic, smoke (classic dimmed by a drifting noise layer) or
+    // fire2012 (FastLED's Fire2012, which ignores `intensity`).
     type: 'Fire',
     label: 'Fire',
     category: 'pattern',
@@ -37,32 +38,13 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    type: 'Fire2012',
-    label: 'Fire 2012',
-    category: 'pattern',
-    subcategory: 'Simulations',
-    inputs: [
-      { id: 'cooling', label: 'Cooling', dataType: 'float' },
-      { id: 'sparking', label: 'Sparking', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-      { id: 'turbulence', label: 'Turbulence', dataType: 'float' },
-      { id: 'paletteMix', label: 'Palette Mix', dataType: 'float' },
-    ],
-    propertyInputs: { cooling: 'cooling', sparking: 'sparking', palette: 'paletteIn', turbulence: 'turbulence', paletteMix: 'paletteMix' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: {
-      cooling: 55, sparking: 120, palette: 'heat',
-      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
-    },
-  },
-  {
     // Bundled particle systems — `particleType` selects the simulation. All
     // variants share the (rate, palette, decay)→frame signature; the evaluator and
     // codegen dispatch on the variant. Each particle is coloured by its life
     // (age) through the palette. See PROPERTY_META.particleType.
     // Five extra controls are gated to the variants they actually affect (see
     // isPropertyEnabled): `count` sets the pool size directly for the
-    // fixed-population modes (swarm/orbit/bounce/fireflies, decoupled from
+    // fixed-population modes (orbit/bounce/fireflies/luminova, decoupled from
     // `rate`); `spread` widens/narrows the spawn area for width-spawning modes;
     // `gravity`/`bounce` scale the built-in accel/restitution constants for
     // modes with a falling or floor-bouncing motion. `size` scales the
@@ -81,10 +63,10 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'bounce', label: 'Bounce', dataType: 'float' },
     ],
     /*
-     * `count` and `seed` are deliberately absent. The swarm variant sizes its
-     * particle pool from `count`, so it must be known when the array is
-     * declared; `seed` is read once behind a one-shot guard, so a wire into it
-     * would be sampled on the first frame and never again.
+     * `count` and `seed` are deliberately absent. Firmware bakes `count` as a
+     * loop bound; `seed` is read once behind a one-shot guard, so a wire into
+     * it would be sampled on the first frame and never again. Flocking is the
+     * Boids node, not a Particles variant.
      */
     propertyInputs: {
       rate: 'rate', decay: 'decay', palette: 'paletteIn',
@@ -281,8 +263,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const SIMULATIONS_DESCRIPTIONS: Record<string, string> = {
-  Fire: 'Classic rising fire effect.',
-  Fire2012: 'FastLED Fire2012 heat simulation.',
+  Fire: 'Rising fire: the classic flame, a smoky one, or FastLED Fire2012.',
   Particles: 'Twenty-one particle displays: weather, trails, flocking, orbits, and more.',
   FormulaPoints: 'Curated point generator: phyllotaxis, Lissajous/rose, logistic map, attractor.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',

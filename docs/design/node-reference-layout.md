@@ -75,9 +75,9 @@ The Microphone pilot is covered by `src/utils/__tests__/insertLiveExample.test.t
 
 The approved example is:
 
-`Microphone → FFT Analyzer → Spectrum Bars → LED Matrix`
+`Microphone → FFT Analyzer → Spectrum Visualizer (Three Band) → LED Matrix`
 
-Microphone feeds live audio to FFT Analyzer. FFT separates bass, mids, and treble; those values drive Spectrum Bars, whose frame is sent to LED Matrix. The Main Preview shows the resulting mirrored rainbow spectrum.
+Microphone feeds live audio to FFT Analyzer. FFT separates bass, mids, and treble; those values drive Spectrum Visualizer's Three Band bars, whose frame is sent to LED Matrix. The Main Preview shows the resulting mirrored rainbow spectrum.
 
 ## Rollout status — complete
 

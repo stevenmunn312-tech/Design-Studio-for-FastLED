@@ -36,11 +36,7 @@ describe('time-dependent control sources', () => {
   it.each([
     ['Clock', 'beat', 'bool', '_clkOrigin_'],
     ['Envelope', 'result', 'float', '_envT_'],
-    ['BeatSin', 'value', 'float', '6.2831853f'],
     ['NoiseSignal', 'value', 'float', 'inoise16'],
-    // The ramp itself; the normal sketch integrates it on the animation
-    // clock `t`, as the preview does, where the control graph reads millis().
-    ['Counter', 'value', 'float', 'fmodf(fmodf(_phase_sig'],
   ] as const)('%s keeps the normal sketch emitter and the wall clock', (nodeType, port, type, marker) => {
     const signal = node('sig', nodeType)
     const graph = createControlGraph([signal], [])
@@ -50,6 +46,19 @@ describe('time-dependent control sources', () => {
     const normal = generateCpp([signal], [])
     for (const line of linesOf(compiled.loop.join('\n'), marker)) expect(normal).toContain(line)
     expect(normal).toContain(marker)
+  })
+
+  // Wave (which absorbed BeatSin and Counter) is a scalar control node: it
+  // integrates its rate over the control graph's own clock.
+  it('runs a BPM Wave on the control clock with its unipolar level and offset', () => {
+    const wave = node('sig', 'Wave', { rateUnit: 'BPM', bpm: 120, unipolar: true, amplitude: 0.5, offset: 0.25 })
+    const graph = createControlGraph([wave], [])
+    expect(graph.resolve('sig', 'result', 'float')).not.toBeNull()
+    const loop = controlGraphCpp(graph).loop.join('\n')
+    expect(loop).toContain('float _controlTime = ')
+    expect(loop).toContain('/ 60.0f)')
+    expect(loop).toContain('sinf(6.2831853f * _arg)')
+    expect(loop).toContain('+ 1.0f) * 0.5f)')
   })
 
   it('uses the reset wire and ignores a backward animation jump', () => {

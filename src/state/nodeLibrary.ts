@@ -13,6 +13,7 @@ import { FIELD_DEFINITIONS, FIELD_DESCRIPTIONS } from '../nodes/field/definition
 import { COMPOSITE_DEFINITIONS, COMPOSITE_DESCRIPTIONS } from '../nodes/composite/definitions'
 import { SHOW_DEFINITIONS, SHOW_DESCRIPTIONS } from '../nodes/show/definitions'
 import { OUTPUT_DEFINITIONS, OUTPUT_DESCRIPTIONS } from '../nodes/output/definitions'
+import { HARDWARE_DEFINITIONS, HARDWARE_DESCRIPTIONS } from '../nodes/hardware/definitions'
 import { GRAPH_DEFINITIONS, GRAPH_DESCRIPTIONS } from '../nodes/graph/definitions'
 import { STUDIO_PALETTES } from './palettes/paletteCatalog'
 import { evaluateScalarExpression } from '../nodes/shared/scalarExpression'
@@ -22,6 +23,7 @@ import { MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boardGpio'
 import { EASE_TYPES } from '../nodes/math/easing'
+import { WAVE_RATE_UNITS } from '../nodes/signal/wave'
 import { DATE_TIME_TEXT_MODES } from './displays/displayText'
 import { CUSTOM_DESIGN_LAYOUT, TRANSPORT_DISPLAY_LAYOUTS } from './displays/transportDisplay'
 import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './displays/segmentDisplay'
@@ -33,7 +35,8 @@ import {
   type TftController,
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
-import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from '../nodes/generative/limits'
+import { SPIRAL_ARMS } from '../nodes/generative/limits'
+import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
@@ -69,6 +72,7 @@ import {
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { SDV_MAX_SPEED } from './evaluator/sdVideo'
 import { FIRE_STYLES } from './evaluator/fireSmoke'
+import { PARTICLE_MODES } from '../nodes/simulations/particleModes'
 import { FUNCTION_OPS } from '../nodes/math/mathIdentity'
 import { LOGIC_OPS } from '../nodes/math/logic'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
@@ -116,6 +120,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   ...COMPOSITE_DEFINITIONS,
   ...SHOW_DEFINITIONS,
   ...OUTPUT_DEFINITIONS,
+  ...HARDWARE_DEFINITIONS,
   ...GRAPH_DEFINITIONS,
 ]
 
@@ -177,6 +182,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ...COMPOSITE_DESCRIPTIONS,
   ...SHOW_DESCRIPTIONS,
   ...OUTPUT_DESCRIPTIONS,
+  ...HARDWARE_DESCRIPTIONS,
   ...GRAPH_DESCRIPTIONS,
   Display: 'A screen drawn widget by widget, owned by the Display Panel it was created for.',
 }
@@ -213,15 +219,15 @@ export const CATEGORIES = [
 export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
   math:    ['Math', 'Logic', 'Text'],
   color:   ['Colors', 'Palettes'],
-  pattern: ['Shapes & Text', 'Generative', 'Simulations', 'Audio-Reactive', 'Code'],
+  pattern: ['Shapes & Text', 'Media', 'Generative', 'Simulations', 'Audio-Reactive', 'Code'],
 }
 
 // Explicit workflow ordering for categories where the pipeline sequence
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'DistanceField', 'ShapeField', 'FrameToField', 'FloatToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FloatToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -247,13 +253,19 @@ export function categoryNodes(categoryId: string): NodeDefinition[] {
   return [...nodes].sort((a, b) => subIndex(a) - subIndex(b) || nodeIndex(a) - nodeIndex(b))
 }
 
+// The portless power and network parts. A category of their own so the Help
+// reference files them as bench parts rather than as inputs, but not a
+// sidebar section: they are added from the hardware view only, so it sits
+// outside CATEGORIES and off the sidebar's hue wheel.
+export const HARDWARE_CATEGORY = { id: 'hardware', label: 'Hardware', accentVar: '--accent-hardware', color: '#a8b4c4' } as const
+
 /** id → literal hex (canvas/SVG: minimap nodes, edge strokes). */
 export const CATEGORY_COLOR: Record<string, string> =
-  Object.fromEntries(CATEGORIES.map((c) => [c.id, c.color]))
+  Object.fromEntries([...CATEGORIES, HARDWARE_CATEGORY].map((c) => [c.id, c.color]))
 
 /** id → CSS var reference (DOM styling: node accents, sidebar). */
 export const CATEGORY_ACCENT_VAR: Record<string, string> =
-  Object.fromEntries(CATEGORIES.map((c) => [c.id, `var(${c.accentVar})`]))
+  Object.fromEntries([...CATEGORIES, HARDWARE_CATEGORY].map((c) => [c.id, `var(${c.accentVar})`]))
 
 // Port (handle) colour by declared data type. Compatibility is related but not
 // identical: `float` and `bool` deliberately interconnect (see portsCompatible),
@@ -404,7 +416,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
-  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine'] },
+  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine', 'fbm', 'gabor'] },
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'average', 'min', 'max'] },
   fn:             { control: 'select', options: [...FUNCTION_OPS] },
   logicOp:        { control: 'select', options: [...LOGIC_OPS] },
@@ -427,11 +439,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   delayTime:      { control: 'slider', min: 0.05, max: 5, step: 0.05 },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
   formulaType:    { control: 'select', options: ['rose', 'superformula', 'fibonacciSpiral', 'goldenTiling', 'lissajousField'] },
-  particleType:   { control: 'select', options: [
-    'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
-    'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
-    'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall', 'luminova',
-  ] },
+  particleType:   { control: 'select', options: [...PARTICLE_MODES] },
   channel:        { control: 'select', options: ['Left', 'Right'] },
   audioOutput:    { control: 'select', options: ['i2s', 'internalDac'] },
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
@@ -488,7 +496,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   orientation: { control: 'slider', min: 0, max: 360, step: 1 },
   angle:       { control: 'slider', min: 0, max: 360, step: 1 },
   repeat:      { control: 'slider', min: 1, max: 8, step: 1 },
-  amplitude:   { control: 'slider', min: 0, max: 5, step: 0.1 },
+  // Wave's `amplitude` and `offset` are free number fields: a sweep spans
+  // whatever range its target reads (0–255 for a byte), and both take
+  // matrix expressions as BeatSin's low and high did.
   phase:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   feed:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
@@ -721,12 +731,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     fixedPalette:       { control: 'select', options: STUDIO_PALETTES },
   },
   // Envelope's decay is a duration in seconds, not the shared 0–1 rate.
+  Wave: {
+    rateUnit: { control: 'select', options: [...WAVE_RATE_UNITS] },
+    bpm: { control: 'slider', min: 1, max: 220, step: 1 },
+  },
   Envelope: {
     attack: { control: 'slider', min: 0, max: 5, step: 0.05 },
     decay: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
-  },
-  BeatSin: {
-    bpm: { control: 'slider', min: 1, max: 220, step: 1 },
   },
   Random: {
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -852,9 +863,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   MidrangeWaves: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
-  SpectrumBars: {
-    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
-  },
   LevelMeter: {
     level: N01,
     origin: { control: 'select', options: [...METER_ORIGINS] },
@@ -875,7 +883,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     brightness: N01,
   },
   SpectrumVisualizer: {
-    style:          { control: 'select', options: ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall'] },
+    style:          { control: 'select', options: ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall', 'Three Band'] },
+    speed:          { control: 'slider', min: 0, max: 1, step: 0.01 },
     bands:          { control: 'slider', min: 4, max: 32, step: 1 },
     gain:           { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     smoothing:      { control: 'slider', min: 0, max: 0.95, step: 0.01 },
@@ -995,8 +1004,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     radialMix: N01,
     radialScroll: { control: 'slider', min: -1, max: 1, step: 0.01 },
   },
-  FractalNoise: { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 }, noiseShape: { control: 'select', options: [...NOISE_SHAPES] } },
-  GaborNoise:      { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Blobs:           { speed: N01, scale: N01, count: { control: 'slider', min: 1, max: 6, step: 1 } },
   FlowField: {
     speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -1322,7 +1329,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   FieldBlur: { radius: { control: 'slider', min: BLUR_RADIUS.min, max: BLUR_RADIUS.max, step: 1 } },
   ShapeField: {
     shape: { control: 'select', options: ['circle', 'rect', 'polygon'] },
-    fieldMode: { control: 'select', options: ['fill', 'distance'] },
+    fieldMode: { control: 'select', options: ['fill', 'distance', 'falloff'] },
     cx: N01,
     cy: N01,
     size: { control: 'slider', min: 0.01, max: 1, step: 0.01 },
@@ -1330,7 +1337,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sides: { control: 'slider', min: 3, max: 10, step: 0.1 },
     aspect: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     softness: N01,
-    range: { control: 'slider', min: 0.01, max: 1, step: 0.01 },
+    range: { control: 'slider', min: 0.01, max: 2, step: 0.01 },
   },
   SliceTiling: {
     lattice: { control: 'select', options: ['hex', 'square', 'triangle'] },
@@ -1377,7 +1384,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     projection: { control: 'select', options: ['orthographic', 'perspective'] },
     perspectiveStrength: N01,
   },
-  Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   ReactionDiffusion: {
     rdPreset: { control: 'select', options: [...REACTION_DIFFUSION_PRESETS] },
@@ -1503,8 +1509,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // Animation-only (disabled for a still image via isPropertyEnabled).
     playbackRate: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
   },
-  // DistanceField stretches the distance ramp 1×–4× (the shared `scale` is 0–2).
-  DistanceField:     { scale: { control: 'slider', min: 1, max: 4,   step: 0.1 } },
   Clock: {
     bpm:         { control: 'slider', min: 40, max: 220, step: 1 },
     beatsPerBar: { control: 'slider', min: 1, max: 16, step: 1 },
@@ -1514,12 +1518,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     direction:   { control: 'select', options: ['up', 'down', 'left', 'right'] },
     fireStyle:   { control: 'select', options: [...FIRE_STYLES] },
     intensity:   N01,
-    turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
-    paletteMix:  { control: 'slider', min: 0, max: 1, step: 0.01 },
-    seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
-  },
-  Fire2012: {
-    direction:   { control: 'select', options: ['up', 'down', 'left', 'right'] },
     turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
     paletteMix:  { control: 'slider', min: 0, max: 1, step: 0.01 },
     seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -1756,7 +1754,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
     worleyMode: 'What Worley draws: the distance to the nearest point (f1), the gap to the second nearest (f2f1), or thin bright lines on the cell borders (edges).',
     wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
-    noiseType: 'Which noise algorithm draws the field. Only Noise 4D uses FastLED inoise16 on the controller.',
+    noiseType: 'Which noise algorithm draws the field. fbm sums octaves into clouds; gabor draws oriented bands. Noise 4D and fbm use FastLED inoise on the controller.',
+    octaves: 'Noise layers summed by fbm, 1 smooth to 6 detailed. More costs CPU on the controller.',
+    frequency: 'Gabor only: stripes per cell inside each kernel; higher gives finer bands.',
+    orientation: 'Gabor only: direction of the bands in degrees, 0 horizontal to 360.',
     speed: 'How fast the field drifts, 0 still to 1 fastest for this noise type.',
     scale: 'Feature size: low is broad soft blobs, high is fine grain.',
     palette: 'Colours the field: dark field values take the first colour, bright ones the last.',
@@ -1948,23 +1949,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Fire: {
     direction: 'Which way the flame rises.',
-    fireStyle: 'Classic: the flame as it always was. Smoke: a second noise layer drifts up through the flame and dims it, as in FastLED\'s Fire2023.',
+    fireStyle: 'Classic: the flame as it always was. Smoke: a second noise layer drifts up through the flame and dims it, as in FastLED\'s Fire2023. Fire2012: FastLED\'s own Fire2012 heat simulation; Intensity has no effect on it.',
     turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
     paletteMix: 'Blends the palette colour toward plain heat-brightness grayscale.',
     mirror: 'Folds the rendered frame symmetric across its width (up/down) or height (left/right).',
-    intensity: 'Overall flame height, 0 embers to 1 full blaze. Scales the spark chance.',
+    intensity: 'Overall flame height, 0 embers to 1 full blaze. Scales the spark chance. Not used by the Fire2012 style.',
     cooling: 'How fast heat fades as it rises, 0 to 255. Higher gives shorter flames.',
     sparking: 'Chance of a new spark at the base each frame, 0 to 255. Higher is a busier fire.',
-    palette: 'Colours by heat, from the palette start (cold) to its end (hottest).',
-  },
-  Fire2012: {
-    direction: 'Which way the flame rises.',
-    turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
-    paletteMix: 'Blends the palette colour toward plain heat-brightness grayscale.',
-    mirror: 'Folds the rendered frame symmetric across its width (up/down) or height (left/right).',
-    cooling: 'How fast heat fades as it rises, 0 to 255. Higher gives shorter flames.',
-    sparking: 'Chance of a new spark at the base each frame, 0 to 255. Higher is a busier fire.',
-    palette: 'Colours by heat; the heat palette reproduces FastLED HeatColors.',
+    palette: 'Colours by heat, from the palette start (cold) to its end (hottest). The heat palette reproduces FastLED HeatColors.',
   },
   Transition: {
     direction: 'Slide direction for the Wipe / Push styles.',
@@ -2068,9 +2060,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   ShapeField: {
     size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
     softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
-    range: 'Distance on either side of the outline used to map the signed-distance field from 0 to 1.',
+    range: 'As a fraction of the matrix’s shorter side. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
     shape: 'Circle, rectangle or polygon. Polygon uses Sides; the others use Aspect.',
-    fieldMode: 'Fill is 1 inside and 0 outside with a soft edge; distance ramps across the outline.',
+    fieldMode: 'Fill is 1 inside and 0 outside with a soft edge; distance ramps across the outline; falloff is 0 on the shape and rises to 1 at Range beyond it, so a tiny circle gives the distance from a point.',
     cx: 'Centre of the shape, left to right (0 to 1).',
     cy: 'Centre of the shape, top to bottom (0 to 1).',
     rotation: 'Turns the shape about its centre, in degrees.',
@@ -2102,13 +2094,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   PaletteBank: {
     blend: 'How fast a new palette fades in: colour steps per 10 ms, FastLED\'s nblendPaletteTowardPalette. 0 switches instantly.',
     palettes: 'The ordered palettes Next and Previous step through, edited in the body.',
-  },
-  FractalNoise: {
-    noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
-    speed: 'How fast the clouds drift, 0 still to 1 fastest.',
-    scale: 'Cloud size: low is a few large shapes, high is fine detail.',
-    octaves: 'Noise layers summed, 1 smooth to 6 detailed. More costs CPU on the controller.',
-    palette: 'Colours the noise from its darkest value to its brightest.',
   },
   Lightning: {
     rate: 'Strikes per minute, on average. Each gap is half to one and a half times the average.',
@@ -2327,10 +2312,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     decay: 'How long each envelope rings after a hit, 0 to 1 of the level kept per frame.',
     separation: 'How hard kick, snare and hi-hat suppress each other (0–1) so one drum does not light all three.',
   },
-  SpectrumBars: {
-    speed: 'Rate of the ripple, shimmer and palette scroll across the bars (0–1).',
-    mirror: 'Draws the bars from the left edge and reflects them, so bass sits at both ends.',
-  },
   LevelMeter: {
     level: 'Bar length, 0 empty to 1 full, when nothing is wired into Level. Wire an audio level, a knob or a sensor.',
     axis: 'Bar runs along rows (left to right) or down columns.',
@@ -2349,9 +2330,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     beatsPerBar: 'Beats in one bar; the Bar output runs 0 to 1 over that many beats.',
   },
   SpectrumVisualizer: {
-    style: 'Bars, centre-mirrored bars, a thin ribbon, a ring (Orbit), or a scrolling Waterfall history.',
+    style: 'Bars, centre-mirrored bars, a thin ribbon, a ring (Orbit), a scrolling Waterfall history, or Three Band: three stylised bass, mids and treble bars.',
+    speed: 'Three Band only: rate of the ripple, shimmer and palette scroll across the bars (0–1).',
+    mirror: 'Three Band only: draws the bars from the left edge and reflects them, so bass sits at both ends.',
     bands: 'How many frequency columns are drawn (4–32); fewer gives chunkier bars. Fixed at build time.',
-    gain: 'Multiplies every band before drawing (0.25–4); above 1 lifts a quiet source.',
+    gain: 'Multiplies every band before drawing (0.25–4); above 1 lifts a quiet source. Three Band applies it to an unwired band.',
     smoothing: 'How much of last frame each column keeps (0–0.95). Higher is steadier, slower.',
     tilt: 'Boosts higher bands progressively (0–1) so treble columns reach as high as bass.',
     peakHold: 'Seconds a peak dot stays before it starts falling (0–2).',
@@ -2429,9 +2412,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     audioAmount: 'How much the six audio inputs bend the geometry (0–2); 0 runs the effect unmodulated.',
   },
   Wave: {
-    amplitude: 'Peak height of the wave; the output swings between −amplitude and +amplitude.',
+    amplitude: 'Peak height of the wave: the output swings −amplitude to +amplitude, or 0 to amplitude when unipolar. Accepts a matrix expression such as w / 2.',
     frequency: 'Cycles per second. 1 = one full wave every second; 0.1 = one every ten seconds.',
+    bpm: 'Beats per minute, one full wave per beat, as FastLED beatsin does.',
+    rateUnit: 'Give the rate as Frequency in Hz or as a tempo in BPM.',
     phase: 'Shifts where the wave starts, in whole cycles (0.25 = a quarter turn ahead).',
+    offset: 'Added to the output: moves the whole wave up or down. A unipolar wave runs from Offset to Offset + Amplitude. Accepts a matrix expression such as h / 2.',
+    unipolar: 'Swing 0 to amplitude instead of −amplitude to +amplitude. A unipolar sawtooth is a 0–1 ramp.',
     waveform: 'Shape of the cycle: smooth sine, pointed triangle, hard square, or rising sawtooth.',
   },
   Interval: {
@@ -2451,9 +2438,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     max: 'Highest value the drift can reach.',
     octaves: 'Layers of finer detail on the drift. 1 is smooth; 3 adds jitter on top of the slow movement.',
   },
-  Counter: {
-    rate: 'Ramps per second. 1 rises from 0 to 1 once a second, then starts over.',
-  },
   ScheduleTrigger: {
     scheduleMode: 'Window keeps Active on between start and end. Trigger pulses Start once at the start time.',
     dayMode: 'Which days the schedule runs. Custom reveals a tick box per weekday.',
@@ -2471,11 +2455,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     saturday: 'Run on Saturdays (Custom days only).',
     sunday: 'Run on Sundays (Custom days only).',
     enable: 'Off holds every output low regardless of the clock. A wire into Enable overrides this.',
-  },
-  BeatSin: {
-    bpm: 'Beats per minute; one full sine wave per beat.',
-    low: 'Value at the bottom of the wave.',
-    high: 'Value at the top of the wave.',
   },
   Clock: {
     bpm: 'Tempo in beats per minute when nothing is wired into Sync or Tap.',
@@ -2750,13 +2729,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Kaleidoscope: {
     segments: 'Mirror wedges around the centre, 2 or more; each wedge repeats the source.',
   },
-  GaborNoise: {
-    speed: 'How fast the bands ripple, 0 still to 1 fastest.',
-    scale: 'Cell size of the kernels; low is a few broad bands, high many thin ones.',
-    frequency: 'Stripes per cell inside each kernel; higher gives finer bands.',
-    orientation: 'Direction of the bands in degrees, 0 horizontal to 360.',
-    palette: 'Colours the band field from dark to bright.',
-  },
   Blobs: {
     speed: 'How fast the blobs wander, 0 still to 1 fastest.',
     scale: 'Blob size as a share of the shorter side; larger blobs merge sooner.',
@@ -2830,11 +2802,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   FieldToFrame: {
     palette: 'Colours the field is painted with: 0 is the first colour, 1 the last.',
     brightness: 'Scales the painted colours, 0 to 1. Wire a VU level here to pulse the whole field.',
-  },
-  DistanceField: {
-    px: 'Where the point sits, left to right (0 to 1).',
-    py: 'Where the point sits, top to bottom (0 to 1).',
-    scale: 'Stretches the ramp. Higher reaches full brightness closer to the point.',
   },
   FieldMath: {
     fieldOp: 'How the two fields combine per pixel. An unwired side counts as 0.',
@@ -3396,9 +3363,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   Fire: {
     fireStyle: 'style',
-    paletteMix: 'palette mix',
-  },
-  Fire2012: {
     paletteMix: 'palette mix',
   },
   Particles: {
@@ -4009,6 +3973,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'response', label: 'Response', keys: ['gain', 'smoothing', 'tilt'] },
     { key: 'peaks', label: 'Peak Dots', keys: ['peakHold', 'peakGravity'] },
     { key: 'waterfall', label: 'Waterfall', keys: ['waterfallSpeed'] },
+    { key: 'threeBand', label: 'Three Band', keys: ['energy', 'speed', 'mirror'] },
   ],
   ClockDisplay: [
     { key: 'display', label: 'Display', keys: ['displayMode', 'x', 'y', 'hAlign', 'vAlign', 'radius', 'scaleWithMatrix'] },
@@ -4097,18 +4062,18 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
     { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
   ],
+  Wave: [
+    { key: 'shape', label: 'Shape', keys: ['waveform', 'unipolar'] },
+    { key: 'rate', label: 'Rate', keys: ['rateUnit', 'frequency', 'bpm', 'phase'] },
+    { key: 'level', label: 'Level', keys: ['amplitude', 'offset'] },
+  ],
   Noise: [
-    { key: 'noise', label: 'Noise', keys: ['noiseType', 'noiseShape', 'worleyMode', 'seed', 'wrapX'] },
+    { key: 'noise', label: 'Noise', keys: ['noiseType', 'noiseShape', 'worleyMode', 'octaves', 'frequency', 'orientation', 'seed', 'wrapX'] },
     { key: 'motion', label: 'Motion', keys: ['speed', 'scale'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Fire: [
     { key: 'flame', label: 'Flame', keys: ['fireStyle', 'intensity', 'cooling', 'sparking', 'turbulence'] },
-    { key: 'shape', label: 'Shape', keys: ['direction', 'mirror'] },
-    { key: 'color', label: 'Color', keys: ['palette', 'paletteMix'] },
-  ],
-  Fire2012: [
-    { key: 'flame', label: 'Flame', keys: ['cooling', 'sparking', 'turbulence'] },
     { key: 'shape', label: 'Shape', keys: ['direction', 'mirror'] },
     { key: 'color', label: 'Color', keys: ['palette', 'paletteMix'] },
   ],
@@ -4439,7 +4404,7 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   },
   Noise: {
     prop: 'noiseType',
-    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D' },
+    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D', fbm: 'Fractal Noise', gabor: 'Gabor Noise' },
   },
   Path: {
     prop: 'pathShape',
@@ -4484,6 +4449,7 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
       Ribbon: 'Spectrum · Ribbon',
       Orbit: 'Spectrum · Orbit',
       Waterfall: 'Spectrum · Waterfall',
+      'Three Band': 'Spectrum · Three Band',
     },
   },
   Blend: {
@@ -4512,7 +4478,7 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
     prop: 'particleType',
     labels: {
       fountain: 'Fountain', gravity: 'Gravity', fireworks: 'Fireworks', sparkle: 'Sparkle Rain',
-      comet: 'Comet', snow: 'Snow', swarm: 'Swarm', rain: 'Rain', embers: 'Embers',
+      comet: 'Comet', snow: 'Snow', rain: 'Rain', embers: 'Embers',
       bubbles: 'Bubbles', vortex: 'Vortex', orbit: 'Orbit', confetti: 'Confetti',
       fireflies: 'Fireflies', meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
       bounce: 'Bounce', attractor: 'Attractor', waterfall: 'Waterfall',
@@ -4565,7 +4531,7 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
 // controls (isPropertyEnabled below) — keep in sync with the matching mode
 // bodies in graphEvaluator.ts's evalParticles and cppGenerator.ts's `Particles`
 // case, which are the ones that actually read each property.
-const PARTICLE_COUNT_MODES = new Set(['swarm', 'orbit', 'bounce', 'fireflies', 'luminova'])
+const PARTICLE_COUNT_MODES = new Set(['orbit', 'bounce', 'fireflies', 'luminova'])
 const PARTICLE_SPREAD_MODES = new Set(['fountain', 'gravity', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
 const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'gravity', 'fireworks', 'waterfall'])
 const PARTICLE_BOUNCE_MODES = new Set(['gravity', 'waterfall'])
@@ -4872,8 +4838,20 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'FourierEpicycles' && key === 'customPoints') {
     return properties.outline === 'custom'
   }
+  if (nodeType === 'Wave' && (key === 'frequency' || key === 'bpm')) {
+    return (key === 'bpm') === (properties.rateUnit === 'BPM')
+  }
+  if (nodeType === 'Fire' && key === 'intensity') {
+    return properties.fireStyle !== 'fire2012'
+  }
   if (nodeType === 'Noise' && key === 'worleyMode') {
     return properties.noiseType === 'worley'
+  }
+  if (nodeType === 'Noise' && key === 'octaves') {
+    return properties.noiseType === 'fbm'
+  }
+  if (nodeType === 'Noise' && (key === 'frequency' || key === 'orientation')) {
+    return properties.noiseType === 'gabor'
   }
   if (nodeType === 'FieldMath' && key === 't') {
     return properties.fieldOp === 'mix'
@@ -4935,7 +4913,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'sides') return shape === 'polygon'
     if (key === 'aspect') return shape === 'circle' || shape === 'rect'
     if (key === 'softness') return mode === 'fill'
-    if (key === 'range') return mode === 'distance'
+    if (key === 'range') return mode === 'distance' || mode === 'falloff'
   }
   if (nodeType === 'SliceTiling' && (key === 'bits' || key === 'bitsB')) {
     return properties.preset === 'custom'
@@ -5049,8 +5027,11 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'SpectrumVisualizer') {
     const style = String(properties.style ?? 'Bars')
+    const threeBand = style === 'Three Band'
     if (key === 'waterfallSpeed') return style === 'Waterfall'
-    if (key === 'peakHold' || key === 'peakGravity') return style !== 'Waterfall'
+    if (key === 'peakHold' || key === 'peakGravity') return style !== 'Waterfall' && !threeBand
+    if (key === 'smoothing' || key === 'tilt') return !threeBand
+    if (key === 'energy' || key === 'speed' || key === 'mirror') return threeBand
   }
   if (nodeType === 'FrameFeedback') {
     const mode = String(properties.feedbackTransform ?? 'none')

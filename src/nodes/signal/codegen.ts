@@ -1,8 +1,8 @@
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, safeId, seedProp } from '../../codegen/cppLiterals'
 import { intervalCpp } from '../../codegen/intervalCpp'
-import { timeNodeCpp, waveCpp } from '../../codegen/signalTimeCpp'
-import { beatSinCpp, clockCpp, counterCpp, envelopeCpp, noiseSignalCpp, scheduleTriggerCpp } from '../../codegen/signalControlCpp'
+import { timeNodeCpp, waveCpp, waveHzCpp } from '../../codegen/signalTimeCpp'
+import { clockCpp, envelopeCpp, noiseSignalCpp, scheduleTriggerCpp } from '../../codegen/signalControlCpp'
 
 export const SIGNAL_EMITTERS: NodeEmitters = {
   TimeNode({ id, ln, needsT }) {
@@ -12,7 +12,8 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
   Wave({ p, ln, v, f, needsT }) {
     needsT.v = true
     waveCpp(v('result'), String(p.waveform ?? 'sine'), f('amplitude', 'amplitude', 1),
-      f('frequency', 'frequency', 1), f('phase', 'phase', 0), 't').forEach(ln)
+      waveHzCpp(p.rateUnit, () => f('frequency', 'frequency', 1), () => f('bpm', 'bpm', 60)), f('phase', 'phase', 0), 't',
+      { unipolar: p.unipolar === true, offset: f('offset', 'offset', 0) }).forEach(ln)
   },
   // Metronome — a boolean pulse every `interval` seconds, via a millis timer.
   // Mirrors the stateful `Interval` case in graphEvaluator.ts.
@@ -71,10 +72,6 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
       max: f('max', 'max', 1),
     }, p).forEach(ln)
   },
-  Counter({ id, ln, v, f, needsT }) {
-    needsT.v = true
-    counterCpp(id, v, f('rate', 'rate', 0.5), 't').forEach(ln)
-  },
   // Trigger envelope — optional linear attack to 1 on a rising edge, then
   // linear decay to 0; outputs 0 until the first trigger.
   Envelope({ node, id, p, ln, v, f, incoming, boolExpr }) {
@@ -87,12 +84,6 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
       attack: f('attack', 'attack', attackMs / 1000),
       decay: f('decay', 'decay', decayMs / 1000),
     }, p, incoming.has(`${node.id}:attack`)).forEach(ln)
-  },
-  BeatSin({ id, p, ln, v, f }) {
-    const bpmProp = Number(p.bpm ?? 60)
-    // `f` would emit NaN for a non-numeric stored bpm, so the sanitised
-    // value is what it falls back to.
-    beatSinCpp(id, v, { bpm: f('bpm', 'bpm', Number.isFinite(bpmProp) ? bpmProp : 60) }, p).forEach(ln)
   },
   // Free-running BPM clock/transport — millis()-based, mirroring the
   // stateful `Clock` case in graphEvaluator.ts (same tap/sync EMA and

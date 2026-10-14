@@ -183,7 +183,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     // `transitions` input — when wired, generateShow mixes these into its
     // rule-based crossfade/wipe/dissolve picks instead of only ever using those three.
     type: 'TransitionSet',
-    label: 'Transitions',
+    label: 'Transition Pool',
     category: 'show',
     inputs: [],
     outputs: [{ id: 'transitions', label: 'Transitions', dataType: 'transitionset' }],

@@ -13,7 +13,7 @@ import {
 describe('signalRange', () => {
   it('names the domain a 0-1 signal has to be mapped into', () => {
     // The three docs/development/patterns/graph-and-nodes.md calls out by name.
-    expect(signalRangeMismatch('Fire2012', 'sparking')).toEqual({ min: 0, max: 255 })
+    expect(signalRangeMismatch('Fire', 'sparking')).toEqual({ min: 0, max: 255 })
     expect(signalRangeMismatch('ReactionDiffusion', 'feed')).toEqual({ min: 0, max: 0.1 })
     expect(signalRangeMismatch('Starfield', 'count')).toEqual({ min: 8, max: 300 })
     expect(formatSignalRange({ min: 0, max: 255 })).toBe('0–255')
@@ -49,8 +49,8 @@ describe('signalRange', () => {
 
   it('says nothing about an input with no bounded domain of its own', () => {
     expect(signalRangeMismatch('MapRange', 'value')).toBeNull()
-    expect(signalRangeMismatch('Fire2012', 'paletteIn')).toBeNull()
-    expect(signalRangeMismatch('Fire2012', null)).toBeNull()
+    expect(signalRangeMismatch('Fire', 'paletteIn')).toBeNull()
+    expect(signalRangeMismatch('Fire', null)).toBeNull()
   })
 
   it('lists only outputs that really exist and really are 0-1', () => {
@@ -72,14 +72,24 @@ describe('signalRange', () => {
 
   it('leaves a normalised source pointed at a 0-1 input alone', () => {
     // paletteMix is 0-1, so an audio band drives it exactly as intended.
-    expect(inputClampRange('Fire2012', 'paletteMix')).toEqual({ min: 0, max: 1 })
-    expect(signalRangeMismatch('Fire2012', 'paletteMix')).toBeNull()
+    expect(inputClampRange('Fire', 'paletteMix')).toEqual({ min: 0, max: 1 })
+    expect(signalRangeMismatch('Fire', 'paletteMix')).toBeNull()
   })
 
   it('carries StepValue authored bounds into range comparisons', () => {
     const source = outputSignalRange('StepValue', 'value', { minimum: 1, maximum: 8 })
     expect(source).toEqual({ min: 1, max: 8 })
     expect(signalRangeMismatch('Juggle', 'count', source!)).toBeNull()
-    expect(signalRangeMismatch('Fire2012', 'sparking', source!)).toEqual({ min: 0, max: 255 })
+    expect(signalRangeMismatch('Fire', 'sparking', source!)).toEqual({ min: 0, max: 255 })
+  })
+
+  it('derives a Wave result range from its amplitude, offset and polarity', () => {
+    expect(outputSignalRange('Wave', 'result', {})).toEqual({ min: -1, max: 1 })
+    expect(outputSignalRange('Wave', 'result', { amplitude: 2, offset: 1 })).toEqual({ min: -1, max: 3 })
+    // A unipolar wave runs Offset to Offset + Amplitude: the old BeatSin low/high.
+    const beat = outputSignalRange('Wave', 'result', { unipolar: true, amplitude: 255, offset: 0 })
+    expect(beat).toEqual({ min: 0, max: 255 })
+    expect(signalRangeMismatch('Fire', 'sparking', beat!)).toBeNull()
+    expect(outputSignalRange('Wave', 'result', { amplitude: Number.NaN })).toBeNull()
   })
 })

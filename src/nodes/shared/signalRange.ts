@@ -2,7 +2,7 @@
 //
 // `num()` in graphEvaluator.ts passes a wired value straight through. Only the
 // `speed`/`scale` class is stretched onto the node's own rate for you, by
-// speedRange.ts. So an audio band wired into Fire2012's Sparking sets it to
+// speedRange.ts. So an audio band wired into Fire's Sparking sets it to
 // about 1 out of 255 and the fire never lights, into ReactionDiffusion's Feed
 // it lands ten times past a usable 0.03–0.065, and into Starfield's Count it
 // asks for one star. Nothing errors, nothing looks disconnected, and the graph
@@ -28,6 +28,7 @@
 
 import { inputClampRange } from '../../state/nodeLibrary'
 import { normalizeStepValueSettings } from './stepValue'
+import { waveRange } from '../signal/wave'
 
 export interface SignalRange { min: number; max: number }
 
@@ -69,6 +70,11 @@ export function outputSignalRange(
 ): SignalRange | null {
   if (!portId) return null
   if (isNormalizedOutput(nodeType, portId)) return { min: 0, max: 1 }
+  if (nodeType === 'Wave' && portId === 'result') {
+    const amplitude = Number(properties.amplitude ?? 1), offset = Number(properties.offset ?? 0)
+    if (!Number.isFinite(amplitude) || !Number.isFinite(offset)) return null
+    return waveRange(amplitude, { unipolar: properties.unipolar === true, offset })
+  }
   if (nodeType === 'StepValue' && portId === 'value') {
     const settings = normalizeStepValueSettings(properties)
     return { min: settings.minimum, max: settings.maximum }

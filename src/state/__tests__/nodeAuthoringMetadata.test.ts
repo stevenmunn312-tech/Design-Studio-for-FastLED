@@ -24,7 +24,7 @@ describe('palette producers', () => {
     expect([...PALETTE_BUILDER_NODE_TYPES].sort())
       .toEqual(['CustomPalette', 'HarmonyPalette', 'PaletteBank', 'PaletteBlend', 'PaletteFromImage', 'PaletteTransform', 'Poline'])
     expect(isPaletteBuilderNodeType('PaletteSelector')).toBe(false)
-    expect(isPaletteBuilderNodeType('Fire2012')).toBe(false)
+    expect(isPaletteBuilderNodeType('Fire')).toBe(false)
   })
 
   it('leaves no palette producer unclassified', () => {

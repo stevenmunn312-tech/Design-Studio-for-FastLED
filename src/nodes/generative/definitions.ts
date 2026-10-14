@@ -9,7 +9,8 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     // Bundled noise generators — `noiseType` selects the algorithm. The
     // variants share the same speed/scale/palette controls, expose a raw scalar
     // `field`, and also map that field through a palette to the normal `frame`
-    // output. See PROPERTY_META.noiseType.
+    // output. See PROPERTY_META.noiseType. `octaves` belongs to fbm and
+    // `frequency`/`orientation` to gabor (isPropertyEnabled gates them).
     type: 'Noise',
     label: 'Noise',
     category: 'pattern',
@@ -18,13 +19,22 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'octaves', label: 'Octaves', dataType: 'float' },
+      { id: 'frequency', label: 'Frequency', dataType: 'float' },
+      { id: 'orientation', label: 'Orientation', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn' },
+    propertyInputs: {
+      speed: 'speed', scale: 'scale', palette: 'paletteIn',
+      octaves: 'octaves', frequency: 'frequency', orientation: 'orientation',
+    },
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
-    defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false, noiseShape: 'plain', worleyMode: 'f1' },
+    defaultProperties: {
+      noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false, noiseShape: 'plain', worleyMode: 'f1',
+      octaves: 4, frequency: 1.2, orientation: 45,
+    },
   },
   {
     type: 'Plasma',
@@ -328,58 +338,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.5, arms: 2, palette: 'rainbow' },
   },
-  {
-    type: 'Kaleidoscope',
-    label: 'Kaleidoscope',
-    category: 'pattern',
-    subcategory: 'Generative',
-    inputs: [
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'segments', label: 'Segments', dataType: 'float' },
-    ],
-    propertyInputs: { segments: 'segments' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { segments: 6 },
-  },
 
-  // ── Proper noise (Simplex2D / Noise3D / Worley / PlasmaFractal folded into
-  //    the bundled `Noise` node above) ───────────────────────────────────────
-  {
-    // Fractal (fBm) noise — summed octaves for detailed, cloud-like motion.
-    type: 'FractalNoise',
-    label: 'Fractal Noise',
-    category: 'pattern',
-    subcategory: 'Generative',
-    inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-      { id: 'octaves', label: 'Octaves', dataType: 'float' },
-    ],
-    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn', octaves: 'octaves' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, palette: 'forest', seed: 0, noiseShape: 'plain' },
-  },
-  {
-    // Gabor noise — sparse-convolution oriented bands through a palette.
-    type: 'GaborNoise',
-    label: 'Gabor Noise',
-    category: 'pattern',
-    subcategory: 'Generative',
-    inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-      { id: 'frequency', label: 'Frequency', dataType: 'float' },
-      { id: 'orientation', label: 'Orientation', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-    ],
-    propertyInputs: {
-      speed: 'speed', scale: 'scale', frequency: 'frequency',
-      orientation: 'orientation', palette: 'paletteIn',
-    },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.33, scale: 0.7, frequency: 1.2, orientation: 45, palette: 'ocean', seed: 0 },
-  },
   {
     // Metaballs — merging lava-lamp blobs from summed inverse-square fields.
     type: 'Blobs',
@@ -399,7 +358,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
-  Noise: 'Bundled noise variants with frame and raw field outputs.',
+  Noise: 'Noise from smooth fields to fBm clouds and Gabor bands, as frame and field.',
   Plasma: 'Animated plasma interference pattern through a palette.',
   Rainbow: 'FastLED fill_rainbow — a scrolling hue sweep across the matrix.',
   Pride2015: 'Shifting rainbow with a breathing brightness wave.',
@@ -419,8 +378,5 @@ export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
   Juggle: 'N sine-driven dots with trails; count 1 gives the Sinelon case.',
   RadialBurst: 'Rings bursting from the center.',
   Spiral: 'Rotating spiral arms.',
-  Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
-  FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
-  GaborNoise: 'Gabor noise — oriented bands via sparse convolution.',
   Blobs: 'Metaballs — merging lava-lamp blobs.',
 }

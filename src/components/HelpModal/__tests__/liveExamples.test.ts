@@ -74,24 +74,23 @@ describe('node-reference live examples', () => {
     }
   })
 
-  it('keeps the catalogue varied without falling back to Counter everywhere', () => {
+  it('keeps the catalogue varied without falling back to Wave everywhere', () => {
     const examples = NODE_LIBRARY.map(liveExampleForNode)
     const sourceTypes = new Set<string>()
-    let counterOccurrences = 0
+    let waveExamples = 0
     let microphoneExamples = 0
 
     examples.forEach((example) => {
       if (exampleUsesMicrophone(example)) microphoneExamples++
-      example.nodes.forEach((node) => {
-        sourceTypes.add(node.type)
-        if (node.type === 'Counter') counterOccurrences++
-      })
+      if (example.nodes.some((node) => node.type === 'Wave')) waveExamples++
+      example.nodes.forEach((node) => sourceTypes.add(node.type))
     })
 
-    // Counter appears only as the featured node in its own article. The rest
-    // of the catalogue deliberately uses BeatSin, Wave, Random + Sample &
-    // Hold, Interval, Clock, device controls, and audio analyzers.
-    expect(counterOccurrences).toBe(1)
+    // Wave absorbed Counter and BeatSin, so it is the one easy fallback
+    // driver. It stays a minority: the rest of the catalogue deliberately
+    // uses Random + Sample & Hold, Interval, Clock, device controls, and
+    // audio analyzers.
+    expect(waveExamples).toBeLessThan(examples.length / 2)
     expect(sourceTypes.size).toBeGreaterThanOrEqual(50)
     expect(microphoneExamples).toBeGreaterThanOrEqual(24)
   })

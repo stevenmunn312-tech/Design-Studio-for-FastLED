@@ -437,10 +437,10 @@ const WARMUP_TICKS = 240                   // ~4 s so stateful sims settle
 
 // Shape-drawing nodes read best with their optional base frame left unwired;
 // this affects evaluation only, not the shared emitter styling below.
-const UNWIRED_FRAME_INPUT_PREVIEW_TYPES = new Set(['Circle', 'Shape', 'Line', 'Path'])
+const UNWIRED_FRAME_INPUT_PREVIEW_TYPES = new Set(['Shape', 'Line', 'Path'])
 const STOCHASTIC_PREVIEW_TYPES = new Set([
-  'Noise', 'Fire', 'Fire2012', 'TwinkleFox', 'Confetti', 'Juggle', 'Particles',
-  'FractalNoise', 'GaborNoise', 'FlowField', 'Starfield', 'Boids',
+  'Noise', 'Fire', 'TwinkleFox', 'Confetti', 'Juggle', 'Particles',
+  'FlowField', 'Starfield', 'Boids',
   'ReactionDiffusion', 'GameOfLife', 'FieldNoise', 'WaveSim',
 ])
 

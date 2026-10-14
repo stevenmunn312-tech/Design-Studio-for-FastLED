@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { NODE_LIBRARY, CATEGORIES } from '../nodeLibrary'
+import { NODE_LIBRARY, CATEGORIES, HARDWARE_CATEGORY } from '../nodeLibrary'
 
 // The README advertises a module count in three separate places and lists
 // every module by category. That list drifted silently twice — it sat at 151
@@ -25,6 +25,7 @@ const README_HEADINGS: Record<string, string> = {
   Effects: 'composite',
   Show: 'show',
   Output: 'output',
+  Hardware: 'hardware',
   Notes: 'note',
 }
 
@@ -36,7 +37,7 @@ function readmeModules(heading: string): string[] {
 
 describe('README module list', () => {
   it('covers every category in NODE_LIBRARY', () => {
-    expect(Object.values(README_HEADINGS).sort()).toEqual(CATEGORIES.map((c) => c.id).sort())
+    expect(Object.values(README_HEADINGS).sort()).toEqual([...CATEGORIES, HARDWARE_CATEGORY].map((c) => c.id).sort())
   })
 
   it.each(Object.entries(README_HEADINGS))('lists exactly the %s modules', (heading, categoryId) => {

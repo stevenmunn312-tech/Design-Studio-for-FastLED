@@ -306,7 +306,7 @@ describe('HelpModal session state', () => {
     expect(settings.some((s) => s.startsWith('Form'))).toBe(false)
   })
 
-  it.each(['BeatDetect', 'SpectrumBars'])('forces real audio for the %s live example', (selectedType) => {
+  it.each(['BeatDetect', 'SpectrumVisualizer'])('forces real audio for the %s live example', (selectedType) => {
     useUiStore.setState({
       helpTab: 'nodes',
       helpNodeReference: {

@@ -5,23 +5,6 @@ import type { NodeDefinition } from '../../types'
 
 export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
   {
-    type: 'SpectrumBars',
-    label: 'Spectrum Bars',
-    category: 'pattern',
-    subcategory: 'Audio-Reactive',
-    inputs: [
-      { id: 'bass', label: 'Bass', dataType: 'float' },
-      { id: 'mids', label: 'Mids', dataType: 'float' },
-      { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
-      { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-    ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 0.6, palette: 'rainbow', mirror: true },
-  },
-  {
     // A single VU bar for any 0–1 level: lit from the start, the end or the
     // centre of the chosen axis, coloured along the palette, with a peak
     // marker that holds then falls. Every row (or column) shows the same bar.
@@ -40,8 +23,10 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Full equalizer display driven directly from the shared microphone
-    // spectrum. Unlike SpectrumBars' deliberately stylised three-band motion,
-    // this preserves the individual frequency bins in preview and firmware.
+    // spectrum, preserving the individual frequency bins in preview and
+    // firmware. The Three Band style is the stylised one: three bars with a
+    // ripple and shimmer, read from Bass/Mids/Treble where those are wired and
+    // from the spectrum's thirds where they are not.
     type: 'SpectrumVisualizer',
     label: 'Spectrum Visualizer',
     category: 'pattern',
@@ -55,6 +40,11 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'peakHold', label: 'Peak Hold', dataType: 'float' },
       { id: 'peakGravity', label: 'Peak Gravity', dataType: 'float' },
       { id: 'waterfallSpeed', label: 'Waterfall Speed', dataType: 'float' },
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
     ],
     // `bands` is deliberately absent: it sizes the band array the generator
     // emits and composes literals of its own, so there is nothing for a wire
@@ -64,11 +54,13 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       gain: 'gain', smoothing: 'smoothing', tilt: 'tilt',
       peakHold: 'peakHold', peakGravity: 'peakGravity',
       waterfallSpeed: 'waterfallSpeed',
+      energy: 'energy', speed: 'speed',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
       peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
+      energy: 0.7, speed: 0.6, mirror: true,
     },
   },
 
@@ -590,9 +582,8 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const AUDIO_REACTIVE_DESCRIPTIONS: Record<string, string> = {
-  SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   LevelMeter: 'One VU bar for any 0–1 level, with a palette fill and a peak marker.',
-  SpectrumVisualizer: 'Full-spectrum bars, ribbon, orbit, mirror, or waterfall display.',
+  SpectrumVisualizer: 'Spectrum as bars, ribbon, orbit, mirror, waterfall or three stylised bands.',
   Waveform: 'Raw audio waveform as a line, filled, mirror, or ring trace over a base.',
   BassPulse: 'Pulses a palette colour with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',

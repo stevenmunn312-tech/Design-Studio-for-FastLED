@@ -1,6 +1,7 @@
 import { audioFlowExpr } from '../../state/audio/audioFlowRange'
 import { animartrixCppLines } from '../../animartrix/codegen'
-import type { NodeEmitters } from '../../codegen/emitContext'
+import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
+import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
@@ -9,6 +10,75 @@ import {
 } from '../../state/evaluator/waveform'
 import { BEAT_FLASH_ATTACK_MAX_SEC, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN } from './evaluate'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterOrigin } from './levelMeter'
+
+/**
+ * Spectrum Visualizer's Three Band style. A wired band wins; an unwired one
+ * is that third of the resampled spectrum, the split FFT Analyzer makes.
+ */
+function threeBandCpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT, hasExplicitAudioInput }: EmitContext): void {
+  needsT.v = true
+  const ob = ownBuf()
+  const bands = Math.max(4, Math.min(32, Math.round(Number(p.bands ?? 16))))
+  const audioConnected = hasExplicitAudioInput(node.id)
+  const thirds = spectrumThirdBounds(bands)
+  const band = (port: string, i: number) => {
+    if (incoming.has(`${node.id}:${port}`)) return f(port, port, 0)
+    const [from, to] = thirds[i]
+    return `constrain((${Array.from({ length: to - from }, (_, k) => `_svBands[${from + k}]`).join('+')})/${(to - from).toFixed(1)}f*_svGain,0.0f,1.0f)`
+  }
+  const energy = f('energy', 'energy', 0.7)
+  const speed = f('speed', 'speed', 0.6)
+  const pal = paletteExpr(node.id, 'paletteIn', p)
+  const mirror = p.mirror !== false
+  ln(`  { // SpectrumVisualizer · Three Band`)
+  ln(`    float _svGain=constrain(${f('gain', 'gain', 1.25)},0.25f,4.0f);`)
+  ln(`    float _svBands[${bands}]={0};`)
+  ln(`    for(int _b=0;_b<${bands};_b++){ int _lo=(_b*32)/${bands},_hi=max(_lo+1,((_b+1)*32)/${bands}); float _sum=0.0f; for(int _i=_lo;_i<_hi;_i++) _sum+=${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; _svBands[_b]=_sum/(_hi-_lo); }`)
+  const bass = band('bass', 0), mids = band('mids', 1), treble = band('treble', 2)
+  ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+  ln(`    float _b = min(1.0f, max(0.0f, ${bass})), _m = min(1.0f, max(0.0f, ${mids})), _t = min(1.0f, max(0.0f, ${treble}));`)
+  ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
+  ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
+  ln(`    const int _cols = max(1, ${mirror ? '((WIDTH + 1) / 2)' : 'WIDTH'});`)
+  ln(`    float _levels[3] = { _b, _m, _t };`)
+  ln(`    float _geomRate = 0.45f + _spd * 3.2f;`)
+  const phRipple = speedPhaseCpp(ln, phaseTag(id, 'ripple'), '_geomRate * (1.1f + _t * 1.8f)')
+  const phShimmer = speedPhaseCpp(ln, phaseTag(id, 'shimmer'), '_geomRate * (2.0f + _m * 2.5f)')
+  const phPulse = speedPhaseCpp(ln, phaseTag(id, 'pulse'), '_geomRate * (1.4f + _b * 1.6f)')
+  const phPalette = speedPhaseCpp(ln, phaseTag(id, 'palette'), '0.08f + _spd * 0.42f')
+  ln(`    float _paletteScroll = ${phPalette};`)
+  ln(`    for (int _x = 0; _x < _cols; _x++) {`)
+  ln(`      float _nx = _cols <= 1 ? 0.0f : (float)_x / (float)(_cols - 1);`)
+  ln(`      float _spec = _nx * 2.0f;`)
+  ln(`      int _left = (int)floorf(_spec);`)
+  ln(`      int _right = min(2, _left + 1);`)
+  ln(`      float _mix = _spec - (float)_left;`)
+  ln(`      float _base = _levels[_left] * (1.0f - _mix) + _levels[_right] * _mix;`)
+  ln(`      float _ripple = sinf(_nx * 10.5f - ${phRipple}) * 0.08f * _strength;`)
+  ln(`      float _shimmer = max(0.0f, sinf(_nx * 21.0f + ${phShimmer})) * 0.06f * _t * _strength;`)
+  ln(`      float _level = min(1.0f, max(0.0f, _base * (0.45f + _strength * 0.9f) + _ripple + _shimmer));`)
+  ln(`      int _barH = max(0, (int)roundf(_level * HEIGHT));`)
+  ln(`      for (int _row = 0; _row < _barH; _row++) {`)
+  ln(`        int _y = HEIGHT - 1 - _row;`)
+  ln(`        float _vertical = HEIGHT <= 1 ? 0.0f : (float)_row / (float)(HEIGHT - 1);`)
+  ln(`        float _pulse = 0.72f + 0.28f * sinf(_vertical * 6.2f - ${phPulse});`)
+  ln(`        float _v = min(1.0f, max(0.0f, (0.28f + _vertical * 0.72f) * _pulse));`)
+  ln(`        float _pt = _nx + _paletteScroll + _vertical * (0.12f + _m * 0.12f) + _spec * 0.08f;`)
+  ln(`        CRGB _px = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
+  ln(`        _px.nscale8((uint8_t)(_v * 255));`)
+  ln(`        ${ob}[_y * WIDTH + _x] = _px;`)
+  if (mirror) ln(`        ${ob}[_y * WIDTH + (WIDTH - 1 - _x)] = _px;`)
+  ln(`      }`)
+  ln(`      if (_barH > 0) {`)
+  ln(`        int _peakY = max(0, HEIGHT - _barH);`)
+  ln(`        CRGB _peak = ColorFromPalette(${pal}, (uint8_t)((_nx + _paletteScroll + _spec * 0.08f) * 255));`)
+  ln(`        _peak.nscale8((uint8_t)(min(1.0f, 0.6f + _t * 0.35f + _strength * 0.2f) * 255));`)
+  ln(`        ${ob}[_peakY * WIDTH + _x] = _peak;`)
+  if (mirror) ln(`        ${ob}[_peakY * WIDTH + (WIDTH - 1 - _x)] = _peak;`)
+  ln(`      }`)
+  ln(`    }`)
+  ln(`  }`)
+}
 
 export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
   // Keep in lockstep with the `LevelMeter` evaluator: fill, origin distance
@@ -29,63 +99,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      if(_pc>=0&&(int)floorf(_d)==_pc) _px=_pkc; else if(_d>=_fill) _px=CRGB::Black; else _px=ColorFromPalette(${pal},(uint8_t)((_span>1.0f?_d/(_span-1.0f):0.0f)*255.0f),255,LINEARBLEND_NOWRAP);`)
     ln(`      ${ob}[_y*WIDTH+_x]=_px; } }`)
   },
-  SpectrumBars({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
-    needsT.v = true
-    const ob = ownBuf()
-    // Test Signal is preview-only; an unwired firmware pattern rests at 0.
-    const bass = f('bass', 'bass', 0)
-    const mids = f('mids', 'mids', 0)
-    const treble = f('treble', 'treble', 0)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 0.6)
-    const pal = paletteExpr(node.id, 'paletteIn', p)
-    const mirror = p.mirror !== false
-    ln(`  {`)
-    ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-    ln(`    float _b = min(1.0f, max(0.0f, ${bass})), _m = min(1.0f, max(0.0f, ${mids})), _t = min(1.0f, max(0.0f, ${treble}));`)
-    ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
-    ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
-    ln(`    const int _cols = max(1, ${mirror ? '((WIDTH + 1) / 2)' : 'WIDTH'});`)
-    ln(`    float _levels[3] = { _b, _m, _t };`)
-    ln(`    float _geomRate = 0.45f + _spd * 3.2f;`)
-    const phRipple = speedPhaseCpp(ln, phaseTag(id, 'ripple'), '_geomRate * (1.1f + _t * 1.8f)')
-    const phShimmer = speedPhaseCpp(ln, phaseTag(id, 'shimmer'), '_geomRate * (2.0f + _m * 2.5f)')
-    const phPulse = speedPhaseCpp(ln, phaseTag(id, 'pulse'), '_geomRate * (1.4f + _b * 1.6f)')
-    const phPalette = speedPhaseCpp(ln, phaseTag(id, 'palette'), '0.08f + _spd * 0.42f')
-    ln(`    float _paletteScroll = ${phPalette};`)
-    ln(`    for (int _x = 0; _x < _cols; _x++) {`)
-    ln(`      float _nx = _cols <= 1 ? 0.0f : (float)_x / (float)(_cols - 1);`)
-    ln(`      float _spec = _nx * 2.0f;`)
-    ln(`      int _left = (int)floorf(_spec);`)
-    ln(`      int _right = min(2, _left + 1);`)
-    ln(`      float _mix = _spec - (float)_left;`)
-    ln(`      float _base = _levels[_left] * (1.0f - _mix) + _levels[_right] * _mix;`)
-    ln(`      float _ripple = sinf(_nx * 10.5f - ${phRipple}) * 0.08f * _strength;`)
-    ln(`      float _shimmer = max(0.0f, sinf(_nx * 21.0f + ${phShimmer})) * 0.06f * _t * _strength;`)
-    ln(`      float _level = min(1.0f, max(0.0f, _base * (0.45f + _strength * 0.9f) + _ripple + _shimmer));`)
-    ln(`      int _barH = max(0, (int)roundf(_level * HEIGHT));`)
-    ln(`      for (int _row = 0; _row < _barH; _row++) {`)
-    ln(`        int _y = HEIGHT - 1 - _row;`)
-    ln(`        float _vertical = HEIGHT <= 1 ? 0.0f : (float)_row / (float)(HEIGHT - 1);`)
-    ln(`        float _pulse = 0.72f + 0.28f * sinf(_vertical * 6.2f - ${phPulse});`)
-    ln(`        float _v = min(1.0f, max(0.0f, (0.28f + _vertical * 0.72f) * _pulse));`)
-    ln(`        float _pt = _nx + _paletteScroll + _vertical * (0.12f + _m * 0.12f) + _spec * 0.08f;`)
-    ln(`        CRGB _px = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
-    ln(`        _px.nscale8((uint8_t)(_v * 255));`)
-    ln(`        ${ob}[_y * WIDTH + _x] = _px;`)
-    if (mirror) ln(`        ${ob}[_y * WIDTH + (WIDTH - 1 - _x)] = _px;`)
-    ln(`      }`)
-    ln(`      if (_barH > 0) {`)
-    ln(`        int _peakY = max(0, HEIGHT - _barH);`)
-    ln(`        CRGB _peak = ColorFromPalette(${pal}, (uint8_t)((_nx + _paletteScroll + _spec * 0.08f) * 255));`)
-    ln(`        _peak.nscale8((uint8_t)(min(1.0f, 0.6f + _t * 0.35f + _strength * 0.2f) * 255));`)
-    ln(`        ${ob}[_peakY * WIDTH + _x] = _peak;`)
-    if (mirror) ln(`        ${ob}[_peakY * WIDTH + (WIDTH - 1 - _x)] = _peak;`)
-    ln(`      }`)
-    ln(`    }`)
-    ln(`  }`)
-  },
-  SpectrumVisualizer({ node, id, p, ln, f, ownBuf, hasExplicitAudioInput, paletteExpr }) {
+  SpectrumVisualizer(ctx) {
+    if (ctx.p.style === 'Three Band') { threeBandCpp(ctx); return }
+    const { node, id, p, ln, f, ownBuf, hasExplicitAudioInput, paletteExpr } = ctx
     const ob = ownBuf()
     const style = String(p.style ?? 'Bars')
     // `bands` sizes a stack array and composes literals of its own

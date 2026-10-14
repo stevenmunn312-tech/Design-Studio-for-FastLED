@@ -966,12 +966,14 @@ describe('generateCpp', () => {
     expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, n_hc_color);')
   })
 
-  it('emits BeatSin node with bpm/low/high', () => {
-    const bs = node('b', 'BeatSin', 'math', { bpm: 120, low: 0, high: 1 })
+  it('emits a BPM-rate unipolar Wave with its low/high range', () => {
+    // The old BeatSin{bpm,low,high}: a unipolar sine on a BPM rate, scaled by
+    // high-low (amplitude) and lifted by low (offset).
+    const bs = node('b', 'Wave', 'signal', { rateUnit: 'BPM', bpm: 120, unipolar: true, amplitude: 1, offset: 0 })
     const cpp = generateCpp([bs], [])
-    // BPM reads wire-then-property, so it arrives as a bounded expression.
-    expect(cpp).toContain('t * (fmaxf(1.0f,120) / 60.0f)')
-    expect(cpp).toContain('n_b_value = 0.000f + ((sinf(_phase_b * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
+    // BPM reads wire-then-property, then converts to Hz.
+    expect(cpp).toContain('t * (((120) / 60.0f))')
+    expect(cpp).toContain('n_b_result = (1) * ((sinf(6.2831853f * _arg) + 1.0f) * 0.5f);')
   })
 
   it('emits Noise LFO as inoise16 fBm over time with a wrapped phase', () => {
@@ -986,7 +988,10 @@ describe('generateCpp', () => {
   })
 
   it('resolves matrix expressions before emitting scalar properties', () => {
-    const bs = node('bx', 'BeatSin', 'math', { bpm: 80, low: 'center_y', high: 'num_leds / 8' })
+    // The old BeatSin{low: 'center_y', high: 'num_leds / 8'} is now a BPM Wave
+    // whose offset/amplitude are sliders, which take numbers rather than
+    // expressions, so the matrix expressions are carried by Random here.
+    const bs = node('bx', 'Wave', 'signal', { rateUnit: 'BPM', bpm: 80, unipolar: true, offset: 3.5, amplitude: 4.5 })
     const random = node('rx', 'Random', 'signal', { min: 'max_x', max: 'w + h' })
     const sc = node('sc', 'SolidColor', 'pattern', {})
     const b1 = node('b1', 'BrightnessMod', 'composite', {})
@@ -995,12 +1000,11 @@ describe('generateCpp', () => {
       edge('e1', 'sc', 'b1', 'frame', 'frame'),
       edge('e2', 'b1', 'b2', 'frame', 'frame'),
       edge('e3', 'b2', 'out', 'frame', 'frame'),
-      edge('e4', 'bx', 'b1', 'value', 'brightness'),
+      edge('e4', 'bx', 'b1', 'result', 'brightness'),
       edge('e5', 'rx', 'b2', 'value', 'brightness'),
     ])
-    expect(cpp).toContain('fmaxf(1.0f,80) / 60.0f')
-    expect(cpp).toContain('3.500f')
-    expect(cpp).toContain('(8.000f - 3.500f)')
+    expect(cpp).toContain('((80) / 60.0f)')
+    expect(cpp).toContain('n_bx_result = (3.5) + (4.5) * ((sinf(6.2831853f * _arg) + 1.0f) * 0.5f);')
     expect(cpp).toContain('float n_rx_value = 7.0f + (random16() / 65535.0f) * 9.0f;')
   })
 
@@ -1173,12 +1177,12 @@ describe('generateCpp', () => {
 
   it('uses a runtime loop bound when count/angle are wired', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-    const cnt = node('cnt', 'Counter', 'signal', { rate: 1 })
+    const cnt = node('cnt', 'Wave', 'signal', { waveform: 'sawtooth', unipolar: true, frequency: 1 })
     const ang = node('ang', 'TimeNode', 'signal', {})
     const arr = node('arr', 'Array', 'composite', { count: 5, angle: 0, blendMode: 'add' })
     const cpp = generateCpp([sc, cnt, ang, arr, outputNode], [
       edge('e1', 'sc', 'arr', 'frame', 'frame'),
-      edge('e2', 'cnt', 'arr', 'value', 'count'),
+      edge('e2', 'cnt', 'arr', 'result', 'count'),
       edge('e3', 'ang', 'arr', 'time', 'angle'),
       edge('e4', 'arr', 'out', 'frame', 'frame'),
     ])
@@ -1265,18 +1269,23 @@ describe('generateCpp', () => {
   })
 
   it('emits Fire2012 heat simulation coloured through its palette', () => {
-    const fire = node('f', 'Fire2012', 'pattern', { cooling: 55, sparking: 120, palette: 'heat' })
+    const fire = node('f', 'Fire', 'pattern', { fireStyle: 'fire2012', cooling: 55, sparking: 120, palette: 'heat' })
     const cpp = generateCpp([fire], [])
     expect(cpp).toContain('Fire2012')
-    // Default 'heat' palette reproduces the classic HeatColors fire ramp.
+    expect(cpp).toContain('_heat_f')
+    // The 'heat' palette reproduces the classic HeatColors fire ramp.
     expect(cpp).toContain('ColorFromPalette(paldef_heat, _h)')
   })
 
-  describe.each(['Fire', 'Fire2012'] as const)('%s extra controls', (type) => {
+  describe.each([
+    ['Fire', {}],
+    ['Fire2012', { fireStyle: 'fire2012' }],
+  ] as const)('%s extra controls', (_label, style) => {
+    const fireNode = (props: Record<string, unknown> = {}) => node('f', 'Fire', 'pattern', { ...style, ...props })
     it('direction picks which macro is the primary (flame-base) axis', () => {
-      const up = generateCpp([node('f', type, 'pattern', { direction: 'up' })], [])
+      const up = generateCpp([fireNode({ direction: 'up' })], [])
       expect(up).toContain('[HEIGHT][WIDTH]')
-      const left = generateCpp([node('f', type, 'pattern', { direction: 'left' })], [])
+      const left = generateCpp([fireNode({ direction: 'left' })], [])
       expect(left).toContain('[WIDTH][HEIGHT]')
       // 'left' bases at the right edge, mapping x = WIDTH-1-p.
       expect(left).toContain('WIDTH-1-(_p)')
@@ -1285,8 +1294,8 @@ describe('generateCpp', () => {
     it('turbulence widens the sideways diffusion window', () => {
       // The window is a loop bound and a divisor, never an array size, so the
       // knob reads from a per-frame local and the value is in its initialiser.
-      const narrow = generateCpp([node('f', type, 'pattern', { turbulence: 0 })], [])
-      const wide = generateCpp([node('f', type, 'pattern', { turbulence: 2 })], [])
+      const narrow = generateCpp([fireNode({ turbulence: 0 })], [])
+      const wide = generateCpp([fireNode({ turbulence: 2 })], [])
       expect(narrow).toContain('int _fireSpread_f=(int)constrain(0,0.0f,2.0f)')
       expect(wide).toContain('int _fireSpread_f=(int)constrain(2,0.0f,2.0f)')
       for (const cpp of [narrow, wide]) {
@@ -1299,11 +1308,11 @@ describe('generateCpp', () => {
       // Wiring the knob means the generator can no longer pick between the two
       // blocks, so the mix arm is emitted with a live factor. Left unwired at
       // its default it still emits the plain assignment and costs nothing.
-      const plain = generateCpp([node('f', type, 'pattern', {})], [])
+      const plain = generateCpp([fireNode()], [])
       expect(plain).not.toContain('_pmix')
       const lfo = node('lfo', 'LFO', 'input', {})
       const wired = generateCpp(
-        [lfo, node('f', type, 'pattern', {})],
+        [lfo, fireNode()],
         [edge('e', 'lfo', 'f', 'value', 'paletteMix')],
       )
       expect(wired).toContain('float _pmix=constrain(n_lfo_value,0.0f,1.0f)')
@@ -1311,20 +1320,20 @@ describe('generateCpp', () => {
     })
 
     it('paletteMix<1 blends the palette colour with heat-brightness grayscale', () => {
-      const cpp = generateCpp([node('f', type, 'pattern', { paletteMix: 0.25 })], [])
+      const cpp = generateCpp([fireNode({ paletteMix: 0.25 })], [])
       expect(cpp).toContain('_h*0.75f+_c.r*0.25f')
     })
 
     it('mirror folds the rendered buffer symmetric across its width', () => {
-      const cpp = generateCpp([node('f', type, 'pattern', { mirror: true })], [])
+      const cpp = generateCpp([fireNode({ mirror: true })], [])
       expect(cpp).toContain('WIDTH-1-_x')
     })
 
     it('a nonzero seed emits a per-instance LCG instead of random8()', () => {
-      const seeded = generateCpp([node('f', type, 'pattern', { seed: 7 })], [])
+      const seeded = generateCpp([fireNode({ seed: 7 })], [])
       expect(seeded).toContain('_fireLcg_f = 7u')
       expect(seeded).not.toContain('random8()/255.0f')
-      const unseeded = generateCpp([node('f', type, 'pattern', {})], [])
+      const unseeded = generateCpp([fireNode()], [])
       expect(unseeded).not.toContain('_fireLcg_f')
       expect(unseeded).toContain('random8()/255.0f')
     })
@@ -1603,9 +1612,12 @@ describe('generateCpp', () => {
     expect(gap).toContain('field_n[_y*WIDTH+_x]=min(1.0f,_f2-_f1);')
     expect(noise({ noiseType: 'worley', worleyMode: 'edges' })).toContain('=max(0.0f,1.0f-(_f2-_f1)*3.0f);')
 
-    const fractal = (props: Record<string, unknown>) => generateCpp([node('n', 'FractalNoise', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
-    expect(fractal({})).toContain('(uint8_t)((_v/_norm)*255)')
-    expect(fractal({ noiseShape: 'ridged' })).toContain('(uint8_t)((1.0f-fabsf(2.0f*constrain((_v/_norm),0.0f,1.0f)-1.0f))*255)')
+    // fBm writes the shared field buffer, so shaping is Noise's common line.
+    const fractal = (props: Record<string, unknown>) => noise({ noiseType: 'fbm', ...props })
+    expect(fractal({})).toContain('field_n[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);')
+    expect(fractal({})).not.toContain('fabsf(2.0f*constrain')
+    expect(fractal({ noiseShape: 'ridged' }))
+      .toContain('field_n[_i]=(1.0f-fabsf(2.0f*constrain(field_n[_i],0.0f,1.0f)-1.0f));')
 
     const flow = (props: Record<string, unknown>) => generateCpp([node('n', 'FlowField', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     expect(flow({})).toContain('float _dx=cos(_a),_dy=sin(_a);')
@@ -2239,11 +2251,13 @@ describe('generateCpp', () => {
   })
 
   it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {
-    const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
+    const g = node('g', 'Noise', 'pattern', { noiseType: 'gabor', speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
     const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _worleyHash(int x, int y, uint32_t seed)')
     expect(cpp).toContain('expf(')
     expect(cpp).toContain('cosf(')
+    // The summed kernels are held into the Noise field, then palette-mapped.
+    expect(cpp).toContain('field_g[_y*WIDTH+_x]=constrain(_v*0.5f+0.5f,0.0f,1.0f);')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
 
@@ -2396,14 +2410,17 @@ describe('generateCpp', () => {
   })
 
   it('emits fractal noise via summed inoise8 octaves', () => {
-    const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
+    const fn = node('fn', 'Noise', 'pattern', { noiseType: 'fbm', speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
     const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('// Fractal noise (fBm via inoise8)')
     expect(cpp).toContain('inoise8(')
-    // Octaves is a loop bound, so it reads from a local and the count is in
-    // that local's initialiser.
-    expect(cpp).toContain('constrain(4,1.0f,6.0f)')
-    expect(cpp).toContain('_o<_octv_')
-    expect(cpp).toContain('ColorFromPalette(paldef_forest')
+    // Octaves is a loop bound, so it reads from a local, hoisted before the
+    // pixel loop, and the count is in that local's initialiser.
+    expect(cpp).toContain('int _octv=(int)constrain(4,1.0f,6.0f);')
+    const block = cpp.slice(cpp.indexOf('// Fractal noise'))
+    expect(block.indexOf('int _octv=')).toBeLessThan(block.indexOf('for(int _y=0;_y<HEIGHT;_y++)'))
+    expect(cpp).toContain('_o<_octv;')
+    expect(cpp).toContain('ColorFromPalette(paldef_forest,(uint8_t)(constrain(field_fn[_i],0.0f,1.0f)*255.0f),255,LINEARBLEND_NOWRAP)')
   })
 
   it('emits Worley noise with its hash helper', () => {
@@ -2899,14 +2916,15 @@ describe('Float Field — Phase 2 codegen', () => {
     }
   }
 
-  it('DistanceField writes a normalised distance into its field buffer', () => {
-    const df = node('df', 'DistanceField', 'pattern', { px: 0.5, py: 0.5, scale: 2 })
+  it('ShapeField falloff writes a normalised distance into its field buffer', () => {
+    // A tiny circle in falloff mode is the old DistanceField: distance from a point.
+    const df = node('df', 'ShapeField', 'pattern', { shape: 'circle', fieldMode: 'falloff', size: 0.01, cx: 0.5, cy: 0.5, range: 0.5 })
     const t = tail('df')
     const cpp = generateCpp([df, ...t.nodes], t.edges)
     expect(cpp).toContain('float field_df[NUM_LEDS];')
-    expect(cpp).toContain('/* DistanceField */')
-    expect(cpp).toContain('sqrtf(_dx*_dx+_dy*_dy)/1.41421356f')
-    expect(cpp).toContain('field_df[_y*WIDTH+_x]=constrain(')
+    expect(cpp).toContain('/* ShapeField: circle falloff */')
+    expect(cpp).toContain('float _range=0.5f*_short;')
+    expect(cpp).toContain('field_df[_y*WIDTH+_x]=constrain(fmaxf(0.0f,_sd)/_range,0.0f,1.0f);')
   })
 
   it('FieldMath emits the operator for the selected fieldOp', () => {
@@ -3584,7 +3602,7 @@ describe('generateCpp — Particles modes', () => {
   }
 
   for (const m of [
-    'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
+    'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow',
     'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
     'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
   ]) {
@@ -3599,17 +3617,18 @@ describe('generateCpp — Particles modes', () => {
     })
   }
 
+  // A save from before `swarm` was removed must still build: only a known
+  // mode's branch closes the update loop.
+  it('runs an unknown mode as fountain with balanced braces', () => {
+    const cpp = gen('swarm')
+    expect(cpp).toContain('// Particles: fountain')
+    expect(cpp.split('{').length).toBe(cpp.split('}').length)
+  })
+
   it('particles render from float centres instead of rounded integer pixels', () => {
     const cpp = gen('fountain')
     expect(cpp).not.toContain('int X=(int)(_pa_ppx[i]+0.5f), Y=(int)(_pa_ppy[i]+0.5f);')
     expect(cpp).toContain('float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy;')
-  })
-
-  it('swarm sizes its pool directly from count and uses a flocking (boids) step', () => {
-    const cpp = gen('swarm')
-    expect(cpp).toContain('_PN=24') // default count
-    expect(cpp).toContain('sqrtf(')
-    expect(gen('swarm', { count: 40 })).toContain('_PN=40')
   })
 
   it('fireworks bursts with a random hue', () => {
@@ -3657,9 +3676,9 @@ describe('generateCpp — Particles modes', () => {
     // Every mode carrying every local costs an unused-variable warning apiece,
     // so the emitter derives which to declare from the lines it just produced.
     for (const knob of ['_paSpread', '_paGrav', '_paBounce']) {
-      const cpp = gen('swarm')
-      expect(cpp.includes(`float ${knob}=`), `swarm ${knob}`).toBe(false)
-      expect(cpp.includes(knob), `swarm ${knob}`).toBe(false)
+      const cpp = gen('vortex')
+      expect(cpp.includes(`float ${knob}=`), `vortex ${knob}`).toBe(false)
+      expect(cpp.includes(knob), `vortex ${knob}`).toBe(false)
     }
     expect(gen('snow')).toContain('float _paSpread=')
     // Snow drifts rather than falling under gravity, so it reads neither.
@@ -4005,11 +4024,9 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('for (int _b = 0; _b < 12; _b++)')
   })
 
-  it('emits SpectrumBars as a palette-driven on-device equalizer', () => {
-    const sb = node('sb', 'SpectrumBars', 'pattern', {
-      bass: 0.8,
-      mids: 0.5,
-      treble: 0.9,
+  it('emits Spectrum Visualizer Three Band as a palette-driven on-device equalizer', () => {
+    const sb = node('sb', 'SpectrumVisualizer', 'pattern', {
+      style: 'Three Band',
       energy: 0.7,
       speed: 0.6,
       palette: 'ocean',
@@ -4021,18 +4038,22 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('float _paletteScroll = _phase_sb_palette;')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
     expect(cpp).toContain('WIDTH - 1 - _x')
+    expect(cpp).toContain('// SpectrumVisualizer · Three Band')
     expect(cpp).not.toContain('// SpectrumBars')
   })
 
   it('keeps unwired audio-only patterns silent in firmware like the preview', () => {
-    const bars = node('silentBars', 'SpectrumBars', 'pattern', {})
+    const bars = node('silentBars', 'SpectrumVisualizer', 'pattern', { style: 'Three Band' })
     const pulse = node('silentPulse', 'BassPulse', 'pattern', {})
     const barsCpp = generateCpp([bars, out], [edge('bars-out', 'silentBars', 'out', 'frame', 'frame')])
     const pulseCpp = generateCpp([pulse, out], [edge('pulse-out', 'silentPulse', 'out', 'frame', 'frame')])
 
-    expect(barsCpp).toContain('float _b = min(1.0f, max(0.0f, 0))')
-    expect(barsCpp).toContain('_m = min(1.0f, max(0.0f, 0))')
-    expect(barsCpp).toContain('_t = min(1.0f, max(0.0f, 0))')
+    // Unwired bands read thirds of a spectrum that sums nothing without audio.
+    expect(barsCpp).toContain('_sum+=0.0f;')
+    expect(barsCpp).not.toContain('_audioSpectrum[')
+    expect(barsCpp).toContain('float _b = min(1.0f, max(0.0f, constrain((_svBands[0]')
+    expect(barsCpp).toContain('_m = min(1.0f, max(0.0f, constrain((_svBands[')
+    expect(barsCpp).toContain('_t = min(1.0f, max(0.0f, constrain((_svBands[')
     expect(pulseCpp).toContain('float _lv = constrain(0, 0.0f, 1.0f)')
   })
 
@@ -5854,7 +5875,7 @@ describe('seeded cells agree between preview and sketch', () => {
     .map((match) => ({ dx: Number(match[2] ?? 0), dy: Number(match[4] ?? 0), seed: Number(match[5]) }))
 
   it.each([0, 9, 4321])('Gabor Noise with seed %i', (seed) => {
-    const sketch = generateCpp([node('g', 'GaborNoise', 'pattern', { seed }), outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
+    const sketch = generateCpp([node('g', 'Noise', 'pattern', { noiseType: 'gabor', seed }), outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
     const [first, second] = calls(sketch)
     expect([first, second]).toEqual([{ dx: 0, dy: 0, seed }, { dx: 31, dy: -17, seed }])
     // The seed no longer shifts time, which the preview never did.

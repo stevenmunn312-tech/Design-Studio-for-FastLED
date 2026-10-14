@@ -29,7 +29,7 @@ const LIBRARY: SavedPattern[] = [
   pattern('pat-juggle', 'Juggle', ['Juggle']),
   pattern('pat-scanner', 'Scanner', ['Scanner'], ['string']),
   pattern('pat-clock', 'Wall Clock', ['ClockDisplay']),
-  pattern('pat-bars', 'Spectrum Bars', ['SpectrumBars', 'FFTAnalyzer']),
+  pattern('pat-bars', 'Spectrum Bars', ['SpectrumVisualizer', 'FFTAnalyzer']),
 ]
 
 /** A project driving one LED String, plus the collection the picker fills. */

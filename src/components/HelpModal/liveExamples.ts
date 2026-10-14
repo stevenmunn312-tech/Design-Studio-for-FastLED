@@ -248,7 +248,7 @@ function inferPreviewTarget(
 }
 
 const PALETTES = ['ocean', 'party', 'forest', 'lava', 'rainbow', 'cloud']
-const FRAME_SOURCES = ['Pacifica', 'TwinkleFox', 'Plasma', 'FractalNoise', 'GradientFrame', 'Fire2012', 'Blobs']
+const FRAME_SOURCES = ['Pacifica', 'TwinkleFox', 'Plasma', 'Noise', 'GradientFrame', 'Fire', 'Blobs']
 
 function hash(value: string): number {
   let result = 2166136261
@@ -257,7 +257,7 @@ function hash(value: string): number {
 }
 
 const STRING_OUTPUT_EXAMPLES = new Set([
-  'BrightnessMod', 'ColorBoost', 'DMXInput', 'Fire2012', 'Gamma', 'GradientFrame',
+  'BrightnessMod', 'ColorBoost', 'DMXInput', 'Fire', 'Gamma', 'GradientFrame',
   'HueShift', 'Invert', 'PaletteSweep', 'Pacifica', 'PotInput', 'Rainbow', 'Saturation', 'Scanner', 'SolidColor',
 ])
 
@@ -290,12 +290,16 @@ function targetRange(targetType: string, inputId: string): { min: number; max: n
   return { min: 0.1, max: 0.9 }
 }
 
-function connectBeatSin(builder: ExampleBuilder, targetKey: string, inputId: string, salt = 0): void {
+/** A slow unipolar sine at a BPM sweeping the target's own range: FastLED beatsin. */
+function connectSweep(builder: ExampleBuilder, targetKey: string, inputId: string, salt = 0): void {
   const targetType = builder.typeOf(targetKey)
   const { min, max } = targetRange(targetType, inputId)
-  const key = `beatsin-${inputId}-${salt}`
-  builder.add(key, 'BeatSin', { bpm: 36 + ((hash(`${targetType}-${inputId}-${salt}`) % 5) * 11), low: min, high: max })
-  builder.wire(key, 'value', targetKey, inputId)
+  const key = `sweep-${inputId}-${salt}`
+  builder.add(key, 'Wave', {
+    rateUnit: 'BPM', bpm: 36 + ((hash(`${targetType}-${inputId}-${salt}`) % 5) * 11),
+    unipolar: true, amplitude: max - min, offset: min,
+  })
+  builder.wire(key, 'result', targetKey, inputId)
 }
 
 function connectRandomHold(builder: ExampleBuilder, targetKey: string, inputId: string, salt = 0): void {
@@ -333,7 +337,7 @@ function connectFloat(builder: ExampleBuilder, targetKey: string, inputId: strin
     return
   }
   if (/^(x|y|cx|cy|px|py|x1|x2|y1|y2|positionx|positiony)$/.test(semantic)) {
-    connectBeatSin(builder, targetKey, inputId, salt)
+    connectSweep(builder, targetKey, inputId, salt)
     return
   }
   const choice = hash(`${targetType}-${inputId}-${salt}`) % 5
@@ -344,7 +348,7 @@ function connectFloat(builder: ExampleBuilder, targetKey: string, inputId: strin
     builder.add(wave, 'Wave', { amplitude: 1, frequency: 0.18 + (hash(inputId) % 4) * 0.11, phase: salt * 0.25, waveform: 'sine' })
     builder.wire(wave, 'result', targetKey, inputId)
   } else {
-    connectBeatSin(builder, targetKey, inputId, salt)
+    connectSweep(builder, targetKey, inputId, salt)
   }
 }
 
@@ -374,7 +378,7 @@ function connectColor(builder: ExampleBuilder, targetKey: string, inputId: strin
     builder.add(palette, 'PaletteSelector', { palette: PALETTES[(hash(targetType) + salt) % PALETTES.length] })
     builder.add(sampler, 'PaletteSampler')
     builder.wire(palette, 'palette', sampler, 'paletteIn')
-    connectBeatSin(builder, sampler, 't', salt)
+    connectSweep(builder, sampler, 't', salt)
     builder.wire(sampler, 'color', targetKey, inputId)
   } else if (choice === 1 && targetType !== 'Temperature') {
     const key = `temperature-${inputId}-${salt}`
@@ -401,8 +405,10 @@ function connectFrame(builder: ExampleBuilder, targetKey: string, inputId: strin
     ? { palette: 'party', density: 0.42 }
     : type === 'Pacifica'
       ? { palette: 'ocean', speed: 0.38 }
-      : type === 'Fire2012'
-        ? { palette: 'lava', sparking: 145 }
+      : type === 'Fire'
+        ? { fireStyle: 'fire2012', palette: 'lava', sparking: 145 }
+        : type === 'Noise'
+          ? { noiseType: 'fbm', speed: 0.25, scale: 0.3, palette: 'forest' }
         : undefined
   builder.add(key, type, properties)
   builder.wire(key, 'frame', targetKey, inputId)
@@ -410,9 +416,9 @@ function connectFrame(builder: ExampleBuilder, targetKey: string, inputId: strin
 
 function connectField(builder: ExampleBuilder, targetKey: string, inputId: string, salt = 0): void {
   const targetType = builder.typeOf(targetKey)
-  const type = targetType === 'FieldNoise' || (hash(`${targetType}-${inputId}-${salt}`) % 2 === 0) ? 'DistanceField' : 'FieldNoise'
+  const type = targetType === 'FieldNoise' || (hash(`${targetType}-${inputId}-${salt}`) % 2 === 0) ? 'ShapeField' : 'FieldNoise'
   const key = `field-${inputId}-${salt}`
-  builder.add(key, type, type === 'FieldNoise' ? { speed: 0.32, scale: 0.62 } : { px: 0.5, py: 0.5, scale: 1.3 })
+  builder.add(key, type, type === 'FieldNoise' ? { speed: 0.32, scale: 0.62 } : { fieldMode: 'falloff', size: 0.01, range: 1.1 })
   builder.wire(key, 'field', targetKey, inputId)
 }
 
@@ -469,7 +475,7 @@ const TARGET_PROPERTIES: Record<string, Record<string, unknown>> = {
 
 const SPARSE_FRAME_TYPES = new Set(['Line', 'Shape', 'Path', 'FourierEpicycles', 'Text', 'Image'])
 const AUDIO_PATTERN_TYPES = new Set([
-  'SpectrumBars', 'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
+  'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock',
   'VocalAurora', 'BeatKaleidoscope', 'SpectraMosaic', 'PercussionBlobs',
   'EmberPulse', 'TurbulentBloom', 'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'Animartrix',
@@ -478,14 +484,12 @@ const AUDIO_PATTERN_TYPES = new Set([
 function selectedInputs(node: NodeDefinition): NodePort[] {
   const explicit: Partial<Record<string, string[]>> = {
     Text: ['color', 'scroll'],
-    Circle: ['fill', 'cx', 'cy', 'radius'],
     Line: ['color', 'x1', 'y2'],
     Shape: ['fill', 'rotation', 'sides'],
     Path: ['t', 'scale'],
     FourierEpicycles: ['harmonics', 'color'],
     Noise: ['speed', 'paletteIn'],
     Fire: ['intensity', 'paletteIn'],
-    Fire2012: ['paletteIn'],
     Plasma: ['paletteIn'],
     Rainbow: ['speed'],
     PaletteGradient: ['angle', 'paletteIn'],
@@ -504,7 +508,6 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     Gauge: ['value', 'paletteIn'],
     FluidSim: ['inject', 'injectX'],
     FractalField: ['cRe', 'cIm', 'zoom'],
-    DistanceField: ['px', 'py'],
     FieldRotate: ['field', 'angle'],
     FieldTile: ['field', 'tilesX', 'tilesY'],
     FieldWarp: ['field', 'dx', 'dy', 'strength'],
@@ -541,7 +544,6 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     Not: ['x'],
     Function: ['x'],
     Envelope: ['trigger'],
-    Counter: [],
   }
   const ids = explicit[node.type]
   if (ids) return ids.flatMap((id) => node.inputs.filter((input) => input.id === id))
@@ -757,7 +759,7 @@ function boolExample(node: NodeDefinition): ReferenceLiveExample {
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   selectedInputs(node).forEach((input, index) => connectInput(builder, 'target', input, index))
   builder.add('a', 'Pacifica', { palette: 'ocean', speed: 0.32 })
-  builder.add('b', 'Fire2012', { palette: 'lava', sparking: 150 })
+  builder.add('b', 'Fire', { fireStyle: 'fire2012', palette: 'lava', sparking: 150 })
   builder.add('switch', 'FrameSwitch')
   builder.wire('a', 'frame', 'switch', 'a')
   builder.wire('b', 'frame', 'switch', 'b')
@@ -765,7 +767,7 @@ function boolExample(node: NodeDefinition): ReferenceLiveExample {
   builder.preview('switch')
   return builder.finish(
     `Switch scenes with ${node.label}`,
-    `${node.label}: ${NODE_DESCRIPTIONS[node.type]} Its boolean output chooses between a cool Pacifica scene and a hot Fire 2012 scene, so every state change is unmistakable.`,
+    `${node.label}: ${NODE_DESCRIPTIONS[node.type]} Its boolean output chooses between a cool Pacifica scene and a hot Fire scene, so every state change is unmistakable.`,
     `The Frame Switch node preview should flip cleanly between ocean waves and fire whenever ${node.label} changes state.`,
   )
 }
@@ -807,7 +809,7 @@ function paletteExample(node: NodeDefinition): ReferenceLiveExample {
   const builder = new ExampleBuilder(node.type)
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   selectedInputs(node).forEach((input, index) => connectInput(builder, 'target', input, index))
-  const choices = ['Pacifica', 'Particles', 'FractalNoise', 'Starfield', 'Noise']
+  const choices = ['Pacifica', 'Particles', 'Starfield', 'Noise']
   const visualType = differentType(choices, node.type, node.type)
   builder.add('visual', visualType, visualType === 'Particles'
     ? { particleType: 'fireflies', rate: 0.28, decay: 0.94 }
@@ -1036,16 +1038,16 @@ function boardExample(node: NodeDefinition): ReferenceLiveExample {
 function transitionExample(node: NodeDefinition): ReferenceLiveExample {
   const builder = new ExampleBuilder(node.type)
   builder.add('a', 'Pacifica', { palette: 'ocean', speed: 0.34 })
-  builder.add('b', 'Fire2012', { palette: 'lava', sparking: 145 })
-  builder.add('progress', 'BeatSin', { bpm: 24, low: 0, high: 1 })
+  builder.add('b', 'Fire', { fireStyle: 'fire2012', palette: 'lava', sparking: 145 })
+  builder.add('progress', 'Wave', { rateUnit: 'BPM', bpm: 24, unipolar: true })
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   builder.wire('a', 'frame', 'target', 'a')
   builder.wire('b', 'frame', 'target', 'b')
-  builder.wire('progress', 'value', 'target', 't')
+  builder.wire('progress', 'result', 'target', 't')
   builder.preview('target')
   return builder.finish(
     `Travel from ocean to fire with ${node.label}`,
-    `Pacifica and Fire 2012 provide clearly different A/B scenes. BeatSin sweeps transition progress smoothly from 0 to 1 so ${node.label}'s selected style is easy to inspect.`,
+    `Pacifica and Fire provide clearly different A/B scenes. A unipolar Wave at 24 BPM sweeps transition progress smoothly from 0 to 1 so ${node.label}'s selected style is easy to inspect.`,
     `The ${node.label} node preview should repeatedly travel between cool ocean waves and hot fire using the selected transition style.`,
   )
 }
@@ -1053,7 +1055,7 @@ function transitionExample(node: NodeDefinition): ReferenceLiveExample {
 function sequencerExample(node: NodeDefinition): ReferenceLiveExample {
   const builder = new ExampleBuilder(node.type)
   builder.add('p0', 'Pacifica', { palette: 'ocean' })
-  builder.add('p1', 'Fire2012', { palette: 'lava' })
+  builder.add('p1', 'Fire', { fireStyle: 'fire2012', palette: 'lava' })
   builder.add('p2', 'TwinkleFox', { palette: 'party' })
   builder.add('target', node.type, { dwell: 2.5, transition: 0.6 })
   builder.wire('p0', 'frame', 'target', 'p0')
@@ -1062,7 +1064,7 @@ function sequencerExample(node: NodeDefinition): ReferenceLiveExample {
   builder.preview('target')
   return builder.finish(
     'Cycle three contrasting scenes',
-    'Pacifica, Fire 2012, and TwinkleFox fill three Sequencer slots. The empty fourth slot is intentionally left open so the example demonstrates partial sequencing without irrelevant filler.',
+    'Pacifica, Fire, and TwinkleFox fill three Sequencer slots. The empty fourth slot is intentionally left open so the example demonstrates partial sequencing without irrelevant filler.',
     'The Sequencer node preview should dwell on each connected scene in order and then loop, making the timing controls straightforward to verify.',
   )
 }
@@ -1087,7 +1089,7 @@ export const MICROPHONE_LIVE_EXAMPLE = namedExample(
   [
     { key: 'mic', type: 'MicInput' },
     { key: 'fft', type: 'FFTAnalyzer', properties: { smoothing: 0.7, gain: 1.15 } },
-    { key: 'bars', type: 'SpectrumBars', properties: { palette: 'party' } },
+    { key: 'bars', type: 'SpectrumVisualizer', properties: { style: 'Three Band', palette: 'party' } },
     { key: 'trails', type: 'Trails', properties: { decay: 0.88 } },
   ],
   [
@@ -1097,7 +1099,7 @@ export const MICROPHONE_LIVE_EXAMPLE = namedExample(
     { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
     { source: 'bars', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
   ],
-  'Microphone feeds FFT Analyzer once; its three frequency lanes shape Spectrum Bars independently. Trails gives fast treble hits a readable tail in its own frame preview.',
+  'Microphone feeds FFT Analyzer once; its three frequency lanes shape the Three Band bars of Spectrum Visualizer independently. Trails gives fast treble hits a readable tail in its own frame preview.',
   'Allow microphone access and play audio nearby. The Trails node preview should make bass feel broad, mids structured, and treble quick and bright.',
 )
 
@@ -1107,7 +1109,7 @@ export const LINE_INPUT_LIVE_EXAMPLE = namedExample(
   [
     { key: 'line-in', type: 'LineInput', properties: { channel: 'Both', gain: 1 } },
     { key: 'fft', type: 'FFTAnalyzer', properties: { smoothing: 0.7, gain: 1.15 } },
-    { key: 'bars', type: 'SpectrumBars', properties: { palette: 'party' } },
+    { key: 'bars', type: 'SpectrumVisualizer', properties: { style: 'Three Band', palette: 'party' } },
     { key: 'trails', type: 'Trails', properties: { decay: 0.88 } },
   ],
   [
@@ -1117,7 +1119,7 @@ export const LINE_INPUT_LIVE_EXAMPLE = namedExample(
     { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
     { source: 'bars', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
   ],
-  'Line In carries the PCM1802 signal into FFT Analyzer. Bass, mids, and treble shape Spectrum Bars independently before Trails gives fast hits a readable tail.',
+  'Line In carries the PCM1802 signal into FFT Analyzer. Bass, mids, and treble shape the Three Band bars of Spectrum Visualizer independently before Trails gives fast hits a readable tail.',
   'In browser preview, allow audio-input access and play the source nearby. On ESP32-S3 hardware, the LED Matrix reacts to the player connected to the PCM1802 RCA inputs.',
 )
 
@@ -1127,7 +1129,7 @@ export const AUDIO_CAPABILITY_LIVE_EXAMPLE = namedExample(
   [
     { key: 'mic', type: 'MicInput' },
     { key: 'fft', type: 'FFTAnalyzer', properties: { smoothing: 0.7, gain: 1.15 } },
-    { key: 'bars', type: 'SpectrumBars', properties: { palette: 'party' } },
+    { key: 'bars', type: 'SpectrumVisualizer', properties: { style: 'Three Band', palette: 'party' } },
   ],
   [
     { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
@@ -1136,7 +1138,7 @@ export const AUDIO_CAPABILITY_LIVE_EXAMPLE = namedExample(
     { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
   ],
   'Microphone is the attached physical part. Audio selects that capability and carries its complete signal through one explicit cable to FFT Analyzer.',
-  'Allow microphone access and play audio nearby. The Spectrum Bars node preview should separate the selected source into bass, mids, and treble.',
+  'Allow microphone access and play audio nearby. The Spectrum Visualizer node preview should separate the selected source into bass, mids, and treble.',
 )
 
 export const BUTTON_LIVE_EXAMPLE = namedExample(
@@ -1145,7 +1147,7 @@ export const BUTTON_LIVE_EXAMPLE = namedExample(
   [
     { key: 'button', type: 'ButtonInput' },
     { key: 'ocean', type: 'Pacifica', properties: { palette: 'ocean' } },
-    { key: 'fire', type: 'Fire2012', properties: { palette: 'lava' } },
+    { key: 'fire', type: 'Fire', properties: { fireStyle: 'fire2012', palette: 'lava' } },
     { key: 'switch', type: 'FrameSwitch' },
   ],
   [
@@ -1153,7 +1155,7 @@ export const BUTTON_LIVE_EXAMPLE = namedExample(
     { source: 'fire', sourceHandle: 'frame', target: 'switch', targetHandle: 'b' },
     { source: 'button', sourceHandle: 'pressed', target: 'switch', targetHandle: 'sel' },
   ],
-  'Pacifica and Fire 2012 create unmistakably different scenes. Button selects the B scene while pressed, demonstrating a real gate instead of using a trigger as an arbitrary number.',
+  'Pacifica and Fire create unmistakably different scenes. Button selects the B scene while pressed, demonstrating a real gate instead of using a trigger as an arbitrary number.',
   'The Frame Switch node preview starts on cool Pacifica. Press the Button node to show fire; release it to return to the ocean scene.',
 )
 
@@ -1163,7 +1165,7 @@ export const TOUCH_BUTTON_LIVE_EXAMPLE = namedExample(
   [
     { key: 'touch', type: 'TouchButtonInput', properties: { partId: 'seeed-grove-touch-sensor', pin: 4 } },
     { key: 'ocean', type: 'Pacifica', properties: { palette: 'ocean' } },
-    { key: 'fire', type: 'Fire2012', properties: { palette: 'lava' } },
+    { key: 'fire', type: 'Fire', properties: { fireStyle: 'fire2012', palette: 'lava' } },
     { key: 'switch', type: 'FrameSwitch' },
   ],
   [
@@ -1181,15 +1183,15 @@ export const TOUCH_LIVE_EXAMPLE = namedExample(
   [
     { key: 'panel', type: 'TransportDisplay', properties: { tftLayout: 'Fixed Transport' } },
     { key: 'touch', type: 'TouchInput' },
-    { key: 'fire', type: 'Fire2012', properties: { palette: 'lava' } },
+    { key: 'fire', type: 'Fire', properties: { fireStyle: 'fire2012', palette: 'lava' } },
     { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'fire', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     { source: 'touch', sourceHandle: 'controls', target: 'out', targetHandle: 'controls' },
   ],
-  'The panel draws the transport screen; the Touch node beside it is the glass in front of that screen, and its Controls output carries what a finger did. Sent straight to the LED output, the screen dims and blacks out the lights.',
-  'Press the brightness strip on the panel preview and the Fire 2012 output dims with it. The display shows; the touch node is what listens.',
+  'The panel draws the transport screen; the Touch Screen node beside it is the glass in front of that screen, and its Controls output carries what a finger did. Sent straight to the LED output, the screen dims and blacks out the lights.',
+  'Press the brightness strip on the panel preview and the Fire output dims with it. The display shows; the touch node is what listens.',
 )
 
 export const POTENTIOMETER_LIVE_EXAMPLE = namedExample(
@@ -1297,7 +1299,7 @@ export const POWER_CONVERTER_LIVE_EXAMPLE = namedExample(
     { key: 'pattern', type: 'Juggle' },
   ],
   [],
-  'Buck Converter carries no noodles. The LM2596 option powers the controller through its 5 V pin in place of USB. The Mean Well SD-100 options instead make isolated 5 V LED power zones from a 12 V or 24 V source, with source and output protection shown in the Build Diagram. The pattern and its LED output are unchanged.',
+  'DC-DC Converter carries no noodles. The LM2596 option powers the controller through its 5 V pin in place of USB. The Mean Well SD-100 options instead make isolated 5 V LED power zones from a 12 V or 24 V source, with source and output protection shown in the Build Diagram. The pattern and its LED output are unchanged.',
   'The preview is unchanged, because the converter changes where the board gets its power, not what it draws. Open the Build Diagram to see the converter under the board.',
 )
 
@@ -1851,11 +1853,11 @@ const FORMAT_NUMBER_LIVE_EXAMPLE = namedExample(
   'FormatNumber',
   'Turn a live value into display text',
   [
-    { key: 'bpm', type: 'BeatSin', properties: { bpm: 40, low: 90, high: 140 } },
+    { key: 'bpm', type: 'Wave', properties: { rateUnit: 'BPM', bpm: 40, unipolar: true, amplitude: 50, offset: 90 } },
     { key: 'target', type: 'FormatNumber', properties: { decimals: 0, padWidth: 3, suffix: ' BPM' } },
     { key: 'color', type: 'SolidColor', properties: { r: 90, g: 20, b: 40 } },
   ],
-  [{ source: 'bpm', sourceHandle: 'value', target: 'target', targetHandle: 'value' }],
+  [{ source: 'bpm', sourceHandle: 'result', target: 'target', targetHandle: 'value' }],
   'Format Number decides how a number reads before a display shows it: decimals, zero padding, and a unit. Making that a node keeps the choice visible instead of hiding it inside a display setting.',
   'The solid colour keeps the example previewable; Format Number produces text, not pixels.',
 )

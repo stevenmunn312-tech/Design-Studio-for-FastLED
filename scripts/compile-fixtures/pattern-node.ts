@@ -226,7 +226,7 @@ function phase6Sketch(maxHarmonics: number): string {
   const nodes = [
     node('base', 'Plasma', { speed: 0.3, palette: 'ocean' }),
     node('dim', 'BrightnessMod', { brightness: 0.3 }),
-    node('lfo', 'BeatSin', { bpm: 6, low: 1, high: 16 }),
+    node('lfo', 'Wave', { rateUnit: 'BPM', bpm: 6, unipolar: true, amplitude: 15, offset: 1 }),
     node('star', 'FourierEpicycles', { outline: 'star', maxHarmonics, speed: 0.25, persistence: 0.995 }),
     node('custom', 'FourierEpicycles', {
       outline: 'custom', customPoints: CUSTOM_OUTLINE, maxHarmonics, speed: -0.2,
@@ -237,7 +237,7 @@ function phase6Sketch(maxHarmonics: number): string {
   const edges = [
     edge('base-dim', 'base', 'frame', 'dim', 'frame'),
     edge('dim-star', 'dim', 'frame', 'star', 'base'),
-    edge('lfo-harmonics', 'lfo', 'value', 'star', 'harmonics'),
+    edge('lfo-harmonics', 'lfo', 'result', 'star', 'harmonics'),
     edge('star-custom', 'star', 'frame', 'custom', 'base'),
     edge('custom-out', 'custom', 'frame', 'out', 'frame'),
   ]
@@ -305,7 +305,7 @@ function phase8VibeSketch(profileId: string): string {
     node('level', 'MapRange', { inMin: 0.4, inMax: 1.8, outMin: 0.25, outMax: 1 }),
     node('plasma', 'Plasma', { speed: 0.35 }),
     node('dim', 'BrightnessMod'),
-    node('spikes', 'Counter'),
+    node('spikes', 'Envelope'),
     node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
   ]
   const edges = [
@@ -379,7 +379,7 @@ function phase8PitchSketch(profileId: string): string {
     node('level', 'MapRange', { inMin: 0, inMax: 1, outMin: 0.25, outMax: 1 }),
     node('plasma', 'Plasma', { speed: 0.3 }),
     node('dim', 'BrightnessMod'),
-    node('notes', 'Counter'),
+    node('notes', 'Envelope'),
     node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
   ]
   const edges = [

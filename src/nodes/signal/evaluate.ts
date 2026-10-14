@@ -1,5 +1,5 @@
 import { blankDmxSnapshot, type DmxSnapshot, clampDmxChannel, clampDmxByte } from '../../state/peripherals/dmx'
-import { waveAt } from './wave'
+import { waveAt, waveHz } from './wave'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { normalizedSeed, seededRandom, seedOffset, _snoise2 } from '../../state/evaluator/random'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
@@ -87,10 +87,11 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
   },
   Wave({ num, t, stateKey }, id, props) {
     const amplitude = num(id, 'amplitude', props, 'amplitude', 1)
-    const frequency = num(id, 'frequency', props, 'frequency', 1)
+    const hz        = waveHz(props.rateUnit, num(id, 'frequency', props, 'frequency', 1), num(id, 'bpm', props, 'bpm', 60))
     const phase     = num(id, 'phase', props, 'phase', 0)
     const waveform  = String(props.waveform ?? 'sine')
-    return { result: waveAt(waveform, amplitude, speedPhase(stateKey(id), t, frequency), phase) }
+    const level     = { unipolar: props.unipolar === true, offset: num(id, 'offset', props, 'offset', 0) }
+    return { result: waveAt(waveform, amplitude, speedPhase(stateKey(id), t, hz), phase, level) }
   },
   Random({ stateKey }, id, props) {
     const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)
@@ -114,12 +115,6 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     }
     const n = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
     return { value: lo + n * (hi - lo) }
-  },
-  // A 0→1 ramp at `rate` cycles a second, integrated on the shared clock so it
-  // follows Master Speed and holds its rate at any frame rate.
-  Counter({ num, t, stateKey }, id, props) {
-    const cycles = speedPhase(stateKey(id), t, num(id, 'rate', props, 'rate', 0.5))
-    return { value: ((cycles % 1) + 1) % 1 }
   },
   // Trigger envelope — optional linear attack to 1 on a rising edge, then
   // linear decay to 0 (wire through Ease for a shaped curve).
@@ -200,14 +195,6 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
       prevDayKey: timeReady ? dayKey : -1,
     })
     return { active, start, end, progress }
-  },
-  BeatSin({ num, t, stateKey }, id, props) {
-    const bpmProp = num(id, 'bpm', props, 'bpm', 60)
-    const bpm = Math.max(1, Number.isFinite(bpmProp) ? bpmProp : 60)
-    const lo  = Number(props.low  ?? 0)
-    const hi  = Number(props.high ?? 1)
-    const phase = speedPhase(stateKey(id), t, bpm / 60) % 1
-    return { value: lo + ((Math.sin(phase * Math.PI * 2) + 1) / 2) * (hi - lo) }
   },
   // Free-running BPM clock/transport — see ClockState above and the
   // matching `Clock` case in cppGenerator.ts (millis()-based, same edge

@@ -288,16 +288,64 @@
           "y": 40
         },
         "data": {
-          "label": "Spectrum Bars",
-          "nodeType": "SpectrumBars",
+          "label": "Spectrum Visualizer",
+          "nodeType": "SpectrumVisualizer",
           "category": "pattern",
           "properties": {
+            "style": "Three Band",
+            "bands": 16,
+            "gain": 1.25,
+            "smoothing": 0.58,
+            "tilt": 0.2,
+            "peakHold": 0.42,
+            "peakGravity": 1.8,
+            "waterfallSpeed": 10,
+            "palette": "rainbow",
             "energy": 0.86,
             "speed": 0.7,
-            "palette": "rainbow",
             "mirror": true
           },
           "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "gain",
+              "label": "Gain",
+              "dataType": "float"
+            },
+            {
+              "id": "smoothing",
+              "label": "Smoothing",
+              "dataType": "float"
+            },
+            {
+              "id": "tilt",
+              "label": "Tilt",
+              "dataType": "float"
+            },
+            {
+              "id": "peakHold",
+              "label": "Peak Hold",
+              "dataType": "float"
+            },
+            {
+              "id": "peakGravity",
+              "label": "Peak Gravity",
+              "dataType": "float"
+            },
+            {
+              "id": "waterfallSpeed",
+              "label": "Waterfall Speed",
+              "dataType": "float"
+            },
             {
               "id": "bass",
               "label": "Bass",
@@ -315,18 +363,13 @@
             },
             {
               "id": "energy",
-              "label": "Energy",
+              "label": "Reactivity",
               "dataType": "float"
             },
             {
               "id": "speed",
               "label": "Speed",
               "dataType": "float"
-            },
-            {
-              "id": "paletteIn",
-              "label": "Palette",
-              "dataType": "palette"
             }
           ],
           "outputs": [

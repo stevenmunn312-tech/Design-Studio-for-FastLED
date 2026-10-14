@@ -96,16 +96,12 @@ const BRIDGE_SUGGESTIONS: BridgeSuggestion[] = [
     fromType: 'audio',
     finalType: 'frame',
     title: 'Audio → frame',
-    description: 'Analyze the audio, then feed Spectrum Bars so it becomes a visible frame immediately.',
+    description: 'Feed the audio into Spectrum Visualizer so it becomes a visible frame immediately.',
     steps: [
-      { key: 'fft', type: 'FFTAnalyzer' },
-      { key: 'bars', type: 'SpectrumBars' },
+      { key: 'bars', type: 'SpectrumVisualizer' },
     ],
     edges: [
-      { from: 'source', sourceHandle: '*', to: 'fft', targetHandle: 'audio' },
-      { from: 'fft', sourceHandle: 'bass', to: 'bars', targetHandle: 'bass' },
-      { from: 'fft', sourceHandle: 'mids', to: 'bars', targetHandle: 'mids' },
-      { from: 'fft', sourceHandle: 'treble', to: 'bars', targetHandle: 'treble' },
+      { from: 'source', sourceHandle: '*', to: 'bars', targetHandle: 'audio' },
     ],
   },
   {

@@ -302,12 +302,12 @@ describe('NodeGraphCanvas start screen', () => {
         type: 'studioNode',
         position: { x: 0, y: 0 },
         data: {
-          nodeType: 'Counter',
-          label: 'Counter',
+          nodeType: 'Wave',
+          label: 'Wave',
           category: 'signal',
-          properties: { rate: 1 },
+          properties: { waveform: 'sawtooth', unipolar: true, frequency: 1 },
           inputs: [],
-          outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+          outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
         },
       },
       {
@@ -330,7 +330,7 @@ describe('NodeGraphCanvas start screen', () => {
       {
         id: 'e-speed',
         source: 'src',
-        sourceHandle: 'value',
+        sourceHandle: 'result',
         target: 'field',
         targetHandle: 'speed',
         type: 'glowEdge',
@@ -591,7 +591,7 @@ describe('NodeGraphCanvas start screen', () => {
     const fire = {
       id: 'fire', type: 'studioNode', position: { x: 0, y: 0 },
       data: {
-        label: 'Fire 2012', nodeType: 'Fire2012', category: 'pattern', properties: {},
+        label: 'Fire', nodeType: 'Fire', category: 'pattern', properties: { fireStyle: 'fire2012' },
         inputs: [{ id: 'sparking', label: 'Sparking', dataType: 'float' }], outputs: [],
       },
     }
@@ -602,7 +602,7 @@ describe('NodeGraphCanvas start screen', () => {
     onConnect({ source: 'fft', sourceHandle: 'bass', target: 'fire', targetHandle: 'sparking' })
 
     expect(useUiStore.getState().statusText)
-      .toBe('Fire 2012 Sparking reads 0–255, not 0–1 — insert a Map Range with Out 0–255')
+      .toBe('Fire Sparking reads 0–255, not 0–1 — insert a Map Range with Out 0–255')
   })
 
   it('stays quiet for a wire that needs no scaling', () => {

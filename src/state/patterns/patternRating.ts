@@ -437,13 +437,13 @@ export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]):
 
 const STATIC_TYPES = new Set(['SolidColor', 'Text', 'Image', 'ClockDisplay', 'GradientFrame', 'PaletteGradient'])
 const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'StringParticles', 'Lightning', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst', 'FourierEpicycles'])
-const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FractalNoise', 'FieldNoise', 'TuringField', 'Automaton', 'FractalField', 'FluidSim', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
+const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FieldNoise', 'TuringField', 'Automaton', 'FractalField', 'FluidSim', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
 const ANIMATED_TYPES = new Set([
-  'TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Wave',
-  'BeatSin', 'HueCycle', 'PaletteSweep', 'PolarGradient', 'Noise', 'Plasma', 'Rainbow', 'Pride2015', 'Pacifica',
+  'TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave',
+  'HueCycle', 'PaletteSweep', 'PolarGradient', 'Noise', 'Plasma', 'Rainbow', 'Pride2015', 'Pacifica',
   'TwinkleFox', 'Scanner', 'Confetti', 'Juggle', 'RadialBurst', 'Spiral', 'Kaleidoscope',
-  'FractalNoise', 'GaborNoise', 'Blobs', 'Animartrix', 'Fire', 'Fire2012', 'Particles',
-  'FlowField', 'Starfield', 'StringParticles', 'DigitalRain', 'Candle', 'Lightning', 'Heartbeat', 'Sunrise', 'TVSimulator', 'Boids', 'ReactionDiffusion', 'GameOfLife', 'SpectrumBars',
+  'Blobs', 'Animartrix', 'Fire', 'Particles',
+  'FlowField', 'Starfield', 'StringParticles', 'DigitalRain', 'Candle', 'Lightning', 'Heartbeat', 'Sunrise', 'TVSimulator', 'Boids', 'ReactionDiffusion', 'GameOfLife',
   'SpectrumVisualizer', 'Waveform', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock', 'VocalAurora',
   'BeatKaleidoscope', 'SpectraMosaic', 'PercussionBlobs', 'EmberPulse', 'TurbulentBloom',

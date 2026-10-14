@@ -136,7 +136,7 @@ describe('validateGraph', () => {
     // The graph looks right, nothing errors, and the fire never lights: the
     // band sets Sparking to about 1 out of 255. Only this check can say so.
     const fft = libraryNode('fft', 'FFTAnalyzer')
-    const fire = libraryNode('fire', 'Fire2012')
+    const fire = libraryNode('fire', 'Fire', { fireStyle: 'fire2012' })
     const wires = [
       { id: 'w', source: 'fft', sourceHandle: 'bass', target: 'fire', targetHandle: 'sparking' } as unknown as StudioEdge,
     ]
@@ -149,7 +149,7 @@ describe('validateGraph', () => {
     expect(buildGraphDiagnostics([fft, fire], wires)).toContainEqual(expect.objectContaining({
       id: 'signal-range-w',
       severity: 'warning',
-      title: 'Fire 2012 Sparking reads 0–255, not 0–1',
+      title: 'Fire Sparking reads 0–255, not 0–1',
       nodeIds: ['fire', 'fft'],
       // The repair is named *and* carried, so the drawer can perform it
       // rather than open the node library and leave the rest to the user.
@@ -161,9 +161,9 @@ describe('validateGraph', () => {
   it('leaves alone the wires that need no scaling', () => {
     const fft = libraryNode('fft', 'FFTAnalyzer')
     // Plasma's Speed is one of the inputs the evaluator denormalises for you,
-    // and Fire2012's Palette Mix is genuinely 0-1.
+    // and Fire's Palette Mix is genuinely 0-1.
     const plasma = libraryNode('plasma', 'Plasma')
-    const fire = libraryNode('fire', 'Fire2012')
+    const fire = libraryNode('fire', 'Fire', { fireStyle: 'fire2012' })
     const map = libraryNode('map', 'MapRange')
     const wires = [
       { id: 'a', source: 'fft', sourceHandle: 'bass', target: 'plasma', targetHandle: 'speed' },
@@ -1488,20 +1488,20 @@ describe('validateGraph', () => {
         node('sc', 'SolidColor'),
         node('fd', 'Fade'),
         node('out', 'MatrixOutput', { width: 4, height: 4 }),
-        node('fire', 'Fire2012'), // isolated — never wired in
+        node('fire', 'Fire', { fireStyle: 'fire2012' }), // isolated — never wired in
       ]
       const edges = [edge('e1', 'sc', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
       expect(ram.statefulBytes).toBe(0)
-      expect(ram.frameBufferBytes).toBe(48) // only SolidColor's buffer, not Fire2012's
+      expect(ram.frameBufferBytes).toBe(48) // only SolidColor's buffer, not Fire's
     })
 
     it('adds a stateful node\'s known per-LED overhead when reachable', () => {
-      const nodes = [node('fire', 'Fire2012'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const nodes = [node('fire', 'Fire', { fireStyle: 'fire2012' }), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
       const edges = [edge('e1', 'fire', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
-      expect(ram.frameBufferBytes).toBe(48)  // Fire2012's own frame buffer
-      expect(ram.statefulBytes).toBe(16)     // 16 LEDs * 1 byte/LED heat map
+      expect(ram.frameBufferBytes).toBe(48)  // Fire's own frame buffer
+      expect(ram.statefulBytes).toBe(16)     // 16 LEDs * 1 byte/LED heat map, every style
     })
 
     it('adds a fixed particle-pool size regardless of matrix dimensions', () => {

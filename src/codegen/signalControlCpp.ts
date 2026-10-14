@@ -3,8 +3,7 @@
 // had: wall-clock millis(), a rising-edge reset where the node has one, and
 // static locals keyed by the node id. They do not read the animation clock, so
 // Master Speed does not scale them and a player's track position stays its own
-// clock. Counter still advances by rate/60 once per pass, the same nominal
-// step Time's dt uses.
+// clock.
 import { seedProp, floatLit } from './cppLiterals'
 import { scheduleTimeOfDay } from '../nodes/signal/evaluate'
 import { rateCpp, SPEED_MAX } from '../nodes/shared/speedRange'
@@ -32,10 +31,6 @@ export const TIMED_CONTROL_NODES: Record<string, TimedControlSpec> = {
     outputs: { value: 'float' },
     inputs: { speed: { type: 'float', fallback: 0.25 }, min: { type: 'float', fallback: 0 }, max: { type: 'float', fallback: 1 } },
   },
-  Counter: {
-    outputs: { value: 'float' },
-    inputs: { rate: { type: 'float', fallback: 0.5 } },
-  },
   ScheduleTrigger: {
     outputs: { active: 'bool', start: 'bool', end: 'bool', progress: 'float' },
     inputs: {
@@ -48,10 +43,6 @@ export const TIMED_CONTROL_NODES: Record<string, TimedControlSpec> = {
       year: { type: 'float', fallback: 1970 },
       enable: { type: 'bool', fallback: 1 },
     },
-  },
-  BeatSin: {
-    outputs: { value: 'float' },
-    inputs: { bpm: { type: 'float', fallback: 60 } },
   },
   Clock: {
     outputs: { bpm: 'float', phase: 'float', beat: 'bool', bar: 'bool', sub: 'bool' },
@@ -121,15 +112,6 @@ export function noiseSignalCpp(id: string, v: Value, expr: Expr, props: Record<s
 
 /** A 0→1 ramp at `rate` cycles a second, integrated over `time` as the
  *  preview's `speedPhase` is. The control graph passes the wall clock. */
-export function counterCpp(id: string, v: Value, rate: string, time = 'millis() / 1000.0f'): string[] {
-  // The accumulator reads `t`; bind it only where the caller's clock is another.
-  const clock = time === 't' ? '' : `float t = ${time}; `
-  const lines = [`  float ${v('value')};`, `  { ${clock}float _cRate = ${rate};`]
-  const cycles = speedPhaseCpp((line) => lines.push(line), phaseTag(id), '_cRate')
-  lines.push(`    ${v('value')} = fmodf(fmodf(${cycles}, 1.0f) + 1.0f, 1.0f); }`)
-  return lines
-}
-
 export function scheduleTriggerCpp(id: string, v: Value, expr: Expr, props: Record<string, unknown>): string[] {
   const mode = String(props.scheduleMode ?? 'Window')
   const dayMode = String(props.dayMode ?? 'Every day')
@@ -222,20 +204,6 @@ export function scheduleTriggerCpp(id: string, v: Value, expr: Expr, props: Reco
   return lines
 }
 
-export function beatSinCpp(id: string, v: Value, expr: Expr, props: Record<string, unknown>): string[] {
-  const bpm = `fmaxf(1.0f,${expr.bpm})`
-  const lo = Number(props.low ?? 0)
-  const hi = Number(props.high ?? 1)
-  const lines = [
-    `  float ${v('value')};`,
-    // Wall clock, bound as `t` so the integrated phase seeds the same way.
-    `  { float t = millis() / 1000.0f;`,
-  ]
-  const ph = speedPhaseCpp((line) => lines.push(line), phaseTag(id), `${bpm} / 60.0f`)
-  lines.push(`    ${v('value')} = ${lo.toFixed(3)}f + ((sinf(${ph} * 6.2831853f) + 1.0f) * 0.5f) * (${hi.toFixed(3)}f - ${lo.toFixed(3)}f); }`)
-  return lines
-}
-
 export function clockCpp(id: string, v: Value, expr: Expr): string[] {
   const bpmProp = `_clkBpmP_${id}`
   const beatsPerBar = `_clkBar_${id}`
@@ -280,9 +248,7 @@ export function timedControlCpp(
   switch (nodeType) {
     case 'Envelope': return envelopeCpp(id, v, inputs, props, attackWired)
     case 'NoiseSignal': return noiseSignalCpp(id, v, inputs, props)
-    case 'Counter': return counterCpp(id, v, inputs.rate)
     case 'ScheduleTrigger': return scheduleTriggerCpp(id, v, inputs, props)
-    case 'BeatSin': return beatSinCpp(id, v, inputs, props)
     case 'Clock': return clockCpp(id, v, inputs)
     default: return null
   }

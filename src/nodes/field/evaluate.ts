@@ -443,23 +443,6 @@ function evalAutomaton(
   return out
 }
 
-// Distance from each pixel to a movable point (px,py in normalised 0–1 space).
-// Output is 0 at the point, rising to 1; `scale` (≥1) stretches the ramp so it
-// reaches 1 sooner. The diagonal of the unit square (√2) is the 1.0 reference.
-function evalDistanceField(px: number, py: number, scale: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = allocField(W * H)
-  const sc = Math.max(0.0001, scale)
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const nx = x / (W - 1 || 1), ny = y / (H - 1 || 1)
-      const dx = nx - px, dy = ny - py
-      const d = (Math.sqrt(dx * dx + dy * dy) / Math.SQRT2) * sc
-      out[y * W + x] = Math.max(0, Math.min(1, d))
-    }
-  }
-  return out
-}
-
 // Combine two fields pixel-by-pixel. An unwired input is a zero field, so unary
 // ops (e.g. `subtract` from 0 to negate, clamped) still behave sensibly. `t`
 // is the mix op's A→B crossfade.
@@ -549,9 +532,14 @@ function evalShapeField(
         : shape === 'polygon'
           ? morphPolygonSd(lx, ly, sides, radius)
           : ellipseSd(lx, ly, radius * stretch, radius)
+      // Falloff is the distance out from the shape: 0 on and inside it,
+      // 1 at Range beyond its outline. A tiny circle makes it the distance
+      // from a point.
       out[y * W + x] = fieldMode === 'distance'
         ? clamp01(0.5 - sd / (2 * rangePx))
-        : smoothCoverage(sd, softPx)
+        : fieldMode === 'falloff'
+          ? clamp01(Math.max(0, sd) / rangePx)
+          : smoothCoverage(sd, softPx)
     }
   }
   return out
@@ -868,12 +856,6 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       }
     }
     return { field: out2 }
-  },
-  DistanceField({ num, W, H }, id, props) {
-    const px = num(id, 'px', props, 'px', 0.5)
-    const py = num(id, 'py', props, 'py', 0.5)
-    const scale = num(id, 'scale', props, 'scale', 1)
-    return { field: evalDistanceField(px, py, scale, W, H) }
   },
   FieldMath({ input, num, W, H }, id, props) {
     const av = input(id, 'a', null)

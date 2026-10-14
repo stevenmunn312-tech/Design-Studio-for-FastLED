@@ -12,19 +12,31 @@ export function timeNodeCpp(id: string, time: string): string[] {
   ]
 }
 
+/** A Wave's rate in Hz: `frequency` as given, or `bpm` at one cycle a beat. */
+export function waveHzCpp(unit: unknown, frequency: () => string, bpm: () => string): string {
+  return unit === 'BPM' ? `((${bpm()}) / 60.0f)` : frequency()
+}
+
 /** One oscillator implementation; the caller supplies its owning clock. The
  * frequency is integrated over that clock (`speedClockCpp.ts`'s accumulator,
  * written out here because the clock is a caller-named variable, not `t`). */
-export function waveCpp(output: string, waveform: string, amplitude: string, frequency: string, phase: string, time: string): string[] {
+export function waveCpp(
+  output: string, waveform: string, amplitude: string, frequency: string, phase: string, time: string,
+  level: { unipolar: boolean; offset: string } = { unipolar: false, offset: '0' },
+): string[] {
   const cycles = `_phase_${phaseTag(output)}`
   const arg = `(${cycles} + (${phase}))`
-  let wave: string
+  let base: string
   switch (waveform) {
-    case 'square': wave = `((_ph < 0.5f) ? (${amplitude}) : -(${amplitude}))`; break
-    case 'sawtooth': wave = `((${amplitude}) * (2.0f * _ph - 1.0f))`; break
-    case 'triangle': wave = `((${amplitude}) * (4.0f * fabsf(_ph - 0.5f) - 1.0f))`; break
-    default: wave = `((${amplitude}) * sinf(6.2831853f * _arg))`
+    case 'square': base = '((_ph < 0.5f) ? 1.0f : -1.0f)'; break
+    case 'sawtooth': base = '(2.0f * _ph - 1.0f)'; break
+    case 'triangle': base = '(4.0f * fabsf(_ph - 0.5f) - 1.0f)'; break
+    default: base = 'sinf(6.2831853f * _arg)'
   }
+  // Mirrors waveAt: offset + amplitude · (unipolar ? (w + 1) / 2 : w).
+  const swing = level.unipolar ? `((${base} + 1.0f) * 0.5f)` : base
+  const offset = level.offset === '0' || level.offset === '0.0f' ? '' : `(${level.offset}) + `
+  const wave = `${offset}(${amplitude}) * ${swing}`
   return [
     `  float ${output};`,
     `  static float ${cycles} = 0.0f, ${cycles}T = -1.0f;`,

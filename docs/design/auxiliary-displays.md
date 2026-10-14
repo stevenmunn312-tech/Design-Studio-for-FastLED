@@ -446,9 +446,9 @@ and normal sketches. Time's two outputs share `signalTimeCpp.ts`. Custom control
 provide float/bool pre-pass samples; template widget inputs accept supported
 float/bool/string paths, a self-contained colour, and the running engine's
 pattern selection. Interval shares the normal firmware's elapsed-millisecond
-timer and computed presses bypass contact debounce. Clock, Envelope, BeatSin,
-Noise LFO, Counter and Schedule Trigger share those emitters and keep
-wall-clock milliseconds. A wired RTC Clock of any source is a control source
+timer and computed presses bypass contact debounce. Clock, Envelope, Noise
+LFO and Schedule Trigger share those emitters and keep wall-clock
+milliseconds. A wired RTC Clock of any source is a control source
 and a Clock layout; an NTP clock starts the sketch's network.
 Smooth, Random, DMX Channel, arbitrary scripts and palette or image
 colours remain outside that template scope.

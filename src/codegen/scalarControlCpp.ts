@@ -5,7 +5,7 @@ import { functionCpp, mathOperandIdentity } from '../nodes/math/mathIdentity'
 import { logicCpp } from '../nodes/math/logic'
 import { toggleCpp } from './toggleCpp'
 import { intervalCpp } from './intervalCpp'
-import { waveCpp } from './signalTimeCpp'
+import { waveCpp, waveHzCpp } from './signalTimeCpp'
 import { formatNumberCpp, textValueCpp } from './displays/displayTextCpp'
 
 export type ControlDataType = 'float' | 'bool' | 'string' | 'color'
@@ -45,7 +45,7 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
     case 'Trigger': return props.triggerOp === 'toggle' ? { trigger: 0, on: 0, off: 0 } : { trigger: 0 }
     case 'FormatNumber': return { value: 0 }
     case 'Interval': return { interval: 0.5 }
-    case 'Wave': return { amplitude: 1, frequency: 1, phase: 0 }
+    case 'Wave': return { amplitude: 1, frequency: 1, bpm: 60, phase: 0, offset: 0 }
     default: return {}
   }
 }
@@ -124,7 +124,7 @@ export function scalarControlCpp(
     case 'Logic': expression = logicCpp(props.logicOp, f.a, f.b); break
     case 'Compare': expression = `(${f.a}) > (${f.b})`; break
     case 'Interval': loop = intervalCpp(id, output, f.interval); break
-    case 'Wave': loop = waveCpp(output, String(props.waveform ?? 'sine'), f.amplitude, f.frequency, f.phase, time); break
+    case 'Wave': loop = waveCpp(output, String(props.waveform ?? 'sine'), f.amplitude, waveHzCpp(props.rateUnit, () => f.frequency, () => f.bpm), f.phase, time, { unipolar: props.unipolar === true, offset: f.offset }); break
     case 'Trigger': {
       const op = String(props.triggerOp ?? 'debounce')
       if (op === 'toggle') {

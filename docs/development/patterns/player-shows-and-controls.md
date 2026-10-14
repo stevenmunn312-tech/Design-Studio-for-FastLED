@@ -178,15 +178,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   physical contact forwarded through a group input still debounces. Do not add
   a second flattener in a generator. The boundary rules are in
   [graph and nodes](graph-and-nodes.md).
-- Clock, Envelope, BeatSin, Noise LFO, Counter and Schedule Trigger share
+- Clock, Envelope, Noise LFO and Schedule Trigger share
   `signalControlCpp.ts` with normal sketches. They read `millis()`, keep static
   locals keyed by node id, and do not request `_controlTime`, so Master Speed
   does not scale them and the track clock stays put. Clock's firmware reset is
   the reset wire's rising edge. The evaluator also resets a Clock when
-  animation time jumps backward; leave that in the preview. Counter still adds
-  `rate/60` once per pass. A non-finite stored BeatSin bpm fails the control
-  graph; the normal-sketch wrapper still sanitises that stored value before
-  emitting it. Schedule Trigger's unwired Enable uses the property and defaults
+  animation time jumps backward; leave that in the preview. The 0–1 ramp and
+  beatsin are Wave (a unipolar sawtooth, a unipolar sine at a BPM), which reads
+  the control graph's clock like Time does. Schedule Trigger's unwired Enable uses the property and defaults
   on. Other unwired bools are false. Smooth, Random and DMX Channel stay
   refused.
 - A wired RTC Clock is resolved by `clockFor`, beside `ledStatusFor`. Every

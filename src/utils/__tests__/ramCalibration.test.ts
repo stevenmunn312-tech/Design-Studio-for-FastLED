@@ -99,10 +99,10 @@ const CASES: Case[] = [
   {
     // The hand-maintained STATEFUL_EXTRA_BYTES_PER_LED table is the part of the
     // estimate most likely to drift, since each entry restates by hand what an
-    // emit case allocates. Fire2012's heat map is one byte per LED.
+    // emit case allocates. Fire's heat map (every style) is one byte per LED.
     name: 'fire2012',
     note: 'stateful simulation state beyond the render buffer',
-    nodes: [node('f', 'Fire2012', 'pattern', { cooling: 55, sparking: 120 }), out()],
+    nodes: [node('f', 'Fire', 'pattern', { fireStyle: 'fire2012', cooling: 55, sparking: 120 }), out()],
     edges: [edge('e1', 'f', 'out', 'frame', 'frame')],
   },
 ]

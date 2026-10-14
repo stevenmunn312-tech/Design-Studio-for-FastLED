@@ -16,6 +16,7 @@ const CATEGORY_DIR: Record<string, string> = {
   'show': 'show',
   'audio': 'audio',
   'pattern/Shapes & Text': 'shapes',
+  'pattern/Media': 'shapes',
   'pattern/Generative': 'generative',
   'pattern/Simulations': 'simulations',
   'pattern/Audio-Reactive': 'audioReactive',

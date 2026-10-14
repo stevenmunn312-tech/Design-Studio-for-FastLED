@@ -143,6 +143,8 @@
   --accent-show: #8533ff;
   --accent-output: #d633ff;
   --accent-note: #ff33d6;
+  /* Not a sidebar header: the bench-only power and network parts. */
+  --accent-hardware: #a8b4c4;
   --accent-library: #ff3385;
 
   /* Text */

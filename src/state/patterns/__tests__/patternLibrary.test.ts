@@ -15,6 +15,7 @@ import {
 import { captureWindows } from '../patternRating'
 import type { Frame } from '../../palettes/ledColor'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../graphStore'
+import { isPropertyEnabled } from '../../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../graphStore'
 
 function node(id: string, nodeType: string): StudioNode {
@@ -284,7 +285,10 @@ describe('patternLibrary', () => {
         if (type === 'FFTAnalyzer') {
           expect(Number(props.smoothing), label).toBeGreaterThanOrEqual(0.78)
         } else if (type === 'SpectrumVisualizer') {
-          expect(Number(props.smoothing), label).toBeGreaterThanOrEqual(0.7)
+          // Three Band (the old Spectrum Bars) does not read smoothing at all.
+          if (isPropertyEnabled(type, 'smoothing', props)) {
+            expect(Number(props.smoothing), label).toBeGreaterThanOrEqual(0.7)
+          }
         } else if (type === 'Smooth') {
           expect(Number(props.response), label).toBeGreaterThanOrEqual(0.35)
         } else if (type === 'PercussionDetect') {

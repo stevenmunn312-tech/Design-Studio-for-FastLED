@@ -205,7 +205,7 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
                     <h3>Calibration ready</h3>
                     {session.result ? (
                       <>
-                        <p>Saving writes these onto the Touch node. Upload your project afterwards to run with them.</p>
+                        <p>Saving writes these onto the Touch Screen node. Upload your project afterwards to run with them.</p>
                         <dl className={styles.bounds}>
                           <div><dt>X min</dt><dd>{session.result.xMin}</dd></div>
                           <div><dt>X max</dt><dd>{session.result.xMax}</dd></div>

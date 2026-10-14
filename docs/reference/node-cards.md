@@ -42,11 +42,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Touch Button example graph](../../public/node-cards/graphs/touch-button-input.svg)
 
-### Touch
+### Touch Screen
 
-![Touch node](../../public/node-cards/touch-input.svg)
+![Touch Screen node](../../public/node-cards/touch-input.svg)
 
-![Touch example graph](../../public/node-cards/graphs/touch-input.svg)
+![Touch Screen example graph](../../public/node-cards/graphs/touch-input.svg)
 
 ### Button Bank
 
@@ -156,36 +156,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![MIDI example graph](../../public/node-cards/graphs/midi-input.svg)
 
-### Ethernet
-
-![Ethernet node](../../public/node-cards/ethernet-module.svg)
-
-![Ethernet example graph](../../public/node-cards/graphs/ethernet-module.svg)
-
-### Buck Converter
-
-![Buck Converter node](../../public/node-cards/power-converter.svg)
-
-![Buck Converter example graph](../../public/node-cards/graphs/power-converter.svg)
-
-### Battery Pack
-
-![Battery Pack node](../../public/node-cards/battery-pack.svg)
-
-![Battery Pack example graph](../../public/node-cards/graphs/battery-pack.svg)
-
-### Pack Electronics
-
-![Pack Electronics node](../../public/node-cards/battery-module.svg)
-
-![Pack Electronics example graph](../../public/node-cards/graphs/battery-module.svg)
-
-### USB-C PD Trigger
-
-![USB-C PD Trigger node](../../public/node-cards/pd-trigger-source.svg)
-
-![USB-C PD Trigger example graph](../../public/node-cards/graphs/pd-trigger-source.svg)
-
 ### DDP Input
 
 ![DDP Input node](../../public/node-cards/ddp-input.svg)
@@ -274,12 +244,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Interval example graph](../../public/node-cards/graphs/interval.svg)
 
-### Counter
-
-![Counter node](../../public/node-cards/counter.svg)
-
-![Counter example graph](../../public/node-cards/graphs/counter.svg)
-
 ### Random
 
 ![Random node](../../public/node-cards/random.svg)
@@ -303,12 +267,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Wave node](../../public/node-cards/wave.svg)
 
 ![Wave example graph](../../public/node-cards/graphs/wave.svg)
-
-### BeatSin
-
-![BeatSin node](../../public/node-cards/beat-sin.svg)
-
-![BeatSin example graph](../../public/node-cards/graphs/beat-sin.svg)
 
 ### Clock
 
@@ -568,12 +526,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Gauge example graph](../../public/node-cards/graphs/gauge.svg)
 
-### SD Video
-
-![SD Video node](../../public/node-cards/sd-video.svg)
-
-![SD Video example graph](../../public/node-cards/graphs/sd-video.svg)
-
 ### Text
 
 ![Text node](../../public/node-cards/text.svg)
@@ -633,6 +585,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Polar Gradient node](../../public/node-cards/polar-gradient.svg)
 
 ![Polar Gradient example graph](../../public/node-cards/graphs/polar-gradient.svg)
+
+### SD Video
+
+![SD Video node](../../public/node-cards/sd-video.svg)
+
+![SD Video example graph](../../public/node-cards/graphs/sd-video.svg)
 
 ### Image
 
@@ -760,24 +718,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Spiral example graph](../../public/node-cards/graphs/spiral.svg)
 
-### Kaleidoscope
-
-![Kaleidoscope node](../../public/node-cards/kaleidoscope.svg)
-
-![Kaleidoscope example graph](../../public/node-cards/graphs/kaleidoscope.svg)
-
-### Fractal Noise
-
-![Fractal Noise node](../../public/node-cards/fractal-noise.svg)
-
-![Fractal Noise example graph](../../public/node-cards/graphs/fractal-noise.svg)
-
-### Gabor Noise
-
-![Gabor Noise node](../../public/node-cards/gabor-noise.svg)
-
-![Gabor Noise example graph](../../public/node-cards/graphs/gabor-noise.svg)
-
 ### Blobs
 
 ![Blobs node](../../public/node-cards/blobs.svg)
@@ -789,12 +729,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Fire node](../../public/node-cards/fire.svg)
 
 ![Fire example graph](../../public/node-cards/graphs/fire.svg)
-
-### Fire 2012
-
-![Fire 2012 node](../../public/node-cards/fire2012.svg)
-
-![Fire 2012 example graph](../../public/node-cards/graphs/fire2012.svg)
 
 ### Particles
 
@@ -843,12 +777,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Game of Life node](../../public/node-cards/game-of-life.svg)
 
 ![Game of Life example graph](../../public/node-cards/graphs/game-of-life.svg)
-
-### Spectrum Bars
-
-![Spectrum Bars node](../../public/node-cards/spectrum-bars.svg)
-
-![Spectrum Bars example graph](../../public/node-cards/graphs/spectrum-bars.svg)
 
 ### Level Meter
 
@@ -1014,11 +942,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Field Formula example graph](../../public/node-cards/graphs/field-formula.svg)
 
-### Formula Field
+### Formula Shapes
 
-![Formula Field node](../../public/node-cards/formula-field.svg)
+![Formula Shapes node](../../public/node-cards/formula-field.svg)
 
-![Formula Field example graph](../../public/node-cards/graphs/formula-field.svg)
+![Formula Shapes example graph](../../public/node-cards/graphs/formula-field.svg)
 
 ### Field Noise
 
@@ -1050,11 +978,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Automaton example graph](../../public/node-cards/graphs/automaton.svg)
 
-### Fractal
+### Fractal Field
 
-![Fractal node](../../public/node-cards/fractal-field.svg)
+![Fractal Field node](../../public/node-cards/fractal-field.svg)
 
-![Fractal example graph](../../public/node-cards/graphs/fractal-field.svg)
+![Fractal Field example graph](../../public/node-cards/graphs/fractal-field.svg)
 
 ### Fluid
 
@@ -1073,12 +1001,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Gradient Field node](../../public/node-cards/gradient-field.svg)
 
 ![Gradient Field example graph](../../public/node-cards/graphs/gradient-field.svg)
-
-### Distance Field
-
-![Distance Field node](../../public/node-cards/distance-field.svg)
-
-![Distance Field example graph](../../public/node-cards/graphs/distance-field.svg)
 
 ### Shape Field
 
@@ -1232,6 +1154,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Mirror example graph](../../public/node-cards/graphs/mirror.svg)
 
+### Kaleidoscope
+
+![Kaleidoscope node](../../public/node-cards/kaleidoscope.svg)
+
+![Kaleidoscope example graph](../../public/node-cards/graphs/kaleidoscope.svg)
+
 ### Trails
 
 ![Trails node](../../public/node-cards/trails.svg)
@@ -1282,11 +1210,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Pattern Collection example graph](../../public/node-cards/graphs/pattern-collection.svg)
 
-### Transitions
+### Transition Pool
 
-![Transitions node](../../public/node-cards/transition-set.svg)
+![Transition Pool node](../../public/node-cards/transition-set.svg)
 
-![Transitions example graph](../../public/node-cards/graphs/transition-set.svg)
+![Transition Pool example graph](../../public/node-cards/graphs/transition-set.svg)
 
 ### Control Map
 

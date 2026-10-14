@@ -87,7 +87,7 @@ buttons.
 Wire the node's **Touched** output directly to a boolean action or through a
 Trigger/Control Map when you need toggle or edge semantics. Press the on-node
 touch control to exercise the same boolean in preview. This part is not the
-**Touch** node used by a touchscreen display: that node carries screen
+**Touch Screen** node used by a touchscreen display: that node carries screen
 coordinates, while this sensor produces one momentary boolean.
 
 ### Measure a DC load
@@ -808,7 +808,7 @@ For fixed music touch, wire named Touch outputs such as **Play / Pause**
 straight to matching Music Player action inputs, or connect **Touch
 Controls → Control Map Controls In → Music Player Controls** when you
 want one compact bundle or need continuous volume/brightness. Custom
-screens publish their individual widget outputs on the companion Touch
+screens publish their individual widget outputs on the companion Touch Screen
 node. Fixed Show Status and Clock screens have no touch actions.
 
 ### Design a custom screen
@@ -828,7 +828,7 @@ node. Fixed Show Status and Clock screens have no touch actions.
    already drew. **Portrait**/**Landscape** rotates the panel and re-fits
    the design to what it then shows, so the two can never disagree.
 4. Return with **Graph**, or with the panel's own name in the breadcrumb
-   to land on it. Widget outputs leave through the companion **Touch**
+   to land on it. Widget outputs leave through the companion **Touch Screen**
    node. A 0–1 Slider can drive a normal-sketch LED output's Brightness
    input. For SD music playback, assign fixture brightness through
    **Control Map → Music Player**; a player's own Volume is a direct
@@ -847,14 +847,14 @@ Upload to check the physical panel and mapped XPT2046 touch coordinates;
 choose the previous layout to restore content. Touch X/Y Min/Max
 properties take measured raw bounds for that exact module. Save and
 upload after changing them. Defaults are provisional and Diagnostics is
-not a raw sample collector. The companion Touch node's **Calibrate
+not a raw sample collector. The companion Touch Screen node's **Calibrate
 touch** wizard captures the four corners for you: choose the board's
 port, press **Upload calibration sketch**, and it flashes a temporary
 measuring sketch built from the panel alone, listens for the raw
 readings it prints, and guides you corner by corner. It works on a graph
 that cannot otherwise be deployed — a screen with no LED output, say —
 because the sketch is built from the panel, not the graph. Saving
-updates the Touch node and releases the port; upload your project again
+updates the Touch Screen node and releases the port; upload your project again
 to run with the measured bounds.
 
 Readout widgets receive values. Buttons publish boolean outputs. Toggles,

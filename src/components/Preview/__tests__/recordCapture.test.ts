@@ -190,7 +190,7 @@ describe('captureSequence', () => {
       node('fft', 'FFTAnalyzer', 'audio'),
       node('mic-provider', 'MicInput', 'input'),
       node('mic', 'Audio', 'audio', { sourceId: 'mic-provider' }),
-      node('bars', 'SpectrumBars', 'pattern'),
+      node('bars', 'SpectrumVisualizer', 'pattern', { style: 'Three Band' }),
       node('out', 'MatrixOutput', 'output', { width: 8, height: 8, brightness: 255 }),
     ]
     const edges = [

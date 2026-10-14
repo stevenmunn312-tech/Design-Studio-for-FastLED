@@ -458,7 +458,7 @@ describe('graphStore — grouping', () => {
         node('mic', 'MicInput'),
         node('audio', 'Audio', { sourceId: 'mic' }),
         node('fft', 'FFTAnalyzer'),
-        node('sp', 'SpectrumBars'),
+        node('sp', 'SpectrumVisualizer', { style: 'Three Band' }),
         node('out', 'MatrixOutput'),
       ],
       [

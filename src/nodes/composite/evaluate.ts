@@ -20,6 +20,7 @@ import { glitterBudget, glitterMode } from './glitter'
 import { frameOffset, frameQuarterTurns } from './frameTransform'
 import { wallpaperSamplePointAt, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
+import { evalKaleidoscope } from './kaleidoscope'
 
 // Trails node — the persisted, fading accumulator frame.
 const trailState = instanceState('trailState', new Map<string, Frame>())
@@ -557,6 +558,12 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) { return { frame: blankFrame(W, H) } }
     return { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: 255 - px.r, g: 255 - px.g, b: 255 - px.b } }) }
+  },
+  Kaleidoscope({ input, num, W, H }, id, props) {
+    const src = input(id, 'frame', null) as Frame | null
+    const segments = num(id, 'segments', props, 'segments', 6)
+    if (!src) { return { frame: blankFrame(W, H) } }
+    return { frame: evalKaleidoscope(src, segments, W, H) }
   },
   Mirror({ input, num, W, H }, id, props) {
     const src = input(id, 'frame', null) as Frame | null

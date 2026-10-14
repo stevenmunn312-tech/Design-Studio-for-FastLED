@@ -24,7 +24,7 @@ const PATTERN_NODE: Record<string, { nodeType: string; props?: Record<string, un
   Simplex2D:    { nodeType: 'Noise', props: { noiseType: 'simplex' } },
   Plasma:       { nodeType: 'Plasma' },
   Fire:         { nodeType: 'Fire' },
-  Fire2012:     { nodeType: 'Fire2012' },
+  Fire2012:     { nodeType: 'Fire', props: { fireStyle: 'fire2012', palette: 'heat' } },
   Noise2D:      { nodeType: 'Noise', props: { noiseType: 'sine' } },
   RadialBurst:  { nodeType: 'RadialBurst' },
   Spiral:       { nodeType: 'Spiral' },

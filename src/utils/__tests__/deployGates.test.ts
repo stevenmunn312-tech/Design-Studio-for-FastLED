@@ -211,7 +211,7 @@ const CASES: GateCase[] = [
     name: 'an Audio capability with no attached source',
     nodes: [
       node('audio', 'Audio', { sourceId: '' }),
-      node('bars', 'SpectrumBars'),
+      node('bars', 'SpectrumVisualizer'),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ],
     edges: [edge('e1', 'audio', 'bars', 'audio'), edge('e2', 'bars', 'out')],

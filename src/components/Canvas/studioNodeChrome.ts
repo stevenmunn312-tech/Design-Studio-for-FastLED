@@ -21,6 +21,7 @@ export const CATEGORY_TAG: Record<string, string> = {
   composite: 'CMP',
   show: 'SHW',
   output: 'OUT',
+  hardware: 'HW',
   note: 'NOTE',
 }
 
