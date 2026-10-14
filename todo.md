@@ -484,7 +484,9 @@ library defaults.
   category (`src/nodes/hardware/`, `HARDWARE_CATEGORY`) that the Help
   reference lists and the sidebar does not. MotionInput stays "Motion
   Sensor": it also hosts the RCWL-0516 microwave sensor, so "PIR" would
-  mislabel it. Still open: Sunrise's clock source, Transform's one-way zoom and 0–360 rate, ClockDisplay's
+  mislabel it. Sunrise runs on time since boot (the shared clock `t`, so
+  Master Speed scales it); its Start and Duration are typed seconds now, as
+  an hour-long slider moved 50 s a pixel. Still open: Transform's one-way zoom and 0–360 rate, ClockDisplay's
   legacy scalar ports.
 - [x] **D-08.10 · Nodes the library lacks.** Both batches built and compiled
   on 2026-10-14 (`d0810` and `d0810show` for the first batch; `d0810b`, every

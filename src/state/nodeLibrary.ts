@@ -1044,8 +1044,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Sunrise:         {
     mode: { control: 'select', options: [...SUNRISE_MODES] },
     progress: N01,
-    duration: { control: 'slider', min: 1, max: 3600, step: 1 },
-    start: { control: 'slider', min: 0, max: 3600, step: 1 },
+    // Seconds on the shared clock: a slider an hour long moves 50 s a pixel.
+    duration: { control: 'slider', min: 1, max: 3600, step: 1, entry: 'number' },
+    start: { control: 'slider', min: 0, max: 3600, step: 1, entry: 'number' },
   },
   DigitalRain:     {
     direction: { control: 'select', options: [...RAIN_DIRECTIONS] },
@@ -2101,9 +2102,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     color: 'Colour of the flash; pale blue-white by default.',
   },
   Sunrise: {
-    mode: 'Timed: the ramp starts at Start and runs for Duration. Manual: Progress sets the point on the ramp.',
-    duration: 'Seconds the ramp takes from night to full light.',
-    start: 'Second at which the ramp begins.',
+    mode: 'Timed: the ramp starts Start seconds after power-on and runs for Duration. Manual: Progress sets the point on the ramp.',
+    duration: 'Seconds the ramp takes from night to full light, 1 to 3600. Master Speed scales it like every animation.',
+    start: 'Seconds after power-on (in the preview, after the preview starts) at which the ramp begins, 0 to 3600.',
     progress: 'Point on the ramp in Manual mode, 0 night to 1 full daylight.',
   },
   DigitalRain: {

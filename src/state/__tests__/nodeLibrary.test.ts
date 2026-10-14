@@ -279,6 +279,7 @@ describe('nodeLibrary', () => {
     for (const [nodeType, key] of [
       ['DMXInput', 'universe'], ['DMXInput', 'previewPort'], ['LightInput', 'maxLux'],
       ['ClockDisplay', 'durationSec'], ['RTCInput', 'startYear'], ['Amplifier', 'maxVolume'],
+      ['Sunrise', 'duration'], ['Sunrise', 'start'],
     ]) {
       expect(propertyMeta(nodeType, key), `${nodeType}.${key}`).toMatchObject({ control: 'slider', entry: 'number' })
     }
