@@ -8,6 +8,7 @@ import {
   movePartPinToFree,
   routeControlsToEngine,
   disconnectTouchControls,
+  ensureRootAudioNode,
   placeTouchControl,
   ROOT_GRAPH_ID,
   useGraphStore,
@@ -22,7 +23,6 @@ import {
   type GraphDiagnosticCategory,
   type GraphDiagnosticSeverity,
 } from '../../utils/validateGraph'
-import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
 import styles from './GraphHealthDrawer.module.css'
 
@@ -144,22 +144,9 @@ export default function GraphHealthDrawer() {
       return
     }
     if (issue.action === 'add-audio-node') {
-      const definition = NODE_LIBRARY.find((candidate) => candidate.type === 'Audio')
-      if (!definition) return
-      const id = `Audio-${Date.now()}`
-      useGraphStore.getState().addNode({
-        id,
-        type: 'studioNode',
-        position: { x: 0, y: 0 },
-        data: {
-          label: definition.label,
-          nodeType: definition.type,
-          category: definition.category,
-          properties: { ...definition.defaultProperties },
-          inputs: definition.inputs,
-          outputs: definition.outputs,
-        },
-      } as never)
+      const id = ensureRootAudioNode()
+      if (!id) return
+      focusNode(id)
       revealGraphNodes([id])
       setStatus('Audio node added to the graph', 'success')
       return

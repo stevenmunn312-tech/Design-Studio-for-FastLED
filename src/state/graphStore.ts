@@ -106,6 +106,7 @@ import {
   withPlayerControlAssignment, withoutPlayerControlAssignment,
 } from './player/playerControlAssignments'
 import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './audio/stereoVuSizing'
+import { audioCapabilityIntent, type AudioCapabilityKind } from './audio/audioCapabilities'
 import {
   INTEGRATED_BOARD_PROFILE_KEY,
   integratedTouchDisplayForBoard,
@@ -4190,6 +4191,46 @@ export function addPatternCollectionTo(playerId: string): 'connected' | 'added' 
   }
   useGraphStore.getState().onConnect({ source: sourceId, sourceHandle: 'patternset', target: playerId, targetHandle: 'patternset' })
   return idle ? 'connected' : 'added'
+}
+
+/**
+ * Give hardware audio its way into the graph: an Audio node listening for
+ * `kind`, unless the scene already has one. Audio is a scene-level source, so
+ * it lands in the root graph even while a pattern group is open. Returns the
+ * new node's id, or null when one was already there.
+ */
+export function ensureRootAudioNode(kind: AudioCapabilityKind = 'microphone'): string | null {
+  const definition = LIBRARY_DEF.get('Audio')
+  if (!definition) return null
+  let addedId: string | null = null
+  useGraphStore.setState((s) => {
+    const nodes = rootGraphNodes(s)
+    if (!canAddNodeType(nodes, 'Audio')) return s
+    // Left of whatever the root graph already shows, so it does not land on top of it.
+    const visible = nodes.filter((node) => !node.hidden)
+    const position = visible.length
+      ? {
+          x: Math.min(...visible.map((node) => node.position.x)) - 320,
+          y: Math.min(...visible.map((node) => node.position.y)),
+        }
+      : { x: 0, y: 0 }
+    addedId = uniqueId(`Audio-${Date.now()}`, new Set(nodes.map((node) => node.id)))
+    const audio = {
+      id: addedId,
+      type: 'studioNode',
+      position,
+      data: {
+        label: definition.label,
+        nodeType: definition.type,
+        category: definition.category,
+        properties: { ...libraryDefaults('Audio'), sourceId: audioCapabilityIntent(kind) },
+        inputs: definition.inputs,
+        outputs: definition.outputs,
+      },
+    } as StudioNode
+    return withRootNodes(s, [...nodes, audio])
+  })
+  return addedId
 }
 
 function withRootNodes(s: GraphScope, nodes: StudioNode[]): Partial<GraphState> {

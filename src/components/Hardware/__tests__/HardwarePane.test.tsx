@@ -237,6 +237,61 @@ describe('HardwarePane', () => {
     },
   )
 
+  /*
+   * A microphone is hidden on the canvas and reaches the graph only through an
+   * Audio node, so adding one brings that node — but never a second.
+   */
+  it('adds an Audio node listening for the microphone with the first microphone', () => {
+    render(<HardwarePane />)
+
+    addPart('Inputs', 'INMP441 microphone')
+
+    const audio = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'Audio')
+    expect(audio).toHaveLength(1)
+    expect((audio[0].data.properties as Record<string, unknown>).sourceId).toBe('kind:microphone')
+  })
+
+  it('keeps the Audio node already on the graph when a microphone is added', () => {
+    useGraphStore.setState({
+      nodes: [
+        node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never,
+        node('Audio', 'audio-existing', { sourceId: '' }) as never,
+      ],
+    })
+    render(<HardwarePane />)
+
+    addPart('Inputs', 'INMP441 microphone')
+
+    const audio = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'Audio')
+    expect(audio.map((entry) => entry.id)).toEqual(['audio-existing'])
+    expect((audio[0].data.properties as Record<string, unknown>).sourceId).toBe('')
+  })
+
+  it('puts the Audio node in the root graph while a pattern group is open', () => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      activeGraphId: 'g1',
+      graphs: {
+        [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+        g1: { id: 'g1', name: 'Pattern' },
+      },
+      graphData: {
+        [ROOT_GRAPH_ID]: {
+          nodes: [node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never],
+          edges: [],
+        },
+      },
+    })
+    render(<HardwarePane />)
+
+    addPart('Inputs', 'INMP441 microphone')
+
+    const rootTypes = rootGraphNodes(useGraphStore.getState()).map((entry) => entry.data.nodeType)
+    expect(rootTypes).toContain('Audio')
+    expect(useGraphStore.getState().nodes).toEqual([])
+  })
+
   it('refuses the SPH0645LM4H on the shelf of an ESP32-S3, and says why', () => {
     render(<HardwarePane />)
     openShelfCategory('Inputs')
@@ -415,6 +470,8 @@ describe('HardwarePane', () => {
       .map((key) => lineIn!.data.properties[key])
     expect(new Set(pins).size).toBe(4)
     expect(lineIn!.data.outputs).toEqual([{ id: 'audio', label: 'Audio', dataType: 'audio' }])
+    const audio = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'Audio')
+    expect((audio?.data.properties as Record<string, unknown> | undefined)?.sourceId).toBe('kind:line-in')
   })
 
   it('adds one paired Stereo VU Meter, assigns two pins, targets the LED output, and auto-wires Audio', () => {

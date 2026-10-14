@@ -10,7 +10,7 @@ import { micModuleFor } from '../../state/peripherals/micModules'
 import { lightSensorTransport } from '../../state/peripherals/lightSensor'
 import { distanceSensorTransport } from '../../state/peripherals/distanceSensor'
 import { micSupportedForBoard, micUnsupportedMessage } from '../../build/pins/micPinDefaults'
-import type { StudioNode } from '../../state/graphStore'
+import { ensureRootAudioNode, type StudioNode } from '../../state/graphStore'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { sdSpiPinsForBoard } from '../../build/pins/sdPinDefaults'
 import { displayHasTouch } from '../../build/parts/partCatalogue'
@@ -114,12 +114,16 @@ export function inputPartActions({
         outputs: definition.outputs,
       },
     } as never)
+    // A microphone or line-in is hidden on the canvas and reaches the graph
+    // only through an Audio node, so the first one brings that node with it.
+    const audioAdded = [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType)
+      && ensureRootAudioNode(entry.nodeType === MIC_NODE_TYPE ? 'microphone' : 'line-in') !== null
     const pins = Object.values(assignedPins)
     setStatus(
       pins.length
-        ? `Added ${entry.label} on pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}`
-        : [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType)
-          ? `Added ${entry.label}. Add an Audio node to use it in the graph`
+        ? `Added ${entry.label} on pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}${audioAdded ? ' and an Audio node' : ''}`
+        : audioAdded
+          ? `Added ${entry.label} and an Audio node for it`
           : `Added ${entry.label} and its graph node`,
       'success',
     )
