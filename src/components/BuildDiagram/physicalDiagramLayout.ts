@@ -434,6 +434,13 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
     [103, 1094.3], [167.3, 1094.3], [231.7, 1094.3], [296, 1094.3],
     [103, 64.7], [167.3, 64.7], [231.7, 64.7], [296, 64.7],
   ]),
+  // The Feather header's 16 holes along the bottom (RESET to G), then its 12
+  // along the top (VBAT to SDA), measured from the render's drilled holes.
+  // Only 3.3V, GND and MIDI_RX on the bottom row carry a wire.
+  'adafruit-midi-featherwing': [
+    ...padRow([79.8, 110.1, 140.8, 171.1, 201.8, 232.2, 262.8, 293.2, 323.8, 354.2, 384.8, 415.2, 445.8, 476.2, 506.8, 537.2], 618, 263, 283),
+    ...padRow([201.8, 232.2, 262.8, 293.2, 323.8, 354.2, 384.8, 415.2, 445.8, 476.2, 506.8, 537.2], 618, 19, 283),
+  ],
   'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
   // Power amplifiers: screw terminals along the top for supply and speakers,
   // and the line input somewhere else entirely — mid-board holes on the
@@ -582,8 +589,8 @@ export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number)
 // `+` and `VS` join the list for the IR receivers: a KY-022 prints its
 // supply as a bare plus, and Vishay's datasheet names the pin VS.
 // `+12V` is the supply terminal on the large analog power amplifiers, and
-// `3V3D` the WIZ850io's digital 3.3 V supply.
-const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', 'VS', '3V3', '3V3D', '3V', 'V+', '+', '+12V']
+// `3V3D` the WIZ850io's digital 3.3 V supply, and `3.3V` the MIDI FeatherWing's.
+const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', 'VS', '3V3', '3V3D', '3.3V', '3V', 'V+', '+', '+12V']
 const GROUND_PAD_LABELS = ['GND', 'G', '0V', '-']
 
 /**
@@ -795,6 +802,8 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   // The manifest pushes TX, RX, enable: TX drives the transceiver's DI, RX
   // reads its RO, and the enable line lands on DE (RE is bridged to it).
   'dmx-input': [['DI'], ['RO'], ['DE']],
+  // The wing's optocoupler output, named for the Feather RX it feeds.
+  'midi-input': [['MIDI_RX']],
 }
 
 /**
@@ -877,7 +886,7 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.
   const supply = peripheralPadLabel(item, powerPad).toUpperCase()
-  if (supply === '3V3' || supply === '3V3D' || supply === '3V') return 'v3v3'
+  if (supply === '3V3' || supply === '3V3D' || supply === '3.3V' || supply === '3V') return 'v3v3'
   if (supply === 'VIN' || supply === '5V' || supply === '+5V') return 'v5'
   return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'
 }
@@ -951,6 +960,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'gy-521-mpu6050-module': 9,
   'adafruit-mpr121-touch-sensor': 6,
   'max485-rs485-module': 11.9,
+  'adafruit-midi-featherwing': 5.4,
   'wiz850io-ethernet-module': 6.2,
   'hlk-ld2410c-presence-sensor': 7.2,
   'pcm5102a-i2s-dac': 11.5,

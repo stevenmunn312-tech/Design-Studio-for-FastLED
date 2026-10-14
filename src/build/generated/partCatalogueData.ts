@@ -339,6 +339,62 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ]
     }
   },
+  "adafruit-midi-featherwing": {
+    "partId": "adafruit-midi-featherwing",
+    "label": "Adafruit MIDI FeatherWing (DIN-5, H11L1MS)",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 50.8,
+      "height": 22.86
+    },
+    "manufacturer": "Adafruit",
+    "logicVoltage": "3.3 V",
+    "pinLabelsLeftToRight": [
+      "RESET",
+      "3.3V",
+      "AREF",
+      "GND",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "SCK",
+      "MOSI",
+      "MISO",
+      "MIDI_RX",
+      "MIDI_TX",
+      "G",
+      "VBAT",
+      "EN",
+      "USB",
+      "N",
+      "M",
+      "L",
+      "K",
+      "J",
+      "I",
+      "H",
+      "SCL",
+      "SDA"
+    ],
+    "notes": [
+      "Official product 4740 uses H11L1MS, not 6N138.",
+      "Both DIN-5 sockets are fitted; all 28 Feather header holes remain unpopulated.",
+      "H11L1MS and SMD components are on the opposite PCB face to the DIN sockets.",
+      "3V and GND power the wing; Feather RX receives MIDI and TX transmits at 31250 baud.",
+      "The canonical view shows MIDI IN on the left and MIDI OUT on the right.",
+      "Most Feather header pins are pass-through; only 3V, GND, RX and TX operate this wing.",
+      "STEP geometry and Eagle pad coordinates are authoritative. Font contours and material finishes are visual approximations."
+    ],
+    "render": {
+      "file": "parts/adafruit-midi-featherwing.webp",
+      "widthPx": 618,
+      "heightPx": 283,
+      "pxPerMm": 12.008
+    }
+  },
   "adafruit-mpr121-touch-sensor": {
     "partId": "adafruit-mpr121-touch-sensor",
     "label": "Adafruit MPR121 12-key touch sensor",

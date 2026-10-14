@@ -193,6 +193,25 @@ describe('module pads come from the part, not the category', () => {
   })
 })
 
+describe('the MIDI FeatherWing', () => {
+  const wing = () => ({ ...item('midi-input', 'adafruit-midi-featherwing'), pins: [pin('midiRxPin')] })
+
+  it('lands RX on MIDI_RX, among the Feather header pass-through pads', () => {
+    const entry = wing()
+    expect(peripheralPadLabel(entry, peripheralSignalPadIndex(entry, 0))).toBe('MIDI_RX')
+  })
+
+  // The H11L1MS output is pulled up to the wing's 3V pad, so 3.3 V keeps RX
+  // at the controller's level. The pass-through net named G is not ground.
+  it('powers the wing from 3.3 V on its 3.3V pad, with GND on GND', () => {
+    const entry = wing()
+    expect(peripheralPowerNet(entry)).toBe('v3v3')
+    expect(peripheralPadLabel(entry, peripheralPowerPadIndex(entry)!)).toBe('3.3V')
+    expect(peripheralPadLabel(entry, peripheralGroundPadIndex(entry))).toBe('GND')
+    expect(receiveDivider({ x: 400, y: 300, item: entry } as unknown as Parameters<typeof receiveDivider>[0])).toBeNull()
+  })
+})
+
 describe('the DMX512 transceiver', () => {
   const dmx = () => ({
     ...item('dmx-input', 'max485-rs485-module'),

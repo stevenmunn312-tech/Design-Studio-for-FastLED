@@ -507,7 +507,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     ],
     // `midiSource` picks the firmware side: Web MIDI deploys as the idle
     // default (preview-only), while a DIN jack on a UART (31250 baud through
-    // an opto-isolator such as a 6N138) is read on the board. The preview
+    // the MIDI FeatherWing's H11L1MS opto-isolator) is read on the board. The preview
     // follows the browser's Web MIDI either way.
     defaultProperties: { note: 60, cc: 1, channel: 0, midiSource: 'Web MIDI', midiUart: 1, midiRxPin: 16 },
   },

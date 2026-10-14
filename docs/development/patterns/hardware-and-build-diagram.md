@@ -564,6 +564,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   chosen for the point it climbs to. RE has no GPIO:
   `transceiverEnableBridgePads` finds it by name and the sheet draws a jumper to
   DE. See [DMX / Art-Net input](../../design/dmx-artnet-input.md#the-transceiver).
+- **DIN MIDI interface (experimental):** a DIN-mode `MidiInput` is drawn as
+  Adafruit's MIDI FeatherWing (`midi-input`, `MIDI_DIN_PART_ID` in
+  `src/state/peripherals/midiSource.ts`), not a `PART_OPTIONS` row, for the
+  DMX transceiver's reason: a Web MIDI node draws nothing. Only three of its
+  28 Feather pads carry a wire: 3.3V, GND and MIDI_RX (the H11L1MS output,
+  pulled up to the wing's 3V, so no divider). The other pads keep the board's
+  generic net names, and one of them is `G`, which the ground-pad lookup also
+  matches; `peripheralGroundPadIndex` keeps the first `GND` because both sit
+  on the same row, and a test holds that.
 - **Wired Ethernet (experimental):** `EthernetModule` is a hardware-only WIZnet
   WIZ850io (W5500) that replaces Wi-Fi for Art-Net and NTP in every generated sketch;
   both call the transport-neutral `_netEnsureConnected`/`_netConnected`, and

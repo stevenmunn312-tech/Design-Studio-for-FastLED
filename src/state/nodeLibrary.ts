@@ -2306,7 +2306,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     midiSource: 'Web MIDI reads the browser\'s controller in preview only; DIN (UART) reads a MIDI jack wired to a UART on the board, so the sketch follows it too.',
     channel: 'MIDI channel to listen on, 1 to 16; 0 listens to every channel.',
     midiUart: 'ESP32 UART the DIN jack is wired to.',
-    midiRxPin: 'GPIO from the opto-isolator (6N138 or similar) carrying MIDI in at 31250 baud.',
+    midiRxPin: 'GPIO wired to the MIDI FeatherWing RX pad, carrying MIDI in at 31250 baud.',
     note: 'MIDI note number to watch, 0 to 127 (60 is middle C). Velocity and Gate follow this key.',
     cc: 'Controller number to watch, 0 to 127 (1 is the mod wheel). CC outputs its last value.',
   },

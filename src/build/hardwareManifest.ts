@@ -42,7 +42,7 @@ import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/
 import { PD_TRIGGER_PART_ID, pdTriggerSpec, pdTriggerVoltage } from '../state/peripherals/pdTrigger'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/peripherals/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/peripherals/dmxTransceiver'
-import { midiUsesUart } from '../state/peripherals/midiSource'
+import { MIDI_BAUD, MIDI_DIN_PART_ID, midiUsesUart } from '../state/peripherals/midiSource'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/peripherals/presenceSensor'
 import { touchButtonSpec } from '../state/peripherals/touchButton'
 import {
@@ -131,7 +131,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'midi-input' | 'ethernet' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -197,6 +197,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'PwmDriverOutput',
   'DarlingtonDriverOutput',
   'DMXInput',
+  'MidiInput',
   'EthernetModule',
   'PowerConverter',
   'PdTriggerSource',
@@ -319,8 +320,6 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} RX pin`, 'dmxRxPin', props.dmxRxPin)
         push(node, `${baseLabel} enable pin`, 'dmxEnablePin', props.dmxEnablePin)
         break
-      // Pins-only nodes with no part to draw: they still claim GPIOs, so a
-      // collision with a strip's data pin or a button is caught here.
       case 'MidiInput':
         if (!midiUsesUart(props)) break
         push(node, `${baseLabel} RX pin`, 'midiRxPin', props.midiRxPin)
@@ -735,9 +734,9 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
    *
    * Every part the workbench owns belongs on a wiring diagram. Board is the one
    * exclusion — it is the thing everything else is wired *to*, drawn as the
-   * controller rather than as a peripheral — and DMXInput is the one addition,
-   * since it is a graph-side input that still claims UART pins, and only in
-   * DMX512 mode, the one where it has a transceiver to draw. An RTC on a
+   * controller rather than as a peripheral — and DMXInput and MidiInput are the
+   * additions, since they are graph-side inputs that still claim UART pins, and
+   * only in DMX512 or DIN mode, the ones with an interface to draw. An RTC on a
    * non-DS3231 source claims no pins and is not a part on the bench, which
    * `collectPinUses` already encodes, so it falls out here too.
    */
@@ -745,6 +744,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     const nodeType = node.data.nodeType
     if (nodeType === 'Board') return false
     if (nodeType === 'DMXInput') return dmxUsesTransceiver(node.data.properties as Record<string, unknown>)
+    if (nodeType === 'MidiInput') return midiUsesUart(node.data.properties as Record<string, unknown>)
     if (!isHardwareNodeType(nodeType)) return false
     if (nodeType === 'RTCInput') {
       return String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'DS3231'
@@ -1372,6 +1372,24 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           reasons: missing.length === 0
             ? undefined
             : [`${physicalBoard?.label ?? 'The selected board'} does not have the DMX512 TX, RX and enable pins configured.`],
+        }
+      }
+      case 'MidiInput': {
+        // One GPIO: the wing's MIDI_RX pad carries the optocoupler output to
+        // the board's RX. The DIN cable plugs into the wing, and the node only
+        // listens, so MIDI_TX stays unwired.
+        const entry = partById(MIDI_DIN_PART_ID)
+        const wired = pins.some((pin) => pin.propertyKey === 'midiRxPin')
+        return {
+          ...buildPeripheralItem(node, 'midi-input', entry?.label ?? 'MIDI DIN interface', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired,
+          facts: {
+            partId: MIDI_DIN_PART_ID,
+            uart: `UART${String((node.data.properties as Record<string, unknown>).midiUart ?? 1)} receive at ${MIDI_BAUD} baud; MIDI_TX unwired`,
+            midiCable: 'MIDI IN is the left DIN socket',
+          },
+          reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have a MIDI RX pin configured.`],
         }
       }
       case 'RTCInput':

@@ -22,7 +22,8 @@ versioning (`0.y.z`) until the first stable release.
   one emitted font table. Inputs: a **DDP Input** frame source (xLights,
   LedFx, WLED) with a trust-held helper listener, **sACN (E1.31)** as a third
   DMX input mode (helper and firmware, with the universe's multicast group),
-  and a **DIN (UART)** source on the MIDI node that deploys. Outputs: a
+  and a **DIN (UART)** source on the MIDI node that deploys, drawn on the
+  Build Diagram as the Adafruit MIDI FeatherWing. Outputs: a
   **Frame Stream** (DDP over the network or Adalight on the serial) and an
   **Analog RGB Strip** on three PWM pins. The Board gains a **frame rate**
   cap that paces every sketch and the preview alike.

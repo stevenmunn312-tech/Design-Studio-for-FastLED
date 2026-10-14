@@ -15,6 +15,15 @@ export function midiUsesUart(properties: Record<string, unknown>): boolean {
   return midiSource(properties) === 'DIN (UART)'
 }
 
+/**
+ * The interface a DIN-mode node is drawn as: Adafruit's MIDI FeatherWing
+ * (product 4740), whose H11L1MS optocoupler isolates the cable and drives the
+ * board's RX from the wing's own 3V pull-up, so no divider is needed. Named
+ * here rather than as a `PART_OPTIONS` row for the reason the DMX transceiver
+ * is: a part option would put the wing on the node in Web MIDI mode too.
+ */
+export const MIDI_DIN_PART_ID = 'adafruit-midi-featherwing'
+
 /** DIN MIDI's fixed serial speed. */
 export const MIDI_BAUD = 31250
 

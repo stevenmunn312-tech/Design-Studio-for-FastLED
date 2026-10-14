@@ -401,6 +401,25 @@ describe('hardwareManifest', () => {
     expect(partial.unsupportedItems[0].supported).toBe(false)
   })
 
+  it('draws a DIN MIDI input as the MIDI FeatherWing on its RX pin', () => {
+    const manifest = buildHardwareManifest([
+      node('midi', 'MidiInput', { midiSource: 'DIN (UART)', midiRxPin: 16 }),
+    ], [], 'esp32:esp32:esp32')
+    const item = [...manifest.primaryItems, ...manifest.unsupportedItems].find((entry) => entry.sourceNodeId === 'midi')!
+    expect(item.kind).toBe('midi-input')
+    expect(item.supported).toBe(true)
+    expect(item.facts.partId).toBe('adafruit-midi-featherwing')
+    expect(item.pins.map((pin) => pin.propertyKey)).toEqual(['midiRxPin'])
+  })
+
+  it('draws nothing for a Web MIDI input, which has no hardware', () => {
+    const manifest = buildHardwareManifest([
+      node('midi', 'MidiInput', { midiSource: 'Web MIDI', midiRxPin: 16 }),
+    ], [], 'esp32:esp32:esp32')
+    expect([...manifest.primaryItems, ...manifest.unsupportedItems]
+      .some((entry) => entry.sourceNodeId === 'midi')).toBe(false)
+  })
+
   it('draws nothing for an Art-Net input, which has no hardware', () => {
     const manifest = buildHardwareManifest([
       node('dmx', 'DMXInput', { inputMode: 'Art-Net', dmxTxPin: 17, dmxRxPin: 16, dmxEnablePin: 21 }),

@@ -362,8 +362,8 @@ library defaults.
   Transition's `t` is one ungrouped row (the body's scrub slider is gone).
   Pre-1.0, no migration: a save made before this still shows its stale keys as
   raw rows until the node is replaced. No compile needed.
-- [ ] **D-08.4 · Definition bugs.** Done, awaiting the queued compile in
-  `tmp/node-audit/compiles.ps1` (Game of Life and Blend firmware changed).
+- [x] **D-08.4 · Definition bugs.** Done; the `d084` ESP32-S3 compile passed
+  on 2026-10-14 (Game of Life and Blend firmware changed).
   Line's end point defaults to `max_x`, `max_y`, which the scalar-expression
   rules now accept as a matrix-relative default; Math ships `a: 0, b: 0`, and
   changing its operation moves an operand still at the old identity to the
@@ -378,9 +378,9 @@ library defaults.
   has the Code node's editor, its 320 px width and an inline parse error. The
   DFPlayer tooltip was already overridden; a test now holds it. Pre-1.0, no
   migration: a Math saved without A/B still evaluates the identity but shows 0.
-- [ ] **D-08.5 · Beat response that honours its controls.** Done, awaiting
-  the queued compile in `tmp/node-audit/compiles.ps1` (`d085`: the gate's
-  `getBeatConfidence()` and a float Kick into a bool Beat). On live audio
+- [x] **D-08.5 · Beat response that honours its controls.** Done; the `d085`
+  compile passed on 2026-10-14 (the gate's `getBeatConfidence()` and a float
+  Kick into a bool Beat). On live audio
   Threshold (default 0.4) now gates FastLED's beat on its confidence, with a
   cooldown of 0.6 of the beat period (250–600 ms), in preview, the sketch and
   the SD player's decoder-fed control sample, which reads Threshold from the
@@ -393,9 +393,8 @@ library defaults.
   do). Bundled patterns with a Beat Detect, authored while Threshold did
   nothing live, now use 0.4
   ([player, shows and controls](docs/development/patterns/player-shows-and-controls.md#audio-levels)).
-- [ ] **D-08.6 · Data-type and sanitising sweep.** Done, awaiting the queued
-  compile in `tmp/node-audit/compiles.ps1` (`d086` normal sketch, `d086show`
-  show controller). Spiral `arms`, Kaleidoscope `segments`, Circle `radius`,
+- [x] **D-08.6 · Data-type and sanitising sweep.** Done; the `d086` normal
+  sketch and `d086show` show controller compiles passed on 2026-10-14. Spiral `arms`, Kaleidoscope `segments`, Circle `radius`,
   Shape `size`, Text `scroll` are sliders; ClockDisplay `durationSec` (to
   99:59:59), RTCInput `startYear` (1970–2099) and the amplifiers' `maxVolume`
   (0–21, now a clamped field in the part panel) are bounded number fields.
@@ -455,9 +454,9 @@ library defaults.
   (every property described; every override names a property or input its
   node has)
   ([graph and nodes](docs/development/patterns/graph-and-nodes.md#node-authoring-and-property-inputs)).
-- [ ] **D-08.9 · Merges, renames and category moves.** First pass applied,
-  awaiting the queued compile in `tmp/node-audit/compiles.ps1` (`d086` now
-  builds the merged colour nodes; `d0810` covers the rest). Merged: Sin, Cos
+- [ ] **D-08.9 · Merges, renames and category moves.** First pass applied
+  and compiled on 2026-10-14 (`d086` builds the merged colour nodes; `d0810`
+  covers the rest). Merged: Sin, Cos
   and Abs into one Function node (`fn`: sin, cos, abs, sqrt, square, floor,
   round); Mod into Math as `modulo`, plus `average`, so ComplexWave is gone;
   BlendColors into GradientSampler; CHSV into HSVToRGB with a `hueUnits`
@@ -478,10 +477,10 @@ library defaults.
   Inputs into a non-sidebar hardware category. Open questions: Sunrise's
   clock source, Transform's one-way zoom and 0–360 rate, ClockDisplay's
   legacy scalar ports.
-- [ ] **D-08.10 · Nodes the library lacks.** Both batches built, awaiting the
-  queued compiles in `tmp/node-audit/compiles.ps1` (`d0810` and `d0810show`
-  for the first batch; `d0810b`, every second-batch node in one ESP32-S3
-  sketch, and `d0810ada`, an Adalight stream, for the second). First batch:
+- [x] **D-08.10 · Nodes the library lacks.** Both batches built and compiled
+  on 2026-10-14 (`d0810` and `d0810show` for the first batch; `d0810b`, every
+  second-batch node in one ESP32-S3 sketch, and `d0810ada`, an Adalight
+  stream, for the second). First batch:
   Color, Constant, Logic and Expression (`sourceAndLogicNodes.test.ts`).
   Second batch (`libraryGapNodes.test.ts` holds both sides of each): Theater
   Chase, Color Wipe and Breathe (`generative/classics1d.ts`), a Glitter
@@ -500,10 +499,10 @@ library defaults.
   the Board's `frameRate` cap (`codegen/loopPacing.ts` paces the normal, show
   and player sketches, `LEDPreview` gates to it), a Frame Stream output (DDP
   or Adalight, `output/frameStream.ts`) and an Analog RGB Strip on three
-  LEDC/analogWrite pins. The pins-only hardware (DIN MIDI, analog strip) has
-  no part visual: a bench module needs a verified Blender asset, so they
-  register their GPIOs in the manifest's pin walk and stay out of the wiring
-  diagram until one lands. Hardware validation of sACN, DDP, DIN MIDI, the
+  LEDC/analogWrite pins. DIN MIDI is drawn on the wiring diagram as the
+  Adafruit MIDI FeatherWing (product 4740, H11L1MS). The analog strip is still
+  pins-only: it registers its GPIOs in the manifest's pin walk and stays out
+  of the wiring diagram until a verified Blender asset lands. Hardware validation of sACN, DDP, DIN MIDI, the
   stream and the analog strip is not recorded; they are experimental
   ([graph and nodes](docs/development/patterns/graph-and-nodes.md)).
 - [ ] **D-08.11 · Help node reference rewrite.** Only after D-08.1 to D-08.10:
