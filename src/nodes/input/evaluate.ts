@@ -1,5 +1,7 @@
 import { liveAudioSignal } from '../../state/audio/liveAudioSignal'
 import { useDmxStore } from '../../state/peripherals/dmxStore'
+import { useDdpStore } from '../../state/peripherals/ddpStore'
+import { buildFrame as buildDdpFrame } from '../../state/evaluator/frames'
 import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
 import {
   powerMonitorLimitAmps,
@@ -450,6 +452,16 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   EncoderInput(_c, id) {
     const enc = useHardwareInputStore.getState().encoder.get(id)
     return { position: enc?.position ?? 0, pressed: enc?.pressed ?? false }
+  },
+  // The helper's latest DDP bytes as a frame, pixel i at row-major i: a
+  // sender that addresses the matrix the same way (xLights' default) lands
+  // where it expects. Bytes beyond what has arrived read black.
+  DdpInput({ W, H }) {
+    const pixels = useDdpStore.getState().pixels
+    return { frame: buildDdpFrame(W, H, (x, y) => {
+      const i = (y * W + x) * 3
+      return i + 2 < pixels.length ? { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] } : { r: 0, g: 0, b: 0 }
+    }) }
   },
   DMXInput(_c, _id, props) {
     const universe = Math.max(0, Math.min(32767, Math.round(Number(props.universe ?? 0))))

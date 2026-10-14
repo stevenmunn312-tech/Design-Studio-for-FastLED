@@ -478,23 +478,34 @@ library defaults.
   Inputs into a non-sidebar hardware category. Open questions: Sunrise's
   clock source, Transform's one-way zoom and 0–360 rate, ClockDisplay's
   legacy scalar ports.
-- [ ] **D-08.10 · Nodes the library lacks.** First batch done, awaiting the
-  queued compile in `tmp/node-audit/compiles.ps1` (`d0810` normal sketch,
-  `d0810show` show controller): Color (a hex swatch with a `color` output),
-  Constant (a number, matrix-relative expressions accepted), Logic (`logicOp`
-  and, or, xor, nand, nor over two bool inputs; Not stays its own node) and
-  Expression (`f(a, b, t, W, H)` on `formulaLang`'s scalar vocabulary, with
-  the Code editor, the shims, and the same trust gate and deploy validation as
-  Custom Formula). Constant, Logic and Color also run in the template control
-  graph. `sourceAndLogicNodes.test.ts` holds both sides. Remaining, in
-  priority order: Theater Chase, Color Wipe, Breathe and a Glitter overlay;
-  Gradient Field, Float to Field and Field Blur; Frame Transform (rotate,
-  flip, translate) and a Blend `mask` input; Frequency Band, Level Meter, Beat
-  Phase and Stereo Levels; Text with a string input and a Palette Transform;
-  sACN/E1.31 and DDP input and a hardware DIN MIDI input; FPS cap,
-  Adalight/DDP frame output and an analog RGB strip output. Each follows the
-  new-node checklist in
-  [graph and nodes](docs/development/patterns/graph-and-nodes.md).
+- [ ] **D-08.10 · Nodes the library lacks.** Both batches built, awaiting the
+  queued compiles in `tmp/node-audit/compiles.ps1` (`d0810` and `d0810show`
+  for the first batch; `d0810b`, every second-batch node in one ESP32-S3
+  sketch, and `d0810ada`, an Adalight stream, for the second). First batch:
+  Color, Constant, Logic and Expression (`sourceAndLogicNodes.test.ts`).
+  Second batch (`libraryGapNodes.test.ts` holds both sides of each): Theater
+  Chase, Color Wipe and Breathe (`generative/classics1d.ts`), a Glitter
+  overlay (`composite/glitter.ts`), Frame Transform (`composite/
+  frameTransform.ts`) and a Blend `mask` input; Gradient Field, Float →
+  Field and Field Blur (`field/gradientField.ts`); Frequency Band
+  (`audio/frequencyBand.ts`, the 16 EQ bin centres), Stereo Levels, Beat
+  Phase (`audio/beatPhase.ts`, wall-clock) and a Level Meter pattern
+  (`audioReactive/levelMeter.ts`); Text with a `text` string input drawn at
+  run time from one emitted font table (`shared/fontCpp.ts`) and a Palette
+  Transform builder; sACN as a third DMX input mode (helper parses either
+  protocol on one listener and joins the multicast group; `dmxUsesNetwork`
+  replaces every `'Art-Net'` compare), a DDP Input frame source (helper
+  listener, `ddpStore`, trust-held like Art-Net) and a DIN (UART) source on
+  the MIDI node (`peripherals/midiSource.ts`; Web MIDI stays preview-only);
+  the Board's `frameRate` cap (`codegen/loopPacing.ts` paces the normal, show
+  and player sketches, `LEDPreview` gates to it), a Frame Stream output (DDP
+  or Adalight, `output/frameStream.ts`) and an Analog RGB Strip on three
+  LEDC/analogWrite pins. The pins-only hardware (DIN MIDI, analog strip) has
+  no part visual: a bench module needs a verified Blender asset, so they
+  register their GPIOs in the manifest's pin walk and stay out of the wiring
+  diagram until one lands. Hardware validation of sACN, DDP, DIN MIDI, the
+  stream and the analog strip is not recorded; they are experimental
+  ([graph and nodes](docs/development/patterns/graph-and-nodes.md)).
 - [ ] **D-08.11 · Help node reference rewrite.** Only after D-08.1 to D-08.10:
   one card per node from the frozen definitions, reusing the property
   descriptions and the redrawn node cards, with a live example per node.

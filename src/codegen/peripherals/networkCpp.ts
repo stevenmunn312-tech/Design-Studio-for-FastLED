@@ -16,6 +16,7 @@ import { libraryDefaults } from '../../state/nodeLibrary'
 import { getNetworkCredentials } from '../../state/peripherals/networkCredentials'
 import { DEFAULT_ETHERNET_PART_ID, wiredNetworkIn, type WiredNetwork } from '../../state/peripherals/ethernetModule'
 import { dmxUsesNetwork } from '../../state/peripherals/dmxTransceiver'
+import { streamUsesNetwork } from '../../nodes/output/frameStream'
 import { partById } from '../../build/parts/partCatalogue'
 import { cppStringLiteral } from '../cppLiterals'
 import { sanitizePin } from '../hardwarePins'
@@ -40,6 +41,8 @@ export interface NetworkSketchEmit {
 export function usesNetwork(node: Pick<StudioNode, 'data'>): boolean {
   const props = node.data.properties as Record<string, unknown>
   return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
+    || node.data.nodeType === 'DdpInput'
+    || (node.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
     || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
 }
 

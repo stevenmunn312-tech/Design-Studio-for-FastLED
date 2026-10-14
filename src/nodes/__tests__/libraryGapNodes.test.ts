@@ -18,6 +18,8 @@ import { controllerSettings } from '../../build/controllerSettings'
 import { dmxNetworkProtocol, dmxUsesNetwork, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
 import { workspaceTrustHolds } from '../../state/patterns/patternTrust'
 import { usesNetwork } from '../../codegen/peripherals/networkCpp'
+import { midiUsesUart } from '../../state/peripherals/midiSource'
+import { findPreviewOnlyWarnings } from '../../utils/validateGraph'
 import type { Frame } from '../../state/palettes/ledColor'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 
@@ -221,6 +223,64 @@ describe('sACN on the DMX input', () => {
     expect(cpp).toContain('"ASC-E1.17\\0\\0\\0"')
     expect(cpp).toContain('_sacnUni_d == 3')
     expect(cpp).toContain('_dmxData_d[0]')
+  })
+})
+
+describe('DDP Input', () => {
+  it('is a trust-held network frame source that assembles packets into its own buffer', () => {
+    const ddp = node('d', 'DdpInput')
+    expect(workspaceTrustHolds([ddp]).artnet).toBe(true)
+    expect(usesNetwork(ddp)).toBe(true)
+    const frame = frameOf([ddp], [], 'd')
+    expect(frame).toHaveLength(8)
+    expect(frame.flat().every((px) => !lit(px))).toBe(true)
+    const cpp = generateCpp([ddp], [])
+    expect(cpp).toContain('_ddpUdp_d.begin(4048);')
+    expect(cpp).toContain('(_ddpBuf_d[0] & 0xC0) == 0x40')
+    expect(cpp).toContain('memcpy(((uint8_t*)buf_d) + _ddpOff_d')
+  })
+})
+
+describe('Frame Stream, Analog RGB Strip and DIN MIDI', () => {
+  it('streams the wired frame by DDP packets or Adalight on the serial', () => {
+    const source = node('b', 'Breathe')
+    const ddp = node('s', 'StreamOutput', { host: '10.0.0.7', port: 4048 })
+    expect(usesNetwork(ddp)).toBe(true)
+    const cpp = generateCpp([source, ddp], [edge('b', 'frame', 's', 'frame')])
+    expect(cpp).toContain('const IPAddress _host(10, 0, 0, 7);')
+    expect(cpp).toContain('_streamUdp_s.beginPacket(_host, 4048);')
+    expect(cpp).toContain(`_off+=${480}`)
+    const ada = node('a', 'StreamOutput', { streamProtocol: 'adalight', baud: 500000 })
+    expect(usesNetwork(ada)).toBe(false)
+    const serial = generateCpp([source, ada], [edge('b', 'frame', 'a', 'frame')])
+    expect(serial).toContain('Serial.begin(500000);')
+    expect(serial).toContain("{'A','d','a',_hi,_lo,(uint8_t)(_hi^_lo^0x55)}")
+    expect(generateCpp([node('u', 'StreamOutput')], [])).toContain('// Frame Stream: nothing wired in')
+  })
+
+  it('drives three PWM pins for one colour, inverted for a common-anode strip', () => {
+    const strip = node('p', 'AnalogStripOutput', { rPin: 12, gPin: 13, bPin: 14, pwmHz: 2000, commonAnode: true })
+    const cpp = generateCpp([strip], [])
+    expect(cpp).toContain('ledcAttach(12, 2000, 8); ledcAttach(13, 2000, 8); ledcAttach(14, 2000, 8);')
+    expect(cpp).toContain('_r=255-_r; _g=255-_g; _b=255-_b;')
+    expect(cpp).toContain('ledcWrite(12, _r); ledcWrite(13, _g); ledcWrite(14, _b);')
+    expect(cpp).toContain('analogWrite(12, _r);')
+    expect(generateCpp([node('q', 'AnalogStripOutput')], [])).not.toContain('_r=255-_r')
+  })
+
+  it('reads a DIN jack on a UART in firmware, and stays preview-only on Web MIDI', () => {
+    const web = node('m', 'MidiInput')
+    expect(generateCpp([web], [])).toContain('// Web MIDI is preview-only')
+    expect(midiUsesUart(web.data.properties as Record<string, unknown>)).toBe(false)
+    const din = node('d', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 2, midiRxPin: 17, note: 64, cc: 7, channel: 3 })
+    const cpp = generateCpp([din], [])
+    expect(cpp).toContain('HardwareSerial _midiSerial_d(2);')
+    expect(cpp).toContain('_midiSerial_d.begin(31250, SERIAL_8N1, 17, -1);')
+    expect(cpp).toContain('if (3 != 0 && _ch != 3) continue;')
+    expect(cpp).toContain('_midiData_d[0] == 64')
+    expect(cpp).toContain('_midiData_d[0] == 7')
+    expect(findPreviewOnlyWarnings([web, node('k', 'Constant')], [edge('m', 'note', 'k', 'value')])).toHaveLength(1)
+    expect(findPreviewOnlyWarnings([din, node('k', 'Constant')], [edge('d', 'note', 'k', 'value')])).toHaveLength(0)
   })
 })
 

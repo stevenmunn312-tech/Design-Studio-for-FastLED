@@ -38,9 +38,9 @@ export async function promptTrustIfNeeded(): Promise<void> {
   const holds = workspaceTrustHolds(state.nodes, state.graphData)
   if (!holds.formulaOrCode && !holds.artnet) return
   const blocked = holds.formulaOrCode && holds.artnet
-    ? 'Its Formula and Code nodes will run, and its Art-Net listener will open, once you trust it.'
+    ? 'Its Formula and Code nodes will run, and its network listener will open, once you trust it.'
     : holds.artnet
-      ? 'Its Art-Net listener will open once you trust it.'
+      ? 'Its network listener will open once you trust it.'
       : 'Its Formula and Code nodes will run once you trust it.'
   const trust = await useUiStore.getState().requestConfirm({
     title: 'Trust this project?',

@@ -4,6 +4,7 @@ Art-Net/DMX listener behind the preview's DMX input.
 from __future__ import annotations
 
 import asyncio
+import base64
 import socket
 import threading
 import time
@@ -390,4 +391,166 @@ def artnet_snapshot(universe: int = 0):
         "packetRate": float(snapshot.get("packet_rate") or 0.0) if snapshot else 0.0,
         "lastPacketAt": _artnet_last_packet_ms(snapshot),
         "channels": list(snapshot["channels"]) if snapshot else _artnet_blank_channels(),
+    }
+
+
+# ── DDP preview helper ────────────────────────────────────────────────────────
+# A second UDP listener, for pixels rather than channels: DDP (Distributed
+# Display Protocol, port 4048) carries RGB bytes at a byte offset, so one
+# frame may arrive as several packets. The latest bytes are kept as one
+# buffer the browser polls for the DDP Input node's frame.
+
+_DDP_LIVE_TTL_S = 2.0
+_DDP_MAX_BYTES = 16384 * 3
+_ddp_lock = threading.Lock()
+_ddp_socket: socket.socket | None = None
+_ddp_thread: threading.Thread | None = None
+_ddp_stop_event: threading.Event | None = None
+_ddp_port: int = 4048
+_ddp_error: str | None = None
+_ddp_pixels = bytearray(_DDP_MAX_BYTES)
+_ddp_last_packet_at: float | None = None
+_ddp_packet_rate: float = 0.0
+
+
+def _parse_ddp_packet(packet: bytes) -> tuple[int, bytes] | None:
+    """(byte offset, pixel bytes) from one DDP data packet, or None. The
+    10-byte header is flags, sequence, data type, destination id, a 32-bit
+    offset and a 16-bit length; a timecode flag adds four bytes before data."""
+    if len(packet) < 10 or (packet[0] & 0xC0) != 0x40:
+        return None
+    header = 14 if packet[0] & 0x10 else 10
+    offset = int.from_bytes(packet[4:8], "big")
+    length = int.from_bytes(packet[8:10], "big")
+    if len(packet) < header + length:
+        return None
+    return offset, packet[header:header + length]
+
+
+def _ddp_listener_loop(sock: socket.socket, stop_event: threading.Event) -> None:
+    global _ddp_socket, _ddp_thread, _ddp_stop_event, _ddp_error, _ddp_last_packet_at, _ddp_packet_rate
+    try:
+        while not stop_event.is_set():
+            try:
+                packet, _addr = sock.recvfrom(1500)
+            except socket.timeout:
+                continue
+            except OSError:
+                if stop_event.is_set():
+                    break
+                raise
+            parsed = _parse_ddp_packet(packet)
+            if parsed is None:
+                continue
+            offset, data = parsed
+            if offset >= _DDP_MAX_BYTES:
+                continue
+            data = data[:_DDP_MAX_BYTES - offset]
+            now = time.time()
+            with _ddp_lock:
+                _ddp_pixels[offset:offset + len(data)] = data
+                if _ddp_last_packet_at is not None:
+                    _ddp_packet_rate = 1.0 / max(0.001, now - _ddp_last_packet_at)
+                _ddp_last_packet_at = now
+                _ddp_error = None
+    except Exception as exc:
+        with _ddp_lock:
+            _ddp_error = str(exc)
+    finally:
+        with _ddp_lock:
+            if _ddp_socket is sock:
+                _ddp_socket = None
+            if _ddp_stop_event is stop_event:
+                _ddp_stop_event = None
+            _ddp_thread = None
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
+def _ddp_stop_listener() -> None:
+    global _ddp_socket, _ddp_thread, _ddp_stop_event, _ddp_last_packet_at, _ddp_packet_rate, _ddp_error
+    with _ddp_lock:
+        sock = _ddp_socket
+        thread = _ddp_thread
+        stop_event = _ddp_stop_event
+        _ddp_socket = None
+        _ddp_thread = None
+        _ddp_stop_event = None
+        _ddp_last_packet_at = None
+        _ddp_packet_rate = 0.0
+        _ddp_error = None
+        _ddp_pixels[:] = bytes(_DDP_MAX_BYTES)
+    if stop_event is not None:
+        stop_event.set()
+    if sock is not None:
+        try:
+            sock.close()
+        except Exception:
+            pass
+    if thread is not None and thread.is_alive():
+        thread.join(timeout=1.0)
+
+
+@router.post("/api/ddp/start")
+def ddp_start(payload: dict = Body(...)):
+    global _ddp_socket, _ddp_thread, _ddp_stop_event, _ddp_port, _ddp_error
+    port = int(payload.get("port") or 4048)
+    if port < 1 or port > 65535:
+        return JSONResponse({"ok": False, "error": "UDP port must be between 1 and 65535"}, status_code=400)
+    with _ddp_lock:
+        if _ddp_socket is not None and _ddp_thread is not None and _ddp_thread.is_alive() and _ddp_port == port:
+            return {"ok": True}
+    _ddp_stop_listener()
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("0.0.0.0", port))
+        sock.settimeout(0.25)
+    except Exception as exc:
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    stop_event = threading.Event()
+    thread = threading.Thread(target=_ddp_listener_loop, args=(sock, stop_event), daemon=True, name="ddp-listener")
+    with _ddp_lock:
+        _ddp_socket = sock
+        _ddp_thread = thread
+        _ddp_stop_event = stop_event
+        _ddp_port = port
+        _ddp_error = None
+    thread.start()
+    return {"ok": True}
+
+
+@router.post("/api/ddp/stop")
+def ddp_stop():
+    _ddp_stop_listener()
+    return {"ok": True}
+
+
+@router.get("/api/ddp/frame")
+def ddp_frame(pixels: int = 256):
+    """The latest DDP bytes for the first `pixels` pixels, base64."""
+    count = max(1, min(_DDP_MAX_BYTES // 3, int(pixels)))
+    with _ddp_lock:
+        listening = _ddp_socket is not None and _ddp_thread is not None and _ddp_thread.is_alive()
+        last = _ddp_last_packet_at
+        live = last is not None and time.time() - last <= _DDP_LIVE_TTL_S
+        data = bytes(_ddp_pixels[:count * 3])
+        rate = _ddp_packet_rate
+        error = _ddp_error
+        port = _ddp_port
+    return {
+        "ok": True,
+        "listening": listening,
+        "port": port,
+        "live": live,
+        "valid": last is not None,
+        "packetRate": float(rate) if live else 0.0,
+        "error": error,
+        "pixels": base64.b64encode(data).decode("ascii"),
     }

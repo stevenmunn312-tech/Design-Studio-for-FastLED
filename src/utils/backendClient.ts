@@ -235,6 +235,51 @@ export async function getArtnetSnapshot(universe: number): Promise<ArtnetSnapsho
   }
 }
 
+// ── DDP preview helper ──────────────────────────────────────────────────────
+
+export interface DdpFrameResponse {
+  ok: boolean
+  listening: boolean
+  port: number
+  live: boolean
+  valid: boolean
+  packetRate: number
+  error?: string | null
+  /** RGB bytes for the first `pixels` pixels, base64. */
+  pixels: string
+}
+
+export async function startDdpListener(port: number): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/ddp/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port }),
+    })
+    return (await res.json()) as { ok: boolean; error?: string }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+export async function stopDdpListener(): Promise<void> {
+  try {
+    await fetch(`${BACKEND_URL}/api/ddp/stop`, { method: 'POST' })
+  } catch {
+    // helper offline — nothing to clean up
+  }
+}
+
+export async function getDdpFrame(pixels: number): Promise<DdpFrameResponse | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/ddp/frame?${new URLSearchParams({ pixels: String(pixels) })}`)
+    if (!res.ok) return null
+    return (await res.json()) as DdpFrameResponse
+  } catch {
+    return null
+  }
+}
+
 /** Installed board-core ids (e.g. `esp32:esp32`), so the board manager can show status. */
 export async function listCores(): Promise<string[]> {
   try {

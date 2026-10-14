@@ -83,6 +83,8 @@ import {
   coolingFanSpec,
 } from '../../state/peripherals/coolingFan'
 import { dfPlayerGlobalCpp, dfPlayerLoopCpp, dfPlayerSetupCpp, DFPLAYER_HELPER_CPP } from '../../codegen/peripherals/dfPlayerCpp'
+import { parseIpv4Literal } from '../../codegen/peripherals/networkCpp'
+import { ANALOG_PWM_HZ, DDP_CHUNK_PIXELS, DDP_DATA_TYPE_RGB8, DDP_PORT, adalightBaud, streamProtocol } from './frameStream'
 import {
   DFPLAYER_BUSY_PIN_FALLBACK,
   DFPLAYER_RX_PIN_FALLBACK,
@@ -874,6 +876,70 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     const meter = stereoVuMeters.find((candidate) => candidate.id === id)
     if (meter) ln(stereoVuLoopCpp(meter))
     else ln(`  // Stereo VU Meter omitted: no reachable, resolved Audio connection.`)
+  },
+  // DDP: the frame in 480-pixel packets, each a 10-byte header (flags with
+  // push on the last, sequence, RGB8 type, destination 1, byte offset,
+  // length) over the shared network. Adalight: "Ada", a count and checksum,
+  // then the bytes, on the USB serial at the chosen baud.
+  StreamOutput({ node, id, p, ln, srcBuf, intProp, setupLines, globalLines, incoming }) {
+    const src = srcBuf('frame')
+    if (!src || !incoming.has(`${node.id}:frame`)) { ln(`  // Frame Stream: nothing wired in`); return }
+    if (streamProtocol(p.streamProtocol) === 'adalight') {
+      const baud = adalightBaud(p.baud)
+      setupLines.push(`  Serial.begin(${baud});  // Adalight frame stream`)
+      ln(`  { // Frame Stream (Adalight)`)
+      ln(`    uint16_t _n=NUM_LEDS-1; uint8_t _hi=(uint8_t)(_n>>8),_lo=(uint8_t)(_n&0xFF),_hdr[6]={'A','d','a',_hi,_lo,(uint8_t)(_hi^_lo^0x55)};`)
+      ln(`    Serial.write(_hdr,6); Serial.write((const uint8_t*)${src},NUM_LEDS*3); }`)
+      return
+    }
+    const host = parseIpv4Literal(p.host) ?? [192, 168, 1, 50]
+    const port = intProp(p.port, DDP_PORT, 1, 65535)
+    globalLines.push(`#if FLS_NET_SUPPORTED`)
+    globalLines.push(`WiFiUDP _streamUdp_${id};`)
+    globalLines.push(`#endif`)
+    setupLines.push(`#if FLS_NET_SUPPORTED`)
+    setupLines.push(`  _streamUdp_${id}.begin(0);`)
+    setupLines.push(`#endif`)
+    ln(`  _netEnsureConnected();`)
+    ln(`#if FLS_NET_SUPPORTED`)
+    ln(`  if (_netConnected()) { // Frame Stream (DDP)`)
+    ln(`    static uint8_t _seq_${id}=1; const IPAddress _host(${host.join(', ')});`)
+    ln(`    for (int _off=0; _off<NUM_LEDS; _off+=${DDP_CHUNK_PIXELS}) {`)
+    ln(`      int _cnt=min(${DDP_CHUNK_PIXELS}, NUM_LEDS-_off); uint32_t _bo=(uint32_t)_off*3u; uint16_t _bl=(uint16_t)(_cnt*3);`)
+    ln(`      uint8_t _hdr[10]={(uint8_t)(0x40|((_off+_cnt>=NUM_LEDS)?0x01:0)),_seq_${id},${DDP_DATA_TYPE_RGB8},1,(uint8_t)(_bo>>24),(uint8_t)(_bo>>16),(uint8_t)(_bo>>8),(uint8_t)_bo,(uint8_t)(_bl>>8),(uint8_t)_bl};`)
+    ln(`      _streamUdp_${id}.beginPacket(_host, ${port}); _streamUdp_${id}.write(_hdr, 10); _streamUdp_${id}.write((const uint8_t*)(${src}+_off), _bl); _streamUdp_${id}.endPacket();`)
+    ln(`    }`)
+    ln(`    _seq_${id}=(uint8_t)(_seq_${id}%15+1);`)
+    ln(`  }`)
+    ln(`#endif`)
+  },
+  // Three PWM channels for one colour, through the ESP32's LEDC on either
+  // core generation or analogWrite elsewhere; a common-anode strip is
+  // driven inverted. The channels live in their own block so two strips
+  // never share one.
+  AnalogStripOutput({ id, p, ln, f, channelColor, pinSetupLines, setupLines }) {
+    const rPin = sanitizePin(p.rPin, 25), gPin = sanitizePin(p.gPin, 26), bPin = sanitizePin(p.bPin, 27)
+    const hz = Math.max(ANALOG_PWM_HZ.min, Math.min(ANALOG_PWM_HZ.max, Math.round(Number(p.pwmHz) || ANALOG_PWM_HZ.default)))
+    const invert = Boolean(p.commonAnode)
+    for (const pin of [rPin, gPin, bPin]) pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
+    setupLines.push(`#if defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3`)
+    setupLines.push(`  ledcAttach(${rPin}, ${hz}, 8); ledcAttach(${gPin}, ${hz}, 8); ledcAttach(${bPin}, ${hz}, 8);`)
+    setupLines.push(`#elif defined(ESP32)`)
+    setupLines.push(`  ledcSetup(13, ${hz}, 8); ledcAttachPin(${rPin}, 13); ledcSetup(14, ${hz}, 8); ledcAttachPin(${gPin}, 14); ledcSetup(15, ${hz}, 8); ledcAttachPin(${bPin}, 15);`)
+    setupLines.push(`#endif`)
+    ln(`  { // Analog RGB Strip`)
+    ln(`    CRGB _c=${channelColor('color', 255, 96, 0)}; float _br=constrain(${f('brightness', 'brightness', 1)},0.0f,1.0f);`)
+    ln(`    uint8_t _r=(uint8_t)(_c.r*_br),_g=(uint8_t)(_c.g*_br),_b=(uint8_t)(_c.b*_br);`)
+    if (invert) ln(`    _r=255-_r; _g=255-_g; _b=255-_b;`)
+    ln(`#if defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3`)
+    ln(`    ledcWrite(${rPin}, _r); ledcWrite(${gPin}, _g); ledcWrite(${bPin}, _b);`)
+    ln(`#elif defined(ESP32)`)
+    ln(`    ledcWrite(13, _r); ledcWrite(14, _g); ledcWrite(15, _b);`)
+    ln(`#else`)
+    ln(`    analogWrite(${rPin}, _r); analogWrite(${gPin}, _g); analogWrite(${bPin}, _b);`)
+    ln(`#endif`)
+    ln(`  }`)
+    void id
   },
   MasterSpeed() {
     // Emitted by the loop's clock, not here: it changes what `t` is rather

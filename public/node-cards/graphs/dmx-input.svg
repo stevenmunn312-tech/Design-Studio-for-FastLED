@@ -2946,7 +2946,7 @@
 <text x="222" y="241" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">DMX</text>
 <line x1="8" y1="257.5" x2="232" y2="257.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="278" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ FIRMWARE SOURCE</text>
-<text x="8" y="301" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ ART-NET WI-FI</text>
+<text x="8" y="301" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ NETWORK</text>
 <text x="8" y="331" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">ⓘ preview listens for</text>
 <text x="8" y="346.6" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">helper-backed Art-Net; firmware</text>
 <text x="8" y="362.2" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">uses the selected DMX source</text>

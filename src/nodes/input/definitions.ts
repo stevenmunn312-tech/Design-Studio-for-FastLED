@@ -505,7 +505,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'gate', label: 'Gate', dataType: 'bool' },
       { id: 'cc', label: 'CC', dataType: 'float' },
     ],
-    defaultProperties: { note: 60, cc: 1 },
+    // `midiSource` picks the firmware side: Web MIDI deploys as the idle
+    // default (preview-only), while a DIN jack on a UART (31250 baud through
+    // an opto-isolator such as a 6N138) is read on the board. The preview
+    // follows the browser's Web MIDI either way.
+    defaultProperties: { note: 60, cc: 1, channel: 0, midiSource: 'Web MIDI', midiUart: 1, midiRxPin: 16 },
   },
   {
     // Wired Ethernet for the sketch's network. It carries no signal: Art-Net
@@ -589,9 +593,31 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       requestedVoltage: String(pdTriggerSpec(PD_TRIGGER_PART_ID).defaultVoltageV),
     },
   },
+  {
+    // Pixels from the network: DDP (Distributed Display Protocol, UDP 4048),
+    // the frame feed xLights, LedFx and WLED speak. The preview reads the
+    // local helper's listener; firmware listens on the board. A network
+    // user like Art-Net, so it carries the same Wi-Fi fields and is held
+    // until the workspace is trusted.
+    type: 'DdpInput',
+    label: 'DDP Input',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      previewPort: 4048,
+      wifiHostname: 'fastled-ddp',
+      useDhcp: true,
+      staticIp: '',
+      staticGateway: '',
+      staticSubnet: '255.255.255.0',
+      staticDns: '',
+    },
+  },
 ]
 
 export const INPUT_DESCRIPTIONS: Record<string, string> = {
+  DdpInput: 'A frame streamed over the network by DDP (xLights, LedFx, WLED).',
   Audio: 'Selects Microphone, Line input, or Audio decoder for audio reactivity.',
   Storage: 'Selects SD, onboard flash, or USB storage attached to the board.',
   MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
@@ -617,7 +643,7 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   DMXInput: 'DMX from Art-Net or sACN over the network, or wired DMX512 on an ESP32.',
   PowerMonitorInput: 'Measures volts, amps and watts over I2C and reports them to displays.',
   RTCInput: 'Clock for preview/firmware via build stamp, manual seed, NTP, or DS3231.',
-  MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
+  MidiInput: 'Note velocity, gate and a CC from Web MIDI, or a DIN jack on a UART in firmware.',
   EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   BatteryPack: 'Defines a lithium pack from an exact cell and its series-parallel count.',

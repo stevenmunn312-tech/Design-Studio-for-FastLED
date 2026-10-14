@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 708 1043" width="708" height="1043" role="img" aria-label="Name the controller the patch targets">
-<rect width="708" height="1043" fill="#0d0f12"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 708 1062" width="708" height="1062" role="img" aria-label="Name the controller the patch targets">
+<rect width="708" height="1062" fill="#0d0f12"/>
 <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="30" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
@@ -1820,6 +1820,41 @@
 <circle cx="650" cy="1030" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="670" cy="1030" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="690" cy="1030" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="10" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="30" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="50" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="70" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="90" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="110" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="130" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="150" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="170" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="190" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="210" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="230" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="250" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="270" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="290" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="310" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="330" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="350" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="370" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="390" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="410" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="430" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="450" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="470" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="490" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="510" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="530" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="550" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="570" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="590" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="610" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="630" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="650" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="670" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="690" cy="1050" r="1" fill="rgba(255,255,255,0.04)"/>
 <defs>
 <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
 <filter id="grey"><feColorMatrix type="saturate" values="0"/></filter>
@@ -2136,8 +2171,8 @@
 </g>
 <g transform="translate(44,724)">
 <defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="240" height="275" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="275" rx="8" fill="url(#tint-output)"/>
+<rect x="0" y="0" width="240" height="294" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="294" rx="8" fill="url(#tint-output)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d633ff"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Board</text>
@@ -2171,25 +2206,33 @@
 <text x="210" y="206" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1</text>
 </g>
 <text x="224" y="206" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="225" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">power cap</text>
+<text x="8" y="225" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">frame rate</text>
 <g>
-<rect x="98" y="214.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="219" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="219" width="35.7" height="4" rx="2" fill="#d633ff"/>
+<circle cx="133.7" cy="221" r="6" fill="#d633ff"/>
+<text x="210" y="225" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">60</text>
 </g>
 <text x="224" y="225" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="244" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">milliamps</text>
+<text x="8" y="244" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">power cap</text>
 <g>
-<rect x="98" y="238" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="238" width="6.9" height="4" rx="2" fill="#d633ff"/>
-<circle cx="104.9" cy="240" r="6" fill="#d633ff"/>
-<text x="210" y="244" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">2000</text>
+<rect x="98" y="233.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
 <text x="224" y="244" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="263" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">telemetry</text>
+<text x="8" y="263" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">milliamps</text>
 <g>
-<rect x="98" y="252.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="257" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="257" width="6.9" height="4" rx="2" fill="#d633ff"/>
+<circle cx="104.9" cy="259" r="6" fill="#d633ff"/>
+<text x="210" y="263" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">2000</text>
 </g>
 <text x="224" y="263" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<rect x="0.5" y="0.5" width="239" height="274" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="8" y="282" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">telemetry</text>
+<g>
+<rect x="98" y="271.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+</g>
+<text x="224" y="282" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<rect x="0.5" y="0.5" width="239" height="293" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(384,44)">
 <defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>

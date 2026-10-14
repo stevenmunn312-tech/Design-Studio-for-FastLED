@@ -1925,6 +1925,45 @@ const MASTER_SPEED_LIVE_EXAMPLE = namedExample(
   'The plasma keeps its own 0.4 speed; the knob multiplies the clock underneath it rather than rewriting that number.',
 )
 
+// A sink with a frame input and no output of its own: the generic path would
+// feature nothing and leave the LED output dry, so the recipe wires one
+// pattern to both the stream and the output.
+const STREAM_OUTPUT_LIVE_EXAMPLE = namedExample(
+  'StreamOutput',
+  'Send the frame on to a WLED controller',
+  [
+    { key: 'wave', type: 'Pacifica' },
+    { key: 'target', type: 'StreamOutput', properties: { streamProtocol: 'ddp', host: '192.168.1.50', port: 4048 } },
+    { key: 'output', type: 'MatrixOutput' },
+  ],
+  [
+    { source: 'wave', sourceHandle: 'frame', target: 'target', targetHandle: 'frame' },
+    { source: 'wave', sourceHandle: 'frame', target: 'output', targetHandle: 'frame' },
+  ],
+  'Frame Stream is a second terminal beside the LED output: the same Pacifica frame lights the local strip and leaves the board as DDP packets for a WLED controller at the host address. Switch the protocol to Adalight to write the frames to the USB serial for Prismatik or Hyperion instead.',
+  'The matrix shows Pacifica as usual; the stream is invisible in preview and only runs on the board.',
+)
+
+// A colour sink: nothing it does reaches the LED output, so the recipe shows
+// the strip following the same colour the matrix paints.
+const ANALOG_STRIP_LIVE_EXAMPLE = namedExample(
+  'AnalogStripOutput',
+  'Match a 12 V strip to the matrix colour',
+  [
+    { key: 'hue', type: 'HueCycle', properties: { speed: 0.3 } },
+    { key: 'target', type: 'AnalogStripOutput', properties: { rPin: 25, gPin: 26, bPin: 27 } },
+    { key: 'fill', type: 'SolidColor' },
+    { key: 'output', type: 'MatrixOutput' },
+  ],
+  [
+    { source: 'hue', sourceHandle: 'color', target: 'target', targetHandle: 'color' },
+    { source: 'hue', sourceHandle: 'color', target: 'fill', targetHandle: 'color' },
+    { source: 'fill', sourceHandle: 'frame', target: 'output', targetHandle: 'frame' },
+  ],
+  'One Hue Cycle colour drives both the matrix (through Solid Color) and Analog RGB Strip, a non-addressable strip on three PWM pins, so a 12 V cove light follows the panel. The strip is pins only: wire each GPIO to a MOSFET gate, and tick Common anode if the strip shares +12 V.',
+  'The matrix cycles through the hue; the analog strip has no preview and only lights on the board.',
+)
+
 // The generic field example maps Slice Tiling's solid/void field through a
 // palette, which shows two colours. The Cell output is how it gets more, so the
 // example is the recipe: Field × Cell into Field → Frame.
@@ -2040,6 +2079,8 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   KeypadInput: KEYPAD_INPUT_LIVE_EXAMPLE,
   TouchPadInput: TOUCH_PAD_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
+  StreamOutput: STREAM_OUTPUT_LIVE_EXAMPLE,
+  AnalogStripOutput: ANALOG_STRIP_LIVE_EXAMPLE,
   SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
   FrameWarp: FRAME_WARP_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,

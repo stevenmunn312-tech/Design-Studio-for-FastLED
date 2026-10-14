@@ -42,6 +42,7 @@ import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/
 import { PD_TRIGGER_PART_ID, pdTriggerSpec, pdTriggerVoltage } from '../state/peripherals/pdTrigger'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/peripherals/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/peripherals/dmxTransceiver'
+import { midiUsesUart } from '../state/peripherals/midiSource'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/peripherals/presenceSensor'
 import { touchButtonSpec } from '../state/peripherals/touchButton'
 import {
@@ -317,6 +318,17 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} TX pin`, 'dmxTxPin', props.dmxTxPin)
         push(node, `${baseLabel} RX pin`, 'dmxRxPin', props.dmxRxPin)
         push(node, `${baseLabel} enable pin`, 'dmxEnablePin', props.dmxEnablePin)
+        break
+      // Pins-only nodes with no part to draw: they still claim GPIOs, so a
+      // collision with a strip's data pin or a button is caught here.
+      case 'MidiInput':
+        if (!midiUsesUart(props)) break
+        push(node, `${baseLabel} RX pin`, 'midiRxPin', props.midiRxPin)
+        break
+      case 'AnalogStripOutput':
+        push(node, `${baseLabel} red pin`, 'rPin', props.rPin)
+        push(node, `${baseLabel} green pin`, 'gPin', props.gPin)
+        push(node, `${baseLabel} blue pin`, 'bPin', props.bPin)
         break
       case 'MatrixOutput':
         if (outputForm(props) === 'hub75') {

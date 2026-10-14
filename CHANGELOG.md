@@ -9,6 +9,23 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The nodes the library audit found missing. Patterns: **Theater Chase**,
+  **Color Wipe**, **Breathe** and a **Level Meter** bar for any 0–1 level.
+  Effects: a **Glitter** overlay, a static **Frame Transform** (quarter
+  turns, flips, a wrapping slide) and a **Mask** input on Blend that scales
+  its opacity per pixel. Fields: **Gradient Field** (linear, radial,
+  angular; offset and repeat), **Float → Field** and **Field Blur**. Audio:
+  **Frequency Band** (one level from a Hz range), **Stereo Levels** (left,
+  right, balance) and **Beat Phase** (a per-beat saw re-synced by Beat
+  Detect, a bar phase and a count). Colour: **Palette Transform** (reverse,
+  rotate, dim). **Text** takes a wired string and draws it at run time from
+  one emitted font table. Inputs: a **DDP Input** frame source (xLights,
+  LedFx, WLED) with a trust-held helper listener, **sACN (E1.31)** as a third
+  DMX input mode (helper and firmware, with the universe's multicast group),
+  and a **DIN (UART)** source on the MIDI node that deploys. Outputs: a
+  **Frame Stream** (DDP over the network or Adalight on the serial) and an
+  **Analog RGB Strip** on three PWM pins. The Board gains a **frame rate**
+  cap that paces every sketch and the preview alike.
 - Four primitive nodes: **Color** (a picked swatch as a Color output),
   **Constant** (a number, accepting matrix-relative expressions such as
   `w/2`), **Logic** (and, or, xor, nand, nor over two booleans) and

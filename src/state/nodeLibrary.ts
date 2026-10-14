@@ -98,6 +98,8 @@ import { BAND_HZ } from '../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
 import { FRAME_RATE } from '../build/controllerSettings'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
+import { ADALIGHT_BAUDS, ANALOG_PWM_HZ, STREAM_PROTOCOLS, streamUsesNetwork } from '../nodes/output/frameStream'
+import { MIDI_SOURCES, midiUsesUart } from './peripherals/midiSource'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   ...INPUT_DEFINITIONS,
@@ -613,6 +615,18 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   MasterSpeed: {
     speed: { control: 'slider', min: MASTER_SPEED_MIN, max: MASTER_SPEED_MAX, step: 0.01 },
   },
+  StreamOutput: {
+    streamProtocol: { control: 'select', options: [...STREAM_PROTOCOLS] },
+    port: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
+    baud: { control: 'select', options: ADALIGHT_BAUDS.map(String) },
+  },
+  AnalogStripOutput: {
+    brightness: N01,
+    rPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    gPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    bPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    pwmHz: { control: 'slider', min: ANALOG_PWM_HZ.min, max: ANALOG_PWM_HZ.max, step: 100, entry: 'number' },
+  },
   SegmentDisplay: {
     clkPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     dioPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -632,6 +646,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   DMXChannel: {
     channel: { control: 'slider', min: 1, max: 512, step: 1 },
     activeThreshold: { control: 'slider', min: 0, max: 255, step: 1 },
+  },
+  DdpInput: {
+    previewPort: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
   },
   RTCInput: {
     timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
@@ -1240,6 +1257,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   MidiInput: {
     note: { control: 'slider', min: 0, max: 127, step: 1 },
     cc:   { control: 'slider', min: 0, max: 127, step: 1 },
+    midiSource: { control: 'select', options: [...MIDI_SOURCES] },
+    channel: { control: 'slider', min: 0, max: 16, step: 1 },
+    midiUart: { control: 'slider', min: 1, max: 2, step: 1 },
+    midiRxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   FrameFeedback: {
     // Turned again every frame the echo comes round, so a few degrees is a
@@ -2272,7 +2293,20 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     dmxRxPin: 'GPIO from the transceiver RO pin, where DMX data arrives.',
     dmxEnablePin: 'GPIO to the transceiver DE/RE pins; held low so the board only listens.',
   },
+  DdpInput: {
+    previewPort: 'UDP port the local helper and the firmware listen on for DDP packets. 4048 is the protocol\'s port.',
+    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
+    useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
+    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
+    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
+    staticSubnet: 'Network mask, almost always 255.255.255.0.',
+    staticDns: 'Name server address; leave empty to use the gateway.',
+  },
   MidiInput: {
+    midiSource: 'Web MIDI reads the browser\'s controller in preview only; DIN (UART) reads a MIDI jack wired to a UART on the board, so the sketch follows it too.',
+    channel: 'MIDI channel to listen on, 1 to 16; 0 listens to every channel.',
+    midiUart: 'ESP32 UART the DIN jack is wired to.',
+    midiRxPin: 'GPIO from the opto-isolator (6N138 or similar) carrying MIDI in at 31250 baud.',
     note: 'MIDI note number to watch, 0 to 127 (60 is middle C). Velocity and Gate follow this key.',
     cc: 'Controller number to watch, 0 to 127 (1 is the mod wheel). CC outputs its last value.',
   },
@@ -3014,6 +3048,27 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   MasterSpeed: {
     speed: 'Multiplies animation time for every node: 1 is normal, 2 is twice as fast, 0 freezes. Takes effect next frame.',
   },
+  StreamOutput: {
+    streamProtocol: 'DDP sends UDP packets to a host on the network (WLED, xLights); Adalight writes frames to the USB serial (Prismatik, Hyperion).',
+    host: 'IPv4 address of the device receiving DDP, for example 192.168.1.50.',
+    port: 'UDP port the receiver listens on. DDP\'s port is 4048.',
+    baud: 'Serial speed for Adalight. The receiver must be set to the same; 115200 suits a few hundred LEDs, faster for more.',
+    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
+    useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
+    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
+    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
+    staticSubnet: 'Network mask, almost always 255.255.255.0.',
+    staticDns: 'Name server address; leave empty to use the gateway.',
+  },
+  AnalogStripOutput: {
+    color: 'The strip\'s colour. A wired Color input replaces the channels below.',
+    brightness: 'Dims the whole strip, 0 off to 1 full.',
+    rPin: 'GPIO driving the red channel\'s MOSFET gate.',
+    gPin: 'GPIO driving the green channel\'s MOSFET gate.',
+    bPin: 'GPIO driving the blue channel\'s MOSFET gate.',
+    pwmHz: 'PWM frequency on the three pins. Higher avoids flicker on camera; 5000 suits most MOSFET boards.',
+    commonAnode: 'On for a strip whose +12 V is shared and each colour sinks to ground; the PWM is inverted.',
+  },
   SegmentDisplay: {
     enabled: 'Off blanks the digits without removing the module from the build. A wired Enabled input overrides it.',
     brightness: 'Digit brightness in the controller\'s own steps: 0 to 7 on a TM1637, 0 to 15 on a MAX7219.',
@@ -3558,6 +3613,15 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     dmxRxPin: 'RX pin',
     dmxEnablePin: 'enable pin',
   },
+  DdpInput: {
+    previewPort: 'UDP port',
+    wifiHostname: 'hostname',
+    useDhcp: 'use DHCP',
+    staticIp: 'static IP',
+    staticGateway: 'gateway',
+    staticSubnet: 'subnet mask',
+    staticDns: 'DNS',
+  },
   DMXChannel: {
     activeThreshold: 'active >=',
   },
@@ -3653,6 +3717,27 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   LevelMeter: {
     peakHold: 'peak hold',
+  },
+  StreamOutput: {
+    streamProtocol: 'protocol',
+    wifiHostname: 'hostname',
+    useDhcp: 'use DHCP',
+    staticIp: 'static IP',
+    staticGateway: 'gateway',
+    staticSubnet: 'subnet mask',
+    staticDns: 'DNS',
+  },
+  AnalogStripOutput: {
+    rPin: 'red pin',
+    gPin: 'green pin',
+    bPin: 'blue pin',
+    pwmHz: 'PWM Hz',
+    commonAnode: 'common anode',
+  },
+  MidiInput: {
+    midiSource: 'source',
+    midiUart: 'UART port',
+    midiRxPin: 'RX pin',
   },
 }
 
@@ -3802,6 +3887,18 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'source', label: 'Firmware Source', keys: ['inputMode', 'universe', 'previewPort'] },
     { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'dmx512', label: 'DMX512 Wiring', keys: ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] },
+  ],
+  DdpInput: [
+    { key: 'source', label: 'Listener', keys: ['previewPort'] },
+    { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
+  ],
+  StreamOutput: [
+    { key: 'target', label: 'Target', keys: ['streamProtocol', 'host', 'port', 'baud'] },
+    { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
+  ],
+  AnalogStripOutput: [
+    { key: 'color', label: 'Color', keys: ['r', 'g', 'b', 'brightness'] },
+    { key: 'wiring', label: 'Wiring', keys: ['rPin', 'gPin', 'bPin', 'pwmHz', 'commonAnode'] },
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
@@ -4127,6 +4224,8 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']),
   DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
+  AnalogStripOutput: new Set(['rPin', 'gPin', 'bPin']),
+  MidiInput: new Set(['midiRxPin']),
   ButtonInput: new Set(['pin']),
   TouchButtonInput: new Set(['pin']),
   ButtonBank: new Set(['pin']),
@@ -4226,6 +4325,9 @@ export function gpioRequirementForProperty(
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }
   if (nodeType === 'DMXInput' && key === 'dmxRxPin') {
+    return { capability: 'digitalInput', pullup: false }
+  }
+  if (nodeType === 'MidiInput' && key === 'midiRxPin') {
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'MicInput' && key === 'i2sSd') {
@@ -4721,6 +4823,22 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   // meant the parallel lines were not covered and showed on every SPI panel.
   if (nodeType === 'TransportDisplay' && TFT_PIN_PROPERTIES.has(key)) {
     return transportDisplayPinKeysForProps(properties).includes(key)
+  }
+  if (nodeType === 'DdpInput') {
+    if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
+      return properties.useDhcp === false
+    }
+  }
+  if (nodeType === 'MidiInput' && (key === 'midiUart' || key === 'midiRxPin')) {
+    return midiUsesUart(properties)
+  }
+  if (nodeType === 'StreamOutput') {
+    const network = streamUsesNetwork(properties)
+    if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
+      return network && properties.useDhcp === false
+    }
+    if (key === 'host' || key === 'port' || key === 'wifiHostname' || key === 'useDhcp') return network
+    if (key === 'baud') return !network
   }
   if (nodeType === 'DMXInput') {
     const network = dmxUsesNetwork(properties)

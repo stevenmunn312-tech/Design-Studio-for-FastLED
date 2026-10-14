@@ -29,9 +29,9 @@ import styles from './TrustBanner.module.css'
  *  when that is the only thing waiting. */
 function describeHolds(holds: WorkspaceTrustHolds): string {
   if (holds.formulaOrCode && holds.artnet) {
-    return 'Its Formula and Code nodes will run, and its Art-Net listener will open, once you trust it.'
+    return 'Its Formula and Code nodes will run, and its network listener will open, once you trust it.'
   }
-  if (holds.artnet) return 'Its Art-Net listener will open once you trust it.'
+  if (holds.artnet) return 'Its network listener will open once you trust it.'
   return 'Its Formula and Code nodes will run once you trust it.'
 }
 

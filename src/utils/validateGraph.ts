@@ -93,6 +93,8 @@ import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/periphera
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { dmxUsesNetwork } from '../state/peripherals/dmxTransceiver'
+import { streamUsesNetwork } from '../nodes/output/frameStream'
+import { midiUsesUart } from '../state/peripherals/midiSource'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/peripherals/lightSensor'
@@ -163,9 +165,15 @@ export function irRemoteSupportedForFqbn(fqbn: string): boolean {
 // silently.
 const PREVIEW_ONLY_NODE_TYPES: ReadonlySet<string> = new Set(['MidiInput'])
 
+/** Web MIDI never deploys; a MIDI node reading a DIN jack on a UART does. */
+function isPreviewOnlyNode(node: StudioNode): boolean {
+  if (!PREVIEW_ONLY_NODE_TYPES.has(node.data.nodeType)) return false
+  return !(node.data.nodeType === 'MidiInput' && midiUsesUart(node.data.properties as Record<string, unknown>))
+}
+
 export function findPreviewOnlyWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   const used = nodes.filter(n =>
-    PREVIEW_ONLY_NODE_TYPES.has(n.data.nodeType) && edges.some(e => e.source === n.id)
+    isPreviewOnlyNode(n) && edges.some(e => e.source === n.id)
   )
   if (used.length === 0) return []
   const names = used.map(n => String(n.data.label ?? n.data.nodeType)).join(', ')
@@ -1483,9 +1491,11 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   if (selectedFqbn && nodes.some((node) => {
     const props = node.data.properties as Record<string, unknown>
     return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
+      || node.data.nodeType === 'DdpInput'
+      || (node.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
       || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
   }) && !ethernetModuleIn(nodes) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
-    errors.push('Art-Net, sACN and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
+    errors.push('Art-Net, sACN, DDP and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
   }
   /*
    * "Internal DAC on a board with no DAC" used to be an error here. It cannot
@@ -1858,6 +1868,8 @@ function networkUsers(nodes: StudioNode[]): StudioNode[] {
   return nodes.filter((node) => {
     const props = node.data.properties as Record<string, unknown>
     return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
+      || node.data.nodeType === 'DdpInput'
+      || (node.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
       || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
   })
 }
@@ -3798,7 +3810,7 @@ export function buildGraphDiagnostics(
   })
 
   for (const node of nodes) {
-    if (!PREVIEW_ONLY_NODE_TYPES.has(node.data.nodeType) || !edges.some((edge) => edge.source === node.id)) continue
+    if (!isPreviewOnlyNode(node) || !edges.some((edge) => edge.source === node.id)) continue
     diagnostics.push({
       id: `${node.id}-preview-only`, severity: 'warning', category: 'preview',
       title: `${nodeLabel(node)} works only in preview`,
@@ -3935,12 +3947,14 @@ export function buildGraphDiagnostics(
     for (const node of nodes.filter((entry) => {
       const props = entry.data.properties as Record<string, unknown>
       return (entry.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
+        || entry.data.nodeType === 'DdpInput'
+        || (entry.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
         || (entry.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
     })) {
       diagnostics.push({
         id: `${node.id}-board-network`, severity: 'error', category: 'board',
         title: 'Network sync is incompatible with the selected board',
-        message: 'Art-Net or sACN receive and NTP time sync need a Wi-Fi-capable ESP32-family board or ESP8266 target.',
+        message: 'Art-Net, sACN or DDP receive and NTP time sync need a Wi-Fi-capable ESP32-family board or ESP8266 target.',
         fix: 'Choose an ESP32-family board / ESP8266 in Board & Port, or switch the node back to a non-network mode.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })

@@ -186,6 +186,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![USB-C PD Trigger example graph](../../public/node-cards/graphs/pd-trigger-source.svg)
 
+### DDP Input
+
+![DDP Input node](../../public/node-cards/ddp-input.svg)
+
+![DDP Input example graph](../../public/node-cards/graphs/ddp-input.svg)
+
 ## Audio
 
 ### FFT Analyzer
@@ -1433,6 +1439,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Power Amplifier node](../../public/node-cards/power-amplifier.svg)
 
 ![Power Amplifier example graph](../../public/node-cards/graphs/power-amplifier.svg)
+
+### Frame Stream
+
+![Frame Stream node](../../public/node-cards/stream-output.svg)
+
+![Frame Stream example graph](../../public/node-cards/graphs/stream-output.svg)
+
+### Analog RGB Strip
+
+![Analog RGB Strip node](../../public/node-cards/analog-strip-output.svg)
+
+![Analog RGB Strip example graph](../../public/node-cards/graphs/analog-strip-output.svg)
 
 ## Notes
 

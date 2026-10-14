@@ -470,3 +470,27 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Do not add separate flattening rules in a template generator. Pass the current
   registry through routing, validation and asset preparation; `useGroupRegistry`
   includes edits to an open subgraph rather than relying on its saved snapshot.
+
+- A node that reads a shared resource through the local helper — the DMX
+  input's Art-Net or sACN listener, the DDP input's pixel feed — is a
+  *network* node on both sides, and the fact is asked, never compared: the
+  DMX node's mode goes through `dmxUsesNetwork` / `dmxNetworkProtocol`
+  (`state/peripherals/dmxTransceiver.ts`), a Frame Stream's through
+  `streamUsesNetwork` (`nodes/output/frameStream.ts`), and `usesNetwork` in
+  `networkCpp.ts`, `networkUsers` in `validateGraph.ts`, the trust holds in
+  `patternTrust.ts` and the Build Diagram's pin walk read those helpers. A
+  string compare against `'Art-Net'` was once spread over ten sites, and a
+  third protocol would have reached some of them. The helper's one UDP
+  listener parses both DMX protocols by header, so a protocol choice only
+  decides the default port (`dmxListenPort`: the other protocol's
+  registered port reads as this one's, so switching mode moves the port) and
+  the sACN multicast join. A firmware source that never deploys (Web MIDI)
+  and one that does (a DIN jack on a UART) share the MIDI node:
+  `midiUsesUart` (`state/peripherals/midiSource.ts`) is what the emitter,
+  the preview-only warning, the pin walk and the row gating ask.
+- Loop pacing is one helper, `loopPacingCpp` (`codegen/loopPacing.ts`),
+  fed by the Board's `frameRate` through `controllerSettings`: the normal
+  sketch, the show controller and the player all end their loop with it, and
+  `LEDPreview` gates its evaluation to the same rate. A pacing line is
+  recognised by `isLoopPacing` rather than by its text, which is what lets a
+  screen-only sketch swap `FastLED.delay` for `delay` at any rate.

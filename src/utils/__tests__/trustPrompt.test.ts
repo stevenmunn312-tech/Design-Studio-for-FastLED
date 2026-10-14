@@ -56,7 +56,7 @@ describe('promptTrustIfNeeded', () => {
     setWorkspace([node('d', 'DMXInput', { inputMode: 'Art-Net' })])
     await promptTrustIfNeeded()
     const message = requestConfirm.mock.calls[0][0].message as string
-    expect(message).toMatch(/Art-Net listener will open once you trust it/)
+    expect(message).toMatch(/network listener will open once you trust it/)
     expect(message).not.toMatch(/Formula and Code/)
   })
 

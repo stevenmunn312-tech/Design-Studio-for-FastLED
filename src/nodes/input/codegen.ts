@@ -14,6 +14,7 @@ import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { rtcInputLoopCpp } from '../../codegen/peripherals/rtcInputCpp'
 import { dmxListenPort, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
+import { MIDI_BAUD, midiChannel, midiUsesUart } from '../../state/peripherals/midiSource'
 
 const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines }) => {
   const emit = controlInputCpp(node.data.nodeType, id, p)!
@@ -225,7 +226,78 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   // Web MIDI has no embedded-hardware equivalent — preview-only, so
   // firmware just sees the idle default.
-  MidiInput({ ln, v }) {
-    ln(`  float ${v('note')} = 0.0f; bool ${v('gate')} = false; float ${v('cc')} = 0.0f;`)
+  // DDP frames into this node's own buffer, which persists between loops, so
+  // a frame that arrives as several packets (offset, length) assembles in
+  // place and the last complete picture holds until the next one.
+  DdpInput({ id, p, ln, ownBuf, intProp, setupLines, globalLines }) {
+    const ob = ownBuf()
+    const port = intProp(p.previewPort, 4048, 1, 65535)
+    globalLines.push(`#if FLS_NET_SUPPORTED`)
+    globalLines.push(`WiFiUDP _ddpUdp_${id};`)
+    globalLines.push(`#endif`)
+    setupLines.push(`#if FLS_NET_SUPPORTED`)
+    setupLines.push(`  _ddpUdp_${id}.begin(${port});`)
+    setupLines.push(`#endif`)
+    ln(`  _netEnsureConnected();`)
+    ln(`#if FLS_NET_SUPPORTED`)
+    ln(`  if (_netConnected()) {`)
+    ln(`    int _ddpPkt_${id} = _ddpUdp_${id}.parsePacket();`)
+    ln(`    while (_ddpPkt_${id} > 0) {`)
+    ln(`      uint8_t _ddpBuf_${id}[1500];`)
+    ln(`      int _ddpLen_${id} = _ddpUdp_${id}.read(_ddpBuf_${id}, sizeof(_ddpBuf_${id}));`)
+    ln(`      if (_ddpLen_${id} >= 10 && (_ddpBuf_${id}[0] & 0xC0) == 0x40) {`)
+    ln(`        int _ddpHdr_${id} = (_ddpBuf_${id}[0] & 0x10) ? 14 : 10;`)
+    ln(`        uint32_t _ddpOff_${id} = ((uint32_t)_ddpBuf_${id}[4] << 24) | ((uint32_t)_ddpBuf_${id}[5] << 16) | ((uint32_t)_ddpBuf_${id}[6] << 8) | (uint32_t)_ddpBuf_${id}[7];`)
+    ln(`        int _ddpN_${id} = ((int)_ddpBuf_${id}[8] << 8) | (int)_ddpBuf_${id}[9];`)
+    ln(`        if (_ddpHdr_${id} + _ddpN_${id} <= _ddpLen_${id} && _ddpOff_${id} < (uint32_t)NUM_LEDS * 3u) {`)
+    ln(`          uint32_t _ddpEnd_${id} = min<uint32_t>(_ddpOff_${id} + (uint32_t)_ddpN_${id}, (uint32_t)NUM_LEDS * 3u);`)
+    ln(`          memcpy(((uint8_t*)${ob}) + _ddpOff_${id}, _ddpBuf_${id} + _ddpHdr_${id}, _ddpEnd_${id} - _ddpOff_${id});`)
+    ln(`        }`)
+    ln(`      }`)
+    ln(`      _ddpPkt_${id} = _ddpUdp_${id}.parsePacket();`)
+    ln(`    }`)
+    ln(`  }`)
+    ln(`#else`)
+    ln(`  (void)${ob};`)
+    ln(`#endif`)
+  },
+  // Web MIDI never deploys: the outputs rest at their idle defaults. A DIN
+  // jack is a UART at 31250 baud, parsed byte by byte with running status:
+  // note on/off for the watched key (a note-on at velocity 0 is off) and the
+  // watched controller, on one channel or any.
+  MidiInput({ id, p, ln, v, intProp, setupLines, globalLines }) {
+    if (!midiUsesUart(p)) {
+      ln(`  float ${v('note')} = 0.0f; bool ${v('gate')} = false; float ${v('cc')} = 0.0f;  // Web MIDI is preview-only`)
+      return
+    }
+    const uart = intProp(p.midiUart, 1, 1, 2)
+    const rxPin = sanitizePin(p.midiRxPin, 16)
+    const note = intProp(p.note, 60, 0, 127)
+    const cc = intProp(p.cc, 1, 0, 127)
+    const channel = midiChannel(p.channel)
+    globalLines.push(`#if defined(ESP32)`)
+    globalLines.push(`HardwareSerial _midiSerial_${id}(${uart});`)
+    globalLines.push(`#endif`)
+    globalLines.push(`static float _midiVel_${id} = 0.0f, _midiCc_${id} = 0.0f; static uint8_t _midiStatus_${id} = 0, _midiData_${id}[2], _midiCount_${id} = 0;`)
+    setupLines.push(`#if defined(ESP32)`)
+    setupLines.push(`  _midiSerial_${id}.begin(${MIDI_BAUD}, SERIAL_8N1, ${rxPin}, -1);  // DIN MIDI in`)
+    setupLines.push(`#endif`)
+    ln(`#if defined(ESP32)`)
+    ln(`  while (_midiSerial_${id}.available() > 0) {`)
+    ln(`    uint8_t _b = (uint8_t)_midiSerial_${id}.read();`)
+    ln(`    if (_b >= 0xF8) continue;  // real-time messages never disturb running status`)
+    ln(`    if (_b & 0x80) { _midiStatus_${id} = _b < 0xF0 ? _b : 0; _midiCount_${id} = 0; continue; }`)
+    ln(`    if (!_midiStatus_${id}) continue;`)
+    ln(`    _midiData_${id}[_midiCount_${id}++] = _b;`)
+    ln(`    uint8_t _kind = _midiStatus_${id} & 0xF0, _ch = (_midiStatus_${id} & 0x0F) + 1;`)
+    ln(`    uint8_t _need = (_kind == 0xC0 || _kind == 0xD0) ? 1 : 2;`)
+    ln(`    if (_midiCount_${id} < _need) continue;`)
+    ln(`    _midiCount_${id} = 0;`)
+    ln(`    if (${channel} != 0 && _ch != ${channel}) continue;`)
+    ln(`    if ((_kind == 0x90 || _kind == 0x80) && _midiData_${id}[0] == ${note}) _midiVel_${id} = (_kind == 0x90 && _midiData_${id}[1] > 0) ? _midiData_${id}[1] / 127.0f : 0.0f;`)
+    ln(`    else if (_kind == 0xB0 && _midiData_${id}[0] == ${cc}) _midiCc_${id} = _midiData_${id}[1] / 127.0f;`)
+    ln(`  }`)
+    ln(`#endif`)
+    ln(`  float ${v('note')} = _midiVel_${id}; bool ${v('gate')} = _midiVel_${id} > 0.0f; float ${v('cc')} = _midiCc_${id};`)
   },
 }

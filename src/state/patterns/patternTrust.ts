@@ -50,6 +50,7 @@ function gatedNodeFingerprint(node: unknown): string | null {
   const nodeType = String(data?.nodeType ?? '')
   const properties = data?.properties ?? {}
   if (TRUST_GATED_NODE_TYPES.has(nodeType)
+    || nodeType === 'DdpInput'
     || (nodeType === 'DMXInput' && dmxUsesNetwork(properties as Record<string, unknown>))) {
     return JSON.stringify(canonicalize({ nodeType, properties }))
   }
@@ -201,7 +202,7 @@ export function patternNeedsTrust(subgraph: GraphContent, groups: GroupRegistry 
  * reason to explain the banner. Keep the two lists apart — merging them
  * reintroduces a prompt the pattern path has no reason to show.
  */
-const WORKSPACE_ONLY_GATED_NODE_TYPES = new Set(['DMXInput'])
+const WORKSPACE_ONLY_GATED_NODE_TYPES = new Set(['DMXInput', 'DdpInput'])
 
 /** What an untrusted workspace is currently holding back. */
 export interface WorkspaceTrustHolds {
@@ -243,7 +244,8 @@ export function workspaceTrustHolds(
     // reads its universe in firmware and does nothing at all in preview, so
     // trusting changes nothing for it. Matches DmxInputBody's own early
     // return, including the default when the property is missing.
-    if (nodeType === 'DMXInput' && dmxUsesNetwork((data?.properties ?? {}) as Record<string, unknown>)) {
+    if (nodeType === 'DdpInput'
+      || (nodeType === 'DMXInput' && dmxUsesNetwork((data?.properties ?? {}) as Record<string, unknown>))) {
       holds.artnet = true
     }
   }

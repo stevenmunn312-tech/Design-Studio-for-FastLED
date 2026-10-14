@@ -621,9 +621,52 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       maxVolume: 18,
     },
   },
+  {
+    // The frame as a stream to another device: DDP over the network (a
+    // WLED controller, xLights' DDP input) or Adalight over the USB serial
+    // (Prismatik, Hyperion, an Ambilight receiver). A terminal: the sketch
+    // sends what is wired in each loop, and the preview draws nothing for it.
+    type: 'StreamOutput',
+    label: 'Frame Stream',
+    category: 'output',
+    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [],
+    defaultProperties: {
+      streamProtocol: 'ddp',
+      host: '192.168.1.50',
+      port: 4048,
+      baud: 115200,
+      wifiHostname: 'fastled-stream',
+      useDhcp: true,
+      staticIp: '',
+      staticGateway: '',
+      staticSubnet: '255.255.255.0',
+      staticDns: '',
+    },
+  },
+  {
+    // A non-addressable 12 V RGB strip on three PWM pins through MOSFETs:
+    // one colour for the whole strip, from a wired Color or the channels.
+    // Pins only — the driver board is whatever the bench has.
+    type: 'AnalogStripOutput',
+    label: 'Analog RGB Strip',
+    category: 'output',
+    inputs: [
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'r', label: 'R', dataType: 'float' },
+      { id: 'g', label: 'G', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+      { id: 'brightness', label: 'Brightness', dataType: 'float' },
+    ],
+    propertyInputs: { r: 'r', g: 'g', b: 'b', brightness: 'brightness' },
+    outputs: [],
+    defaultProperties: { r: 255, g: 96, b: 0, brightness: 1, rPin: 25, gPin: 26, bPin: 27, pwmHz: 5000, commonAnode: false },
+  },
 ]
 
 export const OUTPUT_DESCRIPTIONS: Record<string, string> = {
+  StreamOutput: 'Sends the frame to another device by DDP over the network or Adalight serial.',
+  AnalogStripOutput: 'Drives a 12 V non-addressable RGB strip on three PWM pins.',
   // output
   Board: 'The controller board — exact model, its pins, and what it supports.',
   MatrixOutput: 'An LED output for strings, matrices, rings, corkscrews, and HUB75 panels.',

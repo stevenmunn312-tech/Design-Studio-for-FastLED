@@ -43,6 +43,7 @@ import IRRemoteBody from './bodies/IRRemoteBody'
 import PlayerControlsBody from './bodies/PlayerControlsBody'
 import MidiInputBody from './bodies/MidiInputBody'
 import DmxInputBody from './bodies/DmxInputBody'
+import DdpInputBody from './bodies/DdpInputBody'
 import RtcInputBody from './bodies/RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { buttonBankOutputs } from '../../state/player/buttonBank'
@@ -1670,6 +1671,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'IRRemoteInput' && <IRRemoteBody nodeId={id} />}
         {d.nodeType === 'ControlMap' && <PlayerControlsBody nodeId={id} />}
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
+        {d.nodeType === 'DdpInput' && <DdpInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
         {(d.nodeType === 'CustomPalette' || d.nodeType === 'Poline') && (

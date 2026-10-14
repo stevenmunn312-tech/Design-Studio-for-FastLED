@@ -53,7 +53,7 @@ describe('TrustBanner', () => {
   it('names the Art-Net listener when that is the only thing held', () => {
     setWorkspace([node('d', 'DMXInput', { inputMode: 'Art-Net' })])
     const text = render(<TrustBanner />).getByRole('status').textContent ?? ''
-    expect(text).toMatch(/Art-Net listener will open once you trust it/)
+    expect(text).toMatch(/network listener will open once you trust it/)
     expect(text).not.toMatch(/Formula and Code/)
   })
 
@@ -61,7 +61,7 @@ describe('TrustBanner', () => {
     setWorkspace([node('cf', 'Code'), node('d', 'DMXInput', { inputMode: 'Art-Net' })])
     const text = render(<TrustBanner />).getByRole('status').textContent ?? ''
     expect(text).toMatch(/Formula and Code nodes will run/)
-    expect(text).toMatch(/Art-Net listener will open/)
+    expect(text).toMatch(/network listener will open/)
   })
 
   it('stays silent once the workspace is trusted', () => {
