@@ -10,10 +10,9 @@ import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsC
 import { isPinnableProperty } from '../../state/player/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/upload/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../nodes/shared/scalarExpression'
-import { nodeFormulaError } from '../../nodes/shared/formulaLang'
+import { nodeFormulaError, scalarFormulaError } from '../../nodes/shared/formulaLang'
 import { waveNodeSamples } from '../../nodes/signal/wave'
 import WaveScope from './WaveScope'
-import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
 import BoardPinPicker from '../Hardware/BoardPinPicker'
@@ -1339,11 +1338,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     ? selectedFqbn in s.micOverridesByFqbn
     : d.nodeType in s.overrides)
 
-  // Waveform nodes show a scope at the top of the body; this shifts the port
-  // handles below it down by the scope height + the body's flex gap. Wave's
-  // scope is its own configured shape; ComplexWave's reflects live upstream.
+  // The Wave node shows a scope of its configured shape at the top of the
+  // body; this shifts the port handles below it down by the scope height +
+  // the body's flex gap.
   const isWave = d.nodeType === 'Wave'
-  const isComplexWave = d.nodeType === 'ComplexWave'
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = HARDWARE_INPUT_WIDGET_TYPES.has(d.nodeType)
@@ -1364,7 +1362,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // driven from the shared evaluation pass (previewStore).
   const outPort = outputs[0]
   const previewKind: PreviewKind | null =
-    !isWave && !isComplexWave && outPort
+    !isWave && outPort
       ? outPort.dataType === 'frame' ? 'frame'
       : outPort.dataType === 'palette' ? 'palette'
       : outPort.dataType === 'color' ? 'color'
@@ -1479,7 +1477,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const musicLibraryAnalyzing = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   // The Code node embeds a multi-line C++ editor, so it needs a wider frame.
   const isCode = d.nodeType === 'Code'
-  const formulaError = d.nodeType === 'CustomFormula' ? nodeFormulaError(String(props.formula ?? '')) : null
+  // Custom Formula and Expression embed the Code node's editor with their
+  // parse error beneath it; Expression's vocabulary is the scalar one.
+  const isFormulaNode = d.nodeType === 'CustomFormula' || d.nodeType === 'Expression'
+  const formulaError = d.nodeType === 'CustomFormula' ? nodeFormulaError(String(props.formula ?? ''))
+    : d.nodeType === 'Expression' ? scalarFormulaError(String(props.formula ?? ''))
+    : null
   const signalKey = outPort ? `${id}:${outPort.id}` : null
   const categoryClass = CATEGORY_CLASS[d.category] ?? ''
   const categoryTag = CATEGORY_TAG[d.category] ?? 'MOD'
@@ -1656,7 +1659,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           />
         )}
         {showLiveNodeVisuals && isWave && waveSamples && <WaveScope samples={waveSamples} />}
-        {showLiveNodeVisuals && isComplexWave && <ComplexWaveScope nodeId={id} />}
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
         {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
         {d.nodeType === 'Audio' && <AudioCapabilityBody nodeId={id} sourceId={props.sourceId} />}
@@ -1913,7 +1915,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           </>
         )}
 
-        {d.nodeType === 'CustomFormula' && (
+        {isFormulaNode && (
           <>
             <div className={styles.codeLabel}>Formula</div>
             <textarea
@@ -1921,7 +1923,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               style={{ minHeight: 56 }}
               spellCheck={false}
               value={String(props.formula ?? '')}
-              placeholder="sin(x*6+t)*0.5+0.5"
+              placeholder={d.nodeType === 'Expression' ? 'sin(t)*0.5+0.5' : 'sin(x*6+t)*0.5+0.5'}
               aria-label={`${displayName} formula`}
               aria-invalid={formulaError ? 'true' : undefined}
               disabled={bakeLocked}

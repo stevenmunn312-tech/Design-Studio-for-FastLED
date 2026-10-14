@@ -138,25 +138,4 @@ describe('node-reference live examples', () => {
       expect(example.previewDescription, node.type).toContain(label)
     }
   })
-
-  it('drives XY → Index with whole matrix coordinates and makes its index visible', () => {
-    const xy = NODE_LIBRARY.find((node) => node.type === 'XYMapper')!
-    const example = liveExampleForNode(xy)
-    const byKey = new Map(example.nodes.map((node) => [node.key, node]))
-
-    for (const key of ['x', 'y']) {
-      expect(byKey.get(key)?.type).toBe('BeatSin')
-      expect(byKey.get(key)?.properties).toMatchObject({ low: 0, high: 15 })
-      expect(example.edges).toContainEqual({ source: key, sourceHandle: 'value', target: 'target', targetHandle: key })
-    }
-    expect(byKey.get('normalize')?.properties).toMatchObject({ inMin: 0, inMax: 255, outMin: 0, outMax: 360 })
-    expect(example.edges).toContainEqual({ source: 'target', sourceHandle: 'index', target: 'normalize', targetHandle: 'value' })
-    expect(example.edges).toContainEqual({ source: 'normalize', sourceHandle: 'result', target: 'color', targetHandle: 'h' })
-    for (const axis of ['x', 'y']) {
-      expect(byKey.get(`screen-${axis}`)?.properties).toMatchObject({ inMin: 0, inMax: 15, outMin: 0, outMax: 1 })
-      expect(example.edges).toContainEqual({ source: axis, sourceHandle: 'value', target: `screen-${axis}`, targetHandle: 'value' })
-      expect(example.edges).toContainEqual({ source: `screen-${axis}`, sourceHandle: 'result', target: 'dot', targetHandle: `c${axis}` })
-    }
-    expect(example.edges).toContainEqual({ source: 'trails', sourceHandle: 'frame', target: 'output', targetHandle: 'frame' })
-  })
 })

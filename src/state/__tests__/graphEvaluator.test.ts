@@ -63,7 +63,7 @@ vi.mock('../codeSandboxRuntime', async (importOriginal) => {
 
 import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphFullImpl, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
-import { waveSample, combineWaves } from '../../nodes/signal/wave'
+import { waveSample } from '../../nodes/signal/wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -927,10 +927,10 @@ describe('evaluateGraph', () => {
     mockAudio.micTreble = 0
   })
 
-  it('ComplexWave combines two values per operation', () => {
-    // ComplexWave.result → BrightnessMod over white, so frame[0][0].r = round(255 * result).
-    const brightnessAt = (operation: string, a: number, b: number) => {
-      const cw = node('cw', 'ComplexWave', 'math', { operation, a, b })
+  it('Math combines two values per operation', () => {
+    // Math.result → BrightnessMod over white, so frame[0][0].r = round(255 * result).
+    const brightnessAt = (mathOp: string, a: number, b: number) => {
+      const cw = node('cw', 'Math', 'math', { mathOp, a, b })
       const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
       const bm = node('bm', 'BrightnessMod', 'composite', {})
       const out = node('out', 'MatrixOutput', 'output', {})
@@ -948,29 +948,32 @@ describe('evaluateGraph', () => {
     expect(brightnessAt('add', 0.5, 0.25)).toBe(Math.round(255 * 0.75))
     expect(brightnessAt('multiply', 0.5, 0.25)).toBe(Math.round(255 * 0.125))
     expect(brightnessAt('average', 0.5, 0.25)).toBe(Math.round(255 * 0.375))
-    expect(brightnessAt('difference', 0.5, 0.25)).toBe(Math.round(255 * 0.25))
+    expect(brightnessAt('subtract', 0.5, 0.25)).toBe(Math.round(255 * 0.25))
     expect(brightnessAt('max', 0.5, 0.25)).toBe(Math.round(255 * 0.5))
     expect(brightnessAt('min', 0.5, 0.25)).toBe(Math.round(255 * 0.25))
+    expect(brightnessAt('divide', 0.5, 0.25)).toBe(255)                 // 2.0 saturates the brightness clamp
+    expect(brightnessAt('modulo', 0.5, 0.3)).toBe(Math.round(255 * 0.2))
+    expect(brightnessAt('modulo', 0.5, 0)).toBe(0)                      // b = 0 yields 0, not NaN
   })
 
-  it('evaluateScalar probes a ComplexWave from its real upstream waves', () => {
+  it('evaluateScalar probes a Math node from its real upstream waves', () => {
     const wa = node('wa', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' })
     const wb = node('wb', 'Wave', 'math', { amplitude: 0.5, frequency: 2, phase: 0, waveform: 'sine' })
-    const cw = node('cw', 'ComplexWave', 'math', { operation: 'add' })
+    const cw = node('cw', 'Math', 'math', { mathOp: 'add' })
     const edges = [
       edge('e1', 'wa', 'result', 'cw', 'a'),
       edge('e2', 'wb', 'result', 'cw', 'b'),
     ]
     const tick = 23
     const t = tick / 60
-    const expected = combineWaves('add', waveSample('sine', 1, 1, 0, t), waveSample('sine', 0.5, 2, 0, t))
+    const expected = waveSample('sine', 1, 1, 0, t) + waveSample('sine', 0.5, 2, 0, t)
     expect(evaluateScalar([wa, wb, cw], edges, 'cw', 'result', tick)).toBeCloseTo(expected, 6)
   })
 
-  it('evaluateScalar reflects the chosen ComplexWave operation', () => {
+  it('evaluateScalar reflects the chosen Math operation', () => {
     const wa = node('wa', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0.1, waveform: 'sine' })
     const wb = node('wb', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0.3, waveform: 'sine' })
-    const cw = node('cw', 'ComplexWave', 'math', { operation: 'multiply' })
+    const cw = node('cw', 'Math', 'math', { mathOp: 'multiply' })
     const edges = [edge('e1', 'wa', 'result', 'cw', 'a'), edge('e2', 'wb', 'result', 'cw', 'b')]
     const t = 40 / 60
     const expected = waveSample('sine', 1, 1, 0.1, t) * waveSample('sine', 1, 1, 0.3, t)
@@ -1038,32 +1041,6 @@ describe('evaluateGraph', () => {
       edge('e2', 'bm', 'frame', 'out', 'frame'),
     ], 0, W, H)
 
-    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
-  })
-
-  it('Fade scales pixels toward black by (1 - fade)', () => {
-    const sc  = node('sc', 'SolidColor', 'pattern', { r: 200, g: 100, b: 50 })
-    const fd  = node('fd', 'Fade', 'composite', { fade: 0.75 })
-    const out = node('out', 'MatrixOutput', 'output', {})
-    const edges = [
-      edge('e1', 'sc', 'frame', 'fd', 'frame'),
-      edge('e2', 'fd', 'frame', 'out', 'frame'),
-    ]
-    const frame = evaluateGraph([sc, fd, out], edges, 0, W, H)
-    expect(frame).not.toBeNull()
-    // fade 0.75 → scale 0.25: 200→50, 100→25, 50→13 (rounded)
-    expect(frame![0][0]).toEqual({ r: 50, g: 25, b: 13 })
-  })
-
-  it('Fade at 1.0 drives the frame fully black', () => {
-    const sc  = node('sc', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
-    const fd  = node('fd', 'Fade', 'composite', { fade: 1 })
-    const out = node('out', 'MatrixOutput', 'output', {})
-    const edges = [
-      edge('e1', 'sc', 'frame', 'fd', 'frame'),
-      edge('e2', 'fd', 'frame', 'out', 'frame'),
-    ]
-    const frame = evaluateGraph([sc, fd, out], edges, 0, W, H)
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
@@ -1488,8 +1465,16 @@ describe('evaluateGraph', () => {
     expect(frame[8][15].b).toBeGreaterThan(0)
   })
 
-  it('Circle (filled) uses normalized center coordinates and its fill color', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
+  // Shape (ellipse) absorbed the old Circle node: `size` is the radius in
+  // pixels, `thickness` the outline width, and cx/cy are normalised 0–1 with
+  // values > 1 read as pixel coordinates.
+  const ellipse = (extra: Record<string, unknown>) => node('c', 'Shape', 'pattern', {
+    shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, aspect: 1, thickness: 1, filled: true,
+    edge: '#ff0000', fill: '#00ff00', ...extra,
+  })
+
+  it('Shape ellipse (filled) uses normalized center coordinates and its fill color', () => {
+    const c = ellipse({})
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][16]).toEqual({ r: 0, g: 255, b: 0 }) // 0.5 lands at the matrix centre and uses fill
@@ -1497,56 +1482,46 @@ describe('evaluateGraph', () => {
     expect(frame![16][13].r).toBeGreaterThan(0)            // edge color stays visible on the outline
   })
 
-  it('Circle still accepts legacy pixel-space center coordinates', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 8, cy: 8, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
+  it('Shape ellipse still accepts legacy pixel-space center coordinates', () => {
+    const c = ellipse({ cx: 8, cy: 8 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![8][8].g).toBeGreaterThan(0)
     expect(frame![16][16]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
-  it('Circle ring leaves the normalized center dark', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' })
+  it('Shape ellipse ring leaves the normalized center dark', () => {
+    const c = ellipse({ filled: false })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][16]).toEqual({ r: 0, g: 0, b: 0 })   // hollow center after normalization
     expect(frame![16][13].r).toBeGreaterThan(0)            // soft ring coverage near the normalized radius
   })
 
-  it('Circle normalization uses radius + 1 so cx=0 moves the circle fully offscreen', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' })
+  it('Shape normalization pads by the extent + 1 so cx=0 moves the ellipse fully offscreen', () => {
+    const c = ellipse({ cx: 0, filled: false })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][0]).toEqual({ r: 0, g: 0, b: 0 })   // left edge no longer catches it at cx=0
     expect(frame![16][31]).toEqual({ r: 0, g: 0, b: 0 })  // without wrap it does not appear on the far side
   })
 
-  it('Circle wrap mirrors the circle onto the opposite edge', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.25, cy: 0.5, radius: 3, filled: true, wrap: true, edge: '#ff0000', fill: '#00ff00' })
+  it('Shape wrap mirrors the ellipse onto the opposite edge', () => {
+    const c = ellipse({ cx: 0.25, wrap: true })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][0].g).toBeGreaterThan(0)
     expect(frame![16][31].g).toBeGreaterThan(0)            // wrapped copy appears on the far edge
   })
 
-  it('Circle radius is a fixed pixel count by default, unaffected by matrix size', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
+  it('Shape size is a fixed pixel count, unaffected by matrix size', () => {
+    const c = ellipse({})
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e', 'c', 'frame', 'out', 'frame')]
-    // A 64x64 matrix is 4x the 16x16 reference size; without scaleWithMatrix
-    // the same radius:3 stays exactly 3px, well short of 12px out.
+    // A 64x64 matrix is 4x the 16x16 reference size; size:3 stays exactly
+    // 3px, well short of 12px out.
     const frame = evaluateGraph([c, out], edges, 0, 64, 64)
     expect(frame![32][32 - 12]).toEqual({ r: 0, g: 0, b: 0 })
-  })
-
-  it('Circle scaleWithMatrix scales the radius by the matrix\'s shorter side vs. the 16px reference', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, scaleWithMatrix: true, edge: '#ff0000', fill: '#00ff00' })
-    const out = node('out', 'MatrixOutput', 'output', {})
-    const edges = [edge('e', 'c', 'frame', 'out', 'frame')]
-    // At 64x64 (4x the 16x16 reference) radius:3 scales to ~12px, so a point
-    // 12px from center now falls inside the filled disc.
-    const frame = evaluateGraph([c, out], edges, 0, 64, 64)
-    expect(frame![32][32 - 12].g).toBeGreaterThan(0)
   })
 
   it('Line draws a diagonal between its endpoints', () => {
@@ -2516,7 +2491,7 @@ describe('evaluateGraph', () => {
 
   it('Temperature yields warm vs cool white points', () => {
     const colorAt = (temperature: number) => {
-      const t = node('t', 'Temperature', 'color', { kelvin: temperature })
+      const t = node('t', 'Temperature', 'color', { warmth: temperature })
       const sc = node('sc', 'SolidColor', 'pattern', {})
       const out = node('out', 'MatrixOutput', 'output', {})
       const f = evaluateGraph([t, sc, out], [
@@ -2533,16 +2508,16 @@ describe('evaluateGraph', () => {
   })
 
   it('a CustomPalette drives a pattern node differently than a preset', () => {
-    const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
-    const c2 = node('c2', 'CHSV', 'color', { hue: 160, sat: 255, val: 255 })
+    const c1 = node('c1', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 0, s: 1, v: 1 })
+    const c2 = node('c2', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 160, s: 1, v: 1 })
     const cp = node('cp', 'CustomPalette', 'color', {})
     const sx = noise('sx', 'simplex', { palette: 'rainbow' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const wired = evaluateGraph(
       [c1, c2, cp, sx, out],
       [
-        edge('e1', 'c1', 'rgb', 'cp', 'color0'),
-        edge('e2', 'c2', 'rgb', 'cp', 'color1'),
+        edge('e1', 'c1', 'color', 'cp', 'color0'),
+        edge('e2', 'c2', 'color', 'cp', 'color1'),
         edge('e3', 'cp', 'palette', 'sx', 'paletteIn'),
         edge('e4', 'sx', 'frame', 'out', 'frame'),
       ], 0, 4, 4,
@@ -2770,13 +2745,13 @@ describe('evaluateGraph', () => {
   })
 
   it('a wired anchor colour overrides the Poline hex default', () => {
-    const c = node('c', 'CHSV', 'color', { hue: 96, sat: 255, val: 255 })
+    const c = node('c', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 96, s: 1, v: 1 })
     const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', anchorC: '#20ffd0', points: 4, position: 'linear' })
     const sx = noise('sx', 'simplex', { speed: 0, palette: 'rainbow' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edgesBase = [edge('e2', 'pl', 'palette', 'sx', 'paletteIn'), edge('e3', 'sx', 'frame', 'out', 'frame')]
     const withoutWire = evaluateGraph([pl, sx, out], edgesBase, 0, 6, 6)
-    const withWire = evaluateGraph([c, pl, sx, out], [edge('e1', 'c', 'rgb', 'pl', 'colorA'), ...edgesBase], 0, 6, 6)
+    const withWire = evaluateGraph([c, pl, sx, out], [edge('e1', 'c', 'color', 'pl', 'colorA'), ...edgesBase], 0, 6, 6)
     expect(JSON.stringify(withWire)).not.toEqual(JSON.stringify(withoutWire))
   })
 
@@ -4179,10 +4154,10 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
     expect([...fieldOut('levels', graph.nodes, graph.edges).slice(0, W)]).toEqual([1, 1, 0, 0])
   })
 
-  it('Field Lerp interpolates two fields and treats an unwired input as zero', () => {
+  it('Field Math mix interpolates two fields and treats an unwired input as zero', () => {
     const a = node('lerp-a', 'FieldFormula', 'field', { formula: '0.2' })
     const b = node('lerp-b', 'FieldFormula', 'field', { formula: '1' })
-    const lerp = node('lerp', 'FieldLerp', 'field', { t: 0.25 })
+    const lerp = node('lerp', 'FieldMath', 'field', { fieldOp: 'mix', t: 0.25 })
     const graph = withFieldTail('lerp', [a, b, lerp], [
       edge('lerp-a-in', a.id, 'field', lerp.id, 'a'),
       edge('lerp-b-in', b.id, 'field', lerp.id, 'b'),
@@ -4218,7 +4193,7 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
       shape: 'polygon', fieldMode: 'distance', cx: 0.5, cy: 0.5,
       size: 0.3, rotation: 45, sides: 4, aspect: 1, softness: 0.1, range: 0.5,
     })
-    const lerp = node('morph-lerp', 'FieldLerp', 'field', { t: 0 })
+    const lerp = node('morph-lerp', 'FieldMath', 'field', { fieldOp: 'mix', t: 0 })
     const levels = node('morph-levels', 'FieldLevels', 'field', { low: 0.5, high: 0.5, steps: 1, invert: false })
     const graph = withFieldTail(levels.id, [circle, square, lerp, levels], [
       edge('morph-a', circle.id, 'field', lerp.id, 'a'),
@@ -4227,7 +4202,7 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
     ])
 
     for (const amount of [0, 0.25, 0.5, 0.75, 1]) {
-      lerp.data.properties = { t: amount }
+      lerp.data.properties = { fieldOp: 'mix', t: amount }
       const field = fieldOut(levels.id, graph.nodes, graph.edges)
       const lit = [...field].map((value, index) => value >= 0.5 ? index : -1).filter((index) => index >= 0)
       expect(lit.length).toBeGreaterThan(0)
@@ -5335,20 +5310,20 @@ describe('Saturation and RGBToHSV', () => {
     expect(colorAt('quad', 3.75)).not.toEqual(colorAt('linear', 3.75))
   })
 
-  it('BlendColors uses editable fallback swatches when color inputs are unwired', () => {
-    const blend = node('bc', 'BlendColors', 'color', {
+  it('GradientSampler uses editable fallback swatches when color inputs are unwired', () => {
+    const blend = node('bc', 'GradientSampler', 'color', {
       rA: 10, gA: 20, bA: 30,
       rB: 110, gB: 220, bB: 130,
-      t: 0.25,
+      t: 0.25, mixMode: 'rgb',
     })
     const { outputs } = evaluateGraphFull([blend], [], 0, W, H)
     expect(outputs.get('bc')!.color).toEqual({ r: 35, g: 70, b: 55 })
   })
 
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {
-    const c = node('rgbsrc', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })   // pure red
+    const c = node('rgbsrc', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 0, s: 1, v: 1 })   // pure red
     const rh = node('rh', 'RGBToHSV', 'color', {})
-    const { outputs } = evaluateGraphFull([c, rh], [edge('e1', 'rgbsrc', 'rgb', 'rh', 'rgb')], 0, W, H)
+    const { outputs } = evaluateGraphFull([c, rh], [edge('e1', 'rgbsrc', 'color', 'rh', 'rgb')], 0, W, H)
     const hsvOut = outputs.get('rh')!
     expect(hsvOut.h).toBeCloseTo(0, 0)
     expect(hsvOut.s).toBeCloseTo(1, 1)

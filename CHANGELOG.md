@@ -9,6 +9,25 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Four primitive nodes: **Color** (a picked swatch as a Color output),
+  **Constant** (a number, accepting matrix-relative expressions such as
+  `w/2`), **Logic** (and, or, xor, nand, nor over two booleans) and
+  **Expression** (one number per frame from a formula over `a`, `b`, `t`, `W`
+  and `H`, with the FastLED shims, the Code editor and the same trust gate and
+  deploy validation as Custom Formula). Constant, Logic and Color also run in
+  a show's control graph.
+
+### Changed
+
+- Overlapping nodes are merged: Sin, Cos and Abs are one **Function** node
+  (sin, cos, abs, sqrt, square, floor, round); Mod is Math's `modulo` and
+  Complex Wave's operations are Math's (`average` added); CHSV is HSV → RGB
+  with a hue-units select (degrees or FastLED bytes); Blend Colors is Gradient
+  Sampler; Circle is Shape's ellipse; Field Lerp is Field Math's `mix` with a
+  wireable T; Fade to Black is Brightness; XY → Index is removed. Color
+  Temperature's control is now named `warmth`. A saved pattern that holds one
+  of the merged nodes shows it as an unknown type until it is replaced.
+
 - A generative show compiles as a controller sketch plus one header per
   pattern (`pattern_0.h`, `pattern_1.h`, …) in the helper's sketch folder, for
   uploads, capacity checks and binary exports. View Code and Export .ino show

@@ -274,29 +274,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Envelope example graph](../../public/node-cards/graphs/envelope.svg)
 
-### Sin
-
-![Sin node](../../public/node-cards/sin.svg)
-
-![Sin example graph](../../public/node-cards/graphs/sin.svg)
-
-### Cos
-
-![Cos node](../../public/node-cards/cos.svg)
-
-![Cos example graph](../../public/node-cards/graphs/cos.svg)
-
 ### Wave
 
 ![Wave node](../../public/node-cards/wave.svg)
 
 ![Wave example graph](../../public/node-cards/graphs/wave.svg)
-
-### Complex Wave
-
-![Complex Wave node](../../public/node-cards/complex-wave.svg)
-
-![Complex Wave example graph](../../public/node-cards/graphs/complex-wave.svg)
 
 ### BeatSin
 
@@ -323,6 +305,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![DMX Channel example graph](../../public/node-cards/graphs/dmx-channel.svg)
 
 ## Math & Logic
+
+### Constant
+
+![Constant node](../../public/node-cards/constant.svg)
+
+![Constant example graph](../../public/node-cards/graphs/constant.svg)
 
 ### Math
 
@@ -360,17 +348,17 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Ease example graph](../../public/node-cards/graphs/ease.svg)
 
-### Abs
+### Function
 
-![Abs node](../../public/node-cards/abs.svg)
+![Function node](../../public/node-cards/function.svg)
 
-![Abs example graph](../../public/node-cards/graphs/abs.svg)
+![Function example graph](../../public/node-cards/graphs/function.svg)
 
-### Mod
+### Expression
 
-![Mod node](../../public/node-cards/mod.svg)
+![Expression node](../../public/node-cards/expression.svg)
 
-![Mod example graph](../../public/node-cards/graphs/mod.svg)
+![Expression example graph](../../public/node-cards/graphs/expression.svg)
 
 ### Smooth
 
@@ -383,12 +371,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Sample & Hold node](../../public/node-cards/sample-hold.svg)
 
 ![Sample & Hold example graph](../../public/node-cards/graphs/sample-hold.svg)
-
-### XY → Index
-
-![XY → Index node](../../public/node-cards/xy-mapper.svg)
-
-![XY → Index example graph](../../public/node-cards/graphs/xy-mapper.svg)
 
 ### Gate
 
@@ -407,6 +389,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Not node](../../public/node-cards/not.svg)
 
 ![Not example graph](../../public/node-cards/graphs/not.svg)
+
+### Logic
+
+![Logic node](../../public/node-cards/logic.svg)
+
+![Logic example graph](../../public/node-cards/graphs/logic.svg)
 
 ### Compare
 
@@ -440,6 +428,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ## Color
 
+### Color
+
+![Color node](../../public/node-cards/color.svg)
+
+![Color example graph](../../public/node-cards/graphs/color.svg)
+
 ### Hue Cycle
 
 ![Hue Cycle node](../../public/node-cards/hue-cycle.svg)
@@ -469,18 +463,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Heat Color node](../../public/node-cards/heat-color.svg)
 
 ![Heat Color example graph](../../public/node-cards/graphs/heat-color.svg)
-
-### Blend Colors
-
-![Blend Colors node](../../public/node-cards/blend-colors.svg)
-
-![Blend Colors example graph](../../public/node-cards/graphs/blend-colors.svg)
-
-### CHSV
-
-![CHSV node](../../public/node-cards/chsv.svg)
-
-![CHSV example graph](../../public/node-cards/graphs/chsv.svg)
 
 ### Gradient Sampler
 
@@ -573,12 +555,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Clock Display node](../../public/node-cards/clock-display.svg)
 
 ![Clock Display example graph](../../public/node-cards/graphs/clock-display.svg)
-
-### Circle
-
-![Circle node](../../public/node-cards/circle.svg)
-
-![Circle example graph](../../public/node-cards/graphs/circle.svg)
 
 ### Line
 
@@ -1062,12 +1038,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Field Levels example graph](../../public/node-cards/graphs/field-levels.svg)
 
-### Field Lerp
-
-![Field Lerp node](../../public/node-cards/field-lerp.svg)
-
-![Field Lerp example graph](../../public/node-cards/graphs/field-lerp.svg)
-
 ### Shape Field
 
 ![Shape Field node](../../public/node-cards/shape-field.svg)
@@ -1129,12 +1099,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Brightness node](../../public/node-cards/brightness-mod.svg)
 
 ![Brightness example graph](../../public/node-cards/graphs/brightness-mod.svg)
-
-### Fade to Black
-
-![Fade to Black node](../../public/node-cards/fade.svg)
-
-![Fade to Black example graph](../../public/node-cards/graphs/fade.svg)
 
 ### Hue Shift
 

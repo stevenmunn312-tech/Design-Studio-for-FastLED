@@ -847,26 +847,26 @@ describe('StudioNode', () => {
   })
 
   it('pinning a property from its row adds it to the performance deck; clicking again unpins it', () => {
-    const { container, getByLabelText } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' }))
+    const { container, getByLabelText } = renderNode(makeNode('Shape', { shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, filled: false, edge: '#ff0000' }))
     openAllGroups(container)
-    const pinBtn = getByLabelText('Pin radius to Control Deck')
+    const pinBtn = getByLabelText('Pin size to Control Deck')
     fireEvent.click(pinBtn)
     expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(1)
-    expect(useGraphStore.getState().performanceDeck.pins[0]).toMatchObject({ nodeId: 'n1', propertyKey: 'radius' })
+    expect(useGraphStore.getState().performanceDeck.pins[0]).toMatchObject({ nodeId: 'n1', propertyKey: 'size' })
 
-    const unpinBtn = getByLabelText('Unpin radius from Control Deck')
+    const unpinBtn = getByLabelText('Unpin size from Control Deck')
     fireEvent.click(unpinBtn)
     expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(0)
   })
 
   it('does not show a pin affordance for a wired (connection-driven) property', () => {
     useGraphStore.setState({
-      nodes: [makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' })],
-      edges: [{ id: 'e1', source: 'src', target: 'n1', sourceHandle: 'value', targetHandle: 'radius' } as never],
+      nodes: [makeNode('Shape', { shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, filled: false, edge: '#ff0000' })],
+      edges: [{ id: 'e1', source: 'src', target: 'n1', sourceHandle: 'value', targetHandle: 'size' } as never],
     })
     const props = { id: 'n1', data: useGraphStore.getState().nodes[0].data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
     const { queryByLabelText } = render(<StudioNode {...props} />)
-    expect(queryByLabelText('Pin radius to Control Deck')).toBeNull()
+    expect(queryByLabelText('Pin size to Control Deck')).toBeNull()
   })
 
   it('editing a plain number field updates the node property in the store', () => {
@@ -896,8 +896,8 @@ describe('StudioNode', () => {
     expect((invalid.getByLabelText('max value or expression') as HTMLInputElement).getAttribute('aria-invalid')).toBe('true')
   })
 
-  it('shows colour swatches for Circle fill/edge and updates the hex property', () => {
-    const { container } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: true, fill: '#00ff00', edge: '#ff0000' }))
+  it('shows colour swatches for Shape fill/edge and updates the hex property', () => {
+    const { container } = renderNode(makeNode('Shape', { shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, filled: true, fill: '#00ff00', edge: '#ff0000' }))
     openAllGroups(container)
     const colors = Array.from(container.querySelectorAll('input[type="color"]')) as HTMLInputElement[]
     expect(colors).toHaveLength(2)
@@ -1078,13 +1078,13 @@ describe('StudioNode', () => {
     expect(noise.getByLabelText('palette value')).toBeTruthy()
     noise.unmount()
 
-    const circle = renderNode(makeNode('Circle', {
-      cx: 0.5, cy: 0.5, radius: 3, wrap: false, filled: true, fill: '#00ff00', edge: '#ff0000',
+    const shape = renderNode(makeNode('Shape', {
+      shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, wrap: false, filled: true, fill: '#00ff00', edge: '#ff0000',
     }))
-    openAllGroups(circle.container)
-    expect(circle.getByLabelText('filled')).toBeTruthy()
-    expect(circle.getByLabelText('fill color')).toBeTruthy()
-    expect(circle.getByLabelText('radius value')).toBeTruthy()
+    openAllGroups(shape.container)
+    expect(shape.getByLabelText('filled')).toBeTruthy()
+    expect(shape.getByLabelText('fill color')).toBeTruthy()
+    expect(shape.getByLabelText('size value')).toBeTruthy()
   })
 
   it('labels freeform node editors', () => {
@@ -1156,11 +1156,6 @@ describe('StudioNode', () => {
     expect(poly).toBeTruthy()
     // 64 sampled points → 64 "x,y" pairs.
     expect(poly.getAttribute('points')!.trim().split(/\s+/).length).toBe(64)
-  })
-
-  it('renders a preview scope for a ComplexWave node', () => {
-    const { container } = renderNode(makeNode('ComplexWave', { operation: 'add' }))
-    expect(container.querySelector('svg polyline')).toBeTruthy()
   })
 
   it('renders live band meters and bounded controls for an FFT Analyzer', () => {
@@ -1235,10 +1230,10 @@ describe('StudioNode', () => {
   })
 
   it('toggling a boolean property renders a checkbox and updates the store', () => {
-    // Circle now renders more than one checkbox (wrap + filled), so target
-    // the "filled" property row specifically rather than the first checkbox
-    // in the node.
-    const { container, getByText } = renderNode(makeNode('Circle', { cx: 4, cy: 4, radius: 3, filled: false, edge: '#ff0000' }))
+    // Shape renders more than one checkbox (wrap + filled), so target the
+    // "filled" property row specifically rather than the first checkbox in
+    // the node.
+    const { container, getByText } = renderNode(makeNode('Shape', { shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, filled: false, edge: '#ff0000' }))
     openAllGroups(container)
     const row = getByText('filled').closest('div') as HTMLElement
     const check = row.querySelector('input[type="checkbox"]') as HTMLInputElement

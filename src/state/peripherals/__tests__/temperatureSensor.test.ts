@@ -35,13 +35,13 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 function probeGraph(properties: Record<string, unknown> = {}) {
   const nodes = [
     node('probe', 'TemperatureInput', properties),
-    node('map', 'MapRange', { inMin: 0, inMax: 60, outMin: 0, outMax: 1 }),
-    node('fill', 'SolidColor'), node('fade', 'Fade'),
+    node('map', 'MapRange', { inMin: 0, inMax: 60, outMin: 1, outMax: 0 }),
+    node('fill', 'SolidColor'), node('fade', 'BrightnessMod'),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [
     edge('temperature', 'probe', 'temperature', 'map', 'value'),
-    edge('amount', 'map', 'result', 'fade', 'fade'),
+    edge('amount', 'map', 'result', 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),
   ]
@@ -90,7 +90,7 @@ describe('temperature firmware', () => {
     const sketch = generateCpp(
       [...nodes, node('probe2', 'TemperatureInput', { pin: 16 }), node('map2', 'MapRange')],
       [...edges, edge('temperature2', 'probe2', 'temperature', 'map2', 'value'),
-        edge('amount2', 'map2', 'result', 'fade', 'fade')],
+        edge('amount2', 'map2', 'result', 'fade', 'brightness')],
     )
     expect(sketch.match(/static bool _ds18Read\(/g)).toHaveLength(1)
     expect(sketch).toContain('_ds18Start(16)')

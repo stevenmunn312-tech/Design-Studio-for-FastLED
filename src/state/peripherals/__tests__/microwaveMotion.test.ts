@@ -60,10 +60,10 @@ describe('microwave motion behaviour', () => {
   it('reads the same active-high digital input as the PIR, with no pull-up', () => {
     const sketch = generateCpp([
       node('radar', 'MotionInput', { partId: RCWL, pin: 14 }),
-      node('fill', 'SolidColor'), node('gate', 'Fade'),
+      node('fill', 'SolidColor'), node('gate', 'BrightnessMod'),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ], [
-      edge('m', 'radar', 'motion', 'gate', 'fade'),
+      edge('m', 'radar', 'motion', 'gate', 'brightness'),
       edge('frame', 'fill', 'frame', 'gate', 'frame'),
       edge('output', 'gate', 'frame', 'out', 'frame'),
     ])

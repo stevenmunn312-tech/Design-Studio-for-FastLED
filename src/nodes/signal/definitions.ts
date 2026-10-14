@@ -5,22 +5,6 @@ import type { NodeDefinition } from '../../types'
 
 export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
   {
-    type: 'Sin',
-    label: 'Sin',
-    category: 'signal',
-    inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
-    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
-  },
-  {
-    type: 'Cos',
-    label: 'Cos',
-    category: 'signal',
-    inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
-    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
-  },
-  {
     // Waveform oscillator over time: amplitude · wave(frequency·t + phase).
     type: 'Wave',
     label: 'Wave',
@@ -34,18 +18,6 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     propertyInputs: { amplitude: 'amplitude', frequency: 'frequency', phase: 'phase' },
     defaultExposedInputs: ['amplitude', 'frequency', 'phase'],
     defaultProperties: { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' },
-  },
-  {
-    // Combines two wave (float) signals via a selectable operation.
-    type: 'ComplexWave',
-    label: 'Complex Wave',
-    category: 'signal',
-    inputs: [
-      { id: 'a', label: 'Wave A', dataType: 'float' },
-      { id: 'b', label: 'Wave B', dataType: 'float' },
-    ],
-    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { operation: 'add' },
   },
   {
     // Metronome — emits a boolean pulse once every `interval` seconds (a non-audio
@@ -235,10 +207,7 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const SIGNAL_DESCRIPTIONS: Record<string, string> = {
-  Sin: 'Sine of the input (×2π).',
-  Cos: 'Cosine of the input (×2π).',
   Wave: 'Oscillator — sine, triangle, square or sawtooth over time.',
-  ComplexWave: 'Combines two waves (add, multiply, average, min/max, difference).',
   Interval: 'Metronome — pulses true every N seconds (EVERY_N_MILLISECONDS).',
   Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',

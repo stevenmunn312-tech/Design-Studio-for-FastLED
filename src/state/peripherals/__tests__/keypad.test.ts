@@ -35,13 +35,13 @@ const PINS = { row1Pin: 13, row2Pin: 14, row3Pin: 27, row4Pin: 26, col1Pin: 25, 
 function keypadGraph(properties: Record<string, unknown> = {}) {
   const nodes = [
     node('pad', 'KeypadInput', { ...PINS, ...properties }),
-    node('map', 'MapRange', { inMin: 0, inMax: 15, outMin: 0, outMax: 1 }),
-    node('fill', 'SolidColor'), node('fade', 'Fade'),
+    node('map', 'MapRange', { inMin: 0, inMax: 15, outMin: 1, outMax: 0 }),
+    node('fill', 'SolidColor'), node('fade', 'BrightnessMod'),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [
     edge('key', 'pad', 'key', 'map', 'value'),
-    edge('amount', 'map', 'result', 'fade', 'fade'),
+    edge('amount', 'map', 'result', 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),
   ]

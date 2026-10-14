@@ -46,11 +46,11 @@ function lightGraph(sensor: StudioNode, port: 'level' | 'lux' = 'level') {
   const nodes = [
     sensor,
     node('fill', 'SolidColor', { r: 255, g: 180, b: 60 }),
-    node('fade', 'Fade'),
+    node('fade', 'BrightnessMod'),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [
-    edge('amount', sensor.id, port, 'fade', 'fade'),
+    edge('amount', sensor.id, port, 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),
   ]

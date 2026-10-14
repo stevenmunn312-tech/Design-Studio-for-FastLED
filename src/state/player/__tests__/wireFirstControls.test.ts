@@ -202,9 +202,9 @@ describe('colour inputs take a Colour Picker', () => {
     const port = controllableInputsFor('SolidColor').find((entry) => entry.id === 'color')
     expect(port).toMatchObject({ kind: 'property', dataType: 'color', channels: ['r', 'g', 'b'] })
     expect(port?.propertyKey).toBeUndefined()
-    // The A and B colours of a two-colour node, under either port naming.
-    expect(controllableInputsFor('BlendColors').find((entry) => entry.id === 'b')?.channels).toEqual(['rB', 'gB', 'bB'])
+    // The A and B colours of a two-colour node.
     expect(controllableInputsFor('GradientSampler').find((entry) => entry.id === 'colorA')?.channels).toEqual(['rA', 'gA', 'bA'])
+    expect(controllableInputsFor('GradientSampler').find((entry) => entry.id === 'colorB')?.channels).toEqual(['rB', 'gB', 'bB'])
     // A palette's stops are not channels behind its colour ports.
     expect(controllableInputsFor('CustomPalette').some((entry) => entry.dataType === 'color')).toBe(false)
   })
@@ -219,8 +219,8 @@ describe('colour inputs take a Colour Picker', () => {
   })
 
   it('starts the picker at a hex-held colour', () => {
-    const circle = NODE_LIBRARY.find((entry) => entry.type === 'Circle')!
-    const plan = touchControlPlan('Circle', 'fill', { ...circle.defaultProperties, fill: '#ff3080' })
+    const shape = NODE_LIBRARY.find((entry) => entry.type === 'Shape')!
+    const plan = touchControlPlan('Shape', 'fill', { ...shape.defaultProperties, shape: 'ellipse', fill: '#ff3080' })
     expect(plan.ok && plan.spec.type).toBe('Colour Picker')
     if (!plan.ok) return
     expect(plan.spec.label).toBe('Fill')

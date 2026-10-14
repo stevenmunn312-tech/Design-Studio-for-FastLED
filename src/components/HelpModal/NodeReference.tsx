@@ -427,7 +427,7 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
   const presets: Record<string, { label: string; category: NodeCategory }> = {
     audio: { label: 'Microphone', category: 'input' },
     bool: { label: 'Beat Detect', category: 'audio' },
-    color: { label: 'CHSV', category: 'color' },
+    color: { label: 'Color', category: 'color' },
     field: { label: 'Distance Field', category: 'field' },
     float: { label: 'Wave', category: 'signal' },
     frame: { label: 'Noise', category: 'pattern' },

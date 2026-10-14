@@ -67,7 +67,7 @@ export const PATTERN_FIT_ORDER: Record<PatternFit, number> = { best: 0, works: 1
  * pattern be `works`.
  */
 const TWO_D_FORM_TYPES = new Set([
-  'Text', 'ClockDisplay', 'Clock', 'Wireframe3D', 'Shape', 'Circle', 'Image',
+  'Text', 'ClockDisplay', 'Clock', 'Wireframe3D', 'Shape', 'Image',
 ])
 
 function nodeType(node: StudioNode): string {

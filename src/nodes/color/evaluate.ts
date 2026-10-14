@@ -17,7 +17,7 @@ import {
   nblendPaletteBytes,
 } from '../../state/palettes/paletteBank'
 import { displayString } from '../../state/displays/displayText'
-import { gradientMixMode, mixGradientColors } from '../../state/palettes/hueMix'
+import { gradientMixMode, hueUnits, mixGradientColors } from '../../state/palettes/hueMix'
 import { harmonyKind, harmonyStops16 } from '../../state/palettes/harmonyPalette'
 import { imagePaletteStops16 } from '../../state/palettes/imagePalette'
 import { hexToRgb, polinePalette } from '../../state/palettes/polinePalette'
@@ -84,11 +84,14 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const v = num(id, 'v', props, 'v', 1)
     return { color: hsv(speedPhase(stateKey(id), t, rate) * 360, s, v) }
   },
+  Color(_c, _id, props) {
+    return { color: hexToRgb(String(props.color ?? '#ff3080')) }
+  },
   HSVToRGB({ num }, id, props) {
     const h = num(id, 'h', props, 'h', 0)
     const s = num(id, 's', props, 's', 1)
     const v = num(id, 'v', props, 'v', 1)
-    return { color: hsv(h, s, v) }
+    return { color: hsv(hueUnits(props.hueUnits) === 'bytes' ? h / 255 * 360 : h, s, v) }
   },
   // The inverse of HSVToRGB — shares HueShift/Saturation's inline extraction.
   RGBToHSV({ input, num }, id, props) {
@@ -110,35 +113,13 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     return { h: (h + 360) % 360, s, v: max }
   },
   Temperature({ num }, id, props) {
-    return { color: kelvinToRgb(normalizedTemperatureToKelvin(num(id, 'kelvin', props, 'kelvin', 0.27))) }
+    return { color: kelvinToRgb(normalizedTemperatureToKelvin(num(id, 'warmth', props, 'warmth', 0.27))) }
   },
   HeatColor({ num }, id, props) {
     // heatColor() takes a 0–255 temperature (shared with Fire2012); the node
     // input is a normalised 0–1 heat.
     const heat = Math.max(0, Math.min(1, num(id, 'heat', props, 'heat', 0.5)))
     return { color: heatColor(heat * 255) }
-  },
-  BlendColors({ input, num }, id, props) {
-    const ca = input(id, 'a', null) as RGB | null
-    const cb = input(id, 'b', null) as RGB | null
-    const mix = Math.max(0, Math.min(1, num(id, 't', props, 't', 0.5)))
-    const a = ca ?? {
-      r: byte(num(id, 'rA', props, 'rA', 255) / 255),
-      g: byte(num(id, 'gA', props, 'gA', 0) / 255),
-      b: byte(num(id, 'bA', props, 'bA', 0) / 255),
-    }
-    const b = cb ?? {
-      r: byte(num(id, 'rB', props, 'rB', 0) / 255),
-      g: byte(num(id, 'gB', props, 'gB', 0) / 255),
-      b: byte(num(id, 'bB', props, 'bB', 255) / 255),
-    }
-    return {
-      color: {
-        r: Math.round(a.r * (1 - mix) + b.r * mix),
-        g: Math.round(a.g * (1 - mix) + b.g * mix),
-        b: Math.round(a.b * (1 - mix) + b.b * mix),
-      },
-    }
   },
   GradientSampler({ input, num }, id, props) {
     const tt = num(id, 't', props, 't', 0)
@@ -219,12 +200,6 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const current = state.current
     const palette = Array.from({ length: 16 }, (_, i) => ({ r: current[i * 3], g: current[i * 3 + 1], b: current[i * 3 + 2] }))
     return { palette, name, index }
-  },
-  CHSV({ num }, id, props) {
-    const hue = num(id, 'hue', props, 'hue', 128)
-    const sat = num(id, 'sat', props, 'sat', 255)
-    const val = num(id, 'val', props, 'val', 255)
-    return { rgb: hsv(hue / 255 * 360, sat / 255, val / 255) }
   },
   PaletteSelector(_c, _id, props) {
     return { palette: String(props.palette ?? 'rainbow').toLowerCase() }

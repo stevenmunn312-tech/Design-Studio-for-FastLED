@@ -8,6 +8,18 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
 
   // ── Math ───────────────────────────────────────────────────────────────
   {
+    // A number with no input: the source a graph fans out to several ports,
+    // or pins where a wire would otherwise carry a literal. `value` takes a
+    // matrix-relative expression like any numeric property.
+    type: 'Constant',
+    label: 'Constant',
+    category: 'math',
+    subcategory: 'Math',
+    inputs: [],
+    outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    defaultProperties: { value: 1 },
+  },
+  {
     // Bundled binary math — `mathOp` selects the operation. All variants share
     // the (a, b)→result signature; the header reflects the chosen op. See
     // PROPERTY_META.mathOp and the `Math` case in graphEvaluator/cppGenerator.
@@ -104,29 +116,35 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
 
   // ── Logic / Control ────────────────────────────────────────────────────
   {
-    type: 'Abs',
-    label: 'Abs',
+    // Bundled one-input functions — `fn` selects which. The header reflects
+    // the chosen function; see PROPERTY_META.fn and the `Function` cases in
+    // the math evaluator and scalarControlCpp.
+    type: 'Function',
+    label: 'Function',
     category: 'math',
     subcategory: 'Math',
     inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     propertyInputs: { x: 'x' },
     defaultExposedInputs: ['x'],
-    defaultProperties: { x: 0 },
+    defaultProperties: { fn: 'sin', x: 0 },
   },
   {
-    type: 'Mod',
-    label: 'Mod',
+    // One scalar from a formula over a, b, t, W and H on the same sandboxed
+    // language as Custom Formula (formulaLang's SCALAR_FORMULA_VARIABLES).
+    // Trust-gated like the other formula nodes: it outputs 0 until trusted.
+    type: 'Expression',
+    label: 'Expression',
     category: 'math',
     subcategory: 'Math',
     inputs: [
-      { id: 'x', label: 'X', dataType: 'float' },
-      { id: 'm', label: 'M', dataType: 'float' },
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    propertyInputs: { x: 'x', m: 'm' },
-    defaultExposedInputs: ['x', 'm'],
-    defaultProperties: { x: 0, m: 1 },
+    propertyInputs: { a: 'a', b: 'b' },
+    defaultExposedInputs: ['a', 'b'],
+    defaultProperties: { formula: 'sin(t)*0.5+0.5', a: 0, b: 0 },
   },
   {
     type: 'Gate',
@@ -203,6 +221,21 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     inputs: [{ id: 'x', label: 'X', dataType: 'bool' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'bool' }],
     defaultProperties: {},
+  },
+  {
+    // Two booleans in, one out — `logicOp` selects and/or/xor/nand/nor (see
+    // src/nodes/math/logic.ts). An unwired side is false, so a lone wire into
+    // And is false and into Or passes through.
+    type: 'Logic',
+    label: 'Logic',
+    category: 'math',
+    subcategory: 'Logic',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'bool' },
+      { id: 'b', label: 'B', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'bool' }],
+    defaultProperties: { logicOp: 'and' },
   },
   {
     type: 'Compare',
@@ -295,32 +328,20 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
     defaultProperties: { dateTimeFormat: 'HH:MM' },
   },
-  {
-    type: 'XYMapper',
-    label: 'XY → Index',
-    category: 'math',
-    subcategory: 'Math',
-    inputs: [
-      { id: 'x', label: 'X', dataType: 'float' },
-      { id: 'y', label: 'Y', dataType: 'float' },
-    ],
-    outputs: [{ id: 'index', label: 'Index', dataType: 'float' }],
-    propertyInputs: { x: 'x', y: 'y' },
-    defaultExposedInputs: ['x', 'y'],
-    defaultProperties: { x: 0, y: 0 },
-  },
 ]
 
 export const MATH_DESCRIPTIONS: Record<string, string> = {
   // math
-  Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
+  Constant: 'A fixed number to wire into several ports at once.',
+  Math: 'Binary math, a op b: add, subtract, multiply, divide, modulo, average, min, max.',
+  Expression: 'One number from a formula over a, b and t — with the FastLED shims.',
+  Logic: 'Combines two booleans: and, or, xor, nand or nor.',
   Clamp: 'Constrains a value between min and max.',
   MapRange: 'Remaps a value from one range to another.',
   StepValue: 'Turns Increase, Decrease and Reset event pulses into a bounded numeric value.',
   Lerp: 'Linear interpolation between a and b by t.',
   Ease: 'Shapes 0–1 with FastLED linear, quad, cubic, sine, or wave curves.',
-  Abs: 'Absolute value.',
-  Mod: 'Modulo — x wrapped into [0, m).',
+  Function: 'One-input function of X: sin, cos, abs, sqrt, square, floor or round.',
   Gate: 'Passes a value when a boolean is true, else a fallback.',
   Smooth: 'Low-pass — eases a jittery value in over a response time.',
   SampleHold: 'Latches the value each time the trigger pulses true.',
@@ -331,5 +352,4 @@ export const MATH_DESCRIPTIONS: Record<string, string> = {
   TextValue: 'A fixed line of text for a display to show.',
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
-  XYMapper: 'Converts (x, y) to a strip index.',
 }

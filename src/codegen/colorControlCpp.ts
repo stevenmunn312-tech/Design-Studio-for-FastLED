@@ -6,7 +6,7 @@
 // colour. Packing into the uint32 a Colour Swatch stores happens at the
 // binding, so a later colour node can still read the CRGB.
 
-import { gradientMixMode } from '../state/palettes/hueMix'
+import { gradientMixMode, hueUnits } from '../state/palettes/hueMix'
 
 /*
  * Colour bytes from wireable floats. A bare `(uint8_t)(x * 255)` wraps a wired
@@ -27,9 +27,15 @@ export function degreesHueCpp(degrees: string): string {
 export function hueByteCpp(hue: string): string {
   return `(uint8_t)fmodf(fmodf(${hue}, 256.0f) + 256.0f, 256.0f)`
 }
-/** A FastLED 0–255 saturation or value, clamped. */
-export function channelByteCpp(channel: string): string {
-  return `(uint8_t)constrain(${channel}, 0.0f, 255.0f)`
+/** HSV → RGB's Hue as a CHSV hue, read in the units the node declares. */
+export function hsvHueCpp(units: unknown, hue: string): string {
+  return hueUnits(units) === 'bytes' ? hueByteCpp(hue) : degreesHueCpp(hue)
+}
+/** A `#rrggbb` property as a CRGB literal; anything else is `fallback` (0xRRGGBB). */
+export function hexCrgbCpp(hex: unknown, fallback: number): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(String(hex))
+  const n = match ? parseInt(match[1], 16) : fallback
+  return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
 
 export interface ColorControlSpec {
@@ -45,18 +51,11 @@ export interface ColorControlSpec {
 
 /** Colour nodes whose whole result is one CRGB, or three floats from one CRGB. */
 export const COLOR_CONTROL_NODES: Readonly<Record<string, ColorControlSpec>> = {
+  Color: { outputs: { color: 'color' }, floats: {}, colors: [] },
   HSVToRGB: { outputs: { color: 'color' }, floats: { h: 0, s: 1, v: 1 }, colors: [] },
-  CHSV: { outputs: { rgb: 'color' }, floats: { hue: 128, sat: 255, val: 255 }, colors: [] },
-  Temperature: { outputs: { color: 'color' }, floats: { kelvin: 0.27 }, colors: [] },
+  Temperature: { outputs: { color: 'color' }, floats: { warmth: 0.27 }, colors: [] },
   HeatColor: { outputs: { color: 'color' }, floats: { heat: 0.5 }, colors: [] },
   HueCycle: { outputs: { color: 'color' }, floats: { rate: 0.1, s: 1, v: 1 }, colors: [], needsTime: true },
-  BlendColors: {
-    outputs: { color: 'color' }, floats: { t: 0.5 },
-    colors: [
-      { port: 'a', channels: ['rA', 'gA', 'bA'], defaults: [255, 0, 0] },
-      { port: 'b', channels: ['rB', 'gB', 'bB'], defaults: [0, 0, 255] },
-    ],
-  },
   GradientSampler: {
     outputs: { color: 'color' }, floats: { t: 0 },
     colors: [
@@ -93,16 +92,16 @@ export function colorControlCpp(
   let needsKelvin = false
   let needsHueMix = false
   switch (type) {
-    case 'HSVToRGB':
-      loop = [`  CRGB ${color} = CHSV(${degreesHueCpp(floats.h)}, ${levelByteCpp(floats.s)}, ${levelByteCpp(floats.v)});`]
+    case 'Color':
+      loop = [`  CRGB ${color} = ${hexCrgbCpp(props.color, 0xff3080)};`]
       break
-    case 'CHSV':
-      loop = [`  CRGB ${color} = CHSV(${hueByteCpp(floats.hue)}, ${channelByteCpp(floats.sat)}, ${channelByteCpp(floats.val)});`]
+    case 'HSVToRGB':
+      loop = [`  CRGB ${color} = CHSV(${hsvHueCpp(props.hueUnits, floats.h)}, ${levelByteCpp(floats.s)}, ${levelByteCpp(floats.v)});`]
       break
     case 'Temperature':
       needsKelvin = true
       needsMapFloat = true
-      loop = [`  CRGB ${color} = kelvinToRGB(mapFloat(constrain(${floats.kelvin}, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));`]
+      loop = [`  CRGB ${color} = kelvinToRGB(mapFloat(constrain(${floats.warmth}, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));`]
       break
     case 'HeatColor':
       loop = [`  CRGB ${color} = HeatColor((uint8_t)(constrain(${floats.heat}, 0.0f, 1.0f) * 255));`]
@@ -112,9 +111,6 @@ export function colorControlCpp(
         `  CRGB ${color};`,
         `  { float _huePhase = fmodf(fmodf(${time} * (${floats.rate}), 1.0f) + 1.0f, 1.0f); ${color} = CHSV((uint8_t)(_huePhase * 256.0f), ${levelByteCpp(floats.s)}, ${levelByteCpp(floats.v)}); }`,
       ]
-      break
-    case 'BlendColors':
-      loop = [`  CRGB ${color} = blend(${colors.a}, ${colors.b}, ${levelByteCpp(floats.t)});`]
       break
     case 'GradientSampler': {
       const tt = `(${floats.t})`

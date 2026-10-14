@@ -7,7 +7,11 @@ import {
   asDateTimeTextMode,
 } from '../../state/displays/displayText'
 import { applyEase } from './easing'
-import { mathOperandIdentity } from './mathIdentity'
+import { applyFunction, mathOperandIdentity } from './mathIdentity'
+import { applyLogic } from './logic'
+import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
+import { compileScalarFormula } from '../shared/formulaLang'
+import { compileFormula, scalarFormulaCache } from '../../state/evaluator/formula'
 import { type StepValueState, reduceStepValue } from '../shared/stepValue'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { instanceState } from '../../state/evaluator/memory'
@@ -49,12 +53,42 @@ export const MATH_EVALUATORS: NodeEvaluators = {
       case 'subtract': r = a - b; break
       case 'multiply': r = a * b; break
       case 'divide':   r = b === 0 ? 0 : a / b; break
+      case 'modulo':   r = b === 0 ? 0 : ((a % b) + b) % b; break
+      case 'average':  r = (a + b) / 2; break
       case 'min':      r = Math.min(a, b); break
       case 'max':      r = Math.max(a, b); break
       case 'add':
       default:         r = a + b; break
     }
     return { result: r }
+  },
+  Function({ num }, id, props) {
+    return { result: applyFunction(String(props.fn ?? 'sin'), num(id, 'x', props, 'x', 0)) }
+  },
+  // `value` is numeric-resolved before the pass (an expression default or a
+  // numeric string already became a finite number).
+  Constant(_c, _id, props) {
+    return { value: Number(props.value ?? 1) }
+  },
+  // One scalar from the sandboxed formula language; blank (0) until the
+  // workspace is trusted, like Custom Formula, and 0 when the formula fails.
+  Expression({ num, t, W, H, trusted }, id, props) {
+    if (!trusted) return { result: 0 }
+    const fn = compileFormula(String(props.formula ?? ''), scalarFormulaCache, compileScalarFormula)
+    if (!fn) return { result: 0 }
+    const a = num(id, 'a', props, 'a', 0)
+    const b = num(id, 'b', props, 'b', 0)
+    const shims = makeShims(t)
+    try {
+      return { result: fn(a, b, t, W, H, ...SHIM_NAMES.map((name) => shims[name])) }
+    } catch {
+      return { result: 0 }
+    }
+  },
+  Logic({ input }, id, props) {
+    const a = input(id, 'a', false) as boolean
+    const b = input(id, 'b', false) as boolean
+    return { result: applyLogic(props.logicOp, a, b) }
   },
   Lerp({ num }, id, props) {
     const a  = num(id, 'a', props, 'a', 0)
@@ -86,14 +120,6 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     }, props)
     stepValueState.set(key, next)
     return { value: next.value }
-  },
-  Abs({ num }, id, props) {
-    return { result: Math.abs(num(id, 'x', props, 'x', 0)) }
-  },
-  Mod({ num }, id, props) {
-    const x = num(id, 'x', props, 'x', 0)
-    const m = num(id, 'm', props, 'm', 1)
-    return { result: m !== 0 ? ((x % m) + m) % m : 0 }
   },
   Gate({ input, num }, id, props) {
     const val = num(id, 'value', props, 'value', 0)
@@ -249,10 +275,5 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     const type = String(props.easeType ?? 'inOutCubic')
     const tin = num(id, 't', props, 't', 0)
     return { result: applyEase(type, tin) }
-  },
-  XYMapper({ num, W }, id, props) {
-    const x = num(id, 'x', props, 'x', 0)
-    const y = num(id, 'y', props, 'y', 0)
-    return { index: Math.floor(x) + Math.floor(y) * W }
   },
 }

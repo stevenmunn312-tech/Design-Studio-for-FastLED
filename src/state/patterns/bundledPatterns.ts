@@ -739,7 +739,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
     [
       studioNode('time', 'TimeNode', -1320, 120),
       studioNode('rate', 'Math', -1060, 120, { mathOp: 'multiply', b: 0.12 }),
-      studioNode('breath', 'Sin', -800, 120),
+      studioNode('breath', 'Function', -800, 120, { fn: 'sin' }),
       studioNode('depth', 'MapRange', -540, 120, { inMin: -1, inMax: 1, outMin: -0.42, outMax: 0.42 }),
       studioNode('pal', 'Poline', -540, -160, {
         anchorA: '#08061c',

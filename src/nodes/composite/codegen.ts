@@ -9,11 +9,6 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const br = f('brightness', 'brightness', 1)
     ln(`  { ${seedFrom('frame')} float _br = fmaxf(0.0f, ${br}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CRGB((uint8_t)fminf(255.0f, ${ob}[_i].r * _br), (uint8_t)fminf(255.0f, ${ob}[_i].g * _br), (uint8_t)fminf(255.0f, ${ob}[_i].b * _br)); }`)
   },
-  Fade({ ln, f, ownBuf, seedFrom }) {
-    const ob = ownBuf()
-    const fade = f('fade', 'fade', 0.5)
-    ln(`  { ${seedFrom('frame')} uint8_t _fa = (uint8_t)(constrain(${fade}, 0, 1) * 255); fadeToBlackBy(${ob}, NUM_LEDS, _fa); }`)
-  },
   // Manual A/B frame selector; copies the wired side when the other is
   // empty (matching the evaluator's fallback).
   FrameSwitch({ node, ln, ownBuf, srcBuf, boolExpr }) {

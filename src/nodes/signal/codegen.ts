@@ -14,20 +14,6 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
     waveCpp(v('result'), String(p.waveform ?? 'sine'), f('amplitude', 'amplitude', 1),
       f('frequency', 'frequency', 1), f('phase', 'phase', 0), 't').forEach(ln)
   },
-  ComplexWave({ p, ln, v, f }) {
-    const a = f('a', 'a', 0), b = f('b', 'b', 0)
-    const op = String(p.operation ?? 'add')
-    let expr: string
-    switch (op) {
-      case 'multiply':   expr = `(${a}) * (${b})`; break
-      case 'average':    expr = `((${a}) + (${b})) * 0.5f`; break
-      case 'min':        expr = `min((float)(${a}), (float)(${b}))`; break
-      case 'max':        expr = `max((float)(${a}), (float)(${b}))`; break
-      case 'difference': expr = `(${a}) - (${b})`; break
-      default:           expr = `(${a}) + (${b})` // add
-    }
-    ln(`  float ${v('result')} = ${expr};`)
-  },
   // Metronome — a boolean pulse every `interval` seconds, via a millis timer.
   // Mirrors the stateful `Interval` case in graphEvaluator.ts.
   Interval({ id, ln, v, f }) {

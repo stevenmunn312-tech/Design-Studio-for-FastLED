@@ -428,12 +428,12 @@ describe('captureWindows detector audio', () => {
         audioIn,
         node('vibe', 'Vibe', 'audio', { gain: 1 }),
         node('sc', 'SolidColor', 'pattern', { r: 255, g: 96, b: 24 }),
-        node('fade', 'Fade', 'composite', { fade: 0 }),
+        node('fade', 'BrightnessMod', 'composite', { brightness: 0 }),
         node('out', 'GroupOutput', 'output'),
       ],
       edges: [
         edge('e1', 'in', 'vibe', 'out', 'audio'),
-        edge('e2', 'vibe', 'fade', 'volume', 'fade'),
+        edge('e2', 'vibe', 'fade', 'volume', 'brightness'),
         edge('e3', 'sc', 'fade', 'frame', 'frame'),
         edge('e4', 'fade', 'out', 'frame', 'frame'),
       ],
@@ -442,12 +442,13 @@ describe('captureWindows detector audio', () => {
   const brightness = (windows: Frame[][]) =>
     windows.flat().reduce((sum, f) => sum + f.reduce((rows, row) => rows + row.reduce((px, p) => px + p.r + p.g + p.b, 0), 0), 0)
 
-  it('feeds Vibe a volume, so the fade differs between silence and pulse', async () => {
-    // Fade to Black with fade = volume: silence leaves the colour, music darkens
-    // it. An inactive Vibe read 0 in both and the two scenarios were identical.
+  it('feeds Vibe a volume, so the brightness differs between silence and pulse', async () => {
+    // Brightness with brightness = volume: silence leaves the colour dark,
+    // music lights it. An inactive Vibe read 0 in both and the two scenarios
+    // were identical.
     const silent = brightness(await captureWindows(saved, 4, 4, {}, true, 'silent'))
     const pulse = brightness(await captureWindows(saved, 4, 4, {}, true, 'pulse'))
-    expect(silent).toBeGreaterThan(0)
-    expect(pulse).toBeLessThan(silent)
+    expect(pulse).toBeGreaterThan(0)
+    expect(silent).toBeLessThan(pulse)
   })
 })

@@ -16,7 +16,7 @@ import { OUTPUT_DEFINITIONS, OUTPUT_DESCRIPTIONS } from '../nodes/output/definit
 import { GRAPH_DEFINITIONS, GRAPH_DESCRIPTIONS } from '../nodes/graph/definitions'
 import { STUDIO_PALETTES } from './palettes/paletteCatalog'
 import { evaluateScalarExpression } from '../nodes/shared/scalarExpression'
-import { MATH_CONSTANT_NAMES, MATH_FUNCTION_NAMES, NODE_FORMULA_VARIABLES } from '../nodes/shared/formulaLang'
+import { MATH_CONSTANT_NAMES, MATH_FUNCTION_NAMES, NODE_FORMULA_VARIABLES, SCALAR_FORMULA_VARIABLES } from '../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../nodes/shared/fastledShims'
 import { MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
@@ -54,7 +54,7 @@ import { PCA9685_PART_ID, pwmDriverAddressOptions, pwmDriverSpec } from './perip
 import { DEFAULT_POWER_MONITOR_PART_ID, powerMonitorAddressOptions } from './peripherals/powerMonitor'
 import { SLICE_PRESET_NAMES } from '../nodes/field/sliceTiling'
 import { HARMONY_KINDS } from './palettes/harmonyPalette'
-import { GRADIENT_MIX_MODES } from './palettes/hueMix'
+import { GRADIENT_MIX_MODES, HUE_UNITS } from './palettes/hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
@@ -69,6 +69,8 @@ import {
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { SDV_MAX_SPEED } from './evaluator/sdVideo'
 import { FIRE_STYLES } from './evaluator/fireSmoke'
+import { FUNCTION_OPS } from '../nodes/math/mathIdentity'
+import { LOGIC_OPS } from '../nodes/math/logic'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -207,8 +209,8 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -388,12 +390,13 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
   pathShape:  { control: 'select', options: ['circle', 'heart', 'lissajous', 'rose', 'custom'] },
-  operation:  { control: 'select', options: ['add', 'multiply', 'average', 'min', 'max', 'difference'] },
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
   noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine'] },
-  mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'min', 'max'] },
+  mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'average', 'min', 'max'] },
+  fn:             { control: 'select', options: [...FUNCTION_OPS] },
+  logicOp:        { control: 'select', options: [...LOGIC_OPS] },
   transitionType: { control: 'select', options: [
     'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
     'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
@@ -481,7 +484,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
   // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough).
   response: { control: 'slider', min: 0, max: 2, step: 0.01 },
-  kelvin:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+  warmth:   { control: 'slider', min: 0, max: 1, step: 0.01 },
   // HeatColor input, Rainbow spread, Gamma exponent, and the power cap.
   heat:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   deltaHue: { control: 'slider', min: 0, max: 32, step: 1 },
@@ -650,6 +653,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
   },
   HSVToRGB: {
+    hueUnits: { control: 'select', options: [...HUE_UNITS] },
     h: { control: 'slider', min: 0, max: 360, step: 1 },
   },
   PaletteSweep: {
@@ -657,13 +661,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   BrightnessMod: {
     brightness: { control: 'slider', min: 0, max: 3, step: 0.01 },
-  },
-  Circle: {
-    cx: N01,
-    cy: N01,
-    // Pixels at the 16-pixel reference size (scale with matrix multiplies it).
-    radius: { control: 'slider', min: 0.5, max: 32, step: 0.5 },
-    thickness: { control: 'slider', min: 0, max: 6, step: 0.1 },
   },
   Text: {
     x: N01,
@@ -891,7 +888,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PrismStorm:       { speed: N01 },
   // BeatKaleidoscope's hue comes from AudioHue (0-360°), not the generic
-  // CHSV-style hue (0-255).
+  // FastLED-style hue byte (0-255).
   BeatKaleidoscope: {
     speed: N01,
     hue: { control: 'slider', min: 0, max: 360, step: 1 },
@@ -1600,6 +1597,8 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
 // Built from the sandbox's own tables so the tooltip never lags a function
 // the parser accepts or names one it rejects.
 export const FORMULA_LANG_HELP = `Variables: ${NODE_FORMULA_VARIABLES.filter((name) => name !== 'fieldIn').join(', ')}. Constants: ${MATH_CONSTANT_NAMES.join(', ')}. Functions: ${MATH_FUNCTION_NAMES.join(', ')}. FastLED: ${SHIM_NAMES.join(', ')}.`
+/** The Expression node's vocabulary: one value a frame, so no pixel coordinates. */
+export const SCALAR_FORMULA_LANG_HELP = `Variables: ${SCALAR_FORMULA_VARIABLES.join(', ')}. Constants: ${MATH_CONSTANT_NAMES.join(', ')}. Functions: ${MATH_FUNCTION_NAMES.join(', ')}. FastLED: ${SHIM_NAMES.join(', ')}.`
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
@@ -1619,10 +1618,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     series: 'Cells in series set pack voltage. Every protection, balance and charger board must match this count.',
     parallel: 'Parallel strings add capacity and cell current capability without changing pack voltage.',
   },
-  PowerSwitchOutput: Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.map((channel) => [
-    channel.level,
-    'Share of full power while this channel is On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
-  ])),
   FluidSim: {
     inject: 'Dye added each frame at the injection point. It also gives the flow an upward push.',
     injectX: 'Where the dye is added, left to right.',
@@ -1944,11 +1939,23 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     midsWeight: 'How much mids contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
     trebleWeight: 'How much treble contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
   },
-  Sin: {
-    x: 'Computes sin(x*2π) from the wired X value; it does not animate on its own. Wire Time or Counter into X, or use Wave for a ready-made oscillator.',
+  Function: {
+    fn: 'Which function of X to output. Sin and cos take X in whole cycles (1 = 360°); sqrt of a negative gives 0.',
+    x: 'Number the function is applied to when nothing is wired into X. The node does not animate on its own: wire Time or Counter into X, or use Wave for a ready-made oscillator.',
   },
-  Cos: {
-    x: 'Computes cos(x*2π) from the wired X value; it does not animate on its own. Wire Time or Counter into X, or use Wave for a ready-made oscillator.',
+  Constant: {
+    value: 'The number on the Value output. Accepts a matrix-relative expression such as w/2 or max_x.',
+  },
+  Expression: {
+    formula: SCALAR_FORMULA_LANG_HELP,
+    a: 'Free number available in the formula as a; wire a control to animate it.',
+    b: 'Free number available in the formula as b.',
+  },
+  Logic: {
+    logicOp: 'How A and B combine: and, or, xor (exactly one), nand (not both), nor (neither). An unwired side is false.',
+  },
+  Color: {
+    color: 'The colour on the Color output. Click the swatch to pick another.',
   },
   CustomFormula: {
     formula: FORMULA_LANG_HELP,
@@ -2303,9 +2310,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     phase: 'Shifts where the wave starts, in whole cycles (0.25 = a quarter turn ahead).',
     waveform: 'Shape of the cycle: smooth sine, pointed triangle, hard square, or rising sawtooth.',
   },
-  ComplexWave: {
-    operation: 'How Wave A and Wave B combine into one value: add, multiply, average, min, max or A minus B.',
-  },
   Interval: {
     interval: 'Seconds between pulses. The Pulse output is true for one frame each time it fires.',
   },
@@ -2359,7 +2363,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     activeThreshold: 'Byte level (0–255) at or above which Active is true.',
   },
   Math: {
-    mathOp: 'The operation applied as A op B. Divide by zero gives 0.',
+    mathOp: 'The operation applied as A op B. Divide or modulo by zero gives 0; modulo wraps into 0 up to (not including) B.',
     a: 'Left operand when nothing is wired into A.',
     b: 'Right operand when nothing is wired into B.',
   },
@@ -2383,10 +2387,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Ease: {
     easeType: 'Curve shape applied to T. In/Out curves slow one end; Wave shapes rise and fall.',
     t: 'Position 0–1 along the curve when nothing is wired into T.',
-  },
-  Mod: {
-    x: 'Number to wrap when nothing is wired into X.',
-    m: 'Wrap length; the result is always 0 up to (not including) M.',
   },
   Gate: {
     value: 'Number passed through while Gate is true, when nothing is wired into Value.',
@@ -2412,10 +2412,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     divideBy: 'Pulse Divider: output fires once every this many input pulses.',
     delayTime: 'Trigger Delay: seconds between the input pulse and the output pulse.',
   },
-  XYMapper: {
-    x: 'Column (0 = left) when nothing is wired into X.',
-    y: 'Row (0 = top) when nothing is wired into Y; the index is x + y × width.',
-  },
   PaletteSampler: {
     palette: 'Preset palette to read from. A wired Palette input replaces it.',
     t: 'Position along the palette, 0 to 1. Past 1 it wraps round to the start again.',
@@ -2431,29 +2427,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     v: 'Brightness, 0 (off) to 1 (full).',
   },
   HSVToRGB: {
-    h: 'Hue in degrees round the colour wheel: 0 red, 120 green, 240 blue.',
+    hueUnits: 'How Hue is read: degrees round the wheel (0 red, 120 green, 240 blue) or a FastLED byte (0 red, 96 green, 160 blue, 255 back to red).',
+    h: 'Hue when nothing is wired into Hue, in the units above. Values past the end wrap round the wheel.',
     s: 'Colour strength, 0 (white) to 1 (pure hue).',
     v: 'Brightness, 0 (off) to 1 (full).',
   },
   Temperature: {
-    kelvin: 'Warmth of the white, 0 (candle, 1000 K) to 1 (blue sky, 12000 K). 0.27 is about 4000 K.',
+    warmth: 'Warmth of the white, 0 (candle, 1000 K) to 1 (blue sky, 12000 K). 0.27 is about 4000 K.',
   },
   HeatColor: {
     heat: 'Temperature of the glow, 0 (black) through red and yellow to 1 (white).',
-  },
-  BlendColors: {
-    t: 'How much of B shows: 0 is all A, 1 is all B.',
-    rA: 'Red of A, 0 to 255. Ignored while the A port is wired.',
-    gA: 'Green of A, 0 to 255. Ignored while the A port is wired.',
-    bA: 'Blue of A, 0 to 255. Ignored while the A port is wired.',
-    rB: 'Red of B, 0 to 255. Ignored while the B port is wired.',
-    gB: 'Green of B, 0 to 255. Ignored while the B port is wired.',
-    bB: 'Blue of B, 0 to 255. Ignored while the B port is wired.',
-  },
-  CHSV: {
-    hue: 'FastLED hue, 0 to 255 round the wheel: 0 red, 96 green, 160 blue, 255 back to red.',
-    sat: 'Colour strength, 0 (white) to 255 (pure hue).',
-    val: 'Brightness, 0 (off) to 255 (full).',
   },
   PaletteSelector: {
     palette: 'The preset palette this node puts on its Palette output.',
@@ -2488,16 +2471,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     scrollAxis: 'Scroll sideways or up and down.',
     letterSpacing: 'Blank columns between letters, in pixels.',
   },
-  Circle: {
-    cx: 'Centre X, 0 (just off the left edge) to 1 (just off the right). Values above 1 are pixels.',
-    cy: 'Centre Y, 0 (just off the top) to 1 (just off the bottom). Values above 1 are pixels.',
-    radius: 'Radius in pixels on a 16-pixel matrix. Scale with matrix keeps it proportional on others.',
-    thickness: 'Width of the outline ring in pixels. 0 draws no ring.',
-    wrap: 'Draw copies across the opposite edges so the circle tiles when it crosses an edge.',
-    filled: 'Fill the inside with the fill colour. Off draws only the ring.',
-    fill: 'Colour inside the circle. A wired Fill input replaces it.',
-    edge: 'Colour of the outline ring. A wired Edge input replaces it.',
-  },
   Line: {
     x1: 'Start X in pixels from the left. Accepts expressions such as W/2.',
     y1: 'Start Y in pixels from the top. Accepts expressions such as H-1.',
@@ -2505,7 +2478,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     y2: 'End Y in pixels from the top. Accepts expressions such as H-1.',
   },
   Shape: {
-    shape: 'Rectangle, ellipse, or a regular polygon whose corner count is Sides.',
+    shape: 'Rectangle, ellipse (a circle at aspect 1), or a regular polygon whose corner count is Sides.',
     cx: 'Centre X, 0 (just off the left edge) to 1 (just off the right). Values above 1 are pixels.',
     cy: 'Centre Y, 0 (just off the top) to 1 (just off the bottom). Values above 1 are pixels.',
     size: 'Half-height in pixels; for a polygon, the distance from centre to a corner.',
@@ -2717,9 +2690,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FieldMath: {
     fieldOp: 'How the two fields combine per pixel. An unwired side counts as 0.',
-  },
-  FieldLerp: {
-    t: 'Crossfade between A and B. 0 shows only A, 1 only B. Wire a signal to animate it.',
+    t: 'Mix only: crossfade between A and B. 0 shows only A, 1 only B. Wire a signal to animate it.',
   },
   FieldWarp: {
     strength: 'How far the dX and dY fields can push each pixel, in pixels. A field value of 0.5 is no push.',
@@ -2741,9 +2712,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   BrightnessMod: {
     brightness: 'Multiplies every pixel. 1 is unchanged, 0 is black, up to 3 boosts (clipped at full white).',
-  },
-  Fade: {
-    fade: 'How much of the frame is pulled toward black. 0 leaves it, 1 is fully black.',
   },
   HueShift: {
     shift: 'Rotates every colour around the hue wheel. 0.5 turns red into cyan; 1 is a full turn.',
@@ -2968,9 +2936,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PrismStorm: {
     speed: 'Shard drift rate (0–1); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
-  },
-  Abs: {
-    x: 'Number to take the absolute value of when nothing is wired into X.',
   },
   SampleHold: {
     value: 'Number latched on each Trigger pulse, when nothing is wired into Value.',
@@ -3200,10 +3165,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     ...COLOR_PAIR_LABELS,
     mixMode: 'mix',
   },
-  BlendColors: {
-    ...COLOR_PAIR_LABELS,
-    t: 'mix',
-  },
   PaletteGradient: {
     speed: 'scroll',
   },
@@ -3327,6 +3288,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     overcurrentAmps: 'overcurrent (A)',
   },
   Math: { mathOp: 'operation' },
+  Function: { fn: 'function' },
+  Logic: { logicOp: 'operation' },
   MapRange: {
     inMin: 'in min',
     inMax: 'in max',
@@ -3526,11 +3489,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     scaleWithMatrix: 'scale with matrix',
     hAlign: 'align X',
     vAlign: 'align Y',
-  },
-  Circle: {
-    scaleWithMatrix: 'scale with matrix',
-    cx: 'center X',
-    cy: 'center Y',
   },
   AudioFeatures: {
     gate: 'Silence Gate',
@@ -3869,11 +3827,6 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
     { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
   ],
-  Circle: [
-    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'radius', 'scaleWithMatrix'] },
-    { key: 'geometry', label: 'Geometry', keys: ['thickness', 'wrap', 'filled'] },
-    { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
-  ],
   // Style decides which of the bar, ring and arc rows exist, so they share
   // its group and the unused ones drop out with it.
   Gauge: [
@@ -3888,11 +3841,6 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   GradientSampler: [
     { key: 'mix', label: 'Mix', keys: ['t', 'mixMode'] },
-    { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
-    { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
-  ],
-  BlendColors: [
-    { key: 'mix', label: 'Mix', keys: ['t'] },
     { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
     { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
   ],
@@ -4249,7 +4197,15 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   },
   Math: {
     prop: 'mathOp',
-    labels: { add: 'Add', subtract: 'Subtract', multiply: 'Multiply', divide: 'Divide', min: 'Min', max: 'Max' },
+    labels: { add: 'Add', subtract: 'Subtract', multiply: 'Multiply', divide: 'Divide', modulo: 'Modulo', average: 'Average', min: 'Min', max: 'Max' },
+  },
+  Function: {
+    prop: 'fn',
+    labels: { sin: 'Sin', cos: 'Cos', abs: 'Abs', sqrt: 'Sqrt', square: 'Square', floor: 'Floor', round: 'Round' },
+  },
+  Logic: {
+    prop: 'logicOp',
+    labels: { and: 'And', or: 'Or', xor: 'Xor', nand: 'Nand', nor: 'Nor' },
   },
   Transition: {
     prop: 'transitionType',
@@ -4645,6 +4601,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'Noise' && key === 'worleyMode') {
     return properties.noiseType === 'worley'
   }
+  if (nodeType === 'FieldMath' && key === 't') {
+    return properties.fieldOp === 'mix'
+  }
   if (nodeType === 'FractalField' && (key === 'cRe' || key === 'cIm')) {
     return properties.fractalType === undefined || properties.fractalType === 'julia'
   }
@@ -4718,10 +4677,6 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'hAlign' || key === 'vAlign') return !analog
     if (key === 'durationSec') return mode === 'Timer'
     if (key === 'run' || key === 'reset') return transport
-  }
-  if (nodeType === 'Circle' && key === 'fill') {
-    // Same as Shape: fill colour is unused when only the ring is drawn.
-    return properties.filled === true
   }
   if (nodeType === 'MatrixOutput') {
     if (key === 'routeX' || key === 'routeY') return properties.routeMode === 'crop'

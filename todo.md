@@ -455,33 +455,45 @@ library defaults.
   (every property described; every override names a property or input its
   node has)
   ([graph and nodes](docs/development/patterns/graph-and-nodes.md#node-authoring-and-property-inputs)).
-- [ ] **D-08.9 · Merges, renames and category moves.** Decide each, then apply
-  the approved ones in one pass with their descriptions, live examples and
-  README counts. Candidate merges: Fire into Fire2012 as a style; Particles
-  `swarm` into Boids; FractalNoise and GaborNoise as Noise variants;
-  ComplexWave into Math; Sin, Cos and Abs into one Function node; Mod as a
-  Math op; Counter and BeatSin into Wave once Wave has offset, unipolar and a
-  Hz/BPM unit; BlendColors into GradientSampler; CHSV into HSVToRGB with a
-  units select; Circle into Shape; FieldLerp into FieldMath; DistanceField into
-  ShapeField; Fade into Brightness; SpectrumBars into SpectrumVisualizer;
-  XYMapper removed (nothing consumes an LED index). Renames: Formula Field
-  (clashes with Field Formula); Fractal (clashes with Fractal Noise);
-  Temperature's `kelvin` is a 0–1 warmth; TouchInput to Touch Screen;
-  MotionInput to PIR Motion Sensor; PowerConverter's "Buck Converter" to
-  "DC-DC Converter"; TransitionSet to Transition Pool. Moves: Kaleidoscope to
-  Effects; Image and SDVideo to a Media subcategory; the portless power and
-  network parts out of Inputs into a non-sidebar hardware category. Open
-  questions: Sunrise's clock source, Transform's one-way zoom and 0–360 rate,
-  ClockDisplay's legacy scalar ports.
-- [ ] **D-08.10 · Nodes the library lacks.** In priority order: Color (a swatch
-  with a `color` output); Logic (and, or, xor, not); Expression (scalar
-  `f(a, b, t)` on `formulaLang`); Constant; Theater Chase, Color Wipe, Breathe
-  and a Glitter overlay; Gradient Field, Float to Field and Field Blur; Frame
-  Transform (rotate, flip, translate) and a Blend `mask` input; Frequency Band,
-  Level Meter, Beat Phase and Stereo Levels; Text with a string input and a
-  Palette Transform; sACN/E1.31 and DDP input and a hardware DIN MIDI input;
-  FPS cap, Adalight/DDP frame output and an analog RGB strip output. Each
-  follows the new-node checklist in
+- [ ] **D-08.9 · Merges, renames and category moves.** First pass applied,
+  awaiting the queued compile in `tmp/node-audit/compiles.ps1` (`d086` now
+  builds the merged colour nodes; `d0810` covers the rest). Merged: Sin, Cos
+  and Abs into one Function node (`fn`: sin, cos, abs, sqrt, square, floor,
+  round); Mod into Math as `modulo`, plus `average`, so ComplexWave is gone;
+  BlendColors into GradientSampler; CHSV into HSVToRGB with a `hueUnits`
+  select (degrees or FastLED bytes); Circle into Shape's ellipse; FieldLerp
+  into FieldMath's `mix` with a wireable T; Fade into Brightness; XYMapper
+  removed. Temperature's `kelvin` is now `warmth`. Pre-1.0, no migration: a
+  save holding a merged node shows it as an unknown type until replaced; the
+  bundled patterns, live examples and node cards are regenerated. Still to
+  decide, then apply in a second pass: Fire into Fire2012 as a style;
+  Particles `swarm` into Boids; FractalNoise and GaborNoise as Noise variants;
+  Counter and BeatSin into Wave once Wave has offset, unipolar and a Hz/BPM
+  unit; DistanceField into ShapeField; SpectrumBars into SpectrumVisualizer.
+  Renames: Formula Field (clashes with Field Formula); Fractal (clashes with
+  Fractal Noise); TouchInput to Touch Screen; MotionInput to PIR Motion
+  Sensor; PowerConverter's "Buck Converter" to "DC-DC Converter";
+  TransitionSet to Transition Pool. Moves: Kaleidoscope to Effects; Image and
+  SDVideo to a Media subcategory; the portless power and network parts out of
+  Inputs into a non-sidebar hardware category. Open questions: Sunrise's
+  clock source, Transform's one-way zoom and 0–360 rate, ClockDisplay's
+  legacy scalar ports.
+- [ ] **D-08.10 · Nodes the library lacks.** First batch done, awaiting the
+  queued compile in `tmp/node-audit/compiles.ps1` (`d0810` normal sketch,
+  `d0810show` show controller): Color (a hex swatch with a `color` output),
+  Constant (a number, matrix-relative expressions accepted), Logic (`logicOp`
+  and, or, xor, nand, nor over two bool inputs; Not stays its own node) and
+  Expression (`f(a, b, t, W, H)` on `formulaLang`'s scalar vocabulary, with
+  the Code editor, the shims, and the same trust gate and deploy validation as
+  Custom Formula). Constant, Logic and Color also run in the template control
+  graph. `sourceAndLogicNodes.test.ts` holds both sides. Remaining, in
+  priority order: Theater Chase, Color Wipe, Breathe and a Glitter overlay;
+  Gradient Field, Float to Field and Field Blur; Frame Transform (rotate,
+  flip, translate) and a Blend `mask` input; Frequency Band, Level Meter, Beat
+  Phase and Stereo Levels; Text with a string input and a Palette Transform;
+  sACN/E1.31 and DDP input and a hardware DIN MIDI input; FPS cap,
+  Adalight/DDP frame output and an analog RGB strip output. Each follows the
+  new-node checklist in
   [graph and nodes](docs/development/patterns/graph-and-nodes.md).
 - [ ] **D-08.11 · Help node reference rewrite.** Only after D-08.1 to D-08.10:
   one card per node from the frozen definitions, reusing the property

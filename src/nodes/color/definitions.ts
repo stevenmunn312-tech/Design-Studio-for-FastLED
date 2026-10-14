@@ -61,6 +61,17 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
 
   // ── Color ──────────────────────────────────────────────────────────────
   {
+    // A picked colour with no input: the swatch is the node. The hex property
+    // draws as a colour input, as Shape's fill does.
+    type: 'Color',
+    label: 'Color',
+    category: 'color',
+    subcategory: 'Colors',
+    inputs: [],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { color: '#ff3080' },
+  },
+  {
     // Free-running hue-wheel source. `rate` is full hue cycles per second;
     // saturation/value stay available as animatable inputs for live shaping.
     type: 'HueCycle',
@@ -82,15 +93,17 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     label: 'HSV → RGB',
     category: 'color',
     subcategory: 'Colors',
+    // `hueUnits` reads Hue as degrees (0–360) or as a FastLED byte (0–255),
+    // which is what CHSV took before it folded in here. Sat and Val are 0–1.
     inputs: [
-      { id: 'h', label: 'H (0–360)', dataType: 'float' },
-      { id: 's', label: 'S (0–1)', dataType: 'float' },
-      { id: 'v', label: 'V (0–1)', dataType: 'float' },
+      { id: 'h', label: 'Hue', dataType: 'float' },
+      { id: 's', label: 'Sat (0–1)', dataType: 'float' },
+      { id: 'v', label: 'Val (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { h: 'h', s: 's', v: 'v' },
     defaultExposedInputs: ['h', 's', 'v'],
-    defaultProperties: { h: 0, s: 1, v: 1 },
+    defaultProperties: { hueUnits: 'degrees', h: 0, s: 1, v: 1 },
   },
   {
     // The inverse of HSV → RGB — extracts hue/sat/val from a connected color
@@ -121,11 +134,11 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     label: 'Color Temperature',
     category: 'color',
     subcategory: 'Colors',
-    inputs: [{ id: 'kelvin', label: 'Temp (0-1)', dataType: 'float' }],
+    inputs: [{ id: 'warmth', label: 'Warmth', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    propertyInputs: { kelvin: 'kelvin' },
-    defaultExposedInputs: ['kelvin'],
-    defaultProperties: { kelvin: 0.27 },
+    propertyInputs: { warmth: 'warmth' },
+    defaultExposedInputs: ['warmth'],
+    defaultProperties: { warmth: 0.27 },
   },
   {
     // FastLED HeatColor — a 0–1 heat value → black-body ramp (black→red→yellow→white).
@@ -138,44 +151,6 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     propertyInputs: { heat: 'heat' },
     defaultExposedInputs: ['heat'],
     defaultProperties: { heat: 0.5 },
-  },
-  {
-    type: 'BlendColors',
-    label: 'Blend Colors',
-    category: 'color',
-    subcategory: 'Colors',
-    inputs: [
-      { id: 'a', label: 'A', dataType: 'color' },
-      { id: 'b', label: 'B', dataType: 'color' },
-      { id: 't', label: 'Mix', dataType: 'float' },
-      { id: 'rA', label: 'R (A)', dataType: 'float' },
-      { id: 'gA', label: 'G (A)', dataType: 'float' },
-      { id: 'bA', label: 'B (A)', dataType: 'float' },
-      { id: 'rB', label: 'R (B)', dataType: 'float' },
-      { id: 'gB', label: 'G (B)', dataType: 'float' },
-      { id: 'bB', label: 'B (B)', dataType: 'float' },
-    ],
-    propertyInputs: {
-      t: 't', rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
-    },
-    defaultExposedInputs: ['t'],
-    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    defaultProperties: { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255, t: 0.5 },
-  },
-  {
-    type: 'CHSV',
-    label: 'CHSV',
-    category: 'color',
-    subcategory: 'Colors',
-    inputs: [
-      { id: 'hue', label: 'Hue (0–255)', dataType: 'float' },
-      { id: 'sat', label: 'Sat (0–255)', dataType: 'float' },
-      { id: 'val', label: 'Val (0–255)', dataType: 'float' },
-    ],
-    outputs: [{ id: 'rgb', label: 'RGB', dataType: 'color' }],
-    propertyInputs: { hue: 'hue', sat: 'sat', val: 'val' },
-    defaultExposedInputs: ['hue', 'sat', 'val'],
-    defaultProperties: { hue: 128, sat: 255, val: 255 },
   },
   {
     type: 'PaletteSelector',
@@ -302,13 +277,12 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   PaletteSampler: 'Samples a palette at t to a color.',
   PaletteSweep: 'Sweeps back and forth through a palette at a set rate and easing.',
   // color
+  Color: 'A picked colour as a wireable Color output.',
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
-  HSVToRGB: 'Converts hue/sat/val to an RGB color.',
+  HSVToRGB: 'Converts hue/sat/val to an RGB color; hue in degrees or as a FastLED 0–255 byte.',
   RGBToHSV: 'Converts an RGB color to hue/sat/val.',
-  Temperature: 'White point from a normalized 0-1 warm-to-cool temperature control.',
+  Temperature: 'White point from a 0–1 warmth control: candle at 0, blue sky at 1.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
-  BlendColors: 'Blends two colors by an amount.',
-  CHSV: 'FastLED CHSV color (0–255 hue/sat/val).',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',
   PaletteFromImage: 'Extracts dominant colours from an uploaded Image into a 16-stop palette.',

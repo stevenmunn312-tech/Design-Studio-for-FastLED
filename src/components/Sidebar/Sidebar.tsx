@@ -37,9 +37,9 @@ const BEGINNER_NODE_TYPES = new Set([
   'Audio', 'Storage', 'FFTAnalyzer', 'BeatDetect',
   'DMXInput', 'DMXChannel', 'RTCInput', 'ScheduleTrigger',
   'Wave', 'Counter', 'Random', 'SampleHold',
-  'HueCycle', 'HSVToRGB', 'PaletteSelector',
+  'Constant', 'Color', 'HueCycle', 'HSVToRGB', 'PaletteSelector',
   'SolidColor', 'Text', 'GradientFrame', 'Noise', 'Rainbow', 'Fire2012', 'SpectrumBars', 'SpectrumVisualizer', 'ColorTrails', 'Animartrix',
-  'Brightness', 'Fade', 'HueShift', 'Trails', 'Blend', 'Transition',
+  'Brightness', 'HueShift', 'Trails', 'Blend', 'Transition',
   'PatternCollection', 'PatternMaster', 'PatternSlideshow', 'PerformanceGenerator', 'SDCard',
   'MatrixOutput',
 ])

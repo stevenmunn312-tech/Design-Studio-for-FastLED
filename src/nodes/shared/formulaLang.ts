@@ -370,10 +370,37 @@ export function isNodeFormulaValid(source: string): boolean {
 /** Why a CustomFormula/FieldFormula source does not parse, for the editor;
  *  `null` when it is valid. Agrees with `isNodeFormulaValid`. */
 export function nodeFormulaError(source: string): string | null {
+  return formulaError(source, NODE_FORMULA_VARIABLES)
+}
+
+// ── The Expression node contract ──────────────────────────────────────────
+//
+// One scalar per frame rather than one per pixel, so the per-pixel coordinates
+// are absent: a formula sees its two wired numbers, the clock and the matrix
+// size, then the same shims. The same parser and the same fail-closed rule
+// apply, so an Expression formula is as safe to paste into C++ as a pixel one.
+export const SCALAR_FORMULA_VARIABLES = ['a', 'b', 't', 'W', 'H'] as const
+
+/** Compile an Expression source string; `null` when invalid. */
+export function compileScalarFormula(source: string): FormulaFn | null {
+  return compileFormulaSource(source, { variables: SCALAR_FORMULA_VARIABLES, callableVariables: SHIM_NAMES })
+}
+
+/** True when an Expression formula parses cleanly and is therefore safe to emit into C++. */
+export function isScalarFormulaValid(source: string): boolean {
+  return compileScalarFormula(source) !== null
+}
+
+/** Why an Expression source does not parse, for the editor; `null` when valid. */
+export function scalarFormulaError(source: string): string | null {
+  return formulaError(source, SCALAR_FORMULA_VARIABLES)
+}
+
+function formulaError(source: string, variables: readonly string[]): string | null {
   if (source.trim() === '') return 'Empty formula'
   if (source.length > MAX_SOURCE_LENGTH) return `Longer than ${MAX_SOURCE_LENGTH} characters`
   try {
-    new Parser(tokenize(source), NODE_FORMULA_VARIABLES, SHIM_NAMES).parseProgram()
+    new Parser(tokenize(source), variables, SHIM_NAMES).parseProgram()
     return null
   } catch (error) {
     return error instanceof FormulaParseError ? error.message : 'Invalid formula'

@@ -352,7 +352,7 @@ colour node, and the device stores that colour packed at the swatch. A Pattern
 Browser names the pattern the running slideshow or player is browsing. An LED
 output wired to a panel reports that output's own name, count, blackout and
 level when the template drives it. Palette sources, a pattern selection from
-any other node, an output the template does not drive, and Complex Wave,
+any other node, an output the template does not drive, and Smooth,
 Random and DMX Channel still fail explicitly.
 Graph Health and build validation identify unresolved bindings rather than
 silently supplying a value.

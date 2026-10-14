@@ -254,21 +254,6 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       ),
     }
   },
-  Fade({ input, num }, id, props) {
-    const src = input(id, 'frame', null) as Frame | null
-    const fade = num(id, 'fade', props, 'fade', 0.5)
-    const scale = Math.max(0, Math.min(1, 1 - fade))
-    if (!src) { return { frame: null } }
-    return {
-      frame: src.map(row =>
-        row.map(px => ({
-          r: Math.round(px.r * scale),
-          g: Math.round(px.g * scale),
-          b: Math.round(px.b * scale),
-        }))
-      ),
-    }
-  },
   Transform({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) { return { frame: null } }

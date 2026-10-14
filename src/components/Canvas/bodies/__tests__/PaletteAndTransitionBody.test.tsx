@@ -84,7 +84,7 @@ describe('palette and transition node bodies', () => {
         id: 'src',
         type: 'studioNode',
         position: { x: 0, y: 0 },
-        data: nodeData('CHSV', { hue: 0, sat: 255, val: 255 }),
+        data: nodeData('HSVToRGB', { hueUnits: 'bytes', h: 0, s: 1, v: 1 }),
       }, {
         id: 'pl',
         type: 'studioNode',
@@ -97,7 +97,7 @@ describe('palette and transition node bodies', () => {
           position: 'sinusoidal',
         }),
       }],
-      edges: [{ id: 'e1', source: 'src', sourceHandle: 'rgb', target: 'pl', targetHandle: 'colorA' }],
+      edges: [{ id: 'e1', source: 'src', sourceHandle: 'color', target: 'pl', targetHandle: 'colorA' }],
     })
 
     // The board builds the palette from the wire too, so nothing is flagged.

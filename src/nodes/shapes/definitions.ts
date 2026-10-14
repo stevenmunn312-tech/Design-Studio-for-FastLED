@@ -140,27 +140,6 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Draws a circle (ring, or filled disc) over an optional base frame.
-    // `fill`/`edge`/`thickness` mirror the Shape node — same SDF renderer
-    // (a circle is Shape's ellipse at aspect 1), so drawing matches exactly.
-    type: 'Circle',
-    label: 'Circle',
-    category: 'pattern',
-    subcategory: 'Shapes & Text',
-    inputs: [
-      { id: 'base',  label: 'Base',  dataType: 'frame' },
-      { id: 'fill',  label: 'Fill',  dataType: 'color' },
-      { id: 'edge',  label: 'Edge',  dataType: 'color' },
-      { id: 'cx',    label: 'Center X', dataType: 'float' },
-      { id: 'cy',    label: 'Center Y', dataType: 'float' },
-      { id: 'radius', label: 'Radius', dataType: 'float' },
-      { id: 'thickness', label: 'Thickness', dataType: 'float' },
-    ],
-    propertyInputs: { cx: 'cx', cy: 'cy', radius: 'radius', thickness: 'thickness', fill: 'fill', edge: 'edge' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, scaleWithMatrix: true, thickness: 1.5, wrap: false, filled: true, fill: '#ff3080', edge: '#ff0080' },
-  },
-  {
     // Draws a line between two points over an optional base frame.
     type: 'Line',
     label: 'Line',
@@ -447,9 +426,8 @@ export const SHAPES_DESCRIPTIONS: Record<string, string> = {
   SDVideo: 'Plays a video clip from the SD card, shrunk to the LED canvas.',
   Text: 'Renders scrolling text in a bitmap font.',
   ClockDisplay: 'RTC-fed digital/analog clock plus stopwatch and timer displays.',
-  Circle: 'Draws a circle — ring or filled disc, with a fill and outline colour.',
   Line: 'Draws a line between two points.',
-  Shape: 'Rect, ellipse or morphing N-gon with a fill and outline colour.',
+  Shape: 'Rect, ellipse (or circle) or morphing N-gon with a fill and outline colour.',
   Path: 'Traces a parametric curve point with subpixel splatting.',
   FourierEpicycles: 'Redraws an outline with nested rotating circles, from its Fourier series.',
   Wireframe3D: 'Rotating 3D wireframe model, auto-scaled to fit the matrix.',

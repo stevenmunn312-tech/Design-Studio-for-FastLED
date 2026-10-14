@@ -28,7 +28,7 @@ const LEGACY_KEY = 'design-studio-for-fastled.trusted-pattern-content.v1'
  *  the `trusted` checks in graphEvaluator's `CustomFormula`/`FieldFormula`/
  *  `Code` cases. A subgraph containing none of these renders identically
  *  trusted or not, so there is nothing to ask the user about. */
-const TRUST_GATED_NODE_TYPES = new Set(['CustomFormula', 'FieldFormula', 'Code'])
+const TRUST_GATED_NODE_TYPES = new Set(['CustomFormula', 'FieldFormula', 'Expression', 'Code'])
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)

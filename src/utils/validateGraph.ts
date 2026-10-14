@@ -22,7 +22,7 @@ import {
   DEFAULT_STANDALONE_VU_LED_COUNT,
 } from '../state/audio/stereoVuSizing'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../nodes/shared/scalarExpression'
-import { isNodeFormulaValid } from '../nodes/shared/formulaLang'
+import { isNodeFormulaValid, isScalarFormulaValid } from '../nodes/shared/formulaLang'
 import { isValidRtcDateTime } from '../state/peripherals/rtc'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
@@ -1543,13 +1543,22 @@ export function findScalarExpressionErrors(nodes: StudioNode[]): string[] {
 export function findFormulaErrors(nodes: StudioNode[]): string[] {
   const errors: string[] = []
   for (const node of nodes) {
-    if (node.data.nodeType !== 'CustomFormula' && node.data.nodeType !== 'FieldFormula') continue
+    const valid = formulaValidator(node.data.nodeType)
+    if (!valid) continue
     const formula = String((node.data.properties as Record<string, unknown>).formula ?? '')
-    if (!isNodeFormulaValid(formula)) {
+    if (!valid(formula)) {
       errors.push(`${node.data.label} has an invalid formula: ${formula || '(empty)'}`)
     }
   }
   return errors
+}
+
+/** The sandboxed parser a formula node's `formula` must pass, or null for any
+ *  other node. Expression is one value a frame, so its vocabulary is smaller. */
+function formulaValidator(nodeType: string): ((formula: string) => boolean) | null {
+  if (nodeType === 'CustomFormula' || nodeType === 'FieldFormula') return isNodeFormulaValid
+  if (nodeType === 'Expression') return isScalarFormulaValid
+  return null
 }
 
 /**
@@ -3702,14 +3711,18 @@ export function buildGraphDiagnostics(
   }
 
   for (const node of nodes) {
-    if (node.data.nodeType !== 'CustomFormula' && node.data.nodeType !== 'FieldFormula') continue
+    const valid = formulaValidator(node.data.nodeType)
+    if (!valid) continue
     const formula = String((node.data.properties as Record<string, unknown>).formula ?? '')
-    if (isNodeFormulaValid(formula)) continue
+    if (valid(formula)) continue
+    const scalar = node.data.nodeType === 'Expression'
     diagnostics.push({
       id: `${node.id}-formula`, severity: 'error', category: 'expression',
       title: `${nodeLabel(node)} has an invalid formula`,
       message: `formula: ${formula || '(empty)'}`,
-      fix: 'Formulas may use only numbers, the built-in variables (x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn), the FastLED shims, and arithmetic — no statements or other identifiers. Preview and firmware both render this node blank until it parses.',
+      fix: scalar
+        ? 'Formulas may use only numbers, the built-in variables (a, b, t, W, H), the FastLED shims, and arithmetic — no statements or other identifiers. Preview and firmware both output 0 from this node until it parses.'
+        : 'Formulas may use only numbers, the built-in variables (x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn), the FastLED shims, and arithmetic — no statements or other identifiers. Preview and firmware both render this node blank until it parses.',
       nodeIds: [node.id], nodeLabel: nodeLabel(node), propertyKey: 'formula',
     })
   }

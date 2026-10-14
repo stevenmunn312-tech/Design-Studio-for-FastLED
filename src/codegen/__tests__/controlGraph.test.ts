@@ -140,7 +140,7 @@ describe('typed control graph', () => {
     for (const [nodes, id, port, type] of [
       [[node('button', 'ButtonInput')], 'button', 'pressed', 'float'],
       [[node('math', 'Math')], 'math', 'value', 'float'],
-      [[node('wave', 'ComplexWave')], 'wave', 'result', 'float'],
+      [[node('smooth', 'Smooth')], 'smooth', 'result', 'float'],
       [[], 'missing', 'value', 'float'],
     ] as const) {
       const graph = createControlGraph([...nodes], [])
@@ -187,11 +187,11 @@ describe('typed control graph', () => {
 
   it('emits self-contained colour nodes with the normal sketch formulas', () => {
     const nodes = [
-      node('hsv', 'HSVToRGB'), node('blend', 'BlendColors'), node('rgb', 'RGBToHSV'),
+      node('hsv', 'HSVToRGB'), node('blend', 'GradientSampler', { mixMode: 'rgb' }), node('rgb', 'RGBToHSV'),
       node('heat', 'HeatColor'), node('temp', 'Temperature'),
       node('grad', 'GradientSampler', { mixMode: 'hsvLong' }),
     ]
-    const edges = [edge('hsv', 'color', 'blend', 'a'), edge('blend', 'color', 'rgb', 'rgb')]
+    const edges = [edge('hsv', 'color', 'blend', 'colorA'), edge('blend', 'color', 'rgb', 'rgb')]
     const graph = createControlGraph(nodes, edges)
     expect(graph.resolve('rgb', 'h', 'float')).toEqual({ nodeId: 'rgb', port: 'h', type: 'float' })
     expect(graph.resolve('temp', 'color', 'color')?.type).toBe('color')

@@ -34,13 +34,13 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 function environmentGraph(properties: Record<string, unknown> = {}) {
   const nodes = [
     node('weather', 'EnvironmentInput', properties),
-    node('map', 'MapRange', { inMin: -40, inMax: 85, outMin: 0, outMax: 1 }),
-    node('fill', 'SolidColor'), node('fade', 'Fade'),
+    node('map', 'MapRange', { inMin: -40, inMax: 85, outMin: 1, outMax: 0 }),
+    node('fill', 'SolidColor'), node('fade', 'BrightnessMod'),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [
     edge('temperature', 'weather', 'temperature', 'map', 'value'),
-    edge('amount', 'map', 'result', 'fade', 'fade'),
+    edge('amount', 'map', 'result', 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),
   ]

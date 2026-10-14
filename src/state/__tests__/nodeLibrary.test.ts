@@ -245,7 +245,7 @@ describe('nodeLibrary', () => {
     expect(propertyDescription('Transition', 'direction')).toBe('Slide direction for the Wipe / Push styles.')
     expect(propertyDescription('SDCard', 'audioOutput')).toBe(PROPERTY_DESCRIPTIONS.audioOutput)
     expect(propertyDescription('DFPlayerOutput', 'audioOutput')).toMatch(/^Speaker uses/)
-    expect(propertyDescription('Circle', 'nonexistentProp')).toBeUndefined()
+    expect(propertyDescription('Shape', 'nonexistentProp')).toBeUndefined()
   })
 
   it('slider ranges match the clamps preview and firmware apply', () => {
@@ -266,7 +266,7 @@ describe('nodeLibrary', () => {
 
   it('bounds every number a beginner would otherwise type freely', () => {
     for (const [nodeType, key] of [
-      ['Spiral', 'arms'], ['Kaleidoscope', 'segments'], ['Circle', 'radius'], ['Shape', 'size'],
+      ['Spiral', 'arms'], ['Kaleidoscope', 'segments'], ['Shape', 'size'],
       ['ClockDisplay', 'durationSec'], ['Amplifier', 'maxVolume'], ['PowerAmplifier', 'maxVolume'],
       ['RTCInput', 'startYear'], ['Text', 'scroll'], ['Path', 'scale'], ['FrameFeedback', 'angle'],
     ]) {
@@ -902,13 +902,11 @@ describe('nodeLibrary', () => {
     ])
     expect(defaults('Lerp')).toMatchObject({ a: 0, b: 1, t: 0.5 })
     expect(defaults('Ease')).toMatchObject({ easeType: 'inOutCubic', t: 0 })
-    expect(defaults('Abs')).toMatchObject({ x: 0 })
-    expect(defaults('Mod')).toMatchObject({ x: 0, m: 1 })
+    expect(defaults('Function')).toEqual({ fn: 'sin', x: 0 })
     expect(defaults('Gate')).toMatchObject({ value: 0, fallback: 0 })
     expect(defaults('Smooth')).toMatchObject({ value: 0, response: 0.25 })
     expect(defaults('SampleHold')).toMatchObject({ value: 0 })
     expect(defaults('Compare')).toMatchObject({ a: 0, b: 0.5 })
-    expect(defaults('XYMapper')).toMatchObject({ x: 0, y: 0 })
   })
 
   it('exposes every Ease variant with a descriptive bundled title', () => {
@@ -924,13 +922,11 @@ describe('nodeLibrary', () => {
 
   it('color todo nodes expose editable defaults and bounded hue controls', () => {
     const defaults = (type: string) => NODE_LIBRARY.find((n) => n.type === type)?.defaultProperties ?? {}
-    expect(defaults('BlendColors')).toMatchObject({
-      rA: 255, gA: 0, bA: 0,
-      rB: 0, gB: 0, bB: 255,
-      t: 0.5,
+    expect(defaults('GradientSampler')).toEqual({
+      t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, mixMode: 'rgb',
     })
     expect(defaults('RGBToHSV')).toMatchObject({ r: 0, g: 0, b: 0 })
-    expect(defaults('GradientSampler')).toMatchObject({ t: 0 })
+    expect(defaults('HSVToRGB')).toEqual({ hueUnits: 'degrees', h: 0, s: 1, v: 1 })
     expect(propertyMeta('HSVToRGB', 'h')).toEqual({ control: 'slider', min: 0, max: 360, step: 1 })
   })
 
@@ -943,9 +939,8 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('BeatSin', 'bpm')).toEqual({ control: 'slider', min: 1, max: 220, step: 1 })
   })
 
-  it('explains that Sin and Cos need an explicit X signal to animate', () => {
-    expect(propertyDescription('Sin', 'x')).toMatch(/does not animate on its own/i)
-    expect(propertyDescription('Cos', 'x')).toMatch(/does not animate on its own/i)
+  it('explains that Function needs an explicit X signal to animate', () => {
+    expect(propertyDescription('Function', 'x')).toMatch(/does not animate on its own/i)
   })
 
   it('has tooltips for serialDebug and pullup', () => {

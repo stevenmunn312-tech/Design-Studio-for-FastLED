@@ -194,46 +194,6 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const color = channelColor('color', 255, 0, 128)
     ln(`  fill_solid(${ob}, NUM_LEDS, ${color});`)
   },
-  Circle({ node, p, ln, f, ownBuf, seedFrom, incoming, colorExpr }) {
-    // A circle is Shape's ellipse at aspect 1 — same SDF coverage and
-    // nblend compositing as the Shape case, so drawing matches exactly.
-    const ob = ownBuf()
-    const hexCrgb = (hex: unknown, def: number) => {
-      const m = /^#([0-9a-f]{6})$/i.exec(String(hex))
-      const n = m ? parseInt(m[1], 16) : def
-      return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
-    }
-    const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff3080)
-    const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgb(p.edge, 0xff0080)
-    const filled = (p.filled ?? true) !== false
-    const emitCirclePass = (cxExpr: string, cyExpr: string, indent: string) => {
-      ln(`${indent}for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-      ln(`${indent}  float _dx=(_x+0.5f)-${cxExpr},_dy=(_y+0.5f)-${cyExpr},_sd=sqrtf(_dx*_dx+_dy*_dy)-_rad;`)
-      ln(`${indent}  float _fc=${filled ? 'constrain(0.5f-_sd,0.0f,1.0f)' : '0.0f'};`)
-      ln(`${indent}  float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);`)
-      ln(`${indent}  float _al=max(_fc,_ec); if(_al<=0.0f) continue;`)
-      ln(`${indent}  CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); }`)
-    }
-    ln(`  { ${seedFrom('base')}`)
-    ln(`    float _rad=max(0.5f,${withMatrixScale(f('radius', 'radius', 6), p)});`)
-    ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
-    ln(`    float _th=max(0.0f,${f('thickness', 'thickness', 1.5)});`)
-    ln(`    float _extent=_rad+_th*0.5f;`)
-    ln(`    float _cxv=${f('cx', 'cx', 0.5)},_cyv=${f('cy', 'cy', 0.5)};`)
-    if (p.wrap) {
-      ln(`    float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);`)
-      ln(`    float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};`)
-      ln(`    float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};`)
-      ln(`    for(int _wy=0;_wy<3;_wy++) for(int _wx=0;_wx<3;_wx++){`)
-      ln(`      float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];`)
-      emitCirclePass('_wcx', '_wcy', '      ')
-      ln(`    }`)
-    } else {
-      ln(`    float _m=_extent+1.0f;`)
-      ln(`    float _cx=_cxv>1.0f?_cxv:(0.5f-_m)+_cxv*((WIDTH-1.0f)+2.0f*_m),_cy=_cyv>1.0f?_cyv:(0.5f-_m)+_cyv*((HEIGHT-1.0f)+2.0f*_m);`)
-      emitCirclePass('_cx', '_cy', '    ')
-    }
-  },
   Line({ ln, f, channelColor, ownBuf, seedFrom }) {
     const ob = ownBuf()
     const colorE = channelColor('color', 0, 200, 255)

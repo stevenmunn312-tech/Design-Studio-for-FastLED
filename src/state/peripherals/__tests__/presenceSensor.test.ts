@@ -40,14 +40,14 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 function presenceGraph(sensorProps: Record<string, unknown> = {}) {
   const nodes = [
     node('radar', 'PresenceInput', sensorProps),
-    node('map', 'MapRange', { inMin: 0, inMax: 6, outMin: 0, outMax: 1 }),
+    node('map', 'MapRange', { inMin: 0, inMax: 6, outMin: 1, outMax: 0 }),
     node('fill', 'SolidColor', { r: 255, g: 90, b: 0 }),
-    node('fade', 'Fade'),
+    node('fade', 'BrightnessMod'),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [
     edge('distance', 'radar', 'distance', 'map', 'value'),
-    edge('amount', 'map', 'result', 'fade', 'fade'),
+    edge('amount', 'map', 'result', 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),
   ]

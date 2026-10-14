@@ -1,5 +1,5 @@
 import { blankDmxSnapshot, type DmxSnapshot, clampDmxChannel, clampDmxByte } from '../../state/peripherals/dmx'
-import { waveAt, combineWaves } from './wave'
+import { waveAt } from './wave'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { normalizedSeed, seededRandom, seedOffset, _snoise2 } from '../../state/evaluator/random'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
@@ -85,24 +85,12 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     timePrev.set(key, t)
     return { time: t, dt: prev === undefined ? 0 : Math.max(0, t - prev) }
   },
-  Sin({ num }, id, props) {
-    return { result: Math.sin(num(id, 'x', props, 'x', 0) * Math.PI * 2) }
-  },
-  Cos({ num }, id, props) {
-    return { result: Math.cos(num(id, 'x', props, 'x', 0) * Math.PI * 2) }
-  },
   Wave({ num, t, stateKey }, id, props) {
     const amplitude = num(id, 'amplitude', props, 'amplitude', 1)
     const frequency = num(id, 'frequency', props, 'frequency', 1)
     const phase     = num(id, 'phase', props, 'phase', 0)
     const waveform  = String(props.waveform ?? 'sine')
     return { result: waveAt(waveform, amplitude, speedPhase(stateKey(id), t, frequency), phase) }
-  },
-  ComplexWave({ num }, id, props) {
-    const a = num(id, 'a', props, 'a', 0)
-    const b = num(id, 'b', props, 'b', 0)
-    const operation = String(props.operation ?? 'add')
-    return { result: combineWaves(operation, a, b) }
   },
   Random({ stateKey }, id, props) {
     const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)

@@ -171,6 +171,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   a renamed key fails rather than leaving dead text. `FORMULA_LANG_HELP` is
   built from the formula sandbox's own tables (`formulaLang.ts`,
   `fastledShims.ts`); extend those, never the string.
+- A formula node is a family of four, and a new one joins every member of the
+  set or it is a hole: the sandboxed parser (`compileNodeFormula` for the
+  per-pixel vocabulary, `compileScalarFormula` for Expression's `a, b, t, W,
+  H`), the evaluator's `trusted` check, `TRUST_GATED_NODE_TYPES` in
+  `patternTrust.ts`, `formulaValidator` in `validateGraph.ts` (the deploy
+  gate and the diagnostic), the Code editor body in `StudioNode.tsx` with its
+  320 px width and `formula` row exclusion in `studioNodeChrome.ts`, and an
+  emitter that falls back to `0.0f` or a blank frame when the parser rejects
+  the text. An operation set a node selects by property lives in one module
+  both sides import (`math/mathIdentity.ts` for Function, `math/logic.ts` for
+  Logic), with the preview function, the C++ expression and the option list
+  beside each other, so the control graph's `scalarControlCpp.ts` emits the
+  same text as the normal sketch.
 - Handlers and emitters read numeric properties already sanitised.
   `resolveNodeNumericProperties` (`nodeLibrary.ts`) runs before the evaluator,
   `cppGenerator.ts` and the control graph, and turns every property whose

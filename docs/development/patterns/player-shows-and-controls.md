@@ -187,7 +187,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `rate/60` once per pass. A non-finite stored BeatSin bpm fails the control
   graph; the normal-sketch wrapper still sanitises that stored value before
   emitting it. Schedule Trigger's unwired Enable uses the property and defaults
-  on. Other unwired bools are false. Complex Wave, Random and DMX Channel stay
+  on. Other unwired bools are false. Smooth, Random and DMX Channel stay
   refused.
 - A wired RTC Clock is resolved by `clockFor`, beside `ledStatusFor`. Every
   time source emits through `rtcInputCpp.ts`; an NTP clock's emission also

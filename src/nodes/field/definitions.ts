@@ -302,15 +302,19 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // `t` only matters to the `mix` op, where it is the A→B crossfade (the
+    // Field Lerp node this replaced); the other ops ignore it.
     type: 'FieldMath',
     label: 'Field Math',
     category: 'field',
     inputs: [
       { id: 'a', label: 'A', dataType: 'field' },
       { id: 'b', label: 'B', dataType: 'field' },
+      { id: 't', label: 'Mix', dataType: 'float' },
     ],
+    propertyInputs: { t: 't' },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { fieldOp: 'add' },
+    defaultProperties: { fieldOp: 'add', t: 0.5 },
   },
   {
     type: 'FieldLevels',
@@ -324,19 +328,6 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     propertyInputs: { low: 'low', high: 'high' },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: { low: 0, high: 1, steps: 1, invert: false },
-  },
-  {
-    type: 'FieldLerp',
-    label: 'Field Lerp',
-    category: 'field',
-    inputs: [
-      { id: 'a', label: 'A', dataType: 'field' },
-      { id: 'b', label: 'B', dataType: 'field' },
-      { id: 't', label: 'T', dataType: 'float' },
-    ],
-    propertyInputs: { t: 't' },
-    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { t: 0.5 },
   },
   {
     type: 'ShapeField',
@@ -444,9 +435,8 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
   DistanceField: 'Scalar field of distance from each pixel to a movable point.',
   FrameToField: 'Extracts a brightness field from a rendered frame.',
-  FieldMath: 'Combines two scalar fields (add, subtract, multiply, mix, min, max, difference).',
+  FieldMath: 'Combines two fields: add, subtract, multiply, min, max, difference, or mix by T.',
   FieldLevels: 'Remaps, thresholds, quantises or inverts a scalar field.',
-  FieldLerp: 'Interpolates between two scalar fields with a wireable 0–1 amount.',
   ShapeField: 'Circle, rectangle or morphing polygon as a fill or signed-distance field.',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   FieldRotate: 'Rotates a field around its centre (angle + spin over time).',

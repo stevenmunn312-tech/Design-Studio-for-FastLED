@@ -1,9 +1,8 @@
-// Waveform math shared by the Wave / ComplexWave nodes' evaluator and their
-// inline preview scope, so the on-node preview matches the rendered signal.
-// (The C++ generator mirrors these shapes as emitted expressions.)
+// Waveform math shared by the Wave node's evaluator and its inline preview
+// scope, so the on-node preview matches the rendered signal. (The C++
+// generator mirrors these shapes as emitted expressions.)
 
 export type WaveType = 'sine' | 'triangle' | 'square' | 'sawtooth'
-export type CombineOp = 'add' | 'multiply' | 'average' | 'min' | 'max' | 'difference'
 
 /** amplitude · wave(frequency·t + phase); the base wave is in [-1, 1]. */
 export function waveSample(type: string, amplitude: number, frequency: number, phase: number, t: number): number {
@@ -22,18 +21,6 @@ export function waveAt(type: string, amplitude: number, cycles: number, phase: n
     default:         w = Math.sin(2 * Math.PI * arg) // sine
   }
   return amplitude * w
-}
-
-/** Combine two wave values into one. */
-export function combineWaves(op: string, a: number, b: number): number {
-  switch (op) {
-    case 'multiply':   return a * b
-    case 'average':    return (a + b) / 2
-    case 'min':        return Math.min(a, b)
-    case 'max':        return Math.max(a, b)
-    case 'difference': return a - b
-    default:           return a + b // add
-  }
 }
 
 // ── Preview sampling ──────────────────────────────────────────────────────────

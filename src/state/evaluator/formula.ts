@@ -8,11 +8,16 @@ import { evaluatorCache } from './memory'
 // through the same entry point.
 export const formulaCache = evaluatorCache('formulaCache', new Map<string, FormulaFn | null>())
 export const fieldFormulaCache = evaluatorCache('fieldFormulaCache', new Map<string, FormulaFn | null>())
+export const scalarFormulaCache = evaluatorCache('scalarFormulaCache', new Map<string, FormulaFn | null>())
 
-export function compileFormula(formula: string, cache: Map<string, FormulaFn | null>): FormulaFn | null {
+export function compileFormula(
+  formula: string,
+  cache: Map<string, FormulaFn | null>,
+  compile: (source: string) => FormulaFn | null = compileNodeFormula,
+): FormulaFn | null {
   if (!cache.has(formula)) {
     if (cache.size > 50) cache.clear()
-    cache.set(formula, compileNodeFormula(formula))
+    cache.set(formula, compile(formula))
   }
   return cache.get(formula) ?? null
 }

@@ -450,7 +450,7 @@ timer and computed presses bypass contact debounce. Clock, Envelope, BeatSin,
 Noise LFO, Counter and Schedule Trigger share those emitters and keep
 wall-clock milliseconds. A wired RTC Clock of any source is a control source
 and a Clock layout; an NTP clock starts the sketch's network.
-Complex Wave, Random, DMX Channel, arbitrary scripts and palette or image
+Smooth, Random, DMX Channel, arbitrary scripts and palette or image
 colours remain outside that template scope.
 
 Time/Wave controls share the slideshow's animation clock, including Master

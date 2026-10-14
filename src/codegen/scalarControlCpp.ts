@@ -1,7 +1,8 @@
 // Scalar operations shared by the normal graph and template control graphs.
 import { displayString, normalizeNumberFormat } from '../state/displays/displayText'
 import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../nodes/shared/stepValue'
-import { mathOperandIdentity } from '../nodes/math/mathIdentity'
+import { functionCpp, mathOperandIdentity } from '../nodes/math/mathIdentity'
+import { logicCpp } from '../nodes/math/logic'
 import { toggleCpp } from './toggleCpp'
 import { intervalCpp } from './intervalCpp'
 import { waveCpp } from './signalTimeCpp'
@@ -10,13 +11,14 @@ import { formatNumberCpp, textValueCpp } from './displays/displayTextCpp'
 export type ControlDataType = 'float' | 'bool' | 'string' | 'color'
 
 export const SCALAR_CONTROL_NODES: Record<string, { port: string; type: ControlDataType }> = {
+  Constant: { port: 'value', type: 'float' },
   Math: { port: 'result', type: 'float' },
+  Logic: { port: 'result', type: 'bool' },
   Lerp: { port: 'result', type: 'float' },
   Clamp: { port: 'result', type: 'float' },
   MapRange: { port: 'result', type: 'float' },
   StepValue: { port: 'value', type: 'float' },
-  Sin: { port: 'result', type: 'float' },
-  Cos: { port: 'result', type: 'float' },
+  Function: { port: 'result', type: 'float' },
   Compare: { port: 'result', type: 'bool' },
   Trigger: { port: 'out', type: 'bool' },
   Interval: { port: 'pulse', type: 'bool' },
@@ -36,7 +38,9 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
     case 'Clamp': return { value: 0, min: 0, max: 1 }
     case 'MapRange': return { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 }
     case 'StepValue': return { increase: 0, decrease: 0, reset: 0 }
-    case 'Sin': case 'Cos': return { x: 0 }
+    case 'Function': return { x: 0 }
+    case 'Constant': return {}
+    case 'Logic': return { a: 0, b: 0 }
     case 'Compare': return { a: 0, b: 0.5 }
     case 'Trigger': return props.triggerOp === 'toggle' ? { trigger: 0, on: 0, off: 0 } : { trigger: 0 }
     case 'FormatNumber': return { value: 0 }
@@ -48,7 +52,8 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
 
 export function scalarControlInputType(type: string, port: string): ControlDataType {
   if ((type === 'Trigger' && ['trigger', 'on', 'off'].includes(port))
-    || (type === 'StepValue' && ['increase', 'decrease', 'reset'].includes(port))) return 'bool'
+    || (type === 'StepValue' && ['increase', 'decrease', 'reset'].includes(port))
+    || (type === 'Logic' && (port === 'a' || port === 'b'))) return 'bool'
   return 'float'
 }
 
@@ -75,6 +80,8 @@ export function scalarControlCpp(
         case 'subtract': expression = `(${f.a}) - (${f.b})`; break
         case 'multiply': expression = `(${f.a}) * (${f.b})`; break
         case 'divide': expression = `((${f.b}) == 0.0f ? 0.0f : (${f.a}) / (${f.b}))`; break
+        case 'modulo': expression = `((${f.b}) == 0.0f ? 0.0f : fmodf(fmodf(${f.a}, ${f.b}) + (${f.b}), ${f.b}))`; break
+        case 'average': expression = `((${f.a}) + (${f.b})) * 0.5f`; break
         case 'min': expression = `min((float)(${f.a}), (float)(${f.b}))`; break
         case 'max': expression = `max((float)(${f.a}), (float)(${f.b}))`; break
         default: expression = `(${f.a}) + (${f.b})`
@@ -108,8 +115,13 @@ export function scalarControlCpp(
       ]
       break
     }
-    case 'Sin': expression = `sin((${f.x}) * TWO_PI)`; break
-    case 'Cos': expression = `cos((${f.x}) * TWO_PI)`; break
+    case 'Function': expression = functionCpp(props.fn, f.x); break
+    case 'Constant': {
+      const value = Number(props.value ?? 1)
+      expression = String(Number.isFinite(value) ? value : 1)
+      break
+    }
+    case 'Logic': expression = logicCpp(props.logicOp, f.a, f.b); break
     case 'Compare': expression = `(${f.a}) > (${f.b})`; break
     case 'Interval': loop = intervalCpp(id, output, f.interval); break
     case 'Wave': loop = waveCpp(output, String(props.waveform ?? 'sine'), f.amplitude, f.frequency, f.phase, time); break

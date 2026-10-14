@@ -696,30 +696,6 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     )
     return { frame, ...clockOut }
   },
-  Circle({ input, num, W, H }, id, props) {
-    // A circle is Shape's ellipse at aspect 1 — reuse the same SDF renderer
-    // so fill/edge/thickness drawing is identical to the Shape node.
-    const baseIn = input(id, 'base', null) as Frame | null
-    const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
-    const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff3080'))
-    const edge = (input(id, 'edge', null) as RGB | null) ?? hexToRgb(String(props.edge ?? '#ff0080'))
-    const radiusScale = props.scaleWithMatrix ? matrixSizeScale(W, H) : 1
-    const rad = Math.max(0.5, num(id, 'radius', props, 'radius', 6) * radiusScale)
-    const thickness = Math.max(0, num(id, 'thickness', props, 'thickness', 1.5))
-    const filled = Boolean(props.filled ?? true)
-    const wrap = Boolean(props.wrap)
-    const extent = rad + thickness * 0.5
-    evalWrappedShape(
-      frame,
-      'ellipse',
-      normalizedCenterAxis(num(id, 'cx', props, 'cx', 0.5), W, extent, wrap),
-      normalizedCenterAxis(num(id, 'cy', props, 'cy', 0.5), H, extent, wrap),
-      rad, 1, 5, 0, thickness, filled,
-      fill, edge, W, H,
-      wrap,
-    )
-    return { frame }
-  },
   Line({ input, num, W, H }, id, props) {
     const baseIn = input(id, 'base', null) as Frame | null
     const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)

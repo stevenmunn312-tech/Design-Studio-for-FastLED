@@ -257,7 +257,7 @@ function hash(value: string): number {
 }
 
 const STRING_OUTPUT_EXAMPLES = new Set([
-  'BrightnessMod', 'ColorBoost', 'DMXInput', 'Fade', 'Fire2012', 'Gamma', 'GradientFrame',
+  'BrightnessMod', 'ColorBoost', 'DMXInput', 'Fire2012', 'Gamma', 'GradientFrame',
   'HueShift', 'Invert', 'PaletteSweep', 'Pacifica', 'PotInput', 'Rainbow', 'Saturation', 'Scanner', 'SolidColor',
 ])
 
@@ -378,12 +378,12 @@ function connectColor(builder: ExampleBuilder, targetKey: string, inputId: strin
     builder.wire(sampler, 'color', targetKey, inputId)
   } else if (choice === 1 && targetType !== 'Temperature') {
     const key = `temperature-${inputId}-${salt}`
-    builder.add(key, 'Temperature', { kelvin: salt % 2 ? 3200 : 9000 })
+    builder.add(key, 'Temperature', { warmth: salt % 2 ? 0.2 : 0.73 })
     builder.wire(key, 'color', targetKey, inputId)
   } else {
-    const key = `chsv-${inputId}-${salt}`
-    builder.add(key, 'CHSV', { hue: hash(`${targetType}-${inputId}`) % 255, sat: 230, val: 255 })
-    builder.wire(key, 'rgb', targetKey, inputId)
+    const key = `hsv-${inputId}-${salt}`
+    builder.add(key, 'HSVToRGB', { hueUnits: 'bytes', h: hash(`${targetType}-${inputId}`) % 255, s: 0.9, v: 1 })
+    builder.wire(key, 'color', targetKey, inputId)
   }
 }
 
@@ -467,7 +467,7 @@ const TARGET_PROPERTIES: Record<string, Record<string, unknown>> = {
   },
 }
 
-const SPARSE_FRAME_TYPES = new Set(['Circle', 'Line', 'Shape', 'Path', 'FourierEpicycles', 'Text', 'Image'])
+const SPARSE_FRAME_TYPES = new Set(['Line', 'Shape', 'Path', 'FourierEpicycles', 'Text', 'Image'])
 const AUDIO_PATTERN_TYPES = new Set([
   'SpectrumBars', 'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock',
@@ -510,25 +510,26 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     FieldWarp: ['field', 'dx', 'dy', 'strength'],
     FieldMath: ['a', 'b'],
     FieldLevels: ['field', 'low', 'high'],
-    FieldLerp: ['a', 'b', 't'],
     ShapeField: ['cx', 'size', 'rotation'],
     FrameToField: ['frame'],
     FieldToFrame: ['field', 'paletteIn'],
     GradientSampler: ['t', 'colorA', 'colorB'],
     PaletteSampler: ['paletteIn', 't'],
     HueCycle: [],
+    Color: [],
     HSVToRGB: ['h'],
-    CHSV: ['hue'],
-    Temperature: ['kelvin'],
+    Temperature: ['warmth'],
     HeatColor: ['heat'],
-    BlendColors: ['a', 'b', 't'],
     CustomPalette: ['color0', 'color1'],
     PaletteFromImage: ['image'],
     Poline: ['colorA', 'colorB', 'colorC'],
     HarmonyPalette: ['hue'],
     PaletteBlend: ['paletteA', 'paletteB', 'amount'],
     PaletteBank: ['next'],
+    Constant: [],
     Math: ['a', 'b'],
+    Expression: ['a'],
+    Logic: ['a', 'b'],
     Clamp: ['value'],
     MapRange: ['value'],
     Lerp: ['a', 'b', 't'],
@@ -538,12 +539,9 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     Compare: ['a', 'b'],
     Trigger: ['trigger'],
     Not: ['x'],
-    Sin: ['x'],
-    Cos: ['x'],
-    ComplexWave: ['a', 'b'],
+    Function: ['x'],
     Envelope: ['trigger'],
     Counter: [],
-    XYMapper: ['x', 'y'],
   }
   const ids = explicit[node.type]
   if (ids) return ids.flatMap((id) => node.inputs.filter((input) => input.id === id))
@@ -668,10 +666,10 @@ function floatExample(node: NodeDefinition): ReferenceLiveExample {
   let previewKey: string
   if (variation === 0) {
     builder.add('map', 'MapRange', { inMin: 0, inMax: 1, outMin: 1.5, outMax: 7 })
-    builder.add('visual', 'Circle', { filled: true, fill: '#ff3080' })
+    builder.add('visual', 'Shape', { shape: 'ellipse', filled: true, fill: '#ff3080' })
     builder.add('finish', 'Trails', { decay: 0.86 })
     builder.wire('target', out.id, 'map', 'value')
-    builder.wire('map', 'result', 'visual', 'radius')
+    builder.wire('map', 'result', 'visual', 'size')
     builder.wire('visual', 'frame', 'finish', 'frame')
     previewKey = 'finish'
   } else if (variation === 1) {
@@ -716,25 +714,19 @@ function floatExample(node: NodeDefinition): ReferenceLiveExample {
 
 function rgbToHsvExample(node: NodeDefinition): ReferenceLiveExample {
   const builder = new ExampleBuilder(node.type)
-  builder.add('source', 'Temperature', { kelvin: 9200 })
+  builder.add('source', 'Temperature', { warmth: 0.75 })
   builder.add('target', node.type)
-  builder.add('map-h', 'MapRange', { inMin: 0, inMax: 360, outMin: 0, outMax: 255 })
-  builder.add('map-s', 'MapRange', { inMin: 0, inMax: 1, outMin: 0, outMax: 255 })
-  builder.add('map-v', 'MapRange', { inMin: 0, inMax: 1, outMin: 0, outMax: 255 })
-  builder.add('rebuild', 'CHSV')
+  builder.add('rebuild', 'HSVToRGB')
   builder.add('paint', 'SolidColor')
   builder.wire('source', 'color', 'target', 'rgb')
-  builder.wire('target', 'h', 'map-h', 'value')
-  builder.wire('target', 's', 'map-s', 'value')
-  builder.wire('target', 'v', 'map-v', 'value')
-  builder.wire('map-h', 'result', 'rebuild', 'hue')
-  builder.wire('map-s', 'result', 'rebuild', 'sat')
-  builder.wire('map-v', 'result', 'rebuild', 'val')
-  builder.wire('rebuild', 'rgb', 'paint', 'color')
+  builder.wire('target', 'h', 'rebuild', 'h')
+  builder.wire('target', 's', 'rebuild', 's')
+  builder.wire('target', 'v', 'rebuild', 'v')
+  builder.wire('rebuild', 'color', 'paint', 'color')
   builder.preview('paint')
   return builder.finish(
     'Inspect and rebuild a colour in HSV',
-    'Color Temperature supplies one RGB colour. RGB → HSV exposes hue in degrees and saturation/value as 0–1, so three Map Range nodes convert those lanes to CHSV’s 0–255 inputs before recombining them.',
+    'Color Temperature supplies one RGB colour. RGB → HSV exposes hue in degrees and saturation/value as 0–1, the same lanes HSV → RGB reads, so the three wires recombine them unchanged.',
     'The Solid Color node preview should closely match the Color Temperature swatch. Disconnect or process any HSV lane to see exactly which component changes.',
   )
 }
@@ -785,13 +777,13 @@ function colorExample(node: NodeDefinition): ReferenceLiveExample {
   const variation = hash(node.type) % 3
   let previewKey: string
   if (variation === 0) {
-    builder.add('shape', 'Circle', { radius: 5.5, filled: true })
+    builder.add('shape', 'Shape', { shape: 'ellipse', size: 5.5, filled: true })
     builder.add('finish', 'Trails', { decay: 0.88 })
     builder.wire('target', node.outputs[0].id, 'shape', 'fill')
     builder.wire('shape', 'frame', 'finish', 'frame')
     previewKey = 'finish'
   } else if (variation === 1) {
-    builder.add('other', 'Temperature', { kelvin: 2400 })
+    builder.add('other', 'Temperature', { warmth: 0.13 })
     builder.add('gradient', 'GradientFrame')
     builder.wire('target', node.outputs[0].id, 'gradient', 'colorA')
     builder.wire('other', 'color', 'gradient', 'colorB')
@@ -1087,35 +1079,6 @@ function namedExample(
   nodes.forEach((node) => builder.add(node.key, node.type, node.properties))
   edges.forEach((edge) => builder.wire(edge.source, edge.sourceHandle, edge.target, edge.targetHandle))
   return builder.finish(title, explanation, previewDescription)
-}
-
-function xyMapperExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder(node.type)
-  builder.add('x', 'BeatSin', { bpm: 23, low: 0, high: 15 })
-  builder.add('y', 'BeatSin', { bpm: 31, low: 0, high: 15 })
-  builder.add('target', node.type)
-  builder.add('normalize', 'MapRange', { inMin: 0, inMax: 255, outMin: 0, outMax: 360 })
-  builder.add('color', 'HSVToRGB', { s: 0.92, v: 1 })
-  builder.add('screen-x', 'MapRange', { inMin: 0, inMax: 15, outMin: 0, outMax: 1 })
-  builder.add('screen-y', 'MapRange', { inMin: 0, inMax: 15, outMin: 0, outMax: 1 })
-  builder.add('dot', 'Circle', { radius: 2.2, filled: true })
-  builder.add('trails', 'Trails', { decay: 0.9 })
-  builder.wire('x', 'value', 'target', 'x')
-  builder.wire('y', 'value', 'target', 'y')
-  builder.wire('target', 'index', 'normalize', 'value')
-  builder.wire('normalize', 'result', 'color', 'h')
-  builder.wire('color', 'color', 'dot', 'fill')
-  builder.wire('x', 'value', 'screen-x', 'value')
-  builder.wire('y', 'value', 'screen-y', 'value')
-  builder.wire('screen-x', 'result', 'dot', 'cx')
-  builder.wire('screen-y', 'result', 'dot', 'cy')
-  builder.wire('dot', 'frame', 'trails', 'frame')
-  builder.preview('trails')
-  return builder.finish(
-    'Turn XY → Index into a moving pixel address',
-    'Two BeatSin nodes sweep X and Y across the full 0–15 matrix coordinates. XY → Index converts each position to a row-major 0–255 LED address, and Map Range turns that address into hue. Two additional Map Range nodes normalize the pixel coordinates to Circle’s 0–1 position inputs, while Trails makes the route easy to follow.',
-    'The Trails node preview should show a coloured dot roaming across the LED Matrix. Its colour changes with the computed index: moving right advances one address at a time, while moving down jumps by a complete 16-pixel row.',
-  )
 }
 
 export const MICROPHONE_LIVE_EXAMPLE = namedExample(
@@ -1622,14 +1585,14 @@ const POWER_MONITOR_LIVE_EXAMPLE = namedExample(
   'Light the LEDs as a load draws current',
   [
     { key: 'monitor', type: 'PowerMonitorInput', properties: { partId: 'adafruit-ina219-current-sensor', i2cAddress: '0x40' } },
-    { key: 'map', type: 'MapRange', properties: { inMin: 0, inMax: 3.2, outMin: 1, outMax: 0 } },
+    { key: 'map', type: 'MapRange', properties: { inMin: 0, inMax: 3.2, outMin: 0, outMax: 1 } },
     { key: 'rainbow', type: 'Rainbow' },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'monitor', sourceHandle: 'amps', target: 'map', targetHandle: 'value' },
     { source: 'rainbow', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
   'Power Monitor reads the INA219 on the board\'s I2C bus and publishes the load\'s volts, amps and watts. Amps are 0-3.2 on this board, not 0-1, so Map Range turns them into how much Fade to Black to apply: no current leaves the rainbow dark, full current lights it completely. The supply goes to Vin+ and the load to Vin-, and the load shares ground with the controller.',
   'Drag the amps slider on the Power Monitor node: the rainbow brightens as the simulated current rises. Watts follows the two sliders, exactly as the firmware derives it from the measured volts and amps.',
@@ -1642,14 +1605,14 @@ const PRESENCE_INPUT_LIVE_EXAMPLE = namedExample(
     { key: 'sensor', type: 'PresenceInput', properties: { partId: 'hlk-ld2410c-presence-sensor', rxPin: 18 } },
     { key: 'near', type: 'MapRange', properties: { inMin: 0, inMax: 6, outMin: 1, outMax: 0 } },
     { key: 'color', type: 'SolidColor', properties: { r: 80, g: 180, b: 255 } },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'sensor', sourceHandle: 'distance', target: 'near', targetHandle: 'value' },
     { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'near', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'near', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
-  'Presence Sensor reads an HLK-LD2410C radar stream over one UART receive pin. It reports somebody present even while they sit still, separates moving and still targets, and publishes detection distance from 0-6 m. Map Range turns that physical distance into Fade to Black: close targets are bright and distant targets fade away.',
+  'Presence Sensor reads an HLK-LD2410C radar stream over one UART receive pin. It reports somebody present even while they sit still, separates moving and still targets, and publishes detection distance from 0-6 m. Map Range turns that physical distance into Brightness: close targets are bright and distant targets fade away.',
   'Toggle moving or still on the sensor node, then drag its distance slider. With both target toggles off, distance returns to zero just as stale firmware readings expire to no presence.',
 )
 
@@ -1658,14 +1621,14 @@ const ENVIRONMENT_INPUT_LIVE_EXAMPLE = namedExample(
   'Shift the LEDs with room temperature',
   [
     { key: 'sensor', type: 'EnvironmentInput', properties: { partId: 'adafruit-bme280-environment-sensor', i2cAddress: '0x77' } },
-    { key: 'map', type: 'MapRange', properties: { inMin: 10, inMax: 35, outMin: 1, outMax: 0 } },
+    { key: 'map', type: 'MapRange', properties: { inMin: 10, inMax: 35, outMin: 0, outMax: 1 } },
     { key: 'color', type: 'SolidColor', properties: { r: 255, g: 96, b: 24 } },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'sensor', sourceHandle: 'temperature', target: 'map', targetHandle: 'value' },
     { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
   'Environment Sensor reads calibrated temperature, relative humidity and barometric pressure from the BME280 on the shared I2C bus. These outputs keep their physical units, so Map Range is the explicit bridge from a useful room-temperature span to a colour control.',
   'Drag the temperature slider from cool to warm and watch the amber LEDs brighten. Humidity and pressure remain available for thresholds, displays or other mappings.',
@@ -1678,14 +1641,14 @@ const TOUCH_PAD_INPUT_LIVE_EXAMPLE = namedExample(
     { key: 'pad', type: 'TouchPadInput', properties: { partId: 'adafruit-mpr121-touch-sensor', sdaPin: 21, sclPin: 22, i2cAddress: '0x5A', touchThreshold: 12, releaseThreshold: 6 } },
     { key: 'map', type: 'MapRange', properties: { inMin: 0, inMax: 11, outMin: 0.05, outMax: 1 } },
     { key: 'color', type: 'SolidColor', properties: { r: 90, g: 200, b: 255 } },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'pad', sourceHandle: 'electrode', target: 'map', targetHandle: 'value' },
     { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
-  'Touch Pad reads an MPR121 with twelve capacitive-touch electrodes. Electrode is the lowest one touched as an index from 0 to 11 and it stays at that value after release; Touched is true while any pad is down and Count is how many are. Map Range turns the index into a control, here 0 to 11 onto 0.05 to 1 for a fade.',
+  'Touch Pad reads an MPR121 with twelve capacitive-touch electrodes. Electrode is the lowest one touched as an index from 0 to 11 and it stays at that value after release; Touched is true while any pad is down and Count is how many are. Map Range turns the index into a control, here 0 to 11 onto 0.05 to 1 for Brightness.',
   'Click pads on the node: pad 0 is dim and pad 11 is full. The Build Diagram shows Vin, GND, SCL and SDA from the controller; leave IRQ unconnected, and tie ADDR to GND for the default address 0x5A.',
 )
 
@@ -1696,14 +1659,14 @@ const KEYPAD_INPUT_LIVE_EXAMPLE = namedExample(
     { key: 'pad', type: 'KeypadInput', properties: { partId: 'matrix-keypad-4x4', row1Pin: 13, row2Pin: 14, row3Pin: 27, row4Pin: 26, col1Pin: 25, col2Pin: 33, col3Pin: 32, col4Pin: 4 } },
     { key: 'map', type: 'MapRange', properties: { inMin: 0, inMax: 15, outMin: 0.05, outMax: 1 } },
     { key: 'color', type: 'SolidColor', properties: { r: 255, g: 200, b: 60 } },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'pad', sourceHandle: 'key', target: 'map', targetHandle: 'value' },
     { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
-  'Keypad reads a 4x4 matrix keypad on eight GPIOs. Key is the last key pressed as an index from 0 to 15, row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and it stays at that value after the key is released. Pressed is true while any key is down. Map Range turns the index into a control, here 0 to 15 onto 0.05 to 1 for a fade.',
+  'Keypad reads a 4x4 matrix keypad on eight GPIOs. Key is the last key pressed as an index from 0 to 15, row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and it stays at that value after the key is released. Pressed is true while any key is down. Map Range turns the index into a control, here 0 to 15 onto 0.05 to 1 for Brightness.',
   'Click keys on the node: key 1 is index 0 and the fill is dim, key D is index 15 and the fill is full. The Build Diagram shows the eight lines from R1 to C4; the keypad is passive, so it has no supply or ground.',
 )
 
@@ -1714,14 +1677,14 @@ const MOTION_VECTOR_INPUT_LIVE_EXAMPLE = namedExample(
     { key: 'imu', type: 'MotionVectorInput', properties: { partId: 'gy-521-mpu6050-module', sdaPin: 21, sclPin: 22, i2cAddress: '0x68' } },
     { key: 'map', type: 'MapRange', properties: { inMin: -1, inMax: 1, outMin: 0.05, outMax: 1 } },
     { key: 'color', type: 'SolidColor', properties: { r: 255, g: 120, b: 40 } },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'imu', sourceHandle: 'accelX', target: 'map', targetHandle: 'value' },
     { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
-  'Accel & Gyro reads an MPU-6050: acceleration on three axes in g and rotation rate on three axes in degrees per second. Lying flat, gravity reads about +1 g on Z and 0 on X and Y, so tilting the board swings X and Y between -1 and +1. The values keep their units, so Map Range is the explicit bridge from that span to a control, here 0.05 to 1 for a fade. Connected goes false when the sensor stops answering.',
+  'Accel & Gyro reads an MPU-6050: acceleration on three axes in g and rotation rate on three axes in degrees per second. Lying flat, gravity reads about +1 g on Z and 0 on X and Y, so tilting the board swings X and Y between -1 and +1. The values keep their units, so Map Range is the explicit bridge from that span to a control, here 0.05 to 1 for Brightness. Connected goes false when the sensor stops answering.',
   'Drag the Accel X slider from -2 g to +2 g and watch the orange fill dim and brighten. The firmware needs VCC on 3.3 V and SDA and SCL on the controller I2C pins; use address 0x69 if a DS3231 clock already answers at 0x68.',
 )
 
@@ -1732,14 +1695,14 @@ const JOYSTICK_INPUT_LIVE_EXAMPLE = namedExample(
     { key: 'stick', type: 'JoystickInput', properties: { partId: 'ky-023-joystick-module', xPin: 32, yPin: 33, swPin: 25 } },
     { key: 'map', type: 'MapRange', properties: { inMin: -1, inMax: 1, outMin: 0.05, outMax: 1 } },
     { key: 'color', type: 'SolidColor', properties: { r: 90, g: 200, b: 255 } },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'stick', sourceHandle: 'x', target: 'map', targetHandle: 'value' },
     { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
-  'Joystick reads a thumb stick: X and Y run from -1 to 1 with 0 at rest, and Pressed is true while the stick is pushed down. The axes are signed, so Map Range is the bridge from that span to whatever a control expects, here 0.05 to 1 for a fade. The dead zone keeps a stick that never rests at exactly the centre from flickering the graph.',
+  'Joystick reads a thumb stick: X and Y run from -1 to 1 with 0 at rest, and Pressed is true while the stick is pushed down. The axes are signed, so Map Range is the bridge from that span to whatever a control expects, here 0.05 to 1 for Brightness. The dead zone keeps a stick that never rests at exactly the centre from flickering the graph.',
   'Drag the X slider left and right and watch the blue fill dim and brighten; the button stands in for pushing the stick. The firmware wiring powers the module from 3.3 V so both axes stay inside the ADC range.',
 )
 
@@ -1750,12 +1713,12 @@ const DISTANCE_INPUT_LIVE_EXAMPLE = namedExample(
     { key: 'ranger', type: 'DistanceInput', properties: { partId: 'hc-sr04-ultrasonic-module', trigPin: 27, echoPin: 26 } },
     { key: 'map', type: 'MapRange', properties: { inMin: 100, inMax: 1500, outMin: 1, outMax: 0 } },
     { key: 'color', type: 'SolidColor', properties: { r: 255, g: 96, b: 24 } },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'ranger', sourceHandle: 'distance', target: 'map', targetHandle: 'value' },
     { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
   'Distance Sensor times an HC-SR04 ultrasonic echo and publishes the distance in millimetres. The value keeps its unit, so Map Range is the explicit bridge from the span you care about, here 100 mm to 1.5 m, to a colour control; the range is flipped so a nearer object means a brighter fill. Connected goes false when no echo returns, so a graph can tell an empty room from an unplugged sensor.',
   'Drag the distance slider from far to near and watch the orange brighten. The firmware wiring needs a 1 kΩ and 2 kΩ divider on Echo, which the Build Diagram draws, and VCC on 5 V.',
@@ -1768,12 +1731,12 @@ const TEMPERATURE_INPUT_LIVE_EXAMPLE = namedExample(
     { key: 'probe', type: 'TemperatureInput', properties: { partId: 'ds18b20-waterproof-probe', pin: 4 } },
     { key: 'map', type: 'MapRange', properties: { inMin: 5, inMax: 45, outMin: 1, outMax: 0 } },
     { key: 'color', type: 'SolidColor', properties: { r: 40, g: 140, b: 255 } },
-    { key: 'fade', type: 'Fade' },
+    { key: 'fade', type: 'BrightnessMod' },
   ],
   [
     { source: 'probe', sourceHandle: 'temperature', target: 'map', targetHandle: 'value' },
     { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
-    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'brightness' },
   ],
   'Temperature Probe reads a waterproof DS18B20 in degrees Celsius on one GPIO. The value keeps its physical unit, so Map Range is the explicit bridge from a span you care about, here 5 to 45 °C, to a colour control. Connected goes false when the probe is unplugged, so a graph can hold its last look instead of following a stale reading.',
   'Drag the temperature slider from cold to hot and watch the blue fade. The firmware wiring needs a 4.7 kΩ pull-up from DATA to 3.3 V, which the Build Diagram draws.',
@@ -2088,7 +2051,6 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
 export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExample {
   if (node.type === 'RGBToHSV') return rgbToHsvExample(node)
   if (node.type === 'SampleHold') return sampleHoldExample(node)
-  if (node.type === 'XYMapper') return xyMapperExample(node)
   if (node.type === 'MatrixOutput') return matrixOutputExample(node)
   if (node.type === 'Board') return boardExample(node)
   if (node.type === 'Amplifier') return amplifierExample(node)

@@ -13,7 +13,7 @@ import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRg
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
 import { POLINE_HELPER_CPP, polinePositionId } from '../../codegen/helpers/polineHelperCpp'
-import { channelByteCpp, degreesHueCpp, hueByteCpp, levelByteCpp } from '../../codegen/colorControlCpp'
+import { hexCrgbCpp, hsvHueCpp, levelByteCpp } from '../../codegen/colorControlCpp'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 
 export const COLOR_EMITTERS: NodeEmitters = {
@@ -25,8 +25,11 @@ export const COLOR_EMITTERS: NodeEmitters = {
     const ph = speedPhaseCpp(ln, phaseTag(id), rate)
     ln(`    float _huePhase = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f); ${v('color')} = CHSV((uint8_t)(_huePhase * 256.0f), ${levelByteCpp(s)}, ${levelByteCpp(val)}); }`)
   },
-  HSVToRGB({ ln, v, f }) {
-    ln(`  CRGB ${v('color')} = CHSV(${degreesHueCpp(f('h', 'h', 0))}, ${levelByteCpp(f('s', 's', 1))}, ${levelByteCpp(f('v', 'v', 1))});`)
+  Color({ p, ln, v }) {
+    ln(`  CRGB ${v('color')} = ${hexCrgbCpp(p.color, 0xff3080)};`)
+  },
+  HSVToRGB({ p, ln, v, f }) {
+    ln(`  CRGB ${v('color')} = CHSV(${hsvHueCpp(p.hueUnits, f('h', 'h', 0))}, ${levelByteCpp(f('s', 's', 1))}, ${levelByteCpp(f('v', 'v', 1))});`)
   },
   // The inverse of HSVToRGB — via FastLED's rgb2hsv_approximate.
   RGBToHSV({ id, ln, v, channelColor }) {
@@ -39,16 +42,10 @@ export const COLOR_EMITTERS: NodeEmitters = {
   Temperature({ ln, v, f, needsMapFloat, needsKelvin }) {
     needsKelvin.v = true
     needsMapFloat[0] = true
-    ln(`  CRGB ${v('color')} = kelvinToRGB(mapFloat(constrain(${f('kelvin', 'kelvin', 0.27)}, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));`)
+    ln(`  CRGB ${v('color')} = kelvinToRGB(mapFloat(constrain(${f('warmth', 'warmth', 0.27)}, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));`)
   },
   HeatColor({ ln, v, f }) {
     ln(`  CRGB ${v('color')} = HeatColor((uint8_t)(constrain(${f('heat', 'heat', 0.5)}, 0.0f, 1.0f) * 255));`)
-  },
-  BlendColors({ ln, v, f, channelColor }) {
-    const ca = channelColor('a', 255, 0, 0, ['rA', 'gA', 'bA'])
-    const cb = channelColor('b', 0, 0, 255, ['rB', 'gB', 'bB'])
-    const mix = f('t', 't', 0.5)
-    ln(`  CRGB ${v('color')} = blend(${ca}, ${cb}, ${levelByteCpp(mix)});`)
   },
   GradientSampler({ id, p, ln, v, f, channelColor, gradientChannel, needsHueMix }) {
     const tt = `(${f('t', 't', 0)})`
@@ -82,10 +79,6 @@ export const COLOR_EMITTERS: NodeEmitters = {
       ln(`  _psPos_${id} = (1.0f - cosf(3.14159265f * _psPos_${id})) * 0.5f;`)
     }
     ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_psPos_${id} * 255.0f));`)
-  },
-  CHSV({ ln, v, f }) {
-    const hue = f('hue', 'hue', 128), sat = f('sat', 'sat', 255), val = f('val', 'val', 255)
-    ln(`  CRGB ${v('rgb')} = CHSV(${hueByteCpp(hue)}, ${channelByteCpp(sat)}, ${channelByteCpp(val)});`)
   },
   PaletteSelector({ p, ln, fastledPalette }) {
     ln(`  // PaletteSelector — drives ${fastledPalette(String(p.palette ?? 'rainbow'))} in connected palette-consuming nodes`)

@@ -823,11 +823,11 @@
           "y": 1460
         },
         "data": {
-          "label": "Fade to Black",
-          "nodeType": "Fade",
+          "label": "Brightness",
+          "nodeType": "BrightnessMod",
           "category": "composite",
           "properties": {
-            "fade": 0.7
+            "brightness": 0.3
           },
           "inputs": [
             {

@@ -915,7 +915,7 @@ describe('generateCpp', () => {
 
   it('chains node output as input to downstream node', () => {
     const timeN = node('t1', 'TimeNode', 'math', {})
-    const sin   = node('s1', 'Sin', 'math', {})
+    const sin   = node('s1', 'Function', 'math', { fn: 'sin' })
     const cpp = generateCpp(
       [timeN, sin],
       [edge('e1', 't1', 's1', 'time', 'x')]
@@ -924,16 +924,26 @@ describe('generateCpp', () => {
     // dt is measured: the time since this node's previous loop, 0 on the first.
     expect(cpp).toContain('static float _timePrev_t1 = -1.0f;')
     expect(cpp).toContain('float n_t1_dt = _timePrev_t1 < 0.0f ? 0.0f : fmaxf(0.0f, n_t1_time - _timePrev_t1); _timePrev_t1 = n_t1_time;')
-    expect(cpp).toContain('n_s1_result')
+    // sin takes x in whole cycles, so the wired time is scaled by TWO_PI.
+    expect(cpp).toContain('float n_s1_result = sin((n_t1_time) * TWO_PI);')
   })
 
-  it('emits CHSV node with 0–255 channel values', () => {
-    const chsv = node('c', 'CHSV', 'math', { hue: 128, sat: 255, val: 200 })
-    const cpp = generateCpp([chsv], [])
-    expect(cpp).toContain('CHSV(')
-    expect(cpp).toContain('128')
-    expect(cpp).toContain('255')
-    expect(cpp).toContain('200')
+  it('emits each Function curve over its wired or baked x', () => {
+    const emit = (fn: string) => generateCpp([node('fn', 'Function', 'math', { fn, x: 0.25 })], [])
+    expect(emit('sin')).toContain('float n_fn_result = sin((0.25) * TWO_PI);')
+    expect(emit('cos')).toContain('float n_fn_result = cos((0.25) * TWO_PI);')
+    expect(emit('abs')).toContain('float n_fn_result = fabs(0.25);')
+    expect(emit('sqrt')).toContain('float n_fn_result = sqrtf(fmaxf(0.0f, 0.25));')
+    expect(emit('square')).toContain('float n_fn_result = ((0.25) * (0.25));')
+    expect(emit('floor')).toContain('float n_fn_result = floorf(0.25);')
+    expect(emit('round')).toContain('float n_fn_result = roundf(0.25);')
+  })
+
+  it('emits an HSV To RGB node in FastLED byte hue units', () => {
+    const hsv = node('c', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 128, s: 1, v: 0.8 })
+    const cpp = generateCpp([hsv], [])
+    // The 0–255 hue wraps round the wheel; s and v are 0–1 levels scaled to bytes.
+    expect(cpp).toContain('CRGB n_c_color = CHSV((uint8_t)fmodf(fmodf(128, 256.0f) + 256.0f, 256.0f), (uint8_t)(constrain(1, 0.0f, 1.0f) * 255.0f), (uint8_t)(constrain(0.8, 0.0f, 1.0f) * 255.0f));')
   })
 
   it('emits a time-based HueCycle color in cycles per second', () => {
@@ -1043,21 +1053,24 @@ describe('generateCpp', () => {
     expect(shape('triangle')).toContain('4.0f * fabsf(_ph - 0.5f) - 1.0f')
   })
 
-  it('emits ComplexWave combining two waves per operation', () => {
-    // Two Wave nodes feed a ComplexWave; check the combine expression.
-    const mk = (operation: string) => {
+  it('emits Math combining two waves per operation', () => {
+    // Two Wave nodes feed a Math node; check the combine expression.
+    const mk = (mathOp: string) => {
       const wa = node('wa', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' })
       const wb = node('wb', 'Wave', 'math', { amplitude: 1, frequency: 2, phase: 0, waveform: 'sine' })
-      const cw = node('cw', 'ComplexWave', 'math', { operation })
+      const cw = node('cw', 'Math', 'math', { mathOp })
       return generateCpp([wa, wb, cw], [
         edge('e1', 'wa', 'cw', 'result', 'a'),
         edge('e2', 'wb', 'cw', 'result', 'b'),
       ])
     }
     expect(mk('add')).toContain('(n_wa_result) + (n_wb_result)')
+    expect(mk('subtract')).toContain('(n_wa_result) - (n_wb_result)')
     expect(mk('multiply')).toContain('(n_wa_result) * (n_wb_result)')
     expect(mk('average')).toContain('((n_wa_result) + (n_wb_result)) * 0.5f')
     expect(mk('max')).toContain('max((float)(n_wa_result), (float)(n_wb_result))')
+    // Modulo wraps into [0, b) and a zero divisor yields 0 rather than NaN.
+    expect(mk('modulo')).toContain('((n_wb_result) == 0.0f ? 0.0f : fmodf(fmodf(n_wa_result, n_wb_result) + (n_wb_result), n_wb_result))')
   })
 
   it('emits NoiseField coloured through its palette', () => {
@@ -1078,17 +1091,6 @@ describe('generateCpp', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
     expect(cpp).not.toContain('XYMap')
-  })
-
-  it('emits fadeToBlackBy for a Fade node', () => {
-    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-    const fd = node('fd', 'Fade', 'composite', { fade: 0.75 })
-    const cpp = generateCpp([sc, fd, outputNode], [
-      edge('e1', 'sc', 'fd', 'frame', 'frame'),
-      edge('e2', 'fd', 'out', 'frame', 'frame'),
-    ])
-    expect(cpp).toContain('fadeToBlackBy(buf_fd, NUM_LEDS, _fa)')
-    expect(cpp).toContain('constrain(0.75, 0, 1) * 255')   // 0.75 → 191
   })
 
   it('emits a Code node body verbatim into its buffer', () => {
@@ -1948,18 +1950,18 @@ describe('generateCpp', () => {
   })
 
   it('builds a CRGBPalette16 from a CustomPalette and uses it downstream', () => {
-    const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
-    const c2 = node('c2', 'CHSV', 'color', { hue: 120, sat: 255, val: 255 })
+    const c1 = node('c1', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 0, s: 1, v: 1 })
+    const c2 = node('c2', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 120, s: 1, v: 1 })
     const cp = node('cp', 'CustomPalette', 'color', {})
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
     const cpp = generateCpp([c1, c2, cp, sx, outputNode], [
-      edge('e1', 'c1', 'cp', 'rgb', 'color0'),
-      edge('e2', 'c2', 'cp', 'rgb', 'color1'),
+      edge('e1', 'c1', 'cp', 'color', 'color0'),
+      edge('e2', 'c2', 'cp', 'color', 'color1'),
       edge('e3', 'cp', 'sx', 'palette', 'paletteIn'),
       edge('e4', 'sx', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toMatch(/CRGBPalette16 pal_cp\((?:[^;]*, ){15}[^;]*\);/)
-    expect(cpp).toContain('blend(n_c1_rgb, n_c2_rgb')
+    expect(cpp).toContain('blend(n_c1_color, n_c2_color')
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
   })
 
@@ -2436,8 +2438,8 @@ describe('generateCpp', () => {
   })
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
-    const t = node('t', 'Temperature', 'color', { kelvin: (3000 - 1000) / 11000 })
-    const sp = node('sp', 'Circle', 'pattern', { cx: 2, cy: 2, radius: 2 })
+    const t = node('t', 'Temperature', 'color', { warmth: (3000 - 1000) / 11000 })
+    const sp = node('sp', 'Shape', 'pattern', { shape: 'ellipse', cx: 2, cy: 2, size: 2 })
     const cpp = generateCpp([t, sp, outputNode], [
       edge('e1', 't', 'sp', 'color', 'edge'),
       edge('e2', 'sp', 'out', 'frame', 'frame'),
@@ -2446,36 +2448,30 @@ describe('generateCpp', () => {
     expect(cpp).toContain('n_t_color = kelvinToRGB(mapFloat(constrain(0.18181818181818182, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f))')
   })
 
-  it('emits a Circle SDF coverage loop with thickness (Shape-style)', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, thickness: 2, filled: false, edge: '#ff0000' })
+  it('emits an ellipse Shape SDF coverage loop with thickness', () => {
+    const c = node('c', 'Shape', 'pattern', { shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, aspect: 1, thickness: 2, filled: false, edge: '#ff0000' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _rad=max(0.5f,3);')
+    expect(cpp).toContain('float _size=max(0.5f,3),_aspect=max(0.01f,1),')
     expect(cpp).toContain('float _th=max(0.0f,2);')
     expect(cpp).toContain('float _cxv=0.5,_cyv=0.5;')
-    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_m)+_cxv*((WIDTH-1.0f)+2.0f*_m),_cy=_cyv>1.0f?_cyv:(0.5f-_m)+_cyv*((HEIGHT-1.0f)+2.0f*_m);')
-    expect(cpp).toContain('_sd=sqrtf(_dx*_dx+_dy*_dy)-_rad;')
+    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
+    expect(cpp).toContain('_sd=_sdfEllipse(_lx,_ly,_size*_aspect,_size);')
     expect(cpp).toContain('float _fc=0.0f;')                                        // unfilled: no fill coverage
     expect(cpp).toContain('float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);')
     expect(cpp).toContain('CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f));')
     expect(cpp).toContain('CRGB(255, 0, 0)')
   })
 
-  it('scales the Circle radius by matrix size only when scaleWithMatrix is on', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, thickness: 2, filled: false, edge: '#ff0000', scaleWithMatrix: true })
-    const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _rad=max(0.5f,3*(min(WIDTH,HEIGHT)/16.0f));')
-  })
-
-  it('emits a Circle fill color for filled discs', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
+  it('emits an ellipse Shape fill color for filled discs', () => {
+    const c = node('c', 'Shape', 'pattern', { shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB _fill=CRGB(0, 255, 0),_edge=CRGB(255, 0, 0);')
     expect(cpp).toContain('float _fc=constrain(0.5f-_sd,0.0f,1.0f);')
     expect(cpp).toContain('float _al=max(_fc,_ec); if(_al<=0.0f) continue;')
   })
 
-  it('emits wrapped Circle copies when wrap is enabled', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, wrap: true, edge: '#ff0000' })
+  it('emits wrapped ellipse Shape copies when wrap is enabled', () => {
+    const c = node('c', 'Shape', 'pattern', { shape: 'ellipse', cx: 0, cy: 0.5, size: 3, wrap: true, edge: '#ff0000' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _cxv=0,_cyv=0.5;')
     expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);')
@@ -2484,11 +2480,11 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];')
   })
 
-  it('emits Circle pixel-space center compatibility', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 8, cy: 8, radius: 3 })
+  it('emits ellipse Shape pixel-space center compatibility', () => {
+    const c = node('c', 'Shape', 'pattern', { shape: 'ellipse', cx: 8, cy: 8, size: 3 })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _cxv=8,_cyv=8;')
-    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_m)+_cxv*((WIDTH-1.0f)+2.0f*_m),_cy=_cyv>1.0f?_cyv:(0.5f-_m)+_cyv*((HEIGHT-1.0f)+2.0f*_m);')
+    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
   })
 
   it('emits a sampled subpixel loop for a Line', () => {
@@ -2970,19 +2966,20 @@ describe('Pattern node expansion — Phase 0 codegen', () => {
     expect(cpp).toContain('field_levels[_i]=1.0f-_v')
   })
 
-  it('Field Lerp reads both field buffers and its runtime amount', () => {
+  it('Field Math mix reads both field buffers and its runtime amount', () => {
     const a = node('lerp-a', 'FieldFormula', 'field', { formula: '0.2' })
     const b = node('lerp-b', 'FieldFormula', 'field', { formula: '1' })
-    const lerp = node('lerp', 'FieldLerp', 'field', { t: 0.25 })
+    const lerp = node('lerp', 'FieldMath', 'field', { fieldOp: 'mix', t: 0.25 })
     const t = tail(lerp.id)
     const cpp = generateCpp([a, b, lerp, ...t.nodes], [
       edge('lerp-a-in', a.id, lerp.id, 'field', 'a'),
       edge('lerp-b-in', b.id, lerp.id, 'field', 'b'),
       ...t.edges,
     ])
-    expect(cpp).toContain('/* FieldLerp */')
-    expect(cpp).toContain('float _a=field_lerp_a[_i],_b=field_lerp_b[_i]')
-    expect(cpp).toContain('field_lerp[_i]=_a*(1.0f-_t)+_b*_t')
+    expect(cpp).toContain('/* FieldMath: mix */')
+    expect(cpp).toContain('float _t=constrain(0.25,0.0f,1.0f);')
+    expect(cpp).toContain('float _a=field_lerp_a[_i], _b=field_lerp_b[_i]')
+    expect(cpp).toContain('field_lerp[_i]=constrain(_a * (1.0f - _t) + _b * _t,0.0f,1.0f)')
   })
 
   it('Shape Field emits the selected SDF mode and shares one helper with Shape', () => {
@@ -3145,8 +3142,8 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
   })
 
   it('reads wired knobs each frame and keeps the trail in its own state', () => {
-    const lfo = node('lfo', 'Sin', 'signal', {})
-    const cpp = generateEpicycles({ outline: 'star' }, [lfo], [edge('h', lfo.id, 'fe', 'value', 'harmonics')])
+    const lfo = node('lfo', 'Function', 'math', { fn: 'sin' })
+    const cpp = generateEpicycles({ outline: 'star' }, [lfo], [edge('h', lfo.id, 'fe', 'result', 'harmonics')])
     expect(cpp).not.toContain('float _h=32;')
     expect(cpp).toMatch(/float _h=[^;]*lfo[^;]*;/)
     expect(cpp).toContain('static CRGB _fe_fetrail[NUM_LEDS];')
@@ -3181,10 +3178,10 @@ describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion c
 
   it('restarts on a rising reset edge and reads wired knobs every frame', () => {
     const beat = node('beat', 'Button', 'input', {})
-    const lfo = node('lfo', 'Sin', 'signal', {})
+    const lfo = node('lfo', 'Function', 'math', { fn: 'sin' })
     const cpp = generateTuring({}, [beat, lfo], [
       edge('reset-edge', beat.id, 'turing', 'pressed', 'reset'),
-      edge('step-edge', lfo.id, 'turing', 'value', 'stepSize'),
+      edge('step-edge', lfo.id, 'turing', 'result', 'stepSize'),
     ])
     expect(cpp).toMatch(/bool _reset=[^;]+;\n\s+if\(_reset&&!_tf_turingprev\)\{ _tf_turingepoch\+\+; _tf_turinginit=false; \} _tf_turingprev=_reset;/)
     expect(cpp).not.toContain('float _step=constrain(0.05,')
@@ -3219,9 +3216,9 @@ describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion c
         edge('rd-blend-out', blend.id, outputNode.id, 'frame', 'frame'))
     }
     if (feedWired) {
-      const lfo = node('rd-lfo', 'Sin', 'signal', {})
+      const lfo = node('rd-lfo', 'Function', 'math', { fn: 'sin' })
       nodes.push(lfo)
-      edges.push(edge('rd-feed', lfo.id, rd.id, 'value', 'feed'))
+      edges.push(edge('rd-feed', lfo.id, rd.id, 'result', 'feed'))
     }
     return generateCpp(nodes, edges)
   }
@@ -4593,10 +4590,10 @@ describe('PSRAM buffer placement (Board psramPolicy)', () => {
   const board = node('board', 'Board', 'output', { psramPolicy: 'on' })
   const psOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5 })
   const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-  // A Fade sits between the source and the output so `buf_sc` is a real
+  // A Brightness sits between the source and the output so `buf_sc` is a real
   // placeable buffer — the node feeding the output aliases `leds` instead of
   // owning one, and `leds` never moves to PSRAM.
-  const fd = node('fd', 'Fade', 'composite', { fade: 0.5 })
+  const fd = node('fd', 'BrightnessMod', 'composite', { brightness: 0.5 })
   const wiring = [edge('e1', 'sc', 'fd', 'frame', 'frame'), edge('e2', 'fd', 'out', 'frame', 'frame')]
 
   it('moves per-node buffers to _psAlloc and keeps leds internal', () => {
@@ -5127,14 +5124,15 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     expect(cpp).toContain('buf_cb[_i].r = (uint8_t)constrain(_l + (buf_cb[_i].r - _l) * _cs, 0.0f, 255.0f);')
   })
 
-  it('BlendColors emits editable fallback swatches when color inputs are unwired', () => {
-    const bc = node('bc', 'BlendColors', 'color', {
+  it('GradientSampler emits editable fallback swatches when color inputs are unwired', () => {
+    const bc = node('bc', 'GradientSampler', 'color', {
       rA: 10, gA: 20, bA: 30,
       rB: 110, gB: 220, bB: 130,
-      t: 0.25,
+      t: 0.25, mixMode: 'rgb',
     })
     const cpp = generateCpp([bc], [])
-    expect(cpp).toContain('CRGB n_bc_color = blend(CRGB(10, 20, 30), CRGB(110, 220, 130), (uint8_t)(constrain(0.25, 0.0f, 1.0f) * 255.0f));')
+    expect(cpp).toContain('CRGB _gsA_bc=CRGB(10, 20, 30),_gsB_bc=CRGB(110, 220, 130);')
+    expect(cpp).toContain('CRGB n_bc_color = CRGB((uint8_t)(_gsA_bc.r*(1-(0.25))+_gsB_bc.r*(0.25)+0.5f),(uint8_t)(_gsA_bc.g*(1-(0.25))+_gsB_bc.g*(0.25)+0.5f),(uint8_t)(_gsA_bc.b*(1-(0.25))+_gsB_bc.b*(0.25)+0.5f));')
   })
 
   /*
@@ -5715,7 +5713,7 @@ describe('show-pipeline nodes in a normal sketch', () => {
     it('keeps a real buffer when the frame also feeds something else', () => {
       // A second consumer reads that buffer, so it cannot be the output array.
       const cpp = generateCpp(
-        [node('sc', 'SolidColor', 'pattern'), node('fd', 'Fade', 'composite'), out],
+        [node('sc', 'SolidColor', 'pattern'), node('fd', 'BrightnessMod', 'composite'), out],
         [
           edge('e1', 'sc', 'out', 'frame', 'frame'),
           edge('e2', 'sc', 'fd', 'frame', 'frame'),

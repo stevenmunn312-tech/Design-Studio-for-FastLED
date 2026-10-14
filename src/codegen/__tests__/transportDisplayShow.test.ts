@@ -142,9 +142,10 @@ describe('fixed touch routing in generative shows', () => {
   })
 
   it('refuses arbitrary graph bindings rather than emitting a partial control chain', () => {
-    expect(() => build([panel(), output(), node('pc', 'ControlMap', { controls: ['brightness'] }), node('wave', 'ComplexWave')], [
+    // Smooth has a float output but no control-graph emitter, so the chain cannot be evaluated.
+    expect(() => build([panel(), output(), node('pc', 'ControlMap', { controls: ['brightness'] }), node('smooth', 'Smooth')], [
       edge('panel-touch', 'controls', 'pc', 'controlsIn'), edge('pc', 'controls', 'out', 'controls'),
-      edge('wave', 'result', 'pc', 'brightness'),
+      edge('smooth', 'result', 'pc', 'brightness'),
     ])).toThrow('cannot evaluate the wire feeding brightness')
   })
 
@@ -189,7 +190,7 @@ describe('fixed touch routing in generative shows', () => {
     expect(() => build([output(), panel(), node('a', 'Math'), node('b', 'Math')], [
       edge('a', 'result', 'b', 'a'), edge('b', 'result', 'a', 'a'), edge('a', 'result', 'out', 'brightness'),
     ])).toThrow('instantaneous cycle')
-    expect(() => build([output(), panel(), node('wave', 'ComplexWave')],
-      [edge('wave', 'result', 'out', 'brightness')])).toThrow('unsupported')
+    expect(() => build([output(), panel(), node('smooth', 'Smooth')],
+      [edge('smooth', 'result', 'out', 'brightness')])).toThrow('unsupported')
   })
 })

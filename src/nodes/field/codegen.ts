@@ -445,7 +445,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/1.41421356f*_sc;`)
     ln(`      ${of}[_y*WIDTH+_x]=constrain(_d,0.0f,1.0f);}}`)
   },
-  FieldMath({ p, ln, ownField, srcField }) {
+  FieldMath({ p, ln, f, ownField, srcField }) {
     const of = ownField()
     const op = String(p.fieldOp ?? 'add')
     const sa = srcField('a'), sb = srcField('b')
@@ -454,7 +454,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     switch (op) {
       case 'subtract':   expr = `_a - _b`; break
       case 'multiply':   expr = `_a * _b`; break
-      case 'mix':        expr = `(_a + _b) * 0.5f`; break
+      case 'mix':        expr = `_a * (1.0f - _t) + _b * _t`; break
       case 'min':        expr = `min(_a, _b)`; break
       case 'max':        expr = `max(_a, _b)`; break
       case 'difference': expr = `fabsf(_a - _b)`; break
@@ -462,6 +462,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
       default:           expr = `_a + _b`; break
     }
     ln(`  { /* FieldMath: ${op} */`)
+    if (op === 'mix') ln(`    float _t=constrain(${f('t', 't', 0.5)},0.0f,1.0f);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
     ln(`      float _a=${av}, _b=${bv};`)
     ln(`      ${of}[_i]=constrain(${expr},0.0f,1.0f);}}`)
@@ -477,14 +478,6 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      float _v=_high<=_low?(_src>=_low?1.0f:0.0f):constrain((_src-_low)/fmaxf(1e-4f,_high-_low),0.0f,1.0f);`)
     if (steps >= 2) ln(`      _v=roundf(_v*${steps - 1}.0f)/${steps - 1}.0f;`)
     ln(`      ${of}[_i]=${invert ? '1.0f-_v' : '_v'}; } }`)
-  },
-  FieldLerp({ ln, f, ownField, srcField }) {
-    const of = ownField()
-    const sa = srcField('a'), sb = srcField('b')
-    const av = sa ? `${sa}[_i]` : '0.0f'
-    const bv = sb ? `${sb}[_i]` : '0.0f'
-    ln(`  { /* FieldLerp */ float _t=constrain(${f('t', 't', 0.5)},0.0f,1.0f);`)
-    ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ float _a=${av},_b=${bv}; ${of}[_i]=_a*(1.0f-_t)+_b*_t; } }`)
   },
   ShapeField({ p, ln, f, ownField, needsSdf }) {
     needsSdf.v = true

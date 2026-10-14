@@ -460,16 +460,18 @@ function evalDistanceField(px: number, py: number, scale: number, W = DEFAULT_W,
 }
 
 // Combine two fields pixel-by-pixel. An unwired input is a zero field, so unary
-// ops (e.g. `subtract` from 0 to negate, clamped) still behave sensibly.
-function evalFieldMath(a: Field | null, b: Field | null, op: string, W = DEFAULT_W, H = DEFAULT_H): Field {
+// ops (e.g. `subtract` from 0 to negate, clamped) still behave sensibly. `t`
+// is the mix op's A→B crossfade.
+function evalFieldMath(a: Field | null, b: Field | null, op: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   const out = allocField(W * H)
+  const mix = clamp01(t)
   for (let i = 0; i < W * H; i++) {
     const x = a ? a[i] : 0, y = b ? b[i] : 0
     let v: number
     switch (op) {
       case 'subtract':   v = x - y; break
       case 'multiply':   v = x * y; break
-      case 'mix':        v = (x + y) * 0.5; break
+      case 'mix':        v = x * (1 - mix) + y * mix; break
       case 'min':        v = Math.min(x, y); break
       case 'max':        v = Math.max(x, y); break
       case 'difference': v = Math.abs(x - y); break
@@ -499,17 +501,6 @@ function evalFieldLevels(
       : clamp01((source - low) / Math.max(1e-4, high - low))
     if (count >= 2) value = Math.round(value * (count - 1)) / (count - 1)
     out[i] = invert ? 1 - value : value
-  }
-  return out
-}
-
-function evalFieldLerp(a: Field | null, b: Field | null, amount: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = allocField(W * H)
-  const t = clamp01(amount)
-  for (let i = 0; i < W * H; i++) {
-    const av = a ? a[i] : 0
-    const bv = b ? b[i] : 0
-    out[i] = av * (1 - t) + bv * t
   }
   return out
 }
@@ -883,14 +874,14 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const scale = num(id, 'scale', props, 'scale', 1)
     return { field: evalDistanceField(px, py, scale, W, H) }
   },
-  FieldMath({ input, W, H }, id, props) {
+  FieldMath({ input, num, W, H }, id, props) {
     const av = input(id, 'a', null)
     const bv = input(id, 'b', null)
     const op = String(props.fieldOp ?? 'add')
     return { field: evalFieldMath(
       av instanceof Float32Array ? av : null,
       bv instanceof Float32Array ? bv : null,
-      op, W, H,
+      op, num(id, 't', props, 't', 0.5), W, H,
     ) }
   },
   FieldLevels({ input, num, W, H }, id, props) {
@@ -901,16 +892,6 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       num(id, 'high', props, 'high', 1),
       Number(props.steps ?? 1),
       Boolean(props.invert),
-      W, H,
-    ) }
-  },
-  FieldLerp({ input, num, W, H }, id, props) {
-    const av = input(id, 'a', null)
-    const bv = input(id, 'b', null)
-    return { field: evalFieldLerp(
-      av instanceof Float32Array ? av : null,
-      bv instanceof Float32Array ? bv : null,
-      num(id, 't', props, 't', 0.5),
       W, H,
     ) }
   },

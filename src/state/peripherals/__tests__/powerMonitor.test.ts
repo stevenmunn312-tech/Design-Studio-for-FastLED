@@ -45,14 +45,14 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 function monitorGraph(monitorProps: Record<string, unknown> = {}) {
   const nodes = [
     node('mon', 'PowerMonitorInput', monitorProps),
-    node('map', 'MapRange', { inMin: 0, inMax: 40, outMin: 1, outMax: 0 }),
+    node('map', 'MapRange', { inMin: 0, inMax: 40, outMin: 0, outMax: 1 }),
     node('fill', 'SolidColor', { r: 255, g: 80, b: 0 }),
-    node('fade', 'Fade'),
+    node('fade', 'BrightnessMod'),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [
     edge('w', 'mon', 'watts', 'map', 'value'),
-    edge('f', 'map', 'result', 'fade', 'fade'),
+    edge('f', 'map', 'result', 'fade', 'brightness'),
     edge('c', 'fill', 'frame', 'fade', 'frame'),
     edge('o', 'fade', 'frame', 'out', 'frame'),
   ]

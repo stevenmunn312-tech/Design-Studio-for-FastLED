@@ -3,8 +3,33 @@ import { asDateTimeTextMode } from '../../state/displays/displayText'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId } from '../../codegen/cppLiterals'
 import { toggleCpp } from '../../codegen/toggleCpp'
+import { logicCpp } from './logic'
+import { cppRewriteShims, usesShims } from '../shared/fastledShims'
+import { isScalarFormulaValid } from '../shared/formulaLang'
 
 export const MATH_EMITTERS: NodeEmitters = {
+  Constant({ ln, v, f }) {
+    ln(`  float ${v('value')} = ${f('value', 'value', 1)};`)
+  },
+  // Same fail-closed validation as Custom Formula: a formula the sandboxed
+  // parser rejects emits 0 rather than its text, so a shared graph cannot
+  // inject into the sketch. validateGraph blocks export on the same check.
+  Expression({ p, ln, v, f, needsT, needsShims, needsPhi }) {
+    needsT.v = true
+    const raw = String(p.formula ?? '')
+    const safe = isScalarFormulaValid(raw)
+    if (safe && usesShims(raw)) needsShims.v = true
+    if (safe && /\bPHI\b/.test(raw)) needsPhi.v = true
+    const formula = safe ? cppRewriteShims(raw).replace(/\*\//g, '* /') : '0.0f'
+    ln(`  float ${v('result')};`)
+    ln(`  { /* Expression: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — outputs 0'} */`)
+    ln(`    float a=${f('a', 'a', 0)}, b=${f('b', 'b', 0)}; (void)a; (void)b;`)
+    ln(`    float W=WIDTH, H=HEIGHT; (void)W; (void)H;`)
+    ln(`    ${v('result')} = ${formula}; }`)
+  },
+  Logic({ node, p, ln, v, boolExpr }) {
+    ln(`  bool ${v('result')} = ${logicCpp(p.logicOp, boolExpr(node.id, 'a'), boolExpr(node.id, 'b'))};`)
+  },
   // Easing curve on a 0–1 value via legacy lib8tion or FastLED's accurate
   // fl::ease* functions. Existing ids keep their historical calls.
   Ease({ p, ln, v, f }) {
@@ -25,13 +50,6 @@ export const MATH_EMITTERS: NodeEmitters = {
       : 'ease8InOutCubic'
     const input = `(uint8_t)(constrain(${f('t', 't', 0)}, 0.0f, 1.0f) * 255)`
     ln(`  float ${v('result')} = ${fn ? `${fn}(${input})` : input} / 255.0f;`)
-  },
-  Abs({ ln, v, f }) {
-    ln(`  float ${v('result')} = fabs(${f('x', 'x', 0)});`)
-  },
-  Mod({ ln, v, f }) {
-    const mx = f('x', 'x', 0), mm = f('m', 'm', 1)
-    ln(`  float ${v('result')} = fmod(fmod(${mx}, ${mm}) + (${mm}), ${mm});`)
   },
   Gate({ node, p, ln, v, f, boolExpr }) {
     const val = f('value', 'value', 0), gate = boolExpr(node.id, 'gate')
@@ -110,9 +128,5 @@ export const MATH_EMITTERS: NodeEmitters = {
       ln(`      if (_t == _trC_${id} && (millis() - _trSince_${id}) >= _trMs_${id}) _trCommit_${id} = _t; } }`)
       ln(`  bool ${outVar} = _trCommit_${id};`)
     }
-  },
-  XYMapper({ ln, v, f }) {
-    const xx = f('x', 'x', 0), yy = f('y', 'y', 0)
-    ln(`  uint16_t ${v('index')} = (uint16_t)(${xx}) + (uint16_t)(${yy}) * WIDTH;`)
   },
 }
