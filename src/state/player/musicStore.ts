@@ -3,7 +3,7 @@ import type { SongAnalysis, ShowFile } from '../../types/showFile'
 import { generateShow } from '../../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../../codegen/performanceGenerator'
 import { useGraphStore } from '../graphStore'
-import { wiredPatternCollection } from '../patterns/patternCollectionWiring'
+import { wiredPatternCollection, wiredTransitionStyles } from '../patterns/patternCollectionWiring'
 import { recordPerfTask } from '../../dev/perfMonitor'
 import {
   loadMusicFile,
@@ -32,14 +32,8 @@ function wiredCollection(): { ids: string[]; sectionTags: string[][] } {
  */
 function wiredTransitions(): string[] {
   const { nodes, edges } = useGraphStore.getState()
-  const typeOf = (n: { data: { nodeType?: string } }) => n.data.nodeType
-  const gen = nodes.find((n) => typeOf(n) === 'PerformanceGenerator')
-  if (!gen) return []
-  const link = edges.find((e) => e.target === gen.id && e.targetHandle === 'transitions')
-  if (!link) return []
-  const src = nodes.find((n) => n.id === link.source && typeOf(n) === 'TransitionSet')
-  if (!src) return []
-  return (src.data.properties as { transitions?: string[] } | undefined)?.transitions ?? []
+  const gen = nodes.find((n) => n.data.nodeType === 'PerformanceGenerator')
+  return gen ? wiredTransitionStyles(nodes, edges, gen.id) : []
 }
 
 async function analyzeWithEssentia(

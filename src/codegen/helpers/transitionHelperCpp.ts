@@ -1,8 +1,8 @@
-// The 21 A→B transition styles as one self-contained C++ function operating on
-// generic CRGB buffers, plus the particle hash and the 3D styles' shared
-// support — the function itself is shared verbatim by the music-sync player
-// (playerSketchGenerator) and the generative pattern show (showGenerator) so
-// both composite transitions the same way the browser preview does
+// The 21 A→B transition styles as one C++ function operating on generic CRGB
+// buffers, plus the 3D styles' shared support and the particle hash — shared by
+// the SD player (playerSketchGenerator) and the pattern slideshow
+// (showGenerator) so both composite transitions the same way the browser
+// preview does
 // (compositeTransition in graphEvaluator.ts). The style ids match
 // TRANSITION_IDS / SHOW_TRANSITIONS in performanceGenerator.ts. A caller passes
 // only the style id + progress, so direction/axis/tile/count/turns use the same
@@ -10,6 +10,9 @@
 // Requires WIDTH / HEIGHT / NUM_LEDS #defines in the host sketch.
 
 import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
+
+/** Dolly, card flip, cube, door and tilt: the styles that sample frames in 3D. */
+const TRANSITION_3D_STYLE_IDS: readonly number[] = [16, 17, 18, 19, 20]
 
 /**
  * Shared support for the 3D styles (dolly, card flip, cube, door, tilt).
@@ -45,10 +48,8 @@ static inline CRGB _sampleUnitShaded(const CRGB* f, float u, float v, float k) {
 }
 `
 
-/** The dispatcher itself. See the note at the top of the file. */
-export const TRANSITION_HELPER_CPP = `// ── Transitions ─────────────────────────────────────────────────────────────
-${FRAME_SAMPLE_HELPER_CPP}
-${TRANSITION_3D_HELPERS_CPP}
+/** The dispatcher with every arm; `transitionHelperCpp` narrows it. */
+const COMPOSITE_TRANSITION_CPP = `// ── Transitions ─────────────────────────────────────────────────────────────
 void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt) {
   switch (type) {
     case 1: {  // wipe (rightward)
@@ -304,39 +305,46 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
     }
   }
 }
-
-// Hash → [0,1) (GLSL fract(sin(...)) — mirrors prnd() in showPreview.ts so the
-// device spawns the same particle sparks as the browser preview).
-float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - floorf(s); }
 `
 
-// The particle hash alone, for a sketch that needs the sparks but not the
-// transition switch (a one-pattern show never transitions).
-const PRND_HEADING = '// Hash → [0,1)'
-export const PARTICLE_HASH_CPP = TRANSITION_HELPER_CPP.slice(TRANSITION_HELPER_CPP.indexOf(PRND_HEADING))
+/**
+ * Hash → [0,1) (GLSL fract(sin(...))), mirroring prnd() in showPreview.ts so
+ * the device spawns the same particle sparks as the browser preview. Only the
+ * particle overlay calls it.
+ */
+export const PARTICLE_HASH_CPP = `float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - floorf(s); }
+`
 
 /**
- * The transition helper narrowed to a known set of style ids.
+ * The file-scope blocks `compositeTransition` needs for these styles, in
+ * emission order: the frame sampler and the 3D support, or nothing when no 3D
+ * style is reachable. Returned as blocks rather than folded into the
+ * dispatcher so a caller dedupes them against a pattern that brings the same
+ * sampler (Frame Warp, Symmetry) and emits each once.
+ */
+export function transitionSupportCpp(styleIds: readonly number[]): string[] {
+  return styleIds.some((id) => TRANSITION_3D_STYLE_IDS.includes(id))
+    ? [FRAME_SAMPLE_HELPER_CPP, TRANSITION_3D_HELPERS_CPP]
+    : []
+}
+
+/**
+ * The dispatcher narrowed to the style ids a sketch can reach.
  *
  * `type` is a runtime value, so the compiler cannot drop the arms a sketch
- * never reaches — but a generative show bakes its pool as a const array, so
- * the reachable set *is* known at generation time. Passing it here keeps a
- * crossfade-only show (the default with no TransitionSet wired) from carrying
- * all fifteen other effects. Omit `styleIds` to keep every case: the
- * music-sync player selects styles from the `.show` file at runtime and can
- * be handed any of them.
- *
- * The crossfade arm is `default:`, so it always survives.
+ * never reaches, but every engine knows its reachable set at generation time:
+ * the wired TransitionSet pool, or crossfade alone. The crossfade arm is
+ * `default:` and is dropped with the rest when crossfade is not reachable.
+ * Emit `transitionSupportCpp(styleIds)` above it.
  */
-export function transitionHelperCpp(styleIds?: readonly number[]): string {
-  if (!styleIds) return TRANSITION_HELPER_CPP
+export function transitionHelperCpp(styleIds: readonly number[]): string {
   const keep = new Set(styleIds)
   const out: string[] = []
   let depth: number | null = null
-  for (const line of TRANSITION_HELPER_CPP.split('\n')) {
+  for (const line of COMPOSITE_TRANSITION_CPP.split('\n')) {
     if (depth === null) {
-      const start = /^ {4}case (\d+): \{/.exec(line)
-      if (start && !keep.has(Number(start[1]))) { depth = 1; continue }
+      const start = /^ {4}(?:case (\d+)|default): \{/.exec(line)
+      if (start && !keep.has(start[1] === undefined ? 0 : Number(start[1]))) { depth = 1; continue }
       out.push(line)
       continue
     }
@@ -352,8 +360,8 @@ export function transitionHelperCpp(styleIds?: readonly number[]): string {
 // Beat-triggered particle overlay as a self-contained function that adds sparks
 // onto the global `leds`. The 17-style switch mirrors renderParticleBurst in
 // graphEvaluator.ts (and the inline block in playerSketchGenerator.ts) — keep
-// the three in sync. Requires WIDTH/HEIGHT #defines, the `leds` buffer, and the
-// prnd() from TRANSITION_HELPER_CPP.
+// the three in sync. Requires WIDTH/HEIGHT #defines, the `leds` buffer, and
+// PARTICLE_HASH_CPP.
 export const PARTICLE_OVERLAY_CPP = `#define PARTICLE_LIFE_MS   600
 #define PARTICLE_COUNT     16
 void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstR, uint8_t burstG, uint8_t burstB, float burstIntensity, uint32_t posMs) {

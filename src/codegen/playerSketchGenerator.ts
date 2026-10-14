@@ -48,8 +48,7 @@ import {
   bindsAnyField, DISPLAY_NAME_SOURCE_FIELDS, DISPLAY_SELECTION_SOURCE_FIELDS,
 } from './displays/displaySourceExpressions'
 import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
-import { TRANSITION_HELPER_CPP } from './helpers/transitionHelperCpp'
-import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
+import { PARTICLE_HASH_CPP, transitionHelperCpp, transitionSupportCpp } from './helpers/transitionHelperCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/patternSelectionCpp'
 import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './displays/tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
@@ -408,6 +407,12 @@ export function generatePlayerSketch(
     /** Automatic collection playback; timed Performance shows keep their own schedule. */
     patternOrder?: PatternSlideshowOrder
     patternTiming?: ReturnType<typeof musicPlayerTiming>
+    /**
+     * The transition style ids this player can reach: the Music Player's
+     * wired pool, or every style a Performance Generator's shows can name.
+     * Only these arms are compiled. Defaults to crossfade alone.
+     */
+    transitionIds?: readonly number[]
     particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
     thumbnails?: BrowserThumbnails; patternNames?: PatternNames; artworks?: TransportArtworks
     stereoVuMeters?: StereoVuEmit[]
@@ -460,6 +465,10 @@ export function generatePlayerSketch(
   const startingAttenuation = DECODER_VOLUME_TABLE[Math.max(0, Math.min(21, c.maxVolume))]
   const decoderVolumeComp = `${startingAttenuation ? (64 / startingAttenuation).toFixed(4) : '1.0000'}f`
   const genericPlayer = collection && opts.genericPlayer === true
+  const transitionIds = opts.transitionIds?.length ? opts.transitionIds : [0]
+  // Emitted once, above the pattern renderers, so a Frame Warp or Symmetry
+  // pattern that brings the same sampler does not define it a second time.
+  const transitionSupport = transitionSupportCpp(transitionIds)
   const sequentialPatterns = asSlideshowOrder(opts.patternOrder) === 'Sequential'
   const graphRouting = opts.controlGraph
   const timingExpression = (port: 'minTime' | 'maxTime' | 'transitionSec') =>
@@ -659,10 +668,8 @@ export function generatePlayerSketch(
     ? [
         ...renderers!.buffers.map(playerBufferDecl),
         '',
-        // TRANSITION_HELPER_CPP, emitted just above, already carries the
-        // sampler that Frame Warp and Symmetry patterns call.
         ...renderers!.helpers
-          .filter((h) => !graphShared.has(h) && h !== FRAME_SAMPLE_HELPER_CPP)
+          .filter((h) => !graphShared.has(h) && !transitionSupport.includes(h))
           .flatMap((h) => [h, '']),
         ...renderers!.functions.flatMap((fn) => [fn, '']),
       ].join('\n')
@@ -779,16 +786,22 @@ export function generatePlayerSketch(
   }
 }`
 
-  // Every transition style as one self-contained function operating on generic
+  // The reachable transition styles as one function operating on generic
   // buffers, so the player composites A→B the same way the browser preview does
-  // (compositeTransition in graphEvaluator.ts). A .show transition carries only
-  // its style id + duration, so the direction/axis/tile/count/turns params use
-  // the same defaults the preview falls back to. `out` must differ from a and b.
-  //
-  // Unlike the show generator, the player keeps every arm rather than narrowing
-  // to the styles it will use: a .show file picks its transitions at runtime and
-  // may name any of them.
-  const transitionHelper = TRANSITION_HELPER_CPP
+  // (compositeTransition in graphEvaluator.ts). A transition carries only its
+  // style id + duration, so the direction/axis/tile/count/turns params use the
+  // same defaults the preview falls back to. `out` must differ from a and b.
+  const transitionHelper = [
+    ...transitionSupport,
+    transitionHelperCpp(transitionIds),
+    // The particle overlay below is the hash's only caller.
+    PARTICLE_HASH_CPP,
+  ].join('\n')
+  // A generic player draws each change's style from the pool, as the preview's
+  // evalPatternShow does; a one-style pool is a constant.
+  const genericTransType = transitionIds.length > 1
+    ? 'TRANS_POOL[random8(TRANS_POOL_N)]'
+    : String(transitionIds[0])
 
   const controlSupportCpp = hasControls ? `
 // ── Physical player controls ─────────────────────────────────────────────────
@@ -1268,7 +1281,9 @@ uint8_t    paletteId  = 0;        // default: Rainbow
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
 uint8_t    transType  = 0;        // transition style id (see compositeTransition)
-uint32_t   transStart = 0;        // ms the current transition began
+${genericPlayer && transitionIds.length > 1 ? `const uint8_t TRANS_POOL[] = { ${transitionIds.join(', ')} };
+#define TRANS_POOL_N ${transitionIds.length}
+` : ''}uint32_t   transStart = 0;        // ms the current transition began
 float      transDurMs = 0.0f;     // 0 = no transition in progress
 uint32_t   burstStart = 0;        // ms the current particle burst began
 float      burstIntensity = 0.0f; // 0–1 spark brightness (0 = no burst)
@@ -2223,7 +2238,7 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
 `}    if (nextPattern != patternId) {
       prevPatternId = patternId;
       patternId = nextPattern;
-      transType = 0;
+      transType = ${genericTransType};
       transStart = posMs;
       transDurMs = (float)transitionMs;
     }

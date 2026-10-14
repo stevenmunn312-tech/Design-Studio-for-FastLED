@@ -884,9 +884,46 @@ describe('show sketch weight', () => {
     const cpp = show(['g0', 'g1'], [set], [edge('e3', 'ts', 'transitions', 'pm', 'transitions')])
     expect(cpp).toContain('case 1: {  // wipe')
     expect(cpp).toContain('case 15: {  // zoom')
-    expect(cpp).toContain('default: {  // crossfade (0)')   // always the fallback arm
+    // Crossfade is not in the pool, so its default arm is unreachable too.
+    expect(cpp).not.toContain('default: {  // crossfade (0)')
     expect(cpp).not.toContain('case 2: {  // dissolve')
     expect(cpp).not.toContain('case 11: {  // ripple')
+  })
+
+  // A 3D Transition node inside a pattern calls the depth helpers. A
+  // one-pattern show has no pool to bring them, so they must be lifted.
+  it('lifts the 3D helpers a pattern\'s own Transition node calls', () => {
+    const cube = {
+      nodes: [node('a', 'SolidColor', { r: 255, g: 0, b: 0 }), node('b', 'Noise'),
+        node('tr', 'Transition', { transitionType: 'cube' }), node('go', 'GroupOutput')],
+      edges: [edge('ea', 'a', 'frame', 'tr', 'a'), edge('eb', 'b', 'frame', 'tr', 'b'),
+        edge('eo', 'tr', 'frame', 'go', 'frame')],
+    }
+    const cpp = generateShowSketch(
+      [node('pc', 'PatternCollection', { patternIds: ['cube'] }), master, out],
+      wiring, { ...groups, cube } as unknown as GroupRegistry,
+    )
+    expect(cpp).toContain('_sampleUnitShaded(')
+    expect(cpp.match(/static inline CRGB _sampleUnitShaded\(/g)).toHaveLength(1)
+    expect(cpp.match(/static inline CRGB _sampleShaded\(/g)).toHaveLength(1)
+    expect(cpp.indexOf('static inline CRGB _sampleShaded(')).toBeLessThan(cpp.indexOf('static inline float _depthShade('))
+  })
+
+  // A 3D style in the pool and a Frame Warp pattern share one sampler.
+  it('emits the frame sampler once for a 3D pool and a sampling pattern', () => {
+    const warp = {
+      nodes: [node('src', 'Noise'), node('warp', 'FrameWarp', { edgeMode: 'wrap', sampling: 'bilinear' }), node('go', 'GroupOutput')],
+      edges: [edge('wi', 'src', 'frame', 'warp', 'frame'), edge('wo', 'warp', 'frame', 'go', 'frame')],
+    }
+    const set = node('ts', 'TransitionSet', { transitions: ['dolly'] })
+    const cpp = generateShowSketch(
+      [node('pc', 'PatternCollection', { patternIds: ['g0', 'warp'] }), master, out, set],
+      [...wiring, edge('e3', 'ts', 'transitions', 'pm', 'transitions')],
+      { ...groups, warp } as unknown as GroupRegistry,
+    )
+    expect(cpp.match(/static inline CRGB _sampleShaded\(/g)).toHaveLength(1)
+    expect(cpp.match(/static inline float _depthShade\(/g)).toHaveLength(1)
+    expect(cpp).toContain('case 16: {  // dolly')
   })
 
   // A collection of one never transitions: the guard was `PATTERN_COUNT > 1`,

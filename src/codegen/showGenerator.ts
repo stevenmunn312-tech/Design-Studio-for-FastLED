@@ -18,9 +18,9 @@ import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, PHI_DEFINE_CPP } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
-import { SHOW_TRANSITIONS } from './performanceGenerator'
+import { transitionStyleIds } from './performanceGenerator'
 import { isAudioReactiveSubgraph } from '../state/patterns/audioReactiveSubgraph'
-import { transitionHelperCpp } from './helpers/transitionHelperCpp'
+import { TRANSITION_3D_HELPERS_CPP, transitionHelperCpp, transitionSupportCpp } from './helpers/transitionHelperCpp'
 import { SDF_HELPER_CPP } from './helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import { TRUCHET_HELPER_CPP } from './helpers/truchetHelperCpp'
@@ -28,6 +28,7 @@ import { TURING_HELPER_CPP } from './helpers/turingHelperCpp'
 import { FLUID_HELPER_CPP } from './helpers/fluidHelperCpp'
 import { FOURIER_HELPER_CPP } from './helpers/fourierHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
+import { wiredTransitionStyles } from '../state/patterns/patternCollectionWiring'
 import { SYMMETRY_HELPER_CPP } from './helpers/symmetryHelperCpp'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
 import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
@@ -128,17 +129,6 @@ interface ShowInfo {
   seed: number
 }
 
-// The transition pool comes from a wired TransitionSet (names → style ids via
-// SHOW_TRANSITIONS, matching the evaluator); with nothing wired the show just
-// crossfades (style id 0).
-function transitionPool(nodes: StudioNode[], edges: StudioEdge[], master: StudioNode): number[] {
-  const link = edges.find((e) => e.target === master.id && e.targetHandle === 'transitions')
-  const set = link && nodes.find((n) => n.id === link.source && nodeType(n) === 'TransitionSet')
-  const wired = set ? ((props(set).transitions as string[] | undefined) ?? []) : []
-  const ids = wired.map((n) => SHOW_TRANSITIONS.indexOf(n)).filter((i) => i >= 0)
-  return ids.length ? ids : [0]
-}
-
 // Resolve the Pattern Slideshow + the collection feeding its patternset input.
 //
 // The beat-triggered early advance and the particle overlay are not read here
@@ -163,7 +153,7 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): 
     patternIds,
     intervalSec: settings.intervalSec,
     transitionSec: settings.transitionSec,
-    transitionIds: settings.transitionSec > 0 ? transitionPool(nodes, edges, master) : [0],
+    transitionIds: settings.transitionSec > 0 ? transitionStyleIds(wiredTransitionStyles(nodes, edges, master.id)) : [0],
     order: settings.order,
     audioReactive: settings.audioReactive,
     seed: settings.seed >>> 0,
@@ -212,6 +202,9 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   hueMix: HUE_MIX_HELPER_CPP,
   wrapX: WRAP_X_HELPER_CPP,
   frameSample: FRAME_SAMPLE_HELPER_CPP,
+  // After the sampler it calls. A pattern holding a 3D Transition node brings
+  // it; so does a 3D style in the show's own pool, and the set dedupes them.
+  transition3d: TRANSITION_3D_HELPERS_CPP,
 }
 
 // The `energy` show role has no physical noodle once the Group is absorbed by a
@@ -977,14 +970,16 @@ export function generateShowSketch(
     for (const meter of stereoVuMeters) L.push(stereoVuGlobalCpp(meter))
     L.push('')
   }
-  if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
   // A pattern and a root control chain may both need mapFloat; the shared
-  // emitter gives them identical helpers, emitted once at file scope.
-  // Transitions already include the sampler used by Frame Warp and Symmetry.
-  for (const h of new Set([...renderers.helpers, ...controlGraph.helpers, ...customDisplays.shared])) {
-    if (transitions && h === FRAME_SAMPLE_HELPER_CPP) continue
+  // emitter gives them identical helpers, emitted once at file scope. A 3D
+  // transition brings the same frame sampler Frame Warp and Symmetry use.
+  for (const h of new Set([
+    ...(transitions ? transitionSupportCpp(info.transitionIds) : []),
+    ...renderers.helpers, ...controlGraph.helpers, ...customDisplays.shared,
+  ])) {
     L.push(h); L.push('')
   }
+  if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
 
   if (multiOutput) {
     for (const route of routes) {

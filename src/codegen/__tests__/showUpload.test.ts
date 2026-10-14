@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateProvisionerSketch, PROVISION_CHUNK, PROVISION_RX_BUFFER } from '../sketches/provisionerSketchGenerator'
 import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGenerator'
-import { TRANSITION_HELPER_CPP } from '../helpers/transitionHelperCpp'
+import { transitionHelperCpp } from '../helpers/transitionHelperCpp'
 
 describe('generateProvisionerSketch', () => {
   it('bakes the complete SD SPI bus and chunk size into the sketch', () => {
@@ -292,9 +292,9 @@ describe('generatePlayerSketch', () => {
   })
 
   it('composites transitions by style id instead of a plain crossfade', () => {
-    const ino = generatePlayerSketch()
-    // The style id is captured and dispatched through the shared helper, which
-    // implements all 21 styles (wipe/iris/… plus the crossfade default).
+    const ino = generatePlayerSketch({}, undefined, { transitionIds: [0, 1, 15] })
+    // The style id is captured and dispatched through the shared helper,
+    // narrowed to the styles this player can reach.
     expect(ino).toContain('#include <Audio.h>       // ESP32-audioI2S\n#include <FastLED.h>')
     expect(ino).toContain('CRGB samplePalette(uint8_t palId, uint8_t index);')
     expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
@@ -302,13 +302,23 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt)')
     expect(ino).toContain('case 1: {  // wipe')
     expect(ino).toContain('case 15: {  // zoom')
+    expect(ino).not.toContain('case 2: {  // dissolve')
     expect(ino).toContain('compositeTransition(transType, leds, showA, showB, tp);')
   })
 
   it('emits the shared transition helper verbatim (parity with the generative show)', () => {
     // Guards against drift between the player's copy and the shared module the
     // generative-show sketch uses, so both composite transitions identically.
-    expect(generatePlayerSketch()).toContain(TRANSITION_HELPER_CPP)
+    expect(generatePlayerSketch({}, undefined, { transitionIds: [0, 4] })).toContain(transitionHelperCpp([0, 4]))
+  })
+
+  it('compiles only crossfade when no other style is reachable', () => {
+    const ino = generatePlayerSketch()
+    expect(ino).toContain('default: {  // crossfade (0)')
+    expect(ino).not.toContain('case 1: {  // wipe')
+    expect(ino).not.toContain('case 20: {  // slab tilt')
+    expect(ino).not.toContain('_sampleShaded')
+    expect(ino).not.toContain('_depthShade')
   })
 
   it('overlays a particle burst on CMD_PARTICLE_BURST', () => {

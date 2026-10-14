@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { compositeTransition, type Frame } from '../graphEvaluator'
 import { PROPERTY_META } from '../nodeLibrary'
 import { SHOW_TRANSITIONS } from '../../codegen/performanceGenerator'
-import { TRANSITION_HELPER_CPP, transitionHelperCpp } from '../../codegen/helpers/transitionHelperCpp'
+import { transitionHelperCpp, transitionSupportCpp } from '../../codegen/helpers/transitionHelperCpp'
+import { FRAME_SAMPLE_HELPER_CPP } from '../../codegen/helpers/frameSampleHelperCpp'
 
 const solid = (W: number, H: number, r: number, g: number, b: number): Frame =>
   Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r, g, b })))
@@ -247,21 +248,24 @@ describe('3D transition registration', () => {
   })
 
   it('emits both arms in the shared C++ helper', () => {
-    expect(TRANSITION_HELPER_CPP).toContain('case 16: {')
-    expect(TRANSITION_HELPER_CPP).toContain('case 17: {')
-    expect(TRANSITION_HELPER_CPP).toContain('_depthShade')
+    const both = transitionHelperCpp([16, 17])
+    expect(both).toContain('case 16: {')
+    expect(both).toContain('case 17: {')
+    expect(both).toContain('_depthShade')
   })
 
-  it('narrows to the styles a show actually uses, keeping the depth helpers', () => {
+  it('narrows to the styles a show actually uses, with 3D support only for a 3D style', () => {
     const only16 = transitionHelperCpp([16])
     expect(only16).toContain('case 16: {')
     expect(only16).not.toContain('case 17: {')
-    // The helpers sit above the switch, so they survive any narrowing — and are
-    // static inline so an unused one does not warn.
-    expect(only16).toContain('static inline float _depthShade')
+    // Crossfade is the default arm, and goes when it is not reachable.
+    expect(only16).not.toContain('default: {')
+    expect(transitionSupportCpp([16]).join('\n')).toContain('static inline float _depthShade')
+    expect(transitionSupportCpp([16])[0]).toBe(FRAME_SAMPLE_HELPER_CPP)
     const noneOfThem = transitionHelperCpp([1])
     expect(noneOfThem).not.toContain('case 16: {')
     expect(noneOfThem).not.toContain('case 17: {')
     expect(noneOfThem).toContain('case 1: {')
+    expect(transitionSupportCpp([0, 1])).toEqual([])
   })
 })

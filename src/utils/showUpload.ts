@@ -29,12 +29,12 @@ import { bakeDisplayArtworks } from './transportArtworks'
 import { generatePlayerSketch, playerConfigFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../codegen/player/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
-import { showFileToBinary } from '../codegen/performanceGenerator'
+import { SHOW_TRANSITIONS, showFileToBinary, transitionStyleIds } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
 import { stereoVuEmitsFromGraph } from '../codegen/audio/stereoVuMeterCpp'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { boardSupportsTelemetry } from '../codegen/deviceTelemetryCpp'
-import { wiredPatternCollection } from '../state/patterns/patternCollectionWiring'
+import { wiredPatternCollection, wiredTransitionStyles } from '../state/patterns/patternCollectionWiring'
 import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/player/showFreshness'
 import { resolveBuildMode } from '../state/upload/buildMode'
 import { asSlideshowOrder } from '../state/patterns/patternSlideshow'
@@ -124,6 +124,11 @@ export function buildShowPlayer(
   // FastLED's audio processor is sizeable. Link it when a compiled pattern
   // consumes audio or Player Particles needs live beat events.
   const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments, selectedEngine?.id, groups)
+  // A Music Player draws from its own pool. A performance show keeps every
+  // style for now: the timeline editor can hand-place any of them in a show.
+  const transitionIds = transitionStyleIds(opts.genericPlayer && selectedEngine
+    ? wiredTransitionStyles(nodes, edges, selectedEngine.id)
+    : SHOW_TRANSITIONS)
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
@@ -136,6 +141,7 @@ export function buildShowPlayer(
     genericPlayer: opts.genericPlayer,
     patternOrder: asSlideshowOrder(pgProps.order),
     patternTiming: musicPlayerTiming(pgProps),
+    transitionIds,
     psramAllowed: opts.psramAllowed,
     controlGraph,
     customDisplayAssets: opts.customDisplayAssets,

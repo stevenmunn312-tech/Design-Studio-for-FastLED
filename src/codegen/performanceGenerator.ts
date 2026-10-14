@@ -618,6 +618,16 @@ const CMD_IDS: Record<ShowEvent['cmd'], number> = {
 export const SHOW_PATTERNS = Object.keys(PATTERN_IDS)
 export const SHOW_TRANSITIONS = Object.keys(TRANSITION_IDS)
 
+/**
+ * Style names to the ids compositeTransition switches on, deduped and in
+ * order. Unknown names drop out; an empty pool means crossfade alone, as the
+ * preview falls back to.
+ */
+export function transitionStyleIds(names: readonly string[]): number[] {
+  const ids = [...new Set(names.map((name) => TRANSITION_IDS[name]).filter((id) => id !== undefined))]
+  return ids.length ? ids : [TRANSITION_IDS.crossfade]
+}
+
 export function showFileToBinary(show: ShowFile): ArrayBuffer {
   const headerBytes = 4 + 1 + 2 + 4 + 4   // magic + version + bpm + duration + count
   const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 3)  // worst case 3 params (PARTICLE_BURST)

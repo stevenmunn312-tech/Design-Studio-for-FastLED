@@ -36,6 +36,24 @@ describe('playerSketchGenerator', () => {
     expect(sketch.indexOf('_sampleShaded(')).toBeLessThan(sketch.indexOf('void render_p0('))
   })
 
+  // The preview draws each change's style from the wired pool; the device used
+  // to crossfade whatever was wired.
+  it('draws each pattern change from the wired transition pool', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { (void)ms; }', 'void render_p1(uint32_t ms) { (void)ms; }'],
+      count: 2, params: [],
+    }
+    const pooled = generatePlayerSketch({}, renderers, { genericPlayer: true, transitionIds: [1, 3] })
+    expect(pooled).toContain('const uint8_t TRANS_POOL[] = { 1, 3 };')
+    expect(pooled).toContain('transType = TRANS_POOL[random8(TRANS_POOL_N)];')
+    expect(pooled).toContain('case 3: {  // iris')
+    expect(pooled).not.toContain('default: {  // crossfade (0)')
+    const single = generatePlayerSketch({}, renderers, { genericPlayer: true, transitionIds: [4] })
+    expect(single).not.toContain('TRANS_POOL')
+    expect(single).toContain('transType = 4;')
+  })
+
   it('fades only the patterns that listen, crossing the factor through a transition', () => {
     const renderers = {
       buffers: [], helpers: [],
