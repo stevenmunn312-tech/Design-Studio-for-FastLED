@@ -22,6 +22,23 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { energy: 0.7, speed: 0.6, palette: 'rainbow', mirror: true },
   },
   {
+    // A single VU bar for any 0–1 level: lit from the start, the end or the
+    // centre of the chosen axis, coloured along the palette, with a peak
+    // marker that holds then falls. Every row (or column) shows the same bar.
+    type: 'LevelMeter',
+    label: 'Level Meter',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'level', label: 'Level', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    propertyInputs: { level: 'level', palette: 'paletteIn' },
+    defaultExposedInputs: ['level'],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { level: 0.5, axis: 'horizontal', origin: 'start', peakHold: 1, palette: 'lava' },
+  },
+  {
     // Full equalizer display driven directly from the shared microphone
     // spectrum. Unlike SpectrumBars' deliberately stylised three-band motion,
     // this preserves the individual frequency bins in preview and firmware.
@@ -574,6 +591,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
 
 export const AUDIO_REACTIVE_DESCRIPTIONS: Record<string, string> = {
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
+  LevelMeter: 'One VU bar for any 0–1 level, with a palette fill and a peak marker.',
   SpectrumVisualizer: 'Full-spectrum bars, ribbon, orbit, mirror, or waterfall display.',
   Waveform: 'Raw audio waveform as a line, filled, mirror, or ring trace over a base.',
   BassPulse: 'Pulses a palette colour with bass energy.',

@@ -124,6 +124,55 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' },
   },
   {
+    // Theater chase / marquee — every `spacing`th LED lit along `axis`, the
+    // lit set stepping one place per tick; the palette runs along the strip
+    // and drifts slowly with the chase.
+    type: 'TheaterChase',
+    label: 'Theater Chase',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'spacing', label: 'Spacing', dataType: 'float' },
+    ],
+    propertyInputs: { speed: 'speed', palette: 'paletteIn', spacing: 'spacing' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.5, spacing: 3, axis: 'horizontal', direction: 'forward', palette: 'party' },
+  },
+  {
+    // Colour wipe — the next palette colour sweeps in from one end along
+    // `axis`, one wipe per cycle, each wipe painting over the previous one;
+    // `bounce` alternates the end it starts from.
+    type: 'ColorWipe',
+    label: 'Color Wipe',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    propertyInputs: { speed: 'speed', palette: 'paletteIn' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.4, axis: 'horizontal', direction: 'forward', palette: 'rainbow' },
+  },
+  {
+    // Breathe — one colour swelling and fading at a breaths-per-minute rate,
+    // on a natural (exponential) or sine curve, never below `minLevel`.
+    type: 'Breathe',
+    label: 'Breathe',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'bpm', label: 'BPM', dataType: 'float' },
+      { id: 'minLevel', label: 'Min Level', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    propertyInputs: { bpm: 'bpm', minLevel: 'minLevel', palette: 'paletteIn' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { bpm: 12, minLevel: 0.05, curve: 'natural', palette: 'ocean' },
+  },
+  {
     // FastLED DemoReel-style confetti — random palette speckles sprinkled onto
     // a persistent buffer that fades toward black each frame.
     type: 'Confetti',
@@ -357,6 +406,9 @@ export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
   Pacifica: 'Layered ocean waves through a palette, with whitecap sparkle.',
   TwinkleFox: 'Palette-driven lights that twinkle on independent schedules.',
   Scanner: 'Larson scanner / Cylon eye — a palette beam with adjustable width and fade.',
+  TheaterChase: 'Marquee chase — every Nth LED lit, stepping along the strip in palette colours.',
+  ColorWipe: 'The next palette colour sweeps in from one end, wipe after wipe.',
+  Breathe: 'One colour swelling and fading at a breaths-per-minute rate.',
   Confetti: 'Random fading palette speckles on a persistent frame buffer.',
   Candle: 'Warm flame flicker, one flame or one per pixel.',
   Lightning: 'Storm flashes: random strikes of two to five flickers, or one on each trigger.',

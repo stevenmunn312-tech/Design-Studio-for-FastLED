@@ -236,6 +236,26 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
       num(id, 'spread', props, 'spread', 1),
     ) }
   },
+  // Keep in lockstep with the `PaletteTransform` emitter: entry by entry
+  // (clamped) at rest, a wrapping sample once Offset rotates it, then scaled.
+  PaletteTransform({ num, pal }, id, props) {
+    const src = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    const reverse = Boolean(props.reverse)
+    const rawOffset = num(id, 'offset', props, 'offset', 0)
+    const offset = ((rawOffset % 1) + 1) % 1
+    const brightness = Math.max(0, Math.min(1, num(id, 'brightness', props, 'brightness', 1)))
+    const stops: RGB[] = []
+    for (let i = 0; i < 16; i++) {
+      const u = reverse ? 1 - i / 15 : i / 15
+      const c = offset > 0 ? samplePalette(src, ((u + offset) % 1 + 1) % 1) : samplePaletteClamped(src, u)
+      stops.push({
+        r: Math.round(c.r * brightness),
+        g: Math.round(c.g * brightness),
+        b: Math.round(c.b * brightness),
+      })
+    }
+    return { palette: stops }
+  },
   PaletteBlend({ num, pal }, id, props) {
     // Sample both palettes at 16 stops and lerp per entry → a real blend.
     // Clamped, so entry 15 is each palette's last colour: at 15/15 a wrapping

@@ -614,7 +614,7 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   DistanceInput: 'Measures distance in mm with an HC-SR04, VL53L0X or VL53L1X.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
-  DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
+  DMXInput: 'DMX from Art-Net or sACN over the network, or wired DMX512 on an ESP32.',
   PowerMonitorInput: 'Measures volts, amps and watts over I2C and reports them to displays.',
   RTCInput: 'Clock for preview/firmware via build stamp, manual seed, NTP, or DS3231.',
   MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',

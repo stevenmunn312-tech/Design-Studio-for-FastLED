@@ -24,6 +24,10 @@ import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 import { speedPhase } from '../shared/speedClock'
+import { samplePaletteClamped } from '../../state/palettes/ledColor'
+import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
+
+const levelMeterPeaks = instanceState('levelMeterPeaks', new Map<string, { peak: number; since: number; lastT: number }>())
 
 // An AnimARTrix instance is instance state held outside the evaluator's maps.
 onInstanceDisposed(disposeAnimartrixState)
@@ -1211,6 +1215,32 @@ function evalAudioFlow(key: string, bass: number, mids: number, treble: number, 
 }
 
 export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
+  // Keep in lockstep with the `LevelMeter` emitter: fill, origin distance
+  // and the peak marker's hold-then-fall (src/nodes/audioReactive/levelMeter.ts).
+  LevelMeter({ num, pal, elapsedT, W, H, stateKey }, id, props) {
+    const horizontal = String(props.axis ?? 'horizontal') !== 'vertical'
+    const origin = meterOrigin(props.origin)
+    const span = Math.max(1, horizontal ? W : H)
+    const level = Math.max(0, Math.min(1, num(id, 'level', props, 'level', 0.5)))
+    const fill = meterFill(level, span)
+    const hold = Math.max(METER_PEAK_HOLD.min, Math.min(METER_PEAK_HOLD.max, Number(props.peakHold ?? METER_PEAK_HOLD.default)))
+    const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
+    const key = stateKey(id)
+    const state = levelMeterPeaks.get(key) ?? { peak: 0, since: elapsedT, lastT: elapsedT }
+    const dt = Math.max(0, elapsedT - state.lastT)
+    let peak = state.peak, since = state.since
+    if (level >= peak) { peak = level; since = elapsedT }
+    else if (elapsedT - since > hold) peak = Math.max(level, peak - METER_PEAK_FALL * dt)
+    levelMeterPeaks.set(key, { peak, since, lastT: elapsedT })
+    const peakCell = hold > 0 ? meterFill(peak, span) - 1 : -1
+    const peakColor = samplePaletteClamped(palette, 1)
+    return { frame: buildFrame(W, H, (x, y) => {
+      const d = meterDistance(origin, horizontal ? x : y, span)
+      if (peakCell >= 0 && Math.floor(d) === peakCell) return peakColor
+      if (d >= fill) return { r: 0, g: 0, b: 0 }
+      return samplePaletteClamped(palette, span > 1 ? d / (span - 1) : 0)
+    }) }
+  },
   SpectrumBars({ num, pal, t, W, H, stateKey }, id, props) {
     // Unwired bands rest at 0 unless the Test Signal toggle drives a demo.
     const demo = useUiStore.getState().testSignal

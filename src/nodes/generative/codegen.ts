@@ -1,5 +1,6 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
 import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from './limits'
+import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -254,6 +255,55 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`      float _v=_dist<=_core?1.0f:max(0.0f,1.0f-(_dist-_core)/_den);`)
     ln(`      _v*=_v; CRGB _px=_base; _px.nscale8_video((uint8_t)(_v*255.0f));`)
     ln(`      ${ob}[_y*WIDTH+_x]=_px; } }`)
+  },
+  TheaterChase({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.TheaterChase)
+    const horizontal = String(p.axis ?? 'horizontal') !== 'vertical'
+    const reverse = String(p.direction ?? 'forward') === 'reverse'
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    ln(`  { // Theater Chase`)
+    ln(`    float _spd=${speed}; int _sp=(int)constrain(roundf(${f('spacing', 'spacing', CHASE_SPACING.default)}),${CHASE_SPACING.min}.0f,${CHASE_SPACING.max}.0f);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    ln(`    int _st=(int)floorf(${ph}); float _span=${horizontal ? 'WIDTH' : 'HEIGHT'};`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      int _c=${horizontal ? '_x' : '_y'}, _k=${reverse ? '_c+_st' : '_c-_st'};`)
+    ln(`      CRGB _px=CRGB::Black;`)
+    ln(`      if(((_k%_sp)+_sp)%_sp==0){ float _v=fmodf((float)_c/_span+${ph}*${floatLit(CHASE_DRIFT)},1.0f); if(_v<0.0f)_v+=1.0f; _px=ColorFromPalette(${pal},(uint8_t)(_v*255.0f)); }`)
+    ln(`      ${ob}[_y*WIDTH+_x]=_px; } }`)
+  },
+  ColorWipe({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.ColorWipe)
+    const horizontal = String(p.axis ?? 'horizontal') !== 'vertical'
+    const direction = String(p.direction ?? 'forward')
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    ln(`  { // Color Wipe`)
+    ln(`    float _spd=${speed};`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    ln(`    int _n=(int)floorf(${ph}); float _span=${horizontal ? 'WIDTH' : 'HEIGHT'}; int _fill=(int)floorf((${ph}-_n)*_span);`)
+    ln(`    auto _wc=[&](int _w)->CRGB{ float _v=fmodf(_w*${floatLit(WIPE_PALETTE_STEP)},1.0f); if(_v<0.0f)_v+=1.0f; return ColorFromPalette(${pal},(uint8_t)(_v*255.0f)); };`)
+    ln(`    CRGB _new=_wc(_n), _old=_n>0?_wc(_n-1):CRGB::Black;`)
+    ln(`    bool _rev=${direction === 'reverse' ? 'true' : direction === 'bounce' ? '(_n&1)==1' : 'false'};`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      int _c=${horizontal ? '_x' : '_y'}, _i=_rev?(int)_span-1-_c:_c;`)
+    ln(`      ${ob}[_y*WIDTH+_x]=_i<_fill?_new:_old; } }`)
+  },
+  Breathe({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    const curve = breatheCurve(p.curve)
+    ln(`  { // Breathe`)
+    ln(`    float _rate=constrain(${f('bpm', 'bpm', BREATHE_BPM.default)},${BREATHE_BPM.min}.0f,${BREATHE_BPM.max}.0f)/60.0f;`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_rate')
+    ln(`    float _p=fmodf(${ph},1.0f); if(_p<0.0f)_p+=1.0f;`)
+    ln(`    float _env=${breatheEnvelopeCpp(curve, '_p')};`)
+    ln(`    float _min=constrain(${f('minLevel', 'minLevel', 0.05)},0.0f,1.0f),_lv=_min+(1.0f-_min)*_env;`)
+    ln(`    CRGB _c=ColorFromPalette(${pal},(uint8_t)(_env*255.0f)); _c.r=(uint8_t)(_c.r*_lv); _c.g=(uint8_t)(_c.g*_lv); _c.b=(uint8_t)(_c.b*_lv);`)
+    ln(`    fill_solid(${ob},NUM_LEDS,_c); }`)
   },
   Confetti({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true

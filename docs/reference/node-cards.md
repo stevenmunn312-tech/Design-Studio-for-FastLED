@@ -236,6 +236,24 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Audio → Hue example graph](../../public/node-cards/graphs/audio-hue.svg)
 
+### Frequency Band
+
+![Frequency Band node](../../public/node-cards/frequency-band.svg)
+
+![Frequency Band example graph](../../public/node-cards/graphs/frequency-band.svg)
+
+### Stereo Levels
+
+![Stereo Levels node](../../public/node-cards/stereo-levels.svg)
+
+![Stereo Levels example graph](../../public/node-cards/graphs/stereo-levels.svg)
+
+### Beat Phase
+
+![Beat Phase node](../../public/node-cards/beat-phase.svg)
+
+![Beat Phase example graph](../../public/node-cards/graphs/beat-phase.svg)
+
 ## Signals
 
 ### Time
@@ -518,6 +536,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Blend Palettes example graph](../../public/node-cards/graphs/palette-blend.svg)
 
+### Palette Transform
+
+![Palette Transform node](../../public/node-cards/palette-transform.svg)
+
+![Palette Transform example graph](../../public/node-cards/graphs/palette-transform.svg)
+
 ### Palette Bank
 
 ![Palette Bank node](../../public/node-cards/palette-bank.svg)
@@ -651,6 +675,24 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Scanner node](../../public/node-cards/scanner.svg)
 
 ![Scanner example graph](../../public/node-cards/graphs/scanner.svg)
+
+### Theater Chase
+
+![Theater Chase node](../../public/node-cards/theater-chase.svg)
+
+![Theater Chase example graph](../../public/node-cards/graphs/theater-chase.svg)
+
+### Color Wipe
+
+![Color Wipe node](../../public/node-cards/color-wipe.svg)
+
+![Color Wipe example graph](../../public/node-cards/graphs/color-wipe.svg)
+
+### Breathe
+
+![Breathe node](../../public/node-cards/breathe.svg)
+
+![Breathe example graph](../../public/node-cards/graphs/breathe.svg)
 
 ### Confetti
 
@@ -801,6 +843,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Spectrum Bars node](../../public/node-cards/spectrum-bars.svg)
 
 ![Spectrum Bars example graph](../../public/node-cards/graphs/spectrum-bars.svg)
+
+### Level Meter
+
+![Level Meter node](../../public/node-cards/level-meter.svg)
+
+![Level Meter example graph](../../public/node-cards/graphs/level-meter.svg)
 
 ### Spectrum Visualizer
 
@@ -1014,17 +1062,35 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Turing Field example graph](../../public/node-cards/graphs/turing-field.svg)
 
+### Gradient Field
+
+![Gradient Field node](../../public/node-cards/gradient-field.svg)
+
+![Gradient Field example graph](../../public/node-cards/graphs/gradient-field.svg)
+
 ### Distance Field
 
 ![Distance Field node](../../public/node-cards/distance-field.svg)
 
 ![Distance Field example graph](../../public/node-cards/graphs/distance-field.svg)
 
+### Shape Field
+
+![Shape Field node](../../public/node-cards/shape-field.svg)
+
+![Shape Field example graph](../../public/node-cards/graphs/shape-field.svg)
+
 ### Frame → Field
 
 ![Frame → Field node](../../public/node-cards/frame-to-field.svg)
 
 ![Frame → Field example graph](../../public/node-cards/graphs/frame-to-field.svg)
+
+### Float → Field
+
+![Float → Field node](../../public/node-cards/float-to-field.svg)
+
+![Float → Field example graph](../../public/node-cards/graphs/float-to-field.svg)
 
 ### Field Math
 
@@ -1038,11 +1104,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Field Levels example graph](../../public/node-cards/graphs/field-levels.svg)
 
-### Shape Field
+### Field Blur
 
-![Shape Field node](../../public/node-cards/shape-field.svg)
+![Field Blur node](../../public/node-cards/field-blur.svg)
 
-![Shape Field example graph](../../public/node-cards/graphs/shape-field.svg)
+![Field Blur example graph](../../public/node-cards/graphs/field-blur.svg)
 
 ### Field Warp
 
@@ -1093,6 +1159,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Mask node](../../public/node-cards/mask.svg)
 
 ![Mask example graph](../../public/node-cards/graphs/mask.svg)
+
+### Glitter
+
+![Glitter node](../../public/node-cards/glitter.svg)
+
+![Glitter example graph](../../public/node-cards/graphs/glitter.svg)
+
+### Frame Transform
+
+![Frame Transform node](../../public/node-cards/frame-transform.svg)
+
+![Frame Transform example graph](../../public/node-cards/graphs/frame-transform.svg)
 
 ### Brightness
 

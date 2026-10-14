@@ -22,6 +22,7 @@ describe('controllerSettings', () => {
     expect(controllerSettings(nodes)).toEqual({
       brightness: 144,
       overclock: 1.25,
+      frameRate: 60,
       powerLimit: true,
       volts: 5,
       milliamps: 6000,

@@ -192,12 +192,14 @@ export interface ArtnetSnapshotResponse {
   channels: number[]
 }
 
-export async function startArtnetListener(port: number): Promise<{ ok: boolean; error?: string }> {
+/** One listener serves both protocols; `protocol` and `universe` only decide
+ *  whether the helper joins the sACN multicast group for that universe. */
+export async function startArtnetListener(port: number, protocol: 'Art-Net' | 'sACN' = 'Art-Net', universe = 0): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/artnet/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ port }),
+      body: JSON.stringify({ port, protocol, universe }),
     })
     return (await res.json()) as { ok: boolean; error?: string }
   } catch (e) {

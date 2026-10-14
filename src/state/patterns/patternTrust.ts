@@ -17,6 +17,7 @@
 import type { GraphContent } from '../graphStore'
 import type { GroupRegistry } from '../graphEvaluator'
 import { BUNDLED_PATTERNS } from './bundledPatterns'
+import { dmxUsesNetwork } from '../peripherals/dmxTransceiver'
 
 const KEY = 'design-studio-for-fastled.known-content.v2'
 /** The first store remembered whole pattern subgraphs, positions included.
@@ -49,7 +50,7 @@ function gatedNodeFingerprint(node: unknown): string | null {
   const nodeType = String(data?.nodeType ?? '')
   const properties = data?.properties ?? {}
   if (TRUST_GATED_NODE_TYPES.has(nodeType)
-    || (nodeType === 'DMXInput' && String(properties.inputMode ?? 'Art-Net') === 'Art-Net')) {
+    || (nodeType === 'DMXInput' && dmxUsesNetwork(properties as Record<string, unknown>))) {
     return JSON.stringify(canonicalize({ nodeType, properties }))
   }
   return null
@@ -206,7 +207,7 @@ const WORKSPACE_ONLY_GATED_NODE_TYPES = new Set(['DMXInput'])
 export interface WorkspaceTrustHolds {
   /** A CustomFormula/FieldFormula/Code node renders blank until trusted. */
   formulaOrCode: boolean
-  /** An Art-Net DMXInput keeps its UDP listener closed until trusted. */
+  /** A network-mode DMXInput (Art-Net or sACN) keeps its UDP listener closed until trusted. */
   artnet: boolean
 }
 
@@ -238,11 +239,11 @@ export function workspaceTrustHolds(
       return
     }
     if (!WORKSPACE_ONLY_GATED_NODE_TYPES.has(nodeType)) return
-    // Only Art-Net mode opens a listener; a DMX512 node reads its universe in
-    // firmware and does nothing at all in preview, so trusting changes nothing
-    // for it. Matches DmxInputBody's own `mode !== 'Art-Net'` early return,
-    // including its default when the property is missing.
-    if (nodeType === 'DMXInput' && String(data?.properties?.inputMode ?? 'Art-Net') === 'Art-Net') {
+    // Only a network mode (Art-Net or sACN) opens a listener; a DMX512 node
+    // reads its universe in firmware and does nothing at all in preview, so
+    // trusting changes nothing for it. Matches DmxInputBody's own early
+    // return, including the default when the property is missing.
+    if (nodeType === 'DMXInput' && dmxUsesNetwork((data?.properties ?? {}) as Record<string, unknown>)) {
       holds.artnet = true
     }
   }

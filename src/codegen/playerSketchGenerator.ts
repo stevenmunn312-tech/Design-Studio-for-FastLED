@@ -69,7 +69,8 @@ import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shap
 import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audio/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/player/showTarget'
 import type { StudioNode } from '../state/graphStore'
-import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../build/controllerSettings'
+import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS, FRAME_RATE } from '../build/controllerSettings'
+import { loopPacingCpp } from './loopPacing'
 import { resolveBoardSelection } from '../build/boards/boardProfiles'
 import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
 import { hexToRgb } from '../state/palettes/polinePalette'
@@ -115,6 +116,7 @@ export interface PlayerConfig {
   i2sDout:     number   // I2S data out to DAC (audioOutput === 'i2s' only)
   maxVolume:   number   // 0-21 for MAX98357A
   ledBrightness: number // controller brightness ceiling, 0-255
+  frameRate:   number   // loop pacing, frames per second (Board frameRate)
   usePsram:    boolean  // honoured only when the selected board exposes PSRAM
   // Raw HUB75 properties from the MatrixOutput node (form === 'hub75'
   // only), passed straight to hub75HardwareFromProps rather than flattening
@@ -141,6 +143,7 @@ const DEFAULTS: PlayerConfig = {
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
   ledBrightness: DEFAULT_CONTROLLER_SETTINGS.brightness,
+  frameRate: DEFAULT_CONTROLLER_SETTINGS.frameRate,
   usePsram: false,
   hub75Props: {},
   outputEnabled: true,
@@ -226,6 +229,7 @@ export function playerConfigFromGraph(
     i2sDout:    sanitizePin(amp.i2sDout, DEFAULTS.i2sDout),
     maxVolume:  sanitizeVolume(volumeStage.maxVolume),
     ledBrightness: controller.brightness,
+    frameRate:  controller.frameRate,
     usePsram:   controller.usePsram,
     hub75Props: mo,
     ...outputFields(target ? mo : undefined),
@@ -426,6 +430,7 @@ export function generatePlayerSketch(
     i2sDout: sanitizePin(raw.i2sDout, DEFAULTS.i2sDout),
     maxVolume: sanitizeVolume(raw.maxVolume),
     ledBrightness: Math.max(0, Math.min(255, Math.round(Number(raw.ledBrightness) || 0))),
+    frameRate: Math.max(FRAME_RATE.min, Math.min(FRAME_RATE.max, Math.round(Number(raw.frameRate) || FRAME_RATE.default))),
   }
   const numLeds = c.ledWidth * c.ledHeight
   // The output's own fields, after the frame is drawn and before the VU
@@ -2389,7 +2394,7 @@ ${stereoVuMeters.map(stereoVuLoopCpp).join('\n')}
   ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : ''}
   ${!isHub75 || hasStereoVu ? 'FastLED.show();' : ''}
 ${publishDisplaysCpp}
-  FastLED.delay(16);  // ~60 fps
+${loopPacingCpp(c.frameRate)}
 }
 `)
 }

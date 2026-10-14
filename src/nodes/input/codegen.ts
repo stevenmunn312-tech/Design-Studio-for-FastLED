@@ -13,6 +13,7 @@ import { touchPadLoopCpp } from '../../codegen/peripherals/touchPadCpp'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { rtcInputLoopCpp } from '../../codegen/peripherals/rtcInputCpp'
+import { dmxListenPort, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
 
 const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines }) => {
   const emit = controlInputCpp(node.data.nodeType, id, p)!
@@ -127,8 +128,57 @@ export const INPUT_EMITTERS: NodeEmitters = {
       ln(`  _dmxLive_${id} = false;`)
       ln(`  _dmxPacketRate_${id} = 0.0f;`)
       ln(`#endif`)
+    } else if (inputMode === 'sACN') {
+      // E1.31 data packets: ACN root (vector 4), framing (vector 2) with the
+      // universe at 113, DMP property count at 123 (start code included),
+      // start code 125, channels from 126. Joins the universe's multicast
+      // group on ESP32, where senders usually multicast; a unicast sender
+      // reaches the plain socket either way.
+      const port = dmxListenPort(p)
+      const group = sacnMulticastGroup(universe)
+      globalLines.push(`#if FLS_NET_SUPPORTED`)
+      globalLines.push(`WiFiUDP _sacnUdp_${id};`)
+      globalLines.push(`#endif`)
+      setupLines.push(`#if FLS_NET_SUPPORTED && defined(ESP32)`)
+      setupLines.push(`  _sacnUdp_${id}.beginMulticast(IPAddress(${group.join(', ')}), ${port});`)
+      setupLines.push(`#elif FLS_NET_SUPPORTED`)
+      setupLines.push(`  _sacnUdp_${id}.begin(${port});`)
+      setupLines.push(`#endif`)
+      ln(`  _netEnsureConnected();`)
+      ln(`#if FLS_NET_SUPPORTED`)
+      ln(`  if (_netConnected()) {`)
+      ln(`    int _sacnPkt_${id} = _sacnUdp_${id}.parsePacket();`)
+      ln(`    while (_sacnPkt_${id} > 0) {`)
+      ln(`      uint8_t _sacnBuf_${id}[640] = {0};`)
+      ln(`      int _sacnLen_${id} = _sacnUdp_${id}.read(_sacnBuf_${id}, sizeof(_sacnBuf_${id}));`)
+      ln(`      if (_sacnLen_${id} >= 126 && memcmp(_sacnBuf_${id} + 4, "ASC-E1.17\\0\\0\\0", 12) == 0`)
+      ln(`          && _sacnBuf_${id}[21] == 4 && _sacnBuf_${id}[43] == 2 && _sacnBuf_${id}[125] == 0) {`)
+      ln(`        uint16_t _sacnUni_${id} = ((uint16_t)_sacnBuf_${id}[113] << 8) | (uint16_t)_sacnBuf_${id}[114];`)
+      ln(`        int _sacnCount_${id} = (int)(((uint16_t)_sacnBuf_${id}[123] << 8) | (uint16_t)_sacnBuf_${id}[124]) - 1;`)
+      ln(`        if (_sacnUni_${id} == ${universe} && _sacnCount_${id} >= 0) {`)
+      ln(`          uint16_t _sacnSlots_${id} = min<uint16_t>((uint16_t)_sacnCount_${id}, 512u);`)
+      ln(`          if (126 + (int)_sacnSlots_${id} <= _sacnLen_${id}) {`)
+      ln(`            memset(_dmxData_${id}, 0, 512);`)
+      ln(`            memcpy(_dmxData_${id}, _sacnBuf_${id} + 126, _sacnSlots_${id});`)
+      ln(`            uint32_t _sacnNow_${id} = millis();`)
+      ln(`            if (_dmxLastPacketMs_${id}) _dmxPacketRate_${id} = 1000.0f / max(1u, _sacnNow_${id} - _dmxLastPacketMs_${id});`)
+      ln(`            _dmxLastPacketMs_${id} = _sacnNow_${id};`)
+      ln(`            _dmxValid_${id} = true;`)
+      ln(`            _dmxLive_${id} = true;`)
+      ln(`          }`)
+      ln(`        }`)
+      ln(`      }`)
+      ln(`      _sacnPkt_${id} = _sacnUdp_${id}.parsePacket();`)
+      ln(`    }`)
+      ln(`  }`)
+      ln(`  if (_dmxLastPacketMs_${id} && millis() - _dmxLastPacketMs_${id} > 2000u) _dmxLive_${id} = false;`)
+      ln(`#else`)
+      ln(`  _dmxValid_${id} = false;`)
+      ln(`  _dmxLive_${id} = false;`)
+      ln(`  _dmxPacketRate_${id} = 0.0f;`)
+      ln(`#endif`)
     } else {
-      const port = intProp(p.previewPort, 6454, 1, 65535)
+      const port = dmxListenPort(p)
       globalLines.push(`#if FLS_NET_SUPPORTED`)
       globalLines.push(`WiFiUDP _artnetUdp_${id};`)
       globalLines.push(`#endif`)

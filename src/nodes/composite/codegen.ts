@@ -1,6 +1,8 @@
 import type { NodeEmitters } from '../../codegen/emitContext'
-import { floatLit } from '../../codegen/cppLiterals'
+import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
+import { GLITTER_PER_LED, glitterMode } from './glitter'
+import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
@@ -168,6 +170,40 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`    _fb_idx_${id}=(_fb_idx_${id}+1)%_fb_cap_${id};`)
     ln(`  }`)
   },
+  // Keep in lockstep with the `Glitter` evaluator: the same per-LED budget
+  // (fraction as a chance of one more), add or replace, Confetti's seeded LCG.
+  Glitter({ id, p, ln, f, channelColor, ownBuf, seedFrom }) {
+    const ob = ownBuf()
+    const seed = seedProp(p)
+    const rnd8 = seed ? `_rnd8_${id}()` : 'random8()'
+    const rnd16 = seed ? `(((uint16_t)_rnd8_${id}()<<8)|_rnd8_${id}())` : 'random16()'
+    const replace = glitterMode(p.glitterMode) === 'replace'
+    ln(`  { ${seedFrom('frame')} // Glitter`)
+    if (seed) ln(`    static uint32_t _rng_${id}=${seed}u; auto _rnd8_${id}=[&](){ _rng_${id}=_rng_${id}*1664525u+1013904223u; return (uint8_t)(_rng_${id}>>24); };`)
+    ln(`    float _bud=constrain(${f('density', 'density', 0.3)},0.0f,1.0f)*NUM_LEDS*${floatLit(GLITTER_PER_LED, 6)};`)
+    ln(`    int _cnt=(int)_bud; if(${rnd8}<(uint8_t)((_bud-_cnt)*255.0f)) _cnt++;`)
+    ln(`    CRGB _gc=${channelColor('color', 255, 255, 255)};`)
+    ln(`    for(int _s=0;_s<_cnt;_s++){ int _i=${rnd16}%NUM_LEDS; ${replace ? `${ob}[_i]=_gc;` : `${ob}[_i]+=_gc;`} } }`)
+  },
+  // Keep in lockstep with the `FrameTransform` evaluator: undo the slide,
+  // the flips, then the quarter turns, on normalised coordinates.
+  FrameTransform({ p, ln, f, ownBuf, srcBuf }) {
+    const ob = ownBuf()
+    const src = srcBuf('frame')
+    if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Frame Transform: no input`); return }
+    const turns = frameQuarterTurns(p.rotate)
+    const flipX = Boolean(p.flipX), flipY = Boolean(p.flipY)
+    ln(`  { // Frame Transform`)
+    ln(`    int _ox=(int)constrain(roundf(${f('offsetX', 'offsetX', 0)}),${FRAME_OFFSET.min}.0f,${FRAME_OFFSET.max}.0f),_oy=(int)constrain(roundf(${f('offsetY', 'offsetY', 0)}),${FRAME_OFFSET.min}.0f,${FRAME_OFFSET.max}.0f);`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      int _px=(((_x-_ox)%WIDTH)+WIDTH)%WIDTH,_py=(((_y-_oy)%HEIGHT)+HEIGHT)%HEIGHT;`)
+    ln(`      float _u=WIDTH>1?(float)_px/(WIDTH-1):0.0f,_v=HEIGHT>1?(float)_py/(HEIGHT-1):0.0f;`)
+    if (flipX) ln(`      _u=1.0f-_u;`)
+    if (flipY) ln(`      _v=1.0f-_v;`)
+    for (let k = 0; k < turns; k++) ln(`      { float _nu=_v; _v=1.0f-_u; _u=_nu; }`)
+    ln(`      int _sx=(int)floorf(_u*(WIDTH-1)+0.5f),_sy=(int)floorf(_v*(HEIGHT-1)+0.5f);`)
+    ln(`      ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx]; } }`)
+  },
   Mask({ ln, ownBuf, srcBuf, seedFrom }) {
     const ob = ownBuf()
     const mask = srcBuf('mask')
@@ -280,10 +316,18 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     // `amount` is opacity 0–1; FastLED's nblend / cross-fade want 0–255.
     const a = srcBuf('a'), b = srcBuf('b'), amt = f('amount', 'amount', 0.5)
     const mode = String(p.blendMode ?? 'normal')
+    // A wired mask scales the opacity per pixel by its brightness, as the
+    // evaluator does; unwired, `_m` is the opacity itself.
+    const mask = srcBuf('mask')
+    const perPixel = mask
+      ? `(uint8_t)(constrain(${amt},0.0f,1.0f)*255.0f*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3.0f/255.0f))`
+      : null
     ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
     // Nothing on B yet (a fresh splice): A passes through in every mode.
     if (!b) {
       ln(`  }`)
+    } else if (mode === 'normal' && perPixel) {
+      ln(`    for(int _i=0;_i<NUM_LEDS;_i++) nblend(${ob}[_i], ${b}[_i], ${perPixel}); }`)
     } else if (mode === 'normal') {
       ln(`    nblend(${ob}, ${b}, NUM_LEDS, (uint8_t)((${amt}) * 255)); }`)
     } else {
@@ -294,8 +338,13 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
         add:        'min(1.0f,_av+_bv)',
         difference: 'fabsf(_av-_bv)',
       }
-      ln(`    float _op=(${amt}); for(int _i=0;_i<NUM_LEDS;_i++){`)
-      ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
+      if (mask) {
+        ln(`    float _opAll=(${amt}); for(int _i=0;_i<NUM_LEDS;_i++){`)
+        ln(`      float _op=_opAll*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3.0f/255.0f); CRGB _a=${ob}[_i], _b=${b}[_i];`)
+      } else {
+        ln(`    float _op=(${amt}); for(int _i=0;_i<NUM_LEDS;_i++){`)
+        ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
+      }
       ln(`      for(int _c=0;_c<3;_c++){ float _av=_a[_c]/255.0f,_bv=_b[_c]/255.0f;`)
       ln(`        float _r=${expr[mode] ?? '_bv'};`)
       ln(`        ${ob}[_i][_c]=(uint8_t)((_av*(1.0f-_op)+_r*_op)*255.0f); } } }`)

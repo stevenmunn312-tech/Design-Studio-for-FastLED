@@ -199,9 +199,65 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
       bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2,
     },
   },
+  {
+    // One 0–1 level from a chosen frequency range, for a kick (60–120 Hz), a
+    // vocal presence band or a hi-hat air band that the three fixed FFT
+    // groups cut across. Reads the spectrum slots whose centre falls inside
+    // the range (src/audio/frequencyBand.ts).
+    type: 'FrequencyBand',
+    label: 'Frequency Band',
+    category: 'audio',
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+      { id: 'lowHz', label: 'Low Hz', dataType: 'float' },
+      { id: 'highHz', label: 'High Hz', dataType: 'float' },
+      { id: 'gain', label: 'Gain', dataType: 'float' },
+      { id: 'smoothing', label: 'Smoothing', dataType: 'float' },
+    ],
+    propertyInputs: { lowHz: 'lowHz', highHz: 'highHz', gain: 'gain', smoothing: 'smoothing' },
+    outputs: [{ id: 'level', label: 'Level', dataType: 'float' }],
+    defaultProperties: { lowHz: 60, highHz: 250, gain: 1, smoothing: 0.6 },
+  },
+  {
+    // The channel levels the Stereo VU Meter already measures, as signals:
+    // left, right and the balance between them.
+    type: 'StereoLevels',
+    label: 'Stereo Levels',
+    category: 'audio',
+    inputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    outputs: [
+      { id: 'left', label: 'Left', dataType: 'float' },
+      { id: 'right', label: 'Right', dataType: 'float' },
+      { id: 'balance', label: 'Balance', dataType: 'float' },
+    ],
+    defaultProperties: {},
+  },
+  {
+    // A tempo clock: a 0–1 sawtooth per beat that a Beat input re-syncs,
+    // free-running at `bpm` between beats or with nothing wired, plus a
+    // slower saw over a bar of `beatsPerBar` beats and a running beat count.
+    // Wall-clock, like the music it follows — Master Speed does not scale it.
+    type: 'BeatPhase',
+    label: 'Beat Phase',
+    category: 'audio',
+    inputs: [
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'bpm', label: 'BPM', dataType: 'float' },
+    ],
+    propertyInputs: { bpm: 'bpm' },
+    outputs: [
+      { id: 'phase', label: 'Phase', dataType: 'float' },
+      { id: 'bar', label: 'Bar', dataType: 'float' },
+      { id: 'count', label: 'Count', dataType: 'float' },
+    ],
+    defaultProperties: { bpm: 120, beatsPerBar: 4 },
+  },
 ]
 
 export const AUDIO_DESCRIPTIONS: Record<string, string> = {
+  FrequencyBand: 'One 0–1 level from a chosen frequency range of the spectrum.',
+  StereoLevels: 'Left and right channel levels, and the balance between them.',
+  BeatPhase: 'A 0–1 saw per beat, re-synced by Beat Detect, plus a bar phase and a beat count.',
   // audio
   FFTAnalyzer: 'Splits mic audio into bass/mids/treble; tilt boosts weak treble.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',

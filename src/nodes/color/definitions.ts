@@ -235,6 +235,24 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 0.5 },
   },
   {
+    // Reverse, rotate or dim any palette on its way to a pattern: a wired
+    // Offset scrolls the colours round, Brightness scales every entry. A
+    // builder (no `palette` property), so it emits its own CRGBPalette16.
+    type: 'PaletteTransform',
+    label: 'Palette Transform',
+    category: 'color',
+    subcategory: 'Palettes',
+    inputs: [
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'offset', label: 'Offset', dataType: 'float' },
+      { id: 'brightness', label: 'Brightness', dataType: 'float' },
+    ],
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+    propertyInputs: { offset: 'offset', brightness: 'brightness' },
+    defaultExposedInputs: ['offset'],
+    defaultProperties: { reverse: false, offset: 0, brightness: 1 },
+  },
+  {
     // An ordered bank of presets the author ships, stepped by Next/Previous and
     // wrapping at both ends — the palette answer to Pattern Collection.
     //
@@ -289,5 +307,6 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   Poline: 'Smooth poline palette between up to three anchor colours.',
   HarmonyPalette: 'Palette of colour-wheel harmony hues around a base hue.',
   PaletteBlend: 'Interpolates between two palettes.',
+  PaletteTransform: 'Reverses, rotates or dims a palette on its way to a pattern.',
   PaletteBank: 'An ordered bank of palettes Next/Previous steps through, blending between them.',
 }

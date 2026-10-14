@@ -45,6 +45,9 @@ export interface SignalRange { min: number; max: number }
  */
 export const NORMALIZED_OUTPUTS: Readonly<Record<string, readonly string[]>> = {
   FFTAnalyzer: ['bass', 'mids', 'treble'],
+  FrequencyBand: ['level'],
+  StereoLevels: ['left', 'right', 'balance'],
+  BeatPhase: ['phase', 'bar'],
   PercussionDetect: ['kick', 'snare', 'hihat'],
   AudioFeatures: ['vocals', 'energy'],
   PitchDetect: ['velocity', 'confidence', 'keyConfidence'],

@@ -8,6 +8,7 @@ import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
 import { noiseShape, noiseShapeCpp } from '../../state/evaluator/noiseShape'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from './sliceTiling'
+import { BLUR_RADIUS, GRADIENT_REPEAT, RADIAL_REACH, gradientRepeat, gradientType, gradientWraps } from './gradientField'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
 import {
@@ -478,6 +479,38 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      float _v=_high<=_low?(_src>=_low?1.0f:0.0f):constrain((_src-_low)/fmaxf(1e-4f,_high-_low),0.0f,1.0f);`)
     if (steps >= 2) ln(`      _v=roundf(_v*${steps - 1}.0f)/${steps - 1}.0f;`)
     ln(`      ${of}[_i]=${invert ? '1.0f-_v' : '_v'}; } }`)
+  },
+  GradientField({ p, ln, f, ownField }) {
+    const of = ownField()
+    const type = gradientType(p.gradientType)
+    const repeat = gradientRepeat(Number(p.repeat ?? GRADIENT_REPEAT.default))
+    const wraps = gradientWraps(type, repeat)
+    ln(`  { /* GradientField: ${type} */`)
+    ln(`    float _ga=(${f('angle', 'angle', 0)})*0.017453292519943f,_gca=cosf(_ga),_gsa=sinf(_ga);`)
+    ln(`    float _gcx=${f('cx', 'cx', 0.5)},_gcy=${f('cy', 'cy', 0.5)},_gof=${f('offset', 'offset', 0)},_grp=${floatLit(repeat)};`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      float _nx=WIDTH>1?(float)_x/(WIDTH-1):0.0f,_ny=HEIGHT>1?(float)_y/(HEIGHT-1):0.0f,_dx=_nx-_gcx,_dy=_ny-_gcy;`)
+    if (type === 'radial') ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/${floatLit(RADIAL_REACH, 7)};`)
+    else if (type === 'angular') ln(`      float _d=atan2f(_dy,_dx)/6.283185307f+0.5f;`)
+    else ln(`      float _d=_dx*_gca+_dy*_gsa+0.5f;`)
+    ln(`      float _v=(_d+_gof)*_grp;`)
+    ln(wraps
+      ? `      _v=fmodf(_v,1.0f); if(_v<0.0f)_v+=1.0f; ${of}[_y*WIDTH+_x]=_v;}}`
+      : `      ${of}[_y*WIDTH+_x]=constrain(_v,0.0f,1.0f);}}`)
+  },
+  FloatToField({ ln, f, ownField }) {
+    const of = ownField()
+    ln(`  { float _fv=constrain(${f('value', 'value', 0.5)},0.0f,1.0f); for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=_fv; }`)
+  },
+  FieldBlur({ id, ln, f, ownField, srcField }) {
+    const of = ownField()
+    const src = srcField('field')
+    if (!src) { ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f; // FieldBlur: no input`); return }
+    ln(`  { /* FieldBlur */`)
+    ln(`    static float _fbT_${id}[NUM_LEDS];`)
+    ln(`    int _r=(int)constrain(roundf(${f('radius', 'radius', BLUR_RADIUS.default)}),${BLUR_RADIUS.min}.0f,${BLUR_RADIUS.max}.0f); float _span=2*_r+1;`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _s=0.0f; for(int _k=-_r;_k<=_r;_k++){ int _sx=_x+_k; _sx=_sx<0?0:(_sx>=WIDTH?WIDTH-1:_sx); _s+=${src}[_y*WIDTH+_sx]; } _fbT_${id}[_y*WIDTH+_x]=_s/_span; }`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _s=0.0f; for(int _k=-_r;_k<=_r;_k++){ int _sy=_y+_k; _sy=_sy<0?0:(_sy>=HEIGHT?HEIGHT-1:_sy); _s+=_fbT_${id}[_sy*WIDTH+_x]; } ${of}[_y*WIDTH+_x]=_s/_span; } }`)
   },
   ShapeField({ p, ln, f, ownField, needsSdf }) {
     needsSdf.v = true

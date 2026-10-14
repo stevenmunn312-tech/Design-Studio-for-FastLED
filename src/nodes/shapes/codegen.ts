@@ -74,6 +74,7 @@ import { asSdVideoClip, SDV_HEADER_BYTES, SDV_MAX_SPEED, sdvFrameBytes, sdvPath 
 import { sanitizePin } from '../../codegen/hardwarePins'
 import { SPI_BUS_CPP } from '../../codegen/helpers/spiBusCpp'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
+import { FONT_CPP_MARKER, WIRED_TEXT_MAX, fontCppHelper } from '../shared/fontCpp'
 
 export const SHAPES_EMITTERS: NodeEmitters = {
   SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
@@ -426,16 +427,57 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`          if (_cov<=0.0f) continue; CRGB _add=_wfColor; _add.nscale8((uint8_t)(_bright*_cov*255.0f)); ${ob}[_y*WIDTH+_x] += _add; } } }`)
     ln(`  }`)
   },
-  Text({ node, id, p, ln, f, channelColor, ownBuf, incoming, needsT }) {
+  Text({ node, id, p, ln, f, channelColor, ownBuf, incoming, needsT, globalLines }) {
     const ob = ownBuf()
-    const text = String(p.text ?? 'HELLO')
-    const font = asFont(p.font)
     const letterSpacing = Math.max(0, Math.round(Number(p.letterSpacing ?? 1)))
-    const layout = textBlockLayout(text, font, letterSpacing)
     const hAlign = textAlignMode(p.hAlign ?? 'center', 'left', 'right')
     const vAlign = textAlignMode(p.vAlign ?? 'middle', 'top', 'bottom')
     const scrollAxis: 'horizontal' | 'vertical' = p.scrollAxis === 'vertical' ? 'vertical' : 'horizontal'
     const wrap = Boolean(p.wrap)
+    const textUp = incoming.get(`${node.id}:text`)
+    if (textUp) {
+      // A wired string is drawn at run time from the built-in font's glyph
+      // table (one copy per sketch), one line, like the evaluator's wired path.
+      if (!globalLines.some((line) => line.startsWith(FONT_CPP_MARKER))) globalLines.push(fontCppHelper())
+      const stride = FONT_W + letterSpacing
+      const colorE = channelColor('color', 0, 255, 255)
+      const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
+      ln(`  { // Text (wired)`)
+      ln(`    const char* _ts = n_${safeId(textUp.srcId)}_${safeId(textUp.srcPort)}; int _tl = 0; while (_ts[_tl] && _tl < ${WIRED_TEXT_MAX}) _tl++; int _tn = _tl * ${stride};`)
+      ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+      if (dynamic) {
+        needsT.v = true
+        ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)
+        const ph = speedPhaseCpp(ln, phaseTag(id), '_scr')
+        if (scrollAxis === 'vertical') {
+          ln(`    int _totY = ${FONT_H} + HEIGHT, _offY = _scr != 0.0f ? ((((int)(${ph})) % _totY) + _totY) % _totY : 0, _offX = 0;`)
+        } else {
+          ln(`    int _totX = _tn + WIDTH, _offX = _scr != 0.0f ? ((((int)(${ph})) % _totX) + _totX) % _totX : 0, _offY = 0;`)
+        }
+      } else {
+        ln(`    int _offX = 0, _offY = 0;`)
+      }
+      ln(`    int _sy = (int)${textAxisStartExpr(f('y', 'y', 0.5), 'HEIGHT', `${FONT_H}`, vAlign, wrap)};`)
+      ln(`    int _sx = (int)${textAxisStartExpr(f('x', 'x', 0.5), 'WIDTH', '_tn', hAlign, wrap)};`)
+      const draw = (sx: string, sy: string, indent: string) => {
+        ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (${sx}) + _offX; if (_ci < 0 || _ci >= _tn) continue; int _gc = _ci % ${stride}; if (_gc >= ${FONT_W}) continue; uint8_t _col = _fontCol(_ts[_ci / ${stride}], _gc);`)
+        ln(`${indent}  for (int _r = 0; _r < ${FONT_H}; _r++) if (_col & (1 << _r)) { int _yy = (${sy}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+      }
+      if (wrap) {
+        ln(`    int _wrapX[3] = {-WIDTH, 0, WIDTH};`)
+        ln(`    int _wrapY[3] = {-HEIGHT, 0, HEIGHT};`)
+        ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
+        draw('_sx + _wrapX[_wx]', '_sy + _wrapY[_wy]', '      ')
+        ln(`    }`)
+      } else {
+        draw('_sx', '_sy', '    ')
+      }
+      ln(`  }`)
+      return
+    }
+    const text = String(p.text ?? 'HELLO')
+    const font = asFont(p.font)
+    const layout = textBlockLayout(text, font, letterSpacing)
     const renderableLines = layout.lines
       .map((line, index) => ({ ...line, index }))
       .filter((line) => line.cols.length > 0)

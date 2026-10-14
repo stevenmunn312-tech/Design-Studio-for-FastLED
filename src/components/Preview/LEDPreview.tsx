@@ -189,6 +189,9 @@ export default function LEDPreview() {
   // animation origin.
   const elapsedStartTime = useRef(0)
   const lastStep      = useRef(0)
+  // The visible gate's interval: the Board's frame rate, read on each
+  // evaluated frame so the preview paces like the sketch it generates.
+  const frameStepMs   = useRef(1000 / 60)
   // React-driven node previews and signal lighting do not need the matrix's
   // full 60 fps cadence. Bounding their publish rate prevents a busy graph
   // from queuing UI work faster than React and the canvas thumbnails can draw.
@@ -577,7 +580,7 @@ export default function LEDPreview() {
         const visible = previewVisibleRef.current
         const hasLiveVu = Boolean(vuMeterIdRef.current) && uiEffectsEnabledRef.current && !analyzingMusicRef.current
         const hiddenStep = hasLiveVu ? VU_PREVIEW_PUBLISH_INTERVAL_MS : PREVIEW_PUBLISH_INTERVAL_MS
-        if (now - lastStep.current < (visible ? STEP : hiddenStep)) {
+        if (now - lastStep.current < (visible ? frameStepMs.current : hiddenStep)) {
           animRef.current = requestAnimationFrame(loop)
           return
         }
@@ -599,6 +602,7 @@ export default function LEDPreview() {
         // still renders at the project's matrix size and master brightness.
         const hardwareNodes = rootGraphNodes(state)
         const controller = controllerSettings(hardwareNodes)
+        frameStepMs.current = 1000 / controller.frameRate
         const groups = getGroupRegistry()
         // A pattern group open on the canvas has no Group node binding its
         // inputs, so its audio inputs take the project's live source and the

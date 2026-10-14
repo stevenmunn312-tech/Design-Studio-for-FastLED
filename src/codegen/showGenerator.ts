@@ -45,6 +45,7 @@ import {
 import { compositionDims, outputRoutes } from '../state/output/outputRouting'
 import { outputCanvasDims } from '../state/output/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
+import { loopPacingCpp } from './loopPacing'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
   TELEMETRY_LOOP_BEGIN_CPP, TELEMETRY_REPORT_CPP, TELEMETRY_SERIAL_BEGIN_CPP,
@@ -1243,7 +1244,7 @@ export function generateShowSketch(
   for (const line of displays.loop) L.push(line)
   L.push(...customDisplays.loop)
   if (emitTelemetry) L.push(TELEMETRY_REPORT_CPP)
-  L.push('  FastLED.delay(16);')
+  L.push(loopPacingCpp(controller.frameRate))
   L.push('}')
 
   // Splice in only the palettes something else in the sketch actually names.

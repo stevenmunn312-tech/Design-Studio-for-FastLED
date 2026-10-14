@@ -226,6 +226,17 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  const char* ${v('name')} = _pbName_${id}[_pbIdx_${id}];`)
     ln(`  float ${v('index')} = (float)_pbIdx_${id};`)
   },
+  // Keep in lockstep with the `PaletteTransform` evaluator: entry by entry
+  // at rest (an index lookup smears entry 15 round to 0 — see PaletteBlend),
+  // a wrapping ColorFromPalette once Offset rotates it, then nscale8.
+  PaletteTransform({ node, id, p, ln, f, paletteExpr }) {
+    const src = paletteExpr(node.id, 'paletteIn', { palette: 'rainbow' })
+    const reverse = Boolean(p.reverse)
+    ln(`  CRGBPalette16 pal_${id};`)
+    ln(`  { float _off=fmodf(${f('offset', 'offset', 0)},1.0f); if(_off<0.0f)_off+=1.0f; uint8_t _br=(uint8_t)(constrain(${f('brightness', 'brightness', 1)},0.0f,1.0f)*255.0f);`)
+    ln(`    for(int _i=0;_i<16;_i++){ int _k=${reverse ? '15-_i' : '_i'}; CRGB _c=_off>0.0f?ColorFromPalette(${src},(uint8_t)(fmodf(_k/15.0f+_off,1.0f)*255.0f),255,LINEARBLEND):${src}[_k];`)
+    ln(`      _c.nscale8(_br); pal_${id}[_i]=_c; } }`)
+  },
   PaletteBlend({ node, id, p, ln, f, paletteExpr }) {
     // Build a CRGBPalette16 by blending both palettes entry-by-entry. Every
     // palette a port resolves to is itself a CRGBPalette16, so entry i is read

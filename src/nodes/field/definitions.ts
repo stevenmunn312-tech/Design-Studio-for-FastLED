@@ -330,6 +330,52 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { low: 0, high: 1, steps: 1, invert: false },
   },
   {
+    // A plain ramp across the matrix: linear along Angle, radial from the
+    // centre, or angular round it. `offset` slides the ramp and `repeat`
+    // folds it, so one node makes stripes, rings or a pinwheel for Field →
+    // Frame, Field Math or a Field Warp to shape.
+    type: 'GradientField',
+    label: 'Gradient Field',
+    category: 'field',
+    inputs: [
+      { id: 'angle', label: 'Angle', dataType: 'float' },
+      { id: 'cx', label: 'Center X', dataType: 'float' },
+      { id: 'cy', label: 'Center Y', dataType: 'float' },
+      { id: 'offset', label: 'Offset', dataType: 'float' },
+    ],
+    propertyInputs: { angle: 'angle', cx: 'cx', cy: 'cy', offset: 'offset' },
+    defaultExposedInputs: ['angle', 'offset'],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { gradientType: 'linear', angle: 0, cx: 0.5, cy: 0.5, offset: 0, repeat: 1 },
+  },
+  {
+    // One number as a uniform field, so a level or a knob can enter the
+    // field chain: mixed in by Field Math, or thresholded by Field Levels.
+    type: 'FloatToField',
+    label: 'Float → Field',
+    category: 'field',
+    inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    propertyInputs: { value: 'value' },
+    defaultExposedInputs: ['value'],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { value: 0.5 },
+  },
+  {
+    // A separable box blur over a field, `radius` pixels each way, edges
+    // clamped. Softens a hard Shape Field or Automaton before it drives a
+    // warp or a mask.
+    type: 'FieldBlur',
+    label: 'Field Blur',
+    category: 'field',
+    inputs: [
+      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'radius', label: 'Radius', dataType: 'float' },
+    ],
+    propertyInputs: { radius: 'radius' },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { radius: 1 },
+  },
+  {
     type: 'ShapeField',
     label: 'Shape Field',
     category: 'field',
@@ -437,6 +483,9 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   FrameToField: 'Extracts a brightness field from a rendered frame.',
   FieldMath: 'Combines two fields: add, subtract, multiply, min, max, difference, or mix by T.',
   FieldLevels: 'Remaps, thresholds, quantises or inverts a scalar field.',
+  GradientField: 'A linear, radial or angular ramp across the matrix, with offset and repeat.',
+  FloatToField: 'Fills a field with one number, so a level can enter the field chain.',
+  FieldBlur: 'Box-blurs a field by a radius in pixels.',
   ShapeField: 'Circle, rectangle or morphing polygon as a fill or signed-distance field.',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   FieldRotate: 'Rotates a field around its centre (angle + spin over time).',

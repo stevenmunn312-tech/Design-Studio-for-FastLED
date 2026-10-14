@@ -28,6 +28,7 @@ import {
   turingStep, turingStepSize,
 } from '../../state/evaluator/turing'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from './sliceTiling'
+import { BLUR_RADIUS, GRADIENT_REPEAT, RADIAL_REACH, blurRadius, gradientRepeat, gradientType, gradientWraps } from './gradientField'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
@@ -894,6 +895,64 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       Boolean(props.invert),
       W, H,
     ) }
+  },
+  // Keep in lockstep with the `GradientField` emitter: the same normalised
+  // coordinates, reach and wrap rule.
+  GradientField({ num, W, H }, id, props) {
+    const type = gradientType(props.gradientType)
+    const repeat = gradientRepeat(Number(props.repeat ?? GRADIENT_REPEAT.default))
+    const angle = num(id, 'angle', props, 'angle', 0) * Math.PI / 180
+    const cx = num(id, 'cx', props, 'cx', 0.5)
+    const cy = num(id, 'cy', props, 'cy', 0.5)
+    const offset = num(id, 'offset', props, 'offset', 0)
+    const wraps = gradientWraps(type, repeat)
+    const ca = Math.cos(angle), sa = Math.sin(angle)
+    const out = allocField(W * H)
+    for (let y = 0; y < H; y++) {
+      const ny = H > 1 ? y / (H - 1) : 0
+      for (let x = 0; x < W; x++) {
+        const nx = W > 1 ? x / (W - 1) : 0
+        const dx = nx - cx, dy = ny - cy
+        let d: number
+        if (type === 'radial') d = Math.sqrt(dx * dx + dy * dy) / RADIAL_REACH
+        else if (type === 'angular') d = Math.atan2(dy, dx) / (Math.PI * 2) + 0.5
+        else d = dx * ca + dy * sa + 0.5
+        const v = (d + offset) * repeat
+        out[y * W + x] = wraps ? ((v % 1) + 1) % 1 : clamp01(v)
+      }
+    }
+    return { field: out }
+  },
+  FloatToField({ num, W, H }, id, props) {
+    const out = allocField(W * H)
+    out.fill(clamp01(num(id, 'value', props, 'value', 0.5)))
+    return { field: out }
+  },
+  // Keep in lockstep with the `FieldBlur` emitter: a separable box blur,
+  // rows then columns, edges clamped.
+  FieldBlur({ input, num, W, H }, id, props) {
+    const fv = input(id, 'field', null)
+    const src = fv instanceof Float32Array ? fv : null
+    const out = allocField(W * H)
+    if (!src) return { field: out }
+    const r = blurRadius(num(id, 'radius', props, 'radius', BLUR_RADIUS.default))
+    const tmp = allocField(W * H)
+    const span = 2 * r + 1
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let sum = 0
+        for (let k = -r; k <= r; k++) sum += src[y * W + Math.max(0, Math.min(W - 1, x + k))]
+        tmp[y * W + x] = sum / span
+      }
+    }
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let sum = 0
+        for (let k = -r; k <= r; k++) sum += tmp[Math.max(0, Math.min(H - 1, y + k)) * W + x]
+        out[y * W + x] = sum / span
+      }
+    }
+    return { field: out }
   },
   ShapeField({ num, W, H }, id, props) {
     return { field: evalShapeField(

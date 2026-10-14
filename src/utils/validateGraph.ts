@@ -92,6 +92,7 @@ import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
+import { dmxUsesNetwork } from '../state/peripherals/dmxTransceiver'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/peripherals/lightSensor'
@@ -1481,10 +1482,10 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   }
   if (selectedFqbn && nodes.some((node) => {
     const props = node.data.properties as Record<string, unknown>
-    return (node.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
+    return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
       || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
   }) && !ethernetModuleIn(nodes) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
-    errors.push('Art-Net and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
+    errors.push('Art-Net, sACN and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
   }
   /*
    * "Internal DAC on a board with no DAC" used to be an error here. It cannot
@@ -1852,11 +1853,11 @@ function irRemoteValidationIssues(
   return issues
 }
 
-/** Nodes that need the sketch's network: Art-Net receive and NTP time sync. */
+/** Nodes that need the sketch's network: Art-Net or sACN receive and NTP time sync. */
 function networkUsers(nodes: StudioNode[]): StudioNode[] {
   return nodes.filter((node) => {
     const props = node.data.properties as Record<string, unknown>
-    return (node.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
+    return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
       || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
   })
 }
@@ -3933,13 +3934,13 @@ export function buildGraphDiagnostics(
     && !options.selectedFqbn.startsWith('esp32:') && !options.selectedFqbn.startsWith('esp8266:')) {
     for (const node of nodes.filter((entry) => {
       const props = entry.data.properties as Record<string, unknown>
-      return (entry.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
+      return (entry.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
         || (entry.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
     })) {
       diagnostics.push({
         id: `${node.id}-board-network`, severity: 'error', category: 'board',
         title: 'Network sync is incompatible with the selected board',
-        message: 'Art-Net receive and NTP time sync need a Wi-Fi-capable ESP32-family board or ESP8266 target.',
+        message: 'Art-Net or sACN receive and NTP time sync need a Wi-Fi-capable ESP32-family board or ESP8266 target.',
         fix: 'Choose an ESP32-family board / ESP8266 in Board & Port, or switch the node back to a non-network mode.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })

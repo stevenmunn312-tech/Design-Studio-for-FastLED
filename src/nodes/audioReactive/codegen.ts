@@ -8,8 +8,27 @@ import {
   WAVE_SAMPLES, WAVE_SMOOTHING_MAX, WAVE_STYLES, WAVE_THICKNESS_MAX, WAVE_THICKNESS_MIN,
 } from '../../state/evaluator/waveform'
 import { BEAT_FLASH_ATTACK_MAX_SEC, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN } from './evaluate'
+import { METER_PEAK_FALL, METER_PEAK_HOLD, meterOrigin } from './levelMeter'
 
 export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
+  // Keep in lockstep with the `LevelMeter` evaluator: fill, origin distance
+  // and the peak marker's hold-then-fall (levelMeter.ts), on the wall clock.
+  LevelMeter({ node, id, p, ln, f, ownBuf, paletteExpr }) {
+    const ob = ownBuf()
+    const horizontal = String(p.axis ?? 'horizontal') !== 'vertical'
+    const origin = meterOrigin(p.origin)
+    const hold = Math.max(METER_PEAK_HOLD.min, Math.min(METER_PEAK_HOLD.max, Number(p.peakHold ?? METER_PEAK_HOLD.default)))
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    const dist = origin === 'end' ? '_span-1.0f-_c' : origin === 'center' ? 'fabsf(_c-(_span-1.0f)/2.0f)*2.0f' : '_c'
+    ln(`  { // Level Meter`)
+    ln(`    float _lv=constrain(${f('level', 'level', 0.5)},0.0f,1.0f),_span=${horizontal ? 'WIDTH' : 'HEIGHT'}; int _fill=(int)floorf(_lv*_span+0.5f);`)
+    ln(`    static float _pk_${id}=0.0f,_pkS_${id}=0.0f,_pkT_${id}=-1.0f; float _now=millis()/1000.0f,_dt=_pkT_${id}<0.0f?0.0f:_now-_pkT_${id}; _pkT_${id}=_now;`)
+    ln(`    if(_lv>=_pk_${id}){ _pk_${id}=_lv; _pkS_${id}=_now; } else if(_now-_pkS_${id}>${floatLit(hold)}) _pk_${id}=fmaxf(_lv,_pk_${id}-${floatLit(METER_PEAK_FALL)}*_dt);`)
+    ln(`    int _pc=${hold > 0 ? `(int)floorf(_pk_${id}*_span+0.5f)-1` : '-1'}; CRGB _pkc=ColorFromPalette(${pal},255,255,LINEARBLEND_NOWRAP);`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _c=${horizontal ? '(float)_x' : '(float)_y'},_d=${dist}; CRGB _px;`)
+    ln(`      if(_pc>=0&&(int)floorf(_d)==_pc) _px=_pkc; else if(_d>=_fill) _px=CRGB::Black; else _px=ColorFromPalette(${pal},(uint8_t)((_span>1.0f?_d/(_span-1.0f):0.0f)*255.0f),255,LINEARBLEND_NOWRAP);`)
+    ln(`      ${ob}[_y*WIDTH+_x]=_px; } }`)
+  },
   SpectrumBars({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()

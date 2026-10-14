@@ -1,5 +1,8 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
 import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from './limits'
+import {
+  BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, breatheCurve, breatheEnvelope, chaseSpacing, wipePalettePosition, wipeReversed,
+} from './classics1d'
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
@@ -593,6 +596,48 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
     const axis = String(props.axis ?? 'horizontal')
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
     return { frame: evalScanner(stateKey(id), speed, width, fade, axis, t, palette, W, H) }
+  },
+  TheaterChase({ num, pal, t, W, H, stateKey }, id, props) {
+    const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.TheaterChase)
+    const spacing = chaseSpacing(num(id, 'spacing', props, 'spacing', CHASE_SPACING.default))
+    const horizontal = String(props.axis ?? 'horizontal') !== 'vertical'
+    const reverse = String(props.direction ?? 'forward') === 'reverse'
+    const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+    const phase = speedPhase(stateKey(id), t, speed)
+    const step = Math.floor(phase)
+    const span = Math.max(1, horizontal ? W : H)
+    return { frame: buildFrame(W, H, (x, y) => {
+      const coord = horizontal ? x : y
+      const k = reverse ? coord + step : coord - step
+      if (((k % spacing) + spacing) % spacing !== 0) return { r: 0, g: 0, b: 0 }
+      const v = coord / span + phase * CHASE_DRIFT
+      return samplePalette(palette, ((v % 1) + 1) % 1)
+    }) }
+  },
+  ColorWipe({ num, pal, t, W, H, stateKey }, id, props) {
+    const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.ColorWipe)
+    const horizontal = String(props.axis ?? 'horizontal') !== 'vertical'
+    const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    const phase = speedPhase(stateKey(id), t, speed)
+    const n = Math.floor(phase)
+    const span = Math.max(1, horizontal ? W : H)
+    const filled = Math.floor((phase - n) * span)
+    const fresh = samplePalette(palette, wipePalettePosition(n))
+    const previous: RGB = n > 0 ? samplePalette(palette, wipePalettePosition(n - 1)) : { r: 0, g: 0, b: 0 }
+    const reversed = wipeReversed(props.direction, n)
+    return { frame: buildFrame(W, H, (x, y) => {
+      const coord = horizontal ? x : y
+      const i = reversed ? span - 1 - coord : coord
+      return i < filled ? fresh : previous
+    }) }
+  },
+  Breathe({ num, pal, t, W, H, stateKey }, id, props) {
+    const bpm = Math.max(BREATHE_BPM.min, Math.min(BREATHE_BPM.max, num(id, 'bpm', props, 'bpm', BREATHE_BPM.default)))
+    const minLevel = clamp01(num(id, 'minLevel', props, 'minLevel', 0.05))
+    const env = breatheEnvelope(breatheCurve(props.curve), speedPhase(stateKey(id), t, bpm / 60))
+    const level = minLevel + (1 - minLevel) * env
+    const c = scaleRgb(samplePalette(pal(id, 'paletteIn', props, 'palette', 'ocean'), env), level)
+    return { frame: buildFrame(W, H, () => c) }
   },
   Confetti({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Confetti)

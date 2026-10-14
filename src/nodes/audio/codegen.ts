@@ -3,6 +3,8 @@ import { nativeBeatGateCpp } from '../../codegen/audio/nativeBeatGateCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
 import { audioHueWeight } from './evaluate'
+import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS } from '../../audio/frequencyBand'
+import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
 
 export const AUDIO_EMITTERS: NodeEmitters = {
   FFTAnalyzer({ node, id, p, ln, v, f, hasExplicitAudioInput }) {
@@ -259,6 +261,38 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`  float ${v('hz')} = _audioPitchHz, ${v('note')} = (float)_audioPitchNote, ${v('velocity')} = _audioPitchVelocity, ${v('confidence')} = _audioPitchConf;`)
     ln(`  bool ${v('noteOn')} = _audioPitchNoteOn, ${v('keyMinor')} = _audioKeyConf > 0.0f && _audioKeyMinor;`)
     ln(`  float ${v('keyRoot')} = _audioKeyConf > 0.0f ? (float)_audioKeyRoot : 0.0f, ${v('keyConfidence')} = _audioKeyConf;`)
+  },
+  // Keep in lockstep with the `FrequencyBand` evaluator: the same slot rule
+  // (src/audio/frequencyBand.ts) over the 32-slot spectrum, gain and smoothing.
+  FrequencyBand({ node, id, ln, v, f, hasExplicitAudioInput }) {
+    const spec = hasExplicitAudioInput(node.id) ? '_audioSpectrum' : null
+    const slot = (i: string) => (spec ? `constrain(${spec}[${i}],0.0f,1.0f)` : '0.0f')
+    if (!spec) ln(`  // FrequencyBand — connect an Audio source to drive this band`)
+    ln(`  static const float _fbC_${id}[${EQ_BIN_CENTRES_HZ.length}]={${EQ_BIN_CENTRES_HZ.map((hz) => floatLit(hz, 2)).join(',')}};`)
+    ln(`  float ${v('level')};`)
+    ln(`  { float _lo=constrain(${f('lowHz', 'lowHz', 60)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f),_hi=constrain(${f('highHz', 'highHz', 250)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f); if(_lo>_hi){ float _t=_lo; _lo=_hi; _hi=_t; }`)
+    ln(`    float _sum=0.0f; int _n=0; for(int _i=0;_i<${SPECTRUM_SLOTS};_i++){ float _c=_fbC_${id}[_i>>1]; if(_c>=_lo&&_c<=_hi){ _sum+=${slot('_i')}; _n++; } }`)
+    ln(`    if(_n==0){ float _mid=sqrtf(_lo*_hi); int _near=0; float _best=1e9f; for(int _i=0;_i<${SPECTRUM_SLOTS};_i+=2){ float _d=fabsf(logf(_fbC_${id}[_i>>1]/_mid)); if(_d<_best){ _best=_d; _near=_i; } } _sum=${slot('_near')}+${slot('_near+1')}; _n=2; }`)
+    ln(`    float _g=constrain(${f('gain', 'gain', 1)},0.25f,4.0f),_sm=constrain(${f('smoothing', 'smoothing', 0.6)},0.0f,0.95f),_tg=fminf(1.0f,(_sum/_n)*_g);`)
+    ln(`    static float _fbS_${id}=-1.0f; _fbS_${id}=_fbS_${id}<0.0f?_tg:_fbS_${id}*_sm+_tg*(1.0f-_sm); ${v('level')}=_fbS_${id}; }`)
+  },
+  StereoLevels({ node, ln, v, hasExplicitAudioInput }) {
+    const connected = hasExplicitAudioInput(node.id)
+    if (!connected) ln(`  // StereoLevels — connect an Audio source to drive these levels`)
+    ln(`  float ${v('left')}=${connected ? 'constrain(_audioLeftLevel,0.0f,1.0f)' : '0.0f'}, ${v('right')}=${connected ? 'constrain(_audioRightLevel,0.0f,1.0f)' : '0.0f'};`)
+    ln(`  float ${v('balance')}=(${v('left')}+${v('right')})>0.0f?${v('right')}/(${v('left')}+${v('right')}):0.5f;`)
+  },
+  // Keep in lockstep with the `BeatPhase` evaluator: a wall-clock saw at
+  // `bpm`, snapped to 0 by a rising Beat edge, with a bar saw and a count.
+  BeatPhase({ node, id, p, ln, v, f, boolExpr }) {
+    const bar = beatPhaseBeatsPerBar(Number(p.beatsPerBar ?? BEAT_PHASE_BAR.default))
+    ln(`  float ${v('phase')}, ${v('bar')}, ${v('count')};`)
+    ln(`  { static float _bpP_${id}=0.0f; static uint32_t _bpC_${id}=0, _bpT_${id}=0; static bool _bpI_${id}=false, _bpV_${id}=false;`)
+    ln(`    float _bpm=constrain(${f('bpm', 'bpm', BEAT_PHASE_BPM.default)},${BEAT_PHASE_BPM.min}.0f,${BEAT_PHASE_BPM.max}.0f); uint32_t _now=millis(); bool _bt=(${boolExpr(node.id, 'beat')});`)
+    ln(`    float _dt=_bpI_${id}?(float)(_now-_bpT_${id})/1000.0f:0.0f; _bpT_${id}=_now; _bpI_${id}=true;`)
+    ln(`    float _ph=_bpP_${id}+_dt*_bpm/60.0f; uint32_t _cnt=_bpC_${id}; if(_ph>=1.0f){ _cnt+=(uint32_t)floorf(_ph); _ph-=floorf(_ph); }`)
+    ln(`    if(_bt&&!_bpV_${id}){ _ph=0.0f; _cnt=_bpC_${id}+1; } _bpV_${id}=_bt; _bpP_${id}=_ph; _bpC_${id}=_cnt;`)
+    ln(`    ${v('phase')}=_ph; ${v('bar')}=((float)(_cnt%${bar}u)+_ph)/${bar}.0f; ${v('count')}=(float)_cnt; }`)
   },
   AudioHue({ node, p, ln, v, f, incoming }) {
     const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)

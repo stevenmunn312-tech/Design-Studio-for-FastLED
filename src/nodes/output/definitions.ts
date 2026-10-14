@@ -59,6 +59,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       // master level, power ceiling, overclock define and PSRAM build target.
       brightness: 128,
       overclock: 1,
+      // The loop's pacing: FastLED.delay(1000 / frameRate) at the end of
+      // every pass, and the preview gates its evaluation to the same rate.
+      frameRate: 60,
       powerLimit: false,
       milliamps: 2000,
       psramPolicy: 'auto',

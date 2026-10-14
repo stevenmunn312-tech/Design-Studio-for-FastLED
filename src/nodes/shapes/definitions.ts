@@ -66,6 +66,9 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     category: 'pattern',
     subcategory: 'Shapes & Text',
     inputs: [
+      // A wired string (Text Value, Format Number, Format Date/Time) replaces
+      // the typed text and is drawn at run time in the built-in font.
+      { id: 'text',   label: 'Text',   dataType: 'string' },
       { id: 'color',  label: 'Color',  dataType: 'color' },
       { id: 'x',      label: 'X',      dataType: 'float' },
       { id: 'y',      label: 'Y',      dataType: 'float' },

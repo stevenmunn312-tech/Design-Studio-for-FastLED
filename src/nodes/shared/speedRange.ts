@@ -29,6 +29,10 @@ export const SPEED_MAX: Record<string, number> = {
   TwinkleFox: 1,
   // Scanner — ping-pong sweeps per second across the chosen axis.
   Scanner: 1.2,
+  // TheaterChase — chase steps per second.
+  TheaterChase: 12,
+  // ColorWipe — full wipes per second.
+  ColorWipe: 1.5,
   // Confetti — spawn-rate multiplier for random speckles.
   Confetti: 1.4,
   // Juggle — sweep rate for the dot phases.

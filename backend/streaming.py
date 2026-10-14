@@ -179,6 +179,7 @@ _artnet_socket: socket.socket | None = None
 _artnet_thread: threading.Thread | None = None
 _artnet_stop_event: threading.Event | None = None
 _artnet_port: int = 6454
+_artnet_multicast_group: str | None = None
 _artnet_error: str | None = None
 _artnet_snapshots: dict[int, dict] = {}
 
@@ -227,6 +228,44 @@ def _artnet_stop_listener(clear_error: bool = False) -> None:
         thread.join(timeout=1.0)
 
 
+_SACN_ACN_ID = b"ASC-E1.17\x00\x00\x00"
+_SACN_MULTICAST_PREFIX = "239.255."
+
+
+def sacn_multicast_group(universe: int) -> str:
+    """E1.31 multicast group for a universe: 239.255.<hi>.<lo>."""
+    u = max(1, min(63999, int(universe)))
+    return f"{_SACN_MULTICAST_PREFIX}{(u >> 8) & 0xFF}.{u & 0xFF}"
+
+
+def _parse_dmx_packet(packet: bytes) -> tuple[int, bytes] | None:
+    """(universe, channel bytes) from one Art-Net ArtDmx or sACN (E1.31) data
+    packet, whichever this is; None for anything else. The listener accepts
+    both on whatever port it is bound to, so a node's protocol choice only
+    decides the default port and the multicast join."""
+    if len(packet) >= 18 and packet.startswith(b"Art-Net\x00"):
+        opcode = packet[8] | (packet[9] << 8)
+        if opcode != 0x5000:
+            return None
+        universe = packet[14] | (packet[15] << 8)
+        count = min(((packet[16] << 8) | packet[17]), 512)
+        if len(packet) < 18 + count:
+            return None
+        return universe, packet[18:18 + count]
+    if len(packet) >= 126 and packet[4:16] == _SACN_ACN_ID:
+        root_vector = int.from_bytes(packet[18:22], "big")
+        framing_vector = int.from_bytes(packet[40:44], "big")
+        if root_vector != 0x00000004 or framing_vector != 0x00000002:
+            return None
+        universe = (packet[113] << 8) | packet[114]
+        # The DMP property count includes the start code at offset 125.
+        count = min(((packet[123] << 8) | packet[124]) - 1, 512)
+        if count < 0 or packet[125] != 0 or len(packet) < 126 + count:
+            return None
+        return universe, packet[126:126 + count]
+    return None
+
+
 def _artnet_listener_loop(sock: socket.socket, stop_event: threading.Event) -> None:
     global _artnet_socket, _artnet_thread, _artnet_stop_event, _artnet_error
     try:
@@ -239,17 +278,11 @@ def _artnet_listener_loop(sock: socket.socket, stop_event: threading.Event) -> N
                 if stop_event.is_set():
                     break
                 raise
-            if len(packet) < 18 or not packet.startswith(b"Art-Net\x00"):
+            parsed = _parse_dmx_packet(packet)
+            if parsed is None:
                 continue
-            opcode = packet[8] | (packet[9] << 8)
-            if opcode != 0x5000:
-                continue
-            universe = packet[14] | (packet[15] << 8)
-            count = min(((packet[16] << 8) | packet[17]), 512)
-            if len(packet) < 18 + count:
-                continue
+            universe, payload = parsed
             channels = _artnet_blank_channels()
-            payload = packet[18:18 + count]
             channels[:len(payload)] = payload
             now = time.time()
             with _artnet_lock:
@@ -281,12 +314,17 @@ def _artnet_listener_loop(sock: socket.socket, stop_event: threading.Event) -> N
 
 @router.post("/api/artnet/start")
 def artnet_start(payload: dict = Body(...)):
-    global _artnet_socket, _artnet_thread, _artnet_stop_event, _artnet_port, _artnet_error
+    global _artnet_socket, _artnet_thread, _artnet_stop_event, _artnet_port, _artnet_multicast_group, _artnet_error
     port = int(payload.get("port") or 6454)
     if port < 1 or port > 65535:
         return JSONResponse({"ok": False, "error": "UDP port must be between 1 and 65535"}, status_code=400)
+    # sACN senders usually multicast to the universe's group; joining it is
+    # what makes those packets arrive. Unicast and Art-Net need no join.
+    protocol = str(payload.get("protocol") or "Art-Net")
+    universe = int(payload.get("universe") or 0)
+    multicast_group = sacn_multicast_group(universe) if protocol == "sACN" else None
     with _artnet_lock:
-        if _artnet_listening_locked() and _artnet_port == port:
+        if _artnet_listening_locked() and _artnet_port == port and _artnet_multicast_group == multicast_group:
             return {"ok": True}
     _artnet_stop_listener(clear_error=True)
     try:
@@ -294,6 +332,9 @@ def artnet_start(payload: dict = Body(...)):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("0.0.0.0", port))
         sock.settimeout(0.25)
+        if multicast_group is not None:
+            membership = socket.inet_aton(multicast_group) + socket.inet_aton("0.0.0.0")
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, membership)
     except Exception as exc:
         try:
             sock.close()
@@ -307,6 +348,7 @@ def artnet_start(payload: dict = Body(...)):
         _artnet_thread = thread
         _artnet_stop_event = stop_event
         _artnet_port = port
+        _artnet_multicast_group = multicast_group
         _artnet_error = None
     thread.start()
     return {"ok": True}

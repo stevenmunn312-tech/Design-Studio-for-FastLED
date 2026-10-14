@@ -28,6 +28,9 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       { id: 'a',      label: 'A',       dataType: 'frame' },
       { id: 'b',      label: 'B',       dataType: 'frame' },
       { id: 'amount', label: 'Opacity', dataType: 'float' },
+      // A per-pixel opacity: the mask frame's brightness scales `amount`
+      // where it is dark, so B shows through only inside a shape or gradient.
+      { id: 'mask', label: 'Mask', dataType: 'frame' },
     ],
     propertyInputs: { amount: 'amount' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
@@ -48,6 +51,42 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {},
+  },
+  {
+    // Glitter overlay — FastLED's addGlitter() over any frame: a handful of
+    // random pixels take the glitter colour each frame (added, or replacing),
+    // so a quiet pattern sparkles. The count follows `density` and the
+    // matrix size; a seed makes the sparkle positions repeatable.
+    type: 'Glitter',
+    label: 'Glitter',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'density', label: 'Density', dataType: 'float' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'r', label: 'R', dataType: 'float' },
+      { id: 'g', label: 'G', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+    ],
+    propertyInputs: { density: 'density', r: 'r', g: 'g', b: 'b' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { density: 0.3, glitterMode: 'add', r: 255, g: 255, b: 255, seed: 0 },
+  },
+  {
+    // Static geometry: a quarter-turn rotation, a flip on either axis and a
+    // slide in whole pixels that wraps. Transform animates; this one fixes a
+    // panel that was mounted sideways, or shifts a pattern across a tiled wall.
+    type: 'FrameTransform',
+    label: 'Frame Transform',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'offsetX', label: 'Offset X', dataType: 'float' },
+      { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
+    ],
+    propertyInputs: { offsetX: 'offsetX', offsetY: 'offsetY' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { rotate: '0', flipX: false, flipY: false, offsetX: 0, offsetY: 0 },
   },
 
   // ── Compositing ────────────────────────────────────────────────────────
@@ -343,6 +382,8 @@ export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   Blur2D: 'Box-blurs the frame.',
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
   Mask: 'Masks a frame by another frame’s brightness.',
+  Glitter: 'Sprinkles random sparkles of one colour over a frame each frame.',
+  FrameTransform: 'Rotates a frame by quarter turns, flips it, and slides it by whole pixels.',
   BrightnessMod: 'Dims or amplifies a frame with saturated 0–3× scaling.',
   HueShift: 'Rotates all hues.',
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',

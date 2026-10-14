@@ -89,6 +89,15 @@ import { VL53L0X_PART_ID, distanceSensorAddressOptions, distanceSensorTransport 
 import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from './peripherals/keypad'
 import { MPR121_PART_ID, touchPadAddressOptions } from './peripherals/touchPad'
 import { MPU6050_PART_ID, motionVectorAddressOptions } from './peripherals/motionVector'
+import { BREATHE_BPM, BREATHE_CURVES, CHASE_DIRECTIONS, CHASE_SPACING, WIPE_DIRECTIONS } from '../nodes/generative/classics1d'
+import { GLITTER_MODES } from '../nodes/composite/glitter'
+import { FRAME_OFFSET, FRAME_ROTATIONS } from '../nodes/composite/frameTransform'
+import { BLUR_RADIUS, GRADIENT_REPEAT, GRADIENT_TYPES } from '../nodes/field/gradientField'
+import { METER_ORIGINS, METER_PEAK_HOLD } from '../nodes/audioReactive/levelMeter'
+import { BAND_HZ } from '../audio/frequencyBand'
+import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
+import { FRAME_RATE } from '../build/controllerSettings'
+import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   ...INPUT_DEFINITIONS,
@@ -210,7 +219,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'DistanceField', 'ShapeField', 'FrameToField', 'FloatToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -612,7 +621,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     brightness: { control: 'slider', min: SEGMENT_BRIGHTNESS_MIN, max: SEGMENT_BRIGHTNESS_MAX, step: 1 },
   },
   DMXInput: {
-    inputMode: { control: 'select', options: ['Art-Net', 'DMX512'] },
+    inputMode: { control: 'select', options: [...DMX_INPUT_MODES] },
     universe: { control: 'slider', min: 0, max: 32767, step: 1, entry: 'number' },
     previewPort: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
     dmxPort: { control: 'slider', min: 1, max: 2, step: 1 },
@@ -715,6 +724,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Board: {
     brightness: { control: 'slider', min: 0, max: 255, step: 1 },
     overclock: { control: 'slider', min: 1, max: 2, step: 0.05 },
+    frameRate: { control: 'slider', min: FRAME_RATE.min, max: FRAME_RATE.max, step: 1 },
   },
   MatrixOutput: {
     form: { control: 'select', options: LED_OUTPUT_FORMS },
@@ -827,6 +837,25 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   SpectrumBars: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  LevelMeter: {
+    level: N01,
+    origin: { control: 'select', options: [...METER_ORIGINS] },
+    peakHold: { control: 'slider', min: METER_PEAK_HOLD.min, max: METER_PEAK_HOLD.max, step: 0.1 },
+  },
+  FrequencyBand: {
+    lowHz: { control: 'slider', min: BAND_HZ.min, max: BAND_HZ.max, step: 1, entry: 'number' },
+    highHz: { control: 'slider', min: BAND_HZ.min, max: BAND_HZ.max, step: 1, entry: 'number' },
+    gain: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+    smoothing: { control: 'slider', min: 0, max: 0.95, step: 0.01 },
+  },
+  BeatPhase: {
+    bpm: { control: 'slider', min: BEAT_PHASE_BPM.min, max: BEAT_PHASE_BPM.max, step: 1 },
+    beatsPerBar: { control: 'slider', min: BEAT_PHASE_BAR.min, max: BEAT_PHASE_BAR.max, step: 1 },
+  },
+  PaletteTransform: {
+    offset: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    brightness: N01,
   },
   SpectrumVisualizer: {
     style:          { control: 'select', options: ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall'] },
@@ -964,7 +993,27 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01,
     width: { control: 'slider', min: 1, max: 16, step: 1 },
   },
+  TheaterChase:    {
+    speed: N01,
+    spacing: { control: 'slider', min: CHASE_SPACING.min, max: CHASE_SPACING.max, step: 1 },
+    direction: { control: 'select', options: [...CHASE_DIRECTIONS] },
+  },
+  ColorWipe:       { speed: N01, direction: { control: 'select', options: [...WIPE_DIRECTIONS] } },
+  Breathe:         {
+    bpm: { control: 'slider', min: BREATHE_BPM.min, max: BREATHE_BPM.max, step: 1 },
+    minLevel: N01,
+    curve: { control: 'select', options: [...BREATHE_CURVES] },
+  },
   Confetti:        { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  Glitter:         {
+    glitterMode: { control: 'select', options: [...GLITTER_MODES] },
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
+  FrameTransform:  {
+    rotate: { control: 'select', options: [...FRAME_ROTATIONS] },
+    offsetX: { control: 'slider', min: FRAME_OFFSET.min, max: FRAME_OFFSET.max, step: 1 },
+    offsetY: { control: 'slider', min: FRAME_OFFSET.min, max: FRAME_OFFSET.max, step: 1 },
+  },
   Candle:          { flicker: N01, warmth: N01, mode: { control: 'select', options: [...CANDLE_MODES] } },
   Lightning:       { rate: { control: 'slider', min: 0.5, max: 60, step: 0.5 }, intensity: N01 },
   Heartbeat:       { bpm: { control: 'slider', min: HEARTBEAT_BPM_MIN, max: HEARTBEAT_BPM_MAX, step: 1 }, strength: N01 },
@@ -1241,6 +1290,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     high: N01,
     steps: { control: 'slider', min: 1, max: 16, step: 1 },
   },
+  GradientField: {
+    gradientType: { control: 'select', options: [...GRADIENT_TYPES] },
+    cx: N01,
+    cy: N01,
+    offset: { control: 'slider', min: -1, max: 1, step: 0.01 },
+    repeat: { control: 'slider', min: GRADIENT_REPEAT.min, max: GRADIENT_REPEAT.max, step: 1 },
+  },
+  FloatToField: { value: N01 },
+  FieldBlur: { radius: { control: 'slider', min: BLUR_RADIUS.min, max: BLUR_RADIUS.max, step: 1 } },
   ShapeField: {
     shape: { control: 'select', options: ['circle', 'rect', 'polygon'] },
     fieldMode: { control: 'select', options: ['fill', 'distance'] },
@@ -1972,6 +2030,20 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     steps: '1 keeps the field smooth; 2–16 quantises it to that many levels.',
     invert: 'Flips the result so 1 becomes 0 and 0 becomes 1.',
   },
+  GradientField: {
+    gradientType: 'Linear runs along Angle, radial grows from the centre, angular sweeps round it like a pinwheel.',
+    angle: 'Direction of a linear ramp in degrees: 0 left to right, 90 top to bottom.',
+    cx: 'Centre of a radial or angular ramp, left to right (0 to 1).',
+    cy: 'Centre of a radial or angular ramp, top to bottom (0 to 1).',
+    offset: 'Slides the ramp along itself; wire a signal to scroll stripes or spin a pinwheel.',
+    repeat: 'How many times the ramp repeats across the matrix. Above 1 the ramp wraps instead of clamping.',
+  },
+  FloatToField: {
+    value: 'The level every pixel of the field takes, 0 to 1, when nothing is wired into Value.',
+  },
+  FieldBlur: {
+    radius: 'Pixels each way the blur reaches, 1 to 4. Edges are clamped, not wrapped.',
+  },
   ShapeField: {
     size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
     softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
@@ -2187,8 +2259,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     pinSW: 'GPIO wired to the encoder push-switch (SW) line.',
   },
   DMXInput: {
-    inputMode: 'Art-Net receives over the network; DMX512 reads a wired DMX line through an RS-485 transceiver.',
-    universe: 'Art-Net universe this node listens to, 0 to 32767. Must match the sender.',
+    inputMode: 'Art-Net or sACN (E1.31) receives over the network; DMX512 reads a wired DMX line through an RS-485 transceiver.',
+    universe: 'Universe this node listens to, 0 to 32767 (sACN starts at 1). Must match the sender; sACN also joins the universe\'s multicast group.',
+    previewPort: 'UDP port the local helper and the firmware listen on. Switching protocol moves it to that protocol\'s port (6454 Art-Net, 5568 sACN) unless you set another.',
     wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
     useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
     staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
@@ -2223,6 +2296,23 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   SpectrumBars: {
     speed: 'Rate of the ripple, shimmer and palette scroll across the bars (0–1).',
     mirror: 'Draws the bars from the left edge and reflects them, so bass sits at both ends.',
+  },
+  LevelMeter: {
+    level: 'Bar length, 0 empty to 1 full, when nothing is wired into Level. Wire an audio level, a knob or a sensor.',
+    axis: 'Bar runs along rows (left to right) or down columns.',
+    origin: 'Where the bar grows from: the start of the axis, its end, or outward from the centre.',
+    peakHold: 'Seconds the peak marker holds at the highest recent level before it falls. 0 draws no marker.',
+    palette: 'Colour along the bar from its origin to full scale; the peak marker takes the palette end.',
+  },
+  FrequencyBand: {
+    lowHz: 'Bottom of the band in hertz. The spectrum spans about 90 Hz to 5 kHz in 16 log-spaced bins.',
+    highHz: 'Top of the band in hertz. A band narrower than one bin reads the nearest bin.',
+    gain: 'Multiplies the band level before it is clamped to 1.',
+    smoothing: 'How much of the previous frame carries over, 0 instant to 0.95 very slow.',
+  },
+  BeatPhase: {
+    bpm: 'Tempo the phase free-runs at between beats, or always when nothing is wired into Beat.',
+    beatsPerBar: 'Beats in one bar; the Bar output runs 0 to 1 over that many beats.',
   },
   SpectrumVisualizer: {
     style: 'Bars, centre-mirrored bars, a thin ribbon, a ring (Orbit), or a scrolling Waterfall history.',
@@ -2460,8 +2550,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     paletteB: 'Second palette. A wired Palette B input replaces it.',
     amount: 'Mix between the two: 0 is all A, 1 is all B.',
   },
+  PaletteTransform: {
+    reverse: 'Runs the palette backwards, so its last colour comes first.',
+    offset: 'Rotates the colours round the palette, 0 to 1 being one full turn. Wire a signal to scroll them.',
+    brightness: 'Scales every entry, 0 dark to 1 unchanged.',
+  },
   Text: {
-    text: 'What to show. Letters, digits and basic punctuation; a new line starts a second row.',
+    text: 'What to show. Letters, digits and basic punctuation; a new line starts a second row. A wired Text input replaces it, drawn at run time in the built-in font.',
     x: 'Horizontal position, 0 (just off the left edge) to 1 (just off the right edge).',
     y: 'Vertical position, 0 (just off the top) to 1 (just off the bottom).',
     scroll: 'Scroll speed in pixels per second. 0 holds still; negative runs the other way.',
@@ -2566,6 +2661,25 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     fade: 'Length of the trailing glow, 0 none to 1 about a third of the span.',
     axis: 'Sweep left-right along rows or up-down along columns.',
     palette: 'Colour of the beam, read from the palette at the beam position.',
+  },
+  TheaterChase: {
+    speed: 'Chase steps per second, 0 still to 1 twelve steps a second.',
+    spacing: 'LEDs between lit ones: 3 lights every third LED.',
+    axis: 'Chase along rows (left to right) or down columns.',
+    direction: 'Which way the lit set marches along the axis.',
+    palette: 'Colour along the strip, read from the palette by position and drifting with the chase.',
+  },
+  ColorWipe: {
+    speed: 'Wipes per second, 0 still to 1 one and a half wipes a second.',
+    axis: 'Wipe along rows (left to right) or down columns.',
+    direction: 'Forward wipes from the start every time, reverse from the end, bounce alternates.',
+    palette: 'Each wipe takes the next colour a fifth of the way round this palette.',
+  },
+  Breathe: {
+    bpm: 'Breaths per minute, 1 to 120. 12 is a resting adult.',
+    minLevel: 'Brightness at the bottom of each breath, 0 fully dark to 1 never dimming.',
+    curve: 'Natural is the exponential breathing curve, sine is symmetric, triangle is linear.',
+    palette: 'Colour across the breath: the palette start when empty, its end at the peak.',
   },
   Confetti: {
     speed: 'How many speckles appear per frame, 0 none to 1 most.',
@@ -2706,9 +2820,22 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Blur2D: {
     amount: 'How far colour bleeds into neighbours. 0 is sharp; 1 is a heavy smear.',
   },
+  Glitter: {
+    density: 'How many sparkles a frame: 1 is one per 64 LEDs, 0 none. Wire a beat or level to sparkle with the music.',
+    glitterMode: 'Add lightens the pixel under each sparkle toward the colour; replace paints it over.',
+    color: 'Sparkle colour. A wired Color input replaces the channels below.',
+  },
+  FrameTransform: {
+    rotate: 'Quarter turns clockwise. On a non-square matrix the turned picture is stretched to fit.',
+    flipX: 'Mirror left to right, after the rotation.',
+    flipY: 'Mirror top to bottom, after the rotation.',
+    offsetX: 'Slide right by this many LEDs (negative slides left). Pixels wrap round to the other edge.',
+    offsetY: 'Slide down by this many LEDs (negative slides up). Pixels wrap round to the other edge.',
+  },
   Blend: {
     blendMode: 'How B is laid over A: normal replaces, multiply darkens, screen and add lighten, difference shows change.',
     amount: 'Opacity of B over A. 0 shows only A, 1 the full blend. Wire a signal to crossfade.',
+    mask: 'Optional frame whose brightness scales the opacity per pixel, so B shows only inside a shape or gradient.',
   },
   BrightnessMod: {
     brightness: 'Multiplies every pixel. 1 is unchanged, 0 is black, up to 3 boosts (clipped at full white).',
@@ -2813,6 +2940,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Board: {
     brightness: 'Master LED level for the whole sketch, 0 to 255. Every output is scaled by it.',
+    frameRate: 'Frames per second the loop is paced to, 1 to 120. A lower cap saves power and leaves time for sensors; the preview runs at the same rate.',
     milliamps: 'Current the supply can give the LEDs. FastLED dims automatically to stay under it.',
     profileId: 'The exact controller board the sketch is built for, chosen from the hardware shelf. Empty means not chosen yet.',
   },
@@ -3053,6 +3181,11 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   SegmentDisplay: {
     showColon: 'colon',
   },
+  GradientField: {
+    gradientType: 'type',
+    cx: 'center X',
+    cy: 'center Y',
+  },
   ShapeField: {
     fieldMode: 'mode',
     cx: 'center X',
@@ -3103,6 +3236,18 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Blend: {
     blendMode: 'mode',
     amount: 'opacity',
+  },
+  Glitter: {
+    glitterMode: 'mode',
+  },
+  FrameTransform: {
+    flipX: 'flip X',
+    flipY: 'flip Y',
+    offsetX: 'offset X',
+    offsetY: 'offset Y',
+  },
+  Breathe: {
+    minLevel: 'min level',
   },
   Transform: {
     transform: 'mode',
@@ -3309,6 +3454,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Animartrix: { audioAmount: 'audio amount' },
   Board: {
     powerLimit: 'power cap',
+    frameRate: 'frame rate',
     reportTelemetry: 'telemetry',
   },
   SliceTiling: {
@@ -3498,6 +3644,16 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     midsWeight: 'mids weight',
     trebleWeight: 'treble weight',
   },
+  FrequencyBand: {
+    lowHz: 'low Hz',
+    highHz: 'high Hz',
+  },
+  BeatPhase: {
+    beatsPerBar: 'beats per bar',
+  },
+  LevelMeter: {
+    peakHold: 'peak hold',
+  },
 }
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
@@ -3644,7 +3800,7 @@ export interface PropertyGroup {
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   DMXInput: [
     { key: 'source', label: 'Firmware Source', keys: ['inputMode', 'universe', 'previewPort'] },
-    { key: 'wifi', label: 'Art-Net Wi-Fi', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
+    { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'dmx512', label: 'DMX512 Wiring', keys: ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] },
   ],
   RTCInput: [
@@ -4567,15 +4723,15 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     return transportDisplayPinKeysForProps(properties).includes(key)
   }
   if (nodeType === 'DMXInput') {
-    const artnet = String(properties.inputMode ?? 'Art-Net') === 'Art-Net'
+    const network = dmxUsesNetwork(properties)
     if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
-      return artnet && properties.useDhcp === false
+      return network && properties.useDhcp === false
     }
-    if (key === 'wifiHostname' || key === 'useDhcp') {
-      return artnet
+    if (key === 'wifiHostname' || key === 'useDhcp' || key === 'previewPort') {
+      return network
     }
     if (key === 'dmxPort' || key === 'dmxTxPin' || key === 'dmxRxPin' || key === 'dmxEnablePin') {
-      return !artnet
+      return !network
     }
   }
   if (nodeType === 'RTCInput') {

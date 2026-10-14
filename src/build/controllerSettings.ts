@@ -5,9 +5,13 @@ export type PsramPolicy = 'auto' | 'on' | 'off'
 export type SerialRoute = 'auto' | 'native' | 'uart'
 
 /** Project-wide firmware/output policy owned by the singleton Board node. */
+/** Frames per second the loop is paced to; the preview gates to the same. */
+export const FRAME_RATE = { min: 1, max: 120, default: 60 } as const
+
 export interface ControllerSettings {
   brightness: number
   overclock: number
+  frameRate: number
   powerLimit: boolean
   volts: number
   milliamps: number
@@ -25,6 +29,7 @@ export type BoardControllerProperties = Omit<ControllerSettings, 'usePsram' | 'u
 export const DEFAULT_BOARD_CONTROLLER_PROPERTIES: BoardControllerProperties = {
   brightness: 128,
   overclock: 1,
+  frameRate: FRAME_RATE.default,
   powerLimit: false,
   volts: 5,
   milliamps: 2000,
@@ -89,6 +94,7 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
   return {
     brightness: Math.round(number(props.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255)),
     overclock: number(props.overclock, DEFAULT_CONTROLLER_SETTINGS.overclock, 1, 2),
+    frameRate: Math.round(number(props.frameRate, DEFAULT_CONTROLLER_SETTINGS.frameRate, FRAME_RATE.min, FRAME_RATE.max)),
     powerLimit: props.powerLimit === true,
     volts: outputVolts.length ? Math.min(...outputVolts) : DEFAULT_CONTROLLER_SETTINGS.volts,
     milliamps: Math.round(number(props.milliamps, DEFAULT_CONTROLLER_SETTINGS.milliamps, 100, 100000)),

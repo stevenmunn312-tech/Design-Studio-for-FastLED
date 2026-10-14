@@ -31,6 +31,7 @@ import { type PlayerControlButtonEmit, PLAYER_CONTROLS_CPP, ledOutputLatchGlobal
 import { type IrRemoteProjectNode, irRemoteProjectEmission } from './peripherals/irRemoteCpp'
 import { type MasterSpeedEmit, masterClockLoopCpp, masterSpeedUpdateCpp } from './player/masterSpeedCpp'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from '../state/player/masterSpeed'
+import { isLoopPacing, loopPacingCpp, plainPacing } from './loopPacing'
 import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 import {
   type InfoDisplayEmit,
@@ -1612,13 +1613,12 @@ export function generateCpp(
   // Before the pacing delay: the report then measures the work a pass did, not
   // the sleep it was told to take.
   if (emitTelemetry) lines.push(TELEMETRY_REPORT_CPP)
-  lines.push(FASTLED_PACING)
+  lines.push(loopPacingCpp(controller.frameRate))
   lines.push(`}`)
 
   return withoutUnusedFastLed(lines).join('\n')
 }
 
-const FASTLED_PACING = '  FastLED.delay(16);  // ~60 fps'
 const FASTLED_INCLUDE = '#include <FastLED.h>'
 
 /**
@@ -1640,10 +1640,10 @@ const FASTLED_INCLUDE = '#include <FastLED.h>'
 function withoutUnusedFastLed(lines: string[]): string[] {
   const uses = /\b(FastLED|CRGB|CHSV|CLEDController|CPixelView|fill_solid|fill_rainbow|fill_gradient\w*|nscale8\w*|blend8|beatsin\d*|inoise\d*|EVERY_N_\w+|qadd8|qsub8|scale8\w*)\b/
   const needed = lines.some((line) => (
-    line !== FASTLED_PACING && line !== FASTLED_INCLUDE && uses.test(line)
+    !isLoopPacing(line) && line !== FASTLED_INCLUDE && uses.test(line)
   ))
   if (needed) return lines
   return lines
     .filter((line) => line !== FASTLED_INCLUDE)
-    .map((line) => (line === FASTLED_PACING ? '  delay(16);  // ~60 fps' : line))
+    .map((line) => (isLoopPacing(line) ? plainPacing(line) : line))
 }

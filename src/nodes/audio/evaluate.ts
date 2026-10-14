@@ -11,6 +11,9 @@ import type { NodeEvaluators, PortValue } from '../../state/evaluator/types'
 import { clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, resampleSpectrumBins } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
+import { bandLevel, clampBandHz } from '../../audio/frequencyBand'
+import { resolveStereoLevels } from '../../audio/stereoLevels'
+import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
 
 const fftLevels   = instanceState('fftLevels', new Map<string, { bass: number; mids: number; treble: number }>())
 const beatLevels  = instanceState('beatLevels', new Map<string, ReturnType<typeof createBeatDetectorState>>())
@@ -27,6 +30,8 @@ type AudioFeatureState = {
 }
 const percussionLevels = instanceState('percussionLevels', new Map<string, AudioFeatureState>())
 const audioFeatureLevels = instanceState('audioFeatureLevels', new Map<string, AudioFeatureState>())
+const bandLevels = instanceState('bandLevels', new Map<string, number>())
+const beatPhaseState = instanceState('beatPhaseState', new Map<string, { phase: number; count: number; lastT: number; prevBeat: boolean }>())
 
 function avgRange(values: readonly number[], start: number, end: number): number {
   const from = Math.max(0, Math.floor(start))
@@ -379,6 +384,50 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     // A payload from before the detector existed has no `pitch`: inactive.
     if (!pitch) return { ...PITCH_INACTIVE }
     return { ...pitch }
+  },
+  // Keep in lockstep with the `FrequencyBand` emitter: the same slot rule
+  // (src/audio/frequencyBand.ts), gain, clamp and smoothing.
+  FrequencyBand({ input, num, t, stateKey }, id, props) {
+    const audioValue = input(id, 'audio', null)
+    const audio = isAudioSignal(audioValue) ? audioValue : null
+    const low = clampBandHz(num(id, 'lowHz', props, 'lowHz', 60), 60)
+    const high = clampBandHz(num(id, 'highHz', props, 'highHz', 250), 250)
+    const gain = Math.max(0.25, Math.min(4, num(id, 'gain', props, 'gain', 1)))
+    const smoothing = Math.max(0, Math.min(0.95, num(id, 'smoothing', props, 'smoothing', 0.6)))
+    const live = Boolean(audio && (audio.active || audio.micActive))
+    const raw = live
+      ? bandLevel(audio!.detectorSpectrum ?? audio!.spectrum ?? [], low, high)
+      : useUiStore.getState().testSignal ? (Math.sin(t * 2.9 + Math.log(low)) + 1) / 2 : 0
+    const target = Math.min(1, raw * gain)
+    const key = stateKey(id)
+    const prev = bandLevels.get(key)
+    const level = prev === undefined ? target : prev * smoothing + target * (1 - smoothing)
+    bandLevels.set(key, level)
+    return { level }
+  },
+  StereoLevels({ input }, id) {
+    const audioValue = input(id, 'audio', null)
+    const audio = isAudioSignal(audioValue) ? audioValue : null
+    if (!audio || !(audio.active || audio.micActive)) return { left: 0, right: 0, balance: 0.5 }
+    const { left, right } = resolveStereoLevels(audio)
+    const total = left + right
+    return { left, right, balance: total > 0 ? right / total : 0.5 }
+  },
+  // Keep in lockstep with the `BeatPhase` emitter: a saw that free-runs at
+  // `bpm` on the wall clock and snaps to 0 on each rising Beat edge.
+  BeatPhase({ input, num, elapsedT, stateKey }, id, props) {
+    const bpm = Math.max(BEAT_PHASE_BPM.min, Math.min(BEAT_PHASE_BPM.max, num(id, 'bpm', props, 'bpm', BEAT_PHASE_BPM.default)))
+    const beatsPerBar = beatPhaseBeatsPerBar(Number(props.beatsPerBar ?? BEAT_PHASE_BAR.default))
+    const beat = Boolean(input(id, 'beat', false))
+    const key = stateKey(id)
+    const state = beatPhaseState.get(key) ?? { phase: 0, count: 0, lastT: elapsedT, prevBeat: false }
+    const dt = Math.max(0, elapsedT - state.lastT)
+    let phase = state.phase + dt * bpm / 60
+    let count = state.count
+    if (phase >= 1) { count += Math.floor(phase); phase -= Math.floor(phase) }
+    if (beat && !state.prevBeat) { phase = 0; count = state.count + 1 }
+    beatPhaseState.set(key, { phase, count, lastT: elapsedT, prevBeat: beat })
+    return { phase, bar: ((count % beatsPerBar) + phase) / beatsPerBar, count }
   },
   AudioHue({ num }, id, props) {
     const bass   = num(id, 'bass',   props, 'bass',   0.5)

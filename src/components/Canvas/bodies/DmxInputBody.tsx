@@ -4,13 +4,14 @@ import { useDmxStore } from '../../../state/peripherals/dmxStore'
 import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
 import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
 import { clampDmxUniverse } from '../../../state/peripherals/dmx'
+import { dmxListenPort, dmxNetworkProtocol } from '../../../state/peripherals/dmxTransceiver'
 import styles from './DmxInputBody.module.css'
 
-function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, error: string): string {
+function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, error: string, protocol: string): string {
   if (!helperOnline) return 'HELPER OFFLINE'
   if (error) return 'LISTENER ERROR'
   if (!listening) return 'NOT LISTENING'
-  return live ? 'ART-NET LIVE' : 'LISTENING'
+  return live ? `${protocol.toUpperCase()} LIVE` : 'LISTENING'
 }
 
 export default function DmxInputBody({ nodeId }: { nodeId: string }) {
@@ -34,8 +35,12 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
   })
 
   const universe = clampDmxUniverse(props.universe ?? 0)
-  const listenPort = Math.max(1, Math.min(65535, Math.round(Number(props.previewPort ?? 6454) || 6454)))
-  const mode = String(props.inputMode ?? 'Art-Net')
+  // Art-Net or sACN; null is the wired DMX512 receiver, which the preview
+  // cannot hear. The helper parses both protocols on whichever port it binds,
+  // so the protocol decides the default port and the sACN multicast join.
+  const protocol = dmxNetworkProtocol(props)
+  const listenPort = dmxListenPort(props)
+  const network = protocol !== null
 
   // Opening the listener is a real network side effect performed by the local
   // helper — it binds a UDP socket on every interface, on a port this node's
@@ -45,22 +50,22 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
   // anything. Hold it until the workspace is trusted, the same gate the
   // formula/Code nodes use (fixed 2026-08-14).
   useEffect(() => {
-    if (mode !== 'Art-Net') return
+    if (protocol === null) return
     if (!trusted) return
-    void configure({ listenPort, universe })
+    void configure({ listenPort, universe, protocol })
     return () => {
       void stop()
     }
-  }, [configure, listenPort, mode, stop, trusted, universe])
+  }, [configure, listenPort, protocol, stop, trusted, universe])
 
-  const label = !trusted ? 'LISTENER HELD — UNTRUSTED' : statusLabel(helperOnline, listening, live, error)
+  const label = !trusted ? 'LISTENER HELD — UNTRUSTED' : statusLabel(helperOnline, listening, live, error, protocol ?? 'Art-Net')
   const liveValues = snapshot.channels.slice(0, 4)
 
   return (
     <div className={styles.body}>
       <div className={styles.status} data-active={live}>
         <span />
-        {mode === 'Art-Net' ? label : 'DMX512 FIRMWARE MODE'}
+        {network ? label : 'DMX512 FIRMWARE MODE'}
       </div>
       <div className={styles.readout}>
         <span>universe {universe} · udp {listenPort}</span>
@@ -71,18 +76,18 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
         <span>{liveValues.map((value) => String(value).padStart(3, ' ')).join(' ')}</span>
       </div>
       {error && <div className={styles.note}>{error}</div>}
-      {mode === 'Art-Net' && !trusted && (
+      {network && !trusted && (
         <div className={styles.note}>
-          This listener came with a project made on another computer, so it stays closed until you trust it. Choose <strong>Trust it</strong> in the banner to start receiving Art-Net.
+          This listener came with a project made on another computer, so it stays closed until you trust it. Choose <strong>Trust it</strong> in the banner to start receiving {protocol}.
         </div>
       )}
-      {mode !== 'Art-Net' && (
-        <div className={styles.note}>Preview listens for Art-Net only; firmware uses the selected DMX512 pins.</div>
+      {!network && (
+        <div className={styles.note}>Preview listens for Art-Net or sACN only; firmware uses the selected DMX512 pins.</div>
       )}
-      {mode === 'Art-Net' && wired && (
+      {network && wired && (
         <div className={styles.note}>Firmware reaches the network through {wired}, so no Wi-Fi credentials are needed.</div>
       )}
-      {mode === 'Art-Net' && !wired && (
+      {network && !wired && (
         <>
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor={`${nodeId}-dmx-ssid`}>Wi-Fi SSID</label>

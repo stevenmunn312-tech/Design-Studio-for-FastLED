@@ -11,9 +11,13 @@ import {
   blankFrame,
   byte,
   sampleFrame,
+  addRgb,
   type FrameEdgeMode,
 } from '../../state/evaluator/frames'
 import { instanceState } from '../../state/evaluator/memory'
+import { normalizedSeed, seededRandom } from '../../state/evaluator/random'
+import { glitterBudget, glitterMode } from './glitter'
+import { frameOffset, frameQuarterTurns } from './frameTransform'
 import { wallpaperSamplePointAt, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
 
@@ -238,7 +242,14 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const b = fb
     const opacity = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 0.5)))
     const mode = String(props.blendMode ?? 'normal')
-    return { frame: a.map((row, y) => row.map((px, x) => blendPixel(mode, px, b[y][x], opacity))) }
+    // A mask frame scales the opacity per pixel by its brightness (the
+    // average of r, g, b, as Mask reads it); unwired, every pixel is 1.
+    const mask = input(id, 'mask', null) as Frame | null
+    return { frame: a.map((row, y) => row.map((px, x) => {
+      const m = mask?.[y]?.[x]
+      const o = m ? opacity * ((m.r + m.g + m.b) / 3 / 255) : opacity
+      return blendPixel(mode, px, b[y][x], o)
+    })) }
   },
   BrightnessMod({ input, num }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
@@ -410,6 +421,51 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       W,
       H,
     ) }
+  },
+  // Keep in lockstep with the `Glitter` emitter: same budget rule, same
+  // add/replace semantics, the seed running the same LCG as Confetti.
+  Glitter({ input, num, W, H, stateKey }, id, props) {
+    const src = input(id, 'frame', null) as Frame | null
+    const frame = src ? cloneFrame(src) : blankFrame(W, H)
+    const budget = glitterBudget(num(id, 'density', props, 'density', 0.3), W * H)
+    const seed = normalizedSeed(props.seed)
+    const rnd = () => seededRandom(`${stateKey(id)}:glitter`, seed)
+    let count = Math.floor(budget)
+    if (rnd() < budget - count) count++
+    const color = (input(id, 'color', null) as RGB | null) ?? {
+      r: byte(num(id, 'r', props, 'r', 255) / 255),
+      g: byte(num(id, 'g', props, 'g', 255) / 255),
+      b: byte(num(id, 'b', props, 'b', 255) / 255),
+    }
+    const replace = glitterMode(props.glitterMode) === 'replace'
+    for (let i = 0; i < count; i++) {
+      const index = Math.min(W * H - 1, Math.floor(rnd() * W * H))
+      const px = frame[Math.floor(index / W)][index % W]
+      const next = replace ? color : addRgb(px, color)
+      px.r = next.r; px.g = next.g; px.b = next.b
+    }
+    return { frame }
+  },
+  // Keep in lockstep with the `FrameTransform` emitter: a destination pixel
+  // undoes the slide, the flips and the rotation to find its source, on
+  // normalised coordinates so a quarter turn also fits a non-square matrix.
+  FrameTransform({ input, num, W, H }, id, props) {
+    const src = input(id, 'frame', null) as Frame | null
+    if (!src) return { frame: blankFrame(W, H) }
+    const turns = frameQuarterTurns(props.rotate)
+    const flipX = Boolean(props.flipX), flipY = Boolean(props.flipY)
+    const ox = frameOffset(num(id, 'offsetX', props, 'offsetX', 0))
+    const oy = frameOffset(num(id, 'offsetY', props, 'offsetY', 0))
+    return { frame: buildFrame(W, H, (x, y) => {
+      const px = (((x - ox) % W) + W) % W, py = (((y - oy) % H) + H) % H
+      let u = W > 1 ? px / (W - 1) : 0, v = H > 1 ? py / (H - 1) : 0
+      if (flipX) u = 1 - u
+      if (flipY) v = 1 - v
+      for (let k = 0; k < turns; k++) { const nu = v; v = 1 - u; u = nu }
+      const sx = Math.round(u * (W - 1)), sy = Math.round(v * (H - 1))
+      const s = src[sy][sx]
+      return { r: s.r, g: s.g, b: s.b }
+    }) }
   },
   Mask({ input }, id) {
     const src = input(id, 'frame', null) as Frame | null

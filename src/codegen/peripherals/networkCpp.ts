@@ -15,6 +15,7 @@ import type { StudioNode } from '../../state/graphStore'
 import { libraryDefaults } from '../../state/nodeLibrary'
 import { getNetworkCredentials } from '../../state/peripherals/networkCredentials'
 import { DEFAULT_ETHERNET_PART_ID, wiredNetworkIn, type WiredNetwork } from '../../state/peripherals/ethernetModule'
+import { dmxUsesNetwork } from '../../state/peripherals/dmxTransceiver'
 import { partById } from '../../build/parts/partCatalogue'
 import { cppStringLiteral } from '../cppLiterals'
 import { sanitizePin } from '../hardwarePins'
@@ -35,10 +36,10 @@ export interface NetworkSketchEmit {
   setup: string[]
 }
 
-/** Art-Net receive and NTP time sync are the two users of the network. */
+/** Art-Net or sACN receive and NTP time sync are the users of the network. */
 export function usesNetwork(node: Pick<StudioNode, 'data'>): boolean {
   const props = node.data.properties as Record<string, unknown>
-  return (node.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
+  return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
     || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
 }
 

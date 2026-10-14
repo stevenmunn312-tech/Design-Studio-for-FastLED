@@ -542,8 +542,11 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     return { frame: solidFrame(color, W, H) }
   },
   Text({ input, num, t, W, H, stateKey }, id, props) {
-    const text = String(props.text ?? 'HELLO')
-    const font = asFont(props.font)
+    // A wired string replaces the typed text, in the built-in font: the
+    // sketch draws a wire's text at run time from that font's glyph table.
+    const wired = input(id, 'text', null)
+    const text = typeof wired === 'string' ? wired : String(props.text ?? 'HELLO')
+    const font = typeof wired === 'string' ? DEFAULT_FONT : asFont(props.font)
     const letterSpacing = Math.max(0, Math.round(Number(props.letterSpacing ?? 1)))
     const layout = textBlockLayout(text, font, letterSpacing)
     const wrap = Boolean(props.wrap)

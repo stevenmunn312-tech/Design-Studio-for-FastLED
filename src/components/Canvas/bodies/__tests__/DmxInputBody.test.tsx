@@ -45,7 +45,7 @@ describe('DmxInputBody Art-Net trust gate', () => {
 
   it('opens the listener once the workspace is trusted', () => {
     render(<DmxInputBody nodeId="dmx" />)
-    expect(configure).toHaveBeenCalledWith({ listenPort: 6454, universe: 0 })
+    expect(configure).toHaveBeenCalledWith({ listenPort: 6454, universe: 0, protocol: 'Art-Net' })
   })
 
   it('holds the listener closed while the workspace is untrusted', () => {

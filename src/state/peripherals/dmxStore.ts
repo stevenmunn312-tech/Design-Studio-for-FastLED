@@ -20,7 +20,7 @@ interface DmxStoreState {
   packetRate: number
   error: string
   snapshot: DmxSnapshot
-  configure: (input: { listenPort: number; universe: number }) => Promise<void>
+  configure: (input: { listenPort: number; universe: number; protocol?: 'Art-Net' | 'sACN' }) => Promise<void>
   stop: () => Promise<void>
   pollNow: () => Promise<void>
 }
@@ -128,7 +128,7 @@ export const useDmxStore = create<DmxStoreState>()((set, get) => {
     packetRate: 0,
     error: '',
     snapshot: blankDmxSnapshot(),
-    configure: async ({ listenPort, universe }) => {
+    configure: async ({ listenPort, universe, protocol = 'Art-Net' }) => {
       const port = Math.max(1, Math.min(65535, Math.round(Number(listenPort) || 6454)))
       const targetUniverse = clampDmxUniverse(universe)
       set({
@@ -136,14 +136,14 @@ export const useDmxStore = create<DmxStoreState>()((set, get) => {
         universe: targetUniverse,
         snapshot: blankDmxSnapshot(targetUniverse),
       })
-      const result = await startArtnetListener(port)
+      const result = await startArtnetListener(port, protocol, targetUniverse)
       if (!result.ok) {
         set({
           helperOnline: false,
           listening: false,
           live: false,
           packetRate: 0,
-          error: result.error ?? 'Unable to start Art-Net listener',
+          error: result.error ?? `Unable to start ${protocol} listener`,
         })
         clearPolling()
         return
