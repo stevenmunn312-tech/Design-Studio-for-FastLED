@@ -16,7 +16,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/sketches/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/sketches/wiringDiagnosticGenerator'
-import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement, showPackagingIssues } from '../../utils/showUpload'
+import { analysedShows, readySongCount, buildShowPayload, buildShowPlayerForMeasurement, showPackagingIssues } from '../../utils/showUpload'
 import { buildGraphDiagnostics, findDeployBlockingErrors, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
@@ -141,7 +141,7 @@ export default function MatrixOutputDeployPopup({
         || group.edges !== preparedGroups[id]?.edges)) return ''
     if (codegenBuild.mode === 'player') return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups,
       selectedFqbn, psramSupported, projectName,
-      { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets }) ?? ''
+      { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets, shows: analysedShows(entries) }) ?? ''
     // Baked here rather than inside the generator: baking evaluates patterns,
     // and only this side knows whether the workspace has been trusted.
     const opts = {
@@ -170,7 +170,8 @@ export default function MatrixOutputDeployPopup({
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }
   const code = useMemo(generateCurrentCode, [codegenGraph, codegenBuild, psramSupported, projectName, selectedFqbn,
-    customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted, customAssets.groups])
+    customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted, customAssets.groups,
+    entries])
 
   const port = useMemo(
     () => describePort({ helper, selectedPort, ports, portsScanned }),

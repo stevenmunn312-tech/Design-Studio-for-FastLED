@@ -8,7 +8,8 @@ import { collectionPatternNames } from '../../utils/patternNames'
 import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch } from '../../codegen/showGenerator'
-import { buildShowPlayerForMeasurement } from '../../utils/showUpload'
+import { analysedShows, buildShowPlayerForMeasurement } from '../../utils/showUpload'
+import { useMusicStore } from '../../state/player/musicStore'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedBoardFlashMb, selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
@@ -93,6 +94,8 @@ export default function CapacityWatcher() {
     () => resolveBuildMode(codegenGraph.nodes, codegenGraph.edges),
     [codegenGraph],
   )
+  // A performance player compiles the transitions its shows name.
+  const shows = useMusicStore(useShallow((s) => analysedShows(s.entries)))
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
     build.capabilities.buildable, codegenGraph.edges)
   const ramBudgetIssue = useMemo(
@@ -106,7 +109,7 @@ export default function CapacityWatcher() {
     if (codegenBuild.mode === 'player') {
       return buildShowPlayerForMeasurement(
         codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported, projectName,
-        { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets },
+        { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets, shows },
       )
     }
     if (!codegenBuild.capabilities.buildable) return null
@@ -137,7 +140,7 @@ export default function CapacityWatcher() {
     return codegenBuild.mode === 'show'
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, codegenBuild, psramSupported, selectedFqbn, projectName, ramBudgetIssue,
+  }, [codegenGraph, codegenBuild, psramSupported, selectedFqbn, projectName, ramBudgetIssue, shows,
     customAssets.pending, customAssets.errors, customAssets.routingErrors,
     customAssets.documents, customAssets.assets, customAssets.trusted])
 

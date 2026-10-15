@@ -9,6 +9,12 @@ import {
   SHOW_PATTERNS,
   SHOW_TRANSITIONS,
   PARTICLE_STYLES,
+  showPatternNames,
+  generatedShowPatternNames,
+  generatedShowPaletteNames,
+  performanceTransitionStyles,
+  showPaletteNames,
+  showTransitionStyles,
 } from '../performanceGenerator'
 import type { ShowEvent, SongAnalysis, EnergyPoint } from '../../types/showFile'
 
@@ -378,6 +384,40 @@ describe('generateShow — extra transitions from a wired TransitionSet', () => 
     } finally {
       spy.mockRestore()
     }
+  })
+
+  it('numbers built-in patterns by the slots the player compiled', () => {
+    const show = {
+      ...generateShow(analysis),
+      events: [
+        { t: 0, cmd: 'SET_PATTERN' as const, params: { name: 'Spiral' } },
+        { t: 10, cmd: 'SET_PATTERN' as const, params: { name: 'Plasma' } },
+      ],
+    }
+    // Editor order, whatever order the show names them in.
+    expect(showPatternNames([show])).toEqual(['Plasma', 'Spiral'])
+    const view = new DataView(showFileToBinary(show, showPatternNames([show])))
+    let off = 15
+    const ids: number[] = []
+    for (let i = 0; i < 2; i++) {
+      ids.push(view.getFloat32(off + 6, true))
+      off += 4 + 1 + 1 + view.getUint8(off + 5) * 4
+    }
+    expect(ids).toEqual([1, 0])
+  })
+
+  it('names the patterns, palettes and transitions a show can reach', () => {
+    expect(generatedShowPatternNames()).not.toContain('SolidColor')
+    expect(generatedShowPatternNames()).toContain('Kaleidoscope')
+    expect(generatedShowPaletteNames({ paletteMode: 'fixed', fixedPalette: 'ocean' })).toEqual(['ocean'])
+    expect(performanceTransitionStyles(['iris', 'wipe'])).toEqual(['crossfade', 'wipe', 'dissolve', 'iris'])
+    const events: ShowEvent[] = [
+      { t: 0, cmd: 'SET_PALETTE', params: { name: 'lava' } },
+      { t: 5, cmd: 'TRANSITION', params: { type: 'cube', duration: 1 } },
+    ]
+    const show = { ...generateShow(analysis), events }
+    expect(showPaletteNames([show])).toEqual(['lava'])
+    expect(showTransitionStyles([show])).toEqual(['cube'])
   })
 
   it('round-trips an extra transition style through the binary export', () => {

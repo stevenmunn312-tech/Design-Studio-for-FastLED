@@ -297,6 +297,62 @@ describe('buildShowPlayer', () => {
  * card that plays the wrong patterns in perfect time with the music, which
  * reads as a broken feature rather than a stale file.
  */
+describe('the performance player without a collection', () => {
+  const graph = {
+    nodes: [
+      node('performance', 'PerformanceGenerator', {}),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 17 }),
+      node('sd', 'SDCard'),
+      node('amp', 'Amplifier'),
+    ],
+    edges: [{ id: 'led', source: 'performance', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as Edge[],
+  }
+  const show: ShowFile = {
+    version: 1, songTitle: 'Track', durationMs: 1000, bpm: 120,
+    events: [
+      { t: 0, cmd: 'SET_PALETTE', params: { name: 'ocean' } },
+      { t: 0, cmd: 'SET_PATTERN', params: { name: 'Kaleidoscope' } },
+      { t: 500, cmd: 'TRANSITION', params: { type: 'iris', duration: 0.5 } },
+      { t: 500, cmd: 'SET_PATTERN', params: { name: 'Noise2D' } },
+    ],
+  } as ShowFile
+
+  // The device used to have no arm for four of the built-ins, so they drew a
+  // gradient there while the preview drew the real node.
+  it('compiles the built-in patterns its shows name from the preview\'s nodes', () => {
+    const sketch = buildShowPlayer(graph.nodes, graph.edges, {}, {
+      bakedAudio: false, preferredTrack: 'Track', shows: [show],
+    })
+    expect(sketch).toContain('case 0: render_p0(ms, speed, palette); break;')
+    expect(sketch).toContain('case 1: render_p1(ms, speed, palette); break;')
+    expect(sketch).not.toContain('render_p2')
+    expect(sketch).toContain('case CMD_SET_SPEED:      speed = ev.params[0]; break;')
+    // The transitions and palettes it names, and no others.
+    expect(sketch).toContain('case 3: {  // iris')
+    expect(sketch).not.toContain('case 1: {  // wipe')
+    expect(sketch).toContain('default: return paldef_ocean;')
+  })
+
+  it('measures what a generated show can reach before any show exists', () => {
+    const sketch = buildShowPlayerForMeasurement(graph.nodes, graph.edges, {})!
+    expect(sketch).toContain('case 1: {  // wipe')
+    expect(sketch).toContain('case 2: {  // dissolve')
+    expect(sketch).not.toContain('case 3: {  // iris')
+  })
+
+  it('writes no show files for a Music Player, which never opens one', () => {
+    const player = {
+      nodes: [node('player', 'PatternMaster', {}), ...graph.nodes.slice(1)],
+      edges: [{ id: 'led', source: 'player', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as Edge[],
+    }
+    const entry = { id: 'song', file: new File([''], 'track.mp3'), status: 'done', analysis: {}, show } as unknown as MusicEntry
+    const payload = buildShowPayload(player.nodes, player.edges, [entry], {})!
+    expect(payload.files.map((file) => file.path)).toEqual(['/music/Track.mp3'])
+    // A Music Player with no patterns still plays the card's MP3s.
+    expect(payload.player).toContain('static const bool GENERIC_PLAYER = true;')
+  })
+})
+
 describe('packaging a drifted show', () => {
   const showFile = (patternSet?: string[]): ShowFile => ({
     version: patternSet ? 2 : 1, songTitle: 'Track', durationMs: 1000, bpm: 120, events: [],

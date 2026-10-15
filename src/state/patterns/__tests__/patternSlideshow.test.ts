@@ -231,6 +231,18 @@ describe('what the graph refuses', () => {
     expect(errors.join(' ')).toContain('cannot listen to the Audio Decoder')
   })
 
+  it('refuses an audio-reactive Slideshow with no audio wired', () => {
+    // Every frame is silence, so the fade would hold the LEDs black.
+    const wiring = [
+      edge('e1', 'coll', 'patternset', 'show', 'patternset'),
+      edge('e2', 'show', 'frame', 'out', 'frame'),
+    ]
+    const deaf = validateGraph([collection, node('show', 'PatternSlideshow', { audioReactive: true }), out], wiring)
+    expect(deaf.errors.join(' ')).toContain('Audio-reactive Pattern Slideshow has no audio')
+    const still = validateGraph([collection, node('show', 'PatternSlideshow', { audioReactive: false }), out], wiring)
+    expect(still.errors.join(' ')).not.toContain('has no audio')
+  })
+
   it('accepts a live source', () => {
     const audio = node('audio', 'Audio', { sourceId: 'kind:microphone' })
     const { errors } = validateGraph(
@@ -242,5 +254,6 @@ describe('what the graph refuses', () => {
       ],
     )
     expect(errors.join(' ')).not.toContain('Audio Decoder')
+    expect(errors.join(' ')).not.toContain('has no audio')
   })
 })

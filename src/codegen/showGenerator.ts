@@ -353,6 +353,12 @@ export interface PatternRenderers {
    *  the generic player fades only those to black on silence. Absent means
    *  every pattern fades. */
   audioReactive?: boolean[]
+  /**
+   * The `speed` role takes SET_SPEED's raw 0–2 multiplier rather than the
+   * normalised 0–1 a collection's role takes: built-in show patterns, whose
+   * preview sets the multiplier as the node's own speed.
+   */
+  rawSpeed?: boolean
 }
 
 /** Whether the compiled pattern collection reads the player's shared audio
@@ -1087,7 +1093,9 @@ export function generateShowSketch(
   if (controller.powerLimit && (!isHub75 || stereoVuMeters.length > 0)) {
     L.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${controller.volts}, ${controller.milliamps});`)
   }
-  L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
+  // Filled in once the sketch is written, from the generators it calls.
+  const seedMarker = L.length
+  L.push('')
   if (audio) L.push('  setupAudio();')
   for (const line of displays.setup) L.push(line)
   L.push(...selectionCpp.setup)
@@ -1169,9 +1177,11 @@ export function generateShowSketch(
       L.push('')
     }
   }
-  if (info.audioReactive) {
+  // Audio Reactive with nothing to hear is a graph error, so the fade is
+  // emitted only where there is audio to measure.
+  if (slideshowAudioAvailable) {
     L.push('  // Audio-reactive slideshows fade the pattern to true black during silence.')
-    L.push(`  float _slideshowEnergy = ${slideshowAudioAvailable ? 'constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f)' : '0.0f'};`)
+    L.push('  float _slideshowEnergy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);')
     L.push(`  float _slideshowFadeTarget = _slideshowEnergy <= ${SLIDESHOW_SILENCE_THRESHOLD.toFixed(3)}f ? 0.0f : 1.0f;`)
     L.push('  static float _slideshowFade = 1.0f;')
     L.push('  static uint32_t _slideshowFadeLastMs = now;')
@@ -1241,6 +1251,19 @@ export function generateShowSketch(
   if (emitTelemetry) L.push(TELEMETRY_REPORT_CPP)
   L.push(loopPacingCpp(controller.frameRate))
   L.push('}')
+
+  // The show draws from FastLED's random8, which randomSeed() does not touch;
+  // a collected pattern may call Arduino's random(), which only it seeds. Each
+  // generator is seeded only when something calls it. Spliced before the
+  // palettes, whose marker sits above this one.
+  const body = L.join('\n')
+  const usesFastLedRandom = /\brandom(?:8|16)\(/.test(body)
+  L.splice(seedMarker, 1, ...(info.seed
+    ? usesFastLedRandom ? [`  random16_set_seed(${info.seed}u);`] : []
+    : [
+        ...(usesFastLedRandom ? ['  random16_add_entropy(analogRead(A0));'] : []),
+        ...(/\brandom\(/.test(body) ? ['  randomSeed(analogRead(A0));'] : []),
+      ]))
 
   // Splice in only the palettes something else in the sketch actually names.
   const paletteDecls = customPaletteDeclarationsCpp()

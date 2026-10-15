@@ -285,10 +285,11 @@ describe('generatePlayerSketch', () => {
     expect(ino.indexOf('// Beat flash overlay')).toBeLessThan(ino.indexOf('FastLED.show();'))
   })
 
-  it('emits the built-in pattern switch for an enum show', () => {
+  it('draws nothing, and carries no pattern code, for a player with no patterns', () => {
     const ino = generatePlayerSketch()
-    expect(ino).toContain('case 2:  // Plasma')
-    expect(ino).not.toContain('render_p0(ms)')
+    expect(ino).toContain('void renderPattern(uint8_t, float) {}')
+    expect(ino).not.toContain('samplePalette')
+    expect(ino).not.toContain('animSpeed')
   })
 
   it('composites transitions by style id instead of a plain crossfade', () => {
@@ -296,7 +297,6 @@ describe('generatePlayerSketch', () => {
     // The style id is captured and dispatched through the shared helper,
     // narrowed to the styles this player can reach.
     expect(ino).toContain('#include <Audio.h>       // ESP32-audioI2S\n#include <FastLED.h>')
-    expect(ino).toContain('CRGB samplePalette(uint8_t palId, uint8_t index);')
     expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
     expect(ino).toContain('transType     = (uint8_t)ev.params[0];')
     expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt)')
@@ -391,9 +391,8 @@ describe('generatePlayerSketch', () => {
       params: ['energy', 'speed'],
     }
     const ino = generatePlayerSketch({}, renderers)
-    expect(ino).toContain('float      speed')                       // role global (distinct from animSpeed)
-    // CMD_SET_SPEED still sets animSpeed AND derives the normalised speed role.
-    expect(ino).toContain('animSpeed  = ev.params[0]; speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f); break;')
+    expect(ino).toContain('float      speed     = 0.5f;')            // role global
+    expect(ino).toContain('case CMD_SET_SPEED:      speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f); break;')
     expect(ino).toContain('case 0: render_p0(ms, energy, speed); break;')
   })
 
@@ -405,7 +404,8 @@ describe('generatePlayerSketch', () => {
     }
     const ino = generatePlayerSketch({}, renderers)
     expect(ino).not.toContain('float      speed')
-    expect(ino).toContain('animSpeed  = ev.params[0]; break;')
+    // Nothing reads a speed, so the event has no arm.
+    expect(ino).not.toContain('case CMD_SET_SPEED:')
   })
 
   it('threads the palette role: global, paletteFromId helper, CMD_SET_PALETTE, and render arg', () => {
@@ -418,8 +418,8 @@ describe('generatePlayerSketch', () => {
     }
     const ino = generatePlayerSketch({}, renderers)
     expect(ino).toContain('CRGBPalette16 palette = RainbowColors_p;')          // role global
-    expect(ino).toContain('CRGBPalette16 paletteFromId(uint8_t palId)')        // helper mirrors samplePalette
-    expect(ino).toContain('paletteId  = (uint8_t)ev.params[0]; palette = paletteFromId(paletteId); break;')
+    expect(ino).toContain('CRGBPalette16 paletteFromId(uint8_t palId)')
+    expect(ino).toContain('case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev.params[0]); break;')
     expect(ino).toContain('case 0: render_p0(ms, palette); break;')            // passed to render fn
   })
 
@@ -432,7 +432,24 @@ describe('generatePlayerSketch', () => {
     const ino = generatePlayerSketch({}, renderers)
     expect(ino).not.toContain('CRGBPalette16 palette')
     expect(ino).not.toContain('paletteFromId')
-    expect(ino).toContain('paletteId  = (uint8_t)ev.params[0]; break;')
+    expect(ino).not.toContain('case CMD_SET_PALETTE:')
+    // No palette is named, so no palette table costs RAM.
+    expect(ino).not.toContain('CRGBPalette16 paldef_')
+  })
+
+  it('takes the raw speed multiplier and only the reachable palettes for built-in show patterns', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms, float speed, const CRGBPalette16& palette) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1, params: ['speed', 'palette'], rawSpeed: true,
+    }
+    const ino = generatePlayerSketch({}, renderers, { paletteNames: ['ocean', 'heat'] })
+    expect(ino).toContain('float      speed     = 1.0f;')
+    expect(ino).toContain('case CMD_SET_SPEED:      speed = ev.params[0]; break;')
+    expect(ino).toContain('default: return paldef_ocean;')
+    expect(ino).toMatch(/case \d+: {2}return paldef_heat;/)
+    expect(ino).toContain('CRGBPalette16 paldef_ocean(')
+    expect(ino).not.toContain('CRGBPalette16 paldef_lava(')
   })
 
   it('hosts the baked audio globals and feeds them from the envelope when enabled', () => {

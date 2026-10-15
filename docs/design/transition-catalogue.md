@@ -32,7 +32,7 @@ fails quietly and differently each time, so they are listed exhaustively:
 | Site | What it is | Failure if omitted |
 | --- | --- | --- |
 | `src/state/graphEvaluator.ts` — `compositeTransition` | The browser preview | Preview silently falls through to crossfade |
-| `src/codegen/helpers/transitionHelperCpp.ts` — `TRANSITION_HELPER_CPP` | The show generator **and** the SD player | Device crossfades where the preview does not |
+| `src/codegen/helpers/transitionHelperCpp.ts` — `COMPOSITE_TRANSITION_CPP` | The show generator **and** the SD player, narrowed per sketch by `transitionHelperCpp(ids)` | Device crossfades where the preview does not |
 | `src/codegen/cppGenerator.ts` — the `Transition` node arm | A normal sketch's `Transition` node | Normal-sketch export crossfades |
 | `src/codegen/performanceGenerator.ts` — `TRANSITION_IDS` | The numeric id | Style cannot be named in a show or a pool |
 | `src/state/nodeLibrary.ts` — `PROPERTY_META.transitionType` | The option list and its labels | Style exists but nobody can pick it |
@@ -238,8 +238,9 @@ analytic hash the way `prnd()` already is.
    through `sampleUnitShaded` / `sampleShaded` rather than indexing the frame,
    unless the read is an exact identity — that is what gets the style bilinear
    filtering and single-quantisation for free.
-3. `TRANSITION_HELPER_CPP`: a `    case N: {` arm, braces balanced, none in
-   comments.
+3. `COMPOSITE_TRANSITION_CPP`: a `    case N: {` arm, braces balanced, none in
+   comments. A 3D style also joins `TRANSITION_3D_STYLE_IDS`, so
+   `transitionSupportCpp` brings the sampler and depth helpers with it.
 4. `cppGenerator.ts`: the `Transition` node arm.
 5. `TRANSITION_IDS`: the next free id — appended, never renumbered.
 6. `PROPERTY_META.transitionType`: the name and its label, in the same order as

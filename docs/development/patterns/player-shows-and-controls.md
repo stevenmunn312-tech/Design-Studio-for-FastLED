@@ -351,8 +351,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   style is spread across five registration sites and missing one fails quietly
   and differently each time: `src/nodes/show/evaluate.ts`'s `compositeTransition`
   (browser preview, falls through to crossfade if missing),
-  `transitionHelperCpp.ts`'s `TRANSITION_HELPER_CPP` (show generator and SD
-  player), the `Transition` emitter in `src/nodes/show/codegen.ts` (normal sketch),
+  `transitionHelperCpp.ts`'s dispatcher (show generator and SD player, narrowed
+  by `transitionHelperCpp(ids)`), the `Transition` emitter in `src/nodes/show/codegen.ts` (normal sketch),
   `performanceGenerator.ts`'s `TRANSITION_IDS` (numeric id), and
   `nodeLibrary.ts`'s `PROPERTY_META.transitionType` (option list/labels).
   `PROPERTY_META.transitionType.options` and `SHOW_TRANSITIONS` must hold the
@@ -398,8 +398,23 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   field, frame and composite node at every select option through a one-pattern
   show and names any file-scope name the pattern's own sketch declares, its
   render function uses, and the show never declares. The show category is left
-  out: a Transition's 3D helpers are already inside the show's own
-  `TRANSITION_HELPER_CPP`, so lifting a pattern's copy would define them twice.
+  out of that sweep; a Transition node's 3D helpers are lifted as the
+  `transition3d` shared block and dedupe against `transitionSupportCpp`, which
+  brings the same block (and the frame sampler) for a 3D style in the show's
+  own pool.
+- **Firmware compiles only what can run.** Transition arms, the 3D support and
+  the frame sampler, palette tables and built-in show patterns are narrowed at
+  generation to the reachable set: a Music Player's or slideshow's wired
+  pool (crossfade alone when unwired); for an SD performance player, what its
+  shows name, edits included (`showTransitionStyles`, `showPaletteNames`,
+  `showPatternNames`), or before any show exists what a generated show can
+  reach (`performanceTransitionStyles`, `generatedShowPaletteNames`,
+  `generatedShowPatternNames`). The capacity meter measures with the analysed
+  shows on hand. A show without a collection plays built-in patterns compiled
+  from the same nodes the preview draws them with
+  (`src/state/player/builtinShowPatterns.ts`), numbered by the slots the
+  player on that card compiled. The open inventory of what is still emitted
+  but unreachable is in the root `todo.md`.
 - A collection show schedules patterns by *position*: `SET_PATTERN` carries an
   index into the show's own `ShowFile.patternSet` (version 2 shows only; version
   1 enum shows use `params.name` and have none). `buildShowPayload`

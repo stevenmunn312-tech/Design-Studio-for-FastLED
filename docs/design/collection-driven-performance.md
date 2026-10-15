@@ -280,11 +280,12 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
    commands, and passes them into the dispatch.
    - The **`speed` role reuses `SET_SPEED`** (no new command): its 0–2 multiplier is
      normalised to 0–1 (`min(1, speed/2)` in preview, `constrain(params[0]*0.5f, 0, 1)`
-     in the player, which still also sets the global `animSpeed`).
+     in the player). Built-in show patterns take the raw multiplier instead
+     (`PatternRenderers.rawSpeed`), as the preview sets it on the node.
    - The **`palette` role reuses `SET_PALETTE`**: preview feeds the studio palette
      name (`PALETTE_MAP[st.palette]`); firmware adds a `CRGBPalette16 palette` global
-     and a `paletteFromId()` helper (mirroring `samplePalette`'s preset switch) that
-     `CMD_SET_PALETTE` updates alongside the global `paletteId`. A palette-role
+     and a `paletteFromId()` helper, narrowed to the palettes a SET_PALETTE can
+     name, that `CMD_SET_PALETTE` updates. A palette-role
      `GroupInput` resolves through `paletteExpr` to its `pal_<id>` copy of the param.
 
    Off by default. *Role assignment* is currently manual — a `GroupInput`'s `paramId`

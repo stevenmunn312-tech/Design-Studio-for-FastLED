@@ -595,7 +595,7 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('dma_display->setBrightness8(128);')
       // Pattern rendering, transitions, beat flash, and the particle overlay
       // are untouched — still CRGB math into the shared `leds` buffer.
-      expect(sketch).toContain('void renderPattern(uint8_t pid, float t)')
+      expect(sketch).toContain('void renderPattern(')
       expect(sketch).toContain('compositeTransition(transType, leds, showA, showB, tp);')
       expect(sketch).toContain('for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
       expect(sketch).toContain('dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')

@@ -29,7 +29,13 @@ import { bakeDisplayArtworks } from './transportArtworks'
 import { generatePlayerSketch, playerConfigFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../codegen/player/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
-import { SHOW_TRANSITIONS, showFileToBinary, transitionStyleIds } from '../codegen/performanceGenerator'
+import {
+  generatedShowPaletteNames, generatedShowPatternNames, performanceOptionsFromProperties,
+  performanceTransitionStyles, showFileToBinary, showPaletteNames, showPatternNames,
+  showTransitionStyles, transitionStyleIds,
+} from '../codegen/performanceGenerator'
+import { builtinShowPatternGroupId, builtinShowPatternGroups } from '../state/player/builtinShowPatterns'
+import type { ShowFile } from '../types/showFile'
 import type { ShowUploadFile } from './backendClient'
 import { stereoVuEmitsFromGraph } from '../codegen/audio/stereoVuMeterCpp'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
@@ -99,7 +105,12 @@ export function buildShowPlayer(
   nodes: StudioNode[],
   edges: Edge[],
   groups: GroupRegistry,
-  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; genericPlayer?: boolean; fqbn?: string; psramAllowed?: boolean; projectName?: string } & PlayerDisplayBuildOptions,
+  opts: {
+    patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; genericPlayer?: boolean
+    fqbn?: string; psramAllowed?: boolean; projectName?: string
+    /** The shows going onto the card; a performance player compiles the patterns and transitions they name. */
+    shows?: readonly ShowFile[]
+  } & PlayerDisplayBuildOptions,
 ): string {
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own
@@ -113,9 +124,21 @@ export function buildShowPlayer(
     ?? {}
   const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
   const patternSet = opts.patternSet ?? []
+  // A show without a collection names built-in patterns. They compile from the
+  // nodes the preview draws them with, taking the show's palette and its raw
+  // 0–2 speed, as the preview sets them on the node.
+  const builtinNames = !opts.genericPlayer && patternSet.length === 0
+    ? opts.shows?.length ? showPatternNames(opts.shows) : generatedShowPatternNames()
+    : []
   const renderers = patternSet.length > 0
     ? buildPatternRenderers(patternSet, groups, roleParams, true, true)
-    : undefined
+    : builtinNames.length > 0
+      ? {
+          ...buildPatternRenderers(builtinNames.map(builtinShowPatternGroupId), builtinShowPatternGroups(builtinNames),
+            ['speed', 'palette'], true, true),
+          rawSpeed: true,
+        }
+      : undefined
   const particleFx = playerParticlesFromGraph(nodes, edges, selectedEngine?.id)
   const stereoVuMeters = stereoVuEmitsFromGraph(nodes, edges, {
     active: opts.bakedAudio ? '(_decoderTapLive || audioEnvFrames > 0)' : '_decoderTapLive',
@@ -124,11 +147,13 @@ export function buildShowPlayer(
   // FastLED's audio processor is sizeable. Link it when a compiled pattern
   // consumes audio or Player Particles needs live beat events.
   const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments, selectedEngine?.id, groups)
-  // A Music Player draws from its own pool. A performance show keeps every
-  // style for now: the timeline editor can hand-place any of them in a show.
-  const transitionIds = transitionStyleIds(opts.genericPlayer && selectedEngine
-    ? wiredTransitionStyles(nodes, edges, selectedEngine.id)
-    : SHOW_TRANSITIONS)
+  // A Music Player draws from its own pool. A performance player compiles the
+  // styles its shows name, edits included; with no show yet, those a
+  // generated show can name.
+  const wiredStyles = selectedEngine ? wiredTransitionStyles(nodes, edges, selectedEngine.id) : []
+  const transitionIds = transitionStyleIds(opts.genericPlayer ? wiredStyles
+    : opts.shows?.length ? showTransitionStyles(opts.shows)
+      : performanceTransitionStyles(wiredStyles))
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
@@ -142,6 +167,10 @@ export function buildShowPlayer(
     patternOrder: asSlideshowOrder(pgProps.order),
     patternTiming: musicPlayerTiming(pgProps),
     transitionIds,
+    // The palettes a SET_PALETTE can name: the shows', or a generated show's.
+    paletteNames: opts.genericPlayer ? [] : opts.shows?.length
+      ? showPaletteNames(opts.shows)
+      : generatedShowPaletteNames(performanceOptionsFromProperties(pgProps)),
     psramAllowed: opts.psramAllowed,
     controlGraph,
     customDisplayAssets: opts.customDisplayAssets,
@@ -191,7 +220,8 @@ export function buildShowPlayer(
  * exactly as long as someone is composing the show, which is when it earns its
  * place. A baked envelope is assumed because it is the larger build: reporting
  * the smaller one and then flashing the bigger is the failure this whole
- * change exists to stop.
+ * change exists to stop. The analysed shows are taken when there are some
+ * (`options.shows`), only because they decide which transitions compile.
  */
 export function buildShowPlayerForMeasurement(
   nodes: StudioNode[],
@@ -200,7 +230,7 @@ export function buildShowPlayerForMeasurement(
   fqbn = '',
   psramAllowed = false,
   projectName = '',
-  displayOptions: PlayerDisplayBuildOptions = {},
+  options: PlayerDisplayBuildOptions & { shows?: readonly ShowFile[] } = {},
 ): string | null {
   const build = resolveBuildMode(nodes, edges)
   if (build.mode !== 'player') return null
@@ -213,8 +243,13 @@ export function buildShowPlayerForMeasurement(
     fqbn,
     psramAllowed,
     projectName,
-    ...displayOptions,
+    ...options,
   })
+}
+
+/** The analysed shows among these entries, in order. */
+export function analysedShows(entries: readonly MusicEntry[]): ShowFile[] {
+  return entries.flatMap((entry) => entry.status === 'done' && entry.show ? [entry.show] : [])
 }
 
 /**
@@ -287,6 +322,7 @@ export function buildShowPayload(
     bakedAudio: !genericPlayer && !!done[0]?.show?.audio,
     preferredTrack: genericPlayer ? '' : safeTitle(done[0].show!.songTitle),
     genericPlayer,
+    shows: done.map((entry) => entry.show!),
     fqbn: opts.fqbn,
     psramAllowed: opts.psramAllowed,
     projectName: opts.projectName,
@@ -294,11 +330,14 @@ export function buildShowPayload(
     customDisplayAssets: opts.customDisplayAssets,
   })
 
+  // The same slots the player compiled its built-in patterns in.
+  const builtinSlots = showPatternNames(done.map((entry) => entry.show!))
   const files: ShowUploadFile[] = []
   for (const e of done) {
     const title = safeTitle(e.show!.songTitle)
     files.push({ path: `/music/${title}.mp3`, data: e.file })
-    files.push({ path: `/shows/${title}.show`, data: new Blob([showFileToBinary(e.show!)]) })
+    // A music player never opens a show file.
+    if (!genericPlayer) files.push({ path: `/shows/${title}.show`, data: new Blob([showFileToBinary(e.show!, builtinSlots)]) })
   }
   return { player, files, fqbnOpt: opts.fqbnOpt }
 }

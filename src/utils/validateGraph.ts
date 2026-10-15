@@ -2284,6 +2284,21 @@ function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineI
       edge.target === slideshow.id && (edge.targetHandle ?? '') === 'audio')
     const audioNode = audioEdge
       && nodes.find((node) => node.id === audioEdge.source && node.data.nodeType === 'Audio')
+    // Audio Reactive fades on silence. With nothing to listen to, every frame
+    // is silence, so the slideshow fades to black and stays there.
+    if (!audioNode && (slideshow.data.properties as Record<string, unknown>).audioReactive === true) {
+      issues.push({
+        id: `${slideshow.id}-audio-reactive-unwired`,
+        severity: 'error',
+        title: 'Audio-reactive Pattern Slideshow has no audio',
+        message: 'Audio Reactive fades the slideshow to black during silence. With no Audio node '
+          + 'wired to it, the slideshow hears only silence and stays black.',
+        fix: 'Wire an Audio node set to Microphone or Line Input into the slideshow\'s Audio input, '
+          + 'or turn Audio Reactive off.',
+        nodeIds: [slideshow.id],
+        nodeLabel: nodeLabel(slideshow),
+      })
+    }
     if (audioNode) {
       const kind = selectedAudioCapabilityKind(
         nodes, (audioNode.data.properties as Record<string, unknown>).sourceId)

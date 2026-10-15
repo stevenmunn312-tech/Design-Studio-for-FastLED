@@ -24,7 +24,7 @@ import { displayTextCppHelpers } from './displays/displayTextCpp'
 
 import type { PatternRenderers } from './showGenerator'
 import { asSlideshowOrder, type PatternSlideshowOrder } from '../state/patterns/patternSlideshow'
-import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/palettes/paletteCatalog'
+import { PALETTE_IDS, STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/palettes/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { ledSupplyVolts } from '../build/controllerSettings'
@@ -389,6 +389,19 @@ export function playerParticlesFromGraph(
   }
 }
 
+// Palette declarations are non-const 48-byte globals, so an unused one costs
+// real RAM. The pattern bodies arrive as finished text, so the sketch marks
+// where the declarations go and keeps those its own text names.
+const PALETTE_DECLS_MARKER = '/*@palette-declarations@*/'
+function withReferencedPalettes(source: string): string {
+  const rest = source.replace(PALETTE_DECLS_MARKER, '')
+  const decls = customPaletteDeclarationsCpp().filter((decl) => {
+    const symbol = /^CRGBPalette16 (paldef_[A-Za-z0-9_]+)\(/.exec(decl)?.[1]
+    return symbol ? new RegExp(`\\b${symbol}\\b`).test(rest) : true
+  })
+  return source.replace(PALETTE_DECLS_MARKER, decls.join('\n'))
+}
+
 export function generatePlayerSketch(
   cfg: Partial<PlayerConfig> = {}, renderers?: PatternRenderers,
   // `audioEnvelope`: the .show carries a baked bass/mids/treble track (see
@@ -413,6 +426,8 @@ export function generatePlayerSketch(
      * Only these arms are compiled. Defaults to crossfade alone.
      */
     transitionIds?: readonly number[]
+    /** The palettes SET_PALETTE can name; only these reach `paletteFromId`. */
+    paletteNames?: readonly string[]
     particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
     thumbnails?: BrowserThumbnails; patternNames?: PatternNames; artworks?: TransportArtworks
     stereoVuMeters?: StereoVuEmit[]
@@ -464,7 +479,12 @@ export function generatePlayerSketch(
   const DECODER_VOLUME_TABLE = [0, 1, 2, 3, 4, 6, 8, 10, 12, 14, 17, 20, 23, 27, 30, 34, 38, 43, 48, 52, 58, 64]
   const startingAttenuation = DECODER_VOLUME_TABLE[Math.max(0, Math.min(21, c.maxVolume))]
   const decoderVolumeComp = `${startingAttenuation ? (64 / startingAttenuation).toFixed(4) : '1.0000'}f`
-  const genericPlayer = collection && opts.genericPlayer === true
+  // A Music Player plays whatever MP3s the card holds, with or without a
+  // collection: a VU-only or pattern-less player is still a music player, not
+  // a show-file player. Rotating, fading and bursting over patterns needs the
+  // collection as well.
+  const genericPlayer = opts.genericPlayer === true
+  const genericCollection = genericPlayer && collection
   const transitionIds = opts.transitionIds?.length ? opts.transitionIds : [0]
   // Emitted once, above the pattern renderers, so a Frame Warp or Symmetry
   // pattern that brings the same sampler does not define it a second time.
@@ -682,18 +702,14 @@ export function generatePlayerSketch(
   const hasEnergy = roleParams.includes('energy')
   const hasSpeed = roleParams.includes('speed')
   const hasPalette = roleParams.includes('palette')
-  const paletteSampleCases = STUDIO_PALETTES
-    .slice(1)
-    .map((palette, index) => `    case ${index + 1}:  return ColorFromPalette(${paletteCppRef(palette)}, index);`)
+  // The first reachable palette is the default arm, so no arm is unreachable.
+  const reachablePalettes = (opts.paletteNames ?? STUDIO_PALETTES).filter((name) => name in PALETTE_IDS)
+  const [defaultPalette = 'rainbow', ...casePalettes] = reachablePalettes
+  const paletteFromIdCases = casePalettes
+    .map((palette) => `    case ${PALETTE_IDS[palette]}:  return ${paletteCppRef(palette)};`)
     .join('\n')
-  const paletteFromIdCases = STUDIO_PALETTES
-    .slice(1)
-    .map((palette, index) => `    case ${index + 1}:  return ${paletteCppRef(palette)};`)
-    .join('\n')
-  const paletteGlobals = customPaletteDeclarationsCpp().join('\n')
   const fastLedDecls = new Set<string>([
     'void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);',
-    'CRGB samplePalette(uint8_t palId, uint8_t index);',
   ])
   if (hasPalette) fastLedDecls.add('CRGBPalette16 paletteFromId(uint8_t palId);')
   if (collection) {
@@ -710,8 +726,10 @@ export function generatePlayerSketch(
     if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
   }
 
-  // renderPattern() either dispatches to a render_pN() (collection) or runs the
-  // built-in pattern switch (enum). The render_pN() bodies expect ms.
+  // renderPattern() dispatches to a render_pN(), which expects ms. Built-in
+  // show patterns arrive compiled the same way, so only a player with no
+  // patterns at all (a VU-only Music Player) draws nothing, and nothing else
+  // writes `leds` there, so it stays black.
   const renderPatternFn = collection
     ? [
         'void renderPattern(uint8_t pid, float t) {',
@@ -722,69 +740,7 @@ export function generatePlayerSketch(
         '  }',
         '}',
       ].join('\n')
-    : `void renderPattern(uint8_t pid, float t) {
-  switch (pid) {
-    case 0:  // SolidColor
-      fill_solid(leds, NUM_LEDS, samplePalette(paletteId, 0));
-      break;
-    case 1:  // NoiseField
-      for (int y = 0; y < HEIGHT; y++)
-        for (int x = 0; x < WIDTH; x++) {
-          float v = (sin(x * 0.5f + t * animSpeed) + cos(y * 0.5f + t * animSpeed * 0.7f)) * 0.5f;
-          leds[y * WIDTH + x] = samplePalette(paletteId, (uint8_t)((v + 1) * 100 + t * 10));
-        }
-      break;
-    case 2:  // Plasma
-      for (int y = 0; y < HEIGHT; y++)
-        for (int x = 0; x < WIDTH; x++) {
-          float v = sin(x / 3.0f + t * animSpeed)
-                  + sin(y / 3.0f + t * animSpeed * 0.8f)
-                  + sin((x + y) / 5.0f + t * animSpeed * 0.6f);
-          leds[y * WIDTH + x] = samplePalette(paletteId, (uint8_t)(v * 45 + t * 20));
-        }
-      break;
-    case 3:  // Fire
-    case 4: { // Fire2012
-      static uint8_t heat[${c.ledHeight}][${c.ledWidth}] = {};
-      for (int y = 0; y < HEIGHT; y++)
-        for (int x = 0; x < WIDTH; x++)
-          heat[y][x] = qsub8(heat[y][x], random8(0, 12));
-      for (int y = 0; y < HEIGHT - 2; y++)
-        for (int x = 0; x < WIDTH; x++)
-          heat[y][x] = (heat[y+1][x] + heat[y+2][max(0,x-1)] + heat[y+2][x] + heat[y+2][min(WIDTH-1,x+1)]) / 4;
-      for (int x = 0; x < WIDTH; x++)
-        if (random8() < 120) heat[HEIGHT-1][x] = qadd8(heat[HEIGHT-1][x], random8(160, 255));
-      for (int y = 0; y < HEIGHT; y++)
-        for (int x = 0; x < WIDTH; x++)
-          leds[y * WIDTH + x] = HeatColor(heat[y][x]);
-      break;
-    }
-    case 6:  // RadialBurst
-      for (int y = 0; y < HEIGHT; y++)
-        for (int x = 0; x < WIDTH; x++) {
-          float d = sqrt((x-WIDTH/2.0f)*(x-WIDTH/2.0f)+(y-HEIGHT/2.0f)*(y-HEIGHT/2.0f))
-                    / sqrt(WIDTH*WIDTH/4.0f + HEIGHT*HEIGHT/4.0f);
-          float w = (sin((d * 8 - t * animSpeed * 3) * 3.14159f) + 1) / 2.0f;
-          leds[y * WIDTH + x] = samplePalette(paletteId, (uint8_t)(w * 255));
-        }
-      break;
-    case 7:  // Spiral
-      for (int y = 0; y < HEIGHT; y++)
-        for (int x = 0; x < WIDTH; x++) {
-          float d = sqrt((x-WIDTH/2.0f)*(x-WIDTH/2.0f)+(y-HEIGHT/2.0f)*(y-HEIGHT/2.0f))
-                    / sqrt(WIDTH*WIDTH/4.0f + HEIGHT*HEIGHT/4.0f);
-          float a = atan2(y-HEIGHT/2.0f, x-WIDTH/2.0f);
-          float s = (a + d * 12.57f - t * animSpeed * 3.14159f) * 2;
-          leds[y * WIDTH + x] = samplePalette(paletteId, (uint8_t)((sin(s)+1)/2.0f*255));
-        }
-      break;
-    case 11: // GradientFrame
-    default:
-      for (int i = 0; i < NUM_LEDS; i++)
-        leds[i] = samplePalette(paletteId, (uint8_t)(i * 255 / NUM_LEDS + t * 10));
-      break;
-  }
-}`
+    : 'void renderPattern(uint8_t, float) {}'
 
   // The reachable transition styles as one function operating on generic
   // buffers, so the player composites A→B the same way the browser preview does
@@ -1147,7 +1103,10 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
    * `withDeviceTelemetry` here. The tests assert all three sketches come out
    * with the same shape, which is what stops two mechanisms drifting.
    */
-  const finish = (source: string) => (opts.telemetry ? withDeviceTelemetry(source) : source)
+  const finish = (source: string) => {
+    const narrowed = withReferencedPalettes(source)
+    return opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed
+  }
 
   return finish(`// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}
 // Generated by Design Studio for FastLED. Requires:
@@ -1274,14 +1233,12 @@ ShowEvent* showEvents = nullptr;
 uint32_t   eventCount = 0;
 uint32_t   eventIdx   = 0;
 uint16_t   genericTrackIndex = 0;
-float      animSpeed  = 1.0f;
-uint8_t    patternId  = ${collection ? 0 : 2};        // active pattern${collection ? ' index' : ' (default: Plasma)'}
-uint8_t    prevPatternId = ${collection ? 0 : 2};     // outgoing pattern during a transition
-uint8_t    paletteId  = 0;        // default: Rainbow
+uint8_t    patternId  = 0;        // active pattern index
+uint8_t    prevPatternId = 0;     // outgoing pattern during a transition
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
 uint8_t    transType  = 0;        // transition style id (see compositeTransition)
-${genericPlayer && transitionIds.length > 1 ? `const uint8_t TRANS_POOL[] = { ${transitionIds.join(', ')} };
+${genericCollection && transitionIds.length > 1 ? `const uint8_t TRANS_POOL[] = { ${transitionIds.join(', ')} };
 #define TRANS_POOL_N ${transitionIds.length}
 ` : ''}uint32_t   transStart = 0;        // ms the current transition began
 float      transDurMs = 0.0f;     // 0 = no transition in progress
@@ -1289,7 +1246,9 @@ uint32_t   burstStart = 0;        // ms the current particle burst began
 float      burstIntensity = 0.0f; // 0–1 spark brightness (0 = no burst)
 CRGB       burstColor = CRGB(255, 128, 0);
 uint8_t    burstStyle = 0;        // particle motion style (see PARTICLE_STYLES)
-${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${reactiveAudio ? `
+${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? (renderers?.rawSpeed
+    ? 'float      speed     = 1.0f;      // SET_SPEED (0–2 multiplier) → speed group-input role\n'
+    : 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n') : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${reactiveAudio ? `
 // Shared audio contract consumed by compiled FFT/beat/percussion/features nodes.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;
 float     _audioLeftLevel = 0, _audioRightLevel = 0;
@@ -1338,23 +1297,14 @@ static uint32_t _audioBeatSeen = 0;
 
 ${usePsram ? `${PSRAM_ALLOC_CPP}\n` : ''}
 
-${paletteGlobals}
-
-// ── Palette helper ────────────────────────────────────────────────────────────
-CRGB samplePalette(uint8_t palId, uint8_t index) {
-  switch (palId) {
-${paletteSampleCases}
-    default: return ColorFromPalette(${paletteCppRef('rainbow')}, index);
-  }
-}
+${PALETTE_DECLS_MARKER}
 ${hasPalette ? `
-// Palette-role helper: map a SET_PALETTE id to a CRGBPalette16 (mirrors the
-// samplePalette() switch above) so the \`palette\` group-input role tracks the
-// same preset the global enum path would use.
+// Palette-role helper: map a SET_PALETTE id to the CRGBPalette16 the
+// \`palette\` group-input role reads.
 CRGBPalette16 paletteFromId(uint8_t palId) {
   switch (palId) {
 ${paletteFromIdCases}
-    default: return ${paletteCppRef('rainbow')};
+    default: return ${paletteCppRef(defaultPalette)};
   }
 }
 ` : ''}
@@ -1577,9 +1527,9 @@ ${controlSupportCpp}
 void applyEvent(const ShowEvent& ev) {
   switch (ev.cmd) {
     case CMD_SET_PATTERN:    patternId  = (uint8_t)ev.params[0]; break;
-    case CMD_SET_PALETTE:    paletteId  = (uint8_t)ev.params[0];${hasPalette ? ' palette = paletteFromId(paletteId);' : ''} break;
-    case CMD_SET_SPEED:      animSpeed  = ev.params[0];${hasSpeed ? ' speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f);' : ''} break;
-    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? `dma_display->setBrightness8((uint8_t)ev.params[0]);${hasStereoVu ? ' FastLED.setBrightness((uint8_t)ev.params[0]);' : ''}` : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;
+${hasPalette ? '    case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev.params[0]); break;\n' : ''}${hasSpeed
+    ? `    case CMD_SET_SPEED:      speed = ${renderers?.rawSpeed ? 'ev.params[0]' : 'constrain(ev.params[0] * 0.5f, 0.0f, 1.0f)'}; break;\n`
+    : ''}    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? `dma_display->setBrightness8((uint8_t)ev.params[0]);${hasStereoVu ? ' FastLED.setBrightness((uint8_t)ev.params[0]);' : ''}` : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;
     case CMD_BEAT_FLASH:
       flashLevel = ev.params[0] / 255.0f;
       flashDecay = expf(-16.0f / (60.0f + ((ev.paramCount > 1 ? ev.params[1] : 22.0f) / 255.0f) * 240.0f));
@@ -2061,7 +2011,7 @@ ${hasControls ? `${controlPinSetup}\n  applyPlayerBrightness();` : ''}
 ${displaySetupCpp ? displaySetupCpp + '\n' : ''}
 ${playerEarlyStagesCpp ? playerEarlyStagesCpp + '\n' : ''}
 ${playerServicesStageCpp ? playerServicesStageCpp + '\n' : ''}
-${genericPlayer && !sequentialPatterns ? `  patternId = (uint8_t)random(${patternCount});
+${genericCollection && !sequentialPatterns ? `  patternId = (uint8_t)random(${patternCount});
   prevPatternId = patternId;
 ${hasPatternSelection ? `  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, patternId);\n` : ''}` : ''}
 
@@ -2153,7 +2103,7 @@ ${!genericPlayer && hasPatternSelection ? `  // The show file schedules the patt
 ` : ''}${bakedAudio ? decoderTap
     ? '  if (!_decoderTapLive) updateShowAudio(posMs);  // startup/failure fallback\n'
     : '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
-${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst in
+${particleFx && genericCollection && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst in
   // volleys: PARTICLE_VOLLEY_BURSTS beats in a row each burst, then the
   // sparks rest PARTICLE_REST_MS. A rewound posMs (a seek or a new track)
   // starts a fresh volley. The same moves as the preview's particleVolleyFire.
@@ -2175,7 +2125,7 @@ ${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the l
       : `CRGB(${particleFx.color.r}, ${particleFx.color.g}, ${particleFx.color.b})`};
   }
 ` : ''}
-${genericPlayer ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
+${genericCollection ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
   // collected patterns in ${sequentialPatterns ? 'collection order' : 'random order without immediate repeats'}.
   // Their own audio nodes react to the live decoder signal.
   //
@@ -2244,7 +2194,7 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
     }
   }
 ` : ''}
-${genericPlayer && reactiveAudio ? `  // Fade the player down during genuine silence. Release is slower
+${genericCollection && reactiveAudio ? `  // Fade the player down during genuine silence. Release is slower
   // than attack so short pauses do not make the LEDs flicker. The numbers
   // are playerDynamics.ts's, which the preview steps with.
   float audioEnergy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);
@@ -2392,7 +2342,7 @@ ${genericPlayer && reactiveAudio ? `  // Fade the player down during genuine sil
   }
 
 ${outputFieldLines}
-${genericPlayer && reactiveAudio ? `  {
+${genericCollection && reactiveAudio ? `  {
 ${collection && renderers?.audioReactive && renderers.audioReactive.length > 0 ? `    // Only the patterns that listen go dark with the track; the rest keep
     // playing. Mid-transition the factor crosses with the composite, as the
     // preview's evalPatternShow does.

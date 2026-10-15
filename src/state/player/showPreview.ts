@@ -15,23 +15,7 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 import { isStudioPalette } from '../palettes/paletteCatalog'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import type { ShowFile, ShowEvent, SongSection } from '../../types/showFile'
-
-// Show pattern name → studio node type (+ fixed props). The performance
-// generator emits legacy names (NoiseField/Simplex2D) folded into `Noise`.
-const PATTERN_NODE: Record<string, { nodeType: string; props?: Record<string, unknown> }> = {
-  SolidColor:   { nodeType: 'SolidColor', props: { r: 0, g: 150, b: 255 } },
-  NoiseField:   { nodeType: 'Noise', props: { noiseType: 'field' } },
-  Simplex2D:    { nodeType: 'Noise', props: { noiseType: 'simplex' } },
-  Plasma:       { nodeType: 'Plasma' },
-  Fire:         { nodeType: 'Fire' },
-  Fire2012:     { nodeType: 'Fire', props: { fireStyle: 'fire2012', palette: 'heat' } },
-  Noise2D:      { nodeType: 'Noise', props: { noiseType: 'sine' } },
-  RadialBurst:  { nodeType: 'RadialBurst' },
-  Spiral:       { nodeType: 'Spiral' },
-  Kaleidoscope: { nodeType: 'Kaleidoscope' },
-  Particles:    { nodeType: 'Particles' },
-  GradientFrame:{ nodeType: 'GradientFrame' },
-}
+import { BUILTIN_SHOW_PATTERNS } from './builtinShowPatterns'
 
 export interface ShowState {
   pattern: string
@@ -156,7 +140,7 @@ const blank = (W: number, H: number): Frame =>
 
 // Enum show: render the active built-in pattern through a synthetic one-node graph.
 function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): Frame {
-  const map = PATTERN_NODE[st.pattern] ?? PATTERN_NODE.NoiseField
+  const map = BUILTIN_SHOW_PATTERNS[st.pattern] ?? BUILTIN_SHOW_PATTERNS.NoiseField
   const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
   const props = { ...(map.props ?? {}), palette, speed: st.speed }
   // Stable per-pattern id so stateful patterns (Fire…) keep continuity.

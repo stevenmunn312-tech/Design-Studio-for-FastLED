@@ -42,6 +42,7 @@ vi.mock('../../../utils/showUpload', () => ({
     nodes.some((node) => node.data.nodeType === 'SDCard')
       && nodes.some((node) => node.data.nodeType === 'PerformanceGenerator')),
   readySongCount: vi.fn(() => 0),
+  analysedShows: vi.fn(() => []),
   // Fresh by default: the drift refusal has its own coverage in
   // utils/__tests__/showUpload.test.ts, and every case here is about the
   // upload path rather than about a stale show.

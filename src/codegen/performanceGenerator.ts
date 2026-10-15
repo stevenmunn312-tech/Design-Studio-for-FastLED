@@ -1,5 +1,6 @@
 import type { SongAnalysis, SongSection, ShowFile, ShowEvent, AudioEnvelope, EnergyPoint } from '../types/showFile'
 import { PALETTE_IDS, STUDIO_PALETTES, isStudioPalette } from '../state/palettes/paletteCatalog'
+import { BUILTIN_SHOW_PATTERN_NAMES } from '../state/player/builtinShowPatterns'
 
 // Frame rate of the baked audio envelope (see bakeEnvelope). 50 Hz is smooth
 // enough for per-frame band reactivity while staying tiny (~3 bytes/frame).
@@ -114,6 +115,38 @@ const SECTION_PATTERNS: Record<SongSection['type'], string[]> = {
   outro:   ['NoiseField', 'GradientFrame'],
 }
 
+/** Every palette a freshly generated show can set under these options. */
+export function generatedShowPaletteNames(options: Pick<PerformanceOptions, 'paletteMode' | 'fixedPalette'>): string[] {
+  return options.paletteMode === 'fixed' && options.fixedPalette
+    ? [options.fixedPalette]
+    : [...new Set(Object.values(MOOD_PALETTES).flat())]
+}
+
+/** The palettes these shows' SET_PALETTE events name, in order. */
+export function showPaletteNames(shows: readonly ShowFile[]): string[] {
+  return [...new Set(shows.flatMap((show) => show.events
+    .filter((event) => event.cmd === 'SET_PALETTE')
+    .map((event) => String(event.params.name))))]
+}
+
+/** Every built-in a freshly generated show can name, in editor order. */
+export function generatedShowPatternNames(): string[] {
+  const reachable = new Set(Object.values(SECTION_PATTERNS).flat())
+  return BUILTIN_SHOW_PATTERN_NAMES.filter((name) => reachable.has(name))
+}
+
+/**
+ * The built-ins these shows' SET_PATTERN events name, in editor order: the
+ * patterns an SD performance player compiles for shows without a collection,
+ * and the slots `showFileToBinary` numbers them by.
+ */
+export function showPatternNames(shows: readonly ShowFile[]): string[] {
+  const named = new Set(shows.flatMap((show) => show.events
+    .filter((event) => event.cmd === 'SET_PATTERN' && event.params.name !== undefined)
+    .map((event) => String(event.params.name))))
+  return BUILTIN_SHOW_PATTERN_NAMES.filter((name) => named.has(name))
+}
+
 function choosePattern(type: SongSection['type'], exclude?: string): string {
   let opts = SECTION_PATTERNS[type]
   if (exclude !== undefined && opts.length > 1) opts = opts.filter((o) => o !== exclude)
@@ -142,6 +175,24 @@ export const PARTICLE_STYLES = [
 // Generator's `transitions` input (empty when none is wired). When present, it
 // has a 50/50 chance of overriding the rule-based pick below, so a show gets a
 // taste of the wider 21-style catalogue instead of only ever crossfade/wipe/dissolve.
+/**
+ * Every style a freshly generated show can name: the three section defaults
+ * chooseTransition picks from, plus the wired extras. What a capacity check
+ * assumes before any show exists; a real upload compiles the styles its shows
+ * actually carry (`showTransitionStyles`), since the timeline editor can
+ * hand-place any of them.
+ */
+export function performanceTransitionStyles(extra: readonly string[]): string[] {
+  return [...new Set(['crossfade', 'wipe', 'dissolve', ...extra])]
+}
+
+/** The transition styles these shows' TRANSITION events name, in order. */
+export function showTransitionStyles(shows: readonly ShowFile[]): string[] {
+  return [...new Set(shows.flatMap((show) => show.events
+    .filter((event) => event.cmd === 'TRANSITION')
+    .map((event) => String(event.params.type))))]
+}
+
 function chooseTransition(from: SongSection['type'], to: SongSection['type'], extra: string[] = []): string {
   const pick = (base: string) =>
     extra.length > 0 && Math.random() < 0.5 ? extra[Math.floor(Math.random() * extra.length)] : base
@@ -591,11 +642,6 @@ export function showFileToJson(show: ShowFile): string {
 //   PARTICLE_BURST: intensity, hue, style
 //   TRANSITION:    typeId(float), duration
 
-const PATTERN_IDS: Record<string, number> = {
-  SolidColor: 0, NoiseField: 1, Plasma: 2, Fire: 3, Fire2012: 4,
-  Noise2D: 5, RadialBurst: 6, Spiral: 7, Kaleidoscope: 8, Particles: 9,
-  Simplex2D: 10, GradientFrame: 11,
-}
 // Mirrors the `Transition` node's 21-style catalogue (nodeLibrary.ts
 // PROPERTY_META.transitionType) so a style chosen from a wired TransitionSet
 // round-trips through the binary export. crossfade/wipe/dissolve keep their
@@ -613,9 +659,9 @@ const CMD_IDS: Record<ShowEvent['cmd'], number> = {
   BEAT_FLASH: 4, TRANSITION: 5, SET_ENERGY: 6, PARTICLE_BURST: 7,
 }
 
-// Option lists the timeline editor offers — derived from the binary-export ID
-// maps so every value a user can pick survives the `.show` round-trip.
-export const SHOW_PATTERNS = Object.keys(PATTERN_IDS)
+// Option lists the timeline editor offers, so every value a user can pick
+// survives the `.show` round-trip.
+export const SHOW_PATTERNS = BUILTIN_SHOW_PATTERN_NAMES
 export const SHOW_TRANSITIONS = Object.keys(TRANSITION_IDS)
 
 /**
@@ -628,7 +674,12 @@ export function transitionStyleIds(names: readonly string[]): number[] {
   return ids.length ? ids : [TRANSITION_IDS.crossfade]
 }
 
-export function showFileToBinary(show: ShowFile): ArrayBuffer {
+/**
+ * The binary `.show` file. A show without a collection numbers its built-in
+ * patterns by their position in `builtinSlots`, the patterns the player on the
+ * same card compiled (`showPatternNames` of every show uploaded with it).
+ */
+export function showFileToBinary(show: ShowFile, builtinSlots: readonly string[] = SHOW_PATTERNS): ArrayBuffer {
   const headerBytes = 4 + 1 + 2 + 4 + 4   // magic + version + bpm + duration + count
   const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 3)  // worst case 3 params (PARTICLE_BURST)
   // Envelope: AENV(4) + version(1) + rate(1) + channels(1) + frameCount(4)
@@ -656,7 +707,7 @@ export function showFileToBinary(show: ShowFile): ArrayBuffer {
 
     const params: number[] = []
     switch (ev.cmd) {
-      case 'SET_PATTERN':    params.push(collection ? Number(ev.params.index ?? 0) : (PATTERN_IDS[ev.params.name as string] ?? 0)); break
+      case 'SET_PATTERN':    params.push(collection ? Number(ev.params.index ?? 0) : Math.max(0, builtinSlots.indexOf(String(ev.params.name)))); break
       case 'SET_PALETTE':    params.push(PALETTE_IDS[ev.params.name as string] ?? 0); break
       case 'SET_SPEED':      params.push(Number(ev.params.value)); break
       case 'SET_BRIGHTNESS': params.push(Number(ev.params.value)); break
