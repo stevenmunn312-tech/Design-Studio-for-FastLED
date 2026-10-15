@@ -228,9 +228,11 @@ export const INPUT_EMITTERS: NodeEmitters = {
   // firmware just sees the idle default.
   // DDP frames into this node's own buffer, which persists between loops, so
   // a frame that arrives as several packets (offset, length) assembles in
-  // place and the last complete picture holds until the next one.
-  DdpInput({ id, p, ln, ownBuf, intProp, setupLines, globalLines }) {
-    const ob = ownBuf()
+  // place and the last complete picture holds until the next one. With
+  // several output shapes the first pass drains the socket, so the passes
+  // share the one global buffer rather than each keeping its own.
+  DdpInput({ id, p, ln, ownBuf, intProp, setupLines, globalLines, nativeMultiRender }) {
+    const ob = ownBuf({ persists: !nativeMultiRender })
     const port = intProp(p.previewPort, 4048, 1, 65535)
     globalLines.push(`#if FLS_NET_SUPPORTED`)
     globalLines.push(`WiFiUDP _ddpUdp_${id};`)

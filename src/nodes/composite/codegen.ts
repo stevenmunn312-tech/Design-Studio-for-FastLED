@@ -45,21 +45,18 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
   // not seeded from the input each frame (see the Code node comment above);
   // it fades in place, then re-lightens per-channel wherever the input is
   // brighter. Mirrors the evaluator's Trails case.
-  Trails({ id, ln, f, ownBuf, srcBuf, nativeMultiRender, persistentFrameStateBufs }) {
-    const ob = ownBuf()
-    const state = nativeMultiRender ? `_passState_${id}` : ob
-    if (nativeMultiRender) persistentFrameStateBufs.add(id)
+  Trails({ ln, f, ownBuf, srcBuf }) {
     const src = srcBuf('frame')
-    if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`); return }
+    if (!src) { ln(`  fill_solid(${ownBuf()}, NUM_LEDS, CRGB::Black);`); return }
+    const ob = ownBuf({ persists: true })
     const decay = f('decay', 'decay', 0.15)
     ln(`  { // Trails: fadeToBlackBy(decay^3) then re-lighten from the input (per-channel max)`)
     ln(`    float _decay = constrain(${decay},0.0f,1.0f); _decay = _decay*_decay*_decay;`)
-    ln(`    fadeToBlackBy(${state}, NUM_LEDS, (uint8_t)(_decay*255.0f));`)
+    ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_decay*255.0f));`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
-    ln(`      if(${src}[_i].r>${state}[_i].r)${state}[_i].r=${src}[_i].r;`)
-    ln(`      if(${src}[_i].g>${state}[_i].g)${state}[_i].g=${src}[_i].g;`)
-    ln(`      if(${src}[_i].b>${state}[_i].b)${state}[_i].b=${src}[_i].b;}`)
-    if (nativeMultiRender) ln(`    ::memmove(${ob}, ${state}, sizeof(CRGB) * NUM_LEDS);`)
+    ln(`      if(${src}[_i].r>${ob}[_i].r)${ob}[_i].r=${src}[_i].r;`)
+    ln(`      if(${src}[_i].g>${ob}[_i].g)${ob}[_i].g=${src}[_i].g;`)
+    ln(`      if(${src}[_i].b>${ob}[_i].b)${ob}[_i].b=${src}[_i].b;}`)
     ln(`  }`)
   },
   FrameWarp({ p, ln, f, ownBuf, srcBuf, srcField, needsFrameSample }) {

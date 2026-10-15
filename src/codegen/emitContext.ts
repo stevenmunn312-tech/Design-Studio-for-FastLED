@@ -82,6 +82,16 @@ export interface OutputEmitConfig extends OutputRoute {
 /** A set-once flag an emitter raises to pull a helper into the sketch. */
 export interface Need { v: boolean }
 
+/**
+ * How a node uses its own buffer across frames.
+ *
+ * A buffer that `persists` carries pixels from one frame into the next, so it
+ * must belong to that node alone: native multi-render keeps it per pass, and a
+ * show keeps it per pattern. Every other buffer is written in full before it
+ * is read each frame, so passes and collected patterns share one set.
+ */
+export interface BufferUse { persists?: boolean }
+
 /** The sketch being generated: its graph, its hardware, and what emitters collect into it. */
 export interface SketchEmitContext {
   nodes: StudioNode[]
@@ -159,7 +169,6 @@ export interface SketchEmitContext {
   needsXyMap: Need
   frameBufs: Set<string>
   feedbackHistoryBufs: Map<string, number>
-  persistentFrameStateBufs: Set<string>
   customDisplayOwners: Set<string>
 }
 
@@ -181,8 +190,13 @@ export interface NodeEmitContext {
   channelColor: (port: string | null, dr: number, dg: number, db: number, keys?: readonly [string, string, string]) => string
   /** One channel of a linear A-to-B mix, rounded as the evaluator rounds it. */
   gradientChannel: (a: string, b: string, channel: string, t: string) => string
-  /** This node's own frame buffer, declared on first use. */
-  ownBuf: () => string
+  /**
+   * This node's own frame buffer, declared on first use. Pass `persists` when
+   * the node reads last frame's pixels back out of it (a fade, an accumulate,
+   * a partial write); every other buffer is scratch that a later render may
+   * reuse. See BufferUse.
+   */
+  ownBuf: (use?: BufferUse) => string
   /** The buffer of the node feeding `port`, or null if unconnected. */
   srcBuf: (port: string) => string | null
   /** An LED output's blackout and dimming expressions. */
@@ -196,7 +210,7 @@ export interface NodeEmitContext {
   /** A statement that seeds this node's buffer from a frame input, or black. */
   seedFrom: (port: string) => string
   /** This node's own float field buffer for an output port (`field` unless named). */
-  ownField: (port?: string) => string
+  ownField: (port?: string, use?: BufferUse) => string
   /** The field buffer of the node output feeding `port`, or null if unconnected. */
   srcField: (port: string) => string | null
 }

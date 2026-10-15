@@ -652,31 +652,35 @@ collections on the ESP32-S3 (16×16). RAM, not flash, is the limit: flash sat at
 by 3,272 bytes. Each colour buffer is `3 × NUM_LEDS` bytes, so the cost grows
 with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
 
-- [ ] **D-10.1 · Pool scratch buffers across collected patterns.**
-  `buildPatternRenderers` gives every pattern its own file-scope
-  `pN_buf_*`/`pN_field_*` set, yet `renderPattern` runs one pattern at a time,
-  even through a transition (outgoing into `showA`, then incoming into `showB`).
-  Scratch therefore needs only the largest pattern's set, not the sum:
+- [x] **D-10.1 · Pool scratch buffers across collected patterns.** Collected
+  patterns share one scratch pool (`_pool_buf_<n>`/`_pool_field_<n>`), sized
+  for the largest pattern; a buffer that carries pixels between frames
+  (`ownBuf({ persists: true })`) stays the pattern's own. The same mark gives
+  native multi-render per-pass statics in place of `_passState_` copies, and
+  fixed it there for Confetti, Juggle, Treble Sparks, Color Trails, Formula
+  Points, the Spectrum waterfall and SD Video, which had no per-pass state.
+  `persistentRenderBuffers.test.ts` derives the rule over every node variant.
+  Measured with `compile-matrix.py --only pattern-collections/` (SD Music
+  Player, ESP32-S3, 16×16, arduino-cli):
 
-  | Sketch | Patterns | Buffers now | Largest pattern |
-  |---|---|---|---|
-  | bundled 1–40 | 40 | 116 CRGB + 11 float, 100 KB | 7 + 3 |
-  | bundled 41–60 | 20 | 90 + 4, 73 KB | 11 + 4 |
-  | bundled 61–80 | 20 | 101 + 14, 92 KB | 8 + 7 |
-  | bundled 81–114 | 34 | 92 + 7, 78 KB | 9 + 4 |
+  | Sketch | Buffers before | Buffers after | RAM before | RAM after |
+  |---|---|---|---|---|
+  | bundled 1–40 | 117 CRGB + 11 float | 14 + 3 | 152,844 B (46%) | 65,548 B (20%) |
+  | bundled 41–60 | 91 + 4 | 21 + 4 | 170,932 B (52%) | 117,940 B (35%) |
+  | bundled 61–80 | 102 + 14 | 18 + 8 | 167,028 B (50%) | 96,372 B (29%) |
+  | bundled 81–114 | 93 + 7 | 24 + 4 | 144,220 B (44%) | 88,156 B (26%) |
 
-  A shared pool takes 41–60 from 73 KB of buffers to about 13 KB (RAM 51% to
-  roughly 33%). It applies to the slideshow and both players, which share the
-  renderer builder.
-  - First, a test that every node whose buffer carries pixels between frames
-    is in `persistentFrameStateBufs` (or keeps that state in a `static`). Those
-    stay per-pattern; `nativeMultiRender` already shares buffers on this rule.
-    An unmarked node would fail as a silent visual glitch, not a compile error.
-  - PSRAM allocation (`psramBufferDecl`, `_psAlloc`) must size the pool, not
-    each pattern.
-  - Proof: the bundled-collection compiles above, plus a preview-versus-firmware
-    check on Trails, Frame Feedback, Reaction Diffusion and Fluid across a
-    transition.
+  What remains per pattern is persistent state and Frame Feedback history.
+  - [ ] Bench: preview versus LEDs on Trails, Frame Feedback, Reaction
+    Diffusion and Fluid across a transition. Text-level coverage is in
+    `persistentRenderBuffers.test.ts`; no device run yet.
+- [ ] **D-10.3 · A persistent terminal aliased to `leds`.** The node feeding a
+  plain single output renders straight into `leds`, and the output's dimmer
+  then scales `leds` in place with `nscale8_video`. When that node is
+  persistent (Trails, Confetti, …), the dimming compounds every frame and
+  blackout wipes its state, so the LEDs fade faster than the preview. Refuse
+  the alias for a persistent node; `estimateFirmwareRam` restates the alias
+  rule and would need the same exception.
 - [ ] **D-10.2 · Reuse buffers within one graph.** The largest bundled pattern
   holds 11 colour buffers, and those sketches carry 59–93 full-frame `memmove`s,
   many of them a node seeding its buffer from its source before modifying it.

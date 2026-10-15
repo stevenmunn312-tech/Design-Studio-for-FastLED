@@ -80,11 +80,12 @@ export const SHAPES_EMITTERS: NodeEmitters = {
   SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
     const clip = asSdVideoClip(p.clip)
     if (!clip) {
-      ln('  // SD Video — no clip imported, so this node stays black.')
-      ownBuf()
+      ln(`  fill_solid(${ownBuf()}, NUM_LEDS, CRGB::Black); // SD Video: no clip imported`)
       return
     }
-    const ob = ownBuf()
+    // A frame is read only when the clip reaches a new one; between reads
+    // the buffer holds the last.
+    const ob = ownBuf({ persists: true })
     needsT.v = true
     if (!needsSdVideo.v) {
       needsSdVideo.v = true

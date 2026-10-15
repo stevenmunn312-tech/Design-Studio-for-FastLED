@@ -151,14 +151,25 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and `sizeof` then copies four bytes. Copy with `NUM_LEDS*sizeof(float)` or
   `sizeof(CRGB)*NUM_LEDS`, as Reaction Diffusion does now that its V state
   lives in its own `field_<id>`. A node's own `static` arrays stay arrays, so
-  `sizeof` is safe on those. A stateful node may keep state in its own output
-  buffer like this, because only the owner writes it and the buffer outlives
-  the frame; a show prefixes it per pattern, so patterns never share it. The
-  exception is `nativeMultiRender`: every render pass of a sketch with
-  several output shapes reuses one global set of `buf_`/`field_` buffers, so
-  there the state must be a static inside the templated pass (as Reaction
-  Diffusion's `_v_<id>` and Trails' `_passState_<id>` are), copied out each
-  frame.
+  `sizeof` is safe on those.
+- **A node that reads last frame's pixels back out of its own buffer must say
+  so:** `ownBuf({ persists: true })` or `ownField(port, { persists: true })`.
+  That covers a fade or accumulate (Trails, Confetti, Juggle, Color Trails), a
+  scroll (the Spectrum waterfall), a partial or occasional write (DDP, SD
+  Video) and state kept in the buffer (Reaction Diffusion's V). Every other
+  buffer is scratch and is shared: a sketch with several output shapes
+  (`nativeMultiRender`) reuses one global set across its passes, and a show or
+  player pools scratch across collected patterns (`_pool_buf_<n>`,
+  `_pool_field_<n>`), because only one pattern renders at a time, even
+  through a transition. A persistent buffer instead becomes a static of each
+  native pass, and stays the pattern's own (`p<n>_buf_<id>`) in a show. The
+  declaration carries the mark (`renderBuffers.ts`), which is how the show
+  builder tells the two apart in finished sketch text. Forgetting it compiles
+  and fails only on the LEDs, as another pattern's leftovers or lost trails,
+  so `persistentRenderBuffers.test.ts` derives the rule over every node,
+  select and toggle variant: the first loop line touching a node's own buffer
+  must be a whole write, or the declaration must be marked. A whole write the
+  line test cannot see goes in its reviewed list with the reason.
 - The Arduino preprocessor hoists a prototype of every function that returns
   `CRGB` to a point above `#include <FastLED.h>` unless an explicit prototype
   already exists after that include. Show `fastLedDecls` scans pattern helpers

@@ -339,7 +339,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   },
   Confetti({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
-    const ob = ownBuf()
+    const ob = ownBuf({ persists: true })
     const speed = rateCpp(f('speed', 'speed', 0.45), SPEED_MAX.Confetti)
     const density = `constrain((${f('density', 'density', 0.45)}),0.0f,1.0f)`
     const fade = `constrain((${f('fade', 'fade', 0.28)}),0.0f,1.0f)`
@@ -363,7 +363,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   },
   Juggle({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
     needsT.v = true
-    const ob = ownBuf()
+    const ob = ownBuf({ persists: true })
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Juggle)
     const dots = juggleDotCount(Number(p.count ?? JUGGLE_COUNT.default))
     const fade = `constrain((${f('fade', 'fade', 0.22)}),0.0f,1.0f)`

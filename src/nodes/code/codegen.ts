@@ -27,16 +27,14 @@ export const CODE_EMITTERS: NodeEmitters = {
     ln(`      float _v=${formula};`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
   },
-  Code({ node, id, p, ln, ownBuf, srcBuf, nativeMultiRender, globalLines, needsT, persistentFrameStateBufs }) {
+  Code({ node, p, ln, ownBuf, srcBuf, globalLines, needsT }) {
     // Paste-through: the user's FastLED loop body writes into leds[], aliased
-    // to this node's (global, persistent) buffer. A wired frame input seeds
-    // it each loop; unwired the buffer persists, so fadeToBlackBy accumulates
-    // trails the same way the live preview does.
+    // to this node's own buffer. A wired frame input seeds it each loop;
+    // unwired the buffer persists, so fadeToBlackBy accumulates trails the
+    // same way the live preview does.
     needsT.v = true
-    const ob = ownBuf()
     const src = srcBuf('frame')
-    const codeBuffer = nativeMultiRender && !src ? `_passState_${id}` : ob
-    if (nativeMultiRender && !src) persistentFrameStateBufs.add(id)
+    const ob = ownBuf({ persists: !src })
     const global = String(p.globalCode ?? '').trim()
     const code = String(p.code ?? '')
     if (global) {
@@ -46,9 +44,8 @@ export const CODE_EMITTERS: NodeEmitters = {
     }
     ln(`  {`)
     if (src) ln(`    ::memmove(${ob}, ${src}, sizeof(CRGB) * NUM_LEDS);`)
-    ln(`    CRGB* leds = ${codeBuffer}; (void)leds;`)
+    ln(`    CRGB* leds = ${ob}; (void)leds;`)
     for (const line of code.split('\n')) ln(`    ${line}`)
-    if (nativeMultiRender && !src) ln(`    ::memmove(${ob}, ${codeBuffer}, sizeof(CRGB) * NUM_LEDS);`)
     ln(`  }`)
   },
 }

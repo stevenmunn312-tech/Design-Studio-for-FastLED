@@ -374,13 +374,15 @@ describe('showGenerator', () => {
     const cpp = generateShowSketch(psNodes, edges, groups)
     expect(cpp).toContain('CRGB leds[NUM_LEDS];')            // stays internal
     expect(cpp).toContain('CRGB* showA = nullptr;')
-    expect(cpp).toContain('CRGB* p0_buf_sc = nullptr;')
+    expect(cpp).toContain('CRGB* _pool_buf_0 = nullptr;')
     expect(cpp).toContain('showA = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
-    expect(cpp).toContain('p0_buf_sc = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
+    // The pool, sized once for the largest pattern, is what moves.
+    expect(cpp).toContain('_pool_buf_0 = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
+    expect(cpp).not.toContain('_pool_buf_1')
     expect(cpp).toContain('void* _psAlloc(size_t n)')
     // The stale-toggle gate (board without PSRAM) falls back to static arrays.
     const noPs = generateShowSketch(psNodes, edges, groups, { psramAllowed: false })
-    expect(noPs).toContain('CRGB p0_buf_sc[NUM_LEDS];')
+    expect(noPs).toContain('CRGB _pool_buf_0[NUM_LEDS];')
     expect(noPs).not.toContain('_psAlloc')
   })
 
@@ -392,8 +394,8 @@ describe('showGenerator', () => {
             edges: [edge('e', 'bl', 'frame', 'go', 'frame')] },
     }
     const cpp = generateShowSketch(nodes, edges, blurGroups)
-    expect(cpp).toContain('blur2d(p0_buf_bl, WIDTH, HEIGHT, (uint8_t)(constrain(0.5,0.0f,1.0f)*255.0f), _xyMap)')
-    expect(cpp).toContain('blur2d(p1_buf_bl, WIDTH, HEIGHT, (uint8_t)(constrain(0.25,0.0f,1.0f)*255.0f), _xyMap)')
+    expect(cpp).toContain('blur2d(_pool_buf_0, WIDTH, HEIGHT, (uint8_t)(constrain(0.5,0.0f,1.0f)*255.0f), _xyMap)')
+    expect(cpp).toContain('blur2d(_pool_buf_0, WIDTH, HEIGHT, (uint8_t)(constrain(0.25,0.0f,1.0f)*255.0f), _xyMap)')
     // Declared once at file scope, not per pattern.
     expect(cpp.match(/fl::XYMap _xyMap =/g)).toHaveLength(1)
   })
@@ -438,8 +440,8 @@ describe('showGenerator', () => {
       },
     } as unknown as GroupRegistry
     const r = buildPatternRenderers(['gf'], fieldGroups)
-    expect(r.buffers).toContain('float p0_field_ff[NUM_LEDS];')
-    expect(r.functions[0]).toContain('p0_field_ff[')
+    expect(r.buffers).toContain('float _pool_field_0[NUM_LEDS];')
+    expect(r.functions[0]).toContain('_pool_field_0[')
     expect(r.helpers.join('\n')).toContain('float _fsin8(float x)')
   })
 

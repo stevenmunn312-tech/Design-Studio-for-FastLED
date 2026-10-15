@@ -181,9 +181,10 @@ describe('generateCpp', () => {
       ],
     )
 
-    expect(cpp).toContain('static CRGB _passState_trails[RENDER_LEDS];')
-    expect(cpp.match(/CRGB buf_trails\[NUM_LEDS\];/g)).toHaveLength(1)
-    expect(cpp).toContain('::memmove(buf_trails, _passState_trails, sizeof(CRGB) * RENDER_LEDS);')
+    // Each pass keeps its own trails; no global copy and no copy-out.
+    expect(cpp).toContain('static CRGB buf_trails[RENDER_LEDS];')
+    expect(cpp).not.toMatch(/^CRGB buf_trails\[NUM_LEDS\];/m)
+    expect(cpp).not.toContain('::memmove(buf_trails,')
   })
 
   // ── LED output forms ───────────────────────────────────────────────────────
@@ -3299,9 +3300,11 @@ describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion c
       edge('strip-feed', rd.id, strip.id, 'frame', 'frame'),
       edge('matrix-feed', rd.id, matrix.id, 'frame', 'frame'),
     ])
-    expect(cpp).toContain('static float _u_rd[RENDER_LEDS], _v_rd[RENDER_LEDS], _un_rd[RENDER_LEDS], _vn_rd[RENDER_LEDS];')
-    expect(cpp).toContain('::memcpy(_v_rd,_vn_rd,RENDER_LEDS*sizeof(float));')
-    expect(cpp).toContain('::memcpy(field_rd,_v_rd,RENDER_LEDS*sizeof(float));')
+    // V is the field buffer itself, a static of each pass.
+    expect(cpp).toContain('static float field_rd[RENDER_LEDS];')
+    expect(cpp).toContain('static float _u_rd[RENDER_LEDS], _un_rd[RENDER_LEDS], _vn_rd[RENDER_LEDS];')
+    expect(cpp).toContain('::memcpy(field_rd,_vn_rd,RENDER_LEDS*sizeof(float));')
+    expect(cpp).not.toMatch(/^float field_rd\[NUM_LEDS\];/m)
   })
 
   it.each([

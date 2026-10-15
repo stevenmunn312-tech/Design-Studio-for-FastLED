@@ -36,6 +36,7 @@ import { POLINE_HELPER_CPP } from './helpers/polineHelperCpp'
 import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { cppComment } from './cppLiterals'
+import { parseBufferDecl, type RenderBufferType } from './renderBuffers'
 import { sketchFileBlock } from './sketchBundle'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
@@ -169,7 +170,23 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): 
 // subgraph (terminated at a synthetic MatrixOutput) and rewriting the result:
 // drop the boilerplate, hoist its buffers/helpers, and wrap the loop body in a
 // function. Per-pattern buffers are prefixed so two patterns can't collide.
-interface PatternUnit { buffers: string[]; helpers: Map<string, string>; fn: string }
+/**
+ * One collected pattern. `buffers` are the declarations it keeps for itself:
+ * those that carry pixels between frames, and FrameFeedback history. Its
+ * scratch buffers are counted instead, and renamed onto the shared pool.
+ */
+interface PatternUnit {
+  buffers: string[]
+  scratch: Record<RenderBufferType, number>
+  helpers: Map<string, string>
+  fn: string
+}
+
+// Only one collected pattern renders at a time, even through a transition
+// (outgoing into showA, then incoming into showB), so scratch needs only the
+// largest pattern's set, not the sum.
+const scratchPoolName = (type: RenderBufferType, slot: number) =>
+  `_pool_${type === 'CRGB' ? 'buf' : 'field'}_${slot}`
 
 // C++ parameter type per group-input role. Float roles (energy/speed) pass a
 // scalar; the palette role passes a CRGBPalette16 by const reference.
@@ -229,7 +246,10 @@ function buildPattern(
   // — one extra param per exposed role when "Use group inputs" is on.
   const sig = `uint32_t ms${roleParams.map((p) => `, ${roleSig(p)}`).join('')}`
   const sub = groups[groupId]
-  const empty: PatternUnit = { buffers: [], helpers: new Map(), fn: `void ${fnName}(${sig}) { fill_solid(leds, NUM_LEDS, CRGB::Black); }` }
+  const empty: PatternUnit = {
+    buffers: [], scratch: { CRGB: 0, float: 0 }, helpers: new Map(),
+    fn: `void ${fnName}(${sig}) { fill_solid(leds, NUM_LEDS, CRGB::Black); }`,
+  }
   if (!sub) return empty
 
   // Re-terminate the subgraph at a MatrixOutput so generateCpp renders to `leds`.
@@ -274,9 +294,24 @@ function buildPattern(
     .filter((node) => nodeType(node) === 'PaletteFromImage')
     .map((node) => `pal_${safeId(node.id)}`)
   // Slice Tiling's baked pattern bits (`_bits_<id>`, `_bitsB_<id>`) are
-  // per-node file-scope tables as well.
+  // per-node file-scope tables as well. A scratch buffer is renamed onto its
+  // pool slot instead, on first use, so a declared buffer nothing reads
+  // takes no slot.
+  const scratchTypes = new Map<string, RenderBufferType>()
+  for (const decl of lines.map(parseBufferDecl)) {
+    if (decl && !decl.persists) scratchTypes.set(decl.name, decl.type)
+  }
+  const scratch: Record<RenderBufferType, number> = { CRGB: 0, float: 0 }
+  const pooled = new Map<string, string>()
+  const poolSlot = (name: string, type: RenderBufferType) => {
+    if (!pooled.has(name)) pooled.set(name, scratchPoolName(type, scratch[type]++))
+    return pooled.get(name)!
+  }
   const pfx = (source: string) => {
-    let result = source.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b|\b_bitsB?_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
+    let result = source.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b|\b_bitsB?_[A-Za-z0-9_]+\b/g, (m) => {
+      const type = scratchTypes.get(m)
+      return type ? poolSlot(m, type) : `p${index}_${m}`
+    })
     for (const symbol of imagePaletteSymbols) {
       result = result.replace(new RegExp(`\\b${symbol}\\b`, 'g'), `p${index}_${symbol}`)
     }
@@ -299,7 +334,8 @@ function buildPattern(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    if (/^(?:CRGB buf_|float field_)[A-Za-z0-9_]+\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
+    const decl = parseBufferDecl(line)
+    if (decl) { if (decl.persists) buffers.push(pfx(line)); continue }
     const sliceBits = line.match(/^static const uint8_t (_bitsB?_[A-Za-z0-9_]+)\[8\]=/)
     if (sliceBits) { helpers.set(`sliceBits:${index}:${sliceBits[1]}`, pfx(line)); continue }
     // FrameFeedback's history ring buffer: `CRGB _fb_<id>[<capacity>][NUM_LEDS];`.
@@ -343,7 +379,7 @@ function buildPattern(
     }
   }
 
-  return { buffers, helpers, fn: [`void ${fnName}(${sig}) {`, ...body, '}'].join('\n') }
+  return { buffers, scratch, helpers, fn: [`void ${fnName}(${sig}) {`, ...body, '}'].join('\n') }
 }
 
 /** The reusable C++ pieces for a set of collected patterns: per-pattern frame
@@ -393,8 +429,14 @@ export function buildPatternRenderers(
   }
   const helpers = new Map<string, string>()
   for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
+  const pool = (['CRGB', 'float'] as const).flatMap((type) =>
+    Array.from({ length: Math.max(0, ...units.map((u) => u.scratch[type])) },
+      (_, slot) => `${type} ${scratchPoolName(type, slot)}[NUM_LEDS];`))
   return {
-    buffers: units.flatMap((u) => u.buffers),
+    buffers: [
+      ...(pool.length > 0 ? ['// Scratch shared by every pattern: only one renders at a time.', ...pool] : []),
+      ...units.flatMap((u) => u.buffers),
+    ],
     helpers: [...helpers.values()],
     functions: units.map((u) => u.fn),
     count: units.length,

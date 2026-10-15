@@ -10,6 +10,7 @@ the summary after every leg, so a partial run can still be read.
     python scripts/compile-fixtures/compile-matrix.py --engine all # fbuild legs too
     python scripts/compile-fixtures/compile-matrix.py --only ir/ --only ethernet/ --dry-run
     python scripts/compile-fixtures/compile-matrix.py --only dead-code/   # the D-09 corpus, about 250 sketches
+    python scripts/compile-fixtures/compile-matrix.py --only pattern-collections/   # D-10 render-buffer RAM
 
 Development runs on arduino-cli alone, so that is the default engine. The
 fbuild legs stay in the plan for when that engine is tested again.
@@ -174,6 +175,20 @@ def dead_code_legs() -> list[Leg]:
     return [Leg("dead-code", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino") for name in names]
 
 
+def pattern_collection_legs() -> list[Leg]:
+    """D-10: every bundled pattern as SD-player collections, read for RAM."""
+    folder = ROOT / "artifacts" / "pattern-collections-compile"
+    manifest = folder / "manifest.json"
+    if not manifest.exists():
+        subprocess.run("npm run gen:compile-fixtures -- pattern-collections", shell=True, cwd=ROOT,
+                       capture_output=True, text=True, check=False)
+    try:
+        names = sorted(json.loads(manifest.read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return []
+    return [Leg("pattern-collections", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino") for name in names]
+
+
 def plan() -> list[Leg]:
     """fbuild first (the toolchain-upgrade check), then the arduino-cli refresh."""
     return [
@@ -186,12 +201,13 @@ def plan() -> list[Leg]:
           for mode in ("normal", "show", "player", "show-ntp", "player-ntp", "show-ethernet")),
         *ir_arduino_cli_legs(),
         *dead_code_legs(),
+        *pattern_collection_legs(),
     ]
 
 
 GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x",
               "ethernet": "ethernet", "power-switch": "power-switch", "control-graph": "control-graph",
-              "dead-code": "dead-code"}
+              "dead-code": "dead-code", "pattern-collections": "pattern-collections"}
 
 
 def read_report(path: Path) -> dict | None:

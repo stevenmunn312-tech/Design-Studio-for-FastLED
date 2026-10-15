@@ -1,0 +1,34 @@
+// The declaration of one render buffer, `CRGB buf_<id>[NUM_LEDS];` or
+// `float field_<id>[NUM_LEDS];`, and the one fact about it a consumer of the
+// finished text needs: whether it carries pixels between frames.
+//
+// The show generator receives each collected pattern as finished sketch text,
+// so the mark travels in the declaration itself rather than beside it. A
+// persistent buffer stays the pattern's own; the rest are pooled.
+
+import type { BufferUse } from './emitContext'
+
+const PERSISTS_MARK = '// keeps its pixels between frames'
+
+export type RenderBufferType = 'CRGB' | 'float'
+
+export function bufferDeclCpp(type: RenderBufferType, name: string, persistent: ReadonlySet<string>): string {
+  const decl = `${type} ${name}[NUM_LEDS];`
+  return persistent.has(name) ? `${decl}   ${PERSISTS_MARK}` : decl
+}
+
+export interface RenderBufferDecl extends Required<BufferUse> {
+  type: RenderBufferType
+  name: string
+}
+
+/** A render-buffer declaration line, or null for any other line. */
+export function parseBufferDecl(line: string): RenderBufferDecl | null {
+  const m = line.match(/^(CRGB|float) ([A-Za-z_][A-Za-z0-9_]*)\[NUM_LEDS\];(?:\s+(\/\/.*))?$/)
+  if (!m) return null
+  return { type: m[1] as RenderBufferType, name: m[2], persists: m[3] === PERSISTS_MARK }
+}
+
+export function isPersistentBufferDecl(line: string): boolean {
+  return parseBufferDecl(line)?.persists === true
+}

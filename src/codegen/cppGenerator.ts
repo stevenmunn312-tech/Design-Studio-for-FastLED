@@ -153,7 +153,8 @@ import { SHAPES_EMITTERS } from '../nodes/shapes/codegen'
 import { SHOW_EMITTERS } from '../nodes/show/codegen'
 import { SIGNAL_EMITTERS } from '../nodes/signal/codegen'
 import { SIMULATIONS_EMITTERS } from '../nodes/simulations/codegen'
-import type { GenerateCppOptions, SketchEmitContext, NodeEmitter } from './emitContext'
+import type { BufferUse, GenerateCppOptions, SketchEmitContext, NodeEmitter } from './emitContext'
+import { bufferDeclCpp, parseBufferDecl } from './renderBuffers'
 import { finishCpp } from './cppCleanup'
 import { boardCppFacts, specializeCpp } from './cppSpecialize'
 import { SHOW_PIPELINE_NOTES } from '../nodes/show/codegen'
@@ -860,9 +861,11 @@ export function generateCpp(
   // MatrixOutput moves ordinary render buffers into PSRAM.
   const feedbackHistoryBufs = new Map<string, number>()
   // Buffers whose previous pixels are evaluator state rather than disposable
-  // intermediates. Native passes get one correctly-sized copy per template
-  // instance; ordinary buf_ arrays remain the one sequentially reused set.
-  const persistentFrameStateBufs = new Set<string>()
+  // intermediates (`ownBuf({ persists: true })`), by declared name. Native
+  // passes keep one correctly-sized static copy per template instance; the
+  // others stay the one sequentially reused global set. The declaration says
+  // so too, which is how a show tells them from the scratch it pools.
+  const persistentBufs = new Set<string>()
 
   // Which panels have a screen design — the same walk validation, the RAM
   // estimate and the asset bake use, so they all agree on what this sketch
@@ -880,7 +883,7 @@ export function generateCpp(
     needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
-    persistentFrameStateBufs, customDisplayOwners,
+    customDisplayOwners,
   }
 
   function emit(node: StudioNode): void {
@@ -932,7 +935,11 @@ export function generateCpp(
 
     // This node's own frame buffer (registers it for global declaration).
     const fbuf = `buf_${id}`
-    const ownBuf = () => { frameBufs.add(id); return fbuf }
+    const ownBuf = (use: BufferUse = {}) => {
+      frameBufs.add(id)
+      if (use.persists) persistentBufs.add(fbuf)
+      return fbuf
+    }
     // The buffer of the node feeding `port`, or null if unconnected.
     const srcBuf = (port: string): string | null => {
       const up = incoming.get(`${node.id}:${port}`)
@@ -1035,9 +1042,10 @@ export function generateCpp(
     const fieldBufName = (nodeId: string, port = 'field') =>
       port === 'field' ? safeId(nodeId) : `${safeId(nodeId)}_${safeId(port)}`
     // This node's own float field buffer for an output port.
-    const ownField = (port = 'field') => {
+    const ownField = (port = 'field', use: BufferUse = {}) => {
       const name = fieldBufName(node.id, port)
       fieldBufs.add(name)
+      if (use.persists) persistentBufs.add(`field_${name}`)
       return `field_${name}`
     }
     // The float field buffer of the node output feeding `port`, or null if unconnected.
@@ -1194,18 +1202,21 @@ export function generateCpp(
   // one float buffer per field-producing node (FieldFormula …). With `usePsram`
   // these become pointers allocated in setup() (leds stays internal — see
   // PSRAM_ALLOC_CPP); otherwise they're plain static arrays.
+  // Native passes declare their persistent buffers inside the pass template.
   const bufferDecls = [
-    ...[...frameBufs].map((b) => `CRGB buf_${b}[NUM_LEDS];`),
-    ...[...fieldBufs].map((b) => `float field_${b}[NUM_LEDS];`),
+    ...[...frameBufs].map((b) => ['CRGB', `buf_${b}`] as const),
+    ...[...fieldBufs].map((b) => ['float', `field_${b}`] as const),
   ]
+    .filter(([, name]) => !(nativeMultiRender && persistentBufs.has(name)))
+    .map(([type, name]) => bufferDeclCpp(type, name, persistentBufs))
   // The node feeding the output writes into `leds` itself rather than into a
   // second full-frame buffer that is then copied over — an alias, so every
   // reference to it in the loop is unchanged. Never a PSRAM buffer: `leds` is
   // always internal, and this is `leds`.
-  const aliasDecl = `CRGB buf_${aliasedTerminalId}[NUM_LEDS];`
+  const aliasName = `buf_${aliasedTerminalId}`
   const psramAllocs: string[] = []
   for (const d of bufferDecls) {
-    if (aliasedTerminalId && d === aliasDecl) {
+    if (aliasedTerminalId && parseBufferDecl(d)?.name === aliasName) {
       lines.push(`CRGB* const buf_${aliasedTerminalId} = leds;   // renders straight into the output buffer`)
       continue
     }
@@ -1489,8 +1500,8 @@ export function generateCpp(
     lines.push(`template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT>`)
     lines.push(`float renderOutputPass(float t) {`)
     lines.push(`  static constexpr int RENDER_LEDS = RENDER_WIDTH * RENDER_HEIGHT;`)
-    for (const id of persistentFrameStateBufs) {
-      lines.push(`  static CRGB _passState_${id}[RENDER_LEDS];`)
+    for (const name of persistentBufs) {
+      lines.push(`  static ${name.startsWith('field_') ? 'float' : 'CRGB'} ${name}[RENDER_LEDS];`)
     }
     for (const [id, capacity] of feedbackHistoryBufs) {
       lines.push(`  static CRGB _fb_${id}[${capacity}][RENDER_LEDS];`)

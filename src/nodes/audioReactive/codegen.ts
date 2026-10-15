@@ -102,8 +102,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
   SpectrumVisualizer(ctx) {
     if (ctx.p.style === 'Three Band') { threeBandCpp(ctx); return }
     const { node, id, p, ln, f, ownBuf, hasExplicitAudioInput, paletteExpr } = ctx
-    const ob = ownBuf()
     const style = String(p.style ?? 'Bars')
+    // The waterfall scrolls last frame's rows down rather than redrawing them.
+    const ob = ownBuf({ persists: style === 'Waterfall' })
     // `bands` sizes a stack array and composes literals of its own
     // (`${bands - 1}.0f`), so it has nothing to branch on at runtime and
     // stays a property. The rest become per-frame locals, each keeping the
@@ -283,7 +284,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`  }`)
   },
   TrebleSparks({ node, p, ln, f, ownBuf, paletteExpr }) {
-    const ob = ownBuf()
+    const ob = ownBuf({ persists: true })
     const treble = f('treble', 'treble', 0.5)
     const density = f('density', 'density', 0.5)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -813,7 +814,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
   },
   ColorTrails({ node, id, p, ln, f, ownBuf, boolExpr, paletteExpr, needsT, frameBufs }) {
     needsT.v = true
-    const ob = ownBuf()
+    const ob = ownBuf({ persists: true })
     const tmpId = `cttmp_${id}`
     frameBufs.add(tmpId)
     const tmp = `buf_${tmpId}`
