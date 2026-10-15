@@ -16,7 +16,15 @@ Development runs on arduino-cli alone, so that is the default engine. The
 fbuild legs stay in the plan for when that engine is tested again.
 
 To stop early, create a file named STOP in the run's output folder. The run
-finishes the current compile and stops before the next one.
+finishes the current compile and stops before the next one. To resume, rerun the
+same filters with --resume <that run's folder>: a leg is skipped only when it
+passed there and its regenerated sketch is byte-for-byte the one that passed,
+so legs added since, or changed by a commit since, still compile.
+
+    python scripts/compile-fixtures/compile-matrix.py --only dead-code/ --resume artifacts/compile-matrix/2026-10-15_2205 --low-priority
+
+--low-priority runs at Windows below-normal priority, which the compilers it
+starts inherit, so the desktop stays usable during a long run.
 
 Results go to artifacts/compile-matrix/<timestamp>/: run.log, summary.md,
 summary.json and each leg's runner output under legs/. Each runner also writes
@@ -28,6 +36,7 @@ upgrade).
 from __future__ import annotations
 
 import argparse
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -256,6 +265,21 @@ def busy_compilers() -> list[str]:
                    if line.split(",")[0].strip('"').lower() in names})
 
 
+def sketch_sha256(sketch: Path) -> str | None:
+    """The hash the runners record, over the sketch as they read it."""
+    try:
+        return hashlib.sha256(sketch.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+    except OSError:
+        return None
+
+
+def resumable_passes(run_dir: Path) -> dict[str, dict]:
+    """Leg name to summary row for every leg that passed in a previous run."""
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    return {row["leg"]: row for row in summary.get("legs", [])
+            if row.get("status") == "PASS" and row.get("source_sha256")}
+
+
 class KeepAwake:
     """Ask Windows not to sleep while the run holds this. Changes no settings."""
 
@@ -327,6 +351,10 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="print the plan and exit")
     parser.add_argument("--dry-run", action="store_true", help="print each command without generating or compiling")
     parser.add_argument("--no-generate", action="store_true", help="compile the fixtures already on disk")
+    parser.add_argument("--resume", type=Path, metavar="RUN_DIR",
+                        help="skip legs that passed in that run with an identical sketch (resume after STOP)")
+    parser.add_argument("--low-priority", action="store_true",
+                        help="run at below-normal priority on Windows; spawned compilers inherit it")
     args = parser.parse_args()
 
     legs = [leg for leg in plan()
@@ -339,6 +367,11 @@ def main() -> int:
                 print("      " + " ".join(leg.command()))
         print(f"{len(legs)} legs")
         return 0
+
+    if args.low_priority and sys.platform == "win32":
+        import ctypes
+        BELOW_NORMAL_PRIORITY_CLASS = 0x4000
+        ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS)
 
     busy = busy_compilers()
     if busy:
@@ -384,7 +417,17 @@ def main() -> int:
                     write_summary(out, header, rows)
                     return 1
 
+        passed = resumable_passes(args.resume) if args.resume else {}
+        if args.resume:
+            say(f"Resuming {display_path(args.resume)}: {len(passed)} passed legs on record")
         for index, leg in enumerate(legs, 1):
+            carried = passed.get(leg.name)
+            if carried and carried["source_sha256"] == sketch_sha256(leg.sketch):
+                # Carried into this summary so it reads as the whole corpus.
+                rows.append({**carried, "index": index,
+                             "note": f"carried from {display_path(args.resume)}; sketch unchanged"})
+                say(f"[{index}/{len(legs)}] {leg.name} [{leg.engine}] skipped: passed in the resumed run, sketch unchanged")
+                continue
             if (out / "STOP").exists():
                 say("STOP file found; stopping before the next leg.")
                 break
