@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
-import type { Plugin } from 'vite'
+import { fileURLToPath } from 'node:url'
+import { normalizePath, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { uploadHelper } from './vite-plugin-upload-helper'
@@ -10,6 +11,8 @@ const crossOriginIsolationHeaders = {
 }
 const namedLocalHosts = ['design-studio-for-fastled.localhost', 'design-studio-for-fastled.localtest.me']
 const APP_CHUNK_WARNING_KIB = 750
+// Forward-slashed, as chokidar matches its ignore globs against posix paths.
+const repoRoot = normalizePath(fileURLToPath(new URL('.', import.meta.url))).replace(/\/$/, '')
 
 /**
  * Vite has one global chunk threshold, but this app has one deliberate
@@ -50,7 +53,10 @@ export default defineConfig(() => {
       // A build writing here is not a source change, and watching it is worse
       // than useless: chokidar throws EBUSY on a compiler's open output file
       // and the error kills the dev server mid-session. Every toolchain output
-      // directory under backend/ belongs in this list.
+      // directory under backend/ belongs in this list. The gitignored scratch,
+      // capture and build folders at the root go too: they hold thousands of
+      // directories, and watching them kept each idle dev server rescanning on
+      // one to two cores, enough to stall the desktop.
       watch: {
         ignored: [
           '**/backend/.fbuild-project/**',
@@ -58,6 +64,10 @@ export default defineConfig(() => {
           '**/backend/exports/**',
           '**/backend/__pycache__/**',
           '**/backend/.pytest_cache/**',
+          '**/backend/.venv/**',
+          '**/backend/.arduino-libraries/**',
+          ...['tmp', 'artifacts', 'release', 'dist', '.desktop-build', '.claude/worktrees']
+            .map((dir) => `${repoRoot}/${dir}/**`),
         ],
       },
     },
