@@ -94,7 +94,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
   PlayerParticles: {
     overview: [
       'Player Particles configures the burst of sparks a Music Player can throw over its patterns on each beat. Turn it on, pick one of seventeen spark styles, set the colour and intensity, or let each burst choose a random style or colour.',
-      'The bursts are independent of pattern changes: they fire on every beat whether or not Beat Transitions is on. Wire buttons, knobs or colours into its inputs to change the effect live.',
+      'The bursts are independent of pattern changes: they follow the beat whether or not Beat Transitions is on. Under Frequency, Bursts in a Row sets how many beats in a row each throw a burst, and Rest sets the pause before the next run; a Rest of 0 bursts on every beat. Wire buttons, knobs or colours into its inputs to change the effect live.',
     ],
     inputs: {
       color: 'Spark colour while Random Color is off.',
@@ -102,7 +102,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     outputs: {
       particleFx: 'The overlay settings, for the Music Player’s Particle FX input.',
     },
-    outcome: SHOW_OUTCOME + ' With Enabled on, sparks burst over them on every beat.',
+    outcome: SHOW_OUTCOME + ' With Enabled on, sparks burst over them in runs of beats with a rest between.',
     example: example({
       featured: 'PlayerParticles',
       title: 'Golden sparks on every beat, at the press of a button',
@@ -116,7 +116,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       },
       wires: ['sparks.pressed > fx.enabled', 'gold.color > fx.color', 'fx.particleFx > player.particleFx', 'mic.audio > player.audio', 'patterns.patternset > player.patternset'],
       explanation: 'Player Particles sets up a golden spark burst and hands it to the Music Player. The Button enables the overlay while held, so a performer can add sparks to the beat on demand.',
-      preview: 'Once patterns play on the {output}, hold the Button node and golden sparks burst on each beat.',
+      preview: 'Once patterns play on the {output}, hold the Button node and golden sparks burst on the beat.',
       workflow: true,
     }),
   },

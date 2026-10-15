@@ -133,6 +133,10 @@ export interface PlayerParticles {
   intensity: number
   randomColor: boolean
   randomStyle: boolean
+  /** Beats in a row that each burst before the sparks rest. */
+  volleyBursts: number
+  /** Rest after a volley, in milliseconds; 0 bursts on every beat. */
+  restMs: number
 }
 
 export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | DisplaySignal | StereoVuFrame | null

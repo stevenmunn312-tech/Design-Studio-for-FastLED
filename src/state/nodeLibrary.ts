@@ -42,6 +42,7 @@ import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
+import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/playerDynamics'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
 import { RENDER_SCALE_OPTIONS } from './output/renderScale'
@@ -1413,6 +1414,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PlayerParticles: {
     style: { control: 'slider', min: 0, max: 16, step: 1 },
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    volleyBursts: { control: 'slider', min: 1, max: PARTICLE_VOLLEY_BURSTS_MAX, step: 1 },
+    restSec: { control: 'slider', min: 0, max: PARTICLE_REST_SEC_MAX, step: 0.5 },
   },
   FluidSim: {
     inject: N01, injectX: N01, injectY: N01, viscosity: N01, diffusion: N01, buoyancy: N01,
@@ -1983,6 +1986,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     intensity: 'Brightness of the additive particle overlay.',
     randomColor: 'Pick a new spark colour on every beat instead of the fixed colour.',
     randomStyle: 'Pick a new spark motion style on every beat instead of the fixed style.',
+    volleyBursts: 'How many beats in a row each throw a burst before the sparks rest.',
+    restSec: 'Pause after a run of bursts before the next run may start. 0 bursts on every beat.',
   },
   FFTAnalyzer: {
     bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
@@ -3657,6 +3662,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PlayerParticles: {
     randomColor: 'use random color',
     randomStyle: 'use random style',
+    volleyBursts: 'bursts in a row',
+    restSec: 'rest (s)',
   },
   ClockDisplay: {
     displayMode: 'display',
@@ -4032,6 +4039,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   PlayerParticles: [
     { key: 'appearance', label: 'Appearance', keys: ['enabled', 'intensity', 'randomStyle', 'style', 'randomColor', 'color'] },
+    { key: 'frequency', label: 'Frequency', keys: ['volleyBursts', 'restSec'] },
   ],
   Array: [
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },

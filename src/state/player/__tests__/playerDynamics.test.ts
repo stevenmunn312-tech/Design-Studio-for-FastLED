@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_RELEASE_RATE,
-  blankParticleVolley, particleVolleyFire, silenceFadeStep, silenceFadeTarget,
+  blankParticleVolley, particleRestMs, particleVolleyBursts, particleVolleyFire, silenceFadeStep, silenceFadeTarget,
 } from '../playerDynamics'
+
+const DEFAULT_SPACING = { volleyBursts: PARTICLE_VOLLEY_BURSTS, restMs: PARTICLE_REST_MS }
 
 describe('particle volleys', () => {
   // Beats at 120 BPM.
@@ -10,7 +12,7 @@ describe('particle volleys', () => {
 
   it('fires a few beats in a row, then rests for seconds', () => {
     const volley = blankParticleVolley()
-    const fired = beats(20).map((ms) => particleVolleyFire(volley, ms))
+    const fired = beats(20).map((ms) => particleVolleyFire(volley, ms, DEFAULT_SPACING))
     // The first volley fires at once, one burst per beat.
     expect(fired.slice(0, PARTICLE_VOLLEY_BURSTS)).toEqual(Array(PARTICLE_VOLLEY_BURSTS).fill(true))
     // Then nothing until the rest has passed since the volley's last burst.
@@ -29,10 +31,35 @@ describe('particle volleys', () => {
 
   it('starts a fresh volley when the clock goes backwards', () => {
     const volley = blankParticleVolley()
-    for (const ms of beats(PARTICLE_VOLLEY_BURSTS)) particleVolleyFire(volley, ms)
-    expect(particleVolleyFire(volley, PARTICLE_VOLLEY_BURSTS * 500)).toBe(false)
+    for (const ms of beats(PARTICLE_VOLLEY_BURSTS)) particleVolleyFire(volley, ms, DEFAULT_SPACING)
+    expect(particleVolleyFire(volley, PARTICLE_VOLLEY_BURSTS * 500, DEFAULT_SPACING)).toBe(false)
     // A new track rewinds to zero: its first beat bursts.
-    expect(particleVolleyFire(volley, 0)).toBe(true)
+    expect(particleVolleyFire(volley, 0, DEFAULT_SPACING)).toBe(true)
+  })
+
+  it("follows the node's bursts in a row and rest", () => {
+    const volley = blankParticleVolley()
+    const spacing = { volleyBursts: 1, restMs: 1200 }
+    const fired = beats(8).map((ms) => particleVolleyFire(volley, ms, spacing))
+    // One burst, then rest until 1.2 s after it: beats at 1.5, 3.0 s fire.
+    expect(fired).toEqual([true, false, false, true, false, false, true, false])
+  })
+
+  it('bursts on every beat with no rest', () => {
+    const volley = blankParticleVolley()
+    expect(beats(6).map((ms) => particleVolleyFire(volley, ms, { volleyBursts: 2, restMs: 0 })))
+      .toEqual(Array(6).fill(true))
+  })
+
+  it('normalises stored bursts in a row and rest', () => {
+    expect(particleVolleyBursts(undefined)).toBe(PARTICLE_VOLLEY_BURSTS)
+    expect(particleVolleyBursts(0)).toBe(1)
+    expect(particleVolleyBursts(99)).toBe(8)
+    expect(particleVolleyBursts('nope')).toBe(PARTICLE_VOLLEY_BURSTS)
+    expect(particleRestMs(undefined)).toBe(PARTICLE_REST_MS)
+    expect(particleRestMs(-2)).toBe(0)
+    expect(particleRestMs(2.5)).toBe(2500)
+    expect(particleRestMs(60)).toBe(15000)
   })
 })
 

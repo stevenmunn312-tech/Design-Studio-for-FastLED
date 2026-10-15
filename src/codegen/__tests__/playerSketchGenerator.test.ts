@@ -405,7 +405,7 @@ describe('playerSketchGenerator', () => {
       const edges = [{ source: 'fx', sourceHandle: 'particleFx', target: 'master', targetHandle: 'particleFx' }]
       expect(playerParticlesFromGraph(nodes, edges)).toEqual({
         enabled: true, style: 6, color: { r: 51, g: 102, b: 204 }, intensity: 0.72,
-        randomColor: true, randomStyle: false,
+        randomColor: true, randomStyle: false, volleyBursts: 3, restMs: 4000,
       })
       expect(playerParticlesFromGraph(nodes, [])).toBeNull()
     })
@@ -421,11 +421,11 @@ describe('playerSketchGenerator', () => {
         decoderTap: true,
         particleFx: {
           enabled: true, style: 6, color: { r: 51, g: 102, b: 204 }, intensity: 0.72,
-          randomColor: false, randomStyle: true,
+          randomColor: false, randomStyle: true, volleyBursts: 2, restMs: 2500,
         },
       })
-      expect(sketch).toContain('#define PARTICLE_VOLLEY_BURSTS 3')
-      expect(sketch).toContain('#define PARTICLE_REST_MS   4000')
+      expect(sketch).toContain('#define PARTICLE_VOLLEY_BURSTS 2')
+      expect(sketch).toContain('#define PARTICLE_REST_MS   2500')
       expect(sketch).toContain('if (burstVolleyLeft == 0 && (burstStart == 0 || posMs - burstStart >= PARTICLE_REST_MS)) {')
       expect(sketch).toContain('if (burstVolleyLeft > 0) { burstVolleyLeft--; burstDue = true; }')
       expect(sketch).toContain('if (burstDue) {')

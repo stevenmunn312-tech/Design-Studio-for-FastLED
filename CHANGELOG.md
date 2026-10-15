@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Player Particles** gains a Frequency group: **Bursts in a Row** (1–8
+  beats that each throw a burst) and **Rest** (0–15 s before the next run;
+  0 bursts on every beat). The preview and the SD player sketch both follow
+  them; they replace the fixed three-burst, four-second cadence.
 - The nodes the library audit found missing. Patterns: **Theater Chase**,
   **Color Wipe**, **Breathe** and a **Level Meter** bar for any 0–1 level.
   Effects: a **Glitter** overlay, a static **Frame Transform** (quarter

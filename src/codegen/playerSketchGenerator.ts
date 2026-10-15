@@ -8,7 +8,7 @@ function reactivePatterns(renderers?: PatternRenderers): boolean {
 }
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import {
-  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS,
+  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, particleRestMs, particleVolleyBursts,
   SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_ENERGY_RANGE, SILENCE_RELEASE_RATE,
 } from '../state/player/playerDynamics'
 import { withDeviceTelemetry } from './deviceTelemetryCpp'
@@ -283,6 +283,8 @@ export interface PlayerParticlesConfig {
   intensity: number
   randomColor: boolean
   randomStyle: boolean
+  volleyBursts: number
+  restMs: number
 }
 
 const DEFAULT_CONTROL_SETTINGS: Omit<PlayerControlsConfig, 'bindings'> = {
@@ -397,6 +399,8 @@ export function playerParticlesFromGraph(
     intensity: clamp(props.intensity, 0.8, 0, 1),
     randomColor: props.randomColor === true,
     randomStyle: props.randomStyle === true,
+    volleyBursts: particleVolleyBursts(props.volleyBursts),
+    restMs: particleRestMs(props.restSec),
   }
 }
 
@@ -1219,11 +1223,12 @@ ${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       
 
 // Particle-burst overlay — keep in sync with showPreview.ts (PARTICLE_LIFE_MS,
 // PARTICLE_COUNT) so the device spawns the same sparks the browser preview does.
-// The volley-then-rest cadence is emitted from playerDynamics.ts, as the preview reads it.
+// The volley-then-rest cadence is Player Particles' Bursts in a Row and Rest,
+// normalised by playerDynamics.ts as the preview reads them.
 #define PARTICLE_LIFE_MS   600
 #define PARTICLE_COUNT     16
-#define PARTICLE_VOLLEY_BURSTS ${PARTICLE_VOLLEY_BURSTS}
-#define PARTICLE_REST_MS   ${PARTICLE_REST_MS}
+#define PARTICLE_VOLLEY_BURSTS ${particleFx?.volleyBursts ?? PARTICLE_VOLLEY_BURSTS}
+#define PARTICLE_REST_MS   ${particleFx?.restMs ?? PARTICLE_REST_MS}
 
 struct ShowEvent {
   uint32_t t;
