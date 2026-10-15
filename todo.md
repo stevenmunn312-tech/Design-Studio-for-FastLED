@@ -682,12 +682,29 @@ with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
   alias is now refused once the candidate has declared a persistent buffer,
   and `estimateFirmwareRam` refuses it by `PERSISTENT_FRAME_NODE_TYPES`, which
   `persistentRenderBuffers.test.ts` derives from every node variant.
-- [ ] **D-10.2 · Reuse buffers within one graph.** The largest bundled pattern
+- [x] **D-10.2 · Reuse buffers within one graph.** The largest bundled pattern
   holds 11 colour buffers, and those sketches carry 59–93 full-frame `memmove`s,
   many of them a node seeding its buffer from its source before modifying it.
-  Liveness-based slot assignment (a node whose source has no other reader
-  works in place) cuts both buffers and copies in normal sketches as well as
-  shows. Worth most on large matrices; do after D-10.1.
+  Done as liveness-based sharing (`scratchSharing.ts`): scratch buffers whose
+  top-level loop statements do not overlap share one array, a node seeding from
+  a source with no later reader works on it in place and drops the copy, and a
+  chain of those into the terminal renders into `leds`. Applies to normal
+  sketches, native multi-render passes and each collected pattern of a show.
+  Old and new firmware for six chain, branch, field and zone graphs compiled to
+  WASM gave byte-identical frames. Measured with `compile-matrix.py --only
+  pattern-collections/` (SD Music Player, ESP32-S3, 16×16, arduino-cli; buffer
+  counts are declared pool slots plus per-pattern persistent buffers):
+
+  | Sketch | Buffers before | Buffers after | `memmove`s | RAM before | RAM after |
+  |---|---|---|---|---|---|
+  | bundled 1–40 | 13 CRGB + 3 float | 9 + 2 | 93 → 44 | 65,548 B (20%) | 61,452 B (18%) |
+  | bundled 41–60 | 21 + 4 | 15 + 4 | 59 → 36 | 117,940 B (35%) | 113,332 B (34%) |
+  | bundled 61–80 | 17 + 8 | 12 + 5 | 86 → 30 | 96,372 B (29%) | 89,460 B (27%) |
+  | bundled 81–114 | 23 + 4 | 17 + 3 | 77 → 42 | 88,156 B (26%) | 82,524 B (25%) |
+
+  - [ ] `estimateFirmwareRam` still prices one frame per reachable node and
+    over-counts shared buffers (the safe direction). Model sharing there if the
+    budget warning starts refusing graphs that fit.
 
 ## 5. Release track (in order)
 

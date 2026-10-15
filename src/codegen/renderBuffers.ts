@@ -45,3 +45,22 @@ export function parseBufferDecl(line: string): RenderBufferDecl | null {
 export function isPersistentBufferDecl(line: string): boolean {
   return parseBufferDecl(line)?.persists === true
 }
+
+const SHARES_MARK = '// shares its storage'
+const LEDS_MARK = '// renders straight into the output buffer'
+
+/**
+ * A scratch buffer that uses another's storage, or `leds`. A PSRAM buffer is a
+ * pointer assigned in setup(), so its alias is a reference to that pointer
+ * rather than a copy of its value at static initialisation.
+ */
+export function bufferAliasCpp(type: RenderBufferType, name: string, target: string, psram: boolean): string {
+  if (target === 'leds') return `CRGB* const ${name} = leds;   ${LEDS_MARK}`
+  return `${type}*${psram ? '&' : ' const'} ${name} = ${target};   ${SHARES_MARK}`
+}
+
+/** A buffer alias line, or null for any other line. */
+export function parseBufferAlias(line: string): { type: RenderBufferType; name: string; target: string } | null {
+  const m = line.match(/^(CRGB|float)\*(?: const|&) ([A-Za-z_][A-Za-z0-9_]*) = ([A-Za-z_][A-Za-z0-9_]*);/)
+  return m ? { type: m[1] as RenderBufferType, name: m[2], target: m[3] } : null
+}

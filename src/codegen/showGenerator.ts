@@ -36,7 +36,7 @@ import { POLINE_HELPER_CPP } from './helpers/polineHelperCpp'
 import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { cppComment } from './cppLiterals'
-import { parseBufferDecl, type RenderBufferType } from './renderBuffers'
+import { parseBufferAlias, parseBufferDecl, type RenderBufferType } from './renderBuffers'
 import { sketchFileBlock } from './sketchBundle'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
@@ -301,6 +301,12 @@ function buildPattern(
   for (const decl of lines.map(parseBufferDecl)) {
     if (decl && !decl.persists) scratchTypes.set(decl.name, decl.type)
   }
+  // A buffer sharing another's storage within the pattern takes that one's
+  // pool slot.
+  const sharedWith = new Map<string, string>()
+  for (const alias of lines.map(parseBufferAlias)) {
+    if (alias) sharedWith.set(alias.name, alias.target)
+  }
   const scratch: Record<RenderBufferType, number> = { CRGB: 0, float: 0 }
   const pooled = new Map<string, string>()
   const poolSlot = (name: string, type: RenderBufferType) => {
@@ -309,8 +315,9 @@ function buildPattern(
   }
   const pfx = (source: string) => {
     let result = source.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b|\b_bitsB?_[A-Za-z0-9_]+\b/g, (m) => {
-      const type = scratchTypes.get(m)
-      return type ? poolSlot(m, type) : `p${index}_${m}`
+      const owner = sharedWith.get(m) ?? m
+      const type = scratchTypes.get(owner)
+      return type ? poolSlot(owner, type) : `p${index}_${m}`
     })
     for (const symbol of imagePaletteSymbols) {
       result = result.replace(new RegExp(`\\b${symbol}\\b`, 'g'), `p${index}_${symbol}`)
@@ -336,6 +343,7 @@ function buildPattern(
     const line = lines[i]
     const decl = parseBufferDecl(line)
     if (decl) { if (decl.persists) buffers.push(pfx(line)); continue }
+    if (parseBufferAlias(line)) continue
     const sliceBits = line.match(/^static const uint8_t (_bitsB?_[A-Za-z0-9_]+)\[8\]=/)
     if (sliceBits) { helpers.set(`sliceBits:${index}:${sliceBits[1]}`, pfx(line)); continue }
     // FrameFeedback's history ring buffer: `CRGB _fb_<id>[<capacity>][NUM_LEDS];`.

@@ -154,7 +154,8 @@ import { SHOW_EMITTERS } from '../nodes/show/codegen'
 import { SIGNAL_EMITTERS } from '../nodes/signal/codegen'
 import { SIMULATIONS_EMITTERS } from '../nodes/simulations/codegen'
 import type { BufferUse, GenerateCppOptions, SketchEmitContext, NodeEmitter } from './emitContext'
-import { bufferDeclCpp, parseBufferDecl } from './renderBuffers'
+import { bufferAliasCpp, bufferDeclCpp } from './renderBuffers'
+import { shareScratchBuffers } from './scratchSharing'
 import { finishCpp } from './cppCleanup'
 import { boardCppFacts, specializeCpp } from './cppSpecialize'
 import { SHOW_PIPELINE_NOTES } from '../nodes/show/codegen'
@@ -1212,27 +1213,35 @@ export function generateCpp(
   // these become pointers allocated in setup() (leds stays internal — see
   // PSRAM_ALLOC_CPP); otherwise they're plain static arrays.
   // Native passes declare their persistent buffers inside the pass template.
-  const bufferDecls = [
+  const buffers = [
     ...[...frameBufs].map((b) => ['CRGB', `buf_${b}`] as const),
     ...[...fieldBufs].map((b) => ['float', `field_${b}`] as const),
   ]
     .filter(([, name]) => !(nativeMultiRender && persistentBufs.has(name)))
-    .map(([type, name]) => bufferDeclCpp(type, name, persistentBufs))
-  // The node feeding the output writes into `leds` itself rather than into a
-  // second full-frame buffer that is then copied over — an alias, so every
-  // reference to it in the loop is unchanged. Never a PSRAM buffer: `leds` is
-  // always internal, and this is `leds`.
+  // Scratch buffers never live at once share one array, and a node seeding
+  // its buffer from a source nothing reads afterwards works on that array in
+  // place (scratchSharing.ts). The node feeding the output writes into `leds`
+  // itself, as does a chain seeding it — an alias, so every reference to it in
+  // the loop is unchanged. A buffer named outside the loop keeps its own.
   const aliasId = aliasedTerminalId()
+  const outsideLoop = [...globalLines, ...setupLines, ...customDisplaySamples, ...pinSetupLines].join('\n')
+  const scratch = new Map(buffers.filter(([, name]) => !persistentBufs.has(name)
+    && !new RegExp(`\\b${name}\\b`).test(outsideLoop)).map(([type, name]) => [name, type]))
+  const sharing = shareScratchBuffers(loopLines, scratch, aliasId ? `buf_${aliasId}` : null)
+  loopLines.splice(0, loopLines.length, ...sharing.loop)
   const psramAllocs: string[] = []
-  for (const d of bufferDecls) {
-    if (aliasId && parseBufferDecl(d)?.name === `buf_${aliasId}`) {
-      lines.push(`CRGB* const buf_${aliasId} = leds;   // renders straight into the output buffer`)
-      continue
-    }
+  const aliasLines: string[] = []
+  for (const [type, name] of buffers) {
+    const target = sharing.aliases.get(name)
+    // Never a PSRAM buffer for `leds`: `leds` is always internal.
+    if (target === 'leds') { lines.push(bufferAliasCpp(type, name, target, false)); continue }
+    if (target) { aliasLines.push(bufferAliasCpp(type, name, target, usePsram)); continue }
+    const d = bufferDeclCpp(type, name, persistentBufs)
     const ps = usePsram ? psramBufferDecl(d) : null
     if (ps) { lines.push(ps.decl); psramAllocs.push(ps.alloc) }
     else lines.push(d)
   }
+  lines.push(...aliasLines)
   if (!nativeMultiRender) {
     for (const [id, capacity] of feedbackHistoryBufs) {
       lines.push(`CRGB _fb_${id}[${capacity}][NUM_LEDS];`)

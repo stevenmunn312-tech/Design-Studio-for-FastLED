@@ -170,6 +170,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   select and toggle variant: the first loop line touching a node's own buffer
   must be a whole write, or the declaration must be marked. A whole write the
   line test cannot see goes in its reviewed list with the reason.
+- Scratch buffers share storage within one graph too (`scratchSharing.ts`).
+  A buffer is live from its first to its last top-level loop statement, so two
+  whose spans do not meet use one array (`CRGB* const buf_b = buf_a;   //
+  shares its storage`, or `CRGB*&` to a PSRAM pointer). A node whose first
+  statement is `::memmove(own, src, sizeof(CRGB) * NUM_LEDS);` (or the
+  `memcpy` of a field), where that is the source's last use, runs on the
+  source's array and the copy is dropped; a chain of these into the terminal
+  renders into `leds`. Spans are statements, not lines, because a loop written
+  over several lines runs each line many times. A buffer named anywhere but
+  the loop (setup, globals, a screen sampler) keeps its own array, and the
+  corpus test in `scratchSharing.test.ts` holds that. Seed with that exact
+  copy statement to get in-place for free; any other form keeps the copy. The
+  show builder resolves an alias onto its owner's pool slot.
+  `estimateFirmwareRam` does not model sharing and over-counts, which is the
+  safe direction.
 - A persistent buffer is never `leds`. The node feeding a plain single output
   normally renders straight into `leds` (`CRGB* const buf_<id> = leds;`), but
   the output dims `leds` in place and blackout clears it, so a persistent

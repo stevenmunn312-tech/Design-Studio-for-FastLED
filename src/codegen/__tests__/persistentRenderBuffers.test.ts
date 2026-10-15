@@ -202,17 +202,28 @@ describe('show scratch-buffer pool', () => {
   }
 
   it('declares the largest pattern\'s scratch once and keeps trails per pattern', () => {
+    const blend = {
+      nodes: [node('c_0', 'Plasma'), node('c_1', 'Rainbow'), node('c_2', 'Blend'), node('c_out', 'GroupOutput')],
+      edges: [
+        edge('c_ea', 'c_0', 'frame', 'c_2', 'a'), edge('c_eb', 'c_1', 'frame', 'c_2', 'b'),
+        edge('c_eo', 'c_2', 'frame', 'c_out', 'frame'),
+      ],
+    }
     const cpp = showSketch({
       a: patternGroup('a', ['Plasma', 'Blur2D', 'Invert']),
       b: patternGroup('b', ['Plasma', 'Trails']),
+      c: blend,
     })
     const decls = cpp.split('\n').map(parseBufferDecl).filter((d) => d !== null)
     const scratch = cpp.split('\n').filter((line) => /^CRGB _pool_buf_\d+\[NUM_LEDS\];/.test(line))
-    // Pattern a: three scratch frames. Pattern b: Plasma is scratch, Trails persists.
-    expect(scratch).toHaveLength(3)
+    // Pattern a: one scratch frame, which Blur2D and Invert work on in place.
+    // Pattern b: Plasma is scratch, Trails persists. Pattern c: Blend works on
+    // A in place while B holds its own.
+    expect(scratch).toHaveLength(2)
     expect(decls.filter((d) => d!.persists).map((d) => d!.name)).toEqual(['p1_buf_b_1'])
-    expect(cpp).not.toMatch(/\bp0_buf_/)
+    expect(cpp).not.toMatch(/\bp[02]_buf_/)
     expect(cpp).toMatch(/fadeToBlackBy\(p1_buf_b_1,/)
+    expect(cpp).toMatch(/nblend\(_pool_buf_0, _pool_buf_1,/)
   })
 
   it('keeps every stateful pattern\'s state its own across a transition', () => {

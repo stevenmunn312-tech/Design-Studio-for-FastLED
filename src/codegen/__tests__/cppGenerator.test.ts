@@ -1135,7 +1135,9 @@ describe('generateCpp', () => {
       edge('e1', 'sc', 'cd', 'frame', 'frame'),
       edge('e2', 'cd', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('::memmove(buf_cd, buf_sc, sizeof(CRGB) * NUM_LEDS);')
+    // Its source has no other reader, so the Code node runs on it in place.
+    expect(cpp).toContain('CRGB* const buf_sc = leds;')
+    expect(cpp).not.toContain('::memmove(buf_cd, buf_sc,')
   })
 
   it('emits a Transform that resamples from the source buffer per mode', () => {
@@ -1519,7 +1521,9 @@ describe('generateCpp', () => {
       edge('e1', 'a', 's', 'frame', 'p0'),
       edge('e2', 's', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('::memmove(buf_s, buf_a, sizeof(CRGB) * NUM_LEDS)')
+    // A copy of a source nothing else reads: the source renders in its place.
+    expect(cpp).toContain('CRGB* const buf_a = leds;')
+    expect(cpp).not.toContain('::memmove(buf_s, buf_a,')
   })
 
   it('wires an exposed group parameter to its internal consumer', () => {
@@ -2688,7 +2692,9 @@ describe('generateCpp', () => {
       edge('e2', 'm', 'mk', 'frame', 'mask'),
       edge('e3', 'mk', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('::memmove(buf_mk, buf_w, sizeof(CRGB) * NUM_LEDS)')
+    // Mask scales its content in place.
+    expect(cpp).toContain('CRGB* const buf_w = leds;')
+    expect(cpp).toContain('CRGB buf_m[NUM_LEDS];')
     expect(cpp).toContain('buf_mk[_i].nscale8((buf_m[_i].r + buf_m[_i].g + buf_m[_i].b) / 3)')
   })
 
@@ -2701,12 +2707,13 @@ describe('generateCpp', () => {
       edge('e2', 'b', 'lb', 'frame', 'b'),
       edge('e3', 'lb', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('CRGB buf_a[NUM_LEDS];')
     expect(cpp).toContain('CRGB buf_b[NUM_LEDS];')
-    expect(cpp).toContain('::memmove(buf_lb, buf_a, sizeof(CRGB) * NUM_LEDS)')
     expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)((0.5) * 255))')
-    // The terminal node renders into `leds` directly — no second buffer to copy.
+    // The terminal node renders into `leds` directly — no second buffer to
+    // copy — and blends onto A in place, so A renders there too.
     expect(cpp).toContain('CRGB* const buf_lb = leds;')
+    expect(cpp).toContain('CRGB* const buf_a = leds;')
+    expect(cpp).not.toContain('::memmove(buf_lb, buf_a,')
     expect(cpp).not.toContain('::memmove(leds, buf_lb,')
   })
 
@@ -2718,7 +2725,8 @@ describe('generateCpp', () => {
         edge('e1', 'a', 'bl', 'frame', 'a'),
         edge('e3', 'bl', 'out', 'frame', 'frame'),
       ])
-      expect(cpp).toContain('::memmove(buf_bl, buf_a, sizeof(CRGB) * NUM_LEDS)')
+      expect(cpp).toContain('CRGB* const buf_a = leds;')
+      expect(cpp).not.toContain('::memmove(buf_bl, buf_a,')
       expect(cpp).not.toContain('nblend(buf_bl')
       expect(cpp).not.toContain('float _op=')
     }
@@ -4678,14 +4686,18 @@ describe('PSRAM buffer placement (Board psramPolicy)', () => {
   const board = node('board', 'Board', 'output', { psramPolicy: 'on' })
   const psOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5 })
   const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-  // A Brightness sits between the source and the output so `buf_sc` is a real
-  // placeable buffer — the node feeding the output aliases `leds` instead of
-  // owning one, and `leds` never moves to PSRAM.
-  const fd = node('fd', 'BrightnessMod', 'composite', { brightness: 0.5 })
-  const wiring = [edge('e1', 'sc', 'fd', 'frame', 'frame'), edge('e2', 'fd', 'out', 'frame', 'frame')]
+  // A Blend of two sources: it works on A in place, which therefore renders
+  // into `leds` with it, while `buf_sc` (B) is a real placeable buffer.
+  // `leds` never moves to PSRAM.
+  const a = node('a', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+  const fd = node('fd', 'Blend', 'composite', { amount: 0.5 })
+  const wiring = [
+    edge('e0', 'a', 'fd', 'frame', 'a'), edge('e1', 'sc', 'fd', 'frame', 'b'),
+    edge('e2', 'fd', 'out', 'frame', 'frame'),
+  ]
 
   it('moves per-node buffers to _psAlloc and keeps leds internal', () => {
-    const cpp = generateCpp([board, sc, fd, psOut], wiring)
+    const cpp = generateCpp([board, a, sc, fd, psOut], wiring)
     expect(cpp).toContain('CRGB* buf_sc = nullptr;')
     expect(cpp).toContain('buf_sc = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
     expect(cpp).toContain('void* _psAlloc(size_t n)')
@@ -4694,19 +4706,29 @@ describe('PSRAM buffer placement (Board psramPolicy)', () => {
     // from ISR/DMA context where PSRAM access can fault.
     expect(cpp).toContain('CRGB leds[NUM_LEDS];')
     expect(cpp).not.toContain('CRGB buf_sc[NUM_LEDS];')
-    // …and the aliased terminal buffer is `leds`, so it is never allocated.
+    // …and the buffers rendering into `leds` are never allocated.
     expect(cpp).toContain('CRGB* const buf_fd = leds;')
+    expect(cpp).toContain('CRGB* const buf_a = leds;')
+    expect(cpp).not.toMatch(/buf_(?:fd|a) = \(CRGB\*\)_psAlloc/)
+  })
+
+  it('makes a PSRAM buffer that shares storage a reference to its pointer', () => {
+    // Behind a serpentine map nothing renders into `leds`, so Blend shares A.
+    const serp = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, serpentine: true })
+    const cpp = generateCpp([board, a, sc, fd, serp], wiring)
+    expect(cpp).toContain('CRGB* buf_a = nullptr;')
+    expect(cpp).toContain('CRGB*& buf_fd = buf_a;   // shares its storage')
     expect(cpp).not.toContain('buf_fd = (CRGB*)_psAlloc')
   })
 
   it('ignores Board PSRAM policy when the target gate says PSRAM is unavailable', () => {
-    const cpp = generateCpp([board, sc, fd, psOut], wiring, {}, { psramAllowed: false })
+    const cpp = generateCpp([board, a, sc, fd, psOut], wiring, {}, { psramAllowed: false })
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
     expect(cpp).not.toContain('_psAlloc')
   })
 
   it('emits plain static buffers when Board policy is absent', () => {
-    const cpp = generateCpp([sc, fd, outputNode], wiring)
+    const cpp = generateCpp([a, sc, fd, outputNode], wiring)
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
     expect(cpp).not.toContain('_psAlloc')
   })
@@ -5016,7 +5038,8 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
       edge('e1', 'fa', 'fs', 'frame', 'a'),
       edge('e3', 'fs', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('::memmove(buf_fs, buf_fa, sizeof(CRGB) * NUM_LEDS);')
+    expect(cpp).toContain('CRGB* const buf_fa = leds;')
+    expect(cpp).not.toContain('::memmove(buf_fs, buf_fa,')
   })
 })
 
@@ -5030,7 +5053,9 @@ describe('Zones', () => {
       edge('e2', 'za', 'zn', 'frame', 'a'),
       edge('e3', 'zn', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('::memmove(buf_zn, buf_zbase, sizeof(CRGB) * NUM_LEDS);')
+    // Zones works on the base in place, so the base renders into `leds`.
+    expect(cpp).toContain('CRGB* const buf_zbase = leds;')
+    expect(cpp).not.toContain('::memmove(buf_zn, buf_zbase,')
     expect(cpp).toContain('for (int _y=(int)(0.0f*HEIGHT); _y<(int)(1.0f*HEIGHT) && _y<HEIGHT; _y++)')
     expect(cpp).toContain('for (int _x=(int)(0.0f*WIDTH); _x<(int)(0.5f*WIDTH) && _x<WIDTH; _x++)')
     expect(cpp).toContain('buf_zn[_y*WIDTH+_x] = buf_za[_y*WIDTH+_x];')
@@ -5582,7 +5607,9 @@ describe('bypassed nodes (codegen)', () => {
       edge('e1', 'sc', 'bm', 'frame', 'frame'),
       edge('e2', 'bm', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('::memmove(buf_bm, buf_sc, sizeof(CRGB) * NUM_LEDS);')
+    // The bypass passes its source through, rendered straight into `leds`.
+    expect(cpp).toContain('CRGB* const buf_sc = leds;')
+    expect(cpp).not.toContain('::memmove(buf_bm, buf_sc,')
     // The node's own brightness-scaling logic must not run.
     expect(cpp).not.toContain('nscale8')
   })
@@ -5600,7 +5627,9 @@ describe('bypassed nodes (codegen)', () => {
       edge('e2', 'fw', 'f2f', 'field', 'field'),
       edge('e3', 'f2f', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('memcpy(field_fw, field_fn, sizeof(float) * NUM_LEDS);')
+    // A bypass is a copy of a source nothing else reads, so it shares it.
+    expect(cpp).toContain('float* const field_fw = field_fn;   // shares its storage')
+    expect(cpp).not.toContain('memcpy(field_fw, field_fn,')
   })
 })
 
