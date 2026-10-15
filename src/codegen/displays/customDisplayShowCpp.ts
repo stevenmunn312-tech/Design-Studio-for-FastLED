@@ -2,7 +2,7 @@ import type { BakedCustomDisplayAsset } from '../../state/displays/customDisplay
 import { customDisplaySampleCpp, type customDisplayControlPlan } from './customDisplayControlGraph'
 import {
   CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS,
-  CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP, customDisplayNeedsHueColor,
+  CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP, customDisplayLvglInitCpp, customDisplayLvglTimingSetupCpp,
   customDisplayLvglGlobalCpp, customDisplayLvglSetupCpp, customDisplayLvglLoopCpp,
 } from './customDisplayLvglCpp'
@@ -39,7 +39,6 @@ export function customDisplayShowCpp(
       shared.push(displayTextCppHelpers({ number: true, dateTime: false, copy: false }))
     }
     helpers.push(CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_TIMING_CPP)
-    if (customDisplayNeedsHueColor(displays.map((display) => display.emit.document))) helpers.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
     if (displays.some((display) => display.panel.touch)) helpers.push(TFT_TOUCH_CPP_HELPERS)
     setup.push(...customDisplayLvglInitCpp(), customDisplayLvglTimingSetupCpp())
   }
@@ -71,6 +70,8 @@ export function customDisplayShowCpp(
   // including feedback through another screen, observes this same snapshot.
   // A set-aside design's outputs join it at rest, so wires from them resolve.
   sample.push(...snapshots, ...plan.resting.map((entry) => customDisplaySampleCpp(entry, null)))
+  // A placed Colour Picker calls it only where its output is read.
+  if (sample.some((line) => line.includes('_cdHueColor('))) helpers.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
   if (displays.length) loop.push('  _cdServiceLvgl();')
   return { includes, forwards, helpers, shared, setup, sample, enable, loop }
 }

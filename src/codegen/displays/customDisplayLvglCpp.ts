@@ -1041,11 +1041,6 @@ static CRGB _cdHueColor(float hue, float saturation, float value) {
 }
 `
 
-/** Whether any of these designs needs `CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP`. */
-export function customDisplayNeedsHueColor(documents: readonly DisplayDocument[]): boolean {
-  return documents.some((document) => placedWidgets(document).some((widget) => widget.type === 'Colour Picker'))
-}
-
 /**
  * One monotonic LVGL clock and one bounded service gate per sketch.
  *

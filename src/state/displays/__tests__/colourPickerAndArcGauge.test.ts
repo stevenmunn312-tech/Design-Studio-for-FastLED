@@ -27,7 +27,6 @@ import {
   CUSTOM_DISPLAY_LVGL_HELPERS,
   CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP,
   customDisplayLvglLoopCpp,
-  customDisplayNeedsHueColor,
   customDisplayLvglOutputExpression,
   customDisplayLvglSetupCpp,
   customDisplayLvglTapExpression,
@@ -236,10 +235,8 @@ describe('Colour Picker and Arc Gauge on the glass', () => {
     expect(CUSTOM_DISPLAY_LVGL_HELPERS).toContain('lv_obj_check_type(runtime.object, &lv_arc_class)')
   })
 
-  it('emits its CRGB helper only into a sketch with a picker, so a screen-only build can drop FastLED', () => {
+  it('keeps its CRGB helper out of the shared block, so a screen-only build can drop FastLED', () => {
     expect(CUSTOM_DISPLAY_LVGL_HELPERS).not.toMatch(/\b(CRGB|CHSV|FastLED)\b/)
-    expect(customDisplayNeedsHueColor([emit.document])).toBe(true)
-    expect(customDisplayNeedsHueColor([document([gauge])])).toBe(false)
   })
 
   it('leaves out the label when the reading is hidden', () => {

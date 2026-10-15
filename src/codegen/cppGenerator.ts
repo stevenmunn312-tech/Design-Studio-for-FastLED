@@ -56,7 +56,6 @@ import {
   CUSTOM_DISPLAY_LVGL_FORWARD,
   CUSTOM_DISPLAY_LVGL_HELPERS,
   CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP,
-  customDisplayNeedsHueColor,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP,
   customDisplayLvglGlobalCpp,
   customDisplayLvglInitCpp,
@@ -1285,9 +1284,8 @@ export function generateCpp(
 
   if (customDisplays.length > 0) {
     lines.push(CUSTOM_DISPLAY_LVGL_HELPERS)
-    if (customDisplayNeedsHueColor(customDisplays.map((display) => display.document))) {
-      lines.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
-    }
+    // A placed Colour Picker calls it only where its output is read.
+    if ([...customDisplaySamples, ...loopLines].some((line) => line.includes('_cdHueColor('))) lines.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
     lines.push(CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (customDisplayPanels.some((panel) => panel.touch)) emitXptPointHelpersOnce()
     const emittedAssets = new Set<string>()
