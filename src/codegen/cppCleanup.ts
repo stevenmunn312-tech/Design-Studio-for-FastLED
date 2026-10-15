@@ -3,7 +3,7 @@ import { foldConstants, PURE_CALL, withoutEmptyIfs } from './cppSpecialize'
 
 const CONTROL_WORD = /^(?:if|for|while|switch|return|sizeof)$/
 const LOCAL_TYPE = '(?:float|bool|int|uint(?:8|16|32)_t|int(?:8|16|32)_t|CRGB|CHSV|const char\\s*\\*)'
-const DECLARATION = new RegExp(`(?<![\\w.>])((?:static\\s+)?(?:const\\s+)?${LOCAL_TYPE}\\s+)([A-Za-z_]\\w*\\s*=[^;{}]+);`, 'g')
+const DECLARATION = new RegExp(`(?<![\\w.>])((?:(?:static|volatile|const)\\s+)*${LOCAL_TYPE}\\s+)([A-Za-z_]\\w*\\s*=[^;{}]+);`, 'g')
 
 interface Declarator { name: string; text: string; init: string }
 

@@ -52,6 +52,15 @@ void loop() {
     expect(result).toContain('float b = 2.0f;')
     expect(result).not.toContain('float a')
   })
+  it('removes every qualifier with an unread declaration', () => {
+    const source = `static volatile uint32_t _frames = 0;
+static int kept = 0;
+void setup() {}
+void loop() { leds(kept); }`
+    const result = finishCpp(source)
+    expect(result).not.toContain('volatile')
+    expect(result).toContain('static int kept = 0;')
+  })
   it('does not treat comments or strings as references', () => {
     const source = 'int unused; // unused\nvoid setup() { print("unused // { }"); }\nvoid loop() {}'
     expect(pruneCpp(source)).not.toContain('int unused;')
