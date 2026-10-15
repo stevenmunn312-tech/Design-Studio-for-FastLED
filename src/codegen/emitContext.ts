@@ -50,6 +50,8 @@ import type { CustomDisplayPanelEmit } from './displays/customDisplayPanelCpp'
  * them to preview an incomplete document.
  */
 export interface GenerateCppOptions {
+  /** Internal pattern extraction retains complete helper blocks until host assembly. */
+  deferPruning?: boolean
   externalAudio?: boolean
   nativeFastLedAudio?: boolean
   groupInputExprs?: Record<string, string>

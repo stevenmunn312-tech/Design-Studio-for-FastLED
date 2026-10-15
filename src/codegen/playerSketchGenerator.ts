@@ -1,4 +1,11 @@
 import { controlGraphCpp } from './controlGraph'
+import { cppCode } from './cppReachability'
+import { finishCpp } from './cppCleanup'
+import { specializeCpp, specializeSwitch } from './cppSpecialize'
+
+function reactivePatterns(renderers?: PatternRenderers): boolean {
+  return renderers?.audioReactive?.some(Boolean) ?? !!renderers
+}
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS,
@@ -470,7 +477,6 @@ export function generatePlayerSketch(
     : ''
   const patternCount = renderers?.count ?? 0
   const collection = patternCount > 0
-  const bakedAudio = !!opts.audioEnvelope
   const stereoVuMeters = opts.stereoVuMeters ?? []
   const hasStereoVu = stereoVuMeters.length > 0
   const patternTiming = musicPlayerTiming(opts.patternTiming ?? {})
@@ -489,6 +495,11 @@ export function generatePlayerSketch(
   // collection as well.
   const genericPlayer = opts.genericPlayer === true
   const genericCollection = genericPlayer && collection
+  const rotates = genericCollection && patternCount > 1
+  const transitions = !genericPlayer || (rotates && (patternTiming.transitionSec > 0 || !!opts.controlGraph?.timingInputs.transitionSec))
+  const drawsFrame = c.hasPrimaryLedOutput || collection
+  const fadesAudio = genericCollection && reactivePatterns(renderers)
+  const particles = !genericPlayer || (genericCollection && !!opts.particleFx?.enabled)
   const transitionIds = opts.transitionIds?.length ? opts.transitionIds : [0]
   // Emitted once, above the pattern renderers, so a Frame Warp or Symmetry
   // pattern that brings the same sampler does not define it a second time.
@@ -499,6 +510,14 @@ export function generatePlayerSketch(
     graphRouting?.timingInputs[port] ?? `${patternTiming[port].toFixed(4)}f`
   if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
   const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
+  const consumerCode = cppCode([
+    ...(renderers?.helpers ?? []), ...(renderers?.functions ?? []),
+    ...(compiledGraph?.helpers ?? []), ...(compiledGraph?.loop ?? []),
+  ].join('\n'))
+  const needsStereoLevels = hasStereoVu || /\b_audio(?:Left|Right)Level\b/.test(consumerCode)
+  const needsSpectrum = /\b_audioSpectrum\b/.test(consumerCode)
+  const bakedAudio = !genericPlayer && !!opts.audioEnvelope
+    && (needsStereoLevels || /\b_audio(?:Bass|Mids|Treble|Bpm|Beat|Spectrum)\b/.test(consumerCode))
   const environmentSensorForward = (compiledGraph?.helpers ?? []).some((block) =>
     block.includes('struct _Bme280Calibration {'))
     ? `${ENVIRONMENT_SENSOR_CPP_FORWARD}\n`
@@ -744,7 +763,6 @@ export function generatePlayerSketch(
         '  uint32_t ms = (uint32_t)(t * 1000.0f);',
         '  switch (pid) {',
         ...Array.from({ length: renderers!.count }, (_, i) => `    case ${i}: render_p${i}(ms${argList}); break;`),
-        `    default: render_p0(ms${argList}); break;`,
         '  }',
         '}',
       ].join('\n')
@@ -813,7 +831,7 @@ void applyPlayerVolume() {
   uint8_t step = (uint8_t)lroundf(playerVolume * ${c.maxVolume});
   if (step > 21) step = 21;
   audio.setVolume(step);
-${decoderTap ? `  uint8_t attenuated = DECODER_VOLUME_TABLE[step];
+${decoderTap && needsStereoLevels ? `  uint8_t attenuated = DECODER_VOLUME_TABLE[step];
   _decoderVolumeComp = attenuated ? 64.0f / (float)attenuated : 1.0f;
 ` : ''}}
 
@@ -1112,8 +1130,13 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
    * with the same shape, which is what stops two mechanisms drifting.
    */
   const finish = (source: string) => {
-    const narrowed = withReferencedPalettes(source)
-    return opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed
+    let narrowed = withReferencedPalettes(source)
+    if (patternCount === 1) narrowed = narrowed.replace(/renderPattern\((?:prevPatternId|patternId), t\);/g, `render_p0((uint32_t)(t * 1000.0f)${argList});`)
+    if (genericPlayer && particleFx && !particleFx.randomStyle) narrowed = specializeSwitch(narrowed, 'burstStyle', particleFx.style)
+    const withoutReadyWrites = narrowed.replace(/\bplaybackReady\s*=\s*startPlayback\(\);/g, 'startPlayback();')
+      .replace(/bool playbackReady = false;/, '')
+    if (!/\bplaybackReady\b/.test(cppCode(withoutReadyWrites))) narrowed = withoutReadyWrites
+    return finishCpp(specializeCpp(opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed, { ESP32: true, ESP8266: false }))
   }
 
   return finish(`// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}
@@ -1177,7 +1200,7 @@ ${shape ? shapeCountDefineCpp(shape) + '\n' : ''}#define SD_CS         ${c.sdCsP
 // Safe title (no extension) of the track this sketch was built for. Empty when
 // the payload had none, in which case the loader falls back to scanning.
 static const char* PREFERRED_TRACK = ${JSON.stringify(opts.preferredTrack ?? '')};
-static const bool GENERIC_PLAYER = ${genericPlayer ? 'true' : 'false'};
+
 ${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       ${c.i2sLrc}\n#define I2S_DOUT      ${c.i2sDout}\n`}
 
 // ── Show file binary format ───────────────────────────────────────────────────
@@ -1204,13 +1227,13 @@ struct ShowEvent {
   uint32_t t;
   uint8_t  cmd;
   uint8_t  paramCount;
-  float    params[4];
+  float    params[3];
 };
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 CRGB leds[NUM_LEDS];
-${physicalGlobals.map((line) => line + '\n').join('')}${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}${playerBufferDecl('CRGB showA[NUM_LEDS];             // outgoing pattern during a transition')}
-${playerBufferDecl('CRGB showB[NUM_LEDS];            // incoming pattern during a transition')}
+${physicalGlobals.map((line) => line + '\n').join('')}${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}${transitions && drawsFrame ? playerBufferDecl('CRGB showA[NUM_LEDS];             // outgoing pattern during a transition') : ''}
+${transitions && drawsFrame ? playerBufferDecl('CRGB showB[NUM_LEDS];            // incoming pattern during a transition') : ''}
 Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
 uint32_t audioPosMs = 0;      // elapsed playback time, never read-ahead bytes
 uint32_t showDurationMs = 0;  // header duration; also the EOF event boundary
@@ -1321,7 +1344,7 @@ ${transitionHelper}
 ${patternDecls}${renderPatternFn}
 
 // ── Show file loader ──────────────────────────────────────────────────────────
-bool loadShowFile(const char* path) {
+${!genericPlayer ? `bool loadShowFile(const char* path) {
   File f = SD.open(path, FILE_READ);
   if (!f) return false;
 
@@ -1343,7 +1366,9 @@ bool loadShowFile(const char* path) {
                       ((uint32_t)evBuf[2]<<16)|((uint32_t)evBuf[3]<<24);
     showEvents[i].cmd        = evBuf[4];
     showEvents[i].paramCount = evBuf[5];
-    for (uint8_t p = 0; p < showEvents[i].paramCount && p < 4; p++) {
+    static const uint8_t parameterCounts[] = {1, 1, 1, 1, 2, 2, 1, 3};
+    if (evBuf[4] >= sizeof(parameterCounts) || evBuf[5] != parameterCounts[evBuf[4]]) { f.close(); free(showEvents); showEvents = nullptr; eventCount = 0; return false; }
+    for (uint8_t p = 0; p < showEvents[i].paramCount && p < 3; p++) {
       uint8_t fb[4]; f.read(fb, 4);
       uint32_t raw = ((uint32_t)fb[0])|((uint32_t)fb[1]<<8)|
                      ((uint32_t)fb[2]<<16)|((uint32_t)fb[3]<<24);
@@ -1379,7 +1404,7 @@ ${bakedAudio ? `
   eventIdx = 0;
   return true;
 }
-${bakedAudio ? `
+` : ''}${bakedAudio ? `
 // Drive the pattern audio globals from the baked envelope at the current audio
 // position (linear interpolation), so a pattern's FFTAnalyzer reacts in sync.
 void updateShowAudio(uint32_t ms) {
@@ -1387,7 +1412,7 @@ void updateShowAudio(uint32_t ms) {
   if (!audioEnv || audioEnvFrames == 0) {
     _audioBass = _audioMids = _audioTreble = 0;
     _audioLeftLevel = _audioRightLevel = 0;
-    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;
+${needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;\n' : ''}
     return;
   }
   float fpos = ms * (audioEnvRate / 1000.0f);
@@ -1404,8 +1429,7 @@ void updateShowAudio(uint32_t ms) {
   if (audioEnvChannels != 2) _audioRightLevel = _audioLeftLevel;
   // Coarse spectrum so BeatDetect/PercussionDetect still respond (bass→low bins,
   // mids→mid, treble→high). Approximate — full baked spectrum is a follow-up.
-  for (int b = 0; b < 32; b++)
-    _audioSpectrum[b] = b < 6 ? _audioBass : (b < 16 ? _audioMids : _audioTreble);
+${needsSpectrum ? '  for (int b = 0; b < 32; b++) _audioSpectrum[b] = b < 6 ? _audioBass : (b < 16 ? _audioMids : _audioTreble);\n' : ''}
 }
 ` : ''}
 ${decoderTap ? `
@@ -1420,7 +1444,7 @@ void audio_process_i2s(int16_t* outBuff, uint16_t validSamples,
 
   const uint8_t stride = channels;
   const uint8_t mixedChannels = channels > 1 ? 2 : 1;
-  uint64_t leftSquares = 0, rightSquares = 0;
+${needsStereoLevels ? '  uint64_t leftSquares = 0, rightSquares = 0;\n' : ''}
   for (uint16_t frame = 0; frame < validSamples; frame++) {
     int32_t stereo[2] = { 0, 0 };
     for (uint8_t channel = 0; channel < mixedChannels; channel++) {
@@ -1434,9 +1458,9 @@ void audio_process_i2s(int16_t* outBuff, uint16_t validSamples,
 #endif
     }
     if (mixedChannels == 1) stereo[1] = stereo[0];
-    leftSquares += (uint64_t)((int64_t)stereo[0] * stereo[0]);
+${needsStereoLevels ? `    leftSquares += (uint64_t)((int64_t)stereo[0] * stereo[0]);
     rightSquares += (uint64_t)((int64_t)stereo[1] * stereo[1]);
-    int32_t mixed = mixedChannels == 1 ? stereo[0] : (stereo[0] + stereo[1]) / 2;
+` : ''}    int32_t mixed = mixedChannels == 1 ? stereo[0] : (stereo[0] + stereo[1]) / 2;
 
     // One producer (audio.loop) and one consumer later in the same Arduino
     // loop. Drop the oldest complete block if rendering fell behind playback.
@@ -1454,10 +1478,10 @@ void audio_process_i2s(int16_t* outBuff, uint16_t validSamples,
   }
   // Publish one short-window RMS accumulator. sqrtf stays in the main loop so
   // the callback returns to decoder/I2S DMA with only adds and multiplies.
-  _decoderLeftSquares = leftSquares;
+${needsStereoLevels ? `  _decoderLeftSquares = leftSquares;
   _decoderRightSquares = rightSquares;
   _decoderLevelFrames = validSamples;
-}
+` : ''}}
 
 void setupDecoderTap() {
   _audioProcessor = fl::make_shared<fl::audio::Processor>();
@@ -1469,7 +1493,7 @@ void setupDecoderTap() {
   (void)_audioProcessor->getMidLevel();
   (void)_audioProcessor->getTrebleLevel();
   (void)_audioProcessor->getBPM();
-  (void)_audioProcessor->getEqBin(0);
+${needsSpectrum ? '  (void)_audioProcessor->getEqBin(0);\n' : ''}
 ${lines(audioFeatureSetupCpp(audioFeatures))}}
 
 ${vuNormalizedLevelCpp({ rmsScaleExpr: '_decoderVolumeComp' }).join('\n')}
@@ -1494,7 +1518,7 @@ void updateDecoderAudio() {
   if (processed) _decoderTapLastMs = millis();
   _decoderTapLive = _decoderTapLastMs != 0 && millis() - _decoderTapLastMs < 250;
 
-  uint32_t levelFrames = _decoderLevelFrames;
+${needsStereoLevels ? `  uint32_t levelFrames = _decoderLevelFrames;
   if (levelFrames > 0) {
     uint64_t leftSquares = _decoderLeftSquares, rightSquares = _decoderRightSquares;
     _decoderLevelFrames = 0;
@@ -1502,10 +1526,10 @@ void updateDecoderAudio() {
     _audioRightLevel = _vuNormalizedLevel(rightSquares, levelFrames);
   }
 
-  _audioBeat = false;
+` : ''}  _audioBeat = false;
   if (!_decoderTapLive) {
-    _audioLeftLevel = _audioRightLevel = 0.0f;
-${lines(audioFeatureResetCpp(audioFeatures))}${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in this loop.\n' : '    _audioBass = _audioMids = _audioTreble = 0.0f;\n    _audioBpm = 120.0f;\n    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0.0f;\n'}    return;
+${needsStereoLevels ? '    _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}
+${lines(audioFeatureResetCpp(audioFeatures))}${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in this loop.\n' : '    _audioBass = _audioMids = _audioTreble = 0.0f;\n    _audioBpm = 120.0f;\n' + (needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0.0f;\n' : '')}    return;
   }
   _audioBass = _audioProcessor->getBassLevel();
   _audioMids = _audioProcessor->getMidLevel();
@@ -1517,13 +1541,11 @@ ${lines(audioFeatureResetCpp(audioFeatures))}${bakedAudio ? '    // updateShowAu
   _audioBeatConfidence = _audioProcessor->getBeatConfidence();
 ${lines(audioFeatureUpdateCpp(audioFeatures))}  // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
   // established 32-slot spectrum contract, matching the microphone engine.
-  for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);
+${needsSpectrum ? '  for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);\n' : ''}
 }
 
 void resetDecoderTapLevels() {
-  _decoderLeftSquares = _decoderRightSquares = 0;
-  _decoderLevelFrames = 0;
-  _audioLeftLevel = _audioRightLevel = 0.0f;
+${needsStereoLevels ? '  _decoderLeftSquares = _decoderRightSquares = 0;\n  _decoderLevelFrames = 0;\n  _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}
   _decoderTapLastMs = 0;
   _decoderTapLive = false;
 }
@@ -1532,7 +1554,7 @@ void resetDecoderTapLevels() {
 ${controlSupportCpp}
 
 // ── Event dispatcher ──────────────────────────────────────────────────────────
-void applyEvent(const ShowEvent& ev) {
+${!genericPlayer ? `void applyEvent(const ShowEvent& ev) {
   switch (ev.cmd) {
     case CMD_SET_PATTERN:    patternId  = (uint8_t)ev.params[0]; break;
 ${hasPalette ? '    case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev.params[0]); break;\n' : ''}${hasSpeed
@@ -1540,7 +1562,7 @@ ${hasPalette ? '    case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev
     : ''}    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? `dma_display->setBrightness8((uint8_t)ev.params[0]);${hasStereoVu ? ' FastLED.setBrightness((uint8_t)ev.params[0]);' : ''}` : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;
     case CMD_BEAT_FLASH:
       flashLevel = ev.params[0] / 255.0f;
-      flashDecay = expf(-16.0f / (60.0f + ((ev.paramCount > 1 ? ev.params[1] : 22.0f) / 255.0f) * 240.0f));
+      flashDecay = expf(-16.0f / (60.0f + (ev.params[1] / 255.0f) * 240.0f));
       break;
     case CMD_TRANSITION:
       // Fired just before the incoming SET_PATTERN (same timestamp, sorted so
@@ -1548,18 +1570,18 @@ ${hasPalette ? '    case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev
       prevPatternId = patternId;
       transType     = (uint8_t)ev.params[0];
       transStart    = ev.t;
-      transDurMs    = (ev.paramCount > 1 ? ev.params[1] : 0.0f) * 1000.0f;
+      transDurMs    = ev.params[1] * 1000.0f;
       break;
     case CMD_PARTICLE_BURST:
       burstStart     = ev.t;
       burstIntensity = ev.params[0] / 255.0f;
-      burstColor     = CHSV((uint8_t)(ev.paramCount > 1 ? ev.params[1] : 0.0f), 217, 255);
-      burstStyle     = (uint8_t)(ev.paramCount > 2 ? ev.params[2] : 0.0f);
+      burstColor     = CHSV((uint8_t)ev.params[1], 217, 255);
+      burstStyle     = (uint8_t)ev.params[2];
       break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
   }
 }
 
-// ── Setup ─────────────────────────────────────────────────────────────────────
+` : ''}// ── Setup ─────────────────────────────────────────────────────────────────────
 /*
  * Pick a track and start it. Extracted from setup() so the serial receiver can
  * call it again after new files land — otherwise a card that arrived empty
@@ -1706,12 +1728,11 @@ static void musicDumpCard() {
 }
 
 bool startPlayback() {
-  bool started = false;
-  audioEnded = false;
+${genericPlayer ? '' : '  bool started = false;\n'}  audioEnded = false;
   audioPosMs = 0;
 ${hasControls ? '  playerPaused = false;\n' : ''}
 ${genericPlayer ? `
-  if (GENERIC_PLAYER) {
+  {
     uint16_t total = playerTrackCount();
     // Walks forward from the wanted index and wraps, so a single unreadable
     // file costs one track rather than the rest of the card. Bounded by the
@@ -1723,9 +1744,6 @@ ${genericPlayer ? `
       if (audio.connecttoFS(SD, path.c_str())) {
         genericTrackIndex = index;
         ${songOpen('leaf.c_str()')}
-        showDurationMs = 0;
-        eventCount = 0;
-        eventIdx = 0;
         Serial.printf("Playing (generic): %s\\n", path.c_str());
         primeAudioDecoder();
         return true;
@@ -1736,7 +1754,7 @@ ${genericPlayer ? `
     musicDumpCard();
     return false;
   }
-` : ''}
+` : `
   if (PREFERRED_TRACK[0]) {
     String mp3  = String("/music/") + PREFERRED_TRACK + ".mp3";
     String show = String("/shows/") + PREFERRED_TRACK + ".show";
@@ -1790,7 +1808,7 @@ ${genericPlayer ? `
   }
   if (!started) Serial.println("No playable track found on the card");
   return started;
-}
+`}}
 
 /*
  * Show-file receiver, living inside the player.
@@ -2035,7 +2053,7 @@ ${hasPatternSelection ? `  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_
 ${decoderTap ? '  setupDecoderTap();   // decoded PCM → FastLED audio analysis\n' : ''}
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
-${decoderTap ? `  _decoderVolumeComp = ${decoderVolumeComp};   // undo the library gain the tap would otherwise measure
+${decoderTap && needsStereoLevels ? `  _decoderVolumeComp = ${decoderVolumeComp};   // undo the library gain the tap would otherwise measure
 ` : ''}
 
   if (sdMounted) playbackReady = startPlayback();
@@ -2068,15 +2086,15 @@ ${graphRouting ? graphLoopCpp : `${hasControls ? '  servicePlayerControls();\n' 
     // monitor is almost always opened *after* the board has booted, and would
     // otherwise miss the one line that explains the silence: uptime climbing
     // with audioPos at 0 looks like a healthy board playing nothing.
-    Serial.printf("[status] uptime=%lus sd=%s audioPos=%lu pattern=%u event=%u/%u\\n",
+    Serial.printf("[status] uptime=%lus sd=%s audioPos=%lu pattern=%u${genericPlayer ? '' : ' event=%u/%u'}\\n",
                   millis() / 1000, sdMounted ? "ok" : "MISSING",
-                  (unsigned long)audioPosMs, patternId, eventIdx, eventCount);
+                  (unsigned long)audioPosMs, patternId${genericPlayer ? '' : ', eventIdx, eventCount'});
   }
 
   audio.loop();
 ${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has fed I2S/DAC\n' : ''}
 
-${genericPlayer ? `  if (GENERIC_PLAYER && audioEnded) {
+${genericPlayer ? `  if (audioEnded) {
     genericTrackIndex++;
     playbackReady = startPlayback();
 ${publishDisplaysCpp}
@@ -2093,15 +2111,15 @@ ${publishDisplaysCpp}
   // The library resets its clock to zero inside the EOF callback. Preserve the
   // show-file duration for one final boundary so events at the tail are not
   // silently skipped, then hold the completed frame.
-  uint32_t posMs = audioEnded ? showDurationMs : audio.getAudioCurrentTime() * 1000;
+  uint32_t posMs = ${genericPlayer ? 'audio.getAudioCurrentTime() * 1000' : 'audioEnded ? showDurationMs : audio.getAudioCurrentTime() * 1000'};
   audioPosMs = posMs;
 
-  // Dispatch all events whose timestamp has passed
+${!genericPlayer ? `  // Dispatch all events whose timestamp has passed
   while (eventIdx < eventCount && showEvents[eventIdx].t <= posMs) {
     applyEvent(showEvents[eventIdx]);
     eventIdx++;
   }
-${!genericPlayer && hasPatternSelection ? `  // The show file schedules the patterns, so the cursor follows the pixels
+` : ''}${!genericPlayer && hasPatternSelection ? `  // The show file schedules the patterns, so the cursor follows the pixels
   // rather than the other way round. Through _selSetActive for the same
   // reason the generic player's own rotation goes through it: a panel and the
   // LEDs must not be able to name two different patterns. Without this the
@@ -2133,7 +2151,7 @@ ${particleFx && genericCollection && decoderTap ? `  // Player Particles turns t
       : `CRGB(${particleFx.color.r}, ${particleFx.color.g}, ${particleFx.color.b})`};
   }
 ` : ''}
-${genericCollection ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
+${rotates ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
   // collected patterns in ${sequentialPatterns ? 'collection order' : 'random order without immediate repeats'}.
   // Their own audio nodes react to the live decoder signal.
   //
@@ -2143,7 +2161,7 @@ ${genericCollection ? `  // Unknown tracks have no pre-baked event timeline. Rot
   // next loop: the press selected, and nothing changed. Stepping relatively
   // means a confirm sticks, keeps a full dwell of its own, and decides what
   // comes after it.
-  if (GENERIC_PLAYER && ${collection ? renderers?.count ?? 0 : 0} > 1) {
+  {
     const float minHold = constrain(${timingExpression('minTime')}, 0.0f, 86400.0f);
     const float maxHold = max(minHold, constrain(${timingExpression('maxTime')}, 0.0f, 86400.0f));
     const uint32_t transitionMs = (uint32_t)(constrain(${timingExpression('transitionSec')}, 0.0f, 86400.0f) * 1000.0f);
@@ -2152,17 +2170,17 @@ ${genericCollection ? `  // Unknown tracks have no pre-baked event timeline. Rot
     };
     static uint32_t rotateMs = pickHoldMs();
     static uint32_t rotatedAtMs = 0;
-    const bool beatNow = ${patternTiming.beatTransitions ? (graphRouting?.timingInputs.beat ?? '_audioBeat') : 'false'};
+${patternTiming.beatTransitions ? `    const bool beatNow = ${patternTiming.beatTransitions ? (graphRouting?.timingInputs.beat ?? '_audioBeat') : 'false'};
     static bool lastBeat = beatNow;
     bool beatEdge = beatNow && !lastBeat;
     lastBeat = beatNow;
-    // A track change rewinds posMs. Without this the unsigned difference
+` : ''}    // A track change rewinds posMs. Without this the unsigned difference
     // below wraps to something enormous and forces a spurious advance.
     static uint32_t previousPosMs = 0;
     if (posMs < previousPosMs) {
       rotatedAtMs = posMs;
       rotateMs = pickHoldMs();
-      beatEdge = false;
+${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     }
     previousPosMs = posMs;
 ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
@@ -2176,7 +2194,7 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
     if (selActive != rotatedFrom) {
       rotatedFrom = selActive; rotatedAtMs = posMs;
       rotateMs = pickHoldMs() + (selActive != patternId ? transitionMs : 0);
-      beatEdge = false;
+${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     }
     if (posMs - rotatedAtMs >= rotateMs${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
       rotatedAtMs = posMs;
@@ -2193,16 +2211,16 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
       rotateIndex = (uint8_t)((rotateIndex + 1${sequentialPatterns ? '' : ` + random(${patternCount - 1})`}) % ${patternCount});
     }
     uint8_t nextPattern = rotateIndex;
-`}    if (nextPattern != patternId) {
-      prevPatternId = patternId;
+`}${transitions ? '    uint8_t rotatePrevious = patternId;\n' : ''}    if (nextPattern != patternId) {
       patternId = nextPattern;
+${transitions ? `      prevPatternId = rotatePrevious;
       transType = ${genericTransType};
       transStart = posMs;
       transDurMs = (float)transitionMs;
-    }
+` : ''}    }
   }
 ` : ''}
-${genericCollection && reactiveAudio ? `  // Fade the player down during genuine silence. Release is slower
+${fadesAudio && reactiveAudio ? `  // Fade the player down during genuine silence. Release is slower
   // than attack so short pauses do not make the LEDs flicker. The numbers
   // are playerDynamics.ts's, which the preview steps with.
   float audioEnergy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);
@@ -2216,7 +2234,7 @@ ${genericCollection && reactiveAudio ? `  // Fade the player down during genuine
   float t = posMs / 1000.0f;
   // Transition: while one is running, render the outgoing pattern into showA and
   // the incoming one into showB, then composite A→B into leds by its style.
-  float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
+${transitions && drawsFrame ? `  float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
   if (tp < 1.0f) {
     renderPattern(prevPatternId, t);
     ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing → showA
@@ -2227,7 +2245,7 @@ ${genericCollection && reactiveAudio ? `  // Fade the player down during genuine
     renderPattern(patternId, t);
   }
 
-  // Beat flash overlay
+` : drawsFrame ? '  renderPattern(patternId, t);\n' : ''}${!genericPlayer ? `  // Beat flash overlay
   if (flashLevel > 0.01f) {
     for (int i = 0; i < NUM_LEDS; i++) {
       leds[i].r = qadd8(leds[i].r, (uint8_t)((255 - leds[i].r) * flashLevel));
@@ -2237,7 +2255,7 @@ ${genericCollection && reactiveAudio ? `  // Fade the player down during genuine
     flashLevel *= flashDecay;
   }
 
-  // Particle-burst overlay: short-lived colored sparks (one of seventeen motion
+` : ''}${particles && drawsFrame ? `  // Particle-burst overlay: short-lived colored sparks (one of seventeen motion
   // styles) added on top of the frame — FastLED's brightness then scales them,
   // so they fade with a silence fade-to-black. Keep the switch in sync with
   // particleOverlayAt() in showPreview.ts.
@@ -2349,19 +2367,19 @@ ${genericCollection && reactiveAudio ? `  // Fade the player down during genuine
     }
   }
 
-${outputFieldLines}
-${genericCollection && reactiveAudio ? `  {
-${collection && renderers?.audioReactive && renderers.audioReactive.length > 0 ? `    // Only the patterns that listen go dark with the track; the rest keep
+` : ''}${outputFieldLines}
+${fadesAudio && reactiveAudio ? `  {
+${collection && renderers?.audioReactive?.some(Boolean) && renderers.audioReactive.some((on) => !on) ? `    // Only the patterns that listen go dark with the track; the rest keep
     // playing. Mid-transition the factor crosses with the composite, as the
     // preview's evalPatternShow does.
     static const bool PATTERN_AUDIO_REACTIVE[${renderers.audioReactive.length}] = { ${renderers.audioReactive.map((on) => (on ? 'true' : 'false')).join(', ')} };
     auto fadeFor = [&](uint8_t pid) -> float {
       return pid < ${renderers.audioReactive.length} && PATTERN_AUDIO_REACTIVE[pid] ? audioFade : 1.0f;
     };
-    float patternFade = tp < 1.0f
+${transitions ? `    float patternFade = tp < 1.0f
       ? fadeFor(prevPatternId) + (fadeFor(patternId) - fadeFor(prevPatternId)) * tp
       : fadeFor(patternId);
-` : `    float patternFade = audioFade;
+` : '    float patternFade = fadeFor(patternId);\n'}` : `    float patternFade = audioFade;
 `}    for (int i = 0; i < NUM_LEDS; i++) {
       leds[i].nscale8((uint8_t)constrain(patternFade * 255.0f, 0.0f, 255.0f));
     }

@@ -100,6 +100,9 @@ import {
 } from '../state/player/masterSpeed'
 import { resolveBuildMode } from '../state/upload/buildMode'
 import { audioFeaturesInCode } from './audio/audioEngineCpp'
+import { cppCode } from './cppReachability'
+import { finishCpp } from './cppCleanup'
+import { boardCppFacts, specializeCpp } from './cppSpecialize'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -261,7 +264,7 @@ function buildPattern(
   // same `leds`, so a pattern whose terminal node aliased it would be clobbered
   // by the other pattern mid-transition (and a persistent-buffer node such as
   // Trails would lose its accumulated frame entirely).
-  const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, nativeFastLedAudio, groupInputExprs, aliasTerminalBuffer: false })
+  const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, nativeFastLedAudio, groupInputExprs, aliasTerminalBuffer: false, deferPruning: true })
   const lines = sketch.split('\n')
   // FrameFeedback history and baked image palettes are per-node globals too.
   // Prefix them alongside buf_/field_ so two collected patterns cloned from
@@ -381,6 +384,13 @@ export function buildPatternRenderers(
   externalAudio = false, nativeFastLedAudio = false,
 ): PatternRenderers {
   const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, nativeFastLedAudio))
+  const usedRoles = roleParams.filter((role) => units.some((unit) =>
+    new RegExp(`\\b${role}\\b`).test(cppCode(unit.fn.slice(unit.fn.indexOf('{'))))))
+  for (const unit of units) {
+    for (const role of roleParams.filter((role) => !usedRoles.includes(role))) {
+      unit.fn = unit.fn.replace(`, ${roleSig(role)}`, '')
+    }
+  }
   const helpers = new Map<string, string>()
   for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
   return {
@@ -388,7 +398,7 @@ export function buildPatternRenderers(
     helpers: [...helpers.values()],
     functions: units.map((u) => u.fn),
     count: units.length,
-    params: roleParams,
+    params: usedRoles,
     audioReactive: patternIds.map((id) => isAudioReactiveSubgraph(groups[id]?.nodes ?? [])),
   }
 }
@@ -823,7 +833,8 @@ export function generateShowSketch(
   // A collection of one never transitions — the dwell simply never ends — so
   // the whole transition apparatus (showA/showB, the style pool, and the
   // compositing switch) is left out rather than emitted unreachable.
-  const transitions = renderers.count > 1
+  const rotates = renderers.count > 1
+  const transitions = rotates && info.transitionSec > 0
   // Root displays and their control chains live outside collected patterns.
   // Resolve them against the controller template rather than the pattern walk.
   const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId, groups)
@@ -961,7 +972,7 @@ export function generateShowSketch(
   }
   L.push('')
   if (usePsram) { L.push(PSRAM_ALLOC_CPP); L.push('') }
-  if (transitions) {
+  if (transitions && info.transitionIds.length > 1) {
     // The random pool of transition style ids the controller draws from.
     L.push(`const uint8_t TRANS_POOL[] = { ${info.transitionIds.join(', ')} };`)
     L.push(`#define TRANS_POOL_N ${info.transitionIds.length}`)
@@ -1155,15 +1166,22 @@ export function generateShowSketch(
   }
   L.push(...masterShowSpeedUpdateCpp(masterSpeedEmit))
   const patternNow = masterSpeedEmit.present ? 'animNow' : 'now'
-  if (!transitions) {
-    L.push(`  renderPattern(0, ${patternNow});   // the collection holds a single pattern`)
+  if (!rotates) {
+    L.push(`  render_p0(${patternNow});   // the collection holds a single pattern`)
     L.push('')
+  } else if (!transitions) {
+    L.push(`  static uint8_t cur = ${firstPattern};`)
+    L.push('  static uint32_t phaseStart = 0;')
+    if (selection.used) L.push(`  cur = (uint8_t)${selection.variable}.active;`)
+    L.push(`  if (now - phaseStart >= ${dwellMs}) { cur = ${nextPattern}; phaseStart = now; }`)
+    L.push(`  renderPattern(cur, ${patternNow});`)
+    if (displays.helpers.length > 0 || selection.used) L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
   } else {
     L.push('  if (!transitioning) {')
     L.push(`    renderPattern(cur, ${patternNow});`)
     L.push(`    if (now - phaseStart >= ${dwellMs}) {`)
     L.push(`      nxt = ${nextPattern};`)
-    L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
+    L.push(`      transType = ${info.transitionIds.length > 1 ? 'TRANS_POOL[random8(TRANS_POOL_N)]' : info.transitionIds[0]};`)
     L.push('      transitioning = true; phaseStart = now;')
     L.push('    }')
     L.push('  } else {')
@@ -1279,5 +1297,5 @@ export function generateShowSketch(
     return symbol ? new RegExp(`\\b${symbol}\\b`).test(withoutPalettes) : true
   }))
 
-  return L.join('\n')
+  return finishCpp(specializeCpp(L.join('\n'), boardCppFacts(nodes)))
 }

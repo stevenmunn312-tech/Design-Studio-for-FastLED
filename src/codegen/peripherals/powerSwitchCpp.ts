@@ -142,7 +142,7 @@ export function powerSwitchPwmLoopCpp(emit: PowerSwitchPwmEmit): string[] {
   return [
     `  {`,
     `    static int16_t ${last} = -1;`,
-    `    uint8_t duty = flsPwmDuty((${emit.gateExpr}) ? (float)(${emit.levelExpr}) : 0.0f, ${emit.activeHigh});`,
+    `    uint8_t duty = flsPwmDuty(${emit.gateExpr === 'true' ? `(float)(${emit.levelExpr})` : emit.gateExpr === 'false' ? '0.0f' : `(${emit.gateExpr}) ? (float)(${emit.levelExpr}) : 0.0f`}, ${emit.activeHigh});`,
     `    if (duty != ${last}) {`,
     `      flsPwmWrite(${emit.pin}, ${emit.channel}, duty);`,
     `      ${last} = duty;`,

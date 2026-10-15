@@ -1,4 +1,5 @@
 import { playerControlGraph } from '../codegen/player/playerControlGraph'
+import { cppCode } from '../codegen/cppReachability'
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import type { CustomDisplayAssets } from '../codegen/displays/customDisplayShowCpp'
@@ -333,11 +334,21 @@ export function buildShowPayload(
   // The same slots the player compiled its built-in patterns in.
   const builtinSlots = showPatternNames(done.map((entry) => entry.show!))
   const files: ShowUploadFile[] = []
+  const playerCode = cppCode(player)
+  const roleCommands = new Set(['SET_PALETTE', 'SET_SPEED', 'SET_ENERGY'])
   for (const e of done) {
     const title = safeTitle(e.show!.songTitle)
     files.push({ path: `/music/${title}.mp3`, data: e.file })
     // A music player never opens a show file.
-    if (!genericPlayer) files.push({ path: `/shows/${title}.show`, data: new Blob([showFileToBinary(e.show!, builtinSlots)]) })
+    if (!genericPlayer) {
+      const show = {
+        ...e.show!,
+        events: e.show!.events.filter((event) => !roleCommands.has(event.cmd)
+          || playerCode.includes(`case CMD_${event.cmd}:`)),
+        audio: /\baudioEnv\b/.test(playerCode) ? e.show!.audio : undefined,
+      }
+      files.push({ path: `/shows/${title}.show`, data: new Blob([showFileToBinary(show, builtinSlots)]) })
+    }
   }
   return { player, files, fqbnOpt: opts.fqbnOpt }
 }

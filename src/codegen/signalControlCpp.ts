@@ -208,26 +208,38 @@ export function clockCpp(id: string, v: Value, expr: Expr): string[] {
   const bpmProp = `_clkBpmP_${id}`
   const beatsPerBar = `_clkBar_${id}`
   const subdivision = `_clkSub_${id}`
+  const active = (value: string) => value !== 'false' && value !== '0'
+  const tap = active(expr.tap), sync = active(expr.sync), reset = active(expr.reset)
+  const pulse = tap || sync
   return [
     `  float ${bpmProp} = fmaxf(1.0f,${expr.bpm});`,
     `  int ${beatsPerBar} = (int)fmaxf(1.0f,${expr.beatsPerBar});`,
     `  int ${subdivision} = (int)fmaxf(1.0f,${expr.subdivision});`,
     `  static uint32_t _clkOrigin_${id} = 0; static bool _clkInit_${id} = false;`,
-    `  static uint32_t _clkLastPulse_${id} = 0; static bool _clkHasPulse_${id} = false;`,
-    `  static float _clkTapBpm_${id} = 0; static bool _clkHasTap_${id} = false;`,
-    `  static bool _clkPTap_${id} = false, _clkPSync_${id} = false, _clkPReset_${id} = false;`,
+    ...(pulse ? [`  static uint32_t _clkLastPulse_${id} = 0; static bool _clkHasPulse_${id} = false;`,
+      `  static float _clkTapBpm_${id} = 0; static bool _clkHasTap_${id} = false;`] : []),
+    ...(tap ? [`  static bool _clkPTap_${id} = false;`] : []),
+    ...(sync ? [`  static bool _clkPSync_${id} = false;`] : []),
+    ...(reset ? [`  static bool _clkPReset_${id} = false;`] : []),
     `  static uint32_t _clkLastBeat_${id} = 0, _clkLastSub_${id} = 0;`,
     `  { if (!_clkInit_${id}) { _clkOrigin_${id} = millis(); _clkInit_${id} = true; }`,
-    `    bool _tapNow = (${expr.tap}); bool _syncNow = (${expr.sync}); bool _resetNow = (${expr.reset});`,
-    `    bool _pulseNow = (_tapNow && !_clkPTap_${id}) || (_syncNow && !_clkPSync_${id});`,
+    ...(tap ? [`    bool _tapNow = (${expr.tap});`] : []),
+    ...(sync ? [`    bool _syncNow = (${expr.sync});`] : []),
+    ...(reset ? [`    bool _resetNow = (${expr.reset});`] : []),
+    ...(pulse ? [
+    `    bool _pulseNow = ${[...(tap ? [`(_tapNow && !_clkPTap_${id})`] : []), ...(sync ? [`(_syncNow && !_clkPSync_${id})`] : [])].join(' || ')};`,
     `    if (_pulseNow) { uint32_t _now = millis();`,
     `      if (_clkHasPulse_${id}) { uint32_t _iv = _now - _clkLastPulse_${id};`,
     `        if (_iv > 200 && _iv < 3000) { float _sample = 60000.0f / _iv; _clkTapBpm_${id} = _clkHasTap_${id} ? (_clkTapBpm_${id} * 0.5f + _sample * 0.5f) : _sample; _clkHasTap_${id} = true; }`,
     `        else { _clkHasTap_${id} = false; } }`,
     `      _clkLastPulse_${id} = _now; _clkHasPulse_${id} = true; _clkOrigin_${id} = _now; }`,
-    `    if (_resetNow && !_clkPReset_${id}) { _clkOrigin_${id} = millis(); _clkHasPulse_${id} = false; _clkHasTap_${id} = false; _clkLastBeat_${id} = 0; _clkLastSub_${id} = 0; }`,
-    `    _clkPTap_${id} = _tapNow; _clkPSync_${id} = _syncNow; _clkPReset_${id} = _resetNow; }`,
-    `  float ${v('bpm')} = _clkHasTap_${id} ? _clkTapBpm_${id} : ${bpmProp};`,
+    ] : []),
+    ...(reset ? [`    if (_resetNow && !_clkPReset_${id}) { _clkOrigin_${id} = millis(); ${pulse ? `_clkHasPulse_${id} = false; _clkHasTap_${id} = false; ` : ''}_clkLastBeat_${id} = 0; _clkLastSub_${id} = 0; }`] : []),
+    ...(tap ? [`    _clkPTap_${id} = _tapNow;`] : []),
+    ...(sync ? [`    _clkPSync_${id} = _syncNow;`] : []),
+    ...(reset ? [`    _clkPReset_${id} = _resetNow;`] : []),
+    `  }`,
+    `  float ${v('bpm')} = ${pulse ? `_clkHasTap_${id} ? _clkTapBpm_${id} : ` : ''}${bpmProp};`,
     `  float _clkElapsed_${id} = ((millis() - _clkOrigin_${id}) / 60000.0f) * ${v('bpm')};`,
     `  float ${v('phase')} = _clkElapsed_${id} - (uint32_t)_clkElapsed_${id};`,
     `  uint32_t _clkBeatCount_${id} = (uint32_t)_clkElapsed_${id};`,

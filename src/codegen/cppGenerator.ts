@@ -154,6 +154,8 @@ import { SHOW_EMITTERS } from '../nodes/show/codegen'
 import { SIGNAL_EMITTERS } from '../nodes/signal/codegen'
 import { SIMULATIONS_EMITTERS } from '../nodes/simulations/codegen'
 import type { GenerateCppOptions, SketchEmitContext, NodeEmitter } from './emitContext'
+import { finishCpp } from './cppCleanup'
+import { boardCppFacts, specializeCpp } from './cppSpecialize'
 import { SHOW_PIPELINE_NOTES } from '../nodes/show/codegen'
 export { PSRAM_ALLOC_CPP, psramBufferDecl, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './output/ledHardwareCpp'
 export type { LedHardware } from './output/ledHardwareCpp'
@@ -1614,7 +1616,9 @@ export function generateCpp(
   lines.push(loopPacingCpp(controller.frameRate))
   lines.push(`}`)
 
-  return withoutUnusedFastLed(lines).join('\n')
+  const source = specializeCpp(withoutUnusedFastLed(lines).join('\n'), boardCppFacts(capabilityNodes))
+  const hasTerminal = nodes.some((node) => TERMINAL_NODE_TYPES.has(node.data.nodeType))
+  return opts.deferPruning || !hasTerminal ? source : withoutUnusedFastLed(finishCpp(source).split('\n')).join('\n')
 }
 
 const FASTLED_INCLUDE = '#include <FastLED.h>'

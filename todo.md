@@ -525,6 +525,12 @@ library defaults.
 
 ## D-09 · Dead code in generated firmware, v1 part
 
+Work in progress: helper reachability, player/slideshow specialization, unused
+port cleanup and board preprocessing have an initial implementation. None of
+the items below is complete. The last codegen suite run had 1,493 passing and
+65 failing tests; subsequent edits have not had a complete rerun. The new
+reachability tests passed (7 tests). Firmware compilation is not verified.
+
 From the 2026-10-15 audit of all four firmware types: 315 normal sketches
 (every live example plus the normal-mode fixtures) and variant sets of the
 Music Player, SD performance player and slideshow. Each was put through a
