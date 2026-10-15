@@ -69,14 +69,139 @@ const VIBE_SPIKES = [
   ['BassSpike', 'isVibeBassSpike'], ['MidSpike', 'isVibeMidSpike'], ['TrebleSpike', 'isVibeTrebSpike'],
 ] as const
 
+/** The optional FastLED detectors a sketch polls beyond the core levels, beat
+ *  and spectrum. Every host of an `_audioProcessor` — the live capture engine
+ *  and the SD player's decoder tap — emits the same globals and updates from
+ *  these helpers, so a node reads one contract whichever source feeds it. */
+export interface AudioFeatures {
+  vibe: boolean
+  structure: boolean
+  pitch: boolean
+  waveform: boolean
+}
+
+const AUDIO_FEATURE_GLOBALS: Record<keyof AudioFeatures, RegExp> = {
+  vibe: /\b_audioVibe[A-Z]\w*\b/,
+  structure: /\b_audio(?:Downbeat|Building|Drop|DropImpact|TempoStable|MeasurePhase|BuildupProgress|Valence|Arousal|BeatNumber)\b/,
+  pitch: /\b_audio(?:Pitch|Key)[A-Z]\w*\b/,
+  waveform: /\b_audioWave\b/,
+}
+
+/** Which optional detectors already-emitted code reads, for hosts that see
+ *  compiled pattern code rather than the graph. */
+export function audioFeaturesInCode(blocks: readonly string[]): AudioFeatures {
+  const reads = (pattern: RegExp) => blocks.some((code) => pattern.test(code))
+  return {
+    vibe: reads(AUDIO_FEATURE_GLOBALS.vibe),
+    structure: reads(AUDIO_FEATURE_GLOBALS.structure),
+    pitch: reads(AUDIO_FEATURE_GLOBALS.pitch),
+    waveform: reads(AUDIO_FEATURE_GLOBALS.waveform),
+  }
+}
+
+/** Feature globals; emit after the core `_audio*` globals. */
+export function audioFeatureGlobalsCpp(f: AudioFeatures): string[] {
+  return [
+    ...(f.vibe ? [
+      '// FastLED Vibe: levels are relative to the song average (about 1.0), unbounded above.',
+      `float ${VIBE_LEVELS.map(([name]) => `_audioVibe${name} = 0.0f`).join(', ')};`,
+      `bool  ${VIBE_SPIKES.map(([name]) => `_audioVibe${name} = false`).join(', ')};`,
+    ] : []),
+    ...(f.structure ? [
+      '// FastLED song structure. Downbeat and drop are callback-only events, so they',
+      '// become counters; buildup and tempo stability become flags the callbacks set.',
+      'bool  _audioDownbeat = false, _audioBuilding = false, _audioDrop = false, _audioTempoStable = false;',
+      'float _audioMeasurePhase = 0.0f, _audioBuildupProgress = 0.0f, _audioDropImpact = 0.0f;',
+      'float _audioValence = 0.0f, _audioArousal = 0.0f;',
+      'int   _audioBeatNumber = 0;',
+      'static volatile uint32_t _audioDownbeatCount = 0, _audioDropCount = 0;',
+      'static uint32_t _audioDownbeatSeen = 0, _audioDropSeen = 0;',
+    ] : []),
+    ...(f.pitch ? ['#include "fl/audio/detector/key.h"', ...pitchGlobalsCpp()] : []),
+    ...(f.waveform ? [`float _audioWave[${WAVE_SAMPLES}] = {0};`] : []),
+  ]
+}
+
+/** Feature step functions; emit after `_audioProcessor` is declared. */
+export function audioFeatureHelpersCpp(f: AudioFeatures): string[] {
+  return [
+    ...(f.pitch ? ['', ...pitchHelperCpp()] : []),
+    ...(f.waveform ? ['', ...waveformHelperCpp()] : []),
+  ]
+}
+
+/** Detector registration and callbacks, inside setup once `_audioProcessor` exists. */
+export function audioFeatureSetupCpp(f: AudioFeatures): string[] {
+  return [
+    ...(f.vibe ? ['  (void)_audioProcessor->getVibeBass();'] : []),
+    ...(f.structure ? [
+      '  _audioProcessor->onDownbeat([] { _audioDownbeatCount = _audioDownbeatCount + 1; });',
+      '  _audioProcessor->onBuildupStart([] { _audioBuilding = true; });',
+      '  _audioProcessor->onBuildupEnd([] { _audioBuilding = false; });',
+      '  _audioProcessor->onDrop([] { _audioDropCount = _audioDropCount + 1; });',
+      '  _audioProcessor->onTempoStable([] { _audioTempoStable = true; });',
+      '  _audioProcessor->onTempoUnstable([] { _audioTempoStable = false; });',
+      '  (void)_audioProcessor->getMoodValence();',
+    ] : []),
+    ...(f.pitch ? [
+      '  _audioProcessor->onKey([](const fl::audio::detector::Key& key) {',
+      '    _audioKeyRoot = key.rootNote; _audioKeyMinor = key.isMinor; _audioKeyConf = key.confidence;',
+      '  });',
+      '  _audioProcessor->onKeyEnd([] { _audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f; });',
+    ] : []),
+  ]
+}
+
+/** Return every feature to silence while no audio reaches the processor. */
+export function audioFeatureResetCpp(f: AudioFeatures, indent = '    '): string[] {
+  return [
+    ...(f.vibe ? [
+      `${VIBE_LEVELS.map(([name]) => `_audioVibe${name}`).join(' = ')} = 0.0f;`,
+      `${VIBE_SPIKES.map(([name]) => `_audioVibe${name}`).join(' = ')} = false;`,
+    ] : []),
+    ...(f.structure ? [
+      '_audioDownbeat = _audioBuilding = _audioDrop = _audioTempoStable = false;',
+      '_audioMeasurePhase = _audioBuildupProgress = _audioDropImpact = _audioValence = _audioArousal = 0.0f;',
+      '_audioBeatNumber = 0;',
+    ] : []),
+    ...(f.waveform ? [`for (int i = 0; i < ${WAVE_SAMPLES}; ++i) _audioWave[i] = 0.0f;`] : []),
+    ...(f.pitch ? ['_audioPitchClear();', '_audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f;'] : []),
+  ].map((line) => indent + line)
+}
+
+/** Poll every feature from the processor, after it has consumed this loop's audio. */
+export function audioFeatureUpdateCpp(f: AudioFeatures): string[] {
+  return [
+    ...(f.vibe ? [
+      ...VIBE_LEVELS.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
+      ...VIBE_SPIKES.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
+    ] : []),
+    ...(f.structure ? [
+      '  _audioMeasurePhase = _audioProcessor->getMeasurePhase();',
+      '  _audioBeatNumber = _audioProcessor->getCurrentBeatNumber();',
+      '  _audioBuildupProgress = _audioProcessor->getBuildupProgress();',
+      '  _audioDropImpact = _audioProcessor->getDropImpact();',
+      '  _audioValence = _audioProcessor->getMoodValence();',
+      '  _audioArousal = _audioProcessor->getMoodArousal();',
+      '  uint32_t downbeatCount = _audioDownbeatCount, dropCount = _audioDropCount;',
+      '  _audioDownbeat = downbeatCount != _audioDownbeatSeen;',
+      '  _audioDrop = dropCount != _audioDropSeen;',
+      '  _audioDownbeatSeen = downbeatCount;',
+      '  _audioDropSeen = dropCount;',
+    ] : []),
+    ...(f.pitch ? ['  _audioPitchStep();'] : []),
+    ...(f.waveform ? ['  _audioWaveStep();'] : []),
+  ]
+}
+
 // FastLED 3.10.3+ owns the live I2S microphone pipeline: capture, signal
 // conditioning, shared FFT, adaptive frequency-band normalization, equalizer,
 // and beat detection. Studio keeps the small _audio* global interface used by
 // generated nodes and controller sketches, but no longer emits a second I2S
 // driver or a parallel FFT implementation.
 //
-// The SD-card player intentionally does not use this block: it supplies the
-// same globals from its baked song envelope.
+// The SD-card player does not use this block: its decoder tap hosts its own
+// processor and shares the optional-detector helpers above.
 function audioEngineCpp(
   backend: MicFirmwareBackend,
   ws: number,
@@ -121,6 +246,7 @@ function audioEngineCpp(
   // choosing a different module changes the wiring picture and the name and
   // nothing in the signal — said here rather than left to be discovered by
   // comparing two sketches.
+  const features: AudioFeatures = { vibe, structure, pitch, waveform }
   const profileApplies = (backend === 'fastled-esp32' || backend === 'fastled-teensy') && !sph0645
   return [
     `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : micModule.label} audio reactivity ─────────────────────────────────`,
@@ -140,30 +266,13 @@ function audioEngineCpp(
     'bool  _audioBeat = false;',
     '// Confidence of FastLED\'s latest beat (0-1); Beat Detect gates on it.',
     'float _audioBeatConfidence = 0.0f;',
-    ...(vibe ? [
-      '// FastLED Vibe: levels are relative to the song average (about 1.0), unbounded above.',
-      `float ${VIBE_LEVELS.map(([name]) => `_audioVibe${name} = 0.0f`).join(', ')};`,
-      `bool  ${VIBE_SPIKES.map(([name]) => `_audioVibe${name} = false`).join(', ')};`,
-    ] : []),
-    ...(structure ? [
-      '// FastLED song structure. Downbeat and drop are callback-only events, so they',
-      '// become counters; buildup and tempo stability become flags the callbacks set.',
-      'bool  _audioDownbeat = false, _audioBuilding = false, _audioDrop = false, _audioTempoStable = false;',
-      'float _audioMeasurePhase = 0.0f, _audioBuildupProgress = 0.0f, _audioDropImpact = 0.0f;',
-      'float _audioValence = 0.0f, _audioArousal = 0.0f;',
-      'int   _audioBeatNumber = 0;',
-      'static volatile uint32_t _audioDownbeatCount = 0, _audioDropCount = 0;',
-      'static uint32_t _audioDownbeatSeen = 0, _audioDropSeen = 0;',
-    ] : []),
-    ...(pitch ? ['#include "fl/audio/detector/key.h"', ...pitchGlobalsCpp()] : []),
-    ...(waveform ? [`float _audioWave[${WAVE_SAMPLES}] = {0};`] : []),
+    ...audioFeatureGlobalsCpp(features),
     'static float _audioSpectrum[32];',
     ...(source === 'line-in' ? ['static fl::shared_ptr<StudioPcm1802Input> _lineInput;'] : []),
     'static fl::shared_ptr<fl::audio::Processor> _audioProcessor;',
     'static volatile uint32_t _audioBeatCount = 0;',
     'static uint32_t _audioBeatSeen = 0;',
-    ...(pitch ? ['', ...pitchHelperCpp()] : []),
-    ...(waveform ? ['', ...waveformHelperCpp()] : []),
+    ...audioFeatureHelpersCpp(features),
     '',
     'void setupAudio() {',
     '#if MIC_DEBUG',
@@ -180,22 +289,7 @@ function audioEngineCpp(
     '  (void)_audioProcessor->getTrebleLevel();',
     '  (void)_audioProcessor->getBPM();',
     '  (void)_audioProcessor->getEqBin(0);',
-    ...(vibe ? ['  (void)_audioProcessor->getVibeBass();'] : []),
-    ...(structure ? [
-      '  _audioProcessor->onDownbeat([] { _audioDownbeatCount = _audioDownbeatCount + 1; });',
-      '  _audioProcessor->onBuildupStart([] { _audioBuilding = true; });',
-      '  _audioProcessor->onBuildupEnd([] { _audioBuilding = false; });',
-      '  _audioProcessor->onDrop([] { _audioDropCount = _audioDropCount + 1; });',
-      '  _audioProcessor->onTempoStable([] { _audioTempoStable = true; });',
-      '  _audioProcessor->onTempoUnstable([] { _audioTempoStable = false; });',
-      '  (void)_audioProcessor->getMoodValence();',
-    ] : []),
-    ...(pitch ? [
-      '  _audioProcessor->onKey([](const fl::audio::detector::Key& key) {',
-      '    _audioKeyRoot = key.rootNote; _audioKeyMinor = key.isMinor; _audioKeyConf = key.confidence;',
-      '  });',
-      '  _audioProcessor->onKeyEnd([] { _audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f; });',
-    ] : []),
+    ...audioFeatureSetupCpp(features),
     '}',
     '',
     'void updateAudio() {',
@@ -204,17 +298,7 @@ function audioEngineCpp(
     '    _audioLeftLevel = _audioRightLevel = 0.0f;',
     '    _audioBeat = false;',
     '    _audioBeatConfidence = 0.0f;',
-    ...(vibe ? [
-      `    ${VIBE_LEVELS.map(([name]) => `_audioVibe${name}`).join(' = ')} = 0.0f;`,
-      `    ${VIBE_SPIKES.map(([name]) => `_audioVibe${name}`).join(' = ')} = false;`,
-    ] : []),
-    ...(structure ? [
-      '    _audioDownbeat = _audioBuilding = _audioDrop = _audioTempoStable = false;',
-      '    _audioMeasurePhase = _audioBuildupProgress = _audioDropImpact = _audioValence = _audioArousal = 0.0f;',
-      '    _audioBeatNumber = 0;',
-    ] : []),
-    ...(waveform ? [`    for (int i = 0; i < ${WAVE_SAMPLES}; ++i) _audioWave[i] = 0.0f;`] : []),
-    ...(pitch ? ['    _audioPitchClear();', '    _audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f;'] : []),
+    ...audioFeatureResetCpp(features),
     '    for (int i = 0; i < 32; ++i) _audioSpectrum[i] = 0.0f;',
     '    return;',
     '  }',
@@ -229,25 +313,7 @@ function audioEngineCpp(
       '  _audioLeftLevel = _audioRightLevel = max(_audioBass, max(_audioMids, _audioTreble));',
     ]),
     '  _audioBpm = _audioProcessor->getBPM();',
-    ...(vibe ? [
-      ...VIBE_LEVELS.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
-      ...VIBE_SPIKES.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
-    ] : []),
-    ...(structure ? [
-      '  _audioMeasurePhase = _audioProcessor->getMeasurePhase();',
-      '  _audioBeatNumber = _audioProcessor->getCurrentBeatNumber();',
-      '  _audioBuildupProgress = _audioProcessor->getBuildupProgress();',
-      '  _audioDropImpact = _audioProcessor->getDropImpact();',
-      '  _audioValence = _audioProcessor->getMoodValence();',
-      '  _audioArousal = _audioProcessor->getMoodArousal();',
-      '  uint32_t downbeatCount = _audioDownbeatCount, dropCount = _audioDropCount;',
-      '  _audioDownbeat = downbeatCount != _audioDownbeatSeen;',
-      '  _audioDrop = dropCount != _audioDropSeen;',
-      '  _audioDownbeatSeen = downbeatCount;',
-      '  _audioDropSeen = dropCount;',
-    ] : []),
-    ...(pitch ? ['  _audioPitchStep();'] : []),
-    ...(waveform ? ['  _audioWaveStep();'] : []),
+    ...audioFeatureUpdateCpp(features),
     '  uint32_t beatCount = _audioBeatCount;',
     '  _audioBeat = beatCount != _audioBeatSeen;',
     '  _audioBeatSeen = beatCount;',

@@ -32,6 +32,7 @@ import { wiredTransitionStyles } from '../state/patterns/patternCollectionWiring
 import { SYMMETRY_HELPER_CPP } from './helpers/symmetryHelperCpp'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
 import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
+import { POLINE_HELPER_CPP } from './helpers/polineHelperCpp'
 import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { cppComment } from './cppLiterals'
@@ -98,6 +99,7 @@ import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
 } from '../state/player/masterSpeed'
 import { resolveBuildMode } from '../state/upload/buildMode'
+import { audioFeaturesInCode } from './audio/audioEngineCpp'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -201,6 +203,8 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   symmetry: SYMMETRY_HELPER_CPP,
   hueMix: HUE_MIX_HELPER_CPP,
   wrapX: WRAP_X_HELPER_CPP,
+  // Only a Poline with a wired anchor builds its palette at run time.
+  poline: POLINE_HELPER_CPP,
   frameSample: FRAME_SAMPLE_HELPER_CPP,
   // After the sampler it calls. A pattern holding a 3D Transition node brings
   // it; so does a 3D style in the show's own pool, and the set dedupes them.
@@ -367,7 +371,9 @@ export interface PatternRenderers {
 export function patternRenderersUseAudio(renderers: PatternRenderers | undefined): boolean {
   if (!renderers) return false
   const audioGlobal = /\b_audio(?:Bass|Mids|Treble|Bpm|Beat|Spectrum)\b/
-  return [...renderers.helpers, ...renderers.functions].some((code) => audioGlobal.test(code))
+  const blocks = [...renderers.helpers, ...renderers.functions]
+  return blocks.some((code) => audioGlobal.test(code))
+    || Object.values(audioFeaturesInCode(blocks)).some(Boolean)
 }
 
 export function buildPatternRenderers(

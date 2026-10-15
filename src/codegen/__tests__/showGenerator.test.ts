@@ -6,6 +6,7 @@ import { SDF_HELPER_CPP } from '../helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP } from '../helpers/latticeHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from '../helpers/frameSampleHelperCpp'
 import { SYMMETRY_HELPER_CPP } from '../helpers/symmetryHelperCpp'
+import { POLINE_HELPER_CPP } from '../helpers/polineHelperCpp'
 import { NODE_LIBRARY, libraryDefaults, propertyMeta } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { GroupRegistry } from '../../state/graphEvaluator'
@@ -1312,6 +1313,19 @@ describe('pattern code lifted into a show', () => {
     expect(symmetry.helpers).toContain(SYMMETRY_HELPER_CPP)
     expect(symmetry.helpers).toContain(LATTICE_HELPER_CPP)
     expect(symmetry.helpers).toContain(FRAME_SAMPLE_HELPER_CPP)
+
+    // The palette sweep cannot reach this: Poline bakes its stops unless an
+    // anchor is wired, and only then calls the helper.
+    const polineGroup = {
+      nodes: [libNode('c', 'Color'), libNode('pl', 'Poline'), libNode('src', 'Noise'), node('go', 'GroupOutput')],
+      edges: [
+        edge('anchor', 'c', 'color', 'pl', 'colorB'), edge('pal', 'pl', 'palette', 'src', 'paletteIn'),
+        edge('out', 'src', 'frame', 'go', 'frame'),
+      ],
+    }
+    const poline = buildPatternRenderers(['poline-pattern'], { 'poline-pattern': polineGroup } as unknown as GroupRegistry)
+    expect(poline.functions[0]).toContain('_polineStops16(')
+    expect(poline.helpers).toContain(POLINE_HELPER_CPP)
   })
 
   it('emits a block two patterns share once, and each pattern\'s tables apart', () => {

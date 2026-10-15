@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../playerSketchGenerator'
 import { FRAME_SAMPLE_HELPER_CPP } from '../helpers/frameSampleHelperCpp'
+import { patternRenderersUseAudio } from '../showGenerator'
 
 // The show's LED target comes off a wire now — the generator's `frame` into an
 // output's `frame` — so a fixture that wants its MatrixOutput read has to say
@@ -52,6 +53,28 @@ describe('playerSketchGenerator', () => {
     const single = generatePlayerSketch({}, renderers, { genericPlayer: true, transitionIds: [4] })
     expect(single).not.toContain('TRANS_POOL')
     expect(single).toContain('transType = 4;')
+  })
+
+  // A Vibe node in a slideshow pattern read _audioVibe* globals the player
+  // never declared: the decoder tap hosts the processor, so it must host the
+  // optional detectors too.
+  it('declares, registers and polls the optional detectors its patterns read', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { float v = _audioVibeMidAtt + _audioMeasurePhase; (void)v; (void)ms; }'],
+      count: 1, params: [],
+    }
+    expect(patternRenderersUseAudio(renderers)).toBe(true)
+    const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true, decoderTap: true })
+    expect(/float _audioVibeBass = 0\.0f,[^;]*_audioVibeMidAtt = 0\.0f/.test(sketch)).toBe(true)
+    expect(sketch.indexOf('_audioVibeMidAtt = 0.0f')).toBeLessThan(sketch.indexOf('void render_p0('))
+    expect(sketch).toContain('  (void)_audioProcessor->getVibeBass();')
+    expect(sketch).toContain('  _audioVibeMidAtt = _audioProcessor->getVibeMidAtt();')
+    expect(sketch).toContain('_audioProcessor->onDownbeat(')
+    expect(sketch).toContain('  _audioMeasurePhase = _audioProcessor->getMeasurePhase();')
+    // Only what a pattern reads is compiled.
+    expect(sketch).not.toContain('_audioWave')
+    expect(sketch).not.toContain('_audioPitch')
   })
 
   it('fades only the patterns that listen, crossing the factor through a transition', () => {

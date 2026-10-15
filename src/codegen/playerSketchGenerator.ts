@@ -31,6 +31,10 @@ import { ledSupplyVolts } from '../build/controllerSettings'
 import { ledOutputManualExprs, ledOutputRuntimeCpp } from './output/ledOutputRuntimeCpp'
 import { ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
 import { vuNormalizedLevelCpp } from './audio/stereoLevelCpp'
+import {
+  audioFeatureGlobalsCpp, audioFeatureHelpersCpp, audioFeatureResetCpp, audioFeatureSetupCpp,
+  audioFeatureUpdateCpp, audioFeaturesInCode,
+} from './audio/audioEngineCpp'
 import { PLAYER_SONG_INFO_CPP } from './player/playerSongInfoCpp'
 import type { PlayerDisplays } from './player/playerDisplays'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
@@ -526,6 +530,10 @@ export function generatePlayerSketch(
   const controlEntries = Object.entries(controls.bindings) as Array<[PlayerControlAction, PlayerControlSource]>
   const hasControls = controlEntries.length > 0 || touchEmits.length > 0 || !!graphRouting?.bundle || !!graphRouting?.hasSongSources
   const reactiveAudio = bakedAudio || decoderTap
+  // Vibe, structure, pitch and waveform come only from the tap's processor;
+  // the baked envelope carries levels alone.
+  const audioFeatures = audioFeaturesInCode(decoderTap && renderers ? [...renderers.helpers, ...renderers.functions] : [])
+  const lines = (block: string[]) => (block.length ? `${block.join('\n')}\n` : '')
   const internalDac = c.audioOutput === 'internalDac'
   // A stale saved toggle must never put ESP32-only allocation calls into a
   // sketch for a board with no PSRAM option. Capability and intent are both
@@ -1293,7 +1301,7 @@ static volatile uint32_t _decoderLevelFrames = 0;
 static fl::shared_ptr<fl::audio::Processor> _audioProcessor;
 static volatile uint32_t _audioBeatCount = 0;
 static uint32_t _audioBeatSeen = 0;
-` : ''}
+${lines([...audioFeatureGlobalsCpp(audioFeatures), ...audioFeatureHelpersCpp(audioFeatures)])}` : ''}
 
 ${usePsram ? `${PSRAM_ALLOC_CPP}\n` : ''}
 
@@ -1462,7 +1470,7 @@ void setupDecoderTap() {
   (void)_audioProcessor->getTrebleLevel();
   (void)_audioProcessor->getBPM();
   (void)_audioProcessor->getEqBin(0);
-}
+${lines(audioFeatureSetupCpp(audioFeatures))}}
 
 ${vuNormalizedLevelCpp({ rmsScaleExpr: '_decoderVolumeComp' }).join('\n')}
 
@@ -1497,7 +1505,7 @@ void updateDecoderAudio() {
   _audioBeat = false;
   if (!_decoderTapLive) {
     _audioLeftLevel = _audioRightLevel = 0.0f;
-${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in this loop.\n' : '    _audioBass = _audioMids = _audioTreble = 0.0f;\n    _audioBpm = 120.0f;\n    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0.0f;\n'}    return;
+${lines(audioFeatureResetCpp(audioFeatures))}${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in this loop.\n' : '    _audioBass = _audioMids = _audioTreble = 0.0f;\n    _audioBpm = 120.0f;\n    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0.0f;\n'}    return;
   }
   _audioBass = _audioProcessor->getBassLevel();
   _audioMids = _audioProcessor->getMidLevel();
@@ -1507,7 +1515,7 @@ ${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in thi
   _audioBeat = beatCount != _audioBeatSeen;
   _audioBeatSeen = beatCount;
   _audioBeatConfidence = _audioProcessor->getBeatConfidence();
-  // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
+${lines(audioFeatureUpdateCpp(audioFeatures))}  // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
   // established 32-slot spectrum contract, matching the microphone engine.
   for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);
 }
