@@ -124,8 +124,6 @@ function combinePlayerControls(base: PlayerControls, direct: PlayerControls | nu
   if (direct.volume != null) controls.volume = direct.volume
   if (base.brightness != null) controls.brightness = base.brightness
   if (direct.brightness != null) controls.brightness = direct.brightness
-  if (base.speed != null) controls.speed = base.speed
-  if (direct.speed != null) controls.speed = direct.speed
   return controls
 }
 
@@ -1163,14 +1161,12 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       patternSteps: (upstream?.patternSteps ?? 0) + patternSteps,
       patternConfirm: Boolean(upstream?.patternConfirm) || button('patternConfirm', false),
     }
+    // Absolutes all follow one rule: wired here beats wired upstream, and
+    // unwired stays absent so nothing downstream is overruled by silence.
     if (incoming.has(`${id}:volume`)) controls.volume = clamp01(Number(input(id, 'volume', 0)))
     else if (upstream?.volume != null) controls.volume = clamp01(upstream.volume)
     if (incoming.has(`${id}:brightness`)) controls.brightness = clamp01(Number(input(id, 'brightness', 0)))
     else if (upstream?.brightness != null) controls.brightness = clamp01(upstream.brightness)
-    // Absolutes all follow one rule: wired here beats wired upstream, and
-    // unwired stays absent so nothing downstream is overruled by silence.
-    if (incoming.has(`${id}:masterSpeed`)) controls.speed = Number(input(id, 'masterSpeed', 1))
-    else if (upstream?.speed != null) controls.speed = upstream.speed
     playerControlsState.set(key, state)
     return { controls }
   },

@@ -86,9 +86,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the loop — after every node — because a wired speed expression may itself read
   `t`. A Pattern Slideshow keeps its interval/transition state on unscaled
   elapsed time and passes a second accumulated `animNow` only to pattern
-  renderers; its fixed controller accepts the node's slider, a supported bounded
-  scalar wire, or a Player Controls node carrying the Master Speed job, with the same
-  one-pass delay. Music Player continues to refuse Master Speed because its
+  renderers; its fixed controller accepts the node's slider or a supported
+  bounded scalar wire into Speed, with the same one-pass delay. Music Player continues to refuse Master Speed because its
   animation clock is track position.
 - The same rule applies per node: a node never animates as `t * rate` when
   `rate` can move. Multiplying the absolute clock re-scales every elapsed

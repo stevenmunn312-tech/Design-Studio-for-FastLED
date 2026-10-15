@@ -63,7 +63,6 @@ export function showControlRouting(
     destinationIds: new Set([
       ...targets.outputIds,
       ...(targets.engineId ? [targets.engineId] : []),
-      ...(speedNode ? [speedNode.id] : []),
     ]),
     scalarOutputIds: targets.outputIds,
     scalarInputs: speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' }] : [],
@@ -78,7 +77,6 @@ export function showControlRouting(
     patternCommands: (targets.engineId && routing.bundles.get(targets.engineId)) || null,
     /** Live bounded-control routes feeding Master Speed, if wired. */
     masterSpeedInputExpr: speedNode ? routing.scalarInputs.get(`${speedNode.id}:speed`) ?? null : null,
-    masterSpeedBundle: speedNode ? routing.bundles.get(speedNode.id) ?? null : null,
   }
 }
 

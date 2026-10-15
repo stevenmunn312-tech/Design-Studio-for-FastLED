@@ -27,10 +27,6 @@ describe('nodeLibrary', () => {
       'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
       'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
       'patternSelect', 'patternPrevious', 'patternNext', 'patternConfirm',
-      // The first job that is not a player's, and it needed no new machinery:
-      // a row here, a destination naming what acts on it, and the ports and
-      // the generators followed.
-      'masterSpeed',
     ])
 
     const particles = NODE_LIBRARY.find((n) => n.type === 'PlayerParticles')

@@ -175,25 +175,6 @@ describe('showGenerator', () => {
     expect(cpp.indexOf('_showAnimSec +=')).toBeLessThan(cpp.indexOf('_showAnimSpeed = constrain'))
   })
 
-  it('takes Master Speed from a Player Controls node bundle when that job is assigned', () => {
-    const speed = node('speed', 'MasterSpeed', { speed: 0.5 })
-    const pot = node('pot', 'PotInput', { pin: 4 })
-    const controls = node('controls', 'ControlMap')
-    const cpp = generateShowSketch(
-      [...nodes, speed, pot, controls],
-      [
-        ...edges,
-        edge('speed-value', 'pot', 'value', 'controls', 'masterSpeed'),
-        edge('speed-bundle', 'controls', 'controls', 'speed', 'controls'),
-      ],
-      groups,
-    )
-
-    expect(cpp).toContain('n_controls_controls.hasSpeed = true;')
-    expect(cpp).toContain('n_controls_controls.speed = n_pot_value;')
-    expect(cpp).toContain('_showAnimSpeed = constrain((n_controls_controls.hasSpeed ? n_controls_controls.speed : 0.5000f), 0.0f, 4.0f);')
-  })
-
   it('keeps the original direct millis clock when there is no Master Speed node', () => {
     const cpp = generateShowSketch(nodes, edges, groups)
     expect(cpp).toContain('renderPattern(cur, now);')

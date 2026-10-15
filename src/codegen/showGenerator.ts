@@ -894,15 +894,10 @@ export function generateShowSketch(
   const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
   const controlGraph = controlGraphCpp(controls.graph, `${speedNode ? 'animNow' : 'now'} / 1000.0f`)
   const initialMasterSpeed = clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT)
-  const speedFallbackExpr = controls.masterSpeedInputExpr ?? `${initialMasterSpeed.toFixed(4)}f`
   const masterSpeedEmit: MasterSpeedEmit = {
     present: !!speedNode,
-    // A bundle wins only while it carries the Master Speed job. Otherwise the
-    // direct Speed wire (or finally the visible slider) remains authoritative,
-    // matching graphEvaluator's fallback order.
-    speedExpr: controls.masterSpeedBundle
-      ? `(${controls.masterSpeedBundle}.hasSpeed ? ${controls.masterSpeedBundle}.speed : ${speedFallbackExpr})`
-      : controls.masterSpeedInputExpr,
+    // A wired Speed is live; unwired, the visible slider is the constant.
+    speedExpr: controls.masterSpeedInputExpr,
     initial: initialMasterSpeed,
     min: MASTER_SPEED_MIN,
     max: MASTER_SPEED_MAX,

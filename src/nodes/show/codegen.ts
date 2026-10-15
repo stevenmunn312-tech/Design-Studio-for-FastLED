@@ -312,7 +312,6 @@ export const SHOW_EMITTERS: NodeEmitters = {
       volumeExpr: wired('volume') ? f('volume', 'volume', 0) : null,
       brightnessExpr: wired('brightness') ? f('brightness', 'brightness', 0) : null,
       patternPositionExpr: wired('patternSelect') ? f('patternSelect', 'patternSelect', 0) : null,
-      speedExpr: wired('masterSpeed') ? f('masterSpeed', 'masterSpeed', 1) : null,
       settings: normalizeButtonEdgeSettings(p),
       volumeStep: Math.max(0, Number(p.volumeStep ?? 0.05)),
       brightnessStep: Math.max(0, Number(p.brightnessStep ?? 0.05)),

@@ -114,14 +114,6 @@ export interface PlayerControls {
   brightness?: number
   brightnessDelta: number
   /**
-   * Master Speed, when a control has been given that job.
-   *
-   * Absent rather than 1 when nobody is driving it, so an unwired bundle
-   * cannot quietly overrule the node's own slider — the same reason `volume`
-   * and `brightness` are optional.
-   */
-  speed?: number
-  /**
    * Pattern-selection intent, from Player Controls.
    *
    * `patternSteps` is whole detents already — the encoder's running count is

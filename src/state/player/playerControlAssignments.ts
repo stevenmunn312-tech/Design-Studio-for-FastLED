@@ -51,7 +51,7 @@ export interface PlayerControlFunction {
  * bundle that only reaches an LED output connects and does nothing, which is
  * the worst kind of wire.
  */
-export type PlayerControlDestination = 'player' | 'performance' | 'output' | 'engine' | 'speed'
+export type PlayerControlDestination = 'player' | 'performance' | 'output' | 'engine'
 
 /** Transport and volume: only a node holding the track can act on these. */
 const TRANSPORT: readonly PlayerControlDestination[] = ['player', 'performance']
@@ -60,8 +60,6 @@ const LIGHTS: readonly PlayerControlDestination[] = ['player', 'performance', 'o
 /** Pattern intent: the player's collection, and a slideshow's cursor. A timed
  * show has neither — its patterns come from the show file. */
 const PATTERNS: readonly PlayerControlDestination[] = ['player', 'engine']
-/** The one clock every animated node reads. Only Master Speed scales it. */
-const SPEED: readonly PlayerControlDestination[] = ['speed']
 
 /**
  * Every job a control can be given, in the order the node lists them.
@@ -87,17 +85,6 @@ export const PLAYER_CONTROL_FUNCTIONS: readonly PlayerControlFunction[] = [
   { id: 'patternPrevious', label: 'Previous Pattern', dataType: 'bool', kind: 'momentary', destinations: PATTERNS },
   { id: 'patternNext', label: 'Next Pattern', dataType: 'bool', kind: 'momentary', destinations: PATTERNS },
   { id: 'patternConfirm', label: 'Confirm', dataType: 'bool', kind: 'momentary', destinations: PATTERNS },
-  /*
-   * The first job here that is not a player's.
-   *
-   * Everything above acts on a track, a lamp or a collection, which is why
-   * this was called Player Controls. Master Speed is none of those — it scales
-   * the one clock every animated node reads — and it needed no new machinery
-   * to arrive: a row in this list, a destination naming what acts on it, and
-   * the ports, the evaluator and the generators followed. That is
-   * the property this list has to keep as more targets are added.
-   */
-  { id: 'masterSpeed', label: 'Master Speed', dataType: 'float', kind: 'continuous', destinations: SPEED },
 ]
 
 const BY_ID = new Map(PLAYER_CONTROL_FUNCTIONS.map((entry) => [entry.id, entry]))

@@ -613,19 +613,9 @@ export function generateCpp(
    * the browser follows — see state/player/masterSpeed.ts.
    */
   const speedNode = sorted.find((n) => n.data.nodeType === 'MasterSpeed')
-  // A control bundle wins over the node's own slider, and only while it is
-  // carrying a speed — a bundle that arrives without the Master Speed job
-  // assigned leaves the slider alone, exactly as the browser does.
-  const speedBundle = speedNode && incoming.get(`${speedNode.id}:controls`)
-  const speedBundleExpr = speedBundle
-    ? `n_${safeId(speedBundle.srcId)}_${safeId(speedBundle.srcPort)}`
-    : null
   const masterSpeedEmit: MasterSpeedEmit = {
     present: !!speedNode,
-    speedExpr: speedBundleExpr
-      ? `(${speedBundleExpr}.hasSpeed ? ${speedBundleExpr}.speed : `
-        + `${clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT).toFixed(4)}f)`
-      : speedNode && incoming.has(`${speedNode.id}:speed`)
+    speedExpr: speedNode && incoming.has(`${speedNode.id}:speed`)
         ? floatExpr(speedNode.id, 'speed', props(speedNode), 'speed', MASTER_SPEED_DEFAULT)
         : null,
     initial: clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT),

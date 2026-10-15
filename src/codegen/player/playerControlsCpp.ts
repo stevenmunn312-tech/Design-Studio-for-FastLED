@@ -61,8 +61,6 @@ export interface PlayerControlsEmit {
   buttons: PlayerControlButtonEmit[]
   /** Absolute wires, by bundle field. */
   volumeExpr: string | null
-  /** Master Speed, when a control has been given that job. */
-  speedExpr?: string | null
   brightnessExpr: string | null
   /**
    * Holds an absolute back until it is true: a screen slider on the Controls
@@ -99,10 +97,6 @@ struct PlayerControlsValue {
   bool  hasBrightness = false; float brightness = 0.0f;
   int   patternSteps = 0;
   bool  patternConfirm = false;
-  // Master Speed, present only while a control has been given that job — the
-  // same has/value pair volume and brightness use, and for the same reason: an
-  // unwired bundle must not overrule the node's own setting.
-  bool  hasSpeed = false;    float speed = 1.0f;
 };
 
 // Mirrors buttonEdge() in state/player/transportBridge.ts. A press is the debounced
@@ -236,10 +230,6 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
     lines.push(`    ${pad}${variable}.hasBrightness = true;`)
     lines.push(`    ${pad}${variable}.brightness = constrain(${emit.brightnessExpr}, 0.0f, 1.0f);`)
     if (emit.brightnessGateExpr) lines.push(`    }`)
-  }
-  if (emit.speedExpr) {
-    lines.push(`    ${variable}.hasSpeed = true;`)
-    lines.push(`    ${variable}.speed = ${emit.speedExpr};`)
   }
   lines.push(`  }`)
   return lines

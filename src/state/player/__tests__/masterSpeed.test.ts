@@ -47,9 +47,8 @@ describe('the knob itself', () => {
   it('is a sink: the graph feeds it and nothing reads it', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'MasterSpeed')
     expect(def?.outputs).toEqual([])
-    // Two ways in, one meaning: an ordinary wire, or a knob given this job on
-    // a Player Controls node. Still nothing out — it changes what time is.
-    expect(def?.inputs.map((input) => input.id)).toEqual(['speed', 'controls'])
+    // One way in, an ordinary wire. Nothing out — it changes what time is.
+    expect(def?.inputs.map((input) => input.id)).toEqual(['speed'])
   })
 })
 
@@ -206,20 +205,6 @@ describe('builds whose clock is not the sketch\'s own', () => {
     const { errors } = findOutputRuntimeIssues(
       [...showNodes, pot],
       [...showEdges, edge('es', 'p', 'value', 'spd', 'speed')],
-    )
-    expect(errors).toEqual([])
-  })
-
-  it('accepts a show Player Controls carrying the Master Speed job', () => {
-    const pot = node('p', 'PotInput', { pin: 4 })
-    const controls = node('controls', 'ControlMap')
-    const { errors } = findOutputRuntimeIssues(
-      [...showNodes, pot, controls],
-      [
-        ...showEdges,
-        edge('value', 'p', 'value', 'controls', 'masterSpeed'),
-        edge('bundle', 'controls', 'controls', 'spd', 'controls'),
-      ],
     )
     expect(errors).toEqual([])
   })

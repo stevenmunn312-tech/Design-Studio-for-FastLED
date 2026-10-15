@@ -213,7 +213,6 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
           return button ? [button] : []
         }),
         volumeExpr: sourceExpr(source, 'volume', 'float'),
-        speedExpr: sourceExpr(source, 'masterSpeed', 'float'),
         brightnessExpr: sourceExpr(source, 'brightness', 'float'),
         patternPositionExpr: sourceExpr(source, 'patternSelect', 'float'),
         settings: normalizeButtonEdgeSettings(p),

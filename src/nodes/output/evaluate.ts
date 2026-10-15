@@ -670,16 +670,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   // one this pass is already running on, so the value is read by whatever
   // owns the clock — the preview loop, a recording — and takes effect on
   // the next frame. See state/player/masterSpeed.ts on why that lag is the point.
-  MasterSpeed({ input, num }, id, props) {
-    // A control bundle wins over the node's own slider, and only while it
-    // is actually carrying a speed: a bundle that reaches here without the
-    // Master Speed job assigned leaves the slider alone.
-    const bundle = input(id, 'controls', null)
-    const fromControls = isPlayerControls(bundle) && typeof bundle.speed === 'number'
-      ? bundle.speed
-      : null
-    return {
-      speed: clampMasterSpeed(fromControls ?? num(id, 'speed', props, 'speed', MASTER_SPEED_DEFAULT)),
-    }
+  MasterSpeed({ num }, id, props) {
+    return { speed: clampMasterSpeed(num(id, 'speed', props, 'speed', MASTER_SPEED_DEFAULT)) }
   },
 }

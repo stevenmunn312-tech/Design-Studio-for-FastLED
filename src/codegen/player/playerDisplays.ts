@@ -196,7 +196,6 @@ const CONTROL_CHAIN_SINKS: Record<string, ControlChainSink | undefined> = {
   PerformanceGenerator: 'performance',
   MatrixOutput: 'output',
   PatternSlideshow: 'engine',
-  MasterSpeed: 'speed',
 }
 
 /**
