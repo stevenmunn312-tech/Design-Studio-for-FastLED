@@ -525,10 +525,9 @@ library defaults.
 
 ## D-09 · Dead code in generated firmware, v1 part
 
-- [ ] **D-09 · Compile proof.** Open until the pruned corpus compiles:
+- [x] **D-09 · Compile proof.** The pruned corpus compiles on arduino-cli:
   `python scripts/compile-fixtures/compile-matrix.py --only dead-code/`
-  (about 250 sketches on arduino-cli, run one at a time; nothing has been
-  compiled yet). A sub-item is ticked when its code and tests are done.
+  passes every leg. A sub-item is ticked when its code and tests are done.
 
 All three generators end in one pruning pass
 ([firmware generation](docs/development/patterns/firmware-generation.md#dead-code-pruning)).
