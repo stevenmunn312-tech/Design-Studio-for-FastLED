@@ -37,6 +37,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- The **Node Reference** in Help is rewritten for every node. Each page now has
+  its own overview, set-up steps where hardware or assets are needed, copy for
+  every port, and a hand-made Try it live example that features that node and
+  is drawn exactly as it looks on the canvas. Input and hardware pages, which
+  used a sketched box diagram and generic text, now use the same layout as
+  the rest; the copy that described the old Touch Screen controls, Beat
+  Detect's live diagnostics and MIDI velocity was corrected along the way.
 - Overlapping nodes are merged: Sin, Cos and Abs are one **Function** node
   (sin, cos, abs, sqrt, square, floor, round); Mod is Math's `modulo` and
   Complex Wave's operations are Math's (`average` added); CHSV is HSV → RGB

@@ -5,7 +5,7 @@
  * import it without the component file exporting non-components (which turns
  * off fast refresh for the whole file).
  *
- * Every map here is keyed by a live port `dataType`, and
+ * Both maps here are keyed by a live port `dataType`, and
  * `NodeReferenceCoverage.test.ts` keeps that true in both directions. Entries
  * for a type nothing carries any more describe wiring that cannot exist — the
  * reference kept `sdcard` and `shows` long after SD Card and Performance
@@ -21,41 +21,16 @@ export const TYPE_GLYPH: Record<string, string> = {
 }
 
 /**
- * Bespoke copy per port dataType, keyed the same way as TYPE_GLYPH.
- *
- * Exported only so `NodeReferenceCoverage.test.ts` can hold these in step
- * with NODE_LIBRARY: an entry for a dataType no port carries any more
- * describes wiring that cannot exist, and a live dataType with no entry
- * silently falls back to generic text.
+ * The fallback description for a port, keyed the same way as TYPE_GLYPH. A
+ * node's reference entry describes its own ports; this covers the rest.
  */
-export const OUTPUT_USE_CASES: Record<string, string> = {
-  audio: 'It usually sits near the start of the graph and feeds analyzers, beat detectors, or audio-reactive patterns.',
-  bool: 'Its output is most useful for gates, pulses, flash triggers, comparisons, and beat-driven state changes.',
-  color: 'Its output is typically wired into Solid Color, shapes, text, gradients, or another colour-processing node.',
-  field: 'Its output is usually followed by Field → Frame or another field-processing node before it becomes visible pixels.',
-  float: 'Its output is typically wired into sliders-as-inputs such as speed, amount, fade, scale, or brightness.',
-  frame: 'Its frame can go straight to the LED output, or pass through Blend, Blur 2D, Transform, Fade, or Transition first.',
-  palette: 'Its palette is typically sampled by Noise, Spectrum Bars, Field → Frame, or Palette Sampler.',
-  patternset: 'Its output is used by Music Player or Performance Generator to run a reusable multi-pattern show.',
-  display: 'Everything a simple panel needs, in one wire. What you plug in decides what the panel shows — a clock from RTC, a transport from Music Player, pattern selection from Pattern Slideshow.',
-  music: 'Its output is used by Performance Generator to create timed show events from analysed tracks.',
-  transitionset: 'Its output widens the pool of transitions — for Music Player live, or Performance Generator on export.',
-  image: 'Its output is the validated picture itself, ready for Palette from Image or another data-only consumer.',
-  dmx: 'Its output is one live DMX universe, which DMX Channel decodes into individual slot values.',
-  datetime: 'Its output carries a complete clock reading to Clock Display or other time-aware nodes over one wire.',
-  storage: 'Its output identifies the configured storage provider for player and file workflows.',
-  playercontrols: 'Its output maps buttons, knobs, encoders and touch panels to Music Player transport and volume, or to an LED output’s blackout and brightness.',
-  playerparticles: 'Its output configures the Music Player beat-particle overlay without adding another frame generator.',
-  string: 'Its text is destined for an auxiliary display rather than the LEDs, so it does not feed a frame.',
-}
-
 export const PORT_DESCRIPTIONS: Record<string, string> = {
   audio: 'a live microphone, line input, or analysed audio stream',
   bool: 'a true/false gate or one-frame trigger',
   color: 'a single RGB colour',
   field: 'a scalar value for every matrix coordinate',
   float: 'a numeric control signal',
-  frame: 'a complete LED matrix frame',
+  frame: 'a complete LED frame',
   palette: 'a reusable gradient of colours',
   patternset: 'a collection of saved pattern groups',
   display: 'everything a simple panel shows, in one wire — the source you plug in picks the layout',

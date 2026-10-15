@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 708 827" width="708" height="827" role="img" aria-label="Send the frame on to a WLED controller">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 708 827" width="708" height="827" role="img" aria-label="Mirror the matrix to a WLED controller">
 <rect width="708" height="827" fill="#0d0f12"/>
 <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="30" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>

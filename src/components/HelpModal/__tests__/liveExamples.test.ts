@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { NODE_LIBRARY, portsCompatible } from '../../../state/nodeLibrary'
+import { libraryDefaults, NODE_LIBRARY, portsCompatible, propertyMeta } from '../../../state/nodeLibrary'
 import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/peripherals/irRemote'
+import { BUTTON_BANK_ADD_HANDLE, buttonBankOutputs } from '../../../state/player/buttonBank'
 import {
   exampleUsesMicrophone,
   liveExampleForNode,
 } from '../liveExamples'
+import { canvasLabel } from '../reference/example'
 
 describe('node-reference live examples', () => {
   it('covers every library node with valid, compatible wiring', () => {
@@ -18,7 +20,12 @@ describe('node-reference live examples', () => {
       expect(featuresProvider, featured.type).toBe(true)
       expect(new Set(example.nodes.map((node) => node.key)).size, featured.type).toBe(example.nodes.length)
       expect(example.title, featured.type).not.toBe('')
-      expect(example.path, featured.type).toContain(['MicInput', 'LineInput'].includes(featured.type) ? 'Audio' : featured.label)
+      // The path names nodes as the canvas titles them, so a Trigger reads as
+      // its mode and an LED output as its form.
+      const featuredNode = example.nodes.find((node) => node.type === featured.type)
+      expect(example.path, featured.type).toContain(['MicInput', 'LineInput'].includes(featured.type)
+        ? 'Audio'
+        : canvasLabel(featured.type, featuredNode?.properties))
       expect(example.explanation, featured.type).toContain(featured.label)
       expect(example.previewDescription, featured.type).not.toBe('')
 
@@ -30,9 +37,10 @@ describe('node-reference live examples', () => {
         // IR Remote mints one output per learned key — its library entry
         // declares only the trailing Learn socket, which an example must
         // never wire.
+        const sourceButtons = (source?.properties as Record<string, unknown> | undefined)?.buttons
         const sourceOutputs = source?.type === 'IRRemoteInput'
-          ? irRemoteOutputs((source.properties as Record<string, unknown> | undefined)?.buttons)
-          : sourceDefinition?.outputs
+          ? irRemoteOutputs(sourceButtons)
+          : source?.type === 'ButtonBank' ? buttonBankOutputs(sourceButtons, false) : sourceDefinition?.outputs
         const sourcePort = sourceOutputs?.find((port) => port.id === edge.sourceHandle)
         const targetInputs = targetDefinition?.inputs
         const targetPort = targetInputs?.find((port) => port.id === edge.targetHandle)
@@ -55,6 +63,31 @@ describe('node-reference live examples', () => {
          */
         expect(edge.sourceHandle, `${featured.type} wires a placeholder socket`)
           .not.toBe(IR_REMOTE_LEARN_HANDLE)
+        expect(edge.sourceHandle, `${featured.type} wires a placeholder socket`)
+          .not.toBe(BUTTON_BANK_ADD_HANDLE)
+      }
+    }
+  })
+
+  it('sets only properties the node has, to values its controls offer', () => {
+    // A misspelt key or option is silently ignored by the evaluator, so an
+    // example would quietly show the default instead of what its copy says.
+    for (const featured of NODE_LIBRARY) {
+      for (const planned of liveExampleForNode(featured).nodes) {
+        const type = planned.sourceProvider?.type ?? planned.type
+        const properties = (planned.sourceProvider ? planned.sourceProvider.properties : planned.properties) ?? {}
+        // The bench sets partId and an upload sets an Image's picture; neither is a default.
+        const known = new Set([...Object.keys(libraryDefaults(type)), 'partId', ...(type === 'Image' ? ['image'] : [])])
+        for (const [key, value] of Object.entries(properties)) {
+          const where = `${featured.type}: ${type}.${key} = ${JSON.stringify(value)}`
+          expect(known.has(key), where).toBe(true)
+          const meta = propertyMeta(type, key)
+          if (meta?.control === 'select') expect(meta.options.map(String), where).toContain(String(value))
+          if (meta?.control === 'slider' && typeof value === 'number') {
+            expect(value, where).toBeGreaterThanOrEqual(meta.min)
+            expect(value, where).toBeLessThanOrEqual(meta.max)
+          }
+        }
       }
     }
   })
@@ -90,13 +123,21 @@ describe('node-reference live examples', () => {
     expect(microphoneExamples).toBeGreaterThanOrEqual(24)
   })
 
-  it('keeps examples compact and gives workflow-only nodes honest outcomes', () => {
+  it('keeps examples compact', () => {
+    for (const node of NODE_LIBRARY) {
+      expect(liveExampleForNode(node).nodes.length, node.type).toBeLessThanOrEqual(11)
+    }
+  })
+
+  it('gives every node an example of its own', () => {
+    // Reusing another node's example was how stale copy crept in: the FFT
+    // Analyzer page showed the Microphone page's graph word for word.
+    const seen = new Map<string, string>()
     for (const node of NODE_LIBRARY) {
       const example = liveExampleForNode(node)
-      expect(example.nodes.length, node.type).toBeLessThanOrEqual(11)
-      if (example.previewMode === 'workflow') {
-        expect(example.explanation, node.type).toMatch(/patterns|songs|show|assets/i)
-      }
+      const key = JSON.stringify([example.title, example.nodes.map((entry) => [entry.type, entry.properties]), example.edges])
+      expect(seen.get(key), `${node.type} repeats ${seen.get(key)}`).toBeUndefined()
+      seen.set(key, node.type)
     }
   })
 

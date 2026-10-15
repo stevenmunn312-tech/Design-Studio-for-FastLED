@@ -1,40 +1,15 @@
 import { useDeferredValue, useEffect, useRef } from 'react'
-import type { NodeCategory, NodeDefinition } from '../../types'
-import { CATEGORIES, CATEGORY_COLOR, HARDWARE_CATEGORY, isPortlessNodeType, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor } from '../../state/nodeLibrary'
+import type { NodeCategory, NodeDefinition, NodePort } from '../../types'
+import { CATEGORIES, CATEGORY_COLOR, HARDWARE_CATEGORY, isInternalProperty, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor } from '../../state/nodeLibrary'
 import { exposableInputsFor } from '../../state/propertyInputs'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { insertLiveExample } from '../../utils/insertLiveExample'
 import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../utils/nodeReferenceAssets'
-import type { LiveExampleSpec } from '../../utils/insertLiveExample'
-import {
-  exampleUsesMicrophone, liveExampleForNode,
-  MICROPHONE_LIVE_EXAMPLE, BUTTON_LIVE_EXAMPLE, POTENTIOMETER_LIVE_EXAMPLE,
-  ENCODER_LIVE_EXAMPLE, MIDI_LIVE_EXAMPLE,
-  FFT_ANALYZER_LIVE_EXAMPLE, BEAT_DETECT_LIVE_EXAMPLE, PERCUSSION_DETECT_LIVE_EXAMPLE,
-  AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE, VIBE_LIVE_EXAMPLE, SONG_STRUCTURE_LIVE_EXAMPLE, PITCH_DETECT_LIVE_EXAMPLE,
-} from './liveExamples'
-import type { ReferenceLiveExample } from './liveExamples'
-import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
-import { DISPLAY_REFERENCE } from './displayReference'
-import { MUSIC_PLAYER_REFERENCE } from './musicPlayerReference'
+import { exampleUsesMicrophone, liveExampleForNode } from './liveExamples'
+import { nodeReferenceEntry } from './reference'
+import { PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
 import styles from './NodeReference.module.css'
-
-type FilterCategory = 'all' | NodeCategory
-
-interface ExampleNode {
-  id: string
-  label: string
-  category: NodeCategory
-  highlight?: boolean
-}
-
-interface ExampleRecipe {
-  columns: ExampleNode[][]
-  edges: Array<{ from: string; to: string }>
-  explanation: string
-  result: string
-}
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   [...CATEGORIES, HARDWARE_CATEGORY].map((category) => [category.id, category.label]),
@@ -47,276 +22,37 @@ const NODE_INTRO_TYPE = '__using_nodes__'
 // Properties the reference does not list: they are not settings the reader can
 // go and change. `form` is the bench's answer to what the output physically
 // is — there is no editor for it, so documenting its four options as a choice
-// described a control that does not exist.
+// described a control that does not exist. Internal keys (part ids, generated
+// identifiers) are hidden for the same reason.
 const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections', 'form'])
-
-interface AudioArticleContent {
-  type: string
-  eyebrow: string
-  purpose: string
-  overview: string[]
-  propertyNote: string
-  exampleTitle: string
-  examplePath: string
-  exampleAlt: string
-  exampleExplanation: string
-  previewTitle: string
-  previewDescription: string
-  previewAlt: string
-  liveExample: ReferenceLiveExample
-  successMessage: string
-  skippedMessage: string
-}
-
-const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
-  FFTAnalyzer: {
-    type: 'FFTAnalyzer',
-    eyebrow: 'Frequency bands',
-    purpose: 'Split a live audio stream into bass, mids, and treble control signals for audio-reactive patches.',
-    overview: [
-      'FFT Analyzer turns the Microphone audio stream into three normalized band levels: bass, mids, and treble. It is the usual first processing node after Microphone when a patch needs frequency-aware motion.',
-      'Use the band outputs to drive pattern height, brightness, hue, particle intensity, or any other float input. Bass often works well for large movement, mids for body, and treble for sparkle or edge detail.',
-      'Bands controls analysis resolution, Gain scales the response, Smoothing steadies jitter, and Tilt compensates for quieter high frequencies so treble can stay visible without overdriving the low end.',
-    ],
-    propertyNote: 'Bands sets FFT resolution. Gain, Smoothing, and Tilt shape the visual response of the three band outputs.',
-    exampleTitle: 'Separate the song into spectrum bars',
-    examplePath: 'Microphone.audio -> FFT Analyzer.audio -> Spectrum Bars.bass/mids/treble -> Trails',
-    exampleAlt: 'Tidy graph using Microphone, FFT Analyzer, Spectrum Bars, and Trails',
-    exampleExplanation: 'Microphone supplies the audio stream. FFT Analyzer extracts bass, mids, and treble levels; Spectrum Bars maps those values into columns of colour and Trails holds their movement before the LED Matrix.',
-    previewTitle: 'What you should see',
-    previewDescription: 'Bass-heavy moments should lift the low-band bars, midrange content should fill the centre response, and bright transients should flick the treble side. Allow microphone access so the bars follow the real audio input.',
-    previewAlt: 'LED Matrix main preview showing FFT-driven spectrum bars',
-    liveExample: FFT_ANALYZER_LIVE_EXAMPLE,
-    successMessage: 'FFT Analyzer example added — microphone starting',
-    skippedMessage: 'FFT Analyzer example added',
-  },
-  BeatDetect: {
-    type: 'BeatDetect',
-    eyebrow: 'Beat trigger',
-    purpose: 'Emit a boolean beat pulse and BPM estimate from live audio so patches can hit on musical onsets.',
-    overview: [
-      'Beat Detect listens to the Microphone audio stream and looks for rhythmic onsets. Its Beat output is a short boolean pulse, while BPM estimates the current tempo for nodes that can follow timing.',
-      'Use Beat for flashes, sample-and-hold steps, trigger utilities, pattern switches, or any patch event that should happen on impact instead of drifting continuously.',
-      'On live audio the beat comes from FastLED. Threshold sets how sure FastLED must be of a beat before it fires, and a cooldown of just over half a beat lets one hit fire once, so an offbeat or a flam does not flash twice.',
-    ],
-    propertyNote: 'Threshold is 0–1 beat confidence. Attack and Decay tune the detector a baked show envelope runs; live audio does not use them.',
-    exampleTitle: 'Flash the frame on each beat',
-    examplePath: 'Microphone.audio -> Beat Detect.beat + Random.value -> Sample & Hold -> Palette Sampler -> Solid Color',
-    exampleAlt: 'Tidy graph using Microphone, Beat Detect, Sample and Hold, Palette Sampler, and Solid Color',
-    exampleExplanation: 'Microphone feeds Beat Detect. Each beat captures a random palette position; Solid Color holds the resulting colour on the LED Matrix until the next beat.',
-    previewTitle: 'What you should see',
-    previewDescription: 'The base pattern should keep moving quietly, then punch brighter on detected beats. Raise Threshold if it fires too often, or lower it if the patch misses obvious hits.',
-    previewAlt: 'LED Matrix main preview showing a beat-selected palette colour',
-    liveExample: BEAT_DETECT_LIVE_EXAMPLE,
-    successMessage: 'Beat Detect example added — microphone starting',
-    skippedMessage: 'Beat Detect example added',
-  },
-  PercussionDetect: {
-    type: 'PercussionDetect',
-    eyebrow: 'Drum envelopes',
-    purpose: 'Extract separate kick, snare, and hi-hat envelopes from audio for percussion-shaped visuals.',
-    overview: [
-      'Percussion Detect turns one audio stream into three drum-like envelopes. Kick reacts to low-frequency thumps, Snare follows midrange impacts, and Hi-Hat responds to fast high-frequency texture.',
-      'Use the outputs when one beat trigger is too blunt. Kick can drive size or shockwaves, snare can add bursts, and hi-hat can scatter small accents across the frame.',
-      'Sensitivity scales how eager the detector is, Decay controls how long each envelope rings out, and Separation controls how strongly the three percussion lanes are kept apart.',
-    ],
-    propertyNote: 'Sensitivity affects all three lanes. Decay lengthens the envelope tails, while Separation reduces bleed between kick, snare, and hi-hat.',
-    exampleTitle: 'Split drums into layered blobs',
-    examplePath: 'Microphone.audio -> Percussion Detect.kick/snare/hihat -> Percussion Blobs',
-    exampleAlt: 'Tidy graph using Microphone, Percussion Detect, and Percussion Blobs',
-    exampleExplanation: 'Microphone feeds Percussion Detect. Its kick, snare, and hi-hat envelopes each drive the matching Percussion Blobs input, giving every drum family a distinct layer on the LED Matrix.',
-    previewTitle: 'What you should see',
-    previewDescription: 'Low hits should create heavier blobs, snares should add mid-sized accents, and hi-hats should sprinkle faster detail. If everything moves together, increase Separation or lower Sensitivity.',
-    previewAlt: 'LED Matrix main preview driven by separated drum envelopes',
-    liveExample: PERCUSSION_DETECT_LIVE_EXAMPLE,
-    successMessage: 'Percussion Detect example added — microphone starting',
-    skippedMessage: 'Percussion Detect example added',
-  },
-  Vibe: {
-    type: 'Vibe',
-    eyebrow: 'Relative levels',
-    purpose: 'Read bass, mid and treble relative to the average of the current song, with smoothed copies and spike flags, for effects that should look the same at any volume.',
-    overview: [
-      'Vibe is the FastLED port of the MilkDrop bass, mid and treble model. Each band is divided by its own slow running average, so a level of 1.0 means average for this song and 2.0 means twice as loud as usual. Quiet and loud tracks drive an effect the same way.',
-      'The levels are not limited to 0–1. Send them through Map Range into a 0–1 input, as the example does. Each band also has a smoothed copy, and its Spike output is true while the immediate level is above the smoothed one, which marks a hit in progress.',
-      'When the music stops the levels fade to zero instead of holding at 1.0. Without a live microphone or decoder source, or with an older recording that has no Vibe data, every output reads zero and every spike reads false.',
-    ],
-    propertyNote: 'Gain scales the levels and their smoothed copies. Spikes compare the two, so Gain never changes them.',
-    exampleTitle: 'Breathe brightness with the bass',
-    examplePath: 'Microphone.audio -> Vibe.bass -> Map Range -> Brightness (Plasma)',
-    exampleAlt: 'Tidy graph using Microphone, Vibe, Map Range, Plasma, and Brightness',
-    exampleExplanation: 'Microphone feeds Vibe. Its bass level is about 1.0 at the song average, so Map Range turns 0.4 to 1.8 into a brightness between a quarter and full, and Brightness dims and lifts a Plasma with the kick.',
-    previewTitle: 'What you should see',
-    previewDescription: 'The Plasma should breathe with the bass and swell above its resting glow on kicks, whatever the volume of the track. If it never dims, lower the Map Range In Min.',
-    previewAlt: 'LED Matrix main preview brightness following the bass level',
-    liveExample: VIBE_LIVE_EXAMPLE,
-    successMessage: 'Vibe example added — microphone starting',
-    skippedMessage: 'Vibe example added',
-  },
-  SongStructure: {
-    type: 'SongStructure',
-    eyebrow: 'Song events',
-    purpose: 'React to the shape of a song: downbeats, buildups, drops, a stable tempo and the overall mood.',
-    overview: [
-      'Song Structure is the FastLED port of its downbeat, buildup, drop, tempo and mood detectors. Downbeat and Drop are pulses that are true for a single frame. Building stays true from the moment energy starts climbing until it stops, and Buildup progress runs from 0 to 1 over the buildup.',
-      'Beat number counts 1 to the detected beats per measure, and Measure phase runs 0 to 1 across the measure. Drop impact holds the strength of the most recent drop. Valence runs from -1 (dark, unstable) to 1 (bright, calm) and Arousal from 0 (calm) to 1 (energetic); both are heuristics from spectral shape, not a judgement of the music.',
-      'Without a live microphone or decoder source, or with an older recording or baked show that has no structure data, every output reads zero or false. The sketch registers these detectors only when a Song Structure node is present.',
-    ],
-    propertyNote: 'Song Structure has no properties. FastLED tunes its thresholds in the detectors themselves.',
-    exampleTitle: 'Splash a ripple on every drop',
-    examplePath: 'Microphone.audio -> Song Structure.drop -> Rain Ripples.trigger',
-    exampleAlt: 'Tidy graph using Microphone, Song Structure and Rain Ripples',
-    exampleExplanation: 'Microphone feeds Song Structure. Its Drop output is true for the single frame a bass burst follows a buildup, and Rain Ripples splashes a ring on that frame.',
-    previewTitle: 'What you should see',
-    previewDescription: 'The ripples should stay calm through the verse and splash a ring when a drop lands. Drops need a bass burst at least two seconds after the last one.',
-    previewAlt: 'LED Matrix main preview with ripples spawning on drops',
-    liveExample: SONG_STRUCTURE_LIVE_EXAMPLE,
-    successMessage: 'Song Structure example added — microphone starting',
-    skippedMessage: 'Song Structure example added',
-  },
-  PitchDetect: {
-    type: 'PitchDetect',
-    eyebrow: 'Pitch and key',
-    purpose: 'Read the pitch of a single voice or instrument as Hz and a MIDI note, catch each new note, and follow the musical key.',
-    overview: [
-      'Pitch Detect finds the repeating period in the sound. Hz is the frequency, Note is the MIDI note number (69 is A4, 440 Hz), and Confidence says how clearly periodic the sound is. Note on is true for the single frame a note starts or moves by a semitone, and Velocity follows Confidence while a note is held.',
-      'It listens between about 175 Hz and 1 kHz, roughly F3 to B5, which covers voices, whistling and most melody lines. Bass notes and drums are outside that range, and chords or dense music read as unvoiced, so Hz and Note fall to 0 and Note on stays false.',
-      "Key root (0 is C, 11 is B), Key minor and Key confidence come from FastLED's key detector. They are coarse and slow to settle, so treat them as a mood rather than a chord label; all three read 0 or false until a key is found. Without a live microphone or decoder source, or with an older recording that has no pitch data, every output reads zero or false.",
-    ],
-    propertyNote: 'Pitch Detect has no properties. The range and thresholds are fixed so the preview and the firmware agree.',
-    exampleTitle: 'Brighten the panel as the note rises',
-    examplePath: 'Microphone.audio -> Pitch Detect.note -> Map Range -> Brightness (Plasma)',
-    exampleAlt: 'Tidy graph using Microphone, Pitch Detect, Map Range, Plasma, and Brightness',
-    exampleExplanation: 'Microphone feeds Pitch Detect. Its Note output is the MIDI note number (69 is A4), and Map Range turns the three octaves from C3 to C6 into a brightness between a quarter and full, so a higher note lights a Plasma more.',
-    previewTitle: 'What you should see',
-    previewDescription: 'The Plasma should brighten as a sung or whistled note rises and dim when the note stops. Steady single notes read best.',
-    previewAlt: 'LED Matrix main preview brightness following the pitch of a note',
-    liveExample: PITCH_DETECT_LIVE_EXAMPLE,
-    successMessage: 'Pitch Detect example added — microphone starting',
-    skippedMessage: 'Pitch Detect example added',
-  },
-  AudioFeatures: {
-    type: 'AudioFeatures',
-    eyebrow: 'Audio features',
-    purpose: 'Derive vocal presence, total energy, and a silence gate from live audio for smarter reactive patches.',
-    overview: [
-      'Audio Features gives you higher-level control signals than raw frequency bands. Vocals estimates voice-like midrange presence, Energy tracks overall loudness, and Silence goes high when the signal falls below the gate.',
-      'Use Vocals to bring in melodic or lyric-focused layers, Energy for global intensity, and Silence to dim, pause, or switch a patch when the room or track goes quiet.',
-      'Sensitivity scales feature response, Gate decides when audio counts as silence, and Smoothing keeps the outputs from twitching between frames.',
-    ],
-    propertyNote: 'Sensitivity and Gate define how easily features wake up. Smoothing trades responsiveness for steadier motion.',
-    exampleTitle: 'Let vocals open an aurora',
-    examplePath: 'Microphone.audio -> Audio Features.vocals/energy/silence -> Vocal Aurora',
-    exampleAlt: 'Tidy graph using Microphone, Audio Features, and Vocal Aurora',
-    exampleExplanation: 'Microphone feeds Audio Features. Vocals shapes the aurora curtains, Energy controls their brightness and movement, and Silence tells Vocal Aurora when to dim the LED Matrix.',
-    previewTitle: 'What you should see',
-    previewDescription: 'Voice-like passages should lift the aurora into brighter curtains, energetic sections should intensify it, and quiet sections should settle back instead of staying fully lit.',
-    previewAlt: 'LED Matrix main preview driven by audio features',
-    liveExample: AUDIO_FEATURES_LIVE_EXAMPLE,
-    successMessage: 'Audio Features example added — microphone starting',
-    skippedMessage: 'Audio Features example added',
-  },
-  AudioHue: {
-    type: 'AudioHue',
-    eyebrow: 'Band-to-hue mapper',
-    purpose: 'Map bass, mids, and treble levels into a 0-360 hue control that can colour downstream nodes.',
-    overview: [
-      'Audio to Hue is a small utility that blends bass, mids, and treble into a single hue value. Bass has the strongest weight, mids fill in the body, and treble adds brighter movement.',
-      'Use it when a patch already has FFT bands and you want the colour to follow the mix without hand-building math nodes. The output is a float in degrees, so it connects cleanly to HSV to RGB.',
-      'The node has no inline properties. Shape its behaviour by changing the upstream FFT Analyzer response or by processing the Hue output with math nodes before it reaches a colour converter.',
-    ],
-    propertyNote: 'Audio to Hue has no inline properties. Tune its result upstream with FFT Analyzer or downstream with math/color nodes.',
-    exampleTitle: 'Turn spectrum balance into colour',
-    examplePath: 'Microphone -> FFT Analyzer -> Audio to Hue -> HSV to RGB -> Gradient Frame',
-    exampleAlt: 'Tidy graph using Microphone, FFT Analyzer, Audio to Hue, HSV to RGB, and Gradient Frame',
-    exampleExplanation: 'Microphone feeds FFT Analyzer, which produces bass, mids, and treble values. Audio to Hue converts those bands into hue degrees, HSV to RGB turns hue into a colour, and Gradient Frame displays it on the LED Ring.',
-    previewTitle: 'What you should see',
-    previewDescription: 'The LED Ring main preview should wash through different colours as the balance between bass, mids, and treble changes. Strong bass leans the hue one way, while brighter treble nudges it toward another part of the wheel.',
-    previewAlt: 'LED Ring main preview driven by Audio to Hue',
-    liveExample: AUDIO_HUE_LIVE_EXAMPLE,
-    successMessage: 'Audio to Hue example added — microphone starting',
-    skippedMessage: 'Audio to Hue example added',
-  },
-}
-
-const REFERENCE_ARTICLE_CATEGORIES = new Set<NodeCategory>([
-  'signal',
-  'math',
-  'color',
-  'pattern',
-  'field',
-  'composite',
-  'show',
-  'output',
-  'note',
-])
 
 const PROPERTY_LABELS: Record<string, string> = {
   bpm: 'BPM',
-  clampInputs: 'Clamp Inputs',
-  code: 'Frame Code',
   colorOrder: 'Color Order',
   cx: 'Centre X',
   cy: 'Centre Y',
   dataPin: 'Data Pin',
-  deltaHue: 'Delta Hue',
-  fixedPalette: 'Fixed Palette',
-  globalCode: 'Global Code',
-  h: 'Hue',
   i2sBclk: 'I2S BCLK',
   i2sDout: 'I2S DOUT',
   i2sLrc: 'I2S LRC',
   i2sSck: 'I2S SCK',
   i2sSd: 'I2S SD',
   i2sWs: 'I2S WS',
-  maxTime: 'Max Time',
-  maxVolume: 'Max Volume',
-  minTime: 'Min Time',
-  outMax: 'Output Max',
-  outMin: 'Output Min',
-  patternHold: 'Pattern Hold',
-  paletteA: 'Palette A',
-  paletteB: 'Palette B',
-  powerLimit: 'Power Limit',
+  i2sMclk: 'I2S MCLK',
+  i2sLrclk: 'I2S LRCLK',
+  pinA: 'Pin A',
+  pinB: 'Pin B',
+  pinSW: 'Pin SW',
   psramMode: 'PSRAM Type',
   psramPolicy: 'PSRAM Policy',
-  pullup: 'Pull-Up',
-  px: 'Point X',
-  py: 'Point Y',
-  r: 'Red',
-  rA: 'Color A Red',
-  rB: 'Color B Red',
-  radius: 'Radius',
-  sdCsPin: 'SD CS Pin',
-  sdSckPin: 'SD SCK Pin',
-  sdMisoPin: 'SD MISO Pin',
-  sdMosiPin: 'SD MOSI Pin',
-  serialDebug: 'Serial Debug',
-  serpentine: 'Serpentine',
-  t: 'Mix / T',
-  transitionSec: 'Transition Seconds',
-  transitionType: 'Transition Type',
-  useGroupInputs: 'Use Group Inputs',
-  usePsram: 'Use PSRAM',
+  sdaPin: 'SDA Pin',
+  sclPin: 'SCL Pin',
   serialRoute: 'Serial Connection',
-  v: 'Value',
+  profileId: 'Board',
   x1: 'Start X',
   x2: 'End X',
   y1: 'Start Y',
   y2: 'End Y',
-}
-
-function uniqueSentences(items: string[]): string[] {
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const item of items) {
-    const trimmed = item.trim()
-    if (!trimmed) continue
-    if (seen.has(trimmed)) continue
-    seen.add(trimmed)
-    out.push(trimmed)
-  }
-  return out
 }
 
 function humanizeText(value: string): string {
@@ -331,11 +67,15 @@ function humanizeText(value: string): string {
     .replace(/\bFft\b/g, 'FFT')
 }
 
-function humanizePropertyKey(key: string): string {
-  return PROPERTY_LABELS[key] ?? humanizeText(key)
-    .split(' ')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+function capitalise(value: string): string {
+  return value.split(' ').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+}
+
+/** The label the inspector shows, or a readable form of the key when it has none. */
+function displayPropertyLabel(nodeType: string, key: string): string {
+  const label = propertyLabel(nodeType, key)
+  if (label !== key) return capitalise(label)
+  return PROPERTY_LABELS[key] ?? capitalise(humanizeText(key))
 }
 
 function formatNumber(value: number): string {
@@ -343,7 +83,7 @@ function formatNumber(value: number): string {
 }
 
 function formatPropertyValue(value: unknown): string {
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'boolean') return value ? 'On' : 'Off'
   if (typeof value === 'number') return formatNumber(value)
   if (typeof value === 'string') {
     const lines = value.split('\n')
@@ -351,27 +91,17 @@ function formatPropertyValue(value: unknown): string {
     return value === '' ? 'Empty' : value
   }
   if (Array.isArray(value)) {
-    if (value.length === 0) return 'None selected'
+    if (value.length === 0) return 'None yet'
     if (value.length <= 4) return value.map((item) => String(item)).join(', ')
-    return `${value.length} selected`
+    return `${value.length} entries`
   }
-  if (value && typeof value === 'object') return 'Managed automatically'
+  if (value && typeof value === 'object') return 'Set in the node body'
   return 'None'
-}
-
-function describeControl(node: NodeDefinition, key: string): string {
-  const meta = propertyMeta(node.type, key)
-  if (!meta) return 'Edited as a direct value'
-  if (meta.control === 'slider') {
-    return `Slider ${formatNumber(meta.min)}-${formatNumber(meta.max)}`
-  }
-  const options = meta.options.slice(0, 4).join(', ')
-  return meta.options.length > 4 ? `Select ${options}, ...` : `Select ${options}`
 }
 
 function propertyEntries(node: NodeDefinition): Array<[string, unknown]> {
   return Object.entries(node.defaultProperties ?? {})
-    .filter(([key]) => !HIDDEN_PROPERTIES.has(key))
+    .filter(([key]) => !HIDDEN_PROPERTIES.has(key) && !isInternalProperty(key))
 }
 
 function groupedPropertyEntries(node: NodeDefinition): Array<{ label: string; entries: Array<[string, unknown]> }> {
@@ -396,7 +126,7 @@ function groupedPropertyEntries(node: NodeDefinition): Array<{ label: string; en
 }
 
 function categoryLabel(category: NodeCategory): string {
-  return CATEGORY_LABELS[category] ?? humanizePropertyKey(category)
+  return CATEGORY_LABELS[category] ?? capitalise(humanizeText(category))
 }
 
 // One glyph per live port dataType. `shows` and `sdcard` are deliberately
@@ -419,401 +149,7 @@ function nodeCode(node: NodeDefinition): string {
     .join('-')
 }
 
-function makeNode(id: string, label: string, category: NodeCategory, highlight = false): ExampleNode {
-  return { id, label, category, highlight }
-}
-
-function sourceNodeForType(dataType: string, nodeType: string, index: number): ExampleNode {
-  const presets: Record<string, { label: string; category: NodeCategory }> = {
-    audio: { label: 'Microphone', category: 'input' },
-    bool: { label: 'Beat Detect', category: 'audio' },
-    color: { label: 'Color', category: 'color' },
-    field: { label: 'Distance Field', category: 'field' },
-    float: { label: 'Wave', category: 'signal' },
-    frame: { label: 'Noise', category: 'pattern' },
-    palette: { label: 'Palette Selector', category: 'color' },
-    patternset: { label: 'Pattern Collection', category: 'show' },
-    music: { label: 'Music Library', category: 'show' },
-    transitionset: { label: 'Transitions', category: 'show' },
-    image: { label: 'Image', category: 'pattern' },
-    dmx: { label: 'DMX / Art-Net', category: 'input' },
-    storage: { label: 'Storage', category: 'input' },
-    playercontrols: { label: 'Player Controls', category: 'input' },
-    playerparticles: { label: 'Player Particles', category: 'show' },
-    string: { label: 'Text Value', category: 'math' },
-  }
-  const fallbackPresets: Record<string, { label: string; category: NodeCategory }> = {
-    audio: { label: 'FFT Analyzer', category: 'audio' },
-    bool: { label: 'Interval', category: 'signal' },
-    color: { label: 'Gradient Sampler', category: 'color' },
-    field: { label: 'Field Formula', category: 'field' },
-    float: { label: 'Wave', category: 'signal' },
-    frame: { label: 'Gradient Frame', category: 'pattern' },
-    palette: { label: 'Custom Palette', category: 'color' },
-    patternset: { label: 'Music Player', category: 'show' },
-    music: { label: 'Music Library', category: 'show' },
-    transitionset: { label: 'Performance Generator', category: 'show' },
-    image: { label: 'Image', category: 'pattern' },
-    dmx: { label: 'DMX / Art-Net', category: 'input' },
-    storage: { label: 'Storage', category: 'input' },
-    playercontrols: { label: 'Music Player', category: 'show' },
-    playerparticles: { label: 'Music Player', category: 'show' },
-    string: { label: 'Format Number', category: 'math' },
-  }
-  const preset = presets[dataType] ?? { label: 'Value Source', category: 'math' as NodeCategory }
-  const fallback = fallbackPresets[dataType] ?? preset
-  const selected = preset.label === nodeType ? fallback : preset
-  return makeNode(`source-${dataType}-${index}`, selected.label, selected.category)
-}
-
-function buildFrameRecipe(node: NodeDefinition): ExampleRecipe {
-  const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
-  const columns = sources.length > 0
-    ? [sources, [makeNode('target', node.label, node.category, true)], [makeNode('sink', 'LED Matrix', 'output')]]
-    : [[makeNode('target', node.label, node.category, true)], [makeNode('sink', 'LED Matrix', 'output')]]
-  const edges = sources.length > 0
-    ? [
-        ...sources.map((source) => ({ from: source.id, to: 'target' })),
-        { from: 'target', to: 'sink' },
-      ]
-    : [{ from: 'target', to: 'sink' }]
-  const sourceLabels = sources.map((source) => source.label)
-  const explanation = sourceLabels.length > 0
-    ? `${sourceLabels.join(' + ')} feed ${node.label}, and its frame goes straight to the LED output for a live result.`
-    : `${node.label} is acting as the main frame generator here, so it can drive the LED output directly.`
-  return {
-    columns,
-    edges,
-    explanation,
-    result: 'A live frame on the preview and in generated firmware.',
-  }
-}
-
-function buildFloatRecipe(node: NodeDefinition): ExampleRecipe {
-  const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
-  const basePattern = makeNode('base-pattern', 'Noise', 'pattern')
-  const brightness = makeNode('brightness', 'Brightness', 'composite')
-  return {
-    columns: [
-      sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'math')],
-      [makeNode('target', node.label, node.category, true), basePattern],
-      [brightness],
-      [makeNode('sink', 'LED Matrix', 'output')],
-    ],
-    edges: [
-      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'math')]).map((source) => ({ from: source.id, to: 'target' })),
-      { from: 'target', to: 'brightness' },
-      { from: 'base-pattern', to: 'brightness' },
-      { from: 'brightness', to: 'sink' },
-    ],
-    explanation: `${node.label} creates a control signal. Here it modulates a Brightness node while a pattern provides the base frame.`,
-    result: 'A reusable float signal that animates or scales another node.',
-  }
-}
-
-function buildBoolRecipe(node: NodeDefinition): ExampleRecipe {
-  const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
-  const basePattern = makeNode('base-pattern', 'Noise', 'pattern')
-  const beatFlash = makeNode('beat-flash', 'Beat Flash', 'pattern')
-  return {
-    columns: [
-      sources.length > 0 ? sources : [makeNode('source-fallback', 'Beat Detect', 'audio')],
-      [makeNode('target', node.label, node.category, true), basePattern],
-      [beatFlash],
-      [makeNode('sink', 'LED Matrix', 'output')],
-    ],
-    edges: [
-      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Beat Detect', 'audio')]).map((source) => ({ from: source.id, to: 'target' })),
-      { from: 'target', to: 'beat-flash' },
-      { from: 'base-pattern', to: 'beat-flash' },
-      { from: 'beat-flash', to: 'sink' },
-    ],
-    explanation: `${node.label} acts as a trigger. In this graph it fires Beat Flash while a pattern supplies the frame being flashed.`,
-    result: 'A boolean pulse or gate that triggers frame events.',
-  }
-}
-
-function buildColorRecipe(node: NodeDefinition): ExampleRecipe {
-  const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
-  return {
-    columns: [
-      sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'math')],
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('solid', 'Solid Color', 'pattern')],
-      [makeNode('sink', 'LED Matrix', 'output')],
-    ],
-    edges: [
-      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'math')]).map((source) => ({ from: source.id, to: 'target' })),
-      { from: 'target', to: 'solid' },
-      { from: 'solid', to: 'sink' },
-    ],
-    explanation: `${node.label} generates a color, then a pattern node paints that color into a frame for output.`,
-    result: 'A reusable color that can drive fills, shapes, gradients, or blends.',
-  }
-}
-
-function buildPaletteRecipe(node: NodeDefinition): ExampleRecipe {
-  const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
-  return {
-    columns: [
-      sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'signal')],
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('pattern', 'Noise', 'pattern')],
-      [makeNode('sink', 'LED Matrix', 'output')],
-    ],
-    edges: [
-      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'signal')]).map((source) => ({ from: source.id, to: 'target' })),
-      { from: 'target', to: 'pattern' },
-      { from: 'pattern', to: 'sink' },
-    ],
-    explanation: `${node.label} defines the palette, and a frame generator such as Noise uses it to color the animation.`,
-    result: 'A palette you can reuse across generators that sample colors over time or space.',
-  }
-}
-
-function buildFieldRecipe(node: NodeDefinition): ExampleRecipe {
-  const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
-  return {
-    columns: [
-      sources.length > 0 ? sources : [makeNode('source-fallback', 'Distance Field', 'pattern')],
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('field-frame', 'Field → Frame', 'pattern')],
-      [makeNode('sink', 'LED Matrix', 'output')],
-    ],
-    edges: [
-      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Distance Field', 'pattern')]).map((source) => ({ from: source.id, to: 'target' })),
-      { from: 'target', to: 'field-frame' },
-      { from: 'field-frame', to: 'sink' },
-    ],
-    explanation: `${node.label} shapes a scalar field first, then Field → Frame turns that field into pixels with a palette.`,
-    result: 'A field-processing stage in an ANIMartRIX-style field pipeline.',
-  }
-}
-
-function buildAudioRecipe(node: NodeDefinition): ExampleRecipe {
-  return {
-    columns: [
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('fft', 'FFT Analyzer', 'audio')],
-      [makeNode('bars', 'Spectrum Bars', 'pattern')],
-      [makeNode('sink', 'LED Matrix', 'output')],
-    ],
-    edges: [
-      { from: 'target', to: 'fft' },
-      { from: 'fft', to: 'bars' },
-      { from: 'bars', to: 'sink' },
-    ],
-    explanation: `${node.label} is the live audio source. Downstream analyzer and pattern nodes turn that signal into visible motion.`,
-    result: 'A live audio stream for analyzers, beat detection, and reactive visuals.',
-  }
-}
-
-function buildMusicRecipe(node: NodeDefinition): ExampleRecipe {
-  return {
-    columns: [
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('perf', 'Performance Generator', 'show')],
-    ],
-    edges: [
-      { from: 'target', to: 'perf' },
-    ],
-    explanation: `${node.label} feeds analysed music straight into Performance Generator, which builds the timed show. The SD Card part is added on the Hardware tab rather than wired here — Upload writes the songs and shows to the card and flashes the player.`,
-    result: 'An analysed music library ready for show generation.',
-  }
-}
-
-function buildPatternSetRecipe(node: NodeDefinition): ExampleRecipe {
-  const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
-  return {
-    columns: [
-      sources.length > 0 ? sources : [makeNode('group', 'Group Pattern', 'pattern')],
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('master', 'Music Player', 'show')],
-      [makeNode('sink', 'LED Matrix', 'output')],
-    ],
-    edges: [
-      ...(sources.length > 0 ? sources : [makeNode('group', 'Group Pattern', 'pattern')]).map((source) => ({ from: source.id, to: 'target' })),
-      { from: 'target', to: 'master' },
-      { from: 'master', to: 'sink' },
-    ],
-      explanation: `${node.label} gathers reusable patterns. Music Player then performs the show from that collection.`,
-    result: 'A reusable pattern set for the generative show engine.',
-  }
-}
-
-function buildTransitionSetRecipe(node: NodeDefinition): ExampleRecipe {
-  return {
-    columns: [
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('master', 'Music Player', 'show'), makeNode('perf', 'Performance Generator', 'show')],
-    ],
-    edges: [
-      { from: 'target', to: 'master' },
-      { from: 'target', to: 'perf' },
-    ],
-      explanation: `${node.label} widens the pool of transition styles. Wire it into Music Player for a live generative show, or into Performance Generator for an exported music-synced one.`,
-    result: 'A curated transition pool for show generation.',
-  }
-}
-
-/** A node with no ports at all — it is configured, not wired. */
-function buildPortlessRecipe(node: NodeDefinition): ExampleRecipe {
-  return {
-    columns: [[makeNode('target', node.label, node.category, true)]],
-    edges: [],
-    explanation: `${node.label} carries no cables. It is a part you add and configure, and the rest of the app finds it by looking for it rather than by following a wire.`,
-    result: 'A configured part that the build reads directly.',
-  }
-}
-
-function buildMatrixOutputRecipe(node: NodeDefinition): ExampleRecipe {
-  return {
-    columns: [
-      [makeNode('pattern', 'Noise', 'pattern'), makeNode('audio', 'Hue Shift', 'composite')],
-      [makeNode('target', node.label, node.category, true)],
-    ],
-    edges: [
-      { from: 'pattern', to: 'target' },
-      { from: 'audio', to: 'target' },
-    ],
-    explanation: 'Pattern and composite nodes converge on the LED output. This is where preview, export, board selection, and upload all happen.',
-    result: 'The final LED frame, firmware sketch, and upload destination.',
-  }
-}
-
-function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
-  switch (node.type) {
-    case 'MusicLibrary':
-      return buildMusicRecipe(node)
-    case 'PerformanceGenerator':
-      return {
-        columns: [
-          [makeNode('music', 'Music Library', 'show'), makeNode('patterns', 'Pattern Collection', 'show'), makeNode('transitions', 'Transitions', 'show')],
-          [makeNode('target', node.label, node.category, true)],
-        ],
-        edges: [
-          { from: 'music', to: 'target' },
-          { from: 'patterns', to: 'target' },
-          { from: 'transitions', to: 'target' },
-        ],
-        explanation: `${node.label} turns a direct music input plus a selected Pattern Collection into timed show files; watch the generated show in this node's own player, then add an SD Card part on the Hardware tab and Upload to write the card and flash the player.`,
-        result: 'A full offline music-show build stage for SD export.',
-      }
-    case 'PatternCollection':
-      return buildPatternSetRecipe(node)
-    case 'PatternMaster':
-      return {
-        columns: [
-          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show'), makeNode('controls', 'Player Controls', 'input'), makeNode('particles', 'Player Particles', 'show')],
-          [makeNode('target', node.label, node.category, true)],
-          [makeNode('sink', 'LED Matrix', 'output')],
-        ],
-        edges: [
-          { from: 'collection', to: 'target' },
-          { from: 'mic', to: 'target' },
-          { from: 'transitions', to: 'target' },
-          { from: 'controls', to: 'target' },
-          { from: 'particles', to: 'target' },
-          { from: 'target', to: 'sink' },
-        ],
-        explanation: `${node.label} performs the live generative show. Pattern Order chooses Sequential collection order or Random playback. Player Controls maps physical inputs to transport and LED commands, while Player Particles supplies the optional beat-overlay configuration.`,
-        result: 'A live multi-pattern show with dwell timing, transitions, physical controls, and optional audio reactivity.',
-      }
-    case 'ControlMap':
-      return {
-        columns: [
-          [makeNode('buttons', 'Buttons', 'input'), makeNode('knobs', 'Potentiometers', 'input')],
-          [makeNode('target', node.label, node.category, true)],
-          [makeNode('player', 'Music Player', 'show')],
-        ],
-        edges: [
-          { from: 'buttons', to: 'target' },
-          { from: 'knobs', to: 'target' },
-          { from: 'target', to: 'player' },
-        ],
-        explanation: `${node.label} turns physical button, potentiometer, and encoder signals into one semantic Controls connection for Music Player.`,
-        result: 'Play/pause, previous/next, volume, LED power, and brightness controls over one wire.',
-      }
-    case 'PlayerParticles':
-      return {
-        columns: [
-          [makeNode('enabled', 'Button', 'input'), makeNode('colour', 'Colour', 'color'), makeNode('intensity', 'Potentiometer', 'input')],
-          [makeNode('target', node.label, node.category, true)],
-          [makeNode('player', 'Music Player', 'show')],
-        ],
-        edges: [
-          { from: 'enabled', to: 'target' },
-          { from: 'colour', to: 'target' },
-          { from: 'intensity', to: 'target' },
-          { from: 'target', to: 'player' },
-        ],
-        explanation: `${node.label} bundles the beat-overlay enable, colour, randomisation, style, and intensity settings into Particle FX for Music Player.`,
-        result: 'A configurable beat-particle overlay without crowding the Music Player node.',
-      }
-    case 'TransitionSet':
-      return buildTransitionSetRecipe(node)
-    case 'MicInput':
-      return buildAudioRecipe(node)
-    case 'MatrixOutput':
-      return buildMatrixOutputRecipe(node)
-    default:
-      return isPortlessNodeType(node.type) ? buildPortlessRecipe(node) : null
-  }
-}
-
-function buildExampleRecipe(node: NodeDefinition): ExampleRecipe {
-  const special = buildSpecialRecipe(node)
-  if (special) return special
-  const primaryOutput = node.outputs[0]?.dataType ?? 'frame'
-  switch (primaryOutput) {
-    case 'audio': return buildAudioRecipe(node)
-    case 'bool': return buildBoolRecipe(node)
-    case 'color': return buildColorRecipe(node)
-    case 'field': return buildFieldRecipe(node)
-    case 'float': return buildFloatRecipe(node)
-    case 'palette': return buildPaletteRecipe(node)
-    case 'patternset': return buildPatternSetRecipe(node)
-    case 'music': return buildMusicRecipe(node)
-    case 'transitionset': return buildTransitionSetRecipe(node)
-    case 'playercontrols':
-    case 'playerparticles':
-    case 'frame':
-    default:
-      return buildFrameRecipe(node)
-  }
-}
-
-function buildUseCases(node: NodeDefinition): string[] {
-  if (node.type === 'PatternMaster') return MUSIC_PLAYER_REFERENCE.overview
-  if (DISPLAY_REFERENCE[node.type]) return DISPLAY_REFERENCE[node.type].overview
-  const primaryOutput = node.outputs[0]?.dataType
-  const primaryUse = NODE_DESCRIPTIONS[node.type] ?? `${node.label} is part of the Design Studio for FastLED graph pipeline.`
-  const categoryUseCases: Partial<Record<NodeCategory, string>> = {
-    input: 'Use it when the graph needs real device IO — a microphone, button, or knob driving the pattern live.',
-    audio: 'Pair it with reactive pattern or math nodes whenever you want sound to drive motion, timing, or colour.',
-    signal: 'Use it as an animated control source for speed, brightness, motion, thresholds, or timing.',
-    math: 'Use it to shape, combine, or gate control values on their way to a pattern input.',
-    color: 'Use it anywhere a downstream pattern or blend node expects a color or palette-driven input.',
-    pattern: 'Use it as a frame-building stage, either as the main generator or as a reusable pattern block inside a larger graph.',
-    field: 'Use it to build and shape scalar fields, composing freely before Field → Frame turns the result into pixels.',
-    composite: 'Drop it between a frame generator and the LED output when you want to refine, mix, or transition the result.',
-    show: 'Use it in the show pipeline — collecting patterns, scheduling them to music, and exporting to hardware.',
-    output: 'Use it as the terminal stage that turns the graph into preview pixels, firmware, and uploads.',
-    note: 'Use it to annotate a patch directly on the canvas without affecting evaluation, preview, or code generation.',
-  }
-  const inputDrivenUse = node.inputs.length === 0
-    ? 'It also works well as a drop-in starting point when you want immediate visible output before wiring anything more advanced.'
-    : 'Try driving its inputs from Wave, Noise LFO, Microphone, or palette/color helper nodes to make the result feel more alive.'
-  return uniqueSentences([
-    primaryUse,
-    categoryUseCases[node.category] ?? '',
-    OUTPUT_USE_CASES[primaryOutput ?? ''] ?? '',
-    inputDrivenUse,
-  ]).slice(0, 4)
-}
-
-function matchesNode(node: NodeDefinition, search: string, category: FilterCategory): boolean {
-  if (category !== 'all' && node.category !== category) return false
+function matchesNode(node: NodeDefinition, search: string): boolean {
   if (!search) return true
   const haystack = [
     node.label,
@@ -838,96 +174,16 @@ function searchRank(node: NodeDefinition, search: string): number {
 
 function describePort(dataType: string, direction: 'input' | 'output'): string {
   const value = PORT_DESCRIPTIONS[dataType] ?? `a ${humanizeText(dataType)} value`
-  return direction === 'input'
-    ? `Accepts ${value}. Leave it unwired to use the node's own setting where available.`
-    : `Provides ${value} to compatible downstream nodes.`
+  return direction === 'input' ? `Accepts ${value}.` : `Provides ${value}.`
 }
 
+/** Fallback for a property with no written description: say what the control is. */
 function describeProperty(node: NodeDefinition, key: string): string {
   const meta = propertyMeta(node.type, key)
-  if (meta?.control === 'slider') {
-    return `Adjusts ${humanizeText(key).toLowerCase()} from ${formatNumber(meta.min)} to ${formatNumber(meta.max)}.`
-  }
-  if (meta?.control === 'select') {
-    return `Chooses how the node handles ${humanizeText(key).toLowerCase()}. Available options: ${meta.options.join(', ')}.`
-  }
-  const value = node.defaultProperties?.[key]
-  if (typeof value === 'boolean') return `Turns ${humanizeText(key).toLowerCase()} on or off.`
-  if (typeof value === 'number') return `Sets the default ${humanizeText(key).toLowerCase()} value.`
-  if (typeof value === 'string') return `Sets the ${humanizeText(key).toLowerCase()} used by the node.`
-  return `Configures ${humanizeText(key).toLowerCase()} for this node.`
-}
-
-function GraphScreenshot({ recipe }: { recipe: ExampleRecipe }) {
-  const nodeWidth = 130
-  const nodeHeight = 58
-  const columnGap = 54
-  const rowGap = 24
-  const paddingX = 20
-  const paddingY = 18
-  const columnHeights = recipe.columns.map((column) => (column.length * nodeHeight) + (Math.max(column.length - 1, 0) * rowGap))
-  const height = Math.max(...columnHeights, nodeHeight) + (paddingY * 2)
-  const width = (recipe.columns.length * nodeWidth) + (Math.max(recipe.columns.length - 1, 0) * columnGap) + (paddingX * 2)
-  const positions = new Map<string, { x: number; y: number }>()
-
-  recipe.columns.forEach((column, columnIndex) => {
-    const totalColumnHeight = (column.length * nodeHeight) + (Math.max(column.length - 1, 0) * rowGap)
-    const startY = paddingY + ((height - (paddingY * 2) - totalColumnHeight) / 2)
-    const x = paddingX + (columnIndex * (nodeWidth + columnGap))
-    column.forEach((node, rowIndex) => {
-      positions.set(node.id, { x, y: startY + (rowIndex * (nodeHeight + rowGap)) })
-    })
-  })
-
-  return (
-    <div className={styles.graphCard}>
-      <div className={styles.graphHeader}>
-        <div className={styles.graphTitle}>Example graph</div>
-        <div className={styles.graphResult}>{recipe.result}</div>
-      </div>
-      <div className={styles.graphCanvas}>
-        <div className={styles.graphCanvasInner} style={{ width, minHeight: height }}>
-          <svg className={styles.graphEdges} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-            {recipe.edges.map((edge) => {
-              const from = positions.get(edge.from)
-              const to = positions.get(edge.to)
-              if (!from || !to) return null
-              const startX = from.x + nodeWidth
-              const startY = from.y + (nodeHeight / 2)
-              const endX = to.x
-              const endY = to.y + (nodeHeight / 2)
-              const controlX = (startX + endX) / 2
-              return (
-                <path
-                  key={`${edge.from}-${edge.to}`}
-                  d={`M ${startX} ${startY} C ${controlX} ${startY}, ${controlX} ${endY}, ${endX} ${endY}`}
-                  className={styles.graphEdge}
-                />
-              )
-            })}
-          </svg>
-
-          {recipe.columns.flat().map((node) => {
-            const position = positions.get(node.id)
-            if (!position) return null
-            const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-            return (
-              <div
-                key={node.id}
-                className={`${styles.graphNode} ${node.highlight ? styles.graphNodeHighlight : ''}`}
-                style={{ left: position.x, top: position.y, borderColor: `${accent}66`, boxShadow: node.highlight ? `0 0 0 1px ${accent}, 0 0 22px ${accent}33` : undefined }}
-              >
-                <div className={styles.graphNodeBar} style={{ background: accent }} />
-                <div className={styles.graphNodeLabel}>{node.label}</div>
-                <div className={styles.graphNodeType}>{categoryLabel(node.category)}</div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-      <div className={styles.graphExplanation}>{recipe.explanation}</div>
-    </div>
-  )
+  const name = displayPropertyLabel(node.type, key)
+  if (meta?.control === 'slider') return `${name}, from ${formatNumber(meta.min)} to ${formatNumber(meta.max)}.`
+  if (meta?.control === 'select') return `${name}: ${meta.options.join(', ')}.`
+  return `${name}.`
 }
 
 function MainPreviewImage({ node, alt }: { node: NodeDefinition; alt: string }) {
@@ -944,10 +200,10 @@ function ExampleGraphFigure({ node, alt }: { node: NodeDefinition; alt: string }
   )
 }
 
-function NodeCardImage({ node, narrow = false }: { node: NodeDefinition; narrow?: boolean }) {
+function NodeCardImage({ node }: { node: NodeDefinition }) {
   return (
     <img
-      className={`${styles.nodeCardImage} ${narrow ? styles.nodeCardImageNarrow : ''}`}
+      className={`${styles.nodeCardImage} ${styles.nodeCardImageNarrow}`}
       src={nodeCardSrc(node.type)}
       alt={`${node.label} node as it appears on the canvas`}
       loading="lazy"
@@ -955,43 +211,18 @@ function NodeCardImage({ node, narrow = false }: { node: NodeDefinition; narrow?
   )
 }
 
-function NodeScreenshot({ node }: { node: NodeDefinition }) {
-  return (
-    <figure className={styles.nodeFigure}>
-      <div className={styles.nodeStage}>
-        <NodeCardImage node={node} />
-      </div>
-      <figcaption>The {node.label} node as it appears on the canvas. Socket colours indicate compatible data types.</figcaption>
-    </figure>
-  )
-}
-
-function PortSection({ title, ports, direction }: { title: string; ports: NodeDefinition['inputs']; direction: 'input' | 'output' }) {
-  return (
-    <section className={styles.manualSection}>
-      <h2>{title}</h2>
-      {ports.length === 0 ? (
-        <p className={styles.emptyState}>This node has no {direction}s.</p>
-      ) : (
-        <dl className={styles.definitionList}>
-          {ports.map((port) => (
-            <div className={styles.definitionItem} key={port.id}>
-              <dt><i style={{ background: portColor(port.dataType) }} />{port.label}<code>{port.dataType}</code></dt>
-              <dd>{describePort(port.dataType, direction)}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </section>
-  )
-}
-
-function PortPanel({ title, ports, direction, descriptions }: { title: string; ports: NodeDefinition['inputs']; direction: 'input' | 'output'; descriptions?: Record<string, string> }) {
+function PortPanel({ title, ports, direction, descriptions, emptyText }: {
+  title: string
+  ports: readonly NodePort[]
+  direction: 'input' | 'output'
+  descriptions?: Record<string, string>
+  emptyText: string
+}) {
   return (
     <section className={styles.referencePanel}>
       <div className={styles.panelLabel}>{title}</div>
       {ports.length === 0 ? (
-        <p className={styles.panelEmpty}>None — this node starts the signal chain.</p>
+        <p className={styles.panelEmpty}>{emptyText}</p>
       ) : ports.map((port) => (
         <div className={styles.portCard} key={port.id}>
           <div className={styles.portTitle}>
@@ -1006,40 +237,25 @@ function PortPanel({ title, ports, direction, descriptions }: { title: string; p
   )
 }
 
-function PropertyPanel({
-  node,
-  emptyText,
-  note,
-  detailed = false,
-}: {
-  node: NodeDefinition
-  emptyText?: string
-  note?: string
-  detailed?: boolean
-}) {
+function PropertyPanel({ node, note }: { node: NodeDefinition; note?: string }) {
   const groups = groupedPropertyEntries(node)
   return (
     <section className={styles.referencePanel}>
       <div className={styles.panelLabel}>Properties</div>
       {groups.length === 0 ? (
-        <p className={styles.panelEmpty}>{emptyText ?? 'This node has no inline properties.'}</p>
+        <p className={styles.panelEmpty}>No settings. Everything this node does comes through its sockets.</p>
       ) : (
-        <div className={detailed ? styles.propertyGroupsDetailed : styles.propertyGroups}>
+        <div className={styles.propertyGroupsDetailed}>
           {groups.map((group) => (
             <div className={styles.propertyGroup} key={group.label}>
               <h3>{group.label}</h3>
-              {group.entries.map(([key, value]) => detailed ? (
+              {group.entries.map(([key, value]) => (
                 <dl className={styles.definitionList} key={key}>
                   <div className={styles.definitionItem}>
-                    <dt>{propertyLabel(node.type, key) === key ? humanizePropertyKey(key) : propertyLabel(node.type, key)} <span className={styles.defaultValue}>Default: {formatPropertyValue(value)}</span></dt>
+                    <dt>{displayPropertyLabel(node.type, key)} <span className={styles.defaultValue}>Default: {formatPropertyValue(value)}</span></dt>
                     <dd>{propertyDescription(node.type, key) ?? describeProperty(node, key)}</dd>
                   </div>
                 </dl>
-              ) : (
-                <div className={styles.propertyRow} key={key}>
-                  <span>{humanizePropertyKey(key)}</span>
-                  <b>{formatPropertyValue(value)}</b>
-                </div>
               ))}
             </div>
           ))}
@@ -1050,13 +266,50 @@ function PropertyPanel({
   )
 }
 
-function openLiveExample(
-  example: LiveExampleSpec,
-  options: {
-    successMessage: string
-    skippedMessage: string
-  },
-) {
+/**
+ * The sockets Expose input… reveals.
+ *
+ * Most replace the property of the same name, which the property list already
+ * explains, so they are named once as chips under one sentence; only a socket
+ * the entry writes about gets a card of its own.
+ */
+function OptionalInputsPanel({ node, written }: { node: NodeDefinition; written?: Record<string, string> }) {
+  const sockets = exposableInputsFor(node.type)
+  const described = sockets.filter((port) => written?.[port.id])
+  const named = sockets.filter((port) => !written?.[port.id])
+  const hasProperty = named.some((port) => port.kind === 'property')
+  const hasAction = named.some((port) => port.kind === 'action')
+  return (
+    <section className={styles.referencePanel}>
+      <div className={styles.panelLabel}>Optional inputs</div>
+      <p className={styles.panelLead}>
+        Expose input… on the node shows these sockets.
+        {hasProperty && ' A property socket replaces the property of the same name while wired, so another node can drive it live.'}
+        {hasAction && ' An action socket acts on each press: wire a button, a remote key or a beat.'}
+      </p>
+      {named.length > 0 && (
+        <ul className={styles.socketChips}>
+          {named.map((port) => (
+            <li key={port.id}><i style={{ background: portColor(port.dataType) }} />{port.label}</li>
+          ))}
+        </ul>
+      )}
+      {described.map((port) => (
+        <div className={styles.portCard} key={port.id}>
+          <div className={styles.portTitle}>
+            <i style={{ background: portColor(port.dataType) }} />
+            <b>{port.label}</b>
+            <code>{port.dataType}</code>
+          </div>
+          <p>{written?.[port.id]}</p>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function openLiveExample(node: NodeDefinition) {
+  const example = liveExampleForNode(node)
   const ui = useUiStore.getState()
   const usesMicrophone = exampleUsesMicrophone(example)
   const result = insertLiveExample(example, ui.viewCenter)
@@ -1070,10 +323,12 @@ function openLiveExample(
   window.setTimeout(() => {
     useUiStore.getState().requestFitView(result.nodeIds)
   }, 80)
-  const outputKeys = new Set(example.nodes.filter((node) => node.type === 'MatrixOutput').map((node) => node.key))
+  const outputKeys = new Set(example.nodes.filter((entry) => entry.type === 'MatrixOutput').map((entry) => entry.key))
   const outputInputOccupied = result.skippedConnections.some((edge) =>
     outputKeys.has(edge.target) && edge.targetHandle === 'frame')
-  ui.setStatus(outputInputOccupied ? options.skippedMessage : options.successMessage, 'success')
+  ui.setStatus(outputInputOccupied
+    ? `${node.label} example added — the LED output is already in use; connect the final frame when ready`
+    : `${node.label} example added${usesMicrophone ? ' — microphone starting' : ''}`, 'success')
   if (usesMicrophone) {
     void useAudioStore.getState().startAudio().catch(() => {
       ui.setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
@@ -1081,503 +336,20 @@ function openLiveExample(
   }
 }
 
-function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioArticleContent }) {
+function NodeArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+  const entry = nodeReferenceEntry(node)
+  const example = liveExampleForNode(node)
   const properties = propertyEntries(node)
-  const tryLive = () => {
-    openLiveExample(content.liveExample, {
-      successMessage: content.successMessage,
-      skippedMessage: content.skippedMessage,
-    })
-  }
-  return (
-    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
-      <div className={styles.breadcrumb}>Audio nodes <span>/</span> {node.label}</div>
-      <header className={styles.articleHeader}>
-        <div>
-          <div className={styles.eyebrow}><i style={{ background: accent }} />{content.eyebrow}</div>
-          <h1>{node.label}</h1>
-          <p>{content.purpose}</p>
-        </div>
-        <div className={styles.articleMeta}>{node.inputs.length} inputs · {node.outputs.length} outputs · {properties.length} properties</div>
-      </header>
-
-      <div className={styles.introGrid}>
-        <figure className={styles.nodeCapture}>
-          <div className={styles.nodeCaptureFrame}>
-            <NodeCardImage node={node} narrow />
-          </div>
-        </figure>
-        <section className={styles.overviewPanel}>
-          <div className={styles.sectionKicker}>What it does</div>
-          <h2>Overview</h2>
-          {content.overview.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-        </section>
-      </div>
-
-      <div className={styles.ioGrid}>
-        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
-        <PropertyPanel
-          node={node}
-          emptyText="This node has no inline properties. Shape it with upstream or downstream nodes."
-          note={content.propertyNote}
-        />
-        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
-      </div>
-
-      <section className={styles.exampleSection}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2>{content.liveExample.title}</h2>
-          </div>
-          <div className={styles.exampleHeadingActions}>
-            <span>{content.liveExample.path}</span>
-            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
-              <span aria-hidden="true">▶</span> Try it live
-            </button>
-          </div>
-        </div>
-        <ExampleGraphFigure node={node} alt={content.exampleAlt} />
-        <div className={styles.exampleExplanation}>
-          <b>How it works</b>
-          <p>{content.liveExample.explanation}</p>
-        </div>
-      </section>
-
-      <section className={styles.previewSection}>
-        <div className={styles.previewCopy}>
-          <div className={styles.sectionKicker}>Main preview</div>
-          <h2>{content.previewTitle}</h2>
-          <p>{content.liveExample.previewDescription}</p>
-        </div>
-        <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt={content.previewAlt} />
-        </figure>
-      </section>
-    </article>
-  )
-}
-
-function MicrophoneArticle({ node }: { node: NodeDefinition }) {
-  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const tryLive = () => {
-    openLiveExample(MICROPHONE_LIVE_EXAMPLE, {
-      successMessage: 'Microphone example added — microphone starting',
-      skippedMessage: 'Microphone example added — microphone starting',
-    })
-  }
-  return (
-    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
-      <div className={styles.breadcrumb}>Inputs <span>/</span> Microphone</div>
-      <header className={styles.articleHeader}>
-        <div>
-          <div className={styles.eyebrow}><i style={{ background: accent }} />Audio source</div>
-          <h1>Microphone</h1>
-          <p>Add an I2S MEMS microphone to Hardware, then select it from Audio for browser preview and generated firmware.</p>
-        </div>
-        <div className={styles.articleMeta}>0 inputs · 1 output · 6 properties</div>
-      </header>
-
-      <div className={styles.introGrid}>
-        <figure className={styles.nodeCapture}>
-          <div className={styles.nodeCaptureFrame}>
-            <NodeCardImage node={node} narrow />
-          </div>
-        </figure>
-        <section className={styles.overviewPanel}>
-          <div className={styles.sectionKicker}>What it does</div>
-          <h2>Overview</h2>
-          <p>The microphone is a physical Hardware provider. The graph-facing <b>Audio</b> node selects it and becomes the single starting point for audio-reactive patches.</p>
-          <p>Connect Audio to FFT Analyzer, Beat Detect, Percussion Detect, or any other audio-processing node. During editing Studio analyses browser microphone samples; generated firmware uses FastLED's native I2S capture.</p>
-          <p><b>Module</b> picks which breakout is fitted — INMP441, ICS-43434 or a generic I2S MEMS board. All three wire the same three signals; the choice changes the response correction the firmware applies, the names the pin fields use, and the picture on the Build Diagram. Only FastLED's own ESP32 and Teensy paths apply that correction, so on a Pico, SAMD51 or STM32 build the module choice changes the wiring picture and nothing in the signal.</p>
-          <p>Gain maps to <b>FastLED Processor::setGain</b> in both preview and firmware. FastLED owns signal conditioning, adaptive band normalization, equalizer bins, and beat detection at its native 44.1 kHz rate; the I2S settings define the pins and left/right channel used on the ESP32.</p>
-        </section>
-      </div>
-
-      <div className={styles.ioGrid}>
-        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
-        <PropertyPanel
-          node={node}
-          note="Gain shapes both FastLED analysis paths. Module picks the fitted breakout and its response correction; I2S pins and channel configure FastLED's microphone input in generated ESP32 firmware."
-        />
-        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
-      </div>
-
-      <section className={styles.exampleSection}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2>{MICROPHONE_LIVE_EXAMPLE.title}</h2>
-          </div>
-          <div className={styles.exampleHeadingActions}>
-            <span>{MICROPHONE_LIVE_EXAMPLE.path}</span>
-            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
-              <span aria-hidden="true">▶</span> Try it live
-            </button>
-          </div>
-        </div>
-        <ExampleGraphFigure node={node} alt="Tidy audio spectrum graph ending at an LED Matrix" />
-        <div className={styles.exampleExplanation}>
-          <b>How it works</b>
-          <p>{MICROPHONE_LIVE_EXAMPLE.explanation}</p>
-        </div>
-      </section>
-
-      <section className={styles.previewSection}>
-        <div className={styles.previewCopy}>
-          <div className={styles.sectionKicker}>Main preview</div>
-          <h2>What you should see</h2>
-          <p>{MICROPHONE_LIVE_EXAMPLE.previewDescription}</p>
-        </div>
-        <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED Matrix main preview showing rainbow spectrum bars" />
-        </figure>
-      </section>
-    </article>
-  )
-}
-
-function ButtonArticle({ node }: { node: NodeDefinition }) {
-  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const tryLive = () => {
-    openLiveExample(BUTTON_LIVE_EXAMPLE, {
-      successMessage: 'Button example added — press the Button node to swap scenes',
-      skippedMessage: 'Button example added — press the Button node to swap scenes',
-    })
-  }
-  return (
-    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
-      <div className={styles.breadcrumb}>Inputs <span>/</span> Button</div>
-      <header className={styles.articleHeader}>
-        <div>
-          <div className={styles.eyebrow}><i style={{ background: accent }} />Hardware trigger</div>
-          <h1>Button</h1>
-          <p>Read a momentary hardware button as a boolean trigger in preview and generated firmware.</p>
-        </div>
-        <div className={styles.articleMeta}>0 inputs · 1 output · 2 properties</div>
-      </header>
-
-      <div className={styles.introGrid}>
-        <figure className={styles.nodeCapture}>
-          <div className={styles.nodeCaptureFrame}>
-            <NodeCardImage node={node} narrow />
-          </div>
-        </figure>
-        <section className={styles.overviewPanel}>
-          <div className={styles.sectionKicker}>What it does</div>
-          <h2>Overview</h2>
-          <p>The Button node outputs a single <b>Pressed</b> gate. In preview, the on-node <b>press</b> control lets you tap that gate directly so you can test trigger-driven graphs without external hardware.</p>
-          <p>Use it anywhere a downstream node expects a boolean event: Beat Flash, Trigger, Sample Hold, Switch, envelopes, or any other patch that should react to a press instead of a continuous signal.</p>
-          <p>In generated firmware, the node configures the selected GPIO as <code>INPUT_PULLUP</code> by default and treats a LOW read as pressed. Turn <b>Pull-Up</b> off only when your wiring already provides the resistor externally.</p>
-        </section>
-      </div>
-
-      <div className={styles.ioGrid}>
-        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
-        <PropertyPanel
-          node={node}
-          note="The preview widget drives the Pressed output in the browser. Pin and Pull-Up affect the generated digital input wiring on-device."
-        />
-        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
-      </div>
-
-      <section className={styles.exampleSection}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2>{BUTTON_LIVE_EXAMPLE.title}</h2>
-          </div>
-          <div className={styles.exampleHeadingActions}>
-            <span>{BUTTON_LIVE_EXAMPLE.path}</span>
-            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
-              <span aria-hidden="true">▶</span> Try it live
-            </button>
-          </div>
-        </div>
-        <ExampleGraphFigure node={node} alt="Tidy Button scene-switch graph ending at an LED Matrix" />
-        <div className={styles.exampleExplanation}>
-          <b>How it works</b>
-          <p>{BUTTON_LIVE_EXAMPLE.explanation}</p>
-        </div>
-      </section>
-
-      <section className={styles.previewSection}>
-        <div className={styles.previewCopy}>
-          <div className={styles.sectionKicker}>Main preview</div>
-          <h2>What you should see</h2>
-          <p>{BUTTON_LIVE_EXAMPLE.previewDescription}</p>
-        </div>
-        <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED Matrix main preview swapping between Pacifica and Fire 2012" />
-        </figure>
-      </section>
-    </article>
-  )
-}
-
-function PotentiometerArticle({ node }: { node: NodeDefinition }) {
-  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const tryLive = () => {
-    openLiveExample(POTENTIOMETER_LIVE_EXAMPLE, {
-      successMessage: 'Potentiometer example added — drag the slider to sweep the colour wheel',
-      skippedMessage: 'Potentiometer example added — drag the slider to sweep the colour wheel',
-    })
-  }
-  return (
-    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
-      <div className={styles.breadcrumb}>Inputs <span>/</span> Potentiometer</div>
-      <header className={styles.articleHeader}>
-        <div>
-          <div className={styles.eyebrow}><i style={{ background: accent }} />Analog control</div>
-          <h1>Potentiometer</h1>
-          <p>Read a hardware potentiometer as a normalized 0-1 control signal in preview and generated firmware.</p>
-        </div>
-        <div className={styles.articleMeta}>0 inputs · 1 output · 1 property</div>
-      </header>
-
-      <div className={styles.introGrid}>
-        <figure className={styles.nodeCapture}>
-          <div className={styles.nodeCaptureFrame}>
-            <NodeCardImage node={node} narrow />
-          </div>
-        </figure>
-        <section className={styles.overviewPanel}>
-          <div className={styles.sectionKicker}>What it does</div>
-          <h2>Overview</h2>
-          <p>The Potentiometer node outputs a continuous <b>Value</b> signal from 0 to 1. In preview, the slider embedded in the node lets you drag that value live so you can tune control-driven patches without external hardware.</p>
-          <p>Use it anywhere a downstream node expects a float control: brightness, speed, amount, scale, fade, threshold, or any other parameter you want to perform by hand instead of automating.</p>
-          <p>In generated firmware, the node reads <code>analogRead(pin) / 4095.0</code> from the selected ADC pin. That gives downstream nodes the same normalized control shape they see in preview.</p>
-        </section>
-      </div>
-
-      <div className={styles.ioGrid}>
-        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
-        <PropertyPanel
-          node={node}
-          note="The preview slider drives the Value output in the browser. Pin selects which analog input the generated firmware reads on-device."
-        />
-        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
-      </div>
-
-      <section className={styles.exampleSection}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2>{POTENTIOMETER_LIVE_EXAMPLE.title}</h2>
-          </div>
-          <div className={styles.exampleHeadingActions}>
-            <span>{POTENTIOMETER_LIVE_EXAMPLE.path}</span>
-            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
-              <span aria-hidden="true">▶</span> Try it live
-            </button>
-          </div>
-        </div>
-        <ExampleGraphFigure node={node} alt="Tidy Potentiometer control graph ending at an LED String" />
-        <div className={styles.exampleExplanation}>
-          <b>How it works</b>
-          <p>{POTENTIOMETER_LIVE_EXAMPLE.explanation}</p>
-        </div>
-      </section>
-
-      <section className={styles.previewSection}>
-        <div className={styles.previewCopy}>
-          <div className={styles.sectionKicker}>Main preview</div>
-          <h2>What you should see</h2>
-          <p>{POTENTIOMETER_LIVE_EXAMPLE.previewDescription}</p>
-        </div>
-        <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED String main preview sweeping Blobs through hue rotation" />
-        </figure>
-      </section>
-    </article>
-  )
-}
-
-function EncoderArticle({ node }: { node: NodeDefinition }) {
-  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const tryLive = () => {
-    openLiveExample(ENCODER_LIVE_EXAMPLE, {
-      successMessage: 'Encoder example added — turn the star and click to flash it',
-      skippedMessage: 'Encoder example added — turn the star and click to flash it',
-    })
-  }
-  return (
-    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
-      <div className={styles.breadcrumb}>Inputs <span>/</span> Encoder</div>
-      <header className={styles.articleHeader}>
-        <div>
-          <div className={styles.eyebrow}><i style={{ background: accent }} />Rotary control</div>
-          <h1>Encoder</h1>
-          <p>Read a rotary encoder as a running position plus a push-button trigger in preview and generated firmware.</p>
-        </div>
-        <div className={styles.articleMeta}>0 inputs · 2 outputs · 4 properties</div>
-      </header>
-
-      <div className={styles.introGrid}>
-        <figure className={styles.nodeCapture}>
-          <div className={styles.nodeCaptureFrame}>
-            <NodeCardImage node={node} narrow />
-          </div>
-        </figure>
-        <section className={styles.overviewPanel}>
-          <div className={styles.sectionKicker}>What it does</div>
-          <h2>Overview</h2>
-          <p>The Encoder node outputs a continuous <b>Position</b> value and a momentary <b>Pressed</b> gate. In preview, drag the dial vertically to turn it and click it to fire the push-button so you can test both controls without external hardware.</p>
-          <p>Use <b>Position</b> for parameters that benefit from endless relative control: hue shift, menu index, scroll amount, threshold, or any value you want to nudge up and down instead of pinning to a fixed 0-1 range.</p>
-          <p>Use <b>Pressed</b> anywhere a downstream node expects a boolean event. In generated firmware, the node polls the quadrature A/B pins for rotation and reads the switch pin as a normal button, using <code>INPUT_PULLUP</code> by default when <b>Pull-Up</b> is enabled.</p>
-        </section>
-      </div>
-
-      <div className={styles.ioGrid}>
-        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
-        <PropertyPanel
-          node={node}
-          note="The preview dial drives both Position and Pressed in the browser. Pin A, Pin B, Pin SW, and Pull-Up define the generated encoder wiring on-device."
-        />
-        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
-      </div>
-
-      <section className={styles.exampleSection}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2>{ENCODER_LIVE_EXAMPLE.title}</h2>
-          </div>
-          <div className={styles.exampleHeadingActions}>
-            <span>{ENCODER_LIVE_EXAMPLE.path}</span>
-            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
-              <span aria-hidden="true">▶</span> Try it live
-            </button>
-          </div>
-        </div>
-        <ExampleGraphFigure node={node} alt="Tidy Encoder control graph ending at an LED Ring" />
-        <div className={styles.exampleExplanation}>
-          <b>How it works</b>
-          <p>{ENCODER_LIVE_EXAMPLE.explanation}</p>
-        </div>
-      </section>
-
-      <section className={styles.previewSection}>
-        <div className={styles.previewCopy}>
-          <div className={styles.sectionKicker}>Main preview</div>
-          <h2>What you should see</h2>
-          <p>{ENCODER_LIVE_EXAMPLE.previewDescription}</p>
-        </div>
-        <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED Ring main preview showing Encoder-driven star rotation with a flash accent" />
-        </figure>
-      </section>
-    </article>
-  )
-}
-
-function MidiArticle({ node }: { node: NodeDefinition }) {
-  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const tryLive = () => {
-    openLiveExample(MIDI_LIVE_EXAMPLE, {
-      successMessage: 'MIDI example added — note velocity, gate, and CC now drive the preview patch',
-      skippedMessage: 'MIDI example added — connect a MIDI controller to drive it',
-    })
-  }
-  return (
-    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
-      <div className={styles.breadcrumb}>Inputs <span>/</span> MIDI</div>
-      <header className={styles.articleHeader}>
-        <div>
-          <div className={styles.eyebrow}><i style={{ background: accent }} />Preview control</div>
-          <h1>MIDI</h1>
-          <p>Read Web MIDI note velocity, held gate, and CC values from a connected controller while designing in preview.</p>
-        </div>
-        <div className={styles.articleMeta}>0 inputs · 3 outputs · 2 properties</div>
-      </header>
-
-      <div className={styles.introGrid}>
-        <figure className={styles.nodeCapture}>
-          <div className={styles.nodeCaptureFrame}>
-            <NodeCardImage node={node} narrow />
-          </div>
-        </figure>
-        <section className={styles.overviewPanel}>
-          <div className={styles.sectionKicker}>What it does</div>
-          <h2>Overview</h2>
-          <p>The MIDI node listens to one note number and one CC number from the browser’s Web MIDI API. It outputs <b>Velocity</b> for note-on intensity, <b>Gate</b> while that note is held, and <b>CC</b> as the latest controller value.</p>
-          <p>Use it when you want hands-on live control while designing: velocity can drive brightness or amount, gate can trigger flashes or envelopes, and CC can steer hue, speed, threshold, or any other float input.</p>
-          <p>This node is <b>preview-only</b>. There is no embedded MIDI equivalent in generated firmware, so exported sketches always see the idle fallback values: note 0, gate off, and CC 0.</p>
-        </section>
-      </div>
-
-      <div className={styles.ioGrid}>
-        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
-        <PropertyPanel
-          node={node}
-          note="Note and CC choose which MIDI messages the browser listens for. The live values come from Web MIDI during preview only; they are not emitted by generated firmware."
-        />
-        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
-      </div>
-
-      <section className={styles.exampleSection}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2>{MIDI_LIVE_EXAMPLE.title}</h2>
-          </div>
-          <div className={styles.exampleHeadingActions}>
-            <span>{MIDI_LIVE_EXAMPLE.path}</span>
-            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
-              <span aria-hidden="true">▶</span> Try it live
-            </button>
-          </div>
-        </div>
-        <ExampleGraphFigure node={node} alt="Tidy MIDI control graph ending at an LED Matrix" />
-        <div className={styles.exampleExplanation}>
-          <b>How it works</b>
-          <p>{MIDI_LIVE_EXAMPLE.explanation}</p>
-        </div>
-      </section>
-
-      <section className={styles.previewSection}>
-        <div className={styles.previewCopy}>
-          <div className={styles.sectionKicker}>Main preview</div>
-          <h2>What you should see</h2>
-          <p>{MIDI_LIVE_EXAMPLE.previewDescription}</p>
-        </div>
-        <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED Matrix main preview showing MIDI-controlled hue switching and brightness" />
-        </figure>
-      </section>
-    </article>
-  )
-}
-
-function propertyNoteForNode(node: NodeDefinition): string {
-  if (DISPLAY_REFERENCE[node.type]) return DISPLAY_REFERENCE[node.type].propertyNote
-  const properties = propertyEntries(node)
-  if (properties.length === 0) {
-    return 'This node is shaped entirely by its sockets and downstream context.'
-  }
-  if (node.category === 'output') {
-    return 'These settings define the physical LED layout, rendering options, power limits, and upload target assumptions.'
-  }
-  if (node.category === 'show') {
-    return 'These settings shape show timing, export behavior, selected assets, or playback support.'
-  }
-  if (node.category === 'note') {
-    return 'Text and colour affect only the canvas annotation; they do not participate in preview or generated firmware.'
-  }
-  return 'Defaults shown here are the values new nodes start with. Wire a matching input when you want another node to control a property live.'
-}
-
-function ReferenceArticle({ node }: { node: NodeDefinition }) {
-  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const properties = propertyEntries(node)
-  const useCases = buildUseCases(node)
-  const liveExample = liveExampleForNode(node)
-  const displayReference = DISPLAY_REFERENCE[node.type]
-  const musicPlayer = node.type === 'PatternMaster'
   const optionalInputs = exposableInputsFor(node.type)
   const mainInputs = node.inputs.filter((port) => !optionalInputs.some((optional) => optional.id === port.id))
-  const usesMicrophone = exampleUsesMicrophone(liveExample)
-  const tryLive = () => {
-    openLiveExample(liveExample, {
-      successMessage: `${node.label} example added${usesMicrophone ? ' — microphone starting' : ''}`,
-      skippedMessage: `${node.label} example added — LED output is already in use; connect the final output when ready`,
-    })
-  }
+  const workflow = example.previewMode === 'workflow'
+  const counts = [
+    `${mainInputs.length} ${mainInputs.length === 1 ? 'input' : 'inputs'}`,
+    ...(optionalInputs.length ? [`${optionalInputs.length} optional`] : []),
+    `${node.outputs.length} ${node.outputs.length === 1 ? 'output' : 'outputs'}`,
+    `${properties.length} ${properties.length === 1 ? 'property' : 'properties'}`,
+  ]
   return (
     <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
       <div className={styles.breadcrumb}>{categoryLabel(node.category)} nodes <span>/</span> {node.label}</div>
@@ -1587,160 +359,85 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
           <h1>{node.label}</h1>
           <p>{NODE_DESCRIPTIONS[node.type]}</p>
         </div>
-        <div className={styles.articleMeta}>{node.type === 'Display' ? 'Widget-defined ports' : musicPlayer ? `${mainInputs.length} main inputs · ${optionalInputs.length} optional inputs · ${node.outputs.length} outputs` : `${node.inputs.length} inputs · ${node.outputs.length} outputs`} · {properties.length} properties</div>
+        <div className={styles.articleMeta}>{counts.join(' · ')}</div>
       </header>
 
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <NodeCardImage node={node} narrow />
+            <NodeCardImage node={node} />
           </div>
-          {musicPlayer && <figcaption>Factory defaults, with Timing and Randomness expanded. The preview stays black until a populated Pattern Collection is connected.</figcaption>}
         </figure>
         <section className={styles.overviewPanel}>
           <div className={styles.sectionKicker}>What it does</div>
           <h2>Overview</h2>
-          {useCases.map((useCase) => <p key={useCase}>{useCase}</p>)}
+          {entry.overview.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
         </section>
       </div>
 
-      {musicPlayer ? (
-        <>
-          <section className={styles.manualSection}>
-            <h2>Set up and connect</h2>
-            <ol>{MUSIC_PLAYER_REFERENCE.steps.map((step) => <li key={step}><p>{step}</p></li>)}</ol>
-          </section>
-          <PropertyPanel node={node} detailed note={MUSIC_PLAYER_REFERENCE.propertyNote} />
-          <div className={styles.musicPlayerPorts}>
-            <PortPanel title="Main inputs" ports={mainInputs} direction="input" descriptions={MUSIC_PLAYER_REFERENCE.inputs} />
-            <PortPanel title="Outputs" ports={node.outputs} direction="output" descriptions={MUSIC_PLAYER_REFERENCE.outputs} />
-          </div>
-          <section className={styles.manualSection}>
-            <h2>Optional inputs</h2>
-            <p>Use Expose inputs… on the node to show these sockets: {optionalInputs.map((port) => port.label).join(', ')}.</p>
-            <p>Volume and timing sockets override their matching property fields. Action sockets accept boolean pulses: previous/next track changes the song; previous/next pattern browses the collection, and Confirm commits that selection. Player Controls bundles these controls into one connection.</p>
-          </section>
-        </>
-      ) : <div className={styles.ioGrid}>
-        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
-        <PropertyPanel
-          node={node}
-          emptyText="This node has no inline properties. Configure it with its sockets or node-specific controls."
-          note={propertyNoteForNode(node)}
-        />
-        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
-      </div>}
-
-      {displayReference && (
+      {entry.steps && (
         <section className={styles.manualSection}>
           <h2>Set up and connect</h2>
-          <ol>
-            {displayReference.steps.map((step) => <li key={step}><p>{step}</p></li>)}
-          </ol>
+          <ol>{entry.steps.map((step) => <li key={step}><p>{step}</p></li>)}</ol>
         </section>
       )}
+
+      <div className={styles.portRow}>
+        <PortPanel
+          title="Inputs"
+          ports={mainInputs}
+          direction="input"
+          descriptions={entry.inputs}
+          emptyText={optionalInputs.length ? 'None until you expose one below.' : 'None — this node starts a signal chain.'}
+        />
+        <PortPanel
+          title="Outputs"
+          ports={node.outputs}
+          direction="output"
+          descriptions={entry.outputs}
+          emptyText="None — this node ends its chain."
+        />
+      </div>
+      {optionalInputs.length > 0 && <OptionalInputsPanel node={node} written={entry.inputs} />}
+      <PropertyPanel node={node} note={entry.propertyNote} />
 
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <h2>{liveExample.title}</h2>
+            <div className={styles.sectionKicker}>Example</div>
+            <h2>{example.title}</h2>
           </div>
           <div className={styles.exampleHeadingActions}>
-            <span>{liveExample.path}</span>
-            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
+            <span>{example.path}</span>
+            <button className={styles.tryLiveButton} type="button" onClick={() => openLiveExample(node)}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt={`A tidy graph showing ${liveExample.path}`} />
+        <ExampleGraphFigure node={node} alt={`Example graph on the canvas: ${example.path}`} />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
-          <p>{liveExample.explanation}</p>
+          <p>{example.explanation}</p>
         </div>
       </section>
 
       <section className={styles.previewSection}>
         <div className={styles.previewCopy}>
-          <div className={styles.sectionKicker}>
-            {liveExample.previewMode === 'workflow'
-              ? 'Workflow result'
-              : 'Main preview'}
-          </div>
-          <h2>{liveExample.previewMode === 'workflow' ? 'What to complete' : 'What you should see'}</h2>
-          <p>{liveExample.previewDescription}</p>
+          <div className={styles.sectionKicker}>{workflow ? 'Result' : 'Main preview'}</div>
+          <h2>{workflow ? 'What changes' : 'What you should see'}</h2>
+          <p>{example.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          {liveExample.previewMode === 'workflow' ? (
+          {workflow ? (
             <div className={styles.workflowOutcome}>
-              <span>Workflow result</span>
+              <span>Workflow</span>
               <b>{node.label}</b>
-              <p>{musicPlayer ? 'Add saved patterns in Pattern Collection, then choose timed or beat-triggered changes on Music Player.' : 'Add the required patterns or analysed songs in the node body, then use the show preview or export controls.'}</p>
+              <p>{entry.outcome ?? 'Its result shows on the bench, in the Build Diagram or in the upload, rather than in the LED preview.'}</p>
             </div>
           ) : (
-            <MainPreviewImage node={node} alt={`Evaluated frame from the ${node.label} example graph`} />
+            <MainPreviewImage node={node} alt={`The LED preview of the ${node.label} example`} />
           )}
         </figure>
-      </section>
-    </article>
-  )
-}
-
-function NodeArticle({ node }: { node: NodeDefinition }) {
-  if (node.type === 'MicInput') return <MicrophoneArticle node={node} />
-  if (AUDIO_ARTICLES[node.type]) return <AudioArticle node={node} content={AUDIO_ARTICLES[node.type]} />
-  if (node.type === 'ButtonInput') return <ButtonArticle node={node} />
-  if (node.type === 'PotInput') return <PotentiometerArticle node={node} />
-  if (node.type === 'EncoderInput') return <EncoderArticle node={node} />
-  if (node.type === 'MidiInput') return <MidiArticle node={node} />
-  if (REFERENCE_ARTICLE_CATEGORIES.has(node.category)) return <ReferenceArticle node={node} />
-  const properties = propertyEntries(node)
-  const useCases = buildUseCases(node)
-  const recipe = buildExampleRecipe(node)
-  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  return (
-    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
-      <div className={styles.breadcrumb}>{categoryLabel(node.category)} nodes <span>/</span> {node.label}</div>
-      <header className={styles.articleHeader}>
-        <div>
-          <div className={styles.eyebrow}><i style={{ background: accent }} />{categoryLabel(node.category)}</div>
-          <h1>{node.label}</h1>
-          <p>{NODE_DESCRIPTIONS[node.type]}</p>
-        </div>
-        <div className={styles.articleMeta}>{node.inputs.length} inputs · {node.outputs.length} outputs · {properties.length} properties</div>
-      </header>
-
-      <NodeScreenshot node={node} />
-
-      <section className={styles.manualSection}>
-        <h2>Overview</h2>
-        <div className={styles.proseList}>
-          {useCases.map((useCase) => <p key={useCase}>{useCase}</p>)}
-        </div>
-      </section>
-
-      <PortSection title="Inputs" ports={node.inputs} direction="input" />
-
-      <section className={styles.manualSection}>
-        <h2>Properties</h2>
-        {properties.length === 0 ? (
-          <p className={styles.emptyState}>This node has no standard inline properties. Configure it with its sockets or node-specific controls.</p>
-        ) : (
-          <dl className={styles.definitionList}>
-            {properties.map(([key, value]) => (
-              <div className={styles.definitionItem} key={key}>
-                <dt>{humanizePropertyKey(key)} <span className={styles.defaultValue}>Default: {formatPropertyValue(value)}</span></dt>
-                <dd>{describeProperty(node, key)} <span className={styles.controlHint}>{describeControl(node, key)}.</span></dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </section>
-
-      <PortSection title="Outputs" ports={node.outputs} direction="output" />
-
-      <section className={styles.manualSection}>
-        <h2>Example</h2>
-        <GraphScreenshot recipe={recipe} />
       </section>
     </article>
   )
@@ -1896,7 +593,7 @@ export default function NodeReference() {
   const search = helpNodeReference.search
   const expandedCategory = helpNodeReference.expandedCategory
   const deferredSearch = useDeferredValue(search.trim().toLowerCase())
-  const visibleNodes = NODE_LIBRARY.filter((node) => matchesNode(node, deferredSearch, 'all'))
+  const visibleNodes = NODE_LIBRARY.filter((node) => matchesNode(node, deferredSearch))
   const orderedVisibleNodes = deferredSearch
     ? [...visibleNodes].sort((a, b) => searchRank(a, deferredSearch) - searchRank(b, deferredSearch) || a.label.localeCompare(b.label))
     : CATEGORY_ORDER.flatMap((group) => visibleNodes.filter((node) => node.category === group))

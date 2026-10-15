@@ -106,9 +106,9 @@ sections can say "the per-node checklist" instead of repeating it ten times.
 6. **Other registries**: `src/nodes/shared/speedRange.ts` for any `speed`/`scale`-class
    knob that is a 0–1 slider; `STATEFUL_EXTRA_BYTES_PER_LED` in
    `src/utils/validateGraph.ts` for a node holding static per-LED arrays; the
-   type sets in `src/state/patterns/patternRating.ts` for a pattern-category node; an
-   explicit `selectedInputs` row in `src/components/HelpModal/liveExamples.ts`
-   only when the automatic example for the category wires the wrong knobs.
+   type sets in `src/state/patterns/patternRating.ts` for a pattern-category node; and
+   the node's hand-written help entry and Try it live example in
+   `src/components/HelpModal/reference/<category>.ts`.
 7. **Docs**: the node's label on its category line in `README.md` and the three
    module-count strings (`readmeModuleList.test.ts` fails until both are
    right); `npm run gen:node-cards` for `public/node-cards/` and

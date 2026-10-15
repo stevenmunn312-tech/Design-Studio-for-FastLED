@@ -264,7 +264,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
 
 export const SIMULATIONS_DESCRIPTIONS: Record<string, string> = {
   Fire: 'Rising fire: the classic flame, a smoky one, or FastLED Fire2012.',
-  Particles: 'Twenty-one particle displays: weather, trails, flocking, orbits, and more.',
+  Particles: 'Twenty particle displays: weather, fireworks, trails, orbits, and more.',
   FormulaPoints: 'Curated point generator: phyllotaxis, Lissajous/rose, logistic map, attractor.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   StringParticles: 'Particles on one line: a string, a column or an LED ring.',

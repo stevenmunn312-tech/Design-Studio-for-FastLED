@@ -324,9 +324,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   button from a wire dropped on it. Saving a learned key transfers all pending
   wires from Learn to that new key, retaining edge identities and destinations
   in the same undo step as the mapping (`learnIrRemoteButton`). A canceled or
-  rejected save leaves those wires alone. `liveExamples.test.ts` excludes
-  that socket from live examples, since the generic bool builder would
-  otherwise wire `outputs[0]`, which here is Learn. Registration touches
+  rejected save leaves those wires alone. `liveExamples.test.ts` keeps
+  that socket, and Button Bank's Connect button… socket, out of every live
+  example. Registration touches
   `nodeLibrary.ts` (pin property, `gpioRequirementForProperty`),
   `pinRetarget.ts` (`PART_PIN_PLANS.IRRemoteInput`) and `performanceDeck.ts`
   (`WIRING_KEYS`), but deliberately **not** `busTopology.ts`:

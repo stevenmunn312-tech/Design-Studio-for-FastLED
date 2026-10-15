@@ -53,7 +53,6 @@ import { stringPositions } from '../../src/state/output/stringPositions'
 import { exposableInputsFor, exposedNodeInputs, exposedPropertyInputs } from '../../src/state/propertyInputs'
 import { partDerivedInputs } from '../../src/build/parts/partPorts'
 import { partRenderForNodeType } from '../../src/build/parts/partRenders'
-import { playerControlInputs } from '../../src/state/player/playerControlAssignments'
 import { buttonBankOutputs } from '../../src/state/player/buttonBank'
 import { PREVIEW_POINTS, PREVIEW_SECONDS, waveNodeSamples } from '../../src/nodes/signal/wave'
 import { CUSTOM_DESIGN_LAYOUT, asTransportDisplayLayout } from '../../src/state/displays/transportDisplay'
@@ -1084,9 +1083,7 @@ function nodePorts(
   connected: ReadonlySet<string>,
   wiredOutputs: ReadonlySet<string>,
 ): { inputs: NodePort[]; outputs: NodePort[]; rowCount: number } {
-  const declared = (def.type === 'ControlMap'
-    ? playerControlInputs(props.controls)
-    : partDerivedInputs(def.type, props.partId) ?? def.inputs) as NodePort[]
+  const declared = (partDerivedInputs(def.type, props.partId) ?? def.inputs) as NodePort[]
   const outputs = ((def.type === 'ButtonBank' ? buttonBankOutputs(props.buttons) : def.outputs) as Array<NodePort & { carriedByControls?: boolean }>)
     .filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))
   // Separate state commands belong to Toggle; a wired one stays visible.

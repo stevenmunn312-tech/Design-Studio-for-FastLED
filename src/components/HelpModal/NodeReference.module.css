@@ -37,33 +37,6 @@
 .search:focus { outline: 1px solid var(--accent-audio); border-color: var(--accent-audio); }
 .search::placeholder { color: var(--text-secondary); }
 
-.filterRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 0 12px 10px;
-}
-.filterChip {
-  flex: 0 0 auto;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: 4px;
-  padding: 4px 7px;
-  font-size: 10px;
-  cursor: pointer;
-}
-.filterChip:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.22); }
-.filterChipActive { color: var(--text-primary); background: rgba(0,191,255,0.12); border-color: rgba(0,191,255,0.34); }
-.resultsLine {
-  padding: 7px 16px;
-  border-block: 1px solid var(--border-glow);
-  color: var(--text-secondary);
-  font: 10px var(--font-code);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
-
 .nodeIndex {
   flex: 1;
   min-height: 0;
@@ -174,22 +147,19 @@
 }
 
 .nodeIndex::-webkit-scrollbar,
-.reader::-webkit-scrollbar,
-.graphCanvas::-webkit-scrollbar {
+.reader::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 .nodeIndex::-webkit-scrollbar-track,
-.reader::-webkit-scrollbar-track,
-.graphCanvas::-webkit-scrollbar-track {
+.reader::-webkit-scrollbar-track {
   background: rgba(255,255,255,.035);
   border-left: 1px solid rgba(255,255,255,.045);
 }
 
 .nodeIndex::-webkit-scrollbar-thumb,
-.reader::-webkit-scrollbar-thumb,
-.graphCanvas::-webkit-scrollbar-thumb {
+.reader::-webkit-scrollbar-thumb {
   min-height: 36px;
   border: 2px solid transparent;
   border-radius: 999px;
@@ -198,8 +168,7 @@
 }
 
 .nodeIndex::-webkit-scrollbar-thumb:hover,
-.reader::-webkit-scrollbar-thumb:hover,
-.graphCanvas::-webkit-scrollbar-thumb:hover {
+.reader::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,.42);
   background-clip: padding-box;
 }
@@ -266,15 +235,11 @@
 .introGrid { display: grid; grid-template-columns: minmax(220px, .72fr) minmax(0, 1.28fr); gap: 30px; align-items: stretch; padding: 28px 0 30px; }
 .nodeCapture { margin: 0; display: flex; flex-direction: column; }
 .nodeCaptureFrame { flex: 1; min-height: 360px; display: grid; place-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,.065); border-radius: 8px; background: linear-gradient(145deg, color-mix(in srgb, var(--node-accent) 5%, transparent), transparent 56%), rgba(255,255,255,.012); }
-.nodeCaptureImage { display: block; max-width: min(100%, 300px); height: auto; filter: drop-shadow(0 16px 24px rgba(0,0,0,.38)); }
 /* Generated node-card SVG (public/node-cards/, `npm run gen:node-cards`).
    Transparent ground with the node's own drop shadow baked in — no extra
    framing needed here. */
 .nodeCardImage { display: block; width: min(100%, 296px); height: auto; }
 .nodeCardImageNarrow { width: min(100%, 250px); }
-.nodeCaptureImageNarrow { width: 180px; max-width: min(100%, 180px); }
-.nodeOnlyCrop { position: relative; width: 180px; height: 292px; overflow: hidden; filter: drop-shadow(0 16px 24px rgba(0,0,0,.38)); }
-.nodeOnlyCrop img { position: absolute; top: -258px; left: -8px; display: block; width: 857px; max-width: none; height: 811px; }
 .overviewPanel { padding: 25px 27px; border: 1px solid rgba(255,255,255,.065); border-radius: 8px; background: linear-gradient(145deg, color-mix(in srgb, var(--node-accent) 5%, transparent), transparent 56%), rgba(255,255,255,.012); }
 .sectionKicker { color: var(--node-accent); font: 700 8px var(--font-code); letter-spacing: .15em; text-transform: uppercase; }
 .overviewPanel h2, .exampleSection h2, .previewSection h2 { margin: 7px 0 14px; font-family: var(--font-display); font-size: 21px; letter-spacing: -.015em; }
@@ -282,7 +247,6 @@
 .overviewPanel p:last-child, .previewCopy p:last-child { margin-bottom: 0; }
 .overviewPanel b { color: var(--text-primary); }
 
-.ioGrid { display: grid; grid-template-columns: minmax(125px, .75fr) minmax(340px, 2.2fr) minmax(145px, .9fr); gap: 12px; padding: 24px 0 30px; border-top: 1px solid var(--border-glow); }
 .referencePanel { min-width: 0; padding: 15px; border: 1px solid rgba(255,255,255,.065); border-radius: 7px; background: rgba(255,255,255,.012); }
 .panelLabel { margin-bottom: 13px; color: var(--text-primary); font-family: var(--font-display); font-size: 14px; font-weight: 700; }
 .panelEmpty { margin: 0; color: var(--text-secondary); font-size: 10px; line-height: 1.55; }
@@ -292,17 +256,20 @@
 .portTitle b { font-size: 11px; }
 .portTitle code { margin-left: auto; padding: 2px 4px; border-radius: 3px; background: rgba(255,255,255,.055); color: var(--text-secondary); font: 7px var(--font-code); letter-spacing: .08em; text-transform: uppercase; }
 .portCard p { margin: 8px 0 0; color: var(--text-secondary); font-size: 9px; line-height: 1.5; }
-.propertyGroups { display: grid; grid-template-columns: 1fr 1fr .72fr; gap: 12px; }
 .propertyGroupsDetailed { display: grid; gap: 20px; }
 .propertyGroupsDetailed .propertyGroup h3 { font-size: 10px; }
-.musicPlayerPorts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; padding: 24px 0; }
-.musicPlayerPorts .portCard p { font-size: 12px; line-height: 1.65; }
-.musicPlayerPorts .portCard + .portCard { margin-top: 10px; }
+.portRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; padding: 24px 0 16px; border-top: 1px solid var(--border-glow); }
+.portRow ~ .referencePanel { margin-bottom: 16px; }
+.portRow .portCard p, .portRow ~ .referencePanel .portCard p { font-size: 12px; line-height: 1.65; }
+.portRow .portCard + .portCard, .portRow ~ .referencePanel .portCard + .portCard { margin-top: 10px; }
 .nodeCapture figcaption { margin-top: 12px; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 .propertyGroup { min-width: 0; }
 .propertyGroup h3 { margin: 0 0 6px; color: var(--node-accent); font: 700 8px var(--font-code); letter-spacing: .11em; text-transform: uppercase; }
-.propertyRow { display: flex; justify-content: space-between; gap: 7px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,.045); color: var(--text-secondary); font-size: 9px; }
-.propertyRow b { overflow: hidden; color: var(--text-primary); font: 8px var(--font-code); text-overflow: ellipsis; white-space: nowrap; }
+.panelLead { margin: 0 0 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.65; }
+.socketChips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 4px; padding: 0; list-style: none; }
+.socketChips li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid rgba(255,255,255,.07); border-radius: 999px; background: rgba(0,0,0,.13); color: var(--text-primary); font-size: 11px; }
+.socketChips i { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 6px currentColor; }
+.socketChips + .portCard { margin-top: 10px; }
 .panelNote { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.05); color: var(--text-secondary); font-size: 9px; line-height: 1.55; }
 .propertyGroupsDetailed ~ .panelNote { font-size: 12px; line-height: 1.65; }
 
@@ -327,7 +294,6 @@
 .workflowOutcome b { color: var(--text-primary); font: 16px var(--font-display); }
 .workflowOutcome p { max-width: 320px; margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 
-.nodeFigure { margin: 26px 0 31px; }
 .captureFigure {
   margin: 20px 0 0;
 }
@@ -346,101 +312,16 @@
   width: 100%;
   height: auto;
 }
-.imagePlaceholder {
-  min-height: 260px;
-  display: grid;
-  place-content: center;
-  gap: 9px;
-  padding: 28px;
-  border: 1px dashed color-mix(in srgb, var(--node-accent) 42%, rgba(255,255,255,.12));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--node-accent) 7%, transparent), transparent 58%),
-    repeating-linear-gradient(45deg, rgba(255,255,255,.025) 0 1px, transparent 1px 14px),
-    rgba(0,0,0,.15);
-  color: var(--text-secondary);
-  text-align: center;
-}
-.imagePlaceholder span {
-  color: color-mix(in srgb, var(--node-accent) 72%, white);
-  font: 700 9px var(--font-code);
-  letter-spacing: .13em;
-  text-transform: uppercase;
-}
-.imagePlaceholder b {
-  max-width: 360px;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.45;
-}
-.imagePlaceholderCompact {
-  width: min(100%, 240px);
-  min-height: 240px;
-  border-radius: 6px;
-}
 .captureFigure figcaption {
   margin-top: 8px;
   color: var(--text-secondary);
   font-size: 10px;
   line-height: 1.5;
 }
-.nodeStage {
-  min-height: 330px;
-  display: grid;
-  place-items: center;
-  padding: 32px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.09);
-  border-radius: 6px;
-  background-color: #11151d;
-  background-image:
-    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
-    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--node-accent) 13%, transparent), transparent 42%);
-  background-size: 20px 20px, 20px 20px, 100% 100%;
-}
-.nodeFigure figcaption { margin-top: 8px; color: var(--text-secondary); font-size: 10px; line-height: 1.5; text-align: center; }
-.nodeMock {
-  width: 250px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--bg-node);
-  box-shadow: 0 18px 45px rgba(0,0,0,.43), 0 0 0 1px var(--border-glow);
-}
-.nodeMockHeader {
-  min-height: 35px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 10px;
-  color: #05070a;
-  font: 700 13px var(--font-display);
-}
-.nodeMockHeader span { font: 700 8px var(--font-code); text-transform: uppercase; letter-spacing: .1em; opacity: .58; }
-.nodeMockBody { display: flex; flex-direction: column; gap: 5px; padding: 8px; }
-.nodePreview { height: 86px; border-radius: 4px; border: 1px solid rgba(255,255,255,.08); }
-.previewFrame { background: radial-gradient(circle at 22% 31%, #ff00aa99, transparent 30%), radial-gradient(circle at 73% 36%, #00beff88, transparent 29%), radial-gradient(circle at 48% 78%, #a8ff0077, transparent 35%), #080d17; }
-.previewColor { background: linear-gradient(135deg, #ffd24a, #ff4d8d); }
-.previewPalette { background: linear-gradient(90deg, #00ffff, #00bfff 22%, #a8ff00 45%, #ffd24a 65%, #ff4d8d 82%, #ff00ff); }
-.previewSignal { background: repeating-linear-gradient(0deg, transparent 0 20px, rgba(255,255,255,.05) 20px 21px), linear-gradient(145deg, #07101b, #123d3b); }
-.previewAudio { background: repeating-linear-gradient(90deg, #00e0a4 0 7px, transparent 7px 13px), #07101b; opacity: .78; }
-.previewField { background: repeating-radial-gradient(circle, #ffd24a33 0 7px, transparent 8px 17px), #11131e; }
-.previewControl { background: linear-gradient(135deg, #00bfff2d, #ffa5002d), #0a0e18; }
-.socketRows { display: flex; flex-direction: column; }
-.socketRow { display: grid; grid-template-columns: 1fr 1fr; align-items: center; min-height: 24px; font: 10px var(--font-code); color: var(--text-secondary); }
-.socketSide { position: relative; display: flex; align-items: center; gap: 7px; }
-.socketSideOutput { justify-content: flex-end; text-align: right; }
-.socketSide i { width: 9px; height: 9px; margin-left: -13px; border: 1px solid rgba(255,255,255,.5); border-radius: 50%; box-shadow: 0 0 7px currentColor; }
-.socketSideOutput i { margin: 0 -13px 0 0; }
-.nodeMockProperties { padding-top: 6px; border-top: 1px solid var(--divider); }
-.nodeMockProperty { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; color: var(--text-secondary); font: 9px var(--font-code); }
-.nodeMockProperty b { max-width: 105px; overflow: hidden; color: var(--text-primary); font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
-.moreProperties { padding-top: 4px; color: var(--text-secondary); font: 8px var(--font-code); text-align: right; opacity: .75; }
 
 .manualSection { padding: 22px 0 4px; border-top: 1px solid var(--border-glow); }
 .manualSection + .manualSection { margin-top: 18px; }
 .manualSection h2 { margin: 0 0 13px; font-family: var(--font-display); font-size: 19px; letter-spacing: -.01em; }
-.proseList p { margin: 0 0 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
 .definitionList { margin: 0; }
 .definitionItem { padding: 11px 0; border-top: 1px solid rgba(255,255,255,.055); }
 .definitionItem:first-child { border-top: 0; }
@@ -449,37 +330,6 @@
 .definitionItem dt code { padding: 2px 5px; border-radius: 3px; background: rgba(255,255,255,.055); color: var(--text-secondary); font: 8px var(--font-code); text-transform: uppercase; letter-spacing: .08em; }
 .definitionItem dd { margin: 5px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.65; }
 .defaultValue { margin-left: auto; color: var(--text-secondary); font: 9px var(--font-code); font-weight: 400; }
-.controlHint { color: color-mix(in srgb, var(--text-secondary) 72%, transparent); }
-.emptyState { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
-.figureCopy {
-  margin: 10px 0 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.graphCard { overflow: hidden; border: 1px solid rgba(255,255,255,.09); border-radius: 6px; background: #11151d; }
-.graphHeader { display: flex; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid rgba(255,255,255,.07); }
-.graphTitle { color: var(--text-secondary); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
-.graphResult { color: var(--text-primary); font-size: 10px; }
-.graphCanvas {
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-gutter: stable both-edges;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,.26) rgba(255,255,255,.035);
-  background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
-  background-size: 20px 20px;
-}
-.graphCanvasInner { position: relative; }
-.graphEdges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.graphEdge { fill: none; stroke: rgba(90,209,255,.9); stroke-width: 2.4; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(90,209,255,.35)); }
-.graphNode { position: absolute; width: 130px; min-height: 58px; padding: 9px 11px 9px 13px; border-radius: 6px; border: 1px solid rgba(255,255,255,.1); background: rgba(7,12,20,.94); display: flex; flex-direction: column; gap: 4px; }
-.graphNodeHighlight { background: rgba(10,18,28,.98); }
-.graphNodeBar { position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: 6px 0 0 6px; }
-.graphNodeLabel { padding-left: 2px; color: var(--text-primary); font-size: 11px; font-weight: 700; }
-.graphNodeType { padding-left: 2px; color: var(--text-secondary); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
-.graphExplanation { padding: 11px 13px; border-top: 1px solid rgba(255,255,255,.07); color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 
 @media (max-width: 820px) {
   .reference { grid-template-columns: 230px minmax(0, 1fr); }
@@ -487,9 +337,7 @@
   .articleHeader { align-items: flex-start; flex-direction: column; }
   .introGrid { grid-template-columns: 1fr; }
   .nodeCaptureFrame { min-height: 320px; }
-  .ioGrid { grid-template-columns: 1fr; }
-  .musicPlayerPorts { grid-template-columns: 1fr; }
-  .propertyGroups { grid-template-columns: repeat(3, 1fr); }
+  .portRow { grid-template-columns: 1fr; }
   .previewSection { grid-template-columns: 1fr; }
   .nodeBasicsFlow { grid-template-columns: 1fr; }
   .flowArrow { justify-self: center; transform: rotate(90deg); }
@@ -502,15 +350,11 @@
   .reader { max-height: none; overflow: visible; }
   .article { padding: 22px 18px 40px; }
   .directoryStats { display: none; }
-  .propertyGroups { grid-template-columns: 1fr; }
   .guideGrid { grid-template-columns: 1fr; }
   .actionList > div { grid-template-columns: 1fr; gap: 7px; }
   .sectionHeading, .exampleExplanation { display: block; }
   .exampleHeadingActions { align-items: flex-start; flex-direction: column; margin-top: 8px; }
   .exampleHeadingActions > span { text-align: left; }
   .exampleExplanation b { display: block; margin-bottom: 7px; }
-  .nodeStage { min-height: 290px; padding: 20px; }
-  .nodeMock { width: 230px; }
   .articleMeta { white-space: normal; }
-  .graphResult { display: none; }
 }

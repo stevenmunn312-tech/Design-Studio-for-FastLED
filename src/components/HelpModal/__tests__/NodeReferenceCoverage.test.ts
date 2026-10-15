@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from '../portCopy'
-import { DISPLAY_REFERENCE } from '../displayReference'
+import { PORT_DESCRIPTIONS, TYPE_GLYPH } from '../portCopy'
+import { NODE_REFERENCE } from '../reference'
 import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../../utils/nodeReferenceAssets'
 import { DISPLAY_NODE_TYPES } from '../../../utils/validateGraph'
 
@@ -28,7 +28,6 @@ const LIVE_PORT_TYPES = (() => {
 
 const MAPS: Array<[string, Record<string, string>]> = [
   ['TYPE_GLYPH', TYPE_GLYPH],
-  ['OUTPUT_USE_CASES', OUTPUT_USE_CASES],
   ['PORT_DESCRIPTIONS', PORT_DESCRIPTIONS],
 ]
 
@@ -89,15 +88,46 @@ describe('Node Reference generated assets', () => {
   })
 
   it('gives every offered display its own setup instructions', () => {
-    // Reuses DISPLAY_NODE_TYPES rather than re-deriving from partOptionsFor:
-    // `Display` (the document node) selects no catalogued module of its own
-    // since the panel/document split, so that derivation alone can no longer
-    // see it — DISPLAY_NODE_TYPES already adds it back explicitly.
-    const displayTypes = [...DISPLAY_NODE_TYPES].sort()
-    expect(Object.keys(DISPLAY_REFERENCE).sort()).toEqual(displayTypes)
-    for (const type of displayTypes) {
-      expect(DISPLAY_REFERENCE[type].steps.length).toBeGreaterThan(0)
-      expect(DISPLAY_REFERENCE[type].propertyNote).not.toBe('')
+    // `Display` (the screen-design document) is not a library node, so it has
+    // no article; every display that is gets numbered set-up steps.
+    const libraryDisplays = [...DISPLAY_NODE_TYPES].filter((type) => NODE_LIBRARY.some((node) => node.type === type))
+    expect(libraryDisplays.length).toBeGreaterThan(0)
+    for (const type of libraryDisplays) {
+      expect(NODE_REFERENCE[type].steps?.length, type).toBeGreaterThan(0)
+    }
+  })
+})
+
+/*
+ * Every node gets a page written for it. Copy that fell back to category
+ * boilerplate read the same on every page and drifted from what each node
+ * does, so the reference now has no fallback: a missing entry is a failure.
+ */
+describe('Node Reference entries', () => {
+  it('covers exactly the library', () => {
+    expect(Object.keys(NODE_REFERENCE).sort()).toEqual(NODE_LIBRARY.map((node) => node.type).sort())
+  })
+
+  it.each(NODE_LIBRARY)('writes an overview for $type that is more than its one-line description', (node) => {
+    const entry = NODE_REFERENCE[node.type]
+    expect(entry.overview.length, node.type).toBeGreaterThan(0)
+    expect(entry.overview.join(' ').length, node.type).toBeGreaterThan(120)
+  })
+
+  it('describes only ports the node has', () => {
+    for (const node of NODE_LIBRARY) {
+      const entry = NODE_REFERENCE[node.type]
+      const inputs = new Set(node.inputs.map((port) => port.id))
+      const outputs = new Set(node.outputs.map((port) => port.id))
+      for (const id of Object.keys(entry.inputs ?? {})) expect(inputs.has(id), `${node.type} input ${id}`).toBe(true)
+      for (const id of Object.keys(entry.outputs ?? {})) expect(outputs.has(id), `${node.type} output ${id}`).toBe(true)
+    }
+  })
+
+  it('gives every workflow example an outcome instead of a picture', () => {
+    for (const node of NODE_LIBRARY) {
+      const entry = NODE_REFERENCE[node.type]
+      if (entry.example.previewMode === 'workflow') expect(entry.outcome, node.type).toBeTruthy()
     }
   })
 })

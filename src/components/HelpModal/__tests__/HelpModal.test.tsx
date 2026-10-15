@@ -62,12 +62,12 @@ describe('HelpModal session state', () => {
     })
     const view = render(<HelpModal />)
     expect(view.getByRole('heading', { name: 'Music Player' })).toBeTruthy()
-    expect(view.getByText(/6 main inputs · 15 optional inputs · 2 outputs/)).toBeTruthy()
+    expect(view.getByText(/6 inputs · 15 optional · 2 outputs · 7 properties/)).toBeTruthy()
     expect(view.getByText(/12 seconds is not a forced change deadline/)).toBeTruthy()
     expect(view.getByText(/Playback volume from 0/)).toBeTruthy()
     expect(view.getByText(/Controls random pattern, hold-time/)).toBeTruthy()
     expect(view.getByText(/Duration of the change between patterns/)).toBeTruthy()
-    expect(view.getByRole('heading', { name: 'Optional inputs' })).toBeTruthy()
+    expect(view.getByText(/^Optional inputs/)).toBeTruthy()
     const article = view.container.querySelector('article')!
     expect(article.querySelectorAll('dt').length).toBe(7)
   })
@@ -297,11 +297,13 @@ describe('HelpModal session state', () => {
     })
     const { container } = render(<HelpModal />)
     // CSS-module class names are hashed, so match the stable prefix.
-    const settings = [...container.querySelectorAll('[class*="propertyRow"], dt')]
-      .map((row) => row.querySelector('span')?.textContent ?? row.textContent ?? '')
+    // Each property's dt starts with its label, then its default in a span.
+    const settings = [...container.querySelectorAll('dt')]
+      .map((row) => row.firstChild?.textContent ?? '')
 
     expect(settings.length).toBeGreaterThan(0)
-    expect(settings.some((s) => s.startsWith('Brightness'))).toBe(false)
+    // Master brightness and frame rate are the Board's; this output keeps only its own dimmer.
+    expect(settings.some((s) => s.startsWith('Frame Rate'))).toBe(false)
     expect(settings.some((s) => s.startsWith('Correction'))).toBe(true)
     expect(settings.some((s) => s.startsWith('Form'))).toBe(false)
   })

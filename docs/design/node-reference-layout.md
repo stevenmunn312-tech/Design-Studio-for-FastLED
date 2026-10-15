@@ -1,94 +1,61 @@
 # Node reference layout and upkeep
 
-This document records the approved Node Reference design and the conventions to
-use when maintaining it. The rollout is complete; the **Microphone** page
-remains the reference implementation for the richer article layout.
+This document records the Node Reference design and the conventions to use when
+maintaining it. The **Music Player** page is the model entry: specific overview
+copy, numbered set-up steps, a description for every port and property, and an
+example that looks exactly like the canvas.
 
 ## Page structure
 
-The help modal keeps a fixed node-library directory on the left and a scrollable manual page on the right.
+The help modal keeps a fixed node-library directory on the left and a scrollable manual page on the right. Every node uses the same article.
 
 1. **Node-library directory**
    - Match the real equipment-rack sidebar: bank headers, colour rails, counts, glyphs, node codes, descriptions, and collapsible categories.
    - Keep search at the top. Selecting a node opens its manual page without closing Help.
 2. **Article header**
-   - Breadcrumb, category/data-role eyebrow, node name, one-sentence purpose, and compact input/output/property counts.
+   - Breadcrumb, category/subcategory eyebrow, node name, its one-sentence description, and counts of inputs, optional inputs, outputs and properties.
 3. **Node and Overview**
-   - Two columns on desktop: a clean capture of the node on the left and Overview on the right.
-   - Both columns use the same border, radius, and panel background.
-   - Crop the capture to the node itself; do not include canvas/sidebar clutter or a caption.
-4. **Inputs, Properties, Outputs**
-   - A three-panel row immediately below the introduction.
-   - Inputs and outputs identify port name and data type. Properties are grouped using the same logical groups as the live node.
-   - Collapse to a single column on narrow screens.
-5. **Example**
-   - Heading describes the result (for example, “From sound to pixels”).
-   - Show the signal path as compact utility text and place **Try it live** alongside it.
-   - Use a clean, tidy graph capture containing every example node. Do not include the app sidebar or the separate LED Preview panel in this image.
-   - Follow the image with a short “How it works” explanation that names the actual nodes and signal flow.
-6. **Main Preview**
-   - Include this section only when the rendered result materially clarifies the node’s use case.
-   - Pair the preview with a short description of what should move or change.
+   - Two columns on desktop: the generated node card on the left and the Overview on the right.
+   - The overview is written for the node: what it does, when to reach for it, and what to watch out for.
+4. **Set up and connect** (optional)
+   - Numbered steps for nodes that need hardware, assets or calibration before they do anything.
+5. **Inputs and Outputs**, then **Optional inputs**
+   - Each port names its data type and says what it means on this node. Optional inputs are the property and action sockets revealed by Expose input…; a property socket the entry does not describe reads "Replaces *Property* while wired".
+6. **Properties**
+   - Every visible property, grouped as on the live node, with its default and its `propertyDescription`. Internal keys (part ids, generated identifiers) and the LED output's `form` are not listed.
+7. **Example**
+   - The heading names the result. The signal path is shown with canvas titles (a Trigger reads as its mode, an LED output as its form) beside **Try it live**.
+   - The image is the generated example graph, drawn node for node like the canvas.
+   - "How it works" names the nodes and the signal flow.
+8. **Main preview** or **Result**
+   - The evaluated frame of the example's LED output, with what should move or change. Workflow examples — hardware parts, show assets, anything that needs content before it lights up — show an outcome card with the entry's `outcome` text instead of a misleading black panel.
+
+## Where the content lives
+
+- `src/components/HelpModal/reference/<category>.ts` holds one `NodeReferenceEntry` per node: `overview`, optional `steps`, `inputs`/`outputs` port copy, `propertyNote`, `outcome`, and the `example`.
+- `reference/example.ts` builds examples from a compact spec (`nodes` by key, `wires` as `'a.port > b.port'`, an optional LED output form) and checks every wire against the real ports when the module loads. It applies the app's Tidy Graph layout so the image and the inserted patch match.
+- `liveExamples.ts` is the narrow reader the article, the node-card generator and the firmware dead-code corpus share.
+- `portCopy.ts` holds the per-dataType glyphs and fallback port wording.
+
+## Writing an entry
+
+- Write for the node. Generic category copy ("use it as an animated control source…") is what made the old pages read the same and drift, and the reference no longer has a fallback.
+- Every example features its own node and is unique; do not reuse another node's graph. Keep it focused: the node, the fewest helpers that show what it does, and a picture that looks good at rest (the generator renders about four seconds in, with no buttons pressed).
+- Vary the LED output form, palettes and helpers across a category so the catalogue does not repeat itself.
+- Use `{output}` in the preview text; it becomes LED Matrix, LED String or LED Ring.
+- Claims about behaviour must match the evaluator and the generated firmware. Read the node's `evaluate.ts` before describing edge cases.
 
 ## Generated visuals
 
-- Generated visuals must use the real node data and property defaults, not a
-  synthetic recreation of the library.
-- The example graph for a node should stay tidy and keep all nodes fully
-  visible, including LED Matrix when it is part of the example.
-- Prefer a useful, representative preview frame over an idle/black result.
-- Audio examples may use:
-  `C:\Users\User\Downloads\Organic Soup - Old Timers - 2017 - MP3 (1)\01 - Organic Soup - Old Timers (2016 Edit).mp3`
-- Generated assets live under `public/node-cards/`:
-  - `public/node-cards/<slug>.svg` for the node card
-  - `public/node-cards/graphs/<slug>.svg` for the example graph
-  - `public/node-cards/previews/<slug>.svg` for the evaluated preview
-- `scripts/assets/node-cards.ts` is the generator. Run it through
-  `npm run gen:node-cards`. The shared `scripts/run-ts.mjs` runner
-  supplies empty in-memory browser storage before importing the app stores;
-  generated examples never load the user's project or network credentials.
-  `src/utils/nodeReferenceAssets.ts` supplies the shared filenames and URLs for
-  the generator, Help images, and asset-coverage tests.
-- The in-app Node Reference itself is data-driven from `NODE_LIBRARY`,
-  `NODE_DESCRIPTIONS`, `liveExamples.ts`, and the article helpers in
-  `src/components/HelpModal/NodeReference.tsx`.
-  Physical-display workflow copy lives in `displayReference.ts` beside the
-  article component; keep it aligned with the
-  [display reference](../reference/displays.md) and the actual editor.
+- Generated assets live under `public/node-cards/`: `<slug>.svg` (node card), `graphs/<slug>.svg` (example graph), `previews/<slug>.svg` (evaluated preview). `npm run gen:node-cards` regenerates all of them in seconds; `-- --only <Type>` does one node and skips the gallery.
+- `scripts/assets/node-cards.ts` is the generator. It uses the real node data and defaults, a test audio signal, a pinned RTC time (Friday 2 January 2026, 10:04 local) and stable seeds, so regenerating without changes is byte-identical. Code nodes run in a browser worker and render black here; their example is a workflow with an outcome.
 
 ## Try it live
 
-`src/utils/insertLiveExample.ts` provides the reusable insertion path. Each page supplies a declarative node/edge recipe.
+`src/utils/insertLiveExample.ts` inserts an example beside the current work without replacing the graph. It reuses singleton nodes, never replaces an occupied input, adds the graph in one undo step, closes Help, reveals the preview, starts the microphone for audio examples, frames the new nodes, and reports the result in the status bar.
 
-The action must:
+## Tests
 
-- add the example beside the current work without replacing the graph;
-- reuse singleton Microphone and LED Matrix nodes when present;
-- never replace an occupied input noodle (show a status message when the final LED Matrix connection is skipped);
-- add the graph in one store update and collapse React Flow measurements into one undo step;
-- close Help, reveal the preview, enable a useful test signal where appropriate, and frame the example nodes;
-- report the result in the status bar.
-
-The Microphone pilot is covered by `src/utils/__tests__/insertLiveExample.test.ts`.
-
-## Approved Microphone example
-
-The approved example is:
-
-`Microphone → FFT Analyzer → Spectrum Visualizer (Three Band) → LED Matrix`
-
-Microphone feeds live audio to FFT Analyzer. FFT separates bass, mids, and treble; those values drive Spectrum Visualizer's Three Band bars, whose frame is sent to LED Matrix. The Main Preview shows the resulting mirrored rainbow spectrum.
-
-## Rollout status — complete
-
-The rollout is complete across all 151 nodes in the library:
-
-- [x] Every node uses the approved reference-article structure.
-- [x] Every node has an example recipe, explanation, and an appropriate preview or workflow outcome.
-- [x] Every node has a **Try it live** action backed by valid, compatible wiring.
-- [x] Generated node cards, example-graph illustrations, and evaluated preview images exist for the full library under `public/node-cards/`.
-- [x] Coverage tests verify every library node's live example, wiring, layout grid, and workflow outcome.
-
-When a node is added or changed, update its reference content and live example,
-regenerate the node-card assets with `npm run gen:node-cards`, then run the
-focused Help tests plus the normal test, lint, and build checks.
+- `NodeReferenceCoverage.test.ts`: an entry for exactly the library, a real overview for each, port copy only for ports the node has, an outcome for every workflow example, set-up steps for every display, and assets for every node.
+- `liveExamples.test.ts`: compatible wiring, no placeholder sockets, valid property keys and option values, the Tidy grid, one LED output per example, unique examples, and the variety thresholds.
+- `deadCodeCorpus.test.ts` generates the firmware for every example.
