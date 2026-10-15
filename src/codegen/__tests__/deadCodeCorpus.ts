@@ -128,6 +128,9 @@ function showSketches(): Record<string, string> {
       edges: [edge('fx', 'particles', 'particleFx', 'master', 'particleFx')],
     }),
     'music-beat-transitions': musicPlayer(['solid', 'plasma', 'rainbow'], { master: { beatTransitions: true } }),
+    'music-paced': musicPlayer(['solid', 'plasma', 'rainbow'], {
+      master: { beatTransitions: true, energyPacing: true, dwellsAndBursts: true },
+    }),
     'music-no-patterns': musicPlayer([]),
     'music-vu-only': musicPlayer([], {
       noOutput: true,

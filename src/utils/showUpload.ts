@@ -158,7 +158,7 @@ export function buildShowPlayer(
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
-    || (opts.genericPlayer === true && pgProps.beatTransitions === true)
+    || (opts.genericPlayer === true && (pgProps.beatTransitions === true || pgProps.energyPacing === true))
     || controlGraph.usesDecoderBeat
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn, selectedEngine?.id), renderers, {
     audioEnvelope: opts.bakedAudio && (!!renderers || stereoVuMeters.length > 0),

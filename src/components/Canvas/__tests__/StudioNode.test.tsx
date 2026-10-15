@@ -72,7 +72,7 @@ describe('StudioNode', () => {
     const { container } = renderNode(makeNode('PatternMaster', { minTime: 4, maxTime: 12 }))
     const header = within(container).getByRole('button', { name: /timing/i })
     if (header.getAttribute('aria-expanded') !== 'true') fireEvent.click(header)
-    const checkbox = within(header.parentElement!).getByRole('checkbox') as HTMLInputElement
+    const checkbox = within(header.parentElement!).getByRole('checkbox', { name: 'Beat Transitions' }) as HTMLInputElement
     expect(within(header.parentElement!).getByText('Beat Transitions')).toBeTruthy()
     expect(checkbox.checked).toBe(false)
     fireEvent.click(checkbox)

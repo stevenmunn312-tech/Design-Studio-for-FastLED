@@ -1,5 +1,9 @@
 import type { EvalContext } from '../../state/evaluator/types'
 import { musicPlayerTiming } from '../../state/player/musicPlayerTiming'
+import {
+  type PacingEnergy, type PatternHold, blankPacingEnergy, firstPatternHold, nextPatternHold,
+  pacingEnergyStep, pacingIntensity, patternHoldSeconds,
+} from '../../state/player/patternPacing'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
 import { type StudioNode, useGraphStore } from '../../state/graphStore'
@@ -650,7 +654,11 @@ interface ShowState {
    *  without re-deriving it from the graph. */
   ids: readonly string[]
   phase: 'hold' | 'trans'
-  start: number; dwell: number; trans: string; lastBeat: boolean
+  start: number; trans: string; lastBeat: boolean
+  /** The current hold: normal, a dwell, or one change of a burst. */
+  hold: PatternHold
+  /** The track's energy and recent range, for Energy Pacing. */
+  paceEnergy: PacingEnergy
   seed: number
   activeId?: string
   lastTime?: number
@@ -677,6 +685,9 @@ export interface PatternShowSelection {
 interface ShowOpts {
   minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
   beatTransitions?: boolean
+  /** Hold pacing (patternPacing.ts). Absent means plain random holds. */
+  energyPacing?: boolean
+  dwellsAndBursts?: boolean
   particles: boolean; particleStyle: number; particleColor: RGB; particleIntensity: number
   randomStyle: boolean; randomColor: boolean
   particleSpacing: ParticleSpacing
@@ -720,7 +731,7 @@ export function getMusicPlayerControls(key: string): PlayerControls | null {
 }
 
 // The generative show: hold a random pattern for a random dwell in
-// [minTime, maxTime], then transition (a random style from `pool`) into another
+// [minTime, maxTime] (paced by patternPacing.ts), then transition (a random style from `pool`) into another
 // random pattern. Beat Transitions waits for a fresh beat after the dwell.
 // `render(groupId)` rasterises a pattern's subgraph to a frame.
 // ── Particle-burst overlay ────────────────────────────────────────────────────
@@ -921,7 +932,9 @@ function evalPatternShow(
   if (n === 0) return blankFrame(W, H)
   const sequential = o.order === 'Sequential'
   const rnd = () => seededRandom(`${key}:show`, o.seed)
-  const pickDwell = () => o.minTime + rnd() * Math.max(0, o.maxTime - o.minTime)
+  const pacing = {
+    minTime: o.minTime, maxTime: o.maxTime, transitionSec: o.transSec, energyPacing: o.energyPacing === true,
+  }
 
   let st = patternShowState.get(key)
   if (!st || st.seed !== o.seed) {
@@ -931,7 +944,7 @@ function evalPatternShow(
     // interrupted the show.
     seededRngState.delete(`${key}:show`)
     st = { sel: selection ?? blankPatternSelection(), next: blankPatternCursor(), ids,
-           phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, seed: o.seed,
+           phase: 'hold', start: t, hold: firstPatternHold(rnd), paceEnergy: blankPacingEnergy(), trans: 'crossfade', lastBeat: beat, seed: o.seed,
            volley: blankParticleVolley(),
            audioFade: o.audioEnergy === null ? 1 : silenceFadeTarget(o.audioEnergy) }
     updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: sequential ? 0 : Math.floor(rnd() * n) })
@@ -950,9 +963,11 @@ function evalPatternShow(
   if (t < (st.lastTime ?? st.start) || (st.activeId !== undefined && st.activeId !== st.sel.active.id)) {
     st.phase = 'hold'
     st.start = t
-    st.dwell = pickDwell()
+    st.hold = firstPatternHold(rnd)
     st.lastBeat = beat
   }
+  // The firmware reads the same mean band energy; no audio leaves it neutral.
+  if (o.audioEnergy !== null) pacingEnergyStep(st.paceEnergy, o.audioEnergy, (t - (st.lastTime ?? t)) * 1000)
 
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
   st.lastBeat = beat
@@ -973,7 +988,7 @@ function evalPatternShow(
   }
 
   if (st.phase === 'hold' && n > 1) {
-    const timeUp = t >= st.start + st.dwell
+    const timeUp = t >= st.start + patternHoldSeconds(st.hold, pacing, pacingIntensity(st.paceEnergy))
     if (timeUp && (!o.beatTransitions || beatEdge)) {
       // Sequential walks the collection in the order it was arranged; random
       // picks uniformly from everything except what is already showing.
@@ -1000,7 +1015,7 @@ function evalPatternShow(
       updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: st.next.index })
       st.phase = 'hold'
       st.start = t
-      st.dwell = pickDwell()
+      st.hold = nextPatternHold(st.hold, rnd, o.dwellsAndBursts === true)
     }
   } else {
     frame = render(ids[cur])

@@ -7,6 +7,7 @@ function reactivePatterns(renderers?: PatternRenderers): boolean {
   return renderers?.audioReactive?.some(Boolean) ?? !!renderers
 }
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
+import { patternPacingCpp } from './player/patternPacingCpp'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, particleEnergyGate, particleRestMs, particleVolleyBursts,
   SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_ENERGY_RANGE, SILENCE_RELEASE_RATE,
@@ -487,7 +488,7 @@ export function generatePlayerSketch(
   const hasStereoVu = stereoVuMeters.length > 0
   const patternTiming = musicPlayerTiming(opts.patternTiming ?? {})
   const decoderTap = (collection && (opts.decoderTap === true
-    || (opts.genericPlayer === true && patternTiming.beatTransitions))) || hasStereoVu
+    || (opts.genericPlayer === true && (patternTiming.beatTransitions || patternTiming.energyPacing)))) || hasStereoVu
   // ESP32-audioI2S's own volumetable, mirrored so the meter can undo the gain
   // the decoder applies before the tap sees a sample. The player only changes
   // volume at runtime when it has controls, so setup can state the starting
@@ -511,6 +512,11 @@ export function generatePlayerSketch(
   // pattern that brings the same sampler does not define it a second time.
   const transitionSupport = transitionSupportCpp(transitionIds)
   const sequentialPatterns = asSlideshowOrder(opts.patternOrder) === 'Sequential'
+  // Paced holds replace the fixed rotateMs with a lead plus a hold read every
+  // loop (patternPacing.ts); without pacing the rotation is emitted as before.
+  const pacing = patternTiming.energyPacing || patternTiming.dwellsAndBursts ? patternPacingCpp(patternTiming) : null
+  const rotationDue = pacing ? 'rotateLeadMs + paceHoldMs()' : 'rotateMs'
+  const rotationAdvance = pacing ? `rotateLeadMs = transitionMs;\n      ${pacing.next}` : 'rotateMs = transitionMs + pickHoldMs();'
   const graphRouting = opts.controlGraph
   const timingExpression = (port: 'minTime' | 'maxTime' | 'transitionSec') =>
     graphRouting?.timingInputs[port] ?? `${patternTiming[port].toFixed(4)}f`
@@ -2177,11 +2183,13 @@ ${rotates ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
     const float minHold = constrain(${timingExpression('minTime')}, 0.0f, 86400.0f);
     const float maxHold = max(minHold, constrain(${timingExpression('maxTime')}, 0.0f, 86400.0f));
     const uint32_t transitionMs = (uint32_t)(constrain(${timingExpression('transitionSec')}, 0.0f, 86400.0f) * 1000.0f);
-    auto pickHoldMs = [&]() -> uint32_t {
+${pacing ? `${pacing.declarations}
+    static uint32_t rotateLeadMs = 0;
+` : `    auto pickHoldMs = [&]() -> uint32_t {
       return (uint32_t)(minHold * 1000.0f) + (uint32_t)random((long)((maxHold - minHold) * 1000.0f) + 1);
     };
     static uint32_t rotateMs = pickHoldMs();
-    static uint32_t rotatedAtMs = 0;
+`}    static uint32_t rotatedAtMs = 0;
 ${patternTiming.beatTransitions ? `    const bool beatNow = ${patternTiming.beatTransitions ? (graphRouting?.timingInputs.beat ?? '_audioBeat') : 'false'};
     static bool lastBeat = beatNow;
     bool beatEdge = beatNow && !lastBeat;
@@ -2191,7 +2199,7 @@ ${patternTiming.beatTransitions ? `    const bool beatNow = ${patternTiming.beat
     static uint32_t previousPosMs = 0;
     if (posMs < previousPosMs) {
       rotatedAtMs = posMs;
-      rotateMs = pickHoldMs();
+${pacing ? '      rotateLeadMs = 0;\n      paceReset();' : '      rotateMs = pickHoldMs();'}
 ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     }
     previousPosMs = posMs;
@@ -2205,21 +2213,21 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
     // nothing - which is what that press means.
     if (selActive != rotatedFrom) {
       rotatedFrom = selActive; rotatedAtMs = posMs;
-      rotateMs = pickHoldMs() + (selActive != patternId ? transitionMs : 0);
+${pacing ? '      rotateLeadMs = selActive != patternId ? transitionMs : 0;\n      paceReset();' :'      rotateMs = pickHoldMs() + (selActive != patternId ? transitionMs : 0);'}
 ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     }
-    if (posMs - rotatedAtMs >= rotateMs${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
+    if (posMs - rotatedAtMs >= ${rotationDue}${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
       rotatedAtMs = posMs;
-      rotateMs = transitionMs + pickHoldMs();
+      ${rotationAdvance}
       _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT,
                     (uint16_t)((selActive + 1${sequentialPatterns ? '' : ' + random(PATTERN_COUNT - 1)'}) % PATTERN_COUNT));
       rotatedFrom = _sel_${PLAYER_SELECTION_STEM}.active;
     }
     uint8_t nextPattern = (uint8_t)_sel_${PLAYER_SELECTION_STEM}.active;
 ` : `    static uint8_t rotateIndex = patternId;
-    if (posMs - rotatedAtMs >= rotateMs${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
+    if (posMs - rotatedAtMs >= ${rotationDue}${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
       rotatedAtMs = posMs;
-      rotateMs = transitionMs + pickHoldMs();
+      ${rotationAdvance}
       rotateIndex = (uint8_t)((rotateIndex + 1${sequentialPatterns ? '' : ` + random(${patternCount - 1})`}) % ${patternCount});
     }
     uint8_t nextPattern = rotateIndex;

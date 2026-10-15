@@ -62,14 +62,14 @@ describe('HelpModal session state', () => {
     })
     const view = render(<HelpModal />)
     expect(view.getByRole('heading', { name: 'Music Player' })).toBeTruthy()
-    expect(view.getByText(/6 inputs · 15 optional · 2 outputs · 7 properties/)).toBeTruthy()
+    expect(view.getByText(/6 inputs · 15 optional · 2 outputs · 9 properties/)).toBeTruthy()
     expect(view.getByText(/12 seconds is not a forced change deadline/)).toBeTruthy()
     expect(view.getByText(/Playback volume from 0/)).toBeTruthy()
     expect(view.getByText(/Controls random pattern, hold-time/)).toBeTruthy()
     expect(view.getByText(/Duration of the change between patterns/)).toBeTruthy()
     expect(view.getByText(/^Optional inputs/)).toBeTruthy()
     const article = view.container.querySelector('article')!
-    expect(article.querySelectorAll('dt').length).toBe(7)
+    expect(article.querySelectorAll('dt').length).toBe(9)
   })
 
   it('reopens the node reference where the session left off', async () => {

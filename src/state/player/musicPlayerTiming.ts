@@ -11,5 +11,8 @@ export function musicPlayerTiming(properties: Record<string, unknown>) {
     maxTime: Math.max(minTime, seconds(properties.maxTime, 12)),
     transitionSec: seconds(properties.transitionSec, 1),
     beatTransitions: properties.beatTransitions === true,
+    // Hold pacing; see patternPacing.ts.
+    energyPacing: properties.energyPacing === true,
+    dwellsAndBursts: properties.dwellsAndBursts === true,
   }
 }

@@ -127,6 +127,26 @@ describe('beat-triggered pattern transitions', () => {
     expect(playingId(ALL)).toBe(ALL[1])
   })
 
+  it('breaks up timed changes with dwells and bursts', () => {
+    const gaps = (props: Record<string, unknown>) => {
+      resetEvaluatorState()
+      const changes: number[] = []
+      let playing = ''
+      for (let s = 0; s <= 240; s += 0.25) {
+        run(s, false, props as typeof timing)
+        if (playingId(ALL) !== playing) { playing = playingId(ALL); changes.push(s) }
+      }
+      return changes.slice(1).map((at, i) => at - changes[i])
+    }
+    const steady = { ...timing, beatTransitions: false, order: 'Random' }
+    expect(new Set(gaps(steady))).toEqual(new Set([2]))
+    const varied = gaps({ ...steady, dwellsAndBursts: true })
+    // A dwell holds four times Max Time; a burst changes again half a second on.
+    expect(varied).toContain(8)
+    expect(varied).toContain(0.5)
+    expect(varied.filter((gap) => gap === 2).length).toBeGreaterThan(varied.length / 2)
+  })
+
   it('holds indefinitely without a beat source', () => {
     runShow(ALL, 0, timing)
     runShow(ALL, 100 * 60, timing)
@@ -172,6 +192,7 @@ describe('beat-triggered pattern transitions', () => {
   it('normalizes invalid timing and a maximum below the minimum', () => {
     expect(musicPlayerTiming({ minTime: 5, maxTime: 2, transitionSec: -1 })).toEqual({
       minTime: 5, maxTime: 5, transitionSec: 0, beatTransitions: false,
+      energyPacing: false, dwellsAndBursts: false,
     })
     expect(musicPlayerTiming({ minTime: NaN, maxTime: Infinity }).minTime).toBe(4)
     expect(musicPlayerTiming({ minTime: NaN, maxTime: Infinity }).maxTime).toBe(12)

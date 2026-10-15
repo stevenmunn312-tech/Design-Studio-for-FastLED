@@ -1691,6 +1691,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     minTime: 'Minimum hold time in seconds. With Beat Transitions enabled, this is the shortest cooldown after a transition finishes.',
     maxTime: 'Maximum random hold time in seconds. With Beat Transitions enabled, the player still waits for the next beat after the cooldown ends.',
     transitionSec: 'Duration of the change between patterns, in seconds. The next hold or beat cooldown starts when this transition finishes. Preview chooses a style from the connected Transitions pool, or crossfade when none is supplied; the generic SD player uses crossfade.',
+    energyPacing: 'Lean each hold toward Min Time while the music is intense and toward Max Time while it is calm. Intensity is measured against the track’s own recent loudest and quietest passages. Needs Audio.',
+    dwellsAndBursts: 'Now and then hold one pattern for four times Max Time, and now and then change three to five patterns in quick succession, each change just after its transition. Beat Transitions still makes every change wait for a beat.',
     volume: 'Playback volume from 0 (muted) to 1 (full volume). This controls the music, not LED brightness or microphone gain. A wired Volume input takes priority over this field.',
     seed: 'Controls random pattern, hold-time, transition, and particle choices in preview. Zero runs freely; a nonzero value makes the random sequence repeatable for the same inputs. The SD player uses its own random sequence.',
   },
@@ -3162,6 +3164,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PatternMaster: {
     order: 'Pattern Order',
     beatTransitions: 'Beat Transitions',
+    energyPacing: 'Energy Pacing',
+    dwellsAndBursts: 'Dwells & Bursts',
     minTime: 'min hold (s)',
     maxTime: 'max hold (s)',
     transitionSec: 'fade (s)',
@@ -4027,7 +4031,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   PatternMaster: [
     { key: 'playback', label: 'Playback', keys: ['volume', 'order'] },
-    { key: 'timing', label: 'Timing', keys: ['beatTransitions', 'minTime', 'maxTime', 'transitionSec'] },
+    { key: 'timing', label: 'Timing', keys: ['beatTransitions', 'minTime', 'maxTime', 'transitionSec', 'energyPacing', 'dwellsAndBursts'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   PatternSlideshow: [

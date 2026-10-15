@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../playerSketchGenerator'
 import { FRAME_SAMPLE_HELPER_CPP } from '../helpers/frameSampleHelperCpp'
 import { patternRenderersUseAudio } from '../showGenerator'
+import { musicPlayerTiming } from '../../state/player/musicPlayerTiming'
 
 // The show's LED target comes off a wire now — the generator's `frame` into an
 // output's `frame` — so a fixture that wants its MatrixOutput read has to say
@@ -383,6 +384,43 @@ describe('playerSketchGenerator', () => {
       } else {
         expect(sketch).toContain('static uint8_t rotateIndex = patternId;')
       }
+    })
+
+    it('emits plain random holds when neither pacing option is on', () => {
+      const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true })
+      expect(sketch).toContain('static uint32_t rotateMs = pickHoldMs();')
+      expect(sketch).not.toContain('paceHoldMs')
+    })
+
+    it.each([false, true])('paces holds with Dwells & Bursts and physical controls %s', (hasControls) => {
+      const sketch = generatePlayerSketch({}, renderers, {
+        genericPlayer: true, controls: hasControls ? controls : undefined,
+        patternTiming: musicPlayerTiming({ dwellsAndBursts: true }),
+      })
+      expect(sketch).not.toContain('pickHoldMs')
+      expect(sketch).toContain('if (posMs - rotatedAtMs >= rotateLeadMs + paceHoldMs()) {')
+      expect(sketch).toContain('if (holdKind == 1) return (uint32_t)(4.0000f * maxHold * 1000.0f);')
+      expect(sketch).toContain('holdKind = r < 0.1200f ? 1 : r < 0.2400f ? 2 : 0;')
+      expect(sketch).toContain('if (holdKind == 2) burstLeft = (uint8_t)(2 + random(3));')
+      expect(sketch).toContain('rotateLeadMs = transitionMs;\n      paceNext();')
+      // Without Energy Pacing nothing reads the track's energy.
+      expect(sketch).not.toContain('paceLevel')
+      expect(sketch).toContain('(minHold + (maxHold - minHold) * (holdU)) * 1000.0f')
+      if (hasControls) expect(sketch).toContain('rotateLeadMs = selActive != patternId ? transitionMs : 0;\n      paceReset();')
+    })
+
+    it('leans holds on the decoder energy with Energy Pacing', () => {
+      const sketch = generatePlayerSketch({}, renderers, {
+        genericPlayer: true, patternTiming: musicPlayerTiming({ energyPacing: true }),
+      })
+      // Energy needs the decoder tap even with no audio-reactive pattern.
+      expect(sketch).toContain('_audioBass = _audioProcessor->getBassLevel();')
+      expect(sketch).toContain('const float energy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);')
+      expect(sketch).toContain('(holdU * 0.5000f + (1.0f - intensity) * 0.5000f)')
+      expect(sketch).toContain('rotateLeadMs = transitionMs;\n      paceReset();')
+      // Without Dwells & Bursts there are no hold kinds.
+      expect(sketch).not.toContain('holdKind')
+      expect(sketch).not.toContain('paceNext')
     })
 
     it('leaves Performance show scheduling in charge of its patterns', () => {

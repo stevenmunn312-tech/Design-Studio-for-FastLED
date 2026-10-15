@@ -125,6 +125,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     ],
     defaultProperties: {
       volume: 1, order: 'Random', beatTransitions: false, minTime: 4, maxTime: 12, transitionSec: 1,
+      energyPacing: false, dwellsAndBursts: false,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Controls and particle FX are supplied by their dedicated bundle nodes.
       seed: 0,
