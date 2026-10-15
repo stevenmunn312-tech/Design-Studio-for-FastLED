@@ -523,6 +523,111 @@ library defaults.
   one card per node from the frozen definitions, reusing the property
   descriptions and the redrawn node cards, with a live example per node.
 
+## D-09 · Dead code in generated firmware, v1 part
+
+From the 2026-10-15 audit of all four firmware types: 315 normal sketches
+(every live example plus the normal-mode fixtures) and variant sets of the
+Music Player, SD performance player and slideshow. Each was put through a
+reachability check from `setup`/`loop`, and every hit was confirmed by hand.
+The rule is that generated firmware carries nothing the graph cannot reach:
+no function, global, macro, include, switch arm or branch that the exact graph
+can never run. The bugs the audit found, and transition, palette and built-in
+pattern narrowing, are fixed (see
+[player, shows and controls](docs/development/patterns/player-shows-and-controls.md)).
+The scratch corpus and checker are regenerable under `tmp/deadcode/`.
+
+- [ ] **D-09.1 · Reachability-pruned helper registry.** Every file-scope helper
+  becomes a named unit that lists what it calls, and assembly keeps only what
+  the emitted bodies reach, replacing the per-flag `needs*` gates. The slideshow
+  already narrows palettes this way, from the finished text. This closes the
+  biggest category, whole blocks emitted for one function:
+  - custom-screen LVGL setters and `_cdEvent`
+    (`CUSTOM_DISPLAY_LVGL_HELPERS`, up to 195 dead lines a sketch);
+  - segment-display Power formatters and `_segFaultCode`;
+  - OLED SPI and I2C begin, the controller that isn't selected, and drawing
+    helpers the layout doesn't use;
+  - the RTC build-stamp parser for Manual or DS3231 sources, and
+    `_rtcClockText`/`_rtcDateText`;
+  - SDF rect, ellipse and polygon;
+  - lattice slice machinery outside Slice Tiling, and unused cell finders;
+  - `PLAYER_CONTROLS_CPP` structs (`CtlEdge`, `CtlTap`, `CtlDetent`) with no
+    matching control, and `PATTERN_SELECTION_CPP` encoder and TFT parts;
+  - `CPP_SHIM_HELPERS`, all emitted for one shim;
+  - the XPT2046 path on a resistive-only sheet;
+  - `_sampleShaded` and `_sampleFrame` within the frame sampler, and
+    `_facingShade`/`_shadePixel` within the 3D support (door only);
+  - TFT colour and slot macros;
+  - non-debug INA219/INA226 helpers when every monitor is in debug mode.
+
+  Turn the checker into a test over the live-example corpus so dead code
+  cannot come back.
+- [ ] **D-09.2 · Split Music Player and performance player emission.**
+  `playerSketchGenerator` serves both through runtime flags. In a Music Player
+  sketch, this is still emitted behind `GENERIC_PLAYER`:
+  - the whole `.show` runtime (`loadShowFile`, `applyEvent`, `ShowEvent`,
+    `CMD_*`, the event buffers and dispatch loop);
+  - the `PREFERRED_TRACK` and paired-fallback paths in `startPlayback`;
+  - the beat-flash overlay.
+
+  In a performance player:
+  - `musicDumpCard`/`musicDumpDir`;
+  - `GENERIC_PLAYER`/`genericTrackIndex`.
+
+  Everywhere:
+  - the 17-style particle overlay and `prnd` with Particle FX unwired, and
+    every other arm when the style is fixed;
+  - `ControlButton`/`ControlEncoder` when controls route through the graph;
+  - `playbackReady` with no display reading it.
+- [ ] **D-09.3 · Machinery a small or still show cannot use.**
+  - A one-pattern Music Player still carries the rotation block, the
+    transition stack and `showA`/`showB`, about 25% of the sketch.
+  - A slideshow with transition length 0 keeps the transition branch and
+    buffers.
+  - A single-style pool keeps `TRANS_POOL`, the draw and the switch wrapper.
+  - A one-pattern slideshow keeps pattern-selection code and a one-case
+    `renderPattern`.
+  - The `renderPattern` `default:` arm is unreachable.
+  - A VU-only Music Player with no LED output keeps the matrix pipeline and
+    its buffers.
+- [ ] **D-09.4 · Player data nobody reads.**
+  - Group-input roles no pattern takes (the `energy`/`speed`/`palette` globals,
+    arms and arguments; `CMD_SET_ENERGY`).
+  - The baked audio envelope when no pattern listens.
+  - Audio globals written but never read, including the 32-bin
+    `_audioSpectrum` fetched every frame.
+  - Per-sample stereo-level maths and `DECODER_VOLUME_TABLE` with no VU meter
+    or controls.
+  - The silence fade when no pattern is audio-reactive; a uniform
+    `PATTERN_AUDIO_REACTIVE` table should collapse to the scalar.
+  - `beatNow`/`beatEdge` with Beat Transitions off.
+  - `ShowEvent.params[4]`, which holds at most 3 (about 12 KB of heap at 3,000
+    events).
+  - `applyEvent` fallbacks for parameter counts `showFileToBinary` never
+    writes.
+  - SET_PALETTE/SET_SPEED/SET_ENERGY events written to a show whose patterns
+    read none of them.
+- [ ] **D-09.5 · Fold constant inputs and unread outputs (normal sketch).**
+  - Port locals emitted for every output even when no edge reads them: 210
+    locals in 81 of 315 sketches, including every custom-screen widget output.
+  - Logic left behind unwired bool inputs: Clock tap/sync/reset, Toggle
+    `if (0)`, `(true) ? …` in Power Switch, and `bool _tr=(false)` in the field,
+    generative, simulation and audio emitters.
+  - Switches over values fixed at generation: `_foldWallpaper` (9 arms),
+    `_polPos` (7), Truchet's hex and motif branches, Fluid's literal
+    `visc`/`diff`, Frame Warp's `edgeMode`/`bilinear`.
+  - `_psAlloc` gated on `usePsram` rather than on a PSRAM buffer existing.
+  - `WIDTH`/`HEIGHT`/`NUM_LEDS` in a screen-only sketch.
+  - `paldef_rainbow` from Boids in solid mode and from the PaletteSelector
+    comment.
+- [ ] **D-09.6 · Board-specific branches for a known board.**
+  - `networkIncludesCpp` and the Wi-Fi bootstrap emit the ESP32, ESP8266 and
+    unsupported branches even with the Board selected.
+  - IR always emits the 180-line ESP32-S3 RMT receiver inside an `#if`, and
+    tests `DECODE_*` macros it always defines.
+  - `<time.h>` is included in network sketches with no NTP clock.
+  - Telemetry's `#if defined(ESP32)` checks run for a family already known.
+  - `LINE_IN_MCLK` is unused in microphone sketches.
+
 ## 5. Release track (in order)
 
 - [x] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
