@@ -64,8 +64,15 @@ export type CapacitySubject = 'sketch' | 'player'
  *  check — a chip under the preview, a button in the deploy popup — can ask
  *  for one without knowing how to generate a sketch. */
 export interface CapacityTarget {
-  /** `null` when there is nothing to build or asset preparation blocks it. */
-  code: string | null
+  /** Builds the sketch a check compiles. `null` when there is nothing to build
+   *  or asset preparation blocks it. Called only when a check runs: for a large
+   *  pattern collection generation takes seconds, so it must never run on an
+   *  ordinary edit just to keep this target current. */
+  generate: (() => string) | null
+  /** Fingerprint of everything `generate` reads, standing in for its output in
+   *  the staleness test. A change here may still produce the same sketch; the
+   *  meter then calls a reading stale that is not, which is the safe side. */
+  inputKey: string
   /** Asset preparation happens before a compile target can be published. */
   preparing?: boolean
   /** Preparation is waiting on trust rather than failing. */
@@ -128,7 +135,7 @@ const BUSY_RETRY_MS = 3000
 const BUSY_RETRY_LIMIT = 3
 
 // Non-cryptographic FNV-1a — only used as a cheap change-detection key over
-// the generated sketch text, not for anything security-sensitive.
+// the target's input fingerprint, not for anything security-sensitive.
 function hashCode(s: string): string {
   let h = 0x811c9dc5
   for (let i = 0; i < s.length; i++) {
@@ -139,7 +146,7 @@ function hashCode(s: string): string {
 }
 
 function targetKey(t: Omit<CapacityTarget, 'key'>): string {
-  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.flashMb ?? ''}|${t.usbCdcOnBoot ? 'cdc' : ''}|${t.code === null ? 'none' : hashCode(t.code)}|${JSON.stringify([!!t.preparing, t.preparationError ?? '', !!t.blockedByGraph])}`
+  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.flashMb ?? ''}|${t.usbCdcOnBoot ? 'cdc' : ''}|${t.generate === null ? 'none' : hashCode(t.inputKey)}|${JSON.stringify([!!t.preparing, t.preparationError ?? '', !!t.blockedByGraph])}`
 }
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -187,7 +194,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     // build. A finished reading always lands now, labelled `stale` when the
     // target has moved on — which is the state that already exists for exactly
     // this, a real measurement of a design that has since changed.
-    if (next.code === null) {
+    if (next.generate === null) {
       // Drop the reading rather than leaving it: it described a graph that no
       // longer exists, and a number with nothing behind it is worse than none.
       // Nothing to compare an answer against, so a check in flight is
@@ -225,11 +232,14 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
 
   check: () => {
     const target = get().target
-    if (!target || target.code === null || !target.toolchainReady) return
+    if (!target || target.generate === null || !target.toolchainReady) return
 
     cancelInFlight()
-    const { code, fqbn, key, flashMb, usbCdcOnBoot } = target
+    const { generate, fqbn, key, flashMb, usbCdcOnBoot } = target
     let attempt = 0
+    // Generated once per check, on the first attempt, and reused by busy
+    // retries: the target it describes is fixed for the life of this check.
+    let code: string | null = null
 
     const seq = ++checkSeq
     // 'measured' only while the reading still describes the live target; a
@@ -256,7 +266,15 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       inFlightController = controller
       inFlightKey = key
       set({ status: 'checking' })
-      compileCheck(code, fqbn, controller.signal, flashMb, usbCdcOnBoot)
+      // Generation is synchronous and can take seconds, so it waits one task
+      // for the 'checking' state to paint before it starts.
+      const sketch = code !== null ? Promise.resolve(code)
+        : new Promise<string>((resolve) => setTimeout(resolve, 0)).then(() => (code = generate()))
+      sketch
+        .then((text) => {
+          if (controller.signal.aborted || superseded()) throw controller.signal.reason
+          return compileCheck(text, fqbn, controller.signal, flashMb, usbCdcOnBoot)
+        })
         .then((res) => {
           if (controller.signal.aborted || superseded()) return
           if (res.busy && attempt < BUSY_RETRY_LIMIT) {
@@ -277,7 +295,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
             subject: target.subject,
           }))
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (controller.signal.aborted || superseded()) return
           inFlightController = null
           inFlightKey = null
@@ -287,7 +305,10 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
             status: landed(),
             result: {
               ok: false, overflow: false, target: fqbn, flash: null, ram: null,
-              error: 'Capacity check unavailable — helper offline?',
+              // No sketch means the failure was ours, not the helper's.
+              error: code === null
+                ? `Could not generate the sketch: ${error instanceof Error ? error.message : String(error)}`
+                : 'Capacity check unavailable — helper offline?',
             },
           })
         })

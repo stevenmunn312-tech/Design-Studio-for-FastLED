@@ -13,6 +13,9 @@ import { resolveBuildMode } from '../state/upload/buildMode'
 
 type AssetMap = Record<string, readonly BakedCustomDisplayAsset[]>
 interface Result { assets: AssetMap; errors: string[] }
+// Shared so a pending result keeps one identity across renders; consumers
+// memoise expensive codegen on these fields.
+const NO_ERRORS: string[] = []
 
 // Share successful/in-flight work between the capacity watcher and deploy view.
 // Documents are immutable store snapshots; removed documents can be collected.
@@ -134,7 +137,7 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
   return {
     documents, groups, trusted, retry,
     assets: result?.assets,
-    errors: result?.errors ?? [],
+    errors: result?.errors ?? NO_ERRORS,
     // Kept out of `errors` so a caller can tell "these images would not bake"
     // from "this graph would not build" — they lead to different places.
     routingErrors: plan.routingErrors,

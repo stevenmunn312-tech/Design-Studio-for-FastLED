@@ -54,6 +54,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   own premise — `.deployControls` is flex and `.capacityLine` is
   `overflow: hidden` — so it reads as stale rather than silently passing if that
   structure changes.
+- `CapacityWatcher` publishes a capacity target as a `generate` function plus
+  an `inputKey` fingerprint (root and per-subgraph `codegenSignature`, build
+  options, identity tokens), never the sketch text. Generating the sketch for a
+  large Pattern Collection walks every pattern and bakes their thumbnails —
+  seconds of main-thread work — and doing it on each edit to keep a hashed-code
+  staleness key current froze the editor on every change; only `check()` calls
+  `generate`. The same freeze came from identity churn: `useGroupRegistry`
+  rebuilt the registry whenever the open graph's `nodes` changed, which React
+  Flow does on every click, cascading through `useCustomDisplayAssets` into
+  fresh `errors`/`assets` arrays. The registry now ignores the root's nodes and
+  keys an open subgraph on its codegen content, so it changes only on a real
+  subgraph edit. Anything memoised on the registry must keep that property.
 - A port being *selected* and a board being *connected* on it are two separate
   facts, resolved once in `src/utils/portStatus.ts`'s `describePort` rather than
   per component: the selection is remembered per project and survives the board

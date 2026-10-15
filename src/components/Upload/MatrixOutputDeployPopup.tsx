@@ -217,7 +217,7 @@ export default function MatrixOutputDeployPopup({
     () => summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError),
     [board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError],
   )
-  const canCheckCapacity = !!capacityTarget?.code && capacityTarget.toolchainReady && capacityStatus !== 'checking'
+  const canCheckCapacity = !!capacityTarget?.generate && capacityTarget.toolchainReady && capacityStatus !== 'checking'
   // Only a *current* measurement blocks. 'measured' means the reading was taken
   // against the graph and board as they stand; a 'stale' overflow describes a
   // design the user may already have shrunk, and blocking on it would trap them

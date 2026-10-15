@@ -58,6 +58,24 @@ export function codegenSignature(nodes: StudioNode[], edges: StudioEdge[]): stri
   return parts.join('\u0000')
 }
 
+// Per-subgraph signatures, keyed on the subgraph's own arrays: an edit inside
+// one pattern re-signs that pattern alone, not the whole collection.
+const subgraphSignatures = new WeakMap<StudioNode[], { edges: StudioEdge[]; signature: string }>()
+
+/** Codegen fingerprint of every subgraph in a group registry. */
+export function registrySignature(groups: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }>): string {
+  const parts: string[] = []
+  for (const [id, group] of Object.entries(groups)) {
+    let cached = subgraphSignatures.get(group.nodes)
+    if (!cached || cached.edges !== group.edges) {
+      cached = { edges: group.edges, signature: codegenSignature(group.nodes, group.edges) }
+      subgraphSignatures.set(group.nodes, cached)
+    }
+    parts.push(id, cached.signature)
+  }
+  return parts.join('\u0001')
+}
+
 export function useCodegenGraph(nodes: StudioNode[], edges: StudioEdge[]): CodegenGraph {
   const signature = codegenSignature(nodes, edges)
   const cached = useRef<{ signature: string; graph: CodegenGraph } | null>(null)

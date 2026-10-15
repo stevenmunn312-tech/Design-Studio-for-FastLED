@@ -76,7 +76,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const capacityLevel = capacity.tone === 'error' ? 'bad' : capacity.tone
   // A check compiles the design for real, so it only ever runs from a press —
   // and there is only something to press when there is something to build.
-  const canCheck = !!capacityTarget?.code && capacityTarget.toolchainReady && capacityStatus !== 'checking'
+  const canCheck = !!capacityTarget?.generate && capacityTarget.toolchainReady && capacityStatus !== 'checking'
 
   // Nothing to be ready for until something drives LEDs.
   if (!power) return null

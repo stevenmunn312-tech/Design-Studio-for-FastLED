@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, boardHasUsbCdc, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
@@ -10,7 +10,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch } from '../../codegen/showGenerator'
 import { analysedShows, buildShowPlayerForMeasurement } from '../../utils/showUpload'
 import { useMusicStore } from '../../state/player/musicStore'
-import { useCodegenGraph } from '../../utils/codegenGraph'
+import { codegenSignature, registrySignature, useCodegenGraph } from '../../utils/codegenGraph'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedBoardFlashMb, selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { resolveUsbCdcOnBoot } from '../../state/upload/serialRouting'
@@ -35,6 +35,16 @@ import { findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
  * readout — and none of them should have to be on screen for the target to
  * track the graph.
  */
+// Stable small ids for inputs that are compared by identity in the key.
+const identities = new WeakMap<object, number>()
+let nextIdentity = 0
+function identityToken(value: object | undefined): string {
+  if (!value) return 'none'
+  let id = identities.get(value)
+  if (id === undefined) { id = ++nextIdentity; identities.set(value, id) }
+  return String(id)
+}
+
 export default function CapacityWatcher() {
   const nodes = useRootNodes()
   const edges = useRootEdges()
@@ -102,45 +112,69 @@ export default function CapacityWatcher() {
     () => findFirmwareRamBudgetIssue(codegenGraph.nodes, codegenGraph.edges, customAssets.documents),
     [codegenGraph, customAssets.documents],
   )
-  const capacityCode = useMemo(() => {
-    const groups = getGroupRegistry()
+  // The registry the assets hook already holds: its identity changes only when
+  // a subgraph does, so a click anywhere leaves this memo alone.
+  const groups = customAssets.groups
+  const graphs = useGraphStore((s) => s.graphs)
+  /*
+   * What a check would compile, as a generator and the fingerprint of its
+   * inputs — not the sketch itself. Generating it walks every collected
+   * pattern and bakes their thumbnails, seconds of main-thread work for a
+   * large collection; doing that on each edit just to keep the staleness key
+   * current froze the editor on every change. The check generates it once,
+   * when pressed.
+   */
+  const capacityInput = useMemo(() => {
     if (customAssets.pending || customAssets.errors.length > 0
       || customAssets.routingErrors.length > 0 || ramBudgetIssue) return null
-    if (codegenBuild.mode === 'player') {
-      return buildShowPlayerForMeasurement(
-        codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported, projectName,
-        { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets, shows },
-      )
-    }
-    if (!codegenBuild.capabilities.buildable) return null
+    if (codegenBuild.mode !== 'player' && !codegenBuild.capabilities.buildable) return null
+    const inputKey = [
+      codegenBuild.mode, selectedFqbn, String(psramSupported), projectName, String(customAssets.trusted),
+      codegenSignature(codegenGraph.nodes, codegenGraph.edges),
+      registrySignature(groups),
+      JSON.stringify(Object.values(graphs).map((graph) => [graph.id, graph.name])),
+      identityToken(shows), identityToken(customAssets.documents), identityToken(customAssets.assets),
+    ].join('\u0000')
     // Thumbnails are flash, and this is the thing that measures flash — leaving
     // them out understates a Pattern Browser build, which is exactly the build
     // most likely to be near the ceiling.
-    const opts = {
-      psramAllowed: psramSupported,
-      bootLabel: projectName,
-      thumbnails: bakeBrowserThumbnails(
-        codegenGraph.nodes, codegenGraph.edges, groups, customAssets.trusted,
-        codegenBuild.templateDisplaySourceIds ?? undefined,
-      ),
-      // Names are not baked: they cost no evaluation and no trust decision, so
-      // a panel keeps naming patterns even where the pictures could not be made.
-      patternNames: collectionPatternNames(
-        codegenGraph.nodes, codegenGraph.edges, useGraphStore.getState().graphs,
-        codegenBuild.templateDisplaySourceIds ?? undefined,
-      ),
-      artworks: bakeDisplayArtworks(
-        codegenGraph.nodes, codegenGraph.edges, groups,
-        customAssets.trusted,
-        codegenBuild.templateDisplaySourceIds ?? undefined,
-      ),
-      displayDocuments: customAssets.documents,
-      customDisplayAssets: customAssets.assets,
+    const generate = (): string => {
+      if (codegenBuild.mode === 'player') {
+        const sketch = buildShowPlayerForMeasurement(
+          codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported, projectName,
+          { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets, shows },
+        )
+        // Null only for a non-player build, which this branch has ruled out.
+        if (sketch === null) throw new Error('the design is no longer a player build')
+        return sketch
+      }
+      const opts = {
+        psramAllowed: psramSupported,
+        bootLabel: projectName,
+        thumbnails: bakeBrowserThumbnails(
+          codegenGraph.nodes, codegenGraph.edges, groups, customAssets.trusted,
+          codegenBuild.templateDisplaySourceIds ?? undefined,
+        ),
+        // Names are not baked: they cost no evaluation and no trust decision, so
+        // a panel keeps naming patterns even where the pictures could not be made.
+        patternNames: collectionPatternNames(
+          codegenGraph.nodes, codegenGraph.edges, graphs,
+          codegenBuild.templateDisplaySourceIds ?? undefined,
+        ),
+        artworks: bakeDisplayArtworks(
+          codegenGraph.nodes, codegenGraph.edges, groups,
+          customAssets.trusted,
+          codegenBuild.templateDisplaySourceIds ?? undefined,
+        ),
+        displayDocuments: customAssets.documents,
+        customDisplayAssets: customAssets.assets,
+      }
+      return codegenBuild.mode === 'show'
+        ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
+        : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
     }
-    return codegenBuild.mode === 'show'
-      ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-      : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, codegenBuild, psramSupported, selectedFqbn, projectName, ramBudgetIssue, shows,
+    return { generate, inputKey }
+  }, [codegenGraph, codegenBuild, groups, graphs, psramSupported, selectedFqbn, projectName, ramBudgetIssue, shows,
     customAssets.pending, customAssets.errors, customAssets.routingErrors,
     customAssets.documents, customAssets.assets, customAssets.trusted])
 
@@ -148,7 +182,8 @@ export default function CapacityWatcher() {
   // previous reading on screen describing a graph that no longer exists.
   useEffect(() => {
     setCapacityTarget({
-      code: capacityCode,
+      generate: capacityInput?.generate ?? null,
+      inputKey: capacityInput?.inputKey ?? '',
       preparing: customAssets.pending,
       awaitingTrust: !customAssets.trusted && customAssets.errors.length > 0,
       // Only what asset preparation itself could not do. A routing error is
@@ -166,7 +201,7 @@ export default function CapacityWatcher() {
       flashMb,
       usbCdcOnBoot,
     })
-  }, [capacityCode, customAssets.pending, customAssets.trusted, customAssets.errors, customAssets.routingErrors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
+  }, [capacityInput, customAssets.pending, customAssets.trusted, customAssets.errors, customAssets.routingErrors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
 
   return null
 }

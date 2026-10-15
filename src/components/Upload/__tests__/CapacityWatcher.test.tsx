@@ -7,6 +7,12 @@ import { useCapacityStore } from '../../../state/upload/capacityStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { createDisplayDocument } from '../../../state/displays/displayEditor'
 import { bakeCustomDisplayAssets } from '../../../utils/bakeCustomDisplayAssets'
+import { generateCpp } from '../../../codegen/cppGenerator'
+
+vi.mock('../../../codegen/cppGenerator', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../codegen/cppGenerator')>()
+  return { ...actual, generateCpp: vi.fn(actual.generateCpp) }
+})
 
 vi.mock('../../../utils/bakeCustomDisplayAssets', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../utils/bakeCustomDisplayAssets')>()
@@ -117,18 +123,18 @@ describe('CapacityWatcher', () => {
       })
     }
     render(<CapacityWatcher />)
-    expect(useCapacityStore.getState().target?.code).toBeNull()
-    await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('_cdAsset_screen_document_0_map[] PROGMEM'))
-    const originalCode = useCapacityStore.getState().target?.code
+    expect(useCapacityStore.getState().target?.generate?.() ?? null).toBeNull()
+    await waitFor(() => expect(useCapacityStore.getState().target?.generate?.() ?? null).toContain('_cdAsset_screen_document_0_map[] PROGMEM'))
+    const originalCode = useCapacityStore.getState().target?.generate?.() ?? null
     if (generator === 'show') expect(originalCode).toContain('void render_p0(')
     if (generator === 'player') expect(originalCode).toContain('Music-Sync Player')
     expect(originalCode).toContain('.w = 24')
     const edited = { ...document, widgets: [{ ...document.widgets[0],
       bounds: { ...document.widgets[0].bounds!, width: 32 } }] }
     act(() => useGraphStore.setState({ displayDocuments: { [document.displayId]: edited } }))
-    expect(useCapacityStore.getState().target?.code).toBeNull()
-    await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('.w = 32'))
-    expect(useCapacityStore.getState().target?.code).not.toBe(originalCode)
+    expect(useCapacityStore.getState().target?.generate?.() ?? null).toBeNull()
+    await waitFor(() => expect(useCapacityStore.getState().target?.generate?.() ?? null).toContain('.w = 32'))
+    expect(useCapacityStore.getState().target?.generate?.() ?? null).not.toBe(originalCode)
     expect(bakeCustomDisplayAssets).toHaveBeenCalledWith(edited)
   })
 
@@ -141,7 +147,7 @@ describe('CapacityWatcher', () => {
     const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
     render(<CapacityWatcher />)
     expect(setTarget).toHaveBeenCalledTimes(1)
-    expect(setTarget.mock.calls[0][0].code).toBeNull()
+    expect((setTarget.mock.calls[0][0].generate?.() ?? null)).toBeNull()
     setTarget.mockRestore()
   })
 
@@ -227,7 +233,7 @@ describe('CapacityWatcher', () => {
       const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
 
-      const { code } = setTarget.mock.calls[0][0]
+      const code = setTarget.mock.calls[0][0].generate?.() ?? null
       // Named for the show's one selection, not for the panel: two panels on
       // one show must read one table.
       expect(code).toContain('THUMB_COUNT_show')
@@ -280,7 +286,8 @@ describe('CapacityWatcher', () => {
       const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
 
-      const { code, subject } = setTarget.mock.calls[0][0]
+      const { subject } = setTarget.mock.calls[0][0]
+      const code = setTarget.mock.calls[0][0].generate?.() ?? null
       expect(subject).toBe('player')
       expect(code).toContain('Music-Sync Player')
       expect(code).toContain('void provServiceSerial() {')
@@ -302,7 +309,7 @@ describe('CapacityWatcher', () => {
       setShowGraph()
       const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
-      expect(setTarget.mock.calls[0][0].code).not.toBeNull()
+      expect((setTarget.mock.calls[0][0].generate?.() ?? null)).not.toBeNull()
       setTarget.mockRestore()
     })
 
@@ -318,8 +325,8 @@ describe('CapacityWatcher', () => {
       const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
       expect(setTarget.mock.calls[0][0].fqbn).toBe('esp32:esp32:esp32s3:PSRAM=opi')
-      expect(setTarget.mock.calls[0][0].code).toContain('CRGB* showA = nullptr;')
-      expect(setTarget.mock.calls[0][0].code).toContain('psramFound() ? ps_malloc(n) : nullptr')
+      expect((setTarget.mock.calls[0][0].generate?.() ?? null)).toContain('CRGB* showA = nullptr;')
+      expect((setTarget.mock.calls[0][0].generate?.() ?? null)).toContain('psramFound() ? ps_malloc(n) : nullptr')
       setTarget.mockRestore()
     })
 
@@ -336,8 +343,8 @@ describe('CapacityWatcher', () => {
       const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
       expect(setTarget.mock.calls[0][0].fqbn).toBe('arduino:avr:uno')
-      expect(setTarget.mock.calls[0][0].code).toContain('CRGB showA[NUM_LEDS];')
-      expect(setTarget.mock.calls[0][0].code).not.toContain('psramFound()')
+      expect((setTarget.mock.calls[0][0].generate?.() ?? null)).toContain('CRGB showA[NUM_LEDS];')
+      expect((setTarget.mock.calls[0][0].generate?.() ?? null)).not.toContain('psramFound()')
       setTarget.mockRestore()
     })
   })
@@ -346,7 +353,7 @@ describe('CapacityWatcher', () => {
     setGraph(true)
     const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
     render(<CapacityWatcher />)
-    expect(setTarget.mock.calls[0][0].code).not.toBeNull()
+    expect((setTarget.mock.calls[0][0].generate?.() ?? null)).not.toBeNull()
     setTarget.mockRestore()
   })
 
@@ -395,8 +402,36 @@ describe('CapacityWatcher', () => {
 
     await waitFor(() => expect(useCapacityStore.getState().status).toBe('preparation-failed'))
     const target = useCapacityStore.getState().target
-    expect(target?.code).toBeNull()
+    expect(target?.generate?.() ?? null).toBeNull()
     expect(target?.preparationError).toContain('exceeds Generic ESP32 DevKit, 38-pin')
     expect(target?.preparationError).toContain('Largest contributor: display allocations')
+  })
+
+  /*
+   * Generating the sketch walks every collected pattern and bakes their
+   * thumbnails, seconds of work for a large collection. Publishing the target
+   * used to do it on every edit — and, through a registry rebuilt on each
+   * click, on every selection change too — which froze the editor. Only a
+   * check may generate, and only a codegen-relevant edit may move the key.
+   */
+  it('publishes a target without generating the sketch, and ignores selection and moves', () => {
+    setGraph(true)
+    vi.mocked(generateCpp).mockClear()
+    render(<CapacityWatcher />)
+    const key = useCapacityStore.getState().target?.key
+    expect(useCapacityStore.getState().target?.generate).toBeTypeOf('function')
+    act(() => useGraphStore.setState((s) => ({
+      nodes: s.nodes.map((node) => node.id === 'sc'
+        ? { ...node, selected: true, position: { x: 40, y: 12 } }
+        : node),
+    })))
+    expect(useCapacityStore.getState().target?.key).toBe(key)
+    act(() => useGraphStore.setState((s) => ({
+      nodes: s.nodes.map((node) => node.id === 'sc'
+        ? { ...node, data: { ...node.data, properties: { color: '#ff0000' } } }
+        : node),
+    })))
+    expect(useCapacityStore.getState().target?.key).not.toBe(key)
+    expect(generateCpp).not.toHaveBeenCalled()
   })
 })

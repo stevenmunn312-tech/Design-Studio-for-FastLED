@@ -28,7 +28,7 @@ function setGraph() {
   })
 }
 
-const TARGET = { code: '// sketch', fqbn: 'esp32:esp32:esp32s3', toolchainReady: true, subject: 'sketch' } as const
+const TARGET = { generate: () => '// sketch', inputKey: '// sketch', fqbn: 'esp32:esp32:esp32s3', toolchainReady: true, subject: 'sketch' } as const
 
 describe('HardwareReadiness — the capacity chip', () => {
   beforeEach(() => {
@@ -55,7 +55,7 @@ describe('HardwareReadiness — the capacity chip', () => {
   })
 
   it('stays a plain readout when there is nothing it could measure', () => {
-    useCapacityStore.getState().setTarget({ ...TARGET, code: null })
+    useCapacityStore.getState().setTarget({ ...TARGET, generate: null })
     const { queryByRole } = render(<HardwareReadiness />)
     expect(queryByRole('button', { name: /Capacity/ })).toBeNull()
   })
@@ -71,7 +71,7 @@ describe('HardwareReadiness — the capacity chip', () => {
   })
 
   it('names a bake failure and opens the upload controls to review it', () => {
-    useCapacityStore.getState().setTarget({ ...TARGET, code: null,
+    useCapacityStore.getState().setTarget({ ...TARGET, generate: null,
       preparationError: 'Touch panel: Could not bake Power at 24x24: decoder failed' })
     const setHardwarePaneTab = vi.spyOn(useUiStore.getState(), 'setHardwarePaneTab')
     const { getByRole } = render(<HardwareReadiness />)

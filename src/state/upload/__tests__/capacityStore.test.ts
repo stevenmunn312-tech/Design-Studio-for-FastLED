@@ -11,7 +11,7 @@ async function freshStore() {
   return import('../capacityStore')
 }
 
-const TARGET = { code: 'CODE', fqbn: 'esp32:esp32:esp32', toolchainReady: true, subject: 'sketch' } as const
+const TARGET = { generate: () => 'CODE', inputKey: 'CODE', fqbn: 'esp32:esp32:esp32', toolchainReady: true, subject: 'sketch' } as const
 
 describe('capacityStore', () => {
   beforeEach(() => {
@@ -64,7 +64,7 @@ describe('capacityStore', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(useCapacityStore.getState().status).toBe('measured')
 
-    setTarget({ ...TARGET, code: 'CODE WITH ONE MORE PATTERN' })
+    setTarget({ ...TARGET, generate: () => 'CODE WITH ONE MORE PATTERN', inputKey: 'CODE WITH ONE MORE PATTERN' })
     expect(useCapacityStore.getState().status).toBe('stale')
     expect(useCapacityStore.getState().result).not.toBeNull()
 
@@ -96,7 +96,7 @@ describe('capacityStore', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(useCapacityStore.getState().subject).toBe('sketch')
 
-    setTarget({ ...TARGET, code: 'PLAYER', subject: 'player' })
+    setTarget({ ...TARGET, generate: () => 'PLAYER', inputKey: 'PLAYER', subject: 'player' })
     expect(useCapacityStore.getState().status).toBe('stale')
   })
 
@@ -111,7 +111,7 @@ describe('capacityStore', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(useCapacityStore.getState().result).not.toBeNull()
 
-    setTarget({ ...TARGET, code: null })
+    setTarget({ ...TARGET, generate: null })
     expect(useCapacityStore.getState().status).toBe('nothing-to-measure')
     expect(useCapacityStore.getState().result).toBeNull()
   })
@@ -126,7 +126,7 @@ describe('capacityStore', () => {
     expect(compileCheck).not.toHaveBeenCalled()
     expect(useCapacityStore.getState().status).toBe('toolchain-missing')
 
-    setTarget({ ...TARGET, code: null })
+    setTarget({ ...TARGET, generate: null })
     check()
     await vi.advanceTimersByTimeAsync(0)
     expect(compileCheck).not.toHaveBeenCalled()
@@ -140,17 +140,17 @@ describe('capacityStore', () => {
     await vi.advanceTimersByTimeAsync(0)
     compileCheck.mockClear()
 
-    setTarget({ ...TARGET, code: null, preparing: true })
+    setTarget({ ...TARGET, generate: null, preparing: true })
     expect(useCapacityStore.getState().status).toBe('preparing')
     expect(useCapacityStore.getState().result).toBeNull()
     check()
     for (const preparationError of ['Panel: Power failed', 'Panel: Play failed']) {
-      setTarget({ ...TARGET, code: null, preparationError })
+      setTarget({ ...TARGET, generate: null, preparationError })
       expect(useCapacityStore.getState().status).toBe('preparation-failed')
       expect(useCapacityStore.getState().target?.preparationError).toBe(preparationError)
       check()
     }
-    setTarget({ ...TARGET, code: null, preparing: true })
+    setTarget({ ...TARGET, generate: null, preparing: true })
     expect(useCapacityStore.getState().status).toBe('preparing')
     check()
     expect(compileCheck).not.toHaveBeenCalled()
@@ -199,7 +199,7 @@ describe('capacityStore', () => {
     check()
     expect(useCapacityStore.getState().status).toBe('checking')
 
-    setTarget({ ...TARGET, code: 'SOMETHING ELSE' })
+    setTarget({ ...TARGET, generate: () => 'SOMETHING ELSE', inputKey: 'SOMETHING ELSE' })
     expect(useCapacityStore.getState().status).toBe('checking')
 
     release({ ok: true, overflow: false, target: 'esp32:esp32:esp32', flash: null, ram: null })
@@ -223,7 +223,7 @@ describe('capacityStore', () => {
 
     setTarget(TARGET)
     check()
-    setTarget({ ...TARGET, code: null })
+    setTarget({ ...TARGET, generate: null })
 
     release({ ok: true, overflow: false, target: 'esp32:esp32:esp32', flash: null, ram: null })
     await vi.advanceTimersByTimeAsync(0)
@@ -241,7 +241,7 @@ describe('capacityStore', () => {
 
     setTarget(TARGET)
     check()
-    setTarget({ ...TARGET, code: 'SOMETHING ELSE' })
+    setTarget({ ...TARGET, generate: () => 'SOMETHING ELSE', inputKey: 'SOMETHING ELSE' })
     check()
     await vi.advanceTimersByTimeAsync(0)
 
