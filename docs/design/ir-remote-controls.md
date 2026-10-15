@@ -35,7 +35,7 @@ IR Receiver: Brightness - ----> Step Value: Decrease
 Step Value: Value ------------> Juggle: Speed
 
 IR Receiver: Power -----------> Trigger (Toggle) ---> LED output: Enabled
-IR Receiver: Next ------------> Control Map: Next --> Music Player: Controls
+IR Receiver: Next ------------> Player Controls: Next --> Music Player: Controls
 ```
 
 The first path is the important new one. An IR key is an event, while a graph
@@ -63,7 +63,7 @@ properties directly.
   events into a bounded numeric value. It is useful for physical buttons and
   touch controls as well as IR.
 - Existing `Trigger` modes remain the explicit way to debounce, pulse or toggle
-  a boolean destination. Existing action ports and Control Map remain the path
+  a boolean destination. Existing action ports and Player Controls remain the path
   for playback, pattern and LED-output commands.
 - Normal sketches, slideshow shows and SD/performance-player sketches are all
   in scope. A graph accepted by deploy validation may not silently lose IR
@@ -235,7 +235,7 @@ minimum end-to-end workflow is:
 
 `src/state/peripherals/__tests__/irRemoteWorkflow.test.ts` holds this workflow as one graph.
 The SD/player variant routes LED Toggle and continuous Brightness through
-Control Map into Music Player, because that generator deliberately rejects
+Player Controls into Music Player, because that generator deliberately rejects
 runtime controls wired straight to the LED output. Browser-held keys emit
 repeat pulses at a 100 ms simulation cadence with false passes between them;
 those idle passes are what let Step Value's rising-edge contract observe every

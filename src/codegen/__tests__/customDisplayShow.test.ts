@@ -238,7 +238,7 @@ describe('custom displays in generative shows', () => {
 
 
   // A widget is a control source like a button on a pin: the same bundle, the
-  // same destination. What was missing was the destination — a Control Map
+  // same destination. What was missing was the destination — a Player Controls node
   // chain addressed to the slideshow reached nothing the generator emitted.
   it('browses the collection from a Button widget', () => {
     const doc = addDisplayWidget(createDisplayDocument('screen', 240, 320), 'Button')

@@ -45,46 +45,31 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   advancing. Physical confirms still own the cursor and its dwell, and timed
   Performance Generator shows retain their authored event schedule.
 - The player is modelled as the appliance it is: `PatternMaster` (**Music
-  Player**) holds the music and reports what it is playing, `PlayerControls`
-  controls it. `PlayerControls` mints one input per job it has been given rather
-  than declaring all fourteen: `src/state/player/playerControlAssignments.ts` owns the
-  catalogue, the node carries a `controls` id list, and a drop on its trailing
-  `add-control` socket is held as `pendingControlAssignment` until the picker in
-  `PlayerControlsBody.tsx` names it — because nothing on the source side can (a
-  Button's output is only ever `pressed`, so the Button Bank trick of naming a
-  row after its target port does not mirror). **The minted port id is the
-  function id**, unchanged from when they were declared in `NODE_LIBRARY`, so
-  the evaluator, every generator, validation and the firmware needed no
-  teaching; only whether the socket exists is new — keep it that way rather than
-  giving rows ids of their own. The picker narrows twice, and both narrowings
-  are deliberate. By **type**: it matches the source's dataType *exactly*,
-  narrower than `portsCompatible`, because a button on Volume would set 0 or 1
-  and nothing between. By **destination**: each function names the
+  Player**) holds the music and reports what it is playing, **Player Controls**
+  (code identifier `ControlMap`, kept so saves load) controls it. Every
+  function in `src/state/player/playerControlAssignments.ts` is a declared
+  input and an `actionInputs` entry, so the node draws the transport rows in
+  `PLAYER_CONTROLS_DEFAULT_EXPOSED` and keeps the rest behind **Expose input**;
+  a wired row always shows. That is what keeps Music Player and Performance
+  Generator short: a panel's buttons land here and one Controls wire carries
+  them on. **The port id is the function id**, so the evaluator, every
+  generator, validation and the firmware read rows by name — keep it that way
+  rather than giving rows ids of their own. The node body names where its
+  Controls go (`controlChainDestinations`), because a row is only a promise
+  once a destination is known. Each function names the
   `PlayerControlDestination` kinds that act on it (a Music Player holds the
-  track, the lamp and the collection and takes all fourteen; a Performance
+  track, the lamp and the collection and takes all of them; a Performance
   Generator holds the track and the lamp but not the cursor, since its patterns
   come from the timed show file; an LED output has a blackout and a dimmer; a
-  Pattern Slideshow has a cursor and no transport), `controlChainSinks` says
-  which kinds this bundle reaches, and `sensiblePlayerControls` intersects the
-  two — so Play / Pause is not offered on a chain ending at an LED output, a
-  port that would mint, wire, validate and do nothing. `ControlChainSink` in
-  `codegen/player/playerDisplays.ts` is an *alias* of that same union rather than a
-  second copy. By **one job per source**: `sensiblePlayerControls` takes a
-  `SensibleControlContext` and offers nothing already held by that same source
-  on that node, since a press is one event — a button wired to both Brightness
-  Up and Brightness Down would fire +step and -step in the same frame and net to
-  nothing; `sharedControlSourceIssues` in `validateGraph.ts` catches a route
-  that bypasses the picker and wires the collision directly. A chain plugged
-  into nothing yet is judged on type alone, since there is no destination to
-  judge against and refusing everything would leave nothing to build with. Two
-  ordering rules are load-bearing and were each wrong once: the row is added
-  before the connection completes (or a Button Bank's own trailing socket names
-  its row after `add-control` instead of the function), and
-  `materializeButtonBankConnection` derives the target's ports through
-  `effectiveInputs` rather than trusting `data.inputs`. A load unions the stored
-  list with the functions its edges already land on, since a pre-feature save
-  and a fresh node both present an empty list and only the wires tell them
-  apart. A node doing both was tried and removed — see
+  Pattern Slideshow has a cursor and no transport). `controlChainSinks` says
+  which kinds a bundle reaches, and `unusablePlayerControlIssues` in
+  `validateGraph.ts` warns on a wired row none of them can act on, and on a
+  button wired to a continuous row or a knob to a press — `portsCompatible`
+  lets bool and float interconvert, which is wrong for a physical control. A
+  chain plugged into nothing yet is not judged. `ControlChainSink` in
+  `codegen/player/playerDisplays.ts` is an *alias* of the destination union
+  rather than a second copy. `sharedControlSourceIssues` warns when one source
+  drives two rows, since a press is one event. A node doing both was tried and removed — see
   [auxiliary displays](../../design/auxiliary-displays.md). Button debounce and
   rising-edge rules live once in `src/state/player/transportBridge.ts` so a press means
   one thing to the evaluator and to the player sketch. Only a contact is
@@ -168,7 +153,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   two outputs are emitted once, and the control graph reserves every emitted
   output symbol even when only one is requested, preventing hidden collisions.
 - Template presses use `pressSourceBounces` in `templateControlRouting.ts`,
-  just as normal sketches and preview do. A Control Map's debounce setting
+  just as normal sketches and preview do. A Player Controls' debounce setting
   applies to contacts, not computed sources: an Interval pulse lasts one pass
   and disappears inside a 30 ms debounce window. Interval's firmware timer is
   shared through `intervalCpp.ts`; template support does not change the music

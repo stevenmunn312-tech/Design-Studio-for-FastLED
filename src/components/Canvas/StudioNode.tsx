@@ -47,7 +47,6 @@ import DdpInputBody from './bodies/DdpInputBody'
 import RtcInputBody from './bodies/RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { buttonBankOutputs } from '../../state/player/buttonBank'
-import { playerControlInputs } from '../../state/player/playerControlAssignments'
 import { partDerivedInputs } from '../../build/parts/partPorts'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -1183,9 +1182,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const declaredInputs = orderPorts(
     (hasDerivedDisplayPorts(d.nodeType)
       ? d.inputs ?? def?.inputs ?? []
-      : d.nodeType === 'ControlMap'
-        ? playerControlInputs(rawProps.controls)
-        : partDerivedInputs(d.nodeType, rawProps.partId) ?? def?.inputs ?? d.inputs ?? []) as PortDef[],
+      : partDerivedInputs(d.nodeType, rawProps.partId) ?? def?.inputs ?? d.inputs ?? []) as PortDef[],
     savedInputs,
   )
   // A template control the Touch node's Controls wire already carries is not

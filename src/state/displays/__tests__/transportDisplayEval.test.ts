@@ -236,7 +236,7 @@ describe('touch published from the preview', () => {
     expect(value.controls.volume).toBeCloseTo(0.5, 1)
   })
 
-  it('chains browser touch through the Control Map bundle', () => {
+  it('chains browser touch through the Player Controls bundle', () => {
     const g = fixedTransportGeometry(240, 320)
     useTransportDisplayTouchStore.getState().setTouch('tft', {
       pressed: true,

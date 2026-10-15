@@ -90,7 +90,7 @@ describe('validateGraph', () => {
     expect(findSharedControlSourceWarnings([one, two, controls], wires)).toEqual([])
   })
 
-  it('rejects one action source routed both directly and through Control Map', () => {
+  it('rejects one action source routed both directly and through Player Controls', () => {
     const solid = libraryNode('solid', 'SolidColor')
     const button = libraryNode('btn', 'ButtonInput')
     const controls = libraryNode('controls', 'ControlMap', { controls: ['ledToggle'] })
@@ -103,7 +103,7 @@ describe('validateGraph', () => {
     ] as unknown as StudioEdge[]
 
     expect(validateGraph([solid, button, controls, output], wires).errors).toContain(
-      'LED On / Off reaches LED Matrix twice. Keep either the direct action wire or the Control Map route for that source, not both.',
+      'LED On / Off reaches LED Matrix twice. Keep either the direct action wire or the Player Controls route for that source, not both.',
     )
     expect(buildGraphDiagnostics([solid, button, controls, output], wires)).toContainEqual(expect.objectContaining({
       id: 'direct-control-collision-out-ledToggle-btn-pressed',

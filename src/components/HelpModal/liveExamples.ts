@@ -15,7 +15,6 @@ import {
 import { tidyLayout } from '../../utils/tidyLayout'
 import type { NodeDefinition, NodePort } from '../../types'
 import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../state/output/ledOutputForm'
-import { playerControlInputs } from '../../state/player/playerControlAssignments'
 import { irRemoteButtonHandle, irRemoteOutputs } from '../../state/peripherals/irRemote'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
@@ -145,27 +144,15 @@ class ExampleBuilder {
     return type
   }
 
-  /**
-   * The inputs a placed node actually has.
-   *
-   * Most nodes declare theirs in `NODE_LIBRARY`, but Control Map mints
-   * one port per assigned function, so its ports depend on the properties
-   * this example gave it. Asking the library alone would reject a wire the
-   * canvas accepts.
-   */
   private inputsOf(key: string): Array<{ id: string }> {
-    const placed = this.nodes.find((node) => node.key === key)
-    if (placed?.type === 'ControlMap') {
-      return playerControlInputs((placed.properties as Record<string, unknown> | undefined)?.controls)
-    }
     return definition(this.typeOf(key)).inputs
   }
 
   /**
    * The outputs a placed node actually has.
    *
-   * The mirror of `inputsOf`, for the other node that mints ports from its
-   * own properties: an IR Remote grows one per learned key, so the library
+   * Most nodes declare theirs in `NODE_LIBRARY`, but some mint ports from
+   * their own properties: an IR Remote grows one per learned key, so the library
    * definition declares only the trailing Learn socket.
    */
   private outputsOf(key: string): Array<{ id: string }> {
@@ -906,7 +893,7 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.wire('particles', 'particleFx', 'target', 'particleFx')
       return builder.finish(
         'Run a collection with beat-triggered changes',
-        'Add at least two saved patterns to Pattern Collection. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transitions chooses the preview transition pool, Control Map carries transport and lighting commands, and Player Particles configures independent beat bursts.',
+        'Add at least two saved patterns to Pattern Collection. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transitions chooses the preview transition pool, Player Controls carries transport and lighting commands, and Player Particles configures independent beat bursts.',
         'The collection starts empty, so the preview is black until you add patterns. With Beat Transitions off, patterns change on the random timer. With it on, early beats are ignored and the next beat after the cooldown starts the change. Connect Music Player’s Frame to the LED output.',
         'workflow',
       )
@@ -930,10 +917,7 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
     case 'ControlMap':
       builder.add('play', 'ButtonInput')
       builder.add('volume', 'PotInput')
-      // The node mints a port only once a control has been given that job, so
-      // an example that wires one has to have made the assignment first — the
-      // same two steps a user takes when the picker opens.
-      builder.add('target', node.type, { controls: ['playPause', 'volume'] })
+      builder.add('target', node.type)
       builder.add('show', 'PatternMaster')
       builder.wire('play', 'pressed', 'target', 'playPause')
       builder.wire('volume', 'value', 'target', 'volume')

@@ -14,27 +14,22 @@ describe('nodeLibrary', () => {
   it('defines dedicated semantic Music Player control and particle bundles', () => {
     const controls = NODE_LIBRARY.find((n) => n.type === 'ControlMap')
     expect(controls).toMatchObject({
-      label: 'Control Map',
+      label: 'Player Controls',
       category: 'show',
       outputs: [{ id: 'controls', dataType: 'playercontrols' }],
     })
-    // The library entry declares the bundle input and the trailing invitation
-    // only. Every function is minted per assignment, keeping its original port
-    // id so nothing downstream had to be taught — the full catalogue and the
-    // minting rule are covered in playerControlAssignments.test.ts.
-    expect(controls?.inputs.map(({ id, dataType }) => [id, dataType])).toEqual([
-      ['controlsIn', 'playercontrols'], ['add-control', 'bool'],
+    // The bundle input, then one port per function, each an id the evaluator
+    // and the generators already read — covered in playerControlAssignments.test.ts.
+    expect(controls?.inputs.map(({ id }) => id)).toEqual([
+      'controlsIn', ...PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id),
     ])
-    expect(controls?.defaultProperties?.controls).toEqual([])
-    // Every function the picker can offer is a port id the evaluator and the
-    // generators already read; that is the whole reason this stayed cheap.
     expect(PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id)).toEqual([
       'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
       'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
       'patternSelect', 'patternPrevious', 'patternNext', 'patternConfirm',
       // The first job that is not a player's, and it needed no new machinery:
-      // a row here, a destination naming what acts on it, and the picker, the
-      // ports and the generators followed.
+      // a row here, a destination naming what acts on it, and the ports and
+      // the generators followed.
       'masterSpeed',
     ])
 

@@ -435,7 +435,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   true-means-lit, and the fix is a placed `Not` node the user can see, select
   and delete — never a silent flip inside the wire. `transportVolume` lands on
   `PatternMaster`'s own continuous `volume` property input, so a single absolute
-  volume slider needs no Control Map — the bundle is still the route for chained
+  volume slider needs no Player Controls — the bundle is still the route for chained
   physical controls and volume-step buttons. Where the source has a free
   Controls input (Music Player, Pattern Slideshow, an LED output) the plan
   returns `controlsWire` and the applier draws that one Touch Controls wire

@@ -264,7 +264,7 @@ export function templateControlPlan(
       unrouted.push({
         widgetId: widget.id, role,
         reason: role === 'transportVolume'
-          ? `Volume has no direct input on ${sourceLabel(sourceNode)}. Wire it through Control Map, which carries it.`
+          ? `Volume has no direct input on ${sourceLabel(sourceNode)}. Wire it through Player Controls, which carries it.`
           : `${sourceLabel(sourceNode)} has nothing this control commands.`,
       })
       continue
@@ -277,7 +277,7 @@ export function templateControlPlan(
      * A control that already has a job keeps it.
      *
      * One press is one event — the rule `sharedControlSourceIssues` enforces
-     * for a Control Map — and it is what stops a panel rewired from a player
+     * for a Player Controls node — and it is what stops a panel rewired from a player
      * to a slideshow ending up with its Next button driving both. Checked on
      * the control's own output rather than on the destination, because the
      * destination is exactly the thing that just changed.

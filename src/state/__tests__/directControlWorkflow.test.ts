@@ -248,7 +248,7 @@ describe('direct controls on the show engines', () => {
    * reachable by combining two features: one press must not arrive at the same
    * action twice, once direct and once through a bundle.
    */
-  it('refuses one press reaching a pattern step both directly and through Control Map', () => {
+  it('refuses one press reaching a pattern step both directly and through Player Controls', () => {
     const nodes = [...collection(), node('map', 'ControlMap', { controls: ['patternNext'] })]
     const edges = [
       ...wires(),

@@ -2,15 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useGraphStore } from '../../graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../graphStore'
+import { exposedNodeInputs } from '../../propertyInputs'
 import {
-  PLAYER_CONTROL_ADD_HANDLE,
   PLAYER_CONTROL_FUNCTIONS,
-  normalizePlayerControlIds,
-  playerControlIdsFromEdges,
-  playerControlInputs,
-  playerControlHint,
-  sensiblePlayerControls,
+  PLAYER_CONTROLS_DEFAULT_EXPOSED,
 } from '../playerControlAssignments'
+import { findUnusablePlayerControlWarnings } from '../../../utils/validateGraph'
 import { assertWireable } from '../../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -28,279 +25,117 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 const edge = (id: string, s: string, sh: string, t: string, th: string): StudioEdge =>
   ({ id, source: s, sourceHandle: sh, target: t, targetHandle: th }) as unknown as StudioEdge
 
-function reset(nodes: StudioNode[], edges: StudioEdge[] = []) {
-  useGraphStore.getState().loadGraph(nodes, edges)
-}
+const definition = NODE_LIBRARY.find((entry) => entry.type === 'ControlMap')!
 
-const controlsOf = (id: string) => {
-  const found = useGraphStore.getState().nodes.find((candidate) => candidate.id === id)
-  return normalizePlayerControlIds(found?.data.properties.controls)
-}
-const portsOf = (id: string) => {
-  const found = useGraphStore.getState().nodes.find((candidate) => candidate.id === id)
-  return (found?.data.inputs as Array<{ id: string }>).map((port) => port.id)
-}
-
-describe('what a control can sensibly be given to do', () => {
-  // Sensible is narrower than compatible: portsCompatible lets float and bool
-  // interconvert, which is right for arithmetic and wrong for a knob. A button
-  // on Volume would set 0 or 1 and nothing between.
-  it('matches the dataType exactly rather than what portsCompatible allows', () => {
-    const forButton = sensiblePlayerControls('bool', []).map((entry) => entry.id)
-    const forKnob = sensiblePlayerControls('float', []).map((entry) => entry.id)
-    expect(forButton).toContain('playPause')
-    expect(forButton).not.toContain('volume')
-    expect(forKnob).toContain('volume')
-    expect(forKnob).toContain('patternSelect')
-    expect(forKnob).not.toContain('playPause')
-    expect([...forButton, ...forKnob].sort())
-      .toEqual(PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id).sort())
+describe('the ports a Player Controls node declares', () => {
+  // The port id is the function id, so the evaluator, the generators and the
+  // firmware read every row by name with nothing else to teach them.
+  it('declares the bundle input and every function', () => {
+    expect(definition.label).toBe('Player Controls')
+    expect(definition.inputs.map((port) => port.id))
+      .toEqual(['controlsIn', ...PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id)])
+    expect(definition.inputs.find((port) => port.id === 'volume')?.dataType).toBe('float')
+    expect(definition.inputs.find((port) => port.id === 'playPause')?.label).toBe('Play / Pause')
   })
 
-  it('offers only what the chain it feeds can act on', () => {
-    // A wire that connects, validates and does nothing is worse than one that
-    // is refused: pressing the button and blaming the soldering is the failure
-    // this filter exists to prevent.
-    const toOutput = new Set(['output'] as const)
-    const forOutput = sensiblePlayerControls('bool', [], { reachable: toOutput }).map((entry) => entry.id)
-    expect(forOutput).toEqual(['ledToggle', 'brightnessUp', 'brightnessDown'])
-    expect(sensiblePlayerControls('float', [], { reachable: toOutput }).map((entry) => entry.id)).toEqual(['brightness'])
-
-    const toEngine = new Set(['engine'] as const)
-    expect(sensiblePlayerControls('bool', [], { reachable: toEngine }).map((entry) => entry.id))
-      .toEqual(['patternPrevious', 'patternNext', 'patternConfirm'])
-
-    // The player holds the track, the lamp and the collection.
-    const toPlayer = new Set(['player'] as const)
-    expect(sensiblePlayerControls('bool', [], { reachable: toPlayer }).map((entry) => entry.id))
-      .toEqual(PLAYER_CONTROL_FUNCTIONS.filter((entry) => entry.dataType === 'bool').map((entry) => entry.id))
-
-    // A Performance Generator is a player minus the collection: it holds the
-    // track and the lamp, but its patterns are scheduled by the timed show
-    // file, so a cursor has nothing to move — the next SET_PATTERN overwrites
-    // whatever a press selected.
-    const toPerformance = new Set(['performance'] as const)
-    expect(sensiblePlayerControls('bool', [], { reachable: toPerformance }).map((entry) => entry.id))
-      .toEqual(['playPause', 'previous', 'next', 'volumeUp', 'volumeDown',
-        'ledToggle', 'brightnessUp', 'brightnessDown'])
-    expect(sensiblePlayerControls('float', [], { reachable: toPerformance }).map((entry) => entry.id))
-      .toEqual(['volume', 'brightness'])
-
-    // Two destinations union rather than intersect.
-    expect(sensiblePlayerControls('bool', [], { reachable: new Set(['output', 'engine'] as const) }).map((entry) => entry.id))
-      .toEqual(['ledToggle', 'brightnessUp', 'brightnessDown', 'patternPrevious', 'patternNext', 'patternConfirm'])
+  it('shows the transport rows and keeps the rest behind Expose input', () => {
+    const shown = exposedNodeInputs('ControlMap', undefined, new Set()).map((port) => port.id)
+    expect(shown).toEqual([...PLAYER_CONTROLS_DEFAULT_EXPOSED])
+    expect(shown).not.toContain('patternNext')
   })
 
-  it('judges nothing while the Controls output goes nowhere', () => {
-    // A chain not yet plugged in has no destination to judge against, and
-    // refusing every function would leave nothing to build the graph with.
-    expect(sensiblePlayerControls('bool', [], { reachable: new Set() }).map((entry) => entry.id))
-      .toEqual(sensiblePlayerControls('bool', []).map((entry) => entry.id))
-  })
-
-  it('offers a control that already has a job here nothing at all', () => {
-    // A press is one event: a button given Brightness Up must not also be
-    // offered Brightness Down, which would send +step and -step in the same
-    // frame and net to nothing. The picker is what mints the port, so
-    // declining here is what makes the second job unreachable.
-    expect(sensiblePlayerControls('bool', ['brightnessUp'], { sourceAlreadyAssigned: true })).toEqual([])
-    // A different control is still offered the rest.
-    expect(sensiblePlayerControls('bool', ['brightnessUp'], { sourceAlreadyAssigned: false })
-      .map((entry) => entry.id)).toContain('brightnessDown')
-  })
-
-  it('names each function an edge or a position', () => {
-    const byId = new Map(PLAYER_CONTROL_FUNCTIONS.map((entry) => [entry.id, entry]))
-    expect(playerControlHint(byId.get('playPause')!)).toBe('On each press')
-    expect(playerControlHint(byId.get('volume')!)).toBe('Holds its position, 0 to 1')
-    expect(playerControlHint(byId.get('patternSelect')!)).toBe('Turn — one detent per pattern')
-  })
-
-  it('never offers a function already assigned', () => {
-    const offered = sensiblePlayerControls('bool', ['playPause', 'next']).map((entry) => entry.id)
-    expect(offered).not.toContain('playPause')
-    expect(offered).not.toContain('next')
-    expect(offered).toContain('previous')
-  })
-
-  it('offers nothing for a source with no type this node takes', () => {
-    expect(sensiblePlayerControls(undefined, [])).toEqual([])
-    expect(sensiblePlayerControls('frame', [])).toEqual([])
+  // A save carries no exposure list for a row it wired, and the wire has to
+  // show wherever it lands.
+  it('always shows a wired row', () => {
+    const shown = exposedNodeInputs('ControlMap', [], new Set(['patternNext'])).map((port) => port.id)
+    expect(shown).toEqual(['patternNext'])
   })
 })
 
-describe('the ports a Control Map node mints', () => {
-  it('starts with the bundle input and the invitation only', () => {
-    expect(playerControlInputs([]).map((port) => port.id))
-      .toEqual(['controlsIn', PLAYER_CONTROL_ADD_HANDLE])
-  })
+describe('wiring a Player Controls node', () => {
+  beforeEach(() => useGraphStore.getState().loadGraph([], []))
 
-  // The port id is the function id, unchanged from when all fourteen were
-  // declared in NODE_LIBRARY — which is why the evaluator, the generators and
-  // the firmware needed no teaching at all.
-  it('names a minted port after the function, not after a row id', () => {
-    const ports = playerControlInputs(['playPause', 'volume'])
-    expect(ports.map((port) => port.id))
-      .toEqual(['controlsIn', 'playPause', 'volume', PLAYER_CONTROL_ADD_HANDLE])
-    expect(ports.find((port) => port.id === 'volume')?.dataType).toBe('float')
-    expect(ports.find((port) => port.id === 'playPause')?.label).toBe('Play / Pause')
-  })
-
-  it('drops the invitation once every function is assigned', () => {
-    const all = PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id)
-    expect(playerControlInputs(all).map((port) => port.id)).not.toContain(PLAYER_CONTROL_ADD_HANDLE)
-  })
-
-  it('ignores an unknown or duplicated assignment', () => {
-    expect(normalizePlayerControlIds(['playPause', 'playPause', 'nonsense', 7]))
-      .toEqual(['playPause'])
-  })
-})
-
-describe('assigning a control through the picker', () => {
-  beforeEach(() => reset([]))
-
-  // A drop on the trailing socket is not a connection yet. Nothing on the
-  // source side can name it, so the edge must not exist until the picker says
-  // what it is for.
-  it('holds the connection instead of creating an edge', () => {
-    reset([node('btn', 'ButtonInput'), node('pc', 'ControlMap')])
-
-    useGraphStore.getState().onConnect({
-      source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: PLAYER_CONTROL_ADD_HANDLE,
-    })
-
-    const state = useGraphStore.getState()
-    expect(state.edges).toEqual([])
-    expect(state.pendingControlAssignment).toMatchObject({ nodeId: 'pc', sourceDataType: 'bool' })
-    expect(controlsOf('pc')).toEqual([])
-  })
-
-  it('mints the chosen port, lands the wire on it, and grows a fresh socket', () => {
-    reset([node('btn', 'ButtonInput'), node('pc', 'ControlMap')])
-    useGraphStore.getState().onConnect({
-      source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: PLAYER_CONTROL_ADD_HANDLE,
-    })
-
-    useGraphStore.getState().assignPlayerControl('playPause')
-
-    const state = useGraphStore.getState()
-    assertWireable(state.nodes, state.edges)
-    expect(state.pendingControlAssignment).toBeNull()
-    expect(controlsOf('pc')).toEqual(['playPause'])
-    expect(portsOf('pc')).toEqual(['controlsIn', 'playPause', PLAYER_CONTROL_ADD_HANDLE])
-    expect(state.edges).toContainEqual(expect.objectContaining({
-      source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: 'playPause',
-    }))
-  })
-
-  it('abandons the connection outright when the picker is dismissed', () => {
-    reset([node('btn', 'ButtonInput'), node('pc', 'ControlMap')])
-    useGraphStore.getState().onConnect({
-      source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: PLAYER_CONTROL_ADD_HANDLE,
-    })
-
-    useGraphStore.getState().cancelPlayerControlAssignment()
-
-    expect(useGraphStore.getState().pendingControlAssignment).toBeNull()
-    expect(useGraphStore.getState().edges).toEqual([])
-    expect(controlsOf('pc')).toEqual([])
-  })
-
-  it('leaves an ordinary connection alone', () => {
-    reset([node('btn', 'ButtonInput'), node('pc', 'ControlMap', { controls: ['next'] })])
+  it('lands an ordinary connection on the function port', () => {
+    useGraphStore.getState().loadGraph([node('btn', 'ButtonInput'), node('pc', 'ControlMap')], [])
 
     useGraphStore.getState().onConnect({
       source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: 'next',
     })
 
-    expect(useGraphStore.getState().pendingControlAssignment).toBeNull()
-    expect(useGraphStore.getState().edges).toHaveLength(1)
+    const state = useGraphStore.getState()
+    assertWireable(state.nodes, state.edges)
+    expect(state.edges).toContainEqual(expect.objectContaining({ target: 'pc', targetHandle: 'next' }))
   })
 
-  // The case the design note said to write first. Neither end can name itself:
-  // the bank's row takes its name from the target port, and the target port is
-  // only real once the picker has minted it. The row therefore has to be added
-  // before the connection is completed, or the bank names itself after the
-  // trailing socket.
-  it('names both ends when two dynamic sockets meet', () => {
-    reset([node('bank', 'ButtonBank', { buttons: [] }), node('pc', 'ControlMap')])
+  // A Button Bank's trailing socket names its new row after the port it was
+  // dropped on, which on this node is the function itself.
+  it('names a Button Bank row after the function it lands on', () => {
+    useGraphStore.getState().loadGraph([node('bank', 'ButtonBank', { buttons: [] }), node('pc', 'ControlMap')], [])
 
     useGraphStore.getState().onConnect({
-      source: 'bank', sourceHandle: 'add-button', target: 'pc', targetHandle: PLAYER_CONTROL_ADD_HANDLE,
+      source: 'bank', sourceHandle: 'add-button', target: 'pc', targetHandle: 'patternConfirm',
     })
-    expect(useGraphStore.getState().pendingControlAssignment).toMatchObject({ sourceDataType: 'bool' })
-
-    useGraphStore.getState().assignPlayerControl('patternConfirm')
 
     const state = useGraphStore.getState()
     assertWireable(state.nodes, state.edges)
     const bank = state.nodes.find((candidate) => candidate.id === 'bank')!
     const buttons = bank.data.properties.buttons as Array<{ id: string; label: string }>
-    expect(buttons).toHaveLength(1)
-    expect(buttons[0].label).toBe('Confirm')
-    expect(controlsOf('pc')).toEqual(['patternConfirm'])
-    expect(state.edges).toContainEqual(expect.objectContaining({
-      source: 'bank', sourceHandle: `button-${buttons[0].id}`, target: 'pc', targetHandle: 'patternConfirm',
-    }))
-  })
-
-  // Same reasoning as a Button Bank retaining a row after its noodle is cut:
-  // rewiring should be a drag, not a re-decision.
-  it('keeps the row when its wire is removed', () => {
-    reset(
-      [node('btn', 'ButtonInput'), node('pc', 'ControlMap', { controls: ['playPause'] })],
-      [edge('e', 'btn', 'pressed', 'pc', 'playPause')],
-    )
-
-    useGraphStore.getState().removeEdge('e')
-
-    expect(controlsOf('pc')).toEqual(['playPause'])
-    expect(portsOf('pc')).toContain('playPause')
-  })
-
-  it('removes a row and the wire feeding it together', () => {
-    reset(
-      [node('btn', 'ButtonInput'), node('pc', 'ControlMap', { controls: ['playPause', 'next'] })],
-      [edge('e', 'btn', 'pressed', 'pc', 'playPause')],
-    )
-
-    useGraphStore.getState().removePlayerControlAssignment('pc', 'playPause')
-
-    expect(controlsOf('pc')).toEqual(['next'])
-    expect(portsOf('pc')).not.toContain('playPause')
-    expect(useGraphStore.getState().edges).toEqual([])
+    expect(buttons.map((button) => button.label)).toEqual(['Confirm'])
   })
 })
 
-describe('loading a workspace saved before assignments existed', () => {
-  // Those saves have edges landing on ports that used to be declared
-  // unconditionally. Seeding the list from the wires is what stops a load
-  // silently dropping every one of them.
-  it('seeds the assignment list from the wires already landing on it', () => {
-    reset(
-      [node('btn', 'ButtonInput'), node('knob', 'PotInput'), node('pc', 'ControlMap')],
-      [
-        edge('e1', 'btn', 'pressed', 'pc', 'playPause'),
-        edge('e2', 'knob', 'value', 'pc', 'brightness'),
-      ],
-    )
+describe('a wired row nothing downstream can act on', () => {
+  const warnings = (nodes: StudioNode[], edges: StudioEdge[]) => findUnusablePlayerControlWarnings(nodes, edges)
 
-    expect(controlsOf('pc')).toEqual(['playPause', 'brightness'])
-    expect(portsOf('pc')).toEqual([
-      'controlsIn', 'playPause', 'brightness', PLAYER_CONTROL_ADD_HANDLE,
-    ])
-    expect(useGraphStore.getState().edges).toHaveLength(2)
+  it('says nothing about a row its destination honours', () => {
+    expect(warnings(
+      [node('btn', 'ButtonInput'), node('pc', 'ControlMap'), node('player', 'PatternMaster')],
+      [edge('a', 'btn', 'pressed', 'pc', 'next'), edge('b', 'pc', 'controls', 'player', 'controls')],
+    )).toEqual([])
   })
 
-  // Catalogue order, not edge order, so two loads of one file cannot produce
-  // two different node layouts.
-  it('orders seeded assignments by the catalogue', () => {
-    const ids = playerControlIdsFromEdges('pc', [
-      { target: 'pc', targetHandle: 'patternConfirm' },
-      { target: 'pc', targetHandle: 'playPause' },
-      { target: 'other', targetHandle: 'next' },
-    ])
-    expect(ids).toEqual(['playPause', 'patternConfirm'])
+  // A Performance Generator's patterns come from the timed show file, so a
+  // pattern cursor has nothing to move: the next SET_PATTERN overwrites it.
+  it('names a pattern row on a Performance Generator', () => {
+    const found = warnings(
+      [node('btn', 'ButtonInput'), node('pc', 'ControlMap'), node('perf', 'PerformanceGenerator')],
+      [edge('a', 'btn', 'pressed', 'pc', 'patternNext'), edge('b', 'pc', 'controls', 'perf', 'controls')],
+    )
+    expect(found).toHaveLength(1)
+    expect(found[0]).toContain('Next Pattern')
+    expect(found[0]).toContain('cannot act on it')
+  })
+
+  it('names Volume on a chain that reaches only an LED output', () => {
+    const found = warnings(
+      [node('knob', 'PotInput'), node('pc', 'ControlMap'), node('out', 'MatrixOutput')],
+      [edge('a', 'knob', 'value', 'pc', 'volume'), edge('b', 'pc', 'controls', 'out', 'controls')],
+    )
+    expect(found).toHaveLength(1)
+    expect(found[0]).toContain('Volume')
+  })
+
+  // Nothing to judge against yet; the node body says where Controls go.
+  it('judges nothing while Controls goes nowhere', () => {
+    expect(warnings(
+      [node('btn', 'ButtonInput'), node('pc', 'ControlMap')],
+      [edge('a', 'btn', 'pressed', 'pc', 'patternNext')],
+    )).toEqual([])
+  })
+
+  // portsCompatible lets bool and float interconvert, which is right for
+  // arithmetic and wrong for a physical control.
+  it('names a button on a continuous row and a knob on a press', () => {
+    const found = warnings(
+      [node('btn', 'ButtonInput'), node('knob', 'PotInput'), node('pc', 'ControlMap'), node('player', 'PatternMaster')],
+      [
+        edge('a', 'btn', 'pressed', 'pc', 'volume'),
+        edge('b', 'knob', 'value', 'pc', 'playPause'),
+        edge('c', 'pc', 'controls', 'player', 'controls'),
+      ],
+    )
+    expect(found).toHaveLength(2)
+    expect(found.find((message) => message.startsWith('Volume'))).toContain('Use a knob')
+    expect(found.find((message) => message.startsWith('Play / Pause'))).toContain('Use a button')
   })
 })

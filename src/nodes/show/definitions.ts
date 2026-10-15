@@ -2,7 +2,9 @@
 // placement and Help descriptions. src/state/nodeLibrary.ts merges every
 // category's definitions into NODE_LIBRARY in sidebar order.
 import type { NodeDefinition } from '../../types'
-import { playerControlActionPortsFor, playerControlInputs } from '../../state/player/playerControlAssignments'
+import {
+  PLAYER_CONTROL_FUNCTIONS, PLAYER_CONTROLS_DEFAULT_EXPOSED, PLAYER_CONTROLS_INPUTS, playerControlActionPortsFor,
+} from '../../state/player/playerControlAssignments'
 import { SONG_INFO_PORTS } from '../../state/player/songInfo'
 
 export const SHOW_DEFINITIONS: NodeDefinition[] = [
@@ -43,21 +45,18 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
 
   // ── Music Player controls and effects ───────────────────────────────
   {
+    // Shown as Player Controls; `ControlMap` stays the code identifier so
+    // saved projects keep loading. Every function is declared, and each is
+    // an action input: hidden until exposed or wired, so the node shows the
+    // transport rows a panel usually has and grows only on request.
     type: 'ControlMap',
-    label: 'Control Map',
+    label: 'Player Controls',
     category: 'show',
-    // The real inputs are derived from `controls`, the way a Button Bank's
-    // outputs are derived from `buttons`. This declares the bundle input and
-    // the trailing invitation; completing a connection onto that socket opens
-    // the function picker, and the choice mints a port named for it.
-    //
-    // Port ids are unchanged from when all fourteen were declared here, so the
-    // evaluator, the generators and the firmware read exactly what they read
-    // before — only whether the socket exists is new.
-    inputs: playerControlInputs([]),
+    inputs: [...PLAYER_CONTROLS_INPUTS],
+    actionInputs: PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id),
+    defaultExposedInputs: [...PLAYER_CONTROLS_DEFAULT_EXPOSED],
     outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
     defaultProperties: {
-      controls: [],
       debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
       repeatDelayMs: 400, repeatIntervalMs: 120,
     },
@@ -341,7 +340,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
 export const SHOW_DESCRIPTIONS: Record<string, string> = {
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   Transition: 'Transitions A→B — 21 styles: wipe, iris, push, spiral, dolly, cube + more.',
-  ControlMap: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
+  ControlMap: 'Gathers player buttons and knobs onto one Controls wire.',
   PlayerParticles: 'Configures the Music Player\'s beat-triggered particle overlay.',
   PatternMaster: 'Plays a Pattern Collection in order or at random, changing on a timer or beats.',
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',

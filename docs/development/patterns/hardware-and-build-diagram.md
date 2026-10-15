@@ -367,12 +367,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   after a pulse, so consecutive captures still create separate rising edges for
   Step Value and other event consumers. A key bool is named like any other GPIO
   output
-  (`n_<id>_button_<key>`), so a direct action or Control Map resolves it; `once`
+  (`n_<id>_button_<key>`), so a direct action or Player Controls resolves it; `once`
   drops repeat frames and `held` keeps them. A key with no protocol stays false
   and does not pull in the library. `irRemoteWorkflow.test.ts` holds the
   first-release Power → Toggle and Up/Down/Reset → Step Value workflow across
   preview, save/reload, undo/redo, normal, slideshow, and SD/player generation;
-  the player route goes through Control Map because direct LED-output runtime
+  the player route goes through Player Controls because direct LED-output runtime
   controls are unsupported there. Validation is one structured issue walk
   projected into both `findDeployBlockingErrors` and Graph Health: it blocks a
   second receiver, empty/invalid/duplicate/missing mappings, unsupported

@@ -145,7 +145,7 @@ describe('connectTemplateControls', () => {
     expect(again.connected).toBe(0)
     expect(useGraphStore.getState().edges.length).toBe(afterFirst)
 
-    // The user routes the screen through their own Control Map instead.
+    // The user routes the screen through their own Player Controls instead.
     const state = useGraphStore.getState()
     useGraphStore.setState({
       nodes: [...state.nodes, node('map', 'ControlMap')],

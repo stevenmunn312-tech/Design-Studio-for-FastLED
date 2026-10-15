@@ -38,7 +38,7 @@ import { boardSparePins } from '../build/parts/partPinAssignment'
 import { browserThumbnailIssues } from './browserThumbnails'
 import { transportArtworkIssues } from './transportArtworks'
 import {
-  controlChainDestinations, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
+  controlChainDestinations, controlChainSinks, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
 } from '../codegen/player/playerDisplays'
 import { OLED_PANEL_RAM_BYTES } from '../codegen/displays/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/displays/segmentDisplayCpp'
@@ -2323,7 +2323,7 @@ function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineI
   return issues
 }
 
-/** Check conflicting mappings across a complete chained Control Map domain. */
+/** Check conflicting mappings across a complete chained Player Controls domain. */
 function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): PlayerControlMappingIssue[] {
   const controls = nodes.filter((node) => node.data.nodeType === 'ControlMap')
   const byId = new Map(controls.map((node) => [node.id, node]))
@@ -2364,7 +2364,7 @@ function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): P
         domain,
         nodeIds: component,
         nodeLabel: nodeLabel(first),
-        message: `${domain === 'volume' ? 'Volume' : 'Brightness'} has both an absolute control and up/down buttons in the same Control Map chain`,
+        message: `${domain === 'volume' ? 'Volume' : 'Brightness'} has both an absolute control and up/down buttons in the same Player Controls chain`,
       })
     }
   }
@@ -2373,7 +2373,7 @@ function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): P
 
 /**
  * A single physical action must not reach the same destination twice: once
- * directly and once through a Control Map bundle.
+ * directly and once through a Player Controls node bundle.
  *
  * Two separate buttons mapped to the same Play/Pause or LED Toggle action are
  * fine. The bad shape is one source output feeding both routes. LED outputs
@@ -2441,7 +2441,7 @@ function directControlCollisionIssues(nodes: StudioNode[], edges: StudioEdge[]):
       const controlMap = byId.get(duplicate.controlMapId)
       const sourceName = source ? nodeLabel(source) : directEdge.source
       const destinationName = nodeLabel(destination)
-      const controlMapName = controlMap ? nodeLabel(controlMap) : 'Control Map'
+      const controlMapName = controlMap ? nodeLabel(controlMap) : 'Player Controls'
       issues.push({
         id: issueId,
         nodeIds: [directEdge.source, duplicate.controlMapId, destination.id],
@@ -2449,7 +2449,7 @@ function directControlCollisionIssues(nodes: StudioNode[], edges: StudioEdge[]):
         title: `${action.label} reaches ${destinationName} twice`,
         message: `${sourceName} sends ${action.label} to ${destinationName} both directly and through ${controlMapName}. `
           + 'That one press would be applied twice.',
-        fix: 'Keep either the direct action wire or the Control Map route for that source, not both.',
+        fix: 'Keep either the direct action wire or the Player Controls route for that source, not both.',
       })
     }
   }
@@ -3083,7 +3083,7 @@ export interface PanelEnableRecoveryIssue {
  *
  * The rule is the unambiguous one: warn only when the panel's own Touch node
  * is the *sole* origin of the signal. An origin is a node in the upstream
- * closure of Enabled with nothing feeding it, so a Toggle, a Control Map or
+ * closure of Enabled with nothing feeding it, so a Toggle, a Player Controls node or
  * any amount of logic between the glass and the panel is seen through. A graph
  * that also mixes in some constant is not flagged, which can miss a contrived
  * shape; that is the right way to be wrong here, because a warning that fires
@@ -3290,7 +3290,7 @@ export function findSignalRangeHints(nodes: StudioNode[], edges: StudioEdge[]): 
 }
 
 /**
- * One control given two jobs on the same Control Map node.
+ * One control given two jobs on the same Player Controls node.
  *
  * A press is one event, so a button wired to both Brightness Up and
  * Brightness Down sends +step and -step in the same frame and nets to
@@ -3320,10 +3320,64 @@ function sharedControlSourceIssues(nodes: StudioNode[], edges: StudioEdge[]): st
     issues.push(
       `${nodeLabel(source)} drives ${functions.length} controls on ${nodeLabel(target)} `
       + `(${functions.join(', ')}). One press cannot mean two things — `
-      + 'give each job its own control, or remove the rows you do not want.',
+      + 'give each job its own control, or disconnect the wires you do not want.',
     )
   }
   return issues
+}
+
+/**
+ * A wired Player Controls row that nothing downstream can act on.
+ *
+ * Every function is a port on the node, so a wire can land on one whose job
+ * the bundle's destination does not have — Volume on a chain that reaches
+ * only an LED output, Next Pattern on a Performance Generator whose patterns
+ * come from the show file. The wire connects and does nothing, which is the
+ * failure that leaves someone pressing a button and blaming their soldering.
+ * A bundle that reaches nothing yet is not judged: the node body says so.
+ *
+ * A button on a continuous row, or a knob on a press, is said here too.
+ * `portsCompatible` lets bool and float interconvert, which is right for
+ * arithmetic and wrong for a physical control: a button on Volume jumps
+ * between silent and full, and a knob on Play / Pause fires at halfway.
+ */
+function unusablePlayerControlIssues(nodes: StudioNode[], edges: StudioEdge[]): Array<{ nodeId: string; message: string }> {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const issues: Array<{ nodeId: string; message: string }> = []
+  for (const control of nodes) {
+    if (control.data.nodeType !== 'ControlMap') continue
+    const wired = edges.filter((edge) => edge.target === control.id && playerControlFunction(edge.targetHandle))
+    if (wired.length === 0) continue
+    const reachable = controlChainSinks(control.id, edges, byId)
+    const names = [...controlChainDestinations(control.id, edges, byId)]
+      .map((id) => byId.get(id)).filter((node): node is StudioNode => !!node).map(nodeLabel).sort()
+    for (const edge of wired) {
+      const entry = playerControlFunction(edge.targetHandle)!
+      if (reachable.size > 0 && !entry.destinations.some((destination) => reachable.has(destination))) {
+        issues.push({
+          nodeId: control.id,
+          message: `${entry.label} on ${nodeLabel(control)} does nothing: its Controls reach ${names.join(', ')}, which cannot act on it.`,
+        })
+        continue
+      }
+      const source = byId.get(edge.source)
+      const sourceType = (source?.data.outputs as Array<{ id: string; dataType?: string }> | undefined)
+        ?.find((port) => port.id === edge.sourceHandle)?.dataType
+      if ((sourceType === 'bool' || sourceType === 'float') && sourceType !== entry.dataType) {
+        issues.push({
+          nodeId: control.id,
+          message: entry.kind === 'continuous'
+            ? `${entry.label} on ${nodeLabel(control)} is driven by a press, so it only jumps between off and full. Use a knob, or the ${entry.label} Up / Down rows for buttons.`
+            : `${entry.label} on ${nodeLabel(control)} is driven by a knob, so it fires each time the knob passes halfway. Use a button.`,
+        })
+      }
+    }
+  }
+  return issues
+}
+
+export function findUnusablePlayerControlWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return unusablePlayerControlIssues(nodes, edges).map((issue) => issue.message)
 }
 
 export function findSharedControlSourceWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
@@ -3558,9 +3612,19 @@ export function buildGraphDiagnostics(
       id: `shared-control-source-${index}`, severity: 'warning', category: 'connection',
       title: 'One control has two jobs',
       message,
-      fix: 'Give each job its own button or knob, or remove the extra rows from Control Map.',
+      fix: 'Give each job its own button or knob, or disconnect the extra wires from Player Controls.',
       nodeIds: nodes.filter((node) => node.data.nodeType === 'ControlMap').map((node) => node.id),
-      nodeLabel: 'Control Map',
+      nodeLabel: 'Player Controls',
+    })
+  }
+  for (const [index, issue] of unusablePlayerControlIssues(nodes, edges).entries()) {
+    diagnostics.push({
+      id: `unusable-player-control-${index}`, severity: 'warning', category: 'connection',
+      title: 'A control here does nothing',
+      message: issue.message,
+      fix: 'Move the wire to a row the destination can act on, or wire Controls to a node that has this job.',
+      nodeIds: [issue.nodeId],
+      nodeLabel: 'Player Controls',
     })
   }
   for (const bank of nodes.filter((node) => node.data.nodeType === 'PaletteBank')) {
@@ -4072,7 +4136,7 @@ export function buildGraphDiagnostics(
       category: 'connection',
       title: `${issue.domain === 'volume' ? 'Volume' : 'Brightness'} controls conflict`,
       message: `${issue.message}. The absolute control will override button changes.`,
-      fix: `Disconnect either the absolute ${issue.domain} input or its up/down button inputs from this Control Map chain.`,
+      fix: `Disconnect either the absolute ${issue.domain} input or its up/down button inputs from this Player Controls chain.`,
       nodeIds: issue.nodeIds,
       nodeLabel: issue.nodeLabel,
     })
@@ -4300,7 +4364,7 @@ export function buildGraphDiagnostics(
   }))
 
   // Output-control failures must be visible before deploy too, including a
-  // supported touch chain with an unsupported local Control Map override.
+  // supported touch chain with an unsupported local Player Controls override.
   findOutputRuntimeIssues(nodes, edges, options.displayDocuments, options.groups).errors.filter((message) => !liveDisplayIssues.errors.includes(message)).forEach((message, index) => diagnostics.push({
     id: `output-runtime-error-${index}`,
     severity: 'error', category: 'connection',
@@ -4429,6 +4493,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findRetainedLedDataPinWarnings(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
   warnings.push(...findSharedControlSourceWarnings(nodes, edges))
+  warnings.push(...findUnusablePlayerControlWarnings(nodes, edges))
   warnings.push(...findSignalRangeWarnings(nodes, edges))
   // Errors from this walk are already in the deploy gate above.
   warnings.push(...findDisplayGeneratorIssues(nodes, edges, displayDocuments, groups).warnings)

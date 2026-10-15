@@ -94,11 +94,11 @@ This is the shortest route from an idea to hardware. Every frame-producing patte
 
 ```text
 Pattern → Group → Pattern Library → Pattern Collection ─┐
-Buttons / knobs → Control Map ──────────────────────┼→ Music Player → LED Output → LEDs
+Buttons / knobs → Player Controls ──────────────────────┼→ Music Player → LED Output → LEDs
 Player Particles ───────────────────────────────────────┘
 ```
 
-Save finished patterns as reusable Groups, collect the ones you want, and let Music Player choose timing and transitions while the decoder supplies live audio. Control Map bundles physical play/pause, previous/next, volume, LED power, and brightness inputs into one Controls connection. Player Particles keeps the optional beat-overlay style, colour, randomisation, and intensity in a separate Particle FX connection. The preview and generated controller sketch share the same show structure.
+Save finished patterns as reusable Groups, collect the ones you want, and let Music Player choose timing and transitions while the decoder supplies live audio. Player Controls bundles physical play/pause, previous/next, volume, LED power, and brightness inputs into one Controls connection. Player Particles keeps the optional beat-overlay style, colour, randomisation, and intensity in a separate Particle FX connection. The preview and generated controller sketch share the same show structure.
 
 ### Author a music-synced SD show
 
@@ -164,7 +164,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Patterns:** Solid Color, Text, Clock Display, Line, Shape, Gauge, SD Video, Path, Fourier Epicycles, 3D Wireframe, Gradient Frame, Palette Gradient, Polar Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Theater Chase, Color Wipe, Breathe, Confetti, Candle, Lightning, Heartbeat, Sunrise, TV Simulator, Digital Rain, Juggle, Radial Burst, Spiral, Blobs, Fire, Particles, Formula Points, Flow Field, Starfield, String Particles, Boids, Reaction Diffusion, Game of Life, Level Meter, Spectrum Visualizer, Waveform, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
 - **Fields:** Field Formula, Field Noise, Slice Tiling, Truchet Tiles, Formula Shapes, Wave Sim, Automaton, Fractal Field, Fluid, Turing Field, Gradient Field, Shape Field, Frame → Field, Float → Field, Field Math, Field Levels, Field Blur, Field Warp, Field Rotate, Field Tile, Field Symmetry, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Glitter, Frame Transform, Brightness, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Kaleidoscope, Trails, Frame Warp, Symmetry, Frame Feedback, Frame Switch, Zones
-- **Show:** Music Library, Pattern Collection, Transition Pool, Music Player, Pattern Slideshow, Control Map, Player Particles, Song Info, Sequencer, Transition, Performance Generator, SD Card
+- **Show:** Music Library, Pattern Collection, Transition Pool, Music Player, Pattern Slideshow, Player Controls, Player Particles, Song Info, Sequencer, Transition, Performance Generator, SD Card
 - **Output:** Amplifier, Analog RGB Strip, Board, Buzzer, Cooling Fan, Darlington Driver, DFPlayer Mini, Display Panel, Frame Stream, Info Display, LED Matrix, Master Speed, Power Amplifier, Power Switch, PWM Driver, Relay Module, Segment Display, Stereo VU Meter
 - **Hardware:** Ethernet, DC-DC Converter, Battery Pack, Pack Electronics, USB-C PD Trigger
 - **Notes:** Comment

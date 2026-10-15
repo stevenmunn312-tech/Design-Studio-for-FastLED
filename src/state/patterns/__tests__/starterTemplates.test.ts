@@ -211,7 +211,7 @@ describe('starterTemplates', () => {
         expect(tgt, `target node ${edge.target} exists`).toBeTruthy()
         const srcDef = LIBRARY_DEF.get((src!.data as StudioNodeData).nodeType)!
         const tgtDef = LIBRARY_DEF.get((tgt!.data as StudioNodeData).nodeType)!
-        // The node's own ports, not the library's: Control Map and Button
+        // The node's own ports, not the library's: Player Controls and Button
         // Bank mint theirs from their properties, so a starter that wires one
         // has to carry the port it wired.
         const srcPorts = ((src!.data as StudioNodeData).outputs ?? srcDef.outputs) as typeof srcDef.outputs

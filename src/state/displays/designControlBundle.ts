@@ -6,7 +6,7 @@
  * `controlRole`. This module turns those roles into fields of the one
  * `playercontrols` bundle, so a Now Playing screen drives a Music Player
  * through a single Controls wire, the same wire a fixed layout's touch
- * regions, a Control Map or a row of GPIO buttons would use.
+ * regions, a Player Controls node or a row of GPIO buttons would use.
  *
  * Read by the evaluator, the three generators and validation, so the preview,
  * the firmware and Graph Health cannot disagree about which widget presses
@@ -140,7 +140,7 @@ export function designControlBundle(
  *
  * A Toggle's output follows its Set input once released, and a template binds
  * Play's Set to the player's `playing`. So anything that reads a *press* from
- * that output — a Music Player action, a Control Map row, an LED output's
+ * that output — a Music Player action, a Player Controls node row, an LED output's
  * blackout toggle — must count the finger's taps instead of watching the value,
  * or every transport change echoes back as a command: pressing Play in the app
  * starts the track, the toggle follows, and the rising edge pauses it again.

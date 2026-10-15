@@ -532,7 +532,7 @@ export function generateCpp(
      * can still land later, and the reader then names a variable that does not
      * exist yet. Wiring a Touch node straight into an LED output's Controls is
      * a supported shape, and it emitted exactly that until this rewrite - the
-     * existing fixtures all happened to route through a Control Map, whose own
+     * existing fixtures all happened to route through a Player Controls node, whose own
      * node does emit, which is why it went unnoticed.
      */
     .map((edge) => {
@@ -675,7 +675,7 @@ export function generateCpp(
   }
 
   /*
-   * A Control Map row or direct action fed by a screen Toggle counts the
+   * A Player Controls node row or direct action fed by a screen Toggle counts the
    * finger's taps instead of edge-detecting the value, because the value also
    * follows the Toggle's Set feedback (a template binds Play to `playing`) and
    * would echo every transport change back as a press. See
@@ -1278,7 +1278,7 @@ export function generateCpp(
   if (playerControlNodes.length > 0) {
     lines.push(PLAYER_CONTROLS_CPP)
     // Latch state is per output rather than per bundle: two fixtures wired to
-    // one Control Map both go dark on a press, and each then remembers its
+    // one Player Controls both go dark on a press, and each then remembers its
     // own level from there.
     for (const output of ledLatchOutputs) lines.push(ledOutputLatchGlobalCpp(output))
     lines.push(``)

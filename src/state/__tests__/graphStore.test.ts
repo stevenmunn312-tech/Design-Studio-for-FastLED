@@ -897,7 +897,7 @@ describe('graphStore — loadGraph normalization', () => {
   })
 
   it('grows and names a Button Bank output when its trailing socket is connected', () => {
-    // Control Map mints a port only once that job has been assigned, so
+    // Player Controls mints a port only once that job has been assigned, so
     // this drop needs a real target port to name the bank's row after. The
     // case where *neither* end can name itself is covered in
     // playerControlAssignments.test.ts.
@@ -2860,7 +2860,7 @@ describe('typed group boundaries', () => {
       .filter((issue) => issue.title === 'Group Output has no input')).toEqual([])
   })
 
-  it('keeps computed input provenance inside a nested Control Map', async () => {
+  it('keeps computed input provenance inside a nested Player Controls', async () => {
     const { evaluateGraphFull, resetEvaluatorState } = await import('../graphEvaluator')
     resetEvaluatorState()
     reset([node('timer', 'Interval', { interval: 0.5 }), node('map', 'ControlMap', { controls: ['ledToggle'], debounceMs: 50 }),

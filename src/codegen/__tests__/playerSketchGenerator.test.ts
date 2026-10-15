@@ -190,7 +190,7 @@ describe('playerSketchGenerator', () => {
     })
   })
 
-  describe('Control Map', () => {
+  describe('Player Controls', () => {
     it('traces a chained controls bundle and lets the downstream mapper override an action', () => {
       const nodes = [
         { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },

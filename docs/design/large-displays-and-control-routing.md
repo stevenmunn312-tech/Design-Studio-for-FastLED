@@ -2,7 +2,7 @@
 
 Status: the panel owns its screen design. There is no separate document
 node and no mount wire. Song Info unpacks a player's display envelope.
-Control Map remains the optional compact bundle; direct named actions
+Player Controls remains the optional compact bundle; direct named actions
 and property inputs are specified in
 [direct controls](direct-controls-and-output-status.md). HW-01–08
 integration gaps from 2026-09-08 are closed. Remaining evidence for the
@@ -123,7 +123,7 @@ The field catalogue is derived, not restated: `state/displays/displaySourceField
 maps the player's fields from `SONG_INFO_PORTS`, so a field added to a track
 report is offered on a screen the same day and cannot be offered under a name
 nothing publishes. `displaySourceFieldsForWidget` narrows by data type the way
-the Control Map picker does, and for the same reason — a track title on a
+Player Controls validation does, and for the same reason — a track title on a
 progress bar is a connection that would show nothing.
 
 Four things read one `source` property:
@@ -207,41 +207,27 @@ confirm changes the pixels rather than only what a panel says.
 ## Assigning controls
 
 Keep hardware sources generic: Button pressed can trigger a pattern or an
-appliance. Control Map owns assignment, not a dropdown on each physical part.
-Dropping on **Control…** opens a picker, then creates the named function input
-and completes the connection. Disconnecting retains the row; explicitly removing
-the row removes its edge. Function ids remain port ids, such as `playPause`.
+appliance. Player Controls owns assignment, not a dropdown on each physical part.
+Every function is a declared input whose id is the function id, such as
+`playPause`. Play / Pause, Previous, Next and Volume show by default; the rest
+are exposed on demand through **Expose input**, and a wired row always shows.
+The node body names the node its Controls reach.
 
-`playerControlAssignments.ts` owns the catalogue. The picker narrows twice.
-
-By **type**, deliberately narrower than float/bool wire compatibility: a button
-is not a useful continuous-volume control.
-
-By **destination**, because a bundle goes somewhere specific. Each function
-names the `PlayerControlDestination` kinds that act on it — a Music Player
-holds the track, the lamp and the collection and so takes all fourteen; an LED
-output has a blackout and a dimmer; a Pattern Slideshow has a cursor and no
-transport. `controlChainSinks` (`codegen/player/playerDisplays.ts`) walks the chain to
-find which kinds this node reaches, and `sensiblePlayerControls` intersects the
-two, so Play / Pause is not offered on a chain that ends at an LED output — a
-port that would mint, wire, validate and do nothing. `ControlChainSink` is an
-alias of that same union rather than a second copy, so a new destination cannot
-reach the generators while the picker goes on offering it nothing. A chain
-plugged into nothing yet is judged on type alone: there is no destination to
-judge against, and refusing everything would leave nothing to build with.
-
-Each option carries one line saying whether it is an edge or a position — *On
-each press*, *Holds its position, 0 to 1*, *Turn — one detent per pattern* —
-because `kind` is the thing being chosen and the label alone does not say it.
-
-For Button Bank → Control… both ends need a name. Materialize the target row
-before completing the edge, and derive target ports through `effectiveInputs`;
-otherwise the bank names its button after the trailing add socket. Pending
-assignments are cancelled when the picker is dismissed. Loading unions declared
-functions with actual wired function ids so existing edges remain legible.
+`playerControlAssignments.ts` owns the catalogue. Each function names the
+`PlayerControlDestination` kinds that act on it — a Music Player holds the
+track, the lamp and the collection and so takes all of them; an LED output has
+a blackout and a dimmer; a Pattern Slideshow has a cursor and no transport.
+`controlChainSinks` (`codegen/player/playerDisplays.ts`) walks the chain to find
+which kinds a node reaches, and Graph Health warns on a wired row none of them
+can act on — Play / Pause on a chain that ends at an LED output wires,
+validates and does nothing otherwise. It also warns on a button wired to a
+continuous row or a knob wired to a press, since float/bool wire compatibility
+is wrong for a physical control. A chain plugged into nothing yet is not judged.
+`ControlChainSink` is an alias of the destination union rather than a second
+copy, so a new destination reaches validation and the generators together.
 
 Fixed music touch may wire named Touch outputs straight to Music Player
-action inputs, or send the Controls bundle through Control Map. Custom
+action inputs, or send the Controls bundle through Player Controls. Custom
 UI publishes each widget from the companion Touch node. Direct named
 actions and property inputs are specified in
 [direct controls](direct-controls-and-output-status.md). A screen design
@@ -264,7 +250,7 @@ by the evaluator, all three generators and validation:
 - A widget whose own output is wired keeps that job and leaves the bundle,
   so one tap never fires twice. Unplaced widgets are never in it.
 
-Firmware builds the bundle with the Control Map emitter
+Firmware builds the bundle with the Player Controls emitter
 (`designControlBundleEmit`), adding a `CtlTap` edge beside `CtlEdge`. A panel
 drawing a design is also skipped by `playerDisplays.ts`: emitting its fixed
 layout as well painted both onto one glass and read the digitiser twice.
@@ -390,7 +376,7 @@ reset by the root button, a Schedule Trigger enabled by that Clock's beat, and
 a TM1637 Clock layout on GPIO 2 and 3. Normal and slideshow builds gate the LED
 output from the schedule. The player gates the colour panel, because a direct
 Enabled wire on its LED output is an error. The regression fixture also checks
-a timer shared between a Control Map and a panel's Enabled path, plus a physical
+a timer shared between a Player Controls node and a panel's Enabled path, plus a physical
 button that still requires debounce. Results are recorded in
 [control graph compile checks](../reports/compile/control-graph-compile-checks.md).
 These are software checks, not hardware evidence.

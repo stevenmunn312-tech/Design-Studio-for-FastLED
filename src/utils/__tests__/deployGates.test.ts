@@ -285,7 +285,7 @@ const CASES: GateCase[] = [
     diagnostic: 'cf-formula',
   },
   {
-    name: 'one action source reaches a destination directly and through Control Map',
+    name: 'one action source reaches a destination directly and through Player Controls',
     nodes: [
       node('sc', 'SolidColor'),
       node('btn', 'ButtonInput', { pin: 12 }),
@@ -300,7 +300,7 @@ const CASES: GateCase[] = [
     ],
     fqbn: S3,
     blocks: /LED On \/ Off reaches MatrixOutput twice/,
-    names: ['LED On / Off', 'MatrixOutput', 'Control Map route'],
+    names: ['LED On / Off', 'MatrixOutput', 'Player Controls route'],
     diagnostic: 'direct-control-collision-out-ledToggle-btn-pressed',
   },
   {

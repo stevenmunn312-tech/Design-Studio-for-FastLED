@@ -250,7 +250,7 @@ function QuickStartTab() {
         <div className={styles.choiceGrid}>
           <div className={styles.choiceCard}>
             <strong>Self-running generative show</strong>
-            <span>Add saved patterns to Pattern Collection, connect it to Music Player, then connect the player&apos;s frame to the LED output. Add Control Map when buttons or knobs should operate playback, volume, LED power, or brightness; add Player Particles when the show needs a configurable beat overlay.</span>
+            <span>Add saved patterns to Pattern Collection, connect it to Music Player, then connect the player&apos;s frame to the LED output. Add Player Controls when buttons or knobs should operate playback, volume, LED power, or brightness; add Player Particles when the show needs a configurable beat overlay.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Music-synced SD show</strong>
@@ -258,7 +258,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Physical controls</strong>
-            <span>Blackout, dimming and pattern intent are wires, not project settings. A knob or button goes into <strong>Control Map</strong>, which asks what that control should do and mints the port it names, and its <strong>Controls</strong> bundle then reaches an LED output&apos;s latch, a Pattern Slideshow&apos;s cursor, or Music Player&apos;s transport. The <strong>Dimmer and Blackout</strong> and <strong>Browse a Slideshow</strong> starters arrive with both ends already wired.</span>
+            <span>Blackout, dimming and pattern intent are wires, not project settings. A knob or button goes into <strong>Player Controls</strong>, which asks what that control should do and mints the port it names, and its <strong>Controls</strong> bundle then reaches an LED output&apos;s latch, a Pattern Slideshow&apos;s cursor, or Music Player&apos;s transport. The <strong>Dimmer and Blackout</strong> and <strong>Browse a Slideshow</strong> starters arrive with both ends already wired.</span>
           </div>
         </div>
       </div>
@@ -451,7 +451,7 @@ function ShortcutsTab() {
  * short "being rebuilt" notes while their model was changing, on the grounds
  * that a help page documenting the previous week is worse than one with a gap
  * in it; both are now written against the shipped model: two nodes for a touch
- * panel, direct wires to the owner, and Control Map as the optional compact bundle.
+ * panel, direct wires to the owner, and Player Controls as the optional compact bundle.
  *
  * What stays a note is the one thing still genuinely absent: serial output and
  * runtime debug readings on a panel.
@@ -519,7 +519,7 @@ function DisplaysTab() {
           Add a touch-capable panel from <strong>Displays</strong> in the Hardware shelf and you get the <strong>Display Panel</strong> and a <strong>Touch</strong> node together, already linked. You never wire them to each other or type which panel the Touch node reads — they are one part, and taking it off the shelf was the one decision. The panel keeps all the pins, including the digitiser&rsquo;s five lines, because that is where the Build Diagram and the pin checker look for them.
         </div>
         <div className={styles.text}>
-          The Touch node has a compact <strong>Controls</strong> output and, when the fixed presentation has controls, named outputs for the same jobs. A <strong>Fixed Transport</strong> screen gives you Previous, Play/Pause, Next and a volume strip; a <strong>Now Playing</strong> screen gives play/pause and volume. Wire a named action directly to the thing that owns it, or send the bundle through <strong>Control Map</strong> when you want one cable or continuous volume.
+          The Touch node has a compact <strong>Controls</strong> output and, when the fixed presentation has controls, named outputs for the same jobs. A <strong>Fixed Transport</strong> screen gives you Previous, Play/Pause, Next and a volume strip; a <strong>Now Playing</strong> screen gives play/pause and volume. Wire a named action directly to the thing that owns it, or send the bundle through <strong>Player Controls</strong> when you want one cable or continuous volume.
         </div>
         <div className={styles.text}>
           A panel showing a <strong>screen design</strong> is different: the design owns the touch. Its Buttons, Toggles, Sliders and Dials each publish on their own output on the companion Touch node. The controls a template placed — Previous, Play, Next, Volume, Brightness and Blackout — also travel on <strong>Controls</strong>, so a Now Playing screen drives Music Player through that one wire. A control whose own output you have wired keeps that job and leaves the bundle, so nothing fires twice.
@@ -534,21 +534,21 @@ function DisplaysTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Connecting controls to displays</div>
         <div className={styles.lede}>
-          Controls do not belong to displays. A screen, a button on a bench and a knob on a panel all produce the same thing: a typed wire that can go straight to its owner, or through <strong>Control Map</strong> when you want a compact bundle. Right-click a runtime field and choose <strong>Expose input</strong> to draw that socket; dragging onto the property row exposes and connects it in one step.
+          Controls do not belong to displays. A screen, a button on a bench and a knob on a panel all produce the same thing: a typed wire that can go straight to its owner, or through <strong>Player Controls</strong> when you want a compact bundle. Right-click a runtime field and choose <strong>Expose input</strong> to draw that socket; dragging onto the property row exposes and connects it in one step.
         </div>
         <div className={styles.text}>
-          Drop a Control Map and it starts almost empty: one <strong>Controls In</strong> input for chaining, and one trailing <strong>Connect control…</strong> socket. Drag any control into that socket and a picker asks what the control is for. Choose, and the node grows a port named for the job — Play / Pause, Volume, Brightness, Next Pattern — with a fresh empty socket beneath it. You end up with a node that lists exactly the jobs you have given it instead of fourteen sockets you have to read past.
+          Drop a Player Controls node and it starts almost empty: one <strong>Controls In</strong> input for chaining, and one trailing <strong>Connect control…</strong> socket. Drag any control into that socket and a picker asks what the control is for. Choose, and the node grows a port named for the job — Play / Pause, Volume, Brightness, Next Pattern — with a fresh empty socket beneath it. You end up with a node that lists exactly the jobs you have given it instead of fourteen sockets you have to read past.
         </div>
         <div className={styles.text}>
           The picker only offers what makes sense, which is narrower than what would merely connect:
         </div>
         <div className={styles.definitionGrid}>
           <div><strong>By what it is</strong><span>A button can be Play / Pause or Next; only a knob or a slider can be Volume. A button wired to Volume would set it to 0 or 1 and nothing between, so it is not offered.</span></div>
-          <div><strong>By where the cable ends</strong><span>Play / Pause needs something holding a track. If the Control Map reaches only an LED output, you are offered its blackout and dimmer and no transport at all.</span></div>
+          <div><strong>By where the cable ends</strong><span>Play / Pause needs something holding a track. If the Player Controls reaches only an LED output, you are offered its blackout and dimmer and no transport at all.</span></div>
           <div><strong>One job per control</strong><span>A press is one event. A button already doing Brightness Up is not offered Brightness Down, which would fire both in the same frame and cancel out.</span></div>
         </div>
         <div className={styles.text}>
-          Then wire the Control Map&rsquo;s <strong>Controls</strong> output at whatever should obey it. A <strong>Music Player</strong> takes everything — transport, volume, its lamp, its collection. An <strong>LED output</strong> takes blackout and dimming and remembers its own level, so two fixtures on one Control Map both go dark on a press. A <strong>Pattern Slideshow</strong> takes pattern intent and has no transport, because it is a show rather than a player. <strong>Master Speed</strong> takes a speed.
+          Then wire the Player Controls&rsquo;s <strong>Controls</strong> output at whatever should obey it. A <strong>Music Player</strong> takes everything — transport, volume, its lamp, its collection. An <strong>LED output</strong> takes blackout and dimming and remembers its own level, so two fixtures on one Player Controls both go dark on a press. A <strong>Pattern Slideshow</strong> takes pattern intent and has no transport, because it is a show rather than a player. <strong>Master Speed</strong> takes a speed.
         </div>
         <div className={styles.note}>
           Chain them with <strong>Controls In</strong> when controls live in different places — three buttons on the bench and a touch screen on the door. Presses combine rather than fight: either end pressing Play means play, and a knob wired nearer wins over one further away, because the nearer one is what somebody just touched.

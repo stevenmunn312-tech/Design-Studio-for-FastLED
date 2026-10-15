@@ -341,7 +341,7 @@ does with a bundle is in the type.
 This is what a touch panel needed to be routable in a normal sketch. Before it,
 `PlayerControls` had no emit case there at all — the bundle's only consumers
 were the Music Player, which a normal sketch renders as a black fill, and
-another Control Map. A press had nowhere to land, so validation refused the
+another Player Controls. A press had nowhere to land, so validation refused the
 wire. It now lands on a fixture. `codegen/player/playerControlsCpp.ts` emits the
 bundle from ordinary graph wires (the debounce and repeat numbers read from
 `state/player/transportBridge.ts`, the detent size from `state/patterns/patternSelection.ts`),
@@ -465,7 +465,7 @@ The show song-expression table is intentionally empty because it owns no track.
 Player scalar song readings come through Song Info nodes wired to the active
 Music Player, not removed per-field ports on the player itself.
 
-`templateControlRouting.ts` follows Control Map chains for selected
+`templateControlRouting.ts` follows Player Controls chains for selected
 destinations. Player builds route to Music Player; show builds currently route
 only to rendered LED outputs, which is why slideshow pattern intent is ignored
 (HW-01). LED output latches combine enabled values by AND and brightness by
@@ -512,7 +512,7 @@ ports from an unpacker wired to its player are sampled; strings are copied into 
 transport action can reset their source tags. A synchronized volume slider
 reads `playerVolume`, the normalized control setting before the amplifier cap,
 so feedback cannot repeatedly attenuate the value. Fixed touch panels publish
-the same bundle as widget/GPIO-fed Control Map; each mapper keeps its own
+the same bundle as widget/GPIO-fed Player Controls; each mapper keeps its own
 debounce/repeat settings and downstream absolute values override upstream ones.
 
 The bundle is applied to the player's one transport before audio servicing and
@@ -521,7 +521,7 @@ including on the generic player's EOF branch before returning. Serial file
 transfers still bypass all display/control work. Collection and file-timeline
 players use the same integration. Direct Enabled/Brightness/Controls wires to
 the player's LED output remain refused; those controls must reach Music Player
-through Control Map. Firmware compilation and physical shared-SPI/audio
+through Player Controls. Firmware compilation and physical shared-SPI/audio
 performance evidence remain separate release gates.
 
 ## One surface, two transports

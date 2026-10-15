@@ -754,8 +754,7 @@ export function displayWidgetPortId(widgetId: string, role: DisplayWidgetPortRol
  * It carries a dataType of its own so it is inert to the ordinary connect
  * path — `portsCompatible` matches nothing against it — and the only thing
  * that can act on it is the wire-first drop, which checks what the property
- * can actually take. The same shape `PlayerControls` uses for `add-control`,
- * minus its picker: here the property being dropped on names the control.
+ * can actually take: the property being dropped on names the control.
  */
 export const TOUCH_CONTROL_ADD_HANDLE = 'add-control'
 export const TOUCH_CONTROL_ADD_DATA_TYPE = 'newcontrol'
@@ -856,7 +855,7 @@ export function displayWidgetTakesValue(type: DisplayWidgetType): boolean {
 /**
  * The fields of the panel's source this widget could actually show.
  *
- * Narrowed by data type, the same exact match the Control Map picker uses and
+ * Narrowed by data type, the same exact match the Player Controls picker uses and
  * for the same reason: a track title on a Progress bar and a pattern number on
  * a Text line are both wires that would connect and show nothing. A widget with
  * no input role offers nothing — a Button has no reading to take.

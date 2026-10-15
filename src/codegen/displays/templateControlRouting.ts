@@ -1,4 +1,4 @@
-// Shared control routing for template generators: Control Map, the scalar
+// Shared control routing for template generators: Player Controls, the scalar
 // IR and fixed/custom touch panels. Each template supplies its destinations
 // and runtime sources. Validation uses this same resolver as emission.
 import { expandGroups } from '../../state/expandGroups'
@@ -127,7 +127,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   }
 
   /*
-   * A press into a Control Map row or a direct action. A screen Toggle is
+   * A press into a Player Controls node row or a direct action. A screen Toggle is
    * counted by taps rather than edge-detected, since its value also follows
    * Set feedback and would echo transport changes back as presses (see
    * `toggleWidgetSource`). Physical contacts keep debounce; computed pulses
@@ -150,7 +150,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       return null
     }
     if (visiting.has(source.id)) {
-      errors.add(`${label(source.id)}: the Control Map chain contains a cycle. Remove a Controls In wire before exporting.`)
+      errors.add(`${label(source.id)}: the Player Controls chain contains a cycle. Remove a Controls In wire before exporting.`)
       return null
     }
     const p = source.data.properties
@@ -160,7 +160,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
      * This used to accept a `TransportDisplay` as the source of a controls
      * edge. A panel has no outputs at all now — the digitiser became a node of
      * its own — so that branch could never be taken and a touch panel wired
-     * through Control Map was reported as a wire the template cannot evaluate.
+     * through Player Controls was reported as a wire the template cannot evaluate.
      *
      * The bundle itself stays keyed on the *panel*: `touchIds` is what makes
      * the display half declare `PlayerControlsValue` beside that panel's touch

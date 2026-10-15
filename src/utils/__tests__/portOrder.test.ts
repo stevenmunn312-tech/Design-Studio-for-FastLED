@@ -27,7 +27,7 @@ describe('orderPorts', () => {
     expect(orderPorts(canonical, [port('a'), port('c')]).map((p) => p.id)).toEqual(['a', 'b', 'c'])
   })
 
-  // A trailing socket stays trailing. The rows a Control Map mints from its
+  // A trailing socket stays trailing. The rows a Player Controls node mints from its
   // own wires are absent from a pre-feature save, and landing them after
   // `add-control` puts the "add one" affordance in the middle of the list.
   it('keeps a trailing socket last when newer ports arrive before it', () => {

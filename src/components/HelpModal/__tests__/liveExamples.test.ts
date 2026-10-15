@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_LIBRARY, portsCompatible } from '../../../state/nodeLibrary'
-import { playerControlInputs } from '../../../state/player/playerControlAssignments'
 import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/peripherals/irRemote'
 import {
   exampleUsesMicrophone,
@@ -28,18 +27,14 @@ describe('node-reference live examples', () => {
         const target = byKey.get(edge.target)
         const sourceDefinition = NODE_LIBRARY.find((node) => node.type === source?.type)
         const targetDefinition = NODE_LIBRARY.find((node) => node.type === target?.type)
-        // IR Remote mints one output per learned key, the mirror of the
-        // Control Map case below — its library entry declares only the
-        // trailing Learn socket, which an example must never wire.
+        // IR Remote mints one output per learned key — its library entry
+        // declares only the trailing Learn socket, which an example must
+        // never wire.
         const sourceOutputs = source?.type === 'IRRemoteInput'
           ? irRemoteOutputs((source.properties as Record<string, unknown> | undefined)?.buttons)
           : sourceDefinition?.outputs
         const sourcePort = sourceOutputs?.find((port) => port.id === edge.sourceHandle)
-        // Control Map mints one port per assigned function, so its ports
-        // follow the example's own properties rather than the library entry.
-        const targetInputs = target?.type === 'ControlMap'
-          ? playerControlInputs((target.properties as Record<string, unknown> | undefined)?.controls)
-          : targetDefinition?.inputs
+        const targetInputs = targetDefinition?.inputs
         const targetPort = targetInputs?.find((port) => port.id === edge.targetHandle)
         expect(source, `${featured.type}: missing ${edge.source}`).toBeTruthy()
         expect(target, `${featured.type}: missing ${edge.target}`).toBeTruthy()

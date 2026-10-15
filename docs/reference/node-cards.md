@@ -1216,11 +1216,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Transition Pool example graph](../../public/node-cards/graphs/transition-set.svg)
 
-### Control Map
+### Player Controls
 
-![Control Map node](../../public/node-cards/control-map.svg)
+![Player Controls node](../../public/node-cards/control-map.svg)
 
-![Control Map example graph](../../public/node-cards/graphs/control-map.svg)
+![Player Controls example graph](../../public/node-cards/graphs/control-map.svg)
 
 ### Player Particles
 

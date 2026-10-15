@@ -50,7 +50,7 @@ that state. Rotation and enabled state are graph settings.
 
 The slideshow owns the current pattern and highlighted selection. The OLED
 reports that state; physical browsing controls go to Pattern Slideshow's named
-action inputs, or through Control Map when you want a compact bundle. Pattern
+action inputs, or through Player Controls when you want a compact bundle. Pattern
 thumbnails are baked during export, so upload again after changing the
 collection.
 
@@ -71,7 +71,7 @@ Enabled remains a separate input/property.
 
 For fixed music touch on XPT2046, wire named Touch outputs such as
 **Play / Pause** directly to matching Music Player action inputs, or
-route **Touch Controls → Control Map Controls In → Music Player
+route **Touch Controls → Player Controls Controls In → Music Player
 Controls** when you want one compact bundle, continuous
 volume/brightness, chaining or repeat settings. Show Status and Clock
 are read-only. For custom touch, wire individual widget outputs from
@@ -135,7 +135,7 @@ Touch Screen has no inputs. It has a compact **Controls** output plus named outp
 the actions the current fixed layout defines — Previous, Play/Pause, Next and
 volume on **Fixed Transport**; play/pause and volume on **Now Playing**; nothing
 on read-only layouts such as Show Status or Waiting. Wire a named output
-directly to the destination that owns it, or wire **Controls** to **Control Map**
+directly to the destination that owns it, or wire **Controls** to **Player Controls**
 when you want a bundled path.
 
 A panel showing a screen design has no fixed layout underneath for Touch Screen to
@@ -249,9 +249,9 @@ a first connection, add a Slider and Numeric Readout and connect the slider's
 Output on Touch Screen to the readout's Value on the panel. For formatted text, insert
 Format Number between the slider and a Text widget. For music-player actions,
 connect widget outputs directly to named action inputs where available, or use
-Control Map when you need chaining, repeat settings or a bundle. A player's
+Player Controls when you need chaining, repeat settings or a bundle. A player's
 Volume is a direct property input. SD-player fixture brightness still goes
-through Control Map; a direct LED output Brightness wire is refused on that
+through Player Controls; a direct LED output Brightness wire is refused on that
 build.
 
 A synchronized control belongs to the finger while held. After release, a wired
@@ -363,7 +363,7 @@ evaluate every wire connected to it.
 | --- | --- |
 | No widget graph ports | Add widgets in Edit screen design; an empty design has no widget ports yet. Bound readouts mint none. Control outputs appear on the companion Touch Screen node. |
 | Control snaps back after release | Inspect its Set wire; that source becomes authoritative after touch. |
-| Template does not control playback | Use **Connect template controls**, or wire Touch outputs to Music Player action inputs (or through Control Map when the control is bundled). |
+| Template does not control playback | Use **Connect template controls**, or wire Touch outputs to Music Player action inputs (or through Player Controls when the control is bundled). |
 | Build reports an unsupported widget input | Replace the upstream path with supported scalar nodes, or use a normal sketch where that path is supported. |
 | Screen document size does not match | Reopen the editor after changing the mounted module or rotation and resolve the reported size/layout issue. |
 | Asset preparation or trust issue | Choose an installed asset and complete the project's trust review before building. |

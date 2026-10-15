@@ -36,7 +36,7 @@ const GROUPS = Object.fromEntries(['grp-a', 'grp-b'].map((id, i) => [id, {
 
 /** The starter's shape: music and a collection into the generator, a card and
  * an amplifier on the bench, an OLED on the Display output and a button on a
- * Control Map wired into Controls. */
+ * Player Controls wired into Controls. */
 function performanceShow() {
   const nodes = [
     node('lib', 'MusicLibrary'),

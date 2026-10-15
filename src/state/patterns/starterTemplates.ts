@@ -5,7 +5,6 @@ import { isHardwareOnlyNodeType } from '../../build/hardware'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { retargetHardwarePins } from '../../build/pins/pinRetarget'
 import { audioCapabilityIntent } from '../audio/audioCapabilities'
-import { playerControlInputs } from '../player/playerControlAssignments'
 import { buttonBankOutputs } from '../player/buttonBank'
 import { estimatePowerLoad } from '../../utils/validateGraph'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -197,13 +196,10 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
           key,
           typeof value === 'string' && value.startsWith('$') ? idFor(value.slice(1)) : value,
         ])),
-        // Two node types mint their own ports from their properties, the way
-        // `loadGraph` derives them. A starter that wires a Control Map
-        // function has to carry the port it wired, or `build()` hands back a
-        // graph whose edges land on sockets its own nodes do not declare.
-        inputs: def.type === 'ControlMap'
-          ? playerControlInputs((spec.properties ?? {}).controls)
-          : def.inputs,
+        inputs: def.inputs,
+        // A Button Bank mints its outputs from its properties, the way
+        // `loadGraph` derives them, or `build()` hands back a graph whose
+        // edges leave sockets its own node does not declare.
         outputs: def.type === 'ButtonBank'
           ? buttonBankOutputs((spec.properties ?? {}).buttons)
           : def.outputs,
@@ -511,10 +507,6 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'pattern', type: 'Plasma', col: 0, row: 0 },
       { id: 'pot', type: 'PotInput', col: 0, row: 1 },
       { id: 'button', type: 'ButtonInput', col: 0, row: 2 },
-      // The assignment list is declared as well as wired. A load unions the
-      // two, so either alone would do — but stating it means the node reads
-      // correctly straight out of build(), before any load resolves the edges.
-      { id: 'controls', type: 'ControlMap', col: 1, row: 1, properties: { controls: ['brightness', 'ledToggle'] } },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       tutorialNote(
         'guide', -1, 0,
@@ -524,9 +516,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     ],
     edgeSpecs: [
       { source: 'pattern', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-      { source: 'pot', sourceHandle: 'value', target: 'controls', targetHandle: 'brightness' },
-      { source: 'button', sourceHandle: 'pressed', target: 'controls', targetHandle: 'ledToggle' },
-      { source: 'controls', sourceHandle: 'controls', target: 'out', targetHandle: 'controls' },
+      { source: 'pot', sourceHandle: 'value', target: 'out', targetHandle: 'brightness' },
+      { source: 'button', sourceHandle: 'pressed', target: 'out', targetHandle: 'ledToggle' },
     ],
   }),
   template({
@@ -546,7 +537,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'show', type: 'PatternSlideshow', col: 1, row: 0 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       { id: 'encoder', type: 'EncoderInput', col: 0, row: 1 },
-      { id: 'controls', type: 'ControlMap', col: 1, row: 1, properties: { controls: ['patternSelect', 'patternConfirm'] } },
+      { id: 'controls', type: 'ControlMap', col: 1, row: 1 },
       // An OLED fed by a pattern-rotating source is a Pattern Browser, and it
       // is what makes highlight-then-confirm mean anything: the LEDs only ever
       // show what is already running. The four-pin I2C module rather than the
@@ -587,10 +578,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'play', type: 'ButtonInput', col: 0, row: 2 },
       { id: 'prev', type: 'ButtonInput', col: 0, row: 3 },
       { id: 'next', type: 'ButtonInput', col: 0, row: 4 },
-      {
-        id: 'controls', type: 'ControlMap', col: 1, row: 2,
-        properties: { controls: ['playPause', 'previous', 'next'] },
-      },
+      { id: 'controls', type: 'ControlMap', col: 1, row: 2 },
       { id: 'master', type: 'PatternMaster', col: 2, row: 0 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 3, row: 0 },
       // Readback: one Display wire carries the whole track report, and the
@@ -603,7 +591,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'amp', type: 'Amplifier', col: 4, row: 1 },
       tutorialNote(
         'guide', -1, 0,
-        'PRESS AND READ BACK \nEach button is given its job on the Control Map node, and the bundle reaches the player on one cable.\nThe screen takes the player’s one Display wire: the player reports the track, the panel only draws it.',
+        'PRESS AND READ BACK \nEach button is given its job on the Player Controls node, and the bundle reaches the player on one cable.\nThe screen takes the player’s one Display wire: the player reports the track, the panel only draws it.',
         TRY_COLOR,
       ),
     ],

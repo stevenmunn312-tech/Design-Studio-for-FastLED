@@ -261,7 +261,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
      * current 0-1 value while held and zero at rest.
      *
      * These sit beside the `controls` bundle so a Touch→property wire
-     * needs no Control Map pass-through.
+     * needs no Player Controls pass-through.
      */
     const touchKey = stateKey(panelId)
     const touch = useTransportDisplayTouchStore.getState().touches.get(panelId)

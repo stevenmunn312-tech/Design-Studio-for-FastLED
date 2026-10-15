@@ -285,7 +285,7 @@ describe('beside the other displays', () => {
  * Until an LED output could latch a bundle there was nothing here for a press
  * to reach, so validation refused the wire and the generator emitted no touch
  * sampling at all. Both halves changed together: the panel publishes the same
- * `playercontrols` bundle a Control Map node does, resolved from the same
+ * `playercontrols` bundle a Player Controls node does, resolved from the same
  * hit geometry the browser preview uses.
  */
 describe('a touch panel driving an LED output', () => {
@@ -318,7 +318,7 @@ describe('a touch panel driving an LED output', () => {
     expect(src).toContain('_xptPoint(')
   })
 
-  it('samples the controller for a direct fixed-layout output without a Control Map', () => {
+  it('samples the controller for a direct fixed-layout output without a Player Controls node', () => {
     const player = node('player', 'PatternMaster')
     const juggle = node('juggle', 'Juggle', { speed: 0 })
     const src = generateCpp(

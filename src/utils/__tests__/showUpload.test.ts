@@ -167,7 +167,7 @@ describe('buildShowPlayer', () => {
     expect(sketch).not.toContain('pinMode(12, INPUT);')
   })
 
-  it('passes the Control Map wiring into the generated SD player', () => {
+  it('passes the Player Controls wiring into the generated SD player', () => {
     const nodes = [
       node('player', 'PatternMaster'),
       node('controls', 'ControlMap', {

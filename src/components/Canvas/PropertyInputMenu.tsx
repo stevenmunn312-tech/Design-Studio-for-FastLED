@@ -66,7 +66,8 @@ export default function PropertyInputMenu({
           const meta = port.propertyKey ? propertyMeta(nodeType, port.propertyKey) : undefined
           const range = meta?.control === 'slider' ? ` · ${meta.min}–${meta.max}` : ''
           const dot = <span className={styles.dot} style={{ background: portColor(port.dataType) }} />
-          const kindLabel = port.kind === 'action' ? 'action' : 'input'
+          // A press is an action; a knob row with no field behind it is still an input.
+          const kindLabel = port.kind === 'action' && port.dataType === 'bool' ? 'action' : 'input'
           // A wired socket cannot be hidden — the wire would go with it — so
           // the two things worth offering instead are finding what drives it
           // and pulling that wire, which restores the field beside the socket.

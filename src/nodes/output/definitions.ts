@@ -534,7 +534,7 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     category: 'output',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      // A knob on a Control Map reaches the clock the same way a wire does.
+      // A knob on a Player Controls node reaches the clock the same way a wire does.
       { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
     ],
     outputs: [],

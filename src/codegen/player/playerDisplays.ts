@@ -200,7 +200,7 @@ const CONTROL_CHAIN_SINKS: Record<string, ControlChainSink | undefined> = {
 }
 
 /**
- * Every node a control bundle lands on, following Control Map links.
+ * Every node a control bundle lands on, following Player Controls links.
  *
  * One walk for all of them, because "does this wire go anywhere" is one
  * question with several answers now. A panel wired to an LED output is serviced
@@ -247,7 +247,7 @@ export function controlChainSinks(
 }
 
 /** Whether this display's control bundle reaches the Music Player through the
- * same Control Map chain as physical buttons and encoders. */
+ * same Player Controls chain as physical buttons and encoders. */
 export function displayControlsPlayer(
   displayId: string,
   edges: ConfigEdge[],

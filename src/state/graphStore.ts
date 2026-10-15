@@ -100,11 +100,6 @@ import {
   updateIrRemoteButton as patchIrRemoteButton,
   type IrRemoteButton,
 } from './peripherals/irRemote'
-import {
-  PLAYER_CONTROL_ADD_HANDLE, normalizePlayerControlIds, playerControlFunction,
-  playerControlIdsFromEdges, playerControlInputs,
-  withPlayerControlAssignment, withoutPlayerControlAssignment,
-} from './player/playerControlAssignments'
 import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './audio/stereoVuSizing'
 import { audioCapabilityIntent, type AudioCapabilityKind } from './audio/audioCapabilities'
 import {
@@ -332,13 +327,6 @@ interface GraphState {
   updateIrRemoteButton: (nodeId: string, entryId: string, patch: Partial<Pick<IrRemoteButton, 'label' | 'protocol' | 'address' | 'command' | 'repeat'>>) => void
   /** Remove one key and every noodle fed by its stable handle. One undo step. */
   removeIrRemoteButton: (nodeId: string, entryId: string) => void
-  /** A drop on Control Map' trailing socket, waiting for a function. */
-  pendingControlAssignment: PendingControlAssignment | null
-  /** Mint the chosen function's port and land the held connection on it. */
-  assignPlayerControl: (functionId: string) => void
-  cancelPlayerControlAssignment: () => void
-  /** Drop one assigned function's port and the wire feeding it. */
-  removePlayerControlAssignment: (nodeId: string, functionId: string) => void
   /** Re-route an edge to a new connection when its end is dragged to a port. */
   reconnectNoodle: (oldEdge: StudioEdge, newConnection: Connection) => void
 
@@ -476,21 +464,6 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       delete properties.wifiSsid
       delete properties.wifiPassword
     }
-    // A Control Map node mints only the functions it has been given. A
-    // workspace saved before that listed none, so the stored list is unioned
-    // with the functions its wires already land on — otherwise a load would
-    // drop every one of them on the floor.
-    //
-    // Union rather than a fallback for an absent list, because a save from
-    // before this feature and a fresh node both present an empty list; the
-    // wires are what tell them apart. It cannot resurrect a row the user
-    // removed, since removing one takes its wire with it.
-    if (nodeType === 'ControlMap') {
-      properties.controls = normalizePlayerControlIds([
-        ...(Array.isArray(properties.controls) ? properties.controls : []),
-        ...playerControlIdsFromEdges(n.id, edges),
-      ])
-    }
     // An IR receiver mints one output per learned key, so a damaged or
     // truncated `buttons` list would take live wires down with it. The handles
     // its edges already leave from are passed in as required, which is what
@@ -505,10 +478,8 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // A Tidy swap is remembered as the saved port order. The list above is
     // still which ports exist; ports added by a newer library append at the end.
     const inputs = orderPorts(
-      nodeType === 'ControlMap'
-        ? playerControlInputs(properties.controls)
-        : partDerivedInputs(nodeType, properties.partId)
-          ?? def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
+      partDerivedInputs(nodeType, properties.partId)
+        ?? def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
       Array.isArray(data.inputs) ? data.inputs : undefined,
     )
     const outputs = orderPorts(
@@ -649,67 +620,16 @@ function withAdoptedDisplayControl(
 /**
  * A node's inputs as they actually are, not as its stored data claims.
  *
- * Control Map mints one port per assigned function, so its ports follow
- * its properties. Deriving here rather than reading `data.inputs` means the
- * naming works however the node reached the store — a load, a paste, or a
- * test writing state directly — instead of only when normalization has run.
+ * A part-backed node's ports follow its selected part, so they are derived
+ * rather than read from `data.inputs`; that works however the node reached
+ * the store — a load, a paste, or a test writing state directly.
  */
 function effectiveInputs(node: StudioNode): Array<{ id: string; label: string }> {
-  if (node.data.nodeType === 'ControlMap') {
-    return playerControlInputs(node.data.properties.controls)
-  }
   const derived = partDerivedInputs(node.data.nodeType, node.data.properties.partId)
   if (derived) return derived.map(({ id, label }) => ({ id, label }))
   return (node.data.inputs ?? []) as Array<{ id: string; label: string }>
 }
 
-/**
- * A drop that cannot be a connection yet.
- *
- * Only the trailing socket qualifies, and only on a Control Map node. The
- * source's dataType is captured here rather than looked up again later,
- * because it is what narrows the picker: `portsCompatible` lets float and bool
- * interconvert, which is right for arithmetic and wrong for a knob.
- */
-export interface PendingControlAssignment {
-  nodeId: string
-  connection: Connection
-  sourceDataType: string | undefined
-}
-
-function pendingControlAssignmentFor(
-  nodes: StudioNode[],
-  connection: Connection,
-): PendingControlAssignment | null {
-  if (connection.targetHandle !== PLAYER_CONTROL_ADD_HANDLE) return null
-  const target = nodes.find((node) => node.id === connection.target)
-  if (!target || target.data.nodeType !== 'ControlMap') return null
-  const source = nodes.find((node) => node.id === connection.source)
-  const port = (source?.data.outputs as Array<{ id: string; dataType: string }> | undefined)
-    ?.find((entry) => entry.id === connection.sourceHandle)
-  return { nodeId: target.id, connection, sourceDataType: port?.dataType }
-}
-
-/** Rewrite one Control Map node's assignment list and its derived ports. */
-function withPlayerControlRow(node: StudioNode, controls: string[]): StudioNode {
-  return {
-    ...node,
-    data: {
-      ...node.data,
-      properties: { ...node.data.properties, controls },
-      inputs: playerControlInputs(controls),
-    },
-  }
-}
-
-/**
- * Land a resolved connection: grow a Button Bank row if that is what the
- * source end is, replace whatever held the input, and draw the noodle.
- *
- * Shared by `onConnect` and by the control picker, so a connection made
- * through the picker is the same connection in every respect but when it was
- * named. Clears any pending assignment, since completing one ends it.
- */
 /**
  * `TransportDisplay`'s two content inputs are exclusive: a panel shows
  * whichever was wired last, the same way any single-source input replaces
@@ -766,6 +686,10 @@ function displayDocumentsForMountedPanel(
   }
 }
 
+/**
+ * Land a resolved connection: grow a Button Bank row if that is what the
+ * source end is, replace whatever held the input, and draw the noodle.
+ */
 function completeConnection(s: GraphState, connection: Connection): Partial<GraphState> {
   const grown = materializeButtonBankConnection(s.nodes, connection)
   const resolved = grown.connection
@@ -786,10 +710,7 @@ function completeConnection(s: GraphState, connection: Connection): Partial<Grap
     edges,
     resolved,
   )
-  return {
-    ...adopted,
-    pendingControlAssignment: null,
-  }
+  return adopted
 }
 
 function materializeButtonBankConnection(
@@ -1629,7 +1550,6 @@ export const useGraphStore = create<GraphState>()(
       nodes: [],
       edges: [],
       selectedNodeId: null,
-      pendingControlAssignment: null,
       clipboard: null,
 
       activeGraphId: ROOT_GRAPH_ID,
@@ -2019,47 +1939,7 @@ export const useGraphStore = create<GraphState>()(
         set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
 
       onConnect: (connection) =>
-        set((s) => {
-          // A drop on the trailing socket is not a connection yet: nothing on
-          // the source side can name it, so the picker asks, and the choice is
-          // what materialises the port. Held rather than created, and
-          // abandoned outright if the picker is dismissed.
-          const pending = pendingControlAssignmentFor(s.nodes, connection)
-          if (pending) return { pendingControlAssignment: pending }
-          return completeConnection(s, connection)
-        }),
-
-      cancelPlayerControlAssignment: () => set({ pendingControlAssignment: null }),
-
-      assignPlayerControl: (functionId) =>
-        set((s) => {
-          const pending = s.pendingControlAssignment
-          if (!pending || !playerControlFunction(functionId)) return {}
-          // The row is added *before* the connection is completed, so the port
-          // exists with its real label by the time anything reads it. That
-          // ordering is what makes two dynamic ends work: a Button Bank's own
-          // trailing socket names its row from the target port, and the target
-          // port is only real once this row is.
-          const nodes = s.nodes.map((node) => (
-            node.id === pending.nodeId && node.data.nodeType === 'ControlMap'
-              ? withPlayerControlRow(node, withPlayerControlAssignment(node.data.properties.controls, functionId))
-              : node
-          ))
-          return completeConnection(
-            { ...s, nodes },
-            { ...pending.connection, targetHandle: functionId },
-          )
-        }),
-
-      removePlayerControlAssignment: (nodeId, functionId) =>
-        set((s) => ({
-          nodes: s.nodes.map((node) => (
-            node.id === nodeId && node.data.nodeType === 'ControlMap'
-              ? withPlayerControlRow(node, withoutPlayerControlAssignment(node.data.properties.controls, functionId))
-              : node
-          )),
-          edges: s.edges.filter((edge) => !(edge.target === nodeId && edge.targetHandle === functionId)),
-        })),
+        set((s) => completeConnection(s, connection)),
 
       connectRoot: (connection) =>
         set((s) => {
@@ -2084,21 +1964,8 @@ export const useGraphStore = create<GraphState>()(
           }
         }),
 
-      /*
-       * Unplugging a wire also puts down a half-finished control assignment.
-       *
-       * The picker is a question about a drop that has just happened, and the
-       * user answering it by editing the graph instead has answered it: the
-       * gesture is over. Left standing it re-evaluates against the new graph,
-       * so unplugging the very wire that made a control ineligible turned the
-       * "already assigned" refusal into a live picker nobody had re-opened —
-       * a menu that changed under the user's hands.
-       */
       removeEdge: (id) =>
-        set((s) => ({
-          edges: s.edges.filter((e) => e.id !== id),
-          ...(s.pendingControlAssignment ? { pendingControlAssignment: null } : {}),
-        })),
+        set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
 
       removeButtonBankEntry: (nodeId, entryId) =>
         set((s) => {
@@ -2754,9 +2621,6 @@ export const useGraphStore = create<GraphState>()(
         const inActive = state.nodes.some((entry) => entry.id === id)
         const node = (inActive ? state.nodes : rootGraphNodes(state)).find((entry) => entry.id === id)
         if (!node || node.data.nodeType === 'Board') return
-        // A part removed mid-question ends the question, whether or not it was
-        // one of the two nodes the drop was between.
-        if (state.pendingControlAssignment) set({ pendingControlAssignment: null })
         // The last panel that names a design takes it. A design another panel
         // still shows stays, because the drawing is not the glass.
         const displayId = node.data.nodeType === 'TransportDisplay'
@@ -4111,7 +3975,7 @@ export function movePartPinToFree(
  *
  * On a Music Player or Performance Generator build the engine owns the lamp,
  * so it is the one place those commands are read. The wire keeps its source —
- * the same Touch node or Control Map — and only its destination changes, in
+ * the same Touch node or Player Controls — and only its destination changes, in
  * one undoable step. Refuses, changing nothing, when the wire has gone or the
  * engine's Controls input has since been taken.
  */
@@ -4272,7 +4136,6 @@ function editNodeIn(
         ...n.data,
         properties,
         ...(n.data.nodeType === 'ButtonBank' ? { outputs: buttonBankOutputs(properties.buttons) } : {}),
-        ...(n.data.nodeType === 'ControlMap' ? { inputs: playerControlInputs(properties.controls) } : {}),
       },
     }
   })

@@ -1975,7 +1975,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     brightnessStep: 'Brightness change applied by each Brightness Up or Brightness Down event.',
     repeatDelayMs: 'How long a step button is held before it begins repeating.',
     repeatIntervalMs: 'Time between repeated changes while a step button remains held.',
-    controls: 'The mapped player functions, one per input port, chosen when a wire is completed onto the + socket.',
   },
   PlayerParticles: {
     enabled: 'Enables a particle burst on each wired Music Player beat.',

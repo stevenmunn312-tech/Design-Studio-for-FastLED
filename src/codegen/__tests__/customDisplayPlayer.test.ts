@@ -118,7 +118,7 @@ describe('custom displays in SD-player firmware', () => {
     expect(cpp).toContain('if (n_last_controls.next) changePlayerTrack(1);')
   })
 
-  it('emits direct player action inputs without requiring Control Map', () => {
+  it('emits direct player action inputs without requiring Player Controls', () => {
     const nodes = [node('button', 'ButtonInput', { pin: 12, pullup: true })]
     const cpp = generate(nodes, [edge('button', 'pressed', 'player', 'playPause')])
     expect(cpp).toContain('PlayerControlsValue n_player_direct_controls;')
@@ -127,7 +127,7 @@ describe('custom displays in SD-player firmware', () => {
     expect(cpp).not.toContain('n_controls_controls')
   })
 
-  it('emits direct player volume without requiring Control Map', () => {
+  it('emits direct player volume without requiring Player Controls', () => {
     const nodes = [panel('tft'), touch()]
     const cpp = generate(nodes, [edge('tft-touch', 'widget:slider:out', 'player', 'volume')])
     expect(cpp).toContain('PlayerControlsValue n_player_direct_controls;')
@@ -148,7 +148,7 @@ describe('custom displays in SD-player firmware', () => {
       [panel('tft'), node('text', 'TextValue')],
       [edge('text', 'text', 'tft', 'widget:slider:set')],
     )).toThrow('requires float')
-    expect(() => generate([panel('tft'), touch()], [edge('tft-touch', 'widget:slider:out', 'out', 'brightness')])).toThrow('Control Map')
+    expect(() => generate([panel('tft'), touch()], [edge('tft-touch', 'widget:slider:out', 'out', 'brightness')])).toThrow('Player Controls')
   })
 
   it('uses identical prepared asset bytes for measurement and the actual upload payload', () => {

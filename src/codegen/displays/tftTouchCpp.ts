@@ -253,7 +253,7 @@ function inside(x: string, y: string, rect: { x: number; y: number; w: number; h
  *
  * The player sketch can press its own transport directly. A normal sketch has
  * no transport at all, so its panel publishes either the same `playercontrols`
- * bundle a Control Map node does, direct scalar/boolean outputs for property
+ * bundle a Player Controls node does, direct scalar/boolean outputs for property
  * wires, or both from the same sample.
  *
  * Parameterising the sink rather than the whole function keeps the part that
@@ -267,7 +267,7 @@ export type TftTouchSink =
   /** Fill a PlayerControlsValue local, as codegen/player/playerControlsCpp.ts defines it. */
   | { kind: 'bundle'; variable: string }
   /**
-   * Write individual variables for direct wiring (no Control Map needed).
+   * Write individual variables for direct wiring (no Player Controls needed).
    * Each key is an action name mapped to its C++ variable and rest type.
    */
   | { kind: 'direct'; variables: Record<string, { variable: string; dataType: 'bool' | 'float' }> }
@@ -391,7 +391,7 @@ export function tftTouchServiceCpp(
     if (!body) continue
     // A momentary action fires on the touch-down edge; an absolute slider
     // tracks for as long as the finger stays down. The evaluator publishes
-    // them the same way, so chaining a panel through Control Map cannot
+    // them the same way, so chaining a panel through Player Controls cannot
     // fire a button every tick it is held in one place and not the other.
     const guard = region.valueAxis === 'x' ? '' : `!_touchPrev_${id} && `
     lines.push(`    if (${down} && ${guard}${hit}) { ${body} }`)

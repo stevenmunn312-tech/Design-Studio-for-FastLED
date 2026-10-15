@@ -1130,7 +1130,7 @@ export default function LEDPreview() {
   const onNext = () => (showMode ? transport.next() : nextTrack())
 
   // Simulated Button/Potentiometer/Encoder nodes feed the same semantic
-  // Control Map bundle as generated firmware. Evaluation publishes a
+  // Player Controls bundle as generated firmware. Evaluation publishes a
   // serialised command only when something changes, so each button edge is
   // consumed once even though the preview renderer runs continuously.
   useEffect(() => {

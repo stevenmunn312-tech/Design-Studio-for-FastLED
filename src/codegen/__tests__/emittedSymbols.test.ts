@@ -47,7 +47,7 @@ const IDS = ['a', 'b', 'c']
 const GROUPS = Object.fromEntries(IDS.map((id) => [id, solid()])) as unknown as GroupRegistry
 
 /**
- * Collection -> engine -> panel, encoder and press through Control Map.
+ * Collection -> engine -> panel, encoder and press through Player Controls.
  *
  * The engine is a parameter because the two templates that draw a browser are
  * reached by different nodes: a Slideshow builds the show controller, a Music

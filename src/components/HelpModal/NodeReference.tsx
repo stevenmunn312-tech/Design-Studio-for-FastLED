@@ -438,7 +438,7 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     image: { label: 'Image', category: 'pattern' },
     dmx: { label: 'DMX / Art-Net', category: 'input' },
     storage: { label: 'Storage', category: 'input' },
-    playercontrols: { label: 'Control Map', category: 'input' },
+    playercontrols: { label: 'Player Controls', category: 'input' },
     playerparticles: { label: 'Player Particles', category: 'show' },
     string: { label: 'Text Value', category: 'math' },
   }
@@ -704,7 +704,7 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
     case 'PatternMaster':
       return {
         columns: [
-          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show'), makeNode('controls', 'Control Map', 'input'), makeNode('particles', 'Player Particles', 'show')],
+          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show'), makeNode('controls', 'Player Controls', 'input'), makeNode('particles', 'Player Particles', 'show')],
           [makeNode('target', node.label, node.category, true)],
           [makeNode('sink', 'LED Matrix', 'output')],
         ],
@@ -716,7 +716,7 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
           { from: 'particles', to: 'target' },
           { from: 'target', to: 'sink' },
         ],
-        explanation: `${node.label} performs the live generative show. Pattern Order chooses Sequential collection order or Random playback. Control Map maps physical inputs to transport and LED commands, while Player Particles supplies the optional beat-overlay configuration.`,
+        explanation: `${node.label} performs the live generative show. Pattern Order chooses Sequential collection order or Random playback. Player Controls maps physical inputs to transport and LED commands, while Player Particles supplies the optional beat-overlay configuration.`,
         result: 'A live multi-pattern show with dwell timing, transitions, physical controls, and optional audio reactivity.',
       }
     case 'ControlMap':
@@ -1618,7 +1618,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
           <section className={styles.manualSection}>
             <h2>Optional inputs</h2>
             <p>Use Expose inputs… on the node to show these sockets: {optionalInputs.map((port) => port.label).join(', ')}.</p>
-            <p>Volume and timing sockets override their matching property fields. Action sockets accept boolean pulses: previous/next track changes the song; previous/next pattern browses the collection, and Confirm commits that selection. Control Map bundles these controls into one connection.</p>
+            <p>Volume and timing sockets override their matching property fields. Action sockets accept boolean pulses: previous/next track changes the song; previous/next pattern browses the collection, and Confirm commits that selection. Player Controls bundles these controls into one connection.</p>
           </section>
         </>
       ) : <div className={styles.ioGrid}>

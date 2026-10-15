@@ -46,7 +46,7 @@ interface PlayerTransportState {
    */
   localTrack: LocalTrackInfo | null
   volume: number
-  /** Monotonic command envelope published by a graph-level Control Map
+  /** Monotonic command envelope published by a graph-level Player Controls
    * bundle. The preview player consumes each serial exactly once. */
   controlSerial: number
   controlCommand: PreviewPlayerCommand | null

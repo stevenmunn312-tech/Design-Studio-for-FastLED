@@ -15,9 +15,7 @@ export interface OrderedPort {
  * Sorting the whole list by saved rank instead — appending anything the save
  * did not name — reads a stale save as a deliberate reorder, and the two are
  * not distinguishable by rank alone. It moved `PerformanceGenerator`'s Music
- * input behind Patterns for any workspace saved before Music existed, and put
- * a Control Map's trailing `add-control` socket ahead of the rows it mints
- * from its own wires, since those rows are not in a pre-feature save either.
+ * input behind Patterns for any workspace saved before Music existed.
  * Permuting in place says what a Tidy swap means and nothing more: only the
  * ports in the crossed bundle move, which is what `untanglePortOrders` below
  * does in the first place.

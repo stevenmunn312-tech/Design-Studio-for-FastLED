@@ -13,15 +13,13 @@ import { describe, it, expect } from 'vitest'
 import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
-import { PLAYER_CONTROL_FUNCTIONS, playerControlInputs, sensiblePlayerControls } from '../player/playerControlAssignments'
+import { PLAYER_CONTROL_FUNCTIONS } from '../player/playerControlAssignments'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
-  const inputs = nodeType === 'ControlMap'
-    ? playerControlInputs(properties.controls)
-    : definition?.inputs ?? []
+  const inputs = definition?.inputs ?? []
   return { id, type: 'studioNode', position: { x: 0, y: 0 }, data: {
     label: nodeType, nodeType, category: definition?.category ?? 'output',
     properties: { ...libraryDefaults(nodeType), ...properties },
@@ -44,7 +42,7 @@ function graph(controlValue: number, speedProperty = 1, assigned = ['masterSpeed
   const nodes = [
     node('board', 'Board'),
     node('knob', 'Math', { mathOp: 'add', a: controlValue, b: 0 }),
-    node('map', 'ControlMap', { controls: assigned }),
+    node('map', 'ControlMap'),
     node('clock', 'MasterSpeed', { speed: speedProperty }),
     // Animated on purpose: the master clock is only emitted into a sketch
     // that reads `t`, and a solid colour never does.
@@ -61,18 +59,7 @@ function graph(controlValue: number, speedProperty = 1, assigned = ['masterSpeed
 }
 
 describe('a control given a job that is not a player\'s', () => {
-  it('is offered on a chain that ends at Master Speed, and player jobs are not', () => {
-    const offered = sensiblePlayerControls('float', [], { reachable: new Set(['speed' as const]) })
-      .map((entry) => entry.id)
-    expect(offered).toContain('masterSpeed')
-    // Volume on a chain that reaches only the clock would wire, validate and
-    // do nothing, which is the whole point of filtering by destination.
-    expect(offered).not.toContain('volume')
-  })
-
-  it('mints a port the evaluator already reads', () => {
-    const ports = playerControlInputs(['masterSpeed']).map((port) => port.id)
-    expect(ports).toContain('masterSpeed')
+  it('declares a port the evaluator already reads', () => {
     expect(PLAYER_CONTROL_FUNCTIONS.find((entry) => entry.id === 'masterSpeed')?.destinations)
       .toEqual(['speed'])
   })

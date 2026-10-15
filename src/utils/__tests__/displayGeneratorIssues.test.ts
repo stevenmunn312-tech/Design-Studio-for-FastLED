@@ -328,7 +328,7 @@ describe('displays a build cannot drive', () => {
     )
     expect(issues.errors).toHaveLength(1)
     // Not "cannot sample touch" any more — it can. The chain simply ends at a
-    // Control Map with nothing after it, so the press reaches nothing.
+    // Player Controls with nothing after it, so the press reaches nothing.
     expect(issues.errors[0]).toContain('does not reach anything a normal sketch can act on')
     expect(issues.errors[0]).toContain('read-only display')
   })
@@ -337,7 +337,7 @@ describe('displays a build cannot drive', () => {
    * The route that used to not exist.
    *
    * A normal sketch samples XPT2046 now and publishes the panel's presses as
-   * the same `playercontrols` bundle a Control Map node does; an LED
+   * the same `playercontrols` bundle a Player Controls node does; an LED
    * output latches the LED half of it. So the question stopped being whether
    * the generator can read touch and became whether the chain ends anywhere it
    * can act on.
@@ -357,7 +357,7 @@ describe('displays a build cannot drive', () => {
     expect(issues.errors).toEqual([expect.stringContaining('Toggle and Slider outputs')])
   })
 
-  it('rejects one wired straight to the output, with no Control Map between', () => {
+  it('rejects one wired straight to the output, with no Player Controls between', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
     })

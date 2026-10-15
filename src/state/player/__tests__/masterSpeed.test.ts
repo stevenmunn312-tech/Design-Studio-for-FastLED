@@ -48,7 +48,7 @@ describe('the knob itself', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'MasterSpeed')
     expect(def?.outputs).toEqual([])
     // Two ways in, one meaning: an ordinary wire, or a knob given this job on
-    // a Control Map. Still nothing out — it changes what time is.
+    // a Player Controls node. Still nothing out — it changes what time is.
     expect(def?.inputs.map((input) => input.id)).toEqual(['speed', 'controls'])
   })
 })
@@ -210,7 +210,7 @@ describe('builds whose clock is not the sketch\'s own', () => {
     expect(errors).toEqual([])
   })
 
-  it('accepts a show Control Map carrying the Master Speed job', () => {
+  it('accepts a show Player Controls carrying the Master Speed job', () => {
     const pot = node('p', 'PotInput', { pin: 4 })
     const controls = node('controls', 'ControlMap')
     const { errors } = findOutputRuntimeIssues(

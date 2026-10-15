@@ -85,7 +85,7 @@ digital input and does not enable the internal pull-up used by many mechanical
 buttons.
 
 Wire the node's **Touched** output directly to a boolean action or through a
-Trigger/Control Map when you need toggle or edge semantics. Press the on-node
+Trigger/Player Controls when you need toggle or edge semantics. Press the on-node
 touch control to exercise the same boolean in preview. This part is not the
 **Touch Screen** node used by a touchscreen display: that node carries screen
 coordinates, while this sensor produces one momentary boolean.
@@ -612,7 +612,7 @@ outputs. To create a mapping:
    **Enabled** input. Toggle remembers the state between presses; **Start on**
    chooses the startup state, and Off wins if both commands arrive together.
    In an SD/player graph, route player and LED
-   controls through **Control Map → Music Player**.
+   controls through **Player Controls → Music Player**.
 5. Upload the project again after learning; the temporary learner is not the
    project firmware. Cancelling or completing the learner releases the serial
    port.
@@ -750,14 +750,13 @@ Blackout, dimming and pattern intent are wires, not project settings. Add the
 control as a part — **Potentiometer**, **Button**, **Rotary Encoder** — then
 wire it to the property or named action it should control. Right-click a
 runtime field and choose **Expose input** to draw that socket; dragging onto
-the property row exposes and connects it in one step. Use **Control Map**
+the property row exposes and connects it in one step. Use **Player Controls**
 when you want one compact bundle, conversion, chaining or repeat settings.
-Dropping on its trailing socket asks what that control should do and mints a
-port named for the job, offering only the jobs this chain can actually carry
-out: a bundle ending at an LED output is offered blackout and dimming, one
-ending at a Pattern Slideshow is offered pattern intent, and one reaching Music
-Player is offered all of it. Each option says whether it is an edge (*on each
-press*) or a position (*holds its position, 0 to 1*).
+It shows Play / Pause, Previous, Next and Volume; choose **Expose input** on
+the node for the rest (volume and brightness steps, LED on/off, brightness and
+pattern controls). The node says which player its Controls reach, and Graph
+Health warns when a wired row does nothing there — pattern buttons on a
+Performance Generator, say — or when a button is wired to a knob's job.
 
 The node's single **Controls** output then goes to whatever should obey it:
 
@@ -766,7 +765,7 @@ The node's single **Controls** output then goes to whatever should obey it:
 | LED output **Controls** | Blackout toggle, brightness level and up/down steps |
 | Pattern Slideshow **Controls** | Pattern selection, previous/next, confirm |
 | Music Player **Controls** | Transport, volume, blackout, dimming and pattern intent |
-| Another Control Map **Controls In** | Chains banks of controls into one bundle |
+| Another Player Controls **Controls In** | Chains banks of controls into one bundle |
 
 An LED output's **Enabled** and **Brightness** inputs take a plain wire too, for
 a graph with no controls in it. Unwired, an output is lit and undimmed, so
@@ -806,7 +805,7 @@ configure the display.
 
 For fixed music touch, wire named Touch outputs such as **Play / Pause**
 straight to matching Music Player action inputs, or connect **Touch
-Controls → Control Map Controls In → Music Player Controls** when you
+Controls → Player Controls Controls In → Music Player Controls** when you
 want one compact bundle or need continuous volume/brightness. Custom
 screens publish their individual widget outputs on the companion Touch Screen
 node. Fixed Show Status and Clock screens have no touch actions.
@@ -831,7 +830,7 @@ node. Fixed Show Status and Clock screens have no touch actions.
    to land on it. Widget outputs leave through the companion **Touch Screen**
    node. A 0–1 Slider can drive a normal-sketch LED output's Brightness
    input. For SD music playback, assign fixture brightness through
-   **Control Map → Music Player**; a player's own Volume is a direct
+   **Player Controls → Music Player**; a player's own Volume is a direct
    property input. Bound readouts take a field of the panel's Display
    source from the inspector's **Reads** row; use **Song Info** only when
    you genuinely need one field on a cable.

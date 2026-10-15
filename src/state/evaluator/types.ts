@@ -101,7 +101,7 @@ export interface StorageSignal {
   label: string
 }
 
-/** Semantic commands and values carried by a Control Map cable. Command
+/** Semantic commands and values carried by a Player Controls node cable. Command
  * booleans are one-evaluation pulses. Absolute controls are omitted when no
  * local or chained absolute source exists; deltas accumulate across chains. */
 export interface PlayerControls {
@@ -122,7 +122,7 @@ export interface PlayerControls {
    */
   speed?: number
   /**
-   * Pattern-selection intent, from Control Map.
+   * Pattern-selection intent, from Player Controls.
    *
    * `patternSteps` is whole detents already — the encoder's running count is
    * turned into steps where the encoder is read, so the player receives a

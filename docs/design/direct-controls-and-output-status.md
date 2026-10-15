@@ -101,7 +101,7 @@ on/off behaviour. Play/Pause and Next are actions, not ordinary stored values.
   explicit **Match target range** repair instead of changing silently. Sensors,
   audio features, pots, random/generated values and shared sources keep their
   own source contract; use Map Range per edge when those domains need adapting.
-- Control Map becomes optional: useful for conversion, action handling or a
+- Player Controls becomes optional: useful for conversion, action handling or a
   named bundle such as Playback controls. A direct value connection needs no
   pass-through mapper. Ordinary action inputs must also work without a bundle.
 - Playback and show actions belong to the player/generator. Fixture brightness
@@ -214,18 +214,18 @@ and the firmware's `CtlEdge`/`CtlDetent` structs.
 | Destination | Normal sketch | Slideshow show | SD/Performance player |
 |-------------|:---:|:---:|:---:|
 | LED output `enabled`/`brightness` | ✓ | ✓ | ✗ (owned by transport) |
-| LED output `ledToggle`/`brightnessUp`/`brightnessDown` | ✓ | ✓ | ✗ (use Control Map) |
+| LED output `ledToggle`/`brightnessUp`/`brightnessDown` | ✓ | ✓ | ✗ (use Player Controls) |
 | LED output `controls` bundle | ✓ | ✓ | ✓ |
 | Display panel `enabled` | ✓ | ✓ | ✓ |
 | Juggle `speed`/`count`/`fade`/`palette` | ✓ | ✓ | ✓ |
-| Pattern player transport actions (Play/Pause etc.) | N/A | N/A | ✓ (direct or via Control Map) |
-| Pattern slideshow actions (Next Pattern etc.) | N/A | ✓ (direct or via Control Map) | N/A |
+| Pattern player transport actions (Play/Pause etc.) | N/A | N/A | ✓ (direct or via Player Controls) |
+| Pattern slideshow actions (Next Pattern etc.) | N/A | ✓ (direct or via Player Controls) | N/A |
 | Pattern slideshow `interval` | ✓ | ✓ | N/A |
 | Master Speed | ✓ | ✓ | ✗ |
 
 The SD player refuses direct LED output property/action wires by name —
 its transport owns brightness. Normal sketches and slideshow shows accept
-them. Control Map bundles work everywhere their destination exists.
+them. Player Controls bundles work everywhere their destination exists.
 
 ### Identities and persistence
 
@@ -351,12 +351,12 @@ continuous Enabled/Brightness property inputs and Controls bundle. The exposure
 registry distinguishes property inputs from action inputs while keeping the
 same "wired sockets remain visible" rule. Preview, normal sketches and show
 controllers fold those direct actions through the same `PlayerControlsValue`
-and LED-output latch as Control Map; SD-player builds refuse them and point the
-user back to Control Map. Held physical buttons are edged/debounced before they
+and LED-output latch as Player Controls; SD-player builds refuse them and point the
+user back to Player Controls. Held physical buttons are edged/debounced before they
 toggle blackout; already-pulsed fixed-touch action outputs pass through without
 being swallowed. Validation now rejects the one doubled route that would apply
 a single press twice: the same source output wired to the same destination
-action both directly and through an upstream Control Map bundle. Separate
+action both directly and through an upstream Player Controls bundle. Separate
 controls invoking the same action remain valid.
 
 - [x] Expose named destination actions on demand, including Play/Pause, Next and
@@ -365,30 +365,30 @@ controls invoking the same action remain valid.
   → `PatternMaster`, `PerformanceGenerator`, `PatternSlideshow` and
   `MatrixOutput` now declare their supported momentary `PlayerControls`
   actions as on-demand action inputs. Preview folds direct wires into the same
-  bundle semantics as Control Map; the show and SD-player template routers emit
+  bundle semantics as Player Controls; the show and SD-player template routers emit
   direct destination bundles before applying transport, pattern and LED-output
   latches. Focused coverage: `propertyInputs.test.ts`, `graphEvaluator.test.ts`,
   `customDisplayPlayer.test.ts`, `transportDisplayShow.test.ts`.
 - [x] Reject a direct-plus-bundle action collision for the same source and
   destination action. Two separate buttons may still invoke the same action,
   but one `pressed` output cannot reach **LED On / Off**, **Next Pattern** or
-  another momentary action both directly and through Control Map. The rule is a
+  another momentary action both directly and through Player Controls. The rule is a
   deploy-blocking error and a Graph Health diagnostic, covered by
   `validateGraph.test.ts` and `deployGates.test.ts`.
 - [x] Reuse or complete explicit toggle, increment/decrement and range-mapping
   operations. Show initial state and step/range settings where applicable.
   Trigger's Toggle variant now exposes an `initialState` field and preview plus
-  firmware initialise the latched output from it. Control Map keeps the
+  firmware initialise the latched output from it. Player Controls keeps the
   debounce, repeat and volume/brightness step settings for increment/decrement
   actions. Range mismatches point at Map Range while dragging and in Graph
   Health, whose repair inserts a configured 0-1 -> target-domain Map Range.
-- [x] Retain useful Control Map bundles as an optional compact workflow; remove
+- [x] Retain useful Player Controls bundles as an optional compact workflow; remove
   mandatory pass-through chains. Route each action to its actual owner and
   reconcile player/show lighting routes.
   → Direct named action inputs now exist on Music Player, Performance
   Generator, Pattern Slideshow and LED output, and fixed/custom touch controls
-  may wire to those owners without a pass-through Control Map when the action is
-  already named. Control Map remains for compact bundles, continuous player
+  may wire to those owners without a pass-through Player Controls when the action is
+  already named. Player Controls remains for compact bundles, continuous player
   volume/brightness, conversion, chaining, debounce/repeat settings and
   multi-destination wiring. SD-player builds still reject per-fixture LED output
   fields/actions and point lighting controls at the player transport path,
@@ -558,7 +558,7 @@ drifts — a list beside one generator says nothing about the other two.
   whenever the transport is driven from anywhere. A `Trigger` in Changed mode,
   or any rising-edge reading of that value, echoed each such change back as a
   press: Play in the app started the track and the panel paused it again.
-  Every press-reading input (Music Player and LED output actions, Control Map
+  Every press-reading input (Music Player and LED output actions, Player Controls
   rows, Palette Bank, the Controls bundle) instead counts a screen Toggle's
   taps through `toggleWidgetSource`: `touchCount` in the preview runtime,
   `taps` in the LVGL runtime, both moved only by a finger. The first reading
@@ -566,7 +566,7 @@ drifts — a list beside one generator says nothing about the other two.
 
   **Volume is direct now:** `PatternMaster` has a real continuous `volume`
   property input, so a template slider can wire straight to the player when the
-  panel is showing that player. Control Map is still useful for chained
+  panel is showing that player. Player Controls is still useful for chained
   physical controls, bundled transport, repeat settings and configured
   volume-step buttons, but it is no longer required for a single absolute
   volume slider.
@@ -677,11 +677,11 @@ drifts — a list beside one generator says nothing about the other two.
   `deployGates.test.ts`), and the workflow file adds the two checks that need
   more than one feature at once: a button wired straight to a slideshow pattern
   step builds clean, and one press reaching the same action both directly and
-  through a Control Map is refused by name. Fixture versus show dimming with
+  through a Player Controls node is refused by name. Fixture versus show dimming with
   two outputs is now `directControlDimmingWorkflow.test.ts`: a slideshow may
   dim one of two fixtures with a direct Brightness wire, and a music-player
   build cannot read an LED output field, so a dialled-down fixture is refused
-  by name and pointed at Control Map. Not exercised as a workflow: widget
+  by name and pointed at Player Controls. Not exercised as a workflow: widget
   feedback under playback. That wants the bench more than it wants another
   fixture.
 - [x] Exercise template auto-wiring alongside manual edits and optional bundles;
@@ -752,7 +752,7 @@ Receiver stay separate utility firmware: they do not run the authored UI.
 ### 1. Live graph (normal sketch)
 
 A pattern with a status screen and two direct controls. No player, no
-slideshow, no Control Map.
+slideshow, no Player Controls.
 
 ```text
 Juggle: Frame ----------------------> LED String: Frame
@@ -794,7 +794,7 @@ Slideshow: Display ----------------> OLED: Display
 ```
 
 Next Pattern and Confirm are named action inputs on the Slideshow.
-Control Map is optional here: useful for a compact bundle, not required
+Player Controls is optional here: useful for a compact bundle, not required
 for a single button. Wash's Brightness is a fixture field the show
 controller reads; House stays undimmed. That is fixture dimming, not
 show-wide brightness, and `directControlDimmingWorkflow.test.ts` holds
@@ -808,7 +808,7 @@ property input; order, transition style and seed stay bake-time.
 ### 3. SD music player
 
 A player with transport on the glass, volume as a direct value, and
-fixture lighting through Control Map.
+fixture lighting through Player Controls.
 
 ```text
 Music Player: Frame ---------------> Wash: Frame
@@ -817,7 +817,7 @@ Music Player: Display -------------> Display Panel: Display
 Touch: Volume ---------------------> Music Player: Volume
 Touch: Play/Pause --> Trigger (Changed) --> Music Player: Play/Pause
 Touch: Blackout --> Not ----------> (not an LED Enabled wire)
-Control Map: Controls -------------> Music Player: Controls
+Player Controls: Controls -------------> Music Player: Controls
   (bundle carries show-wide dimming / lamp)
 SD Card + Amplifier reach the player
 ```
@@ -828,7 +828,7 @@ template's Play control is a Toggle, so **Connect template controls**
 places a Trigger in Changed mode between them: a visible, deletable
 adapter in the same undo as the wire. A music-player build cannot read
 an LED output Enabled/Brightness field; a dialled-down fixture is
-refused by name and pointed at Control Map. Show-wide dimming therefore
+refused by name and pointed at Player Controls. Show-wide dimming therefore
 lives on the player transport path, labelled as such, and is not applied
 again at each fixture.
 

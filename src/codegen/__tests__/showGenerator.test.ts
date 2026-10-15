@@ -175,7 +175,7 @@ describe('showGenerator', () => {
     expect(cpp.indexOf('_showAnimSec +=')).toBeLessThan(cpp.indexOf('_showAnimSpeed = constrain'))
   })
 
-  it('takes Master Speed from a Control Map bundle when that job is assigned', () => {
+  it('takes Master Speed from a Player Controls node bundle when that job is assigned', () => {
     const speed = node('speed', 'MasterSpeed', { speed: 0.5 })
     const pot = node('pot', 'PotInput', { pin: 4 })
     const controls = node('controls', 'ControlMap')

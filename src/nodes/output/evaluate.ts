@@ -111,7 +111,7 @@ const patternThumbnailCache = instanceState('patternThumbnailCache', new Map<str
  * What each LED output remembers between presses on its `controls` wire.
  *
  * Per output instance, like every other stateful node here, because two
- * fixtures wired to one Control Map are two fixtures: pressing blackout
+ * fixtures wired to one Player Controls are two fixtures: pressing blackout
  * darkens both, and each then remembers its own state from there.
  */
 const ledOutputLatchState = instanceState('ledOutputLatchState', new Map<string, LedOutputLatch>())
@@ -609,7 +609,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     )
     // A bundle carries a toggle and a delta, so it needs somewhere to
     // toggle and to nudge. Folded once per pass: node outputs are memoised
-    // above, so a second output reading the same Control Map sees the
+    // above, so a second output reading the same Player Controls sees the
     // same single-frame press rather than a second one.
     const key = stateKey(id)
     let latch = ledOutputLatchState.get(key)

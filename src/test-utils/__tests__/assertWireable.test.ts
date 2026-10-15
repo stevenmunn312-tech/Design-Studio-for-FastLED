@@ -36,17 +36,17 @@ describe('assertWireable', () => {
       .toThrow('available outputs: frame')
   })
 
-  it('derives Control Map inputs and Button Bank outputs from their properties', () => {
+  it('derives Button Bank outputs from its properties', () => {
     const bank = node('bank', 'ButtonBank', {
       buttons: [{ id: 'play', label: 'Play / Pause', pin: 12, pullup: true }],
     })
-    const controls = node('controls', 'ControlMap', { controls: ['playPause'] })
+    const controls = node('controls', 'ControlMap')
     assertWireable([bank, controls], [edge('play', 'bank', 'button-play', 'controls', 'playPause')])
 
     expect(() => assertWireable(
       [bank, controls],
-      [edge('missing-assignment', 'bank', 'button-play', 'controls', 'next')],
-    )).toThrow('available inputs: controlsIn, playPause, add-control')
+      [edge('missing-button', 'bank', 'button-next', 'controls', 'next')],
+    )).toThrow('available outputs: button-play')
   })
 
   it('derives panel widget inputs and touch widget outputs from the display document', () => {
@@ -72,7 +72,7 @@ describe('assertWireable', () => {
     const controls = node('controls', 'ControlMap')
     expect(() => assertWireable(
       [panel, controls],
-      [edge('bad', 'panel', 'controls', 'controls', 'playPause')],
+      [edge('bad', 'panel', 'controls', 'controls', 'add-control')],
     )).toThrow(/TransportDisplay[\s\S]*ControlMap/)
   })
 })

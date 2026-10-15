@@ -2,7 +2,6 @@ import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { displayDocumentInputPorts, displayDocumentTouchOutputPorts } from '../state/displays/displayRegistry'
 import { buttonBankOutputs } from '../state/player/buttonBank'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
-import { playerControlInputs } from '../state/player/playerControlAssignments'
 
 interface WireableNode {
   id: string
@@ -38,9 +37,6 @@ function effectivePorts(
     inputs = (node.data.inputs ?? inputs) as typeof inputs
     outputs = (node.data.outputs ?? outputs) as typeof outputs
   }
-  if (node.data.nodeType === 'ControlMap') {
-    inputs = playerControlInputs(properties.controls)
-  }
   if (node.data.nodeType === 'ButtonBank') {
     outputs = buttonBankOutputs(properties.buttons)
   }
@@ -71,7 +67,7 @@ function describePorts(ports: readonly { id: string }[]): string {
  *
  * Static sockets come from NODE_LIBRARY. Runtime-minted sockets are resolved
  * through the same helpers as production: a panel's display document, a
- * Control Map's assigned controls, and a Button Bank's button rows. Stored
+ * Player Controls' assigned controls, and a Button Bank's button rows. Stored
  * `data.inputs`/`data.outputs` are ignored except for authored group boundaries,
  * whose ports are their contract rather than a static library definition.
  */

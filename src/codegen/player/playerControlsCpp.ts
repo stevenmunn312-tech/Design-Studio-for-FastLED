@@ -185,7 +185,7 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
   if (emit.patternPositionExpr) lines.push(`  static CtlDetent _pcD_${id};`)
 
   lines.push(`  PlayerControlsValue ${variable};`)
-  lines.push(`  { // Control Map`)
+  lines.push(`  { // Player Controls`)
   if (emit.upstream) lines.push(`    ${variable} = ${emit.upstream};`)
   // Only a debounced press reads the clock; a bundle of taps and levels alone
   // would otherwise carry an unused local and a warning with it.
@@ -267,7 +267,7 @@ export function ledOutputLatchGlobalCpp(id: string): string {
  *
  * Emitted at the top of the output's own case, which topological order puts
  * after the node that built the bundle and before anything reads the latch.
- * Per output rather than per bundle: two fixtures wired to one Control Map
+ * Per output rather than per bundle: two fixtures wired to one Player Controls
  * both go dark on a press, and each remembers its own level from there.
  */
 export function ledOutputLatchCpp(emit: LedOutputLatchEmit): string[] {
@@ -282,7 +282,7 @@ export function ledOutputLatchCpp(emit: LedOutputLatchEmit): string[] {
 }
 
 /**
- * A screen design's Controls, as the same bundle a Control Map builds.
+ * A screen design's Controls, as the same bundle a Player Controls node builds.
  *
  * `controls` is `designControlBundle`'s answer for one panel. Each generator
  * supplies how it names a sampled widget output and a Toggle's gesture count,
