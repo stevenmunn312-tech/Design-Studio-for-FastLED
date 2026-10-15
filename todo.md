@@ -8,9 +8,10 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## How this list works
 
-- **Sections run in order of progression:** keep expanding hardware, gather
-  bench evidence alongside it, then run the release track. Within a
-  section, do the items in the order listed. Section 6 waits until after v1.
+- **Sections run in order of progression:** gather bench evidence while the
+  release track runs; section 6 waits until after v1. New parts keep landing
+  through the [hardware expansion roadmap](docs/plans/hardware-expansion-roadmap.md),
+  each experimental until its bench row in section 4.
 - **Engineering items close on software**, plus a compile where the item
   changes firmware. They do not wait for hardware. Compiles run on Arduino CLI
   alone; fbuild is on hold (section 6). Run fixture compiles one at a time;
@@ -27,19 +28,6 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 - Contracts live in design notes, evidence in reports and support rows. Remove
   an entry once its outcome is recorded, and route details through
   [docs/index.md](docs/index.md).
-
-## 3. Hardware expansion (ongoing, not a release blocker)
-
-- [x] **D-05 · Hardware expansion.** Candidate families and their shared
-  definition of done are in the
-  [hardware expansion roadmap](docs/plans/hardware-expansion-roadmap.md),
-  which records each finished part. Each part starts with its Blender model,
-  ships experimental, and gets its bench row in section 4. Switching power and
-  energy families are built like the relay slice: in the app, in the Build
-  Diagram, and marked experimental; HW-14 then checks them rather than gating
-  them. Battery power is implemented as experimental Build Diagram guidance.
-  Its three reference builds remain open bench rows below, and HW-14 still
-  owns independent electrical review. No implementation work remains in D-05.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
@@ -105,6 +93,11 @@ chooses the supported combinations from whatever is on record at release.
     assumptions).
 - **SD Video:** measured card read bandwidth per board, against the 400 KB/s
   estimate ([SD Video limits](docs/design/sd-video.md#limits)).
+- **Persistent patterns across a transition:** preview versus LEDs on Trails,
+  Frame Feedback, Reaction Diffusion and Fluid across a show transition, now
+  that collected patterns pool their scratch buffers. Text-level coverage is
+  in `persistentRenderBuffers.test.ts`
+  ([compile record](docs/reports/compile/render-buffer-ram-compile-checks.md)).
 - **Deploy gate on accreted graphs:** anyone with a graph that uploaded before
   2026-09-11 and is refused now should report it as a gate bug, not rewire the
   graph. Shipped starters are covered by `deployGates.test.ts`.
@@ -252,481 +245,8 @@ chooses the supported combinations from whatever is on record at release.
   a long twisted A/B/ground cable, with the length recorded, powered from
   separate supplies at each end with bonded grounds.
 
-## D-02 · Larger UI scope, v1 part
-
-The one-screen budgets these widgets waited on are measured (HW-11), so the
-cheaper ones join v1. Each adds to the screen-design save format, so land them
-before HW-18 freezes it. The rest of D-02 is in section 6.
-
-- [x] **Shared-document panel interaction.** Two same-size panels can show one
-  drawing. Each glass keeps its own touch, Enabled latch and widget values.
-  Image bytes are emitted once. An unshared sketch keeps its document-id symbols
-  ([large displays](docs/design/large-displays-and-control-routing.md#one-physical-panel-its-own-screen-design)).
-- [x] **Choice and Step controls.** Choice Strip (two to six options, outputs
-  the chosen index) and Step Control (minus/value/plus, repeats when held),
-  built from LVGL buttons and labels
-  ([widget ports](docs/reference/displays.md#widget-ports)).
-- [x] **Colour Picker and Arc Gauge.** A hue strip with a colour output and
-  colour Set, and a ranged arc readout, built from LVGL objects, gradients and
-  the existing arc ([widget ports](docs/reference/displays.md#widget-ports)).
-- [x] **Marquees.** One line of text that travels continuously, entering on
-  the right, at an authored speed, built from an LVGL label moved inside a
-  clipping container ([widget ports](docs/reference/displays.md#widget-ports)).
-- [x] **Containers and overlap.** Widgets may overlap, drawn in a stacking
-  order the designer can change, with touch reaching only controls. A Container
-  is a framed panel whose children move, copy and delete with it and are
-  clipped to it, built as LVGL child objects
-  ([layout](docs/reference/displays.md#layout-and-assets)).
-
-## D-04 · Code-node preview fidelity, v1 part
-
-A pasted FastLED classic such as DemoReel100 moves in the preview as it does
-on the board. All three fixes are in the preview's C++-to-JS shim
-([code node](docs/design/code-node.md)); the firmware is unchanged.
-
-- [x] **Persistent globals.** The Global section runs once per compile in the
-  preview and the loop closes over it, so a counter such as `gHue` keeps its
-  value across frames, as the board does.
-- [x] **Integer wrap.** Every scalar declared with an 8- or 16-bit type wraps
-  to its width on assignment, increment and compound assignment.
-- [x] **Timing macros.** `EVERY_N_MILLISECONDS`, `EVERY_N_MILLIS` and
-  `EVERY_N_SECONDS` run in the preview on the evaluator's clock, with
-  FastLED's re-arm-from-fire-time behaviour.
-
-## D-06 · Pattern and output follow-ons, v1 part
-
-From [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons)
-and its design notes.
-
-- [x] **Shaped outputs in show and player sketches.** The Music Player and the
-  SD player compose into `leds` and copy it through the same ring, corkscrew
-  or position map the normal sketch bakes, from one emitter
-  (`src/codegen/output/shapeMapCpp.ts`), so the refusal is gone for all three
-  forms. The same stage carries a wired matrix's XY table, which both sketches
-  had silently skipped, and the SD player now takes a string its length rather
-  than the grid defaults.
-- [x] **Shapes in the main LED Output pane.** The pane draws a ring, a
-  corkscrew and a positioned string where their LEDs are, from the same
-  geometry the node preview and the hardware bay use
-  (`shapeLayoutFor` in `src/components/Hardware/ledPreviewGeometry.ts`), on a
-  canvas sized in LED-pitch cells so the per-LED pixel budget is a matrix's.
-- [x] **Raw `field` output on `Noise`.** Already shipped: the node's `Field`
-  port carries the noise values before the palette (`src/nodes/generative/`,
-  evaluator and firmware alike), so other field nodes can mix, warp or mask
-  them before colouring. The [ANIMartRIX note](docs/design/animartrix-float-field.md)
-  no longer lists it as deferred.
-- [x] **One `.h` per pattern in show output.** The show sketch carries each
-  `render_pN()` as a marked block (`src/codegen/sketchBundle.ts`); the helper
-  client splits the blocks into `pattern_N.h` files beside the controller
-  `.ino`, and the helper writes, caches and prunes them in the sketch
-  workspace and the fbuild scaffold for uploads, capacity checks and binary
-  exports. View Code and Export .ino keep the one-file form, which is the same
-  sketch with the blocks as comments
-  ([generative show](docs/design/generative-pattern-show.md#codegen-target)).
-
-## D-08 · Node lock-in before the Help rewrite, v1 part
-
-From the node-by-node audit of 2026-10-13 (per-node detail and every tooltip
-draft are in the local, regenerable `tmp/node-audit/` reports; `REPORT.md`
-there is the summary). The goal is to freeze node names, property names, types
-and layout so the Help node reference is written once. Do the items in order:
-the first three change every node at once, the rest narrow down to single
-nodes, and the Help rewrite is last because it documents the result.
-
-No firmware compiles while working through D-08. When an item needs one to
-prove a sketch builds, add the arduino-cli command to the local
-`tmp/node-audit/compiles.ps1` queue (one compile at a time, never in
-parallel) and note the item here; the queue is run unattended overnight and
-its results are checked before the item is ticked. D-08.1 needed none: its
-test holds the sketch from a corrupt save byte-identical to the one from
-library defaults.
-
-- [x] **D-08.1 · One NaN guard for every property.** Done: the shared
-  pre-pass `resolveNodeNumericProperties` gives preview, firmware and the
-  control graph a finite number for every numeric property, with `num()` and
-  `floatExpr` keeping a finiteness fallback
-  ([graph and nodes](docs/development/patterns/graph-and-nodes.md#node-authoring-and-property-inputs)).
-- [x] **D-08.2 · Property row grid.** Done: `.propRow` is a
-  `minmax(0, 1fr) 112px 16px` grid, so every control starts and ends on the
-  same x and the pin slot is reserved on every row; the node cards draw the
-  same grid. At the 240 px node width a label gets 84 px (11 characters);
-  D-08.7 gives the nodes whose labels cannot fit their widths
-  ([workspace UI](docs/development/patterns/workspace-ui.md#layout-and-input-traps)).
-- [x] **D-08.3 · Remove dead properties and stale metadata.** Done: Zones
-  `aName`…`dName`, SegmentDisplay `decimals`/`leadingZero` and Board `volts`
-  are gone from the definitions, metadata and bundled patterns; the LED
-  output's Power and Bench groups, its volts/milliamps/overclock gating and the
-  empty `findOutputResourceErrors` seam left from the Board split are deleted;
-  `tftLayout`'s options derive from `TRANSPORT_DISPLAY_LAYOUTS`; PaletteBank's
-  `palettes` and Transition's `transitionType` are off the generic rows, and
-  Transition's `t` is one ungrouped row (the body's scrub slider is gone).
-  Pre-1.0, no migration: a save made before this still shows its stale keys as
-  raw rows until the node is replaced. No compile needed.
-- [x] **D-08.4 · Definition bugs.** Done; the `d084` ESP32-S3 compile passed
-  on 2026-10-14 (Game of Life and Blend firmware changed).
-  Line's end point defaults to `max_x`, `max_y`, which the scalar-expression
-  rules now accept as a matrix-relative default; Math ships `a: 0, b: 0`, and
-  changing its operation moves an operand still at the old identity to the
-  new one, so Add to Multiply passes a wired input through; Blend passes A
-  through in every mode while B is unwired, preview and firmware; HUB75 pins,
-  the deploy popup's and wizard's topology flash, the RAM alias check and the
-  validation profile all key on `form === 'hub75'` (the hardware catalogue
-  makes a panel by `form` alone); Fire `intensity` and Blobs `count` sliders
-  match their clamps; firmware Game of Life reseeds after four empty or
-  frozen steps, as the preview does; DMX `universe`/`previewPort` and LightInput `maxLux` are
-  bounded number fields (`entry: 'number'` on the slider meta); Custom Formula
-  has the Code node's editor, its 320 px width and an inline parse error. The
-  DFPlayer tooltip was already overridden; a test now holds it. Pre-1.0, no
-  migration: a Math saved without A/B still evaluates the identity but shows 0.
-- [x] **D-08.5 · Beat response that honours its controls.** Done; the `d085`
-  compile passed on 2026-10-14 (the gate's `getBeatConfidence()` and a float
-  Kick into a bool Beat). On live audio
-  Threshold (default 0.4) now gates FastLED's beat on its confidence, with a
-  cooldown of 0.6 of the beat period (250–600 ms), in preview, the sketch and
-  the SD player's decoder-fed control sample, which reads Threshold from the
-  node and refuses a wire into it; the node reports Threshold and Cooldown.
-  Attack, Decay and flux/onset/contrast still act only on a baked show
-  envelope, and their tooltips say so. A float wired into a bool port is true
-  from 0.5 in the evaluator's `input` and in firmware `boolExpr`/`floatExpr`.
-  `energy` shows as `reactivity`, port label Reactivity, on the fifteen
-  audio-reactive patterns that carry it (the audit said seventeen; fifteen
-  do). Bundled patterns with a Beat Detect, authored while Threshold did
-  nothing live, now use 0.4
-  ([player, shows and controls](docs/development/patterns/player-shows-and-controls.md#audio-levels)).
-- [x] **D-08.6 · Data-type and sanitising sweep.** Done; the `d086` normal
-  sketch and `d086show` show controller compiles passed on 2026-10-14. Spiral `arms`, Kaleidoscope `segments`, Circle `radius`,
-  Shape `size`, Text `scroll` are sliders; ClockDisplay `durationSec` (to
-  99:59:59), RTCInput `startYear` (1970–2099) and the amplifiers' `maxVolume`
-  (0–21, now a clamped field in the part panel) are bounded number fields.
-  Slider and clamp now name one constant (`generative/limits.ts`,
-  `simulations/limits.ts`): Reaction Diffusion 1–20 steps, Flow Field 8–400
-  and Starfield 8–300 particles; Path `scale` 0.1–1, Frame Feedback `angle`
-  ±45°, the LED output's tiles 1–16. Wired values clamp alike on both sides:
-  Particles `rate`/`decay`, Wave Sim `impulse`, Formula Field and Formula
-  Points `speed`, Array `falloff`, Flow Field and Game of Life `fade`, Beat
-  Flash `decay`, the Boids weights and `visualRange`, the
-  colour nodes' CHSV bytes (shared `levelByteCpp` and siblings), the five
-  audio-pattern speeds. A wired Poline anchor now builds the palette on the
-  board (`_polineStops16`, held to the library by `polineFirmware.test.ts`).
-  Thirty-six nodes' same-named number/switch ports are declared property
-  inputs, drawn by default (`propertyInputs.test.ts` derives the rule);
-  Field Rotate's code fallback for `spin` now matches its default of 30.
-  Counter integrates on the shared clock; Time `dt` is measured; Interval no
-  longer drifts in firmware; `statefulSignalParity.test.ts` runs Interval,
-  Envelope, Counter, Time, Clock and every Trigger variant's firmware against
-  the preview frame by frame (`test-utils/cppSnippet.ts`). Button and
-  Encoder `pullup` moved to the part panel; part panel fields carry their
-  tooltips. An unassigned Button Bank button (pin −1) was only a warning and
-  read GPIO0; it is now never pressed, and the warning says it has no GPIO.
-  Unchanged on purpose: Gabor Noise is unclamped but identical on both sides.
-- [x] **D-08.7 · Labels, groups and widths.** Done, no compile needed (no
-  firmware changed). `PROPERTY_LABELS` names every camelCase row on the
-  composite, field, show, output, math and input nodes and the Shapes & Text,
-  Simulations and Audio-Reactive patterns (Pattern Master `min hold (s)`,
-  `max hold (s)`, `fade (s)`; the pool patterns' `lifetime ×`, `ring width ×`,
-  `blob size ×`); the audio-reactive `reactivity` label is merged per node so
-  a node's own entries no longer replace it. Every node that draws more than
-  six rows at its defaults has `PROPERTY_GROUPS` (the seventeen listed plus
-  Circle, GradientSampler, BlendColors, DigitalRain, FlowField, SpectraMosaic,
-  FluidSim and FractalField), Pattern Master leads with Playback (`volume`,
-  `order`) and the LED output with Output (`enabled`, `brightness`), and
-  Formula Field has one group per formula. A row the node's mode does not use
-  is hidden on every node (it was only the LED output and the power switch);
-  a row whose socket is exposed or wired stays, disabled, so the wire keeps
-  its handle. `NODE_WIDTH_OVERRIDES` as listed; `SUBCATEGORY_ORDER.math` of
-  Math, Logic, Text with every math node tagged; PatternSlideshow after
-  Pattern Master in the show order. `propertyLayout.test.ts` holds the label,
-  group and sidebar rules; the Music Player card shows `Beat Transitions` in
-  full again. Pre-1.0, no migration: nothing saved changed
-  ([workspace UI](docs/development/patterns/workspace-ui.md#layout-and-input-traps)).
-- [x] **D-08.8 · Tooltips on every property.** Done, no compile needed (no
-  firmware changed). Every non-internal property of every `NODE_LIBRARY` node
-  has a `propertyDescription`: the audit drafts landed as per-node
-  `PROPERTY_DESCRIPTIONS_OVERRIDES` (an existing override was kept; a draft
-  that contradicted a slider range was corrected to it), the audio levels,
-  `spawnSpread`, `palette` and the `r`/`g`/`b` channels became global
-  `PROPERTY_DESCRIPTIONS`, and the body-edited properties the drafts skipped
-  (`sourceId`, `buttons`, `controls`, `patternIds`, `transitions`, the Poline
-  anchors, Code, Board `profileId`, Power Switch levels) say what their body
-  edits. `FORMULA_LANG_HELP` is built from `NODE_FORMULA_VARIABLES`,
-  `MATH_FUNCTION_NAMES`, `MATH_CONSTANT_NAMES` and `SHIM_NAMES`, so it lists
-  exactly what the sandbox accepts. `nodeLibrary.test.ts` holds the lock-in
-  (every property described; every override names a property or input its
-  node has)
-  ([graph and nodes](docs/development/patterns/graph-and-nodes.md#node-authoring-and-property-inputs)).
-- [x] **D-08.9 · Merges, renames and category moves.** First pass applied
-  and compiled on 2026-10-14 (`d086` builds the merged colour nodes; `d0810`
-  covers the rest). Merged: Sin, Cos
-  and Abs into one Function node (`fn`: sin, cos, abs, sqrt, square, floor,
-  round); Mod into Math as `modulo`, plus `average`, so ComplexWave is gone;
-  BlendColors into GradientSampler; CHSV into HSVToRGB with a `hueUnits`
-  select (degrees or FastLED bytes); Circle into Shape's ellipse; FieldLerp
-  into FieldMath's `mix` with a wireable T; Fade into Brightness; XYMapper
-  removed. Temperature's `kelvin` is now `warmth`. Pre-1.0, no migration: a
-  save holding a merged node shows it as an unknown type until replaced; the
-  bundled patterns, live examples and node cards are regenerated. Second
-  pass applied and compiled on 2026-10-14 (`d089` normal sketch, `d089show`
-  show controller). Merged: Fire2012 into Fire's `fire2012` style
-  (`fire2012Cpp`, Intensity gated off); Particles `swarm` removed for Boids
-  (pool size now `particlePoolSize`, shared with the RAM estimate);
-  FractalNoise and GaborNoise into Noise's `fbm` and `gabor` types, with
-  wireable Octaves, Frequency and Orientation and the Noise field output;
-  Counter and BeatSin into Wave, which gains `rateUnit` (Hz or BPM), `bpm`,
-  `offset` and `unipolar` (`statefulSignalParity.test.ts` runs the ramp and
-  the beatsin form on both sides; BeatSin left the wall clock for `t`);
-  DistanceField into ShapeField's `falloff` mode; SpectrumBars into
-  SpectrumVisualizer's `Three Band` style, whose unwired bands read the
-  spectrum's thirds (`spectrumThirdBounds`, shared with FFT Analyzer).
-  Renamed (labels only, types kept): Formula Shapes, Fractal Field, Touch
-  Screen, DC-DC Converter, Transition Pool. Moved: Kaleidoscope to Effects;
-  Image and SD Video to a Media subcategory; Ethernet, DC-DC Converter,
-  Battery Pack, Pack Electronics and USB-C PD Trigger to a `hardware`
-  category (`src/nodes/hardware/`, `HARDWARE_CATEGORY`) that the Help
-  reference lists and the sidebar does not. MotionInput stays "Motion
-  Sensor": it also hosts the RCWL-0516 microwave sensor, so "PIR" would
-  mislabel it. Sunrise runs on time since boot (the shared clock `t`, so
-  Master Speed scales it); its Start and Duration are typed seconds now, as
-  an hour-long slider moved 50 s a pixel. Transform's Rate runs −360 to 360,
-  so it turns counter-clockwise, shrinks or slides back (scale still stops
-  at 1/20× and 20×), and Angle is gated to translate. ClockDisplay's legacy
-  Seconds Today, Valid, Day and Month ports are gone: DateTime is its one
-  clock feed (`d089c` compiles both, 2026-10-14).
-- [x] **D-08.10 · Nodes the library lacks.** Both batches built and compiled
-  on 2026-10-14 (`d0810` and `d0810show` for the first batch; `d0810b`, every
-  second-batch node in one ESP32-S3 sketch, and `d0810ada`, an Adalight
-  stream, for the second). First batch:
-  Color, Constant, Logic and Expression (`sourceAndLogicNodes.test.ts`).
-  Second batch (`libraryGapNodes.test.ts` holds both sides of each): Theater
-  Chase, Color Wipe and Breathe (`generative/classics1d.ts`), a Glitter
-  overlay (`composite/glitter.ts`), Frame Transform (`composite/
-  frameTransform.ts`) and a Blend `mask` input; Gradient Field, Float →
-  Field and Field Blur (`field/gradientField.ts`); Frequency Band
-  (`audio/frequencyBand.ts`, the 16 EQ bin centres), Stereo Levels, Beat
-  Phase (`audio/beatPhase.ts`, wall-clock) and a Level Meter pattern
-  (`audioReactive/levelMeter.ts`); Text with a `text` string input drawn at
-  run time from one emitted font table (`shared/fontCpp.ts`) and a Palette
-  Transform builder; sACN as a third DMX input mode (helper parses either
-  protocol on one listener and joins the multicast group; `dmxUsesNetwork`
-  replaces every `'Art-Net'` compare), a DDP Input frame source (helper
-  listener, `ddpStore`, trust-held like Art-Net) and a DIN (UART) source on
-  the MIDI node (`peripherals/midiSource.ts`; Web MIDI stays preview-only);
-  the Board's `frameRate` cap (`codegen/loopPacing.ts` paces the normal, show
-  and player sketches, `LEDPreview` gates to it), a Frame Stream output (DDP
-  or Adalight, `output/frameStream.ts`) and an Analog RGB Strip on three
-  LEDC/analogWrite pins. DIN MIDI is drawn on the wiring diagram as the
-  Adafruit MIDI FeatherWing (product 4740, H11L1MS). The analog strip is still
-  pins-only: it registers its GPIOs in the manifest's pin walk and stays out
-  of the wiring diagram until a verified Blender asset lands. Hardware validation of sACN, DDP, DIN MIDI, the
-  stream and the analog strip is not recorded; they are experimental
-  ([graph and nodes](docs/development/patterns/graph-and-nodes.md)).
-- [ ] **D-08.11 · Help node reference rewrite.** Only after D-08.1 to D-08.10:
-  one card per node from the frozen definitions, reusing the property
-  descriptions and the redrawn node cards, with a live example per node.
-
-## D-09 · Dead code in generated firmware, v1 part
-
-- [x] **D-09 · Compile proof.** The pruned corpus compiles on arduino-cli:
-  `python scripts/compile-fixtures/compile-matrix.py --only dead-code/`
-  passes every leg. A sub-item is ticked when its code and tests are done.
-
-All three generators end in one pruning pass
-([firmware generation](docs/development/patterns/firmware-generation.md#dead-code-pruning)).
-It resolves known `#if` blocks, folds what generation-time constants decide
-(literal mode arguments, constant `bool` flags, literal conditions, ternaries
-and switches, numeric macros), drops unread and write-only variables, and
-removes unreachable file-scope units. `deadCodeCorpus.test.ts` holds every
-live example and the player and show variants at that pass's fixed point.
-
-From the 2026-10-15 audit of all four firmware types: 315 normal sketches
-(every live example plus the normal-mode fixtures) and variant sets of the
-Music Player, SD performance player and slideshow. Each was put through a
-reachability check from `setup`/`loop`, and every hit was confirmed by hand.
-The rule is that generated firmware carries nothing the graph cannot reach:
-no function, global, macro, include, switch arm or branch that the exact graph
-can never run. The bugs the audit found, and transition, palette and built-in
-pattern narrowing, are fixed (see
-[player, shows and controls](docs/development/patterns/player-shows-and-controls.md)).
-The corpus is `src/codegen/__tests__/deadCodeCorpus.ts`.
-
-- [x] **D-09.1 · Reachability-pruned helper registry.** Every file-scope helper
-  becomes a named unit that lists what it calls, and assembly keeps only what
-  the emitted bodies reach, replacing the per-flag `needs*` gates. The slideshow
-  already narrows palettes this way, from the finished text. This closes the
-  biggest category, whole blocks emitted for one function:
-  - custom-screen LVGL setters and `_cdEvent`
-    (`CUSTOM_DISPLAY_LVGL_HELPERS`, up to 195 dead lines a sketch);
-  - segment-display Power formatters and `_segFaultCode`;
-  - OLED SPI and I2C begin, the controller that isn't selected, and drawing
-    helpers the layout doesn't use;
-  - the RTC build-stamp parser for Manual or DS3231 sources, and
-    `_rtcClockText`/`_rtcDateText`;
-  - SDF rect, ellipse and polygon;
-  - lattice slice machinery outside Slice Tiling, and unused cell finders;
-  - `PLAYER_CONTROLS_CPP` structs (`CtlEdge`, `CtlTap`, `CtlDetent`) with no
-    matching control, and `PATTERN_SELECTION_CPP` encoder and TFT parts;
-  - `CPP_SHIM_HELPERS`, all emitted for one shim;
-  - the XPT2046 path on a resistive-only sheet;
-  - `_sampleShaded` and `_sampleFrame` within the frame sampler, and
-    `_facingShade`/`_shadePixel` within the 3D support (door only);
-  - TFT colour and slot macros;
-  - non-debug INA219/INA226 helpers when every monitor is in debug mode.
-
-  Turn the checker into a test over the live-example corpus so dead code
-  cannot come back. Done as the pruning pass plus `deadCodeCorpus.test.ts`.
-- [x] **D-09.2 · Split Music Player and performance player emission.**
-  `playerSketchGenerator` serves both through runtime flags. In a Music Player
-  sketch, this is still emitted behind `GENERIC_PLAYER`:
-  - the whole `.show` runtime (`loadShowFile`, `applyEvent`, `ShowEvent`,
-    `CMD_*`, the event buffers and dispatch loop);
-  - the `PREFERRED_TRACK` and paired-fallback paths in `startPlayback`;
-  - the beat-flash overlay.
-
-  In a performance player:
-  - `musicDumpCard`/`musicDumpDir`;
-  - `GENERIC_PLAYER`/`genericTrackIndex`.
-
-  Everywhere:
-  - the 17-style particle overlay and `prnd` with Particle FX unwired, and
-    every other arm when the style is fixed;
-  - `ControlButton`/`ControlEncoder` when controls route through the graph;
-  - `playbackReady` with no display reading it.
-- [x] **D-09.3 · Machinery a small or still show cannot use.**
-  - A one-pattern Music Player still carries the rotation block, the
-    transition stack and `showA`/`showB`, about 25% of the sketch.
-  - A slideshow with transition length 0 keeps the transition branch and
-    buffers.
-  - A single-style pool keeps `TRANS_POOL`, the draw and the switch wrapper.
-  - A one-pattern slideshow keeps pattern-selection code and a one-case
-    `renderPattern`.
-  - The `renderPattern` `default:` arm is unreachable.
-  - A VU-only Music Player with no LED output keeps the matrix pipeline and
-    its buffers.
-- [x] **D-09.4 · Player data nobody reads.**
-  - Group-input roles no pattern takes (the `energy`/`speed`/`palette` globals,
-    arms and arguments; `CMD_SET_ENERGY`).
-  - The baked audio envelope when no pattern listens.
-  - Audio globals written but never read, including the 32-bin
-    `_audioSpectrum` fetched every frame.
-  - Per-sample stereo-level maths and `DECODER_VOLUME_TABLE` with no VU meter
-    or controls.
-  - The silence fade when no pattern is audio-reactive; a uniform
-    `PATTERN_AUDIO_REACTIVE` table should collapse to the scalar.
-  - `beatNow`/`beatEdge` with Beat Transitions off.
-  - `ShowEvent.params[4]`, which holds at most 3 (about 12 KB of heap at 3,000
-    events).
-  - `applyEvent` fallbacks for parameter counts `showFileToBinary` never
-    writes.
-  - SET_PALETTE/SET_SPEED/SET_ENERGY events written to a show whose patterns
-    read none of them.
-- [x] **D-09.5 · Fold constant inputs and unread outputs (normal sketch).**
-  - Port locals emitted for every output even when no edge reads them: 210
-    locals in 81 of 315 sketches, including every custom-screen widget output.
-  - Logic left behind unwired bool inputs: Clock tap/sync/reset, Toggle
-    `if (0)`, `(true) ? …` in Power Switch, and `bool _tr=(false)` in the field,
-    generative, simulation and audio emitters.
-  - Switches over values fixed at generation: `_foldWallpaper` (9 arms),
-    `_polPos` (7), Truchet's hex and motif branches, Fluid's literal
-    `visc`/`diff`, Frame Warp's `edgeMode`/`bilinear`.
-  - `_psAlloc` gated on `usePsram` rather than on a PSRAM buffer existing.
-  - `WIDTH`/`HEIGHT`/`NUM_LEDS` in a screen-only sketch.
-  - `paldef_rainbow` from Boids in solid mode and from the PaletteSelector
-    comment.
-
-  Fluid's viscosity and diffusion are now their own helper calls, emitted
-  only when the value is wired or above zero.
-- [x] **D-09.6 · Board-specific branches for a known board.**
-  - `networkIncludesCpp` and the Wi-Fi bootstrap emit the ESP32, ESP8266 and
-    unsupported branches even with the Board selected.
-  - IR always emits the 180-line ESP32-S3 RMT receiver inside an `#if`, and
-    tests `DECODE_*` macros it always defines.
-  - `<time.h>` is included in network sketches with no NTP clock.
-  - Telemetry's `#if defined(ESP32)` checks run for a family already known.
-  - `LINE_IN_MCLK` is unused in microphone sketches.
-
-## D-10 · Render-buffer RAM, v1 part
-
-From the 2026-10-15 measurement of every bundled pattern compiled as SD-player
-collections on the ESP32-S3 (16×16). RAM, not flash, is the limit: flash sat at
-35–41% of the 3 MB app slot, while 40 audio patterns overflowed `dram0_0_seg`
-by 3,272 bytes. Each colour buffer is `3 × NUM_LEDS` bytes, so the cost grows
-with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
-
-- [x] **D-10.1 · Pool scratch buffers across collected patterns.** Collected
-  patterns share one scratch pool (`_pool_buf_<n>`/`_pool_field_<n>`), sized
-  for the largest pattern; a buffer that carries pixels between frames
-  (`ownBuf({ persists: true })`) stays the pattern's own. The same mark gives
-  native multi-render per-pass statics in place of `_passState_` copies, and
-  fixed it there for Confetti, Juggle, Treble Sparks, Color Trails, Formula
-  Points, the Spectrum waterfall and SD Video, which had no per-pass state.
-  `persistentRenderBuffers.test.ts` derives the rule over every node variant.
-  Measured with `compile-matrix.py --only pattern-collections/` (SD Music
-  Player, ESP32-S3, 16×16, arduino-cli):
-
-  | Sketch | Buffers before | Buffers after | RAM before | RAM after |
-  |---|---|---|---|---|
-  | bundled 1–40 | 117 CRGB + 11 float | 14 + 3 | 152,844 B (46%) | 65,548 B (20%) |
-  | bundled 41–60 | 91 + 4 | 21 + 4 | 170,932 B (52%) | 117,940 B (35%) |
-  | bundled 61–80 | 102 + 14 | 18 + 8 | 167,028 B (50%) | 96,372 B (29%) |
-  | bundled 81–114 | 93 + 7 | 24 + 4 | 144,220 B (44%) | 88,156 B (26%) |
-
-  What remains per pattern is persistent state and Frame Feedback history.
-  - [ ] Bench: preview versus LEDs on Trails, Frame Feedback, Reaction
-    Diffusion and Fluid across a transition. Text-level coverage is in
-    `persistentRenderBuffers.test.ts`; no device run yet.
-- [x] **D-10.3 · A persistent terminal aliased to `leds`.** The node feeding a
-  plain single output renders straight into `leds`, and the output's dimmer
-  then scales `leds` in place with `nscale8_video`. When that node is
-  persistent (Trails, Confetti, …), the dimming compounds every frame and
-  blackout wipes its state, so the LEDs fade faster than the preview. The
-  alias is now refused once the candidate has declared a persistent buffer,
-  and `estimateFirmwareRam` refuses it by `PERSISTENT_FRAME_NODE_TYPES`, which
-  `persistentRenderBuffers.test.ts` derives from every node variant.
-- [x] **D-10.2 · Reuse buffers within one graph.** The largest bundled pattern
-  holds 11 colour buffers, and those sketches carry 59–93 full-frame `memmove`s,
-  many of them a node seeding its buffer from its source before modifying it.
-  Done as liveness-based sharing (`scratchSharing.ts`): scratch buffers whose
-  top-level loop statements do not overlap share one array, a node seeding from
-  a source with no later reader works on it in place and drops the copy, and a
-  chain of those into the terminal renders into `leds`. Applies to normal
-  sketches, native multi-render passes and each collected pattern of a show.
-  Old and new firmware for six chain, branch, field and zone graphs compiled to
-  WASM gave byte-identical frames. Measured with `compile-matrix.py --only
-  pattern-collections/` (SD Music Player, ESP32-S3, 16×16, arduino-cli; buffer
-  counts are declared pool slots plus per-pattern persistent buffers):
-
-  | Sketch | Buffers before | Buffers after | `memmove`s | RAM before | RAM after |
-  |---|---|---|---|---|---|
-  | bundled 1–40 | 13 CRGB + 3 float | 9 + 2 | 93 → 44 | 65,548 B (20%) | 61,452 B (18%) |
-  | bundled 41–60 | 21 + 4 | 15 + 4 | 59 → 36 | 117,940 B (35%) | 113,332 B (34%) |
-  | bundled 61–80 | 17 + 8 | 12 + 5 | 86 → 30 | 96,372 B (29%) | 89,460 B (27%) |
-  | bundled 81–114 | 23 + 4 | 17 + 3 | 77 → 42 | 88,156 B (26%) | 82,524 B (25%) |
-
-  - [ ] `estimateFirmwareRam` still prices one frame per reachable node and
-    over-counts shared buffers (the safe direction). Model sharing there if the
-    budget warning starts refusing graphs that fit.
-
 ## 5. Release track (in order)
 
-- [x] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
-  happens *after* components are in the app and appear in the Build Diagram:
-  a career electronics engineering lecturer checks that the generated wiring,
-  calculations, tables and wording are safe and recommended practice. It
-  reviews what exists, so it gates nothing in D-05. Findings and dispositions
-  are recorded in
-  [the Build Diagram contract](docs/architecture/build-diagram.md#independent-electrical-review).
-  - [x] First pass (October 2026, against `main`): no blocking safety issue
-    in the fixed-supply WS2812 5 V path. Its one correction, a 5% branch
-    voltage-drop allowance instead of 0.4 V, landed on 2026-10-13 as ruleset
-    v8. Its wire-table caution was already fixed on 2026-09-27.
-  - [x] Second pass (October 2026, against `Hardware` at `5d10f5e7`, ruleset
-    v8): main fuse and trunk, the NEC 310.16 transcription, bolt-down fuse
-    classes and interrupt ratings, battery packs and protection, buck and
-    isolated rail converters, and the PD trigger. No blocking safety issue;
-    six non-blocking cautions recorded with dispositions. One tightening
-    landed: a battery cell with no usable internal-resistance figure now
-    warns that the main-fuse interrupt rating was not checked.
-  Any power family added after `5d10f5e7` reopens this item for its own pass
-  before it leaves experimental.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing and
   notarization before publishing: Authenticode for the Windows launcher and
@@ -757,7 +277,7 @@ with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
   and phone UI, TFT video, RGB and HDMI panels, size thresholds and density from
   actual capabilities and legibility, and Show Status colour-pattern artwork
   feeding the player-owned 96x96 bake from a Slideshow's collection. The v1
-  part is above the release track; dropped items are listed in
+  part shipped; dropped items are listed in
   [auxiliary displays](docs/design/auxiliary-displays.md#deferred-dropped-and-why).
 
 - [ ] **D-03 · Other architecture/authoring.** Multi-board, Raspberry Pi/Linux
@@ -775,7 +295,7 @@ with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
   Pitch Detect and Waveform, which would need per-frame detector output baked
   offline ([audio detectors](docs/design/audio-detectors.md)). Retain explicit
   approximation limits until a concrete use case justifies the work. Persistent
-  globals, integer wrap and timing macros are in v1, above the release track.
+  globals, integer wrap and timing macros shipped in v1.
 - [ ] **D-06 · Pattern and output follow-ons**, from
   [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons)
   and its design notes:
@@ -785,9 +305,6 @@ with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
     `Ripple`, the Chromancer model. It needs a layout editor.
   - Positioned strings in the Build Diagram, which needs positions in
     millimetres rather than canvas units.
-  - Shaped outputs in show and player sketches, the main LED Output pane
-    drawing, raw `Noise` field output and one `.h` per pattern are in v1,
-    above the release track.
 - [ ] **D-07 · Build Diagram panel into the shared sidebar.** Build Diagram's
   own left panel already is its information shelf (power, readiness,
   connections, parts, requirements and exports), but it is a separate `<aside>`
@@ -824,6 +341,36 @@ with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
 are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
+- **D-02 · Larger UI scope, v1 part**: shared-document panels, Choice Strip,
+  Step Control, Colour Picker, Arc Gauge, Marquee and Containers
+  ([widget ports](docs/reference/displays.md#widget-ports)).
+- **D-04 · Code-node preview fidelity, v1 part**: persistent globals, integer
+  wrap and timing macros in the preview shim
+  ([code node](docs/design/code-node.md)).
+- **D-05 · Hardware expansion**: no implementation work remains; each part
+  is recorded in the [roadmap](docs/plans/hardware-expansion-roadmap.md) and
+  its bench row is in section 4.
+- **D-06 · Pattern and output follow-ons, v1 part**: shaped outputs in show
+  and player sketches, shapes in the LED Output pane, the raw Noise field and
+  one `.h` per pattern
+  ([pattern node expansion](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons)).
+- **D-08 · Node lock-in and the Help node reference rewrite**: NaN guard,
+  property grid, dead properties, definition bugs, beat gate, data-type
+  sweep, labels and groups, tooltips, merges and new nodes, then a
+  hand-written Help page and live example for every node
+  ([graph and nodes](docs/development/patterns/graph-and-nodes.md);
+  [compile record](docs/reports/compile/pattern-node-compile-checks.md#node-lock-in-d-08-14-october-2026)).
+- **D-09 · Dead code in generated firmware**: one pruning pass after all
+  three generators, held by `deadCodeCorpus.test.ts` and compiled
+  ([firmware generation](docs/development/patterns/firmware-generation.md#dead-code-pruning)).
+- **D-10 · Render-buffer RAM**: scratch pooled across collected patterns,
+  shared within one graph, and never a persistent terminal aliased to `leds`
+  ([compile record](docs/reports/compile/render-buffer-ram-compile-checks.md)).
+  The bench row is in section 4.
+- **HW-14 · Independent electrical review**: two passes, no blocking safety
+  issue ([findings](docs/architecture/build-diagram.md#independent-electrical-review)).
+  Any power family added after `5d10f5e7` reopens it for its own pass before
+  it leaves experimental.
 - **D-01 · Broader control graph**: Interval, Time, Wave, nested groups,
   colour, pattern selection, LED status, wall-clock signal nodes and a wired
   local RTC in show and player builds

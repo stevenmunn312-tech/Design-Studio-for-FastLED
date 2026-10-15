@@ -8,7 +8,8 @@ Design Studio more useful for complete LED installations. It deliberately
 prioritises parts that improve control, power integrity, monitoring and long
 cable runs over collecting arbitrary Arduino breakouts.
 
-Active execution remains in [D-05 of the root todo](../../todo.md). A part
+D-05 has no implementation work left; each part's bench row is in section 4
+of the [root todo](../../todo.md). A part
 listed here is not supported until its exact module, firmware path and physical
 build have passed the normal evidence gates.
 

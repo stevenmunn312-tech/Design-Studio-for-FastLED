@@ -374,3 +374,22 @@ also built as the helper now lays it out — the controller `.ino` beside
 result, 403,779 bytes of flash and 34,664 of RAM: the header per pattern
 changes where the code sits, not what is built. This is compile evidence, not
 a bench run.
+
+## Node lock-in (D-08), 14 October 2026
+
+Each D-08 item that changed firmware was compiled on arduino-cli, one sketch
+at a time, from the local `tmp/node-audit/compiles.ps1` queue. All passed:
+
+| Sketch | What it proves |
+| --- | --- |
+| `d084` (ESP32-S3) | Definition bugs: Game of Life reseed and Blend pass-through firmware |
+| `d085` | Beat Detect's gate on `getBeatConfidence()`, and a float Kick into a bool Beat |
+| `d086`, `d086show` | The data-type and clamp sweep in a normal sketch and a show controller; the merged colour nodes |
+| `d089`, `d089show`, `d089c` | The second pass of merges, renames and moves; Clock Display fed by DateTime alone |
+| `d0810`, `d0810show` | The first batch of new nodes (Color, Constant, Logic, Expression), and the rest of the first merge pass |
+| `d0810b` (ESP32-S3) | Every second-batch new node in one sketch |
+| `d0810ada` | An Adalight Frame Stream |
+
+This is compile evidence, not a bench run. sACN, DDP, DIN MIDI, the frame
+stream and the analog RGB strip have no hardware validation and are
+experimental.

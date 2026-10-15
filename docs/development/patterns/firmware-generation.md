@@ -184,7 +184,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   copy statement to get in-place for free; any other form keeps the copy. The
   show builder resolves an alias onto its owner's pool slot.
   `estimateFirmwareRam` does not model sharing and over-counts, which is the
-  safe direction.
+  safe direction; model sharing there if the budget warning starts refusing
+  graphs that fit. Measured savings are in the
+  [render-buffer RAM compile checks](../../reports/compile/render-buffer-ram-compile-checks.md).
 - A persistent buffer is never `leds`. The node feeding a plain single output
   normally renders straight into `leds` (`CRGB* const buf_<id> = leds;`), but
   the output dims `leds` in place and blackout clears it, so a persistent
@@ -291,7 +293,8 @@ sketch still carries only what the graph reaches.
   show variants (`__tests__/deadCodeCorpus.ts`) at the pass's fixed point. The
   same corpus compiles with
   `python scripts/compile-fixtures/compile-matrix.py --only dead-code/`
-  (about 250 sketches, arduino-cli, one at a time).
+  (about 250 sketches, arduino-cli, one at a time); every leg passed in
+  October 2026.
 
 ## Instrument sketches
 
