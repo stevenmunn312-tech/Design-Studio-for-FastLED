@@ -619,7 +619,7 @@ The corpus is `src/codegen/__tests__/deadCodeCorpus.ts`.
     writes.
   - SET_PALETTE/SET_SPEED/SET_ENERGY events written to a show whose patterns
     read none of them.
-- [ ] **D-09.5 · Fold constant inputs and unread outputs (normal sketch).**
+- [x] **D-09.5 · Fold constant inputs and unread outputs (normal sketch).**
   - Port locals emitted for every output even when no edge reads them: 210
     locals in 81 of 315 sketches, including every custom-screen widget output.
   - Logic left behind unwired bool inputs: Clock tap/sync/reset, Toggle
@@ -633,10 +633,8 @@ The corpus is `src/codegen/__tests__/deadCodeCorpus.ts`.
   - `paldef_rainbow` from Boids in solid mode and from the PaletteSelector
     comment.
 
-  Done except one: Fluid's `visc`/`diff` blocks stay when both are 0, because
-  `_fluidStep` reassigns those float parameters, so the fold cannot see
-  through them. Fix in `fluidHelperCpp.ts` (clamp into new locals, branch on
-  the parameter) together with float-parameter folding, then tick this.
+  Fluid's viscosity and diffusion are now their own helper calls, emitted
+  only when the value is wired or above zero.
 - [x] **D-09.6 · Board-specific branches for a known board.**
   - `networkIncludesCpp` and the Wi-Fi bootstrap emit the ESP32, ESP8266 and
     unsupported branches even with the Board selected.

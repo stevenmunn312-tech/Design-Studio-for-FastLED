@@ -323,7 +323,12 @@ export const FIELD_EMITTERS: NodeEmitters = {
     if (fy) ln(`      ${A}v[_i]+=(${fy}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
     ln(`      ${A}v[_i]-=${floatLit(buoy * FLUID_BUOYANCY_GAIN, 6)}*${A}d[_i]; }`)
     ln(`    int _it=constrain((int)floorf(${f('speed', 'speed', 8)}),${FLUID_ITERATIONS_MIN},${FLUID_ITERATIONS_MAX});`)
-    ln(`    _fluidStep(${A}u,${A}v,${A}u0,${A}v0,${A}d,${A}d0,WIDTH,HEIGHT,_it,${f('viscosity', 'viscosity', 0)},${f('diffusion', 'diffusion', 0)},${f('dissipation', 'dissipation', 0.02)});`)
+    // Viscosity and diffusion are skipped outright when fixed at zero.
+    const active = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port) || Number(p[port] ?? 0) > 0
+    if (active('viscosity')) ln(`    _fluidViscosity(${A}u,${A}v,${A}u0,${A}v0,WIDTH,HEIGHT,_it,${f('viscosity', 'viscosity', 0)});`)
+    ln(`    _fluidVelocity(${A}u,${A}v,${A}u0,${A}v0,WIDTH,HEIGHT,_it);`)
+    if (active('diffusion')) ln(`    _fluidDiffuse(${A}d,${A}d0,WIDTH,HEIGHT,_it,${f('diffusion', 'diffusion', 0)});`)
+    ln(`    _fluidDye(${A}d,${A}d0,${A}u,${A}v,WIDTH,HEIGHT,${f('dissipation', 'dissipation', 0.02)});`)
     const vel = (out: string | null, a: string) => (out ? ` ${out}[_i]=constrain(0.5f+${A}${a}[_i]*${floatLit(FLUID_VEL_OUT)},0.0f,1.0f);` : '')
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ ${dye}[_i]=constrain(${A}d[_i],0.0f,1.0f);${vel(ovx, 'u')}${vel(ovy, 'v')} }`)
     ln(`  }`)

@@ -1777,8 +1777,8 @@ describe('generateCpp', () => {
       [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame'), ...(force ? [edge('e3', 'fx', 'n', 'field', 'forceX')] : [])],
     )
     const plain = fl()
-    expect(plain).toContain('static void _fluidStep(')
-    expect(plain.match(/static void _fluidStep\(/g)?.length).toBe(1)
+    expect(plain).toContain('static void _fluidVelocity(')
+    expect(plain.match(/static void _fluidVelocity\(/g)?.length).toBe(1)
     expect(plain).toContain('static float _fl_nu[NUM_LEDS]')
     expect(plain).toContain('int _it=constrain((int)floorf(8),4,20);')
     expect(plain).not.toContain('_fl_npr')
@@ -1789,7 +1789,14 @@ describe('generateCpp', () => {
     )
     expect(wiredVelocity).toContain('field_n_velocityX[_i]=constrain(0.5f+_fl_nu[_i]*0.25f')
     expect(wiredVelocity).not.toContain('velocityY[_i]')
-    expect(plain).toContain('_fluidStep(_fl_nu,_fl_nv,_fl_nu0,_fl_nv0,_fl_nd,_fl_nd0,WIDTH,HEIGHT,_it,0,0,0.02);')
+    expect(plain).toContain('_fluidVelocity(_fl_nu,_fl_nv,_fl_nu0,_fl_nv0,WIDTH,HEIGHT,_it);')
+    expect(plain).toContain('_fluidDye(_fl_nd,_fl_nd0,_fl_nu,_fl_nv,WIDTH,HEIGHT,0.02);')
+    // Viscosity and diffusion default to zero, so neither is emitted.
+    expect(plain).not.toContain('_fluidViscosity')
+    expect(plain).not.toContain('_fluidDiffuse')
+    const viscous = fl({ viscosity: 0.2, diffusion: 0.1 })
+    expect(viscous).toContain('_fluidViscosity(_fl_nu,_fl_nv,_fl_nu0,_fl_nv0,WIDTH,HEIGHT,_it,0.2);')
+    expect(viscous).toContain('_fluidDiffuse(_fl_nd,_fl_nd0,WIDTH,HEIGHT,_it,0.1);')
     const triggered = generateCpp(
       [node('n', 'FluidSim', 'field', {}), node('f', 'FieldToFrame', 'pattern', {}), node('btn', 'ButtonInput', 'input', { pin: 7 }), outputNode],
       [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame'), edge('t', 'btn', 'n', 'pressed', 'trigger')],
@@ -1797,7 +1804,7 @@ describe('generateCpp', () => {
     expect(triggered).toContain('if(_tr&&!_fl_npr)')
     expect(plain).not.toContain('*2.0f*0.3f')
     expect(fl({}, true)).toContain('_fl_nu[_i]+=(field_fx[_i]-0.5f)*2.0f*0.3f;')
-    expect(generateCpp([outputNode], [])).not.toContain('_fluidStep')
+    expect(generateCpp([outputNode], [])).not.toContain('_fluidVelocity')
   })
 
   it('emits Pride 2015 colorwaves only when a palette is wired', () => {

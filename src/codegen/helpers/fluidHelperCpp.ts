@@ -27,16 +27,30 @@ static void _fluidAdvect(float* dst,const float* src,const float* u,const float*
     dst[i]=(1.0f-sx)*((1.0f-sy)*src[y0*W+x0]+sy*src[y1*W+x0])+sx*((1.0f-sy)*src[y0*W+x1]+sy*src[y1*W+x1]); }
 }
 
-static void _fluidStep(float* u,float* v,float* u0,float* v0,float* d,float* d0,int W,int H,int iters,float visc,float diff,float diss) {
-  int n=W*H; visc=constrain(visc,0.0f,1.0f); diff=constrain(diff,0.0f,1.0f); float keep=1.0f-constrain(diss,0.0f,1.0f);
-  if(visc>0.0f){ ::memcpy(u0,u,n*sizeof(float)); ::memcpy(v0,v,n*sizeof(float));
-    _fluidSolve(u,u0,W,H,visc,1.0f+4.0f*visc,iters); _fluidSolve(v,v0,W,H,visc,1.0f+4.0f*visc,iters); }
+// The step in four parts, in fluidStep's order. Viscosity and diffusion are
+// separate so a node whose value is fixed at zero emits neither call.
+static void _fluidViscosity(float* u,float* v,float* u0,float* v0,int W,int H,int iters,float visc) {
+  int n=W*H; visc=constrain(visc,0.0f,1.0f); if(visc<=0.0f) return;
+  ::memcpy(u0,u,n*sizeof(float)); ::memcpy(v0,v,n*sizeof(float));
+  _fluidSolve(u,u0,W,H,visc,1.0f+4.0f*visc,iters); _fluidSolve(v,v0,W,H,visc,1.0f+4.0f*visc,iters);
+}
+
+static void _fluidVelocity(float* u,float* v,float* u0,float* v0,int W,int H,int iters) {
+  int n=W*H;
   _fluidProject(u,v,u0,v0,W,H,iters);
   ::memcpy(u0,u,n*sizeof(float)); ::memcpy(v0,v,n*sizeof(float));
   _fluidAdvect(u,u0,u0,v0,W,H); _fluidAdvect(v,v0,u0,v0,W,H);
   _fluidProject(u,v,u0,v0,W,H,iters);
   for(int i=0;i<n;i++){ u[i]=constrain(u[i],-${floatLit(FLUID_VMAX)},${floatLit(FLUID_VMAX)}); v[i]=constrain(v[i],-${floatLit(FLUID_VMAX)},${floatLit(FLUID_VMAX)}); }
-  if(diff>0.0f){ ::memcpy(d0,d,n*sizeof(float)); _fluidSolve(d,d0,W,H,diff,1.0f+4.0f*diff,iters); }
+}
+
+static void _fluidDiffuse(float* d,float* d0,int W,int H,int iters,float diff) {
+  diff=constrain(diff,0.0f,1.0f); if(diff<=0.0f) return;
+  ::memcpy(d0,d,W*H*sizeof(float)); _fluidSolve(d,d0,W,H,diff,1.0f+4.0f*diff,iters);
+}
+
+static void _fluidDye(float* d,float* d0,const float* u,const float* v,int W,int H,float diss) {
+  int n=W*H; float keep=1.0f-constrain(diss,0.0f,1.0f);
   ::memcpy(d0,d,n*sizeof(float));
   _fluidAdvect(d,d0,u,v,W,H);
   for(int i=0;i<n;i++) d[i]=fminf(${floatLit(FLUID_DYE_MAX)},d[i]*keep);
