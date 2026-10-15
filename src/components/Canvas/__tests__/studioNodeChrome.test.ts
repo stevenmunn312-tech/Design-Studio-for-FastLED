@@ -18,9 +18,18 @@ describe('editableProperties', () => {
     expect(editableProperties('FormulaField', props, new Set(['symmetry'])).map(([key]) => key)).toContain('symmetry')
   })
 
-  it('shows a Player Particles overlay only its enable switch until it is on', () => {
-    expect(editableProperties('PlayerParticles', { ...libraryDefaults('PlayerParticles'), enabled: false }).map(([key]) => key))
-      .toEqual(['enabled'])
+  it('keeps a Player Particles overlay\'s settings visible while it is off', () => {
+    const keys = editableProperties('PlayerParticles', { ...libraryDefaults('PlayerParticles'), enabled: false })
+      .map(([key]) => key)
+    expect(keys).toEqual(expect.arrayContaining(['enabled', 'style', 'color', 'intensity', 'randomColor', 'randomStyle']))
+  })
+
+  it('hides the fixed Player Particles colour and style a random pick replaces', () => {
+    const keys = editableProperties('PlayerParticles', {
+      ...libraryDefaults('PlayerParticles'), randomColor: true, randomStyle: true,
+    }).map(([key]) => key)
+    expect(keys).not.toContain('color')
+    expect(keys).not.toContain('style')
   })
 })
 

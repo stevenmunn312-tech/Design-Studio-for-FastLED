@@ -5087,15 +5087,12 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
         return ft === 'attractor'
     }
   }
+  // Enabled does not gate the overlay's settings: they stay visible while it is
+  // off, so the burst can be set up before it is switched on. Only a random
+  // pick replaces the fixed value it stands in for.
   if (nodeType === 'PlayerParticles') {
-    const on = properties.enabled === true
-    switch (key) {
-      case 'color': return on && properties.randomColor !== true
-      case 'randomColor':
-      case 'intensity': return on
-      case 'style': return on && properties.randomStyle !== true
-      case 'randomStyle': return on
-    }
+    if (key === 'color') return properties.randomColor !== true
+    if (key === 'style') return properties.randomStyle !== true
   }
   return true
 }

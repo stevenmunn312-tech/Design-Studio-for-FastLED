@@ -229,9 +229,9 @@ describe('colour inputs take a Colour Picker', () => {
   })
 
   it('refuses a colour the node is not using', () => {
-    // Player Particles ignores its colour under its default style.
+    // Player Particles ignores its fixed colour while Random Color is on.
     const definition = NODE_LIBRARY.find((entry) => entry.type === 'PlayerParticles')!
-    const plan = touchControlPlan('PlayerParticles', 'color', { ...definition.defaultProperties })
+    const plan = touchControlPlan('PlayerParticles', 'color', { ...definition.defaultProperties, randomColor: true })
     expect(plan.ok).toBe(false)
     if (plan.ok) return
     expect(plan.refusal.code).toBe('disabled')
