@@ -77,7 +77,7 @@ describe('custom displays in SD-player firmware', () => {
     expect(loop.lastIndexOf('_cdSetText(_cd_screen[2], n_song_title);')).toBeGreaterThan(loop.lastIndexOf('FastLED.show();'))
     expect(loop.lastIndexOf('_cdServiceLvgl();')).toBeGreaterThan(loop.lastIndexOf('FastLED.show();'))
     if (collection) {
-      const eof = loop.slice(loop.indexOf('if (GENERIC_PLAYER && audioEnded)'), loop.indexOf('// getAudioCurrentTime()'))
+      const eof = loop.slice(loop.indexOf('if (audioEnded) {'), loop.indexOf('// getAudioCurrentTime()'))
       expect(eof.indexOf('_cdServiceLvgl();')).toBeLessThan(eof.indexOf('return;'))
     }
     expect(findDisplayGeneratorIssues([...root, ...nodes], [...route, ...edges], docs).errors).toEqual([])

@@ -41,6 +41,7 @@ function keypadGraph(properties: Record<string, unknown> = {}) {
   ]
   const edges = [
     edge('key', 'pad', 'key', 'map', 'value'),
+    edge('pressed', 'pad', 'pressed', 'out', 'enabled'),
     edge('amount', 'map', 'result', 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),

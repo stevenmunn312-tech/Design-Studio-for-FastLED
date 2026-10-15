@@ -50,7 +50,7 @@ describe('fixed touch routing in generative shows', () => {
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
     const sample = loop.indexOf('_xptPoint(')
     const latch = loop.indexOf('if (n_touch_panel_controls.ledToggle) _ledOn_out = !_ledOn_out;')
-    const render = loop.indexOf('renderPattern(0, now)')
+    const render = loop.indexOf('render_p0(now)')
     const runtime = loop.indexOf('if (!(_ledOn_out))')
     expect(count(loop, '_xptPoint(')).toBe(1)
     expect(sample).toBeGreaterThan(0)
@@ -135,7 +135,8 @@ describe('fixed touch routing in generative shows', () => {
   it('keeps read-only panels idle, disabled panels inert and Diagnostics sampling', () => {
     expect(build([panel(), output()], [])).not.toContain('_xptPoint(')
     const disabled = build([panel({ enabled: false }), output()], [direct])
-    expect(disabled).toContain('_touchDown_touch_panel = (_tftOn_touch_panel) && _xptPoint(')
+    // Nothing reads the press itself here, but the sample still runs gated.
+    expect(disabled).toContain('(_tftOn_touch_panel) && _xptPoint(')
     const diagnostic = build([panel({ tftLayout: 'Diagnostics' }), output()], [])
     expect(diagnostic).toContain('_xptPoint(')
     expect(diagnostic).not.toContain('PlayerControlsValue')

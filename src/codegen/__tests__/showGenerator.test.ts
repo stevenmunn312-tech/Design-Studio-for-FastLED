@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { generateShowSketch, isPatternShow, buildPatternRenderers } from '../showGenerator'
 import { generateCpp, PHI_DEFINE_CPP } from '../cppGenerator'
 import { flattenSketchBundle, splitSketchBundle } from '../sketchBundle'
-import { SDF_HELPER_CPP } from '../helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP } from '../helpers/latticeHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from '../helpers/frameSampleHelperCpp'
 import { SYMMETRY_HELPER_CPP } from '../helpers/symmetryHelperCpp'
@@ -52,10 +51,11 @@ describe('showGenerator', () => {
       expect(cpp).toContain('void render_p0(')
       expect(cpp.includes('void render_p1(')).toBe(patternIds.length > 1)
       expect(/^void compositeTransition\([^\n]+\) \{/m.test(cpp)).toBe(patternIds.length > 1)
-      // Derive all sampler definitions so additions to the shared block are covered.
+      // Derive all sampler definitions so additions to the shared block are
+      // covered: each is defined at most once, and only when a pattern uses it.
       const signatures = FRAME_SAMPLE_HELPER_CPP.match(/^static inline .+ \{/gm)!
-      expect(signatures.length).toBeGreaterThan(0)
-      for (const signature of signatures) expect(cpp.split(signature)).toHaveLength(2)
+      expect(signatures.some((signature) => cpp.includes(signature))).toBe(true)
+      for (const signature of signatures) expect(cpp.split(signature).length).toBeLessThanOrEqual(2)
     }
   })
 
@@ -108,11 +108,12 @@ describe('showGenerator', () => {
     expect(cpp).toContain('case 0: render_p0(ms); break;')
     expect(cpp).toContain('void setup()')
     expect(cpp).toContain('void loop()')
-    // Transitions are composited via the shared 21-style helper, picking a
-    // random style from the pool (crossfade-only pool → { 0 }).
+    // Transitions are composited via the shared 21-style helper. A
+    // crossfade-only pool has nothing to draw from, so the style is fixed.
     expect(cpp).toContain('void compositeTransition(uint8_t type, CRGB* out')
-    expect(cpp).toContain('const uint8_t TRANS_POOL[] = { 0 };')
-    expect(cpp).toContain('compositeTransition(transType, leds, showA, showB, p)')
+    expect(cpp).not.toContain('TRANS_POOL')
+    expect(cpp).toContain('compositeTransition(0, leds, showA, showB, p)')
+    expect(cpp).toContain('compositeTransition(0, leds, showA, showB, p)')
     // Each pattern's body actually renders (the SolidColor fill reaches leds).
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
@@ -229,7 +230,7 @@ describe('showGenerator', () => {
       // Pattern rendering, dispatch, and transition compositing are untouched —
       // still CRGB math into the shared `leds` buffer regardless of chipset.
       expect(cpp).toContain('void render_p0(uint32_t ms)')
-      expect(cpp).toContain('compositeTransition(transType, leds, showA, showB, p)')
+      expect(cpp).toContain('compositeTransition(0, leds, showA, showB, p)')
       expect(cpp).toContain('  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
       expect(cpp).toContain('dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
     })
@@ -497,13 +498,13 @@ describe('showGenerator', () => {
     const cpp = generateShowSketch(ordered, edges, groups)
     // Starts at the top of the list, then walks it: a slideshow whose order was
     // chosen deliberately should begin where the list does.
-    expect(cpp).toContain('static uint8_t  cur = 0, nxt = 0, transType = 0;')
+    expect(cpp).toContain('static uint8_t  cur = 0, nxt = 0;')
     expect(cpp).toContain('nxt = (cur + 1) % PATTERN_COUNT;')
     expect(cpp).not.toContain('random8(PATTERN_COUNT')
 
     // Random remains the default and picks anything except what is showing.
     const random = generateShowSketch(nodes, edges, groups)
-    expect(random).toContain('static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
+    expect(random).toContain('static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0;')
     expect(random).toContain('nxt = (cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT;')
   })
 
@@ -513,9 +514,12 @@ describe('showGenerator', () => {
       node('pm', 'PatternSlideshow', { interval: 8, transitionsEnabled: false, transitionSec: 1.5 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ]
-    // A zero-length transition is already a cut on both sides, so "off" needs
-    // no second code path — it needs the duration the resolver reports.
-    expect(generateShowSketch(cut, edges, groups)).toContain('float p = 0 > 0 ?')
+    // A cut has no transition to run, so none of the apparatus ships.
+    const cpp = generateShowSketch(cut, edges, groups)
+    expect(cpp).toContain('renderPattern(cur, now);')
+    expect(cpp).not.toContain('compositeTransition')
+    expect(cpp).not.toContain('showA')
+    expect(cpp).not.toContain('transitioning')
   })
 
   it('has no beat advance and no particle overlay to emit', () => {
@@ -591,8 +595,9 @@ describe('showGenerator', () => {
 
     it('threads energy + speed in order and resolves a speed GroupInput to the param', () => {
       const r = buildPatternRenderers(['gs'], speedGroups, ['energy', 'speed'])
-      expect(r.params).toEqual(['energy', 'speed'])
-      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float energy, float speed)')
+      // No pattern reads energy, so only speed is threaded.
+      expect(r.params).toEqual(['speed'])
+      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float speed)')
       expect(r.functions[0]).toContain('= speed;')   // GroupInput → speed param
     })
 
@@ -654,7 +659,7 @@ describe('showGenerator', () => {
       expect(cpp).toContain('setupAudio();')              // in setup()
       const loop = cpp.slice(cpp.indexOf('void loop() {'))
       expect(loop.match(/updateAudio\(\);/g)).toHaveLength(1)
-      expect(loop.indexOf('updateAudio();')).toBeLessThan(loop.indexOf('renderPattern(0, now)'))
+      expect(loop.indexOf('updateAudio();')).toBeLessThan(loop.indexOf('render_p0(now)'))
       expect(cpp).toContain('_sum += _audioSpectrum[_i];') // render_p0 resamples the live spectrum
       expect(cpp).not.toContain('constrain(0.5f')         // not the placeholder
     })
@@ -874,8 +879,11 @@ describe('show sketch weight', () => {
   // never selects — but the pool is baked as a const array at generation time.
   it('narrows the transition switch to the pool', () => {
     const cpp = show(['g0', 'g1'])
-    expect(cpp).toContain('const uint8_t TRANS_POOL[] = { 0 };')
-    expect(cpp).toContain('default: {  // crossfade (0)')
+    // A one-style pool is a constant: no pool, no draw, no dispatch.
+    expect(cpp).not.toContain('TRANS_POOL')
+    expect(cpp).not.toContain('switch (type)')
+    expect(cpp).toContain('{  // crossfade (0)')
+    expect(cpp).toContain('compositeTransition(0, leds, showA, showB, p);')
     expect(cpp).not.toContain('case 1: {  // wipe')
     expect(cpp).not.toContain('case 15: {  // zoom')
   })
@@ -924,15 +932,18 @@ describe('show sketch weight', () => {
     )
     expect(cpp.match(/static inline CRGB _sampleShaded\(/g)).toHaveLength(1)
     expect(cpp.match(/static inline float _depthShade\(/g)).toHaveLength(1)
-    expect(cpp).toContain('case 16: {  // dolly')
+    // Dolly alone needs no dispatch around it.
+    expect(cpp).toContain('{  // dolly')
+    expect(cpp).not.toContain('switch (type)')
   })
 
   // A collection of one never transitions: the guard was `PATTERN_COUNT > 1`,
   // so showA/showB, the pool and the compositing switch were all unreachable.
   it('omits the whole transition apparatus for a one-pattern collection', () => {
     const cpp = show(['g0'])
-    expect(cpp).toContain('#define PATTERN_COUNT 1')
-    expect(cpp).toContain('renderPattern(0, now);')
+    expect(cpp).not.toContain('PATTERN_COUNT')
+    expect(cpp).not.toContain('renderPattern')
+    expect(cpp).toContain('render_p0(now);')
     expect(cpp).not.toContain('showA')
     expect(cpp).not.toContain('showB')
     expect(cpp).not.toContain('TRANS_POOL')
@@ -942,7 +953,7 @@ describe('show sketch weight', () => {
   it('still emits it for two patterns', () => {
     const cpp = show(['g0', 'g1'])
     expect(cpp).toContain('CRGB showA[NUM_LEDS];   // outgoing pattern during a transition')
-    expect(cpp).toContain('compositeTransition(transType, leds, showA, showB, p);')
+    expect(cpp).toContain('compositeTransition(0, leds, showA, showB, p);')
   })
 })
 
@@ -1044,8 +1055,8 @@ describe('displays in a show controller', () => {
       ...base.slice(1),
     ]
     const cpp = generateShowSketch([...single, status], baseEdges, groups)
-    expect(cpp).toContain('static uint8_t showPatternIndex = 0;')
     expect(cpp).not.toContain('showPatternIndex = cur;')
+    expect(cpp).not.toMatch(/showPatternIndex = (?!0;)/)
   })
 
   /*
@@ -1169,8 +1180,9 @@ describe('displays in a show controller', () => {
     // field rather than calling a function nothing wrote.
     it('emits an empty name table when the caller supplied none', () => {
       const cpp = build([status], [edge('show-tft', 'pm', 'display', 'tft', 'display')])
-      expect(cpp).toContain('#define PATTERN_NAME_COUNT_show  0')
+      // The reader answers emptily; with nothing named, no count is read.
       expect(cpp).toContain('static void _patName_show_read(char *dst, size_t dstSize, uint16_t index)')
+      expect(cpp).not.toContain('PATTERN_NAME_COUNT_show')
     })
 
     // Commanding, not just reporting: the renderer reads the cursor the way
@@ -1277,16 +1289,20 @@ describe('pattern code lifted into a show', () => {
     expect(offenders).toEqual([])
   })
 
-  it('lifts the shared blocks whole and a Slice Tiling pattern\'s bit tables under its prefix', () => {
+  it('lifts the shared helpers a pattern reaches and a Slice Tiling pattern\'s bit tables under its prefix', () => {
     const shape = build('Shape', { shape: 'polygon' })
     expect(shape.render).toContain('_sdfMorphPolygon(')
-    expect(shape.show).toContain(SDF_HELPER_CPP)
+    // Only the primitives the pattern reaches are lifted.
+    expect(shape.show).toContain('static inline float _sdfMorphPolygon(')
+    expect(shape.show).not.toContain('_sdfRect(')
+    expect(shape.show).not.toContain('_sdfEllipse(')
     expect(undeclared(shape)).toEqual([])
 
     const slice = build('SliceTiling', { lattice: 'triangle', preset: 'checker', seed: 9 }, true)
     expect(slice.render).toContain('_latticeCellValue(_cell.a,_cell.b,_cell.flipped,9u)')
     expect(slice.render).toContain('_sliceBit(p0__bits_n,_leaf)')
-    expect(slice.show).toContain(LATTICE_HELPER_CPP)
+    expect(slice.show).toContain('static inline _LatticeCell _triCell(')
+    expect(slice.show).not.toContain('_hexCell(')
     expect(slice.show).toMatch(/^static const uint8_t p0__bits_n\[8\]=/m)
     expect(slice.show).toMatch(/^static const uint8_t p0__bitsB_n\[8\]=/m)
     expect(undeclared(slice)).toEqual([])

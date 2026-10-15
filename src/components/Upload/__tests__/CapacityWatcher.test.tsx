@@ -120,7 +120,7 @@ describe('CapacityWatcher', () => {
     expect(useCapacityStore.getState().target?.code).toBeNull()
     await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('_cdAsset_screen_document_0_map[] PROGMEM'))
     const originalCode = useCapacityStore.getState().target?.code
-    if (generator === 'show') expect(originalCode).toContain('void renderPattern(')
+    if (generator === 'show') expect(originalCode).toContain('void render_p0(')
     if (generator === 'player') expect(originalCode).toContain('Music-Sync Player')
     expect(originalCode).toContain('.w = 24')
     const edited = { ...document, widgets: [{ ...document.widgets[0],

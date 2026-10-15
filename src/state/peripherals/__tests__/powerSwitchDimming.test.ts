@@ -105,7 +105,7 @@ describe('PowerSwitchOutput firmware', () => {
     const pot = node('pot', 'PotInput', { pin: 34 })
     const alone = node('sw', 'PowerSwitchOutput', { partId: LR7843, signalPin: 25 })
     const levelOnly = generateCpp([pot, alone], [edge('level', 'pot', 'value', 'sw', 'level')])
-    expect(levelOnly).toContain('uint8_t duty = flsPwmDuty((true) ? (float)(n_pot_value) : 0.0f, true);')
+    expect(levelOnly).toContain('uint8_t duty = flsPwmDuty((float)(n_pot_value), true);')
 
     const button = node('btn', 'ButtonInput', { pin: 12 })
     const gated = generateCpp([pot, button, alone], [

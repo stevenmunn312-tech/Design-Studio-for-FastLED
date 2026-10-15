@@ -525,11 +525,24 @@ library defaults.
 
 ## D-09 · Dead code in generated firmware, v1 part
 
-Work in progress: helper reachability, player/slideshow specialization, unused
-port cleanup and board preprocessing have an initial implementation. None of
-the items below is complete. The last codegen suite run had 1,493 passing and
-65 failing tests; subsequent edits have not had a complete rerun. The new
-reachability tests passed (7 tests). Firmware compilation is not verified.
+Status: work in progress. All three generators now end in one pruning pass
+([firmware generation](docs/development/patterns/firmware-generation.md#dead-code-pruning)).
+That pass resolves known `#if` blocks, folds constant switches, drops unread
+and write-only variables, and removes unreachable file-scope units. The test
+suite passes. On the regenerated live-example corpus, the Music Player
+variants and the slideshow variants, the old checker finds no unreachable
+file-scope unit except library configuration macros.
+
+Still open:
+
+- Firmware compilation of the pruned output. One Music Player sketch has
+  compiled; the corpus run was cancelled.
+- The corpus test (D-09.1).
+- In-function items that need emitter knowledge: switches over constant
+  inputs (D-09.5), constant `bool` flags, `pinMode` for unread inputs, and
+  the performance player's runtime remnants (D-09.2 to D-09.4).
+
+Leave an item unchecked until its compile proof exists.
 
 From the 2026-10-15 audit of all four firmware types: 315 normal sketches
 (every live example plus the normal-mode fixtures) and variant sets of the

@@ -139,7 +139,7 @@ describe('Mosfetti firmware', () => {
       edge('on', 'btn', 'pressed', 'sw', 'on'),
     ])
     expect(cpp).toContain('flsPwmBegin(17, 0, 1000);')
-    expect(cpp).toContain('uint8_t duty = flsPwmDuty((true) ? (float)(n_pot_value) : 0.0f, true);')
+    expect(cpp).toContain('uint8_t duty = flsPwmDuty((float)(n_pot_value), true);')
     expect(cpp).toContain('static int16_t n_sw_2_pwmDuty = -1;')
     expect(cpp).toContain('digitalWrite(16, n_btn_pressed ? HIGH : LOW);')
     expect(cpp.match(/static void flsPwmBegin/g)).toHaveLength(1)

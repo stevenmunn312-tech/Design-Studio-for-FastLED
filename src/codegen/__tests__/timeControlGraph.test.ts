@@ -30,7 +30,7 @@ describe('Time and Wave controls', () => {
       expect(loop).toContain('float _controlTime = animNow / 1000.0f;')
       expect(loop.indexOf('uint32_t animNow =')).toBeLessThan(loop.indexOf('float _controlTime'))
       expect(loop.indexOf('_showAnimSpeed = constrain(n_level_result')).toBeGreaterThan(loop.indexOf('float n_level_result'))
-      expect(loop).toContain('renderPattern(0, animNow)')
+      expect(loop).toContain('render_p0(animNow)')
     } else {
       expect(loop).toContain('float _controlTime = millis() / 1000.0f;')
       expect(loop.indexOf('float _controlTime')).toBeLessThan(loop.indexOf('audio.loop();'))

@@ -255,17 +255,21 @@ describe('3D transition registration', () => {
   })
 
   it('narrows to the styles a show actually uses, with 3D support only for a 3D style', () => {
-    const only16 = transitionHelperCpp([16])
+    const only16 = transitionHelperCpp([16, 1])
     expect(only16).toContain('case 16: {')
     expect(only16).not.toContain('case 17: {')
     // Crossfade is the default arm, and goes when it is not reachable.
     expect(only16).not.toContain('default: {')
     expect(transitionSupportCpp([16]).join('\n')).toContain('static inline float _depthShade')
     expect(transitionSupportCpp([16])[0]).toBe(FRAME_SAMPLE_HELPER_CPP)
-    const noneOfThem = transitionHelperCpp([1])
+    const noneOfThem = transitionHelperCpp([1, 2])
     expect(noneOfThem).not.toContain('case 16: {')
     expect(noneOfThem).not.toContain('case 17: {')
     expect(noneOfThem).toContain('case 1: {')
+    // One reachable style is the whole body, with no dispatch around it.
+    const alone = transitionHelperCpp([16])
+    expect(alone).not.toContain('switch (type)')
+    expect(alone).toContain('_depthShade(')
     expect(transitionSupportCpp([0, 1])).toEqual([])
   })
 })

@@ -114,9 +114,74 @@ export function specializeSwitch(source: string, expression: string, value: numb
     if (index < 0) continue
     const arm = arms[index]
     let body = source.slice(arm.body, arms[index + 1]?.start ?? end - 1)
-    body = body.replace(/\bbreak;(?=\s*(?:}\s*)?$)/, '')
-    edits.push({ start, end, body: `{${body}}` })
+    body = body.replace(/\n?[ \t]*\bbreak;(?=\s*(?:}\s*)?$)/, '').trimEnd()
+    const rest = cppCode(body)
+    // Jumps owned by this switch, not by a loop or switch nested in the arm.
+    const own = withoutNestedJumpScopes(rest)
+    // A `continue` would change target outside the switch; leave it be.
+    if (own === null || /\bcontinue\b/.test(own)) continue
+    const block = /^\s*\{[^]*\}$/.test(rest) && enclosesWhole(rest.trim()) ? body.trim() : `{${body}\n  }`
+    // Any other break left the switch early; a one-pass loop keeps that.
+    edits.push({ start, end, body: /\bbreak\b/.test(own) ? `do ${block} while (0);` : block })
   }
   for (const edit of edits.reverse()) source = source.slice(0, edit.start) + edit.body + source.slice(edit.end)
   return source
+}
+
+/** Blank the bodies of loops and switches, whose break and continue are
+ * their own. Null when a statement shape is beyond this small parser. */
+function withoutNestedJumpScopes(code: string): string | null {
+  let out = code
+  for (const keyword of code.matchAll(/\b(?:for|while|switch|do)\b/g)) {
+    // Already inside a scope blanked below.
+    if (out[keyword.index!] === ' ') continue
+    const body = skipSpace(out, keyword[0] === 'do' ? keyword.index! + 2 : afterParens(out, keyword.index!))
+    const end = statementEnd(out, body)
+    if (end === null) return null
+    out = out.slice(0, body) + out.slice(body, end).replace(/[^\n]/g, ' ') + out.slice(end)
+  }
+  return out
+}
+
+const skipSpace = (code: string, i: number) => {
+  while (/\s/.test(code[i] ?? '')) i++
+  return i
+}
+
+/** Index after the parenthesised group that follows `from`. */
+function afterParens(code: string, from: number): number {
+  let i = code.indexOf('(', from)
+  if (i < 0) return code.length
+  for (let depth = 0; i < code.length; i++) {
+    if (code[i] === '(') depth++
+    if (code[i] === ')' && --depth === 0) return i + 1
+  }
+  return code.length
+}
+
+/** End of the statement starting at `i`: a block, a loop or switch with its
+ * body, or a simple statement. `if`/`else` and `do` chains are not handled. */
+function statementEnd(code: string, i: number): number | null {
+  if (code[i] === '{') {
+    for (let depth = 0, end = i; end < code.length; end++) {
+      if (code[end] === '{') depth++
+      if (code[end] === '}' && --depth === 0) return end + 1
+    }
+    return null
+  }
+  const head = code.slice(i).match(/^(for|while|switch|if|else|do)\b/)
+  if (head && head[1] !== 'for' && head[1] !== 'while' && head[1] !== 'switch') return null
+  if (head) return statementEnd(code, skipSpace(code, afterParens(code, i)))
+  const end = code.indexOf(';', i)
+  return end < 0 ? null : end + 1
+}
+
+/** True when `{...}` is one block, not `{...} ... {...}`. */
+function enclosesWhole(code: string): boolean {
+  let depth = 0
+  for (let i = 0; i < code.length; i++) {
+    if (code[i] === '{') depth++
+    if (code[i] === '}' && --depth === 0) return i === code.length - 1
+  }
+  return false
 }

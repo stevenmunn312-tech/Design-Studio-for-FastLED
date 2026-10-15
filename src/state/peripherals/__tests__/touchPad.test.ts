@@ -39,6 +39,7 @@ function padGraph(properties: Record<string, unknown> = {}) {
   ]
   const edges = [
     edge('electrode', 'pad', 'electrode', 'map', 'value'),
+    edge('touched', 'pad', 'touched', 'out', 'enabled'),
     edge('amount', 'map', 'result', 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),
@@ -90,7 +91,8 @@ describe('touch pad firmware', () => {
     expect(sketch).toContain('_mprWrite(addr, 0x5E, 0x8F)')
     expect(sketch).toContain('float n_pad_electrode = _mprLast_pad;')
     expect(sketch).toContain('bool n_pad_touched = _mprN_pad > 0;')
-    expect(sketch).toContain('bool n_pad_connected = _mprReady_pad;')
+    // Nothing reads Connected here, so it is not emitted.
+    expect(sketch).not.toContain('n_pad_connected')
     expect(sketch.indexOf('Wire.begin(')).toBeLessThan(sketch.indexOf('_mprBegin(0x5B'))
   })
 

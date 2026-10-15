@@ -214,7 +214,9 @@ describe('buildShowPlayer', () => {
       genericPlayer: true,
     })
 
-    expect(sketch).toContain('static const bool GENERIC_PLAYER = true;')
+    // Generated as a Music Player, not switched into one at runtime.
+    expect(sketch).not.toContain('GENERIC_PLAYER')
+    expect(sketch).not.toContain('loadShowFile')
     expect(sketch).toContain('Playing (generic)')
     // An unpaired player plays whatever is on the card, so it needs the walk
     // rather than a flat listing, and it has to say so when it finds nothing.
@@ -261,7 +263,8 @@ describe('buildShowPlayer', () => {
 
     expect(sketch).toContain('void audio_process_i2s(int16_t* outBuff, uint16_t validSamples')
     expect(sketch).toContain('_sum += _audioSpectrum[_i];')
-    expect(sketch).toContain('_audioBass = _audioMids = _audioTreble = 0.0f;')
+    // The pattern reads the spectrum, not the bands, so none is stored.
+    expect(sketch).not.toMatch(/_audio(?:Bass|Mids|Treble)\b/)
     expect(sketch).not.toContain('uint8_t*  audioEnv')
   })
 
@@ -327,8 +330,10 @@ describe('the performance player without a collection', () => {
     expect(sketch).toContain('case 1: render_p1(ms, speed, palette); break;')
     expect(sketch).not.toContain('render_p2')
     expect(sketch).toContain('case CMD_SET_SPEED:      speed = ev.params[0]; break;')
-    // The transitions and palettes it names, and no others.
-    expect(sketch).toContain('case 3: {  // iris')
+    // The transitions and palettes it names, and no others. Iris alone needs
+    // no dispatch.
+    expect(sketch).toContain('{  // iris')
+    expect(sketch).not.toContain('switch (type)')
     expect(sketch).not.toContain('case 1: {  // wipe')
     expect(sketch).toContain('default: return paldef_ocean;')
   })
@@ -349,7 +354,8 @@ describe('the performance player without a collection', () => {
     const payload = buildShowPayload(player.nodes, player.edges, [entry], {})!
     expect(payload.files.map((file) => file.path)).toEqual(['/music/Track.mp3'])
     // A Music Player with no patterns still plays the card's MP3s.
-    expect(payload.player).toContain('static const bool GENERIC_PLAYER = true;')
+    expect(payload.player).toContain('Playing (generic)')
+    expect(payload.player).not.toContain('loadShowFile')
   })
 })
 

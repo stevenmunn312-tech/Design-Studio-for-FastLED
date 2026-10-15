@@ -784,6 +784,8 @@ export function generatePlayerSketch(
   const genericTransType = transitionIds.length > 1
     ? 'TRANS_POOL[random8(TRANS_POOL_N)]'
     : String(transitionIds[0])
+  // A Music Player's one-style pool is a constant; only a show file varies it.
+  const transTypeExpr = genericCollection && transitionIds.length === 1 ? String(transitionIds[0]) : 'transType'
 
   const controlSupportCpp = hasControls ? `
 // ── Physical player controls ─────────────────────────────────────────────────
@@ -1268,8 +1270,7 @@ uint8_t    patternId  = 0;        // active pattern index
 uint8_t    prevPatternId = 0;     // outgoing pattern during a transition
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
-uint8_t    transType  = 0;        // transition style id (see compositeTransition)
-${genericCollection && transitionIds.length > 1 ? `const uint8_t TRANS_POOL[] = { ${transitionIds.join(', ')} };
+${transTypeExpr === 'transType' ? 'uint8_t    transType  = 0;        // transition style id (see compositeTransition)\n' : ''}${genericCollection && transitionIds.length > 1 ? `const uint8_t TRANS_POOL[] = { ${transitionIds.join(', ')} };
 #define TRANS_POOL_N ${transitionIds.length}
 ` : ''}uint32_t   transStart = 0;        // ms the current transition began
 float      transDurMs = 0.0f;     // 0 = no transition in progress
@@ -1754,8 +1755,8 @@ ${genericPlayer ? `
     musicDumpCard();
     return false;
   }
-` : `
-  if (PREFERRED_TRACK[0]) {
+` : `${opts.preferredTrack ? `
+  {
     String mp3  = String("/music/") + PREFERRED_TRACK + ".mp3";
     String show = String("/shows/") + PREFERRED_TRACK + ".show";
     if (!SD.exists(mp3.c_str())) {
@@ -1779,7 +1780,7 @@ ${genericPlayer ? `
       Serial.printf("Expected track missing: %s\\n", mp3.c_str());
     }
   }
-
+` : ''}
   // Fallback: first .mp3 that has a matching .show. Requiring the pair matters
   // — an .mp3 left on the card by an earlier session has no show of its own,
   // and playing it would run the wrong audio against whatever show did load.
@@ -2214,8 +2215,7 @@ ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
 `}${transitions ? '    uint8_t rotatePrevious = patternId;\n' : ''}    if (nextPattern != patternId) {
       patternId = nextPattern;
 ${transitions ? `      prevPatternId = rotatePrevious;
-      transType = ${genericTransType};
-      transStart = posMs;
+${transTypeExpr === 'transType' ? `      transType = ${genericTransType};\n` : ''}      transStart = posMs;
       transDurMs = (float)transitionMs;
 ` : ''}    }
   }
@@ -2240,7 +2240,7 @@ ${transitions && drawsFrame ? `  float tp = transDurMs > 0.0f ? (float)(posMs - 
     ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing → showA
     renderPattern(patternId, t);
     ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);   // incoming → showB
-    compositeTransition(transType, leds, showA, showB, tp);
+    compositeTransition(${transTypeExpr}, leds, showA, showB, tp);
   } else {
     renderPattern(patternId, t);
   }

@@ -13,7 +13,8 @@ const generator = { id: 'pg', data: { nodeType: 'PerformanceGenerator', properti
 describe('playerSketchGenerator', () => {
   it.each([
     { audioEnvelope: false, decoderTap: false, fades: false },
-    { audioEnvelope: true, decoderTap: false, fades: true },
+    // A Music Player opens no show file, so a baked envelope has nothing to read.
+    { audioEnvelope: true, decoderTap: false, fades: false },
     { audioEnvelope: false, decoderTap: true, fades: true },
   ])('only fades generic collections with audio analysis (%j)', ({ audioEnvelope, decoderTap, fades }) => {
     const renderers = { buffers: [], helpers: [], functions: ['void render_p0(uint32_t ms) { (void)ms; }'], count: 1, params: [] }
@@ -29,12 +30,14 @@ describe('playerSketchGenerator', () => {
   it('emits the frame sampler once, above the patterns that sample frames', () => {
     const renderers = {
       buffers: [], helpers: [FRAME_SAMPLE_HELPER_CPP],
-      functions: ['void render_p0(uint32_t ms) { (void)ms; }'],
+      functions: ['void render_p0(uint32_t ms) { (void)ms; leds[0] = _sampleFrame(leds, 0.0f, 0.0f, 0, false); }'],
       count: 1, params: [],
     }
     const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true })
-    expect(sketch.match(/static inline CRGB _sampleShaded\(/g)).toHaveLength(1)
-    expect(sketch.indexOf('_sampleShaded(')).toBeLessThan(sketch.indexOf('void render_p0('))
+    expect(sketch.match(/static inline CRGB _sampleFrame\(/g)).toHaveLength(1)
+    expect(sketch.indexOf('_sampleFrame(')).toBeLessThan(sketch.indexOf('void render_p0('))
+    // No 3D transition is reachable, so the shaded sampler is not emitted.
+    expect(sketch).not.toContain('_sampleShaded')
   })
 
   // The preview draws each change's style from the wired pool; the device used
@@ -52,7 +55,9 @@ describe('playerSketchGenerator', () => {
     expect(pooled).not.toContain('default: {  // crossfade (0)')
     const single = generatePlayerSketch({}, renderers, { genericPlayer: true, transitionIds: [4] })
     expect(single).not.toContain('TRANS_POOL')
-    expect(single).toContain('transType = 4;')
+    // One style is a constant passed straight to the dispatcher.
+    expect(single).not.toContain('transType')
+    expect(single).toContain('compositeTransition(4, leds, showA, showB, tp);')
   })
 
   // A Vibe node in a slideshow pattern read _audioVibe* globals the player
@@ -66,7 +71,9 @@ describe('playerSketchGenerator', () => {
     }
     expect(patternRenderersUseAudio(renderers)).toBe(true)
     const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true, decoderTap: true })
-    expect(/float _audioVibeBass = 0\.0f,[^;]*_audioVibeMidAtt = 0\.0f/.test(sketch)).toBe(true)
+    expect(/float [^;]*_audioVibeMidAtt = 0\.0f/.test(sketch)).toBe(true)
+    // Bass is registered with the detector but never read, so it is not stored.
+    expect(sketch).not.toContain('_audioVibeBass')
     expect(sketch.indexOf('_audioVibeMidAtt = 0.0f')).toBeLessThan(sketch.indexOf('void render_p0('))
     expect(sketch).toContain('  (void)_audioProcessor->getVibeBass();')
     expect(sketch).toContain('  _audioVibeMidAtt = _audioProcessor->getVibeMidAtt();')
@@ -431,7 +438,7 @@ describe('playerSketchGenerator', () => {
     const renderers = {
       buffers: ['CRGB p0_buf_frame[NUM_LEDS];', 'float p0_field_noise[NUM_LEDS];'],
       helpers: [],
-      functions: ['void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      functions: ['void render_p0(uint32_t ms) { fill_solid(p0_buf_frame, NUM_LEDS, CRGB::Blue); p0_field_noise[0] = 0; }'],
       count: 1,
       params: [],
     }
@@ -535,7 +542,7 @@ describe('playerSketchGenerator', () => {
       // callbacks, leaving a static file position as the only symptom.
       expect(sketch).toContain('void audio_info(const char* info)')
       expect(sketch).toContain('[audio] %s')
-      expect(sketch).toContain('if (audio.connecttoFS(SD, mp3.c_str()))')
+      expect(sketch).toContain('if (audio.connecttoFS(SD, path.c_str()))')
       expect(sketch).toContain('ERR audio-open-failed')
     })
 
@@ -543,7 +550,7 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('void primeAudioDecoder()')
       expect(sketch).toContain('millis() - deadline')
       expect(sketch).toContain('audio.getAudioCurrentTime() == 0')
-      expect(sketch).toMatch(/Playing: %s[^]*?primeAudioDecoder\(\);/)
+      expect(sketch).toMatch(/Playing \(fallback\): %s[^]*?primeAudioDecoder\(\);/)
     })
 
     it('dispatches the final event boundary after the audio library resets at EOF', () => {
@@ -585,7 +592,7 @@ describe('playerSketchGenerator', () => {
       // listening at whatever rate BAUD raised it to, and reordering these two
       // turns the reply it is waiting on into garbage.
       expect(sketch).toMatch(
-        /Serial\.println\("BYE"\);\n\s*provEndSession\(\);\n\s*playbackReady = startPlayback\(\);/,
+        /Serial\.println\("BYE"\);\n\s*provEndSession\(\);\n\s*startPlayback\(\);/,
       )
       // The heartbeat is line-based like the protocol's own replies, so it
       // must not interleave with them.

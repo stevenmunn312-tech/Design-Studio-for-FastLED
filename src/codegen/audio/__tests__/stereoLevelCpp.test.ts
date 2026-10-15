@@ -108,7 +108,8 @@ describe('firmware capture paths share one meter scale', () => {
       { active: '_decoderTapLive', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat' },
     )
     const cpp = generatePlayerSketch({}, renderers, { stereoVuMeters: meters })
-    expect(cpp).toContain('{0,1,2,3,4,6,8,10,12,14,17,20,23,27,30,34,38,43,48,52,58,64}')
+    // No control changes the volume at runtime, so the table is not shipped.
+    expect(cpp).not.toContain('DECODER_VOLUME_TABLE')
     expect(cpp).toContain('rms *= _decoderVolumeComp;')
     // Setup states the starting factor outright: the default volume of 18 maps
     // to volumetable[18] = 48, so the tap sees 48/64 and owes the meter 64/48.

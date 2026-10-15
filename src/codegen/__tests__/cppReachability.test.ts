@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { cppCode, cppUnits, pruneCpp, unreachableCppUnits } from '../cppReachability'
 import { specializeCpp, specializeSwitch } from '../cppSpecialize'
+import { finishCpp } from '../cppCleanup'
 
 describe('generated C++ reachability', () => {
   it('keeps transitive calls, address-taken callbacks, types and array bounds', () => {
@@ -18,6 +19,38 @@ void loop() {}`
     expect(result).toContain('#define COUNT 4')
     expect(result).not.toContain('int dead()')
     expect(unreachableCppUnits(result)).toEqual([])
+  })
+  it('splits functions with default arguments from their neighbours', () => {
+    const source = `float wave(float bpm, float lo = 0, float hi = 255){ return lo + hi * bpm; }
+float scale(float v, float s){ return v * s; }
+float level(int n) noexcept { return n; }
+const int table[2] = { 1, 2 };
+void setup() { scale(1, table[0]); }
+void loop() {}`
+    const result = pruneCpp(source)
+    expect(result).not.toContain('float wave(')
+    expect(result).not.toContain('float level(')
+    expect(result).toContain('float scale(')
+    expect(result).toContain('const int table[2]')
+  })
+  it('drops unread locals and the pure helpers that only fed them', () => {
+    const source = `static float axis(int raw) { float v = raw / 4095.0f; return v * 2.0f; }
+static int counter = 0;
+static int bump() { return ++counter; }
+void setup() {}
+void loop() {
+  float unread = axis(analogRead(33));
+  int effect = bump();
+  float a = 1.0f, b = 2.0f;
+  leds(b);
+}`
+    const result = finishCpp(source)
+    expect(result).not.toContain('analogRead')
+    expect(result).not.toContain('axis')
+    // A call with effects still runs.
+    expect(result).toContain('(void)(bump());')
+    expect(result).toContain('float b = 2.0f;')
+    expect(result).not.toContain('float a')
   })
   it('does not treat comments or strings as references', () => {
     const source = 'int unused; // unused\nvoid setup() { print("unused // { }"); }\nvoid loop() {}'

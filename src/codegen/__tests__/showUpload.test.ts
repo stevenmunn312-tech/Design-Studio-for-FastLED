@@ -216,7 +216,8 @@ describe('generatePlayerSketch track selection', () => {
     // A stray mp3 with no show of its own must be skipped, not played against
     // whatever show happened to load.
     const ino = generatePlayerSketch()
-    expect(ino).toContain('static const char* PREFERRED_TRACK = ""')
+    // Nothing named, so no preferred-track search is compiled.
+    expect(ino).not.toContain('PREFERRED_TRACK')
     expect(ino).toContain('no matching show')
     expect(ino).toContain('No playable track found on the card')
   })
@@ -280,7 +281,9 @@ describe('generatePlayerSketch', () => {
   it('uses the encoded beat decay and lets FastLED apply global brightness', () => {
     const ino = generatePlayerSketch()
     expect(ino).toContain('flashDecay = expf(')
-    expect(ino).toContain('ev.paramCount > 1 ? ev.params[1] : 22.0f')
+    // The loader rejects a malformed event, so the arm reads its parameter.
+    expect(ino).toContain('flashDecay = expf(-16.0f / (60.0f + (ev.params[1] / 255.0f) * 240.0f));')
+    expect(ino).not.toContain('ev.paramCount >')
     expect(ino).toContain('flashLevel *= flashDecay')
     expect(ino.indexOf('// Beat flash overlay')).toBeLessThan(ino.indexOf('FastLED.show();'))
   })
@@ -314,7 +317,9 @@ describe('generatePlayerSketch', () => {
 
   it('compiles only crossfade when no other style is reachable', () => {
     const ino = generatePlayerSketch()
-    expect(ino).toContain('default: {  // crossfade (0)')
+    // One reachable style needs no dispatch.
+    expect(ino).toContain('{  // crossfade (0)')
+    expect(ino).not.toContain('switch (type)')
     expect(ino).not.toContain('case 1: {  // wipe')
     expect(ino).not.toContain('case 20: {  // slab tilt')
     expect(ino).not.toContain('_sampleShaded')
@@ -333,7 +338,7 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('case 2: {  // explode')
     expect(ino).toContain('case 5:  // twinkle')
     expect(ino).toContain('case 10:  // confetti')
-    expect(ino).toContain('burstStyle     = (uint8_t)(ev.paramCount > 2 ? ev.params[2] : 0.0f);')
+    expect(ino).toContain('burstStyle     = (uint8_t)ev.params[2];')
   })
 
   it('dispatches to compiled render_pN functions for a collection show', () => {
@@ -368,7 +373,9 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('float      energy')                    // global
     expect(ino).toContain('#define CMD_SET_ENERGY     6')
     expect(ino).toContain('case CMD_SET_ENERGY:     energy = ev.params[0]; break;')
-    expect(ino).toContain('case 0: render_p0(ms, energy); break;')   // passed to render fn
+    // One pattern needs no dispatch; the role still reaches it.
+    expect(ino).toContain('render_p0((uint32_t)(t * 1000.0f), energy);')
+    expect(ino).not.toContain('renderPattern(')
   })
 
   it('omits the energy plumbing when no role params are threaded', () => {
@@ -379,7 +386,7 @@ describe('generatePlayerSketch', () => {
     }
     const ino = generatePlayerSketch({}, renderers)
     expect(ino).not.toContain('case CMD_SET_ENERGY')
-    expect(ino).toContain('case 0: render_p0(ms); break;')
+    expect(ino).toContain('render_p0((uint32_t)(t * 1000.0f));')
   })
 
   it('normalises CMD_SET_SPEED into the speed role global and threads it into render_pN', () => {
@@ -393,7 +400,7 @@ describe('generatePlayerSketch', () => {
     const ino = generatePlayerSketch({}, renderers)
     expect(ino).toContain('float      speed     = 0.5f;')            // role global
     expect(ino).toContain('case CMD_SET_SPEED:      speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f); break;')
-    expect(ino).toContain('case 0: render_p0(ms, energy, speed); break;')
+    expect(ino).toContain('render_p0((uint32_t)(t * 1000.0f), energy, speed);')
   })
 
   it('does not touch the speed global when speed is not a threaded role', () => {
@@ -420,7 +427,7 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('CRGBPalette16 palette = RainbowColors_p;')          // role global
     expect(ino).toContain('CRGBPalette16 paletteFromId(uint8_t palId)')
     expect(ino).toContain('case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev.params[0]); break;')
-    expect(ino).toContain('case 0: render_p0(ms, palette); break;')            // passed to render fn
+    expect(ino).toContain('render_p0((uint32_t)(t * 1000.0f), palette);')     // passed to render fn
   })
 
   it('omits the palette plumbing when no palette role is threaded', () => {
@@ -460,7 +467,8 @@ describe('generatePlayerSketch', () => {
     }
     const ino = generatePlayerSketch({}, renderers, { audioEnvelope: true })
     expect(ino).toContain('_audioBass = 0, _audioMids = 0, _audioTreble = 0')   // globals
-    expect(ino).toContain('float     _audioSpectrum[32]')                        // for beat nodes
+    // No pattern reads the spectrum, so it is neither stored nor filled.
+    expect(ino).not.toContain('_audioSpectrum')
     expect(ino).toContain('void updateShowAudio(uint32_t ms)')                   // interpolator
     expect(ino).toContain('audioEnv = (uint8_t*)malloc')                         // envelope loader
     expect(ino).toContain('updateShowAudio(posMs)')                             // called each frame
@@ -478,7 +486,7 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('if (continueI2S) *continueI2S = true;')
     expect(ino).toContain('fl::make_shared<fl::audio::Processor>()')
     expect(ino).toContain('_audioProcessor->update(sample);')
-    expect(ino).toContain('_audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);')
+    expect(ino).not.toContain('_audioSpectrum')
     expect(ino).toContain('setupDecoderTap();')
     expect(ino).toContain('if (!_decoderTapLive) updateShowAudio(posMs);')
     expect(ino.indexOf('audio.loop();')).toBeLessThan(ino.indexOf('updateDecoderAudio();'))
@@ -491,7 +499,8 @@ describe('generatePlayerSketch', () => {
       count: 1, params: [],
     }
     const ino = generatePlayerSketch({ audioOutput: 'internalDac' }, renderers, { decoderTap: true })
-    expect(ino).toContain('#define DECODER_TAP_INTERNAL_DAC 1')
+    // Resolved at generation: the bias code is in, and no switch for it remains.
+    expect(ino).not.toContain('DECODER_TAP_INTERNAL_DAC')
     expect(ino).toContain('(int32_t)(uint16_t)raw - 32768')
   })
 

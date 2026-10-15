@@ -39,6 +39,7 @@ function stickGraph(properties: Record<string, unknown> = {}) {
   ]
   const edges = [
     edge('x', 'stick', 'x', 'map', 'value'),
+    edge('pressed', 'stick', 'pressed', 'out', 'enabled'),
     edge('amount', 'map', 'result', 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),
@@ -85,7 +86,9 @@ describe('joystick firmware', () => {
     const sketch = generateCpp(nodes, edges)
     expect(sketch.match(/static float _joyAxis\(/g)).toHaveLength(1)
     expect(sketch).toContain('float n_stick_x = _joyAxis(analogRead(32), 0.100f);')
-    expect(sketch).toContain('float n_stick_y = _joyAxis(analogRead(33), 0.100f);')
+    // Y is not wired, so its axis is not read at all.
+    expect(sketch).not.toContain('n_stick_y')
+    expect(sketch).not.toContain('analogRead(33)')
     expect(sketch).toContain('bool n_stick_pressed = digitalRead(25) == LOW;')
     expect(sketch).toContain('pinMode(25, INPUT_PULLUP);')
     expect(sketch).toContain('float v = (float)raw / 4095.0f * 2.0f - 1.0f;')

@@ -5,6 +5,8 @@
 // snapshot and before a destination is applied, with the key bool a direct
 // action can name.
 
+import { specializeCpp } from '../cppSpecialize'
+import { withoutBlankRuns } from '../cppReachability'
 import { describe, expect, it } from 'vitest'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
@@ -84,8 +86,9 @@ function loopBody(source: string): string {
 
 function expectOnePoll(source: string, player = false) {
   expect(source.match(/FLS_IR_RECEIVER\.decode\(/g)).toHaveLength(1)
-  // Include deduplication must preserve the complete S3 adapter body.
-  expect(source).toContain(IR_RMT_RECEIVER_CPP)
+  // Include deduplication must preserve the complete S3 adapter body, with
+  // the decoder guards resolved against the protocols the sketch defines.
+  expect(source).toContain(withoutBlankRuns(specializeCpp(IR_RMT_RECEIVER_CPP, { DECODE_NEC: true })))
   expect(source.indexOf('class FlsIrRmtReceiver')).toBeGreaterThan(source.indexOf('#include <FastLED.h>'))
   expect(source).toContain('#define DECODE_NEC')
   expect(source.indexOf('#define DECODE_NEC')).toBeLessThan(source.indexOf('#include <IRremote.hpp>'))
@@ -188,7 +191,7 @@ describe('IR polling in the three generators', () => {
     expect(graph.resolve('step', 'value', 'float')).toEqual({ nodeId: 'step', port: 'value', type: 'float' })
     const emitted = controlGraphCpp(graph)
     for (const line of [...emitted.includes, ...emitted.globals, ...emitted.setup, ...emitted.loop]) {
-      expect(source, line).toContain(line)
+      expect(source, line).toContain(withoutBlankRuns(specializeCpp(line, { DECODE_NEC: true })))
     }
   })
 

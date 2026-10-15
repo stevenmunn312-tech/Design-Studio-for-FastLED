@@ -41,6 +41,7 @@ function probeGraph(properties: Record<string, unknown> = {}) {
   ]
   const edges = [
     edge('temperature', 'probe', 'temperature', 'map', 'value'),
+    edge('connected', 'probe', 'connected', 'out', 'enabled'),
     edge('amount', 'map', 'result', 'fade', 'brightness'),
     edge('frame', 'fill', 'frame', 'fade', 'frame'),
     edge('output', 'fade', 'frame', 'out', 'frame'),

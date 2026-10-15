@@ -92,7 +92,7 @@ describe('a screen design set aside for a fixed layout', () => {
   it('declares its wired outputs at rest in a normal sketch', () => {
     const { nodes, documents } = graph('Fixed Transport')
     const withLed = [...nodes.filter((entry) => entry.id !== 'player'), node('toggle', 'Not')]
-    const rewired = [edge('touch', previous, 'toggle', 'x')]
+    const rewired = [edge('touch', previous, 'toggle', 'x'), edge('toggle', 'result', 'out', 'enabled')]
     const cpp = generateCpp(withLed, rewired, {}, { displayDocuments: documents })
     expect(cpp).toMatch(/bool n_touch_widget_[a-z0-9_]+_out = false;/)
     expect(cpp).not.toContain('_cd_screen')

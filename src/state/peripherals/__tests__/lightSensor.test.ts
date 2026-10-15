@@ -114,7 +114,8 @@ describe('firmware', () => {
     const { nodes, edges } = lightGraph(node('light', 'LightInput', { pin: 34 }))
     const sketch = generateCpp(nodes, edges)
     expect(sketch).toContain('float n_light_level = analogRead(34) / 4095.0f;')
-    expect(sketch).toContain('float n_light_lux = 0.0f;')
+    // Nothing reads Lux, so the held zero is not emitted.
+    expect(sketch).not.toContain('n_light_lux')
     expect(sketch).not.toContain('_bh1750Begin')
   })
 

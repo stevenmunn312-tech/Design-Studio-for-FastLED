@@ -17,6 +17,9 @@ const RENDERERS: PatternRenderers = {
 }
 
 const sketch = () => generatePlayerSketch({}, RENDERERS, { genericPlayer: true })
+// Only the performance player opens a show file, and only one built for a
+// named track looks for it first.
+const performance = (preferredTrack = '') => generatePlayerSketch({}, RENDERERS, { preferredTrack })
 
 describe('the emitted music walk', () => {
   it('recurses into folders rather than reading one flat listing', () => {
@@ -56,7 +59,8 @@ describe('the emitted music walk', () => {
   })
 
   it('names the show from the track leaf, not from its folder', () => {
-    expect(sketch()).toContain(`String showPath = "/shows/" + leaf.substring(0, leaf.lastIndexOf('.')) + ".show";`)
+    expect(performance()).toContain(`String showPath = "/shows/" + leaf.substring(0, leaf.lastIndexOf('.')) + ".show";`)
+    expect(sketch()).not.toContain('showPath')
   })
 })
 
@@ -84,9 +88,14 @@ describe('a track that will not open', () => {
 
 describe('a preferred track filed into an album', () => {
   it('searches by filename when it is not at the top level', () => {
-    const src = sketch()
+    const src = performance('Song')
     expect(src).toContain('String wanted = String(PREFERRED_TRACK) + ".mp3";')
     expect(src).toContain('if (_musicWalk("/music", seen, -1, wanted.c_str(), found, leaf, 0)) mp3 = found;')
+  })
+
+  it('carries no preferred-track search when the sketch names no track', () => {
+    expect(performance()).not.toContain('PREFERRED_TRACK')
+    expect(sketch()).not.toContain('PREFERRED_TRACK')
   })
 
   it('matches the name case-insensitively, as the card may not preserve it', () => {

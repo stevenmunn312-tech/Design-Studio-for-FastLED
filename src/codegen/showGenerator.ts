@@ -835,6 +835,8 @@ export function generateShowSketch(
   // compositing switch) is left out rather than emitted unreachable.
   const rotates = renderers.count > 1
   const transitions = rotates && info.transitionSec > 0
+  // A pool of one is a constant style, with nothing to draw from.
+  const pooled = transitions && info.transitionIds.length > 1
   // Root displays and their control chains live outside collected patterns.
   // Resolve them against the controller template rather than the pattern walk.
   const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId, groups)
@@ -972,7 +974,7 @@ export function generateShowSketch(
   }
   L.push('')
   if (usePsram) { L.push(PSRAM_ALLOC_CPP); L.push('') }
-  if (transitions && info.transitionIds.length > 1) {
+  if (pooled) {
     // The random pool of transition style ids the controller draws from.
     L.push(`const uint8_t TRANS_POOL[] = { ${info.transitionIds.join(', ')} };`)
     L.push(`#define TRANS_POOL_N ${info.transitionIds.length}`)
@@ -1155,7 +1157,7 @@ export function generateShowSketch(
   L.push(...selectionCpp.apply)
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
   if (transitions) {
-    L.push(`  static uint8_t  cur = ${firstPattern}, nxt = 0, transType = 0;`)
+    L.push(`  static uint8_t  cur = ${firstPattern}, nxt = 0${pooled ? ', transType = 0' : ''};`)
     L.push('  static bool     transitioning = false;')
     L.push('  static uint32_t phaseStart = 0;')
     // The renderer follows the cursor, the way the evaluator reads its active
@@ -1181,7 +1183,7 @@ export function generateShowSketch(
     L.push(`    renderPattern(cur, ${patternNow});`)
     L.push(`    if (now - phaseStart >= ${dwellMs}) {`)
     L.push(`      nxt = ${nextPattern};`)
-    L.push(`      transType = ${info.transitionIds.length > 1 ? 'TRANS_POOL[random8(TRANS_POOL_N)]' : info.transitionIds[0]};`)
+    if (pooled) L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
     L.push('      transitioning = true; phaseStart = now;')
     L.push('    }')
     L.push('  } else {')
@@ -1189,7 +1191,7 @@ export function generateShowSketch(
     L.push('    if (p >= 1.0f) p = 1.0f;')
     L.push(`    renderPattern(cur, ${patternNow}); ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing`)
     L.push(`    renderPattern(nxt, ${patternNow}); ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming`)
-    L.push('    compositeTransition(transType, leds, showA, showB, p);')
+    L.push(`    compositeTransition(${pooled ? 'transType' : info.transitionIds[0]}, leds, showA, showB, p);`)
     L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; }')
     L.push('  }')
     L.push('')

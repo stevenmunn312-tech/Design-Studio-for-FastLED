@@ -228,7 +228,8 @@ describe('generateCpp', () => {
 
   it('bakes the same ring map the live preview routes through', () => {
     const props = { form: 'ring', ledCount: 16, ringStartAngle: 45, ringDirection: 'ccw' }
-    const cpp = generateCpp([node('out', 'MatrixOutput', 'output', props)], [])
+    const cpp = generateCpp([node('sc', 'SolidColor', 'pattern'), node('out', 'MatrixOutput', 'output', props)],
+      [edge('e', 'sc', 'out', 'frame', 'frame')])
     const baked = cpp.match(/_ringmap\[RING_LEDS\] PROGMEM = \{ ([^}]+) \}/)![1]
     expect(baked.split(',').map(Number)).toEqual(ringSampleMapForProps(props))
   })
@@ -518,7 +519,8 @@ describe('generateCpp', () => {
     expect(cpp).toContain('pinMode(12, INPUT_PULLUP);')
     expect(cpp).toContain('pinMode(13, INPUT);')
     expect(cpp).toContain('digitalRead(12) == LOW')
-    expect(cpp).toContain('digitalRead(13) == HIGH')
+    // Next is not wired, so its pin is never read.
+    expect(cpp).not.toContain('digitalRead(13)')
   })
 
   it('never presses a Button Bank button that has no GPIO yet', () => {
@@ -722,8 +724,10 @@ describe('generateCpp', () => {
     const pir = node('pir', 'MotionInput', 'input', { pin: 5 })
     const solid = node('sc', 'SolidColor', 'pattern', {})
     const swap = node('sw', 'FrameSwitch', 'composite', {})
-    const cpp = generateCpp([pir, solid, swap, outputNode], [
+    const other = node('sc2', 'SolidColor', 'pattern', { r: 255 })
+    const cpp = generateCpp([pir, solid, other, swap, outputNode], [
       { id: 'e1', source: 'sc', target: 'sw', sourceHandle: 'frame', targetHandle: 'a' },
+      { id: 'e4', source: 'sc2', target: 'sw', sourceHandle: 'frame', targetHandle: 'b' },
       { id: 'e2', source: 'pir', target: 'sw', sourceHandle: 'motion', targetHandle: 'sel' },
       { id: 'e3', source: 'sw', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
     ] as never)
@@ -2753,9 +2757,11 @@ describe('generateCpp', () => {
       const cpp = transitionCpp(variant)
       expect(cpp).toContain('buf_tr[')
       expect(/buf_(a|b)\[/.test(cpp) || cpp.includes('_sampleUnit(buf_')).toBe(true)
-      // Declared before use, and exactly once however many 3D nodes there are.
-      expect(cpp.split('static inline float _depthShade').length - 1).toBe(1)
-      expect(cpp.indexOf('static inline float _depthShade')).toBeLessThan(cpp.indexOf('void setup'))
+      // Declared before use, exactly once however many 3D nodes there are,
+      // and only for the styles that shade by depth (Door shades by facing).
+      const declarations = cpp.split('static inline float _depthShade').length - 1
+      expect(declarations).toBe(variant === 'door' ? 0 : 1)
+      if (declarations) expect(cpp.indexOf('static inline float _depthShade')).toBeLessThan(cpp.indexOf('void setup'))
     })
   }
 
@@ -3084,7 +3090,10 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     expect(cpp).toContain(`_foldWallpaper(_cell.x,_cell.y,${groupId},_foldX,_foldY)`)
     expect(cpp).toContain('field_field_symmetry[_y*WIDTH+_x]=field_sym_field_source[_sy*WIDTH+_sx]')
     expect(cpp.match(/static inline void _foldWallpaper/g)).toHaveLength(1)
-    expect(cpp.match(/static inline _LatticeCell _squareCell/g)).toHaveLength(1)
+    // Only the selected lattice's cell finder ships.
+    for (const candidate of ['_squareCell', '_hexCell', '_triCell']) {
+      expect(cpp.split(`static inline _LatticeCell ${candidate}(`).length - 1).toBe(candidate === finder ? 1 : 0)
+    }
   })
 
   it('uses the shared bilinear sampler for the frame node', () => {
@@ -3308,7 +3317,10 @@ describe('Pattern node expansion - Phase 4 Truchet codegen', () => {
     expect(cpp).toContain(`_truchetDistance(${latticeId},${motifId},_cell.x,_cell.y,_orientation)`)
     expect(cpp).toContain('_latticeHashBits(_cell.a+(int)_tr_truchetepoch*31')
     expect(cpp.match(/static inline float _truchetDistance/g)).toHaveLength(1)
-    expect(cpp.match(/static inline _LatticeCell _squareCell/g)).toHaveLength(1)
+    // Only the selected lattice's cell finder ships.
+    for (const candidate of ['_squareCell', '_hexCell', '_triCell']) {
+      expect(cpp.split(`static inline _LatticeCell ${candidate}(`).length - 1).toBe(candidate === finder ? 1 : 0)
+    }
   })
 
   it('falls back without interpolating an unknown motif into firmware', () => {
@@ -3340,7 +3352,10 @@ describe('Pattern node expansion — Phase 1 Slice Tiling codegen', () => {
     const cpp = generateSlice(lattice)
     expect(cpp).toContain(`/* SliceTiling: ${lattice}, depth 3 */`)
     expect(cpp).toContain(`${finder}(_rx,_ry)`)
-    expect(cpp.match(/static inline _LatticeCell _squareCell/g)).toHaveLength(1)
+    // Only the selected lattice's cell finder ships.
+    for (const candidate of ['_squareCell', '_hexCell', '_triCell']) {
+      expect(cpp.split(`static inline _LatticeCell ${candidate}(`).length - 1).toBe(candidate === finder ? 1 : 0)
+    }
     expect(cpp).toContain('constrain(0.5f+0.3f*_warp,0.2f,0.8f)')
     expect(cpp).toContain('const float _sector=6.283185307180f/_sides')
   })
@@ -4160,7 +4175,8 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('const float n_bd_cooldownMs = constrain(60000.0f / (_audioBpm > 0.0f ? _audioBpm : 120.0f) * 0.6f, 250.0f, 600.0f);')
     expect(cpp).toContain('bool n_bd_beat = _audioBeat && _audioBeatConfidence >= n_bd_threshold && (n_bd_gate_lastBeat == 0 || millis() - n_bd_gate_lastBeat >= (uint32_t)n_bd_cooldownMs);')
     expect(cpp).toContain('_audioBeatConfidence = _audioProcessor->getBeatConfidence();')
-    expect(cpp).toContain('float n_bd_bpm = _audioBpm;')
+    // Nothing reads the BPM port, so it is not emitted.
+    expect(cpp).not.toContain('n_bd_bpm')
     expect(cpp).not.toContain('n_bd_detector_fast')
   })
 
@@ -4205,7 +4221,8 @@ describe('generateCpp — INMP441 audio engine', () => {
     const vibe = node('vb', 'Vibe', 'audio', { gain: 1.5 })
     const cpp = generateCpp([micBoard, mic, audio, vibe, out], [
       edge('e0', 'audio', 'vb', 'audio', 'audio'),
-      edge('e2', 'vb', 'out', 'bass', 'frame'),
+      edge('e2', 'vb', 'out', 'bass', 'brightness'),
+      edge('e3', 'vb', 'out', 'bassSpike', 'enabled'),
     ])
     expect(cpp).toContain('float _audioVibeBass = 0.0f')
     expect(cpp).toContain('_audioVibeBass = _audioProcessor->getVibeBass();')
@@ -4235,7 +4252,8 @@ describe('generateCpp — INMP441 audio engine', () => {
     const ss = node('ss', 'SongStructure', 'audio', {})
     const cpp = generateCpp([micBoard, mic, audio, ss, out], [
       edge('e0', 'audio', 'ss', 'audio', 'audio'),
-      edge('e2', 'ss', 'out', 'dropImpact', 'frame'),
+      edge('e2', 'ss', 'out', 'buildupProgress', 'brightness'),
+      edge('e3', 'ss', 'out', 'downbeat', 'enabled'),
     ])
     expect(cpp).toContain('_audioProcessor->onDownbeat([] { _audioDownbeatCount = _audioDownbeatCount + 1; });')
     expect(cpp).toContain('_audioProcessor->onBuildupStart([] { _audioBuilding = true; });')
@@ -4266,7 +4284,7 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('emits an inactive Song Structure when the audio input is not wired', () => {
     const ss = node('ss', 'SongStructure', 'audio', {})
-    const cpp = generateCpp([ss, out], [edge('e2', 'ss', 'out', 'dropImpact', 'frame')])
+    const cpp = generateCpp([ss, out], [edge('e2', 'ss', 'out', 'beatNumber', 'brightness'), edge('e3', 'ss', 'out', 'downbeat', 'enabled')])
     expect(cpp).toContain('bool n_ss_downbeat = false')
     expect(cpp).toContain('float n_ss_beatNumber = 0.0f')
     expect(cpp).not.toContain('_audioDownbeat')
@@ -4276,9 +4294,13 @@ describe('generateCpp — INMP441 audio engine', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
     const pd = node('pd', 'PitchDetect', 'audio', {})
-    const cpp = generateCpp([micBoard, mic, audio, pd, out], [
+    const sum = node('sum', 'Math', 'math', { mathOp: 'add' })
+    const cpp = generateCpp([micBoard, mic, audio, pd, sum, out], [
       edge('e0', 'audio', 'pd', 'audio', 'audio'),
-      edge('e2', 'pd', 'out', 'confidence', 'frame'),
+      edge('e1', 'pd', 'sum', 'hz', 'a'),
+      edge('e2', 'pd', 'sum', 'keyRoot', 'b'),
+      edge('e3', 'sum', 'out', 'result', 'brightness'),
+      edge('e4', 'pd', 'out', 'noteOn', 'enabled'),
     ])
     expect(cpp).toContain('#define STUDIO_PITCH_MIN_LAG 44')
     expect(cpp).toContain('#define STUDIO_PITCH_MAX_LAG 252')
@@ -4308,7 +4330,7 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('emits an inactive Pitch Detect when the audio input is not wired', () => {
     const pd = node('pd', 'PitchDetect', 'audio', {})
-    const cpp = generateCpp([pd, out], [edge('e2', 'pd', 'out', 'confidence', 'frame')])
+    const cpp = generateCpp([pd, out], [edge('e2', 'pd', 'out', 'hz', 'brightness'), edge('e3', 'pd', 'out', 'noteOn', 'enabled')])
     expect(cpp).toContain('bool n_pd_noteOn = false')
     expect(cpp).toContain('float n_pd_hz = 0.0f')
     expect(cpp).not.toContain('_audioPitch')
@@ -4387,7 +4409,7 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('emits an inactive Vibe when the audio input is not wired', () => {
     const vibe = node('vb', 'Vibe', 'audio', {})
-    const cpp = generateCpp([vibe, out], [edge('e2', 'vb', 'out', 'bass', 'frame')])
+    const cpp = generateCpp([vibe, out], [edge('e2', 'vb', 'out', 'bass', 'brightness'), edge('e3', 'vb', 'out', 'bassSpike', 'enabled')])
     expect(cpp).toContain('float n_vb_bass = 0.0f')
     expect(cpp).toContain('bool n_vb_bassSpike = false')
     expect(cpp).not.toContain('_audioVibe')
@@ -4402,7 +4424,8 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
     expect(cpp).toContain('static float n_af_feat_prevSpectrum[32];')
     expect(cpp).toContain('float n_af_vocals = 0.0f, n_af_energy = 0.0f;')
-    expect(cpp).toContain('bool n_af_silence = n_af_energy <')
+    // Nothing reads Silence, so its comparison is not emitted.
+    expect(cpp).not.toContain('n_af_silence')
     expect(cpp).toContain('_presenceFlux')
     expect(cpp).toContain('_energyTarget')
   })
@@ -4862,9 +4885,21 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
 
   it('Trigger toggle flips a static bool on each rising edge', () => {
     const t = tail('trt', 'out')
-    const cpp = generateCpp([node('trt', 'Trigger', 'math', { triggerOp: 'toggle' }), ...t.nodes], t.edges)
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const cpp = generateCpp([lfo, node('trt', 'Trigger', 'math', { triggerOp: 'toggle' }), ...t.nodes],
+      [...t.edges, edge('t0', 'lfo', 'trt', 'value', 'trigger')])
     expect(cpp).toContain('static bool n_trt_out = false;')
     expect(cpp).toContain('n_trt_out = !n_trt_out;')
+    // Unwired On and Off can never fire, so they emit no branch.
+    expect(cpp).not.toMatch(/if \((?:false|0)\) n_trt_out/)
+  })
+
+  it('Trigger toggle with no trigger wired holds its initial state', () => {
+    const t = tail('trt', 'out')
+    const cpp = generateCpp([node('trt', 'Trigger', 'math', { triggerOp: 'toggle' }), ...t.nodes], t.edges)
+    expect(cpp).toContain('static bool n_trt_out = false;')
+    expect(cpp).not.toContain('n_trt_out = !n_trt_out;')
+    expect(cpp).not.toContain('_trP_trt')
   })
 
   /*
@@ -5170,11 +5205,16 @@ describe('Saturation / RGBToHSV (codegen)', () => {
       const grad = node('g', type, type === 'GradientFrame' ? 'pattern' : 'color', {
         rA: 10, gA: 20, bA: 30, rB: 200, gB: 210, bB: 220,
       })
-      const unwired = generateCpp([grad, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
+      // The sampler's colour reaches the output through a Solid Color.
+      const solid = node('sc', 'SolidColor', 'pattern', {})
+      const reader = type === 'GradientFrame'
+        ? { nodes: [], edges: [edge('e', 'g', 'out', 'frame', 'frame')] }
+        : { nodes: [solid], edges: [edge('e', 'g', 'sc', 'color', 'color'), edge('e0', 'sc', 'out', 'frame', 'frame')] }
+      const unwired = generateCpp([grad, ...reader.nodes, outputNode], reader.edges)
       expect(unwired, type).toContain('CRGB(10, 20, 30)')
 
-      const wired = generateCpp([grad, temp, outputNode], [
-        edge('e', 'g', 'out', 'frame', 'frame'),
+      const wired = generateCpp([grad, temp, ...reader.nodes, outputNode], [
+        ...reader.edges,
         edge('e2', 'tp', 'g', 'color', 'colorA'),
       ])
       expect(wired, type).toContain('n_tp_color')
@@ -5199,9 +5239,10 @@ describe('Saturation / RGBToHSV (codegen)', () => {
       ],
     )
     expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(n_c_rgb);')
-    expect(cpp).toContain('float n_rh_h = _hsv_rh.hue / 255.0f * 360.0f;')
-    expect(cpp).toContain('float n_rh_s = _hsv_rh.sat / 255.0f;')
     expect(cpp).toContain('float n_rh_v = _hsv_rh.val / 255.0f;')
+    // Only V is wired; the hue and saturation ports are never read.
+    expect(cpp).not.toContain('n_rh_h')
+    expect(cpp).not.toContain('n_rh_s')
   })
 
   it('RGBToHSV emits its editable color fallback when unwired', () => {
@@ -5441,7 +5482,9 @@ describe('ClockDisplay (codegen)', () => {
   it('emits millis-driven stopwatch/timer state for transport modes', () => {
     const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer', durationSec: 90, run: true })
     const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('static float _clkElapsed_clk = 0.0f, _clkRemaining_clk = 0.0f, _clkLastDuration_clk = -1.0f;')
+    expect(cpp).toContain('static float _clkRemaining_clk = 0.0f, _clkLastDuration_clk = -1.0f;')
+    // A timer shows what remains; elapsed time is never read.
+    expect(cpp).not.toContain('_clkElapsed_clk')
     expect(cpp).toContain('uint32_t _clkNow_clk = millis();')
     expect(cpp).toContain('if (_clkRun_clk) _clkRemaining_clk = max(0.0f, _clkRemaining_clk - _clkDt_clk);')
     expect(cpp).toContain('snprintf(_clkMain_clk, sizeof(_clkMain_clk), "%02d:%02d"')
@@ -5449,7 +5492,8 @@ describe('ClockDisplay (codegen)', () => {
 
   it('publishes transport readouts so a timer can drive the rest of the graph', () => {
     const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer', durationSec: 90 })
-    const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
+    const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame'),
+      edge('e2', 'clk', 'out', 'seconds', 'brightness'), edge('e3', 'clk', 'out', 'done', 'enabled')])
     expect(cpp).toContain('float n_clk_seconds = 0.0f; bool n_clk_done = false;')
     expect(cpp).toContain('n_clk_seconds = _clkShow_clk;')
     expect(cpp).toContain('n_clk_done = _clkRemaining_clk <= 0.0f;')
@@ -5783,6 +5827,8 @@ describe('generated-comment escaping', () => {
     const cpp = generateCpp(
       [src, a, b],
       [edge('e1', 'sc', 'frame', 'outA', 'frame'), edge('e2', 'sc', 'frame', 'outB', 'frame')],
+      // A solid fill never reads the map, so pruning would take the comment too.
+      {}, { deferPruning: true },
     )
 
     // The label's text may still appear — inside the comment, which is fine.

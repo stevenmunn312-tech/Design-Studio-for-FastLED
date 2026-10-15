@@ -14,14 +14,27 @@ export interface CppUnit {
 
 /** Mask comments and literals without changing offsets or line boundaries. */
 export function cppCode(source: string): string {
-  return source.replace(/R"([^ ()\\\t\r\n]{0,16})\([\s\S]*?\)\1"|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
-    (text) => text.replace(/[^\r\n]/g, ' '))
+  return source.replace(LEXEMES, (text) => text.replace(/[^\r\n]/g, ' '))
 }
+
+// Raw and plain strings, character literals and comments, matched together so
+// a quote inside a comment, or `//` inside a string, is not misread.
+const LEXEMES = /R"([^ ()\\\t\r\n]{0,16})\([\s\S]*?\)\1"|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|\/\/[^\n]*|\/\*[\s\S]*?\*\//g
 
 const callbacks = new Set(['setup', 'loop', 'serialEvent', 'app_main',
   'audio_info', 'audio_eof_mp3', 'audio_id3data', 'audio_showstreamtitle',
   'audio_bitrate', 'audio_eof_stream', 'audio_showstation', 'audio_process_i2s', 'audio_process_extern'])
 const libraryMacro = /^(?:FASTLED_|FL_|LV_|DECODE_|NO_LED_RECEIVE_FEEDBACK_CODE$|RAW_BUFFER_LENGTH$|FLS_IR_RECEIVER$)/
+// `=` outside parentheses: an initializer, not a default argument.
+const assigns = (head: string) => {
+  let depth = 0
+  for (const ch of head) {
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (ch === '=' && depth === 0) return true
+  }
+  return false
+}
 const identifiers = (text: string) => [...new Set(text.match(/\b[A-Za-z_]\w*\b/g) ?? [])]
 
 export function cppUnits(source: string): CppUnit[] {
@@ -39,7 +52,7 @@ export function cppUnits(source: string): CppUnit[] {
     const macro = directive && text.match(/^#\s*define\s+(\w+)/)
     const type = text.match(/^(?:struct|class|enum(?:\s+class)?|union)\s+(\w+)\s*[:{;]/)
     const head = text.split('{', 1)[0].trim()
-    const fn = head.match(/\b([A-Za-z_]\w*(?:::\w+)*)\s*\([^]*\)\s*(?:const\s*)?;?$/)
+    const fn = head.match(/\b([A-Za-z_]\w*(?:::\w+)*)\s*\([^]*\)\s*(?:(?:const|noexcept|override)\s*)*;?$/)
     if (macro) {
       names = [macro[1]]; kind = 'macro'; root = libraryMacro.test(macro[1])
     } else if (!directive && type) {
@@ -47,7 +60,7 @@ export function cppUnits(source: string): CppUnit[] {
       // A type with an inline instance must keep both names together.
       const instance = text.match(/}\s*(\w+)\s*(?:\[[^\]]*\])?\s*;$/)
       if (instance) names.push(instance[1])
-    } else if (!directive && fn && !head.includes('=') && !/^(?:typedef|using)\b/.test(head)) {
+    } else if (!directive && fn && !assigns(head) && !/^(?:typedef|using)\b/.test(head)) {
       names = [fn[1].split('::')[0]]; kind = 'function'; root = callbacks.has(names[0])
       // Constructor-style globals are declarations with effects, not functions.
       if (!text.includes('{') && !/\([^]*\b(?:void|int|float|char|bool|uint\d+_t|const|CRGB)\b/.test(head)
@@ -95,7 +108,7 @@ export function cppUnits(source: string): CppUnit[] {
       depth--
       if (depth === 0 && parens === 0 && brackets === 0) {
         const head = code.slice(start, i).split('{', 1)[0]
-        if (/\)\s*(?:const\s*)?$/.test(head) && !head.includes('=')) add(i + 1)
+        if (/\)\s*(?:(?:const|noexcept|override)\s*)*$/.test(head) && !assigns(head)) add(i + 1)
       }
     }
     if (ch === ';' && depth === 0 && parens === 0 && brackets === 0) add(i + 1)
@@ -123,7 +136,35 @@ export function unreachableCppUnits(source: string): CppUnit[] {
 
 export function pruneCpp(source: string): string {
   for (const unit of unreachableCppUnits(source).reverse()) {
-    source = source.slice(0, unit.start) + '\n' + source.slice(unit.end)
+    const [start, end] = withAttachedComments(source, unit.start, unit.end)
+    source = source.slice(0, start) + source.slice(end)
   }
   return source
+}
+
+/**
+ * Widen a removal to the whole lines it occupies and the comment lines
+ * directly above it, which describe what is being removed. A blank line ends
+ * the attachment, so a section header stays.
+ */
+export function withAttachedComments(source: string, start: number, end: number): [number, number] {
+  const lineStart = source.lastIndexOf('\n', start - 1) + 1
+  const lineEnd = source.indexOf('\n', end)
+  const after = source.slice(end, lineEnd < 0 ? source.length : lineEnd)
+  if (source.slice(lineStart, start).trim() || !/^\s*(?:\/\/.*)?$/.test(after)) return [start, end]
+  let from = lineStart
+  while (from > 0) {
+    const previous = source.lastIndexOf('\n', from - 2) + 1
+    if (!/^[ \t]*\/\/.*$/.test(source.slice(previous, from - 1).replace(/\r$/, ''))) break
+    from = previous
+  }
+  return [from, lineEnd < 0 ? source.length : lineEnd + 1]
+}
+
+/** Collapse runs of blank lines left behind by removals, outside literals. */
+export function withoutBlankRuns(source: string): string {
+  const literals = [...source.matchAll(LEXEMES)].filter((match) => /^R?"/.test(match[0]))
+    .map((match) => [match.index!, match.index! + match[0].length])
+  return source.replace(/\n(?:[ \t]*\r?\n){2,}/g, (run, at: number) =>
+    literals.some(([from, to]) => at < to && at + run.length > from) ? run : '\n\n')
 }

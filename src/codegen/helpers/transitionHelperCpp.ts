@@ -10,6 +10,7 @@
 // Requires WIDTH / HEIGHT / NUM_LEDS #defines in the host sketch.
 
 import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
+import { specializeSwitch } from '../cppSpecialize'
 
 /** Dolly, card flip, cube, door and tilt: the styles that sample frames in 3D. */
 const TRANSITION_3D_STYLE_IDS: readonly number[] = [16, 17, 18, 19, 20]
@@ -335,6 +336,7 @@ export function transitionSupportCpp(styleIds: readonly number[]): string[] {
  * never reaches, but every engine knows its reachable set at generation time:
  * the wired TransitionSet pool, or crossfade alone. The crossfade arm is
  * `default:` and is dropped with the rest when crossfade is not reachable.
+ * A single reachable style needs no dispatch, so its arm is the whole body.
  * Emit `transitionSupportCpp(styleIds)` above it.
  */
 export function transitionHelperCpp(styleIds: readonly number[]): string {
@@ -354,7 +356,8 @@ export function transitionHelperCpp(styleIds: readonly number[]): string {
     }
     if (depth <= 0) depth = null
   }
-  return out.join('\n')
+  const dispatcher = out.join('\n')
+  return keep.size === 1 ? specializeSwitch(dispatcher, 'type', styleIds[0]) : dispatcher
 }
 
 // Beat-triggered particle overlay as a self-contained function that adds sparks

@@ -194,7 +194,8 @@ describe('normal-sketch codegen for the custom Display node', () => {
   it('gives two panels showing one design a screen each and keeps the exclusive symbols for one panel', () => {
     const shared = generateCpp(
       [output, panel('tft-a'), panel('tft-b'), touch('tft-a'), touch('tft-b')],
-      [],
+      [edge('ea', 'tft-a-touch', 'widget:toggle:out', 'out', 'enabled'),
+        edge('eb', 'tft-b-touch', 'widget:toggle:out', 'out', 'brightness')],
       {},
       { displayDocuments: documents },
     )
@@ -237,8 +238,9 @@ describe('normal-sketch codegen for the custom Display node', () => {
    * rest — and the panel is still built, so it can be turned back on.
    */
   it('holds a disabled panel dark, untouched and at rest', () => {
-    const on = generateCpp([output, panel(), touch()], [], {}, { displayDocuments: documents })
-    const off = generateCpp([output, panel('tft', { enabled: false }), touch()], [], {}, { displayDocuments: documents })
+    const read = [edge('e', 'tft-touch', 'widget:toggle:out', 'out', 'enabled')]
+    const on = generateCpp([output, panel(), touch()], read, {}, { displayDocuments: documents })
+    const off = generateCpp([output, panel('tft', { enabled: false }), touch()], read, {}, { displayDocuments: documents })
     expect(off).not.toEqual(on)
     expect(off).toContain('static bool _cdPanelOn_tft = false;')
     expect(off).toContain('if (_cdPanel_tft.bl != 255) digitalWrite(_cdPanel_tft.bl, _cdPanelOn_tft ? HIGH : LOW);')
@@ -256,7 +258,8 @@ describe('normal-sketch codegen for the custom Display node', () => {
   it('takes a wired Enabled as the panel gate', () => {
     const button = node('btn', 'ButtonInput', { pin: 12 }, { outputs: [{ id: 'pressed', label: 'Pressed', dataType: 'bool' }] })
     const src = generateCpp([output, panel(), touch(), button],
-      [edge('gate', 'btn', 'pressed', 'tft', 'enabled')], {}, { displayDocuments: documents })
+      [edge('gate', 'btn', 'pressed', 'tft', 'enabled'), edge('e', 'tft-touch', 'widget:toggle:out', 'out', 'enabled')],
+      {}, { displayDocuments: documents })
     expect(src).toContain('_cdPanelOn_tft = _cdOn_tft;')
     expect(src).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
     expect(src).toContain('bool n_tft_touch_widget_toggle_out = _cdPanelOn_tft ? (_cdBoolOutput')

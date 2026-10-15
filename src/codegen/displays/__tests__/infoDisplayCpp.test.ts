@@ -207,7 +207,7 @@ describe('generateCpp with an OLED', () => {
   // a bar gets it — the player's progress comes from its own expression and
   // never passes through a normal sketch's clamp.
   it('clamps a progress bar in the primitive that draws it', () => {
-    const src = generateCpp([outputNode, oled()], [])
+    const src = infoDisplayHelpersCpp()
     expect(src).toContain('if (!isfinite(v) || v < 0) v = 0;')
     expect(src).toContain('if (v > 1) v = 1;')
   })

@@ -211,6 +211,33 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   graph emits identical blocks (settings from `networkSourceIn`), which is what
   lets that dedupe leave exactly one bootstrap.
 
+## Dead-code pruning
+
+All three generators finish through `finishCpp` (`src/codegen/cppCleanup.ts`)
+after `specializeCpp` (`src/codegen/cppSpecialize.ts`). So emitters can stay
+simple and emit a whole helper block, or every output port, and the finished
+sketch still carries only what the graph reaches.
+
+- `specializeCpp` resolves `#if` on facts generation knows: the selected board
+  family and the sketch's own `#define`s. It never infers IDF or library
+  versions. `specializeSwitch` folds a switch over a constant; a one-style
+  transition pool uses it, so the arm becomes the body.
+- `withoutUnreadLocals` drops declarations nothing reads, stores to
+  write-only variables, and the pure helpers that only fed them. A call it
+  cannot prove pure (`pureFunctions`: no `static`, no writes outside plain
+  locals, only pure calls) keeps running as `(void)(...)`. Struct members are
+  never touched, because positional initialisers depend on layout.
+- `pruneCpp` (`src/codegen/cppReachability.ts`) removes file-scope units
+  unreachable from `setup`, `loop` and library callbacks, together with the
+  comment lines directly above them. Library configuration macros
+  (`FASTLED_*`, `DECODE_*`, ...) are roots.
+- Traps: the unit splitter has to see a function. Default arguments and
+  `noexcept` once merged a function into its neighbour, so neither was pruned.
+  A test that asserts an emitter's output for an unwired port now sees
+  nothing. Wire the port to a reader, such as the LED output's `brightness` or
+  `enabled`. `deferPruning` is for pattern extraction into shows, and for a
+  test of raw emitter text.
+
 ## Instrument sketches
 
 - Device telemetry (HW-11's bench instrument) is one line format defined once in
