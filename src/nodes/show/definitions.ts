@@ -83,6 +83,8 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       // Burst frequency: this many beats in a row each burst, then the sparks
       // rest. See particleVolleyFire in playerDynamics.ts.
       volleyBursts: 3, restSec: 4,
+      // Mean band energy a beat needs to burst; 0 lets every beat through.
+      energyGate: 0,
     },
   },
 

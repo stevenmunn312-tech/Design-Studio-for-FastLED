@@ -405,7 +405,7 @@ describe('playerSketchGenerator', () => {
       const edges = [{ source: 'fx', sourceHandle: 'particleFx', target: 'master', targetHandle: 'particleFx' }]
       expect(playerParticlesFromGraph(nodes, edges)).toEqual({
         enabled: true, style: 6, color: { r: 51, g: 102, b: 204 }, intensity: 0.72,
-        randomColor: true, randomStyle: false, volleyBursts: 3, restMs: 4000,
+        randomColor: true, randomStyle: false, volleyBursts: 3, restMs: 4000, energyGate: 0,
       })
       expect(playerParticlesFromGraph(nodes, [])).toBeNull()
     })
@@ -421,9 +421,11 @@ describe('playerSketchGenerator', () => {
         decoderTap: true,
         particleFx: {
           enabled: true, style: 6, color: { r: 51, g: 102, b: 204 }, intensity: 0.72,
-          randomColor: false, randomStyle: true, volleyBursts: 2, restMs: 2500,
+          randomColor: false, randomStyle: true, volleyBursts: 2, restMs: 2500, energyGate: 0,
         },
       })
+      // No Min Energy: the beat alone opens the gate.
+      expect(sketch).toContain('  if (_audioBeat) {')
       expect(sketch).toContain('#define PARTICLE_VOLLEY_BURSTS 2')
       expect(sketch).toContain('#define PARTICLE_REST_MS   2500')
       expect(sketch).toContain('if (burstVolleyLeft == 0 && (burstStart == 0 || posMs - burstStart >= PARTICLE_REST_MS)) {')
@@ -433,6 +435,23 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('burstStyle = random8(17);')
       expect(sketch).toContain('burstColor = CRGB(51, 102, 204);')
       expect(sketch).toContain('CRGB base = burstColor;')
+    })
+
+    it('holds back beats below Min Energy before the volley sees them', () => {
+      const renderers = {
+        buffers: [], helpers: [],
+        functions: ['void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+        count: 1, params: [],
+      }
+      const sketch = generatePlayerSketch({}, renderers, {
+        genericPlayer: true,
+        decoderTap: true,
+        particleFx: {
+          enabled: true, style: 6, color: { r: 51, g: 102, b: 204 }, intensity: 0.72,
+          randomColor: false, randomStyle: false, volleyBursts: 3, restMs: 4000, energyGate: 0.35,
+        },
+      })
+      expect(sketch).toContain('  if (_audioBeat && (_audioBass + _audioMids + _audioTreble) / 3.0f >= 0.350f) {')
     })
   })
 

@@ -34,14 +34,14 @@ describe('nodeLibrary', () => {
       label: 'Player Particles',
       category: 'show',
       outputs: [{ id: 'particleFx', dataType: 'playerparticles' }],
-      defaultProperties: { enabled: false, style: 0, intensity: 0.8, volleyBursts: 3, restSec: 4 },
+      defaultProperties: { enabled: false, style: 0, intensity: 0.8, volleyBursts: 3, restSec: 4, energyGate: 0 },
     })
     expect(particles?.inputs.map((input) => input.id)).toEqual([
       'enabled', 'color', 'intensity', 'randomStyle', 'randomColor',
     ])
     expect(PROPERTY_GROUPS.PlayerParticles.map((group) => group.keys)).toEqual([
       ['enabled', 'intensity', 'randomStyle', 'style', 'randomColor', 'color'],
-      ['volleyBursts', 'restSec'],
+      ['volleyBursts', 'restSec', 'energyGate'],
     ])
 
     const player = NODE_LIBRARY.find((n) => n.type === 'PatternMaster')!

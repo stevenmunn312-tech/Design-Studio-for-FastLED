@@ -22,7 +22,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `particleVolleyFire` applies them, all in `src/state/player/playerDynamics.ts`).
   The preview's `evalPatternShow` and the generic SD player's `_audioBeat` gate
   make the same moves from the same normalised values, and a rewound clock
-  (seek, new track) starts a fresh volley on both. `musicPlayerTiming`
+  (seek, new track) starts a fresh volley on both. `energyGate` (Min Energy)
+  holds back beats whose mean band energy is below it before the volley sees
+  them (`particleEnergyPasses`), so a quiet beat spends no burst; the sketch
+  emits that comparison only when the gate is above 0. `musicPlayerTiming`
   normalizes stored timing; SD control routing also resolves wired timing and
   Beat inputs.
 - **Silence fades only the patterns that listen.** With audio wired, the Music

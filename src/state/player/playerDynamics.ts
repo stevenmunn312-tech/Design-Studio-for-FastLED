@@ -13,7 +13,7 @@ export const PARTICLE_VOLLEY_BURSTS_MAX = 8
 /** Default rest after a volley's last burst before the next volley may start.
  *  Player Particles' Rest overrides it; a rest of 0 bursts on every beat. */
 export const PARTICLE_REST_MS = 4000
-export const PARTICLE_REST_SEC_MAX = 15
+export const PARTICLE_REST_SEC_MAX = 30
 
 /** Bursts per volley from a Player Particles `volleyBursts` value. */
 export function particleVolleyBursts(value: unknown): number {
@@ -27,6 +27,20 @@ export function particleRestMs(value: unknown): number {
   const parsed = Number(value ?? PARTICLE_REST_MS / 1000)
   if (!Number.isFinite(parsed)) return PARTICLE_REST_MS
   return Math.round(Math.max(0, Math.min(PARTICLE_REST_SEC_MAX, parsed)) * 1000)
+}
+
+/** Player Particles' Min Energy from a stored `energyGate`: 0 (no gate) to 1. */
+export function particleEnergyGate(value: unknown): number {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0
+}
+
+/** Whether a beat is loud enough to burst: the track's mean band energy
+ *  (the same mean the silence fade reads) is at or above the gate. A gate of
+ *  0 never blocks, and neither does unknown energy (no audio wired). A beat
+ *  the gate blocks is not offered to the volley, so it spends no burst. */
+export function particleEnergyPasses(energy: number | null, gate: number): boolean {
+  return gate <= 0 || energy === null || energy >= gate
 }
 
 /** How often a player's bursts come: bursts per volley and the rest after. */

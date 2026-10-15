@@ -8,7 +8,7 @@ function reactivePatterns(renderers?: PatternRenderers): boolean {
 }
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import {
-  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, particleRestMs, particleVolleyBursts,
+  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, particleEnergyGate, particleRestMs, particleVolleyBursts,
   SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_ENERGY_RANGE, SILENCE_RELEASE_RATE,
 } from '../state/player/playerDynamics'
 import { withDeviceTelemetry } from './deviceTelemetryCpp'
@@ -285,6 +285,7 @@ export interface PlayerParticlesConfig {
   randomStyle: boolean
   volleyBursts: number
   restMs: number
+  energyGate: number
 }
 
 const DEFAULT_CONTROL_SETTINGS: Omit<PlayerControlsConfig, 'bindings'> = {
@@ -401,6 +402,7 @@ export function playerParticlesFromGraph(
     randomStyle: props.randomStyle === true,
     volleyBursts: particleVolleyBursts(props.volleyBursts),
     restMs: particleRestMs(props.restSec),
+    energyGate: particleEnergyGate(props.energyGate),
   }
 }
 
@@ -2138,10 +2140,14 @@ ${!genericPlayer ? `  // Dispatch all events whose timestamp has passed
 ${particleFx && genericCollection && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst in
   // volleys: PARTICLE_VOLLEY_BURSTS beats in a row each burst, then the
   // sparks rest PARTICLE_REST_MS. A rewound posMs (a seek or a new track)
-  // starts a fresh volley. The same moves as the preview's particleVolleyFire.
+  // starts a fresh volley. The same moves as the preview's particleVolleyFire.${particleFx.energyGate > 0 ? `
+  // Min Energy: a beat quieter than ${particleFx.energyGate.toFixed(2)} mean band energy spends no
+  // burst (particleEnergyPasses).` : ''}
   static uint8_t burstVolleyLeft = 0;
   bool burstDue = false;
-  if (_audioBeat) {
+  if (_audioBeat${particleFx.energyGate > 0
+    ? ` && (_audioBass + _audioMids + _audioTreble) / 3.0f >= ${particleFx.energyGate.toFixed(3)}f`
+    : ''}) {
     if (posMs < burstStart) { burstVolleyLeft = 0; burstStart = 0; }
     if (burstVolleyLeft == 0 && (burstStart == 0 || posMs - burstStart >= PARTICLE_REST_MS)) {
       burstVolleyLeft = PARTICLE_VOLLEY_BURSTS;

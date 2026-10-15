@@ -94,7 +94,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
   PlayerParticles: {
     overview: [
       'Player Particles configures the burst of sparks a Music Player can throw over its patterns on each beat. Turn it on, pick one of seventeen spark styles, set the colour and intensity, or let each burst choose a random style or colour.',
-      'The bursts are independent of pattern changes: they follow the beat whether or not Beat Transitions is on. Under Frequency, Bursts in a Row sets how many beats in a row each throw a burst, and Rest sets the pause before the next run; a Rest of 0 bursts on every beat. Wire buttons, knobs or colours into its inputs to change the effect live.',
+      'The bursts are independent of pattern changes: they follow the beat whether or not Beat Transitions is on. Under Frequency, Bursts in a Row sets how many beats in a row each throw a burst, and Rest sets the pause before the next run; a Rest of 0 bursts on every beat. Min Energy skips beats while the track is quieter than its level, so sparks keep to the loud passages. Wire buttons, knobs or colours into its inputs to change the effect live.',
     ],
     inputs: {
       color: 'Spark colour while Random Color is off.',

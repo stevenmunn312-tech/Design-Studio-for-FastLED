@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_RELEASE_RATE,
-  blankParticleVolley, particleRestMs, particleVolleyBursts, particleVolleyFire, silenceFadeStep, silenceFadeTarget,
+  blankParticleVolley, particleEnergyGate, particleEnergyPasses, particleRestMs, particleVolleyBursts, particleVolleyFire,
+  silenceFadeStep, silenceFadeTarget,
 } from '../playerDynamics'
 
 const DEFAULT_SPACING = { volleyBursts: PARTICLE_VOLLEY_BURSTS, restMs: PARTICLE_REST_MS }
@@ -59,7 +60,18 @@ describe('particle volleys', () => {
     expect(particleRestMs(undefined)).toBe(PARTICLE_REST_MS)
     expect(particleRestMs(-2)).toBe(0)
     expect(particleRestMs(2.5)).toBe(2500)
-    expect(particleRestMs(60)).toBe(15000)
+    expect(particleRestMs(60)).toBe(30000)
+  })
+
+  it('lets a beat burst only at or above the energy gate', () => {
+    expect(particleEnergyPasses(0.1, 0)).toBe(true)
+    expect(particleEnergyPasses(0.1, 0.3)).toBe(false)
+    expect(particleEnergyPasses(0.3, 0.3)).toBe(true)
+    // Unknown energy (no audio wired) never blocks.
+    expect(particleEnergyPasses(null, 0.9)).toBe(true)
+    expect(particleEnergyGate(undefined)).toBe(0)
+    expect(particleEnergyGate(2)).toBe(1)
+    expect(particleEnergyGate('x')).toBe(0)
   })
 })
 

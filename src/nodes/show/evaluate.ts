@@ -49,7 +49,8 @@ import type {
 import { instanceState } from '../../state/evaluator/memory'
 import { isAudioReactiveSubgraph } from '../../state/patterns/audioReactiveSubgraph'
 import {
-  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, blankParticleVolley, particleRestMs, particleVolleyBursts, particleVolleyFire,
+  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, blankParticleVolley, particleEnergyGate, particleEnergyPasses,
+  particleRestMs, particleVolleyBursts, particleVolleyFire,
   silenceFadeStep, silenceFadeTarget, type ParticleSpacing, type ParticleVolley,
 } from '../../state/player/playerDynamics'
 
@@ -679,6 +680,8 @@ interface ShowOpts {
   particles: boolean; particleStyle: number; particleColor: RGB; particleIntensity: number
   randomStyle: boolean; randomColor: boolean
   particleSpacing: ParticleSpacing
+  /** Mean band energy a beat needs before it may burst (0 = no gate). */
+  particleEnergyGate: number
   seed: number
   /**
    * How the next pattern is chosen. Absent means random, which is what the
@@ -960,7 +963,8 @@ function evalPatternShow(
   // rolled once here (when randomStyle/randomColor are on) so they stay
   // fixed for the whole burst instead of changing every frame. The firmware
   // gates `_audioBeat` by the same volley.
-  if (beatEdge && o.particles && particleVolleyFire(st.volley, t * 1000, o.particleSpacing)) {
+  if (beatEdge && o.particles && particleEnergyPasses(o.audioEnergy, o.particleEnergyGate)
+    && particleVolleyFire(st.volley, t * 1000, o.particleSpacing)) {
     st.burst = {
       t: t * 1000,
       style: o.randomStyle ? Math.floor(rnd() * 17) : o.particleStyle,
@@ -1196,6 +1200,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         randomStyle: Boolean(input(id, 'randomStyle', Boolean(props.randomStyle))),
         volleyBursts: particleVolleyBursts(props.volleyBursts),
         restMs: particleRestMs(props.restSec),
+        energyGate: particleEnergyGate(props.energyGate),
       } satisfies PlayerParticles,
     }
   },
@@ -1237,6 +1242,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         volleyBursts: particleFx?.volleyBursts ?? PARTICLE_VOLLEY_BURSTS,
         restMs: particleFx?.restMs ?? PARTICLE_REST_MS,
       },
+      particleEnergyGate: particleFx?.energyGate ?? 0,
       seed: normalizedSeed(props.seed),
       order: asSlideshowOrder(props.order),
       // Mirrors the firmware: a decoder that is not live reads as silence.
@@ -1403,6 +1409,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       randomStyle: false,
       randomColor: false,
       particleSpacing: { volleyBursts: PARTICLE_VOLLEY_BURSTS, restMs: PARTICLE_REST_MS },
+      particleEnergyGate: 0,
       seed: settings.seed,
       order: settings.order,
       // A slideshow is the show with the music taken out: nothing fades.

@@ -137,6 +137,8 @@ export interface PlayerParticles {
   volleyBursts: number
   /** Rest after a volley, in milliseconds; 0 bursts on every beat. */
   restMs: number
+  /** Mean band energy a beat needs to burst; 0 lets every beat through. */
+  energyGate: number
 }
 
 export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | DisplaySignal | StereoVuFrame | null

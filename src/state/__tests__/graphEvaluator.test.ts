@@ -2948,7 +2948,7 @@ describe('evaluateGraph', () => {
   it('PlayerParticles builds a bounded typed FX bundle', () => {
     const particles = node('player_fx', 'PlayerParticles', 'show', {
       enabled: true, style: 99, color: '#123456', intensity: 2,
-      randomColor: true, randomStyle: true, volleyBursts: 99, restSec: -1,
+      randomColor: true, randomStyle: true, volleyBursts: 99, restSec: -1, energyGate: 0.4,
     })
     expect(evaluateGraphFull([particles], [], 0).outputs.get(particles.id)?.particleFx).toEqual({
       enabled: true,
@@ -2959,6 +2959,7 @@ describe('evaluateGraph', () => {
       randomStyle: true,
       volleyBursts: 8,
       restMs: 0,
+      energyGate: 0.4,
     })
   })
 

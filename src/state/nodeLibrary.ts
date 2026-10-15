@@ -1416,6 +1416,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     volleyBursts: { control: 'slider', min: 1, max: PARTICLE_VOLLEY_BURSTS_MAX, step: 1 },
     restSec: { control: 'slider', min: 0, max: PARTICLE_REST_SEC_MAX, step: 0.5 },
+    energyGate: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   FluidSim: {
     inject: N01, injectX: N01, injectY: N01, viscosity: N01, diffusion: N01, buoyancy: N01,
@@ -1988,6 +1989,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     randomStyle: 'Pick a new spark motion style on every beat instead of the fixed style.',
     volleyBursts: 'How many beats in a row each throw a burst before the sparks rest.',
     restSec: 'Pause after a run of bursts before the next run may start. 0 bursts on every beat.',
+    energyGate: 'How loud the track must be (the mean of bass, mids and treble, 0–1) for a beat to burst. Quieter beats are skipped and spend no burst; 0 lets every beat through.',
   },
   FFTAnalyzer: {
     bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
@@ -3664,6 +3666,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     randomStyle: 'use random style',
     volleyBursts: 'bursts in a row',
     restSec: 'rest (s)',
+    energyGate: 'min energy',
   },
   ClockDisplay: {
     displayMode: 'display',
@@ -4039,7 +4042,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   PlayerParticles: [
     { key: 'appearance', label: 'Appearance', keys: ['enabled', 'intensity', 'randomStyle', 'style', 'randomColor', 'color'] },
-    { key: 'frequency', label: 'Frequency', keys: ['volleyBursts', 'restSec'] },
+    { key: 'frequency', label: 'Frequency', keys: ['volleyBursts', 'restSec', 'energyGate'] },
   ],
   Array: [
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
