@@ -34,7 +34,7 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 const phase0Nodes = [
   node('circle', 'ShapeField', { shape: 'circle', fieldMode: 'distance', size: 0.3, range: 0.35 }),
   node('square', 'ShapeField', { shape: 'polygon', fieldMode: 'distance', size: 0.3, sides: 4, rotation: 45, range: 0.35 }),
-  node('morph', 'FieldLerp', { t: 0.5 }),
+  node('morph', 'FieldMath', { fieldOp: 'mix', t: 0.5 }),
   node('levels', 'FieldLevels', { low: 0.5, high: 0.5, steps: 1 }),
   node('color', 'FieldToFrame', { palette: 'ocean', brightness: 1 }),
   node('outline', 'Shape', { shape: 'polygon', size: 6, sides: 5.5, filled: false, thickness: 1, wrap: false }),
@@ -51,7 +51,7 @@ const phase0Edges = [
 ]
 
 const phase0 = generateCpp(phase0Nodes, phase0Edges)
-for (const marker of ['/* ShapeField:', '/* FieldLerp */', '/* FieldLevels */', '_sdfMorphPolygon']) {
+for (const marker of ['/* ShapeField:', '/* FieldMath: mix */', '/* FieldLevels */', '_sdfMorphPolygon']) {
   if (!phase0.includes(marker)) throw new Error(`Phase 0 fixture is missing ${marker}`)
 }
 if ((phase0.match(/static inline float _sdfPolygon\(/g)?.length ?? 0) !== 1) {
