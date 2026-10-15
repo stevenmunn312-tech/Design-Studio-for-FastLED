@@ -866,7 +866,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       ln(`  }`)
     } else if (xyTable) {
       ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) leds[XY(_x, _y)] = ${src}[_y * WIDTH + _x];`)
-    } else if (src !== `buf_${aliasedTerminalId}`) {
+    } else if (src !== `buf_${aliasedTerminalId()}`) {
       ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
     }
     for (const line of ledOutputRuntimeCpp(outputRuntimeEmit(node, 'leds', String(physLeds)))) ln(line)

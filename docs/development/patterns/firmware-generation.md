@@ -170,6 +170,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   select and toggle variant: the first loop line touching a node's own buffer
   must be a whole write, or the declaration must be marked. A whole write the
   line test cannot see goes in its reviewed list with the reason.
+- A persistent buffer is never `leds`. The node feeding a plain single output
+  normally renders straight into `leds` (`CRGB* const buf_<id> = leds;`), but
+  the output dims `leds` in place and blackout clears it, so a persistent
+  terminal keeps its own buffer and is copied over. `estimateFirmwareRam`
+  cannot run an emitter, so it refuses the alias by node type through
+  `PERSISTENT_FRAME_NODE_TYPES`; the same test derives that list.
 - The Arduino preprocessor hoists a prototype of every function that returns
   `CRGB` to a point above `#include <FastLED.h>` unless an explicit prototype
   already exists after that include. Show `fastLedDecls` scans pattern helpers

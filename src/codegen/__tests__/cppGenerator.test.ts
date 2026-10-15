@@ -5056,7 +5056,9 @@ describe('Trails (feedback/persistence)', () => {
       edge('e1', 'sc', 'tr', 'frame', 'frame'),
       edge('e2', 'tr', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('CRGB* const buf_tr = leds;')
+    // Persistent, so never `leds`: the output dims that in place every frame.
+    expect(cpp).toContain('CRGB buf_tr[NUM_LEDS];   // keeps its pixels between frames')
+    expect(cpp).toContain('::memmove(leds, buf_tr, sizeof(CRGB) * NUM_LEDS);')
     expect(cpp).toContain('float _decay = constrain(0.4,0.0f,1.0f); _decay = _decay*_decay*_decay;')
     expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, (uint8_t)(_decay*255.0f));')
     expect(cpp).toContain('if(buf_sc[_i].r>buf_tr[_i].r)buf_tr[_i].r=buf_sc[_i].r;')
@@ -5177,7 +5179,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   it('Confetti emits persistent fade-and-sprinkle palette logic', () => {
     const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' })
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB* const buf_cf = leds;')
+    expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
     expect(cpp).toContain('int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));')
     expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(paldef_party, random8() + _drift);')
@@ -5186,7 +5188,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   it('Juggle emits fading multi-dot palette motion and supports the Sinelon count=1 case', () => {
     const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, fade: 0.22, palette: 'rainbow' })
     const cpp = generateCpp([jg, outputNode], [edge('e1', 'jg', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB* const buf_jg = leds;')
+    expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('const int _dots=1;')
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
     expect(cpp).toContain('float _phase=0.0f;')
@@ -5862,10 +5864,24 @@ describe('show-pipeline nodes in a normal sketch', () => {
     })
 
     it('does not shadow leds inside a Code node that aliases the output', () => {
+      // Wired, the Code node reseeds its buffer every frame, so it may alias.
       const code = node('cd', 'Code', 'pattern', { code: 'leds[0] = CRGB::Red;' })
-      const cpp = generateCpp([code, out], [edge('e1', 'cd', 'out', 'frame', 'frame')])
+      const cpp = generateCpp([node('sc', 'SolidColor', 'pattern'), code, out], [
+        edge('e0', 'sc', 'cd', 'frame', 'frame'),
+        edge('e1', 'cd', 'out', 'frame', 'frame'),
+      ])
       expect(cpp).toContain('CRGB* const buf_cd = leds;')
       expect(cpp).not.toContain('CRGB* leds = leds;')
+    })
+
+    it('keeps a real buffer when the terminal node carries pixels between frames', () => {
+      // An unwired Code node fades its own last frame. Aliased, the output's
+      // in-place dimmer would compound into that state every frame.
+      const code = node('cd', 'Code', 'pattern', { code: 'fadeToBlackBy(leds, NUM_LEDS, 20);' })
+      const cpp = generateCpp([code, out], [edge('e1', 'cd', 'out', 'frame', 'frame')])
+      expect(cpp).toContain('CRGB buf_cd[NUM_LEDS];   // keeps its pixels between frames')
+      expect(cpp).not.toContain('CRGB* const buf_cd = leds;')
+      expect(cpp).toContain('::memmove(leds, buf_cd, sizeof(CRGB) * NUM_LEDS);')
     })
   })
 

@@ -10,6 +10,19 @@ import type { BufferUse } from './emitContext'
 
 const PERSISTS_MARK = '// keeps its pixels between frames'
 
+/**
+ * Node types whose frame buffer persists in at least one variant: the ones
+ * codegen never lets render straight into `leds`. Whether a given node does is
+ * decided by its emitter from properties and wiring; a RAM estimate that only
+ * needs a safe bound reads this instead, and counts one frame too many when the
+ * variant turns out not to persist. persistentRenderBuffers.test.ts derives the
+ * list from every node variant, so it cannot drift.
+ */
+export const PERSISTENT_FRAME_NODE_TYPES: ReadonlySet<string> = new Set([
+  'Code', 'ColorTrails', 'Confetti', 'DdpInput', 'FormulaPoints', 'Juggle',
+  'SDVideo', 'SpectrumVisualizer', 'Trails', 'TrebleSparks',
+])
+
 export type RenderBufferType = 'CRGB' | 'float'
 
 export function bufferDeclCpp(type: RenderBufferType, name: string, persistent: ReadonlySet<string>): string {

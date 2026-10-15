@@ -1475,6 +1475,13 @@ describe('validateGraph', () => {
       expect(estimateFirmwareRam(nodes, [...chain, wire('b', 'slice', 'cell', 'mix', 'b')])!.fieldBufferBytes).toBe(192)
     })
 
+    it('counts the terminal buffer when the terminal node can persist', () => {
+      // Codegen never aliases a buffer that carries pixels between frames.
+      const nodes = [node('cf', 'Confetti'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'cf', 'out', 'frame')]
+      expect(estimateFirmwareRam(nodes, edges)!.frameBufferBytes).toBe(48)
+    })
+
     it('counts the terminal buffer when the output remaps pixels on the way out', () => {
       // A serpentine XY table means the render buffer and `leds` differ, so the
       // terminal node cannot render straight into the output.

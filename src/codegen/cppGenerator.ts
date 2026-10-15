@@ -551,9 +551,10 @@ export function generateCpp(
    * (a ring map, supersample or XY table all rewrite pixel positions on the
    * way out, so the buffers genuinely differ), and the source's frame output
    * feeds nothing but this output — a second consumer would otherwise read a
-   * buffer that FastLED also owns.
+   * buffer that FastLED also owns. A persistent source is refused later, once
+   * it has emitted: see `aliasedTerminalId`.
    */
-  const aliasedTerminalId: string | null = (() => {
+  const aliasCandidateId: string | null = (() => {
     if (opts.aliasTerminalBuffer === false) return null
     if (multipleOutputs || isHub75 || shape || split || xyTable) return null
     if (!outputNode) return null
@@ -866,6 +867,14 @@ export function generateCpp(
   // others stay the one sequentially reused global set. The declaration says
   // so too, which is how a show tells them from the scratch it pools.
   const persistentBufs = new Set<string>()
+  // The candidate renders into `leds` only if its buffer is scratch. The output
+  // dims `leds` in place and blackout clears it, so a buffer that carries
+  // pixels between frames (Trails, Confetti, …) would compound the dimmer every
+  // frame and lose its state. Persistence is known only once the candidate has
+  // emitted, which is always before the output that reads it.
+  const aliasedTerminalId = (): string | null => (
+    aliasCandidateId && !persistentBufs.has(`buf_${aliasCandidateId}`) ? aliasCandidateId : null
+  )
 
   // Which panels have a screen design — the same walk validation, the RAM
   // estimate and the asset bake use, so they all agree on what this sketch
@@ -1213,11 +1222,11 @@ export function generateCpp(
   // second full-frame buffer that is then copied over — an alias, so every
   // reference to it in the loop is unchanged. Never a PSRAM buffer: `leds` is
   // always internal, and this is `leds`.
-  const aliasName = `buf_${aliasedTerminalId}`
+  const aliasId = aliasedTerminalId()
   const psramAllocs: string[] = []
   for (const d of bufferDecls) {
-    if (aliasedTerminalId && parseBufferDecl(d)?.name === aliasName) {
-      lines.push(`CRGB* const buf_${aliasedTerminalId} = leds;   // renders straight into the output buffer`)
+    if (aliasId && parseBufferDecl(d)?.name === `buf_${aliasId}`) {
+      lines.push(`CRGB* const buf_${aliasId} = leds;   // renders straight into the output buffer`)
       continue
     }
     const ps = usePsram ? psramBufferDecl(d) : null

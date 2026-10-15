@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
-import { parseBufferDecl } from '../renderBuffers'
+import { PERSISTENT_FRAME_NODE_TYPES, parseBufferDecl } from '../renderBuffers'
 import { NODE_LIBRARY, libraryDefaults, propertyOptions } from '../../state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 
@@ -96,9 +96,11 @@ const REVIEWED_WHOLE_WRITES: Record<string, string> = {
   'Transition:door': 'a pixel neither panel covers falls back to B through `_dn`',
 }
 
-interface Case { label: string; cpp: string; name: string; key: string }
+interface Case { label: string; cpp: string; name: string; key: string; type: string }
 
+let sweep: Case[] | null = null
 function cases(): Case[] {
+  if (sweep) return sweep
   const out: Case[] = []
   for (const def of NODE_LIBRARY) {
     const ports = def.outputs.filter((port) => port.dataType === 'frame' || port.dataType === 'field')
@@ -120,11 +122,12 @@ function cases(): Case[] {
           const cpp = generateCpp(nodes, edges, {}, { aliasTerminalBuffer: false, deferPruning: true })
           const label = `${def.type}[${port.id}] ${JSON.stringify(props)}${wired ? '' : ' unwired'}`
           const key = `${def.type}:${Object.values(props).map(String).join(',')}`
-          out.push({ label, cpp, name: bufferName(port), key })
+          out.push({ label, cpp, name: bufferName(port), key, type: def.type })
         }
       }
     }
   }
+  sweep = out
   return out
 }
 
@@ -146,6 +149,18 @@ describe('persistent render buffers', () => {
     expect(all.length).toBeGreaterThan(300)
     expect(offenders).toEqual([])
     expect(marked).toBeGreaterThan(5)
+  })
+
+  // The RAM estimate cannot run an emitter, so it refuses the `leds` alias by
+  // node type. Every type that persists in some variant must be listed, and
+  // nothing else, or the estimate under- or over-counts a frame.
+  it('lists exactly the node types whose frame can persist', () => {
+    const persisting = new Set<string>()
+    for (const { cpp, name, type } of cases()) {
+      if (name !== 'buf_n') continue
+      if (cpp.split('\n').map(parseBufferDecl).some((entry) => entry?.name === name && entry.persists)) persisting.add(type)
+    }
+    expect([...persisting].sort()).toEqual([...PERSISTENT_FRAME_NODE_TYPES].sort())
   })
 
   it('tells a whole write from a read', () => {

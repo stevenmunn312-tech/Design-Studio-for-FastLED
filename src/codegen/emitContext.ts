@@ -123,7 +123,8 @@ export interface SketchEmitContext {
   outputConfigs: OutputEmitConfig[]
   nativeFastLedAudio: boolean
   hasExplicitAudioInput: (nodeId: string) => boolean
-  aliasedTerminalId: string | null
+  /** The node rendering straight into `leds`, once that node has emitted. */
+  aliasedTerminalId: () => string | null
   floatExpr: (nodeId: string, portId: string, nodeProps: Record<string, unknown>, propKey: string, def: number) => string
   pressButton: (nodeId: string, port: string, repeat: boolean) => PlayerControlButtonEmit
   boolExpr: (nodeId: string, portId: string) => string

@@ -674,13 +674,14 @@ with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
   - [ ] Bench: preview versus LEDs on Trails, Frame Feedback, Reaction
     Diffusion and Fluid across a transition. Text-level coverage is in
     `persistentRenderBuffers.test.ts`; no device run yet.
-- [ ] **D-10.3 · A persistent terminal aliased to `leds`.** The node feeding a
+- [x] **D-10.3 · A persistent terminal aliased to `leds`.** The node feeding a
   plain single output renders straight into `leds`, and the output's dimmer
   then scales `leds` in place with `nscale8_video`. When that node is
   persistent (Trails, Confetti, …), the dimming compounds every frame and
-  blackout wipes its state, so the LEDs fade faster than the preview. Refuse
-  the alias for a persistent node; `estimateFirmwareRam` restates the alias
-  rule and would need the same exception.
+  blackout wipes its state, so the LEDs fade faster than the preview. The
+  alias is now refused once the candidate has declared a persistent buffer,
+  and `estimateFirmwareRam` refuses it by `PERSISTENT_FRAME_NODE_TYPES`, which
+  `persistentRenderBuffers.test.ts` derives from every node variant.
 - [ ] **D-10.2 · Reuse buffers within one graph.** The largest bundled pattern
   holds 11 colour buffers, and those sketches carry 59–93 full-frame `memmove`s,
   many of them a node seeding its buffer from its source before modifying it.

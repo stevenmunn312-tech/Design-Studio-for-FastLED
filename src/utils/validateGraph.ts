@@ -45,6 +45,7 @@ import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/displays/segmentDisplayCpp
 import { TFT_PANEL_RAM_BYTES } from '../codegen/displays/tftDisplayCpp'
 import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/displays/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/displays/customDisplayRam'
+import { PERSISTENT_FRAME_NODE_TYPES } from '../codegen/renderBuffers'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { displayControlEdges, displayControlInertReason } from '../state/player/wireFirstControls'
 import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/peripherals/powerMonitor'
@@ -735,7 +736,8 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
   // because codegen's own check runs against expression-resolved properties it
   // derives internally; when the two disagree this over-counts by one frame,
   // which is the safe direction for a budget. The compile-check meter remains
-  // the authority on actual usage.
+  // the authority on actual usage. A node type that can persist is never
+  // aliased: whether this one does depends on its variant, so assume it does.
   const aliasedTerminalId = (() => {
     if (outputs.length !== 1) return null
     const output = outputs[0]
@@ -745,6 +747,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     if (buildXYTable(w, h, p)) return null
     const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
     if (!feed || feed.sourceHandle !== 'frame') return null
+    if (PERSISTENT_FRAME_NODE_TYPES.has(String(byId.get(feed.source)?.data.nodeType))) return null
     const consumers = edges.filter((e) => e.source === feed.source && e.sourceHandle === 'frame')
     return consumers.length === 1 ? feed.source : null
   })()
