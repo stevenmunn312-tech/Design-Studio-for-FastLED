@@ -42,6 +42,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- A new **Player Particles** node starts with Enabled on, so wiring it into
+  a Music Player shows bursts at once. Saved nodes keep their own setting.
+
 - The **Node Reference** in Help is rewritten for every node. Each page now has
   its own overview, set-up steps where hardware or assets are needed, copy for
   every port, and a hand-made Try it live example that features that node and

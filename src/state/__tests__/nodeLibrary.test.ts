@@ -34,7 +34,7 @@ describe('nodeLibrary', () => {
       label: 'Player Particles',
       category: 'show',
       outputs: [{ id: 'particleFx', dataType: 'playerparticles' }],
-      defaultProperties: { enabled: false, style: 0, intensity: 0.8, volleyBursts: 3, restSec: 4, energyGate: 0 },
+      defaultProperties: { enabled: true, style: 0, intensity: 0.8, volleyBursts: 3, restSec: 4, energyGate: 0 },
     })
     expect(particles?.inputs.map((input) => input.id)).toEqual([
       'enabled', 'color', 'intensity', 'randomStyle', 'randomColor',

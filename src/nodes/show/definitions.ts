@@ -78,7 +78,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     },
     outputs: [{ id: 'particleFx', label: 'Particle FX', dataType: 'playerparticles' }],
     defaultProperties: {
-      enabled: false, style: 0, color: '#ff8000', intensity: 0.8,
+      enabled: true, style: 0, color: '#ff8000', intensity: 0.8,
       randomColor: false, randomStyle: false,
       // Burst frequency: this many beats in a row each burst, then the sparks
       // rest. See particleVolleyFire in playerDynamics.ts.
