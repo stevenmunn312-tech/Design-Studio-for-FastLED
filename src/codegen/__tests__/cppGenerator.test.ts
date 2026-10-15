@@ -533,8 +533,10 @@ describe('generateCpp', () => {
       edge('e2', 'sc', 'bm', 'frame', 'frame'),
       edge('e3', 'bm', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('bool n_bank_button_next = false; // no GPIO assigned')
+    // Never pressed, so the button folds away rather than reading a pin.
+    expect(cpp).not.toContain('n_bank_button_next')
     expect(cpp).not.toContain('pinMode(0,')
+    expect(cpp).not.toContain('digitalRead(0)')
   })
 
   it('emits setup() pinModes for all three EncoderInput pins, honouring pullup', () => {
@@ -606,7 +608,8 @@ describe('generateCpp', () => {
     }
     expect(cpp).not.toContain('pinMode(17, OUTPUT);')
     expect(cpp).toContain('digitalWrite(5, n_btn_pressed ? HIGH : LOW);')
-    expect(cpp).toContain('digitalWrite(16, false ? HIGH : LOW);')
+    // The unwired channel stays at its idle level in the loop too.
+    expect(cpp.match(/digitalWrite\(16, LOW\);/g)).toHaveLength(2)
   })
 
   it('holds an active-high power switch off before enabling its GPIO, then drives it from the wire', () => {
@@ -1633,7 +1636,9 @@ describe('generateCpp', () => {
   })
 
   it('emits String Particles on each track and in each mode', () => {
-    const sp = (props: Record<string, unknown>) => generateCpp([node('n', 'StringParticles', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const sp = (props: Record<string, unknown>, trigger = false) => generateCpp(
+      [node('n', 'StringParticles', 'pattern', props), ...(trigger ? [node('btn', 'ButtonInput', 'input', { pin: 7 })] : []), outputNode],
+      [edge('e', 'n', 'out', 'frame', 'frame'), ...(trigger ? [edge('t', 'btn', 'n', 'pressed', 'trigger')] : [])])
     const row = sp({ track: 'row' })
     expect(row).toContain('_len=WIDTH;')
     expect(row).toContain('[(HEIGHT/2)*WIDTH+_k]=CRGB(_r,_g,_bl);')
@@ -1649,8 +1654,10 @@ describe('generateCpp', () => {
     // Drift respawns a dead slot; meteors fire on a rising trigger, over a bed.
     expect(row).toContain('if(_sp_nl[_i]<=0&&_rnd()<_sp)')
     expect(row).not.toContain('_tr&&!_sp_nprev')
-    const meteors = sp({ track: 'row', mode: 'meteors' })
+    const meteors = sp({ track: 'row', mode: 'meteors' }, true)
     expect(meteors).toContain('if(_tr&&!_sp_nprev)')
+    // With nothing wired to fire them, no meteor is ever launched.
+    expect(sp({ track: 'row', mode: 'meteors' })).not.toContain('_sp_nprev')
     expect(meteors).toContain('inoise8((uint16_t)(_k*90)')
     expect(sp({ mode: 'meteors', bed: 0 })).not.toContain('inoise8((uint16_t)(_k*90)')
     expect(row).toContain('scale8(_sp_ntr[_k].r,_fq)')
@@ -1658,7 +1665,9 @@ describe('generateCpp', () => {
   })
 
   it('emits the classic generative nodes with the shared hash', () => {
-    const gen = (type: string, props: Record<string, unknown> = {}) => generateCpp([node('n', type, 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const gen = (type: string, props: Record<string, unknown> = {}, trigger = false) => generateCpp(
+      [node('n', type, 'pattern', props), ...(trigger ? [node('btn', 'ButtonInput', 'input', { pin: 7 })] : []), outputNode],
+      [edge('e', 'n', 'out', 'frame', 'frame'), ...(trigger ? [edge('t', 'btn', 'n', 'pressed', 'trigger')] : [])])
     const hash = 'x*=0x7feb352dU; x^=x>>15; x*=0x846ca68bU;'
     const single = gen('Candle')
     expect(single).toContain(hash)
@@ -1668,7 +1677,8 @@ describe('generateCpp', () => {
     const bolt = gen('Lightning', { color: '#102030' })
     expect(bolt).toContain('60.0f/fmaxf(0.1f,')
     expect(bolt).toContain('CRGB(16, 32, 48)')
-    expect(bolt).toContain('(_tr&&!_lt_npv)')
+    expect(bolt).not.toContain('_lt_npv')
+    expect(gen('Lightning', {}, true)).toContain('(_tr&&!_lt_npv)')
     const beat = gen('Heartbeat')
     expect(beat).toContain('constrain(72,20.0f,240.0f)')
     expect(beat).toContain('expf(-_lb*_lb)+0.7f*expf(-_db*_db)')
@@ -1769,7 +1779,7 @@ describe('generateCpp', () => {
     expect(plain.match(/static void _fluidStep\(/g)?.length).toBe(1)
     expect(plain).toContain('static float _fl_nu[NUM_LEDS]')
     expect(plain).toContain('int _it=constrain((int)floorf(8),4,20);')
-    expect(plain).toContain('if(_tr&&!_fl_npr)')
+    expect(plain).not.toContain('_fl_npr')
     expect(plain).not.toContain('velocityX')
     const wiredVelocity = generateCpp(
       [node('n', 'FluidSim', 'field', {}), node('f', 'FieldToFrame', 'pattern', {}), node('m', 'FieldMath', 'field', {}), outputNode],
@@ -1778,6 +1788,11 @@ describe('generateCpp', () => {
     expect(wiredVelocity).toContain('field_n_velocityX[_i]=constrain(0.5f+_fl_nu[_i]*0.25f')
     expect(wiredVelocity).not.toContain('velocityY[_i]')
     expect(plain).toContain('_fluidStep(_fl_nu,_fl_nv,_fl_nu0,_fl_nv0,_fl_nd,_fl_nd0,WIDTH,HEIGHT,_it,0,0,0.02);')
+    const triggered = generateCpp(
+      [node('n', 'FluidSim', 'field', {}), node('f', 'FieldToFrame', 'pattern', {}), node('btn', 'ButtonInput', 'input', { pin: 7 }), outputNode],
+      [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame'), edge('t', 'btn', 'n', 'pressed', 'trigger')],
+    )
+    expect(triggered).toContain('if(_tr&&!_fl_npr)')
     expect(plain).not.toContain('*2.0f*0.3f')
     expect(fl({}, true)).toContain('_fl_nu[_i]+=(field_fx[_i]-0.5f)*2.0f*0.3f;')
     expect(generateCpp([outputNode], [])).not.toContain('_fluidStep')
@@ -2162,7 +2177,8 @@ describe('generateCpp', () => {
     expect(cpp).toContain('0x7feb352dU')
     expect(cpp).toContain('_xf*_xf*_xf*(_xf*(_xf*6.0f-15.0f)+10.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
-    expect(cpp).toContain('_ctBeatPulse_ct=(n_ctbeat_result)?1.0f')
+    // 1 > 0.5 always holds, so the beat is always on.
+    expect(cpp).toContain('_ctBeatPulse_ct=1.0f;')
     expect(cpp.match(/float _shift=constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)/g)).toHaveLength(2)
     expect(cpp).toContain('fmodf(_x-_shift,(float)WIDTH)')
     expect(cpp).toContain('fmodf(_y-_shift,(float)HEIGHT)')
@@ -3030,6 +3046,8 @@ describe('Pattern node expansion — Phase 0 codegen', () => {
 })
 
 describe('Pattern node expansion — Phase 2 Frame Warp codegen', () => {
+  // These read the ids the emitter bakes, so they read its text before
+  // pruning: in a finished sketch a fixed id folds into the helper it selects.
   function generateWarp(edgeMode: string, sampling: string): string {
     const src = node('warp-source', 'GradientFrame', 'pattern', {})
     const dx = node('warp-dx', 'FieldFormula', 'field', { formula: '1' })
@@ -3040,7 +3058,7 @@ describe('Pattern node expansion — Phase 2 Frame Warp codegen', () => {
       edge('warp-source-in', src.id, warp.id, 'frame', 'frame'),
       edge('warp-dx-in', dx.id, warp.id, 'field', 'dx'),
       edge('warp-output', warp.id, outputNode.id, 'frame', 'frame'),
-    ])
+    ], {}, { deferPruning: true })
   }
 
   it.each([
@@ -3061,13 +3079,15 @@ describe('Pattern node expansion — Phase 2 Frame Warp codegen', () => {
     const cpp = generateCpp([src, warp, outputNode], [
       edge('warp-source-in', src.id, warp.id, 'frame', 'frame'),
       edge('warp-output', warp.id, outputNode.id, 'frame', 'frame'),
-    ])
+    ], {}, { deferPruning: true })
     expect(cpp).toContain('_sampleFrame(buf_warp_source,_sx,_sy,0,false)')
     expect(cpp).toContain('(2.0f*0.5f-1.0f)*_fw_st')
   })
 })
 
 describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
+  // These read the ids the emitter bakes, so they read its text before
+  // pruning: in a finished sketch a fixed id folds into the helper it selects.
   it.each([
     ['p1', 0, '_squareCell'], ['p2', 1, '_squareCell'], ['pm', 2, '_squareCell'],
     ['pmm', 3, '_squareCell'], ['p4', 4, '_squareCell'], ['p4m', 5, '_squareCell'],
@@ -3078,16 +3098,17 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
       group, cells: 2.5, rotation: 10, spin: 15, offsetX: 0.2, offsetY: -0.3,
     })
     const map = node('sym-field-map', 'FieldToFrame', 'field', {})
-    const cpp = generateCpp([src, symmetry, map, outputNode], [
+    const build = (deferPruning: boolean) => generateCpp([src, symmetry, map, outputNode], [
       edge('sym-field-in', src.id, symmetry.id, 'field', 'field'),
       edge('sym-field-map', symmetry.id, map.id, 'field', 'field'),
       edge('sym-field-out', map.id, outputNode.id, 'frame', 'frame'),
-    ])
+    ], {}, { deferPruning })
+    const cpp = build(false)
     expect(cpp).toContain(`/* FieldSymmetry: ${group} */`)
     expect(cpp).toContain('W=WIDTH, H=HEIGHT')
     expect(cpp).toContain('float _v=x/(W-1)')
     expect(cpp).toContain(`_LatticeCell _cell=${finder}(`)
-    expect(cpp).toContain(`_foldWallpaper(_cell.x,_cell.y,${groupId},_foldX,_foldY)`)
+    expect(build(true)).toContain(`_foldWallpaper(_cell.x,_cell.y,${groupId},_foldX,_foldY)`)
     expect(cpp).toContain('field_field_symmetry[_y*WIDTH+_x]=field_sym_field_source[_sy*WIDTH+_sx]')
     expect(cpp.match(/static inline void _foldWallpaper/g)).toHaveLength(1)
     // Only the selected lattice's cell finder ships.
@@ -3102,7 +3123,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     const cpp = generateCpp([src, symmetry, outputNode], [
       edge('sym-frame-in', src.id, symmetry.id, 'frame', 'frame'),
       edge('sym-frame-out', symmetry.id, outputNode.id, 'frame', 'frame'),
-    ])
+    ], {}, { deferPruning: true })
     expect(cpp).toContain('/* Symmetry: p6m */')
     expect(cpp).toContain('_LatticeCell _cell=_hexCell(')
     expect(cpp).toContain('_foldWallpaper(_cell.x,_cell.y,8,_foldX,_foldY)')
@@ -3117,7 +3138,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     const cpp = generateCpp([src, symmetry, outputNode], [
       edge('sym-frame-in', src.id, symmetry.id, 'frame', 'frame'),
       edge('sym-frame-out', symmetry.id, outputNode.id, 'frame', 'frame'),
-    ])
+    ], {}, { deferPruning: true })
     expect(cpp).toContain('/* Symmetry: p1 */')
     expect(cpp).toContain('_foldWallpaper(_cell.x,_cell.y,0,_foldX,_foldY)')
     expect(cpp).not.toContain(injectedGroup)
@@ -3293,7 +3314,9 @@ describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion c
 })
 
 describe('Pattern node expansion - Phase 4 Truchet codegen', () => {
-  function generateTruchet(lattice: string, motif: string) {
+  // These read the ids the emitter bakes, so they read its text before
+  // pruning: in a finished sketch a fixed id folds into the helper it selects.
+  function generateTruchet(lattice: string, motif: string, deferPruning = false) {
     const truchet = node('truchet', 'Truchet', 'field', {
       lattice, motif, cells: 3.5, lineWidth: 0.12, scroll: 0.4, rotation: 22, seed: 17,
     })
@@ -3301,7 +3324,7 @@ describe('Pattern node expansion - Phase 4 Truchet codegen', () => {
     return generateCpp([truchet, map, outputNode], [
       edge('truchet-map-edge', truchet.id, map.id, 'field', 'field'),
       edge('truchet-out-edge', map.id, outputNode.id, 'frame', 'frame'),
-    ])
+    ], {}, { deferPruning })
   }
 
   it.each([
@@ -3314,7 +3337,7 @@ describe('Pattern node expansion - Phase 4 Truchet codegen', () => {
     const cpp = generateTruchet(lattice, motif)
     expect(cpp).toContain(`/* Truchet: ${lattice}, ${motif} */`)
     expect(cpp).toContain(`_LatticeCell _cell=${finder}(`)
-    expect(cpp).toContain(`_truchetDistance(${latticeId},${motifId},_cell.x,_cell.y,_orientation)`)
+    expect(generateTruchet(lattice, motif, true)).toContain(`_truchetDistance(${latticeId},${motifId},_cell.x,_cell.y,_orientation)`)
     expect(cpp).toContain('_latticeHashBits(_cell.a+(int)_tr_truchetepoch*31')
     expect(cpp.match(/static inline float _truchetDistance/g)).toHaveLength(1)
     // Only the selected lattice's cell finder ships.
@@ -4284,8 +4307,9 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('emits an inactive Song Structure when the audio input is not wired', () => {
     const ss = node('ss', 'SongStructure', 'audio', {})
-    const cpp = generateCpp([ss, out], [edge('e2', 'ss', 'out', 'beatNumber', 'brightness'), edge('e3', 'ss', 'out', 'downbeat', 'enabled')])
-    expect(cpp).toContain('bool n_ss_downbeat = false')
+    const cpp = generateCpp([ss, out], [edge('e2', 'ss', 'out', 'beatNumber', 'brightness')])
+    // A trigger that never fires folds into its reader.
+    expect(generateCpp([ss, out], [edge('e3', 'ss', 'out', 'downbeat', 'enabled')])).not.toContain('n_ss_downbeat')
     expect(cpp).toContain('float n_ss_beatNumber = 0.0f')
     expect(cpp).not.toContain('_audioDownbeat')
   })
@@ -4330,8 +4354,9 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('emits an inactive Pitch Detect when the audio input is not wired', () => {
     const pd = node('pd', 'PitchDetect', 'audio', {})
-    const cpp = generateCpp([pd, out], [edge('e2', 'pd', 'out', 'hz', 'brightness'), edge('e3', 'pd', 'out', 'noteOn', 'enabled')])
-    expect(cpp).toContain('bool n_pd_noteOn = false')
+    const cpp = generateCpp([pd, out], [edge('e2', 'pd', 'out', 'hz', 'brightness')])
+    // A trigger that never fires folds into its reader.
+    expect(generateCpp([pd, out], [edge('e3', 'pd', 'out', 'noteOn', 'enabled')])).not.toContain('n_pd_noteOn')
     expect(cpp).toContain('float n_pd_hz = 0.0f')
     expect(cpp).not.toContain('_audioPitch')
   })
@@ -4409,9 +4434,10 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('emits an inactive Vibe when the audio input is not wired', () => {
     const vibe = node('vb', 'Vibe', 'audio', {})
-    const cpp = generateCpp([vibe, out], [edge('e2', 'vb', 'out', 'bass', 'brightness'), edge('e3', 'vb', 'out', 'bassSpike', 'enabled')])
+    const cpp = generateCpp([vibe, out], [edge('e2', 'vb', 'out', 'bass', 'brightness')])
     expect(cpp).toContain('float n_vb_bass = 0.0f')
-    expect(cpp).toContain('bool n_vb_bassSpike = false')
+    // A trigger that never fires folds into its reader.
+    expect(generateCpp([vibe, out], [edge('e3', 'vb', 'out', 'bassSpike', 'enabled')])).not.toContain('n_vb_bassSpike')
     expect(cpp).not.toContain('_audioVibe')
   })
 
@@ -4851,8 +4877,13 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
 
   it('Switch emits a ternary over both live inputs', () => {
     const t = tail('sw', 'result')
-    const cpp = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes], t.edges)
-    expect(cpp).toContain('float n_sw_result = (false) ? (0.75) : (0.25);')
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const cpp = generateCpp([lfo, node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes],
+      [...t.edges, edge('s0', 'lfo', 'sw', 'value', 'sel')])
+    expect(cpp).toMatch(/float n_sw_result = \(.*n_lfo_value.*\) \? \(0\.75\) : \(0\.25\);/)
+    // With nothing selecting B, A is the whole result.
+    const fixed = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes], t.edges)
+    expect(fixed).toContain('float n_sw_result = (0.25);')
   })
 
   it('Envelope decays from a millis() fire time over the decay window', () => {
@@ -4878,7 +4909,9 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
 
   it('Trigger debounce emits a millis()-based stability window', () => {
     const t = tail('trb', 'out')
-    const cpp = generateCpp([node('trb', 'Trigger', 'math', { triggerOp: 'debounce', stableTime: 0.2 }), ...t.nodes], t.edges)
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const cpp = generateCpp([lfo, node('trb', 'Trigger', 'math', { triggerOp: 'debounce', stableTime: 0.2 }), ...t.nodes],
+      [...t.edges, edge('t0', 'lfo', 'trb', 'value', 'trigger')])
     expect(cpp).toContain('_trSince_trb')
     expect(cpp).toContain('200u')
   })
@@ -4897,8 +4930,8 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
   it('Trigger toggle with no trigger wired holds its initial state', () => {
     const t = tail('trt', 'out')
     const cpp = generateCpp([node('trt', 'Trigger', 'math', { triggerOp: 'toggle' }), ...t.nodes], t.edges)
-    expect(cpp).toContain('static bool n_trt_out = false;')
-    expect(cpp).not.toContain('n_trt_out = !n_trt_out;')
+    // Never toggled, it is the constant false, folded into its reader.
+    expect(cpp).not.toContain('n_trt_out')
     expect(cpp).not.toContain('_trP_trt')
   })
 
@@ -4912,7 +4945,9 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
    */
   it('Trigger changed pulses on both edges after seeding its first sample', () => {
     const t = tail('trc', 'out')
-    const cpp = generateCpp([node('trc', 'Trigger', 'math', { triggerOp: 'changed' }), ...t.nodes], t.edges)
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const cpp = generateCpp([lfo, node('trc', 'Trigger', 'math', { triggerOp: 'changed' }), ...t.nodes],
+      [...t.edges, edge('t0', 'lfo', 'trc', 'value', 'trigger')])
     expect(cpp).toContain('_trInit_trc')
     // Either transition, not just the rising one.
     expect(cpp).toContain('n_trc_out = (_t != _trP_trc);')
@@ -4929,13 +4964,17 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
 
   it('Trigger pulseDivider counts rising edges up to divideBy', () => {
     const t = tail('trd', 'out')
-    const cpp = generateCpp([node('trd', 'Trigger', 'math', { triggerOp: 'pulseDivider', divideBy: 4 }), ...t.nodes], t.edges)
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const cpp = generateCpp([lfo, node('trd', 'Trigger', 'math', { triggerOp: 'pulseDivider', divideBy: 4 }), ...t.nodes],
+      [...t.edges, edge('t0', 'lfo', 'trd', 'value', 'trigger')])
     expect(cpp).toContain('_trC_trd >= 4')
   })
 
   it('Trigger delay schedules a millis() fire time after the rising edge', () => {
     const t = tail('trl', 'out')
-    const cpp = generateCpp([node('trl', 'Trigger', 'math', { triggerOp: 'delay', delayTime: 0.4 }), ...t.nodes], t.edges)
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const cpp = generateCpp([lfo, node('trl', 'Trigger', 'math', { triggerOp: 'delay', delayTime: 0.4 }), ...t.nodes],
+      [...t.edges, edge('t0', 'lfo', 'trl', 'value', 'trigger')])
     expect(cpp).toContain('_trS_trl = millis() + 400u;')
   })
 
@@ -4948,7 +4987,8 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
       edge('e2', 'fb', 'fs', 'frame', 'b'),
       edge('e3', 'fs', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('::memmove(buf_fs, (false) ? buf_fb : buf_fa, sizeof(CRGB) * NUM_LEDS);')
+    // Nothing selects B, so the copy is A's.
+    expect(cpp).toContain('::memmove(buf_fs, buf_fa, sizeof(CRGB) * NUM_LEDS);')
   })
 
   it('FrameSwitch with one wired side copies it regardless of sel', () => {
@@ -5476,7 +5516,7 @@ describe('ClockDisplay (codegen)', () => {
     ])
     expect(wired).toContain('if ((n_rtc_dateTime.valid && n_rtc_dateTime.synced && !n_rtc_dateTime.stale)) snprintf(_clkMain_clk')
     const bare = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
-    expect(bare).toContain('if (false) snprintf(_clkMain_clk')
+    expect(bare).not.toContain('snprintf(_clkMain_clk, sizeof(_clkMain_clk), "%02d:%02d"')
   })
 
   it('emits millis-driven stopwatch/timer state for transport modes', () => {
@@ -5486,7 +5526,9 @@ describe('ClockDisplay (codegen)', () => {
     // A timer shows what remains; elapsed time is never read.
     expect(cpp).not.toContain('_clkElapsed_clk')
     expect(cpp).toContain('uint32_t _clkNow_clk = millis();')
-    expect(cpp).toContain('if (_clkRun_clk) _clkRemaining_clk = max(0.0f, _clkRemaining_clk - _clkDt_clk);')
+    // Run is fixed on, so the countdown is unconditional.
+    expect(cpp).not.toContain('_clkRun_clk')
+    expect(cpp).toContain('_clkRemaining_clk = max(0.0f, _clkRemaining_clk - _clkDt_clk);')
     expect(cpp).toContain('snprintf(_clkMain_clk, sizeof(_clkMain_clk), "%02d:%02d"')
   })
 
@@ -5687,7 +5729,8 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
 
   it('RainRipples spawnSpread defaults to 1 (fully random)', () => {
     const rr = node('rr3', 'RainRipples', 'pattern', {})
-    const cpp = generateCpp([rr, outputNode], [edge('e', 'rr3', 'out', 'frame', 'frame')])
+    const btn = node('btn', 'ButtonInput', 'input', { pin: 7 })
+    const cpp = generateCpp([rr, btn, outputNode], [edge('e', 'rr3', 'out', 'frame', 'frame'), edge('t', 'btn', 'rr3', 'pressed', 'trigger')])
     expect(cpp).toContain('float _rrSpread=constrain(1, 0.0f, 1.0f);')
     expect(cpp).toContain('-_rrCx)*_rrSpread')
   })

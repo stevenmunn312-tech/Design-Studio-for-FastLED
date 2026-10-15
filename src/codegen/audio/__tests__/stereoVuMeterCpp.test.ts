@@ -102,7 +102,9 @@ describe('normal sketch Stereo VU Meter generation', () => {
   })
 
   it('bakes disabled fixtures as an always-black renderer input', () => {
-    expect(sketch({ enabled: false })).toContain('paldef_party, false, _audioLeftLevel')
+    // Enabled is a constant false, folded into the renderer rather than passed.
+    expect(sketch({ enabled: false })).toContain('paldef_party, _audioLeftLevel')
+    expect(sketch({ enabled: false })).not.toMatch(/bool enabled[,)]/)
   })
 
   it.each(STEREO_VU_MODES)('emits the %s visualization through the shared renderer', (mode) => {

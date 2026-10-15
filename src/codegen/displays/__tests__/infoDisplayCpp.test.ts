@@ -80,7 +80,7 @@ describe('generateCpp with an OLED', () => {
     // ...128, 64 being the panel's own glass, which is what it addresses and
     // flushes rather than a sketch-wide constant.
     expect(src).toContain('_oledBeginSpi(_oled_oled, OLED_SH1106, 5, 16, 17, 18, 23, 128, 64, 2, 0xa0, 0xc0);')
-    expect(src).toContain('_oledFlush(_oled_oled,')
+    expect(src).toContain('_oledFlush(_oled_oled')
     expect(src).toContain('static OledPanel _oled_oled;')
   })
 
@@ -200,7 +200,9 @@ describe('generateCpp with an OLED', () => {
 
   it('honours a disabled panel', () => {
     const src = generateCpp([outputNode, oled({ enabled: false })], [])
-    expect(src).toContain('bool _oledOn_oled = false;')
+    // Off is a constant: the panel is sent its display-off command, every frame.
+    expect(src).not.toContain('_oledOn_oled')
+    expect(src).toContain('_oledCommand(p, 0xAE);')
   })
 
   // In the driver rather than at one call site, so every generator that draws

@@ -72,7 +72,8 @@ describe('Darlington driver firmware', () => {
     const sketch = generateCpp(nodes, edges)
     expect(sketch.indexOf('digitalWrite(4, LOW);')).toBeLessThan(sketch.indexOf('pinMode(4, OUTPUT);'))
     expect(sketch).toMatch(/digitalWrite\(4, [^;]+ \? HIGH : LOW\);/)
-    expect(sketch).toMatch(/digitalWrite\(13, false \? HIGH : LOW\);/)
+    // An unwired channel stays at its idle level in the loop too.
+    expect(sketch.match(/digitalWrite\(13, LOW\);/g)).toHaveLength(2)
     expect(sketch.match(/pinMode\(\d+, OUTPUT\);/g)?.length).toBeGreaterThanOrEqual(8)
   })
 

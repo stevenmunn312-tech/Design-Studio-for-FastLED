@@ -97,7 +97,7 @@ describe('what setup tells the driver', () => {
   it('resolves the layout against the size the panel is mounted at', () => {
     const src = build({ partId: TOUCH, tftRotation: '90' })
     const g = transportWaitingGeometry(320, 240)
-    expect(src).toContain(`${g.message.x}, ${g.message.y}, ${g.message.w}, ${g.message.h},`)
+    expect(src).toContain(`${g.message.y}, ${g.message.w}, ${g.message.h},`)
   })
 })
 
@@ -115,7 +115,7 @@ describe('what the loop draws', () => {
     (tftLayout) => {
       const src = build({ tftLayout })
       const g = transportWaitingGeometry(240, 240)
-      expect(src).toContain(`${g.message.x}, ${g.message.y}, ${g.message.w}, ${g.message.h}, ${g.message.scale},`)
+      expect(src).toContain(`${g.message.y}, ${g.message.w}, ${g.message.h}, ${g.message.scale},`)
       expect(src).toContain('"WAITING FOR A SIGNAL"')
     },
   )
@@ -132,12 +132,12 @@ describe('what the loop draws', () => {
     const src = build({ partId: TOUCH, tftLayout: 'Diagnostics', tftRotation: '90' })
     const g = diagnosticsGeometry(320, 240)
     expect(src).toContain('"DISPLAY TEST"')
-    expect(src).toContain(`${g.touch.x}, ${g.touch.y}, ${g.touch.w}, ${g.touch.h}, ${g.touch.scale},`)
+    expect(src).toContain(`${g.touch.y}, ${g.touch.w}, ${g.touch.h}, ${g.touch.scale},`)
     expect(src).toContain('static bool _touchDown_tft = false;')
     expect(src).toContain('static uint16_t _touchRawX_tft = 0, _touchRawY_tft = 0;')
-    expect(src).toContain('_xptPoint(15, 2, 255, 255, 255, 200, 3900, 200, 3900, 240, 320, 1,')
+    expect(src).toContain('_xptPoint(15, 2, 255, 255, 200, 3900, 200, 3900, 240, 320,')
     expect(src).toContain('"RAW %u  %u", _touchRawX_tft, _touchRawY_tft')
-    expect(src).toContain(`${g.rawCoordinates.x}, ${g.rawCoordinates.y}, ${g.rawCoordinates.w}, ${g.rawCoordinates.h}, ${g.rawCoordinates.scale},`)
+    expect(src).toContain(`${g.rawCoordinates.y}, ${g.rawCoordinates.w}, ${g.rawCoordinates.h}, ${g.rawCoordinates.scale},`)
     expect(src.indexOf('_touchDown_tft = _xptPoint')).toBeLessThan(src.indexOf('{ // Transport Display'))
   })
 
@@ -168,7 +168,8 @@ describe('what the loop draws', () => {
 
   it('switches the panel from a wired enable rather than the property', () => {
     expect(build({ enabled: false })).toContain('_tftOn_tft = false;')
-    expect(build({ enabled: true })).toContain('_tftOn_tft = true;')
+    // Always on stores the value the flag starts with, so the gate folds away.
+    expect(build({ enabled: true })).not.toContain('_tftOn_tft')
   })
 })
 
@@ -207,9 +208,9 @@ describe('the Clock layout, from a wired RTC', () => {
     const rtc = node('rtc', 'RTCInput', {})
     const src = build({}, [rtc], [wire('feed', 'rtc', 'display', 'tft', 'display')])
     const g = transportClockGeometry(240, 240)
-    expect(src).toContain(`${g.time.x}, ${g.time.y}, ${g.time.w}, ${g.time.h}, ${g.time.scale},`)
-    expect(src).toContain(`${g.date.x}, ${g.date.y}, ${g.date.w}, ${g.date.h}, ${g.date.scale},`)
-    expect(src).toContain(`${g.status.x}, ${g.status.y}, ${g.status.w}, ${g.status.h}, ${g.status.scale},`)
+    expect(src).toContain(`${g.time.y}, ${g.time.w}, ${g.time.h}, ${g.time.scale},`)
+    expect(src).toContain(`${g.date.y}, ${g.date.w}, ${g.date.h}, ${g.date.scale},`)
+    expect(src).toContain(`${g.status.y}, ${g.status.w}, ${g.status.h}, ${g.status.scale},`)
   })
 
   it('is not offered as a tftLayout treatment, since a clock has only one', () => {

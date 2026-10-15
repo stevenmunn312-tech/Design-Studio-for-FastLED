@@ -63,9 +63,12 @@ describe('buildShowPlayer', () => {
       node('audio', 'Audio', { sourceId: 'decoder:sd' }),
       node('sd', 'SDCard'), node('amp', 'Amplifier'),
       node('led', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+      // A live comparison: 1 > 0.5 alone would fold to a constant beat.
+      node('pot', 'PotInput', { pin: 34 }),
     ]
     const edges = [
       { id: 'leds', source: 'player', sourceHandle: 'frame', target: 'led', targetHandle: 'frame' },
+      { id: 'pot', source: 'pot', sourceHandle: 'value', target: 'pulse', targetHandle: 'a' },
       { id: 'beat', source: 'pulse', sourceHandle: sourceType === 'Compare' ? 'result' : 'beat', target: 'player', targetHandle: 'beat' },
       { id: 'audio', source: 'audio', sourceHandle: 'audio', target: 'pulse', targetHandle: 'audio' },
       { id: 'hold', source: 'hold', sourceHandle: 'result', target: 'player', targetHandle: 'minTime' },

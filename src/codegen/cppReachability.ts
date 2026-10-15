@@ -37,7 +37,19 @@ const assigns = (head: string) => {
 }
 const identifiers = (text: string) => [...new Set(text.match(/\b[A-Za-z_]\w*\b/g) ?? [])]
 
+// Generation passes split the same text more than once; keep the last few.
+const recentUnits = new Map<string, CppUnit[]>()
+
 export function cppUnits(source: string): CppUnit[] {
+  const cached = recentUnits.get(source)
+  if (cached) return cached
+  const units = splitUnits(source)
+  if (recentUnits.size >= 8) recentUnits.delete(recentUnits.keys().next().value!)
+  recentUnits.set(source, units)
+  return units
+}
+
+function splitUnits(source: string): CppUnit[] {
   const code = cppCode(source)
   const units: CppUnit[] = []
   let start = 0
@@ -163,8 +175,14 @@ export function withAttachedComments(source: string, start: number, end: number)
 
 /** Collapse runs of blank lines left behind by removals, outside literals. */
 export function withoutBlankRuns(source: string): string {
+  // Removing a statement can leave the rest of its line as trailing spaces.
+  source = outsideStrings(source, /[ \t]+(?=\r?\n)/g, '')
+  return outsideStrings(source, /\n(?:[ \t]*\r?\n){2,}/g, '\n\n')
+}
+
+function outsideStrings(source: string, pattern: RegExp, replacement: string): string {
   const literals = [...source.matchAll(LEXEMES)].filter((match) => /^R?"/.test(match[0]))
     .map((match) => [match.index!, match.index! + match[0].length])
-  return source.replace(/\n(?:[ \t]*\r?\n){2,}/g, (run, at: number) =>
-    literals.some(([from, to]) => at < to && at + run.length > from) ? run : '\n\n')
+  return source.replace(pattern, (run, at: number) =>
+    literals.some(([from, to]) => at < to && at + run.length > from) ? run : replacement)
 }

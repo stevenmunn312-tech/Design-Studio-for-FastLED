@@ -80,8 +80,10 @@ export const COLOR_EMITTERS: NodeEmitters = {
     }
     ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_psPos_${id} * 255.0f));`)
   },
-  PaletteSelector({ p, ln, fastledPalette }) {
-    ln(`  // PaletteSelector — drives ${fastledPalette(String(p.palette ?? 'rainbow'))} in connected palette-consuming nodes`)
+  PaletteSelector({ p, ln }) {
+    // Named rather than by its table, which is only emitted when a node reads it.
+    const name = String(p.palette ?? 'rainbow').replace(/[^\w -]/g, '')
+    ln(`  // PaletteSelector — the ${name} palette, for the palette-consuming nodes it feeds`)
   },
   CustomPalette({ node, id, p, ln, incoming, colorExpr }) {
     // Positioned custom stops bake to a full CRGBPalette16. Wired color

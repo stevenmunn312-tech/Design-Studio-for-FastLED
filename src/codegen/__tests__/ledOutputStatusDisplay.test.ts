@@ -106,8 +106,10 @@ describe('an LED output reporting itself', () => {
     expect(loop).toContain('"144 LEDS"')
     // The live reading, and it is the same expression the fixture is dimmed by.
     expect(loop).toContain('float _oledLvl_oled = constrain((float)(n_knob_value), 0.0f, 1.0f);')
-    expect(loop).toContain('_oledBar(_oled_oled, 2, 26, 124, 7, _oledLvl_oled);')
-    expect(loop).toContain('"ON" : "BLACKOUT"')
+    expect(loop).toContain('_oledBar(_oled_oled, 2, 26, _oledLvl_oled);')
+    // Nothing switches this output off, so its state is the constant "ON".
+    expect(loop).toContain('"ON"')
+    expect(loop).not.toContain('"BLACKOUT"')
     // Four digits say the effective level as whole percent.
     expect(loop).toContain('_segIndex(_segBuf_seg, 4, (long)lroundf(_segLvl_seg * 100.0f));')
 
@@ -122,7 +124,7 @@ describe('an LED output reporting itself', () => {
     const loop = loopOf(generateCpp(nodes, edges))
     expect(loop).toContain('const char *_tftName_tft = "LED String";')
     expect(loop).toContain('const char *_tftFixture_tft = "144 LEDS";')
-    expect(loop).toContain('const char *_tftState_tft = _tftLit_tft ? "ON" : "BLACKOUT";')
+    expect(loop).toContain('const char *_tftState_tft = "ON";')
     expect(loop).toContain('_tftLevel_tft')
   })
 

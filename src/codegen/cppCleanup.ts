@@ -1,9 +1,6 @@
 import { cppCode, cppUnits, pruneCpp, withAttachedComments, withoutBlankRuns } from './cppReachability'
+import { foldConstants, PURE_CALL, withoutEmptyIfs } from './cppSpecialize'
 
-// Calls whose only effect is their value: maths, constructors, casts, and
-// reads of a pin or clock. Anything else in an initializer may have effects,
-// so its declaration becomes a `(void)` statement instead.
-const PURE_CALL = /^(?:constrain|min|max|fminf|fmaxf|fabsf|floorf|ceilf|roundf|lroundf|sinf|cosf|tanf|atan2f|expf|logf|sqrtf|powf|fmodf|CRGB|CHSV|float|int|bool|uint8_t|uint16_t|uint32_t|rgb2hsv_approximate|analogRead|digitalRead|millis|micros|lv_\w+_get_\w+)$/
 const CONTROL_WORD = /^(?:if|for|while|switch|return|sizeof)$/
 const LOCAL_TYPE = '(?:float|bool|int|uint(?:8|16|32)_t|int(?:8|16|32)_t|CRGB|CHSV|const char\\s*\\*)'
 const DECLARATION = new RegExp(`(?<![\\w.>])((?:static\\s+)?(?:const\\s+)?${LOCAL_TYPE}\\s+)([A-Za-z_]\\w*\\s*=[^;{}]+);`, 'g')
@@ -77,11 +74,18 @@ export function withoutUnreadLocals(source: string): string {
     const unread = (d: Declarator) => counts.get(d.name) === 1
     // A member is layout, not a local: positional initialisers depend on it.
     const members = recordBodies(code)
-    const sketchPure = pureFunctions(source)
+    // Judging every sketch function is the costly part; most initializers
+    // call nothing that needs it.
+    let sketchPure: Set<string> | undefined
     const isPure = (init: string) => {
       const masked = cppCode(init)
       return !/\+\+|--|(?<![=!<>])=(?!=)/.test(masked)
-        && callsIn(masked).every((name) => PURE_CALL.test(name) || sketchPure.has(name))
+        && callsIn(masked).every((name) => PURE_CALL.test(name) || (sketchPure ??= pureFunctions(source)).has(name))
+    }
+    const emptied = withoutEmptyIfs(source, isPure)
+    if (emptied !== source) {
+      source = emptied
+      continue
     }
     const writeOnly = writeOnlyNames(code, source, counts, members, isPure)
     if (writeOnly.size) {
@@ -202,7 +206,13 @@ function splitDeclarators(list: string): Declarator[] | null {
 }
 
 export function finishCpp(source: string): string {
+  // Prune first, so folding reads only what is reached. Folding then removes
+  // branches, and removing a caller can leave every remaining call passing
+  // one literal, so the two alternate until neither changes anything.
   source = pruneCpp(withoutUnreadLocals(source))
+  for (let folded = foldConstants(source); folded !== source; folded = foldConstants(source)) {
+    source = pruneCpp(withoutUnreadLocals(folded))
+  }
   // This header belongs to the NTP path, not to every network consumer.
   if (!/\b(?:configTime|configTzTime|time_t|tm|gmtime|localtime|mktime|time)\b/.test(cppCode(source.replace(/#include <time.h>/g, '')))) {
     source = source.replace(/^#include <time.h>\r?\n/gm, '')

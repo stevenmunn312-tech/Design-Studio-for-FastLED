@@ -53,9 +53,11 @@ describe('showGenerator', () => {
       expect(/^void compositeTransition\([^\n]+\) \{/m.test(cpp)).toBe(patternIds.length > 1)
       // Derive all sampler definitions so additions to the shared block are
       // covered: each is defined at most once, and only when a pattern uses it.
-      const signatures = FRAME_SAMPLE_HELPER_CPP.match(/^static inline .+ \{/gm)!
-      expect(signatures.some((signature) => cpp.includes(signature))).toBe(true)
-      for (const signature of signatures) expect(cpp.split(signature).length).toBeLessThanOrEqual(2)
+      // By name: a parameter a constant decides is folded out of the signature.
+      const samplers = [...FRAME_SAMPLE_HELPER_CPP.matchAll(/^static inline \S+ (\w+)\(/gm)].map((match) => match[1])
+      const definitions = (name: string) => cpp.match(new RegExp(`^static inline \\S+ ${name}\\(`, 'gm'))?.length ?? 0
+      expect(samplers.some((name) => definitions(name) === 1)).toBe(true)
+      for (const name of samplers) expect(definitions(name)).toBeLessThanOrEqual(1)
     }
   })
 
@@ -154,7 +156,7 @@ describe('showGenerator', () => {
     expect(cpp).toContain('renderPattern(nxt, animNow);')
     // Dwell and transition progress remain real elapsed durations.
     expect(cpp).toContain('if (now - phaseStart >= 8000) {')
-    expect(cpp).toContain('float p = 1000 > 0 ? (float)(now - phaseStart) / 1000 : 1.0f;')
+    expect(cpp).toContain('float p = (float)(now - phaseStart) / 1000;')
     expect(cpp).toContain('phaseStart = now;')
   })
 
@@ -882,7 +884,7 @@ describe('show sketch weight', () => {
     // A one-style pool is a constant: no pool, no draw, no dispatch.
     expect(cpp).not.toContain('TRANS_POOL')
     expect(cpp).not.toContain('switch (type)')
-    expect(cpp).toContain('{  // crossfade (0)')
+    expect(cpp).toContain('  // crossfade (0)\n  ::memmove(out, a,')
     expect(cpp).toContain('compositeTransition(0, leds, showA, showB, p);')
     expect(cpp).not.toContain('case 1: {  // wipe')
     expect(cpp).not.toContain('case 15: {  // zoom')
@@ -1082,7 +1084,6 @@ describe('displays in a show controller', () => {
     it('carries the selection and the picture table on one stem', () => {
       const cpp = build([browser], [wire])
       expect(cpp).toContain('static PatternSel _sel_show;')
-      expect(cpp).toContain('#define THUMB_COUNT_show')
       expect(cpp).toContain('  _selBegin(_sel_show);')
     })
 
@@ -1093,10 +1094,13 @@ describe('displays in a show controller', () => {
       expect(cpp).toContain('_selSetActive(_sel_show, PATTERN_COUNT, showPatternIndex);')
     })
 
-    // The honest outcome for a browser whose collection was never baked: an
-    // empty table and NO PATTERNS, not a blank square.
-    it('emits an empty table when nothing was baked', () => {
-      expect(build([browser], [wire])).toContain('#define THUMB_COUNT_show  0')
+    // The honest outcome for a browser whose collection was never baked:
+    // NO PATTERNS, not a blank square. An empty table has nothing to read, so
+    // none is emitted.
+    it('says NO PATTERNS when nothing was baked', () => {
+      const cpp = build([browser], [wire])
+      expect(cpp).toContain('"NO PATTERNS"')
+      expect(cpp).not.toContain('THUMB_COUNT_show')
     })
 
     it('leaves the selection out of a show that has no use for one', () => {
@@ -1287,7 +1291,8 @@ describe('pattern code lifted into a show', () => {
     // A sweep that generated nothing would pass for the wrong reason.
     expect(cases).toBeGreaterThan(200)
     expect(offenders).toEqual([])
-  })
+    // Over 400 sketches: about a second alone, several under a full run.
+  }, 30_000)
 
   it('lifts the shared helpers a pattern reaches and a Slice Tiling pattern\'s bit tables under its prefix', () => {
     const shape = build('Shape', { shape: 'polygon' })

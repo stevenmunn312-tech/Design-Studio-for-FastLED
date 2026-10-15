@@ -77,7 +77,7 @@ describe('generative-show Stereo VU fixture', () => {
     const disabled = generateShowSketch([
       ...baseNodes, node('audio', 'Audio', { sourceId: '' }), meter,
     ], edges, groups)
-    expect(disabled).toContain('paldef_party, false, 0.0f, 0.0f, false, millis()')
+    expect(disabled).toContain('paldef_party, 0.0f, 0.0f, false, millis()')
   })
 })
 

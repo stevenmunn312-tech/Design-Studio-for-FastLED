@@ -72,7 +72,10 @@ describe('buzzer firmware', () => {
 
   it('stays silent when nothing is wired to Sound', () => {
     const { nodes, edges } = buzzerGraph({ sigPin: 27 }, false)
-    expect(generateCpp(nodes, edges)).toMatch(/digitalWrite\(27, false \? HIGH : LOW\);/)
+    // Never sounded, so the pin is simply held low.
+    const sketch = generateCpp(nodes, edges)
+    expect(sketch).not.toMatch(/digitalWrite\(27, [^;]+ \? HIGH : LOW\);/)
+    expect(sketch.match(/digitalWrite\(27, LOW\);/g)).toHaveLength(2)
   })
 })
 

@@ -105,6 +105,75 @@ network();
   it('does not promote a macro from an unknown conditional branch', () => {
     expect(specializeCpp('#if UNKNOWN\n#define MAYBE 1\n#endif\n#if MAYBE\nkeep();\n#endif')).toContain('#if MAYBE')
   })
+  it('folds a literal every call passes when it decides a branch', () => {
+    const source = `static float fold(float x, uint8_t mode, int scale) {
+  switch (mode) {
+    case 1: return x * scale;
+    case 2: return -x;
+    default: return x;
+  }
+}
+void setup() {}
+void loop() { show(fold(1.0f, 2, 3)); show(fold(2.0f, 2, 3)); }`
+    const result = finishCpp(source)
+    expect(result).toContain('static float fold(float x, int scale) {')
+    expect(result).toContain('return -x;')
+    expect(result).not.toContain('switch')
+    // `scale` decides nothing, so it stays an argument.
+    expect(result).toContain('fold(1.0f, 3)')
+  })
+  it('keeps a literal that callers disagree on, or that a reference could change', () => {
+    const source = `static int pick(int mode) { if (mode == 1) return 4; return 5; }
+static bool paint(bool &full) { full = true; return true; }
+void setup() {}
+void loop() {
+  bool full = false;
+  if (paint(full) && full) show(pick(1));
+  show(pick(2));
+}`
+    const result = finishCpp(source)
+    expect(result).toContain('if (mode == 1)')
+    expect(result).toContain('bool full = false;')
+    expect(result).toContain('paint(full) && full')
+  })
+  it('folds constant flags, literal conditions, ternaries and known macros', () => {
+    const source = `#define WIDE 16
+static bool armed = false;
+void setup() {}
+void loop() {
+  bool fire = armed && sensor();
+  if (fire) shoot(); else idle();
+  float k = WIDE > 1 ? 1.0f / (WIDE - 1) : 0.0f;
+  show(armed ? 1 : 2, k);
+}`
+    const result = finishCpp(source)
+    expect(result).not.toContain('armed')
+    expect(result).not.toContain('sensor()')
+    expect(result).not.toContain('shoot()')
+    expect(result).toContain('idle();')
+    expect(result).toContain('float k = 1.0f / (WIDE - 1);')
+    expect(result).toContain('show(2, k);')
+  })
+  it('removes statements after a block-level return and empty pure branches', () => {
+    const source = `static int last = 0;
+static void begin(int pin) {
+  if (last != -2) {
+    return;
+    reset();
+    last = pin;
+  }
+  last = pin;
+}
+void setup() { begin(4); }
+void loop() { if (last > 2) {} }`
+    const result = finishCpp(source)
+    expect(result).not.toContain('reset()')
+    expect(result).not.toContain('if (last > 2)')
+  })
+  it('does not take a falling-through arm as its own body', () => {
+    const result = specializeSwitch('switch(style) { case 1: case 2: draw(); break; default: other(); }', 'style', 1)
+    expect(result).toContain('case 1:')
+  })
   it('specializes a switch without changing nested loop breaks', () => {
     const result = specializeSwitch('switch(style) { case 1: { for (;;) { break; } draw(); break; } default: other(); break; }', 'style', 1)
     expect(result).toContain('for (;;) { break; }')

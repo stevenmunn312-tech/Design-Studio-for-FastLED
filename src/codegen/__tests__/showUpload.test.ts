@@ -318,7 +318,7 @@ describe('generatePlayerSketch', () => {
   it('compiles only crossfade when no other style is reachable', () => {
     const ino = generatePlayerSketch()
     // One reachable style needs no dispatch.
-    expect(ino).toContain('{  // crossfade (0)')
+    expect(ino).toContain('  // crossfade (0)\n  ::memmove(out, a,')
     expect(ino).not.toContain('switch (type)')
     expect(ino).not.toContain('case 1: {  // wipe')
     expect(ino).not.toContain('case 20: {  // slab tilt')

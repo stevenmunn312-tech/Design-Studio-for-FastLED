@@ -191,7 +191,7 @@ describe('device telemetry in every generator', () => {
       }),
     ], [edge('fill', 'frame', 'out', 'frame')])
     expect(source).toContain('_tftBegin(_tft_panel, 15, 2, 4, 14, 13, 21,')
-    expect(source).toContain('_xptPoint(33, 36, 25, 32, 39,')
+    expect(source).toContain('_xptPoint(33, 36, 32, 39,')
     expect(source).toContain('#if defined(CONFIG_IDF_TARGET_ESP32)\n  pinMode(36, INPUT);')
     expect(source).toContain(`${TELEMETRY_MARKER} ${TELEMETRY_TOUCH_X_KEY}=%u ${TELEMETRY_TOUCH_Y_KEY}=%u`)
   })

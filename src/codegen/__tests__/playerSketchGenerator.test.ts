@@ -118,7 +118,9 @@ describe('playerSketchGenerator', () => {
 
     it('keeps an output switched off dark', () => {
       const sketch = generatePlayerSketch(withOutput({ enabled: false }))
-      expect(sketch).toContain('if (!(false)) fill_solid(leds, NUM_LEDS, CRGB::Black);')
+      // Off is a constant, so blacking out is unconditional.
+      expect(sketch).toMatch(/\n\s*fill_solid\(leds, NUM_LEDS, CRGB::Black\);/)
+      expect(sketch).not.toContain('if (!(false))')
     })
 
     it('adds nothing while the fields are at lit and full', () => {
@@ -308,7 +310,7 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('struct PatternSel;')
       expect(sketch).toContain('static PatternSel _sel_player;')
       expect(sketch).toContain('_selBegin(_sel_player);')
-      expect(sketch).toContain('_selUpdate(_sel_player, PATTERN_COUNT, now, 1, false);')
+      expect(sketch).toContain('_selUpdate(_sel_player, PATTERN_COUNT, now);')
     })
 
     it('rotates the generic player relative to the cursor, so a confirm survives', () => {

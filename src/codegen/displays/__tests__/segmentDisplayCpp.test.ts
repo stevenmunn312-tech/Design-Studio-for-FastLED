@@ -82,7 +82,7 @@ describe('generateCpp with a segment display', () => {
     const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), display()]
     const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
     expect(src).toContain('n_rtc_dateTime')
-    expect(src).toContain('_segClock(_segBuf_seg, 4, n_rtc_dateTime.hour')
+    expect(src).toContain('_segClock(_segBuf_seg, n_rtc_dateTime.hour')
   })
 
   it('leaves the driver out of a sketch with no display', () => {
@@ -121,7 +121,8 @@ describe('generateCpp with a segment display', () => {
 
   it('honours a disabled module', () => {
     const src = generateCpp([outputNode, display({ enabled: false })], [])
-    expect(src).toContain('bool _segOn_seg = false;')
+    // Off is a constant, so the module is blanked without a test.
+    expect(src).not.toContain('_segOn_seg')
     expect(src).toContain('_segBlankAll(_segBuf_seg, 4);')
   })
 
@@ -171,13 +172,15 @@ describe('MAX7219', () => {
   it('never asks a colonless module for a colon', () => {
     const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), max7219({ showColon: true })]
     const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
-    expect(src).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg, false,')
+    // The colon argument is a constant false, so it folds out of the call.
+    expect(src).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg);')
   })
 
   it('shows seconds where the TM1637 cannot', () => {
     const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), max7219()]
     const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
-    expect(src).toMatch(/_segClock\(_segBuf_seg, 8, .*\.second\)/)
+    expect(src).toMatch(/_segClock\(_segBuf_seg, .*\.second\)/)
+    expect(src).toContain('"%02d%02d%02d"')
   })
 
   it('shares one driver with a TM1637 in the same sketch', () => {

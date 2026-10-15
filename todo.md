@@ -525,24 +525,18 @@ library defaults.
 
 ## D-09 · Dead code in generated firmware, v1 part
 
-Status: work in progress. All three generators now end in one pruning pass
+- [ ] **D-09 · Compile proof.** Open until the pruned corpus compiles:
+  `python scripts/compile-fixtures/compile-matrix.py --only dead-code/`
+  (about 250 sketches on arduino-cli, run one at a time; nothing has been
+  compiled yet). A sub-item is ticked when its code and tests are done.
+
+All three generators end in one pruning pass
 ([firmware generation](docs/development/patterns/firmware-generation.md#dead-code-pruning)).
-That pass resolves known `#if` blocks, folds constant switches, drops unread
-and write-only variables, and removes unreachable file-scope units. The test
-suite passes. On the regenerated live-example corpus, the Music Player
-variants and the slideshow variants, the old checker finds no unreachable
-file-scope unit except library configuration macros.
-
-Still open:
-
-- Firmware compilation of the pruned output. One Music Player sketch has
-  compiled; the corpus run was cancelled.
-- The corpus test (D-09.1).
-- In-function items that need emitter knowledge: switches over constant
-  inputs (D-09.5), constant `bool` flags, `pinMode` for unread inputs, and
-  the performance player's runtime remnants (D-09.2 to D-09.4).
-
-Leave an item unchecked until its compile proof exists.
+It resolves known `#if` blocks, folds what generation-time constants decide
+(literal mode arguments, constant `bool` flags, literal conditions, ternaries
+and switches, numeric macros), drops unread and write-only variables, and
+removes unreachable file-scope units. `deadCodeCorpus.test.ts` holds every
+live example and the player and show variants at that pass's fixed point.
 
 From the 2026-10-15 audit of all four firmware types: 315 normal sketches
 (every live example plus the normal-mode fixtures) and variant sets of the
@@ -553,9 +547,9 @@ no function, global, macro, include, switch arm or branch that the exact graph
 can never run. The bugs the audit found, and transition, palette and built-in
 pattern narrowing, are fixed (see
 [player, shows and controls](docs/development/patterns/player-shows-and-controls.md)).
-The scratch corpus and checker are regenerable under `tmp/deadcode/`.
+The corpus is `src/codegen/__tests__/deadCodeCorpus.ts`.
 
-- [ ] **D-09.1 · Reachability-pruned helper registry.** Every file-scope helper
+- [x] **D-09.1 · Reachability-pruned helper registry.** Every file-scope helper
   becomes a named unit that lists what it calls, and assembly keeps only what
   the emitted bodies reach, replacing the per-flag `needs*` gates. The slideshow
   already narrows palettes this way, from the finished text. This closes the
@@ -579,7 +573,7 @@ The scratch corpus and checker are regenerable under `tmp/deadcode/`.
   - non-debug INA219/INA226 helpers when every monitor is in debug mode.
 
   Turn the checker into a test over the live-example corpus so dead code
-  cannot come back.
+  cannot come back. Done as the pruning pass plus `deadCodeCorpus.test.ts`.
 - [ ] **D-09.2 · Split Music Player and performance player emission.**
   `playerSketchGenerator` serves both through runtime flags. In a Music Player
   sketch, this is still emitted behind `GENERIC_PLAYER`:

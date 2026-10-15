@@ -134,10 +134,11 @@ describe('custom displays in generative shows', () => {
       [edge('tft-touch', 'widget:slider:out', 'out', 'brightness')],
       { screen: document() },
     )
-    expect(cpp).toContain('static bool _cdPanelOn_tft = false;')
-    expect(cpp).toContain('float n_tft_touch_widget_slider_out = _cdPanelOn_tft ? (_cdFloatOutput')
-    expect(cpp).toContain('if (_cdPanel_tft.bl != 255) digitalWrite(_cdPanel_tft.bl, _cdPanelOn_tft ? HIGH : LOW);')
-    expect(cpp).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
+    // Off with nothing wired to turn it on is a constant: the gate folds away.
+    expect(cpp).not.toContain('_cdPanelOn_tft')
+    expect(cpp).not.toContain('_cdFloatOutput(')
+    expect(cpp).toContain('if (_cdPanel_tft.bl != 255) digitalWrite(_cdPanel_tft.bl, LOW);')
+    expect(cpp).not.toContain('lv_indev_read(_cdIndev_tft);')
     expect(cpp).toContain('lv_init();')
   })
 

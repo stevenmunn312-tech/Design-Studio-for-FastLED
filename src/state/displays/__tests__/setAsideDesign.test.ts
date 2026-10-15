@@ -94,7 +94,8 @@ describe('a screen design set aside for a fixed layout', () => {
     const withLed = [...nodes.filter((entry) => entry.id !== 'player'), node('toggle', 'Not')]
     const rewired = [edge('touch', previous, 'toggle', 'x'), edge('toggle', 'result', 'out', 'enabled')]
     const cpp = generateCpp(withLed, rewired, {}, { displayDocuments: documents })
-    expect(cpp).toMatch(/bool n_touch_widget_[a-z0-9_]+_out = false;/)
+    // At rest is a constant false, folded into the Not that reads it.
+    expect(cpp).not.toMatch(/n_touch_widget_[a-z0-9_]+_out/)
     expect(cpp).not.toContain('_cd_screen')
   })
 

@@ -198,7 +198,7 @@ describe('the emitted sketch', () => {
     expect(dimmed).toContain('constrain(0.500f, 0.0f, 1.0f)')
     expect(dimmed).toContain('nscale8_video(_outLevel_out)')
     expect(generateCpp([white, output({ enabled: false })], [frameEdge]))
-      .toContain('if (!(false)) fill_solid(leds, NUM_LEDS, CRGB::Black);')
+      .toMatch(/\n\s*fill_solid\(leds, NUM_LEDS, CRGB::Black\);/)
   })
 
   // A wire speaks for the field beside it, so the literal must not survive

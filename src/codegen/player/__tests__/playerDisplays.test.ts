@@ -54,7 +54,7 @@ describe('displays in the player sketch', () => {
     const sketch = generatePlayerSketch({}, undefined, { displays })
     expect(sketch).toContain('static OledPanel _oled_oled;')
     expect(sketch).toContain('_oledBeginSpi(_oled_oled, OLED_SH1106, 1, 2, 5, 6, 7, 128, 64, 2, 0xa0, 0xc0);')
-    expect(sketch).toContain('_oledFlush(_oled_oled,')
+    expect(sketch).toContain('_oledFlush(_oled_oled')
   })
 
   it('shows boot identity and keeps real player failures on screen until recovery', () => {

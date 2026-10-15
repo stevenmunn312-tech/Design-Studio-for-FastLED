@@ -227,6 +227,22 @@ sketch still carries only what the graph reaches.
   cannot prove pure (`pureFunctions`: no `static`, no writes outside plain
   locals, only pure calls) keeps running as `(void)(...)`. Struct members are
   never touched, because positional initialisers depend on layout.
+- `foldConstants` (`cppSpecialize.ts`) removes what a value fixed at
+  generation decides. A `bool` that nothing changes, or that is only ever
+  stored the value it starts with, becomes its literal. A by-value integral or
+  `bool` parameter that every call passes the same literal for is dropped and
+  read as that literal, but only when that removes an `if`, `switch` or `case`,
+  directly or in a sketch function it is passed on to. A literal that only
+  feeds arithmetic, or a clamp ternary, stays an argument, so call sites keep
+  their meaning. Then literal conditions, ternaries, `switch`es and
+  `#define NAME <number>` comparisons fold, statements after a block-level
+  `return`/`break` go, and an `if` with an empty body and a pure condition
+  goes. `finishCpp` prunes first, then alternates folding and pruning until
+  neither changes the sketch.
+- Fold traps: a variable passed whole to a function whose parameter is a
+  reference (`bool &full`) or unknown (a library or method call) may be
+  written, so it is never folded. A `switch` arm that falls through, or one
+  with named `case` labels, is never taken as its own body.
 - `pruneCpp` (`src/codegen/cppReachability.ts`) removes file-scope units
   unreachable from `setup`, `loop` and library callbacks, together with the
   comment lines directly above them. Library configuration macros
@@ -235,8 +251,15 @@ sketch still carries only what the graph reaches.
   `noexcept` once merged a function into its neighbour, so neither was pruned.
   A test that asserts an emitter's output for an unwired port now sees
   nothing. Wire the port to a reader, such as the LED output's `brightness` or
-  `enabled`. `deferPruning` is for pattern extraction into shows, and for a
-  test of raw emitter text.
+  `enabled`. A test of an unwired trigger now sees its branch gone: wire a
+  live source (a Button Input or LFO) to test the branch, and assert its
+  absence when unwired. `deferPruning` is for pattern extraction into shows,
+  and for a test of raw emitter text such as an id a helper is called with.
+- Gate: `deadCodeCorpus.test.ts` holds every live example and the player and
+  show variants (`__tests__/deadCodeCorpus.ts`) at the pass's fixed point. The
+  same corpus compiles with
+  `python scripts/compile-fixtures/compile-matrix.py --only dead-code/`
+  (about 250 sketches, arduino-cli, one at a time).
 
 ## Instrument sketches
 
