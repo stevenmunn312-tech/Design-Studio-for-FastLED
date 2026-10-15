@@ -628,6 +628,46 @@ The scratch corpus and checker are regenerable under `tmp/deadcode/`.
   - Telemetry's `#if defined(ESP32)` checks run for a family already known.
   - `LINE_IN_MCLK` is unused in microphone sketches.
 
+## D-10 · Render-buffer RAM, v1 part
+
+From the 2026-10-15 measurement of every bundled pattern compiled as SD-player
+collections on the ESP32-S3 (16×16). RAM, not flash, is the limit: flash sat at
+35–41% of the 3 MB app slot, while 40 audio patterns overflowed `dram0_0_seg`
+by 3,272 bytes. Each colour buffer is `3 × NUM_LEDS` bytes, so the cost grows
+with the matrix: the same 90 buffers are about 1.1 MB at 64×64.
+
+- [ ] **D-10.1 · Pool scratch buffers across collected patterns.**
+  `buildPatternRenderers` gives every pattern its own file-scope
+  `pN_buf_*`/`pN_field_*` set, yet `renderPattern` runs one pattern at a time,
+  even through a transition (outgoing into `showA`, then incoming into `showB`).
+  Scratch therefore needs only the largest pattern's set, not the sum:
+
+  | Sketch | Patterns | Buffers now | Largest pattern |
+  |---|---|---|---|
+  | bundled 1–40 | 40 | 116 CRGB + 11 float, 100 KB | 7 + 3 |
+  | bundled 41–60 | 20 | 90 + 4, 73 KB | 11 + 4 |
+  | bundled 61–80 | 20 | 101 + 14, 92 KB | 8 + 7 |
+  | bundled 81–114 | 34 | 92 + 7, 78 KB | 9 + 4 |
+
+  A shared pool takes 41–60 from 73 KB of buffers to about 13 KB (RAM 51% to
+  roughly 33%). It applies to the slideshow and both players, which share the
+  renderer builder.
+  - First, a test that every node whose buffer carries pixels between frames
+    is in `persistentFrameStateBufs` (or keeps that state in a `static`). Those
+    stay per-pattern; `nativeMultiRender` already shares buffers on this rule.
+    An unmarked node would fail as a silent visual glitch, not a compile error.
+  - PSRAM allocation (`psramBufferDecl`, `_psAlloc`) must size the pool, not
+    each pattern.
+  - Proof: the bundled-collection compiles above, plus a preview-versus-firmware
+    check on Trails, Frame Feedback, Reaction Diffusion and Fluid across a
+    transition.
+- [ ] **D-10.2 · Reuse buffers within one graph.** The largest bundled pattern
+  holds 11 colour buffers, and those sketches carry 59–93 full-frame `memmove`s,
+  many of them a node seeding its buffer from its source before modifying it.
+  Liveness-based slot assignment (a node whose source has no other reader
+  works in place) cuts both buffers and copies in normal sketches as well as
+  shows. Worth most on large matrices; do after D-10.1.
+
 ## 5. Release track (in order)
 
 - [x] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
