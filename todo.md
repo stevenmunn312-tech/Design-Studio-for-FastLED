@@ -574,7 +574,7 @@ The corpus is `src/codegen/__tests__/deadCodeCorpus.ts`.
 
   Turn the checker into a test over the live-example corpus so dead code
   cannot come back. Done as the pruning pass plus `deadCodeCorpus.test.ts`.
-- [ ] **D-09.2 · Split Music Player and performance player emission.**
+- [x] **D-09.2 · Split Music Player and performance player emission.**
   `playerSketchGenerator` serves both through runtime flags. In a Music Player
   sketch, this is still emitted behind `GENERIC_PLAYER`:
   - the whole `.show` runtime (`loadShowFile`, `applyEvent`, `ShowEvent`,
@@ -591,7 +591,7 @@ The corpus is `src/codegen/__tests__/deadCodeCorpus.ts`.
     every other arm when the style is fixed;
   - `ControlButton`/`ControlEncoder` when controls route through the graph;
   - `playbackReady` with no display reading it.
-- [ ] **D-09.3 · Machinery a small or still show cannot use.**
+- [x] **D-09.3 · Machinery a small or still show cannot use.**
   - A one-pattern Music Player still carries the rotation block, the
     transition stack and `showA`/`showB`, about 25% of the sketch.
   - A slideshow with transition length 0 keeps the transition branch and
@@ -602,7 +602,7 @@ The corpus is `src/codegen/__tests__/deadCodeCorpus.ts`.
   - The `renderPattern` `default:` arm is unreachable.
   - A VU-only Music Player with no LED output keeps the matrix pipeline and
     its buffers.
-- [ ] **D-09.4 · Player data nobody reads.**
+- [x] **D-09.4 · Player data nobody reads.**
   - Group-input roles no pattern takes (the `energy`/`speed`/`palette` globals,
     arms and arguments; `CMD_SET_ENERGY`).
   - The baked audio envelope when no pattern listens.
@@ -632,7 +632,12 @@ The corpus is `src/codegen/__tests__/deadCodeCorpus.ts`.
   - `WIDTH`/`HEIGHT`/`NUM_LEDS` in a screen-only sketch.
   - `paldef_rainbow` from Boids in solid mode and from the PaletteSelector
     comment.
-- [ ] **D-09.6 · Board-specific branches for a known board.**
+
+  Done except one: Fluid's `visc`/`diff` blocks stay when both are 0, because
+  `_fluidStep` reassigns those float parameters, so the fold cannot see
+  through them. Fix in `fluidHelperCpp.ts` (clamp into new locals, branch on
+  the parameter) together with float-parameter folding, then tick this.
+- [x] **D-09.6 · Board-specific branches for a known board.**
   - `networkIncludesCpp` and the Wi-Fi bootstrap emit the ESP32, ESP8266 and
     unsupported branches even with the Board selected.
   - IR always emits the 180-line ESP32-S3 RMT receiver inside an `#if`, and

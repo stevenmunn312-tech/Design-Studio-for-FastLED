@@ -18,6 +18,9 @@ type Truth = boolean | undefined
  * inferred from the board family. */
 export function specializeCpp(source: string, facts: Record<string, boolean> = {}): string {
   const known = new Map(Object.entries(facts))
+  // The sketch's own #defines: a number, or null for one with another value.
+  const defines = new Map<string, number | null>()
+  const number = (text: string) => /^-?\d+$/.test(text) ? Number(text) : defines.get(text) ?? undefined
   const truth = (expression: string): Truth => {
     const text = expression.replace(/\/\/[^]*$/, '').trim()
     if (text.startsWith('(') && text.endsWith(')')) {
@@ -43,18 +46,32 @@ export function specializeCpp(source: string, facts: Record<string, boolean> = {
         }
       }
     }
+    const comparison = text.match(/^(\w+)\s*(==|!=|<=|>=|<|>)\s*(\w+)$/)
+    if (comparison) {
+      const left = number(comparison[1]), right = number(comparison[3])
+      if (left === undefined || right === undefined) return undefined
+      return { '==': left === right, '!=': left !== right, '<=': left <= right, '>=': left >= right, '<': left < right, '>': left > right }[comparison[2]]
+    }
     if (text.startsWith('!')) { const value = truth(text.slice(1)); return value === undefined ? undefined : !value }
-    if (/^\d+$/.test(text)) return Number(text) !== 0
     const defined = text.match(/^defined\s*(?:\(\s*(\w+)\s*\)|(\w+))$/)
-    return known.get(defined ? defined[1] ?? defined[2] : text)
+    if (defined) {
+      const name = defined[1] ?? defined[2]
+      return known.has(name) ? known.get(name) : defines.has(name) ? true : undefined
+    }
+    if (known.has(text)) return known.get(text)
+    const value = number(text)
+    return value === undefined ? undefined : value !== 0
   }
   const lines = source.split('\n')
   const process = (start: number, end: number): string[] => {
     const out: string[] = []
     for (let i = start; i < end; i++) {
       const line = lines[i]
-      const define = line.match(/^\s*#define\s+(\w+)(?:\s+([01]))?\s*$/)
-      if (define) known.set(define[1], define[2] !== '0')
+      const define = line.match(/^\s*#define\s+(\w+)(\()?(.*)$/)
+      if (define) {
+        const value = define[3].replace(/\/\/.*$/, '').trim()
+        defines.set(define[1], !define[2] && /^-?\d+$/.test(value) ? Number(value) : value ? null : 1)
+      }
       const open = line.match(/^\s*#(if|ifdef|ifndef)\s+(.+)$/)
       if (!open) { out.push(line); continue }
       const condition = open[1] === 'if' ? open[2] : `${open[1] === 'ifndef' ? '!' : ''}defined(${open[2].trim()})`
@@ -75,12 +92,14 @@ export function specializeCpp(source: string, facts: Record<string, boolean> = {
         if (value) { chosen = n; break }
       }
       if (uncertain) {
-        const saved = new Map(known)
+        // A #define inside an arm that may not be compiled is not promoted.
+        const saved = new Map(defines)
+        const restore = () => { defines.clear(); for (const [name, value] of saved) defines.set(name, value) }
         for (let n = 0; n < arms.length; n++) {
-          known.clear(); for (const [name, value] of saved) known.set(name, value)
+          restore()
           out.push(lines[arms[n].line], ...process(arms[n].line + 1, arms[n + 1]?.line ?? close))
         }
-        known.clear(); for (const [name, value] of saved) known.set(name, value)
+        restore()
         out.push(lines[close])
       } else if (chosen >= 0) out.push(...process(arms[chosen].line + 1, arms[chosen + 1]?.line ?? close))
       i = close

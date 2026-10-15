@@ -517,10 +517,10 @@ describe('generateCpp', () => {
     const cpp = generateCpp([bank, bm, sc, outputNode], edges)
 
     expect(cpp).toContain('pinMode(12, INPUT_PULLUP);')
-    expect(cpp).toContain('pinMode(13, INPUT);')
     expect(cpp).toContain('digitalRead(12) == LOW')
-    // Next is not wired, so its pin is never read.
+    // Next is not wired, so its pin is never read or configured.
     expect(cpp).not.toContain('digitalRead(13)')
+    expect(cpp).not.toContain('pinMode(13,')
   })
 
   it('never presses a Button Bank button that has no GPIO yet', () => {
@@ -539,7 +539,7 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('digitalRead(0)')
   })
 
-  it('emits setup() pinModes for all three EncoderInput pins, honouring pullup', () => {
+  it('emits setup() pinModes for the EncoderInput pins it reads, honouring pullup', () => {
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 18, pinB: 19, pinSW: 21, pullup: true })
     const bm = node('bm', 'BrightnessMod', 'composite', {})
     const sc = node('sc', 'SolidColor', 'pattern', {})
@@ -551,7 +551,9 @@ describe('generateCpp', () => {
     const cpp = generateCpp([enc, bm, sc, outputNode], edges)
     const setupIdx = cpp.indexOf('void setup()')
     const loopIdx = cpp.indexOf('void loop()')
-    for (const pin of [18, 19, 21]) {
+    // Only the position is wired, so the switch pin is neither read nor configured.
+    expect(cpp).not.toContain('pinMode(21,')
+    for (const pin of [18, 19]) {
       const pinMode = cpp.indexOf(`pinMode(${pin}, INPUT_PULLUP);`)
       expect(pinMode).toBeGreaterThan(setupIdx)
       expect(pinMode).toBeLessThan(loopIdx)
@@ -559,7 +561,7 @@ describe('generateCpp', () => {
 
     const noPull = node('enc', 'EncoderInput', 'input', { pinA: 18, pinB: 19, pinSW: 21, pullup: false })
     const cpp2 = generateCpp([noPull, bm, sc, outputNode], edges)
-    for (const pin of [18, 19, 21]) expect(cpp2).toContain(`pinMode(${pin}, INPUT);`)
+    for (const pin of [18, 19]) expect(cpp2).toContain(`pinMode(${pin}, INPUT);`)
   })
 
   it('initializes active-low relay channels inactive before enabling their GPIOs', () => {
@@ -3918,8 +3920,8 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('rightSquares += (uint64_t)((int64_t)right * right);')
     expect(cpp).toContain('_leftLevel = normalizedLevel(leftSquares, frames);')
     expect(cpp).toContain('_rightLevel = normalizedLevel(rightSquares, frames);')
-    expect(cpp).toContain('_audioLeftLevel = _lineInput ? _lineInput->leftLevel() : 0.0f;')
-    expect(cpp).toContain('_audioRightLevel = _lineInput ? _lineInput->rightLevel() : 0.0f;')
+    // Only a VU meter or the debug line reads the side levels.
+    expect(cpp).not.toContain('_audioLeftLevel')
     expect(cpp).not.toContain('CreateInmp441')
   })
 
@@ -3938,12 +3940,14 @@ describe('generateCpp — INMP441 audio engine', () => {
       ])
     }
 
-    expect(lineGraph('Left')).toContain('#define LINE_IN_CHANNEL 0')
+    // The channel is known at generation, so only its #if arm is emitted.
     expect(lineGraph('Left')).toContain('_rightLevel = _leftLevel;')
-    expect(lineGraph('Right')).toContain('#define LINE_IN_CHANNEL 1')
+    expect(lineGraph('Left')).not.toContain('LINE_IN_CHANNEL')
     expect(lineGraph('Right')).toContain('_leftLevel = _rightLevel;')
+    expect(lineGraph('Right')).not.toContain('_rightLevel = _leftLevel;')
     const both = lineGraph('Both')
-    expect(both).toContain('#define LINE_IN_CHANNEL 2')
+    expect(both).not.toContain('_rightLevel = _leftLevel;')
+    expect(both).not.toContain('_leftLevel = _rightLevel;')
     expect(both.indexOf('leftSquares +=')).toBeLessThan(both.indexOf('_leftLevel = normalizedLevel(leftSquares, frames);'))
     expect(both.indexOf('rightSquares +=')).toBeLessThan(both.indexOf('_rightLevel = normalizedLevel(rightSquares, frames);'))
   })
@@ -3980,7 +3984,8 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_audioProcessor->setGain(MIC_GAIN);')
     expect(cpp).toContain('_audioProcessor->getBassLevel()')
     expect(cpp).toContain('_audioProcessor->getEqBin(i >> 1)')
-    expect(cpp).toContain('_audioLeftLevel = _audioRightLevel = max(_audioBass, max(_audioMids, _audioTreble));')
+    // Nothing here reads the side levels, so they are not computed.
+    expect(cpp).not.toContain('_audioLeftLevel = _audioRightLevel')
     expect(cpp).toContain('void setupAudio()')
     expect(cpp).toContain('void updateAudio()')
     // wired into the lifecycle
@@ -3997,12 +4002,13 @@ describe('generateCpp — INMP441 audio engine', () => {
       edge('e2', 'fft', 'bp', 'bass', 'bass'),
       edge('e3', 'bp', 'out', 'frame', 'frame'),
     ])
-    expect(on).toContain('#define MIC_DEBUG 1')
+    // The setting is known at generation: its #if arm is kept, the macro is not needed.
+    expect(on).not.toContain('#if MIC_DEBUG')
     expect(on).toContain('Serial.begin(115200);')
     expect(on).toContain('getSignalConditionerStats()')
     expect(on).toContain('Serial.printf("fastled audio bass=%.2f mids=%.2f treble=%.2f beat=%d bpm=%.0f gate=%d dc=%ld spikes=%lu\\n"')
-    // Off by default — the print block is still emitted but compiled out.
-    expect(micGraph()).toContain('#define MIC_DEBUG 0')
+    // Off by default, so the print block is not emitted at all.
+    expect(micGraph()).not.toContain('getSignalConditionerStats()')
   })
 
   it('FFTAnalyzer resamples the live spectrum into bands when a mic is present', () => {
@@ -4283,8 +4289,10 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_audioProcessor->onBuildupEnd([] { _audioBuilding = false; });')
     expect(cpp).toContain('_audioProcessor->onDrop([] { _audioDropCount = _audioDropCount + 1; });')
     expect(cpp).toContain('_audioProcessor->onTempoStable([] { _audioTempoStable = true; });')
-    expect(cpp).toContain('_audioMeasurePhase = _audioProcessor->getMeasurePhase();')
-    expect(cpp).toContain('_audioBeatNumber = _audioProcessor->getCurrentBeatNumber();')
+    // Nothing reads the measure phase, so it is not fetched.
+    expect(cpp).not.toContain('_audioMeasurePhase')
+    // Fetched only for an output something reads, or the debug line.
+    expect(cpp).not.toContain('_audioBeatNumber')
     expect(cpp).toContain('_audioDropImpact = _audioProcessor->getDropImpact();')
     expect(cpp).toContain('_audioValence = _audioProcessor->getMoodValence();')
     expect(cpp).toContain('_audioDrop = dropCount != _audioDropSeen;')
@@ -4383,7 +4391,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   })
 
   it('prints the Song Structure, Pitch and Waveform detectors on the MIC_DEBUG line only when present', () => {
-    const mic = node('mic', 'MicInput', 'hardware', {})
+    const mic = node('mic', 'MicInput', 'hardware', { serialDebug: true })
     const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
     const ss = node('ss', 'SongStructure', 'audio', {})
     const pd = node('pd', 'PitchDetect', 'audio', {})

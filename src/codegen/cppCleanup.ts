@@ -217,5 +217,23 @@ export function finishCpp(source: string): string {
   if (!/\b(?:configTime|configTzTime|time_t|tm|gmtime|localtime|mktime|time)\b/.test(cppCode(source.replace(/#include <time.h>/g, '')))) {
     source = source.replace(/^#include <time.h>\r?\n/gm, '')
   }
-  return withoutBlankRuns(source)
+  return withoutBlankRuns(withoutUnreadInputPins(source))
+}
+
+/**
+ * An input's `pinMode` outlives the read that pruning removed. Drop it only
+ * when its pin number is written nowhere else in the code, so a pin read
+ * through a table, a helper's argument or an interrupt keeps its mode. Data
+ * tables in PROGMEM (the wiring map, fonts) are numbers, not pins.
+ */
+function withoutUnreadInputPins(source: string): string {
+  const code = cppCode(source).replace(/PROGMEM[^;]*;/g, (table) => ' '.repeat(table.length))
+  const edits: [number, number][] = []
+  for (const mode of code.matchAll(/pinMode\(\s*(\d+)\s*,\s*INPUT(?:_PULLUP|_PULLDOWN)?\s*\)\s*;/g)) {
+    const others = [...code.matchAll(new RegExp(`(?<![\\w.])${mode[1]}(?![\\w.])`, 'g'))]
+      .filter((use) => use.index! < mode.index! || use.index! >= mode.index! + mode[0].length)
+    if (!others.length) edits.push(withAttachedComments(source, mode.index!, mode.index! + mode[0].length))
+  }
+  for (const [from, to] of edits.reverse()) source = source.slice(0, from) + source.slice(to)
+  return source
 }

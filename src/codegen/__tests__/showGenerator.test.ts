@@ -683,8 +683,8 @@ describe('showGenerator', () => {
       expect(cpp).toContain('#define LINE_IN_MCLK 15')
       expect(cpp).toContain('_lineInput = fl::make_shared<StudioPcm1802Input>();')
       expect(cpp).toContain('_audioProcessor = FastLED.add(_lineInput);')
-      expect(cpp).toContain('_audioLeftLevel = _lineInput ? _lineInput->leftLevel() : 0.0f;')
-      expect(cpp).toContain('_audioRightLevel = _lineInput ? _lineInput->rightLevel() : 0.0f;')
+      // Nothing in this show reads the side levels.
+      expect(cpp).not.toContain('_audioLeftLevel')
       expect(cpp).toContain('_sum += _audioSpectrum[_i];')
     })
 

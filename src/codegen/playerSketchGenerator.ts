@@ -2038,9 +2038,9 @@ ${hasControls ? `${controlPinSetup}\n  applyPlayerBrightness();` : ''}
 ${displaySetupCpp ? displaySetupCpp + '\n' : ''}
 ${playerEarlyStagesCpp ? playerEarlyStagesCpp + '\n' : ''}
 ${playerServicesStageCpp ? playerServicesStageCpp + '\n' : ''}
-${genericCollection && !sequentialPatterns ? `  patternId = (uint8_t)random(${patternCount});
+${genericCollection && !sequentialPatterns ? `${patternCount > 1 ? `  patternId = (uint8_t)random(${patternCount});
   prevPatternId = patternId;
-${hasPatternSelection ? `  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, patternId);\n` : ''}` : ''}
+` : ''}${hasPatternSelection ? `  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, patternId);\n` : ''}` : ''}
 
   // The protocol's own wording, not a human sentence: the host reads this
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
