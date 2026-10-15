@@ -17,7 +17,7 @@ fbuild legs stay in the plan for when that engine is tested again.
 
 To stop early, create a file named STOP in the run's output folder. The run
 finishes the current compile and stops before the next one. To resume, rerun the
-same filters with --resume <that run's folder>: a leg is skipped only when it
+same filters with --resume <that run's folder> (repeatable): a leg is skipped only when it
 passed there and its regenerated sketch is byte-for-byte the one that passed,
 so legs added since, or changed by a commit since, still compile.
 
@@ -351,8 +351,9 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="print the plan and exit")
     parser.add_argument("--dry-run", action="store_true", help="print each command without generating or compiling")
     parser.add_argument("--no-generate", action="store_true", help="compile the fixtures already on disk")
-    parser.add_argument("--resume", type=Path, metavar="RUN_DIR",
-                        help="skip legs that passed in that run with an identical sketch (resume after STOP)")
+    parser.add_argument("--resume", type=Path, action="append", metavar="RUN_DIR",
+                        help="skip legs that passed in that run with an identical sketch (resume after STOP);"
+                             " repeatable, later runs winning")
     parser.add_argument("--low-priority", action="store_true",
                         help="run at below-normal priority on Windows; spawned compilers inherit it")
     args = parser.parse_args()
@@ -417,15 +418,18 @@ def main() -> int:
                     write_summary(out, header, rows)
                     return 1
 
-        passed = resumable_passes(args.resume) if args.resume else {}
+        resumed: dict[str, dict] = {}
+        for run_dir in args.resume or []:
+            resumed.update(resumable_passes(run_dir))
         if args.resume:
-            say(f"Resuming {display_path(args.resume)}: {len(passed)} passed legs on record")
+            say(f"Resuming {', '.join(display_path(run_dir) for run_dir in args.resume)}: "
+                f"{len(resumed)} passed legs on record")
         for index, leg in enumerate(legs, 1):
-            carried = passed.get(leg.name)
+            carried = resumed.get(leg.name)
             if carried and carried["source_sha256"] == sketch_sha256(leg.sketch):
                 # Carried into this summary so it reads as the whole corpus.
                 rows.append({**carried, "index": index,
-                             "note": f"carried from {display_path(args.resume)}; sketch unchanged"})
+                             "note": "carried from a resumed run; sketch unchanged"})
                 say(f"[{index}/{len(legs)}] {leg.name} [{leg.engine}] skipped: passed in the resumed run, sketch unchanged")
                 continue
             if (out / "STOP").exists():
