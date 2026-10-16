@@ -1,18 +1,32 @@
-.tabs {
+.bar {
   display: flex;
   flex: 0 0 auto;
-  gap: 4px;
-  padding: 6px 10px 0;
+  padding: 5px 10px;
   border-bottom: 1px solid var(--divider);
   background: var(--bg-panel);
 }
 
+/*
+ * A recessed pill holding the tabs, with a faint outer ring so it reads as a
+ * single control sitting in the bar rather than four loose labels.
+ */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 14px;
+  background: var(--bg-primary);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--border-glow) 45%, transparent),
+    inset 0 1px 3px var(--chrome-shadow);
+}
+
 .tab {
   position: relative;
-  padding: 6px 14px 7px;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  padding: 5px 16px 8px;
+  border: none;
+  border-radius: 10px;
   background: transparent;
   color: var(--text-secondary);
   font-family: inherit;
@@ -20,16 +34,38 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
+  transition: background var(--anim-hover), color var(--anim-hover);
 }
 
 .tab:hover {
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
   color: var(--text-primary);
 }
 
-.tabActive {
-  border-color: color-mix(in srgb, var(--border-glow) 80%, transparent);
-  background: var(--bg-primary);
+.tab:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 1px;
+}
+
+.tabActive,
+.tabActive:hover {
+  background: color-mix(in srgb, var(--text-primary) 11%, var(--bg-primary));
   color: var(--text-primary);
+  box-shadow: 0 2px 6px var(--active-shadow);
+}
+
+/* The short accent bar under the selected tab. */
+.tabActive::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent-color);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent-color) 60%, transparent);
+  transform: translateX(-50%);
 }
 
 /*

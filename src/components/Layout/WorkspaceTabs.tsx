@@ -58,23 +58,25 @@ export default function WorkspaceTabs() {
   const flash = useChangedElsewhere(workspaceMode)
 
   return (
-    <div className={styles.tabs} role="tablist" aria-label="Workspace">
-      {TABS.map(({ mode, label }) => {
-        const active = workspaceMode === mode
-        return (
-          <button
-            key={mode}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            className={`${styles.tab} ${active ? styles.tabActive : ''} ${flash === mode ? styles.tabFlash : ''}`}
-            onClick={() => setWorkspaceMode(mode)}
-          >
-            {label}
-            {flash === mode && <span className={styles.srOnly}> — updated</span>}
-          </button>
-        )
-      })}
+    <div className={styles.bar}>
+      <div className={styles.tabs} role="tablist" aria-label="Workspace">
+        {TABS.map(({ mode, label }) => {
+          const active = workspaceMode === mode
+          return (
+            <button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`${styles.tab} ${active ? styles.tabActive : ''} ${flash === mode ? styles.tabFlash : ''}`}
+              onClick={() => setWorkspaceMode(mode)}
+            >
+              {label}
+              {flash === mode && <span className={styles.srOnly}> — updated</span>}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
