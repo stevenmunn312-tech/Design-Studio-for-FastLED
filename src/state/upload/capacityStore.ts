@@ -59,6 +59,11 @@ export type CapacityStatus =
  *  SD libraries plus a buffer per pattern, and is always the larger binary. */
 export type CapacitySubject = 'sketch' | 'player'
 
+/** `generating` — writing the sketch in the browser; `compiling` — the helper
+ *  is building it; `waiting` — the helper was busy with another build and the
+ *  check will ask again shortly. */
+export type CapacityCheckPhase = 'generating' | 'compiling' | 'waiting'
+
 /** Everything needed to run a check, published by `CapacityWatcher` as the
  *  graph and board change. Held in the store so the surfaces that offer the
  *  check — a chip under the preview, a button in the deploy popup — can ask
@@ -110,6 +115,16 @@ interface CapacityState {
   subject: CapacitySubject
   /** What a check would build right now, or `null` before anything is known. */
   target: CapacityTarget | null
+  /** When the current (or most recent) check was pressed. One clock for every
+   *  surface that shows the elapsed time, so the status bar and the Output tab
+   *  cannot disagree, and a remount does not restart the count. */
+  checkStartedAt: number | null
+  /** What a running check is doing, for the Output tab to say in words. A
+   *  first toolchain build takes minutes and the helper streams nothing back,
+   *  so naming the step is the only progress there is. `null` when idle. */
+  checkPhase: CapacityCheckPhase | null
+  /** How long the most recent completed check took, end to end. */
+  lastCheckMs: number | null
 
   /** Publish what would be built now. Cheap and side-effect-free — it never
    *  starts a build, it only decides whether an existing reading still
@@ -176,6 +191,9 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
   previousResult: null,
   subject: 'sketch',
   target: null,
+  checkStartedAt: null,
+  checkPhase: null,
+  lastCheckMs: null,
 
   setTarget: (next) => {
     const key = targetKey(next)
@@ -209,12 +227,12 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
         ? 'preparation-failed'
         : next.preparing ? 'preparing'
           : next.blockedByGraph ? 'blocked-by-graph' : 'nothing-to-measure'
-      set({ target, status, result: null, previousResult: null })
+      set({ target, status, result: null, previousResult: null, checkPhase: null })
       return
     }
     if (!next.toolchainReady) {
       cancelInFlight()
-      set({ target, status: 'toolchain-missing' })
+      set({ target, status: 'toolchain-missing', checkPhase: null })
       return
     }
     set({
@@ -242,6 +260,8 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     let code: string | null = null
 
     const seq = ++checkSeq
+    const startedAt = Date.now()
+    set({ checkStartedAt: startedAt, lastCheckMs: null })
     // 'measured' only while the reading still describes the live target; a
     // target that moved during the compile makes the very same answer stale.
     const landed = () => (get().target?.key === key ? 'measured' as const : 'stale' as const)
@@ -259,13 +279,14 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
           status: !s.result || measuredKey === null
             ? 'idle'
             : measuredKey === s.target?.key ? 'measured' : 'stale',
+          checkPhase: null,
         }))
         return
       }
       const controller = new AbortController()
       inFlightController = controller
       inFlightKey = key
-      set({ status: 'checking' })
+      set({ status: 'checking', checkPhase: code === null ? 'generating' : 'compiling' })
       // Generation is synchronous and can take seconds, so it waits one task
       // for the 'checking' state to paint before it starts.
       const sketch = code !== null ? Promise.resolve(code)
@@ -273,6 +294,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       sketch
         .then((text) => {
           if (controller.signal.aborted || superseded()) throw controller.signal.reason
+          set({ checkPhase: 'compiling' })
           return compileCheck(text, fqbn, controller.signal, flashMb, usbCdcOnBoot)
         })
         .then((res) => {
@@ -281,6 +303,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
             // Nothing was measured — the helper was serializing this behind
             // another build, which during an Upload is the normal case.
             attempt += 1
+            set({ checkPhase: 'waiting' })
             retryTimer = setTimeout(run, BUSY_RETRY_MS)
             return
           }
@@ -290,6 +313,8 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
           appliedSeq = seq
           set((s) => ({
             status: landed(),
+            checkPhase: null,
+            lastCheckMs: Date.now() - startedAt,
             result: res,
             previousResult: s.result && s.result.target === res.target ? s.result : s.previousResult,
             subject: target.subject,
@@ -303,6 +328,8 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
           appliedSeq = seq
           set({
             status: landed(),
+            checkPhase: null,
+            lastCheckMs: Date.now() - startedAt,
             result: {
               ok: false, overflow: false, target: fqbn, flash: null, ram: null,
               // No sketch means the failure was ours, not the helper's.
@@ -321,6 +348,9 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     cancelInFlight()
     measuredKey = null
     appliedSeq = checkSeq
-    set({ status: 'idle', result: null, previousResult: null, subject: 'sketch', target: null })
+    set({
+      status: 'idle', result: null, previousResult: null, subject: 'sketch', target: null,
+      checkStartedAt: null, checkPhase: null, lastCheckMs: null,
+    })
   },
 }))

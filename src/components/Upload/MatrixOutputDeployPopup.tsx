@@ -18,7 +18,8 @@ import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapab
 import { generateWiringDiagnosticSketch } from '../../codegen/sketches/wiringDiagnosticGenerator'
 import { analysedShows, readySongCount, buildShowPayload, buildShowPlayerForMeasurement, showPackagingIssues } from '../../utils/showUpload'
 import { buildGraphDiagnostics, findDeployBlockingErrors, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
-import { summarizeCapacity } from '../../utils/capacityFormat'
+import { formatElapsed, summarizeCapacity } from '../../utils/capacityFormat'
+import { useElapsedSeconds } from '../../hooks/useElapsedSeconds'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import { useCustomDisplayAssets } from '../../hooks/useCustomDisplayAssets'
@@ -211,13 +212,17 @@ export default function MatrixOutputDeployPopup({
   // never blocked just because a check hasn't completed yet.
   const {
     status: capacityStatus, result: capacityResult, subject: capacitySubject,
-    target: capacityTarget, check: runCapacityCheck,
+    target: capacityTarget, check: runCapacityCheck, checkStartedAt: capacityCheckStartedAt,
   } = useCapacityStore()
   const capacitySummary = useMemo(
     () => summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError),
     [board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError],
   )
   const canCheckCapacity = !!capacityTarget?.generate && capacityTarget.toolchainReady && capacityStatus !== 'checking'
+  const checkElapsed = useElapsedSeconds(capacityCheckStartedAt, capacityStatus === 'checking')
+  const capacityCheckLabel = capacityStatus === 'checking' ? `Checking · ${formatElapsed(checkElapsed)}`
+    : capacityStatus === 'measured' ? 'Recheck'
+    : 'Check capacity'
   // Only a *current* measurement blocks. 'measured' means the reading was taken
   // against the graph and board as they stand; a 'stale' overflow describes a
   // design the user may already have shrunk, and blocking on it would trap them
@@ -657,25 +662,35 @@ export default function MatrixOutputDeployPopup({
            * only when asked — see capacityStore. This is the deliberate place
            * to ask: you are about to flash, which is exactly when "does it
            * fit" is worth a real build. */
-          <button
-            type="button"
-            className={`${styles.capacityLine} ${styles.capacityButton} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.tone]]}`}
-            onClick={runCapacityCheck}
-            disabled={!canCheckCapacity}
-            title={`${capacitySummary.line}\n\n${
-              capacityResult && !capacityResult.ok && capacityResult.log
-                ? `Controller-capacity check failed:\n${capacityResult.log.slice(-1500)}`
-                : 'Compile this design against the selected board to measure flash/SRAM. Nothing is flashed.'
-            }`}
-          >
-            {capacitySummary.line}
-            {canCheckCapacity && (
-              <span className={styles.capacityAction}>{capacityStatus === 'measured' ? ' · recheck' : ' · check'}</span>
+          <div className={styles.capacityLine}>
+            <span
+              className={`${styles.capacityText} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.tone]]}`}
+              title={capacityResult && !capacityResult.ok && capacityResult.log
+                ? `${capacitySummary.line}\n\nController-capacity check failed:\n${capacityResult.log.slice(-1500)}`
+                : capacitySummary.line}
+            >
+              {capacitySummary.line}
+            </span>
+            {(canCheckCapacity || capacityStatus === 'checking') && (
+              <button
+                type="button"
+                className={styles.capacityCheckBtn}
+                onClick={runCapacityCheck}
+                disabled={!canCheckCapacity}
+                title="Compile this design against the selected board to measure flash/SRAM. Nothing is flashed. Progress shows in Output."
+              >
+                {capacityCheckLabel}
+              </button>
             )}
-          </button>
+          </div>
         )}
 
-        <ReadinessLayers layers={layers} />
+        <ReadinessLayers
+          layers={layers}
+          actions={canCheckCapacity || capacityStatus === 'checking'
+            ? { capacity: { label: capacityCheckLabel, run: runCapacityCheck, disabled: !canCheckCapacity } }
+            : undefined}
+        />
 
         <button
           className={`${styles.wizardButtonBase} ${styles.readinessToggle}`}

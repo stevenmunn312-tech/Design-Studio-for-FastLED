@@ -15,7 +15,7 @@ describe('OutputConsole', () => {
       value: { writeText },
     })
     // No capacity reading by default — only the tests that care set one.
-    useCapacityStore.setState({ status: 'checking', result: null })
+    useCapacityStore.setState({ status: 'idle', result: null, checkPhase: null, checkStartedAt: null, lastCheckMs: null })
     useUploadStore.setState({
       log: 'compile line\nupload line\n',
       serialLog: '',
@@ -68,6 +68,31 @@ describe('OutputConsole', () => {
     const { queryByText } = render(<OutputConsole />)
 
     expect(queryByText(/Last capacity check/)).toBeNull()
+  })
+
+  it('says what a running capacity check is doing, and for how long', () => {
+    // A first build runs minutes with nothing streamed back; this panel used
+    // to sit on "No output yet" for all of it.
+    useUploadStore.setState({ log: '' })
+    useCapacityStore.setState({ status: 'checking', checkPhase: 'compiling', checkStartedAt: Date.now() - 75_000 })
+    const { getByRole, getByText, queryByText } = render(<OutputConsole />)
+
+    expect(getByRole('status', { name: /Checking capacity, 1m 15s elapsed/ })).toBeTruthy()
+    expect(getByText(/Compiling for the board/)).toBeTruthy()
+    expect(queryByText(/No output yet/)).toBeNull()
+  })
+
+  it('reports a finished capacity check with its figures and time', () => {
+    useCapacityStore.setState({
+      status: 'measured',
+      lastCheckMs: 151_000,
+      result: {
+        ok: true, overflow: false, target: 'esp32:esp32:esp32s3', flash: { used: 1, max: 7, percent: 14 }, ram: { used: 1, max: 11, percent: 9 },
+      } as never,
+    })
+    const { getByText } = render(<OutputConsole />)
+
+    expect(getByText(/Last capacity check · .*flash 14% · SRAM 9% · took 2m 31s/)).toBeTruthy()
   })
 
   it('hides toolchain noise until Verbose is ticked, without a second build', () => {

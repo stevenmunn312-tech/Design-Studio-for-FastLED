@@ -133,37 +133,55 @@
   letter-spacing: 0.04em;
 }
 
-/* Live controller-capacity meter — compact flash/SRAM readout on the node body. */
+/* Live controller-capacity meter: the reading, and beside it the button that
+   runs a check (see capacityStore: it compiles for real, so it never runs on
+   its own). The reading wraps rather than truncating — an ellipsis used to
+   swallow the "check" that was the only way to refresh it. */
 .capacityLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
   font-family: var(--font-code);
-  font-size: 9px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding-bottom: 2px;
+  font-size: 10px;
   letter-spacing: 0.03em;
+  padding: 2px 2px 4px;
+  overflow: hidden;
   /* In the deploy column (a flex column that scrolls) `overflow: hidden`
      resolves this item's minimum height to zero, and it was squeezed to a
      2px rule — the Upload tab showed no capacity reading at all. */
   flex: 0 0 auto;
 }
-/* The capacity line is the button that runs the check (see capacityStore: it
- * compiles for real, so it never runs on its own). It keeps the line's quiet
- * look — the level colour still has to read as the meter, not as a control. */
-.capacityButton {
+.capacityText {
+  /* Below ~200px the button drops under the reading instead of squeezing it
+     into a column of single words. */
+  flex: 1 1 200px;
+  min-width: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.capacityCheckBtn {
+  flex: 0 0 auto;
   appearance: none;
-  background: none;
-  border: 0;
-  width: 100%;
-  font-family: inherit;
-  font-size: inherit;
-  letter-spacing: inherit;
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 60%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-output) 16%, transparent);
+  color: color-mix(in srgb, var(--accent-output) 80%, white);
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
 }
-.capacityButton:disabled { cursor: default; }
-.capacityButton:not(:disabled):hover { text-decoration: underline; }
-.capacityAction { opacity: 0.65; }
+.capacityCheckBtn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--accent-output) 30%, transparent);
+  color: white;
+}
+.capacityCheckBtn:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 1px; }
+.capacityCheckBtn:disabled { cursor: default; opacity: 0.8; }
 
 .capacityOk { color: var(--text-secondary); }
 .capacityWarn { color: #ffcc66; }
@@ -234,6 +252,11 @@
   font-size: 10px;
   line-height: 1.5;
   color: var(--text-secondary);
+}
+
+.layerAction {
+  composes: capacityCheckBtn;
+  margin: 0 4px 6px;
 }
 
 .layerOk .layerStatus { color: var(--success); }
@@ -1617,6 +1640,49 @@
     linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
   background-size: 100% 20px, 20px 100%;
+}
+
+/* A running capacity check, above the log (OutputConsole.tsx). */
+.consoleProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px var(--space-2);
+  border-bottom: 1px solid rgba(255, 204, 0, 0.18);
+  background: rgba(255, 204, 0, 0.05);
+  color: #c9d1d9;
+  font-family: var(--font-code);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.consoleProgressHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffcc00;
+}
+.consoleProgressTime {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.consoleProgressNote {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.consoleSpinner {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border: 1.5px solid rgba(255, 204, 0, 0.28);
+  border-top-color: #ffcc00;
+  border-radius: 50%;
+  animation: consoleSpin 700ms linear infinite;
+}
+@keyframes consoleSpin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .consoleSpinner { animation: none; }
 }
 
 /* shared status colours */

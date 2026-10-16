@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { summarizeCapacity, capacityDelta, formatCapacityDelta } from '../capacityFormat'
+import { summarizeCapacity, capacityDelta, formatCapacityDelta, formatElapsed } from '../capacityFormat'
 import type { Board } from '../../state/upload/uploadStore'
 import type { CompileCheckResult } from '../backendClient'
 
@@ -233,6 +233,14 @@ describe('capacityDelta', () => {
 
   it('returns null when there is no prior result', () => {
     expect(capacityDelta(null, ok(40, 20))).toBeNull()
+  })
+})
+
+describe('formatElapsed', () => {
+  it('counts seconds, then minutes and seconds', () => {
+    expect(formatElapsed(0)).toBe('0s')
+    expect(formatElapsed(59.9)).toBe('59s')
+    expect(formatElapsed(151)).toBe('2m 31s')
   })
 })
 

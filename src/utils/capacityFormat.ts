@@ -149,6 +149,12 @@ function capacityVerdict(status: CapacityStatus, result: CompileCheckResult | nu
   return level === 'warn' ? 'tight' : 'fits'
 }
 
+/** `42s` or `2m 31s` — a check's running or final time. */
+export function formatElapsed(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds))
+  return whole < 60 ? `${whole}s` : `${Math.floor(whole / 60)}m ${whole % 60}s`
+}
+
 export interface CapacityDelta { flashPct: number | null; ramPct: number | null }
 
 /** Change in measured flash/RAM percent between two successful checks on the

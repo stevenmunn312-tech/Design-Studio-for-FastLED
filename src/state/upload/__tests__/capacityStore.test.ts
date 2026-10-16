@@ -181,6 +181,42 @@ describe('capacityStore', () => {
     expect(useCapacityStore.getState().result?.busy).toBe(true)
   })
 
+  it('names each step of a running check and times the whole of it', async () => {
+    // The helper streams nothing back from a compile-only build, so the step
+    // names are the only progress the Output tab can show.
+    const { useCapacityStore } = await freshStore()
+    const { setTarget, check } = useCapacityStore.getState()
+    let finish: (value: unknown) => void = () => {}
+    compileCheck.mockReturnValueOnce(new Promise((resolve) => { finish = resolve }) as never)
+
+    setTarget(TARGET)
+    check()
+    expect(useCapacityStore.getState().checkPhase).toBe('generating')
+    expect(useCapacityStore.getState().checkStartedAt).not.toBeNull()
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(useCapacityStore.getState().checkPhase).toBe('compiling')
+
+    await vi.advanceTimersByTimeAsync(90_000)
+    finish({ ok: true, overflow: false, target: 'esp32:esp32:esp32', flash: null, ram: null })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(useCapacityStore.getState().checkPhase).toBeNull()
+    expect(useCapacityStore.getState().lastCheckMs).toBeGreaterThanOrEqual(90_000)
+  })
+
+  it('says it is waiting while the helper is busy with another build', async () => {
+    const { useCapacityStore } = await freshStore()
+    const { setTarget, check } = useCapacityStore.getState()
+    compileCheck.mockResolvedValueOnce({
+      ok: false, overflow: false, busy: true, target: 'esp32:esp32:esp32', flash: null, ram: null,
+    } as never)
+
+    setTarget(TARGET)
+    check()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(useCapacityStore.getState().checkPhase).toBe('waiting')
+  })
+
   it('keeps saying it is checking while the target moves under a running check', async () => {
     // Abandoning the check here used to reset the meter to "capacity not
     // checked" while the helper compiled on to completion — aborting the

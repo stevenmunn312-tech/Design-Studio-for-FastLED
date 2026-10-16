@@ -1,4 +1,4 @@
-import type { ReadinessLayer, ReadinessTone } from '../../utils/readinessLayers'
+import type { ReadinessKind, ReadinessLayer, ReadinessTone } from '../../utils/readinessLayers'
 import styles from './Upload.module.css'
 
 // A glyph beside each reading so the tone is not carried by colour alone.
@@ -23,16 +23,29 @@ const TONE_CLASS: Record<ReadinessTone, string> = {
   pending: styles.layerPending,
 }
 
+/** The step a row's detail names, as a button beside it — so opening a row
+ *  that says "Check capacity…" offers the check rather than only its name. */
+export interface ReadinessAction {
+  label: string
+  run: () => void
+  disabled?: boolean
+}
+
 /**
  * The steps between the preview and the board, one row each, so a live
  * preview cannot be read as a compiled build. Each row opens (keyboard or
  * pointer) to say what it covers and what comes next.
  */
-export default function ReadinessLayers({ layers }: { layers: ReadinessLayer[] }) {
+export default function ReadinessLayers({ layers, actions }: {
+  layers: ReadinessLayer[]
+  actions?: Partial<Record<ReadinessKind, ReadinessAction>>
+}) {
   return (
     <section className={styles.layers} aria-labelledby="readiness-layers-title">
       <div id="readiness-layers-title" className={styles.layersTitle}>Getting to your board</div>
-      {layers.map((layer) => (
+      {layers.map((layer) => {
+        const action = actions?.[layer.kind]
+        return (
         <details key={layer.kind} className={`${styles.layer} ${TONE_CLASS[layer.tone]}`} data-kind={layer.kind} data-tone={layer.tone}>
           <summary className={styles.layerSummary} aria-label={`${layer.label}: ${layer.status} (${TONE_WORD[layer.tone]})`}>
             <span className={styles.layerLabel}>{layer.label}</span>
@@ -42,8 +55,14 @@ export default function ReadinessLayers({ layers }: { layers: ReadinessLayer[] }
             </span>
           </summary>
           <p className={styles.layerDetail}>{layer.detail}</p>
+          {action && (
+            <button type="button" className={styles.layerAction} onClick={action.run} disabled={action.disabled}>
+              {action.label}
+            </button>
+          )}
         </details>
-      ))}
+        )
+      })}
     </section>
   )
 }

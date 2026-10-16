@@ -114,3 +114,25 @@
 
 .itemButton:hover strong,
 .itemButton:focus-visible strong { text-decoration: underline; }
+
+/* The check/recheck verb on a capacity chip that can run one. An accent pill
+ * rather than a dim note: a reading nobody can see how to refresh was being
+ * missed, and this is the one control in the strip. */
+.action {
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-output) 14%, transparent);
+  color: color-mix(in srgb, var(--accent-output) 78%, white);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.itemButton:hover .action,
+.itemButton:focus-visible .action {
+  background: color-mix(in srgb, var(--accent-output) 28%, transparent);
+  color: white;
+}

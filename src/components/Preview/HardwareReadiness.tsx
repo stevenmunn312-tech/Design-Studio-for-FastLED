@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
 import { useUiStore } from '../../state/uiStore'
-import { summarizeCapacity } from '../../utils/capacityFormat'
+import { formatElapsed, summarizeCapacity } from '../../utils/capacityFormat'
+import { useElapsedSeconds } from '../../hooks/useElapsedSeconds'
 import {
   estimatePowerLoad,
   estimateFirmwareRam,
@@ -46,20 +47,8 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const capacitySubject = useCapacityStore((s) => s.subject)
   const capacityTarget = useCapacityStore((s) => s.target)
   const runCapacityCheck = useCapacityStore((s) => s.check)
-  const [checkElapsedSeconds, setCheckElapsedSeconds] = useState(0)
-
-  useEffect(() => {
-    if (capacityStatus !== 'checking') {
-      setCheckElapsedSeconds(0)
-      return
-    }
-    const startedAt = Date.now()
-    setCheckElapsedSeconds(0)
-    const timer = window.setInterval(() => {
-      setCheckElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000))
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [capacityStatus])
+  const checkStartedAt = useCapacityStore((s) => s.checkStartedAt)
+  const checkElapsedSeconds = useElapsedSeconds(checkStartedAt, capacityStatus === 'checking')
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments), [nodes, edges, displayDocuments])
@@ -95,9 +84,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
       ? `${pinTrouble.warnings} pin ${pinTrouble.warnings === 1 ? 'caution' : 'cautions'}`
       : 'pins ok'
 
-  const elapsedText = checkElapsedSeconds < 60
-    ? `${checkElapsedSeconds}s`
-    : `${Math.floor(checkElapsedSeconds / 60)}m ${checkElapsedSeconds % 60}s`
+  const elapsedText = formatElapsed(checkElapsedSeconds)
 
   return (
     <div className={`${styles.strip} ${compact ? styles.compact : ''}`} aria-label="Hardware readiness">
@@ -154,7 +141,9 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
         >
           <em className={styles.label}>{capacity.label}</em>
           <strong>{capacity.detail}</strong>
-          <span className={styles.note}>{capacityStatus === 'measured' ? 'recheck' : 'check'}</span>
+          {/* The press is the point of this chip, so its verb stays visible —
+            * and bright — even in the status bar, which hides other notes. */}
+          <span className={styles.action}>{capacityStatus === 'measured' ? 'recheck' : 'check'}</span>
         </button>
       ) : (
         <span className={styles.item} data-level={capacityLevel} title={capacity.text}>
