@@ -1,15 +1,17 @@
 # Battery power
 
-Status: **implemented, experimental pending bench evidence and HW-14 review** ·
-Owner: app · Updated: 2026-10-10
+Status: **implemented, experimental pending bench evidence; HW-14 reviewed** ·
+Owner: app · Updated: 2026-10-16
 
 D-05 item 2 in the [root todo](../../todo.md): a lithium pack as the DC source
 for an LED build, with the boards that protect, balance and charge it and the
 converters that make 5 V from it. It extends the power model the way
 [power conversion and supply protection](power-conversion-and-protection.md)
 did. Everything here is Build Diagram guidance: it ships experimental in the
-[support matrix](../release/beta-support-matrix.md), and the independent
-electrical review (HW-14) checks it afterwards rather than gating it. It adds
+[support matrix](../release/beta-support-matrix.md). The independent
+electrical review (HW-14) covered it in its second pass with no blocking
+issue; its one tightening and the cautions are in the
+[Build Diagram contract](../architecture/build-diagram.md#independent-electrical-review). It adds
 no graph signal and no firmware, so no compile is owed.
 
 Mains SSRs and contactors for switching supply banks are a later D-05 item.
