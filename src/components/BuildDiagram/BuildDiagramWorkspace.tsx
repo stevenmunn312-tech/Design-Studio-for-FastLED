@@ -62,7 +62,7 @@ type ViewportPanState = { pointerId: number; startX: number; startY: number; sta
 const MIN_ZOOM = 0.55
 /** Fit may go lower so a tall sheet (a 13-wire shield, a PSU stack) still frames. */
 const FIT_MIN_ZOOM = 0.2
-const MAX_ZOOM = 1.8
+const MAX_ZOOM = 2.8
 const ZOOM_STEP = 0.15
 const FIT_PADDING = 48
 const PANEL_WIDTH_STEP = 32
