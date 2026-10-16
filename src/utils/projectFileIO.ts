@@ -9,13 +9,9 @@ interface FilePickerAcceptType {
   accept: Record<string, string[]>
 }
 
-interface OpenFilePickerOptions {
-  multiple?: boolean
+interface SaveFilePickerOptions {
   excludeAcceptAllOption?: boolean
   types?: FilePickerAcceptType[]
-}
-
-interface SaveFilePickerOptions extends OpenFilePickerOptions {
   suggestedName?: string
 }
 
@@ -31,15 +27,10 @@ interface FileSystemFileHandle {
 }
 
 interface NativeFilePickerWindow extends Window {
-  showOpenFilePicker?: (options?: OpenFilePickerOptions) => Promise<FileSystemFileHandle[]>
   showSaveFilePicker?: (options?: SaveFilePickerOptions) => Promise<FileSystemFileHandle>
 }
 
 const PROJECT_FILE_SUFFIX = '.fastled-project.json'
-const PROJECT_OPEN_FILE_TYPES: FilePickerAcceptType[] = [{
-  description: 'Design Studio for FastLED Project',
-  accept: { 'application/json': ['.json', PROJECT_FILE_SUFFIX] },
-}]
 const PROJECT_SAVE_FILE_TYPES: FilePickerAcceptType[] = [{
   description: 'Design Studio for FastLED Project',
   accept: { 'application/json': [PROJECT_FILE_SUFFIX] },
@@ -166,21 +157,6 @@ export function parseProjectFile(text: string, fallbackName: string): ParsedProj
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : now,
     uploadTarget: normalizeUploadTarget(candidate.uploadTarget),
   })
-}
-
-export async function openProjectWithNativePicker(): Promise<{ file: File; fallbackName: string } | null> {
-  const pickerWindow = window as NativeFilePickerWindow
-  if (typeof pickerWindow.showOpenFilePicker !== 'function') return null
-  const [handle] = await pickerWindow.showOpenFilePicker({
-    multiple: false,
-    excludeAcceptAllOption: false,
-    types: PROJECT_OPEN_FILE_TYPES,
-  })
-  const file = await handle.getFile()
-  return {
-    file,
-    fallbackName: projectFileBaseName(handle.name || file.name),
-  }
 }
 
 export async function saveProjectWithNativePicker(project: SavedProject): Promise<SavedProject | null> {

@@ -381,6 +381,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Open Project File and Save Project File As now start in the app's Projects
+  folder when the helper is running, using the helper's file dialog; a
+  browser picker cannot be pointed at a folder. Without the helper they use
+  the browser's picker as before.
 - A Code node whose pasted loop runs slower than one preview frame now shows
   its frames instead of staying blank while the sandbox worker's queue grew
   without bound; one run is in flight at a time and later frames coalesce.

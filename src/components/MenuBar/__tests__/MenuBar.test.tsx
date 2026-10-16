@@ -103,7 +103,7 @@ describe('MenuBar file menu', () => {
       requestPrompt: defaultRequestPrompt,
     })
     useAudioStore.setState({ micActive: false, active: false })
-    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', helper: undefined })
     useShowPlayback.setState({ playing: false, nodeId: null, show: null, posMs: 0, useGroupInputs: false })
     usePerformanceDeckSession.setState({ deckOpen: false })
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
@@ -603,6 +603,52 @@ describe('MenuBar file menu', () => {
     await waitFor(() => expect(useProjectStore.getState().currentProjectId).toBe(pg.id))
     expect(requestNewProjectDecision).not.toHaveBeenCalled()
     expect(authoredNodeIds()).toEqual(['pg-node'])
+  })
+
+  it('opens a project file through the helper dialog, which starts in the Projects folder', async () => {
+    const pg = project('pg', 'pg', 'pg-node', 100)
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/api/projects/dialog/open')) {
+        return new Response(JSON.stringify({ ok: true, canceled: false, text: JSON.stringify(pg), name: 'pg.fastled-project.json' }))
+      }
+      throw new Error('offline')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    useUploadStore.setState({ helper: { ok: true, arduinoCli: true } })
+
+    const { container, getByRole, getByText } = render(<MenuBar />)
+    const input = container.querySelector<HTMLInputElement>('input[accept=".json,.fastled-project.json"]')
+    const inputClick = vi.spyOn(input!, 'click')
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Open Project File…'))
+
+    await waitFor(() => expect(useProjectStore.getState().currentProjectId).toBe(pg.id))
+    expect(inputClick).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/projects/dialog/open'), { method: 'POST' })
+    expect(authoredNodeIds()).toEqual(['pg-node'])
+  })
+
+  it('saves a project file through the helper dialog first when the helper is online', async () => {
+    const showSaveFilePicker = vi.fn()
+    Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: showSaveFilePicker })
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/projects/dialog/save')) {
+        return new Response(JSON.stringify({ ok: true, canceled: false, project: JSON.parse(String(init?.body)) }))
+      }
+      throw new Error('offline')
+    }))
+    useUploadStore.setState({ helper: { ok: true, arduinoCli: true } })
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Save Project File As…'))
+
+    try {
+      await waitFor(() => expect(useProjectStore.getState().projects).toHaveLength(1))
+      expect(showSaveFilePicker).not.toHaveBeenCalled()
+    } finally {
+      delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker
+    }
   })
 
   it('imports custom display documents with Graph JSON and normalizes their asset ids', async () => {

@@ -27,6 +27,7 @@ import {
   suggestProjectFileName,
 } from '../../utils/projectFileIO'
 import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
+import { openProjectDialog } from '../../utils/backendClient'
 import { landOnStartingWorkspace } from '../../utils/startFlow'
 import { buildShareUrl, shareUrlSizeWarning } from '../../utils/shareGraph'
 import { isWorkspacePayload, sanitizeWorkspacePayload, workspaceLoadStatus } from '../../utils/workspacePayload'
@@ -501,7 +502,12 @@ export default function MenuBar() {
         // Start the platform picker directly from the menu click. Any awaited
         // app prompt here consumes browser user activation and causes Chromium
         // to block the dialog that chooses both the file name and location.
-        const saved = await saveProjectWithFallbacks(draft)
+        // The helper's dialog goes first when it is online because it starts
+        // in the Projects folder, which a browser picker cannot target.
+        const saved = await saveProjectWithFallbacks(
+          draft,
+          useUploadStore.getState().helper?.ok ? 'dialog-first' : 'native-first',
+        )
         if (!saved) throw new Error('No save dialog available')
         const project = useProjectStore.getState().upsertProject(saved)
         setStatus(`Saved as "${project.name}"`, 'success')
@@ -520,12 +526,44 @@ export default function MenuBar() {
     })()
   }
 
+  const openProjectText = async (readText: () => Promise<string>, fallbackName: string) => {
+    try {
+      const decision = await confirmProjectChange(`project "${fallbackName}"`)
+      if (decision === 'cancel') return
+      await openParsedProject(await readText(), fallbackName, {
+        saveCurrentFirst: decision === 'yes',
+        confirmedReplace: true,
+      })
+    } catch {
+      setStatus('Failed to open project file — invalid file', 'error')
+    }
+  }
+
   const handleOpenProject = () => {
     closeMenus()
-    // Open the input picker during the click event itself. Waiting for the
-    // native/helper strategies first consumes browser user activation, after
-    // which the fallback click is silently blocked in several browsers.
-    handleOpenProjectFallback()
+    // The helper's OS dialog starts in the Projects folder; a browser picker
+    // cannot be pointed at a filesystem path. Without the helper, open the
+    // input picker during the click itself: awaiting anything first consumes
+    // user activation, and browsers then silently block the click.
+    if (!useUploadStore.getState().helper?.ok) {
+      handleOpenProjectFallback()
+      return
+    }
+    void (async () => {
+      let picked: Awaited<ReturnType<typeof openProjectDialog>>
+      try {
+        picked = await openProjectDialog()
+      } catch {
+        return  // canceled
+      }
+      if (!picked) {
+        setStatus('The helper could not open its file dialog — choose Open Project File again', 'error')
+        void useUploadStore.getState().refreshHelper()
+        return
+      }
+      const { text, name } = picked
+      await openProjectText(async () => text, projectFileBaseName(name))
+    })()
   }
 
   const handleOpenRecentProject = (projectId: string) => {
@@ -542,20 +580,8 @@ export default function MenuBar() {
   const handleProjectFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    void (async () => {
-      try {
-        const decision = await confirmProjectChange(`project "${projectFileBaseName(file.name)}"`)
-        if (decision === 'cancel') return
-        await openParsedProject(await file.text(), projectFileBaseName(file.name), {
-          saveCurrentFirst: decision === 'yes',
-          confirmedReplace: true,
-        })
-      } catch {
-        setStatus('Failed to open project file — invalid file', 'error')
-      } finally {
-        e.target.value = ''
-      }
-    })()
+    void openProjectText(() => file.text(), projectFileBaseName(file.name))
+      .finally(() => { e.target.value = '' })
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
