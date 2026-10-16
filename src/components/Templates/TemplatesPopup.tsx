@@ -1,11 +1,10 @@
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../../state/patterns/starterTemplates'
-import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
-import { startBlankCanvas, startTemplate } from '../../utils/startFlow'
+import { openBlankProject, openStarterProject } from '../../utils/startFlow'
 import styles from './TemplatesPopup.module.css'
 
 function TemplatePreview({ template }: { template: StarterTemplate }) {
@@ -128,7 +127,6 @@ function StarterGuideInfo({ template }: { template: StarterTemplate }) {
 // face an empty graph and ~90 node types with no sense of how they compose.
 export default function TemplatesPopup() {
   const closeTemplates = useUiStore((s) => s.closeTemplates)
-  const requestConfirm = useUiStore((s) => s.requestConfirm)
   const lastStartChoice = useUiStore((s) => s.lastStartChoice)
   const guideVisible = useFirstProjectGuide((s) => s.visible)
   const startGuide = useFirstProjectGuide((s) => s.start)
@@ -177,28 +175,9 @@ export default function TemplatesPopup() {
       ? 'Blank canvas'
       : STARTER_TEMPLATES.find((template) => template.id === lastStartChoice)?.name ?? null
 
-  const confirmReplace = async (confirmLabel: string) => {
-    if (useGraphStore.getState().nodes.every((node) => node.data.nodeType === 'Board')) return true
-    return requestConfirm({
-      title: 'Replace current graph?',
-      message: 'Starting here replaces your current workspace. Any unsaved work will be lost. Continue?',
-      confirmLabel,
-      cancelLabel: 'Cancel',
-      tone: 'danger',
-    })
-  }
+  const loadTemplate = (template: StarterTemplate) => openStarterProject(template, { closeTemplates: true })
 
-  const loadTemplate = async (template: StarterTemplate) => {
-    const ok = await confirmReplace('Load starter')
-    if (!ok) return
-    startTemplate(template, { closeTemplates: true })
-  }
-
-  const loadBlank = async () => {
-    const ok = await confirmReplace('Start blank')
-    if (!ok) return
-    startBlankCanvas({ closeTemplates: true })
-  }
+  const loadBlank = () => openBlankProject({ closeTemplates: true })
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeTemplates() }}>

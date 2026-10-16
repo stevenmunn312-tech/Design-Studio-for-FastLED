@@ -36,6 +36,16 @@ export function blankWorkspace(): PersistedWorkspace {
   return { nodes: [], edges: [] }
 }
 
+/**
+ * Whether a workspace holds anything someone made. The Board node does not
+ * count: every root graph carries one whether or not a board was chosen.
+ */
+export function hasAuthoredWorkspaceContent(state: Pick<PersistedWorkspace, 'nodes' | 'graphData'>): boolean {
+  const hasAuthoredNode = (node: StudioNode) => node.data.nodeType !== 'Board'
+  return state.nodes.some(hasAuthoredNode)
+    || Object.values(state.graphData ?? {}).some((graph) => graph.nodes.some(hasAuthoredNode))
+}
+
 export function cloneWorkspace(workspace: PersistedWorkspace): PersistedWorkspace {
   return structuredClone(workspace)
 }

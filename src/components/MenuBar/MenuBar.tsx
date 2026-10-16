@@ -16,8 +16,7 @@ import {
   micUnsupportedMessage,
 } from '../../build/pins/micPinDefaults'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
-import type { StudioNode } from '../../state/graphStore'
-import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
+import { captureWorkspace, blankWorkspace, hasAuthoredWorkspaceContent } from '../../state/workspacePersistence'
 import {
   buildProjectSnapshot,
   nextDefaultProjectName,
@@ -404,16 +403,9 @@ export default function MenuBar() {
     return true
   }
 
-  const hasAuthoredWorkspaceContent = () => {
-    const state = useGraphStore.getState()
-    const hasAuthoredNode = (node: StudioNode) => node.data.nodeType !== 'Board'
-    return state.nodes.some(hasAuthoredNode)
-      || Object.values(state.graphData).some((graph) => graph.nodes.some(hasAuthoredNode))
-  }
-
   const confirmReplaceUnsavedWorkspace = async (message: string) => {
     if (currentProject) return true
-    if (!hasAuthoredWorkspaceContent()) return true
+    if (!hasAuthoredWorkspaceContent(useGraphStore.getState())) return true
     return requestConfirm({
       title: 'Replace current workspace?',
       message,
@@ -424,7 +416,7 @@ export default function MenuBar() {
   }
 
   const confirmProjectChange = async (destinationLabel: string) => {
-    if (!hasAuthoredWorkspaceContent()) return 'no'
+    if (!hasAuthoredWorkspaceContent(useGraphStore.getState())) return 'no'
     if (currentProject) {
       return requestNewProjectDecision(currentProject.name, 'continuing', destinationLabel)
     }

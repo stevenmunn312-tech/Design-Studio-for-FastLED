@@ -46,7 +46,7 @@ import GroupControls from './GroupControls'
 import { anchorPosition } from '../../utils/anchorNode'
 import { signalPathFor } from '../../utils/signalPath'
 import { STARTER_TEMPLATES } from '../../state/patterns/starterTemplates'
-import { startTemplateById } from '../../utils/startFlow'
+import { openStarterProject } from '../../utils/startFlow'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { runTidy } from '../../utils/tidyGraph'
 import { usePreviewStore } from '../../state/previewStore'
@@ -929,11 +929,11 @@ function NodeGraphCanvasInner() {
   }, [getZoom, setCenter])
 
   const handleStartJuggle = useCallback(() => {
-    startTemplateById('juggle')
+    void openStarterProject('juggle')
   }, [])
 
   const handleStartAudioDemo = useCallback(() => {
-    startTemplateById('audio-spectrum')
+    void openStarterProject('audio-spectrum')
   }, [])
 
   const handleBrowseStarters = useCallback(() => {

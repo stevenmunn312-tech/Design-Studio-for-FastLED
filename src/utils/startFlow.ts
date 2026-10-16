@@ -6,6 +6,9 @@ import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { micSupportedForBoardProfile } from '../build/pins/micPinDefaults'
 import { useUploadStore } from '../state/upload/uploadStore'
 import { useFirstProjectGuide } from '../state/firstProjectGuideStore'
+import { useProjectStore } from '../state/projectStore'
+import { blankWorkspace, captureWorkspace, hasAuthoredWorkspaceContent } from '../state/workspacePersistence'
+import { nextDefaultProjectName } from './projectFileIO'
 import { runTidy } from './tidyGraph'
 
 interface StartFlowOptions {
@@ -100,10 +103,67 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
   }
 }
 
-export function startTemplateById(id: string, options?: StartFlowOptions) {
+function findTemplate(id: string): StarterTemplate {
   const template = STARTER_TEMPLATES.find((entry) => entry.id === id)
   if (!template) throw new Error(`Unknown starter template: ${id}`)
-  startTemplate(template, options)
+  return template
+}
+
+export function startTemplateById(id: string, options?: StartFlowOptions) {
+  startTemplate(findTemplate(id), options)
+}
+
+/**
+ * Make a new project the one autosave writes to, before a start choice loads.
+ *
+ * Loading into the open project would overwrite it, and its file, under its
+ * own name. Instead the open project is offered a save and keeps what it had,
+ * and the start choice opens as a project of its own. Returns false when the
+ * person cancels.
+ */
+async function beginStartProject(name: string, options?: { carryUploadTarget?: boolean }): Promise<boolean> {
+  const { projects, currentProjectId } = useProjectStore.getState()
+  const current = projects.find((project) => project.id === currentProjectId)
+  const ui = useUiStore.getState()
+  if (hasAuthoredWorkspaceContent(useGraphStore.getState())) {
+    if (current) {
+      const decision = await ui.requestNewProjectDecision(current.name, 'starting a new project', `new project "${name}"`)
+      if (decision === 'cancel') return false
+      if (decision === 'yes') useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    } else {
+      // No project holds this graph, so nothing can save it.
+      const ok = await ui.requestConfirm({
+        title: 'Replace current graph?',
+        message: 'The current graph is not in a project, so starting here discards it. Continue?',
+        confirmLabel: 'Discard and start',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      })
+      if (!ok) return false
+    }
+  }
+  useProjectStore.getState().createProject(name, blankWorkspace(), {
+    uploadTarget: options?.carryUploadTarget ? current?.uploadTarget : undefined,
+  })
+  return true
+}
+
+/** Open a starter as a new project named after it. */
+export async function openStarterProject(template: StarterTemplate | string, options?: StartFlowOptions): Promise<boolean> {
+  const starter = typeof template === 'string' ? findTemplate(template) : template
+  // A starter is built against the open project's board, so the new project
+  // keeps that project's upload target too.
+  if (!await beginStartProject(starter.name, { carryUploadTarget: true })) return false
+  startTemplate(starter, options)
+  return true
+}
+
+/** Open a blank canvas as a new, default-named project. */
+export async function openBlankProject(options?: StartFlowOptions): Promise<boolean> {
+  const name = nextDefaultProjectName(useProjectStore.getState().projects.map((project) => project.name))
+  if (!await beginStartProject(name)) return false
+  startBlankCanvas(options)
+  return true
 }
 
 export function startBlankCanvas(options?: StartFlowOptions) {

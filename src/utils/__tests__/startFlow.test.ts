@@ -1,7 +1,18 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { landOnStartingWorkspace, startBlankCanvas, startTemplateById } from '../startFlow'
-import { useGraphStore } from '../../state/graphStore'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  landOnStartingWorkspace,
+  openBlankProject,
+  openStarterProject,
+  startBlankCanvas,
+  startTemplateById,
+} from '../startFlow'
+import { useGraphStore, type StudioNode } from '../../state/graphStore'
+import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
+import { blankWorkspace, type PersistedWorkspace } from '../../state/workspacePersistence'
+
+const defaultDecision = useUiStore.getState().requestNewProjectDecision
+const defaultConfirm = useUiStore.getState().requestConfirm
 
 describe('startFlow', () => {
   beforeEach(() => {
@@ -65,5 +76,109 @@ describe('startFlow', () => {
     // last in is still a reasonable guess at where they are working.
     startTemplateById('juggle')
     expect(useUiStore.getState().hardwareShelfCategory).toBe('displays')
+  })
+})
+
+/*
+ * A start choice used to load into whatever project was open, so autosave
+ * wrote the starter over that project and its file. It now opens as a project
+ * of its own, after offering the open one a save.
+ */
+describe('opening a start choice as its own project', () => {
+  const noise = {
+    id: 'mine',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+  } as unknown as StudioNode
+  const authoredIds = (workspace: PersistedWorkspace | undefined) =>
+    (workspace?.nodes ?? []).filter((node) => node.data.nodeType !== 'Board').map((node) => node.id)
+  const project = (name: string) => useProjectStore.getState().projects.find((entry) => entry.name === name)
+  const currentName = () => {
+    const { projects, currentProjectId } = useProjectStore.getState()
+    return projects.find((entry) => entry.id === currentProjectId)?.name
+  }
+
+  beforeEach(() => {
+    useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+    useProjectStore.getState().createProject('My Lamp', blankWorkspace())
+    useGraphStore.getState().loadGraph([noise], [])
+  })
+
+  afterEach(() => {
+    useUiStore.setState({ requestNewProjectDecision: defaultDecision, requestConfirm: defaultConfirm })
+  })
+
+  it('saves the open project when asked, then opens the starter under its own name', async () => {
+    const decide = vi.fn().mockResolvedValue('yes')
+    useUiStore.setState({ requestNewProjectDecision: decide })
+
+    await expect(openStarterProject('juggle')).resolves.toBe(true)
+
+    expect(decide).toHaveBeenCalledWith('My Lamp', 'starting a new project', 'new project "Juggle"')
+    expect(authoredIds(project('My Lamp')?.workspace)).toEqual(['mine'])
+    expect(currentName()).toBe('Juggle')
+    expect(useGraphStore.getState().nodes.some((node) => node.id === 'mine')).toBe(false)
+  })
+
+  it('leaves the open project as it was when the save is declined', async () => {
+    useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+
+    await expect(openStarterProject('juggle')).resolves.toBe(true)
+
+    // Not saved, and not overwritten by the starter either.
+    expect(authoredIds(project('My Lamp')?.workspace)).toEqual([])
+    expect(currentName()).toBe('Juggle')
+  })
+
+  it('changes nothing when cancelled', async () => {
+    useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('cancel') })
+
+    await expect(openStarterProject('juggle')).resolves.toBe(false)
+
+    expect(currentName()).toBe('My Lamp')
+    expect(useProjectStore.getState().projects).toHaveLength(1)
+    expect(useGraphStore.getState().nodes.some((node) => node.id === 'mine')).toBe(true)
+  })
+
+  it('asks nothing when the open project has nothing in it', async () => {
+    useGraphStore.getState().loadGraph([], [])
+    const decide = vi.fn()
+    useUiStore.setState({ requestNewProjectDecision: decide })
+
+    await openStarterProject('juggle')
+
+    expect(decide).not.toHaveBeenCalled()
+    expect(currentName()).toBe('Juggle')
+  })
+
+  it('gives a second copy of a starter its own name', async () => {
+    useGraphStore.getState().loadGraph([], [])
+    await openStarterProject('juggle')
+    useGraphStore.getState().loadGraph([], [])
+    await openStarterProject('juggle')
+
+    expect(currentName()).toBe('Juggle 2')
+    expect(project('Juggle')).toBeTruthy()
+  })
+
+  it('opens a blank canvas as a new default-named project', async () => {
+    useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('yes') })
+
+    await expect(openBlankProject()).resolves.toBe(true)
+
+    expect(authoredIds(project('My Lamp')?.workspace)).toEqual(['mine'])
+    expect(currentName()).toBe('New Project')
+  })
+
+  it('confirms before discarding a graph no project holds', async () => {
+    useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+    const confirm = vi.fn().mockResolvedValue(false)
+    useUiStore.setState({ requestConfirm: confirm })
+
+    await expect(openStarterProject('juggle')).resolves.toBe(false)
+
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(useProjectStore.getState().projects).toEqual([])
   })
 })
