@@ -2,7 +2,7 @@
 // output: capture adapters for each microphone family and the shared globals.
 import type { StudioNode } from '../../state/graphStore'
 import { vuNormalizedLevelCpp } from './stereoLevelCpp'
-import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../../audio/micAnalysis'
+import { MIC_DEFAULTS, MIC_MAX_GAIN, MIC_MAX_NOISE_GATE, noiseGateCloseThreshold } from '../../audio/micAnalysis'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import {
   type MicFirmwareBackend,
@@ -209,6 +209,7 @@ function audioEngineCpp(
   sd: number,
   channel: 'Left' | 'Right' | 'Both',
   gain: number,
+  noiseGate: number,
   serialDebug = false,
   source: 'microphone' | 'line-in' = 'microphone',
   mclk = -1,
@@ -281,6 +282,13 @@ function audioEngineCpp(
     ...createInput,
     '  if (!_audioProcessor) return;',
     '  _audioProcessor->setGain(MIC_GAIN);',
+    ...(noiseGate === MIC_DEFAULTS.noiseGate ? [] : [
+      '  // Noise gate from the input node; FastLED applies it before MIC_GAIN.',
+      '  fl::audio::SignalConditionerConfig conditioner;',
+      `  conditioner.noiseGateOpenThreshold = ${noiseGate};`,
+      `  conditioner.noiseGateCloseThreshold = ${noiseGateCloseThreshold(noiseGate)};`,
+      '  _audioProcessor->configureSignalConditioner(conditioner);',
+    ]),
     '  _audioProcessor->onBeat([] { _audioBeatCount = _audioBeatCount + 1; });',
     '  // Processor detectors are lazy. Register every detector whose values the',
     '  // generated graph polls before the auto-pumped input processes its first block.',
@@ -846,6 +854,7 @@ export function audioEngineForGraph(
       sanitizePin(lineInput ? p.i2sDout : p.i2sSd, lineInput ? 25 : 41),
       channel,
       fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN),
+      Math.round(fc(p.noiseGate, MIC_DEFAULTS.noiseGate, 0, MIC_MAX_NOISE_GATE)),
       p.serialDebug === true,
       lineInput ? 'line-in' : 'microphone',
       lineInput ? sanitizePin(p.i2sMclk, 14) : -1,

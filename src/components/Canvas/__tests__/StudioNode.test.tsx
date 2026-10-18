@@ -883,7 +883,7 @@ describe('StudioNode', () => {
     }
   })
 
-  it('renders FastLED MicInput gain without the retired custom conditioner controls', () => {
+  it('renders FastLED MicInput gain and noise gate without the retired custom conditioner controls', () => {
     const { container } = renderNode(makeNode('MicInput', {
       gain: 1,
       i2sWs: 39,
@@ -893,7 +893,8 @@ describe('StudioNode', () => {
       serialDebug: false,
     }))
     fireEvent.click(within(container).getByText('Levels'))
-    expect(container.querySelectorAll('input[type="range"]')).toHaveLength(1)
+    expect(container.querySelectorAll('input[type="range"]')).toHaveLength(2)
+    expect(container.textContent).toContain('noise gate')
     expect(container.textContent).not.toContain('AGC')
     expect(within(container).queryByText('I2S Pins')).toBeNull()
     expect(within(container).queryByLabelText('channel value')).toBeNull()

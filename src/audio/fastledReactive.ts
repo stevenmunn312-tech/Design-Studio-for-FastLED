@@ -19,7 +19,7 @@
 // the absolute thresholds ported from C++ (noise gate 500/300, beat flux floor
 // 50) keep their calibration.
 
-import { fftInPlace } from './micAnalysis'
+import { fftInPlace, MIC_DEFAULTS, noiseGateCloseThreshold } from './micAnalysis'
 import type { PitchSignal, SongStructureSignal, VibeSignal } from '../state/evaluator/types'
 import { SongStructureDetector, structureBins } from './fastledStructure'
 import { PitchAnalyzer } from './fastledPitch'
@@ -106,10 +106,6 @@ export class MovingAverage {
 
 // ── signal_conditioner.cpp.hpp ───────────────────────────────────────────────
 
-// C++ SignalConditionerConfig defaults (int16 units).
-export const NOISE_GATE_OPEN = 500
-export const NOISE_GATE_CLOSE = 300
-
 export interface ConditionerState {
   gateOpen: boolean
 }
@@ -125,14 +121,22 @@ export function createConditionerState(): ConditionerState {
  * it is what stops the adaptive band normalization from slowly normalizing
  * ambient noise up to full scale.
  *
+ * `gateOpenAt` is the MicInput/LineInput noise gate (SignalConditionerConfig
+ * noiseGateOpenThreshold); the close threshold follows FastLED's 500/300 ratio.
+ *
  * Mutates `samples` (int16-scale floats) in place.
  */
-export function conditionSamples(samples: Float32Array, state: ConditionerState): void {
+export function conditionSamples(
+  samples: Float32Array,
+  state: ConditionerState,
+  gateOpenAt: number = MIC_DEFAULTS.noiseGate,
+): void {
   const n = samples.length
   if (n === 0) return
   let sum = 0
   for (let i = 0; i < n; i++) sum += samples[i]
   const dc = sum / n
+  const gateCloseAt = noiseGateCloseThreshold(gateOpenAt)
   let gateOpen = state.gateOpen
   for (let i = 0; i < n; i++) {
     let s = samples[i] - dc
@@ -140,8 +144,8 @@ export function conditionSamples(samples: Float32Array, state: ConditionerState)
     else if (s < -32768) s = -32768
     const abs = s < 0 ? -s : s
     if (!gateOpen) {
-      if (abs >= NOISE_GATE_OPEN) gateOpen = true
-    } else if (abs < NOISE_GATE_CLOSE) {
+      if (abs >= gateOpenAt) gateOpen = true
+    } else if (abs < gateCloseAt) {
       gateOpen = false
     }
     samples[i] = gateOpen ? s : 0
@@ -598,7 +602,8 @@ export interface FastLedAudioResult {
 
 /**
  * The full per-frame analysis the AudioEngine runs: scale the browser's
- * −1…1 samples to int16 units (× MicInput gain), condition them, FFT once,
+ * −1…1 samples to int16 units, condition them, apply MicInput gain (the order
+ * Processor uses: conditioner first, then setGain), FFT once,
  * then feed the bands / beat / spectrum detectors. Mirrors what the firmware's
  * auto-pumped fl::audio::Processor computes from the INMP441.
  */
@@ -637,15 +642,19 @@ export class FastLedAudioAnalyzer {
     nowMs: number,
     gain: number,
     spectrumOut: number[],
+    noiseGate: number = MIC_DEFAULTS.noiseGate,
   ): FastLedAudioResult {
     const n = this.fftSize
     const dtSec = this.lastMs > 0 ? Math.max(0.001, Math.min(0.5, (nowMs - this.lastMs) / 1000)) : 1 / 60
     this.lastMs = nowMs
 
     for (let i = 0; i < n; i++) {
-      this.scaled[i] = (i < samples.length ? samples[i] : 0) * I16_FULL_SCALE * gain
+      this.scaled[i] = (i < samples.length ? samples[i] : 0) * I16_FULL_SCALE
     }
-    conditionSamples(this.scaled, this.conditioner)
+    conditionSamples(this.scaled, this.conditioner, noiseGate)
+    if (gain !== 1) {
+      for (let i = 0; i < n; i++) this.scaled[i] *= gain
+    }
     // Context::isSilent stand-in: the conditioner's gate zeroed the whole
     // buffer, which is what FastLED's noise-floor tracker reports for it.
     let silent = true

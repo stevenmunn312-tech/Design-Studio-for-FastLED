@@ -4009,6 +4009,22 @@ describe('generateCpp — INMP441 audio engine', () => {
     // wired into the lifecycle
     expect(cpp).toContain('setupAudio();')
     expect(cpp).toContain('updateAudio();')
+    // FastLED's own conditioner defaults already match the default gate.
+    expect(cpp).not.toContain('configureSignalConditioner')
+  })
+
+  it('passes a non-default input noise gate to the FastLED signal conditioner', () => {
+    const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, noiseGate: 1200 })
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([micBoard, mic, fft, bp, out], [
+      edge('e1', 'mic', 'fft', 'audio', 'audio'),
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('conditioner.noiseGateOpenThreshold = 1200;')
+    expect(cpp).toContain('conditioner.noiseGateCloseThreshold = 720;')
+    expect(cpp).toContain('_audioProcessor->configureSignalConditioner(conditioner);')
   })
 
   it('prints FastLED processor levels and conditioner stats when Serial Debug is on', () => {

@@ -45,7 +45,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
-    // Gain maps to FastLED Processor::setGain in preview and firmware; i2s*
+    // Gain maps to FastLED Processor::setGain and noiseGate to its
+    // SignalConditioner open threshold in preview and firmware; i2s*
     // pins + channel configure FastLED's microphone input (ESP32). The pins below
     // are common ESP32-S3 wiring and are the fallback only — a node created
     // while another ESP32 variant is selected takes that board's pins from
@@ -79,7 +80,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       i2sLrclk: 26,
       i2sDout: 25,
       channel: 'Both',
-      gain: 1,
+      ...MIC_DEFAULTS,
       serialDebug: false,
     },
   },

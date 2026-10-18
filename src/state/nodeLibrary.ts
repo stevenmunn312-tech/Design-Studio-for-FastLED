@@ -19,7 +19,7 @@ import { STUDIO_PALETTES } from './palettes/paletteCatalog'
 import { evaluateScalarExpression } from '../nodes/shared/scalarExpression'
 import { MATH_CONSTANT_NAMES, MATH_FUNCTION_NAMES, NODE_FORMULA_VARIABLES, SCALAR_FORMULA_VARIABLES } from '../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../nodes/shared/fastledShims'
-import { MIC_MAX_GAIN } from '../audio/micAnalysis'
+import { MIC_MAX_GAIN, MIC_MAX_NOISE_GATE } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boardGpio'
 import { EASE_TYPES } from '../nodes/math/easing'
@@ -1106,6 +1106,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   MicInput: {
     gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
+    noiseGate: { control: 'slider', min: 0, max: MIC_MAX_NOISE_GATE, step: 50 },
     // Board-aware pickers narrow these to the selected board; the shared
     // 0–255 ceiling preserves numeric Arduino pin aliases on larger boards.
     i2sWs:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1114,6 +1115,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   LineInput: {
     gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
+    noiseGate: { control: 'slider', min: 0, max: MIC_MAX_NOISE_GATE, step: 50 },
     i2sMclk:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     i2sBclk:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     i2sLrclk: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -2238,6 +2240,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   MicInput: {
     gain: 'Multiplies the microphone signal before analysis; 1 is unity, raise it for a quiet room.',
+    noiseGate: 'Raw sample level (of 32767) a sound must reach before analysis hears it; quieter input is treated as silence. 500 is FastLED\'s default. Raise it if room hiss moves the LEDs; 0 turns the gate off, letting normalization lift hiss to full scale.',
     channel: 'Which I2S slot the module sends on: Left when L/R is tied low, Right when tied high.',
     i2sWs: 'Word-select (LRCL/WS) clock pin the board drives to the microphone.',
     i2sSck: 'Bit clock (BCLK/SCK) pin the board drives to the microphone.',
@@ -2245,6 +2248,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   LineInput: {
     gain: 'Multiplies the line-level signal before analysis; 1 is unity.',
+    noiseGate: 'Raw sample level (of 32767) a sound must reach before analysis hears it; quieter input is treated as silence. 500 is FastLED\'s default. Raise it if room hiss moves the LEDs; 0 turns the gate off, letting normalization lift hiss to full scale.',
     channel: 'Both averages left and right; Left or Right analyses one side of the stereo input.',
     serialDebug: 'Prints level and conditioner stats to the serial monitor about 10 times a second. Firmware only.',
     i2sMclk: 'Master clock (SCK/MCLK) the board must supply to the PCM1802.',
@@ -3449,8 +3453,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     touchFlipX: 'flip X',
     touchFlipY: 'flip Y',
   },
-  MicInput: { serialDebug: 'serial debug' },
-  LineInput: { serialDebug: 'serial debug' },
+  MicInput: { serialDebug: 'serial debug', noiseGate: 'noise gate' },
+  LineInput: { serialDebug: 'serial debug', noiseGate: 'noise gate' },
   EnvironmentInput: { i2cAddress: 'I2C address' },
   MotionVectorInput: { i2cAddress: 'I2C address' },
   TouchPadInput: {
@@ -3967,12 +3971,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'appearance', label: 'Appearance', keys: ['depthShade'] },
   ],
   MicInput: [
-    { key: 'levels', label: 'Levels', keys: ['gain'] },
+    { key: 'levels', label: 'Levels', keys: ['gain', 'noiseGate'] },
     { key: 'i2s', label: 'I2S Pins', keys: ['i2sWs', 'i2sSck', 'i2sSd', 'channel'] },
     { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
   ],
   LineInput: [
-    { key: 'levels', label: 'Levels', keys: ['gain'] },
+    { key: 'levels', label: 'Levels', keys: ['gain', 'noiseGate'] },
     { key: 'i2s', label: 'I2S Pins', keys: ['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout', 'channel'] },
     { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
   ],

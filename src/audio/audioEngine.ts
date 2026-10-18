@@ -3,6 +3,7 @@ import {
   MIC_DEFAULTS,
   MIC_FFT_SIZE,
   MIC_MAX_GAIN,
+  MIC_MAX_NOISE_GATE,
   MIC_SAMPLE_RATE,
   MIC_SPECTRUM_BARS,
 } from './micAnalysis'
@@ -55,10 +56,12 @@ export interface AudioData {
   samples?: readonly number[]
 }
 
-// Mirrors FastLED Processor::setGain. Signal conditioning, adaptive band
-// normalization, and beat detection are owned by the FastLED pipeline.
+// Mirrors FastLED Processor::setGain and the SignalConditioner noise gate.
+// Adaptive band normalization and beat detection are owned by the FastLED
+// pipeline.
 export interface MicConfig {
   gain: number
+  noiseGate: number
 }
 
 export class AudioEngine {
@@ -98,6 +101,9 @@ export class AudioEngine {
   configureMic(config: Partial<MicConfig>): void {
     this.micConfig = {
       gain: Number.isFinite(config.gain ?? NaN) ? Math.max(0, Math.min(MIC_MAX_GAIN, Number(config.gain))) : this.micConfig.gain,
+      noiseGate: Number.isFinite(config.noiseGate ?? NaN)
+        ? Math.max(0, Math.min(MIC_MAX_NOISE_GATE, Math.round(Number(config.noiseGate))))
+        : this.micConfig.noiseGate,
     }
   }
 
@@ -215,7 +221,7 @@ export class AudioEngine {
     this.specFlip = 1 - this.specFlip
     const spectrum = this.specBufs[this.specFlip]
     spectrum.length = NUM_SPECTRUM_BARS
-    const result = this.analyzer.process(this.timeBuf, sampleRate, now, this.micConfig.gain, spectrum)
+    const result = this.analyzer.process(this.timeBuf, sampleRate, now, this.micConfig.gain, spectrum, this.micConfig.noiseGate)
     const channelLevels = levelsFromSampleChannels(
       this.leftTimeBuf,
       this.rightTimeBuf,

@@ -58,7 +58,11 @@ Both sides run the same arithmetic per frame:
 - The frame interval is the wall-clock time between analysed frames, as for
   the other detectors here. The C++ derives it from the audio chunk length.
 - `Context::isSilent` is stood in for by the signal conditioner: a buffer the
-  noise gate zeroed completely is silent.
+  noise gate zeroed completely is silent. The gate's open threshold is the
+  input node's `noiseGate` (raw int16 units, default 500) and closes at 60% of
+  it, matching `SignalConditionerConfig`'s 500/300. Gain applies after the
+  gate, as in `Processor`; firmware calls `configureSignalConditioner` only
+  for a non-default gate.
 
 ### Firmware
 

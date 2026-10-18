@@ -367,12 +367,14 @@ export default function App() {
     }
   }, [boardUnresolved, selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
 
-  // Keep the browser analysis gain in sync with the selected physical input.
+  // Keep the browser analysis gain and noise gate in sync with the selected
+  // physical input.
   useEffect(() => {
     const engine = AudioEngine.instance
     if (!audioInputProps) return
     engine.configureMic({
       gain: Number(audioInputProps.gain ?? MIC_DEFAULTS.gain),
+      noiseGate: Number(audioInputProps.noiseGate ?? MIC_DEFAULTS.noiseGate),
     })
   }, [audioInputProps])
 

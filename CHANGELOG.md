@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Mic In** and **Line In** gain a **Noise Gate** under Levels: the raw
+  sample level (of 32767, default 500, FastLED's own) a sound must reach
+  before analysis hears it. Raise it when room hiss moves the LEDs; 0 turns
+  the gate off. Preview and firmware both apply it, and the preview now gates
+  before gain as FastLED does, so a raised gain no longer lifts hiss through
+  the gate.
 - **Music Player** gains **Energy Pacing** (holds lean toward Min Time as the
   music grows more intense and toward Max Time as it calms) and **Dwells &
   Bursts** (an occasional hold of four times Max Time, and an occasional run

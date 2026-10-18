@@ -1,8 +1,18 @@
 export const MIC_DEFAULTS = {
   gain: 1,
+  // FastLED SignalConditionerConfig::noiseGateOpenThreshold, in raw int16
+  // sample units before gain.
+  noiseGate: 500,
 } as const
 
 export const MIC_MAX_GAIN = 20
+export const MIC_MAX_NOISE_GATE = 4000
+
+/** FastLED's hysteresis closes the gate at 300 when it opens at 500; keep that
+ *  ratio for any user-chosen open threshold. */
+export function noiseGateCloseThreshold(open: number): number {
+  return Math.round(open * 0.6)
+}
 // Matches fl::audio::Config::CreateInmp441's default I2S rate, so the browser
 // capture and the on-device FastLED audio pipeline analyse the same bandwidth.
 export const MIC_SAMPLE_RATE = 44_100

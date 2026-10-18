@@ -106,6 +106,23 @@ describe('audioEngine FFT helpers', () => {
     expect(Math.max(...loud.map(Math.abs))).toBeGreaterThanOrEqual(900)
   })
 
+  it('opens the noise gate at the configured threshold and closes at 60% of it', () => {
+    const below = new Float32Array([1_000, -1_000, 1_000, -1_000])
+    conditionSamples(below, createConditionerState(), 1_200)
+    expect([...below]).toEqual([0, 0, 0, 0])
+
+    const state = createConditionerState()
+    const opens = new Float32Array([1_300, -1_300, 800, -800, 700, -700])
+    conditionSamples(opens, state, 1_200)
+    // 800 stays above the 720 close threshold; 700 closes the gate.
+    expect([...opens]).toEqual([1_300, -1_300, 800, -800, 0, 0])
+    expect(state.gateOpen).toBe(false)
+
+    const off = new Float32Array([10, -10, 10, -10])
+    conditionSamples(off, createConditionerState(), 0)
+    expect([...off]).toEqual([10, -10, 10, -10])
+  })
+
   it('produces normalized FastLED bass levels from a low-frequency tone', () => {
     const n = 512
     const samples = Float32Array.from(
@@ -119,6 +136,20 @@ describe('audioEngine FFT helpers', () => {
     expect(result.mids).toBeGreaterThanOrEqual(0)
     expect(result.treble).toBeGreaterThanOrEqual(0)
     expect(spectrum).toHaveLength(32)
+  })
+
+  it('gates the raw signal before gain, as FastLED Processor does', () => {
+    const n = 512
+    // ~330 int16 peak: under the default 500 gate even though gain lifts it.
+    const quiet = Float32Array.from(
+      { length: n },
+      (_, i) => 0.01 * Math.sin((2 * Math.PI * 172.265625 * i) / MIC_SAMPLE_RATE),
+    )
+    const spectrum = new Array<number>(32)
+    const gated = new FastLedAudioAnalyzer(n).process(quiet, MIC_SAMPLE_RATE, 1_000, 10, spectrum)
+    expect(gated.bass).toBe(0)
+    const open = new FastLedAudioAnalyzer(n).process(quiet, MIC_SAMPLE_RATE, 1_000, 10, spectrum, 200)
+    expect(open.bass).toBeGreaterThan(0.5)
   })
 
   it('detects a beat from a rising spectral-flux peak and smooths BPM', () => {
