@@ -82,6 +82,7 @@ import { displayRuntimeId, mountedPanelGeometry, panelsNamingDocument, panelsSho
 import { useDisplayRuntimeStore } from './displays/displayRuntimeStore'
 import { useUploadStore } from './upload/uploadStore'
 import { assignPartPins } from '../build/parts/partPinAssignment'
+import { assignBoardI2cPins, i2cPinUses } from '../build/pins/i2cPinAssignment'
 import {
   BUTTON_BANK_ADD_HANDLE,
   buttonBankHandle,
@@ -3931,6 +3932,22 @@ export function insertMapRangeOnEdge(edgeId: string, outMin: number, outMax: num
   } as StudioNode
   useGraphStore.getState().insertNodeOnEdge(node, edgeId, ports.inPort, ports.outPort)
   return true
+}
+
+/** Move every active I2C part onto the board bus in one root-scoped undo step. */
+export function moveI2cPartsToBoardPins(): { ok: true; pins: Record<string, number> } | { ok: false; reason: string } {
+  const state = useGraphStore.getState()
+  const nodes = rootGraphNodes(state)
+  const fqbn = useUploadStore.getState().selectedFqbn
+  const uses = i2cPinUses(nodes, fqbn)
+  const assigned = assignBoardI2cPins(selectedPhysicalBoardProfile(nodes), fqbn, nodes, true)
+  if (!assigned.ok) return assigned
+  const changedIds = new Set(uses.filter((use) => use.pin !== assigned.pins[use.propertyKey]).map((use) => use.nodeId))
+  if (changedIds.size === 0) return { ok: false, reason: 'Those I2C pins already match the board settings.' }
+  useGraphStore.setState((s) => withRootNodes(s, rootGraphNodes(s).map((node) => changedIds.has(node.id)
+    ? { ...node, data: { ...node.data, properties: { ...node.data.properties, ...assigned.pins } } }
+    : node)))
+  return assigned
 }
 
 /**

@@ -1,9 +1,10 @@
 // The Hardware workspace's parts shelf: every part it offers, grouped by
 // shelf, with whether the board can take one more and why not.
+import { assignHardwarePartPins } from '../../build/pins/i2cPinAssignment'
 import { assignPartPins } from '../../build/parts/partPinAssignment'
 import { partById, partRenderSrc } from '../../build/parts/partCatalogue'
 import { partRenderForNodeType } from '../../build/parts/partRenders'
-import { partOptionsFor } from '../../build/parts/partOptions'
+import { partOptionProperty, partOptionsFor } from '../../build/parts/partOptions'
 import { LED_OUTPUT_FORM_LABELS } from '../../state/output/ledOutputForm'
 import type { HardwareShelfItem, HardwareShelfCategory } from './HardwarePartsShelf'
 import {
@@ -88,8 +89,8 @@ export function hardwareShelfCategories({
         : new Set<string>()
       const functionBlocked = candidateFunctions.find((name) => usedFunctions.has(name))
       const pinRequests = fixturePinRequests(nodeType, option.id) ?? fixture.pinRequests
-      const assigned = !blocked && pinRequests?.length
-        ? assignPartPins(boardProfile, selectedFqbn, nodes, pinRequests)
+      const assigned = !blocked
+        ? assignHardwarePartPins(boardProfile, selectedFqbn, nodes, pinRequests ?? [], nodeType, { [partOptionProperty(nodeType) ?? 'partId']: option.id })
         : { ok: true as const }
       const pinBlocked = assigned.ok ? null : assigned.reason
       const boardBlocked = nodeType === 'DFPlayerOutput' && selectedFqbn && !selectedFqbn.startsWith('esp32:')

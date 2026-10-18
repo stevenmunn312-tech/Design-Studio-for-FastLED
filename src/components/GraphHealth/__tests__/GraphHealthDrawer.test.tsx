@@ -38,6 +38,29 @@ describe('GraphHealthDrawer', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
   })
 
+  it('opens each affected hardware inspector and repairs a split I2C bus', () => {
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+      node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 8, sclPin: 9 }),
+      node('oled', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 7, sclPin: 10 }),
+    ], [])
+    const { getByText, queryByText } = render(<GraphHealthDrawer />)
+    const card = getByText('I2C parts are on more than one bus').closest('article')!
+    expect(within(card).queryByRole('button', { name: /Locate.*node/ })).toBeNull()
+    for (const [id, label] of [['rtc', 'RTC Clock'], ['oled', 'Info Display']]) {
+      fireEvent.click(within(card).getByRole('button', { name: `Show ${label} hardware` }))
+      expect(useUiStore.getState().workspaceMode).toBe('hardware')
+      expect(useUiStore.getState().hardwareInspectorNodeId).toBe(id)
+      expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 0 })
+    }
+    const fix = within(card).getByRole('button', { name: 'Fix' })
+    expect(fix.title).toBe('Move I2c items onto SDA and SCL pins.')
+    fireEvent.click(fix)
+    expect(queryByText('I2C parts are on more than one bus')).toBeNull()
+    expect(useGraphStore.getState().nodes.find((part) => part.id === 'oled')?.data.properties)
+      .toMatchObject({ sdaPin: 8, sclPin: 9 })
+  })
+
   it('locates the affected node and frames it on the canvas', () => {
     const { getByText } = render(<GraphHealthDrawer />)
     const card = getByText('Random has an invalid expression').closest('article')

@@ -9,6 +9,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Pins and boards
 
+- Hardware shelf availability and creation both use `assignHardwarePartPins`.
+  It reads the configured transport through `collectPinUses`: I2C inputs and
+  fixtures share the selected board's SDA/SCL pair, while exclusive signals
+  use `assignPartPins`. An occupied I2C bus is not a full board. A non-I2C
+  claim on either bus pin blocks addition and names the hardware to move.
+  Never allocate an I2C OLED's two pins as independent free GPIOs.
+
 - A board drawn on the Build Diagram as its render, with wires on its pads,
   needs an authored profile in `boardProfiles.ts` and a measured entry in
   `CONTROLLER_SPECS` (`controllerGeometry.ts`); an imported profile alone gets

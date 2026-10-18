@@ -1677,6 +1677,7 @@ export type GraphDiagnosticAction =
   | 'place-touch-control'
   | 'connect-template-controls'
   | 'move-pin'
+  | 'move-i2c-pins'
   | 'open-board-settings'
   | 'connect-show-output'
   | 'add-pattern-collection'
@@ -1702,6 +1703,7 @@ export type GraphRepair =
   | { kind: 'connect-template-controls'; panelId: string }
   /** A part's pin to move to a free, safe pin on the chosen board. */
   | { kind: 'move-pin'; nodeId: string; propertyKey: string }
+  | { kind: 'move-i2c-pins' }
   /** The show engine to wire into the only LED output there is. */
   | { kind: 'connect-show-output'; engineId: string; outputId: string }
   /** The Music Player to give a new, wired Pattern Collection. */
@@ -1720,9 +1722,8 @@ export interface GraphDiagnostic {
   title: string
   message: string
   fix: string
-  /** Every visible node involved in the issue. The drawer frames the whole set
-   *  and selects the first node, so conflicts are as easy to trace as one-node
-   *  property errors. */
+  /** Every item involved in the issue. Pin diagnostics open their hardware
+   *  inspectors; graph diagnostics frame the set and select the first node. */
   nodeIds: string[]
   /** The wires at fault, when the problem is a connection rather than a
    *  node. Locating a card with these frames and lights the wires themselves,
@@ -2599,6 +2600,7 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
     .join('; ')
   issues.push({
     id: 'i2c-split-bus', severity: 'error', category: 'pins',
+    action: 'move-i2c-pins', repair: { kind: 'move-i2c-pins' },
     title: 'I2C parts are on more than one bus',
     message: `The generated sketch starts one I2C bus, but this build has ${buses.size}: ${described}.`,
     fix: 'Put every I2C part on the same SDA and SCL pins — sharing them is correct, and only the addresses have to differ.',

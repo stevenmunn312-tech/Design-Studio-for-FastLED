@@ -3,12 +3,15 @@
  * leave the graph in the state its card promised, and the card has to go away
  * once it has.
  */
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   addPatternCollectionTo,
   connectShowOutput,
   disconnectTouchControls,
   movePartPinToFree,
+  moveI2cPartsToBoardPins,
+  rootGraphNodes,
+  ROOT_GRAPH_ID,
   useGraphStore,
   type StudioEdge,
   type StudioNode,
@@ -41,6 +44,55 @@ const diagnostics = () => {
 beforeEach(() => {
   useGraphStore.getState().loadGraph([], [])
   useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+})
+
+describe('Move I2C hardware to board pins', () => {
+  afterEach(() => vi.useRealTimers())
+  const parts = () => [
+    node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+    node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 8, sclPin: 9 }),
+    node('oled', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 7, sclPin: 10 }),
+  ]
+
+  it('repairs root hardware from a group and restores both pins with one undo', () => {
+    vi.useFakeTimers()
+    const original = parts()
+    useGraphStore.setState({
+      activeGraphId: 'pattern', nodes: [], edges: [],
+      graphData: { [ROOT_GRAPH_ID]: { nodes: original, edges: [] } },
+    })
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().clear()
+    expect(moveI2cPartsToBoardPins()).toEqual({ ok: true, pins: { sdaPin: 8, sclPin: 9 } })
+    expect(useGraphStore.getState().activeGraphId).toBe('pattern')
+    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(rootGraphNodes(useGraphStore.getState()).find((part) => part.id === 'oled')?.data.properties)
+      .toMatchObject({ sdaPin: 8, sclPin: 9 })
+    vi.advanceTimersByTime(400)
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+    useGraphStore.temporal.getState().undo()
+    expect(rootGraphNodes(useGraphStore.getState())).toEqual(original)
+  })
+
+  it('refuses occupied board pins without changing any hardware', () => {
+    useGraphStore.getState().loadGraph([...parts(), node('button', 'ButtonInput', { pin: 8 })], [])
+    const before = rootGraphNodes(useGraphStore.getState())
+    expect(moveI2cPartsToBoardPins()).toMatchObject({ ok: false, reason: expect.stringContaining('GPIO 8') })
+    expect(rootGraphNodes(useGraphStore.getState())).toBe(before)
+  })
+
+  it('leaves inactive RTC and SPI displays alone and reports an already repaired bus', () => {
+    useGraphStore.getState().loadGraph([
+      ...parts(), node('clock', 'RTCInput', { timeSource: 'NTP', sdaPin: 3, sclPin: 4 }),
+      node('spi', 'InfoDisplay', { partId: 'sh1106-oled-128x64', sdaPin: 5, sclPin: 6 }),
+    ], [])
+    expect(moveI2cPartsToBoardPins().ok).toBe(true)
+    expect(rootGraphNodes(useGraphStore.getState()).find((part) => part.id === 'clock')?.data.properties)
+      .toMatchObject({ sdaPin: 3, sclPin: 4 })
+    expect(rootGraphNodes(useGraphStore.getState()).find((part) => part.id === 'spi')?.data.properties)
+      .toMatchObject({ sdaPin: 5, sclPin: 6 })
+    expect(moveI2cPartsToBoardPins()).toMatchObject({ ok: false, reason: expect.stringContaining('already') })
+  })
 })
 
 describe('Move to a free pin', () => {

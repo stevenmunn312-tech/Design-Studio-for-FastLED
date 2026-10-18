@@ -3,12 +3,9 @@
 // connects and the status line it reports.
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
-import { assignPartPins } from '../../build/parts/partPinAssignment'
+import { assignHardwarePartPins } from '../../build/pins/i2cPinAssignment'
 import { withAssignedPins } from '../../build/pins/pinRetarget'
-import { profileI2cDefault } from '../../build/boards/boardI2cDefaults'
 import { micModuleFor } from '../../state/peripherals/micModules'
-import { lightSensorTransport } from '../../state/peripherals/lightSensor'
-import { distanceSensorTransport } from '../../state/peripherals/distanceSensor'
 import { micSupportedForBoard, micUnsupportedMessage } from '../../build/pins/micPinDefaults'
 import { ensureRootAudioNode, type StudioNode } from '../../state/graphStore'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
@@ -59,8 +56,7 @@ export function inputPartActions({
       && !micSupportedForBoard(selectedFqbn, entry.properties?.partId)) {
       return micUnsupportedMessage(entry.properties?.partId)
     }
-    if (entry.pinRequests.length === 0) return null
-    const assigned = assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
+    const assigned = assignHardwarePartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests, entry.nodeType, entry.properties ?? {})
     return assigned.ok ? null : assigned.reason
   }
 
@@ -72,18 +68,11 @@ export function inputPartActions({
   const addInputPart = (entry: InputPartEntry) => {
     const definition = NODE_LIBRARY.find((candidate) => candidate.type === entry.nodeType)
     if (!definition || inputPartBlocker(entry)) return
-    const assigned = entry.pinRequests.length
-      ? assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
-      : { ok: true as const, pins: {} }
+    const assigned = assignHardwarePartPins(
+      boardProfile, selectedFqbn, nodes, entry.pinRequests, entry.nodeType, entry.properties ?? {},
+    )
     if (!assigned.ok) return
-    const usesBoardI2c = entry.nodeType === 'RTCInput' || entry.nodeType === 'PowerMonitorInput'
-      || entry.nodeType === 'EnvironmentInput' || entry.nodeType === 'MotionVectorInput' || entry.nodeType === 'TouchPadInput'
-      || (entry.nodeType === 'LightInput' && lightSensorTransport(entry.properties?.partId) === 'i2c')
-      || (entry.nodeType === 'DistanceInput' && distanceSensorTransport(entry.properties?.partId) === 'i2c')
-    const rtcDefaults = usesBoardI2c ? profileI2cDefault(boardProfile) : undefined
-    const assignedPins = rtcDefaults
-      ? { ...assigned.pins, sdaPin: rtcDefaults.sda.arduinoPin, sclPin: rtcDefaults.scl.arduinoPin }
-      : assigned.pins
+    const assignedPins = assigned.pins
 
     const nodeId = `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
     addNode({
@@ -175,14 +164,14 @@ export function benchPartActions({
     const moduleProperty = partOptionProperty(entry.nodeType)
     const amp = boardProfile?.peripheralPins?.max98357
     const sdSpiPins = entry.nodeType === 'SDCard' ? sdSpiPinsForBoard(boardProfile, selectedFqbn) : null
-    // A part the board profile does not place picks free GPIO the same way an
-    // input part does, so a second display lands on its own pins rather than
-    // silently colliding with the first.
+    // Inputs and fixtures share one allocator: I2C joins the board bus, while
+    // exclusive signals take free GPIO. Shelf availability uses the same rule.
     const pinRequests = fixturePinRequests(entry.nodeType, moduleId) ?? entry.pinRequests
-    const requested = pinRequests?.length
-      ? assignPartPins(boardProfile, selectedFqbn, nodes, pinRequests)
-      : null
-    if (requested && !requested.ok) {
+    const requested = assignHardwarePartPins(
+      boardProfile, selectedFqbn, nodes, pinRequests ?? [], entry.nodeType,
+      { ...definition.defaultProperties, ...(moduleProperty && moduleId ? { [moduleProperty]: moduleId } : {}) },
+    )
+    if (!requested.ok) {
       setStatus(requested.reason, 'error')
       return
     }
@@ -193,7 +182,7 @@ export function benchPartActions({
           sdMisoPin: sdSpiPins.miso,
           sdMosiPin: sdSpiPins.mosi,
         }
-      : requested
+      : pinRequests?.length || Object.keys(requested.pins).length
         ? requested.pins
         : entry.profilePins && amp
           ? Object.fromEntries(

@@ -6,6 +6,7 @@ import {
   connectTemplateControls,
   insertMapRangeOnEdge,
   movePartPinToFree,
+  moveI2cPartsToBoardPins,
   routeControlsToEngine,
   disconnectTouchControls,
   ensureRootAudioNode,
@@ -48,6 +49,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
   if (action === 'place-touch-control') return 'Place on screen'
   if (action === 'connect-template-controls') return 'Connect them'
   if (action === 'move-pin') return 'Move to a free pin'
+  if (action === 'move-i2c-pins') return 'Fix'
   if (action === 'open-board-settings') return 'Open Board settings'
   if (action === 'connect-show-output') return 'Connect it'
   if (action === 'add-pattern-collection') return 'Add a collection'
@@ -114,6 +116,12 @@ export default function GraphHealthDrawer() {
   }
 
   const runAction = (issue: GraphDiagnostic) => {
+    if (issue.repair?.kind === 'move-i2c-pins') {
+      const result = moveI2cPartsToBoardPins()
+      setStatus(result.ok ? `I2C hardware moved to SDA ${result.pins.sdaPin} and SCL ${result.pins.sclPin}` : result.reason,
+        result.ok ? 'success' : 'info')
+      return
+    }
     if (issue.action === 'choose-board') {
       openBoardPopup()
       return
@@ -284,7 +292,14 @@ export default function GraphHealthDrawer() {
                   {issue.fix && <p className={styles.fix}><span>Next step</span>{' '}{issue.fix}</p>}
                 </div>
                 <div className={styles.issueActions}>
-                  {issue.nodeIds.length > 0 && (
+                  {issue.category === 'pins' ? issue.nodeIds.map((id) => (
+                    <button key={id} type="button" onClick={() => {
+                      useUiStore.getState().setHardwarePaneTab('hardware')
+                      useUiStore.getState().setHardwareInspectorNodeId(id)
+                    }}>
+                      Show {capabilityNodes.find((node) => node.id === id)?.data.label ?? 'hardware'} hardware
+                    </button>
+                  )) : issue.nodeIds.length > 0 && (
                     <button type="button" onClick={() => locate(issue)}>
                       {issue.edgeIds?.length
                         ? issue.edgeIds.length > 1 ? `Show ${issue.edgeIds.length} wires` : 'Show the wire'
@@ -296,7 +311,7 @@ export default function GraphHealthDrawer() {
                       Open screen design
                     </button>
                   )}
-                  {issue.action && <button type="button" onClick={() => runAction(issue)}>{actionLabel(issue.action)}</button>}
+                  {issue.action && <button type="button" title={issue.action === 'move-i2c-pins' ? 'Move I2c items onto SDA and SCL pins.' : undefined} onClick={() => runAction(issue)}>{actionLabel(issue.action)}</button>}
                 </div>
               </article>
             ))}

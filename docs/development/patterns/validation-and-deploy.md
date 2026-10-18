@@ -7,6 +7,12 @@ Moved out of the always-loaded `CLAUDE.md` so a session reads it only when
 working in this area; record new patterns for this area here, not there. History
 of the entries before the move: `git log -p -- CLAUDE.md`.
 
+- Pin diagnostics open each affected part's Hardware wiring inspector instead
+  of locating signal nodes. The split-I2C-bus card offers `move-i2c-pins` with
+  a `Fix` button. `moveI2cPartsToBoardPins` rechecks the live root hardware,
+  assigns the board's SDA/SCL pair atomically, and refuses unrelated pin
+  claims. It leaves inactive RTCs, SPI displays and device addresses alone.
+
 - Deploy blocking is one list, not a per-caller copy: **`findDeployBlockingErrors(nodes, edges, selectedFqbn)`**
   in `validateGraph.ts` holds every graph rule that must stop a
   build/flash/export, and both `validateGraph` and `MatrixOutputDeployPopup`

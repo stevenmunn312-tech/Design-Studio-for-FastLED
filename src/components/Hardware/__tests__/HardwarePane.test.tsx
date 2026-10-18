@@ -150,6 +150,23 @@ describe('HardwarePane', () => {
     ])
   })
 
+  it.each([false, true])('shares board SDA/SCL when the OLED is added first: %s', (oledFirst) => {
+    render(<HardwarePane />)
+    const addOled = () => addDisplay('SSD1306 0.96-inch (4-pin)')
+    if (oledFirst) addOled()
+    addPart('Inputs', 'DS3231 RTC module')
+    addPart('Inputs', 'INA219 power monitor')
+    if (!oledFirst) addOled()
+    const bus = boardI2cDefault(DEFAULT_BOARD_PROFILE_ID)!
+    const parts = rootGraphNodes(useGraphStore.getState()).filter((part) =>
+      ['RTCInput', 'PowerMonitorInput', 'InfoDisplay'].includes(part.data.nodeType))
+    expect(parts).toHaveLength(3)
+    for (const part of parts) expect(part.data.properties).toMatchObject({
+      sdaPin: bus.sda.arduinoPin, sclPin: bus.scl.arduinoPin,
+      assignedPins: { sdaPin: bus.sda.arduinoPin, sclPin: bus.scl.arduinoPin },
+    })
+  })
+
   it('adds the PWM driver on the board I2C pins and exposes its wiring popup', () => {
     render(<HardwarePane />)
     addPart('Power', 'Adafruit PCA9685')
