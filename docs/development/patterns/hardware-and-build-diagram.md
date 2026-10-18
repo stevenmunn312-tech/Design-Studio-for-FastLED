@@ -610,6 +610,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Hardware workbench
 
+- Hardware shelf subcategories live in `hardwareShelfModel.ts`, ordered by
+  purpose and node type. Small, single-purpose categories stay flat. Subcategory
+  headings in `HardwarePartsShelf` follow the filtered items, so search never
+  leaves empty headings; search also matches category and subcategory names.
+  Audio contains Audio Inputs and Audio Outputs; microphones and line inputs
+  appear only there. Power contains Batteries, Power Conversion and Switching
+  Power. Power monitors remain with the other input sensors.
 - Hardware captions counter-scale through overview zooms so labels stay
   readable. Above 1:1 zoom they grow with their parts through the full zoom
   range.

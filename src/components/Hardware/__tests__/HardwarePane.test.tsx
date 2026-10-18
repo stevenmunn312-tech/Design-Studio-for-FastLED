@@ -131,7 +131,7 @@ describe('HardwarePane', () => {
   it('adds the Mosfetti with four assigned pins and its part-derived ports', () => {
     render(<HardwarePane />)
 
-    addPart('Switching power', 'MonkMakes Mosfetti')
+    addPart('Power', 'MonkMakes Mosfetti')
 
     const powerSwitch = useGraphStore.getState().nodes
       .find((entry) => entry.data.nodeType === 'PowerSwitchOutput')
@@ -152,7 +152,7 @@ describe('HardwarePane', () => {
 
   it('adds the PWM driver on the board I2C pins and exposes its wiring popup', () => {
     render(<HardwarePane />)
-    addPart('Switching power', 'Adafruit PCA9685')
+    addPart('Power', 'Adafruit PCA9685')
     const driver = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'PwmDriverOutput')!
     const bus = boardI2cDefault(DEFAULT_BOARD_PROFILE_ID)!
     expect(driver.data.properties).toMatchObject({
@@ -229,7 +229,7 @@ describe('HardwarePane', () => {
       if (module.capture) useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
       render(<HardwarePane />)
 
-      addPart('Inputs', `${module.label} microphone`)
+      addPart('Audio', `${module.label} microphone`)
 
       const mic = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'MicInput')
       expect(mic).toBeTruthy()
@@ -244,7 +244,7 @@ describe('HardwarePane', () => {
   it('adds an Audio node listening for the microphone with the first microphone', () => {
     render(<HardwarePane />)
 
-    addPart('Inputs', 'INMP441 microphone')
+    addPart('Audio', 'INMP441 microphone')
 
     const audio = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'Audio')
     expect(audio).toHaveLength(1)
@@ -260,7 +260,7 @@ describe('HardwarePane', () => {
     })
     render(<HardwarePane />)
 
-    addPart('Inputs', 'INMP441 microphone')
+    addPart('Audio', 'INMP441 microphone')
 
     const audio = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'Audio')
     expect(audio.map((entry) => entry.id)).toEqual(['audio-existing'])
@@ -285,7 +285,7 @@ describe('HardwarePane', () => {
     })
     render(<HardwarePane />)
 
-    addPart('Inputs', 'INMP441 microphone')
+    addPart('Audio', 'INMP441 microphone')
 
     const rootTypes = rootGraphNodes(useGraphStore.getState()).map((entry) => entry.data.nodeType)
     expect(rootTypes).toContain('Audio')
@@ -294,7 +294,7 @@ describe('HardwarePane', () => {
 
   it('refuses the SPH0645LM4H on the shelf of an ESP32-S3, and says why', () => {
     render(<HardwarePane />)
-    openShelfCategory('Inputs')
+    openShelfCategory('Audio')
     const button = screen.getByRole('button', { name: 'Add SPH0645LM4H microphone' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
     fireEvent.click(button)
@@ -305,7 +305,7 @@ describe('HardwarePane', () => {
     render(<HardwarePane />)
     // The ICS-43434 breakout prints LRCL/BCLK/DOUT where the INMP441 prints
     // WS/SCK/SD. Same three signals, same three properties, different board.
-    addPart('Inputs', 'ICS-43434 microphone')
+    addPart('Audio', 'ICS-43434 microphone')
     expect(within(document.body).getByText(/LRCL \d+ · DOUT \d+ · BCLK \d+/)).toBeTruthy()
   })
 
@@ -461,7 +461,7 @@ describe('HardwarePane', () => {
   it('adds PCM1802 line in with four distinct board-owned pins', () => {
     render(<HardwarePane />)
 
-    addPart('Inputs', 'PCM1802 line-in ADC')
+    addPart('Audio', 'PCM1802 line-in ADC')
 
     const lineIn = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'LineInput')
     expect(lineIn).toBeTruthy()

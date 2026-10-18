@@ -13,6 +13,35 @@ import {
 import type { StudioNode } from '../../state/graphStore'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
+const AUDIO_INPUT_TYPES = new Set(['MicInput', 'LineInput'])
+
+// Ordered browsing groups. Keep the small, single-purpose shelves flat.
+const SHELF_SUBCATEGORIES: Record<string, readonly { label: string; nodeTypes: readonly string[] }[]> = {
+  inputs: [
+    { label: 'Buttons & touch', nodeTypes: ['ButtonInput', 'ButtonBank', 'TouchButtonInput', 'TouchPadInput', 'KeypadInput'] },
+    { label: 'Knobs & joysticks', nodeTypes: ['PotInput', 'EncoderInput', 'JoystickInput'] },
+    { label: 'Remote receivers', nodeTypes: ['IRRemoteInput'] },
+    { label: 'Motion & distance', nodeTypes: ['MotionInput', 'PresenceInput', 'DistanceInput', 'MotionVectorInput'] },
+    { label: 'Light & environment', nodeTypes: ['LightInput', 'EnvironmentInput', 'TemperatureInput'] },
+    { label: 'Power monitoring', nodeTypes: ['PowerMonitorInput'] },
+    { label: 'Clocks', nodeTypes: ['RTCInput'] },
+  ],
+  audio: [
+    { label: 'Audio Inputs', nodeTypes: [...AUDIO_INPUT_TYPES] },
+    { label: 'Audio Outputs', nodeTypes: ['Amplifier', 'PowerAmplifier', 'DFPlayerOutput', 'BuzzerOutput'] },
+  ],
+  displays: [
+    { label: 'Segment displays', nodeTypes: ['SegmentDisplay'] },
+    { label: 'OLED displays', nodeTypes: ['InfoDisplay'] },
+    { label: 'TFT & touch displays', nodeTypes: ['TransportDisplay'] },
+  ],
+  power: [
+    { label: 'Batteries', nodeTypes: ['BatteryPack', 'BatteryModule'] },
+    { label: 'Power Conversion', nodeTypes: ['PowerConverter', 'PdTriggerSource'] },
+    { label: 'Switching Power', nodeTypes: ['RelayOutput', 'PowerSwitchOutput', 'PwmDriverOutput', 'DarlingtonDriverOutput'] },
+  ],
+}
+
 export interface HardwareShelfInputs {
   nodes: StudioNode[]
   selectedFqbn: string
@@ -123,25 +152,27 @@ export function hardwareShelfCategories({
     return assigned.ok ? 'No free GPIO on this board' : assigned.reason
   })()
 
+  const inputItems: HardwareShelfItem[] = INPUT_PARTS.map((entry) => {
+    const blocker = inputPartBlocker(entry)
+    return {
+      key: entry.partId,
+      nodeType: entry.nodeType,
+      label: entry.label,
+      hint: entry.hint,
+      renderSrc: partRenderForNodeType(entry.nodeType, entry.properties ?? {})?.src,
+      visual: entry.partId,
+      disabled: blocker !== null,
+      disabledReason: blocker,
+      onSelect: () => addInputPart(entry),
+    }
+  })
+
   const shelfCategories: HardwareShelfCategory[] = [
     {
       id: 'inputs',
       label: 'Inputs',
       hint: 'Controls and sensors that feed the graph',
-      items: INPUT_PARTS.map((entry) => {
-        const blocker = inputPartBlocker(entry)
-        return {
-          key: entry.partId,
-          nodeType: entry.nodeType,
-          label: entry.label,
-          hint: entry.hint,
-          renderSrc: partRenderForNodeType(entry.nodeType, entry.properties ?? {})?.src,
-          visual: entry.partId,
-          disabled: blocker !== null,
-          disabledReason: blocker,
-          onSelect: () => addInputPart(entry),
-        }
-      }),
+      items: inputItems.filter((item) => !AUDIO_INPUT_TYPES.has(item.nodeType)),
     },
     {
       id: 'storage',
@@ -156,12 +187,11 @@ export function hardwareShelfCategories({
       items: moduleItems('EthernetModule', ethernetFixture),
     },
     {
-      id: 'amplifiers',
-      label: 'Amplifiers & DACs',
-      hint: 'How sound gets off the board',
-      // Both halves of an output chain: the I2S stage on the board's pins,
-      // then the analog power amplifier a DAC can feed.
+      id: 'audio',
+      label: 'Audio',
+      hint: 'Microphones, line inputs, amplifiers and players',
       items: [
+        ...inputItems.filter((item) => AUDIO_INPUT_TYPES.has(item.nodeType)),
         ...moduleItems('Amplifier', amplifierFixture),
         ...moduleItems('PowerAmplifier', powerAmplifierFixture),
         ...moduleItems('DFPlayerOutput', dfPlayerFixture),
@@ -182,28 +212,14 @@ export function hardwareShelfCategories({
       ],
     },
     {
-      id: 'battery',
-      label: 'Battery',
-      hint: 'Lithium cells, protection, balancing and charging',
+      id: 'power',
+      label: 'Power',
+      hint: 'Batteries, power conversion and load switching',
       items: [
         ...moduleItems('BatteryPack', batteryPackFixture),
         ...moduleItems('BatteryModule', batteryModuleFixture),
-      ],
-    },
-    {
-      id: 'power-conversion',
-      label: 'Power conversion',
-      hint: 'Where 5 V comes from when your supply is 12 V or 24 V, and a USB-C PD source',
-      items: [
         ...moduleItems('PowerConverter', powerConverterFixture),
         ...moduleItems('PdTriggerSource', pdTriggerFixture),
-      ],
-    },
-    {
-      id: 'switching-power',
-      label: 'Switching power',
-      hint: 'Relays for on/off loads, MOSFET switches that can also dim DC loads, a 16-channel PWM driver, and an eight-channel low-side driver',
-      items: [
         ...moduleItems('RelayOutput', relayFixture),
         ...moduleItems('PowerSwitchOutput', powerSwitchFixture),
         ...moduleItems('PwmDriverOutput', pwmDriverFixture),
@@ -249,5 +265,20 @@ export function hardwareShelfCategories({
     },
   ].filter((category) => category.items.length > 0)
 
-  return shelfCategories
+  return shelfCategories.map((category) => {
+    const groups = SHELF_SUBCATEGORIES[category.id]
+    if (!groups) return category
+    const groupedTypes = new Set(groups.flatMap((group) => group.nodeTypes))
+    return {
+      ...category,
+      items: [
+        ...groups.flatMap((group) => group.nodeTypes.flatMap((nodeType) => category.items
+          .filter((item) => item.nodeType === nodeType)
+          .map((item) => ({ ...item, subcategory: group.label })))),
+        // New catalogue types stay reachable before a browsing group is assigned.
+        ...category.items.filter((item) => !groupedTypes.has(item.nodeType))
+          .map((item) => ({ ...item, subcategory: 'Other parts' })),
+      ],
+    }
+  })
 }

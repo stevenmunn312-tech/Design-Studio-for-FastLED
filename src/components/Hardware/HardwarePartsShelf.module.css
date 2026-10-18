@@ -183,6 +183,23 @@
   padding: 0 2px 9px;
 }
 
+.subcategoryHeader {
+  margin: 10px 6px 3px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-glow);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.subcategoryHeader:first-child {
+  margin-top: 2px;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .item {
   display: grid;
   grid-template-columns: 50px minmax(0, 1fr);

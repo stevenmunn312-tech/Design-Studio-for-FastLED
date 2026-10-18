@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HardwarePartsShelf.module.css'
 
@@ -9,6 +9,7 @@ export interface HardwareShelfItem {
   nodeType: string
   label: string
   hint: string
+  subcategory?: string
   disabled: boolean
   disabledReason: string | null
   renderSrc?: string | null
@@ -61,6 +62,8 @@ export default function HardwarePartsShelf({
         : category.items.filter((item) => (
             item.label.toLowerCase().includes(normalizedQuery)
             || item.hint.toLowerCase().includes(normalizedQuery)
+            || item.subcategory?.toLowerCase().includes(normalizedQuery)
+            || category.label.toLowerCase().includes(normalizedQuery)
           )),
     }))
     .filter((category) => category.items.length > 0), [categories, normalizedQuery])
@@ -146,30 +149,34 @@ export default function HardwarePartsShelf({
 
               {expanded && (
                 <div id={`hardware-shelf-${category.id}`} className={styles.items}>
-                  {category.items.map((item) => (
-                    <button
-                      key={item.key}
-                      ref={(element) => {
-                        if (element) itemRefs.current.set(item.key, element)
-                        else itemRefs.current.delete(item.key)
-                      }}
-                      type="button"
-                      className={styles.item}
-                      disabled={item.disabled}
-                      aria-label={`Add ${item.label}`}
-                      title={item.disabledReason ?? `Add ${item.label} to the bench`}
-                      onClick={item.onSelect}
-                    >
-                      <span className={styles.render} aria-hidden="true">
-                        {item.renderSrc
-                          ? <img src={item.renderSrc} alt="" draggable={false} />
-                          : <span className={styles.fallback} data-visual={item.visual}>{visualGlyph(item.visual)}</span>}
-                      </span>
-                      <span className={styles.itemCopy}>
-                        <strong>{item.label}</strong>
-                        <small>{item.disabledReason ?? item.hint}</small>
-                      </span>
-                    </button>
+                  {category.items.map((item, index) => (
+                    <Fragment key={item.key}>
+                      {item.subcategory && item.subcategory !== category.items[index - 1]?.subcategory && (
+                        <h3 className={styles.subcategoryHeader}>{item.subcategory}</h3>
+                      )}
+                      <button
+                        ref={(element) => {
+                          if (element) itemRefs.current.set(item.key, element)
+                          else itemRefs.current.delete(item.key)
+                        }}
+                        type="button"
+                        className={styles.item}
+                        disabled={item.disabled}
+                        aria-label={`Add ${item.label}`}
+                        title={item.disabledReason ?? `Add ${item.label} to the bench`}
+                        onClick={item.onSelect}
+                      >
+                        <span className={styles.render} aria-hidden="true">
+                          {item.renderSrc
+                            ? <img src={item.renderSrc} alt="" draggable={false} />
+                            : <span className={styles.fallback} data-visual={item.visual}>{visualGlyph(item.visual)}</span>}
+                        </span>
+                        <span className={styles.itemCopy}>
+                          <strong>{item.label}</strong>
+                          <small>{item.disabledReason ?? item.hint}</small>
+                        </span>
+                      </button>
+                    </Fragment>
                   ))}
                 </div>
               )}
