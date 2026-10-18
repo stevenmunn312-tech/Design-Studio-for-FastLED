@@ -759,10 +759,25 @@ describe('StudioNode', () => {
 
     expect(getByRole('img', { name: /microphone/i })).toBeTruthy()
     fireEvent.change(getByLabelText('Microphone gain'), { target: { value: '3.4' } })
+    expect((getByLabelText('Microphone noise gate') as HTMLInputElement).value).toBe('500')
+    fireEvent.change(getByLabelText('Microphone noise gate'), { target: { value: '1200' } })
     fireEvent.click(getByLabelText('Microphone serial debug'))
 
     const saved = useGraphStore.getState().nodes.find((node) => node.id === 'mic')
-    expect(saved?.data.properties).toMatchObject({ gain: 3.4, serialDebug: true })
+    expect(saved?.data.properties).toMatchObject({ gain: 3.4, noiseGate: 1200, serialDebug: true })
+  })
+
+  it('gives a selected line input the shared level controls on Audio', () => {
+    const audio = { ...makeNode('Audio', { sourceId: 'line' }), id: 'audio' } as StudioNodeT
+    const line = { ...makeNode('LineInput', { gain: 1, noiseGate: 500 }), id: 'line' } as StudioNodeT
+    useGraphStore.setState({ nodes: [audio, line], edges: [] })
+    const props = { id: audio.id, data: audio.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { getByLabelText, queryByLabelText } = render(<StudioNode {...props} />)
+
+    fireEvent.change(getByLabelText('Line input noise gate'), { target: { value: '800' } })
+    expect(queryByLabelText('Set microphone default')).toBeNull()
+    const saved = useGraphStore.getState().nodes.find((node) => node.id === 'line')
+    expect(saved?.data.properties).toMatchObject({ noiseGate: 800 })
   })
 
   it('shows a colour swatch for r/g/b properties', () => {

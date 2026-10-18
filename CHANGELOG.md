@@ -9,9 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
-- **Mic In** and **Line In** gain a **Noise Gate** under Levels: the raw
-  sample level (of 32767, default 500, FastLED's own) a sound must reach
-  before analysis hears it. Raise it when room hiss moves the LEDs; 0 turns
+- The **Audio** node gains a **Noise gate** slider beside Gain for a
+  microphone source, and both controls for a line input: the raw sample
+  level (of 32767, default 500, FastLED's own) a sound must reach before
+  analysis hears it. Raise it when room hiss moves the LEDs; 0 turns
   the gate off. Preview and firmware both apply it, and the preview now gates
   before gain as FastLED does, so a raised gain no longer lifts hiss through
   the gate.

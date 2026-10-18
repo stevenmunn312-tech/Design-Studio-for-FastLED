@@ -5,7 +5,7 @@ import {
   resolveAudioCapabilitySource,
   selectedAudioCapabilityKind,
 } from '../../../state/audio/audioCapabilities'
-import { MIC_MAX_GAIN } from '../../../audio/micAnalysis'
+import { MIC_DEFAULTS, MIC_MAX_GAIN, MIC_MAX_NOISE_GATE } from '../../../audio/micAnalysis'
 import { partRenderForNodeType } from '../../../build/parts/partRenders'
 import { useNodeDefaults } from '../../../state/nodeDefaults'
 import { useUploadStore } from '../../../state/upload/uploadStore'
@@ -38,6 +38,10 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
 
   const selectedProperties = selected?.node.data.properties as Record<string, unknown> | undefined
   const selectedMic = selected?.kind === 'microphone' ? selected.node : null
+  // Both physical inputs feed the same FastLED Processor, so they share the
+  // level controls; the mic adds its part picture and saved defaults.
+  const selectedInput = selected?.kind === 'microphone' || selected?.kind === 'line-in' ? selected.node : null
+  const inputName = selectedMic ? 'Microphone' : 'Line input'
   const selectedMicRender = selectedMic
     ? partRenderForNodeType('MicInput', selectedProperties ?? {})
     : null
@@ -50,6 +54,10 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
   const gain = Number.isFinite(storedGain)
     ? Math.max(0, Math.min(MIC_MAX_GAIN, storedGain))
     : 1
+  const storedNoiseGate = Number(selectedProperties?.noiseGate ?? MIC_DEFAULTS.noiseGate)
+  const noiseGate = Number.isFinite(storedNoiseGate)
+    ? Math.max(0, Math.min(MIC_MAX_NOISE_GATE, Math.round(storedNoiseGate)))
+    : MIC_DEFAULTS.noiseGate
   const inAppSource = selectedKind === 'decoder'
     ? 'In-app Music Player'
     : selectedKind === 'line-in'
@@ -102,8 +110,8 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
         </div>
       )}
 
-      {selectedMic && (
-        <div className={styles.microphone} aria-label={`${selected?.label ?? 'Microphone'} controls`}>
+      {selectedInput && (
+        <div className={styles.microphone} aria-label={`${selected?.label ?? inputName} controls`}>
           {micUnavailable && (
             <div className={styles.unavailable} role="status">{micUnavailableMessage}</div>
           )}
@@ -115,7 +123,7 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
               draggable={false}
             />
           )}
-          <div className={styles.sectionLabel}>Microphone levels</div>
+          <div className={styles.sectionLabel}>{inputName} levels</div>
           <label className={styles.control}>
             <span>Gain</span>
             <input
@@ -126,10 +134,28 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
               step={0.1}
               disabled={micUnavailable}
               value={gain}
-              aria-label="Microphone gain"
-              onChange={(event) => updateNodeProperty(selectedMic.id, 'gain', Number(event.target.value))}
+              aria-label={`${inputName} gain`}
+              onChange={(event) => updateNodeProperty(selectedInput.id, 'gain', Number(event.target.value))}
             />
             <output>{Number(gain.toFixed(1))}</output>
+          </label>
+          <label
+            className={styles.control}
+            title="Sample level (of 32767) a sound must reach before analysis hears it. Raise it if room hiss moves the LEDs; 0 turns the gate off."
+          >
+            <span>Noise gate</span>
+            <input
+              className="nodrag"
+              type="range"
+              min={0}
+              max={MIC_MAX_NOISE_GATE}
+              step={50}
+              disabled={micUnavailable}
+              value={noiseGate}
+              aria-label={`${inputName} noise gate`}
+              onChange={(event) => updateNodeProperty(selectedInput.id, 'noiseGate', Number(event.target.value))}
+            />
+            <output>{noiseGate}</output>
           </label>
           <label className={styles.control}>
             <span>Serial debug</span>
@@ -138,11 +164,11 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
               type="checkbox"
               disabled={micUnavailable}
               checked={selectedProperties?.serialDebug === true}
-              aria-label="Microphone serial debug"
-              onChange={(event) => updateNodeProperty(selectedMic.id, 'serialDebug', event.target.checked)}
+              aria-label={`${inputName} serial debug`}
+              onChange={(event) => updateNodeProperty(selectedInput.id, 'serialDebug', event.target.checked)}
             />
           </label>
-          <label
+          {selectedMic && <label
             className={styles.control}
             title="Remember these settings as the default for new Microphone hardware"
           >
@@ -161,7 +187,7 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
                 }
               }}
             />
-          </label>
+          </label>}
         </div>
       )}
     </div>
