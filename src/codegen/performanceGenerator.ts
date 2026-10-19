@@ -1,6 +1,10 @@
 import type { SongAnalysis, SongSection, ShowFile, ShowEvent, AudioEnvelope, EnergyPoint } from '../types/showFile'
 import { PALETTE_IDS, STUDIO_PALETTES, isStudioPalette } from '../state/palettes/paletteCatalog'
 import { BUILTIN_SHOW_PATTERN_NAMES } from '../state/player/builtinShowPatterns'
+import {
+  clampPatternWeight, energyBandFromIntensity, isEnergyBand, nextPatternIndex, sectionEnergyIntensity,
+  type EnergyBand, type PickEntry,
+} from '../state/patterns/patternPick'
 
 // Frame rate of the baked audio envelope (see bakeEnvelope). 50 Hz is smooth
 // enough for per-frame band reactivity while staying tiny (~3 bytes/frame).
@@ -373,53 +377,41 @@ const DEFAULT_OPTIONS: PerformanceOptions = {
 // matrix to white; Beat Intensity still scales both accent types normally.
 const WHITE_FLASH_INTENSITY_SCALE = 0.55
 const SHOW_BOUNDARY_FADE_MS = 5000
-const SHOW_BOUNDARY_FADE_STEP_MS = 100
 
-/** Apply a black envelope over the first and last five seconds of the show.
- * Existing brightness automation is preserved underneath the envelope, so a
- * section change or silence fade near either boundary cannot punch through it. */
+/** Brightness in force at `timeMs` from events pushed so far, ignoring ramps.
+ * The boundary ramp samples on top of this, so the step to black has to be
+ * pushed after the section value it replaces. */
+function brightnessTargetAt(events: ShowEvent[], timeMs: number): number {
+  let value = 255
+  let at = -1
+  for (const event of events) {
+    if (event.cmd !== 'SET_BRIGHTNESS') continue
+    if (event.t > timeMs) continue
+    if (event.t >= at) {
+      at = event.t
+      value = Number(event.params.value)
+    }
+  }
+  return value
+}
+
+/** Black for the first and last five seconds, as one ramp each.
+ * The opening step to 0 is pushed before the ramp, and Array.sort is stable,
+ * so at t = 0 the sampled brightness is still 0 and the ramp climbs from there.
+ * A show shorter than the fade only steps to black at the start and ramps
+ * toward the section brightness; it does not plant a second zero in the middle. */
 function applyShowBoundaryFades(events: ShowEvent[], durationMs: number): void {
   if (durationMs <= 0) return
-
-  const brightnessEvents = events
-    .filter((event) => event.cmd === 'SET_BRIGHTNESS')
-    .map((event, order) => ({ event, order, baseValue: Number(event.params.value) }))
-    .sort((a, b) => a.event.t - b.event.t || a.order - b.order)
-
-  const brightnessAt = (timeMs: number): number => {
-    let value = 255
-    for (const { event, baseValue } of brightnessEvents) {
-      if (event.t > timeMs) break
-      value = baseValue
-    }
-    return value
-  }
-  const envelopeAt = (timeMs: number): number => Math.max(0, Math.min(
-    1,
-    timeMs / SHOW_BOUNDARY_FADE_MS,
-    (durationMs - timeMs) / SHOW_BOUNDARY_FADE_MS,
-  ))
-
-  // Scale brightness changes that already land inside a boundary fade; this
-  // prevents a section/buildup/silence event between ramp steps flashing bright.
-  for (const { event, baseValue } of brightnessEvents) {
-    const envelope = envelopeAt(event.t)
-    if (envelope < 1) event.params.value = Math.round(baseValue * envelope)
-  }
-
-  const rampTimes = new Set<number>()
-  const addRamp = (start: number, end: number) => {
-    for (let t = start; t < end; t += SHOW_BOUNDARY_FADE_STEP_MS) rampTimes.add(t)
-    rampTimes.add(end)
-  }
-  addRamp(0, Math.min(SHOW_BOUNDARY_FADE_MS, durationMs))
-  addRamp(Math.max(0, durationMs - SHOW_BOUNDARY_FADE_MS), durationMs)
-
-  for (const t of [...rampTimes].sort((a, b) => a - b)) {
+  const opening = Math.min(SHOW_BOUNDARY_FADE_MS, durationMs)
+  const openTarget = brightnessTargetAt(events, opening)
+  events.push({ t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 0 } })
+  events.push({ t: 0, cmd: 'SET_BRIGHTNESS', params: { value: openTarget, rampMs: opening } })
+  if (durationMs > SHOW_BOUNDARY_FADE_MS) {
+    const closingStart = durationMs - SHOW_BOUNDARY_FADE_MS
     events.push({
-      t,
+      t: closingStart,
       cmd: 'SET_BRIGHTNESS',
-      params: { value: Math.round(brightnessAt(t) * envelopeAt(t)) },
+      params: { value: 0, rampMs: SHOW_BOUNDARY_FADE_MS },
     })
   }
 }
@@ -433,6 +425,9 @@ export function generateShow(
   sectionTags: string[][] = [],
   // Extra transition styles from a wired TransitionSet node (see chooseTransition).
   extraTransitions: string[] = [],
+  // Weights and energy tags aligned with `patternIds`. Omitted entries weigh 1
+  // and match every band, which keeps an unweighted collection on today's draw.
+  pick: { weights?: number[]; energy?: (readonly string[])[] } = {},
 ): ShowFile {
   const opts = { ...DEFAULT_OPTIONS, ...options }
   // When a Pattern Collection is wired, draw from the user's own patterns by
@@ -443,19 +438,30 @@ export function generateShow(
   // section if it is untagged (any) or tagged with that section's type. When no
   // pattern matches the section, fall back to the whole set so a section always
   // renders something.
+  const entries: PickEntry[] = patternIds.map((_, index) => ({
+    weight: clampPatternWeight(pick.weights?.[index] ?? 1),
+    energy: (pick.energy?.[index] ?? []).filter(isEnergyBand) as EnergyBand[],
+    sections: sectionTags[index] ?? [],
+  }))
+  const hasEnergyTags = entries.some((entry) => entry.energy.length > 0)
+  const sectionEnergies = analysis.sections.map((section) => section.energy)
   const eligibleIndices = (type: SongSection['type']): number[] => {
     const eligible: number[] = []
-    for (let i = 0; i < patternIds.length; i++) {
-      const tags = sectionTags[i]
-      if (!tags || tags.length === 0 || tags.includes(type)) eligible.push(i)
+    for (let i = 0; i < entries.length; i++) {
+      const tags = entries[i].sections
+      if (tags.length === 0 || tags.includes(type)) eligible.push(i)
     }
     return eligible.length > 0 ? eligible : patternIds.map((_, i) => i)
   }
   // `exclude` avoids repeating the previous pattern on a within-section switch.
-  const chooseCollectionIndex = (type: SongSection['type'], exclude?: number): number => {
-    let pool = eligibleIndices(type)
-    if (exclude !== undefined && pool.length > 1) pool = pool.filter((i) => i !== exclude)
-    return pool[Math.floor(Math.random() * pool.length)]
+  // The full-collection equal-weight case uses today's formula. A narrower
+  // eligible set uses the weighted draw, and a single choice does not draw.
+  const chooseCollectionIndex = (type: SongSection['type'], energy: number, exclude?: number): number => {
+    const moment = {
+      energy: hasEnergyTags ? energyBandFromIntensity(sectionEnergyIntensity(energy, sectionEnergies)) : null,
+      section: type,
+    }
+    return nextPatternIndex(entries, exclude ?? 0, moment, exclude === undefined ? 'first' : 'next', Math.random).index
   }
   const events: ShowEvent[] = []
   const push = (t: number, cmd: ShowEvent['cmd'], params: ShowEvent['params']) =>
@@ -499,7 +505,7 @@ export function generateShow(
 
     for (let k = 0; k < switchTimes.length; k++) {
       const st = switchTimes[k]
-      const index = useCollection ? chooseCollectionIndex(section.type, prevIdx) : undefined
+      const index = useCollection ? chooseCollectionIndex(section.type, section.energy, prevIdx) : undefined
       const name = useCollection ? undefined : choosePattern(section.type, prevName)
       // A section whose only eligible pattern is already playing keeps it: a
       // transition into the same pattern would render it twice a frame.
@@ -577,38 +583,20 @@ export function generateShow(
   for (const section of analysis.sections) {
     if (section.type !== 'buildup') continue
     const durationMs = section.endMs - section.startMs
-    const steps = 4
-    for (let s = 1; s <= steps; s++) {
-      const t = section.startMs + (s / steps) * durationMs
-      const speed = baseSpeed * (1 + (s / steps) * 1.5 * opts.energySensitivity)
-      push(t, 'SET_SPEED', { value: Math.min(3, speed) })
-      const brightness = Math.round(150 + (s / steps) * 105)
-      push(t, 'SET_BRIGHTNESS', { value: brightness })
-    }
+    const speed = Math.min(3, baseSpeed * (1 + 1.5 * opts.energySensitivity))
+    push(section.startMs, 'SET_SPEED', { value: speed, rampMs: durationMs })
+    push(section.startMs, 'SET_BRIGHTNESS', { value: 255, rampMs: durationMs })
   }
 
   // ── 4. Fade to black on silence ────────────────────────────────────────────
   // Where the song goes near-silent, ramp brightness down to 0 and back up when
   // sound returns (a stepped ramp reads as a smooth fade at preview/frame rate).
-  const FADE_STEPS = 4
   for (const gap of detectSilences(analysis.energy, 0.05, 350)) {
     const fadeMs = Math.min(400, (gap.end - gap.start) * 0.5)
-    const from = sectionAt(gap.start)
-    const bFrom = from ? sectionBrightness(from) : 200
-    // Fade out over the first part of the gap.
-    for (let s = 1; s <= FADE_STEPS; s++) {
-      push(gap.start + (s / FADE_STEPS) * fadeMs, 'SET_BRIGHTNESS', {
-        value: Math.round(bFrom * (1 - s / FADE_STEPS)),
-      })
-    }
-    // Fade back up to the level of whatever section is playing when sound returns.
     const to = sectionAt(gap.end)
     const bTo = to ? sectionBrightness(to) : 200
-    for (let s = 1; s <= FADE_STEPS; s++) {
-      push(gap.end + (s / FADE_STEPS) * fadeMs, 'SET_BRIGHTNESS', {
-        value: Math.round((bTo * s) / FADE_STEPS),
-      })
-    }
+    push(gap.start, 'SET_BRIGHTNESS', { value: 0, rampMs: fadeMs })
+    push(gap.end, 'SET_BRIGHTNESS', { value: bTo, rampMs: fadeMs })
   }
 
   // Every performance begins and ends in darkness. This runs after all other
@@ -643,8 +631,9 @@ const CMD_ORDER: Record<ShowEvent['cmd'], number> = {
   SET_SPEED:      3,
   SET_BRIGHTNESS: 4,
   SET_ENERGY:     5,
-  BEAT_FLASH:     6,
-  PARTICLE_BURST: 7,
+  SET_PARAM:      6,
+  BEAT_FLASH:     7,
+  PARTICLE_BURST: 8,
 }
 
 export function sortShowEvents(events: ShowEvent[]): ShowEvent[] {
@@ -692,7 +681,7 @@ const TRANSITION_IDS: Record<string, number> = {
 }
 const CMD_IDS: Record<ShowEvent['cmd'], number> = {
   SET_PATTERN: 0, SET_PALETTE: 1, SET_SPEED: 2, SET_BRIGHTNESS: 3,
-  BEAT_FLASH: 4, TRANSITION: 5, SET_ENERGY: 6, PARTICLE_BURST: 7,
+  BEAT_FLASH: 4, TRANSITION: 5, SET_ENERGY: 6, PARTICLE_BURST: 7, SET_PARAM: 8,
 }
 
 // Option lists the timeline editor offers, so every value a user can pick
@@ -715,15 +704,43 @@ export function transitionStyleIds(names: readonly string[]): number[] {
  * patterns by their position in `builtinSlots`, the patterns the player on the
  * same card compiled (`showPatternNames` of every show uploaded with it).
  */
+function eventParamNumbers(ev: ShowEvent, collection: boolean, builtinSlots: readonly string[]): number[] {
+  const params: number[] = []
+  const rampMs = Number(ev.params.rampMs ?? 0)
+  const withRamp = (value: number) => {
+    params.push(value)
+    if (rampMs > 0) params.push(rampMs)
+  }
+  switch (ev.cmd) {
+    case 'SET_PATTERN':    params.push(collection ? Number(ev.params.index ?? 0) : Math.max(0, builtinSlots.indexOf(String(ev.params.name)))); break
+    case 'SET_PALETTE':    params.push(PALETTE_IDS[ev.params.name as string] ?? 0); break
+    case 'SET_SPEED':      withRamp(Number(ev.params.value)); break
+    case 'SET_BRIGHTNESS': withRamp(Number(ev.params.value)); break
+    case 'SET_ENERGY':     withRamp(Number(ev.params.value)); break
+    case 'SET_PARAM':
+      params.push(Number(ev.params.index ?? 0), Number(ev.params.value ?? 0))
+      if (rampMs > 0) params.push(rampMs)
+      break
+    case 'BEAT_FLASH':     params.push(Number(ev.params.intensity), Number(ev.params.decay)); break
+    case 'PARTICLE_BURST': params.push(Number(ev.params.intensity), Number(ev.params.hue), Number(ev.params.style ?? 0)); break
+    case 'TRANSITION':     params.push(TRANSITION_IDS[ev.params.type as string] ?? 0, Number(ev.params.duration)); break
+  }
+  return params
+}
+
 export function showFileToBinary(show: ShowFile, builtinSlots: readonly string[] = SHOW_PATTERNS): ArrayBuffer {
   const headerBytes = 4 + 1 + 2 + 4 + 4   // magic + version + bpm + duration + count
-  const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 3)  // worst case 3 params (PARTICLE_BURST)
+  const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 3)  // worst case 3 params
   // Envelope: AENV(4) + version(1) + rate(1) + channels(1) + frameCount(4)
   // + 5 bytes/frame (bass, mids, treble, left, right).
   const env = show.audio
   const envFrames = env?.bass.length ?? 0
   const envBytes = env ? 11 + envFrames * 5 : 0
-  const buf = new ArrayBuffer(headerBytes + eventBytes + envBytes)
+  const paramNames = show.params ?? []
+  const parmBytes = paramNames.length
+    ? 4 + 1 + paramNames.reduce((sum, name) => sum + 1 + Math.min(255, name.length), 0)
+    : 0
+  const buf = new ArrayBuffer(headerBytes + eventBytes + parmBytes + envBytes)
   const view = new DataView(buf)
   let off = 0
 
@@ -741,20 +758,23 @@ export function showFileToBinary(show: ShowFile, builtinSlots: readonly string[]
     view.setUint32(off, ev.t, true); off += 4
     view.setUint8(off++, CMD_IDS[ev.cmd] ?? 0)
 
-    const params: number[] = []
-    switch (ev.cmd) {
-      case 'SET_PATTERN':    params.push(collection ? Number(ev.params.index ?? 0) : Math.max(0, builtinSlots.indexOf(String(ev.params.name)))); break
-      case 'SET_PALETTE':    params.push(PALETTE_IDS[ev.params.name as string] ?? 0); break
-      case 'SET_SPEED':      params.push(Number(ev.params.value)); break
-      case 'SET_BRIGHTNESS': params.push(Number(ev.params.value)); break
-      case 'SET_ENERGY':     params.push(Number(ev.params.value)); break
-      case 'BEAT_FLASH':     params.push(Number(ev.params.intensity), Number(ev.params.decay)); break
-      case 'PARTICLE_BURST': params.push(Number(ev.params.intensity), Number(ev.params.hue), Number(ev.params.style ?? 0)); break
-      case 'TRANSITION':     params.push(TRANSITION_IDS[ev.params.type as string] ?? 0, Number(ev.params.duration)); break
-    }
+    const params = eventParamNumbers(ev, collection, builtinSlots)
 
     view.setUint8(off++, params.length)
     for (const p of params) { view.setFloat32(off, p, true); off += 4 }
+  }
+
+  // Named inputs, only when this show uses them. PARM then the AENV trailer,
+  // so a show with neither (or only AENV) keeps the bytes it has always written.
+  if (paramNames.length > 0) {
+    view.setUint8(off++, 0x50); view.setUint8(off++, 0x41) // "PARM"
+    view.setUint8(off++, 0x52); view.setUint8(off++, 0x4D)
+    view.setUint8(off++, paramNames.length)
+    for (const name of paramNames) {
+      const bytes = name.slice(0, 255)
+      view.setUint8(off++, bytes.length)
+      for (let i = 0; i < bytes.length; i++) view.setUint8(off++, bytes.charCodeAt(i) & 0xff)
+    }
   }
 
   // Audio envelope block after all events: a tagged, versioned trailer so the

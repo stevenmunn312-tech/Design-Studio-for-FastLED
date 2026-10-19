@@ -17,55 +17,56 @@ describe('show freshness', () => {
     expect(showFreshnessIssues([show('One', ['a', 'b'])], ['a', 'b'], groups)).toEqual([])
   })
 
-  it('catches a reorder, which changes what every pattern number means', () => {
-    const issues = showFreshnessIssues([show('One', ['a', 'b'])], ['b', 'a'], groups)
+  it('lets an unlocked reorder regenerate instead of refusing it', () => {
+    expect(showFreshnessIssues([show('One', ['a', 'b'])], ['b', 'a'], groups)).toEqual([])
+  })
+
+  it('catches a reorder inside a locked show, which changes what every pattern number means', () => {
+    const issues = showFreshnessIssues([show('One', ['a', 'b'], true)], ['b', 'a'], groups)
     expect(issues).toHaveLength(1)
     expect(issues[0].kind).toBe('collection')
     expect(issues[0].message).toContain('picks patterns by position')
+    expect(issues[0].message).toContain('the whole show')
   })
 
-  it('catches an addition and a removal', () => {
-    expect(showFreshnessIssues([show('One', ['a', 'b'])], ['a', 'b', 'c'], groups)).toHaveLength(1)
-    expect(showFreshnessIssues([show('One', ['a', 'b'])], ['a'], groups)).toHaveLength(1)
+  it('catches an addition and a removal only while the show is locked', () => {
+    expect(showFreshnessIssues([show('One', ['a', 'b'], true)], ['a', 'b', 'c'], groups)).toHaveLength(1)
+    expect(showFreshnessIssues([show('One', ['a', 'b'], true)], ['a'], groups)).toHaveLength(1)
+    expect(showFreshnessIssues([show('One', ['a', 'b'])], ['a'], groups)).toEqual([])
   })
 
-  it('names a deleted pattern group ahead of the mismatch it also causes', () => {
-    // Regenerating the other shows cannot fix this one, so it gets its own
-    // sentence rather than the generic "different set of patterns".
-    const issues = showFreshnessIssues([show('One', ['a', 'gone'])], ['a', 'gone'], groups)
+  it('names a deleted pattern group a lock still references', () => {
+    const issues = showFreshnessIssues([show('One', ['a', 'gone'], true)], ['a', 'gone'], groups)
     expect(issues).toHaveLength(1)
     expect(issues[0].kind).toBe('missing-group')
     expect(issues[0].message).toContain('no longer exists')
+    expect(issues[0].message).toContain('Revert')
   })
 
   it('names the repair a hand-edited show actually needs', () => {
-    const plain = showFreshnessIssues([show('One', ['a'])], ['b'], groups)[0]
+    expect(showFreshnessIssues([show('One', ['a'])], ['b'], groups)).toEqual([])
     const edited = showFreshnessIssues([show('One', ['a'], true)], ['b'], groups)[0]
-    expect(plain.message).toContain('regenerate it')
-    expect(edited.message).toContain('press Revert')
+    expect(edited.message).toContain('Revert')
   })
 
-  it('catches a collection wired after the show was generated', () => {
-    // An enum show is coherent on its own; beside a wired collection it means
-    // the show still schedules built-in patterns the player will not compile.
-    expect(showFreshnessIssues([show('One')], ['a'], groups)).toEqual([
+  it('catches a collection wired after a locked show was generated', () => {
+    expect(showFreshnessIssues([show('One', undefined, true)], ['a'], groups)).toEqual([
       expect.objectContaining({ kind: 'collection' }),
     ])
+    expect(showFreshnessIssues([show('One')], ['a'], groups)).toEqual([])
     expect(showFreshnessIssues([show('One')], [], groups)).toEqual([])
   })
 
-  it('catches a collection unwired after the show was generated', () => {
-    expect(showFreshnessIssues([show('One', ['a'])], [], groups)).toEqual([
+  it('catches a collection unwired after a locked show was generated', () => {
+    expect(showFreshnessIssues([show('One', ['a'], true)], [], groups)).toEqual([
       expect.objectContaining({ kind: 'collection' }),
     ])
+    expect(showFreshnessIssues([show('One', ['a'])], [], groups)).toEqual([])
   })
 
-  it('reports every song, since only the first compiles the player', () => {
-    // `buildShowPayload` builds `render_pN` from the first ready show alone, so
-    // a second one generated against another collection would map its indices
-    // onto the first one's patterns.
+  it('reports every locked song, since only the first compiles the player', () => {
     const issues = showFreshnessIssues(
-      [show('One', ['a', 'b']), show('Two', ['b', 'a'])],
+      [show('One', ['a', 'b']), show('Two', ['b', 'a'], true)],
       ['a', 'b'],
       groups,
     )

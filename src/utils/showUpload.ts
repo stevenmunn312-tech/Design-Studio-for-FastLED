@@ -45,6 +45,7 @@ import { wiredPatternCollection, wiredTransitionStyles } from '../state/patterns
 import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/player/showFreshness'
 import { resolveBuildMode } from '../state/upload/buildMode'
 import { asSlideshowOrder } from '../state/patterns/patternSlideshow'
+import { asPatternSteps } from '../state/patterns/patternSequence'
 
 export { wiredPatternCollection } from '../state/patterns/patternCollectionWiring'
 
@@ -123,8 +124,19 @@ export function buildShowPlayer(
   const pgProps = (selectedEngine?.data as StudioNodeData | undefined)?.properties
     ?? (nodes.find((n) => nodeType(n) === 'PerformanceGenerator' || nodeType(n) === 'PatternMaster')?.data as StudioNodeData | undefined)?.properties
     ?? {}
+  const profiles = wiredPatternCollection(nodes, edges, selectedEngine?.id)
+  const showParams: string[] = []
+  for (const show of opts.shows ?? []) {
+    for (const name of show.params ?? []) {
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !showParams.includes(name)) showParams.push(name)
+    }
+  }
   const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
+  for (const name of showParams) if (!roleParams.includes(name)) roleParams.push(name)
   const patternSet = opts.patternSet ?? []
+  const entryPolicies = patternSet.length > 0
+    ? patternSet.map((id) => profiles.entry[profiles.ids.indexOf(id)] ?? 'restart')
+    : undefined
   // A show without a collection names built-in patterns. They compile from the
   // nodes the preview draws them with, taking the show's palette and its raw
   // 0–2 speed, as the preview sets them on the node.
@@ -132,7 +144,7 @@ export function buildShowPlayer(
     ? opts.shows?.length ? showPatternNames(opts.shows) : generatedShowPatternNames()
     : []
   const renderers = patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups, roleParams, true, true)
+    ? buildPatternRenderers(patternSet, groups, roleParams, true, true, entryPolicies)
     : builtinNames.length > 0
       ? {
           ...buildPatternRenderers(builtinNames.map(builtinShowPatternGroupId), builtinShowPatternGroups(builtinNames),
@@ -157,17 +169,28 @@ export function buildShowPlayer(
     : patternSet.length === 1 ? [] : performanceTransitionStyles(wiredStyles)
   const transitionIds = opts.genericPlayer ? transitionStyleIds(wiredStyles)
     : performanceStyles.length ? transitionStyleIds(performanceStyles) : []
+  const hasEnergyTags = profiles.energyTags.some((tags) => tags.length > 0)
+  const order = asSlideshowOrder(pgProps.order)
+  const ramps = (opts.shows ?? []).some((show) => show.events.some((event) => Number(event.params.rampMs ?? 0) > 0))
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
-    || (opts.genericPlayer === true && (pgProps.beatTransitions === true || pgProps.energyPacing === true))
+    || (opts.genericPlayer === true && (pgProps.beatTransitions === true || pgProps.energyPacing === true || hasEnergyTags))
     || controlGraph.usesDecoderBeat
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn, selectedEngine?.id), renderers, {
     audioEnvelope: opts.bakedAudio && (!!renderers || stereoVuMeters.length > 0),
     decoderTap,
     preferredTrack: opts.preferredTrack,
     genericPlayer: opts.genericPlayer,
-    patternOrder: asSlideshowOrder(pgProps.order),
+    patternOrder: order,
+    patternProfiles: patternSet.length > 1 ? {
+      weights: patternSet.map((id) => profiles.weights[profiles.ids.indexOf(id)] ?? 1),
+      energy: patternSet.map((id) => profiles.energyTags[profiles.ids.indexOf(id)] ?? []),
+      sections: patternSet.map((id) => profiles.sectionTags[profiles.ids.indexOf(id)] ?? []),
+    } : undefined,
+    sequence: order === 'Sequence' ? asPatternSteps(pgProps.sequence) : undefined,
+    ramps,
+    showParams,
     patternTiming: musicPlayerTiming(pgProps),
     transitionIds,
     // The palettes a SET_PALETTE can name: the shows', or a generated show's.
@@ -281,6 +304,9 @@ export function showPackagingIssues(
       songTitle: entry.show!.songTitle,
       patternSet: entry.show!.patternSet,
       edited: entry.edited,
+      locks: entry.show!.locks,
+      durationMs: entry.show!.durationMs,
+      events: entry.show!.events,
     })),
     ids,
     new Set(Object.keys(groups)),

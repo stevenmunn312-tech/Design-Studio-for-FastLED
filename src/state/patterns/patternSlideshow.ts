@@ -9,7 +9,7 @@
 //
 // See docs/design/generative-pattern-show.md#pattern-slideshow.
 
-export const PATTERN_SLIDESHOW_ORDERS = ['Random', 'Sequential'] as const
+export const PATTERN_SLIDESHOW_ORDERS = ['Random', 'Sequential', 'Sequence'] as const
 export type PatternSlideshowOrder = (typeof PATTERN_SLIDESHOW_ORDERS)[number]
 
 export function asSlideshowOrder(value: unknown): PatternSlideshowOrder {

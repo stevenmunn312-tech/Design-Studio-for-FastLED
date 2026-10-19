@@ -6,6 +6,11 @@ import { useCapacityStore } from '../../../state/upload/capacityStore'
 import { capacityDelta, formatCapacityDelta } from '../../../utils/capacityFormat'
 import { shouldConsumeWheel } from '../wheelBehavior'
 import PatternCollectionPicker from '../../PatternCollection/PatternCollectionPicker'
+import ClampedNumberInput from '../ClampedNumberInput'
+import {
+  ENERGY_BANDS, PATTERN_WEIGHT_DEFAULT, PATTERN_WEIGHT_MAX, PATTERN_WEIGHT_MIN,
+  clampPatternWeight, type EnergyBand,
+} from '../../../state/patterns/patternPick'
 import styles from './PatternCollectionBody.module.css'
 
 // Body of the PatternCollection node: the list of absorbed pattern groups (by
@@ -17,6 +22,9 @@ import styles from './PatternCollectionBody.module.css'
 
 const EMPTY: string[] = []
 const EMPTY_MAP: Record<string, string[]> = {}
+const EMPTY_WEIGHTS: Record<string, number> = {}
+const EMPTY_ENERGY: Record<string, EnergyBand[]> = {}
+const EMPTY_ENTRY: Record<string, string> = {}
 
 // 3-letter chip labels for the seven section types (full name on hover).
 const SECTION_ABBR: Record<string, string> = {
@@ -31,6 +39,16 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   const patternSections = useGraphStore(
     (s) => ((s.nodes.find((n) => n.id === nodeId)?.data.properties as { patternSections?: Record<string, string[]> } | undefined)?.patternSections) ?? EMPTY_MAP,
   )
+  const patternWeights = useGraphStore(
+    (s) => ((s.nodes.find((n) => n.id === nodeId)?.data.properties as { patternWeights?: Record<string, number> } | undefined)?.patternWeights) ?? EMPTY_WEIGHTS,
+  )
+  const patternEnergy = useGraphStore(
+    (s) => ((s.nodes.find((n) => n.id === nodeId)?.data.properties as { patternEnergy?: Record<string, EnergyBand[]> } | undefined)?.patternEnergy) ?? EMPTY_ENERGY,
+  )
+  const patternEntry = useGraphStore(
+    (s) => ((s.nodes.find((n) => n.id === nodeId)?.data.properties as { patternEntry?: Record<string, string> } | undefined)?.patternEntry) ?? EMPTY_ENTRY,
+  )
+  const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const graphs = useGraphStore((s) => s.graphs)
   const removeFromCollection = useGraphStore((s) => s.removeFromCollection)
   const clearCollection = useGraphStore((s) => s.clearCollection)
@@ -45,6 +63,30 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
     const delta = capacityDelta(capacityPrevious, capacityResult)
     return delta ? formatCapacityDelta(delta) : null
   })()
+
+  function setWeight(id: string, value: number) {
+    const next = { ...patternWeights }
+    const weight = clampPatternWeight(value)
+    if (weight === PATTERN_WEIGHT_DEFAULT) delete next[id]
+    else next[id] = weight
+    updateNodeProperties(nodeId, { patternWeights: next })
+  }
+
+  function toggleEnergy(id: string, band: EnergyBand) {
+    const next = { ...patternEnergy }
+    const cur = next[id] ?? []
+    const tags = cur.includes(band) ? cur.filter((item) => item !== band) : [...cur, band]
+    if (tags.length === 0) delete next[id]
+    else next[id] = tags
+    updateNodeProperties(nodeId, { patternEnergy: next })
+  }
+
+  function toggleEntry(id: string) {
+    const next = { ...patternEntry }
+    if (next[id] === 'resume') delete next[id]
+    else next[id] = 'resume'
+    updateNodeProperties(nodeId, { patternEntry: next })
+  }
 
   function handleListWheel(e: React.WheelEvent<HTMLUListElement>) {
     if (shouldConsumeWheel(e.currentTarget, e.deltaY)) e.stopPropagation()
@@ -108,6 +150,44 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
                       {SECTION_ABBR[sec]}
                     </button>
                   ))}
+                </div>
+                <div className={styles.meta}>
+                  <label className={styles.weight}>
+                    Weight
+                    <ClampedNumberInput
+                      value={patternWeights[id] ?? PATTERN_WEIGHT_DEFAULT}
+                      min={PATTERN_WEIGHT_MIN}
+                      max={PATTERN_WEIGHT_MAX}
+                      step={1}
+                      ariaLabel={`${patternName} weight`}
+                      className={styles.weightInput}
+                      onCommit={(value) => setWeight(id, value)}
+                    />
+                  </label>
+                  <div className={styles.sections} title="Energy tags. None matches every band.">
+                    {ENERGY_BANDS.map((band) => (
+                      <button
+                        key={band}
+                        type="button"
+                        className={`${styles.chip} ${(patternEnergy[id] ?? EMPTY).includes(band) ? styles.chipOn : ''}`}
+                        aria-label={`${patternName}: ${band} energy`}
+                        aria-pressed={(patternEnergy[id] ?? EMPTY).includes(band)}
+                        onClick={() => toggleEnergy(id, band)}
+                      >
+                        {band}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className={`${styles.chip} ${patternEntry[id] === 'resume' ? styles.chipOn : ''}`}
+                      aria-label={`${patternName}: ${patternEntry[id] === 'resume' ? 'resume' : 'restart'} entry`}
+                      aria-pressed={patternEntry[id] === 'resume'}
+                      title="Resume keeps state. Restart clears it when the pattern enters."
+                      onClick={() => toggleEntry(id)}
+                    >
+                      {patternEntry[id] === 'resume' ? 'resume' : 'restart'}
+                    </button>
+                  </div>
                 </div>
               </li>
             )

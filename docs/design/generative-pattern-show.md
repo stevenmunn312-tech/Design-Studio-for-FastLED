@@ -402,7 +402,7 @@ particle overlay flow; see `docs/release/beta-support-matrix.md`.
 
 - Broader sharing/distribution beyond the current helper-backed local JSON
   mirroring.
-- Per-pattern weighting or tags (e.g. "calm" vs "drop") for smarter random picks.
+- Per-pattern weighting and energy tags are specified in [show sequencing](show-sequencing.md).
 - Whether Collection and Music Player should merge once the dust settles.
 
 ## Relationship to existing nodes

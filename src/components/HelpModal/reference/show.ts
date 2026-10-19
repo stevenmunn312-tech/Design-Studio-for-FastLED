@@ -123,7 +123,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
 
   PatternMaster: {
     overview: [
-      'Music Player runs saved patterns from a Pattern Collection and sends the finished frame to an LED output. Sequential follows collection order; Random chooses a different pattern at each change. An empty collection produces a black preview.',
+      'Music Player runs saved patterns from a Pattern Collection and sends the finished frame to an LED output. Sequential follows collection order; Random chooses a different pattern at each change. Sequence plays the steps you edit, and with Beat Transitions on a hold counts beats. An empty collection produces a black preview. Energy Pacing and Dwells & Bursts stay off during a sequence.',
       'With Beat Transitions off, each pattern holds for a random time between Min Time and Max Time before changing. With it on, that time becomes a cooldown: once it expires, the next fresh beat starts the transition. The next cooldown begins after the transition finishes. No new beat means no automatic pattern change.',
       'Two options vary that rhythm. Energy Pacing leans each hold toward Min Time while the music is intense and toward Max Time while it is calm, judged against the track’s own recent loud and quiet passages. Dwells & Bursts now and then keeps one pattern for four times Max Time, and now and then changes three to five patterns in quick succession. With Beat Transitions on, every change still lands on a beat.',
       'Audio supplies the collected patterns and the default beat signal in preview. Connect a separate Beat Detect output to Beat when you want an explicit trigger; that wire takes priority. Player Particles can add beat-triggered bursts independently of whether Beat Transitions is enabled.',
@@ -251,7 +251,8 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
   PatternCollection: {
     overview: [
       'Pattern Collection is the set of patterns a show plays. Pick saved patterns from your Pattern Library in its body, in the order you want them, or wire a group’s frame into Pattern and confirm to absorb it.',
-      'Tag a pattern with song sections to limit where a music-synced show may use it; untagged patterns can play anywhere.',
+      'Each row has a weight, calm / lively / peak tags, and a restart or resume entry. Weight 1 is the usual pick. Weight 0 is skipped automatically and can still be chosen by hand, by a timeline, or by a sequence step. Restart clears the pattern as the transition that brings it in begins. Resume keeps what it was doing.',
+      'Tag a pattern with song sections to limit where a Performance Generator show may use it; untagged patterns can play anywhere. Energy tags are separate and steer the Music Player and the Performance Generator.',
       'Its Patterns output feeds a Music Player, a Pattern Slideshow or a Performance Generator. Each collected pattern is compiled into the sketch as its own function.',
     ],
     inputs: {
@@ -302,7 +303,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
   PatternSlideshow: {
     overview: [
       'Pattern Slideshow plays a Pattern Collection on a timer — the show without the music. Each pattern holds for its Hold time, then blends into the next.',
-      'Sequential walks the collection in order; Random never repeats the pattern just shown. Previous, Next and Confirm let buttons or a remote browse and pick a pattern, and Display feeds a panel that shows which one is playing.',
+      'Sequential walks the collection in order; Random never repeats the pattern just shown. Sequence loops the steps you edit: a pattern or a tag, a hold, and a transition. Previous and Next move between those steps. Display feeds a panel that shows which pattern is playing.',
       'Turn on Audio Reactive to let audio patterns in the collection listen to a wired Audio source; in silence they fade to black.',
     ],
     inputs: {
@@ -333,7 +334,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
 
   PerformanceGenerator: {
     overview: [
-      'Performance Generator turns analysed songs into choreographed light shows. It reads each song’s beats, sections and energy, and plans what plays when: which pattern for the verse and the chorus, flashes on the beats, surges in loud passages, palettes from the mood.',
+      'Performance Generator turns analysed songs into choreographed light shows. It reads each song’s beats, sections and energy, and plans what plays when: which pattern for the verse and the chorus, flashes on the beats, surges in loud passages, palettes from the mood. Edit lanes opens the same show under the section bands, beat grid and energy envelope. Speed, brightness and energy can ramp, and an edit locks the section it falls in so Regenerate keeps that span.',
       'With a Pattern Collection wired, it schedules your own patterns; Use Group Inputs also feeds each pattern’s exposed speed, energy and palette from the music. Without one it uses its built-in patterns. A Transition Pool widens the styles it moves between.',
       'Its Show output names the LED output the show plays on. The shows and songs are written to the SD card at upload, and the board plays them with no graph running — press play in the node body to watch a show first.',
     ],

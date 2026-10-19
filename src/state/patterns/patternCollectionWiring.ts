@@ -1,5 +1,6 @@
 import type { Edge } from '@xyflow/react'
 import type { StudioNode, StudioNodeData } from '../graphStore'
+import { collectionProfiles, type CollectionProfiles } from './patternPick'
 
 const nodeType = (node: StudioNode) => (node.data as StudioNodeData).nodeType
 
@@ -17,8 +18,8 @@ export function wiredPatternCollection(
   nodes: StudioNode[],
   edges: Edge[],
   engineId?: string,
-): { ids: string[]; sectionTags: string[][] } {
-  const empty = { ids: [], sectionTags: [] }
+): CollectionProfiles {
+  const empty = collectionProfiles([], {})
   const engine = nodes.find((node) => engineId
     ? node.id === engineId
     : nodeType(node) === 'PerformanceGenerator' || nodeType(node) === 'PatternMaster')
@@ -30,10 +31,11 @@ export function wiredPatternCollection(
   const properties = collection.data.properties as {
     patternIds?: string[]
     patternSections?: Record<string, string[]>
+    patternWeights?: Record<string, unknown>
+    patternEnergy?: Record<string, readonly unknown[] | undefined>
+    patternEntry?: Record<string, unknown>
   }
-  const ids = properties.patternIds ?? []
-  const sections = properties.patternSections ?? {}
-  return { ids, sectionTags: ids.map((id) => sections[id] ?? []) }
+  return collectionProfiles(properties.patternIds ?? [], properties)
 }
 
 /**

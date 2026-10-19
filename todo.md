@@ -235,9 +235,11 @@ chooses the supported combinations from whatever is on record at release.
 - **SD Video:** measured card read bandwidth per board, against the 400 KB/s
   estimate ([SD Video limits](docs/design/sd-video.md#limits)).
 - **Persistent patterns across a transition:** preview versus LEDs on Trails,
-  Frame Feedback, Reaction Diffusion and Fluid across a show transition, now
-  that collected patterns pool their scratch buffers. Text-level coverage is
-  in `persistentRenderBuffers.test.ts`
+  Frame Feedback, Reaction Diffusion and Fluid across a show transition, for
+  both entry policies. Restart clears that state as the incoming transition
+  starts. Resume keeps it, and the preview holds it while the pattern is away.
+  Text-level coverage is in `persistentRenderBuffers.test.ts` and
+  `entryReset.test.ts`
   ([compile record](docs/reports/compile/render-buffer-ram-compile-checks.md)).
 - **Deploy gate on accreted graphs:** anyone with a graph that uploaded before
   2026-09-11 and is refused now should report it as a gate bug, not rewire the
@@ -456,7 +458,7 @@ chooses the supported combinations from whatever is on record at release.
   An Upload information shelf waits for a user asking for one
   ([workspace shelves](docs/plans/workspace-shelves.md#order)).
 
-- [ ] **D-11 · Richer show and timeline tools (L).** The Music Player, Pattern
+- [x] **D-11 · Richer show and timeline tools (L).** The Music Player, Pattern
   Collection and transitions already make a strong generative show; authoring
   a complex one is the gap. Every pick is uniform, a returning pattern's state
   differs between preview and LEDs, and the only timeline is the Performance
@@ -472,7 +474,7 @@ chooses the supported combinations from whatever is on record at release.
   and a step that changes a saved shape carries its migration and release
   note. Steps 2–4 stand alone and can land first; steps 5–8 build the song
   timeline; steps 9 and 10 reuse it.
-  - [ ] **1. Write the show-sequencing design note.** One contract for the
+  - [x] **1. Write the show-sequencing design note.** One contract for the
     steps below in `docs/design/show-sequencing.md`, routed from
     [docs/index.md](docs/index.md) under Audio and shows: the pick rule
     (weights, tags, fallback), the entry policy, the lane model of a song
@@ -480,7 +482,7 @@ chooses the supported combinations from whatever is on record at release.
     change. Replace the weighting and tags question in
     [generative pattern show](docs/design/generative-pattern-show.md#open-questions--later)
     with a link to it.
-  - [ ] **2. Weight collection entries, with one pick rule on every side.**
+  - [x] **2. Weight collection entries, with one pick rule on every side.**
     Four places choose the next pattern, each uniformly and each in its own
     code: `evalPatternShow` (`src/nodes/show/evaluate.ts`) for the Music
     Player and Slideshow preview, `nextPattern` in `showGenerator.ts`, the
@@ -498,7 +500,7 @@ chooses the supported combinations from whatever is on record at release.
     seeded slideshow replays the same order and the sketches stay
     byte-identical. Test the distribution and weight 0, and compile a
     weighted fixture per engine.
-  - [ ] **3. Tag collection entries by energy as well as by section.** The
+  - [x] **3. Tag collection entries by energy as well as by section.** The
     section chips on a collection row (`patternSections`) steer only the
     Performance Generator. Add a second chip row, calm, lively and peak, and
     widen step 2's rule: an entry is eligible when each tag group it uses
@@ -513,7 +515,7 @@ chooses the supported combinations from whatever is on record at release.
     any track. The Performance Generator takes the band from the section's
     energy against the song's range. Collection tags stay separate from the
     Library's author tags (`bestOn`), which only sort the picker.
-  - [ ] **4. Decide what a collected pattern's state does on entry.** The
+  - [x] **4. Decide what a collected pattern's state does on entry.** The
     firmware keeps a pattern's persistent buffers (`p<n>_buf_<id>`), Frame
     Feedback history and the simulation statics in its `render_pN()` while it
     is away, so a Trails pattern returns with a ghost of its last frame and a
@@ -541,7 +543,7 @@ chooses the supported combinations from whatever is on record at release.
     change of inputs, ramped once step 6 lands. If a collection's RAM
     estimate needs it later, Restart patterns can share an outgoing and an
     incoming bank of persistent state instead of keeping their own.
-  - [ ] **5. Edit song shows in lanes.** `ShowTimeline.tsx` draws every event
+  - [x] **5. Edit song shows in lanes.** `ShowTimeline.tsx` draws every event
     as a marker on one strip above a list, inside the Performance Generator's
     node body. Open the show in a full-size editor from the node, with one
     lane per command (pattern, transition, palette, speed, brightness,
@@ -557,7 +559,7 @@ chooses the supported combinations from whatever is on record at release.
     named for the
     [accessibility smoke test](docs/release/accessibility-smoke-test.md). The
     strip stays in the node as an overview.
-  - [ ] **6. Ramp continuous values.** `SET_SPEED`, `SET_BRIGHTNESS` and
+  - [x] **6. Ramp continuous values.** `SET_SPEED`, `SET_BRIGHTNESS` and
     `SET_ENERGY` step, so the generator writes ladders instead: four-step
     buildup ramps, four-step silence fades and a 100 ms brightness ladder over
     the first and last five seconds (`applyShowBoundaryFades`). Give those
@@ -567,7 +569,7 @@ chooses the supported combinations from whatever is on record at release.
     in the performance player each frame, and let the generator write one
     ramp where it wrote a ladder. The lanes draw a ramp as a slope with a
     handle at its end.
-  - [ ] **7. Automate named pattern inputs.** A show reaches a pattern only
+  - [x] **7. Automate named pattern inputs.** A show reaches a pattern only
     through the three roles (`energy`, `speed` and `palette`), broadcast to
     every input that carries one. Add a `SET_PARAM` command that names a float
     input by its position in a new `ShowFile.params` list, the way
@@ -581,7 +583,7 @@ chooses the supported combinations from whatever is on record at release.
     offers a lane for each input name in the collection. `showFileToBinary`
     writes the list only when a show uses it, so other shows stay
     byte-identical.
-  - [ ] **8. Lock edited ranges and regenerate the rest.** Any edit marks the
+  - [x] **8. Lock edited ranges and regenerate the rest.** Any edit marks the
     whole show `edited` (`updateShow` in `musicStore.ts`), and generator
     options and collection changes stop reaching it until Revert discards the
     work. Record locked spans on the show instead: an edit locks the section
@@ -593,7 +595,7 @@ chooses the supported combinations from whatever is on record at release.
     edit is saved with the song and regeneration reads it. Update
     `showFreshnessIssues` (`src/state/player/showFreshness.ts`): only a locked
     span can go stale now, and its repair names the span.
-  - [ ] **9. Sequence a Slideshow without a song.** The timeline needs an
+  - [x] **9. Sequence a Slideshow without a song.** The timeline needs an
     analysed song on an SD card, so a show without music can only rotate. Add
     a **Sequence** order to the Pattern Slideshow beside Random and
     Sequential: a looping list of steps, each a collection entry or any entry
@@ -605,14 +607,14 @@ chooses the supported combinations from whatever is on record at release.
     next-pattern logic, with the transition arms narrowed to the styles the
     steps name, so it runs with no card on every board the Slideshow
     supports. Next and Previous on Player Controls move between steps.
-  - [ ] **10. Sequence a Music Player in beats.** The same sequence on a Music
+  - [x] **10. Sequence a Music Player in beats.** The same sequence on a Music
     Player gives every track on the card an authored structure without an
     analysis. With Beat Transitions on, a hold counts beats from the player's
     beat source instead of seconds. Energy Pacing and Dwells & Bursts do not
     apply, because a sequence's holds are authored. The preview
     (`evalPatternShow`) and the generic SD player (`playerSketchGenerator.ts`)
     read the same step table.
-  - [ ] **11. Compile, document and open the bench rows.** Add a show
+  - [x] **11. Compile, document and open the bench rows.** Add a show
     fixture group beside `scripts/compile-fixtures/pattern-collections.ts`
     and compile it with `compile-matrix.py`: a weighted and tagged Music
     Player, a sequenced Slideshow with a Restart pattern, and a performance

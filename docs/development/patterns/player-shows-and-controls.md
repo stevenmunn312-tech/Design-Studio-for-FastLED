@@ -464,12 +464,47 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `showFreshnessIssues` compares stored shows against the wired collection and
   the live pattern-group registry, and `buildShowPayload` refuses rather than
   warns — `showPackagingIssues` is the one funnel the deploy popup calls, so the
-  refusal reads as a sentence rather than a dead button. A hand-edited show
-  (`edited: true`) is deliberately never auto-regenerated, which is why its
-  repair message names Revert instead of the generator; `regenerateShow`
+  refusal reads as a sentence rather than a dead button. An edit locks the
+  section it falls in (`show.locks`) rather than freezing the whole show.
+  `regenerateShow` keeps those spans and rewrites the rest. A legacy `edited`
+  show with no `locks` array is still a full-duration lock, which is why its
+  repair message names Revert. Only a locked span can go stale.
+  `regenerateShow`
   (musicStore) reads the wired collection live, so `PerformanceGeneratorBody`'s
   regenerate effect keys on it as well as the generator's own options. See
   [collection-driven performance](../../design/collection-driven-performance.md).
+
+## Show sequencing
+
+The contract is [show sequencing](../../design/show-sequencing.md). The parts
+that are easy to split across preview and firmware:
+
+- One pick module, `src/state/patterns/patternPick.ts`, and its C++ twin
+  `patternPickCpp`. Equal positive weights over the whole collection stay on
+  today's one-draw formula, so a seeded slideshow and an unweighted sketch stay
+  byte-identical. A table is emitted only when weights differ, a weight is 0,
+  or an energy tag is set, and only when the collection has at least two patterns.
+- Weight 0 is never an automatic choice. A confirm, a timeline, or a sequence
+  step that names the index can still reach it. Sequential order skips it.
+- Section tags steer the Performance Generator only. Automatic slideshow and
+  player rotation pass no section mask. Energy tags use calm / lively / peak.
+  The Music Player's band is the Energy Pacing intensity, and the tags turn the
+  decoder tap on. The slideshow does not filter by energy.
+- Restart is the default entry. The entry flag is added only to a Restart
+  pattern that has a non-const static or a persistent buffer, and it is true on
+  the first frame of the transition that brings the pattern in. Resume keeps
+  the state and the show clock. Preview keeps a Resume pattern's state alive
+  while it is away instead of letting the 30 s sweep drop it. A stateless
+  Restart pattern's device clock stays the show clock.
+- `SET_SPEED`, `SET_BRIGHTNESS`, `SET_ENERGY` and `SET_PARAM` may carry
+  `rampMs`. `showStateAt` and the performance player sample one ramp per frame.
+  `SET_PARAM` indexes `ShowFile.params`. The PARM trailer is written only when
+  a show names one. `sample` and `begin` are methods on `ShowRamp`. A free
+  function would be prototyped by Arduino above the type.
+- Sequence order on the Pattern Slideshow and the Music Player is the same step
+  list. With Beat Transitions on, a Music Player hold counts beats. Energy
+  Pacing and Dwells & Bursts do not run during a sequence. Next and Previous
+  move steps, not the collection.
 
 ## Audio levels
 

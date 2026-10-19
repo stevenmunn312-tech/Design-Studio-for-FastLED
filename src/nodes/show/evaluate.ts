@@ -14,6 +14,15 @@ import {
   slideshowSettings,
   advanceSlideshowSilenceFade,
 } from '../../state/patterns/patternSlideshow'
+import {
+  classicFormula, collectionProfiles, energyBandFromIntensity, nextPatternIndex, pickEntries,
+  type CollectionProfileProps, type CollectionProfiles, type PatternEntryPolicy, type PickEntry, type PickMoment,
+} from '../../state/patterns/patternPick'
+import {
+  advanceSequence, asPatternSteps, blankSequenceCursor,
+  type PatternStep, type SequenceCursor,
+} from '../../state/patterns/patternSequence'
+import { rampValue } from '../../state/player/showRamp'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import {
   type PatternSelectionState,
@@ -50,7 +59,7 @@ import type {
   PlayerParticles,
   NodeEvaluators, EvaluateGraph,
 } from '../../state/evaluator/types'
-import { instanceState } from '../../state/evaluator/memory'
+import { clearInstanceStateByPrefix, instanceState, touchInstanceStatePrefix } from '../../state/evaluator/memory'
 import { isAudioReactiveSubgraph } from '../../state/patterns/audioReactiveSubgraph'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, blankParticleVolley, particleEnergyGate, particleEnergyPasses,
@@ -672,6 +681,17 @@ interface ShowState {
    *  the way the firmware's `audioFade` does. Starts where the track already
    *  is, so a show opened mid-song shows its pattern at once. */
   audioFade: number
+  /** Sequence cursor. Unused while the order is Random or Sequential. */
+  sequence: SequenceCursor
+  /** Restart epoch per group, in the preview's tick clock. */
+  entryEpoch: Record<string, { tick: number; elapsed: number }>
+  /** Group cleared on the next restart render. */
+  entryClear: string | null
+  /** Length of the transition that is running. */
+  transSec: number
+  /** Sampled role and named-input values for the current sequence step. */
+  roles: Record<string, number>
+  roleFrom: Record<string, number>
 }
 export interface PatternShowSelection {
   currentIndex: number
@@ -708,6 +728,21 @@ interface ShowOpts {
   audioEnergy: number | null
   /** Whether a collected pattern listens to audio, by group id. */
   audioReactive: (groupId: string) => boolean
+  /** Weights, energy tags and entry policy, aligned with the collection. */
+  profiles?: CollectionProfiles
+  /** Steps used when `order` is Sequence. Empty holds the current pattern. */
+  sequence?: readonly PatternStep[]
+  /** Music Player beat holds. A slideshow always counts seconds. */
+  countBeats?: boolean
+  /** Next/Previous, consumed here so a sequence does not also walk the collection. */
+  stepDelta?: number
+  /** Music Player turns this on when the collection has energy tags. */
+  applyEnergyBands?: boolean
+  /** Preview clocks. Absent leaves the pattern on the evaluator's own tick. */
+  clockTick?: number
+  clockElapsed?: number
+  /** Touches a resume pattern that is not on screen, so the 30s sweep keeps it. */
+  keepAlive?: (groupId: string) => void
 }
 
 /** Read the current selection of a live PatternMaster by its evaluator state key.
@@ -894,16 +929,49 @@ interface CollectedPatternCtx {
   evaluateGraph: EvaluateGraph
 }
 
+/** Set by evalPatternShow immediately before each collected render. */
+interface PatternEntryDirective {
+  groupId: string
+  policy: PatternEntryPolicy
+  /** Restart clears this pattern's state on this frame. */
+  clear: boolean
+  /** When false the evaluator's own tick is the pattern clock. */
+  rebase: boolean
+  tick: number
+  elapsedTick: number
+  inputs: Record<string, number>
+}
+
+let patternEntryDirective: PatternEntryDirective | null = null
+
+function wiredProfiles(
+  nodes: readonly StudioNode[],
+  edges: readonly { target: string; targetHandle?: string | null; source: string }[],
+  nodeId: string,
+  ids: readonly string[],
+): CollectionProfiles {
+  const link = edges.find((edge) => edge.target === nodeId && edge.targetHandle === 'patternset')
+  const source = link ? nodes.find((node) => node.id === link.source) : undefined
+  return collectionProfiles(ids, (source?.data.properties ?? {}) as CollectionProfileProps)
+}
+
 function renderCollectedPattern(gid: string, ctx: CollectedPatternCtx): Frame {
   const def = ctx.groups[gid]
   if (!def || ctx.groupStack.has(gid)) return blankFrame(ctx.W, ctx.H)
-  const groupInputs: Record<string, PortValue> = ctx.audio
-    ? semanticAudioInputs({
-        micBass: clamp01(Number(ctx.audio.bass ?? ctx.audio.micBass ?? 0)),
-        micMids: clamp01(Number(ctx.audio.mids ?? ctx.audio.micMids ?? 0)),
-        micTreble: clamp01(Number(ctx.audio.treble ?? ctx.audio.micTreble ?? 0)),
-      })
-    : {}
+  const directive = patternEntryDirective?.groupId === gid ? patternEntryDirective : null
+  const prefix = `${ctx.instancePrefix}${ctx.nodeId}/${gid}/`
+  if (directive?.policy === 'resume') touchInstanceStatePrefix(prefix)
+  if (directive?.policy === 'restart' && directive.clear) clearInstanceStateByPrefix(prefix)
+  const groupInputs: Record<string, PortValue> = {
+    ...(directive?.inputs ?? {}),
+    ...(ctx.audio
+      ? semanticAudioInputs({
+          micBass: clamp01(Number(ctx.audio.bass ?? ctx.audio.micBass ?? 0)),
+          micMids: clamp01(Number(ctx.audio.mids ?? ctx.audio.micMids ?? 0)),
+          micTreble: clamp01(Number(ctx.audio.treble ?? ctx.audio.micTreble ?? 0)),
+        })
+      : {}),
+  }
   if (ctx.audio) {
     for (const groupNode of def.nodes) {
       if (String(groupNode.data.nodeType ?? '') !== 'GroupInput') continue
@@ -913,10 +981,13 @@ function renderCollectedPattern(gid: string, ctx: CollectedPatternCtx): Frame {
     }
   }
   return ctx.evaluateGraph(
-    def.nodes, def.edges, ctx.tick, ctx.W, ctx.H, ctx.groups,
-    `${ctx.instancePrefix}${ctx.nodeId}/${gid}/`,
+    def.nodes, def.edges,
+    directive?.rebase ? directive.tick : ctx.tick,
+    ctx.W, ctx.H, ctx.groups,
+    prefix,
     new Set([...ctx.groupStack, gid]), groupInputs, ctx.audioOverride,
-    ctx.trusted, ctx.capabilityNodes, ctx.elapsedTick,
+    ctx.trusted, ctx.capabilityNodes,
+    directive?.rebase ? directive.elapsedTick : ctx.elapsedTick,
   ) ?? blankFrame(ctx.W, ctx.H)
 }
 
@@ -931,10 +1002,18 @@ function evalPatternShow(
   const n = ids.length
   if (n === 0) return blankFrame(W, H)
   const sequential = o.order === 'Sequential'
+  const sequencing = o.order === 'Sequence'
   const rnd = () => seededRandom(`${key}:show`, o.seed)
   const pacing = {
-    minTime: o.minTime, maxTime: o.maxTime, transitionSec: o.transSec, energyPacing: o.energyPacing === true,
+    minTime: o.minTime, maxTime: o.maxTime, transitionSec: o.transSec, energyPacing: sequencing ? false : o.energyPacing === true,
   }
+  const entries: PickEntry[] = pickEntries(o.profiles ?? collectionProfiles(ids, {}))
+  const momentOf = (pace: { paceEnergy: PacingEnergy }): PickMoment => ({
+    energy: o.applyEnergyBands && entries.some((entry) => entry.energy.length > 0)
+      ? energyBandFromIntensity(pacingIntensity(pace.paceEnergy))
+      : null,
+    section: null,
+  })
 
   let st = patternShowState.get(key)
   if (!st || st.seed !== o.seed) {
@@ -946,8 +1025,25 @@ function evalPatternShow(
     st = { sel: selection ?? blankPatternSelection(), next: blankPatternCursor(), ids,
            phase: 'hold', start: t, hold: firstPatternHold(rnd), paceEnergy: blankPacingEnergy(), trans: 'crossfade', lastBeat: beat, seed: o.seed,
            volley: blankParticleVolley(),
-           audioFade: o.audioEnergy === null ? 1 : silenceFadeTarget(o.audioEnergy) }
-    updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: sequential ? 0 : Math.floor(rnd() * n) })
+           audioFade: o.audioEnergy === null ? 1 : silenceFadeTarget(o.audioEnergy),
+           sequence: blankSequenceCursor(), entryEpoch: {}, entryClear: null, transSec: o.transSec,
+           roles: {}, roleFrom: {} }
+    if (sequencing) {
+      const opened = advanceSequence(o.sequence ?? [], st.sequence, entries, 0, t, false, o.countBeats === true, 0, rnd)
+      st.sequence = opened.cursor
+      updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: opened.cursor.patternIndex })
+    } else if (classicFormula(entries, momentOf(st))) {
+      updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: sequential ? 0 : Math.floor(rnd() * n) })
+    } else {
+      const opened = nextPatternIndex(entries, 0, momentOf(st), sequential ? 'opening' : 'first', rnd)
+      updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: opened.index })
+    }
+    const openedIndex = st.sel.active.index
+    const openedId = ids[openedIndex]
+    if (openedId && (o.profiles?.entry[openedIndex] ?? 'restart') === 'restart') {
+      if (o.clockTick !== undefined) st.entryEpoch[openedId] = { tick: o.clockTick, elapsed: o.clockElapsed ?? o.clockTick }
+      st.entryClear = openedId
+    }
   }
 
   // Every frame, because the collection can change under a running show. The
@@ -959,12 +1055,25 @@ function evalPatternShow(
   st.ids = ids
   const cur = st.sel.active.index
 
+  const policyAt = (index: number): PatternEntryPolicy => o.profiles?.entry[index] === 'resume' ? 'resume' : 'restart'
+  const beginEntry = (index: number) => {
+    const gid = ids[index]
+    if (!gid || policyAt(index) !== 'restart') return
+    if (o.clockTick !== undefined) st.entryEpoch[gid] = { tick: o.clockTick, elapsed: o.clockElapsed ?? o.clockTick }
+    st.entryClear = gid
+  }
+  for (let index = 0; index < n; index++) {
+    if (policyAt(index) === 'resume') o.keepAlive?.(ids[index])
+  }
+
   // A seek or a manual selection starts a full cooldown for the new hold.
   if (t < (st.lastTime ?? st.start) || (st.activeId !== undefined && st.activeId !== st.sel.active.id)) {
+    const manual = st.activeId !== undefined && st.activeId !== st.sel.active.id
     st.phase = 'hold'
     st.start = t
     st.hold = firstPatternHold(rnd)
     st.lastBeat = beat
+    if (manual) beginEntry(cur)
   }
   // The firmware reads the same mean band energy; no audio leaves it neutral.
   if (o.audioEnergy !== null) pacingEnergyStep(st.paceEnergy, o.audioEnergy, (t - (st.lastTime ?? t)) * 1000)
@@ -987,18 +1096,77 @@ function evalPatternShow(
     }
   }
 
-  if (st.phase === 'hold' && n > 1) {
+  if (sequencing && st.phase === 'hold') {
+    const advanced = advanceSequence(
+      o.sequence ?? [], st.sequence, entries, cur, t, beatEdge, o.countBeats === true, o.stepDelta ?? 0, rnd,
+    )
+    st.sequence = advanced.cursor
+    if (advanced.entered) st.roleFrom = { ...st.roles }
+    const step = advanced.step
+    if (step) {
+      const rampMs = (step.rampSec ?? 0) * 1000
+      const at = Math.max(0, (t - st.sequence.start) * 1000)
+      const take = (name: string, to: number | undefined) => {
+        if (to === undefined || !Number.isFinite(to)) return
+        const from = st.roleFrom[name] ?? to
+        st.roles[name] = rampValue({ from, to, t: 0, rampMs }, from, at)
+      }
+      take('speed', step.speed)
+      take('energy', step.energyValue)
+      take('brightness', step.brightness)
+      for (const [name, value] of Object.entries(step.params ?? {})) take(name, value)
+    }
+    if (advanced.entered && advanced.cursor.patternIndex !== cur) {
+      const target = advanced.cursor.patternIndex
+      st.next.index = target
+      st.next.id = ids[target]
+      st.trans = step?.transition || 'crossfade'
+      st.transSec = step?.transitionSec ?? o.transSec
+      st.phase = 'trans'
+      st.start = t
+      beginEntry(target)
+    }
+  } else if (st.phase === 'hold' && n > 1) {
     const timeUp = t >= st.start + patternHoldSeconds(st.hold, pacing, pacingIntensity(st.paceEnergy))
     if (timeUp && (!o.beatTransitions || beatEdge)) {
       // Sequential walks the collection in the order it was arranged; random
       // picks uniformly from everything except what is already showing.
-      const target = sequential ? (cur + 1) % n : (cur + 1 + Math.floor(rnd() * (n - 1))) % n
-      st.next.index = target
-      st.next.id = ids[target]
-      st.trans = o.pool.length ? o.pool[Math.floor(rnd() * o.pool.length)] : 'crossfade'
-      st.phase = 'trans'
-      st.start = t
+      // Equal positive weights over the whole collection keep that expression,
+      // including the one random draw, so a seeded slideshow replays.
+      const moment = momentOf(st)
+      const target = classicFormula(entries, moment)
+        ? (sequential ? (cur + 1) % n : (cur + 1 + Math.floor(rnd() * (n - 1))) % n)
+        : nextPatternIndex(entries, cur, moment, sequential ? 'sequential' : 'next', rnd).index
+      if (target !== cur) {
+        st.next.index = target
+        st.next.id = ids[target]
+        st.trans = o.pool.length ? o.pool[Math.floor(rnd() * o.pool.length)] : 'crossfade'
+        st.transSec = o.transSec
+        st.phase = 'trans'
+        st.start = t
+        beginEntry(target)
+      }
     }
+  }
+
+  const renderAt = (index: number): Frame => {
+    const gid = ids[index]
+    if (!gid) return blankFrame(W, H)
+    const policy = policyAt(index)
+    const epoch = st.entryEpoch[gid]
+    const rebase = policy === 'restart' && epoch !== undefined && o.clockTick !== undefined
+    patternEntryDirective = {
+      groupId: gid,
+      policy,
+      clear: policy === 'restart' && st.entryClear === gid,
+      rebase,
+      tick: rebase ? o.clockTick! - epoch.tick : 0,
+      elapsedTick: rebase ? (o.clockElapsed ?? o.clockTick!) - epoch.elapsed : 0,
+      inputs: st.roles,
+    }
+    const frame = render(gid)
+    if (st.entryClear === gid) st.entryClear = null
+    return frame
   }
 
   let frame: Frame
@@ -1006,20 +1174,25 @@ function evalPatternShow(
   // while holding.
   let transitionProgress: number | null = null
   if (st.phase === 'trans') {
-    const prog = o.transSec <= 0 ? 1 : Math.min(1, (t - st.start) / o.transSec)
+    const transSec = st.transSec
+    const prog = transSec <= 0 ? 1 : Math.min(1, (t - st.start) / transSec)
     transitionProgress = prog
-    frame = compositeTransition(st.trans, render(ids[cur]), render(ids[st.next.index]), prog, W, H)
+    const samePattern = ids[cur] === ids[st.next.index]
+    frame = samePattern
+      ? renderAt(cur)
+      : compositeTransition(st.trans, renderAt(cur), renderAt(st.next.index), prog, W, H)
     if (prog >= 1) {
       // The show's own advance goes through the contract, so a display naming
       // the pattern and the show playing it cannot disagree.
       updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: st.next.index })
       st.phase = 'hold'
       st.start = t
-      st.hold = nextPatternHold(st.hold, rnd, o.dwellsAndBursts === true)
+      if (!sequencing) st.hold = nextPatternHold(st.hold, rnd, o.dwellsAndBursts === true)
     }
   } else {
-    frame = render(ids[cur])
+    frame = renderAt(cur)
   }
+  patternEntryDirective = null
 
   st.activeId = st.sel.active.id
   st.lastTime = t
@@ -1219,7 +1392,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       } satisfies PlayerParticles,
     }
   },
-  PatternMaster({ inputSourceType, input, num, t, tick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph }, id, props) {
+  PatternMaster({ inputSourceType, input, num, t, tick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph, nodes, edges }, id, props) {
     let out: Record<string, PortValue> = {}
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
     const audioSignal = input(id, 'audio', null)
@@ -1267,6 +1440,14 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
           : 0
         : null,
       audioReactive: (gid: string) => isAudioReactiveSubgraph(groups[gid]?.nodes ?? []),
+      profiles: wiredProfiles(nodes, edges, id, ids),
+      sequence: asPatternSteps(props.sequence),
+      countBeats: timing.beatTransitions === true,
+      applyEnergyBands: wiredProfiles(nodes, edges, id, ids).energyTags.some((tags) => tags.length > 0),
+      stepDelta: 0,
+      clockTick: tick,
+      clockElapsed: tick,
+      keepAlive: (gid: string) => touchInstanceStatePrefix(`${instancePrefix}${id}/${gid}/`),
     }
     const key = stateKey(id)
     const controlsValue = input(id, 'controls', null)
@@ -1293,10 +1474,12 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       selection = blankPatternSelection()
       patternSelectionState.set(key, selection)
     }
+    const sequencing = o.order === 'Sequence'
+    if (sequencing) o.stepDelta = controls.patternSteps
     updatePatternSelection(selection, {
       ids,
       nowMs: t * 1000,
-      step: controls.patternSteps,
+      step: sequencing ? 0 : controls.patternSteps,
       confirm: controls.patternConfirm,
     })
 
@@ -1362,7 +1545,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     } else out = { ...song, frame }
     return out
   },
-  PatternSlideshow({ inputSourceType, input, num, elapsedT, tick, elapsedTick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph }, id, props) {
+  PatternSlideshow({ inputSourceType, input, num, elapsedT, tick, elapsedTick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph, nodes, edges }, id, props) {
     // The same show as the Music Player with the music taken out. What is
     // shared is shared outright: one collected-pattern renderer, one
     // `evalPatternShow`, one selection contract. What differs is only what
@@ -1404,11 +1587,12 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       ),
     )
     const steps = controls ? Math.trunc(controls.patternSteps) : 0
+    const sequencing = settings.order === 'Sequence'
     updatePatternSelection(selection, {
       ids,
       nowMs: elapsedT * 1000,
-      step: steps,
-      confirm: steps !== 0 || controls?.patternConfirm === true,
+      step: sequencing ? 0 : steps,
+      confirm: sequencing ? controls?.patternConfirm === true : steps !== 0 || controls?.patternConfirm === true,
     })
 
     let frame = evalPatternShow(key, ids, render, false, {
@@ -1427,9 +1611,16 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       particleEnergyGate: 0,
       seed: settings.seed,
       order: settings.order,
-      // A slideshow is the show with the music taken out: nothing fades.
+      // A slideshow is the show with the music taken out: nothing fades,
+      // and energy tags do not narrow its picks.
       audioEnergy: null,
       audioReactive: () => false,
+      profiles: wiredProfiles(nodes, edges, id, ids),
+      sequence: asPatternSteps(props.sequence),
+      stepDelta: sequencing ? steps : 0,
+      clockTick: tick,
+      clockElapsed: elapsedTick,
+      keepAlive: (gid: string) => touchInstanceStatePrefix(`${instancePrefix}${id}/${gid}/`),
     }, elapsedT, W, H, selection)
 
     if (settings.audioReactive) {

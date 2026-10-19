@@ -53,6 +53,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 - [Audio hardware — microphones and amplifiers](design/audio-hardware.md)
 - [Collection-driven performance](design/collection-driven-performance.md)
 - [Generative pattern show](design/generative-pattern-show.md)
+- [Show sequencing](design/show-sequencing.md)
 
 ### Hardware and interfaces
 
@@ -165,6 +166,7 @@ with `--engine fbuild` or `--engine all`.
 - [HLK-LD2410C firmware compile checks](reports/compile/presence-sensor-compile-checks.md)
 - [PWM-driver compile checks](reports/compile/pwm-driver-compile-checks.md)
 - [Render-buffer RAM compile checks](reports/compile/render-buffer-ram-compile-checks.md)
+- [Show-sequencing compile checks](reports/compile/show-sequencing-compile-checks.md)
 - [Solid-state relay compile checks](reports/compile/ssr-compile-checks.md)
 - [Temperature-probe compile checks](reports/compile/temperature-sensor-compile-checks.md)
 - [Grove Touch Sensor firmware compile checks](reports/compile/touch-button-compile-checks.md)

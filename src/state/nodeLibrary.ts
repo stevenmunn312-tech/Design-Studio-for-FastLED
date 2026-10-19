@@ -1688,7 +1688,8 @@ export const SCALAR_FORMULA_LANG_HELP = `Variables: ${SCALAR_FORMULA_VARIABLES.j
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   PatternMaster: {
-    order: 'Sequential plays patterns in collection order and wraps back to the first. Random chooses a different pattern at each advance.',
+    order: 'Sequential plays patterns in collection order and wraps. Random chooses a different pattern at each advance. Sequence plays the steps edited in the node; with Beat Transitions on, a hold counts beats.',
+    sequence: 'The steps Sequence order plays. Each step names a pattern or a tag, a hold, and a transition.',
     beatTransitions: 'Wait for a fresh beat after a random cooldown between Min Time and Max Time. The Beat input overrides the Audio input. Without beats, the current pattern keeps playing. Off uses timed changes.',
     minTime: 'Minimum hold time in seconds. With Beat Transitions enabled, this is the shortest cooldown after a transition finishes.',
     maxTime: 'Maximum random hold time in seconds. With Beat Transitions enabled, the player still waits for the next beat after the cooldown ends.',
@@ -2930,7 +2931,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     fade: 'Seconds spent crossfading into the next input at the end of each hold. 0 cuts; capped at the hold.',
   },
   PatternSlideshow: {
-    order: 'Sequential walks the collection top to bottom and wraps; Random never repeats the pattern just shown.',
+    order: 'Sequential walks the collection top to bottom and wraps. Random never repeats the pattern just shown. Sequence plays the steps edited in the node.',
+    sequence: 'The steps Sequence order plays. Each step names a pattern or a tag, a hold, and a transition.',
     interval: 'Seconds each pattern stays on before the slideshow moves on. A wired Interval replaces this.',
     transitionsEnabled: 'Blend between patterns when changing. Off switches instantly.',
     transitionSec: 'Seconds the blend between two patterns takes. 0 is a hard cut.',
@@ -3130,7 +3132,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PatternCollection: {
     patternIds: 'The patterns in the collection, in play order, picked in the body.',
-    patternSections: 'Which song sections each pattern may play in, tagged in the body. No tags means any section.',
+    patternSections: 'Which song sections each pattern may play in, tagged in the body. No tags means any section. Section tags steer the Performance Generator only.',
+    patternWeights: 'How often each pattern is picked automatically. 1 is the default. 0 is never chosen on its own, and stays reachable from a confirm, a timeline, or a sequence step. Equal weights keep the original random order.',
+    patternEnergy: 'Calm, lively, or peak. The Music Player reads the band from the track, and the Performance Generator reads it from the section. Untagged patterns can play in any band.',
+    patternEntry: 'Restart clears a pattern’s state and starts its clock at the beginning of the transition that brings it in. Resume keeps the state and the show clock.',
   },
   TransitionSet: {
     transitions: 'The transition styles in the pool, picked in the body. The player chooses among them at each change.',

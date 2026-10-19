@@ -644,7 +644,9 @@ describe('showGenerator', () => {
       expect(cpp).toContain('setupAudio();')              // in setup()
       const loop = cpp.slice(cpp.indexOf('void loop() {'))
       expect(loop.match(/updateAudio\(\);/g)).toHaveLength(1)
-      expect(loop.indexOf('updateAudio();')).toBeLessThan(loop.indexOf('render_p0(now)'))
+      const renderAt = loop.search(/renderCollected\(|renderPattern\(|render_p0\(/)
+      expect(renderAt).toBeGreaterThan(-1)
+      expect(loop.indexOf('updateAudio();')).toBeLessThan(renderAt)
       expect(cpp).toContain('_sum += _audioSpectrum[_i];') // render_p0 resamples the live spectrum
       expect(cpp).not.toContain('constrain(0.5f')         // not the placeholder
     })
@@ -716,8 +718,15 @@ describe('show sketch pattern headers', () => {
     const { ino, files } = splitSketchBundle(cpp)
     expect(Object.keys(files)).toEqual(['pattern_0.h', 'pattern_1.h'])
     expect(files['pattern_0.h']).toMatch(/^void render_p0\(uint32_t ms\)/)
-    expect(files['pattern_1.h']).toMatch(/^void render_p1\(uint32_t ms\)/)
+    // Noise keeps phase statics, so Restart adds the entry flag. SolidColor has
+    // nothing to clear and keeps the old signature.
+    expect(files['pattern_1.h']).toMatch(/^void render_p1\(uint32_t ms, bool entry\)/)
+    expect(files['pattern_1.h']).toContain('if (entry) _phase_nz = 0.0f;')
+    expect(files['pattern_1.h']).toContain('if (entry) _phase_nzT = -1.0f;')
     expect(ino).toContain('#include "pattern_0.h"\n\n#include "pattern_1.h"')
+    expect(ino).toContain('void renderPattern(uint8_t i, uint32_t ms, bool entry)')
+    expect(ino).toContain('case 1: render_p1(ms, entry); break;')
+    expect(ino).toContain('commitEntrySlot();')
     expect(ino).not.toContain('void render_p0(')
     // The controller still dispatches to them after the includes.
     expect(ino.indexOf('#include "pattern_1.h"')).toBeLessThan(ino.indexOf('void renderPattern('))

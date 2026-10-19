@@ -74,7 +74,7 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 140px;
+  max-height: 220px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -101,6 +101,24 @@
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.weight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+
+.weightInput {
+  width: 42px;
 }
 
 .chip {

@@ -125,6 +125,25 @@ export function markStateUsed(key: string): string {
   return key
 }
 
+/** Drop every instance key under `prefix`. A Restart entry calls this on the
+ *  frame the pattern comes in, so a long absence and a short one agree. */
+export function clearInstanceStateByPrefix(prefix: string): void {
+  for (const key of [...stateLastUsed.keys()]) {
+    if (!key.startsWith(prefix)) continue
+    for (const map of instanceMaps.values()) map.delete(key)
+    for (const dispose of disposers) dispose(key)
+    stateLastUsed.delete(key)
+  }
+}
+
+/** Keep Resume state past the idle sweep while its show is still running. */
+export function touchInstanceStatePrefix(prefix: string): void {
+  const now = stateClock()
+  for (const key of stateLastUsed.keys()) {
+    if (key.startsWith(prefix)) stateLastUsed.set(key, now)
+  }
+}
+
 /*
  * Every per-instance state collection registers itself here as it is
  * declared, beside the node that owns it: both the idle sweep and the full

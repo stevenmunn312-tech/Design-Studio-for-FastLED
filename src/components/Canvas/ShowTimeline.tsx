@@ -25,6 +25,7 @@ const CMD_META: Record<ShowCommand, { label: string; color: string }> = {
   SET_SPEED:      { label: 'Speed',      color: 'var(--accent-math)' },
   SET_BRIGHTNESS: { label: 'Brightness', color: 'var(--accent-output)' },
   SET_ENERGY:     { label: 'Energy',     color: 'var(--accent-show)' },
+  SET_PARAM:      { label: 'Param',      color: 'var(--accent-math)' },
   BEAT_FLASH:     { label: 'Flash',      color: 'var(--accent-audio)' },
   PARTICLE_BURST: { label: 'Particles',  color: 'var(--accent-pattern)' },
   TRANSITION:     { label: 'Transition', color: 'var(--accent-composite)' },
@@ -43,6 +44,7 @@ function defaultParams(cmd: ShowCommand): ShowEvent['params'] {
     case 'SET_SPEED':      return { value: 1 }
     case 'SET_BRIGHTNESS': return { value: 200 }
     case 'SET_ENERGY':     return { value: 0.5 }
+    case 'SET_PARAM':      return { index: 0, value: 0 }
     case 'BEAT_FLASH':     return { intensity: 200, decay: 200 }
     case 'PARTICLE_BURST': return { intensity: 200, hue: 0, style: 0 }
     case 'TRANSITION':     return { type: 'crossfade', duration: 0.5 }
@@ -66,6 +68,10 @@ function summary(ev: ShowEvent, patternLabels?: string[]): string {
     case 'SET_SPEED':      return `×${Number(ev.params.value).toFixed(2)}`
     case 'SET_BRIGHTNESS': return String(Math.round(Number(ev.params.value)))
     case 'SET_ENERGY':     return Number(ev.params.value).toFixed(2)
+    case 'SET_PARAM': {
+      const name = ev.params.name !== undefined ? String(ev.params.name) : `#${Number(ev.params.index ?? 0)}`
+      return `${name} ${Number(ev.params.value).toFixed(2)}`
+    }
     case 'BEAT_FLASH':     return `i${Math.round(Number(ev.params.intensity))} d${Math.round(Number(ev.params.decay))}`
     case 'PARTICLE_BURST': return `${PARTICLE_STYLES[Number(ev.params.style ?? 0)] ?? 'rise'} i${Math.round(Number(ev.params.intensity))}`
     case 'TRANSITION':     return `${ev.params.type} ${Number(ev.params.duration).toFixed(1)}s`

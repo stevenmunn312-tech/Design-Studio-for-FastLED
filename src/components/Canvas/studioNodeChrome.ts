@@ -145,7 +145,7 @@ export function editableProperties(
     // added to the chain below each time somebody notices one on their canvas.
     ([k]) => !isInternalProperty(k)
       && !(nodeType === 'IRRemoteInput' && k === 'debug')
-      && k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'clip' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
+      && k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'clip' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'patternWeights' && k !== 'patternEnergy' && k !== 'patternEntry' && k !== 'sequence' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
     // Pin provenance is bookkeeping, not a setting: which pins the app
     // assigned, which board for, and the user's own choices per board.
     // It was rendering as `[object Object]` rows on every hardware node.

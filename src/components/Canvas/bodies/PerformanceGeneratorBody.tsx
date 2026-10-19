@@ -11,6 +11,7 @@ import { performanceOptionsFromProperties } from '../../../codegen/performanceGe
 import type { ShowEvent } from '../../../types/showFile'
 import { bakedFrameAt, chooseBakeFps, packFrame, usePerformanceBakeStore } from '../../../state/player/performanceBakeStore'
 import ShowTimeline from '../ShowTimeline'
+import ShowLaneEditor from '../ShowLaneEditor'
 import styles from './PerformanceGeneratorBody.module.css'
 
 // Plays a scanned song and renders its generated .show in sync — the browser
@@ -51,8 +52,8 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   // Everything `regenerateShow` reads: this node's controls, plus the pattern
   // vocabulary and transition pool it resolves live from the graph.
   const wiredVocabulary = useGraphStore((s) => {
-    const { ids, sectionTags } = wiredPatternCollection(rootGraphNodes(s), rootGraphEdges(s))
-    return JSON.stringify([ids, sectionTags])
+    const profiles = wiredPatternCollection(rootGraphNodes(s), rootGraphEdges(s))
+    return JSON.stringify([profiles.ids, profiles.sectionTags, profiles.weights, profiles.energyTags])
   })
   const regenerateKey = `${JSON.stringify(options)}|${wiredVocabulary}`
   const useGroupInputs = !!properties.useGroupInputs
@@ -83,6 +84,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const [posMs, setPosMs] = useState(0)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  const [lanesOpen, setLanesOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -150,7 +152,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
         // Manual timeline edits win until the user reverts — don't clobber
         // them. `showPackagingIssues` is what stops one of those being
         // packaged while it is out of step.
-        if (candidate.analysis && !candidate.edited) music.regenerateShow(candidate.id, options)
+        if (candidate.analysis) music.regenerateShow(candidate.id, options)
       }
     }, 250)
     return () => window.clearTimeout(timer)
@@ -459,6 +461,14 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
             >
               ✎ Edit timeline
             </button>
+            <button
+              type="button"
+              className={`nodrag ${styles.tab}`}
+              onClick={() => setLanesOpen(true)}
+              disabled={bakeLocked}
+            >
+              Edit lanes
+            </button>
             {entry.edited && (
               <>
                 <span className={styles.editedBadge} title="This show has manual edits">Edited</span>
@@ -474,6 +484,19 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
               </>
             )}
           </div>
+
+          {lanesOpen && (
+            <ShowLaneEditor
+              show={show}
+              title={show.songTitle}
+              sections={show.sections ?? entry.analysis?.sections ?? []}
+              beats={entry.analysis?.beats.timestamps ?? []}
+              energy={entry.analysis?.energy ?? []}
+              locks={show.locks ?? []}
+              onClose={() => setLanesOpen(false)}
+              onCommit={(next, nextLocks) => useMusicStore.getState().updateShow(entry.id, next, nextLocks)}
+            />
+          )}
 
           {editing && (
             <ShowTimeline

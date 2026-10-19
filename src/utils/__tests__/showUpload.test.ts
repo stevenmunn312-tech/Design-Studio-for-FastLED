@@ -412,18 +412,23 @@ describe('packaging a drifted show', () => {
     expect(buildShowPayload(nodes, edges, [entry(['a', 'b'])], groups)).not.toBeNull()
   })
 
-  it('refuses one whose collection was reordered underneath it', () => {
+  it('packages an unlocked reorder, because regeneration rewrites it', () => {
     const { nodes, edges } = graph(['b', 'a'])
-    const issues = showPackagingIssues(nodes, edges, [entry(['a', 'b'])], groups)
-    expect(issues).toHaveLength(1)
-    expect(issues[0].message).toContain('picks patterns by position')
-    expect(buildShowPayload(nodes, edges, [entry(['a', 'b'])], groups)).toBeNull()
+    expect(showPackagingIssues(nodes, edges, [entry(['a', 'b'])], groups)).toEqual([])
   })
 
-  it('refuses one built from a pattern group since deleted', () => {
+  it('refuses a locked show whose collection was reordered underneath it', () => {
+    const { nodes, edges } = graph(['b', 'a'])
+    const issues = showPackagingIssues(nodes, edges, [entry(['a', 'b'], true)], groups)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].message).toContain('picks patterns by position')
+    expect(buildShowPayload(nodes, edges, [entry(['a', 'b'], true)], groups)).toBeNull()
+  })
+
+  it('refuses a locked show built from a pattern group since deleted', () => {
     const { nodes, edges } = graph(['a', 'gone'])
-    const issues = showPackagingIssues(nodes, edges, [entry(['a', 'gone'])], groups)
+    const issues = showPackagingIssues(nodes, edges, [entry(['a', 'gone'], true)], groups)
     expect(issues[0].kind).toBe('missing-group')
-    expect(buildShowPayload(nodes, edges, [entry(['a', 'gone'])], groups)).toBeNull()
+    expect(buildShowPayload(nodes, edges, [entry(['a', 'gone'], true)], groups)).toBeNull()
   })
 })

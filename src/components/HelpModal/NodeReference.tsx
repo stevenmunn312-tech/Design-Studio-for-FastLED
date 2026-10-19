@@ -24,7 +24,7 @@ const NODE_INTRO_TYPE = '__using_nodes__'
 // is — there is no editor for it, so documenting its four options as a choice
 // described a control that does not exist. Internal keys (part ids, generated
 // identifiers) are hidden for the same reason.
-const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections', 'form'])
+const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections', 'patternWeights', 'patternEnergy', 'patternEntry', 'sequence', 'form'])
 
 const PROPERTY_LABELS: Record<string, string> = {
   bpm: 'BPM',

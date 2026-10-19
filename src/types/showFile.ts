@@ -11,6 +11,7 @@ export type ShowCommand =
   | 'BEAT_FLASH'       // instantaneous brightness spike + decay
   | 'PARTICLE_BURST'   // a burst of short-lived colored sparks overlaid on the frame
   | 'TRANSITION'       // crossfade/wipe/dissolve (+ extras from a wired TransitionSet) to next pattern
+  | 'SET_PARAM'        // named float input, by index into ShowFile.params, optional rampMs
 
 export interface ShowEvent {
   t: number            // timestamp in milliseconds from song start
@@ -40,6 +41,21 @@ export interface ShowFile {
    * no live mic). Absent when the analysis had no energy envelope.
    */
   audio?: AudioEnvelope
+  /**
+   * Named float inputs addressed by SET_PARAM's `params.index`. Omitted when
+   * the show never names one, so the binary has no PARM trailer.
+   */
+  params?: string[]
+  /**
+   * Spans regeneration must keep. Omitted when nothing is locked. An edited
+   * music entry whose show has no `locks` is the legacy whole-show freeze.
+   */
+  locks?: { startMs: number; endMs: number }[]
+  /**
+   * Section bands saved with the song after a move or a retype. Regeneration
+   * reads these instead of the analysis when they are present.
+   */
+  sections?: SongSection[]
 }
 
 export interface AudioEnvelope {

@@ -20,6 +20,7 @@ import { templateControlPlan, type TemplateControlPlan } from './displays/templa
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patterns/patternLibrary'
 import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patterns/patternTrust'
+import { withoutPatternProfiles } from './patterns/patternPick'
 import { useNetworkCredentialsStore } from './peripherals/networkCredentials'
 import { retargetedMicPins } from '../build/pins/micPinDefaults'
 import { retargetDefaultI2c, retargetHardwarePins as retargetHardwarePinsFor } from '../build/pins/pinRetarget'
@@ -3182,7 +3183,7 @@ export const useGraphStore = create<GraphState>()(
               label: def.label,
               nodeType: def.type,
               category: def.category,
-              properties: { ...properties, patternIds, patternSections: {} },
+              properties: { ...properties, patternIds, patternSections: {}, patternWeights: {}, patternEnergy: {}, patternEntry: {} },
               inputs: def.inputs,
               outputs: def.outputs,
             },
@@ -3277,7 +3278,8 @@ export const useGraphStore = create<GraphState>()(
             const props = n.data.properties as { patternIds?: string[]; patternSections?: Record<string, string[]> }
             const ids = (props.patternIds ?? []).filter((x) => x !== groupId)
             const patternSections = { ...(props.patternSections ?? {}) }; delete patternSections[groupId]
-            return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: ids, patternSections } } }
+            const profiles = withoutPatternProfiles(props, groupId)
+            return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: ids, patternSections, ...profiles } } }
           })
           const graphData = { ...s.graphData }; delete graphData[groupId]
           const graphs = { ...s.graphs }; delete graphs[groupId]
@@ -3292,7 +3294,7 @@ export const useGraphStore = create<GraphState>()(
           if (ids.length === 0) return s
           const nodes = s.nodes.map((n) => (
             n.id === collectionNodeId
-              ? { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: [], patternSections: {} } } }
+              ? { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: [], patternSections: {}, patternWeights: {}, patternEnergy: {}, patternEntry: {} } } }
               : n
           ))
           const graphData = { ...s.graphData }

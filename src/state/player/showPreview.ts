@@ -16,6 +16,9 @@ import { isStudioPalette } from '../palettes/paletteCatalog'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import type { ShowFile, ShowEvent, SongSection } from '../../types/showFile'
 import { BUILTIN_SHOW_PATTERNS, builtinShowPatternGroupId } from './builtinShowPatterns'
+import { applyRamp, blankRampChannel, channelAt, type RampChannel } from './showRamp'
+import { clearInstanceStateByPrefix, touchInstanceStatePrefix } from '../evaluator/memory'
+import type { PatternEntryPolicy } from '../patterns/patternPick'
 
 export interface ShowState {
   pattern: string
@@ -25,9 +28,13 @@ export interface ShowState {
   speed: number
   energy: number       // 0–1 section energy — drives the `energy` group-input role
   brightness: number   // 0–255
+  /** Named inputs sampled with the same ramp rule as the roles. */
+  params: Record<string, number>
 }
 
-const DEFAULT_SHOW_STATE: ShowState = { pattern: 'NoiseField', patternIndex: -1, palette: 'rainbow', speed: 1, energy: 0, brightness: 200 }
+const DEFAULT_SHOW_STATE: ShowState = {
+  pattern: 'NoiseField', patternIndex: -1, palette: 'rainbow', speed: 1, energy: 0, brightness: 200, params: {},
+}
 
 // ── Event index ────────────────────────────────────────────────────────────────
 // showStateAt/beatFlashAt/activeTransitionAt/particleOverlayAt are each called
@@ -68,6 +75,7 @@ function buildShowIndex(show: ShowFile): ShowEventIndex {
       case 'SET_SPEED':      st = { ...st, speed: Number(ev.params.value) }; break
       case 'SET_ENERGY':     st = { ...st, energy: Number(ev.params.value) }; break
       case 'SET_BRIGHTNESS': st = { ...st, brightness: Number(ev.params.value) }; break
+      case 'SET_PARAM':      break
       case 'TRANSITION':     transitions.push(ev); break
       case 'PARTICLE_BURST': bursts.push(ev); break
       case 'BEAT_FLASH':     beats.push(ev); break
@@ -94,11 +102,64 @@ function lastIndexAtOrBefore<T>(items: T[], timeMs: number, timeOf: (item: T) =>
   return ans
 }
 
-/** The active pattern/palette/speed/energy/brightness at a playback position (ms). */
+function rampMsOf(event: ShowEvent): number {
+  const rampMs = Number(event.params.rampMs ?? 0)
+  return Number.isFinite(rampMs) && rampMs > 0 ? rampMs : 0
+}
+
+/**
+ * Pattern, palette and the ramped channels at `timeMs`. A ramp's first instant
+ * is still the previous value; a missing ramp snaps. Events are time-sorted.
+ */
 export function showStateAt(show: ShowFile, timeMs: number): ShowState {
-  const idx = getShowIndex(show)
-  const i = lastIndexAtOrBefore(idx.times, timeMs, (t) => t)
-  return i === -1 ? DEFAULT_SHOW_STATE : idx.states[i]
+  const names = show.params ?? []
+  let pattern = DEFAULT_SHOW_STATE.pattern
+  let patternIndex = DEFAULT_SHOW_STATE.patternIndex
+  let palette = DEFAULT_SHOW_STATE.palette
+  const speed = blankRampChannel(DEFAULT_SHOW_STATE.speed)
+  const energy = blankRampChannel(DEFAULT_SHOW_STATE.energy)
+  const brightness = blankRampChannel(DEFAULT_SHOW_STATE.brightness)
+  const channels: Record<string, RampChannel> = {}
+  for (const name of names) channels[name] = blankRampChannel(0)
+  for (const event of show.events) {
+    if (event.t > timeMs) break
+    switch (event.cmd) {
+      case 'SET_PATTERN':
+        if (event.params.index !== undefined && Number(event.params.index) >= 0) patternIndex = Number(event.params.index)
+        else if (event.params.name !== undefined) pattern = String(event.params.name)
+        break
+      case 'SET_PALETTE':
+        palette = String(event.params.name)
+        break
+      case 'SET_SPEED':
+        applyRamp(speed, event.t, Number(event.params.value), rampMsOf(event))
+        break
+      case 'SET_ENERGY':
+        applyRamp(energy, event.t, Number(event.params.value), rampMsOf(event))
+        break
+      case 'SET_BRIGHTNESS':
+        applyRamp(brightness, event.t, Number(event.params.value), rampMsOf(event))
+        break
+      case 'SET_PARAM': {
+        const name = names[Number(event.params.index)]
+        if (name && channels[name]) applyRamp(channels[name], event.t, Number(event.params.value), rampMsOf(event))
+        break
+      }
+      default:
+        break
+    }
+  }
+  const params: Record<string, number> = {}
+  for (const name of names) params[name] = channelAt(channels[name], timeMs)
+  return {
+    pattern,
+    patternIndex,
+    palette,
+    speed: channelAt(speed, timeMs),
+    energy: channelAt(energy, timeMs),
+    brightness: channelAt(brightness, timeMs),
+    params,
+  }
 }
 
 // Any BEAT_FLASH older than this cannot move a rendered channel by even one
@@ -161,6 +222,26 @@ function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): F
 // Collection show: render the active pattern group's subgraph directly (its
 // GroupOutput is the terminal), feeding role values to any GroupInput nodes. A
 // stable per-group state prefix keeps stateful patterns continuous across frames.
+interface EntrySlot { groupId: string; epoch: number }
+const entrySlots: { current: EntrySlot | null; incoming: EntrySlot | null } = { current: null, incoming: null }
+
+/** Clock for one side of a show frame. Restart clears by prefix and rebases.
+ *  The slot is left alone when the group is already the one it holds, which is
+ *  how a committed transition keeps the clock it started on the way in. */
+function entryClock(groupId: string, timeMs: number, policy: PatternEntryPolicy, slot: 'current' | 'incoming'): number {
+  const prefix = `__show_${groupId}/`
+  if (policy === 'resume') {
+    touchInstanceStatePrefix(prefix)
+    return timeMs
+  }
+  const live = entrySlots[slot]
+  if (!live || live.groupId !== groupId) {
+    clearInstanceStateByPrefix(prefix)
+    entrySlots[slot] = { groupId, epoch: timeMs }
+  }
+  return timeMs - (entrySlots[slot]?.epoch ?? timeMs)
+}
+
 function renderGroupFrame(
   groupId: string, timeMs: number, W: number, H: number,
   groups: GroupRegistry, groupInputs: Record<string, PortValue>,
@@ -212,8 +293,11 @@ function renderStateFrame(
   // SET_SPEED is a 0–2 multiplier; the `speed` role wants 0–1, so normalise it
   // (matched by the firmware player's CMD_SET_SPEED → speed normalisation). The
   // palette role passes the same palette id the studio uses.
+  const namedInputs: Record<string, PortValue> = {}
+  for (const [name, value] of Object.entries(st.params)) namedInputs[name] = value
   const groupInputs: Record<string, PortValue> = {
     ...audioInputs,
+    ...namedInputs,
     ...(useGroupInputs ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette } : {}),
   }
   return groupId
@@ -266,8 +350,10 @@ function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number)
 export function renderShowFrame(
   show: ShowFile, timeMs: number, W: number, H: number,
   groups: GroupRegistry = {}, useGroupInputs = false, trusted = true,
+  entry: readonly PatternEntryPolicy[] = [],
 ): Frame {
   const st = showStateAt(show, timeMs)
+  const policyOf = (index: number): PatternEntryPolicy => entry[index] === 'resume' ? 'resume' : 'restart'
 
   // Feed the song's baked bass/mids/treble to the group's Audio GroupInput,
   // mirroring the firmware player. The group's explicit Audio cables decide
@@ -281,15 +367,28 @@ export function renderShowFrame(
   // CMD_TRANSITION, so a section's new values reach the incoming side alone.
   // With the same pattern on both sides it renders once, as the player does:
   // twice would step its state twice a frame.
+  if (show.patternSet) {
+    show.patternSet.forEach((groupId, index) => {
+      if (policyOf(index) === 'resume') touchInstanceStatePrefix(`__show_${groupId}/`)
+    })
+  }
   const tr = activeTransitionAt(show, timeMs)
   const fromState = tr ? showStateAt(show, tr.startMs - 1) : null
+  const samePattern = !fromState || showRendererKey(show, fromState) === showRendererKey(show, st)
+  const clockFor = (state: ShowState, slot: 'current' | 'incoming') => {
+    const groupId = stateGroupId(show, state)
+    if (!groupId) return timeMs
+    return entryClock(groupId, timeMs, policyOf(state.patternIndex), slot)
+  }
   let result: Frame
-  if (tr && fromState && showRendererKey(show, fromState) !== showRendererKey(show, st)) {
-    const fromFrame = renderStateFrame(show, fromState, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
-    const toFrame = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
+  if (tr && fromState && !samePattern) {
+    const fromFrame = renderStateFrame(show, fromState, clockFor(fromState, 'current'), W, H, groups, useGroupInputs, audioOverride, trusted)
+    const toFrame = renderStateFrame(show, st, clockFor(st, 'incoming'), W, H, groups, useGroupInputs, audioOverride, trusted)
     result = compositeTransition(tr.type, fromFrame, toFrame, tr.progress, W, H)
   } else {
-    result = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
+    const groupId = stateGroupId(show, st)
+    if (groupId && entrySlots.incoming?.groupId === groupId) entrySlots.current = entrySlots.incoming
+    result = renderStateFrame(show, st, clockFor(st, 'current'), W, H, groups, useGroupInputs, audioOverride, trusted)
   }
 
   const b = Math.max(0, Math.min(1, st.brightness / 255))

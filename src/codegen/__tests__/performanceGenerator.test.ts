@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { showStateAt } from '../../state/player/showPreview'
 import {
   performanceOptionsFromProperties,
   sortShowEvents,
@@ -388,11 +389,8 @@ describe('generateShow — boundary fades', () => {
   }
 
   it('fades in from black for five seconds and out to black over the final five seconds', () => {
-    const brightness = generateShow(longShow).events.filter((e) => e.cmd === 'SET_BRIGHTNESS')
-    const at = (t: number) => {
-      const matches = brightness.filter((e) => e.t === t)
-      return Number(matches[matches.length - 1]?.params.value)
-    }
+    const show = generateShow(longShow)
+    const at = (t: number) => showStateAt(show, t).brightness
 
     expect(at(0)).toBe(0)
     expect(at(2500)).toBe(104)

@@ -8,6 +8,13 @@ function reactivePatterns(renderers?: PatternRenderers): boolean {
 }
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import { patternPacingCpp } from './player/patternPacingCpp'
+import { energyBandBitExpr, energyBandTrackerCpp, patternPickCpp } from './player/patternPickCpp'
+import { sequenceTableCpp } from './player/patternSequenceCpp'
+import { playerEntryClockCpp } from './player/entryReset'
+import { transitionStyleIds } from './performanceGenerator'
+import { sampleRampCpp } from '../state/player/showRamp'
+import type { PatternStep } from '../state/patterns/patternSequence'
+import type { EnergyBand } from '../state/patterns/patternPick'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, particleEnergyGate, particleRestMs, particleVolleyBursts,
   SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_ENERGY_RANGE, SILENCE_RELEASE_RATE,
@@ -437,6 +444,12 @@ export function generatePlayerSketch(
     genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig
     /** Automatic collection playback; timed Performance shows keep their own schedule. */
     patternOrder?: PatternSlideshowOrder
+    patternProfiles?: { weights: number[]; energy: EnergyBand[][]; sections?: string[][] }
+    sequence?: readonly PatternStep[]
+    /** Accept the extra ramp float and sample it each frame. Default sketches omit it. */
+    ramps?: boolean
+    /** Named show inputs. Default sketches omit the PARM trailer and SET_PARAM. */
+    showParams?: readonly string[]
     patternTiming?: ReturnType<typeof musicPlayerTiming>
     /**
      * The transition style ids this player can reach: the Music Player's
@@ -488,7 +501,9 @@ export function generatePlayerSketch(
   const stereoVuMeters = opts.stereoVuMeters ?? []
   const hasStereoVu = stereoVuMeters.length > 0
   const patternTiming = musicPlayerTiming(opts.patternTiming ?? {})
-  const decoderTap = (collection && (opts.decoderTap === true
+  const patternProfiles = opts.patternProfiles
+  const hasEnergyTags = patternProfiles?.energy.some((tags) => tags.length > 0) ?? false
+  const decoderTap = (collection && (opts.decoderTap === true || hasEnergyTags
     || (opts.genericPlayer === true && (patternTiming.beatTransitions || patternTiming.energyPacing)))) || hasStereoVu
   // ESP32-audioI2S's own volumetable, mirrored so the meter can undo the gain
   // the decoder applies before the tap sees a sample. The player only changes
@@ -503,14 +518,40 @@ export function generatePlayerSketch(
   // collection as well.
   const genericPlayer = opts.genericPlayer === true
   const genericCollection = genericPlayer && collection
-  const rotates = genericCollection && patternCount > 1
+  // Ramps and named inputs change the loader. A sketch that was not asked for
+  // them keeps the historical parameter check, character for character.
+  const rampPlayer = opts.ramps === true && !genericPlayer
+  const paramNames = (opts.showParams ?? []).filter((name) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
+  const paramPlayer = paramNames.length > 0 && !genericPlayer
+  const parameterGuard = rampPlayer || paramPlayer
+    ? `    static const uint8_t parameterCounts[] = {1, 1, 1, 1, 2, 2, 1, 3${paramPlayer ? ', 2' : ''}};
+    if (evBuf[4] >= sizeof(parameterCounts)) { f.close(); free(showEvents); showEvents = nullptr; eventCount = 0; return false; }
+    uint8_t expect = parameterCounts[evBuf[4]];
+    bool extraRamp = ${rampPlayer ? `(evBuf[4] == CMD_SET_SPEED || evBuf[4] == CMD_SET_BRIGHTNESS || evBuf[4] == CMD_SET_ENERGY${paramPlayer ? ' || evBuf[4] == CMD_SET_PARAM' : ''}) && evBuf[5] == (uint8_t)(expect + 1)` : 'false'};
+    if (evBuf[5] != expect && !extraRamp) { f.close(); free(showEvents); showEvents = nullptr; eventCount = 0; return false; }`
+    : `    static const uint8_t parameterCounts[] = {1, 1, 1, 1, 2, 2, 1, 3};
+    if (evBuf[4] >= sizeof(parameterCounts) || evBuf[5] != parameterCounts[evBuf[4]]) { f.close(); free(showEvents); showEvents = nullptr; eventCount = 0; return false; }`
+  const sequenceOrder = asSlideshowOrder(opts.patternOrder) === 'Sequence'
+  const sequenceSteps = sequenceOrder ? (opts.sequence ?? []) : []
+  const sequenceActive = sequenceSteps.length > 0
+  // A sequence holds or walks its own steps, so the dwell rotation stays out.
+  const rotates = genericCollection && patternCount > 1 && !sequenceOrder
+  // A sequence crossfades with the incoming step's own style. The opening
+  // frame does not play one, but the loop returns to step 0, so that step's
+  // style has to be compiled too.
+  const sequenceStyleNames = sequenceSteps
+    .filter((step) => step.transitionSec > 0)
+    .map((step) => step.transition)
+  const sequenceTransitions = sequenceStyleNames.length > 0
   // A show-file player whose shows never change pattern through a transition
   // is given no styles, and compiles no transition.
-  const transitionIds = opts.transitionIds && (opts.transitionIds.length > 0 || !genericPlayer)
-    ? opts.transitionIds
-    : [0]
+  const transitionIds = sequenceTransitions
+    ? transitionStyleIds(sequenceStyleNames)
+    : opts.transitionIds && (opts.transitionIds.length > 0 || !genericPlayer)
+      ? opts.transitionIds
+      : [0]
   const transitions = genericPlayer
-    ? rotates && (patternTiming.transitionSec > 0 || !!opts.controlGraph?.timingInputs.transitionSec)
+    ? sequenceTransitions || (rotates && (patternTiming.transitionSec > 0 || !!opts.controlGraph?.timingInputs.transitionSec))
     : transitionIds.length > 0
   const drawsFrame = c.hasPrimaryLedOutput || collection
   const fadesAudio = genericCollection && reactivePatterns(renderers)
@@ -521,9 +562,28 @@ export function generatePlayerSketch(
   const sequentialPatterns = asSlideshowOrder(opts.patternOrder) === 'Sequential'
   // Paced holds replace the fixed rotateMs with a lead plus a hold read every
   // loop (patternPacing.ts); without pacing the rotation is emitted as before.
-  const pacing = patternTiming.energyPacing || patternTiming.dwellsAndBursts ? patternPacingCpp(patternTiming) : null
+  // A sequence counts its own holds, so Energy Pacing and Dwells & Bursts stay out.
+  const pacing = sequenceOrder ? null : (patternTiming.energyPacing || patternTiming.dwellsAndBursts ? patternPacingCpp(patternTiming) : null)
+  const pick = patternProfiles && patternCount > 1
+    ? patternPickCpp(patternProfiles.weights, patternProfiles.energy, 'random', sequenceActive ? (patternProfiles.sections ?? []) : [])
+    : { prelude: '', needsTable: false }
   const rotationDue = pacing ? 'rotateLeadMs + paceHoldMs()' : 'rotateMs'
   const rotationAdvance = pacing ? `rotateLeadMs = transitionMs;\n      ${pacing.next}` : 'rotateMs = transitionMs + pickHoldMs();'
+  // Unequal weights or energy tags replace the historical draw. Anything else
+  // keeps that expression character for character, including the space before
+  // `+ random`, so an unweighted player stays byte-identical.
+  const bandDecl = !pick.needsTable ? ''
+    : pacing || !hasEnergyTags
+      ? (hasEnergyTags
+        ? `    const uint8_t bandBit = ${energyBandBitExpr()};\n`
+        : '    const uint8_t bandBit = 0;\n')
+      : `${energyBandTrackerCpp()}\n    const uint8_t bandBit = ${energyBandBitExpr()};\n`
+  const selPick = pick.needsTable
+    ? `(uint16_t)patternPick((uint8_t)selActive, ${sequentialPatterns ? 2 : 1}, bandBit, 0)`
+    : `(uint16_t)((selActive + 1${sequentialPatterns ? '' : ' + random(PATTERN_COUNT - 1)'}) % PATTERN_COUNT)`
+  const rotatePick = pick.needsTable
+    ? `(uint8_t)patternPick(rotateIndex, ${sequentialPatterns ? 2 : 1}, bandBit, 0)`
+    : `(uint8_t)((rotateIndex + 1${sequentialPatterns ? '' : ` + random(${patternCount - 1})`}) % ${patternCount})`
   const graphRouting = opts.controlGraph
   const timingExpression = (port: 'minTime' | 'maxTime' | 'transitionSec') =>
     graphRouting?.timingInputs[port] ?? `${patternTiming[port].toFixed(4)}f`
@@ -619,8 +679,12 @@ export function generatePlayerSketch(
         ledToggle: 'ledsEnabled = !ledsEnabled; applyPlayerBrightness();',
         // The player owns the cursor, so confirming here changes what renders
         // rather than only what the panel says.
-        patternPrevious: `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, -1, false);`,
-        patternNext: `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, 1, false);`,
+        patternPrevious: sequenceActive
+          ? 'seqDelta -= 1;'
+          : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, -1, false);`,
+        patternNext: sequenceActive
+          ? 'seqDelta += 1;'
+          : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, 1, false);`,
         patternConfirm: `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, 0, true);`,
       }
       return [`  if (_control_${action}.update(${digitalReadCpp(source)}, now, false)) { ${body[action]} }`]
@@ -755,19 +819,58 @@ export function generatePlayerSketch(
   // renderPattern takes the values it renders with from its caller.
   const outgoingRoles = transitions && !genericPlayer ? roleParams : []
   const prevRole = (role: string) => `prev${role[0].toUpperCase()}${role.slice(1)}`
+  const extraParams = paramNames.filter((name) => name !== 'energy' && name !== 'speed' && name !== 'palette')
+  const speedExpr = renderers?.rawSpeed ? 'ev.params[0]' : 'constrain(ev.params[0] * 0.5f, 0.0f, 1.0f)'
+  const brightnessNow = (value: string) => hasControls
+    ? `showBrightness = constrain(${value} / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();`
+    : isHub75
+      ? `dma_display->setBrightness8((uint8_t)${value});${hasStereoVu ? ` FastLED.setBrightness((uint8_t)${value});` : ''}`
+      : `FastLED.setBrightness((uint8_t)${value});`
+  const speedCase = !hasSpeed ? '' : rampPlayer
+    ? `    case CMD_SET_SPEED: {\n      float to = ${speedExpr};\n      if (ev.paramCount > 1) rampSpeed.begin(ev.t, to, ev.params[1]);\n      else { rampSpeed.from = to; rampSpeed.to = to; rampSpeed.t = ev.t; rampSpeed.rampMs = 0; speed = to; }\n      break;\n    }\n`
+    : `    case CMD_SET_SPEED:      speed = ${speedExpr}; break;\n`
+  const brightnessCase = rampPlayer
+    ? `    case CMD_SET_BRIGHTNESS: {\n      float to = ev.params[0];\n      if (ev.paramCount > 1) rampBrightness.begin(ev.t, to, ev.params[1]);\n      else { rampBrightness.from = to; rampBrightness.to = to; rampBrightness.t = ev.t; rampBrightness.rampMs = 0; ${brightnessNow('to')} }\n      break;\n    }`
+    : `    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? `dma_display->setBrightness8((uint8_t)ev.params[0]);${hasStereoVu ? ' FastLED.setBrightness((uint8_t)ev.params[0]);' : ''}` : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;`
+  const energyCase = !hasEnergy ? '' : rampPlayer
+    ? `\n    case CMD_SET_ENERGY: {\n      float to = ev.params[0];\n      if (ev.paramCount > 1) rampEnergy.begin(ev.t, to, ev.params[1]);\n      else { rampEnergy.from = to; rampEnergy.to = to; rampEnergy.t = ev.t; rampEnergy.rampMs = 0; energy = to; }\n      break;\n    }`
+    : '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;'
+  const paramCase = !paramPlayer ? '' : `
+    case CMD_SET_PARAM: {
+      float to = ev.params[1];
+      uint8_t which = (uint8_t)ev.params[0];
+${paramNames.map((name, index) => {
+    const declared = name === 'energy' ? hasEnergy : name === 'speed' ? hasSpeed : name !== 'palette'
+    if (!declared) return ''
+    const ramp = name === 'speed' ? 'rampSpeed' : name === 'energy' ? 'rampEnergy' : `rampParam_${name}`
+    const write = rampPlayer
+      ? `if (ev.paramCount > 2) ${ramp}.begin(ev.t, to, ev.params[2]); else { ${ramp}.from = to; ${ramp}.to = to; ${ramp}.t = ev.t; ${ramp}.rampMs = 0; ${name} = to; }`
+      : `${name} = to;`
+    return `      if (which == ${index}) { ${write} }`
+  }).filter(Boolean).join('\n')}
+      break;
+    }`
+  const rampGlobals = !rampPlayer ? '' : `${sampleRampCpp()}
+static ShowRamp rampBrightness = {0, 0, 0, 0};
+${hasSpeed ? `static ShowRamp rampSpeed = {${renderers?.rawSpeed ? '1.0f, 1.0f' : '0.5f, 0.5f'}, 0, 0};\n` : ''}${hasEnergy ? 'static ShowRamp rampEnergy = {0, 0, 0, 0};\n' : ''}${extraParams.map((name) => `static ShowRamp rampParam_${name} = {0, 0, 0, 0};\n`).join('')}`
+  const rampSample = !rampPlayer ? '' : `  if (rampBrightness.rampMs > 0) { float b = rampBrightness.sample(posMs); ${brightnessNow('b')} }
+${hasSpeed ? '  if (rampSpeed.rampMs > 0) speed = rampSpeed.sample(posMs);\n' : ''}${hasEnergy ? '  if (rampEnergy.rampMs > 0) energy = rampEnergy.sample(posMs);\n' : ''}${extraParams.map((name) => `  if (rampParam_${name}.rampMs > 0) ${name} = rampParam_${name}.sample(posMs);\n`).join('')}`
   const liveRoleArgs = outgoingRoles.length ? argList : ''
   const prevRoleArgs = outgoingRoles.map((role) => `, ${prevRole(role)}`).join('')
+  const entryFlags = renderers?.entryReset ?? []
+  const entryOn = entryFlags.some(Boolean)
 
   // renderPattern() dispatches to a render_pN(), which expects ms. Built-in
   // show patterns arrive compiled the same way, so only a player with no
   // patterns at all (a VU-only Music Player) draws nothing, and nothing else
-  // writes `leds` there, so it stays black.
+  // writes `leds` there, so it stays black. The entry flag is last, and only
+  // when a Restart pattern actually resets, so every other sketch is unchanged.
   const renderPatternFn = collection
     ? [
-        `void renderPattern(uint8_t pid, float t${outgoingRoles.map((role) => `, ${roleSig(role)}`).join('')}) {`,
+        `void renderPattern(uint8_t pid, float t${outgoingRoles.map((role) => `, ${roleSig(role)}`).join('')}${entryOn ? ', bool entry' : ''}) {`,
         '  uint32_t ms = (uint32_t)(t * 1000.0f);',
         '  switch (pid) {',
-        ...Array.from({ length: renderers!.count }, (_, i) => `    case ${i}: render_p${i}(ms${argList}); break;`),
+        ...Array.from({ length: renderers!.count }, (_, i) => `    case ${i}: render_p${i}(ms${argList}${entryFlags[i] ? ', entry' : ''}); break;`),
         '  }',
         '}',
       ].join('\n')
@@ -886,7 +989,7 @@ ${graphRouting ? '' : `void servicePlayerControls() {
 ${patternEncoder ? `  // Detents into the one selection the player owns.
   {
     int _patternStep = ${encoderReadCpp(patternEncoder[0], patternEncoder[1])};
-    if (_patternStep != 0) _selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, _patternStep, false);
+    if (_patternStep != 0) ${sequenceActive ? 'seqDelta += _patternStep;' : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, _patternStep, false);`}
   }
 ` : ''}
 ${controlServiceLines}
@@ -930,6 +1033,81 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   const boundNames = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
   const hasPatternSelection = browserEmits.length > 0 || hasPatternControls || hasTftArtwork
     || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS)
+  const pickPrelude = pick.needsTable
+    ? `${hasPatternSelection ? '' : `#define PATTERN_COUNT ${patternCount}\n`}${pick.prelude}\n`
+    : ''
+  const sequenceWalker = sequenceActive ? [
+    '  // Sequence order walks its own steps. Next and Previous land in seqDelta.',
+    '  {',
+    '    static uint8_t seqStep = 0;',
+    '    static uint32_t seqAt = 0;',
+    '    static uint16_t seqBeats = 0;',
+    '    static bool seqInit = false;',
+    '    static uint32_t seqPrevPos = 0;',
+    ...(patternTiming.beatTransitions ? [
+      `    const bool beatNow = ${graphRouting?.timingInputs.beat ?? '_audioBeat'};`,
+      '    static bool seqLastBeat = beatNow;',
+      '    bool beatEdge = beatNow && !seqLastBeat;',
+      '    seqLastBeat = beatNow;',
+    ] : []),
+    '    auto takeSeq = [&](bool opening) {',
+    '      int16_t chosen = (int16_t)pgm_read_word(&seqIndex[seqStep]);',
+    '      uint8_t bandBit = pgm_read_byte(&seqBand[seqStep]);',
+    '      uint8_t sectionBit = pgm_read_byte(&seqSection[seqStep]);',
+    `      uint8_t resolved = (chosen >= 0 && chosen < ${patternCount}) ? (uint8_t)chosen : ${pick.needsTable
+      ? '(opening ? patternPick(patternId, 3, bandBit, sectionBit) : patternPick(patternId, 1, bandBit, sectionBit))'
+      : patternCount > 1
+        ? `(uint8_t)((patternId + 1 + random(${patternCount - 1})) % ${patternCount})`
+        : 'patternId'};`,
+    ...(sequenceTransitions ? [
+      '      if (!opening && resolved != patternId) {',
+      '        prevPatternId = patternId;',
+      ...(transTypeExpr === 'transType' ? ['        transType = pgm_read_byte(&seqTrans[seqStep]);'] : []),
+      '        transStart = posMs;',
+      '        transDurMs = (float)pgm_read_dword(&seqTransMs[seqStep]);',
+      '      }',
+    ] : []),
+    '      patternId = resolved;',
+    ...(hasPatternSelection
+      ? [`      _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, patternId);`]
+      : []),
+    '    };',
+    '    if (!seqInit) {',
+    '      seqInit = true;',
+    '      seqAt = posMs;',
+    '      seqPrevPos = posMs;',
+    '      seqStep = 0;',
+    '      seqBeats = 0;',
+    '      seqDelta = 0;',
+    '      takeSeq(true);',
+    '    } else {',
+    patternTiming.beatTransitions
+      ? '      if (posMs < seqPrevPos) { seqAt = posMs; seqBeats = 0; beatEdge = false; }'
+      : '      if (posMs < seqPrevPos) { seqAt = posMs; seqBeats = 0; }',
+    '      seqPrevPos = posMs;',
+    '      const bool seqTransitioning = transDurMs > 0.0f && posMs >= transStart && (float)(posMs - transStart) < transDurMs;',
+    '      if (!seqTransitioning && seqDelta != 0) {',
+    '        int nextStep = (int)seqStep + seqDelta;',
+    '        seqDelta = 0;',
+    '        while (nextStep < 0) nextStep += SEQ_COUNT;',
+    '        seqStep = (uint8_t)(nextStep % SEQ_COUNT);',
+    '        seqAt = posMs;',
+    '        seqBeats = 0;',
+    '        takeSeq(false);',
+    '      } else if (!seqTransitioning && (' + (patternTiming.beatTransitions
+      ? 'beatEdge && (uint32_t)seqBeats + 1 >= pgm_read_dword(&seqHoldMs[seqStep])'
+      : 'posMs - seqAt >= pgm_read_dword(&seqHoldMs[seqStep])') + ')) {',
+    '        seqStep = (uint8_t)((seqStep + 1) % SEQ_COUNT);',
+    '        seqAt = posMs;',
+    '        seqBeats = 0;',
+    '        takeSeq(false);',
+    patternTiming.beatTransitions
+      ? '      } else if (beatEdge) seqBeats++;'
+      : '      }',
+    '    }',
+    '  }',
+    '',
+  ].join('\n') : ''
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),
     controller: display.controller,
@@ -1160,6 +1338,53 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
    * `withDeviceTelemetry` here. The tests assert all three sketches come out
    * with the same shape, which is what stops two mechanisms drifting.
    */
+  const entryDraw = (slot: number, indexExpr: string, allowNew: boolean, roles: string) => [
+    '  {',
+    '    bool entry = false;',
+    `    float shown = entryClock(${slot}, ${indexExpr}, posMs, ${allowNew ? 'true' : 'false'}, &entry);`,
+    `    renderPattern(${indexExpr}, shown${roles}, entry);`,
+    '  }',
+  ].join('\n')
+  const patternDraw = !drawsFrame ? ''
+    : !transitions
+      ? (entryOn ? `${entryDraw(0, 'patternId', true, liveRoleArgs)}\n` : '  renderPattern(patternId, t);\n')
+      : entryOn
+        ? `  // Transition: while one is running, render the outgoing pattern into showA and
+  // the incoming one into showB, then composite A→B into leds by its style.
+  float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
+  {
+    static bool entryCommitted = true;
+    if (tp < 1.0f && prevPatternId != patternId) {
+      entryCommitted = false;
+      ${entryDraw(0, 'prevPatternId', false, prevRoleArgs)}
+      ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing → showA
+      ${entryDraw(1, 'patternId', true, liveRoleArgs)}
+      ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);   // incoming → showB
+      compositeTransition(${transTypeExpr}, leds, showA, showB, tp);
+    } else {
+      if (!entryCommitted) { commitEntrySlot(); entryCommitted = true; }
+      ${entryDraw(0, 'patternId', true, liveRoleArgs)}
+    }
+  }
+
+`
+        : `  // Transition: while one is running, render the outgoing pattern into showA and
+  // the incoming one into showB, then composite A→B into leds by its style.
+  float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
+${genericPlayer ? '' : `  // A show file can name the playing pattern on both sides. Rendering it
+  // twice would step its state twice a frame, so it renders once.
+`}  if (tp < 1.0f${genericPlayer ? '' : ' && prevPatternId != patternId'}) {
+    renderPattern(prevPatternId, t${prevRoleArgs});
+    ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing → showA
+    renderPattern(patternId, t${liveRoleArgs});
+    ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);   // incoming → showB
+    compositeTransition(${transTypeExpr}, leds, showA, showB, tp);
+  } else {
+    renderPattern(patternId, t${liveRoleArgs});
+  }
+
+`
+
   const finish = (source: string) => {
     let narrowed = withReferencedPalettes(source)
     // One pattern is called directly, with the role values its call passes, or
@@ -1248,6 +1473,7 @@ ${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       
 #define CMD_TRANSITION     5
 #define CMD_SET_ENERGY     6
 #define CMD_PARTICLE_BURST 7
+${paramPlayer ? '#define CMD_SET_PARAM      8\n' : ''}
 
 // Particle-burst overlay — keep in sync with showPreview.ts (PARTICLE_LIFE_MS,
 // PARTICLE_COUNT) so the device spawns the same sparks the browser preview does.
@@ -1301,6 +1527,7 @@ uint32_t   eventIdx   = 0;
 uint16_t   genericTrackIndex = 0;
 uint8_t    patternId  = 0;        // active pattern index
 uint8_t    prevPatternId = 0;     // outgoing pattern during a transition
+${sequenceActive ? 'static int16_t seqDelta = 0;\n' : ''}
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
 ${transTypeExpr === 'transType' ? 'uint8_t    transType  = 0;        // transition style id (see compositeTransition)\n' : ''}${genericCollection && transitionIds.length > 1 ? `const uint8_t TRANS_POOL[] = { ${transitionIds.join(', ')} };
@@ -1313,8 +1540,8 @@ CRGB       burstColor = CRGB(255, 128, 0);
 uint8_t    burstStyle = 0;        // particle motion style (see PARTICLE_STYLES)
 ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? (renderers?.rawSpeed
     ? 'float      speed     = 1.0f;      // SET_SPEED (0–2 multiplier) → speed group-input role\n'
-    : 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n') : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${outgoingRoles.length ? `// Role values the outgoing pattern keeps through a transition (CMD_TRANSITION).
-${hasEnergy ? 'float      prevEnergy;\n' : ''}${hasSpeed ? 'float      prevSpeed;\n' : ''}${hasPalette ? 'CRGBPalette16 prevPalette;\n' : ''}` : ''}${reactiveAudio ? `
+    : 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n') : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${extraParams.map((name) => `float      ${name} = 0.0f;\n`).join('')}${outgoingRoles.length ? `// Role values the outgoing pattern keeps through a transition (CMD_TRANSITION).
+${hasEnergy ? 'float      prevEnergy;\n' : ''}${hasSpeed ? 'float      prevSpeed;\n' : ''}${hasPalette ? 'CRGBPalette16 prevPalette;\n' : ''}${outgoingRoles.filter((role) => role !== 'energy' && role !== 'speed' && role !== 'palette').map((role) => `float      ${prevRole(role)};\n`).join('')}` : ''}${rampGlobals}${reactiveAudio ? `
 // Shared audio contract consumed by compiled FFT/beat/percussion/features nodes.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;
 float     _audioLeftLevel = 0, _audioRightLevel = 0;
@@ -1376,7 +1603,7 @@ ${paletteFromIdCases}
 ` : ''}
 ${transitionHelper}
 // ── Pattern renderers ─────────────────────────────────────────────────────────
-${patternDecls}${renderPatternFn}
+${patternDecls}${entryOn ? `${playerEntryClockCpp(entryFlags)}\n` : ''}${renderPatternFn}
 
 // ── Show file loader ──────────────────────────────────────────────────────────
 ${!genericPlayer ? `bool loadShowFile(const char* path) {
@@ -1401,8 +1628,7 @@ ${!genericPlayer ? `bool loadShowFile(const char* path) {
                       ((uint32_t)evBuf[2]<<16)|((uint32_t)evBuf[3]<<24);
     showEvents[i].cmd        = evBuf[4];
     showEvents[i].paramCount = evBuf[5];
-    static const uint8_t parameterCounts[] = {1, 1, 1, 1, 2, 2, 1, 3};
-    if (evBuf[4] >= sizeof(parameterCounts) || evBuf[5] != parameterCounts[evBuf[4]]) { f.close(); free(showEvents); showEvents = nullptr; eventCount = 0; return false; }
+${parameterGuard}
     for (uint8_t p = 0; p < showEvents[i].paramCount && p < 3; p++) {
       uint8_t fb[4]; f.read(fb, 4);
       uint32_t raw = ((uint32_t)fb[0])|((uint32_t)fb[1]<<8)|
@@ -1419,7 +1645,16 @@ ${bakedAudio ? `
   audioEnvChannels = 1;
   if (f.available() >= 11) {
     uint8_t tag[4]; f.read(tag, 4);
-    bool tagged = tag[0]=='A' && tag[1]=='E' && tag[2]=='N' && tag[3]=='V';
+${paramPlayer ? `    if (tag[0]=='P' && tag[1]=='A' && tag[2]=='R' && tag[3]=='M') {
+      uint8_t nameCount = f.read();
+      for (uint8_t ni = 0; ni < nameCount; ni++) {
+        int nameLen = f.read();
+        if (nameLen < 0) nameLen = 0;
+        for (int nc = 0; nc < nameLen; nc++) f.read();
+      }
+      if (f.read(tag, 4) != 4) tag[0] = 0;
+    }
+` : ''}    bool tagged = tag[0]=='A' && tag[1]=='E' && tag[2]=='N' && tag[3]=='V';
     uint8_t version = f.read();
     audioEnvRate = f.read();
     audioEnvChannels = f.read() == 2 ? 2 : 1;
@@ -1592,9 +1827,7 @@ ${controlSupportCpp}
 ${!genericPlayer ? `void applyEvent(const ShowEvent& ev) {
   switch (ev.cmd) {
     case CMD_SET_PATTERN:    patternId  = (uint8_t)ev.params[0]; break;
-${hasPalette ? '    case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev.params[0]); break;\n' : ''}${hasSpeed
-    ? `    case CMD_SET_SPEED:      speed = ${renderers?.rawSpeed ? 'ev.params[0]' : 'constrain(ev.params[0] * 0.5f, 0.0f, 1.0f)'}; break;\n`
-    : ''}    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? `dma_display->setBrightness8((uint8_t)ev.params[0]);${hasStereoVu ? ' FastLED.setBrightness((uint8_t)ev.params[0]);' : ''}` : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;
+${hasPalette ? '    case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev.params[0]); break;\n' : ''}${speedCase}${brightnessCase}
     case CMD_BEAT_FLASH:
       flashLevel = ev.params[0] / 255.0f;
       flashDecay = expf(-16.0f / (60.0f + (ev.params[1] / 255.0f) * 240.0f));
@@ -1614,7 +1847,7 @@ ${outgoingRoles.map((role) => `      ${prevRole(role).padEnd(13)} = ${role};\n`)
       burstIntensity = ev.params[0] / 255.0f;
       burstColor     = CHSV((uint8_t)ev.params[1], 217, 255);
       burstStyle     = (uint8_t)ev.params[2];
-      break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
+      break;${energyCase}${paramCase}
   }
 }
 
@@ -2074,7 +2307,7 @@ ${hasControls ? `${controlPinSetup}\n  applyPlayerBrightness();` : ''}
 ${displaySetupCpp ? displaySetupCpp + '\n' : ''}
 ${playerEarlyStagesCpp ? playerEarlyStagesCpp + '\n' : ''}
 ${playerServicesStageCpp ? playerServicesStageCpp + '\n' : ''}
-${genericCollection && !sequentialPatterns ? `${patternCount > 1 ? `  patternId = (uint8_t)random(${patternCount});
+${genericCollection && !sequentialPatterns && !sequenceActive ? `${patternCount > 1 ? `  patternId = (uint8_t)random(${patternCount});
   prevPatternId = patternId;
 ` : ''}${hasPatternSelection ? `  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, patternId);\n` : ''}` : ''}
 
@@ -2098,7 +2331,7 @@ ${playerContentStageCpp ? playerContentStageCpp + '\n' : ''}
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
-void loop() {
+${pickPrelude}${sequenceActive ? `${sequenceTableCpp(sequenceSteps, patternTiming.beatTransitions)}\n` : ''}void loop() {
   // Accepting new show files is checked before anything else, so a board that
   // found nothing playable still answers the host instead of sitting mute.
   provServiceSerial();
@@ -2192,7 +2425,7 @@ ${particleFx && genericCollection && decoderTap ? `  // Player Particles turns t
       : `CRGB(${particleFx.color.r}, ${particleFx.color.g}, ${particleFx.color.b})`};
   }
 ` : ''}
-${rotates ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
+${sequenceWalker}${rotates ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
   // collected patterns in ${sequentialPatterns ? 'collection order' : 'random order without immediate repeats'}.
   // Their own audio nodes react to the live decoder signal.
   //
@@ -2226,7 +2459,7 @@ ${pacing ? '      rotateLeadMs = 0;\n      paceReset();' : '      rotateMs = pic
 ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     }
     previousPosMs = posMs;
-${hasPatternSelection ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
+${bandDecl}${hasPatternSelection ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
     // move the same cursor - and a confirm actually changes what renders.
     static uint16_t rotatedFrom = 0xFFFF;
     uint16_t selActive = _sel_${PLAYER_SELECTION_STEM}.active;
@@ -2243,7 +2476,7 @@ ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
       rotatedAtMs = posMs;
       ${rotationAdvance}
       _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT,
-                    (uint16_t)((selActive + 1${sequentialPatterns ? '' : ' + random(PATTERN_COUNT - 1)'}) % PATTERN_COUNT));
+                    ${selPick});
       rotatedFrom = _sel_${PLAYER_SELECTION_STEM}.active;
     }
     uint8_t nextPattern = (uint8_t)_sel_${PLAYER_SELECTION_STEM}.active;
@@ -2251,7 +2484,7 @@ ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     if (posMs - rotatedAtMs >= ${rotationDue}${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
       rotatedAtMs = posMs;
       ${rotationAdvance}
-      rotateIndex = (uint8_t)((rotateIndex + 1${sequentialPatterns ? '' : ` + random(${patternCount - 1})`}) % ${patternCount});
+      rotateIndex = ${rotatePick};
     }
     uint8_t nextPattern = rotateIndex;
 `}${transitions ? '    uint8_t rotatePrevious = patternId;\n' : ''}    if (nextPattern != patternId) {
@@ -2274,22 +2507,8 @@ ${fadesAudio && reactiveAudio ? `  // Fade the player down during genuine silenc
   audioFade += (audioFadeTarget - audioFade) * audioFadeRate;
 ` : ''}
   float t = posMs / 1000.0f;
-${transitions && drawsFrame ? `  // Transition: while one is running, render the outgoing pattern into showA and
-  // the incoming one into showB, then composite A→B into leds by its style.
-  float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
-${genericPlayer ? '' : `  // A show file can name the playing pattern on both sides. Rendering it
-  // twice would step its state twice a frame, so it renders once.
-`}  if (tp < 1.0f${genericPlayer ? '' : ' && prevPatternId != patternId'}) {
-    renderPattern(prevPatternId, t${prevRoleArgs});
-    ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing → showA
-    renderPattern(patternId, t${liveRoleArgs});
-    ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);   // incoming → showB
-    compositeTransition(${transTypeExpr}, leds, showA, showB, tp);
-  } else {
-    renderPattern(patternId, t${liveRoleArgs});
-  }
-
-` : drawsFrame ? '  renderPattern(patternId, t);\n' : ''}${!genericPlayer ? `  // Beat flash overlay
+${rampSample}
+${patternDraw}${!genericPlayer ? `  // Beat flash overlay
   if (flashLevel > 0.01f) {
     for (int i = 0; i < NUM_LEDS; i++) {
       leds[i].r = qadd8(leds[i].r, (uint8_t)((255 - leds[i].r) * flashLevel));

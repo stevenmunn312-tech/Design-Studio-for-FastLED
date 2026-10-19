@@ -37,6 +37,14 @@ import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { cppComment } from './cppLiterals'
 import { parseBufferAlias, parseBufferDecl, type RenderBufferType } from './renderBuffers'
+import { applyEntryReset, bufferIdent, entrySlotCpp } from './player/entryReset'
+import { patternPickCpp } from './player/patternPickCpp'
+import {
+  collectionProfiles,
+  type CollectionProfileProps, type EnergyBand, type PatternEntryPolicy,
+} from '../state/patterns/patternPick'
+import { asPatternSteps, type PatternStep } from '../state/patterns/patternSequence'
+import { sequenceTableCpp } from './player/patternSequenceCpp'
 import { sketchFileBlock } from './sketchBundle'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
@@ -128,8 +136,13 @@ interface ShowInfo {
   transitionSec: number
   /** Transition style ids (0–15) the show draws from at random. */
   transitionIds: number[]
-  /** Walk the collection in order, or pick from it at random. */
+  /** Walk the collection in order, pick at random, or follow `steps`. */
   order: PatternSlideshowOrder
+  weights: number[]
+  energy: EnergyBand[][]
+  sections: string[][]
+  entry: PatternEntryPolicy[]
+  steps: PatternStep[]
   /** Whether silence should fade the rendered collection to black. */
   audioReactive: boolean
   seed: number
@@ -151,16 +164,27 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): 
   const collection = setEdge && nodes.find((n) => n.id === setEdge.source && nodeType(n) === 'PatternCollection')
   if (!collection) return null
   const patternIds = collection ? ((props(collection).patternIds as string[] | undefined) ?? []) : []
+  const profiles = collectionProfiles(patternIds, props(collection) as CollectionProfileProps)
+  const steps = asPatternSteps(props(master).sequence)
   // The evaluator reads the same resolver, so a preview that fades for a second
   // and a device that cuts cannot be built from one graph.
   const settings = slideshowSettings(props(master))
+  const sequencing = settings.order === 'Sequence' && steps.length > 0
+  const pooledStyles = sequencing
+    ? steps.map((step) => step.transition)
+    : wiredTransitionStyles(nodes, edges, master.id)
   return {
     masterId: master.id,
     patternIds,
     intervalSec: settings.intervalSec,
     transitionSec: settings.transitionSec,
-    transitionIds: settings.transitionSec > 0 ? transitionStyleIds(wiredTransitionStyles(nodes, edges, master.id)) : [0],
+    transitionIds: sequencing || settings.transitionSec > 0 ? transitionStyleIds(pooledStyles) : [0],
     order: settings.order,
+    weights: profiles.weights,
+    energy: profiles.energyTags,
+    sections: profiles.sectionTags,
+    entry: profiles.entry,
+    steps,
     audioReactive: settings.audioReactive,
     seed: settings.seed >>> 0,
   }
@@ -411,6 +435,8 @@ export interface PatternRenderers {
    * preview sets the multiplier as the node's own speed.
    */
   rawSpeed?: boolean
+  /** True for each Restart pattern whose renderer gained `, bool entry`. */
+  entryReset?: boolean[]
 }
 
 /** Whether the compiled pattern collection reads the player's shared audio
@@ -427,6 +453,7 @@ export function patternRenderersUseAudio(renderers: PatternRenderers | undefined
 export function buildPatternRenderers(
   patternIds: string[], groups: GroupRegistry, roleParams: string[] = [],
   externalAudio = false, nativeFastLedAudio = false,
+  entryPolicies?: readonly PatternEntryPolicy[],
 ): PatternRenderers {
   const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, nativeFastLedAudio))
   const usedRoles = roleParams.filter((role) => units.some((unit) =>
@@ -436,6 +463,15 @@ export function buildPatternRenderers(
       unit.fn = unit.fn.replace(`, ${roleSig(role)}`, '')
     }
   }
+  const entryReset = entryPolicies?.length
+    ? units.map((unit, index) => {
+        if (entryPolicies[index] === 'resume') return false
+        const persistent = unit.buffers.map(bufferIdent).filter((name): name is string => name !== null)
+        const reset = applyEntryReset(unit.fn, persistent)
+        unit.fn = reset.fn
+        return reset.entry
+      })
+    : undefined
   const helpers = new Map<string, string>()
   for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
   const pool = (['CRGB', 'float'] as const).flatMap((type) =>
@@ -451,6 +487,7 @@ export function buildPatternRenderers(
     count: units.length,
     params: usedRoles,
     audioReactive: patternIds.map((id) => isAudioReactiveSubgraph(groups[id]?.nodes ?? [])),
+    ...(entryReset ? { entryReset } : {}),
   }
 }
 
@@ -513,7 +550,7 @@ function showSelectionPlan(
  * headless build — three buttons and no screen — needs every one of these and
  * has no display half at all.
  */
-function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number, names: readonly string[]): {
+function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number, names: readonly string[], holdSteps = false): {
   forwards: string[]
   helpers: string[]
   setup: string[]
@@ -539,8 +576,8 @@ function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number, names: 
     // playing to show anybody, so a step *is* the change — the same rule the
     // evaluator applies by confirming on any non-zero step.
     apply: bundle
-      ? [`  _selUpdate(${plan.variable}, PATTERN_COUNT, millis(), ${bundle}.patternSteps, `
-        + `${bundle}.patternSteps != 0 || ${bundle}.patternConfirm);`]
+      ? [`  _selUpdate(${plan.variable}, PATTERN_COUNT, millis(), ${holdSteps ? '0' : `${bundle}.patternSteps`}, `
+        + `${holdSteps ? `${bundle}.patternConfirm` : `${bundle}.patternSteps != 0 || ${bundle}.patternConfirm`});`]
       : [],
     // The show's own advance goes through the selection, exactly as the SD
     // player's does, so a panel and the pixels never disagree about which
@@ -880,12 +917,16 @@ export function generateShowSketch(
       brightness: (Number(meter.properties.brightness ?? 0.65) || 0) * controller.brightness / 255,
     },
   } : meter)
-  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, !!audio)
+  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, !!audio, info.entry)
+  const sequenceActive = info.order === 'Sequence' && info.steps.length > 0
   // A collection of one never transitions — the dwell simply never ends — so
   // the whole transition apparatus (showA/showB, the style pool, and the
   // compositing switch) is left out rather than emitted unreachable.
-  const rotates = renderers.count > 1
-  const transitions = rotates && info.transitionSec > 0
+  // An empty sequence holds the current pattern instead of dwelling.
+  const rotates = info.order === 'Sequence' ? sequenceActive : renderers.count > 1
+  const transitions = sequenceActive
+    ? info.steps.some((step) => step.transitionSec > 0)
+    : rotates && info.transitionSec > 0
   // A pool of one is a constant style, with nothing to draw from.
   const pooled = transitions && info.transitionIds.length > 1
   // Root displays and their control chains live outside collected patterns.
@@ -928,6 +969,7 @@ export function generateShowSketch(
     // Keyed by the engine, and a controller sketch runs exactly one show, so
     // the sole entry is this show's collection whatever node id it came under.
     Object.values(opts.patternNames ?? {})[0] ?? [],
+    info.order === 'Sequence',
   )
   const telemetryAsked = nodes.some((entry) => entry.data.nodeType === 'Board'
     && entry.data.properties?.reportTelemetry === true)
@@ -1104,12 +1146,20 @@ export function generateShowSketch(
   for (const helper of new Set([...selectionCpp.helpers, ...displays.helpers, ...customDisplays.helpers])) { L.push(helper); L.push('') }
 
   // Pattern dispatch table (renders pattern i into `leds`).
-  L.push('void renderPattern(uint8_t i, uint32_t ms) {')
+  const entryOn = renderers.entryReset?.some(Boolean) === true
+  const entryFlags = renderers.entryReset ?? []
+  L.push(`void renderPattern(uint8_t i, uint32_t ms${entryOn ? ', bool entry' : ''}) {`)
   L.push('  switch (i) {')
-  for (let i = 0; i < renderers.count; i++) L.push(`    case ${i}: render_p${i}(ms); break;`)
+  for (let i = 0; i < renderers.count; i++) {
+    L.push(`    case ${i}: render_p${i}(ms${entryFlags[i] ? ', entry' : ''}); break;`)
+  }
   L.push('  }')
   L.push('}')
   L.push('')
+  if (entryOn) {
+    L.push(entrySlotCpp(entryFlags))
+    L.push('')
+  }
 
   // Bench telemetry, asked for on the Board and honoured only where Serial.printf
   // exists. Emitted after every helper so its sizeof sees the real draw buffers.
@@ -1185,6 +1235,20 @@ export function generateShowSketch(
   const nextPattern = sequential
     ? '(cur + 1) % PATTERN_COUNT'
     : '(cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT'
+  const pick = patternPickCpp(
+    info.weights, info.energy, 'random8',
+    info.steps.some((step) => step.index === undefined) ? info.sections : [],
+  )
+  if (pick.needsTable) {
+    L.push(pick.prelude)
+    L.push('')
+  }
+  if (sequenceActive) {
+    L.push(sequenceTableCpp(info.steps))
+    L.push('')
+  }
+  const weightedNext = pick.needsTable ? 'patternPick(cur, 1, 0, 0)' : nextPattern
+  const weightedFirst = pick.needsTable ? (sequential ? 'patternPick(0, 3, 0, 0)' : 'patternPick(0, 0, 0, 0)') : firstPattern
   L.push('void loop() {')
   if (emitTelemetry) L.push(TELEMETRY_LOOP_BEGIN_CPP)
   // Timed controls and patterns observe one clock snapshot. A wired Master
@@ -1203,42 +1267,104 @@ export function generateShowSketch(
   L.push(...selectionCpp.apply)
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
   if (transitions) {
-    L.push(`  static uint8_t  cur = ${firstPattern}, nxt = 0${pooled ? ', transType = 0' : ''};`)
+    L.push(`  static uint8_t  cur = ${sequenceActive ? '0' : weightedFirst}, nxt = 0${pooled || (sequenceActive && transitions) ? ', transType = 0' : ''};`)
     L.push('  static bool     transitioning = false;')
     L.push('  static uint32_t phaseStart = 0;')
     // The renderer follows the cursor, the way the evaluator reads its active
     // index every frame — a confirm has to change the pixels, not just what a
     // panel says. Mid-transition it is left alone: the outgoing pattern is
     // still the one running, and the transition commits its own choice.
-    if (selection.used) L.push(`  if (!transitioning) cur = (uint8_t)${selection.variable}.active;`)
+    // A sequence owns the cursor itself; Next and Previous move its step.
+    if (selection.used && !sequenceActive) L.push(`  if (!transitioning) cur = (uint8_t)${selection.variable}.active;`)
   }
   L.push(...masterShowSpeedUpdateCpp(masterSpeedEmit))
   const patternNow = masterSpeedEmit.present ? 'animNow' : 'now'
-  if (!rotates) {
-    L.push(`  render_p0(${patternNow});   // the collection holds a single pattern`)
+  const renderCall = (indexExpr: string, slot: number, allowNew: boolean) => entryOn
+    ? `renderCollected(${slot}, (uint8_t)(${indexExpr}), ${patternNow}, ${allowNew ? 'true' : 'false'})`
+    : `renderPattern(${indexExpr}, ${patternNow})`
+  if (sequenceActive) {
+    if (!transitions) {
+      L.push('  static uint8_t cur = 0, nxt = 0;')
+      L.push('  static bool transitioning = false;')
+    }
+    const stepExpr = selection.commands ? `${selection.commands}.patternSteps` : '0'
+    const choose = (target: string, opening = false) => pick.needsTable
+      ? `${target} = chosen < 0 ? patternPick(cur, ${opening ? 3 : 1}, bandBit, sectionBit) : (uint8_t)chosen;`
+      : `${target} = chosen < 0 ? (uint8_t)(${nextPattern}) : (uint8_t)chosen;`
+    L.push('  static uint8_t seqStep = 0;')
+    L.push('  static uint32_t seqAt = 0;')
+    L.push('  static bool seqInit = false;')
+    L.push('  if (!seqInit) {')
+    L.push('    seqInit = true; seqAt = now; seqStep = 0;')
+    L.push('    int16_t chosen = (int16_t)pgm_read_word(&seqIndex[0]);')
+    L.push('    uint8_t bandBit = pgm_read_byte(&seqBand[0]);')
+    L.push('    uint8_t sectionBit = pgm_read_byte(&seqSection[0]);')
+    L.push(`    ${choose('cur', true)}`)
+    L.push('  }')
+    L.push(`  int16_t seqDelta = (int16_t)(${stepExpr});`)
+    L.push('  bool seqDue = !transitioning && (seqDelta != 0 || now - seqAt >= pgm_read_dword(&seqHoldMs[seqStep]));')
+    L.push('  if (seqDue) {')
+    L.push('    if (seqDelta != 0) {')
+    L.push('      int nextStep = (int)seqStep + seqDelta;')
+    L.push('      while (nextStep < 0) nextStep += SEQ_COUNT;')
+    L.push('      seqStep = (uint8_t)(nextStep % SEQ_COUNT);')
+    L.push('    } else seqStep = (uint8_t)((seqStep + 1) % SEQ_COUNT);')
+    L.push('    seqAt = now;')
+    L.push('    int16_t chosen = (int16_t)pgm_read_word(&seqIndex[seqStep]);')
+    L.push('    uint8_t bandBit = pgm_read_byte(&seqBand[seqStep]);')
+    L.push('    uint8_t sectionBit = pgm_read_byte(&seqSection[seqStep]);')
+    L.push(`    ${choose('nxt')}`)
+    if (transitions) {
+      L.push('    if (nxt != cur) {')
+      L.push('      transType = pgm_read_byte(&seqTrans[seqStep]);')
+      L.push('      transitioning = true; phaseStart = now;')
+      L.push('    } else cur = nxt;')
+      L.push('  }')
+      L.push('  if (transitioning) {')
+      L.push('    uint32_t seqTransDur = pgm_read_dword(&seqTransMs[seqStep]);')
+      L.push('    float p = seqTransDur > 0 ? (float)(now - phaseStart) / (float)seqTransDur : 1.0f;')
+      L.push('    if (p >= 1.0f) p = 1.0f;')
+      L.push(`    ${renderCall('cur', 0, false)}; ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);`)
+      L.push(`    ${renderCall('nxt', 1, true)}; ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);`)
+      L.push('    compositeTransition(transType, leds, showA, showB, p);')
+      L.push(`    if (p >= 1.0f) { ${entryOn ? 'commitEntrySlot(); ' : ''}cur = nxt; transitioning = false; phaseStart = now; }`)
+      L.push('  } else {')
+      L.push(`    ${renderCall('cur', 0, true)};`)
+      L.push('  }')
+    } else {
+      L.push('    cur = nxt;')
+      L.push('  }')
+      L.push(`  ${renderCall('cur', 0, true)};`)
+    }
+    if (displays.helpers.length > 0 || selection.used) L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
+    L.push('')
+  } else if (!rotates) {
+    L.push(entryOn
+      ? `  ${renderCall('0', 0, true)};`
+      : `  render_p0(${patternNow});   // the collection holds a single pattern`)
     L.push('')
   } else if (!transitions) {
-    L.push(`  static uint8_t cur = ${firstPattern};`)
+    L.push(`  static uint8_t cur = ${weightedFirst};`)
     L.push('  static uint32_t phaseStart = 0;')
     if (selection.used) L.push(`  cur = (uint8_t)${selection.variable}.active;`)
-    L.push(`  if (now - phaseStart >= ${dwellMs}) { cur = ${nextPattern}; phaseStart = now; }`)
-    L.push(`  renderPattern(cur, ${patternNow});`)
+    L.push(`  if (now - phaseStart >= ${dwellMs}) { cur = ${weightedNext}; phaseStart = now; }`)
+    L.push(`  ${renderCall('cur', 0, true)};`)
     if (displays.helpers.length > 0 || selection.used) L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
   } else {
     L.push('  if (!transitioning) {')
-    L.push(`    renderPattern(cur, ${patternNow});`)
+    L.push(`    ${renderCall('cur', 0, true)};`)
     L.push(`    if (now - phaseStart >= ${dwellMs}) {`)
-    L.push(`      nxt = ${nextPattern};`)
+    L.push(`      nxt = ${weightedNext};`)
     if (pooled) L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
     L.push('      transitioning = true; phaseStart = now;')
     L.push('    }')
     L.push('  } else {')
     L.push(`    float p = ${transMs} > 0 ? (float)(now - phaseStart) / ${transMs} : 1.0f;`)
     L.push('    if (p >= 1.0f) p = 1.0f;')
-    L.push(`    renderPattern(cur, ${patternNow}); ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing`)
-    L.push(`    renderPattern(nxt, ${patternNow}); ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming`)
+    L.push(`    ${renderCall('cur', 0, false)}; ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing`)
+    L.push(`    ${renderCall('nxt', 1, true)}; ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming`)
     L.push(`    compositeTransition(${pooled ? 'transType' : info.transitionIds[0]}, leds, showA, showB, p);`)
-    L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; }')
+    L.push(`    if (p >= 1.0f) { ${entryOn ? 'commitEntrySlot(); ' : ''}cur = nxt; transitioning = false; phaseStart = now; }`)
     L.push('  }')
     L.push('')
     if (displays.helpers.length > 0 || selection.used) {

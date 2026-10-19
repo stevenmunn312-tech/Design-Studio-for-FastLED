@@ -518,6 +518,14 @@ Unless a future row says otherwise, treat the following as experimental:
   Baked shows and the SD player carry none of them, so they read inactive
   there.
 - SD show provisioning and player upload (music-sync shows remain experimental).
+- **Show sequencing.** Collection weights, calm/lively/peak tags, restart and
+  resume entry, lane editing, ramps, named float inputs, and Sequence order on
+  the Pattern Slideshow and the Music Player. The four ESP32-S3 fixtures
+  compiled on 19 October 2026
+  ([show-sequencing compile checks](../reports/compile/show-sequencing-compile-checks.md)).
+  No bench row has compared a weighted pick, a sequenced show, or a ramped
+  input with the LEDs. New save fields are additive and default to today's
+  behaviour: weight 1, no energy tags, restart, and no sequence.
 - **Auxiliary displays beyond the five recorded rows above.** The
   ESP32-2432S028 board profile, Now Playing / Fixed Transport / Show Status
   on the colour TFT, any touch interaction, the custom `Display` (LVGL) node,

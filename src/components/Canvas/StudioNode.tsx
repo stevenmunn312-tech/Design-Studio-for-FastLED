@@ -89,6 +89,7 @@ import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../.
 const MusicLibraryNodeBody = lazy(() => import('./bodies/MusicLibraryNodeBody'))
 const PerformanceGeneratorBody = lazy(() => import('./bodies/PerformanceGeneratorBody'))
 const PatternCollectionBody = lazy(() => import('./bodies/PatternCollectionBody'))
+const SequenceBody = lazy(() => import('./bodies/SequenceBody'))
 const TransitionSetBody = lazy(() => import('./bodies/TransitionSetBody'))
 const PaletteBankBody = lazy(() => import('./bodies/PaletteBankBody'))
 const TransitionPickerBody = lazy(() => import('./bodies/TransitionPickerBody').then((m) => ({ default: m.TransitionBody })))
@@ -1886,6 +1887,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'TouchInput' && <TouchCalibrationBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
+          {(d.nodeType === 'PatternSlideshow' || d.nodeType === 'PatternMaster') && <SequenceBody nodeId={id} />}
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
           {d.nodeType === 'PaletteBank' && <PaletteBankBody nodeId={id} />}

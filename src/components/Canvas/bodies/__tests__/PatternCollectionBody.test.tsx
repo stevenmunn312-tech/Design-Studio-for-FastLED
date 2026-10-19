@@ -121,6 +121,36 @@ describe('PatternCollectionBody', () => {
     expect(props.patternIds).toEqual(['group-1', 'group-2'])
   })
 
+  it('stores a non-default weight and drops the key when the weight returns to 1', () => {
+    const { getByLabelText } = render(<PatternCollectionBody nodeId="collection" />)
+    fireEvent.change(getByLabelText('Pulse weight'), { target: { value: '4' } })
+    const weights = () => (useGraphStore.getState().nodes[0].data.properties as {
+      patternWeights?: Record<string, number>
+    }).patternWeights
+    expect(weights()).toEqual({ 'group-1': 4 })
+
+    fireEvent.change(getByLabelText('Pulse weight'), { target: { value: '1' } })
+    expect(weights()).toEqual({})
+  })
+
+  it('toggles an energy tag and a resume entry, and clears both when turned back', () => {
+    const { getByRole } = render(<PatternCollectionBody nodeId="collection" />)
+    const props = () => useGraphStore.getState().nodes[0].data.properties as {
+      patternEnergy?: Record<string, string[]>
+      patternEntry?: Record<string, string>
+    }
+
+    fireEvent.click(getByRole('button', { name: 'Pulse: calm energy' }))
+    expect(props().patternEnergy).toEqual({ 'group-1': ['calm'] })
+    fireEvent.click(getByRole('button', { name: 'Pulse: calm energy' }))
+    expect(props().patternEnergy).toEqual({})
+
+    fireEvent.click(getByRole('button', { name: 'Pulse: restart entry' }))
+    expect(props().patternEntry).toEqual({ 'group-1': 'resume' })
+    fireEvent.click(getByRole('button', { name: 'Pulse: resume entry' }))
+    expect(props().patternEntry).toEqual({})
+  })
+
   it('offers no Remove all on an empty collection', () => {
     useGraphStore.setState({
       nodes: [{

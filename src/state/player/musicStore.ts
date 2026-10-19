@@ -1,9 +1,12 @@
 import { create } from 'zustand'
-import type { SongAnalysis, ShowFile } from '../../types/showFile'
+import type { SongAnalysis, ShowFile, SongSection } from '../../types/showFile'
 import { generateShow } from '../../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../../codegen/performanceGenerator'
 import { useGraphStore } from '../graphStore'
 import { wiredPatternCollection, wiredTransitionStyles } from '../patterns/patternCollectionWiring'
+import {
+  effectiveLocks, locksForEventChanges, normalizeLocks, regenerateKeepingLocks, type ShowLock,
+} from './showLocks'
 import { recordPerfTask } from '../../dev/perfMonitor'
 import {
   loadMusicFile,
@@ -20,9 +23,26 @@ import {
  * their filtered graph copies. Two definitions of "which patterns are in this
  * show" is exactly how measurement and upload end up disagreeing.
  */
-function wiredCollection(): { ids: string[]; sectionTags: string[][] } {
+function eventKey(event: ShowFile['events'][number]): string {
+  return JSON.stringify([event.t, event.cmd, event.params])
+}
+
+function wiredProfiles() {
   const { nodes, edges } = useGraphStore.getState()
   return wiredPatternCollection(nodes, edges)
+}
+
+function freshShow(
+  analysis: SongAnalysis,
+  options: Partial<PerformanceOptions>,
+  sections: SongSection[] | undefined,
+): ShowFile {
+  const profiles = wiredProfiles()
+  const source = sections && sections.length > 0 ? { ...analysis, sections } : analysis
+  return generateShow(source, options, profiles.ids, profiles.sectionTags, wiredTransitions(), {
+    weights: profiles.weights,
+    energy: profiles.energyTags,
+  })
 }
 
 /**
@@ -52,8 +72,7 @@ export interface MusicEntry {
   status:   'pending' | 'analyzing' | 'done' | 'error'
   /** 0–1 analysis progress, set while `status === 'analyzing'`. */
   progress?: number
-  /** True once the show has been hand-tweaked in the timeline editor, so the
-   *  generator options no longer auto-regenerate over the manual edits. */
+  /** True while a lock remains. Regeneration keeps those spans and rewrites the rest. */
   edited?:  boolean
   error?:   string
 }
@@ -70,7 +89,8 @@ interface MusicState {
   clearAll:       () => void
   regenerateShow: (id: string, options?: Partial<PerformanceOptions>) => void
   /** Replace an entry's show with a hand-edited one and mark it edited. */
-  updateShow:     (id: string, show: ShowFile) => void
+  /** `auto` locks the sections an edit touched. An explicit list replaces the locks, including `[]` to unlock. */
+  updateShow:     (id: string, show: ShowFile, locks?: 'auto' | readonly ShowLock[]) => void
   /** Discard manual edits and regenerate from the analysis. */
   revertShow:     (id: string, options?: Partial<PerformanceOptions>) => void
 }
@@ -150,9 +170,8 @@ export const useMusicStore = create<MusicState>((set, get) => ({
             ),
           }))
           const analysis = await analyzeWithEssentia(entry.file, onProgress)
-          const { ids, sectionTags } = wiredCollection()
           const showStart = performance.now()
-          const show = generateShow(analysis, options, ids, sectionTags, wiredTransitions())
+          const show = freshShow(analysis, options, undefined)
           recordPerfTask('musicShow', performance.now() - showStart)
           set(s => ({
             entries: s.entries.map(e =>
@@ -193,23 +212,54 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   regenerateShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
-    const { ids, sectionTags } = wiredCollection()
-    const show = generateShow(entry.analysis, options, ids, sectionTags, wiredTransitions())
+    if (!entry.show) {
+      const show = freshShow(entry.analysis, options, entry.analysis.sections)
+      set(s => ({ entries: s.entries.map(e => e.id === id ? { ...e, show, edited: false } : e) }))
+      return
+    }
+    const fresh = freshShow(entry.analysis, options, entry.show.sections ?? entry.analysis.sections)
+    const locks = effectiveLocks(entry.show, !!entry.edited)
+    const show = locks.length > 0 ? regenerateKeepingLocks(entry.show, fresh, locks) : fresh
     set(s => ({
-      entries: s.entries.map(e => e.id === id ? { ...e, show } : e),
+      entries: s.entries.map(e => e.id === id ? { ...e, show, edited: locks.length > 0 } : e),
     }))
   },
 
-  updateShow: (id, show) =>
+  updateShow: (id, show, locks = 'auto') =>
     set(s => ({
-      entries: s.entries.map(e => e.id === id ? { ...e, show, edited: true } : e),
+      entries: s.entries.map(e => {
+        if (e.id !== id) return e
+        const previous = e.show
+        const sections = show.sections ?? previous?.sections ?? e.analysis?.sections ?? []
+        let nextLocks: ShowLock[]
+        if (locks !== 'auto') {
+          nextLocks = normalizeLocks(locks, show.durationMs)
+        } else if (!previous) {
+          nextLocks = show.durationMs > 0 ? [{ startMs: 0, endMs: show.durationMs }] : []
+        } else {
+          const changed = locksForEventChanges(previous, show, sections)
+          const changedTimes = [
+            ...show.events.filter((event) => !previous.events.some((old) => eventKey(old) === eventKey(event))),
+            ...previous.events.filter((event) => !show.events.some((next) => eventKey(next) === eventKey(event))),
+          ]
+          const unmapped = changedTimes.some((event) => !sections.some((section) => event.t >= section.startMs && event.t < section.endMs))
+          nextLocks = sections.length === 0 || unmapped
+            ? [{ startMs: 0, endMs: Math.max(show.durationMs, 1) }]
+            : normalizeLocks([...effectiveLocks(previous, !!e.edited), ...changed], show.durationMs)
+        }
+        const nextShow: ShowFile = { ...show }
+        if (nextLocks.length > 0) nextShow.locks = nextLocks
+        else if (locks !== 'auto') nextShow.locks = []
+        else delete nextShow.locks
+        return { ...e, show: nextShow, edited: nextLocks.length > 0 }
+      }),
     })),
 
   revertShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
-    const { ids, sectionTags } = wiredCollection()
-    const show = generateShow(entry.analysis, options, ids, sectionTags, wiredTransitions())
+    const show = freshShow(entry.analysis, options, undefined)
+    delete show.locks
     set(s => ({
       entries: s.entries.map(e => e.id === id ? { ...e, show, edited: false } : e),
     }))
