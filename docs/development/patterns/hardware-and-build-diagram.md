@@ -592,6 +592,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   one. See [wired Ethernet](../../design/wired-ethernet.md); firmware compile
   evidence is tracked in
   [Ethernet compile checks](../../reports/compile/ethernet-compile-checks.md).
+- **Data lanes (experimental):** an LED output split across data pins
+  (`dataLanes`, `lanePins`; `src/state/output/dataLanes.ts`) claims each lane
+  pin as `lanePins.<i>` in `collectPinUses`, with an explicit digital-output
+  requirement since the key is not a property. `BoardPinPicker` reads a lane
+  key's requirement from `dataPin` and counts lane pins (its own output's
+  included) as conflicts. The manifest emits one `matrix-output` item per lane
+  (lane 1 keeps `output:<id>`), so wires, level-shifter channels and extender
+  pairs need no lane logic of their own. `movePartPinToFree` and board
+  retargeting do not move lane pins: the hardware panel's Data lanes section
+  (`DataLanesSection.tsx`) re-assigns them. Contract in
+  [multi-output routing](../../architecture/multi-output-routing.md#data-lanes-experimental).
 - **NLED pixel data extender (experimental):** an LED output's `dataLink`
   property (`Direct` | `NLED Pixel Data Extender`,
   `src/state/peripherals/pixelDataExtender.ts`) is a physical-route fact only — firmware

@@ -30,6 +30,8 @@ import { validateMatrixLayout } from './output/xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './output/ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { dataRateAfterChipsetChange, dataRateOptionsMhz, effectiveDataRateMhz } from '../build/ledDrivers'
+import { collectPinUses } from '../build/hardwareManifest'
+import { offeredDataLaneCounts } from './output/dataLanes'
 import { boardProfileById, resolveBoardSelection, selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { profileI2cDefault } from '../build/boards/boardI2cDefaults'
 import {
@@ -3978,6 +3980,34 @@ export function setOutputDataRate(nodeId: string, dataRateMhz: number): { ok: tr
     ? { ...node, data: { ...node.data, properties: { ...node.data.properties, dataRateMhz } } }
     : node)))
   return { ok: true, dataRateMhz }
+}
+
+/**
+ * Split an LED output's chain across data pins: the wire-time card's
+ * **Split across pins** fix.
+ *
+ * Only to a lane count the output offers, and only onto pins nothing else
+ * claims now (the output's own old lane pins excepted); the output lives in
+ * the root graph, written there in one undo step. Says so and changes nothing
+ * when the output or the pins have moved on since the card was drawn.
+ */
+export function splitOutputAcrossPins(
+  nodeId: string,
+  dataLanes: number,
+  lanePins: number[],
+): { ok: true; dataLanes: number; lanePins: number[] } | { ok: false; reason: string } {
+  const nodes = rootGraphNodes(useGraphStore.getState())
+  const output = nodes.find((node) => node.id === nodeId && node.data.nodeType === 'MatrixOutput')
+  const props = (output?.data.properties ?? {}) as Record<string, unknown>
+  const stale = { ok: false as const, reason: 'That output or its pins have already changed since this was reported.' }
+  if (!output || !offeredDataLaneCounts(props).includes(dataLanes) || lanePins.length !== dataLanes - 1) return stale
+  const claimed = new Set(collectPinUses(nodes.filter((node) => node.id !== nodeId)).map((use) => use.pin))
+  claimed.add(Number(props.dataPin))
+  if (lanePins.some((pin) => claimed.has(pin)) || new Set(lanePins).size !== lanePins.length) return stale
+  useGraphStore.setState((s) => withRootNodes(s, rootGraphNodes(s).map((node) => node.id === nodeId
+    ? { ...node, data: { ...node.data, properties: { ...node.data.properties, dataLanes, lanePins: [...lanePins] } } }
+    : node)))
+  return { ok: true, dataLanes, lanePins }
 }
 
 /** Move every active I2C part onto the board bus in one root-scoped undo step. */

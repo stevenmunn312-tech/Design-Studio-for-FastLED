@@ -21,6 +21,7 @@ import {
 } from './hardwarePartCatalog'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { batteryPackFootprint } from '../../state/peripherals/battery'
+import { dataLanePlan } from '../../state/output/dataLanes'
 
 export interface BenchPartsInputs {
   nodes: StudioNode[]
@@ -139,6 +140,11 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
               ? corkscrewHeightMm(props)
               : rows * pitch,
           dataPin: Number(props.dataPin ?? 0),
+          // "pin 5", or "pins 5, 18, 19" for a chain split across data lanes.
+          dataPinsLabel: (() => {
+            const pins = [Number(props.dataPin ?? 0), ...dataLanePlan(props).lanePins]
+            return pins.length > 1 ? `pins ${pins.join(', ')}` : `pin ${pins[0]}`
+          })(),
           signalKey: feed ? `${feed.source}:${feed.sourceHandle ?? 'frame'}` : null,
         }
       })

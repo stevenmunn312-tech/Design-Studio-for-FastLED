@@ -175,9 +175,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rate the graph reaches. Its fixes come only from `wireTimeFixes`, in order:
   **Lower to N fps** (`set-frame-rate`, `setBoardFrameRate`), then **Clock at N
   MHz** for each clocked output with a faster rate (`set-data-rate`,
-  `setOutputDataRate`). The first is the card's `action`; the rest are
-  `moreFixes`, one drawer button each, so **Split across pins** and a parallel
-  driver are appended there, not as separate cards. Each repair only moves the
+  `setOutputDataRate`), then **Split across N pins** for each clockless output
+  (`split-across-pins`, `splitOutputAcrossPins`), offered only when the driver
+  sends more than one output at once, for a lane count on whole rows or panels
+  that `splitAcrossPinsForGraph` can give free output pins; it asks for enough
+  lanes to fit the frame period, capped at the driver's concurrency. The first
+  is the card's `action`; the rest are `moreFixes`, one drawer button each, so
+  a parallel driver is appended there too, not as a separate card. Each repair only moves the
   figure the safe way, re-checks the root graph and reports "already changed".
   With a network up on an RMT board, `wire-time-rmt-network` says the outputs
   take turns because they want more RMT memory than the chip has.

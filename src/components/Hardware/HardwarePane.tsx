@@ -963,12 +963,12 @@ export default function HardwarePane() {
                 }}
                 title="Click to preview and configure this output · right-click for hardware actions"
                 aria-label={output.ring
-                  ? `${output.label}, ${output.ring.ledCount} LEDs on pin ${output.dataPin}`
+                  ? `${output.label}, ${output.ring.ledCount} LEDs on ${output.dataPinsLabel}`
                   : output.corkscrew
-                    ? `${output.label}, ${output.corkscrew.ledCount} LEDs over ${output.corkscrew.turns} turns on pin ${output.dataPin}`
+                    ? `${output.label}, ${output.corkscrew.ledCount} LEDs over ${output.corkscrew.turns} turns on ${output.dataPinsLabel}`
                   : output.isStrip
-                    ? `${output.label}, ${output.cols} LEDs on pin ${output.dataPin}`
-                    : `${output.label}, ${output.cols} by ${output.rows} on pin ${output.dataPin}`}
+                    ? `${output.label}, ${output.cols} LEDs on ${output.dataPinsLabel}`
+                    : `${output.label}, ${output.cols} by ${output.rows} on ${output.dataPinsLabel}`}
               >
                 {output.isStrip && (
                   // A string's board is a layer of its own rather than the
@@ -1016,7 +1016,7 @@ export default function HardwarePane() {
                 output.label,
                 <>
                   {output.isStrip || output.isRing || output.isCorkscrew ? `${output.cols} LEDs` : `${output.cols}x${output.rows}`}
-                  {output.form === 'hub75' ? ' on its signal ribbon' : ` on pin ${output.dataPin}`}
+                  {output.form === 'hub75' ? ' on its signal ribbon' : ` on ${output.dataPinsLabel}`}
                 </>,
               )}
             </Fragment>

@@ -213,6 +213,22 @@ def pattern_collection_legs() -> list[Leg]:
     return [Leg("pattern-collections", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino") for name in names]
 
 
+def lanes_legs() -> list[Leg]:
+    """HW-32 step 6: one LED output split across data pins, per board family."""
+    folder = ROOT / "artifacts" / "lanes-compile"
+    manifest = folder / "manifest.json"
+    if not manifest.exists():
+        subprocess.run("npm run gen:compile-fixtures -- lanes", shell=True, cwd=ROOT,
+                       capture_output=True, text=True, check=False)
+    try:
+        names = sorted(json.loads(manifest.read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return []
+    targets = {"esp32s3": (None, None), "esp32": (CLASSIC, "esp32"), "uno": ("arduino:avr:uno", "avr")}
+    return [Leg("lanes", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino", *targets[name.split("-")[0]])
+            for name in names]
+
+
 def plan() -> list[Leg]:
     """fbuild first (the toolchain-upgrade check), then the arduino-cli refresh."""
     return [
@@ -227,13 +243,14 @@ def plan() -> list[Leg]:
         *dead_code_legs(),
         *pattern_collection_legs(),
         *show_sequencing_legs(),
+        *lanes_legs(),
     ]
 
 
 GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x",
               "ethernet": "ethernet", "power-switch": "power-switch", "control-graph": "control-graph",
               "dead-code": "dead-code", "pattern-collections": "pattern-collections",
-              "show-sequencing": "show-sequencing"}
+              "show-sequencing": "show-sequencing", "lanes": "lanes"}
 
 
 def read_report(path: Path) -> dict | None:

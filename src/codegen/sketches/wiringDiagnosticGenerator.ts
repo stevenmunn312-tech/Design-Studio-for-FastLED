@@ -76,6 +76,9 @@ export function generateWiringDiagnosticSketch(
   const tileW = Math.max(1, Math.floor(width / effectiveTilesX))
   const tileH = Math.max(1, Math.floor(height / effectiveTilesY))
   const hub75TopologyAvailable = isHub75 && panelsValid && effectiveTilesY > 1
+  // A chain split across data pins lights one lane at a time, so each lane's
+  // pin, wire and first LED can be checked on its own.
+  const laneCount = isHub75 ? 1 : hw.lanePins.length + 1
   if (diagnosticMode === 'hub75-panel-topology' && !hub75TopologyAvailable) return null
   const topologyOnly = diagnosticMode === 'hub75-panel-topology'
   const tileSerpentine = p.tileSerpentine === true
@@ -96,6 +99,10 @@ export function generateWiringDiagnosticSketch(
     lines.push('// The paired VU fixture is tested too: Left is red, Right is blue, and')
     lines.push('// each white-tipped chase must travel bottom-to-top. A reversed chase means')
     lines.push('// that rail\'s configured data-in position (Top/Bottom) does not match the build.')
+  }
+  if (laneCount > 1) {
+    lines.push(`// The chain is split across ${laneCount} data pins: a lane step lights each lane in`)
+    lines.push('// turn, its first LED white. A dark lane is a wire or pin fault on that lane.')
   }
   if (hub75TopologyAvailable) {
     lines.push('// HUB75 folded-grid mode adds per-panel X/Y axes, fixed-colour corners,')
@@ -127,6 +134,10 @@ export function generateWiringDiagnosticSketch(
   }
   lines.push(`#define DIAG_MODE_MS ${modeMs}`)
   lines.push(`#define DIAG_CHASE_MS ${chaseMs}`)
+  if (laneCount > 1) {
+    lines.push(`#define DATA_LANES ${laneCount}`)
+    lines.push('#define LANE_LEDS (NUM_LEDS / DATA_LANES)')
+  }
   if (vuNode) {
     lines.push('#define DIAG_BRIGHTNESS 64')
     lines.push(`#define VU_LED_COUNT ${vuCount}`)
@@ -341,6 +352,15 @@ export function generateWiringDiagnosticSketch(
   lines.push('  drawNumber(0, 0, physical, CRGB::White);')
   lines.push('}')
   lines.push('')
+  if (laneCount > 1) {
+    lines.push('void drawLaneDiagnostic(uint32_t now) {')
+    lines.push('  fill_solid(leds, NUM_LEDS, CRGB::Black);')
+    lines.push('  uint8_t lane = (uint8_t)((now / (DIAG_MODE_MS / DATA_LANES)) % DATA_LANES);')
+    lines.push('  fill_solid(leds + lane * LANE_LEDS, LANE_LEDS, CHSV((uint8_t)(lane * 255 / DATA_LANES), 255, 96));')
+    lines.push('  leds[lane * LANE_LEDS] = CRGB::White;')
+    lines.push('}')
+    lines.push('')
+  }
   if (vuNode) {
     lines.push('void drawVuRail(CRGB* pixels, bool reversed, const CRGB& sideColor, uint32_t now) {')
     lines.push('  fill_solid(pixels, VU_LED_COUNT, CRGB::Black);')
@@ -393,8 +413,11 @@ export function generateWiringDiagnosticSketch(
   if (topologyOnly) {
     lines.push('  drawHub75PanelTopology(blink);')
   } else {
-    lines.push(`  uint8_t mode = (uint8_t)((now / DIAG_MODE_MS) % ${hub75TopologyAvailable ? 9 : 8});`)
-    lines.push('  switch (mode) {')
+    // The lane step comes first, so a dead lane is the first thing seen.
+    const laneMode = laneCount > 1 ? 1 : 0
+    lines.push(`  uint8_t mode = (uint8_t)((now / DIAG_MODE_MS) % ${(hub75TopologyAvailable ? 9 : 8) + laneMode});`)
+    if (laneMode) lines.push('  if (mode == 0) drawLaneDiagnostic(now);')
+    lines.push(laneMode ? '  else switch (mode - 1) {' : '  switch (mode) {')
     lines.push('    case 0: fill_solid(leds, NUM_LEDS, CRGB::Red); break;')
     lines.push('    case 1: fill_solid(leds, NUM_LEDS, CRGB::Green); break;')
     lines.push('    case 2: fill_solid(leds, NUM_LEDS, CRGB::Blue); break;')

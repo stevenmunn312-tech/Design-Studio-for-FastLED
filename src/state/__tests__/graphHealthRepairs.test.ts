@@ -14,6 +14,7 @@ import {
   ROOT_GRAPH_ID,
   setBoardFrameRate,
   setOutputDataRate,
+  splitOutputAcrossPins,
   useGraphStore,
   type StudioEdge,
   type StudioNode,
@@ -270,5 +271,26 @@ describe('Lower the frame rate', () => {
     expect(rootGraphNodes(useGraphStore.getState()).find((n) => n.id === 'out')?.data.properties.dataRateMhz).toBe(2)
     expect(setOutputDataRate('out', 2).ok).toBe(false)
     expect(setOutputDataRate('out', 3).ok).toBe(false)
+  })
+})
+
+describe('split across pins repair', () => {
+  it('offers a split on whole rows with free pins, and applies it once', () => {
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1', frameRate: 60 }),
+      node('pattern', 'SolidColor'),
+      node('out', 'MatrixOutput', { form: 'matrix', width: 32, height: 32, chipset: 'WS2812B', dataPin: 4 }),
+    ], [edge('feed', 'pattern', 'frame', 'out', 'frame')])
+    const card = diagnostics().find((d) => d.id === 'wire-time-frame-rate')
+    const split = card?.moreFixes?.find((fix) => fix.action === 'split-across-pins')
+    expect(split?.repair).toMatchObject({ kind: 'split-across-pins', nodeId: 'out', dataLanes: 2 })
+    if (split?.repair?.kind !== 'split-across-pins') return
+    const { dataLanes, lanePins } = split.repair
+    expect(lanePins).toHaveLength(1)
+    expect(lanePins).not.toContain(4)
+    expect(splitOutputAcrossPins('out', dataLanes, lanePins)).toEqual({ ok: true, dataLanes, lanePins })
+    const props = rootGraphNodes(useGraphStore.getState()).find((n) => n.id === 'out')?.data.properties
+    expect(props).toMatchObject({ dataLanes: 2, lanePins })
+    expect(splitOutputAcrossPins('out', 3, [5, 6]).ok).toBe(false)
   })
 })

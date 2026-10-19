@@ -82,6 +82,7 @@ import {
 } from './displays/segmentDisplayCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { outputCanvasDims, outputForm } from '../state/output/ledOutputForm'
+import { dataLanePlan } from '../state/output/dataLanes'
 import { outputRoutes } from '../state/output/outputRouting'
 import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName, type ShapeMap } from './output/shapeMapCpp'
@@ -116,6 +117,8 @@ export interface PlayerConfig {
   ledXyTable:  number[] | null
   ledDataPin:  number
   ledClockPin: number   // SPI chipsets (APA102/WS2801/HD108) only
+  /** Data pins of lanes 2..N when the chain is split across pins; empty for one pin. */
+  ledLanePins: number[]
   chipset:     string
   colorOrder:  string
   correction:  string   // FastLED.setCorrection profile ('none' = uncorrected)
@@ -152,7 +155,7 @@ export interface PlayerConfig {
 
 const DEFAULTS: PlayerConfig = {
   hasPrimaryLedOutput: true,
-  ledWidth: 16, ledHeight: 16, ledShape: null, ledXyTable: null, ledDataPin: 18, ledClockPin: 6,
+  ledWidth: 16, ledHeight: 16, ledShape: null, ledXyTable: null, ledDataPin: 18, ledClockPin: 6, ledLanePins: [],
   chipset: 'WS2812B', colorOrder: 'GRB',
   correction: 'none', whitePoint: 'none', dither: true, overclock: 1,
   powerLimit: false, volts: 5, milliamps: 2000,
@@ -227,6 +230,7 @@ export function playerConfigFromGraph(
     ledXyTable:  route && outputForm(mo) === 'matrix' ? buildXYTable(canvas.width, canvas.height, mo) : null,
     ledDataPin:  sanitizePin(mo.dataPin, DEFAULTS.ledDataPin),
     ledClockPin: sanitizePin(mo.clockPin, DEFAULTS.ledClockPin),
+    ledLanePins: dataLanePlan(mo).lanePins,
     chipset:     str(mo.chipset, DEFAULTS.chipset),
     colorOrder:  str(mo.colorOrder, DEFAULTS.colorOrder),
     correction:  str(mo.correction, DEFAULTS.correction),
@@ -711,10 +715,13 @@ export function generatePlayerSketch(
   }).join('\n')
   // Strip init shared with the main/show generators. The Board brightness is
   // the hard ceiling; show events and Player Controls scale beneath it.
-  const hw = ledHardwareFromProps({
-    chipset: c.chipset, colorOrder: c.colorOrder, correction: c.correction,
-    whitePoint: c.whitePoint, dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,
-  })
+  const hw = {
+    ...ledHardwareFromProps({
+      chipset: c.chipset, colorOrder: c.colorOrder, correction: c.correction,
+      whitePoint: c.whitePoint, dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,
+    }),
+    lanePins: (c.ledLanePins ?? []).map((pin) => sanitizePin(pin, 0)),
+  }
   const isHub75 = c.hasPrimaryLedOutput && hw.chipset === HUB75_CHIPSET
   const hub75Hw = isHub75
     ? { ...hub75HardwareFromProps(c.hub75Props, c.ledWidth, c.ledHeight), brightness: c.ledBrightness }

@@ -554,6 +554,16 @@ Unless a future row says otherwise, treat the following as experimental:
   signal or firmware, so no compile is owed. No 1S, 4S 16×16 or 4S 32×32
   reference build has completed its physical bench row, and HW-14 has not yet
   completed independent electrical review.
+- **Data lanes (one LED output fed from several data pins).** A clockless LED
+  output's chain can be split into equal lanes on whole rows or panels, each
+  driven from its own pin, so the board's driver sends them at once
+  ([multi-output routing](../architecture/multi-output-routing.md#data-lanes-experimental)).
+  Built from FastLED 3.10.5's documented `addLeds(leds, offset, count)` API;
+  compile fixtures exist for the ESP32-S3 (normal, show, player), the classic
+  ESP32 (eight lanes, multi-output, wiring diagnostic) and an Arduino Uno
+  (sequential lanes) (`npm run gen:compile-fixtures -- lanes`), but no compile
+  record or bench run on a split fixture has been recorded, so lane timing,
+  seams between lanes and the frame-rate gain are unvalidated.
 - **The NLED Pixel Data Extender data link.** Choosing it on an LED output
   only changes the Build Diagram, parts list and exports (TX/RX pair, twisted
   A/B/ground run). The firmware sends the same one-wire signal either way. No

@@ -9,6 +9,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## C++ emission hazards
 
+- Never emit an output's `addLeds` outside `fastledSetupCpp`: data lanes
+  (`LedHardware.lanePins`) and the clocked data rate are added there, and a
+  generator that builds its own call drops both. A lane count is a template
+  pin per lane plus `(leds, offset, count)`; `laneRanges` leaves a macro count
+  for the compiler to divide, so pass the physical count macro (`PANEL_LEDS`,
+  a shape count), not the render buffer's `NUM_LEDS`, when they differ.
+
 - Animation phase is integrated, never `t * rate`: a node whose rate can move
   (a wired `speed`, a level-modulated motion term) emits
   `speedPhaseCpp(ln, phaseTag(id, term), rateExpr)` from

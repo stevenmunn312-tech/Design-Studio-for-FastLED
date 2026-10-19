@@ -135,6 +135,11 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       dataLink: DIRECT_PIXEL_DATA_LINK,
       colorOrder: 'GRB',
       dataPin: 5,
+      // A long chain split into equal lanes, each fed from its own pin
+      // (src/state/output/dataLanes.ts). Lane 1 stays on `dataPin`; `lanePins`
+      // holds lanes 2..N. Edited in the hardware panel, beside the data pin.
+      dataLanes: 1,
+      lanePins: [],
       // Clock pin for SPI (clocked) chipsets — APA102/APA102HD/WS2801/HD108.
       // Ignored (editor disabled) for clockless chipsets.
       clockPin: 6,

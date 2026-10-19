@@ -112,7 +112,7 @@ it lands.
     FastLED's own value as the default. Offer only rates the chipset supports,
     say in the help that long APA102 runs lose data at high clock rates, and
     feed the rate to step 4's estimate.
-  - [ ] **6. Feed one LED output from several data pins.** A long fixture keeps
+  - [x] **6. Feed one LED output from several data pins.** A long fixture keeps
     one LED output, one `leds` array and one render, but its chain is split
     into equal lanes, each fed from its own pin by
     `addLeds<...>(leds, offset, count)` from `fastledSetupCpp`, so FastLED sends

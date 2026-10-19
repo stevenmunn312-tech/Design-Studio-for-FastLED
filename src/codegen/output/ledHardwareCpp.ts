@@ -9,6 +9,7 @@ import {
 import { outputForm } from '../../state/output/ledOutputForm'
 import { DEFAULT_CONTROLLER_SETTINGS } from '../../build/controllerSettings'
 import { sanitizePin } from '../hardwarePins'
+import { dataLanePlan } from '../../state/output/dataLanes'
 import { defaultDataRateMhz, effectiveDataRateMhz } from '../../build/ledDrivers'
 
 // PSRAM buffer placement (ESP32 family only). When the MatrixOutput node's
@@ -66,6 +67,9 @@ export interface LedHardware {
   dither: boolean      // false → setDither(DISABLE_DITHER)
   overclock: number    // 1 = stock; >1 → #define FASTLED_OVERCLOCK (clockless only)
   clockPin: number     // SPI chipsets only
+  /** Data pins of lanes 2..N when the chain is split across pins
+   *  (src/state/output/dataLanes.ts); empty for a single-pin output. */
+  lanePins: number[]
   /** SPI chipsets only: a rate from CLOCKED_DATA_RATES_MHZ, or null for FastLED's default. */
   dataRateMhz: number | null
 }
@@ -100,6 +104,7 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
     dither:     p.dither !== false,
     overclock:  num(p.overclock, 1, 1, 2),
     clockPin:   sanitizePin(p.clockPin, 6),
+    lanePins:   dataLanePlan(p).lanePins.map((pin) => sanitizePin(pin, 0)),
     dataRateMhz: rate === null || rate === defaultDataRateMhz(chipset) ? null : rate,
   }
 }
@@ -119,7 +124,12 @@ export function overclockDefineCpp(hw: LedHardware): string[] {
  *  pin and any non-default data rate, SK6812-RGBW gets `.setRgbw()`),
  *  brightness, correction, dithering.
  *  Pass `brightness: null` to skip the setBrightness line (the music-sync
- *  player drives brightness from show events instead). */
+ *  player drives brightness from show events instead).
+ *
+ *  A chain split into data lanes (`hw.lanePins`) gets one controller per lane
+ *  over the same array, `addLeds<...>(leds, offset, count)`: lane 1 on the data
+ *  pin, lanes 2..N on their own pins. A per-controller setting is applied to
+ *  every lane's controller. */
 export function fastledSetupCpp(
   hw: LedHardware,
   opts: { dataPinMacro?: string; clockPinMacro?: string; brightness?: number | null; ledCountMacro?: string; ledsName?: string; controllerName?: string } = {},
@@ -132,19 +142,54 @@ export function fastledSetupCpp(
   const ledsName = opts.ledsName ?? 'leds'
   const chip = hw.chipset === 'SK6812-RGBW' ? 'SK6812' : hw.chipset
   const rgbw = hw.chipset === 'SK6812-RGBW' ? '.setRgbw(RgbwDefault())' : ''
-  const pins = SPI_CHIPSETS.has(hw.chipset) ? `${data}, ${clock}` : data
-  // FastLED's NEOPIXEL alias hardcodes GRB and takes no order template arg.
-  // A clocked chipset's data rate follows the colour order; it is emitted only
-  // when it differs from FastLED's default, which the template already holds.
-  const rate = SPI_CHIPSETS.has(hw.chipset) && hw.dataRateMhz !== null ? `, DATA_RATE_MHZ(${hw.dataRateMhz})` : ''
-  const args = chip === 'NEOPIXEL' ? `${pins}` : `${pins}, ${hw.colorOrder}${rate}`
-  const add = `FastLED.addLeds<${chip}, ${args}>(${ledsName}, ${count})${rgbw}`
-  const lines = [opts.controllerName ? `  CLEDController& ${opts.controllerName} = ${add};` : `  ${add};`]
+  // One addLeds call; `range` is everything after the array in its arguments.
+  const addLedsCpp = (dataPin: string, range: string) => {
+    const pins = SPI_CHIPSETS.has(hw.chipset) ? `${dataPin}, ${clock}` : dataPin
+    // FastLED's NEOPIXEL alias hardcodes GRB and takes no order template arg.
+    // A clocked chipset's data rate follows the colour order; it is emitted only
+    // when it differs from FastLED's default, which the template already holds.
+    const rate = SPI_CHIPSETS.has(hw.chipset) && hw.dataRateMhz !== null ? `, DATA_RATE_MHZ(${hw.dataRateMhz})` : ''
+    const args = chip === 'NEOPIXEL' ? `${pins}` : `${pins}, ${hw.colorOrder}${rate}`
+    return `FastLED.addLeds<${chip}, ${args}>(${ledsName}, ${range})${rgbw}`
+  }
+  const ranges = laneRanges(count, hw.lanePins.length + 1)
+  const split = ranges.length > 1
+  const lines: string[] = split
+    ? [
+      `  // One chain split across ${ranges.length} data pins: each lane is its own`,
+      `  // controller over ${ledsName}, sent at once where the board's driver can.`,
+    ]
+    : []
+  const controllers: string[] = []
+  ranges.forEach((range, index) => {
+    const add = addLedsCpp(index === 0 ? data : String(hw.lanePins[index - 1]), range)
+    const name = opts.controllerName && (index === 0 ? opts.controllerName : `${opts.controllerName}_lane${index + 1}`)
+    const note = split ? `  // lane ${index + 1}` : ''
+    if (name) controllers.push(name)
+    lines.push(name ? `  CLEDController& ${name} = ${add};${note}` : `  ${add};${note}`)
+  })
   const brightness = opts.brightness === undefined ? hw.brightness : opts.brightness
   if (brightness !== null) lines.push(`  FastLED.setBrightness(${brightness});`)
-  const target = opts.controllerName ?? 'FastLED'
-  if (hw.correction !== 'none') lines.push(`  ${target}.setCorrection(${hw.correction});`)
-  if (hw.whitePoint !== 'none') lines.push(`  ${target}.setTemperature(${hw.whitePoint});`)
-  if (!hw.dither) lines.push(`  ${target}.setDither(DISABLE_DITHER);`)
+  for (const target of controllers.length > 0 ? controllers : ['FastLED']) {
+    if (hw.correction !== 'none') lines.push(`  ${target}.setCorrection(${hw.correction});`)
+    if (hw.whitePoint !== 'none') lines.push(`  ${target}.setTemperature(${hw.whitePoint});`)
+    if (!hw.dither) lines.push(`  ${target}.setDither(DISABLE_DITHER);`)
+  }
   return lines
+}
+
+/**
+ * Each lane's addLeds arguments after the array: the whole count for one lane,
+ * `offset, count` for each of several. A literal count is divided here; a
+ * macro is left for the compiler to divide.
+ */
+export function laneRanges(count: string, lanes: number): string[] {
+  if (lanes <= 1) return [count]
+  const literal = /^[0-9]+$/.test(count) && Number(count) % lanes === 0 ? Number(count) : null
+  const per = literal !== null ? String(literal / lanes) : `${count} / ${lanes}`
+  return Array.from({ length: lanes }, (_, index) => {
+    const offset = index === 0 ? '0'
+      : literal !== null ? String((literal / lanes) * index) : `${index} * (${per})`
+    return `${offset}, ${per}`
+  })
 }

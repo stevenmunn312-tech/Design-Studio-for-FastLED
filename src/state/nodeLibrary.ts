@@ -2980,6 +2980,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     height: 'LEDs down the matrix.',
     serpentine: 'On for panels whose rows zig-zag (most flexible panels). Off if every row runs the same way.',
     dataPin: 'The GPIO wired to the strip\'s data-in.',
+    dataLanes: 'How many equal lanes the chain is split into, each fed from its own data pin so the lanes are sent at once where the board can. Only counts that cut on whole rows or panels are offered.',
+    lanePins: 'The data pins of lanes 2 onward, in chain order. Lane 1 stays on the data pin.',
     dataRateMhz: 'Clocked chipsets only: the SPI clock in MHz, offering only rates this chipset supports. The default is FastLED\'s own (APA102 6, HD108 25, WS2801 1). Faster sends each frame sooner, but long APA102 runs lose data at high clock rates, so raise it a step at a time and back off if the far end glitches.',
     tilesX: 'How many panels sit side by side across the matrix.',
     tilesY: 'How many panels are stacked down the matrix.',
@@ -3928,7 +3930,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'corkscrewTurns', 'corkscrewStartAngle', 'corkscrewDirection',
       'corkscrewDiameterMm', 'corkscrewHeightMm',
     ] },
-    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'dataLink', 'colorOrder', 'dataPin', 'clockPin', 'dataRateMhz', 'serpentine'] },
+    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'dataLink', 'colorOrder', 'dataPin', 'dataLanes', 'lanePins', 'clockPin', 'dataRateMhz', 'serpentine'] },
     { key: 'hub75', label: 'HUB75 Wiring', keys: [
       'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
       'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75WideScan', 'hub75EPin',

@@ -12,6 +12,7 @@ import ClampedNumberInput from '../ClampedNumberInput'
 import styles from './BoardNodeBody.module.css'
 import PartIdentity from '../../Hardware/PartIdentity'
 import BoardPinPicker from '../../Hardware/BoardPinPicker'
+import DataLanesSection from './DataLanesSection'
 import { normalizeButtonBankEntries } from '../../../state/player/buttonBank'
 import { partPinLabelForProperty } from '../../../build/parts/partCatalogue'
 import { i2sAudioStage } from '../../../state/audio/audioOutput'
@@ -167,6 +168,10 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
             )
           })}
         </div>
+      )}
+
+      {nodeType === 'MatrixOutput' && (
+        <DataLanesSection nodeId={nodeId} nodeLabel={nodeLabel} properties={props} />
       )}
 
       {volumeStageLabel && (

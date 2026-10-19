@@ -106,6 +106,7 @@ import {
 } from '../state/peripherals/environmentSensor'
 import { motionVectorAddress, motionVectorAddressOptions } from '../state/peripherals/motionVector'
 import { touchPadAddress, touchPadAddressOptions } from '../state/peripherals/touchPad'
+import { findDataLaneErrors, findDataLaneIssuesInGraph } from './dataLaneValidation'
 import {
   NLED_PIXEL_DATA_LINK,
   pixelDataExtenderSupports,
@@ -1588,6 +1589,7 @@ export function findDeployBlockingErrors(
     ...findPinConflicts(nodes, edges, selectedFqbn),
     ...findMatrixLayoutErrors(nodes),
     ...findPixelDataExtenderErrors(nodes),
+    ...findDataLaneErrors(nodes, edges),
     ...findSdVideoErrors(nodes, edges, selectedFqbn),
     ...findShowRequirementErrors(nodes, edges, selectedFqbn),
     ...findAudioCapabilityErrors(nodes, edges),
@@ -1648,6 +1650,7 @@ export type GraphDiagnosticAction =
   | 'open-start-gallery'
   | 'lower-frame-rate'
   | 'raise-data-rate'
+  | 'split-across-pins'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1682,6 +1685,8 @@ export type GraphRepair =
   | { kind: 'set-frame-rate'; frameRate: number }
   /** A clocked LED output's faster supported clock (`dataRateMhz`). */
   | { kind: 'set-data-rate'; nodeId: string; dataRateMhz: number }
+  /** An LED output's chain split into lanes, with free pins for lanes 2..N. */
+  | { kind: 'split-across-pins'; nodeId: string; dataLanes: number; lanePins: number[] }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {
@@ -3763,6 +3768,15 @@ export function buildGraphDiagnostics(
       })
     }
   }
+  findDataLaneIssuesInGraph(nodes, edges).forEach((issue, index) => {
+    diagnostics.push({
+      id: `${issue.nodeId}-data-lanes-${index}`, severity: 'error', category: 'pins',
+      title: 'Data lanes cannot be built',
+      message: issue.message,
+      fix: 'Choose a lane count the output offers and a pin for each lane in its hardware panel, or set Data lanes to 1.',
+      nodeIds: [issue.nodeId], nodeLabel: issue.nodeLabel, propertyKey: 'dataLanes',
+    })
+  })
 
   const { w: expressionWidth, h: expressionHeight } = compositionDims(nodes, edges)
   for (const node of nodes) {
@@ -3899,7 +3913,7 @@ export function buildGraphDiagnostics(
   }
 
   // Hardware facts live in the root graph, which is what `matrix` checks.
-  if (target === 'matrix') diagnostics.push(...wireTimeAdvice(estimateWireTime(nodes, edges)))
+  if (target === 'matrix') diagnostics.push(...wireTimeAdvice(estimateWireTime(nodes, edges), nodes))
 
   const ram = estimateFirmwareRam(nodes, edges, options.displayDocuments)
   const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, options.displayDocuments)

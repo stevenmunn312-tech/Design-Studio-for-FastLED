@@ -13,6 +13,7 @@ import {
   placeTouchControl,
   setBoardFrameRate,
   setOutputDataRate,
+  splitOutputAcrossPins,
   ROOT_GRAPH_ID,
   useGraphStore,
   useRootNodes,
@@ -47,6 +48,7 @@ const CATEGORY_LABELS: Record<GraphDiagnosticCategory, string> = {
 function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosticFix>): string {
   if (fix?.repair?.kind === 'set-frame-rate') return `Lower to ${fix.repair.frameRate} fps`
   if (fix?.repair?.kind === 'set-data-rate') return `Clock at ${fix.repair.dataRateMhz} MHz`
+  if (fix?.repair?.kind === 'split-across-pins') return `Split across ${fix.repair.dataLanes} pins`
   if (action === 'choose-board') return 'Choose board'
   // Named rather than a bare "Fix", so the button says what will appear on the
   // canvas before it appears there.
@@ -130,6 +132,12 @@ export default function GraphHealthDrawer() {
     if (issue.repair?.kind === 'set-data-rate') {
       const result = setOutputDataRate(issue.repair.nodeId, issue.repair.dataRateMhz)
       setStatus(result.ok ? `LED output clocked at ${result.dataRateMhz} MHz` : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'split-across-pins') {
+      const result = splitOutputAcrossPins(issue.repair.nodeId, issue.repair.dataLanes, issue.repair.lanePins)
+      setStatus(result.ok ? `LED output split across ${result.dataLanes} data pins (GPIO ${result.lanePins.join(', ')} added)` : result.reason,
+        result.ok ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'move-i2c-pins') {

@@ -42,6 +42,8 @@ import {
 import { networkSourceIn } from '../codegen/peripherals/networkCpp'
 import { IR_RMT_RX_FAMILIES, IR_RMT_RX_SYMBOLS } from '../codegen/peripherals/irRmtReceiverCpp'
 import type { GraphDiagnostic, GraphDiagnosticFix } from './validateGraph'
+import { splitAcrossPinsForGraph } from '../build/pins/splitAcrossPins'
+import { requestedDataLanes } from '../state/output/dataLanes'
 
 /** One data pin's send: an LED output, one of its lanes, or a VU rail. */
 export interface WireOutput {
@@ -270,7 +272,7 @@ export interface WireTimeFix extends GraphDiagnosticFix {
  * **Split across pins** (step 6) and a parallel driver (step 7) are appended
  * here when they land.
  */
-export function wireTimeFixes(estimate: WireTimeEstimate): WireTimeFix[] {
+export function wireTimeFixes(estimate: WireTimeEstimate, nodes: StudioNode[] = []): WireTimeFix[] {
   const fixes: WireTimeFix[] = []
   if (estimate.reachableFps < estimate.frameRate) {
     fixes.push({
@@ -293,6 +295,42 @@ export function wireTimeFixes(estimate: WireTimeEstimate): WireTimeFix[] {
       text: `Or clock ${output.label} at ${faster.toMhz} MHz instead of ${faster.fromMhz} MHz${output.chipset.startsWith('APA102') ? '; long APA102 runs can lose data at high rates' : ''}.`,
     })
   }
+  fixes.push(...splitAcrossPinsFixes(estimate, nodes))
+  return fixes
+}
+
+/**
+ * **Split across pins** (step 6): cut a long clockless output into lanes the
+ * board sends at once. Offered only where lanes help (the driver sends more
+ * than one output at a time), for counts on whole rows or panels, and when
+ * the board has free output pins for every new lane; `splitAcrossPinsForGraph`
+ * picks those pins the way adding a part does.
+ */
+function splitAcrossPinsFixes(estimate: WireTimeEstimate, nodes: StudioNode[]): WireTimeFix[] {
+  if (estimate.concurrency <= 1 || nodes.length === 0) return []
+  const profile = selectedPhysicalBoardProfile(nodes)
+  const fqbn = profile?.compatibleFqbns[0] ?? ''
+  const periodMicros = 1_000_000 / estimate.frameRate
+  const fixes: WireTimeFix[] = []
+  const seen = new Set<string>()
+  for (const output of [...estimate.outputs].sort((a, b) => b.micros - a.micros)) {
+    if (output.clocked || seen.has(output.nodeId)) continue
+    seen.add(output.nodeId)
+    const node = nodes.find((entry) => entry.id === output.nodeId && entry.data.nodeType === 'MatrixOutput')
+    if (!node) continue
+    const props = node.data.properties as Record<string, unknown>
+    const current = requestedDataLanes(props)
+    const total = outputLedTotal(props)
+    const wantLanes = Math.max(current + 1, Math.ceil(chipsetSendMicros(output.chipset, total) / periodMicros))
+    const split = splitAcrossPinsForGraph(profile, fqbn, nodes, node.id, { wantLanes, maxLanes: estimate.concurrency })
+    if (!split.ok || split.lanes <= current) continue
+    const name = output.label.replace(/ lane [0-9]+$/, '')
+    fixes.push({
+      action: 'split-across-pins',
+      repair: { kind: 'split-across-pins', nodeId: node.id, dataLanes: split.lanes, lanePins: split.lanePins },
+      text: `Or split ${name} across ${split.lanes} data pins (adding GPIO ${split.lanePins.join(', ')}), so its lanes are sent at once.`,
+    })
+  }
   return fixes
 }
 
@@ -310,12 +348,12 @@ function sendShape(estimate: WireTimeEstimate): string {
  * network up, for outputs that need more RMT memory than the chip has.
  * Advice only: the sketch still runs, just slower than the Board asks.
  */
-export function wireTimeAdvice(estimate: WireTimeEstimate | null): GraphDiagnostic[] {
+export function wireTimeAdvice(estimate: WireTimeEstimate | null, nodes: StudioNode[] = []): GraphDiagnostic[] {
   if (!estimate) return []
   const issues: GraphDiagnostic[] = []
   const nodeIds = [...new Set(estimate.outputs.map((output) => output.nodeId))]
   if (estimate.wireBound) {
-    const fixes = wireTimeFixes(estimate)
+    const fixes = wireTimeFixes(estimate, nodes)
     const [lead, ...more] = fixes
     issues.push({
       id: 'wire-time-frame-rate', severity: 'warning', category: 'board',

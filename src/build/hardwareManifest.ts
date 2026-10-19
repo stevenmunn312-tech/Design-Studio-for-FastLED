@@ -31,6 +31,7 @@ import { resolvePartIdentity } from './parts/partOptions'
 import { hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '../state/audio/audioOutput'
 import { micModuleFor } from '../state/peripherals/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
+import { LANE_PIN_KEY_PREFIX, claimedLanePins, dataLanePlan } from '../state/output/dataLanes'
 import { normalizeButtonBankEntries } from '../state/player/buttonBank'
 import { relayLoadLabel, relayPinKeys } from '../state/peripherals/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/peripherals/powerSwitch'
@@ -349,6 +350,17 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         } else {
           push(node, `${baseLabel} data pin`, 'dataPin', props.dataPin)
           if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(node, `${baseLabel} clock pin`, 'clockPin', props.clockPin)
+          // Every lane of a chain split across pins drives its own GPIO.
+          for (const lane of claimedLanePins(props)) {
+            uses.push({
+              label: `${baseLabel} lane ${lane.lane} data pin`,
+              nodeId: node.id,
+              nodeType: node.data.nodeType,
+              propertyKey: `${LANE_PIN_KEY_PREFIX}${lane.index}`,
+              pin: lane.pin,
+              requirement: { capability: 'digitalOutput', pullup: false },
+            })
+          }
         }
         break
       case 'StereoVuMeter':
@@ -629,6 +641,57 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
   }
 }
 
+/**
+ * An LED output's Build Diagram items: the fixture, or one item per lane when
+ * its chain is split across data pins.
+ *
+ * Each lane is a physical run starting at its own first LED, so it is drawn
+ * the way a separate run is: its own data wire, level-shifter channel and
+ * resistor, and its own TX/RX pair where the output uses a data extender.
+ * Lane 1 keeps the fixture's id, so anything that finds the output by its id
+ * still lands on the chain's start. The current cap is split by LED count,
+ * so the power plan's totals are the fixture's own.
+ */
+function buildMatrixOutputItems(node: StudioNode, ordinal: number, count: number, pinUses: HardwarePinUse[], powerCapMa: number | null): HardwareManifestItem[] {
+  const props = node.data.properties as Record<string, unknown>
+  const plan = dataLanePlan(props)
+  const whole = buildMatrixOutputItem(node, ordinal, count, pinUses, powerCapMa)
+  if (plan.lanes <= 1) return [whole]
+  const { width } = outputGridDims(props)
+  const tileRows = props.layout === 'panels'
+    ? Math.max(1, Math.floor(outputGridDims(props).height / Math.max(1, Math.round(Number(props.tilesY ?? 1)))))
+    : 1
+  // A lane of whole rows is drawn as those rows; a lane of panels that are not
+  // whole rows of the grid as the panels side by side.
+  const laneGrid = outputForm(props) === 'matrix' && plan.perLane % width === 0
+    ? { width, height: plan.perLane / width }
+    : outputForm(props) === 'matrix'
+      ? { width: plan.perLane / tileRows, height: tileRows }
+      : { width: plan.perLane, height: 1 }
+  return Array.from({ length: plan.lanes }, (_, index) => {
+    const lane = index + 1
+    const key = index === 0 ? 'dataPin' : `${LANE_PIN_KEY_PREFIX}${index - 1}`
+    const first = index * plan.perLane
+    return {
+      ...whole,
+      id: index === 0 ? whole.id : `${whole.id}:lane${lane}`,
+      title: `${whole.title} · lane ${lane} of ${plan.lanes}`,
+      subtitle: `LEDs ${first + 1}–${first + plan.perLane} of ${plan.perLane * plan.lanes} · ${whole.subtitle}`,
+      pins: pinUses.filter((pin) => pin.propertyKey === key),
+      facts: {
+        ...whole.facts,
+        width: laneGrid.width,
+        height: laneGrid.height,
+        pixelCount: plan.perLane,
+        lane,
+        laneCount: plan.lanes,
+        laneFirstLed: first,
+        desiredCurrentCapMa: powerCapMa == null ? null : Math.round(powerCapMa / plan.lanes),
+      },
+    }
+  })
+}
+
 function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): HardwareManifestItem[] {
   const props = node.data.properties as Record<string, unknown>
   const ledCount = Math.max(1, Math.round(Number(props.ledCount ?? 60)))
@@ -759,7 +822,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     }
     switch (node.data.nodeType) {
       case 'MatrixOutput':
-        return buildMatrixOutputItem(
+        return buildMatrixOutputItems(
           node,
           matrixOutputs.findIndex((entry) => entry.id === node.id) + 1,
           matrixOutputs.length,

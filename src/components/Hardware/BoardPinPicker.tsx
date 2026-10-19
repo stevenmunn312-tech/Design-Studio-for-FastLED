@@ -12,6 +12,7 @@ import { NO_PIN, pinDisplayLabel, pinSupports, pinWarningForCapability } from '.
 import { boardGpioInfo, useUploadStore } from '../../state/upload/uploadStore'
 import { boardPinTable } from '../../build/boards/boardPinPolicy'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { LANE_PIN_KEY_PREFIX, claimedLanePins, lanePinIndex } from '../../state/output/dataLanes'
 import styles from './BoardPinPicker.module.css'
 
 interface Props {
@@ -53,7 +54,8 @@ export default function BoardPinPicker({
   const gpio = board ? boardPinTable(board, selectedFqbn) : boardGpioInfo(selectedFqbn)
   const [customOpen, setCustomOpen] = useState(false)
   const label = propertyLabel(nodeType, propertyKey, properties)
-  const requirement = gpioRequirementForProperty(nodeType, propertyKey, properties)
+  // A lane pin carries the same signal as the output's data pin.
+  const requirement = gpioRequirementForProperty(nodeType, lanePinIndex(propertyKey) !== null ? 'dataPin' : propertyKey, properties)
 
   const compatible = useMemo(() => {
     if (!gpio) return []
@@ -73,16 +75,26 @@ export default function BoardPinPicker({
   const boardMax = Math.min(max, Math.max(min, gpio?.maxPin ?? 0, ...knownPins.map((pin) => pin.pin)))
 
   const conflicts = unwired ? [] : [...new Set(nodes.flatMap((node) => {
-    if (node.id === nodeId) return []
     const otherProps = node.data.properties as Record<string, unknown>
-    return Object.entries(otherProps)
+    // An LED output's lane pins are claims too, including against this
+    // output's own data pin and its other lanes.
+    const lanes = node.data.nodeType === 'MatrixOutput'
+      ? claimedLanePins(otherProps)
+        .filter((lane) => lane.pin === value && !(node.id === nodeId && `${LANE_PIN_KEY_PREFIX}${lane.index}` === propertyKey))
+        .map((lane) => `${node.data.label} lane ${lane.lane}`)
+      : []
+    if (node.id === nodeId) {
+      const ownData = lanePinIndex(propertyKey) !== null && Number(otherProps.dataPin) === value
+      return [...lanes, ...(ownData ? [`${node.data.label} lane 1`] : [])]
+    }
+    return [...Object.entries(otherProps)
       .filter(([key, otherValue]) =>
         isGpioPinProperty(node.data.nodeType, key)
         && isPropertyEnabled(node.data.nodeType, key, otherProps)
         && !pinPropertyIsUnwired(node.data.nodeType, key, otherValue)
         && Number(otherValue) === value,
       )
-      .map(() => node.data.label)
+      .map(() => node.data.label), ...lanes]
   }))]
 
   const note = mayUnwire && value === NO_PIN
