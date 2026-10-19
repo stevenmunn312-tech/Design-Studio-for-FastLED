@@ -3,6 +3,7 @@ import { useUploadStore } from '../../state/upload/uploadStore'
 import { useDeviceTelemetryStore } from '../../state/upload/deviceTelemetryStore'
 import {
   TELEMETRY_INTERVAL_MS,
+  formatTelemetryNodeCosts,
   telemetryHeapSlopeBytesPerHour,
   telemetryLeaking,
   telemetryMeanFps,
@@ -13,7 +14,9 @@ import styles from './DeviceTelemetryCard.module.css'
  * What a running board reports about itself, while it runs.
  *
  * The bench instrument HW-11 asks for: free heap and its drift over a soak,
- * PSRAM, frame rate, the worst pass split into render and LED send, the worst touch response and the draw buffer the build
+ * PSRAM, frame rate, the worst pass split into render and LED send, the
+ * costliest nodes by label (from the uploaded sketch's node map), the worst
+ * touch response and the draw buffer the build
  * actually allocated. It reads the Output console's serial connection rather
  * than opening one — the helper holds a port exclusively, so a second reader
  * is not a thing that can work — which is why the button here starts *that*
@@ -29,6 +32,7 @@ export default function DeviceTelemetryCard() {
   const otherLines = useDeviceTelemetryStore((s) => s.otherLines)
   const reset = useDeviceTelemetryStore((s) => s.reset)
   const report = useDeviceTelemetryStore((s) => s.report)
+  const nodeLabels = useDeviceTelemetryStore((s) => s.nodeLabels)
 
   const slope = useMemo(() => (run ? telemetryHeapSlopeBytesPerHour(run) : null), [run])
   const leaking = useMemo(() => (run ? telemetryLeaking(run) : false), [run])
@@ -88,6 +92,17 @@ export default function DeviceTelemetryCard() {
           />
           <Field label="Draw buffer" value={bytes(run.latest.drawBufferBytes)} />
           <Field label="Samples" value={`${run.samples}`} />
+          {run.topNodesWorst.length > 0 && (
+            <>
+              <Field
+                label="Costliest nodes"
+                value={run.latest.topNodes ? formatTelemetryNodeCosts(run.latest.topNodes, nodeLabels) : 'none this interval'}
+                tone={run.latest.topNodes ? undefined : 'idle'}
+                wide
+              />
+              <Field label="Costliest this run" value={formatTelemetryNodeCosts(run.topNodesWorst, nodeLabels)} wide />
+            </>
+          )}
         </div>
       ) : (
         <p className={styles.note}>
@@ -126,9 +141,9 @@ export default function DeviceTelemetryCard() {
   )
 }
 
-function Field({ label, value, tone }: { label: string; value: string; tone?: 'bad' | 'idle' }) {
+function Field({ label, value, tone, wide }: { label: string; value: string; tone?: 'bad' | 'idle'; wide?: boolean }) {
   return (
-    <span className={styles.field}>
+    <span className={`${styles.field} ${wide ? styles.wide : ''}`}>
       <span className={styles.label}>{label}</span>
       <span className={`${styles.value} ${tone ? styles[tone] : ''}`}>{value}</span>
     </span>

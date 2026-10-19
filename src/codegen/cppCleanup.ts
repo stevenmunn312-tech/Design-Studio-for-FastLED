@@ -69,9 +69,29 @@ function pureFunctions(source: string): Set<string> {
 export function withoutUnreadLocals(source: string): string {
   for (;;) {
     const code = cppCode(source)
-    const counts = new Map<string, number>()
-    for (const name of code.match(/\b[A-Za-z_]\w*\b/g) ?? []) counts.set(name, (counts.get(name) ?? 0) + 1)
-    const unread = (d: Declarator) => counts.get(d.name) === 1
+    // `(void)name;` only silences the unused warning: it reads nothing.
+    const voids = [...code.matchAll(VOID_STATEMENT)]
+    const voidAt = new Set(voids.map((v) => v.index! + v[0].indexOf(v[1], '(void)'.length)))
+    const mentions = new Map<string, number[]>()
+    for (const name of code.matchAll(/\b[A-Za-z_]\w*\b/g)) {
+      if (voidAt.has(name.index!)) continue
+      const list = mentions.get(name[0])
+      if (list) list.push(name.index!)
+      else mentions.set(name[0], [name.index!])
+    }
+    const counts = new Map([...mentions].map(([name, at]) => [name, at.length]))
+    const declarations = [...code.matchAll(DECLARATION)]
+    const blockEnds = enclosingBlockEnds(code, declarations.map((match) => match.index!))
+    const preprocessed = new Set([...code.matchAll(/^[ \t]*#.*$/gm)].flatMap((line) => line[0].match(/\b[A-Za-z_]\w*\b/g) ?? []))
+    // Read nowhere in the sketch, or nowhere in its own block after it: two
+    // nodes' blocks may each declare the same scratch name.
+    const unreadAt = (d: Declarator, at: number) => {
+      const seen = mentions.get(d.name) ?? []
+      if (seen.length === 1) return true
+      const end = blockEnds.get(at)
+      if (end === undefined || preprocessed.has(d.name)) return false
+      return seen.filter((i) => i >= at && i < end).length === 1
+    }
     // A member is layout, not a local: positional initialisers depend on it.
     const members = recordBodies(code)
     // Judging every sketch function is the costly part; most initializers
@@ -92,12 +112,39 @@ export function withoutUnreadLocals(source: string): string {
       source = withoutStores(source, code, writeOnly, isPure)
       continue
     }
+    // A declaration about to go takes its warning silencers first, so the
+    // next pass sees the declaration as the only mention.
+    const silencers: [number, number][] = []
+    for (const match of declarations) {
+      if (members.some(([open, close]) => match.index! > open && match.index! < close)) continue
+      const listStart = match.index! + match[1].length
+      const declarators = splitDeclarators(source.slice(listStart, listStart + match[2].length))
+      for (const d of declarators ?? []) {
+        const dropped = unreadAt(d, match.index!)
+          && (isPure(d.init) || (declarators!.length === 1 && !match[1].startsWith('static')))
+        if (!dropped) continue
+        const end = blockEnds.get(match.index!) ?? code.length
+        for (const v of voids) {
+          if (v[1] === d.name && v.index! > match.index! && v.index! < end) silencers.push([v.index!, v.index! + v[0].length])
+        }
+      }
+    }
+    if (silencers.length) {
+      for (const [from, to] of silencers.sort((x, y) => y[0] - x[0])) {
+        // A guarded silencer (`if (c) (void)x;`) keeps a statement there.
+        const guarded = /(?:[):]|\belse)\s*$/.test(code.slice(Math.max(0, from - 40), from))
+        const [start, end] = guarded ? [from, to] : withAttachedComments(source, from, to)
+        source = source.slice(0, start) + (guarded ? '{}' : '') + source.slice(end)
+      }
+      continue
+    }
     let changed = false
-    for (const match of [...code.matchAll(DECLARATION)].reverse()) {
+    for (const match of [...declarations].reverse()) {
       if (members.some(([open, close]) => match.index! > open && match.index! < close)) continue
       const listStart = match.index! + match[1].length
       const declarators = splitDeclarators(source.slice(listStart, listStart + match[2].length))
       if (!declarators) continue
+      const unread = (d: Declarator) => unreadAt(d, match.index!)
       const kept = declarators.filter((d) => !unread(d) || !isPure(d.init))
       let replacement: string
       if (kept.length === 0) replacement = ''
@@ -114,6 +161,33 @@ export function withoutUnreadLocals(source: string): string {
     }
     if (!changed) return source
   }
+}
+
+// A bare `(void)name;` statement, after the same boundaries as a store.
+const VOID_STATEMENT = /(?<=(?:^|[;{}):]|\belse)\s*)\(void\)\s*([A-Za-z_]\w*)\s*;/gm
+
+/** The closing brace of the innermost block around each position; positions
+ * at file scope have none. */
+function enclosingBlockEnds(code: string, positions: number[]): Map<number, number> {
+  const wanted = [...positions].sort((a, b) => a - b)
+  const owner = new Map<number, number>()
+  const open: number[] = []
+  const closes = new Map<number, number>()
+  let next = 0
+  for (let i = 0; i <= code.length; i++) {
+    while (next < wanted.length && wanted[next] === i) {
+      if (open.length) owner.set(wanted[next], open[open.length - 1])
+      next++
+    }
+    if (code[i] === '{') open.push(i)
+    else if (code[i] === '}') {
+      const at = open.pop()
+      if (at !== undefined) closes.set(at, i)
+    }
+  }
+  const ends = new Map<number, number>()
+  for (const [at, block] of owner) ends.set(at, closes.get(block) ?? code.length)
+  return ends
 }
 
 // A plain store as a whole statement: after a statement boundary, a label,

@@ -99,11 +99,13 @@ describe('DFPlayer preview and firmware', () => {
 
   it('waits for the card, spaces commands, and reads active-low BUSY', () => {
     const buttons = ['play', 'next', 'previous'].map((port, n) => node(port, 'ButtonInput', { pin: 32 + n }))
+    // Before pruning: nothing reads Playing here, so a finished sketch drops
+    // the BUSY read and its pull-up.
     const sketch = generateCpp([node('player', 'DFPlayerOutput', {
       uartRxPin: 16, uartTxPin: 17, busyPin: 27, track: 4, volume: 0.5,
     }), ...buttons], buttons.map((button) => ({
       id: button.id, source: button.id, sourceHandle: 'pressed', target: 'player', targetHandle: button.id,
-    })))
+    })), {}, { deferPruning: true })
     const pullup = sketch.indexOf('pinMode(27, INPUT_PULLUP);')
     const begin = sketch.indexOf('_dfSerial_player.begin(9600, SERIAL_8N1, 16, 17);')
     expect(pullup).toBeGreaterThan(-1)

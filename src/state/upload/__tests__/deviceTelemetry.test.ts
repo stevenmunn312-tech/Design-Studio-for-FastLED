@@ -3,7 +3,12 @@ import {
   TELEMETRY_INTERVAL_MS,
   TELEMETRY_LEAK_BYTES_PER_HOUR,
   TELEMETRY_MARKER,
+  TELEMETRY_TOP_COUNT,
   accumulateTelemetry,
+  distinctTelemetryLabels,
+  parseTelemetryTop,
+  telemetryNodeLabels,
+  telemetryNodeMapLine,
   formatTelemetryReport,
   parseTelemetryLine,
   parseTelemetryTouchSample,
@@ -15,7 +20,7 @@ import {
 } from '../deviceTelemetry'
 
 const LINE = `${TELEMETRY_MARKER} uptime=3600 heap=142112 minheap=138904 psram=4194304 `
-  + 'psramtotal=8388608 fps=58.9 loopmax=21 renderms=4.5 sendms=16.2 touchms=12 drawbuf=9600'
+  + 'psramtotal=8388608 fps=58.9 loopmax=21 renderms=4.5 sendms=16.2 touchms=12 drawbuf=9600 top=2:3.10,0:1.25,5:0.40'
 
 function sample(overrides: Partial<DeviceTelemetrySample> = {}): DeviceTelemetrySample {
   return {
@@ -28,6 +33,7 @@ function sample(overrides: Partial<DeviceTelemetrySample> = {}): DeviceTelemetry
     loopMaxMs: 18,
     renderMaxMs: null,
     sendMaxMs: null,
+    topNodes: null,
     touchLatencyMs: null,
     drawBufferBytes: 9600,
     ...overrides,
@@ -48,6 +54,7 @@ describe('parseTelemetryLine', () => {
       sendMaxMs: 16.2,
       touchLatencyMs: 12,
       drawBufferBytes: 9600,
+      topNodes: [{ index: 2, ms: 3.1 }, { index: 0, ms: 1.25 }, { index: 5, ms: 0.4 }],
     })
   })
 
@@ -238,5 +245,41 @@ describe('formatTelemetryReport', () => {
       accumulated = accumulateTelemetry(accumulated, sample({ uptimeSec: i * 2, heapFree: 200_000 - (i * 200) }))
     }
     expect(formatTelemetryReport(accumulated)).toContain('fails the soak condition')
+  })
+})
+
+describe('costliest nodes', () => {
+  it('reads the top key and refuses a malformed one', () => {
+    expect(parseTelemetryTop('3:0.50')).toEqual([{ index: 3, ms: 0.5 }])
+    expect(parseTelemetryTop(undefined)).toBeNull()
+    expect(parseTelemetryTop('')).toBeNull()
+    expect(parseTelemetryTop('1:2:3')).toBeNull()
+    expect(parseTelemetryTop('x:1.0')).toBeNull()
+    expect(parseTelemetryTop('1.5:1.0')).toBeNull()
+    expect(parseTelemetryLine(`${TELEMETRY_MARKER} uptime=1 heap=1 minheap=1 fps=60`)?.topNodes).toBeNull()
+  })
+
+  it('round-trips the node map through the sketch comment, labels past ASCII included', () => {
+    const labels = ['Field Formula', 'Noise “warm”', 'Blur']
+    const line = telemetryNodeMapLine(labels)
+    expect(line).toMatch(/^[ -~]+$/)
+    expect(line.endsWith(']')).toBe(true)
+    expect(telemetryNodeLabels(['void setup() {}', `  ${line}`, 'void loop() {}'].join('\n'))).toEqual(labels)
+    expect(telemetryNodeLabels('void loop() {}')).toEqual([])
+  })
+
+  it('tells nodes with the same label apart', () => {
+    expect(distinctTelemetryLabels(['Noise', 'Blur', 'Noise', 'Noise'])).toEqual(['Noise', 'Blur', 'Noise (2)', 'Noise (3)'])
+  })
+
+  it('keeps each node at its worst share across the run, costliest first', () => {
+    let run = startTelemetryRun(sample({ uptimeSec: 2, topNodes: [{ index: 0, ms: 4 }, { index: 1, ms: 1 }] }))
+    run = accumulateTelemetry(run, sample({ uptimeSec: 4, topNodes: [{ index: 2, ms: 2 }, { index: 0, ms: 0.5 }, { index: 3, ms: 1.5 }] }))
+    run = accumulateTelemetry(run, sample({ uptimeSec: 6 }))
+    expect(run.topNodesWorst).toEqual([{ index: 0, ms: 4 }, { index: 2, ms: 2 }, { index: 3, ms: 1.5 }])
+    expect(run.topNodesWorst).toHaveLength(TELEMETRY_TOP_COUNT)
+    const report = formatTelemetryReport(run, { nodeLabels: ['Field Formula', 'Blur', 'Noise'] })
+    expect(report).toContain('costliest this run:  Field Formula 4.00 ms, Noise 2.00 ms, node #3 1.50 ms')
+    expect(report).toContain('costliest nodes now: —')
   })
 })

@@ -22,8 +22,10 @@ import {
   TELEMETRY_TOUCH_Y_KEY,
   parseTelemetryLine,
   parseTelemetryTouchSample,
+  TELEMETRY_TOP_KEY,
+  telemetryNodeLabels,
 } from '../../state/upload/deviceTelemetry'
-import { boardSupportsTelemetry } from '../deviceTelemetryCpp'
+import { boardSupportsTelemetry, timedNodeBlock } from '../deviceTelemetryCpp'
 import { isLoopPacing } from '../loopPacing'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
@@ -258,5 +260,62 @@ describe('what telemetry refuses to do', () => {
     // A fixed layout paints straight to the panel, so there is no buffer to
     // measure and the key must be absent rather than nought.
     expect(normalSketch(true)).not.toContain('drawbuf=')
+  })
+})
+
+describe('per-node frame cost', () => {
+  it('times each node of a normal sketch and names them all in the map', () => {
+    const source = normalSketch(true)
+    const labels = telemetryNodeLabels(source)
+    expect(labels.length).toBeGreaterThan(0)
+    expect(labels).toContain('SolidColor')
+    const ends = [...source.matchAll(/\b_telNodeEnd\((\d+)\);/g)].map((match) => Number(match[1]))
+    expect([...new Set(ends)].sort((a, b) => a - b)).toEqual(labels.map((_, index) => index))
+    expect(source.split('_telNodeStart();').length - 1).toBe(ends.length)
+    expect(source).toContain(`static uint32_t _telNodeUs[${labels.length}] = {0};`)
+    // The output's own send is the send key's, not the node's.
+    expect(source).toContain('_telNodeSendAtUs = _telPassSendUs;')
+  })
+
+  it('emits a top key the app can parse', () => {
+    const source = normalSketch(true)
+    const format = source.match(/Serial\.printf\(place \? "([^"]*)" : "([^"]*)"/)
+    expect(format).not.toBeNull()
+    const fill = (text: string, index: number, ms: string) => text.replace('%d', String(index)).replace('%.2f', ms)
+    const line = `${TELEMETRY_MARKER} uptime=1 heap=1 minheap=1 fps=60${fill(format![2], 1, '2.50')}${fill(format![1], 0, '0.75')}`
+    expect(parseTelemetryLine(line)?.topNodes).toEqual([{ index: 1, ms: 2.5 }, { index: 0, ms: 0.75 }])
+    expect(format![2]).toContain(` ${TELEMETRY_TOP_KEY}=`)
+  })
+
+  it('costs nothing when telemetry is off', () => {
+    const source = normalSketch(false)
+    expect(source).not.toContain('_telNode')
+    expect(telemetryNodeLabels(source)).toEqual([])
+    expect(source).not.toContain(`${TELEMETRY_TOP_KEY}=`)
+  })
+
+  it('times nodes only in the normal sketch', () => {
+    for (const build of [showSketch, playerSketch]) {
+      const source = build(true)
+      expect(source).not.toContain('_telNode')
+      expect(source).not.toContain(`" ${TELEMETRY_TOP_KEY}=`)
+    }
+  })
+
+  it('times nodes with no send to take out when nothing goes through FastLED', () => {
+    const source = generateCpp(
+      [board(true), node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'HUB75' }),
+        node('fill', 'SolidColor')],
+      [edge('fill', 'frame', 'out', 'frame')],
+    )
+    expect(source).toContain('void _telNodeEnd(int node) {')
+    expect(source).not.toContain('_telNodeSendAtUs')
+  })
+
+  it('wraps only a block that closes its own braces', () => {
+    expect(timedNodeBlock(['  { int a = 1; }'], 4)).toEqual(['  _telNodeStart();', '  { int a = 1; }', '  _telNodeEnd(4);'])
+    expect(timedNodeBlock(['  if (x) {'], 0)).toBeNull()
+    expect(timedNodeBlock(['  // only a comment'], 0)).toBeNull()
+    expect(timedNodeBlock([], 0)).toBeNull()
   })
 })

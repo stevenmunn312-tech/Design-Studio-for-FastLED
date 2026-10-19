@@ -48,6 +48,20 @@ describe('DeviceTelemetryCard', () => {
     expect(screen.getByText('measuring…')).toBeTruthy()
   })
 
+  it('names the costliest nodes by label, and an index the map does not know by number', () => {
+    useDeviceTelemetryStore.getState().setNodeLabels(['Field Formula', 'Blur'])
+    useDeviceTelemetryStore.getState().ingest(`${TELEMETRY_MARKER} uptime=4 heap=204800 minheap=198000 fps=60 top=1:3.20,0:1.05,7:0.10\n`)
+    render(<DeviceTelemetryCard />)
+    expect(screen.getAllByText('Blur 3.20 ms, Field Formula 1.05 ms, node #7 0.10 ms')).toHaveLength(2)
+    useDeviceTelemetryStore.getState().setNodeLabels([])
+  })
+
+  it('leaves the node rows out when the sketch times no nodes', () => {
+    feed({ uptime: 10, heap: 204800, minheap: 198000, fps: 60 })
+    render(<DeviceTelemetryCard />)
+    expect(screen.queryByText('Costliest nodes')).toBeNull()
+  })
+
   it('calls out a leaking run as a soak failure', () => {
     for (let i = 0; i < 60; i += 1) {
       feed({ uptime: i * 2, heap: 300000 - (i * 400), minheap: 180000, fps: 60 })

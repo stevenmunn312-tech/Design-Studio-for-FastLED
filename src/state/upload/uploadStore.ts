@@ -13,6 +13,7 @@ import { controllerSettings } from '../../build/controllerSettings'
 import { resolveUsbCdcOnBoot } from './serialRouting'
 import { BOARD_GPIO_BY_FQBN, type BoardGpio } from '../../build/boards/boardGpio'
 import { useDeviceTelemetryStore } from './deviceTelemetryStore'
+import { telemetryNodeLabels } from './deviceTelemetry'
 
 export type { BoardGpio, PinNote } from '../../build/boards/boardGpio'
 
@@ -718,6 +719,9 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         ? { phase: 'done' as const, message: 'Done' }
         : final
       set({ status: settled })
+      // The board now runs this sketch, so its timed nodes are the ones a
+      // `top` report counts.
+      if (settled.phase === 'done') useDeviceTelemetryStore.getState().setNodeLabels(telemetryNodeLabels(code))
       // Pop the output/serial console open whenever an upload finishes, not
       // just on failure, so the result is always visible without an extra click.
       set({ consoleOpen: true })
@@ -876,6 +880,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       )
       const final = parseStatus(get().log)
       set({ status: final.phase === 'error' ? final : { phase: 'done', message: 'Done' } })
+      // A show or player sketch times no nodes.
+      if (final.phase !== 'error') useDeviceTelemetryStore.getState().setNodeLabels([])
     } catch (err) {
       get().appendLog(`\n[error] ${err}\n`)
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })

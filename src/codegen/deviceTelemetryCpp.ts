@@ -9,17 +9,24 @@
 // Deliberately plain functions over a handful of statics rather than a struct:
 // a generated function taking a struct by reference meets the `.ino`
 // preprocessor's hoisted prototypes and fails to compile on a line no generator
-// wrote (see `displayForwardDeclarations.test.ts`). These take no parameters at
-// all, so they need no forward declaration and cannot join that trap.
+// wrote (see `displayForwardDeclarations.test.ts`). These take no parameters
+// but a plain `int` node index, so a hoisted prototype names only built-in
+// types and cannot join that trap.
 
 import { isLoopPacing } from './loopPacing'
+import { cppCode } from './cppReachability'
 import {
   TELEMETRY_INTERVAL_MS,
   TELEMETRY_MARKER,
   TELEMETRY_RENDER_KEY,
   TELEMETRY_SEND_KEY,
+  TELEMETRY_TOP_COUNT,
+  TELEMETRY_TOP_ENTRY_SEPARATOR,
+  TELEMETRY_TOP_FIELD_SEPARATOR,
+  TELEMETRY_TOP_KEY,
   TELEMETRY_TOUCH_X_KEY,
   TELEMETRY_TOUCH_Y_KEY,
+  telemetryNodeLabels,
 } from '../state/upload/deviceTelemetry'
 
 export interface DeviceTelemetryEmit {
@@ -41,6 +48,11 @@ export interface DeviceTelemetryEmit {
    * and send. False for a HUB75-only build, which then reports neither key.
    */
   send?: boolean
+  /**
+   * How many nodes the loop times, each between `_telNodeStart()` and
+   * `_telNodeEnd(index)`. Zero leaves the timing and the `top` key out.
+   */
+  timedNodes?: number
 }
 
 /**
@@ -91,6 +103,14 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
       'static uint32_t _telSendMaxUs = 0;',
     )
   }
+  const timed = Math.max(0, Math.floor(emit.timedNodes ?? 0))
+  if (timed > 0) {
+    lines.push(
+      'static uint32_t _telNodeAtUs = 0;',
+      ...(emit.send ? ['static uint32_t _telNodeSendAtUs = 0;'] : []),
+      `static uint32_t _telNodeUs[${timed}] = {0};`,
+    )
+  }
   lines.push(
     '',
     'void _telLoopBegin() {',
@@ -106,6 +126,26 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
       '  uint32_t sendAt = micros();',
       '  FastLED.show();',
       '  _telPassSendUs += micros() - sendAt;',
+      '}',
+      '',
+    )
+  }
+  if (timed > 0) {
+    lines.push(
+      '// Each timed node’s time this interval, its LED sends taken out: the',
+      '// wire belongs to the send figure, not to the node.',
+      'void _telNodeStart() {',
+      '  _telNodeAtUs = micros();',
+      ...(emit.send ? ['  _telNodeSendAtUs = _telPassSendUs;'] : []),
+      '}',
+      '',
+      'void _telNodeEnd(int node) {',
+      '  uint32_t us = micros() - _telNodeAtUs;',
+      ...(emit.send ? [
+        '  uint32_t sentUs = _telPassSendUs - _telNodeSendAtUs;',
+        '  us = us > sentUs ? us - sentUs : 0;',
+      ] : []),
+      '  _telNodeUs[node] += us;',
       '}',
       '',
     )
@@ -176,6 +216,7 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
   if (drawBuffer.length > 0) {
     lines.push(`  Serial.printf(" drawbuf=%lu", (unsigned long)(${drawBuffer.join(' + ')}));`)
   }
+  if (timed > 0) lines.push(...telemetryTopReportCpp(timed))
   lines.push(
     '  Serial.println();',
     '  _telFrames = 0;',
@@ -186,6 +227,61 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
   if (emit.send) lines.push('  _telRenderMaxUs = 0;', '  _telSendMaxUs = 0;')
   lines.push('}', '')
   return lines
+}
+
+/**
+ * The costliest nodes of the interval, as mean milliseconds per frame.
+ *
+ * An insertion into a short ranked list rather than a sort: the device keeps
+ * no copy of the totals, and a node that cost nothing is not ranked at all,
+ * so a sketch whose timed nodes all folded away reports no key.
+ */
+function telemetryTopReportCpp(timed: number): string[] {
+  const top = TELEMETRY_TOP_COUNT
+  const sep = TELEMETRY_TOP_FIELD_SEPARATOR
+  return [
+    `  int topNodes[${top}] = {${Array(top).fill('-1').join(', ')}};`,
+    `  for (int node = 0; node < ${timed}; node++) {`,
+    '    if (_telNodeUs[node] == 0) continue;',
+    `    for (int place = 0; place < ${top}; place++) {`,
+    '      if (topNodes[place] < 0 || _telNodeUs[node] > _telNodeUs[topNodes[place]]) {',
+    `        for (int later = ${top - 1}; later > place; later--) topNodes[later] = topNodes[later - 1];`,
+    '        topNodes[place] = node;',
+    '        break;',
+    '      }',
+    '    }',
+    '  }',
+    `  for (int place = 0; place < ${top} && topNodes[place] >= 0; place++) {`,
+    `    Serial.printf(place ? "${TELEMETRY_TOP_ENTRY_SEPARATOR}%d${sep}%.2f" : " ${TELEMETRY_TOP_KEY}=%d${sep}%.2f",`,
+    '      topNodes[place], _telNodeUs[topNodes[place]] / 1000.0f / (float)_telFrames);',
+    '  }',
+    `  for (int node = 0; node < ${timed}; node++) _telNodeUs[node] = 0;`,
+  ]
+}
+
+/** Opens a timed node's block in the loop. */
+export const TELEMETRY_NODE_START_CPP = '  _telNodeStart();'
+
+/** Closes the timed node `index`'s block in the loop. */
+export function telemetryNodeEndCpp(index: number): string {
+  return `  _telNodeEnd(${index});`
+}
+
+/**
+ * Time one node's loop block, or null when there is nothing to time or the
+ * block does not close its own braces (a stamp inside someone else's scope
+ * would time the wrong thing, or not compile).
+ */
+export function timedNodeBlock(block: readonly string[], index: number): string[] | null {
+  const code = cppCode(block.join('\n'))
+  if (!code.trim()) return null
+  let depth = 0
+  for (const ch of code) {
+    if (ch === '{') depth++
+    else if (ch === '}' && --depth < 0) return null
+  }
+  if (depth !== 0) return null
+  return [TELEMETRY_NODE_START_CPP, ...block, telemetryNodeEndCpp(index)]
 }
 
 /**
@@ -207,6 +303,8 @@ export function telemetryEmitFromSource(lines: readonly string[]): DeviceTelemet
     drawBufferExprs: [...new Set(buffers)],
     touch: source.includes('_xptPoint('),
     send: loopBody(lines).some((index) => isLoopSend(lines[index])),
+    // The map and the calls arrive together; either alone times nothing.
+    timedNodes: /\b_telNodeEnd\(/.test(source) ? telemetryNodeLabels(source).length : 0,
   }
 }
 

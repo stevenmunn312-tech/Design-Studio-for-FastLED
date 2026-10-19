@@ -39,6 +39,15 @@
   min-width: 0;
 }
 
+/* The costliest nodes name three labels, so they take a whole row and wrap. */
+.wide {
+  grid-column: 1 / -1;
+}
+
+.wide .value {
+  white-space: normal;
+}
+
 .label {
   color: var(--text-secondary);
   font-size: 10px;

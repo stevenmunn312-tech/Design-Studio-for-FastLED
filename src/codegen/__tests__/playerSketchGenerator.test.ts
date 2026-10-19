@@ -143,7 +143,8 @@ describe('playerSketchGenerator', () => {
   it('declares, registers and polls the optional detectors its patterns read', () => {
     const renderers = {
       buffers: [], helpers: [],
-      functions: ['void render_p0(uint32_t ms) { float v = _audioVibeMidAtt + _audioMeasurePhase; (void)v; (void)ms; }'],
+      // A `(void)v;` silencer is no read, so the pattern really uses `v`.
+      functions: ['void render_p0(uint32_t ms) { float v = _audioVibeMidAtt + _audioMeasurePhase; Serial.println(v); (void)ms; }'],
       count: 1, params: [],
     }
     expect(patternRenderersUseAudio(renderers)).toBe(true)

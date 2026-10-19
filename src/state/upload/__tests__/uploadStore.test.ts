@@ -358,6 +358,22 @@ describe('uploadStore', () => {
     expect(mocks.uploadSketch).not.toHaveBeenCalled()
   })
 
+  it('hands the telemetry card the timed nodes of a sketch that uploaded', async () => {
+    const { useUploadStore } = await freshStores()
+    const { useDeviceTelemetryStore } = await import('../deviceTelemetryStore')
+    const { telemetryNodeMapLine } = await import('../deviceTelemetry')
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      selectedPort: 'COM7',
+    })
+    mocks.uploadSketch.mockImplementationOnce(async (_code, _fqbn, _port, onLog) => {
+      onLog('Upload complete\n')
+    })
+    await useUploadStore.getState().runUpload(`${telemetryNodeMapLine(['Field Formula'])}\nvoid loop() {}`)
+    expect(useDeviceTelemetryStore.getState().nodeLabels).toEqual(['Field Formula'])
+  })
+
   it('returns a successful upload to the normal Upload state after five seconds', async () => {
     vi.useFakeTimers()
     try {

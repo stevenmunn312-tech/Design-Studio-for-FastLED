@@ -138,13 +138,13 @@ it lands.
     parallel driver when an S3 graph needs more lanes than its four RMT
     channels. Compile one fixture per driver and family; its bench row covers
     each driver under Wi-Fi load.
-  - [ ] **8. Measure each node's share of the frame.** With telemetry on, time
+  - [x] **8. Measure each node's share of the frame.** With telemetry on, time
     each node's block in a normal sketch's loop and report the three costliest
     each interval as a new key, shown by node label on the telemetry card.
     Measure the boards without a floating-point unit that telemetry supports
     (ESP32-C3, ESP32-C6, ESP8266) first; they pay most for float maths. Steps
     10 and 11 are judged against these numbers.
-  - [ ] **9. Skip per-pixel geometry that nothing reads.** FieldFormula
+  - [x] **9. Skip per-pixel geometry that nothing reads.** FieldFormula
     (`src/nodes/field/codegen.ts`) and the Code node
     (`src/nodes/code/codegen.ts`) compute `r` and `angle` (`sqrtf` and
     `atan2f`) for every pixel of every frame even when the formula never names

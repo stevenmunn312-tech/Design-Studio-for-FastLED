@@ -29,6 +29,103 @@ export const TELEMETRY_TOUCH_Y_KEY = 'touchy'
 export const TELEMETRY_RENDER_KEY = 'renderms'
 export const TELEMETRY_SEND_KEY = 'sendms'
 
+/**
+ * The interval's costliest nodes, as `top=index:ms,index:ms,index:ms`: each
+ * timed node's mean milliseconds per frame, LED sends taken out, costliest
+ * first. Only a normal sketch times its nodes, and the key is left out when
+ * none ran. The index counts the sketch's timed nodes in loop order; the
+ * sketch names them in one comment line (`telemetryNodeMapLine`), which the
+ * app reads back from the uploaded text with `telemetryNodeLabels`.
+ */
+export const TELEMETRY_TOP_KEY = 'top'
+/** How many nodes the device names per interval. */
+export const TELEMETRY_TOP_COUNT = 3
+/** Between one node's entries, and between its index and its milliseconds. */
+export const TELEMETRY_TOP_ENTRY_SEPARATOR = ','
+export const TELEMETRY_TOP_FIELD_SEPARATOR = ':'
+
+/** Opens the sketch comment that maps a timed node's index to its label. */
+export const TELEMETRY_NODE_MAP_PREFIX = `// ${TELEMETRY_MARKER} nodes `
+
+/** One timed node's share of a frame. */
+export interface TelemetryNodeCost {
+  /** The node's place in the sketch's timed-node list. */
+  index: number
+  /** Mean milliseconds per frame over the interval. */
+  ms: number
+}
+
+/**
+ * The comment line naming each timed node, in index order.
+ *
+ * JSON with everything past ASCII escaped, so a label cannot end the comment,
+ * splice a line or carry an encoding the compiler might reject.
+ */
+export function telemetryNodeMapLine(labels: readonly string[]): string {
+  const json = JSON.stringify(labels).replace(/[\u007f-￿]/g,
+    (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`)
+  return `${TELEMETRY_NODE_MAP_PREFIX}${json}`
+}
+
+/** The timed nodes' labels a sketch names, in index order; empty when it times none. */
+export function telemetryNodeLabels(source: string): string[] {
+  for (const line of source.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith(TELEMETRY_NODE_MAP_PREFIX)) continue
+    try {
+      const labels: unknown = JSON.parse(trimmed.slice(TELEMETRY_NODE_MAP_PREFIX.length))
+      if (Array.isArray(labels) && labels.every((label) => typeof label === 'string')) return labels as string[]
+    } catch { /* not a map */ }
+    return []
+  }
+  return []
+}
+
+/**
+ * Labels for the timed nodes, one each and told apart: a second node with
+ * the same label gets ` (2)`, so the card never names two nodes alike.
+ */
+export function distinctTelemetryLabels(labels: readonly string[]): string[] {
+  const seen = new Map<string, number>()
+  return labels.map((label) => {
+    const n = (seen.get(label) ?? 0) + 1
+    seen.set(label, n)
+    return n === 1 ? label : `${label} (${n})`
+  })
+}
+
+/** What a timed node is called on the card, or its index when the map is stale. */
+export function telemetryNodeName(labels: readonly string[], index: number): string {
+  return labels[index] ?? `node #${index}`
+}
+
+/** Read a `top=` value; null when absent or malformed. */
+export function parseTelemetryTop(value: string | undefined): TelemetryNodeCost[] | null {
+  if (!value) return null
+  const costs: TelemetryNodeCost[] = []
+  for (const entry of value.split(TELEMETRY_TOP_ENTRY_SEPARATOR)) {
+    const [index, ms, extra] = entry.split(TELEMETRY_TOP_FIELD_SEPARATOR)
+    const at = numeric(index)
+    const cost = numeric(ms)
+    if (extra !== undefined || at === null || cost === null || !Number.isInteger(at) || at < 0 || cost < 0) return null
+    costs.push({ index: at, ms: cost })
+  }
+  return costs.length ? costs : null
+}
+
+/**
+ * The run's worst share per node, costliest first and as many as the device
+ * names: a node that was costly once stays listed after it settles.
+ */
+function worstNodes(seen: readonly TelemetryNodeCost[], sample: readonly TelemetryNodeCost[] | null): TelemetryNodeCost[] {
+  if (!sample) return [...seen]
+  const worstAt = new Map(seen.map((cost) => [cost.index, cost.ms]))
+  for (const cost of sample) worstAt.set(cost.index, Math.max(worstAt.get(cost.index) ?? 0, cost.ms))
+  return [...worstAt].map(([index, ms]) => ({ index, ms }))
+    .sort((a, b) => b.ms - a.ms || a.index - b.index)
+    .slice(0, TELEMETRY_TOP_COUNT)
+}
+
 /** Raw touch cadence while the panel is held, fast enough for a short five-sample capture. */
 export const TELEMETRY_TOUCH_INTERVAL_MS = 50
 
@@ -66,6 +163,8 @@ export interface DeviceTelemetrySample {
   renderMaxMs: number | null
   /** Longest FastLED send of one pass in the interval, milliseconds. Null when nothing is sent. */
   sendMaxMs: number | null
+  /** The interval's costliest timed nodes, costliest first. Null when the sketch times none. */
+  topNodes: TelemetryNodeCost[] | null
   /**
    * Touch press to end of the frame that answered it, milliseconds.
    *
@@ -120,6 +219,7 @@ export function parseTelemetryLine(line: string): DeviceTelemetrySample | null {
     loopMaxMs: numeric(fields.get('loopmax')),
     renderMaxMs: numeric(fields.get(TELEMETRY_RENDER_KEY)),
     sendMaxMs: numeric(fields.get(TELEMETRY_SEND_KEY)),
+    topNodes: parseTelemetryTop(fields.get(TELEMETRY_TOP_KEY)),
     touchLatencyMs: numeric(fields.get('touchms')),
     drawBufferBytes: numeric(fields.get('drawbuf')),
   }
@@ -167,6 +267,8 @@ export interface TelemetryRun {
   /** Worst render and worst send seen, or null if the build sends nothing. */
   renderMaxMs: number | null
   sendMaxMs: number | null
+  /** Each timed node's worst share of a frame this run, costliest first; empty when none reported. */
+  topNodesWorst: TelemetryNodeCost[]
   /** Worst touch response seen, or null if nothing was touched. */
   touchWorstMs: number | null
   touchSamples: number
@@ -186,6 +288,7 @@ export function startTelemetryRun(sample: DeviceTelemetrySample): TelemetryRun {
     loopMaxMs: sample.loopMaxMs,
     renderMaxMs: sample.renderMaxMs,
     sendMaxMs: sample.sendMaxMs,
+    topNodesWorst: worstNodes([], sample.topNodes),
     touchWorstMs: sample.touchLatencyMs,
     touchSamples: sample.touchLatencyMs === null ? 0 : 1,
     sums: {
@@ -220,6 +323,7 @@ export function accumulateTelemetry(run: TelemetryRun | null, sample: DeviceTele
     loopMaxMs: worst(run.loopMaxMs, sample.loopMaxMs),
     renderMaxMs: worst(run.renderMaxMs, sample.renderMaxMs),
     sendMaxMs: worst(run.sendMaxMs, sample.sendMaxMs),
+    topNodesWorst: worstNodes(run.topNodesWorst, sample.topNodes),
     touchWorstMs: sample.touchLatencyMs === null ? run.touchWorstMs
       : Math.max(run.touchWorstMs ?? sample.touchLatencyMs, sample.touchLatencyMs),
     touchSamples: run.touchSamples + (sample.touchLatencyMs === null ? 0 : 1),
@@ -281,6 +385,12 @@ function milliseconds(value: number | null): string {
   return value === null ? '—' : `${value.toFixed(1)} ms`
 }
 
+/** `Label 1.20 ms, Other 0.40 ms`, or an em dash when no node was timed. */
+export function formatTelemetryNodeCosts(costs: readonly TelemetryNodeCost[], labels: readonly string[]): string {
+  return costs.length === 0 ? '—'
+    : costs.map((cost) => `${telemetryNodeName(labels, cost.index)} ${cost.ms.toFixed(2)} ms`).join(', ')
+}
+
 function seconds(total: number): string {
   const whole = Math.max(0, Math.round(total))
   const h = Math.floor(whole / 3600)
@@ -292,6 +402,8 @@ function seconds(total: number): string {
 export interface TelemetryReportMeta {
   /** Which sketch was running — the generator, named by the caller. */
   build?: string
+  /** The uploaded sketch's timed-node labels, by index (`telemetryNodeLabels`). */
+  nodeLabels?: readonly string[]
   port?: string
   recordedUtc?: string
 }
@@ -336,6 +448,8 @@ export function formatTelemetryReport(run: TelemetryRun, meta: TelemetryReportMe
     `  longest loop pass:   ${milliseconds(run.loopMaxMs)}`,
     `  worst render:        ${milliseconds(run.renderMaxMs)}`,
     `  worst send:          ${milliseconds(run.sendMaxMs)}`,
+    `  costliest nodes now: ${formatTelemetryNodeCosts(run.latest.topNodes ?? [], meta.nodeLabels ?? [])}`,
+    `  costliest this run:  ${formatTelemetryNodeCosts(run.topNodesWorst, meta.nodeLabels ?? [])}`,
     '',
     'Touch',
     `  worst press to paint: ${run.touchWorstMs === null ? '— (nothing touched)' : `${run.touchWorstMs.toFixed(1)} ms`}`,

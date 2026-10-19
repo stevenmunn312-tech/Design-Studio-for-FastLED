@@ -26,7 +26,7 @@ sketch. This switch exists for the four runs below.
 With it set on the Board node, every two seconds the sketch prints one line:
 
 ```
-FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=4194304 psramtotal=8388608 touchms=12 renderms=5.2 sendms=15.8 drawbuf=9600
+FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=4194304 psramtotal=8388608 touchms=12 renderms=5.2 sendms=15.8 drawbuf=9600 top=2:3.10,0:1.25,5:0.40
 ```
 
 | Key | Meaning |
@@ -41,6 +41,7 @@ FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=419430
 | `psram` / `psramtotal` | Free and fitted PSRAM; both zero on a board without any |
 | `touchms` | Worst press-to-painted-frame in the interval. **Absent when nothing was touched**, which is not the same as zero |
 | `drawbuf` | Bytes of display draw buffer the build allocated, from `sizeof` rather than from an estimate |
+| `top` | The interval's three costliest nodes as `index:ms,index:ms,index:ms`, costliest first: each node's mean ms per frame with its LED sends taken out. The index counts the sketch's timed nodes in loop order, and the sketch names them in one `// FLS_STAT nodes [...]` comment the telemetry card reads back from the uploaded sketch to show labels. **Normal sketches only**, and **absent when no node was timed** (a native multi-output render, or nothing that cost a microsecond) |
 
 Only ESP32 and ESP8266 boards emit it — `Serial.printf` and the heap accessors
 are ESP-family API, so on any other target the property is ignored rather than

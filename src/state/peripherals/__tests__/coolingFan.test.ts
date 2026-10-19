@@ -74,7 +74,9 @@ describe('cooling fan preview and firmware', () => {
   })
 
   it('starts off, drives 25 kHz PWM, counts falling tach edges, and publishes measured RPM', () => {
-    const sketch = generateCpp([node('fan', 'CoolingFanOutput', { pwmPin: 27, tachPin: 14, speed: 0.5 })], [])
+    // Before pruning: nothing reads RPM or Running here, so a finished sketch
+    // drops the measurement.
+    const sketch = generateCpp([node('fan', 'CoolingFanOutput', { pwmPin: 27, tachPin: 14, speed: 0.5 })], [], {}, { deferPruning: true })
     const low = sketch.indexOf('digitalWrite(27, LOW);')
     const output = sketch.indexOf('pinMode(27, OUTPUT);')
     expect(low).toBeGreaterThan(-1)

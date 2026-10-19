@@ -89,8 +89,10 @@ import {
   TELEMETRY_SERIAL_BEGIN_CPP,
   TELEMETRY_LOOP_BEGIN_CPP,
   TELEMETRY_REPORT_CPP,
+  timedNodeBlock,
   withTelemetryGlobals,
 } from './deviceTelemetryCpp'
+import { distinctTelemetryLabels, telemetryNodeMapLine } from '../state/upload/deviceTelemetry'
 import { rtcI2cPinsForProfile } from '../build/pins/rtcPins'
 import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './peripherals/powerMonitorCpp'
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './peripherals/presenceSensorCpp'
@@ -1110,8 +1112,21 @@ export function generateCpp(
     })
   }
 
-  // Emit all node snippets first to collect needsMapFloat and needsT flags
-  for (const node of sorted) emit(node)
+  // Emit all node snippets first to collect needsMapFloat and needsT flags.
+  // With telemetry on, each node's block is timed for the `top` key and named,
+  // by index, in the map comment beside the telemetry globals. A native
+  // multi-output render is a template defined above those globals, so its
+  // nodes are not timed.
+  const timedLabels: string[] = []
+  for (const node of sorted) {
+    const from = loopLines.length
+    emit(node)
+    if (!emitTelemetry || nativeMultiRender) continue
+    const timed = timedNodeBlock(loopLines.slice(from), timedLabels.length)
+    if (!timed) continue
+    loopLines.splice(from, loopLines.length - from, ...timed)
+    timedLabels.push(nodeDisplayLabel(node.data.nodeType, props(node), String(node.data.label ?? node.data.nodeType)))
+  }
   const irEmission = irRemoteProjectEmission(irNodes)
   for (const line of irEmission.setup) pinSetupLines.add(line)
   loopLines.push(...customDisplayPublication)
@@ -1529,6 +1544,7 @@ export function generateCpp(
     // After every panel, so `sizeof` sees the buffers rather than a number this
     // generator guessed at — an estimate that reports itself proves nothing.
     lines.push(TELEMETRY_GLOBALS_CPP)
+    if (timedLabels.length) lines.push(telemetryNodeMapLine(distinctTelemetryLabels(timedLabels)))
   }
   lines.push(`void setup() {`)
   lines.push(...amplifierIdle.setup)

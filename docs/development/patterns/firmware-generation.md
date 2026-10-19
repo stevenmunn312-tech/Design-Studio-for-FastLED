@@ -246,6 +246,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   indent, so write a frame's send as that one statement on its own line or it
   is not timed. The show generator fills it after its index-based splices.
 
+- Per-node frame cost (`top=`) is the normal sketch's alone. With telemetry
+  on, `generateCpp` wraps each node's loop lines in `_telNodeStart();` …
+  `_telNodeEnd(index);` (`timedNodeBlock`, which refuses a block that does not
+  close its own braces) and writes the labels once as
+  `telemetryNodeMapLine` after the globals placeholder.
+  `telemetryEmitFromSource` sizes the timing statics from that map and emits
+  them only when `_telNodeEnd(` calls are present too, so neither half ships
+  alone. The app reads the same map back from the uploaded text with
+  `telemetryNodeLabels` (`uploadStore.runUpload` hands it to the telemetry
+  store on success), so index and label share one source. A native
+  multi-output render is not timed: its template is defined above the
+  telemetry globals. A node that sends (the LED output) has its
+  `_telShow()` time subtracted, because the wire is `sendms`, not the node.
+
 - **Resampled LED outputs share one tap rule with the preview.** Half-resolution
   render scale (`src/state/output/renderScale.ts`, `src/codegen/output/renderScaleCpp.ts`) and
   positioned strings (`src/state/output/stringPositions.ts`) take their source pixels and
@@ -294,6 +308,19 @@ sketch still carries only what the graph reaches.
   cannot prove pure (`pureFunctions`: no `static`, no writes outside plain
   locals, only pure calls) keeps running as `(void)(...)`. Struct members are
   never touched, because positional initialisers depend on layout.
+  A bare `(void)name;` silencer is not a read: a declaration whose only other
+  mentions are silencers loses them first and then goes, so FieldFormula and
+  CustomFormula stop paying `sqrtf`/`atan2f` per pixel for an `r` or `angle`
+  the formula never names. Unread is judged per block as well as sketch-wide
+  (mentions from the declaration to its block's close), so two nodes' blocks
+  that each declare `r` are judged apart; a name any `#` line mentions falls
+  back to the sketch-wide count. Trap: a test fixture that "reads" a value
+  with `(void)v;` now reads nothing, and everything feeding `v` is pruned;
+  read it through a real effect (`Serial.println(v)`). The per-block count
+  also ends a quiet shield: a port output declared in both arms of an
+  `#if`/`#else` used to count twice and survive unread; it now goes, with the
+  reads feeding it (a fan's tach maths, a DFPlayer's BUSY pull-up). A test of
+  what an emitter writes for an unwired output uses `deferPruning`.
 - `foldConstants` (`cppSpecialize.ts`) removes what a value fixed at
   generation decides. A `bool` that nothing changes, or that is only ever
   stored the value it starts with, becomes its literal. A by-value integral or
@@ -338,7 +365,7 @@ sketch still carries only what the graph reaches.
   drift the way a positional protocol would. Keys are short and named rather
   than positional, and an unknown or absent key is ignored rather than rejected,
   so a device built before a key existed still parses. The firmware side holds
-  its state as plain statics and parameterless functions rather than a struct
+  its state as plain statics and functions taking at most an `int` rather than a struct
   specifically to avoid the `.ino` forward-declaration hoist trap documented
   above (`displayForwardDeclarations.test.ts`); `boardSupportsTelemetry` gates
   emission to `esp32*`/`esp8266` families because `Serial.printf` with a float

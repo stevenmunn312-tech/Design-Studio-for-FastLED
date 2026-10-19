@@ -3139,7 +3139,9 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     ], {}, { deferPruning })
     const cpp = build(false)
     expect(cpp).toContain(`/* FieldSymmetry: ${group} */`)
-    expect(cpp).toContain('W=WIDTH, H=HEIGHT')
+    // The formula reads W and x only: H, y and the per-pixel geometry go.
+    expect(cpp).toContain('float W=WIDTH;')
+    expect(cpp).not.toMatch(/\bH=HEIGHT|sqrtf\(cx|atan2f\(cy/)
     expect(cpp).toContain('float _v=x/(W-1)')
     expect(cpp).toContain(`_LatticeCell _cell=${finder}(`)
     expect(build(true)).toContain(`_foldWallpaper(_cell.x,_cell.y,${groupId},_foldX,_foldY)`)

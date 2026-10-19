@@ -30,6 +30,13 @@ interface DeviceTelemetryState {
   otherLines: number
   /** Bumped per accepted sample, so a component can subscribe cheaply. */
   version: number
+  /**
+   * The running sketch's timed-node labels, by the index a `top` report
+   * sends. Set when an upload succeeds and kept across runs, because a new
+   * run of the same firmware times the same nodes; empty until then.
+   */
+  nodeLabels: string[]
+  setNodeLabels: (labels: string[]) => void
   ingest: (chunk: string) => void
   reset: () => void
   report: (meta?: TelemetryReportMeta) => string | null
@@ -44,6 +51,9 @@ export const useDeviceTelemetryStore = create<DeviceTelemetryState>((set, get) =
   run: null,
   otherLines: 0,
   version: 0,
+  nodeLabels: [],
+
+  setNodeLabels: (labels: string[]) => set({ nodeLabels: labels }),
 
   /**
    * Feed raw serial text in, whole lines out.
@@ -96,6 +106,6 @@ export const useDeviceTelemetryStore = create<DeviceTelemetryState>((set, get) =
   report: (meta: TelemetryReportMeta = {}) => {
     const { run } = get()
     if (!run) return null
-    return formatTelemetryReport(run, meta)
+    return formatTelemetryReport(run, { nodeLabels: get().nodeLabels, ...meta })
   },
 }))
