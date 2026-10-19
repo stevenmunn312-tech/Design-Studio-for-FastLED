@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/displays/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/displays/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/displays/tftDisplayCpp'
@@ -1736,43 +1736,6 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { warnings } = validateGraph(nodes, edges)
       expect(warnings.some(w => w.includes('internal RAM'))).toBe(false)
-    })
-  })
-
-  describe('estimateLedRefreshTime', () => {
-    it('includes both VU rails and each physical controller in the wire-time bound', () => {
-      const nodes = [
-        node('pattern', 'SolidColor'),
-        node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B' }),
-        node('vu', 'StereoVuMeter', { ledCount: 20, leftDataPin: 5, rightDataPin: 6 }),
-      ]
-      const edges = [
-        edge('frame-out', 'pattern', 'out', 'frame'),
-        edge('audio-vu', 'audio', 'vu', 'audio'),
-      ]
-
-      expect(estimateLedRefreshTime(nodes, edges)).toEqual({
-        ledCount: 104,
-        controllerCount: 3,
-        estimatedMicros: 4020,
-        maxWireFps: 248,
-      })
-    })
-
-    it('estimates a standalone wired Stereo VU Meter and excludes an unwired one', () => {
-      const meter = node('vu', 'StereoVuMeter', { ledCount: 30 })
-      expect(estimateLedRefreshTime([meter], [edge('audio-vu', 'audio', 'vu', 'audio')])).toEqual({
-        ledCount: 60,
-        controllerCount: 2,
-        estimatedMicros: 2400,
-        maxWireFps: 416,
-      })
-      expect(estimateLedRefreshTime([meter], [])).toBeNull()
-    })
-
-    it('excludes HUB75 DMA refresh from the addressable-LED wire estimate', () => {
-      const panel = node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75' })
-      expect(estimateLedRefreshTime([panel], [])).toBeNull()
     })
   })
 

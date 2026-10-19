@@ -36,7 +36,7 @@ import {
   CUSTOM_BOARD_PROFILE_ID, customBoardIssueBlocksApply, type CustomBoardDefinition, type CustomBoardIssue,
 } from '../build/boards/customBoard'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from '../build/hardware'
-import { DEFAULT_BOARD_CONTROLLER_PROPERTIES } from '../build/controllerSettings'
+import { controllerSettings, DEFAULT_BOARD_CONTROLLER_PROPERTIES, FRAME_RATE } from '../build/controllerSettings'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -3935,6 +3935,28 @@ export function insertMapRangeOnEdge(edgeId: string, outMin: number, outMax: num
   } as StudioNode
   useGraphStore.getState().insertNodeOnEdge(node, edgeId, ports.inPort, ports.outPort)
   return true
+}
+
+/**
+ * Lower the Board's frame rate to one the LED wire can keep up with.
+ *
+ * The repair behind the wire-time card's "Lower to N fps". The Board lives in
+ * the root graph, so it writes there even while a group is open, in one undo
+ * step. It only ever lowers: when the Board is gone or already at or below
+ * the rate, it changes nothing and says so.
+ */
+export function setBoardFrameRate(frameRate: number): { ok: true; frameRate: number } | { ok: false; reason: string } {
+  const nodes = rootGraphNodes(useGraphStore.getState())
+  const board = nodes.find((node) => node.data.nodeType === 'Board')
+  const target = Math.max(FRAME_RATE.min, Math.min(FRAME_RATE.max, Math.round(frameRate)))
+  if (!board) return { ok: false, reason: 'There is no Board to set a frame rate on.' }
+  if (controllerSettings(nodes).frameRate <= target) {
+    return { ok: false, reason: 'The frame rate has already changed since this was reported.' }
+  }
+  useGraphStore.setState((s) => withRootNodes(s, rootGraphNodes(s).map((node) => node.id === board.id
+    ? { ...node, data: { ...node.data, properties: { ...node.data.properties, frameRate: target } } }
+    : node)))
+  return { ok: true, frameRate: target }
 }
 
 /** Move every active I2C part onto the board bus in one root-scoped undo step. */

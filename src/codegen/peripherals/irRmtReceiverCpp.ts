@@ -1,4 +1,15 @@
 import { IR_REMOTE_REPEAT_HOLD_MS } from '../../state/peripherals/irRemote'
+import type { BuildTargetFamily } from '../../build/buildProfile'
+
+/**
+ * RMT memory the capture channel takes, in 32-bit symbols: two 48-symbol RX
+ * blocks hold every supported (up to 48-bit) protocol. The wire-time estimate
+ * counts it where RX shares the LED outputs' TX pool (`src/utils/wireTime.ts`).
+ */
+export const IR_RMT_RX_SYMBOLS = 96
+
+/** Families whose IR receiver captures through RMT (the `#if` below). */
+export const IR_RMT_RX_FAMILIES: readonly BuildTargetFamily[] = ['esp32-s3']
 
 /**
  * ESP32-S3 capture adapter for the pinned IRremote decoder.
@@ -58,7 +69,7 @@ public:
     config.intr_priority = 3; // pinned FastLED RMT5 default
 #endif
     // Two 48-symbol RX blocks hold every supported (up to 48-bit) protocol.
-    config.mem_block_symbols = 96;
+    config.mem_block_symbols = ${IR_RMT_RX_SYMBOLS};
     ESP_ERROR_CHECK(rmt_new_rx_channel(&config, &channel));
     rmt_rx_event_callbacks_t callbacks = {};
     callbacks.on_recv_done = received;

@@ -12,6 +12,7 @@ import {
   moveI2cPartsToBoardPins,
   rootGraphNodes,
   ROOT_GRAPH_ID,
+  setBoardFrameRate,
   useGraphStore,
   type StudioEdge,
   type StudioNode,
@@ -226,5 +227,33 @@ describe('Disconnect Controls', () => {
     expect(card()).toBeUndefined()
     expect(disconnectTouchControls('panel-touch')).toBe(false)
     expect(useGraphStore.getState().edges.some((e) => e.id === 'ctl')).toBe(true)
+  })
+})
+
+describe('Lower the frame rate', () => {
+  const graph = () => [
+    node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1', frameRate: 60 }),
+    node('pattern', 'SolidColor'),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 32, height: 32, chipset: 'WS2812B' }),
+  ]
+
+  it('sets the Board to the rate the wire reaches, from a group, and refuses a second time', () => {
+    useGraphStore.getState().loadGraph(graph(), [edge('feed', 'pattern', 'frame', 'out', 'frame')])
+    const card = diagnostics().find((d) => d.repair?.kind === 'set-frame-rate')
+    expect(card?.repair).toEqual({ kind: 'set-frame-rate', frameRate: 32 })
+    const root = useGraphStore.getState()
+    useGraphStore.setState({
+      activeGraphId: 'pattern', nodes: [], edges: [],
+      graphData: { [ROOT_GRAPH_ID]: { nodes: root.nodes, edges: root.edges } },
+    })
+    expect(setBoardFrameRate(32)).toEqual({ ok: true, frameRate: 32 })
+    expect(rootGraphNodes(useGraphStore.getState()).find((n) => n.id === 'board-root')?.data.properties.frameRate).toBe(32)
+    expect(setBoardFrameRate(32)).toMatchObject({ ok: false, reason: expect.stringContaining('already') })
+  })
+
+  it('clears its own card', () => {
+    useGraphStore.getState().loadGraph(graph(), [edge('feed', 'pattern', 'frame', 'out', 'frame')])
+    expect(setBoardFrameRate(32).ok).toBe(true)
+    expect(diagnostics().some((d) => d.repair?.kind === 'set-frame-rate')).toBe(false)
   })
 })

@@ -147,3 +147,40 @@ describe('HardwareReadiness — the capacity chip', () => {
     expect(queryByText(/^Fits$/)).toBeNull()
   })
 })
+
+describe('HardwareReadiness — the frame chip', () => {
+  const nodeOf = (id: string, nodeType: string, properties: Record<string, unknown>) => ({
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: id, nodeType, category: 'output', properties, inputs: [], outputs: [] },
+  })
+  const withPanel = (width: number, height: number) => {
+    setGraph()
+    useGraphStore.setState({
+      nodes: [
+        nodeOf('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1', frameRate: 60 }),
+        nodeOf('matrix', 'MatrixOutput', { form: 'matrix', width, height, chipset: 'WS2812B', dataPin: 5 }),
+      ] as never[],
+    })
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', openConsole: vi.fn() })
+    useCapacityStore.getState().clear()
+  })
+
+  it('shows the Board rate when the wire keeps up', () => {
+    withPanel(16, 16)
+    const { getByLabelText } = render(<HardwareReadiness />)
+    expect(getByLabelText('Frame rate: 60 fps').getAttribute('data-level')).toBe('ok')
+  })
+
+  it('names the reachable rate as advice when the wire cannot keep up', () => {
+    withPanel(32, 32)
+    const { getByLabelText } = render(<HardwareReadiness />)
+    const chip = getByLabelText('Frame rate: 32 fps')
+    expect(chip.getAttribute('data-level')).toBe('warn')
+    expect(chip.textContent).toContain('wire-bound')
+    expect(chip.getAttribute('title')).toContain('ESP32-S3')
+  })
+})

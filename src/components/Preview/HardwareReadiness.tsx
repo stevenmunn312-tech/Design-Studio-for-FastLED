@@ -8,10 +8,10 @@ import { useElapsedSeconds } from '../../hooks/useElapsedSeconds'
 import {
   estimatePowerLoad,
   estimateFirmwareRam,
-  estimateLedRefreshTime,
   findPinConflicts,
   findExactBoardPinIssues,
 } from '../../utils/validateGraph'
+import { estimateWireTime } from '../../utils/wireTime'
 import styles from './HardwareReadiness.module.css'
 
 /**
@@ -52,7 +52,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments), [nodes, edges, displayDocuments])
-  const refresh = useMemo(() => estimateLedRefreshTime(nodes, edges), [nodes, edges])
+  const wire = useMemo(() => estimateWireTime(nodes, edges), [nodes, edges])
   const pinTrouble = useMemo(() => {
     const conflicts = findPinConflicts(nodes, edges, selectedFqbn)
     const exact = findExactBoardPinIssues(nodes)
@@ -75,7 +75,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   // A cap is the answer to a large fixture, not a problem with it.
   const powerLevel = 'ok'
   const internalKb = ram ? Math.round(ram.internalBytes / 1024) : null
-  const refreshMs = refresh ? refresh.estimatedMicros / 1000 : null
+  const wireMs = wire ? wire.estimatedMicros / 1000 : null
 
   const pinLevel = pinTrouble.errors > 0 ? 'bad' : pinTrouble.warnings > 0 ? 'warn' : 'ok'
   const pinText = pinTrouble.errors > 0
@@ -152,17 +152,28 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
         </span>
       )}
 
-      <span className={styles.item} data-level={pinLevel} title={refresh
-        ? `Pin conflicts and board reachability. Conservative synchronized addressable-LED wire time: ${refreshMs!.toFixed(2)} ms (${refresh.ledCount} LEDs across ${refresh.controllerCount} controllers; rendering and audio work are additional).`
-        : 'Pin conflicts, and pins the chosen board cannot reach'}>
+      <span className={styles.item} data-level={pinLevel} title="Pin conflicts, and pins the chosen board cannot reach">
         <em className={styles.label}>Pins</em>
         <strong>{pinText}</strong>
-        {internalKb !== null && (
-          <span className={styles.note}>
-            {internalKb} KB RAM{refreshMs !== null ? ` · ${refreshMs.toFixed(1)} ms wire` : ''}
-          </span>
-        )}
+        {internalKb !== null && <span className={styles.note}>{internalKb} KB RAM</span>}
       </span>
+
+      {/* The frame rate the wire allows on this board. Advice colour, never
+        * red: a wire-bound graph still runs, just slower than the Board asks,
+        * and Graph Health offers the fix. */}
+      {wire && wireMs !== null && (
+        <span className={styles.item} data-level={wire.wireBound ? 'warn' : 'ok'} aria-label={`Frame rate: ${wire.reachableFps} fps`} title={
+          `Sending ${wire.ledCount} LEDs on ${wire.controllerCount} ${wire.controllerCount === 1 ? 'output' : 'outputs'} takes about ${wireMs.toFixed(1)} ms on the ${wire.facts.chip}`
+          + ` (${wire.concurrency <= 1 || wire.controllerCount === 1 ? 'one at a time' : `${Math.min(wire.concurrency, wire.controllerCount)} at once`}${wire.networkActive && wire.rmt ? ', with the network up' : ''}).`
+          + (wire.wireBound
+            ? ` That allows about ${wire.reachableFps} fps of the Board's ${wire.frameRate}; Graph Health offers the fix.`
+            : ` The Board's ${wire.frameRate} fps fits; rendering and audio work come on top.`)
+        }>
+          <em className={styles.label}>Frame</em>
+          <strong>{wire.reachableFps} fps</strong>
+          <span className={styles.note}>{wire.wireBound ? 'wire-bound' : `${wireMs.toFixed(1)} ms wire`}</span>
+        </span>
+      )}
     </div>
   )
 }

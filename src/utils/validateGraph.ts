@@ -73,6 +73,7 @@ import { recommendedSupplyCurrentMa } from '../build/power/powerSupplySizing'
 import { pinWarningForCapability } from '../build/boards/boardGpio'
 import { micSupportedForBoard, micUnsupportedMessage } from '../build/pins/micPinDefaults'
 import { controllerSettings } from '../build/controllerSettings'
+import { estimateWireTime, wireTimeAdvice } from './wireTime'
 import { isHardwareManagedSignalNodeType } from '../build/hardware'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../build/pins/pinRetarget'
 import { partOptionsFor, resolvePartIdentity } from '../build/parts/partOptions'
@@ -508,17 +509,6 @@ export interface FirmwareRamBudgetIssue {
   message: string
 }
 
-export interface LedRefreshEstimate {
-  /** Addressable pixels sent by the synchronized FastLED refresh. */
-  ledCount: number
-  /** Independent data controllers participating in that refresh. */
-  controllerCount: number
-  /** Conservative serialized wire-time upper bound. */
-  estimatedMicros: number
-  /** Wire-only ceiling before rendering/audio work is included. */
-  maxWireFps: number
-}
-
 const OUTPUT_DATATYPES_BY_NODE_TYPE = new Map(
   NODE_LIBRARY.map((def) => [def.type, new Set(def.outputs.map((o) => o.dataType))])
 )
@@ -656,34 +646,6 @@ function emittedStereoVuMeters(nodes: StudioNode[], edges: readonly StudioEdge[]
   return nodes.filter((node) =>
     node.data.nodeType === 'StereoVuMeter'
     && edges.some((edge) => edge.target === node.id && edge.targetHandle === 'audio'))
-}
-
-/**
- * Conservative FastLED wire-time estimate. Clockless LEDs take about 30 µs
- * per RGB pixel plus a short reset/latch interval per controller. FastLED can
- * parallelize some controllers on some MCUs, so this intentionally reports a
- * portable serialized upper bound rather than promising a board-specific FPS.
- * HUB75 is continuously refreshed by DMA and is excluded from this wire time.
- */
-export function estimateLedRefreshTime(nodes: StudioNode[], edges: StudioEdge[]): LedRefreshEstimate | null {
-  const addressableOutputs = leadingOutputRoutes(nodes, edges).filter((route) =>
-    outputForm(route.node.data.properties as Record<string, unknown>) !== 'hub75')
-  const meters = emittedStereoVuMeters(nodes, edges)
-  const outputLeds = addressableOutputs.reduce((sum, route) => sum + outputLedCount(route.node), 0)
-  const vuLeds = meters.reduce((sum, meter) => {
-    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
-    return sum + Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2
-  }, 0)
-  const ledCount = outputLeds + vuLeds
-  const controllerCount = addressableOutputs.length + meters.length * 2
-  if (ledCount === 0 || controllerCount === 0) return null
-  const estimatedMicros = ledCount * 30 + controllerCount * 300
-  return {
-    ledCount,
-    controllerCount,
-    estimatedMicros,
-    maxWireFps: Math.floor(1_000_000 / estimatedMicros),
-  }
 }
 
 /**
@@ -1684,6 +1646,7 @@ export type GraphDiagnosticAction =
   | 'route-controls-to-engine'
   | 'disconnect-touch-controls'
   | 'open-start-gallery'
+  | 'lower-frame-rate'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1714,6 +1677,14 @@ export type GraphRepair =
   /** A Touch node whose Controls wire carries nothing, because its screen
    *  design has no template-placed controls left to put on it. */
   | { kind: 'disconnect-touch-controls'; touchId: string }
+  /** The Board frame rate the wire can keep up with. */
+  | { kind: 'set-frame-rate'; frameRate: number }
+
+/** One button on a card: what it names, and the repair it performs. */
+export interface GraphDiagnosticFix {
+  action: GraphDiagnosticAction
+  repair?: GraphRepair
+}
 
 export interface GraphDiagnostic {
   id: string
@@ -1738,6 +1709,9 @@ export interface GraphDiagnostic {
   action?: GraphDiagnosticAction
   /** Present only on diagnostics whose action performs a repair. */
   repair?: GraphRepair
+  /** Further fixes after `action`, each its own button, for advice that has
+   *  more than one way out (the wire-time card, `wireTimeAdvice`). */
+  moreFixes?: GraphDiagnosticFix[]
 }
 
 export interface GraphDiagnosticOptions {
@@ -3920,6 +3894,9 @@ export function buildGraphDiagnostics(
       action: 'open-board-settings',
     })
   }
+
+  // Hardware facts live in the root graph, which is what `matrix` checks.
+  if (target === 'matrix') diagnostics.push(...wireTimeAdvice(estimateWireTime(nodes, edges)))
 
   const ram = estimateFirmwareRam(nodes, edges, options.displayDocuments)
   const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, options.displayDocuments)

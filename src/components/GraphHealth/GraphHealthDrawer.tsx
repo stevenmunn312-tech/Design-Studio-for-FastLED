@@ -11,6 +11,7 @@ import {
   disconnectTouchControls,
   ensureRootAudioNode,
   placeTouchControl,
+  setBoardFrameRate,
   ROOT_GRAPH_ID,
   useGraphStore,
   useRootNodes,
@@ -22,6 +23,7 @@ import {
   type GraphDiagnostic,
   type GraphDiagnosticAction,
   type GraphDiagnosticCategory,
+  type GraphDiagnosticFix,
   type GraphDiagnosticSeverity,
 } from '../../utils/validateGraph'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
@@ -41,7 +43,8 @@ const CATEGORY_LABELS: Record<GraphDiagnosticCategory, string> = {
   show: 'Show',
 }
 
-function actionLabel(action: GraphDiagnosticAction): string {
+function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosticFix>): string {
+  if (fix?.repair?.kind === 'set-frame-rate') return `Lower to ${fix.repair.frameRate} fps`
   if (action === 'choose-board') return 'Choose board'
   // Named rather than a bare "Fix", so the button says what will appear on the
   // canvas before it appears there.
@@ -115,7 +118,13 @@ export default function GraphHealthDrawer() {
     setStatus('Screen design opened', 'info')
   }
 
-  const runAction = (issue: GraphDiagnostic) => {
+  // Takes the card's lead fix or one of its `moreFixes` alike.
+  const runAction = (issue: Partial<GraphDiagnosticFix>) => {
+    if (issue.repair?.kind === 'set-frame-rate') {
+      const result = setBoardFrameRate(issue.repair.frameRate)
+      setStatus(result.ok ? `Board frame rate lowered to ${result.frameRate} fps` : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
     if (issue.repair?.kind === 'move-i2c-pins') {
       const result = moveI2cPartsToBoardPins()
       setStatus(result.ok ? `I2C hardware moved to SDA ${result.pins.sdaPin} and SCL ${result.pins.sclPin}` : result.reason,
@@ -311,7 +320,10 @@ export default function GraphHealthDrawer() {
                       Open screen design
                     </button>
                   )}
-                  {issue.action && <button type="button" title={issue.action === 'move-i2c-pins' ? 'Move I2c items onto SDA and SCL pins.' : undefined} onClick={() => runAction(issue)}>{actionLabel(issue.action)}</button>}
+                  {issue.action && <button type="button" title={issue.action === 'move-i2c-pins' ? 'Move I2c items onto SDA and SCL pins.' : undefined} onClick={() => runAction(issue)}>{actionLabel(issue.action, issue)}</button>}
+                  {issue.moreFixes?.map((fix, index) => (
+                    <button key={`${fix.action}-${index}`} type="button" onClick={() => runAction(fix)}>{actionLabel(fix.action, fix)}</button>
+                  ))}
                 </div>
               </article>
             ))}
