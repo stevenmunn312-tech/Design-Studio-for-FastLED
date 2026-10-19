@@ -31,6 +31,7 @@ const BLOCKED_KEYS = new Set([
   'correction',
   'customXYMap',
   'dataPin',
+  'dataRateMhz',
   'dither',
   'font',
   'globalCode',

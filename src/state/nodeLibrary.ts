@@ -22,6 +22,7 @@ import { SHIM_NAMES } from '../nodes/shared/fastledShims'
 import { MIC_MAX_GAIN, MIC_MAX_NOISE_GATE } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boardGpio'
+import { CLOCKED_DATA_RATES_MHZ, dataRateOptionsMhz } from '../build/ledDrivers'
 import { EASE_TYPES } from '../nodes/math/easing'
 import { WAVE_RATE_UNITS } from '../nodes/signal/wave'
 import { DATE_TIME_TEXT_MODES } from './displays/displayText'
@@ -386,7 +387,8 @@ export const WHITE_POINT_OPTIONS = [
  * other reader still treats it as the same bounded range.
  */
 export type PropertyControl =
-  | { control: 'select'; options: readonly string[] }
+  // `numeric` stores the chosen option as a number rather than its text.
+  | { control: 'select'; options: readonly string[]; numeric?: true }
   | { control: 'slider'; min: number; max: number; step: number; entry?: 'number' }
 
 export const PROPERTY_META: Record<string, PropertyControl> = {
@@ -761,6 +763,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     outputBrightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
     dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     clockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    // Every rate any clocked chipset offers; `propertyOptions` narrows it to
+    // the chosen chipset's own list (src/build/ledDrivers.ts).
+    dataRateMhz: {
+      control: 'select',
+      numeric: true,
+      options: [...new Set(Object.values(CLOCKED_DATA_RATES_MHZ).flat())].sort((a, b) => a - b).map(String),
+    },
     ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
     // A full turn either way, so a ring can be rotated to wherever its data-in
     // pad physically ended up without reaching for a negative number.
@@ -1586,6 +1595,9 @@ export function propertyOptions(
   if (meta?.control !== 'select') return []
   if (nodeType === 'PowerMonitorInput' && key === 'i2cAddress') {
     return powerMonitorAddressOptions(properties.partId)
+  }
+  if (nodeType === 'MatrixOutput' && key === 'dataRateMhz') {
+    return dataRateOptionsMhz(String(properties.chipset ?? 'WS2812B')).map(String)
   }
   if (nodeType === 'Truchet' && key === 'motif') {
     return properties.lattice === 'hex'
@@ -2968,6 +2980,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     height: 'LEDs down the matrix.',
     serpentine: 'On for panels whose rows zig-zag (most flexible panels). Off if every row runs the same way.',
     dataPin: 'The GPIO wired to the strip\'s data-in.',
+    dataRateMhz: 'Clocked chipsets only: the SPI clock in MHz, offering only rates this chipset supports. The default is FastLED\'s own (APA102 6, HD108 25, WS2801 1). Faster sends each frame sooner, but long APA102 runs lose data at high clock rates, so raise it a step at a time and back off if the far end glitches.',
     tilesX: 'How many panels sit side by side across the matrix.',
     tilesY: 'How many panels are stacked down the matrix.',
     tileSerpentine: 'On if the chain of panels zig-zags row to row instead of restarting at the left.',
@@ -3539,6 +3552,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     outputBrightness: 'brightness',
     dataLink: 'data link',
     colorOrder: 'color order',
+    dataRateMhz: 'data rate (MHz)',
     ledCount: 'LED count',
     ringStartAngle: 'start angle (°)',
     ringDirection: 'direction',
@@ -3914,7 +3928,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'corkscrewTurns', 'corkscrewStartAngle', 'corkscrewDirection',
       'corkscrewDiameterMm', 'corkscrewHeightMm',
     ] },
-    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'dataLink', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
+    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'dataLink', 'colorOrder', 'dataPin', 'clockPin', 'dataRateMhz', 'serpentine'] },
     { key: 'hub75', label: 'HUB75 Wiring', keys: [
       'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
       'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75WideScan', 'hub75EPin',
@@ -4994,8 +5008,8 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'dataLink') return (!hub75 && !spi) || String(properties.dataLink ?? DIRECT_PIXEL_DATA_LINK) !== DIRECT_PIXEL_DATA_LINK
     // Serpentine zig-zags alternate *rows*, which a one-row form does not have.
     if (key === 'serpentine') return !hub75 && !linear
-    // The clock pin only exists on SPI chipsets.
-    if (key === 'clockPin') return spi
+    // The clock pin and its rate only exist on SPI chipsets.
+    if (key === 'clockPin' || key === 'dataRateMhz') return spi
     if (key.startsWith('hub75')) {
       if (key === 'hub75EPin') return hub75 && properties.hub75WideScan === true
       return hub75

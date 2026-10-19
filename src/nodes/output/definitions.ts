@@ -138,6 +138,11 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       // Clock pin for SPI (clocked) chipsets — APA102/APA102HD/WS2801/HD108.
       // Ignored (editor disabled) for clockless chipsets.
       clockPin: 6,
+      // The clocked chipsets' SPI clock in MHz, one of the chipset's
+      // CLOCKED_DATA_RATES_MHZ (src/build/ledDrivers.ts). 0, or any rate the
+      // chipset does not offer, means FastLED's own default for it, which is
+      // what an output saved before the setting existed keeps sending at.
+      dataRateMhz: 0,
       // On by default, because the matrix people actually buy is serpentine —
       // the cheap flexible WS2812B panels almost all zig-zag alternate rows, so
       // defaulting off meant the common case shipped mirrored every other row

@@ -104,7 +104,7 @@ it lands.
     need more RMT memory than the chip has with Wi-Fi or Ethernet up, counting
     the IR receiver's share, because FastLED then shares fewer channels and
     the outputs send in turn.
-  - [ ] **5. Set the data rate of clocked chipsets.** APA102, APA102HD, HD108
+  - [x] **5. Set the data rate of clocked chipsets.** APA102, APA102HD, HD108
     and WS2801 outputs always send at FastLED's default clock. Add a data-rate
     setting to the LED output for those chipsets, emitted as the `addLeds`
     data-rate argument from `fastledSetupCpp`

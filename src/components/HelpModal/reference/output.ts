@@ -32,7 +32,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   MatrixOutput: {
     overview: [
       'The LED output is where a graph becomes light. Its form — a string, a matrix, a ring, a corkscrew, or a HUB75 panel — is chosen on the bench, and the node retitles itself to match: LED String, LED Matrix, LED Ring.',
-      'It holds everything about the physical LEDs: chipset, colour order, data pin, size and layout (serpentine rows, tiled panels, custom maps, positioned strings), colour correction, white point and dithering. Its frame is what the preview shows and what the sketch sends.',
+      'It holds everything about the physical LEDs: chipset, colour order, data pin (and clock pin and data rate for APA102, HD108 and WS2801), size and layout (serpentine rows, tiled panels, custom maps, positioned strings), colour correction, white point and dithering. Its frame is what the preview shows and what the sketch sends.',
       'It also takes live controls: Enabled for a blackout, Brightness as its own dimmer on top of the Board’s master level, and a Controls bundle or step buttons from a panel or remote. Its Display output reports its state to a screen.',
     ],
     steps: [

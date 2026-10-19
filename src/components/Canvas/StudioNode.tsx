@@ -85,6 +85,7 @@ import { touchControlDriver, touchControlPlan, writeTouchControlValue } from '..
 import PropertyInputMenu from './PropertyInputMenu'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../nodes/shared/signalRange'
+import { effectiveDataRateMhz } from '../../build/ledDrivers'
 
 const MusicLibraryNodeBody = lazy(() => import('./bodies/MusicLibraryNodeBody'))
 const PerformanceGeneratorBody = lazy(() => import('./bodies/PerformanceGeneratorBody'))
@@ -713,7 +714,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
             ? live
             : nodeType === 'Truchet' && key === 'motif' && !selectOptions.includes(String(val))
               ? selectOptions[0] ?? String(val)
-              : String(val)
+              // 0 or a rate this chipset does not offer sends at FastLED's default.
+              : nodeType === 'MatrixOutput' && key === 'dataRateMhz'
+                ? String(effectiveDataRateMhz(String(props.chipset ?? 'WS2812B'), val) ?? val)
+                : String(val)
         const connectionHint = propertyInput
           ? connectionTargetHint(nodeType, propertyInput, connectionDrag, { properties: props, driven: wired })
           : null
@@ -754,7 +758,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 value={selectValue}
                 aria-label={`${controlLabel} value`}
                 onWheelCapture={stopWheelWhileFocused}
-                onChange={(e) => writeValue(e.target.value)}
+                onChange={(e) => writeValue(meta.numeric ? Number(e.target.value) : e.target.value)}
               >
                 {selectOptions.map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>

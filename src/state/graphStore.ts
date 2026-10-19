@@ -29,6 +29,7 @@ import { useUiStore, visibleLiveTouchScreen } from './uiStore'
 import { validateMatrixLayout } from './output/xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './output/ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
+import { dataRateAfterChipsetChange } from '../build/ledDrivers'
 import { boardProfileById, resolveBoardSelection, selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { profileI2cDefault } from '../build/boards/boardI2cDefaults'
 import {
@@ -4180,6 +4181,13 @@ function editNodePropertyAndSyncVu(
     }
     if (target?.data.nodeType === 'StereoVuMeter' && ledCountWasEdited) {
       properties[VU_LED_COUNT_CUSTOM_KEY] = true
+    }
+    // A data rate belongs to its chipset: one the new chipset does not offer,
+    // or the old chipset's default, returns to the new chipset's default.
+    if (target?.data.nodeType === 'MatrixOutput' && Object.prototype.hasOwnProperty.call(updates, 'chipset')
+      && !Object.prototype.hasOwnProperty.call(updates, 'dataRateMhz') && current.dataRateMhz !== undefined) {
+      properties.dataRateMhz = dataRateAfterChipsetChange(
+        String(current.chipset ?? 'WS2812B'), String(properties.chipset ?? 'WS2812B'), current.dataRateMhz)
     }
     if (target?.data.nodeType === 'Math' && Object.prototype.hasOwnProperty.call(updates, 'mathOp')) {
       return retargetMathOperands(current, properties)

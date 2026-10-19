@@ -9,6 +9,7 @@ import {
 import { outputForm } from '../../state/output/ledOutputForm'
 import { DEFAULT_CONTROLLER_SETTINGS } from '../../build/controllerSettings'
 import { sanitizePin } from '../hardwarePins'
+import { defaultDataRateMhz, effectiveDataRateMhz } from '../../build/ledDrivers'
 
 // PSRAM buffer placement (ESP32 family only). When the MatrixOutput node's
 // "Use PSRAM" toggle is on, the per-node render buffers — the dominant static
@@ -65,6 +66,8 @@ export interface LedHardware {
   dither: boolean      // false → setDither(DISABLE_DITHER)
   overclock: number    // 1 = stock; >1 → #define FASTLED_OVERCLOCK (clockless only)
   clockPin: number     // SPI chipsets only
+  /** SPI chipsets only: a rate from CLOCKED_DATA_RATES_MHZ, or null for FastLED's default. */
+  dataRateMhz: number | null
 }
 
 /** Resolve + sanitise a MatrixOutput node's LED hardware properties. Enum-ish
@@ -80,11 +83,16 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
     const n = Number(v)
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
   }
+  const hub75 = outputForm(p) === 'hub75'
+  const chipset = hub75 ? HUB75_CHIPSET : pick(p.chipset, CHIPSET_OPTIONS, 'WS2812B')
+  // Only a rate the chipset offers ever reaches the template argument, and
+  // FastLED's own default is left to FastLED so default sketches stay as they were.
+  const rate = effectiveDataRateMhz(chipset, p.dataRateMhz)
   return {
     // The form is what makes an output a scan panel; the chipset property is
     // only ever consulted for the addressable forms, so a HUB75 panel can never
     // be flashed as WS2812B because a stale chipset string disagreed with it.
-    chipset:    outputForm(p) === 'hub75' ? HUB75_CHIPSET : pick(p.chipset, CHIPSET_OPTIONS, 'WS2812B'),
+    chipset,
     colorOrder: pick(p.colorOrder, COLOR_ORDER_OPTIONS, 'GRB'),
     brightness: Math.round(num(p.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255)),
     correction: pick(p.correction, CORRECTION_OPTIONS, 'none'),
@@ -92,6 +100,7 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
     dither:     p.dither !== false,
     overclock:  num(p.overclock, 1, 1, 2),
     clockPin:   sanitizePin(p.clockPin, 6),
+    dataRateMhz: rate === null || rate === defaultDataRateMhz(chipset) ? null : rate,
   }
 }
 
@@ -107,7 +116,8 @@ export function overclockDefineCpp(hw: LedHardware): string[] {
 }
 
 /** setup() lines initialising the strip: addLeds (SPI chipsets get the clock
- *  pin, SK6812-RGBW gets `.setRgbw()`), brightness, correction, dithering.
+ *  pin and any non-default data rate, SK6812-RGBW gets `.setRgbw()`),
+ *  brightness, correction, dithering.
  *  Pass `brightness: null` to skip the setBrightness line (the music-sync
  *  player drives brightness from show events instead). */
 export function fastledSetupCpp(
@@ -124,7 +134,10 @@ export function fastledSetupCpp(
   const rgbw = hw.chipset === 'SK6812-RGBW' ? '.setRgbw(RgbwDefault())' : ''
   const pins = SPI_CHIPSETS.has(hw.chipset) ? `${data}, ${clock}` : data
   // FastLED's NEOPIXEL alias hardcodes GRB and takes no order template arg.
-  const args = chip === 'NEOPIXEL' ? `${pins}` : `${pins}, ${hw.colorOrder}`
+  // A clocked chipset's data rate follows the colour order; it is emitted only
+  // when it differs from FastLED's default, which the template already holds.
+  const rate = SPI_CHIPSETS.has(hw.chipset) && hw.dataRateMhz !== null ? `, DATA_RATE_MHZ(${hw.dataRateMhz})` : ''
+  const args = chip === 'NEOPIXEL' ? `${pins}` : `${pins}, ${hw.colorOrder}${rate}`
   const add = `FastLED.addLeds<${chip}, ${args}>(${ledsName}, ${count})${rgbw}`
   const lines = [opts.controllerName ? `  CLEDController& ${opts.controllerName} = ${add};` : `  ${add};`]
   const brightness = opts.brightness === undefined ? hw.brightness : opts.brightness

@@ -580,7 +580,8 @@ The physical form cannot be changed from the signal node. The workbench creates
 the object the user owns. Responsibilities are split as follows:
 
 - the workbench inspector owns GPIO assignments and module identity;
-- the graph node owns size/count, chipset and colour order where applicable,
+- the graph node owns size/count, chipset, colour order and a clocked
+  chipset's data rate where applicable,
   frame fit/crop route, matrix/panel/custom mapping, correction, dithering, and
   supersampling; and
 - the Board owns brightness, power, overclock, and memory policy.

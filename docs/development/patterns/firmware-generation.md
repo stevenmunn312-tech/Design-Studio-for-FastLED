@@ -271,6 +271,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   graph emits identical blocks (settings from `networkSourceIn`), which is what
   lets that dedupe leave exactly one bootstrap.
 
+- A clocked chipset's data rate reaches C++ only as `DATA_RATE_MHZ(n)` after
+  the colour order in `fastledSetupCpp`'s `addLeds`, and only when `n` is in
+  the chipset's `CLOCKED_DATA_RATES_MHZ` list and differs from FastLED's
+  default; `ledHardwareFromProps` turns anything else into `null`, which emits
+  nothing. Keep the rates whole MHz: on software-SPI platforms the macro is
+  `CPU MHz / n` in integer arithmetic, a divider rather than a frequency.
+
 ## Dead-code pruning
 
 All three generators finish through `finishCpp` (`src/codegen/cppCleanup.ts`)

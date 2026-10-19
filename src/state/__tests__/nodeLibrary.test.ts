@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty } from '../nodeLibrary'
 import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
 import { EASE_TYPES } from '../../nodes/math/easing'
@@ -866,6 +866,16 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('MatrixOutput', 'clockPin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     expect(propertyMeta('MatrixOutput', 'hub75R1Pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     expect(propertyMeta('MatrixOutput', 'hub75ColorDepthBits')).toEqual({ control: 'slider', min: 1, max: 8, step: 1 })
+  })
+
+  it('offers a data rate only on clocked chipsets, from that chipset\'s list', () => {
+    expect(isPropertyEnabled('MatrixOutput', 'dataRateMhz', { form: 'strip', chipset: 'APA102' })).toBe(true)
+    expect(isPropertyEnabled('MatrixOutput', 'dataRateMhz', { form: 'strip', chipset: 'WS2812B' })).toBe(false)
+    expect(isPropertyEnabled('MatrixOutput', 'dataRateMhz', { form: 'hub75', chipset: 'HD108' })).toBe(false)
+    expect(propertyOptions('MatrixOutput', 'dataRateMhz', { chipset: 'HD108' })).toEqual(['6', '8', '10', '12', '16', '20', '25', '30', '40'])
+    expect(propertyOptions('MatrixOutput', 'dataRateMhz', { chipset: 'WS2812B' })).toEqual([])
+    expect(propertyMeta('MatrixOutput', 'dataRateMhz')).toMatchObject({ control: 'select', numeric: true })
+    expect(propertyDescription('MatrixOutput', 'dataRateMhz')).toMatch(/long APA102 runs lose data/)
   })
 
   it('gates MatrixOutput HUB75 wiring to the HUB75 chipset', () => {

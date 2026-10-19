@@ -672,6 +672,22 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('FASTLED_OVERCLOCK')
   })
 
+  it('passes a clocked chipset\'s non-default data rate to addLeds', () => {
+    const fast = node('out', 'MatrixOutput', 'output', { chipset: 'APA102', colorOrder: 'BGR', dataRateMhz: 12 })
+    expect(generateCpp([fast], [])).toContain('FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR, DATA_RATE_MHZ(12)>(leds, NUM_LEDS);')
+    // FastLED's own default, 0, and a rate APA102 does not offer leave the template alone.
+    for (const dataRateMhz of [6, 0, 40, 'DATA_RATE_MHZ(99)']) {
+      const out = node('out', 'MatrixOutput', 'output', { chipset: 'APA102', colorOrder: 'BGR', dataRateMhz })
+      const cpp = generateCpp([out], [])
+      expect(cpp).toContain('FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);')
+      expect(cpp).not.toContain('DATA_RATE_MHZ')
+    }
+    const hd108 = node('out', 'MatrixOutput', 'output', { chipset: 'HD108', colorOrder: 'RGB', dataRateMhz: 40 })
+    expect(generateCpp([hd108], [])).toContain('FastLED.addLeds<HD108, DATA_PIN, CLOCK_PIN, RGB, DATA_RATE_MHZ(40)>')
+    const clockless = node('out', 'MatrixOutput', 'output', { chipset: 'WS2812B', dataRateMhz: 12 })
+    expect(generateCpp([clockless], [])).not.toContain('DATA_RATE_MHZ')
+  })
+
   it('maps SK6812-RGBW to SK6812 with an Rgbw mode', () => {
     const out = node('out', 'MatrixOutput', 'output', { chipset: 'SK6812-RGBW' })
     const cpp = generateCpp([out], [])

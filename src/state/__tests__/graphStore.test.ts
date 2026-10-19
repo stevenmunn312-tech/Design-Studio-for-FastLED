@@ -1078,6 +1078,22 @@ describe('graphStore — Math operation change', () => {
   })
 })
 
+describe('graphStore — LED output chipset change', () => {
+  beforeEach(() => reset())
+
+  it('returns a data rate the new chipset cannot use to its default', () => {
+    reset([node('out', 'MatrixOutput', { chipset: 'HD108', dataRateMhz: 40 })])
+    useGraphStore.getState().updateNodeProperty('out', 'chipset', 'APA102')
+    expect(useGraphStore.getState().nodes[0].data.properties.dataRateMhz).toBe(0)
+  })
+
+  it('keeps a chosen rate the new chipset also offers', () => {
+    reset([node('out', 'MatrixOutput', { chipset: 'APA102', dataRateMhz: 12 })])
+    useGraphStore.getState().updateNodeProperty('out', 'chipset', 'APA102HD')
+    expect(useGraphStore.getState().nodes[0].data.properties.dataRateMhz).toBe(12)
+  })
+})
+
 describe('graphStore — Stereo VU sizing', () => {
   beforeEach(() => reset())
 

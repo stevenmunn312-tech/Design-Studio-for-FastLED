@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { CHIPSET_WIRE, chipsetSendMicros, ledDriverFacts, rmtOutputsThatFit } from '../ledDrivers'
-import { ADDRESSABLE_CHIPSET_OPTIONS } from '../../state/nodeLibrary'
+import {
+  CHIPSET_WIRE, CLOCKED_DATA_RATES_MHZ, chipsetSendMicros, clockedRateFix, dataRateAfterChipsetChange,
+  dataRateOptionsMhz, defaultDataRateMhz, effectiveDataRateMhz, ledDriverFacts, rmtOutputsThatFit,
+} from '../ledDrivers'
+import { ADDRESSABLE_CHIPSET_OPTIONS, SPI_CHIPSETS } from '../../state/nodeLibrary'
 import type { BuildTargetFamily } from '../buildProfile'
 
 describe('LED driver facts', () => {
@@ -63,5 +66,52 @@ describe('chipset wire time', () => {
     expect(chipsetSendMicros('APA102', 100, 12_000_000)).toBeCloseTo((3200 + 32 + 50) / 12, 5)
     expect(chipsetSendMicros('WS2801', 100)).toBeCloseTo(2400, 5)
     expect(chipsetSendMicros('HD108', 100)).toBeCloseTo((6400 + 128) / 25, 5)
+  })
+})
+
+describe('clocked data rates', () => {
+  it('offers every clocked chipset a whole-MHz list holding FastLED\'s default', () => {
+    expect(Object.keys(CLOCKED_DATA_RATES_MHZ).sort()).toEqual([...SPI_CHIPSETS].sort())
+    for (const chipset of SPI_CHIPSETS) {
+      const rates = dataRateOptionsMhz(chipset)
+      expect(rates).toContain(defaultDataRateMhz(chipset))
+      expect([...rates].sort((a, b) => a - b)).toEqual(rates)
+      for (const rate of rates) expect(Number.isInteger(rate)).toBe(true)
+    }
+    expect(defaultDataRateMhz('APA102')).toBe(6)
+    expect(defaultDataRateMhz('HD108')).toBe(25)
+    expect(defaultDataRateMhz('WS2801')).toBe(1)
+    expect(Math.max(...dataRateOptionsMhz('APA102'))).toBe(24)
+    expect(Math.max(...dataRateOptionsMhz('HD108'))).toBe(40)
+    expect(Math.max(...dataRateOptionsMhz('WS2801'))).toBe(25)
+  })
+
+  it('has no rate for a clockless chipset', () => {
+    expect(defaultDataRateMhz('WS2812B')).toBeNull()
+    expect(dataRateOptionsMhz('WS2812B')).toEqual([])
+    expect(effectiveDataRateMhz('WS2812B', 12)).toBeNull()
+  })
+
+  it('reads 0, stale and hand-edited rates as FastLED\'s default', () => {
+    expect(effectiveDataRateMhz('APA102', 0)).toBe(6)
+    expect(effectiveDataRateMhz('APA102', undefined)).toBe(6)
+    expect(effectiveDataRateMhz('APA102', 40)).toBe(6)
+    expect(effectiveDataRateMhz('APA102', '12')).toBe(12)
+    expect(effectiveDataRateMhz('HD108', 40)).toBe(40)
+  })
+
+  it('resets a rate the new chipset cannot use, or the old default', () => {
+    expect(dataRateAfterChipsetChange('HD108', 'APA102', 40)).toBe(0)
+    expect(dataRateAfterChipsetChange('APA102', 'HD108', 6)).toBe(0)
+    expect(dataRateAfterChipsetChange('APA102', 'APA102HD', 12)).toBe(12)
+    expect(dataRateAfterChipsetChange('APA102', 'WS2812B', 12)).toBe(0)
+    expect(dataRateAfterChipsetChange('WS2812B', 'APA102', 0)).toBe(0)
+  })
+
+  it('names the next rate up as the faster-clock fix', () => {
+    expect(clockedRateFix('APA102', 0)).toEqual({ fromMhz: 6, toMhz: 8 })
+    expect(clockedRateFix('HD108', 30)).toEqual({ fromMhz: 30, toMhz: 40 })
+    expect(clockedRateFix('APA102', 24)).toBeNull()
+    expect(clockedRateFix('WS2812B', 0)).toBeNull()
   })
 })

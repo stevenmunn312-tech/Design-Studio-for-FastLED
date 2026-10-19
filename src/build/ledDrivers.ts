@@ -148,6 +148,77 @@ export const CHIPSET_WIRE: Record<string, ChipsetWire> = {
 }
 
 /**
+ * The clock rates, in whole MHz, the LED output offers for each clocked
+ * chipset, slowest first. Each list holds FastLED's own default
+ * (`CHIPSET_WIRE[...].defaultHz`) and stops at the part's ceiling:
+ * - APA102 and APA102HD: 24 MHz. `apa102.h` defaults to 6 MHz because long
+ *   strips lose data at full speed (the clock degrades LED to LED), and names
+ *   12 and 24 MHz as the rates its controllers were tuned at;
+ * - HD108: 40 MHz, the maximum `hd108.h` states beside its 25 MHz default;
+ * - WS2801: 25 MHz, the datasheet's maximum, which `ws2801.h` also uses as the
+ *   WS2803 default.
+ *
+ * Only whole MHz: on software-SPI platforms `DATA_RATE_MHZ(n)` is a CPU-cycle
+ * divider computed with integer division. ESP32 hardware SPI takes the rate in
+ * Hz and rounds it down to the nearest divider of its 80 MHz clock.
+ */
+export const CLOCKED_DATA_RATES_MHZ: Readonly<Record<string, readonly number[]>> = {
+  APA102: [1, 2, 4, 6, 8, 10, 12, 16, 20, 24],
+  APA102HD: [1, 2, 4, 6, 8, 10, 12, 16, 20, 24],
+  HD108: [6, 8, 10, 12, 16, 20, 25, 30, 40],
+  WS2801: [1, 2, 4, 5, 8, 10, 12, 16, 20, 25],
+}
+
+/** FastLED's default clock for a clocked chipset, in MHz; null for a clockless one. */
+export function defaultDataRateMhz(chipset: string): number | null {
+  const wire = CHIPSET_WIRE[chipset]
+  return wire?.kind === 'clocked' ? wire.defaultHz / 1_000_000 : null
+}
+
+/** The rates a chipset's data-rate setting offers; empty for a clockless chipset. */
+export function dataRateOptionsMhz(chipset: string): readonly number[] {
+  return CLOCKED_DATA_RATES_MHZ[chipset] ?? []
+}
+
+/**
+ * The clock a LED output's `dataRateMhz` asks for, in MHz. Anything the
+ * chipset does not offer (0, a stale rate left by another chipset, a
+ * hand-edited save) means FastLED's default. Null for a clockless chipset.
+ */
+export function effectiveDataRateMhz(chipset: string, dataRateMhz: unknown): number | null {
+  const fallback = defaultDataRateMhz(chipset)
+  if (fallback === null) return null
+  const rate = Number(dataRateMhz)
+  return dataRateOptionsMhz(chipset).includes(rate) ? rate : fallback
+}
+
+/**
+ * The `dataRateMhz` a chipset change should leave. A rate the new chipset
+ * offers is kept unless it was simply the old chipset's default, which stops
+ * meaning "FastLED's default" once the chipset changes (APA102's 6 MHz would
+ * otherwise slow an HD108 from its 25 MHz). Everything else returns to 0, the
+ * new chipset's default.
+ */
+export function dataRateAfterChipsetChange(fromChipset: string, toChipset: string, dataRateMhz: unknown): number {
+  const rate = Number(dataRateMhz)
+  if (!dataRateOptionsMhz(toChipset).includes(rate)) return 0
+  if (rate === defaultDataRateMhz(fromChipset)) return 0
+  return rate
+}
+
+/**
+ * The "faster clock" fix for wire-time advice: the next rate up the chipset
+ * offers from the one this output sends at, or null when it is clockless or
+ * already at its ceiling.
+ */
+export function clockedRateFix(chipset: string, dataRateMhz: unknown): { fromMhz: number; toMhz: number } | null {
+  const fromMhz = effectiveDataRateMhz(chipset, dataRateMhz)
+  if (fromMhz === null) return null
+  const toMhz = dataRateOptionsMhz(chipset).find((rate) => rate > fromMhz)
+  return toMhz === undefined ? null : { fromMhz, toMhz }
+}
+
+/**
  * Microseconds one output takes to send `leds` LEDs, including its reset or
  * frame overhead. `dataRateHz` overrides a clocked chipset's default clock;
  * an unknown chipset is charged as a WS2812B.

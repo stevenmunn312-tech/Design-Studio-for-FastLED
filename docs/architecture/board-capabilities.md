@@ -246,6 +246,20 @@ APA102HD 6 MHz, HD108 25 MHz, WS2801 1 MHz). `chipsetSendMicros` turns that
 into one output's send time. 800 kHz RGB parts cost 30 µs an LED; RGBW parts
 32 bits and WS2816 48 bits an LED.
 
+A clocked chipset's LED output carries `dataRateMhz`, chosen from
+`CLOCKED_DATA_RATES_MHZ` beside `CHIPSET_WIRE`: APA102 and APA102HD 1–24 MHz
+(`apa102.h` defaults to 6 because long strips lose data at full speed), HD108
+6–40 MHz (the maximum `hd108.h` states), WS2801 1–25 MHz (the datasheet
+maximum). 0, or a rate the chipset does not offer, means FastLED's default;
+`effectiveDataRateMhz` resolves it, and a chipset change resets a rate the new
+chipset does not offer, or the old chipset's default, to 0.
+`fastledSetupCpp` emits a non-default rate as the `addLeds` template argument
+`DATA_RATE_MHZ(n)` and nothing for the default, so default sketches are
+unchanged. Rates are whole MHz because software-SPI platforms turn
+`DATA_RATE_MHZ` into an integer CPU-cycle divider; ESP32 hardware SPI rounds
+the rate down to a divider of its 80 MHz clock. `clockedRateFix` names the next
+rate up for wire-time advice.
+
 ## Deferred capability abstractions
 
 The following proposal slices remain open and must not be described as shipped:
