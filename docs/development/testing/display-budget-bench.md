@@ -26,7 +26,7 @@ sketch. This switch exists for the four runs below.
 With it set on the Board node, every two seconds the sketch prints one line:
 
 ```
-FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=4194304 psramtotal=8388608 touchms=12 drawbuf=9600
+FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=4194304 psramtotal=8388608 touchms=12 renderms=5.2 sendms=15.8 drawbuf=9600
 ```
 
 | Key | Meaning |
@@ -36,6 +36,8 @@ FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=419430
 | `minheap` | Lowest free internal heap since boot, from the platform's own tracking |
 | `fps` | Frames rendered per second over the last interval |
 | `loopmax` | Longest single loop pass in the interval, in ms — work, not the pacing sleep |
+| `renderms` | Worst pass in the interval with its FastLED send taken out, in ms: what the pixels, panels and sensors cost. **Absent when nothing is sent through FastLED** (HUB75-only or screen-only builds) |
+| `sendms` | Worst total `FastLED.show()` time of one pass in the interval, in ms: what the wire cost. Pacing refreshes are not counted. Absent with `renderms` |
 | `psram` / `psramtotal` | Free and fitted PSRAM; both zero on a board without any |
 | `touchms` | Worst press-to-painted-frame in the interval. **Absent when nothing was touched**, which is not the same as zero |
 | `drawbuf` | Bytes of display draw buffer the build allocated, from `sizeof` rather than from an estimate |

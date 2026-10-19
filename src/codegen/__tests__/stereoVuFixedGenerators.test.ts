@@ -60,7 +60,7 @@ describe('generative-show Stereo VU fixture', () => {
     expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_LEFT_PIN_side_vu, GRB>')
     expect(cpp.indexOf('_stereoVuRender(_vuState_side_vu')).toBeGreaterThan(cpp.indexOf('compositeTransition('))
     expect(cpp.indexOf('_stereoVuRender(_vuState_side_vu')).toBeLessThan(cpp.lastIndexOf('FastLED.show();'))
-    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+    expect(cpp.match(/^ {2}FastLED\.show\(\);/gm)).toHaveLength(1)
   })
 
   it('uses PCM1802 left/right capture and emits an explicitly black fixture when its Audio provider is disabled', () => {
@@ -131,7 +131,7 @@ describe('Music Player Stereo VU fixture', () => {
     expect(cpp).toContain('paldef_party, (_decoderTapLive || audioEnvFrames > 0), _audioLeftLevel, _audioRightLevel, _audioBeat, millis()')
     expect(cpp.indexOf('_stereoVuRender(_vuState_side_vu')).toBeLessThan(cpp.lastIndexOf('FastLED.show();'))
     expect(cpp).toContain('if (!_decoderTapLive) updateShowAudio(posMs);')
-    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+    expect(cpp.match(/^ {2}FastLED\.show\(\);/gm)).toHaveLength(1)
   })
 
   it('activates the baked fallback through the real upload assembly path', () => {

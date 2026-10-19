@@ -15,6 +15,8 @@ import { buildShowPlayer } from '../../utils/showUpload'
 import {
   TELEMETRY_INTERVAL_MS,
   TELEMETRY_MARKER,
+  TELEMETRY_RENDER_KEY,
+  TELEMETRY_SEND_KEY,
   TELEMETRY_TOUCH_INTERVAL_MS,
   TELEMETRY_TOUCH_X_KEY,
   TELEMETRY_TOUCH_Y_KEY,
@@ -22,6 +24,7 @@ import {
   parseTelemetryTouchSample,
 } from '../../state/upload/deviceTelemetry'
 import { boardSupportsTelemetry } from '../deviceTelemetryCpp'
+import { isLoopPacing } from '../loopPacing'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { GroupRegistry } from '../../state/graphEvaluator'
@@ -131,7 +134,7 @@ describe('device telemetry in every generator', () => {
         expect(beginAt).toBe(loopAt + 1)
         expect(reportAt).toBeGreaterThan(beginAt)
         // Before whatever paces the loop, so the figure is work rather than sleep.
-        const paceAt = lines.findIndex((line, index) => index > reportAt && /delay\(16\)/.test(line))
+        const paceAt = lines.findIndex((line, index) => index > reportAt && isLoopPacing(line))
         expect(paceAt).toBeGreaterThan(reportAt)
       })
 
@@ -140,6 +143,18 @@ describe('device telemetry in every generator', () => {
         const opens = source.split('\n').filter((line) => line.includes('Serial.begin(115200)')
           && !line.includes('#')).length
         expect(opens).toBe(1)
+      })
+
+      it('times every frame send in the loop and reports render and send apart', () => {
+        const source = generator.build(true)
+        const lines = source.split('\n')
+        const loopAt = lines.indexOf('void loop() {')
+        const loopEnd = lines.indexOf('}', loopAt)
+        const body = lines.slice(loopAt, loopEnd)
+        expect(body.some((line) => line.trim() === '_telShow();')).toBe(true)
+        expect(body.some((line) => line.includes('FastLED.show();'))).toBe(false)
+        expect(source).toContain('void _telShow() {')
+        expect(source).toContain(` ${TELEMETRY_RENDER_KEY}=%.1f ${TELEMETRY_SEND_KEY}=%.1f`)
       })
 
       it('never declares the reporter twice', () => {
@@ -159,7 +174,7 @@ describe('device telemetry in every generator', () => {
     const keys = [...source.matchAll(/Serial\.printf\("([^"]*)"/g)]
       .map((match) => match[1])
       .filter((text) => text.includes('=') || text.startsWith(' '))
-      .join('')
+      .join(' ')
     const line = keys
       .replace(`${TELEMETRY_MARKER} `, `${TELEMETRY_MARKER} `)
       .replace(/%lu/g, '1234')
@@ -169,6 +184,8 @@ describe('device telemetry in every generator', () => {
     expect(parsed?.heapFree).toBe(1234)
     expect(parsed?.fps).toBe(12.5)
     expect(parsed?.psramFree).toBe(1234)
+    expect(parsed?.renderMaxMs).toBe(12.5)
+    expect(parsed?.sendMaxMs).toBe(12.5)
   })
 
   it('emits a raw touch line the calibration parser can actually read', () => {
@@ -221,6 +238,20 @@ describe('what telemetry refuses to do', () => {
     expect(source).toContain('void _telTouchPress() {')
     expect(source).toContain('_telTouchPress();')
     expect(source).toContain('touchms=')
+  })
+
+  it('omits render and send when nothing is sent through FastLED', () => {
+    // HUB75 drives its own DMA library, so there is no FastLED send to split.
+    const source = generateCpp(
+      [board(true), node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'HUB75' }),
+        node('fill', 'SolidColor')],
+      [edge('fill', 'frame', 'out', 'frame')],
+    )
+    expect(source).toContain('void _telReport() {')
+    expect(source).not.toContain('FastLED.show();')
+    expect(source).not.toContain('_telShow')
+    expect(source).not.toContain(`${TELEMETRY_RENDER_KEY}=`)
+    expect(source).not.toContain(`${TELEMETRY_SEND_KEY}=`)
   })
 
   it('omits the draw buffer key when the build allocates none', () => {

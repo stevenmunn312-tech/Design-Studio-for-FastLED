@@ -31,7 +31,7 @@ import { type PlayerControlButtonEmit, PLAYER_CONTROLS_CPP, ledOutputLatchGlobal
 import { type IrRemoteProjectNode, irRemoteProjectEmission } from './peripherals/irRemoteCpp'
 import { type MasterSpeedEmit, masterClockLoopCpp, masterSpeedUpdateCpp } from './player/masterSpeedCpp'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from '../state/player/masterSpeed'
-import { isLoopPacing, loopPacingCpp, plainPacing } from './loopPacing'
+import { loopPacingCpp, withLoopPacing } from './loopPacing'
 import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 import {
   type InfoDisplayEmit,
@@ -85,11 +85,11 @@ import { SHAPE_COUNT_MACRO, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, sha
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
   boardSupportsTelemetry,
-  deviceTelemetryGlobalsCpp,
-  telemetryEmitFromSource,
+  TELEMETRY_GLOBALS_CPP,
   TELEMETRY_SERIAL_BEGIN_CPP,
   TELEMETRY_LOOP_BEGIN_CPP,
   TELEMETRY_REPORT_CPP,
+  withTelemetryGlobals,
 } from './deviceTelemetryCpp'
 import { rtcI2cPinsForProfile } from '../build/pins/rtcPins'
 import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './peripherals/powerMonitorCpp'
@@ -1528,7 +1528,7 @@ export function generateCpp(
   if (emitTelemetry) {
     // After every panel, so `sizeof` sees the buffers rather than a number this
     // generator guessed at — an estimate that reports itself proves nothing.
-    lines.push(...deviceTelemetryGlobalsCpp(telemetryEmitFromSource(lines)))
+    lines.push(TELEMETRY_GLOBALS_CPP)
   }
   lines.push(`void setup() {`)
   lines.push(...amplifierIdle.setup)
@@ -1635,9 +1635,10 @@ export function generateCpp(
   lines.push(loopPacingCpp(controller.frameRate))
   lines.push(`}`)
 
-  const source = specializeCpp(withoutUnusedFastLed(lines).join('\n'), boardCppFacts(capabilityNodes))
+  const source = specializeCpp(withoutUnusedFastLed(withTelemetryGlobals(lines)).join('\n'), boardCppFacts(capabilityNodes))
+  if (opts.deferPruning) return source
   const hasTerminal = nodes.some((node) => TERMINAL_NODE_TYPES.has(node.data.nodeType))
-  return opts.deferPruning || !hasTerminal ? source : withoutUnusedFastLed(finishCpp(source).split('\n')).join('\n')
+  return withLoopPacing(hasTerminal ? withoutUnusedFastLed(finishCpp(source).split('\n')).join('\n') : source)
 }
 
 const FASTLED_INCLUDE = '#include <FastLED.h>'
@@ -1646,10 +1647,10 @@ const FASTLED_INCLUDE = '#include <FastLED.h>'
  * Leave FastLED out of a sketch that never draws an LED.
  *
  * A screen-only build - a panel and a screen design, no LED output anywhere
- * - used to reach for FastLED twice: the include, and `FastLED.delay` to
- * pace the loop. The call is replaceable by a plain `delay`, and the include
- * is the expensive half, because arduino-cli compiles every source file in a
- * library folder whether the sketch uses it or not.
+ * - needs no FastLED, and the include is expensive, because arduino-cli
+ * compiles every source file in a library folder whether the sketch uses it
+ * or not. The loop's pacing call names no FastLED symbol, and
+ * `withLoopPacing` gives a sketch with no send the sleep-only form.
  *
  * Decided from what was actually emitted rather than from a list of features
  * that imply FastLED, so a node added later that draws pixels keeps the
@@ -1660,11 +1661,7 @@ const FASTLED_INCLUDE = '#include <FastLED.h>'
  */
 function withoutUnusedFastLed(lines: string[]): string[] {
   const uses = /\b(FastLED|CRGB|CHSV|CLEDController|CPixelView|fill_solid|fill_rainbow|fill_gradient\w*|nscale8\w*|blend8|beatsin\d*|inoise\d*|EVERY_N_\w+|qadd8|qsub8|scale8\w*)\b/
-  const needed = lines.some((line) => (
-    !isLoopPacing(line) && line !== FASTLED_INCLUDE && uses.test(line)
-  ))
+  const needed = lines.some((line) => line !== FASTLED_INCLUDE && uses.test(line))
   if (needed) return lines
-  return lines
-    .filter((line) => line !== FASTLED_INCLUDE)
-    .map((line) => (isLoopPacing(line) ? plainPacing(line) : line))
+  return lines.filter((line) => line !== FASTLED_INCLUDE)
 }

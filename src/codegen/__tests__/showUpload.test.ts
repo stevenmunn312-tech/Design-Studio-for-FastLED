@@ -285,7 +285,7 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('flashDecay = expf(-16.0f / (60.0f + (ev.params[1] / 255.0f) * 240.0f));')
     expect(ino).not.toContain('ev.paramCount >')
     expect(ino).toContain('flashLevel *= flashDecay')
-    expect(ino.indexOf('// Beat flash overlay')).toBeLessThan(ino.indexOf('FastLED.show();'))
+    expect(ino.indexOf('// Beat flash overlay')).toBeLessThan(ino.indexOf('\n  FastLED.show();'))
   })
 
   it('draws nothing, and carries no pattern code, for a player with no patterns', () => {

@@ -295,7 +295,7 @@ describe('showGenerator', () => {
     expect(cpp).toContain('FastLED.addLeds<APA102, DATA_PIN_out_b, CLOCK_PIN_out_b, BGR>(leds_out_b, 64)')
     expect(cpp).toContain('_c.nscale8_video(80)')
     expect(cpp).not.toContain('_c.nscale8_video(160)')
-    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+    expect(cpp.match(/^ {2}FastLED\.show\(\);/gm)).toHaveLength(1)
   })
 
   it('declares FastLED-typed helpers explicitly so Arduino does not auto-prototype them above the include', () => {
@@ -1060,11 +1060,11 @@ describe('displays in a show controller', () => {
    */
   it('flushes the panels after the frame has shipped', () => {
     const cpp = build([oled, status])
-    const show = cpp.indexOf('FastLED.show();')
+    const show = cpp.indexOf('\n  FastLED.show();')
     // The first lifecycle paint is intentionally in setup(); the last Info
     // Display block is the per-frame service whose ordering this test guards.
     const panel = cpp.lastIndexOf('{ // Info Display')
-    const delay = cpp.indexOf('FastLED.delay(16);')
+    const delay = cpp.indexOf('_paceFrame(16667);')
     expect(show).toBeGreaterThan(-1)
     expect(panel).toBeGreaterThan(show)
     expect(delay).toBeGreaterThan(panel)

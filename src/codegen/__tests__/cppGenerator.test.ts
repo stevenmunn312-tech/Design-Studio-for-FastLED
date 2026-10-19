@@ -117,7 +117,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_c.nscale8_video(64)')
     expect(cpp).not.toContain('_c.nscale8_video(180)')
     expect(cpp).toContain('int _sx = (2 + _x) % WIDTH, _sy = (1 + _y) % HEIGHT;')
-    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+    expect(cpp.match(/^ {2}FastLED\.show\(\);/gm)).toHaveLength(1)
   })
 
   it('renders a 60x1 strip and 16x16 matrix in native passes with one reusable buffer set', () => {
@@ -149,7 +149,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('if constexpr (RENDER_PASS == 0)')
     expect(cpp).toContain('if constexpr (RENDER_PASS == 1)')
     expect(cpp.match(/\/\/ Fire pattern/g)).toHaveLength(1)
-    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+    expect(cpp.match(/^ {2}FastLED\.show\(\);/gm)).toHaveLength(1)
   })
 
   it('renders identical native output shapes in one firmware pass', () => {

@@ -12,9 +12,12 @@
 // wrote (see `displayForwardDeclarations.test.ts`). These take no parameters at
 // all, so they need no forward declaration and cannot join that trap.
 
+import { isLoopPacing } from './loopPacing'
 import {
   TELEMETRY_INTERVAL_MS,
   TELEMETRY_MARKER,
+  TELEMETRY_RENDER_KEY,
+  TELEMETRY_SEND_KEY,
   TELEMETRY_TOUCH_X_KEY,
   TELEMETRY_TOUCH_Y_KEY,
 } from '../state/upload/deviceTelemetry'
@@ -33,6 +36,11 @@ export interface DeviceTelemetryEmit {
   drawBufferExprs?: readonly string[]
   /** Whether any panel can report a press, so the touch fields are worth emitting. */
   touch?: boolean
+  /**
+   * Whether the loop sends through FastLED, so a pass can be split into render
+   * and send. False for a HUB75-only build, which then reports neither key.
+   */
+  send?: boolean
 }
 
 /**
@@ -76,6 +84,13 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
       'static uint32_t _telTouchWorstUs = 0;',
     )
   }
+  if (emit.send) {
+    lines.push(
+      'static uint32_t _telPassSendUs = 0;',
+      'static uint32_t _telRenderMaxUs = 0;',
+      'static uint32_t _telSendMaxUs = 0;',
+    )
+  }
   lines.push(
     '',
     'void _telLoopBegin() {',
@@ -83,6 +98,18 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
     '}',
     '',
   )
+  if (emit.send) {
+    lines.push(
+      '// Every send the loop makes, so the report can say whether the pixels or',
+      '// the wire cost a slow frame. Pacing refreshes are not counted.',
+      'void _telShow() {',
+      '  uint32_t sendAt = micros();',
+      '  FastLED.show();',
+      '  _telPassSendUs += micros() - sendAt;',
+      '}',
+      '',
+    )
+  }
   if (emit.touch) {
     lines.push(
       '// Stamped on the press edge and resolved after the frame that answered it,',
@@ -98,6 +125,11 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
     '  uint32_t nowUs = micros();',
     '  uint32_t passUs = nowUs - _telLoopStartUs;',
     '  if (passUs > _telLoopMaxUs) _telLoopMaxUs = passUs;',
+    ...(emit.send ? [
+      '  if (_telPassSendUs > _telSendMaxUs) _telSendMaxUs = _telPassSendUs;',
+      '  if (passUs - _telPassSendUs > _telRenderMaxUs) _telRenderMaxUs = passUs - _telPassSendUs;',
+      '  _telPassSendUs = 0;',
+    ] : []),
     '  _telFrames++;',
     '  uint32_t freeHeap = ESP.getFreeHeap();',
     '  if (freeHeap < _telHeapMinSeen) _telHeapMinSeen = freeHeap;',
@@ -136,6 +168,11 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
       '  if (_telTouchWorstUs > 0) Serial.printf(" touchms=%.1f", _telTouchWorstUs / 1000.0f);',
     )
   }
+  if (emit.send) {
+    lines.push(
+      `  Serial.printf(" ${TELEMETRY_RENDER_KEY}=%.1f ${TELEMETRY_SEND_KEY}=%.1f", _telRenderMaxUs / 1000.0f, _telSendMaxUs / 1000.0f);`,
+    )
+  }
   if (drawBuffer.length > 0) {
     lines.push(`  Serial.printf(" drawbuf=%lu", (unsigned long)(${drawBuffer.join(' + ')}));`)
   }
@@ -146,6 +183,7 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
     '  _telLoopMaxUs = 0;',
   )
   if (emit.touch) lines.push('  _telTouchWorstUs = 0;')
+  if (emit.send) lines.push('  _telRenderMaxUs = 0;', '  _telSendMaxUs = 0;')
   lines.push('}', '')
   return lines
 }
@@ -168,7 +206,58 @@ export function telemetryEmitFromSource(lines: readonly string[]): DeviceTelemet
   return {
     drawBufferExprs: [...new Set(buffers)],
     touch: source.includes('_xptPoint('),
+    send: loopBody(lines).some((index) => isLoopSend(lines[index])),
   }
+}
+
+/** A frame's own send, as every generator writes it: one statement on its line. */
+const LOOP_SEND = /^(\s*)FastLED\.show\(\);\s*$/
+
+/** The statement a frame's send becomes, so its time is counted. */
+const TELEMETRY_SEND_CPP = '_telShow();'
+
+function isLoopSend(line: string): boolean {
+  return LOOP_SEND.test(line) || line.trim() === TELEMETRY_SEND_CPP
+}
+
+/** Indexes of the lines inside `loop()`, which every generator closes at column 0. */
+function loopBody(lines: readonly string[]): number[] {
+  const loopAt = lines.findIndex((line) => line.trim() === 'void loop() {')
+  if (loopAt < 0) return []
+  const indexes: number[] = []
+  for (let index = loopAt + 1; index < lines.length && lines[index] !== '}'; index++) indexes.push(index)
+  return indexes
+}
+
+/**
+ * Where the telemetry globals go, written by a generator in their place.
+ *
+ * Filled by `withTelemetryGlobals` once the sketch is whole, so what they
+ * measure is read off the finished text, loop included: a generator writes
+ * its globals long before its loop, and the render/send split depends on
+ * what the loop sends.
+ */
+export const TELEMETRY_GLOBALS_CPP = '// @device-telemetry-globals'
+
+/**
+ * Fill the telemetry placeholder and time the loop's sends.
+ *
+ * Each `FastLED.show();` line in `loop()` becomes `_telShow();` at the same
+ * indent, one statement for one, so a braceless `if` still guards the send.
+ * A sketch without the placeholder comes back unchanged.
+ */
+export function withTelemetryGlobals(lines: readonly string[]): string[] {
+  const at = lines.indexOf(TELEMETRY_GLOBALS_CPP)
+  if (at < 0) return [...lines]
+  const emit = telemetryEmitFromSource(lines)
+  const out = [...lines]
+  if (emit.send) {
+    for (const index of loopBody(out)) {
+      out[index] = out[index].replace(LOOP_SEND, (_line, indent: string) => `${indent}${TELEMETRY_SEND_CPP}`)
+    }
+  }
+  out.splice(at, 1, ...deviceTelemetryGlobalsCpp(emit))
+  return out
 }
 
 /** First statement of the loop. */
@@ -209,9 +298,8 @@ export function withDeviceTelemetry(source: string): string {
   const setupAt = lines.findIndex((line) => line.trim() === 'void setup() {')
   const loopAt = lines.findIndex((line) => line.trim() === 'void loop() {')
   if (setupAt < 0 || loopAt < 0 || loopAt < setupAt) return source
-  const paceAt = lines.findIndex((line, index) => index > loopAt && /FastLED\.delay\(|^\s*delay\(/.test(line))
+  const paceAt = lines.findIndex((line, index) => index > loopAt && isLoopPacing(line))
   if (paceAt < 0) return source
-  const globals = deviceTelemetryGlobalsCpp(telemetryEmitFromSource(lines))
   const serial = lines.some((line) => line.includes('Serial.begin(') && !line.trim().startsWith('//'))
     ? []
     : [TELEMETRY_SERIAL_BEGIN_CPP]
@@ -220,6 +308,6 @@ export function withDeviceTelemetry(source: string): string {
   out.splice(paceAt, 0, TELEMETRY_REPORT_CPP)
   out.splice(loopAt + 1, 0, TELEMETRY_LOOP_BEGIN_CPP)
   if (serial.length > 0) out.splice(setupAt + 1, 0, ...serial)
-  out.splice(setupAt, 0, ...globals)
-  return out.join('\n')
+  out.splice(setupAt, 0, TELEMETRY_GLOBALS_CPP)
+  return withTelemetryGlobals(out).join('\n')
 }

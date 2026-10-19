@@ -503,5 +503,6 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   fed by the Board's `frameRate` through `controllerSettings`: the normal
   sketch, the show controller and the player all end their loop with it, and
   `LEDPreview` gates its evaluation to the same rate. A pacing line is
-  recognised by `isLoopPacing` rather than by its text, which is what lets a
-  screen-only sketch swap `FastLED.delay` for `delay` at any rate.
+  recognised by `isLoopPacing` rather than by its text. The line waits for a
+  fixed deadline rather than calling `FastLED.delay`; see
+  [firmware generation](firmware-generation.md) for why.

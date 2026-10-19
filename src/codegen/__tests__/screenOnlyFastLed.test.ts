@@ -9,8 +9,8 @@ import type { StudioNode } from '../../state/graphStore'
  *
  * `#include <FastLED.h>` is the expensive half: arduino-cli compiles every
  * source file in a library folder whether the sketch uses it or not, so a
- * screen-only build paid for the whole of FastLED to call `FastLED.delay`
- * once for frame pacing. The include is dropped from what the generator
+ * screen-only build paid for the whole of FastLED for nothing but frame
+ * pacing. The include is dropped from what the generator
  * actually emitted rather than from a list of features that imply FastLED,
  * so this holds the two ends of that: gone when nothing draws pixels, kept
  * the moment anything does.
@@ -50,16 +50,20 @@ describe('FastLED in a screen-only sketch', () => {
   it('leaves FastLED out when nothing draws an LED', () => {
     const code = sketch(false)
     expect(code).not.toContain('#include <FastLED.h>')
-    expect(code).not.toContain('FastLED.delay')
+    expect(code).not.toContain('FastLED')
     // Still paced: the loop needs a frame budget whether or not FastLED
-    // supplies it, and LVGL's own service gate rides on top of this.
-    expect(code).toContain('delay(16);')
+    // supplies it, and LVGL's own service gate rides on top of this. The
+    // pacing then only sleeps, since there is no send to refresh.
+    expect(code).toContain('  _paceFrame(16667);  // ~60 fps')
+    expect(code).toContain('void _paceFrame(uint32_t periodUs) {')
+    expect(code).not.toContain('_paceSendUs')
   })
 
   it('keeps FastLED the moment an LED output exists', () => {
     const code = sketch(true)
     expect(code).toContain('#include <FastLED.h>')
-    expect(code).toContain('FastLED.delay(16);')
+    expect(code).toContain('  _paceFrame(16667);  // ~60 fps')
+    expect(code).toContain('_paceSendUs')
     expect(code).toContain('FastLED.addLeds')
   })
 

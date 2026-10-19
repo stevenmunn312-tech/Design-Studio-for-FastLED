@@ -20,6 +20,15 @@ export const TELEMETRY_MARKER = 'FLS_STAT'
 export const TELEMETRY_TOUCH_X_KEY = 'touchx'
 export const TELEMETRY_TOUCH_Y_KEY = 'touchy'
 
+/**
+ * Keys splitting a frame's cost between the pixels and the wire: the
+ * interval's worst pass with the FastLED send taken out, and its worst send.
+ * Both are left out when the sketch sends nothing through FastLED (a HUB75 or
+ * screen-only build), since there is no send to separate.
+ */
+export const TELEMETRY_RENDER_KEY = 'renderms'
+export const TELEMETRY_SEND_KEY = 'sendms'
+
 /** Raw touch cadence while the panel is held, fast enough for a short five-sample capture. */
 export const TELEMETRY_TOUCH_INTERVAL_MS = 50
 
@@ -53,6 +62,10 @@ export interface DeviceTelemetrySample {
   psramTotal: number | null
   /** Longest single loop pass in the last interval, milliseconds. */
   loopMaxMs: number | null
+  /** Longest pass in the interval less its FastLED send, milliseconds. Null when nothing is sent. */
+  renderMaxMs: number | null
+  /** Longest FastLED send of one pass in the interval, milliseconds. Null when nothing is sent. */
+  sendMaxMs: number | null
   /**
    * Touch press to end of the frame that answered it, milliseconds.
    *
@@ -105,6 +118,8 @@ export function parseTelemetryLine(line: string): DeviceTelemetrySample | null {
     psramFree: numeric(fields.get('psram')),
     psramTotal: numeric(fields.get('psramtotal')),
     loopMaxMs: numeric(fields.get('loopmax')),
+    renderMaxMs: numeric(fields.get(TELEMETRY_RENDER_KEY)),
+    sendMaxMs: numeric(fields.get(TELEMETRY_SEND_KEY)),
     touchLatencyMs: numeric(fields.get('touchms')),
     drawBufferBytes: numeric(fields.get('drawbuf')),
   }
@@ -149,6 +164,9 @@ export interface TelemetryRun {
   fpsMin: number
   fpsSum: number
   loopMaxMs: number | null
+  /** Worst render and worst send seen, or null if the build sends nothing. */
+  renderMaxMs: number | null
+  sendMaxMs: number | null
   /** Worst touch response seen, or null if nothing was touched. */
   touchWorstMs: number | null
   touchSamples: number
@@ -166,6 +184,8 @@ export function startTelemetryRun(sample: DeviceTelemetrySample): TelemetryRun {
     fpsMin: sample.fps,
     fpsSum: sample.fps,
     loopMaxMs: sample.loopMaxMs,
+    renderMaxMs: sample.renderMaxMs,
+    sendMaxMs: sample.sendMaxMs,
     touchWorstMs: sample.touchLatencyMs,
     touchSamples: sample.touchLatencyMs === null ? 0 : 1,
     sums: {
@@ -175,6 +195,12 @@ export function startTelemetryRun(sample: DeviceTelemetrySample): TelemetryRun {
       th: sample.uptimeSec * sample.heapFree,
     },
   }
+}
+
+/** The larger of two worst cases, where null means "not reported". */
+function worst(seen: number | null, sample: number | null): number | null {
+  if (sample === null) return seen
+  return seen === null ? sample : Math.max(seen, sample)
 }
 
 export function accumulateTelemetry(run: TelemetryRun | null, sample: DeviceTelemetrySample): TelemetryRun {
@@ -191,8 +217,9 @@ export function accumulateTelemetry(run: TelemetryRun | null, sample: DeviceTele
     heapMinReported: Math.min(run.heapMinReported, sample.heapMin),
     fpsMin: Math.min(run.fpsMin, sample.fps),
     fpsSum: run.fpsSum + sample.fps,
-    loopMaxMs: sample.loopMaxMs === null ? run.loopMaxMs
-      : Math.max(run.loopMaxMs ?? sample.loopMaxMs, sample.loopMaxMs),
+    loopMaxMs: worst(run.loopMaxMs, sample.loopMaxMs),
+    renderMaxMs: worst(run.renderMaxMs, sample.renderMaxMs),
+    sendMaxMs: worst(run.sendMaxMs, sample.sendMaxMs),
     touchWorstMs: sample.touchLatencyMs === null ? run.touchWorstMs
       : Math.max(run.touchWorstMs ?? sample.touchLatencyMs, sample.touchLatencyMs),
     touchSamples: run.touchSamples + (sample.touchLatencyMs === null ? 0 : 1),
@@ -250,6 +277,10 @@ function bytes(value: number | null): string {
   return `${Math.round(value).toLocaleString('en-US')} B`
 }
 
+function milliseconds(value: number | null): string {
+  return value === null ? '—' : `${value.toFixed(1)} ms`
+}
+
 function seconds(total: number): string {
   const whole = Math.max(0, Math.round(total))
   const h = Math.floor(whole / 3600)
@@ -302,7 +333,9 @@ export function formatTelemetryReport(run: TelemetryRun, meta: TelemetryReportMe
     `  frames/sec now:      ${run.latest.fps.toFixed(1)}`,
     `  mean:                ${telemetryMeanFps(run).toFixed(1)}`,
     `  worst:               ${run.fpsMin.toFixed(1)}`,
-    `  longest loop pass:   ${run.loopMaxMs === null ? '—' : `${run.loopMaxMs.toFixed(1)} ms`}`,
+    `  longest loop pass:   ${milliseconds(run.loopMaxMs)}`,
+    `  worst render:        ${milliseconds(run.renderMaxMs)}`,
+    `  worst send:          ${milliseconds(run.sendMaxMs)}`,
     '',
     'Touch',
     `  worst press to paint: ${run.touchWorstMs === null ? '— (nothing touched)' : `${run.touchWorstMs.toFixed(1)} ms`}`,

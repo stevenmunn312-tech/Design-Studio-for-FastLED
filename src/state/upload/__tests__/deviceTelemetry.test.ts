@@ -15,7 +15,7 @@ import {
 } from '../deviceTelemetry'
 
 const LINE = `${TELEMETRY_MARKER} uptime=3600 heap=142112 minheap=138904 psram=4194304 `
-  + 'psramtotal=8388608 fps=58.9 loopmax=21 touchms=12 drawbuf=9600'
+  + 'psramtotal=8388608 fps=58.9 loopmax=21 renderms=4.5 sendms=16.2 touchms=12 drawbuf=9600'
 
 function sample(overrides: Partial<DeviceTelemetrySample> = {}): DeviceTelemetrySample {
   return {
@@ -26,6 +26,8 @@ function sample(overrides: Partial<DeviceTelemetrySample> = {}): DeviceTelemetry
     psramFree: 4_000_000,
     psramTotal: 8_000_000,
     loopMaxMs: 18,
+    renderMaxMs: null,
+    sendMaxMs: null,
     touchLatencyMs: null,
     drawBufferBytes: 9600,
     ...overrides,
@@ -42,6 +44,8 @@ describe('parseTelemetryLine', () => {
       psramFree: 4194304,
       psramTotal: 8388608,
       loopMaxMs: 21,
+      renderMaxMs: 4.5,
+      sendMaxMs: 16.2,
       touchLatencyMs: 12,
       drawBufferBytes: 9600,
     })
@@ -68,6 +72,8 @@ describe('parseTelemetryLine', () => {
     expect(parsed).not.toBeNull()
     expect(parsed?.psramFree).toBeNull()
     expect(parsed?.touchLatencyMs).toBeNull()
+    expect(parsed?.renderMaxMs).toBeNull()
+    expect(parsed?.sendMaxMs).toBeNull()
     expect(parsed?.drawBufferBytes).toBeNull()
   })
 
@@ -111,6 +117,18 @@ describe('accumulateTelemetry', () => {
     expect(run.loopMaxMs).toBe(30)
     expect(run.latest.heapFree).toBe(180_000)
     expect(telemetryMeanFps(run)).toBeCloseTo((60 + 41 + 59) / 3, 5)
+  })
+
+  it('keeps the worst render and send apart, and null while nothing is sent', () => {
+    let run = startTelemetryRun(sample())
+    expect(run.renderMaxMs).toBeNull()
+    expect(run.sendMaxMs).toBeNull()
+    run = accumulateTelemetry(run, sample({ uptimeSec: 2, renderMaxMs: 3, sendMaxMs: 30 }))
+    run = accumulateTelemetry(run, sample({ uptimeSec: 4, renderMaxMs: 9, sendMaxMs: 28 }))
+    run = accumulateTelemetry(run, sample({ uptimeSec: 6 }))
+    expect(run.renderMaxMs).toBe(9)
+    expect(run.sendMaxMs).toBe(30)
+    expect(formatTelemetryReport(run)).toContain('worst send:          30.0 ms')
   })
 
   it('counts a touch only when one happened, and keeps the worst', () => {

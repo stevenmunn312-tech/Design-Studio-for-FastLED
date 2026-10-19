@@ -48,7 +48,7 @@ it lands.
   driver choice are compiled and marked experimental; the dead-code corpus
   compiles on Arduino CLI. Bench readings are section 4 rows, not part of the
   exit.
-  - [ ] **1. Split render time from send time in device telemetry.** `loopmax`
+  - [x] **1. Split render time from send time in device telemetry.** `loopmax`
     covers the whole pass, so a slow frame cannot say whether the pixels or the
     wire cost it. Time each frame's `FastLED.show()` and report the interval's
     worst render and worst send as two new keys, left out when nothing is sent
@@ -60,7 +60,7 @@ it lands.
     to the key table in the
     [display budget bench](docs/development/testing/display-budget-bench.md).
     Every later step is measured with this.
-  - [ ] **2. Pace each frame to a deadline and send it once.** The normal, show
+  - [x] **2. Pace each frame to a deadline and send it once.** The normal, show
     and player sketches end `loop()` with `FastLED.show()` and then
     `FastLED.delay(1000 / frameRate)` (`src/codegen/loopPacing.ts`). FastLED
     3.10.5's `delay` calls `show()` at least once more and keeps re-sending

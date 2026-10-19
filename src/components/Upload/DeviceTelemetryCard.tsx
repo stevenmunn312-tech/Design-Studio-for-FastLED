@@ -13,7 +13,7 @@ import styles from './DeviceTelemetryCard.module.css'
  * What a running board reports about itself, while it runs.
  *
  * The bench instrument HW-11 asks for: free heap and its drift over a soak,
- * PSRAM, frame rate, the worst touch response and the draw buffer the build
+ * PSRAM, frame rate, the worst pass split into render and LED send, the worst touch response and the draw buffer the build
  * actually allocated. It reads the Output console's serial connection rather
  * than opening one — the helper holds a port exclusively, so a second reader
  * is not a thing that can work — which is why the button here starts *that*
@@ -70,6 +70,16 @@ export default function DeviceTelemetryCard() {
           <Field
             label="Longest pass"
             value={run.loopMaxMs === null ? '—' : `${run.loopMaxMs.toFixed(1)} ms`}
+          />
+          <Field
+            label="Worst render"
+            value={run.renderMaxMs === null ? 'no LED send' : `${run.renderMaxMs.toFixed(1)} ms`}
+            tone={run.renderMaxMs === null ? 'idle' : undefined}
+          />
+          <Field
+            label="Worst send"
+            value={run.sendMaxMs === null ? 'no LED send' : `${run.sendMaxMs.toFixed(1)} ms`}
+            tone={run.sendMaxMs === null ? 'idle' : undefined}
           />
           <Field
             label="Worst touch"

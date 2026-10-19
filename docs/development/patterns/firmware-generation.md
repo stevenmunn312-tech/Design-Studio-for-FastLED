@@ -206,9 +206,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   of FastLED entirely, not just left minimal: `cppGenerator.ts`'s
   `withoutUnusedFastLed(lines)`, applied at the generator's single
   `return withoutUnusedFastLed(lines).join('\n')` assembly point, drops the
-  `FASTLED_INCLUDE` (`#include <FastLED.h>`) line and rewrites the
-  `FASTLED_PACING` (`FastLED.delay(16)`) line to a plain `delay(16)` when no
-  other emitted line matches a FastLED-ish spelling (`FastLED`, `CRGB`, `CHSV`,
+  `FASTLED_INCLUDE` (`#include <FastLED.h>`) line when no emitted line
+  matches a FastLED-ish spelling (`FastLED`, `CRGB`, `CHSV`,
   `CLEDController`, `CPixelView`, `fill_solid`/`fill_rainbow`/`fill_gradient*`,
   `nscale8*`, `blend8`, `beatsin*`, `inoise*`, `EVERY_N_*`, `qadd8`, `qsub8`,
   `scale8*`). The include is the expensive half to drop: arduino-cli compiles
@@ -218,7 +217,34 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   include with nothing to update; the regex is deliberately biased toward
   keeping FastLED, since a false positive only costs a compile already paid for
   while a false negative breaks the build. Held at both ends by
-  `src/codegen/__tests__/screenOnlyFastLed.test.ts`.
+  `src/codegen/__tests__/screenOnlyFastLed.test.ts`. The pacing call
+  (`_paceFrame(...)`) names no FastLED symbol, so it never keeps the include;
+  `withLoopPacing` then picks the sleep-only pacing function because no
+  `FastLED.show();` is left.
+
+- **Never pace a loop with `FastLED.delay`.** In the pinned FastLED 3.10.5,
+  `CFastLED::delay` is a do-while that calls `show()` then `delay(1)` until the
+  time is up, so `FastLED.show(); FastLED.delay(N);` sends every frame at
+  least twice and adds `N` to the work instead of absorbing it (50 fps from a
+  2 ms pass at a 60 fps cap; a 30 ms send capped near 16 fps). Every
+  generator ends `loop()` with `loopPacingCpp(frameRate)` from
+  `src/codegen/loopPacing.ts`, one `_paceFrame(periodUs)` line that
+  `isLoopPacing` recognises (the telemetry report goes before it, the show
+  builder's pattern extraction skips it). `withLoopPacing(source)` adds the
+  function above `loop()` as the last step of each generator, read off the
+  finished text: with a `FastLED.show();` statement it keeps dither refreshes
+  only while a measured send plus a 1 ms yield still fits before the deadline
+  (half a period until one send is measured), otherwise it only sleeps. A
+  frame late by more than a period restarts the schedule rather than
+  bursting. Held by `src/codegen/__tests__/loopPacing.test.ts`.
+
+- Device telemetry's globals are a placeholder line
+  (`TELEMETRY_GLOBALS_CPP`) that `withTelemetryGlobals(lines)` fills once the
+  sketch is whole, because the render/send split depends on what `loop()`
+  sends and generators write globals before the loop. It rewrites each
+  `FastLED.show();` statement inside `loop()` to `_telShow();` at the same
+  indent, so write a frame's send as that one statement on its own line or it
+  is not timed. The show generator fills it after its index-based splices.
 
 - **Resampled LED outputs share one tap rule with the preview.** Half-resolution
   render scale (`src/state/output/renderScale.ts`, `src/codegen/output/renderScaleCpp.ts`) and

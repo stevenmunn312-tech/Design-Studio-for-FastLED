@@ -56,11 +56,11 @@ import {
 import { compositionDims, outputRoutes } from '../state/output/outputRouting'
 import { outputCanvasDims } from '../state/output/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
-import { loopPacingCpp } from './loopPacing'
+import { isLoopPacing, loopPacingCpp, withLoopPacing } from './loopPacing'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
   TELEMETRY_LOOP_BEGIN_CPP, TELEMETRY_REPORT_CPP, TELEMETRY_SERIAL_BEGIN_CPP,
-  boardSupportsTelemetry, deviceTelemetryGlobalsCpp, telemetryEmitFromSource,
+  TELEMETRY_GLOBALS_CPP, boardSupportsTelemetry, withTelemetryGlobals,
 } from './deviceTelemetryCpp'
 import { amplifierIdleCpp } from './audio/amplifierIdle'
 import { playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from './player/playerDisplays'
@@ -405,7 +405,7 @@ function buildPattern(
     if (line === 'void loop() {') {
       for (i++; i < lines.length && lines[i] !== '}'; i++) {
         const l = lines[i]
-        if (l.includes('FastLED.show();') || l.includes('FastLED.delay(')) continue
+        if (l.includes('FastLED.show();') || isLoopPacing(l)) continue
         body.push(pfx(l).replace('millis() / 1000.0f', 'ms / 1000.0f'))
       }
       break
@@ -1164,7 +1164,7 @@ export function generateShowSketch(
   // Bench telemetry, asked for on the Board and honoured only where Serial.printf
   // exists. Emitted after every helper so its sizeof sees the real draw buffers.
   if (emitTelemetry) {
-    L.push(...deviceTelemetryGlobalsCpp(telemetryEmitFromSource(L)))
+    L.push(TELEMETRY_GLOBALS_CPP)
   }
 
   for (const line of controlGraph.globals) L.push(line)
@@ -1471,5 +1471,5 @@ export function generateShowSketch(
     return symbol ? new RegExp(`\\b${symbol}\\b`).test(withoutPalettes) : true
   }))
 
-  return finishCpp(specializeCpp(L.join('\n'), boardCppFacts(nodes)))
+  return withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes))))
 }

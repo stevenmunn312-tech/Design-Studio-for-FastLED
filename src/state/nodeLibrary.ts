@@ -2957,7 +2957,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Board: {
     brightness: 'Master LED level for the whole sketch, 0 to 255. Every output is scaled by it.',
-    frameRate: 'Frames per second the loop is paced to, 1 to 120. A lower cap saves power and leaves time for sensors; the preview runs at the same rate.',
+    frameRate: 'Most frames per second the sketch sends, 1 to 120. Each frame waits for a fixed deadline, so the board meets this cap whenever a frame\'s work and LED send fit inside it, and runs as fast as it can when they do not. A lower cap saves power and leaves time for sensors; the preview runs at the same rate.',
     milliamps: 'Current the supply can give the LEDs. FastLED dims automatically to stay under it.',
     profileId: 'The exact controller board the sketch is built for, chosen from the hardware shelf. Empty means not chosen yet.',
   },

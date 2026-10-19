@@ -89,7 +89,7 @@ import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audio
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/player/showTarget'
 import type { StudioNode } from '../state/graphStore'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS, FRAME_RATE } from '../build/controllerSettings'
-import { loopPacingCpp } from './loopPacing'
+import { loopPacingCpp, withLoopPacing } from './loopPacing'
 import { resolveBoardSelection } from '../build/boards/boardProfiles'
 import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
 import { hexToRgb } from '../state/palettes/polinePalette'
@@ -1395,7 +1395,7 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
     const withoutReadyWrites = narrowed.replace(/\bplaybackReady\s*=\s*startPlayback\(\);/g, 'startPlayback();')
       .replace(/bool playbackReady = false;/, '')
     if (!/\bplaybackReady\b/.test(cppCode(withoutReadyWrites))) narrowed = withoutReadyWrites
-    return finishCpp(specializeCpp(opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed, { ESP32: true, ESP8266: false }))
+    return withLoopPacing(finishCpp(specializeCpp(opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed, { ESP32: true, ESP8266: false })))
   }
 
   return finish(`// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}

@@ -13,7 +13,7 @@ import { frameQuarterTurns } from '../composite/frameTransform'
 import { glitterBudget } from '../composite/glitter'
 import { meterDistance, meterFill } from '../audioReactive/levelMeter'
 import { isNormalizedOutput } from '../shared/signalRange'
-import { loopPacingCpp, loopPacingMs } from '../../codegen/loopPacing'
+import { loopPacingCpp, loopPacingUs } from '../../codegen/loopPacing'
 import { controllerSettings } from '../../build/controllerSettings'
 import { dmxNetworkProtocol, dmxUsesNetwork, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
 import { workspaceTrustHolds } from '../../state/patterns/patternTrust'
@@ -286,13 +286,13 @@ describe('Frame Stream, Analog RGB Strip and DIN MIDI', () => {
 
 describe('the Board frame-rate cap', () => {
   it('paces every sketch loop and the preview gate from one Board property', () => {
-    expect(loopPacingMs(60)).toBe(16)
-    expect(loopPacingMs(30)).toBe(33)
-    expect(loopPacingMs(500)).toBe(8)
-    expect(loopPacingCpp(24)).toBe('  FastLED.delay(41);  // ~24 fps')
+    expect(loopPacingUs(60)).toBe(16667)
+    expect(loopPacingUs(30)).toBe(33333)
+    expect(loopPacingUs(500)).toBe(8333)
+    expect(loopPacingCpp(24)).toBe('  _paceFrame(41667);  // ~24 fps')
     expect(controllerSettings([node('b', 'Board', { frameRate: 24 })]).frameRate).toBe(24)
     expect(controllerSettings([]).frameRate).toBe(60)
-    expect(generateCpp([node('b', 'Board', { frameRate: 24 }), node('c', 'Breathe')], [])).toContain('FastLED.delay(41);  // ~24 fps')
+    expect(generateCpp([node('b', 'Board', { frameRate: 24 }), node('c', 'Breathe')], [])).toContain('_paceFrame(41667);  // ~24 fps')
     expect(propertyDescription('Board', 'frameRate')).toBeTruthy()
   })
 })

@@ -172,7 +172,19 @@ function showSketches(): Record<string, string> {
     'slideshow-sequential': slideshow(['solid', 'noise'], { order: 'Sequential' }),
     'slideshow-mixed': slideshow(['warp', 'symmetry', 'shape'], {}, ['wipe', 'iris']),
     'slideshow-3d-pool': slideshow(['solid', 'noise'], {}, ['cube', 'dolly']),
+    // Telemetry on: the timed send and the render/send report in each generator.
+    'telemetry-normal': generateCpp([telemetryBoard(), matrix(4), node('fill', 'Plasma')], [edge('f', 'fill', 'frame', 'out', 'frame')]),
+    'telemetry-slideshow': generateShowSketch(
+      [telemetryBoard(), node('collection', 'PatternCollection', { patternIds: ['solid', 'noise'] }), node('show', 'PatternSlideshow'), matrix(4)],
+      [edge('set', 'collection', 'patternset', 'show', 'patternset'), edge('frame', 'show', 'frame', 'out', 'frame')],
+      registry(['solid', 'noise']),
+    ),
+    'telemetry-music': musicPlayer(['solid', 'plasma'], { nodes: [telemetryBoard()] }),
   }
+}
+
+function telemetryBoard(): StudioNode {
+  return node('board', 'Board', { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc', reportTelemetry: true })
 }
 
 /** Every corpus sketch by name. Names are file stems: letters, digits, dashes. */
