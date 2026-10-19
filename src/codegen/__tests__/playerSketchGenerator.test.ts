@@ -90,6 +90,53 @@ describe('playerSketchGenerator', () => {
     expect(sketch).toContain('  renderPattern(patternId, t);')
   })
 
+  // The preview renders a transition's outgoing side from the state just
+  // before it and the incoming side from the live state. A section boundary
+  // sets the new palette, speed and energy at the transition's own instant,
+  // after CMD_TRANSITION, so CMD_TRANSITION copies what the outgoing pattern
+  // played with and the outgoing render passes the copies.
+  it('renders the outgoing pattern with the role values it had when its transition began', () => {
+    const rendering = (count: number, params: string[]) => ({
+      buffers: [], helpers: [], count, params,
+      functions: Array.from({ length: count }, (_, i) =>
+        `void render_p${i}(uint32_t ms${params.map((role) => (role === 'palette' ? ', const CRGBPalette16& palette' : `, float ${role}`)).join('')}) { (void)ms; }`),
+    })
+    const transitionArm = (sketch: string) => {
+      const start = sketch.indexOf('case CMD_TRANSITION:')
+      return sketch.slice(start, sketch.indexOf('break;', start))
+    }
+
+    const collection = generatePlayerSketch({}, rendering(2, ['energy', 'speed', 'palette']), { transitionIds: [0] })
+    expect(transitionArm(collection)).toMatch(/\bprevEnergy\s+= energy;\s+prevSpeed\s+= speed;\s+prevPalette\s+= palette;/)
+    expect(collection).toContain('    renderPattern(prevPatternId, t, prevEnergy, prevSpeed, prevPalette);')
+    expect(collection).toContain('    renderPattern(patternId, t, energy, speed, palette);')
+    expect(collection).not.toMatch(/renderPattern\((?:prevPatternId|patternId), t\);/)
+    // A palette parameter needs the prototype after FastLED.h.
+    const prototype = 'void renderPattern(uint8_t pid, float t, float energy, float speed, const CRGBPalette16& palette);'
+    expect(collection.indexOf(prototype)).toBeGreaterThan(collection.indexOf('#include <FastLED.h>'))
+
+    // Built-in show patterns take speed and palette only, so only those are kept.
+    const builtin = generatePlayerSketch({}, { ...rendering(2, ['speed', 'palette']), rawSpeed: true }, { transitionIds: [0] })
+    expect(builtin).toContain('    renderPattern(prevPatternId, t, prevSpeed, prevPalette);')
+    expect(builtin).not.toContain('prevEnergy')
+
+    // One pattern is called directly, with the same values.
+    const single = generatePlayerSketch({}, rendering(1, ['energy', 'speed', 'palette']), { transitionIds: [0] })
+    expect(single).toContain('    render_p0((uint32_t)(t * 1000.0f), prevEnergy, prevSpeed, prevPalette);')
+    expect(single).not.toContain('renderPattern')
+
+    // Nothing to keep without a transition, without role values, or in a Music
+    // Player, whose role values no show event changes.
+    for (const sketch of [
+      generatePlayerSketch({}, rendering(2, ['energy', 'speed', 'palette']), { transitionIds: [] }),
+      generatePlayerSketch({}, rendering(2, []), { transitionIds: [0] }),
+      generatePlayerSketch({}, rendering(2, ['energy', 'speed', 'palette']), { genericPlayer: true }),
+    ]) {
+      expect(sketch).not.toMatch(/prev(?:Energy|Speed|Palette)/)
+      expect(sketch).toContain('renderPattern(patternId, t);')
+    }
+  })
+
   // A Vibe node in a slideshow pattern read _audioVibe* globals the player
   // never declared: the decoder tap hosts the processor, so it must host the
   // optional detectors too.

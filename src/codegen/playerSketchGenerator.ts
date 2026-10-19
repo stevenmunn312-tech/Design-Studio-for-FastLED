@@ -30,7 +30,7 @@ import { displayTextCppHelpers } from './displays/displayTextCpp'
 //     Pattern Collection via showGenerator.buildPatternRenderers). Each
 //     SET_PATTERN index then dispatches to a `render_pN()` function.
 
-import type { PatternRenderers } from './showGenerator'
+import { roleSig, type PatternRenderers } from './showGenerator'
 import { asSlideshowOrder, type PatternSlideshowOrder } from '../state/patterns/patternSlideshow'
 import { PALETTE_IDS, STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/palettes/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
@@ -748,6 +748,31 @@ export function generatePlayerSketch(
   const hasEnergy = roleParams.includes('energy')
   const hasSpeed = roleParams.includes('speed')
   const hasPalette = roleParams.includes('palette')
+  // Through a transition the outgoing pattern keeps the role values it had when
+  // the transition began, as the preview renders it from the state just before;
+  // the incoming one takes the live values its section's events set. A
+  // show-file player copies them at CMD_TRANSITION, beside prevPatternId, so
+  // renderPattern takes the values it renders with from its caller.
+  const outgoingRoles = transitions && !genericPlayer ? roleParams : []
+  const prevRole = (role: string) => `prev${role[0].toUpperCase()}${role.slice(1)}`
+  const liveRoleArgs = outgoingRoles.length ? argList : ''
+  const prevRoleArgs = outgoingRoles.map((role) => `, ${prevRole(role)}`).join('')
+
+  // renderPattern() dispatches to a render_pN(), which expects ms. Built-in
+  // show patterns arrive compiled the same way, so only a player with no
+  // patterns at all (a VU-only Music Player) draws nothing, and nothing else
+  // writes `leds` there, so it stays black.
+  const renderPatternFn = collection
+    ? [
+        `void renderPattern(uint8_t pid, float t${outgoingRoles.map((role) => `, ${roleSig(role)}`).join('')}) {`,
+        '  uint32_t ms = (uint32_t)(t * 1000.0f);',
+        '  switch (pid) {',
+        ...Array.from({ length: renderers!.count }, (_, i) => `    case ${i}: render_p${i}(ms${argList}); break;`),
+        '  }',
+        '}',
+      ].join('\n')
+    : 'void renderPattern(uint8_t, float) {}'
+
   // The first reachable palette is the default arm, so no arm is unreachable.
   const reachablePalettes = (opts.paletteNames ?? STUDIO_PALETTES).filter((name) => name in PALETTE_IDS)
   const [defaultPalette = 'rainbow', ...casePalettes] = reachablePalettes
@@ -759,7 +784,7 @@ export function generatePlayerSketch(
   ])
   if (hasPalette) fastLedDecls.add('CRGBPalette16 paletteFromId(uint8_t palId);')
   if (collection) {
-    for (const block of [...renderers!.helpers, ...renderers!.functions]) {
+    for (const block of [...renderers!.helpers, ...renderers!.functions, renderPatternFn]) {
       const proto = cppPrototype(block)
       if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
     }
@@ -771,21 +796,6 @@ export function generatePlayerSketch(
     const proto = cppPrototype(block)
     if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
   }
-
-  // renderPattern() dispatches to a render_pN(), which expects ms. Built-in
-  // show patterns arrive compiled the same way, so only a player with no
-  // patterns at all (a VU-only Music Player) draws nothing, and nothing else
-  // writes `leds` there, so it stays black.
-  const renderPatternFn = collection
-    ? [
-        'void renderPattern(uint8_t pid, float t) {',
-        '  uint32_t ms = (uint32_t)(t * 1000.0f);',
-        '  switch (pid) {',
-        ...Array.from({ length: renderers!.count }, (_, i) => `    case ${i}: render_p${i}(ms${argList}); break;`),
-        '  }',
-        '}',
-      ].join('\n')
-    : 'void renderPattern(uint8_t, float) {}'
 
   // The reachable transition styles as one function operating on generic
   // buffers, so the player composites A→B the same way the browser preview does
@@ -1152,7 +1162,10 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
    */
   const finish = (source: string) => {
     let narrowed = withReferencedPalettes(source)
-    if (patternCount === 1) narrowed = narrowed.replace(/renderPattern\((?:prevPatternId|patternId), t\);/g, `render_p0((uint32_t)(t * 1000.0f)${argList});`)
+    // One pattern is called directly, with the role values its call passes, or
+    // else the live ones.
+    if (patternCount === 1) narrowed = narrowed.replace(/renderPattern\((?:prevPatternId|patternId), t((?:, \w+)*)\);/g,
+      (_call, roles: string) => `render_p0((uint32_t)(t * 1000.0f)${roles || argList});`)
     if (genericPlayer && particleFx && !particleFx.randomStyle) narrowed = specializeSwitch(narrowed, 'burstStyle', particleFx.style)
     const withoutReadyWrites = narrowed.replace(/\bplaybackReady\s*=\s*startPlayback\(\);/g, 'startPlayback();')
       .replace(/bool playbackReady = false;/, '')
@@ -1300,7 +1313,8 @@ CRGB       burstColor = CRGB(255, 128, 0);
 uint8_t    burstStyle = 0;        // particle motion style (see PARTICLE_STYLES)
 ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? (renderers?.rawSpeed
     ? 'float      speed     = 1.0f;      // SET_SPEED (0–2 multiplier) → speed group-input role\n'
-    : 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n') : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${reactiveAudio ? `
+    : 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n') : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${outgoingRoles.length ? `// Role values the outgoing pattern keeps through a transition (CMD_TRANSITION).
+${hasEnergy ? 'float      prevEnergy;\n' : ''}${hasSpeed ? 'float      prevSpeed;\n' : ''}${hasPalette ? 'CRGBPalette16 prevPalette;\n' : ''}` : ''}${reactiveAudio ? `
 // Shared audio contract consumed by compiled FFT/beat/percussion/features nodes.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;
 float     _audioLeftLevel = 0, _audioRightLevel = 0;
@@ -1589,7 +1603,9 @@ ${transitions ? `    case CMD_TRANSITION:
       // Fired just before the incoming SET_PATTERN (same timestamp, sorted so
       // TRANSITION lands first), so patternId still holds the outgoing pattern.
       prevPatternId = patternId;
-      transType     = (uint8_t)ev.params[0];
+${outgoingRoles.length ? `      // The role values are still the outgoing pattern's as well. It keeps
+      // them until the transition ends; the incoming pattern takes the live ones.
+${outgoingRoles.map((role) => `      ${prevRole(role).padEnd(13)} = ${role};\n`).join('')}` : ''}      transType     = (uint8_t)ev.params[0];
       transStart    = ev.t;
       transDurMs    = ev.params[1] * 1000.0f;
       break;
@@ -2264,13 +2280,13 @@ ${transitions && drawsFrame ? `  // Transition: while one is running, render the
 ${genericPlayer ? '' : `  // A show file can name the playing pattern on both sides. Rendering it
   // twice would step its state twice a frame, so it renders once.
 `}  if (tp < 1.0f${genericPlayer ? '' : ' && prevPatternId != patternId'}) {
-    renderPattern(prevPatternId, t);
+    renderPattern(prevPatternId, t${prevRoleArgs});
     ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing → showA
-    renderPattern(patternId, t);
+    renderPattern(patternId, t${liveRoleArgs});
     ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);   // incoming → showB
     compositeTransition(${transTypeExpr}, leds, showA, showB, tp);
   } else {
-    renderPattern(patternId, t);
+    renderPattern(patternId, t${liveRoleArgs});
   }
 
 ` : drawsFrame ? '  renderPattern(patternId, t);\n' : ''}${!genericPlayer ? `  // Beat flash overlay

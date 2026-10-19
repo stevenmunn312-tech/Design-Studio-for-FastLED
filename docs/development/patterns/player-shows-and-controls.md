@@ -437,6 +437,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   them. `generateShow` carries its repeat exclusion across section
   boundaries and drops a switch into the pattern already playing, so a
   generated show never names one; a hand edit still can.
+- **The outgoing pattern keeps its settings through a transition.**
+  `generateShow` sets a section's palette, speed and energy at the instant of
+  its boundary `TRANSITION`. The preview renders the outgoing side from the
+  state just before the transition (`showStateAt(show, tr.startMs - 1)`) and
+  the incoming side from the live state, so only the incoming pattern takes
+  the new values, including any set inside the transition. The performance
+  player matches: `CMD_TRANSITION` sorts first at its instant, so it copies
+  the role values `render_pN` takes into `prevEnergy`/`prevSpeed`/
+  `prevPalette` beside `prevPatternId`, and `renderPattern` takes the values
+  to render with from its caller. Only a show-file player that compiles a
+  transition and passes role values carries the copies: built-in patterns
+  always pass speed and palette, a collection only with Use group inputs and
+  only the roles its patterns read. Every other sketch is unchanged. The
+  dead-code corpus reaches them through `performance-builtin` and
+  `performance-collection`, whose `roles` pattern reads all three.
 - A collection show schedules patterns by *position*: `SET_PATTERN` carries an
   index into the show's own `ShowFile.patternSet` (version 2 shows only; version
   1 enum shows use `params.name` and have none). `buildShowPayload`

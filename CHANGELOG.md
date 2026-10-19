@@ -399,6 +399,12 @@ versioning (`0.y.z`) until the first stable release.
   collection, compiles no transition code. In the preview, Fire and Fire2012
   (and the three Noise built-ins) no longer share one state, and a transition
   blends into the pattern the show has set at that moment, as the device does.
+- In a Performance Generator show, the pattern fading out of a transition now
+  keeps its palette, speed and energy on the device until the transition ends,
+  as the preview shows it. The SD player switched it to the next section's
+  palette and speed as the crossfade began, at every section change: built-in
+  patterns always showed this, and collection patterns did with Use group
+  inputs on.
 - Open Project File and Save Project File As now start in the app's Projects
   folder when the helper is running, using the helper's file dialog; a
   browser picker cannot be pointed at a folder. Without the helper they use

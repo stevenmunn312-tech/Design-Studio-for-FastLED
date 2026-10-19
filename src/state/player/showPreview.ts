@@ -276,9 +276,11 @@ export function renderShowFrame(
 
   // Mid-transition: blend the outgoing pattern (state just before the switch)
   // into the incoming one (the state now, as the player renders whatever its
-  // last SET_PATTERN chose) via the chosen transition style. With the same
-  // pattern on both sides it renders once, as the player does: twice would step
-  // its state twice a frame.
+  // last SET_PATTERN chose) via the chosen transition style. The outgoing side
+  // keeps the palette, speed and energy it had, which the player copies at
+  // CMD_TRANSITION, so a section's new values reach the incoming side alone.
+  // With the same pattern on both sides it renders once, as the player does:
+  // twice would step its state twice a frame.
   const tr = activeTransitionAt(show, timeMs)
   const fromState = tr ? showStateAt(show, tr.startMs - 1) : null
   let result: Frame

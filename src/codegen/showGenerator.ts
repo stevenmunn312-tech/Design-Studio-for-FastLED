@@ -195,7 +195,8 @@ const ROLE_CPP_TYPE: Record<string, string> = {
   speed:   'float',
   palette: 'const CRGBPalette16&',
 }
-const roleSig = (p: string) => `${ROLE_CPP_TYPE[p] ?? 'float'} ${p}`
+/** A role's C++ parameter, as every render_pN declares it and a player passing it through does. */
+export const roleSig = (p: string) => `${ROLE_CPP_TYPE[p] ?? 'float'} ${p}`
 
 function cppPrototype(definition: string): string | null {
   const match = definition.match(/^([^\n{]+?\([^)]*\))\s*\{/m)

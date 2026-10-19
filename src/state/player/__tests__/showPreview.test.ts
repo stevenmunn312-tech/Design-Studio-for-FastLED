@@ -12,7 +12,7 @@ vi.mock('../../graphEvaluator', async (importOriginal) => {
 
 import { evaluateGraph } from '../../graphEvaluator'
 import { showStateAt, beatFlashAt, renderShowFrame, sectionAt } from '../showPreview'
-import type { ShowFile } from '../../../types/showFile'
+import type { ShowEvent, ShowFile } from '../../../types/showFile'
 
 const show: ShowFile = {
   version: 1,
@@ -392,6 +392,57 @@ describe('renderShowFrame', () => {
     ]
     expect(rendersAt(named('Plasma', 'Plasma'), 1500)).toEqual(['__show_Plasma'])
     expect(rendersAt(named('Fire', 'Fire2012'), 1500)).toEqual(['__show_Fire', '__show_Fire2012'])
+  })
+
+  // A section boundary sets its palette, speed and energy at the transition's
+  // own instant. The outgoing pattern keeps the values it had and the incoming
+  // one takes the live ones, as the player's CMD_TRANSITION copies keep them.
+  it('renders the outgoing side with the settings it had before the transition', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    const solid = (id: string) => ({
+      nodes: [
+        mk(`${id}-c`, 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
+        mk(`${id}-o`, 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+      ],
+      edges: [{ id: `${id}-e`, source: `${id}-c`, sourceHandle: 'frame', target: `${id}-o`, targetHandle: 'frame' }],
+    })
+    const groups = { a: solid('a'), b: solid('b') } as unknown as Parameters<typeof renderShowFrame>[4]
+    const callsAt = (show: ShowFile, timeMs: number) => {
+      vi.mocked(evaluateGraph).mockClear()
+      renderShowFrame(show, timeMs, 4, 4, groups, true)
+      return vi.mocked(evaluateGraph).mock.calls
+    }
+    const section = (t: number, pattern: ShowEvent['params'], palette: string, speed: number, energy: number): ShowFile['events'] => [
+      { t, cmd: 'SET_PATTERN', params: pattern },
+      { t, cmd: 'SET_PALETTE', params: { name: palette } },
+      { t, cmd: 'SET_SPEED', params: { value: speed } },
+      { t, cmd: 'SET_ENERGY', params: { value: energy } },
+    ]
+    const boundary = (from: ShowEvent['params'], to: ShowEvent['params']): ShowFile['events'] => [
+      ...section(0, from, 'ocean', 0.5, 0.2),
+      { t: 1000, cmd: 'TRANSITION', params: { type: 'crossfade', duration: 1 } },
+      ...section(1000, to, 'lava', 1.5, 0.9),
+      // A change inside the transition reaches the incoming side alone.
+      { t: 1200, cmd: 'SET_PALETTE', params: { name: 'forest' } },
+    ]
+
+    // A built-in takes the palette and the raw speed on its node.
+    const builtin = callsAt({ version: 1, songTitle: 'S', durationMs: 4000, bpm: 120, events: boundary({ name: 'Plasma' }, { name: 'Spiral' }) }, 1500)
+      .map(([nodes]) => {
+        const pattern = nodes[0] as unknown as { id: string; data: { properties: { palette: string; speed: number } } }
+        return [pattern.id, pattern.data.properties.palette, pattern.data.properties.speed]
+      })
+    expect(builtin).toEqual([['__show_Plasma', 'ocean', 0.5], ['__show_Spiral', 'forest', 1.5]])
+
+    // A collection pattern takes them on its role inputs (evaluateGraph's
+    // bound group inputs), the speed normalised to 0–1.
+    const collection = callsAt({ version: 2, songTitle: 'C', durationMs: 4000, bpm: 120, patternSet: ['a', 'b'], events: boundary({ index: 0 }, { index: 1 }) }, 1500)
+      .map((call) => call[8])
+    expect(collection).toEqual([
+      { energy: 0.2, speed: 0.25, palette: 'ocean' },
+      { energy: 0.9, speed: 0.75, palette: 'forest' },
+    ])
   })
 
   it('overlays colored sparks from a PARTICLE_BURST, then clears after its lifetime', () => {

@@ -59,6 +59,11 @@ function normalSketches(): Record<string, string> {
 const group = (inner: StudioNode[], edges: StudioEdge[]) => ({ nodes: [...inner, node('go', 'GroupOutput')], edges })
 const single = (type: string, properties: Record<string, unknown> = {}) =>
   group([node('n', type, properties)], [edge('e', 'n', 'frame', 'go', 'frame')])
+// A show role's group input, which "Use group inputs" feeds from the music.
+const roleInput = (role: string, dataType: string) => {
+  const input = node(role, 'GroupInput', { paramId: role })
+  return { ...input, data: { ...input.data, category: 'composite', outputs: [{ id: 'out', label: role, dataType }] } } as StudioNode
+}
 
 const PATTERNS = {
   solid: single('SolidColor', { r: 20, g: 30, b: 40 }),
@@ -72,6 +77,12 @@ const PATTERNS = {
   shape: single('Shape', { shape: 'polygon' }),
   reactive: group([node('au', 'Audio', { sourceId: 'decoder:sd' }), node('fft', 'FFTAnalyzer'), node('sc', 'SolidColor', { b: 60 })],
     [edge('a1', 'au', 'audio', 'fft', 'audio'), edge('a2', 'fft', 'bass', 'sc', 'r'), edge('eg', 'sc', 'frame', 'go', 'frame')]),
+  roles: group([
+    roleInput('speed', 'float'), roleInput('palette', 'palette'), roleInput('energy', 'float'), node('pl', 'Plasma'), node('bm', 'BrightnessMod'),
+  ], [
+    edge('rs', 'speed', 'out', 'pl', 'speed'), edge('rp', 'palette', 'out', 'pl', 'paletteIn'), edge('pf', 'pl', 'frame', 'bm', 'frame'),
+    edge('re', 'energy', 'out', 'bm', 'brightness'), edge('bf', 'bm', 'frame', 'go', 'frame'),
+  ]),
 } as const
 type PatternName = keyof typeof PATTERNS
 const registry = (names: PatternName[]) => Object.fromEntries(names.map((name) => [name, PATTERNS[name]])) as unknown as GroupRegistry
@@ -95,11 +106,12 @@ function musicPlayer(names: PatternName[], extra: { nodes?: StudioNode[]; edges?
 
 function performance(names: PatternName[], properties: Record<string, unknown> = {}, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) {
   const nodes = [
-    node('library', 'MusicLibrary'), node('collection', 'PatternCollection', { patternIds: names }),
+    node('library', 'MusicLibrary'), ...(names.length ? [node('collection', 'PatternCollection', { patternIds: names })] : []),
     node('perf', 'PerformanceGenerator', properties), matrix(4), node('sd', 'SDCard'), node('amp', 'Amplifier'), ...extra,
   ]
   const edges = [
-    edge('music', 'library', 'music', 'perf', 'music'), edge('set', 'collection', 'patternset', 'perf', 'patternset'),
+    edge('music', 'library', 'music', 'perf', 'music'),
+    ...(names.length ? [edge('set', 'collection', 'patternset', 'perf', 'patternset')] : []),
     edge('frame', 'perf', 'frame', 'out', 'frame'), ...extraEdges,
   ]
   return buildShowPlayer(nodes, edges, registry(names), { patternSet: names, bakedAudio: false, preferredTrack: '', genericPlayer: false })
@@ -139,8 +151,12 @@ function showSketches(): Record<string, string> {
       })],
       edges: [edge('vu', 'audio', 'audio', 'vu', 'audio')],
     }),
-    'performance-collection': performance(['solid', 'plasma'], { useGroupInputs: true }),
+    // `roles` reads every role, so all three reach the sketch, and a transition
+    // keeps the outgoing pattern's.
+    'performance-collection': performance(['roles', 'plasma'], { useGroupInputs: true }),
     'performance-no-group-inputs': performance(['solid', 'plasma']),
+    // No collection: the built-in show patterns, which take speed and palette.
+    'performance-builtin': performance([]),
     // One pattern never changes, so no show can composite a transition.
     'performance-one-pattern': performance(['solid']),
     'performance-audio-controls': performance(['reactive', 'warp'], { useGroupInputs: true }, [

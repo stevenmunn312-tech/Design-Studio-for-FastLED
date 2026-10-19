@@ -575,7 +575,9 @@ chooses the supported combinations from whatever is on record at release.
     collected pattern whose name is on that list becomes a `render_pN()`
     argument (`buildPatternRenderers` already widens the signature for roles
     through `ROLE_CPP_TYPE`) and a `groupInputs` entry in the preview's
-    `renderStateFrame`; a pattern without that input ignores it. The editor
+    `renderStateFrame`; a pattern without that input ignores it. A
+    transition's outgoing pattern keeps its values as it keeps the roles, so
+    the performance player's `CMD_TRANSITION` copies them too. The editor
     offers a lane for each input name in the collection. `showFileToBinary`
     writes the list only when a show uses it, so other shows stay
     byte-identical.
