@@ -91,7 +91,7 @@ it lands.
     parts at FastLED's default rates, APA102 6 MHz, HD108 25 MHz, WS2801
     1 MHz). The estimate, Graph Health and code generation all read it.
     Document it in [board capabilities](docs/architecture/board-capabilities.md).
-  - [ ] **4. Estimate the wire time per board and advise when it is the
+  - [x] **4. Estimate the wire time per board and advise when it is the
     limit.** `estimateLedRefreshTime` (`src/utils/validateGraph.ts`) charges
     30 µs for every LED as if all outputs sent one after another, and shows the
     result only as a note on the readiness strip's Pins chip. Use step 3's

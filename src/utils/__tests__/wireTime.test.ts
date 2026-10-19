@@ -98,6 +98,20 @@ describe('wire-time advice', () => {
     expect(findDeployBlockingErrors(nodes, edges, 'esp32:esp32:esp32s3').join(' ')).not.toMatch(/fps/)
   })
 
+  it('offers a faster clock on a clocked output after the lower frame rate', () => {
+    const estimate = estimateWireTime([board(S3), panel('out', 32, 32, { chipset: 'WS2801' })], [])!
+    expect(estimate.wireBound).toBe(true)
+    expect(wireTimeFixes(estimate).map(({ action, repair }) => ({ action, repair }))).toEqual([
+      { action: 'lower-frame-rate', repair: { kind: 'set-frame-rate', frameRate: estimate.reachableFps } },
+      { action: 'raise-data-rate', repair: { kind: 'set-data-rate', nodeId: 'out', dataRateMhz: 2 } },
+    ])
+    const card = wireTimeAdvice(estimate)[0]
+    expect(card.moreFixes).toEqual([{ action: 'raise-data-rate', repair: { kind: 'set-data-rate', nodeId: 'out', dataRateMhz: 2 } }])
+    // At the top rate there is no faster clock to offer.
+    const top = estimateWireTime([board(S3), panel('out', 64, 64, { chipset: 'WS2801', dataRateMhz: 25 })], [])!
+    expect(wireTimeFixes(top).some((fix) => fix.action === 'raise-data-rate')).toBe(false)
+  })
+
   it('stays quiet when the wire fits the frame period', () => {
     const estimate = estimateWireTime([board(S3), strip('out', 300)], [])
     expect(wireTimeAdvice(estimate)).toEqual([])

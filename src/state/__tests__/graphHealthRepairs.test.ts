@@ -13,6 +13,7 @@ import {
   rootGraphNodes,
   ROOT_GRAPH_ID,
   setBoardFrameRate,
+  setOutputDataRate,
   useGraphStore,
   type StudioEdge,
   type StudioNode,
@@ -255,5 +256,19 @@ describe('Lower the frame rate', () => {
     useGraphStore.getState().loadGraph(graph(), [edge('feed', 'pattern', 'frame', 'out', 'frame')])
     expect(setBoardFrameRate(32).ok).toBe(true)
     expect(diagnostics().some((d) => d.repair?.kind === 'set-frame-rate')).toBe(false)
+  })
+
+  it('clocks a clocked output at the next supported rate, only upward', () => {
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1', frameRate: 60 }),
+      node('pattern', 'SolidColor'),
+      node('out', 'MatrixOutput', { form: 'matrix', width: 32, height: 32, chipset: 'WS2801' }),
+    ], [edge('feed', 'pattern', 'frame', 'out', 'frame')])
+    const card = diagnostics().find((d) => d.id === 'wire-time-frame-rate')
+    expect(card?.moreFixes).toEqual([{ action: 'raise-data-rate', repair: { kind: 'set-data-rate', nodeId: 'out', dataRateMhz: 2 } }])
+    expect(setOutputDataRate('out', 2)).toEqual({ ok: true, dataRateMhz: 2 })
+    expect(rootGraphNodes(useGraphStore.getState()).find((n) => n.id === 'out')?.data.properties.dataRateMhz).toBe(2)
+    expect(setOutputDataRate('out', 2).ok).toBe(false)
+    expect(setOutputDataRate('out', 3).ok).toBe(false)
   })
 })

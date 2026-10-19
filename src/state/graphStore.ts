@@ -29,7 +29,7 @@ import { useUiStore, visibleLiveTouchScreen } from './uiStore'
 import { validateMatrixLayout } from './output/xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './output/ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
-import { dataRateAfterChipsetChange } from '../build/ledDrivers'
+import { dataRateAfterChipsetChange, dataRateOptionsMhz, effectiveDataRateMhz } from '../build/ledDrivers'
 import { boardProfileById, resolveBoardSelection, selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { profileI2cDefault } from '../build/boards/boardI2cDefaults'
 import {
@@ -3957,6 +3957,27 @@ export function setBoardFrameRate(frameRate: number): { ok: true; frameRate: num
     ? { ...node, data: { ...node.data, properties: { ...node.data.properties, frameRate: target } } }
     : node)))
   return { ok: true, frameRate: target }
+}
+
+/**
+ * Clock a clocked LED output faster: the wire-time card's faster-clock fix.
+ *
+ * Only to a rate the chipset offers and only upward; the output lives in the
+ * root graph, written there in one undo step. Says so and changes nothing
+ * when the output, its chipset or its rate has moved on.
+ */
+export function setOutputDataRate(nodeId: string, dataRateMhz: number): { ok: true; dataRateMhz: number } | { ok: false; reason: string } {
+  const output = rootGraphNodes(useGraphStore.getState()).find((node) => node.id === nodeId && node.data.nodeType === 'MatrixOutput')
+  const props = (output?.data.properties ?? {}) as Record<string, unknown>
+  const chipset = String(props.chipset ?? 'WS2812B')
+  const current = effectiveDataRateMhz(chipset, props.dataRateMhz)
+  if (!output || current === null || !dataRateOptionsMhz(chipset).includes(dataRateMhz) || current >= dataRateMhz) {
+    return { ok: false, reason: 'That output has already changed since this was reported.' }
+  }
+  useGraphStore.setState((s) => withRootNodes(s, rootGraphNodes(s).map((node) => node.id === nodeId
+    ? { ...node, data: { ...node.data, properties: { ...node.data.properties, dataRateMhz } } }
+    : node)))
+  return { ok: true, dataRateMhz }
 }
 
 /** Move every active I2C part onto the board bus in one root-scoped undo step. */

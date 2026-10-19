@@ -1647,6 +1647,7 @@ export type GraphDiagnosticAction =
   | 'disconnect-touch-controls'
   | 'open-start-gallery'
   | 'lower-frame-rate'
+  | 'raise-data-rate'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1679,6 +1680,8 @@ export type GraphRepair =
   | { kind: 'disconnect-touch-controls'; touchId: string }
   /** The Board frame rate the wire can keep up with. */
   | { kind: 'set-frame-rate'; frameRate: number }
+  /** A clocked LED output's faster supported clock (`dataRateMhz`). */
+  | { kind: 'set-data-rate'; nodeId: string; dataRateMhz: number }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {

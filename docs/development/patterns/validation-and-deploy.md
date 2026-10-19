@@ -150,3 +150,34 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   or `Name.Widget:`; keep that prefix on any new message those walks emit, or
   its card falls back to framing every output or display.
 - SDVideo clip bytes live in IndexedDB (`sdVideoStore`), not the project; the node keeps only `properties.clip`. A moved project loses the bytes, so re-import. `findSdVideoErrors` blocks mixing SDVideo with the music player or show builds, which mount the card themselves. Design: [sd-video](../../design/sd-video.md).
+- Wire time is one estimate, `estimateWireTime(rootNodes, rootEdges)` in
+  `src/utils/wireTime.ts`, read by Graph Health and the readiness strip's
+  **Frame** chip; every figure comes from `src/build/ledDrivers.ts`
+  ([board capabilities](../../architecture/board-capabilities.md#led-drivers)).
+  The Board's profile gives the family and FQBN. Each leading LED output (mirrors
+  share a pin), each `dataLanes` lane (`ceil(leds / lanes)` LEDs) and both rails
+  of a wired Stereo VU Meter is one output; HUB75 is left out. Clockless outputs
+  are list-scheduled, longest first, over `ledOutputConcurrency(facts, driver,
+  …)` slots, because FastLED's RMT5 engine queues every output and starts each
+  on the first free channel. On RMT chips the slots are every channel that fits
+  single-buffered with no network (FastLED drops to one block a channel under
+  memory pressure rather than refuse one), and `rmtOutputsThatFit` at the
+  network rate, at least one, once `networkSourceIn` finds a Wi-Fi or Ethernet
+  user (FastLED's network channel reduction). The IR receiver's RX symbols
+  (`IR_RMT_RX_SYMBOLS`) come out of that pool only where it captures through
+  RMT and RX shares TX memory; today the capture runs only on the S3, whose RX
+  memory is separate, so the share is zero. Clocked outputs send at
+  `effectiveDataRateMhz` and are added one after another, a conservative
+  reading. `ledOutputConcurrency` is the seam for the Board's `ledDriver`: any
+  value other than `auto` is read as auto until its concurrency is recorded.
+- When the wire time exceeds the Board's frame period, `wireTimeAdvice` gives
+  a `warning` (a suggestion, never an error or a deploy gate) naming the frame
+  rate the graph reaches. Its fixes come only from `wireTimeFixes`, in order:
+  **Lower to N fps** (`set-frame-rate`, `setBoardFrameRate`), then **Clock at N
+  MHz** for each clocked output with a faster rate (`set-data-rate`,
+  `setOutputDataRate`). The first is the card's `action`; the rest are
+  `moreFixes`, one drawer button each, so **Split across pins** and a parallel
+  driver are appended there, not as separate cards. Each repair only moves the
+  figure the safe way, re-checks the root graph and reports "already changed".
+  With a network up on an RMT board, `wire-time-rmt-network` says the outputs
+  take turns because they want more RMT memory than the chip has.

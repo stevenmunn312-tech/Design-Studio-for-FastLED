@@ -12,6 +12,7 @@ import {
   ensureRootAudioNode,
   placeTouchControl,
   setBoardFrameRate,
+  setOutputDataRate,
   ROOT_GRAPH_ID,
   useGraphStore,
   useRootNodes,
@@ -45,6 +46,7 @@ const CATEGORY_LABELS: Record<GraphDiagnosticCategory, string> = {
 
 function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosticFix>): string {
   if (fix?.repair?.kind === 'set-frame-rate') return `Lower to ${fix.repair.frameRate} fps`
+  if (fix?.repair?.kind === 'set-data-rate') return `Clock at ${fix.repair.dataRateMhz} MHz`
   if (action === 'choose-board') return 'Choose board'
   // Named rather than a bare "Fix", so the button says what will appear on the
   // canvas before it appears there.
@@ -123,6 +125,11 @@ export default function GraphHealthDrawer() {
     if (issue.repair?.kind === 'set-frame-rate') {
       const result = setBoardFrameRate(issue.repair.frameRate)
       setStatus(result.ok ? `Board frame rate lowered to ${result.frameRate} fps` : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'set-data-rate') {
+      const result = setOutputDataRate(issue.repair.nodeId, issue.repair.dataRateMhz)
+      setStatus(result.ok ? `LED output clocked at ${result.dataRateMhz} MHz` : result.reason, result.ok ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'move-i2c-pins') {

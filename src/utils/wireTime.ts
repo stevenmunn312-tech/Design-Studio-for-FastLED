@@ -36,7 +36,8 @@ import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { targetFamilyFromFqbn, type BuildTargetFamily } from '../build/buildProfile'
 import { controllerSettings, FRAME_RATE } from '../build/controllerSettings'
 import {
-  CHIPSET_WIRE, chipsetSendMicros, ledDriverFacts, rmtOutputsThatFit, type LedDriverFacts,
+  CHIPSET_WIRE, chipsetSendMicros, clockedRateFix, effectiveDataRateMhz, ledDriverFacts, rmtOutputsThatFit,
+  type LedDriverFacts,
 } from '../build/ledDrivers'
 import { networkSourceIn } from '../codegen/peripherals/networkCpp'
 import { IR_RMT_RX_FAMILIES, IR_RMT_RX_SYMBOLS } from '../codegen/peripherals/irRmtReceiverCpp'
@@ -52,6 +53,8 @@ export interface WireOutput {
   /** Clocked (SPI) chipsets do not share the clockless driver's slots. */
   clocked: boolean
   micros: number
+  /** The LED output's `dataRateMhz`, for the faster-clock fix; absent on VU rails. */
+  dataRateMhz?: unknown
 }
 
 export interface RmtWireUse {
@@ -97,10 +100,10 @@ const positiveInt = (value: unknown, fallback: number): number => {
   return Number.isFinite(n) && n >= 1 ? n : fallback
 }
 
-/** A clocked chipset's data rate from the LED output, in Hz; 0 is FastLED's default. */
-function dataRateHz(props: Record<string, unknown>): number | undefined {
-  const mhz = Number(props.dataRateMhz)
-  return Number.isFinite(mhz) && mhz > 0 ? mhz * 1_000_000 : undefined
+/** The rate a clocked chipset actually sends at, in Hz (step 5's `dataRateMhz`, default when absent). */
+function dataRateHz(chipset: string, props: Record<string, unknown>): number | undefined {
+  const mhz = effectiveDataRateMhz(chipset, props.dataRateMhz)
+  return mhz === null ? undefined : mhz * 1_000_000
 }
 
 function isClocked(chipset: string): boolean {
@@ -117,7 +120,7 @@ export function wireOutputs(nodes: StudioNode[], edges: readonly StudioEdge[]): 
     const leds = outputLedTotal(props)
     const lanes = Math.min(positiveInt(props.dataLanes, 1), leds)
     const laneLeds = Math.ceil(leds / lanes)
-    const rate = dataRateHz(props)
+    const rate = dataRateHz(chipset, props)
     for (let lane = 0; lane < lanes; lane += 1) {
       outputs.push({
         nodeId: route.node.id,
@@ -126,6 +129,7 @@ export function wireOutputs(nodes: StudioNode[], edges: readonly StudioEdge[]): 
         leds: laneLeds,
         clocked: isClocked(chipset),
         micros: chipsetSendMicros(chipset, laneLeds, rate),
+        dataRateMhz: props.dataRateMhz,
       })
     }
   }
@@ -273,6 +277,20 @@ export function wireTimeFixes(estimate: WireTimeEstimate): WireTimeFix[] {
       action: 'lower-frame-rate',
       repair: { kind: 'set-frame-rate', frameRate: estimate.reachableFps },
       text: `Lower the Board's frame rate to ${estimate.reachableFps} fps, so every frame is sent whole and on time.`,
+    })
+  }
+  // A faster clock on each clocked LED output that has one, slowest send
+  // first. VU rails have no data-rate setting.
+  const seen = new Set<string>()
+  for (const output of [...estimate.outputs].sort((a, b) => b.micros - a.micros)) {
+    if (!output.clocked || !('dataRateMhz' in output) || seen.has(output.nodeId)) continue
+    seen.add(output.nodeId)
+    const faster = clockedRateFix(output.chipset, output.dataRateMhz)
+    if (!faster) continue
+    fixes.push({
+      action: 'raise-data-rate',
+      repair: { kind: 'set-data-rate', nodeId: output.nodeId, dataRateMhz: faster.toMhz },
+      text: `Or clock ${output.label} at ${faster.toMhz} MHz instead of ${faster.fromMhz} MHz${output.chipset.startsWith('APA102') ? '; long APA102 runs can lose data at high rates' : ''}.`,
     })
   }
   return fixes
