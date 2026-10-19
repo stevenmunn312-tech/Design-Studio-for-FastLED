@@ -27,6 +27,14 @@ export interface PatternStep {
 
 const HOLD_MIN = 0.05
 
+/** Show event params cannot carry an absent field, so a ramp is added only when it runs. */
+function withRamp(
+  params: Record<string, number | string>,
+  rampMs: number,
+): Record<string, number | string> {
+  return rampMs > 0 ? { ...params, rampMs } : params
+}
+
 export function asPatternSteps(value: unknown): PatternStep[] {
   if (!Array.isArray(value)) return []
   const steps: PatternStep[] = []
@@ -101,16 +109,15 @@ export function sequenceToShow(
       params: step.index === undefined ? { index: -1, tag: 1 } : { index: step.index },
     })
     const rampMs = step.rampSec && step.rampSec > 0 ? Math.round(step.rampSec * 1000) : 0
-    const ramp = rampMs > 0 ? { rampMs } : {}
-    if (step.speed !== undefined) events.push({ t, cmd: 'SET_SPEED', params: { value: step.speed, ...ramp } })
-    if (step.brightness !== undefined) events.push({ t, cmd: 'SET_BRIGHTNESS', params: { value: step.brightness, ...ramp } })
-    if (step.energyValue !== undefined) events.push({ t, cmd: 'SET_ENERGY', params: { value: step.energyValue, ...ramp } })
+    if (step.speed !== undefined) events.push({ t, cmd: 'SET_SPEED', params: withRamp({ value: step.speed }, rampMs) })
+    if (step.brightness !== undefined) events.push({ t, cmd: 'SET_BRIGHTNESS', params: withRamp({ value: step.brightness }, rampMs) })
+    if (step.energyValue !== undefined) events.push({ t, cmd: 'SET_ENERGY', params: withRamp({ value: step.energyValue }, rampMs) })
     if (step.palette) events.push({ t, cmd: 'SET_PALETTE', params: { name: step.palette } })
     if (step.params) {
       for (const [name, value] of Object.entries(step.params)) {
         const index = paramNames.indexOf(name)
         if (index < 0) continue
-        events.push({ t, cmd: 'SET_PARAM', params: { index, value, ...ramp } })
+        events.push({ t, cmd: 'SET_PARAM', params: withRamp({ index, value }, rampMs) })
       }
     }
     t += holdMs
