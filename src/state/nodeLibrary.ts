@@ -1688,8 +1688,8 @@ export const SCALAR_FORMULA_LANG_HELP = `Variables: ${SCALAR_FORMULA_VARIABLES.j
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   PatternMaster: {
-    order: 'Sequential plays patterns in collection order and wraps. Random chooses a different pattern at each advance. Sequence plays the steps edited in the node; with Beat Transitions on, a hold counts beats.',
-    sequence: 'The steps Sequence order plays. Each step names a pattern or a tag, a hold, and a transition.',
+    order: 'Sequential plays patterns in collection order, skips a weight of 0, and wraps. Random chooses a different pattern at each advance, and a higher weight is chosen more often. Sequence plays the steps edited on the node. With Beat Transitions on, a Sequence hold counts beats, and Energy Pacing and Dwells & Bursts stay off.',
+    sequence: 'The steps Sequence order plays, edited with Add step and Edit sequence. Each step names a pattern or a tag, a hold, and a transition, and can ramp speed, brightness, energy or a named input. With Beat Transitions on, the hold counts beats. None holds the current pattern. Previous and Next Pattern move between steps.',
     beatTransitions: 'Wait for a fresh beat after a random cooldown between Min Time and Max Time. The Beat input overrides the Audio input. Without beats, the current pattern keeps playing. Off uses timed changes.',
     minTime: 'Minimum hold time in seconds. With Beat Transitions enabled, this is the shortest cooldown after a transition finishes.',
     maxTime: 'Maximum random hold time in seconds. With Beat Transitions enabled, the player still waits for the next beat after the cooldown ends.',
@@ -2931,9 +2931,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     fade: 'Seconds spent crossfading into the next input at the end of each hold. 0 cuts; capped at the hold.',
   },
   PatternSlideshow: {
-    order: 'Sequential walks the collection top to bottom and wraps. Random never repeats the pattern just shown. Sequence plays the steps edited in the node.',
-    sequence: 'The steps Sequence order plays. Each step names a pattern or a tag, a hold, and a transition.',
-    interval: 'Seconds each pattern stays on before the slideshow moves on. A wired Interval replaces this.',
+    order: 'Sequential walks the collection top to bottom, skips a weight of 0, and wraps. Random never repeats the pattern just shown, and a higher weight is chosen more often. Sequence plays the steps edited on the node.',
+    sequence: 'The steps Sequence order plays, edited with Add step and Edit sequence. Each step names a pattern or a tag, a hold, and a transition, and can ramp speed, brightness, energy or a named input. None holds the current pattern. Previous and Next move between steps. Hold applies to Sequential and Random.',
+    interval: 'Seconds each pattern stays on before the slideshow moves on. A wired Interval replaces this. Sequence order uses each step’s hold instead.',
     transitionsEnabled: 'Blend between patterns when changing. Off switches instantly.',
     transitionSec: 'Seconds the blend between two patterns takes. 0 is a hard cut.',
     audioReactive: 'Let patterns that listen to audio react, and fade to black in silence. Off ignores any wired audio.',
@@ -2946,7 +2946,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     patternHold: 'Minimum seconds a pattern stays before the show may switch on a beat.',
     paletteMode: 'Mood picks a palette per song section, Cycle rotates palettes, Fixed keeps one palette.',
     fixedPalette: 'The palette used for the whole show when Palette Mode is Fixed.',
-    useGroupInputs: 'Feed each pattern\'s energy, speed and palette inputs from the music so patterns follow the song.',
+    useGroupInputs: 'Feed each pattern\'s energy, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
     showInMainPreview: 'Also draw the running show in the main preview. Off keeps the main preview on the graph while the body plays.',
   },
   SDCard: {
@@ -3131,11 +3131,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     code: 'The loop body. Write into leds[] each frame as in a FastLED sketch; it runs in the preview sandbox and verbatim on the board.',
   },
   PatternCollection: {
-    patternIds: 'The patterns in the collection, in play order, picked in the body.',
-    patternSections: 'Which song sections each pattern may play in, tagged in the body. No tags means any section. Section tags steer the Performance Generator only.',
-    patternWeights: 'How often each pattern is picked automatically. 1 is the default. 0 is never chosen on its own, and stays reachable from a confirm, a timeline, or a sequence step. Equal weights keep the original random order.',
-    patternEnergy: 'Calm, lively, or peak. The Music Player reads the band from the track, and the Performance Generator reads it from the section. Untagged patterns can play in any band.',
-    patternEntry: 'Restart clears a pattern’s state and starts its clock at the beginning of the transition that brings it in. Resume keeps the state and the show clock.',
+    patternIds: 'The patterns in the collection, in play order. Add them in the node, or wire a group’s frame into Pattern and confirm to absorb it.',
+    patternSections: 'Song sections each pattern may play in, tagged on its row: intro, verse, buildup, drop, chorus, bridge, outro. Any section means no limit. These chips steer the Performance Generator. A sequence step can still name sections as its own filter. Automatic slideshow and Music Player rotation do not read them.',
+    patternWeights: 'How often each pattern is picked automatically, from 0 to 16. 1 is the usual pick, and a higher weight is chosen more often. 0 is skipped by Random and Sequential, and stays reachable from a confirm, a timeline, or a sequence step that names it. Equal weights keep the original random order.',
+    patternEnergy: 'Calm, lively, or peak, tagged on each row. Any band means no limit. The Music Player reads the band from the track, and the Performance Generator reads it from the section. A slideshow ignores these unless a sequence step asks for a band. If nothing matches, any pattern may play.',
+    patternEntry: 'Restart, the usual setting, clears a pattern’s state and starts its clock as the transition that brings it in begins. Resume keeps the state and the show clock, including while another pattern is showing.',
   },
   TransitionSet: {
     transitions: 'The transition styles in the pool, picked in the body. The player chooses among them at each change.',
@@ -3170,8 +3170,16 @@ const COLOR_PAIR_LABELS: Record<string, string> = {
  * entry shows as itself.
  */
 const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  PatternCollection: {
+    patternIds: 'Patterns',
+    patternSections: 'Sections',
+    patternWeights: 'Weight',
+    patternEnergy: 'Energy',
+    patternEntry: 'Entry',
+  },
   PatternMaster: {
     order: 'Pattern Order',
+    sequence: 'Sequence',
     beatTransitions: 'Beat Transitions',
     energyPacing: 'Energy Pacing',
     dwellsAndBursts: 'Dwells & Bursts',
@@ -3180,6 +3188,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     transitionSec: 'fade (s)',
   },
   PatternSlideshow: {
+    sequence: 'Sequence',
     interval: 'hold (s)',
     transitionsEnabled: 'transitions',
     transitionSec: 'fade (s)',
@@ -4038,13 +4047,16 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'palette', label: 'Palette', keys: ['paletteMode', 'fixedPalette'] },
     { key: 'inputs', label: 'Inputs', keys: ['useGroupInputs'] },
   ],
+  PatternCollection: [
+    { key: 'patterns', label: 'Patterns', keys: ['patternIds', 'patternSections', 'patternWeights', 'patternEnergy', 'patternEntry'] },
+  ],
   PatternMaster: [
-    { key: 'playback', label: 'Playback', keys: ['volume', 'order'] },
+    { key: 'playback', label: 'Playback', keys: ['volume', 'order', 'sequence'] },
     { key: 'timing', label: 'Timing', keys: ['beatTransitions', 'minTime', 'maxTime', 'transitionSec', 'energyPacing', 'dwellsAndBursts'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   PatternSlideshow: [
-    { key: 'timing', label: 'Timing', keys: ['order', 'interval'] },
+    { key: 'timing', label: 'Timing', keys: ['order', 'sequence', 'interval'] },
     { key: 'transitions', label: 'Transitions', keys: ['transitionsEnabled', 'transitionSec'] },
     { key: 'audio', label: 'Audio', keys: ['audioReactive'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },

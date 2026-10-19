@@ -22,7 +22,7 @@ The help modal keeps a fixed node-library directory on the left and a scrollable
 5. **Inputs and Outputs**, then **Optional inputs**
    - Each port names its data type and says what it means on this node. Optional inputs are the property and action sockets revealed by Expose input…; a property socket the entry does not describe reads "Replaces *Property* while wired".
 6. **Properties**
-   - Every visible property, grouped as on the live node, with its default and its `propertyDescription`. Internal keys (part ids, generated identifiers) and the LED output's `form` are not listed.
+   - Every visible property, grouped as on the live node, with its default and its `propertyDescription`. Internal keys (part ids, generated identifiers) and the LED output's `form` are not listed. Body-edited show settings are listed with the default the body uses when the key is absent: collection weight 1, any section, any energy band, restart, and no sequence.
 7. **Example**
    - The heading names the result. The signal path is shown with canvas titles (a Trigger reads as its mode, an LED output as its form) beside **Try it live**.
    - The image is the generated example graph, drawn node for node like the canvas.

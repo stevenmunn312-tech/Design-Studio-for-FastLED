@@ -118,7 +118,7 @@ describe('StudioNode', () => {
     fireEvent.click(getByText('Playback'))
     const order = getByLabelText('Pattern Order value') as HTMLSelectElement
     expect(order.value).toBe('Random')
-    expect(Array.from(order.options, (option) => option.value)).toEqual(['Random', 'Sequential'])
+    expect(Array.from(order.options, (option) => option.value)).toEqual(['Random', 'Sequential', 'Sequence'])
     fireEvent.change(order, { target: { value: 'Sequential' } })
     expect(useGraphStore.getState().nodes[0].data.properties.order).toBe('Sequential')
   })

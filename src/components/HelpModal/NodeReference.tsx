@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useRef } from 'react'
 import type { NodeCategory, NodeDefinition, NodePort } from '../../types'
-import { CATEGORIES, CATEGORY_COLOR, HARDWARE_CATEGORY, isInternalProperty, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor } from '../../state/nodeLibrary'
+import { CATEGORIES, CATEGORY_COLOR, HARDWARE_CATEGORY, isInternalProperty, NODE_DESCRIPTIONS, NODE_LIBRARY, PROPERTY_DESCRIPTIONS_OVERRIDES, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor } from '../../state/nodeLibrary'
 import { exposableInputsFor } from '../../state/propertyInputs'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
@@ -19,12 +19,20 @@ const CATEGORY_ORDER: NodeCategory[] = ['input', 'audio', 'signal', 'math', 'col
 
 const NODE_INTRO_TYPE = '__using_nodes__'
 
-// Properties the reference does not list: they are not settings the reader can
-// go and change. `form` is the bench's answer to what the output physically
-// is — there is no editor for it, so documenting its four options as a choice
-// described a control that does not exist. Internal keys (part ids, generated
-// identifiers) are hidden for the same reason.
-const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections', 'patternWeights', 'patternEnergy', 'patternEntry', 'sequence', 'form'])
+// `form` is the bench's answer to what an LED output physically is. There is
+// no editor for it, so listing its four options described a choice that does
+// not exist. Internal keys (part ids, generated identifiers) are hidden for
+// the same reason. Body-edited show settings stay listed: the reader changes
+// them on the node, and a missing key means the default below.
+const HIDDEN_PROPERTIES = new Set(['form'])
+
+/** Defaults the node body uses when the saved key is absent. */
+const BODY_PROPERTY_DEFAULTS: Record<string, unknown> = {
+  patternWeights: 1,
+  patternEnergy: 'any band',
+  patternEntry: 'restart',
+  sequence: 'None',
+}
 
 const PROPERTY_LABELS: Record<string, string> = {
   bpm: 'BPM',
@@ -100,7 +108,14 @@ function formatPropertyValue(value: unknown): string {
 }
 
 function propertyEntries(node: NodeDefinition): Array<[string, unknown]> {
-  return Object.entries(node.defaultProperties ?? {})
+  const defaults: Record<string, unknown> = { ...(node.defaultProperties ?? {}) }
+  if (node.type === 'PatternCollection' && defaults.patternSections && typeof defaults.patternSections === 'object' && !Array.isArray(defaults.patternSections) && Object.keys(defaults.patternSections).length === 0) {
+    defaults.patternSections = 'any section'
+  }
+  for (const key of Object.keys(PROPERTY_DESCRIPTIONS_OVERRIDES[node.type] ?? {})) {
+    if (!(key in defaults) && key in BODY_PROPERTY_DEFAULTS) defaults[key] = BODY_PROPERTY_DEFAULTS[key]
+  }
+  return Object.entries(defaults)
     .filter(([key]) => !HIDDEN_PROPERTIES.has(key) && !isInternalProperty(key))
 }
 

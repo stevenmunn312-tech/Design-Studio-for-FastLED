@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  NODE_LIBRARY, PROPERTY_GROUPS, PROPERTY_LABELS, SUBCATEGORY_ORDER, categoryNodes, propertyLabel,
+  NODE_LIBRARY, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, PROPERTY_LABELS, SUBCATEGORY_ORDER, categoryNodes, propertyLabel,
 } from '../nodeLibrary'
 import { editableProperties } from '../../components/Canvas/studioNodeChrome'
 
@@ -69,7 +69,13 @@ describe('property groups', () => {
     for (const [type, groups] of Object.entries(PROPERTY_GROUPS)) {
       const def = NODE_LIBRARY.find((n) => n.type === type)
       if (!def) continue
-      const known = new Set(Object.keys(def.defaultProperties ?? {}))
+      const known = new Set([
+        ...Object.keys(def.defaultProperties ?? {}),
+        // Sequence and the collection row settings are edited in the node body
+        // and stored only when they differ from the default, so they are absent
+        // from defaultProperties and still belong in the help groups.
+        ...Object.keys(PROPERTY_DESCRIPTIONS_OVERRIDES[type] ?? {}),
+      ])
       const seen = new Set<string>()
       for (const group of groups) {
         for (const key of group.keys) {
@@ -82,7 +88,7 @@ describe('property groups', () => {
   })
 
   it('leads with the master controls rather than trailing them ungrouped', () => {
-    expect(PROPERTY_GROUPS.PatternMaster[0]).toEqual({ key: 'playback', label: 'Playback', keys: ['volume', 'order'] })
+    expect(PROPERTY_GROUPS.PatternMaster[0]).toEqual({ key: 'playback', label: 'Playback', keys: ['volume', 'order', 'sequence'] })
     expect(PROPERTY_GROUPS.MatrixOutput[0]).toEqual({ key: 'output', label: 'Output', keys: ['enabled', 'outputBrightness'] })
     expect(PROPERTY_GROUPS.ColorTrails[0].keys).toEqual(['bass', 'mids', 'treble'])
   })

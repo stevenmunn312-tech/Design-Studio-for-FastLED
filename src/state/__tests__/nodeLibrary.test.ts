@@ -196,7 +196,12 @@ describe('nodeLibrary', () => {
       const node = byType.get(nodeType)
       if (!node) { stale.push(nodeType); continue }
       const known = new Set([...Object.keys(node.defaultProperties ?? {}), ...node.inputs.map((port) => port.id)])
-      for (const key of Object.keys(overrides)) if (!known.has(key)) stale.push(`${nodeType}.${key}`)
+      // Edited on the node body and stored only when they differ from the
+      // default, so they are absent from defaultProperties.
+      const bodyEdited = new Set(['patternWeights', 'patternEnergy', 'patternEntry', 'sequence'])
+      for (const key of Object.keys(overrides)) {
+        if (!known.has(key) && !bodyEdited.has(key)) stale.push(`${nodeType}.${key}`)
+      }
     }
     expect(stale).toEqual([])
   })
