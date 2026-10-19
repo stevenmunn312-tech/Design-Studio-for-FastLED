@@ -37,8 +37,9 @@ import { targetFamilyFromFqbn, type BuildTargetFamily } from '../build/buildProf
 import { controllerSettings, FRAME_RATE } from '../build/controllerSettings'
 import {
   CHIPSET_WIRE, chipsetSendMicros, clockedRateFix, effectiveDataRateMhz, ledDriverFacts, rmtOutputsThatFit,
-  type LedDriverFacts,
+  suggestParallelLedDriver, type LedDriverFacts, type SelectableLedDriver,
 } from '../build/ledDrivers'
+import { selectedLedDriver } from '../build/ledDriverSelection'
 import { networkSourceIn } from '../codegen/peripherals/networkCpp'
 import { IR_RMT_RX_FAMILIES, IR_RMT_RX_SYMBOLS } from '../codegen/peripherals/irRmtReceiverCpp'
 import type { GraphDiagnostic, GraphDiagnosticFix } from './validateGraph'
@@ -78,7 +79,9 @@ export interface WireTimeEstimate {
   controllerCount: number
   facts: LedDriverFacts
   family: BuildTargetFamily
-  /** The Board's `ledDriver` ('auto' until step 7 offers others). */
+  /** The Board's FQBN, refining `family` where one family covers several chips. */
+  fqbn: string
+  /** The Board's `ledDriver` as the sketch builds it: 'auto', or a bus the board offers. */
   driver: string
   networkActive: boolean
   /** Clockless outputs sent at once. */
@@ -174,18 +177,20 @@ export function irReservedRmtWords(nodes: readonly StudioNode[], family: BuildTa
 /**
  * Clockless outputs the board's LED driver sends at once.
  *
- * The seam step 7 extends: `driver` is the Board's `ledDriver`. Only `auto`
- * (FastLED's own choice) is modelled; any other driver is read as auto until
- * its concurrency is recorded in `ledDrivers.ts`.
+ * `driver` is the Board's choice: `'auto'` (or any string) is FastLED's own
+ * driver from `facts`; a chosen `SelectableLedDriver` (`selectedLedDriver`)
+ * sends its own `parallelOutputs` at once, bounded by RMT memory when the
+ * chosen driver is RMT (the C6 and H2 offer it in place of PARLIO).
  */
 export function ledOutputConcurrency(
   facts: LedDriverFacts,
-  driver: string,
+  driver: string | SelectableLedDriver,
   options: { networkActive: boolean; reservedWords: number },
 ): number {
-  void driver
-  let slots = Math.max(1, facts.parallelOutputs)
-  if (facts.clocklessBus === 'RMT' && facts.rmt) {
+  const chosen = typeof driver === 'object' ? driver : null
+  if (chosen && chosen.bus !== 'RMT') return Math.max(1, chosen.parallelOutputs)
+  let slots = Math.max(1, chosen ? chosen.parallelOutputs : facts.parallelOutputs)
+  if ((chosen || facts.clocklessBus === 'RMT') && facts.rmt) {
     const rmt = facts.rmt
     const singleBuffered = Math.floor(Math.max(0, rmt.txMemoryWords - options.reservedWords) / rmt.blockWords)
     const fit = options.networkActive
@@ -222,11 +227,13 @@ export function estimateWireTime(nodes: StudioNode[], edges: readonly StudioEdge
   if (outputs.length === 0) return null
   const { family, fqbn } = boardTarget(nodes)
   const facts = ledDriverFacts(family, fqbn)
-  const board = nodes.find((node) => node.data.nodeType === 'Board')
-  const driver = String((board?.data.properties as Record<string, unknown> | undefined)?.ledDriver ?? 'auto')
+  // Checked against the board, so a stale or unknown value counts as auto,
+  // exactly as the generators build it.
+  const chosen = selectedLedDriver(nodes)
+  const driver = chosen?.bus ?? 'auto'
   const networkActive = sketchUsesNetwork(nodes)
   const reservedWords = irReservedRmtWords(nodes, family, facts)
-  const concurrency = ledOutputConcurrency(facts, driver, { networkActive, reservedWords })
+  const concurrency = ledOutputConcurrency(facts, chosen ?? driver, { networkActive, reservedWords })
   const clockless = outputs.filter((output) => !output.clocked)
   const clocked = outputs.filter((output) => output.clocked)
   const estimatedMicros = (clockless.length ? scheduledMicros(clockless.map((o) => o.micros), concurrency) : 0)
@@ -234,9 +241,10 @@ export function estimateWireTime(nodes: StudioNode[], edges: readonly StudioEdge
   const frameRate = controllerSettings(nodes).frameRate
   const maxWireFps = Math.floor(1_000_000 / estimatedMicros)
   const reachableFps = Math.max(FRAME_RATE.min, Math.min(frameRate, maxWireFps))
-  const rmt = facts.clocklessBus === 'RMT' && facts.rmt
+  const sendsOnRmt = chosen ? chosen.bus === 'RMT' : facts.clocklessBus === 'RMT'
+  const rmt = sendsOnRmt && facts.rmt
     ? {
-        wanted: Math.min(clockless.length, facts.rmt.txChannels, facts.parallelOutputs),
+        wanted: Math.min(clockless.length, facts.rmt.txChannels, chosen?.parallelOutputs ?? facts.parallelOutputs),
         fitWithNetwork: rmtOutputsThatFit(facts.rmt, true, reservedWords),
         wordsPerChannel: facts.rmt.networkBlocks * facts.rmt.blockWords,
         txMemoryWords: facts.rmt.txMemoryWords,
@@ -249,6 +257,7 @@ export function estimateWireTime(nodes: StudioNode[], edges: readonly StudioEdge
     controllerCount: outputs.length,
     facts,
     family,
+    fqbn,
     driver,
     networkActive,
     concurrency,
@@ -296,6 +305,7 @@ export function wireTimeFixes(estimate: WireTimeEstimate, nodes: StudioNode[] = 
     })
   }
   fixes.push(...splitAcrossPinsFixes(estimate, nodes))
+  fixes.push(...parallelDriverFixes(estimate))
   return fixes
 }
 
@@ -332,6 +342,23 @@ function splitAcrossPinsFixes(estimate: WireTimeEstimate, nodes: StudioNode[]): 
     })
   }
   return fixes
+}
+
+/**
+ * A parallel LED driver (step 7), while the Board is on FastLED's own and its
+ * clockless outputs and lanes outnumber what that driver sends at once.
+ */
+function parallelDriverFixes(estimate: WireTimeEstimate): WireTimeFix[] {
+  if (estimate.driver !== 'auto') return []
+  const parallel = suggestParallelLedDriver(estimate.family, estimate.fqbn,
+    estimate.outputs.filter((output) => !output.clocked).length,
+    { networkActive: estimate.networkActive, reservedRmtWords: estimate.rmt?.reservedWords ?? 0 })
+  if (!parallel) return []
+  return [{
+    action: 'set-led-driver',
+    repair: { kind: 'set-led-driver', ledDriver: parallel.choice },
+    text: `Or ${parallel.message.charAt(0).toLowerCase()}${parallel.message.slice(1)}`,
+  }]
 }
 
 const ms = (micros: number): string => `${(micros / 1000).toFixed(1)} ms`

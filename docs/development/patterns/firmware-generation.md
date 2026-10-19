@@ -450,3 +450,17 @@ sketch still carries only what the graph reaches.
   (`rawXTo == rawXFrom`), not a descending one, since both operands of its
   division change sign together. Axis *swap* (raw X onto screen Y) is
   deliberately not handled, only reversal.
+- `FastLED.setExclusiveDriver<fl::Bus::B>()` does not move a legacy
+  `addLeds<WS2812B, PIN>` output: FastLED 3.10.5's `ClocklessIdf5` and
+  `ClocklessPARLIO` constructors pre-bind RMT or PARLIO (`setDriver`), and a
+  pre-bound channel never consults the manager, so the call only links and
+  registers B. The Board's LED driver therefore goes through `withLedDriver`
+  (`src/codegen/output/ledDriverCpp.ts`), a text pass every generator runs last
+  on its finished sketch: it adds B's `bus_traits.h` after the FastLED include,
+  the exclusive call before the first `addLeds`, and rebuilds each recognised
+  clockless `addLeds` line (named controller, offset form, RGBW tail) as a
+  `TypedChannel<B, ClocklessChipset>` with `ChannelOptions::mBus = B`. A new
+  `addLeds` shape in `fastledSetupCpp` must still match its `ADD_LEDS`
+  pattern, or that output silently stays on the default driver
+  (`ledDriverCpp.test.ts` holds the shapes). The classic ESP32's I2S driver is
+  a define before the include instead, never a `Bus`.

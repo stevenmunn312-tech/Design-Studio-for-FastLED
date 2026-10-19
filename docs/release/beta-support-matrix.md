@@ -408,6 +408,15 @@ board validation:
 
 Unless a future row says otherwise, treat the following as experimental:
 
+- **Choosing the LED driver on the Board** (`ledDriver` other than Auto): the
+  S3's LCD_CAM drivers, the classic ESP32's I2S driver and RMT on the C6 and
+  H2. Built from the pinned FastLED 3.10.5 sources
+  ([board capabilities](../architecture/board-capabilities.md#choosing-the-driver));
+  its compile fixtures (`npm run gen:compile-fixtures -- led-drivers`) have
+  not yet been compiled and nothing has run on a board. FastLED itself warns
+  that the classic I2S driver may be unreliable on ESP-IDF 5. Graduating each
+  driver needs a dated row driving several outputs under Wi-Fi load.
+
 - All browsers except the exact Chrome builds named by a supported row above.
 - All host OS + browser combinations except the exact Windows 11 Home (build
   10.0.26200) + Chrome combinations named by a supported row above.

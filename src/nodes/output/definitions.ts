@@ -63,6 +63,10 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       // of every pass (src/codegen/loopPacing.ts), and the preview gates its
       // evaluation to the same rate.
       frameRate: 60,
+      // `auto` keeps FastLED's own LED driver; anything else names one of the
+      // drivers the chosen board offers (src/build/ledDrivers.ts), checked
+      // against it before it reaches C++ (src/build/ledDriverSelection.ts).
+      ledDriver: 'auto',
       powerLimit: false,
       milliamps: 2000,
       psramPolicy: 'auto',

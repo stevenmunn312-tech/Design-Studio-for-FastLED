@@ -57,6 +57,8 @@ import { compositionDims, outputRoutes } from '../state/output/outputRouting'
 import { outputCanvasDims } from '../state/output/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
 import { isLoopPacing, loopPacingCpp, withLoopPacing } from './loopPacing'
+import { withLedDriver } from './output/ledDriverCpp'
+import { selectedLedDriver } from '../build/ledDriverSelection'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
   TELEMETRY_LOOP_BEGIN_CPP, TELEMETRY_REPORT_CPP, TELEMETRY_SERIAL_BEGIN_CPP,
@@ -1471,5 +1473,8 @@ export function generateShowSketch(
     return symbol ? new RegExp(`\\b${symbol}\\b`).test(withoutPalettes) : true
   }))
 
-  return withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes))))
+  return withLedDriver(
+    withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes)))),
+    selectedLedDriver(nodes),
+  )
 }

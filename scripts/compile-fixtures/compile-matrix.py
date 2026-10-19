@@ -12,6 +12,7 @@ the summary after every leg, so a partial run can still be read.
     python scripts/compile-fixtures/compile-matrix.py --only dead-code/   # the D-09 corpus, about 250 sketches
     python scripts/compile-fixtures/compile-matrix.py --only pattern-collections/   # D-10 render-buffer RAM
     python scripts/compile-fixtures/compile-matrix.py --only show-sequencing/   # D-11 weights, sequence, ramps
+    python scripts/compile-fixtures/compile-matrix.py --only led-drivers/   # HW-32 step 7 Board LED drivers
 
 Development runs on arduino-cli alone, so that is the default engine. The
 fbuild legs stay in the plan for when that engine is tested again.
@@ -229,6 +230,22 @@ def lanes_legs() -> list[Leg]:
             for name in names]
 
 
+def led_driver_legs() -> list[Leg]:
+    """HW-32 step 7: one sketch per Board LED driver and family, each on its own FQBN."""
+    folder = ROOT / "artifacts" / "led-driver-compile"
+    manifest = folder / "manifest.json"
+    if not manifest.exists():
+        subprocess.run("npm run gen:compile-fixtures -- led-drivers", shell=True, cwd=ROOT,
+                       capture_output=True, text=True, check=False)
+    try:
+        entries = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [Leg("led-drivers", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino",
+                entry["fqbn"], entry["fqbn"].split(":")[2])
+            for name, entry in sorted(entries.items())]
+
+
 def plan() -> list[Leg]:
     """fbuild first (the toolchain-upgrade check), then the arduino-cli refresh."""
     return [
@@ -244,13 +261,14 @@ def plan() -> list[Leg]:
         *pattern_collection_legs(),
         *show_sequencing_legs(),
         *lanes_legs(),
+        *led_driver_legs(),
     ]
 
 
 GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x",
               "ethernet": "ethernet", "power-switch": "power-switch", "control-graph": "control-graph",
               "dead-code": "dead-code", "pattern-collections": "pattern-collections",
-              "show-sequencing": "show-sequencing", "lanes": "lanes"}
+              "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers"}
 
 
 def read_report(path: Path) -> dict | None:

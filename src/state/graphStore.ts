@@ -39,6 +39,8 @@ import {
 } from '../build/boards/customBoard'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from '../build/hardware'
 import { controllerSettings, DEFAULT_BOARD_CONTROLLER_PROPERTIES, FRAME_RATE } from '../build/controllerSettings'
+import { ledDriverOptionsForBoard, withLedDriverNormalized } from '../build/ledDriverSelection'
+import { LED_DRIVER_AUTO, type LedDriverChoice } from '../build/ledDrivers'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -2292,7 +2294,8 @@ export const useGraphStore = create<GraphState>()(
         if (!board) return s
 
         let nodes = rootNodes.map((node) => node.id === id
-          ? { ...node, data: { ...node.data, properties: { ...node.data.properties, profileId } } }
+          // A driver the new board does not offer goes back to FastLED's own.
+          ? { ...node, data: { ...node.data, properties: withLedDriverNormalized({ ...node.data.properties, profileId }, node.data.properties) } }
           : node)
         const integrated = integratedTouchDisplayForBoard(profileId)
         const definition = LIBRARY_DEF.get('TransportDisplay')
@@ -2381,7 +2384,7 @@ export const useGraphStore = create<GraphState>()(
           if (!rootNodes.some((node) => node.id === id && node.data.nodeType === 'Board')) return s
           const previous = selectedPhysicalBoardProfile(rootNodes)
           let nodes = rootNodes.map((node) => node.id === id
-            ? { ...node, data: { ...node.data, properties: { ...node.data.properties, profileId: CUSTOM_BOARD_PROFILE_ID, customBoard: definition } } }
+            ? { ...node, data: { ...node.data, properties: withLedDriverNormalized({ ...node.data.properties, profileId: CUSTOM_BOARD_PROFILE_ID, customBoard: definition }, node.data.properties) } }
             : node)
           const before = profileI2cDefault(previous)
           const after = profileI2cDefault(next)
@@ -4008,6 +4011,26 @@ export function splitOutputAcrossPins(
     ? { ...node, data: { ...node.data, properties: { ...node.data.properties, dataLanes, lanePins: [...lanePins] } } }
     : node)))
   return { ok: true, dataLanes, lanePins }
+}
+
+/**
+ * Set the Board's LED driver: the parallel-driver fix and the conflict cards'
+ * way back to FastLED's own. Only to a driver the selected board offers (or
+ * `auto`), on the root graph's Board, in one undo step; says so and changes
+ * nothing when the Board already has it or no longer offers it.
+ */
+export function setBoardLedDriver(ledDriver: LedDriverChoice): { ok: true; ledDriver: LedDriverChoice } | { ok: false; reason: string } {
+  const board = rootGraphNodes(useGraphStore.getState()).find((node) => node.data.nodeType === 'Board')
+  if (!board) return { ok: false, reason: 'There is no Board to choose an LED driver on.' }
+  const props = board.data.properties as Record<string, unknown>
+  const offered = ledDriver === LED_DRIVER_AUTO || ledDriverOptionsForBoard(props).some((driver) => driver.bus === ledDriver)
+  if (!offered || (props.ledDriver ?? LED_DRIVER_AUTO) === ledDriver) {
+    return { ok: false, reason: 'The LED driver has already changed since this was reported.' }
+  }
+  useGraphStore.setState((s) => withRootNodes(s, rootGraphNodes(s).map((node) => node.id === board.id
+    ? { ...node, data: { ...node.data, properties: { ...node.data.properties, ledDriver } } }
+    : node)))
+  return { ok: true, ledDriver }
 }
 
 /** Move every active I2C part onto the board bus in one root-scoped undo step. */

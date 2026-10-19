@@ -32,6 +32,8 @@ import { type IrRemoteProjectNode, irRemoteProjectEmission } from './peripherals
 import { type MasterSpeedEmit, masterClockLoopCpp, masterSpeedUpdateCpp } from './player/masterSpeedCpp'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from '../state/player/masterSpeed'
 import { loopPacingCpp, withLoopPacing } from './loopPacing'
+import { withLedDriver } from './output/ledDriverCpp'
+import { selectedLedDriver } from '../build/ledDriverSelection'
 import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 import {
   type InfoDisplayEmit,
@@ -1654,7 +1656,12 @@ export function generateCpp(
   const source = specializeCpp(withoutUnusedFastLed(withTelemetryGlobals(lines)).join('\n'), boardCppFacts(capabilityNodes))
   if (opts.deferPruning) return source
   const hasTerminal = nodes.some((node) => TERMINAL_NODE_TYPES.has(node.data.nodeType))
-  return withLoopPacing(hasTerminal ? withoutUnusedFastLed(finishCpp(source).split('\n')).join('\n') : source)
+  // Last, on the finished text, so the Board's LED driver meets every output's
+  // `addLeds` line the way the show and player generators' passes do.
+  return withLedDriver(
+    withLoopPacing(hasTerminal ? withoutUnusedFastLed(finishCpp(source).split('\n')).join('\n') : source),
+    selectedLedDriver(capabilityNodes),
+  )
 }
 
 const FASTLED_INCLUDE = '#include <FastLED.h>'

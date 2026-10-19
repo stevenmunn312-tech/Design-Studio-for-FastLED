@@ -101,6 +101,9 @@ import {
 } from './audio/stereoVuMeterCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
 import { SPI_BUS_CPP } from './helpers/spiBusCpp'
+import { withLedDriver } from './output/ledDriverCpp'
+import { selectedLedDriver } from '../build/ledDriverSelection'
+import type { SelectableLedDriver } from '../build/ledDrivers'
 
 export interface PlayerConfig {
   /** False when the player's only physical pixels are standalone VU rails. */
@@ -139,6 +142,8 @@ export interface PlayerConfig {
   maxVolume:   number   // 0-21 for MAX98357A
   ledBrightness: number // controller brightness ceiling, 0-255
   frameRate:   number   // loop pacing, frames per second (Board frameRate)
+  /** The Board's LED driver, already checked against its board; null keeps FastLED's choice. */
+  ledDriver:   SelectableLedDriver | null
   usePsram:    boolean  // honoured only when the selected board exposes PSRAM
   // Raw HUB75 properties from the MatrixOutput node (form === 'hub75'
   // only), passed straight to hub75HardwareFromProps rather than flattening
@@ -166,6 +171,7 @@ const DEFAULTS: PlayerConfig = {
   maxVolume: 18,
   ledBrightness: DEFAULT_CONTROLLER_SETTINGS.brightness,
   frameRate: DEFAULT_CONTROLLER_SETTINGS.frameRate,
+  ledDriver: null,
   usePsram: false,
   hub75Props: {},
   outputEnabled: true,
@@ -253,6 +259,7 @@ export function playerConfigFromGraph(
     maxVolume:  sanitizeVolume(volumeStage.maxVolume),
     ledBrightness: controller.brightness,
     frameRate:  controller.frameRate,
+    ledDriver:  selectedLedDriver(nodes),
     usePsram:   controller.usePsram,
     hub75Props: mo,
     ...outputFields(target ? mo : undefined),
@@ -1402,7 +1409,10 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
     const withoutReadyWrites = narrowed.replace(/\bplaybackReady\s*=\s*startPlayback\(\);/g, 'startPlayback();')
       .replace(/bool playbackReady = false;/, '')
     if (!/\bplaybackReady\b/.test(cppCode(withoutReadyWrites))) narrowed = withoutReadyWrites
-    return withLoopPacing(finishCpp(specializeCpp(opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed, { ESP32: true, ESP8266: false })))
+    return withLedDriver(
+      withLoopPacing(finishCpp(specializeCpp(opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed, { ESP32: true, ESP8266: false }))),
+      c.ledDriver,
+    )
   }
 
   return finish(`// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}

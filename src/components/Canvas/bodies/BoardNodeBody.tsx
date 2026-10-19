@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { useGraphStore, useRootNodes } from '../../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../../state/upload/uploadStore'
 import { controllerSettings } from '../../../build/controllerSettings'
+import { ledDriverOptionsForBoard } from '../../../build/ledDriverSelection'
+import { LED_DRIVER_AUTO } from '../../../build/ledDrivers'
 import { propertyDescription } from '../../../state/nodeLibrary'
 import { boardSupportsTelemetry } from '../../../codegen/deviceTelemetryCpp'
 import { serialRouteSummary } from '../../../state/upload/serialRouting'
@@ -121,6 +123,11 @@ export default function BoardNodeBody({ nodeId }: Props) {
     const firstBoard = boardProfilesForFamily(nextFamilyId)[0]
     chooseBoard(firstBoard?.id ?? '')
   }
+
+  const ledDriverOptions = useMemo(() => ledDriverOptionsForBoard(boardProps), [boardProps])
+  const ledDriver = ledDriverOptions.some((driver) => driver.bus === boardProps.ledDriver)
+    ? String(boardProps.ledDriver)
+    : LED_DRIVER_AUTO
 
   const peripherals = profile?.peripheralPins
   const psramSummary = settings.psramPolicy === 'auto'
@@ -366,6 +373,32 @@ export default function BoardNodeBody({ nodeId }: Props) {
                 <option value="uart">UART bridge</option>
               </select>
             </label>
+          </div>
+        )}
+
+        {/*
+          * Only the drivers this board offers, and nothing at all where Auto is
+          * the only one. A stored choice the board does not offer reads as
+          * Auto, the same answer code generation gives it.
+          */}
+        {ledDriverOptions.length > 0 && (
+          <div className={styles.psramBlock}>
+            <label className={styles.pickerField}>
+              <span className={styles.pickerLabel}>LED driver (experimental)</span>
+              <select className={styles.picker} value={ledDriver} aria-label="LED driver"
+                title={propertyDescription('Board', 'ledDriver')}
+                onChange={(event) => updateNodeProperty(nodeId, 'ledDriver', event.target.value)}>
+                <option value={LED_DRIVER_AUTO}>Auto (FastLED’s choice)</option>
+                {ledDriverOptions.map((driver) => (
+                  <option key={driver.bus} value={driver.bus} title={driver.summary}>{driver.label}</option>
+                ))}
+              </select>
+            </label>
+            {ledDriver !== LED_DRIVER_AUTO && (
+              <small className={styles.benchNote}>
+                {ledDriverOptions.find((driver) => driver.bus === ledDriver)?.summary}
+              </small>
+            )}
           </div>
         )}
 

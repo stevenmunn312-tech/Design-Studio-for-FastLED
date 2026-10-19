@@ -125,7 +125,7 @@ it lands.
     offering only counts whose boundaries fall on whole rows or panels. Record
     the contract in
     [multi-output routing](docs/architecture/multi-output-routing.md).
-  - [ ] **7. Choose the LED driver on the Board.** **Auto**, the default, keeps
+  - [x] **7. Choose the LED driver on the Board.** **Auto**, the default, keeps
     FastLED's choice. Offer the other drivers FastLED 3.10.5 builds for the
     selected family (`fl::Bus`, such as LCD_CLOCKLESS on the S3 and PARLIO on
     the C6; check how the classic ESP32's I2S driver is selected, because

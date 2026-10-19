@@ -74,6 +74,8 @@ import { pinWarningForCapability } from '../build/boards/boardGpio'
 import { micSupportedForBoard, micUnsupportedMessage } from '../build/pins/micPinDefaults'
 import { controllerSettings } from '../build/controllerSettings'
 import { estimateWireTime, wireTimeAdvice } from './wireTime'
+import { findLedDriverErrors, ledDriverDiagnostics } from './ledDriverIssues'
+import type { LedDriverChoice } from '../build/ledDrivers'
 import { isHardwareManagedSignalNodeType } from '../build/hardware'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../build/pins/pinRetarget'
 import { partOptionsFor, resolvePartIdentity } from '../build/parts/partOptions'
@@ -1607,6 +1609,7 @@ export function findDeployBlockingErrors(
     ...findScalarExpressionErrors(nodes),
     ...findFormulaErrors(nodes),
     ...findBoardCompatibilityErrors(nodes, selectedFqbn),
+    ...findLedDriverErrors(nodes),
     ...directControlCollisionIssues(nodes, edges).map((issue) => `${issue.title}. ${issue.fix}`),
     ...displayIssues.errors,
     ...runtimeIssues,
@@ -1651,6 +1654,7 @@ export type GraphDiagnosticAction =
   | 'lower-frame-rate'
   | 'raise-data-rate'
   | 'split-across-pins'
+  | 'set-led-driver'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1687,6 +1691,8 @@ export type GraphRepair =
   | { kind: 'set-data-rate'; nodeId: string; dataRateMhz: number }
   /** An LED output's chain split into lanes, with free pins for lanes 2..N. */
   | { kind: 'split-across-pins'; nodeId: string; dataLanes: number; lanePins: number[] }
+  /** The Board LED driver to choose: a parallel one, or 'auto' to give a peripheral back. */
+  | { kind: 'set-led-driver'; ledDriver: LedDriverChoice }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {
@@ -3914,6 +3920,8 @@ export function buildGraphDiagnostics(
 
   // Hardware facts live in the root graph, which is what `matrix` checks.
   if (target === 'matrix') diagnostics.push(...wireTimeAdvice(estimateWireTime(nodes, edges), nodes))
+  // The Board's chosen LED driver: peripheral conflicts and lane timing.
+  if (target === 'matrix') diagnostics.push(...ledDriverDiagnostics(nodes))
 
   const ram = estimateFirmwareRam(nodes, edges, options.displayDocuments)
   const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, options.displayDocuments)
@@ -4495,6 +4503,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findDisplayGeneratorIssues(nodes, edges, displayDocuments, groups).warnings)
 
   warnings.push(...findMirroredOutputMismatches(nodes, edges))
+  // Its errors are already in the deploy gate above.
+  warnings.push(...ledDriverDiagnostics(nodes).filter((issue) => issue.severity === 'warning').map((issue) => issue.title))
 
   const ram = estimateFirmwareRam(nodes, edges, displayDocuments)
   const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, displayDocuments)

@@ -12,6 +12,7 @@ import {
   ensureRootAudioNode,
   placeTouchControl,
   setBoardFrameRate,
+  setBoardLedDriver,
   setOutputDataRate,
   splitOutputAcrossPins,
   ROOT_GRAPH_ID,
@@ -49,6 +50,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (fix?.repair?.kind === 'set-frame-rate') return `Lower to ${fix.repair.frameRate} fps`
   if (fix?.repair?.kind === 'set-data-rate') return `Clock at ${fix.repair.dataRateMhz} MHz`
   if (fix?.repair?.kind === 'split-across-pins') return `Split across ${fix.repair.dataLanes} pins`
+  if (fix?.repair?.kind === 'set-led-driver') return fix.repair.ledDriver === 'auto' ? 'Use FastLED’s driver' : `Use ${fix.repair.ledDriver}`
   if (action === 'choose-board') return 'Choose board'
   // Named rather than a bare "Fix", so the button says what will appear on the
   // canvas before it appears there.
@@ -127,6 +129,13 @@ export default function GraphHealthDrawer() {
     if (issue.repair?.kind === 'set-frame-rate') {
       const result = setBoardFrameRate(issue.repair.frameRate)
       setStatus(result.ok ? `Board frame rate lowered to ${result.frameRate} fps` : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'set-led-driver') {
+      const result = setBoardLedDriver(issue.repair.ledDriver)
+      setStatus(result.ok
+        ? result.ledDriver === 'auto' ? 'Board back on FastLED’s own LED driver' : `Board LED driver set to ${result.ledDriver}`
+        : result.reason, result.ok ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'set-data-rate') {

@@ -260,6 +260,42 @@ unchanged. Rates are whole MHz because software-SPI platforms turn
 the rate down to a divider of its 80 MHz clock. `clockedRateFix` names the next
 rate up for wire-time advice.
 
+### Choosing the driver
+
+The Board's `ledDriver` is `auto` (FastLED's choice above) or one of
+`selectableLedDrivers(family, fqbn)`; the Board's select lists only those and
+is hidden where there are none. A value the selected board does not offer is
+`auto` everywhere it is read (`selectedLedDriver`), and a board change resets
+it (`withLedDriverNormalized`, which also resets `I2S`, a different driver on
+the S3 and the classic ESP32). Experimental: built from the FastLED sources,
+not bench-tested.
+
+| Family | Offered | At once | Takes | How the sketch selects it |
+| --- | --- | --- | --- | --- |
+| ESP32 | I2S (Yves driver) | 24 | I2S0 | `#define FASTLED_ESP32_I2S true` before the FastLED include; not a `Bus` |
+| ESP32-S3 | LCD_CLOCKLESS | 16 | LCD_CAM | `setExclusiveDriver` + channel API, `lcd_spi/bus_traits.h` |
+| ESP32-S3 | I2S (older LCD_CAM driver) | 16 | LCD_CAM | `setExclusiveDriver` + channel API, `i2s/bus_traits.h` |
+| ESP32-C6 / H2 | RMT (instead of PARLIO) | 2 | RMT | `setExclusiveDriver` + channel API, `rmt/rmt_5/bus_traits.h` |
+
+`withLedDriver` (`src/codegen/output/ledDriverCpp.ts`) applies the choice to
+each generator's finished sketch. `FastLED.setExclusiveDriver<B>()` only
+registers B above the platform default: a legacy `addLeds<WS2812B, PIN>`
+controller binds RMT or PARLIO in its own constructor and ignores it. So each
+clockless output is rebuilt on `fl::TypedChannel<B, fl::ClocklessChipset>`
+with `ChannelOptions::mBus = B` and added with `FastLED.add`; WS2816 and the
+clocked chipsets keep `addLeds`. UART, clockless-over-SPI, FLEX_IO and
+BIT_BANG are not offered: none sends a frame faster than the default.
+
+Graph Health (`src/utils/ledDriverIssues.ts`) blocks a driver whose
+peripheral is taken (LCD_CAM with a HUB75 panel on the S3; I2S0 with I2S
+audio on the classic ESP32), advises on the classic I2S driver beside a HUB75
+panel (I2S1), on parallel lanes with different timings, and on outputs the
+channel driver cannot take, each with a fix back to `auto`. The parallel TFT
+panels are driven by GPIO writes, not LCD_CAM, so they do not conflict. The
+wire-time estimate counts the chosen driver's `parallelOutputs`, and
+`suggestParallelLedDriver` adds the LCD_CAM fix when an S3 graph on `auto` has
+more clockless outputs than RMT sends at once.
+
 ## Deferred capability abstractions
 
 The following proposal slices remain open and must not be described as shipped:

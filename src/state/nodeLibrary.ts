@@ -2970,6 +2970,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Board: {
     brightness: 'Master LED level for the whole sketch, 0 to 255. Every output is scaled by it.',
     frameRate: 'Most frames per second the sketch sends, 1 to 120. Each frame waits for a fixed deadline, so the board meets this cap whenever a frame\'s work and LED send fit inside it, and runs as fast as it can when they do not. A lower cap saves power and leaves time for sensors; the preview runs at the same rate.',
+    ledDriver: 'Which FastLED driver sends the LEDs. Auto keeps FastLED\'s own choice. A parallel driver sends many outputs at once (LCD_CAM on the ESP32-S3, I2S on the classic ESP32); every output it sends must then share one chipset timing, and it takes a peripheral a HUB75 panel or I2S audio may need. Experimental: built from FastLED\'s documentation and not yet bench-tested. Offered only for the boards that have another driver.',
     milliamps: 'Current the supply can give the LEDs. FastLED dims automatically to stay under it.',
     profileId: 'The exact controller board the sketch is built for, chosen from the hardware shelf. Empty means not chosen yet.',
   },
@@ -3519,6 +3520,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Board: {
     powerLimit: 'power cap',
     frameRate: 'frame rate',
+    ledDriver: 'LED driver',
     reportTelemetry: 'telemetry',
   },
   SliceTiling: {
