@@ -176,6 +176,9 @@ export function editableProperties(
       && k !== 'form'
       // Data lanes are wiring: the hardware panel owns them with the data pin.
       && !(nodeType === 'MatrixOutput' && (k === 'dataLanes' || k === 'lanePins'))
+      // The LED driver's options depend on the selected board, so the Board
+      // body draws its own select, offered only where the board has a choice.
+      && !(nodeType === 'Board' && k === 'ledDriver')
       && !(nodeType === 'StereoVuMeter' && k === 'targetOutputId')
       // Physical wiring and hardware-specific selectors have one owner: the
       // part's popup on the workbench, not a second editor on the graph node.
