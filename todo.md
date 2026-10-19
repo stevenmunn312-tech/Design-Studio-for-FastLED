@@ -78,7 +78,7 @@ it lands.
     [firmware generation](docs/development/patterns/firmware-generation.md),
     and make the Board's frame-rate help describe a cap the sketch meets when
     the work fits. Its bench row records fps before and after on a long strip.
-  - [ ] **3. Record each board family's LED drivers as facts.** One module keyed
+  - [x] **3. Record each board family's LED drivers as facts.** One module keyed
     by `BuildTargetFamily` (`src/build/buildProfile.ts`), with a profile
     override where one family covers different chips (`teensy`), read from the
     pinned FastLED 3.10.5: the default clockless and SPI bus (`DefaultBus` in

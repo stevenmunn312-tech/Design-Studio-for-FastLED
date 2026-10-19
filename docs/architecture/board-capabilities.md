@@ -211,6 +211,41 @@ The Board/profile model currently provides enough authority for:
 - flash/internal-RAM/PSRAM reporting; and
 - board-aware validation, Build Diagram manifests, and code generation.
 
+## LED drivers
+
+`src/build/ledDrivers.ts` records what each `BuildTargetFamily`'s LED
+drivers can do, read from the pinned FastLED 3.10.5 sources it names. The
+wire-time estimate, Graph Health and code generation read it; do not restate
+these figures elsewhere. `ledDriverFacts(family, fqbn)` refines a family by
+FQBN where one family covers different chips (Teensy 3.x versus 4.x, RP2040
+versus RP2350).
+
+| Family | Clockless default | SPI default | Outputs at once | RMT TX | FPU |
+| --- | --- | --- | --- | --- | --- |
+| ESP32 | RMT | I2S_SPI | 8 | 8 ch, 512 words, 64/block, shared with RX | yes |
+| ESP32-S2 | RMT | per controller | 4 | 4 ch, 256 words, 64/block, shared with RX | no |
+| ESP32-S3 | RMT | LCD_SPI | 4 | 4 ch, 192 words, 48/block | yes |
+| ESP32-C3 | RMT | per controller | 2 | 2 ch, 96 words, 48/block | no |
+| ESP32-C6 / H2 | PARLIO | per controller | 2 | 2 ch, 96 words, 48/block | no |
+| Teensy 4.x | ObjectFLED | per controller | 16 | — | yes |
+| Others (AVR, ESP8266, RP2040, SAMD, SAM, Teensy 3.x, Renesas, nRF52) | per-pin controller | per controller | 1 | — | per chip |
+
+An RMT channel asks for 2 blocks with no network up and 3 with Wi-Fi,
+Ethernet or Bluetooth up (`FASTLED_RMT_MEM_BLOCKS`,
+`FASTLED_RMT_MEM_BLOCKS_NETWORK_MODE`). When the pool cannot hold every
+channel at that rate FastLED drops to one block a channel, which is less
+robust against network interrupts, and outputs beyond the channels that fit
+are sent in turn by its worker pool. `rmtOutputsThatFit` counts the channels
+that fit at the asked rate; on the ESP32 and S2 an IR receiver's RX memory
+comes out of the same pool. RP2040 counts one output after another: FastLED's
+consecutive-pin parallel PIO driver is opt-in.
+
+`CHIPSET_WIRE` gives each offered chipset's bit period, bits per LED and
+reset (clockless), or default clock and frame overhead (clocked: APA102 and
+APA102HD 6 MHz, HD108 25 MHz, WS2801 1 MHz). `chipsetSendMicros` turns that
+into one output's send time. 800 kHz RGB parts cost 30 µs an LED; RGBW parts
+32 bits and WS2816 48 bits an LED.
+
 ## Deferred capability abstractions
 
 The following proposal slices remain open and must not be described as shipped:
