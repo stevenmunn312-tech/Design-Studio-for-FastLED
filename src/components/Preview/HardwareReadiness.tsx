@@ -22,7 +22,7 @@ import styles from './HardwareReadiness.module.css'
  * and the figures that do answer it were computed continuously and then shown
  * only inside a node body, which the hardware refactor hid from the library.
  *
- * Three readouts, deliberately a strip rather than a panel: the preview is why
+ * Four readouts (power, capacity, pins, frame rate), deliberately a strip rather than a panel: the preview is why
  * this side of the workbench exists, and a dashboard here would compete with it.
  * Each one is quiet until it matters and states a number rather than a verdict,
  * because "1.9 A" tells you which supply to reach for and "power: warning" does
