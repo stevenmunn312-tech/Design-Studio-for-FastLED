@@ -341,6 +341,23 @@ describe('the performance player without a collection', () => {
     expect(sketch).toContain('default: return paldef_ocean;')
   })
 
+  it('compiles no transition when its shows only transition a pattern into itself', () => {
+    const sameShow: ShowFile = {
+      ...show,
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { name: 'Kaleidoscope' } },
+        { t: 500, cmd: 'TRANSITION', params: { type: 'iris', duration: 0.5 } },
+        { t: 500, cmd: 'SET_PATTERN', params: { name: 'Kaleidoscope' } },
+      ],
+    }
+    const sketch = buildShowPlayer(graph.nodes, graph.edges, {}, {
+      bakedAudio: false, preferredTrack: 'Track', shows: [sameShow],
+    })
+    expect(sketch).not.toContain('compositeTransition')
+    expect(sketch).not.toContain('showA')
+    expect(sketch).toContain('render_p0((uint32_t)(t * 1000.0f)')
+  })
+
   it('measures what a generated show can reach before any show exists', () => {
     const sketch = buildShowPlayerForMeasurement(graph.nodes, graph.edges, {})!
     expect(sketch).toContain('case 1: {  // wipe')

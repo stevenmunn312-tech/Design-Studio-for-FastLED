@@ -388,6 +388,17 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A Performance Generator show no longer renders a pattern twice a frame when
+  a transition leads into the pattern already playing, which made its trails
+  fade and its simulations run at double speed for the transition, in the
+  preview and on the device. Generated shows no longer contain such a
+  transition: a new section avoids the pattern already playing, as a switch
+  within a section always did, and keeps it when it is the section's only
+  choice. A hand-edited one now renders the pattern once. A player whose shows
+  never change pattern through a transition, such as one from a one-pattern
+  collection, compiles no transition code. In the preview, Fire and Fire2012
+  (and the three Noise built-ins) no longer share one state, and a transition
+  blends into the pattern the show has set at that moment, as the device does.
 - Open Project File and Save Project File As now start in the app's Projects
   folder when the helper is running, using the helper's file dialog; a
   browser picker cannot be pointed at a folder. Without the helper they use

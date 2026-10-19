@@ -440,8 +440,9 @@ export function generatePlayerSketch(
     patternTiming?: ReturnType<typeof musicPlayerTiming>
     /**
      * The transition style ids this player can reach: the Music Player's
-     * wired pool, or every style a Performance Generator's shows can name.
-     * Only these arms are compiled. Defaults to crossfade alone.
+     * wired pool, or the styles a Performance Generator's shows composite.
+     * Only these arms are compiled. Defaults to crossfade alone; an empty
+     * list compiles a show-file player with no transition at all.
      */
     transitionIds?: readonly number[]
     /** The palettes SET_PALETTE can name; only these reach `paletteFromId`. */
@@ -503,11 +504,17 @@ export function generatePlayerSketch(
   const genericPlayer = opts.genericPlayer === true
   const genericCollection = genericPlayer && collection
   const rotates = genericCollection && patternCount > 1
-  const transitions = !genericPlayer || (rotates && (patternTiming.transitionSec > 0 || !!opts.controlGraph?.timingInputs.transitionSec))
+  // A show-file player whose shows never change pattern through a transition
+  // is given no styles, and compiles no transition.
+  const transitionIds = opts.transitionIds && (opts.transitionIds.length > 0 || !genericPlayer)
+    ? opts.transitionIds
+    : [0]
+  const transitions = genericPlayer
+    ? rotates && (patternTiming.transitionSec > 0 || !!opts.controlGraph?.timingInputs.transitionSec)
+    : transitionIds.length > 0
   const drawsFrame = c.hasPrimaryLedOutput || collection
   const fadesAudio = genericCollection && reactivePatterns(renderers)
   const particles = !genericPlayer || (genericCollection && !!opts.particleFx?.enabled)
-  const transitionIds = opts.transitionIds?.length ? opts.transitionIds : [0]
   // Emitted once, above the pattern renderers, so a Frame Warp or Symmetry
   // pattern that brings the same sampler does not define it a second time.
   const transitionSupport = transitionSupportCpp(transitionIds)
@@ -1578,7 +1585,7 @@ ${hasPalette ? '    case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev
       flashLevel = ev.params[0] / 255.0f;
       flashDecay = expf(-16.0f / (60.0f + (ev.params[1] / 255.0f) * 240.0f));
       break;
-    case CMD_TRANSITION:
+${transitions ? `    case CMD_TRANSITION:
       // Fired just before the incoming SET_PATTERN (same timestamp, sorted so
       // TRANSITION lands first), so patternId still holds the outgoing pattern.
       prevPatternId = patternId;
@@ -1586,7 +1593,7 @@ ${hasPalette ? '    case CMD_SET_PALETTE:    palette = paletteFromId((uint8_t)ev
       transStart    = ev.t;
       transDurMs    = ev.params[1] * 1000.0f;
       break;
-    case CMD_PARTICLE_BURST:
+` : ''}    case CMD_PARTICLE_BURST:
       burstStart     = ev.t;
       burstIntensity = ev.params[0] / 255.0f;
       burstColor     = CHSV((uint8_t)ev.params[1], 217, 255);
@@ -2251,10 +2258,12 @@ ${fadesAudio && reactiveAudio ? `  // Fade the player down during genuine silenc
   audioFade += (audioFadeTarget - audioFade) * audioFadeRate;
 ` : ''}
   float t = posMs / 1000.0f;
-  // Transition: while one is running, render the outgoing pattern into showA and
+${transitions && drawsFrame ? `  // Transition: while one is running, render the outgoing pattern into showA and
   // the incoming one into showB, then composite A→B into leds by its style.
-${transitions && drawsFrame ? `  float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
-  if (tp < 1.0f) {
+  float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
+${genericPlayer ? '' : `  // A show file can name the playing pattern on both sides. Rendering it
+  // twice would step its state twice a frame, so it renders once.
+`}  if (tp < 1.0f${genericPlayer ? '' : ' && prevPatternId != patternId'}) {
     renderPattern(prevPatternId, t);
     ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing → showA
     renderPattern(patternId, t);

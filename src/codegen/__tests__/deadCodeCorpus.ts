@@ -141,6 +141,8 @@ function showSketches(): Record<string, string> {
     }),
     'performance-collection': performance(['solid', 'plasma'], { useGroupInputs: true }),
     'performance-no-group-inputs': performance(['solid', 'plasma']),
+    // One pattern never changes, so no show can composite a transition.
+    'performance-one-pattern': performance(['solid']),
     'performance-audio-controls': performance(['reactive', 'warp'], { useGroupInputs: true }, [
       node('pool', 'TransitionSet', { transitions: ['iris', 'cube'] }),
       node('button', 'ButtonInput', { pin: 12, pullup: true }), node('controls', 'ControlMap', { controls: ['playPause'] }),

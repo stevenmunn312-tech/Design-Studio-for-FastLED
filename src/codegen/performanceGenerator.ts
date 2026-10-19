@@ -179,17 +179,47 @@ export const PARTICLE_STYLES = [
  * Every style a freshly generated show can name: the three section defaults
  * chooseTransition picks from, plus the wired extras. What a capacity check
  * assumes before any show exists; a real upload compiles the styles its shows
- * actually carry (`showTransitionStyles`), since the timeline editor can
+ * actually composite (`showTransitionStyles`), since the timeline editor can
  * hand-place any of them.
  */
 export function performanceTransitionStyles(extra: readonly string[]): string[] {
   return [...new Set(['crossfade', 'wipe', 'dissolve', ...extra])]
 }
 
-/** The transition styles these shows' TRANSITION events name, in order. */
+/** The pattern a SET_PATTERN plays: a collection index, or a built-in's name. */
+function setPatternKey(event: ShowEvent): string {
+  return event.params.index !== undefined ? `#${Number(event.params.index)}` : String(event.params.name)
+}
+
+/**
+ * The TRANSITION events that blend two different patterns. A transition runs
+ * from the pattern playing before it to whichever pattern plays during it,
+ * until it ends or the next transition starts, so one that no SET_PATTERN
+ * moves off that pattern renders a single pattern and composites nothing. The
+ * preview and the performance player decide the same way each frame.
+ */
+function compositingTransitions(show: ShowFile): ShowEvent[] {
+  const { events } = show
+  const out: ShowEvent[] = []
+  let playing: string | null = null
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i]
+    if (event.cmd === 'SET_PATTERN') playing = setPatternKey(event)
+    if (event.cmd !== 'TRANSITION') continue
+    const end = event.t + Number(event.params.duration) * 1000
+    for (let j = i + 1; j < events.length && events[j].t < end && events[j].cmd !== 'TRANSITION'; j++) {
+      if (events[j].cmd === 'SET_PATTERN' && setPatternKey(events[j]) !== playing) {
+        out.push(event)
+        break
+      }
+    }
+  }
+  return out
+}
+
+/** The transition styles these shows composite, in order. */
 export function showTransitionStyles(shows: readonly ShowFile[]): string[] {
-  return [...new Set(shows.flatMap((show) => show.events
-    .filter((event) => event.cmd === 'TRANSITION')
+  return [...new Set(shows.flatMap((show) => compositingTransitions(show)
     .map((event) => String(event.params.type))))]
 }
 
@@ -448,6 +478,10 @@ export function generateShow(
   // The very first pattern of the show is a plain cut-in (nothing to fade from);
   // every later switch crossfades from the pattern before it.
   let firstSwitch = true
+  // The pattern playing, carried across section boundaries so a new section
+  // avoids repeating it the way a within-section switch does.
+  let prevIdx: number | undefined
+  let prevName: string | undefined
 
   for (const section of analysis.sections) {
     const palette = opts.paletteMode === 'cycle'
@@ -463,10 +497,13 @@ export function generateShow(
     const poolN = useCollection ? eligibleIndices(section.type).length : SECTION_PATTERNS[section.type].length
     const switchTimes = poolN < 2 ? [section.startMs] : sectionSwitchTimes(section, beats, minHoldMs, surges)
 
-    let prevIdx: number | undefined
-    let prevName: string | undefined
     for (let k = 0; k < switchTimes.length; k++) {
       const st = switchTimes[k]
+      const index = useCollection ? chooseCollectionIndex(section.type, prevIdx) : undefined
+      const name = useCollection ? undefined : choosePattern(section.type, prevName)
+      // A section whose only eligible pattern is already playing keeps it: a
+      // transition into the same pattern would render it twice a frame.
+      if (!firstSwitch && (useCollection ? index === prevIdx : name === prevName)) continue
       // The TRANSITION and the incoming SET_PATTERN share the instant `st`: the
       // transition (ordered first) marks the crossfade's *start*, over which the
       // new pattern blends in across `transitionDuration`.
@@ -477,10 +514,9 @@ export function generateShow(
           duration: opts.transitionDuration,
         })
       }
-      const patternParams: ShowEvent['params'] = useCollection
-        ? { index: (prevIdx = chooseCollectionIndex(section.type, prevIdx)) }
-        : { name: (prevName = choosePattern(section.type, prevName)) }
-      push(st, 'SET_PATTERN', patternParams)
+      push(st, 'SET_PATTERN', useCollection ? { index: index! } : { name: name! })
+      prevIdx = index
+      prevName = name
       firstSwitch = false
     }
 

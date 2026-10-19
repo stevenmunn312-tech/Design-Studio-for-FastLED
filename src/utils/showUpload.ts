@@ -149,12 +149,14 @@ export function buildShowPlayer(
   // consumes audio or Player Particles needs live beat events.
   const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments, selectedEngine?.id, groups)
   // A Music Player draws from its own pool. A performance player compiles the
-  // styles its shows name, edits included; with no show yet, those a
-  // generated show can name.
+  // styles its shows composite, edits included, and no transition when none
+  // changes pattern; with no show yet, those a generated show can reach, which
+  // is none from a one-pattern collection.
   const wiredStyles = selectedEngine ? wiredTransitionStyles(nodes, edges, selectedEngine.id) : []
-  const transitionIds = transitionStyleIds(opts.genericPlayer ? wiredStyles
-    : opts.shows?.length ? showTransitionStyles(opts.shows)
-      : performanceTransitionStyles(wiredStyles))
+  const performanceStyles = opts.shows?.length ? showTransitionStyles(opts.shows)
+    : patternSet.length === 1 ? [] : performanceTransitionStyles(wiredStyles)
+  const transitionIds = opts.genericPlayer ? transitionStyleIds(wiredStyles)
+    : performanceStyles.length ? transitionStyleIds(performanceStyles) : []
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0

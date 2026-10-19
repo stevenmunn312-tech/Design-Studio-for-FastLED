@@ -61,6 +61,35 @@ describe('playerSketchGenerator', () => {
     expect(single).toContain('compositeTransition(4, leds, showA, showB, tp);')
   })
 
+  // A show file can put the playing pattern on both sides of a transition, and
+  // rendering it as both would step its state twice a frame. A Music Player's
+  // rotation only ever starts a transition to a different pattern.
+  it('renders a show-file transition into the same pattern once', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { (void)ms; }', 'void render_p1(uint32_t ms) { (void)ms; }'],
+      count: 2, params: [],
+    }
+    expect(generatePlayerSketch({}, renderers, { transitionIds: [0] }))
+      .toContain('  if (tp < 1.0f && prevPatternId != patternId) {')
+    expect(generatePlayerSketch({}, renderers, { genericPlayer: true })).toContain('  if (tp < 1.0f) {')
+  })
+
+  // The shows decide which styles compile; when none of them changes pattern
+  // through a transition, nothing of the transition machinery is reachable.
+  it('compiles no transition into a show-file player whose shows composite none', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { (void)ms; }', 'void render_p1(uint32_t ms) { (void)ms; }'],
+      count: 2, params: [],
+    }
+    const sketch = generatePlayerSketch({}, renderers, { transitionIds: [] })
+    for (const symbol of ['compositeTransition', 'showA', 'showB', 'case CMD_TRANSITION:', 'prevPatternId', 'transDurMs', 'transType']) {
+      expect(sketch).not.toContain(symbol)
+    }
+    expect(sketch).toContain('  renderPattern(patternId, t);')
+  })
+
   // A Vibe node in a slideshow pattern read _audioVibe* globals the player
   // never declared: the decoder tap hosts the processor, so it must host the
   // optional detectors too.

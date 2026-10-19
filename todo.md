@@ -534,14 +534,11 @@ chooses the supported combinations from whatever is on record at release.
     byte-identical. A sweep test in the manner of
     `persistentRenderBuffers.test.ts` proves from emitted text, over every
     node and variant, that the flag resets every non-const static and
-    persistent buffer in a render function. Fix the double step in the same
-    change: a transition with the same pattern on both sides renders it twice
-    a frame, in the show preview and in the performance player, so a node
-    that steps per render steps twice. `generateShow` already produces one at
-    a section boundary, because its repeat exclusion restarts with each
-    section, and the lane editor and step 9's sequences make it easy to
-    author. Render such a pattern once and turn the change into a ramp of its
-    inputs. If a collection's RAM
+    persistent buffer in a render function. A pattern on both sides of a
+    transition already renders once (see
+    [player, shows and controls](docs/development/patterns/player-shows-and-controls.md#shows-collections-and-transitions)),
+    so a same-pattern step in the lane editor or in step 9's sequences is a
+    change of inputs, ramped once step 6 lands. If a collection's RAM
     estimate needs it later, Restart patterns can share an outgoing and an
     incoming bank of persistent state instead of keeping their own.
   - [ ] **5. Edit song shows in lanes.** `ShowTimeline.tsx` draws every event

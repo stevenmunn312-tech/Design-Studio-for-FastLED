@@ -15,7 +15,7 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 import { isStudioPalette } from '../palettes/paletteCatalog'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import type { ShowFile, ShowEvent, SongSection } from '../../types/showFile'
-import { BUILTIN_SHOW_PATTERNS } from './builtinShowPatterns'
+import { BUILTIN_SHOW_PATTERNS, builtinShowPatternGroupId } from './builtinShowPatterns'
 
 export interface ShowState {
   pattern: string
@@ -138,13 +138,19 @@ function synthNode(id: string, nodeType: string, category: string, properties: R
 const blank = (W: number, H: number): Frame =>
   Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
 
+/** The built-in an enum show plays for a pattern name; unknown names play NoiseField. */
+const builtinShowPatternName = (name: string) => (BUILTIN_SHOW_PATTERNS[name] ? name : 'NoiseField')
+
 // Enum show: render the active built-in pattern through a synthetic one-node graph.
 function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): Frame {
-  const map = BUILTIN_SHOW_PATTERNS[st.pattern] ?? BUILTIN_SHOW_PATTERNS.NoiseField
+  const name = builtinShowPatternName(st.pattern)
+  const map = BUILTIN_SHOW_PATTERNS[name]
   const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
   const props = { ...(map.props ?? {}), palette, speed: st.speed }
-  // Stable per-pattern id so stateful patterns (Fire…) keep continuity.
-  const patId = `__show_${map.nodeType}`
+  // Stable per-pattern id so stateful patterns (Fire…) keep continuity. Keyed
+  // by name, as the player compiles one function per name: Fire and Fire2012
+  // are one node type but two patterns, each with its own state.
+  const patId = builtinShowPatternGroupId(name)
   const pat = synthNode(patId, map.nodeType, 'pattern', props)
   const out = synthNode('__show_out', 'MatrixOutput', 'output', { width: W, height: H })
   const edges = [{ id: '__show_e', source: patId, target: '__show_out', sourceHandle: 'frame', targetHandle: 'frame' }] as unknown as StudioEdge[]
@@ -178,6 +184,17 @@ function renderGroupFrame(
   ) ?? blank(W, H)
 }
 
+/** The collection group a state plays, or undefined when it plays a built-in. */
+function stateGroupId(show: ShowFile, st: ShowState): string | undefined {
+  return show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
+}
+
+/** Which pattern a state renders, and so whose state a render of it steps. */
+function showRendererKey(show: ShowFile, st: ShowState): string {
+  const groupId = stateGroupId(show, st)
+  return groupId ? `group:${groupId}` : `builtin:${builtinShowPatternName(st.pattern)}`
+}
+
 // Render the pattern active in a given ShowState (enum name or collection index),
 // before brightness/flash. Shared by the steady-state and transition paths.
 function renderStateFrame(
@@ -185,7 +202,7 @@ function renderStateFrame(
   groups: GroupRegistry, useGroupInputs: boolean, audioOverride: AudioOverride | null,
   trusted: boolean,
 ): Frame {
-  const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
+  const groupId = stateGroupId(show, st)
   const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
   // Without the show driving it, the `energy` role follows the baked envelope's
   // mean band level, matching showGenerator's ENERGY_FROM_AUDIO.
@@ -258,14 +275,16 @@ export function renderShowFrame(
   const audioOverride = showAudioOverride(show.audio, timeMs)
 
   // Mid-transition: blend the outgoing pattern (state just before the switch)
-  // into the incoming one (state at the switch) via the chosen transition style.
+  // into the incoming one (the state now, as the player renders whatever its
+  // last SET_PATTERN chose) via the chosen transition style. With the same
+  // pattern on both sides it renders once, as the player does: twice would step
+  // its state twice a frame.
   const tr = activeTransitionAt(show, timeMs)
+  const fromState = tr ? showStateAt(show, tr.startMs - 1) : null
   let result: Frame
-  if (tr) {
-    const fromState = showStateAt(show, tr.startMs - 1)
-    const toState = showStateAt(show, tr.startMs)
+  if (tr && fromState && showRendererKey(show, fromState) !== showRendererKey(show, st)) {
     const fromFrame = renderStateFrame(show, fromState, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
-    const toFrame = renderStateFrame(show, toState, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
+    const toFrame = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
     result = compositeTransition(tr.type, fromFrame, toFrame, tr.progress, W, H)
   } else {
     result = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)

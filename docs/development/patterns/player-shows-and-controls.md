@@ -408,16 +408,35 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - **Firmware compiles only what can run.** Transition arms, the 3D support and
   the frame sampler, palette tables and built-in show patterns are narrowed at
   generation to the reachable set: a Music Player's or slideshow's wired
-  pool (crossfade alone when unwired); for an SD performance player, what its
-  shows name, edits included (`showTransitionStyles`, `showPaletteNames`,
+  pool (crossfade alone when unwired); for an SD performance player, the
+  transitions its shows composite and the palettes and patterns they name,
+  edits included (`showTransitionStyles`, `showPaletteNames`,
   `showPatternNames`), or before any show exists what a generated show can
   reach (`performanceTransitionStyles`, `generatedShowPaletteNames`,
-  `generatedShowPatternNames`). The capacity meter measures with the analysed
-  shows on hand. A show without a collection plays built-in patterns compiled
-  from the same nodes the preview draws them with
-  (`src/state/player/builtinShowPatterns.ts`), numbered by the slots the
+  `generatedShowPatternNames`). A performance player whose shows composite no
+  transition, a one-pattern collection's among them, compiles none: no
+  dispatcher, no `showA`/`showB` and no `CMD_TRANSITION` arm. The capacity
+  meter measures with the analysed shows on hand. A show without a collection
+  plays built-in patterns compiled from the same nodes the preview draws them
+  with (`src/state/player/builtinShowPatterns.ts`), numbered by the slots the
   player on that card compiled. The open inventory of what is still emitted
   but unreachable is in the root `todo.md`.
+- **A pattern on both sides of a transition renders once.** Rendering it as
+  both would step its state twice a frame (a Trails fade, a simulation), on
+  the preview and on the device. A transition runs from the pattern playing
+  before it to whichever pattern its live `SET_PATTERN` state names, until it
+  ends or the next transition starts; it composites only while those differ.
+  `renderShowFrame` (`showPreview.ts`) compares `showRendererKey` of the two
+  sides, and the performance player guards its composite with
+  `prevPatternId != patternId`; a Music Player and a slideshow only start a
+  transition to a different pattern, so they carry no guard.
+  `showTransitionStyles` applies the same rule, so a style only a
+  same-pattern transition names is not compiled. The preview keys a built-in
+  pattern's state by name (`builtinShowPatternGroupId`), not node type: Fire
+  and Fire2012 are two patterns with their own state, as the player compiles
+  them. `generateShow` carries its repeat exclusion across section
+  boundaries and drops a switch into the pattern already playing, so a
+  generated show never names one; a hand edit still can.
 - A collection show schedules patterns by *position*: `SET_PATTERN` carries an
   index into the show's own `ShowFile.patternSet` (version 2 shows only; version
   1 enum shows use `params.name` and have none). `buildShowPayload`

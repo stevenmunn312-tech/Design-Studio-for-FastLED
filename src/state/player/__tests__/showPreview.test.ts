@@ -4,6 +4,13 @@ vi.mock('../../audio/audioStore', () => ({
   useAudioStore: { getState: () => ({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) }) },
 }))
 
+// Counted, so a test can see how many patterns a frame renders.
+vi.mock('../../graphEvaluator', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../graphEvaluator')>()
+  return { ...actual, evaluateGraph: vi.fn(actual.evaluateGraph) }
+})
+
+import { evaluateGraph } from '../../graphEvaluator'
 import { showStateAt, beatFlashAt, renderShowFrame, sectionAt } from '../showPreview'
 import type { ShowFile } from '../../../types/showFile'
 
@@ -341,6 +348,50 @@ describe('renderShowFrame', () => {
     // hard cut could never produce.
     expect(mid.r).toBeGreaterThan(40)
     expect(mid.g).toBeGreaterThan(40)
+  })
+
+  // Rendering a pattern twice in one frame steps its state twice. The player
+  // renders a transition's incoming side from its live SET_PATTERN, so the
+  // preview does too, and a pattern on both sides renders once.
+  it('renders a transition with one pattern on both sides once', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    const solid = (id: string, r: number, g: number) => ({
+      nodes: [
+        mk(`${id}-c`, 'SolidColor', { r, g, b: 0 }, [], [{ id: 'frame', dataType: 'frame' }]),
+        mk(`${id}-o`, 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+      ],
+      edges: [{ id: `${id}-e`, source: `${id}-c`, sourceHandle: 'frame', target: `${id}-o`, targetHandle: 'frame' }],
+    })
+    const groups = { red: solid('red', 255, 0), green: solid('green', 0, 255) } as unknown as Parameters<typeof renderShowFrame>[4]
+    const rendersAt = (events: ShowFile['events'], timeMs: number, patternSet?: string[]) => {
+      vi.mocked(evaluateGraph).mockClear()
+      renderShowFrame({ version: patternSet ? 2 : 1, songTitle: 'S', durationMs: 4000, bpm: 120, patternSet, events }, timeMs, 4, 4, groups)
+      return vi.mocked(evaluateGraph).mock.calls.map((call) => (call[0][0] as { id: string }).id)
+    }
+
+    const into = (index: number): ShowFile['events'] => [
+      { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+      { t: 1000, cmd: 'TRANSITION', params: { type: 'crossfade', duration: 1 } },
+      { t: 1000, cmd: 'SET_PATTERN', params: { index } },
+    ]
+    expect(rendersAt(into(0), 1500, ['red', 'green'])).toHaveLength(1)
+    expect(rendersAt(into(1), 1500, ['red', 'green'])).toHaveLength(2)
+
+    // A change inside the transition blends from that moment, as on the device.
+    const late: ShowFile['events'] = [...into(0), { t: 1200, cmd: 'SET_PATTERN', params: { index: 1 } }]
+    expect(rendersAt(late, 1100, ['red', 'green'])).toHaveLength(1)
+    expect(rendersAt(late, 1500, ['red', 'green'])).toHaveLength(2)
+
+    // Built-ins are patterns by name, each with its own state: Fire and
+    // Fire2012 share a node type but are two patterns, as the player compiles them.
+    const named = (from: string, to: string): ShowFile['events'] => [
+      { t: 0, cmd: 'SET_PATTERN', params: { name: from } },
+      { t: 1000, cmd: 'TRANSITION', params: { type: 'crossfade', duration: 1 } },
+      { t: 1000, cmd: 'SET_PATTERN', params: { name: to } },
+    ]
+    expect(rendersAt(named('Plasma', 'Plasma'), 1500)).toEqual(['__show_Plasma'])
+    expect(rendersAt(named('Fire', 'Fire2012'), 1500)).toEqual(['__show_Fire', '__show_Fire2012'])
   })
 
   it('overlays colored sparks from a PARTICLE_BURST, then clears after its lifetime', () => {

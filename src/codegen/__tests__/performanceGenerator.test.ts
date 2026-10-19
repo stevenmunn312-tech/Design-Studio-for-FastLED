@@ -197,6 +197,45 @@ describe('generateShow — collection vs enum patterns', () => {
     expect(perSection).toHaveLength(analysis.sections.length)
   })
 
+  // A transition into the pattern already playing renders that pattern twice a
+  // frame, on both the preview and the device, so its state steps twice.
+  it('never transitions a pattern into itself, across sections either', () => {
+    const sections: SongAnalysis['sections'] = ['intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro']
+      .map((type, i) => ({ startMs: i * 2000, endMs: (i + 1) * 2000, type: type as SongAnalysis['sections'][number]['type'], energy: 0.5 }))
+    const song: SongAnalysis = { ...analysis, durationMs: 14000, sections }
+    const transitionPairs = (events: ShowEvent[]) => {
+      const key = (event: ShowEvent) => (event.params.index !== undefined ? `#${event.params.index}` : String(event.params.name))
+      let playing: string | undefined
+      const pairs: [string | undefined, string | undefined][] = []
+      events.forEach((event, i) => {
+        if (event.cmd === 'TRANSITION') {
+          const incoming = events.slice(i + 1).find((next) => next.t === event.t && next.cmd === 'SET_PATTERN')
+          pairs.push([playing, incoming && key(incoming)])
+        }
+        if (event.cmd === 'SET_PATTERN') playing = key(event)
+      })
+      return pairs
+    }
+    for (let run = 0; run < 40; run++) {
+      for (const show of [generateShow(song), generateShow(song, {}, ['a', 'b']), generateShow(song, {}, ['a', 'b', 'c'])]) {
+        const pairs = transitionPairs(show.events)
+        expect(pairs.length).toBeGreaterThan(0)
+        for (const [outgoing, incoming] of pairs) {
+          expect(incoming).toBeDefined()
+          expect(incoming).not.toBe(outgoing)
+        }
+      }
+    }
+
+    // Where every section's only eligible pattern is the one playing, it keeps
+    // playing: no transition, and no second SET_PATTERN.
+    const noIntro = { ...song, sections: sections.slice(1) }
+    for (const show of [generateShow(song, {}, ['solo']), generateShow(noIntro, {}, ['any', 'intro-only'], [[], ['intro']])]) {
+      expect(show.events.filter((e) => e.cmd === 'TRANSITION')).toHaveLength(0)
+      expect(show.events.filter((e) => e.cmd === 'SET_PATTERN').map((e) => e.params.index)).toEqual([0])
+    }
+  })
+
   it('does not cycle when only one pattern is available for the section', () => {
     // One pattern in the collection → nothing to switch to, even in a long section.
     const setPatterns = generateShow(longAnalysis, { patternHold: 5 }, ['solo']).events.filter((e) => e.cmd === 'SET_PATTERN')
@@ -412,12 +451,48 @@ describe('generateShow — extra transitions from a wired TransitionSet', () => 
     expect(generatedShowPaletteNames({ paletteMode: 'fixed', fixedPalette: 'ocean' })).toEqual(['ocean'])
     expect(performanceTransitionStyles(['iris', 'wipe'])).toEqual(['crossfade', 'wipe', 'dissolve', 'iris'])
     const events: ShowEvent[] = [
+      { t: 0, cmd: 'SET_PATTERN', params: { name: 'Plasma' } },
       { t: 0, cmd: 'SET_PALETTE', params: { name: 'lava' } },
       { t: 5, cmd: 'TRANSITION', params: { type: 'cube', duration: 1 } },
+      { t: 5, cmd: 'SET_PATTERN', params: { name: 'Spiral' } },
     ]
     const show = { ...generateShow(analysis), events }
     expect(showPaletteNames([show])).toEqual(['lava'])
     expect(showTransitionStyles([show])).toEqual(['cube'])
+  })
+
+  // A transition blends the pattern before it into whichever plays during it,
+  // so one that never changes pattern composites nothing and compiles nothing.
+  it('reaches only the transitions that change pattern', () => {
+    const events: ShowEvent[] = [
+      { t: 0, cmd: 'SET_PATTERN', params: { name: 'Plasma' } },
+      // Into the pattern already playing.
+      { t: 5000, cmd: 'TRANSITION', params: { type: 'cube', duration: 1 } },
+      { t: 5000, cmd: 'SET_PATTERN', params: { name: 'Plasma' } },
+      // A change that lands inside the transition's second still blends.
+      { t: 10000, cmd: 'TRANSITION', params: { type: 'iris', duration: 1 } },
+      { t: 10500, cmd: 'SET_PATTERN', params: { name: 'Spiral' } },
+      // No length, or a change after it ends, is a cut.
+      { t: 20000, cmd: 'TRANSITION', params: { type: 'door', duration: 0 } },
+      { t: 20000, cmd: 'SET_PATTERN', params: { name: 'Plasma' } },
+      { t: 30000, cmd: 'TRANSITION', params: { type: 'zoom', duration: 1 } },
+      { t: 31500, cmd: 'SET_PATTERN', params: { name: 'Fire' } },
+      // A later transition takes over before this one sees a change.
+      { t: 40000, cmd: 'TRANSITION', params: { type: 'blinds', duration: 2 } },
+      { t: 40500, cmd: 'TRANSITION', params: { type: 'flip', duration: 1 } },
+      { t: 41000, cmd: 'SET_PATTERN', params: { name: 'Plasma' } },
+    ]
+    expect(showTransitionStyles([{ ...generateShow(analysis), events }])).toEqual(['iris', 'flip'])
+
+    // A collection show compares positions.
+    const collection: ShowEvent[] = [
+      { t: 0, cmd: 'SET_PATTERN', params: { index: 1 } },
+      { t: 5000, cmd: 'TRANSITION', params: { type: 'cube', duration: 1 } },
+      { t: 5000, cmd: 'SET_PATTERN', params: { index: 1 } },
+      { t: 9000, cmd: 'TRANSITION', params: { type: 'wipe', duration: 1 } },
+      { t: 9000, cmd: 'SET_PATTERN', params: { index: 0 } },
+    ]
+    expect(showTransitionStyles([{ ...generateShow(analysis, {}, ['a', 'b']), events: collection }])).toEqual(['wipe'])
   })
 
   it('round-trips an extra transition style through the binary export', () => {
