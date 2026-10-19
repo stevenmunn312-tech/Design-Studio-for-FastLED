@@ -8,8 +8,9 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## How this list works
 
-- **Sections run in order of progression:** gather bench evidence while the
-  release track runs; section 6 waits until after v1. New parts keep landing
+- **Sections run in order of progression:** finish section 3 before the
+  release track, and gather bench evidence while the release track runs;
+  section 6 waits until after v1. New parts keep landing
   through the [hardware expansion roadmap](docs/plans/hardware-expansion-roadmap.md),
   each experimental until its bench row in section 4.
 - **Engineering items close on software**, plus a compile where the item
@@ -28,6 +29,146 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 - Contracts live in design notes, evidence in reports and support rows. Remove
   an entry once its outcome is recorded, and route details through
   [docs/index.md](docs/index.md).
+
+## 3. Frame performance (before the release track)
+
+A frame costs the time to compute its pixels plus the time to send them with
+`FastLED.show()`. A clockless LED takes about 30 µs to send, so a large fixture
+runs out of wire time before CPU time. These steps make the Board's frame rate
+true, say when the wire is the limit and how to lift it, and then cut
+calculation where a measurement shows it pays. Run them in order. A step that
+changes firmware closes on the dead-code corpus compile
+(`python scripts/compile-fixtures/compile-matrix.py --only dead-code/`); new
+hardware behaviour ships experimental and gets its bench row in section 4 when
+it lands.
+
+- [ ] **HW-32 · Frame performance (L).** Exit: every generator paces to the
+  Board's frame rate and never re-sends past the deadline; Graph Health names
+  the frame rate a wire-bound graph can reach and offers the fix; lanes and
+  driver choice are compiled and marked experimental; the dead-code corpus
+  compiles on Arduino CLI. Bench readings are section 4 rows, not part of the
+  exit.
+  - [ ] **1. Split render time from send time in device telemetry.** `loopmax`
+    covers the whole pass, so a slow frame cannot say whether the pixels or the
+    wire cost it. Time each frame's `FastLED.show()` and report the interval's
+    worst render and worst send as two new keys, left out when nothing is sent
+    through FastLED (HUB75). Define them once in
+    `src/state/upload/deviceTelemetry.ts`, emit them from
+    `src/codegen/deviceTelemetryCpp.ts` (found from the sketch text, the way
+    `withDeviceTelemetry` finds the pacing line), parse them in
+    `deviceTelemetryStore.ts` and show them on `DeviceTelemetryCard`. Add both
+    to the key table in the
+    [display budget bench](docs/development/testing/display-budget-bench.md).
+    Every later step is measured with this.
+  - [ ] **2. Pace each frame to a deadline and send it once.** The normal, show
+    and player sketches end `loop()` with `FastLED.show()` and then
+    `FastLED.delay(1000 / frameRate)` (`src/codegen/loopPacing.ts`). FastLED
+    3.10.5's `delay` calls `show()` at least once more and keeps re-sending
+    until the time is up, so every frame is sent at least twice and the sleep
+    is added to the work instead of absorbing it. A display-budget bench run
+    recorded 50.0 fps from a 2.0 ms pass under the 60 fps default
+    ([bench](docs/development/testing/display-budget-bench.md)), and a
+    1,000-LED strip tops out near 16 fps where one send a frame allows about
+    33. Wait instead for a fixed next-frame deadline, still emitted at the end
+    of the loop so all three generators keep one insertion point, and keep
+    FastLED's dither refreshes only while a whole send still fits before the
+    deadline. Keep `isLoopPacing`/`plainPacing`, `withDeviceTelemetry`'s pacing
+    finder, the show builder's line filter (`showGenerator.ts`) and
+    `screenOnlyFastLed.test.ts` in step. Record the trap in
+    [firmware generation](docs/development/patterns/firmware-generation.md),
+    and make the Board's frame-rate help describe a cap the sketch meets when
+    the work fits. Its bench row records fps before and after on a long strip.
+  - [ ] **3. Record each board family's LED drivers as facts.** One module keyed
+    by `BuildTargetFamily` (`src/build/buildProfile.ts`), with a profile
+    override where one family covers different chips (`teensy`), read from the
+    pinned FastLED 3.10.5: the default clockless and SPI bus (`DefaultBus` in
+    `fl/channels/bus.h`); how many outputs send at once (RMT TX channels from
+    the RMT5 driver README: ESP32 8, S3 4, C3, C6 and H2 2; ObjectFLED on
+    Teensy 4; one after another where there is no parallel driver); the RMT
+    memory a channel takes idle and with a network up; whether the chip has a
+    floating-point unit; and each chipset's send time per LED (24 bits at
+    800 kHz for most clockless parts, more for RGBW and 16-bit ones; clocked
+    parts at FastLED's default rates, APA102 6 MHz, HD108 25 MHz, WS2801
+    1 MHz). The estimate, Graph Health and code generation all read it.
+    Document it in [board capabilities](docs/architecture/board-capabilities.md).
+  - [ ] **4. Estimate the wire time per board and advise when it is the
+    limit.** `estimateLedRefreshTime` (`src/utils/validateGraph.ts`) charges
+    30 µs for every LED as if all outputs sent one after another, and shows the
+    result only as a note on the readiness strip's Pins chip. Use step 3's
+    facts instead and compare the result with the Board's frame period. When
+    the wire cannot keep up, Graph Health gives advice, never an error: the
+    frame rate this graph can reach and the fixes that apply (a lower frame
+    rate now; a faster clock, more data pins and a parallel driver as steps
+    5–7 land). Show the reachable frame rate on the readiness strip
+    (`HardwareReadiness.tsx`). On ESP32-family boards also flag outputs that
+    need more RMT memory than the chip has with Wi-Fi or Ethernet up, counting
+    the IR receiver's share, because FastLED then shares fewer channels and
+    the outputs send in turn.
+  - [ ] **5. Set the data rate of clocked chipsets.** APA102, APA102HD, HD108
+    and WS2801 outputs always send at FastLED's default clock. Add a data-rate
+    setting to the LED output for those chipsets, emitted as the `addLeds`
+    data-rate argument from `fastledSetupCpp`
+    (`src/codegen/output/ledHardwareCpp.ts`) so every generator gets it, with
+    FastLED's own value as the default. Offer only rates the chipset supports,
+    say in the help that long APA102 runs lose data at high clock rates, and
+    feed the rate to step 4's estimate.
+  - [ ] **6. Feed one LED output from several data pins.** A long fixture keeps
+    one LED output, one `leds` array and one render, but its chain is split
+    into equal lanes, each fed from its own pin by
+    `addLeds<...>(leds, offset, count)` from `fastledSetupCpp`, so FastLED sends
+    the lanes at once where step 3 says the board can. Preview, XY map, RAM and
+    power stay as they are. Every lane pin is a pin claim in
+    `findPinConflicts` and the pin pickers; the Build Diagram draws a data wire
+    (and a data-extender pair, where one is used) to each lane's first LED;
+    the wiring diagnostic lights each lane in turn. Step 4's advice gains a
+    **Split across pins** fix that sets the lanes and picks free output pins,
+    offering only counts whose boundaries fall on whole rows or panels. Record
+    the contract in
+    [multi-output routing](docs/architecture/multi-output-routing.md).
+  - [ ] **7. Choose the LED driver on the Board.** **Auto**, the default, keeps
+    FastLED's choice. Offer the other drivers FastLED 3.10.5 builds for the
+    selected family (`fl::Bus`, such as LCD_CLOCKLESS on the S3 and PARLIO on
+    the C6; check how the classic ESP32's I2S driver is selected, because
+    `Bus::I2S` names the S3 path), emitted as
+    `FastLED.setExclusiveDriver<fl::Bus::...>()` before the first `addLeds`.
+    Graph Health offers fixes when a parallel driver's lanes differ in chipset
+    or timing, and when the driver needs a peripheral already in use: I2S
+    audio and the classic ESP32's HUB75 library on I2S, HUB75 and parallel TFT
+    panels on the S3's LCD_CAM, and the IR receiver's share of RMT. Suggest a
+    parallel driver when an S3 graph needs more lanes than its four RMT
+    channels. Compile one fixture per driver and family; its bench row covers
+    each driver under Wi-Fi load.
+  - [ ] **8. Measure each node's share of the frame.** With telemetry on, time
+    each node's block in a normal sketch's loop and report the three costliest
+    each interval as a new key, shown by node label on the telemetry card.
+    Measure the boards without a floating-point unit that telemetry supports
+    (ESP32-C3, ESP32-C6, ESP8266) first; they pay most for float maths. Steps
+    10 and 11 are judged against these numbers.
+  - [ ] **9. Skip per-pixel geometry that nothing reads.** FieldFormula
+    (`src/nodes/field/codegen.ts`) and the Code node
+    (`src/nodes/code/codegen.ts`) compute `r` and `angle` (`sqrtf` and
+    `atan2f`) for every pixel of every frame even when the formula never names
+    them, because the `(void)r;(void)angle;` that silences warnings counts as a
+    read in `withoutUnreadLocals` (`src/codegen/cppCleanup.ts`). Teach the pass
+    that a bare `(void)name;` is no read and remove it with the declaration, so
+    every emitter benefits, and keep `deadCodeCorpus.test.ts` passing.
+  - [ ] **10. Render frame-invariant nodes once.** A node whose emitter never
+    reads the time, and whose inputs and wired properties come only from such
+    nodes, draws the same pixels every frame: a static gradient, mask or shape.
+    Track the time dependency per node instead of the sketch-wide `needsT`
+    flag (`src/codegen/emitContext.ts`), render those nodes on the first frame
+    only, and mark their buffers persistent so scratch sharing and show
+    pooling (`scratchSharing.ts`, `renderBuffers.ts`) leave them alone; count
+    that RAM in `estimateFirmwareRam`. The preview is unchanged. Take this on
+    when step 8 shows such nodes cost a measurable share of a frame.
+  - [ ] **11. Use integer maths in the costliest emitters.** Where step 8
+    shows one node dominating the frame on a board without a floating-point
+    unit, move its inner loop to FastLED's integer helpers (`sin8`/`sin16`,
+    `scale8`, `qadd8`, `inoise8`, and the bulk `fadeToBlackBy`,
+    `nscale8_video` and `blur2d`) in the preview and the sketch together, one
+    path on every board so the two stay identical. Each converted node gets a
+    native `g++` parity test like `turingNativeParity.test.ts` and a
+    before-and-after reading from step 8.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
