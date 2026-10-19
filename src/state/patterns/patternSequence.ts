@@ -73,10 +73,6 @@ export function sequenceDurationMs(steps: readonly PatternStep[], beatMs: number
   return steps.reduce((sum, step) => sum + stepHoldMs(step, beatMs, countBeats), 0)
 }
 
-function optionalNumber(value: number | undefined): Record<string, number> | undefined {
-  return value === undefined || !Number.isFinite(value) ? undefined : { value }
-}
-
 /**
  * Steps become a show the lane editor already knows how to draw. Pattern clips
  * run from one step to the next. The transition is the overlap at the start
