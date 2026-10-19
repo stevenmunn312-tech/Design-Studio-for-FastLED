@@ -9,6 +9,26 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Pattern Collection** entries gain a weight from 0 to 16 (default 1),
+  calm / lively / peak tags, and a restart or resume entry. Weight 0 is
+  skipped by automatic picks and can still be chosen by hand, from a timeline,
+  or by a sequence step that names it. Restart clears the pattern as the
+  transition that brings it in begins; Resume keeps what it was doing. The
+  preview, the Pattern Slideshow, the Music Player and the Performance
+  Generator share one pick rule. Equal weights over the whole collection keep
+  the previous random order.
+- **Sequence** order on the Pattern Slideshow and the Music Player loops the
+  steps you edit: a pattern or a tag pick, a hold, and a transition. With Beat
+  Transitions on, a Music Player hold counts beats. Previous and Next move
+  between steps. Energy Pacing and Dwells & Bursts stay off during a sequence.
+  An empty sequence holds the current pattern.
+- The **Performance Generator** gains **Edit lanes**: pattern, transition,
+  palette, speed, brightness, energy, flash, particles, and one lane per named
+  float input, under the song's section bands, beat grid and energy envelope.
+  Speed, brightness, energy and named inputs can ramp. An edit locks the
+  section it falls in, and Regenerate keeps that span. Revert clears the locks
+  and rebuilds the show. These show tools are experimental until a bench row
+  compares the preview with the LEDs.
 - The **Audio** node gains a **Noise gate** slider beside Gain for a
   microphone source, and both controls for a line input: the raw sample
   level (of 32767, default 500, FastLED's own) a sound must reach before
@@ -54,6 +74,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- Regenerating a performance show writes one ramp where it used to write a
+  short ladder: buildups, silence, and the five-second brightness fade at each
+  end of the song. A saved show that does not use a ramp or a named input stays
+  byte-identical on the card. A show saved with the old whole-show edit freeze,
+  and no lock list, still stays frozen until Revert. New collection and show
+  fields load as weight 1, no energy tags, restart, and no sequence.
 - A new **Player Particles** node starts with Enabled on, so wiring it into
   a Music Player shows bursts at once. Saved nodes keep their own setting.
 

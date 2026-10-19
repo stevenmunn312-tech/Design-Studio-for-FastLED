@@ -249,8 +249,9 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
   `PATTERN_NODE` lookup.
 - The **timeline editor** (`ShowTimeline.tsx`) `SET_PATTERN` dropdown lists the
   **collection's patterns** (by group name) instead of `SHOW_PATTERNS` when the
-  song's show is collection-backed. Everything else in the editor is unchanged —
-  it already edits the generic event stream.
+  song's show is collection-backed. The strip still edits the generic event
+  stream. Lanes, ramps, named inputs and locked regeneration are the
+  [show sequencing](show-sequencing.md) contract.
 
 ## Slices
 
@@ -302,7 +303,9 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
    section's type — falling back to the whole set when nothing matches so a section
    always renders. `musicStore.wiredCollection()` resolves both ids and tags live
    from the wired collection. Untagged patterns behave exactly as slice 1's random
-   pick, so existing collections are unchanged.
+   pick, so existing collections are unchanged. Weights, calm / lively / peak
+   tags and the shared pick rule are specified in
+   [show sequencing](show-sequencing.md).
 4. **Editor polish.** ✅ **shipped (2026-07-01).** Pieces: (a) a **role dropdown**
    on the `GroupInput` node body (`StudioNode`) that sets the role via
    `graphStore.setGroupInputRole` — `energy`/`speed`/`palette` (or "— input —" for an
@@ -328,14 +331,15 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
   opt-in per input. See §4. Per-input distinct-signal mapping is deferred.
 - **`energy` semantics.** A 0–1 analysis-energy value the pattern interprets however
   it likes — zero generator assumptions. (Renamed from `intensity`.)
+- **Collection drift.** An unlocked show regenerates when the wired collection
+  changes, so that drift is not a packaging error. A locked span, or a legacy
+  edited show with no `locks` array, that still depends on a missing group is
+  refused at upload and the message names the span. The packaged sketch is
+  self-contained; the preview reads the live graph. See
+  [show sequencing](show-sequencing.md#locked-ranges).
 
 ## Open questions
 
-- **Collection drift.** A `.show` references group ids; if the user edits/deletes a
-  group after generating, the show is stale. The package is self-contained at
-  export (compiled `render_pN`), but the *preview* reads live `graphData` —
-  regenerate-on-change already covers the timeline; confirm it covers pattern-set
-  changes too.
 - **Mixed wiring.** Both `songs` and `patternset` wired is the target. `songs` only
   → legacy enum mode. `patternset` only (no song) → undefined; likely disable
   export and warn via `validateGraph`.

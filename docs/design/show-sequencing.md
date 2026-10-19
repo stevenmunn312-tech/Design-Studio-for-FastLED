@@ -15,14 +15,15 @@ collection node (`patternWeights`, `patternEnergy`, `patternEntry`). The
 `patternset` port stays a list of group ids.
 
 `src/state/patterns/patternPick.ts` chooses the next index. Its C++ twin
-`src/codegen/player/patternPickCpp.ts` is emitted only when some weight is 0,
-the weights are not all equal, or any entry has an energy tag. Otherwise the
+`src/codegen/player/patternPickCpp.ts` is emitted only when the collection has
+at least two patterns and some weight is 0, the weights are not all equal, any
+entry has an energy tag, or a sequence step picks by section tag. Otherwise the
 four historical expressions stay in the source, draw for draw:
 
 - preview: `(cur + 1 + Math.floor(rnd() * (n - 1))) % n`
 - slideshow: `(cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT`
 - SD player selection: `(selActive + 1 + random(PATTERN_COUNT - 1)) % PATTERN_COUNT`
-- SD player rotate: `rotateIndex + random(patternCount - 1)`
+- SD player rotate: `(rotateIndex + 1 + random(patternCount - 1)) % patternCount`
 
 Eligibility, in order:
 

@@ -98,7 +98,7 @@ Buttons / knobs → Player Controls ──────────────�
 Player Particles ───────────────────────────────────────┘
 ```
 
-Save finished patterns as reusable Groups, collect the ones you want, and let Music Player choose timing and transitions while the decoder supplies live audio. Player Controls bundles physical play/pause, previous/next, volume, LED power, and brightness inputs into one Controls connection. Player Particles keeps the optional beat-overlay style, colour, randomisation, and intensity in a separate Particle FX connection. The preview and generated controller sketch share the same show structure.
+Save finished patterns as reusable Groups, collect the ones you want, and let Music Player choose timing and transitions while the decoder supplies live audio. Weight a collection entry, tag it calm, lively or peak, and choose whether it restarts or resumes. Sequence order on the Music Player and the Pattern Slideshow loops steps you edit; with Beat Transitions on, a hold counts beats. Player Controls bundles physical play/pause, previous/next, volume, LED power, and brightness inputs into one Controls connection. Player Particles keeps the optional beat-overlay style, colour, randomisation, and intensity in a separate Particle FX connection. The preview and generated controller sketch share the same show structure.
 
 ### Author a music-synced SD show
 
@@ -106,7 +106,7 @@ Save finished patterns as reusable Groups, collect the ones you want, and let Mu
 Music Library → Performance Generator → SD Card → LED Output
 ```
 
-Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it against the music, and package the player, show data, and tracks for SD-card playback. A Pattern Collection can provide the visual vocabulary.
+Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it against the music, and package the player, show data, and tracks for SD-card playback. Edit lanes opens the show under the section bands, beat grid and energy envelope. Speed, brightness, energy and named inputs can ramp, and an edit locks that section so Regenerate keeps it. A Pattern Collection can provide the visual vocabulary.
 
 > Music-synced SD provisioning is experimental. See the [Beta support matrix](docs/release/beta-support-matrix.md) before planning a production installation.
 
@@ -177,7 +177,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Audio reactive:** live microphone and PCM1802 line-in analysis, FFT bands, beat/percussion features, audio-driven color and pattern nodes, on-device I2S MEMS microphone support (INMP441, ICS-43434, or a generic MSM261-class board), and decoded-PCM analysis for SD-player collection shows.
 - **IR remote control:** learn named keys from a demodulating receiver, use once or held-repeat events for actions, and route increment/decrement/reset keys through Step Value to drive an exposed numeric property. Separate remote On and Off keys connect directly to Toggle’s On and Off inputs; its Out feeds the LED output’s Enabled input and remembers the state between presses. IR hardware support remains experimental; use the [Hardware guide](docs/user/hardware-workbench.md#add-an-ir-remote-receiver) and [beta matrix](docs/release/beta-support-matrix.md#experimental-until-validated) before choosing a board or receiver.
 - **Fields and simulations:** scalar-field math, Slice and Truchet tilings, warping and wallpaper symmetry, multi-scale Turing fields, reaction diffusion with named presets, Fourier epicycles, Game of Life, particles, flow fields, boids, feedback, trails, image palettes, and custom formulas.
-- **Show control:** reusable pattern collections, 16 transition styles, beat-driven particles, section-aware music shows, timeline editing, and performance controls.
+- **Show control:** reusable pattern collections with weights and energy tags, 16 transition styles, beat-driven particles, section-aware music shows, lane editing with ramps and locked sections, looping sequences, and performance controls. Weighted picks, sequences and ramped shows remain experimental until a bench row exists; see the [beta matrix](docs/release/beta-support-matrix.md#experimental-until-validated).
 - **Physical layouts:** strings, rings, unwrapped-cylinder corkscrew authoring, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
 - **DMX, Art-Net, sACN and DDP:** Art-Net and sACN (E1.31) preview through the local helper plus Art-Net, sACN or DMX512 firmware paths; a DDP Input receives a frame from xLights, LedFx or WLED, and a Frame Stream sends one on by DDP or Adalight. Hardware validation has not yet been recorded, so all modes remain experimental.
 - **Clock and schedules:** build-time, manual, NTP-backed, and battery-backed DS3231 clocks; time windows and scheduled triggers; digital/analog clock patterns. The DS3231 set/read/display path is validated on one classic ESP-32D DevKit v1 combination; other clock paths and boards remain experimental.

@@ -482,8 +482,9 @@ that are easy to split across preview and firmware:
 - One pick module, `src/state/patterns/patternPick.ts`, and its C++ twin
   `patternPickCpp`. Equal positive weights over the whole collection stay on
   today's one-draw formula, so a seeded slideshow and an unweighted sketch stay
-  byte-identical. A table is emitted only when weights differ, a weight is 0,
-  or an energy tag is set, and only when the collection has at least two patterns.
+  byte-identical. A table is emitted only when the collection has at least two
+  patterns and weights differ, a weight is 0, an energy tag is set, or a
+  sequence step picks by section tag.
 - Weight 0 is never an automatic choice. A confirm, a timeline, or a sequence
   step that names the index can still reach it. Sequential order skips it.
 - Section tags steer the Performance Generator only. Automatic slideshow and
