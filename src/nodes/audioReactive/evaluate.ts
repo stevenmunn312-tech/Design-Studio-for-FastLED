@@ -25,7 +25,7 @@ import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 import { speedPhase } from '../shared/speedClock'
 import {
-  auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, ringsFrame, ringsPixel, shockFrame, shockPixel,
+  auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, kaleidoFrame, kaleidoPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
   turbulentFrame, turbulentPixel, wellFrame, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
@@ -654,20 +654,13 @@ function evalBeatKaleidoscope(
   const wedges = 6 + Math.round(punch * 6)
   const rot = advanceDrift(key, t, speed * (0.15 + strength * 0.35)).a + punch * 0.8
   const phase = speedPhase(key, t, speed)
-  const wedgeAngle = (Math.PI * 2) / wedges
   const cx = (W - 1) / 2, cy = (H - 1) / 2
-  const maxD = Math.max(1e-6, Math.hypot(cx, cy))
-
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = kaleidoFrame(Math.max(1e-6, Math.hypot(cx, cy)), rot, wedges, punch, phase, strength, hue)
   return buildFrame(W, H, (x, y) => {
-    const dx = x - cx, dy = y - cy
-    const dist = Math.hypot(dx, dy) / maxD
-    const ang = Math.atan2(dy, dx) + rot
-    let a = ((ang % wedgeAngle) + wedgeAngle) % wedgeAngle
-    if (a > wedgeAngle / 2) a = wedgeAngle - a
-    const tex = Math.sin(a * 10 + dist * 8 * (1 + punch * 0.6) - phase * 3) * Math.cos(dist * 5 * (1 + punch * 0.6) - a * 6)
-    const v = Math.min(1, Math.max(0, tex * 0.5 + 0.5) * (0.35 + strength * 0.65) + punch * 0.25)
-    const c = samplePalette(palette, dist * 0.5 + a * 0.3 + hue / 360 + phase * 0.05)
-    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+    const { index, bri } = kaleidoPixel(x, y, W, H, frame)
+    const c = samplePalette(palette, index / 256)
+    return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
   })
 }
 

@@ -6,7 +6,7 @@ import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   auroraFrameCpp, auroraPixelCpp, auroraRowCpp, cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp,
-  bloomFrameCpp, bloomPixelCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
+  KALEIDO_PIXEL_CPP, bloomFrameCpp, bloomPixelCpp, kaleidoFrameCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
   turbulentFrameCpp, turbulentPixelCpp, wellFrameCpp, wellPixelCpp,
 } from '../shared/integerPatterns'
 import {
@@ -478,8 +478,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  BeatKaleidoscope({ node, id, p, ln, f, ownBuf, boolExpr, paletteExpr, needsT }) {
+  BeatKaleidoscope({ node, id, p, ln, f, ownBuf, boolExpr, paletteExpr, needsT, needsAtan16 }) {
     needsT.v = true
+    needsAtan16.v = true
     const ob = ownBuf()
     const beat = boolExpr(node.id, 'beat')
     const hue = f('hue', 'hue', 0)
@@ -499,17 +500,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    _bkPhase_${id}+=_bkDt_${id}*${speed}*(0.15f+_strength*0.35f);`)
     ln(`    float _rot=_bkPhase_${id}+_bkPunch_${id}*0.8f;`)
     const ph = speedPhaseCpp(ln, phaseTag(id), speed)
-    ln(`    float _wedgeAngle=6.2831853f/_wedges;`)
     ln(`    float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_maxD=max(1e-6f,sqrtf(_cx*_cx+_cy*_cy));`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of kaleidoFrameCpp('_maxD', '_rot', '_wedges', `_bkPunch_${id}`, ph, '_strength', `(${hue})`)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _dx=_x-_cx,_dy=_y-_cy,_dist=sqrtf(_dx*_dx+_dy*_dy)/_maxD;`)
-    ln(`      float _ang=atan2f(_dy,_dx)+_rot;`)
-    ln(`      float _a=fmodf(fmodf(_ang,_wedgeAngle)+_wedgeAngle,_wedgeAngle);`)
-    ln(`      if(_a>_wedgeAngle/2.0f) _a=_wedgeAngle-_a;`)
-    ln(`      float _tex=sinf(_a*10.0f+_dist*8.0f*(1.0f+_bkPunch_${id}*0.6f)-${ph}*3.0f)*cosf(_dist*5.0f*(1.0f+_bkPunch_${id}*0.6f)-_a*6.0f);`)
-    ln(`      float _v=min(1.0f,max(0.0f,_tex*0.5f+0.5f)*(0.35f+_strength*0.65f)+_bkPunch_${id}*0.25f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_dist*0.5f+_a*0.3f+${hue}/360.0f+${ph}*0.05f)*255));`)
-    ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
+    for (const line of KALEIDO_PIXEL_CPP) ln(`      ${line}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_bkIdx);`)
+    ln(`      ${ob}[_y*WIDTH+_x].nscale8(_bkV);`)
     ln(`    }`)
     ln(`  }`)
   },

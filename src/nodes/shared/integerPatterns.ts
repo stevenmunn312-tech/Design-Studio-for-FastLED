@@ -773,3 +773,96 @@ export function turbulentPixel(x: number, y: number, W: number, H: number, f: Tu
   const v = (TURBULENT_CRISP_TABLE[bi] * f.gain) >> 8
   return { index: ((r >> 1) + f.palette) & 0xff, bri: v > 255 ? 255 : v }
 }
+
+// ── Integer atan2 ─────────────────────────────────────────────────────────────
+// atan2 as a 16-bit angle (65536 a turn): octant reduction, then a 257-entry
+// table of atan(r) for r in [0, 1], read at 16 fractional bits with
+// interpolation. Error under 0.01°. Shared by every kernel that needs a
+// pixel's angle, so it is one sketch helper (`needsAtan16`).
+
+export const ATAN16_TABLE = Array.from({ length: 257 }, (_, i) => Math.round(Math.atan(i / 256) * 65536 / (2 * Math.PI)))
+
+export const ATAN16_HELPER_CPP = [
+  `static const uint16_t _atanTab[257] PROGMEM = {${ATAN16_TABLE.join(',')}};`,
+  'static uint16_t _atan2_16(int32_t y, int32_t x) {',
+  '  uint32_t ax = x < 0 ? -x : x, ay = y < 0 ? -y : y;',
+  '  if (!ax && !ay) return 0;',
+  '  while (ax > 32767 || ay > 32767) { ax >>= 1; ay >>= 1; }',
+  '  bool steep = ay > ax; uint32_t r = steep ? (ax << 16) / ay : (ay << 16) / ax;',
+  '  uint32_t i = r >> 8, t0 = pgm_read_word(&_atanTab[i]);',
+  '  uint32_t a = i < 256 ? t0 + (((pgm_read_word(&_atanTab[i + 1]) - t0) * (r & 255)) >> 8) : t0;',
+  '  if (steep) a = 16384 - a;',
+  '  if (x < 0) a = 32768 - a;',
+  '  if (y < 0) a = 65536 - a;',
+  '  return (uint16_t)a;',
+  '}',
+].join('\n')
+
+export function atan2_16(y: number, x: number): number {
+  let ax = Math.abs(x), ay = Math.abs(y)
+  if (!ax && !ay) return 0
+  while (ax > 32767 || ay > 32767) { ax >>>= 1; ay >>>= 1 }
+  const steep = ay > ax
+  const r = steep ? Math.trunc((ax * 65536) / ay) : Math.trunc((ay * 65536) / ax)
+  const i = r >>> 8, t0 = ATAN16_TABLE[i]
+  let a = i < 256 ? t0 + (((ATAN16_TABLE[i + 1] - t0) * (r & 255)) >> 8) : t0
+  if (steep) a = 16384 - a
+  if (x < 0) a = 32768 - a
+  if (y < 0) a = 65536 - a
+  return a & 0xffff
+}
+
+// ── BeatKaleidoscope ──────────────────────────────────────────────────────────
+// Each pixel's angle from `_atan2_16`, folded into a mirrored wedge in 16-bit
+// angle units, and its centre distance from an integer square root in 1/16
+// pixel (half-pixel offsets doubled, so the centre (W-1)/2 is exact).
+
+const KALEIDO_ANGLE_TO_INDEX = Math.round(0.3 * 2 * Math.PI * 256) // a (16-bit angle) * 0.3 rad, in 1/65536 of the palette
+
+export interface KaleidoFrame {
+  invMax: number; rotation: number; wedge: number; ring8: number; ring5: number; phase: number
+  gain: number; punch: number; hue: number
+}
+
+export function kaleidoFrame(
+  maxD: number, rotation: number, wedges: number, punch: number, phase: number, strength: number, hue: number,
+): KaleidoFrame {
+  const k = (radians: number) => Math.trunc(radians * A16_PER_RADIAN / 256)
+  let h = (hue / 360 + phase * 0.05) % 1
+  if (h < 0) h += 1
+  return {
+    invMax: Math.trunc(65536 / Math.max(maxD, 0.0625)), rotation: angle16(rotation), wedge: Math.trunc(65536 / wedges),
+    ring8: k(8 * (1 + punch * 0.6)), ring5: k(5 * (1 + punch * 0.6)), phase: angle16(phase * 3),
+    gain: Math.trunc((0.35 + strength * 0.65) * 255) & 0xff, punch: Math.trunc(punch * 0.25 * 255) & 0xff, hue: Math.trunc(h * 256) & 0xff,
+  }
+}
+
+export function kaleidoFrameCpp(maxD: string, rotation: string, wedges: string, punch: string, phase: string, strength: string, hue: string): string[] {
+  const k = (radians: string) => `(int32_t)((${radians})*${A16_PER_RADIAN}f/256.0f)`
+  return [
+    `int32_t _bkInvM=(int32_t)(65536.0f/fmaxf(${maxD},0.0625f)),_bkRot=${angle16Cpp(rotation)},_bkW=65536/(${wedges});`,
+    `int32_t _bkK8=${k(`8.0f*(1.0f+${punch}*0.6f)`)},_bkK5=${k(`5.0f*(1.0f+${punch}*0.6f)`)},_bkP=${angle16Cpp(`${phase}*3.0f`)};`,
+    `uint8_t _bkG=(uint8_t)((0.35f+${strength}*0.65f)*255.0f),_bkPB=(uint8_t)(${punch}*0.25f*255.0f);`,
+    `float _bkHf=fmodf(${hue}/360.0f+${phase}*0.05f,1.0f); if(_bkHf<0)_bkHf+=1.0f; uint8_t _bkH=(uint8_t)(_bkHf*256.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _bkIdx` and `uint8_t _bkV`; needs `_atan2_16`. */
+export const KALEIDO_PIXEL_CPP = [
+  `int32_t _kdx=2*_x-(WIDTH-1),_kdy=2*_y-(HEIGHT-1);`,
+  ...isqrtCpp('bk', '(_kdx*_kdx+_kdy*_kdy)<<6', '_bkR'),
+  `int32_t _kd=((int32_t)_bkR*_bkInvM)>>12,_ka=(int32_t)(((uint16_t)(_atan2_16(_kdy,_kdx)+_bkRot))%_bkW); if(_ka>_bkW/2) _ka=_bkW-_ka;`,
+  `int32_t _tex=((int32_t)sin16((uint16_t)(_ka*10+_kd*_bkK8-_bkP))*sin16((uint16_t)(_kd*_bkK5-_ka*6+16384)))>>15;`,
+  `uint16_t _bv=scale8((uint8_t)((_tex+32768)>>8),_bkG)+_bkPB; uint8_t _bkV=_bv>255?255:(uint8_t)_bv;`,
+  `uint8_t _bkIdx=(uint8_t)((_kd>>1)+((_ka*${KALEIDO_ANGLE_TO_INDEX})>>16)+_bkH);`,
+]
+
+export function kaleidoPixel(x: number, y: number, W: number, H: number, f: KaleidoFrame): { index: number; bri: number } {
+  const dx = 2 * x - (W - 1), dy = 2 * y - (H - 1)
+  const d = (isqrt32((dx * dx + dy * dy) * 64) * f.invMax) >> 12
+  let a = ((atan2_16(dy, dx) + f.rotation) & 0xffff) % f.wedge
+  if (a > Math.trunc(f.wedge / 2)) a = f.wedge - a
+  const tex = (sin16(a * 10 + d * f.ring8 - f.phase) * sin16(d * f.ring5 - a * 6 + 16384)) >> 15
+  const v = scale8(((tex + 32768) >> 8) & 0xff, f.gain) + f.punch
+  return { index: ((d >> 1) + ((a * KALEIDO_ANGLE_TO_INDEX) >> 16) + f.hue) & 0xff, bri: v > 255 ? 255 : v }
+}

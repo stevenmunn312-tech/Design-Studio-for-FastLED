@@ -154,6 +154,8 @@ export interface SketchEmitContext {
   needsFluid: Need
   needsFourier: Need
   needsSymmetry: Need
+  /** `_atan2_16` from shared/integerPatterns.ts, the integer kernels' angle. */
+  needsAtan16: Need
   needsHueMix: Need
   needsWrapX: Need
   needsFrameSample: Need

@@ -18,6 +18,7 @@ import {
   BLOOM_CRISP_TABLE, RINGS_CRISP_TABLE, TURBULENT_CRISP_TABLE, WELL_CRISP_TABLE, bloomFrame, bloomPixel, bloomPixelCpp,
   ringsFrame, ringsPixel, ringsPixelCpp, turbulentFrame, turbulentPixel, turbulentPixelCpp, wellFrame, wellPixel, wellPixelCpp,
   wordTableCpp,
+  ATAN16_HELPER_CPP, KALEIDO_PIXEL_CPP, atan2_16, kaleidoFrame, kaleidoPixel,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -27,13 +28,13 @@ function runNative(W: number, H: number, frame: string[], pixel: string[], print
   try {
     const source = path.join(dir, 'kernel.cpp'), binary = path.join(dir, 'kernel')
     writeFileSync(source, [
-      '#include <cstdio>', '#include <cstdint>', LIB8TION_HOST_CPP, INOISE8_HOST_CPP,
+      '#include <cstdio>', '#include <cstdint>', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, ATAN16_HELPER_CPP,
       `#define WIDTH ${W}`, `#define HEIGHT ${H}`,
       'int main(){', ...frame, '  int _i=0;',
       '  for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){', ...pixel.map((l) => `    ${l}`),
       `    printf(${print}); _i++; } }`,
     ].join('\n'))
-    execFileSync('g++', ['-O2', '-Wall', '-Werror', '-Wno-unused-variable', '-o', binary, source])
+    execFileSync('g++', ['-O2', '-Wall', '-Werror', '-Wno-unused-variable', '-Wno-unused-function', '-o', binary, source])
     return execFileSync(binary, { encoding: 'utf8' }).trim().split(/\s+/).map(Number)
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -207,6 +208,30 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
         `uint8_t _tbG=${f.gain},_tbPI=${f.palette};`,
       ], turbulentPixelCpp('n'), '"%u %u ",_tbIdx,_tbV')
       expect(grid(W, H, (x, y) => { const p = turbulentPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it('the integer atan2 matches across octants, axes and large inputs', () => {
+    const native = runNative(64, 64, [], ['int32_t _ay=(_y-32)*(_y%3?37:1031), _ax=(_x-32)*(_x%5?29:977);'], '"%u ",_atan2_16(_ay,_ax)')
+    expect(grid(64, 64, (x, y) => [atan2_16((y - 32) * (y % 3 ? 37 : 1031), (x - 32) * (x % 5 ? 29 : 977))])).toEqual(native)
+    // Within 0.01 degree of Math.atan2 away from the origin.
+    for (let i = 1; i < 2000; i++) {
+      const x = Math.round(Math.cos(i) * i * 7), y = Math.round(Math.sin(i * 1.3) * i * 5)
+      if (!x && !y) continue
+      const exact = ((Math.atan2(y, x) / (2 * Math.PI)) * 65536 + 65536) % 65536
+      const err = Math.abs(((atan2_16(y, x) - exact + 98304) % 65536) - 32768)
+      expect(err).toBeLessThan(65536 / 36000)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('BeatKaleidoscope matches on %ix%i', (W, H) => {
+    const cx = (W - 1) / 2, cy = (H - 1) / 2
+    for (const f of [kaleidoFrame(Math.max(1e-6, Math.hypot(cx, cy)), 0, 6, 0, 0, 0.7, 0), kaleidoFrame(Math.max(1e-6, Math.hypot(cx, cy)), -71.3, 12, 1, 803.2, 1, 270)]) {
+      const native = runNative(W, H, [
+        `int32_t _bkInvM=${f.invMax},_bkRot=${f.rotation},_bkW=${f.wedge},_bkK8=${f.ring8},_bkK5=${f.ring5},_bkP=${f.phase};`,
+        `uint8_t _bkG=${f.gain},_bkPB=${f.punch},_bkH=${f.hue};`,
+      ], KALEIDO_PIXEL_CPP, '"%u %u ",_bkIdx,_bkV')
+      expect(grid(W, H, (x, y) => { const p = kaleidoPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
     }
   }, 60_000)
 })
