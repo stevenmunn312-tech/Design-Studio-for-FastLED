@@ -237,6 +237,22 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   definition compiles as a non-template (`'RENDER_WIDTH' was not declared`).
   It only shows when that function is the first in the sketch.
 
+- **Frame-invariant nodes draw once.** In the normal sketch, `generateCpp`
+  collects each node's loop block, then `frozenNodeIds`
+  (`src/codegen/frameInvariance.ts`) picks the nodes to draw on the first
+  frame only: an invariant type (`FRAME_INVARIANT_NODE_TYPES`, held to a
+  still preview by `frameInvariance.test.ts`), every source invariant, and an
+  emitted block that reads no time, random source, sensor or `static` state
+  and declares nothing at its top level. Costly types freeze on their own; a
+  cheap one only when every reader froze, so a fill feeding the output still
+  renders straight into `leds`. A frozen node's buffers carry the persistence
+  mark, so scratch sharing and the `leds` alias skip them, and
+  `estimateFirmwareRam` counts the unaliased buffer from the same graph rule.
+  Pattern extraction (`deferPruning`) freezes nothing: a show or player can
+  override a pattern's unwired properties at run time. Add a type to the set
+  only when its preview and its block are both pure functions of its
+  properties and inputs.
+
 - **Never pace a loop with `FastLED.delay`.** In the pinned FastLED 3.10.5,
   `CFastLED::delay` is a do-while that calls `show()` then `delay(1)` until the
   time is up, so `FastLED.show(); FastLED.delay(N);` sends every frame at

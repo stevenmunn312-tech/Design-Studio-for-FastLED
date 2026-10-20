@@ -159,6 +159,7 @@ import { SIGNAL_EMITTERS } from '../nodes/signal/codegen'
 import { SIMULATIONS_EMITTERS } from '../nodes/simulations/codegen'
 import type { BufferUse, GenerateCppOptions, SketchEmitContext, NodeEmitter } from './emitContext'
 import { bufferAliasCpp, bufferDeclCpp } from './renderBuffers'
+import { type EmittedNodeBlock, firstFrameOnlyCpp, frameInvariantNodeIds, frozenNodeIds } from './frameInvariance'
 import { shareScratchBuffers } from './scratchSharing'
 import { finishCpp } from './cppCleanup'
 import { boardCppFacts, specializeCpp } from './cppSpecialize'
@@ -1120,14 +1121,33 @@ export function generateCpp(
   // multi-output render is a template defined above those globals, so its
   // nodes are not timed.
   const timedLabels: string[] = []
+  // Each node's block is collected first so the nodes that draw the same
+  // pixels every frame can be chosen with their readers known, then drawn once
+  // (frameInvariance.ts). Pattern extraction keeps every node live.
+  const ownFieldsOf = (stem: string) => [...fieldBufs].filter((name) => name === stem || name.startsWith(`${stem}_`))
+  const emitted: (EmittedNodeBlock & { node: StudioNode })[] = []
   for (const node of sorted) {
     const from = loopLines.length
     emit(node)
-    if (!emitTelemetry || nativeMultiRender) continue
-    const timed = timedNodeBlock(loopLines.slice(from), timedLabels.length)
-    if (!timed) continue
-    loopLines.splice(from, loopLines.length - from, ...timed)
-    timedLabels.push(nodeDisplayLabel(node.data.nodeType, props(node), String(node.data.label ?? node.data.nodeType)))
+    const stem = safeId(node.id)
+    emitted.push({
+      node, id: node.id, nodeType: node.data.nodeType, block: loopLines.splice(from),
+      ownsBuffer: frameBufs.has(stem) || ownFieldsOf(stem).length > 0,
+    })
+  }
+  const frozen = opts.deferPruning ? new Set<string>()
+    : frozenNodeIds(emitted, edges, frameInvariantNodeIds(sorted, edges))
+  for (const { node, block } of emitted) {
+    const stem = safeId(node.id)
+    let lines = block
+    if (frozen.has(node.id)) {
+      if (frameBufs.has(stem)) persistentBufs.add(`buf_${stem}`)
+      for (const name of ownFieldsOf(stem)) persistentBufs.add(`field_${name}`)
+      lines = firstFrameOnlyCpp(stem, block)
+    }
+    const timed = emitTelemetry && !nativeMultiRender ? timedNodeBlock(lines, timedLabels.length) : null
+    loopLines.push(...(timed ?? lines))
+    if (timed) timedLabels.push(nodeDisplayLabel(node.data.nodeType, props(node), String(node.data.label ?? node.data.nodeType)))
   }
   const irEmission = irRemoteProjectEmission(irNodes)
   for (const line of irEmission.setup) pinSetupLines.add(line)

@@ -46,6 +46,7 @@ import { TFT_PANEL_RAM_BYTES } from '../codegen/displays/tftDisplayCpp'
 import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/displays/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/displays/customDisplayRam'
 import { PERSISTENT_FRAME_NODE_TYPES } from '../codegen/renderBuffers'
+import { COSTLY_INVARIANT_NODE_TYPES, frameInvariantNodeIds } from '../codegen/frameInvariance'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { displayControlEdges, displayControlInertReason } from '../state/player/wireFirstControls'
 import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/peripherals/powerMonitor'
@@ -713,6 +714,11 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
     if (!feed || feed.sourceHandle !== 'frame') return null
     if (PERSISTENT_FRAME_NODE_TYPES.has(String(byId.get(feed.source)?.data.nodeType))) return null
+    // A costly node drawing the same pixels every frame is drawn once into a
+    // buffer of its own (frameInvariance.ts); the graph rule can only
+    // over-count, since codegen also requires its text to read nothing varying.
+    if (COSTLY_INVARIANT_NODE_TYPES.has(String(byId.get(feed.source)?.data.nodeType))
+      && frameInvariantNodeIds(nodes, edges).has(feed.source)) return null
     const consumers = edges.filter((e) => e.source === feed.source && e.sourceHandle === 'frame')
     return consumers.length === 1 ? feed.source : null
   })()

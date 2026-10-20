@@ -152,7 +152,7 @@ it lands.
     read in `withoutUnreadLocals` (`src/codegen/cppCleanup.ts`). Teach the pass
     that a bare `(void)name;` is no read and remove it with the declaration, so
     every emitter benefits, and keep `deadCodeCorpus.test.ts` passing.
-  - [ ] **10. Render frame-invariant nodes once.** A node whose emitter never
+  - [x] **10. Render frame-invariant nodes once.** A node whose emitter never
     reads the time, and whose inputs and wired properties come only from such
     nodes, draws the same pixels every frame: a static gradient, mask or shape.
     Track the time dependency per node instead of the sketch-wide `needsT`

@@ -3639,7 +3639,10 @@ describe('generateCpp — Kaleidoscope', () => {
   // vanished on hardware.
   it('samples the source through the wedge fold instead of copying it through', () => {
     const cpp = gen({ segments: 6 })
-    expect(cpp).toContain('CRGB* const buf_kal = leds;')
+    // A fold of a solid colour draws the same pixels every frame, so it is
+    // drawn once into a buffer of its own (frameInvariance.ts).
+    expect(cpp).toContain('static bool _drawn_kal = false;')
+    expect(cpp).toContain('CRGB buf_kal[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('buf_kal[_y*WIDTH+_x]=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?CRGB::Black:buf_sc[_ksy*WIDTH+_ksx];')
     expect(cpp).not.toContain('::memmove(buf_kal, buf_sc')
     expect(cpp).not.toContain('mirror logic to apply')

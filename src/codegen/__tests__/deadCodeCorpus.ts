@@ -180,7 +180,26 @@ function showSketches(): Record<string, string> {
       registry(['solid', 'noise']),
     ),
     'telemetry-music': musicPlayer(['solid', 'plasma'], { nodes: [telemetryBoard()] }),
+    // Frame-invariant chains drawn on the first frame only (frameInvariance.ts):
+    // one output, two native passes, and with telemetry timing the blocks.
+    'frozen-normal': frozenChain([matrix(4)]),
+    'frozen-two-outputs': frozenChain([matrix(4), node('out2', 'MatrixOutput', { width: 16, height: 1, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' })]),
+    'frozen-telemetry': frozenChain([matrix(4), telemetryBoard()]),
   }
+}
+
+/** A still field and a fold of a still gradient, composited onto every LED output given. */
+function frozenChain(extra: StudioNode[]): string {
+  const nodes = [
+    node('fx', 'FieldFormula', { formula: 'sqrt(x * x + y * y) / W' }), node('ff', 'FieldToFrame'),
+    node('g', 'GradientFrame'), node('k', 'Kaleidoscope'), node('bl', 'Blend'), ...extra,
+  ]
+  const outputs = extra.filter((entry) => entry.data.nodeType === 'MatrixOutput')
+  return generateCpp(nodes, [
+    edge('a', 'fx', 'field', 'ff', 'field'), edge('b', 'g', 'frame', 'k', 'frame'),
+    edge('c', 'ff', 'frame', 'bl', 'a'), edge('d', 'k', 'frame', 'bl', 'b'),
+    ...outputs.map((output) => edge(`o-${output.id}`, 'bl', 'frame', output.id, 'frame')),
+  ])
 }
 
 function telemetryBoard(): StudioNode {
