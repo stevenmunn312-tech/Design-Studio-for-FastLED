@@ -1874,10 +1874,12 @@ describe('generateCpp', () => {
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])
     expect(cpp).toContain('constrain(roundf(3),1.0f,16.0f)')
     expect(cpp).toContain('float _ao=90')
-    expect(cpp).toContain('atan2f(_dy,_dx)/6.2831853f+_ao/360.0f+_phase_pg_spin')
-    expect(cpp).toContain('_rad=sqrtf(_dx*_dx+_dy*_dy)/_rm+_phase_pg_scroll')
-    expect(cpp).toContain('_u-=floorf(_u);')
-    expect(cpp).toContain('ColorFromPalette(paldef_ocean,(uint8_t)(_u*255.0f))')
+    // The integer kernel: turn and radius in 1/65536ths, wrapped by the byte index.
+    expect(cpp).toContain('_pgT=(int32_t)(_ao/360.0f*65536.0f)+(int32_t)(fmodf(_phase_pg_spin,256.0f)*65536.0f)')
+    expect(cpp).toContain('_pgS=(int32_t)(fmodf(_phase_pg_scroll,256.0f)*65536.0f)')
+    expect(cpp).toContain('_atan2_16(_pgdy,_pgdx)')
+    expect(cpp).toContain('static uint16_t _atan2_16(int32_t y, int32_t x)')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean,_pgIdx)')
   })
 
   it('emits Harmony Palette as a runtime CHSV loop over the harmony offsets', () => {
@@ -3627,7 +3629,7 @@ describe('generateCpp — RadialBurst', () => {
       edge('outEdge', 'radial', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('_rings=max(1.0f,min(32.0f,n_density_value))')
-    expect(cpp).toContain('_d*_rings')
+    expect(cpp).toContain('_rbK=(int32_t)(_rings*128.0f)')
   })
 })
 

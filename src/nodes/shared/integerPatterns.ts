@@ -963,3 +963,110 @@ export function wavesPixel(x: number, y: number, f: WavesFrame): { index: number
 /** The cell a pixel falls in: floor(x * n / W). */
 export const mosaicCell = (x: number, n: number, size: number) => Math.trunc((x * n) / size)
 export const MOSAIC_PIXEL_CPP = [`int _mc=((_y*_smN)/HEIGHT)*_smN+(_x*_smN)/WIDTH;`]
+
+// ── Spiral, RadialBurst and PolarGradient ─────────────────────────────────────
+// Distance from the centre in 1/256 of the half diagonal, as BassRings, and
+// the angle from `_atan2_16`. Doubled offsets keep a half-pixel centre exact:
+// `centre2` is 2 * centre, so W for a centre at W/2 and W-1 for (W-1)/2.
+
+/** Sets `<name>` to the normalised distance in 1/256ths (Q8). */
+function radiusCpp(tag: string, centreW: string, centreH: string, invMax: string, name: string): string[] {
+  return [
+    `int32_t _${tag}dx=2*_x-(${centreW}),_${tag}dy=2*_y-(${centreH});`,
+    ...isqrtCpp(tag, `(_${tag}dx*_${tag}dx+_${tag}dy*_${tag}dy)<<6`, `_${tag}R`),
+    `int32_t ${name}=((int32_t)_${tag}R*${invMax})>>12;`,
+  ]
+}
+
+function radius(dx2: number, dy2: number, invMax: number): number {
+  return (isqrt32((dx2 * dx2 + dy2 * dy2) * 64) * invMax) >> 12
+}
+
+const invMaxOf = (maxD: number) => Math.trunc(65536 / Math.max(maxD, 0.0625))
+const invMaxCpp = (maxD: string) => `(int32_t)(65536.0f/fmaxf(${maxD},0.0625f))`
+/** An unbounded float phase in turns, wrapped to 256 turns, in 1/65536 turn. */
+const turns16Cpp = (turns: string) => `(int32_t)(fmodf(${turns},256.0f)*65536.0f)`
+const turns16 = (turns: number) => Math.trunc((turns % 256) * 65536)
+/** `_atan2_16` as a signed turn in 1/65536ths, -32768..32767 like atan2/2pi. */
+const signedTurn = (a: number) => (a > 32767 ? a - 65536 : a)
+
+export interface SpiralFrame { invMax: number; arms: number; phase: number; palette: number }
+
+export function spiralFrame(W: number, H: number, arms: number, phase: number, t: number): SpiralFrame {
+  let p = (t * 0.083) % 1
+  if (p < 0) p += 1
+  return { invMax: invMaxOf(Math.hypot(W / 2, H / 2)), arms: Math.trunc(arms * 256), phase: angle16(phase * Math.PI), palette: Math.trunc(p * 256) & 0xff }
+}
+
+export function spiralFrameCpp(arms: string, phase: string): string[] {
+  return [
+    `int32_t _spInvM=${invMaxCpp('sqrtf(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f)')},_spArms=(int32_t)(${arms}*256.0f),_spP=${angle16Cpp(`${phase}*3.14159265f`)};`,
+    `float _spPf=fmodf(t*0.083f,1.0f); if(_spPf<0)_spPf+=1.0f; uint8_t _spPI=(uint8_t)(_spPf*256.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _spIdx` and `uint8_t _spV`; needs `_atan2_16`. */
+export const SPIRAL_PIXEL_CPP = [
+  ...radiusCpp('sp', 'WIDTH', 'HEIGHT', '_spInvM', '_spD'),
+  `int32_t _spA=(int32_t)_atan2_16(_spdy,_spdx); if(_spA>32767) _spA-=65536;`,
+  `int32_t _spS=((_spA+_spD*512-_spP)*_spArms)>>8;`,
+  `uint8_t _spV=scale8((uint8_t)(((int32_t)sin16((uint16_t)_spS)+32768)>>8),230), _spIdx=(uint8_t)(((_spD*255)>>8)+_spPI);`,
+]
+
+export function spiralPixel(x: number, y: number, W: number, H: number, f: SpiralFrame): { index: number; bri: number } {
+  const dx = 2 * x - W, dy = 2 * y - H, d = radius(dx, dy, f.invMax)
+  const s = ((signedTurn(atan2_16(dy, dx)) + d * 512 - f.phase) * f.arms) >> 8
+  return { index: (((d * 255) >> 8) + f.palette) & 0xff, bri: scale8((sin16(s) + 32768) >> 8, 230) }
+}
+
+export interface BurstFrame { invMax: number; rings: number; phase: number }
+
+export function burstFrame(W: number, H: number, rings: number, phase: number): BurstFrame {
+  return { invMax: invMaxOf(Math.hypot(W / 2, H / 2)), rings: Math.trunc(rings * 128), phase: angle16(phase * 3 * Math.PI) }
+}
+
+export function burstFrameCpp(rings: string, phase: string): string[] {
+  return [`int32_t _rbInvM=${invMaxCpp('sqrtf(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f)')},_rbK=(int32_t)(${rings}*128.0f),_rbP=${angle16Cpp(`${phase}*3.0f*3.14159265f`)};`]
+}
+
+/** Sets `uint8_t _rbIdx` and `uint8_t _rbV`. */
+export const BURST_PIXEL_CPP = [
+  ...radiusCpp('rb', 'WIDTH', 'HEIGHT', '_rbInvM', '_rbD'),
+  `uint8_t _rbV=(uint8_t)(((int32_t)sin16((uint16_t)(_rbD*_rbK-_rbP))+32768)>>8), _rbIdx=(uint8_t)((_rbD*255)>>8);`,
+]
+
+export function burstPixel(x: number, y: number, W: number, H: number, f: BurstFrame): { index: number; bri: number } {
+  const d = radius(2 * x - W, 2 * y - H, f.invMax)
+  return { index: ((d * 255) >> 8) & 0xff, bri: (sin16(d * f.rings - f.phase) + 32768) >> 8 }
+}
+
+export interface PolarFrame { invMax: number; turn: number; scroll: number; repeat: number; mix: number }
+
+export function polarFrame(W: number, H: number, angleOffset: number, spin: number, scroll: number, repeat: number, mix: number): PolarFrame {
+  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  return {
+    invMax: invMaxOf(Math.max(1e-6, Math.hypot(cx, cy))), turn: Math.trunc(angleOffset / 360 * 65536) + turns16(spin),
+    scroll: turns16(scroll), repeat, mix: Math.trunc(mix * 256),
+  }
+}
+
+export function polarFrameCpp(angleOffset: string, spin: string, scroll: string, repeat: string, mix: string): string[] {
+  return [
+    `int32_t _pgInvM=${invMaxCpp('sqrtf((WIDTH-1)*(WIDTH-1)*0.25f+(HEIGHT-1)*(HEIGHT-1)*0.25f)')},_pgT=(int32_t)(${angleOffset}/360.0f*65536.0f)+${turns16Cpp(spin)};`,
+    `int32_t _pgS=${turns16Cpp(scroll)},_pgRp=(int32_t)(${repeat}),_pgMx=(int32_t)(${mix}*256.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _pgIdx`; needs `_atan2_16`. Turn and radius in 1/65536ths, mixed in 1/256ths. */
+export const POLAR_PIXEL_CPP = [
+  ...radiusCpp('pg', 'WIDTH-1', 'HEIGHT-1', '_pgInvM', '_pgD'),
+  `int32_t _pgA=(int32_t)_atan2_16(_pgdy,_pgdx); if(_pgA>32767) _pgA-=65536;`,
+  `int32_t _pgU=((((_pgA+_pgT)*_pgRp)>>8)*(256-_pgMx))+((((_pgD<<8)+_pgS)*_pgRp)>>8)*_pgMx;`,
+  `uint8_t _pgIdx=(uint8_t)(((uint32_t)_pgU)>>8);`,
+]
+
+export function polarPixel(x: number, y: number, W: number, H: number, f: PolarFrame): number {
+  const dx = 2 * x - (W - 1), dy = 2 * y - (H - 1), d = radius(dx, dy, f.invMax)
+  const u = ((((signedTurn(atan2_16(dy, dx)) + f.turn) * f.repeat) >> 8) * (256 - f.mix)) + (((((d << 8) + f.scroll) * f.repeat) >> 8) * f.mix)
+  return (u >>> 8) & 0xff
+}

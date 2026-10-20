@@ -20,6 +20,7 @@ import {
   wordTableCpp,
   ATAN16_HELPER_CPP, KALEIDO_PIXEL_CPP, atan2_16, kaleidoFrame, kaleidoPixel,
   EMBER_PIXEL_CPP, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, emberFrame, emberPixel, mosaicCell, wavesFrame, wavesPixel,
+  BURST_PIXEL_CPP, POLAR_PIXEL_CPP, SPIRAL_PIXEL_CPP, burstFrame, burstPixel, polarFrame, polarPixel, spiralFrame, spiralPixel,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -256,6 +257,27 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
     for (const n of [2, 3, 7, 8]) {
       const native = runNative(W, H, [`int _smN=${n};`], MOSAIC_PIXEL_CPP, '"%d ",_mc')
       expect(grid(W, H, (x, y) => [mosaicCell(y, n, H) * n + mosaicCell(x, n, W)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('Spiral matches on %ix%i', (W, H) => {
+    for (const f of [spiralFrame(W, H, 2, 0, 0), spiralFrame(W, H, 7.5, -88.8, 1234.5)]) {
+      const native = runNative(W, H, [`int32_t _spInvM=${f.invMax},_spArms=${f.arms},_spP=${f.phase}; uint8_t _spPI=${f.palette};`], SPIRAL_PIXEL_CPP, '"%u %u ",_spIdx,_spV')
+      expect(grid(W, H, (x, y) => { const p = spiralPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('RadialBurst matches on %ix%i', (W, H) => {
+    for (const f of [burstFrame(W, H, 8, 0), burstFrame(W, H, 32, 501.25)]) {
+      const native = runNative(W, H, [`int32_t _rbInvM=${f.invMax},_rbK=${f.rings},_rbP=${f.phase};`], BURST_PIXEL_CPP, '"%u %u ",_rbIdx,_rbV')
+      expect(grid(W, H, (x, y) => { const p = burstPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('PolarGradient matches on %ix%i', (W, H) => {
+    for (const f of [polarFrame(W, H, 0, 0.3, 0, 1, 0), polarFrame(W, H, 45, -71.4, 33.3, 16, 0.6), polarFrame(W, H, 300, 255.9, -255.9, 3, 1)]) {
+      const native = runNative(W, H, [`int32_t _pgInvM=${f.invMax},_pgT=${f.turn},_pgS=${f.scroll},_pgRp=${f.repeat},_pgMx=${f.mix};`], POLAR_PIXEL_CPP, '"%u ",_pgIdx')
+      expect(grid(W, H, (x, y) => [polarPixel(x, y, W, H, f)])).toEqual(native)
     }
   }, 60_000)
 })

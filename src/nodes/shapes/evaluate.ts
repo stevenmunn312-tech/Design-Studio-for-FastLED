@@ -38,7 +38,8 @@ import {
 } from '../../state/evaluator/sdVideo'
 import { getSdVideoBytes } from '../../state/sdVideoStore'
 import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/palettes/hueMix'
-import { polarGradientU, polarRepeat } from '../../state/evaluator/polar'
+import { polarRepeat } from '../../state/evaluator/polar'
+import { polarFrame, polarPixel } from '../shared/integerPatterns'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 
@@ -859,12 +860,9 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const key = stateKey(id)
     const spinPhase = speedPhase(key, t, spin, 'spin')
     const scrollPhase = speedPhase(key, t, radialScroll, 'scroll')
-    const cx = (W - 1) / 2, cy = (H - 1) / 2
-    const rMax = Math.max(1e-6, Math.sqrt(cx * cx + cy * cy))
-    return { frame: buildFrame(W, H, (x, y) => {
-      const u = polarGradientU(x - cx, y - cy, rMax, angleOffset, spinPhase, repeat, radialMix, scrollPhase)
-      return samplePalette(palette, u - Math.floor(u))
-    }) }
+    // The sketch's integer kernel (shared/integerPatterns.ts).
+    const frame = polarFrame(W, H, angleOffset, spinPhase, scrollPhase, repeat, radialMix)
+    return { frame: buildFrame(W, H, (x, y) => samplePalette(palette, polarPixel(x, y, W, H, frame) / 256)) }
   },
   Image({ num, t, W, H }, id, props) {
     // A loaded animation takes precedence over a still; a node has one or

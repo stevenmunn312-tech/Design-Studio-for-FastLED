@@ -6,7 +6,7 @@ import {
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import {
-  pacificaFrame, pacificaPixel, plasmaFrame, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
+  burstFrame, burstPixel, pacificaFrame, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
 } from '../shared/integerPatterns'
 import { scale8, scale8Video } from '../shared/lib8tion'
 import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
@@ -253,27 +253,23 @@ function evalSineField(key: string, speed: number, scale: number, t: number, W =
 }
 
 function evalRadialBurst(key: string, speed: number, rings: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
-  const density = Math.max(1, Math.min(32, rings))
-  const ph = speedPhase(key, t, speed)
+  // The sketch's integer kernel (shared/integerPatterns.ts): palette across
+  // the radius, ring brightness from the burst wave.
+  const frame = burstFrame(W, H, Math.max(1, Math.min(32, rings)), speedPhase(key, t, speed))
   return buildFrame(W, H, (x, y) => {
-      const dist = Math.hypot(x - cx, y - cy) / maxD
-      const wave = (Math.sin((dist * density - ph * 3) * Math.PI) + 1) / 2
-      // Palette across the radius, ring brightness from the burst wave.
-      return scaleRgb(samplePalette(palette, dist), wave)
+      const { index, bri } = burstPixel(x, y, W, H, frame)
+      const c = samplePalette(palette, index / 256)
+      return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
     })
 }
 
 function evalSpiral(key: string, speed: number, arms: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
-  const ph = speedPhase(key, t, speed)
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = spiralFrame(W, H, arms, speedPhase(key, t, speed), t)
   return buildFrame(W, H, (x, y) => {
-      const dx = x - cx, dy = y - cy
-      const dist = Math.hypot(dx, dy) / maxD
-      const angle = Math.atan2(dy, dx)
-      const spiral = (angle + dist * Math.PI * 4 - ph * Math.PI) * arms
-      const v = (Math.sin(spiral) + 1) / 2
-      return scaleRgb(samplePalette(palette, dist + t * 0.083), v * 0.9)
+      const { index, bri } = spiralPixel(x, y, W, H, frame)
+      const c = samplePalette(palette, index / 256)
+      return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
     })
 }
 

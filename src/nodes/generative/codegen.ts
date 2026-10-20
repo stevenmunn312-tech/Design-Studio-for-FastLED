@@ -4,8 +4,8 @@ import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurv
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
-  PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, TWINKLE_PIXEL_CPP,
-  pacificaFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
+  BURST_PIXEL_CPP, PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, SPIRAL_PIXEL_CPP, TWINKLE_PIXEL_CPP,
+  burstFrameCpp, pacificaFrameCpp, spiralFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
 } from '../shared/integerPatterns'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
@@ -398,22 +398,25 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { float _spd=${speed},_rings=max(1.0f,min(32.0f,${rings}));`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of burstFrameCpp('_rings', ph)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
-    ln(`    float _w=(sin((_d*_rings-${ph}*3)*3.14159f)+1)/2.0f;`)
-    ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_d*255)); ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_w*255));}}`)
+    for (const line of BURST_PIXEL_CPP) ln(`    ${line}`)
+    ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_rbIdx); ${ob}[_y*WIDTH+_x].nscale8(_rbV);}}`)
   },
-  Spiral({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  Spiral({ node, id, p, ln, f, ownBuf, paletteExpr, needsT, needsAtan16 }) {
     needsT.v = true
+    needsAtan16.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Spiral), arms = f('arms', 'arms', 2)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { float _spd=${speed},_arms=constrain(${arms},${SPIRAL_ARMS.min}.0f,${SPIRAL_ARMS.max}.0f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of spiralFrameCpp('_arms', ph)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
-    ln(`    float _a=atan2(_y-HEIGHT/2.0f,_x-WIDTH/2.0f);float _s=(_a+_d*12.57f-${ph}*3.14159f)*_arms;`)
-    ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_d+t*0.083f)*255)); ${ob}[_y*WIDTH+_x].nscale8((uint8_t)((sin(_s)+1)/2.0f*230));}}`)
+    for (const line of SPIRAL_PIXEL_CPP) ln(`    ${line}`)
+    ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_spIdx); ${ob}[_y*WIDTH+_x].nscale8(_spV);}}`)
   },
   Blobs({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
