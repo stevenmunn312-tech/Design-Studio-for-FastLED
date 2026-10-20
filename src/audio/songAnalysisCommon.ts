@@ -1,5 +1,5 @@
 // ── Shared song-analysis helpers ──────────────────────────────────────────────
-// Shared utilities for the Essentia.js offline analyzer: decoding a file to
+// Shared utilities for the offline song analyzer: decoding a file to
 // mono PCM and deriving labelled song sections from a normalised energy envelope.
 
 import type { EnergyPoint, SongSection, StereoLevelPoint } from '../types/showFile'
@@ -127,8 +127,7 @@ export async function decodeToMono(file: File, sampleRate = 44100): Promise<Deco
  * Segment a song into labelled sections from its normalised `overall` energy
  * envelope: smooth, split at significant energy change-points (≥8 s apart), then
  * label each run by position (intro/outro) and level (drop/chorus/buildup/verse).
- * Engine-agnostic — both the built-in and Essentia analyzers feed it the same
- * `EnergyPoint[]` shape sampled every `ENERGY_HOP_MS`.
+ * Reads the `EnergyPoint[]` envelope sampled every `ENERGY_HOP_MS`.
  */
 export function detectSections(energy: EnergyPoint[], durationMs: number): SongSection[] {
   if (energy.length === 0) return []

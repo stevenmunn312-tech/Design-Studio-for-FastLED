@@ -51,7 +51,6 @@ describe('HelpModal session state', () => {
     expect(view.getByText('Stefan Petrick')).toBeTruthy()
     expect(view.getByRole('link', { name: 'AnimARTrix' }).getAttribute('href')).toBe('https://github.com/StefanPetrick/animartrix')
     expect(view.getByRole('link', { name: 'FastLED library' })).toBeTruthy()
-    expect(view.getByRole('link', { name: 'Essentia' })).toBeTruthy()
     expect(view.getByRole('link', { name: 'third-party notices' })).toBeTruthy()
   })
 

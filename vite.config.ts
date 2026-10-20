@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import { fileURLToPath } from 'node:url'
-import { normalizePath, type Plugin } from 'vite'
+import { normalizePath } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { uploadHelper } from './vite-plugin-upload-helper'
@@ -13,27 +13,6 @@ const namedLocalHosts = ['design-studio-for-fastled.localhost', 'design-studio-f
 const APP_CHUNK_WARNING_KIB = 750
 // Forward-slashed, as chokidar matches its ignore globs against posix paths.
 const repoRoot = normalizePath(fileURLToPath(new URL('.', import.meta.url))).replace(/\/$/, '')
-
-/**
- * Vite has one global chunk threshold, but this app has one deliberate
- * exception: Essentia's third-party WASM module is a 2.5 MB lazy asset loaded
- * only for song analysis. Keep a tighter warning budget for every application
- * chunk instead of raising the global limit and losing regression coverage.
- */
-function applicationChunkBudget(): Plugin {
-  return {
-    name: 'application-chunk-budget',
-    generateBundle(_options, bundle) {
-      for (const output of Object.values(bundle)) {
-        if (output.type !== 'chunk' || output.fileName.includes('essentia-wasm')) continue
-        const sizeKib = Buffer.byteLength(output.code, 'utf8') / 1024
-        if (sizeKib > APP_CHUNK_WARNING_KIB) {
-          this.warn(`${output.fileName} is ${sizeKib.toFixed(1)} KiB; application chunks should stay below ${APP_CHUNK_WARNING_KIB} KiB`)
-        }
-      }
-    },
-  }
-}
 
 export default defineConfig(() => {
   const isTest = process.env.VITEST === 'true'
@@ -72,15 +51,11 @@ export default defineConfig(() => {
       },
     },
     preview: { headers: crossOriginIsolationHeaders, allowedHosts: namedLocalHosts },
-    // The Essentia analysis worker lazily `import()`s its WASM, so it needs the ES
-    // worker format — the default 'iife' can't code-split a worker.
+    // Workers are created with `{ type: 'module' }`, so they build as ES modules.
     worker: { format: 'es' },
     build: {
       target: 'es2022',
-      // The third-party Essentia WASM chunk is expected at ~2.5 MB and already
-      // lazy/excluded from the base PWA precache. applicationChunkBudget keeps
-      // the actionable 750 KiB ceiling on every other JavaScript chunk.
-      chunkSizeWarningLimit: 2600,
+      chunkSizeWarningLimit: APP_CHUNK_WARNING_KIB,
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -112,7 +87,6 @@ export default defineConfig(() => {
       },
     },
     plugins: [
-      applicationChunkBudget(),
       react(),
       // Vitest doesn't need the helper auto-spawner or PWA service-worker plugin,
       // and skipping them avoids stray open handles during test shutdown.
@@ -138,23 +112,17 @@ export default defineConfig(() => {
           // Self-hosted fonts stay in the precache: the UI paints with them,
           // including offline. woff2 is Inter and JetBrains Mono; ttf is Audiowide.
           globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2,ttf}'],
-          // The Essentia.js WASM chunk (~2.5 MB) is loaded on demand only when the
-          // user analyses a song with that engine, the generated node-card
-          // images (~140 SVGs) only when a Help node-reference page is opened,
+          // The generated node-card images (~140 SVGs) load only when a Help
+          // node-reference page is opened,
           // the board renders (~590 KB of WebP) only when the Board node's
           // pinout view is shown, and the display design pack (~390 vector
           // assets) only inside a custom display's editor — keep them all out
           // of the precache so the base install stays small; runtime-cache them
           // after first use.
           globIgnores: [
-            '**/essentia-wasm*.js', 'node-cards/**', 'boards/**', 'display-assets/**',
+            'node-cards/**', 'boards/**', 'display-assets/**',
           ],
           runtimeCaching: [
-            {
-              urlPattern: /essentia-wasm.*\.js$/,
-              handler: 'CacheFirst',
-              options: { cacheName: 'essentia-wasm', expiration: { maxEntries: 2 } },
-            },
             {
               urlPattern: /\/node-cards\/.+\.svg$/,
               // Generated help images keep stable URLs across releases.

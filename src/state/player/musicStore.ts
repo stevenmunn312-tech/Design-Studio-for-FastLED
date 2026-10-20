@@ -56,14 +56,6 @@ function wiredTransitions(): string[] {
   return gen ? wiredTransitionStyles(nodes, edges, gen.id) : []
 }
 
-async function analyzeWithEssentia(
-  file: File,
-  onProgress?: (p: number) => void,
-): Promise<SongAnalysis> {
-  const { analyzeSong } = await import('../../audio/essentiaAnalyzer')
-  return analyzeSong(file, onProgress)
-}
-
 export interface MusicEntry {
   id: string
   file: File
@@ -169,7 +161,8 @@ export const useMusicStore = create<MusicState>((set, get) => ({
               e.id === entry.id ? { ...e, progress: p } : e
             ),
           }))
-          const analysis = await analyzeWithEssentia(entry.file, onProgress)
+          const { analyzeSong } = await import('../../audio/songAnalyzer')
+          const analysis = await analyzeSong(entry.file, onProgress)
           const showStart = performance.now()
           const show = freshShow(analysis, options, undefined)
           recordPerfTask('musicShow', performance.now() - showStart)

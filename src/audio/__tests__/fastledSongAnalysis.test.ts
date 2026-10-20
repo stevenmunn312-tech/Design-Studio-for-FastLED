@@ -1,0 +1,63 @@
+import { describe, expect, it } from 'vitest'
+import { analyzeSongSamples, detectKey } from '../fastledSongAnalysis'
+
+const SR = 44100
+
+/** Decaying noise bursts on a steady grid, starting at `offsetS`. */
+function clickTrack(bpm: number, seconds: number, offsetS = 0.5): Float32Array {
+  const out = new Float32Array(Math.round(seconds * SR))
+  let seed = 1
+  const noise = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    return seed / 0x3fffffff - 1
+  }
+  const period = 60 / bpm
+  for (let t = offsetS; t < seconds; t += period) {
+    const start = Math.round(t * SR)
+    for (let i = 0; i < 2000 && start + i < out.length; i++) out[start + i] += 0.8 * noise() * Math.exp(-i / 300)
+  }
+  return out
+}
+
+/** A sustained triad of sine partials. */
+function chord(midiNotes: number[], seconds: number): Float32Array {
+  const out = new Float32Array(Math.round(seconds * SR))
+  for (const midi of midiNotes) {
+    const hz = 440 * 2 ** ((midi - 69) / 12)
+    for (let i = 0; i < out.length; i++) out[i] += 0.2 * Math.sin((2 * Math.PI * hz * i) / SR)
+  }
+  return out
+}
+
+describe('fastledSongAnalysis', () => {
+  it('tracks a steady grid at its tempo and phase', () => {
+    const mono = clickTrack(128, 30)
+    const a = analyzeSongSamples(mono, SR, 30_000, 'clicks')
+    expect(a.beats.bpm).toBe(128)
+    const period = 60_000 / 128
+    const beats = a.beats.timestamps
+    expect(beats.length).toBeGreaterThan(55)
+    for (const t of beats) {
+      const phase = ((t - 500) % period + period) % period
+      expect(Math.min(phase, period - phase)).toBeLessThan(25)
+    }
+  })
+
+  it('prefers the beat to its double or half for fast music', () => {
+    const a = analyzeSongSamples(clickTrack(145, 30), SR, 30_000, 'psy')
+    expect(a.beats.bpm).toBe(145)
+  })
+
+  it('names the key of a sustained minor triad', () => {
+    // A minor: A3, C4, E4, with the root doubled an octave down.
+    expect(detectKey(chord([45, 57, 60, 64], 6), SR)).toEqual({ key: 'A', scale: 'minor' })
+    expect(detectKey(chord([48, 60, 64, 67], 6), SR)).toEqual({ key: 'C', scale: 'major' })
+  })
+
+  it('returns an empty but well-formed analysis for silence', () => {
+    const a = analyzeSongSamples(new Float32Array(SR * 5), SR, 5000, 'silence')
+    expect(a.energy.every((p) => Number.isFinite(p.overall))).toBe(true)
+    expect(Number.isFinite(a.mood.energy)).toBe(true)
+    expect(a.mood.key).toBe('C major')
+  })
+})

@@ -258,7 +258,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for bug reports, development conventions,
 
 Design Studio for FastLED’s core is MIT licensed. See [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and the [changelog](CHANGELOG.md).
 
-Offline music analysis uses [Essentia](http://essentia.upf.edu). **Color Trails** is adapted from prototype work by [Stefan Petrick](https://github.com/StefanPetrick), creator of [AnimARTrix](https://github.com/StefanPetrick/animartrix). The separately licensed **AnimARTrix** integration preserves Stefan’s credit and CC BY-NC-SA 4.0 terms in [its license](src/animartrix/LICENSE.md).
+**Color Trails** is adapted from prototype work by [Stefan Petrick](https://github.com/StefanPetrick), creator of [AnimARTrix](https://github.com/StefanPetrick/animartrix). The separately licensed **AnimARTrix** integration preserves Stefan’s credit and CC BY-NC-SA 4.0 terms in [its license](src/animartrix/LICENSE.md).
 
 Design Studio for FastLED is an independent community project. It generates code for the [FastLED](https://github.com/FastLED/FastLED) library but is not affiliated with, endorsed by, or sponsored by the FastLED project or its maintainers. “FastLED” is used only to describe compatibility with that library.
 

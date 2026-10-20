@@ -22,23 +22,9 @@ The production app bundle currently depends on these notable runtime packages:
 | `poline` | 0.13.1 | MIT | Palette generation |
 | `gifuct-js` | 2.1.2 | MIT | GIF frame decoding |
 | `lz-string` | 1.5.0 | MIT | Share-link compression |
-| `essentia.js` | 0.1.3 | AGPL-3.0 | Offline music analysis; keep origin acknowledgement |
 
 `package-lock.json` is the source of truth for the exact installed dependency
 set. Refresh this file when the lockfile changes in a release-significant way.
-
-## Essentia.js
-
-- Design Studio for FastLED's Music Library pipeline bundles `essentia.js` for offline
-  music analysis.
-- The package metadata in `node_modules/essentia.js/package.json` marks it as
-  `AGPL-3.0`.
-- The app already carries the required origin acknowledgement in `README.md`
-  and `src/components/Canvas/bodies/MusicLibraryNodeBody.tsx`:
-  `http://essentia.upf.edu`.
-- Anyone redistributing a build that includes `essentia.js` must preserve its
-  license notice and review the AGPL obligations that apply to their
-  distribution and deployment model.
 
 ## Fonts
 

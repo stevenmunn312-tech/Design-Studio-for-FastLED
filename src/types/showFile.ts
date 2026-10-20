@@ -116,6 +116,6 @@ export interface SongAnalysis {
   }
 }
 
-/** What the Essentia passes produce from mono samples; the per-channel
+/** What song analysis produces from mono samples; the per-channel
  * levels come from decoding and are added by `analyzeSong`. */
 export type SongAnalysisCore = Omit<SongAnalysis, 'channelLevels' | 'channelCount'>

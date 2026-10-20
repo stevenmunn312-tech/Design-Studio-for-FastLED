@@ -62,14 +62,6 @@ function AboutTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>✦</div>
             <div className={styles.tipText}>
-              <strong>Essentia</strong> — offline music analysis uses{' '}
-              <a className={styles.link} href="https://essentia.upf.edu" target="_blank" rel="noopener noreferrer">Essentia</a>{' '}
-              (Music Technology Group, Universitat Pompeu Fabra), bundled as <code>essentia.js</code> under AGPL-3.0.
-            </div>
-          </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>✦</div>
-            <div className={styles.tipText}>
               <strong>Open source</strong> — built with React, @xyflow/react, Zustand, zundo, Poline, gifuct-js, and lz-string. The bundled fonts are Audiowide by Astigmatic, Inter by The Inter Project, and JetBrains Mono by JetBrains, each under the SIL Open Font License 1.1. Full details in the{' '}
               <a className={styles.link} href={`${REPO_URL}/blob/main/THIRD_PARTY_NOTICES.md`} target="_blank" rel="noopener noreferrer">third-party notices</a>.
             </div>

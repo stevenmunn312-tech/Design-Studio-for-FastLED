@@ -76,6 +76,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- The Music Library analyses songs without Essentia. Beats, tempo, key and
+  mood now come from an analyzer built on FastLED's own audio detectors, with
+  an offline beat tracker that reads the whole song. On a 41-song test library
+  it matched the tagged tempo as often as Essentia did, and its beats landed on
+  the kick drum in 33 songs where Essentia's did in 24. Analysis is about five
+  times faster, the 2.5 MB WebAssembly download is gone, and the app no longer
+  bundles AGPL-licensed code. Songs analysed before this change keep their saved
+  analysis until they are analysed again.
+
 - Regenerating a performance show writes one ramp where it used to write a
   short ladder: buildups, silence, and the five-second brightness fade at each
   end of the song. A saved show that does not use a ramp or a named input stays

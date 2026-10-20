@@ -308,6 +308,24 @@ That is a design choice for a later phase, not a gap in these nodes. The
 song analysis already extracts key and mood offline, and is the natural source
 if a show-side Pitch Detect key or Song Structure mood is ever wanted.
 
+## Offline song analysis
+
+The Music Library analyses whole songs in `src/audio/fastledSongAnalysis.ts`,
+run in a worker by `src/audio/songAnalyzer.ts`. It reuses this pipeline's
+spectrum scaling, the Beat detector's log-binned spectral flux as its onset
+measure, and the Key detector's Krumhansl-Schmuckler profiles. Two parts have
+no device counterpart, because a show is planned from the whole file:
+
+- Beats come from a tempo fit over the onset autocorrelation (log-Gaussian
+  prior at 120 BPM, TPS2 octave vote) and a dynamic-programming tracker
+  (Ellis 2007), not from the causal Beat detector.
+- Key reads a harmonic-salience chroma from an 8192-point FFT. Raw peaks put a
+  bass note's fifth harmonic on its major third and pull minor songs major.
+
+`scripts/bench/song-analysis-bench.ts` scores it on real files: tempo against
+ID3 `TBPM` tags, and kick alignment, the kick energy on the beats against half
+a beat later. Rerun it after changing any constant there.
+
 ## Serial debug
 
 With `MIC_DEBUG` on, the engine prints one extra line per present node beside
