@@ -4,7 +4,10 @@ import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp, stormFrameCpp, stormPixelCpp } from '../shared/integerPatterns'
+import {
+  auroraFrameCpp, auroraPixelCpp, auroraRowCpp, cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp,
+  shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
+} from '../shared/integerPatterns'
 import {
   WAVE_GAIN_MAX, WAVE_GAIN_MIN, WAVE_PALETTE_BASE, WAVE_PALETTE_SPAN, WAVE_RING_BASE, WAVE_RING_SLACK, WAVE_RING_SPAN,
   WAVE_SAMPLES, WAVE_SMOOTHING_MAX, WAVE_STYLES, WAVE_THICKNESS_MAX, WAVE_THICKNESS_MIN,
@@ -435,24 +438,19 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    const float _lifeK=${lifeK},_lifeS=${lifeS},_bandK=${bandK},_bandS=${bandS};`)
     ln(`    float _maxD=max(1e-6f,sqrtf(_ksCx*_ksCx+_ksCy*_ksCy));`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    // Integer kernel (shared/integerPatterns.ts): rings reduced once a frame.
+    const kind = (r: string) => `_ksKind_${id}[${r}]==0`
+    const age = (r: string) => `(t-_ksBorn_${id}[${r}])`
+    const life = (r: string) => `(${kind(r)}?_lifeK:_lifeS)`
+    for (const line of shockFrameCpp(CAP, ph, (r) => ({
+      live: `_ksAlive_${id}[${r}]&&${age(r)}>=0.0f&&${age(r)}<=${life(r)}`,
+      x: `_ksX_${id}[${r}]`, y: `_ksY_${id}[${r}]`, age: age(r),
+      speed: `(${kind(r)}?_spdK:_spdS)`, band: `(${kind(r)}?_bandK:_bandS)`, life: life(r),
+    }), id)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _lx=fmodf((_x+0.5f)*_tiles,WIDTH)/_tiles-0.5f,_ly=fmodf((_y+0.5f)*_tiles,HEIGHT)/_tiles-0.5f;`)
-    ln(`      float _cdx=_lx-_ksCx,_cdy=_ly-_ksCy,_distC=sqrtf(_cdx*_cdx+_cdy*_cdy)/_maxD;`)
-    ln(`      float _wave=0;`)
-    ln(`      for(int _r=0;_r<${CAP};_r++){ if(!_ksAlive_${id}[_r]) continue;`)
-    ln(`        float _age=t-_ksBorn_${id}[_r]; bool _isKick=_ksKind_${id}[_r]==0;`)
-    ln(`        float _spdR=_isKick?_spdK:_spdS,_life=_isKick?_lifeK:_lifeS,_band=_isKick?_bandK:_bandS;`)
-    ln(`        if(_age<0||_age>_life) continue;`)
-    ln(`        float _rdx=_lx-_ksX_${id}[_r],_rdy=_ly-_ksY_${id}[_r],_dist=sqrtf(_rdx*_rdx+_rdy*_rdy)/_maxD;`)
-    ln(`        float _d=_dist-_age*_spdR; float _front=expf(-(_d*_d)/(2.0f*_band*_band));`)
-    ln(additive
-      ? `        _wave+=_front*(1.0f-_age/_life); }`
-      : `        _wave=max(_wave,_front*(1.0f-_age/_life)); }`)
-    ln(`      _wave=min(1.0f,_wave);`)
-    ln(`      float _jitter=_hihatAmt*0.18f*(sinf(_distC*50.0f-${ph}*22.0f)*0.5f+0.5f);`)
-    ln(`      float _v=min(1.0f,_wave*(0.5f+_strength*0.5f)+_jitter*_wave+0.03f*_strength);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_distC*0.5f+${ph}*0.03f)*255));`)
-    ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
+    for (const line of shockPixelCpp(additive, id)) ln(`      ${line}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_ksIdx);`)
+    ln(`      ${ob}[_y*WIDTH+_x].nscale8(_ksV);`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -475,18 +473,15 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _vaDt_${id}=(_vaLast_${id}<0.0f)?0.0f:min(0.25f,max(0.0f,t-_vaLast_${id})); _vaLast_${id}=t;`)
     ln(`    _vaPhase_${id}+=_vaDt_${id}*${speed}*(0.15f+_level*0.35f);`)
     ln(`    float _drift=_vaPhase_${id};`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _ny=HEIGHT>1?(float)_y/(HEIGHT-1):0.0f;`)
-    ln(`      float _curtain=0;`)
-    ln(`      for(int _bnd=0;_bnd<3;_bnd++){`)
-    ln(`        float _bandPhase=_ny*3.0f+_bnd*2.1f+_drift*(1.0f+_bnd*0.4f);`)
-    ln(`        float _xOff=sinf(_bandPhase)*(1.2f+_level*1.8f)+sinf(_bandPhase*0.5f+_bnd)*0.6f;`)
-    ln(`        float _dx=(_x-WIDTH/2.0f)/max(1.0f,WIDTH/2.0f)-_xOff*0.35f;`)
-    ln(`        _curtain+=expf(-_dx*_dx*3.0f)*(0.5f+0.5f*sinf(_bandPhase*1.7f+_bnd*1.3f)); }`)
-    ln(`      float _vb=min(1.0f,(0.12f+_strength*0.35f+_level*0.65f)*_gate);`)
-    ln(`      float _v=min(1.0f,_curtain*0.6f)*_vb;`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_ny*0.6f+_drift*0.08f+_level*0.25f)*255));`)
-    ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
+    // Integer kernel (shared/integerPatterns.ts): the bands' sines run once a row.
+    for (const line of auroraFrameCpp('min(1.0f,(0.12f+_strength*0.35f+_level*0.65f)*_gate)', id)) ln(`    ${line}`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++){`)
+    for (const line of auroraRowCpp('_drift', '_level')) ln(`      ${line}`)
+    ln(`      for(int _x=0;_x<WIDTH;_x++){`)
+    for (const line of auroraPixelCpp(id)) ln(`        ${line}`)
+    ln(`        ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_vaIdx);`)
+    ln(`        ${ob}[_y*WIDTH+_x].nscale8(_vaV);`)
+    ln(`      }`)
     ln(`    }`)
     ln(`  }`)
   },

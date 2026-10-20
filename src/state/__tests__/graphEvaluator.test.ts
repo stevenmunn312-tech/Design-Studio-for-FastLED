@@ -6121,16 +6121,20 @@ describe('KickShock', () => {
   it('spawnSpread jitters the ring origin away from the matrix centre', () => {
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.95)
     try {
-      const centred = withOutput(node('ks7', 'KickShock', 'pattern', { spawnSpread: 0 }), [boolConst('kh7', 1)], [
-        edge('e1', 'kh7', 'result', 'ks7', 'kick'),
-      ])
-      const centredFrame = evaluateGraph(centred.nodes, centred.edges, 0, W, H)!
-
-      const spread = withOutput(node('ks8', 'KickShock', 'pattern', { spawnSpread: 1 }), [boolConst('kh8', 1)], [
-        edge('e1', 'kh8', 'result', 'ks8', 'kick'),
-      ])
-      const spreadFrame = evaluateGraph(spread.nodes, spread.edges, 0, W, H)!
-      expect(spreadFrame).not.toEqual(centredFrame)
+      // Spawn on a kick, then look once the ring has spread far enough to
+      // light pixels: at age 0 a thin front lights none on a 4x4 canvas.
+      const ringFrame = (id: string, spawnSpread: number) => {
+        const props = { spawnSpread, thickness: 3 }
+        const spawn = withOutput(node(id, 'KickShock', 'pattern', props), [boolConst(`kh_${id}`, 1)], [
+          edge('e1', `kh_${id}`, 'result', id, 'kick'),
+        ])
+        evaluateGraph(spawn.nodes, spawn.edges, 0, W, H)
+        const query = withOutput(node(id, 'KickShock', 'pattern', props), [boolConst(`kh_${id}`, 0)], [
+          edge('e1', `kh_${id}`, 'result', id, 'kick'),
+        ])
+        return evaluateGraph(query.nodes, query.edges, SEC(0.4), W, H)!
+      }
+      expect(ringFrame('ks8', 1)).not.toEqual(ringFrame('ks7', 0))
     } finally {
       randomSpy.mockRestore()
     }

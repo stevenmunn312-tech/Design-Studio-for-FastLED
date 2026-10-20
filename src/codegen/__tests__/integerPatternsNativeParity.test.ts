@@ -10,9 +10,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { LIB8TION_HOST_CPP } from '../../nodes/shared/lib8tion'
 import {
-  PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, TWINKLE_PIXEL_CPP,
-  pacificaPixel, plasmaIndex, pridePixel, prismPixel, prismPixelCpp, PRISM_FLASH_TABLE, PRISM_SHARD_TABLE,
-  cascadeFrame, cascadeFrameCpp, cascadePixel, cascadePixelCpp, powTableCpp, stormFrameCpp, stormPixel, stormPixelCpp, twinklePixel,
+  PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, PRISM_FLASH_TABLE, PRISM_SHARD_TABLE,
+  SHOCK_GAUSS_TABLE, SHOCK_ISQRT_CPP, TWINKLE_PIXEL_CPP, auroraFrameCpp, auroraPixel, auroraPixelCpp,
+  auroraRow, cascadeFrame, cascadeFrameCpp, cascadePixel, cascadePixelCpp, pacificaPixel, plasmaIndex,
+  powTableCpp, pridePixel, prismPixel, prismPixelCpp, shockFrame, shockPixel, shockPixelCpp, stormFrameCpp,
+  stormPixel, stormPixelCpp, twinklePixel,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -123,6 +125,37 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
         `uint8_t _acG1=${f.bodyGain},_acB=${f.bass},_acG2=${f.shimmerGain}; int32_t _acPx=${f.px},_acPy=${f.py},_acP0=${f.p0};`,
       ], cascadePixelCpp('n'), '"%u %u ",_acIdx,_acV')
       expect(grid(W, H, (x, y) => { const p = cascadePixel(x, y, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('VocalAurora matches on %ix%i', (W, H) => {
+    const table = auroraFrameCpp('1.0f', 'n')[0]
+    for (const [drift, level, brightness] of [[0, 0, 255], [37.25, 1.9, 101]]) {
+      const rows = Array.from({ length: H }, (_, y) => auroraRow(y, H, drift, level))
+      const native = runNative(W, H, [
+        table, `int32_t _vaInv=${Math.trunc(65536 / Math.max(2, W))}; uint8_t _vaVB=${brightness};`,
+        `static const int32_t _offs[${H}][3]={${rows.map((r) => `{${r.off.join(',')}}`).join(',')}};`,
+        `static const int32_t _amps[${H}][3]={${rows.map((r) => `{${r.amp.join(',')}}`).join(',')}};`,
+      ], ['const int32_t *_vaOff=_offs[_y], *_vaAmp=_amps[_y];', ...auroraPixelCpp('n')], '"%u ",_vaV')
+      expect(grid(W, H, (x, y) => [auroraPixel(x, W, rows[y], brightness)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('KickShock matches on %ix%i', (W, H) => {
+    for (const [tiles, additive] of [[1, true], [3, false]] as const) {
+      const tw = W / tiles, th = H / tiles, cx = (tw - 1) / 2, cy = (th - 1) / 2
+      const f = shockFrame(tiles, cx, cy, Math.max(1e-6, Math.hypot(cx, cy)), 0.8, 0.6, 31.7, additive, [
+        { x: cx, y: cy, age: 0.4, speed: 0.6, band: 0.1, life: 1.9 },
+        { x: cx * 0.3, y: cy * 1.4, age: 0.1, speed: 1.08, band: 0.003, life: 1 },
+      ])
+      const list = (k: 'x' | 'y' | 'radius' | 'band' | 'fade') => f.rings.map((r) => r[k]).join(',')
+      const native = runNative(W, H, [
+        `static const uint16_t _ksGauss_n[257] PROGMEM = {${SHOCK_GAUSS_TABLE.join(',')}};`, SHOCK_ISQRT_CPP,
+        `int32_t _ksT=${f.tiles},_ksCx4=${f.cx},_ksCy4=${f.cy},_ksInvM=${f.invMax},_ksPJ=${f.jitterPhase};`,
+        `uint8_t _ksG=${f.gain},_ksC=${f.floor},_ksHA=${f.jitter},_ksPI=${f.palette};`,
+        `int32_t _ksRx[]={${list('x')}},_ksRy[]={${list('y')}},_ksRr[]={${list('radius')}},_ksKb[]={${list('band')}}; uint8_t _ksFd[]={${list('fade')}}; int _ksN=${f.rings.length};`,
+      ], shockPixelCpp(additive, 'n'), '"%u %u ",_ksIdx,_ksV')
+      expect(grid(W, H, (x, y) => { const p = shockPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
     }
   }, 60_000)
 })

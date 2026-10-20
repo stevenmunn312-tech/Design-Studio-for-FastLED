@@ -246,7 +246,19 @@ export function prismPixel(x: number, y: number, f: PrismFrame): number {
 // curve is a power table.
 
 const [HASH_A, HASH_B, , HASH_MIX] = LATTICE_HASH_MULTIPLIERS
-export const STORM_GAUSS_TABLE = Array.from({ length: 257 }, (_, k) => Math.round(32767 * Math.exp(-2.5 * k / 64)))
+/** `32767 * exp(-coefficient * d²)` at d² = k/64 for k = 0..256: d² in [0, 4] cells², read with interpolation. */
+export function gaussTable(coefficient: number): number[] {
+  return Array.from({ length: 257 }, (_, k) => Math.round(32767 * Math.exp(-coefficient * k / 64)))
+}
+
+/** One interpolated read of a `gaussTable` at d² in 1/65536ths; 0 at 4 cells² and beyond. */
+export function gaussAt(table: number[], d2: number): number {
+  if (d2 >= 262144) return 0
+  const i = d2 >> 10, g0 = table[i]
+  return g0 - (((g0 - table[i + 1]) * (d2 & 1023)) >> 10)
+}
+
+export const STORM_GAUSS_TABLE = gaussTable(2.5)
 export const STORM_SHARD_TABLE = powTable(1.4)
 
 export interface StormFrame { scale: number; cos: number; sin: number; freq: number; phase: number; gain: number; mids: number }
@@ -297,8 +309,7 @@ export function stormPixel(x: number, y: number, f: StormFrame): { index: number
     const h = latticeHashBits(cx, cy, 0), h2 = latticeHashBits(cx + 31, cy - 17, 0)
     const dx = pxq - ((cx << 8) + (h >>> 16)), dy = pyq - ((cy << 8) + (h2 >>> 16)), d2 = dx * dx + dy * dy
     if (d2 >= 262144) continue
-    const gi = d2 >> 10, g0 = STORM_GAUSS_TABLE[gi]
-    const g = g0 - (((g0 - STORM_GAUSS_TABLE[gi + 1]) * (d2 & 1023)) >> 10)
+    const g = gaussAt(STORM_GAUSS_TABLE, d2)
     const proj = (dx * f.cos + dy * f.sin) >> 15
     const term = (g * sin16(proj * f.freq + f.phase + (h >>> 8) + 16384)) >> 15
     v += h2 < 0x800000 ? term : -term
@@ -375,4 +386,161 @@ export function cascadePixel(x: number, y: number, f: CascadeFrame): { index: nu
   const sh = CASCADE_SHIMMER_TABLE[((sin16(x * f.hx + y * f.hy + f.shimmer) + 32768) >> 8) & 0xff]
   const bri = Math.min(255, scale8(b8, f.bodyGain) + f.bass + scale8(sh, f.shimmerGain))
   return { index: ((x * f.px + y * f.py + sh * CASCADE_SHIMMER_INDEX + f.p0) >>> 8) & 0xff, bri }
+}
+
+// ── VocalAurora ───────────────────────────────────────────────────────────────
+// Three curtain bands whose sway and brightness depend only on the row, so
+// their sines run once a row in float. Each pixel adds three Gaussian
+// windows exp(-3 dx²) from a table, dx in 1/256 of the half width.
+
+export const AURORA_GAUSS_TABLE = gaussTable(3)
+
+export interface AuroraRow { off: number[]; amp: number[]; index: number }
+
+export function auroraRow(y: number, H: number, drift: number, level: number): AuroraRow {
+  const ny = H > 1 ? y / (H - 1) : 0
+  const off: number[] = [], amp: number[] = []
+  for (let bnd = 0; bnd < 3; bnd++) {
+    const phase = ny * 3 + bnd * 2.1 + drift * (1 + bnd * 0.4)
+    const xOff = Math.sin(phase) * (1.2 + level * 1.8) + Math.sin(phase * 0.5 + bnd) * 0.6
+    off.push(Math.trunc(xOff * 0.35 * 256))
+    amp.push(Math.trunc((0.5 + 0.5 * Math.sin(phase * 1.7 + bnd * 1.3)) * 32767))
+  }
+  return { off, amp, index: Math.trunc((ny * 0.6 + drift * 0.08 + level * 0.25) * 255) & 0xff }
+}
+
+export function auroraFrameCpp(brightness: string, id: string): string[] {
+  return [
+    `static const uint16_t _vaGauss_${id}[257] PROGMEM = {${AURORA_GAUSS_TABLE.join(',')}};`,
+    `int32_t _vaInv=65536/max(2,WIDTH); uint8_t _vaVB=(uint8_t)(${brightness}*255.0f);`,
+  ]
+}
+
+/** Per-row float pass: sets `_vaOff[3]`, `_vaAmp[3]` and `uint8_t _vaIdx` from `_y`. */
+export function auroraRowCpp(drift: string, level: string): string[] {
+  return [
+    `float _ny=HEIGHT>1?(float)_y/(HEIGHT-1):0.0f; int32_t _vaOff[3],_vaAmp[3];`,
+    `for(int _bnd=0;_bnd<3;_bnd++){ float _bp=_ny*3.0f+_bnd*2.1f+${drift}*(1.0f+_bnd*0.4f);`,
+    `  _vaOff[_bnd]=(int32_t)((sinf(_bp)*(1.2f+${level}*1.8f)+sinf(_bp*0.5f+_bnd)*0.6f)*0.35f*256.0f);`,
+    `  _vaAmp[_bnd]=(int32_t)((0.5f+0.5f*sinf(_bp*1.7f+_bnd*1.3f))*32767.0f); }`,
+    `uint8_t _vaIdx=(uint8_t)(int32_t)((_ny*0.6f+${drift}*0.08f+${level}*0.25f)*255.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _vaV` (brightness) from `_x`, the row arrays and the frame locals. */
+export function auroraPixelCpp(id: string): string[] {
+  return [
+    `int32_t _xn=((2*_x-WIDTH)*_vaInv)>>8,_cur=0;`,
+    `for(int _bnd=0;_bnd<3;_bnd++){ int32_t _dq=_xn-_vaOff[_bnd],_d2=_dq*_dq; if(_d2>=262144) continue;`,
+    `  int32_t _gi=_d2>>10,_g0=pgm_read_word(&_vaGauss_${id}[_gi]),_g=_g0-(((_g0-(int32_t)pgm_read_word(&_vaGauss_${id}[_gi+1]))*(_d2&1023))>>10);`,
+    `  _cur+=(_g*_vaAmp[_bnd])>>15; }`,
+    `int32_t _c8=(_cur*153)>>15; uint8_t _vaV=scale8(_c8>255?255:(uint8_t)_c8,_vaVB);`,
+  ]
+}
+
+export function auroraPixel(x: number, W: number, row: AuroraRow, brightness: number): number {
+  const xn = ((2 * x - W) * Math.trunc(65536 / Math.max(2, W))) >> 8
+  let cur = 0
+  for (let bnd = 0; bnd < 3; bnd++) {
+    const dq = xn - row.off[bnd]
+    cur += (gaussAt(AURORA_GAUSS_TABLE, dq * dq) * row.amp[bnd]) >> 15
+  }
+  const c8 = (cur * 153) >> 15
+  return scale8(c8 > 255 ? 255 : c8, brightness)
+}
+
+// ── KickShock ─────────────────────────────────────────────────────────────────
+// Tile-local coordinates in 1/16 pixel, distances by integer square root and
+// normalised to the tile's half diagonal in 1/256ths. Each live ring is
+// reduced once a frame to its centre, radius, band scale and fade; its front
+// exp(-d²/2band²) is read as exp(-4 z²) with z = d/(2√2 band), from a table.
+// The jitter is sin16 of the centre distance.
+
+export const SHOCK_GAUSS_TABLE = gaussTable(4)
+const SHOCK_JITTER_STEP = Math.round(50 / 256 * A16_PER_RADIAN)
+
+export interface ShockRing { x: number; y: number; radius: number; band: number; fade: number }
+export interface ShockFrame {
+  tiles: number; cx: number; cy: number; invMax: number
+  gain: number; floor: number; jitter: number; jitterPhase: number; palette: number
+  additive: boolean; rings: ShockRing[]
+}
+
+export function shockFrame(
+  tiles: number, cx: number, cy: number, maxD: number, strength: number, hihat: number, phase: number,
+  additive: boolean, rings: { x: number; y: number; age: number; speed: number; band: number; life: number }[],
+): ShockFrame {
+  let p = (phase * 0.03) % 1
+  if (p < 0) p += 1
+  return {
+    tiles, cx: Math.trunc(cx * 16), cy: Math.trunc(cy * 16), invMax: Math.trunc(65536 / Math.max(maxD, 0.0625)),
+    gain: Math.trunc((0.5 + strength * 0.5) * 255) & 0xff, floor: Math.trunc(0.03 * strength * 255) & 0xff,
+    jitter: Math.trunc(hihat * 0.18 * 255) & 0xff, jitterPhase: angle16(-phase * 22), palette: Math.trunc(p * 256) & 0xff,
+    additive,
+    rings: rings.map((r) => ({
+      x: Math.trunc(r.x * 16), y: Math.trunc(r.y * 16), radius: Math.trunc(r.age * r.speed * 256),
+      band: Math.trunc(256 / (2.828427 * r.band)), fade: Math.trunc((1 - r.age / r.life) * 255) & 0xff,
+    })),
+  }
+}
+
+export const SHOCK_ISQRT_CPP = 'auto _ksIsq=[](uint32_t _v)->int32_t{ uint32_t _r=0,_b=1UL<<30; while(_b>_v) _b>>=2; while(_b){ if(_v>=_r+_b){ _v-=_r+_b; _r=(_r>>1)+_b; } else { _r>>=1; } _b>>=2; } return (int32_t)_r; };'
+
+/**
+ * The frame's integer values, and the live rings packed into `_ksRx…_ksFd`
+ * with `_ksN` set. `ring(r)` names ring r's float state: x, y, age, speed,
+ * band, life and whether it is alive and within its life.
+ */
+export function shockFrameCpp(
+  cap: number, phase: string,
+  ring: (r: string) => { live: string; x: string; y: string; age: string; speed: string; band: string; life: string },
+  id: string,
+): string[] {
+  const r = ring('_r')
+  return [
+    `static const uint16_t _ksGauss_${id}[257] PROGMEM = {${SHOCK_GAUSS_TABLE.join(',')}};`,
+    SHOCK_ISQRT_CPP,
+    `int32_t _ksT=_tiles,_ksCx4=(int32_t)(_ksCx*16.0f),_ksCy4=(int32_t)(_ksCy*16.0f),_ksInvM=(int32_t)(65536.0f/fmaxf(_maxD,0.0625f));`,
+    `uint8_t _ksG=(uint8_t)((0.5f+_strength*0.5f)*255.0f),_ksC=(uint8_t)(0.03f*_strength*255.0f),_ksHA=(uint8_t)(_hihatAmt*0.18f*255.0f);`,
+    `int32_t _ksPJ=${angle16Cpp(`-${phase}*22.0f`)}; float _ksPf=fmodf(${phase}*0.03f,1.0f); if(_ksPf<0)_ksPf+=1.0f; uint8_t _ksPI=(uint8_t)(_ksPf*256.0f);`,
+    `int32_t _ksRx[${cap}],_ksRy[${cap}],_ksRr[${cap}],_ksKb[${cap}]; uint8_t _ksFd[${cap}]; int _ksN=0;`,
+    `for(int _r=0;_r<${cap};_r++){ if(!(${r.live})) continue;`,
+    `  _ksRx[_ksN]=(int32_t)((${r.x})*16.0f); _ksRy[_ksN]=(int32_t)((${r.y})*16.0f); _ksRr[_ksN]=(int32_t)((${r.age})*(${r.speed})*256.0f);`,
+    `  _ksKb[_ksN]=(int32_t)(256.0f/(2.828427f*(${r.band}))); _ksFd[_ksN]=(uint8_t)((1.0f-(${r.age})/(${r.life}))*255.0f); _ksN++; }`,
+  ]
+}
+
+/** Sets `uint8_t _ksIdx` (palette index) and `uint8_t _ksV` (brightness). */
+export function shockPixelCpp(additive: boolean, id: string): string[] {
+  return [
+    `int32_t _lx4=((((2*_x+1)*_ksT)%(2*WIDTH))*8)/_ksT-8,_ly4=((((2*_y+1)*_ksT)%(2*HEIGHT))*8)/_ksT-8;`,
+    `int32_t _cdx=_lx4-_ksCx4,_cdy=_ly4-_ksCy4,_dn=(_ksIsq((uint32_t)(_cdx*_cdx+_cdy*_cdy))*_ksInvM)>>12,_w=0;`,
+    `for(int _k=0;_k<_ksN;_k++){ int32_t _rdx=_lx4-_ksRx[_k],_rdy=_ly4-_ksRy[_k];`,
+    `  int32_t _zh=((((_ksIsq((uint32_t)(_rdx*_rdx+_rdy*_rdy))*_ksInvM)>>12)-_ksRr[_k])*_ksKb[_k])>>8; if(_zh<=-512||_zh>=512) continue;`,
+    `  int32_t _z2=_zh*_zh,_gi=_z2>>10,_g0=pgm_read_word(&_ksGauss_${id}[_gi]),_g=_g0-(((_g0-(int32_t)pgm_read_word(&_ksGauss_${id}[_gi+1]))*(_z2&1023))>>10);`,
+    additive
+      ? `  _w+=(_g*_ksFd[_k])>>15; }`
+      : `  int32_t _c=(_g*_ksFd[_k])>>15; if(_c>_w) _w=_c; }`,
+    `uint8_t _w8=_w>255?255:(uint8_t)_w, _jit=scale8((uint8_t)(((int32_t)sin16(_dn*${SHOCK_JITTER_STEP}+_ksPJ)+32768)>>8),_ksHA);`,
+    `int32_t _v=((_w8*(_ksG+_jit))>>8)+_ksC; uint8_t _ksV=_v>255?255:(uint8_t)_v, _ksIdx=(uint8_t)((_dn>>1)+_ksPI);`,
+  ]
+}
+
+export function shockPixel(x: number, y: number, W: number, H: number, f: ShockFrame): { index: number; bri: number } {
+  const T = f.tiles
+  const lx4 = Math.trunc(((((2 * x + 1) * T) % (2 * W)) * 8) / T) - 8, ly4 = Math.trunc(((((2 * y + 1) * T) % (2 * H)) * 8) / T) - 8
+  const cdx = lx4 - f.cx, cdy = ly4 - f.cy
+  const dn = (isqrt32(cdx * cdx + cdy * cdy) * f.invMax) >> 12
+  let w = 0
+  for (const r of f.rings) {
+    const rdx = lx4 - r.x, rdy = ly4 - r.y
+    const zh = ((((isqrt32(rdx * rdx + rdy * rdy) * f.invMax) >> 12) - r.radius) * r.band) >> 8
+    if (zh <= -512 || zh >= 512) continue
+    const c = (gaussAt(SHOCK_GAUSS_TABLE, zh * zh) * r.fade) >> 15
+    w = f.additive ? w + c : Math.max(w, c)
+  }
+  const w8 = w > 255 ? 255 : w
+  const jit = scale8(((sin16(dn * SHOCK_JITTER_STEP + f.jitterPhase) + 32768) >> 8) & 0xff, f.jitter)
+  const v = ((w8 * (f.gain + jit)) >> 8) + f.floor
+  return { index: ((dn >> 1) + f.palette) & 0xff, bri: v > 255 ? 255 : v }
 }

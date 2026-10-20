@@ -24,7 +24,7 @@ import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 import { speedPhase } from '../shared/speedClock'
-import { cascadeFrame, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
+import { auroraPixel, auroraRow, cascadeFrame, shockFrame, shockPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
@@ -607,32 +607,22 @@ function evalKickShock(
   const additive = blendMode !== 'max'
   const phase = speedPhase(key, t, speed)
 
+  // The sketch's integer kernel (shared/integerPatterns.ts). The same
+  // shockwave field repeats in every grid cell; the jitter and palette sweep
+  // stay centred on the tile, whichever ring is where.
+  const live = []
+  for (const ring of state.rings) {
+    if (!ring) continue
+    const age = t - ring.born, isKick = ring.kind === 0
+    const life = isKick ? lifeK : lifeS
+    if (age < 0 || age > life) continue
+    live.push({ x: ring.x, y: ring.y, age, speed: isKick ? speedK : speedS, band: isKick ? bandK : bandS, life })
+  }
+  const frame = shockFrame(tileCount, cx, cy, maxD, strength, hihatAmt, phase, additive, live)
   return buildFrame(W, H, (x, y) => {
-    // Repeat the same shockwave field in every grid cell. Fractional tile
-    // coordinates keep the split even when W/H are not divisible by tiles.
-    const localX = ((x + 0.5) * tileCount % W) / tileCount - 0.5
-    const localY = ((y + 0.5) * tileCount % H) / tileCount - 0.5
-    // Kept centre-relative regardless of spawnSpread — the jitter/palette
-    // texture is a cosmetic sweep from the matrix middle, not tied to any
-    // one ring's origin.
-    const distC = Math.hypot(localX - cx, localY - cy) / maxD
-    let wave = 0
-    for (const ring of state.rings) {
-      if (!ring) continue
-      const age = t - ring.born
-      const isKick = ring.kind === 0
-      const spdR = isKick ? speedK : speedS, life = isKick ? lifeK : lifeS, band = isKick ? bandK : bandS
-      if (age < 0 || age > life) continue
-      const dist = Math.hypot(localX - ring.x, localY - ring.y) / maxD
-      const front = Math.exp(-((dist - age * spdR) ** 2) / (2 * band * band))
-      const contribution = front * (1 - age / life)
-      wave = additive ? wave + contribution : Math.max(wave, contribution)
-    }
-    wave = Math.min(1, wave)
-    const jitter = hihatAmt * 0.18 * (Math.sin(distC * 50 - phase * 22) * 0.5 + 0.5)
-    const v = Math.min(1, wave * (0.5 + strength * 0.5) + jitter * wave + 0.03 * strength)
-    const c = samplePalette(palette, distC * 0.5 + phase * 0.03)
-    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+    const { index, bri } = shockPixel(x, y, W, H, frame)
+    const c = samplePalette(palette, index / 256)
+    return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
   })
 }
 
@@ -650,19 +640,13 @@ function evalVocalAurora(
   const strength = clamp01(energy)
   const gate = silence ? 0 : 1
   const drift = advanceDrift(key, t, speed * (0.15 + level * 0.35)).a
+  // The sketch's integer kernel (shared/integerPatterns.ts): band sines once a row.
+  const brightness = Math.trunc(Math.min(1, (0.12 + strength * 0.35 + level * 0.65) * gate) * 255)
+  const rows = Array.from({ length: H }, (_, y) => auroraRow(y, H, drift, level))
   return buildFrame(W, H, (x, y) => {
-    const ny = H > 1 ? y / (H - 1) : 0
-    let curtain = 0
-    for (let bnd = 0; bnd < 3; bnd++) {
-      const bandPhase = ny * 3.0 + bnd * 2.1 + drift * (1 + bnd * 0.4)
-      const xOff = Math.sin(bandPhase) * (1.2 + level * 1.8) + Math.sin(bandPhase * 0.5 + bnd) * 0.6
-      const dx = (x - W / 2) / Math.max(1, W / 2) - xOff * 0.35
-      curtain += Math.exp(-dx * dx * 3.0) * (0.5 + 0.5 * Math.sin(bandPhase * 1.7 + bnd * 1.3))
-    }
-    const vBrightness = Math.min(1, (0.12 + strength * 0.35 + level * 0.65) * gate)
-    const v = Math.min(1, curtain * 0.6) * vBrightness
-    const c = samplePalette(palette, ny * 0.6 + drift * 0.08 + level * 0.25)
-    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+    const row = rows[y], v = auroraPixel(x, W, row, brightness)
+    const c = samplePalette(palette, row.index / 256)
+    return { r: scale8(c.r, v), g: scale8(c.g, v), b: scale8(c.b, v) }
   })
 }
 

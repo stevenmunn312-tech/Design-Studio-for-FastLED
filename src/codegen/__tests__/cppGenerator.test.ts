@@ -5738,7 +5738,8 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
       edge('outEdge', 'ksTiles', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('roundf(n_tiles_value)')
-    expect(cpp).toContain('fmodf((_x+0.5f)*_tiles,WIDTH)/_tiles-0.5f')
+    expect(cpp).toContain('int32_t _ksT=_tiles')
+    expect(cpp).toContain('((((2*_x+1)*_ksT)%(2*WIDTH))*8)/_ksT-8')
   })
 
   it('KickShock bakes count into the static array size and combine mode', () => {
@@ -5747,15 +5748,16 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
     expect(cpp).toContain('_ksBorn_ks[5]')
     expect(cpp).toContain('_ksX_ks[5]')
     expect(cpp).toContain('%5)')
-    expect(cpp).toContain('_wave=max(_wave,_front*(1.0f-_age/_life));')
-    expect(cpp).not.toContain('_wave+=_front')
+    expect(cpp).toContain('if(_c>_w) _w=_c;')
+    expect(cpp).not.toContain('_w+=(_g*_ksFd[_k])>>15;')
   })
 
   it('KickShock defaults to additive combine and count=8', () => {
     const ks = node('ks2', 'KickShock', 'pattern', {})
     const cpp = generateCpp([ks, outputNode], [edge('e', 'ks2', 'out', 'frame', 'frame')])
     expect(cpp).toContain('_ksBorn_ks2[8]')
-    expect(cpp).toContain('_wave+=_front*(1.0f-_age/_life);')
+    expect(cpp).toContain('_w+=(_g*_ksFd[_k])>>15;')
+    expect(cpp).not.toMatch(/sqrtf\(_rdx|expf\(/)
   })
 
   it('KickShock divides speed by decay so total ring travel stays constant', () => {
