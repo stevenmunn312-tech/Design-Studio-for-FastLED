@@ -20,6 +20,7 @@ import { captureWorkspace, blankWorkspace, hasAuthoredWorkspaceContent } from '.
 import {
   buildProjectSnapshot,
   nextDefaultProjectName,
+  openProjectWithNativePicker,
   parseProjectFile,
   projectFileBaseName,
   serializeProject,
@@ -391,7 +392,20 @@ export default function MenuBar() {
   }
 
   const handleLoadJSON = () => importInputRef.current?.click()
-  const handleOpenProjectFallback = () => projectInputRef.current?.click()
+  const handleOpenProjectFallback = () => {
+    const picked = openProjectWithNativePicker()
+    if (!picked) {
+      projectInputRef.current?.click()
+      return
+    }
+    void picked.then(
+      (file) => openProjectText(() => file.text(), projectFileBaseName(file.name)),
+      (error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setStatus('The browser could not open its file picker — choose Open Project File again', 'error')
+      },
+    )
+  }
 
   const saveIntoCurrentProject = () => {
     if (!currentProject) {

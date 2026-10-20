@@ -9,9 +9,15 @@ interface FilePickerAcceptType {
   accept: Record<string, string[]>
 }
 
-interface SaveFilePickerOptions {
+interface FilePickerOptions {
+  /** Browsers remember the last folder per id, so Open and Save share one. */
+  id?: string
+  startIn?: 'documents' | 'downloads' | 'desktop'
   excludeAcceptAllOption?: boolean
   types?: FilePickerAcceptType[]
+}
+
+interface SaveFilePickerOptions extends FilePickerOptions {
   suggestedName?: string
 }
 
@@ -28,6 +34,7 @@ interface FileSystemFileHandle {
 
 interface NativeFilePickerWindow extends Window {
   showSaveFilePicker?: (options?: SaveFilePickerOptions) => Promise<FileSystemFileHandle>
+  showOpenFilePicker?: (options?: FilePickerOptions) => Promise<FileSystemFileHandle[]>
 }
 
 const PROJECT_FILE_SUFFIX = '.fastled-project.json'
@@ -35,6 +42,14 @@ const PROJECT_SAVE_FILE_TYPES: FilePickerAcceptType[] = [{
   description: 'Design Studio for FastLED Project',
   accept: { 'application/json': [PROJECT_FILE_SUFFIX] },
 }]
+// Without the helper a browser picker cannot be pointed at the Projects
+// folder; a shared id makes Open start wherever projects were last saved.
+const PROJECT_PICKER_OPTIONS: FilePickerOptions = {
+  id: 'fastled-projects',
+  startIn: 'documents',
+  excludeAcceptAllOption: false,
+  types: PROJECT_SAVE_FILE_TYPES,
+}
 
 function trimProjectName(name: string): string {
   return name.trim().slice(0, 80)
@@ -163,9 +178,8 @@ export async function saveProjectWithNativePicker(project: SavedProject): Promis
   const pickerWindow = window as NativeFilePickerWindow
   if (typeof pickerWindow.showSaveFilePicker !== 'function') return null
   const handle = await pickerWindow.showSaveFilePicker({
+    ...PROJECT_PICKER_OPTIONS,
     suggestedName: suggestProjectFileName(project.name),
-    excludeAcceptAllOption: false,
-    types: PROJECT_SAVE_FILE_TYPES,
   })
   const normalized = {
     ...project,
@@ -175,4 +189,16 @@ export async function saveProjectWithNativePicker(project: SavedProject): Promis
   await writable.write(serializeProject(normalized))
   await writable.close()
   return normalized
+}
+
+/**
+ * Open a project through the browser's native picker. Returns null when the
+ * browser has none. Call it during the click: awaiting first consumes user
+ * activation and the picker is then blocked.
+ */
+export function openProjectWithNativePicker(): Promise<File> | null {
+  const pickerWindow = window as NativeFilePickerWindow
+  if (typeof pickerWindow.showOpenFilePicker !== 'function') return null
+  return pickerWindow.showOpenFilePicker(PROJECT_PICKER_OPTIONS)
+    .then(([handle]) => handle.getFile())
 }

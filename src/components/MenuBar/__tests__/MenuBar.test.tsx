@@ -605,6 +605,27 @@ describe('MenuBar file menu', () => {
     expect(authoredNodeIds()).toEqual(['pg-node'])
   })
 
+  it('opens a project file through the browser picker, sharing the Save picker folder, when the helper is offline', async () => {
+    const pg = project('pg', 'pg', 'pg-node', 100)
+    const file = new File([JSON.stringify(pg)], 'pg.fastled-project.json', { type: 'application/json' })
+    const showOpenFilePicker = vi.fn().mockResolvedValue([{ getFile: async () => file }])
+    Object.defineProperty(window, 'showOpenFilePicker', { configurable: true, value: showOpenFilePicker })
+
+    try {
+      const { container, getByRole, getByText } = render(<MenuBar />)
+      const input = container.querySelector<HTMLInputElement>('input[accept=".json,.fastled-project.json"]')
+      const inputClick = vi.spyOn(input!, 'click')
+      fireEvent.click(getByRole('button', { name: 'File menu' }))
+      fireEvent.click(getByText('Open Project File…'))
+
+      expect(showOpenFilePicker).toHaveBeenCalledWith(expect.objectContaining({ id: 'fastled-projects' }))
+      await waitFor(() => expect(useProjectStore.getState().currentProjectId).toBe(pg.id))
+      expect(inputClick).not.toHaveBeenCalled()
+    } finally {
+      delete (window as Window & { showOpenFilePicker?: unknown }).showOpenFilePicker
+    }
+  })
+
   it('opens a project file through the helper dialog, which starts in the Projects folder', async () => {
     const pg = project('pg', 'pg', 'pg-node', 100)
     const fetchMock = vi.fn(async (url: string) => {
