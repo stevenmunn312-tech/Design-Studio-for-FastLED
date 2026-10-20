@@ -2256,10 +2256,12 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _m =')
     expect(cpp).toContain('float _strength = min(1.0f, max(0.0f, _intensity));')
     expect(cpp).toContain('float _motion = _spd * (1.0f + _mAmt * 1.5f * _strength);')
-    expect(cpp).toContain('float _contrast = 0.7f + _mAmt * 1.8f * _strength;')
+    // The integer kernel: contrast and intensity are frame values, the waves sin16.
+    expect(cpp).toContain('_mwC=(int32_t)((0.7f + _mAmt * 1.8f * _strength)*256.0f)')
     expect(cpp).toContain('powf(_mAmt, 0.65f) * 1.25f * _strength')
-    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
-    expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean, _mwIdx)')
+    expect(cpp).toContain('.nscale8(_mwV)')
+    expect(cpp).not.toContain('sin(_x')
   })
 
   it('emits BassRings as a radial sine pattern with bass-scaled density and brightness', () => {

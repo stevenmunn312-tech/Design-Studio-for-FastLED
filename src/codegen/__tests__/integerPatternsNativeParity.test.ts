@@ -19,6 +19,7 @@ import {
   ringsFrame, ringsPixel, ringsPixelCpp, turbulentFrame, turbulentPixel, turbulentPixelCpp, wellFrame, wellPixel, wellPixelCpp,
   wordTableCpp,
   ATAN16_HELPER_CPP, KALEIDO_PIXEL_CPP, atan2_16, kaleidoFrame, kaleidoPixel,
+  EMBER_PIXEL_CPP, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, emberFrame, emberPixel, mosaicCell, wavesFrame, wavesPixel,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -232,6 +233,29 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
         `uint8_t _bkG=${f.gain},_bkPB=${f.punch},_bkH=${f.hue};`,
       ], KALEIDO_PIXEL_CPP, '"%u %u ",_bkIdx,_bkV')
       expect(grid(W, H, (x, y) => { const p = kaleidoPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('EmberPulse matches on %ix%i', (W, H) => {
+    for (const f of [emberFrame(W, H, 0.5, 0.5, 0.5, 0.7, 0, 0), emberFrame(W, H, 1, 0.1, 0.9, 1, -301.4, 1)]) {
+      const native = runNative(W, H, [
+        `int32_t _epSx=${f.stepX},_epSy=${f.stepY},_epB=${f.bass},_epM=${f.mids},_epT=${f.treble},_epF1=${f.f1},_epF2=${f.f2},_epS3=${f.strength3},_epS65=${f.strength65},_epBu=${f.burst};`,
+      ], EMBER_PIXEL_CPP, '"%u ",_epH')
+      expect(grid(W, H, (x, y) => [emberPixel(x, y, H, f)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('MidrangeWaves matches on %ix%i', (W, H) => {
+    for (const f of [wavesFrame(0, 0.7, 0.1), wavesFrame(-655.1, 2.5, 1)]) {
+      const native = runNative(W, H, [`int32_t _mwPx=${f.px},_mwPy=${f.py},_mwC=${f.contrast}; uint8_t _mwI=${f.intensity};`], WAVES_PIXEL_CPP, '"%u %u ",_mwIdx,_mwV')
+      expect(grid(W, H, (x, y) => { const p = wavesPixel(x, y, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('SpectraMosaic finds the same cell on %ix%i', (W, H) => {
+    for (const n of [2, 3, 7, 8]) {
+      const native = runNative(W, H, [`int _smN=${n};`], MOSAIC_PIXEL_CPP, '"%d ",_mc')
+      expect(grid(W, H, (x, y) => [mosaicCell(y, n, H) * n + mosaicCell(x, n, W)])).toEqual(native)
     }
   }, 60_000)
 })

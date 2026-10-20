@@ -25,7 +25,8 @@ import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 import { speedPhase } from '../shared/speedClock'
 import {
-  auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, kaleidoFrame, kaleidoPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
+  auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, emberFrame, emberPixel, kaleidoFrame, kaleidoPixel, mosaicCell,
+  wavesFrame, wavesPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
   turbulentFrame, turbulentPixel, wellFrame, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
@@ -379,18 +380,12 @@ function evalMidrangeWaves(key: string, mids: number, intensity: number, speed: 
   const strength = Math.min(1, Math.max(0, intensity))
   const motion = speed * (1 + midsAmt * 1.5 * strength)
   const phase = speedPhase(key, t, motion)
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = wavesFrame(phase, 0.7 + midsAmt * 1.8 * strength, Math.min(1, 0.1 + Math.pow(midsAmt, 0.65) * 1.25 * strength))
   return buildFrame(W, H, (x, y) => {
-      const contrast = 0.7 + midsAmt * 1.8 * strength
-      const waveBase = Math.sin(x * 0.8 + phase * 4) * Math.sin(y * 0.5 + phase * 2.5)
-      const wave = Math.max(-1, Math.min(1, waveBase * contrast))
-      const waveIntensity = Math.min(1, 0.1 + Math.pow(midsAmt, 0.65) * 1.25 * strength)
-      const v = (wave + 1) / 2 * waveIntensity
-      const c = samplePalette(palette, (wave + 1) / 2)
-      return {
-        r: Math.round(c.r * v),
-        g: Math.round(c.g * v),
-        b: Math.round(c.b * v),
-      }
+      const { index, bri } = wavesPixel(x, y, frame)
+      const c = samplePalette(palette, index / 256)
+      return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
     })
 }
 
@@ -671,19 +666,19 @@ function evalSpectraMosaic(
 ): Frame {
   const n = Math.max(2, Math.min(8, Math.round(tiles)))
   const strength = clamp01(energy)
-  const cellW = W / n, cellH = H / n
   const sweep = advanceDrift(key, t, speed * (0.4 + strength * 0.8)).a
   const scroll = speedPhase(key, t, speed)
-  return buildFrame(W, H, (x, y) => {
-    const cx = Math.floor(x / cellW), cy = Math.floor(y / cellH)
+  // One colour a cell, worked out once a frame like the sketch.
+  const cells: RGB[] = []
+  for (let cy = 0; cy < n; cy++) for (let cx = 0; cx < n; cx++) {
     const diag = (cx + cy) / (2 * Math.max(1, n - 1))
     const mix = bass * (1 - diag) + mids * 0.5 + treble * diag
-    const phase = cx * 0.6 + cy * 0.9 + sweep
-    const shimmer = Math.sin(phase) * 0.5 + 0.5
-    const v = Math.min(1, 0.15 + mix * 0.6 * strength + shimmer * 0.25)
-    const c = samplePalette(palette, diag * 0.6 + mix * 0.3 + scroll * 0.04)
-    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
-  })
+    const shimmer = Math.sin(cx * 0.6 + cy * 0.9 + sweep) * 0.5 + 0.5
+    const v = Math.trunc(Math.min(1, 0.15 + mix * 0.6 * strength + shimmer * 0.25) * 255)
+    const c = samplePalette(palette, Math.trunc(((((diag * 0.6 + mix * 0.3 + scroll * 0.04) % 1) + 1) % 1) * 256) / 256)
+    cells.push({ r: scale8(c.r, v), g: scale8(c.g, v), b: scale8(c.b, v) })
+  }
+  return buildFrame(W, H, (x, y) => ({ ...cells[mosaicCell(y, n, H) * n + mosaicCell(x, n, W)] }))
 }
 
 // Three-tier metaball blobs — kick (large/slow), snare (medium/sharp), and
@@ -759,18 +754,9 @@ function evalEmberPulse(
   const strength = clamp01(energy)
   const flicker = speedPhase(key, t, speed) * 3.0
 
-  return buildFrame(W, H, (x, y) => {
-    const nx = W > 1 ? x / (W - 1) : 0
-    const heightFromBottom = H > 1 ? (H - 1 - y) / (H - 1) : 0   // 0 at bottom, 1 at top
-    const centerDist = Math.abs(nx - 0.5) * 2
-    const bandWeight = bass * (1 - centerDist) + mids * (1 - Math.abs(centerDist - 0.5) * 2) + treble * centerDist
-    const flicker1 = Math.sin(nx * 17 + flicker + heightFromBottom * 4) * 0.5 + 0.5
-    const flicker2 = Math.sin(nx * 29 - flicker * 1.3) * 0.5 + 0.5
-    const heightFalloff = Math.max(0, 1 - heightFromBottom * (1.1 - bandWeight * 0.5 - strength * 0.3))
-    let heat = heightFalloff * (0.35 + bandWeight * 0.65 * strength) * (0.7 + flicker1 * 0.2 + flicker2 * 0.1)
-    heat = Math.min(1, heat + burst * Math.max(0, 1 - heightFromBottom * 0.6) * 0.8)
-    return heatColor(heat * 255)
-  })
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = emberFrame(W, H, bass, mids, treble, strength, flicker, burst)
+  return buildFrame(W, H, (x, y) => heatColor(emberPixel(x, y, H, frame)))
 }
 
 // Radial bloom whose sample coordinates are pushed through noise turbulence

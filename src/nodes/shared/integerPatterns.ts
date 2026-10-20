@@ -866,3 +866,100 @@ export function kaleidoPixel(x: number, y: number, W: number, H: number, f: Kale
   const v = scale8(((tex + 32768) >> 8) & 0xff, f.gain) + f.punch
   return { index: ((d >> 1) + ((a * KALEIDO_ANGLE_TO_INDEX) >> 16) + f.hue) & 0xff, bri: v > 255 ? 255 : v }
 }
+
+// ── EmberPulse ────────────────────────────────────────────────────────────────
+// Column position and height from the bottom in 1/256ths; band weights,
+// falloff and heat are Q8 products, the two flickers sin16.
+
+const EMBER_F1_X = Math.round(17 * A16_PER_RADIAN / 256)
+const EMBER_F1_Y = Math.round(4 * A16_PER_RADIAN / 256)
+const EMBER_F2_X = Math.round(29 * A16_PER_RADIAN / 256)
+
+export interface EmberFrame {
+  stepX: number; stepY: number; bass: number; mids: number; treble: number
+  f1: number; f2: number; strength3: number; strength65: number; burst: number
+}
+
+export function emberFrame(W: number, H: number, bass: number, mids: number, treble: number, strength: number, flicker: number, burst: number): EmberFrame {
+  return {
+    stepX: W > 1 ? Math.trunc(65536 / (W - 1)) : 0, stepY: H > 1 ? Math.trunc(65536 / (H - 1)) : 0,
+    bass: Math.trunc(bass * 256), mids: Math.trunc(mids * 256), treble: Math.trunc(treble * 256),
+    f1: angle16(flicker), f2: angle16(-flicker * 1.3),
+    strength3: Math.trunc(strength * 0.3 * 256), strength65: Math.trunc(strength * 0.65 * 256), burst: Math.trunc(burst * 0.8 * 256),
+  }
+}
+
+export function emberFrameCpp(bass: string, mids: string, treble: string, strength: string, flicker: string, burst: string): string[] {
+  return [
+    `int32_t _epSx=WIDTH>1?65536/(WIDTH-1):0,_epSy=HEIGHT>1?65536/(HEIGHT-1):0;`,
+    `int32_t _epB=(int32_t)(${bass}*256.0f),_epM=(int32_t)(${mids}*256.0f),_epT=(int32_t)(${treble}*256.0f);`,
+    `int32_t _epF1=${angle16Cpp(flicker)},_epF2=${angle16Cpp(`-(${flicker})*1.3f`)};`,
+    `int32_t _epS3=(int32_t)(${strength}*0.3f*256.0f),_epS65=(int32_t)(${strength}*0.65f*256.0f),_epBu=(int32_t)(${burst}*0.8f*256.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _epH` (the heat byte for HeatColor). */
+export const EMBER_PIXEL_CPP = [
+  `int32_t _nx=(_x*_epSx)>>8,_hf=((HEIGHT-1-_y)*_epSy)>>8,_cd=(_nx>128?_nx-128:128-_nx)*2,_cm=_cd>128?_cd-128:128-_cd;`,
+  `int32_t _bw=(_epB*(256-_cd)+_epM*(256-_cm*2)+_epT*_cd)>>8;`,
+  `int32_t _f1=((int32_t)sin16((uint16_t)(_nx*${EMBER_F1_X}+_hf*${EMBER_F1_Y}+_epF1))+32768)>>8,_f2=((int32_t)sin16((uint16_t)(_nx*${EMBER_F2_X}+_epF2))+32768)>>8;`,
+  `int32_t _fo=256-((_hf*(282-(_bw>>1)-_epS3))>>8); _fo=_fo<0?0:_fo;`,
+  `int32_t _heat=((((_fo*(90+((_bw*_epS65)>>8)))>>8))*(179+((_f1*51)>>8)+((_f2*26)>>8)))>>8;`,
+  `int32_t _eb=256-((_hf*154)>>8); _eb=_eb<0?0:_eb; _heat+=(_epBu*_eb)>>8; _heat=_heat>256?256:_heat;`,
+  `uint8_t _epH=(uint8_t)((_heat*255)>>8);`,
+]
+
+export function emberPixel(x: number, y: number, H: number, f: EmberFrame): number {
+  const nx = (x * f.stepX) >> 8, hf = ((H - 1 - y) * f.stepY) >> 8
+  const cd = Math.abs(nx - 128) * 2, cm = Math.abs(cd - 128)
+  const bw = (f.bass * (256 - cd) + f.mids * (256 - cm * 2) + f.treble * cd) >> 8
+  const f1 = (sin16(nx * EMBER_F1_X + hf * EMBER_F1_Y + f.f1) + 32768) >> 8, f2 = (sin16(nx * EMBER_F2_X + f.f2) + 32768) >> 8
+  let fo = 256 - ((hf * (282 - (bw >> 1) - f.strength3)) >> 8)
+  if (fo < 0) fo = 0
+  let heat = ((((fo * (90 + ((bw * f.strength65) >> 8))) >> 8)) * (179 + ((f1 * 51) >> 8) + ((f2 * 26) >> 8))) >> 8
+  let eb = 256 - ((hf * 154) >> 8)
+  if (eb < 0) eb = 0
+  heat += (f.burst * eb) >> 8
+  if (heat > 256) heat = 256
+  return (heat * 255) >> 8
+}
+
+// ── MidrangeWaves ─────────────────────────────────────────────────────────────
+// A product of one wave along x and one along y, scaled by the contrast in
+// 1/256ths and clipped.
+
+const WAVES_X = Math.round(0.8 * A16_PER_RADIAN)
+const WAVES_Y = Math.round(0.5 * A16_PER_RADIAN)
+
+export interface WavesFrame { px: number; py: number; contrast: number; intensity: number }
+
+export function wavesFrame(phase: number, contrast: number, intensity: number): WavesFrame {
+  return { px: angle16(phase * 4), py: angle16(phase * 2.5), contrast: Math.trunc(contrast * 256), intensity: Math.trunc(intensity * 255) & 0xff }
+}
+
+export function wavesFrameCpp(phase: string, contrast: string, intensity: string): string[] {
+  return [`int32_t _mwPx=${angle16Cpp(`${phase}*4.0f`)},_mwPy=${angle16Cpp(`${phase}*2.5f`)},_mwC=(int32_t)(${contrast}*256.0f); uint8_t _mwI=(uint8_t)(${intensity}*255.0f);`]
+}
+
+/** Sets `uint8_t _mwIdx` and `uint8_t _mwV`. */
+export const WAVES_PIXEL_CPP = [
+  `int32_t _mw=((((int32_t)sin16((uint16_t)(_x*${WAVES_X}+_mwPx))*sin16((uint16_t)(_y*${WAVES_Y}+_mwPy)))>>15)*_mwC)>>8;`,
+  `_mw=_mw>32767?32767:(_mw<-32767?-32767:_mw);`,
+  `uint8_t _mwIdx=(uint8_t)((_mw+32768)>>8), _mwV=scale8(_mwIdx,_mwI);`,
+]
+
+export function wavesPixel(x: number, y: number, f: WavesFrame): { index: number; bri: number } {
+  let w = (((sin16(x * WAVES_X + f.px) * sin16(y * WAVES_Y + f.py)) >> 15) * f.contrast) >> 8
+  if (w > 32767) w = 32767
+  if (w < -32767) w = -32767
+  const index = (w + 32768) >> 8
+  return { index, bri: scale8(index, f.intensity) }
+}
+
+// ── SpectraMosaic ─────────────────────────────────────────────────────────────
+// Every cell is one colour, so the colours are worked out once a frame per
+// cell (at most 8x8) and each pixel finds its cell by integer division.
+
+/** The cell a pixel falls in: floor(x * n / W). */
+export const mosaicCell = (x: number, n: number, size: number) => Math.trunc((x * n) / size)
+export const MOSAIC_PIXEL_CPP = [`int _mc=((_y*_smN)/HEIGHT)*_smN+(_x*_smN)/WIDTH;`]

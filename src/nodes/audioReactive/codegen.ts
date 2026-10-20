@@ -6,7 +6,7 @@ import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   auroraFrameCpp, auroraPixelCpp, auroraRowCpp, cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp,
-  KALEIDO_PIXEL_CPP, bloomFrameCpp, bloomPixelCpp, kaleidoFrameCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
+  EMBER_PIXEL_CPP, KALEIDO_PIXEL_CPP, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, bloomFrameCpp, emberFrameCpp, wavesFrameCpp, bloomPixelCpp, kaleidoFrameCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
   turbulentFrameCpp, turbulentPixelCpp, wellFrameCpp, wellPixelCpp,
 } from '../shared/integerPatterns'
 import {
@@ -247,14 +247,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _strength = min(1.0f, max(0.0f, _intensity));`)
     ln(`    float _motion = _spd * (1.0f + _mAmt * 1.5f * _strength);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_motion')
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of wavesFrameCpp(ph, '(0.7f + _mAmt * 1.8f * _strength)', 'min(1.0f, 0.1f + powf(_mAmt, 0.65f) * 1.25f * _strength)')) ln(`    ${line}`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-    ln(`      float _contrast = 0.7f + _mAmt * 1.8f * _strength;`)
-    ln(`      float _wBase = sin(_x * 0.8f + ${ph} * 4) * sin(_y * 0.5f + ${ph} * 2.5f);`)
-    ln(`      float _w = min(1.0f, max(-1.0f, _wBase * _contrast));`)
-    ln(`      float _int = min(1.0f, 0.1f + powf(_mAmt, 0.65f) * 1.25f * _strength);`)
-    ln(`      float _v = (_w + 1) / 2.0f * _int;`)
-    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)((_w + 1) * 127.5f));`)
-    ln(`      ${ob}[_y * WIDTH + _x].nscale8((uint8_t)(_v * 255));`)
+    for (const line of WAVES_PIXEL_CPP) ln(`      ${line}`)
+    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, _mwIdx);`)
+    ln(`      ${ob}[_y * WIDTH + _x].nscale8(_mwV);`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -523,21 +521,25 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`  { // SpectraMosaic`)
     ln(`    float _b=${bass},_m=${mids},_tr=${treble},_strength=min(1.0f,max(0.0f,${energy}));`)
     ln(`    int _n=(int)max(2.0f,min(8.0f,roundf(${tiles})));`)
-    ln(`    float _cellW=WIDTH/(float)_n,_cellH=HEIGHT/(float)_n;`)
     // Integrated sweep phase — mirrors evalSpectraMosaic (see BeatKaleidoscope).
     ln(`    static float _smPhase_${id}=0.0f,_smLast_${id}=-1.0f;`)
     ln(`    float _smDt_${id}=(_smLast_${id}<0.0f)?0.0f:min(0.25f,max(0.0f,t-_smLast_${id})); _smLast_${id}=t;`)
     ln(`    _smPhase_${id}+=_smDt_${id}*${speed}*(0.4f+_strength*0.8f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), speed)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      int _cx=(int)(_x/_cellW),_cy=(int)(_y/_cellH);`)
+    // One colour a cell, worked out once a frame (shared/integerPatterns.ts).
+    ln(`    CRGB _smCol[64]; int _smN=_n;`)
+    ln(`    for(int _cy=0;_cy<_n;_cy++) for(int _cx=0;_cx<_n;_cx++){`)
     ln(`      float _diag=(_cx+_cy)/(2.0f*(float)max(1,_n-1));`)
     ln(`      float _mix=_b*(1.0f-_diag)+_m*0.5f+_tr*_diag;`)
     ln(`      float _phase=_cx*0.6f+_cy*0.9f+_smPhase_${id};`)
     ln(`      float _shimmer=sinf(_phase)*0.5f+0.5f;`)
     ln(`      float _v=min(1.0f,0.15f+_mix*0.6f*_strength+_shimmer*0.25f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_diag*0.6f+_mix*0.3f+${ph}*0.04f)*255));`)
-    ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
+    ln(`      float _pi=fmodf(_diag*0.6f+_mix*0.3f+${ph}*0.04f,1.0f); if(_pi<0)_pi+=1.0f;`)
+    ln(`      CRGB _c=ColorFromPalette(${pal},(uint8_t)(_pi*256.0f)); _c.nscale8((uint8_t)(_v*255)); _smCol[_cy*_n+_cx]=_c;`)
+    ln(`    }`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    for (const line of MOSAIC_PIXEL_CPP) ln(`      ${line}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=_smCol[_mc];`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -602,17 +604,11 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _b=${bass},_m=${mids},_tr=${treble},_strength=min(1.0f,max(0.0f,${energy}));`)
     const ph = speedPhaseCpp(ln, phaseTag(id), speed)
     ln(`    float _flicker=${ph}*3.0f;`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of emberFrameCpp('_b', '_m', '_tr', '_strength', '_flicker', `_epBurst_${id}`)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _nx=WIDTH>1?(float)_x/(WIDTH-1):0.0f;`)
-    ln(`      float _hfb=HEIGHT>1?(float)(HEIGHT-1-_y)/(HEIGHT-1):0.0f;`)
-    ln(`      float _centerDist=fabsf(_nx-0.5f)*2.0f;`)
-    ln(`      float _bandWeight=_b*(1.0f-_centerDist)+_m*(1.0f-fabsf(_centerDist-0.5f)*2.0f)+_tr*_centerDist;`)
-    ln(`      float _f1=sinf(_nx*17.0f+_flicker+_hfb*4.0f)*0.5f+0.5f;`)
-    ln(`      float _f2=sinf(_nx*29.0f-_flicker*1.3f)*0.5f+0.5f;`)
-    ln(`      float _falloff=max(0.0f,1.0f-_hfb*(1.1f-_bandWeight*0.5f-_strength*0.3f));`)
-    ln(`      float _heat=_falloff*(0.35f+_bandWeight*0.65f*_strength)*(0.7f+_f1*0.2f+_f2*0.1f);`)
-    ln(`      _heat=min(1.0f,_heat+_epBurst_${id}*max(0.0f,1.0f-_hfb*0.6f)*0.8f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=HeatColor((uint8_t)(_heat*255));`)
+    for (const line of EMBER_PIXEL_CPP) ln(`      ${line}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=HeatColor(_epH);`)
     ln(`    }`)
     ln(`  }`)
   },
