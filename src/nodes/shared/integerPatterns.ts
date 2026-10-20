@@ -1122,3 +1122,28 @@ export function trailRowPassCpp(src: string, dst: string): string {
 export function trailColumnPassCpp(src: string, dst: string): string {
   return `for(int _y=0;_y<HEIGHT;_y++){ int32_t _sy=_y*256-_s8; if(_sy<0)_sy+=HEIGHT*256; else if(_sy>=HEIGHT*256)_sy-=HEIGHT*256; int _y0=_sy>>8,_yN=_y0+1<HEIGHT?_y0+1:0; uint32_t _f=_sy&255,_g=256-_f; const CRGB &_a=${src}[_y0*WIDTH+_x],&_b=${src}[_yN*WIDTH+_x]; ${dst}[_y*WIDTH+_x]=CRGB((uint8_t)(((_a.r*_g+_b.r*_f)*_fd15+4194304u)>>23),(uint8_t)(((_a.g*_g+_b.g*_f)*_fd15+4194304u)>>23),(uint8_t)(((_a.b*_g+_b.b*_f)*_fd15+4194304u)>>23)); }`
 }
+
+// ── Kaleidoscope (effect) ─────────────────────────────────────────────────────
+// Each pixel's source: its angle from `_atan2_16` folded into a mirrored
+// wedge, rotated back at its own radius. The radius is in 1/16 pixel from
+// doubled offsets about (W/2, H/2), the source rounded to the nearest pixel.
+
+/** The source pixel index for (x, y), or -1 outside the canvas. */
+export function kaleidoSource(x: number, y: number, W: number, H: number, wedge: number): number {
+  const dx = 2 * x - W, dy = 2 * y - H
+  const d = isqrt32((dx * dx + dy * dy) * 64)
+  let a = atan2_16(dy, dx) % wedge
+  if (a > Math.trunc(wedge / 2)) a = wedge - a
+  const sx = (W * 8 + ((d * sin16(a + 16384)) >> 15) + 8) >> 4
+  const sy = (H * 8 + ((d * sin16(a)) >> 15) + 8) >> 4
+  return sx < 0 || sx >= W || sy < 0 || sy >= H ? -1 : sy * W + sx
+}
+
+/** Sets `int _kSrc` (-1 outside) from `_x`, `_y` and `int32_t _kW`, the wedge in 16-bit angle units; needs `_atan2_16`. */
+export const KALEIDO_SOURCE_CPP = [
+  `int32_t _kdx=2*_x-WIDTH,_kdy=2*_y-HEIGHT;`,
+  ...isqrtCpp('kd', '(_kdx*_kdx+_kdy*_kdy)<<6', '_kdR'),
+  `int32_t _ka=(int32_t)(_atan2_16(_kdy,_kdx)%_kW); if(_ka>_kW/2) _ka=_kW-_ka;`,
+  `int32_t _ksx=(WIDTH*8+(((int32_t)_kdR*sin16((uint16_t)(_ka+16384)))>>15)+8)>>4,_ksy=(HEIGHT*8+(((int32_t)_kdR*sin16((uint16_t)_ka))>>15)+8)>>4;`,
+  `int _kSrc=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?-1:(int)(_ksy*WIDTH+_ksx);`,
+]

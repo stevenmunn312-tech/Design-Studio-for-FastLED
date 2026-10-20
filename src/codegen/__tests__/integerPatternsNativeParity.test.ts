@@ -22,6 +22,7 @@ import {
   EMBER_PIXEL_CPP, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, emberFrame, emberPixel, mosaicCell, wavesFrame, wavesPixel,
   BURST_PIXEL_CPP, POLAR_PIXEL_CPP, SPIRAL_PIXEL_CPP, burstFrame, burstPixel, polarFrame, polarPixel, spiralFrame, spiralPixel,
   trailColumnPass, trailColumnPassCpp, trailRowPass, trailRowPassCpp,
+  KALEIDO_SOURCE_CPP, kaleidoSource,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -312,6 +313,14 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
       expect(frame.flat().flatMap((c) => [c.r, c.g, c.b])).toEqual(native)
     } finally {
       rmSync(dir, { recursive: true, force: true })
+    }
+  }, 60_000)
+
+  it.each(SIZES)('Kaleidoscope finds the same source pixel on %ix%i', (W, H) => {
+    for (const segments of [2, 5, 6, 16]) {
+      const wedge = Math.trunc(65536 / segments)
+      const native = runNative(W, H, [`int32_t _kW=${wedge};`], KALEIDO_SOURCE_CPP, '"%d ",_kSrc')
+      expect(grid(W, H, (x, y) => [kaleidoSource(x, y, W, H, wedge)])).toEqual(native)
     }
   }, 60_000)
 })

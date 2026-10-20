@@ -4,6 +4,7 @@ import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/sym
 import { GLITTER_PER_LED, glitterMode } from './glitter'
 import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { KALEIDO_SOURCE_CPP } from '../shared/integerPatterns'
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
@@ -357,20 +358,18 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
   // Mirrors evalKaleidoscope in kaleidoscope.ts: same W/2,H/2 centre, the
   // same two-step fold, and floorf(v+0.5f) to match JS Math.round, so the
   // preview and the flashed sketch produce identical frames.
-  Kaleidoscope({ ln, f, ownBuf, srcBuf }) {
+  Kaleidoscope({ ln, f, ownBuf, srcBuf, needsAtan16 }) {
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Kaleidoscope: no input`); return }
     // `segments` is wireable, so the wedge angle is computed per frame.
     const seg = f('segments', 'segments', 6)
-    ln(`  { float _kCx=WIDTH/2.0f,_kCy=HEIGHT/2.0f;`)
-    ln(`    float _kSeg=6.2831853f/constrain((float)(${seg}),${KALEIDOSCOPE_SEGMENTS.min}.0f,${KALEIDOSCOPE_SEGMENTS.max}.0f);`)
+    needsAtan16.v = true
+    // Integer kernel (shared/integerPatterns.ts): the wedge in 16-bit angle units.
+    ln(`  { int32_t _kW=(int32_t)(65536.0f/constrain((float)(${seg}),${KALEIDOSCOPE_SEGMENTS.min}.0f,${KALEIDOSCOPE_SEGMENTS.max}.0f));`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _kdx=_x-_kCx,_kdy=_y-_kCy,_kd=sqrtf(_kdx*_kdx+_kdy*_kdy);`)
-    ln(`      float _ka=fmodf(fmodf(atan2f(_kdy,_kdx),_kSeg)+_kSeg,_kSeg);`)
-    ln(`      if(_ka>_kSeg*0.5f) _ka=_kSeg-_ka;`)
-    ln(`      int _ksx=(int)floorf(_kCx+_kd*cosf(_ka)+0.5f),_ksy=(int)floorf(_kCy+_kd*sinf(_ka)+0.5f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?CRGB::Black:${src}[_ksy*WIDTH+_ksx];`)
+    for (const line of KALEIDO_SOURCE_CPP) ln(`      ${line}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=_kSrc<0?CRGB::Black:${src}[_kSrc];`)
     ln(`    } }`)
   },
   Mirror({ p, ln, f, channelColor, ownBuf, srcBuf }) {

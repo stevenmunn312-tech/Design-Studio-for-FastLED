@@ -3654,31 +3654,31 @@ describe('generateCpp — Kaleidoscope', () => {
     // drawn once into a buffer of its own (frameInvariance.ts).
     expect(cpp).toContain('static bool _drawn_kal = false;')
     expect(cpp).toContain('CRGB buf_kal[NUM_LEDS];   // keeps its pixels between frames')
-    expect(cpp).toContain('buf_kal[_y*WIDTH+_x]=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?CRGB::Black:buf_sc[_ksy*WIDTH+_ksx];')
+    expect(cpp).toContain('buf_kal[_y*WIDTH+_x]=_kSrc<0?CRGB::Black:buf_sc[_kSrc];')
     expect(cpp).not.toContain('::memmove(buf_kal, buf_sc')
     expect(cpp).not.toContain('mirror logic to apply')
   })
 
-  // The fold, centre and rounding must match evalKaleidoscope in
-  // graphEvaluator.ts or preview and firmware diverge.
-  it('mirrors the evaluator centre, two-step angle fold and rounding', () => {
+  // The fold, centre and rounding are the integer kernel evalKaleidoscope
+  // runs too (shared/integerPatterns.ts; native parity in
+  // integerPatternsNativeParity.test.ts).
+  it('folds through the shared integer kernel and angle helper', () => {
     const cpp = gen({ segments: 6 })
-    expect(cpp).toContain('float _kCx=WIDTH/2.0f,_kCy=HEIGHT/2.0f;')
-    expect(cpp).toContain('float _kdx=_x-_kCx,_kdy=_y-_kCy,_kd=sqrtf(_kdx*_kdx+_kdy*_kdy);')
-    expect(cpp).toContain('float _ka=fmodf(fmodf(atan2f(_kdy,_kdx),_kSeg)+_kSeg,_kSeg);')
-    expect(cpp).toContain('if(_ka>_kSeg*0.5f) _ka=_kSeg-_ka;')
-    expect(cpp).toContain('int _ksx=(int)floorf(_kCx+_kd*cosf(_ka)+0.5f),_ksy=(int)floorf(_kCy+_kd*sinf(_ka)+0.5f);')
+    expect(cpp).toContain('int32_t _kdx=2*_x-WIDTH,_kdy=2*_y-HEIGHT;')
+    expect(cpp).toContain('int32_t _ka=(int32_t)(_atan2_16(_kdy,_kdx)%_kW); if(_ka>_kW/2) _ka=_kW-_ka;')
+    expect(cpp).toContain('static uint16_t _atan2_16(int32_t y, int32_t x)')
+    expect(cpp).not.toMatch(/atan2f|cosf|sinf/)
   })
 
   it('bakes an unwired segments property and clamps it to the evaluator range of 2-16', () => {
-    expect(gen({ segments: 8 })).toContain('float _kSeg=6.2831853f/constrain((float)(8),2.0f,16.0f);')
+    expect(gen({ segments: 8 })).toContain('int32_t _kW=(int32_t)(65536.0f/constrain((float)(8),2.0f,16.0f));')
     expect(gen({ segments: 1 })).toContain('constrain((float)(1),2.0f,16.0f)')
   })
 
   it('recomputes the wedge angle from a wired segments input', () => {
     const seg = node('seg', 'Random', 'signal', { min: 3, max: 9 })
     const cpp = gen({ segments: 6 }, [seg], [edge('e3', 'seg', 'kal', 'value', 'segments')])
-    expect(cpp).toContain('float _kSeg=6.2831853f/constrain((float)(n_seg_value),2.0f,16.0f);')
+    expect(cpp).toContain('int32_t _kW=(int32_t)(65536.0f/constrain((float)(n_seg_value),2.0f,16.0f));')
   })
 
   it('renders black when nothing is wired into the frame input', () => {
