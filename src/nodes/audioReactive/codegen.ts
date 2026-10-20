@@ -6,7 +6,8 @@ import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   auroraFrameCpp, auroraPixelCpp, auroraRowCpp, cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp,
-  shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
+  bloomFrameCpp, bloomPixelCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
+  turbulentFrameCpp, turbulentPixelCpp, wellFrameCpp, wellPixelCpp,
 } from '../shared/integerPatterns'
 import {
   WAVE_GAIN_MAX, WAVE_GAIN_MIN, WAVE_PALETTE_BASE, WAVE_PALETTE_SPAN, WAVE_RING_BASE, WAVE_RING_SLACK, WAVE_RING_SPAN,
@@ -223,15 +224,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _rings = 4.0f + _b * 8.0f * _strength;`)
     ln(`    float _floor = 0.04f + _b * 0.1f * _strength;`)
     ln(`    float _gain = 0.16f + _b * 0.84f * _strength;`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of ringsFrameCpp('_maxD', '_rings', '_phase', '_floor', '_gain', id)) ln(`    ${line}`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-    ln(`      float _dx = _x - _cx, _dy = _y - _cy;`)
-    ln(`      float _dist = sqrtf(_dx * _dx + _dy * _dy) / max(0.0001f, _maxD);`)
-    ln(`      float _wave = sinf(_dist * _rings * 6.2831853f - _phase);`)
-    ln(`      float _crisp = powf(max(0.0f, _wave * 0.5f + 0.5f), 2.4f);`)
-    ln(`      float _v = min(1.0f, _floor + _crisp * _gain);`)
+    for (const line of ringsPixelCpp(id)) ln(`      ${line}`)
     ln(`      int _i = _y * WIDTH + _x;`)
-    ln(`      ${ob}[_i] = ColorFromPalette(${pal}, (uint8_t)(_dist * 255));`)
-    ln(`      ${ob}[_i].nscale8((uint8_t)(_v * 255));`)
+    ln(`      ${ob}[_i] = ColorFromPalette(${pal}, _brIdx);`)
+    ln(`      ${ob}[_i].nscale8(_brV);`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -272,18 +271,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _strength = min(1.0f, max(0.0f, _intensity));`)
     ln(`    float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_motion')
-    ln(`    float _cx0 = (WIDTH - 1) / 2.0f, _cy0 = (HEIGHT - 1) / 2.0f;`)
-    ln(`    float _sx = max(1.0f, WIDTH / 2.0f), _sy = max(1.0f, HEIGHT / 2.0f);`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of bloomFrameCpp(ph, '_mAmt', '_strength', id)) ln(`    ${line}`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-    ln(`      float _cx = (_x - _cx0) / _sx, _cy = (_y - _cy0) / _sy;`)
-    ln(`      float _radial = sqrtf(_cx * _cx + _cy * _cy);`)
-    ln(`      float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + ${ph} * 3.2f) + cosf((_cx + _cy) * 4 - ${ph} * 2.4f);`)
-    ln(`      float _bloom = sinf(_radial * (5.0f + _mAmt * 8.0f * _strength) * 3.14159265f - ${ph} * 4.0f + _swirl * 0.6f);`)
-    ln(`      float _crisp = powf(max(0.0f, _bloom * 0.5f + 0.5f), 1.8f);`)
-    ln(`      float _v = min(1.0f, _crisp * (0.22f + _mAmt * 0.78f * _strength));`)
-    ln(`      float _pt = _radial * 0.6f + _swirl * 0.12f + ${ph} * 0.05f;`)
-    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
-    ln(`      ${ob}[_y * WIDTH + _x].nscale8((uint8_t)(_v * 255));`)
+    for (const line of bloomPixelCpp(id)) ln(`      ${line}`)
+    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, _mbIdx);`)
+    ln(`      ${ob}[_y * WIDTH + _x].nscale8(_mbV);`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -635,9 +628,6 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    // inoise8 takes uint16_t coordinates; casting a negative float would be
-    // UB, so every coordinate is folded into [0,240) first (240*256<65536).
-    const wrap = (expr: string) => `fmodf(fmodf((${expr}),240.0f)+240.0f,240.0f)`
     ln(`  { // TurbulentBloom`)
     ln(`    float _b=${bass},_m=${mids},_tr=${treble},_strength=min(1.0f,max(0.0f,${energy}));`)
     ln(`    float _trebleAmp=0.15f+_tr*0.6f,_midsAmp=0.3f+_m*0.9f,_bassPulse=0.5f+sqrtf(constrain(_b,0.0f,1.0f))*0.5f;`)
@@ -647,19 +637,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    _tbFast_${id}+=_tbDt_${id}*${speed}*(1.5f+_tr*2.0f); _tbSlow_${id}+=_tbDt_${id}*${speed}*(0.3f+_m*0.6f);`)
     ln(`    float _tFast=_tbFast_${id},_tSlow=_tbSlow_${id};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), speed)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of turbulentFrameCpp('_tFast', '_tSlow', '_trebleAmp', '_midsAmp', ph, 'min(1.0f,(0.2f+0.8f*_strength)*_bassPulse)', id)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _cx=(_x-(WIDTH-1)/2.0f)/max(1.0f,WIDTH/2.0f), _cy=(_y-(HEIGHT-1)/2.0f)/max(1.0f,HEIGHT/2.0f);`)
-    ln(`      float _n1=((inoise8((uint16_t)(${wrap('_cx*3.0f+_tFast')}*256.0f),(uint16_t)(${wrap('_cy*3.0f-_tFast')}*256.0f))/255.0f)-0.5f)*2.0f;`)
-    ln(`      float _n2=((inoise8((uint16_t)(${wrap('_cx*0.6f+_tSlow')}*256.0f),(uint16_t)(${wrap('_cy*0.6f+50.0f+_tSlow')}*256.0f))/255.0f)-0.5f)*2.0f;`)
-    ln(`      float _n3=((inoise8((uint16_t)(${wrap('_cx*3.0f+50.0f+_tFast')}*256.0f),(uint16_t)(${wrap('_cy*3.0f+50.0f-_tFast')}*256.0f))/255.0f)-0.5f)*2.0f;`)
-    ln(`      float _n4=((inoise8((uint16_t)(${wrap('_cx*0.6f+50.0f+_tSlow')}*256.0f),(uint16_t)(${wrap('_cy*0.6f+_tSlow')}*256.0f))/255.0f)-0.5f)*2.0f;`)
-    ln(`      float _nOffX=_n1*_trebleAmp+_n2*_midsAmp, _nOffY=_n3*_trebleAmp+_n4*_midsAmp;`)
-    ln(`      float _wx=_cx+_nOffX,_wy=_cy+_nOffY,_radial=sqrtf(_wx*_wx+_wy*_wy);`)
-    ln(`      float _bloom=sinf(_radial*6.0f-${ph}*3.0f)+cosf((_wx+_wy)*3.0f+${ph}*2.0f);`)
-    ln(`      float _crisp=powf(max(0.0f,_bloom*0.5f+0.5f),1.6f);`)
-    ln(`      float _v=min(1.0f,_crisp*(0.2f+0.8f*_strength)*_bassPulse);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_radial*0.5f+_tSlow*0.05f)*255));`)
-    ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
+    for (const line of turbulentPixelCpp(id)) ln(`      ${line}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_tbIdx);`)
+    ln(`      ${ob}[_y*WIDTH+_x].nscale8(_tbV);`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -680,14 +663,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _maxD=max(1e-6f,sqrtf(_cx0*_cx0+_cy0*_cy0));`)
     ln(`    float _k=5.0f+_level*10.0f*_strength, _phase=${phWave};`)
     ln(`    CRGB _base=${colorE};`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of wellFrameCpp('_wellX', '_wellY', '_maxD', '_k', '_phase', '(0.03f+_level*0.08f*_strength)', '(0.15f+_level*0.85f*_strength)', id)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _dx=_x-_wellX,_dy=_y-_wellY,_dist=sqrtf(_dx*_dx+_dy*_dy)/_maxD;`)
-    ln(`      float _wave=sinf(_k/(_dist+0.12f)-_phase);`)
-    ln(`      float _crisp=powf(max(0.0f,_wave*0.5f+0.5f),2.2f);`)
-    ln(`      float _v=min(1.0f,0.03f+_level*0.08f*_strength+_crisp*(0.15f+_level*0.85f*_strength));`)
+    for (const line of wellPixelCpp(id)) ln(`      ${line}`)
     ln(`      int _i=_y*WIDTH+_x;`)
     ln(`      ${ob}[_i]=_base;`)
-    ln(`      ${ob}[_i].nscale8((uint8_t)(_v*255));`)
+    ln(`      ${ob}[_i].nscale8(_gwV);`)
     ln(`    }`)
     ln(`  }`)
   },

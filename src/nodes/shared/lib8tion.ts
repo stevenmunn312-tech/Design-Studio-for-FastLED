@@ -83,3 +83,62 @@ static inline uint8_t scale8(uint8_t i, uint8_t scale) { return (((uint16_t)i) *
 static inline uint8_t pgm_read_byte(const uint8_t *p) { return *p; }
 static inline uint16_t pgm_read_word(const uint16_t *p) { return *p; }
 #define PROGMEM`
+
+// FastLED noise_detail::p, the 257-byte permutation table inoise8 hashes with.
+const NOISE_P = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180,151]
+
+const i8 = (v: number) => (v << 24) >> 24
+
+function ease8InOutQuad(i: number): number {
+  let j = i
+  if (j & 0x80) j = 255 - j
+  let jj2 = (scale8(j, j) << 1) & 0xff
+  if (i & 0x80) jj2 = 255 - jj2
+  return jj2
+}
+
+function grad8(hash: number, x: number, y: number): number {
+  let u = x, v = y
+  if (hash & 4) { u = y; v = x }
+  if (hash & 1) u = i8(-u)
+  if (hash & 2) v = i8(-v)
+  return i8((u >> 1) + (v >> 1) + (u & 1))
+}
+
+function lerp7by8(a: number, b: number, frac: number): number {
+  return b > a ? i8(a + scale8((b - a) & 0xff, frac)) : i8(a - scale8((a - b) & 0xff, frac))
+}
+
+/** FastLED `inoise8(x, y)`, 8.8 fixed-point coordinates to 0–255, bit for bit. */
+export function inoise8(x: number, y: number): number {
+  x &= 0xffff; y &= 0xffff
+  const X = x >> 8, Y = y >> 8
+  const A = (NOISE_P[X] + Y) & 0xff, AA = NOISE_P[A], AB = NOISE_P[A + 1]
+  const B = (NOISE_P[X + 1] + Y) & 0xff, BA = NOISE_P[B], BB = NOISE_P[B + 1]
+  const u = ease8InOutQuad(x & 0xff), v = ease8InOutQuad(y & 0xff)
+  const xx = (x & 0xff) >> 1, yy = (y & 0xff) >> 1
+  const X1 = lerp7by8(grad8(NOISE_P[AA], xx, yy), grad8(NOISE_P[BA], i8(xx - 128), yy), u)
+  const X2 = lerp7by8(grad8(NOISE_P[AB], xx, i8(yy - 128)), grad8(NOISE_P[BB], i8(xx - 128), i8(yy - 128)), u)
+  const n = i8(lerp7by8(X1, X2, v) + 64) & 0xff
+  return Math.min(255, n + n)
+}
+
+/**
+ * FastLED 3.10.5's 2-D `inoise8` (noise.cpp.hpp, with lib8tion's C
+ * `ease8InOutQuad`, `avg7` and `qadd8`), copied for host builds of the
+ * native parity tests. Needs `LIB8TION_HOST_CPP` first, for `scale8`.
+ */
+export const INOISE8_HOST_CPP = String.raw`static const uint8_t _np[] = {151, 160, 137,  91,  90,  15, 131,  13, 201,  95,  96,  53, 194, 233,   7, 225,    140,  36, 103,  30,  69, 142,   8,  99,  37, 240,  21,  10,  23, 190,   6, 148,    247, 120, 234,  75,   0,  26, 197,  62,  94, 252, 219, 203, 117,  35,  11,  32,     57, 177,  33,  88, 237, 149,  56,  87, 174,  20, 125, 136, 171, 168,  68, 175,     74, 165,  71, 134, 139,  48,  27, 166,  77, 146, 158, 231,  83, 111, 229, 122,     60, 211, 133, 230, 220, 105,  92,  41,  55,  46, 245,  40, 244, 102, 143,  54,     65,  25,  63, 161,   1, 216,  80,  73, 209,  76, 132, 187, 208,  89,  18, 169,    200, 196, 135, 130, 116, 188, 159,  86, 164, 100, 109, 198, 173, 186,   3,  64,     52, 217, 226, 250, 124, 123,   5, 202,  38, 147, 118, 126, 255,  82,  85, 212,    207, 206,  59, 227,  47,  16,  58,  17, 182, 189,  28,  42, 223, 183, 170, 213,    119, 248, 152,   2,  44, 154, 163,  70, 221, 153, 101, 155, 167,  43, 172,   9,    129,  22,  39, 253,  19,  98, 108, 110,  79, 113, 224, 232, 178, 185, 112, 104,    218, 246,  97, 228, 251,  34, 242, 193, 238, 210, 144,  12, 191, 179, 162, 241,     81,  51, 145, 235, 249,  14, 239, 107,  49, 192, 214,  31, 181, 199, 106, 157,    184,  84, 204, 176, 115, 121,  50,  45, 127,   4, 150, 254, 138, 236, 205,  93,    222, 114,  67,  29,  24,  72, 243, 141, 128, 195,  78,  66, 215,  61, 156, 180,    151};
+static inline uint8_t ease8InOutQuad(uint8_t i) { uint8_t j = i; if (j & 0x80) j = 255 - j; uint8_t jj = scale8(j, j); uint8_t jj2 = jj << 1; if (i & 0x80) jj2 = 255 - jj2; return jj2; }
+static inline int8_t avg7(int8_t i, int8_t j) { return (i >> 1) + (j >> 1) + (i & 0x1); }
+static inline int8_t grad8(uint8_t hash, int8_t x, int8_t y) { int8_t u, v; if (hash & 4) { u = y; v = x; } else { u = x; v = y; } if (hash & 1) { u = -u; } if (hash & 2) { v = -v; } return avg7(u, v); }
+static inline int8_t lerp7by8(int8_t a, int8_t b, uint8_t frac) { int8_t result; if (b > a) { uint8_t delta = b - a; uint8_t scaled = scale8(delta, frac); result = a + scaled; } else { uint8_t delta = a - b; uint8_t scaled = scale8(delta, frac); result = a - scaled; } return result; }
+static inline uint8_t inoise8(uint16_t x, uint16_t y) {
+  uint8_t X = x >> 8, Y = y >> 8;
+  uint8_t A = _np[X] + Y, AA = _np[A], AB = _np[A + 1], B = _np[X + 1] + Y, BA = _np[B], BB = _np[B + 1];
+  uint8_t u = x, v = y; int8_t xx = ((uint8_t)(x) >> 1) & 0x7F, yy = ((uint8_t)(y) >> 1) & 0x7F; uint8_t N = 0x80;
+  u = ease8InOutQuad(u); v = ease8InOutQuad(v);
+  int8_t X1 = lerp7by8(grad8(_np[AA], xx, yy), grad8(_np[BA], xx - N, yy), u);
+  int8_t X2 = lerp7by8(grad8(_np[AB], xx, yy - N), grad8(_np[BB], xx - N, yy - N), u);
+  int8_t n = lerp7by8(X1, X2, v); n += 64; uint32_t t = (uint8_t)n + (uint8_t)n; return t > 255 ? 255 : (uint8_t)t;
+}`

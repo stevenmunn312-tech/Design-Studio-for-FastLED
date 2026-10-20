@@ -2269,19 +2269,22 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _spd = min(1.0f, max(0.0f,')
     expect(cpp).toContain('float _motion = _spd * (0.75f + _b * 1.75f * _strength);')
     expect(cpp).toContain('float _rings = 4.0f + _b * 8.0f * _strength;')
-    expect(cpp).toContain('sinf(_dist * _rings * 6.2831853f - _phase)')
-    expect(cpp).toContain('powf(max(0.0f, _wave * 0.5f + 0.5f), 2.4f)')
-    expect(cpp).toContain('ColorFromPalette(paldef_lava, (uint8_t)(_dist * 255))')
+    // The integer kernel: the ring count is an angle step, the crisp curve a table.
+    expect(cpp).toContain('_brK=(int32_t)(_rings*256.0f)')
+    expect(cpp).toContain('static const uint8_t _brCrisp_br[256] PROGMEM')
+    expect(cpp).toContain('ColorFromPalette(paldef_lava, _brIdx)')
+    expect(cpp).not.toMatch(/sinf|powf/)
   })
 
   it('emits MidrangeBloom through a palette with radial bloom modulation', () => {
     const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.7, energy: 0.8, speed: 0.6, palette: 'party' })
     const cpp = generateCpp([mb, outputNode], [edge('e', 'mb', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);')
-    expect(cpp).toContain('float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + _phase_mb * 3.2f)')
-    expect(cpp).toContain('float _bloom = sinf(_radial * (5.0f + _mAmt * 8.0f * _strength) * 3.14159265f')
-    expect(cpp).toContain('ColorFromPalette(paldef_party')
-    expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
+    expect(cpp).toContain('_mbA1=(int32_t)(fmodf(_phase_mb*3.2f,6.2831853f)*10430.378f)')
+    expect(cpp).toContain('(5.0f+_mAmt*8.0f*_strength)*3.14159265f')
+    expect(cpp).toContain('ColorFromPalette(paldef_party, _mbIdx)')
+    expect(cpp).toContain('.nscale8(_mbV)')
+    expect(cpp).not.toMatch(/sinf|cosf|powf/)
   })
 
   it('emits TreblePrism as sharp diagonal treble-reactive shards', () => {

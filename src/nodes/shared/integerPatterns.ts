@@ -11,7 +11,7 @@
 // with a host g++ and compares every byte. The per-frame float-to-integer
 // step is not part of that check: the preview's phase is a double and the
 // sketch's a float, as it always was.
-import { A16_PER_RADIAN, angle16, isqrt32, lowbias32, scale8, sin16 } from './lib8tion'
+import { A16_PER_RADIAN, angle16, inoise8, isqrt32, lowbias32, scale8, sin16 } from './lib8tion'
 import { LATTICE_HASH_MULTIPLIERS, latticeHashBits } from '../../state/evaluator/lattice'
 
 /** `(int32_t)` 16-bit angle of a float radian expression, once a frame. */
@@ -543,4 +543,233 @@ export function shockPixel(x: number, y: number, W: number, H: number, f: ShockF
   const jit = scale8(((sin16(dn * SHOCK_JITTER_STEP + f.jitterPhase) + 32768) >> 8) & 0xff, f.jitter)
   const v = ((w8 * (f.gain + jit)) >> 8) + f.floor
   return { index: ((dn >> 1) + f.palette) & 0xff, bri: v > 255 ? 255 : v }
+}
+
+// ── Shared radial helpers ─────────────────────────────────────────────────────
+
+/** `floor(scale * (i/255 * span)^exponent)` for i = 0..255: a power curve over [0, span]. */
+export function powTableWide(exponent: number, span: number, scale: number): number[] {
+  return Array.from({ length: 256 }, (_, i) => Math.floor(Math.pow(i / 255 * span, exponent) * scale))
+}
+
+export function wordTableCpp(name: string, table: number[]): string {
+  return `static const uint16_t ${name}[${table.length}] PROGMEM = {${table.join(',')}};`
+}
+
+/** A wave in -32767..32767 as `wave/2 + 1/2` in 0–255, the index of a power table. */
+const halfWave8 = (s: number) => ((s + 32768) >> 8) & 0xff
+const halfWave8Cpp = (s: string) => `(uint8_t)(((int32_t)(${s})+32768)>>8)`
+
+/** Integer square root of `value` into `root`, inline; `tag` keeps the locals apart. */
+function isqrtCpp(tag: string, value: string, root: string): string[] {
+  return [
+    `uint32_t _${tag}v=(uint32_t)(${value}),${root}=0,_${tag}b=1UL<<30;`,
+    `while(_${tag}b>_${tag}v) _${tag}b>>=2;`,
+    `while(_${tag}b){ if(_${tag}v>=${root}+_${tag}b){ _${tag}v-=${root}+_${tag}b; ${root}=(${root}>>1)+_${tag}b; } else { ${root}>>=1; } _${tag}b>>=2; }`,
+  ]
+}
+
+// ── BassRings ─────────────────────────────────────────────────────────────────
+// Rings by distance from the centre (W/2, H/2). The distance comes from an
+// integer square root in 1/16 pixel, normalised to the half diagonal in
+// 1/256ths; the ring count is a 16.16 angle step on it.
+
+export const RINGS_CRISP_TABLE = powTable(2.4)
+
+export interface RingsFrame { invMax: number; rings: number; phase: number; floor: number; gain: number }
+
+export function ringsFrame(maxD: number, rings: number, phase: number, floor: number, gain: number): RingsFrame {
+  return {
+    invMax: Math.trunc(65536 / Math.max(maxD, 0.0625)), rings: Math.trunc(rings * 256), phase: angle16(phase),
+    floor: Math.trunc(floor * 255) & 0xff, gain: Math.trunc(gain * 255) & 0xff,
+  }
+}
+
+export function ringsFrameCpp(maxD: string, rings: string, phase: string, floor: string, gain: string, id: string): string[] {
+  return [
+    powTableCpp(`_brCrisp_${id}`, RINGS_CRISP_TABLE),
+    `int32_t _brInvM=(int32_t)(65536.0f/fmaxf(${maxD},0.0625f)),_brK=(int32_t)(${rings}*256.0f),_brP=${angle16Cpp(phase)};`,
+    `uint8_t _brF=(uint8_t)(${floor}*255.0f),_brG=(uint8_t)(${gain}*255.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _brIdx` and `uint8_t _brV`. */
+export function ringsPixelCpp(id: string): string[] {
+  return [
+    `int32_t _bdx=2*_x-WIDTH,_bdy=2*_y-HEIGHT;`,
+    ...isqrtCpp('br', '(_bdx*_bdx+_bdy*_bdy)<<6', '_brR'),
+    `int32_t _bd=((int32_t)_brR*_brInvM)>>12;`,
+    `uint16_t _bv16=_brF+scale8(pgm_read_byte(&_brCrisp_${id}[${halfWave8Cpp('sin16((uint16_t)(_bd*_brK-_brP))')}]),_brG);`,
+    `uint8_t _brV=_bv16>255?255:(uint8_t)_bv16, _brIdx=(uint8_t)((_bd*255)>>8);`,
+  ]
+}
+
+export function ringsPixel(x: number, y: number, W: number, H: number, f: RingsFrame): { index: number; bri: number } {
+  const dx = 2 * x - W, dy = 2 * y - H
+  const d = (isqrt32((dx * dx + dy * dy) * 64) * f.invMax) >> 12
+  const v = f.floor + scale8(RINGS_CRISP_TABLE[halfWave8(sin16(d * f.rings - f.phase))], f.gain)
+  return { index: ((d * 255) >> 8) & 0xff, bri: v > 255 ? 255 : v }
+}
+
+// ── GravityWell ───────────────────────────────────────────────────────────────
+// sin(k/(d + 0.12) - phase) around a wandering well: the reciprocal is one
+// integer division a pixel, with d in 1/256 of the half diagonal.
+
+export const WELL_CRISP_TABLE = powTable(2.2)
+
+export interface WellFrame { wx: number; wy: number; invMax: number; k: number; phase: number; floor: number; gain: number }
+
+export function wellFrame(wellX: number, wellY: number, maxD: number, k: number, phase: number, floor: number, gain: number): WellFrame {
+  return {
+    wx: Math.trunc(wellX * 16), wy: Math.trunc(wellY * 16), invMax: Math.trunc(65536 / Math.max(maxD, 0.0625)),
+    k: Math.trunc(k * A16_PER_RADIAN * 256), phase: angle16(phase),
+    floor: Math.trunc(floor * 255) & 0xff, gain: Math.trunc(gain * 255) & 0xff,
+  }
+}
+
+export function wellFrameCpp(wellX: string, wellY: string, maxD: string, k: string, phase: string, floor: string, gain: string, id: string): string[] {
+  return [
+    powTableCpp(`_gwCrisp_${id}`, WELL_CRISP_TABLE),
+    `int32_t _gwX=(int32_t)(${wellX}*16.0f),_gwY=(int32_t)(${wellY}*16.0f),_gwInvM=(int32_t)(65536.0f/fmaxf(${maxD},0.0625f));`,
+    `int32_t _gwK=(int32_t)(${k}*${A16_PER_RADIAN}f*256.0f),_gwP=${angle16Cpp(phase)}; uint8_t _gwF=(uint8_t)(${floor}*255.0f),_gwG=(uint8_t)(${gain}*255.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _gwV`. */
+export function wellPixelCpp(id: string): string[] {
+  return [
+    `int32_t _gdx=_x*16-_gwX,_gdy=_y*16-_gwY;`,
+    ...isqrtCpp('gw', '_gdx*_gdx+_gdy*_gdy', '_gwR'),
+    `int32_t _gd=((int32_t)_gwR*_gwInvM)>>12;`,
+    `uint16_t _gv16=_gwF+scale8(pgm_read_byte(&_gwCrisp_${id}[${halfWave8Cpp('sin16((uint16_t)(_gwK/(_gd+31)-_gwP))')}]),_gwG);`,
+    `uint8_t _gwV=_gv16>255?255:(uint8_t)_gv16;`,
+  ]
+}
+
+export function wellPixel(x: number, y: number, f: WellFrame): number {
+  const dx = x * 16 - f.wx, dy = y * 16 - f.wy
+  const d = (isqrt32(dx * dx + dy * dy) * f.invMax) >> 12
+  const v = f.floor + scale8(WELL_CRISP_TABLE[halfWave8(sin16(Math.trunc(f.k / (d + 31)) - f.phase))], f.gain)
+  return v > 255 ? 255 : v
+}
+
+// ── MidrangeBloom ─────────────────────────────────────────────────────────────
+// Centred coordinates in 1/256 of the half size; the swirl reads their squares
+// directly, the bloom an integer radius.
+
+export const BLOOM_CRISP_TABLE = powTable(1.8)
+// 6 rad per unit of cx²-cy², applied to (cx²-cy²) in 1/256ths.
+const BLOOM_SWIRL_SQ = Math.round(6 * A16_PER_RADIAN / 256)
+const BLOOM_SWIRL_SUM = Math.round(4 * A16_PER_RADIAN / 256)
+// The swirl (two summed sin16, so /32768 a unit) at 0.6 rad and 0.12 of the palette.
+const BLOOM_SWIRL_TO_BLOOM = Math.round(0.6 * A16_PER_RADIAN)
+const BLOOM_SWIRL_TO_INDEX = Math.round(0.12 * 65536)
+
+export interface BloomFrame { invX: number; invY: number; a1: number; a2: number; bloomStep: number; bloomPhase: number; gain: number; p0: number }
+
+export function bloomFrame(W: number, H: number, phase: number, mids: number, strength: number): BloomFrame {
+  let p = (phase * 0.05) % 1
+  if (p < 0) p += 1
+  return {
+    invX: Math.trunc(32768 / Math.max(1, W / 2)), invY: Math.trunc(32768 / Math.max(1, H / 2)),
+    a1: angle16(phase * 3.2), a2: angle16(-phase * 2.4),
+    bloomStep: Math.trunc((5 + mids * 8 * strength) * Math.PI * A16_PER_RADIAN / 256), bloomPhase: angle16(-phase * 4),
+    gain: Math.trunc((0.22 + mids * 0.78 * strength) * 255) & 0xff, p0: Math.trunc(p * 65536),
+  }
+}
+
+export function bloomFrameCpp(phase: string, mids: string, strength: string, id: string): string[] {
+  return [
+    powTableCpp(`_mbCrisp_${id}`, BLOOM_CRISP_TABLE),
+    `int32_t _mbIx=(int32_t)(32768.0f/fmaxf(1.0f,WIDTH/2.0f)),_mbIy=(int32_t)(32768.0f/fmaxf(1.0f,HEIGHT/2.0f));`,
+    `int32_t _mbA1=${angle16Cpp(`${phase}*3.2f`)},_mbA2=${angle16Cpp(`-${phase}*2.4f`)},_mbBP=${angle16Cpp(`-${phase}*4.0f`)};`,
+    `int32_t _mbBK=(int32_t)((5.0f+${mids}*8.0f*${strength})*3.14159265f*${A16_PER_RADIAN}f/256.0f); uint8_t _mbG=(uint8_t)((0.22f+${mids}*0.78f*${strength})*255.0f);`,
+    `float _mbPf=fmodf(${phase}*0.05f,1.0f); if(_mbPf<0)_mbPf+=1.0f; int32_t _mbP0=(int32_t)(_mbPf*65536.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _mbIdx` and `uint8_t _mbV`. */
+export function bloomPixelCpp(id: string): string[] {
+  return [
+    `int32_t _mx=((2*_x-WIDTH+1)*_mbIx)>>8,_my=((2*_y-HEIGHT+1)*_mbIy)>>8;`,
+    ...isqrtCpp('mb', '_mx*_mx+_my*_my', '_mbR'),
+    `int32_t _sw=(int32_t)sin16((uint16_t)(((_mx*_mx-_my*_my)>>8)*${BLOOM_SWIRL_SQ}+_mbA1))+sin16((uint16_t)((_mx+_my)*${BLOOM_SWIRL_SUM}+_mbA2+16384));`,
+    `uint8_t _mbV=scale8(pgm_read_byte(&_mbCrisp_${id}[${halfWave8Cpp(`sin16((uint16_t)((int32_t)_mbR*_mbBK+_mbBP+((_sw*${BLOOM_SWIRL_TO_BLOOM})>>15)))`)}]),_mbG);`,
+    `uint8_t _mbIdx=(uint8_t)(((uint32_t)((int32_t)_mbR*154+((_sw*${BLOOM_SWIRL_TO_INDEX})>>15)+_mbP0))>>8);`,
+  ]
+}
+
+export function bloomPixel(x: number, y: number, W: number, H: number, f: BloomFrame): { index: number; bri: number } {
+  const mx = ((2 * x - W + 1) * f.invX) >> 8, my = ((2 * y - H + 1) * f.invY) >> 8
+  const r = isqrt32(mx * mx + my * my)
+  const sw = sin16(((mx * mx - my * my) >> 8) * BLOOM_SWIRL_SQ + f.a1) + sin16((mx + my) * BLOOM_SWIRL_SUM + f.a2 + 16384)
+  const bri = scale8(BLOOM_CRISP_TABLE[halfWave8(sin16(r * f.bloomStep + f.bloomPhase + ((sw * BLOOM_SWIRL_TO_BLOOM) >> 15)))], f.gain)
+  return { index: ((r * 154 + ((sw * BLOOM_SWIRL_TO_INDEX) >> 15) + f.p0) >>> 8) & 0xff, bri }
+}
+
+// ── TurbulentBloom ────────────────────────────────────────────────────────────
+// Four inoise8 octaves warp centred coordinates; the warped radius and
+// diagonal drive two waves. The noise coordinates wrap at 65536 (256 noise
+// cells), where inoise8's permutation table repeats. The crisp curve can reach
+// 1.5 before the cap, so its table spans [0, 1.5] in 1/256ths.
+
+export const TURBULENT_CRISP_TABLE = powTableWide(1.6, 1.5, 256)
+const TURB_RADIAL = Math.round(6 * A16_PER_RADIAN / 256)
+const TURB_DIAG = Math.round(3 * A16_PER_RADIAN / 256)
+
+export interface TurbulentFrame {
+  invX: number; invY: number; fast: number; slow: number; trebleAmp: number; midsAmp: number
+  p1: number; p2: number; gain: number; palette: number
+}
+
+export function turbulentFrame(
+  W: number, H: number, fast: number, slow: number, trebleAmp: number, midsAmp: number, phase: number, gain: number,
+): TurbulentFrame {
+  const wrap16 = (v: number) => { let m = v % 256; if (m < 0) m += 256; return Math.trunc(m * 256) }
+  let p = (slow * 0.05) % 1
+  if (p < 0) p += 1
+  return {
+    invX: Math.trunc(32768 / Math.max(1, W / 2)), invY: Math.trunc(32768 / Math.max(1, H / 2)),
+    fast: wrap16(fast), slow: wrap16(slow), trebleAmp: Math.trunc(trebleAmp * 256), midsAmp: Math.trunc(midsAmp * 256),
+    p1: angle16(-phase * 3), p2: angle16(phase * 2), gain: Math.trunc(gain * 255) & 0xff, palette: Math.trunc(p * 256) & 0xff,
+  }
+}
+
+export function turbulentFrameCpp(fast: string, slow: string, trebleAmp: string, midsAmp: string, phase: string, gain: string, id: string): string[] {
+  const wrap16 = (v: string) => `(int32_t)(fmodf(fmodf(${v},256.0f)+256.0f,256.0f)*256.0f)`
+  return [
+    wordTableCpp(`_tbCrisp_${id}`, TURBULENT_CRISP_TABLE),
+    `int32_t _tbIx=(int32_t)(32768.0f/fmaxf(1.0f,WIDTH/2.0f)),_tbIy=(int32_t)(32768.0f/fmaxf(1.0f,HEIGHT/2.0f));`,
+    `int32_t _tbF=${wrap16(fast)},_tbS=${wrap16(slow)},_tbTA=(int32_t)(${trebleAmp}*256.0f),_tbMA=(int32_t)(${midsAmp}*256.0f);`,
+    `int32_t _tbP1=${angle16Cpp(`-${phase}*3.0f`)},_tbP2=${angle16Cpp(`${phase}*2.0f`)}; uint8_t _tbG=(uint8_t)(${gain}*255.0f);`,
+    `float _tbPf=fmodf(${slow}*0.05f,1.0f); if(_tbPf<0)_tbPf+=1.0f; uint8_t _tbPI=(uint8_t)(_tbPf*256.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _tbIdx` and `uint8_t _tbV`. Noise octaves: n = 2*inoise8 - 255, about value*255. */
+export function turbulentPixelCpp(id: string): string[] {
+  const n = (u: string, v: string) => `((int32_t)inoise8((uint16_t)(${u}),(uint16_t)(${v}))*2-255)`
+  return [
+    `int32_t _qx=((2*_x-WIDTH+1)*_tbIx)>>8,_qy=((2*_y-HEIGHT+1)*_tbIy)>>8,_fx=_qx*3,_fy=_qy*3,_sx=(_qx*154)>>8,_sy=(_qy*154)>>8;`,
+    `int32_t _ox=(${n('_fx+_tbF', '_fy-_tbF')}*_tbTA+${n('_sx+_tbS', '_sy+12800+_tbS')}*_tbMA)>>8;`,
+    `int32_t _oy=(${n('_fx+12800+_tbF', '_fy+12800-_tbF')}*_tbTA+${n('_sx+12800+_tbS', '_sy+_tbS')}*_tbMA)>>8;`,
+    `int32_t _wx=_qx+_ox,_wy=_qy+_oy;`,
+    ...isqrtCpp('tb', '_wx*_wx+_wy*_wy', '_tbR'),
+    `int32_t _bl=((int32_t)sin16((uint16_t)((int32_t)_tbR*${TURB_RADIAL}+_tbP1))+sin16((uint16_t)((_wx+_wy)*${TURB_DIAG}+_tbP2+16384)))/2+16384;`,
+    `uint8_t _bi=_bl<=0?0:(_bl>=49152?255:(uint8_t)((_bl*170)>>15));`,
+    `uint32_t _tcv=((uint32_t)pgm_read_word(&_tbCrisp_${id}[_bi])*_tbG)>>8; uint8_t _tbV=_tcv>255?255:(uint8_t)_tcv, _tbIdx=(uint8_t)(((int32_t)_tbR>>1)+_tbPI);`,
+  ]
+}
+
+export function turbulentPixel(x: number, y: number, W: number, H: number, f: TurbulentFrame): { index: number; bri: number } {
+  const n = (u: number, v: number) => inoise8(u, v) * 2 - 255
+  const qx = ((2 * x - W + 1) * f.invX) >> 8, qy = ((2 * y - H + 1) * f.invY) >> 8
+  const fx = qx * 3, fy = qy * 3, sx = (qx * 154) >> 8, sy = (qy * 154) >> 8
+  const ox = (n(fx + f.fast, fy - f.fast) * f.trebleAmp + n(sx + f.slow, sy + 12800 + f.slow) * f.midsAmp) >> 8
+  const oy = (n(fx + 12800 + f.fast, fy + 12800 - f.fast) * f.trebleAmp + n(sx + 12800 + f.slow, sy + f.slow) * f.midsAmp) >> 8
+  const wx = qx + ox, wy = qy + oy, r = isqrt32(wx * wx + wy * wy)
+  const bl = Math.trunc((sin16(r * TURB_RADIAL + f.p1) + sin16((wx + wy) * TURB_DIAG + f.p2 + 16384)) / 2) + 16384
+  const bi = bl <= 0 ? 0 : bl >= 49152 ? 255 : (bl * 170) >> 15
+  const v = (TURBULENT_CRISP_TABLE[bi] * f.gain) >> 8
+  return { index: ((r >> 1) + f.palette) & 0xff, bri: v > 255 ? 255 : v }
 }

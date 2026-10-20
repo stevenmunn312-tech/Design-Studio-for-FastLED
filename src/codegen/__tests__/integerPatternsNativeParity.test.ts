@@ -8,13 +8,16 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { LIB8TION_HOST_CPP } from '../../nodes/shared/lib8tion'
+import { INOISE8_HOST_CPP, LIB8TION_HOST_CPP, inoise8 } from '../../nodes/shared/lib8tion'
 import {
   PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, PRISM_FLASH_TABLE, PRISM_SHARD_TABLE,
   SHOCK_GAUSS_TABLE, SHOCK_ISQRT_CPP, TWINKLE_PIXEL_CPP, auroraFrameCpp, auroraPixel, auroraPixelCpp,
   auroraRow, cascadeFrame, cascadeFrameCpp, cascadePixel, cascadePixelCpp, pacificaPixel, plasmaIndex,
   powTableCpp, pridePixel, prismPixel, prismPixelCpp, shockFrame, shockPixel, shockPixelCpp, stormFrameCpp,
   stormPixel, stormPixelCpp, twinklePixel,
+  BLOOM_CRISP_TABLE, RINGS_CRISP_TABLE, TURBULENT_CRISP_TABLE, WELL_CRISP_TABLE, bloomFrame, bloomPixel, bloomPixelCpp,
+  ringsFrame, ringsPixel, ringsPixelCpp, turbulentFrame, turbulentPixel, turbulentPixelCpp, wellFrame, wellPixel, wellPixelCpp,
+  wordTableCpp,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -24,7 +27,7 @@ function runNative(W: number, H: number, frame: string[], pixel: string[], print
   try {
     const source = path.join(dir, 'kernel.cpp'), binary = path.join(dir, 'kernel')
     writeFileSync(source, [
-      '#include <cstdio>', '#include <cstdint>', LIB8TION_HOST_CPP,
+      '#include <cstdio>', '#include <cstdint>', LIB8TION_HOST_CPP, INOISE8_HOST_CPP,
       `#define WIDTH ${W}`, `#define HEIGHT ${H}`,
       'int main(){', ...frame, '  int _i=0;',
       '  for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){', ...pixel.map((l) => `    ${l}`),
@@ -156,6 +159,54 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
         `int32_t _ksRx[]={${list('x')}},_ksRy[]={${list('y')}},_ksRr[]={${list('radius')}},_ksKb[]={${list('band')}}; uint8_t _ksFd[]={${list('fade')}}; int _ksN=${f.rings.length};`,
       ], shockPixelCpp(additive, 'n'), '"%u %u ",_ksIdx,_ksV')
       expect(grid(W, H, (x, y) => { const p = shockPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it('the inoise8 port matches FastLED across cells, wraps and fractions', () => {
+    // 64x64 points stepped by primes, so every cell corner, fraction and wrap is hit.
+    const native = runNative(64, 64, [], ['uint16_t _nx=(uint16_t)(_x*1031+_y*7), _ny=(uint16_t)(_y*1021+_x*13+40000);'], '"%u ",inoise8(_nx,_ny)')
+    expect(grid(64, 64, (x, y) => [inoise8(x * 1031 + y * 7, y * 1021 + x * 13 + 40000)])).toEqual(native)
+  }, 60_000)
+
+  it.each(SIZES)('BassRings matches on %ix%i', (W, H) => {
+    for (const f of [ringsFrame(Math.hypot(W / 2, H / 2), 4, 0, 0.04, 0.16), ringsFrame(Math.hypot(W / 2, H / 2), 12, -903.7, 0.14, 1)]) {
+      const native = runNative(W, H, [
+        powTableCpp('_brCrisp_n', RINGS_CRISP_TABLE),
+        `int32_t _brInvM=${f.invMax},_brK=${f.rings},_brP=${f.phase}; uint8_t _brF=${f.floor},_brG=${f.gain};`,
+      ], ringsPixelCpp('n'), '"%u %u ",_brIdx,_brV')
+      expect(grid(W, H, (x, y) => { const p = ringsPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('GravityWell matches on %ix%i', (W, H) => {
+    const cx = (W - 1) / 2, cy = (H - 1) / 2
+    for (const f of [wellFrame(cx, cy, Math.max(1e-6, Math.hypot(cx, cy)), 5, 0, 0.03, 0.15), wellFrame(cx + 1.7, cy - 0.4, Math.max(1e-6, Math.hypot(cx, cy)), 15, 77.7, 0.11, 1)]) {
+      const native = runNative(W, H, [
+        powTableCpp('_gwCrisp_n', WELL_CRISP_TABLE),
+        `int32_t _gwX=${f.wx},_gwY=${f.wy},_gwInvM=${f.invMax},_gwK=${f.k},_gwP=${f.phase}; uint8_t _gwF=${f.floor},_gwG=${f.gain};`,
+      ], wellPixelCpp('n'), '"%u ",_gwV')
+      expect(grid(W, H, (x, y) => [wellPixel(x, y, f)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('MidrangeBloom matches on %ix%i', (W, H) => {
+    for (const f of [bloomFrame(W, H, 0, 0.5, 0.7), bloomFrame(W, H, 433.1, 1, 1)]) {
+      const native = runNative(W, H, [
+        powTableCpp('_mbCrisp_n', BLOOM_CRISP_TABLE),
+        `int32_t _mbIx=${f.invX},_mbIy=${f.invY},_mbA1=${f.a1},_mbA2=${f.a2},_mbBP=${f.bloomPhase},_mbBK=${f.bloomStep},_mbP0=${f.p0}; uint8_t _mbG=${f.gain};`,
+      ], bloomPixelCpp('n'), '"%u %u ",_mbIdx,_mbV')
+      expect(grid(W, H, (x, y) => { const p = bloomPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('TurbulentBloom matches on %ix%i', (W, H) => {
+    for (const f of [turbulentFrame(W, H, 0, 0, 0.45, 0.75, 0, 0.6), turbulentFrame(W, H, 391.2, -57.3, 0.75, 1.2, 1201.5, 1)]) {
+      const native = runNative(W, H, [
+        wordTableCpp('_tbCrisp_n', TURBULENT_CRISP_TABLE),
+        `int32_t _tbIx=${f.invX},_tbIy=${f.invY},_tbF=${f.fast},_tbS=${f.slow},_tbTA=${f.trebleAmp},_tbMA=${f.midsAmp},_tbP1=${f.p1},_tbP2=${f.p2};`,
+        `uint8_t _tbG=${f.gain},_tbPI=${f.palette};`,
+      ], turbulentPixelCpp('n'), '"%u %u ",_tbIdx,_tbV')
+      expect(grid(W, H, (x, y) => { const p = turbulentPixel(x, y, W, H, f); return [p.index, p.bri] })).toEqual(native)
     }
   }, 60_000)
 })

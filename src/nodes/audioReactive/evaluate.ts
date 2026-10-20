@@ -24,7 +24,9 @@ import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 import { speedPhase } from '../shared/speedClock'
-import { auroraPixel, auroraRow, cascadeFrame, shockFrame, shockPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
+import {
+  auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, ringsFrame, ringsPixel, shockFrame, shockPixel,
+  turbulentFrame, turbulentPixel, wellFrame, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
@@ -362,13 +364,13 @@ function evalBassRings(key: string, bass: number, intensity: number, speed: numb
   const ringCount = 4 + level * 8 * strength
   const floor = 0.04 + level * 0.1 * strength
   const gain = 0.16 + level * 0.84 * strength
+  // The sketch's integer kernel (shared/integerPatterns.ts): concentric
+  // palette rings by distance from centre, brightness by the wave.
+  const frame = ringsFrame(maxD, ringCount, phase, floor, gain)
   return buildFrame(W, H, (x, y) => {
-      const dist = Math.hypot(x - cx, y - cy) / maxD
-      const wave = Math.sin(dist * ringCount * Math.PI * 2 - phase)
-      const crisp = Math.pow(Math.max(0, wave * 0.5 + 0.5), 2.4)
-      const v = Math.min(1, floor + crisp * gain)
-      // Concentric palette rings by distance from centre, brightness by the wave.
-      return scaleRgb(samplePalette(palette, dist), v)
+      const { index, bri } = ringsPixel(x, y, W, H, frame)
+      const c = samplePalette(palette, index / 256)
+      return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
     })
 }
 
@@ -397,25 +399,12 @@ function evalMidrangeBloom(key: string, mids: number, intensity: number, speed: 
   const strength = Math.max(0, Math.min(1, intensity))
   const motion = Math.max(0, Math.min(1, speed)) * (0.8 + level * 2.2 * strength)
   const phase = speedPhase(key, t, motion)
-  const cx0 = (W - 1) / 2
-  const cy0 = (H - 1) / 2
-  const sx = Math.max(1, W / 2)
-  const sy = Math.max(1, H / 2)
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = bloomFrame(W, H, phase, level, strength)
   return buildFrame(W, H, (x, y) => {
-      const cx = (x - cx0) / sx
-      const cy = (y - cy0) / sy
-      const radial = Math.hypot(cx, cy)
-      const swirl = Math.sin((cx * cx - cy * cy) * 6 + phase * 3.2)
-        + Math.cos((cx + cy) * 4 - phase * 2.4)
-      const bloom = Math.sin(radial * (5 + level * 8 * strength) * Math.PI - phase * 4 + swirl * 0.6)
-      const crisp = Math.pow(Math.max(0, bloom * 0.5 + 0.5), 1.8)
-      const v = Math.min(1, crisp * (0.22 + level * 0.78 * strength))
-      const c = samplePalette(palette, radial * 0.6 + swirl * 0.12 + phase * 0.05)
-      return {
-        r: Math.round(c.r * v),
-        g: Math.round(c.g * v),
-        b: Math.round(c.b * v),
-      }
+      const { index, bri } = bloomPixel(x, y, W, H, frame)
+      const c = samplePalette(palette, index / 256)
+      return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
     })
 }
 
@@ -808,18 +797,13 @@ function evalTurbulentBloom(
   const tFast = phases.a, tSlow = phases.b
   const phase = speedPhase(key, t, speed)
 
+  // The sketch's integer kernel (shared/integerPatterns.ts), on FastLED's
+  // inoise8 like the sketch, where the preview used to sample simplex noise.
+  const frame = turbulentFrame(W, H, tFast, tSlow, trebleAmp, midsAmp, phase, Math.min(1, (0.2 + 0.8 * strength) * bassPulse))
   return buildFrame(W, H, (x, y) => {
-    const cx = (x - (W - 1) / 2) / Math.max(1, W / 2)
-    const cy = (y - (H - 1) / 2) / Math.max(1, H / 2)
-    const nOffX = _snoise2(cx * 3 + tFast, cy * 3 - tFast) * trebleAmp + _snoise2(cx * 0.6 + tSlow, cy * 0.6 + 50 + tSlow) * midsAmp
-    const nOffY = _snoise2(cx * 3 + 50 + tFast, cy * 3 + 50 - tFast) * trebleAmp + _snoise2(cx * 0.6 + 50 + tSlow, cy * 0.6 + tSlow) * midsAmp
-    const wx = cx + nOffX, wy = cy + nOffY
-    const radial = Math.hypot(wx, wy)
-    const bloom = Math.sin(radial * 6 - phase * 3) + Math.cos((wx + wy) * 3 + phase * 2)
-    const crisp = Math.pow(Math.max(0, bloom * 0.5 + 0.5), 1.6)
-    const v = Math.min(1, crisp * (0.2 + 0.8 * strength) * bassPulse)
-    const c = samplePalette(palette, radial * 0.5 + tSlow * 0.05)
-    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+    const { index, bri } = turbulentPixel(x, y, W, H, frame)
+    const c = samplePalette(palette, index / 256)
+    return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
   })
 }
 
@@ -839,12 +823,11 @@ function evalGravityWell(
   const k = 5 + level * 10 * strength
   const phase = speedPhase(key, t, 1.0 + speed * 2.2, 'wave')
 
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = wellFrame(wellX, wellY, maxD, k, phase, 0.03 + level * 0.08 * strength, 0.15 + level * 0.85 * strength)
   return buildFrame(W, H, (x, y) => {
-    const dist = Math.hypot(x - wellX, y - wellY) / maxD
-    const wave = Math.sin(k / (dist + 0.12) - phase)
-    const crisp = Math.pow(Math.max(0, wave * 0.5 + 0.5), 2.2)
-    const v = Math.min(1, 0.03 + level * 0.08 * strength + crisp * (0.15 + level * 0.85 * strength))
-    return { r: Math.round(color.r * v), g: Math.round(color.g * v), b: Math.round(color.b * v) }
+    const v = wellPixel(x, y, frame)
+    return { r: scale8(color.r, v), g: scale8(color.g, v), b: scale8(color.b, v) }
   })
 }
 
