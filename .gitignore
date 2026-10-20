@@ -5,6 +5,8 @@ dist/
 /release/
 .DS_Store
 *.local
+# Visual Studio workspace cache, rebuilt whenever the folder is opened.
+/.vs/
 
 # Blender source files and automatic backups stay local.
 *.blend
