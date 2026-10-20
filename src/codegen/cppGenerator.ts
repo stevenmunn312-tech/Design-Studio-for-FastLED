@@ -1519,11 +1519,12 @@ export function generateCpp(
       .replace(/\bWIDTH\b/g, 'RENDER_WIDTH')
       .replace(/\bHEIGHT\b/g, 'RENDER_HEIGHT'))
     // Explicit template prototype keeps Arduino's .ino preprocessor from
-    // inventing a non-template overload above the definition.
-    lines.push(`template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT>`)
-    lines.push(`float renderOutputPass(float t);`)
-    lines.push(`template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT>`)
-    lines.push(`float renderOutputPass(float t) {`)
+    // inventing a non-template overload above the definition. The template
+    // header shares the signature's line: when this is the sketch's first
+    // function, arduino-cli inserts its prototypes at the signature's line,
+    // which would otherwise split the header from the function it names.
+    lines.push(`template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT> float renderOutputPass(float t);`)
+    lines.push(`template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT> float renderOutputPass(float t) {`)
     lines.push(`  static constexpr int RENDER_LEDS = RENDER_WIDTH * RENDER_HEIGHT;`)
     for (const name of persistentBufs) {
       lines.push(`  static ${name.startsWith('field_') ? 'float' : 'CRGB'} ${name}[RENDER_LEDS];`)

@@ -229,6 +229,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `withLoopPacing` then picks the sleep-only pacing function because no
   `FastLED.show();` is left.
 
+- Keep a template's header on the same line as its signature
+  (`template<...> float renderOutputPass(float t) {`). arduino-cli inserts its
+  generated prototypes at the line ctags reports for the sketch's first
+  function, which is the signature line; with the header on the line above,
+  the prototypes land between them, the header binds to a prototype and the
+  definition compiles as a non-template (`'RENDER_WIDTH' was not declared`).
+  It only shows when that function is the first in the sketch.
+
 - **Never pace a loop with `FastLED.delay`.** In the pinned FastLED 3.10.5,
   `CFastLED::delay` is a do-while that calls `show()` then `delay(1)` until the
   time is up, so `FastLED.show(); FastLED.delay(N);` sends every frame at

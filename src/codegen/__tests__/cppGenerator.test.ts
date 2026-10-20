@@ -143,6 +143,10 @@ describe('generateCpp', () => {
     // One emitted body, two shape-specialised calls. Function-local statics
     // are namespaced by the template pass rather than shared across shapes.
     expect(cpp.match(/float renderOutputPass\(float t\) \{/g)).toHaveLength(1)
+    // Header and signature share a line, so arduino-cli's inserted prototypes
+    // cannot land between them when this is the sketch's first function.
+    expect(cpp).toContain('template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT> float renderOutputPass(float t) {')
+    expect(cpp.split('\n')).not.toContain('template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT>')
     expect(cpp).toContain('renderOutputPass<0, 60, 1>')
     expect(cpp).toContain('renderOutputPass<1, 16, 16>')
     expect(cpp).toContain('static uint8_t _fireHeat_fire[RENDER_HEIGHT][RENDER_WIDTH]')
