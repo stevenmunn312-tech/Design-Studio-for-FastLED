@@ -1834,15 +1834,15 @@ describe('generateCpp', () => {
 
   it('emits Pride 2015 colorwaves only when a palette is wired', () => {
     const plain = generateCpp([node('n', 'Pride2015', 'pattern', {}), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
-    expect(plain).toContain('CHSV((uint8_t)(_hue/360.0f*255.0f),230,(uint8_t)(_bri*255.0f))')
+    expect(plain).toContain('CHSV(_hue,230,_bri)')
     expect(plain).not.toContain('ColorFromPalette')
     const wave = generateCpp(
       [node('n', 'Pride2015', 'pattern', {}), node('sel', 'PaletteSelector', 'color', { palette: 'ocean' }), outputNode],
       [edge('e', 'n', 'out', 'frame', 'frame'), edge('p', 'sel', 'n', 'palette', 'paletteIn')],
     )
     expect(wave).toContain('CRGB _pc=ColorFromPalette(')
-    expect(wave).toContain('(uint8_t)(_pc.r*_bri)')
-    expect(wave).not.toContain('CHSV((uint8_t)(_hue/360.0f*255.0f),230')
+    expect(wave).toContain('_pc.nscale8(_bri)')
+    expect(wave).not.toContain('CHSV(_hue,230,_bri)')
   })
 
   it('emits the Fire smoke layer only in the smoke style', () => {
@@ -2288,10 +2288,11 @@ describe('generateCpp', () => {
     const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.85, energy: 0.9, speed: 0.7, palette: 'amethyst' })
     const cpp = generateCpp([tp, outputNode], [edge('e', 'tp', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = _spd * (1.2f + _t * 3.2f * _strength);')
-    expect(cpp).toContain('float _prism = max(0.0f, _waveA * 0.55f + _waveB * 0.45f);')
-    expect(cpp).toContain('powf(_prism, 3.6f)')
-    expect(cpp).toContain('powf(max(0.0f, sinf((_x + _y) * 2.4f - _phase_tp * 9.0f) * 0.5f + 0.5f), 10.0f)')
-    expect(cpp).toContain('ColorFromPalette(paldef_amethyst, (uint8_t)(_pt * 255))')
+    // The integer kernel: shard and flash curves are tables, the waves sin16.
+    expect(cpp).toContain('static const uint8_t _tpShard_tp[256] PROGMEM')
+    expect(cpp).toContain('pgm_read_byte(&_tpFlash_tp[_f8])')
+    expect(cpp).toContain('ColorFromPalette(paldef_amethyst, (uint8_t)(((_x + _y) * 255) / (WIDTH + HEIGHT)))')
+    expect(cpp).not.toMatch(/sinf|powf/)
   })
 
   it('emits AudioCascade as a full-spectrum palette pattern with ribbons and shimmer', () => {
@@ -5210,15 +5211,18 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([pr, outputNode], [edge('e1', 'pr', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB* const buf_pr = leds;')
     expect(cpp).toContain('buf_pr[_y*WIDTH+_x]=CHSV(')
-    expect(cpp).toContain('fmodf(_i*_sc*6.0f+_phase_pr*40.0f,360.0f)')
+    expect(cpp).toContain('fmodf(_phase_pr*40.0f,360.0f)')
+    expect(cpp).toContain('sin16((uint16_t)((uint32_t)_i*(uint32_t)_bs+(uint32_t)_b0))')
+    expect(cpp).not.toContain('sinf(')
   })
 
   it('Pacifica emits the layered-wave formula through ColorFromPalette with a whitecap blend', () => {
     const pa = node('pa', 'Pacifica', 'pattern', { speed: 0.35, scale: 0.5, palette: 'ocean' })
     const cpp = generateCpp([pa, outputNode], [edge('e1', 'pa', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB* const buf_pa = leds;')
-    expect(cpp).toContain('ColorFromPalette(paldef_ocean,(uint8_t)(_n*255.0f))')
-    expect(cpp).toContain('if(_foam>0.85f)')
+    expect(cpp).toContain('CRGB _c=ColorFromPalette(paldef_ocean,_n);')
+    expect(cpp).toContain('if(_w){')
+    expect(cpp).not.toContain('sinf(')
   })
 
   it('TwinkleFox emits the shared per-pixel hash + twinkle cycle through the palette', () => {
@@ -5226,10 +5230,10 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([tf, outputNode], [edge('e1', 'tf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB* const buf_tf = leds;')
     expect(cpp).toContain('int _si=_i+0;')
-    expect(cpp).toContain('_ph=sinf(_si*12.9898f)*43758.5453f')
-    expect(cpp).toContain('float _tri=1.0f-fabsf(2.0f*_cy-1.0f);')
-    expect(cpp).toContain('ColorFromPalette(paldef_party,(uint8_t)(_ci*255.0f))')
-    expect(cpp).toContain('_px.nscale8_video((uint8_t)(_bri*255.0f))')
+    expect(cpp).toContain('_h*=0x7feb352dU;')
+    expect(cpp).toContain('ColorFromPalette(paldef_party,_tc)')
+    expect(cpp).toContain('_px.nscale8_video(_tb)')
+    expect(cpp).not.toMatch(/sinf|powf/)
   })
 
   it('Scanner emits a ping-pong palette beam along the selected axis', () => {

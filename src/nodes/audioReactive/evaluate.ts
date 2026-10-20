@@ -24,6 +24,8 @@ import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 import { speedPhase } from '../shared/speedClock'
+import { prismFrame, prismPixel } from '../shared/integerPatterns'
+import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
 
@@ -476,19 +478,13 @@ function evalTreblePrism(key: string, treble: number, intensity: number, speed: 
   const level = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
   const motion = Math.max(0, Math.min(1, speed)) * (1.2 + level * 3.2 * strength)
-  const phase = speedPhase(key, t, motion)
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = prismFrame(speedPhase(key, t, motion), level, strength)
   return buildFrame(W, H, (x, y) => {
-      const diagA = x * 1.7 + y * 1.15
-      const diagB = x * -1.1 + y * 1.9
-      const waveA = Math.sin(diagA + phase * 7.5)
-      const waveB = Math.sin(diagB - phase * 6.1)
-      const prism = Math.max(0, waveA * 0.55 + waveB * 0.45)
-      const shard = Math.pow(prism, 3.6)
-      const flash = Math.pow(Math.max(0, Math.sin((x + y) * 2.4 - phase * 9) * 0.5 + 0.5), 10)
-      const v = Math.min(1, shard * (0.3 + level * 0.7 * strength) + flash * level * 0.9 * strength)
+      const v = prismPixel(x, y, frame)
       // Diagonal position spreads the palette across the shards, like a prism.
-      const pt = (x + y) / (W + H)
-      return scaleRgb(samplePalette(palette, pt), v)
+      const c = samplePalette(palette, Math.floor((x + y) * 255 / (W + H)) / 256)
+      return { r: scale8(c.r, v), g: scale8(c.g, v), b: scale8(c.b, v) }
     })
 }
 

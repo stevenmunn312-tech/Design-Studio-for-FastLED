@@ -3,6 +3,10 @@ import { SPIRAL_ARMS } from './limits'
 import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import {
+  PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, TWINKLE_PIXEL_CPP,
+  pacificaFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
+} from '../shared/integerPatterns'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
@@ -182,11 +186,11 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`  {`)
     ln(`    float _spd = ${speed};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of plasmaFrameCpp(ph)) ln(`    ${line}`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-    ln(`      float _v = sin(_x / 3.0f + ${ph}) + sin(_y / 3.0f + ${ph} * 0.8f)`)
-    ln(`              + sin((_x + _y) / 5.0f + ${ph} * 0.6f)`)
-    ln(`              + sin(sqrt((_x - WIDTH/2.0f)*(_x - WIDTH/2.0f) + (_y - HEIGHT/2.0f)*(_y - HEIGHT/2.0f)) / 3.0f + ${ph} * 0.5f);`)
-    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(_v * 45 + t * 20));`)
+    for (const line of PLASMA_PIXEL_CPP) ln(`      ${line}`)
+    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, _idx);`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -211,12 +215,11 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const pal = wired ? paletteExpr(node.id, 'paletteIn', p) : ''
     ln(`  { float _spd=${speed},_sc=${scale}; int _i=0;`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    for (const line of prideFrameCpp(ph, '_sc')) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _hue=fmodf(_i*_sc*6.0f+${ph}*40.0f,360.0f); if(_hue<0)_hue+=360.0f;`)
-    ln(`      float _bt=_i*_sc*3.0f+${ph}*15.0f;`)
-    ln(`      float _bri=0.35f+0.65f*(sinf(_bt)*0.5f+0.5f);`)
-    if (wired) ln(`      CRGB _pc=ColorFromPalette(${pal},(uint8_t)(_hue/360.0f*255.0f)); ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(_pc.r*_bri),(uint8_t)(_pc.g*_bri),(uint8_t)(_pc.b*_bri));`)
-    else ln(`      ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)(_hue/360.0f*255.0f),230,(uint8_t)(_bri*255.0f));`)
+    for (const line of PRIDE_PIXEL_CPP) ln(`      ${line}`)
+    if (wired) ln(`      CRGB _pc=ColorFromPalette(${pal},_hue); _pc.nscale8(_bri); ${ob}[_y*WIDTH+_x]=_pc;`)
+    else ln(`      ${ob}[_y*WIDTH+_x]=CHSV(_hue,230,_bri);`)
     ln(`      _i++; } }`)
   },
   // Homage to the FastLED "Pacifica" ocean-wave demo (see the evaluator's
@@ -229,15 +232,11 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { float _spd=${speed},_sc=${scale};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    for (const line of pacificaFrameCpp(ph, '_sc')) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _v=sinf(_x*0.3f*_sc+${ph})`)
-    ln(`              +sinf((_x*0.15f*_sc-_y*0.1f*_sc)+${ph}*0.6f)*0.7f`)
-    ln(`              +sinf((_x+_y)*0.08f*_sc+${ph}*1.3f)*0.5f;`)
-    ln(`      float _n=constrain(_v/2.2f*0.5f+0.5f,0.0f,1.0f);`)
-    ln(`      CRGB _c=ColorFromPalette(${pal},(uint8_t)(_n*255.0f));`)
-    ln(`      float _foam=sinf(_x*0.9f*_sc+_y*0.4f*_sc+${ph}*2.2f);`)
-    ln(`      if(_foam>0.85f){float _w=(_foam-0.85f)/0.15f;`)
-    ln(`        _c.r=(uint8_t)(_c.r+(255-_c.r)*_w); _c.g=(uint8_t)(_c.g+(255-_c.g)*_w); _c.b=(uint8_t)(_c.b+(255-_c.b)*_w);}`)
+    for (const line of PACIFICA_PIXEL_CPP) ln(`      ${line}`)
+    ln(`      CRGB _c=ColorFromPalette(${pal},_n);`)
+    ln(`      if(_w){ _c.r+=((255-_c.r)*_w)>>8; _c.g+=((255-_c.g)*_w)>>8; _c.b+=((255-_c.b)*_w)>>8; }`)
     ln(`      ${ob}[_y*WIDTH+_x]=_c;`)
     ln(`    } }`)
   },
@@ -251,18 +250,14 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const density = `constrain((${f('density', 'density', 0.5)}),0.0f,1.0f)`
     const seed = seedProp(p)
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  { float _spd=${speed}; float _exp=6.0f-5.0f*${density}; int _i=0;`)
+    ln(`  { float _spd=${speed}; int _i=0;`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    for (const line of twinkleFrameCpp(ph, density)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      int _si=_i+${seed * 131};`)
-    ln(`      float _ph=sinf(_si*12.9898f)*43758.5453f; _ph=_ph-floorf(_ph);`)
-    ln(`      float _rt=sinf((_si+11)*12.9898f)*43758.5453f; _rt=0.5f+(_rt-floorf(_rt));`)
-    ln(`      float _ci=sinf((_si+23)*12.9898f)*43758.5453f; _ci=_ci-floorf(_ci);`)
-    ln(`      float _cy=fmodf(${ph}*_rt+_ph,1.0f);`)
-    ln(`      float _tri=1.0f-fabsf(2.0f*_cy-1.0f);`)
-    ln(`      float _bri=powf(_tri,_exp);`)
-    ln(`      CRGB _px=ColorFromPalette(${pal},(uint8_t)(_ci*255.0f));`)
-    ln(`      _px.nscale8_video((uint8_t)(_bri*255.0f));`)
+    for (const line of TWINKLE_PIXEL_CPP) ln(`      ${line}`)
+    ln(`      CRGB _px=ColorFromPalette(${pal},_tc);`)
+    ln(`      _px.nscale8_video(_tb);`)
     ln(`      ${ob}[_y*WIDTH+_x]=_px; _i++; } }`)
   },
   Scanner({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {

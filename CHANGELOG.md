@@ -74,8 +74,25 @@ versioning (`0.y.z`) until the first stable release.
   deploy validation as Custom Formula). Constant, Logic and Color also run in
   a show's control graph.
 
+- **Frame performance tools** (experimental). Graph Health shows the frame
+  rate a graph's LED wiring can reach on the chosen board, and the readiness
+  strip shows it too. When the wire sets the pace, Graph Health offers fixes: a
+  lower frame rate, a faster clock on APA102, HD108 and WS2801 outputs (their
+  LED output gains a data-rate setting), **Split across pins**, or a parallel
+  driver. **Split across pins** feeds one LED output from several data pins at
+  once. The Board gains an **LED driver** choice where FastLED offers more than
+  one, such as LCD_CAM on the ESP32-S3. Device telemetry reports render and
+  send time separately, plus the three costliest nodes by name.
+
 ### Changed
 
+- Sketches wait for a fixed deadline at the end of each frame and send it
+  once. FastLED's `delay` re-sent every frame at least twice, so long strips
+  now run up to twice as fast. Nodes whose pixels never change are drawn once.
+  Plasma, Pride2015, Pacifica, TwinkleFox and TreblePrism draw with integer
+  maths, which is 30 to 450 times faster on an ESP8266. They look the same,
+  except that TwinkleFox gives each pixel a new twinkle schedule. Its preview
+  and LEDs now agree; before, the float hash differed between the two.
 - The Music Library analyses songs without Essentia. Beats, tempo, key and
   mood now come from an analyzer built on FastLED's own audio detectors, with
   an offline beat tracker that reads the whole song. On a 41-song test library

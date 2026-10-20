@@ -177,6 +177,7 @@ with `--engine fbuild` or `--engine all`.
 ### Physical bench and bring-up
 
 - [Input Peripheral Bench Records](reports/bench/input-peripheral-bench.md)
+- [Node shares on a board without an FPU](reports/bench/node-share-bench.md)
 - [Stereo VU Meter — physical validation](reports/bench/stereo-vu-bench.md)
 - [XC4630 parallel touch panel — bring-up state](reports/bench/xc4630-bring-up.md)
 

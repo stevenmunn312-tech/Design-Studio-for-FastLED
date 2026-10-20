@@ -323,6 +323,36 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   nothing. Keep the rates whole MHz: on software-SPI platforms the macro is
   `CPU MHz / n` in integer arithmetic, a divider rather than a frequency.
 
+## Integer pattern kernels
+
+Plasma, Pride2015, Pacifica, TwinkleFox and TreblePrism draw each pixel with
+integer maths, because their float `sinf`/`powf` cost 37–259 ms a 256-pixel
+frame on an ESP8266
+([node-share bench](../../reports/bench/node-share-bench.md)). Each kernel in
+`src/nodes/shared/integerPatterns.ts` has three parts:
+
+- a **frame** step that turns the float phase and inputs into integers once a
+  frame: 16-bit angles (`angle16Cpp`, 65536 a turn), per-pixel angle steps,
+  and byte gains;
+- the **pixel** lines, one exported C++ string array that the emitter inlines
+  and the native parity test compiles;
+- a TS **twin** of the pixel lines, which the preview calls, built on the exact
+  FastLED ports in `src/nodes/shared/lib8tion.ts` (`sin16`, `scale8` with
+  `FASTLED_SCALE8_FIXED`, `nscale8_video`) plus `lowbias32` and `isqrt32`.
+
+Change a kernel's pixel lines and its twin together.
+`integerPatternsNativeParity.test.ts` compiles the C++ lines against copies of
+FastLED's `sin16` and `scale8` and requires every byte to match the twin, for
+the same frame integers. Like the other native parity tests it needs a host
+`g++` and skips without one. On Windows, run it with the WSL `g++`.
+
+The frame step is not byte-checked: the preview's phase is a double and the
+sketch's a float, as before. Keep the per-pixel work free of float, so an
+error stays one rounding a frame instead of one a pixel. A power curve with a
+constant exponent is a 256-byte PROGMEM table built in TS (`powTable`), which
+the preview reads too. A wired exponent, such as TwinkleFox's density, is a
+whole power by repeated `scale8` blended toward the next power by its fraction.
+
 ## Dead-code pruning
 
 All three generators finish through `finishCpp` (`src/codegen/cppCleanup.ts`)

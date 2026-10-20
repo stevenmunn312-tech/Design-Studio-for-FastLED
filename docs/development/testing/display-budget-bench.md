@@ -41,7 +41,7 @@ FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=419430
 | `psram` / `psramtotal` | Free and fitted PSRAM; both zero on a board without any |
 | `touchms` | Worst press-to-painted-frame in the interval. **Absent when nothing was touched**, which is not the same as zero |
 | `drawbuf` | Bytes of display draw buffer the build allocated, from `sizeof` rather than from an estimate |
-| `top` | The interval's three costliest nodes as `index:ms,index:ms,index:ms`, costliest first: each node's mean ms per frame with its LED sends taken out. The index counts the sketch's timed nodes in loop order, and the sketch names them in one `// FLS_STAT nodes [...]` comment the telemetry card reads back from the uploaded sketch to show labels. **Normal sketches only**, and **absent when no node was timed** (a native multi-output render, or nothing that cost a microsecond) |
+| `top` | The interval's three costliest nodes as `index:ms,index:ms,index:ms`, costliest first: each node's mean ms per frame with its LED sends taken out. The index counts the sketch's timed nodes in loop order, and the sketch names them in one `// FLS_STAT nodes [...]` comment the telemetry card reads back from the uploaded sketch to show labels. **Normal sketches only**, and **absent when no node was timed** (a native multi-output render, or nothing that cost a microsecond). Readings for every node on an ESP8266 are in the [node-share bench](../../reports/bench/node-share-bench.md) |
 
 Only ESP32 and ESP8266 boards emit it — `Serial.printf` and the heap accessors
 are ESP-family API, so on any other target the property is ignored rather than

@@ -4,6 +4,7 @@ import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { prismFrameCpp, prismPixelCpp } from '../shared/integerPatterns'
 import {
   WAVE_GAIN_MAX, WAVE_GAIN_MIN, WAVE_PALETTE_BASE, WAVE_PALETTE_SPAN, WAVE_RING_BASE, WAVE_RING_SLACK, WAVE_RING_SPAN,
   WAVE_SAMPLES, WAVE_SMOOTHING_MAX, WAVE_STYLES, WAVE_THICKNESS_MAX, WAVE_THICKNESS_MIN,
@@ -323,18 +324,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
     ln(`    float _motion = _spd * (1.2f + _t * 3.2f * _strength);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_motion')
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of prismFrameCpp(ph, '_t', '_strength', id)) ln(`    ${line}`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-    ln(`      float _diagA = _x * 1.7f + _y * 1.15f, _diagB = _x * -1.1f + _y * 1.9f;`)
-    ln(`      float _waveA = sinf(_diagA + ${ph} * 7.5f);`)
-    ln(`      float _waveB = sinf(_diagB - ${ph} * 6.1f);`)
-    ln(`      float _prism = max(0.0f, _waveA * 0.55f + _waveB * 0.45f);`)
-    ln(`      float _shard = powf(_prism, 3.6f);`)
-    ln(`      float _flash = powf(max(0.0f, sinf((_x + _y) * 2.4f - ${ph} * 9.0f) * 0.5f + 0.5f), 10.0f);`)
-    ln(`      float _v = min(1.0f, _shard * (0.3f + _t * 0.7f * _strength) + _flash * _t * 0.9f * _strength);`)
-    ln(`      float _pt = (_x + _y) / (float)(WIDTH + HEIGHT);`)
+    for (const line of prismPixelCpp(id)) ln(`      ${line}`)
     ln(`      int _i = _y * WIDTH + _x;`)
-    ln(`      ${ob}[_i] = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
-    ln(`      ${ob}[_i].nscale8((uint8_t)(_v * 255));`)
+    ln(`      ${ob}[_i] = ColorFromPalette(${pal}, (uint8_t)(((_x + _y) * 255) / (WIDTH + HEIGHT)));`)
+    ln(`      ${ob}[_i].nscale8(_pv);`)
     ln(`    }`)
     ln(`  }`)
   },

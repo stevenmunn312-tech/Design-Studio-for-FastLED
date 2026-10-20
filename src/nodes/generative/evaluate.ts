@@ -5,6 +5,10 @@ import {
 } from './classics1d'
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
+import {
+  pacificaFrame, pacificaPixel, plasmaFrame, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
+} from '../shared/integerPatterns'
+import { scale8, scale8Video } from '../shared/lib8tion'
 import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
 import {
   DEFAULT_W,
@@ -49,18 +53,10 @@ function evalRainbow(start: number, deltaHue: number, W = DEFAULT_W, H = DEFAULT
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
 function evalPlasma(key: string, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const ph = speedPhase(key, t, speed)
-  return buildFrame(W, H, (x, y) => {
-      const v = Math.sin(x / 3 + ph)
-              + Math.sin(y / 3 + ph * 0.8)
-              + Math.sin((x + y) / 5 + ph * 0.6)
-              + Math.sin(Math.hypot(x - W / 2, y - H / 2) / 3 + ph * 0.5)
-      // Same shifting phase the old hue sweep used (v*45 + t*20), now mapped
-      // through the palette — /256 so it wraps the same way ColorFromPalette's
-      // uint8_t index does in codegen. The default 'rainbow' palette keeps the
-      // classic full-spectrum look.
-      return samplePalette(palette, (v * 45 + t * 20) / 256)
-    })
+  // The sketch's integer kernel (shared/integerPatterns.ts): four summed
+  // sin16 waves to a palette index v*45 + t*20, wrapping as a uint8_t does.
+  const frame = plasmaFrame(speedPhase(key, t, speed), t)
+  return buildFrame(W, H, (x, y) => samplePalette(palette, plasmaIndex(x, y, W, H, frame) / 256))
 }
 
 // Homage to Mark Kriegsman's Pride2015 — a shifting full-spectrum rainbow with
@@ -70,19 +66,17 @@ function evalPlasma(key: string, speed: number, t: number, palette: Palette, W =
 // With a palette wired it becomes Kriegsman's colorwaves: the same hue sweep and
 // brightness wave, read through the palette instead of the colour wheel.
 function evalPride2015(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, palette: Palette | null = null): Frame {
-  const ph = speedPhase(key, t, speed)
+  const frame = prideFrame(speedPhase(key, t, speed), scale)
   const out: Frame = []
   let i = 0
   for (let y = 0; y < H; y++) {
     const row: RGB[] = []
     for (let x = 0; x < W; x++) {
-      const hue = (i * scale * 6 + ph * 40) % 360
-      const briTheta = i * scale * 3 + ph * 15
-      const bri = 0.35 + 0.65 * (Math.sin(briTheta) * 0.5 + 0.5)
+      const { hue, bri } = pridePixel(i, frame)
       if (palette) {
-        const c = samplePalette(palette, hue / 360)
-        row.push({ r: Math.floor(c.r * bri), g: Math.floor(c.g * bri), b: Math.floor(c.b * bri) })
-      } else row.push(hsv(hue, 0.9, bri))
+        const c = samplePalette(palette, hue / 256)
+        row.push({ r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) })
+      } else row.push(hsv(hue / 256 * 360, 0.9, bri / 255))
       i++
     }
     out.push(row)
@@ -95,31 +89,12 @@ function evalPride2015(key: string, speed: number, scale: number, t: number, W =
 // faster secondary wave crests. Same evocative-formula approach as Plasma,
 // not a literal port of Pacifica's palette-blend/deepen/whitecap pipeline.
 function evalPacifica(key: string, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const ph = speedPhase(key, t, speed)
+  const frame = pacificaFrame(speedPhase(key, t, speed), scale)
   return buildFrame(W, H, (x, y) => {
-      const v = Math.sin(x * 0.3 * scale + ph)
-              + Math.sin((x * 0.15 * scale - y * 0.1 * scale) + ph * 0.6) * 0.7
-              + Math.sin((x + y) * 0.08 * scale + ph * 1.3) * 0.5
-      const n = Math.max(0, Math.min(1, v / 2.2 * 0.5 + 0.5))
-      const c = samplePalette(palette, n)
-      const foam = Math.sin(x * 0.9 * scale + y * 0.4 * scale + ph * 2.2)
-      if (foam > 0.85) {
-        const w = (foam - 0.85) / 0.15
-        return {
-          r: Math.round(c.r + (255 - c.r) * w),
-          g: Math.round(c.g + (255 - c.g) * w),
-          b: Math.round(c.b + (255 - c.b) * w),
-        }
-      }
-      return c
+      const { n, w } = pacificaPixel(x, y, frame)
+      const c = samplePalette(palette, n / 256)
+      return w ? { r: whitecap(c.r, w), g: whitecap(c.g, w), b: whitecap(c.b, w) } : c
     })
-}
-
-// Deterministic per-index hash → [0,1). Shared verbatim with the codegen so a
-// pixel twinkles identically on the preview and on hardware.
-function twinkleHash(n: number): number {
-  const s = Math.sin(n * 12.9898) * 43758.5453
-  return s - Math.floor(s)
 }
 
 // Homage to Mark Kriegsman's TwinkleFox — every pixel twinkles on its own
@@ -128,26 +103,15 @@ function twinkleHash(n: number): number {
 // port of the original's PRNG16 walk. `density` blends from sparse, sharp
 // sparkles (low) to most pixels lit (high) by softening the brightness curve.
 function evalTwinkleFox(key: string, speed: number, density: number, t: number, palette: Palette, seed = 0, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const ph = speedPhase(key, t, speed)
-  const exponent = 6 - 5 * Math.max(0, Math.min(1, density))
+  const frame = twinkleFrame(speedPhase(key, t, speed), density)
   const out: Frame = []
   let i = 0
   for (let y = 0; y < H; y++) {
     const row: RGB[] = []
     for (let x = 0; x < W; x++) {
-      const si = i + seed * 131
-      const phase = twinkleHash(si)
-      const rate = 0.5 + twinkleHash(si + 11)
-      const colorIdx = twinkleHash(si + 23)
-      const cycle = (ph * rate + phase) % 1
-      const tri = 1 - Math.abs(2 * cycle - 1)   // 0 → 1 → 0 across the cycle
-      const bri = Math.pow(tri, exponent)
-      const base = samplePalette(palette, colorIdx)
-      row.push({
-        r: Math.round(base.r * bri),
-        g: Math.round(base.g * bri),
-        b: Math.round(base.b * bri),
-      })
+      const { color, bri } = twinklePixel(i + seed * 131, frame)
+      const base = samplePalette(palette, color / 256)
+      row.push({ r: scale8Video(base.r, bri), g: scale8Video(base.g, bri), b: scale8Video(base.b, bri) })
       i++
     }
     out.push(row)

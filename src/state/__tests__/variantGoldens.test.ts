@@ -42,7 +42,8 @@ const lit = (f: Frame) => f.flat().filter((p) => p.r || p.g || p.b).length
 
 describe('variant defaults are unchanged', () => {
   it('Pride 2015 without a palette wire', () => {
-    expect(hash(after('gold-pride', 'Pride2015', {}, 20))).toBe('79c6302e')
+    // Retaken when Pride 2015 moved to its integer kernel (HW-32 step 11).
+    expect(hash(after('gold-pride', 'Pride2015', {}, 20))).toBe('1d4cc68b')
   })
   it('Fire in its default style, and with the style named', () => {
     expect(hash(after('gold-fire', 'Fire', { seed: 7 }, 25))).toBe('e8f544')
