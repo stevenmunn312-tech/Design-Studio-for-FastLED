@@ -4,7 +4,7 @@ import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { prismFrameCpp, prismPixelCpp } from '../shared/integerPatterns'
+import { cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp, stormFrameCpp, stormPixelCpp } from '../shared/integerPatterns'
 import {
   WAVE_GAIN_MAX, WAVE_GAIN_MIN, WAVE_PALETTE_BASE, WAVE_PALETTE_SPAN, WAVE_RING_BASE, WAVE_RING_SLACK, WAVE_RING_SPAN,
   WAVE_SAMPLES, WAVE_SMOOTHING_MAX, WAVE_STYLES, WAVE_THICKNESS_MAX, WAVE_THICKNESS_MIN,
@@ -352,17 +352,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const phSweep = speedPhaseCpp(ln, phaseTag(id, 'sweep'), '_motion * (1.4f + _b * 2.2f * _strength)')
     const phShimmer = speedPhaseCpp(ln, phaseTag(id, 'shimmer'), '_motion * (4.0f + _t * 8.0f * _strength)')
     const phPalette = speedPhaseCpp(ln, phaseTag(id, 'palette'), '_motion')
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of cascadeFrameCpp('_b', '_m', '_t', '_strength', phRibbon, phSweep, phShimmer, phPalette, id)) ln(`    ${line}`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-    ln(`      float _nx = WIDTH > 1 ? (float)_x / (float)(WIDTH - 1) : 0.0f;`)
-    ln(`      float _ny = HEIGHT > 1 ? (float)_y / (float)(HEIGHT - 1) : 0.0f;`)
-    ln(`      float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + ${phRibbon});`)
-    ln(`      float _sweep = cosf((_ny * 9.0f - _nx * 3.0f) - ${phSweep});`)
-    ln(`      float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + ${phShimmer}) * 0.5f + 0.5f), 6.0f);`)
-    ln(`      float _body = max(0.0f, _ribbon * 0.55f + _sweep * 0.45f);`)
-    ln(`      float _v = min(1.0f, _body * (0.18f + _m * 0.52f * _strength) + _b * 0.24f * _strength + _shimmer * _t * 0.85f * _strength);`)
-    ln(`      float _pt = _nx * (0.2f + _b * 0.5f) + _ny * (0.35f + _m * 0.45f) + _shimmer * 0.15f + ${phPalette} * 0.03f;`)
-    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
-    ln(`      ${ob}[_y * WIDTH + _x].nscale8((uint8_t)(_v * 255));`)
+    for (const line of cascadePixelCpp(id)) ln(`      ${line}`)
+    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, _acIdx);`)
+    ln(`      ${ob}[_y * WIDTH + _x].nscale8(_acV);`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -748,9 +743,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  PrismStorm({ node, id, p, ln, f, ownBuf, paletteExpr, needsWorley, needsT }) {
+  PrismStorm({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
-    needsWorley.v = true
     const ob = ownBuf()
     const treble = f('treble', 'treble', 0.5)
     const mids = f('mids', 'mids', 0.5)
@@ -770,21 +764,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _psDt_${id}=(_psLast_${id}<0.0f)?0.0f:min(0.25f,max(0.0f,t-_psLast_${id})); _psLast_${id}=t;`)
     ln(`    _psPhase_${id}+=_psDt_${id}*${speed}*(4.0f+${mids}*8.0f);`)
     ln(`    float _drift=_psPhase_${id};`)
-    ln(`    float _omega=(_psOri_${id}+_drift)*0.01745329f,_co=cosf(_omega),_si=sinf(_omega);`)
-    ln(`    float _freq=0.8f+${treble}*2.5f,_sc=0.5f+${mids}*0.4f;`)
+    ln(`    float _omega=(_psOri_${id}+_drift)*0.01745329f;`)
     const ph = speedPhaseCpp(ln, phaseTag(id), speed)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of stormFrameCpp('_omega', `(0.8f+${treble}*2.5f)`, `(0.5f+${mids}*0.4f)`, ph, '_strength', `(${mids})`, id)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _v=0;`)
-    ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
-    ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy,0u),_h2=_worleyHash(_cx+31,_cy-17,0u);`)
-    ln(`        float _fx=_cx+0.5f+(_h-0.5f),_fy=_cy+0.5f+(_h2-0.5f);`)
-    ln(`        float _dx=_px-_fx,_dy=_py-_fy,_g=expf(-2.5f*(_dx*_dx+_dy*_dy));`)
-    ln(`        float _proj=_dx*_co+_dy*_si,_w=_h2<0.5f?1.0f:-1.0f;`)
-    ln(`        _v+=_w*_g*cosf(6.2831853f*_freq*_proj+${ph}*2.0f+_h*6.2831853f); }`)
-    ln(`      float _shard=powf(max(0.0f,_v*0.5f+0.5f),1.4f);`)
-    ln(`      float _vv=min(1.0f,_shard*(0.25f+_strength*0.75f));`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v*0.5f+0.5f+${mids}*0.2f)*255));`)
-    ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_vv*255));`)
+    for (const line of stormPixelCpp(id)) ln(`      ${line}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_psIdx);`)
+    ln(`      ${ob}[_y*WIDTH+_x].nscale8(_psV);`)
     ln(`    }`)
     ln(`  }`)
   },

@@ -68,7 +68,7 @@ export const LATTICE_HASH_MULTIPLIERS = [374761393, 668265263, 2246822519, 12741
  * throughout, keeping the top 24 bits, so a float32 holds anything made from
  * it exactly and the sketch's twin returns the same number, not a close one.
  */
-function latticeHashBits(a: number, b: number, seed: number): number {
+export function latticeHashBits(a: number, b: number, seed: number): number {
   const [ma, mb, ms, mix] = LATTICE_HASH_MULTIPLIERS
   let h = (Math.imul(a | 0, ma) + Math.imul(b | 0, mb) + Math.imul(seed | 0, ms)) | 0
   h = Math.imul(h ^ (h >>> 13), mix)

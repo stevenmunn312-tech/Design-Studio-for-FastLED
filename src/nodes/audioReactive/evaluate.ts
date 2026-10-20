@@ -18,13 +18,13 @@ import {
   heatColor,
   byte,
 } from '../../state/evaluator/frames'
-import { _snoise2, worleyHash, normalizedSeed } from '../../state/evaluator/random'
+import { _snoise2, normalizedSeed } from '../../state/evaluator/random'
 import { resampleSpectrumBins, isAudioSignal, spectrumThirdBounds } from '../../state/evaluator/signals'
 import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 import { speedPhase } from '../shared/speedClock'
-import { prismFrame, prismPixel } from '../shared/integerPatterns'
+import { cascadeFrame, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
@@ -498,21 +498,12 @@ function evalAudioCascade(key: string, bass: number, mids: number, treble: numbe
   const sweepPhase = speedPhase(key, t, motion * (1.4 + b * 2.2 * strength), 'sweep')
   const shimmerPhase = speedPhase(key, t, motion * (4 + tr * 8 * strength), 'shimmer')
   const palettePhase = speedPhase(key, t, motion, 'palette')
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = cascadeFrame(W, H, b, m, tr, strength, ribbonPhase, sweepPhase, shimmerPhase, palettePhase)
   return buildFrame(W, H, (x, y) => {
-      const nx = W > 1 ? x / (W - 1) : 0
-      const ny = H > 1 ? y / (H - 1) : 0
-      const ribbon = Math.sin((nx * 7 + ny * 2.5) + ribbonPhase)
-      const sweep = Math.cos((ny * 9 - nx * 3) - sweepPhase)
-      const shimmer = Math.pow(Math.max(0, Math.sin((nx + ny) * 18 + shimmerPhase) * 0.5 + 0.5), 6)
-      const body = Math.max(0, ribbon * 0.55 + sweep * 0.45)
-      const v = Math.min(1, body * (0.18 + m * 0.52 * strength) + b * 0.24 * strength + shimmer * tr * 0.85 * strength)
-      const pt = nx * (0.2 + b * 0.5) + ny * (0.35 + m * 0.45) + shimmer * 0.15 + palettePhase * 0.03
-      const c = samplePalette(palette, pt)
-      return {
-        r: Math.round(c.r * v),
-        g: Math.round(c.g * v),
-        b: Math.round(c.b * v),
-      }
+      const { index, bri } = cascadePixel(x, y, frame)
+      const c = samplePalette(palette, index / 256)
+      return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
     })
 }
 
@@ -940,33 +931,12 @@ function evalPrismStorm(
   const strength = clamp01(energy)
   const drift = advanceDrift(key, t, speed * (4 + mids * 8)).a
   const omega = ((held.v + drift) * Math.PI) / 180
-  const cosO = Math.cos(omega), sinO = Math.sin(omega)
-  const freq = 0.8 + treble * 2.5
-  const scale = 0.5 + mids * 0.4
-  const TAU = Math.PI * 2
-  const phase = speedPhase(key, t, speed)
-
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = stormFrame(omega, 0.8 + treble * 2.5, 0.5 + mids * 0.4, speedPhase(key, t, speed), strength, mids)
   return buildFrame(W, H, (x, y) => {
-    const px = x * scale, py = y * scale
-    const xi = Math.floor(px), yi = Math.floor(py)
-    let v = 0
-    for (let dj = -1; dj <= 1; dj++) {
-      for (let di = -1; di <= 1; di++) {
-        const cx = xi + di, cy = yi + dj
-        const h = worleyHash(cx, cy)
-        const h2 = worleyHash(cx + 31, cy - 17)
-        const fx = cx + 0.5 + (h - 0.5), fy = cy + 0.5 + (h2 - 0.5)
-        const dx = px - fx, dy = py - fy
-        const gauss = Math.exp(-2.5 * (dx * dx + dy * dy))
-        const proj = dx * cosO + dy * sinO
-        const w = h2 < 0.5 ? 1 : -1
-        v += w * gauss * Math.cos(TAU * freq * proj + phase * 2 + h * TAU)
-      }
-    }
-    const shard = Math.pow(Math.max(0, v * 0.5 + 0.5), 1.4)
-    const vv = Math.min(1, shard * (0.25 + strength * 0.75))
-    const c = samplePalette(palette, v * 0.5 + 0.5 + mids * 0.2)
-    return { r: Math.round(c.r * vv), g: Math.round(c.g * vv), b: Math.round(c.b * vv) }
+    const { index, bri } = stormPixel(x, y, frame)
+    const c = samplePalette(palette, index / 256)
+    return { r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) }
   })
 }
 

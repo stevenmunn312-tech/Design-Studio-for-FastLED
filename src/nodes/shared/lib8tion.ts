@@ -81,4 +81,5 @@ export const LIB8TION_HOST_CPP = String.raw`static inline int16_t sin16(uint16_t
 }
 static inline uint8_t scale8(uint8_t i, uint8_t scale) { return (((uint16_t)i) * ((uint16_t)(scale) + 1)) >> 8; }
 static inline uint8_t pgm_read_byte(const uint8_t *p) { return *p; }
+static inline uint16_t pgm_read_word(const uint16_t *p) { return *p; }
 #define PROGMEM`

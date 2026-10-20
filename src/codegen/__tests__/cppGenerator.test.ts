@@ -2299,10 +2299,12 @@ describe('generateCpp', () => {
     const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, energy: 0.85, speed: 0.75, palette: 'rainbow' })
     const cpp = generateCpp([ac, outputNode], [edge('e', 'ac', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);')
-    expect(cpp).toContain('float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + _phase_ac_ribbon);')
-    expect(cpp).toContain('float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + _phase_ac_shimmer) * 0.5f + 0.5f), 6.0f);')
-    expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
-    expect(cpp).toContain('.nscale8((uint8_t)(_v * 255));')
+    // The integer kernel: the shimmer curve is a table, the waves sin16.
+    expect(cpp).toContain('_acR=(int32_t)(fmodf(_phase_ac_ribbon,6.2831853f)*10430.378f)')
+    expect(cpp).toContain('static const uint8_t _acShim_ac[256] PROGMEM')
+    expect(cpp).toContain('ColorFromPalette(paldef_rainbow, _acIdx)')
+    expect(cpp).toContain('.nscale8(_acV);')
+    expect(cpp).not.toMatch(/sinf|cosf|powf/)
   })
 
   it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {

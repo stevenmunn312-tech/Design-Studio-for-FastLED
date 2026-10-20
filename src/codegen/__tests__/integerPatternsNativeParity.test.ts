@@ -12,7 +12,7 @@ import { LIB8TION_HOST_CPP } from '../../nodes/shared/lib8tion'
 import {
   PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, TWINKLE_PIXEL_CPP,
   pacificaPixel, plasmaIndex, pridePixel, prismPixel, prismPixelCpp, PRISM_FLASH_TABLE, PRISM_SHARD_TABLE,
-  powTableCpp, twinklePixel,
+  cascadeFrame, cascadeFrameCpp, cascadePixel, cascadePixelCpp, powTableCpp, stormFrameCpp, stormPixel, stormPixelCpp, twinklePixel,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -93,6 +93,36 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
         `int32_t _wa=${f.wa},_wb=${f.wb},_wf=${f.wf}; uint8_t _g1=${f.shardGain},_g2=${f.flashGain};`,
       ], prismPixelCpp('n'), '"%u ",_pv')
       expect(grid(W, H, (x, y) => [prismPixel(x, y, f)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('PrismStorm matches on %ix%i', (W, H) => {
+    // The tables come from the frame lines; the frame integers are set after them.
+    const tables = stormFrameCpp('0.0f', '1.0f', '0.5f', '0.0f', '1.0f', '0.0f', 'n').filter((l) => l.startsWith('static'))
+    for (const f of [
+      { scale: 32768, cos: 32767, sin: 0, freq: 205, phase: 0, gain: 255, mids: 0 },
+      { scale: 58982, cos: -23170, sin: 23170, freq: 845, phase: -40000, gain: 63, mids: 6553 },
+    ]) {
+      const native = runNative(W, H, [
+        ...tables,
+        `int32_t _psSc=${f.scale},_psCo=${f.cos},_psSi=${f.sin},_psFr=${f.freq},_psP0=${f.phase},_psM=${f.mids}; uint8_t _psG=${f.gain};`,
+      ], stormPixelCpp('n'), '"%u %u ",_psIdx,_psV')
+      expect(grid(W, H, (x, y) => { const p = stormPixel(x, y, f); return [p.index, p.bri] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('AudioCascade matches on %ix%i', (W, H) => {
+    const tables = cascadeFrameCpp('0', '0', '0', '0', '0', '0', '0', '0', 'n').filter((l) => l.startsWith('static'))
+    for (const f of [
+      cascadeFrame(W, H, 0.5, 0.5, 0.5, 0.7, 0, 0, 0, 0),
+      cascadeFrame(W, H, 1, 0.2, 0.9, 1, 812.3, -77.1, 4021.9, 55.5),
+    ]) {
+      const native = runNative(W, H, [
+        ...tables,
+        `int32_t _acRx=${f.rx},_acRy=${f.ry},_acSx=${f.sx},_acSy=${f.sy},_acHx=${f.hx},_acHy=${f.hy},_acR=${f.ribbon},_acS=${f.sweep},_acH=${f.shimmer};`,
+        `uint8_t _acG1=${f.bodyGain},_acB=${f.bass},_acG2=${f.shimmerGain}; int32_t _acPx=${f.px},_acPy=${f.py},_acP0=${f.p0};`,
+      ], cascadePixelCpp('n'), '"%u %u ",_acIdx,_acV')
+      expect(grid(W, H, (x, y) => { const p = cascadePixel(x, y, f); return [p.index, p.bri] })).toEqual(native)
     }
   }, 60_000)
 })

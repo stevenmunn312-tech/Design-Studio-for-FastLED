@@ -12,6 +12,7 @@
 // step is not part of that check: the preview's phase is a double and the
 // sketch's a float, as it always was.
 import { A16_PER_RADIAN, angle16, isqrt32, lowbias32, scale8, sin16 } from './lib8tion'
+import { LATTICE_HASH_MULTIPLIERS, latticeHashBits } from '../../state/evaluator/lattice'
 
 /** `(int32_t)` 16-bit angle of a float radian expression, once a frame. */
 export function angle16Cpp(radians: string): string {
@@ -234,4 +235,144 @@ export function prismPixel(x: number, y: number, f: PrismFrame): number {
   const p8 = p < 0 ? 0 : p > 255 ? 255 : p
   const f8 = (sin16((x + y) * PRISM_FLASH + f.wf) + 32768) >> 8
   return Math.min(255, scale8(PRISM_SHARD_TABLE[p8], f.shardGain) + scale8(PRISM_FLASH_TABLE[f8], f.flashGain))
+}
+
+// ── PrismStorm ────────────────────────────────────────────────────────────────
+// Nine Worley cells around each pixel, each adding a Gaussian-windowed cosine
+// across the storm's orientation. Coordinates are 1/256 of a cell, from a
+// scale with 16 fractional bits so the far edge does not drift; the
+// Gaussian exp(-2.5 d²) is a 257-entry table over d² in [0, 4) cells², read
+// with linear interpolation (beyond it the weight is below 5e-5). The shard
+// curve is a power table.
+
+const [HASH_A, HASH_B, , HASH_MIX] = LATTICE_HASH_MULTIPLIERS
+export const STORM_GAUSS_TABLE = Array.from({ length: 257 }, (_, k) => Math.round(32767 * Math.exp(-2.5 * k / 64)))
+export const STORM_SHARD_TABLE = powTable(1.4)
+
+export interface StormFrame { scale: number; cos: number; sin: number; freq: number; phase: number; gain: number; mids: number }
+
+export function stormFrame(omega: number, freq: number, scale: number, phase: number, strength: number, mids: number): StormFrame {
+  return {
+    scale: Math.trunc(scale * 65536), cos: Math.trunc(Math.cos(omega) * 32767), sin: Math.trunc(Math.sin(omega) * 32767),
+    freq: Math.trunc(freq * 256), phase: angle16(phase * 2), gain: Math.trunc((0.25 + strength * 0.75) * 255) & 0xff,
+    mids: Math.trunc(mids * 0.2 * 32768),
+  }
+}
+
+export function stormFrameCpp(omega: string, freq: string, scale: string, phase: string, strength: string, mids: string, id: string): string[] {
+  return [
+    `static const uint16_t _psGauss_${id}[257] PROGMEM = {${STORM_GAUSS_TABLE.join(',')}};`,
+    powTableCpp(`_psShard_${id}`, STORM_SHARD_TABLE),
+    `int32_t _psSc=(int32_t)(${scale}*65536.0f),_psCo=(int32_t)(cosf(${omega})*32767.0f),_psSi=(int32_t)(sinf(${omega})*32767.0f);`,
+    `int32_t _psFr=(int32_t)(${freq}*256.0f),_psP0=${angle16Cpp(`${phase}*2.0f`)},_psM=(int32_t)(${mids}*0.2f*32768.0f);`,
+    `uint8_t _psG=(uint8_t)((0.25f+${strength}*0.75f)*255.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _psIdx` (palette index) and `uint8_t _psV` (brightness). */
+export function stormPixelCpp(id: string): string[] {
+  const hash = (out: string, a: string, b: string) =>
+    `uint32_t ${out}=(uint32_t)(${a})*${HASH_A}u+(uint32_t)(${b})*${HASH_B}u; ${out}=(${out}^(${out}>>13))*${HASH_MIX}u; ${out}^=${out}>>16; ${out}>>=8;`
+  return [
+    `int32_t _pxq=(_x*_psSc)>>8,_pyq=(_y*_psSc)>>8,_xi=_pxq>>8,_yi=_pyq>>8,_v=0;`,
+    `for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`,
+    `  int32_t _cx=_xi+_di,_cy=_yi+_dj;`,
+    `  ${hash('_h', '_cx', '_cy')}`,
+    `  ${hash('_h2', '_cx+31', '_cy-17')}`,
+    `  int32_t _dx=_pxq-((_cx<<8)+(int32_t)(_h>>16)),_dy=_pyq-((_cy<<8)+(int32_t)(_h2>>16)),_d2=_dx*_dx+_dy*_dy;`,
+    `  if(_d2>=262144) continue;`,
+    `  int32_t _gi=_d2>>10,_g0=pgm_read_word(&_psGauss_${id}[_gi]),_g=_g0-(((_g0-(int32_t)pgm_read_word(&_psGauss_${id}[_gi+1]))*(_d2&1023))>>10);`,
+    `  int32_t _proj=(_dx*_psCo+_dy*_psSi)>>15,_term=(_g*(int32_t)sin16((uint16_t)(_proj*_psFr+_psP0+(int32_t)(_h>>8)+16384)))>>15;`,
+    `  _v+=_h2<0x800000u?_term:-_term; }`,
+    `int32_t _t15=(_v>>1)+16384; uint8_t _s8=_t15<=0?0:(_t15>=32767?255:(uint8_t)(_t15>>7));`,
+    `uint8_t _psV=scale8(pgm_read_byte(&_psShard_${id}[_s8]),_psG), _psIdx=(uint8_t)((_t15+_psM)>>7);`,
+  ]
+}
+
+export function stormPixel(x: number, y: number, f: StormFrame): { index: number; bri: number } {
+  const pxq = (x * f.scale) >> 8, pyq = (y * f.scale) >> 8, xi = pxq >> 8, yi = pyq >> 8
+  let v = 0
+  for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+    const cx = xi + di, cy = yi + dj
+    const h = latticeHashBits(cx, cy, 0), h2 = latticeHashBits(cx + 31, cy - 17, 0)
+    const dx = pxq - ((cx << 8) + (h >>> 16)), dy = pyq - ((cy << 8) + (h2 >>> 16)), d2 = dx * dx + dy * dy
+    if (d2 >= 262144) continue
+    const gi = d2 >> 10, g0 = STORM_GAUSS_TABLE[gi]
+    const g = g0 - (((g0 - STORM_GAUSS_TABLE[gi + 1]) * (d2 & 1023)) >> 10)
+    const proj = (dx * f.cos + dy * f.sin) >> 15
+    const term = (g * sin16(proj * f.freq + f.phase + (h >>> 8) + 16384)) >> 15
+    v += h2 < 0x800000 ? term : -term
+  }
+  const t15 = (v >> 1) + 16384
+  const s8 = t15 <= 0 ? 0 : t15 >= 32767 ? 255 : t15 >> 7
+  return { index: ((t15 + f.mids) >> 7) & 0xff, bri: scale8(STORM_SHARD_TABLE[s8], f.gain) }
+}
+
+// ── AudioCascade ──────────────────────────────────────────────────────────────
+// A ribbon and a sweep over the normalised canvas, a shimmer raised to 6
+// through a table, and a palette position kept to 16 fractional bits. The
+// per-pixel angle steps depend on the canvas size, so they are frame values.
+
+export const CASCADE_SHIMMER_TABLE = powTable(6)
+const CASCADE_SHIMMER_INDEX = Math.round(0.15 * 65536 / 255) // palette 16.16 units per shimmer step
+
+export interface CascadeFrame {
+  rx: number; ry: number; sx: number; sy: number; hx: number; hy: number
+  ribbon: number; sweep: number; shimmer: number
+  bodyGain: number; bass: number; shimmerGain: number
+  px: number; py: number; p0: number
+}
+
+export function cascadeFrame(
+  W: number, H: number, bass: number, mids: number, treble: number, strength: number,
+  ribbon: number, sweep: number, shimmer: number, palette: number,
+): CascadeFrame {
+  const ix = W > 1 ? 1 / (W - 1) : 0, iy = H > 1 ? 1 / (H - 1) : 0
+  const k = (radians: number) => Math.trunc(radians * A16_PER_RADIAN)
+  let p0 = (palette * 0.03) % 1
+  if (p0 < 0) p0 += 1
+  return {
+    rx: k(7 * ix), ry: k(2.5 * iy), sx: k(3 * ix), sy: k(9 * iy), hx: k(18 * ix), hy: k(18 * iy),
+    ribbon: angle16(ribbon), sweep: angle16(sweep), shimmer: angle16(shimmer),
+    bodyGain: Math.trunc((0.18 + mids * 0.52 * strength) * 255) & 0xff,
+    bass: Math.trunc(bass * 0.24 * strength * 255) & 0xff,
+    shimmerGain: Math.trunc(treble * 0.85 * strength * 255) & 0xff,
+    px: Math.trunc((0.2 + bass * 0.5) * ix * 65536), py: Math.trunc((0.35 + mids * 0.45) * iy * 65536),
+    p0: Math.trunc(p0 * 65536),
+  }
+}
+
+export function cascadeFrameCpp(
+  bass: string, mids: string, treble: string, strength: string,
+  ribbon: string, sweep: string, shimmer: string, palette: string, id: string,
+): string[] {
+  const k = (radians: string) => `(int32_t)((${radians})*${A16_PER_RADIAN}f)`
+  return [
+    powTableCpp(`_acShim_${id}`, CASCADE_SHIMMER_TABLE),
+    `float _acIx=WIDTH>1?1.0f/(WIDTH-1):0.0f,_acIy=HEIGHT>1?1.0f/(HEIGHT-1):0.0f;`,
+    `int32_t _acRx=${k('7.0f*_acIx')},_acRy=${k('2.5f*_acIy')},_acSx=${k('3.0f*_acIx')},_acSy=${k('9.0f*_acIy')},_acHx=${k('18.0f*_acIx')},_acHy=${k('18.0f*_acIy')};`,
+    `int32_t _acR=${angle16Cpp(ribbon)},_acS=${angle16Cpp(sweep)},_acH=${angle16Cpp(shimmer)};`,
+    `uint8_t _acG1=(uint8_t)((0.18f+${mids}*0.52f*${strength})*255.0f),_acB=(uint8_t)(${bass}*0.24f*${strength}*255.0f),_acG2=(uint8_t)(${treble}*0.85f*${strength}*255.0f);`,
+    `float _acP=fmodf(${palette}*0.03f,1.0f); if(_acP<0)_acP+=1.0f;`,
+    `int32_t _acPx=(int32_t)((0.2f+${bass}*0.5f)*_acIx*65536.0f),_acPy=(int32_t)((0.35f+${mids}*0.45f)*_acIy*65536.0f),_acP0=(int32_t)(_acP*65536.0f);`,
+  ]
+}
+
+/** Sets `uint8_t _acIdx` (palette index) and `uint8_t _acV` (brightness). */
+export function cascadePixelCpp(id: string): string[] {
+  return [
+    `int32_t _acBody=((int32_t)sin16(_x*_acRx+_y*_acRy+_acR)*141+(int32_t)sin16(_y*_acSy-_x*_acSx-_acS+16384)*115)>>15;`,
+    `uint8_t _acB8=_acBody<0?0:(_acBody>255?255:(uint8_t)_acBody);`,
+    `uint8_t _acSh=pgm_read_byte(&_acShim_${id}[(uint8_t)(((int32_t)sin16(_x*_acHx+_y*_acHy+_acH)+32768)>>8)]);`,
+    `uint16_t _acV16=scale8(_acB8,_acG1)+_acB+scale8(_acSh,_acG2); uint8_t _acV=_acV16>255?255:(uint8_t)_acV16;`,
+    `uint8_t _acIdx=(uint8_t)(((uint32_t)(_x*_acPx+_y*_acPy+_acSh*${CASCADE_SHIMMER_INDEX}+_acP0))>>8);`,
+  ]
+}
+
+export function cascadePixel(x: number, y: number, f: CascadeFrame): { index: number; bri: number } {
+  const body = (sin16(x * f.rx + y * f.ry + f.ribbon) * 141 + sin16(y * f.sy - x * f.sx - f.sweep + 16384) * 115) >> 15
+  const b8 = body < 0 ? 0 : body > 255 ? 255 : body
+  const sh = CASCADE_SHIMMER_TABLE[((sin16(x * f.hx + y * f.hy + f.shimmer) + 32768) >> 8) & 0xff]
+  const bri = Math.min(255, scale8(b8, f.bodyGain) + f.bass + scale8(sh, f.shimmerGain))
+  return { index: ((x * f.px + y * f.py + sh * CASCADE_SHIMMER_INDEX + f.p0) >>> 8) & 0xff, bri }
 }
