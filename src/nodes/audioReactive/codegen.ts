@@ -6,7 +6,7 @@ import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   auroraFrameCpp, auroraPixelCpp, auroraRowCpp, cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp,
-  EMBER_PIXEL_CPP, KALEIDO_PIXEL_CPP, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, bloomFrameCpp, emberFrameCpp, wavesFrameCpp, bloomPixelCpp, kaleidoFrameCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
+  EMBER_PIXEL_CPP, KALEIDO_PIXEL_CPP, trailColumnPassCpp, trailRowPassCpp, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, bloomFrameCpp, emberFrameCpp, wavesFrameCpp, bloomPixelCpp, kaleidoFrameCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
   turbulentFrameCpp, turbulentPixelCpp, wellFrameCpp, wellPixelCpp,
 } from '../shared/integerPatterns'
 import {
@@ -831,9 +831,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      const uint32_t _seedX=${seed}U,_seedY=${(seed + 1295) >>> 0}U;`)
     const yNoise = morphFlow ? `_ctNoise2(_y*0.23f*(${yFreq}),${phY},_seedY)` : `_ctNoise(_y*0.23f*(${yFreq})+${phY},_seedY)`
     const xNoise = morphFlow ? `_ctNoise2((WIDTH-1-_x)*0.23f*(${xFreq}),${phX},_seedX)` : `_ctNoise((WIDTH-1-_x)*0.23f*(${xFreq})+${phX},_seedX)`
-    ln(`      for(int _y=0;_y<HEIGHT;_y++){ float _profile=${yNoise}*(${yAmp}); float _shift=constrain(_profile*_ctDisp,-1.0f,1.0f); for(int _x=0;_x<WIDTH;_x++){ float _sx=fmodf(_x-_shift,(float)WIDTH); if(_sx<0)_sx+=WIDTH; int _x0=(int)floorf(_sx),_xN=(_x0+1)%WIDTH; float _f=_sx-_x0; CRGB _a=${ob}[_y*WIDTH+_x0],_b=${ob}[_y*WIDTH+_xN]; ${tmp}[_y*WIDTH+_x]=CRGB((uint8_t)(_a.r*(1.0f-_f)+_b.r*_f+0.5f),(uint8_t)(_a.g*(1.0f-_f)+_b.g*_f+0.5f),(uint8_t)(_a.b*(1.0f-_f)+_b.b*_f+0.5f)); } }`)
-    ln(`      float _fade=powf(constrain((float)(${persistence}),0.0f,0.99999f),_ctDtf);`)
-    ln(`      for(int _x=0;_x<WIDTH;_x++){ float _profile=${xNoise}*(${xAmp}); float _shift=constrain(_profile*_ctDisp,-1.0f,1.0f); for(int _y=0;_y<HEIGHT;_y++){ float _sy=fmodf(_y-_shift,(float)HEIGHT); if(_sy<0)_sy+=HEIGHT; int _y0=(int)floorf(_sy),_yN=(_y0+1)%HEIGHT; float _f=_sy-_y0; CRGB _a=${tmp}[_y0*WIDTH+_x],_b=${tmp}[_yN*WIDTH+_x]; ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)((_a.r*(1.0f-_f)+_b.r*_f)*_fade+0.5f),(uint8_t)((_a.g*(1.0f-_f)+_b.g*_f)*_fade+0.5f),(uint8_t)((_a.b*(1.0f-_f)+_b.b*_f)*_fade+0.5f)); } }`)
+    // Integer advection (shared/integerPatterns.ts): the shift is a float once a row or column.
+    ln(`      for(int _y=0;_y<HEIGHT;_y++){ float _profile=${yNoise}*(${yAmp}); int32_t _s8=(int32_t)(constrain(_profile*_ctDisp,-1.0f,1.0f)*256.0f); ${trailRowPassCpp(ob, tmp)} }`)
+    ln(`      uint32_t _fd15=(uint32_t)(powf(constrain((float)(${persistence}),0.0f,0.99999f),_ctDtf)*32768.0f+0.5f);`)
+    ln(`      for(int _x=0;_x<WIDTH;_x++){ float _profile=${xNoise}*(${xAmp}); int32_t _s8=(int32_t)(constrain(_profile*_ctDisp,-1.0f,1.0f)*256.0f); ${trailColumnPassCpp(tmp, ob)} }`)
     ln(`    }`)
     ln(`  }`)
   },

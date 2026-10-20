@@ -26,7 +26,7 @@ import { createWaveformState, drawWaveform, type WaveformState } from '../../sta
 import { speedPhase } from '../shared/speedClock'
 import {
   auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, emberFrame, emberPixel, kaleidoFrame, kaleidoPixel, mosaicCell,
-  wavesFrame, wavesPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
+  trailColumnPass, trailFade15, trailRowPass, trailShift8, wavesFrame, wavesPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
   turbulentFrame, turbulentPixel, wellFrame, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
@@ -1065,7 +1065,6 @@ function evalColorTrails(
     perimeter.forEach(([x, y], i) => blend(x, y, phaseColor(i / count), 1))
   }
 
-  const wrap = (v: number, size: number) => ((v % size) + size) % size
   const seedX = p.seed >>> 0
   const seedY = (p.seed + 1295) >>> 0 // default 42 → the source's second seed 1337
 
@@ -1076,33 +1075,19 @@ function evalColorTrails(
       ? colorTrailsNoise2(spatial, yPhase, seedY)
       : colorTrailsNoise1(spatial + yPhase, seedY)
     const profile = noise * p.yAmplitude
-    const shift = Math.max(-1, Math.min(1, profile * displacement))
-    for (let x = 0; x < W; x++) {
-      const sx = wrap(x - shift, W), x0 = Math.floor(sx), xNext = (x0 + 1) % W, f = sx - x0
-      const a = s.frame[y][x0], b = s.frame[y][xNext], dst = s.tmp[y][x]
-      dst.r = Math.round(a.r * (1 - f) + b.r * f)
-      dst.g = Math.round(a.g * (1 - f) + b.g * f)
-      dst.b = Math.round(a.b * (1 - f) + b.b * f)
-    }
+    trailRowPass(s.frame, s.tmp, y, trailShift8(Math.max(-1, Math.min(1, profile * displacement))), W)
   }
 
   // Pass 2: vertical subpixel shift per column from the reversed X profile,
   // then apply the long feedback fade.
-  const fade = Math.pow(Math.max(0, Math.min(0.99999, p.persistence)), dtFrames)
+  const fade15 = trailFade15(Math.pow(Math.max(0, Math.min(0.99999, p.persistence)), dtFrames))
   for (let x = 0; x < W; x++) {
     const spatial = (W - 1 - x) * 0.23 * p.xFrequency
     const noise = p.flowMode === 'Morphing 2D'
       ? colorTrailsNoise2(spatial, xPhase, seedX)
       : colorTrailsNoise1(spatial + xPhase, seedX)
     const profile = noise * p.xAmplitude
-    const shift = Math.max(-1, Math.min(1, profile * displacement))
-    for (let y = 0; y < H; y++) {
-      const sy = wrap(y - shift, H), y0 = Math.floor(sy), yNext = (y0 + 1) % H, f = sy - y0
-      const a = s.tmp[y0][x], b = s.tmp[yNext][x], dst = s.frame[y][x]
-      dst.r = Math.round((a.r * (1 - f) + b.r * f) * fade)
-      dst.g = Math.round((a.g * (1 - f) + b.g * f) * fade)
-      dst.b = Math.round((a.b * (1 - f) + b.b * f) * fade)
-    }
+    trailColumnPass(s.tmp, s.frame, x, trailShift8(Math.max(-1, Math.min(1, profile * displacement))), fade15, H)
   }
   return s.frame
 }

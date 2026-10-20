@@ -1070,3 +1070,55 @@ export function polarPixel(x: number, y: number, W: number, H: number, f: PolarF
   const u = ((((signedTurn(atan2_16(dy, dx)) + f.turn) * f.repeat) >> 8) * (256 - f.mix)) + (((((d << 8) + f.scroll) * f.repeat) >> 8) * f.mix)
   return (u >>> 8) & 0xff
 }
+
+// ── ColorTrails advection ─────────────────────────────────────────────────────
+// The two feedback passes shift each row, then each column, by a sub-pixel
+// amount in [-1, 1] that is worked out once a row or column. The shift is
+// kept in 1/256 pixel and each channel is an integer lerp; the second pass
+// applies the fade in 1/32768ths with rounding.
+
+type Channels = { r: number; g: number; b: number }
+
+/** Shift and fraction for one sample: the source index and its weight in 1/256. */
+function advectSample(i: number, shift8: number, size: number): { i0: number; i1: number; f: number } {
+  let s = i * 256 - shift8
+  if (s < 0) s += size * 256
+  else if (s >= size * 256) s -= size * 256
+  const i0 = s >> 8
+  return { i0, i1: i0 + 1 < size ? i0 + 1 : 0, f: s & 255 }
+}
+
+export const trailShift8 = (shift: number) => Math.trunc(shift * 256)
+export const trailFade15 = (fade: number) => Math.trunc(fade * 32768 + 0.5)
+
+/** Pass 1 on row `y`: `dst[y][x]` from `src[y]` shifted by `shift8`. */
+export function trailRowPass(src: Channels[][], dst: Channels[][], y: number, shift8: number, W: number): void {
+  for (let x = 0; x < W; x++) {
+    const { i0, i1, f } = advectSample(x, shift8, W), g = 256 - f
+    const a = src[y][i0], b = src[y][i1], d = dst[y][x]
+    d.r = (a.r * g + b.r * f + 128) >> 8
+    d.g = (a.g * g + b.g * f + 128) >> 8
+    d.b = (a.b * g + b.b * f + 128) >> 8
+  }
+}
+
+/** Pass 2 on column `x`: `dst[y][x]` from `src[.][x]` shifted by `shift8`, faded by `fade15`. */
+export function trailColumnPass(src: Channels[][], dst: Channels[][], x: number, shift8: number, fade15: number, H: number): void {
+  for (let y = 0; y < H; y++) {
+    const { i0, i1, f } = advectSample(y, shift8, H), g = 256 - f
+    const a = src[i0][x], b = src[i1][x], d = dst[y][x]
+    d.r = Math.floor(((a.r * g + b.r * f) * fade15 + 4194304) / 8388608)
+    d.g = Math.floor(((a.g * g + b.g * f) * fade15 + 4194304) / 8388608)
+    d.b = Math.floor(((a.b * g + b.b * f) * fade15 + 4194304) / 8388608)
+  }
+}
+
+/** Pass 1's inner loop for row `_y`, with `int32_t _s8` set. */
+export function trailRowPassCpp(src: string, dst: string): string {
+  return `for(int _x=0;_x<WIDTH;_x++){ int32_t _sx=_x*256-_s8; if(_sx<0)_sx+=WIDTH*256; else if(_sx>=WIDTH*256)_sx-=WIDTH*256; int _x0=_sx>>8,_xN=_x0+1<WIDTH?_x0+1:0; uint32_t _f=_sx&255,_g=256-_f; const CRGB &_a=${src}[_y*WIDTH+_x0],&_b=${src}[_y*WIDTH+_xN]; ${dst}[_y*WIDTH+_x]=CRGB((uint8_t)((_a.r*_g+_b.r*_f+128)>>8),(uint8_t)((_a.g*_g+_b.g*_f+128)>>8),(uint8_t)((_a.b*_g+_b.b*_f+128)>>8)); }`
+}
+
+/** Pass 2's inner loop for column `_x`, with `int32_t _s8` and `uint32_t _fd15` set. */
+export function trailColumnPassCpp(src: string, dst: string): string {
+  return `for(int _y=0;_y<HEIGHT;_y++){ int32_t _sy=_y*256-_s8; if(_sy<0)_sy+=HEIGHT*256; else if(_sy>=HEIGHT*256)_sy-=HEIGHT*256; int _y0=_sy>>8,_yN=_y0+1<HEIGHT?_y0+1:0; uint32_t _f=_sy&255,_g=256-_f; const CRGB &_a=${src}[_y0*WIDTH+_x],&_b=${src}[_yN*WIDTH+_x]; ${dst}[_y*WIDTH+_x]=CRGB((uint8_t)(((_a.r*_g+_b.r*_f)*_fd15+4194304u)>>23),(uint8_t)(((_a.g*_g+_b.g*_f)*_fd15+4194304u)>>23),(uint8_t)(((_a.b*_g+_b.b*_f)*_fd15+4194304u)>>23)); }`
+}

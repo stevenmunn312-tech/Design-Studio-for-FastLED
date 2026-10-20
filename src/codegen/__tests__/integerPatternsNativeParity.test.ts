@@ -21,6 +21,7 @@ import {
   ATAN16_HELPER_CPP, KALEIDO_PIXEL_CPP, atan2_16, kaleidoFrame, kaleidoPixel,
   EMBER_PIXEL_CPP, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, emberFrame, emberPixel, mosaicCell, wavesFrame, wavesPixel,
   BURST_PIXEL_CPP, POLAR_PIXEL_CPP, SPIRAL_PIXEL_CPP, burstFrame, burstPixel, polarFrame, polarPixel, spiralFrame, spiralPixel,
+  trailColumnPass, trailColumnPassCpp, trailRowPass, trailRowPassCpp,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -278,6 +279,39 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
     for (const f of [polarFrame(W, H, 0, 0.3, 0, 1, 0), polarFrame(W, H, 45, -71.4, 33.3, 16, 0.6), polarFrame(W, H, 300, 255.9, -255.9, 3, 1)]) {
       const native = runNative(W, H, [`int32_t _pgInvM=${f.invMax},_pgT=${f.turn},_pgS=${f.scroll},_pgRp=${f.repeat},_pgMx=${f.mix};`], POLAR_PIXEL_CPP, '"%u ",_pgIdx')
       expect(grid(W, H, (x, y) => [polarPixel(x, y, W, H, f)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('ColorTrails advection matches on %ix%i', (W, H) => {
+    let seed = 12345
+    const rand = () => (seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 24
+    const start = Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: rand(), g: rand(), b: rand() })))
+    const rowShifts = Array.from({ length: H }, (_, y) => [256, -256, 0, 1, -1, 129, -77][y % 7])
+    const colShifts = Array.from({ length: W }, (_, x) => [-200, 13, 256, 0, -1][x % 5])
+    const fade15 = 32742
+    const frame = start.map((row) => row.map((c) => ({ ...c }))), tmp = start.map((row) => row.map(() => ({ r: 0, g: 0, b: 0 })))
+    for (let y = 0; y < H; y++) trailRowPass(frame, tmp, y, rowShifts[y], W)
+    for (let x = 0; x < W; x++) trailColumnPass(tmp, frame, x, colShifts[x], fade15, H)
+    const bytes = start.flat().flatMap((c) => [c.r, c.g, c.b]).join(',')
+    const dir = mkdtempSync(path.join(tmpdir(), 'int-pattern-parity-'))
+    try {
+      const source = path.join(dir, 'trails.cpp'), binary = path.join(dir, 'trails')
+      writeFileSync(source, [
+        '#include <cstdio>', '#include <cstdint>',
+        'struct CRGB { uint8_t r, g, b; CRGB() : r(0), g(0), b(0) {} CRGB(uint8_t r_, uint8_t g_, uint8_t b_) : r(r_), g(g_), b(b_) {} };',
+        `#define WIDTH ${W}`, `#define HEIGHT ${H}`,
+        `static const uint8_t _start[] = {${bytes}}; static CRGB ob[WIDTH*HEIGHT], tmp[WIDTH*HEIGHT];`,
+        `static const int32_t _rows[] = {${rowShifts.join(',')}}, _cols[] = {${colShifts.join(',')}};`,
+        'int main(){ for(int i=0;i<WIDTH*HEIGHT;i++) ob[i]=CRGB(_start[i*3],_start[i*3+1],_start[i*3+2]); uint32_t _fd15=' + fade15 + ';',
+        `  for(int _y=0;_y<HEIGHT;_y++){ int32_t _s8=_rows[_y]; ${trailRowPassCpp('ob', 'tmp')} }`,
+        `  for(int _x=0;_x<WIDTH;_x++){ int32_t _s8=_cols[_x]; ${trailColumnPassCpp('tmp', 'ob')} }`,
+        '  for(int i=0;i<WIDTH*HEIGHT;i++) printf("%u %u %u ", ob[i].r, ob[i].g, ob[i].b); }',
+      ].join('\n'))
+      execFileSync('g++', ['-O2', '-Wall', '-Werror', '-Wno-unused-variable', '-Wno-unused-function', '-o', binary, source])
+      const native = execFileSync(binary, { encoding: 'utf8' }).trim().split(/\s+/).map(Number)
+      expect(frame.flat().flatMap((c) => [c.r, c.g, c.b])).toEqual(native)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
     }
   }, 60_000)
 })

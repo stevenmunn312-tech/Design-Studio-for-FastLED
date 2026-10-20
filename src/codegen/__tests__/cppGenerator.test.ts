@@ -2215,10 +2215,11 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
     // 1 > 0.5 always holds, so the beat is always on.
     expect(cpp).toContain('_ctBeatPulse_ct=1.0f;')
-    expect(cpp.match(/float _shift=constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)/g)).toHaveLength(2)
-    expect(cpp).toContain('fmodf(_x-_shift,(float)WIDTH)')
-    expect(cpp).toContain('fmodf(_y-_shift,(float)HEIGHT)')
-    expect(cpp).toContain('powf(constrain((float)(0.99922),0.0f,0.99999f),_ctDtf)')
+    // Integer advection: the shift in 1/256 pixel, the fade in 1/32768ths.
+    expect(cpp.match(/int32_t _s8=\(int32_t\)\(constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)\*256\.0f\)/g)).toHaveLength(2)
+    expect(cpp).toContain('int32_t _sx=_x*256-_s8;')
+    expect(cpp).toContain('int32_t _sy=_y*256-_s8;')
+    expect(cpp).toContain('powf(constrain((float)(0.99922),0.0f,0.99999f),_ctDtf)*32768.0f+0.5f')
   })
 
   it('emits the ColorTrails liquid frame with morphing 2D Perlin flow', () => {
@@ -2235,7 +2236,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('2*WIDTH+2*HEIGHT-4')
     expect(cpp).toContain('_ctBlend(_x,0,_ctColor(')
     expect(cpp).not.toContain('float _x1=_cx')
-    expect(cpp.match(/float _shift=constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)/g)).toHaveLength(2)
+    expect(cpp.match(/int32_t _s8=\(int32_t\)\(constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)\*256\.0f\)/g)).toHaveLength(2)
   })
 
   it('emits a credited audio-reactive AnimARTrix renderer with structural percussion', () => {
