@@ -194,7 +194,11 @@ describe('entry reset', () => {
     const show = generateShowSketch(
       [
         node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'], patternEntry: { g0: 'resume' } }),
-        node('pm', 'PatternSlideshow', { order: 'Sequence', sequence: steps }),
+        // A saved step names its pattern by group id.
+        node('pm', 'PatternSlideshow', {
+          order: 'Sequence',
+          sequence: steps.map(({ index, ...step }) => ({ patternId: `g${index}`, ...step })),
+        }),
         node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
       ],
       [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')],
@@ -206,3 +210,39 @@ describe('entry reset', () => {
     expect(show).toContain('renderCollected(')
   })
 })
+
+describe('slideshow sequence steps', () => {
+  const groups = {
+    g0: { nodes: [node('sc', 'SolidColor'), groupOut()], edges: [edge('e', 'sc', 'frame', 'go', 'frame')] },
+    g1: { nodes: [node('nz', 'Noise'), groupOut()], edges: [edge('e', 'nz', 'frame', 'go', 'frame')] },
+  } as unknown as GroupRegistry
+  const sketchFor = (patternIds: string[], sequence: unknown[]) => generateShowSketch(
+    [
+      node('pc', 'PatternCollection', { patternIds }),
+      node('pm', 'PatternSlideshow', { order: 'Sequence', sequence }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')],
+    groups,
+  )
+
+  it('compiles each step by the pattern it names, wherever that row now sits', () => {
+    const sequence = [
+      { patternId: 'g1', hold: 4, transition: 'crossfade', transitionSec: 1 },
+      { patternId: 'g0', hold: 4, transition: 'crossfade', transitionSec: 1 },
+    ]
+    expect(sketchFor(['g0', 'g1'], sequence)).toContain('seqIndex[] PROGMEM = { 1, 0 };')
+    expect(sketchFor(['g1', 'g0'], sequence)).toContain('seqIndex[] PROGMEM = { 0, 1 };')
+  })
+
+  it('never renders past the collection and opens a tag step on the first pattern', () => {
+    const show = sketchFor(['g0', 'g1'], [
+      { patternId: 'removed', hold: 4, transition: 'crossfade', transitionSec: 1 },
+      { patternId: 'g1', hold: 4, transition: 'crossfade', transitionSec: 1 },
+    ])
+    expect(show).toContain('seqIndex[] PROGMEM = { -1, 1 };')
+    expect(show).toContain('cur = (chosen >= 0 && chosen < PATTERN_COUNT) ? (uint8_t)chosen : 0;')
+    expect(show).toContain('nxt = (chosen >= 0 && chosen < PATTERN_COUNT) ? (uint8_t)chosen : (uint8_t)(')
+  })
+})
+

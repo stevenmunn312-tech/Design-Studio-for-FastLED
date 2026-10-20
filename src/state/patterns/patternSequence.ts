@@ -8,7 +8,16 @@ import {
 } from './patternPick'
 
 export interface PatternStep {
-  /** Collection index. Omit to pick by the tags below. */
+  /**
+   * The collection pattern's group id. This is the saved form, so reordering
+   * or deleting collection rows cannot point a step at a different pattern.
+   * Omit to pick by the tags below.
+   */
+  patternId?: string
+  /**
+   * Collection index, resolved from `patternId` against the wired collection.
+   * Absent when the step picks by tag or its pattern left the collection.
+   */
   index?: number
   sections?: string[]
   energy?: EnergyBand[]
@@ -35,7 +44,12 @@ function withRamp(
   return rampMs > 0 ? { ...params, rampMs } : params
 }
 
-export function asPatternSteps(value: unknown): PatternStep[] {
+/**
+ * Saved steps, with each `patternId` resolved to its index in `ids` (the wired
+ * collection, in order). A step whose pattern is no longer collected keeps the
+ * id but has no index, so it picks by its tags until the pattern returns.
+ */
+export function asPatternSteps(value: unknown, ids: readonly string[] = []): PatternStep[] {
   if (!Array.isArray(value)) return []
   const steps: PatternStep[] = []
   for (const raw of value) {
@@ -43,7 +57,8 @@ export function asPatternSteps(value: unknown): PatternStep[] {
     const step = raw as Partial<PatternStep>
     const hold = Number(step.hold)
     const transitionSec = Number(step.transitionSec)
-    const index = step.index === undefined ? undefined : Math.max(0, Math.round(Number(step.index)))
+    const patternId = typeof step.patternId === 'string' && step.patternId ? step.patternId : undefined
+    const index = patternId === undefined ? -1 : ids.indexOf(patternId)
     const sections = Array.isArray(step.sections) ? step.sections.filter((tag): tag is string => typeof tag === 'string') : undefined
     const energy = Array.isArray(step.energy) ? step.energy.filter(isEnergyBand) : undefined
     const params: Record<string, number> = {}
@@ -54,7 +69,8 @@ export function asPatternSteps(value: unknown): PatternStep[] {
       }
     }
     steps.push({
-      ...(index !== undefined && Number.isFinite(index) ? { index } : {}),
+      ...(patternId !== undefined ? { patternId } : {}),
+      ...(index >= 0 ? { index } : {}),
       ...(sections && sections.length ? { sections } : {}),
       ...(energy && energy.length ? { energy } : {}),
       hold: Number.isFinite(hold) && hold > 0 ? hold : 8,
@@ -69,6 +85,17 @@ export function asPatternSteps(value: unknown): PatternStep[] {
     })
   }
   return steps
+}
+
+/**
+ * The saved form of steps the lane editor produced: an index becomes the group
+ * id it names in `ids`, and the index itself is not stored.
+ */
+export function storedPatternSteps(steps: readonly PatternStep[], ids: readonly string[]): PatternStep[] {
+  return steps.map(({ index, patternId, ...rest }) => {
+    const id = index !== undefined ? ids[index] : patternId
+    return id ? { patternId: id, ...rest } : rest
+  })
 }
 
 /** Milliseconds one step occupies on the editor axis. */
@@ -170,8 +197,12 @@ export function showToSequence(
       params[name] = Number(event.params.value)
     }
     const rampSec = eventRampSec(speed) ?? eventRampSec(brightness) ?? eventRampSec(energy)
+    const index = Math.max(0, Math.round(Number(item.event.params.index)))
     const step: PatternStep = {
-      ...(tagged ? {} : { index: Math.max(0, Math.round(Number(item.event.params.index))) }),
+      ...(tagged ? {} : { index }),
+      // A step whose pattern left the collection draws as a tag step; keep its
+      // id so it plays that pattern again once the pattern returns.
+      ...(tagged && prior?.patternId && prior.index === undefined ? { patternId: prior.patternId } : {}),
       ...(prior?.sections?.length ? { sections: prior.sections } : {}),
       ...(prior?.energy?.length ? { energy: prior.energy } : {}),
       hold,
@@ -199,8 +230,9 @@ export interface SequenceCursor {
   patternIndex: number
 }
 
+/** No step resolved yet, so the first advance resolves step 0 as the opening. */
 export function blankSequenceCursor(): SequenceCursor {
-  return { index: 0, start: 0, beats: 0, patternIndex: 0 }
+  return { index: 0, start: 0, beats: 0, patternIndex: -1 }
 }
 
 export interface SequenceAdvance {
@@ -254,8 +286,11 @@ export function advanceSequence(
       beats += 1
     }
   }
-  if (entered || patternIndex < 0 || patternIndex >= Math.max(entries.length, 1)) {
-    patternIndex = resolveStepPattern(steps[index], entries, current, rand)
+  // The opening step resolves the way the sketches open: an explicit index,
+  // or the first eligible pattern with no draw.
+  const opening = !entered && patternIndex < 0
+  if (entered || opening || patternIndex >= Math.max(entries.length, 1)) {
+    patternIndex = resolveStepPattern(steps[index], entries, current, rand, opening ? 'opening' : 'next')
   }
   return {
     cursor: { index, start, beats, patternIndex },
@@ -269,6 +304,7 @@ export function resolveStepPattern(
   entries: readonly PickEntry[],
   current: number,
   rand: () => number,
+  mode: 'next' | 'opening' = 'next',
 ): number {
   if (entries.length === 0) return 0
   if (step.index !== undefined && Number.isFinite(step.index)) {
@@ -281,7 +317,7 @@ export function resolveStepPattern(
     energies: step.energy ?? null,
     sections: step.sections ?? null,
   }
-  return nextPatternIndex(entries, current, moment, 'next', rand).index
+  return nextPatternIndex(entries, current, moment, mode, rand).index
 }
 
 export function stepMomentTags(step: PatternStep): { sections: string[]; energy: EnergyBand[] } {

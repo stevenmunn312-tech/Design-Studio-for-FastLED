@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useGraphStore, useNodeProperties } from '../../../state/graphStore'
-import { asPatternSteps, sequenceToShow, showToSequence, type PatternStep } from '../../../state/patterns/patternSequence'
+import { wiredPatternCollection } from '../../../state/patterns/patternCollectionWiring'
+import {
+  asPatternSteps, sequenceToShow, showToSequence, storedPatternSteps, type PatternStep,
+} from '../../../state/patterns/patternSequence'
 import ShowLaneEditor from '../ShowLaneEditor'
 import styles from './PerformanceGeneratorBody.module.css'
 
@@ -10,14 +13,17 @@ const BLANK: PatternStep = { hold: 4, transition: 'crossfade', transitionSec: 1 
 export default function SequenceBody({ nodeId }: { nodeId: string }) {
   const properties = useNodeProperties(nodeId)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
+  // The node sits in the active graph, so its collection wiring is there too.
+  const idsKey = useGraphStore((s) => JSON.stringify(wiredPatternCollection(s.nodes, s.edges, nodeId).ids))
   const [open, setOpen] = useState(false)
   if (properties.order !== 'Sequence') return null
-  const steps = asPatternSteps(properties.sequence)
+  const ids = JSON.parse(idsKey) as string[]
+  const steps = asPatternSteps(properties.sequence, ids)
   const countBeats = properties.beatTransitions === true
   const show = sequenceToShow(steps, 500, countBeats)
 
   function save(next: PatternStep[]) {
-    updateNodeProperties(nodeId, { sequence: next })
+    updateNodeProperties(nodeId, { sequence: storedPatternSteps(next, ids) })
   }
 
   return (

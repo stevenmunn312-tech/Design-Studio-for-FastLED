@@ -167,7 +167,7 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): 
   if (!collection) return null
   const patternIds = collection ? ((props(collection).patternIds as string[] | undefined) ?? []) : []
   const profiles = collectionProfiles(patternIds, props(collection) as CollectionProfileProps)
-  const steps = asPatternSteps(props(master).sequence)
+  const steps = asPatternSteps(props(master).sequence, patternIds)
   // The evaluator reads the same resolver, so a preview that fades for a second
   // and a device that cuts cannot be built from one graph.
   const settings = slideshowSettings(props(master))
@@ -1290,9 +1290,14 @@ export function generateShowSketch(
       L.push('  static bool transitioning = false;')
     }
     const stepExpr = selection.commands ? `${selection.commands}.patternSteps` : '0'
-    const choose = (target: string, opening = false) => pick.needsTable
-      ? `${target} = chosen < 0 ? patternPick(cur, ${opening ? 3 : 1}, bandBit, sectionBit) : (uint8_t)chosen;`
-      : `${target} = chosen < 0 ? (uint8_t)(${nextPattern}) : (uint8_t)chosen;`
+    // A step whose pattern left the collection picks by its tags instead, the
+    // way resolveStepPattern does. The opening tag step takes the first
+    // eligible pattern without a draw.
+    const tagPick = (opening: boolean) => pick.needsTable
+      ? `patternPick(cur, ${opening ? 3 : 1}, bandBit, sectionBit)`
+      : opening ? '0' : `(uint8_t)(${nextPattern})`
+    const choose = (target: string, opening = false) =>
+      `${target} = (chosen >= 0 && chosen < PATTERN_COUNT) ? (uint8_t)chosen : ${tagPick(opening)};`
     L.push('  static uint8_t seqStep = 0;')
     L.push('  static uint32_t seqAt = 0;')
     L.push('  static bool seqInit = false;')

@@ -1,6 +1,7 @@
 /**
- * D-11 show-sequencing fixtures: one weighted and tagged Music Player, one
- * sequenced Slideshow with a Restart pattern, one sequenced Music Player
+ * D-11 show-sequencing fixtures: one weighted and tagged Music Player, the
+ * same player paced by Dwells & Bursts alone, one sequenced Slideshow with a
+ * Restart pattern and a tag step, one sequenced Music Player
  * whose holds count beats, and one performance show with ramps and a named
  * input.
  *
@@ -46,14 +47,14 @@ function pattern(id: string, body: StudioNode): GroupRegistry[string] {
   }
 }
 
-function weightedPlayer(): string {
+function weightedPlayer(timing: Record<string, unknown> = {}): string {
   const groups = {
     calm: pattern('calm', node('color', 'SolidColor', { r: 0, g: 40, b: 80 })),
     peak: pattern('peak', node('color', 'SolidColor', { r: 255, g: 40, b: 0 })),
   } as unknown as GroupRegistry
   const nodes = [
     board, node('sd', 'SDCard'), node('amp', 'Amplifier'),
-    node('master', 'PatternMaster', { order: 'Random' }),
+    node('master', 'PatternMaster', { order: 'Random', ...timing }),
     led,
     node('collection', 'PatternCollection', {
       patternIds: ['calm', 'peak'],
@@ -84,8 +85,9 @@ function sequencedSlideshow(): string {
       node('pm', 'PatternSlideshow', {
         order: 'Sequence',
         sequence: [
-          { index: 0, hold: 4, transition: 'crossfade', transitionSec: 1 },
-          { index: 1, hold: 6, transition: 'wipe', transitionSec: 0.5 },
+          { patternId: 'solid', hold: 4, transition: 'crossfade', transitionSec: 1 },
+          { patternId: 'noise', hold: 6, transition: 'wipe', transitionSec: 0.5 },
+          { hold: 3, transition: 'crossfade', transitionSec: 1 },
         ],
       }),
       led,
@@ -106,7 +108,7 @@ function sequencedPlayer(): string {
       order: 'Sequence',
       beatTransitions: true,
       sequence: [
-        { index: 0, hold: 8, transition: 'crossfade', transitionSec: 1 },
+        { patternId: 'calm', hold: 8, transition: 'crossfade', transitionSec: 1 },
         { sections: ['drop'], energy: ['peak'], hold: 16, transition: 'wipe', transitionSec: 0.5 },
       ],
     }),
@@ -171,7 +173,9 @@ function rampedShow(): string {
 }
 
 const sketches: Record<string, () => string> = {
-  'weighted-player': weightedPlayer,
+  'weighted-player': () => weightedPlayer(),
+  // Energy tags without Energy Pacing need their own tracker.
+  'tagged-dwells-player': () => weightedPlayer({ dwellsAndBursts: true, energyPacing: false }),
   'sequenced-slideshow': sequencedSlideshow,
   'sequenced-player': sequencedPlayer,
   'ramped-show': rampedShow,

@@ -21,7 +21,9 @@ versioning (`0.y.z`) until the first stable release.
   steps you edit: a pattern or a tag pick, a hold, and a transition. With Beat
   Transitions on, a Music Player hold counts beats. Previous and Next move
   between steps. Energy Pacing and Dwells & Bursts stay off during a sequence.
-  An empty sequence holds the current pattern.
+  An empty sequence holds the current pattern. A step follows its pattern when
+  the collection is reordered, and picks by its tags while that pattern is
+  out of the collection.
 - The **Performance Generator** gains **Edit lanes**: pattern, transition,
   palette, speed, brightness, energy, flash, particles, and one lane per named
   float input, under the song's section bands, beat grid and energy envelope.

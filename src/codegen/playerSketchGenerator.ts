@@ -583,8 +583,9 @@ export function generatePlayerSketch(
   // Unequal weights or energy tags replace the historical draw. Anything else
   // keeps that expression character for character, including the space before
   // `+ random`, so an unweighted player stays byte-identical.
+  // Only Energy Pacing declares `intensity`; Dwells & Bursts alone does not.
   const bandDecl = !pick.needsTable ? ''
-    : pacing || !hasEnergyTags
+    : (pacing && patternTiming.energyPacing) || !hasEnergyTags
       ? (hasEnergyTags
         ? `    const uint8_t bandBit = ${energyBandBitExpr()};\n`
         : '    const uint8_t bandBit = 0;\n')
@@ -1071,7 +1072,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     `      uint8_t resolved = (chosen >= 0 && chosen < ${patternCount}) ? (uint8_t)chosen : ${pick.needsTable
       ? '(opening ? patternPick(patternId, 3, bandBit, sectionBit) : patternPick(patternId, 1, bandBit, sectionBit))'
       : patternCount > 1
-        ? `(uint8_t)((patternId + 1 + random(${patternCount - 1})) % ${patternCount})`
+        ? `(opening ? 0 : (uint8_t)((patternId + 1 + random(${patternCount - 1})) % ${patternCount}))`
         : 'patternId'};`,
     ...(sequenceTransitions ? [
       '      if (!opening && resolved != patternId) {',

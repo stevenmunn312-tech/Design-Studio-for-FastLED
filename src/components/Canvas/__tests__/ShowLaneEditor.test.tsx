@@ -112,4 +112,17 @@ describe('ShowLaneEditor', () => {
     fireEvent.click(view.getByRole('button', { name: 'Zoom in' }))
     expect(Number(scroll.max)).toBeGreaterThan(0)
   })
+
+  it('leaves keys typed into its fields to those fields', () => {
+    const { view, onCommit } = open()
+    fireEvent.click(view.getByRole('button', { name: 'SET_BRIGHTNESS at 1000 ms' }))
+    const ramp = view.getByLabelText('Ramp milliseconds')
+    const before = onCommit.mock.calls.length
+    // Backspace edits the number; it used to delete the selected event.
+    fireEvent.keyDown(ramp, { key: 'Backspace' })
+    // Arrows on the scroll slider scroll; they used to nudge the selection.
+    fireEvent.keyDown(view.getByLabelText('Timeline scroll'), { key: 'ArrowRight' })
+    expect(onCommit.mock.calls.length).toBe(before)
+    expect(view.getByRole('button', { name: 'SET_BRIGHTNESS at 1000 ms' })).toBeTruthy()
+  })
 })

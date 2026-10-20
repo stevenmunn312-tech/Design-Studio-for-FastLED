@@ -81,7 +81,8 @@ export function patternPickCpp(
     ? [
         'static uint16_t pickDraw(uint16_t n) {',
         '  if (n <= 1) return 0;',
-        '  if (n <= 256) return random8((uint8_t)n);',
+        // random8 takes a uint8_t limit, so 256 would wrap to 0.
+        '  if (n <= 255) return random8((uint8_t)n);',
         '  return (uint16_t)random(n);',
         '}',
       ]

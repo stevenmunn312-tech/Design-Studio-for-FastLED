@@ -136,10 +136,18 @@ show is regenerated instead of refused.
 ## Sequences
 
 `Sequence` sits beside Random and Sequential on the Pattern Slideshow and the
-Music Player. `sequence` is a list of steps. Each step is a collection index,
-or a tag pick (the pick rule above; an explicit index may be weight 0), a hold,
-a transition style and length, and optional role and named-input values with a
-ramp. An empty list holds the current pattern.
+Music Player. `sequence` is a list of steps. Each step names a collection
+pattern by its group id (`patternId`), or is a tag pick (the pick rule above;
+a named pattern may be weight 0), and has a hold, a transition style and
+length, and optional role and named-input values with a ramp. An empty list
+holds the current pattern.
+
+`asPatternSteps` resolves each `patternId` to its index in the wired
+collection, so a reorder keeps every step on its pattern. A step whose pattern
+left the collection keeps the id and picks by its tags until the pattern
+returns; the sketches see `-1` for it and never render past the collection.
+The opening step resolves without a draw, in the preview and both sketches: a
+named pattern, else the first eligible one.
 
 The lane editor edits the sequence on an axis that is the sum of the holds.
 With Beat Transitions on, a Music Player hold counts beats from the player's

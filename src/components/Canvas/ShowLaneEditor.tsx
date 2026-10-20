@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useModalFocus } from '../../hooks/useModalFocus'
+import ClampedNumberInput from './ClampedNumberInput'
 import {
   LANE_COMMANDS, clipboardEvents, deleteEvents, eventsInWindow, moveEvents, nudgeEvents, pasteEvents,
   patternClips, rampCommands, replaceEvents, retypeSection, setEventRamp, setTransitionDuration,
@@ -101,6 +102,11 @@ export default function ShowLaneEditor({ show, title, sections, beats, energy = 
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
+    // Keys typed into a field belong to that field: Backspace in Ramp ms must
+    // edit the number, and arrows on the scroll slider must scroll, not delete
+    // or nudge the selected events.
+    const target = event.target as HTMLElement
+    if (target.closest('input, select, textarea')) return
     const key = event.key.toLowerCase()
     if ((event.ctrlKey || event.metaKey) && key === 'z') {
       event.preventDefault()
@@ -362,12 +368,12 @@ export default function ShowLaneEditor({ show, title, sections, beats, energy = 
         {selected.length === 1 && rampCommands().has(ordered[selected[0]]?.cmd) && (
           <label className={styles.ramp}>
             Ramp ms
-            <input
-              aria-label="Ramp milliseconds"
-              type="number"
+            <ClampedNumberInput
+              ariaLabel="Ramp milliseconds"
               min={0}
+              max={show.durationMs}
               value={Number(ordered[selected[0]].params.rampMs ?? 0)}
-              onChange={(event) => commit(setEventRamp(ordered, selected[0], Number(event.target.value)))}
+              onCommit={(value) => commit(setEventRamp(ordered, selected[0], value))}
             />
           </label>
         )}

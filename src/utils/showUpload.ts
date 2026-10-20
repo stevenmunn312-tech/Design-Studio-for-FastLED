@@ -188,7 +188,7 @@ export function buildShowPlayer(
       energy: patternSet.map((id) => profiles.energyTags[profiles.ids.indexOf(id)] ?? []),
       sections: patternSet.map((id) => profiles.sectionTags[profiles.ids.indexOf(id)] ?? []),
     } : undefined,
-    sequence: order === 'Sequence' ? asPatternSteps(pgProps.sequence) : undefined,
+    sequence: order === 'Sequence' ? asPatternSteps(pgProps.sequence, patternSet) : undefined,
     ramps,
     showParams,
     patternTiming: musicPlayerTiming(pgProps),
