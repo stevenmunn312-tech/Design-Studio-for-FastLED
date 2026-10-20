@@ -27,6 +27,7 @@ import {
   sineFieldFrame, sineFieldSum, SINE_FIELD_VALUE_CPP,
   ROSE_PIXEL_CPP, roseFrame, rosePixel,
   ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, arrayCopy, arrayOver, arraySource,
+  blendMix8, blendMix8Cpp, feedbackFrame, feedbackSource, feedbackSourceCpp,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -366,4 +367,20 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
     const native = runNative(256, 256, [], [`uint8_t _ob=${ARRAY_OVER_CPP('_x', '_y', '(uint8_t)((_x*7+_y)&255)')};`], '"%u ",_ob')
     expect(grid(256, 256, (x, y) => [arrayOver(x, y, (x * 7 + y) & 255)])).toEqual(native)
   }, 60_000)
+
+  it.each(['multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'])('the %s blend matches for every pair at several opacities', (mode) => {
+    for (const op of [0, 1, 128, 254, 255]) {
+      const native = runNative(256, 256, [`uint8_t _op=${op};`], [`uint8_t _a=_x,_b=_y; uint8_t _m=${blendMix8Cpp(mode, '_a', '_b', '_op')};`], '"%u ",_m')
+      expect(grid(256, 256, (x, y) => [blendMix8(mode, x, y, op)])).toEqual(native)
+    }
+  }, 120_000)
+
+  it.each(SIZES)('FrameFeedback finds the same source pixel on %ix%i', (W, H) => {
+    for (const mode of ['translate', 'rotate', 'scale', 'none']) {
+      for (const f of [feedbackFrame(0.6, -1.3, 7, 1.05), feedbackFrame(-17.2, 3.9, -135, 0.3)]) {
+        const native = runNative(W, H, [`int32_t _fbDx=${f.dx},_fbDy=${f.dy},_fbCo=${f.cos},_fbSi=${f.sin},_fbInv=${f.inv};`], feedbackSourceCpp(mode), '"%d ",_fbSrc')
+        expect(grid(W, H, (x, y) => [feedbackSource(mode, x, y, W, H, f)])).toEqual(native)
+      }
+    }
+  }, 120_000)
 })

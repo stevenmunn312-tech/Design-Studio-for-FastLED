@@ -7,7 +7,6 @@ import {
   cloneFrame,
   rawBlankFrame,
   clamp01,
-  scaleRgb,
   blankFrame,
   byte,
   sampleFrame,
@@ -21,7 +20,10 @@ import { frameOffset, frameQuarterTurns } from './frameTransform'
 import { wallpaperSamplePointAt, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
 import { evalKaleidoscope } from './kaleidoscope'
-import { arrayCopy, arrayDim, arrayOver, arraySource } from '../shared/integerPatterns'
+import {
+  arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource,
+} from '../shared/integerPatterns'
+import { scale8 } from '../shared/lib8tion'
 
 // Trails node — the persisted, fading accumulator frame.
 const trailState = instanceState('trailState', new Map<string, Frame>())
@@ -87,38 +89,6 @@ function evalTransform(key: string, src: Frame, mode: string, rate: number, angl
     })
 }
 
-function sampleFeedbackFrame(
-  src: Frame, transformMode: string, offsetX: number, offsetY: number,
-  angle: number, scale: number, W = DEFAULT_W, H = DEFAULT_H,
-): Frame {
-  const cx = (W - 1) / 2, cy = (H - 1) / 2
-  const sample = (sx: number, sy: number): RGB => {
-    const xi = Math.round(sx), yi = Math.round(sy)
-    if (xi < 0 || xi >= W || yi < 0 || yi >= H) return { r: 0, g: 0, b: 0 }
-    return { ...src[yi][xi] }
-  }
-  if (transformMode === 'translate') {
-    return buildFrame(W, H, (x, y) => {
-      const sx = ((Math.round(x - offsetX) % W) + W) % W
-      const sy = ((Math.round(y - offsetY) % H) + H) % H
-      return { ...src[sy][sx] }
-    })
-  }
-  if (transformMode === 'scale') {
-    const s = Math.max(0.05, Math.min(4, scale))
-    return buildFrame(W, H, (x, y) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
-  }
-  if (transformMode === 'rotate') {
-    const a = (angle * Math.PI) / 180
-    const cosA = Math.cos(a), sinA = Math.sin(a)
-    return buildFrame(W, H, (x, y) => {
-      const rx = x - cx, ry = y - cy
-      return sample(cx + rx * cosA + ry * sinA, cy - rx * sinA + ry * cosA)
-    })
-  }
-  return cloneFrame(src)
-}
-
 function evalFrameFeedback(
   key: string, src: Frame, delayFrames: number, fade: number, amount: number,
   blendMode: string, transformMode: string, offsetX: number, offsetY: number,
@@ -138,27 +108,31 @@ function evalFrameFeedback(
     frameFeedbackState.set(key, state)
   }
 
+  // The sketch's integer kernel (shared/integerPatterns.ts): the delayed
+  // frame read through the transform, faded and blended in bytes. Modes the
+  // sketch has no case for blend as screen, as it does.
   const delayed = state.frames[(state.index - delay + capacity) % capacity]
-  const faded = sampleFeedbackFrame(
-    delayed,
-    transformMode,
-    offsetX,
-    offsetY,
-    angle,
-    scale,
-    W,
-    H,
-  )
-  const retain = 1 - clamp01(fade)
-  const opacity = clamp01(amount)
+  const frame = feedbackFrame(offsetX, offsetY, angle, scale)
+  const mode = ['translate', 'rotate', 'scale'].includes(transformMode) ? transformMode : 'none'
+  const retain8 = Math.trunc((1 - clamp01(fade)) * 255)
+  const opacity = clamp01(amount), op8 = Math.trunc(opacity * 255)
+  const integerMode = ['multiply', 'screen', 'add', 'difference', 'lighten'].includes(blendMode) ? blendMode : 'screen'
   const out = state.frames[state.index]
   for (let y = 0; y < H; y++) {
-    const outRow = out[y], srcRow = src[y], delayedRow = faded[y]
+    const outRow = out[y], srcRow = src[y]
     for (let x = 0; x < W; x++) {
-      const fb = scaleRgb(delayedRow[x], retain)
-      const px = blendPixel(blendMode, srcRow[x], fb, opacity)
-      const dst = outRow[x]
-      dst.r = px.r; dst.g = px.g; dst.b = px.b
+      const at = feedbackSource(mode, x, y, W, H, frame)
+      const d = at < 0 ? { r: 0, g: 0, b: 0 } : delayed[Math.trunc(at / W)][at % W]
+      const fb = { r: scale8(d.r, retain8), g: scale8(d.g, retain8), b: scale8(d.b, retain8) }
+      const a = srcRow[x], dst = outRow[x]
+      if (blendMode === 'normal') {
+        const px = blendPixel('normal', a, fb, opacity)
+        dst.r = px.r; dst.g = px.g; dst.b = px.b
+      } else {
+        dst.r = blendMix8(integerMode, a.r, fb.r, op8)
+        dst.g = blendMix8(integerMode, a.g, fb.g, op8)
+        dst.b = blendMix8(integerMode, a.b, fb.b, op8)
+      }
     }
   }
   state.index = (state.index + 1) % capacity
@@ -239,6 +213,16 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     // A mask frame scales the opacity per pixel by its brightness (the
     // average of r, g, b, as Mask reads it); unwired, every pixel is 1.
     const mask = input(id, 'mask', null) as Frame | null
+    if (mode !== 'normal') {
+      // The sketch's integer blend (shared/integerPatterns.ts): opacity in a byte.
+      const op = Math.trunc(opacity * 255)
+      return { frame: a.map((row, y) => row.map((px, x) => {
+        const m = mask?.[y]?.[x]
+        const op8 = m ? div255(op * Math.trunc((m.r + m.g + m.b) / 3)) : op
+        const q = b[y][x]
+        return { r: blendMix8(mode, px.r, q.r, op8), g: blendMix8(mode, px.g, q.g, op8), b: blendMix8(mode, px.b, q.b, op8) }
+      })) }
+    }
     return { frame: a.map((row, y) => row.map((px, x) => {
       const m = mask?.[y]?.[x]
       const o = m ? opacity * ((m.r + m.g + m.b) / 3 / 255) : opacity

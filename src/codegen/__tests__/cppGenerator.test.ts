@@ -2773,8 +2773,9 @@ describe('generateCpp', () => {
       edge('e3', 'bl', 'out', 'frame', 'frame'),
     ])
     expect(cpp).not.toContain('nblend(buf_bl')        // not the linear path
-    expect(cpp).toContain('float _op=(0.5)')
-    expect(cpp).toContain('float _r=_av*_bv;')        // multiply expression
+    // Integer blend: the opacity a byte, multiply an exact /255 of the product.
+    expect(cpp).toContain('uint8_t _opAll=(uint8_t)(constrain(0.5,0.0f,1.0f)*255.0f);')
+    expect(cpp).toContain('(((uint32_t)(_a.r*_b.r)+1)*257>>16)')
   })
 
   it('rejects an unknown group reference before emitting a sketch', () => {
@@ -5169,7 +5170,7 @@ describe('FrameFeedback (bounded delay feedback)', () => {
     expect(cpp).toContain('CRGB _fb_fb[3][NUM_LEDS];')
     expect(cpp).toContain('uint8_t _fb_read_fb=(_fb_idx_fb+_fb_cap_fb-2)%_fb_cap_fb;')
     expect(cpp).toContain('float _fb_fade_fb=1.0f-constrain(0.1,0.0f,1.0f);')
-    expect(cpp).toContain('CRGB _fb=_fb_fb[_fb_read_fb][_sy*WIDTH+_sx];')
+    expect(cpp).toContain('CRGB _fb=_fbSrc<0?CRGB(CRGB::Black):_fb_fb[_fb_read_fb][_fbSrc];')
     expect(cpp).toContain('::memmove(_fb_fb[_fb_idx_fb], buf_fb, sizeof(CRGB) * NUM_LEDS);')
   })
 })

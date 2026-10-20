@@ -1280,3 +1280,100 @@ export const arrayDim = (channel: number, dim: number) => Math.trunc((channel * 
 /** `over`: the base under a copy's coverage (its brightest channel), then the copy added, in bytes. */
 export const arrayOver = (base: number, cover: number, add: number) => Math.min(255, ((base * (255 - cover) + 1) * 257 >> 16) + add)
 export const ARRAY_OVER_CPP = (base: string, cover: string, add: string) => `(uint8_t)min(255,(int)((((uint32_t)${base}*(255-${cover})+1)*257)>>16)+${add})`
+
+// ── Integer blend modes (Blend, FrameFeedback) ────────────────────────────────
+// Each mode on bytes, then cross-faded against the base by an opacity byte:
+// out = (a*(255-op) + mode(a,b)*op) / 255, every /255 an exact floor. Overlay's
+// doubled products stay under 65025 because one factor is below 128.
+
+/** floor(x / 255) for 0 <= x <= 65025. */
+export const div255 = (x: number) => ((x + 1) * 257) >> 16
+const div255Cpp = (x: string) => `(((uint32_t)(${x})+1)*257>>16)`
+
+export const BLEND_MODES = ['multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'] as const
+
+export function blendChannel8(mode: string, a: number, b: number): number {
+  switch (mode) {
+    case 'multiply': return div255(a * b)
+    case 'screen': return 255 - div255((255 - a) * (255 - b))
+    case 'overlay': return a < 128 ? div255(2 * a * b) : 255 - div255(2 * (255 - a) * (255 - b))
+    case 'add': return Math.min(255, a + b)
+    case 'difference': return Math.abs(a - b)
+    case 'lighten': return Math.max(a, b)
+    default: return b
+  }
+}
+
+export function blendChannel8Cpp(mode: string, a: string, b: string): string {
+  switch (mode) {
+    case 'multiply': return div255Cpp(`${a}*${b}`)
+    case 'screen': return `(255-${div255Cpp(`(255-${a})*(255-${b})`)})`
+    case 'overlay': return `(${a}<128?${div255Cpp(`2*${a}*${b}`)}:255-${div255Cpp(`2*(255-${a})*(255-${b})`)})`
+    case 'add': return `min(255,${a}+${b})`
+    case 'difference': return `(${a}>${b}?${a}-${b}:${b}-${a})`
+    case 'lighten': return `max(${a},${b})`
+    default: return b
+  }
+}
+
+/** One blended channel, cross-faded by `op` (0–255). */
+export const blendMix8 = (mode: string, a: number, b: number, op: number) => div255(a * (255 - op) + blendChannel8(mode, a, b) * op)
+export const blendMix8Cpp = (mode: string, a: string, b: string, op: string) =>
+  `(uint8_t)${div255Cpp(`(uint32_t)${a}*(255-${op})+(uint32_t)(${blendChannel8Cpp(mode, a, b)})*${op}`)}`
+
+// ── FrameFeedback transforms ──────────────────────────────────────────────────
+// Where each pixel reads the delayed frame, in 1/16 pixel about the centre
+// ((W-1)/2, (H-1)/2): a wrapped shift, a rotation in Q15, or a zoom in 16.16.
+
+export interface FeedbackFrame { dx: number; dy: number; cos: number; sin: number; inv: number }
+
+export function feedbackFrame(offsetX: number, offsetY: number, angleDeg: number, scale: number): FeedbackFrame {
+  const a = angleDeg * 0.01745329
+  return {
+    dx: Math.trunc(offsetX * 16), dy: Math.trunc(offsetY * 16),
+    cos: Math.trunc(Math.cos(a) * 32767), sin: Math.trunc(Math.sin(a) * 32767),
+    inv: Math.trunc(65536 / Math.max(0.05, Math.min(4, scale))),
+  }
+}
+
+export function feedbackFrameCpp(id: string, offsetX: string, offsetY: string, angleDeg: string, scale: string): string[] {
+  return [
+    `float _fb_a_${id}=(${angleDeg})*0.01745329f;`,
+    `int32_t _fbDx=(int32_t)((${offsetX})*16.0f),_fbDy=(int32_t)((${offsetY})*16.0f),_fbCo=(int32_t)(cosf(_fb_a_${id})*32767.0f),_fbSi=(int32_t)(sinf(_fb_a_${id})*32767.0f);`,
+    `int32_t _fbInv=(int32_t)(65536.0f/constrain((float)(${scale}),0.05f,4.0f));`,
+  ]
+}
+
+/** The delayed-frame index for (x, y), or -1 outside the canvas; `translate` always lands inside. */
+export function feedbackSource(mode: string, x: number, y: number, W: number, H: number, f: FeedbackFrame): number {
+  if (mode === 'translate') {
+    const sx = ((((x * 16 - f.dx + 8) >> 4) % W) + W) % W, sy = ((((y * 16 - f.dy + 8) >> 4) % H) + H) % H
+    return sy * W + sx
+  }
+  const px = x * 16 - (W - 1) * 8, py = y * 16 - (H - 1) * 8
+  let sx: number, sy: number
+  if (mode === 'rotate') {
+    sx = ((W - 1) * 8 + ((px * f.cos + py * f.sin) >> 15) + 8) >> 4
+    sy = ((H - 1) * 8 + ((py * f.cos - px * f.sin) >> 15) + 8) >> 4
+  } else if (mode === 'scale') {
+    sx = ((W - 1) * 8 + Math.floor(px * f.inv / 65536) + 8) >> 4
+    sy = ((H - 1) * 8 + Math.floor(py * f.inv / 65536) + 8) >> 4
+  } else return y * W + x
+  return sx < 0 || sx >= W || sy < 0 || sy >= H ? -1 : sy * W + sx
+}
+
+/** Sets `int _fbSrc` for `_x`, `_y`, or -1 outside the canvas. */
+export function feedbackSourceCpp(mode: string): string[] {
+  if (mode === 'translate') {
+    return [`int _fbSrc=((((_y*16-_fbDy+8)>>4)%HEIGHT+HEIGHT)%HEIGHT)*WIDTH+((((_x*16-_fbDx+8)>>4)%WIDTH+WIDTH)%WIDTH);`]
+  }
+  const centred = `int32_t _fpx=_x*16-(WIDTH-1)*8,_fpy=_y*16-(HEIGHT-1)*8;`
+  const inside = `int _fbSrc=(_fsx<0||_fsx>=WIDTH||_fsy<0||_fsy>=HEIGHT)?-1:(int)(_fsy*WIDTH+_fsx);`
+  if (mode === 'rotate') {
+    return [centred, `int32_t _fsx=((WIDTH-1)*8+((_fpx*_fbCo+_fpy*_fbSi)>>15)+8)>>4,_fsy=((HEIGHT-1)*8+((_fpy*_fbCo-_fpx*_fbSi)>>15)+8)>>4;`, inside]
+  }
+  if (mode === 'scale') {
+    return [centred, `int32_t _fsx=((WIDTH-1)*8+(int32_t)(((int64_t)_fpx*_fbInv)>>16)+8)>>4,_fsy=((HEIGHT-1)*8+(int32_t)(((int64_t)_fpy*_fbInv)>>16)+8)>>4;`, inside]
+  }
+  return [`int _fbSrc=_y*WIDTH+_x;`]
+}

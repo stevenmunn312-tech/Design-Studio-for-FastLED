@@ -4,7 +4,9 @@ import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/sym
 import { GLITTER_PER_LED, glitterMode } from './glitter'
 import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, KALEIDO_SOURCE_CPP, arrayCopyCpp } from '../shared/integerPatterns'
+import {
+  ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
+} from '../shared/integerPatterns'
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
@@ -126,43 +128,22 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`    uint8_t _fb_read_${id}=(_fb_idx_${id}+_fb_cap_${id}-${delay})%_fb_cap_${id};`)
     ln(`    float _fb_fade_${id}=1.0f-constrain(${fade},0.0f,1.0f);`)
     ln(`    float _fb_amt_${id}=constrain(${amount},0.0f,1.0f);`)
-    ln(`    float _fb_cx_${id}=(WIDTH-1)/2.0f,_fb_cy_${id}=(HEIGHT-1)/2.0f;`)
-    if (transformMode === 'translate') {
-      ln(`    float _fb_dx_${id}=${offX},_fb_dy_${id}=${offY};`)
-    } else if (transformMode === 'rotate') {
-      ln(`    float _fb_a_${id}=${angle}*0.01745329f,_fb_co_${id}=cos(_fb_a_${id}),_fb_si_${id}=sin(_fb_a_${id});`)
-    } else if (transformMode === 'scale') {
-      ln(`    float _fb_s_${id}=constrain(${scale},0.05f,4.0f);`)
+    // Integer kernel (shared/integerPatterns.ts): source lookup and blend in bytes.
+    ln(`    uint8_t _fbF8=(uint8_t)(_fb_fade_${id}*255.0f),_fbA8=(uint8_t)(_fb_amt_${id}*255.0f);`)
+    if (transformMode !== 'none') {
+      for (const line of feedbackFrameCpp(id, offX, offY, angle, scale)) ln(`    ${line}`)
     }
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    if (transformMode === 'translate') {
-      ln(`      int _sx=(((int)floorf(_x-_fb_dx_${id}+0.5f))%WIDTH+WIDTH)%WIDTH,_sy=(((int)floorf(_y-_fb_dy_${id}+0.5f))%HEIGHT+HEIGHT)%HEIGHT;`)
-      ln(`      CRGB _fb=${hist}[_fb_read_${id}][_sy*WIDTH+_sx];`)
-    } else if (transformMode === 'rotate') {
-      ln(`      float _rx=_x-_fb_cx_${id},_ry=_y-_fb_cy_${id}; int _sx=(int)floorf(_fb_cx_${id}+_rx*_fb_co_${id}+_ry*_fb_si_${id}+0.5f),_sy=(int)floorf(_fb_cy_${id}-_rx*_fb_si_${id}+_ry*_fb_co_${id}+0.5f);`)
-      ln(`      CRGB _fb=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${hist}[_fb_read_${id}][_sy*WIDTH+_sx]:CRGB::Black;`)
-    } else if (transformMode === 'scale') {
-      ln(`      int _sx=(int)floorf(_fb_cx_${id}+(_x-_fb_cx_${id})/_fb_s_${id}+0.5f),_sy=(int)floorf(_fb_cy_${id}+(_y-_fb_cy_${id})/_fb_s_${id}+0.5f);`)
-      ln(`      CRGB _fb=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${hist}[_fb_read_${id}][_sy*WIDTH+_sx]:CRGB::Black;`)
-    } else {
-      ln(`      CRGB _fb=${hist}[_fb_read_${id}][_y*WIDTH+_x];`)
-    }
-    ln(`      _fb.nscale8((uint8_t)(_fb_fade_${id}*255.0f));`)
+    for (const line of feedbackSourceCpp(transformMode)) ln(`      ${line}`)
+    ln(`      CRGB _fb=_fbSrc<0?CRGB(CRGB::Black):${hist}[_fb_read_${id}][_fbSrc];`)
+    ln(`      _fb.nscale8(_fbF8);`)
     ln(`      CRGB _a=${src}[_y*WIDTH+_x];`)
     if (mode === 'normal') {
-      ln(`      CRGB _r=_a; nblend(_r,_fb,(uint8_t)(_fb_amt_${id}*255.0f)); ${ob}[_y*WIDTH+_x]=_r;`)
-    } else if (mode === 'lighten') {
-      ln(`      ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(_a.r*(1.0f-_fb_amt_${id})+max(_a.r,_fb.r)*_fb_amt_${id}),(uint8_t)(_a.g*(1.0f-_fb_amt_${id})+max(_a.g,_fb.g)*_fb_amt_${id}),(uint8_t)(_a.b*(1.0f-_fb_amt_${id})+max(_a.b,_fb.b)*_fb_amt_${id}));`)
+      ln(`      CRGB _r=_a; nblend(_r,_fb,_fbA8); ${ob}[_y*WIDTH+_x]=_r;`)
     } else {
-      const expr: Record<string, string> = {
-        multiply:   '_av*_bv',
-        screen:     '1.0f-(1.0f-_av)*(1.0f-_bv)',
-        add:        'min(1.0f,_av+_bv)',
-        difference: 'fabsf(_av-_bv)',
-      }
-      ln(`      for(int _c=0;_c<3;_c++){ float _av=_a[_c]/255.0f,_bv=_fb[_c]/255.0f;`)
-      ln(`        float _m=${expr[mode] ?? '1.0f-(1.0f-_av)*(1.0f-_bv)'};`)
-      ln(`        ${ob}[_y*WIDTH+_x][_c]=(uint8_t)((_av*(1.0f-_fb_amt_${id})+_m*_fb_amt_${id})*255.0f); }`)
+      const blendMode = ['multiply', 'screen', 'add', 'difference', 'lighten'].includes(mode) ? mode : 'screen'
+      const mix = (c: string) => blendMix8Cpp(blendMode, `_a.${c}`, `_fb.${c}`, '_fbA8')
+      ln(`      ${ob}[_y*WIDTH+_x]=CRGB(${mix('r')},${mix('g')},${mix('b')});`)
     }
     ln(`    }`)
     ln(`    ::memmove(${hist}[_fb_idx_${id}], ${ob}, sizeof(CRGB) * NUM_LEDS);`)
@@ -328,23 +309,14 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     } else if (mode === 'normal') {
       ln(`    nblend(${ob}, ${b}, NUM_LEDS, (uint8_t)((${amt}) * 255)); }`)
     } else {
-      const expr: Record<string, string> = {
-        multiply:   '_av*_bv',
-        screen:     '1.0f-(1.0f-_av)*(1.0f-_bv)',
-        overlay:    '_av<0.5f?2.0f*_av*_bv:1.0f-2.0f*(1.0f-_av)*(1.0f-_bv)',
-        add:        'min(1.0f,_av+_bv)',
-        difference: 'fabsf(_av-_bv)',
-      }
-      if (mask) {
-        ln(`    float _opAll=(${amt}); for(int _i=0;_i<NUM_LEDS;_i++){`)
-        ln(`      float _op=_opAll*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3.0f/255.0f); CRGB _a=${ob}[_i], _b=${b}[_i];`)
-      } else {
-        ln(`    float _op=(${amt}); for(int _i=0;_i<NUM_LEDS;_i++){`)
-        ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
-      }
-      ln(`      for(int _c=0;_c<3;_c++){ float _av=_a[_c]/255.0f,_bv=_b[_c]/255.0f;`)
-      ln(`        float _r=${expr[mode] ?? '_bv'};`)
-      ln(`        ${ob}[_i][_c]=(uint8_t)((_av*(1.0f-_op)+_r*_op)*255.0f); } } }`)
+      // Integer blend (shared/integerPatterns.ts): the opacity is a byte, a
+      // mask's brightness scales it per pixel.
+      const mix = (c: string) => blendMix8Cpp(mode, `_a.${c}`, `_b.${c}`, '_op8')
+      ln(`    uint8_t _opAll=(uint8_t)(constrain(${amt},0.0f,1.0f)*255.0f); for(int _i=0;_i<NUM_LEDS;_i++){`)
+      if (mask) ln(`      uint8_t _op8=(uint8_t)((((uint32_t)_opAll*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3))+1)*257>>16);`)
+      else ln(`      uint8_t _op8=_opAll;`)
+      ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
+      ln(`      ${ob}[_i]=CRGB(${mix('r')},${mix('g')},${mix('b')}); } }`)
     }
   },
   Invert({ ln, ownBuf, seedFrom }) {
