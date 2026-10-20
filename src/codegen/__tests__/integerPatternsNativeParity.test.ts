@@ -24,6 +24,7 @@ import {
   trailColumnPass, trailColumnPassCpp, trailRowPass, trailRowPassCpp,
   KALEIDO_SOURCE_CPP, kaleidoSource,
   NOISE_FIELD_PIXEL_CPP, noiseFieldFrame, noiseFieldSum,
+  sineFieldFrame, sineFieldSum, SINE_FIELD_VALUE_CPP,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -334,6 +335,14 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
     for (const f of [noiseFieldFrame(0.3, 0, 4), noiseFieldFrame(1.2, 1777.7, 6), noiseFieldFrame(0.05, -12.5, 1)]) {
       const native = runNative(W, H, [`int32_t _fnQ=${f.freq}; uint16_t _z=${f.z}; int _fnO=${f.octaves};`], NOISE_FIELD_PIXEL_CPP, '"%d ",_fv')
       expect(grid(W, H, (x, y) => [noiseFieldSum(x, y, f)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('Noise (field) matches on %ix%i', (W, H) => {
+    for (const f of [sineFieldFrame(0.5, 0), sineFieldFrame(2, -401.3)]) {
+      const sum = SINE_FIELD_VALUE_CPP.replace('*(1.0f/131072.0f)', '')
+      const native = runNative(W, H, [`int32_t _nfK=${f.step},_nfPx=${f.px},_nfPy=${f.py};`], [`int32_t _sum=${sum};`], '"%d ",_sum')
+      expect(grid(W, H, (x, y) => [sineFieldSum(x, y, f)])).toEqual(native)
     }
   }, 60_000)
 })

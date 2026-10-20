@@ -5,7 +5,7 @@ import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from 
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   BURST_PIXEL_CPP, PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, SPIRAL_PIXEL_CPP, TWINKLE_PIXEL_CPP,
-  burstFrameCpp, pacificaFrameCpp, spiralFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
+  SINE_FIELD_VALUE_CPP, burstFrameCpp, pacificaFrameCpp, sineFieldFrameCpp, spiralFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
 } from '../shared/integerPatterns'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
@@ -158,9 +158,10 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`  {`)
         ln(`    float _spd = ${speed}, _scl = ${scale}, _t=${timeExpr};`)
         const tp = phase()
+        // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+        for (const line of sineFieldFrameCpp('_scl', tp)) ln(`    ${line}`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-        ln(`      float _v = (sin(_x * _scl * 0.5f + ${tp}) + cos(_y * _scl * 0.5f + ${tp} * 0.7f)) / 2.0f;`)
-        ln(`      ${of}[_y * WIDTH + _x] = constrain((_v + 1) * 0.5f, 0.0f, 1.0f);`)
+        ln(`      ${of}[_y * WIDTH + _x] = ${SINE_FIELD_VALUE_CPP};`)
         ln(`    }`)
         ln(`  }`)
         break

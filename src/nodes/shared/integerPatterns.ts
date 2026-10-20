@@ -1180,3 +1180,24 @@ export function noiseFieldSum(x: number, y: number, f: NoiseFieldFrame): number 
   for (let o = 0; o < f.octaves; o++) v += (128 >> o) * inoise8x3((x * f.freq) >> (8 - o), (y * f.freq) >> (8 - o), f.z)
   return v
 }
+
+// ── Noise, `field` variant ────────────────────────────────────────────────────
+// (sin(x*scale/2 + ph) + cos(y*scale/2 + 0.7ph)) / 2 mapped to 0-1: two
+// sin16 and one float multiply a pixel.
+
+export interface SineFieldFrame { step: number; px: number; py: number }
+
+export function sineFieldFrame(scale: number, phase: number): SineFieldFrame {
+  return { step: Math.trunc(scale * 0.5 * A16_PER_RADIAN), px: angle16(phase), py: angle16(phase * 0.7) }
+}
+
+export function sineFieldFrameCpp(scale: string, phase: string): string[] {
+  return [`int32_t _nfK=(int32_t)(${scale}*0.5f*${A16_PER_RADIAN}f),_nfPx=${angle16Cpp(phase)},_nfPy=${angle16Cpp(`${phase}*0.7f`)};`]
+}
+
+/** The field value expression for `_x`, `_y`: (sum + 65536) / 131072. */
+export const SINE_FIELD_VALUE_CPP = '((int32_t)sin16((uint16_t)(_x*_nfK+_nfPx))+sin16((uint16_t)(_y*_nfK+_nfPy+16384))+65536)*(1.0f/131072.0f)'
+
+export function sineFieldSum(x: number, y: number, f: SineFieldFrame): number {
+  return sin16(x * f.step + f.px) + sin16(y * f.step + f.py + 16384) + 65536
+}

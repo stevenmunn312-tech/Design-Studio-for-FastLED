@@ -6,7 +6,7 @@ import {
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import {
-  burstFrame, burstPixel, pacificaFrame, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
+  burstFrame, burstPixel, pacificaFrame, sineFieldFrame, sineFieldSum, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
 } from '../shared/integerPatterns'
 import { scale8, scale8Video } from '../shared/lib8tion'
 import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
@@ -310,14 +310,11 @@ function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, sc
 }
 
 function evalNoiseFieldRaw(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
-  const ph = speedPhase(key, t, speed)
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = sineFieldFrame(scale, speedPhase(key, t, speed))
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = xo; x < W + xo; x++) {
-      const v = (Math.sin(x * scale * 0.5 + ph) +
-                 Math.cos(y * scale * 0.5 + ph * 0.7)) / 2
-      out[y * W + x - xo] = Math.max(0, Math.min(1, (v + 1) / 2))
-    }
+    for (let x = xo; x < W + xo; x++) out[y * W + x - xo] = sineFieldSum(x, y, frame) / 131072
   }
   return out
 }
