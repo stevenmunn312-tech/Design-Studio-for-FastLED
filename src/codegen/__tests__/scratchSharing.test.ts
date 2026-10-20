@@ -118,10 +118,10 @@ describe('shareScratchBuffers', () => {
   })
 })
 
-/** The lines of the function whose header is `header`, braces balanced. */
+/** The lines of the function whose header line ends with `header`, braces balanced. */
 function body(lines: string[], header: string): Set<number> {
   const out = new Set<number>()
-  const start = lines.indexOf(header)
+  const start = lines.findIndex((line) => line.endsWith(header))
   if (start < 0) return out
   let depth = 0
   for (let i = start; i < lines.length; i++) {
