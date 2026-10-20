@@ -4,7 +4,7 @@ import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/sym
 import { GLITTER_PER_LED, glitterMode } from './glitter'
 import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { KALEIDO_SOURCE_CPP } from '../shared/integerPatterns'
+import { ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, KALEIDO_SOURCE_CPP, arrayCopyCpp } from '../shared/integerPatterns'
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
@@ -286,21 +286,19 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     // A wired count is clamped to [1, 32] at runtime (the evaluator's cap).
     if (countWired) ln(`    int _cnt=(int)(${f('count', 'count', 5)}+0.5f); _cnt=_cnt<1?1:(_cnt>32?32:_cnt);`)
-    ln(`    float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f;`)
     ln(`    for(int _i=${countWired ? '_cnt-1' : countLit - 1};_i>=0;_i--){`)
-    ln(`      float _ox=${offX}*_i,_oy=${offY}*_i,_a=${ang}*_i*0.01745329f,_co=cos(_a),_si=sin(_a);`)
-    ln(`      float _inv=1.0f/powf(${scl},_i),_dim=powf(${fo},_i);`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a copy.
+    for (const line of arrayCopyCpp('_i', `(${offX})`, `(${offY})`, `(${ang})`, scl, fo)) ln(`      ${line}`)
     ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`        float _px=_x-_ox-_cx,_py=_y-_oy-_cy,_rx=_px*_co+_py*_si,_ry=-_px*_si+_py*_co;`)
-    ln(`        int _sx=(int)floorf(_cx+_rx*_inv+0.5f),_sy=(int)floorf(_cy+_ry*_inv+0.5f);`)
-    ln(`        if(_sx<0||_sx>=WIDTH||_sy<0||_sy>=HEIGHT) continue;`)
-    ln(`        CRGB _s=${src}[_sy*WIDTH+_sx]; uint8_t _r=(uint8_t)(_s.r*_dim),_g=(uint8_t)(_s.g*_dim),_b=(uint8_t)(_s.b*_dim);`)
+    for (const line of ARRAY_SOURCE_CPP) ln(`        ${line}`)
+    ln(`        if(_aSrc<0) continue;`)
+    ln(`        CRGB _s=${src}[_aSrc]; uint8_t _r=(uint8_t)((_s.r*_adim)>>16),_g=(uint8_t)((_s.g*_adim)>>16),_b=(uint8_t)((_s.b*_adim)>>16);`)
     ln(`        CRGB& _o=${ob}[_y*WIDTH+_x];`)
     if (mode === 'lighten') {
       ln(`        _o.r=max(_o.r,_r); _o.g=max(_o.g,_g); _o.b=max(_o.b,_b);`)
     } else if (mode === 'over') {
-      ln(`        float _cov=max(_r,max(_g,_b))/255.0f;`)
-      ln(`        _o.r=(uint8_t)min(255.0f,_o.r*(1-_cov)+_r); _o.g=(uint8_t)min(255.0f,_o.g*(1-_cov)+_g); _o.b=(uint8_t)min(255.0f,_o.b*(1-_cov)+_b);`)
+      ln(`        uint8_t _cov=max(_r,max(_g,_b));`)
+      ln(`        _o.r=${ARRAY_OVER_CPP('_o.r', '_cov', '_r')}; _o.g=${ARRAY_OVER_CPP('_o.g', '_cov', '_g')}; _o.b=${ARRAY_OVER_CPP('_o.b', '_cov', '_b')};`)
     } else {
       ln(`        _o.r=qadd8(_o.r,_r); _o.g=qadd8(_o.g,_g); _o.b=qadd8(_o.b,_b);`)
     }

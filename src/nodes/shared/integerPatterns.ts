@@ -1233,3 +1233,50 @@ export function rosePixel(x: number, y: number, W: number, H: number, f: RoseFra
   const r = isqrt32(cx * cx + cy * cy)
   return (sin16((((signedTurn(atan2_16(cy, cx)) + f.turn) * f.petals) >> 8) + 16384) + 32768) * (256 - ((r * 38) >> 8))
 }
+
+// ── Array (effect) ────────────────────────────────────────────────────────────
+// Each copy's offset, rotation, zoom and dimming are worked out once a copy
+// in float; each pixel's source is then Q4 integer maths (the zoom product in
+// 64 bits) and each channel an integer dim.
+
+export interface ArrayCopy { ox: number; oy: number; cos: number; sin: number; inv: number; dim: number }
+
+/** Copy i's integers: offset in 1/16 pixel, rotation in Q15, zoom in 16.16 (capped), dim in 1/65536. */
+export function arrayCopy(i: number, offsetX: number, offsetY: number, angleDeg: number, scale: number, falloff: number): ArrayCopy {
+  const ang = angleDeg * i * 0.01745329
+  return {
+    ox: Math.trunc(offsetX * i * 16), oy: Math.trunc(offsetY * i * 16),
+    cos: Math.trunc(Math.cos(ang) * 32767), sin: Math.trunc(Math.sin(ang) * 32767),
+    inv: Math.trunc(Math.min(16777216, 65536 / Math.pow(scale, i))), dim: Math.trunc(Math.pow(falloff, i) * 65536),
+  }
+}
+
+export function arrayCopyCpp(i: string, offsetX: string, offsetY: string, angleDeg: string, scale: string, falloff: string): string[] {
+  return [
+    `float _aa=${angleDeg}*${i}*0.01745329f;`,
+    `int32_t _aox=(int32_t)(${offsetX}*${i}*16.0f),_aoy=(int32_t)(${offsetY}*${i}*16.0f),_aco=(int32_t)(cosf(_aa)*32767.0f),_asi=(int32_t)(sinf(_aa)*32767.0f);`,
+    `int32_t _ainv=(int32_t)fminf(16777216.0f,65536.0f/powf(${scale},${i})); uint32_t _adim=(uint32_t)(powf(${falloff},${i})*65536.0f);`,
+  ]
+}
+
+/** Sets `int _aSrc` (-1 outside) for `_x`, `_y` and the copy locals. */
+export const ARRAY_SOURCE_CPP = [
+  `int32_t _apx=_x*16-_aox-(WIDTH-1)*8,_apy=_y*16-_aoy-(HEIGHT-1)*8;`,
+  `int32_t _arx=(_apx*_aco+_apy*_asi)>>15,_ary=(_apy*_aco-_apx*_asi)>>15;`,
+  `int32_t _asx=((WIDTH-1)*8+(int32_t)(((int64_t)_arx*_ainv)>>16)+8)>>4,_asy=((HEIGHT-1)*8+(int32_t)(((int64_t)_ary*_ainv)>>16)+8)>>4;`,
+  `int _aSrc=(_asx<0||_asx>=WIDTH||_asy<0||_asy>=HEIGHT)?-1:(int)(_asy*WIDTH+_asx);`,
+]
+
+export function arraySource(x: number, y: number, W: number, H: number, c: ArrayCopy): number {
+  const px = x * 16 - c.ox - (W - 1) * 8, py = y * 16 - c.oy - (H - 1) * 8
+  const rx = (px * c.cos + py * c.sin) >> 15, ry = (py * c.cos - px * c.sin) >> 15
+  const sx = ((W - 1) * 8 + Math.floor(rx * c.inv / 65536) + 8) >> 4
+  const sy = ((H - 1) * 8 + Math.floor(ry * c.inv / 65536) + 8) >> 4
+  return sx < 0 || sx >= W || sy < 0 || sy >= H ? -1 : sy * W + sx
+}
+
+/** A channel dimmed by the copy's falloff, truncated as the sketch's cast. */
+export const arrayDim = (channel: number, dim: number) => Math.trunc((channel * dim) / 65536)
+/** `over`: the base under a copy's coverage (its brightest channel), then the copy added, in bytes. */
+export const arrayOver = (base: number, cover: number, add: number) => Math.min(255, ((base * (255 - cover) + 1) * 257 >> 16) + add)
+export const ARRAY_OVER_CPP = (base: string, cover: string, add: string) => `(uint8_t)min(255,(int)((((uint32_t)${base}*(255-${cover})+1)*257)>>16)+${add})`

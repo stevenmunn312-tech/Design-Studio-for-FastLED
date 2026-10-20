@@ -26,6 +26,7 @@ import {
   NOISE_FIELD_PIXEL_CPP, noiseFieldFrame, noiseFieldSum,
   sineFieldFrame, sineFieldSum, SINE_FIELD_VALUE_CPP,
   ROSE_PIXEL_CPP, roseFrame, rosePixel,
+  ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, arrayCopy, arrayOver, arraySource,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -35,7 +36,7 @@ function runNative(W: number, H: number, frame: string[], pixel: string[], print
   try {
     const source = path.join(dir, 'kernel.cpp'), binary = path.join(dir, 'kernel')
     writeFileSync(source, [
-      '#include <cstdio>', '#include <cstdint>', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, INOISE8_3D_HOST_CPP, ATAN16_HELPER_CPP,
+      '#include <cstdio>', '#include <cstdint>', '#include <algorithm>', 'using std::min; using std::max;', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, INOISE8_3D_HOST_CPP, ATAN16_HELPER_CPP,
       `#define WIDTH ${W}`, `#define HEIGHT ${H}`,
       'int main(){', ...frame, '  int _i=0;',
       '  for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){', ...pixel.map((l) => `    ${l}`),
@@ -352,5 +353,17 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
       const native = runNative(W, H, [`int32_t _roIx=${f.invX},_roIy=${f.invY},_roK=${f.petals},_roT=${f.turn};`], ROSE_PIXEL_CPP, '"%d ",_roV')
       expect(grid(W, H, (x, y) => [rosePixel(x, y, W, H, f)])).toEqual(native)
     }
+  }, 60_000)
+
+  it.each(SIZES)('Array finds the same source pixel on %ix%i', (W, H) => {
+    for (const c of [arrayCopy(0, 3, 0, 0, 1, 0.7), arrayCopy(3, 3, -1.5, 25, 0.8, 0.7), arrayCopy(31, -0.4, 0.9, -170, 0.05, 1)]) {
+      const native = runNative(W, H, [`int32_t _aox=${c.ox},_aoy=${c.oy},_aco=${c.cos},_asi=${c.sin},_ainv=${c.inv};`], ARRAY_SOURCE_CPP, '"%d ",_aSrc')
+      expect(grid(W, H, (x, y) => [arraySource(x, y, W, H, c)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it('Array over-blend matches for every base and cover', () => {
+    const native = runNative(256, 256, [], [`uint8_t _ob=${ARRAY_OVER_CPP('_x', '_y', '(uint8_t)((_x*7+_y)&255)')};`], '"%u ",_ob')
+    expect(grid(256, 256, (x, y) => [arrayOver(x, y, (x * 7 + y) & 255)])).toEqual(native)
   }, 60_000)
 })

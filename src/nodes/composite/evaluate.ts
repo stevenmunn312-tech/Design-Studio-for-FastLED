@@ -21,6 +21,7 @@ import { frameOffset, frameQuarterTurns } from './frameTransform'
 import { wallpaperSamplePointAt, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
 import { evalKaleidoscope } from './kaleidoscope'
+import { arrayCopy, arrayDim, arrayOver, arraySource } from '../shared/integerPatterns'
 
 // Trails node — the persisted, fading accumulator frame.
 const trailState = instanceState('trailState', new Map<string, Frame>())
@@ -178,35 +179,27 @@ function evalArray(
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const out = rawBlankFrame(W, H)
-  const cx = (W - 1) / 2, cy = (H - 1) / 2
   const n = Math.max(1, Math.min(ARRAY_MAX_COPIES, Math.round(count)))
   const sc0 = Math.max(0.05, scale)
   const fo = Math.max(0, Math.min(1, falloff))
+  // The sketch's integer kernel (shared/integerPatterns.ts), one copy at a time.
   for (let i = n - 1; i >= 0; i--) {
-    const ox = offsetX * i, oy = offsetY * i
-    const ang = (angleDeg * i * Math.PI) / 180
-    const co = Math.cos(ang), si = Math.sin(ang)
-    const inv = 1 / Math.pow(sc0, i)
-    const dim = Math.pow(fo, i)
+    const copy = arrayCopy(i, offsetX, offsetY, angleDeg, sc0, fo)
     for (let y = 0; y < H; y++) {
       const orow = out[y]
       for (let x = 0; x < W; x++) {
-        const px = x - ox - cx, py = y - oy - cy
-        const rx = px * co + py * si, ry = -px * si + py * co
-        const sx = Math.round(cx + rx * inv), sy = Math.round(cy + ry * inv)
-        if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue
-        const s = src[sy][sx]
-        const r = s.r * dim, g = s.g * dim, b = s.b * dim
+        const at = arraySource(x, y, W, H, copy)
+        if (at < 0) continue
+        const s = src[Math.trunc(at / W)][at % W]
+        const r = arrayDim(s.r, copy.dim), g = arrayDim(s.g, copy.dim), b = arrayDim(s.b, copy.dim)
         const o = orow[x]
         if (mode === 'lighten') {
-          o.r = Math.max(o.r, Math.round(r)); o.g = Math.max(o.g, Math.round(g)); o.b = Math.max(o.b, Math.round(b))
+          o.r = Math.max(o.r, r); o.g = Math.max(o.g, g); o.b = Math.max(o.b, b)
         } else if (mode === 'over') {
-          const cov = Math.max(r, g, b) / 255
-          o.r = Math.min(255, Math.round(o.r * (1 - cov) + r))
-          o.g = Math.min(255, Math.round(o.g * (1 - cov) + g))
-          o.b = Math.min(255, Math.round(o.b * (1 - cov) + b))
+          const cov = Math.max(r, g, b)
+          o.r = arrayOver(o.r, cov, r); o.g = arrayOver(o.g, cov, g); o.b = arrayOver(o.b, cov, b)
         } else {
-          o.r = Math.min(255, o.r + Math.round(r)); o.g = Math.min(255, o.g + Math.round(g)); o.b = Math.min(255, o.b + Math.round(b))
+          o.r = Math.min(255, o.r + r); o.g = Math.min(255, o.g + g); o.b = Math.min(255, o.b + b)
         }
       }
     }

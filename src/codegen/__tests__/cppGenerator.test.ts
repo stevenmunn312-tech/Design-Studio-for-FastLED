@@ -1193,12 +1193,12 @@ describe('generateCpp', () => {
     const add = mk({ count: 4, offsetX: 3, offsetY: 0, angle: 30, scale: 0.9, falloff: 0.7, blendMode: 'add' })
     expect(add).toContain('// Array x4')
     expect(add).toContain('for(int _i=3;_i>=0;_i--)')       // high→low paint order
-    expect(add).toContain('_inv=1.0f/powf(max(0.05f, 0.9),_i)') // per-copy scale accumulation
-    expect(add).toContain('_dim=powf(constrain(0.7,0.0f,1.0f),_i)')                  // per-copy falloff
-    expect(add).toContain('buf_sc[_sy*WIDTH+_sx]')           // samples the source buffer
+    expect(add).toContain('65536.0f/powf(max(0.05f, 0.9),_i)') // per-copy scale accumulation
+    expect(add).toContain('powf(constrain(0.7,0.0f,1.0f),_i)*65536.0f')              // per-copy falloff
+    expect(add).toContain('CRGB _s=buf_sc[_aSrc];')           // samples the source buffer
     expect(add).toContain('qadd8(_o.r,_r)')                  // add = saturating add
     expect(mk({ blendMode: 'lighten' })).toContain('max(_o.r,_r)')
-    expect(mk({ blendMode: 'over' })).toContain('_cov=max(_r,max(_g,_b))/255.0f')
+    expect(mk({ blendMode: 'over' })).toContain('uint8_t _cov=max(_r,max(_g,_b));')
   })
 
   it('emits a blank Array when its frame input is unconnected', () => {
@@ -1221,7 +1221,7 @@ describe('generateCpp', () => {
     // Wired count → runtime bound clamped to [1,32]; wired angle → expression.
     expect(cpp).toContain('_cnt=_cnt<1?1:(_cnt>32?32:_cnt)')
     expect(cpp).toContain('for(int _i=_cnt-1;_i>=0;_i--)')
-    expect(cpp).toContain('_a=n_ang_time*_i*0.01745329f')
+    expect(cpp).toContain('float _aa=(n_ang_time)*_i*0.01745329f;')
     expect(cpp).not.toContain('// Array x')                  // count is dynamic now
   })
 
