@@ -3546,9 +3546,9 @@ describe('Formula Field codegen', () => {
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
     expect(cpp).toContain('float field_ff[NUM_LEDS];')
     expect(cpp).toContain('/* Formula Field: rose */')
-    expect(cpp).toContain('float _k=fmaxf(1.0f,4);')
-    expect(cpp).toContain('cosf(_k*(_ang+_off+_rot))')
-    expect(cpp).toContain('field_ff[_y*WIDTH+_x]=constrain((_rr+1.0f)/2.0f*(1.0f-_r*0.15f),0.0f,1.0f);')
+    expect(cpp).toContain('_roK=(int32_t)(fmaxf(1.0f,4)*256.0f)')
+    expect(cpp).toContain('_atan2_16(_rcy,_rcx)')
+    expect(cpp).toContain('field_ff[_y*WIDTH+_x]=constrain(_roV*(1.0f/16777216.0f),0.0f,1.0f);')
     expect(cpp).toContain('float t = millis()')   // needsT triggered
   })
 
@@ -3561,8 +3561,8 @@ describe('Formula Field codegen', () => {
     const t = tail('ff')
     const cpp = generateCpp([wave, ff, ...t.nodes],
       [edge('wp', 'w', 'ff', 'result', 'petals'), ...t.edges])
-    expect(cpp).toContain('float _k=fmaxf(1.0f,n_w_result);')
-    expect(cpp).not.toContain('float _k=fmaxf(1.0f,4);')
+    expect(cpp).toContain('_roK=(int32_t)(fmaxf(1.0f,n_w_result)*256.0f)')
+    expect(cpp).not.toContain('fmaxf(1.0f,4)')
   })
 
   it('superformula hoists its Gielis parameters', () => {

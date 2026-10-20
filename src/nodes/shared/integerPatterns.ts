@@ -1201,3 +1201,35 @@ export const SINE_FIELD_VALUE_CPP = '((int32_t)sin16((uint16_t)(_x*_nfK+_nfPx))+
 export function sineFieldSum(x: number, y: number, f: SineFieldFrame): number {
   return sin16(x * f.step + f.px) + sin16(y * f.step + f.py + 16384) + 65536
 }
+
+// ── FormulaField, `rose` variant ──────────────────────────────────────────────
+// cos(k * (angle + offset + rot)) faded by the radius: coordinates in 1/256
+// of each half axis, the angle from `_atan2_16` as a signed 16-bit turn. The
+// field value is one float multiply.
+
+export interface RoseFrame { invX: number; invY: number; petals: number; turn: number }
+
+export function roseFrame(W: number, H: number, petals: number, offsetRadians: number, rotation: number): RoseFrame {
+  return {
+    invX: Math.trunc(65536 / (W || 1)), invY: Math.trunc(65536 / (H || 1)),
+    petals: Math.trunc(Math.max(1, petals) * 256), turn: angle16(offsetRadians + rotation),
+  }
+}
+
+export function roseFrameCpp(petals: string, offsetRadians: string, rotation: string): string[] {
+  return [`int32_t _roIx=65536/max(1,WIDTH),_roIy=65536/max(1,HEIGHT),_roK=(int32_t)(${petals}*256.0f),_roT=${angle16Cpp(`${offsetRadians}+${rotation}`)};`]
+}
+
+/** Sets `int32_t _roV`, the field value in 1/2^24. Needs `_atan2_16`. */
+export const ROSE_PIXEL_CPP = [
+  `int32_t _rcx=((2*_x-WIDTH)*_roIx)>>8,_rcy=((2*_y-HEIGHT)*_roIy)>>8;`,
+  ...isqrtCpp('ro', '_rcx*_rcx+_rcy*_rcy', '_roR'),
+  `int32_t _roA=(int32_t)_atan2_16(_rcy,_rcx); if(_roA>32767) _roA-=65536;`,
+  `int32_t _roV=((int32_t)sin16((uint16_t)((((_roA+_roT)*_roK)>>8)+16384))+32768)*(256-(((int32_t)_roR*38)>>8));`,
+]
+
+export function rosePixel(x: number, y: number, W: number, H: number, f: RoseFrame): number {
+  const cx = ((2 * x - W) * f.invX) >> 8, cy = ((2 * y - H) * f.invY) >> 8
+  const r = isqrt32(cx * cx + cy * cy)
+  return (sin16((((signedTurn(atan2_16(cy, cx)) + f.turn) * f.petals) >> 8) + 16384) + 32768) * (256 - ((r * 38) >> 8))
+}

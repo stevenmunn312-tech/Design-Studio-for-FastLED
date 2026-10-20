@@ -1,7 +1,7 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
 import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
-import { noiseFieldFrame, noiseFieldSum } from '../shared/integerPatterns'
+import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
@@ -285,16 +285,10 @@ function evalFormulaField(key: string, p: FormulaFieldParams, t: number, W = DEF
 
     case 'rose':
     default: {
-      const k = Math.max(1, p.petals)
-      const offsetRad = (p.offset * Math.PI) / 180
+      // The sketch's integer kernel (shared/integerPatterns.ts).
+      const frame = roseFrame(W, H, p.petals, (p.offset * Math.PI) / 180, rot)
       for (let yi = 0; yi < H; yi++) {
-        for (let xi = 0; xi < W; xi++) {
-          const cx = centeredX(xi, W), cy = centeredY(yi, H)
-          const r = Math.sqrt(cx * cx + cy * cy)
-          const angle = Math.atan2(cy, cx)
-          const rr = Math.cos(k * (angle + offsetRad + rot))
-          out[yi * W + xi] = clamp01((rr + 1) / 2 * (1 - r * 0.15))
-        }
+        for (let xi = 0; xi < W; xi++) out[yi * W + xi] = clamp01(rosePixel(xi, yi, W, H, frame) / 16777216)
       }
       break
     }

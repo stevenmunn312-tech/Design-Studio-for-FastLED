@@ -1,6 +1,6 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX, FORMULA_FIELD_SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { NOISE_FIELD_PIXEL_CPP, noiseFieldFrameCpp } from '../shared/integerPatterns'
+import { NOISE_FIELD_PIXEL_CPP, ROSE_PIXEL_CPP, noiseFieldFrameCpp, roseFrameCpp } from '../shared/integerPatterns'
 import { usesShims, cppRewriteShims } from '../shared/fastledShims'
 import { isNodeFormulaValid } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -155,7 +155,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
   // one dedicated block per formulaType baked at generation time (the
   // variant isn't wired, so there's nothing to branch on at runtime). See
   // docs/design/formula-pattern-nodes.md.
-  FormulaField({ id, p, ln, f, ownField, needsT }) {
+  FormulaField({ id, p, ln, f, ownField, needsT, needsAtan16 }) {
     needsT.v = true
     const of = ownField()
     const formulaType = String(p.formulaType ?? 'rose')
@@ -245,13 +245,12 @@ export const FIELD_EMITTERS: NodeEmitters = {
       default: {
         ln(`  { /* Formula Field: rose */`)
         emitSpd()
-        ln(`    float _k=fmaxf(1.0f,${f('petals', 'petals', 5)});`)
-        ln(`    float _off=(${f('offset', 'offset', 0)})*0.0174532925f;`)
+        needsAtan16.v = true
+        // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+        for (const line of roseFrameCpp(`fmaxf(1.0f,${f('petals', 'petals', 5)})`, `(${f('offset', 'offset', 0)})*0.0174532925f`, '_rot')) ln(`    ${line}`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
-        ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy),_ang=atan2f(_cy,_cx);`)
-        ln(`      float _rr=cosf(_k*(_ang+_off+_rot));`)
-        ln(`      ${of}[_y*WIDTH+_x]=constrain((_rr+1.0f)/2.0f*(1.0f-_r*0.15f),0.0f,1.0f);}}`)
+        for (const line of ROSE_PIXEL_CPP) ln(`      ${line}`)
+        ln(`      ${of}[_y*WIDTH+_x]=constrain(_roV*(1.0f/16777216.0f),0.0f,1.0f);}}`)
         break
       }
     }
