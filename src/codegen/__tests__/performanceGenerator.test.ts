@@ -18,6 +18,14 @@ import {
   showTransitionStyles,
 } from '../performanceGenerator'
 import type { ShowEvent, SongAnalysis, EnergyPoint } from '../../types/showFile'
+import { encodeSpectrumBytes, spectrumBytes, SPECTRUM_TRACK_BINS } from '../../audio/spectrumTrack'
+
+// A spectrum track of `frames` frames at `rateHz` where bin b of frame k is fill(k, b).
+function spectrumTrack(rateHz: number, frames: number, fill: (k: number, b: number) => number = () => 0) {
+  const bytes = new Uint8Array(frames * SPECTRUM_TRACK_BINS)
+  for (let k = 0; k < frames; k++) for (let b = 0; b < SPECTRUM_TRACK_BINS; b++) bytes[k * SPECTRUM_TRACK_BINS + b] = fill(k, b)
+  return { rateHz, data: encodeSpectrumBytes(bytes) }
+}
 
 // An analysis carrying a 0–2s energy track (bass ramps 0→1→0.5), for envelope tests.
 const withEnergy: SongAnalysis = {
@@ -30,6 +38,7 @@ const withEnergy: SongAnalysis = {
   ],
   sections: [{ startMs: 0, endMs: 2000, type: 'drop', energy: 0.8 }],
   mood: { energy: 0.7, valence: 0.6, key: 'C major' },
+  spectrum: spectrumTrack(50, 0),
   channelLevels: [],
   channelCount: 1,
 }
@@ -44,6 +53,7 @@ const analysis: SongAnalysis = {
     { startMs: 2000, endMs: 4000, type: 'drop', energy: 0.9 },
   ],
   mood: { energy: 0.7, valence: 0.6, key: 'C major' },
+  spectrum: spectrumTrack(50, 0),
   channelLevels: [],
   channelCount: 1,
 }
@@ -545,6 +555,7 @@ describe('bakeEnvelope + baked audio', () => {
       ],
       sections: [{ startMs: 0, endMs: 25000, type: 'verse', energy: 0.3 }],
       mood: { energy: 0.3, valence: 0.5, key: 'C major' },
+      spectrum: spectrumTrack(50, 0),
       channelLevels: [],
       channelCount: 1,
     }
@@ -562,7 +573,7 @@ describe('bakeEnvelope + baked audio', () => {
 
   it('writes the tagged trailer with silent levels when the analysis has none', () => {
     const show = generateShow(withEnergy)
-    expect(show.audio).toMatchObject({ version: 2, channelCount: 1 })
+    expect(show.audio).toMatchObject({ version: 3, channelCount: 1 })
     const view = new DataView(showFileToBinary(show))
     // Walk the header + events to reach the trailing envelope block.
     let off = 15
@@ -570,17 +581,19 @@ describe('bakeEnvelope + baked audio', () => {
     for (let i = 0; i < count; i++) { off += 4 + 1; const pc = view.getUint8(off); off += 1 + pc * 4 }
     expect(String.fromCharCode(...new Uint8Array(view.buffer, off, 4))).toBe('AENV')
     off += 4
-    expect(view.getUint8(off++)).toBe(2)                // envelope version
+    expect(view.getUint8(off++)).toBe(3)                // envelope version
     expect(view.getUint8(off++)).toBe(50)               // rate
     expect(view.getUint8(off++)).toBe(1)                // channels
     const frames = view.getUint32(off, true); off += 4
+    expect(view.getUint8(off++)).toBe(SPECTRUM_TRACK_BINS)
     expect(frames).toBe(show.audio!.bass.length)
-    expect(view.byteLength).toBe(off + frames * 5)      // 5 bytes/frame, nothing trailing
+    // 5 band/level bytes per frame, then the spectrum block, nothing trailing.
+    expect(view.byteLength).toBe(off + frames * (5 + SPECTRUM_TRACK_BINS))
     expect(view.getUint8(off + 50 * 5)).toBe(255)       // frame 50 bass (1.0) → 255
     expect(view.getUint8(off + 50 * 5 + 3)).toBe(0)     // no levels → silent rails
   })
 
-  it('writes a tagged version-2 trailer with independent stereo levels', () => {
+  it('writes a tagged version-3 trailer with independent stereo levels', () => {
     const stereoAnalysis: SongAnalysis = {
       ...withEnergy,
       channelCount: 2,
@@ -590,7 +603,7 @@ describe('bakeEnvelope + baked audio', () => {
       ],
     }
     const show = generateShow(stereoAnalysis)
-    expect(show.audio).toMatchObject({ version: 2, channelCount: 2 })
+    expect(show.audio).toMatchObject({ version: 3, channelCount: 2 })
     expect(show.audio!.leftLevel[0]).toBeCloseTo(0.8)
     expect(show.audio!.rightLevel[0]).toBeCloseTo(0.2)
 
@@ -600,13 +613,29 @@ describe('bakeEnvelope + baked audio', () => {
     for (let i = 0; i < count; i++) { off += 5; const pc = view.getUint8(off); off += 1 + pc * 4 }
     expect(String.fromCharCode(...new Uint8Array(view.buffer, off, 4))).toBe('AENV')
     off += 4
-    expect(view.getUint8(off++)).toBe(2)
+    expect(view.getUint8(off++)).toBe(3)
     expect(view.getUint8(off++)).toBe(50)
     expect(view.getUint8(off++)).toBe(2)
     const frames = view.getUint32(off, true); off += 4
-    expect(view.byteLength).toBe(off + frames * 5)
+    off += 1                                            // bins
+    expect(view.byteLength).toBe(off + frames * (5 + SPECTRUM_TRACK_BINS))
     expect(view.getUint8(off + 3)).toBeCloseTo(Math.round(0.8 * 255), 0)
     expect(view.getUint8(off + 4)).toBeCloseTo(Math.round(0.2 * 255), 0)
+  })
+
+  it('bakes the analysis spectrum at the envelope rate and writes it after the levels', () => {
+    // 25 Hz source: bin b of frame k reads 10k + b, so a 50 Hz bake lands
+    // halfway between source frames on odd envelope frames.
+    const show = generateShow({ ...withEnergy, spectrum: spectrumTrack(25, 50, (k, b) => 10 * k + b) })
+    const env = show.audio!
+    const baked = spectrumBytes(env, env.spectrum)
+    expect(baked.length).toBe(env.bass.length * SPECTRUM_TRACK_BINS)
+    expect(baked[2 * SPECTRUM_TRACK_BINS + 3]).toBe(13)   // frame 2 = source frame 1
+    expect(baked[3 * SPECTRUM_TRACK_BINS + 3]).toBe(18)   // frame 3 = halfway to source frame 2
+
+    const bytes = new Uint8Array(showFileToBinary(show))
+    const tail = bytes.subarray(bytes.length - baked.length)
+    expect([...tail]).toEqual([...baked])
   })
 })
 

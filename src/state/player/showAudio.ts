@@ -6,11 +6,11 @@
 import type { AudioEnvelope } from '../../types/showFile'
 import type { AudioOverride } from '../graphEvaluator'
 import { resolveStereoLevels } from '../../audio/stereoLevels'
+import { spectrumBytes, SPECTRUM_TRACK_BINS } from '../../audio/spectrumTrack'
 
 export const SPECTRUM_BINS = 32
-// Coarse band → bin split. MUST match playerSketchGenerator's `_audioSpectrum`
-// fill (bins 0–5 = bass, 6–15 = mids, 16–31 = treble) so preview beat/percussion
-// detection responds the same way it does on hardware.
+// Coarse band → bin split for audio that carries only three bands (pattern
+// rating's synthetic signal): bins 0–5 = bass, 6–15 = mids, 16–31 = treble.
 export const BASS_BIN_END = 6
 export const MID_BIN_END = 16
 
@@ -51,11 +51,25 @@ export function bandsToSpectrum(bass: number, mids: number, treble: number): num
   )
 }
 
-/** Build the preview/player spectrum directly from a baked show envelope. */
+/**
+ * The 32-bin spectrum from a baked show envelope's equalizer frames, linearly
+ * interpolated at `ms`. Each of the 16 bins fills two adjacent slots, the
+ * mapping the live analyzer and the firmware's `_audioSpectrum` fill both use.
+ */
 export function showAudioSpectrum(env: AudioEnvelope | undefined, ms: number): number[] | null {
   if (!env || env.bass.length === 0) return null
-  const { bass, mids, treble } = sampleEnvelope(env, ms)
-  return bandsToSpectrum(bass, mids, treble)
+  const bytes = spectrumBytes(env, env.spectrum)
+  const n = Math.floor(bytes.length / SPECTRUM_TRACK_BINS)
+  if (n === 0) return new Array<number>(SPECTRUM_BINS).fill(0)
+  const pos = (ms / 1000) * env.rateHz
+  const i = Math.max(0, Math.min(n - 1, Math.floor(pos)))
+  const j = Math.min(n - 1, i + 1)
+  const frac = Math.max(0, Math.min(1, pos - i))
+  return Array.from({ length: SPECTRUM_BINS }, (_, b) => {
+    const bin = Math.floor((b * SPECTRUM_TRACK_BINS) / SPECTRUM_BINS)
+    const a = bytes[i * SPECTRUM_TRACK_BINS + bin]
+    return (a + (bytes[j * SPECTRUM_TRACK_BINS + bin] - a) * frac) / 255
+  })
 }
 
 /**

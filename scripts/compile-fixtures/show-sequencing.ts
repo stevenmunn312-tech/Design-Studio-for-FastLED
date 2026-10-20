@@ -2,8 +2,8 @@
  * D-11 show-sequencing fixtures: one weighted and tagged Music Player, the
  * same player paced by Dwells & Bursts alone, one sequenced Slideshow with a
  * Restart pattern and a tag step, one sequenced Music Player
- * whose holds count beats, and one performance show with ramps and a named
- * input.
+ * whose holds count beats, one performance show with ramps and a named
+ * input, and one performance show whose pattern reads the baked spectrum.
  *
  *   npm run gen:compile-fixtures -- show-sequencing [output-dir]
  *   python scripts/compile-fixtures/compile-matrix.py --only show-sequencing/
@@ -172,6 +172,39 @@ function rampedShow(): string {
   })
 }
 
+// A performance show whose pattern reads FFT bins, so the player loads the
+// baked equalizer block from the AENV trailer and fills _audioSpectrum from it.
+function bakedSpectrumShow(): string {
+  const input = node('in', 'GroupInput', { paramId: 'audio' }, [], [{ id: 'out', dataType: 'audio' }])
+  const fft = node('fft', 'FFTAnalyzer', {}, [{ id: 'audio', dataType: 'audio' }], [{ id: 'bass', dataType: 'float' }])
+  const pulse = node('bp', 'BassPulse')
+  const output = node('go', 'GroupOutput')
+  output.data.inputs = [{ id: 'frame', label: 'Frame', dataType: 'frame' }]
+  const groups = {
+    reactive: {
+      nodes: [input, fft, pulse, output],
+      edges: [
+        edge('audio', 'in', 'out', 'fft', 'audio'),
+        edge('bass', 'fft', 'bass', 'bp', 'bass'),
+        edge('frame', 'bp', 'frame', 'go', 'frame'),
+      ],
+    },
+  } as unknown as GroupRegistry
+  const nodes = [
+    board, node('sd', 'SDCard'), node('amp', 'Amplifier'),
+    node('pg', 'PerformanceGenerator'),
+    led,
+    node('collection', 'PatternCollection', { patternIds: ['reactive'] }),
+  ]
+  const edges = [
+    edge('frame', 'pg', 'frame', 'out', 'frame'),
+    edge('set', 'collection', 'patternset', 'pg', 'patternset'),
+  ]
+  return buildShowPlayer(nodes, edges, groups, {
+    patternSet: ['reactive'], bakedAudio: true, preferredTrack: 'Song', genericPlayer: false,
+  })
+}
+
 const sketches: Record<string, () => string> = {
   'weighted-player': () => weightedPlayer(),
   // Energy tags without Energy Pacing need their own tracker.
@@ -179,6 +212,7 @@ const sketches: Record<string, () => string> = {
   'sequenced-slideshow': sequencedSlideshow,
   'sequenced-player': sequencedPlayer,
   'ramped-show': rampedShow,
+  'baked-spectrum-show': bakedSpectrumShow,
 }
 
 const outputDir = resolve(process.argv[2] ?? 'artifacts/show-sequencing-compile')

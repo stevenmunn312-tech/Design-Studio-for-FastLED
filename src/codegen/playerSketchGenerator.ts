@@ -1569,7 +1569,7 @@ float     _audioSpectrum[32];
 ` : ''}${bakedAudio ? `
 // Song-analysis envelope retained as a decoder startup/failure fallback.
 uint8_t*  audioEnv = nullptr;        // frameCount * 5 bytes: B/M/T/L/R
-uint32_t  audioEnvFrames = 0;
+${needsSpectrum ? 'uint8_t*  audioEnvSpectrum = nullptr; // frameCount * 16 equalizer bins\n' : ''}uint32_t  audioEnvFrames = 0;
 uint8_t   audioEnvRate = 50;
 uint8_t   audioEnvChannels = 1;
 ` : ''}
@@ -1655,13 +1655,14 @@ ${parameterGuard}
     }
   }
 ${bakedAudio ? `
-  // Audio trailer: AENV, version 2, rate, channel count, frame count, then
-  // B/M/T/L/R bytes per frame. Anything else carries no envelope.
+  // Audio trailer: AENV, version 3, rate, channel count, frame count, bins,
+  // then B/M/T/L/R bytes per frame, then the bins' equalizer bytes per frame.
+  // Anything else carries no envelope.
   if (audioEnv) free(audioEnv);
   audioEnv = nullptr;
-  audioEnvFrames = 0;
+${needsSpectrum ? '  if (audioEnvSpectrum) free(audioEnvSpectrum);\n  audioEnvSpectrum = nullptr;\n' : ''}  audioEnvFrames = 0;
   audioEnvChannels = 1;
-  if (f.available() >= 11) {
+  if (f.available() >= 12) {
     uint8_t tag[4]; f.read(tag, 4);
 ${paramPlayer ? `    if (tag[0]=='P' && tag[1]=='A' && tag[2]=='R' && tag[3]=='M') {
       uint8_t nameCount = f.read();
@@ -1677,16 +1678,25 @@ ${paramPlayer ? `    if (tag[0]=='P' && tag[1]=='A' && tag[2]=='R' && tag[3]=='M
     audioEnvRate = f.read();
     audioEnvChannels = f.read() == 2 ? 2 : 1;
     uint8_t cb[4];
-    if (tagged && version == 2 && f.read(cb, 4) == 4) {
+    if (tagged && version == 3 && f.read(cb, 4) == 4) {
       uint32_t frames = ((uint32_t)cb[0])|((uint32_t)cb[1]<<8)|((uint32_t)cb[2]<<16)|((uint32_t)cb[3]<<24);
-      uint32_t remaining = (uint32_t)f.available();
+${needsSpectrum ? '      uint8_t bins = f.read();\n' : '      f.read();  // equalizer bins per frame; no pattern reads the spectrum\n'}      uint32_t remaining = (uint32_t)f.available();
       if (audioEnvRate > 0 && frames <= remaining / 5) {
         audioEnv = (uint8_t*)malloc(frames * 5);
         if (audioEnv && f.read(audioEnv, frames * 5) == frames * 5)
           audioEnvFrames = frames;
         else { if (audioEnv) free(audioEnv); audioEnv = nullptr; }
       }
-    }
+${needsSpectrum ? `      // The spectrum is optional: without the memory for it, the coarse
+      // three-band fill in updateShowAudio() still drives the patterns.
+      if (audioEnvFrames > 0 && bins == 16 && (uint32_t)f.available() >= frames * 16) {
+        audioEnvSpectrum = (uint8_t*)malloc(frames * 16);
+        if (audioEnvSpectrum && f.read(audioEnvSpectrum, frames * 16) != frames * 16) {
+          free(audioEnvSpectrum);
+          audioEnvSpectrum = nullptr;
+        }
+      }
+` : ''}    }
   }
 ` : ''}  f.close();
   eventIdx = 0;
@@ -1715,9 +1725,18 @@ ${needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;\n' : 
   _audioLeftLevel = (audioEnv[ib+3] + (audioEnv[jb+3] - audioEnv[ib+3]) * frac) / 255.0f;
   _audioRightLevel = (audioEnv[ib+4] + (audioEnv[jb+4] - audioEnv[ib+4]) * frac) / 255.0f;
   if (audioEnvChannels != 2) _audioRightLevel = _audioLeftLevel;
-  // Coarse spectrum so BeatDetect/PercussionDetect still respond (bass→low bins,
-  // mids→mid, treble→high). Approximate — full baked spectrum is a follow-up.
-${needsSpectrum ? '  for (int b = 0; b < 32; b++) _audioSpectrum[b] = b < 6 ? _audioBass : (b < 16 ? _audioMids : _audioTreble);\n' : ''}
+${needsSpectrum ? `  // The song's equalizer bins, each filling two slots as getEqBin(b >> 1) does
+  // live. Without them, a coarse bass/mids/treble fill keeps the detectors alive.
+  if (audioEnvSpectrum) {
+    uint32_t is = i * 16, js = j * 16;
+    for (int b = 0; b < 32; b++) {
+      int e = b >> 1;
+      _audioSpectrum[b] = (audioEnvSpectrum[is+e] + (audioEnvSpectrum[js+e] - audioEnvSpectrum[is+e]) * frac) / 255.0f;
+    }
+  } else {
+    for (int b = 0; b < 32; b++) _audioSpectrum[b] = b < 6 ? _audioBass : (b < 16 ? _audioMids : _audioTreble);
+  }
+` : ''}
 }
 ` : ''}
 ${decoderTap ? `

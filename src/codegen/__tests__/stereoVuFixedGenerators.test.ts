@@ -124,7 +124,7 @@ describe('Music Player Stereo VU fixture', () => {
       stereoVuMeters: fallbackMeters, audioEnvelope: true,
     })
     expect(cpp).toContain("tag[0]=='A' && tag[1]=='E' && tag[2]=='N' && tag[3]=='V'")
-    expect(cpp).toContain('if (tagged && version == 2 && f.read(cb, 4) == 4) {')
+    expect(cpp).toContain('if (tagged && version == 3 && f.read(cb, 4) == 4) {')
     expect(cpp).toContain('_audioLeftLevel = (audioEnv[ib+3]')
     expect(cpp).not.toContain('audioEnvStride')
     expect(cpp).not.toContain('(_audioBass + _audioMids + _audioTreble) / 3.0f')

@@ -122,10 +122,12 @@ audio-reactive rails together.
 
 ## Baked envelope
 
-Show files append a tagged `AENV` version-2 trailer. Each frame contains the
+Show files append a tagged `AENV` version-3 trailer. Each frame contains the
 bass, mids, and treble bytes followed by left and right level bytes, and the
-trailer states an explicit mono/stereo channel count. The player reads only
-this format; a show file without it plays with no baked audio. Re-export any
+trailer states an explicit mono/stereo channel count. A second block follows
+with 16 equalizer bytes per frame, which feed the FFT bins of patterns that
+read them. The player reads only this format; a show file without it plays
+with no baked audio. Re-export any
 show written before this format so its envelope is rebuilt.
 
 When the live decoder tap resumes, the same per-fixture attack/release state

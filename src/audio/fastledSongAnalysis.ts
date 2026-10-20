@@ -16,12 +16,15 @@
 //           semitones; offline there is no reason to share that limit.
 //   energy — bass / mids / treble band energy every ENERGY_HOP_MS, the same
 //           envelope shape the show generator already consumes.
+//   spectrum — FastLED's EqualizerSpectrum run over the file at hop rate, so
+//           a show's baked FFT bins are the ones a live mic would produce.
 //
 // The harmonic weighting, tempo prior and mood map were tuned against real
 // songs with scripts/bench/song-analysis-bench.ts; rerun it after any change.
 
 import type { BeatInfo, EnergyPoint, SongAnalysis, SongAnalysisCore } from '../types/showFile'
-import { aggregateLogBins, I16_FULL_SCALE } from './fastledReactive'
+import { aggregateLogBins, EqualizerSpectrum, I16_FULL_SCALE } from './fastledReactive'
+import { encodeSpectrumBytes, SPECTRUM_TRACK_BINS, type SpectrumTrack } from './spectrumTrack'
 import { correlateWithProfile, MAJOR_PROFILE, MINOR_PROFILE } from './fastledPitch'
 import { fftInPlace } from './micAnalysis'
 import { ENERGY_HOP_MS, detectSections, normalizeEnergy } from './songAnalysisCommon'
@@ -33,6 +36,9 @@ const HOP_SIZE = 512
 const ONSET_BINS = 16
 const ONSET_MIN_HZ = 30
 const ONSET_MAX_HZ = 14080
+
+/** Spectrum track rate: the show envelope's, so baking copies frames 1:1. */
+export const SPECTRUM_RATE_HZ = 50
 
 /** Tempo search range, the range RhythmExtractor2013 was run with. */
 export const SONG_MIN_BPM = 40
@@ -90,6 +96,7 @@ interface FramePass {
   /** Hops per second. */
   frameRate: number
   energy: EnergyPoint[]
+  spectrum: SpectrumTrack
 }
 
 function bandEnergy(mags: Float32Array, binHz: number, lo: number, hi: number): number {
@@ -121,6 +128,13 @@ function framePass(mono: Float32Array, sampleRate: number): FramePass {
   const bucketCount = Math.max(1, Math.ceil((mono.length / sampleRate) * 1000 / ENERGY_HOP_MS))
   const buckets: Acc[] = Array.from({ length: bucketCount }, () => ({ b: 0, m: 0, t: 0, o: 0, n: 0 }))
 
+  const eq = new EqualizerSpectrum()
+  const eqOut = new Array<number>(SPECTRUM_TRACK_BINS).fill(0)
+  const hopSec = HOP_SIZE / sampleRate
+  const specFrames = Math.max(1, Math.ceil((mono.length / sampleRate) * SPECTRUM_RATE_HZ))
+  const specSum = new Float32Array(specFrames * SPECTRUM_TRACK_BINS)
+  const specCount = new Uint16Array(specFrames)
+
   for (let f = 0; f < frameCount; f++) {
     // Centre each frame on its hop so onset times line up with sample time.
     const mags = spectrum.compute(mono, f * HOP_SIZE - FRAME_SIZE / 2)
@@ -145,12 +159,33 @@ function framePass(mono: Float32Array, sampleRate: number): FramePass {
     acc.t += Math.sqrt(treble)
     acc.o += Math.sqrt(bass + mids + treble)
     acc.n += 1
+
+    eq.update(mags, sampleRate, FRAME_SIZE, hopSec, eqOut)
+    const sf = Math.min(specFrames - 1, Math.floor((tMs / 1000) * SPECTRUM_RATE_HZ))
+    for (let i = 0; i < SPECTRUM_TRACK_BINS; i++) specSum[sf * SPECTRUM_TRACK_BINS + i] += eqOut[i]
+    specCount[sf] += 1
+  }
+
+  // Average the hops in each spectrum frame; a frame no hop landed in holds the last.
+  const specBytes = new Uint8Array(specFrames * SPECTRUM_TRACK_BINS)
+  for (let k = 0; k < specFrames; k++) {
+    for (let i = 0; i < SPECTRUM_TRACK_BINS; i++) {
+      const at = k * SPECTRUM_TRACK_BINS + i
+      specBytes[at] = specCount[k] > 0
+        ? Math.round(clamp01(specSum[at] / specCount[k]) * 255)
+        : (k > 0 ? specBytes[at - SPECTRUM_TRACK_BINS] : 0)
+    }
   }
 
   const energy = buckets.map((acc, i): EnergyPoint => acc.n
     ? { t: i * ENERGY_HOP_MS, bass: acc.b / acc.n, mids: acc.m / acc.n, treble: acc.t / acc.n, overall: acc.o / acc.n }
     : { t: i * ENERGY_HOP_MS, bass: 0, mids: 0, treble: 0, overall: 0 })
-  return { onset, frameRate: sampleRate / HOP_SIZE, energy: normalizeEnergy(energy) }
+  return {
+    onset,
+    frameRate: sampleRate / HOP_SIZE,
+    energy: normalizeEnergy(energy),
+    spectrum: { rateHz: SPECTRUM_RATE_HZ, data: encodeSpectrumBytes(specBytes) },
+  }
 }
 
 /** Remove the slow trend, half-wave rectify and scale to unit deviation. */
@@ -425,10 +460,10 @@ export function analyzeSongSamples(
   durationMs: number,
   title: string,
 ): SongAnalysisCore {
-  const { onset, frameRate, energy } = framePass(mono, sampleRate)
+  const { onset, frameRate, energy, spectrum } = framePass(mono, sampleRate)
   const { beats, clarity } = extractBeats(onset, frameRate)
   const key = detectKey(mono, sampleRate)
   const sections = detectSections(energy, durationMs)
   const mood = estimateMood(energy, key?.key ?? '', key?.scale ?? 'major', rhythmDrive(clarity))
-  return { title, durationMs, beats, energy, sections, mood }
+  return { title, durationMs, beats, energy, spectrum, sections, mood }
 }

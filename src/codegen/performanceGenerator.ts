@@ -1,4 +1,5 @@
 import type { SongAnalysis, SongSection, ShowFile, ShowEvent, AudioEnvelope, EnergyPoint } from '../types/showFile'
+import { encodeSpectrumBytes, spectrumBytes, SPECTRUM_TRACK_BINS, type SpectrumTrack } from '../audio/spectrumTrack'
 import { PALETTE_IDS, STUDIO_PALETTES, isStudioPalette } from '../state/palettes/paletteCatalog'
 import { BUILTIN_SHOW_PATTERN_NAMES } from '../state/player/builtinShowPatterns'
 import {
@@ -7,7 +8,7 @@ import {
 } from '../state/patterns/patternPick'
 
 // Frame rate of the baked audio envelope (see bakeEnvelope). 50 Hz is smooth
-// enough for per-frame band reactivity while staying tiny (~3 bytes/frame).
+// enough for per-frame band reactivity while staying small (21 bytes/frame).
 export const ENVELOPE_RATE_HZ = 50
 
 // The live mic path (audioEngine.ts) tracks a single decaying peak across all
@@ -36,6 +37,26 @@ function agcNormalize(bass: number[], mids: number[], treble: number[], rateHz: 
     mids[k]   = Math.min(1, mids[k]   * scale)
     treble[k] = Math.min(1, treble[k] * scale)
   }
+}
+
+/** Resample a spectrum track to `frameCount` frames at `rateHz` (linear in time).
+ *  The equalizer bins are already adaptively normalised, so no AGC applies. */
+function resampleSpectrum(track: SpectrumTrack, rateHz: number, frameCount: number): string {
+  const src = spectrumBytes(track, track.data)
+  const srcFrames = Math.floor(src.length / SPECTRUM_TRACK_BINS)
+  const out = new Uint8Array(frameCount * SPECTRUM_TRACK_BINS)
+  if (srcFrames === 0) return encodeSpectrumBytes(out)
+  for (let k = 0; k < frameCount; k++) {
+    const pos = (k / rateHz) * track.rateHz
+    const i = Math.min(srcFrames - 1, Math.floor(pos))
+    const j = Math.min(srcFrames - 1, i + 1)
+    const f = Math.min(1, pos - i)
+    for (let b = 0; b < SPECTRUM_TRACK_BINS; b++) {
+      const a = src[i * SPECTRUM_TRACK_BINS + b]
+      out[k * SPECTRUM_TRACK_BINS + b] = Math.round(a + (src[j * SPECTRUM_TRACK_BINS + b] - a) * f)
+    }
+  }
+  return encodeSpectrumBytes(out)
 }
 
 /**
@@ -79,7 +100,7 @@ export function bakeEnvelope(analysis: SongAnalysis, rateHz = ENVELOPE_RATE_HZ):
     rightLevel[k] = Math.max(0, Math.min(1, a.right + (b.right - a.right) * f))
   }
   return {
-    version: 2,
+    version: 3,
     rateHz,
     bass,
     mids,
@@ -87,6 +108,7 @@ export function bakeEnvelope(analysis: SongAnalysis, rateHz = ENVELOPE_RATE_HZ):
     leftLevel,
     rightLevel,
     channelCount: analysis.channelCount === 2 ? 2 : 1,
+    spectrum: resampleSpectrum(analysis.spectrum, rateHz, frameCount),
   }
 }
 
@@ -732,10 +754,12 @@ export function showFileToBinary(show: ShowFile, builtinSlots: readonly string[]
   const headerBytes = 4 + 1 + 2 + 4 + 4   // magic + version + bpm + duration + count
   const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 3)  // worst case 3 params
   // Envelope: AENV(4) + version(1) + rate(1) + channels(1) + frameCount(4)
-  // + 5 bytes/frame (bass, mids, treble, left, right).
+  // + bins(1), then 5 bytes/frame (bass, mids, treble, left, right), then the
+  // spectrum block of `bins` bytes/frame. The blocks are separate so a player
+  // whose patterns never read the spectrum can stop after the first.
   const env = show.audio
   const envFrames = env?.bass.length ?? 0
-  const envBytes = env ? 11 + envFrames * 5 : 0
+  const envBytes = env ? 12 + envFrames * (5 + SPECTRUM_TRACK_BINS) : 0
   const paramNames = show.params ?? []
   const parmBytes = paramNames.length
     ? 4 + 1 + paramNames.reduce((sum, name) => sum + 1 + Math.min(255, name.length), 0)
@@ -783,10 +807,11 @@ export function showFileToBinary(show: ShowFile, builtinSlots: readonly string[]
     const n = env.bass.length
     view.setUint8(off++, 0x41); view.setUint8(off++, 0x45) // "AENV"
     view.setUint8(off++, 0x4E); view.setUint8(off++, 0x56)
-    view.setUint8(off++, 2)
+    view.setUint8(off++, 3)
     view.setUint8(off++, env.rateHz)
     view.setUint8(off++, env.channelCount === 2 ? 2 : 1)
     view.setUint32(off, n, true); off += 4
+    view.setUint8(off++, SPECTRUM_TRACK_BINS)
     const q = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255)))
     for (let i = 0; i < n; i++) {
       view.setUint8(off++, q(env.bass[i]))
@@ -795,6 +820,8 @@ export function showFileToBinary(show: ShowFile, builtinSlots: readonly string[]
       view.setUint8(off++, q(env.leftLevel[i] ?? 0))
       view.setUint8(off++, q(env.rightLevel[i] ?? 0))
     }
+    const spectrum = spectrumBytes(env, env.spectrum)
+    for (let i = 0; i < n * SPECTRUM_TRACK_BINS; i++) view.setUint8(off++, spectrum[i] ?? 0)
   }
 
   return buf.slice(0, off)

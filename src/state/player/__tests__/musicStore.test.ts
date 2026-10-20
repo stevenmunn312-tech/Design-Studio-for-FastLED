@@ -16,6 +16,7 @@ const analysis: SongAnalysis = {
     { startMs: 2000, endMs: 4000, type: 'drop', energy: 0.9 },
   ],
   mood: { energy: 0.7, valence: 0.6, key: 'C major' },
+  spectrum: { rateHz: 50, data: '' },
   channelLevels: [],
   channelCount: 1,
 }
@@ -161,7 +162,10 @@ describe('musicStore project persistence', () => {
     expect(await restored.file.text()).toBe('saved audio')
   })
 
-  it('re-analyses a saved song whose analysis predates stereo levels', async () => {
+  it.each([
+    ['stereo levels', ['channelLevels', 'channelCount']],
+    ['the baked spectrum', ['spectrum']],
+  ] as const)('re-analyses a saved song whose analysis predates %s', async (_, missing) => {
     const file = new File(['old audio'], 'old.mp3', { type: 'audio/mpeg', lastModified: 789 })
     await saveMusicFile('old-song', file)
     const realAnalyzeAll = useMusicStore.getState().analyzeAll
@@ -169,8 +173,7 @@ describe('musicStore project persistence', () => {
     useMusicStore.setState({ analyzeAll })
     onTestFinished(() => useMusicStore.setState({ analyzeAll: realAnalyzeAll }))
     const withoutLevels: Partial<SongAnalysis> = { ...analysis }
-    delete withoutLevels.channelLevels
-    delete withoutLevels.channelCount
+    for (const key of missing) delete withoutLevels[key]
 
     useGraphStore.getState().loadGraph([], [], {
       musicLibrary: [{

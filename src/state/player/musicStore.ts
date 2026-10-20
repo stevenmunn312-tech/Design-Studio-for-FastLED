@@ -92,9 +92,11 @@ let analyzing = false
 
 let restoreGeneration = 0
 
-function hasStereoLevels(analysis: SongAnalysis | null, show: ShowFile | null): boolean {
-  if (analysis && !Array.isArray(analysis.channelLevels)) return false
-  return !show?.audio || show.audio.version === 2
+/** Whether a saved analysis and show carry everything the current envelope
+ *  bakes: stereo levels and the equalizer spectrum (AENV version 3). */
+function hasCurrentAudio(analysis: SongAnalysis | null, show: ShowFile | null): boolean {
+  if (analysis && (!Array.isArray(analysis.channelLevels) || typeof analysis.spectrum?.data !== 'string')) return false
+  return !show?.audio || show.audio.version === 3
 }
 
 function persistedEntries(entries: MusicEntry[]): PersistedMusicEntry[] {
@@ -281,10 +283,10 @@ registerMusicLibraryPersistence(
           error: 'The audio file is not available in this browser. Add the track again to restore playback and export.',
         }
       }
-      // An analysis or show from before stereo levels existed cannot bake the
-      // tagged envelope the player reads, so it is analysed again rather than
-      // carried forward.
-      if (!hasStereoLevels(entry.analysis, entry.show)) {
+      // An analysis or show from before stereo levels or the baked spectrum
+      // existed cannot bake the envelope the player reads, so it is analysed
+      // again rather than carried forward.
+      if (!hasCurrentAudio(entry.analysis, entry.show)) {
         return { ...entry, file, analysis: null, show: null, edited: false, status: 'pending' }
       }
       return {

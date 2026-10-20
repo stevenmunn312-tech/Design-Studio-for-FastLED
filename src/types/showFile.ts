@@ -2,6 +2,8 @@
 // A .show file is a sorted array of timed events that the ESP32 player
 // executes in sync with audio playback.
 
+import type { SpectrumTrack } from '../audio/spectrumTrack'
+
 export type ShowCommand =
   | 'SET_PATTERN'      // switch to a named pattern
   | 'SET_PALETTE'      // switch colour palette
@@ -60,7 +62,7 @@ export interface ShowFile {
 
 export interface AudioEnvelope {
   /** The tagged `AENV` trailer version; the only envelope format there is. */
-  version: 2
+  version: 3
   rateHz: number         // frames per second (e.g. 50)
   bass: number[]         // 0–1, one entry per frame
   mids: number[]         // 0–1
@@ -68,6 +70,8 @@ export interface AudioEnvelope {
   leftLevel: number[]    // 0–1 short-window RMS, one entry per frame
   rightLevel: number[]   // 0–1; mirrors left for mono sources
   channelCount: 1 | 2
+  /** Base64 of one SPECTRUM_TRACK_BINS-byte equalizer frame per envelope frame. */
+  spectrum: string
 }
 
 // ── Song analysis output from musicAnalyzer ───────────────────────────────────
@@ -106,6 +110,8 @@ export interface SongAnalysis {
   durationMs: number
   beats: BeatInfo
   energy: EnergyPoint[]  // sampled every ~100ms
+  /** FastLED equalizer bins over the whole song (see audio/spectrumTrack). */
+  spectrum: SpectrumTrack
   channelLevels: StereoLevelPoint[]
   channelCount: 1 | 2
   sections: SongSection[]

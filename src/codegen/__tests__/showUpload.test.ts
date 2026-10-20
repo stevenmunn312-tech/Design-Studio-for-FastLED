@@ -472,6 +472,21 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('void updateShowAudio(uint32_t ms)')                   // interpolator
     expect(ino).toContain('audioEnv = (uint8_t*)malloc')                         // envelope loader
     expect(ino).toContain('updateShowAudio(posMs)')                             // called each frame
+    expect(ino).not.toContain('audioEnvSpectrum')
+  })
+
+  it('loads the baked equalizer block and fills the spectrum from it when a pattern reads one', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { leds[0] = CRGB(_audioSpectrum[3] * 255, 0, 0); }'],
+      count: 1, params: [],
+    }
+    const ino = generatePlayerSketch({}, renderers, { audioEnvelope: true })
+    expect(ino).toContain('if (tagged && version == 3')
+    expect(ino).toContain('audioEnvSpectrum = (uint8_t*)malloc(frames * 16);')
+    expect(ino).toContain('int e = b >> 1;')
+    // The three-band fill stays as the low-memory fallback.
+    expect(ino).toContain('_audioSpectrum[b] = b < 6 ? _audioBass')
   })
 
   it('taps decoded PCM before I2S and prefers live FastLED analysis over the baked fallback', () => {

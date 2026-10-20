@@ -526,6 +526,16 @@ that are easy to split across preview and firmware:
   recorded before it existed) counts every beat as certain. Attack, Decay and
   the flux/onset/contrast outputs belong to the spectral-flux detector that
   only audio not analysed by FastLED reaches — a baked show envelope.
+- **A baked show's spectrum is FastLED's equalizer, run offline.** Song
+  analysis feeds every hop through the same `EqualizerSpectrum` the live
+  analyzer uses and stores its 16 bins at 50 Hz (`src/audio/spectrumTrack.ts`).
+  The preview and the player both fill the 32 spectrum slots as
+  `bin[slot >> 1]`, like `getEqBin(b >> 1)` live. Preview `FFTAnalyzer`,
+  Beat Detect and Percussion read their bands from these slots, not from the
+  envelope's bass/mids/treble, so a show fixture that only sets `bass` reads
+  silent. The firmware loads the equalizer block only when a pattern reads
+  `_audioSpectrum`, and falls back to a three-band fill when the block does
+  not fit in memory.
 - VU meter levels are gated and scaled in exactly one place per side of the
   browser/firmware split, not re-derived at each measurement site:
   `src/audio/stereoLevels.ts`'s `VU_RMS_NOISE_GATE`/`VU_RMS_REFERENCE` condition

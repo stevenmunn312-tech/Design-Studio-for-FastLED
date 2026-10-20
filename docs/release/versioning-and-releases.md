@@ -70,6 +70,14 @@ the format/support freeze after the control and display workflow stabilizes.
   `MatrixOutput`. Neither retired type is part of the v1 format; an old or
   malformed workspace now keeps the unsupported type visible instead of
   silently changing its meaning.
+- 2026-10-20: replaced the `AENV` version-2 trailer with version 3, which adds
+  a block of FastLED's 16 equalizer bins per frame after the band and level
+  bytes. A show's FFT bins now follow the song, where version 2 spread three
+  bands across them. Song analyses gain a `spectrum` track; a saved song whose
+  analysis or show predates it is analysed again on project load, discarding
+  manual timeline edits to that show. The baked-spectrum SD player sketch
+  compiled for `esp32:esp32:esp32s3` on arduino-cli (1,162,643 B flash,
+  49,164 B RAM).
 
 ## Version scheme
 

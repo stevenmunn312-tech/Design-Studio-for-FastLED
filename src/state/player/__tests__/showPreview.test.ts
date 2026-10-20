@@ -13,6 +13,7 @@ vi.mock('../../graphEvaluator', async (importOriginal) => {
 import { evaluateGraph } from '../../graphEvaluator'
 import { showStateAt, beatFlashAt, renderShowFrame, sectionAt } from '../showPreview'
 import type { ShowEvent, ShowFile } from '../../../types/showFile'
+import { encodeSpectrumBytes, SPECTRUM_TRACK_BINS } from '../../../audio/spectrumTrack'
 
 const show: ShowFile = {
   version: 1,
@@ -263,7 +264,11 @@ describe('renderShowFrame', () => {
     const groups = { loud: makeGroup(), quiet: makeGroup() } as unknown as Parameters<typeof renderShowFrame>[4]
     const showFor = (patternSet: string[], bass: number[]): ShowFile => ({
       version: 2, songTitle: 'A', durationMs: 1000, bpm: 120, patternSet,
-      audio: { version: 2, rateHz: 10, bass, mids: [0], treble: [0], leftLevel: [0], rightLevel: [0], channelCount: 1 },
+      audio: {
+        version: 3, rateHz: 10, bass, mids: [0], treble: [0], leftLevel: [0], rightLevel: [0], channelCount: 1,
+        // FFTAnalyzer reads its bands from the equalizer bins, as on the device.
+        spectrum: encodeSpectrumBytes(new Uint8Array(SPECTRUM_TRACK_BINS).fill(Math.round(bass[0] * 255))),
+      },
       events: [
         { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
         { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
@@ -295,7 +300,7 @@ describe('renderShowFrame', () => {
     const groups = { energy: makeGroup('energy', 'float'), bass: makeGroup('bass', 'float') } as unknown as Parameters<typeof renderShowFrame>[4]
     const showFor = (pattern: string, bass: number): ShowFile => ({
       version: 2, songTitle: 'Roles', durationMs: 1000, bpm: 120, patternSet: [pattern],
-      audio: { version: 2, rateHz: 10, bass: [bass], mids: [0], treble: [0], leftLevel: [0], rightLevel: [0], channelCount: 1 },
+      audio: { version: 3, rateHz: 10, bass: [bass], mids: [0], treble: [0], leftLevel: [0], rightLevel: [0], channelCount: 1, spectrum: '' },
       events: [
         { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
         { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
