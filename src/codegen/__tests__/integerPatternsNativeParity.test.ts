@@ -8,7 +8,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { INOISE8_HOST_CPP, LIB8TION_HOST_CPP, inoise8 } from '../../nodes/shared/lib8tion'
+import { INOISE8_3D_HOST_CPP, INOISE8_HOST_CPP, LIB8TION_HOST_CPP, inoise8, inoise8x3 } from '../../nodes/shared/lib8tion'
 import {
   PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, PRISM_FLASH_TABLE, PRISM_SHARD_TABLE,
   SHOCK_GAUSS_TABLE, SHOCK_ISQRT_CPP, TWINKLE_PIXEL_CPP, auroraFrameCpp, auroraPixel, auroraPixelCpp,
@@ -23,6 +23,7 @@ import {
   BURST_PIXEL_CPP, POLAR_PIXEL_CPP, SPIRAL_PIXEL_CPP, burstFrame, burstPixel, polarFrame, polarPixel, spiralFrame, spiralPixel,
   trailColumnPass, trailColumnPassCpp, trailRowPass, trailRowPassCpp,
   KALEIDO_SOURCE_CPP, kaleidoSource,
+  NOISE_FIELD_PIXEL_CPP, noiseFieldFrame, noiseFieldSum,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -32,7 +33,7 @@ function runNative(W: number, H: number, frame: string[], pixel: string[], print
   try {
     const source = path.join(dir, 'kernel.cpp'), binary = path.join(dir, 'kernel')
     writeFileSync(source, [
-      '#include <cstdio>', '#include <cstdint>', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, ATAN16_HELPER_CPP,
+      '#include <cstdio>', '#include <cstdint>', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, INOISE8_3D_HOST_CPP, ATAN16_HELPER_CPP,
       `#define WIDTH ${W}`, `#define HEIGHT ${H}`,
       'int main(){', ...frame, '  int _i=0;',
       '  for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){', ...pixel.map((l) => `    ${l}`),
@@ -321,6 +322,18 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
       const wedge = Math.trunc(65536 / segments)
       const native = runNative(W, H, [`int32_t _kW=${wedge};`], KALEIDO_SOURCE_CPP, '"%d ",_kSrc')
       expect(grid(W, H, (x, y) => [kaleidoSource(x, y, W, H, wedge)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it('the 3-D inoise8 port matches FastLED across cells, wraps and fractions', () => {
+    const native = runNative(64, 64, [], ['uint16_t _nx=(uint16_t)(_x*1031+_y*7), _ny=(uint16_t)(_y*1021+_x*13+40000), _nz=(uint16_t)(_x*_y*77+_x*3);'], '"%u ",inoise8(_nx,_ny,_nz)')
+    expect(grid(64, 64, (x, y) => [inoise8x3(x * 1031 + y * 7, y * 1021 + x * 13 + 40000, x * y * 77 + x * 3)])).toEqual(native)
+  }, 60_000)
+
+  it.each(SIZES)('FieldNoise matches on %ix%i', (W, H) => {
+    for (const f of [noiseFieldFrame(0.3, 0, 4), noiseFieldFrame(1.2, 1777.7, 6), noiseFieldFrame(0.05, -12.5, 1)]) {
+      const native = runNative(W, H, [`int32_t _fnQ=${f.freq}; uint16_t _z=${f.z}; int _fnO=${f.octaves};`], NOISE_FIELD_PIXEL_CPP, '"%d ",_fv')
+      expect(grid(W, H, (x, y) => [noiseFieldSum(x, y, f)])).toEqual(native)
     }
   }, 60_000)
 })

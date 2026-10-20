@@ -1,5 +1,6 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX, FORMULA_FIELD_SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { NOISE_FIELD_PIXEL_CPP, noiseFieldFrameCpp } from '../shared/integerPatterns'
 import { usesShims, cppRewriteShims } from '../shared/fastledShims'
 import { isNodeFormulaValid } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -59,21 +60,17 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const of = ownField()
     const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FieldNoise)
     const scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FieldNoise)
-    const octaves = `_octv_${id}`
-    const octavesDecl = `    int ${octaves}=(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f);`
     const seed = seedProp(p)
     const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
     ln(`  { // Field noise (fBm via inoise8)`)
     ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    ln(`    uint16_t _z=(uint16_t)((${ph}${seed ? '+(_t-t)*_spd' : ''})*40);`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    const octaves = `(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f)`
+    for (const line of noiseFieldFrameCpp('_sc', `${ph}${seed ? '+(_t-t)*_spd' : ''}`, octaves)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
-    ln(octavesDecl)
-    ln(`      for(int _o=0;_o<${octaves};_o++){`)
-    ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
-    ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
-    ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
+    for (const line of NOISE_FIELD_PIXEL_CPP) ln(`      ${line}`)
+    ln(`      ${of}[_y*WIDTH+_x]=_fv*_fnInv;}}`)
     if (p.wrapX === true) {
       needsWrapX.v = true
       for (const line of wrapXBlockLines(block, of)) emitLine(line)

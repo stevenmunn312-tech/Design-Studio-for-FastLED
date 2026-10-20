@@ -1612,9 +1612,9 @@ describe('generateCpp', () => {
     expect(plain).not.toContain('_wrapXMix')
     const wrapped = emit('FieldNoise', 'field', { wrapX: true })
     expect(wrapped.match(/static inline float _wrapXMix\(/g)).toHaveLength(1)
-    expect(wrapped).toContain('inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)')
-    expect(wrapped).toContain('inoise8((uint16_t)((_x+WIDTH)*_freq),(uint16_t)(_y*_freq),_z)')
-    expect(wrapped).toContain('field_n[_y*WIDTH+_x]=_wrapXMix(field_n[_y*WIDTH+_x],constrain(_v/_norm,0.0f,1.0f),_x);')
+    expect(wrapped).toContain('inoise8((uint16_t)((_x*_fnQ)>>(8-_o)),(uint16_t)((_y*_fnQ)>>(8-_o)),_z)')
+    expect(wrapped).toContain('inoise8((uint16_t)(((_x+WIDTH)*_fnQ)>>(8-_o)),(uint16_t)((_y*_fnQ)>>(8-_o)),_z)')
+    expect(wrapped).toContain('field_n[_y*WIDTH+_x]=_wrapXMix(field_n[_y*WIDTH+_x],_fv*_fnInv,_x);')
     expect(wrapped.match(/for\(int _y=0;_y<HEIGHT;_y\+\+\) for\(int _x=0;_x<WIDTH;_x\+\+\)/g)).toHaveLength(2)
 
     for (const noiseType of ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine']) {
@@ -5185,7 +5185,8 @@ describe('FieldNoise / FrameToField', () => {
     expect(cpp).toContain('float field_fn[NUM_LEDS];')
     expect(cpp).toContain('inoise8(')
     expect(cpp).toContain('constrain(3,1.0f,6.0f)')
-    expect(cpp).toContain('for(int _o=0;_o<_octv_')
+    expect(cpp).toContain('int _fnO=(int)constrain(3,1.0f,6.0f);')
+    expect(cpp).toContain('_fv+=(128>>_o)*inoise8(')
   })
 
   it('FrameToField extracts average brightness per pixel', () => {

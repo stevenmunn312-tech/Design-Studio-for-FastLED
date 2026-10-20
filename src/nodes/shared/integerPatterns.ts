@@ -11,7 +11,7 @@
 // with a host g++ and compares every byte. The per-frame float-to-integer
 // step is not part of that check: the preview's phase is a double and the
 // sketch's a float, as it always was.
-import { A16_PER_RADIAN, angle16, inoise8, isqrt32, lowbias32, scale8, sin16 } from './lib8tion'
+import { A16_PER_RADIAN, angle16, inoise8, inoise8x3, isqrt32, lowbias32, scale8, sin16 } from './lib8tion'
 import { LATTICE_HASH_MULTIPLIERS, latticeHashBits } from '../../state/evaluator/lattice'
 
 /** `(int32_t)` 16-bit angle of a float radian expression, once a frame. */
@@ -1147,3 +1147,36 @@ export const KALEIDO_SOURCE_CPP = [
   `int32_t _ksx=(WIDTH*8+(((int32_t)_kdR*sin16((uint16_t)(_ka+16384)))>>15)+8)>>4,_ksy=(HEIGHT*8+(((int32_t)_kdR*sin16((uint16_t)_ka))>>15)+8)>>4;`,
   `int _kSrc=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?-1:(int)(_ksy*WIDTH+_ksx);`,
 ]
+
+// ── FieldNoise ────────────────────────────────────────────────────────────────
+// fBm of FastLED's 3-D inoise8: coordinates from a 1/256 frequency step,
+// doubled per octave by a smaller shift, and octave weights 128, 64, 32...
+// summed as integers. The field value is that sum over the weights' total
+// times 255: one float multiply a pixel.
+
+export interface NoiseFieldFrame { freq: number; z: number; octaves: number; inv: number }
+
+export function noiseFieldFrame(scale: number, phase: number, octaves: number): NoiseFieldFrame {
+  const oct = Math.max(1, Math.min(6, Math.trunc(octaves)))
+  let norm = 0
+  for (let o = 0; o < oct; o++) norm += 128 >> o
+  return { freq: Math.trunc(scale * 96 * 256), z: Math.trunc(phase * 40) & 0xffff, octaves: oct, inv: 1 / (norm * 255) }
+}
+
+export function noiseFieldFrameCpp(scale: string, phase: string, octaves: string): string[] {
+  return [
+    `int32_t _fnQ=(int32_t)(${scale}*96.0f*256.0f),_fnN=0; uint16_t _z=(uint16_t)(int32_t)((${phase})*40); int _fnO=${octaves};`,
+    `for(int _o=0;_o<_fnO;_o++) _fnN+=128>>_o; float _fnInv=1.0f/(_fnN*255.0f);`,
+  ]
+}
+
+/** Sets `int32_t _fv`, the weighted octave sum, from `_x`, `_y` and the frame locals. */
+export const NOISE_FIELD_PIXEL_CPP = [
+  `int32_t _fv=0; for(int _o=0;_o<_fnO;_o++) _fv+=(128>>_o)*inoise8((uint16_t)((_x*_fnQ)>>(8-_o)),(uint16_t)((_y*_fnQ)>>(8-_o)),_z);`,
+]
+
+export function noiseFieldSum(x: number, y: number, f: NoiseFieldFrame): number {
+  let v = 0
+  for (let o = 0; o < f.octaves; o++) v += (128 >> o) * inoise8x3((x * f.freq) >> (8 - o), (y * f.freq) >> (8 - o), f.z)
+  return v
+}

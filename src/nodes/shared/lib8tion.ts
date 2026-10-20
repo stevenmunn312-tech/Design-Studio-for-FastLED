@@ -142,3 +142,64 @@ static inline uint8_t inoise8(uint16_t x, uint16_t y) {
   int8_t X2 = lerp7by8(grad8(_np[AB], xx, yy - N), grad8(_np[BB], xx - N, yy - N), u);
   int8_t n = lerp7by8(X1, X2, v); n += 64; uint32_t t = (uint8_t)n + (uint8_t)n; return t > 255 ? 255 : (uint8_t)t;
 }`
+
+const avg7 = (i: number, j: number) => i8((i >> 1) + (j >> 1) + (i & 1))
+
+function grad8x3(hash: number, x: number, y: number, z: number): number {
+  const n = (v: number) => i8(-v)
+  switch (hash & 0xf) {
+    case 0: case 12: return avg7(x, y)
+    case 1: case 13: return avg7(n(x), y)
+    case 2: case 14: return avg7(x, n(y))
+    case 3: case 15: return avg7(n(x), n(y))
+    case 4: return avg7(x, z)
+    case 5: return avg7(n(x), z)
+    case 6: return avg7(x, n(z))
+    case 7: return avg7(n(x), n(z))
+    case 8: return avg7(y, z)
+    case 9: return avg7(n(y), z)
+    case 10: return avg7(y, n(z))
+    default: return avg7(n(y), n(z))
+  }
+}
+
+/** FastLED `inoise8(x, y, z)`, bit for bit. */
+export function inoise8x3(x: number, y: number, z: number): number {
+  x &= 0xffff; y &= 0xffff; z &= 0xffff
+  const X = x >> 8, Y = y >> 8, Z = z >> 8
+  const A = (NOISE_P[X] + Y) & 0xff, AA = (NOISE_P[A] + Z) & 0xff, AB = (NOISE_P[A + 1] + Z) & 0xff
+  const B = (NOISE_P[X + 1] + Y) & 0xff, BA = (NOISE_P[B] + Z) & 0xff, BB = (NOISE_P[B + 1] + Z) & 0xff
+  const u = ease8InOutQuad(x & 0xff), v = ease8InOutQuad(y & 0xff), w = ease8InOutQuad(z & 0xff)
+  const xx = (x & 0xff) >> 1, yy = (y & 0xff) >> 1, zz = (z & 0xff) >> 1
+  const xn = i8(xx - 128), yn = i8(yy - 128), zn = i8(zz - 128)
+  const X1 = lerp7by8(grad8x3(NOISE_P[AA], xx, yy, zz), grad8x3(NOISE_P[BA], xn, yy, zz), u)
+  const X2 = lerp7by8(grad8x3(NOISE_P[AB], xx, yn, zz), grad8x3(NOISE_P[BB], xn, yn, zz), u)
+  const X3 = lerp7by8(grad8x3(NOISE_P[AA + 1], xx, yy, zn), grad8x3(NOISE_P[BA + 1], xn, yy, zn), u)
+  const X4 = lerp7by8(grad8x3(NOISE_P[AB + 1], xx, yn, zn), grad8x3(NOISE_P[BB + 1], xn, yn, zn), u)
+  const n = i8(lerp7by8(lerp7by8(X1, X2, v), lerp7by8(X3, X4, v), w) + 64) & 0xff
+  return Math.min(255, n + n)
+}
+
+/** FastLED's 3-D `inoise8`, copied for host builds; needs `INOISE8_HOST_CPP` first. */
+export const INOISE8_3D_HOST_CPP = String.raw`static inline int8_t grad8(uint8_t hash, int8_t x, int8_t y, int8_t z) {
+  switch(hash & 0xF) {
+    case 0: return avg7(x, y); case 1: return avg7(-x, y); case 2: return avg7(x, -y); case 3: return avg7(-x, -y);
+    case 4: return avg7(x, z); case 5: return avg7(-x, z); case 6: return avg7(x, -z); case 7: return avg7(-x, -z);
+    case 8: return avg7(y, z); case 9: return avg7(-y, z); case 10: return avg7(y, -z); case 11: return avg7(-y, -z);
+    case 12: return avg7(x, y); case 13: return avg7(-x, y); case 14: return avg7(x, -y); case 15: return avg7(-x, -y);
+  }
+  return 0;
+}
+static inline uint8_t inoise8(uint16_t x, uint16_t y, uint16_t z) {
+  uint8_t X = x >> 8, Y = y >> 8, Z = z >> 8;
+  uint8_t A = _np[X] + Y, AA = _np[A] + Z, AB = _np[A + 1] + Z, B = _np[X + 1] + Y, BA = _np[B] + Z, BB = _np[B + 1] + Z;
+  uint8_t u = x, v = y, w = z;
+  int8_t xx = ((uint8_t)(x) >> 1) & 0x7F, yy = ((uint8_t)(y) >> 1) & 0x7F, zz = ((uint8_t)(z) >> 1) & 0x7F; uint8_t N = 0x80;
+  u = ease8InOutQuad(u); v = ease8InOutQuad(v); w = ease8InOutQuad(w);
+  int8_t X1 = lerp7by8(grad8(_np[AA], xx, yy, zz), grad8(_np[BA], xx - N, yy, zz), u);
+  int8_t X2 = lerp7by8(grad8(_np[AB], xx, yy - N, zz), grad8(_np[BB], xx - N, yy - N, zz), u);
+  int8_t X3 = lerp7by8(grad8(_np[AA + 1], xx, yy, zz - N), grad8(_np[BA + 1], xx - N, yy, zz - N), u);
+  int8_t X4 = lerp7by8(grad8(_np[AB + 1], xx, yy - N, zz - N), grad8(_np[BB + 1], xx - N, yy - N, zz - N), u);
+  int8_t Y1 = lerp7by8(X1, X2, v), Y2 = lerp7by8(X3, X4, v);
+  int8_t n = lerp7by8(Y1, Y2, w); n += 64; uint32_t t = (uint8_t)n + (uint8_t)n; return t > 255 ? 255 : (uint8_t)t;
+}`

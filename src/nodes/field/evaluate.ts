@@ -1,6 +1,7 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
 import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
+import { noiseFieldFrame, noiseFieldSum } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
@@ -11,7 +12,7 @@ import {
   FLUID_VEL_OUT, fluidForces, fluidInject, fluidIterations, fluidPuff, fluidStep, makeFluid, type FluidState,
 } from '../../state/evaluator/fluid'
 import { fractalSampler, fractalType } from '../../state/evaluator/fractal'
-import { seedOffset, _snoise2, normalizedSeed, seededRandom, seededRngState } from '../../state/evaluator/random'
+import { normalizedSeed, seededRandom, seededRngState } from '../../state/evaluator/random'
 import {
   SAND_SPAWN_RATE, automatonInterval, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
   sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand, type AutomatonType,
@@ -131,22 +132,15 @@ export function evalTuringField(
   return out
 }
 
-// Same fBm construction as evalFractalNoise, but returns the raw 0–1 scalar
-// field instead of sampling it through a palette — the noise-driven Field
-// source, alongside FieldFormula's hand-written expressions.
+// The noise-driven Field source, alongside FieldFormula's hand-written
+// expressions: fBm of FastLED's 3-D inoise8, the sketch's integer kernel
+// (shared/integerPatterns.ts). A seed offsets the noise's time axis.
 function evalFieldNoise(key: string, speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, xo = 0): Field {
-  const z = speedPhase(key, t + seedOffset(seed, 0), speed) * 0.15
-  const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
+  const phase = speedPhase(key, t, speed) + (seed ? seed * 0.013 * speed : 0)
+  const frame = noiseFieldFrame(scale, phase, octaves)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = xo; x < W + xo; x++) {
-      let v = 0, amp = 0.5, freq = scale, norm = 0
-      for (let o = 0; o < oct; o++) {
-        v += amp * _snoise2(x * freq + z, y * freq - z * 0.5)
-        norm += amp; amp *= 0.5; freq *= 2
-      }
-      out[y * W + x - xo] = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
-    }
+    for (let x = xo; x < W + xo; x++) out[y * W + x - xo] = noiseFieldSum(x, y, frame) * frame.inv
   }
   return out
 }
