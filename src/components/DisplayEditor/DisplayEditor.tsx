@@ -1527,8 +1527,8 @@ export default function DisplayEditor() {
                   {screens.length === 1
                     ? 'A design can have several screens. Buttons go between them, and the panel gains a Screen input to choose one from the graph.'
                     : currentScreenIndex === 0
-                      ? `Screen 0 of ${screens.length - 1}: the screen the panel starts on. The panel's Screen input counts from here.`
-                      : `Screen ${currentScreenIndex} on the panel's Screen input, which counts the first as 0.`}
+                      ? `The first of ${screens.length} screens: the one the panel starts on, and 0 on its Screen input.`
+                      : `Screen ${currentScreenIndex + 1} of ${screens.length}: ${currentScreenIndex} on the panel's Screen input, which counts the first as 0.`}
                 </p>
                 <label>Name
                   <input
