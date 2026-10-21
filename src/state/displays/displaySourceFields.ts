@@ -54,12 +54,6 @@ const CLOCK_FIELDS: readonly DisplaySourceField[] = [
   { id: 'valid', label: 'Clock set', dataType: 'bool' },
 ]
 
-const SLIDESHOW_FIELDS: readonly DisplaySourceField[] = [
-  ...SELECTION_FIELDS,
-  { id: 'highlightName', label: 'Highlighted pattern', dataType: 'string' },
-  { id: 'browsing', label: 'Browsing', dataType: 'bool' },
-]
-
 /**
  * The player's own fields, taken from the list the Song Info node spreads.
  *
@@ -94,7 +88,7 @@ const BY_KIND: Record<DisplaySignalKind, readonly DisplaySourceField[]> = {
   powerMonitor: ['volts', 'amps', 'watts'].map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), dataType: 'float' })),
   player: PLAYER_FIELDS,
   clock: CLOCK_FIELDS,
-  slideshow: SLIDESHOW_FIELDS,
+  slideshow: SELECTION_FIELDS,
   ledOutput: LED_OUTPUT_FIELDS,
 }
 
@@ -201,8 +195,6 @@ export function readDisplaySourceField(
     // the third pattern, not the fourth.
     case 'patternIndex': return selection ? selection.activeIndex + 1 : null
     case 'patternCount': return selection?.count ?? null
-    case 'highlightName': return selection?.names[selection.highlightIndex] ?? null
-    case 'browsing': return selection?.browsing ?? null
     default: return null
   }
 }

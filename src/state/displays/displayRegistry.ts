@@ -35,13 +35,12 @@ export type TemplateControlRole =
   | 'transportPlayPause'
   | 'transportNext'
   | 'transportVolume'
-  | 'patternConfirm'
   | 'outputBrightness'
   | 'outputBlackout'
 
 export const TEMPLATE_CONTROL_ROLE_IDS: readonly TemplateControlRole[] = [
   'transportPrevious', 'transportPlayPause', 'transportNext', 'transportVolume',
-  'patternConfirm', 'outputBrightness', 'outputBlackout',
+  'outputBrightness', 'outputBlackout',
 ]
 
 /** A stored role, or null. The boundary check for an untrusted document — the

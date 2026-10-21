@@ -133,7 +133,6 @@ function combinePlayerControls(base: PlayerControls, direct: PlayerControls | nu
     ledToggle: base.ledToggle || direct.ledToggle,
     brightnessDelta: base.brightnessDelta + direct.brightnessDelta,
     patternSteps: base.patternSteps + direct.patternSteps,
-    patternConfirm: base.patternConfirm || direct.patternConfirm,
   }
   if (base.volume != null) controls.volume = base.volume
   if (direct.volume != null) controls.volume = direct.volume
@@ -186,7 +185,6 @@ function directPlayerActionControls(
   if (active.includes('brightnessDown')) controls.brightnessDelta -= pressed('brightnessDown') ? 0.05 : 0
   if (active.includes('patternNext')) controls.patternSteps += pressed('patternNext') ? 1 : 0
   if (active.includes('patternPrevious')) controls.patternSteps -= pressed('patternPrevious') ? 1 : 0
-  if (active.includes('patternConfirm')) controls.patternConfirm = pressed('patternConfirm')
   playerControlsState.set(directKey, state)
   return controls
 }
@@ -194,7 +192,7 @@ function directPlayerActionControls(
 /** The bundle a `controls` port carries, or an all-idle one when unwired. */
 const IDLE_PLAYER_CONTROLS: PlayerControls = {
   playPause: false, previous: false, next: false, volumeDelta: 0,
-  ledToggle: false, brightnessDelta: 0, patternSteps: 0, patternConfirm: false,
+  ledToggle: false, brightnessDelta: 0, patternSteps: 0,
 }
 
 function evalWipe(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -655,8 +653,14 @@ export function compositeTransition(
 }
 
 interface ShowState {
-  /** Which pattern is running, through the shared selection contract. */
+  /**
+   * Where the LEDs are heading, through the shared selection contract: the
+   * held pattern, or the one a running transition is heading for. A panel
+   * names this, so a step is named the moment it lands.
+   */
   sel: PatternSelectionState
+  /** The held pattern, which is the outgoing one while a transition runs. */
+  base: PatternCursor
   /** The pattern a running transition is heading for. */
   next: PatternCursor
   /** The collection as last seen, so a reader can resolve the selection
@@ -669,7 +673,6 @@ interface ShowState {
   /** The track's energy and recent range, for Energy Pacing. */
   paceEnergy: PacingEnergy
   seed: number
-  activeId?: string
   lastTime?: number
   /** The most recent beat-triggered particle burst, if any — style/colour are
    *  rolled once when the burst starts (randomStyle/randomColor) so they stay
@@ -694,13 +697,10 @@ interface ShowState {
   roleFrom: Record<string, number>
 }
 export interface PatternShowSelection {
+  /** The held pattern, which is the outgoing one while a transition runs. */
   currentIndex: number
   nextIndex: number
   transitioning: boolean
-  /** The pattern a browser is looking at, which is the current one unless
-   *  something is browsing away from it. */
-  highlightIndex: number
-  browsing: boolean
 }
 interface ShowOpts {
   minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
@@ -750,13 +750,10 @@ interface ShowOpts {
 export function getPatternShowSelection(key: string): PatternShowSelection | null {
   const st = patternShowState.get(key)
   if (!st) return null
-  const view = patternSelectionView(st.sel, st.ids)
   return {
-    currentIndex: view.activeIndex,
+    currentIndex: st.base.index,
     nextIndex: st.next.index,
     transitioning: st.phase === 'trans',
-    highlightIndex: view.highlightIndex,
-    browsing: view.browsing,
   }
 }
 
@@ -994,8 +991,8 @@ function renderCollectedPattern(gid: string, ctx: CollectedPatternCtx): Frame {
 function evalPatternShow(
   key: string, ids: string[], render: (groupId: string) => Frame,
   beat: boolean, o: ShowOpts, t: number, W = DEFAULT_W, H = DEFAULT_H,
-  // The player's selection, so its own advance and a user's confirm move the
-  // same cursor. Without this the show kept a private one and a confirmed
+  // The player's selection, so its own advance and a user's step move the
+  // same cursor. Without this the show kept a private one and a stepped
   // pattern changed only what the panel said.
   selection?: PatternSelectionState,
 ): Frame {
@@ -1022,7 +1019,7 @@ function evalPatternShow(
     // jumped to a random pattern — editing the collection of a running show
     // interrupted the show.
     seededRngState.delete(`${key}:show`)
-    st = { sel: selection ?? blankPatternSelection(), next: blankPatternCursor(), ids,
+    st = { sel: selection ?? blankPatternSelection(), base: blankPatternCursor(), next: blankPatternCursor(), ids,
            phase: 'hold', start: t, hold: firstPatternHold(rnd), paceEnergy: blankPacingEnergy(), trans: 'crossfade', lastBeat: beat, seed: o.seed,
            volley: blankParticleVolley(),
            audioFade: o.audioEnergy === null ? 1 : silenceFadeTarget(o.audioEnergy),
@@ -1031,13 +1028,14 @@ function evalPatternShow(
     if (sequencing) {
       const opened = advanceSequence(o.sequence ?? [], st.sequence, entries, 0, t, false, o.countBeats === true, 0, rnd)
       st.sequence = opened.cursor
-      updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: opened.cursor.patternIndex })
+      updatePatternSelection(st.sel, { ids, setActive: opened.cursor.patternIndex })
     } else if (classicFormula(entries, momentOf(st))) {
-      updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: sequential ? 0 : Math.floor(rnd() * n) })
+      updatePatternSelection(st.sel, { ids, setActive: sequential ? 0 : Math.floor(rnd() * n) })
     } else {
       const opened = nextPatternIndex(entries, 0, momentOf(st), sequential ? 'opening' : 'first', rnd)
-      updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: opened.index })
+      updatePatternSelection(st.sel, { ids, setActive: opened.index })
     }
+    st.base = { ...st.sel.active }
     const openedIndex = st.sel.active.index
     const openedId = ids[openedIndex]
     if (openedId && (o.profiles?.entry[openedIndex] ?? 'restart') === 'restart') {
@@ -1050,10 +1048,10 @@ function evalPatternShow(
   // contract keeps playing the same pattern through a reorder and hands a
   // deleted pattern's slot to whatever took it.
   if (selection && st.sel !== selection) st.sel = selection
-  updatePatternSelection(st.sel, { ids, nowMs: t * 1000 })
+  updatePatternSelection(st.sel, { ids })
+  reconcilePatternCursor(st.base, ids)
   reconcilePatternCursor(st.next, ids)
   st.ids = ids
-  const cur = st.sel.active.index
 
   const policyAt = (index: number): PatternEntryPolicy => o.profiles?.entry[index] === 'resume' ? 'resume' : 'restart'
   const beginEntry = (index: number) => {
@@ -1066,15 +1064,42 @@ function evalPatternShow(
     if (policyAt(index) === 'resume') o.keepAlive?.(ids[index])
   }
 
-  // A seek or a manual selection starts a full cooldown for the new hold.
-  if (t < (st.lastTime ?? st.start) || (st.activeId !== undefined && st.activeId !== st.sel.active.id)) {
-    const manual = st.activeId !== undefined && st.activeId !== st.sel.active.id
+  // The show only ever leaves the cursor where the LEDs are heading, so any
+  // other value is a user's step. Holding, it gets the show's own transition.
+  // Mid-transition it cuts: stepping fast lands on each pattern in turn rather
+  // than queueing crossfades. The firmware applies the same rule to `cur` and
+  // `nxt`.
+  const heading = st.phase === 'trans' ? st.next : st.base
+  if (st.sel.active.id !== heading.id) {
+    const target = st.sel.active.index
+    if (st.phase === 'hold' && !sequencing) {
+      st.next = { ...st.sel.active }
+      st.trans = o.pool.length ? o.pool[Math.floor(rnd() * o.pool.length)] : 'crossfade'
+      st.transSec = o.transSec
+      st.phase = 'trans'
+      st.start = t
+      beginEntry(target)
+    } else {
+      const outgoing = st.base.index
+      st.base = { ...st.sel.active }
+      st.phase = 'hold'
+      st.start = t
+      st.hold = firstPatternHold(rnd)
+      st.lastBeat = beat
+      // Back to the outgoing pattern carries on with it rather than
+      // restarting it, as the firmware's entry slot does.
+      if (target !== outgoing) beginEntry(target)
+    }
+  }
+  // A seek starts a full cooldown for the new hold.
+  if (t < (st.lastTime ?? st.start)) {
+    st.base = { ...st.sel.active }
     st.phase = 'hold'
     st.start = t
     st.hold = firstPatternHold(rnd)
     st.lastBeat = beat
-    if (manual) beginEntry(cur)
   }
+  const cur = st.base.index
   // The firmware reads the same mean band energy; no audio leaves it neutral.
   if (o.audioEnergy !== null) pacingEnergyStep(st.paceEnergy, o.audioEnergy, (t - (st.lastTime ?? t)) * 1000)
 
@@ -1118,8 +1143,9 @@ function evalPatternShow(
     }
     if (advanced.entered && advanced.cursor.patternIndex !== cur) {
       const target = advanced.cursor.patternIndex
-      st.next.index = target
-      st.next.id = ids[target]
+      st.next = { index: target, id: ids[target] }
+      // The cursor names where the LEDs are heading from the moment they set off.
+      updatePatternSelection(st.sel, { ids, setActive: target })
       st.trans = step?.transition || 'crossfade'
       st.transSec = step?.transitionSec ?? o.transSec
       st.phase = 'trans'
@@ -1138,8 +1164,8 @@ function evalPatternShow(
         ? (sequential ? (cur + 1) % n : (cur + 1 + Math.floor(rnd() * (n - 1))) % n)
         : nextPatternIndex(entries, cur, moment, sequential ? 'sequential' : 'next', rnd).index
       if (target !== cur) {
-        st.next.index = target
-        st.next.id = ids[target]
+        st.next = { index: target, id: ids[target] }
+        updatePatternSelection(st.sel, { ids, setActive: target })
         st.trans = o.pool.length ? o.pool[Math.floor(rnd() * o.pool.length)] : 'crossfade'
         st.transSec = o.transSec
         st.phase = 'trans'
@@ -1182,9 +1208,7 @@ function evalPatternShow(
       ? renderAt(cur)
       : compositeTransition(st.trans, renderAt(cur), renderAt(st.next.index), prog, W, H)
     if (prog >= 1) {
-      // The show's own advance goes through the contract, so a display naming
-      // the pattern and the show playing it cannot disagree.
-      updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: st.next.index })
+      st.base = { ...st.next }
       st.phase = 'hold'
       st.start = t
       if (!sequencing) st.hold = nextPatternHold(st.hold, rnd, o.dwellsAndBursts === true)
@@ -1194,7 +1218,6 @@ function evalPatternShow(
   }
   patternEntryDirective = null
 
-  st.activeId = st.sel.active.id
   st.lastTime = t
 
   // Overlay a beat-triggered particle burst additively (pre-brightness), the
@@ -1353,7 +1376,6 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         + (brightnessUp ? Math.max(0, Number(props.brightnessStep ?? 0.05)) : 0)
         - (brightnessDown ? Math.max(0, Number(props.brightnessStep ?? 0.05)) : 0),
       patternSteps: (upstream?.patternSteps ?? 0) + patternSteps,
-      patternConfirm: Boolean(upstream?.patternConfirm) || button('patternConfirm', false),
     }
     // Absolutes all follow one rule: wired here beats wired upstream, and
     // unwired stays absent so nothing downstream is overruled by silence.
@@ -1467,7 +1489,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     const runtime = applyPlayerTransportControls(key, controls)
 
     // One selection per player. The show's own advance goes through it
-    // too (inside evalPatternShow), so a confirmed pattern and a
+    // too (inside evalPatternShow), so a stepped pattern and a
     // dwell-driven one cannot disagree about what is running.
     let selection = patternSelectionState.get(key)
     if (!selection) {
@@ -1476,12 +1498,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     }
     const sequencing = o.order === 'Sequence'
     if (sequencing) o.stepDelta = controls.patternSteps
-    updatePatternSelection(selection, {
-      ids,
-      nowMs: t * 1000,
-      step: sequencing ? 0 : controls.patternSteps,
-      confirm: controls.patternConfirm,
-    })
+    updatePatternSelection(selection, { ids, step: sequencing ? 0 : controls.patternSteps })
 
     const frame = evalPatternShow(key, ids, render, beat, o, t, W, H, selection)
     /*
@@ -1516,9 +1533,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         ids,
         names: ids.map((gid) => graphNames[gid]?.name ?? ''),
         activeIndex: selectionView.activeIndex,
-        highlightIndex: selectionView.highlightIndex,
         count: selectionView.count,
-        browsing: selectionView.browsing,
       }
       : null
 
@@ -1530,6 +1545,8 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         kind: 'player',
         song: songInfo,
         selection: selectionValue,
+        // Undimmed, as the device's canvas is when its panel streams it.
+        picture: frame,
       } satisfies DisplaySignal,
     }
 
@@ -1575,9 +1592,6 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       selection = blankPatternSelection()
       patternSelectionState.set(key, selection)
     }
-    // No confirm step. A slideshow has no split between what you are
-    // looking at and what is playing to show anybody, so a step *is* the
-    // change — which is what `confirm` on the same update means.
     const controlsValue = input(id, 'controls', null)
     const controls = combinePlayerControls(
       isPlayerControls(controlsValue) ? controlsValue : IDLE_PLAYER_CONTROLS,
@@ -1588,12 +1602,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     )
     const steps = controls ? Math.trunc(controls.patternSteps) : 0
     const sequencing = settings.order === 'Sequence'
-    updatePatternSelection(selection, {
-      ids,
-      nowMs: elapsedT * 1000,
-      step: sequencing ? 0 : steps,
-      confirm: sequencing ? controls?.patternConfirm === true : steps !== 0 || controls?.patternConfirm === true,
-    })
+    updatePatternSelection(selection, { ids, step: sequencing ? 0 : steps })
 
     let frame = evalPatternShow(key, ids, render, false, {
       minTime: settings.intervalSec,
@@ -1658,15 +1667,13 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         ids,
         names: ids.map((gid) => graphNames[gid]?.name ?? ''),
         activeIndex: view.activeIndex,
-        highlightIndex: view.highlightIndex,
         count: view.count,
-        browsing: view.browsing,
       }
       : blankPatternSelectValue()
 
     return {
       frame,
-      display: { kind: 'slideshow', selection: selectionValue } satisfies DisplaySignal,
+      display: { kind: 'slideshow', selection: selectionValue, picture: frame } satisfies DisplaySignal,
     }
   },
   Sequencer({ input, t, W, H }, id, props) {
@@ -1742,9 +1749,8 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
 
     // Which pattern the show is on, from the show file itself: the body
     // resolves it against the timeline and publishes it beside the
-    // position. Unlike a Music Player there is no cursor to browse here —
-    // the timeline schedules the patterns — so the highlight is the active
-    // one and `browsing` is never true.
+    // position. Unlike a Music Player there is no cursor to step here: the
+    // timeline schedules the patterns.
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
     const activeIndex = owned && player.patternIndex >= 0
       ? Math.min(player.patternIndex, Math.max(0, ids.length - 1))
@@ -1755,9 +1761,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         ids,
         names: ids.map((gid) => graphNames[gid]?.name ?? ''),
         activeIndex,
-        highlightIndex: activeIndex,
         count: ids.length,
-        browsing: false,
       }
       : null
 

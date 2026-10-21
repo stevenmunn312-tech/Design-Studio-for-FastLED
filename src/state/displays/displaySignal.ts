@@ -19,6 +19,7 @@ import type { LedOutputStatus } from '../output/ledOutputRuntime'
 import type { SongInfo } from '../player/songInfo'
 import type { PatternSelectValue } from '../patterns/patternSelection'
 import type { RtcPreview } from '../peripherals/rtc'
+import type { Frame } from '../palettes/ledColor'
 
 /**
  * Which source is plugged in, which *is* the layout choice.
@@ -38,13 +39,17 @@ export type DisplaySignal =
    * `SongInfo` is the track. The selection is which pattern is running, which
    * a player owns just as much (it is the same `PatternSelectValue` published
    * on `patternSelect`, from the same cursor) and which a colour panel needs:
-   * a Now Playing screen names the pattern and draws its baked artwork, and
-   * neither reading exists anywhere in `SongInfo`. Null when the player holds
-   * no collection at all — a panel then draws the track and omits the pattern
-   * row rather than captioning the artwork frame with an empty name.
+   * a Now Playing screen names the pattern, and that reading exists nowhere
+   * in `SongInfo`. Null when the player holds no collection at all — a panel
+   * then draws the track and omits the pattern row rather than captioning the
+   * picture with an empty name.
+   *
+   * `picture` is the LEDs as the engine composed them this pass, before any
+   * dimming: what the device's `leds` canvas holds when its panel streams it.
+   * Absent where the engine draws nothing the preview can show.
    */
-  | { kind: 'player'; song: SongInfo; selection: PatternSelectValue | null }
-  | { kind: 'slideshow'; selection: PatternSelectValue }
+  | { kind: 'player'; song: SongInfo; selection: PatternSelectValue | null; picture?: Frame }
+  | { kind: 'slideshow'; selection: PatternSelectValue; picture?: Frame }
   /**
    * A fixture reporting on itself.
    *

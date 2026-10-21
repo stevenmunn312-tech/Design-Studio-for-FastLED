@@ -316,27 +316,19 @@ export const BROWSER_LAYOUT = {
 } as const
 
 export interface PatternBrowserData {
-  /** Name of the pattern being looked at, which is not always the one playing. */
+  /** Name of the running pattern. */
   name: string
-  /** 1-based position of the highlight. 0 when the collection is empty. */
+  /** 1-based position of the running pattern. 0 when the collection is empty. */
   ordinal: number
   count: number
-  /** The highlighted pattern's baked thumbnail, or null when it has none. */
+  /** The running pattern's baked thumbnail, or null when it has none. */
   thumbnail: PatternThumbnail | null
-  /** True while the highlight has moved off the pattern that is running. */
-  browsing: boolean
-  /** What is actually on the LEDs, shown only while browsing away from it. */
-  activeName: string
 }
 
 /**
- * Pattern Browser: a picture of the pattern you are about to choose.
- *
- * The split between highlight and active is the whole point, and the panel has
- * to show it or the split is invisible: the picture and name are what you are
- * *looking at*, and while that is not what is running the bottom strip says
- * what is. Without that line, scrolling away from the playing pattern leaves a
- * panel confidently describing something the LEDs are not doing.
+ * Pattern Browser: a picture of the running pattern, its name and where it
+ * sits in the collection. Previous and Next change the pattern on the LEDs
+ * straight away, so the panel only ever has the one pattern to describe.
  */
 export interface BrowserGeometry {
   thumb: InfoRect
@@ -345,12 +337,6 @@ export interface BrowserGeometry {
   status: InfoField
   /** The row "NO PATTERNS" goes on, which is the text column's second. */
   empty: InfoField
-  /**
-   * The strip naming what is *running* while you browse away from it, and the
-   * rule above it. Null on a panel with no room: the split is worth showing,
-   * but not at the cost of a half-drawn row over the picture.
-   */
-  playing: { rule: InfoRect; label: InfoField } | null
 }
 
 export function browserGeometry(width: number, height: number): BrowserGeometry {
@@ -360,17 +346,12 @@ export function browserGeometry(width: number, height: number): BrowserGeometry 
   const inner = width - (margin * 2)
   const pitch = infoRowPitch(height, 6)
   const row = (index: number) => margin + (index * pitch)
-  const ruleY = row(4)
-  const labelY = row(5)
   return {
     thumb: { x: BROWSER_LAYOUT.thumbX, y: BROWSER_LAYOUT.thumbY, w: THUMBNAIL_W, h: THUMBNAIL_H },
     name: { x: textX, y: row(0), w: column },
     ordinal: { x: textX, y: row(1), w: column },
     status: { x: textX, y: row(2), w: column },
     empty: { x: margin, y: row(1), w: inner },
-    playing: fits(labelY, height)
-      ? { rule: { x: margin, y: ruleY, w: inner, h: 1 }, label: { x: margin, y: labelY, w: inner } }
-      : null,
   }
 }
 
@@ -399,12 +380,7 @@ export function drawPatternBrowser(surface: OledSurface, data: PatternBrowserDat
 
   // A word, not a glyph: the shared 3x5 font has no tick or triangle, and
   // inventing one here would be a glyph the firmware does not have.
-  drawOledText(surface, g.status.x, g.status.y, data.browsing ? 'SELECT?' : 'PLAYING')
-
-  if (!data.browsing || !g.playing) return
-  drawHLine(surface, g.playing.rule.x, g.playing.rule.y, g.playing.rule.w)
-  const playing = fitOledText(`PLAYING ${data.activeName}`, g.playing.label.w)
-  drawOledText(surface, g.playing.label.x, g.playing.label.y, playing)
+  drawOledText(surface, g.status.x, g.status.y, 'PLAYING')
 }
 
 /**
@@ -542,7 +518,7 @@ export function blankInfoData(layout: InfoDisplayLayout): InfoDisplayData {
       // with no picture.
       return {
         layout,
-        data: { name: '', ordinal: 0, count: 0, thumbnail: null, browsing: false, activeName: '' },
+        data: { name: '', ordinal: 0, count: 0, thumbnail: null },
       }
     case 'Now Playing':
       return {

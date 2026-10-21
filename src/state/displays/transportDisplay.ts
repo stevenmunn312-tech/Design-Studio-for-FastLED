@@ -22,7 +22,7 @@ import { type PowerMonitorReading, POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS, po
 
 import {
   createTftSurfaceFor, clearTftSurface, drawTftField, drawTftBar,
-  drawTftArtwork, drawTftRect, fillTftRect, rgb565, tftTextHeight, tftTextWidth,
+  drawTftRect, fillTftRect, rgb565, setTftPixel, tftTextHeight, tftTextWidth,
   type TftController, type TftField, type TftRect, type TftRotation, type TftSurface,
 } from './tftSurface'
 import { formatTransportTime } from '../player/transportBridge'
@@ -134,107 +134,82 @@ export const TRANSPORT_METRICS = {
   bodyScale: 2,
   headingScale: 3,
   barHeight: 12,
-  /** Space between the artwork and the text under it. */
+  /** Space between the picture and the text under it. */
   artGap: 12,
 } as const
 
 /**
- * Artwork size, in pixels.
+ * The picture square, in pixels: the frame the LEDs' own picture is drawn in.
  *
- * Square and fixed. Fixed because the bytes are baked in the browser and only
- * blitted on the device (see `drawTftArtwork`), so a panel that wanted another
- * size would need a scaler in C++ — the exact second implementation the
- * thumbnail rule exists to prevent. 96 leaves room under it for three text
- * rows and the transport block on the shortest catalogued panel.
+ * Square and fixed, so the text rows around it sit in the same place whatever
+ * the LEDs are. 96 leaves room under it for three text rows and the transport
+ * block on the shortest catalogued panel.
  */
-export const TRANSPORT_ARTWORK_W = 96
-export const TRANSPORT_ARTWORK_H = 96
+export const TRANSPORT_PICTURE_W = 96
+export const TRANSPORT_PICTURE_H = 96
 
-/** Render larger before averaging so one-pixel pattern features survive. */
-export const TRANSPORT_ARTWORK_SUPERSAMPLE = 2
+/**
+ * How often the device redraws the picture, in milliseconds. A 96-pixel
+ * square is about 18 KB on the bus, some 4 ms at 40 MHz, so ten a second
+ * keeps it moving without taking a visible share of the LED loop or of an SD
+ * card on the same bus.
+ */
+export const TRANSPORT_PICTURE_INTERVAL_MS = 100
 
-/** Fixed export tick, for reproducible artwork across builds. */
-export const TRANSPORT_ARTWORK_TICK_SEC = 2.5
+/**
+ * Beyond this aspect ratio a canvas is a strip, not a picture: drawn to scale
+ * it would be a line a pixel or two tall. A strip fills the frame instead, each
+ * LED a band across it.
+ */
+export const TRANSPORT_PICTURE_STRIP_RATIO = 4
 
-/** Flash one baked artwork costs: RGB565, two bytes a pixel. */
-export const TRANSPORT_ARTWORK_BYTES = TRANSPORT_ARTWORK_W * TRANSPORT_ARTWORK_H * 2
+/** The LEDs' composition canvas, row-major: what the device's `leds` holds. */
+export type TransportPictureFrame = readonly (readonly { r: number; g: number; b: number }[])[]
 
-interface ArtworkRgbLike { r: number; g: number; b: number }
-type ArtworkFrameLike = readonly (readonly ArtworkRgbLike[])[]
-
-/** A black, correctly-sized picture for a missing pattern group. */
-export function blankTransportArtwork(): Uint8Array {
-  return new Uint8Array(TRANSPORT_ARTWORK_BYTES)
+/**
+ * Where a `width` x `height` canvas is drawn inside the picture frame.
+ *
+ * Inside the frame's one-pixel border; at a whole number of pixels per LED
+ * when at least one fits, so every LED is the same size, and centred. A strip
+ * (see `TRANSPORT_PICTURE_STRIP_RATIO`) fills the inside instead. The device
+ * is handed these numbers, so the preview and the glass cannot place the
+ * picture differently.
+ */
+export function transportPictureBox(width: number, height: number, frame: TftRect): TftRect {
+  const inside = { x: frame.x + 1, y: frame.y + 1, w: Math.max(1, frame.w - 2), h: Math.max(1, frame.h - 2) }
+  const cols = Math.max(1, Math.floor(width))
+  const rows = Math.max(1, Math.floor(height))
+  const aspect = cols / rows
+  if (aspect > TRANSPORT_PICTURE_STRIP_RATIO || aspect < 1 / TRANSPORT_PICTURE_STRIP_RATIO) return inside
+  const fit = Math.min(inside.w / cols, inside.h / rows)
+  const scale = fit >= 1 ? Math.floor(fit) : fit
+  const w = Math.max(1, Math.min(inside.w, Math.floor(cols * scale)))
+  const h = Math.max(1, Math.min(inside.h, Math.floor(rows * scale)))
+  return { x: inside.x + Math.floor((inside.w - w) / 2), y: inside.y + Math.floor((inside.h - h) / 2), w, h }
 }
 
 /**
- * Downsample a rendered pattern into the exact big-endian RGB565 bytes sent
- * to the panel. Conversion lives only here; firmware blits these bytes.
+ * The picture: an empty frame, then the canvas drawn into its box by nearest
+ * LED, packed as the device packs a `CRGB`. Panel pixel (px, py) of the box
+ * shows LED (px * width / w, py * height / h), integer division, which is
+ * `_tftPicture`'s loop.
  */
-export function transportArtworkFromFrame(
-  frame: ArtworkFrameLike,
-  scale = TRANSPORT_ARTWORK_SUPERSAMPLE,
-): Uint8Array {
-  const out = blankTransportArtwork()
-  const step = Math.max(1, Math.round(scale))
-  let at = 0
-  for (let y = 0; y < TRANSPORT_ARTWORK_H; y++) {
-    for (let x = 0; x < TRANSPORT_ARTWORK_W; x++) {
-      let r = 0
-      let g = 0
-      let b = 0
-      let count = 0
-      for (let sy = 0; sy < step; sy++) {
-        const row = frame[(y * step) + sy]
-        if (!row) continue
-        for (let sx = 0; sx < step; sx++) {
-          const pixel = row[(x * step) + sx]
-          if (!pixel) continue
-          r += pixel.r
-          g += pixel.g
-          b += pixel.b
-          count++
-        }
-      }
-      const color = count > 0 ? rgb565(r / count, g / count, b / count) : 0
-      out[at++] = (color >> 8) & 0xff
-      out[at++] = color & 0xff
+export function drawTransportPicture(surface: TftSurface, frame: TftRect, picture: TransportPictureFrame): void {
+  const c = TRANSPORT_COLORS
+  fillTftRect(surface, frame.x, frame.y, frame.w, frame.h, c.background)
+  drawTftRect(surface, frame.x, frame.y, frame.w, frame.h, c.artFrame)
+  const rows = picture.length
+  const cols = picture[0]?.length ?? 0
+  if (rows < 1 || cols < 1) return
+  const box = transportPictureBox(cols, rows, frame)
+  for (let py = 0; py < box.h; py++) {
+    const row = picture[Math.floor((py * rows) / box.h)]
+    for (let px = 0; px < box.w; px++) {
+      const led = row?.[Math.floor((px * cols) / box.w)]
+      const color = led ? rgb565(Math.floor(led.r), Math.floor(led.g), Math.floor(led.b)) : c.background
+      setTftPixel(surface, box.x + px, box.y + py, color)
     }
   }
-  return out
-}
-
-/**
- * How many baked artworks a build will carry.
- *
- * Colour art is expensive in a way 1-bit thumbnails are not: one 96x96 picture
- * is 18 KB, which is more than a whole collection of `MAX_THUMBNAILS`
- * thumbnails. Eight is 144 KB — affordable beside a player sketch, and past
- * that the collection has outgrown a single fixed now-playing screen anyway.
- */
-export const MAX_TRANSPORT_ARTWORKS = 8
-export const MAX_TRANSPORT_ARTWORK_FLASH_BYTES = MAX_TRANSPORT_ARTWORKS * TRANSPORT_ARTWORK_BYTES
-
-/** Flash cost of `count` baked artworks, in bytes. */
-export function transportArtworkFlashCost(count: number): number {
-  const n = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
-  return n * TRANSPORT_ARTWORK_BYTES
-}
-
-/**
- * Why a build cannot carry this much artwork, or null when it can.
- *
- * Said in bytes the user can act on rather than as a bare refusal, mirroring
- * `thumbnailBudgetIssue`: the point of a cap is that flash otherwise runs out
- * during someone else's build, long after the art was chosen.
- */
-export function transportArtworkBudgetIssue(count: number): string | null {
-  const n = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
-  if (n <= MAX_TRANSPORT_ARTWORKS) return null
-  return `A Transport Display can carry ${MAX_TRANSPORT_ARTWORKS} baked artworks `
-    + `(${MAX_TRANSPORT_ARTWORK_FLASH_BYTES} bytes of flash); this build wants ${n}, `
-    + `which would need ${transportArtworkFlashCost(n)} bytes. `
-    + `Trim the collection to ${MAX_TRANSPORT_ARTWORKS} patterns or fewer.`
 }
 
 /**
@@ -255,7 +230,7 @@ export const TRANSPORT_COLORS = {
   outline: rgb565(90, 96, 106),
   on: rgb565(64, 220, 120),
   off: rgb565(226, 72, 72),
-  /** Where artwork would be, when a pattern has none baked. */
+  /** The picture's frame, and all of it when there is nothing to draw. */
   artFrame: rgb565(60, 64, 72),
 } as const
 
@@ -343,12 +318,15 @@ export interface TransportNowPlayingData {
   /** 0-1. */
   volume: number
   patternName: string
-  /** Baked RGB565 artwork, big-endian pairs, or null when none was baked. */
-  artwork: Uint8Array | null
+  /**
+   * The LEDs as the player last drew them, or null when it draws none: an
+   * empty frame then, so a missing picture does not read as a black one.
+   */
+  picture: TransportPictureFrame | null
 }
 
 export interface NowPlayingGeometry {
-  artwork: TftRect
+  picture: TftRect
   title: TftField
   artist: TftField
   pattern: TftField
@@ -384,13 +362,13 @@ export function nowPlayingGeometry(width: number, height: number): NowPlayingGeo
   const timesY = stateY - M.rowGap - bodyH
   const progressY = timesY - M.rowGap - M.barHeight
 
-  // The artwork and its three text rows, centred in the space that remains.
-  const groupH = TRANSPORT_ARTWORK_H + M.artGap + headingH + M.rowGap + bodyH + M.rowGap + bodyH
+  // The picture and its three text rows, centred in the space that remains.
+  const groupH = TRANSPORT_PICTURE_H + M.artGap + headingH + M.rowGap + bodyH + M.rowGap + bodyH
   const region = progressY - M.margin
   const topY = M.margin + Math.max(0, Math.floor((region - groupH) / 2))
 
-  const artX = M.margin + Math.max(0, Math.floor((inner - TRANSPORT_ARTWORK_W) / 2))
-  const titleY = topY + TRANSPORT_ARTWORK_H + M.artGap
+  const artX = M.margin + Math.max(0, Math.floor((inner - TRANSPORT_PICTURE_W) / 2))
+  const titleY = topY + TRANSPORT_PICTURE_H + M.artGap
   const artistY = titleY + headingH + M.rowGap
   const patternY = artistY + bodyH + M.rowGap
 
@@ -405,7 +383,7 @@ export function nowPlayingGeometry(width: number, height: number): NowPlayingGeo
   const halfTimes = Math.floor(inner / 2)
 
   return {
-    artwork: { x: artX, y: topY, w: TRANSPORT_ARTWORK_W, h: TRANSPORT_ARTWORK_H },
+    picture: { x: artX, y: topY, w: TRANSPORT_PICTURE_W, h: TRANSPORT_PICTURE_H },
     title: field(M.margin, titleY, inner, M.headingScale, 'center'),
     artist: field(M.margin, artistY, inner, M.bodyScale, 'center'),
     pattern: field(M.margin, patternY, inner, M.bodyScale, 'center'),
@@ -434,7 +412,7 @@ export function nowPlayingStateText(playing: boolean): string {
 }
 
 /**
- * Now Playing: artwork, what is playing, where it is up to, and the transport.
+ * Now Playing: the LEDs' picture, what is playing, where it is up to, and the transport.
  *
  * The pattern name sits with the track rather than in a corner, because on
  * this appliance the pattern and the song are one thing the user is looking
@@ -444,14 +422,13 @@ export function drawTransportNowPlaying(surface: TftSurface, data: TransportNowP
   const g = nowPlayingGeometry(surface.width, surface.height)
   const c = TRANSPORT_COLORS
 
-  // An empty frame where the picture goes, so a track with no baked art reads
-  // as a missing picture rather than as art that happens to be black — which
-  // plenty legitimately is.
-  if (data.artwork && data.artwork.length > 0) {
-    drawTftArtwork(surface, g.artwork.x, g.artwork.y, g.artwork.w, g.artwork.h, data.artwork)
+  // An empty frame where the picture goes, so no picture reads as missing
+  // rather than as LEDs that happen to be black — which plenty legitimately are.
+  if (data.picture) {
+    drawTransportPicture(surface, g.picture, data.picture)
   } else {
-    fillTftRect(surface, g.artwork.x, g.artwork.y, g.artwork.w, g.artwork.h, c.background)
-    drawTftRect(surface, g.artwork.x, g.artwork.y, g.artwork.w, g.artwork.h, c.artFrame)
+    fillTftRect(surface, g.picture.x, g.picture.y, g.picture.w, g.picture.h, c.background)
+    drawTftRect(surface, g.picture.x, g.picture.y, g.picture.w, g.picture.h, c.artFrame)
   }
 
   drawTftField(surface, g.title, displayString(data.title), c.text, c.background)
@@ -566,89 +543,64 @@ export function drawTransportFixed(surface: TftSurface, data: TransportFixedData
  * the OLED's `Status` layout, for the same reason.
  *
  * What is left is `PatternSelectValue` drawn large: which pattern is running,
- * where it sits in the collection, and — while the user is browsing away from
- * it — which one they are looking at.
+ * where it sits in the collection, and what it looks like.
  */
 export interface TransportShowStatusData {
   patternName: string
   /** 0-based, the way `patternSelection.ts` counts. The panel shows it 1-based. */
   patternIndex: number
   patternCount: number
-  /** The pattern being looked at, which is only meaningful while browsing. */
-  highlightName: string
-  highlightIndex: number
-  browsing: boolean
   /**
-   * The running pattern's baked RGB565 artwork, or null/absent when the
-   * slideshow's collection was not baked.
+   * The LEDs as the slideshow last drew them, or null/absent when there are
+   * none to show.
    *
-   * Unlike Now Playing, no artwork draws no frame either: a Show Status panel
-   * without pictures is the text-only layout it always was, and the firmware
-   * for that panel emits no table and no blit at all. The picture follows the
-   * *running* pattern rather than a browsed candidate, so it agrees with the
-   * LEDs and with the ordinal beside it.
+   * Unlike Now Playing, no picture draws no frame either: Show Status without
+   * one is the text-only layout it always was.
    */
-  artwork?: Uint8Array | null
+  picture?: TransportPictureFrame | null
 }
 
 export interface ShowStatusGeometry {
   pattern: TftField
   ordinal: TftField
   status: TftField
-  /** Where the running pattern's baked artwork goes, when one was baked. */
-  artwork: TftRect
-  /** Blank rather than absent when not browsing, so the region clears itself. */
-  highlight: TftField
-  highlightOrdinal: TftField
+  /** Where the LEDs' picture goes. */
+  picture: TftRect
 }
 
 const STATUS_PLAYING = 'PLAYING'
-const STATUS_BROWSING = 'BROWSING'
 
 /**
  * Resolve the Show Status layout for a panel of this size.
  *
  * Read top to bottom it answers, in order: what is running, where in the show
- * it is, what it looks like, and — at the bottom — what the user is browsing
- * to. The artwork takes the band between the running rows and the browsing
- * block, centred both ways, so the text rows sit exactly where the text-only
- * layout put them and a panel whose collection was not baked loses nothing
- * but the picture. Every catalogued mounting (240x240, 240x320, 320x240)
- * leaves that band at least 146 pixels tall, room for the fixed 96-pixel
- * square with a clear gap either side.
+ * it is, and what it looks like. The picture takes the band below the text
+ * rows, centred both ways, so the text rows sit exactly where the text-only
+ * layout put them and a panel with no picture loses nothing else. Every
+ * catalogued mounting (240x240, 240x320, 320x240) leaves that band taller than
+ * the fixed 96-pixel square with a clear gap either side.
  */
 export function showStatusGeometry(width: number, height: number): ShowStatusGeometry {
   const inner = width - (M.margin * 2)
   const bodyH = tftTextHeight(M.bodyScale)
   const headingH = tftTextHeight(M.headingScale)
 
-  // The running pattern owns the top of the glass, because it is the one
-  // reading that is true whether or not anyone is touching the panel.
+  // The running pattern owns the top of the glass.
   const patternY = M.margin
   const ordinalY = patternY + headingH + M.rowGap
   const statusY = ordinalY + bodyH + M.rowGap
 
-  // The browsing block sits at the bottom rather than under the status row, so
-  // the running pattern's position on the glass never moves when a browse
-  // starts or ends. A layout that reflowed on every encoder detent would be
-  // unreadable exactly when it is being used.
-  const highlightOrdinalY = height - M.margin - bodyH
-  const highlightY = highlightOrdinalY - M.rowGap - headingH
-
-  // The fixed artwork square, centred in the band the text leaves. Fixed
-  // rather than fitted because the bytes are baked in the browser and only
-  // blitted on the device: another size would need a scaler in C++.
+  // The fixed picture square, centred in the band the text leaves.
   const bandTop = statusY + bodyH
-  const artY = bandTop + Math.max(0, Math.floor((highlightY - bandTop - TRANSPORT_ARTWORK_H) / 2))
-  const artX = M.margin + Math.max(0, Math.floor((inner - TRANSPORT_ARTWORK_W) / 2))
+  const bandBottom = height - M.margin
+  const artY = bandTop + Math.max(0, Math.floor((bandBottom - bandTop - TRANSPORT_PICTURE_H) / 2))
+  const artX = M.margin + Math.max(0, Math.floor((inner - TRANSPORT_PICTURE_W) / 2))
 
   return {
     pattern: field(M.margin, patternY, inner, M.headingScale, 'left'),
     ordinal: field(M.margin, ordinalY, inner, M.bodyScale, 'left'),
     status: field(M.margin, statusY, inner, M.bodyScale, 'left'),
-    artwork: { x: artX, y: artY, w: TRANSPORT_ARTWORK_W, h: TRANSPORT_ARTWORK_H },
-    highlight: field(M.margin, highlightY, inner, M.headingScale, 'left'),
-    highlightOrdinal: field(M.margin, highlightOrdinalY, inner, M.bodyScale, 'left'),
+    picture: { x: artX, y: artY, w: TRANSPORT_PICTURE_W, h: TRANSPORT_PICTURE_H },
   }
 }
 
@@ -667,7 +619,7 @@ export function showStatusOrdinalText(index: number, count: number): string {
 }
 
 /**
- * Whether the panel is reporting the show or a browse in progress.
+ * The status row: PLAYING while there is a show to report.
  *
  * Silent when there is no collection, for the same reason
  * `showStatusOrdinalText` refuses to write "1/0": the row above has just said
@@ -676,44 +628,23 @@ export function showStatusOrdinalText(index: number, count: number): string {
  * Browser already draws nothing in that case; this is the colour panel
  * catching up.
  */
-export function showStatusStateText(browsing: boolean, count: number): string {
+export function showStatusStateText(count: number): string {
   const total = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
-  if (total <= 0) return ''
-  return browsing ? STATUS_BROWSING : STATUS_PLAYING
+  return total <= 0 ? '' : STATUS_PLAYING
 }
 
-/** Show Status: which pattern is running, and which one is being looked at. */
+/** Show Status: which pattern is running, and what it looks like. */
 export function drawTransportShowStatus(surface: TftSurface, data: TransportShowStatusData): void {
   const g = showStatusGeometry(surface.width, surface.height)
   const c = TRANSPORT_COLORS
 
   drawTftField(surface, g.pattern, displayString(data.patternName), c.text, c.background)
   drawTftField(surface, g.ordinal, showStatusOrdinalText(data.patternIndex, data.patternCount), c.dim, c.background)
-  drawTftField(
-    surface, g.status, showStatusStateText(data.browsing, data.patternCount),
-    data.browsing ? c.accent : c.dim, c.background,
-  )
+  drawTftField(surface, g.status, showStatusStateText(data.patternCount), c.dim, c.background)
 
-  // Nothing at all without a bake, not Now Playing's empty frame: the
-  // firmware for an unbaked panel draws no picture and emits no blit, and the
-  // background it painted at setup is what stays in that band.
-  if (data.artwork && data.artwork.length > 0) {
-    drawTftArtwork(surface, g.artwork.x, g.artwork.y, g.artwork.w, g.artwork.h, data.artwork)
-  }
-
-  // Blank rather than skipped: painting the empty fields is what clears the
-  // previous candidate off the glass when a browse ends, and the firmware
-  // caches per field, so an unchanged blank costs nothing after the first.
-  drawTftField(
-    surface, g.highlight,
-    data.browsing ? displayString(data.highlightName) : '',
-    c.accent, c.background,
-  )
-  drawTftField(
-    surface, g.highlightOrdinal,
-    data.browsing ? showStatusOrdinalText(data.highlightIndex, data.patternCount) : '',
-    c.dim, c.background,
-  )
+  // Nothing at all without a picture, not Now Playing's empty frame: the
+  // background painted at setup is what stays in that band.
+  if (data.picture) drawTransportPicture(surface, g.picture, data.picture)
 }
 
 // ── LED Status ──────────────────────────────────────────────────────────────
@@ -996,7 +927,6 @@ export function blankTransportData(layout: TransportDisplayLayout): TransportDis
       layout,
       data: {
         patternName: '', patternIndex: 0, patternCount: 0,
-        highlightName: '', highlightIndex: 0, browsing: false,
       },
     }
   }
@@ -1013,7 +943,7 @@ export function blankTransportData(layout: TransportDisplayLayout): TransportDis
     layout: 'Now Playing',
     data: {
       title: '', artist: '', elapsedSec: 0, durationSec: 0, progress: 0,
-      playing: false, volume: 0, patternName: '', artwork: null,
+      playing: false, volume: 0, patternName: '', picture: null,
     },
   }
 }

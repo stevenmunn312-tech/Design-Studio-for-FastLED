@@ -88,10 +88,8 @@ import {
   bindsAnyField, DISPLAY_NAME_SOURCE_FIELDS, DISPLAY_SELECTION_SOURCE_FIELDS,
 } from './displays/displaySourceExpressions'
 import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
-import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
-import type { TransportArtworks } from '../utils/transportArtworks'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuEmitsFromGraph,
   stereoVuGlobalCpp, stereoVuLoopCpp,
@@ -521,25 +519,15 @@ interface ShowSelectionPlan {
   nameStrings: boolean
 }
 
-/** The fixed layouts that blit the show's baked artwork. */
-const ARTWORK_LAYOUTS: ReadonlySet<string> = new Set(['Now Playing', 'Show Status'])
-
 /**
- * Whether this show sketch draws baked artwork at all.
- *
- * One answer for the table, the blit and the selection cursor, so none of the
- * three is emitted without the others. The bake is keyed by the engine and a
- * controller sketch runs exactly one show, so the sole entry is this show's
- * collection: a Show Status panel pictures the slideshow's own patterns.
+ * The fixed layouts that picture the LEDs: the show's own composition canvas,
+ * `leds`, streamed live, so a collection of any size is pictured and no
+ * pattern is baked.
  */
-function showDrawsArtwork(displays: ResolvedShowDisplays, artworks: TransportArtworks | undefined): boolean {
-  return displays.tft.some((display) => ARTWORK_LAYOUTS.has(display.layout))
-    && (Object.values(artworks ?? {})[0] ?? []).length > 0
-}
+const PICTURE_LAYOUTS: ReadonlySet<string> = new Set(['Now Playing', 'Show Status'])
 
 function showSelectionPlan(
   displays: ResolvedShowDisplays,
-  hasArtwork: boolean,
   patternCommands: string | null,
   boundFields: ReadonlySet<string> = new Set(),
 ): ShowSelectionPlan {
@@ -553,7 +541,7 @@ function showSelectionPlan(
   return {
     // A bound widget is one more reader of the cursor, counted here beside the
     // fixed layouts rather than left to reference a variable no line declares.
-    used: names || hasArtwork || patternCommands !== null
+    used: names || patternCommands !== null
       || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS),
     variable: `_sel_${SHOW_SELECTION_STEM}`,
     stem: SHOW_SELECTION_STEM,
@@ -593,12 +581,10 @@ function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number, names: 
       ...(plan.nameStrings ? [patternNameStringCpp(plan.stem)] : []),
     ],
     setup: [`  _selBegin(${plan.variable});`],
-    // A slideshow has no split between what you are looking at and what is
-    // playing to show anybody, so a step *is* the change — the same rule the
-    // evaluator applies by confirming on any non-zero step.
-    apply: bundle
-      ? [`  _selUpdate(${plan.variable}, PATTERN_COUNT, millis(), ${holdSteps ? '0' : `${bundle}.patternSteps`}, `
-        + `${holdSteps ? `${bundle}.patternConfirm` : `${bundle}.patternSteps != 0 || ${bundle}.patternConfirm`});`]
+    // A step moves the running pattern. A sequence takes its steps itself,
+    // walking the step list rather than the collection.
+    apply: bundle && !holdSteps
+      ? [`  _selUpdate(${plan.variable}, PATTERN_COUNT, ${bundle}.patternSteps);`]
       : [],
     // The show's own advance goes through the selection, exactly as the SD
     // player's does, so a panel and the pixels never disagree about which
@@ -607,6 +593,18 @@ function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number, names: 
       ? [`  _selSetActive(${plan.variable}, PATTERN_COUNT, ${SHOW_PATTERN_INDEX});`]
       : [],
   }
+}
+
+/**
+ * Puts the cursor on the show's opening pick on the first pass. The opening
+ * pick is drawn, so without this the cursor would sit on pattern 0 while the
+ * LEDs ran another, and the first pass would read the difference as a step.
+ */
+function selectionSeedCpp(variable: string): string[] {
+  return [
+    '  static bool selSeeded = false;',
+    `  if (!selSeeded) { selSeeded = true; _selSetActive(${variable}, PATTERN_COUNT, cur); }`,
+  ]
 }
 
 interface ShowDisplayEmission {
@@ -644,7 +642,7 @@ const NO_SHOW_DISPLAYS: ShowDisplayEmission = {
 function showDisplaysCpp(
   nodes: StudioNode[],
   displays: ResolvedShowDisplays,
-  opts: { thumbnails?: BrowserThumbnails; artworks?: TransportArtworks; bootLabel?: string },
+  opts: { thumbnails?: BrowserThumbnails; bootLabel?: string; canvas: { width: number; height: number } },
   controls: ShowControlRouting,
   selection: ShowSelectionPlan,
   telemetry: boolean,
@@ -659,8 +657,6 @@ function showDisplaysCpp(
   // exactly one show, so whichever browser was baked, the pictures are of the
   // collection this sketch is rendering.
   const thumbnails = Object.values(opts.thumbnails ?? {})[0] ?? []
-  const artworks = Object.values(opts.artworks ?? {})[0] ?? []
-  const hasArtwork = showDrawsArtwork(displays, opts.artworks)
   const selVar = selection.variable
   const bootTitle = opts.bootLabel?.trim() || 'FASTLED BUILD'
   const bootDevice = selectedPhysicalBoardProfile(nodes)?.label ?? 'FASTLED CONTROLLER'
@@ -748,21 +744,15 @@ function showDisplaysCpp(
     // running pattern out of the collection with nothing else to configure.
     patternIndexExpr: display.sources.patternIndex ?? SHOW_PATTERN_INDEX,
     patternCountExpr: display.sources.patternCount ?? 'PATTERN_COUNT',
-    // Browsing is the show's own cursor, read from the one selection the
-    // pixels are already driven by, so the panel and the LEDs cannot disagree
-    // about which pattern is being looked at.
-    browsingExpr: `_selBrowsing(${selVar})`,
-    highlightIndexExpr: `${selVar}.highlight`,
     // Names come from the sketch's own name table, which is emitted for this
     // panel rather than borrowed from a Pattern Browser's thumbnails — a
     // TFT-only show has no thumbnails and still knows what it is playing.
-    highlightNameExpr: null,
     ...(selection.names
       ? { patternNames: { tableStem: selection.stem, selVar } }
       : {}),
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
-    ...(hasArtwork && ARTWORK_LAYOUTS.has(display.layout)
-      ? { artwork: { tableStem: SHOW_SELECTION_STEM, count: artworks.length } }
+    ...(PICTURE_LAYOUTS.has(display.layout)
+      ? { picture: { pixels: 'leds', width: opts.canvas.width, height: opts.canvas.height } }
       : {}),
   }))
 
@@ -804,7 +794,6 @@ function showDisplaysCpp(
       hasSegment ? SEGMENT_DISPLAY_CPP_HELPERS : '',
       hasSegment ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
       hasTft ? tftDisplayHelpersCpp(tftDisplayHelperProfile(tftEmits)) : '',
-      hasArtwork ? transportArtworkTableCpp(SHOW_SELECTION_STEM, artworks) : '',
       touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
       touchEmits.length > 0 ? touchEmits.map(tftTouchGlobalCpp).join('\n') : '',
       hasTft ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
@@ -836,15 +825,14 @@ function showDisplaysCpp(
 export function generateShowSketch(
   nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
   // `psramAllowed` mirrors generateCpp's option: the upload UI passes false
-  // when the selected board has no PSRAM support. `thumbnails`/`artworks` are
-  // the baked Pattern Browser pictures and Now Playing/Show Status art, handed in for the
-  // same reason generateCpp takes them: baking evaluates patterns, and a text
-  // emitter has no way to know whether the workspace has been trusted.
+  // when the selected board has no PSRAM support. `thumbnails` are the baked
+  // Pattern Browser pictures, handed in for the same reason generateCpp takes
+  // them: baking evaluates patterns, and a text emitter has no way to know
+  // whether the workspace has been trusted.
   opts: {
     psramAllowed?: boolean
     thumbnails?: BrowserThumbnails
     patternNames?: PatternNames
-    artworks?: TransportArtworks
     bootLabel?: string
     displayDocuments?: DisplayDocumentRegistry
     customDisplayAssets?: CustomDisplayAssets
@@ -979,7 +967,6 @@ export function generateShowSketch(
   )
   const selection = showSelectionPlan(
     resolvedDisplays,
-    showDrawsArtwork(resolvedDisplays, opts.artworks),
     controls.patternCommands,
     boundDisplaySourceFields(controls.custom),
   )
@@ -994,7 +981,9 @@ export function generateShowSketch(
     && entry.data.properties?.reportTelemetry === true)
   const emitTelemetry = telemetryAsked
     && boardSupportsTelemetry(selectedPhysicalBoardProfile(nodes)?.targetFamilies)
-  const displays = showDisplaysCpp(nodes, resolvedDisplays, opts, controls, selection, emitTelemetry)
+  const displays = showDisplaysCpp(
+    nodes, resolvedDisplays, { ...opts, canvas: { width, height } }, controls, selection, emitTelemetry,
+  )
   const customDisplays = customDisplayShowCpp(controls.custom, opts.customDisplayAssets, emitTelemetry)
   const outputRuntimeExpressions = (outputId: string) => {
     const id = safeId(outputId)
@@ -1281,20 +1270,30 @@ export function generateShowSketch(
   // After the control graph, which is where a wired Enabled acquires a value.
   L.push(...customDisplays.enable)
   for (const [id, variable] of controls.outputs) L.push(...ledOutputLatchCpp({ id: safeId(id), controls: variable }))
-  // Pattern intent lands on the cursor before anything renders, so a confirmed
-  // pattern is the one this pass draws rather than the next one.
-  L.push(...selectionCpp.apply)
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
   if (transitions) {
     L.push(`  static uint8_t  cur = ${sequenceActive ? '0' : weightedFirst}, nxt = 0${pooled || (sequenceActive && transitions) ? ', transType = 0' : ''};`)
     L.push('  static bool     transitioning = false;')
     L.push('  static uint32_t phaseStart = 0;')
-    // The renderer follows the cursor, the way the evaluator reads its active
-    // index every frame — a confirm has to change the pixels, not just what a
-    // panel says. Mid-transition it is left alone: the outgoing pattern is
-    // still the one running, and the transition commits its own choice.
     // A sequence owns the cursor itself; Next and Previous move its step.
-    if (selection.used && !sequenceActive) L.push(`  if (!transitioning) cur = (uint8_t)${selection.variable}.active;`)
+    if (selection.used && !sequenceActive) {
+      L.push(...selectionSeedCpp(selection.variable))
+      // Steps land on the cursor before anything renders, so a stepped
+      // pattern is the one this pass draws rather than the next one.
+      L.push(...selectionCpp.apply)
+      // The cursor names where the LEDs are heading, so any difference from
+      // it is a step. Holding, a step gets the show's own transition.
+      // Mid-transition it cuts: stepping fast lands on each pattern in turn
+      // rather than queueing crossfades the fixture is still working through.
+      L.push(`  uint8_t selTarget = (uint8_t)${selection.variable}.active;`)
+      L.push('  if (!transitioning && selTarget != cur) {')
+      L.push('    nxt = selTarget;')
+      if (pooled) L.push('    transType = TRANS_POOL[random8(TRANS_POOL_N)];')
+      L.push('    transitioning = true; phaseStart = now;')
+      L.push('  } else if (transitioning && selTarget != nxt) {')
+      L.push('    cur = selTarget; transitioning = false; phaseStart = now;')
+      L.push('  }')
+    }
   }
   L.push(...masterShowSpeedUpdateCpp(masterSpeedEmit))
   const patternNow = masterSpeedEmit.present ? 'animNow' : 'now'
@@ -1370,7 +1369,11 @@ export function generateShowSketch(
   } else if (!transitions) {
     L.push(`  static uint8_t cur = ${weightedFirst};`)
     L.push('  static uint32_t phaseStart = 0;')
-    if (selection.used) L.push(`  cur = (uint8_t)${selection.variable}.active;`)
+    if (selection.used) {
+      L.push(...selectionSeedCpp(selection.variable))
+      L.push(...selectionCpp.apply)
+      L.push(`  cur = (uint8_t)${selection.variable}.active;`)
+    }
     L.push(`  if (now - phaseStart >= ${dwellMs}) { cur = ${weightedNext}; phaseStart = now; }`)
     L.push(`  ${renderCall('cur', 0, true)};`)
     if (displays.helpers.length > 0 || selection.used) L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
@@ -1392,10 +1395,10 @@ export function generateShowSketch(
     L.push('  }')
     L.push('')
     if (displays.helpers.length > 0 || selection.used) {
-      // Mid-transition the outgoing pattern is still the one running: a panel
-      // that renamed itself the instant a crossfade began would be ahead of
-      // what anyone can see on the fixture.
-      L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
+      // A transition names the pattern it is heading to. A step lands on that
+      // name at once, and the cursor's step logic above reads any other value
+      // as a fresh step.
+      L.push(`  ${SHOW_PATTERN_INDEX} = transitioning ? nxt : cur;`)
       L.push('')
     }
   }

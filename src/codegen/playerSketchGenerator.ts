@@ -72,8 +72,6 @@ import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/p
 import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './displays/tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
-import type { TransportArtworks } from '../utils/transportArtworks'
-import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 
 /** The player's own selection. A player sketch has exactly one show. */
 import {
@@ -278,7 +276,7 @@ export type PlayerControlAction =
   // Choosing a pattern arrives the same way every other physical intent does,
   // through Player Controls. That is what stops the SD player's encoder being
   // a special case with its own wiring.
-  | 'patternSelect' | 'patternPrevious' | 'patternNext' | 'patternConfirm'
+  | 'patternSelect' | 'patternPrevious' | 'patternNext'
 
 export type PlayerControlSource =
   | { kind: 'button'; pin: number; pullup: boolean }
@@ -317,7 +315,7 @@ const DEFAULT_CONTROL_SETTINGS: Omit<PlayerControlsConfig, 'bindings'> = {
 
 const CONTROL_ACTIONS: PlayerControlAction[] = [
   'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
-  'patternSelect', 'patternPrevious', 'patternNext', 'patternConfirm',
+  'patternSelect', 'patternPrevious', 'patternNext',
   'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
 ]
 
@@ -472,7 +470,7 @@ export function generatePlayerSketch(
     /** The palettes SET_PALETTE can name; only these reach `paletteFromId`. */
     paletteNames?: readonly string[]
     particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
-    thumbnails?: BrowserThumbnails; patternNames?: PatternNames; artworks?: TransportArtworks
+    thumbnails?: BrowserThumbnails; patternNames?: PatternNames
     stereoVuMeters?: StereoVuEmit[]
     bootLabel?: string; deviceLabel?: string
     controlGraph?: PlayerControlGraph; customDisplayAssets?: CustomDisplayAssets
@@ -660,7 +658,7 @@ export function generatePlayerSketch(
   }))].join('\n')
   const oneShots = new Set<PlayerControlAction>([
     'playPause', 'previous', 'next', 'ledToggle',
-    'patternPrevious', 'patternNext', 'patternConfirm',
+    'patternPrevious', 'patternNext',
   ])
   const repeats = new Set<PlayerControlAction>(['volumeUp', 'volumeDown', 'brightnessUp', 'brightnessDown'])
   const controlButtonDecls = controlEntries
@@ -689,15 +687,14 @@ export function generatePlayerSketch(
         previous: 'changePlayerTrack(-1);',
         next: 'changePlayerTrack(1);',
         ledToggle: 'ledsEnabled = !ledsEnabled; applyPlayerBrightness();',
-        // The player owns the cursor, so confirming here changes what renders
+        // The player owns the cursor, so a step here changes what renders
         // rather than only what the panel says.
         patternPrevious: sequenceActive
           ? 'seqDelta -= 1;'
-          : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, -1, false);`,
+          : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, -1);`,
         patternNext: sequenceActive
           ? 'seqDelta += 1;'
-          : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, 1, false);`,
-        patternConfirm: `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, 0, true);`,
+          : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, 1);`,
       }
       return [`  if (_control_${action}.update(${digitalReadCpp(source)}, now, false)) { ${body[action]} }`]
     }
@@ -1004,7 +1001,7 @@ ${graphRouting ? '' : `void servicePlayerControls() {
 ${patternEncoder ? `  // Detents into the one selection the player owns.
   {
     int _patternStep = ${encoderReadCpp(patternEncoder[0], patternEncoder[1])};
-    if (_patternStep != 0) ${sequenceActive ? 'seqDelta += _patternStep;' : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, _patternStep, false);`}
+    if (_patternStep != 0) ${sequenceActive ? 'seqDelta += _patternStep;' : `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, _patternStep);`}
   }
 ` : ''}
 ${controlServiceLines}
@@ -1032,12 +1029,9 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     // `id` is the C identifier. Keeping both is what lets one map serve both
     // generators without either guessing at the other's naming.
     .map((display) => ({ id: safePlayerId(display.id), sourceId: display.id }))
-  const playerArtworks = Object.values(opts.artworks ?? {})[0] ?? []
-  const hasTftArtwork = displays.tft.some((display) => display.layout === 'Now Playing')
-    && playerArtworks.length > 0
   const hasPatternControls = !!graphRouting?.hasPatternControls || controlEntries.some(([action]) =>
     action === 'patternSelect' || action === 'patternPrevious'
-    || action === 'patternNext' || action === 'patternConfirm')
+    || action === 'patternNext')
   // The player cursor belongs to the player, not to whichever panel happens
   // to show it. Physical pattern controls need the same state even when there
   // is no OLED Pattern Browser in the build.
@@ -1046,7 +1040,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // variable no line declares.
   const boundFields = graphRouting ? boundDisplaySourceFields(graphRouting.custom) : new Set<string>()
   const boundNames = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
-  const hasPatternSelection = browserEmits.length > 0 || hasPatternControls || hasTftArtwork
+  const hasPatternSelection = browserEmits.length > 0 || hasPatternControls
     || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS)
   const pickPrelude = pick.needsTable
     ? `${hasPatternSelection ? '' : `#define PATTERN_COUNT ${patternCount}\n`}${pick.prelude}\n`
@@ -1231,15 +1225,12 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       ?? (hasPatternSelection ? `_sel_${PLAYER_SELECTION_STEM}.active` : '0.0f'),
     patternCountExpr: display.sources.patternCount
       ?? (hasPatternSelection ? 'PATTERN_COUNT' : '0.0f'),
-    // Show Status cannot reach this sketch: it is the slideshow's screen, and
-    // a slideshow plugged into a panel here resolves as unresolved and draws
-    // Waiting. These are the blanks that layout would have read.
-    browsingExpr: 'false',
-    highlightNameExpr: null,
-    highlightIndexExpr: '0.0f',
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
-    ...(display.layout === 'Now Playing' && playerArtworks.length > 0
-      ? { artwork: { tableStem: PLAYER_SELECTION_STEM, count: playerArtworks.length } }
+    // The LEDs as the player last composed them, streamed live: there is no
+    // picture to bake, so a collection of any size is pictured. A player whose
+    // only pixels are VU rails has no canvas worth showing.
+    ...(display.layout === 'Now Playing' && c.hasPrimaryLedOutput
+      ? { picture: { pixels: 'leds', width: c.ledWidth, height: c.ledHeight } }
       : {}),
   }))
 
@@ -1277,9 +1268,6 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftDisplayHelpersCpp(tftDisplayHelperProfile(tftEmits)) : '',
-    hasTftDisplays && playerArtworks.length > 0
-      ? transportArtworkTableCpp(PLAYER_SELECTION_STEM, playerArtworks)
-      : '',
     touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
     // `_resPoint` calls `_touchMap`, which lives in the block above, so it is
     // only ever appended after it — and only when a bare sheet is fitted,
@@ -2468,9 +2456,9 @@ ${sequenceWalker}${rotates ? `  // Unknown tracks have no pre-baked event timeli
   //
   // The cadence steps from wherever the cursor already is, rather than being
   // computed as posMs / dwell % count. An absolute index can only ever land
-  // where the clock says, so a confirmed pattern was overwritten on the very
+  // where the clock says, so a stepped pattern was overwritten on the very
   // next loop: the press selected, and nothing changed. Stepping relatively
-  // means a confirm sticks, keeps a full dwell of its own, and decides what
+  // means a step sticks, keeps a full dwell of its own, and decides what
   // comes after it.
   {
     const float minHold = constrain(${timingExpression('minTime')}, 0.0f, 86400.0f);
@@ -2496,17 +2484,15 @@ ${pacing ? '      rotateLeadMs = 0;\n      paceReset();' : '      rotateMs = pic
 ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     }
     previousPosMs = posMs;
-${bandDecl}${hasPatternSelection ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
-    // move the same cursor - and a confirm actually changes what renders.
+${bandDecl}${hasPatternSelection ? `    // Through the selection, so a stepped pattern and a dwell-driven one
+    // move the same cursor - and a step actually changes what renders.
     static uint16_t rotatedFrom = 0xFFFF;
     uint16_t selActive = _sel_${PLAYER_SELECTION_STEM}.active;
-    // Any move the show did not make is a confirm, and restarts the dwell so
+${transitions ? '    bool stepped = false;\n' : ''}    // Any move the show did not make is a step, and restarts the dwell so
     // a chosen pattern gets a whole window instead of the tail of one.
-    // Confirming what is already playing moves nothing, and so extends
-    // nothing - which is what that press means.
     if (selActive != rotatedFrom) {
       rotatedFrom = selActive; rotatedAtMs = posMs;
-${pacing ? '      rotateLeadMs = selActive != patternId ? transitionMs : 0;\n      paceReset();' :'      rotateMs = pickHoldMs() + (selActive != patternId ? transitionMs : 0);'}
+${transitions ? '      stepped = true;\n' : ''}${pacing ? '      rotateLeadMs = selActive != patternId ? transitionMs : 0;\n      paceReset();' :'      rotateMs = pickHoldMs() + (selActive != patternId ? transitionMs : 0);'}
 ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     }
     if (posMs - rotatedAtMs >= ${rotationDue}${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
@@ -2525,10 +2511,14 @@ ${patternTiming.beatTransitions ? '      beatEdge = false;\n' : ''}
     }
     uint8_t nextPattern = rotateIndex;
 `}${transitions ? '    uint8_t rotatePrevious = patternId;\n' : ''}    if (nextPattern != patternId) {
-      patternId = nextPattern;
+${transitions && hasPatternSelection ? `      // A step mid-transition cuts: stepping fast lands on each pattern in
+      // turn rather than queueing transitions the fixture is still working
+      // through. A single step while holding gets the normal transition.
+      const bool cut = stepped && transDurMs > 0.0f && (float)(posMs - transStart) < transDurMs;
+` : ''}      patternId = nextPattern;
 ${transitions ? `      prevPatternId = rotatePrevious;
 ${transTypeExpr === 'transType' ? `      transType = ${genericTransType};\n` : ''}      transStart = posMs;
-      transDurMs = (float)transitionMs;
+      transDurMs = ${hasPatternSelection ? 'cut ? 0.0f : ' : ''}(float)transitionMs;
 ` : ''}    }
   }
 ` : ''}

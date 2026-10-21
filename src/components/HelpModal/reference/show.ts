@@ -134,7 +134,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       'Add saved patterns to Pattern Collection, connect its Patterns output to Music Player’s Patterns input, then connect Frame to the LED output. Use at least two patterns to see automatic changes.',
       'Connect Audio to the player. Choose the microphone, line input, or Music Player decoder source on the Audio node. For explicit beat control in preview, feed the same Audio into Beat Detect and connect Beat Detect’s Beat output to the player’s Beat input.',
       'Choose Pattern Order and set Min Time, Max Time, and the transition duration. Enable Beat Transitions to wait for a beat after each cooldown. For example, 4–12 seconds means a random cooldown in that range, then a wait for the next beat; 12 seconds is not a forced change deadline.',
-      'Optionally connect a Transition Pool for transition styles, Player Particles for bursts, and Player Controls for transport or lighting controls. Use Expose input… to reveal individual control actions or timing and volume sockets. Previous and Next track change the song. In Random or Sequential, Previous and Next Pattern browse the collection and Confirm commits that choice. In Sequence they move between steps. A connected socket remains visible.',
+      'Optionally connect a Transition Pool for transition styles, Player Particles for bursts, and Player Controls for transport or lighting controls. Use Expose input… to reveal individual control actions or timing and volume sockets. Previous and Next track change the song. In Random or Sequential, Previous and Next Pattern change the pattern on the LEDs straight away, with the usual transition; a press during a transition cuts to the new pattern. In Sequence they move between steps. A connected socket remains visible.',
     ],
     propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Min Time, Max Time, Transition, and Volume inputs override their matching fields. Beat Transitions starts off, so adding a player does not require a beat source.',
     inputs: {
@@ -309,7 +309,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       audio: 'Sound for audio patterns in the collection, used when Audio Reactive is on.',
-      controls: 'A Controls bundle for pattern browsing.',
+      controls: 'A Controls bundle for stepping through the patterns.',
       patternset: 'The patterns to play, from a Pattern Collection.',
       transitions: 'A Transition Pool to choose blend styles from.',
     },

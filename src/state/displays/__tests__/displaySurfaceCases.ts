@@ -29,13 +29,13 @@ import {
 import { OLED_CONTROLLERS, getPixel, type OledController, type OledSurface } from '../oledSurface'
 import { THUMBNAIL_BYTES, THUMBNAIL_H, THUMBNAIL_W, type PatternThumbnail } from '../../patterns/patternThumbnail'
 import {
-  TFT_CONTROLLERS, TFT_ROTATIONS, rgb565, rgb565Components, tftRotatedSize,
+  TFT_CONTROLLERS, TFT_ROTATIONS, rgb565Components, tftRotatedSize,
   type TftController, type TftRotation, type TftSurface,
 } from '../tftSurface'
 import {
-  TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_DISPLAY_LAYOUTS,
+  TRANSPORT_DISPLAY_LAYOUTS,
   blankTransportData, renderTransportDisplay,
-  type TransportDisplayData, type TransportDisplayLayout,
+  type TransportDisplayData, type TransportDisplayLayout, type TransportPictureFrame,
 } from '../transportDisplay'
 
 /** A drawn panel, normalised out of its native format into plain RGB. */
@@ -59,26 +59,20 @@ export interface DisplaySurfaceCase {
 }
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
-// Synthetic and deterministic. Real baked artwork would drag the pattern
+// Synthetic and deterministic. A real rendered pattern would drag the pattern
 // evaluator into a test about drawing, and a recorded digest has to be
 // reproducible on a machine that has never opened a workspace.
 
-/** A 96x96 RGB565 gradient standing in for baked cover art. */
-function fixtureArtwork(): Uint8Array {
-  const bytes = new Uint8Array(TRANSPORT_ARTWORK_W * TRANSPORT_ARTWORK_H * 2)
-  for (let y = 0; y < TRANSPORT_ARTWORK_H; y += 1) {
-    for (let x = 0; x < TRANSPORT_ARTWORK_W; x += 1) {
-      const value = rgb565(
-        (x * 255 / (TRANSPORT_ARTWORK_W - 1)) | 0,
-        (y * 255 / (TRANSPORT_ARTWORK_H - 1)) | 0,
-        ((x + y) * 127 / (TRANSPORT_ARTWORK_W + TRANSPORT_ARTWORK_H - 2)) | 0,
-      )
-      const i = (y * TRANSPORT_ARTWORK_W + x) * 2
-      bytes[i] = (value >> 8) & 0xff
-      bytes[i + 1] = value & 0xff
-    }
-  }
-  return bytes
+/**
+ * A 16x16 LED canvas standing in for the engine's composed frame: a gradient
+ * with a bright diagonal, so a flipped axis or an off-by-one LED would show.
+ */
+function fixturePicture(): TransportPictureFrame {
+  return Array.from({ length: 16 }, (_, y) => Array.from({ length: 16 }, (_, x) => (
+    x === y
+      ? { r: 255, g: 255, b: 255 }
+      : { r: (x * 255 / 15) | 0, g: (y * 255 / 15) | 0, b: ((x + y) * 127 / 30) | 0 }
+  )))
 }
 
 /** A 32x32 page-major 1-bit thumbnail — a ring, so an axis flip would show. */
@@ -96,7 +90,7 @@ function fixtureThumbnail(): PatternThumbnail {
   return { width: THUMBNAIL_W, height: THUMBNAIL_H, data }
 }
 
-const ARTWORK = fixtureArtwork()
+const PICTURE = fixturePicture()
 const THUMBNAIL = fixtureThumbnail()
 
 // An LED output titles itself after its form, so the name row and the
@@ -130,19 +124,19 @@ const TFT_STATES: Record<TransportDisplayLayout, Record<string, TransportDisplay
     'playing': { layout: 'Now Playing', data: {
       title: TRACK_TITLE, artist: TRACK_ARTIST,
       elapsedSec: 97, durationSec: 254, progress: 97 / 254, playing: true,
-      volume: 0.72, patternName: 'Aurora Drift', artwork: ARTWORK,
+      volume: 0.72, patternName: 'Aurora Drift', picture: PICTURE,
     } },
     'paused': { layout: 'Now Playing', data: {
       title: TRACK_TITLE, artist: TRACK_ARTIST,
       elapsedSec: 97, durationSec: 254, progress: 97 / 254, playing: false,
-      volume: 0.72, patternName: 'Aurora Drift', artwork: ARTWORK,
+      volume: 0.72, patternName: 'Aurora Drift', picture: PICTURE,
     } },
-    // A track with no baked picture draws an empty frame, which has to stay
-    // distinguishable from art that happens to be black.
-    'no-artwork': { layout: 'Now Playing', data: {
+    // A player with no picture draws an empty frame, which has to stay
+    // distinguishable from LEDs that happen to be black.
+    'no-picture': { layout: 'Now Playing', data: {
       title: TRACK_TITLE, artist: TRACK_ARTIST,
       elapsedSec: 97, durationSec: 254, progress: 97 / 254, playing: true,
-      volume: 0.72, patternName: 'Aurora Drift', artwork: null,
+      volume: 0.72, patternName: 'Aurora Drift', picture: null,
     } },
   },
   'Fixed Transport': {
@@ -151,12 +145,10 @@ const TFT_STATES: Record<TransportDisplayLayout, Record<string, TransportDisplay
     'muted': { layout: 'Fixed Transport', data: { title: TRACK_TITLE, patternName: 'Aurora Drift', playing: true, volume: 0 } },
   },
   'Show Status': {
-    'running': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Aurora Drift', highlightIndex: 2, browsing: false } },
-    'browsing': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Ember Cascade', highlightIndex: 5, browsing: true } },
-    // The slideshow's collection baked: the running pattern pictured in the
-    // band between the running rows and the browsing block. The two cases
-    // above are the unbaked text-only layout, which the picture must not move.
-    'artwork': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 8, highlightName: 'Ember Cascade', highlightIndex: 5, browsing: true, artwork: ARTWORK } },
+    'running': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9 } },
+    // The slideshow's LEDs pictured in the band below the text rows. The case
+    // above is the text-only layout, which the picture must not move.
+    'picture': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, picture: PICTURE } },
   },
   'LED Status': {
     'lit': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 0.72 } },
@@ -188,11 +180,10 @@ const OLED_STATES: Record<InfoDisplayLayout, Record<string, InfoDisplayData>> = 
     'paused': { layout: 'Now Playing', data: { title: TRACK_TITLE, elapsedSec: 97, durationSec: 254, progress: 97 / 254, playing: false, volume: 0.72 } },
   },
   'Pattern Browser': {
-    'playing': { layout: 'Pattern Browser', data: { name: 'Aurora Drift', ordinal: 3, count: 9, thumbnail: THUMBNAIL, browsing: false, activeName: 'Aurora Drift' } },
-    'browsing': { layout: 'Pattern Browser', data: { name: 'Ember Cascade', ordinal: 6, count: 9, thumbnail: THUMBNAIL, browsing: true, activeName: 'Aurora Drift' } },
+    'playing': { layout: 'Pattern Browser', data: { name: 'Aurora Drift', ordinal: 3, count: 9, thumbnail: THUMBNAIL } },
     // A collection over its flash budget keeps its names and loses its
     // pictures; that has to read as a missing picture, not as no patterns.
-    'no-thumbnail': { layout: 'Pattern Browser', data: { name: 'Ember Cascade', ordinal: 6, count: 9, thumbnail: null, browsing: true, activeName: 'Aurora Drift' } },
+    'no-thumbnail': { layout: 'Pattern Browser', data: { name: 'Ember Cascade', ordinal: 6, count: 9, thumbnail: null } },
   },
   'LED Status': {
     'lit': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 0.72 } },

@@ -217,7 +217,7 @@ describe('custom displays in generative shows', () => {
     )).toThrow('identifiers collide')
   })
 
-  it('packs a wired colour and names the running pattern while it is being browsed', () => {
+  it('packs a wired colour and names the running pattern', () => {
     const doc = addDisplayWidget(addDisplayWidget(document(), 'Colour Swatch'), 'Pattern Browser')
     const swatch = doc.widgets.find((widget) => widget.type === 'Colour Swatch')!.id
     const browser = doc.widgets.find((widget) => widget.type === 'Pattern Browser')!.id
@@ -233,7 +233,7 @@ describe('custom displays in generative shows', () => {
     expect(cpp).toContain('_cdSetColor(')
     expect(cpp).toContain('((uint32_t)(n_temp_color).r << 16)')
     expect(cpp).toContain('_cdSetText(')
-    expect(cpp).toContain('_patNameStr_show(_selBrowsing(_sel_show) ? _sel_show.highlight : _sel_show.active)')
+    expect(cpp).toContain('_patNameStr_show(_sel_show.active)')
     expect(cpp).toContain('static const char *_patNameStr_show(')
     const fastLed = cpp.indexOf('#include <FastLED.h>')
     const prototype = cpp.indexOf('CRGB kelvinToRGB(float kelvin);')
@@ -253,7 +253,7 @@ describe('custom displays in generative shows', () => {
   // A widget is a control source like a button on a pin: the same bundle, the
   // same destination. What was missing was the destination — a Player Controls node
   // chain addressed to the slideshow reached nothing the generator emitted.
-  it('browses the collection from a Button widget', () => {
+  it('steps the collection from a Button widget', () => {
     const doc = addDisplayWidget(createDisplayDocument('screen', 240, 320), 'Button')
     const buttonId = doc.widgets.at(-1)!.id
     const nodes = [panel('tft'), touch(), node('controls', 'ControlMap', { controls: ['patternNext'] })]
@@ -263,6 +263,7 @@ describe('custom displays in generative shows', () => {
     const cpp = generate(nodes, edges, { screen: doc })
     expect(cpp).toContain(`bool n_tft_touch_widget_${buttonId}_out = _cdBoolOutput(`)
     expect(cpp).toContain(`_pcE_controls_patternNext.update(n_tft_touch_widget_${buttonId}_out`)
-    expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_controls_controls.patternSteps,')
+    // A collection of one has nowhere to step to, so the step stops at the bundle.
+    expect(cpp).toContain('n_controls_controls.patternSteps += 1;')
   })
 })

@@ -523,13 +523,13 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'slideshow-browse',
     level: 'Intermediate',
-    preview: 'Browse and confirm on screen; the OLED view is previewed too.',
+    preview: 'Step through patterns on screen; the OLED view is previewed too.',
     name: 'Browse a Slideshow',
-    description: 'A slideshow you can turn through and confirm, with an OLED showing what you are about to play.',
+    description: 'A slideshow you can turn through, with an OLED showing what is playing.',
     completionSteps: [
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Add a few pattern groups so there is something to browse between.',
-      'Set the encoder and OLED GPIOs on the Hardware tab, then turn to highlight and press to confirm.',
+      'Set the encoder and OLED GPIOs on the Hardware tab, then turn to step through the patterns.',
       'Check capacity — a browser bakes a thumbnail per pattern into flash — then upload.',
     ],
     nodeSpecs: [
@@ -538,15 +538,14 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       { id: 'encoder', type: 'EncoderInput', col: 0, row: 1 },
       { id: 'controls', type: 'ControlMap', col: 1, row: 1 },
-      // An OLED fed by a pattern-rotating source is a Pattern Browser, and it
-      // is what makes highlight-then-confirm mean anything: the LEDs only ever
-      // show what is already running. The four-pin I2C module rather than the
-      // library's SPI default: two shared bus lines instead of five exclusive
-      // pins is the right first screen, and it is the commonest module.
+      // An OLED fed by a pattern-rotating source is a Pattern Browser. The
+      // four-pin I2C module rather than the library's SPI default: two shared
+      // bus lines instead of five exclusive pins is the right first screen,
+      // and it is the commonest module.
       { id: 'oled', type: 'InfoDisplay', col: 2, row: 1, properties: { partId: 'ssd1306-oled-096-128x64-i2c' } },
       tutorialNote(
         'guide', -1, 0,
-        'BROWSE AND CONFIRM \nThe show owns which pattern is playing; the encoder moves a highlight and the press commits it.\nThe screen shows what you are looking at, while the LEDs keep playing what is running until you confirm.',
+        'STEP THROUGH PATTERNS \nEach detent of the encoder changes the pattern on the LEDs, forward or back.\nThe screen names and pictures the pattern that is playing.',
         TRY_COLOR,
       ),
     ],
@@ -555,7 +554,6 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { source: 'show', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
       { source: 'show', sourceHandle: 'display', target: 'oled', targetHandle: 'display' },
       { source: 'encoder', sourceHandle: 'position', target: 'controls', targetHandle: 'patternSelect' },
-      { source: 'encoder', sourceHandle: 'pressed', target: 'controls', targetHandle: 'patternConfirm' },
       { source: 'controls', sourceHandle: 'controls', target: 'show', targetHandle: 'controls' },
     ],
   }),

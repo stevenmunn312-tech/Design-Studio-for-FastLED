@@ -39,7 +39,7 @@ import {
   type TftController, type TftField, type TftRect, type TftRotation,
 } from '../../state/displays/tftSurface'
 import {
-  TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
+  TRANSPORT_COLORS, TRANSPORT_PICTURE_INTERVAL_MS, TRANSPORT_PICTURE_W, transportPictureBox,
   transportPowerGeometry, diagnosticsGeometry, fixedTransportGeometry, ledStatusGeometry, nowPlayingGeometry,
   showStatusGeometry, transportClockGeometry, transportWaitingGeometry,
   type TransportDisplayLayout,
@@ -84,13 +84,11 @@ const TFT_SLOT_CHARS = 32
 const NOW_PLAYING_TEXT_SLOTS = {
   title: 0, artist: 1, pattern: 2, elapsed: 3, duration: 4, state: 5,
 } as const
-const NOW_PLAYING_VALUE_SLOTS = { progress: 0, volume: 1, artwork: 2 } as const
+const NOW_PLAYING_VALUE_SLOTS = { progress: 0, volume: 1 } as const
 
 const SHOW_STATUS_TEXT_SLOTS = {
-  pattern: 0, ordinal: 1, status: 2, highlight: 3, highlightOrdinal: 4,
+  pattern: 0, ordinal: 1, status: 2,
 } as const
-/** Show Status's one numeric field: the artwork row it last blitted, when it has a picture. */
-const SHOW_STATUS_VALUE_SLOTS = { artwork: 0 } as const
 
 const LED_STATUS_TEXT_SLOTS = { name: 0, fixture: 1, state: 2, level: 3 } as const
 /** LED Status draws no bars or indicators, so it caches no numeric fields. */
@@ -112,7 +110,6 @@ const TFT_TEXT_SLOTS = Math.max(
 )
 const TFT_VALUE_SLOTS = Math.max(
   Object.keys(NOW_PLAYING_VALUE_SLOTS).length,
-  Object.keys(SHOW_STATUS_VALUE_SLOTS).length,
   Object.keys(LED_STATUS_VALUE_SLOTS).length,
   Object.keys(FIXED_TRANSPORT_VALUE_SLOTS).length,
   Object.keys(CLOCK_VALUE_SLOTS).length,
@@ -154,7 +151,7 @@ export interface TftDisplayHelperProfile {
   bar: boolean
   whole: boolean
   time: boolean
-  artwork: boolean
+  picture: boolean
 }
 
 const FULL_TFT_HELPER_PROFILE: TftDisplayHelperProfile = {
@@ -166,7 +163,7 @@ const FULL_TFT_HELPER_PROFILE: TftDisplayHelperProfile = {
   bar: true,
   whole: true,
   time: true,
-  artwork: true,
+  picture: true,
 }
 
 /** The smallest shared runtime capable of serving every TFT in one sketch. */
@@ -177,7 +174,7 @@ export function tftDisplayHelperProfile(displays: readonly TftDisplayEmit[]): Tf
   let rect = false
   let whole = false
   let time = false
-  let artwork = false
+  let picture = false
 
   for (const display of displays) {
     switch (display.layout) {
@@ -187,17 +184,14 @@ export function tftDisplayHelperProfile(displays: readonly TftDisplayEmit[]): Tf
         bar = true
         rect = true
         time = true
-        if (display.artwork) { artwork = true; whole = true }
+        if (display.picture) picture = true
         break
       case 'Show Status':
         textSlots = Math.max(textSlots, Object.keys(SHOW_STATUS_TEXT_SLOTS).length)
         whole = true
-        // The artwork cache slot and blitter only exist for a baked panel,
-        // so a text-only Show Status build carries neither.
-        if (display.artwork) {
-          valueSlots = Math.max(valueSlots, Object.keys(SHOW_STATUS_VALUE_SLOTS).length)
-          artwork = true
-        }
+        // The picture streamer exists only for a panel that draws one, so a
+        // text-only Show Status build carries none of it.
+        if (display.picture) picture = true
         break
       case 'Power Monitor':
         textSlots = Math.max(textSlots, 3)
@@ -232,7 +226,7 @@ export function tftDisplayHelperProfile(displays: readonly TftDisplayEmit[]): Tf
     bar,
     whole,
     time,
-    artwork,
+    picture,
   }
 }
 
@@ -446,16 +440,39 @@ static void _tftTime(char *dst, size_t dstSize, float seconds) {
   snprintf(dst, dstSize, "%ld:%02ld", total / 60, total % 60);
 }`
     : ''
-  const artworkHelper = profile.artwork
-    ? `static void _tftArt(TftPanel &p, int x, int y, int w, int h, const uint8_t *data) {
+  // The fourth bus primitive, beside _tftTxnBegin/_tftTxnEnd/_tftWrite8 and
+  // emitted only with the picture that uses it: a row goes to the bus as one
+  // burst on SPI, while a parallel panel is strobed a byte at a time.
+  const writeBytesBody = profile.spi && profile.parallel
+    ? `  if (p.parallel) { for (uint32_t i = 0; i < count; i++) _tftWrite8(p, data[i]); return; }
+  SPI.writeBytes(data, count);`
+    : profile.spi
+      ? '  SPI.writeBytes(data, count);'
+      : '  for (uint32_t i = 0; i < count; i++) _tftWrite8(p, data[i]);'
+  const pictureHelper = profile.picture
+    ? `static inline void _tftWriteBytes(TftPanel &${profile.spi && !profile.parallel ? '' : 'p'}, const uint8_t *data, uint32_t count) {
+${writeBytesBody}
+}
+
+static void _tftPicture(TftPanel &p, int x, int y, int w, int h, const CRGB *src, int srcW, int srcH) {
+  static uint8_t line[${TRANSPORT_PICTURE_W * 2}];
+  if (w > ${TRANSPORT_PICTURE_W}) w = ${TRANSPORT_PICTURE_W};
   _tftWindow(p, x, y, w, h);
-  uint32_t count = (uint32_t)w * (uint32_t)h * 2;
   _tftTxnBegin(p);
   digitalWrite(p.dc, LOW);
   digitalWrite(p.cs, LOW);
   _tftWrite8(p, TFT_RAMWR);
   digitalWrite(p.dc, HIGH);
-  for (uint32_t i = 0; i < count; i++) _tftWrite8(p, pgm_read_byte(&data[i]));
+  for (int py = 0; py < h; py++) {
+    const CRGB *row = src + (long)(py * srcH / h) * srcW;
+    for (int px = 0; px < w; px++) {
+      const CRGB &c = row[px * srcW / w];
+      uint16_t v = (uint16_t)(((c.r & 0xF8) << 8) | ((c.g & 0xFC) << 3) | (c.b >> 3));
+      line[px * 2] = (uint8_t)(v >> 8);
+      line[px * 2 + 1] = (uint8_t)v;
+    }
+    _tftWriteBytes(p, line, (uint32_t)w * 2);
+  }
   digitalWrite(p.cs, HIGH);
   _tftTxnEnd(p);
 }`
@@ -801,14 +818,13 @@ ${wholeHelper}
 ${timeHelper}
 
 /**
- * Blit baked RGB565 artwork from PROGMEM.
- *
- * Finished bytes, straight to the bus. There is deliberately no scaler and no
- * colour conversion here: the picture is rendered in the browser at export, so
- * a second implementation on this side would be a second thing to disagree
- * with it. The same rule the 1-bit pattern thumbnails follow.
+ * Draw the LEDs' composition canvas into a box on the panel, by nearest LED:
+ * panel pixel (px, py) shows LED (px * srcW / w, py * srcH / h), packed as
+ * RGB565 the way rgb565() packs it in the preview (drawTransportPicture). One
+ * row at a time through a small line buffer, so the panel needs no frame
+ * buffer and the bus takes each row as a single burst.
  */
-${artworkHelper}
+${pictureHelper}
 `
 }
 
@@ -848,13 +864,9 @@ export interface TftDisplayEmit {
   progressExpr: string
   playingExpr: string
   volumeExpr: string
-  /** Show Status, and the artwork index Now Playing blits by. */
+  /** Show Status. */
   patternIndexExpr: string
   patternCountExpr: string
-  /** Show Status: the candidate the user is looking at, while browsing. */
-  browsingExpr: string
-  highlightNameExpr: string | null
-  highlightIndexExpr: string
   /**
    * Show Status only: the emitted pattern-name table this panel reads, when
    * the sketch has one.
@@ -884,15 +896,14 @@ export interface TftDisplayEmit {
   /** Whether Diagnostics can read a live XPT2046 point. */
   diagnosticTouch?: boolean
   /**
-   * Now Playing and Show Status: the identifier stem of the baked artwork
-   * this panel blits, when a picture was baked for it.
+   * Now Playing and Show Status: the LEDs' composition canvas this panel
+   * pictures, when the sketch has one — the array expression and its size.
    *
-   * Absent, Now Playing draws its empty frame instead — which is what a
-   * pattern with no baked art should look like, rather than a black square
-   * indistinguishable from art that renders black — and Show Status draws its
-   * text-only layout, with no blit emitted at all.
+   * Absent, Now Playing draws its empty frame instead, rather than a black
+   * square indistinguishable from LEDs that are black, and Show Status draws
+   * its text-only layout with no streamer emitted at all.
    */
-  artwork?: { tableStem: string; count: number }
+  picture?: { pixels: string; width: number; height: number }
 }
 
 export function tftDisplayGlobalCpp(display: TftDisplayEmit): string {
@@ -901,8 +912,12 @@ export function tftDisplayGlobalCpp(display: TftDisplayEmit): string {
   // run. Reading last pass's value on the frame Enabled changes is the cost;
   // the alternative is evaluating a graph expression twice per pass in two
   // places, which is how the two would come to disagree.
-  return `static TftPanel _tft_${display.id};
-static bool _tftOn_${display.id} = true;`
+  return [
+    `static TftPanel _tft_${display.id};`,
+    `static bool _tftOn_${display.id} = true;`,
+    // When the picture was last streamed, so it moves at its own pace.
+    ...(display.picture ? [`static uint32_t _tftPictureMs_${display.id} = 0;`] : []),
+  ].join('\n')
 }
 
 export function tftDisplaySetupCpp(display: TftDisplayEmit): string[] {
@@ -948,25 +963,25 @@ function rectArgs(rect: TftRect): string {
 }
 
 /**
- * Blit the active pattern's baked row, repainting only when the row changes.
- *
- * The clamped table index is cached like a bar's filled-pixel count, so a
- * selection change repaints the square exactly once and the refresh deadline
- * re-sends it with every other field. Shared by Now Playing and Show Status so
- * the two cannot index the table differently.
+ * The LEDs' picture: its frame on a full repaint, then the canvas streamed
+ * into the box `transportPictureBox` gives the preview, every
+ * TRANSPORT_PICTURE_INTERVAL_MS. Shared by Now Playing and Show Status so the
+ * two cannot place or pace it differently.
  */
-function artworkBlitLines(
-  display: TftDisplayEmit, artwork: { tableStem: string; count: number }, rect: TftRect, slot: number,
+function pictureLines(
+  display: TftDisplayEmit, picture: NonNullable<TftDisplayEmit['picture']>, frame: TftRect,
 ): string[] {
   const p = `_tft_${display.id}`
   const id = display.id
+  const box = transportPictureBox(picture.width, picture.height, frame)
   return [
-    `      long _tftArtIndex_${id} = _tftWhole(${display.patternIndexExpr});`,
-    `      if (_tftArtIndex_${id} < 0) _tftArtIndex_${id} = 0;`,
-    `      if (_tftArtIndex_${id} >= ${artwork.count}) _tftArtIndex_${id} = ${artwork.count - 1};`,
-    `      if (_tftValueDirty(${p}, ${slot}, _tftArtIndex_${id}) || _tftFull_${id}) {`,
-    `        _tftArt(${p}, ${rect.x}, ${rect.y}, `
-      + `${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H}, _artData_${artwork.tableStem}[_tftArtIndex_${id}]);`,
+    `      if (_tftFull_${id}) {`,
+    `        _tftFillRect(${p}, ${rectArgs(frame)}, TFT_C_BG);`,
+    `        _tftRect(${p}, ${rectArgs(frame)}, TFT_C_FRAME);`,
+    `      }`,
+    `      if (_tftFull_${id} || (uint32_t)(millis() - _tftPictureMs_${id}) >= ${TRANSPORT_PICTURE_INTERVAL_MS}u) {`,
+    `        _tftPictureMs_${id} = millis();`,
+    `        _tftPicture(${p}, ${rectArgs(box)}, ${picture.pixels}, ${picture.width}, ${picture.height});`,
     `      }`,
   ]
 }
@@ -980,15 +995,14 @@ function nowPlayingLoop(display: TftDisplayEmit, width: number, height: number):
   const text = (expr: string | null) => expr ?? '""'
   const lines: string[] = []
 
-  // Artwork follows the active pattern. Cache the clamped table index like a
-  // bar's filled-pixel count so a selection change repaints exactly once.
-  if (display.artwork) {
-    lines.push(...artworkBlitLines(display, display.artwork, g.artwork, v.artwork))
+  // The LEDs' own picture, or an empty frame where there is none to show.
+  if (display.picture) {
+    lines.push(...pictureLines(display, display.picture, g.picture))
   } else {
     lines.push(
       `      if (_tftFull_${id}) {`,
-      `        _tftFillRect(${p}, ${rectArgs(g.artwork)}, TFT_C_BG);`,
-      `        _tftRect(${p}, ${rectArgs(g.artwork)}, TFT_C_FRAME);`,
+      `        _tftFillRect(${p}, ${rectArgs(g.picture)}, TFT_C_BG);`,
+      `        _tftRect(${p}, ${rectArgs(g.picture)}, TFT_C_FRAME);`,
       `      }`,
     )
   }
@@ -1045,92 +1059,50 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
   const text = (expr: string | null) => expr ?? '""'
   const lines: string[] = []
 
-  // Read out of flash into a local before either field is formatted: the
-  // running pattern and the browsed candidate are two indices into one table,
-  // and the reader copies rather than points because PROGMEM may be a separate
-  // address space.
+  // Read out of flash into a local before the field is formatted: the reader
+  // copies rather than points because PROGMEM may be a separate address space.
   const names = display.patternNames
-  const nameBuffer = (suffix: string, indexExpr: string) => {
-    const buffer = `_tftName${suffix}_${id}`
+  let patternName = display.patternNameExpr
+  if (names && !patternName) {
+    patternName = `_tftNameActive_${id}`
     lines.push(
-      `      char ${buffer}[${DISPLAY_TEXT_BUFFER_BYTES}];`,
-      `      _patName_${names!.tableStem}_read(${buffer}, sizeof(${buffer}), (uint16_t)(${indexExpr}));`,
+      `      char ${patternName}[${DISPLAY_TEXT_BUFFER_BYTES}];`,
+      `      _patName_${names.tableStem}_read(${patternName}, sizeof(${patternName}), (uint16_t)(${names.selVar}.active));`,
     )
-    return buffer
-  }
-  const patternName = names && !display.patternNameExpr
-    ? nameBuffer('Active', `${names.selVar}.active`) : display.patternNameExpr
-  const highlightName = names && !display.highlightNameExpr
-    ? nameBuffer('High', `${names.selVar}.highlight`) : display.highlightNameExpr
-
-  // Formatting only — no declaration and no paint — so the running pattern's
-  // ordinal and the browsed candidate's are produced by one piece of code.
-  // They count out of the same collection, and a divergence between them
-  // would be a bug nobody could see by looking at the panel.
-  // The index local is named after its buffer so the browsing branch does not
-  // shadow the outer one: the two ordinals live in nested scopes, and a
-  // shadowed name here compiles but reads as a bug in every review.
-  const formatOrdinal = (buffer: string, indexExpr: string, indent: string) => {
-    const at = `_tftAt${buffer}`
-    return [
-      `${indent}long ${at} = _tftWhole(${indexExpr});`,
-      `${indent}if (_tftCount_${id} <= 0) {`,
-      // The same refusal showStatusOrdinalText() makes: a lone 1/0 on a panel
-      // is worse than being told the wire is not carrying a show.
-      `${indent}  snprintf(${buffer}, sizeof(${buffer}), "NO PATTERNS");`,
-      `${indent}} else {`,
-      `${indent}  if (${at} < 0) ${at} = 0;`,
-      `${indent}  if (${at} > _tftCount_${id} - 1) ${at} = _tftCount_${id} - 1;`,
-      `${indent}  snprintf(${buffer}, sizeof(${buffer}), "%ld/%ld", ${at} + 1, _tftCount_${id});`,
-      `${indent}}`,
-    ]
   }
 
+  const at = `_tftAt_${id}`
+  const ordinal = `_tftOrd_${id}`
   lines.push(
     `      const char *_tftPattern_${id} = ${text(patternName)};`,
     `      if (_tftTextDirty(${p}, ${s.pattern}, _tftPattern_${id}) || _tftFull_${id}) `
       + `_tftField(${p}, ${fieldArgs(g.pattern)}, _tftPattern_${id}, TFT_C_TEXT, TFT_C_BG);`,
     `      long _tftCount_${id} = _tftWhole(${display.patternCountExpr});`,
-    `      char _tftOrd_${id}[16];`,
-    ...formatOrdinal(`_tftOrd_${id}`, display.patternIndexExpr, '      '),
-    `      if (_tftTextDirty(${p}, ${s.ordinal}, _tftOrd_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.ordinal)}, _tftOrd_${id}, TFT_C_DIM, TFT_C_BG);`,
-  )
-
-  lines.push(
-    `      bool _tftBrowsing_${id} = ${display.browsingExpr};`,
+    `      char ${ordinal}[16];`,
+    `      long ${at} = _tftWhole(${display.patternIndexExpr});`,
+    `      if (_tftCount_${id} <= 0) {`,
+    // The same refusal showStatusOrdinalText() makes: a lone 1/0 on a panel
+    // is worse than being told the wire is not carrying a show.
+    `        snprintf(${ordinal}, sizeof(${ordinal}), "NO PATTERNS");`,
+    `      } else {`,
+    `        if (${at} < 0) ${at} = 0;`,
+    `        if (${at} > _tftCount_${id} - 1) ${at} = _tftCount_${id} - 1;`,
+    `        snprintf(${ordinal}, sizeof(${ordinal}), "%ld/%ld", ${at} + 1, _tftCount_${id});`,
+    `      }`,
+    `      if (_tftTextDirty(${p}, ${s.ordinal}, ${ordinal}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.ordinal)}, ${ordinal}, TFT_C_DIM, TFT_C_BG);`,
     // The same silence showStatusStateText() keeps: the ordinal row has
     // already said NO PATTERNS, and following that with PLAYING claims a show
     // the panel has just reported it does not have.
-    `      const char *_tftState_${id} = _tftCount_${id} <= 0 ? "" `
-      + `: (_tftBrowsing_${id} ? "BROWSING" : "PLAYING");`,
+    `      const char *_tftState_${id} = _tftCount_${id} <= 0 ? "" : "PLAYING";`,
     `      if (_tftTextDirty(${p}, ${s.status}, _tftState_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.status)}, _tftState_${id}, `
-      + `_tftBrowsing_${id} ? TFT_C_ACCENT : TFT_C_DIM, TFT_C_BG);`,
+      + `_tftField(${p}, ${fieldArgs(g.status)}, _tftState_${id}, TFT_C_DIM, TFT_C_BG);`,
   )
 
-  // The running pattern's picture, between the running rows and the browsing
-  // block. Nothing at all without a bake, matching drawTransportShowStatus:
-  // the band keeps the background painted at setup.
-  if (display.artwork) {
-    lines.push(...artworkBlitLines(display, display.artwork, g.artwork, SHOW_STATUS_VALUE_SLOTS.artwork))
-  }
-
-  // Blank rather than skipped, matching drawTransportShowStatus: painting the
-  // empty field is what clears the previous candidate when a browse ends, and
-  // the dirty cache means an unchanged blank costs nothing after the first.
-  lines.push(
-    `      const char *_tftHigh_${id} = _tftBrowsing_${id} ? (${text(highlightName)}) : "";`,
-    `      if (_tftTextDirty(${p}, ${s.highlight}, _tftHigh_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.highlight)}, _tftHigh_${id}, TFT_C_ACCENT, TFT_C_BG);`,
-    `      char _tftHighOrd_${id}[16];`,
-    `      _tftHighOrd_${id}[0] = 0;`,
-    `      if (_tftBrowsing_${id}) {`,
-    ...formatOrdinal(`_tftHighOrd_${id}`, display.highlightIndexExpr, '        '),
-    `      }`,
-    `      if (_tftTextDirty(${p}, ${s.highlightOrdinal}, _tftHighOrd_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.highlightOrdinal)}, _tftHighOrd_${id}, TFT_C_DIM, TFT_C_BG);`,
-  )
+  // The LEDs' picture, below the text rows. Nothing at all without one,
+  // matching drawTransportShowStatus: the band keeps the background painted
+  // at setup.
+  if (display.picture) lines.push(...pictureLines(display, display.picture, g.picture))
 
   return lines
 }

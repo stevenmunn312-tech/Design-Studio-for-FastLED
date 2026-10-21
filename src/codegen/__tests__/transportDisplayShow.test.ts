@@ -116,13 +116,19 @@ describe('fixed touch routing in generative shows', () => {
   })
 
   it('emits direct slideshow action inputs for pattern commands', () => {
-    const button = node('button', 'ButtonInput', { pin: 32 })
-    const cpp = build([output(), button], [edge('button', 'pressed', 'show', 'patternNext')])
+    // Two patterns, so there is somewhere for a step to go.
+    const nodes = [
+      node('collection', 'PatternCollection', { patternIds: ['p', 'p'] }), node('show', 'PatternSlideshow'),
+      output(), node('button', 'ButtonInput', { pin: 32 }), touchNode(),
+    ]
+    const edges = [...frameEdges, edge('button', 'pressed', 'show', 'patternNext')]
+    assertWireable(nodes, edges)
+    const cpp = generateShowSketch(nodes, edges, groups)
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
     expect(cpp).toContain('PlayerControlsValue n_show_direct_controls;')
     expect(cpp).toContain('static CtlEdge _pcE_show_direct_patternNext;')
     expect(loop).toContain('n_show_direct_controls.patternSteps += 1;')
-    expect(loop).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_show_direct_controls.patternSteps, n_show_direct_controls.patternSteps != 0 || n_show_direct_controls.patternConfirm);')
+    expect(loop).toContain('_selUpdate(_sel_show, PATTERN_COUNT, n_show_direct_controls.patternSteps);')
   })
 
   it('dims HUB75 through the driver before its blit', () => {

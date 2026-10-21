@@ -184,15 +184,7 @@
       {
         "label": "Previous",
         "type": "Button",
-        "x": 16,
-        "y": 88,
-        "width": 64,
-        "height": 64
-      },
-      {
-        "label": "Confirm",
-        "type": "Button",
-        "x": 88,
+        "x": 48,
         "y": 88,
         "width": 64,
         "height": 64
@@ -200,7 +192,7 @@
       {
         "label": "Next",
         "type": "Button",
-        "x": 160,
+        "x": 128,
         "y": 88,
         "width": 64,
         "height": 64
@@ -722,15 +714,7 @@
       {
         "label": "Previous",
         "type": "Button",
-        "x": 16,
-        "y": 88,
-        "width": 64,
-        "height": 64
-      },
-      {
-        "label": "Confirm",
-        "type": "Button",
-        "x": 88,
+        "x": 48,
         "y": 88,
         "width": 64,
         "height": 64
@@ -738,7 +722,7 @@
       {
         "label": "Next",
         "type": "Button",
-        "x": 160,
+        "x": 128,
         "y": 88,
         "width": 64,
         "height": 64
@@ -1260,15 +1244,7 @@
       {
         "label": "Previous",
         "type": "Button",
-        "x": 16,
-        "y": 104,
-        "width": 64,
-        "height": 64
-      },
-      {
-        "label": "Confirm",
-        "type": "Button",
-        "x": 128,
+        "x": 80,
         "y": 104,
         "width": 64,
         "height": 64
@@ -1276,7 +1252,7 @@
       {
         "label": "Next",
         "type": "Button",
-        "x": 240,
+        "x": 176,
         "y": 104,
         "width": 64,
         "height": 64

@@ -151,7 +151,7 @@ describe('widgets bound to the panel source', () => {
       expect(src).toContain('_cdSetText(_cd_screen[0], _patNameStr_player(_sel_player.active));')
     })
 
-    it('names the pattern a Pattern Browser is browsing, from the panel source', () => {
+    it('names the running pattern on a Pattern Browser, from the panel source', () => {
       const doc = addDisplayWidget(createDisplayDocument('browser', 240, 320), 'Pattern Browser')
       // No wire carries a selection, so the widget is always bound and mints no socket.
       expect(displayDocumentPorts(doc).inputs).toEqual([])
@@ -170,7 +170,7 @@ describe('widgets bound to the panel source', () => {
         controlGraph: routing, patternNames: { master: ['Aurora'] },
       })
       expect(src).toContain('static PatternSel _sel_player;')
-      expect(src).toContain('_patNameStr_player(_selBrowsing(_sel_player) ? _sel_player.highlight : _sel_player.active)')
+      expect(src).toContain('_patNameStr_player(_sel_player.active)')
     })
   })
 

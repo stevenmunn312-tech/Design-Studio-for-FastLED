@@ -12,10 +12,11 @@
 // testing anything.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { evaluateGraph, getPatternShowSelection, resetEvaluatorState, type AudioSignal } from '../../graphEvaluator'
+import { evaluateGraph, evaluateGraphFull, getPatternShowSelection, resetEvaluatorState, type AudioSignal } from '../../graphEvaluator'
 import { musicPlayerTiming } from '../../player/musicPlayerTiming'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../graphStore'
+import type { PatternSelectValue } from '../patternSelection'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -251,12 +252,68 @@ describe('a running show whose collection is edited', () => {
     runShow(survivors, 0.05)
     expect(playingId(survivors)).toBe(expected)
   })
+})
 
-  it('reports a highlight alongside the playing pattern', () => {
-    runShow(ALL, 0)
-    const view = getPatternShowSelection('master')!
-    expect(view.highlightIndex).toBe(view.currentIndex)
-    expect(view.browsing).toBe(false)
+describe('stepping a running show', () => {
+  beforeEach(() => resetEvaluatorState())
+
+  /** One frame with Next held or released, returning the LEDs and the named pattern. */
+  function step(tick: number, held: boolean) {
+    const nodes = [
+      node('coll', 'PatternCollection', { patternIds: ALL }),
+      node('master', 'PatternMaster', { order: 'Sequential', minTime: 9999, maxTime: 9999, transitionSec: 1, seed: 7 }),
+      node('out', 'MatrixOutput', {}),
+      node('next', 'Compare', { a: held ? 1 : 0, b: 0.5 }),
+    ]
+    const edges = [
+      edge('e1', 'coll', 'patternset', 'master', 'patternset'),
+      edge('e2', 'master', 'frame', 'out', 'frame'),
+      edge('e3', 'next', 'result', 'master', 'patternNext'),
+    ]
+    const outputs = evaluateGraphFull(nodes, edges, tick, 4, 4, GROUPS).outputs.get('master')!
+    const selection = (outputs.display as { selection: PatternSelectValue }).selection
+    return {
+      blue: (outputs.frame as { b: number }[][])[0][0].b,
+      named: ALL[selection.activeIndex],
+      show: getPatternShowSelection('master')!,
+    }
+  }
+
+  // A single press while holding gets the show's own transition, and the
+  // panel names where the LEDs are heading from the moment they set off.
+  it('transitions to the next pattern on a press, naming it at once', () => {
+    step(0, false)
+    const pressed = step(60, true)
+    expect(pressed.show.transitioning).toBe(true)
+    expect(ALL[pressed.show.currentIndex]).toBe(ALL[0])
+    expect(ALL[pressed.show.nextIndex]).toBe(ALL[1])
+    expect(pressed.named).toBe(ALL[1])
+
+    const settled = step(180, false)
+    expect(settled.show.transitioning).toBe(false)
+    expect(settled.blue).toBe(BLUE[ALL[1]])
+    expect(settled.named).toBe(ALL[1])
+  })
+
+  // Stepping fast lands on each pattern in turn rather than queueing
+  // transitions the fixture is still working through.
+  it('cuts straight to the new pattern on a press mid-transition', () => {
+    step(0, false)
+    step(60, true)
+    step(64, false)
+    const cut = step(68, true)
+    expect(cut.show.transitioning).toBe(false)
+    expect(ALL[cut.show.currentIndex]).toBe(ALL[2])
+    expect(cut.named).toBe(ALL[2])
+    expect(cut.blue).toBe(BLUE[ALL[2]])
+  })
+
+  it('keeps the stepped pattern for a whole dwell', () => {
+    step(0, false)
+    step(60, true)
+    step(64, false)
+    step(68, true)
+    expect(step(600, false).named).toBe(ALL[2])
   })
 })
 

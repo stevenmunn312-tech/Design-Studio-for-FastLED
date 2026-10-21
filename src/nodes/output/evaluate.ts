@@ -53,13 +53,6 @@ import {
   type TransportDisplayData,
   blankTransportData,
   type TransportClockData,
-  TRANSPORT_ARTWORK_TICK_SEC,
-  TRANSPORT_ARTWORK_W,
-  TRANSPORT_ARTWORK_SUPERSAMPLE,
-  TRANSPORT_ARTWORK_H,
-  transportArtworkFromFrame,
-  transportArtworkBudgetIssue,
-  blankTransportArtwork,
   renderTransportDisplay,
 } from '../../state/displays/transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/displays/tftSurface'
@@ -98,12 +91,6 @@ function panelTouchPressed(panelNodeId: string, live: boolean): {
   }
 }
 
-const transportArtworkCache = instanceState('transportArtworkCache', new Map<string, {
-  nodes: StudioNode[]
-  edges: StudioEdge[]
-  trusted: boolean
-  artwork: Uint8Array
-}>())
 const patternThumbnailCache = instanceState('patternThumbnailCache', new Map<string, {
   nodes: StudioNode[]
   edges: StudioEdge[]
@@ -185,7 +172,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       payload = { layout: 'Waiting' }
     } else if (signal.kind === 'slideshow') {
       const selection = signal.selection
-      const chosen = selection.highlightIndex
+      const chosen = selection.activeIndex
       const pattern = chosen >= 0 ? selection.ids[chosen] : ''
       let thumbnail: PatternThumbnail | null = null
       const definition = pattern ? groups[pattern] : undefined
@@ -217,8 +204,6 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           ordinal: chosen >= 0 ? chosen + 1 : 0,
           count: selection.count,
           thumbnail,
-          browsing: selection.browsing,
-          activeName: selection.names[selection.activeIndex] ?? '',
         },
       }
     } else if (signal.kind === 'clock') {
@@ -268,7 +253,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
 
     return { lit: true, layout, surface: renderInfoDisplay(controller, payload) }
   },
-  TransportDisplay({ input, incoming, nodes, groups, groupStack, instancePrefix, trusted, capabilityNodes, evaluateGraph }, id, props, node) {
+  TransportDisplay({ input, incoming, nodes }, id, props, node) {
     const out: Record<string, PortValue> = {}
     // A terminal like the OLED beside it, and it draws through
     // state/displays/transportDisplay.ts for the same reason: the node body, the
@@ -383,33 +368,6 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       return out
     }
 
-    // The same fixed tick, supersample and converter the upload bake uses,
-    // cached against the group's identity and trust so a running panel does
-    // not re-render a pattern every frame. Null when the pattern cannot be
-    // rendered here, which each layout answers in its own way.
-    const bakedArtwork = (pattern: string): Uint8Array | null => {
-      const definition = pattern ? groups[pattern] : undefined
-      if (!definition || groupStack.has(pattern)) return null
-      const cached = transportArtworkCache.get(pattern)
-      if (cached && cached.nodes === definition.nodes && cached.edges === definition.edges
-        && cached.trusted === trusted) {
-        return cached.artwork
-      }
-      const frame = evaluateGraph(
-        definition.nodes, definition.edges, TRANSPORT_ARTWORK_TICK_SEC,
-        TRANSPORT_ARTWORK_W * TRANSPORT_ARTWORK_SUPERSAMPLE,
-        TRANSPORT_ARTWORK_H * TRANSPORT_ARTWORK_SUPERSAMPLE,
-        groups, `${instancePrefix}tft-art/${pattern}/`,
-        new Set([...groupStack, pattern]), {}, null, trusted, capabilityNodes,
-      )
-      if (!frame) return null
-      const artwork = transportArtworkFromFrame(frame)
-      transportArtworkCache.set(pattern, {
-        nodes: definition.nodes, edges: definition.edges, trusted, artwork,
-      })
-      return artwork
-    }
-
     let payload: TransportDisplayData
     if (layout === 'Diagnostics') {
       payload = {
@@ -441,26 +399,15 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       }
     } else if (layout === 'Show Status') {
       const selection = signal.kind === 'slideshow' ? signal.selection : null
-      // The slideshow's collection is pictured exactly when the upload bake
-      // would picture it: a non-empty collection inside the flash budget.
-      // Outside it the firmware emits no table and draws the text-only
-      // layout, so the preview does too rather than showing a picture the
-      // device will never have. Inside it, a pattern that cannot be rendered
-      // is the black row the bake writes for it, and the index is clamped
-      // the way the firmware clamps it.
-      const ids = selection?.ids ?? []
-      const pictured = ids.length > 0 && transportArtworkBudgetIssue(ids.length) === null
-      const row = selection ? Math.min(Math.max(selection.activeIndex, 0), ids.length - 1) : 0
       payload = {
         layout: 'Show Status',
         data: {
           patternName: tftLine(selection?.names[selection.activeIndex] ?? ''),
           patternIndex: selection?.activeIndex ?? 0,
           patternCount: selection?.count ?? 0,
-          highlightName: tftLine(selection?.names[selection.highlightIndex] ?? ''),
-          highlightIndex: selection?.highlightIndex ?? 0,
-          browsing: selection?.browsing === true,
-          artwork: pictured ? bakedArtwork(ids[row]) ?? blankTransportArtwork() : null,
+          // The LEDs as the slideshow composed them, as the device streams
+          // its canvas: a collection of any size is pictured.
+          picture: signal.kind === 'slideshow' ? signal.picture ?? null : null,
         },
       }
     } else if (layout === 'Power Monitor' && signal.kind === 'powerMonitor') {
@@ -494,16 +441,11 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
         },
       }
     } else {
-      // Artwork identity rides the same envelope as the track. The player
-      // owns both readings and publishes them together, so a panel cannot
-      // be told about a song from one wire and a pattern from another and
-      // end up captioning the wrong picture.
+      // The picture rides the same envelope as the track. The player owns
+      // both and publishes them together, so a panel cannot be told about a
+      // song from one wire and see the LEDs of another.
       const song = signal.kind === 'player' ? signal.song : null
       const selection = signal.kind === 'player' ? signal.selection : null
-      const pattern = selection && selection.activeIndex >= 0
-        ? selection.ids[selection.activeIndex]
-        : ''
-      const artwork = bakedArtwork(pattern)
       payload = {
         layout: 'Now Playing',
         data: {
@@ -515,7 +457,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           playing: song?.playing === true,
           volume: clamp01(song?.volume ?? 0),
           patternName: tftLine(selection?.names[selection.activeIndex] ?? ''),
-          artwork,
+          picture: signal.kind === 'player' ? signal.picture ?? null : null,
         },
       }
     }

@@ -721,7 +721,7 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       `      if (${count} == 0) {`,
       `        _oledText(${p}, ${g.empty.x}, ${g.empty.y}, "NO PATTERNS");`,
       `      } else {`,
-      `        uint16_t _oledSel_${display.id} = ${sel}.highlight;`,
+      `        uint16_t _oledSel_${display.id} = ${sel}.active;`,
       // Every coordinate from BROWSER_LAYOUT rather than written out again.
       // An empty frame where a picture would be: a pattern that was named but
       // not baked reads as a missing picture rather than as one of the several
@@ -738,24 +738,9 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
         `(unsigned)(_oledSel_${display.id} + 1), (unsigned)${count});`,
       `        _oledText(${p}, ${g.ordinal.x}, ${g.ordinal.y}, _oledBuf_${display.id});`,
       // A word, not a glyph: the shared 3x5 font has no tick or triangle.
-      `        _oledText(${p}, ${g.status.x}, ${g.status.y}, ` +
-        `_selBrowsing(${sel}) ? "SELECT?" : "PLAYING");`,
+      `        _oledText(${p}, ${g.status.x}, ${g.status.y}, "PLAYING");`,
+      `      }`,
     )
-    // Without this the panel confidently describes something the LEDs are not
-    // doing, which is the whole reason active and highlight are separate — but
-    // a panel with no room for it says less rather than drawing over the
-    // picture.
-    if (g.playing) lines.push(
-      `        if (_selBrowsing(${sel})) {`,
-      `          _oledHLine(${p}, ${g.playing.rule.x}, ${g.playing.rule.y}, ${g.playing.rule.w});`,
-      `          _patName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), ${sel}.active);`,
-      `          char _oledPlaying_${display.id}[48];`,
-      `          snprintf(_oledPlaying_${display.id}, sizeof(_oledPlaying_${display.id}), "PLAYING %s", _oledName_${display.id});`,
-      `          _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledPlaying_${display.id}, ${g.playing.label.w});`,
-      `          _oledText(${p}, ${g.playing.label.x}, ${g.playing.label.y}, _oledBuf_${display.id});`,
-      `        }`,
-    )
-    lines.push(`      }`)
   } else {
     const g = nowPlayingGeometry(width, height)
     lines.push(

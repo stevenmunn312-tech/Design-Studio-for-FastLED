@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   TRANSPORT_DISPLAY_LAYOUTS,
-  TRANSPORT_ARTWORK_W,
-  TRANSPORT_ARTWORK_H,
-  TRANSPORT_ARTWORK_BYTES,
+  TRANSPORT_PICTURE_W,
+  TRANSPORT_PICTURE_H,
+  TRANSPORT_PICTURE_STRIP_RATIO,
   TRANSPORT_COLORS,
   TRANSPORT_METRICS,
-  MAX_TRANSPORT_ARTWORKS,
   asTransportDisplayLayout,
   blankTransportData,
   diagnosticsGeometry,
@@ -21,15 +20,15 @@ import {
   showStatusGeometry,
   showStatusOrdinalText,
   showStatusStateText,
-  transportArtworkBudgetIssue,
-  transportArtworkFlashCost,
+  transportPictureBox,
   transportWaitingGeometry,
   type TransportNowPlayingData,
   type TransportFixedData,
+  type TransportPictureFrame,
   type TransportShowStatusData,
 } from '../transportDisplay'
 import {
-  TFT_CONTROLLERS, TFT_ROTATIONS, createTftSurface, clearTftSurface, getTftPixel,
+  TFT_CONTROLLERS, TFT_ROTATIONS, createTftSurface, clearTftSurface, getTftPixel, rgb565,
   fitTftText, tftRotatedSize, tftTextWidth, type TftRect, type TftSurface,
 } from '../tftSurface'
 import { DISPLAY_WAITING_TEXT } from '../displaySignal'
@@ -50,12 +49,11 @@ const MOUNTED_SIZES = [...new Set(
 
 const nowPlaying = (over: Partial<TransportNowPlayingData> = {}): TransportNowPlayingData => ({
   title: 'MIDNIGHT DRIVE', artist: 'THE LONG WAY', elapsedSec: 65, durationSec: 200,
-  progress: 0.325, playing: true, volume: 0.75, patternName: 'FIRE 2', artwork: null, ...over,
+  progress: 0.325, playing: true, volume: 0.75, patternName: 'FIRE 2', picture: null, ...over,
 })
 
 const showStatus = (over: Partial<TransportShowStatusData> = {}): TransportShowStatusData => ({
-  patternName: 'FIRE 2', patternIndex: 3, patternCount: 12,
-  highlightName: 'AURORA', highlightIndex: 7, browsing: false, ...over,
+  patternName: 'FIRE 2', patternIndex: 3, patternCount: 12, ...over,
 })
 
 const fixedTransport = (over: Partial<TransportFixedData> = {}): TransportFixedData => ({
@@ -192,7 +190,7 @@ describe('geometry across every mounted size', () => {
   // and the loser would flicker.
   it.each(MOUNTED_SIZES)('stacks Now Playing rows without overlap on $key', ({ width, height }) => {
     const g = nowPlayingGeometry(width, height)
-    const stack = [g.artwork, g.title, g.artist, g.pattern, g.progress, g.elapsed, g.state]
+    const stack = [g.picture, g.title, g.artist, g.pattern, g.progress, g.elapsed, g.state]
     for (let i = 1; i < stack.length; i++) {
       expect(stack[i].y, `row ${i} starts below row ${i - 1}`)
         .toBeGreaterThanOrEqual(stack[i - 1].y + stack[i - 1].h)
@@ -201,7 +199,7 @@ describe('geometry across every mounted size', () => {
 
   it.each(MOUNTED_SIZES)('stacks Show Status rows without overlap on $key', ({ width, height }) => {
     const g = showStatusGeometry(width, height)
-    const stack = [g.pattern, g.ordinal, g.status, g.highlight, g.highlightOrdinal]
+    const stack = [g.pattern, g.ordinal, g.status]
     for (let i = 1; i < stack.length; i++) {
       expect(stack[i].y, `row ${i} starts below row ${i - 1}`)
         .toBeGreaterThanOrEqual(stack[i - 1].y + stack[i - 1].h)
@@ -216,29 +214,18 @@ describe('geometry across every mounted size', () => {
     expect(height - (g.volume.y + g.volume.h)).toBe(TRANSPORT_METRICS.margin)
   })
 
-  // The browsing block is pinned to the bottom so the running pattern's rows
-  // never move when a browse starts or ends — a layout that reflowed on every
-  // encoder detent would be unreadable exactly when it is being used.
-  it.each(MOUNTED_SIZES)('anchors the browsing block to the bottom of $key', ({ width, height }) => {
-    const g = showStatusGeometry(width, height)
-    expect(height - (g.highlightOrdinal.y + g.highlightOrdinal.h)).toBe(TRANSPORT_METRICS.margin)
+  it.each(MOUNTED_SIZES)('puts the running pattern at the top of $key', ({ width, height }) => {
+    expect(showStatusGeometry(width, height).pattern.y).toBe(TRANSPORT_METRICS.margin)
   })
 
-  it.each(MOUNTED_SIZES)('holds the running rows still while browsing on $key', ({ width, height }) => {
-    const g = showStatusGeometry(width, height)
-    expect(g.pattern.y).toBe(TRANSPORT_METRICS.margin)
-    expect(g.status.y).toBeLessThan(g.highlight.y)
-  })
-
-  // Artwork is fixed at 96 square because the bytes are baked in the browser
-  // and only blitted on the device. A panel it did not fit would need a scaler
-  // in C++, which is the one thing this must never grow.
-  it.each(MOUNTED_SIZES)('fits the fixed artwork square on $key', ({ width, height }) => {
+  // The picture square is fixed, so the rows around it never move with what
+  // the LEDs are.
+  it.each(MOUNTED_SIZES)('fits the fixed picture square on $key', ({ width, height }) => {
     const g = nowPlayingGeometry(width, height)
-    expect(g.artwork.w).toBe(TRANSPORT_ARTWORK_W)
-    expect(g.artwork.h).toBe(TRANSPORT_ARTWORK_H)
-    expect(g.artwork.x + g.artwork.w).toBeLessThanOrEqual(width)
-    expect(g.artwork.y + g.artwork.h).toBeLessThanOrEqual(height)
+    expect(g.picture.w).toBe(TRANSPORT_PICTURE_W)
+    expect(g.picture.h).toBe(TRANSPORT_PICTURE_H)
+    expect(g.picture.x + g.picture.w).toBeLessThanOrEqual(width)
+    expect(g.picture.y + g.picture.h).toBeLessThanOrEqual(height)
   })
 
   // PLAY and PAUSE are different lengths, and a field sized to the shorter one
@@ -249,37 +236,36 @@ describe('geometry across every mounted size', () => {
     expect(g.state.w).toBeGreaterThan(tftTextWidth('PLAY', TRANSPORT_METRICS.bodyScale))
   })
 
-  // The same fixed square in the band between the running rows and the
-  // browsing block, with clear space either side, so neither text block has
-  // to move to make room for it.
-  it.each(MOUNTED_SIZES)('fits the Show Status artwork between its text blocks on $key', ({ width, height }) => {
+  // The same fixed square in the band below the text rows, with clear space
+  // either side, so the text does not move to make room for it.
+  it.each(MOUNTED_SIZES)('fits the Show Status picture below its text rows on $key', ({ width, height }) => {
     const g = showStatusGeometry(width, height)
-    expect(g.artwork.w).toBe(TRANSPORT_ARTWORK_W)
-    expect(g.artwork.h).toBe(TRANSPORT_ARTWORK_H)
-    expect(g.artwork.y).toBeGreaterThanOrEqual(g.status.y + g.status.h + TRANSPORT_METRICS.rowGap)
-    expect(g.artwork.y + g.artwork.h + TRANSPORT_METRICS.rowGap).toBeLessThanOrEqual(g.highlight.y)
+    expect(g.picture.w).toBe(TRANSPORT_PICTURE_W)
+    expect(g.picture.h).toBe(TRANSPORT_PICTURE_H)
+    expect(g.picture.y).toBeGreaterThanOrEqual(g.status.y + g.status.h + TRANSPORT_METRICS.rowGap)
+    expect(g.picture.y + g.picture.h + TRANSPORT_METRICS.margin).toBeLessThanOrEqual(height)
     // Centred across the glass, to the pixel the integer split allows.
-    const left = g.artwork.x
-    const right = width - (g.artwork.x + g.artwork.w)
+    const left = g.picture.x
+    const right = width - (g.picture.x + g.picture.w)
     expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
   })
 
   // Pinned rather than only bounded: the firmware emits these literals, and a
   // silent shift would move a picture the preview and the device both draw.
-  it('places the Show Status artwork deliberately on every mounted size', () => {
+  it('places the Show Status picture deliberately on every mounted size', () => {
     const at = (w: number, h: number) => {
-      const { x, y } = showStatusGeometry(w, h).artwork
+      const { x, y } = showStatusGeometry(w, h).picture
       return [x, y]
     }
-    expect(at(240, 240)).toEqual([72, 80])
-    expect(at(240, 320)).toEqual([72, 120])
-    expect(at(320, 240)).toEqual([112, 80])
+    expect(at(240, 240)).toEqual([72, 95])
+    expect(at(240, 320)).toEqual([72, 135])
+    expect(at(320, 240)).toEqual([112, 95])
   })
 
-  it('gives the extra height of a taller panel to the artwork block', () => {
+  it('gives the extra height of a taller panel to the picture block', () => {
     const square = nowPlayingGeometry(240, 240)
     const tall = nowPlayingGeometry(240, 320)
-    expect(tall.artwork.y).toBeGreaterThan(square.artwork.y)
+    expect(tall.picture.y).toBeGreaterThan(square.picture.y)
   })
 
 
@@ -314,17 +300,15 @@ describe('what the fields say', () => {
     expect(showStatusOrdinalText(-4, 12)).toBe('1/12')
   })
 
-  it('names whether the panel is reporting or being browsed', () => {
-    expect(showStatusStateText(false, 9)).toBe('PLAYING')
-    expect(showStatusStateText(true, 9)).toBe('BROWSING')
+  it('says the show is playing', () => {
+    expect(showStatusStateText(9)).toBe('PLAYING')
   })
 
   it('says nothing about playing when there is no collection', () => {
     // The row above already reads NO PATTERNS; a PLAYING under it claims a
     // show the panel has just reported it does not have.
-    expect(showStatusStateText(false, 0)).toBe('')
-    expect(showStatusStateText(true, 0)).toBe('')
-    expect(showStatusStateText(false, Number.NaN)).toBe('')
+    expect(showStatusStateText(0)).toBe('')
+    expect(showStatusStateText(Number.NaN)).toBe('')
   })
 })
 
@@ -363,43 +347,47 @@ describe('rendering', () => {
   // An empty frame rather than a black square, so a track with no baked art
   // reads as a missing picture instead of as art that renders black — which
   // plenty legitimately does.
-  it('frames the artwork slot when nothing was baked', () => {
+  it('frames the picture slot when there is no picture', () => {
     const g = nowPlayingGeometry(240, 240)
     const surface = renderTransportDisplay(st7789, '0', {
-      layout: 'Now Playing', data: nowPlaying({ artwork: null }),
+      layout: 'Now Playing', data: nowPlaying({ picture: null }),
     })
-    expect(getTftPixel(surface, g.artwork.x, g.artwork.y)).toBe(TRANSPORT_COLORS.artFrame)
-    expect(getTftPixel(surface, g.artwork.x + 4, g.artwork.y + 4)).toBe(TRANSPORT_COLORS.background)
+    expect(getTftPixel(surface, g.picture.x, g.picture.y)).toBe(TRANSPORT_COLORS.artFrame)
+    expect(getTftPixel(surface, g.picture.x + 4, g.picture.y + 4)).toBe(TRANSPORT_COLORS.background)
   })
 
-  it('blits baked artwork over the frame', () => {
+  it('draws the LEDs inside the frame, one block of pixels per LED', () => {
     const g = nowPlayingGeometry(240, 240)
-    const artwork = new Uint8Array(TRANSPORT_ARTWORK_BYTES)
-    artwork.fill(0xff)
+    // 16x16 into the 94-pixel inside: five pixels an LED, centred.
+    const picture = solidPicture(16, 16, { r: 255, g: 0, b: 0 })
     const surface = renderTransportDisplay(st7789, '0', {
-      layout: 'Now Playing', data: nowPlaying({ artwork }),
+      layout: 'Now Playing', data: nowPlaying({ picture }),
     })
-    expect(getTftPixel(surface, g.artwork.x + 4, g.artwork.y + 4)).toBe(0xffff)
+    const box = transportPictureBox(16, 16, g.picture)
+    expect(box).toEqual({ x: g.picture.x + 8, y: g.picture.y + 8, w: 80, h: 80 })
+    expect(getTftPixel(surface, g.picture.x, g.picture.y)).toBe(TRANSPORT_COLORS.artFrame)
+    expect(getTftPixel(surface, box.x, box.y)).toBe(rgb565(255, 0, 0))
+    expect(getTftPixel(surface, box.x + box.w - 1, box.y + box.h - 1)).toBe(rgb565(255, 0, 0))
+    expect(getTftPixel(surface, box.x - 1, box.y)).toBe(TRANSPORT_COLORS.background)
   })
 
-  // Show Status pictures the running pattern when its collection was baked,
-  // and is its text-only self when it was not — no empty frame, because the
-  // firmware for an unbaked panel draws nothing there either.
-  it('blits Show Status artwork at its rect, and nothing without a bake', () => {
+  // The picture follows the slideshow's LEDs, and Show Status without one is
+  // its text-only self — no empty frame — with every text row where it was.
+  it('pictures Show Status at its rect, and nothing without a picture', () => {
     const g = showStatusGeometry(240, 240)
-    const artwork = new Uint8Array(TRANSPORT_ARTWORK_BYTES)
-    artwork.fill(0xff)
+    const picture = solidPicture(8, 8, { r: 255, g: 255, b: 255 })
     const pictured = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ artwork }),
+      layout: 'Show Status', data: showStatus({ picture }),
     })
-    expect(getTftPixel(pictured, g.artwork.x, g.artwork.y)).toBe(0xffff)
-    expect(getTftPixel(pictured, g.artwork.x + g.artwork.w - 1, g.artwork.y + g.artwork.h - 1)).toBe(0xffff)
-    expect(getTftPixel(pictured, g.artwork.x - 1, g.artwork.y)).toBe(TRANSPORT_COLORS.background)
+    const box = transportPictureBox(8, 8, g.picture)
+    expect(getTftPixel(pictured, box.x, box.y)).toBe(0xffff)
+    expect(getTftPixel(pictured, g.picture.x, g.picture.y)).toBe(TRANSPORT_COLORS.artFrame)
+    expect(getTftPixel(pictured, g.picture.x - 1, g.picture.y)).toBe(TRANSPORT_COLORS.background)
     const textOnly = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ artwork: null }),
+      layout: 'Show Status', data: showStatus({ picture: null }),
     })
-    for (let y = g.artwork.y; y < g.artwork.y + g.artwork.h; y++) {
-      for (let x = g.artwork.x; x < g.artwork.x + g.artwork.w; x++) {
+    for (let y = g.picture.y; y < g.picture.y + g.picture.h; y++) {
+      for (let x = g.picture.x; x < g.picture.x + g.picture.w; x++) {
         expect(getTftPixel(textOnly, x, y)).toBe(TRANSPORT_COLORS.background)
       }
     }
@@ -422,48 +410,6 @@ describe('rendering', () => {
     }
   })
 
-  // Blank rather than skipped: painting the empty field is what clears the
-  // previous candidate off the glass when a browse ends. Skipping it would
-  // leave the last browsed pattern on the panel indefinitely.
-  it('clears the browsing rows when a browse ends', () => {
-    const g = showStatusGeometry(240, 240)
-    const browsing = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ browsing: true }),
-    })
-    const settled = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ browsing: false }),
-    })
-    const rowLit = (surface: TftSurface, rect: TftRect) => {
-      for (let y = rect.y; y < rect.y + rect.h; y++) {
-        for (let x = rect.x; x < rect.x + rect.w; x++) {
-          if (getTftPixel(surface, x, y) !== TRANSPORT_COLORS.background) return true
-        }
-      }
-      return false
-    }
-    expect(rowLit(browsing, g.highlight)).toBe(true)
-    expect(rowLit(browsing, g.highlightOrdinal)).toBe(true)
-    expect(rowLit(settled, g.highlight)).toBe(false)
-    expect(rowLit(settled, g.highlightOrdinal)).toBe(false)
-  })
-
-  // The running rows are what the panel is for, so they say the same thing
-  // whether or not someone is turning the encoder.
-  it('keeps reporting the running pattern while browsing', () => {
-    const g = showStatusGeometry(240, 240)
-    const browsing = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ browsing: true }),
-    })
-    const settled = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ browsing: false }),
-    })
-    for (let y = g.pattern.y; y < g.pattern.y + g.pattern.h; y++) {
-      for (let x = g.pattern.x; x < g.pattern.x + g.pattern.w; x++) {
-        expect(getTftPixel(browsing, x, y)).toBe(getTftPixel(settled, x, y))
-      }
-    }
-  })
-
   it('renders blank data for an unwired node without throwing', () => {
     for (const layout of TRANSPORT_DISPLAY_LAYOUTS) {
       const data = blankTransportData(layout)
@@ -480,30 +426,34 @@ describe('rendering', () => {
   })
 })
 
-describe('artwork budget', () => {
-  // Colour art is expensive in a way 1-bit thumbnails are not: one picture is
-  // more flash than a whole collection of them.
-  it('costs two bytes a pixel', () => {
-    expect(TRANSPORT_ARTWORK_BYTES).toBe(TRANSPORT_ARTWORK_W * TRANSPORT_ARTWORK_H * 2)
-    expect(transportArtworkFlashCost(3)).toBe(TRANSPORT_ARTWORK_BYTES * 3)
-    expect(transportArtworkFlashCost(-1)).toBe(0)
-    expect(transportArtworkFlashCost(Number.NaN)).toBe(0)
+describe('the LEDs\' picture', () => {
+  const frame = { x: 10, y: 20, w: 96, h: 96 }
+
+  it('fits a grid at whole pixels per LED, centred inside the border', () => {
+    expect(transportPictureBox(16, 16, frame)).toEqual({ x: 18, y: 28, w: 80, h: 80 })
+    // Wider than tall, still a picture: 32x8 at two pixels an LED.
+    expect(transportPictureBox(32, 8, frame)).toEqual({ x: 26, y: 60, w: 64, h: 16 })
+    // Bigger than the frame: shrunk to fit rather than cropped.
+    expect(transportPictureBox(200, 200, frame)).toEqual({ x: 11, y: 21, w: 94, h: 94 })
   })
 
-  it('accepts a build inside the cap', () => {
-    expect(transportArtworkBudgetIssue(0)).toBeNull()
-    expect(transportArtworkBudgetIssue(MAX_TRANSPORT_ARTWORKS)).toBeNull()
+  it('fills the frame with a strip, each LED a band across it', () => {
+    const inside = { x: 11, y: 21, w: 94, h: 94 }
+    expect(transportPictureBox(60, 1, frame)).toEqual(inside)
+    expect(transportPictureBox(1, 144, frame)).toEqual(inside)
+    expect(transportPictureBox(TRANSPORT_PICTURE_STRIP_RATIO, 1, frame)).not.toEqual(inside)
   })
 
-  // Said in bytes the user can act on rather than as a bare refusal: flash
-  // otherwise runs out during someone else's build, long after the art was
-  // chosen.
-  it('names the cost when a build is over the cap', () => {
-    const issue = transportArtworkBudgetIssue(MAX_TRANSPORT_ARTWORKS + 1)
-    expect(issue).toContain(String(MAX_TRANSPORT_ARTWORKS))
-    expect(issue).toContain(String(transportArtworkFlashCost(MAX_TRANSPORT_ARTWORKS + 1)))
-    // The remedy is the collection, not a layout: Show Status pictures
-    // patterns too now, so pointing there would send the user to the same cap.
-    expect(issue).toContain(`${MAX_TRANSPORT_ARTWORKS} patterns or fewer`)
+  it('draws each panel pixel from the LED under it', () => {
+    const g = nowPlayingGeometry(240, 240)
+    const picture: TransportPictureFrame = [[{ r: 255, g: 0, b: 0 }, { r: 0, g: 0, b: 255 }]]
+    const surface = renderTransportDisplay(st7789, '0', { layout: 'Now Playing', data: nowPlaying({ picture }) })
+    const box = transportPictureBox(2, 1, g.picture)
+    expect(getTftPixel(surface, box.x, box.y)).toBe(rgb565(255, 0, 0))
+    expect(getTftPixel(surface, box.x + box.w - 1, box.y + box.h - 1)).toBe(rgb565(0, 0, 255))
   })
 })
+
+function solidPicture(width: number, height: number, color: { r: number; g: number; b: number }): TransportPictureFrame {
+  return Array.from({ length: height }, () => Array.from({ length: width }, () => color))
+}

@@ -55,8 +55,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   bound: no node publishes a selection on a wire, so `displayWidgetBoundField`
   fixes it to the `selection` field (`SOURCE_ONLY_FIELDS`), normalization drops
   any stored `source`, and the inspector offers no "wire from the graph"
-  choice. Firmware answers that field with the browsing-aware name
-  (`browsingPatternNameExpr`); its thumbnail stays with the asset-baking slice. An unanswerable binding is a **warning** and the
+  choice. Firmware answers that field with the running pattern's name, the
+  same expression as `patternName`; its thumbnail stays with the asset-baking
+  slice. An unanswerable binding is a **warning** and the
   widget draws its own text — deliberately weaker than the refusal a *cable*
   into the same field earns, because a binding is usually a template's default;
   templates bind through `TEMPLATE_WIDGET_SOURCES`, keyed by label so a portrait
@@ -448,8 +449,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   drawing a blank square. `displayAssetFlashCost` prices a bake by the size a
   widget actually draws at, not the asset's native size — an 8-bit alpha mask
   for a tintable glyph, RGB565 for a background, zero for anything never baked
-  (theme tokens, template previews) — mirroring how pattern thumbnails and
-  transport artwork price themselves elsewhere. Like node cards and board
+  (theme tokens, template previews) — mirroring how pattern thumbnails price
+  themselves elsewhere. Like node cards and board
   renders, the pack is excluded from the PWA precache and runtime-cached on
   first use. Button and Toggle are not Image/Icon but still draw from this
   registry, gated by a `presentation` property (`text` | `icon` | `text+icon`)

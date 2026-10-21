@@ -2,7 +2,7 @@
 //
 // The bytes are baked in the browser and blitted verbatim, so what matters
 // here is that the emitted code reads the *shared* constants — geometry from
-// the browser geometry, timings from patternSelection — rather than
+// the browser geometry, detents from patternSelection — rather than
 // restating them. A coordinate typed twice is a coordinate that disagrees.
 
 import { describe, it, expect } from 'vitest'
@@ -10,9 +10,7 @@ import { patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } fro
 import { PATTERN_SELECTION_CPP } from '../player/patternSelectionCpp'
 import { infoDisplayLoopCpp, type InfoDisplayEmit } from '../displays/infoDisplayCpp'
 import { THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_BYTES, blankThumbnail } from '../../state/patterns/patternThumbnail'
-import {
-  PATTERN_BROWSE_TIMEOUT_MS, ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS,
-} from '../../state/patterns/patternSelection'
+import { ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS } from '../../state/patterns/patternSelection'
 import { browserGeometry } from '../../state/displays/infoDisplay'
 
 const lit = (fill: number) => {
@@ -107,16 +105,21 @@ describe('the pattern name table', () => {
 })
 
 describe('the emitted selection contract', () => {
-  // Restating a timeout or a detent size is how the panel and the preview come
-  // to disagree about what a click does.
+  // Restating a detent size is how the panel and the preview come to disagree
+  // about what a click does.
   it('reads its constants from the shared model', () => {
-    expect(PATTERN_SELECTION_CPP).toContain(`#define SEL_BROWSE_MS       ${PATTERN_BROWSE_TIMEOUT_MS}`)
     expect(PATTERN_SELECTION_CPP).toContain(`#define SEL_COUNTS_PER_STEP ${ENCODER_COUNTS_PER_STEP}`)
     expect(PATTERN_SELECTION_CPP).toContain(`#define SEL_RESEAT_COUNTS   ${ENCODER_RESEAT_COUNTS}`)
   })
 
   it('wraps at both ends rather than stopping', () => {
-    expect(PATTERN_SELECTION_CPP).toContain('next = ((next % n) + n) % n;')
+    expect(PATTERN_SELECTION_CPP).toContain('s.active = (uint16_t)((((long)s.active + steps) % n + n) % n);')
+  })
+
+  // No confirm: a step moves the running pattern, so nothing browses.
+  it('has one cursor and no browse state', () => {
+    expect(PATTERN_SELECTION_CPP).toContain('static void _selUpdate(PatternSel &s, uint16_t count, int steps)')
+    expect(PATTERN_SELECTION_CPP).not.toMatch(/highlight|browse/i)
   })
 
   it('never steps on the first encoder reading', () => {
@@ -128,16 +131,6 @@ describe('the emitted selection contract', () => {
     expect(PATTERN_SELECTION_CPP).toContain('if (delta > SEL_RESEAT_COUNTS || delta < -SEL_RESEAT_COUNTS)')
   })
 
-  it('ends the browse on a confirm even when nothing changed', () => {
-    const confirm = PATTERN_SELECTION_CPP.slice(PATTERN_SELECTION_CPP.indexOf('if (confirm) {'))
-    expect(confirm.indexOf('s.active = s.highlight;')).toBeLessThan(confirm.indexOf('s.browseUntilMs = 0;'))
-  })
-
-  // browseUntilMs == 0 is the "not browsing" sentinel, so a deadline that
-  // happened to land exactly there would silently cancel the browse.
-  it('keeps the browse sentinel out of a real deadline', () => {
-    expect(PATTERN_SELECTION_CPP).toContain('if (s.browseUntilMs == 0) s.browseUntilMs = 1;')
-  })
 })
 
 describe('the emitted layout', () => {
@@ -156,13 +149,13 @@ describe('the emitted layout', () => {
     const src = loop()
     expect(src).not.toContain('_selUpdate(')
     expect(src).not.toContain('_selEncoderSteps(')
-    expect(src).toContain('_sel_br.highlight')
+    expect(src).toContain('_sel_br.active')
     expect(src).toContain('_oledThumb(')
   })
 
   it('names the player\'s selection, so two panels read one cursor', () => {
     const src = loop({ browser: { tableStem: 'shared', selVar: '_sel_shared' } })
-    expect(src).toContain('_sel_shared.highlight')
+    expect(src).toContain('_sel_shared.active')
     expect(src).toContain('THUMB_COUNT_shared')
   })
 
@@ -177,13 +170,13 @@ describe('the emitted layout', () => {
     expect(loop()).toContain('(unsigned)PATTERN_NAME_COUNT_br')
   })
 
-  // The split is invisible unless the panel shows it, and a panel describing
-  // what it is not playing is the failure the split exists to avoid.
-  it('shows which pattern it is looking at, and what is still playing', () => {
+  // Previous and Next change the pattern on the LEDs, so the panel only ever
+  // has the running pattern to describe.
+  it('describes the running pattern', () => {
     const src = loop()
-    expect(src).toContain('_selBrowsing(_sel_br) ? "SELECT?" : "PLAYING"')
-    expect(src).toContain('"PLAYING %s"')
-    expect(src).toContain('_sel_br.active')
+    expect(src).toContain('uint16_t _oledSel_br = _sel_br.active;')
+    expect(src).toContain('"PLAYING"')
+    expect(src).not.toMatch(/SELECT\?|_selBrowsing|highlight/)
   })
 
   it('reads the name into a buffer rather than formatting from flash', () => {

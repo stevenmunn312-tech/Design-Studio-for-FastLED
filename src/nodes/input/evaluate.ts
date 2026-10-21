@@ -248,7 +248,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
         if (!live || !fired) continue
         if (control.field === 'patternPrevious') controls.patternSteps -= 1
         else if (control.field === 'patternNext') controls.patternSteps += 1
-        else controls[control.field as 'playPause' | 'previous' | 'next' | 'patternConfirm' | 'ledToggle'] = true
+        else controls[control.field as 'playPause' | 'previous' | 'next' | 'ledToggle'] = true
       }
       designBundleState.set(stateKey(node.id), edgeState)
       return { controls, ...samples }

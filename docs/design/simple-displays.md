@@ -31,8 +31,8 @@ Three tiers, separated by what a panel is physically good for:
 Larger panels take the same `Display` input plus Enabled. A colour panel
 may also carry a screen design on itself (`displayId`); that is a
 property of the panel, not a second content socket. See
-[large displays](large-displays-and-control-routing.md). Artwork is
-baked pattern artwork, not album art. A numerical tier boundary is a
+[large displays](large-displays-and-control-routing.md). The colour
+panels' picture is the LEDs themselves, streamed live, not album art. A numerical tier boundary is a
 deferred product decision, not the current driver capability rule.
 
 ## The model

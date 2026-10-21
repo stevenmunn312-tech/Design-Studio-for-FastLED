@@ -638,31 +638,6 @@ export function drawTftIndicator(
   else drawTftRect(surface, x, y, size, size, off)
 }
 
-/**
- * Blit baked RGB565 artwork at (x, y).
- *
- * `data` is big-endian pairs, the order the wire and a PROGMEM table both
- * want, because that is what the device blits. Artwork is rendered in the
- * browser at export and only copied on the device — the same deliberate
- * exception the 1-bit thumbnails make to the shared-helper rule, and for the
- * same reason: there is no second scaler in C++ to disagree with this one, so
- * do not add one. See state/patterns/patternThumbnail.ts.
- *
- * A short buffer draws as far as it reaches rather than throwing: art that
- * baked badly should be a poor picture, not a failed export.
- */
-export function drawTftArtwork(
-  surface: TftSurface, x: number, y: number, w: number, h: number, data: Uint8Array,
-): void {
-  for (let sy = 0; sy < h; sy++) {
-    for (let sx = 0; sx < w; sx++) {
-      const at = ((sy * w) + sx) * TFT_BYTES_PER_PIXEL
-      if (at + 1 >= data.length) return
-      setTftPixel(surface, x + sx, y + sy, (data[at] << 8) | data[at + 1])
-    }
-  }
-}
-
 // ── Shipping and inspection ─────────────────────────────────────────────────
 
 /**

@@ -95,7 +95,6 @@ describe('resolving a destination from the wired source', () => {
     expect(routes(plan)).toEqual({
       transportPrevious: 'show.patternPrevious',
       transportNext: 'show.patternNext',
-      patternConfirm: 'show.patternConfirm',
     })
   })
 

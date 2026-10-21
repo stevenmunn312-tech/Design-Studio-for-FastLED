@@ -79,21 +79,25 @@ other: an encoder turning on a panel, the OLED Pattern Browser drawing what it
 selected, this show advancing on its own, and the SD player doing the same on a
 device with no app attached.
 
-The model is a browser sitting over a player. **Active** is the pattern that is
-running. **Highlight** is the one you are looking at. They are the same until
-something moves the highlight, and they converge again when you either confirm
-it or stop touching it for `PATTERN_BROWSE_TIMEOUT_MS`. Without that split,
-scrolling past a pattern would play it — which is how you get a strobe you never
-asked for while hunting for something else.
+There is one cursor, the pattern the LEDs are showing or heading to. Previous
+Pattern, Next Pattern and an encoder move it directly: choosing the next pattern
+shows the next pattern on the LEDs, with nothing to confirm. (The first design
+put a highlight over the running pattern and committed it with a Confirm press,
+so scrolling past a pattern would not play it. In use, changing the pattern was
+the point of turning the knob, and the two-step browse was removed.)
 
 The rules the four callers would otherwise each invent:
 
 - **Wrapping.** Past the end goes to the start, and before the start goes to the
   end. A shaft that keeps turning and does nothing reads as broken, and an
   encoder has no ends to hit.
-- **Confirmation.** A press commits the highlight. Confirming what is already
-  playing is not a change but still ends the browse, which is what a press means
-  when you land back where you started.
+- **Stepping and transitions.** A single step while a pattern is holding gets
+  the show's own transition. A step that lands while a transition is running
+  cuts straight to the new pattern, so stepping fast lands on each pattern in
+  turn rather than queueing transitions the fixture is still working through.
+  The cursor names where the LEDs are heading, so a panel names a step the
+  moment it lands and a transition names its incoming pattern from its first
+  frame. Every step restarts the dwell, so a chosen pattern gets a whole window.
 - **Ordering.** An auto-advance and a press landing on the same frame resolve in
   the user's favour, rather than by whichever branch happens to run first.
 - **The collection changing underneath.** A cursor carries both an id and an
@@ -118,11 +122,13 @@ re-seat rather than travel, which is what Reset On Press slamming the count to
 zero looks like.
 
 **Firmware.** On a device the collection is fixed at compile time, so
-reconciliation is browser-only by construction; wrapping, confirmation and the
-active/highlight split are the shared half. Those land in generated code when
-the Pattern Browser gives them an input to read — emitting them before there is
-a caller would be a second definition of the same rules, which is the thing this
-module exists to prevent.
+reconciliation is browser-only by construction; wrapping, the encoder's detents
+and the step rules are the shared half (`patternSelectionCpp.ts`). The show
+sketch publishes `transitioning ? nxt : cur` back into the cursor every pass, so
+any other value at the top of the next pass is a step: holding, it starts the
+transition; mid-transition it cuts. The SD player does the same with its own
+`patternId` and transition clock. Both seed the cursor with the opening pick, so
+the first pass does not read the difference from pattern 0 as a step.
 
 ### Who owns the selection
 
@@ -131,7 +137,7 @@ The player. Not the panel.
 The first build of the Pattern Browser put `Select` and `Confirm` on the Info
 Display and let it keep its own cursor. It worked as a picture and failed as a
 model: the display knew which pattern you had chosen and nothing else did, so
-confirming changed what the panel *said* while the LEDs carried on with the
+choosing changed what the panel *said* while the LEDs carried on with the
 show's own rotation. A display describing something the hardware is not doing
 is the exact failure this project keeps designing against, and pointing the
 ports at the display is what caused it.
@@ -160,14 +166,13 @@ player and a firmware generator each deciding separately what a press meant.
 | Pattern Selection | `float` | rotary encoder position |
 | Previous Pattern | `bool` | button |
 | Next Pattern | `bool` | button |
-| Confirm | `bool` | encoder push, or a button |
 
 Buttons and an encoder both arriving is deliberate, not redundant: a panel
 build may have three buttons and no encoder, and the `playercontrols` bundle
 already carries both shapes for the transport (`next` beside `volumeUp`).
 
-**Music Player** publishes the whole selection — active, highlight, ordinal,
-count, and whether a browse is open — inside its `display` envelope. The
+**Music Player** publishes the whole selection — the collection, its names, the
+running pattern and the count — inside its `display` envelope. The
 commands arrive on `controls` and the resulting selection leaves on `display`,
 which keeps the round trip visible on the canvas rather than hidden in a
 display's private state. (It first shipped as a separate `Pattern Select`
@@ -180,8 +185,8 @@ needing its own wire to the collection: the selection names the player, and the
 player already has the patterns, so the thumbnails bake against that collection
 rather than a second one the display was pointed at separately.
 
-The rest follows from that. Confirming drives playback because the player owns
-the cursor it is confirming. Two panels wired to one player agree, because
+The rest follows from that. A step drives playback because the player owns
+the cursor it moves. Two panels wired to one player agree, because
 there is one cursor rather than two. And the SD player's encoder stops being a
 special case: it reaches the selection the same way every other control does,
 through the bundle it already builds.
@@ -249,21 +254,18 @@ music-free case. Nobody would find that, so nobody did.
   to tap, so its `audio` accepts a microphone or a line input and nothing else.
   Reactivity is an explicit switch because the whole point of the mode is slow
   relaxing patterns, which should not twitch at room noise unless asked.
-- **Pattern changes are immediate.** No highlight-then-confirm. The Slideshow
-  still owns a `PatternSelectionState` for the same reasons the player does — a
-  reorder must not change what is playing, and a deletion hands its slot to the
-  new occupant — but a control that says "next" moves what is running, not a
-  cursor waiting on a confirm. There is no separate active/highlight split to
-  show, which is what the browser layout's `SELECT?` row exists for. The
-  generated controller says the same thing the evaluator does, by confirming on
-  any non-zero step rather than by keeping a second rule.
+- **Pattern changes follow the same step rules.** The Slideshow owns a
+  `PatternSelectionState` for the same reasons the player does — a reorder must
+  not change what is playing, and a deletion hands its slot to the new
+  occupant — and a step transitions or cuts exactly as it does on the player.
 - **Controls reach the show, not only its outputs.** `showControlTargets` names
   two kinds of destination: the LED outputs the slideshow renders, which latch
   blackout and dimming, and the slideshow itself, which takes pattern intent.
   The loop applies that bundle through `_selUpdate` before rendering and the
-  renderer reads `cur` back out of the cursor, so a confirm changes the pixels.
+  step logic reads the cursor back into `cur` and `nxt`, so a step changes the
+  pixels.
   The cursor is emitted for anything that reads it (Pattern Browser, Show
-  Status, baked artwork) or commands it — a headless three-button build has no
+  Status) or commands it — a headless three-button build has no
   display half at all and still needs one.
 - **Master Speed changes motion, not the programme.** Slideshow intervals and
   transition durations are wall-clock seconds. The preview and generated

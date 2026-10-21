@@ -273,9 +273,7 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     }
     case 'pattern-browser': {
       const selection = isPatternSelect(value) ? value : null
-      const index = selection
-        ? (selection.browsing ? selection.highlightIndex : selection.activeIndex)
-        : -1
+      const index = selection ? selection.activeIndex : -1
       const name = selection && index >= 0
         ? selection.names[index] || selection.ids[index] || 'Unnamed pattern'
         : 'No patterns'

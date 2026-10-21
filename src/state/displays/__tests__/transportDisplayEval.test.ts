@@ -3,10 +3,9 @@ import { evaluateGraphFull, resetEvaluatorState, type GroupRegistry } from '../.
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../graphStore'
 import {
-  MAX_TRANSPORT_ARTWORKS, TRANSPORT_COLORS, fixedTransportGeometry, showStatusGeometry, transportWaitingGeometry,
+  TRANSPORT_COLORS, fixedTransportGeometry, showStatusGeometry, transportPictureBox, transportWaitingGeometry,
 } from '../transportDisplay'
-import { bakeDisplayArtworks } from '../../../utils/transportArtworks'
-import { getTftPixel, type TftSurface } from '../tftSurface'
+import { getTftPixel, rgb565, type TftSurface } from '../tftSurface'
 import { useTransportDisplayTouchStore } from '../transportDisplayTouchStore'
 
 const PLAIN = 'st7789-tft-240x240'
@@ -165,7 +164,7 @@ describe('touch published from the preview', () => {
     expect(value.controls).toEqual({
       playPause: false, previous: false, next: false,
       volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
-      patternSteps: 0, patternConfirm: false,
+      patternSteps: 0,
     })
   })
 
@@ -300,7 +299,7 @@ describe('what the panel draws from the envelope', () => {
   })
 })
 
-describe('Show Status artwork in the preview', () => {
+describe('Show Status picture in the preview', () => {
   beforeEach(() => resetEvaluatorState())
 
   const groups = {
@@ -323,34 +322,25 @@ describe('Show Status artwork in the preview', () => {
       edge('st', 'show', 'display', 'tft', 'display'),
     ]
     const result = evaluateGraphFull(nodes, edges, 1.5, 8, 8, groups)
-    const panel = result.outputs.get('tft') as { layout: string; surface: TftSurface | null }
-    return { nodes, edges, panel }
+    return result.outputs.get('tft') as { layout: string; surface: TftSurface | null }
   }
 
-  // The browser draws the very bytes the upload bake hands the firmware, at
-  // the rect the firmware blits to — one conversion, one geometry.
-  it('draws the bytes the upload bake produces, at the shared rect', () => {
-    const { nodes, edges, panel } = slideshowPanel(['red'])
+  // The LEDs the slideshow composed, in the box the firmware streams them to,
+  // packed the way the firmware packs a CRGB.
+  it('draws the slideshow\'s LEDs at the shared box', () => {
+    const panel = slideshowPanel(['red'])
     expect(panel.layout).toBe('Show Status')
-    const baked = bakeDisplayArtworks(nodes, edges, groups, true).show[0]
     const g = showStatusGeometry(240, 240)
-    for (const [sx, sy] of [[0, 0], [47, 48], [95, 95]]) {
-      const at = ((sy * g.artwork.w) + sx) * 2
-      expect(getTftPixel(panel.surface!, g.artwork.x + sx, g.artwork.y + sy))
-        .toBe((baked[at] << 8) | baked[at + 1])
-    }
+    const box = transportPictureBox(8, 8, g.picture)
+    expect(getTftPixel(panel.surface!, box.x, box.y)).toBe(rgb565(255, 0, 0))
+    expect(getTftPixel(panel.surface!, box.x + box.w - 1, box.y + box.h - 1)).toBe(rgb565(255, 0, 0))
+    expect(getTftPixel(panel.surface!, g.picture.x, g.picture.y)).toBe(TRANSPORT_COLORS.artFrame)
   })
 
-  // Over the flash ceiling the firmware has no table and draws text only,
-  // so the preview leaves the band dark rather than promising a picture.
-  it('stays text-only for a collection over the artwork budget', () => {
-    const ids = Array.from({ length: MAX_TRANSPORT_ARTWORKS + 1 }, () => 'red')
-    const { panel } = slideshowPanel(ids)
-    const g = showStatusGeometry(240, 240)
-    for (let y = g.artwork.y; y < g.artwork.y + g.artwork.h; y += 8) {
-      for (let x = g.artwork.x; x < g.artwork.x + g.artwork.w; x += 8) {
-        expect(getTftPixel(panel.surface!, x, y)).toBe(TRANSPORT_COLORS.background)
-      }
-    }
+  // There is no budget any more: a collection of any size is pictured.
+  it('pictures a collection of any size', () => {
+    const panel = slideshowPanel(Array.from({ length: 40 }, () => 'red'))
+    const box = transportPictureBox(8, 8, showStatusGeometry(240, 240).picture)
+    expect(getTftPixel(panel.surface!, box.x + 3, box.y + 3)).toBe(rgb565(255, 0, 0))
   })
 })

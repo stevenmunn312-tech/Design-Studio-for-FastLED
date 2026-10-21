@@ -17,8 +17,8 @@ import {
   type TftRotation,
 } from '../../../state/displays/tftSurface'
 import {
-  TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
-  fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
+  TRANSPORT_COLORS, TRANSPORT_PICTURE_INTERVAL_MS,
+  fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry, transportPictureBox,
 } from '../../../state/displays/transportDisplay'
 
 const st7789 = TFT_CONTROLLERS.ST7789
@@ -36,7 +36,6 @@ const emit = (over: Partial<TftDisplayEmit> = {}): TftDisplayEmit => ({
   elapsedExpr: '_elapsed', durationExpr: '_duration', progressExpr: '_progress',
   playingExpr: '_playing', volumeExpr: '_volume',
   patternIndexExpr: '_index', patternCountExpr: '_count',
-  browsingExpr: '_browsing', highlightNameExpr: '_highName', highlightIndexExpr: '_highIndex',
   ...over,
 })
 
@@ -182,11 +181,12 @@ describe('the emitted driver', () => {
     expect(helpers).toContain('invert ? TFT_INVON : TFT_INVOFF')
   })
 
-  // Finished bytes, straight to the bus: the picture is baked in the browser,
-  // so a scaler here would be a second implementation to disagree with it.
-  it('blits artwork without scaling or converting it', () => {
-    expect(helpers).toContain('pgm_read_byte')
-    expect(helpers).not.toMatch(/_tftArt[\s\S]{0,400}(dither|scale|resize)/i)
+  // The picture is the LEDs' own canvas, packed the way rgb565() packs it in
+  // the preview, a row at a time through a small buffer and no frame buffer.
+  it('streams the picture by nearest LED, packed as the preview packs it', () => {
+    expect(helpers).toContain('static uint8_t line[')
+    expect(helpers).toContain('((c.r & 0xF8) << 8) | ((c.g & 0xFC) << 3) | (c.b >> 3)')
+    expect(helpers).toContain('row[px * srcW / w]')
   })
 
   it('brings every colour from the shared table', () => {
@@ -253,7 +253,7 @@ describe('the loop', () => {
   it('emits Show Status coordinates from the shared geometry', () => {
     const g = showStatusGeometry(240, 240)
     expect(showStatus).toContain(`${g.pattern.x}, ${g.pattern.y}, ${g.pattern.w}, ${g.pattern.h}, ${g.pattern.scale},`)
-    expect(showStatus).toContain(`${g.highlight.x}, ${g.highlight.y}, ${g.highlight.w}, ${g.highlight.h}, ${g.highlight.scale},`)
+    expect(showStatus).toContain(`${g.status.x}, ${g.status.y}, ${g.status.w}, ${g.status.h}, ${g.status.scale},`)
   })
 
   it('emits Fixed Transport buttons from the shared geometry', () => {
@@ -307,52 +307,54 @@ describe('the loop', () => {
     expect(nowPlaying).toContain('if (_tftOn_tft1 && _tftPaint(_tft_tft1, _tftFull_tft1))')
   })
 
-  // An empty frame rather than a black square, so a track with no baked art
-  // reads as a missing picture instead of as art that renders black.
-  it('frames the artwork slot when nothing was baked', () => {
+  // An empty frame rather than a black square, so no picture reads as
+  // missing instead of as LEDs that are black.
+  it('frames the picture slot when there is no picture', () => {
     const g = nowPlayingGeometry(240, 240)
-    expect(nowPlaying).toContain(`_tftRect(_tft_tft1, ${g.artwork.x}, ${g.artwork.y}, ${g.artwork.w}, ${g.artwork.h}, TFT_C_FRAME);`)
-    expect(nowPlaying).not.toContain('_tftArt(')
+    expect(nowPlaying).toContain(`_tftRect(_tft_tft1, ${g.picture.x}, ${g.picture.y}, ${g.picture.w}, ${g.picture.h}, TFT_C_FRAME);`)
+    expect(nowPlaying).not.toContain('_tftPicture(')
   })
 
-  it('blits a baked table when there is one, by its own stem', () => {
-    const src = tftDisplayLoopCpp(emit({ artwork: { tableStem: 'coll7', count: 3 } })).join('\n')
-    expect(src).toContain(`_artData_coll7[_tftArtIndex_tft1]);`)
-    expect(src).toContain(`${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H},`)
-    expect(src).not.toContain('TFT_C_FRAME')
+  it('streams the LED canvas into the shared box at its own pace', () => {
+    const g = nowPlayingGeometry(240, 240)
+    const box = transportPictureBox(16, 16, g.picture)
+    const src = tftDisplayLoopCpp(emit({ picture: { pixels: 'leds', width: 16, height: 16 } })).join('\n')
+    expect(src).toContain(`_tftPicture(_tft_tft1, ${box.x}, ${box.y}, ${box.w}, ${box.h}, leds, 16, 16);`)
+    expect(src).toContain(`(uint32_t)(millis() - _tftPictureMs_tft1) >= ${TRANSPORT_PICTURE_INTERVAL_MS}u`)
+    expect(src).toContain('TFT_C_FRAME')
+    expect(tftDisplayGlobalCpp(emit({ picture: { pixels: 'leds', width: 16, height: 16 } })))
+      .toContain('static uint32_t _tftPictureMs_tft1 = 0;')
   })
 
-  // Show Status pictures the slideshow's running pattern at the shared rect,
-  // repainting only when the clamped row changes, and is text-only without a
-  // bake — no blit, no frame and no numeric cache slot, so nothing dead is
-  // emitted for a panel with no table behind it.
-  it.each(MOUNTED_SIZE_ROTATIONS)('blits Show Status artwork from the shared geometry at %s', (rotation) => {
+  // Show Status pictures the slideshow's LEDs at the shared rect, and is
+  // text-only without a picture — no streamer, no frame and no numeric cache
+  // slot, so nothing dead is emitted for it.
+  it.each(MOUNTED_SIZE_ROTATIONS)('streams Show Status from the shared geometry at %s', (rotation) => {
     const size = tftRotatedSize(st7789v, rotation)
     const g = showStatusGeometry(size.width, size.height)
     const panel = emit({
       layout: 'Show Status', controller: st7789v, rotation,
-      patternIndexExpr: 'showPatternIndex', artwork: { tableStem: 'show', count: 4 },
+      picture: { pixels: 'leds', width: 32, height: 8 },
     })
+    const box = transportPictureBox(32, 8, g.picture)
     const src = tftDisplayLoopCpp(panel).join('\n')
-    expect(src).toContain(`long _tftArtIndex_tft1 = _tftWhole(showPatternIndex);`)
-    expect(src).toContain(`if (_tftArtIndex_tft1 >= 4) _tftArtIndex_tft1 = 3;`)
-    expect(src).toContain(`if (_tftValueDirty(_tft_tft1, 0, _tftArtIndex_tft1) || _tftFull_tft1) {`)
-    expect(src).toContain(`_tftArt(_tft_tft1, ${g.artwork.x}, ${g.artwork.y}, `
-      + `${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H}, _artData_show[_tftArtIndex_tft1]);`)
-    expect(src).not.toContain('TFT_C_FRAME')
+    expect(src).toContain(`_tftPicture(_tft_tft1, ${box.x}, ${box.y}, ${box.w}, ${box.h}, leds, 32, 8);`)
     const profile = tftDisplayHelperProfile([panel])
-    expect(profile).toMatchObject({ artwork: true, valueSlots: 1 })
-    expect(tftDisplayHelpersCpp(profile)).toContain('static void _tftArt(')
+    expect(profile).toMatchObject({ picture: true, valueSlots: 0 })
+    const helpers = tftDisplayHelpersCpp(profile)
+    expect(helpers).toContain('static void _tftPicture(')
+    expect(helpers).toContain('SPI.writeBytes(data, count);')
   })
 
-  it('emits no artwork machinery for an unbaked Show Status panel', () => {
-    expect(showStatus).not.toContain('_tftArt')
+  it('emits no picture machinery for a Show Status panel without one', () => {
+    expect(showStatus).not.toContain('_tftPicture')
     expect(showStatus).not.toContain('_tftValueDirty')
     expect(showStatus).not.toContain('TFT_C_FRAME')
     const profile = tftDisplayHelperProfile([emit({ layout: 'Show Status' })])
-    expect(profile).toMatchObject({ artwork: false, valueSlots: 0 })
+    expect(profile).toMatchObject({ picture: false, valueSlots: 0 })
     const source = tftDisplayHelpersCpp(profile)
-    expect(source).not.toContain('static void _tftArt(')
+    expect(source).not.toContain('static void _tftPicture(')
+    expect(source).not.toContain('_tftWriteBytes')
     expect(source).not.toContain('_tftValueDirty')
   })
 
@@ -369,24 +371,12 @@ describe('the loop', () => {
     expect(showStatus).toContain('if (_tftCount_tft1 <= 0)')
   })
 
-  // Blank rather than skipped, matching drawTransportShowStatus: painting the
-  // empty field is what clears the previous candidate when a browse ends.
-  it('clears the browsing rows when a browse ends', () => {
-    expect(showStatus).toContain('_tftBrowsing_tft1 ? (_highName) : ""')
-    expect(showStatus).toContain('_tftHighOrd_tft1[0] = 0;')
-    expect(showStatus).toMatch(/_tftBrowsing_tft1 \? "BROWSING" : "PLAYING"/)
-  })
-
-  it('keeps the state row silent with no collection, as the preview does', () => {
-    expect(showStatus).toMatch(/_tftState_tft1 = _tftCount_tft1 <= 0 \? ""/)
-  })
-
-  // Both ordinals count out of the same collection, so they are formatted by
-  // one piece of code and neither may shadow the other's index local.
-  it('formats both ordinals without shadowing an index local', () => {
-    const locals = [...showStatus.matchAll(/long (_tftAt\w+) =/g)].map((m) => m[1])
-    expect(locals.length).toBe(2)
-    expect(new Set(locals).size).toBe(2)
+  // Previous and Next change the pattern on the LEDs, so there is no browsed
+  // candidate to name: one pattern, one ordinal.
+  it('names only the running pattern', () => {
+    expect(showStatus).toContain('_tftState_tft1 = _tftCount_tft1 <= 0 ? "" : "PLAYING";')
+    expect(showStatus).not.toMatch(/BROWSING|_tftBrowsing|_tftHigh/)
+    expect([...showStatus.matchAll(/long (_tftAt\w+) =/g)].length).toBe(1)
   })
 
   it('uses fixed buffers rather than Arduino String', () => {

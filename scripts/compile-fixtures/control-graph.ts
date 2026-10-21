@@ -142,8 +142,8 @@ for (const { file, mode, clock, ethernet } of variants) {
       throw new Error(`${mode}: colour chain was not emitted`)
     }
     const stem = mode === 'show' ? 'show' : 'player'
-    if (!source.includes(`_patNameStr_${stem}(_selBrowsing(_sel_${stem}) ? _sel_${stem}.highlight : _sel_${stem}.active)`)) {
-      throw new Error(`${mode}: browsing pattern name was not emitted`)
+    if (!source.includes(`_patNameStr_${stem}(_sel_${stem}.active)`)) {
+      throw new Error(`${mode}: running pattern name was not emitted`)
     }
   }
   if (!source.includes('LED Matrix') || !source.includes('64 LEDS')) {
@@ -154,8 +154,11 @@ for (const { file, mode, clock, ethernet } of variants) {
   if (structAt < 0 || leapAt < 0 || structAt > leapAt) {
     throw new Error(`${mode}: RTC struct is missing before _rtcLeap`)
   }
-  if (!source.includes('n_rtc_dateTime') || !source.includes('_clkOrigin_') || !source.includes('_schedulePrevActive_')) {
-    throw new Error(`${mode}: local clock chain was not emitted`)
+  // The window reading, not its edge state: `_schedulePrevActive_` only feeds
+  // Start and End, which nothing here reads, so the normal sketch prunes it.
+  const missingClock = ['n_rtc_dateTime', '_clkOrigin_', '_scheduleSeconds_'].filter((symbol) => !source.includes(symbol))
+  if (missingClock.length) {
+    throw new Error(`${mode}: local clock chain was not emitted (missing ${missingClock.join(', ')})`)
   }
   if (mode !== 'normal') {
     const fastLed = source.indexOf('#include <FastLED.h>')
@@ -166,7 +169,11 @@ for (const { file, mode, clock, ethernet } of variants) {
   }
   if (clock === 'NTP') {
     const bootstraps = source.split('\n').filter((line) => line.includes('void _netEnsureConnected()')).length
-    if (bootstraps !== 1 || !source.includes('_rtcNtpConfigured_rtc') || !source.includes('#define FLS_NET_SUPPORTED 1')) {
+    // The fixture's board is a known ESP32, so pruning selects the ESP32
+    // branch and folds `FLS_NET_SUPPORTED` away: the network header and a
+    // live connect are what show the branch survived.
+    const supported = source.includes('#include <WiFi.h>') && !source.includes('FLS_NET_SUPPORTED')
+    if (bootstraps !== 1 || !source.includes('_rtcNtpConfigured_rtc') || !supported) {
       throw new Error(`${file}: the network bootstrap was not emitted exactly once`)
     }
     if (ethernet !== source.includes('ETH.begin(ETH_PHY_W5500, 1, 10, 14, 15, _ethSpi)')) {

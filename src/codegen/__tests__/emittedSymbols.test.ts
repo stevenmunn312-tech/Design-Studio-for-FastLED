@@ -71,7 +71,7 @@ function benchGraph(engine: 'PatternMaster' | 'PatternSlideshow' = 'PatternMaste
     edge('e2', 'ctl', 'controls', 'master', 'controls'),
     edge('e3', 'master', 'display', 'brw', 'display'),
     edge('e4', 'enc', 'position', 'ctl', 'patternSelect'),
-    edge('e5', 'enc', 'pressed', 'ctl', 'patternConfirm'),
+    edge('e5', 'enc', 'pressed', 'ctl', 'patternNext'),
     edge('e6', 'master', 'frame', 'out', 'frame'),
   ]
   return { nodes, edges }
@@ -179,7 +179,7 @@ describe('the SD player sketch', () => {
       controls: {
         bindings: {
           patternSelect: { kind: 'encoderPosition', pinA: 8, pinB: 9, pullup: true, key: 'enc' },
-          patternConfirm: { kind: 'encoderButton', pin: 10, pullup: true },
+          patternNext: { kind: 'encoderButton', pin: 10, pullup: true },
         },
         debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
         repeatDelayMs: 400, repeatIntervalMs: 120,

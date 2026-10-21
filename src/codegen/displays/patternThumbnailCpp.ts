@@ -87,12 +87,6 @@ static void _patName_${s}_read(char *dst, size_t dstSize, uint16_t index) {
  * when something calls it, so a build with no bound name pays neither the
  * buffer nor an unused-function warning.
  */
-/** The name a Pattern Browser widget shows: the highlight while browsing, otherwise the running pattern. */
-export function browsingPatternNameExpr(stem: string): string {
-  const sel = `_sel_${stem}`
-  return `_patNameStr_${stem}(_selBrowsing(${sel}) ? ${sel}.highlight : ${sel}.active)`
-}
-
 export function patternNameStringCpp(id: string): string {
   const s = stem(id)
   return `static char _patNameStr_${s}_buf[${DISPLAY_TEXT_BUFFER_BYTES}];

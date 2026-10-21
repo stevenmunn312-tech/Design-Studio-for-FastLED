@@ -79,7 +79,6 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
     titleExpr: null, artistExpr: null, patternNameExpr: null,
     elapsedExpr: '0.0f', durationExpr: '0.0f', progressExpr: '0.0f',
     playingExpr: 'false', volumeExpr: '0.0f', patternIndexExpr: '0', patternCountExpr: '0',
-    browsingExpr: 'false', highlightNameExpr: null, highlightIndexExpr: '0.0f',
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
   }))
   const touch: TftTouchEmit[] = displays.tft

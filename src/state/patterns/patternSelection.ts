@@ -1,5 +1,4 @@
-// The one definition of *which pattern* is showing, and which one you are
-// looking at.
+// The one definition of *which pattern* is showing.
 //
 // Four things need to agree about this and none of them can see each other: an
 // encoder turning on a panel, the OLED browser drawing what it selected, the
@@ -8,25 +7,14 @@
 // the two questions that actually bite — what happens at the end of the list,
 // and what happens when the collection changes underneath you.
 //
-// The model is a browser sitting over a player. `active` is the pattern that is
-// *running*. `highlight` is the one you are *looking at*. They are the same
-// until you turn the encoder, and they converge again when you either confirm
-// the highlight or stop touching it. Without that split, scrolling past a
-// pattern would play it — which is how you get a strobe you never asked for
-// while looking for something else.
+// There is one cursor, the pattern that is running. Previous, Next and an
+// encoder move it directly: choosing the next pattern shows the next pattern
+// on the LEDs, with nothing to confirm. A panel names and pictures what is
+// running because that is the only pattern there is to show.
 //
 // Everything here is pure: state is passed in and mutated in place, never read
 // from a store, so the same rules can be tested without a graph and reused by a
 // generator.
-
-/**
- * How long an unconfirmed highlight survives before it snaps back to what is
- * playing.
- *
- * Long enough to read a name and think, short enough that a panel left alone
- * goes back to telling you the truth about what is on the LEDs.
- */
-export const PATTERN_BROWSE_TIMEOUT_MS = 5000
 
 /**
  * Quadrature counts per detent on a typical KY-040.
@@ -68,9 +56,6 @@ export interface PatternCursor {
 
 export interface PatternSelectionState {
   active: PatternCursor
-  highlight: PatternCursor
-  /** Wall-clock ms at which an unconfirmed highlight snaps back. 0 = not browsing. */
-  browseUntilMs: number
   encoderSeen: boolean
   encoderLast: number
   /** Counts not yet worth a step, kept so slow turns still accumulate. */
@@ -82,26 +67,22 @@ export interface PatternSelectionView {
   count: number
   activeIndex: number
   activeId: string
-  highlightIndex: number
-  highlightId: string
-  /** True while the highlight has been moved away and not yet confirmed. */
-  browsing: boolean
-  /** What moved the active pattern this update, for a caller that must react. */
-  activeChanged: 'none' | 'confirm' | 'show'
+  /**
+   * What moved the active pattern this update, for a caller that must react:
+   * a user's step (Previous, Next, an encoder) or the show's own advance.
+   */
+  activeChanged: 'none' | 'step' | 'show'
 }
 
 export interface PatternSelectionInput {
   /** The collection, in order. */
   ids: readonly string[]
-  nowMs: number
   /** Discrete steps from buttons. Positive moves down the list. */
   step?: number
   /** A running encoder count, in that encoder's own units. */
   encoder?: number | null
   /** Counts per selection step for this encoder. */
   encoderCountsPerStep?: number
-  /** Rising edge of a confirm — an encoder push or a dedicated button. */
-  confirm?: boolean
   /** The show's own advance, by index. Ignored while it matches. */
   setActive?: number | null
 }
@@ -119,13 +100,11 @@ export interface PatternSelectValue {
   ids: readonly string[]
   names: readonly string[]
   activeIndex: number
-  highlightIndex: number
   count: number
-  browsing: boolean
 }
 
 export function blankPatternSelectValue(): PatternSelectValue {
-  return { ids: [], names: [], activeIndex: -1, highlightIndex: -1, count: 0, browsing: false }
+  return { ids: [], names: [], activeIndex: -1, count: 0 }
 }
 
 /** Whether a port value is a published selection. */
@@ -142,8 +121,6 @@ export function blankPatternCursor(): PatternCursor {
 export function blankPatternSelection(): PatternSelectionState {
   return {
     active: blankPatternCursor(),
-    highlight: blankPatternCursor(),
-    browseUntilMs: 0,
     encoderSeen: false,
     encoderLast: 0,
     encoderCarry: 0,
@@ -155,7 +132,7 @@ export function blankPatternSelection(): PatternSelectionState {
  *
  * Exported because it is the collection-change rule itself, and anything
  * holding a pattern across frames needs it — a running show's transition target
- * as much as the browser's highlight.
+ * as much as the selection itself.
  *
  * A collection with the same id twice resolves to its first occurrence, so the
  * answer is at least deterministic; the editor does not produce one.
@@ -179,10 +156,6 @@ export function reconcilePatternCursor(cursor: PatternCursor, ids: readonly stri
 function pointAt(cursor: PatternCursor, ids: readonly string[], index: number): void {
   cursor.index = index
   cursor.id = ids[index]
-}
-
-function copyCursor(from: PatternCursor): PatternCursor {
-  return { id: from.id, index: from.index }
 }
 
 /**
@@ -221,33 +194,24 @@ export function encoderSteps(
  * One update of the selection, in the order the rules have to happen.
  *
  * Reconcile first, because every rule below it needs a cursor that points at
- * something real. Then let a closed browse window snap the highlight back. Then
- * the show's advance, then the user's, then the confirm — so a press and an
- * auto-advance landing on the same frame resolve in the user's favour rather
- * than by whichever ran first.
+ * something real. Then the show's advance, then the user's steps — so a press
+ * and an auto-advance landing on the same frame resolve in the user's favour
+ * rather than by whichever ran first.
  */
 export function updatePatternSelection(
   state: PatternSelectionState,
   input: PatternSelectionInput,
 ): PatternSelectionView {
   const ids = input.ids
-  const nowMs = Number.isFinite(input.nowMs) ? input.nowMs : 0
   let activeChanged: PatternSelectionView['activeChanged'] = 'none'
 
   reconcilePatternCursor(state.active, ids)
-  reconcilePatternCursor(state.highlight, ids)
-
-  if (state.browseUntilMs > 0 && nowMs >= state.browseUntilMs) state.browseUntilMs = 0
-  if (state.browseUntilMs === 0) state.highlight = copyCursor(state.active)
 
   if (ids.length > 0 && input.setActive != null && Number.isFinite(input.setActive)) {
     const index = Math.min(Math.max(0, Math.round(input.setActive)), ids.length - 1)
     if (state.active.index !== index || state.active.id !== ids[index]) {
       pointAt(state.active, ids, index)
       activeChanged = 'show'
-      // A show that advances while nobody is browsing drags the highlight with
-      // it, so the panel keeps naming what is on the LEDs.
-      if (state.browseUntilMs === 0) state.highlight = copyCursor(state.active)
     }
   }
 
@@ -257,32 +221,16 @@ export function updatePatternSelection(
   }
   if (ids.length > 0 && steps !== 0) {
     const n = ids.length
-    const next = (((state.highlight.index + steps) % n) + n) % n
-    pointAt(state.highlight, ids, next)
     // Wraps rather than stopping: a shaft that keeps turning at the end of the
     // list and does nothing feels broken, and an encoder has no ends to hit.
-    state.browseUntilMs = nowMs + PATTERN_BROWSE_TIMEOUT_MS
-  }
-
-  if (input.confirm === true && ids.length > 0) {
-    if (state.active.id !== state.highlight.id || state.active.index !== state.highlight.index) {
-      state.active = copyCursor(state.highlight)
-      activeChanged = 'confirm'
+    const next = (((state.active.index + steps) % n) + n) % n
+    if (next !== state.active.index || ids[next] !== state.active.id) {
+      pointAt(state.active, ids, next)
+      activeChanged = 'step'
     }
-    // Confirming what is already playing changes nothing but still ends the
-    // browse, which is what a press means when you land back where you started.
-    state.browseUntilMs = 0
   }
 
-  return {
-    count: ids.length,
-    activeIndex: state.active.index,
-    activeId: state.active.id,
-    highlightIndex: state.highlight.index,
-    highlightId: state.highlight.id,
-    browsing: state.browseUntilMs > 0,
-    activeChanged,
-  }
+  return { count: ids.length, activeIndex: state.active.index, activeId: state.active.id, activeChanged }
 }
 
 /** Read the selection without advancing it. */
@@ -294,9 +242,6 @@ export function patternSelectionView(
     count: ids.length,
     activeIndex: state.active.index,
     activeId: state.active.id,
-    highlightIndex: state.highlight.index,
-    highlightId: state.highlight.id,
-    browsing: state.browseUntilMs > 0,
     activeChanged: 'none',
   }
 }

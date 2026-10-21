@@ -48,9 +48,11 @@ Pattern Slideshow supplies the pattern browser, and an LED output supplies
 LED Status. There is no layout selector; an unwired panel explicitly reports
 that state. Rotation and enabled state are graph settings.
 
-The slideshow owns the current pattern and highlighted selection. The OLED
-reports that state; physical browsing controls go to Pattern Slideshow's named
-action inputs, or through Player Controls when you want a compact bundle. Pattern
+The slideshow owns the current pattern. The OLED reports it; physical
+Previous, Next and encoder controls go to Pattern Slideshow's named action
+inputs, or through Player Controls when you want a compact bundle. A step
+changes the pattern on the LEDs straight away, with the usual transition, and
+a step during a transition cuts to the new pattern. Pattern
 thumbnails are baked during export, so upload again after changing the
 collection.
 
@@ -64,10 +66,12 @@ Connect **Display** from RTC Clock, Music Player, Pattern Slideshow or
 an LED output for Clock, Now Playing/Fixed Transport, Show Status or
 LED Status respectively. The source chooses content; presentation only
 chooses among that source's treatments. Unwired panels say Waiting.
-Now Playing and Show Status picture the running pattern when its collection
-holds eight patterns or fewer; a larger Slideshow collection keeps Show
-Status text-only and the build warns, while a larger Music Player collection
-blocks the build.
+Now Playing and Show Status picture what the LEDs are showing, live, in a
+96-pixel square: a matrix at whole pixels per LED, a strip as bands across the
+square. Any size of collection is pictured, and nothing is baked at upload.
+While you browse, the pattern you are looking at is named, not pictured; the
+picture stays on what is running. The device redraws the picture ten times a
+second.
 **Layout** also always offers **Custom design**, the panel's own screen:
 choosing it creates the design the first time and enables **Edit screen
 design**. The panel keeps its Display wire, which bound widgets read.
@@ -414,7 +418,7 @@ Clock layout; an NTP clock brings the network bootstrap into the build.
 Supported scalar nodes keep that behaviour inside groups, including a contact
 forwarded through a group input. A Colour Swatch accepts a self-contained
 colour node, and the device stores that colour packed at the swatch. A Pattern
-Browser names the pattern the running slideshow or player is browsing. An LED
+Browser names the pattern the running slideshow or player is showing. An LED
 output wired to a panel reports that output's own name, count, blackout and
 level when the template drives it. Palette sources, a pattern selection from
 any other node, an output the template does not drive, and Smooth,

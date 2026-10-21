@@ -97,7 +97,7 @@ describe('display widget preview artwork', () => {
       properties: DISPLAY_WIDGET_LIBRARY['Pattern Browser'].defaultProperties,
     }, {
       ids: ['aurora', 'midnight'], names: ['Aurora Drift', 'Midnight Drive'],
-      activeIndex: 0, highlightIndex: 1, count: 2, browsing: true,
+      activeIndex: 1, count: 2,
     })
     expect(browser.container.textContent).toContain('Midnight Drive')
     expect(browser.container.textContent).toContain('2 of 2')
