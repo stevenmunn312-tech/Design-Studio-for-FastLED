@@ -13,6 +13,8 @@ import { touchPadLoopCpp } from '../../codegen/peripherals/touchPadCpp'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { rtcInputLoopCpp } from '../../codegen/peripherals/rtcInputCpp'
+import { webRemoteFirmware } from '../../codegen/peripherals/webRemoteCpp'
+import { networkSourceIn } from '../../codegen/peripherals/networkCpp'
 import { dmxListenPort, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
 import { MIDI_BAUD, midiChannel, midiUsesUart } from '../../state/peripherals/midiSource'
 
@@ -33,6 +35,15 @@ export const INPUT_EMITTERS: NodeEmitters = {
   EncoderInput: controlInput,
   IRRemoteInput({ id, p, opts, irNodes }) {
     if (opts.aliasTerminalBuffer !== false) irNodes.push({ id, pin: sanitizePin(p.pin, 13), buttons: p.buttons, debug: p.debug === true })
+  },
+  // The phone page, its state and the server. The shared network itself is
+  // emitted once by generateCpp, since this node is one of its users.
+  WebRemoteInput({ id, p, ln, nodes, setupLines, globalLines }) {
+    const source = networkSourceIn(nodes)
+    const firmware = webRemoteFirmware(id, p, (source?.data.properties as Record<string, unknown> | undefined)?.wifiHostname)
+    globalLines.push(firmware.include, firmware.globals)
+    setupLines.push(...firmware.setup)
+    firmware.loop.forEach(ln)
   },
   MotionInput({ p, ln, v, pinSetupLines }) {
     // HC-SR501's OUT idles low and goes high on movement — the opposite

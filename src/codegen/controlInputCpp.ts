@@ -20,7 +20,8 @@ import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
 export interface ControlInputEmission {
   setup: string[]
   loop: string[]
-  outputs: Record<string, 'bool' | 'float'>
+  /** A colour is a self-contained CRGB the producer declares (a Web Remote Colour Picker). */
+  outputs: Record<string, 'bool' | 'float' | 'color'>
   /** File-scope helpers required by this input, deduped by the caller. */
   helpers?: string[]
   /** Headers needed by this input, deduped by the caller. */

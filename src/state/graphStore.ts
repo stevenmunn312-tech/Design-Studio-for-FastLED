@@ -58,6 +58,7 @@ import {
   normalizeDisplayDocuments,
   type DisplayDocument,
   type DisplayDocumentRegistry,
+  type DisplayWidgetProperty,
   type PlacedDisplayWidget,
 } from './displays/displayDocument'
 import {
@@ -107,6 +108,21 @@ import {
   updateIrRemoteButton as patchIrRemoteButton,
   type IrRemoteButton,
 } from './peripherals/irRemote'
+import {
+  appendWebRemoteControl,
+  isWebRemoteControlType,
+  MAX_WEB_REMOTE_CONTROLS,
+  normalizeWebRemoteControls,
+  patchWebRemoteControl,
+  WEB_REMOTE_NODE_TYPE,
+  webRemoteControlDataType,
+  webRemoteOutputs,
+  webRemotePortId,
+  webRemoteQuantize,
+  type WebRemoteControl,
+  type WebRemoteControlType,
+} from './peripherals/webRemote'
+import { forgetWebRemoteControl, writeWebRemoteControl } from './peripherals/webRemoteRuntime'
 import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './audio/stereoVuSizing'
 import { audioCapabilityIntent, type AudioCapabilityKind } from './audio/audioCapabilities'
 import {
@@ -476,6 +492,8 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // its edges already leave from are passed in as required, which is what
     // retains a mapping the save mangled — visibly invalid rather than absent,
     // so validation can name it and the wire survives to be repaired.
+    // A saved control list is bounded and cleaned before anything reads it.
+    if (nodeType === WEB_REMOTE_NODE_TYPE) properties.controls = normalizeWebRemoteControls(properties.controls)
     if (nodeType === 'IRRemoteInput') {
       properties.buttons = normalizeIrRemoteButtons(
         properties.buttons,
@@ -494,7 +512,9 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
         ? buttonBankOutputs(properties.buttons)
         : nodeType === 'IRRemoteInput'
           ? irRemoteOutputs(properties.buttons)
-          : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : []),
+          : nodeType === WEB_REMOTE_NODE_TYPE
+            ? webRemoteOutputs(properties.controls)
+            : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : []),
       Array.isArray(data.outputs) ? data.outputs : undefined,
     )
     // A hardware-only part is hidden wherever it came from — a template, an
@@ -3736,7 +3756,7 @@ export function connectTemplateControls(panelId: string): TemplateControlPlan & 
  * what happened rather than from what it asked for.
  */
 export type TouchControlOutcome =
-  | { ok: true; spec: TouchControlSpec; placed: boolean }
+  | { ok: true; spec: TouchControlSpec; placed: boolean; remote?: boolean }
   | { ok: false; refusal: TouchControlRefusal }
 
 /**
@@ -3880,6 +3900,169 @@ export function connectTouchControl(
   }
 
   return { ok: true, spec: plan.spec, placed }
+}
+
+/*
+ * The Web Remote's control list, edited where the node lives.
+ *
+ * The node is usually on the root canvas, but an edit made while a pattern
+ * group is open still has to reach it, so the open graph is asked first and
+ * the root second. Outputs are re-derived in the same write, so a port and
+ * its wires change together.
+ */
+function editWebRemoteIn(
+  state: { nodes: StudioNode[]; edges: StudioEdge[]; graphData: Record<string, GraphContent> },
+  nodeId: string,
+  edit: (controls: WebRemoteControl[]) => WebRemoteControl[],
+  edgesOf: (edges: StudioEdge[]) => StudioEdge[] = (edges) => edges,
+): Partial<GraphState> {
+  const apply = (content: GraphContent): GraphContent => ({
+    nodes: content.nodes.map((node) => {
+      if (node.id !== nodeId || node.data.nodeType !== WEB_REMOTE_NODE_TYPE) return node
+      const properties = node.data.properties as Record<string, unknown>
+      const controls = normalizeWebRemoteControls(edit(normalizeWebRemoteControls(properties.controls)))
+      return { ...node, data: { ...node.data, properties: { ...properties, controls }, outputs: webRemoteOutputs(controls) } }
+    }),
+    edges: edgesOf(content.edges),
+  })
+  if (state.nodes.some((node) => node.id === nodeId)) return apply({ nodes: state.nodes, edges: state.edges })
+  const root = state.graphData[ROOT_GRAPH_ID]
+  if (!root?.nodes.some((node) => node.id === nodeId)) return {}
+  return { graphData: { ...state.graphData, [ROOT_GRAPH_ID]: apply(root) } }
+}
+
+/** Add a control of a type from the node's own menu. Null when the remote is full. */
+export function addWebRemoteControl(nodeId: string, type: WebRemoteControlType): string | null {
+  let added: string | null = null
+  useGraphStore.setState((s) => editWebRemoteIn(s, nodeId, (controls) => {
+    const result = appendWebRemoteControl(controls, type)
+    added = result.added?.id ?? null
+    return result.controls
+  }))
+  return added
+}
+
+/** Rename or reconfigure one control; its id, and so its wires, stay. */
+export function updateWebRemoteControl(
+  nodeId: string,
+  controlId: string,
+  patch: { label?: string; properties?: Record<string, DisplayWidgetProperty> },
+): void {
+  useGraphStore.setState((s) => editWebRemoteIn(s, nodeId, (controls) => patchWebRemoteControl(controls, controlId, patch)))
+}
+
+/** Remove a control and the wires leaving it, in one undo step. */
+export function removeWebRemoteControl(nodeId: string, controlId: string): void {
+  const port = webRemotePortId(controlId)
+  useGraphStore.setState((s) => editWebRemoteIn(
+    s,
+    nodeId,
+    (controls) => controls.filter((control) => control.id !== controlId),
+    (edges) => edges.filter((edge) => !(edge.source === nodeId && edge.sourceHandle === port)),
+  ))
+  forgetWebRemoteControl(nodeId, controlId)
+}
+
+/**
+ * Create a Web Remote control by wiring it: the Touch node's gesture, with
+ * the phone page as the screen.
+ *
+ * The control is derived from the property exactly as a touch control is
+ * (`touchControlPlan`, including its refusal of a second control on one
+ * value), added to the remote and wired in one `set`, so one undo removes
+ * both. There is no placement step: the page lists every control.
+ */
+export function connectWebRemoteControl(
+  remoteNodeId: string,
+  targetId: string,
+  targetPort: string,
+): TouchControlOutcome {
+  const state = useGraphStore.getState()
+  const remote = state.nodes.find((node) => node.id === remoteNodeId)
+  const target = state.nodes.find((node) => node.id === targetId)
+  if (!remote || remote.data.nodeType !== WEB_REMOTE_NODE_TYPE || !target) {
+    return { ok: false, refusal: { code: 'not-a-property-input', message: 'That control has nothing to connect from.' } }
+  }
+  const existing = normalizeWebRemoteControls((remote.data.properties as Record<string, unknown>).controls)
+  if (existing.length >= MAX_WEB_REMOTE_CONTROLS) {
+    return {
+      ok: false,
+      refusal: {
+        code: 'not-a-property-input',
+        message: `This Web Remote already has ${MAX_WEB_REMOTE_CONTROLS} controls, the most one page holds.`,
+      },
+    }
+  }
+  const driven = state.edges.some((edge) => edge.target === targetId && edge.targetHandle === targetPort)
+  const plan = touchControlPlan(
+    target.data.nodeType, targetPort, target.data.properties as Record<string, unknown>, driven)
+  if (!plan.ok) return plan
+  if (!isWebRemoteControlType(plan.spec.type)) {
+    return { ok: false, refusal: { code: 'unsupported-type', message: `A Web Remote has no ${plan.spec.type} control.` } }
+  }
+  const appended = appendWebRemoteControl(existing, plan.spec.type, plan.spec.label, plan.spec.properties)
+  const control = appended.added
+  if (!control) {
+    return { ok: false, refusal: { code: 'not-a-property-input', message: 'This Web Remote has no room for another control.' } }
+  }
+  const sourceHandle = webRemotePortId(control.id)
+
+  useGraphStore.setState((s) => {
+    // Draw the socket the wire lands on, as the touch path does.
+    const current = normalizeExposedInputs(target.data.nodeType, target.data.exposedInputs)
+    const expose = exposableInputsFor(target.data.nodeType).some((port) => port.id === targetPort)
+      && !current.includes(targetPort)
+    const exposedInputs = expose ? normalizeExposedInputs(target.data.nodeType, [...current, targetPort]) : null
+    const nodes = s.nodes.map((node) => {
+      if (node.id === targetId && exposedInputs) return { ...node, data: { ...node.data, exposedInputs } }
+      if (node.id !== remoteNodeId) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          properties: { ...(node.data.properties as Record<string, unknown>), controls: appended.controls },
+          outputs: webRemoteOutputs(appended.controls),
+        },
+      }
+    })
+    const edges = [...s.edges, {
+      id: `remote-${remoteNodeId}-${control.id}-${targetId}-${targetPort}`,
+      source: remoteNodeId,
+      sourceHandle,
+      target: targetId,
+      targetHandle: targetPort,
+      type: 'glowEdge',
+      reconnectable: 'target',
+      style: { stroke: portColor(webRemoteControlDataType(control.type)) },
+    } as unknown as StudioEdge]
+    return { nodes, edges }
+  })
+
+  // Start where the property already is, so wiring does not jump the effect.
+  const propertyKey = controllableInputsFor(target.data.nodeType)
+    .find((port) => port.id === targetPort)?.propertyKey
+  const value = propertyKey ? (target.data.properties as Record<string, unknown>)[propertyKey] : undefined
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    writeWebRemoteControl(remoteNodeId, control.id, webRemoteQuantize(control, value))
+  }
+  return { ok: true, spec: plan.spec, placed: false, remote: true }
+}
+
+/**
+ * The wire-first gesture from either control host: a Touch node mints a
+ * screen widget, a Web Remote a phone control. Both canvas drop paths ask
+ * this rather than choosing the host themselves.
+ */
+export function connectWireFirstControl(
+  sourceNodeId: string,
+  targetId: string,
+  targetPort: string,
+  options: { placeOnVisibleScreen?: boolean } = {},
+): TouchControlOutcome {
+  const source = useGraphStore.getState().nodes.find((node) => node.id === sourceNodeId)
+  return source?.data.nodeType === WEB_REMOTE_NODE_TYPE
+    ? connectWebRemoteControl(sourceNodeId, targetId, targetPort)
+    : connectTouchControl(sourceNodeId, targetId, targetPort, options)
 }
 
 /**
@@ -4257,6 +4440,7 @@ function editNodeIn(
         ...n.data,
         properties,
         ...(n.data.nodeType === 'ButtonBank' ? { outputs: buttonBankOutputs(properties.buttons) } : {}),
+        ...(n.data.nodeType === WEB_REMOTE_NODE_TYPE ? { outputs: webRemoteOutputs(properties.controls) } : {}),
       },
     }
   })

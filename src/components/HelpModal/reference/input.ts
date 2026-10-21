@@ -1,5 +1,6 @@
 import { irRemoteButtonHandle } from '../../../state/peripherals/irRemote'
 import { buttonBankHandle } from '../../../state/player/buttonBank'
+import { webRemotePortId } from '../../../state/peripherals/webRemote'
 import { example, RING, STRIP } from './example'
 import type { NodeReferenceMap } from './types'
 
@@ -283,6 +284,45 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       ],
       explanation: 'IR Remote has two learned keys. Each press is a pulse, so Step Value turns the pulses into a held number that Speed + raises and Speed − lowers, and that number sets how fast Juggle’s dots swing.',
       preview: 'The {output} shows six dots juggling at middle speed. Click Speed + on the IR Remote node to speed them up, and hold Speed − to slow them to a drift.',
+    }),
+  },
+
+  WebRemoteInput: {
+    overview: [
+      'Web Remote turns a phone into a control panel. The board serves a small page over Wi-Fi with a button, switch, slider, step keys, a row of choices or a colour strip for each control you add, and each control is an output of this node.',
+      'Drag from Add control… onto a property row and the right control is made for it, named and ranged after the property and starting at its current value, exactly as a touch screen control is. Or pick a control type from the Add menu and wire it yourself.',
+      'In the preview, operate the controls on the node, or open Phone preview to use the very page the board will serve. Buttons are true while held; the others keep their value until changed.',
+    ],
+    steps: [
+      'Add a control for each thing you want to change from the phone.',
+      'Enter the Wi-Fi network in the body and upload to an ESP32 or ESP8266.',
+      'On a phone on the same network, open the address shown at the top of the node, or the board’s IP address.',
+    ],
+    outputs: {
+      'add-control': 'Drag from here onto a property row to make a control for that property, already wired to it.',
+    },
+    propertyNote: 'Each control’s name, type and range are edited in the body; every control becomes an output port. The page title, hostname and addressing are the node’s own settings, and the Wi-Fi name and password stay in this browser.',
+    example: example({
+      featured: 'WebRemoteInput',
+      title: 'A phone that sets colour and brightness',
+      nodes: {
+        remote: ['WebRemoteInput', {
+          title: 'Shelf lights',
+          controls: [
+            { id: 'colour', type: 'Colour Picker', label: 'Colour', properties: { initial: 200, saturation: 1, brightness: 1 } },
+            { id: 'level', type: 'Slider', label: 'Brightness', properties: { min: 0, max: 1, step: 0.01, initial: 0.6 } },
+          ],
+        }],
+        fill: ['SolidColor', {}],
+        dim: ['BrightnessMod', {}],
+      },
+      wires: [
+        `remote.${webRemotePortId('colour')} > fill.color`,
+        'fill.frame > dim.frame',
+        `remote.${webRemotePortId('level')} > dim.brightness`,
+      ],
+      explanation: 'The Web Remote has a Colour Picker and a Slider. The colour fills the LEDs and the slider sets how bright they are, so the phone page reads as a colour strip above a brightness slider.',
+      preview: 'The {output} glows sky blue at a little over half brightness. Drag the colour strip on the node, or in Phone preview, and the LEDs follow; slide Brightness down to dim them.',
     }),
   },
 

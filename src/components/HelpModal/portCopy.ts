@@ -17,7 +17,7 @@ export const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
   field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', transitionset: '⇄', storage: '▤',
   playercontrols: '⌘', playerparticles: '✦', display: '▭',
-  string: '≡',
+  string: '≡', newcontrol: '+',
 }
 
 /**
@@ -43,4 +43,5 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   playercontrols: 'a bundle of transport commands and normalized volume/brightness values, read by Music Player or by an LED output',
   playerparticles: 'the beat-particle overlay style and intensity configuration',
   string: 'a bounded line of display text',
+  newcontrol: 'an invitation rather than a signal: drag it onto a property row to make a control for that property',
 }

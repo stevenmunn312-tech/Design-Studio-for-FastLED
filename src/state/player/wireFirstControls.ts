@@ -23,6 +23,10 @@ import { placeDisplayWidget } from '../displays/displayEditor'
 import type { StudioEdge, StudioNode } from '../graphStore'
 import { useDisplayRuntimeStore } from '../displays/displayRuntimeStore'
 import { displayRuntimeId } from '../displays/mountedDisplays'
+import {
+  normalizeWebRemoteControls, parseWebRemotePortId, WEB_REMOTE_NODE_TYPE, webRemoteQuantize,
+} from '../peripherals/webRemote'
+import { writeWebRemoteControl } from '../peripherals/webRemoteRuntime'
 
 /**
  * What a touch control should be, read off the property it will drive.
@@ -309,6 +313,45 @@ export function writeTouchControlValue(
   const store = useDisplayRuntimeStore.getState()
   store.touchDisplayWidget(displayId, widgetId, state)
   store.releaseDisplayWidget(displayId, widgetId)
+}
+
+/**
+ * Whether a wire's source port is a control that also lives in this app — a
+ * screen widget's `out` or a Web Remote control — so the property it drives
+ * stays editable as a remote for it rather than locking like a pot's row.
+ */
+export function isControlDriverPort(sourcePort: string | null | undefined): boolean {
+  return parseDisplayWidgetPortId(sourcePort ?? '')?.role === 'out' || parseWebRemotePortId(sourcePort) !== null
+}
+
+/**
+ * Write a value typed into a driven property row back to the control driving
+ * it: the screen widget through `writeTouchControlValue`, or the Web Remote
+ * control, clamped and snapped as a phone would set it. A colour moves a
+ * picker to its hue in either host.
+ */
+export function writeControlDriverValue(
+  source: { srcId: string; srcPort: string } | undefined,
+  nodes: readonly StudioNode[],
+  value: unknown,
+): void {
+  if (!source) return
+  const touch = touchControlDriver(source, nodes)
+  if (touch) {
+    writeTouchControlValue(touch.displayId, touch.widgetId, value)
+    return
+  }
+  const controlId = parseWebRemotePortId(source.srcPort)
+  const remote = controlId ? nodes.find((node) => node.id === source.srcId) : undefined
+  if (!controlId || remote?.data.nodeType !== WEB_REMOTE_NODE_TYPE) return
+  const control = normalizeWebRemoteControls((remote.data.properties as Record<string, unknown>).controls)
+    .find((entry) => entry.id === controlId)
+  if (!control) return
+  const state = isHexColor(value) ? displayColorHue(hexToRgb(value))
+    : isDisplayRgb(value) ? displayColorHue(value)
+      : value
+  if (typeof state !== 'number' && typeof state !== 'boolean') return
+  writeWebRemoteControl(remote.id, control.id, webRemoteQuantize(control, state))
 }
 
 /**

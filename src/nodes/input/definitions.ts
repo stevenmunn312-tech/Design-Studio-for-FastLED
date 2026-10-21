@@ -7,6 +7,7 @@ import { NO_PIN } from '../../build/boards/boardGpio'
 import { HCSR04_PART_ID, VL53L0X_PART_ID, distanceSensorSpec, formatDistanceSensorAddress } from '../../state/peripherals/distanceSensor'
 import { BME280_DEFAULT_ADDRESS, BME280_PART_ID, formatEnvironmentAddress } from '../../state/peripherals/environmentSensor'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
+import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE, TOUCH_CONTROL_ADD_LABEL } from '../../state/displays/displayRegistry'
 import { JOYSTICK_DEFAULT_DEADZONE, KY023_PART_ID } from '../../state/peripherals/joystick'
 import { KEYPAD_PART_ID } from '../../state/peripherals/keypad'
 import { BH1750_DEFAULT_ADDRESS, DEFAULT_LIGHT_SENSOR_PART_ID, LIGHT_SENSOR_DEFAULT_MAX_LUX, formatLightSensorAddress } from '../../state/peripherals/lightSensor'
@@ -176,6 +177,35 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     inputs: [],
     outputs: [{ id: IR_REMOTE_LEARN_HANDLE, label: 'Map IR remote buttons', dataType: 'bool' }],
     defaultProperties: { pin: 13, buttons: [], debug: false },
+  },
+  {
+    /*
+     * A phone control page the board serves over Wi-Fi.
+     *
+     * Its outputs are its controls, derived from `controls` the way a Button
+     * Bank derives its own, with the trailing socket inviting the next. Each
+     * control is a custom-screen control widget (Button, Toggle, Slider, Step
+     * Control, Choice Strip, Colour Picker) and keeps that widget's meaning,
+     * so dragging the socket onto a property row mints the same control a
+     * Touch node would. It is a network user like Art-Net, so it carries the
+     * same hostname and addressing fields and shares the one connection.
+     * See docs/design/web-remote.md.
+     */
+    type: 'WebRemoteInput',
+    label: 'Web Remote',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: TOUCH_CONTROL_ADD_HANDLE, label: TOUCH_CONTROL_ADD_LABEL, dataType: TOUCH_CONTROL_ADD_DATA_TYPE }],
+    defaultProperties: {
+      controls: [],
+      title: 'LED Remote',
+      wifiHostname: 'fastled-remote',
+      useDhcp: true,
+      staticIp: '',
+      staticGateway: '',
+      staticSubnet: '255.255.255.0',
+      staticDns: '',
+    },
   },
   {
     // HC-SR501 PIR module. One digital line that goes high while it sees
@@ -544,6 +574,7 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   TouchInput: 'The touch surface of a Display Panel, as controls.',
   ButtonBank: 'Grows named hardware-button outputs as you connect them.',
   IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
+  WebRemoteInput: 'A phone control page served over Wi-Fi: buttons, switches, sliders and colours.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
   PresenceInput: 'Reads a radar presence sensor: someone there, moving or still, and how far away.',
   LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',

@@ -14,6 +14,7 @@ import { COLOR_CONTROL_NODES, colorControlCpp } from './colorControlCpp'
 import { TIMED_CONTROL_NODES, timedControlCpp } from './signalControlCpp'
 import { RTC_CONTROL_OUTPUTS, rtcControlEmission, rtcTimeSource } from './peripherals/rtcInputCpp'
 import { RTC_CPP_FORWARD } from './peripherals/rtcCpp'
+import { webRemoteControlEmission } from './peripherals/webRemoteCpp'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
 import { KELVIN_TO_RGB_CPP } from './helpers/kelvinCpp'
 
@@ -73,7 +74,12 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
       ? TIMED_CONTROL_NODES[node.data.nodeType] : undefined
     const rtc = node.data.nodeType === 'RTCInput'
     const clock = node.data.nodeType === 'TimeNode'
-    const gpio = scalar || clock || color || timed || rtc ? null : controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
+    // A Web Remote reads the whole graph for the shared network, so it is
+    // built here rather than by `controlInputCpp`, which sees one node.
+    const remote = node.data.nodeType === 'WebRemoteInput'
+      ? webRemoteControlEmission(safeId(node.id), node.data.properties, nodes) : null
+    const gpio = scalar || clock || color || timed || rtc ? null
+      : remote ?? controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
     const sample = samples.get(JSON.stringify([nodeId, port]))
     const outputs: Readonly<Record<string, ControlDataType>> = clock ? TIME_CONTROL_OUTPUTS
       : scalar ? { [scalar.port]: scalar.type }

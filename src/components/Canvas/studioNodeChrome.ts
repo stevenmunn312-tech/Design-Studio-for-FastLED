@@ -44,6 +44,7 @@ export const NODE_WIDTH_OVERRIDES: Record<string, number> = {
   Expression: 320,
   PerformanceGenerator: 300,
   IRRemoteInput: 300,
+  WebRemoteInput: 300,
   Comment: 260,
   ColorTrails: 280,
   PatternMaster: 280,

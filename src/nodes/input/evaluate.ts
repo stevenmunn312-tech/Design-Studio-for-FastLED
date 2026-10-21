@@ -62,6 +62,8 @@ import { tftControllerForProps } from '../../state/nodeLibrary'
 import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../../build/storageCapabilities'
 import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
+import { normalizeWebRemoteControls, webRemoteControlOutput, webRemotePortId, webRemoteStartState } from '../../state/peripherals/webRemote'
+import { sampleWebRemoteControl } from '../../state/peripherals/webRemoteRuntime'
 import { clamp01 } from '../../state/evaluator/frames'
 import { markStateUsed, stateClock, instanceState } from '../../state/evaluator/memory'
 import { blankPlayerControls } from '../../state/evaluator/signals'
@@ -318,6 +320,15 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     return Object.fromEntries(buttons.map((button) => [
       buttonBankHandle(button.id),
       live.get(`${id}:${button.id}`) ?? false,
+    ]))
+  },
+  // What the node's mini remote and the phone preview have set, read through
+  // the same start values, ranges and colours as the screen widgets. A press
+  // that went down and up between two passes still reads true once.
+  WebRemoteInput(_c, id, props) {
+    return Object.fromEntries(normalizeWebRemoteControls(props.controls).map((control) => [
+      webRemotePortId(control.id),
+      webRemoteControlOutput(control, sampleWebRemoteControl(id, control.id, webRemoteStartState(control))) as PortValue,
     ]))
   },
   IRRemoteInput({ stateKey }, id, props) {

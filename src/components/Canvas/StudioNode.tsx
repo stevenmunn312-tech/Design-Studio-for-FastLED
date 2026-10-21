@@ -39,6 +39,7 @@ import AudioCapabilityBody from './bodies/AudioCapabilityBody'
 import StorageCapabilityBody from './bodies/StorageCapabilityBody'
 import HardwareInputBody from './bodies/HardwareInputBody'
 import ButtonBankBody from './bodies/ButtonBankBody'
+import WebRemoteBody from './bodies/WebRemoteBody'
 import IRRemoteBody from './bodies/IRRemoteBody'
 import PlayerControlsBody from './bodies/PlayerControlsBody'
 import MidiInputBody from './bodies/MidiInputBody'
@@ -47,6 +48,7 @@ import DdpInputBody from './bodies/DdpInputBody'
 import RtcInputBody from './bodies/RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { buttonBankOutputs } from '../../state/player/buttonBank'
+import { webRemoteOutputs } from '../../state/peripherals/webRemote'
 import { partDerivedInputs } from '../../build/parts/partPorts'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -80,8 +82,8 @@ import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 import {
   controllableInputsFor, exposableInputsFor, exposedNodeInputs, labelledForPart, propertyInputsFor,
 } from '../../state/propertyInputs'
-import { parseDisplayWidgetPortId, TOUCH_CONTROL_ADD_HANDLE } from '../../state/displays/displayRegistry'
-import { touchControlDriver, touchControlPlan, writeTouchControlValue } from '../../state/player/wireFirstControls'
+import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displays/displayRegistry'
+import { isControlDriverPort, touchControlPlan, writeControlDriverValue } from '../../state/player/wireFirstControls'
 import PropertyInputMenu from './PropertyInputMenu'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../nodes/shared/signalRange'
@@ -208,11 +210,13 @@ function connectionTargetHint(
     const place = drag.canPlaceOnVisibleScreen
       ? ' Hold Ctrl/Cmd to place it on the screen you are watching.'
       : ''
+    // A Web Remote's control goes on its phone page, which has no placement.
+    const where = drag.sourceNodeType === 'WebRemoteInput' ? ' on the phone remote' : ''
     return plan.ok
       ? {
           kind: 'compatible',
-          title: `Creates a ${plan.spec.type} for ${plan.spec.label}.${place}`,
-          aria: `Creates a ${plan.spec.type} control for ${plan.spec.label}.${place}`,
+          title: `Creates a ${plan.spec.type} for ${plan.spec.label}${where}.${place}`,
+          aria: `Creates a ${plan.spec.type} control for ${plan.spec.label}${where}.${place}`,
         }
       : { kind: 'blocked', title: plan.refusal.message, aria: plan.refusal.message }
   }
@@ -604,9 +608,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         // as a slider driving a number row is: picking moves the picker to
         // that hue and keeps the colour as the disconnect restore.
         const touchSource = wired ? sourceMap.get('color') : undefined
-        const drivenByTouchWidget = Boolean(
-          touchSource && parseDisplayWidgetPortId(touchSource.srcPort)?.role === 'out',
-        )
+        const drivenByTouchWidget = Boolean(touchSource && isControlDriverPort(touchSource.srcPort))
         return (
           <div
             className={`${styles.propRow}${wired ? ` ${styles.wired}` : ''}`}
@@ -625,10 +627,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
               aria-label={`${nodeLabel} color`}
               onChange={(e) => {
                 const rgb = hexToRgb(e.target.value)
-                const driver = drivenByTouchWidget
-                  ? touchControlDriver(touchSource, useGraphStore.getState().nodes)
-                  : null
-                if (driver) writeTouchControlValue(driver.displayId, driver.widgetId, rgb)
+                if (drivenByTouchWidget) writeControlDriverValue(touchSource, useGraphStore.getState().nodes, rgb)
                 updateNodeProperties(nodeId, rgb)
               }}
             />
@@ -644,9 +643,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const controlLabel = displayLabel
         const wired = drivenBy(key)
         const touchSource = wired ? sourceMap.get(portFor(key)) : undefined
-        const drivenByTouchWidget = Boolean(
-          touchSource && parseDisplayWidgetPortId(touchSource.srcPort)?.role === 'out',
-        )
+        const drivenByTouchWidget = Boolean(touchSource && isControlDriverPort(touchSource.srcPort))
         // A property may be inapplicable to the current variant (e.g. a
         // Transition's `direction` outside wipe): shown but disabled.
         const gated = !isPropertyEnabled(nodeType, key, props)
@@ -655,10 +652,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const writeValue = (value: unknown) => {
           // A number or a boolean is the control's own state; a colour moves
           // a Colour Picker to its hue (`writeTouchControlValue`).
-          if (drivenByTouchWidget && touchSource) {
-            const driver = touchControlDriver(touchSource, useGraphStore.getState().nodes)
-            if (driver) writeTouchControlValue(driver.displayId, driver.widgetId, value)
-          }
+          if (drivenByTouchWidget) writeControlDriverValue(touchSource, useGraphStore.getState().nodes, value)
           updateNodeProperty(nodeId, key, value)
           // A panel first set to Custom design gets its design there and then,
           // so the choice never leaves the glass with nothing to draw.
@@ -1198,12 +1192,14 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     return orderPorts(
       (d.nodeType === 'ButtonBank'
         ? buttonBankOutputs(rawProps.buttons)
-        : hasDerivedDisplayPorts(d.nodeType)
+        : d.nodeType === 'WebRemoteInput'
+          ? webRemoteOutputs(rawProps.controls)
+          : hasDerivedDisplayPorts(d.nodeType)
           ? d.outputs ?? def?.outputs ?? []
           : def?.outputs ?? d.outputs ?? []) as PortDef[],
       savedOutputs,
     ).filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))
-  }, [d.nodeType, d.outputs, def?.outputs, rawProps.buttons, savedOutputs, wiredOutputsKey])
+  }, [d.nodeType, d.outputs, def?.outputs, rawProps.buttons, rawProps.controls, savedOutputs, wiredOutputsKey])
 
   // Which of this node's input ports are wired, and to which upstream port. When
   // a port is wired the evaluator ignores the matching property, so a pot or
@@ -1241,7 +1237,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const inputs = activeInputs.filter((port) => alwaysDrawnInputs.includes(port) || exposedActionIds.has(port.id))
   const compactInputs = [...alwaysDrawnInputs, ...exposedInputs]
   const portLayoutKey = `${compactInputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
-  const rowCount = d.nodeType === 'ButtonBank' || d.nodeType === 'IRRemoteInput'
+  const rowCount = d.nodeType === 'ButtonBank' || d.nodeType === 'IRRemoteInput' || d.nodeType === 'WebRemoteInput'
     ? 0
     : Math.max(inputs.length, outputs.length)
   const paletteEditorLiveJson = usePreviewStore((s) => {
@@ -1677,6 +1673,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} partId={props.partId} maxLux={props.maxLux} deadzone={props.deadzone} />}
         {d.nodeType === 'ButtonBank' && <ButtonBankBody nodeId={id} />}
         {d.nodeType === 'IRRemoteInput' && <IRRemoteBody nodeId={id} />}
+        {d.nodeType === 'WebRemoteInput' && <WebRemoteBody nodeId={id} />}
         {d.nodeType === 'ControlMap' && <PlayerControlsBody nodeId={id} />}
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'DdpInput' && <DdpInputBody nodeId={id} />}

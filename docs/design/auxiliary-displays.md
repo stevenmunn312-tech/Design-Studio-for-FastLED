@@ -778,7 +778,7 @@ path, so they join v1 ahead of the HW-18 save-format freeze.
 
 **Pulled into v1 on 2026-10-21** (root todo, D-02): multiple screens and
 navigation, charts and waveform/spectrum histories, on-device text entry,
-remote/network UI, size and density limits from each display's real
+remote/network UI ([Web Remote](web-remote.md)), size and density limits from each display's real
 capabilities, and Show Status artwork from the Slideshow's collection. Each
 needs new plumbing (a new document shape, a firmware data feed, text storage or
 networking), so each lands before the HW-18 save-format freeze.

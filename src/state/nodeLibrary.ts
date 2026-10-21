@@ -294,6 +294,8 @@ export const PORT_COLORS: Record<string, string> = {
   playercontrols: '#ff8a65',
   playerparticles: '#ce93d8',
   string: '#ff7bb0',
+  // The "Add control…" invitation: neutral, since it carries no signal.
+  newcontrol: '#9aa0a6',
 }
 
 /** Colour for a port's data type (used to tint node handles). */
@@ -2305,6 +2307,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     dmxRxPin: 'GPIO from the transceiver RO pin, where DMX data arrives.',
     dmxEnablePin: 'GPIO to the transceiver DE/RE pins; held low so the board only listens.',
   },
+  WebRemoteInput: {
+    controls: 'The remote\'s controls, each with a name and a type, edited in the body. Every control becomes an output port.',
+    title: 'Heading of the phone page and its browser tab.',
+    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens. The page is also at this name followed by .local.',
+    useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
+    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
+    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
+    staticSubnet: 'Network mask, almost always 255.255.255.0.',
+    staticDns: 'Name server address; leave empty to use the gateway.',
+  },
   DdpInput: {
     previewPort: 'UDP port the local helper and the firmware listen on for DDP packets. 4048 is the protocol\'s port.',
     wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
@@ -3625,6 +3637,15 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     dmxRxPin: 'RX pin',
     dmxEnablePin: 'enable pin',
   },
+  WebRemoteInput: {
+    title: 'page title',
+    wifiHostname: 'hostname',
+    useDhcp: 'use DHCP',
+    staticIp: 'static IP',
+    staticGateway: 'gateway',
+    staticSubnet: 'subnet mask',
+    staticDns: 'DNS',
+  },
   DdpInput: {
     previewPort: 'UDP port',
     wifiHostname: 'hostname',
@@ -3787,7 +3808,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
-  'DMXInput', 'DMXChannel', 'RTCInput',
+  'DMXInput', 'DMXChannel', 'RTCInput', 'WebRemoteInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
 ])
 
@@ -3905,6 +3926,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   DdpInput: [
     { key: 'source', label: 'Listener', keys: ['previewPort'] },
+    { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
+  ],
+  WebRemoteInput: [
+    { key: 'page', label: 'Page', keys: ['title'] },
     { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
   ],
   StreamOutput: [
@@ -4845,7 +4870,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'TransportDisplay' && TFT_PIN_PROPERTIES.has(key)) {
     return transportDisplayPinKeysForProps(properties).includes(key)
   }
-  if (nodeType === 'DdpInput') {
+  if (nodeType === 'DdpInput' || nodeType === 'WebRemoteInput') {
     if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
       return properties.useDhcp === false
     }

@@ -164,7 +164,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `connectionTargetHint` (`StudioNode.tsx`) and `onConnectEnd`
   (`NodeGraphCanvas`) must branch on that handle and run `touchControlPlan`
   instead of comparing port types, or a valid drag onto any property row reads
-  as blocked ("newcontrol cannot connect to float"). A control minted this way
+  as blocked ("newcontrol cannot connect to float"). The same socket id and type
+  also end a Web Remote, so both drop paths call `connectWireFirstControl`
+  (`graphStore.ts`), which picks the host by node type: a Touch node mints a
+  widget through `connectTouchControl`, a Web Remote a phone control through
+  `connectWebRemoteControl`, both from one `touchControlPlan`. A row driven by
+  either host stays a remote for it through `isControlDriverPort` and
+  `writeControlDriverValue` (`wireFirstControls.ts`), never a host-specific
+  port check. A control minted this way
   still has no `bounds`, so the designer's **Connected group** is exactly
   `document.widgets` with no bounds — a derived view, not a second registry,
   since placing one out of the group is the only thing that removes it from that

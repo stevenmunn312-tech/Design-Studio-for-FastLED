@@ -488,6 +488,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and one that does (a DIN jack on a UART) share the MIDI node:
   `midiUsesUart` (`state/peripherals/midiSource.ts`) is what the emitter,
   the preview-only warning, the pin walk and the row gating ask.
+  The Web Remote joined the network users through `usesNetwork` alone, and
+  `validateGraph.ts`'s three copies of the old predicate now ask it too, with
+  only the Web Remote excluded where it reports its own board finding.
 - A merged node keeps each old node's behaviour as a select value rather
   than a lookalike: Fire's `fire2012` style runs the Fire2012 algorithm, Noise's
   `fbm` and `gabor` types the old Fractal and Gabor Noise, Shape Field's

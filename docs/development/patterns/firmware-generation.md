@@ -314,7 +314,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   string: the control graph dedupes includes by element, and a per-line block
   would lose its second `#endif` against another block's. Every NTP clock in a
   graph emits identical blocks (settings from `networkSourceIn`), which is what
-  lets that dedupe leave exactly one bootstrap.
+  lets that dedupe leave exactly one bootstrap. The Web Remote's
+  server (`webRemoteCpp.ts`) is the same shape: the normal sketch pushes its
+  include and globals itself, and `webRemoteControlEmission` hands the control
+  graph the network blocks plus its own, so a show or player starts the same
+  link. Authored text reaches its page HTML-escaped and the page reaches C++
+  one `cppStringLiteral` per line; a value derived from a hue is returned
+  packed in a `uint32_t` rather than as a `CRGB`, so no generated function
+  returns a FastLED type the `.ino` prototype hoist would move above the
+  include. See [Web Remote](../../design/web-remote.md).
 
 - A clocked chipset's data rate reaches C++ only as `DATA_RATE_MHZ(n)` after
   the colour order in `fastledSetupCpp`'s `addLeds`, and only when `n` is in

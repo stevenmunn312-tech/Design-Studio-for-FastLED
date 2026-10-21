@@ -60,6 +60,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![IR Remote example graph](../../public/node-cards/graphs/ir-remote-input.svg)
 
+### Web Remote
+
+![Web Remote node](../../public/node-cards/web-remote-input.svg)
+
+![Web Remote example graph](../../public/node-cards/graphs/web-remote-input.svg)
+
 ### Motion Sensor
 
 ![Motion Sensor node](../../public/node-cards/motion-input.svg)

@@ -28,7 +28,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { MINIMAP_WIDTH, minimapFitsField } from './minimapFit'
 import { useShallow } from 'zustand/react/shallow'
-import { connectTouchControl, ROOT_GRAPH_ID, useGraphStore } from '../../state/graphStore'
+import { connectWireFirstControl, ROOT_GRAPH_ID, useGraphStore } from '../../state/graphStore'
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displays/displayRegistry'
 import { touchControlDisplayId } from '../../state/player/wireFirstControls'
 import type { StudioEdge, StudioNode as StudioGraphNode } from '../../state/graphStore'
@@ -177,8 +177,9 @@ function isTouchControlPlaceable(nodes: readonly StudioGraphNode[], sourceNodeId
 
 /** What a wired control did, said once for both drop paths. */
 function touchControlAddedStatus(
-  outcome: { spec: { label: string }; placed: boolean },
+  outcome: { spec: { label: string }; placed: boolean; remote?: boolean },
 ): string {
+  if (outcome.remote) return `${outcome.spec.label} control added to the Web Remote's phone page`
   return outcome.placed
     ? `${outcome.spec.label} control placed on the screen — drag it in Edit design`
     : `${outcome.spec.label} control added — place it in the screen designer`
@@ -716,7 +717,7 @@ function NodeGraphCanvasInner() {
           // property can take rather than by port compatibility — its own type
           // deliberately matches nothing.
           if (origin.handleId === TOUCH_CONTROL_ADD_HANDLE) {
-            const plan = connectTouchControl(
+            const plan = connectWireFirstControl(
               origin.nodeId, property.nodeId, property.portId,
               { placeOnVisibleScreen: placementModifier(event) },
             )
@@ -755,7 +756,7 @@ function NodeGraphCanvasInner() {
        * on the row, works.
        */
       if (origin?.handleId === TOUCH_CONTROL_ADD_HANDLE && state?.toHandle?.nodeId) {
-        const plan = connectTouchControl(
+        const plan = connectWireFirstControl(
           origin.nodeId, state.toHandle.nodeId, state.toHandle.id ?? '',
           { placeOnVisibleScreen: placementModifier(event) },
         )

@@ -97,8 +97,8 @@ import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
-import { dmxUsesNetwork } from '../state/peripherals/dmxTransceiver'
-import { streamUsesNetwork } from '../nodes/output/frameStream'
+import { usesNetwork } from '../codegen/peripherals/networkCpp'
+import { WEB_REMOTE_NODE_TYPE, fqbnHasWifi, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
 import { midiUsesUart } from '../state/peripherals/midiSource'
 import {
@@ -1462,13 +1462,9 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   ) && !selectedFqbn.startsWith('esp32:')) {
     errors.push('DMX512 firmware input requires an ESP32-family board because the generated sketch uses esp_dmx')
   }
-  if (selectedFqbn && nodes.some((node) => {
-    const props = node.data.properties as Record<string, unknown>
-    return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
-      || node.data.nodeType === 'DdpInput'
-      || (node.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
-      || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
-  }) && !ethernetModuleIn(nodes) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
+  // The Web Remote names its board in its own finding (webRemoteValidationIssues).
+  if (selectedFqbn && nodes.some((node) => usesNetwork(node) && node.data.nodeType !== WEB_REMOTE_NODE_TYPE)
+    && !ethernetModuleIn(nodes) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
     errors.push('Art-Net, sACN, DDP and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
   }
   /*
@@ -1608,6 +1604,7 @@ export function findDeployBlockingErrors(
     ...findDfPlayerErrors(nodes, selectedFqbn),
     ...findBuzzerErrors(nodes, selectedFqbn),
     ...findEthernetErrors(nodes, selectedFqbn),
+    ...findWebRemoteErrors(nodes, selectedFqbn),
     ...findI2cBusErrors(nodes),
     ...findStepValueErrors(nodes),
     ...findAudioChainErrors(nodes),
@@ -1861,15 +1858,61 @@ function irRemoteValidationIssues(
   return issues
 }
 
-/** Nodes that need the sketch's network: Art-Net or sACN receive and NTP time sync. */
+/** Nodes that need the sketch's network, asked of the one predicate the generators use. */
 function networkUsers(nodes: StudioNode[]): StudioNode[] {
-  return nodes.filter((node) => {
-    const props = node.data.properties as Record<string, unknown>
-    return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
-      || node.data.nodeType === 'DdpInput'
-      || (node.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
-      || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
-  })
+  return nodes.filter(usesNetwork)
+}
+
+/**
+ * The Web Remote, judged once for the deploy gate and Graph Health.
+ *
+ * It serves its page over the board's own Wi-Fi (or a wired link where one
+ * exists), so a board with no radio is named rather than left to fail at
+ * compile time, and two remotes are refused because the sketch has one web
+ * server on port 80. An empty remote builds correctly and is only a warning.
+ */
+function webRemoteValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+  const remotes = nodes.filter((node) => node.data.nodeType === WEB_REMOTE_NODE_TYPE)
+  if (remotes.length === 0) return []
+  const issues: GraphDiagnostic[] = []
+  if (remotes.length > 1) {
+    issues.push({
+      id: 'web-remote-count', severity: 'error', category: 'connection',
+      title: 'Only one Web Remote can be served',
+      message: `${remotes.length} Web Remote nodes are in the graph, but the board serves one control page on port 80.`,
+      fix: 'Move every control onto one Web Remote and delete the others.',
+      nodeIds: remotes.map((node) => node.id), nodeLabel: 'Web Remotes',
+    })
+  }
+  if (selectedFqbn && !fqbnHasWifi(selectedFqbn) && !wiredNetworkIn(nodes)) {
+    const board = selectedPhysicalBoardProfile(nodes)?.label ?? selectedFqbn
+    for (const node of remotes) {
+      issues.push({
+        id: `${node.id}-board-web-remote`, severity: 'error', category: 'board',
+        title: 'The Web Remote needs Wi-Fi',
+        message: `${nodeLabel(node)} serves its phone page over Wi-Fi, which the selected board (${board}) does not have.`,
+        fix: 'Choose an ESP32, ESP32-S2, S3, C3 or C6 board or an ESP8266 in Board & Port.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+  for (const node of remotes) {
+    if (normalizeWebRemoteControls((node.data.properties as Record<string, unknown>).controls).length > 0) continue
+    issues.push({
+      id: `${node.id}-web-remote-empty`, severity: 'warning', category: 'connection',
+      title: `${nodeLabel(node)} has no controls`,
+      message: 'The phone page would open with nothing on it.',
+      fix: 'Drag Add control… onto a property row to make a control for it, or add one in the node.',
+      nodeIds: [node.id], nodeLabel: nodeLabel(node),
+    })
+  }
+  return issues
+}
+
+export function findWebRemoteErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return webRemoteValidationIssues(nodes, selectedFqbn)
+    .filter((issue) => issue.severity === 'error')
+    .map(validationIssueMessage)
 }
 
 /**
@@ -3519,6 +3562,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...dfPlayerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...webRemoteValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
   diagnostics.push(...audioChainValidationIssues(nodes))
@@ -4038,13 +4082,7 @@ export function buildGraphDiagnostics(
 
   if (options.selectedFqbn && !ethernetModuleIn(nodes)
     && !options.selectedFqbn.startsWith('esp32:') && !options.selectedFqbn.startsWith('esp8266:')) {
-    for (const node of nodes.filter((entry) => {
-      const props = entry.data.properties as Record<string, unknown>
-      return (entry.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
-        || entry.data.nodeType === 'DdpInput'
-        || (entry.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
-        || (entry.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
-    })) {
+    for (const node of nodes.filter((entry) => usesNetwork(entry) && entry.data.nodeType !== WEB_REMOTE_NODE_TYPE)) {
       diagnostics.push({
         id: `${node.id}-board-network`, severity: 'error', category: 'board',
         title: 'Network sync is incompatible with the selected board',
@@ -4498,6 +4536,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findCustomBoardIssues(nodes).warnings)
   warnings.push(...findNetworkConfigWarnings(nodes))
   warnings.push(...findEthernetWarnings(nodes, selectedFqbn))
+  warnings.push(...webRemoteValidationIssues(nodes, selectedFqbn)
+    .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...findBuzzerWarnings(nodes, selectedFqbn))
   warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPinRangeWarnings(nodes))

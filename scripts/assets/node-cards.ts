@@ -54,6 +54,7 @@ import { exposableInputsFor, exposedNodeInputs, exposedPropertyInputs } from '..
 import { partDerivedInputs } from '../../src/build/parts/partPorts'
 import { partRenderForNodeType } from '../../src/build/parts/partRenders'
 import { buttonBankOutputs } from '../../src/state/player/buttonBank'
+import { webRemoteOutputs } from '../../src/state/peripherals/webRemote'
 import { PREVIEW_POINTS, PREVIEW_SECONDS, waveNodeSamples } from '../../src/nodes/signal/wave'
 import { CUSTOM_DESIGN_LAYOUT, asTransportDisplayLayout } from '../../src/state/displays/transportDisplay'
 import { powerMonitorPreviewDefaults, powerMonitorPreviewReading } from '../../src/state/peripherals/powerMonitor'
@@ -200,6 +201,7 @@ const EMBEDDED_UI: Record<string, { label: string; h: number; top?: boolean }> =
   Storage: { label: 'storage provider picker', h: 42, top: true },
   ButtonBank: { label: '+ connect button…', h: 28, top: true },
   IRRemoteInput: { label: 'map IR remote buttons', h: 75, top: true },
+  WebRemoteInput: { label: 'phone remote · add control… · Wi-Fi', h: 150, top: true },
   DMXInput: { label: 'Art-Net monitor · HELPER OFFLINE', h: 181, top: true },
   RTCInput: { label: 'preview clock', h: 101, top: true },
   MidiInput: { label: 'MIDI monitor', h: 53, top: true },
@@ -1084,7 +1086,8 @@ function nodePorts(
   wiredOutputs: ReadonlySet<string>,
 ): { inputs: NodePort[]; outputs: NodePort[]; rowCount: number } {
   const declared = (partDerivedInputs(def.type, props.partId) ?? def.inputs) as NodePort[]
-  const outputs = ((def.type === 'ButtonBank' ? buttonBankOutputs(props.buttons) : def.outputs) as Array<NodePort & { carriedByControls?: boolean }>)
+  const outputs = ((def.type === 'ButtonBank' ? buttonBankOutputs(props.buttons)
+    : def.type === 'WebRemoteInput' ? webRemoteOutputs(props.controls) : def.outputs) as Array<NodePort & { carriedByControls?: boolean }>)
     .filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))
   // Separate state commands belong to Toggle; a wired one stays visible.
   const active = declared.filter((port) => def.type !== 'Trigger'
@@ -1096,7 +1099,7 @@ function nodePorts(
   const exposedActions = new Set(exposedNodeInputs(def.type, undefined, connected)
     .filter((port) => port.kind === 'action').map((port) => port.id))
   const inputs = active.filter((port) => !exposable.some((optional) => optional.id === port.id) || exposedActions.has(port.id))
-  const rowCount = def.type === 'ButtonBank' || def.type === 'IRRemoteInput' ? 0 : Math.max(inputs.length, outputs.length)
+  const rowCount = def.type === 'ButtonBank' || def.type === 'IRRemoteInput' || def.type === 'WebRemoteInput' ? 0 : Math.max(inputs.length, outputs.length)
   return { inputs, outputs, rowCount }
 }
 

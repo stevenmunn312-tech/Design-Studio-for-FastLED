@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { libraryDefaults, NODE_LIBRARY, portsCompatible, propertyMeta } from '../../../state/nodeLibrary'
 import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/peripherals/irRemote'
 import { BUTTON_BANK_ADD_HANDLE, buttonBankOutputs } from '../../../state/player/buttonBank'
+import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
 import {
   exampleUsesMicrophone,
   liveExampleForNode,
@@ -40,7 +41,10 @@ describe('node-reference live examples', () => {
         const sourceButtons = (source?.properties as Record<string, unknown> | undefined)?.buttons
         const sourceOutputs = source?.type === 'IRRemoteInput'
           ? irRemoteOutputs(sourceButtons)
-          : source?.type === 'ButtonBank' ? buttonBankOutputs(sourceButtons, false) : sourceDefinition?.outputs
+          : source?.type === 'ButtonBank' ? buttonBankOutputs(sourceButtons, false)
+            : source?.type === 'WebRemoteInput'
+              ? webRemoteOutputs((source.properties as Record<string, unknown>).controls, false)
+              : sourceDefinition?.outputs
         const sourcePort = sourceOutputs?.find((port) => port.id === edge.sourceHandle)
         const targetInputs = targetDefinition?.inputs
         const targetPort = targetInputs?.find((port) => port.id === edge.targetHandle)

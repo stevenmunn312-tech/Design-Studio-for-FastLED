@@ -13,6 +13,7 @@ import type { NodeDefinition } from '../../../types'
 import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../../state/output/ledOutputForm'
 import { irRemoteOutputs } from '../../../state/peripherals/irRemote'
 import { buttonBankOutputs } from '../../../state/player/buttonBank'
+import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
   /** Compact topology shown beside the Try it live button. */
@@ -107,6 +108,7 @@ function tidy(nodes: LiveExampleNodeSpec[], edges: LiveExampleSpec['edges']): Li
 function outputsOf(type: string, properties: Record<string, unknown> | undefined) {
   if (type === 'IRRemoteInput') return irRemoteOutputs(properties?.buttons)
   if (type === 'ButtonBank') return buttonBankOutputs(properties?.buttons, false)
+  if (type === 'WebRemoteInput') return webRemoteOutputs(properties?.controls, false)
   return definition(type).outputs
 }
 

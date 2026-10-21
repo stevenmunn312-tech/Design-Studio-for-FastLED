@@ -72,6 +72,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 - [The live touch screen](design/live-touch-screen.md)
 - [On-glass widget labels](design/on-glass-widget-labels.md)
 - [Simple displays](design/simple-displays.md)
+- [Web Remote: a phone control page over Wi-Fi](design/web-remote.md)
 - [Wire-first touch controls](design/wire-first-touch-controls.md)
 
 ### Workspace and reference design

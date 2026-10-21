@@ -37,10 +37,14 @@ export interface NetworkSketchEmit {
   setup: string[]
 }
 
-/** Art-Net or sACN receive and NTP time sync are the users of the network. */
+/**
+ * Art-Net or sACN receive, DDP, a network Frame Stream, NTP time sync and the
+ * Web Remote's page are the users of the network.
+ */
 export function usesNetwork(node: Pick<StudioNode, 'data'>): boolean {
   const props = node.data.properties as Record<string, unknown>
   return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
+    || node.data.nodeType === 'WebRemoteInput'
     || node.data.nodeType === 'DdpInput'
     || (node.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
     || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')

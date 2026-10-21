@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Web Remote** serves a phone control page over the board's Wi-Fi on ESP32
+  and ESP8266: Buttons, Toggles, Sliders, Step Controls, Choice Strips and
+  Colour Pickers, each an output of the node with its touch-screen widget's
+  range, start value and output. Drag **Add control…** onto a property row to
+  make the right control for it. The node is an operable remote in the
+  preview, and **Phone preview** shows the page the board serves. Normal
+  sketches support every control; shows and SD players read it through their
+  control graph. A board without Wi-Fi is named in Graph Health.
 - **Text Entry** screen widget: a one-line field that opens an on-screen
   keyboard when tapped and outputs the text once it is confirmed. Its text can
   feed any text input, and a wired Set replaces it while nobody is typing. In
