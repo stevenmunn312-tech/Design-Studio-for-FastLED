@@ -5,9 +5,10 @@
  * substeps, pen head — to the preview, frame after frame, where a text test
  * can only check that each piece was emitted.
  *
- * With glibc's sinf and cosf the frames match byte for byte. Another maths
- * library may round a trig result differently, so a handful of pixels may
- * differ; the bound is 1% of the canvas. Skipped where no host `g++` exists.
+ * The epicycles are integer on both sides, so the frames match byte for
+ * byte; only the once-a-frame float conversions (turn, extent) could round
+ * differently, so the bound stays at 1% of the canvas. Skipped where no host
+ * `g++` exists.
  */
 import { describe, expect, it } from 'vitest'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -16,6 +17,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { generateCpp } from '../cppGenerator'
 import { FOURIER_HELPER_CPP } from '../helpers/fourierHelperCpp'
+import { LIB8TION_HOST_CPP } from '../../nodes/shared/lib8tion'
 import { evalFourierEpicycles } from '../../nodes/shapes/evaluate'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
@@ -39,9 +41,8 @@ const FASTLED_STAND_IN = `#include <cstdio>
 #include <cmath>
 #include <cstdint>
 #include <algorithm>
+#include <cstdlib>
 using std::min; using std::max;
-#define PROGMEM
-#define pgm_read_float(p) (*(const float*)(p))
 #define constrain(a,l,h) ((a)<(l)?(l):((a)>(h)?(h):(a)))
 struct CRGB {
   uint8_t r=0,g=0,b=0;
@@ -51,7 +52,8 @@ struct CRGB {
   static const CRGB Black;
 };
 const CRGB CRGB::Black(0,0,0);
-static void fill_solid(CRGB* b,int n,CRGB c) { for(int i=0;i<n;i++) b[i]=c; }`
+static void fill_solid(CRGB* b,int n,CRGB c) { for(int i=0;i<n;i++) b[i]=c; }
+${LIB8TION_HOST_CPP}`
 
 describe.skipIf(!HAS_GPP)('Fourier Epicycles native parity', () => {
   it.each([

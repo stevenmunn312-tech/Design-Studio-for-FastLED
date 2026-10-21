@@ -10,9 +10,9 @@ import { resolveWireframeMesh, projectWireframeVertices } from './wireframeModel
 import { pathPoint } from './pathShapes'
 import { customPathTable, customPathPoint } from './customPath'
 import {
-  FOURIER_RING_HALF_WIDTH, FOURIER_RING_LEVEL, FOURIER_RING_MIN_RADIUS, FOURIER_SCALE_MIN,
-  FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN, FOURIER_TRAIL_JUMP,
-  FOURIER_TRAIL_STEPS_MAX, fourierPen, fourierTable,
+  FOURIER_RING_HALF_Q8, FOURIER_RING_LEVEL_8, FOURIER_RING_MIN_Q8, FOURIER_SCALE_MIN,
+  FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN, FOURIER_TRAIL_JUMP_A16,
+  FOURIER_TRAIL_STEPS_MAX, fourierPenQ8, fourierTable, fourierTableQ,
 } from './fourierOutline'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import {
@@ -40,6 +40,7 @@ import { getSdVideoBytes } from '../../state/sdVideoStore'
 import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/palettes/hueMix'
 import { polarRepeat } from '../../state/evaluator/polar'
 import { polarFrame, polarPixel, wireVertexQ8, wireframeEdgeQ8 } from '../shared/integerPatterns'
+import { isqrt32 } from '../shared/lib8tion'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 
@@ -86,27 +87,28 @@ function scale8(value: number, scale: number): number {
 
 type Plot = (index: number, r: number, g: number, b: number) => void
 
+// Positions and radii in 1/256 pixel, as `_feDisc` and `_feRing`.
 function fourierDisc(W: number, H: number, x: number, y: number, radius: number, color: RGB, plot: Plot): void {
-  const x0 = Math.max(0, Math.floor(x - radius - 1)), x1 = Math.min(W - 1, Math.ceil(x + radius + 1))
-  const y0 = Math.max(0, Math.floor(y - radius - 1)), y1 = Math.min(H - 1, Math.ceil(y + radius + 1))
+  const x0 = Math.max(0, (x - radius - 256) >> 8), x1 = Math.min(W - 1, (x + radius + 511) >> 8)
+  const y0 = Math.max(0, (y - radius - 256) >> 8), y1 = Math.min(H - 1, (y + radius + 511) >> 8)
   for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
-    const dx = (px + 0.5) - x, dy = (py + 0.5) - y
-    const coverage = Math.max(0, Math.min(1, radius + 0.5 - Math.sqrt(dx * dx + dy * dy)))
+    const ex = px * 256 + 128 - x, ey = py * 256 + 128 - y
+    const coverage = Math.min(256, radius + 128 - isqrt32(ex * ex + ey * ey))
     if (coverage <= 0) continue
-    const s = Math.trunc(coverage * 255)
+    const s = (coverage * 255) >> 8
     plot(py * W + px, scale8(color.r, s), scale8(color.g, s), scale8(color.b, s))
   }
 }
 
 function fourierRing(W: number, H: number, cx: number, cy: number, radius: number, color: RGB, plot: Plot): void {
-  const reach = radius + FOURIER_RING_HALF_WIDTH + 1
-  const x0 = Math.max(0, Math.floor(cx - reach)), x1 = Math.min(W - 1, Math.ceil(cx + reach))
-  const y0 = Math.max(0, Math.floor(cy - reach)), y1 = Math.min(H - 1, Math.ceil(cy + reach))
+  const reach = radius + FOURIER_RING_HALF_Q8 + 256
+  const x0 = Math.max(0, (cx - reach) >> 8), x1 = Math.min(W - 1, (cx + reach + 255) >> 8)
+  const y0 = Math.max(0, (cy - reach) >> 8), y1 = Math.min(H - 1, (cy + reach + 255) >> 8)
   for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
-    const dx = (px + 0.5) - cx, dy = (py + 0.5) - cy
-    const coverage = Math.max(0, Math.min(1, FOURIER_RING_HALF_WIDTH + 0.5 - Math.abs(Math.sqrt(dx * dx + dy * dy) - radius)))
+    const ex = px * 256 + 128 - cx, ey = py * 256 + 128 - cy
+    const coverage = Math.min(256, FOURIER_RING_HALF_Q8 + 128 - Math.abs(isqrt32(ex * ex + ey * ey) - radius))
     if (coverage <= 0) continue
-    const s = Math.trunc(coverage * FOURIER_RING_LEVEL * 255)
+    const s = (coverage * FOURIER_RING_LEVEL_8) >> 8
     plot(py * W + px, scale8(color.r, s), scale8(color.g, s), scale8(color.b, s))
   }
 }
@@ -158,15 +160,20 @@ export function evalFourierEpicycles(
     trail[i * 3 + 2] = Math.max(trail[i * 3 + 2], b)
   }
 
-  const terms = fourierTable(p.outline, p.customPoints, p.maxHarmonics)
+  // Floats only here, once a frame, as the sketch converts them.
+  const table = fourierTableQ(fourierTable(p.outline, p.customPoints, p.maxHarmonics))
   const scale = Math.max(FOURIER_SCALE_MIN, Math.min(1, p.scale))
-  const radius = Math.max(FOURIER_THICKNESS_MIN, Math.min(FOURIER_THICKNESS_MAX, p.thickness)) * 0.5
-  const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)
-  const cx = W * 0.5, cy = H * 0.5
-  let turn = speedPhase(nodeId, t, Math.max(-FOURIER_SPEED_MAX, Math.min(FOURIER_SPEED_MAX, p.speed)))
-  turn -= Math.floor(turn)
-  const pen = fourierPen(terms, p.harmonics, turn, extent, (x, y, r) => {
-    if (p.showCircles && r >= FOURIER_RING_MIN_RADIUS) fourierRing(W, H, cx + x, cy - y, r, p.color, add)
+  const radiusF = Math.max(FOURIER_THICKNESS_MIN, Math.min(FOURIER_THICKNESS_MAX, p.thickness)) * 0.5
+  const extent = Math.trunc(Math.max(0, Math.min(W, H) * 0.5 * scale - radiusF) * 256)
+  const radius = Math.trunc(radiusF * 256)
+  const cx = W * 128, cy = H * 128
+  const h = Math.max(1, Math.min(table.length, p.harmonics))
+  const whole = Math.floor(h), frac = Math.trunc((h - whole) * 256)
+  let turnF = speedPhase(nodeId, t, Math.max(-FOURIER_SPEED_MAX, Math.min(FOURIER_SPEED_MAX, p.speed)))
+  turnF -= Math.floor(turnF)
+  const turn = Math.trunc(turnF * 65536) & 0xffff
+  const pen = fourierPenQ8(table, whole, frac, turn, extent, (x, y, r) => {
+    if (p.showCircles && r >= FOURIER_RING_MIN_Q8) fourierRing(W, H, cx + x, cy - y, r, p.color, add)
   })
   const penX = cx + pen.x, penY = cy - pen.y
 
@@ -176,22 +183,23 @@ export function evalFourierEpicycles(
   // seek, and draws only the new point.
   const keep = 255 - Math.trunc((1 - Math.max(0, Math.min(1, p.persistence))) * 255)
   for (let i = 0; i < N * 3; i++) trail[i] = scale8(trail[i], keep)
-  let delta = turn - st.turn
-  delta -= Math.floor(delta + 0.5)
-  if (!st.has || Math.abs(delta) > FOURIER_TRAIL_JUMP) {
+  const delta = (((turn - st.turn) & 0xffff) << 16) >> 16
+  if (!st.has || Math.abs(delta) > FOURIER_TRAIL_JUMP_A16) {
     fourierDisc(W, H, penX, penY, radius, p.color, lighten)
   } else {
-    const dx = penX - st.px, dy = penY - st.py
-    const steps = Math.max(1, Math.min(FOURIER_TRAIL_STEPS_MAX, Math.ceil(Math.sqrt(dx * dx + dy * dy) * 2)))
+    const dx = Math.abs(penX - st.px), dy = Math.abs(penY - st.py)
+    const steps = dx < 32768 && dy < 32768
+      ? Math.max(1, Math.min(FOURIER_TRAIL_STEPS_MAX, (isqrt32(dx * dx + dy * dy) * 2 + 255) >> 8))
+      : FOURIER_TRAIL_STEPS_MAX
     for (let i = 1; i <= steps; i++) {
-      const at = i === steps ? pen : fourierPen(terms, p.harmonics, st.turn + delta * i / steps, extent)
+      const at = i === steps ? pen : fourierPenQ8(table, whole, frac, (st.turn + Math.trunc(delta * i / steps)) & 0xffff, extent)
       fourierDisc(W, H, cx + at.x, cy - at.y, radius, p.color, lighten)
     }
   }
   st.turn = turn
   st.px = penX; st.py = penY; st.has = true
   for (let i = 0; i < N; i++) add(i, trail[i * 3], trail[i * 3 + 1], trail[i * 3 + 2])
-  if (p.showPen) fourierDisc(W, H, penX, penY, radius + 0.5, p.color, add)
+  if (p.showPen) fourierDisc(W, H, penX, penY, radius + 128, p.color, add)
 
   return buildFrame(W, H, (x, y) => {
     const i = (y * W + x) * 3

@@ -1,5 +1,6 @@
 import { pathPoint } from './pathShapes'
 import { evaluatorCache } from '../../state/evaluator/memory'
+import { A16_PER_RADIAN, sin16 } from '../shared/lib8tion'
 
 /**
  * Outlines, their discrete Fourier transform, and the epicycle sum for the
@@ -39,6 +40,11 @@ export const FOURIER_RING_MIN_RADIUS = 0.5
 export const FOURIER_TRAIL_STEPS_MAX = 64
 /** More turns than this between frames is a restart or seek, not motion. */
 export const FOURIER_TRAIL_JUMP = 0.25
+/** The same constants in the integer kernel's units: 1/256 pixel, 255ths, 16-bit turns. */
+export const FOURIER_RING_HALF_Q8 = Math.round(FOURIER_RING_HALF_WIDTH * 256)
+export const FOURIER_RING_LEVEL_8 = Math.trunc(FOURIER_RING_LEVEL * 255)
+export const FOURIER_RING_MIN_Q8 = Math.round(FOURIER_RING_MIN_RADIUS * 256)
+export const FOURIER_TRAIL_JUMP_A16 = Math.round(FOURIER_TRAIL_JUMP * 65536)
 
 export interface FourierTerm {
   /** Integer turns of this circle per turn of the outline, negative clockwise. */
@@ -240,6 +246,45 @@ export function fourierPen(
     const angle = terms[k].frequency * theta + terms[k].phase
     x += radius * Math.cos(angle)
     y += radius * Math.sin(angle)
+  }
+  return { x, y }
+}
+
+// ── Integer epicycles ─────────────────────────────────────────────────────────
+// What the preview and the sketch actually draw with: each term baked as a
+// 16-bit word triple, the turn as a 16-bit angle and every length in 1/256
+// pixel, so the per-frame sum is FastLED's sin16 and integer products.
+
+/** One term as the sketch bakes it: frequency, amplitude in 1/65536, phase as a 16-bit angle. */
+export interface FourierTermQ { frequency: number; amplitude: number; phase: number }
+
+/** The table in the sketch's units. Frequency stays signed; the sketch reads it back as int16. */
+export function fourierTableQ(terms: readonly FourierTerm[]): FourierTermQ[] {
+  return terms.map((term) => ({
+    frequency: term.frequency,
+    amplitude: Math.min(65535, Math.round(term.amplitude * 65536)),
+    phase: Math.round(term.phase * A16_PER_RADIAN) & 0xffff,
+  }))
+}
+
+/**
+ * `_fePen`'s twin: the epicycle sum at 16-bit turn `theta`, `extent` and the
+ * result in 1/256 pixel, y up. `whole` terms count fully and the next by
+ * `frac` 256ths. `visit` sees each circle's centre and radius first.
+ */
+export function fourierPenQ8(
+  table: readonly FourierTermQ[], whole: number, frac: number, theta: number, extent: number,
+  visit?: (x: number, y: number, radius: number) => void,
+): Point {
+  let x = 0, y = 0
+  for (let k = 0; k < table.length; k++) {
+    const weight = k < whole ? 256 : k === whole ? frac : 0
+    if (weight <= 0) break
+    const radius = (Math.floor((table[k].amplitude * extent) / 65536) * weight) >> 8
+    visit?.(x, y, radius)
+    const angle = (table[k].frequency * theta + table[k].phase) & 0xffff
+    x += (radius * sin16(angle + 16384)) >> 15
+    y += (radius * sin16(angle)) >> 15
   }
   return { x, y }
 }

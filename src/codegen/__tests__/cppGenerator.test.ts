@@ -8,7 +8,7 @@ import { resolveSlicePattern } from '../../nodes/field/sliceTiling'
 import { worleyHash } from '../../state/evaluator/random'
 import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
-import { fourierTable } from '../../nodes/shapes/fourierOutline'
+import { fourierTable, fourierTableQ } from '../../nodes/shapes/fourierOutline'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -3202,21 +3202,21 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
     return generateCpp([...extra, fe, outputNode], [...extraEdges, edge('fe-out', fe.id, outputNode.id, 'frame', 'frame')])
   }
   function bakedTable(cpp: string): number[][] {
-    const body = cpp.match(/static const float _fe_fe\[\d+\]\[3\] PROGMEM = \{(.*)\};/)
+    const body = cpp.match(/static const uint16_t _fe_fe\[\d+\]\[3\] PROGMEM = \{(.*)\};/)
     expect(body).not.toBeNull()
-    return [...body![1].matchAll(/\{(-?[\d.]+)f,(-?[\d.]+)f,(-?[\d.]+)f\}/g)].map((row) => row.slice(1).map(Number))
+    return [...body![1].matchAll(/\{(\d+),(\d+),(\d+)\}/g)].map((row) => row.slice(1).map(Number))
   }
 
   it.each(['heart', 'star', 'square', 'infinity', 'lissajous', 'rose', 'circle'])('bakes the %s coefficients the preview uses', (outline) => {
     const cpp = generateEpicycles({ outline, maxHarmonics: 24 })
-    const terms = fourierTable(outline, '', 24)
+    const terms = fourierTableQ(fourierTable(outline, '', 24))
     expect(cpp).toContain(`/* Fourier Epicycles: ${outline}, ${terms.length} terms */`)
     const table = bakedTable(cpp)
     expect(table).toHaveLength(terms.length)
     table.forEach(([frequency, amplitude, phase], i) => {
-      expect(frequency).toBe(terms[i].frequency)
-      expect(amplitude).toBeCloseTo(terms[i].amplitude, 4)
-      expect(phase).toBeCloseTo(terms[i].phase, 4)
+      expect(frequency).toBe(terms[i].frequency & 0xffff)
+      expect(amplitude).toBe(terms[i].amplitude)
+      expect(phase).toBe(terms[i].phase)
     })
     expect(cpp.match(/static void _fePen\(/g)).toHaveLength(1)
   })
@@ -3233,11 +3233,11 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
 
   it('draws the circles and pen only when asked', () => {
     const both = generateEpicycles({ outline: 'heart' })
-    expect(both).toContain('_fePen(_fe_fe,9,_h,_turn,_ext,_cx,_cy,buf_fe,WIDTH,HEIGHT,_col,&_penX,&_penY);')
-    expect(both).toContain('_feDisc(buf_fe,WIDTH,HEIGHT,_penX,_penY,_rad+0.5f,_col,false);')
+    expect(both).toContain('_fePen(_fe_fe,9,_hw,_hfr,_turn,_ext,_cx,_cy,buf_fe,WIDTH,HEIGHT,_col,&_penX,&_penY);')
+    expect(both).toContain('_feDisc(buf_fe,WIDTH,HEIGHT,_penX,_penY,_rad8+128,_col,false);')
     const neither = generateEpicycles({ outline: 'heart', showCircles: false, showPen: false })
-    expect(neither).toContain('_fePen(_fe_fe,9,_h,_turn,_ext,_cx,_cy,0,WIDTH,HEIGHT,_col,&_penX,&_penY);')
-    expect(neither).not.toContain('_rad+0.5f,_col,false);')
+    expect(neither).toContain('_fePen(_fe_fe,9,_hw,_hfr,_turn,_ext,_cx,_cy,0,WIDTH,HEIGHT,_col,&_penX,&_penY);')
+    expect(neither).not.toContain('_rad8+128,_col,false);')
   })
 
   it('reads wired knobs each frame and keeps the trail in its own state', () => {

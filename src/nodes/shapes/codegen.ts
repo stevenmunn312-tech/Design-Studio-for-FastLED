@@ -26,7 +26,7 @@ import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
 import {
   FOURIER_SCALE_MIN, FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
-  fourierOutline, fourierTable,
+  fourierOutline, fourierTable, fourierTableQ,
 } from './fourierOutline'
 
 // Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
@@ -328,25 +328,27 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     needsFourier.v = true
     const ob = ownBuf()
     const outline = fourierOutline(p.outline)
-    const terms = fourierTable(outline, p.customPoints, p.maxHarmonics)
+    const table = fourierTableQ(fourierTable(outline, p.customPoints, p.maxHarmonics))
     const A = `_fe_${id}`
-    const rows = terms.map((term) => `{${floatLit(term.frequency)},${floatLit(term.amplitude, 9)},${floatLit(term.phase, 9)}}`)
-    ln(`  { /* Fourier Epicycles: ${outline}, ${terms.length} terms */`)
-    ln(`    static const float ${A}[${terms.length}][3] PROGMEM = {${rows.join(',')}};`)
-    ln(`    static CRGB ${A}trail[NUM_LEDS]; static float ${A}turn=0.0f, ${A}x=0.0f, ${A}y=0.0f; static bool ${A}has=false;`)
+    const rows = table.map((term) => `{${term.frequency & 0xffff},${term.amplitude},${term.phase}}`)
+    ln(`  { /* Fourier Epicycles: ${outline}, ${table.length} terms */`)
+    ln(`    static const uint16_t ${A}[${table.length}][3] PROGMEM = {${rows.join(',')}};`)
+    ln(`    static CRGB ${A}trail[NUM_LEDS]; static uint16_t ${A}turn=0; static int32_t ${A}x=0, ${A}y=0; static bool ${A}has=false;`)
     ln(`    ${seedFrom('base')}`)
     ln(`    CRGB _col=${channelColor('color', 255, 220, 80)};`)
+    // Floats only here, once a frame; the epicycles are integer
+    // (fourierHelperCpp.ts), in 1/256 pixel and 16-bit turns.
     ln(`    float _scale=constrain(${f('scale', 'scale', 0.8)},${floatLit(FOURIER_SCALE_MIN)},1.0f);`)
     ln(`    float _rad=constrain(${f('thickness', 'thickness', 1.25)},${floatLit(FOURIER_THICKNESS_MIN)},${floatLit(FOURIER_THICKNESS_MAX)})*0.5f;`)
-    ln(`    float _ext=fmaxf(0.0f,min(WIDTH,HEIGHT)*0.5f*_scale-_rad), _cx=WIDTH*0.5f, _cy=HEIGHT*0.5f;`)
-    ln(`    float _h=${f('harmonics', 'harmonics', 32)};`)
+    ln(`    int32_t _ext=(int32_t)(fmaxf(0.0f,min(WIDTH,HEIGHT)*0.5f*_scale-_rad)*256.0f), _rad8=(int32_t)(_rad*256.0f), _cx=WIDTH*128, _cy=HEIGHT*128;`)
+    ln(`    float _h=constrain(${f('harmonics', 'harmonics', 32)},1.0f,${table.length}.0f); int _hw=(int)_h, _hfr=(int)((_h-_hw)*256.0f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), `constrain(${f('speed', 'speed', 0.2)},${floatLit(-FOURIER_SPEED_MAX)},${floatLit(FOURIER_SPEED_MAX)})`)
-    ln(`    float _turn=${ph}; _turn-=floorf(_turn);`)
-    ln(`    float _penX, _penY;`)
-    ln(`    _fePen(${A},${terms.length},_h,_turn,_ext,_cx,_cy,${p.showCircles !== false ? ob : '0'},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
-    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${f('persistence', 'persistence', 0.995)},${A},${terms.length},_h,_turn,_ext,_cx,_cy,_penX,_penY,_rad,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
+    ln(`    float _turnF=${ph}; _turnF-=floorf(_turnF); uint16_t _turn=(uint16_t)(int32_t)(_turnF*65536.0f);`)
+    ln(`    int32_t _penX, _penY;`)
+    ln(`    _fePen(${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,${p.showCircles !== false ? ob : '0'},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
+    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${f('persistence', 'persistence', 0.995)},${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,_penX,_penY,_rad8,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]+=${A}trail[_i];`)
-    if (p.showPen !== false) ln(`    _feDisc(${ob},WIDTH,HEIGHT,_penX,_penY,_rad+0.5f,_col,false);`)
+    if (p.showPen !== false) ln(`    _feDisc(${ob},WIDTH,HEIGHT,_penX,_penY,_rad8+128,_col,false);`)
     ln(`  }`)
   },
   // Rotating 3D wireframe. The selected preset (or validated custom
