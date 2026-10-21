@@ -76,6 +76,10 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       // couple of seconds, which a finished installation has no use for. It is
       // a bench instrument, turned on to measure a rig and turned off again.
       reportTelemetry: false,
+      // Multi-board time keeping: 'leader' broadcasts the sketch clock, a
+      // 'follower' adopts it. Kept consistent across every Board node by one
+      // store action, never set per board — see docs/design/multi-board.md.
+      clockSync: 'off',
     },
   },
   {

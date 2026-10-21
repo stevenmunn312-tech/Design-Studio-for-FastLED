@@ -75,13 +75,6 @@ export default function BoardNodeBody({ nodeId }: Props) {
     return props?.reportTelemetry === true
   }, [graphNodes, nodeId])
 
-  // One board per sketch is a fact of codegen, not a preference — a second
-  // Board node has no meaning, so say so rather than silently letting one win.
-  const boardNodeCount = useMemo(
-    () => graphNodes.filter((n) => n.data.nodeType === 'Board').length,
-    [graphNodes],
-  )
-
   const profile = selection.profile
   const boardTarget = boardByFqbn(selectedFqbn)
   const psramOptions = boardTarget?.psram
@@ -436,13 +429,6 @@ export default function BoardNodeBody({ nodeId }: Props) {
           </small>
         </div>
       </div>
-
-      {boardNodeCount > 1 && (
-        <p className={styles.warning}>
-          {boardNodeCount} Board nodes on this canvas. A sketch targets one
-          controller — remove the extras.
-        </p>
-      )}
     </div>
   )
 }

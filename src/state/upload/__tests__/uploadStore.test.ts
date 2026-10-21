@@ -474,3 +474,59 @@ describe('board catalogue covers the Board node', () => {
       .toEqual(['PSRAM=opi', 'PSRAM=enabled'])
   })
 })
+
+describe('uploadStore — one target per board', () => {
+  function boardNode(id: string): StudioNode {
+    return {
+      id,
+      type: 'studioNode',
+      position: { x: 0, y: 0 },
+      data: { label: 'Board', nodeType: 'Board', category: 'output', properties: { profileId: 'esp32-generic-devkit-38pin' }, inputs: [], outputs: [] },
+    } as unknown as StudioNode
+  }
+
+  it('reloads the selection when the active board changes and saves per board', async () => {
+    const { useProjectStore, useUploadStore } = await freshStores()
+    const { useUiStore } = await import('../../uiStore')
+    const { useGraphStore } = await import('../../graphStore')
+    const id = useProjectStore.getState().createProject('Rig', workspace(['main'])).id
+    useGraphStore.getState().loadGraph([boardNode('board-root'), boardNode('board-2')], [])
+    expect(useUiStore.getState().activeBoardId).toBe('board-root')
+
+    useUploadStore.getState().setSelectedFqbn('esp32:esp32:esp32s3')
+    useUploadStore.getState().setSelectedPort('COM7')
+
+    useUiStore.getState().setActiveBoardId('board-2')
+    useUploadStore.getState().setSelectedFqbn('rp2040:rp2040:rpipico')
+    useUploadStore.getState().setSelectedPort('COM9')
+
+    useUiStore.getState().setActiveBoardId('board-root')
+    expect(useUploadStore.getState().selectedFqbn).toBe('esp32:esp32:esp32s3')
+    expect(useUploadStore.getState().selectedPort).toBe('COM7')
+
+    useUiStore.getState().setActiveBoardId('board-2')
+    expect(useUploadStore.getState().selectedFqbn).toBe('rp2040:rp2040:rpipico')
+    expect(useUploadStore.getState().selectedPort).toBe('COM9')
+
+    const project = useProjectStore.getState().projects.find((entry) => entry.id === id)
+    expect(project?.uploadTargets).toEqual({
+      'board-root': { selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' },
+      'board-2': { selectedFqbn: 'rp2040:rp2040:rpipico', selectedPort: 'COM9' },
+    })
+    expect(project?.uploadTarget).toEqual({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
+  })
+
+  it('a board with no target yet keeps the last selection until one is chosen', async () => {
+    const { useProjectStore, useUploadStore } = await freshStores()
+    const { useUiStore } = await import('../../uiStore')
+    const { useGraphStore } = await import('../../graphStore')
+    useProjectStore.getState().createProject('Rig', workspace(['main']))
+    useGraphStore.getState().loadGraph([boardNode('board-root'), boardNode('board-2')], [])
+    useUploadStore.getState().setSelectedFqbn('esp32:esp32:esp32s3')
+    useUploadStore.getState().setSelectedPort('COM7')
+
+    useUiStore.getState().setActiveBoardId('board-2')
+    expect(useUploadStore.getState().selectedFqbn).toBe('esp32:esp32:esp32s3')
+    expect(useUploadStore.getState().selectedPort).toBe('COM7')
+  })
+})

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { ROOT_BOARD_NODE_ID } from '../build/hardware'
 import type { StatusLevel } from '../types'
 import type { NodeCategory } from '../types'
 import type { PreviewStyle } from '../components/Preview/previewStyles'
@@ -312,6 +313,10 @@ interface UiState {
   /** Hardware-owned module requested from Graph search. The parts shelf
    * consumes this after it opens the matching section and focuses the part. */
   hardwareShelfTarget: string | null
+  /** The Board node the Hardware pane, Build Diagram and Upload tab are
+   *  working on. Session-only; reset to the primary when a project loads.
+   *  See docs/design/multi-board.md. */
+  activeBoardId: string
   /** A request to open the Board's settings popup on the bench; the pane
    *  consumes it, so a later visit does not reopen a stale one. */
   hardwareBoardMenuRequested: boolean
@@ -399,6 +404,7 @@ interface UiState {
   setStageIdle: (idle: boolean) => void
   setHardwarePaneTab: (tab: HardwarePaneTab) => void
   setHardwareInspectorNodeId: (nodeId: string | null) => void
+  setActiveBoardId: (boardId: string) => void
   togglePerformanceMode: () => void
   setPerformanceMode: (active: boolean) => void
   toggleUiEffects: () => void
@@ -578,6 +584,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   viewCenter: { x: 300, y: 250 },
   hardwarePaneTab: (load<string>(HARDWARE_TAB_KEY, 'hardware') === 'upload' ? 'upload' : 'hardware') as HardwarePaneTab,
   hardwareShelfTarget: null,
+  activeBoardId: ROOT_BOARD_NODE_ID,
   hardwareBoardMenuRequested: false,
   hardwareInspectorNodeId: null,
   controllerHintDismissed: false,
@@ -726,6 +733,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set((state) => ({ ...activateWorkspace(state, hardwarePaneTab), hardwarePaneTab }))
   },
   setHardwareInspectorNodeId: (hardwareInspectorNodeId) => set({ hardwareInspectorNodeId }),
+  setActiveBoardId: (activeBoardId) => set((state) => (state.activeBoardId === activeBoardId ? state : { activeBoardId })),
   togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),
   setPerformanceMode: (performanceMode) => set({ performanceMode }),
   toggleUiEffects: () => {

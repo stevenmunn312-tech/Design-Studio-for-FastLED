@@ -2,11 +2,15 @@ import { create } from 'zustand'
 import { listProjects, saveProjectToDisk, deleteProjectFromDisk } from '../utils/backendClient'
 import type { PersistedWorkspace } from './workspacePersistence'
 import { blankWorkspace, cloneWorkspace } from './workspacePersistence'
+import {
+  normalizeProjectUploadTargets,
+  normalizeUploadTarget,
+  sameUploadTarget,
+  type ProjectUploadTarget,
+  type ProjectUploadTargets,
+} from './uploadTargets'
 
-export interface ProjectUploadTarget {
-  selectedFqbn: string
-  selectedPort: string
-}
+export type { ProjectUploadTarget, ProjectUploadTargets } from './uploadTargets'
 
 export interface SavedProject {
   id: string
@@ -14,7 +18,11 @@ export interface SavedProject {
   createdAt: number
   updatedAt: number
   workspace: PersistedWorkspace
+  /** The primary board's target — kept in step with `uploadTargets` so the
+   *  pre-multi-board readers and saves still see the project's board. */
   uploadTarget?: ProjectUploadTarget
+  /** One target per Board node id; see docs/design/multi-board.md. */
+  uploadTargets?: ProjectUploadTargets
 }
 
 interface PersistedState {
@@ -30,19 +38,26 @@ interface PersistedCurrentWorkspace {
   updatedAt: number
   workspace: PersistedWorkspace
   uploadTarget?: ProjectUploadTarget
+  uploadTargets?: ProjectUploadTargets
 }
 
 interface ProjectState {
   projects: SavedProject[]
   currentProjectId: string
   recentProjectIds: string[]
-  createProject: (name: string, workspace?: PersistedWorkspace, options?: { uploadTarget?: ProjectUploadTarget }) => SavedProject
+  createProject: (
+    name: string,
+    workspace?: PersistedWorkspace,
+    options?: { uploadTarget?: ProjectUploadTarget; uploadTargets?: ProjectUploadTargets },
+  ) => SavedProject
   upsertProject: (project: SavedProject) => SavedProject
   renameProject: (id: string, name: string) => void
   deleteProject: (id: string) => SavedProject | null
   switchProject: (id: string) => SavedProject | null
   saveCurrentWorkspace: (workspace: PersistedWorkspace) => void
-  setProjectUploadTarget: (uploadTarget: ProjectUploadTarget, id?: string) => void
+  /** Record the board and port one Board node (`boardId`) uploads to. The
+   *  primary's is keyed by `PRIMARY_UPLOAD_TARGET_KEY` whatever its node id. */
+  setProjectUploadTarget: (boardId: string, uploadTarget: ProjectUploadTarget, id?: string) => void
   refreshFromDisk: () => Promise<void>
 }
 
@@ -161,14 +176,6 @@ function uniqueProjectName(existing: SavedProject[], preferred: string): string 
   }
 }
 
-function normalizeUploadTarget(value: unknown): ProjectUploadTarget | undefined {
-  if (!value || typeof value !== 'object') return undefined
-  const maybe = value as Partial<ProjectUploadTarget>
-  return typeof maybe.selectedFqbn === 'string' && typeof maybe.selectedPort === 'string'
-    ? { selectedFqbn: maybe.selectedFqbn, selectedPort: maybe.selectedPort }
-    : undefined
-}
-
 function loadCurrentProjectHint(): string | null {
   try {
     const raw = localStorage.getItem(CURRENT_PROJECT_KEY)
@@ -200,7 +207,7 @@ function loadCurrentWorkspaceSnapshot(): SavedProject | null {
       createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : parsed.updatedAt,
       updatedAt: parsed.updatedAt,
       workspace: cloneWorkspace(workspace),
-      uploadTarget: normalizeUploadTarget(parsed.uploadTarget),
+      ...normalizeProjectUploadTargets(parsed),
     }
   } catch {
     return null
@@ -226,21 +233,17 @@ function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): voi
       updatedAt: project.updatedAt,
       workspace: project.workspace,
       uploadTarget: project.uploadTarget,
+      uploadTargets: project.uploadTargets,
     }))
   } catch {
     // Keep running when storage is unavailable or full.
   }
 }
 
-function sameUploadTarget(a: ProjectUploadTarget | undefined, b: ProjectUploadTarget | undefined): boolean {
-  return (a?.selectedFqbn ?? '') === (b?.selectedFqbn ?? '')
-    && (a?.selectedPort ?? '') === (b?.selectedPort ?? '')
-}
-
 function makeProject(
   name: string,
   workspace: PersistedWorkspace = blankWorkspace(),
-  uploadTarget?: ProjectUploadTarget,
+  targets?: { uploadTarget?: ProjectUploadTarget; uploadTargets?: ProjectUploadTargets },
 ): SavedProject {
   const now = Date.now()
   return {
@@ -249,7 +252,7 @@ function makeProject(
     createdAt: now,
     updatedAt: now,
     workspace: cloneWorkspace(workspace),
-    uploadTarget: normalizeUploadTarget(uploadTarget),
+    ...normalizeProjectUploadTargets(targets),
   }
 }
 
@@ -260,7 +263,7 @@ function normalizeProject(project: SavedProject): SavedProject {
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
     workspace: cloneWorkspace(project.workspace),
-    uploadTarget: normalizeUploadTarget(project.uploadTarget),
+    ...normalizeProjectUploadTargets(project),
   }
 }
 
@@ -377,7 +380,7 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
     .map((project) => ({
       ...project,
       name: trimName(project.name) || 'Untitled Project',
-      uploadTarget: normalizeUploadTarget(project.uploadTarget),
+      ...normalizeProjectUploadTargets(project),
     }))
   const sorted = sortProjects(projects)
   const preferredProjectId =
@@ -452,7 +455,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   createProject: (name, workspace = blankWorkspace(), options) => {
     const state = get()
-    const project = makeProject(uniqueProjectName(state.projects, name), workspace, options?.uploadTarget)
+    const project = makeProject(uniqueProjectName(state.projects, name), workspace, options)
     const projects = sortProjects([project, ...state.projects])
     const next = buildState(
       projects,
@@ -538,18 +541,23 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (current) queueProjectUpsert(current)
   },
 
-  setProjectUploadTarget: (uploadTarget, id) => {
+  setProjectUploadTarget: (boardId, uploadTarget, id) => {
     const state = get()
     const projectId = id ?? state.currentProjectId
     const current = state.projects.find((project) => project.id === projectId)
     const normalized = normalizeUploadTarget(uploadTarget)
-    if (!current || sameUploadTarget(current.uploadTarget, normalized)) return
+    if (!current || !boardId || !normalized) return
+    if (sameUploadTarget(current.uploadTargets?.[boardId], normalized)) return
+    const uploadTargets = normalizeProjectUploadTargets({
+      uploadTargets: { ...current.uploadTargets, [boardId]: normalized },
+    })
     const now = Date.now()
     const projects = state.projects.map((project) =>
       project.id === projectId
         ? {
             ...project,
-            uploadTarget: normalized,
+            uploadTarget: uploadTargets.uploadTarget,
+            uploadTargets: uploadTargets.uploadTargets,
             updatedAt: now,
           }
         : project)

@@ -6,8 +6,11 @@ import {
   type BackendHealth, type SerialPort, type ShowUploadFile, type CoreUpdate,
 } from '../../utils/backendClient'
 import { useProjectStore } from '../projectStore'
+import { useUiStore } from '../uiStore'
+import { PRIMARY_UPLOAD_TARGET_KEY } from '../uploadTargets'
 import { useStreamStore } from '../output/streamStore'
 import { useGraphStore, rootGraphNodes } from '../graphStore'
+import { primaryBoardId } from '../../build/boardPartition'
 import { selectedBoardFlashMb } from '../../build/boards/boardProfiles'
 import { controllerSettings } from '../../build/controllerSettings'
 import { resolveUsbCdcOnBoot } from './serialRouting'
@@ -319,12 +322,28 @@ function load(): Persisted {
   }
 }
 
+/**
+ * The project's upload-target key for the active board: the primary's slot
+ * is always `PRIMARY_UPLOAD_TARGET_KEY` whatever the primary Board node is
+ * called, so a project saved before multi-board still finds its one target.
+ * The default active board is that key, which also means the graph store is
+ * not consulted at module load, when it may still be mid-import.
+ */
+function activeUploadTargetKey(): string {
+  const { activeBoardId } = useUiStore.getState()
+  if (activeBoardId === PRIMARY_UPLOAD_TARGET_KEY) return activeBoardId
+  return activeBoardId === primaryBoardId(rootGraphNodes(useGraphStore.getState()))
+    ? PRIMARY_UPLOAD_TARGET_KEY
+    : activeBoardId
+}
+
 function projectSelection(fallback: Persisted): Pick<UploadState, 'selectedFqbn' | 'selectedPort'> {
   const { currentProjectId, projects } = useProjectStore.getState()
   const current = projects.find((project) => project.id === currentProjectId)
+  const target = current?.uploadTargets?.[activeUploadTargetKey()]
   return {
-    selectedFqbn: current?.uploadTarget?.selectedFqbn || fallback.selectedFqbn,
-    selectedPort: current?.uploadTarget?.selectedPort || fallback.selectedPort,
+    selectedFqbn: target?.selectedFqbn || fallback.selectedFqbn,
+    selectedPort: target?.selectedPort || fallback.selectedPort,
   }
 }
 
@@ -409,6 +428,9 @@ interface UploadState {
   toggleBoard: (fqbn: string) => void
   setSelectedFqbn: (fqbn: string) => void
   setSelectedPort: (port: string) => void
+  /** Reload `selectedFqbn`/`selectedPort` for the board the user switched
+   *  to. Runs on every active-board change; see docs/design/multi-board.md. */
+  syncSelectionToActiveBoard: () => void
   // custom boards (add-by-URL)
   addCustomBoard: (input: { label: string; fqbn: string; core: string; boardUrl: string }) => { ok: boolean; error?: string }
   removeCustomBoard: (fqbn: string) => void
@@ -505,7 +527,7 @@ function scheduleStatusReset(
 }
 
 function saveProjectSelection(selectedFqbn: string, selectedPort: string) {
-  useProjectStore.getState().setProjectUploadTarget({ selectedFqbn, selectedPort })
+  useProjectStore.getState().setProjectUploadTarget(activeUploadTargetKey(), { selectedFqbn, selectedPort })
 }
 
 export const useUploadStore = create<UploadState>((set, get) => ({
@@ -612,6 +634,12 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     set({ customBoards, myBoards, selectedFqbn })
     persistFallback({ ...get(), customBoards, myBoards, selectedFqbn, selectedPort })
     saveProjectSelection(selectedFqbn, selectedPort)
+  },
+  syncSelectionToActiveBoard: () => {
+    const next = projectSelection(persistedPrefs)
+    const current = get()
+    if (current.selectedFqbn === next.selectedFqbn && current.selectedPort === next.selectedPort) return
+    set({ selectedFqbn: next.selectedFqbn, selectedPort: next.selectedPort })
   },
   setSelectedPort: (port) => {
     const selectedFqbn = get().selectedFqbn
@@ -1037,8 +1065,12 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 }))
 
 useProjectStore.subscribe(() => {
-  const next = projectSelection(persistedPrefs)
-  const current = useUploadStore.getState()
-  if (current.selectedFqbn === next.selectedFqbn && current.selectedPort === next.selectedPort) return
-  useUploadStore.setState({ selectedFqbn: next.selectedFqbn, selectedPort: next.selectedPort })
+  useUploadStore.getState().syncSelectionToActiveBoard()
+})
+
+// Switching boards switches targets: each Board node remembers its own FQBN
+// and port, and the store describes whichever board is active.
+useUiStore.subscribe((state, previous) => {
+  if (state.activeBoardId === previous.activeBoardId) return
+  useUploadStore.getState().syncSelectionToActiveBoard()
 })

@@ -61,6 +61,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 - [DMX / Art-Net input](design/dmx-artnet-input.md)
 - [HUB75 output](design/hub75-output.md)
 - [IR remote controls for graph properties](design/ir-remote-controls.md)
+- [Multi-board projects](design/multi-board.md)
 - [RTC clock and scheduled triggers](design/rtc-clock-and-schedule.md)
 - [Wired Ethernet](design/wired-ethernet.md)
 
@@ -77,6 +78,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 
 ### Workspace and reference design
 
+- [Library sharing: patterns, palettes and collections](design/library-sharing.md)
 - [Node reference layout and upkeep](design/node-reference-layout.md)
 - [One canvas, four workspaces](design/workspace-tabs.md)
 

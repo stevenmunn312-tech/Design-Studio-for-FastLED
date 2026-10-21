@@ -39,6 +39,14 @@ import {
 } from '../build/boards/customBoard'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from '../build/hardware'
 import { controllerSettings, DEFAULT_BOARD_CONTROLLER_PROPERTIES, FRAME_RATE } from '../build/controllerSettings'
+import {
+  boardIdOf,
+  boardNodesIn,
+  boardPartition,
+  isBoardAttachedNodeType,
+  primaryBoardId,
+  type BoardPartition,
+} from '../build/boardPartition'
 import { ledDriverOptionsForBoard, withLedDriverNormalized } from '../build/ledDriverSelection'
 import { LED_DRIVER_AUTO, type LedDriverChoice } from '../build/ledDrivers'
 import {
@@ -319,6 +327,16 @@ interface GraphState {
   /** Move every hardware part's app-assigned pins onto `fqbn`'s board,
    *  leaving pins the user has edited exactly where they are. */
   retargetHardwarePins: (fqbn: string, previousBoard?: string) => number
+  /**
+   * Add a second (third, …) controller to the project as a hidden root Board
+   * node `board-<n>`; returns its id. It starts as a clock follower when sync
+   * is on. See docs/design/multi-board.md.
+   */
+  addBoard: (profileId?: string) => string
+  /** Remove a non-primary Board with every part and output attached to it. */
+  removeBoard: (boardId: string) => void
+  /** Primary leads and every other board follows, or no board syncs at all. */
+  setBoardClockSync: (enabled: boolean) => void
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   /** Duplicate every currently multi-selected node plus the edges wiring them
@@ -450,7 +468,9 @@ export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
   return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)
 }
 
-SINGLETON_NODE_TYPES.add('Board')
+// Board is deliberately not a singleton: a project may drive several
+// controllers, each its own hidden root Board node (docs/design/multi-board.md).
+// It is still never offered in the library — `addBoard` is the only way in.
 
 export interface CreateGroupOptions {
   /** Saved to the pattern library right after creation (the caller still has
@@ -799,12 +819,27 @@ function materializeButtonBankConnection(
   }
 }
 
-function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
+/** The three states a Board's clock can be in; see docs/design/multi-board.md. */
+export type BoardClockSync = 'off' | 'leader' | 'follower'
+
+function boardClockSync(value: unknown): BoardClockSync {
+  return value === 'leader' || value === 'follower' ? value : 'off'
+}
+
+/** Extra boards stack below the primary's hidden slot, one row each. */
+const BOARD_NODE_ROW_HEIGHT = 120
+
+function createBoardNode(
+  id: string,
+  profileId = DEFAULT_BOARD_PROFILE_ID,
+  ordinal = 0,
+  clockSync: BoardClockSync = 'off',
+): StudioNode {
   const profile = boardProfileById(profileId)
   return {
-    id: ROOT_BOARD_NODE_ID,
+    id,
     type: 'studioNode',
-    position: { x: -720, y: -360 },
+    position: { x: -720, y: -360 + ordinal * BOARD_NODE_ROW_HEIGHT },
     hidden: true,
     selectable: false,
     draggable: false,
@@ -812,11 +847,26 @@ function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
       label: 'Board',
       nodeType: 'Board',
       category: 'output',
-      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID, ...DEFAULT_BOARD_CONTROLLER_PROPERTIES },
+      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID, ...DEFAULT_BOARD_CONTROLLER_PROPERTIES, clockSync },
       inputs: [],
       outputs: [],
     },
   } as StudioNode
+}
+
+function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
+  return createBoardNode(ROOT_BOARD_NODE_ID, profileId)
+}
+
+/** The smallest free `board-<n>`, n ≥ 2. Ids are never reused within a load
+ *  only because the gap is filled: remove board-2 and the next add is board-2
+ *  again, which is what a user who deleted a mistake expects. */
+function nextBoardNodeId(nodes: readonly StudioNode[]): string {
+  const taken = new Set(nodes.map((node) => node.id))
+  for (let n = 2; ; n += 1) {
+    const id = `board-${n}`
+    if (!taken.has(id)) return id
+  }
 }
 
 function v1BoardProperties(properties: Record<string, unknown>): Record<string, unknown> {
@@ -826,34 +876,60 @@ function v1BoardProperties(properties: Record<string, unknown>): Record<string, 
   return current
 }
 
+/**
+ * Every Board node is kept and brought to the same shape: hidden, fixed,
+ * controller defaults filled in, a resolved profile and a valid `clockSync`.
+ * The primary is `board-root` when present, else the first Board; its id is
+ * never rewritten, because parts name it. See docs/design/multi-board.md.
+ */
 function ensureRootBoardNode(nodes: StudioNode[]): StudioNode[] {
-  const boardNodes = nodes.filter((node) => node.data.nodeType === 'Board')
+  const boardNodes = boardNodesIn(nodes)
   if (boardNodes.length === 0) return [...nodes, createRootBoardNode()]
-  const [primary, ...extras] = boardNodes
-  const primaryProps = (primary.data.properties ?? {}) as Record<string, unknown>
-  const currentProps = v1BoardProperties(primaryProps)
-  const explicitProfileId = typeof primaryProps.profileId === 'string' && primaryProps.profileId
-    ? primaryProps.profileId
-    : DEFAULT_BOARD_PROFILE_ID
-  return nodes
-    .filter((node) => !extras.some((extra) => extra.id === node.id))
-    .map((node) => {
-      if (node.id !== primary.id) return node
-      return {
-        ...node,
-        hidden: true,
-        selectable: false,
-        draggable: false,
-        data: {
-          ...node.data,
-          label: 'Board',
-          category: 'output',
-          properties: { ...DEFAULT_BOARD_CONTROLLER_PROPERTIES, ...currentProps, profileId: explicitProfileId },
-          inputs: [],
-          outputs: [],
+  const boardIds = new Set(boardNodes.map((board) => board.id))
+  return nodes.map((node) => {
+    if (!boardIds.has(node.id)) return node
+    const props = (node.data.properties ?? {}) as Record<string, unknown>
+    const currentProps = v1BoardProperties(props)
+    const explicitProfileId = typeof props.profileId === 'string' && props.profileId
+      ? props.profileId
+      : DEFAULT_BOARD_PROFILE_ID
+    return {
+      ...node,
+      hidden: true,
+      selectable: false,
+      draggable: false,
+      data: {
+        ...node.data,
+        label: 'Board',
+        category: 'output',
+        properties: {
+          ...DEFAULT_BOARD_CONTROLLER_PROPERTIES,
+          ...currentProps,
+          profileId: explicitProfileId,
+          clockSync: boardClockSync(props.clockSync),
         },
-      }
-    })
+        inputs: [],
+        outputs: [],
+      },
+    }
+  })
+}
+
+/**
+ * A part added while a non-primary board is active belongs to that board.
+ * Only the attachment is written, and only when the part carries none and
+ * the active board is a real, non-primary Board: a one-board project keeps
+ * its parts `boardId`-free, so its save reads exactly as before.
+ */
+function stampActiveBoard(node: StudioNode, rootNodes: readonly StudioNode[]): StudioNode {
+  if (!isBoardAttachedNodeType(node.data.nodeType)) return node
+  const properties = (node.data.properties ?? {}) as Record<string, unknown>
+  if (typeof properties.boardId === 'string' && properties.boardId) return node
+  const { activeBoardId } = useUiStore.getState()
+  const boards = boardNodesIn(rootNodes)
+  if (boards.length < 2 || activeBoardId === boards[0].id) return node
+  if (!boards.some((board) => board.id === activeBoardId)) return node
+  return { ...node, data: { ...node.data, properties: { ...properties, boardId: activeBoardId } } }
 }
 
 function removeNodeAndEdges(
@@ -2096,7 +2172,7 @@ export const useGraphStore = create<GraphState>()(
           if (centreOnDrop) pendingCentreY.set(node.id, node.position.y)
           const next = [
             ...target.map((n) => (n.selected ? { ...n, selected: false } : n)),
-            { ...node, selected: !rootScoped },
+            { ...stampActiveBoard(node, rootGraphNodes(s)), selected: !rootScoped },
           ]
           if (rootScoped) return withRootNodes(s, next)
           return { nodes: next, selectedNodeId: node.id }
@@ -2493,6 +2569,71 @@ export const useGraphStore = create<GraphState>()(
         return moved
       },
 
+      addBoard: (profileId) => {
+        const rootNodes = rootGraphNodes(useGraphStore.getState())
+        const boards = boardNodesIn(rootNodes)
+        const id = nextBoardNodeId(rootNodes)
+        const primaryProps = (boards[0]?.data.properties ?? {}) as Record<string, unknown>
+        const clockSync: BoardClockSync = boardClockSync(primaryProps.clockSync) === 'leader' ? 'follower' : 'off'
+        const board = createBoardNode(id, profileId, boards.length, clockSync)
+        set((s) => withRootNodes(s, [...rootGraphNodes(s), board]))
+        return id
+      },
+
+      removeBoard: (boardId) => {
+        const state = useGraphStore.getState()
+        const rootNodes = rootGraphNodes(state)
+        const boards = boardNodesIn(rootNodes)
+        const primaryId = boards[0]?.id
+        if (!primaryId || boardId === primaryId) return
+        if (!boards.some((board) => board.id === boardId)) return
+        const boardIds = new Set(boards.map((board) => board.id))
+        const removeIds = new Set<string>([boardId])
+        const displayIds: string[] = []
+        for (const node of rootNodes) {
+          if (!isBoardAttachedNodeType(node.data.nodeType)) continue
+          if (boardIdOf(node, primaryId, boardIds) !== boardId) continue
+          removeIds.add(node.id)
+          if (node.data.nodeType === 'TransportDisplay') {
+            const displayId = String(node.data.properties.displayId ?? '')
+            if (displayId) displayIds.push(displayId)
+          }
+        }
+        // A panel takes its glass with it, as removeNodeCompletely does.
+        for (const node of rootNodes) {
+          if (node.data.nodeType !== 'TouchInput') continue
+          if (removeIds.has(String(node.data.properties.panelId ?? ''))) removeIds.add(node.id)
+        }
+        scheduleOrphanGraphPrune()
+        set((s) => {
+          const removed = removeNodeAndEdges(
+            rootGraphNodes(s), rootGraphEdges(s), s.selectedNodeId, s.performanceDeck, removeIds)
+          const { nodes, edges, ...rest } = removed
+          let displayDocuments = s.displayDocuments
+          for (const displayId of displayIds) {
+            displayDocuments = releaseUnnamedDocument(displayDocuments, nodes, displayId)
+          }
+          const result: Partial<GraphState> = { ...rest, ...withRootContent(s, { nodes, edges }) }
+          return displayDocuments === s.displayDocuments ? result : { ...result, displayDocuments }
+        })
+        if (useUiStore.getState().activeBoardId === boardId) useUiStore.getState().setActiveBoardId(primaryId)
+      },
+
+      setBoardClockSync: (enabled) =>
+        set((s) => {
+          const rootNodes = rootGraphNodes(s)
+          const primaryId = primaryBoardId(rootNodes)
+          let changed = false
+          const next = rootNodes.map((node) => {
+            if (node.data.nodeType !== 'Board') return node
+            const clockSync: BoardClockSync = !enabled ? 'off' : node.id === primaryId ? 'leader' : 'follower'
+            if (node.data.properties.clockSync === clockSync) return node
+            changed = true
+            return { ...node, data: { ...node.data, properties: { ...node.data.properties, clockSync } } }
+          })
+          return changed ? withRootNodes(s, next) : {}
+        }),
+
       loadGraph: (nodes, edges, workspace) => {
         // Replacing the workspace invalidates every graph's history, stashed
         // stacks included — otherwise entering a group whose id happens to
@@ -2554,6 +2695,9 @@ export const useGraphStore = create<GraphState>()(
           }
         })
         restoreMusicLibrary(workspace?.musicLibrary)
+        // The active board is a session choice about the project that was
+        // open; the one that just loaded starts on its primary.
+        useUiStore.getState().setActiveBoardId(primaryBoardId(rootGraphNodes(useGraphStore.getState())))
       },
 
       duplicateNode: (id) =>
@@ -3622,6 +3766,31 @@ export function useRootNodes(): StudioNode[] {
 
 export function useRootEdges(): StudioEdge[] {
   return useGraphStore(rootGraphEdges)
+}
+
+// One cached partition per board, keyed by the root arrays' identity: a
+// selector that rebuilt the partition on every store update would hand React
+// a new snapshot each time and render for edits that touched nothing it reads.
+const partitionCache = new Map<string, { nodes: StudioNode[]; edges: StudioEdge[]; result: BoardPartition }>()
+
+/**
+ * The slice of the root graph board `boardId` compiles — see
+ * `boardPartition` and docs/design/multi-board.md. Stable while the root
+ * nodes and edges are, so it is safe as a Zustand selector.
+ */
+export function boardPartitionOf(s: GraphScope, boardId: string): BoardPartition {
+  const nodes = rootGraphNodes(s)
+  const edges = rootGraphEdges(s)
+  const cached = partitionCache.get(boardId)
+  if (cached && cached.nodes === nodes && cached.edges === edges) return cached.result
+  const result = boardPartition(nodes, edges, boardId)
+  partitionCache.set(boardId, { nodes, edges, result })
+  return result
+}
+
+/** `boardPartitionOf` as a hook. */
+export function useBoardPartition(boardId: string): BoardPartition {
+  return useGraphStore((s) => boardPartitionOf(s, boardId))
 }
 
 const NO_PROPERTIES: Record<string, unknown> = Object.freeze({}) as Record<string, unknown>

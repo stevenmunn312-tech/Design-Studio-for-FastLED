@@ -469,8 +469,10 @@ exports, and print sheets.
 
 ## Board ownership
 
-There is exactly one root Board node. It selects an exact physical profile and
-owns settings that generated firmware can apply only once:
+Every project has a primary root Board node, `board-root`, and may add more
+(`board-2`, `board-3`, …) for a build that drives several controllers. Each
+Board node selects an exact physical profile and owns the settings that its
+generated firmware can apply only once:
 
 - master brightness;
 - global clockless-chipset overclock;
@@ -481,6 +483,17 @@ owns settings that generated firmware can apply only once:
 Board/profile selection and the durable controller policy live with the
 project. The selected USB port, build engine, toolchain/core state, and current
 readiness remain desk-local deployment state.
+
+Each hardware part and LED output is attached to one Board through its
+`boardId` property; a part without one belongs to the primary. Pattern nodes
+and controls are attached to none. A board's firmware, pins, capacity, power
+and validation are all computed from its **partition** of the root graph — the
+Board, its attached parts, the signal nodes that reach them, and the edges
+between — built by `boardPartition` in `src/build/boardPartition.ts`, so the
+one-board code paths are handed one board at a time. Which board the Hardware
+pane, Build Diagram and Upload tab show is `activeBoardId` in `uiStore`. The
+model, clock sync between boards and the per-board upload targets are in the
+[multi-board design note](../design/multi-board.md).
 
 ### Boards with hardware already on them
 
@@ -895,7 +908,8 @@ flash, and its USB transfer path. It defaults only when there is one provider;
 otherwise the provider is explicit. SD Card remains a concrete workbench-only
 part used by the music-synchronised player workflow.
 
-Multi-board projects are planned for v1 (root todo, D-03); a Raspberry Pi
-backend remains out of scope. Per-output
-native rendering is designed separately in
+Multi-board projects partition the root graph per Board node, as described
+under "Board ownership" and in the
+[multi-board design note](../design/multi-board.md); a Raspberry Pi backend
+remains out of scope. Per-output native rendering is designed separately in
 [`per-output-native-render.md`](per-output-native-render.md).

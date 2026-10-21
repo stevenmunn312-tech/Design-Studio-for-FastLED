@@ -169,13 +169,19 @@ board knowledge.
 
 ## Outputs and attachment
 
-LED outputs do not draw attachment edges to Board on the signal graph. With one
-board, such edges would carry no information. The Hardware workbench displays
-attachment automatically; the graph retains only the frame edge into each LED
-output.
+LED outputs do not draw attachment edges to Board on the signal graph. The
+Hardware workbench displays attachment automatically; the graph retains only
+the frame edge into each LED output.
 
-Multi-board projects are intentionally unsupported. That is the condition that
-would make explicit attachment edges necessary again.
+A project may drive several controllers. Each is its own hidden root Board
+node, and every LED output and hardware part belongs to one of them through
+its `boardId` property (absent means the primary board, so earlier saves read
+unchanged). Attachment is a property rather than an edge because the signal
+graph is shared design: a board compiles the partition of the root graph that
+reaches its own parts (`src/build/boardPartition.ts`), and inside that
+partition there is one Board, so every capability question above is asked per
+board exactly as it was. See the
+[multi-board design note](../design/multi-board.md).
 
 ## Deployment state
 

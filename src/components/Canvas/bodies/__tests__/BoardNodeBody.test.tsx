@@ -309,10 +309,11 @@ describe('BoardNodeBody', () => {
     expect(screen.getByText(/Telemetry needs an ESP32 or ESP8266 target/)).toBeTruthy()
   })
 
-  it('flags a second Board node rather than silently picking one', () => {
+  it('accepts a second Board node without complaint', () => {
     reset([boardNode('b1'), boardNode('b2')])
     render(<BoardNodeBody nodeId="b1" />)
-    // One sketch targets one controller; a second board has no meaning.
-    expect(screen.getByText(/2 Board nodes on this canvas/)).toBeTruthy()
+    // A project may drive several controllers (docs/design/multi-board.md);
+    // each Board node's body describes its own board only.
+    expect(screen.queryByText(/Board nodes on this canvas/)).toBeNull()
   })
 })

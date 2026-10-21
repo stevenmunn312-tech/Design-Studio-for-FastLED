@@ -113,3 +113,38 @@ describe('parseProjectFile — display document boundary', () => {
     expect(project.workspace.displayDocuments).toEqual({})
   })
 })
+
+describe('parseProjectFile — upload targets', () => {
+  const primary = { selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' }
+  const second = { selectedFqbn: 'rp2040:rp2040:rpipico', selectedPort: 'COM9' }
+  const file = (extra: Record<string, unknown>) => JSON.stringify({
+    id: 'proj-1', name: 'Rig', createdAt: 0, updatedAt: 0,
+    workspace: { nodes: [], edges: [] },
+    ...extra,
+  })
+
+  it('reads a legacy single uploadTarget as the primary board target', () => {
+    const { project } = parseProjectFile(file({ uploadTarget: primary }), 'fallback')
+    expect(project.uploadTargets).toEqual({ 'board-root': primary })
+    expect(project.uploadTarget).toEqual(primary)
+  })
+
+  it('keeps the per-board map, drops malformed entries and mirrors the primary', () => {
+    const { project } = parseProjectFile(file({
+      uploadTargets: { 'board-root': primary, 'board-2': second, 'board-3': { selectedFqbn: 7 } },
+    }), 'fallback')
+    expect(project.uploadTargets).toEqual({ 'board-root': primary, 'board-2': second })
+    expect(project.uploadTarget).toEqual(primary)
+  })
+
+  it('prefers the map over the legacy field when both name the primary', () => {
+    const { project } = parseProjectFile(file({ uploadTarget: second, uploadTargets: { 'board-root': primary } }), 'fallback')
+    expect(project.uploadTarget).toEqual(primary)
+  })
+
+  it('round-trips the map through serializeProject', () => {
+    const { project } = parseProjectFile(file({ uploadTargets: { 'board-root': primary, 'board-2': second } }), 'fallback')
+    const again = parseProjectFile(serializeProject(project), 'fallback').project
+    expect(again.uploadTargets).toEqual({ 'board-root': primary, 'board-2': second })
+  })
+})
