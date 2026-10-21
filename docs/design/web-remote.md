@@ -23,10 +23,12 @@ rather than their drawing:
 | Step Control | float | The same range, moved by minus and plus keys |
 | Choice Strip | float | The chosen option's index, counting the first as 0 |
 | Colour Picker | colour | A hue at a set saturation and brightness |
+| Text Entry | string | One line of text, output only once confirmed |
 
 Everything a control needs is read from `displayRegistry.ts`:
 `displayControlRange`, `displayControlStartValue`, `displayChoiceOptions`,
-`displayPickerTone` and `displayControlOutput`. A phone control and a screen
+`displayPickerTone`, `displayControlOutput`, `displayTextEntryStart` and
+`displayTextEntryClamp`. A phone control and a screen
 control of the same type therefore start at the same value, move in the same
 range and report the same thing.
 
@@ -39,22 +41,35 @@ label of at most 40 characters with control characters removed, and only the
 properties its widget type declares, bounded by the widget inspector's own
 ranges (`normalizeDisplayWidgetProperties`). A Button keeps its text, a Toggle
 its on and off words, a ranged control its range and start, a Choice Strip its
-options, a Colour Picker its start hue, saturation and brightness.
+options, a Colour Picker its start hue, saturation and brightness, a Text Entry
+its starting text, hint and maximum length.
 
 Ports are `remote:<id>`, derived from the id and never the label, so renaming
 a control keeps its wires. The trailing **Add control…** socket is the Touch
 node's `add-control` handle with its `newcontrol` type, which nothing can
 connect to, so the only thing it does is the wire-first gesture.
 
-### Adding a text control later
+### Adding a control type
 
 `WEB_REMOTE_CONTROL_TYPES` is the one list, and `webRemoteControlKind` maps a
-type to how it behaves. Adding a string-output Text Entry widget is: add it to
-the list, give it a `text` kind, and fill the switches the compiler then points
-at (the page's `controlHtml`, the body's `MiniControl`, the firmware's value
-storage, which would need a bounded `char` buffer per text control beside
-`_wrVal`). `webRemoteControlDataType` already reads the output type off the
-widget's `out` role, so a `string` output needs no new rule there.
+type to how it behaves; the compiler then points at every switch that has to
+learn a new kind (the page's `controlHtml`, the body's `MiniControl`, the
+firmware's storage). `webRemoteControlDataType` reads the output type off the
+widget's `out` role. Text Entry arrived this way as the `text` kind.
+
+### Text Entry
+
+The output is the *confirmed* text, never each keystroke, as on the glass: the
+page draws a form whose Send key (or the phone's own Go key) posts the field,
+and the node's own field confirms on Enter. Text is held to the field by
+`displayTextEntryClamp`: at most Maximum length characters, one line (a run of
+line breaks becomes one space), cut on a whole UTF-8 character to the 63-byte
+budget (`DISPLAY_TEXT_ENTRY_MAX_BYTES`). The firmware keeps each text control in
+its own `char[64]` and applies the same rule in `_wrSetText`; a request longer
+than 256 bytes is refused before it is read. The state sends text as JSON
+strings with quotes, backslashes and control bytes escaped (`_wrJsonText`), and
+the page writes it into the field's value, never into markup. The graph reads a
+`const char *` to the buffer, which is what every string consumer takes.
 
 ## Wiring a control into existence
 
@@ -161,11 +176,10 @@ already shows the board's state.
 
 The page has no password. Anyone on the same network can open it and move the
 controls, as anyone on the network can send Art-Net. The page reads and writes
-only the controls' numbers; it cannot change the sketch, the Wi-Fi settings or
+only the controls' values; it cannot change the sketch, the Wi-Fi settings or
 anything else on the board.
 
 ## Not done
 
-- No text control yet (see above).
 - The board's IP address is not shown in the studio; mDNS covers phones that
   resolve `.local`, and the router shows the address.

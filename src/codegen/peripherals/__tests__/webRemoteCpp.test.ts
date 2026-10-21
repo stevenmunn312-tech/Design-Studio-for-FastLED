@@ -265,3 +265,36 @@ describe('validation', () => {
     expect(validateGraph(nodes, edges, 'esp32:esp32:esp32s3').warnings.some((warning) => warning.includes('missing its Wi-Fi SSID'))).toBe(true)
   })
 })
+
+describe('Text Entry firmware', () => {
+  const controls = [
+    { id: 'level', type: 'Slider', label: 'Level' },
+    { id: 'name', type: 'Text Entry', label: 'Name', properties: { text: 'Hi "you"', maxLength: 20 } },
+  ]
+
+  it('keeps confirmed text in a bounded buffer and hands the graph a C string', () => {
+    const firmware = webRemoteFirmware('r', { controls }, 'x')
+    expect(firmware.outputs['remote:name']).toBe('string')
+    expect(firmware.globals).toContain('static char _wrText_r_1[64] = "Hi \\"you\\"";  // Name')
+    expect(firmware.loop).toContain('  const char *n_r_remote_name = _wrText_r_1;')
+    // Text is taken before the numeric bounds, then cut to the field.
+    const set = firmware.globals.slice(firmware.globals.indexOf('static void _wrHandleSet_r()'))
+    expect(set.indexOf('case 1: _wrSetText_r(_wrText_r_1, raw, 20);')).toBeLessThan(set.indexOf('float v = raw.toFloat();'))
+    expect(set).toContain('raw.length() > 256')
+    expect(firmware.globals).toContain('if (chars >= maxChars || out + width > 63 || n + width > len) break;')
+    expect(firmware.globals).toContain('  _wrJsonText_r(body, _wrText_r_1);')
+    expect(firmware.globals).toContain(String.raw`if (ch == '"' || ch == '\\') { body += '\\'; body += (char)ch; }`)
+  })
+
+  it('emits no text helpers for a remote without text', () => {
+    const firmware = webRemoteFirmware('r', { controls: controls.slice(0, 1) }, 'x')
+    expect(firmware.globals).not.toContain('_wrSetText_r')
+    expect(firmware.globals).not.toContain('_wrJsonText_r')
+  })
+
+  it('offers its text to the control graph as a string', () => {
+    const remote = node('r', 'WebRemoteInput', { controls })
+    const graph = createControlGraph([remote], [])
+    expect(graph.resolve('r', 'remote:name', 'string')).toEqual({ nodeId: 'r', port: 'remote:name', type: 'string' })
+  })
+})

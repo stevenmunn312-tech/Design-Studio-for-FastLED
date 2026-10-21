@@ -11,8 +11,10 @@
  * shape.
  */
 
+import type { WebRemoteState } from './webRemote'
+
 interface ControlRuntime {
-  value: number | boolean
+  value: WebRemoteState
   /**
    * A press not yet seen by an evaluator pass. A tap that goes down and up
    * between two passes would otherwise never reach the graph; this keeps it
@@ -30,7 +32,7 @@ function bump(nodeId: string) {
   listeners.get(nodeId)?.forEach((listener) => listener())
 }
 
-function runtimeFor(nodeId: string, controlId: string, fallback: number | boolean): ControlRuntime {
+function runtimeFor(nodeId: string, controlId: string, fallback: WebRemoteState): ControlRuntime {
   let controls = remotes.get(nodeId)
   if (!controls) {
     controls = new Map()
@@ -48,7 +50,7 @@ function runtimeFor(nodeId: string, controlId: string, fallback: number | boolea
  * Set a control. A boolean `true` is a press that stays pending until a pass
  * samples it, so releasing it before the next frame still reaches the graph.
  */
-export function writeWebRemoteControl(nodeId: string, controlId: string, value: number | boolean): void {
+export function writeWebRemoteControl(nodeId: string, controlId: string, value: WebRemoteState): void {
   const fresh = remotes.get(nodeId)?.get(controlId) === undefined
   const runtime = runtimeFor(nodeId, controlId, value)
   if (value === true) runtime.pending = true
@@ -58,7 +60,7 @@ export function writeWebRemoteControl(nodeId: string, controlId: string, value: 
 }
 
 /** The value a control shows, or `fallback` when nobody has touched it. */
-export function readWebRemoteControl(nodeId: string, controlId: string, fallback: number | boolean): number | boolean {
+export function readWebRemoteControl(nodeId: string, controlId: string, fallback: WebRemoteState): WebRemoteState {
   return remotes.get(nodeId)?.get(controlId)?.value ?? fallback
 }
 
@@ -66,7 +68,7 @@ export function readWebRemoteControl(nodeId: string, controlId: string, fallback
  * The value one evaluator pass reads. A pending press reads true once, even
  * if the finger has already left; every other read is the current value.
  */
-export function sampleWebRemoteControl(nodeId: string, controlId: string, fallback: number | boolean): number | boolean {
+export function sampleWebRemoteControl(nodeId: string, controlId: string, fallback: WebRemoteState): WebRemoteState {
   const runtime = remotes.get(nodeId)?.get(controlId)
   if (!runtime) return fallback
   if (runtime.pending) {

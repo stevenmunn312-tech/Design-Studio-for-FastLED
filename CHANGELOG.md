@@ -10,8 +10,8 @@ versioning (`0.y.z`) until the first stable release.
 ### Added
 
 - **Web Remote** serves a phone control page over the board's Wi-Fi on ESP32
-  and ESP8266: Buttons, Toggles, Sliders, Step Controls, Choice Strips and
-  Colour Pickers, each an output of the node with its touch-screen widget's
+  and ESP8266: Buttons, Toggles, Sliders, Step Controls, Choice Strips,
+  Colour Pickers and Text Entries, each an output of the node with its touch-screen widget's
   range, start value and output. Drag **Add control…** onto a property row to
   make the right control for it. The node is an operable remote in the
   preview, and **Phone preview** shows the page the board serves. Normal

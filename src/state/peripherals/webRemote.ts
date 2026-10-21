@@ -24,6 +24,9 @@ import {
   displayControlStartValue,
   displayPickerStartHue,
   displayPickerStops,
+  displayTextEntryClamp,
+  displayTextEntryMaxLength,
+  displayTextEntryStart,
   displayWidgetDefinition,
   normalizeDisplayWidgetProperties,
   TOUCH_CONTROL_ADD_DATA_TYPE,
@@ -43,7 +46,7 @@ export const WEB_REMOTE_NODE_TYPE = 'WebRemoteInput'
  * learn it.
  */
 export const WEB_REMOTE_CONTROL_TYPES = [
-  'Button', 'Toggle', 'Slider', 'Step Control', 'Choice Strip', 'Colour Picker',
+  'Button', 'Toggle', 'Slider', 'Step Control', 'Choice Strip', 'Colour Picker', 'Text Entry',
 ] as const satisfies readonly DisplayWidgetType[]
 
 export type WebRemoteControlType = (typeof WEB_REMOTE_CONTROL_TYPES)[number]
@@ -53,9 +56,9 @@ export type WebRemoteControlType = (typeof WEB_REMOTE_CONTROL_TYPES)[number]
  *
  * `press` is momentary, `latch` a boolean, `range` a ranged number with a
  * slider or plus/minus keys, `choice` an option index, `hue` a Colour
- * Picker's hue in degrees.
+ * Picker's hue in degrees, `text` a line of confirmed text.
  */
-export type WebRemoteControlKind = 'press' | 'latch' | 'range' | 'choice' | 'hue'
+export type WebRemoteControlKind = 'press' | 'latch' | 'range' | 'choice' | 'hue' | 'text'
 
 const KIND: Record<WebRemoteControlType, WebRemoteControlKind> = {
   Button: 'press',
@@ -64,6 +67,7 @@ const KIND: Record<WebRemoteControlType, WebRemoteControlKind> = {
   'Step Control': 'range',
   'Choice Strip': 'choice',
   'Colour Picker': 'hue',
+  'Text Entry': 'text',
 }
 
 /** The widget properties a phone control keeps; the rest are screen-only. */
@@ -74,12 +78,16 @@ const KEPT_PROPERTIES: Record<WebRemoteControlType, readonly string[]> = {
   'Step Control': ['min', 'max', 'step', 'initial'],
   'Choice Strip': ['options', 'initial'],
   'Colour Picker': ['initial', 'saturation', 'brightness'],
+  'Text Entry': ['text', 'placeholder', 'maxLength'],
 }
 
 /** Sixteen rows fit a phone without scrolling past the useful part. */
 export const MAX_WEB_REMOTE_CONTROLS = 16
 export const WEB_REMOTE_LABEL_MAX = 40
 const PROPERTY_TEXT_MAX = 120
+
+/** What a control holds: a press or latch, a number (a hue for a picker), or text. */
+export type WebRemoteState = number | boolean | string
 
 export interface WebRemoteControl {
   /** Stable identity, lower case letters, digits and hyphens. */
@@ -98,10 +106,10 @@ export function webRemoteControlKind(type: WebRemoteControlType): WebRemoteContr
 }
 
 /** The graph type a control's output carries, read off its widget's `out` role. */
-export function webRemoteControlDataType(type: WebRemoteControlType): 'bool' | 'float' | 'color' {
+export function webRemoteControlDataType(type: WebRemoteControlType): 'bool' | 'float' | 'color' | 'string' {
   const role = displayWidgetDefinition(type).portRoles.find((port) => port.direction === 'output')
   const dataType = role?.dataType
-  return dataType === 'bool' || dataType === 'color' ? dataType : 'float'
+  return dataType === 'bool' || dataType === 'color' || dataType === 'string' ? dataType : 'float'
 }
 
 function safeControlId(value: unknown): string {
@@ -115,6 +123,7 @@ const ID_STEM: Record<WebRemoteControlType, string> = {
   'Step Control': 'step',
   'Choice Strip': 'choice',
   'Colour Picker': 'colour',
+  'Text Entry': 'text',
 }
 
 function cleanLabel(value: unknown, fallback: string): string {
@@ -240,14 +249,17 @@ export function patchWebRemoteControl(
 export function webRemoteStateRange(control: Pick<WebRemoteControl, 'type' | 'properties'>): { min: number; max: number; step: number } {
   const kind = KIND[control.type]
   if (kind === 'press' || kind === 'latch') return { min: 0, max: 1, step: 1 }
+  // A text control's range is its length in characters.
+  if (kind === 'text') return { min: 0, max: displayTextEntryMaxLength(control), step: 1 }
   if (kind === 'hue') return { min: 0, max: DISPLAY_PICKER_HUE_MAX, step: 1 }
   return displayControlRange(control)
 }
 
 /** What a control holds before anyone has touched it: the screen widget's start. */
-export function webRemoteStartState(control: Pick<WebRemoteControl, 'type' | 'properties'>): number | boolean {
+export function webRemoteStartState(control: Pick<WebRemoteControl, 'type' | 'properties'>): WebRemoteState {
   const kind = KIND[control.type]
   if (kind === 'press' || kind === 'latch') return false
+  if (kind === 'text') return displayTextEntryStart(control)
   if (kind === 'hue') return displayPickerStartHue(control)
   return displayControlStartValue(control) ?? 0
 }
@@ -258,8 +270,11 @@ export function webRemoteStartState(control: Pick<WebRemoteControl, 'type' | 'pr
  * from the minimum. The sketch's `_wrQuantize` performs the same arithmetic,
  * so the phone, the preview and the board agree on where a drag lands.
  */
-export function webRemoteQuantize(control: Pick<WebRemoteControl, 'type' | 'properties'>, value: unknown): number | boolean {
+export function webRemoteQuantize(control: Pick<WebRemoteControl, 'type' | 'properties'>, value: unknown): WebRemoteState {
   const kind = KIND[control.type]
+  // Text is held to the field's length and byte budget, one line, as the
+  // sketch's `_wrSetText` cuts it.
+  if (kind === 'text') return displayTextEntryClamp(control, typeof value === 'string' ? value : '')
   const number = typeof value === 'boolean' ? (value ? 1 : 0) : Number(value)
   if (kind === 'press' || kind === 'latch') return Number.isFinite(number) && number >= 0.5
   const { min, max, step } = webRemoteStateRange(control)
@@ -273,12 +288,13 @@ export function webRemoteQuantize(control: Pick<WebRemoteControl, 'type' | 'prop
 /** The control's output for a state: the state itself, or a picker's colour. */
 export function webRemoteControlOutput(
   control: Pick<WebRemoteControl, 'type' | 'properties'>,
-  state: number | boolean,
-): number | boolean | DisplayRgb {
+  state: WebRemoteState,
+): number | boolean | string | DisplayRgb {
   const kind = KIND[control.type]
-  if (kind === 'press' || kind === 'latch') return typeof state === 'boolean' ? state : state >= 0.5
+  if (kind === 'text') return typeof state === 'string' ? state : displayTextEntryStart(control)
+  if (kind === 'press' || kind === 'latch') return typeof state === 'boolean' ? state : Number(state) >= 0.5
   if (kind === 'hue') return displayControlOutput(control, typeof state === 'number' ? state : displayPickerStartHue(control))
-  return typeof state === 'number' ? state : Number(state)
+  return typeof state === 'number' ? state : Number(state) || 0
 }
 
 /** A Choice Strip's options, as the screen widget splits them. */

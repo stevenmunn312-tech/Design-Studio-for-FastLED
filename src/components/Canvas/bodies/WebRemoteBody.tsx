@@ -65,8 +65,10 @@ function MiniControl({ nodeId, control }: { nodeId: string; control: WebRemoteCo
   const write = (next: unknown) => writeWebRemoteControl(nodeId, control.id, webRemoteQuantize(control, next))
   const kind = webRemoteControlKind(control.type)
   const range = webRemoteStateRange(control)
-  const number = typeof value === 'number' ? value : value ? 1 : 0
+  const number = typeof value === 'number' ? value : value === true ? 1 : 0
   switch (kind) {
+    case 'text':
+      return <TextControl control={control} value={typeof value === 'string' ? value : ''} onConfirm={write} />
     case 'press': {
       const text = String(control.properties.text ?? '') || 'Press'
       return (
@@ -172,6 +174,39 @@ function MiniControl({ nodeId, control }: { nodeId: string; control: WebRemoteCo
   }
 }
 
+/**
+ * A Text Entry's field: typing edits a draft, and only Enter confirms it, the
+ * way the phone's Send key and the screen widget's keyboard do.
+ */
+function TextControl({ control, value, onConfirm }: {
+  control: WebRemoteControl
+  value: string
+  onConfirm: (text: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  const [editing, setEditing] = useState(false)
+  const shown = editing ? draft : value
+  return (
+    <div className={styles.control}>
+      <input
+        className={`nodrag ${styles.fieldInput}`}
+        type="text"
+        aria-label={`${control.label}, press Enter to send`}
+        placeholder={String(control.properties.placeholder ?? '')}
+        maxLength={webRemoteStateRange(control).max}
+        value={shown}
+        onFocus={() => { setDraft(value); setEditing(true) }}
+        onBlur={() => setEditing(false)}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') { onConfirm(draft); event.currentTarget.blur() }
+          if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.blur() }
+        }}
+      />
+    </div>
+  )
+}
+
 /** A text field that commits on blur or Enter, so typing is one undo step. */
 function DraftField({ label, value, onCommit, maxLength }: {
   label: string
@@ -227,6 +262,15 @@ function ControlSettings({ nodeId, control }: { nodeId: string; control: WebRemo
   if (kind === 'press') return <div className={styles.editFields}>{text('text', 'button text', '')}</div>
   if (kind === 'latch') return <div className={styles.editFields}>{text('offLabel', 'off', 'OFF')}{text('onLabel', 'on', 'ON')}</div>
   if (kind === 'choice') return <div className={styles.editFields}>{text('options', 'options, comma separated', '')}</div>
+  if (kind === 'text') {
+    return (
+      <div className={styles.editFields}>
+        {text('text', 'starts with', '')}
+        {text('placeholder', 'hint when empty', '')}
+        <NumberField label="max length" value={webRemoteStateRange(control).max} onCommit={(value) => set({ maxLength: value })} />
+      </div>
+    )
+  }
   if (kind === 'hue') {
     const tone = (key: 'saturation' | 'brightness') => Number(control.properties[key] ?? 1)
     return (

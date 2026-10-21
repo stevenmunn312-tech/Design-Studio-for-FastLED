@@ -235,3 +235,38 @@ describe('webRemotePageHtml', () => {
     expect(page).toContain("parent.postMessage({fls:'wr',op:'set'")
   })
 })
+
+describe('Text Entry controls', () => {
+  const [entry] = normalizeWebRemoteControls([
+    { id: 'name', type: 'Text Entry', label: 'Name', properties: { text: 'Hello', placeholder: '<hint>', maxLength: 8, fontSize: 30 } },
+  ])
+
+  it('keeps its text, hint and length and outputs a string', () => {
+    expect(entry.properties).toEqual({ text: 'Hello', placeholder: '<hint>', maxLength: 8 })
+    expect(webRemoteControlDataType('Text Entry')).toBe('string')
+    expect(webRemoteStartState(entry)).toBe('Hello')
+    expect(webRemoteControlOutput(entry, 'Hi there')).toBe('Hi there')
+  })
+
+  it('holds text to the field: characters, one line, whole characters', () => {
+    expect(webRemoteQuantize(entry, 'a\r\n\nb')).toBe('a b')
+    expect(webRemoteQuantize(entry, 'abcdefghijk')).toBe('abcdefgh')
+    expect(webRemoteQuantize(entry, 42)).toBe('')
+    const [wide] = normalizeWebRemoteControls([{ id: 'w', type: 'Text Entry', label: 'W', properties: { maxLength: 63 } }])
+    // 25 three-byte characters are 75 bytes; 21 of them fit the 63-byte budget.
+    expect(webRemoteQuantize(wide, '€'.repeat(25))).toBe('€'.repeat(21))
+  })
+
+  it('draws a confirmable field with its text escaped', () => {
+    const [hostile] = normalizeWebRemoteControls([
+      { id: 'n', type: 'Text Entry', label: 'Name', properties: { text: '"><b>x', placeholder: '<i>' } },
+    ])
+    const page = webRemotePageHtml('T', [hostile])
+    expect(page).toContain('value="&quot;&gt;&lt;b&gt;x"')
+    expect(page).toContain('placeholder="&lt;i&gt;"')
+    expect(page).toContain('<form class="x">')
+    expect(page).toContain('enterkeyhint="send"')
+    expect(page).not.toContain('<b>x')
+    expect(page).toContain("body:'i='+i+'&v='+encodeURIComponent(v)")
+  })
+})

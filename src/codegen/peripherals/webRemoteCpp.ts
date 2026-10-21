@@ -37,7 +37,7 @@ import {
   type WebRemoteControl,
 } from '../../state/peripherals/webRemote'
 import { webRemotePageHtml } from '../../state/peripherals/webRemotePage'
-import { displayPickerTone } from '../../state/displays/displayRegistry'
+import { DISPLAY_TEXT_ENTRY_MAX_BYTES, displayPickerTone } from '../../state/displays/displayRegistry'
 import type { StudioNode } from '../../state/graphStore'
 import type { ControlInputEmission } from '../controlInputCpp'
 import { networkSketchCpp, networkSourceIn } from './networkCpp'
@@ -55,7 +55,7 @@ export interface WebRemoteFirmware {
   /** `loop()` lines: service the server, then declare each control's output. */
   loop: string[]
   /** Each output port's graph type. */
-  outputs: Record<string, 'bool' | 'float' | 'color'>
+  outputs: Record<string, 'bool' | 'float' | 'color' | 'string'>
 }
 
 export const WEB_REMOTE_INCLUDES_CPP = [
@@ -77,8 +77,12 @@ export function webRemotePageCpp(page: string): string {
 
 function startLiteral(control: WebRemoteControl): string {
   const start = webRemoteStartState(control)
-  return floatLit(typeof start === 'boolean' ? (start ? 1 : 0) : start)
+  // A text control's number is unused; its text lives in its own buffer.
+  return floatLit(typeof start === 'boolean' ? (start ? 1 : 0) : typeof start === 'number' ? start : 0)
 }
+
+/** A text control's buffer: the bounded text plus its terminator. */
+const TEXT_BYTES = DISPLAY_TEXT_ENTRY_MAX_BYTES + 1
 
 /**
  * The firmware for one Web Remote node. `id` is the node's C++-safe id,
@@ -102,6 +106,9 @@ export function webRemoteFirmware(
     return kind !== 'press' && kind !== 'latch'
   })
   const hues = controls.some((control) => webRemoteControlKind(control.type) === 'hue')
+  const texts = controls.map((control, index) => ({ control, index }))
+    .filter(({ control }) => webRemoteControlKind(control.type) === 'text')
+  const textBuffer = (index: number) => `_wrText_${id}_${index}`
 
   const cases = controls.map((control, index) => {
     const kind = webRemoteControlKind(control.type)
@@ -110,15 +117,21 @@ export function webRemoteFirmware(
       return `    case ${index}: ${val}[${index}] = v >= 0.5f ? 1.0f : 0.0f; if (v >= 0.5f) _wrHeldMs_${id}_${index} = millis(); break;  ${note}`
     }
     if (kind === 'latch') return `    case ${index}: ${val}[${index}] = v >= 0.5f ? 1.0f : 0.0f; break;  ${note}`
+    if (kind === 'text') return null
     const range = webRemoteStateRange(control)
     return `    case ${index}: ${val}[${index}] = _wrQuantize_${id}(v, ${floatLit(range.min, 6)}, ${floatLit(range.max, 6)}, ${floatLit(range.step, 6)}); break;  ${note}`
   })
+
+  const numericCases = cases.filter((line): line is string => line !== null)
 
   const globals = [
     `// Web Remote "${cppComment(webRemoteTitle(properties.title))}": a phone control page served over Wi-Fi.`,
     `static const char _wrPage_${id}[] PROGMEM =`,
     `${webRemotePageCpp(page)};`,
     `static float ${val}[${count}] = { ${controls.length > 0 ? controls.map(startLiteral).join(', ') : '0.0f'} };`,
+    ...texts.map(({ control, index }) => (
+      `static char ${textBuffer(index)}[${TEXT_BYTES}] = ${cppStringLiteral(webRemoteStartState(control))};  // ${cppComment(control.label)}`
+    )),
     ...(hues ? [
       `// The six-sector HSV every Colour Picker shares (displayHueColor), packed 0xRRGGBB.`,
       `static uint32_t _wrHueRgb_${id}(float hue, float saturation, float value) {`,
@@ -155,6 +168,49 @@ export function webRemoteFirmware(
       `  return constrain(v, lo, hi);`,
       `}`,
     ] : []),
+    ...(texts.length > 0 ? [
+      `// Confirmed text, held to the field: at most maxChars characters and the`,
+      `// buffer's bytes, cut on a whole UTF-8 character, one line (a run of line`,
+      `// breaks is one space), as displayTextEntryClamp holds it in the preview.`,
+      `static void _wrSetText_${id}(char *dst, const String &src, int maxChars) {`,
+      `  const char *text = src.c_str();`,
+      `  size_t len = src.length(), n = 0, out = 0;`,
+      `  int chars = 0;`,
+      `  bool lineBreak = false;`,
+      `  while (n < len) {`,
+      `    unsigned char ch = (unsigned char)text[n];`,
+      String.raw`    if (ch == '\r' || ch == '\n') {`,
+      `      if (!lineBreak) {`,
+      `        if (chars >= maxChars || out + 1 > ${TEXT_BYTES - 1}) break;`,
+      `        dst[out++] = ' ';`,
+      `        chars++;`,
+      `      }`,
+      `      lineBreak = true;`,
+      `      n++;`,
+      `      continue;`,
+      `    }`,
+      `    lineBreak = false;`,
+      `    size_t width = ch < 0x80 ? 1 : ch >= 0xF0 ? 4 : ch >= 0xE0 ? 3 : ch >= 0xC0 ? 2 : 1;`,
+      `    if (chars >= maxChars || out + width > ${TEXT_BYTES - 1} || n + width > len) break;`,
+      `    memcpy(dst + out, text + n, width);`,
+      `    out += width;`,
+      `    n += width;`,
+      `    chars++;`,
+      `  }`,
+      `  dst[out] = 0;`,
+      `}`,
+      `// One text as a JSON string: quotes and backslashes escaped, control bytes as \\u00XX.`,
+      `static void _wrJsonText_${id}(String &body, const char *text) {`,
+      `  body += '"';`,
+      `  for (const char *p = text; *p; p++) {`,
+      `    unsigned char ch = (unsigned char)*p;`,
+      String.raw`    if (ch == '"' || ch == '\\') { body += '\\'; body += (char)ch; }`,
+      String.raw`    else if (ch < 0x20) { char esc[7]; snprintf(esc, sizeof(esc), "\\u%04x", ch); body += esc; }`,
+      `    else body += (char)ch;`,
+      `  }`,
+      `  body += '"';`,
+      `}`,
+    ] : []),
     `// A control index: one or two digits naming a control, else -1.`,
     `static int _wrIndex_${id}(const String &text) {`,
     `  if (text.length() < 1 || text.length() > 2) return -1;`,
@@ -168,12 +224,19 @@ export function webRemoteFirmware(
     `}`,
     `static void _wrSendState_${id}() {`,
     `  String body;`,
-    `  body.reserve(${count * 10 + 2});`,
+    `  body.reserve(${count * 10 + texts.length * TEXT_BYTES + 2});`,
     `  body += '[';`,
-    `  for (int i = 0; i < ${controls.length}; i++) {`,
-    `    if (i) body += ',';`,
-    `    body += String(${val}[i], 4);`,
-    `  }`,
+    ...(texts.length === 0 ? [
+      `  for (int i = 0; i < ${controls.length}; i++) {`,
+      `    if (i) body += ',';`,
+      `    body += String(${val}[i], 4);`,
+      `  }`,
+    ] : controls.flatMap((control, index) => [
+      ...(index > 0 ? [`  body += ',';`] : []),
+      webRemoteControlKind(control.type) === 'text'
+        ? `  _wrJsonText_${id}(body, ${textBuffer(index)});`
+        : `  body += String(${val}[${index}], 4);`,
+    ])),
     `  body += ']';`,
     `  ${server}.sendHeader("Cache-Control", "no-store");`,
     `  ${server}.send(200, "application/json", body);`,
@@ -187,12 +250,25 @@ export function webRemoteFirmware(
     `static void _wrHandleSet_${id}() {`,
     `  int i = _wrIndex_${id}(${server}.arg("i"));`,
     `  String raw = ${server}.arg("v");`,
+    ...(texts.length > 0 ? [
+      // Text is taken whole, then cut to the field; four bytes a character
+      // is the most an over-long request can usefully carry.
+      `  if (i < 0 || raw.length() > ${TEXT_BYTES * 4}) {`,
+      `    ${server}.send(400, "text/plain", "Bad control");`,
+      `    return;`,
+      `  }`,
+      `  switch (i) {`,
+      ...texts.map(({ control, index }) => (
+        `    case ${index}: _wrSetText_${id}(${textBuffer(index)}, raw, ${webRemoteStateRange(control).max}); _wrSendState_${id}(); return;  // ${cppComment(control.label)}`
+      )),
+      `  }`,
+    ] : []),
     `  float v = raw.toFloat();`,
     `  if (i < 0 || raw.length() == 0 || raw.length() > 16 || !isfinite(v)) {`,
     `    ${server}.send(400, "text/plain", "Bad control");`,
     `    return;`,
     `  }`,
-    ...(cases.length > 0 ? [`  switch (i) {`, ...cases, `  }`] : []),
+    ...(numericCases.length > 0 ? [`  switch (i) {`, ...numericCases, `  }`] : []),
     `  _wrSendState_${id}();`,
     `}`,
     `#endif`,
@@ -214,6 +290,7 @@ export function webRemoteFirmware(
     const dataType = webRemoteControlDataType(control.type)
     outputs[port] = dataType
     if (dataType === 'bool') return `  bool ${v(port)} = ${val}[${index}] >= 0.5f;`
+    if (dataType === 'string') return `  const char *${v(port)} = ${textBuffer(index)};`
     if (dataType === 'color') {
       const tone = displayPickerTone(control)
       return `  CRGB ${v(port)} = CRGB(_wrHueRgb_${id}(${val}[${index}], ${floatLit(tone.saturation)}, ${floatLit(tone.brightness)}));`

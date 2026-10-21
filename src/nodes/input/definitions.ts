@@ -185,7 +185,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
      * Its outputs are its controls, derived from `controls` the way a Button
      * Bank derives its own, with the trailing socket inviting the next. Each
      * control is a custom-screen control widget (Button, Toggle, Slider, Step
-     * Control, Choice Strip, Colour Picker) and keeps that widget's meaning,
+     * Control, Choice Strip, Colour Picker, Text Entry) and keeps that
+     * widget's meaning,
      * so dragging the socket onto a property row mints the same control a
      * Touch node would. It is a network user like Art-Net, so it carries the
      * same hostname and addressing fields and shares the one connection.
@@ -574,7 +575,7 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   TouchInput: 'The touch surface of a Display Panel, as controls.',
   ButtonBank: 'Grows named hardware-button outputs as you connect them.',
   IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
-  WebRemoteInput: 'A phone control page served over Wi-Fi: buttons, switches, sliders and colours.',
+  WebRemoteInput: 'A phone control page served over Wi-Fi: buttons, sliders, colours and text.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
   PresenceInput: 'Reads a radar presence sensor: someone there, moving or still, and how far away.',
   LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',

@@ -350,7 +350,7 @@ export function writeControlDriverValue(
   const state = isHexColor(value) ? displayColorHue(hexToRgb(value))
     : isDisplayRgb(value) ? displayColorHue(value)
       : value
-  if (typeof state !== 'number' && typeof state !== 'boolean') return
+  if (typeof state !== 'number' && typeof state !== 'boolean' && typeof state !== 'string') return
   writeWebRemoteControl(remote.id, control.id, webRemoteQuantize(control, state))
 }
 

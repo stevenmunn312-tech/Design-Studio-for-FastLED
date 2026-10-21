@@ -54,7 +54,7 @@ function decimals(step: number): number {
 
 function startNumber(control: WebRemoteControl): number {
   const start = webRemoteStartState(control)
-  return typeof start === 'boolean' ? (start ? 1 : 0) : start
+  return typeof start === 'boolean' ? (start ? 1 : 0) : typeof start === 'number' ? start : 0
 }
 
 function controlHtml(control: WebRemoteControl, index: number): string {
@@ -63,9 +63,10 @@ function controlHtml(control: WebRemoteControl, index: number): string {
   const id = `c${index}`
   const range = webRemoteStateRange(control)
   const start = startNumber(control)
+  const startText = kind === 'text' ? String(webRemoteStartState(control)) : ''
   const head = `<section class="c" data-i="${index}" data-k="${kind}"`
     + ` data-min="${num(range.min)}" data-max="${num(range.max)}" data-step="${num(range.step)}"`
-    + ` data-d="${decimals(range.step)}" data-v="${num(start)}"`
+    + ` data-d="${decimals(range.step)}" data-v="${kind === 'text' ? escapeHtml(startText) : num(start)}"`
   switch (kind) {
     case 'press': {
       const text = escapeHtml(String(control.properties.text ?? '') || control.label)
@@ -94,6 +95,14 @@ function controlHtml(control: WebRemoteControl, index: number): string {
         `<button class="h${optionIndex === start ? ' a' : ''}" type="button" data-o="${optionIndex}">${escapeHtml(option)}</button>`
       )).join('')
       return `${head}><span class="l">${label}</span><span class="g" role="group" aria-label="${label}">${buttons}</span></section>`
+    }
+    case 'text': {
+      // A form, so the phone's own Go/Send key confirms it: the output is
+      // the confirmed text, never each keystroke.
+      const placeholder = escapeHtml(String(control.properties.placeholder ?? ''))
+      return `${head}><label class="l" for="${id}">${label}</label>`
+        + `<form class="x"><input id="${id}" type="text" maxlength="${num(range.max)}" value="${escapeHtml(startText)}"`
+        + ` placeholder="${placeholder}" enterkeyhint="send" autocomplete="off"><button type="submit">Send</button></form></section>`
     }
     case 'hue': {
       const tone = displayPickerTone(control)
@@ -126,6 +135,8 @@ const STYLE = [
   '.u::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:40px;border-radius:8px;border:3px solid #fff;background:transparent}',
   '.u::-moz-range-thumb{width:24px;height:36px;border-radius:8px;border:3px solid #fff;background:transparent}',
   '.w{width:32px;height:32px;border-radius:8px;border:1px solid var(--line)}',
+  '.x{grid-column:1/-1;display:flex;gap:8px}',
+  '.x input{flex:1 1 auto;min-width:0;min-height:48px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font:inherit}',
 ].join('')
 
 /*
@@ -144,17 +155,18 @@ const SCRIPT = [
   'x=k*(1-Math.abs(h%2-1)),i=Math.floor(h),r=[[k,x,0],[x,k,0],[0,k,x],[0,x,k],[x,0,k],[k,0,x]][i]||[k,0,x],m=v-k;',
   "return 'rgb('+r.map(function(n){return Math.round((n+m)*255);}).join(',')+')';}",
   'function show(c,x){c.dataset.v=x;var k=c.dataset.k,el;',
-  "if(k==='press'){el=c.querySelector('button');el.classList.toggle('down',x>=0.5);el.setAttribute('aria-pressed',x>=0.5);}",
+  "if(k==='text'){el=c.querySelector('input');if(document.activeElement!==el)el.value=x;}",
+  "else if(k==='press'){el=c.querySelector('button');el.classList.toggle('down',x>=0.5);el.setAttribute('aria-pressed',x>=0.5);}",
   "else if(k==='latch'){el=c.querySelector('button');el.setAttribute('aria-pressed',x>=0.5);el.textContent=x>=0.5?c.dataset.on:c.dataset.off;}",
   "else if(k==='choice'){c.querySelectorAll('.h').forEach(function(b){b.classList.toggle('a',+b.dataset.o===Math.round(x));});}",
   "else{el=c.querySelector('input');if(el)el.value=x;el=c.querySelector('.o');if(el)el.textContent=fmt(c,x);",
   "el=c.querySelector('.w');if(el)el.style.background=hsv(x,+c.dataset.sat,+c.dataset.bri);}}",
   "function live(ok){st.textContent=ok?'live':'offline';st.className='st '+(ok?'on':'off');}",
   'function apply(v){if(!Array.isArray(v))return;live(true);cs.forEach(function(c){var i=+c.dataset.i;',
-  "if(!busy[i]&&typeof v[i]==='number')show(c,v[i]);});}",
+  "if(!busy[i]&&(typeof v[i]==='number'||typeof v[i]==='string'))show(c,v[i]);});}",
   'function json(r){if(!r.ok)throw 0;return r.json();}',
   "function send(i,v){if(E){parent.postMessage({fls:'wr',op:'set',i:i,v:v},'*');return;}",
-  "fetch('/set',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'i='+i+'&v='+v})",
+  "fetch('/set',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'i='+i+'&v='+encodeURIComponent(v)})",
   '.then(json).then(apply,function(){live(false);});}',
   "function poll(){if(E){parent.postMessage({fls:'wr',op:'get'},'*');return;}",
   "fetch('/s',{cache:'no-store'}).then(json).then(apply,function(){live(false);});}",
@@ -169,6 +181,8 @@ const SCRIPT = [
   "b.addEventListener('keydown',function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();down(c,i);}});",
   "b.addEventListener('keyup',function(e){if(e.key===' '||e.key==='Enter')up(c,i);});",
   "b.addEventListener('contextmenu',function(e){e.preventDefault();});}",
+  "else if(k==='text'){r.addEventListener('focus',function(){busy[i]=1;});r.addEventListener('blur',function(){delete busy[i];});",
+  "c.querySelector('form').addEventListener('submit',function(e){e.preventDefault();show(c,r.value);send(i,r.value);r.blur();});}",
   "else if(k==='latch'){b.addEventListener('click',function(){var x=+c.dataset.v>=0.5?0:1;show(c,x);send(i,x);});}",
   "else if(k==='choice'){c.querySelectorAll('.h').forEach(function(h){h.addEventListener('click',function(){var x=q(c,h.dataset.o);show(c,x);send(i,x);});});}",
   "else if(c.dataset.ui==='step'){c.querySelectorAll('.m').forEach(function(m){m.addEventListener('click',function(){",
@@ -176,7 +190,7 @@ const SCRIPT = [
   "else if(r){r.addEventListener('pointerdown',function(){busy[i]=1;});",
   "r.addEventListener('input',function(){slide(c,i,r.value);});",
   "r.addEventListener('change',function(){var x=q(c,r.value);delete busy[i];last[i]=Date.now();send(i,x);});}",
-  'show(c,+c.dataset.v);});',
+  "show(c,k==='text'?c.dataset.v:+c.dataset.v);});",
   "document.addEventListener('visibilitychange',function(){if(document.hidden)cs.forEach(function(c){if(c.dataset.k==='press')up(c,+c.dataset.i);});else poll();});",
   'poll();setInterval(poll,1000);',
   '})();',

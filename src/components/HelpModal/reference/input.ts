@@ -289,9 +289,9 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
 
   WebRemoteInput: {
     overview: [
-      'Web Remote turns a phone into a control panel. The board serves a small page over Wi-Fi with a button, switch, slider, step keys, a row of choices or a colour strip for each control you add, and each control is an output of this node.',
+      'Web Remote turns a phone into a control panel. The board serves a small page over Wi-Fi with a button, switch, slider, step keys, a row of choices, a colour strip or a text field for each control you add, and each control is an output of this node.',
       'Drag from Add control… onto a property row and the right control is made for it, named and ranged after the property and starting at its current value, exactly as a touch screen control is. Or pick a control type from the Add menu and wire it yourself.',
-      'In the preview, operate the controls on the node, or open Phone preview to use the very page the board will serve. Buttons are true while held; the others keep their value until changed.',
+      'In the preview, operate the controls on the node, or open Phone preview to use the very page the board will serve. Buttons are true while held; a text field sends its text only when confirmed with Enter or Send; the others keep their value until changed.',
     ],
     steps: [
       'Add a control for each thing you want to change from the phone.',
