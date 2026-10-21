@@ -43,13 +43,14 @@ board and sketches. Milliseconds per 256-pixel frame:
 The kernels, and the rule that keeps the preview identical to the sketch, are
 in [firmware generation](../../development/patterns/firmware-generation.md#integer-pattern-kernels).
 
-## Still costly
+## Converted for D-12
 
-Every other node at 10 ms or more a frame, before step 11. None of these is
-converted. Most compute a smooth field from `expf`, `atan2f`, `sqrtf` or noise
-at several phases, so an integer version is a design change, not a port.
+Every other node at 10 ms or more a frame, measured before step 11. D-12
+(2026-10-21) moved each one's per-pixel work to integer maths, except the
+exempt nodes below. The after-readings are not taken yet: they wait for the
+hardware pass before v1, when the sketches stop changing.
 
-| Node | ms |
+| Node | ms before |
 | --- | ---: |
 | PrismStorm | 213.79 |
 | AudioCascade | 102.09 |
@@ -85,9 +86,12 @@ at several phases, so an integer version is a design change, not a port.
 | Noise Field | 10.71 |
 | Fourier Epicycles (Heart) | 10.14 |
 
-TuringField was left alone on purpose: its scale choice turns on near-ties, so
-it holds bit-for-bit float parity with the preview
-(`turingNativeParity.test.ts`). Animartrix is the vendored library's own code.
+Exempt, and still float: TuringField and SliceTiling (their results turn on
+near-ties, so integer maths would move edges; TuringField holds bit-for-bit
+float parity with the preview in `turingNativeParity.test.ts`),
+ReactionDiffusion (a float simulation that would drift from today's
+behaviour), CustomFormula (it runs the user's own expression) and Animartrix
+(the vendored library's own code).
 
 ## Not yet measured
 

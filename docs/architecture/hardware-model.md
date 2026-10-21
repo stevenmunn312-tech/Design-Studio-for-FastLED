@@ -895,6 +895,7 @@ flash, and its USB transfer path. It defaults only when there is one provider;
 otherwise the provider is explicit. SD Card remains a concrete workbench-only
 part used by the music-synchronised player workflow.
 
-Multi-board graphs and a Raspberry Pi backend remain out of scope. Per-output
+Multi-board projects are planned for v1 (root todo, D-03); a Raspberry Pi
+backend remains out of scope. Per-output
 native rendering is designed separately in
 [`per-output-native-render.md`](per-output-native-render.md).

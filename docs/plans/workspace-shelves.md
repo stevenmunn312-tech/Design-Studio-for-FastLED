@@ -118,9 +118,9 @@ exports. What remains is plumbing. The panel is a separate `<aside>` in
 `BuildDiagramWorkspace.tsx` with its own width and hide controls, and `App.tsx`
 switches the shared sidebar off on that workspace; moving the panel into the
 shared sidebar host, as Hardware and Upload do, makes the four workspaces
-behave alike without changing what the panel shows. For step 4, Upload's
-sidebar already holds its controls; an information shelf there waits for a user
-asking for one.
+behave alike without changing what the panel shows; it is in v1 (root todo,
+D-07). Step 4 was dropped on 2026-10-21: Upload's sidebar already holds its
+controls, and no user asked for an information shelf there.
 
 ## What is already settled
 

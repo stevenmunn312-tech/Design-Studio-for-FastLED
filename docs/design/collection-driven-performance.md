@@ -202,11 +202,11 @@ This is where the bulk of the engineering sits — the same buffer-prefix /
 helper-dedupe rewrite `buildPattern` already does, extended to thread a few role
 parameters through the generated function signature.
 
-**Deferred — advanced per-input mapping.** The genuine case of two *different*
-driven signals (Speed1 ← tempo, Speed2 ← bass energy) needs a richer generator
-signal set (tempo, bass/mid/treble energy, beat, mood-palette) and a small mapping
-UI on the Performance Generator that binds each signal to a specific named input.
-Additive on top of roles; not in the first cuts.
+**Dropped — advanced per-input mapping** (2026-10-21). The case of two
+*different* driven signals (Speed1 ← tempo, Speed2 ← bass energy) would need a
+richer generator signal set and a mapping UI binding each signal to a named
+input. Named inputs are automated by hand in the show editor's lanes instead
+(`SET_PARAM`, see [show sequencing](show-sequencing.md)).
 
 ### Prerequisite — `intensity → energy` rename + 0–1 normalization
 

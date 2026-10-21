@@ -93,6 +93,16 @@ versioning (`0.y.z`) until the first stable release.
   maths, which is 30 to 450 times faster on an ESP8266. They look the same,
   except that TwinkleFox gives each pixel a new twinkle schedule. Its preview
   and LEDs now agree; before, the float hash differed between the two.
+- Every other pattern that cost 10 ms or more a frame on an ESP8266 now draws
+  with integer maths too: the audio patterns from Prism Storm to Ember Pulse,
+  the noise, field, polar and symmetry patterns, Kaleidoscope, Colour Trails,
+  Array, Blend, Frame Feedback, Truchet, Wireframe 3D, Formula Field, Formula
+  Points and Fourier Epicycles. Turing Field, Slice Tiling, Reaction
+  Diffusion, Custom Formula and Animartrix stay float. The preview runs the
+  same integer code, so it matches the LEDs. Field Noise and Turbulent Bloom
+  now use FastLED's `inoise8` in the preview as on the LEDs, so their texture
+  changes slightly. Midrange Waves uses the full colour range. Frame Feedback
+  modes without an integer form fall back to Screen.
 - The Music Library analyses songs without Essentia. Beats, tempo, key and
   mood now come from an analyzer built on FastLED's own audio detectors, with
   an offline beat tracker that reads the whole song. On a 41-song test library

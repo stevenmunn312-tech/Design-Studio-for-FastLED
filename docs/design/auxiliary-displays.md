@@ -754,14 +754,22 @@ budgets.
 containers and overlapping widgets (all shipped). They reuse the existing widget and binding
 path, so they join v1 ahead of the HW-18 save-format freeze.
 
-**Deferred until after v1:** multiple screens and navigation stacks, freeform
-drawing, on-device text entry, charts and waveform/spectrum histories, XY Pad,
-Launch Pad, video on a TFT, remote/network UI, and large RGB/HDMI panels. Each
-needs new plumbing: a new document shape, a firmware data feed, text storage,
-networking, or a different runtime class. RGB/HDMI stays out because it is a
-different runtime class, not because it is exotic.
+**Pulled into v1 on 2026-10-21** (root todo, D-02): multiple screens and
+navigation, charts and waveform/spectrum histories, on-device text entry,
+remote/network UI, size and density limits from each display's real
+capabilities, and Show Status artwork from the Slideshow's collection. Each
+needs new plumbing (a new document shape, a firmware data feed, text storage or
+networking), so each lands before the HW-18 save-format freeze.
+
+**Deferred until after v1:** large RGB/HDMI panels. They stay out because they
+are a different runtime class, not because they are exotic.
 
 **Dropped:**
+
+- **Freeform drawing, XY Pad, Launch Pad and video on a TFT** (2026-10-21).
+  Placed widgets cover the layouts users build; a two-axis pad and a trigger
+  grid add widget types without a use case the existing controls miss; and TFT
+  video costs RAM and SPI bandwidth the LED path needs.
 
 - **E-paper.** Refresh takes seconds, so it does not suit live LED control, and
   it would need its own drawing path.

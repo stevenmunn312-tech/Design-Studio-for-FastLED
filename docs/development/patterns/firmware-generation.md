@@ -325,11 +325,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Integer pattern kernels
 
-Plasma, Pride2015, Pacifica, TwinkleFox and TreblePrism draw each pixel with
-integer maths, because their float `sinf`/`powf` cost 37–259 ms a 256-pixel
-frame on an ESP8266
-([node-share bench](../../reports/bench/node-share-bench.md)). Each kernel in
-`src/nodes/shared/integerPatterns.ts` has three parts:
+Every node that cost 10 ms or more a 256-pixel frame on an ESP8266 draws its
+pixels with integer maths (HW-32 step 11, then D-12), because float `sinf`,
+`powf`, `expf`, `atan2f` and `sqrtf` cost up to 259 ms a frame on a board
+without an FPU ([node-share bench](../../reports/bench/node-share-bench.md)).
+The exempt nodes are listed there. Each kernel in
+`src/nodes/shared/integerPatterns.ts` (Fourier Epicycles keeps its own, in
+`fourierHelperCpp.ts`) has three parts:
 
 - a **frame** step that turns the float phase and inputs into integers once a
   frame: 16-bit angles (`angle16Cpp`, 65536 a turn), per-pixel angle steps,
@@ -352,6 +354,19 @@ error stays one rounding a frame instead of one a pixel. A power curve with a
 constant exponent is a 256-byte PROGMEM table built in TS (`powTable`), which
 the preview reads too. A wired exponent, such as TwinkleFox's density, is a
 whole power by repeated `scale8` blended toward the next power by its fraction.
+
+Shared integer pieces, each emitted once per sketch through an `EmitContext`
+flag and hoisted by the show generator: `_atan2_16` (`needsAtan16`, an octant
+and a 257-entry table), the Q12 lattice cell finder (`needsLatticeQ`) under
+Symmetry, FieldSymmetry and Truchet, and exact ports of FastLED's 2D and 3D
+`inoise8` for the noise nodes. Gaussian falloffs are interpolated 257-entry
+tables over the squared distance, and blend modes divide by 255 exactly with
+`((x + 1) * 257) >> 16`.
+
+`cppSpecialize` folds constant parameters and `if`/`switch`, but not a bool
+argument expression, and it keeps code after an early `return`. So a helper
+with a mode chooses it through one `if`/`else` chain, never an early return,
+or the dead-code rule fails.
 
 ## Dead-code pruning
 

@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–10 complete; 11 partly done (white point, render scale and positioned strings shipped; colour profile blocked; SD Video and segment networks open)** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–10 complete; 11 partly done (white point, render scale and positioned strings shipped; SD Video shipped; colour profile dropped; segment networks open for v1)** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -484,10 +484,9 @@ through step 11 of the
       `fastledSetupCpp`, so normal, show, player, stream and diagnostic sketches
       share it. Dimming through it is linear flux. Left out of the hardware
       validation configuration key while unset so existing keys hold.
-- [ ] **Colour profile.** Blocked: the installed FastLED (3.10.5) has no
-      `fl::profiles` and no `ChannelOptions::setColorProfile`. Revisit when the
-      pinned FastLED gains them; `setCorrection` already covers the strip and
-      pixel-string profiles.
+- **Colour profile.** Dropped 2026-10-21. The installed FastLED (3.10.5) has
+      no `fl::profiles` and no `ChannelOptions::setColorProfile`, and
+      `setCorrection` already covers the strip and pixel-string profiles.
 - [x] **SD Video.** An `SDVideo` node (Patterns, Shapes & Text) that plays a
       clip from the card. Changed from the plan: the clip is raw RGB frames in
       a small `.sdv` file, not MPEG1 or JPEG through FastLED's codec module and

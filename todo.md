@@ -15,7 +15,7 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   each experimental until its bench row in section 4.
 - **Engineering items close on software**, plus a compile where the item
   changes firmware. They do not wait for hardware. Compiles run on Arduino CLI
-  alone; fbuild is on hold (section 6). Run fixture compiles one at a time;
+  alone until fbuild upkeep (section 5) resumes. Run fixture compiles one at a time;
   overlapping runs corrupt the arduino-cli cache.
 - **Hardware nobody here owns is not a blocker.** A feature ships marked
   **experimental** in the [support matrix](docs/release/beta-support-matrix.md)
@@ -32,143 +32,7 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 3. Frame performance (before the release track)
 
-A frame costs the time to compute its pixels plus the time to send them with
-`FastLED.show()`. A clockless LED takes about 30 µs to send, so a large fixture
-runs out of wire time before CPU time. These steps make the Board's frame rate
-true, say when the wire is the limit and how to lift it, and then cut
-calculation where a measurement shows it pays. Run them in order. A step that
-changes firmware closes on the dead-code corpus compile
-(`python scripts/compile-fixtures/compile-matrix.py --only dead-code/`); new
-hardware behaviour ships experimental and gets its bench row in section 4 when
-it lands.
-
-- [ ] **HW-32 · Frame performance (L).** Exit: every generator paces to the
-  Board's frame rate and never re-sends past the deadline; Graph Health names
-  the frame rate a wire-bound graph can reach and offers the fix; lanes and
-  driver choice are compiled and marked experimental; the dead-code corpus
-  compiles on Arduino CLI. Bench readings are section 4 rows, not part of the
-  exit.
-  - [x] **1. Split render time from send time in device telemetry.** `loopmax`
-    covers the whole pass, so a slow frame cannot say whether the pixels or the
-    wire cost it. Time each frame's `FastLED.show()` and report the interval's
-    worst render and worst send as two new keys, left out when nothing is sent
-    through FastLED (HUB75). Define them once in
-    `src/state/upload/deviceTelemetry.ts`, emit them from
-    `src/codegen/deviceTelemetryCpp.ts` (found from the sketch text, the way
-    `withDeviceTelemetry` finds the pacing line), parse them in
-    `deviceTelemetryStore.ts` and show them on `DeviceTelemetryCard`. Add both
-    to the key table in the
-    [display budget bench](docs/development/testing/display-budget-bench.md).
-    Every later step is measured with this.
-  - [x] **2. Pace each frame to a deadline and send it once.** The normal, show
-    and player sketches end `loop()` with `FastLED.show()` and then
-    `FastLED.delay(1000 / frameRate)` (`src/codegen/loopPacing.ts`). FastLED
-    3.10.5's `delay` calls `show()` at least once more and keeps re-sending
-    until the time is up, so every frame is sent at least twice and the sleep
-    is added to the work instead of absorbing it. A display-budget bench run
-    recorded 50.0 fps from a 2.0 ms pass under the 60 fps default
-    ([bench](docs/development/testing/display-budget-bench.md)), and a
-    1,000-LED strip tops out near 16 fps where one send a frame allows about
-    33. Wait instead for a fixed next-frame deadline, still emitted at the end
-    of the loop so all three generators keep one insertion point, and keep
-    FastLED's dither refreshes only while a whole send still fits before the
-    deadline. Keep `isLoopPacing`/`plainPacing`, `withDeviceTelemetry`'s pacing
-    finder, the show builder's line filter (`showGenerator.ts`) and
-    `screenOnlyFastLed.test.ts` in step. Record the trap in
-    [firmware generation](docs/development/patterns/firmware-generation.md),
-    and make the Board's frame-rate help describe a cap the sketch meets when
-    the work fits. Its bench row records fps before and after on a long strip.
-  - [x] **3. Record each board family's LED drivers as facts.** One module keyed
-    by `BuildTargetFamily` (`src/build/buildProfile.ts`), with a profile
-    override where one family covers different chips (`teensy`), read from the
-    pinned FastLED 3.10.5: the default clockless and SPI bus (`DefaultBus` in
-    `fl/channels/bus.h`); how many outputs send at once (RMT TX channels from
-    the RMT5 driver README: ESP32 8, S3 4, C3, C6 and H2 2; ObjectFLED on
-    Teensy 4; one after another where there is no parallel driver); the RMT
-    memory a channel takes idle and with a network up; whether the chip has a
-    floating-point unit; and each chipset's send time per LED (24 bits at
-    800 kHz for most clockless parts, more for RGBW and 16-bit ones; clocked
-    parts at FastLED's default rates, APA102 6 MHz, HD108 25 MHz, WS2801
-    1 MHz). The estimate, Graph Health and code generation all read it.
-    Document it in [board capabilities](docs/architecture/board-capabilities.md).
-  - [x] **4. Estimate the wire time per board and advise when it is the
-    limit.** `estimateLedRefreshTime` (`src/utils/validateGraph.ts`) charges
-    30 µs for every LED as if all outputs sent one after another, and shows the
-    result only as a note on the readiness strip's Pins chip. Use step 3's
-    facts instead and compare the result with the Board's frame period. When
-    the wire cannot keep up, Graph Health gives advice, never an error: the
-    frame rate this graph can reach and the fixes that apply (a lower frame
-    rate now; a faster clock, more data pins and a parallel driver as steps
-    5–7 land). Show the reachable frame rate on the readiness strip
-    (`HardwareReadiness.tsx`). On ESP32-family boards also flag outputs that
-    need more RMT memory than the chip has with Wi-Fi or Ethernet up, counting
-    the IR receiver's share, because FastLED then shares fewer channels and
-    the outputs send in turn.
-  - [x] **5. Set the data rate of clocked chipsets.** APA102, APA102HD, HD108
-    and WS2801 outputs always send at FastLED's default clock. Add a data-rate
-    setting to the LED output for those chipsets, emitted as the `addLeds`
-    data-rate argument from `fastledSetupCpp`
-    (`src/codegen/output/ledHardwareCpp.ts`) so every generator gets it, with
-    FastLED's own value as the default. Offer only rates the chipset supports,
-    say in the help that long APA102 runs lose data at high clock rates, and
-    feed the rate to step 4's estimate.
-  - [x] **6. Feed one LED output from several data pins.** A long fixture keeps
-    one LED output, one `leds` array and one render, but its chain is split
-    into equal lanes, each fed from its own pin by
-    `addLeds<...>(leds, offset, count)` from `fastledSetupCpp`, so FastLED sends
-    the lanes at once where step 3 says the board can. Preview, XY map, RAM and
-    power stay as they are. Every lane pin is a pin claim in
-    `findPinConflicts` and the pin pickers; the Build Diagram draws a data wire
-    (and a data-extender pair, where one is used) to each lane's first LED;
-    the wiring diagnostic lights each lane in turn. Step 4's advice gains a
-    **Split across pins** fix that sets the lanes and picks free output pins,
-    offering only counts whose boundaries fall on whole rows or panels. Record
-    the contract in
-    [multi-output routing](docs/architecture/multi-output-routing.md).
-  - [x] **7. Choose the LED driver on the Board.** **Auto**, the default, keeps
-    FastLED's choice. Offer the other drivers FastLED 3.10.5 builds for the
-    selected family (`fl::Bus`, such as LCD_CLOCKLESS on the S3 and PARLIO on
-    the C6; check how the classic ESP32's I2S driver is selected, because
-    `Bus::I2S` names the S3 path), emitted as
-    `FastLED.setExclusiveDriver<fl::Bus::...>()` before the first `addLeds`.
-    Graph Health offers fixes when a parallel driver's lanes differ in chipset
-    or timing, and when the driver needs a peripheral already in use: I2S
-    audio and the classic ESP32's HUB75 library on I2S, HUB75 and parallel TFT
-    panels on the S3's LCD_CAM, and the IR receiver's share of RMT. Suggest a
-    parallel driver when an S3 graph needs more lanes than its four RMT
-    channels. Compile one fixture per driver and family; its bench row covers
-    each driver under Wi-Fi load.
-  - [x] **8. Measure each node's share of the frame.** With telemetry on, time
-    each node's block in a normal sketch's loop and report the three costliest
-    each interval as a new key, shown by node label on the telemetry card.
-    Measure the boards without a floating-point unit that telemetry supports
-    (ESP32-C3, ESP32-C6, ESP8266) first; they pay most for float maths. Steps
-    10 and 11 are judged against these numbers.
-  - [x] **9. Skip per-pixel geometry that nothing reads.** FieldFormula
-    (`src/nodes/field/codegen.ts`) and the Code node
-    (`src/nodes/code/codegen.ts`) compute `r` and `angle` (`sqrtf` and
-    `atan2f`) for every pixel of every frame even when the formula never names
-    them, because the `(void)r;(void)angle;` that silences warnings counts as a
-    read in `withoutUnreadLocals` (`src/codegen/cppCleanup.ts`). Teach the pass
-    that a bare `(void)name;` is no read and remove it with the declaration, so
-    every emitter benefits, and keep `deadCodeCorpus.test.ts` passing.
-  - [x] **10. Render frame-invariant nodes once.** A node whose emitter never
-    reads the time, and whose inputs and wired properties come only from such
-    nodes, draws the same pixels every frame: a static gradient, mask or shape.
-    Track the time dependency per node instead of the sketch-wide `needsT`
-    flag (`src/codegen/emitContext.ts`), render those nodes on the first frame
-    only, and mark their buffers persistent so scratch sharing and show
-    pooling (`scratchSharing.ts`, `renderBuffers.ts`) leave them alone; count
-    that RAM in `estimateFirmwareRam`. The preview is unchanged. Take this on
-    when step 8 shows such nodes cost a measurable share of a frame.
-  - [ ] **11. Use integer maths in the costliest emitters.** Where step 8
-    shows one node dominating the frame on a board without a floating-point
-    unit, move its inner loop to FastLED's integer helpers (`sin8`/`sin16`,
-    `scale8`, `qadd8`, `inoise8`, and the bulk `fadeToBlackBy`,
-    `nscale8_video` and `blur2d`) in the preview and the sketch together, one
-    path on every board so the two stay identical. Each converted node gets a
-    native `g++` parity test like `turingNativeParity.test.ts` and a
-    before-and-after reading from step 8.
+Done: HW-32 is under [Completed](#completed); its bench rows are in section 4.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
@@ -241,6 +105,28 @@ chooses the supported combinations from whatever is on record at release.
   Text-level coverage is in `persistentRenderBuffers.test.ts` and
   `entryReset.test.ts`
   ([compile record](docs/reports/compile/render-buffer-ram-compile-checks.md)).
+- **HW-32 frame performance**, each experimental in the
+  [support matrix](docs/release/beta-support-matrix.md):
+  - deadline pacing: fps and `renderms`/`sendms` before and after on a strip
+    of 500 LEDs or more at the 60 fps default, against the readiness strip's
+    reachable frame rate;
+  - **Split across pins**: two and four lanes sending at once on a classic
+    ESP32 and an S3, with the wiring diagnostic lighting each lane in turn;
+  - each offered LED driver (classic ESP32 I2S, S3 LCD_CLOCKLESS and I2S, C6
+    and H2 RMT) driving three outputs with Wi-Fi up;
+  - an APA102 run at a raised data rate, and where its length starts to lose
+    data;
+  - node shares on an ESP32-C3 and an ESP32-C6
+    ([node-share bench](docs/reports/bench/node-share-bench.md#not-yet-measured)).
+- **D-12 integer kernels:** the after-reading of every converted node on the
+  ESP8266 node-share bench, each under 10 ms a 256-pixel frame, and FastLED's
+  own `inoise8` checked against the sketch's copy on the device
+  ([node-share bench](docs/reports/bench/node-share-bench.md#converted-for-d-12)).
+- **Compile matrix at the v1 freeze:** no compile runs during active v1
+  development, because every sketch keeps changing. Once the release track is
+  done and before HW-18, run the whole matrix (dead-code corpus, LED-driver and
+  lane fixtures) at the frozen code. The last run stopped on 2026-10-21 at
+  154 of 271 legs, all passing, on code from before D-12.
 - **Deploy gate on accreted graphs:** anyone with a graph that uploaded before
   2026-09-11 and is refused now should report it as a gate bug, not rewire the
   graph. Shipped starters are covered by `deployGates.test.ts`.
@@ -390,6 +276,71 @@ chooses the supported combinations from whatever is on record at release.
 
 ## 5. Release track (in order)
 
+- [ ] **D-02 · Custom screens, v1 remainder (L).** Pulled into v1 on
+  2026-10-21: multiple screens with navigation between them; chart and
+  history widgets that plot a value over time; on-device text entry whose
+  text becomes a string value; a remote and phone control page served over
+  Wi-Fi on ESP32 and ESP8266; widget size and density limits derived from each
+  display's resolution, physical size and touch accuracy, with an editor
+  warning when a design will be hard to read or to hit; and Show Status
+  artwork drawn from the Slideshow's collection into the player-owned 96x96
+  bake. Check each against the HW-11 budgets
+  ([auxiliary displays](docs/design/auxiliary-displays.md#deferred-dropped-and-why)).
+  Each changes the screen document shape, so it lands before the HW-18 freeze.
+- [ ] **D-03 · Multi-board, library sharing and UNO R4 networking (L).**
+  Pulled into v1 on 2026-10-21. One project driving several controllers that
+  stay in time with each other, through the Build Diagram and the upload flow.
+  Sharing patterns, palettes and collections beyond file export, with trust
+  handled on import. NTP and Art-Net on the UNO R4 WiFi through its WiFiS3
+  library, past today's ESP32/ESP8266 FQBN gate. Keep Collection/engine
+  ownership separate unless user research establishes a better model.
+- [ ] **D-04 · Code and field fidelity (L).** Pulled into v1 on 2026-10-21.
+  In the preview: Code-node includes, custom gradient palettes, custom XY maps
+  and C++ type inference for every local and expression. Writable FieldFormula
+  buffers, the same in preview and firmware, with their RAM cost and the
+  entry-policy reset. VU expansion beyond the current contract (clocked
+  strings, unequal lengths, multiple pairs, stereo FFT and streamed audio),
+  each with its own protocol and resource design. Show-side Vibe, Song
+  Structure, Pitch Detect and Waveform, with per-frame detector output baked
+  offline into the show envelope
+  ([audio detectors](docs/design/audio-detectors.md);
+  [code node](docs/design/code-node.md#deferred-known-divergences--follow-ups)).
+  Persistent globals, integer wrap and timing macros already shipped.
+- [ ] **D-06 · Segment networks and millimetre string positions (M).** Pulled
+  into v1 on 2026-10-21, from
+  [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons).
+  Segment networks: strings as the edges of a graph with a travelling
+  `Ripple`, the Chromancer model, drawn in a new layout editor. Positioned
+  strings in the Build Diagram, which needs positions in millimetres rather
+  than canvas units.
+- [ ] **D-07 · Build Diagram panel into the shared sidebar (S).** Build
+  Diagram's own left panel already is its information shelf (power, readiness,
+  connections, parts, requirements and exports), but it is a separate `<aside>`
+  with its own width and hide controls, and the shared sidebar is switched off
+  on that workspace. Move it into the shared sidebar host the way Hardware and
+  Upload do, so all four workspaces behave alike. The content does not change
+  ([workspace shelves](docs/plans/workspace-shelves.md#order)).
+- [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
+  Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
+  compiles on Arduino CLI alone until the repository matures; then rerun every
+  fbuild leg and pick these up:
+  - Every known fbuild problem now has an upstream issue: §12 LVGL archive
+    length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
+    ESP8266 `deploy` ([#1657](https://github.com/FastLED/fbuild/issues/1657)),
+    §5 no size summary on a link overflow
+    ([#1658](https://github.com/FastLED/fbuild/issues/1658)), the RP2040,
+    Renesas and SAMD21 build failures
+    ([#1670](https://github.com/FastLED/fbuild/issues/1670),
+    [#1671](https://github.com/FastLED/fbuild/issues/1671),
+    [#1672](https://github.com/FastLED/fbuild/issues/1672)) and Windows long
+    paths ([#1673](https://github.com/FastLED/fbuild/issues/1673)). Drop each
+    workaround as its fix lands.
+  - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
+    fbuild fix lands.
+  - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
+    `lib_deps` ignores its `#ref`, the HUB75 pin is ignored, esp_dmx 4.1.0
+    does not build on IDF 5.5, and every `lib_deps` library is compiled
+    whether used or not (§1). Report them upstream, then revisit.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing and
   notarization before publishing: Authenticode for the Windows launcher and
@@ -415,48 +366,25 @@ chooses the supported combinations from whatever is on record at release.
 
 ## 6. Deferred until after v1
 
-- [ ] **D-02 · Rest of the larger UI scope.** Multiple screens and navigation,
-  free drawing, charts and histories, XY pad and Launch Pad, text entry, remote
-  and phone UI, TFT video, RGB and HDMI panels, size thresholds and density from
-  actual capabilities and legibility, and Show Status colour-pattern artwork
-  feeding the player-owned 96x96 bake from a Slideshow's collection. The v1
-  part shipped; dropped items are listed in
-  [auxiliary displays](docs/design/auxiliary-displays.md#deferred-dropped-and-why).
+Scope set item by item on 2026-10-21. Items dropped then are recorded in
+their design notes: free drawing, XY Pad, Launch Pad and TFT video in
+[auxiliary displays](docs/design/auxiliary-displays.md#deferred-dropped-and-why);
+per-input modulation from song analysis in
+[collection-driven performance](docs/design/collection-driven-performance.md);
+colour profile in
+[pattern node expansion](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons);
+and an Upload information shelf in
+[workspace shelves](docs/plans/workspace-shelves.md#order).
 
-- [ ] **D-03 · Other architecture/authoring.** Multi-board, Raspberry Pi/Linux
-  backend, broader library sharing and distinct per-input modulation from the
-  song analysis. Timed sequences and weighted or tagged picks are D-11. Keep
-  Collection/engine ownership separate unless user research establishes a
-  better model. Networking beyond
-  the ESP32/ESP8266 FQBN gate (NTP and Art-Net on the UNO R4 WiFi). Art-Net in
-  the show and SD-player generators is an open question, because a show
-  already owns its LEDs; NTP in those generators shipped with D-03.
-- [ ] **D-04 · Code/field fidelity.** Code-node includes, custom gradient
-  palettes, custom XY maps and richer type inference in the preview; writable
-  FieldFormula buffers. VU expansion beyond the current contract (clocked
-  strings, unequal lengths, multiple pairs, stereo FFT or streamed audio) needs
-  its own protocol/resource design. So do show-side Vibe, Song Structure,
-  Pitch Detect and Waveform, which would need per-frame detector output baked
-  offline ([audio detectors](docs/design/audio-detectors.md)). Retain explicit
-  approximation limits until a concrete use case justifies the work. Persistent
-  globals, integer wrap and timing macros shipped in v1.
-- [ ] **D-06 · Pattern and output follow-ons**, from
-  [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons)
-  and its design notes:
-  - Colour profile: blocked until the pinned FastLED (3.10.5) gains
-    `fl::profiles` and `ChannelOptions::setColorProfile`.
-  - Segment networks: strings as the edges of a graph with a travelling
-    `Ripple`, the Chromancer model. It needs a layout editor.
-  - Positioned strings in the Build Diagram, which needs positions in
-    millimetres rather than canvas units.
-- [ ] **D-07 · Build Diagram panel into the shared sidebar.** Build Diagram's
-  own left panel already is its information shelf (power, readiness,
-  connections, parts, requirements and exports), but it is a separate `<aside>`
-  with its own width and hide controls, and the shared sidebar is switched off
-  on that workspace. Move it into the shared sidebar host the way Hardware and
-  Upload do, so all four workspaces behave alike. The content does not change.
-  An Upload information shelf waits for a user asking for one
-  ([workspace shelves](docs/plans/workspace-shelves.md#order)).
+- [ ] **D-02 · Large display panels.** Parallel-RGB LCD panels and HDMI output
+  as display targets. Each is a different runtime class, with new board
+  profiles, a display driver and its own LVGL memory budget
+  ([auxiliary displays](docs/design/auxiliary-displays.md#deferred-dropped-and-why)).
+- [ ] **D-03 · Linux backend and show-side Art-Net.** A Raspberry Pi/Linux
+  code-generation backend beside the C++ firmware path. Art-Net in the show and
+  SD-player generators is an open question, because a show already owns its
+  LEDs: take the LEDs over while packets arrive, or act only as remote control.
+  NTP in those generators shipped with D-03.
 
 - [x] **D-11 · Richer show and timeline tools (L).** The Music Player, Pattern
   Collection and transitions already make a strong generative show; authoring
@@ -629,28 +557,6 @@ chooses the supported combinations from whatever is on record at release.
     Slideshow, Music Player and Performance Generator in
     `src/components/HelpModal/reference/show.ts`.
 
-- [ ] **fbuild upkeep** ([runbook](docs/runbooks/fbuild-workarounds.md)). On hold
-  since 2026-10-08: development compiles on Arduino CLI alone, and fbuild stays
-  in the helper untested until the repository matures, which may come before
-  v1. Then rerun every fbuild leg and pick these up:
-  - Every known fbuild problem now has an upstream issue: §12 LVGL archive
-    length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
-    ESP8266 `deploy` ([#1657](https://github.com/FastLED/fbuild/issues/1657)),
-    §5 no size summary on a link overflow
-    ([#1658](https://github.com/FastLED/fbuild/issues/1658)), the RP2040,
-    Renesas and SAMD21 build failures
-    ([#1670](https://github.com/FastLED/fbuild/issues/1670),
-    [#1671](https://github.com/FastLED/fbuild/issues/1671),
-    [#1672](https://github.com/FastLED/fbuild/issues/1672)) and Windows long
-    paths ([#1673](https://github.com/FastLED/fbuild/issues/1673)). Drop each
-    workaround as its fix lands.
-  - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
-    fbuild fix lands.
-  - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
-    `lib_deps` ignores its `#ref`, the HUB75 pin is ignored, esp_dmx 4.1.0
-    does not build on IDF 5.5, and every `lib_deps` library is compiled
-    whether used or not (§1). Not yet reported upstream; revisit after that.
-
 ## Completed
 
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
@@ -682,6 +588,24 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   shared within one graph, and never a persistent terminal aliased to `leds`
   ([compile record](docs/reports/compile/render-buffer-ram-compile-checks.md)).
   The bench row is in section 4.
+- **D-12 · Integer kernels for the remaining costly nodes**: every node the
+  node-share bench measured at 10 ms or more draws its pixels with integer
+  maths, each with a native parity test, except the exemptions decided on
+  2026-10-21: Turing Field and Slice Tiling (near-ties would move edges),
+  Reaction Diffusion (a float simulation), Custom Formula (the user's own
+  expression) and Animartrix (vendored)
+  ([firmware generation](docs/development/patterns/firmware-generation.md#integer-pattern-kernels)).
+  The device readings are a section 4 row.
+- **HW-32 · Frame performance**: deadline pacing with render and send timed
+  apart, per-board wire-time advice, clocked data rates, one LED output split
+  across pins, a Board LED driver choice, per-node timing, frame-invariant
+  nodes drawn once, and integer kernels for the five costliest formula
+  patterns on an ESP8266
+  ([board capabilities](docs/architecture/board-capabilities.md);
+  [multi-output routing](docs/architecture/multi-output-routing.md);
+  [firmware generation](docs/development/patterns/firmware-generation.md#integer-pattern-kernels);
+  [node-share bench](docs/reports/bench/node-share-bench.md)). The bench rows
+  are in section 4.
 - **HW-14 · Independent electrical review**: two passes, no blocking safety
   issue ([findings](docs/architecture/build-diagram.md#independent-electrical-review)).
   Any power family added after `5d10f5e7` reopens it for its own pass before
