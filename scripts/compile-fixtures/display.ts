@@ -244,8 +244,19 @@ const showEdges = [
   edge('show', 'display', 'custom-tft', 'display'),
 ]
 
+/*
+ * A third, non-touch panel on the same SPI host as the SD card, showing Now
+ * Playing: the player streams its LED canvas into it live (`_tftPicture`), so
+ * the freeze compile builds the picture path beside the card it shares a bus
+ * with. Its own CS, DC, reset and backlight are free on the S3.
+ */
+const nowPlayingPanel = () => panel('np-tft', {
+  partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
+  csPin: 15, dcPin: 38, resetPin: 39, backlightPin: 40,
+})
+
 const playerNodes = [
-  ...commonFor(playerDocument), fixedPanel(), touch('fixed-tft'),
+  ...commonFor(playerDocument), fixedPanel(), touch('fixed-tft'), nowPlayingPanel(),
   node('player', 'PatternMaster'), node('song', 'SongInfo'),
   node('sd', 'SDCard'), node('amp', 'Amplifier'),
 ]
@@ -255,6 +266,7 @@ const playerEdges = [
   edge('controls', 'controls', 'player', 'controls'),
   edge('player', 'frame', 'out', 'frame'),
   edge('player', 'display', 'fixed-tft', 'display'),
+  edge('player', 'display', 'np-tft', 'display'),
   edge('player', 'display', 'custom-tft', 'display'),
   edge('player', 'display', 'song', 'display'),
   edge('song', 'title', 'custom-tft', 'widget:text:value'),
@@ -809,6 +821,8 @@ const requiredSymbols: Record<string, readonly string[]> = {
     'static void _tftPicture(', '_tftPicture(_tft_fixed_tft, ',
     '_cdSetText(_cd_screen[13], _patNameStr_show(_sel_show.active))', 'static char _patNameStr_show_buf[', '_cdSetChecked(_cd_screen[2], (bool)(_selBrowsing(_sel_show)))'],
   player: ['lv_display_set_default(_cdDisp_custom_tft)', 'char n_song_title[64]', '_cdSetText(_cd_screen[4], n_song_title)', 'audio.loop();',
+    // Now Playing pictures the player's LED canvas, on the bus the card uses.
+    'static void _tftPicture(', '_tftPicture(_tft_np_tft, ',
     '_cdSetText(_cd_screen[13], songTitle)', '_cdSetChecked(_cd_screen[2], (bool)(songPlaying()))'],
   'isolated-tft': ['_tftClockValid_fixed_tft', '_tftPaint(_tft_fixed_tft'],
   headless: ['_pcE_controls_patternNext.update', '_selUpdate(_sel_show'],
