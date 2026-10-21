@@ -325,12 +325,8 @@ export function webRemoteTitle(value: unknown): string {
 }
 
 /**
- * Whether a board target has a Wi-Fi radio for the page to be served over:
- * every ESP8266 and every ESP32 except the H2 and P4, which have none.
+ * The board test moved to networkCapability.ts, which also answers the
+ * narrower "can it serve the page" question; re-exported so existing
+ * imports keep working.
  */
-export function fqbnHasWifi(fqbn: string): boolean {
-  if (fqbn.startsWith('esp8266:')) return true
-  if (!fqbn.startsWith('esp32:')) return false
-  const board = fqbn.split(':')[2] ?? ''
-  return !/^esp32(h2|p4)/.test(board)
-}
+export { fqbnHasWifi } from './networkCapability'

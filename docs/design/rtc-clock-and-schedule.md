@@ -51,10 +51,16 @@ current time" is per-node, not per-scene.
 
 The first three run the **same** free-running software clock: a `millis()` delta
 accumulated into a 64-bit millisecond counter over a civil-date base. NTP is a
-correction layered on top, not a separate path — `configTime(offset, 0, server)`
-is issued once the Wi-Fi link is up, and thereafter the sketch reads
-`time(nullptr)` and lets the platform's own SNTP client keep it fresh. An epoch
-below `946684800` (2000-01-01) is treated as "not synced yet."
+correction layered on top, not a separate path. On the ESP cores
+(`FLS_NET_SNTP`), `configTime(offset, 0, server)` is issued once the Wi-Fi
+link is up, and thereafter the sketch reads `time(nullptr)` and lets the
+platform's own SNTP client keep it fresh; an epoch below `946684800`
+(2000-01-01) is treated as "not synced yet." The Arduino UNO R4 WiFi has the
+socket but no SNTP client in `WiFiS3`, so there the RTC runs a small SNTP
+exchange of its own over `WiFiUDP`: one 48-byte request every 10 s until the
+first reply, then every 15 minutes, with the reply's transmit timestamp rebased
+from 1900 to 1970 and carried forward by `millis()` between replies; the civil
+date comes from the same `_rtcCivilFromDays` helper the software clock uses.
 
 NTP is available in every firmware output. The normal sketch, the generative
 show and the SD player all take their network from
@@ -190,7 +196,9 @@ render `--:--`; there is no implicit browser-clock fallback.
 
 ## Validation
 
-`validateGraph.ts` blocks NTP on boards without Wi-Fi, requires an NTP server
+`validateGraph.ts` blocks NTP on boards without a Wi-Fi radio (the ESP cores
+except the H2 and P4, and the Arduino UNO R4 WiFi, have one; a wired link
+also lifts the gate), requires an NTP server
 and an SSID when NTP is selected, warns when network-enabled DMX/RTC nodes
 disagree on Wi-Fi settings (one sketch has one connection — see the
 [DMX/Art-Net note](dmx-artnet-input.md)), flags incomplete schedule setups, and

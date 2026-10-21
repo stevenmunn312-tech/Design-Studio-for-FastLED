@@ -1,14 +1,19 @@
 import { cppCode, cppUnits, recordBodies, withAttachedComments } from './cppReachability'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import type { StudioNode } from '../state/graphStore'
+import { UNO_R4_WIFI_FQBN } from '../state/peripherals/networkCapability'
 
 export function boardCppFacts(nodes: readonly StudioNode[]): Record<string, boolean> {
-  const families = selectedPhysicalBoardProfile(nodes)?.targetFamilies
+  const profile = selectedPhysicalBoardProfile(nodes)
+  const families = profile?.targetFamilies
   if (!families?.length || families.length !== 1) return {}
   const family = families[0]
   return {
     ESP32: family.startsWith('esp32'), ESP8266: family === 'esp8266',
     CONFIG_IDF_TARGET_ESP32S3: family === 'esp32-s3',
+    // The UNO R4 WiFi's own define, so its WiFiS3 network branch folds away on
+    // every other board and the ESP branches fold away on it.
+    ARDUINO_UNOWIFIR4: family === 'renesas' && profile!.compatibleFqbns.every((fqbn) => fqbn === UNO_R4_WIFI_FQBN),
   }
 }
 

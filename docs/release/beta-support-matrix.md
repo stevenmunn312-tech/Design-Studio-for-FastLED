@@ -583,8 +583,10 @@ Unless a future row says otherwise, treat the following as experimental:
 - **DMX / Art-Net input, in every mode.** No hardware pass has been recorded
   for either transport. Two separate runs are needed before any part of this
   graduates:
-  - **Art-Net firmware** (ESP32 / ESP8266): a generated sketch joins Wi-Fi,
-    receives a universe from a real controller or desk, and drives the matrix.
+  - **Art-Net firmware** (ESP32 / ESP8266, and the Arduino UNO R4 WiFi
+    through `WiFiS3`, which is generated but not yet compiled): a generated
+    sketch joins Wi-Fi, receives a universe from a real controller or desk,
+    and drives the matrix.
   - **DMX512 firmware** (ESP32 only): a generated sketch reads a real DMX line
     through an RS-485 transceiver on the configured UART pins. The Build
     Diagram draws that transceiver as the common "C25B" MAX485 module
@@ -1048,22 +1050,25 @@ each source is allowed on is enforced in `validateGraph.ts`
 | --- | --- | --- | --- |
 | Compile Time | Every board in the catalogue | No board restriction | **Yes** — ESP32-S3 across OLED and TFT rows above; the 240x320 TFT app-path run is recorded on `2026-09-11` |
 | Manual | Every board in the catalogue | No board restriction | **Yes** — ESP32-S3 + ST7789V 240x320, exact seed and live progression, `2026-09-11`; long-duration drift remains unmeasured |
-| NTP | ESP32-family (S3, S2, C3, C6, H2, classic) and ESP8266 | Yes — blocked on every other board | **Yes** — ESP32-S3 + ST7789V 240x320 on 2.4 GHz Wi-Fi, including loss and automatic recovery, `2026-09-11` |
+| NTP | ESP32-family with a radio (S3, S2, C3, C6, classic), ESP8266, and Arduino UNO R4 WiFi (experimental) | Yes — blocked on every other board | **Yes** — ESP32-S3 + ST7789V 240x320 on 2.4 GHz Wi-Fi, including loss and automatic recovery, `2026-09-11`; **no** on the UNO R4 WiFi |
 | DS3231 | Every board with the standard Arduino `Wire` API and a default I²C bus | No board restriction | **Yes** — classic ESP-32D DevKit v1 (30-pin), Jaycar XC9044 module, `fbuild`, `2026-08-21`: time written via the helper's `/api/rtc/set`, then read back and rendered by Clock Display on the LEDs |
 
 Notes:
 
-- The NTP restriction is keyed on FQBN prefix (`esp32:` / `esp8266:`), not on
-  whether a board actually has a Wi-Fi radio. **Arduino UNO R4 WiFi** is in the
-  board catalogue and does have Wi-Fi hardware, but is not an ESP32/ESP8266
-  FQBN, so NTP is currently blocked on it too — a known gap, not a validated
-  "unsupported" result.
+- The NTP restriction follows the board's radio (`fqbnHasWifi`): every ESP8266,
+  every ESP32 except the H2 and P4, and the **Arduino UNO R4 WiFi**. NTP and
+  Art-Net/sACN/DDP receive on the UNO R4 WiFi are **experimental**: the sketch
+  joins through `WiFiS3` with the same bootstrap and, because that core has no
+  SNTP client, the RTC runs its own SNTP exchange over `WiFiUDP`. It is
+  generated but has not been compiled or bench-tested; the compile is deferred
+  to the pre-v1 hardware pass. The Web Remote stays ESP-only (it needs the
+  core web server), and the W5500 module is still refused on the R4.
 - NTP inside generative-show and SD-player firmware is **experimental**: it
   compiles (D-03, 13 October 2026, over Wi-Fi and over the WIZ850io) through
   the same bootstrap the normal sketch uses, but no show or player build has
   synced on hardware yet. The bench row is in the root todo, HW-13.
-- Art-Net input (see above) is gated by the identical ESP32-family-or-ESP8266
-  check and shares this same open hardware-validation gap.
+- Art-Net input (see above) is gated by the identical radio check and shares
+  this same open hardware-validation gap, the UNO R4 WiFi row included.
 - Compile Time and Manual need no network and are not blocked on any board.
   Both now have live display evidence, but neither has a long-duration drift
   measurement — see the note below.

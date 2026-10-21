@@ -61,11 +61,11 @@ sending."
 
 | | Preview (browser) | Firmware `Art-Net` | Firmware `DMX512` |
 |---|---|---|---|
-| Transport | helper UDP listener, polled | `WiFiUDP` on the sketch's Wi-Fi | `esp_dmx` on an RS-485 transceiver |
+| Transport | helper UDP listener, polled | `WiFiUDP` on the sketch's Wi-Fi (`WiFi.h`, `ESP8266WiFi.h` or `WiFiS3.h`) | `esp_dmx` on an RS-485 transceiver |
 | Where | `backend/streaming.py` + `dmxStore.ts` | generated `loop()` | generated `loop()` |
 | Filter | universe must match the node's | opcode `0x5000` + universe match | driver-level |
 | Goes stale after | helper's own liveness check | 2000 ms without a packet | 1000 ms without a packet |
-| Boards | any | ESP32 / ESP8266 | ESP32 only |
+| Boards | any | ESP32 / ESP8266 / Arduino UNO R4 WiFi | ESP32 only |
 
 The helper (`/api/artnet/start|stop|status|snapshot`) owns a long-lived UDP
 socket and a per-universe snapshot cache, exactly like the live-stream serial
@@ -163,7 +163,9 @@ pin. The part stays experimental until a bench row confirms it
 ## Validation
 
 `validateGraph.ts` blocks upload for: DMX512 on a non-ESP32 target (esp_dmx is
-ESP32-only), Art-Net or NTP on a board with no Wi-Fi, and DMX UART pins that
+ESP32-only), Art-Net or NTP on a board with no Wi-Fi radio (`fqbnHasWifi` in
+`src/state/peripherals/networkCapability.ts`: the ESP cores except the H2 and
+P4, and the Arduino UNO R4 WiFi; a wired Ethernet link lifts the gate), and DMX UART pins that
 collide with any other GPIO role — the DMX pins join the shared pin-conflict
 namespace rather than getting their own check. Missing SSID and disagreeing
 Wi-Fi settings are warnings. Each has a repair line in the Graph Health drawer.

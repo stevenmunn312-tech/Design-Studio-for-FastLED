@@ -61,7 +61,9 @@ Two rules are load-bearing:
   panel may share the bus lines there but needs its own chip select, and on a
   chip with a second host every module pin stays exclusive. Both read
   `ethernetSpiHostForFqbn`, which treats an unchosen board as one with a
-  second host. ESP8266 and non-Espressif targets are refused.
+  second host. ESP8266 and non-Espressif targets are refused, the Arduino
+  UNO R4 WiFi included: its Wi-Fi carries Art-Net and NTP, but the W5500
+  driver here is the ESP32 core's.
 - **The interface starts in `setup()`, before the Art-Net socket opens.**
   `ETH.begin` creates the network interface the socket binds to. Starting it
   does not wait for a cable or an address.

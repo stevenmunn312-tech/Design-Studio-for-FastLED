@@ -72,6 +72,13 @@ export function ipAddressExpr(value: [number, number, number, number] | null): s
   return `IPAddress(${ip[0]}, ${ip[1]}, ${ip[2]}, ${ip[3]})`
 }
 
+/**
+ * `FLS_NET_SUPPORTED`: the core has a Wi-Fi station and `WiFiUDP`.
+ * `FLS_NET_SNTP`: the core also keeps civil time itself (`configTime`,
+ * `time()`), which the ESP cores do and WiFiS3 on the UNO R4 WiFi does not;
+ * the RTC runs its own SNTP exchange over `WiFiUDP` there. Wired Ethernet is
+ * ESP32-only, so its headers stay in that branch.
+ */
 function networkIncludesCpp(wired: WiredNetwork | null): string {
   return [
     `#if defined(ESP32)`,
@@ -80,13 +87,20 @@ function networkIncludesCpp(wired: WiredNetwork | null): string {
     `#include <time.h>`,
     ...(wired ? (wired.kind === 'onboard' ? ONBOARD_ETHERNET_INCLUDES_CPP : ETHERNET_INCLUDES_CPP) : []),
     `#define FLS_NET_SUPPORTED 1`,
+    `#define FLS_NET_SNTP 1`,
     `#elif defined(ESP8266)`,
     `#include <ESP8266WiFi.h>`,
     `#include <WiFiUdp.h>`,
     `#include <time.h>`,
     `#define FLS_NET_SUPPORTED 1`,
+    `#define FLS_NET_SNTP 1`,
+    `#elif defined(ARDUINO_UNOWIFIR4)`,
+    `#include <WiFiS3.h>`,
+    `#define FLS_NET_SUPPORTED 1`,
+    `#define FLS_NET_SNTP 0`,
     `#else`,
     `#define FLS_NET_SUPPORTED 0`,
+    `#define FLS_NET_SNTP 0`,
     `#endif`,
   ].join('\n')
 }
@@ -103,6 +117,11 @@ interface WifiEmit {
  * hostname, and every later call retries `WiFi.begin` at most once every five
  * seconds until the station is connected, so a network that is out of range
  * leaves `_netConnected()` false and the sketch running.
+ *
+ * WiFiS3 (UNO R4 WiFi) differs in three places and is the same elsewhere: it
+ * has no `mode()` (station is its only role), it names the board with
+ * `setHostname` like the ESP32, and its `config` takes the DNS server second
+ * (`ip, dns, gateway, subnet`) where the ESP cores take it last.
  */
 function wifiBootstrapCpp(wifi: WifiEmit): string {
   return [
@@ -112,14 +131,22 @@ function wifiBootstrapCpp(wifi: WifiEmit): string {
     `void _netEnsureConnected() {`,
     `#if FLS_NET_SUPPORTED`,
     `  if (!_wifiInit) {`,
+    `#if !defined(ARDUINO_UNOWIFIR4)`,
     `    WiFi.mode(WIFI_STA);`,
-    `#if defined(ESP32)`,
+    `#endif`,
+    `#if defined(ESP32) || defined(ARDUINO_UNOWIFIR4)`,
     `    WiFi.setHostname(${wifi.hostname});`,
     `#elif defined(ESP8266)`,
     `    WiFi.hostname(${wifi.hostname});`,
     `#endif`,
     ...(wifi.staticConfig
-      ? [`    WiFi.config(${wifi.staticConfig.ip}, ${wifi.staticConfig.gateway}, ${wifi.staticConfig.subnet}, ${wifi.staticConfig.dns});`]
+      ? [
+          `#if defined(ARDUINO_UNOWIFIR4)`,
+          `    WiFi.config(${wifi.staticConfig.ip}, ${wifi.staticConfig.dns}, ${wifi.staticConfig.gateway}, ${wifi.staticConfig.subnet});`,
+          `#else`,
+          `    WiFi.config(${wifi.staticConfig.ip}, ${wifi.staticConfig.gateway}, ${wifi.staticConfig.subnet}, ${wifi.staticConfig.dns});`,
+          `#endif`,
+        ]
       : []),
     `    _wifiInit = true;`,
     `  }`,
@@ -127,6 +154,8 @@ function wifiBootstrapCpp(wifi: WifiEmit): string {
     `  uint32_t _wifiNow = millis();`,
     `  if (_wifiNow - _wifiLastAttemptMs < 5000u) return;`,
     `  _wifiLastAttemptMs = _wifiNow;`,
+    `  // WiFiS3's begin() waits inside its own connect timeout before returning,`,
+    `  // so on the UNO R4 WiFi this is a slow call at most once every five seconds.`,
     `  WiFi.begin(${wifi.ssid}, ${wifi.password});`,
     `#endif`,
     `}`,

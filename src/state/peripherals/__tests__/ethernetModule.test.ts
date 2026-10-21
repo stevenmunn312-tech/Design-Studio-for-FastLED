@@ -125,6 +125,26 @@ describe('Ethernet firmware', () => {
     const cpp = generateCpp(nodes, edges)
     expect(cpp).toContain('WiFi.begin(')
     expect(cpp).not.toContain('ETH.h')
+    // The UNO R4 WiFi joins through WiFiS3 with the same bootstrap. Nothing
+    // here keeps civil time, so the SNTP macro is pruned with the time header.
+    expect(cpp).toContain('#elif defined(ARDUINO_UNOWIFIR4)\n#include <WiFiS3.h>\n#define FLS_NET_SUPPORTED 1\n#else')
+    expect(cpp).not.toContain('FLS_NET_SNTP')
+    expect(cpp).not.toContain('<time.h>')
+    expect(cpp).toContain('#if !defined(ARDUINO_UNOWIFIR4)\n    WiFi.mode(WIFI_STA);')
+  })
+
+  it('orders a static address for WiFiS3 and for the ESP cores', () => {
+    const { nodes, edges } = artNetGraph([], {
+      useDhcp: false, staticIp: '10.0.0.40', staticGateway: '10.0.0.1', staticSubnet: '255.255.255.0', staticDns: '10.0.0.53',
+    })
+    const cpp = generateCpp(nodes, edges)
+    expect(cpp).toContain([
+      '#if defined(ARDUINO_UNOWIFIR4)',
+      '    WiFi.config(IPAddress(10, 0, 0, 40), IPAddress(10, 0, 0, 53), IPAddress(10, 0, 0, 1), IPAddress(255, 255, 255, 0));',
+      '#else',
+      '    WiFi.config(IPAddress(10, 0, 0, 40), IPAddress(10, 0, 0, 1), IPAddress(255, 255, 255, 0), IPAddress(10, 0, 0, 53));',
+      '#endif',
+    ].join('\n'))
   })
 
   it('emits nothing for a module that nothing uses', () => {

@@ -112,8 +112,15 @@ describe('time-dependent control sources', () => {
     const compiled = controlGraphCpp(graph)
     const loop = compiled.loop.join('\n')
     expect(loop).toContain('_rtcNtpConfigured_rtc')
+    expect(loop).toContain('#if FLS_NET_SUPPORTED && FLS_NET_SNTP')
     expect(loop).toContain('configTime(0, 0, "time.nist.gov");')
     expect(loop).toContain('if (_netConnected() && !_rtcNtpConfigured_second)')
+    // A core with the socket but no SNTP client (WiFiS3) runs the exchange itself.
+    expect(loop).toContain('#elif FLS_NET_SUPPORTED')
+    expect(loop).toContain('static WiFiUDP _rtcNtpUdp_second;')
+    expect(loop).toContain('_rtcNtpUdp_second.beginPacket("time.nist.gov", 123);')
+    expect(loop).toContain('_rtcNtpEpoch_second = _rtcNtpSeconds1900_second - 2208988800UL;')
+    expect(loop).toContain('_rtcCivilFromDays(_rtcNtpDays_rtc, _rtcNtpYear_rtc, _rtcNtpMonth_rtc, _rtcNtpDay_rtc);')
     // The first network user's settings win, and the block is emitted once.
     const bootstraps = compiled.helpers.filter((block) => block.includes('void _netEnsureConnected()'))
     expect(bootstraps).toHaveLength(1)
@@ -224,6 +231,10 @@ describe('local RTC displays in show and player builds', () => {
     expect(source).toContain('n_rtc_dateTime')
     expect(source).toContain('(int)n_rtc_dateTime.hour')
     expect(source).toContain('if (_netConnected() && !_rtcNtpConfigured_rtc)')
+    // The show is specialised to its ESP32 board, so the UNO R4 WiFi branch
+    // of the headers and the SNTP-over-UDP fallback are folded away.
+    expect(source).not.toContain('WiFiS3.h')
+    expect(source).not.toContain('_rtcNtpUdp_rtc')
     expect(source.indexOf('#include <FastLED.h>')).toBeLessThan(source.indexOf('#include <WiFi.h>'))
     expect(source.indexOf('#include <WiFi.h>')).toBeLessThan(source.indexOf('void _netEnsureConnected()'))
     expect(source.indexOf('void _netEnsureConnected()')).toBeLessThan(source.indexOf('void setup()'))

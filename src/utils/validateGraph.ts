@@ -97,7 +97,8 @@ import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/periphera
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { usesNetwork } from '../codegen/peripherals/networkCpp'
-import { WEB_REMOTE_NODE_TYPE, fqbnHasWifi, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
+import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
+import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
 import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
 import { midiUsesUart } from '../state/peripherals/midiSource'
 import {
@@ -1576,8 +1577,8 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   }
   // The Web Remote names its board in its own finding (webRemoteValidationIssues).
   if (selectedFqbn && nodes.some((node) => usesNetwork(node) && node.data.nodeType !== WEB_REMOTE_NODE_TYPE)
-    && !ethernetModuleIn(nodes) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
-    errors.push('Art-Net, sACN, DDP and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
+    && !ethernetModuleIn(nodes) && !fqbnHasWifi(selectedFqbn)) {
+    errors.push('Art-Net, sACN, DDP and NTP time sync require a Wi-Fi-capable ESP32-family board, ESP8266 or Arduino UNO R4 WiFi')
   }
   /*
    * "Internal DAC on a board with no DAC" used to be an error here. It cannot
@@ -1996,13 +1997,17 @@ function webRemoteValidationIssues(nodes: StudioNode[], selectedFqbn: string): G
       nodeIds: remotes.map((node) => node.id), nodeLabel: 'Web Remotes',
     })
   }
-  if (selectedFqbn && !fqbnHasWifi(selectedFqbn) && !wiredNetworkIn(nodes)) {
+  if (selectedFqbn && !fqbnServesWebRemote(selectedFqbn) && !wiredNetworkIn(nodes)) {
     const board = selectedPhysicalBoardProfile(nodes)?.label ?? selectedFqbn
+    // The UNO R4 WiFi has a radio but no WebServer library for the page.
+    const why = fqbnHasWifi(selectedFqbn)
+      ? `which the selected board (${board}) has, but its core has no web server for the page.`
+      : `which the selected board (${board}) does not have.`
     for (const node of remotes) {
       issues.push({
         id: `${node.id}-board-web-remote`, severity: 'error', category: 'board',
         title: 'The Web Remote needs Wi-Fi',
-        message: `${nodeLabel(node)} serves its phone page over Wi-Fi, which the selected board (${board}) does not have.`,
+        message: `${nodeLabel(node)} serves its phone page over Wi-Fi, ${why}`,
         fix: 'Choose an ESP32, ESP32-S2, S3, C3 or C6 board or an ESP8266 in Board & Port.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
@@ -4187,14 +4192,13 @@ export function buildGraphDiagnostics(
     }
   }
 
-  if (options.selectedFqbn && !ethernetModuleIn(nodes)
-    && !options.selectedFqbn.startsWith('esp32:') && !options.selectedFqbn.startsWith('esp8266:')) {
+  if (options.selectedFqbn && !ethernetModuleIn(nodes) && !fqbnHasWifi(options.selectedFqbn)) {
     for (const node of nodes.filter((entry) => usesNetwork(entry) && entry.data.nodeType !== WEB_REMOTE_NODE_TYPE)) {
       diagnostics.push({
         id: `${node.id}-board-network`, severity: 'error', category: 'board',
         title: 'Network sync is incompatible with the selected board',
-        message: 'Art-Net, sACN or DDP receive and NTP time sync need a Wi-Fi-capable ESP32-family board or ESP8266 target.',
-        fix: 'Choose an ESP32-family board / ESP8266 in Board & Port, or switch the node back to a non-network mode.',
+        message: 'Art-Net, sACN or DDP receive and NTP time sync need a Wi-Fi-capable ESP32-family board, ESP8266 or Arduino UNO R4 WiFi target.',
+        fix: 'Choose an ESP32-family board, an ESP8266 or the Arduino UNO R4 WiFi in Board & Port, or switch the node back to a non-network mode.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }
