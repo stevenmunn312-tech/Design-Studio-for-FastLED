@@ -243,15 +243,17 @@ describe('MatrixOutputDeployPopup', () => {
       expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { document: baked } }))
   })
 
-  it('generates the sketch for View Code only while the code view is open', () => {
+  it('generates the sketch for View Code only once the open code view has painted', async () => {
     // A large show sketch takes seconds; generating it on mount froze the
-    // switch to the Upload tab.
-    const { getByText } = render(<MatrixOutputDeployPopup />)
+    // switch to the Upload tab, and generating it inside the click froze that.
+    const { findByText, getByText } = render(<MatrixOutputDeployPopup />)
     expect(generateCpp).not.toHaveBeenCalled()
 
     act(() => useUploadStore.setState({ codeViewOpen: true }))
+    expect(getByText('// generating the sketch…')).toBeTruthy()
+    expect(generateCpp).not.toHaveBeenCalled()
+    expect(await findByText('// sketch')).toBeTruthy()
     expect(generateCpp).toHaveBeenCalledTimes(1)
-    expect(getByText('// sketch')).toBeTruthy()
   })
 
   it('keeps readiness collapsed behind the action-needed gate', () => {

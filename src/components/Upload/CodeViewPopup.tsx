@@ -8,6 +8,7 @@ import styles from './Upload.module.css'
 // preview-vs-firmware mismatch. Opened from the node's "View Code" button.
 // Line numbers are a display-only gutter (aria-hidden, unselectable) so they
 // never end up in the Copy/Download text, which stay the raw generated code.
+// `code` is null while the sketch is still being generated.
 export default function CodeViewPopup({
   code,
   onUpload,
@@ -15,7 +16,7 @@ export default function CodeViewPopup({
   uploadTitle,
   busy,
 }: {
-  code: string
+  code: string | null
   onUpload?: () => void
   uploadDisabled?: boolean
   uploadTitle?: string
@@ -32,7 +33,7 @@ export default function CodeViewPopup({
 
   const copyCode = async () => {
     try {
-      await navigator.clipboard.writeText(code)
+      await navigator.clipboard.writeText(code ?? '')
       setCopyState('copied')
     } catch {
       setCopyState('failed')
@@ -49,7 +50,7 @@ export default function CodeViewPopup({
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeCodeView() }}>
       <div className={styles.codePopup} role="dialog" aria-label="Generated code">
         <div className={styles.popupHeader}>
-          <span>Generated Sketch <span className={styles.codeLineCount}>{lineCount} lines</span></span>
+          <span>Generated Sketch <span className={styles.codeLineCount}>{code === null ? 'generating…' : `${lineCount} lines`}</span></span>
           <div className={styles.codeHeaderActions}>
             {onUpload && (
               <button
@@ -61,7 +62,7 @@ export default function CodeViewPopup({
                 {busy ? 'Uploading…' : '↑ Upload'}
               </button>
             )}
-            <button className={styles.consoleCopyBtn} onClick={() => exportIno(code)} disabled={!code} title="Download the generated .ino sketch">
+            <button className={styles.consoleCopyBtn} onClick={() => { if (code) exportIno(code) }} disabled={!code} title="Download the generated .ino sketch">
               Download
             </button>
             <button className={styles.consoleCopyBtn} onClick={copyCode} disabled={!code} title="Copy the full sketch as text" aria-live="polite">
@@ -79,7 +80,9 @@ export default function CodeViewPopup({
           </div>
         ) : (
           <div className={styles.codeBody}>
-            <pre className={styles.codeText}>// nothing to generate yet</pre>
+            <pre className={styles.codeText} role={code === null ? 'status' : undefined}>
+              {code === null ? '// generating the sketch…' : '// nothing to generate yet'}
+            </pre>
           </div>
         )}
       </div>

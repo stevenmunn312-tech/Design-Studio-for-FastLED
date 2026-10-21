@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
@@ -167,9 +167,19 @@ export default function MatrixOutputDeployPopup({
   // Generated only while the code view shows it. A large show or player
   // sketch takes seconds to build, and generating it whenever this tab mounted
   // froze the switch to Upload for that long; upload and export generate their
-  // own copy when clicked.
-  const code = useMemo(() => codeViewOpen ? generateCurrentCode() : '', [codeViewOpen,
-    codegenGraph, codegenBuild, psramSupported, projectName, selectedFqbn,
+  // own copy when clicked. The view opens first and says it is generating, so
+  // the click answers before the work starts. `null` means still generating.
+  const [code, setCode] = useState<string | null>(null)
+  useEffect(() => {
+    setCode(null)
+    if (!codeViewOpen) return
+    // A timer inside a frame callback runs after that frame has painted.
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const frame = requestAnimationFrame(() => { timer = setTimeout(() => setCode(generateCurrentCode()), 0) })
+    return () => { cancelAnimationFrame(frame); clearTimeout(timer) }
+    // generateCurrentCode reads exactly these.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeViewOpen, codegenGraph, codegenBuild, psramSupported, projectName, selectedFqbn,
     customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted, customAssets.groups,
     entries])
 
