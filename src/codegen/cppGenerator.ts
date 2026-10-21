@@ -120,7 +120,7 @@ import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
 import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
 import { TRUCHET_HELPER_CPP } from './helpers/truchetHelperCpp'
 import { TURING_HELPER_CPP } from './helpers/turingHelperCpp'
-import { ATAN16_HELPER_CPP } from '../nodes/shared/integerPatterns'
+import { ATAN16_HELPER_CPP, LATTICE_Q12_CPP } from '../nodes/shared/integerPatterns'
 import { FLUID_HELPER_CPP } from './helpers/fluidHelperCpp'
 import { pressSourceBounces } from '../state/player/pressSource'
 import { FOURIER_HELPER_CPP } from './helpers/fourierHelperCpp'
@@ -817,6 +817,7 @@ export function generateCpp(
   const needsFourier = { v: false }
   const needsSymmetry = { v: false }
   const needsAtan16 = { v: false }
+  const needsLatticeQ = { v: false }
   const needsHueMix = { v: false }
   const needsWrapX = { v: false }
   const needsFrameSample = { v: false }
@@ -887,7 +888,7 @@ export function generateCpp(
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
-    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
+    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsLatticeQ, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
     customDisplayOwners,
@@ -1376,6 +1377,11 @@ export function generateCpp(
 
   if (needsSdf.v) {
     lines.push(SDF_HELPER_CPP)
+    lines.push(``)
+  }
+
+  if (needsLatticeQ.v) {
+    lines.push(LATTICE_Q12_CPP)
     lines.push(``)
   }
 

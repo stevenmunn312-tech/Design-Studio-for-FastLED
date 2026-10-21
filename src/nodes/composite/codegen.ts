@@ -83,10 +83,11 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      ${ob}[_i]=_sampleFrame(${src},_sx,_sy,${edgeMode},${bilinear ? 'true' : 'false'});`)
     ln(`    } }`)
   },
-  Symmetry({ id, p, ln, f, ownBuf, srcBuf, needsT, needsSymmetry, needsAtan16 }) {
+  Symmetry({ id, p, ln, f, ownBuf, srcBuf, needsT, needsSymmetry, needsAtan16, needsLatticeQ }) {
     needsT.v = true
     needsSymmetry.v = true
     needsAtan16.v = true
+    needsLatticeQ.v = true
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Symmetry: no input`); return }

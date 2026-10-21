@@ -1383,7 +1383,7 @@ export function feedbackSourceCpp(mode: string): string[] {
 // rounding, the wallpaper fold through `_atan2_16` and `sin16`, and the source
 // point in 1/256 pixel. Canvas Y uses the width scale, as before, so cells
 // stay regular on a non-square matrix. The sketch's helper (`needsSymmetry`)
-// needs `_atan2_16` before it.
+// needs `_atan2_16` and `_latticeCellQ12` before it.
 
 export interface WallpaperFrame { k8: number; cos: number; sin: number; ox: number; oy: number }
 
@@ -1420,21 +1420,8 @@ function cyclicFoldQ(lx: number, ly: number, rotations: number, mirror: boolean)
 export function wallpaperSourceQ8(group: number, x: number, y: number, W: number, H: number, f: WallpaperFrame): [number, number] {
   const px = ((2 * x + 1 - W) * f.k8) >> 8, py = ((2 * y + 1 - H) * f.k8) >> 8
   const rx = ((f.cos * px - f.sin * py) >> 15) + f.ox, ry = ((f.sin * px + f.cos * py) >> 15) + f.oy
-  let lx: number, ly: number
-  if (group >= 6) {
-    const q = rx, r = (-rx + ry + ((ry * 23988) >> 15)) >> 1
-    let RX = (q + 2048) >> 12, RY = (-q - r + 2048) >> 12, RZ = (r + 2048) >> 12
-    const dx = Math.abs(RX * 4096 - q), dy = Math.abs(RY * 4096 + q + r), dz = Math.abs(RZ * 4096 - r)
-    if (dx > dy && dx > dz) RX = -RY - RZ
-    else if (dy > dz) RY = -RX - RZ
-    else RZ = -RX - RY
-    lx = rx - RX * 4096
-    ly = ry - (2 * RZ + RX) * 2365
-  } else {
-    lx = rx - ((rx + 2048) >> 12) * 4096
-    ly = ry - ((ry + 2048) >> 12) * 4096
-  }
-  ;[lx, ly] = foldWallpaperQ12(group, lx, ly)
+  const cell = latticeCellQ12(rx, ry, group >= 6)
+  const [lx, ly] = foldWallpaperQ12(group, cell.lx, cell.ly)
   return [(W - 1) * 128 + ((lx * W) >> 4), (H - 1) * 128 + ((ly * W) >> 4)]
 }
 
@@ -1462,16 +1449,8 @@ export const WALLPAPER_HELPER_CPP = [
   '// The source point in 1/256 pixel for (x, y); group ids are WALLPAPER_GROUPS in evaluator/symmetry.ts.',
   'static void _wallpaperSourceQ8(int x, int y, uint8_t group, int32_t k8, int32_t co, int32_t si, int32_t ox, int32_t oy, int32_t &sx, int32_t &sy) {',
   '  int32_t px = ((2 * x + 1 - WIDTH) * k8) >> 8, py = ((2 * y + 1 - HEIGHT) * k8) >> 8;',
-  '  int32_t rx = ((co * px - si * py) >> 15) + ox, ry = ((si * px + co * py) >> 15) + oy, lx, ly;',
-  '  if (group >= 6) {',
-  '    int32_t q = rx, r = (-rx + ry + ((ry * 23988) >> 15)) >> 1;',
-  '    int32_t RX = (q + 2048) >> 12, RY = (-q - r + 2048) >> 12, RZ = (r + 2048) >> 12;',
-  '    int32_t dx = abs(RX * 4096 - q), dy = abs(RY * 4096 + q + r), dz = abs(RZ * 4096 - r);',
-  '    if (dx > dy && dx > dz) RX = -RY - RZ; else if (dy > dz) RY = -RX - RZ; else RZ = -RX - RY;',
-  '    lx = rx - RX * 4096; ly = ry - (2 * RZ + RX) * 2365;',
-  '  } else {',
-  '    lx = rx - ((rx + 2048) >> 12) * 4096; ly = ry - ((ry + 2048) >> 12) * 4096;',
-  '  }',
+  '  int32_t rx = ((co * px - si * py) >> 15) + ox, ry = ((si * px + co * py) >> 15) + oy, lx, ly, a, b;',
+  '  if (group >= 6) _latticeCellQ12(rx, ry, true, lx, ly, a, b); else _latticeCellQ12(rx, ry, false, lx, ly, a, b);',
   '  switch (group) {',
   '    case 1: _wpCyclic(lx, ly, 2, false); break;',
   '    case 2: lx = abs(lx); break;',
@@ -1506,4 +1485,169 @@ export function sampleFrameQ8Cpp(src: string): string[] {
     `uint32_t _w00=(256-_qtx)*(256-_qty),_w10=_qtx*(256-_qty),_w01=(256-_qtx)*_qty,_w11=_qtx*_qty;`,
     `CRGB _wpC((uint8_t)((_q00.r*_w00+_q10.r*_w10+_q01.r*_w01+_q11.r*_w11+32768)>>16),(uint8_t)((_q00.g*_w00+_q10.g*_w10+_q01.g*_w01+_q11.g*_w11+32768)>>16),(uint8_t)((_q00.b*_w00+_q10.b*_w10+_q01.b*_w01+_q11.b*_w11+32768)>>16));`,
   ]
+}
+
+// ── Integer lattice cells (wallpaper, Truchet) ────────────────────────────────
+// A point in 1/4096 cell to its square or flat-top hex cell: the cell's
+// integer coordinates and the point measured from its centre. Hex cells use
+// cube-coordinate rounding with horizontal centre spacing 1, as hexCell.
+
+export interface LatticeCellQ12 { lx: number; ly: number; a: number; b: number }
+
+export function latticeCellQ12(rx: number, ry: number, hex: boolean): LatticeCellQ12 {
+  if (!hex) {
+    const a = (rx + 2048) >> 12, b = (ry + 2048) >> 12
+    return { lx: rx - a * 4096, ly: ry - b * 4096, a, b }
+  }
+  const q = rx, r = (-rx + ry + ((ry * 23988) >> 15)) >> 1
+  let RX = (q + 2048) >> 12, RY = (-q - r + 2048) >> 12, RZ = (r + 2048) >> 12
+  const dx = Math.abs(RX * 4096 - q), dy = Math.abs(RY * 4096 + q + r), dz = Math.abs(RZ * 4096 - r)
+  if (dx > dy && dx > dz) RX = -RY - RZ
+  else if (dy > dz) RY = -RX - RZ
+  else RZ = -RX - RY
+  // `| 0` folds the -0 that `-RY - RZ` makes of two zeros.
+  return { lx: (rx - RX * 4096) | 0, ly: (ry - (2 * RZ + RX) * 2365) | 0, a: RX | 0, b: RZ | 0 }
+}
+
+export const LATTICE_Q12_CPP = [
+  '// A point in 1/4096 cell to its square or flat-top hex cell (cube rounding):',
+  '// the cell coordinates and the point measured from its centre.',
+  'static void _latticeCellQ12(int32_t rx, int32_t ry, bool hex, int32_t &lx, int32_t &ly, int32_t &a, int32_t &b) {',
+  '  if (!hex) {',
+  '    a = (rx + 2048) >> 12; b = (ry + 2048) >> 12; lx = rx - a * 4096; ly = ry - b * 4096;',
+  '  } else {',
+  '    int32_t q = rx, r = (-rx + ry + ((ry * 23988) >> 15)) >> 1;',
+  '    int32_t RX = (q + 2048) >> 12, RY = (-q - r + 2048) >> 12, RZ = (r + 2048) >> 12;',
+  '    int32_t dx = abs(RX * 4096 - q), dy = abs(RY * 4096 + q + r), dz = abs(RZ * 4096 - r);',
+  '    if (dx > dy && dx > dz) RX = -RY - RZ; else if (dy > dz) RY = -RX - RZ; else RZ = -RX - RY;',
+  '    lx = rx - RX * 4096; ly = ry - (2 * RZ + RX) * 2365; a = RX; b = RZ;',
+  '  }',
+  '}',
+].join('\n')
+
+// ── Truchet ───────────────────────────────────────────────────────────────────
+// Distances to a motif's centreline in 1/4096 cell, by integer square roots
+// and one segment projection; the line profile in 1/65536.
+
+/** Hex arc centres, R = 2/3 at k * 60 degrees for k = 0..5, in 1/4096 cell. */
+const TRUCHET_HEX_CENTRES = [[2731, 0], [1365, 2365], [-1365, 2365], [-2731, 0], [-1365, -2365], [1365, -2365]]
+
+const arcQ = (x: number, y: number, cx: number, cy: number, radius: number) =>
+  Math.abs(isqrt32((x - cx) * (x - cx) + (y - cy) * (y - cy)) - radius)
+
+function segmentQ(x: number, y: number, ax: number, ay: number, vx: number, vy: number): number {
+  // Every segment here has |v|^2 = 1/2, so t = 2 (w . v), clamped to [0, 1].
+  const wx = x - ax, wy = y - ay
+  let t = ((wx * vx + wy * vy) >> 12) * 2
+  t = t < 0 ? 0 : t > 4096 ? 4096 : t
+  const dx = wx - ((t * vx) >> 12), dy = wy - ((t * vy) >> 12)
+  return isqrt32(dx * dx + dy * dy)
+}
+
+/** Motif ids are TRUCHET_MOTIFS in evaluator/truchet.ts; lattice 1 is hex. */
+export function truchetDistanceQ12(lattice: number, motif: number, x: number, y: number, orientation: number): number {
+  if (lattice === 1) {
+    let d = Infinity
+    for (let i = 0; i < 3; i++) {
+      const [cx, cy] = TRUCHET_HEX_CENTRES[(orientation % 2) + i * 2]
+      d = Math.min(d, arcQ(x, y, cx, cy, 1365))
+    }
+    return d
+  }
+  const flip = (orientation & 1) !== 0, sy = flip ? -1 : 1
+  if (motif === 4) return (Math.abs(y - (flip ? -x : x)) * 46341) >> 16
+  if (motif === 2) {
+    let d = Infinity
+    for (const cx of [-2048, 2048]) for (const cy of [-2048, 2048]) d = Math.min(d, arcQ(x, y, cx, cy, 2048))
+    return d
+  }
+  if (motif === 1) return Math.min(segmentQ(x, y, -2048, 0, 2048, 2048 * sy), segmentQ(x, y, 2048, 0, -2048, -2048 * sy))
+  return Math.min(arcQ(x, y, -2048, 2048 * sy, 2048), arcQ(x, y, 2048, -2048 * sy, 2048))
+}
+
+/** 1 - smoothstep(distance / width), in 1/65536; `width` in 1/4096 cell, at most 2048. */
+export function truchetLineQ16(distance: number, width: number): number {
+  if (width <= 0) return distance <= 0 ? 65536 : 0
+  const t = distance >= width ? 65536 : Math.trunc((distance * 65536) / width)
+  const t2 = Math.floor((t * t) / 65536)
+  return 65536 - Math.floor((t2 * (196608 - 2 * t)) / 65536)
+}
+
+export const TRUCHET_Q12_CPP = [
+  `static const int16_t _trHex[6][2] = {${TRUCHET_HEX_CENTRES.map(([x, y]) => `{${x},${y}}`).join(',')}};`,
+  'static inline uint32_t _trIsqrt(uint32_t v) { uint32_t r = 0, b = 1UL << 30; while (b > v) b >>= 2; while (b) { if (v >= r + b) { v -= r + b; r = (r >> 1) + b; } else { r >>= 1; } b >>= 2; } return r; }',
+  'static inline int32_t _trArc(int32_t x, int32_t y, int32_t cx, int32_t cy, int32_t radius) {',
+  '  int32_t d = (int32_t)_trIsqrt((uint32_t)((x - cx) * (x - cx) + (y - cy) * (y - cy))) - radius; return d < 0 ? -d : d;',
+  '}',
+  'static inline int32_t _trSegment(int32_t x, int32_t y, int32_t ax, int32_t ay, int32_t vx, int32_t vy) {',
+  '  int32_t wx = x - ax, wy = y - ay, t = ((wx * vx + wy * vy) >> 12) * 2; t = t < 0 ? 0 : (t > 4096 ? 4096 : t);',
+  '  int32_t dx = wx - ((t * vx) >> 12), dy = wy - ((t * vy) >> 12); return (int32_t)_trIsqrt((uint32_t)(dx * dx + dy * dy));',
+  '}',
+  '// Distance in 1/4096 cell to a motif centreline; motif ids are TRUCHET_MOTIFS in evaluator/truchet.ts.',
+  'static int32_t _truchetDistanceQ12(int lattice, int motif, int32_t x, int32_t y, int orientation) {',
+  '  bool flip = (orientation & 1) != 0; int32_t sy = flip ? -1 : 1, d = 0x7fffffff;',
+  '  if (lattice == 1) {',
+  '    for (int i = 0; i < 3; i++) { const int16_t *c = _trHex[orientation % 2 + i * 2]; int32_t e = _trArc(x, y, c[0], c[1], 1365); if (e < d) d = e; }',
+  '  } else if (motif == 4) {',
+  '    int32_t e = y - (flip ? -x : x); d = ((e < 0 ? -e : e) * 46341) >> 16;',
+  '  } else if (motif == 2) {',
+  '    for (int ix = 0; ix < 2; ix++) for (int iy = 0; iy < 2; iy++) { int32_t e = _trArc(x, y, ix ? 2048 : -2048, iy ? 2048 : -2048, 2048); if (e < d) d = e; }',
+  '  } else if (motif == 1) {',
+  '    int32_t p = _trSegment(x, y, -2048, 0, 2048, 2048 * sy), q = _trSegment(x, y, 2048, 0, -2048, -2048 * sy); d = p < q ? p : q;',
+  '  } else {',
+  '    int32_t p = _trArc(x, y, -2048, 2048 * sy, 2048), q = _trArc(x, y, 2048, -2048 * sy, 2048); d = p < q ? p : q;',
+  '  }',
+  '  return d;',
+  '}',
+  'static inline int32_t _truchetLineQ16(int32_t d, int32_t w) {',
+  '  if (w <= 0) return d <= 0 ? 65536 : 0;',
+  '  int32_t t = d >= w ? 65536 : (int32_t)(((int64_t)d * 65536) / w), t2 = (int32_t)(((int64_t)t * t) >> 16);',
+  '  return 65536 - (int32_t)(((int64_t)t2 * (196608 - 2 * t)) >> 16);',
+  '}',
+].join('\n')
+
+// The Truchet transform: a pixel's lattice point in 1/4096 cell, rotated,
+// scrolled along x by the integrated scroll (wrapped every 262144 cells), and
+// its cell's orientation from the lattice hash.
+
+const [TR_HASH_A, TR_HASH_B, TR_HASH_SEED, TR_HASH_MIX] = LATTICE_HASH_MULTIPLIERS
+
+export interface TruchetFrame { k8: number; cos: number; sin: number; scroll: number; width: number }
+
+export function truchetFrame(W: number, cells: number, rotationDeg: number, scrolled: number, lineWidth: number): TruchetFrame {
+  const angle = -rotationDeg * 0.017453292519943
+  return {
+    k8: Math.trunc(cells * 2048 / W * 256), cos: Math.trunc(Math.cos(angle) * 32767), sin: Math.trunc(Math.sin(angle) * 32767),
+    scroll: Math.trunc((scrolled % 262144) * 4096), width: Math.trunc(lineWidth * 4096),
+  }
+}
+
+/** Frame locals from `_cells`, `_rotation`, `_lineWidth` and the scroll phase. */
+export function truchetFrameCpp(scrolled: string): string[] {
+  return [
+    `float _angle=-_rotation*0.017453292519943f;`,
+    `int32_t _trK=(int32_t)(_cells*2048.0f/WIDTH*256.0f),_trCo=(int32_t)(cosf(_angle)*32767.0f),_trSi=(int32_t)(sinf(_angle)*32767.0f);`,
+    `int32_t _trOx=(int32_t)(fmodf(${scrolled},262144.0f)*4096.0f),_trW=(int32_t)(_lineWidth*4096.0f);`,
+  ]
+}
+
+/** Sets `_lx`, `_ly` (1/4096 cell) and `int _orientation`; needs `_latticeCellQ12`. */
+export function truchetPixelCpp(hex: boolean, epoch: string, seed: number, orientations: number): string[] {
+  return [
+    `int32_t _px=((2*_x+1-WIDTH)*_trK)>>8,_py=((2*_y+1-HEIGHT)*_trK)>>8,_lx,_ly,_a,_b;`,
+    `_latticeCellQ12(((_trCo*_px-_trSi*_py)>>15)+_trOx,(_trSi*_px+_trCo*_py)>>15,${hex},_lx,_ly,_a,_b);`,
+    `uint32_t _bits=(uint32_t)(_a+${epoch}*31)*${TR_HASH_A}u+(uint32_t)(_b-${epoch}*17)*${TR_HASH_B}u+${seed >>> 0}u*${TR_HASH_SEED}u; _bits=(_bits^(_bits>>13))*${TR_HASH_MIX}u; _bits^=_bits>>16; _bits>>=8;`,
+    `int _orientation=(int)(((uint64_t)_bits*${orientations}u)>>24);`,
+  ]
+}
+
+/** The Truchet field value in 1/65536 for (x, y). */
+export function truchetPixel(
+  x: number, y: number, W: number, H: number, f: TruchetFrame, hex: boolean, motif: number, epoch: number, seed: number, orientations: number,
+): number {
+  const px = ((2 * x + 1 - W) * f.k8) >> 8, py = ((2 * y + 1 - H) * f.k8) >> 8
+  const cell = latticeCellQ12(((f.cos * px - f.sin * py) >> 15) + f.scroll, (f.sin * px + f.cos * py) >> 15, hex)
+  const bits = latticeHashBits(cell.a + epoch * 31, cell.b - epoch * 17, seed)
+  const orientation = Math.floor((bits * orientations) / 16777216)
+  return truchetLineQ16(truchetDistanceQ12(hex ? 1 : 0, motif, cell.lx, cell.ly, orientation), f.width)
 }

@@ -1,6 +1,8 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX, FORMULA_FIELD_SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { NOISE_FIELD_PIXEL_CPP, ROSE_PIXEL_CPP, noiseFieldFrameCpp, roseFrameCpp, wallpaperFrameCpp } from '../shared/integerPatterns'
+import {
+  NOISE_FIELD_PIXEL_CPP, ROSE_PIXEL_CPP, noiseFieldFrameCpp, roseFrameCpp, truchetFrameCpp, truchetPixelCpp, wallpaperFrameCpp,
+} from '../shared/integerPatterns'
 import { usesShims, cppRewriteShims } from '../shared/fastledShims'
 import { isNodeFormulaValid } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -123,9 +125,9 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      float _a=_sliceBit(_bits_${id},_leaf),_b=_sliceBit(_bitsB_${id},_leaf),_solid=_a*(1.0f-_morph)+_b*_morph;`)
     ln(`      float _inside=min(_lambda[0],min(_lambda[1],_lambda[2])); ${of}[_y*WIDTH+_x]=_solid*_sliceEdge(_inside,_edge); } }`)
   },
-  Truchet({ node, id, p, ln, f, ownField, boolExpr, needsT, needsLattice, needsTruchet }) {
+  Truchet({ node, id, p, ln, f, ownField, boolExpr, needsT, needsLatticeQ, needsTruchet }) {
     needsT.v = true
-    needsLattice.v = true
+    needsLatticeQ.v = true
     needsTruchet.v = true
     const of = ownField()
     const lattice = truchetLattice(p.lattice)
@@ -133,7 +135,6 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const latticeId = lattice === 'hex' ? 1 : 0
     const motifId = truchetMotifIndex(motif, lattice)
     const orientations = truchetOrientationCount(lattice, motif)
-    const finder = lattice === 'hex' ? '_hexCell' : '_squareCell'
     const state = `_tr_${id}`
     ln(`  { /* Truchet: ${lattice}, ${motif} */`)
     ln(`    static uint32_t ${state}epoch=0; static bool ${state}prev=false; bool _reroll=${boolExpr(node.id, 'reroll')};`)
@@ -141,14 +142,12 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    float _cells=constrain(${f('cells', 'cells', 4)},0.5f,8.0f),_lineWidth=constrain(${f('lineWidth', 'lineWidth', 0.08)},0.0f,0.5f);`)
     ln(`    float _scroll=constrain(${f('scroll', 'scroll', 0)},-8.0f,8.0f),_rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_scroll')
-    ln(`    float _angle=-_rotation*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of truchetFrameCpp(ph)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
-    ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+${ph},_sr*_px+_cr*_py);`)
-    ln(`      uint32_t _bits=_latticeHashBits(_cell.a+(int)${state}epoch*31,_cell.b-(int)${state}epoch*17,${seedProp(p)}u);`)
-    ln(`      int _orientation=(int)(((uint64_t)_bits*${orientations}u)>>24);`)
-    ln(`      float _distance=_truchetDistance(${latticeId},${motifId},_cell.x,_cell.y,_orientation);`)
-    ln(`      ${of}[_y*WIDTH+_x]=_truchetLine(_distance,_lineWidth); } }`)
+    for (const line of truchetPixelCpp(latticeId === 1, `(int)${state}epoch`, seedProp(p), orientations)) ln(`      ${line}`)
+    ln(`      int32_t _d=_truchetDistanceQ12(${latticeId},${motifId},_lx,_ly,_orientation);`)
+    ln(`      ${of}[_y*WIDTH+_x]=_truchetLineQ16(_d,_trW)*(1.0f/65536.0f); } }`)
   },
   // Curated closed-form fields — exact same math as evalFormulaField in
   // graphEvaluator.ts (no approximation gap, unlike inoise8-backed fields),
@@ -573,10 +572,11 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      int _tx=max(1,(int)roundf(${tx})),_ty=max(1,(int)roundf(${ty})); int _sx=(_x*_tx)%WIDTH,_sy=(_y*_ty)%HEIGHT;`)
     ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
   },
-  FieldSymmetry({ id, p, ln, f, ownField, srcField, needsT, needsSymmetry, needsAtan16 }) {
+  FieldSymmetry({ id, p, ln, f, ownField, srcField, needsT, needsSymmetry, needsAtan16, needsLatticeQ }) {
     needsT.v = true
     needsSymmetry.v = true
     needsAtan16.v = true
+    needsLatticeQ.v = true
     const of = ownField()
     const src = srcField('field')
     if (!src) {

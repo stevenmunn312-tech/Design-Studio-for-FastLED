@@ -29,6 +29,8 @@ import {
   ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, arrayCopy, arrayOver, arraySource,
   blendMix8, blendMix8Cpp, feedbackFrame, feedbackSource, feedbackSourceCpp,
   WALLPAPER_HELPER_CPP, sampleFrameQ8, sampleFrameQ8Cpp, wallpaperFrame, wallpaperSourceQ8,
+  LATTICE_Q12_CPP, TRUCHET_Q12_CPP, latticeCellQ12, truchetDistanceQ12, truchetFrame, truchetLineQ16, truchetPixel,
+  truchetPixelCpp,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -41,7 +43,7 @@ function runNative(W: number, H: number, frame: string[], pixel: string[], print
       '#include <cstdio>', '#include <cstdint>', '#include <cstdlib>', '#include <algorithm>', 'using std::min; using std::max;',
       'struct CRGB { uint8_t r, g, b; CRGB() : r(0), g(0), b(0) {} CRGB(uint8_t r_, uint8_t g_, uint8_t b_) : r(r_), g(g_), b(b_) {} };',
       'template <class T> static T constrain(T v, T lo, T hi) { return v < lo ? lo : v > hi ? hi : v; }', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, INOISE8_3D_HOST_CPP, ATAN16_HELPER_CPP,
-      `#define WIDTH ${W}`, `#define HEIGHT ${H}`, WALLPAPER_HELPER_CPP,
+      `#define WIDTH ${W}`, `#define HEIGHT ${H}`, LATTICE_Q12_CPP, WALLPAPER_HELPER_CPP, TRUCHET_Q12_CPP,
       'int main(){', ...frame, '  int _i=0;',
       '  for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){', ...pixel.map((l) => `    ${l}`),
       `    printf(${print}); _i++; } }`,
@@ -403,5 +405,26 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
     const native = runNative(W, H, [`static const CRGB _src[WIDTH*HEIGHT]={${bytes}};`],
       [`int32_t _sx=_x*301-700,_sy=_y*277-300;`, ...sampleFrameQ8Cpp('_src')], '"%u %u %u ",_wpC.r,_wpC.g,_wpC.b')
     expect(grid(W, H, (x, y) => { const c = sampleFrameQ8(src, x * 301 - 700, y * 277 - 300, W, H); return [c.r, c.g, c.b] })).toEqual(native)
+  }, 60_000)
+
+  it.each([false, true])('the lattice cell finder matches with hex %s', (hex) => {
+    const native = runNative(64, 64, [], ['int32_t _lx,_ly,_a,_b; _latticeCellQ12((_x-32)*977+_y*13,(_y-32)*1013-_x*7,' + hex + ',_lx,_ly,_a,_b);'], '"%d %d %d %d ",_lx,_ly,_a,_b')
+    expect(grid(64, 64, (x, y) => { const c = latticeCellQ12((x - 32) * 977 + y * 13, (y - 32) * 1013 - x * 7, hex); return [c.lx, c.ly, c.a, c.b] })).toEqual(native)
+  }, 60_000)
+
+  it.each([[0, 0], [0, 1], [0, 2], [0, 4], [1, 3]])('Truchet distance matches for lattice %i motif %i', (lattice, motif) => {
+    for (const orientation of [0, 1]) {
+      const native = runNative(64, 64, [], [`int32_t _d=_truchetDistanceQ12(${lattice},${motif},(_x-32)*97,(_y-32)*89,${orientation});`, 'int32_t _v=_truchetLineQ16(_d,(_x*_y)&2047);'], '"%d %d ",_d,_v')
+      expect(grid(64, 64, (x, y) => { const d = truchetDistanceQ12(lattice, motif, (x - 32) * 97, (y - 32) * 89, orientation); return [d, truchetLineQ16(d, (x * y) & 2047)] })).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('a Truchet pixel matches end to end on %ix%i', (W, H) => {
+    for (const [hex, motif, orientations] of [[false, 0, 2], [false, 2, 1], [true, 3, 2]] as const) {
+      const f = truchetFrame(W, 4.5, -37, 123.4, 0.08)
+      const native = runNative(W, H, [`int32_t _trK=${f.k8},_trCo=${f.cos},_trSi=${f.sin},_trOx=${f.scroll},_trW=${f.width};`],
+        [...truchetPixelCpp(hex, '3', 42, orientations), `int32_t _v=_truchetLineQ16(_truchetDistanceQ12(${hex ? 1 : 0},${motif},_lx,_ly,_orientation),_trW);`], '"%d ",_v')
+      expect(grid(W, H, (x, y) => [truchetPixel(x, y, W, H, f, hex, motif, 3, 42, orientations)])).toEqual(native)
+    }
   }, 60_000)
 })

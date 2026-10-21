@@ -1,7 +1,7 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
 import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
-import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
+import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
@@ -20,10 +20,7 @@ import {
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
 import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
-import {
-  truchetCell, truchetLattice, truchetLineValue, truchetMotif,
-  truchetMotifDistance, truchetOrientation, truchetOrientationCount,
-} from '../../state/evaluator/truchet'
+import { TRUCHET_MOTIFS, truchetLattice, truchetMotif, truchetOrientationCount } from '../../state/evaluator/truchet'
 import {
   turingFieldValue, turingIterations, turingPrefixLength, turingRadii, turingSeed,
   turingStep, turingStepSize,
@@ -67,19 +64,12 @@ export function evalTruchet(
   const lineWidth = Math.max(0, Math.min(0.5, lineWidthValue))
   const scroll = Math.max(-8, Math.min(8, scrollValue))
   const rotation = Math.max(-180, Math.min(180, rotationValue))
-  const angle = -rotation * Math.PI / 180
-  const cos = Math.cos(angle), sin = Math.sin(angle)
-  const scrolled = speedPhase(nodeId, t, scroll)
+  // The sketch's integer kernel (shared/integerPatterns.ts).
+  const frame = truchetFrame(W, cells, rotation, speedPhase(nodeId, t, scroll), lineWidth)
+  const motifId = TRUCHET_MOTIFS.indexOf(motif), hex = lattice === 'hex'
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const px = (x + 0.5 - W / 2) * cells / W
-    const py = (y + 0.5 - H / 2) * cells / W
-    const rx = cos * px - sin * py + scrolled
-    const ry = sin * px + cos * py
-    const cell = truchetCell(rx, ry, lattice)
-    const orientation = truchetOrientation(cell, state.epoch, seed, orientations)
-    const distance = truchetMotifDistance(lattice, motif, cell.x, cell.y, orientation)
-    out[y * W + x] = truchetLineValue(distance, lineWidth)
+    out[y * W + x] = truchetPixel(x, y, W, H, frame, hex, motifId, state.epoch, seed, orientations) / 65536
   }
   return out
 }

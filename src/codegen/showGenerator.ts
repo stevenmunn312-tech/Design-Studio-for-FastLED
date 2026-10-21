@@ -25,7 +25,7 @@ import { SDF_HELPER_CPP } from './helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import { TRUCHET_HELPER_CPP } from './helpers/truchetHelperCpp'
 import { TURING_HELPER_CPP } from './helpers/turingHelperCpp'
-import { ATAN16_HELPER_CPP } from '../nodes/shared/integerPatterns'
+import { ATAN16_HELPER_CPP, LATTICE_Q12_CPP } from '../nodes/shared/integerPatterns'
 import { FLUID_HELPER_CPP } from './helpers/fluidHelperCpp'
 import { FOURIER_HELPER_CPP } from './helpers/fourierHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
@@ -243,6 +243,7 @@ function cppPrototype(definition: string): string | null {
 const SHARED_HELPER_BLOCKS: Record<string, string> = {
   phi: PHI_DEFINE_CPP,
   sdf: SDF_HELPER_CPP,
+  latticeQ: LATTICE_Q12_CPP,
   lattice: LATTICE_HELPER_CPP,
   truchet: TRUCHET_HELPER_CPP,
   turing: TURING_HELPER_CPP,

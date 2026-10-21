@@ -156,6 +156,8 @@ export interface SketchEmitContext {
   needsSymmetry: Need
   /** `_atan2_16` from shared/integerPatterns.ts, the integer kernels' angle. */
   needsAtan16: Need
+  /** `_latticeCellQ12`, the integer square/hex cell finder (shared/integerPatterns.ts). */
+  needsLatticeQ: Need
   needsHueMix: Need
   needsWrapX: Need
   needsFrameSample: Need

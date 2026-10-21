@@ -3389,14 +3389,12 @@ describe('Pattern node expansion - Phase 4 Truchet codegen', () => {
   ])('bakes the %s/%s motif ids and shared distance helper', (lattice, motif, latticeId, motifId, finder) => {
     const cpp = generateTruchet(lattice, motif)
     expect(cpp).toContain(`/* Truchet: ${lattice}, ${motif} */`)
-    expect(cpp).toContain(`_LatticeCell _cell=${finder}(`)
-    expect(generateTruchet(lattice, motif, true)).toContain(`_truchetDistance(${latticeId},${motifId},_cell.x,_cell.y,_orientation)`)
-    expect(cpp).toContain('_latticeHashBits(_cell.a+(int)_tr_truchetepoch*31')
-    expect(cpp.match(/static inline float _truchetDistance/g)).toHaveLength(1)
-    // Only the selected lattice's cell finder ships.
-    for (const candidate of ['_squareCell', '_hexCell', '_triCell']) {
-      expect(cpp.split(`static inline _LatticeCell ${candidate}(`).length - 1).toBe(candidate === finder ? 1 : 0)
-    }
+    expect(generateTruchet(lattice, motif, true)).toContain(`_truchetDistanceQ12(${latticeId},${motifId},_lx,_ly,_orientation)`)
+    expect(cpp).toContain('uint32_t _bits=(uint32_t)(_a+(int)_tr_truchetepoch*31)')
+    expect(cpp.match(/static int32_t _truchetDistanceQ12/g)).toHaveLength(1)
+    // Only the selected lattice ships: the integer cell finder keeps one branch.
+    expect(cpp.includes('RZ')).toBe(finder === '_hexCell')
+    expect(cpp).not.toContain('_LatticeCell')
   })
 
   it('falls back without interpolating an unknown motif into firmware', () => {
