@@ -3008,8 +3008,10 @@ export function findDisplayGeneratorIssues(
   for (const { display, issue } of browserThumbnailIssues(nodes, edges, templateSourceIds)) {
     errors.push(`${nodeLabel(display)}: ${issue}`)
   }
-  for (const { display, issue } of transportArtworkIssues(nodes, edges, templateSourceIds)) {
-    errors.push(`${nodeLabel(display)}: ${issue}`)
+  // Now Playing exists to picture the pattern and blocks without one; Show
+  // Status falls back to naming patterns, so its over-budget slideshow builds.
+  for (const { display, issue, blocking } of transportArtworkIssues(nodes, edges, templateSourceIds)) {
+    (blocking ? errors : warnings).push(`${nodeLabel(display)}: ${issue}`)
   }
 
   // Both template generators resolve a display's ports against what the

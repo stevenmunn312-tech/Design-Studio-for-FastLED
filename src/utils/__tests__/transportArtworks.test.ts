@@ -7,7 +7,7 @@ import {
   MAX_TRANSPORT_ARTWORKS, TRANSPORT_ARTWORK_BYTES,
 } from '../../state/displays/transportDisplay'
 import {
-  artworkDisplays, artworkPlayer, bakeDisplayArtworks, transportArtworkIssues,
+  artworkDisplays, artworkEngine, bakeDisplayArtworks, transportArtworkIssues,
 } from '../transportArtworks'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -53,7 +53,7 @@ describe('Transport Display artwork baking', () => {
   it('finds a Now Playing panel and the player that owns its collection', () => {
     const { nodes, edges } = graph()
     expect(artworkDisplays(nodes, edges).map((display) => display.id)).toEqual(['tft'])
-    expect(artworkPlayer(nodes[3], nodes, edges)?.id).toBe('player')
+    expect(artworkEngine(nodes[3], nodes, edges)?.id).toBe('player')
     expect(artworkDisplays(nodes, edges, new Set(['another-player']))).toEqual([])
   })
 
@@ -80,7 +80,10 @@ describe('Transport Display artwork baking', () => {
 
   it('reports a collection that exceeds the explicit flash budget', () => {
     const { nodes, edges } = graph(Array.from({ length: MAX_TRANSPORT_ARTWORKS + 1 }, (_, i) => `p${i}`))
-    expect(transportArtworkIssues(nodes, edges)[0].issue).toContain(String(MAX_TRANSPORT_ARTWORKS))
+    const [issue] = transportArtworkIssues(nodes, edges)
+    expect(issue.issue).toContain(String(MAX_TRANSPORT_ARTWORKS))
+    // Now Playing exists to picture the pattern, so it refuses the build.
+    expect(issue.blocking).toBe(true)
     expect(bakeDisplayArtworks(nodes, edges, groups, true)).toEqual({})
   })
 
@@ -94,12 +97,72 @@ describe('Transport Display artwork baking', () => {
     expect(Object.keys(bakeDisplayArtworks(nodes, edges, groups, true))).toEqual(['player'])
   })
 
-  it('does not bake for a source whose layout has no artwork', () => {
+  // Diagnostics is device lifecycle and draws no picture, whatever is wired.
+  it('does not bake for a panel showing Diagnostics', () => {
     const { nodes, edges } = graph()
-    const slideshow = node('slideshow', 'PatternSlideshow')
-    const rewired = edges.map((e) => (e.id === 'player-display'
-      ? edge('player-display', 'slideshow', 'display', 'tft', 'display')
-      : e))
-    expect(bakeDisplayArtworks([...nodes, slideshow], rewired, groups, true)).toEqual({})
+    nodes[3].data.properties.tftLayout = 'Diagnostics'
+    expect(artworkDisplays(nodes, edges)).toEqual([])
+    expect(bakeDisplayArtworks(nodes, edges, groups, true)).toEqual({})
+  })
+})
+
+describe('Show Status artwork from a Pattern Slideshow', () => {
+  beforeEach(() => resetEvaluatorState())
+
+  function slideshowGraph(ids: string[] = ['red']) {
+    const output = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 })
+    const collection = node('collection', 'PatternCollection', { patternIds: ids })
+    const slideshow = node('show', 'PatternSlideshow')
+    const display = node('tft', 'TransportDisplay', {
+      partId: 'st7789-tft-240x240', tftLayout: 'Show Status',
+    })
+    return {
+      nodes: [output, collection, slideshow, display],
+      edges: [
+        edge('collection-show', 'collection', 'patternset', 'show', 'patternset'),
+        edge('show-display', 'show', 'display', 'tft', 'display'),
+      ],
+    }
+  }
+
+  // The slideshow owns the collection the panel pictures, exactly as a
+  // player owns Now Playing's: one engine, one bake, keyed by that engine.
+  it('bakes the slideshow collection for its Show Status panel', () => {
+    const { nodes, edges } = slideshowGraph()
+    expect(artworkDisplays(nodes, edges).map((display) => display.id)).toEqual(['tft'])
+    expect(artworkEngine(nodes[3], nodes, edges)?.id).toBe('show')
+    const artworks = bakeDisplayArtworks(nodes, edges, groups, true)
+    expect(Object.keys(artworks)).toEqual(['show'])
+    expect(artworks.show[0]).toHaveLength(TRANSPORT_ARTWORK_BYTES)
+    expect(Array.from(artworks.show[0].slice(0, 2))).toEqual([0xf8, 0x00])
+  })
+
+  // Scoped like the generator: a template build only bakes for the engine it
+  // selected, so validation, capacity and generation agree on one collection.
+  it('bakes nothing for an unselected slideshow', () => {
+    const { nodes, edges } = slideshowGraph()
+    expect(bakeDisplayArtworks(nodes, edges, groups, true, new Set(['another-show']))).toEqual({})
+  })
+
+  // An empty collection has nothing to picture; baking a zero-row table would
+  // emit a table nothing can index.
+  it('bakes nothing for an empty or unwired collection', () => {
+    const { nodes, edges } = slideshowGraph([])
+    expect(bakeDisplayArtworks(nodes, edges, groups, true)).toEqual({})
+    const unwired = edges.filter((e) => e.id !== 'collection-show')
+    expect(bakeDisplayArtworks(nodes, unwired, groups, true)).toEqual({})
+  })
+
+  // Show Status was a complete text layout before it had pictures, so an
+  // over-budget slideshow still builds: it warns, bakes nothing, and the
+  // panel names each pattern without picturing it.
+  it('warns rather than blocks for an over-budget slideshow', () => {
+    const { nodes, edges } = slideshowGraph(Array.from({ length: MAX_TRANSPORT_ARTWORKS + 1 }, (_, i) => `p${i}`))
+    const [issue] = transportArtworkIssues(nodes, edges)
+    expect(issue.display.id).toBe('tft')
+    expect(issue.blocking).toBe(false)
+    expect(issue.issue).toContain(String(MAX_TRANSPORT_ARTWORKS))
+    expect(issue.issue).toContain('Show Status')
+    expect(bakeDisplayArtworks(nodes, edges, groups, true)).toEqual({})
   })
 })

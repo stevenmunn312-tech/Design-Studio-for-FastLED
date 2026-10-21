@@ -134,11 +134,14 @@ What it establishes:
   The OLED drew the thumbnail, name and ordinal correctly with the 2-column
   SH1106 offset intact, in the same sketch that emits the TFT's name table.
 
-The TFT drawing no thumbnail is correct, not a gap: Show Status is a text-only
-layout, and transport artwork is player-owned — `artworkPlayer` follows the
-`display` envelope's `player` arm, which a Pattern Slideshow does not publish.
-A colour thumbnail for a music-free show is tracked as deferred scope (D-02),
-not as a defect.
+The TFT drew no picture on that bench because Show Status was then a
+text-only layout. Since D-02 it pictures the slideshow's running pattern from
+the same 96x96 RGB565 bake Now Playing uses (`artworkEngine` follows the
+`display` wire to either engine kind), and falls back to the text-only layout
+when the collection is unbaked or over the eight-artwork budget. That drawing
+is unit-tested for preview/firmware parity only; it has no bench row yet, so
+on glass it is experimental until a show sketch with baked Show Status
+artwork is checked on a panel.
 
 The panel was physically mounted upside down, which turned into a fourth
 result: setting the node's `tftRotation` to `180` corrected it on glass. That

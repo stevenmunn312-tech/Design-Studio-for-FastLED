@@ -216,13 +216,25 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `selection: PatternSelectValue | null` beside the `SongInfo` (`SongInfo` has
   neither a pattern name nor a collection identity, so a one-wire Now Playing
   panel had nothing to caption artwork with — the player owns both readings and
-  publishes them together, so `artworkPlayer` follows the one `display` edge
+  publishes them together, so `artworkEngine` follows the one `display` edge
   rather than guessing among metadata ports);
   `src/utils/bakeTransportArtworks.ts` evaluates at a fixed tick and packs 96x96
-  big-endian RGB565; `src/utils/transportArtworks.ts` finds each panel/player
+  big-endian RGB565; `src/utils/transportArtworks.ts` finds each panel/engine
   route and enforces the eight-artwork flash budget;
   `src/codegen/displays/transportArtworkCpp.ts` emits an indexed PROGMEM table; the
-  preview caches and draws the same converted bytes. It publishes a
+  preview caches and draws the same converted bytes. Show Status pictures a
+  Pattern Slideshow's collection through the same bake: `artworkEngine` accepts
+  either engine kind and `ARTWORK_LAYOUT_KINDS` pairs each picturing layout with
+  the kind that owns its collection, so a new picturing layout is one entry
+  there, not a second baker. Three rules keep preview and firmware agreeing.
+  The show sketch's table, `_tftArt` and the artwork cache slot all hang off one
+  `showDrawsArtwork` answer, so none is emitted without the others. An unbaked
+  Show Status is the text layout, not Now Playing's empty frame, because the
+  firmware for it emits nothing to draw a frame with. And the preview gates its
+  picture on the bake's own rule (non-empty, within budget) rather than on
+  whether the group renders. Over budget, Now Playing is a blocking error and
+  Show Status only a warning (`TransportArtworkIssue.blocking`): pictures are
+  the point of the first, an extra on the second. It publishes a
   `playercontrols` bundle for XPT2046 touch; terminal discovery therefore
   derives from input-bearing output-category nodes as well as ordinary
   output-less sinks, so an interactive display remains hot and remains a codegen

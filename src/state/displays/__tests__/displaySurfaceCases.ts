@@ -153,6 +153,10 @@ const TFT_STATES: Record<TransportDisplayLayout, Record<string, TransportDisplay
   'Show Status': {
     'running': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Aurora Drift', highlightIndex: 2, browsing: false } },
     'browsing': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Ember Cascade', highlightIndex: 5, browsing: true } },
+    // The slideshow's collection baked: the running pattern pictured in the
+    // band between the running rows and the browsing block. The two cases
+    // above are the unbaked text-only layout, which the picture must not move.
+    'artwork': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 8, highlightName: 'Ember Cascade', highlightIndex: 5, browsing: true, artwork: ARTWORK } },
   },
   'LED Status': {
     'lit': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 0.72 } },

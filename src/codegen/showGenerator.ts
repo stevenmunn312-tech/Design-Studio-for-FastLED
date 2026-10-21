@@ -521,6 +521,22 @@ interface ShowSelectionPlan {
   nameStrings: boolean
 }
 
+/** The fixed layouts that blit the show's baked artwork. */
+const ARTWORK_LAYOUTS: ReadonlySet<string> = new Set(['Now Playing', 'Show Status'])
+
+/**
+ * Whether this show sketch draws baked artwork at all.
+ *
+ * One answer for the table, the blit and the selection cursor, so none of the
+ * three is emitted without the others. The bake is keyed by the engine and a
+ * controller sketch runs exactly one show, so the sole entry is this show's
+ * collection: a Show Status panel pictures the slideshow's own patterns.
+ */
+function showDrawsArtwork(displays: ResolvedShowDisplays, artworks: TransportArtworks | undefined): boolean {
+  return displays.tft.some((display) => ARTWORK_LAYOUTS.has(display.layout))
+    && (Object.values(artworks ?? {})[0] ?? []).length > 0
+}
+
 function showSelectionPlan(
   displays: ResolvedShowDisplays,
   hasArtwork: boolean,
@@ -644,8 +660,7 @@ function showDisplaysCpp(
   // collection this sketch is rendering.
   const thumbnails = Object.values(opts.thumbnails ?? {})[0] ?? []
   const artworks = Object.values(opts.artworks ?? {})[0] ?? []
-  const hasArtwork = displays.tft.some((display) => display.layout === 'Now Playing')
-    && artworks.length > 0
+  const hasArtwork = showDrawsArtwork(displays, opts.artworks)
   const selVar = selection.variable
   const bootTitle = opts.bootLabel?.trim() || 'FASTLED BUILD'
   const bootDevice = selectedPhysicalBoardProfile(nodes)?.label ?? 'FASTLED CONTROLLER'
@@ -746,7 +761,7 @@ function showDisplaysCpp(
       ? { patternNames: { tableStem: selection.stem, selVar } }
       : {}),
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
-    ...(display.layout === 'Now Playing' && artworks.length > 0
+    ...(hasArtwork && ARTWORK_LAYOUTS.has(display.layout)
       ? { artwork: { tableStem: SHOW_SELECTION_STEM, count: artworks.length } }
       : {}),
   }))
@@ -822,7 +837,7 @@ export function generateShowSketch(
   nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
   // `psramAllowed` mirrors generateCpp's option: the upload UI passes false
   // when the selected board has no PSRAM support. `thumbnails`/`artworks` are
-  // the baked Pattern Browser pictures and Now Playing art, handed in for the
+  // the baked Pattern Browser pictures and Now Playing/Show Status art, handed in for the
   // same reason generateCpp takes them: baking evaluates patterns, and a text
   // emitter has no way to know whether the workspace has been trusted.
   opts: {
@@ -964,8 +979,7 @@ export function generateShowSketch(
   )
   const selection = showSelectionPlan(
     resolvedDisplays,
-    resolvedDisplays.tft.some((display) => display.layout === 'Now Playing')
-      && (Object.values(opts.artworks ?? {})[0] ?? []).length > 0,
+    showDrawsArtwork(resolvedDisplays, opts.artworks),
     controls.patternCommands,
     boundDisplaySourceFields(controls.custom),
   )

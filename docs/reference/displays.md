@@ -64,6 +64,10 @@ Connect **Display** from RTC Clock, Music Player, Pattern Slideshow or
 an LED output for Clock, Now Playing/Fixed Transport, Show Status or
 LED Status respectively. The source chooses content; presentation only
 chooses among that source's treatments. Unwired panels say Waiting.
+Now Playing and Show Status picture the running pattern when its collection
+holds eight patterns or fewer; a larger Slideshow collection keeps Show
+Status text-only and the build warns, while a larger Music Player collection
+blocks the build.
 **Layout** also always offers **Custom design**, the panel's own screen:
 choosing it creates the design the first time and enables **Edit screen
 design**. The panel keeps its Display wire, which bound widgets read.

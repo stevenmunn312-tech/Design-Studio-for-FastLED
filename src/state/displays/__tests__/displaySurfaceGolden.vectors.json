@@ -97,6 +97,13 @@
     "coverage": 4.76,
     "hash": "6b428634"
   },
+  "tft/240x240/Show Status/artwork": {
+    "width": 240,
+    "height": 240,
+    "colors": 2507,
+    "coverage": 20.76,
+    "hash": "36b671fc"
+  },
   "tft/240x240/Show Status/at-rest": {
     "width": 240,
     "height": 240,
@@ -265,6 +272,13 @@
     "coverage": 3.57,
     "hash": "fd244e34"
   },
+  "tft/240x320/Show Status/artwork": {
+    "width": 240,
+    "height": 320,
+    "colors": 2507,
+    "coverage": 15.57,
+    "hash": "357b09fc"
+  },
   "tft/240x320/Show Status/at-rest": {
     "width": 240,
     "height": 320,
@@ -432,6 +446,13 @@
     "colors": 4,
     "coverage": 3.57,
     "hash": "fd263a74"
+  },
+  "tft/320x240/Show Status/artwork": {
+    "width": 320,
+    "height": 240,
+    "colors": 2507,
+    "coverage": 15.57,
+    "hash": "9e38f73c"
   },
   "tft/320x240/Show Status/at-rest": {
     "width": 320,

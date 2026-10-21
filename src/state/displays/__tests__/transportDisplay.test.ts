@@ -249,6 +249,33 @@ describe('geometry across every mounted size', () => {
     expect(g.state.w).toBeGreaterThan(tftTextWidth('PLAY', TRANSPORT_METRICS.bodyScale))
   })
 
+  // The same fixed square in the band between the running rows and the
+  // browsing block, with clear space either side, so neither text block has
+  // to move to make room for it.
+  it.each(MOUNTED_SIZES)('fits the Show Status artwork between its text blocks on $key', ({ width, height }) => {
+    const g = showStatusGeometry(width, height)
+    expect(g.artwork.w).toBe(TRANSPORT_ARTWORK_W)
+    expect(g.artwork.h).toBe(TRANSPORT_ARTWORK_H)
+    expect(g.artwork.y).toBeGreaterThanOrEqual(g.status.y + g.status.h + TRANSPORT_METRICS.rowGap)
+    expect(g.artwork.y + g.artwork.h + TRANSPORT_METRICS.rowGap).toBeLessThanOrEqual(g.highlight.y)
+    // Centred across the glass, to the pixel the integer split allows.
+    const left = g.artwork.x
+    const right = width - (g.artwork.x + g.artwork.w)
+    expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
+  })
+
+  // Pinned rather than only bounded: the firmware emits these literals, and a
+  // silent shift would move a picture the preview and the device both draw.
+  it('places the Show Status artwork deliberately on every mounted size', () => {
+    const at = (w: number, h: number) => {
+      const { x, y } = showStatusGeometry(w, h).artwork
+      return [x, y]
+    }
+    expect(at(240, 240)).toEqual([72, 80])
+    expect(at(240, 320)).toEqual([72, 120])
+    expect(at(320, 240)).toEqual([112, 80])
+  })
+
   it('gives the extra height of a taller panel to the artwork block', () => {
     const square = nowPlayingGeometry(240, 240)
     const tall = nowPlayingGeometry(240, 320)
@@ -355,6 +382,35 @@ describe('rendering', () => {
     expect(getTftPixel(surface, g.artwork.x + 4, g.artwork.y + 4)).toBe(0xffff)
   })
 
+  // Show Status pictures the running pattern when its collection was baked,
+  // and is its text-only self when it was not — no empty frame, because the
+  // firmware for an unbaked panel draws nothing there either.
+  it('blits Show Status artwork at its rect, and nothing without a bake', () => {
+    const g = showStatusGeometry(240, 240)
+    const artwork = new Uint8Array(TRANSPORT_ARTWORK_BYTES)
+    artwork.fill(0xff)
+    const pictured = renderTransportDisplay(st7789, '0', {
+      layout: 'Show Status', data: showStatus({ artwork }),
+    })
+    expect(getTftPixel(pictured, g.artwork.x, g.artwork.y)).toBe(0xffff)
+    expect(getTftPixel(pictured, g.artwork.x + g.artwork.w - 1, g.artwork.y + g.artwork.h - 1)).toBe(0xffff)
+    expect(getTftPixel(pictured, g.artwork.x - 1, g.artwork.y)).toBe(TRANSPORT_COLORS.background)
+    const textOnly = renderTransportDisplay(st7789, '0', {
+      layout: 'Show Status', data: showStatus({ artwork: null }),
+    })
+    for (let y = g.artwork.y; y < g.artwork.y + g.artwork.h; y++) {
+      for (let x = g.artwork.x; x < g.artwork.x + g.artwork.w; x++) {
+        expect(getTftPixel(textOnly, x, y)).toBe(TRANSPORT_COLORS.background)
+      }
+    }
+    // The text rows are where the text-only layout put them.
+    for (let y = g.pattern.y; y < g.pattern.y + g.pattern.h; y++) {
+      for (let x = g.pattern.x; x < g.pattern.x + g.pattern.w; x++) {
+        expect(getTftPixel(pictured, x, y)).toBe(getTftPixel(textOnly, x, y))
+      }
+    }
+  })
+
   it('draws a long title inside its field rather than across the panel', () => {
     const g = nowPlayingGeometry(240, 240)
     const surface = renderTransportDisplay(st7789, '0', {
@@ -446,6 +502,8 @@ describe('artwork budget', () => {
     const issue = transportArtworkBudgetIssue(MAX_TRANSPORT_ARTWORKS + 1)
     expect(issue).toContain(String(MAX_TRANSPORT_ARTWORKS))
     expect(issue).toContain(String(transportArtworkFlashCost(MAX_TRANSPORT_ARTWORKS + 1)))
-    expect(issue).toContain('Show Status')
+    // The remedy is the collection, not a layout: Show Status pictures
+    // patterns too now, so pointing there would send the user to the same cap.
+    expect(issue).toContain(`${MAX_TRANSPORT_ARTWORKS} patterns or fewer`)
   })
 })

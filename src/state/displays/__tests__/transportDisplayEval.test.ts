@@ -1,8 +1,11 @@
 import { beforeEach, describe, it, expect } from 'vitest'
-import { evaluateGraphFull, resetEvaluatorState } from '../../graphEvaluator'
+import { evaluateGraphFull, resetEvaluatorState, type GroupRegistry } from '../../graphEvaluator'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../graphStore'
-import { TRANSPORT_COLORS, fixedTransportGeometry, transportWaitingGeometry } from '../transportDisplay'
+import {
+  MAX_TRANSPORT_ARTWORKS, TRANSPORT_COLORS, fixedTransportGeometry, showStatusGeometry, transportWaitingGeometry,
+} from '../transportDisplay'
+import { bakeDisplayArtworks } from '../../../utils/transportArtworks'
 import { getTftPixel, type TftSurface } from '../tftSurface'
 import { useTransportDisplayTouchStore } from '../transportDisplayTouchStore'
 
@@ -294,5 +297,60 @@ describe('what the panel draws from the envelope', () => {
   it('draws a slideshow screen from one wire', () => {
     const surface = evaluate({}, { source: 'PatternSlideshow' })!.surface!
     expect(litCount(surface)).toBeGreaterThan(0)
+  })
+})
+
+describe('Show Status artwork in the preview', () => {
+  beforeEach(() => resetEvaluatorState())
+
+  const groups = {
+    red: {
+      nodes: [node('c', 'SolidColor', { r: 255, g: 0, b: 0 }), node('o', 'GroupOutput')],
+      edges: [edge('go', 'c', 'frame', 'o', 'frame')],
+    },
+  } as unknown as GroupRegistry
+
+  function slideshowPanel(ids: string[]) {
+    const nodes = [
+      output,
+      node('collection', 'PatternCollection', { patternIds: ids }),
+      node('show', 'PatternSlideshow'),
+      node('tft', 'TransportDisplay', { partId: PLAIN }),
+    ]
+    const edges = [
+      edge('cs', 'collection', 'patternset', 'show', 'patternset'),
+      edge('sf', 'show', 'frame', 'out', 'frame'),
+      edge('st', 'show', 'display', 'tft', 'display'),
+    ]
+    const result = evaluateGraphFull(nodes, edges, 1.5, 8, 8, groups)
+    const panel = result.outputs.get('tft') as { layout: string; surface: TftSurface | null }
+    return { nodes, edges, panel }
+  }
+
+  // The browser draws the very bytes the upload bake hands the firmware, at
+  // the rect the firmware blits to — one conversion, one geometry.
+  it('draws the bytes the upload bake produces, at the shared rect', () => {
+    const { nodes, edges, panel } = slideshowPanel(['red'])
+    expect(panel.layout).toBe('Show Status')
+    const baked = bakeDisplayArtworks(nodes, edges, groups, true).show[0]
+    const g = showStatusGeometry(240, 240)
+    for (const [sx, sy] of [[0, 0], [47, 48], [95, 95]]) {
+      const at = ((sy * g.artwork.w) + sx) * 2
+      expect(getTftPixel(panel.surface!, g.artwork.x + sx, g.artwork.y + sy))
+        .toBe((baked[at] << 8) | baked[at + 1])
+    }
+  })
+
+  // Over the flash ceiling the firmware has no table and draws text only,
+  // so the preview leaves the band dark rather than promising a picture.
+  it('stays text-only for a collection over the artwork budget', () => {
+    const ids = Array.from({ length: MAX_TRANSPORT_ARTWORKS + 1 }, () => 'red')
+    const { panel } = slideshowPanel(ids)
+    const g = showStatusGeometry(240, 240)
+    for (let y = g.artwork.y; y < g.artwork.y + g.artwork.h; y += 8) {
+      for (let x = g.artwork.x; x < g.artwork.x + g.artwork.w; x += 8) {
+        expect(getTftPixel(panel.surface!, x, y)).toBe(TRANSPORT_COLORS.background)
+      }
+    }
   })
 })

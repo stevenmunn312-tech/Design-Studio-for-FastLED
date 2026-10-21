@@ -42,6 +42,9 @@ const emit = (over: Partial<TftDisplayEmit> = {}): TftDisplayEmit => ({
 
 const helpers = tftDisplayHelpersCpp()
 
+/** One rotation per distinct mounted size of the 240x320 panel (portrait and landscape). */
+const MOUNTED_SIZE_ROTATIONS: TftRotation[] = ['0', '90']
+
 describe('per-sketch helper specialization', () => {
   it('sizes a clock panel for only the cache and helpers it reads', () => {
     const profile = tftDisplayHelperProfile([emit({ layout: 'Clock' })])
@@ -317,6 +320,40 @@ describe('the loop', () => {
     expect(src).toContain(`_artData_coll7[_tftArtIndex_tft1]);`)
     expect(src).toContain(`${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H},`)
     expect(src).not.toContain('TFT_C_FRAME')
+  })
+
+  // Show Status pictures the slideshow's running pattern at the shared rect,
+  // repainting only when the clamped row changes, and is text-only without a
+  // bake — no blit, no frame and no numeric cache slot, so nothing dead is
+  // emitted for a panel with no table behind it.
+  it.each(MOUNTED_SIZE_ROTATIONS)('blits Show Status artwork from the shared geometry at %s', (rotation) => {
+    const size = tftRotatedSize(st7789v, rotation)
+    const g = showStatusGeometry(size.width, size.height)
+    const panel = emit({
+      layout: 'Show Status', controller: st7789v, rotation,
+      patternIndexExpr: 'showPatternIndex', artwork: { tableStem: 'show', count: 4 },
+    })
+    const src = tftDisplayLoopCpp(panel).join('\n')
+    expect(src).toContain(`long _tftArtIndex_tft1 = _tftWhole(showPatternIndex);`)
+    expect(src).toContain(`if (_tftArtIndex_tft1 >= 4) _tftArtIndex_tft1 = 3;`)
+    expect(src).toContain(`if (_tftValueDirty(_tft_tft1, 0, _tftArtIndex_tft1) || _tftFull_tft1) {`)
+    expect(src).toContain(`_tftArt(_tft_tft1, ${g.artwork.x}, ${g.artwork.y}, `
+      + `${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H}, _artData_show[_tftArtIndex_tft1]);`)
+    expect(src).not.toContain('TFT_C_FRAME')
+    const profile = tftDisplayHelperProfile([panel])
+    expect(profile).toMatchObject({ artwork: true, valueSlots: 1 })
+    expect(tftDisplayHelpersCpp(profile)).toContain('static void _tftArt(')
+  })
+
+  it('emits no artwork machinery for an unbaked Show Status panel', () => {
+    expect(showStatus).not.toContain('_tftArt')
+    expect(showStatus).not.toContain('_tftValueDirty')
+    expect(showStatus).not.toContain('TFT_C_FRAME')
+    const profile = tftDisplayHelperProfile([emit({ layout: 'Show Status' })])
+    expect(profile).toMatchObject({ artwork: false, valueSlots: 0 })
+    const source = tftDisplayHelpersCpp(profile)
+    expect(source).not.toContain('static void _tftArt(')
+    expect(source).not.toContain('_tftValueDirty')
   })
 
   // Neither the picture nor a static label changes while the sketch runs, so

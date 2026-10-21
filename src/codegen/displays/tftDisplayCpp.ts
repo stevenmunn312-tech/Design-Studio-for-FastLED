@@ -89,8 +89,8 @@ const NOW_PLAYING_VALUE_SLOTS = { progress: 0, volume: 1, artwork: 2 } as const
 const SHOW_STATUS_TEXT_SLOTS = {
   pattern: 0, ordinal: 1, status: 2, highlight: 3, highlightOrdinal: 4,
 } as const
-/** Show Status draws no bars or indicators, so it caches no numeric fields. */
-const SHOW_STATUS_VALUE_SLOTS = {} as const
+/** Show Status's one numeric field: the artwork row it last blitted, when it has a picture. */
+const SHOW_STATUS_VALUE_SLOTS = { artwork: 0 } as const
 
 const LED_STATUS_TEXT_SLOTS = { name: 0, fixture: 1, state: 2, level: 3 } as const
 /** LED Status draws no bars or indicators, so it caches no numeric fields. */
@@ -192,6 +192,12 @@ export function tftDisplayHelperProfile(displays: readonly TftDisplayEmit[]): Tf
       case 'Show Status':
         textSlots = Math.max(textSlots, Object.keys(SHOW_STATUS_TEXT_SLOTS).length)
         whole = true
+        // The artwork cache slot and blitter only exist for a baked panel,
+        // so a text-only Show Status build carries neither.
+        if (display.artwork) {
+          valueSlots = Math.max(valueSlots, Object.keys(SHOW_STATUS_VALUE_SLOTS).length)
+          artwork = true
+        }
         break
       case 'Power Monitor':
         textSlots = Math.max(textSlots, 3)
@@ -878,12 +884,13 @@ export interface TftDisplayEmit {
   /** Whether Diagnostics can read a live XPT2046 point. */
   diagnosticTouch?: boolean
   /**
-   * Now Playing only: the identifier stem of the baked artwork this panel
-   * blits, when a picture was baked for it.
+   * Now Playing and Show Status: the identifier stem of the baked artwork
+   * this panel blits, when a picture was baked for it.
    *
-   * Absent means the layout draws its empty frame instead — which is what a
+   * Absent, Now Playing draws its empty frame instead — which is what a
    * pattern with no baked art should look like, rather than a black square
-   * indistinguishable from art that renders black.
+   * indistinguishable from art that renders black — and Show Status draws its
+   * text-only layout, with no blit emitted at all.
    */
   artwork?: { tableStem: string; count: number }
 }
@@ -940,6 +947,30 @@ function rectArgs(rect: TftRect): string {
   return `${rect.x}, ${rect.y}, ${rect.w}, ${rect.h}`
 }
 
+/**
+ * Blit the active pattern's baked row, repainting only when the row changes.
+ *
+ * The clamped table index is cached like a bar's filled-pixel count, so a
+ * selection change repaints the square exactly once and the refresh deadline
+ * re-sends it with every other field. Shared by Now Playing and Show Status so
+ * the two cannot index the table differently.
+ */
+function artworkBlitLines(
+  display: TftDisplayEmit, artwork: { tableStem: string; count: number }, rect: TftRect, slot: number,
+): string[] {
+  const p = `_tft_${display.id}`
+  const id = display.id
+  return [
+    `      long _tftArtIndex_${id} = _tftWhole(${display.patternIndexExpr});`,
+    `      if (_tftArtIndex_${id} < 0) _tftArtIndex_${id} = 0;`,
+    `      if (_tftArtIndex_${id} >= ${artwork.count}) _tftArtIndex_${id} = ${artwork.count - 1};`,
+    `      if (_tftValueDirty(${p}, ${slot}, _tftArtIndex_${id}) || _tftFull_${id}) {`,
+    `        _tftArt(${p}, ${rect.x}, ${rect.y}, `
+      + `${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H}, _artData_${artwork.tableStem}[_tftArtIndex_${id}]);`,
+    `      }`,
+  ]
+}
+
 function nowPlayingLoop(display: TftDisplayEmit, width: number, height: number): string[] {
   const p = `_tft_${display.id}`
   const id = display.id
@@ -952,15 +983,7 @@ function nowPlayingLoop(display: TftDisplayEmit, width: number, height: number):
   // Artwork follows the active pattern. Cache the clamped table index like a
   // bar's filled-pixel count so a selection change repaints exactly once.
   if (display.artwork) {
-    lines.push(
-      `      long _tftArtIndex_${id} = _tftWhole(${display.patternIndexExpr});`,
-      `      if (_tftArtIndex_${id} < 0) _tftArtIndex_${id} = 0;`,
-      `      if (_tftArtIndex_${id} >= ${display.artwork.count}) _tftArtIndex_${id} = ${display.artwork.count - 1};`,
-      `      if (_tftValueDirty(${p}, ${v.artwork}, _tftArtIndex_${id}) || _tftFull_${id}) {`,
-      `        _tftArt(${p}, ${g.artwork.x}, ${g.artwork.y}, `
-        + `${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H}, _artData_${display.artwork.tableStem}[_tftArtIndex_${id}]);`,
-      `      }`,
-    )
+    lines.push(...artworkBlitLines(display, display.artwork, g.artwork, v.artwork))
   } else {
     lines.push(
       `      if (_tftFull_${id}) {`,
@@ -1085,6 +1108,13 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
       + `_tftField(${p}, ${fieldArgs(g.status)}, _tftState_${id}, `
       + `_tftBrowsing_${id} ? TFT_C_ACCENT : TFT_C_DIM, TFT_C_BG);`,
   )
+
+  // The running pattern's picture, between the running rows and the browsing
+  // block. Nothing at all without a bake, matching drawTransportShowStatus:
+  // the band keeps the background painted at setup.
+  if (display.artwork) {
+    lines.push(...artworkBlitLines(display, display.artwork, g.artwork, SHOW_STATUS_VALUE_SLOTS.artwork))
+  }
 
   // Blank rather than skipped, matching drawTransportShowStatus: painting the
   // empty field is what clears the previous candidate when a browse ends, and

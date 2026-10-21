@@ -234,7 +234,7 @@ export function transportArtworkBudgetIssue(count: number): string | null {
   return `A Transport Display can carry ${MAX_TRANSPORT_ARTWORKS} baked artworks `
     + `(${MAX_TRANSPORT_ARTWORK_FLASH_BYTES} bytes of flash); this build wants ${n}, `
     + `which would need ${transportArtworkFlashCost(n)} bytes. `
-    + 'Trim the artwork, or use the Show Status layout, which names patterns without picturing them.'
+    + `Trim the collection to ${MAX_TRANSPORT_ARTWORKS} patterns or fewer.`
 }
 
 /**
@@ -578,12 +578,25 @@ export interface TransportShowStatusData {
   highlightName: string
   highlightIndex: number
   browsing: boolean
+  /**
+   * The running pattern's baked RGB565 artwork, or null/absent when the
+   * slideshow's collection was not baked.
+   *
+   * Unlike Now Playing, no artwork draws no frame either: a Show Status panel
+   * without pictures is the text-only layout it always was, and the firmware
+   * for that panel emits no table and no blit at all. The picture follows the
+   * *running* pattern rather than a browsed candidate, so it agrees with the
+   * LEDs and with the ordinal beside it.
+   */
+  artwork?: Uint8Array | null
 }
 
 export interface ShowStatusGeometry {
   pattern: TftField
   ordinal: TftField
   status: TftField
+  /** Where the running pattern's baked artwork goes, when one was baked. */
+  artwork: TftRect
   /** Blank rather than absent when not browsing, so the region clears itself. */
   highlight: TftField
   highlightOrdinal: TftField
@@ -596,9 +609,13 @@ const STATUS_BROWSING = 'BROWSING'
  * Resolve the Show Status layout for a panel of this size.
  *
  * Read top to bottom it answers, in order: what is running, where in the show
- * it is, how fast, and what the lights are actually doing. The output row is
- * near the bottom on purpose — it is the one line that says whether anything
- * is lit at all, and it needs to be findable without reading the rest.
+ * it is, what it looks like, and — at the bottom — what the user is browsing
+ * to. The artwork takes the band between the running rows and the browsing
+ * block, centred both ways, so the text rows sit exactly where the text-only
+ * layout put them and a panel whose collection was not baked loses nothing
+ * but the picture. Every catalogued mounting (240x240, 240x320, 320x240)
+ * leaves that band at least 146 pixels tall, room for the fixed 96-pixel
+ * square with a clear gap either side.
  */
 export function showStatusGeometry(width: number, height: number): ShowStatusGeometry {
   const inner = width - (M.margin * 2)
@@ -618,10 +635,18 @@ export function showStatusGeometry(width: number, height: number): ShowStatusGeo
   const highlightOrdinalY = height - M.margin - bodyH
   const highlightY = highlightOrdinalY - M.rowGap - headingH
 
+  // The fixed artwork square, centred in the band the text leaves. Fixed
+  // rather than fitted because the bytes are baked in the browser and only
+  // blitted on the device: another size would need a scaler in C++.
+  const bandTop = statusY + bodyH
+  const artY = bandTop + Math.max(0, Math.floor((highlightY - bandTop - TRANSPORT_ARTWORK_H) / 2))
+  const artX = M.margin + Math.max(0, Math.floor((inner - TRANSPORT_ARTWORK_W) / 2))
+
   return {
     pattern: field(M.margin, patternY, inner, M.headingScale, 'left'),
     ordinal: field(M.margin, ordinalY, inner, M.bodyScale, 'left'),
     status: field(M.margin, statusY, inner, M.bodyScale, 'left'),
+    artwork: { x: artX, y: artY, w: TRANSPORT_ARTWORK_W, h: TRANSPORT_ARTWORK_H },
     highlight: field(M.margin, highlightY, inner, M.headingScale, 'left'),
     highlightOrdinal: field(M.margin, highlightOrdinalY, inner, M.bodyScale, 'left'),
   }
@@ -668,6 +693,13 @@ export function drawTransportShowStatus(surface: TftSurface, data: TransportShow
     surface, g.status, showStatusStateText(data.browsing, data.patternCount),
     data.browsing ? c.accent : c.dim, c.background,
   )
+
+  // Nothing at all without a bake, not Now Playing's empty frame: the
+  // firmware for an unbaked panel draws no picture and emits no blit, and the
+  // background it painted at setup is what stays in that band.
+  if (data.artwork && data.artwork.length > 0) {
+    drawTftArtwork(surface, g.artwork.x, g.artwork.y, g.artwork.w, g.artwork.h, data.artwork)
+  }
 
   // Blank rather than skipped: painting the empty fields is what clears the
   // previous candidate off the glass when a browse ends, and the firmware

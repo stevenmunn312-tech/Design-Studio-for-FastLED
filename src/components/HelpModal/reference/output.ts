@@ -323,6 +323,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Display Panel is a colour TFT. Wire one Display output in and the source decides the content — a clock, a now-playing screen, show status, LED status or a power meter — while the Layout setting picks how it is drawn.',
       'For your own screen, choose Create screen design on the panel and draw it with widgets. The design belongs to this panel; it keeps its Display wire for widgets to read, and its controls appear as outputs on the companion Touch Screen node.',
+      'Show Status names the pattern a Pattern Slideshow is running, its place in the show and what you are browsing to, and pictures the running pattern when the collection holds eight patterns or fewer.',
       'Choose the 1.54-inch 240×240 ST7789 without touch, or the 2.4-inch 240×320 ST7789V with an XPT2046 touch digitiser. Diagnostics shows a self-test and the touch coordinates.',
     ],
     steps: [

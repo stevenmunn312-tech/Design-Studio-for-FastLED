@@ -636,20 +636,42 @@ driver to disagree about.
 ### Artwork is player-owned baked data, not a live image port
 
 The layouts render artwork from baked RGB565 bytes. `patternSelect` tells the
-panel which player-owned collection and active index it is showing; it does not
-carry pixels. `bakeTransportArtworks.ts` evaluates each collected pattern at the
+panel which engine-owned collection and active index it is showing; it does not
+carry pixels. Two layouts picture a pattern: Now Playing, fed by a player, and
+Show Status, fed by a Pattern Slideshow. `artworkEngine` in
+`src/utils/transportArtworks.ts` is the one owner of whose collection a panel
+bakes — it follows the panel's `display` wire to either engine kind — and
+`artworkDisplays` resolves the layout from what is plugged in, the way the
+evaluator and generators do, skipping Diagnostics and panels showing a screen
+design. `bakeTransportArtworks.ts` evaluates each collected pattern at the
 fixed 2.5-second tick, renders at 2×, box-downsamples to 96×96 and packs the
 finished big-endian RGB565 bytes. `transportArtworkCpp.ts` emits one indexed
-PROGMEM table per player, and `_tftArt` blits the selected row verbatim. The
+PROGMEM table per engine, and `_tftArt` blits the active row verbatim, cached
+by its clamped index so a pattern change repaints the square once. The
 browser preview caches and draws the result of the same conversion, so there is
 no device-side scaler or colour converter to drift from it.
+
+Show Status places the square with `showStatusGeometry(w, h).artwork`, centred
+in the band between the running rows and the bottom-anchored browsing block,
+so the text rows do not move: (72, 80) on 240×240, (72, 120) on 240×320 and
+(112, 80) on 320×240. It pictures the *running* pattern (`showPatternIndex`,
+published from the `_sel_show` cursor), matching the LEDs and the ordinal
+beside it, not a browsed candidate. Unlike Now Playing it draws no empty frame
+without a bake: an empty, unbaked or over-budget collection leaves the text
+layout exactly as it was, and the show sketch then emits no table, no
+`_tftArt` and no artwork cache slot. The preview gates on the same rule — a
+non-empty collection inside the budget — so it never shows a picture the device
+will not have.
 
 There is deliberately still no `image` input. That signal carries live
 `ImageData` capped at `IMAGE_MAX_DIM`; treating it as a baked collection asset
 would either need a second C++ scaler or make preview and firmware disagree.
 Eight artworks cost 144 KB and are the explicit flash ceiling. An over-budget
-collection is rejected before upload and included in the capacity build rather
-than silently shipping only its first pictures. Larger assets may later use SD,
+collection bakes nothing rather than silently shipping only its first
+pictures. For Now Playing, which exists to picture the pattern, validation
+rejects it before upload; for Show Status, which was a complete text layout
+before it had pictures, validation warns and the build names each pattern
+without picturing it. Larger assets may later use SD,
 but only through an explicit storage policy.
 
 ## Bus rules

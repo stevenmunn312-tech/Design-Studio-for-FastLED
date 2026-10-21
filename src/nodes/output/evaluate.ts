@@ -2,8 +2,9 @@ import { useTransportDisplayTouchStore } from '../../state/displays/transportDis
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from '../../state/displays/displayRuntimeStore'
 import { displayRuntimeId } from '../../state/displays/mountedDisplays'
 import {
-  displayControlSetState, parseDisplayWidgetPortId, type DisplayWidgetPortRoleId,
+  DISPLAY_SCREEN_INPUT_ID, displayControlSetState, parseDisplayWidgetPortId, type DisplayWidgetPortRoleId,
 } from '../../state/displays/displayRegistry'
+import { displayScreenAt, displayScreenIndex, displayScreens } from '../../state/displays/displayDocument'
 import { readDisplaySourceField } from '../../state/displays/displaySourceFields'
 import { useGraphStore } from '../../state/graphStore'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
@@ -56,6 +57,8 @@ import {
   TRANSPORT_ARTWORK_SUPERSAMPLE,
   TRANSPORT_ARTWORK_H,
   transportArtworkFromFrame,
+  transportArtworkBudgetIssue,
+  blankTransportArtwork,
   renderTransportDisplay,
 } from '../../state/displays/transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/displays/tftSurface'
@@ -310,7 +313,14 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     if (designId && enabled) {
       const runtime = useDisplayRuntimeStore.getState()
       const runtimeId = displayRuntimeId(id, designId, nodes)
-      const shownWidgets = useGraphStore.getState().displayDocuments[designId]?.widgets ?? []
+      const shownDocument = useGraphStore.getState().displayDocuments[designId]
+      const shownWidgets = shownDocument?.widgets ?? []
+      // The Screen input moves the glass when its selection changes, as
+      // `screenInputLines` does on the device.
+      if (shownDocument && displayScreens(shownDocument).length > 1 && incoming.has(`${id}:${DISPLAY_SCREEN_INPUT_ID}`)) {
+        const target = displayScreenAt(shownDocument, input(id, DISPLAY_SCREEN_INPUT_ID, null))
+        if (target) runtime.selectDisplayScreenInput(runtimeId, displayScreenIndex(shownDocument, target), target)
+      }
       for (const port of widgetInputs) {
         const parsed = parseDisplayWidgetPortId(port.id)!
         if (!incoming.has(`${id}:${port.id}`)) continue
@@ -355,6 +365,33 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       return out
     }
 
+    // The same fixed tick, supersample and converter the upload bake uses,
+    // cached against the group's identity and trust so a running panel does
+    // not re-render a pattern every frame. Null when the pattern cannot be
+    // rendered here, which each layout answers in its own way.
+    const bakedArtwork = (pattern: string): Uint8Array | null => {
+      const definition = pattern ? groups[pattern] : undefined
+      if (!definition || groupStack.has(pattern)) return null
+      const cached = transportArtworkCache.get(pattern)
+      if (cached && cached.nodes === definition.nodes && cached.edges === definition.edges
+        && cached.trusted === trusted) {
+        return cached.artwork
+      }
+      const frame = evaluateGraph(
+        definition.nodes, definition.edges, TRANSPORT_ARTWORK_TICK_SEC,
+        TRANSPORT_ARTWORK_W * TRANSPORT_ARTWORK_SUPERSAMPLE,
+        TRANSPORT_ARTWORK_H * TRANSPORT_ARTWORK_SUPERSAMPLE,
+        groups, `${instancePrefix}tft-art/${pattern}/`,
+        new Set([...groupStack, pattern]), {}, null, trusted, capabilityNodes,
+      )
+      if (!frame) return null
+      const artwork = transportArtworkFromFrame(frame)
+      transportArtworkCache.set(pattern, {
+        nodes: definition.nodes, edges: definition.edges, trusted, artwork,
+      })
+      return artwork
+    }
+
     let payload: TransportDisplayData
     if (layout === 'Diagnostics') {
       payload = {
@@ -386,6 +423,16 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       }
     } else if (layout === 'Show Status') {
       const selection = signal.kind === 'slideshow' ? signal.selection : null
+      // The slideshow's collection is pictured exactly when the upload bake
+      // would picture it: a non-empty collection inside the flash budget.
+      // Outside it the firmware emits no table and draws the text-only
+      // layout, so the preview does too rather than showing a picture the
+      // device will never have. Inside it, a pattern that cannot be rendered
+      // is the black row the bake writes for it, and the index is clamped
+      // the way the firmware clamps it.
+      const ids = selection?.ids ?? []
+      const pictured = ids.length > 0 && transportArtworkBudgetIssue(ids.length) === null
+      const row = selection ? Math.min(Math.max(selection.activeIndex, 0), ids.length - 1) : 0
       payload = {
         layout: 'Show Status',
         data: {
@@ -395,6 +442,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           highlightName: tftLine(selection?.names[selection.highlightIndex] ?? ''),
           highlightIndex: selection?.highlightIndex ?? 0,
           browsing: selection?.browsing === true,
+          artwork: pictured ? bakedArtwork(ids[row]) ?? blankTransportArtwork() : null,
         },
       }
     } else if (layout === 'Power Monitor' && signal.kind === 'powerMonitor') {
@@ -437,29 +485,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       const pattern = selection && selection.activeIndex >= 0
         ? selection.ids[selection.activeIndex]
         : ''
-      let artwork: Uint8Array | null = null
-      const definition = pattern ? groups[pattern] : undefined
-      if (definition && !groupStack.has(pattern)) {
-        const cached = transportArtworkCache.get(pattern)
-        if (cached && cached.nodes === definition.nodes && cached.edges === definition.edges
-          && cached.trusted === trusted) {
-          artwork = cached.artwork
-        } else {
-          const frame = evaluateGraph(
-            definition.nodes, definition.edges, TRANSPORT_ARTWORK_TICK_SEC,
-            TRANSPORT_ARTWORK_W * TRANSPORT_ARTWORK_SUPERSAMPLE,
-            TRANSPORT_ARTWORK_H * TRANSPORT_ARTWORK_SUPERSAMPLE,
-            groups, `${instancePrefix}tft-art/${pattern}/`,
-            new Set([...groupStack, pattern]), {}, null, trusted, capabilityNodes,
-          )
-          if (frame) {
-            artwork = transportArtworkFromFrame(frame)
-            transportArtworkCache.set(pattern, {
-              nodes: definition.nodes, edges: definition.edges, trusted, artwork,
-            })
-          }
-        }
-      }
+      const artwork = bakedArtwork(pattern)
       payload = {
         layout: 'Now Playing',
         data: {
