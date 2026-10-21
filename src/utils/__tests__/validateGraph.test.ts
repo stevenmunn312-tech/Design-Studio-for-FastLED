@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, findFirmwareRamBudgetIssue, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/displays/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/displays/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/displays/tftDisplayCpp'
@@ -7,6 +7,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { createDisplayDocument } from '../../state/displays/displayEditor'
 import { applyDisplayTemplate } from '../../state/displays/displayTemplates'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import type { GroupRegistry } from '../../state/evaluator/types'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -1711,6 +1712,58 @@ describe('validateGraph', () => {
       expect(ram.usesPsram).toBe(true)
       expect(ram.psramBytes).toBe(48)    // SolidColor's; Fade aliases the internal leds array
       expect(ram.internalBytes).toBe(48) // just the leds array
+    })
+
+    describe('collected patterns', () => {
+      const show = (patternIds: string[], extra: StudioNode[] = [], size = 4) => ({
+        nodes: [
+          ...extra,
+          node('pc', 'PatternCollection', { patternIds }), node('pm', 'PatternSlideshow'),
+          node('out', 'MatrixOutput', { width: size, height: size }),
+        ],
+        edges: [
+          { id: 'set', source: 'pc', sourceHandle: 'patternset', target: 'pm', targetHandle: 'patternset' } as unknown as StudioEdge,
+          edge('o', 'pm', 'out', 'frame'),
+        ],
+      })
+      const pattern = (chain: StudioNode[]) => ({
+        nodes: [...chain, node('go', 'GroupOutput')],
+        edges: chain.map((n, i) => edge(`e${i}`, n.id, chain[i + 1]?.id ?? 'go', 'frame')),
+      })
+      const groups = {
+        trails: pattern([node('sc', 'SolidColor'), node('tr', 'Trails')]),
+        feedback: pattern([node('sc', 'SolidColor'), node('fb', 'FrameFeedback', { delayFrames: 3 })]),
+      } as GroupRegistry
+
+      it('pools scratch, keeps persistent buffers and rings per pattern, and adds the transition pair', () => {
+        const { nodes, edges } = show(['trails', 'feedback'])
+        const bare = estimateFirmwareRam(nodes, edges)!
+        const priced = estimateFirmwareRam(nodes, edges, undefined, groups)!
+        // Trails' own frame, the larger scratch set (two frames), showA and showB.
+        expect(priced.frameBufferBytes - bare.frameBufferBytes).toBe(48 + 2 * 48 + 2 * 48)
+        // The ring stays internal without PSRAM: (delay + current slot) frames.
+        expect(priced.statefulBytes - bare.statefulBytes).toBe(4 * 48)
+      })
+
+      it('moves the patterns\' buffers and rings to PSRAM with the board', () => {
+        const { nodes, edges } = show(['trails', 'feedback'], [node('board', 'Board', { psramPolicy: 'on' })])
+        const bare = estimateFirmwareRam(nodes, edges)!
+        const priced = estimateFirmwareRam(nodes, edges, undefined, groups)!
+        expect(priced.internalBytes).toBe(bare.internalBytes)
+        expect(priced.psramBytes - bare.psramBytes).toBe(48 + 2 * 48 + 2 * 48 + 4 * 48)
+      })
+
+      it('refuses a show whose patterns overflow the board before the toolchain runs', () => {
+        // The case that reached the linker: an ESP32-S3 show with a Frame
+        // Feedback in many of its patterns, at 32x32.
+        const ids = Array.from({ length: 20 }, (_, i) => `p${i}`)
+        const many = Object.fromEntries(ids.map((id) => [id, groups.feedback])) as GroupRegistry
+        const { nodes, edges } = show(ids, [node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' })], 32)
+        expect(findFirmwareRamBudgetIssue(nodes, edges)).toBeNull()
+        const issue = findFirmwareRamBudgetIssue(nodes, edges, undefined, many)
+        expect(issue?.largestContributor.label).toBe('simulation state')
+        expect(validateGraph(nodes, edges, '', undefined, many).errors).toContain(issue!.message)
+      })
     })
 
     it('offloads FrameFeedback history to PSRAM with the render buffers', () => {

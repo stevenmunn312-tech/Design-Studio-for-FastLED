@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useGroupRegistry } from '../../hooks/useGroupRegistry'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
@@ -79,7 +80,8 @@ export default function BoardPopup() {
   const psramSupported = !!psramOptions || !!selectedPhysicalBoardProfile(nodes)?.psramMode
   const usePsram = psramSupported && controller.usePsram
   const psramChoice = psramOptions?.find((option) => option.id === controller.psramMode) ?? psramOptions?.[0]
-  const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments), [nodes, edges, displayDocuments])
+  const groups = useGroupRegistry()
+  const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments, groups), [nodes, edges, displayDocuments, groups])
 
   const handleAddBoard = () => {
     const result = addCustomBoard(newBoard)

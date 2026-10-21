@@ -13,6 +13,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   assigns the board's SDA/SCL pair atomically, and refuses unrelated pin
   claims. It leaves inactive RTCs, SPI displays and device addresses alone.
 
+- The RAM budget (`estimateFirmwareRam`, `findFirmwareRamBudgetIssue`) prices
+  a show's collected patterns only when it is given the group registry. Pass
+  `groups` at every caller. Without it a Pattern Collection costs nothing and
+  a show that overflows DRAM reaches the linker. `collectionAllocations`
+  mirrors `buildPatternRenderers`: scratch pooled at the largest pattern,
+  persistent buffers, Frame Feedback rings and static state summed per pattern.
+
 - Deploy blocking is one list, not a per-caller copy: **`findDeployBlockingErrors(nodes, edges, selectedFqbn)`**
   in `validateGraph.ts` holds every graph rule that must stop a
   build/flash/export, and both `validateGraph` and `MatrixOutputDeployPopup`

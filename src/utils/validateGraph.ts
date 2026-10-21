@@ -651,83 +651,59 @@ function emittedStereoVuMeters(nodes: StudioNode[], edges: readonly StudioEdge[]
     && edges.some((edge) => edge.target === node.id && edge.targetHandle === 'audio'))
 }
 
-/**
- * Rough RAM budget for the generated sketch: the physical `leds` array plus
- * every frame/field render buffer reachable from MatrixOutput (unreached
- * nodes get no buffer in codegen, so isolated nodes don't inflate this), plus
- * known-heavy simulation-node state. Operates on the graph passed in (like
- * the rest of this module) — it does not recurse into group subgraphs.
- */
-export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], displayDocuments?: DisplayDocumentRegistry): FirmwareRamEstimate | null {
-  const outputs = ledDrivingOutputs(nodes)
-  const stereoVuMeters = emittedStereoVuMeters(nodes, edges)
-  if (outputs.length === 0 && stereoVuMeters.length === 0) return null
-  const { w, h } = compositionDims(nodes, edges)
-  // Runs wired in parallel off one pin share a single `leds` array, so RAM
-  // counts them once — unlike power, which counts every physical run because
-  // each one is a real panel on the PSU.
-  const controllers = new Set(leadingOutputRoutes(nodes, edges).map((route) => route.id))
-  const outputLedCountTotal = outputs
-    .filter((output) => controllers.has(output.id))
-    .reduce((sum, output) => sum + outputLedCount(output), 0)
-  const stereoVuLedCount = stereoVuMeters.reduce((sum, meter) => {
-    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
-    return sum + Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2
-  }, 0)
-  const ledCount = outputLedCountTotal + stereoVuLedCount
-  const renderLedCount = w * h
+/** What one graph allocates, before PSRAM placement and the `leds` array. */
+interface GraphAllocations {
+  /** CRGB render buffers, persistent ones included. */
+  frameBufferBytes: number
+  /** The part of `frameBufferBytes` owned by node types that can keep pixels
+   *  between frames. A collected pattern keeps these; the rest is pooled. */
+  persistentFrameBytes: number
+  fieldBufferBytes: number
+  statefulBytes: number
+  /** Frame Feedback history rings, placed with the render buffers. */
+  feedbackBytes: number
+  namedPalettes: Set<string>
+  builderPalettes: number
+}
 
-  // Only nodes that actually feed the terminal frame get a buffer in the
-  // generated sketch — walk backward from MatrixOutput to find them.
+/** Nodes feeding `roots`, the roots included: only these get storage in codegen. */
+function reachableFrom(roots: readonly string[], edges: readonly StudioEdge[]): Set<string> {
   const incomingByTarget = new Map<string, StudioEdge[]>()
   for (const e of edges) {
     const list = incomingByTarget.get(e.target) ?? []
     list.push(e)
     incomingByTarget.set(e.target, list)
   }
-  const byId = new Map(nodes.map((n) => [n.id, n]))
   const reachable = new Set<string>()
-  const stack = [...outputs.map((output) => output.id), ...stereoVuMeters.map((meter) => meter.id)]
+  const stack = [...roots]
   while (stack.length) {
     const id = stack.pop()!
     if (reachable.has(id)) continue
     reachable.add(id)
     for (const e of incomingByTarget.get(id) ?? []) stack.push(e.source)
   }
+  return reachable
+}
 
-  // The node feeding a single plain output renders into `leds` rather than
-  // owning a buffer that is copied over (cppGenerator's terminal alias), so it
-  // is not counted. The conditions are restated here rather than shared,
-  // because codegen's own check runs against expression-resolved properties it
-  // derives internally; when the two disagree this over-counts by one frame,
-  // which is the safe direction for a budget. The compile-check meter remains
-  // the authority on actual usage. A node type that can persist is never
-  // aliased: whether this one does depends on its variant, so assume it does.
-  const aliasedTerminalId = (() => {
-    if (outputs.length !== 1) return null
-    const output = outputs[0]
-    const p = output.data.properties as Record<string, unknown>
-    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true || renderScaleHalf(p) || usesPositions(p)) return null
-    if (outputForm(p) === 'hub75') return null
-    if (buildXYTable(w, h, p)) return null
-    const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
-    if (!feed || feed.sourceHandle !== 'frame') return null
-    if (PERSISTENT_FRAME_NODE_TYPES.has(String(byId.get(feed.source)?.data.nodeType))) return null
-    // A costly node drawing the same pixels every frame is drawn once into a
-    // buffer of its own (frameInvariance.ts); the graph rule can only
-    // over-count, since codegen also requires its text to read nothing varying.
-    if (COSTLY_INVARIANT_NODE_TYPES.has(String(byId.get(feed.source)?.data.nodeType))
-      && frameInvariantNodeIds(nodes, edges).has(feed.source)) return null
-    const consumers = edges.filter((e) => e.source === feed.source && e.sourceHandle === 'frame')
-    return consumers.length === 1 ? feed.source : null
-  })()
-
-  let frameBufferBytes = 0, fieldBufferBytes = 0, statefulBytes = 0, feedbackBytes = 0
+function graphAllocations(
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+  reachable: ReadonlySet<string>,
+  dims: { w: number; h: number },
+  aliasedTerminalId: string | null,
+): GraphAllocations {
+  const { w, h } = dims
+  const renderLedCount = w * h
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  let frameBufferBytes = 0, persistentFrameBytes = 0, fieldBufferBytes = 0, statefulBytes = 0, feedbackBytes = 0
   for (const id of reachable) {
     const n = byId.get(id)
     if (!n) continue
     const outputTypes = OUTPUT_DATATYPES_BY_NODE_TYPE.get(n.data.nodeType)
-    if (outputTypes?.has('frame') && id !== aliasedTerminalId) frameBufferBytes += renderLedCount * 3
+    if (outputTypes?.has('frame') && id !== aliasedTerminalId) {
+      frameBufferBytes += renderLedCount * 3
+      if (PERSISTENT_FRAME_NODE_TYPES.has(n.data.nodeType)) persistentFrameBytes += renderLedCount * 3
+    }
     if (outputTypes?.has('field')) {
       const wiredExtras = (EXTRA_FIELD_OUTPUTS_BY_NODE_TYPE.get(n.data.nodeType) ?? [])
         .filter((port) => edges.some((e) => e.source === id && e.sourceHandle === port)).length
@@ -762,11 +738,6 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
       feedbackBytes += renderLedCount * 3 * (delay + 1)
     }
   }
-  statefulBytes += stereoVuMeters.reduce((sum, meter) => {
-    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
-    const safeCount = Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT)
-    return sum + STEREO_VU_STATE_BYTES + safeCount * STEREO_VU_HISTORY_BYTES_PER_LED
-  }, 0)
 
   // Palette globals. Codegen declares one shared `paldef_<name>` per distinct
   // named palette a sketch references, plus one `pal_<id>` per palette-building
@@ -774,12 +745,12 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
   // palette-typed input ports from NODE_LIBRARY rather than restating which
   // nodes consume one. Errs toward over-counting if an emit case declares a
   // palette port it never samples, which is the safe direction for a budget.
+  const namedPalettes = new Set<string>()
+  let builderPalettes = 0
   const incomingByHandle = new Map<string, StudioEdge>()
   for (const e of edges) {
     if (e.target && e.targetHandle) incomingByHandle.set(`${e.target}:${e.targetHandle}`, e)
   }
-  const namedPalettes = new Set<string>()
-  let builderPalettes = 0
   for (const id of reachable) {
     const n = byId.get(id)
     if (!n) continue
@@ -793,6 +764,147 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
       namedPalettes.add(String(props.palette ?? 'rainbow').toLowerCase())
     }
   }
+  return { frameBufferBytes, persistentFrameBytes, fieldBufferBytes, statefulBytes, feedbackBytes, namedPalettes, builderPalettes }
+}
+
+/**
+ * What the patterns of every reachable Pattern Collection add to a show
+ * sketch. Only one pattern renders at a time, so scratch buffers are pooled
+ * at the largest pattern's size (showGenerator's `_pool_*`). Persistent
+ * buffers, Frame Feedback rings, simulation state and palettes are each
+ * pattern's own, so they add up. Two transition frames (`showA`/`showB`) are
+ * counted whenever there is a collection, which over-counts a show without
+ * transitions by those two frames: the safe direction for a budget.
+ */
+function collectionAllocations(
+  nodes: readonly StudioNode[],
+  reachable: ReadonlySet<string>,
+  groups: GroupRegistry,
+  dims: { w: number; h: number },
+): GraphAllocations | null {
+  const patternIds = new Set<string>()
+  for (const node of nodes) {
+    if (node.data.nodeType !== 'PatternCollection' || !reachable.has(node.id)) continue
+    const ids = (node.data.properties as Record<string, unknown>)?.patternIds
+    if (Array.isArray(ids)) for (const id of ids) if (typeof id === 'string') patternIds.add(id)
+  }
+  const total: GraphAllocations = {
+    frameBufferBytes: 0, persistentFrameBytes: 0, fieldBufferBytes: 0, statefulBytes: 0, feedbackBytes: 0,
+    namedPalettes: new Set(), builderPalettes: 0,
+  }
+  let scratchFrame = 0, scratchField = 0, priced = 0
+  for (const id of patternIds) {
+    const group = groups[id]
+    if (!group) continue
+    priced++
+    const terminals = group.nodes.filter((n) => n.data.nodeType === 'GroupOutput').map((n) => n.id)
+    const pattern = graphAllocations(group.nodes, group.edges, reachableFrom(terminals, group.edges), dims, null)
+    total.persistentFrameBytes += pattern.persistentFrameBytes
+    scratchFrame = Math.max(scratchFrame, pattern.frameBufferBytes - pattern.persistentFrameBytes)
+    scratchField = Math.max(scratchField, pattern.fieldBufferBytes)
+    total.statefulBytes += pattern.statefulBytes
+    total.feedbackBytes += pattern.feedbackBytes
+    for (const name of pattern.namedPalettes) total.namedPalettes.add(name)
+    total.builderPalettes += pattern.builderPalettes
+  }
+  if (priced === 0) return null
+  const transitionFrames = 2 * dims.w * dims.h * 3
+  total.frameBufferBytes = total.persistentFrameBytes + scratchFrame + transitionFrames
+  total.fieldBufferBytes = scratchField
+  return total
+}
+
+/**
+ * Rough RAM budget for the generated sketch: the physical `leds` array plus
+ * every frame/field render buffer reachable from MatrixOutput (unreached
+ * nodes get no buffer in codegen, so isolated nodes don't inflate this), plus
+ * known-heavy simulation-node state. Operates on the graph passed in (like
+ * the rest of this module) — it does not recurse into group subgraphs, except
+ * that with `groups` it prices the patterns a reachable Pattern Collection
+ * compiles into a show (`collectionAllocations`).
+ */
+export function estimateFirmwareRam(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  displayDocuments?: DisplayDocumentRegistry,
+  groups?: GroupRegistry,
+): FirmwareRamEstimate | null {
+  const outputs = ledDrivingOutputs(nodes)
+  const stereoVuMeters = emittedStereoVuMeters(nodes, edges)
+  if (outputs.length === 0 && stereoVuMeters.length === 0) return null
+  const { w, h } = compositionDims(nodes, edges)
+  // Runs wired in parallel off one pin share a single `leds` array, so RAM
+  // counts them once — unlike power, which counts every physical run because
+  // each one is a real panel on the PSU.
+  const controllers = new Set(leadingOutputRoutes(nodes, edges).map((route) => route.id))
+  const outputLedCountTotal = outputs
+    .filter((output) => controllers.has(output.id))
+    .reduce((sum, output) => sum + outputLedCount(output), 0)
+  const stereoVuLedCount = stereoVuMeters.reduce((sum, meter) => {
+    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
+    return sum + Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2
+  }, 0)
+  const ledCount = outputLedCountTotal + stereoVuLedCount
+
+  // Only nodes that actually feed the terminal frame get a buffer in the
+  // generated sketch — walk backward from MatrixOutput to find them.
+  const incomingByTarget = new Map<string, StudioEdge[]>()
+  for (const e of edges) {
+    const list = incomingByTarget.get(e.target) ?? []
+    list.push(e)
+    incomingByTarget.set(e.target, list)
+  }
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const reachable = reachableFrom([...outputs.map((output) => output.id), ...stereoVuMeters.map((meter) => meter.id)], edges)
+
+  // The node feeding a single plain output renders into `leds` rather than
+  // owning a buffer that is copied over (cppGenerator's terminal alias), so it
+  // is not counted. The conditions are restated here rather than shared,
+  // because codegen's own check runs against expression-resolved properties it
+  // derives internally; when the two disagree this over-counts by one frame,
+  // which is the safe direction for a budget. The compile-check meter remains
+  // the authority on actual usage. A node type that can persist is never
+  // aliased: whether this one does depends on its variant, so assume it does.
+  const aliasedTerminalId = (() => {
+    if (outputs.length !== 1) return null
+    const output = outputs[0]
+    const p = output.data.properties as Record<string, unknown>
+    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true || renderScaleHalf(p) || usesPositions(p)) return null
+    if (outputForm(p) === 'hub75') return null
+    if (buildXYTable(w, h, p)) return null
+    const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
+    if (!feed || feed.sourceHandle !== 'frame') return null
+    if (PERSISTENT_FRAME_NODE_TYPES.has(String(byId.get(feed.source)?.data.nodeType))) return null
+    // A costly node drawing the same pixels every frame is drawn once into a
+    // buffer of its own (frameInvariance.ts); the graph rule can only
+    // over-count, since codegen also requires its text to read nothing varying.
+    if (COSTLY_INVARIANT_NODE_TYPES.has(String(byId.get(feed.source)?.data.nodeType))
+      && frameInvariantNodeIds(nodes, edges).has(feed.source)) return null
+    const consumers = edges.filter((e) => e.source === feed.source && e.sourceHandle === 'frame')
+    return consumers.length === 1 ? feed.source : null
+  })()
+
+  const dims = { w, h }
+  const root = graphAllocations(nodes, edges, reachable, dims, aliasedTerminalId)
+  const patterns = groups ? collectionAllocations(nodes, reachable, groups, dims) : null
+  const frameBufferBytes = root.frameBufferBytes + (patterns?.frameBufferBytes ?? 0)
+  const fieldBufferBytes = root.fieldBufferBytes + (patterns?.fieldBufferBytes ?? 0)
+  let statefulBytes = root.statefulBytes + (patterns?.statefulBytes ?? 0)
+  const feedbackBytes = root.feedbackBytes + (patterns?.feedbackBytes ?? 0)
+  statefulBytes += stereoVuMeters.reduce((sum, meter) => {
+    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
+    const safeCount = Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT)
+    return sum + STEREO_VU_STATE_BYTES + safeCount * STEREO_VU_HISTORY_BYTES_PER_LED
+  }, 0)
+
+  // Palette globals. Codegen declares one shared `paldef_<name>` per distinct
+  // named palette a sketch references, plus one `pal_<id>` per palette-building
+  // node — resolved the same way cppGenerator's `paletteExpr` does, reading the
+  // palette-typed input ports from NODE_LIBRARY rather than restating which
+  // nodes consume one. Errs toward over-counting if an emit case declares a
+  // palette port it never samples, which is the safe direction for a budget.
+  const namedPalettes = new Set([...root.namedPalettes, ...(patterns?.namedPalettes ?? [])])
+  const builderPalettes = root.builderPalettes + (patterns?.builderPalettes ?? 0)
   const paletteBytes = (namedPalettes.size + builderPalettes) * PALETTE_BYTES
 
   // Displays are sinks, so they are not in `reachable` and never will be —
@@ -843,11 +955,12 @@ export function findFirmwareRamBudgetIssue(
   nodes: StudioNode[],
   edges: StudioEdge[],
   displayDocuments?: DisplayDocumentRegistry,
+  groups?: GroupRegistry,
 ): FirmwareRamBudgetIssue | null {
   const profile = selectedBoardProfile(nodes)
   const budgetBytes = profile?.internalRamBudgetBytes
   if (!profile || budgetBytes === undefined) return null
-  const estimate = estimateFirmwareRam(nodes, edges, displayDocuments)
+  const estimate = estimateFirmwareRam(nodes, edges, displayDocuments, groups)
   if (!estimate || estimate.internalBytes <= budgetBytes) return null
   const largestContributor = firmwareRamContributors(estimate)
     .sort((a, b) => b.bytes - a.bytes)[0]
@@ -3969,8 +4082,8 @@ export function buildGraphDiagnostics(
   // The Board's chosen LED driver: peripheral conflicts and lane timing.
   if (target === 'matrix') diagnostics.push(...ledDriverDiagnostics(nodes))
 
-  const ram = estimateFirmwareRam(nodes, edges, options.displayDocuments)
-  const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, options.displayDocuments)
+  const ram = estimateFirmwareRam(nodes, edges, options.displayDocuments, options.groups)
+  const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, options.displayDocuments, options.groups)
   const memoryNode = matrixOutput ?? nodes.find((node) => node.data.nodeType === 'Board')
   if (ramBudgetIssue) {
     diagnostics.push({
@@ -4548,8 +4661,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   // Its errors are already in the deploy gate above.
   warnings.push(...ledDriverDiagnostics(nodes).filter((issue) => issue.severity === 'warning').map((issue) => issue.title))
 
-  const ram = estimateFirmwareRam(nodes, edges, displayDocuments)
-  const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, displayDocuments)
+  const ram = estimateFirmwareRam(nodes, edges, displayDocuments, groups)
+  const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, displayDocuments, groups)
   if (ramBudgetIssue) {
     errors.push(ramBudgetIssue.message)
   } else if (ram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES

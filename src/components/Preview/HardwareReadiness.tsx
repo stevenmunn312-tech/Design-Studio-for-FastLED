@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useGroupRegistry } from '../../hooks/useGroupRegistry'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
@@ -51,7 +52,8 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const checkElapsedSeconds = useElapsedSeconds(checkStartedAt, capacityStatus === 'checking')
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
-  const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments), [nodes, edges, displayDocuments])
+  const groups = useGroupRegistry()
+  const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments, groups), [nodes, edges, displayDocuments, groups])
   const wire = useMemo(() => estimateWireTime(nodes, edges), [nodes, edges])
   const pinTrouble = useMemo(() => {
     const conflicts = findPinConflicts(nodes, edges, selectedFqbn)

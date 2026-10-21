@@ -107,13 +107,13 @@ export default function CapacityWatcher() {
   const shows = useMusicStore(useShallow((s) => analysedShows(s.entries)))
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
     build.capabilities.buildable, codegenGraph.edges)
-  const ramBudgetIssue = useMemo(
-    () => findFirmwareRamBudgetIssue(codegenGraph.nodes, codegenGraph.edges, customAssets.documents),
-    [codegenGraph, customAssets.documents],
-  )
   // The registry the assets hook already holds: its identity changes only when
   // a subgraph does, so a click anywhere leaves this memo alone.
   const groups = customAssets.groups
+  const ramBudgetIssue = useMemo(
+    () => findFirmwareRamBudgetIssue(codegenGraph.nodes, codegenGraph.edges, customAssets.documents, groups),
+    [codegenGraph, customAssets.documents, groups],
+  )
   const graphs = useGraphStore((s) => s.graphs)
   /*
    * What a check would compile, as a generator and the fingerprint of its

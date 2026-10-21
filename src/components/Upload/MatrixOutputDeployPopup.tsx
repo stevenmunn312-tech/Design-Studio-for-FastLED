@@ -211,8 +211,8 @@ export default function MatrixOutputDeployPopup({
     [nodes, nodeId],
   )
   const ramBudgetIssue = useMemo(
-    () => findFirmwareRamBudgetIssue(nodes, edges, customAssets.documents),
-    [nodes, edges, customAssets.documents],
+    () => findFirmwareRamBudgetIssue(nodes, edges, customAssets.documents, customAssets.groups),
+    [nodes, edges, customAssets.documents, customAssets.groups],
   )
 
   // Live controller-capacity meter (see CapacityWatcher.tsx, which drives
