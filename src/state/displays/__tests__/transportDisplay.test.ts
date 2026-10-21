@@ -53,8 +53,7 @@ const nowPlaying = (over: Partial<TransportNowPlayingData> = {}): TransportNowPl
 })
 
 const showStatus = (over: Partial<TransportShowStatusData> = {}): TransportShowStatusData => ({
-  patternName: 'FIRE 2', patternIndex: 3, patternCount: 12,
-  highlightName: 'AURORA', highlightIndex: 7, browsing: false, ...over,
+  patternName: 'FIRE 2', patternIndex: 3, patternCount: 12, ...over,
 })
 
 const fixedTransport = (over: Partial<TransportFixedData> = {}): TransportFixedData => ({
@@ -200,7 +199,7 @@ describe('geometry across every mounted size', () => {
 
   it.each(MOUNTED_SIZES)('stacks Show Status rows without overlap on $key', ({ width, height }) => {
     const g = showStatusGeometry(width, height)
-    const stack = [g.pattern, g.ordinal, g.status, g.highlight, g.highlightOrdinal]
+    const stack = [g.pattern, g.ordinal, g.status]
     for (let i = 1; i < stack.length; i++) {
       expect(stack[i].y, `row ${i} starts below row ${i - 1}`)
         .toBeGreaterThanOrEqual(stack[i - 1].y + stack[i - 1].h)
@@ -215,18 +214,8 @@ describe('geometry across every mounted size', () => {
     expect(height - (g.volume.y + g.volume.h)).toBe(TRANSPORT_METRICS.margin)
   })
 
-  // The browsing block is pinned to the bottom so the running pattern's rows
-  // never move when a browse starts or ends — a layout that reflowed on every
-  // encoder detent would be unreadable exactly when it is being used.
-  it.each(MOUNTED_SIZES)('anchors the browsing block to the bottom of $key', ({ width, height }) => {
-    const g = showStatusGeometry(width, height)
-    expect(height - (g.highlightOrdinal.y + g.highlightOrdinal.h)).toBe(TRANSPORT_METRICS.margin)
-  })
-
-  it.each(MOUNTED_SIZES)('holds the running rows still while browsing on $key', ({ width, height }) => {
-    const g = showStatusGeometry(width, height)
-    expect(g.pattern.y).toBe(TRANSPORT_METRICS.margin)
-    expect(g.status.y).toBeLessThan(g.highlight.y)
+  it.each(MOUNTED_SIZES)('puts the running pattern at the top of $key', ({ width, height }) => {
+    expect(showStatusGeometry(width, height).pattern.y).toBe(TRANSPORT_METRICS.margin)
   })
 
   // The picture square is fixed, so the rows around it never move with what
@@ -247,15 +236,14 @@ describe('geometry across every mounted size', () => {
     expect(g.state.w).toBeGreaterThan(tftTextWidth('PLAY', TRANSPORT_METRICS.bodyScale))
   })
 
-  // The same fixed square in the band between the running rows and the
-  // browsing block, with clear space either side, so neither text block has
-  // to move to make room for it.
-  it.each(MOUNTED_SIZES)('fits the Show Status picture between its text blocks on $key', ({ width, height }) => {
+  // The same fixed square in the band below the text rows, with clear space
+  // either side, so the text does not move to make room for it.
+  it.each(MOUNTED_SIZES)('fits the Show Status picture below its text rows on $key', ({ width, height }) => {
     const g = showStatusGeometry(width, height)
     expect(g.picture.w).toBe(TRANSPORT_PICTURE_W)
     expect(g.picture.h).toBe(TRANSPORT_PICTURE_H)
     expect(g.picture.y).toBeGreaterThanOrEqual(g.status.y + g.status.h + TRANSPORT_METRICS.rowGap)
-    expect(g.picture.y + g.picture.h + TRANSPORT_METRICS.rowGap).toBeLessThanOrEqual(g.highlight.y)
+    expect(g.picture.y + g.picture.h + TRANSPORT_METRICS.margin).toBeLessThanOrEqual(height)
     // Centred across the glass, to the pixel the integer split allows.
     const left = g.picture.x
     const right = width - (g.picture.x + g.picture.w)
@@ -269,9 +257,9 @@ describe('geometry across every mounted size', () => {
       const { x, y } = showStatusGeometry(w, h).picture
       return [x, y]
     }
-    expect(at(240, 240)).toEqual([72, 80])
-    expect(at(240, 320)).toEqual([72, 120])
-    expect(at(320, 240)).toEqual([112, 80])
+    expect(at(240, 240)).toEqual([72, 95])
+    expect(at(240, 320)).toEqual([72, 135])
+    expect(at(320, 240)).toEqual([112, 95])
   })
 
   it('gives the extra height of a taller panel to the picture block', () => {
@@ -312,17 +300,15 @@ describe('what the fields say', () => {
     expect(showStatusOrdinalText(-4, 12)).toBe('1/12')
   })
 
-  it('names whether the panel is reporting or being browsed', () => {
-    expect(showStatusStateText(false, 9)).toBe('PLAYING')
-    expect(showStatusStateText(true, 9)).toBe('BROWSING')
+  it('says the show is playing', () => {
+    expect(showStatusStateText(9)).toBe('PLAYING')
   })
 
   it('says nothing about playing when there is no collection', () => {
     // The row above already reads NO PATTERNS; a PLAYING under it claims a
     // show the panel has just reported it does not have.
-    expect(showStatusStateText(false, 0)).toBe('')
-    expect(showStatusStateText(true, 0)).toBe('')
-    expect(showStatusStateText(false, Number.NaN)).toBe('')
+    expect(showStatusStateText(0)).toBe('')
+    expect(showStatusStateText(Number.NaN)).toBe('')
   })
 })
 
@@ -421,48 +407,6 @@ describe('rendering', () => {
     })
     for (let y = g.title.y; y < g.title.y + g.title.h; y++) {
       expect(getTftPixel(surface, g.title.x + g.title.w, y)).toBe(TRANSPORT_COLORS.background)
-    }
-  })
-
-  // Blank rather than skipped: painting the empty field is what clears the
-  // previous candidate off the glass when a browse ends. Skipping it would
-  // leave the last browsed pattern on the panel indefinitely.
-  it('clears the browsing rows when a browse ends', () => {
-    const g = showStatusGeometry(240, 240)
-    const browsing = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ browsing: true }),
-    })
-    const settled = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ browsing: false }),
-    })
-    const rowLit = (surface: TftSurface, rect: TftRect) => {
-      for (let y = rect.y; y < rect.y + rect.h; y++) {
-        for (let x = rect.x; x < rect.x + rect.w; x++) {
-          if (getTftPixel(surface, x, y) !== TRANSPORT_COLORS.background) return true
-        }
-      }
-      return false
-    }
-    expect(rowLit(browsing, g.highlight)).toBe(true)
-    expect(rowLit(browsing, g.highlightOrdinal)).toBe(true)
-    expect(rowLit(settled, g.highlight)).toBe(false)
-    expect(rowLit(settled, g.highlightOrdinal)).toBe(false)
-  })
-
-  // The running rows are what the panel is for, so they say the same thing
-  // whether or not someone is turning the encoder.
-  it('keeps reporting the running pattern while browsing', () => {
-    const g = showStatusGeometry(240, 240)
-    const browsing = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ browsing: true }),
-    })
-    const settled = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ browsing: false }),
-    })
-    for (let y = g.pattern.y; y < g.pattern.y + g.pattern.h; y++) {
-      for (let x = g.pattern.x; x < g.pattern.x + g.pattern.w; x++) {
-        expect(getTftPixel(browsing, x, y)).toBe(getTftPixel(settled, x, y))
-      }
     }
   })
 

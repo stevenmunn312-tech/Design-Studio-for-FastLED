@@ -122,7 +122,6 @@ export interface PlayerControls {
    * about what a click was.
    */
   patternSteps: number
-  patternConfirm: boolean
 }
 
 /** Beat-particle appearance carried independently of a rendered frame. */

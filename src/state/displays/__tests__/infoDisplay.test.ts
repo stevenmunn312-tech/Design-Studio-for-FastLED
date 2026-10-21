@@ -101,7 +101,7 @@ describe('rows resolved from the panel', () => {
     }],
     ['browser', (w: number, h: number) => {
       const g = browserGeometry(w, h)
-      return [g.name.y, g.ordinal.y, g.status.y, g.playing?.rule.y, g.playing?.label.y]
+      return [g.name.y, g.ordinal.y, g.status.y]
     }],
     ['waiting', (w: number, h: number) => {
       const g = waitingGeometry(w, h)
@@ -124,16 +124,13 @@ describe('rows resolved from the panel', () => {
   // so the emitter leaves it out of the sketch too rather than the two sides
   // disagreeing about a half-drawn line.
   it('drops the rows a short panel has no room for', () => {
-    // A half-height module still fits Now Playing, tightened — the browser's
-    // sixth row is the first thing to go, and a 16-row strip keeps only the
-    // one line that says what is wrong.
-    expect(browserGeometry(128, SHORT).playing).toBeNull()
+    // A half-height module still fits Now Playing, tightened, and a 16-row
+    // strip keeps only the one line that says what is wrong.
     expect(nowPlayingGeometry(128, 16).volume).toBeNull()
     expect(waitingGeometry(128, 16).hint).toBeNull()
     // And keeps them where there is room.
     expect(nowPlayingGeometry(128, SHORT).volume).not.toBeNull()
     expect(nowPlayingGeometry(128, 64).volume).not.toBeNull()
-    expect(browserGeometry(128, 64).playing).not.toBeNull()
   })
 
   it('resolves the text column against the panel it is on', () => {
@@ -292,7 +289,7 @@ describe('Pattern Browser', () => {
     layout: 'Pattern Browser',
     data: {
       name: 'EMBER PULSE', ordinal: 3, count: 12,
-      thumbnail: thumb(0xff), browsing: false, activeName: 'FIRE 2', ...over,
+      thumbnail: thumb(0xff), ...over,
     },
   })
 
@@ -324,21 +321,6 @@ describe('Pattern Browser', () => {
     expect(none).toBeGreaterThan(black)
   })
 
-  // The highlight/active split is the point of the contract, and it is
-  // invisible unless the panel says which one it is showing.
-  it('distinguishes looking at a pattern from playing it', () => {
-    const rows = (b: boolean) => oledSurfaceRows(browser({ browsing: b })).join('\n')
-    expect(rows(true)).not.toBe(rows(false))
-  })
-
-  it('names what is still playing while you browse away from it', () => {
-    // Without that line the panel confidently describes something the LEDs are
-    // not doing.
-    const browsing = litCount(browser({ browsing: true, activeName: 'FIRE 2' }))
-    const shorter = litCount(browser({ browsing: true, activeName: '' }))
-    expect(browsing).toBeGreaterThan(shorter)
-  })
-
   it('says so rather than drawing an empty frame for an empty collection', () => {
     const empty = browser({ count: 0, ordinal: 0, name: '', thumbnail: null })
     expect(litCount(empty)).toBeGreaterThan(0)
@@ -348,7 +330,6 @@ describe('Pattern Browser', () => {
 
   it('fits a long pattern name rather than overrunning the panel', () => {
     expect(withinPanel(browser({ name: 'A'.repeat(200) }))).toBe(true)
-    expect(withinPanel(browser({ browsing: true, activeName: 'B'.repeat(200) }))).toBe(true)
   })
 
   it('survives a three-digit collection', () => {

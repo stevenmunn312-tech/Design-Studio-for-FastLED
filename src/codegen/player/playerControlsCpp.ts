@@ -26,7 +26,7 @@ export const PLAYER_CONTROL_BUTTONS: ReadonlyArray<readonly [string, boolean]> =
   ['playPause', false], ['previous', false], ['next', false],
   ['volumeUp', true], ['volumeDown', true], ['ledToggle', false],
   ['brightnessUp', true], ['brightnessDown', true],
-  ['patternPrevious', true], ['patternNext', true], ['patternConfirm', false],
+  ['patternPrevious', true], ['patternNext', true],
 ]
 
 /** One button feeding the bundle, and whether holding it should repeat. */
@@ -96,7 +96,6 @@ struct PlayerControlsValue {
   float brightnessDelta = 0.0f;
   bool  hasBrightness = false; float brightness = 0.0f;
   int   patternSteps = 0;
-  bool  patternConfirm = false;
 };
 
 // Mirrors buttonEdge() in state/player/transportBridge.ts. A press is the debounced
@@ -191,7 +190,7 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
     + `${button.debounce === false ? 0 : Math.round(settings.debounceMs)}u, ${Math.round(settings.repeatDelayMs)}u, ${Math.round(settings.repeatIntervalMs)}u)`
 
   // Actions: either end pressing it is a press.
-  for (const port of ['playPause', 'previous', 'next', 'ledToggle', 'patternConfirm'] as const) {
+  for (const port of ['playPause', 'previous', 'next', 'ledToggle'] as const) {
     const button = emit.buttons.find((b) => b.port === port)
     if (button) lines.push(`    if (${edge(button)}) ${variable}.${port} = true;`)
   }

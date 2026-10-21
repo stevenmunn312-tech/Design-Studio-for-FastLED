@@ -154,15 +154,16 @@ const options = displayOptions({ screen: document })
  * Bound screens, one per generator, because what a build can answer differs.
  *
  * A normal sketch knows the clock and nothing else; a show knows which pattern
- * is running; a player knows the track. Each binds a string, a `set` role and a
- * float, so the projection is exercised for a role that is not `value` — a
- * Toggle shows its reading on `set` — as well as for the plain case.
+ * is running; a player knows the track. Each binds a string and a float, and
+ * the clock and the player a `set` role too, so the projection is exercised for
+ * a role that is not `value` — a Toggle shows its reading on `set` — as well as
+ * for the plain case. A show has no reading a Toggle takes.
  */
 const clockDocument = fullDocument('screen', {
   'text-2': 'time', toggle: 'valid', 'value-meter': 'second',
 })
 const showDocument = fullDocument('screen', {
-  'text-2': 'patternName', toggle: 'browsing', 'value-meter': 'patternIndex',
+  'text-2': 'patternName', 'value-meter': 'patternIndex',
 })
 const playerDocument = fullDocument('screen', {
   'text-2': 'title', toggle: 'playing', 'value-meter': 'volume',
@@ -229,7 +230,8 @@ const normalEdges = [
 
 const showNodes = [
   ...commonFor(showDocument, 'brightness', 'patternNext'), fixedPanel(), touch('fixed-tft'),
-  node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
+  // Two entries, so Next has somewhere to step and the step logic is compiled.
+  node('collection', 'PatternCollection', { patternIds: ['pattern', 'pattern'] }),
   node('show', 'PatternSlideshow'), node('speed', 'MasterSpeed', { speed: 0.75 }),
 ]
 const showEdges = [
@@ -651,7 +653,7 @@ const sketches: Record<string, string> = {
     ...showOptions,
     // Real names, so the table a bound pattern name turns on is compiled with
     // something in it rather than as the empty-collection reader.
-    patternNames: { show: ['Aurora Drift'] },
+    patternNames: { show: ['Aurora Drift', 'Ember Cascade'] },
   }),
   player: buildShowPlayer(playerNodes, playerEdges, groups, {
     ...playerOptions, patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
@@ -659,7 +661,7 @@ const sketches: Record<string, string> = {
   'isolated-tft': generateCpp([board(), fixedPanel(), rtc()], [edge('rtc', 'display', 'fixed-tft', 'display')]),
   headless: generateShowSketch(
     [board(), output(), node('button', 'ButtonInput', { pin: 2 }), controls('patternNext'),
-      node('collection', 'PatternCollection', { patternIds: ['pattern'] }), node('show', 'PatternSlideshow')],
+      node('collection', 'PatternCollection', { patternIds: ['pattern', 'pattern'] }), node('show', 'PatternSlideshow')],
     [edge('button', 'pressed', 'controls', 'patternNext'), edge('controls', 'controls', 'show', 'controls'),
       edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame')],
     groups,
@@ -814,12 +816,12 @@ const requiredSymbols: Record<string, readonly string[]> = {
   // because what a build can answer is a fact about the generator.
   normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_custom_tft_touch_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft',
     '_cdSetText(_cd_screen[13], _rtcClockText(', '_cdSetChecked(_cd_screen[2], (bool)((n_rtc_dateTime).valid))', '_cdSetInteger(_cd_screen[8], _cdScaled((float)(((float)(n_rtc_dateTime).second))'],
-  show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftHigh_fixed_tft',
+  show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftNameActive_fixed_tft',
     // Master Speed takes its knob on its own Speed input, for the next pass.
     '_showAnimSpeed = constrain(n_math_result, 0.0f, 4.0f);',
     // Show Status pictures the LEDs: the show's own canvas, streamed live.
     'static void _tftPicture(', '_tftPicture(_tft_fixed_tft, ',
-    '_cdSetText(_cd_screen[13], _patNameStr_show(_sel_show.active))', 'static char _patNameStr_show_buf[', '_cdSetChecked(_cd_screen[2], (bool)(_selBrowsing(_sel_show)))'],
+    '_cdSetText(_cd_screen[13], _patNameStr_show(_sel_show.active))', 'static char _patNameStr_show_buf['],
   player: ['lv_display_set_default(_cdDisp_custom_tft)', 'char n_song_title[64]', '_cdSetText(_cd_screen[4], n_song_title)', 'audio.loop();',
     // Now Playing pictures the player's LED canvas, on the bus the card uses.
     'static void _tftPicture(', '_tftPicture(_tft_np_tft, ',

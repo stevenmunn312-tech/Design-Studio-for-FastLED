@@ -164,7 +164,7 @@ describe('touch published from the preview', () => {
     expect(value.controls).toEqual({
       playPause: false, previous: false, next: false,
       volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
-      patternSteps: 0, patternConfirm: false,
+      patternSteps: 0,
     })
   })
 

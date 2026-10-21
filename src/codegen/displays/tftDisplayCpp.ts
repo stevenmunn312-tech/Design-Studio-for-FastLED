@@ -87,7 +87,7 @@ const NOW_PLAYING_TEXT_SLOTS = {
 const NOW_PLAYING_VALUE_SLOTS = { progress: 0, volume: 1 } as const
 
 const SHOW_STATUS_TEXT_SLOTS = {
-  pattern: 0, ordinal: 1, status: 2, highlight: 3, highlightOrdinal: 4,
+  pattern: 0, ordinal: 1, status: 2,
 } as const
 
 const LED_STATUS_TEXT_SLOTS = { name: 0, fixture: 1, state: 2, level: 3 } as const
@@ -867,10 +867,6 @@ export interface TftDisplayEmit {
   /** Show Status. */
   patternIndexExpr: string
   patternCountExpr: string
-  /** Show Status: the candidate the user is looking at, while browsing. */
-  browsingExpr: string
-  highlightNameExpr: string | null
-  highlightIndexExpr: string
   /**
    * Show Status only: the emitted pattern-name table this panel reads, when
    * the sketch has one.
@@ -1063,90 +1059,50 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
   const text = (expr: string | null) => expr ?? '""'
   const lines: string[] = []
 
-  // Read out of flash into a local before either field is formatted: the
-  // running pattern and the browsed candidate are two indices into one table,
-  // and the reader copies rather than points because PROGMEM may be a separate
-  // address space.
+  // Read out of flash into a local before the field is formatted: the reader
+  // copies rather than points because PROGMEM may be a separate address space.
   const names = display.patternNames
-  const nameBuffer = (suffix: string, indexExpr: string) => {
-    const buffer = `_tftName${suffix}_${id}`
+  let patternName = display.patternNameExpr
+  if (names && !patternName) {
+    patternName = `_tftNameActive_${id}`
     lines.push(
-      `      char ${buffer}[${DISPLAY_TEXT_BUFFER_BYTES}];`,
-      `      _patName_${names!.tableStem}_read(${buffer}, sizeof(${buffer}), (uint16_t)(${indexExpr}));`,
+      `      char ${patternName}[${DISPLAY_TEXT_BUFFER_BYTES}];`,
+      `      _patName_${names.tableStem}_read(${patternName}, sizeof(${patternName}), (uint16_t)(${names.selVar}.active));`,
     )
-    return buffer
-  }
-  const patternName = names && !display.patternNameExpr
-    ? nameBuffer('Active', `${names.selVar}.active`) : display.patternNameExpr
-  const highlightName = names && !display.highlightNameExpr
-    ? nameBuffer('High', `${names.selVar}.highlight`) : display.highlightNameExpr
-
-  // Formatting only — no declaration and no paint — so the running pattern's
-  // ordinal and the browsed candidate's are produced by one piece of code.
-  // They count out of the same collection, and a divergence between them
-  // would be a bug nobody could see by looking at the panel.
-  // The index local is named after its buffer so the browsing branch does not
-  // shadow the outer one: the two ordinals live in nested scopes, and a
-  // shadowed name here compiles but reads as a bug in every review.
-  const formatOrdinal = (buffer: string, indexExpr: string, indent: string) => {
-    const at = `_tftAt${buffer}`
-    return [
-      `${indent}long ${at} = _tftWhole(${indexExpr});`,
-      `${indent}if (_tftCount_${id} <= 0) {`,
-      // The same refusal showStatusOrdinalText() makes: a lone 1/0 on a panel
-      // is worse than being told the wire is not carrying a show.
-      `${indent}  snprintf(${buffer}, sizeof(${buffer}), "NO PATTERNS");`,
-      `${indent}} else {`,
-      `${indent}  if (${at} < 0) ${at} = 0;`,
-      `${indent}  if (${at} > _tftCount_${id} - 1) ${at} = _tftCount_${id} - 1;`,
-      `${indent}  snprintf(${buffer}, sizeof(${buffer}), "%ld/%ld", ${at} + 1, _tftCount_${id});`,
-      `${indent}}`,
-    ]
   }
 
+  const at = `_tftAt_${id}`
+  const ordinal = `_tftOrd_${id}`
   lines.push(
     `      const char *_tftPattern_${id} = ${text(patternName)};`,
     `      if (_tftTextDirty(${p}, ${s.pattern}, _tftPattern_${id}) || _tftFull_${id}) `
       + `_tftField(${p}, ${fieldArgs(g.pattern)}, _tftPattern_${id}, TFT_C_TEXT, TFT_C_BG);`,
     `      long _tftCount_${id} = _tftWhole(${display.patternCountExpr});`,
-    `      char _tftOrd_${id}[16];`,
-    ...formatOrdinal(`_tftOrd_${id}`, display.patternIndexExpr, '      '),
-    `      if (_tftTextDirty(${p}, ${s.ordinal}, _tftOrd_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.ordinal)}, _tftOrd_${id}, TFT_C_DIM, TFT_C_BG);`,
-  )
-
-  lines.push(
-    `      bool _tftBrowsing_${id} = ${display.browsingExpr};`,
+    `      char ${ordinal}[16];`,
+    `      long ${at} = _tftWhole(${display.patternIndexExpr});`,
+    `      if (_tftCount_${id} <= 0) {`,
+    // The same refusal showStatusOrdinalText() makes: a lone 1/0 on a panel
+    // is worse than being told the wire is not carrying a show.
+    `        snprintf(${ordinal}, sizeof(${ordinal}), "NO PATTERNS");`,
+    `      } else {`,
+    `        if (${at} < 0) ${at} = 0;`,
+    `        if (${at} > _tftCount_${id} - 1) ${at} = _tftCount_${id} - 1;`,
+    `        snprintf(${ordinal}, sizeof(${ordinal}), "%ld/%ld", ${at} + 1, _tftCount_${id});`,
+    `      }`,
+    `      if (_tftTextDirty(${p}, ${s.ordinal}, ${ordinal}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.ordinal)}, ${ordinal}, TFT_C_DIM, TFT_C_BG);`,
     // The same silence showStatusStateText() keeps: the ordinal row has
     // already said NO PATTERNS, and following that with PLAYING claims a show
     // the panel has just reported it does not have.
-    `      const char *_tftState_${id} = _tftCount_${id} <= 0 ? "" `
-      + `: (_tftBrowsing_${id} ? "BROWSING" : "PLAYING");`,
+    `      const char *_tftState_${id} = _tftCount_${id} <= 0 ? "" : "PLAYING";`,
     `      if (_tftTextDirty(${p}, ${s.status}, _tftState_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.status)}, _tftState_${id}, `
-      + `_tftBrowsing_${id} ? TFT_C_ACCENT : TFT_C_DIM, TFT_C_BG);`,
+      + `_tftField(${p}, ${fieldArgs(g.status)}, _tftState_${id}, TFT_C_DIM, TFT_C_BG);`,
   )
 
-  // The LEDs' picture, between the running rows and the browsing block.
-  // Nothing at all without one, matching drawTransportShowStatus: the band
-  // keeps the background painted at setup.
+  // The LEDs' picture, below the text rows. Nothing at all without one,
+  // matching drawTransportShowStatus: the band keeps the background painted
+  // at setup.
   if (display.picture) lines.push(...pictureLines(display, display.picture, g.picture))
-
-  // Blank rather than skipped, matching drawTransportShowStatus: painting the
-  // empty field is what clears the previous candidate when a browse ends, and
-  // the dirty cache means an unchanged blank costs nothing after the first.
-  lines.push(
-    `      const char *_tftHigh_${id} = _tftBrowsing_${id} ? (${text(highlightName)}) : "";`,
-    `      if (_tftTextDirty(${p}, ${s.highlight}, _tftHigh_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.highlight)}, _tftHigh_${id}, TFT_C_ACCENT, TFT_C_BG);`,
-    `      char _tftHighOrd_${id}[16];`,
-    `      _tftHighOrd_${id}[0] = 0;`,
-    `      if (_tftBrowsing_${id}) {`,
-    ...formatOrdinal(`_tftHighOrd_${id}`, display.highlightIndexExpr, '        '),
-    `      }`,
-    `      if (_tftTextDirty(${p}, ${s.highlightOrdinal}, _tftHighOrd_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.highlightOrdinal)}, _tftHighOrd_${id}, TFT_C_DIM, TFT_C_BG);`,
-  )
 
   return lines
 }

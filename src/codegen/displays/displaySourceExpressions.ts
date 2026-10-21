@@ -152,7 +152,7 @@ export function normalSketchSourceExpressions(
 /**
  * The pattern a template is showing, named by the symbols it holds it in.
  *
- * Six fields, and both templates carry all six: a show and a player each
+ * Four fields, and both templates carry all four: a show and a player each
  * have a collection and a cursor into it. Only the symbols differ, so this is
  * one table taking them as arguments rather than two tables saying the same
  * thing about `_sel_show` and `_sel_player`.
@@ -165,20 +165,16 @@ export interface SelectionSourceSymbols {
   indexExpr?: string | null
   countExpr?: string | null
   nameExpr?: string | null
-  highlightNameExpr?: string | null
-  browsingExpr?: string | null
-  /** What a Pattern Browser names: the highlight while browsing, otherwise the running pattern. */
-  browserNameExpr?: string | null
 }
 
 export function selectionSourceExpressions(symbols: SelectionSourceSymbols): DisplaySourceExpressions {
   return {
-    [DISPLAY_SELECTION_SOURCE_FIELD]: symbols.browserNameExpr ?? null,
+    // A Pattern Browser widget names the running pattern: there is no other
+    // pattern for it to be looking at.
+    [DISPLAY_SELECTION_SOURCE_FIELD]: symbols.nameExpr ?? null,
     patternName: symbols.nameExpr ?? null,
     patternIndex: symbols.indexExpr ?? null,
     patternCount: symbols.countExpr ?? null,
-    highlightName: symbols.highlightNameExpr ?? null,
-    browsing: symbols.browsingExpr ?? null,
   }
 }
 
@@ -207,11 +203,11 @@ export function playerSourceExpressions(
  * cursor no line declared.
  */
 export const DISPLAY_NAME_SOURCE_FIELDS: readonly string[] = [
-  DISPLAY_SELECTION_SOURCE_FIELD, 'patternName', 'highlightName',
+  DISPLAY_SELECTION_SOURCE_FIELD, 'patternName',
 ]
 
 export const DISPLAY_SELECTION_SOURCE_FIELDS: readonly string[] = [
-  ...DISPLAY_NAME_SOURCE_FIELDS, 'browsing', 'patternIndex', 'patternCount',
+  ...DISPLAY_NAME_SOURCE_FIELDS, 'patternIndex', 'patternCount',
 ]
 
 /** Whether any of these bound fields needs the given group. */

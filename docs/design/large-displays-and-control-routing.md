@@ -198,11 +198,11 @@ Player template sources resolve only unpackers actually connected to its player.
 A normal sketch emits blanks because it does not run the device music player.
 
 The player owns track/selection state; screens report it. Slideshow owns its
-active/highlight cursor. Firmware routes controls back to that engine before
+pattern cursor. Firmware routes controls back to that engine before
 publishing readback: `showControlTargets` names the slideshow as a control
 destination beside the LED outputs it renders, the show loop applies the bundle
-through `_selUpdate`, and the renderer reads `cur` back out of the cursor, so a
-confirm changes the pixels rather than only what a panel says.
+through `_selUpdate`, and the step logic reads the cursor back into `cur` and
+`nxt`, so a step changes the pixels rather than only what a panel says.
 
 ## Assigning controls
 
@@ -239,8 +239,7 @@ through one wire. `src/state/displays/designControlBundle.ts` is the one mapping
 by the evaluator, all three generators and validation:
 
 - Previous/Next land on track steps, or on pattern steps when the panel shows a
-  slideshow; Play/Pause, Pattern Confirm and Blackout (as the lamp toggle) are
-  actions; Volume and Brightness are levels.
+  slideshow; Play/Pause and Blackout (as the lamp toggle) are actions; Volume and Brightness are levels.
 - A Button presses on its rising edge. A Toggle presses when a *finger* flips
   it, counted by a per-widget gesture count (`touchCount` in the preview
   runtime, `taps` in the LVGL runtime), never from its value. A template binds
@@ -321,8 +320,8 @@ in independently compiled slices:
    Swatch accepts a self-contained colour node. The control graph keeps a
    `CRGB`; the swatch binding packs it. Palette, image and harmony sources
    still fail explicitly. A Pattern Browser accepts only the running engine's
-   `patternSelect` and reads the browsing-aware name. Source-field pattern
-   names stay on the active index. LED status answers for an output the
+   `patternSelect` and reads the running pattern's name, as source-field
+   pattern names do. LED status answers for an output the
    template drives, using that output's own runtime. A show latches status
    with the pixels. A player reports the driven output's manual settings and
    does not fold in master brightness. A second, undriven output stays

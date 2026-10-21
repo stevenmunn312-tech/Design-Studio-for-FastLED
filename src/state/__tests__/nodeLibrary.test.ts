@@ -26,7 +26,7 @@ describe('nodeLibrary', () => {
     expect(PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id)).toEqual([
       'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
       'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
-      'patternSelect', 'patternPrevious', 'patternNext', 'patternConfirm',
+      'patternSelect', 'patternPrevious', 'patternNext',
     ])
 
     const particles = NODE_LIBRARY.find((n) => n.type === 'PlayerParticles')

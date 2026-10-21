@@ -543,26 +543,19 @@ export function drawTransportFixed(surface: TftSurface, data: TransportFixedData
  * the OLED's `Status` layout, for the same reason.
  *
  * What is left is `PatternSelectValue` drawn large: which pattern is running,
- * where it sits in the collection, and — while the user is browsing away from
- * it — which one they are looking at.
+ * where it sits in the collection, and what it looks like.
  */
 export interface TransportShowStatusData {
   patternName: string
   /** 0-based, the way `patternSelection.ts` counts. The panel shows it 1-based. */
   patternIndex: number
   patternCount: number
-  /** The pattern being looked at, which is only meaningful while browsing. */
-  highlightName: string
-  highlightIndex: number
-  browsing: boolean
   /**
    * The LEDs as the slideshow last drew them, or null/absent when there are
    * none to show.
    *
    * Unlike Now Playing, no picture draws no frame either: Show Status without
-   * one is the text-only layout it always was. The picture is the running
-   * pattern on the LEDs, never a browsed candidate, so it agrees with the
-   * ordinal beside it; a browsed pattern is named, not pictured.
+   * one is the text-only layout it always was.
    */
   picture?: TransportPictureFrame | null
 }
@@ -573,46 +566,34 @@ export interface ShowStatusGeometry {
   status: TftField
   /** Where the LEDs' picture goes. */
   picture: TftRect
-  /** Blank rather than absent when not browsing, so the region clears itself. */
-  highlight: TftField
-  highlightOrdinal: TftField
 }
 
 const STATUS_PLAYING = 'PLAYING'
-const STATUS_BROWSING = 'BROWSING'
 
 /**
  * Resolve the Show Status layout for a panel of this size.
  *
  * Read top to bottom it answers, in order: what is running, where in the show
- * it is, what it looks like, and — at the bottom — what the user is browsing
- * to. The picture takes the band between the running rows and the browsing
- * block, centred both ways, so the text rows sit exactly where the text-only
- * layout put them and a panel with no picture loses nothing else. Every catalogued mounting (240x240, 240x320, 320x240)
- * leaves that band at least 146 pixels tall, room for the fixed 96-pixel
- * square with a clear gap either side.
+ * it is, and what it looks like. The picture takes the band below the text
+ * rows, centred both ways, so the text rows sit exactly where the text-only
+ * layout put them and a panel with no picture loses nothing else. Every
+ * catalogued mounting (240x240, 240x320, 320x240) leaves that band taller than
+ * the fixed 96-pixel square with a clear gap either side.
  */
 export function showStatusGeometry(width: number, height: number): ShowStatusGeometry {
   const inner = width - (M.margin * 2)
   const bodyH = tftTextHeight(M.bodyScale)
   const headingH = tftTextHeight(M.headingScale)
 
-  // The running pattern owns the top of the glass, because it is the one
-  // reading that is true whether or not anyone is touching the panel.
+  // The running pattern owns the top of the glass.
   const patternY = M.margin
   const ordinalY = patternY + headingH + M.rowGap
   const statusY = ordinalY + bodyH + M.rowGap
 
-  // The browsing block sits at the bottom rather than under the status row, so
-  // the running pattern's position on the glass never moves when a browse
-  // starts or ends. A layout that reflowed on every encoder detent would be
-  // unreadable exactly when it is being used.
-  const highlightOrdinalY = height - M.margin - bodyH
-  const highlightY = highlightOrdinalY - M.rowGap - headingH
-
   // The fixed picture square, centred in the band the text leaves.
   const bandTop = statusY + bodyH
-  const artY = bandTop + Math.max(0, Math.floor((highlightY - bandTop - TRANSPORT_PICTURE_H) / 2))
+  const bandBottom = height - M.margin
+  const artY = bandTop + Math.max(0, Math.floor((bandBottom - bandTop - TRANSPORT_PICTURE_H) / 2))
   const artX = M.margin + Math.max(0, Math.floor((inner - TRANSPORT_PICTURE_W) / 2))
 
   return {
@@ -620,8 +601,6 @@ export function showStatusGeometry(width: number, height: number): ShowStatusGeo
     ordinal: field(M.margin, ordinalY, inner, M.bodyScale, 'left'),
     status: field(M.margin, statusY, inner, M.bodyScale, 'left'),
     picture: { x: artX, y: artY, w: TRANSPORT_PICTURE_W, h: TRANSPORT_PICTURE_H },
-    highlight: field(M.margin, highlightY, inner, M.headingScale, 'left'),
-    highlightOrdinal: field(M.margin, highlightOrdinalY, inner, M.bodyScale, 'left'),
   }
 }
 
@@ -640,7 +619,7 @@ export function showStatusOrdinalText(index: number, count: number): string {
 }
 
 /**
- * Whether the panel is reporting the show or a browse in progress.
+ * The status row: PLAYING while there is a show to report.
  *
  * Silent when there is no collection, for the same reason
  * `showStatusOrdinalText` refuses to write "1/0": the row above has just said
@@ -649,41 +628,23 @@ export function showStatusOrdinalText(index: number, count: number): string {
  * Browser already draws nothing in that case; this is the colour panel
  * catching up.
  */
-export function showStatusStateText(browsing: boolean, count: number): string {
+export function showStatusStateText(count: number): string {
   const total = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
-  if (total <= 0) return ''
-  return browsing ? STATUS_BROWSING : STATUS_PLAYING
+  return total <= 0 ? '' : STATUS_PLAYING
 }
 
-/** Show Status: which pattern is running, and which one is being looked at. */
+/** Show Status: which pattern is running, and what it looks like. */
 export function drawTransportShowStatus(surface: TftSurface, data: TransportShowStatusData): void {
   const g = showStatusGeometry(surface.width, surface.height)
   const c = TRANSPORT_COLORS
 
   drawTftField(surface, g.pattern, displayString(data.patternName), c.text, c.background)
   drawTftField(surface, g.ordinal, showStatusOrdinalText(data.patternIndex, data.patternCount), c.dim, c.background)
-  drawTftField(
-    surface, g.status, showStatusStateText(data.browsing, data.patternCount),
-    data.browsing ? c.accent : c.dim, c.background,
-  )
+  drawTftField(surface, g.status, showStatusStateText(data.patternCount), c.dim, c.background)
 
   // Nothing at all without a picture, not Now Playing's empty frame: the
   // background painted at setup is what stays in that band.
   if (data.picture) drawTransportPicture(surface, g.picture, data.picture)
-
-  // Blank rather than skipped: painting the empty fields is what clears the
-  // previous candidate off the glass when a browse ends, and the firmware
-  // caches per field, so an unchanged blank costs nothing after the first.
-  drawTftField(
-    surface, g.highlight,
-    data.browsing ? displayString(data.highlightName) : '',
-    c.accent, c.background,
-  )
-  drawTftField(
-    surface, g.highlightOrdinal,
-    data.browsing ? showStatusOrdinalText(data.highlightIndex, data.patternCount) : '',
-    c.dim, c.background,
-  )
 }
 
 // ── LED Status ──────────────────────────────────────────────────────────────
@@ -966,7 +927,6 @@ export function blankTransportData(layout: TransportDisplayLayout): TransportDis
       layout,
       data: {
         patternName: '', patternIndex: 0, patternCount: 0,
-        highlightName: '', highlightIndex: 0, browsing: false,
       },
     }
   }

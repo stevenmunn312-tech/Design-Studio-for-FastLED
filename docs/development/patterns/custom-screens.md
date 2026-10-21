@@ -55,8 +55,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   bound: no node publishes a selection on a wire, so `displayWidgetBoundField`
   fixes it to the `selection` field (`SOURCE_ONLY_FIELDS`), normalization drops
   any stored `source`, and the inspector offers no "wire from the graph"
-  choice. Firmware answers that field with the browsing-aware name
-  (`browsingPatternNameExpr`); its thumbnail stays with the asset-baking slice. An unanswerable binding is a **warning** and the
+  choice. Firmware answers that field with the running pattern's name, the
+  same expression as `patternName`; its thumbnail stays with the asset-baking
+  slice. An unanswerable binding is a **warning** and the
   widget draws its own text — deliberately weaker than the refusal a *cable*
   into the same field earns, because a binding is usually a template's default;
   templates bind through `TEMPLATE_WIDGET_SOURCES`, keyed by label so a portrait

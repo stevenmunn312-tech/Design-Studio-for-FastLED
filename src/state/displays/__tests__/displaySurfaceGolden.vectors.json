@@ -90,19 +90,12 @@
     "coverage": 2.49,
     "hash": "df21ffea"
   },
-  "tft/240x240/Show Status/browsing": {
-    "width": 240,
-    "height": 240,
-    "colors": 4,
-    "coverage": 4.76,
-    "hash": "6b428634"
-  },
   "tft/240x240/Show Status/picture": {
     "width": 240,
     "height": 240,
-    "colors": 245,
-    "coverage": 16.53,
-    "hash": "a7a510cc"
+    "colors": 244,
+    "coverage": 14.26,
+    "hash": "7493b442"
   },
   "tft/240x240/Show Status/at-rest": {
     "width": 240,
@@ -265,19 +258,12 @@
     "coverage": 1.87,
     "hash": "8384e7ea"
   },
-  "tft/240x320/Show Status/browsing": {
-    "width": 240,
-    "height": 320,
-    "colors": 4,
-    "coverage": 3.57,
-    "hash": "fd244e34"
-  },
   "tft/240x320/Show Status/picture": {
     "width": 240,
     "height": 320,
-    "colors": 245,
-    "coverage": 12.4,
-    "hash": "01f848cc"
+    "colors": 244,
+    "coverage": 10.69,
+    "hash": "ed28cc42"
   },
   "tft/240x320/Show Status/at-rest": {
     "width": 240,
@@ -440,19 +426,12 @@
     "coverage": 1.87,
     "hash": "371300aa"
   },
-  "tft/320x240/Show Status/browsing": {
-    "width": 320,
-    "height": 240,
-    "colors": 4,
-    "coverage": 3.57,
-    "hash": "fd263a74"
-  },
   "tft/320x240/Show Status/picture": {
     "width": 320,
     "height": 240,
-    "colors": 245,
-    "coverage": 12.4,
-    "hash": "21bf2e0c"
+    "colors": 244,
+    "coverage": 10.69,
+    "hash": "f69b8602"
   },
   "tft/320x240/Show Status/at-rest": {
     "width": 320,
@@ -580,19 +559,12 @@
     "coverage": 6.05,
     "hash": "75072017"
   },
-  "oled/128x64/Pattern Browser/browsing": {
-    "width": 128,
-    "height": 64,
-    "colors": 2,
-    "coverage": 9.79,
-    "hash": "716e6067"
-  },
   "oled/128x64/Pattern Browser/no-thumbnail": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 7.84,
-    "hash": "f40e6f87"
+    "coverage": 4.19,
+    "hash": "0bd3b550"
   },
   "oled/128x64/Pattern Browser/at-rest": {
     "width": 128,

@@ -664,11 +664,11 @@ streaming audio on the same host has to keep up around it, which is what the
 HW-11 audio-and-display coexistence gate exists to measure.
 
 Show Status places the square with `showStatusGeometry(w, h).picture`, centred
-in the band between the running rows and the bottom-anchored browsing block, so
-the text rows do not move: (72, 80) on 240×240, (72, 120) on 240×320 and
-(112, 80) on 320×240. Unlike Now Playing it draws no empty frame without a
-picture, so the text layout is exactly as it was. A browsed candidate is named,
-not pictured: only the running pattern exists on the LEDs. Now Playing in a
+in the band below the text rows, so the text rows do not move: (72, 95) on
+240×240, (72, 135) on 240×320 and (112, 95) on 320×240. Unlike Now Playing it
+draws no empty frame without a picture, so the text layout is exactly as it
+was. Previous and Next change the pattern on the LEDs, so the name, the ordinal
+and the picture always describe the same pattern. Now Playing in a
 normal sketch, where no player is computed, and on an SD player whose only
 pixels are VU rails, draws its empty frame.
 

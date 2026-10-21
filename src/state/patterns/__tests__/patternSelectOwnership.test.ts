@@ -4,7 +4,8 @@
 // its own cursor. It drew correctly and modelled the wrong thing: confirming
 // changed what the panel *said* while the LEDs carried on with the show's own
 // rotation. These pin the fix — one cursor, on the player, reached through
-// Player Controls, which is where physical inputs become intent.
+// Player Controls, which is where physical inputs become intent — and that a
+// step changes the pattern on the LEDs, with nothing to confirm.
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { evaluateGraphFull, resetEvaluatorState } from '../../graphEvaluator'
@@ -48,7 +49,7 @@ function build(controlProps: Record<string, unknown> = {}) {
     edge('e2', 'ctl', 'controls', 'master', 'controls'),
     edge('e3', 'master', 'frame', 'out', 'frame'),
     edge('e4', 'enc', 'position', 'ctl', 'patternSelect'),
-    edge('e5', 'btn', 'pressed', 'ctl', 'patternConfirm'),
+    edge('e5', 'btn', 'pressed', 'ctl', 'patternNext'),
   ]
   return { nodes, edges }
 }
@@ -58,6 +59,11 @@ const run = (nodes: StudioNode[], edges: StudioEdge[], t: number) =>
 
 const selectOf = (nodes: StudioNode[], edges: StudioEdge[], t: number) =>
   (run(nodes, edges, t).outputs.get('master')?.display as { selection: PatternSelectValue | null }).selection as PatternSelectValue
+
+/** The blue the LEDs show, which names the pattern: each is a solid colour. */
+const blueOf = (nodes: StudioNode[], edges: StudioEdge[], t: number) =>
+  (run(nodes, edges, t).outputs.get('master')?.frame as { b: number }[][])[0][0].b
+const blueFor = (index: number) => 30 + index * 40
 
 const turn = (counts: number) =>
   useHardwareInputStore.getState().setEncoder('enc', { position: counts })
@@ -69,14 +75,12 @@ describe('the player publishes the selection', () => {
     useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
   })
 
-  it('carries the collection, the names and both cursors', () => {
+  it('carries the collection, the names and the running pattern', () => {
     const { nodes, edges } = build()
     const value = selectOf(nodes, edges, 0)
     expect(value.ids).toEqual(IDS)
     expect(value.count).toBe(4)
     expect(value.activeIndex).toBeGreaterThanOrEqual(0)
-    expect(value.highlightIndex).toBe(value.activeIndex)
-    expect(value.browsing).toBe(false)
   })
 
   it('publishes nothing selectable for an empty collection', () => {
@@ -99,40 +103,34 @@ describe('an encoder through Player Controls', () => {
     useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
   })
 
-  it('moves the highlight without changing what is playing', () => {
+  // The whole point: the player owns the cursor, so a step moves what is
+  // *running*, not only what the panel says.
+  it('changes the pattern on the LEDs as the encoder turns', () => {
     const { nodes, edges } = build()
     turn(0)
     const before = selectOf(nodes, edges, 0)
 
     turn(ENCODER_COUNTS_PER_STEP * 2)
     const after = selectOf(nodes, edges, 0.1)
-
-    expect(after.highlightIndex).not.toBe(before.highlightIndex)
-    expect(after.activeIndex).toBe(before.activeIndex)
-    expect(after.browsing).toBe(true)
+    expect(after.activeIndex).toBe((before.activeIndex + 2) % IDS.length)
+    expect(blueOf(nodes, edges, 0.2)).toBe(blueFor(after.activeIndex))
   })
 
-  // The whole point of the refactor: the player owns the cursor, so confirming
-  // moves what is *running*, not only what the panel says.
-  it('commits the highlight on a confirm press', () => {
+  it('changes the pattern on the LEDs on a Next press', () => {
     const { nodes, edges } = build()
-    turn(0)
     const before = selectOf(nodes, edges, 0)
 
-    turn(ENCODER_COUNTS_PER_STEP * 2)
-    const browsing = selectOf(nodes, edges, 0.1)
-    expect(browsing.activeIndex).toBe(before.activeIndex)
-
     press(true)
-    const committed = selectOf(nodes, edges, 0.2)
-    expect(committed.activeIndex).toBe(browsing.highlightIndex)
-    expect(committed.browsing).toBe(false)
+    const after = selectOf(nodes, edges, 0.1)
+    expect(after.activeIndex).toBe((before.activeIndex + 1) % IDS.length)
+    expect(blueOf(nodes, edges, 0.2)).toBe(blueFor(after.activeIndex))
   })
 
   it('does not step on the first reading, whatever the knob was parked at', () => {
     const { nodes, edges } = build()
     turn(37)
     const first = selectOf(nodes, edges, 0)
-    expect(first.highlightIndex).toBe(first.activeIndex)
+    turn(37)
+    expect(selectOf(nodes, edges, 0.1).activeIndex).toBe(first.activeIndex)
   })
 })

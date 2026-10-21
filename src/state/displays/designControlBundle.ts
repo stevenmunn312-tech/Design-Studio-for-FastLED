@@ -41,7 +41,7 @@ import { panelDisplaySourceKind } from './mountedDisplays'
 /** The bundle field a role lands on. */
 export type DesignBundleField =
   | 'playPause' | 'previous' | 'next'
-  | 'patternPrevious' | 'patternNext' | 'patternConfirm'
+  | 'patternPrevious' | 'patternNext'
   | 'ledToggle' | 'volume' | 'brightness'
 
 /**
@@ -71,7 +71,7 @@ const LATCH_WIDGETS: ReadonlySet<string> = new Set(['Toggle'])
 
 /** Fields a finger commands, as opposed to a level it sets. */
 const ACTION_FIELDS: ReadonlySet<DesignBundleField> = new Set([
-  'playPause', 'previous', 'next', 'patternPrevious', 'patternNext', 'patternConfirm', 'ledToggle',
+  'playPause', 'previous', 'next', 'patternPrevious', 'patternNext', 'ledToggle',
 ])
 
 function fieldFor(role: string, slideshow: boolean): DesignBundleField | null {
@@ -79,7 +79,6 @@ function fieldFor(role: string, slideshow: boolean): DesignBundleField | null {
     case 'transportPrevious': return slideshow ? 'patternPrevious' : 'previous'
     case 'transportNext': return slideshow ? 'patternNext' : 'next'
     case 'transportPlayPause': return 'playPause'
-    case 'patternConfirm': return 'patternConfirm'
     case 'transportVolume': return 'volume'
     case 'outputBrightness': return 'brightness'
     // Blackout is true-means-dark and the bundle's lamp is a toggle, so the

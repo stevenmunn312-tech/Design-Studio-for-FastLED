@@ -258,7 +258,7 @@ describe('DisplayEditor', () => {
       liveTouchScreenDisplayId: 'panel',
     })
     expect(screen.getByRole('button', { name: 'Previous run preview' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Confirm run preview' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Confirm run preview' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Next run preview' })).toBeTruthy()
     expect(screen.getByRole('switch', { name: 'Shuffle run preview' })).toBeTruthy()
     expect(screen.getByRole('switch', { name: 'Auto advance run preview' })).toBeTruthy()

@@ -138,10 +138,8 @@ describe('a running Pattern Slideshow', () => {
   })
 
   it('moves the running pattern the moment a control steps, with no confirm', () => {
-    // The player's browse-then-confirm split exists so scrolling past a
-    // pattern does not play it. A slideshow has no second cursor to show
-    // anybody, so a step is the change — and the panel never reads "browsing".
-    const props = { order: 'Sequential', interval: 9999 }
+    // Without transitions a step is a cut, so the LEDs change on this frame.
+    const props = { order: 'Sequential', interval: 9999, transitionsEnabled: false }
     const extra = {
       nodes: [node('ctl', 'ControlMap', {}), node('knob', 'PotInput', { pin: 34 })],
       edges: [
@@ -159,8 +157,7 @@ describe('a running Pattern Slideshow', () => {
     useHardwareInputStore.getState().setPot('knob', ENCODER_COUNTS_PER_STEP)
     runSlideshow(props, 0.1, extra)
     expect(playingIndex()).toBe(1)
-    expect(getPatternShowSelection('show')!.browsing).toBe(false)
-    expect(getPatternShowSelection('show')!.highlightIndex).toBe(1)
+    expect(getPatternShowSelection('show')!.transitioning).toBe(false)
   })
 
   it('fades the rendered pattern to black during silence only in audio-reactive mode', () => {

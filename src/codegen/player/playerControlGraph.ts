@@ -4,7 +4,6 @@ import type { DisplayDocumentRegistry } from '../../state/displays/displayDocume
 import { SONG_INFO_PORTS } from '../../state/player/songInfo'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
 import { templateControlRouting } from '../displays/templateControlRouting'
-import { browsingPatternNameExpr } from '../displays/patternThumbnailCpp'
 import { resolveShowTarget } from '../../state/player/showTarget'
 import { playerSourceExpressions } from '../displays/displaySourceExpressions'
 import { controlReferenceCpp, type ControlReference } from '../controlGraph'
@@ -39,9 +38,6 @@ export const PLAYER_SOURCE_EXPRESSIONS = playerSourceExpressions(PLAYER_SONG_EXP
   indexExpr: `((float)(_sel_${PLAYER_SELECTION_STEM}.active + 1))`,
   countExpr: '((float)PATTERN_COUNT)',
   nameExpr: `_patNameStr_${PLAYER_SELECTION_STEM}(_sel_${PLAYER_SELECTION_STEM}.active)`,
-  highlightNameExpr: `_patNameStr_${PLAYER_SELECTION_STEM}(_sel_${PLAYER_SELECTION_STEM}.highlight)`,
-  browsingExpr: `_selBrowsing(_sel_${PLAYER_SELECTION_STEM})`,
-  browserNameExpr: browsingPatternNameExpr(PLAYER_SELECTION_STEM),
 })
 
 /**
@@ -157,6 +153,6 @@ export function playerControlApplyCpp(bundle: string | undefined, hasPatternSele
     `    playerBrightness = constrain((${bundle}.hasBrightness ? ${bundle}.brightness : playerBrightness) + ${bundle}.brightnessDelta, 0.0f, 1.0f);`,
     `    applyPlayerBrightness();`,
     `  }`,
-    ...(hasPatternSelection ? [`  _selUpdate(_sel_${selectionStem}, PATTERN_COUNT, millis(), ${bundle}.patternSteps, ${bundle}.patternConfirm);`] : []),
+    ...(hasPatternSelection ? [`  _selUpdate(_sel_${selectionStem}, PATTERN_COUNT, ${bundle}.patternSteps);`] : []),
   ]
 }

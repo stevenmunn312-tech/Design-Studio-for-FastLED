@@ -172,7 +172,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       payload = { layout: 'Waiting' }
     } else if (signal.kind === 'slideshow') {
       const selection = signal.selection
-      const chosen = selection.highlightIndex
+      const chosen = selection.activeIndex
       const pattern = chosen >= 0 ? selection.ids[chosen] : ''
       let thumbnail: PatternThumbnail | null = null
       const definition = pattern ? groups[pattern] : undefined
@@ -204,8 +204,6 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           ordinal: chosen >= 0 ? chosen + 1 : 0,
           count: selection.count,
           thumbnail,
-          browsing: selection.browsing,
-          activeName: selection.names[selection.activeIndex] ?? '',
         },
       }
     } else if (signal.kind === 'clock') {
@@ -407,9 +405,6 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           patternName: tftLine(selection?.names[selection.activeIndex] ?? ''),
           patternIndex: selection?.activeIndex ?? 0,
           patternCount: selection?.count ?? 0,
-          highlightName: tftLine(selection?.names[selection.highlightIndex] ?? ''),
-          highlightIndex: selection?.highlightIndex ?? 0,
-          browsing: selection?.browsing === true,
           // The LEDs as the slideshow composed them, as the device streams
           // its canvas: a collection of any size is pictured.
           picture: signal.kind === 'slideshow' ? signal.picture ?? null : null,

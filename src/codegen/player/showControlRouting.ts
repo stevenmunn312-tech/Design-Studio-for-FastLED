@@ -3,7 +3,6 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { templateControlRouting, showControlTargets } from '../displays/templateControlRouting'
 import { selectionSourceExpressions } from '../displays/displaySourceExpressions'
-import { browsingPatternNameExpr } from '../displays/patternThumbnailCpp'
 export { controlBundleVariable, showControlOutputIds, showControlTargets } from '../displays/templateControlRouting'
 
 /**
@@ -39,9 +38,6 @@ export const SHOW_SOURCE_EXPRESSIONS = selectionSourceExpressions({
   indexExpr: `((float)(${SHOW_PATTERN_INDEX} + 1))`,
   countExpr: '((float)PATTERN_COUNT)',
   nameExpr: `_patNameStr_${SHOW_SELECTION_STEM}(_sel_${SHOW_SELECTION_STEM}.active)`,
-  highlightNameExpr: `_patNameStr_${SHOW_SELECTION_STEM}(_sel_${SHOW_SELECTION_STEM}.highlight)`,
-  browsingExpr: `_selBrowsing(_sel_${SHOW_SELECTION_STEM})`,
-  browserNameExpr: browsingPatternNameExpr(SHOW_SELECTION_STEM),
 })
 
 /**

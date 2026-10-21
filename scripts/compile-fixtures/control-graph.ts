@@ -142,8 +142,8 @@ for (const { file, mode, clock, ethernet } of variants) {
       throw new Error(`${mode}: colour chain was not emitted`)
     }
     const stem = mode === 'show' ? 'show' : 'player'
-    if (!source.includes(`_patNameStr_${stem}(_selBrowsing(_sel_${stem}) ? _sel_${stem}.highlight : _sel_${stem}.active)`)) {
-      throw new Error(`${mode}: browsing pattern name was not emitted`)
+    if (!source.includes(`_patNameStr_${stem}(_sel_${stem}.active)`)) {
+      throw new Error(`${mode}: running pattern name was not emitted`)
     }
   }
   if (!source.includes('LED Matrix') || !source.includes('64 LEDS')) {

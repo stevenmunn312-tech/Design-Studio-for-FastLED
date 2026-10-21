@@ -201,8 +201,7 @@ consumption site.
 | `volume` | continuous | float | Level (0–1). Holds its position. |
 | `volumeUp` / `volumeDown` | momentary | bool | Edge-triggered with repeat. |
 | `patternSelect` | continuous | float | Encoder position (whole detents). Converted from raw count at read site. |
-| `patternPrevious` / `patternNext` | momentary | bool | Edge-triggered. One step per press. |
-| `patternConfirm` | momentary | bool | Edge-triggered. Commits highlighted pattern. |
+| `patternPrevious` / `patternNext` | momentary | bool | Edge-triggered. One step per press, which changes the pattern on the LEDs: a transition while holding, a cut mid-transition. |
 | `masterSpeed` | continuous | float | Level (0–1). Accumulates, never multiplies. |
 
 Debounce and repeat parameters live in `src/state/player/transportBridge.ts`.
@@ -780,7 +779,7 @@ Disconnecting Speed restores Juggle's saved slider value. Covered by
 ### 2. Collection slideshow
 
 A show with two fixtures, independent dimming on one of them, and
-physical pattern browsing.
+physical pattern stepping.
 
 ```text
 Pattern Collection: Set -----------> Slideshow: Set
@@ -789,11 +788,10 @@ Slideshow: Frame ------------------> House: Frame
 Pot: Value ------------------------> Wash: Brightness
 Button: Pressed -------------------> Slideshow: Next Pattern
 Encoder: Position -----------------> Slideshow: Pattern Select
-Encoder: Pressed ------------------> Slideshow: Confirm
 Slideshow: Display ----------------> OLED: Display
 ```
 
-Next Pattern and Confirm are named action inputs on the Slideshow.
+Next Pattern and Pattern Select are named action inputs on the Slideshow.
 Player Controls is optional here: useful for a compact bundle, not required
 for a single button. Wash's Brightness is a fixture field the show
 controller reads; House stays undimmed. That is fixture dimming, not

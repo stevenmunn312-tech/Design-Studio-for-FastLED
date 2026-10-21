@@ -1040,8 +1040,9 @@ describe('displays in a show controller', () => {
     // content socket, and the source picks the screen.
     const cpp = build([status], [edge('show-tft', 'pm', 'display', 'tft', 'display')])
     expect(cpp).toContain('static uint8_t showPatternIndex = 0;')
-    // Published where the show decides it, and read by the panel.
-    expect(cpp).toContain('  showPatternIndex = cur;')
+    // Published where the show decides it, and read by the panel. A
+    // transition names the pattern it is heading to.
+    expect(cpp).toContain('  showPatternIndex = transitioning ? nxt : cur;')
     expect(cpp).toContain('_tftWhole(showPatternIndex)')
     expect(cpp).toContain('_tftWhole(PATTERN_COUNT)')
   })
@@ -1117,7 +1118,7 @@ describe('displays in a show controller', () => {
       const cpp = build([status], [edge('show-tft', 'pm', 'display', 'tft', 'display')])
       expect(cpp).toContain('static PatternSel _sel_show;')
       expect(cpp).toContain('  _selBegin(_sel_show);')
-      expect(cpp).toContain('_selBrowsing(_sel_show)')
+      expect(cpp).toContain('(uint16_t)(_sel_show.active)')
       expect(cpp).toContain('_selSetActive(_sel_show, PATTERN_COUNT, showPatternIndex);')
     })
 
@@ -1137,14 +1138,13 @@ describe('displays in a show controller', () => {
     it('carries a headless encoder into the show it selects', () => {
       const nodes = [...base,
         node('enc', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
-        node('ctl', 'ControlMap', { controls: ['patternSelect', 'patternConfirm'] })]
+        node('ctl', 'ControlMap', { controls: ['patternSelect'] })]
       const edges = [...baseEdges,
         edge('turn', 'enc', 'position', 'ctl', 'patternSelect'),
-        edge('press', 'enc', 'pressed', 'ctl', 'patternConfirm'),
         edge('cmd', 'ctl', 'controls', 'pm', 'controls')]
       const cpp = generateShowSketch(nodes, edges, groups)
       expect(cpp).toContain('n_ctl_controls.patternSteps += _pcD_ctl.update((long)(n_enc_position));')
-      expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_ctl_controls.patternSteps,')
+      expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, n_ctl_controls.patternSteps);')
     })
 
     it('carries a headless Pattern Next into the show it selects', () => {
@@ -1153,10 +1153,8 @@ describe('displays in a show controller', () => {
       expect(cpp).toContain('PlayerControlsValue n_ctl_controls;')
       expect(cpp).toContain('n_ctl_controls.patternSteps += 1;')
       expect(cpp).toContain('static PatternSel _sel_show;')
-      // A slideshow has no confirm step, so a step is the change — the rule
-      // the evaluator applies by confirming on any non-zero step.
-      expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_ctl_controls.patternSteps, '
-        + 'n_ctl_controls.patternSteps != 0 || n_ctl_controls.patternConfirm);')
+      // No confirm: a step moves the running pattern.
+      expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, n_ctl_controls.patternSteps);')
     })
 
     /*
@@ -1173,7 +1171,6 @@ describe('displays in a show controller', () => {
       expect(cpp).toContain('"SUNRISE"')
       expect(cpp).not.toContain('THUMB_COUNT_')
       expect(cpp).toContain('_patName_show_read(_tftNameActive_tft, sizeof(_tftNameActive_tft), (uint16_t)(_sel_show.active));')
-      expect(cpp).toContain('_patName_show_read(_tftNameHigh_tft, sizeof(_tftNameHigh_tft), (uint16_t)(_sel_show.highlight));')
     })
 
     // The reader is emitted either way, so an unnamed collection draws a blank
@@ -1185,16 +1182,26 @@ describe('displays in a show controller', () => {
       expect(cpp).not.toContain('PATTERN_NAME_COUNT_show')
     })
 
-    // Commanding, not just reporting: the renderer reads the cursor the way
-    // the evaluator reads its active index every frame.
+    // Commanding, not just reporting: a step reaches the pixels before this
+    // pass renders, the rule the evaluator applies to the same cursor.
     it('renders the selected pattern rather than only naming it', () => {
       const cpp = generateShowSketch([...base, ...controlNodes], [...baseEdges, ...controlEdges], groups)
+      const seed = cpp.indexOf('if (!selSeeded) { selSeeded = true; _selSetActive(_sel_show, PATTERN_COUNT, cur); }')
       const update = cpp.indexOf('_selUpdate(_sel_show')
-      const follow = cpp.indexOf('if (!transitioning) cur = (uint8_t)_sel_show.active;')
+      const follow = cpp.indexOf('uint8_t selTarget = (uint8_t)_sel_show.active;')
       const render = cpp.indexOf('renderPattern(cur,')
-      expect(update).toBeGreaterThan(-1)
+      expect(seed).toBeGreaterThan(-1)
+      expect(update).toBeGreaterThan(seed)
       expect(follow).toBeGreaterThan(update)
       expect(render).toBeGreaterThan(follow)
+    })
+
+    // A single step while holding gets the show's own transition; a step
+    // mid-transition cuts, so stepping fast lands on each pattern in turn.
+    it('transitions on a step while holding and cuts on one mid-transition', () => {
+      const cpp = generateShowSketch([...base, ...controlNodes], [...baseEdges, ...controlEdges], groups)
+      expect(cpp).toMatch(/if \(!transitioning && selTarget != cur\) \{\s+nxt = selTarget;[\s\S]*?transitioning = true; phaseStart = now;/)
+      expect(cpp).toMatch(/\} else if \(transitioning && selTarget != nxt\) \{\s+cur = selTarget; transitioning = false; phaseStart = now;/)
     })
   })
 })

@@ -235,7 +235,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and Next buttons plus Volume; Now Playing exposes play/pause and volume. Show
   Status is read-only (`transportTouchRegions` returns `[]` for it, as for
   `Waiting`) — it shrank to what a Slideshow actually carries (pattern
-  name/index/count, highlight, browsing), and the LED toggle/brightness it used
+  name/index/count and a live picture), and the LED toggle/brightness it used
   to draw had no Slideshow source, so that control moved to `TouchInput`, whose
   `controls` output can wire an LED output's Controls input directly. Validate
   the resolved layout and its actual destination: the fixed-control check names
@@ -474,8 +474,8 @@ and touch transaction boundaries; physical coexistence still needs a bench run.
   state that's technically distinct but illegible still fails.
 - Two display-generator invariants keep a panel from reporting something its
   data doesn't support. `showStatusStateText` (`src/state/displays/transportDisplay.ts`)
-  takes the pattern count, not just `browsing`, and returns empty rather than
-  BROWSING/PLAYING when the count is zero — mirroring `showStatusOrdinalText`'s
+  takes the pattern count and returns empty rather than PLAYING when the
+  count is zero — mirroring `showStatusOrdinalText`'s
   existing refusal to show "1/0" for an empty collection — and
   `tftDisplayCpp.ts`'s `showStatusLoop` emits the identical
   `count <= 0 ? "" : ...` guard into firmware so the preview and the generated

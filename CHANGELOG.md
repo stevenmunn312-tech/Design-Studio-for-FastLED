@@ -125,6 +125,18 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- **Previous Pattern**, **Next Pattern** and an encoder now change the pattern
+  on the LEDs straight away, with nothing to confirm. A single step while a
+  pattern is holding gets the show's usual transition; a step during a
+  transition cuts straight to the new pattern, so stepping fast lands on each
+  pattern in turn. Panels name the new pattern the moment a step lands. The
+  **Confirm** control is gone from Player Controls, the Slideshow, the Music
+  Player and the **Pattern Deck** screen template, and saved wires into it are
+  dropped on load. **Show Status** and the OLED **Pattern Browser** lose their
+  browsing rows, and the **Highlighted pattern** and **Browsing** screen
+  fields are removed. Show Status's picture moves down into the space the
+  browsing rows left. The **Browse a Slideshow** starter steps the slideshow
+  with its encoder.
 - Sketches wait for a fixed deadline at the end of each frame and send it
   once. FastLED's `delay` re-sent every frame at least twice, so long strips
   now run up to twice as fast. Nodes whose pixels never change are drawn once.

@@ -145,12 +145,10 @@ const TFT_STATES: Record<TransportDisplayLayout, Record<string, TransportDisplay
     'muted': { layout: 'Fixed Transport', data: { title: TRACK_TITLE, patternName: 'Aurora Drift', playing: true, volume: 0 } },
   },
   'Show Status': {
-    'running': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Aurora Drift', highlightIndex: 2, browsing: false } },
-    'browsing': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Ember Cascade', highlightIndex: 5, browsing: true } },
-    // The slideshow's LEDs pictured in the band between the running rows and
-    // the browsing block. The two cases above are the text-only layout, which
-    // the picture must not move.
-    'picture': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Ember Cascade', highlightIndex: 5, browsing: true, picture: PICTURE } },
+    'running': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9 } },
+    // The slideshow's LEDs pictured in the band below the text rows. The case
+    // above is the text-only layout, which the picture must not move.
+    'picture': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, picture: PICTURE } },
   },
   'LED Status': {
     'lit': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 0.72 } },
@@ -182,11 +180,10 @@ const OLED_STATES: Record<InfoDisplayLayout, Record<string, InfoDisplayData>> = 
     'paused': { layout: 'Now Playing', data: { title: TRACK_TITLE, elapsedSec: 97, durationSec: 254, progress: 97 / 254, playing: false, volume: 0.72 } },
   },
   'Pattern Browser': {
-    'playing': { layout: 'Pattern Browser', data: { name: 'Aurora Drift', ordinal: 3, count: 9, thumbnail: THUMBNAIL, browsing: false, activeName: 'Aurora Drift' } },
-    'browsing': { layout: 'Pattern Browser', data: { name: 'Ember Cascade', ordinal: 6, count: 9, thumbnail: THUMBNAIL, browsing: true, activeName: 'Aurora Drift' } },
+    'playing': { layout: 'Pattern Browser', data: { name: 'Aurora Drift', ordinal: 3, count: 9, thumbnail: THUMBNAIL } },
     // A collection over its flash budget keeps its names and loses its
     // pictures; that has to read as a missing picture, not as no patterns.
-    'no-thumbnail': { layout: 'Pattern Browser', data: { name: 'Ember Cascade', ordinal: 6, count: 9, thumbnail: null, browsing: true, activeName: 'Aurora Drift' } },
+    'no-thumbnail': { layout: 'Pattern Browser', data: { name: 'Ember Cascade', ordinal: 6, count: 9, thumbnail: null } },
   },
   'LED Status': {
     'lit': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 0.72 } },

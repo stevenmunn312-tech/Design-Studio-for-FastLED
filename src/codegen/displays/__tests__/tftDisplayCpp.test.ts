@@ -36,7 +36,6 @@ const emit = (over: Partial<TftDisplayEmit> = {}): TftDisplayEmit => ({
   elapsedExpr: '_elapsed', durationExpr: '_duration', progressExpr: '_progress',
   playingExpr: '_playing', volumeExpr: '_volume',
   patternIndexExpr: '_index', patternCountExpr: '_count',
-  browsingExpr: '_browsing', highlightNameExpr: '_highName', highlightIndexExpr: '_highIndex',
   ...over,
 })
 
@@ -254,7 +253,7 @@ describe('the loop', () => {
   it('emits Show Status coordinates from the shared geometry', () => {
     const g = showStatusGeometry(240, 240)
     expect(showStatus).toContain(`${g.pattern.x}, ${g.pattern.y}, ${g.pattern.w}, ${g.pattern.h}, ${g.pattern.scale},`)
-    expect(showStatus).toContain(`${g.highlight.x}, ${g.highlight.y}, ${g.highlight.w}, ${g.highlight.h}, ${g.highlight.scale},`)
+    expect(showStatus).toContain(`${g.status.x}, ${g.status.y}, ${g.status.w}, ${g.status.h}, ${g.status.scale},`)
   })
 
   it('emits Fixed Transport buttons from the shared geometry', () => {
@@ -372,24 +371,12 @@ describe('the loop', () => {
     expect(showStatus).toContain('if (_tftCount_tft1 <= 0)')
   })
 
-  // Blank rather than skipped, matching drawTransportShowStatus: painting the
-  // empty field is what clears the previous candidate when a browse ends.
-  it('clears the browsing rows when a browse ends', () => {
-    expect(showStatus).toContain('_tftBrowsing_tft1 ? (_highName) : ""')
-    expect(showStatus).toContain('_tftHighOrd_tft1[0] = 0;')
-    expect(showStatus).toMatch(/_tftBrowsing_tft1 \? "BROWSING" : "PLAYING"/)
-  })
-
-  it('keeps the state row silent with no collection, as the preview does', () => {
-    expect(showStatus).toMatch(/_tftState_tft1 = _tftCount_tft1 <= 0 \? ""/)
-  })
-
-  // Both ordinals count out of the same collection, so they are formatted by
-  // one piece of code and neither may shadow the other's index local.
-  it('formats both ordinals without shadowing an index local', () => {
-    const locals = [...showStatus.matchAll(/long (_tftAt\w+) =/g)].map((m) => m[1])
-    expect(locals.length).toBe(2)
-    expect(new Set(locals).size).toBe(2)
+  // Previous and Next change the pattern on the LEDs, so there is no browsed
+  // candidate to name: one pattern, one ordinal.
+  it('names only the running pattern', () => {
+    expect(showStatus).toContain('_tftState_tft1 = _tftCount_tft1 <= 0 ? "" : "PLAYING";')
+    expect(showStatus).not.toMatch(/BROWSING|_tftBrowsing|_tftHigh/)
+    expect([...showStatus.matchAll(/long (_tftAt\w+) =/g)].length).toBe(1)
   })
 
   it('uses fixed buffers rather than Arduino String', () => {

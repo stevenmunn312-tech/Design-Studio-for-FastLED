@@ -51,9 +51,7 @@ describe('Stage pattern name', () => {
         ids: ['group-a', 'group-b'],
         names: ['Polar Bloom', 'Prism Storm'],
         activeIndex: 1,
-        highlightIndex: 1,
         count: 2,
-        browsing: false,
       } } }],
     ])
 

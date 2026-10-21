@@ -130,27 +130,31 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - The player owns which pattern is playing, not the panel: `PatternMaster` keeps
   one `PatternSelectionState` per instance (`patternSelectionState` in
   `src/nodes/show/evaluate.ts`) and passes it into `evalPatternShow`, so the show's own
-  advance and a user confirm move the same cursor. Physical intent becomes
+  advance and a user step move the same cursor. Physical intent becomes
   selection through the `PlayerControls` node — its
-  `patternSelect`/`patternPrevious`/`patternNext`/`patternConfirm` inputs feed
-  the evaluator's `PlayerControls` bundle, carried as `patternSteps` (whole
-  detents; the encoder's raw count is converted where it's read) and
-  `patternConfirm`, not through a display. `src/state/patterns/patternSelection.ts` still
-  defines **active** (running) versus **highlight** (being looked at), wrapping
-  at both ends, confirm-commits, and a cursor carrying both id and index so a
-  reorder keeps playing the same pattern and a deletion hands its slot to the
-  new occupant — do not reintroduce a bare `% count` or key show state on the
-  pattern count. The result is published once, as the `selection`
+  `patternSelect`/`patternPrevious`/`patternNext` inputs feed the evaluator's
+  `PlayerControls` bundle, carried as `patternSteps` (whole detents; the
+  encoder's raw count is converted where it's read), not through a display.
+  `src/state/patterns/patternSelection.ts` defines one cursor — a step moves
+  the running pattern, with nothing to confirm — wrapping at both ends, and a
+  cursor carrying both id and index so a reorder keeps playing the same pattern
+  and a deletion hands its slot to the new occupant. Do not reintroduce a bare
+  `% count` or key show state on the pattern count. The cursor names where the
+  LEDs are heading: a step while holding gets the normal transition, a step
+  mid-transition cuts (`evalPatternShow`, the show sketch's `selTarget` block
+  and the player's `cut`), and a transition names its incoming pattern from
+  its first frame. A pattern Confirm port was removed; `normalizeLoadedGraph`
+  drops saved wires into `patternConfirm` (`RETIRED_TARGET_HANDLES`). The result is published once, as the `selection`
   (`PatternSelectValue`) inside the engine's `display` envelope — there is no
   separate selection port; a panel only displays it — it does not decide, and does
   not collect its own wire to the collection. Pattern browsing belongs to
   `PatternSlideshow`, not to Music Player: a player screen is transport only.
   `src/codegen/player/patternSelectionCpp.ts` emits the firmware half
   (`PATTERN_SELECTION_CPP`);
-  `patternSelect`/`patternPrevious`/`patternNext`/`patternConfirm` are
+  `patternSelect`/`patternPrevious`/`patternNext` are
   `PlayerControlAction` values in `playerSketchGenerator.ts`, and
   `_selSetActive` routes the generic (SD-decoder) player's own rotation through
-  the same selection so a confirm changes what actually renders, not just what
+  the same selection so a step changes what actually renders, not just what
   the panel reports. The player sketch must emit `PatternSel` when either an
   OLED Pattern Browser or physical pattern controls need it — tying the
   declaration to the browser alone generates `_sel_player` calls with no type or
@@ -205,8 +209,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   contains `struct _RtcDateTime {`.
 - A Colour Swatch packs its `CRGB` at the binding. Palette, image and harmony
   colours stay explicit failures. A Pattern Browser wire is accepted only from
-  the template engine's `patternSelect` and publishes the browsing-aware name;
-  a source-field pattern name stays on the active index. That wire sets
+  the template engine's `patternSelect` and publishes the running pattern's
+  name, as a source-field pattern name does. That wire sets
   `patternNameBindings`, which turns the name table and cursor on. LED status
   uses the output's own runtime for an output the template drives. Show status
   shares `ledOutputRuntimeExpressions` with the pixel latch. Player status is

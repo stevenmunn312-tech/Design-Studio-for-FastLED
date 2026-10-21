@@ -763,7 +763,7 @@ The node's single **Controls** output then goes to whatever should obey it:
 | Destination | What it takes |
 | --- | --- |
 | LED output **Controls** | Blackout toggle, brightness level and up/down steps |
-| Pattern Slideshow **Controls** | Pattern selection, previous/next, confirm |
+| Pattern Slideshow **Controls** | Pattern selection and previous/next |
 | Music Player **Controls** | Transport, volume, blackout, dimming and pattern intent |
 | Another Player Controls **Controls In** | Chains banks of controls into one bundle |
 
@@ -774,8 +774,8 @@ and the Controls bundle combine rather than override each other.
 
 Two Start Gallery patches arrive with both ends already wired: **Dimmer and
 Blackout** (a knob and a button reaching an LED output, no player anywhere) and
-**Browse a Slideshow** (an encoder turning a highlight, a press committing it,
-and an OLED showing what you are about to play).
+**Browse a Slideshow** (an encoder stepping the LEDs through the patterns, and
+an OLED showing what is playing).
 
 ## Add and connect a display
 

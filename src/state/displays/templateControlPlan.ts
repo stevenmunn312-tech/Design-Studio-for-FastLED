@@ -83,7 +83,6 @@ export const TEMPLATE_CONTROL_ROLES: Readonly<Record<string, TemplateControlRole
   Play: 'transportPlayPause',
   Next: 'transportNext',
   Volume: 'transportVolume',
-  Confirm: 'patternConfirm',
   Brightness: 'outputBrightness',
   Blackout: 'outputBlackout',
 }
@@ -157,7 +156,6 @@ const ROLE_TARGETS: Readonly<Record<TemplateControlRole, Partial<Record<DisplayS
   transportPrevious: { player: { port: 'previous' }, slideshow: { port: 'patternPrevious' } },
   transportNext: { player: { port: 'next' }, slideshow: { port: 'patternNext' } },
   transportPlayPause: { player: { port: 'playPause' } },
-  patternConfirm: { player: { port: 'patternConfirm' }, slideshow: { port: 'patternConfirm' } },
   // A fixture's own two level controls. `enabled` is true-means-lit and the
   // Blackout toggle is true-means-dark, so it arrives through a Not.
   outputBrightness: { ledOutput: { port: 'brightness' } },

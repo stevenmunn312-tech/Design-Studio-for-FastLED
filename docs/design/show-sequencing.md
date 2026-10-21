@@ -36,8 +36,8 @@ Eligibility, in order:
    section-energy range (a spread under 0.05 is 0.5, the same floor as pacing).
 2. If nobody matches, the whole collection is eligible.
 3. Drop weight 0. If that leaves nobody, stay. Weight 0 is never auto-picked.
-   A confirm, a timeline `SET_PATTERN`, or a sequence step that names the index
-   can still reach it.
+   A Previous or Next step, a timeline `SET_PATTERN`, or a sequence step that
+   names the index can still reach it.
 4. Sequential order walks forward through the positive eligible indices.
 5. One remaining choice is taken without a draw.
 6. Equal positive weights over the whole collection use the historical formula

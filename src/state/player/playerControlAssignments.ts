@@ -84,7 +84,6 @@ export const PLAYER_CONTROL_FUNCTIONS: readonly PlayerControlFunction[] = [
   { id: 'patternSelect', label: 'Pattern Selection', dataType: 'float', kind: 'continuous', destinations: PATTERNS },
   { id: 'patternPrevious', label: 'Previous Pattern', dataType: 'bool', kind: 'momentary', destinations: PATTERNS },
   { id: 'patternNext', label: 'Next Pattern', dataType: 'bool', kind: 'momentary', destinations: PATTERNS },
-  { id: 'patternConfirm', label: 'Confirm', dataType: 'bool', kind: 'momentary', destinations: PATTERNS },
 ]
 
 const BY_ID = new Map(PLAYER_CONTROL_FUNCTIONS.map((entry) => [entry.id, entry]))
