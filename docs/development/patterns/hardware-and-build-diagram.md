@@ -9,6 +9,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Pins and boards
 
+- `BoardPinPicker` disables occupied GPIO options and names their hardware
+  with "Pin used by …". `pinAssignmentBlockers` reads `collectPinUses` and
+  `findPinCollisions` within the edited part's board partition; do not scan raw
+  properties or treat every duplicate number as a conflict. Matching I2C/SPI
+  lines and parallel LED outputs may share, but I2S remains exclusive. Test
+  proposed LED pins with `outputMirrorLeaders`, and never exempt unrelated
+  hardware on a mirror's pin. Nested Button Bank rows pass their collector key
+  (`buttons.<id>.pin`) separately from their GPIO capability key (`pin`).
+  Existing conflicting selections stay visible, and the custom GPIO entry
+  keeps its warning as the advanced wiring escape hatch.
+
 - Hardware shelf availability and creation both use `assignHardwarePartPins`.
   It reads the configured transport through `collectPinUses`: I2C inputs and
   fixtures share the selected board's SDA/SCL pair, while exclusive signals

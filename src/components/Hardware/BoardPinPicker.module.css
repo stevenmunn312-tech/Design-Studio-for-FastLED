@@ -25,6 +25,10 @@
   outline-offset: 2px;
 }
 
+.select option:disabled {
+  color: var(--text-secondary);
+}
+
 .customRow {
   display: grid;
   grid-template-columns: minmax(70px, 1fr) auto;

@@ -120,6 +120,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
                   nodeId={nodeId}
                   nodeType={nodeType}
                   propertyKey="pin"
+                  pinUseKey={`buttons.${entry.id}.pin`}
                   properties={{ pin: entry.pin, pullup: entry.pullup }}
                   value={entry.pin}
                   ariaLabel={`${entry.label} GPIO`}

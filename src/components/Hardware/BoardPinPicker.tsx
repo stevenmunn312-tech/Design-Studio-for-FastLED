@@ -1,10 +1,7 @@
 import { useMemo, useState } from 'react'
-import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import {
   gpioRequirementForProperty,
-  isGpioPinProperty,
-  isPropertyEnabled,
-  pinPropertyIsUnwired,
   pinPropertyMayBeUnwired,
   propertyLabel,
 } from '../../state/nodeLibrary'
@@ -12,13 +9,17 @@ import { NO_PIN, pinDisplayLabel, pinSupports, pinWarningForCapability } from '.
 import { boardGpioInfo, useUploadStore } from '../../state/upload/uploadStore'
 import { boardPinTable } from '../../build/boards/boardPinPolicy'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
-import { LANE_PIN_KEY_PREFIX, claimedLanePins, lanePinIndex } from '../../state/output/dataLanes'
+import { lanePinIndex } from '../../state/output/dataLanes'
+import { boardIdOf, boardPartition, primaryBoardId } from '../../build/boardPartition'
+import { pinAssignmentBlockers } from '../../build/pins/pinAvailability'
 import styles from './BoardPinPicker.module.css'
 
 interface Props {
   nodeId: string
   nodeType: string
   propertyKey: string
+  /** Nested assignments retain their full collector key (for example buttons.id.pin). */
+  pinUseKey?: string
   properties: Record<string, unknown>
   value: number
   min?: number
@@ -39,6 +40,7 @@ export default function BoardPinPicker({
   nodeId,
   nodeType,
   propertyKey,
+  pinUseKey = propertyKey,
   properties,
   value,
   min = 0,
@@ -48,7 +50,16 @@ export default function BoardPinPicker({
   onChange,
 }: Props) {
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
-  const nodes = useGraphStore(rootGraphNodes)
+  const rootNodes = useGraphStore(rootGraphNodes)
+  const rootEdges = useGraphStore(rootGraphEdges)
+  const { nodes, edges } = useMemo(() => {
+    const owner = rootNodes.find((node) => node.id === nodeId)
+    const boardId = owner ? boardIdOf(owner, primaryBoardId(rootNodes)) : primaryBoardId(rootNodes)
+    return boardPartition(rootNodes, rootEdges, boardId)
+  }, [rootNodes, rootEdges, nodeId])
+  const blockers = useMemo(() =>
+    pinAssignmentBlockers(nodes, edges, nodeId, nodeType, pinUseKey, selectedFqbn),
+  [nodes, edges, nodeId, nodeType, pinUseKey, selectedFqbn])
   // A custom board's own exposed pins replace the chip table outright.
   const board = useMemo(() => selectedPhysicalBoardProfile(nodes), [nodes])
   const gpio = board ? boardPinTable(board, selectedFqbn) : boardGpioInfo(selectedFqbn)
@@ -74,28 +85,7 @@ export default function BoardPinPicker({
   const knownPins = [...(gpio?.recommended ?? []), ...(gpio?.caution ?? [])]
   const boardMax = Math.min(max, Math.max(min, gpio?.maxPin ?? 0, ...knownPins.map((pin) => pin.pin)))
 
-  const conflicts = unwired ? [] : [...new Set(nodes.flatMap((node) => {
-    const otherProps = node.data.properties as Record<string, unknown>
-    // An LED output's lane pins are claims too, including against this
-    // output's own data pin and its other lanes.
-    const lanes = node.data.nodeType === 'MatrixOutput'
-      ? claimedLanePins(otherProps)
-        .filter((lane) => lane.pin === value && !(node.id === nodeId && `${LANE_PIN_KEY_PREFIX}${lane.index}` === propertyKey))
-        .map((lane) => `${node.data.label} lane ${lane.lane}`)
-      : []
-    if (node.id === nodeId) {
-      const ownData = lanePinIndex(propertyKey) !== null && Number(otherProps.dataPin) === value
-      return [...lanes, ...(ownData ? [`${node.data.label} lane 1`] : [])]
-    }
-    return [...Object.entries(otherProps)
-      .filter(([key, otherValue]) =>
-        isGpioPinProperty(node.data.nodeType, key)
-        && isPropertyEnabled(node.data.nodeType, key, otherProps)
-        && !pinPropertyIsUnwired(node.data.nodeType, key, otherValue)
-        && Number(otherValue) === value,
-      )
-      .map(() => node.data.label), ...lanes]
-  }))]
+  const conflicts = unwired ? [] : blockers.get(value) ?? []
 
   const note = mayUnwire && value === NO_PIN
     ? (gpio ? 'This line is not driven.' : 'This line is not driven until a pin number is entered.')
@@ -155,15 +145,22 @@ export default function BoardPinPicker({
             setCustomOpen(true)
             return
           }
-          onChange(Number(event.target.value))
+          const next = Number(event.target.value)
+          if (!blockers.has(next)) onChange(next)
         }}
       >
         {mayUnwire && <option value={NO_PIN}>No GPIO</option>}
-        {compatible.map((pin) => (
-          <option key={pin.pin} value={pin.pin}>
-            {`${pinDisplayLabel(pin)}${pinWarningForCapability(pin, requirement?.capability) || pin.note ? ` — ${pinWarningForCapability(pin, requirement?.capability) ?? pin.note}` : ''}`}
-          </option>
-        ))}
+        {compatible.map((pin) => {
+          const occupiedBy = blockers.get(pin.pin)
+          const detail = occupiedBy
+            ? `Pin used by ${occupiedBy.join(', ')}`
+            : pinWarningForCapability(pin, requirement?.capability) ?? pin.note
+          return (
+            <option key={pin.pin} value={pin.pin} disabled={!!occupiedBy}>
+              {`${pinDisplayLabel(pin)}${detail ? ` — ${detail}` : ''}`}
+            </option>
+          )
+        })}
         <option value="__custom__">Other GPIO…</option>
       </select>
       {unwired && conflicts.length === 0 && (
