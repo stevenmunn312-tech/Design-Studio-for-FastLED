@@ -10,6 +10,10 @@
 // incoming transition). Each non-const static is assigned its initializer
 // again, and each array or persistent buffer is memset. static const and
 // static constexpr are left alone.
+//
+// Resets call `::memset`. FastLED declares CRGB in namespace fl beside its own
+// fl::memset, so an unqualified call on a CRGB buffer finds both through
+// argument-dependent lookup and fails to compile as ambiguous.
 
 export interface EntryResetResult {
   fn: string
@@ -51,14 +55,30 @@ function declarator(fragment: string): Declarator | null {
   return { name, array, init }
 }
 
-/** Identifier of a file-scope buffer declaration, persistent or history. */
-export function bufferIdent(decl: string): string | null {
-  const match = decl.match(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\[/)
-  return match?.[1] ?? null
+/** A file-scope buffer and the byte count its declaration covers. */
+export interface PersistentBuffer {
+  name: string
+  bytes: string
+}
+
+/**
+ * Name and byte size of a file-scope buffer declaration, persistent or
+ * history. The size comes from the declared type and dimensions, never from
+ * `sizeof(name)`: with Use PSRAM on, `psramBufferDecl` turns the array into a
+ * pointer and `sizeof` would clear only the pointer's width.
+ */
+export function persistentBuffer(decl: string): PersistentBuffer | null {
+  const match = decl.match(/^\s*(?:static\s+)?([A-Za-z_][A-Za-z0-9_:]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*((?:\[[^\]]+\])+)/)
+  if (!match) return null
+  const dims = [...match[3].matchAll(/\[([^\]]+)\]/g)].map((dim) => {
+    const text = dim[1].trim()
+    return /^[A-Za-z0-9_]+$/.test(text) ? text : `(${text})`
+  })
+  return { name: match[2], bytes: [`sizeof(${match[1]})`, ...dims].join(' * ') }
 }
 
 function resetLine(indent: string, item: Declarator): string {
-  if (item.array) return `${indent}if (entry) memset(${item.name}, 0, sizeof(${item.name}));`
+  if (item.array) return `${indent}if (entry) ::memset(${item.name}, 0, sizeof(${item.name}));`
   const init = item.init ?? '0'
   return `${indent}if (entry) ${item.name} = ${init};`
 }
@@ -68,7 +88,7 @@ function resetLine(indent: string, item: Declarator): string {
  * persistent buffer at the top of the body. Returns the function unchanged
  * when there is nothing to reset.
  */
-export function applyEntryReset(fn: string, persistentBuffers: readonly string[]): EntryResetResult {
+export function applyEntryReset(fn: string, persistentBuffers: readonly PersistentBuffer[]): EntryResetResult {
   const brace = fn.indexOf('{')
   const close = fn.lastIndexOf('}')
   if (brace < 0 || close < brace) return { fn, entry: false }
@@ -90,7 +110,7 @@ export function applyEntryReset(fn: string, persistentBuffers: readonly string[]
   }
   if (!found) return { fn, entry: false }
   const signature = head.includes('bool entry') ? head : head.replace(/\)\s*$/, ', bool entry)')
-  const buffers = persistentBuffers.map((name) => `  if (entry) memset(${name}, 0, sizeof(${name}));`)
+  const buffers = persistentBuffers.map(({ name, bytes }) => `  if (entry) ::memset(${name}, 0, ${bytes});`)
   return { fn: `${signature} {\n${buffers.join('\n')}${buffers.length ? '\n' : ''}${out.join('\n')}}`, entry: true }
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { generatePlayerSketch } from '../playerSketchGenerator'
 import { buildPatternRenderers, generateShowSketch } from '../showGenerator'
-import { bufferIdent } from '../player/entryReset'
+import { applyEntryReset, persistentBuffer, type PersistentBuffer } from '../player/entryReset'
 import { NODE_LIBRARY, libraryDefaults, propertyOptions } from '../../state/nodeLibrary'
 import { musicPlayerTiming } from '../../state/player/musicPlayerTiming'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
@@ -109,8 +109,8 @@ describe('entry reset', () => {
               const names = fn.split('\n').flatMap(staticNames)
               const persistent = renderers.buffers
                 .filter((line) => line.includes('keeps its pixels between frames') || line.includes('_fb_'))
-                .map(bufferIdent)
-                .filter((name): name is string => name !== null)
+                .map(persistentBuffer)
+                .filter((buffer): buffer is PersistentBuffer => buffer !== null)
               checked++
               if (names.length === 0 && persistent.length === 0) {
                 if (fn.includes('bool entry')) offenders.push(`${label}: entry flag with nothing to reset`)
@@ -119,15 +119,15 @@ describe('entry reset', () => {
               resetting++
               if (!fn.includes('bool entry')) offenders.push(`${label}: missing entry flag`)
               for (const name of names) {
-                if (!new RegExp(`if \\(entry\\) (?:${name} =|memset\\(${name},)`).test(fn)) offenders.push(`${label}: ${name} is not reset`)
+                if (!new RegExp(`if \\(entry\\) (?:${name} =|::memset\\(${name},)`).test(fn)) offenders.push(`${label}: ${name} is not reset`)
               }
-              for (const name of persistent) {
-                if (!fn.includes(`if (entry) memset(${name}, 0, sizeof(${name}));`)) offenders.push(`${label}: buffer ${name} is not cleared`)
+              for (const { name, bytes } of persistent) {
+                if (!fn.includes(`if (entry) ::memset(${name}, 0, ${bytes});`)) offenders.push(`${label}: buffer ${name} is not cleared`)
               }
               for (const line of renderers.buffers) {
                 if (line.includes('keeps its pixels') || line.includes('_fb_')) continue
-                const scratch = bufferIdent(line)
-                if (scratch && fn.includes(`memset(${scratch}, 0, sizeof(${scratch}))`)) offenders.push(`${label}: scratch ${scratch} is cleared`)
+                const scratch = persistentBuffer(line)?.name
+                if (scratch && fn.includes(`memset(${scratch}, 0,`)) offenders.push(`${label}: scratch ${scratch} is cleared`)
               }
             } catch (error) {
               offenders.push(`${label}: ${error instanceof Error ? error.message : String(error)}`)
@@ -150,6 +150,19 @@ describe('entry reset', () => {
     expect(resumed.functions[0]).not.toContain('bool entry')
     expect(buildPatternRenderers(['g'], noise, [], false, false, ['restart']).entryReset).toEqual([true])
   }, 300_000)
+
+  it('sizes buffer resets from the declaration so PSRAM pointers clear in full', () => {
+    expect(persistentBuffer('CRGB p8_buf_trails[NUM_LEDS]; // keeps its pixels between frames'))
+      .toEqual({ name: 'p8_buf_trails', bytes: 'sizeof(CRGB) * NUM_LEDS' })
+    expect(persistentBuffer('CRGB p5__fb_fb[3][NUM_LEDS];'))
+      .toEqual({ name: 'p5__fb_fb', bytes: 'sizeof(CRGB) * 3 * NUM_LEDS' })
+    expect(persistentBuffer('static float a[(WIDTH+1)*(HEIGHT+1)];')?.bytes).toBe('sizeof(float) * ((WIDTH+1)*(HEIGHT+1))')
+    expect(persistentBuffer('uint8_t p5__fb_idx_fb = 0;')).toBeNull()
+    const { fn } = applyEntryReset('void render_p0(uint32_t ms) {\n  static CRGB t[NUM_LEDS];\n}', [{ name: 'b', bytes: 'sizeof(CRGB) * NUM_LEDS' }])
+    expect(fn).toContain('  if (entry) ::memset(b, 0, sizeof(CRGB) * NUM_LEDS);')
+    expect(fn).toContain('  if (entry) ::memset(t, 0, sizeof(t));')
+    expect(fn).not.toMatch(/[^:]memset\(/)
+  })
 
   it('keeps a player sketch unchanged until a Restart pattern has state', () => {
     const plain = {

@@ -38,7 +38,7 @@ import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { cppComment } from './cppLiterals'
 import { parseBufferAlias, parseBufferDecl, type RenderBufferType } from './renderBuffers'
-import { applyEntryReset, bufferIdent, entrySlotCpp } from './player/entryReset'
+import { applyEntryReset, entrySlotCpp, persistentBuffer, type PersistentBuffer } from './player/entryReset'
 import { patternPickCpp } from './player/patternPickCpp'
 import {
   collectionProfiles,
@@ -469,7 +469,7 @@ export function buildPatternRenderers(
   const entryReset = entryPolicies?.length
     ? units.map((unit, index) => {
         if (entryPolicies[index] === 'resume') return false
-        const persistent = unit.buffers.map(bufferIdent).filter((name): name is string => name !== null)
+        const persistent = unit.buffers.map(persistentBuffer).filter((buffer): buffer is PersistentBuffer => buffer !== null)
         const reset = applyEntryReset(unit.fn, persistent)
         unit.fn = reset.fn
         return reset.entry
