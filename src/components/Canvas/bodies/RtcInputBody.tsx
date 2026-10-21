@@ -11,6 +11,7 @@ import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useStreamStore } from '../../../state/output/streamStore'
 import { setRtcDateTime } from '../../../utils/backendClient'
 import styles from './RtcInputBody.module.css'
+import WifiPasswordInput from '../WifiPasswordInput'
 
 const REFRESH_MS = 250
 
@@ -163,14 +164,11 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
           </div>
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor={`${nodeId}-rtc-password`}>Wi-Fi password</label>
-            <input
+            <WifiPasswordInput
               id={`${nodeId}-rtc-password`}
               className={`nodrag ${styles.fieldInput}`}
-              type="password"
-              autoComplete="off"
               value={credentials.password}
-              onChange={(e) => setCredentials(nodeId, { password: e.target.value })}
-              placeholder="password"
+              onChange={(password) => setCredentials(nodeId, { password })}
             />
           </div>
           <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>

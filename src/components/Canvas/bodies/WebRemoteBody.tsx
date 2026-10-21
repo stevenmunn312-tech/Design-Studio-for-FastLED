@@ -42,6 +42,7 @@ import { portColor } from '../../../state/nodeLibrary'
 import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
 import { NODE_HANDLE_STYLE } from '../nodeHandleStyle'
 import styles from './WebRemoteBody.module.css'
+import WifiPasswordInput from '../WifiPasswordInput'
 
 function activateHandleFromKeyboard(event: React.KeyboardEvent<HTMLDivElement>) {
   if (event.key !== 'Enter' && event.key !== ' ') return
@@ -487,13 +488,10 @@ export default function WebRemoteBody({ nodeId }: { nodeId: string }) {
           </label>
           <label className={styles.field}>
             Wi-Fi password
-            <input
+            <WifiPasswordInput
               className={`nodrag ${styles.fieldInput}`}
-              type="password"
-              autoComplete="off"
               value={credentials.password}
-              onChange={(event) => setCredentials(nodeId, { password: event.target.value })}
-              placeholder="password"
+              onChange={(password) => setCredentials(nodeId, { password })}
             />
           </label>
           <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>

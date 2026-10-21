@@ -5,6 +5,7 @@ import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/pe
 import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
 import { compositionDims } from '../../../state/output/outputRouting'
 import styles from './DmxInputBody.module.css'
+import WifiPasswordInput from '../WifiPasswordInput'
 
 function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, error: string): string {
   if (!helperOnline) return 'HELPER OFFLINE'
@@ -84,14 +85,11 @@ export default function DdpInputBody({ nodeId }: { nodeId: string }) {
           </div>
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor={`${nodeId}-ddp-password`}>Wi-Fi password</label>
-            <input
+            <WifiPasswordInput
               id={`${nodeId}-ddp-password`}
               className={`nodrag ${styles.fieldInput}`}
-              type="password"
-              autoComplete="off"
               value={credentials.password}
-              onChange={(e) => setCredentials(nodeId, { password: e.target.value })}
-              placeholder="password"
+              onChange={(password) => setCredentials(nodeId, { password })}
             />
           </div>
           <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
