@@ -12,7 +12,7 @@ import { asAnimatedImage, asImage } from '../shared/image'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { rateCpp, SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { POLAR_PIXEL_CPP, polarFrameCpp } from '../shared/integerPatterns'
+import { POLAR_PIXEL_CPP, polarFrameCpp, wireframeEdgeCpp } from '../shared/integerPatterns'
 import {
   resolveWireframeMesh,
   meshBoundingRadius,
@@ -393,7 +393,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    float _cx1=cosf(_ax),_sx1=sinf(_ax),_cy1=cosf(_ay),_sy1=sinf(_ay),_cz1=cosf(_az),_sz1=sinf(_az);`)
     ln(`    float _ccx=(WIDTH-1)*0.5f,_ccy=(HEIGHT-1)*0.5f;`)
     ln(`    float _fit=(min((float)WIDTH,(float)HEIGHT)*0.5f)*${WIREFRAME_FIT_MARGIN}f*${scaleMul};`)
-    ln(`    float _sxp[${vertCount}], _syp[${vertCount}], _sdp[${vertCount}];`)
+    // Vertices project in float once a frame; the edges are integer
+    // (shared/integerPatterns.ts), in 1/256 pixel.
+    ln(`    int32_t _sxq[${vertCount}], _syq[${vertCount}], _sdq[${vertCount}];`)
     ln(`    for (int _i = 0; _i < ${vertCount}; _i++) {`)
     ln(`      float _x=_vtx_${id}[_i*3]/${radius.toFixed(6)}f,_y=_vtx_${id}[_i*3+1]/${radius.toFixed(6)}f,_z=_vtx_${id}[_i*3+2]/${radius.toFixed(6)}f;`)
     ln(`      float _ry=_y*_cx1-_z*_sx1,_rz=_y*_sx1+_z*_cx1; _y=_ry; _z=_rz;`)
@@ -401,32 +403,13 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`      _rx=_x*_cz1-_y*_sz1; _ry=_x*_sz1+_y*_cz1; _x=_rx; _y=_ry;`)
     if (perspective) {
       ln(`      float _factor=${camDist}/(${camDist}-_z);`)
-      ln(`      _sxp[_i]=_ccx+_x*_factor*_fit; _syp[_i]=_ccy-_y*_factor*_fit;`)
+      ln(`      _sxq[_i]=(int32_t)((_ccx+_x*_factor*_fit)*256.0f); _syq[_i]=(int32_t)((_ccy-_y*_factor*_fit)*256.0f);`)
     } else {
-      ln(`      _sxp[_i]=_ccx+_x*_fit; _syp[_i]=_ccy-_y*_fit;`)
+      ln(`      _sxq[_i]=(int32_t)((_ccx+_x*_fit)*256.0f); _syq[_i]=(int32_t)((_ccy-_y*_fit)*256.0f);`)
     }
-    ln(`      _sdp[_i]=(_z+1.0f)*0.5f;`)
+    ln(`      _sdq[_i]=constrain((int32_t)((_z+1.0f)*0.5f*256.0f),0,256);`)
     ln(`    }`)
-    ln(`    for (int _e = 0; _e < ${edgeCount}; _e++) {`)
-    ln(`      int _i0=_edg_${id}[_e*2],_i1=_edg_${id}[_e*2+1];`)
-    ln(`      float _x0=_sxp[_i0],_y0=_syp[_i0],_x1=_sxp[_i1],_y1=_syp[_i1];`)
-    ln(`      float _len=sqrtf((_x1-_x0)*(_x1-_x0)+(_y1-_y0)*(_y1-_y0));`)
-    ln(`      int _steps=max(1,(int)ceilf(_len*2.0f));`)
-    ln(`      for (int _s = 0; _s <= _steps; _s++) {`)
-    ln(`        float _u=_s/(float)_steps;`)
-    ln(`        float _px=_x0+(_x1-_x0)*_u,_py=_y0+(_y1-_y0)*_u;`)
-    if (depthShade) {
-      ln(`        float _depth=_sdp[_i0]+(_sdp[_i1]-_sdp[_i0])*_u,_bright=0.35f+0.65f*_depth;`)
-    } else {
-      ln(`        float _bright=1.0f;`)
-    }
-    ln(`        float _rad=0.5f;`)
-    ln(`        int _xmin=max(0,(int)floorf(_px-_rad-1.0f)),_xmax=min(WIDTH-1,(int)ceilf(_px+_rad+1.0f));`)
-    ln(`        int _ymin=max(0,(int)floorf(_py-_rad-1.0f)),_ymax=min(HEIGHT-1,(int)ceilf(_py+_rad+1.0f));`)
-    ln(`        for (int _y = _ymin; _y <= _ymax; _y++) for (int _x = _xmin; _x <= _xmax; _x++) {`)
-    ln(`          float _dx=(_x+0.5f)-_px,_dy=(_y+0.5f)-_py;`)
-    ln(`          float _cov=constrain(_rad+0.5f-sqrtf(_dx*_dx+_dy*_dy),0.0f,1.0f);`)
-    ln(`          if (_cov<=0.0f) continue; CRGB _add=_wfColor; _add.nscale8((uint8_t)(_bright*_cov*255.0f)); ${ob}[_y*WIDTH+_x] += _add; } } }`)
+    for (const line of wireframeEdgeCpp(ob, `_edg_${id}`, edgeCount, depthShade)) ln(`    ${line}`)
     ln(`  }`)
   },
   Text({ node, id, p, ln, f, channelColor, ownBuf, incoming, needsT, globalLines }) {

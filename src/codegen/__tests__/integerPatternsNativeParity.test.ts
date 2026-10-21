@@ -31,6 +31,7 @@ import {
   WALLPAPER_HELPER_CPP, sampleFrameQ8, sampleFrameQ8Cpp, wallpaperFrame, wallpaperSourceQ8,
   LATTICE_Q12_CPP, TRUCHET_Q12_CPP, latticeCellQ12, truchetDistanceQ12, truchetFrame, truchetLineQ16, truchetPixel,
   truchetPixelCpp,
+  wireVertexQ8, wireframeEdgeCpp, wireframeEdgeQ8,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -41,7 +42,9 @@ function runNative(W: number, H: number, frame: string[], pixel: string[], print
     const source = path.join(dir, 'kernel.cpp'), binary = path.join(dir, 'kernel')
     writeFileSync(source, [
       '#include <cstdio>', '#include <cstdint>', '#include <cstdlib>', '#include <algorithm>', 'using std::min; using std::max;',
-      'struct CRGB { uint8_t r, g, b; CRGB() : r(0), g(0), b(0) {} CRGB(uint8_t r_, uint8_t g_, uint8_t b_) : r(r_), g(g_), b(b_) {} };',
+      'struct CRGB { uint8_t r, g, b; CRGB() : r(0), g(0), b(0) {} CRGB(uint8_t r_, uint8_t g_, uint8_t b_) : r(r_), g(g_), b(b_) {}',
+      '  void nscale8(uint8_t s) { r = ((uint16_t)r * (s + 1)) >> 8; g = ((uint16_t)g * (s + 1)) >> 8; b = ((uint16_t)b * (s + 1)) >> 8; }',
+      '  CRGB &operator+=(const CRGB &o) { r = r + o.r > 255 ? 255 : r + o.r; g = g + o.g > 255 ? 255 : g + o.g; b = b + o.b > 255 ? 255 : b + o.b; return *this; } };',
       'template <class T> static T constrain(T v, T lo, T hi) { return v < lo ? lo : v > hi ? hi : v; }', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, INOISE8_3D_HOST_CPP, ATAN16_HELPER_CPP,
       `#define WIDTH ${W}`, `#define HEIGHT ${H}`, LATTICE_Q12_CPP, WALLPAPER_HELPER_CPP, TRUCHET_Q12_CPP,
       'int main(){', ...frame, '  int _i=0;',
@@ -425,6 +428,25 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
       const native = runNative(W, H, [`int32_t _trK=${f.k8},_trCo=${f.cos},_trSi=${f.sin},_trOx=${f.scroll},_trW=${f.width};`],
         [...truchetPixelCpp(hex, '3', 42, orientations), `int32_t _v=_truchetLineQ16(_truchetDistanceQ12(${hex ? 1 : 0},${motif},_lx,_ly,_orientation),_trW);`], '"%d ",_v')
       expect(grid(W, H, (x, y) => [truchetPixel(x, y, W, H, f, hex, motif, 3, 42, orientations)])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('Wireframe3D edges match on %ix%i', (W, H) => {
+    // A projected cube: some vertices off canvas, one edge degenerate.
+    const verts = [[-1.3, 0.2, 0], [W * 0.7, H * 0.3, 0.9], [W * 0.4, H + 1.7, 0.4], [W * 0.4, H + 1.7, 0.4], [W - 0.5, -0.8, 1], [W * 0.5, H * 0.5, 0.55]]
+      .map(([x, y, d]) => wireVertexQ8(x, y, d))
+    const edges = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 0, 1, 4]
+    const color = { r: 0, g: 200, b: 255 }
+    for (const depthShade of [true, false]) {
+      const frame = Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+      for (let e = 0; e < edges.length / 2; e++) wireframeEdgeQ8(frame, verts[edges[e * 2]], verts[edges[e * 2 + 1]], color, depthShade, W, H)
+      const list = (k: 'x' | 'y' | 'depth') => verts.map((v) => v[k]).join(',')
+      const native = runNative(W, H, [
+        `static CRGB _out[WIDTH*HEIGHT]; static const uint8_t _edg[]={${edges.join(',')}}; CRGB _wfColor(0,200,255);`,
+        `int32_t _sxq[]={${list('x')}},_syq[]={${list('y')}},_sdq[]={${list('depth')}};`,
+        ...wireframeEdgeCpp('_out', '_edg', edges.length / 2, depthShade),
+      ], [], '"%u %u %u ",_out[_i].r,_out[_i].g,_out[_i].b')
+      expect(frame.flat().flatMap((c) => [c.r, c.g, c.b])).toEqual(native)
     }
   }, 60_000)
 })

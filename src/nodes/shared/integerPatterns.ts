@@ -1651,3 +1651,54 @@ export function truchetPixel(
   const orientation = Math.floor((bits * orientations) / 16777216)
   return truchetLineQ16(truchetDistanceQ12(hex ? 1 : 0, motif, cell.lx, cell.ly, orientation), f.width)
 }
+
+// ── Wireframe3D edges ─────────────────────────────────────────────────────────
+// The vertices are projected in float once a frame, then held in 1/256
+// pixel with depth in 1/256. Each edge is stepped twice a pixel of its
+// length and stamps an anti-aliased disc of radius 0.5: coverage 1 - d,
+// brightness 0.35 + 0.65 depth, added with saturation.
+
+type Rgb = { r: number; g: number; b: number }
+
+export interface WireVertexQ8 { x: number; y: number; depth: number }
+
+export const wireVertexQ8 = (x: number, y: number, depth: number): WireVertexQ8 => ({
+  x: Math.trunc(x * 256), y: Math.trunc(y * 256), depth: Math.max(0, Math.min(256, Math.trunc(depth * 256))),
+})
+
+export function wireframeEdgeQ8(frame: Rgb[][], p0: WireVertexQ8, p1: WireVertexQ8, color: Rgb, depthShade: boolean, W: number, H: number): void {
+  const dx = p1.x - p0.x, dy = p1.y - p0.y, dd = p1.depth - p0.depth
+  const len4 = isqrt32(Math.trunc(dx / 16) ** 2 + Math.trunc(dy / 16) ** 2)
+  const steps = Math.max(1, (len4 * 2 + 15) >> 4)
+  for (let s = 0; s <= steps; s++) {
+    const px = p0.x + Math.trunc((dx * s) / steps), py = p0.y + Math.trunc((dy * s) / steps)
+    const bright = depthShade ? (22784 + 166 * (p0.depth + Math.trunc((dd * s) / steps))) >> 8 : 255
+    const x0 = Math.max(0, (px - 384) >> 8), x1 = Math.min(W - 1, (px + 639) >> 8)
+    const y0 = Math.max(0, (py - 384) >> 8), y1 = Math.min(H - 1, (py + 639) >> 8)
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const ex = x * 256 + 128 - px, ey = y * 256 + 128 - py
+      const cover = 256 - isqrt32(ex * ex + ey * ey)
+      if (cover <= 0) continue
+      const k = (bright * cover) >> 8, o = frame[y][x]
+      o.r = Math.min(255, o.r + scale8(color.r, k)); o.g = Math.min(255, o.g + scale8(color.g, k)); o.b = Math.min(255, o.b + scale8(color.b, k))
+    }
+  }
+}
+
+/** The edge loop over `_e`, reading `_sxq`, `_syq`, `_sdq` and `CRGB _wfColor`, adding into `out`. */
+export function wireframeEdgeCpp(out: string, edges: string, edgeCount: number, depthShade: boolean): string[] {
+  return [
+    `for (int _e = 0; _e < ${edgeCount}; _e++) {`,
+    `  int _i0=${edges}[_e*2],_i1=${edges}[_e*2+1]; int32_t _x0=_sxq[_i0],_y0=_syq[_i0],_dx=_sxq[_i1]-_x0,_dy=_syq[_i1]-_y0,_d0=_sdq[_i0],_dd=_sdq[_i1]-_d0;`,
+    ...isqrtCpp('wl', '(_dx/16)*(_dx/16)+(_dy/16)*(_dy/16)', '_wlR'),
+    `  int32_t _steps=((int32_t)_wlR*2+15)>>4; if(_steps<1) _steps=1;`,
+    `  for (int32_t _s = 0; _s <= _steps; _s++) {`,
+    `    int32_t _px=_x0+(_dx*_s)/_steps,_py=_y0+(_dy*_s)/_steps,_br=${depthShade ? '(22784+166*(_d0+(_dd*_s)/_steps))>>8' : '255'};`,
+    `    int _xa=max(0,(int)((_px-384)>>8)),_xb=min(WIDTH-1,(int)((_px+639)>>8)),_ya=max(0,(int)((_py-384)>>8)),_yb=min(HEIGHT-1,(int)((_py+639)>>8));`,
+    `    for (int _y = _ya; _y <= _yb; _y++) for (int _x = _xa; _x <= _xb; _x++) {`,
+    `      int32_t _ex=_x*256+128-_px,_ey=_y*256+128-_py;`,
+    ...isqrtCpp('wc', '_ex*_ex+_ey*_ey', '_wcR').map((line) => `    ${line}`),
+    `      int32_t _cv=256-(int32_t)_wcR; if (_cv<=0) continue;`,
+    `      CRGB _add=_wfColor; _add.nscale8((uint8_t)((_br*_cv)>>8)); ${out}[_y*WIDTH+_x]+=_add; } } }`,
+  ]
+}

@@ -39,7 +39,7 @@ import {
 import { getSdVideoBytes } from '../../state/sdVideoStore'
 import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/palettes/hueMix'
 import { polarRepeat } from '../../state/evaluator/polar'
-import { polarFrame, polarPixel } from '../shared/integerPatterns'
+import { polarFrame, polarPixel, wireVertexQ8, wireframeEdgeQ8 } from '../shared/integerPatterns'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 
@@ -815,18 +815,12 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       perspectiveStrength: Math.max(0, Math.min(1,
         num(id, 'perspectiveStrength', props, 'perspectiveStrength', 0.4))),
     })
+    // The sketch's integer edges (shared/integerPatterns.ts), in 1/256 pixel.
     const depthShade = props.depthShade !== false
+    const q = verts.map((v) => wireVertexQ8(v.x, v.y, v.depth))
     const edgeCount = mesh.edges.length / 2
     for (let e = 0; e < edgeCount; e++) {
-      const p0 = verts[mesh.edges[e * 2]], p1 = verts[mesh.edges[e * 2 + 1]]
-      const len = Math.hypot(p1.x - p0.x, p1.y - p0.y)
-      const steps = Math.max(1, Math.ceil(len * 2))
-      for (let i = 0; i <= steps; i++) {
-        const u = i / steps
-        const depth = depthShade ? p0.depth + (p1.depth - p0.depth) * u : 1
-        const bright = 0.35 + 0.65 * depth
-        splatDisc(frame, p0.x + (p1.x - p0.x) * u, p0.y + (p1.y - p0.y) * u, 0.5, scaleRgb(color, bright))
-      }
+      wireframeEdgeQ8(frame, q[mesh.edges[e * 2]], q[mesh.edges[e * 2 + 1]], color, depthShade, W, H)
     }
     return { frame }
   },
