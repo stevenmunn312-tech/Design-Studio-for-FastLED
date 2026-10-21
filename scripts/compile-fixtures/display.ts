@@ -780,12 +780,21 @@ for (const entry of catalogueDisplays()) {
   }
 }
 
+/*
+ * A shared-host digitiser reads with no SPI pins of its own (255). Where every
+ * call in a sketch passes the same SCK and rotation, the firmware pruning pass
+ * folds those two parameters into the helper, so the call carries CS, IRQ,
+ * MOSI and MISO and then the calibration; the calibration sketch, which reads
+ * at several rotations, keeps the full form.
+ */
+const sharedTouchRead = '_xptPoint(6, 5, 255, 255, 200,'
+
 const requiredSymbols: Record<string, readonly string[]> = {
-  'ili9341-fixed': ['_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(12, 13, 11);', '_tftBegin(_tft_ili_panel'],
-  'ili9341-sd-video': ['_spiBusBegin(SDV_SCK, SDV_MISO, SDV_MOSI);', '_xptPoint(6, 5, 255, 255, 255,'],
-  'ili9341-custom': ['lv_display_create(320, 240)', '_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(12, 13, 11);'],
-  'ili9341-show': ['lv_display_create(320, 240)', '_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(12, 13, 11);'],
-  'ili9341-player': ['lv_display_create(320, 240)', '_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(SD_SCK, SD_MISO, SD_MOSI);'],
+  'ili9341-fixed': [sharedTouchRead, '_spiBusBegin(12, 13, 11);', '_tftBegin(_tft_ili_panel'],
+  'ili9341-sd-video': ['_spiBusBegin(SDV_SCK, SDV_MISO, SDV_MOSI);', sharedTouchRead],
+  'ili9341-custom': ['lv_display_create(320, 240)', sharedTouchRead, '_spiBusBegin(12, 13, 11);'],
+  'ili9341-show': ['lv_display_create(320, 240)', sharedTouchRead, '_spiBusBegin(12, 13, 11);'],
+  'ili9341-player': ['lv_display_create(320, 240)', sharedTouchRead, '_spiBusBegin(SD_SCK, SD_MISO, SD_MOSI);'],
   'ili9341-calibration': ['_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(12, 13, 11);'],
   // The last four of each generator's list are the binding path: a string read
   // through that build's own table, a `set` role, a float, and — where the build
@@ -794,20 +803,25 @@ const requiredSymbols: Record<string, readonly string[]> = {
   normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_custom_tft_touch_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft',
     '_cdSetText(_cd_screen[13], _rtcClockText(', '_cdSetChecked(_cd_screen[2], (bool)((n_rtc_dateTime).valid))', '_cdSetInteger(_cd_screen[8], _cdScaled((float)(((float)(n_rtc_dateTime).second))'],
   show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftHigh_fixed_tft',
-    'n_controls_controls.hasSpeed = true', '_showAnimSpeed = constrain((n_controls_controls.hasSpeed',
+    // Master Speed takes its knob on its own Speed input, for the next pass.
+    '_showAnimSpeed = constrain(n_math_result, 0.0f, 4.0f);',
     '_cdSetText(_cd_screen[13], _patNameStr_show(_sel_show.active))', 'static char _patNameStr_show_buf[', '_cdSetChecked(_cd_screen[2], (bool)(_selBrowsing(_sel_show)))'],
   player: ['lv_display_set_default(_cdDisp_custom_tft)', 'char n_song_title[64]', '_cdSetText(_cd_screen[4], n_song_title)', 'audio.loop();',
     '_cdSetText(_cd_screen[13], songTitle)', '_cdSetChecked(_cd_screen[2], (bool)(songPlaying()))'],
   'isolated-tft': ['_tftClockValid_fixed_tft', '_tftPaint(_tft_fixed_tft'],
   headless: ['_pcE_controls_patternNext.update', '_selUpdate(_sel_show'],
-  disabled: ['static bool _cdPanelOn_custom_tft = false', 'if (_cdPanelOn_custom_tft) lv_indev_read'],
+  // Off is a constant here, so the latch folds away: the backlight is held
+  // low and nothing reads the glass (checked below).
+  disabled: ['lv_display_create(240, 320)', 'if (_cdPanel_custom_tft.bl != 255) digitalWrite(_cdPanel_custom_tft.bl, LOW);'],
   'multi-panel': ['_cdScreen_screen = lv_obj_create', '_cdScreen_deck = lv_obj_create', '_cdDisp_custom_tft', '_cdDisp_deck_tft'],
   'shared-design': [
     '_cdScreen_custom_tft = lv_obj_create', '_cdScreen_deck_tft = lv_obj_create',
     '_cdDisp_custom_tft', '_cdDisp_deck_tft',
     'static const lv_image_dsc_t _cdAsset_screen_0',
-    'bool n_custom_tft_touch_widget_toggle_out = _cdBoolOutput(_cd_custom_tft[',
-    'bool n_deck_tft_touch_widget_toggle_out = _cdBoolOutput(_cd_deck_tft[',
+    // Each glass samples its own runtime array. Nothing reads these toggles,
+    // so the samples are kept only for the touch they clear.
+    '_cdBoolOutput(_cd_custom_tft[',
+    '_cdBoolOutput(_cd_deck_tft[',
   ],
   'part-families': ['SEG_KIND_TM1637', 'SEG_KIND_MAX7219', '_oledBeginSpi', '_oledBeginI2c', '_tftPaint'],
   'part-families-i2c': ['_oledBeginI2c', '#include <Wire.h>'],
@@ -822,12 +836,12 @@ const requiredSymbols: Record<string, readonly string[]> = {
   ],
 }
 
-for (const [name, symbols] of Object.entries(requiredSymbols)) {
-  const source = sketches[name]
-  for (const symbol of symbols) {
-    if (!source.includes(symbol)) throw new Error(`${name}.ino is missing required binding symbol: ${symbol}`)
-  }
-}
+// Every missing symbol at once, so one stale expectation does not hide the next.
+const missingSymbols = Object.entries(requiredSymbols).flatMap(([name, symbols]) => symbols
+  .filter((symbol) => !sketches[name].includes(symbol))
+  .map((symbol) => `${name}.ino is missing required binding symbol: ${symbol}`))
+if (missingSymbols.length) throw new Error(missingSymbols.join('\n'))
+if (sketches.disabled.includes('lv_indev_read(')) throw new Error('disabled.ino reads the glass of a panel that is off')
 if (sketches.headless.includes('#include <lvgl.h>')) throw new Error('headless.ino unexpectedly includes LVGL')
 if (sketches['shared-design'].includes('_cdScreen_screen')) {
   throw new Error('shared-design.ino keyed a shared screen by the document id')
