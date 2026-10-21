@@ -88,10 +88,8 @@ import {
   bindsAnyField, DISPLAY_NAME_SOURCE_FIELDS, DISPLAY_SELECTION_SOURCE_FIELDS,
 } from './displays/displaySourceExpressions'
 import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
-import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
-import type { TransportArtworks } from '../utils/transportArtworks'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuEmitsFromGraph,
   stereoVuGlobalCpp, stereoVuLoopCpp,
@@ -521,25 +519,15 @@ interface ShowSelectionPlan {
   nameStrings: boolean
 }
 
-/** The fixed layouts that blit the show's baked artwork. */
-const ARTWORK_LAYOUTS: ReadonlySet<string> = new Set(['Now Playing', 'Show Status'])
-
 /**
- * Whether this show sketch draws baked artwork at all.
- *
- * One answer for the table, the blit and the selection cursor, so none of the
- * three is emitted without the others. The bake is keyed by the engine and a
- * controller sketch runs exactly one show, so the sole entry is this show's
- * collection: a Show Status panel pictures the slideshow's own patterns.
+ * The fixed layouts that picture the LEDs: the show's own composition canvas,
+ * `leds`, streamed live, so a collection of any size is pictured and no
+ * pattern is baked.
  */
-function showDrawsArtwork(displays: ResolvedShowDisplays, artworks: TransportArtworks | undefined): boolean {
-  return displays.tft.some((display) => ARTWORK_LAYOUTS.has(display.layout))
-    && (Object.values(artworks ?? {})[0] ?? []).length > 0
-}
+const PICTURE_LAYOUTS: ReadonlySet<string> = new Set(['Now Playing', 'Show Status'])
 
 function showSelectionPlan(
   displays: ResolvedShowDisplays,
-  hasArtwork: boolean,
   patternCommands: string | null,
   boundFields: ReadonlySet<string> = new Set(),
 ): ShowSelectionPlan {
@@ -553,7 +541,7 @@ function showSelectionPlan(
   return {
     // A bound widget is one more reader of the cursor, counted here beside the
     // fixed layouts rather than left to reference a variable no line declares.
-    used: names || hasArtwork || patternCommands !== null
+    used: names || patternCommands !== null
       || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS),
     variable: `_sel_${SHOW_SELECTION_STEM}`,
     stem: SHOW_SELECTION_STEM,
@@ -644,7 +632,7 @@ const NO_SHOW_DISPLAYS: ShowDisplayEmission = {
 function showDisplaysCpp(
   nodes: StudioNode[],
   displays: ResolvedShowDisplays,
-  opts: { thumbnails?: BrowserThumbnails; artworks?: TransportArtworks; bootLabel?: string },
+  opts: { thumbnails?: BrowserThumbnails; bootLabel?: string; canvas: { width: number; height: number } },
   controls: ShowControlRouting,
   selection: ShowSelectionPlan,
   telemetry: boolean,
@@ -659,8 +647,6 @@ function showDisplaysCpp(
   // exactly one show, so whichever browser was baked, the pictures are of the
   // collection this sketch is rendering.
   const thumbnails = Object.values(opts.thumbnails ?? {})[0] ?? []
-  const artworks = Object.values(opts.artworks ?? {})[0] ?? []
-  const hasArtwork = showDrawsArtwork(displays, opts.artworks)
   const selVar = selection.variable
   const bootTitle = opts.bootLabel?.trim() || 'FASTLED BUILD'
   const bootDevice = selectedPhysicalBoardProfile(nodes)?.label ?? 'FASTLED CONTROLLER'
@@ -761,8 +747,8 @@ function showDisplaysCpp(
       ? { patternNames: { tableStem: selection.stem, selVar } }
       : {}),
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
-    ...(hasArtwork && ARTWORK_LAYOUTS.has(display.layout)
-      ? { artwork: { tableStem: SHOW_SELECTION_STEM, count: artworks.length } }
+    ...(PICTURE_LAYOUTS.has(display.layout)
+      ? { picture: { pixels: 'leds', width: opts.canvas.width, height: opts.canvas.height } }
       : {}),
   }))
 
@@ -804,7 +790,6 @@ function showDisplaysCpp(
       hasSegment ? SEGMENT_DISPLAY_CPP_HELPERS : '',
       hasSegment ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
       hasTft ? tftDisplayHelpersCpp(tftDisplayHelperProfile(tftEmits)) : '',
-      hasArtwork ? transportArtworkTableCpp(SHOW_SELECTION_STEM, artworks) : '',
       touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
       touchEmits.length > 0 ? touchEmits.map(tftTouchGlobalCpp).join('\n') : '',
       hasTft ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
@@ -836,15 +821,14 @@ function showDisplaysCpp(
 export function generateShowSketch(
   nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
   // `psramAllowed` mirrors generateCpp's option: the upload UI passes false
-  // when the selected board has no PSRAM support. `thumbnails`/`artworks` are
-  // the baked Pattern Browser pictures and Now Playing/Show Status art, handed in for the
-  // same reason generateCpp takes them: baking evaluates patterns, and a text
-  // emitter has no way to know whether the workspace has been trusted.
+  // when the selected board has no PSRAM support. `thumbnails` are the baked
+  // Pattern Browser pictures, handed in for the same reason generateCpp takes
+  // them: baking evaluates patterns, and a text emitter has no way to know
+  // whether the workspace has been trusted.
   opts: {
     psramAllowed?: boolean
     thumbnails?: BrowserThumbnails
     patternNames?: PatternNames
-    artworks?: TransportArtworks
     bootLabel?: string
     displayDocuments?: DisplayDocumentRegistry
     customDisplayAssets?: CustomDisplayAssets
@@ -979,7 +963,6 @@ export function generateShowSketch(
   )
   const selection = showSelectionPlan(
     resolvedDisplays,
-    showDrawsArtwork(resolvedDisplays, opts.artworks),
     controls.patternCommands,
     boundDisplaySourceFields(controls.custom),
   )
@@ -994,7 +977,9 @@ export function generateShowSketch(
     && entry.data.properties?.reportTelemetry === true)
   const emitTelemetry = telemetryAsked
     && boardSupportsTelemetry(selectedPhysicalBoardProfile(nodes)?.targetFamilies)
-  const displays = showDisplaysCpp(nodes, resolvedDisplays, opts, controls, selection, emitTelemetry)
+  const displays = showDisplaysCpp(
+    nodes, resolvedDisplays, { ...opts, canvas: { width, height } }, controls, selection, emitTelemetry,
+  )
   const customDisplays = customDisplayShowCpp(controls.custom, opts.customDisplayAssets, emitTelemetry)
   const outputRuntimeExpressions = (outputId: string) => {
     const id = safeId(outputId)

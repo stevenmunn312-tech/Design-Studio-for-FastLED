@@ -26,7 +26,6 @@ import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/player/musicStore'
 import { bakeBrowserThumbnails } from './browserThumbnails'
 import { collectionPatternNames } from './patternNames'
-import { bakeDisplayArtworks } from './transportArtworks'
 import { generatePlayerSketch, playerConfigFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../codegen/player/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
@@ -223,10 +222,6 @@ export function buildShowPlayer(
     // panel keeps naming patterns even where the pictures could not be made.
     patternNames: collectionPatternNames(
       nodes, edges, useGraphStore.getState().graphs,
-      build.templateDisplaySourceIds ?? undefined,
-    ),
-    artworks: bakeDisplayArtworks(
-      nodes, edges, groups, useGraphStore.getState().trusted,
       build.templateDisplaySourceIds ?? undefined,
     ),
     particleFx,

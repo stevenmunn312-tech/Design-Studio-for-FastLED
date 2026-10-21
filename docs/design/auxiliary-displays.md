@@ -633,46 +633,48 @@ touch and an SD card. It is the first display driver here to need an `#include`,
 which `TFT_DISPLAY_CPP_INCLUDES` states rather than leaving the preamble and the
 driver to disagree about.
 
-### Artwork is player-owned baked data, not a live image port
+### The picture is the LEDs, streamed live
 
-The layouts render artwork from baked RGB565 bytes. `patternSelect` tells the
-panel which engine-owned collection and active index it is showing; it does not
-carry pixels. Two layouts picture a pattern: Now Playing, fed by a player, and
-Show Status, fed by a Pattern Slideshow. `artworkEngine` in
-`src/utils/transportArtworks.ts` is the one owner of whose collection a panel
-bakes — it follows the panel's `display` wire to either engine kind — and
-`artworkDisplays` resolves the layout from what is plugged in, the way the
-evaluator and generators do, skipping Diagnostics and panels showing a screen
-design. `bakeTransportArtworks.ts` evaluates each collected pattern at the
-fixed 2.5-second tick, renders at 2×, box-downsamples to 96×96 and packs the
-finished big-endian RGB565 bytes. `transportArtworkCpp.ts` emits one indexed
-PROGMEM table per engine, and `_tftArt` blits the active row verbatim, cached
-by its clamped index so a pattern change repaints the square once. The
-browser preview caches and draws the result of the same conversion, so there is
-no device-side scaler or colour converter to drift from it.
+Now Playing (fed by a player) and Show Status (fed by a Pattern Slideshow)
+picture what the LEDs are showing. Nothing is baked. The engine's arm of the
+`display` envelope carries `picture`, the frame it composed this pass before
+any dimming, and the device streams its own `leds` composition canvas, which
+holds the same thing. A collection of any size is pictured, it moves, and it
+shows the pattern as it runs with its live settings rather than a still taken
+at a fixed tick.
 
-Show Status places the square with `showStatusGeometry(w, h).artwork`, centred
-in the band between the running rows and the bottom-anchored browsing block,
-so the text rows do not move: (72, 80) on 240×240, (72, 120) on 240×320 and
-(112, 80) on 320×240. It pictures the *running* pattern (`showPatternIndex`,
-published from the `_sel_show` cursor), matching the LEDs and the ordinal
-beside it, not a browsed candidate. Unlike Now Playing it draws no empty frame
-without a bake: an empty, unbaked or over-budget collection leaves the text
-layout exactly as it was, and the show sketch then emits no table, no
-`_tftArt` and no artwork cache slot. The preview gates on the same rule — a
-non-empty collection inside the budget — so it never shows a picture the device
-will not have.
+The picture sits in a fixed 96-pixel square (`TRANSPORT_PICTURE_W`/`H`), so
+the text rows never move with what the LEDs are. Inside its one-pixel frame,
+`transportPictureBox(width, height, frame)` places the canvas: at a whole
+number of pixels per LED when one fits, centred; a strip (beyond 4:1) fills the
+inside with each LED a band across it. Panel pixel (px, py) shows LED
+(px * width / w, py * height / h) by integer division, packed to RGB565 by
+truncation. `drawTransportPicture` in the preview and `_tftPicture` on the
+device are that one rule; the device is handed the box's numbers at
+generation, so the two cannot place the picture differently.
+
+On the device the picture costs no frame buffer and no flash per pattern:
+`_tftPicture` builds one row at a time in a 192-byte line buffer and sends it
+through `_tftWriteBytes`, the fourth bus primitive, as one SPI burst (a
+parallel panel is strobed a byte at a time). The square is about 18 KB, some
+4 ms at 40 MHz, so it is redrawn at most every
+`TRANSPORT_PICTURE_INTERVAL_MS` (100 ms), independent of the fixed fields'
+own cadence. That time on a shared SPI bus is the one new risk: an SD card
+streaming audio on the same host has to keep up around it, which is what the
+HW-11 audio-and-display coexistence gate exists to measure.
+
+Show Status places the square with `showStatusGeometry(w, h).picture`, centred
+in the band between the running rows and the bottom-anchored browsing block, so
+the text rows do not move: (72, 80) on 240×240, (72, 120) on 240×320 and
+(112, 80) on 320×240. Unlike Now Playing it draws no empty frame without a
+picture, so the text layout is exactly as it was. A browsed candidate is named,
+not pictured: only the running pattern exists on the LEDs. Now Playing in a
+normal sketch, where no player is computed, and on an SD player whose only
+pixels are VU rails, draws its empty frame.
 
 There is deliberately still no `image` input. That signal carries live
-`ImageData` capped at `IMAGE_MAX_DIM`; treating it as a baked collection asset
-would either need a second C++ scaler or make preview and firmware disagree.
-Eight artworks cost 144 KB and are the explicit flash ceiling. An over-budget
-collection bakes nothing rather than silently shipping only its first
-pictures. For Now Playing, which exists to picture the pattern, validation
-rejects it before upload; for Show Status, which was a complete text layout
-before it had pictures, validation warns and the build names each pattern
-without picturing it. Larger assets may later use SD,
-but only through an explicit storage policy.
+`ImageData` capped at `IMAGE_MAX_DIM`; the picture is the LED canvas the
+engine already owns, not an image routed to the panel.
 
 ## Bus rules
 
@@ -783,7 +785,8 @@ entry through a Text Entry and its keyboard, kept in RAM until restart; the
 remote/network UI as a [Web Remote](web-remote.md) node rather than a mirror of
 a panel, so it works on ESP8266 with no display; size and density limits from
 each panel's measured glass, as editor warnings rather than constraints; and
-Show Status artwork from the Slideshow's collection. Their contracts are in
+a live picture of the LEDs on Show Status and Now Playing, which replaced the
+eight-pattern baked artwork. Their contracts are in
 [custom screens](../development/patterns/custom-screens.md) and the
 [display reference](../reference/displays.md); none is bench-tested, and none
 is compiled until the v1-freeze compile run. A Spectrum in a show or SD player

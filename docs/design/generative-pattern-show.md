@@ -263,7 +263,7 @@ music-free case. Nobody would find that, so nobody did.
   The loop applies that bundle through `_selUpdate` before rendering and the
   renderer reads `cur` back out of the cursor, so a confirm changes the pixels.
   The cursor is emitted for anything that reads it (Pattern Browser, Show
-  Status, baked artwork) or commands it — a headless three-button build has no
+  Status) or commands it — a headless three-button build has no
   display half at all and still needs one.
 - **Master Speed changes motion, not the programme.** Slideshow intervals and
   transition durations are wall-clock seconds. The preview and generated

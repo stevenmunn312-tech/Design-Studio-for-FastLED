@@ -105,7 +105,7 @@ Three things this establishes that no compile could:
 
 - **A TFT-only Show Status build exists at all.** Until `1608c790` the layout
   read `_sel_show.highlight` and `_selBrowsing(_sel_show)` while the cursor was
-  declared only for an OLED Pattern Browser or baked artwork, so this exact
+  declared only for an OLED Pattern Browser or the then-baked artwork, so this exact
   graph did not compile (review F2).
 - **Pattern names do not depend on thumbnails.** With no OLED there is no
   thumbnail table in the sketch, and the name still rendered — the name table
@@ -135,13 +135,12 @@ What it establishes:
   SH1106 offset intact, in the same sketch that emits the TFT's name table.
 
 The TFT drew no picture on that bench because Show Status was then a
-text-only layout. Since D-02 it pictures the slideshow's running pattern from
-the same 96x96 RGB565 bake Now Playing uses (`artworkEngine` follows the
-`display` wire to either engine kind), and falls back to the text-only layout
-when the collection is unbaked or over the eight-artwork budget. That drawing
-is unit-tested for preview/firmware parity only; it has no bench row yet, so
-on glass it is experimental until a show sketch with baked Show Status
-artwork is checked on a panel.
+text-only layout. Since D-02 Show Status and Now Playing picture the LEDs
+live, streaming the show's or player's own `leds` canvas into a 96-pixel
+square ten times a second, for a collection of any size. That drawing is
+unit-tested for preview/firmware parity only; it has no bench row yet, so on
+glass it is experimental until it is checked on a panel, including with an SD
+card streaming audio on the same SPI bus.
 
 The panel was physically mounted upside down, which turned into a fourth
 result: setting the node's `tftRotation` to `180` corrected it on glass. That

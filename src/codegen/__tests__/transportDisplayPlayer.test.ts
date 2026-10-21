@@ -137,21 +137,17 @@ describe('the emitted player sketch', () => {
     expect(src).toContain('songPlaying()')
   })
 
-  it('carries baked artwork and follows the player selection', () => {
+  // Any size of collection: the panel streams the canvas the player composed,
+  // so nothing is baked and no table is emitted.
+  it('pictures the LED canvas the player composes', () => {
     const displays = resolve(
       [node('m', 'PatternMaster'), node('tft', 'TransportDisplay', { partId: PLAIN })],
       [edge('feed', 'm', 'display', 'tft', 'display')],
     )
-    const artwork = new Uint8Array(96 * 96 * 2)
-    artwork[0] = 0xf8
-    const baked = generatePlayerSketch({}, undefined, {
-      displays,
-      artworks: { player: [artwork] },
-    })
-    expect(baked).toContain('#define ART_COUNT_player 1')
-    expect(baked).toContain('static PatternSel _sel_player;')
-    expect(baked).toContain('_artData_player[_tftArtIndex_tft]')
-    expect(baked).toContain('_tftArtIndex_tft = _tftWhole(_sel_player.active)')
+    const src = generatePlayerSketch({}, undefined, { displays })
+    expect(src).toMatch(/_tftPicture\(_tft_tft, \d+, \d+, \d+, \d+, leds, \d+, \d+\);/)
+    expect(src).toContain('static void _tftPicture(')
+    expect(src).not.toContain('_artData_')
   })
 
   it('shows a wired title from the player', () => {

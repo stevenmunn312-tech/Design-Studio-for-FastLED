@@ -11,7 +11,6 @@ import { useProjectStore } from '../../state/projectStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
 import { collectionPatternNames } from '../../utils/patternNames'
-import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/sketches/streamReceiverGenerator'
@@ -156,11 +155,6 @@ export default function MatrixOutputDeployPopup({
       // a panel keeps naming patterns even where the pictures could not be made.
       patternNames: collectionPatternNames(
         codegenGraph.nodes, codegenGraph.edges, useGraphStore.getState().graphs,
-        codegenBuild.templateDisplaySourceIds ?? undefined,
-      ),
-      artworks: bakeDisplayArtworks(
-        codegenGraph.nodes, codegenGraph.edges, groups,
-        customAssets.trusted,
         codegenBuild.templateDisplaySourceIds ?? undefined,
       ),
       displayDocuments: customAssets.documents,

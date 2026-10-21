@@ -72,8 +72,6 @@ import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/p
 import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './displays/tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
-import type { TransportArtworks } from '../utils/transportArtworks'
-import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 
 /** The player's own selection. A player sketch has exactly one show. */
 import {
@@ -472,7 +470,7 @@ export function generatePlayerSketch(
     /** The palettes SET_PALETTE can name; only these reach `paletteFromId`. */
     paletteNames?: readonly string[]
     particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
-    thumbnails?: BrowserThumbnails; patternNames?: PatternNames; artworks?: TransportArtworks
+    thumbnails?: BrowserThumbnails; patternNames?: PatternNames
     stereoVuMeters?: StereoVuEmit[]
     bootLabel?: string; deviceLabel?: string
     controlGraph?: PlayerControlGraph; customDisplayAssets?: CustomDisplayAssets
@@ -1032,9 +1030,6 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     // `id` is the C identifier. Keeping both is what lets one map serve both
     // generators without either guessing at the other's naming.
     .map((display) => ({ id: safePlayerId(display.id), sourceId: display.id }))
-  const playerArtworks = Object.values(opts.artworks ?? {})[0] ?? []
-  const hasTftArtwork = displays.tft.some((display) => display.layout === 'Now Playing')
-    && playerArtworks.length > 0
   const hasPatternControls = !!graphRouting?.hasPatternControls || controlEntries.some(([action]) =>
     action === 'patternSelect' || action === 'patternPrevious'
     || action === 'patternNext' || action === 'patternConfirm')
@@ -1046,7 +1041,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // variable no line declares.
   const boundFields = graphRouting ? boundDisplaySourceFields(graphRouting.custom) : new Set<string>()
   const boundNames = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
-  const hasPatternSelection = browserEmits.length > 0 || hasPatternControls || hasTftArtwork
+  const hasPatternSelection = browserEmits.length > 0 || hasPatternControls
     || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS)
   const pickPrelude = pick.needsTable
     ? `${hasPatternSelection ? '' : `#define PATTERN_COUNT ${patternCount}\n`}${pick.prelude}\n`
@@ -1238,8 +1233,11 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     highlightNameExpr: null,
     highlightIndexExpr: '0.0f',
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
-    ...(display.layout === 'Now Playing' && playerArtworks.length > 0
-      ? { artwork: { tableStem: PLAYER_SELECTION_STEM, count: playerArtworks.length } }
+    // The LEDs as the player last composed them, streamed live: there is no
+    // picture to bake, so a collection of any size is pictured. A player whose
+    // only pixels are VU rails has no canvas worth showing.
+    ...(display.layout === 'Now Playing' && c.hasPrimaryLedOutput
+      ? { picture: { pixels: 'leds', width: c.ledWidth, height: c.ledHeight } }
       : {}),
   }))
 
@@ -1277,9 +1275,6 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftDisplayHelpersCpp(tftDisplayHelperProfile(tftEmits)) : '',
-    hasTftDisplays && playerArtworks.length > 0
-      ? transportArtworkTableCpp(PLAYER_SELECTION_STEM, playerArtworks)
-      : '',
     touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
     // `_resPoint` calls `_touchMap`, which lives in the block above, so it is
     // only ever appended after it — and only when a bare sheet is fitted,

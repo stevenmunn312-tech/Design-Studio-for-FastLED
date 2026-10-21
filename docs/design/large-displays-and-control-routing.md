@@ -109,7 +109,7 @@ Show Status reads pattern names from the sketch's own name table
 (`patternNameTableCpp`), not from a Pattern Browser's baked thumbnails: a name
 needs no bake, no trust decision and no flash budget, so a TFT-only show still
 names what it plays. Cursor emission is derived from every consumer — browser,
-Show Status, artwork, and anything commanding it — rather than from OLED
+Show Status, and anything commanding it — rather than from OLED
 presence.
 
 ### Readings without wires

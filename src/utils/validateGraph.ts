@@ -36,7 +36,6 @@ import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
 import { boardSparePins } from '../build/parts/partPinAssignment'
 import { browserThumbnailIssues } from './browserThumbnails'
-import { transportArtworkIssues } from './transportArtworks'
 import {
   controlChainDestinations, controlChainSinks, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
 } from '../codegen/player/playerDisplays'
@@ -3050,11 +3049,6 @@ export function findDisplayGeneratorIssues(
   // difference matters and only this message carries it.
   for (const { display, issue } of browserThumbnailIssues(nodes, edges, templateSourceIds)) {
     errors.push(`${nodeLabel(display)}: ${issue}`)
-  }
-  // Now Playing exists to picture the pattern and blocks without one; Show
-  // Status falls back to naming patterns, so its over-budget slideshow builds.
-  for (const { display, issue, blocking } of transportArtworkIssues(nodes, edges, templateSourceIds)) {
-    (blocking ? errors : warnings).push(`${nodeLabel(display)}: ${issue}`)
   }
 
   // Both template generators resolve a display's ports against what the

@@ -1530,6 +1530,8 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         kind: 'player',
         song: songInfo,
         selection: selectionValue,
+        // Undimmed, as the device's canvas is when its panel streams it.
+        picture: frame,
       } satisfies DisplaySignal,
     }
 
@@ -1666,7 +1668,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
 
     return {
       frame,
-      display: { kind: 'slideshow', selection: selectionValue } satisfies DisplaySignal,
+      display: { kind: 'slideshow', selection: selectionValue, picture: frame } satisfies DisplaySignal,
     }
   },
   Sequencer({ input, t, W, H }, id, props) {

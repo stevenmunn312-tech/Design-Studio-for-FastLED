@@ -39,13 +39,14 @@ versioning (`0.y.z`) until the first stable release.
   screen, the normal sketch, the show and the SD player all follow the same
   rule. A design saved with one screen loads as a single **Main** screen and
   builds exactly as before.
-- **Display Panel**'s **Show Status** layout now pictures the pattern a
-  Pattern Slideshow is running, between the running rows and the browsing
-  rows, from the same 96x96 artwork Now Playing uses. The preview and the
-  show sketch draw the same pixels in the same place on 240x240, 240x320 and
-  320x240 panels. A collection of more than eight patterns keeps the
-  text-only layout and the build warns instead of failing. Experimental on
-  glass until a bench row checks it on a panel.
+- **Display Panel**'s **Show Status** and **Now Playing** layouts picture the
+  LEDs live: the show or player streams its own LED canvas into the picture
+  square ten times a second, so the picture moves and a collection of any size
+  is pictured. This replaces Now Playing's baked artwork and its eight-pattern,
+  144 KB flash limit, and nothing is baked at upload any more. A browsed
+  pattern is named, not pictured. The preview and the device place and scale
+  the picture by one rule. Experimental on glass until a bench row checks it,
+  including beside an SD card on the same SPI bus.
 
 - **Pattern Collection** entries gain a weight from 0 to 16 (default 1),
   calm / lively / peak tags, and a restart or resume entry. Weight 0 is

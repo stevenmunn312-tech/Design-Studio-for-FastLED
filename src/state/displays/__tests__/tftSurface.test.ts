@@ -23,7 +23,6 @@ import {
   drawTftText,
   drawTftField,
   drawTftBar,
-  drawTftArtwork,
   tftBarFill,
   tftTextWidth,
   tftTextHeight,
@@ -393,33 +392,6 @@ describe('bars', () => {
     drawTftBar(surface, { x: 0, y: 0, w: 22, h: 8 }, 0.25, WHITE, track, RED)
     expect(getTftPixel(surface, 2, 4)).toBe(WHITE)
     expect(getTftPixel(surface, 18, 4)).toBe(track)
-  })
-})
-
-describe('artwork', () => {
-  const art = (w: number, h: number, color: number) => {
-    const bytes = new Uint8Array(w * h * TFT_BYTES_PER_PIXEL)
-    for (let i = 0; i < w * h; i++) {
-      bytes[i * 2] = (color >> 8) & 0xff
-      bytes[(i * 2) + 1] = color & 0xff
-    }
-    return bytes
-  }
-
-  // Big-endian pairs, the order the wire and a PROGMEM table both want, so the
-  // device blits finished bytes and needs no second implementation.
-  it('reads baked bytes as big-endian pairs', () => {
-    const surface = createTftSurface(8, 8)
-    drawTftArtwork(surface, 1, 1, 2, 2, art(2, 2, RED))
-    expect(getTftPixel(surface, 1, 1)).toBe(RED)
-    expect(getTftPixel(surface, 2, 2)).toBe(RED)
-    expect(getTftPixel(surface, 0, 0)).toBe(0)
-  })
-
-  it('draws as far as a short buffer reaches instead of throwing', () => {
-    const surface = createTftSurface(8, 8)
-    expect(() => drawTftArtwork(surface, 0, 0, 4, 4, art(2, 2, RED))).not.toThrow()
-    expect(litCount(surface)).toBeGreaterThan(0)
   })
 })
 

@@ -5,7 +5,6 @@ import { boardByFqbn, boardHasUsbCdc, engineReady, useUploadStore } from '../../
 import { useCapacityStore } from '../../state/upload/capacityStore'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
 import { collectionPatternNames } from '../../utils/patternNames'
-import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch } from '../../codegen/showGenerator'
 import { analysedShows, buildShowPlayerForMeasurement } from '../../utils/showUpload'
@@ -159,11 +158,6 @@ export default function CapacityWatcher() {
         // a panel keeps naming patterns even where the pictures could not be made.
         patternNames: collectionPatternNames(
           codegenGraph.nodes, codegenGraph.edges, graphs,
-          codegenBuild.templateDisplaySourceIds ?? undefined,
-        ),
-        artworks: bakeDisplayArtworks(
-          codegenGraph.nodes, codegenGraph.edges, groups,
-          customAssets.trusted,
           codegenBuild.templateDisplaySourceIds ?? undefined,
         ),
         displayDocuments: customAssets.documents,

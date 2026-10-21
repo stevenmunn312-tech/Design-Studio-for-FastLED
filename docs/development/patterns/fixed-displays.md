@@ -70,7 +70,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   feed a Show Status panel, and its rotation goes through `_selSetActive` on the
   one `_sel_show` cursor so a Pattern Browser and the pixels cannot disagree.
   That cursor is emitted for every *consumer* — a Pattern Browser, a Show Status
-  panel, baked artwork — and for anything that *commands* it, which is why
+  panel — and for anything that *commands* it, which is why
   `showSelectionCpp` lives in the generator rather than in the display half: a
   headless three-button build has no display half and still needs one.
   `showControlTargets` names the Pattern Slideshow itself as a control
@@ -210,31 +210,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Transport/Show Status layouts), `src/codegen/displays/tftDisplayCpp.ts` (driver) — and
   `TransportDisplay` is wired end to end: its preview in `src/nodes/output/evaluate.ts`,
   its firmware in both sketch generators, resolved player displays, controller
-  lookup, and RAM validation. Artwork is player-owned baked data rather than a
-  live `image` input: the collection and active index arrive inside the
-  `display` envelope's `player` arm, which carries
-  `selection: PatternSelectValue | null` beside the `SongInfo` (`SongInfo` has
-  neither a pattern name nor a collection identity, so a one-wire Now Playing
-  panel had nothing to caption artwork with — the player owns both readings and
-  publishes them together, so `artworkEngine` follows the one `display` edge
-  rather than guessing among metadata ports);
-  `src/utils/bakeTransportArtworks.ts` evaluates at a fixed tick and packs 96x96
-  big-endian RGB565; `src/utils/transportArtworks.ts` finds each panel/engine
-  route and enforces the eight-artwork flash budget;
-  `src/codegen/displays/transportArtworkCpp.ts` emits an indexed PROGMEM table; the
-  preview caches and draws the same converted bytes. Show Status pictures a
-  Pattern Slideshow's collection through the same bake: `artworkEngine` accepts
-  either engine kind and `ARTWORK_LAYOUT_KINDS` pairs each picturing layout with
-  the kind that owns its collection, so a new picturing layout is one entry
-  there, not a second baker. Three rules keep preview and firmware agreeing.
-  The show sketch's table, `_tftArt` and the artwork cache slot all hang off one
-  `showDrawsArtwork` answer, so none is emitted without the others. An unbaked
-  Show Status is the text layout, not Now Playing's empty frame, because the
-  firmware for it emits nothing to draw a frame with. And the preview gates its
-  picture on the bake's own rule (non-empty, within budget) rather than on
-  whether the group renders. Over budget, Now Playing is a blocking error and
-  Show Status only a warning (`TransportArtworkIssue.blocking`): pictures are
-  the point of the first, an extra on the second. It publishes a
+  lookup, and RAM validation. Now Playing and Show Status picture the LEDs
+  live rather than baked artwork: the engine's `display` arm carries
+  `picture`, its composed frame before dimming, and the device streams its own
+  `leds` canvas, which holds the same thing (see
+  [auxiliary displays](../../design/auxiliary-displays.md#the-picture-is-the-leds-streamed-live)).
+  `transportPictureBox` is the one placement, handed to the device as numbers,
+  and `drawTransportPicture`/`_tftPicture` the one nearest-LED rule, so the
+  preview and the glass cannot place or scale it differently. `_tftPicture`
+  and its `_tftWriteBytes` primitive are emitted only for a panel with a
+  `picture`, and the picture is paced by its own timestamp
+  (`TRANSPORT_PICTURE_INTERVAL_MS`), not by the fixed fields' dirty cache.
+  Show Status without a picture is the text layout, not Now Playing's empty
+  frame. A browsed pattern is named, never pictured. It publishes a
   `playercontrols` bundle for XPT2046 touch; terminal discovery therefore
   derives from input-bearing output-category nodes as well as ordinary
   output-less sinks, so an interactive display remains hot and remains a codegen
@@ -332,12 +320,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   paints once at setup. This driver needs `#include <SPI.h>` in normal sketches;
   the player already has one for SD.
 - The colour TFT driver's two transports (SPI and 8-bit parallel) sit behind one
-  bus abstraction in `tftDisplayCpp.ts`: `_tftTxnBegin`, `_tftTxnEnd` and
-  `_tftWrite8` are the only functions permitted to name `SPI.*`. Every writer
-  above them — `_tftCommand`, `_tftCommandData`, `_tftRun`, and the PROGMEM
-  artwork blitter `_tftArt` — reduces to the same
+  bus abstraction in `tftDisplayCpp.ts`: `_tftTxnBegin`, `_tftTxnEnd`,
+  `_tftWrite8` and, where a picture is drawn, `_tftWriteBytes` are the only
+  functions permitted to name `SPI.*`. Every writer above them — `_tftCommand`,
+  `_tftCommandData`, `_tftRun`, and the picture streamer `_tftPicture` —
+  reduces to the same
   open/command-byte-DC-low/data-bytes-DC-high/close shape and calls through
-  those three; a writer that names SPI directly still compiles and still works
+  those primitives; a writer that names SPI directly still compiles and still works
   on every SPI panel, failing only (and silently) on a parallel one.
   `src/codegen/__tests__/tftBusTransport.test.ts` derives this rule from the
   emitted C++ text — it attributes each line to its enclosing function and flags

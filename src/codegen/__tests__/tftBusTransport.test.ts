@@ -5,8 +5,9 @@
  * not a compile error: a writer that keeps calling SPI directly still builds,
  * still works on every SPI panel, and silently pushes bytes down a bus a
  * parallel shield has not got. That is exactly what happened while this was
- * being written - the artwork blitter `_tftArt` was missed on a first reading
- * because it sits four hundred lines below the other three writers - so the
+ * being written - the artwork blitter, since replaced by `_tftPicture`, was
+ * missed on a first reading because it sat four hundred lines below the other
+ * three writers - so the
  * check below derives the rule from the emitted text rather than listing the
  * writers it knows about.
  */
@@ -38,8 +39,8 @@ const parallelPanel = customDisplayPanelHelpersCpp(parallelEmit)
 const parallelSetup = customDisplayPanelSetupCpp(parallelEmit).join('\n')
 const CD_PRIMITIVES = ['_cdTxnBegin_panel', '_cdTxnEnd_panel', '_cdWrite8_panel']
 
-/** The bodies of the three functions allowed to name SPI. */
-const PRIMITIVES = ['_tftTxnBegin', '_tftTxnEnd', '_tftWrite8']
+/** The bodies of the four functions allowed to name SPI. */
+const PRIMITIVES = ['_tftTxnBegin', '_tftTxnEnd', '_tftWrite8', '_tftWriteBytes']
 
 /** Every emitted line, paired with the function it sits inside. */
 function linesByFunction(source: string): { fn: string; line: string; n: number }[] {
@@ -73,9 +74,9 @@ describe('the colour driver speaks through one bus abstraction', () => {
         .map(({ fn }) => fn)
         .filter((fn) => !PRIMITIVES.includes(fn)),
     )
-    // Command, command+data, colour run, and the artwork blit.
+    // Command, command+data, colour run, and the picture's command byte.
     expect(callers.size).toBeGreaterThanOrEqual(4)
-    for (const required of ['_tftCommand', '_tftCommandData', '_tftRun', '_tftArt']) {
+    for (const required of ['_tftCommand', '_tftCommandData', '_tftRun', '_tftPicture']) {
       expect(callers, `${required} must write through _tftWrite8`).toContain(required)
     }
   })

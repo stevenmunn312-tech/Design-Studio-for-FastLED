@@ -5,7 +5,6 @@
  * once, adds the per-node half for every node it emits, and dispatches by type.
  */
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import type { TransportArtworks } from '../utils/transportArtworks'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/displays/customDisplayResources'
 import type { OutputRoute } from '../state/output/outputRouting'
@@ -35,16 +34,10 @@ import type { CustomDisplayPanelEmit } from './displays/customDisplayPanelCpp'
  * a pattern-show body is not (every pattern renders through the same `leds`,
  * and a persistent-buffer node such as Trails would be clobbered by the other
  * pattern mid-transition), so showGenerator passes false.
- * `artworks`: a Pattern Browser cannot occur here: it is the Slideshow's
- * screen, and a Slideshow builds the show controller. So no thumbnail table,
- * no selection cursor, and no flash spent on either. Handed in rather than
- * baked here — baking evaluates patterns, and a text emitter has no business
- * doing that, nor any way to know whether the workspace has been trusted. See
- * utils/browserThumbnails.ts.
  * `displayDocuments`: the screen design a panel names (widgets, bounds,
  * theme) is not on the node — the node carries only its persisted ports and
  * physical/pin properties — so it has to be handed in, keyed by displayId, the
- * same way artworks is. `customDisplayAssets`: the finished per-widget PROGMEM
+ * same way thumbnails are. `customDisplayAssets`: the finished per-widget PROGMEM
  * bytes, keyed by node id. Upload/export and capacity checks prepare these
  * through useCustomDisplayAssets before generating. Low-level callers may omit
  * them to preview an incomplete document.
@@ -57,7 +50,6 @@ export interface GenerateCppOptions {
   groupInputExprs?: Record<string, string>
   psramAllowed?: boolean
   aliasTerminalBuffer?: boolean
-  artworks?: TransportArtworks
   bootLabel?: string
   displayDocuments?: DisplayDocumentRegistry
   customDisplayAssets?: Record<string, readonly BakedCustomDisplayAsset[]>

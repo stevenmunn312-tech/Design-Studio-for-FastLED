@@ -805,6 +805,8 @@ const requiredSymbols: Record<string, readonly string[]> = {
   show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftHigh_fixed_tft',
     // Master Speed takes its knob on its own Speed input, for the next pass.
     '_showAnimSpeed = constrain(n_math_result, 0.0f, 4.0f);',
+    // Show Status pictures the LEDs: the show's own canvas, streamed live.
+    'static void _tftPicture(', '_tftPicture(_tft_fixed_tft, ',
     '_cdSetText(_cd_screen[13], _patNameStr_show(_sel_show.active))', 'static char _patNameStr_show_buf[', '_cdSetChecked(_cd_screen[2], (bool)(_selBrowsing(_sel_show)))'],
   player: ['lv_display_set_default(_cdDisp_custom_tft)', 'char n_song_title[64]', '_cdSetText(_cd_screen[4], n_song_title)', 'audio.loop();',
     '_cdSetText(_cd_screen[13], songTitle)', '_cdSetChecked(_cd_screen[2], (bool)(songPlaying()))'],

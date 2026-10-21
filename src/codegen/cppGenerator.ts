@@ -34,7 +34,6 @@ import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_
 import { loopPacingCpp, withLoopPacing } from './loopPacing'
 import { withLedDriver } from './output/ledDriverCpp'
 import { selectedLedDriver } from '../build/ledDriverSelection'
-import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 import {
   type InfoDisplayEmit,
   INFO_DISPLAY_CPP_FORWARD,
@@ -856,7 +855,6 @@ export function generateCpp(
 
   const customDisplays: CustomDisplayLvglEmit[] = []
   const customDisplayPanels: CustomDisplayPanelEmit[] = []
-  const artworkTables = new Map<string, Uint8Array[]>()
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -1345,7 +1343,6 @@ export function generateCpp(
     if (tftTouches.length > 0) emitXptPointHelpersOnce()
     for (const touch of tftTouches) lines.push(tftTouchGlobalCpp(touch))
     for (const display of tftDisplays) lines.push(tftDisplayGlobalCpp(display))
-    for (const [id, artworks] of artworkTables) lines.push(transportArtworkTableCpp(id, artworks))
     lines.push(``)
   }
 

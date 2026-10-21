@@ -46,8 +46,8 @@ function performanceShow() {
     node('card', 'SDCard', {}),
     node('amp', 'Amplifier', {}),
     node('oled', 'InfoDisplay', { partId: 'ssd1306-oled-128x64-i2c', sdaPin: 21, sclPin: 22, i2cAddress: '0x3C' }),
-    // A colour panel too: its Now Playing screen names the pattern and draws
-    // its artwork, which is what puts the selection cursor in the sketch.
+    // A colour panel too: its Now Playing screen names the pattern and
+    // pictures the LEDs.
     node('tft', 'TransportDisplay', {
       partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
       csPin: 5, dcPin: 16, resetPin: 17, sckPin: 18, mosiPin: 23, backlightPin: 4,
@@ -98,11 +98,19 @@ describe('a performance show is an SD player', () => {
       .toEqual({ kind: 'button', pin: 12, pullup: true })
   })
 
-  it('follows the show file with the selection cursor a panel reads', () => {
+  it('follows the show file with the selection cursor a pattern control reads', () => {
     // The show schedules the patterns, so the cursor has to follow patternId.
-    // Left alone it stays at 0 and a browser names the first pattern for the
-    // whole song, while the LEDs play something else.
-    const { nodes, edges } = performanceShow()
+    // Left alone it stays at 0 and a Next press steps from the first pattern
+    // whatever the LEDs are playing. A pattern control is what needs the
+    // cursor here: the colour panel pictures the LEDs themselves.
+    const base = performanceShow()
+    const nodes = [
+      ...base.nodes.map((entry) => entry.id === 'controls'
+        ? node('controls', 'ControlMap', { controls: ['playPause', 'patternNext'] })
+        : entry),
+      node('next', 'ButtonInput', { pin: 13, pullup: true }),
+    ]
+    const edges = [...base.edges, edge('e7', 'next', 'pressed', 'controls', 'patternNext')]
     const build = resolveBuildMode(nodes, edges)
     const sketch = buildShowPlayer(nodes, edges, GROUPS, {
       patternSet: ['grp-a', 'grp-b'], bakedAudio: true, preferredTrack: '',

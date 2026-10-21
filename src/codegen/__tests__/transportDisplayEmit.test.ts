@@ -158,12 +158,11 @@ describe('what the loop draws', () => {
     expect(src).not.toContain('_tftProg_tft')
   })
 
-  // Referencing a table would name a symbol no generator declares here, which
-  // emittedSymbols.test.ts exists to catch.
-  it('names no artwork table in a normal sketch', () => {
+  // A player is not computed in a normal sketch, so there is no canvas of its
+  // to picture: the empty frame, and no streamer.
+  it('pictures nothing in a normal sketch', () => {
     const src = build({ tftLayout: 'Now Playing' })
-    expect(src).not.toContain('_artData_')
-    expect(src).not.toContain('_tftArt(_tft_tft,')
+    expect(src).not.toContain('_tftPicture')
   })
 
   it('switches the panel from a wired enable rather than the property', () => {
