@@ -292,6 +292,6 @@ export function reloadKnownContentForTests(): void {
  * nothing and cost real things: a Fits check that could not prepare display
  * images, with no banner anywhere to explain why or to undo it.
  */
-export function savedPatternUntrustsWorkspace(subgraph: GraphContent): boolean {
-  return !isContentKnown(subgraph.nodes)
+export function savedPatternUntrustsWorkspace(subgraph: GraphContent, groups: GroupRegistry = {}): boolean {
+  return !isContentKnown(subgraph.nodes, groups)
 }

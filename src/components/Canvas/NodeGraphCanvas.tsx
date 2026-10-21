@@ -34,7 +34,7 @@ import { touchControlDisplayId } from '../../state/player/wireFirstControls'
 import type { StudioEdge, StudioNode as StudioGraphNode } from '../../state/graphStore'
 import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore, visibleLiveTouchScreen } from '../../state/uiStore'
-import { usePatternLibrary } from '../../state/patterns/patternLibrary'
+import { usePatternLibrary, withRegisteredGroups } from '../../state/patterns/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible, spliceTargetPorts } from '../../state/nodeLibrary'
 import { exposableInputsFor, exposedNodeInputs } from '../../state/propertyInputs'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
@@ -1110,12 +1110,14 @@ function NodeGraphCanvasInner() {
         const hoveredId = hoveredNodeId(e.target)
         const hovered = hoveredId ? getNode(hoveredId) : undefined
         if (hovered && (hovered.data as { nodeType?: string }).nodeType === 'PatternCollection') {
-          addPatternToCollection(hovered.id, saved)
+          addPatternToCollection(hovered.id, withRegisteredGroups(saved))
           playNoodleConnectSfx()
           setStatus(`Added “${saved.name}” to the collection`, 'success')
           return
         }
-        instantiatePattern(saved, screenToFlowPosition({ x: e.clientX, y: e.clientY }))
+        // An imported pattern carries its nested groups; install them before
+        // the store clones the subgraph (no-op for a pattern made here).
+        instantiatePattern(withRegisteredGroups(saved), screenToFlowPosition({ x: e.clientX, y: e.clientY }))
         return
       }
 

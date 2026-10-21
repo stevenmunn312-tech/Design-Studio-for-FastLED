@@ -7,16 +7,25 @@
 
 import { create } from 'zustand'
 import { isGroupExcludedNodeType, useGraphStore } from '../graphStore'
-import type { StudioNode, StudioEdge } from '../graphStore'
+import type { GraphContent, StudioNode, StudioEdge } from '../graphStore'
+import type { GroupRegistry } from '../graphEvaluator'
 import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../../utils/backendClient'
 import { patternFormTags, type PatternFormTag } from './patternTags'
+import { isContentKnown } from './patternTrust'
 import {
   AUDIO_REACTIVE_CATEGORY_ID,
   BUNDLED_PATTERNS,
   STANDARD_CATEGORY_ID,
 } from './bundledPatterns'
 
-interface Port { id: string; label: string; dataType: string }
+export interface PatternPort { id: string; label: string; dataType: string }
+type Port = PatternPort
+
+/** Where a library entry came from. Absent means it was made on this machine
+ *  (or shipped with Studio, which `bundled` marks). An import is never
+ *  remembered as known content: trust is decided when it reaches the canvas,
+ *  exactly as for any dropped pattern (see docs/design/library-sharing.md). */
+export type PatternOrigin = 'imported' | 'link'
 
 interface SavePatternOptions {
   replaceByName?: boolean
@@ -49,6 +58,15 @@ export interface SavedPattern {
   bestOn?: PatternFormTag[]
   /** Curated release example: visible in the library but never disk-synced or edited. */
   bundled?: boolean
+  /** Subgraphs of the Group nodes nested inside `subgraph`, keyed by the group
+   *  id those nodes reference. Only present on a pattern that arrived from
+   *  elsewhere: a pattern made here resolves its nested groups through the
+   *  workspace's own `graphData`. `withRegisteredGroups` installs them (under
+   *  fresh ids when the originals are taken) before a drop. */
+  groups?: GroupRegistry
+  /** Set on a pattern that came in through a file, pasted JSON or a share link. */
+  origin?: PatternOrigin
+  importedAt?: number
 }
 
 export interface PatternCategory {
@@ -81,12 +99,16 @@ function canonicalize(value: unknown): unknown {
   )
 }
 
-function patternFingerprint(pattern: Omit<SavedPattern, 'id' | 'createdAt'>): string {
+/** What makes two library entries the same pattern: name, ports and content,
+ *  nested groups included. Shelf, tags, origin and timestamps are curation,
+ *  not content, so they never split one pattern into two. */
+export function patternFingerprint(pattern: Omit<SavedPattern, 'id' | 'createdAt'>): string {
   return JSON.stringify(canonicalize({
     name: pattern.name.trim(),
     inputs: pattern.inputs,
     outputs: pattern.outputs,
     subgraph: pattern.subgraph,
+    groups: pattern.groups,
   }))
 }
 
@@ -525,6 +547,92 @@ export function reconcilePatternsFromDisk(
   const diskPatterns = disk.filter((pattern) => !deletedIds.has(pattern.id))
   const pendingPatterns = local.filter((pattern) => upsertIds.has(pattern.id) && !deletedIds.has(pattern.id))
   return dedupePatterns([...diskPatterns, ...pendingPatterns]).patterns
+}
+
+function uniqueGroupId(base: string, used: Set<string>): string {
+  let candidate = base
+  let suffix = 1
+  while (used.has(candidate)) candidate = `${base}-${suffix++}`
+  used.add(candidate)
+  return candidate
+}
+
+function remapGroupRefs(content: GraphContent, idMap: Map<string, string>): GraphContent {
+  return {
+    nodes: content.nodes.map((node) => {
+      const props = node.data?.properties as { groupId?: unknown; patternIds?: unknown } | undefined
+      if (!props) return node
+      const groupId = typeof props.groupId === 'string' ? idMap.get(props.groupId) : undefined
+      const patternIds = Array.isArray(props.patternIds)
+        ? props.patternIds.map((id) => (typeof id === 'string' && idMap.has(id) ? idMap.get(id) : id))
+        : undefined
+      if (!groupId && !patternIds) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          properties: {
+            ...props,
+            ...(groupId ? { groupId } : {}),
+            ...(patternIds ? { patternIds } : {}),
+          },
+        },
+      }
+    }),
+    edges: content.edges,
+  }
+}
+
+/**
+ * Install a pattern's own nested-group subgraphs (`groups`, carried by a
+ * pattern that came from another machine) into the workspace, so the Group
+ * nodes inside its subgraph resolve once the pattern is dropped. Returns the
+ * pattern to hand to `instantiatePattern`, `createCollectionFromPatterns` or
+ * `addPatternsToCollection`, with its group references pointing at the ids
+ * actually registered; a pattern without `groups` is returned as is.
+ *
+ * Group ids are minted fresh whenever the workspace already uses them, so an
+ * import never overwrites a group this project owns. Registration happens in
+ * the same store update that lowers `trusted` when any nested content is
+ * unknown here — the graph store's trust subscription would otherwise
+ * remember foreign code as the user's own (see patternTrust.ts). The orphan
+ * sweep runs only after the store has been quiet for a second, so the drop
+ * that follows synchronously keeps the new groups reachable.
+ */
+export function withRegisteredGroups(saved: SavedPattern): SavedPattern {
+  const groups = saved.groups
+  if (!groups || Object.keys(groups).length === 0) return saved
+  const s = useGraphStore.getState()
+  const used = new Set([...Object.keys(s.graphs), ...Object.keys(s.graphData)])
+  const idMap = new Map<string, string>()
+  for (const id of Object.keys(groups)) idMap.set(id, uniqueGroupId(id, used))
+
+  // A nested group's display name lives on the Group node that references it.
+  const names = new Map<string, string>()
+  const collectNames = (content: GraphContent) => {
+    for (const node of content.nodes) {
+      const props = node.data?.properties as { groupId?: unknown } | undefined
+      if (node.data?.nodeType === 'Group' && typeof props?.groupId === 'string') {
+        names.set(props.groupId, String(node.data.label ?? 'Group'))
+      }
+    }
+  }
+  collectNames(saved.subgraph)
+  for (const content of Object.values(groups)) collectNames(content)
+
+  const graphData = { ...s.graphData }
+  const graphs = { ...s.graphs }
+  for (const [id, content] of Object.entries(groups)) {
+    const nextId = idMap.get(id)!
+    graphData[nextId] = remapGroupRefs(structuredClone(content), idMap)
+    graphs[nextId] = { id: nextId, name: names.get(id) ?? 'Group' }
+  }
+  useGraphStore.setState({
+    graphData,
+    graphs,
+    trusted: s.trusted && isContentKnown([], groups),
+  })
+  return { ...saved, subgraph: remapGroupRefs(saved.subgraph, idMap) }
 }
 
 /** Import a pattern from a dropped/uploaded `.json` file's parsed contents

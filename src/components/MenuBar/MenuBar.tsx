@@ -30,6 +30,15 @@ import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { openProjectDialog } from '../../utils/backendClient'
 import { landOnStartingWorkspace } from '../../utils/startFlow'
 import { buildShareUrl, shareUrlSizeWarning } from '../../utils/shareGraph'
+import {
+  bundledPatternFromLibrary,
+  importLibraryBundle,
+  libraryImportStatus,
+  parseLibraryBundle,
+  type LibraryImportSummary,
+} from '../../state/library/libraryBundle'
+import { usePatternLibrary } from '../../state/patterns/patternLibrary'
+import { downloadLibraryFile, libraryFileName } from '../../utils/libraryShare'
 import { isWorkspacePayload, sanitizeWorkspacePayload, workspaceLoadStatus } from '../../utils/workspacePayload'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
 import { captureSharePreview } from '../../utils/sharePreviewCapture'
@@ -143,6 +152,7 @@ export default function MenuBar() {
   const LAYOUT_PRESET_LABEL: Record<LayoutPresetId, string> = { build: 'Build', tune: 'Tune', preview: 'Preview' }
   const importInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
+  const libraryInputRef = useRef<HTMLInputElement>(null)
   const fileMenuRef = useRef<HTMLDivElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const navOverflow = useScrollOverflow(navRef)
@@ -392,6 +402,56 @@ export default function MenuBar() {
   }
 
   const handleLoadJSON = () => importInputRef.current?.click()
+  const handleImportLibrary = () => libraryInputRef.current?.click()
+
+  // Library bundles (and bare pattern files) add to the Pattern Library and
+  // the open project; they never replace the workspace, so no confirm. Nothing
+  // imported is remembered as known content (docs/design/library-sharing.md).
+  const handleLibraryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length === 0) return
+    void (async () => {
+      const summary: LibraryImportSummary = { patterns: 0, palettes: 0, collections: 0, renamed: [] }
+      let readable = 0
+      let firstError: string | null = null
+      for (const file of files) {
+        try {
+          const parsed = parseLibraryBundle(await file.text())
+          if (parsed.error !== undefined) {
+            firstError ??= parsed.error
+            continue
+          }
+          const part = importLibraryBundle(parsed.bundle, { origin: 'imported', position: useUiStore.getState().viewCenter })
+          summary.patterns += part.patterns
+          summary.palettes += part.palettes
+          summary.collections += part.collections
+          summary.renamed.push(...part.renamed)
+          readable += 1
+        } catch {
+          firstError ??= 'Not valid JSON'
+        }
+      }
+      if (readable > 0) setStatus(libraryImportStatus(summary), 'success')
+      else setStatus(`Nothing imported: ${firstError ?? 'no readable files'}`, 'error')
+    })()
+  }
+
+  // Every pattern the user saved (bundled examples ship with Studio already),
+  // nested groups included, as one library file.
+  const handleExportLibrary = () => {
+    const own = usePatternLibrary.getState().patterns.filter((pattern) => !pattern.bundled)
+    if (own.length === 0) {
+      setStatus('The Pattern Library has no saved patterns to export', 'info')
+      return
+    }
+    const graphData = useGraphStore.getState().graphData
+    downloadLibraryFile(
+      { patterns: own.map((pattern) => bundledPatternFromLibrary(pattern, graphData)) },
+      libraryFileName(currentProject?.name ? `${currentProject.name} library` : 'Pattern Library', 'library'),
+    )
+    setStatus(`Exported ${own.length} pattern${own.length === 1 ? '' : 's'} as a library file`, 'success')
+  }
   const handleOpenProjectFallback = () => {
     const picked = openProjectWithNativePicker()
     if (!picked) {
@@ -734,6 +794,14 @@ export default function MenuBar() {
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleSaveJSON() }}>
                 Export Graph JSON…
               </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleImportLibrary() }}
+                title="Add patterns, palettes or collections from a library bundle or pattern file to this Studio">
+                Import Library Bundle…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleExportLibrary() }}
+                title="Save every pattern you have saved to the Pattern Library as one file">
+                Export Library…
+              </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); openTemplates() }}>
                 Starter Templates…
               </button>
@@ -926,6 +994,15 @@ export default function MenuBar() {
           accept=".json"
           style={{ display: 'none' }}
           onChange={handleFileChange}
+        />
+        <input
+          ref={libraryInputRef}
+          type="file"
+          accept=".json,.fastled-library.json,.fastled-pattern.json,.fastled-collection.json,.fastled-palette.json"
+          multiple
+          style={{ display: 'none' }}
+          aria-label="Choose library bundle files"
+          onChange={handleLibraryFileChange}
         />
         <div className={styles.sep} />
         <div className={styles.liveTools} role="group" aria-label="Live performance tools">

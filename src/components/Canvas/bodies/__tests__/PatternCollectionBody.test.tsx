@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEvent, fireEvent, render } from '@testing-library/react'
+import { createEvent, fireEvent, render, waitFor } from '@testing-library/react'
 import PatternCollectionBody from '../PatternCollectionBody'
 import { useGraphStore } from '../../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../../state/nodeLibrary'
@@ -160,5 +160,53 @@ describe('PatternCollectionBody', () => {
     })
     const { queryByText } = render(<PatternCollectionBody nodeId="collection" />)
     expect(queryByText('Remove all')).toBeNull()
+  })
+
+  it('exports the collection as a library file with each pattern’s profile', () => {
+    const clicks: string[] = []
+    const spy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      clicks.push(`${this.download}|${decodeURIComponent(this.href.replace(/^data:[^,]*,/, ''))}`)
+    })
+    useGraphStore.setState({
+      graphData: {
+        'group-1': { nodes: [], edges: [] },
+        'group-2': { nodes: [], edges: [] },
+      },
+      nodes: [{
+        id: 'collection', type: 'studioNode', position: { x: 0, y: 0 },
+        data: nodeData('PatternCollection', {
+          patternIds: ['group-1', 'group-2'],
+          patternSections: { 'group-2': ['drop'] },
+          patternWeights: { 'group-1': 3 },
+        }),
+      }] as never,
+    })
+    try {
+      const { getByText } = render(<PatternCollectionBody nodeId="collection" />)
+      fireEvent.click(getByText('Export collection…'))
+      expect(clicks).toHaveLength(1)
+      const [name, json] = clicks[0].split('|')
+      expect(name).toBe('Pattern Collection.fastled-collection.json')
+      const bundle = JSON.parse(json) as { collections: { name: string; patterns: { name: string }[]; profiles: Record<string, unknown> }[] }
+      expect(bundle.collections[0].patterns.map((p) => p.name)).toEqual(['Pulse', 'Spark'])
+      expect(bundle.collections[0].profiles).toEqual({ '0': { weight: 3 }, '1': { sections: ['drop'] } })
+      expect(useUiStore.getState().statusText).toBe('Exported “Pattern Collection” with 2 patterns')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('copies a collection link to the clipboard', async () => {
+    const written: string[] = []
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (text: string) => { written.push(text) } },
+    })
+    useGraphStore.setState({ graphData: { 'group-1': { nodes: [], edges: [] }, 'group-2': { nodes: [], edges: [] } } })
+    const { getByText } = render(<PatternCollectionBody nodeId="collection" />)
+    fireEvent.click(getByText('Copy collection link'))
+    await waitFor(() => expect(written).toHaveLength(1))
+    expect(written[0]).toContain('#library=')
+    expect(useUiStore.getState().statusText).toBe('Collection link copied to clipboard')
   })
 })

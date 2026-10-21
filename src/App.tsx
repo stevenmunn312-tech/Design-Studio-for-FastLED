@@ -19,6 +19,7 @@ import { useMusicStore } from './state/player/musicStore'
 import { isMusicLibraryRestoring, waitForMusicLibraryRestore } from './state/player/musicLibraryPersistence'
 import { useProjectStore } from './state/projectStore'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
+import { clearLibraryHash, importLibraryBundle, libraryImportStatus, readLibraryHash } from './state/library/libraryBundle'
 import { workspaceLoadStatus } from './utils/workspacePayload'
 import { pushSnapshot } from './state/snapshotHistory'
 import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
@@ -258,6 +259,20 @@ export default function App() {
       if (cancelled) return
       workspaceHydrated.current = true
       useGraphStore.temporal.getState().clear()
+      // A `#library=` link adds to the Pattern Library and the open project
+      // rather than replacing anything, so it is read once the project is in
+      // place. Nothing it brings is remembered as known content: trust is
+      // decided when a pattern reaches the canvas (docs/design/library-sharing.md).
+      const libraryLink = readLibraryHash()
+      if (libraryLink) {
+        clearLibraryHash()
+        if (libraryLink.error !== undefined) {
+          useUiStore.getState().setStatus(`Library link could not be opened: ${libraryLink.error}`, 'error')
+        } else {
+          const summary = importLibraryBundle(libraryLink.bundle, { origin: 'link', position: useUiStore.getState().viewCenter })
+          useUiStore.getState().setStatus(libraryImportStatus(summary), 'success')
+        }
+      }
     }
     void init()
     return () => { cancelled = true }

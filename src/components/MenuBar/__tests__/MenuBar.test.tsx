@@ -15,6 +15,8 @@ import { MIC_NO_BOARD_MESSAGE, micUnsupportedMessage } from '../../../build/pins
 import { BOARD_PROFILES } from '../../../build/boards/boardProfiles'
 import { createDisplayDocument } from '../../../state/displays/displayEditor'
 import { usePerformanceDeckSession } from '../../../state/player/performanceDeckSessionStore'
+import { usePatternLibrary, type SavedPattern } from '../../../state/patterns/patternLibrary'
+import { exportLibraryBundle, bundledPatternFromLibrary } from '../../../state/library/libraryBundle'
 
 vi.mock('../../../utils/communityUpload', () => ({
   openCommunityTab: vi.fn().mockReturnValue({ target: 'design-studio-community-test', opened: true }),
@@ -1029,5 +1031,70 @@ describe('MenuBar file menu', () => {
     const shareUrl = dialog && 'initialValue' in dialog ? dialog.initialValue : undefined
     expect(shareUrl?.length ?? 0).toBeGreaterThan(SHARE_URL_WARN_BYTES)
     useUiStore.getState().resolveAppDialog()
+  })
+})
+
+describe('MenuBar library bundles', () => {
+  function savedPattern(id: string, name: string): SavedPattern {
+    return {
+      id,
+      name,
+      createdAt: 1,
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [], edges: [] },
+    }
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    usePatternLibrary.setState({ patterns: [], categories: [] })
+    useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null, graphData: {}, graphs: { root: { id: 'root', name: 'Main' } }, activeGraphId: 'root' })
+    useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+    useUiStore.setState({ viewCenter: { x: 0, y: 0 } })
+  })
+
+  it('imports a library bundle file into the Pattern Library without touching the workspace', async () => {
+    useGraphStore.setState({ nodes: [{
+      id: 'keep', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'SolidColor', nodeType: 'SolidColor', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+    }] as never[] })
+    const text = exportLibraryBundle({ patterns: [bundledPatternFromLibrary(savedPattern('pat-1', 'Shared Glow'), {})] })
+
+    const { container, getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Import Library Bundle…'))
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="Choose library bundle files"]')!
+    fireEvent.change(input, { target: { files: [new File([text], 'set.fastled-library.json', { type: 'application/json' })] } })
+
+    await waitFor(() => expect(usePatternLibrary.getState().patterns.map((p) => p.name)).toEqual(['Shared Glow']))
+    expect(usePatternLibrary.getState().patterns[0].origin).toBe('imported')
+    expect(authoredNodeIds()).toEqual(['keep'])
+    expect(useUiStore.getState().statusText).toBe('Imported 1 pattern')
+  })
+
+  it('exports the saved library, leaving bundled examples out', () => {
+    const clicks: string[] = []
+    const spy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      clicks.push(`${this.download}|${decodeURIComponent(this.href.replace(/^data:[^,]*,/, ''))}`)
+    })
+    usePatternLibrary.setState({ patterns: [
+      { ...savedPattern('bundled-1', 'Shipped'), bundled: true },
+      savedPattern('pat-1', 'Mine'),
+    ] })
+    try {
+      const { getByRole, getByText } = render(<MenuBar />)
+      fireEvent.click(getByRole('button', { name: 'File menu' }))
+      fireEvent.click(getByText('Export Library…'))
+      expect(clicks).toHaveLength(1)
+      const [name, json] = clicks[0].split('|')
+      expect(name).toBe('Pattern Library.fastled-library.json')
+      const bundle = JSON.parse(json) as { kind: string; patterns: { name: string }[] }
+      expect(bundle.kind).toBe('fastled-library')
+      expect(bundle.patterns.map((p) => p.name)).toEqual(['Mine'])
+      expect(useUiStore.getState().statusText).toBe('Exported 1 pattern as a library file')
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

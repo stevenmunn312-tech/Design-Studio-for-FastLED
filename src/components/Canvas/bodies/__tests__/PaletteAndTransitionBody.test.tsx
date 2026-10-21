@@ -78,6 +78,35 @@ describe('palette and transition node bodies', () => {
     expect(props.positions).toHaveLength(3)
   })
 
+  it('exports a CustomPalette as a palette file', () => {
+    const clicks: string[] = []
+    const spy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      clicks.push(`${this.download}|${decodeURIComponent(this.href.replace(/^data:[^,]*,/, ''))}`)
+    })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'cp',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: { ...nodeData('CustomPalette', { colors: ['#000000', '#ffffff'], positions: [0, 1] }), label: 'Mono' },
+      }],
+    })
+    try {
+      const { getByLabelText } = render(<CustomPaletteEditorBody nodeId="cp" />)
+      fireEvent.click(getByLabelText('Export palette'))
+      expect(clicks).toHaveLength(1)
+      const [name, json] = clicks[0].split('|')
+      expect(name).toBe('Mono.fastled-palette.json')
+      expect(JSON.parse(json)).toEqual({
+        kind: 'fastled-library',
+        version: 1,
+        palettes: [{ name: 'Mono', stops: [{ position: 0, color: '#000000' }, { position: 1, color: '#ffffff' }] }],
+      })
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('locks a wired Poline anchor swatch to its wire', () => {
     useGraphStore.setState({
       nodes: [{

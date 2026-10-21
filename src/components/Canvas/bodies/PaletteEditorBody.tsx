@@ -11,6 +11,9 @@ import {
   type RGB,
 } from '../../../state/palettes/customPalette'
 import { polinePalette } from '../../../state/palettes/polinePalette'
+import { useUiStore } from '../../../state/uiStore'
+import { buildLibraryBundle, sharedPaletteFromNode } from '../../../state/library/libraryBundle'
+import { copyLibraryLink, downloadLibraryFile, libraryFileName } from '../../../utils/libraryShare'
 import styles from './PaletteEditorBody.module.css'
 
 const CUSTOM_PRESETS = [
@@ -161,6 +164,39 @@ export function CustomPaletteEditorBody({ nodeId, topPlacement }: { nodeId: stri
     ;[positions[index], positions[other]] = [positions[other], positions[index]]
     save(colors, positions)
   }
+  // The palette as a library bundle entry, so it can travel as a file or a
+  // link and come back as a Custom Palette node (docs/design/library-sharing.md).
+  const sharedPalette = () => {
+    const node = useGraphStore.getState().nodes.find((n) => n.id === nodeId)
+    return node ? sharedPaletteFromNode(node) : null
+  }
+  const exportPalette = () => {
+    const palette = sharedPalette()
+    if (!palette) return
+    downloadLibraryFile({ palettes: [palette] }, libraryFileName(palette.name, 'palette'))
+    useUiStore.getState().setStatus(`Exported palette “${palette.name}”`, 'success')
+  }
+  const copyPaletteLink = async () => {
+    const palette = sharedPalette()
+    if (!palette) return
+    const result = await copyLibraryLink(buildLibraryBundle({ palettes: [palette] }))
+    const ui = useUiStore.getState()
+    if (!result.copied) {
+      await ui.requestPrompt({
+        title: 'Palette link',
+        message: 'Copy this link:',
+        inputLabel: 'Share URL',
+        initialValue: result.url,
+        readOnly: true,
+        selectText: true,
+        monospace: true,
+        confirmLabel: 'Close',
+        cancelLabel: null,
+      })
+      return
+    }
+    ui.setStatus('Palette link copied to clipboard', 'success')
+  }
   const add = () => {
     if (local.colors.length >= 8) return
     const position = 0.5
@@ -172,7 +208,11 @@ export function CustomPaletteEditorBody({ nodeId, topPlacement }: { nodeId: stri
     <div className={`nodrag ${topPlacement ? styles.wrapTop : styles.wrap}`}>
       <div className={styles.header}>
         <span>Palette stops</span>
-        <button type="button" className={styles.miniBtn} onClick={add} disabled={local.colors.length >= 8}>add</button>
+        <span className={styles.headerTools}>
+          <button type="button" className={styles.miniBtn} title="Export this palette as a file" aria-label="Export palette" onClick={exportPalette}>export</button>
+          <button type="button" className={styles.miniBtn} title="Copy a link that adds this palette to another Studio" aria-label="Copy palette link" onClick={() => void copyPaletteLink()}>link</button>
+          <button type="button" className={styles.miniBtn} onClick={add} disabled={local.colors.length >= 8}>add</button>
+        </span>
       </div>
       <div className={styles.rail} style={{ background: gradientCss }} data-testid="palette-preview-strip">
         {local.colors.map((color, i) => (

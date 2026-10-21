@@ -834,6 +834,49 @@
   font-weight: 700;
 }
 
+/* "Imported" badge: a pattern that came in through a file, pasted JSON or a
+   share link, so its first drop may ask about trust (see
+   docs/design/library-sharing.md). */
+.patternOrigin {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--accent-library) 40%, transparent);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 8px;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Library Import… popup: pasted link/JSON plus a file picker. */
+.libraryImport {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px;
+}
+
+.libraryImportText {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  resize: vertical;
+  background: var(--bg-primary);
+  border: 1px solid color-mix(in srgb, var(--accent-library) 40%, transparent);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+}
+
+.libraryImportRow {
+  display: flex;
+  gap: 6px;
+}
+
 .patternContextMenu {
   position: fixed;
   z-index: 180;

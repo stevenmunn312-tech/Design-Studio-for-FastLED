@@ -8,6 +8,8 @@ import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audio/audioStore'
 import { openCommunityTab, postToCommunityTab } from '../../../utils/communityUpload'
 import { captureSharePreview } from '../../../utils/sharePreviewCapture'
+import { buildLibraryBundle, buildLibraryLink, bundledPatternFromLibrary } from '../../../state/library/libraryBundle'
+import { clearPatternContentTrustForTests } from '../../../state/patterns/patternTrust'
 
 vi.mock('../../../utils/communityUpload', () => ({
   openCommunityTab: vi.fn().mockReturnValue({ target: 'design-studio-community-test', opened: true }),
@@ -338,5 +340,107 @@ describe('Sidebar community share', () => {
 
     await waitFor(() => expect(useUiStore.getState().requestConfirm).toHaveBeenCalled())
     expect(postToCommunityTab).not.toHaveBeenCalled()
+  })
+})
+
+describe('Sidebar library sharing', () => {
+  const clicks: string[] = []
+  let anchorClick: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    localStorage.clear()
+    clearPatternContentTrustForTests()
+    clicks.length = 0
+    useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null, graphs: { root: { id: 'root', name: 'Main' } }, graphData: {}, activeGraphId: 'root', trusted: true })
+    usePatternLibrary.setState({ patterns: [], categories: [] })
+    usePatternRatingStore.setState({ ratingsByPatternId: {}, userRatingsByPatternId: {}, intentOverridesByPatternId: {} })
+    useUiStore.setState({ viewCenter: { x: 0, y: 0 }, draggingNodeType: null, testSignal: false })
+    anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      clicks.push(this.download)
+    })
+  })
+
+  afterEach(() => anchorClick.mockRestore())
+
+  const openLibrary = (view: ReturnType<typeof render>) => {
+    fireEvent.click(view.getByRole('button', { name: /^Pattern Library/ }))
+  }
+
+  it('imports a dropped bare pattern file and a library bundle, marking them Imported', async () => {
+    const view = render(<Sidebar />)
+    openLibrary(view)
+    const dropZone = view.getByText('Drag pattern .json files here to import').closest('div[class]')!.parentElement!
+    const bare = new File([JSON.stringify(savedPattern('pat-bare', 'Bare Glow'))], 'glow.json', { type: 'application/json' })
+    const bundle = new File([JSON.stringify(buildLibraryBundle({
+      patterns: [bundledPatternFromLibrary(savedPattern('pat-bundle', 'Bundled Comet'), {})],
+      palettes: [{ name: 'Dusk', stops: [{ position: 0, color: '#000000' }, { position: 1, color: '#ffffff' }] }],
+    }))], 'set.fastled-library.json', { type: 'application/json' })
+
+    fireEvent.drop(dropZone, { dataTransfer: { files: [bare, bundle], types: ['Files'] } })
+
+    await waitFor(() => expect(usePatternLibrary.getState().patterns.map((p) => p.name)).toEqual(['Bare Glow', 'Bundled Comet']))
+    expect(usePatternLibrary.getState().patterns.every((p) => p.origin === 'imported')).toBe(true)
+    expect(useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'CustomPalette')?.data.label).toBe('Dusk')
+    expect(useUiStore.getState().statusText).toBe('Imported 2 patterns, 1 palette')
+
+    fireEvent.click(view.getByRole('button', { name: /New & Unsorted/ }))
+    expect(view.getAllByText('Imported')).toHaveLength(2)
+  })
+
+  it('exports the selected pattern as a one-pattern bundle file from the context menu', () => {
+    usePatternLibrary.setState({ patterns: [savedPattern('pat-1', 'Aurora Ribbon')] })
+    const view = render(<Sidebar />)
+    openLibrary(view)
+    fireEvent.click(view.getByRole('button', { name: /New & Unsorted/ }))
+    fireEvent.contextMenu(view.getByRole('option', { name: 'Aurora Ribbon' }))
+    fireEvent.click(view.getByRole('menuitem', { name: 'Export pattern file…' }))
+
+    expect(clicks).toEqual(['Aurora Ribbon.fastled-pattern.json'])
+    expect(useUiStore.getState().statusText).toBe('Exported “Aurora Ribbon”')
+  })
+
+  it('copies a share link for the selection and imports a pasted one through Import…', async () => {
+    const written: string[] = []
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (text: string) => { written.push(text) } },
+    })
+    usePatternLibrary.setState({ patterns: [savedPattern('pat-1', 'Aurora Ribbon')] })
+    const view = render(<Sidebar />)
+    openLibrary(view)
+    fireEvent.click(view.getByRole('button', { name: /New & Unsorted/ }))
+    fireEvent.contextMenu(view.getByRole('option', { name: 'Aurora Ribbon' }))
+    fireEvent.click(view.getByRole('menuitem', { name: 'Copy share link' }))
+    await waitFor(() => expect(written).toHaveLength(1))
+    expect(written[0]).toContain('#library=')
+    expect(useUiStore.getState().statusText).toBe('Pattern link copied to clipboard')
+
+    // A link for a different pattern, pasted into the library's Import popup.
+    const link = buildLibraryLink(buildLibraryBundle({
+      patterns: [bundledPatternFromLibrary(savedPattern('pat-2', 'Pasted Pulse'), {})],
+    }))
+    fireEvent.click(view.getByRole('button', { name: 'Import patterns, palettes or collections' }))
+    fireEvent.change(view.getByLabelText('Paste a share link or library JSON'), { target: { value: link } })
+    fireEvent.click(view.getByRole('button', { name: 'Import' }))
+
+    expect(usePatternLibrary.getState().patterns.map((p) => [p.name, p.origin])).toEqual([
+      ['Aurora Ribbon', undefined],
+      ['Pasted Pulse', 'link'],
+    ])
+    expect(view.queryByLabelText('Paste a share link or library JSON')).toBeNull()
+  })
+
+  it('closes the Import popup on Escape and reports unreadable text', () => {
+    const view = render(<Sidebar />)
+    openLibrary(view)
+    fireEvent.click(view.getByRole('button', { name: 'Import patterns, palettes or collections' }))
+    const box = view.getByLabelText('Paste a share link or library JSON')
+    fireEvent.change(box, { target: { value: 'nonsense' } })
+    fireEvent.click(view.getByRole('button', { name: 'Import' }))
+    expect(useUiStore.getState().statusText).toBe('Not valid JSON')
+    expect(usePatternLibrary.getState().patterns).toHaveLength(0)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(view.queryByLabelText('Paste a share link or library JSON')).toBeNull()
   })
 })

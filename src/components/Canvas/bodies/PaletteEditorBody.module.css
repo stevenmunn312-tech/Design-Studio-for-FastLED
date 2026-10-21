@@ -26,6 +26,11 @@
   font-size: var(--fs-caption);
 }
 
+.headerTools {
+  display: inline-flex;
+  gap: 4px;
+}
+
 .miniBtn,
 .preset,
 .stopTools button {

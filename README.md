@@ -192,6 +192,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Share Link** — a URL containing the workspace.
 - **Recovery Snapshot** — a recent browser-local restore point.
 - **Pattern** — a reusable saved Group in the Pattern Library.
+- **Library bundle** — patterns, palettes and pattern collections shared as a `.fastled-*.json` file, pasted JSON or a `#library=` link; it adds to your library and canvas rather than replacing a project. See [library sharing](docs/design/library-sharing.md).
 
 Everything that ships with Studio, and everything you make on your own computer, is trusted. A share link, file or pattern made on another computer can carry Formula/Code nodes or an Art-Net listener that Studio hasn't run on yours before; only those parts wait until you choose **Trust it**, and everything else runs normally. Studio remembers what you trust on that computer, for every project, so the same code is never asked about twice. Upload still asks first while something is untrusted, since generated firmware runs on your board with no sandbox around it.
 

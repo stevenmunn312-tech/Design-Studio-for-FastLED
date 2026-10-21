@@ -1,10 +1,19 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
-import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patterns/patternLibrary'
+import { usePatternLibrary, withRegisteredGroups, type SavedPattern } from '../../state/patterns/patternLibrary'
+import {
+  buildLibraryBundle,
+  bundledPatternFromLibrary,
+  importLibraryBundle,
+  libraryImportStatus,
+  parseLibraryBundle,
+  type LibraryImportSummary,
+} from '../../state/library/libraryBundle'
+import { copyLibraryLink, downloadLibraryFile, libraryFileName } from '../../utils/libraryShare'
 import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
 import PatternFormIcons from '../PatternTags/PatternFormIcons'
 
@@ -285,6 +294,7 @@ function Sidebar() {
   const ratingsByPatternId = usePatternRatingStore((s) => s.ratingsByPatternId)
   const userRatingsByPatternId = usePatternRatingStore((s) => s.userRatingsByPatternId)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
+  const requestPrompt = useUiStore((s) => s.requestPrompt)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
   const openHardwareShelf = useUiStore((s) => s.openHardwareShelf)
@@ -433,22 +443,106 @@ function Sidebar() {
     }
   }
   const handlePatternDragLeave = () => setPatternDragOver(false)
+  // Every import — a dropped file, the file picker, pasted JSON or a pasted
+  // share link — goes through the library bundle, so a bundle, a bare saved
+  // pattern and a community pattern JSON all land the same way. Nothing
+  // imported is remembered as known content: the trust question is asked
+  // when it reaches the canvas, as for any dropped pattern.
+  const importLibraryText = (text: string, into?: LibraryImportSummary): LibraryImportSummary | null => {
+    const parsed = parseLibraryBundle(text)
+    if (parsed.error !== undefined) return null
+    const summary = importLibraryBundle(parsed.bundle, { origin: 'imported', position: dropPos() })
+    if (!into) return summary
+    into.patterns += summary.patterns
+    into.palettes += summary.palettes
+    into.collections += summary.collections
+    into.renamed.push(...summary.renamed)
+    return into
+  }
+  const importLibraryFiles = async (list: ArrayLike<File>) => {
+    const files = Array.from(list).filter((f) => f.name.toLowerCase().endsWith('.json'))
+    const summary: LibraryImportSummary = { patterns: 0, palettes: 0, collections: 0, renamed: [] }
+    let readable = 0
+    for (const file of files) {
+      try {
+        if (importLibraryText(await file.text(), summary)) readable += 1
+      } catch {
+        // unreadable file — skip it
+      }
+    }
+    if (readable > 0) setStatus(libraryImportStatus(summary), 'success')
+    else if (files.length > 0) setStatus('No valid pattern or library files found', 'error')
+  }
   const handlePatternDrop = async (e: React.DragEvent) => {
     if (e.dataTransfer.files.length === 0) return
     e.preventDefault()
     setPatternDragOver(false)
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.toLowerCase().endsWith('.json'))
-    let imported = 0
-    for (const file of files) {
-      try {
-        const name = importPatternFile(JSON.parse(await file.text()))
-        if (name) imported++
-      } catch {
-        // not valid JSON / not a saved pattern — skip it
-      }
+    await importLibraryFiles(e.dataTransfer.files)
+  }
+
+  // The library's own Import… popup: a pasted share link or JSON, or a file.
+  const [libraryImportOpen, setLibraryImportOpen] = useState(false)
+  const [libraryImportDraft, setLibraryImportDraft] = useState('')
+  const libraryFileInputRef = useRef<HTMLInputElement>(null)
+  const closeLibraryImport = () => {
+    setLibraryImportOpen(false)
+    setLibraryImportDraft('')
+  }
+  useEscapeLayer(closeLibraryImport, libraryImportOpen)
+  const commitLibraryImport = () => {
+    const text = libraryImportDraft.trim()
+    if (!text) return
+    const parsed = parseLibraryBundle(text)
+    if (parsed.error !== undefined) {
+      setStatus(parsed.error, 'error')
+      return
     }
-    if (imported > 0) setStatus(`Imported ${imported} pattern${imported === 1 ? '' : 's'}`, 'success')
-    else if (files.length > 0) setStatus('No valid pattern files found in drop', 'error')
+    const summary = importLibraryBundle(parsed.bundle, { origin: text.includes('#library=') ? 'link' : 'imported', position: dropPos() })
+    setStatus(libraryImportStatus(summary), 'success')
+    closeLibraryImport()
+  }
+  const handleLibraryFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+    void importLibraryFiles(files).finally(() => {
+      event.target.value = ''
+      closeLibraryImport()
+    })
+  }
+
+  const exportPatterns = (chosen: SavedPattern[]) => {
+    if (chosen.length === 0) return
+    const graphData = useGraphStore.getState().graphData
+    const name = chosen.length === 1 ? chosen[0].name : `${chosen.length} patterns`
+    downloadLibraryFile(
+      { patterns: chosen.map((pattern) => bundledPatternFromLibrary(pattern, graphData)) },
+      libraryFileName(name, chosen.length === 1 ? 'pattern' : 'library'),
+    )
+    setStatus(chosen.length === 1 ? `Exported “${chosen[0].name}”` : `Exported ${chosen.length} patterns`, 'success')
+    setPatternContextMenu(null)
+  }
+
+  const copyPatternLink = async (chosen: SavedPattern[]) => {
+    if (chosen.length === 0) return
+    setPatternContextMenu(null)
+    const graphData = useGraphStore.getState().graphData
+    const bundle = buildLibraryBundle({ patterns: chosen.map((pattern) => bundledPatternFromLibrary(pattern, graphData)) })
+    const result = await copyLibraryLink(bundle)
+    if (!result.copied) {
+      await requestPrompt({
+        title: 'Pattern link',
+        message: result.warning ?? 'Copy this link:',
+        inputLabel: 'Share URL',
+        initialValue: result.url,
+        readOnly: true,
+        selectText: true,
+        monospace: true,
+        confirmLabel: 'Close',
+        cancelLabel: null,
+      })
+      return
+    }
+    setStatus(result.warning ?? 'Pattern link copied to clipboard', result.warning ? 'info' : 'success')
   }
 
   const handleRevealFolder = async () => {
@@ -513,7 +607,10 @@ function Sidebar() {
     x: viewCenter.x + (Math.random() - 0.5) * 80,
     y: viewCenter.y + (Math.random() - 0.5) * 80,
   })
-  const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, dropPos(), true)
+  // `withRegisteredGroups` installs the nested groups an imported pattern
+  // carries before the store clones its subgraph; a pattern made here is
+  // returned untouched.
+  const handleAddPattern = (p: SavedPattern) => instantiatePattern(withRegisteredGroups(p), dropPos(), true)
   const handleCreateCollection = () => {
     const chosen = selectedPatternIds.size > 0
       ? patterns.filter((pattern) => selectedPatternIds.has(pattern.id))
@@ -528,7 +625,7 @@ function Sidebar() {
       return
     }
     createCollectionFromPatterns(
-      chosen,
+      chosen.map(withRegisteredGroups),
       dropPos(),
       resolveDefaultProperties(def.type, def.defaultProperties),
       true,
@@ -561,7 +658,9 @@ function Sidebar() {
     // A saved pattern can itself contain Group nodes referencing other saved
     // groups — carry their content alongside the subgraph so the site can
     // resolve them, instead of leaving unresolvable references behind.
-    const groups = reachableGroupRegistry(pattern.subgraph.nodes, useGraphStore.getState().graphData)
+    // An imported pattern carries its own nested groups (`groups`) rather than
+    // relying on this workspace's graphData, so they resolve from either.
+    const groups = reachableGroupRegistry(pattern.subgraph.nodes, { ...useGraphStore.getState().graphData, ...(pattern.groups ?? {}) })
     const patternJson = JSON.stringify({ name: pattern.name, subgraph: pattern.subgraph, groups })
     if (new Blob([patternJson]).size > 2 * 1024 * 1024) {
       setStatus('This pattern is over the community upload limit of 2 MB', 'error')
@@ -720,7 +819,7 @@ function Sidebar() {
   const addSelectedPatternsToCanvas = () => {
     selectedPatterns.forEach((pattern, index) => {
       const position = dropPos()
-      instantiatePattern(pattern, { x: position.x + index * 24, y: position.y + index * 18 }, true)
+      instantiatePattern(withRegisteredGroups(pattern), { x: position.x + index * 24, y: position.y + index * 18 }, true)
     })
     setStatus(`Added ${selectedPatterns.length} pattern${selectedPatterns.length === 1 ? '' : 's'} to the canvas`, 'success')
     setPatternContextMenu(null)
@@ -728,7 +827,7 @@ function Sidebar() {
 
   const addSelectedPatternsToCollection = (collectionNodeId: string) => {
     if (selectedPatterns.length === 0) return
-    addPatternsToCollection(collectionNodeId, selectedPatterns)
+    addPatternsToCollection(collectionNodeId, selectedPatterns.map(withRegisteredGroups))
     setStatus(`Added ${selectedPatterns.length} pattern${selectedPatterns.length === 1 ? '' : 's'} to the collection`, 'success')
     setPatternContextMenu(null)
   }
@@ -1055,7 +1154,7 @@ function Sidebar() {
               title={renaming
                 ? undefined
                 : `${pattern.name}
-${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNames(tags)} · ` : ''}Click to select · double-click to add · drag to place`}
+${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pattern.origin === 'link' ? ' from a share link' : ''} · ` : ''}${tags.length ? `Best on ${tagNames(tags)} · ` : ''}Click to select · double-click to add · drag to place`}
             >
               {renaming ? (
                 <input
@@ -1074,6 +1173,14 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNam
               ) : (
                 <>
                   <span className={styles.patternName}>{pattern.name}</span>
+                  {pattern.origin && (
+                    <span
+                      className={styles.patternOrigin}
+                      title={pattern.origin === 'link' ? 'Imported from a share link' : 'Imported from a file or pasted JSON'}
+                    >
+                      Imported
+                    </span>
+                  )}
                   <PatternFormIcons bestOn={pattern.bestOn} />
                   {rating && (
                     <span
@@ -1321,6 +1428,19 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNam
             </button>
             <button
               className={styles.revealBtn}
+              type="button"
+              aria-label="Import patterns, palettes or collections"
+              title="Import a pattern file, library bundle, pasted JSON or share link"
+              aria-expanded={libraryImportOpen}
+              onClick={() => {
+                if (expandedId !== 'library') toggle('library')
+                setLibraryImportOpen((open) => !open)
+              }}
+            >
+              ⤒
+            </button>
+            <button
+              className={styles.revealBtn}
               aria-label="Reveal saved-pattern folder"
               title="Reveal saved-pattern folder on disk"
               onClick={handleRevealFolder}
@@ -1365,6 +1485,46 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNam
                     }}
                   />
                   <button className={styles.shelfConfirmBtn} type="button" onClick={commitPatternCategory}>Add</button>
+                </div>
+              )}
+              {libraryImportOpen && (
+                <div className={styles.libraryImport} role="group" aria-label="Import into Pattern Library">
+                  <textarea
+                    className={`${styles.libraryImportText} nodrag`}
+                    value={libraryImportDraft}
+                    autoFocus
+                    rows={3}
+                    aria-label="Paste a share link or library JSON"
+                    placeholder="Paste a share link or pattern JSON…"
+                    onChange={(event) => setLibraryImportDraft(event.target.value)}
+                  />
+                  <div className={styles.libraryImportRow}>
+                    <button
+                      className={styles.shelfConfirmBtn}
+                      type="button"
+                      disabled={!libraryImportDraft.trim()}
+                      onClick={commitLibraryImport}
+                    >
+                      Import
+                    </button>
+                    <button
+                      className={styles.shelfConfirmBtn}
+                      type="button"
+                      onClick={() => libraryFileInputRef.current?.click()}
+                    >
+                      Choose file…
+                    </button>
+                    <button className={styles.shelfConfirmBtn} type="button" onClick={closeLibraryImport}>Cancel</button>
+                    <input
+                      ref={libraryFileInputRef}
+                      type="file"
+                      accept=".json,.fastled-pattern.json,.fastled-library.json,.fastled-collection.json,.fastled-palette.json"
+                      multiple
+                      style={{ display: 'none' }}
+                      aria-label="Choose pattern or library files"
+                      onChange={handleLibraryFileChange}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1473,6 +1633,25 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNam
         <button type="button" role="menuitem" onClick={createCollectionFromSelection}>
           <span aria-hidden="true">◇</span>
           New collection
+        </button>
+        <div className={styles.patternContextDivider} />
+        <button
+          type="button"
+          role="menuitem"
+          title="Save the selection as a pattern file you can send to someone, nested groups included"
+          onClick={() => exportPatterns(selectedPatterns)}
+        >
+          <span aria-hidden="true">⤓</span>
+          Export pattern file…
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          title="Copy a link that imports the selection into another Studio's Pattern Library"
+          onClick={() => void copyPatternLink(selectedPatterns)}
+        >
+          <span aria-hidden="true">⛓</span>
+          Copy share link
         </button>
         <div className={styles.patternContextDivider} />
         <div className={styles.patternContextLabel}>Best displayed on</div>

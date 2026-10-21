@@ -6,6 +6,8 @@ import { useCapacityStore } from '../../../state/upload/capacityStore'
 import { capacityDelta, formatCapacityDelta } from '../../../utils/capacityFormat'
 import { shouldConsumeWheel } from '../wheelBehavior'
 import PatternCollectionPicker from '../../PatternCollection/PatternCollectionPicker'
+import { buildLibraryBundle, sharedCollectionFromNode } from '../../../state/library/libraryBundle'
+import { copyLibraryLink, downloadLibraryFile, libraryFileName } from '../../../utils/libraryShare'
 import ClampedNumberInput from '../ClampedNumberInput'
 import {
   ENERGY_BANDS, PATTERN_WEIGHT_DEFAULT, PATTERN_WEIGHT_MAX, PATTERN_WEIGHT_MIN,
@@ -53,6 +55,8 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   const removeFromCollection = useGraphStore((s) => s.removeFromCollection)
   const clearCollection = useGraphStore((s) => s.clearCollection)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
+  const requestPrompt = useUiStore((s) => s.requestPrompt)
+  const setStatus = useUiStore((s) => s.setStatus)
   const togglePatternSection = useGraphStore((s) => s.togglePatternSection)
   const setPatternSections = useGraphStore((s) => s.setPatternSections)
 
@@ -104,6 +108,47 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
       tone: 'danger',
     })
     if (ok) clearCollection(nodeId)
+  }
+
+  // The collection as a library bundle: every pattern with its subgraph and
+  // nested groups, plus the show profile kept for each (see
+  // docs/design/library-sharing.md).
+  function sharedCollection() {
+    const node = useGraphStore.getState().nodes.find((n) => n.id === nodeId)
+    const collection = node ? sharedCollectionFromNode(node) : null
+    if (!collection || collection.patterns.length === 0) {
+      setStatus('This collection has no patterns to share yet', 'error')
+      return null
+    }
+    return collection
+  }
+
+  function handleExport() {
+    const collection = sharedCollection()
+    if (!collection) return
+    downloadLibraryFile({ collections: [collection] }, libraryFileName(collection.name, 'collection'))
+    setStatus(`Exported “${collection.name}” with ${collection.patterns.length} pattern${collection.patterns.length === 1 ? '' : 's'}`, 'success')
+  }
+
+  async function handleCopyLink() {
+    const collection = sharedCollection()
+    if (!collection) return
+    const result = await copyLibraryLink(buildLibraryBundle({ collections: [collection] }))
+    if (!result.copied) {
+      await requestPrompt({
+        title: 'Collection link',
+        message: result.warning ?? 'Copy this link:',
+        inputLabel: 'Share URL',
+        initialValue: result.url,
+        readOnly: true,
+        selectText: true,
+        monospace: true,
+        confirmLabel: 'Close',
+        cancelLabel: null,
+      })
+      return
+    }
+    setStatus(result.warning ?? 'Collection link copied to clipboard', result.warning ? 'info' : 'success')
   }
 
   return (
@@ -210,6 +255,26 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
           </button>
         )}
       </div>
+      {patternIds.length > 0 && (
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.shareBtn}
+            title="Save this collection as a file: every pattern with its show profile"
+            onClick={handleExport}
+          >
+            Export collection…
+          </button>
+          <button
+            type="button"
+            className={styles.shareBtn}
+            title="Copy a link that recreates this collection in another Studio"
+            onClick={() => void handleCopyLink()}
+          >
+            Copy collection link
+          </button>
+        </div>
+      )}
       <div className={styles.count}>{patternIds.length} pattern{patternIds.length === 1 ? '' : 's'}</div>
       {deltaText && (
         <div className={styles.delta} title="Change in measured controller capacity since the last live check on this board">

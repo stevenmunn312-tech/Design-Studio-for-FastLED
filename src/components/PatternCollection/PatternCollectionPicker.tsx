@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { usePatternLibrary, type SavedPattern } from '../../state/patterns/patternLibrary'
+import { usePatternLibrary, withRegisteredGroups, type SavedPattern } from '../../state/patterns/patternLibrary'
 import PatternFormIcons from '../PatternTags/PatternFormIcons'
 import { outputRoutes } from '../../state/output/outputRouting'
 import {
@@ -216,7 +216,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const addSelected = () => {
     const chosen = patterns.filter((pattern) => selected.has(pattern.id) && !existingSourceIds.has(pattern.id))
     if (chosen.length === 0) return
-    addPatternsToCollection(collectionNodeId, chosen)
+    addPatternsToCollection(collectionNodeId, chosen.map(withRegisteredGroups))
     setStatus(`Added ${chosen.length} pattern${chosen.length === 1 ? '' : 's'} to the collection`, 'success')
     onClose()
   }

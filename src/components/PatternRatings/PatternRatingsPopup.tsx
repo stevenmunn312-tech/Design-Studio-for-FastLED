@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
-import { usePatternLibrary, type SavedPattern } from '../../state/patterns/patternLibrary'
+import { usePatternLibrary, withRegisteredGroups, type SavedPattern } from '../../state/patterns/patternLibrary'
 import { getGroupRegistry, matrixDims, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import {
   PATTERN_INTENTS,
@@ -282,7 +282,7 @@ export default function PatternRatingsPopup() {
     if (chosen.length === 0) return setStatus('Select at least one pattern first', 'error')
     const def = NODE_LIBRARY.find((node) => node.type === 'PatternCollection')
     if (!def) return setStatus('Pattern Collection node is unavailable', 'error')
-    createCollectionFromPatterns(chosen, {
+    createCollectionFromPatterns(chosen.map(withRegisteredGroups), {
       x: viewCenter.x + (Math.random() - 0.5) * 80,
       y: viewCenter.y + (Math.random() - 0.5) * 80,
     }, resolveDefaultProperties(def.type, def.defaultProperties), true)

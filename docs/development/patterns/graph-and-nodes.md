@@ -36,7 +36,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   bringing unknown content *in* must set `trusted: false` in the same update, or
   the subscription will remember foreign code as the user's own — the pattern
   drops do so through `savedPatternUntrustsWorkspace`, and a paste does so
-  through the clipboard's `fromUntrusted` flag. Every Trust button calls
+  through the clipboard's `fromUntrusted` flag. An imported pattern can carry
+  its nested groups (`SavedPattern.groups`); `withRegisteredGroups`
+  (`patternLibrary.ts`) installs them under free ids and lowers `trusted` in
+  that same update when any of them is unknown, so every drop site must pass
+  a library pattern through it before the store action. A library import
+  never calls `rememberContent`; see
+  [library sharing](../../design/library-sharing.md). Every Trust button calls
   `trustCurrentProject` (`src/utils/trustPrompt.ts`). A test that needs an
   untrusted project must give it unknown gated content and call
   `clearPatternContentTrustForTests`; `trusted: false` on its own is corrected

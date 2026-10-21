@@ -9,6 +9,7 @@ import {
   isContentKnown,
   rememberContent,
   reloadKnownContentForTests,
+  savedPatternUntrustsWorkspace,
 } from '../patternTrust'
 import type { GraphContent, StudioNode, StudioEdge } from '../../graphStore'
 
@@ -182,5 +183,22 @@ describe('workspaceTrustHolds', () => {
     const dmx = content([node('d', 'DMXInput', { inputMode: 'Art-Net' })])
     expect(patternNeedsTrust(dmx)).toBe(false)
     expect(workspaceNeedsTrust(dmx.nodes)).toBe(true)
+  })
+})
+
+describe('savedPatternUntrustsWorkspace', () => {
+  it('ignores a pattern of ordinary nodes, at any depth', () => {
+    const subgraph = content([node('g', 'Group', { groupId: 'inner' })])
+    const groups = { inner: content([node('n', 'Noise')]) }
+    expect(savedPatternUntrustsWorkspace(subgraph, groups)).toBe(false)
+  })
+
+  it('walks the pattern’s own nested groups for unknown code', () => {
+    const subgraph = content([node('g', 'Group', { groupId: 'inner' })])
+    const groups = { inner: content([node('c', 'Code', { code: 'x' })]) }
+    expect(savedPatternUntrustsWorkspace(subgraph)).toBe(false)
+    expect(savedPatternUntrustsWorkspace(subgraph, groups)).toBe(true)
+    rememberContent(groups.inner.nodes)
+    expect(savedPatternUntrustsWorkspace(subgraph, groups)).toBe(false)
   })
 })
