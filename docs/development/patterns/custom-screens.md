@@ -332,6 +332,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the device) so a steady input never fights a button, and the first pass
   always applies. The live screen per glass is `activeScreens` in
   `displayRuntimeStore`; `DisplayRuntimeWidgets` draws only that screen.
+- **A Text Entry's output is confirmed text.** The `lv_textarea` holds what is
+  being typed; the runtime's `text` takes it only on the keyboard's
+  `LV_EVENT_READY` (or the one-line field's own READY on Enter), and CANCEL
+  puts the field back from `text`, so `_cdTextOutput` never carries half a word
+  and the preview's Run field commits on Enter the same way. The finger owns
+  the field while the keyboard is open, so a Set never overwrites typing. One
+  keyboard per panel (`_cdKeyboard_<id>`), created before any field because
+  each field names it as its callback's user data, and re-parented to the
+  tapped field's screen so it never shows over another screen. The field's
+  runtime is its LVGL user data. Text outputs are `const char *` samples of
+  that bounded buffer in all three generators, resting at `""`. The keyboard
+  modules are switched on per sketch by `// FLS-LVGL-WIDGETS:keyboard`
+  (`_LVGL_WIDGET_MODULES` in `backend/toolchain.py`), the widget twin of the
+  font marker; keep the marker, the map and `test_scaffold_writes.py` in step.
 - **List order is paint order and LVGL tree order.** `document.widgets` draws
   later over earlier in every renderer, and each Container is followed at once
   by its children (`orderDisplayWidgetTree`, applied by normalize and by every

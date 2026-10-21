@@ -355,6 +355,15 @@ _LV_CONF_TEXT = """\
 
 _LVGL_FONT_SIZES = tuple(range(8, 50, 2))
 _LVGL_FONT_MARKER_RE = re.compile(r"^// FLS-LVGL-FONTS:([0-9,]+)$", re.MULTILINE)
+# Widgets a screen design uses beyond the always-on set, named by the
+# generated `// FLS-LVGL-WIDGETS:` marker. Each name switches on the LVGL
+# modules it needs, so a design without a text field or a chart compiles
+# none of them. Unknown names are ignored.
+_LVGL_WIDGET_MODULES: dict[str, tuple[str, ...]] = {
+    "keyboard": ("KEYBOARD", "BUTTONMATRIX", "TEXTAREA"),
+    "chart": ("CHART",),
+}
+_LVGL_WIDGET_MARKER_RE = re.compile(r"^// FLS-LVGL-WIDGETS:([a-z,]+)$", re.MULTILINE)
 
 
 def _lv_conf_for_sketch(ino: str) -> str:
@@ -377,6 +386,14 @@ def _lv_conf_for_sketch(ino: str) -> str:
         "#define LV_FONT_DEFAULT &lv_font_montserrat_14",
         f"#define LV_FONT_DEFAULT &lv_font_montserrat_{min(requested)}",
     )
+    modules = {
+        module
+        for marker in _LVGL_WIDGET_MARKER_RE.findall(ino)
+        for name in marker.split(",")
+        for module in _LVGL_WIDGET_MODULES.get(name, ())
+    }
+    for module in sorted(modules):
+        config = config.replace(f"#define LV_USE_{module} 0", f"#define LV_USE_{module} 1")
     return config
 
 

@@ -30,6 +30,7 @@ export const DISPLAY_WIDGET_TYPES = [
   'Arc Gauge',
   'Marquee',
   'Container',
+  'Text Entry',
 ] as const
 
 export type DisplayWidgetType = (typeof DISPLAY_WIDGET_TYPES)[number]

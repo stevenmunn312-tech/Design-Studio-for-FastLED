@@ -13,6 +13,7 @@ import {
   displayControlHitBounds,
   displayControlRange,
   displayPickerColor,
+  displayTextEntryClamp,
   displayPickerHueAt,
   displayStepKeyWidth,
   displayWidgetContentBounds,
@@ -65,6 +66,10 @@ function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease, onNa
   const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
   const suppressToggleClick = useRef(false)
   const [touchOwned, setTouchOwned] = useState(false)
+  // A Text Entry being typed into: the draft, which reaches the output only
+  // once confirmed with Enter, as the keyboard's tick key confirms on glass.
+  const [draft, setDraft] = useState<string | null>(null)
+  const entry = widget.type === 'Text Entry'
   // A held Step Control key repeats, on LVGL's own long-press timings.
   const stepRepeat = useRef<number | null>(null)
   const range = displayControlRange(widget)
@@ -82,7 +87,9 @@ function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease, onNa
         ? 'slider'
         : widget.type === 'Button'
           ? 'button'
-          : undefined
+          : widget.type === 'Text Entry'
+            ? 'textbox'
+            : undefined
 
   const stopStepRepeat = () => {
     if (stepRepeat.current !== null) window.clearTimeout(stepRepeat.current)
@@ -174,6 +181,11 @@ function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease, onNa
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!interactive) return
+    if (entry && (event.key === ' ' || event.key === 'Enter')) {
+      event.preventDefault()
+      setDraft(typeof value === 'string' ? value : '')
+      return
+    }
     if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
       event.preventDefault()
       onValue(true, true)
@@ -245,6 +257,7 @@ function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease, onNa
       onPointerCancel={endPointer}
       onClick={(event) => {
         event.stopPropagation()
+        if (entry && draft === null) setDraft(typeof value === 'string' ? value : '')
         if (widget.type !== 'Toggle') return
         if (suppressToggleClick.current) {
           suppressToggleClick.current = false
@@ -265,6 +278,33 @@ function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease, onNa
       }}
     >
       <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} theme={theme} state={visualState} value={value} />
+      {entry && draft !== null && (
+        <input
+          className={styles.runEntry}
+          aria-label={`${widget.label || definition.label} text`}
+          title="Enter confirms; Escape puts back the confirmed text"
+          autoFocus
+          value={draft}
+          onChange={(event) => setDraft(displayTextEntryClamp(widget, event.target.value))}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            event.stopPropagation()
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              onValue(displayTextEntryClamp(widget, draft), false)
+              setDraft(null)
+            } else if (event.key === 'Escape') {
+              // Answered here, before the overlay's own Escape layer.
+              event.preventDefault()
+              setDraft(null)
+            }
+          }}
+          // Leaving the field without confirming keeps the confirmed text,
+          // as closing the keyboard does on the glass.
+          onBlur={() => setDraft(null)}
+        />
+      )}
     </div>
   )
 }

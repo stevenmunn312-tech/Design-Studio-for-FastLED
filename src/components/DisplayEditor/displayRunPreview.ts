@@ -3,6 +3,7 @@ import {
   displayControlRange,
   displayControlStartValue,
   displayPickerStartHue,
+  displayTextEntryStart,
   displayWidgetIsControl,
 } from '../../state/displays/displayRegistry'
 import {
@@ -10,7 +11,7 @@ import {
   type DisplayWidgetRuntime,
 } from '../../state/displays/displayRuntimeStore'
 
-export type DisplayControlValue = boolean | number
+export type DisplayControlValue = boolean | number | string
 
 /** Value the shared preview renderer paints for one evaluated widget. */
 export function displayRunValue(
@@ -40,6 +41,7 @@ export function initialDisplayControlValue(widget: DisplayWidget): DisplayContro
   if (widget.type === 'Button' || widget.type === 'Toggle') return false
   // A Colour Picker's state is its hue in degrees; the colour is derived.
   if (widget.type === 'Colour Picker') return displayPickerStartHue(widget)
+  if (widget.type === 'Text Entry') return displayTextEntryStart(widget)
   return displayControlStartValue(widget)
 }
 

@@ -3,6 +3,7 @@ import { customDisplaySampleCpp, type customDisplayControlPlan } from './customD
 import {
   CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS,
   CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP, CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP, customDisplayNeedsNavigation,
+  CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP, customDisplayNeedsKeyboard,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP, customDisplayLvglInitCpp, customDisplayLvglTimingSetupCpp,
   customDisplayLvglGlobalCpp, customDisplayLvglSetupCpp, customDisplayLvglLoopCpp,
 } from './customDisplayLvglCpp'
@@ -40,6 +41,7 @@ export function customDisplayShowCpp(
     }
     helpers.push(CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (displays.some((display) => customDisplayNeedsNavigation(display.emit.document))) helpers.push(CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP)
+    if (displays.some((display) => customDisplayNeedsKeyboard(display.emit.document))) helpers.push(CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP)
     if (displays.some((display) => display.panel.touch)) helpers.push(TFT_TOUCH_CPP_HELPERS)
     setup.push(...customDisplayLvglInitCpp(), customDisplayLvglTimingSetupCpp())
   }

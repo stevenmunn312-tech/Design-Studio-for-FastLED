@@ -20,6 +20,8 @@ import {
   type PlacedDisplayWidget,
 } from '../../state/displays/displayDocument'
 import {
+  DISPLAY_KEYBOARD_FONT_SIZE,
+  DISPLAY_KEYBOARD_HEIGHT_RATIO,
   DISPLAY_PICKER_MARKER_PX,
   displayChoiceOptions,
   displayControlRange,
@@ -31,6 +33,8 @@ import {
   displayPickerTone,
   displayStepDecimals,
   displayStepKeyWidth,
+  displayTextEntryMaxLength,
+  displayTextEntryStart,
   displayWidgetBodyFallback,
   displayWidgetCaptionLayout,
   displayWidgetContentBounds,
@@ -289,6 +293,8 @@ function lvglWidgetClass(widget: DisplayWidget): string {
     case 'gauge': return 'lv_arc'
     // A plain object its children are created in.
     case 'container': return 'lv_obj'
+    // One line of text; the panel's keyboard types into it.
+    case 'text-entry': return 'lv_textarea'
   }
 }
 
@@ -304,6 +310,7 @@ function controlKind(widget: DisplayWidget): number {
   if (widget.type === 'Choice Strip') return 5
   if (widget.type === 'Step Control') return 6
   if (widget.type === 'Colour Picker') return 7
+  if (widget.type === 'Text Entry') return 8
   return 0
 }
 
@@ -444,6 +451,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   if (widget.type === 'Colour Picker') lines.push(...pickerLines(emit, widget, index, box))
   if (widget.type === 'Arc Gauge') lines.push(...gaugeLines(emit, widget, index, box, text.fontSize))
   if (widget.type === 'Marquee') lines.push(...marqueeLines(emit, widget, index, text.fontSize))
+  if (widget.type === 'Text Entry') lines.push(...textEntryLines(emit, widget, index, text.fontSize))
   // Children larger than it, or partly outside it, are clipped rather than
   // scrolled to, and its border is drawn over them as the preview's is.
   if (widget.type === 'Container') {
@@ -742,6 +750,72 @@ function marqueeLines(
   ]
 }
 
+/**
+ * A Text Entry: a one-line textarea that opens the panel's keyboard when
+ * tapped. The keyboard writes into the field as keys are pressed; the field's
+ * runtime takes the text only when it is confirmed, so the output never
+ * carries half a word. The runtime is the field's user data, which is how the
+ * shared keyboard callbacks find it.
+ */
+function textEntryLines(
+  emit: CustomDisplayLvglEmit,
+  widget: PlacedDisplayWidget,
+  index: number,
+  fontSize: number,
+): string[] {
+  const theme = resolveDisplayThemeTokens(emit.document.theme)
+  const obj = object(emit, index)
+  const rt = runtime(emit, index)
+  const placeholder = stringProperty(widget, 'placeholder')
+  return [
+    `  lv_textarea_set_one_line(${obj}, true);`,
+    `  lv_textarea_set_max_length(${obj}, ${displayTextEntryMaxLength(widget)});`,
+    ...(placeholder ? [`  lv_textarea_set_placeholder_text(${obj}, ${cppStringLiteral(displayString(placeholder))});`] : []),
+    `  lv_obj_set_style_text_font(${obj}, &lv_font_montserrat_${customDisplayFontSize(fontSize)}, LV_PART_MAIN);`,
+    `  lv_obj_set_style_text_color(${obj}, lv_color_hex(${colorHex(theme.states.inactive.textColor)}), LV_PART_TEXTAREA_PLACEHOLDER);`,
+    `  lv_obj_set_style_border_color(${obj}, lv_color_hex(${colorHex(theme.states.active.borderColor)}), _cdSel(LV_PART_MAIN, LV_STATE_FOCUSED));`,
+    `  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(theme.states.default.textColor)}), LV_PART_CURSOR);`,
+    `  lv_obj_set_style_bg_opa(${obj}, LV_OPA_COVER, LV_PART_CURSOR);`,
+    `  lv_obj_set_style_width(${obj}, 2, LV_PART_CURSOR);`,
+    `  lv_obj_set_user_data(${obj}, &${rt});`,
+    `  lv_obj_add_event_cb(${obj}, _cdEntryEvent, LV_EVENT_ALL, ${keyboardObject(emit)});`,
+    `  _cdSetEntry(${rt}, ${cppStringLiteral(displayString(displayTextEntryStart(widget)))});`,
+  ]
+}
+
+/** The panel's one keyboard, shared by every Text Entry on it. */
+function keyboardObject(emit: Pick<CustomDisplayLvglEmit, 'id'>): string {
+  return `_cdKeyboard_${safeId(emit.id)}`
+}
+
+/** Whether this design has a Text Entry on any screen, and so a keyboard. */
+export function customDisplayNeedsKeyboard(document: DisplayDocument): boolean {
+  return placedWidgets(document).some((widget) => widget.type === 'Text Entry')
+}
+
+/**
+ * The keyboard: hidden at the bottom of the first screen until a field is
+ * tapped, when it moves to that field's screen. Styled from the theme, its
+ * keys in their own fixed size.
+ */
+function keyboardLines(emit: CustomDisplayLvglEmit): string[] {
+  const theme = resolveDisplayThemeTokens(emit.document.theme)
+  const keys = keyboardObject(emit)
+  const height = Math.max(96, Math.round(emit.document.designSize.height * DISPLAY_KEYBOARD_HEIGHT_RATIO))
+  return [
+    `  ${keys} = lv_keyboard_create(${screenObject(emit, 0)});`,
+    `  lv_obj_set_size(${keys}, ${emit.document.designSize.width}, ${height});`,
+    `  lv_obj_align(${keys}, LV_ALIGN_BOTTOM_MID, 0, 0);`,
+    `  lv_obj_set_style_text_font(${keys}, &lv_font_montserrat_${customDisplayFontSize(DISPLAY_KEYBOARD_FONT_SIZE)}, LV_PART_ITEMS);`,
+    ...styleLines(keys, theme.states.default),
+    ...styleLines(keys, theme.states.default, 'LV_PART_ITEMS'),
+    `  lv_obj_set_style_bg_color(${keys}, lv_color_hex(${colorHex(theme.states.pressed.surfaceColor)}), _cdSel(LV_PART_ITEMS, LV_STATE_PRESSED));`,
+    `  lv_obj_set_style_radius(${keys}, ${theme.cornerRadius}, LV_PART_ITEMS);`,
+    `  lv_obj_add_event_cb(${keys}, _cdKeyboardEvent, LV_EVENT_ALL, nullptr);`,
+    `  lv_obj_add_flag(${keys}, LV_OBJ_FLAG_HIDDEN);`,
+  ]
+}
+
 function controlContentsLines(
   emit: CustomDisplayLvglEmit,
   widget: DisplayWidget,
@@ -793,7 +867,7 @@ static inline lv_style_selector_t _cdSel(lv_part_t part, lv_state_t state) {
 
 struct CustomDisplayWidgetRuntime {
   lv_obj_t *object;
-  uint8_t kind;                 // 0 passive, 1 button, 2 toggle, 3 slider, 4 dial, 5 choice, 6 step, 7 colour picker
+  uint8_t kind;                 // 0 passive, 1 button, 2 toggle, 3 slider, 4 dial, 5 choice, 6 step, 7 colour picker, 8 text entry
   bool touchOwned;
   bool touchPending;
   bool boolValue;
@@ -1092,6 +1166,74 @@ static void _cdGoTo(lv_event_t *event) {
 `
 
 /**
+ * A Text Entry's field and the panel keyboard, emitted only into a sketch
+ * with one (`customDisplayNeedsKeyboard`).
+ *
+ * Tapping a field moves the keyboard to its screen and points it at the
+ * field. The keyboard's tick key, or Enter in the one-line field, confirms:
+ * the field's text becomes the runtime's, which is what its output reads. The
+ * keyboard's close key cancels and puts back the confirmed text. The finger
+ * owns the field while the keyboard is open, so a Set value does not
+ * overwrite what is being typed.
+ */
+export const CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP = `// Text Entry: one shared keyboard per panel, confirmed text only.
+static void _cdEntryClose(lv_obj_t *keys, bool keep) {
+  lv_obj_t *field = lv_keyboard_get_textarea(keys);
+  lv_obj_add_flag(keys, LV_OBJ_FLAG_HIDDEN);
+  lv_keyboard_set_textarea(keys, nullptr);
+  if (!field) return;
+  lv_obj_remove_state(field, LV_STATE_FOCUSED);
+  CustomDisplayWidgetRuntime *runtime = (CustomDisplayWidgetRuntime *)lv_obj_get_user_data(field);
+  if (keep) {
+    _cdCopy(runtime->text, lv_textarea_get_text(field));
+    runtime->taps++;
+    runtime->touchPending = true;
+  } else {
+    lv_textarea_set_text(field, runtime->text);
+  }
+  runtime->touchOwned = false;
+}
+
+static void _cdEntryEvent(lv_event_t *event) {
+  lv_obj_t *field = (lv_obj_t *)lv_event_get_target(event);
+  lv_obj_t *keys = (lv_obj_t *)lv_event_get_user_data(event);
+  lv_event_code_t code = lv_event_get_code(event);
+  if (code == LV_EVENT_CLICKED) {
+    lv_obj_t *open = lv_keyboard_get_textarea(keys);
+    if (open && open != field) _cdEntryClose(keys, false);
+    ((CustomDisplayWidgetRuntime *)lv_obj_get_user_data(field))->touchOwned = true;
+    lv_obj_set_parent(keys, lv_obj_get_screen(field));
+    lv_obj_align(keys, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_keyboard_set_textarea(keys, field);
+    lv_obj_add_state(field, LV_STATE_FOCUSED);
+    lv_obj_remove_flag(keys, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(keys);
+  } else if (code == LV_EVENT_READY && lv_keyboard_get_textarea(keys) == field) {
+    _cdEntryClose(keys, true);
+  }
+}
+
+static void _cdKeyboardEvent(lv_event_t *event) {
+  lv_obj_t *keys = (lv_obj_t *)lv_event_get_target(event);
+  lv_event_code_t code = lv_event_get_code(event);
+  if (code == LV_EVENT_READY) _cdEntryClose(keys, true);
+  else if (code == LV_EVENT_CANCEL) _cdEntryClose(keys, false);
+}
+
+static const char *_cdTextOutput(CustomDisplayWidgetRuntime &runtime) {
+  runtime.touchPending = false;
+  return runtime.text;
+}
+
+static bool _cdSetEntry(CustomDisplayWidgetRuntime &runtime, const char *value) {
+  if (strncmp(runtime.text, value, CD_TEXT_BYTES) == 0) return false;
+  _cdCopy(runtime.text, value);
+  lv_textarea_set_text(runtime.object, runtime.text);
+  return true;
+}
+`
+
+/**
  * One monotonic LVGL clock and one bounded service gate per sketch.
  *
  * LVGL reads Arduino's millisecond clock directly. There is deliberately no
@@ -1163,9 +1305,13 @@ export function customDisplayLvglGlobalCpp(emit: CustomDisplayLvglEmit): string 
   const id = safeId(emit.id)
   const count = Math.max(1, emittedWidgets(emit).length)
   const screens = displayScreens(emit.document)
+  const keyboard = customDisplayNeedsKeyboard(emit.document)
   return [
     `// FLS-LVGL-FONTS:${customDisplayFontSizes(emit.document).join(',')}`,
+    // The LVGL modules beyond the always-on set, switched on by the helper.
+    ...(keyboard ? ['// FLS-LVGL-WIDGETS:keyboard'] : []),
     ...screens.map((_, index) => `static lv_obj_t *${screenObject(emit, index)} = nullptr;`),
+    ...(keyboard ? [`static lv_obj_t *${keyboardObject(emit)} = nullptr;`] : []),
     // Indexed by the Screen input, so declared only where it is wired.
     ...(screenInputWired(emit)
       ? [
@@ -1216,6 +1362,8 @@ export function customDisplayLvglSetupCpp(emit: CustomDisplayLvglEmit): string[]
   if (screenInputWired(emit)) {
     screens.forEach((_, screenIndex) => lines.push(`  _cdScreens_${id}[${screenIndex}] = ${screenObject(emit, screenIndex)};`))
   }
+  // Before the fields, which name it in their callbacks.
+  if (customDisplayNeedsKeyboard(emit.document)) lines.push(...keyboardLines(emit))
   emittedWidgets(emit).forEach((widget, index) => lines.push(...setupWidgetLines(emit, widget, index)))
   lines.push(`  lv_screen_load(_cdScreen_${id});`)
   return lines
@@ -1302,6 +1450,12 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
       `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
     ]
   }
+  if (widget.type === 'Text Entry') {
+    return [
+      `  if (!${rt}.touchOwned && !${rt}.touchPending) _cdSetEntry(${rt}, ${expr});`,
+      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
+    ]
+  }
   if (widget.type === 'Choice Strip' || widget.type === 'Step Control') {
     const setter = widget.type === 'Choice Strip' ? '_cdSetChoice' : '_cdSetStep'
     return [
@@ -1363,6 +1517,8 @@ export function customDisplayLvglOutputExpression(
   if (index < 0) return null
   const widget = widgets[index]
   if (widget.type === 'Button' || widget.type === 'Toggle') return `_cdBoolOutput(${runtime(emit, index)})`
+  // The confirmed text, held in the runtime's own bounded buffer.
+  if (widget.type === 'Text Entry') return `_cdTextOutput(${runtime(emit, index)})`
   if (widget.type === 'Colour Picker') {
     // A CRGB, the type a colour wire carries in every generator.
     const { saturation, brightness } = displayPickerTone(widget)

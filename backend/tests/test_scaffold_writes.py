@@ -162,6 +162,21 @@ def test_lvgl_font_markers_are_allowlisted_and_combined():
     assert "MONTSERRAT_999" not in config
 
 
+def test_lvgl_widget_markers_enable_only_the_modules_a_design_uses():
+    plain = toolchain._lv_conf_for_sketch("// FLS-LVGL-FONTS:16\n")
+    assert "#define LV_USE_KEYBOARD 0" in plain
+    assert "#define LV_USE_CHART 0" in plain
+
+    config = toolchain._lv_conf_for_sketch(
+        "// FLS-LVGL-FONTS:16\n// FLS-LVGL-WIDGETS:keyboard\n// FLS-LVGL-WIDGETS:chart,unknown\n"
+    )
+    assert "#define LV_USE_KEYBOARD 1" in config
+    assert "#define LV_USE_BUTTONMATRIX 1" in config
+    assert "#define LV_USE_TEXTAREA 1" in config
+    assert "#define LV_USE_CHART 1" in config
+    assert "#define LV_USE_ROLLER 0" in config
+
+
 def test_non_lvgl_sketch_workspace_does_not_create_a_config(tmp_path, monkeypatch):
     monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
 

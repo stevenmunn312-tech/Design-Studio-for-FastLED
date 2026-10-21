@@ -14,7 +14,7 @@ import { resolveBoundWidgets, type DisplaySourceExpressions } from './displaySou
 
 /** One widget output snapshot, before it is known whether it needs a gate. */
 export interface CustomDisplaySample {
-  type: 'bool' | 'float' | 'color'
+  type: 'bool' | 'float' | 'color' | 'string'
   variable: string
   expression: string
 }
@@ -33,12 +33,12 @@ export function customDisplaySampleCpp(sample: CustomDisplaySample, gate: string
 
 /** The C++ type a widget output is read into. A colour is a CRGB, as the control graph's colour nodes carry it. */
 function customDisplaySampleType(type: CustomDisplaySample['type']): string {
-  return type === 'color' ? 'CRGB' : type
+  return type === 'color' ? 'CRGB' : type === 'string' ? 'const char *' : type
 }
 
 /** What a widget output reads while no finger can reach it. */
 function customDisplayRestCpp(type: CustomDisplaySample['type']): string {
-  return type === 'bool' ? 'false' : type === 'color' ? 'CRGB::Black' : '0.0f'
+  return type === 'bool' ? 'false' : type === 'color' ? 'CRGB::Black' : type === 'string' ? '""' : '0.0f'
 }
 
 /**
@@ -119,7 +119,7 @@ export function customDisplayControlPlan(
     // and this plan is what that resolution is built on.
     const samples: CustomDisplaySample[] = []
     for (const port of ports.filter((port) => port.direction === 'output')) {
-      if (port.dataType !== 'bool' && port.dataType !== 'float' && port.dataType !== 'color') {
+      if (port.dataType !== 'bool' && port.dataType !== 'float' && port.dataType !== 'color' && port.dataType !== 'string') {
         errors.push(`${label}.${port.label}: this widget output is unsupported by ${generatorLabel} control graph.`)
         continue
       }
@@ -153,7 +153,7 @@ export function customDisplayControlPlan(
       && String(candidate.data.properties.panelId ?? '') === panelNode.id)
     if (!document || !touchNode) continue
     for (const port of document.widgets.flatMap(displayWidgetPorts)) {
-      if (port.direction !== 'output' || (port.dataType !== 'bool' && port.dataType !== 'float' && port.dataType !== 'color')) continue
+      if (port.direction !== 'output' || (port.dataType !== 'bool' && port.dataType !== 'float' && port.dataType !== 'color' && port.dataType !== 'string')) continue
       // Only what something reads: an unread resting local is a warning.
       if (!edges.some((edge) => edge.source === touchNode.id && edge.sourceHandle === port.id)) continue
       const reference = { nodeId: touchNode.id, port: port.id, type: port.dataType }

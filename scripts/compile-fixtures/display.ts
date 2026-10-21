@@ -8,7 +8,7 @@ import { catalogueDisplays, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../../src/bu
 import { partOptionsFor } from '../../src/build/parts/partOptions'
 import { findDisplayGeneratorIssues, findPinConflicts } from '../../src/utils/validateGraph'
 import { assertWireable } from '../../src/test-utils/assertWireable'
-import { createDisplayDocument, addDisplayWidget, adoptDisplayWidgets, displayContainerInnerBounds } from '../../src/state/displays/displayEditor'
+import { addDisplayScreen, createDisplayDocument, addDisplayWidget, adoptDisplayWidgets, displayContainerInnerBounds } from '../../src/state/displays/displayEditor'
 import { applyDisplayTemplate } from '../../src/state/displays/displayTemplates'
 import { displayWidgetSources } from '../../src/state/displays/displayRegistry'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../../src/state/displays/displayDocument'
@@ -61,6 +61,14 @@ function fullDocument(id: string, bindings: Readonly<Record<string, string>> = {
   child.bounds = { ...child.bounds!, x: inner.x, y: inner.y }
   document = adoptDisplayWidgets(document, [child.id])
   if (!document.widgets.some((entry) => entry.parentId === container.id)) throw new Error(`${id}: the Text did not go in the Container`)
+  // A Text Entry, which brings the keyboard, a Text showing what it types,
+  // and a second screen a Button
+  // goes to, which brings navigation: both appended, so no index moves.
+  document = addDisplayWidget(addDisplayWidget(document, 'Text Entry'), 'Text')
+  const more = addDisplayScreen(document, 'More')
+  document = addDisplayWidget(more.document, 'Button', more.screenId!)
+  const goes = document.widgets.find((entry) => entry.type === 'Button')!
+  goes.properties = { ...goes.properties, goTo: more.screenId! }
   const icon = document.widgets.find((widget) => widget.type === 'Image/Icon')!
   icon.properties = { ...icon.properties, assetId: 'icon:power', tint: true }
   /*
@@ -194,6 +202,8 @@ const commonWires = [
   edge('tint', 'color', 'custom-tft', 'widget:colour-picker:set'),
   edge('custom-tft-touch', 'widget:colour-picker:out', 'custom-tft', 'widget:colour-swatch:value'),
   edge('math', 'result', 'custom-tft', 'widget:arc-gauge:value'),
+  // Typed text out of the keyboard, shown by the Text beside it.
+  edge('custom-tft-touch', 'widget:text-entry:out', 'custom-tft', 'widget:text-4:value'),
 ]
 
 const rtc = () => node('rtc', 'RTCInput', {

@@ -1,6 +1,6 @@
 import { displayAsset, type DisplayAssetEntry } from './displayAssets'
 import { placedWidgets, type DisplayDocument, type DisplayWidget, type PlacedDisplayWidget } from './displayDocument'
-import { displayWidgetCaptionLayout, displayWidgetContentBounds } from './displayRegistry'
+import { DISPLAY_KEYBOARD_FONT_SIZE, displayWidgetCaptionLayout, displayWidgetContentBounds } from './displayRegistry'
 import { displayWidgetTextTokens } from './displayTheme'
 
 /** Font sizes supplied by LVGL 9.5's pinned Montserrat bitmap set. */
@@ -78,8 +78,11 @@ export function customDisplayFontSizes(document: DisplayDocument): number[] {
       || widget.type === 'Toggle'
       || widget.type === 'Choice Strip'
       || widget.type === 'Step Control'
+      || widget.type === 'Text Entry'
       || (widget.type === 'Arc Gauge' && widget.properties.showValue !== false)
     if (hasText) sizes.add(customDisplayFontSize(fontSize))
+    // A Text Entry's keyboard draws its keys in a size of its own.
+    if (widget.type === 'Text Entry') sizes.add(customDisplayFontSize(DISPLAY_KEYBOARD_FONT_SIZE))
     // A caption is set smaller than the widget it names, so it pins a face of
     // its own rather than riding the widget's — a screen of nothing but
     // captioned sliders paints text the list above would not have pinned.

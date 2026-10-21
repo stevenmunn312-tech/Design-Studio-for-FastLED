@@ -223,6 +223,7 @@ nowhere. Run and the panel thumbnail show the screen the panel is on.
 | Slider, Dial, Step Control | Set: float, optional | Output: float |
 | Choice Strip | Set: float, optional | Output: float, the chosen option counting the first as 0 |
 | Colour Picker | Set: colour, optional | Output: colour |
+| Text Entry | Set: text, optional | Output: text |
 
 A **Choice Strip** divides its width evenly between two to six options, typed
 as one comma-separated list (`Calm, Party, Strobe`). It outputs the chosen
@@ -260,6 +261,16 @@ from the panel's source, carries on from where the old text had reached. The
 default speed, 40 pixels per second, is the one a scrolling Text uses. A
 Marquee repaints its whole box on every frame it moves, so keep it to the one
 line it needs.
+
+A **Text Entry** is a one-line text field. Tap it and the panel's keyboard
+opens at the bottom of the screen; type, then press the tick key (or Enter) to
+confirm, or the close key to put back the text it had. Its output is the
+confirmed text, never half a word, so it can feed a Text, a Marquee or any
+other text input. It starts with **Starts with** and holds at most **Maximum
+length** characters, up to 63 bytes. Text typed on the device is kept until
+the board restarts. A text wired to **Set** replaces it while nobody is typing.
+One keyboard serves every Text Entry on a panel, and a design with none
+compiles no keyboard. In Run, click the field and type with your own keyboard.
 
 An input appears only for a widget reading **A wire from the graph**. Set a
 widget's **Reads** row to a field of the panel's source instead — Title, Elapsed,

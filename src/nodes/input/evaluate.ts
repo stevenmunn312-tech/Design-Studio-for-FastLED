@@ -29,7 +29,7 @@ import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore
 import { displayRuntimeId } from '../../state/displays/mountedDisplays'
 import { designControlBundle } from '../../state/displays/designControlBundle'
 import {
-  parseDisplayWidgetPortId, displayControlOutput, displayControlStartValue, displayPickerStartHue,
+  parseDisplayWidgetPortId, displayControlOutput, displayControlStartValue, displayPickerStartHue, displayTextEntryStart,
 } from '../../state/displays/displayRegistry'
 import { useMidiStore } from '../../state/midiStore'
 import { blankDmxSnapshot } from '../../state/peripherals/dmx'
@@ -191,9 +191,16 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
             continue
           }
           const start = displayPickerStartHue(restWidget)
-          samples[port.id] = displayControlOutput(restWidget, live
-            ? runtime.sampleDisplayWidgetOutput(runtimeId, parsed.widgetId, start)
-            : start) as PortValue
+          const hue = live ? runtime.sampleDisplayWidgetOutput(runtimeId, parsed.widgetId, start) : start
+          samples[port.id] = displayControlOutput(restWidget, typeof hue === 'string' ? start : hue) as PortValue
+          continue
+        }
+        if (port.dataType === 'string') {
+          // A Text Entry holds its starting text until something is
+          // confirmed, and reads empty on a dark panel, as `_cdTextOutput`
+          // and the firmware's rest value do.
+          const start = restWidget ? displayTextEntryStart(restWidget) : ''
+          samples[port.id] = live ? runtime.sampleDisplayWidgetOutput(runtimeId, parsed.widgetId, start) : ''
           continue
         }
         const rest = port.dataType === 'bool'

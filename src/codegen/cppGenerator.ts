@@ -59,8 +59,10 @@ import {
   CUSTOM_DISPLAY_LVGL_HELPERS,
   CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP,
   CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP,
+  CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP,
   customDisplayLvglGlobalCpp,
+  customDisplayNeedsKeyboard,
   customDisplayNeedsNavigation,
   customDisplayLvglInitCpp,
   customDisplayLvglTimingSetupCpp,
@@ -1350,6 +1352,7 @@ export function generateCpp(
     // A placed Colour Picker calls it only where its output is read.
     if ([...customDisplaySamples, ...loopLines].some((line) => line.includes('_cdHueColor('))) lines.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
     if (customDisplays.some((display) => customDisplayNeedsNavigation(display.document))) lines.push(CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP)
+    if (customDisplays.some((display) => customDisplayNeedsKeyboard(display.document))) lines.push(CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP)
     lines.push(CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (customDisplayPanels.some((panel) => panel.touch)) emitXptPointHelpersOnce()
     const emittedAssets = new Set<string>()

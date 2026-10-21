@@ -11,6 +11,7 @@ import {
   displayMarqueeSpeed,
   displayPickerStartHue,
   displayPickerStops,
+  displayTextEntryStart,
   displayStepDecimals,
   displayStepKeyWidth,
   displayWidgetBodyFallback,
@@ -419,6 +420,16 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     // widgets of their own.
     case 'container':
       return null
+    case 'text-entry': {
+      // The confirmed text, or its starting text before anything is read;
+      // the hint only while it holds nothing, as the textarea shows it.
+      const entry = typeof value === 'string' ? value : displayTextEntryStart(widget)
+      return (
+        <span className={styles.entry} style={textStyle}>
+          {entry || <span className={styles.entryHint}>{stringProperty(widget, 'placeholder')}</span>}
+        </span>
+      )
+    }
   }
   })()
 

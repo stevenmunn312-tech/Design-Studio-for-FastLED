@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Text Entry** screen widget: a one-line field that opens an on-screen
+  keyboard when tapped and outputs the text once it is confirmed. Its text can
+  feed any text input, and a wired Set replaces it while nobody is typing. In
+  Run you type with your own keyboard. Only a design with a Text Entry
+  compiles the LVGL keyboard, through a new `FLS-LVGL-WIDGETS` marker the
+  helper reads.
 - **Screen designs** can hold up to eight screens, drawn as tabs in the screen
   editor. A Button's **Go to screen** moves the glass to another screen when
   tapped, and a panel whose design has more than one screen gains a **Screen**

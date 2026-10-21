@@ -13,8 +13,8 @@ import type { DisplayWidgetPortRoleId } from './displayRegistry'
  * React chrome.
  */
 
-/** What a finger can produce: a latch or a ranged value. */
-export type DisplayTouchValue = number | boolean
+/** What a finger can produce: a latch, a ranged value, or confirmed text. */
+export type DisplayTouchValue = number | boolean | string
 
 /** Whatever the role's graph data type carries — a scalar for string, float and
  * bool roles, and the structured value for colour and pattern selection.

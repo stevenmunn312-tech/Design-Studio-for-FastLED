@@ -8,6 +8,7 @@ import type {
   ScreenScope,
 } from './displayDocument'
 import { displayAsset, normalizeDisplayAssetId } from './displayAssets'
+import { DISPLAY_TEXT_BUFFER_BYTES } from './displayText'
 import type { NodePort } from '../../types'
 import {
   DISPLAY_SELECTION_SOURCE_FIELD, DISPLAY_SOURCE_FROM_GRAPH, displaySourceFields, normalizeDisplaySource, type DisplaySourceField,
@@ -103,11 +104,12 @@ export interface DisplayWidgetSize {
 export type DisplayPreviewRenderer =
   | 'text' | 'marquee' | 'numeric' | 'timecode' | 'progress' | 'meter' | 'status'
   | 'swatch' | 'pattern-browser' | 'image' | 'button' | 'toggle' | 'slider' | 'dial'
-  | 'choice' | 'stepper' | 'colour-picker' | 'gauge' | 'container'
+  | 'choice' | 'stepper' | 'colour-picker' | 'gauge' | 'container' | 'text-entry'
 
 export type DisplayLvglEmitter =
   | 'label' | 'marquee' | 'bar' | 'led' | 'swatch' | 'pattern-browser' | 'image'
   | 'button' | 'switch' | 'slider' | 'arc' | 'choice' | 'stepper' | 'colour-picker' | 'gauge' | 'container'
+  | 'text-entry'
 
 export interface DisplayWidgetDefinition {
   type: DisplayWidgetType
@@ -165,7 +167,7 @@ const output = (
 ): readonly DisplayWidgetPortRole[] => [{ role: 'out', label: 'Output', direction: 'output', dataType }]
 
 const synchronized = (
-  dataType: 'float' | 'bool' | 'color',
+  dataType: 'float' | 'bool' | 'color' | 'string',
 ): readonly DisplayWidgetPortRole[] => [
   { role: 'out', label: 'Output', direction: 'output', dataType },
   { role: 'set', label: 'Set', direction: 'input', dataType, optional: true },
@@ -464,6 +466,48 @@ export function displayMarqueeSpeed(widget: Pick<DisplayWidget, 'properties'>): 
   return Math.round(Math.min(DISPLAY_MARQUEE_MAX_SPEED, Math.max(DISPLAY_MARQUEE_MIN_SPEED, speed)))
 }
 
+/**
+ * The longest text a Text Entry holds, in bytes of UTF-8: what fits the
+ * firmware's bounded string buffer with its terminator. The keyboard stops
+ * there on the glass and the preview's field stops there too.
+ */
+export const DISPLAY_TEXT_ENTRY_MAX_BYTES = DISPLAY_TEXT_BUFFER_BYTES - 1
+
+/**
+ * The on-glass keyboard's own text size. One keyboard serves every Text Entry
+ * on a panel, so it does not follow any one field's size.
+ */
+export const DISPLAY_KEYBOARD_FONT_SIZE = 16
+
+/** The share of the screen's height the keyboard takes, at the bottom. */
+export const DISPLAY_KEYBOARD_HEIGHT_RATIO = 0.45
+
+/** The text a Text Entry holds before anyone types: its authored Text. */
+export function displayTextEntryStart(widget: Pick<DisplayWidget, 'properties'>): string {
+  const text = widget.properties.text
+  return typeof text === 'string' ? displayTextEntryClamp(widget, text) : ''
+}
+
+/** How many characters this Text Entry takes, at most. */
+export function displayTextEntryMaxLength(widget: Pick<DisplayWidget, 'properties'>): number {
+  const length = widget.properties.maxLength
+  return typeof length === 'number' && Number.isFinite(length)
+    ? Math.max(1, Math.min(DISPLAY_TEXT_ENTRY_MAX_BYTES, Math.round(length)))
+    : 32
+}
+
+/**
+ * Typed text held to what the field takes: at most Maximum length
+ * characters, then cut on a whole character to the byte budget, the way the
+ * firmware's `_cdCopy` cuts it. Line breaks become spaces: the field is one line.
+ */
+export function displayTextEntryClamp(widget: Pick<DisplayWidget, 'properties'>, text: string): string {
+  const characters = [...text.replace(/[\r\n]+/g, ' ')].slice(0, displayTextEntryMaxLength(widget))
+  const encoder = new TextEncoder()
+  while (characters.length > 0 && encoder.encode(characters.join('')).length > DISPLAY_TEXT_ENTRY_MAX_BYTES) characters.pop()
+  return characters.join('')
+}
+
 /** Width of a Colour Picker's position marker, in pixels. */
 export const DISPLAY_PICKER_MARKER_PX = 8
 
@@ -630,6 +674,14 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     previewRenderer: 'container', lvglEmitter: 'container',
     propertyInspector: [],
     states: PASSIVE_STATES, assetSlots: NO_ASSETS, validateProperties: noPropertyIssues,
+  },
+  'Text Entry': {
+    type: 'Text Entry', label: 'Text Entry', description: 'A one-line text field; tapping it opens a keyboard, and the text it holds once confirmed is its output.',
+    portRoles: synchronized('string'), defaultProperties: { text: '', placeholder: 'Tap to type', maxLength: 32, fontSize: 16 },
+    minimumVisualSize: { width: 96, height: 32 }, minimumTouchSize: { width: 96, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'text-entry', lvglEmitter: 'text-entry',
+    propertyInspector: [text('text', 'Starts with'), text('placeholder', 'Hint when empty', 32), number('maxLength', 'Maximum length (characters)', 1, DISPLAY_TEXT_BUFFER_BYTES - 1, 1, true), number('fontSize', 'Font size', 8, 48, 1, true)],
+    states: CONTROL_STATES, assetSlots: NO_ASSETS, validateProperties: noPropertyIssues,
   },
 }
 

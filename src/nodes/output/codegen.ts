@@ -478,14 +478,18 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         if (!parsed) continue
         const expr = customDisplayLvglOutputExpression(custom, parsed.widgetId)
         if (expr === null) continue
-        // A Colour Picker's colour is a CRGB, as every colour wire is here.
-        const cppType = port.dataType === 'bool' ? 'bool' : port.dataType === 'color' ? 'CRGB' : 'float'
+        // A Colour Picker's colour is a CRGB, as every colour wire is here; a
+        // Text Entry's text is the runtime's own bounded buffer.
+        const cppType = port.dataType === 'bool' ? 'bool'
+          : port.dataType === 'color' ? 'CRGB'
+            : port.dataType === 'string' ? 'const char *'
+              : 'float'
         if (!touchNode) continue
         // Named for the Touch node, because that is the node a wire leaves:
         // the panel draws the widget, but the touch surface publishes the
         // control value.
         const name = `n_${safeId(touchNode.id)}_${safeId(port.id)}`
-        const rest = cppType === 'bool' ? 'false' : cppType === 'CRGB' ? 'CRGB::Black' : '0.0f'
+        const rest = cppType === 'bool' ? 'false' : cppType === 'CRGB' ? 'CRGB::Black' : cppType === 'const char *' ? '""' : '0.0f'
         // A control nobody can touch reports its rest value rather than
         // the position its finger left it in.
         const value = panel.enabledExpr === 'true' ? expr : `${gate} ? (${expr}) : ${rest}`
@@ -559,7 +563,9 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         if (!edges.some((e) => e.source === restingTouch.id && e.sourceHandle === port.id)) continue
         ln(port.dataType === 'bool'
           ? `  bool n_${safeId(restingTouch.id)}_${safeId(port.id)} = false;`
-          : `  float n_${safeId(restingTouch.id)}_${safeId(port.id)} = 0.0f;`)
+          : port.dataType === 'string'
+            ? `  const char *n_${safeId(restingTouch.id)}_${safeId(port.id)} = "";`
+            : `  float n_${safeId(restingTouch.id)}_${safeId(port.id)} = 0.0f;`)
       }
     }
     const directVars: Record<string, { variable: string; dataType: 'bool' | 'float' }> = {}

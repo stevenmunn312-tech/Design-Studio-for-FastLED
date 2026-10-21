@@ -729,4 +729,23 @@ describe('DisplayEditor', () => {
     expect(screen.getByRole('slider', { name: 'Slider run preview' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Button run preview' })).toBeNull()
   })
+  it('types into a Text Entry on the live screen and confirms with Enter', () => {
+    const view = renderEditor()
+    fireEvent.click(view.getByRole('button', { name: 'Add Text Entry widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(screen.getByRole('textbox', { name: 'Text Entry run preview' }))
+    const field = screen.getByRole('textbox', { name: 'Text Entry text' })
+    fireEvent.change(field, { target: { value: 'Porch' } })
+    // Nothing reaches the output until it is confirmed.
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'text-entry')?.touchValue).toBeUndefined()
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'text-entry')?.touchValue).toBe('Porch')
+    expect(screen.queryByRole('textbox', { name: 'Text Entry text' })).toBeNull()
+    expect(screen.getByText('Porch')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('textbox', { name: 'Text Entry run preview' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Text Entry text' }), { target: { value: 'Gone' } })
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Text Entry text' }), { key: 'Escape' })
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'text-entry')?.touchValue).toBe('Porch')
+  })
 })
