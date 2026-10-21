@@ -41,10 +41,19 @@ export const PSRAM_ALLOC_CPP = [
 
 /** Convert a static render-buffer declaration (`CRGB name[NUM_LEDS];` or
  *  `float name[NUM_LEDS];`) into its PSRAM form: a null pointer declaration
- *  plus the matching `_psAlloc` line for setup(). Returns null for any other
- *  line. Shared with the show generator, which collects the same declarations
- *  from the per-pattern sub-sketches. */
+ *  plus the matching `_psAlloc` line for setup(). Frame Feedback's history
+ *  ring (`CRGB name[K][NUM_LEDS];`) becomes a pointer to rows, so
+ *  `name[slot][i]` still indexes it. Returns null for any other line. Shared
+ *  with the show generator, which collects the same declarations from the
+ *  per-pattern sub-sketches. */
 export function psramBufferDecl(decl: string): { decl: string; alloc: string } | null {
+  const ring = decl.match(/^CRGB ([A-Za-z0-9_]+)\[(\d+)\]\[NUM_LEDS\];/)
+  if (ring) {
+    return {
+      decl: `CRGB (*${ring[1]})[NUM_LEDS] = nullptr;`,
+      alloc: `  ${ring[1]} = (CRGB (*)[NUM_LEDS])_psAlloc(sizeof(CRGB) * ${ring[2]} * NUM_LEDS);`,
+    }
+  }
   const m = decl.match(/^(CRGB|float) ([A-Za-z0-9_]+)\[NUM_LEDS\];/)
   if (!m) return null
   return {

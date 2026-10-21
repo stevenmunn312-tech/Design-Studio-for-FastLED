@@ -722,7 +722,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     return consumers.length === 1 ? feed.source : null
   })()
 
-  let frameBufferBytes = 0, fieldBufferBytes = 0, statefulBytes = 0
+  let frameBufferBytes = 0, fieldBufferBytes = 0, statefulBytes = 0, feedbackBytes = 0
   for (const id of reachable) {
     const n = byId.get(id)
     if (!n) continue
@@ -758,9 +758,8 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     if (n.data.nodeType === 'FrameFeedback') {
       const delay = Math.max(1, Math.min(32, Math.round(Number((n.data.properties as Record<string, unknown>)?.delayFrames ?? 2))))
       // Ring buffer stores `delay` previous outputs plus the slot currently
-      // being written, and stays internal even when ordinary render buffers
-      // are moved to PSRAM.
-      statefulBytes += renderLedCount * 3 * (delay + 1)
+      // being written. It moves to PSRAM with the render buffers.
+      feedbackBytes += renderLedCount * 3 * (delay + 1)
     }
   }
   statefulBytes += stereoVuMeters.reduce((sum, meter) => {
@@ -802,7 +801,8 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
 
   const ledsArrayBytes = ledCount * 3
   const usesPsram = controllerSettings(nodes).usePsram
-  const psramBytes = usesPsram ? frameBufferBytes + fieldBufferBytes : 0
+  if (!usesPsram) statefulBytes += feedbackBytes
+  const psramBytes = usesPsram ? frameBufferBytes + fieldBufferBytes + feedbackBytes : 0
   const internalBytes = ledsArrayBytes + statefulBytes + paletteBytes + displayBytes
     + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
 

@@ -1713,6 +1713,16 @@ describe('validateGraph', () => {
       expect(ram.internalBytes).toBe(48) // just the leds array
     })
 
+    it('offloads FrameFeedback history to PSRAM with the render buffers', () => {
+      const nodes = [node('board', 'Board', { psramPolicy: 'on' }), node('sc', 'SolidColor'),
+        node('fb', 'FrameFeedback', { delayFrames: 3 }), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'sc', 'fb', 'frame'), edge('e2', 'fb', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.statefulBytes).toBe(0)
+      expect(ram.psramBytes).toBe(48 + 16 * 3 * 4)
+      expect(ram.internalBytes).toBe(48)
+    })
+
     it('surfaces a large internal-RAM estimate as a validateGraph warning', () => {
       // 64x64 is the largest panel the app will actually build, and four CRGB
       // buffers of it (the leds array plus a four-node chain whose last node

@@ -4762,6 +4762,16 @@ describe('PSRAM buffer placement (Board psramPolicy)', () => {
     expect(cpp).not.toMatch(/buf_(?:fd|a) = \(CRGB\*\)_psAlloc/)
   })
 
+  it('moves the Frame Feedback history ring to PSRAM as a pointer to rows', () => {
+    const fb = node('fb', 'FrameFeedback', 'composite', { delayFrames: 3 })
+    const cpp = generateCpp([board, sc, fb, psOut], [
+      edge('e1', 'sc', 'fb', 'frame', 'frame'), edge('e2', 'fb', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB (*_fb_fb)[NUM_LEDS] = nullptr;')
+    expect(cpp).toContain('_fb_fb = (CRGB (*)[NUM_LEDS])_psAlloc(sizeof(CRGB) * 4 * NUM_LEDS);')
+    expect(cpp).not.toContain('CRGB _fb_fb[4][NUM_LEDS];')
+  })
+
   it('makes a PSRAM buffer that shares storage a reference to its pointer', () => {
     // Behind a serpentine map nothing renders into `leds`, so Blend shares A.
     const serp = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, serpentine: true })

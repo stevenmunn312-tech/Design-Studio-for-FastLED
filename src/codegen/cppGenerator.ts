@@ -861,8 +861,8 @@ export function generateCpp(
   const frameBufs = new Set<string>()
   // Field-producing nodes (FieldFormula …) render into a parallel float buffer.
   const fieldBufs = new Set<string>()
-  // Stateful feedback history buffers stay as static internal RAM even when
-  // MatrixOutput moves ordinary render buffers into PSRAM.
+  // Stateful feedback history rings, by node id and slot count. They move to
+  // PSRAM with the ordinary render buffers.
   const feedbackHistoryBufs = new Map<string, number>()
   // Buffers whose previous pixels are evaluator state rather than disposable
   // intermediates (`ownBuf({ persists: true })`), by declared name. Native
@@ -1278,7 +1278,10 @@ export function generateCpp(
   lines.push(...aliasLines)
   if (!nativeMultiRender) {
     for (const [id, capacity] of feedbackHistoryBufs) {
-      lines.push(`CRGB _fb_${id}[${capacity}][NUM_LEDS];`)
+      const d = `CRGB _fb_${id}[${capacity}][NUM_LEDS];`
+      const ps = usePsram ? psramBufferDecl(d) : null
+      if (ps) { lines.push(ps.decl); psramAllocs.push(ps.alloc) }
+      else lines.push(d)
     }
   }
   lines.push(``)
