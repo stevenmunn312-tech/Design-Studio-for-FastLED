@@ -1,7 +1,7 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
 import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
-import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel } from '../shared/integerPatterns'
+import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
@@ -19,7 +19,7 @@ import {
 } from '../../state/evaluator/automaton'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
-import { wallpaperSamplePointAt, wallpaperSpinRate } from '../../state/evaluator/symmetry'
+import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import {
   truchetCell, truchetLattice, truchetLineValue, truchetMotif,
   truchetMotifDistance, truchetOrientation, truchetOrientationCount,
@@ -595,11 +595,11 @@ export function evalFieldSymmetry(
 ): Field {
   const out = allocField(W * H)
   if (!field) return out
+  // The sketch's integer kernel (shared/integerPatterns.ts), nearest pixel.
+  const frame = wallpaperFrame(W, cells, rotation, spinPhaseDeg, offsetX, offsetY), g = wallpaperGroupIndex(group)
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const source = wallpaperSamplePointAt(group, x, y, cells, rotation, spinPhaseDeg, offsetX, offsetY, W, H)
-    const sx = Math.max(0, Math.min(W - 1, Math.floor(source.x + 0.5)))
-    const sy = Math.max(0, Math.min(H - 1, Math.floor(source.y + 0.5)))
-    out[y * W + x] = field[sy * W + sx]
+    const [qx, qy] = wallpaperSourceQ8(g, x, y, W, H, frame)
+    out[y * W + x] = field[Math.max(0, Math.min(H - 1, (qy + 128) >> 8)) * W + Math.max(0, Math.min(W - 1, (qx + 128) >> 8))]
   }
   return out
 }

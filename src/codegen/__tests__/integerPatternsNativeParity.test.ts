@@ -28,6 +28,7 @@ import {
   ROSE_PIXEL_CPP, roseFrame, rosePixel,
   ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, arrayCopy, arrayOver, arraySource,
   blendMix8, blendMix8Cpp, feedbackFrame, feedbackSource, feedbackSourceCpp,
+  WALLPAPER_HELPER_CPP, sampleFrameQ8, sampleFrameQ8Cpp, wallpaperFrame, wallpaperSourceQ8,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -37,8 +38,10 @@ function runNative(W: number, H: number, frame: string[], pixel: string[], print
   try {
     const source = path.join(dir, 'kernel.cpp'), binary = path.join(dir, 'kernel')
     writeFileSync(source, [
-      '#include <cstdio>', '#include <cstdint>', '#include <algorithm>', 'using std::min; using std::max;', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, INOISE8_3D_HOST_CPP, ATAN16_HELPER_CPP,
-      `#define WIDTH ${W}`, `#define HEIGHT ${H}`,
+      '#include <cstdio>', '#include <cstdint>', '#include <cstdlib>', '#include <algorithm>', 'using std::min; using std::max;',
+      'struct CRGB { uint8_t r, g, b; CRGB() : r(0), g(0), b(0) {} CRGB(uint8_t r_, uint8_t g_, uint8_t b_) : r(r_), g(g_), b(b_) {} };',
+      'template <class T> static T constrain(T v, T lo, T hi) { return v < lo ? lo : v > hi ? hi : v; }', LIB8TION_HOST_CPP, INOISE8_HOST_CPP, INOISE8_3D_HOST_CPP, ATAN16_HELPER_CPP,
+      `#define WIDTH ${W}`, `#define HEIGHT ${H}`, WALLPAPER_HELPER_CPP,
       'int main(){', ...frame, '  int _i=0;',
       '  for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){', ...pixel.map((l) => `    ${l}`),
       `    printf(${print}); _i++; } }`,
@@ -383,4 +386,22 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
       }
     }
   }, 120_000)
+
+  it.each(SIZES)('the wallpaper lookup matches for every group on %ix%i', (W, H) => {
+    for (const f of [wallpaperFrame(W, 2, 0, 0, 0, 0), wallpaperFrame(W, 7.3, -33, 911.4, 2.6, -7.9), wallpaperFrame(W, 0.5, 180, -360, -8, 8)]) {
+      for (let group = 0; group < 9; group++) {
+        const native = runNative(W, H, [`int32_t _wpK=${f.k8},_wpCo=${f.cos},_wpSi=${f.sin},_wpOx=${f.ox},_wpOy=${f.oy};`],
+          [`int32_t _sx,_sy; _wallpaperSourceQ8(_x,_y,${group},_wpK,_wpCo,_wpSi,_wpOx,_wpOy,_sx,_sy);`], '"%d %d ",_sx,_sy')
+        expect(grid(W, H, (x, y) => wallpaperSourceQ8(group, x, y, W, H, f))).toEqual(native)
+      }
+    }
+  }, 180_000)
+
+  it.each(SIZES)('the Q8 bilinear sampler matches on %ix%i', (W, H) => {
+    const src = Array.from({ length: H }, (_, y) => Array.from({ length: W }, (_, x) => ({ r: (x * 37 + y * 11) & 255, g: (x * y * 7) & 255, b: (255 - x * 13) & 255 })))
+    const bytes = src.flat().map((c) => `CRGB(${c.r},${c.g},${c.b})`).join(',')
+    const native = runNative(W, H, [`static const CRGB _src[WIDTH*HEIGHT]={${bytes}};`],
+      [`int32_t _sx=_x*301-700,_sy=_y*277-300;`, ...sampleFrameQ8Cpp('_src')], '"%u %u %u ",_wpC.r,_wpC.g,_wpC.b')
+    expect(grid(W, H, (x, y) => { const c = sampleFrameQ8(src, x * 301 - 700, y * 277 - 300, W, H); return [c.r, c.g, c.b] })).toEqual(native)
+  }, 60_000)
 })

@@ -6,6 +6,7 @@ import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
+  sampleFrameQ8Cpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
 
@@ -82,29 +83,24 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      ${ob}[_i]=_sampleFrame(${src},_sx,_sy,${edgeMode},${bilinear ? 'true' : 'false'});`)
     ln(`    } }`)
   },
-  Symmetry({ id, p, ln, f, ownBuf, srcBuf, needsT, needsLattice, needsSymmetry, needsFrameSample }) {
+  Symmetry({ id, p, ln, f, ownBuf, srcBuf, needsT, needsSymmetry, needsAtan16 }) {
     needsT.v = true
-    needsLattice.v = true
     needsSymmetry.v = true
-    needsFrameSample.v = true
+    needsAtan16.v = true
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Symmetry: no input`); return }
     const group = wallpaperGroupIndex(p.group ?? 'p4m')
     const groupName = WALLPAPER_GROUPS[group]
-    const finder = group >= 6 ? '_hexCell' : '_squareCell'
     ln(`  { /* Symmetry: ${groupName} */`)
-    ln(`    float _cells=constrain(${f('cells', 'cells', 2)},0.5f,8.0f);`)
-    ln(`    float _rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f),_spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
-    ln(`    float _ox=constrain(${f('offsetX', 'offsetX', 0)},-8.0f,8.0f),_oy=constrain(${f('offsetY', 'offsetY', 0)},-8.0f,8.0f);`)
+    ln(`    float _spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')
-    ln(`    float _angle=-(_rotation+${ph})*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+    for (const line of wallpaperFrameCpp(f('cells', 'cells', 2), f('rotation', 'rotation', 0), ph, f('offsetX', 'offsetX', 0), f('offsetY', 'offsetY', 0))) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
-    ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+_ox,_sr*_px+_cr*_py+_oy);`)
-    ln(`      float _foldX,_foldY; _foldWallpaper(_cell.x,_cell.y,${group},_foldX,_foldY);`)
-    ln(`      float _sx=(WIDTH-1)*0.5f+_foldX*WIDTH,_sy=(HEIGHT-1)*0.5f+_foldY*WIDTH;`)
-    ln(`      ${ob}[_y*WIDTH+_x]=_sampleFrame(${src},_sx,_sy,0,true); } }`)
+    ln(`      int32_t _sx,_sy; _wallpaperSourceQ8(_x,_y,${group},_wpK,_wpCo,_wpSi,_wpOx,_wpOy,_sx,_sy);`)
+    for (const line of sampleFrameQ8Cpp(src)) ln(`      ${line}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=_wpC; } }`)
   },
   FrameFeedback({ id, p, ln, f, ownBuf, srcBuf, feedbackHistoryBufs }) {
     const ob = ownBuf()

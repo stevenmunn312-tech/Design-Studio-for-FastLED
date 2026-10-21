@@ -17,11 +17,12 @@ import { instanceState } from '../../state/evaluator/memory'
 import { normalizedSeed, seededRandom } from '../../state/evaluator/random'
 import { glitterBudget, glitterMode } from './glitter'
 import { frameOffset, frameQuarterTurns } from './frameTransform'
-import { wallpaperSamplePointAt, wallpaperSpinRate } from '../../state/evaluator/symmetry'
+import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
 import { evalKaleidoscope } from './kaleidoscope'
 import {
-  arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource,
+  arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
+  wallpaperSourceQ8,
 } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 
@@ -372,9 +373,11 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const offsetX = num(id, 'offsetX', props, 'offsetX', 0)
     const offsetY = num(id, 'offsetY', props, 'offsetY', 0)
     const spinPhase = speedPhase(stateKey(id), t, spin)
+    // The sketch's integer kernel (shared/integerPatterns.ts), bilinear in 1/256 pixel.
+    const frame = wallpaperFrame(W, cells, rotation, spinPhase, offsetX, offsetY), g = wallpaperGroupIndex(group)
     return { frame: buildFrame(W, H, (x, y) => {
-      const source = wallpaperSamplePointAt(group, x, y, cells, rotation, spinPhase, offsetX, offsetY, W, H)
-      return sampleFrame(src, source.x, source.y, 'clamp', true)
+      const [qx, qy] = wallpaperSourceQ8(g, x, y, W, H, frame)
+      return sampleFrameQ8(src, qx, qy, W, H)
     }) }
   },
   // Bounded recursive frame feedback. The node stores its own output in a

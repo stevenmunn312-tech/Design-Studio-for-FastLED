@@ -5,6 +5,7 @@ import { flattenSketchBundle, splitSketchBundle } from '../sketchBundle'
 import { LATTICE_HELPER_CPP } from '../helpers/latticeHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from '../helpers/frameSampleHelperCpp'
 import { SYMMETRY_HELPER_CPP } from '../helpers/symmetryHelperCpp'
+import { ATAN16_HELPER_CPP } from '../../nodes/shared/integerPatterns'
 import { POLINE_HELPER_CPP } from '../helpers/polineHelperCpp'
 import { NODE_LIBRARY, libraryDefaults, propertyMeta } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
@@ -40,7 +41,10 @@ describe('showGenerator', () => {
   ]
   const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
 
-  it.each(['FrameWarp', 'Symmetry'])('emits one sampler for %s patterns with and without transitions', (type) => {
+  it.each([
+    ['FrameWarp', [...FRAME_SAMPLE_HELPER_CPP.matchAll(/^static inline \S+ (\w+)\(/gm)].map((match) => match[1])],
+    ['Symmetry', ['_wallpaperSourceQ8', '_atan2_16']],
+  ])('emits one sampler for %s patterns with and without transitions', (type, samplers) => {
     const pattern = {
       nodes: [node('src', 'Noise'), node('fx', type), node('go', 'GroupOutput')],
       edges: [edge('in', 'src', 'frame', 'fx', 'frame'), edge('out', 'fx', 'frame', 'go', 'frame')],
@@ -51,11 +55,11 @@ describe('showGenerator', () => {
       expect(cpp).toContain('void render_p0(')
       expect(cpp.includes('void render_p1(')).toBe(patternIds.length > 1)
       expect(/^void compositeTransition\([^\n]+\) \{/m.test(cpp)).toBe(patternIds.length > 1)
-      // Derive all sampler definitions so additions to the shared block are
-      // covered: each is defined at most once, and only when a pattern uses it.
-      // By name: a parameter a constant decides is folded out of the signature.
-      const samplers = [...FRAME_SAMPLE_HELPER_CPP.matchAll(/^static inline \S+ (\w+)\(/gm)].map((match) => match[1])
-      const definitions = (name: string) => cpp.match(new RegExp(`^static inline \\S+ ${name}\\(`, 'gm'))?.length ?? 0
+      // Each sampler is defined at most once, and only when a pattern uses it;
+      // the frame sampler's names are derived so additions to its block are
+      // covered. By name: a parameter a constant decides is folded out of the
+      // signature.
+      const definitions = (name: string) => cpp.match(new RegExp(`^static (?:inline )?\\S+ ${name}\\(`, 'gm'))?.length ?? 0
       expect(samplers.some((name) => definitions(name) === 1)).toBe(true)
       for (const name of samplers) expect(definitions(name)).toBeLessThanOrEqual(1)
     }
@@ -1322,10 +1326,10 @@ describe('pattern code lifted into a show', () => {
       edges: [edge('sym-in', 'src', 'frame', 'sym', 'frame'), edge('sym-out', 'sym', 'frame', 'go', 'frame')],
     }
     const symmetry = buildPatternRenderers(['symmetry-pattern'], { 'symmetry-pattern': symmetryGroup } as unknown as GroupRegistry)
-    expect(symmetry.functions[0]).toContain('_foldWallpaper(')
+    expect(symmetry.functions[0]).toContain('_wallpaperSourceQ8(')
     expect(symmetry.helpers).toContain(SYMMETRY_HELPER_CPP)
-    expect(symmetry.helpers).toContain(LATTICE_HELPER_CPP)
-    expect(symmetry.helpers).toContain(FRAME_SAMPLE_HELPER_CPP)
+    expect(symmetry.helpers).toContain(ATAN16_HELPER_CPP)
+    expect(symmetry.helpers).not.toContain(FRAME_SAMPLE_HELPER_CPP)
 
     // The palette sweep cannot reach this: Poline bakes its stops unless an
     // anchor is wired, and only then calls the helper.

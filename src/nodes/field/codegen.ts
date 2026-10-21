@@ -1,6 +1,6 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX, FORMULA_FIELD_SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { NOISE_FIELD_PIXEL_CPP, ROSE_PIXEL_CPP, noiseFieldFrameCpp, roseFrameCpp } from '../shared/integerPatterns'
+import { NOISE_FIELD_PIXEL_CPP, ROSE_PIXEL_CPP, noiseFieldFrameCpp, roseFrameCpp, wallpaperFrameCpp } from '../shared/integerPatterns'
 import { usesShims, cppRewriteShims } from '../shared/fastledShims'
 import { isNodeFormulaValid } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -573,10 +573,10 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      int _tx=max(1,(int)roundf(${tx})),_ty=max(1,(int)roundf(${ty})); int _sx=(_x*_tx)%WIDTH,_sy=(_y*_ty)%HEIGHT;`)
     ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
   },
-  FieldSymmetry({ id, p, ln, f, ownField, srcField, needsT, needsLattice, needsSymmetry }) {
+  FieldSymmetry({ id, p, ln, f, ownField, srcField, needsT, needsSymmetry, needsAtan16 }) {
     needsT.v = true
-    needsLattice.v = true
     needsSymmetry.v = true
+    needsAtan16.v = true
     const of = ownField()
     const src = srcField('field')
     if (!src) {
@@ -585,19 +585,13 @@ export const FIELD_EMITTERS: NodeEmitters = {
     }
     const group = wallpaperGroupIndex(p.group ?? 'p4m')
     const groupName = WALLPAPER_GROUPS[group]
-    const finder = group >= 6 ? '_hexCell' : '_squareCell'
     ln(`  { /* FieldSymmetry: ${groupName} */`)
-    ln(`    float _cells=constrain(${f('cells', 'cells', 2)},0.5f,8.0f);`)
-    ln(`    float _rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f),_spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
+    ln(`    float _spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')
-    ln(`    float _ox=constrain(${f('offsetX', 'offsetX', 0)},-8.0f,8.0f),_oy=constrain(${f('offsetY', 'offsetY', 0)},-8.0f,8.0f);`)
-    ln(`    float _angle=-(_rotation+${ph})*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    // Integer kernel (shared/integerPatterns.ts): nearest source pixel.
+    for (const line of wallpaperFrameCpp(f('cells', 'cells', 2), f('rotation', 'rotation', 0), ph, f('offsetX', 'offsetX', 0), f('offsetY', 'offsetY', 0))) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
-    ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+_ox,_sr*_px+_cr*_py+_oy);`)
-    ln(`      float _foldX,_foldY; _foldWallpaper(_cell.x,_cell.y,${group},_foldX,_foldY);`)
-    ln(`      int _sx=constrain((int)floorf((WIDTH-1)*0.5f+_foldX*WIDTH+0.5f),0,WIDTH-1);`)
-    ln(`      int _sy=constrain((int)floorf((HEIGHT-1)*0.5f+_foldY*WIDTH+0.5f),0,HEIGHT-1);`)
-    ln(`      ${of}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx]; } }`)
+    ln(`      int32_t _sx,_sy; _wallpaperSourceQ8(_x,_y,${group},_wpK,_wpCo,_wpSi,_wpOx,_wpOy,_sx,_sy);`)
+    ln(`      ${of}[_y*WIDTH+_x]=${src}[constrain((_sy+128)>>8,0,HEIGHT-1)*WIDTH+constrain((_sx+128)>>8,0,WIDTH-1)]; } }`)
   },
 }

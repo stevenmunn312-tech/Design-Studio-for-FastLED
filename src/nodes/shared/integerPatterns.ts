@@ -1377,3 +1377,133 @@ export function feedbackSourceCpp(mode: string): string[] {
   }
   return [`int _fbSrc=_y*WIDTH+_x;`]
 }
+
+// ── Wallpaper symmetry (Symmetry, FieldSymmetry) ──────────────────────────────
+// A pixel's lattice point in 1/4096 cell, its square or hex cell by integer
+// rounding, the wallpaper fold through `_atan2_16` and `sin16`, and the source
+// point in 1/256 pixel. Canvas Y uses the width scale, as before, so cells
+// stay regular on a non-square matrix. The sketch's helper (`needsSymmetry`)
+// needs `_atan2_16` before it.
+
+export interface WallpaperFrame { k8: number; cos: number; sin: number; ox: number; oy: number }
+
+export function wallpaperFrame(W: number, cellsValue: number, rotationDeg: number, spinPhaseDeg: number, offsetXValue: number, offsetYValue: number): WallpaperFrame {
+  const cells = Math.max(0.5, Math.min(8, cellsValue))
+  const angle = -(Math.max(-180, Math.min(180, rotationDeg)) + spinPhaseDeg) * 0.017453292519943
+  return {
+    k8: Math.trunc(cells * 2048 / W * 256), cos: Math.trunc(Math.cos(angle) * 32767), sin: Math.trunc(Math.sin(angle) * 32767),
+    ox: Math.trunc(Math.max(-8, Math.min(8, offsetXValue)) * 4096), oy: Math.trunc(Math.max(-8, Math.min(8, offsetYValue)) * 4096),
+  }
+}
+
+export function wallpaperFrameCpp(cells: string, rotation: string, spinPhase: string, offsetX: string, offsetY: string): string[] {
+  return [
+    `float _wpA=-(constrain(${rotation},-180.0f,180.0f)+${spinPhase})*0.017453292519943f;`,
+    `int32_t _wpK=(int32_t)(constrain(${cells},0.5f,8.0f)*2048.0f/WIDTH*256.0f),_wpCo=(int32_t)(cosf(_wpA)*32767.0f),_wpSi=(int32_t)(sinf(_wpA)*32767.0f);`,
+    `int32_t _wpOx=(int32_t)(constrain(${offsetX},-8.0f,8.0f)*4096.0f),_wpOy=(int32_t)(constrain(${offsetY},-8.0f,8.0f)*4096.0f);`,
+  ]
+}
+
+const WALLPAPER_ROTATIONS: Record<number, [number, boolean]> = { 1: [2, false], 4: [4, false], 5: [4, true], 6: [3, false], 7: [6, false], 8: [6, true] }
+
+function cyclicFoldQ(lx: number, ly: number, rotations: number, mirror: boolean): [number, number] {
+  let a = atan2_16(ly, lx)
+  if (a > 32767) a -= 65536
+  const k = (a * rotations + 32768) >> 16
+  let f = Math.trunc((a * rotations - k * 65536) / rotations)
+  if (mirror && f < 0) f = -f
+  const r = isqrt32(lx * lx + ly * ly)
+  return [(r * sin16(f + 16384)) >> 15, (r * sin16(f)) >> 15]
+}
+
+/** The source point in 1/256 pixel for (x, y). */
+export function wallpaperSourceQ8(group: number, x: number, y: number, W: number, H: number, f: WallpaperFrame): [number, number] {
+  const px = ((2 * x + 1 - W) * f.k8) >> 8, py = ((2 * y + 1 - H) * f.k8) >> 8
+  const rx = ((f.cos * px - f.sin * py) >> 15) + f.ox, ry = ((f.sin * px + f.cos * py) >> 15) + f.oy
+  let lx: number, ly: number
+  if (group >= 6) {
+    const q = rx, r = (-rx + ry + ((ry * 23988) >> 15)) >> 1
+    let RX = (q + 2048) >> 12, RY = (-q - r + 2048) >> 12, RZ = (r + 2048) >> 12
+    const dx = Math.abs(RX * 4096 - q), dy = Math.abs(RY * 4096 + q + r), dz = Math.abs(RZ * 4096 - r)
+    if (dx > dy && dx > dz) RX = -RY - RZ
+    else if (dy > dz) RY = -RX - RZ
+    else RZ = -RX - RY
+    lx = rx - RX * 4096
+    ly = ry - (2 * RZ + RX) * 2365
+  } else {
+    lx = rx - ((rx + 2048) >> 12) * 4096
+    ly = ry - ((ry + 2048) >> 12) * 4096
+  }
+  ;[lx, ly] = foldWallpaperQ12(group, lx, ly)
+  return [(W - 1) * 128 + ((lx * W) >> 4), (H - 1) * 128 + ((ly * W) >> 4)]
+}
+
+/**
+ * Fold a cell-local point (1/4096 cell) into one wallpaper group's
+ * fundamental domain. Group ids are the append-only WALLPAPER_GROUPS order in
+ * evaluator/symmetry.ts, mirrored by the sketch helper's switch.
+ */
+export function foldWallpaperQ12(group: number, lx: number, ly: number): [number, number] {
+  const fold = WALLPAPER_ROTATIONS[group]
+  if (fold) return cyclicFoldQ(lx, ly, fold[0], fold[1])
+  if (group === 2) return [Math.abs(lx), ly]
+  if (group === 3) return [Math.abs(lx), Math.abs(ly)]
+  return [lx, ly]
+}
+
+export const WALLPAPER_HELPER_CPP = [
+  'static inline uint32_t _wpIsqrt(uint32_t v) { uint32_t r = 0, b = 1UL << 30; while (b > v) b >>= 2; while (b) { if (v >= r + b) { v -= r + b; r = (r >> 1) + b; } else { r >>= 1; } b >>= 2; } return r; }',
+  'static inline void _wpCyclic(int32_t &lx, int32_t &ly, int32_t rot, bool mirror) {',
+  '  int32_t a = (int32_t)_atan2_16(ly, lx); if (a > 32767) a -= 65536;',
+  '  int32_t k = (a * rot + 32768) >> 16, f = (a * rot - k * 65536) / rot; if (mirror && f < 0) f = -f;',
+  '  int32_t r = (int32_t)_wpIsqrt((uint32_t)(lx * lx + ly * ly));',
+  '  lx = (r * sin16((uint16_t)(f + 16384))) >> 15; ly = (r * sin16((uint16_t)f)) >> 15;',
+  '}',
+  '// The source point in 1/256 pixel for (x, y); group ids are WALLPAPER_GROUPS in evaluator/symmetry.ts.',
+  'static void _wallpaperSourceQ8(int x, int y, uint8_t group, int32_t k8, int32_t co, int32_t si, int32_t ox, int32_t oy, int32_t &sx, int32_t &sy) {',
+  '  int32_t px = ((2 * x + 1 - WIDTH) * k8) >> 8, py = ((2 * y + 1 - HEIGHT) * k8) >> 8;',
+  '  int32_t rx = ((co * px - si * py) >> 15) + ox, ry = ((si * px + co * py) >> 15) + oy, lx, ly;',
+  '  if (group >= 6) {',
+  '    int32_t q = rx, r = (-rx + ry + ((ry * 23988) >> 15)) >> 1;',
+  '    int32_t RX = (q + 2048) >> 12, RY = (-q - r + 2048) >> 12, RZ = (r + 2048) >> 12;',
+  '    int32_t dx = abs(RX * 4096 - q), dy = abs(RY * 4096 + q + r), dz = abs(RZ * 4096 - r);',
+  '    if (dx > dy && dx > dz) RX = -RY - RZ; else if (dy > dz) RY = -RX - RZ; else RZ = -RX - RY;',
+  '    lx = rx - RX * 4096; ly = ry - (2 * RZ + RX) * 2365;',
+  '  } else {',
+  '    lx = rx - ((rx + 2048) >> 12) * 4096; ly = ry - ((ry + 2048) >> 12) * 4096;',
+  '  }',
+  '  switch (group) {',
+  '    case 1: _wpCyclic(lx, ly, 2, false); break;',
+  '    case 2: lx = abs(lx); break;',
+  '    case 3: lx = abs(lx); ly = abs(ly); break;',
+  '    case 4: _wpCyclic(lx, ly, 4, false); break;',
+  '    case 5: _wpCyclic(lx, ly, 4, true); break;',
+  '    case 6: _wpCyclic(lx, ly, 3, false); break;',
+  '    case 7: _wpCyclic(lx, ly, 6, false); break;',
+  '    case 8: _wpCyclic(lx, ly, 6, true); break;',
+  '    default: break;',
+  '  }',
+  '  sx = (WIDTH - 1) * 128 + ((lx * WIDTH) >> 4); sy = (HEIGHT - 1) * 128 + ((ly * WIDTH) >> 4);',
+  '}',
+].join('\n')
+
+/** Bilinear sample at (sx, sy) in 1/256 pixel, edges clamped; each channel rounded once. */
+export function sampleFrameQ8(src: { r: number; g: number; b: number }[][], sx: number, sy: number, W: number, H: number): { r: number; g: number; b: number } {
+  const x0 = sx >> 8, y0 = sy >> 8, tx = sx & 255, ty = sy & 255
+  const cx = (v: number) => (v < 0 ? 0 : v >= W ? W - 1 : v), cy = (v: number) => (v < 0 ? 0 : v >= H ? H - 1 : v)
+  const p00 = src[cy(y0)][cx(x0)], p10 = src[cy(y0)][cx(x0 + 1)], p01 = src[cy(y0 + 1)][cx(x0)], p11 = src[cy(y0 + 1)][cx(x0 + 1)]
+  const w00 = (256 - tx) * (256 - ty), w10 = tx * (256 - ty), w01 = (256 - tx) * ty, w11 = tx * ty
+  const ch = (k: 'r' | 'g' | 'b') => (p00[k] * w00 + p10[k] * w10 + p01[k] * w01 + p11[k] * w11 + 32768) >> 16
+  return { r: ch('r'), g: ch('g'), b: ch('b') }
+}
+
+/** Sets `CRGB _wpC` from `src` at `_sx`, `_sy` (1/256 pixel). */
+export function sampleFrameQ8Cpp(src: string): string[] {
+  return [
+    `int32_t _qx0=_sx>>8,_qy0=_sy>>8,_qtx=_sx&255,_qty=_sy&255;`,
+    `int _qa=constrain(_qx0,0,WIDTH-1),_qb=constrain(_qx0+1,0,WIDTH-1),_qc=constrain(_qy0,0,HEIGHT-1)*WIDTH,_qd=constrain(_qy0+1,0,HEIGHT-1)*WIDTH;`,
+    `const CRGB &_q00=${src}[_qc+_qa],&_q10=${src}[_qc+_qb],&_q01=${src}[_qd+_qa],&_q11=${src}[_qd+_qb];`,
+    `uint32_t _w00=(256-_qtx)*(256-_qty),_w10=_qtx*(256-_qty),_w01=(256-_qtx)*_qty,_w11=_qtx*_qty;`,
+    `CRGB _wpC((uint8_t)((_q00.r*_w00+_q10.r*_w10+_q01.r*_w01+_q11.r*_w11+32768)>>16),(uint8_t)((_q00.g*_w00+_q10.g*_w10+_q01.g*_w01+_q11.g*_w11+32768)>>16),(uint8_t)((_q00.b*_w00+_q10.b*_w10+_q01.b*_w01+_q11.b*_w11+32768)>>16));`,
+  ]
+}
