@@ -127,6 +127,11 @@ export default function App() {
   const [capacityWatcherReady, setCapacityWatcherReady] = useState(false)
   const displayEditorOpen = designWorkspaceView.kind === 'display'
   const workspaceSidebarVisible = !displayEditorOpen && workspaceMode !== 'build'
+  // The display editor takes the full width, so the preview collapses while it
+  // is open. It stays mounted, though: the preview owns the music player's
+  // <audio> element and playlist, and unmounting it would stop the track and
+  // drop every loaded file.
+  const previewShown = previewPanelOpen && !displayEditorOpen
   // What the left panel holds follows the workspace: parts on the bench,
   // the deploy controls while flashing, the node library where a graph is
   // being drawn. Upload has no graph to add nodes to, so the library there
@@ -721,16 +726,16 @@ export default function App() {
               </div>
             </div>
           </div>
-          {!displayEditorOpen && <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
+          <div className={`${styles.previewDock} ${previewShown ? '' : styles.previewDockClosed}`}>
             <div
-              className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
-              aria-hidden={!previewPanelOpen && !stageMode}
-              inert={!previewPanelOpen && !stageMode}
+              className={`${styles.previewPanel} ${previewShown ? '' : styles.previewPanelClosed}`}
+              aria-hidden={!previewShown && !stageMode}
+              inert={!previewShown && !stageMode}
               id="preview-panel"
             >
               <LEDPreview />
             </div>
-          </div>}
+          </div>
           {!displayEditorOpen && previewPanelOpen && !stageMode && (
             <PanelResizeHandle
               side="preview"
