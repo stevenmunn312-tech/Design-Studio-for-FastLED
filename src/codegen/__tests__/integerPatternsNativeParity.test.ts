@@ -32,6 +32,7 @@ import {
   LATTICE_Q12_CPP, TRUCHET_Q12_CPP, latticeCellQ12, truchetDistanceQ12, truchetFrame, truchetLineQ16, truchetPixel,
   truchetPixelCpp,
   wireVertexQ8, wireframeEdgeCpp, wireframeEdgeQ8,
+  phyllotaxisPoint, phyllotaxisPointCpp, splatDiscQ8, splatDiscQ8Cpp,
 } from '../../nodes/shared/integerPatterns'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
@@ -447,6 +448,26 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
         ...wireframeEdgeCpp('_out', '_edg', edges.length / 2, depthShade),
       ], [], '"%u %u %u ",_out[_i].r,_out[_i].g,_out[_i].b')
       expect(frame.flat().flatMap((c) => [c.r, c.g, c.b])).toEqual(native)
+    }
+  }, 60_000)
+
+  it.each(SIZES)('the soft-disc splat matches on %ix%i', (W, H) => {
+    const discs = [[-300, 200, 128], [W * 120, H * 90, 700], [W * 256 + 100, -50, 2000], [1000, 1000, 0]]
+    const frame = Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+    discs.forEach(([x, y, r], k) => splatDiscQ8(frame, x, y, r, { r: 250 - k * 40, g: 90, b: k * 60 }, W, H))
+    const native = runNative(W, H, [
+      'static CRGB _out[WIDTH*HEIGHT];',
+      ...discs.flatMap(([x, y, r], k) => splatDiscQ8Cpp(String(x), String(y), String(r), `CRGB(${250 - k * 40},90,${k * 60})`, '_out')),
+    ], [], '"%u %u %u ",_out[_i].r,_out[_i].g,_out[_i].b')
+    expect(frame.flat().flatMap((c) => [c.r, c.g, c.b])).toEqual(native)
+  }, 60_000)
+
+  it.each(SIZES)('phyllotaxis points match on %ix%i', (W, H) => {
+    for (const [n, spin] of [[60, 0], [300, -20000], [1, 31337]]) {
+      const native = runNative(W, H, [`int32_t _ps16=${spin};`], phyllotaxisPointCpp(String(n)), '"%d %d %u ",_phx,_phy,_phi')
+      const expected: number[] = []
+      for (let i = 0; i < Math.min(n, W * H); i++) { const p = phyllotaxisPoint(i, n, spin, W, H); expected.push(p.x, p.y, p.index) }
+      expect(native.slice(0, expected.length)).toEqual(expected)
     }
   }, 60_000)
 })

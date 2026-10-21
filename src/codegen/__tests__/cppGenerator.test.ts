@@ -3821,7 +3821,7 @@ describe('Formula Points codegen', () => {
     it(`emits a dedicated block for "${v}", baked at generation time`, () => {
       const cpp = gen(v)
       expect(cpp).toContain(`// Formula Points: ${v}`)
-      expect(cpp).toContain('float _dx=(_px+0.5f)-_sx,_dy=(_py+0.5f)-_sy;')
+      expect(cpp).toContain('int32_t _ex=_px*256+128-_sx,_ey=_py*256+128-_sy;')
       expect(cpp).toContain('buf_fp[_py*WIDTH+_px]+=_add;')
     })
   }
@@ -3829,7 +3829,7 @@ describe('Formula Points codegen', () => {
   it('phyllotaxis is time-driven and bakes the golden angle', () => {
     const cpp = gen('phyllotaxis')
     expect(cpp).toContain('float t = millis()')
-    expect(cpp).toContain('_i*2.39996323f') // golden angle, 8-digit precision (see codegen comment)
+    expect(cpp).toContain('(uint32_t)_i*6408326u') // golden angle as a 16-bit angle in 1/256ths
   })
 
   it('logisticMap is not time-driven (no needsT) and reads chaos through its port', () => {
@@ -3887,9 +3887,9 @@ describe('Formula Points codegen', () => {
     // The matrix is fixed at generation time so the base radius is still a
     // literal; only the knob scaling it is live, and the splat reads the one
     // local rather than a number baked into each coordinate.
-    expect(radius(1)).toContain('float _fp_fpR=fmaxf(0.5f, 1.0f*fmaxf(0.1f, 1));')
-    expect(radius(2)).toContain('float _fp_fpR=fmaxf(0.5f, 1.0f*fmaxf(0.1f, 2));')
-    expect(radius(1)).toContain('_sx-_fp_fpR-1.0f')
+    expect(radius(1)).toContain('int32_t _fp_fpR=(int32_t)(fmaxf(0.5f, 1.0f*fmaxf(0.1f, 1))*256.0f);')
+    expect(radius(2)).toContain('int32_t _fp_fpR=(int32_t)(fmaxf(0.5f, 1.0f*fmaxf(0.1f, 2))*256.0f);')
+    expect(radius(1)).toContain('_sr=_fp_fpR;')
   })
 
   /*

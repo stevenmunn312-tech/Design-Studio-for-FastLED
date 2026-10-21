@@ -15,6 +15,7 @@ import { particleMode, particlePoolSize } from './particleModes'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { reactionDiffusionRates } from './reactionDiffusionPresets'
+import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integerPatterns'
 
 // Fire's styles share these direction/turbulence/paletteMix/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
@@ -383,25 +384,20 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const usesPersist = ['attractor', 'lissajousPath', 'rosePath'].includes(formulaType)
     // The persistence variants fade last frame's dots rather than clearing.
     const ob = ownBuf({ persists: usesPersist })
-    ln(`  float ${Rf}=fmaxf(0.5f, ${baseR}*fmaxf(0.1f, ${f('dotSize', 'dotSize', 1)}));`)
+    ln(`  int32_t ${Rf}=(int32_t)(fmaxf(0.5f, ${baseR}*fmaxf(0.1f, ${f('dotSize', 'dotSize', 1)}))*256.0f);`)
     if (usesCount) ln(`  int ${count}=(int)constrain(${f('count', 'count', 60)}, 1.0f, 300.0f);`)
     if (usesSpeed) ln(`  float ${speedVar}=constrain(${f('speed', 'speed', 0.3)}, 0.0f, 1.0f);`)
     if (usesPersist) ln(`  float ${persistVar}=constrain(${f('persistence', 'persistence', 0.85)}, 0.0f, 1.0f);`)
     if (formulaType === 'phyllotaxis' || formulaType === 'lissajousPath' || formulaType === 'rosePath') needsT.v = true
 
-    // Splats one soft disc of `colorExpr` at (xExpr, yExpr) into `buf` —
-    // same bounding-box + coverage technique as the Particles case above.
-    // Emits its own nested `{ }` block, so it's safe to call from inside
-    // an enclosing `for` loop.
-    const splat = (xExpr: string, yExpr: string, colorExpr: string, buf: string) => {
-      ln(`      { float _sx=${xExpr}, _sy=${yExpr};`)
-      ln(`        int _x0=max(0,(int)floorf(_sx-${Rf}-1.0f)), _x1=min(WIDTH-1,(int)ceilf(_sx+${Rf}+1.0f));`)
-      ln(`        int _y0=max(0,(int)floorf(_sy-${Rf}-1.0f)), _y1=min(HEIGHT-1,(int)ceilf(_sy+${Rf}+1.0f));`)
-      ln(`        CRGB _pcol=${colorExpr};`)
-      ln(`        for(int _py=_y0;_py<=_y1;_py++) for(int _px=_x0;_px<=_x1;_px++){`)
-      ln(`          float _dx=(_px+0.5f)-_sx,_dy=(_py+0.5f)-_sy; float _cov=constrain(${Rf}+0.5f-sqrtf(_dx*_dx+_dy*_dy),0.0f,1.0f);`)
-      ln(`          if(_cov<=0.0f) continue; CRGB _add=_pcol; _add.nscale8((uint8_t)(_cov*255.0f)); ${buf}[_py*WIDTH+_px]+=_add; } }`)
+    // Splats one soft disc of `colorExpr` at (xExpr, yExpr), float pixels,
+    // into `buf`: the integer splat in shared/integerPatterns.ts. Its own
+    // nested `{ }` block, so it is safe inside an enclosing `for` loop.
+    const splatQ8 = (xQ8: string, yQ8: string, colorExpr: string, buf: string) => {
+      for (const line of splatDiscQ8Cpp(xQ8, yQ8, Rf, colorExpr, buf)) ln(`      ${line}`)
     }
+    const splat = (xExpr: string, yExpr: string, colorExpr: string, buf: string) =>
+      splatQ8(`(int32_t)((${xExpr})*256.0f)`, `(int32_t)((${yExpr})*256.0f)`, colorExpr, buf)
 
     switch (formulaType) {
       case 'logisticMap': {
@@ -471,19 +467,14 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
 
       case 'phyllotaxis':
       default: {
-        // GOLDEN_ANGLE = 2π(1 − 1/φ) — same literal as graphEvaluator.ts.
-        // Extra precision (default floatLit rounds to 4 digits): this
-        // literal is multiplied by `_i` up to `count` (≤300), so 4-digit
-        // rounding would drift the outer spiral arms visibly out of sync
-        // with the preview's full-precision angle.
-        const goldenAngle = floatLit(2 * Math.PI * (1 - 1 / 1.618033988749895), 8)
+        // GOLDEN_ANGLE = 2π(1 − 1/φ), as a 16-bit angle in 1/256ths (integerPatterns.ts).
         ln(`  { // Formula Points: phyllotaxis`)
         // FORMULA_POINTS_SPEED_MAX.phyllotaxis
-        ln(`    float _spin=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*1.0f;`)
+        ln(`    int32_t _ps16=${angle16Cpp(`${speedPhaseCpp(ln, phaseTag(id), speedVar)}*1.0f`)};`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         ln(`    for(int _i=0;_i<${count};_i++){`)
-        ln(`      float _ang=_i*${goldenAngle}+_spin, _rr=sqrtf((float)_i/${count});`)
-        splat(`(0.5f+0.5f*_rr*cosf(_ang))*(WIDTH-1)`, `(0.5f+0.5f*_rr*sinf(_ang))*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(((float)_i/${count})*255.0f))`, ob)
+        for (const line of phyllotaxisPointCpp(count)) ln(`      ${line}`)
+        splatQ8('_phx', '_phy', `ColorFromPalette(${pal},_phi)`, ob)
         ln(`    }`)
         ln(`  }`)
         break

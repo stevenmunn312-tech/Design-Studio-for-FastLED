@@ -1702,3 +1702,57 @@ export function wireframeEdgeCpp(out: string, edges: string, edgeCount: number, 
     `      CRGB _add=_wfColor; _add.nscale8((uint8_t)((_br*_cv)>>8)); ${out}[_y*WIDTH+_x]+=_add; } } }`,
   ]
 }
+
+// ── FormulaPoints ─────────────────────────────────────────────────────────────
+// Every variant stamps soft discs: the point and radius in 1/256 pixel, the
+// coverage R + 1/2 - d from an integer square root, nscale8 and a saturating
+// add. Phyllotaxis places its points in integers too: the golden angle as a
+// 16-bit angle in 1/256ths, the radius sqrt(i / n) by integer square root.
+
+/** Splat one disc of `color` at (px, py) with radius `r8`, all in 1/256 pixel. */
+export function splatDiscQ8(buf: Rgb[][], px: number, py: number, r8: number, color: Rgb, W: number, H: number): void {
+  const x0 = Math.max(0, (px - r8 - 256) >> 8), x1 = Math.min(W - 1, (px + r8 + 511) >> 8)
+  const y0 = Math.max(0, (py - r8 - 256) >> 8), y1 = Math.min(H - 1, (py + r8 + 511) >> 8)
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const ex = x * 256 + 128 - px, ey = y * 256 + 128 - py
+    let cover = r8 + 128 - isqrt32(ex * ex + ey * ey)
+    if (cover <= 0) continue
+    if (cover > 256) cover = 256
+    const k = (cover * 255) >> 8, o = buf[y][x]
+    o.r = Math.min(255, o.r + scale8(color.r, k)); o.g = Math.min(255, o.g + scale8(color.g, k)); o.b = Math.min(255, o.b + scale8(color.b, k))
+  }
+}
+
+/** The splat as an inline block: `px`, `py`, `r8` integer expressions in 1/256 pixel. */
+export function splatDiscQ8Cpp(px: string, py: string, r8: string, color: string, buf: string): string[] {
+  return [
+    `{ int32_t _sx=${px},_sy=${py},_sr=${r8};`,
+    `  int _x0=max(0,(int)((_sx-_sr-256)>>8)),_x1=min(WIDTH-1,(int)((_sx+_sr+511)>>8)),_y0=max(0,(int)((_sy-_sr-256)>>8)),_y1=min(HEIGHT-1,(int)((_sy+_sr+511)>>8));`,
+    `  CRGB _pcol=${color};`,
+    `  for(int _py=_y0;_py<=_y1;_py++) for(int _px=_x0;_px<=_x1;_px++){`,
+    `    int32_t _ex=_px*256+128-_sx,_ey=_py*256+128-_sy;`,
+    ...isqrtCpp('sp', '_ex*_ex+_ey*_ey', '_spR').map((line) => `  ${line}`),
+    `    int32_t _cv=_sr+128-(int32_t)_spR; if(_cv<=0) continue; if(_cv>256) _cv=256;`,
+    `    CRGB _add=_pcol; _add.nscale8((uint8_t)((_cv*255)>>8)); ${buf}[_py*WIDTH+_px]+=_add; } }`,
+  ]
+}
+
+const GOLDEN_ANGLE_A16_Q8 = Math.round(2 * Math.PI * (1 - 1 / 1.618033988749895) * A16_PER_RADIAN * 256)
+
+/** Phyllotaxis point i of n: position in 1/256 pixel and palette index. */
+export function phyllotaxisPoint(i: number, n: number, spin16: number, W: number, H: number): { x: number; y: number; index: number } {
+  const a = (Math.floor(i * GOLDEN_ANGLE_A16_Q8 / 256) + spin16) & 0xffff
+  const r = isqrt32(Math.trunc((i * 65536) / n))
+  const cx = (r * sin16(a + 16384)) >> 15, cy = (r * sin16(a)) >> 15
+  return { x: ((256 + cx) * (W - 1)) >> 1, y: ((256 + cy) * (H - 1)) >> 1, index: Math.trunc((i * 255) / n) }
+}
+
+/** Sets `_phx`, `_phy` (1/256 pixel) and `uint8_t _phi` for point `_i` of `n`, spin `_ps16`. */
+export function phyllotaxisPointCpp(n: string): string[] {
+  return [
+    `int32_t _pa=(int32_t)(((uint32_t)_i*${GOLDEN_ANGLE_A16_Q8}u)>>8)+_ps16;`,
+    ...isqrtCpp('ph', `((uint32_t)_i*65536u)/(uint32_t)(${n})`, '_phR'),
+    `int32_t _pcx=((int32_t)_phR*sin16((uint16_t)(_pa+16384)))>>15,_pcy=((int32_t)_phR*sin16((uint16_t)_pa))>>15;`,
+    `int32_t _phx=((256+_pcx)*(WIDTH-1))>>1,_phy=((256+_pcy)*(HEIGHT-1))>>1; uint8_t _phi=(uint8_t)((_i*255)/(${n}));`,
+  ]
+}

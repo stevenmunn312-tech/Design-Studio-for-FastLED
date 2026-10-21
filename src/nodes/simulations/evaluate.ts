@@ -34,6 +34,8 @@ import {
   worleyHash,
   normalizedSeed,
 } from '../../state/evaluator/random'
+import { phyllotaxisPoint, splatDiscQ8 } from '../shared/integerPatterns'
+import { angle16 } from '../shared/lib8tion'
 
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
 const fireHeat    = instanceState('fireHeat', new Map<string, number[][]>())
@@ -416,8 +418,6 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
 // is exact closed-form/iterated math shared identically by evaluator and
 // codegen (same "no algorithm drift" property FormulaField's rose/
 // superformula/etc. already rely on).
-const GOLDEN_ANGLE = 2 * Math.PI * (1 - 1 / 1.618033988749895)
-
 // de Jong attractor coefficients (x' = sin(a·y) − cos(b·x), y' = sin(c·x) −
 // cos(d·y)) — unconditionally bounded to [-2,2] regardless of (a,b,c,d) since
 // sin/cos never exceed 1, so every preset is stable with no escape/clamp
@@ -477,6 +477,9 @@ function hueWrap01(v: number): number {
 
 function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const radius = Math.max(0.5, particleRadius(W, H) * Math.max(0.1, p.dotSize))
+  // Every variant splats through the sketch's integer disc (shared/integerPatterns.ts).
+  const r8 = Math.trunc(radius * 256)
+  const splat = (buf: Frame, px: number, py: number, color: RGB) => splatDiscQ8(buf, Math.trunc(px * 256), Math.trunc(py * 256), r8, color, W, H)
   const st = formulaPointsState.get(key) ?? {}
   const count = Math.max(1, Math.min(300, Math.round(p.count)))
 
@@ -491,7 +494,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
         const rad = 0.5 * x
         const px = (0.5 + rad * Math.cos(ang)) * (W - 1)
         const py = (0.5 + rad * Math.sin(ang)) * (H - 1)
-        splatDisc(frame, px, py, radius, samplePalette(p.palette, x))
+        splat(frame, px, py, samplePalette(p.palette, x))
       }
       st.logisticX = x
       formulaPointsState.set(key, st)
@@ -509,7 +512,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
         ax = nx; ay = ny
         const px = ((ax + 2) / 4) * (W - 1)
         const py = ((ay + 2) / 4) * (H - 1)
-        splatDisc(buf, px, py, radius, samplePalette(p.palette, i / count))
+        splat(buf, px, py, samplePalette(p.palette, i / count))
       }
       st.attractorX = ax; st.attractorY = ay; st.frame = buf
       formulaPointsState.set(key, st)
@@ -524,7 +527,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
       const cy = Math.sin(Math.max(1, p.freqB) * phase)
       const px = ((cx + 1) / 2) * (W - 1)
       const py = ((cy + 1) / 2) * (H - 1)
-      splatDisc(buf, px, py, radius, samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI))))
+      splat(buf, px, py, samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI))))
       st.frame = buf
       formulaPointsState.set(key, st)
       return buf
@@ -540,7 +543,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
       const cy = rr * Math.sin(phase)
       const px = ((cx + 1) / 2) * (W - 1)
       const py = ((cy + 1) / 2) * (H - 1)
-      splatDisc(buf, px, py, radius, samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI))))
+      splat(buf, px, py, samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI))))
       st.frame = buf
       formulaPointsState.set(key, st)
       return buf
@@ -550,12 +553,10 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
     default: {
       const spin = speedPhase(key, t, p.speed) * (FORMULA_POINTS_SPEED_MAX.phyllotaxis ?? 1)
       const frame = blankFrame(W, H)
+      const spin16 = angle16(spin)
       for (let i = 0; i < count; i++) {
-        const ang = i * GOLDEN_ANGLE + spin
-        const rr = Math.sqrt(i / count)
-        const px = (0.5 + 0.5 * rr * Math.cos(ang)) * (W - 1)
-        const py = (0.5 + 0.5 * rr * Math.sin(ang)) * (H - 1)
-        splatDisc(frame, px, py, radius, samplePalette(p.palette, i / count))
+        const point = phyllotaxisPoint(i, count, spin16, W, H)
+        splatDiscQ8(frame, point.x, point.y, r8, samplePalette(p.palette, point.index / 256), W, H)
       }
       return frame
     }
