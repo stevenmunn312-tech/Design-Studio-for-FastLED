@@ -164,7 +164,12 @@ export default function MatrixOutputDeployPopup({
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }
-  const code = useMemo(generateCurrentCode, [codegenGraph, codegenBuild, psramSupported, projectName, selectedFqbn,
+  // Generated only while the code view shows it. A large show or player
+  // sketch takes seconds to build, and generating it whenever this tab mounted
+  // froze the switch to Upload for that long; upload and export generate their
+  // own copy when clicked.
+  const code = useMemo(() => codeViewOpen ? generateCurrentCode() : '', [codeViewOpen,
+    codegenGraph, codegenBuild, psramSupported, projectName, selectedFqbn,
     customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted, customAssets.groups,
     entries])
 
@@ -859,7 +864,7 @@ export default function MatrixOutputDeployPopup({
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={!hasBuildOutput || !code}
+            disabled={!hasBuildOutput || customAssets.pending || customAssets.errors.length > 0}
             onClick={openCodeView}
             title={hasBuildOutput ? 'View the generated .ino sketch' : 'Connect a frame to view the generated .ino sketch'}
           >

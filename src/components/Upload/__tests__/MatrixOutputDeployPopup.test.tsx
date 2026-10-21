@@ -243,6 +243,17 @@ describe('MatrixOutputDeployPopup', () => {
       expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { document: baked } }))
   })
 
+  it('generates the sketch for View Code only while the code view is open', () => {
+    // A large show sketch takes seconds; generating it on mount froze the
+    // switch to the Upload tab.
+    const { getByText } = render(<MatrixOutputDeployPopup />)
+    expect(generateCpp).not.toHaveBeenCalled()
+
+    act(() => useUploadStore.setState({ codeViewOpen: true }))
+    expect(generateCpp).toHaveBeenCalledTimes(1)
+    expect(getByText('// sketch')).toBeTruthy()
+  })
+
   it('keeps readiness collapsed behind the action-needed gate', () => {
     const { getByRole, queryByText } = render(<MatrixOutputDeployPopup />)
 
