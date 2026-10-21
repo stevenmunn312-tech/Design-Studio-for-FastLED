@@ -20,9 +20,12 @@ import {
   type PlacedDisplayWidget,
 } from '../../state/displays/displayDocument'
 import {
+  DISPLAY_SPECTRUM_REFRESH_MS,
   DISPLAY_KEYBOARD_FONT_SIZE,
   DISPLAY_KEYBOARD_HEIGHT_RATIO,
   DISPLAY_PICKER_MARKER_PX,
+  displayChartIntervalMs,
+  displayChartPoints,
   displayChoiceOptions,
   displayControlRange,
   displayControlStartValue,
@@ -33,6 +36,7 @@ import {
   displayPickerTone,
   displayStepDecimals,
   displayStepKeyWidth,
+  displaySpectrumBars,
   displayTextEntryMaxLength,
   displayTextEntryStart,
   displayWidgetBodyFallback,
@@ -295,6 +299,9 @@ function lvglWidgetClass(widget: DisplayWidget): string {
     case 'container': return 'lv_obj'
     // One line of text; the panel's keyboard types into it.
     case 'text-entry': return 'lv_textarea'
+    // One series each: a reading history, or the spectrum's bars.
+    case 'chart': return 'lv_chart'
+    case 'spectrum': return 'lv_chart'
   }
 }
 
@@ -452,6 +459,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   if (widget.type === 'Arc Gauge') lines.push(...gaugeLines(emit, widget, index, box, text.fontSize))
   if (widget.type === 'Marquee') lines.push(...marqueeLines(emit, widget, index, text.fontSize))
   if (widget.type === 'Text Entry') lines.push(...textEntryLines(emit, widget, index, text.fontSize))
+  if (widget.type === 'Chart' || widget.type === 'Spectrum') lines.push(...chartLines(emit, widget, index))
   // Children larger than it, or partly outside it, are clipped rather than
   // scrolled to, and its border is drawn over them as the preview's is.
   if (widget.type === 'Container') {
@@ -781,6 +789,39 @@ function textEntryLines(
     `  lv_obj_add_event_cb(${obj}, _cdEntryEvent, LV_EVENT_ALL, ${keyboardObject(emit)});`,
     `  _cdSetEntry(${rt}, ${cppStringLiteral(displayString(displayTextEntryStart(widget)))});`,
   ]
+}
+
+/**
+ * A Chart or Spectrum: an lv_chart with one series in the indicator colour,
+ * no grid, its values in the shared 0..CD_VALUE_SCALE range. A Chart shifts
+ * its readings left as new ones arrive; a Spectrum sets every bar at once.
+ * LVGL starts a series with no points, so both draw nothing until read, as
+ * the preview does. Padded as the preview's plot is.
+ */
+function chartLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidget, index: number): string[] {
+  const theme = resolveDisplayThemeTokens(emit.document.theme)
+  const obj = object(emit, index)
+  const chart = widget.type === 'Chart'
+  const bar = !chart || stringProperty(widget, 'style', 'line') === 'bar'
+  return [
+    `  lv_chart_set_type(${obj}, ${bar ? 'LV_CHART_TYPE_BAR' : 'LV_CHART_TYPE_LINE'});`,
+    `  lv_chart_set_point_count(${obj}, ${chart ? displayChartPoints(widget) : displaySpectrumBars(widget)});`,
+    `  lv_chart_set_axis_range(${obj}, LV_CHART_AXIS_PRIMARY_Y, 0, CD_VALUE_SCALE);`,
+    ...(chart ? [`  lv_chart_set_update_mode(${obj}, LV_CHART_UPDATE_MODE_SHIFT);`] : []),
+    `  lv_chart_set_div_line_count(${obj}, 0, 0);`,
+    `  lv_obj_set_style_pad_all(${obj}, 4, LV_PART_MAIN);`,
+    // A line with no dots on it, two pixels wide, as the preview strokes it.
+    ...(bar ? [] : [
+      `  lv_obj_set_style_size(${obj}, 0, 0, LV_PART_INDICATOR);`,
+      `  lv_obj_set_style_line_width(${obj}, 2, LV_PART_ITEMS);`,
+    ]),
+    `  lv_chart_add_series(${obj}, lv_color_hex(${colorHex(theme.states.default.indicatorColor)}), LV_CHART_AXIS_PRIMARY_Y);`,
+  ]
+}
+
+/** Whether any widget of this type is on a screen of this design. */
+export function customDisplayNeedsWidget(document: DisplayDocument, type: DisplayWidget['type']): boolean {
+  return placedWidgets(document).some((widget) => widget.type === type)
 }
 
 /** The panel's one keyboard, shared by every Text Entry on it. */
@@ -1207,7 +1248,7 @@ static void _cdEntryEvent(lv_event_t *event) {
     lv_keyboard_set_textarea(keys, field);
     lv_obj_add_state(field, LV_STATE_FOCUSED);
     lv_obj_remove_flag(keys, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(keys);
+    lv_obj_move_to_index(keys, -1);
   } else if (code == LV_EVENT_READY && lv_keyboard_get_textarea(keys) == field) {
     _cdEntryClose(keys, true);
   }
@@ -1229,6 +1270,48 @@ static bool _cdSetEntry(CustomDisplayWidgetRuntime &runtime, const char *value) 
   if (strncmp(runtime.text, value, CD_TEXT_BYTES) == 0) return false;
   _cdCopy(runtime.text, value);
   lv_textarea_set_text(runtime.object, runtime.text);
+  return true;
+}
+`
+
+/**
+ * A Chart's reading, emitted only into a sketch that binds one. A reading is
+ * taken by the clock, every interval, not when the value changes, so a steady
+ * value draws a flat line; a value that is not a number is a gap. A chart has
+ * no colour of its own to cache, so `lastColor` holds the time of its last
+ * reading, UINT32_MAX until the first, which is taken at once.
+ */
+export const CUSTOM_DISPLAY_LVGL_CHART_CPP = `// Chart: one reading per interval, newest on the right.
+static bool _cdChartSample(CustomDisplayWidgetRuntime &runtime, float value, float minimum, float maximum, uint32_t intervalMs) {
+  uint32_t now = millis();
+  if (runtime.lastColor != UINT32_MAX && (uint32_t)(now - runtime.lastColor) < intervalMs) return false;
+  runtime.lastColor = now;
+  int32_t point = isfinite(value) && maximum > minimum ? _cdScaled(value, minimum, maximum) : LV_CHART_POINT_NONE;
+  lv_chart_set_next_value(runtime.object, lv_chart_get_series_next(runtime.object, NULL), point);
+  return true;
+}
+`
+
+/**
+ * A Spectrum's bars, emitted only into a sketch that binds one: the 32-bin
+ * spectrum folded into its bars by the integer loop `displaySpectrumHeights`
+ * mirrors, redrawn at most every refresh interval. `lastColor` holds the time
+ * of the last redraw, as a Chart's does.
+ */
+export const CUSTOM_DISPLAY_LVGL_SPECTRUM_CPP = `// Spectrum: 32 analysis bins as bars, at most every CD_SPECTRUM_REFRESH_MS.
+#define CD_SPECTRUM_REFRESH_MS ${DISPLAY_SPECTRUM_REFRESH_MS}u
+static bool _cdSpectrumSample(CustomDisplayWidgetRuntime &runtime, const float *spectrum, int32_t bars) {
+  uint32_t now = millis();
+  if (runtime.lastColor != UINT32_MAX && (uint32_t)(now - runtime.lastColor) < CD_SPECTRUM_REFRESH_MS) return false;
+  runtime.lastColor = now;
+  lv_chart_series_t *series = lv_chart_get_series_next(runtime.object, NULL);
+  for (int32_t bar = 0; bar < bars; bar++) {
+    int32_t lo = (bar * 32) / bars, next = ((bar + 1) * 32) / bars, hi = next > lo ? next : lo + 1;
+    float sum = 0.0f;
+    for (int32_t bin = lo; bin < hi; bin++) sum += isfinite(spectrum[bin]) ? spectrum[bin] : 0.0f;
+    lv_chart_set_series_value_by_id(runtime.object, series, (uint32_t)bar, _cdScaled(sum / (float)(hi - lo), 0.0f, 1.0f));
+  }
+  lv_chart_refresh(runtime.object);
   return true;
 }
 `
@@ -1310,6 +1393,9 @@ export function customDisplayLvglGlobalCpp(emit: CustomDisplayLvglEmit): string 
     `// FLS-LVGL-FONTS:${customDisplayFontSizes(emit.document).join(',')}`,
     // The LVGL modules beyond the always-on set, switched on by the helper.
     ...(keyboard ? ['// FLS-LVGL-WIDGETS:keyboard'] : []),
+    ...(customDisplayNeedsWidget(emit.document, 'Chart') || customDisplayNeedsWidget(emit.document, 'Spectrum')
+      ? ['// FLS-LVGL-WIDGETS:chart']
+      : []),
     ...screens.map((_, index) => `static lv_obj_t *${screenObject(emit, index)} = nullptr;`),
     ...(keyboard ? [`static lv_obj_t *${keyboardObject(emit)} = nullptr;`] : []),
     // Indexed by the Screen input, so declared only where it is wired.
@@ -1415,6 +1501,14 @@ function passiveUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, 
       }
       return lines
     }
+    case 'Chart': {
+      const min = numberProperty(widget, 'min', 0)
+      const max = numberProperty(widget, 'max', 1)
+      return [`  _cdChartSample(${rt}, (float)(${expr}), ${floatLiteral(min)}, ${floatLiteral(max)}, ${displayChartIntervalMs(widget)}u);`]
+    }
+    case 'Spectrum':
+      // The bound expression is the sketch's 32-bin spectrum array.
+      return [`  _cdSpectrumSample(${rt}, ${expr}, ${displaySpectrumBars(widget)});`]
     case 'Pattern Browser':
       // The control-graph resolver supplies the selected name expression; the
       // thumbnail itself belongs to the asset-baking slice.

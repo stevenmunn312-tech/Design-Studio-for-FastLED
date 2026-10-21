@@ -122,7 +122,8 @@ export interface SketchEmitContext {
   physLeds: 'RING_LEDS' | 'CORKSCREW_LEDS' | 'POS_LEDS' | 'PANEL_LEDS' | 'NUM_LEDS'
   outputConfigs: OutputEmitConfig[]
   nativeFastLedAudio: boolean
-  hasExplicitAudioInput: (nodeId: string) => boolean
+  /** Whether `port` on this node (its `audio` input unless named) is fed by live audio. */
+  hasExplicitAudioInput: (nodeId: string, port?: string) => boolean
   /** The node rendering straight into `leds`, once that node has emitted. */
   aliasedTerminalId: () => string | null
   floatExpr: (nodeId: string, portId: string, nodeProps: Record<string, unknown>, propKey: string, def: number) => string

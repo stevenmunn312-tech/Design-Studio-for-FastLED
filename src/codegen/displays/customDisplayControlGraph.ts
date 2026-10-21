@@ -188,6 +188,10 @@ export function bindCustomDisplayControls(
         bindings.push({ role: port.role, expression: packedColorCpp(controlReferenceCpp(reference)) })
         continue
       }
+      if (port?.dataType === 'audio') {
+        plan.errors.push(`${display.label}.${port.label}: a Spectrum reads live microphone or line-in audio, which ${generatorLabel} does not analyse. Build a normal sketch for it, or show a Chart of a level instead.`)
+        continue
+      }
       if (!port || (port.dataType !== 'float' && port.dataType !== 'bool' && port.dataType !== 'string')) {
         plan.errors.push(`${display.label}: ${generatorLabel} cannot evaluate ${port?.label ?? edge.targetHandle}. Use a float, boolean or text widget binding supported by the control graph.`)
         continue

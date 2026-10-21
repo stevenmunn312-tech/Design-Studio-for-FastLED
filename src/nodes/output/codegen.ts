@@ -330,7 +330,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     for (const line of infoDisplaySetupCpp(emit)) setupLines.push(line)
     for (const line of infoDisplayLoopCpp(emit)) ln(line)
   },
-  TransportDisplay({ node, id, p, ln, ledStatusEmit, nodes, edges, opts, incoming, nodeMap, intProp, nativeMultiRender, boolExpr, customDisplaySamples, customDisplayPublication, setupLines, globalLines, needsDisplayText, tftDisplays, playerControlNodes, tftTouches, emitTelemetry, customDisplays, customDisplayPanels, customDisplayOwners }) {
+  TransportDisplay({ node, id, p, ln, ledStatusEmit, nodes, edges, opts, incoming, nodeMap, intProp, nativeMultiRender, boolExpr, customDisplaySamples, customDisplayPublication, setupLines, globalLines, needsDisplayText, tftDisplays, playerControlNodes, tftTouches, emitTelemetry, customDisplays, customDisplayPanels, customDisplayOwners, hasExplicitAudioInput }) {
     // A panel draws its screen design when it has one, and one of the
     // fixed layouts otherwise (see
     // docs/design/large-displays-and-control-routing.md).
@@ -375,8 +375,11 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       const instanceId = safeId(displayRuntimeId(node.id, documentId, nodes))
       const assetStem = safeId(documentId)
       const ports = displayDocumentPorts(document)
-      const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined): string | null => {
+      const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined, portId?: string): string | null => {
         if (!up) return null
+        // Live audio is the sketch's own 32-bin spectrum, not a wire value;
+        // with no audio engine there is nothing to read and the widget stays empty.
+        if (dataType === 'audio') return portId && hasExplicitAudioInput(node.id, portId) ? '_audioSpectrum' : null
         const varExpr = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
         if (dataType === 'color') {
           return `(((uint32_t)(${varExpr}).r << 16) | ((uint32_t)(${varExpr}).g << 8) | (uint32_t)(${varExpr}).b)`
@@ -387,7 +390,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       for (const port of ports.inputs) {
         const parsed = parseDisplayWidgetPortId(port.id)
         if (!parsed) continue
-        const expr = widgetInputExpr(incoming.get(`${node.id}:${port.id}`), port.dataType)
+        const expr = widgetInputExpr(incoming.get(`${node.id}:${port.id}`), port.dataType, port.id)
         if (expr === null) continue
         const bindings = bindingsByWidget[parsed.widgetId] ?? (bindingsByWidget[parsed.widgetId] = [])
         bindings.push({ role: parsed.role, expression: expr })

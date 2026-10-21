@@ -437,3 +437,23 @@
   color: var(--display-inactive, currentColor);
   opacity: 0.8;
 }
+
+/* Chart and Spectrum: the plot fills the box inside the border, as the LVGL
+   chart's own area does, in the indicator colour. */
+.chart {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  overflow: visible;
+}
+
+.chartLine {
+  fill: none;
+  stroke: var(--widget-state-indicator, var(--display-accent, currentColor));
+  stroke-width: 2px;
+}
+
+.chartFill {
+  fill: var(--widget-state-indicator, var(--display-accent, currentColor));
+}

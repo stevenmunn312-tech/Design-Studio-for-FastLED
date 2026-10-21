@@ -2,7 +2,8 @@ import { useTransportDisplayTouchStore } from '../../state/displays/transportDis
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from '../../state/displays/displayRuntimeStore'
 import { displayRuntimeId } from '../../state/displays/mountedDisplays'
 import {
-  DISPLAY_SCREEN_INPUT_ID, displayControlSetState, parseDisplayWidgetPortId, type DisplayWidgetPortRoleId,
+  DISPLAY_SCREEN_INPUT_ID, displayChartIntervalMs, displayChartPoints, displayControlSetState, parseDisplayWidgetPortId,
+  type DisplayWidgetPortRoleId,
 } from '../../state/displays/displayRegistry'
 import { displayScreenAt, displayScreenIndex, displayScreens } from '../../state/displays/displayDocument'
 import { readDisplaySourceField } from '../../state/displays/displaySourceFields'
@@ -333,6 +334,22 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
         runtime.publishDisplayRoleValue(runtimeId, parsed.widgetId, parsed.role, published as DisplayRuntimeValue)
       }
       /*
+       * Charts read whatever their value role now holds, wired or bound, at
+       * their own interval: the reading is taken by the clock, not when the
+       * value changes, so a steady value draws a flat line.
+       */
+      const sampleCharts = () => {
+        const now = Date.now()
+        for (const widget of shownWidgets) {
+          if (widget.type !== 'Chart' || !widget.bounds) continue
+          const value = runtime.readDisplayWidget(runtimeId, widget.id)?.roleValues.get('value')
+          runtime.sampleDisplayChart(
+            runtimeId, widget.id, typeof value === 'number' && Number.isFinite(value) ? value : null,
+            now, displayChartIntervalMs(widget), displayChartPoints(widget),
+          )
+        }
+      }
+      /*
        * Widgets reading the panel's own source rather than a cable.
        *
        * The values were already here — the source is wired to this very
@@ -355,6 +372,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           }
         }
       }
+      sampleCharts()
     }
 
     // Assigned onto the same object rather than replacing it: the widget

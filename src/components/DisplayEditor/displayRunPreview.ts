@@ -18,6 +18,8 @@ export function displayRunValue(
   widget: DisplayWidget,
   runtime: DisplayWidgetRuntime | undefined,
 ): unknown {
+  // A Chart draws what it has read so far, not the latest reading alone.
+  if (widget.type === 'Chart') return runtime?.history ?? []
   const fallback = initialDisplayControlValue(widget)
   return fallback === undefined
     ? runtime?.roleValues.get('value')

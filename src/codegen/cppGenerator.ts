@@ -60,6 +60,8 @@ import {
   CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP,
   CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP,
   CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP,
+  CUSTOM_DISPLAY_LVGL_CHART_CPP,
+  CUSTOM_DISPLAY_LVGL_SPECTRUM_CPP,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP,
   customDisplayLvglGlobalCpp,
   customDisplayNeedsKeyboard,
@@ -494,9 +496,9 @@ export function generateCpp(
   const useAudioGlobals = emitEngine || !!opts.externalAudio
   const nativeFastLedAudio = emitEngine || !!opts.nativeFastLedAudio
 
-  const hasExplicitAudioInput = (nodeId: string): boolean => {
+  const hasExplicitAudioInput = (nodeId: string, port = 'audio'): boolean => {
     if (!useAudioGlobals) return false
-    const upstream = incoming.get(`${nodeId}:audio`)
+    const upstream = incoming.get(`${nodeId}:${port}`)
     if (!upstream) return false
     const source = nodeMap.get(upstream.srcId)
     if (!source) return false
@@ -1353,6 +1355,9 @@ export function generateCpp(
     if ([...customDisplaySamples, ...loopLines].some((line) => line.includes('_cdHueColor('))) lines.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
     if (customDisplays.some((display) => customDisplayNeedsNavigation(display.document))) lines.push(CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP)
     if (customDisplays.some((display) => customDisplayNeedsKeyboard(display.document))) lines.push(CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP)
+    // Called only from a reading's update, so only where one is bound.
+    if (customDisplayPublication.some((line) => line.includes('_cdChartSample('))) lines.push(CUSTOM_DISPLAY_LVGL_CHART_CPP)
+    if (customDisplayPublication.some((line) => line.includes('_cdSpectrumSample('))) lines.push(CUSTOM_DISPLAY_LVGL_SPECTRUM_CPP)
     lines.push(CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (customDisplayPanels.some((panel) => panel.touch)) emitXptPointHelpersOnce()
     const emittedAssets = new Set<string>()

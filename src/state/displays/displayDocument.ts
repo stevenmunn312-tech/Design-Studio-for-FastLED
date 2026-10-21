@@ -31,6 +31,8 @@ export const DISPLAY_WIDGET_TYPES = [
   'Marquee',
   'Container',
   'Text Entry',
+  'Chart',
+  'Spectrum',
 ] as const
 
 export type DisplayWidgetType = (typeof DISPLAY_WIDGET_TYPES)[number]

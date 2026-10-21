@@ -353,6 +353,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   modules are switched on per sketch by `// FLS-LVGL-WIDGETS:keyboard`
   (`_LVGL_WIDGET_MODULES` in `backend/toolchain.py`), the widget twin of the
   font marker; keep the marker, the map and `test_scaffold_writes.py` in step.
+- **A Chart reads by the clock; a Spectrum reads the sketch's spectrum.** A
+  Chart samples whatever its value role holds every `displayChartIntervalMs`
+  (first reading at once), not on change, in the panel evaluator
+  (`sampleDisplayChart` keeps the window in the runtime store's `history`) and
+  in `_cdChartSample`; a non-number is a gap (`LV_CHART_POINT_NONE`), never 0.
+  A Spectrum's input is the `audio` data type, which no wire carries in
+  firmware: the normal generator binds it to `_audioSpectrum` when
+  `hasExplicitAudioInput(panel, port)` says live audio feeds that port, and the
+  templates refuse it by name. `displaySpectrumHeights` is the integer bin fold
+  `_cdSpectrumSample` runs. Neither widget has a colour to cache, so both keep
+  their last-sample time in the runtime's `lastColor` (UINT32_MAX before the
+  first); the two helpers are emitted only where a sample call is, and
+  `// FLS-LVGL-WIDGETS:chart` switches on `LV_USE_CHART`.
 - **List order is paint order and LVGL tree order.** `document.widgets` draws
   later over earlier in every renderer, and each Container is followed at once
   by its children (`orderDisplayWidgetTree`, applied by normalize and by every

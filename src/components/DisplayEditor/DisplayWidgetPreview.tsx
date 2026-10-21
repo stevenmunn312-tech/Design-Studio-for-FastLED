@@ -11,6 +11,10 @@ import {
   displayMarqueeSpeed,
   displayPickerStartHue,
   displayPickerStops,
+  displayChartPoints,
+  displayChartUnit,
+  displaySpectrumBars,
+  displaySpectrumHeights,
   displayTextEntryStart,
   displayStepDecimals,
   displayStepKeyWidth,
@@ -420,6 +424,54 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     // widgets of their own.
     case 'container':
       return null
+    case 'chart': {
+      // The readings so far, oldest at the left of a full-width window; in
+      // the designer, where nothing has been read, a still example.
+      const points = displayChartPoints(widget)
+      const min = numberProperty(widget, 'min', 0)
+      const max = numberProperty(widget, 'max', 1)
+      const readings: (number | null)[] = Array.isArray(value)
+        ? (value as unknown[]).map((entry) => displayChartUnit(entry, min, max))
+        : Array.from({ length: points }, (_, index) => 0.5 + 0.35 * Math.sin(index / 3))
+      const offset = points - readings.length
+      const bar = stringProperty(widget, 'style', 'line') === 'bar'
+      const segments: string[] = []
+      let run: string[] = []
+      readings.forEach((unit, index) => {
+        if (unit === null) {
+          if (run.length) segments.push(run.join(' '))
+          run = []
+          return
+        }
+        run.push(`${offset + index},${(1 - unit).toFixed(4)}`)
+      })
+      if (run.length) segments.push(run.join(' '))
+      return (
+        <svg className={styles.chart} viewBox={`0 0 ${Math.max(1, points - (bar ? 0 : 1))} 1`} preserveAspectRatio="none" aria-hidden="true">
+          {bar
+            ? readings.map((unit, index) => unit === null ? null : (
+              <rect key={index} x={offset + index + 0.1} y={1 - unit} width={0.8} height={unit} className={styles.chartFill} />
+            ))
+            : segments.map((line, index) => <polyline key={index} points={line} className={styles.chartLine} vectorEffect="non-scaling-stroke" />)}
+        </svg>
+      )
+    }
+    case 'spectrum': {
+      const bars = displaySpectrumBars(widget)
+      const audio = value && typeof value === 'object' && !Array.isArray(value)
+        ? value as { detectorSpectrum?: number[]; spectrum?: number[] }
+        : null
+      const heights = audio
+        ? displaySpectrumHeights(audio.detectorSpectrum ?? audio.spectrum ?? [], bars)
+        : Array.from({ length: bars }, (_, index) => 0.85 * (1 - index / bars) + 0.1)
+      return (
+        <svg className={styles.chart} viewBox={`0 0 ${bars} 1`} preserveAspectRatio="none" aria-hidden="true">
+          {heights.map((height, index) => (
+            <rect key={index} x={index + 0.1} y={1 - height} width={0.8} height={height} className={styles.chartFill} />
+          ))}
+        </svg>
+      )
+    }
     case 'text-entry': {
       // The confirmed text, or its starting text before anything is read;
       // the hint only while it holds nothing, as the textarea shows it.

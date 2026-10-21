@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Chart** and **Spectrum** screen widgets. A Chart plots a wired or bound
+  number over time, one reading per interval, as a line or bars. A Spectrum
+  draws live microphone or line-in audio as bars in a normal sketch. The
+  preview and the device fold the spectrum into bars by the same rule, and
+  only a design with one compiles LVGL's chart.
 - **Web Remote** serves a phone control page over the board's Wi-Fi on ESP32
   and ESP8266: Buttons, Toggles, Sliders, Step Controls, Choice Strips,
   Colour Pickers and Text Entries, each an output of the node with its touch-screen widget's

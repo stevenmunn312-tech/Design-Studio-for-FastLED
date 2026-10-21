@@ -4,6 +4,7 @@ import {
   CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS,
   CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP, CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP, customDisplayNeedsNavigation,
   CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP, customDisplayNeedsKeyboard,
+  CUSTOM_DISPLAY_LVGL_CHART_CPP, CUSTOM_DISPLAY_LVGL_SPECTRUM_CPP,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP, customDisplayLvglInitCpp, customDisplayLvglTimingSetupCpp,
   customDisplayLvglGlobalCpp, customDisplayLvglSetupCpp, customDisplayLvglLoopCpp,
 } from './customDisplayLvglCpp'
@@ -75,6 +76,9 @@ export function customDisplayShowCpp(
   sample.push(...snapshots, ...plan.resting.map((entry) => customDisplaySampleCpp(entry, null)))
   // A placed Colour Picker calls it only where its output is read.
   if (sample.some((line) => line.includes('_cdHueColor('))) helpers.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
+  // Called only from a reading's update, so only where one is bound.
+  if (loop.some((line) => line.includes('_cdChartSample('))) helpers.push(CUSTOM_DISPLAY_LVGL_CHART_CPP)
+  if (loop.some((line) => line.includes('_cdSpectrumSample('))) helpers.push(CUSTOM_DISPLAY_LVGL_SPECTRUM_CPP)
   if (displays.length) loop.push('  _cdServiceLvgl();')
   return { includes, forwards, helpers, shared, setup, sample, enable, loop }
 }

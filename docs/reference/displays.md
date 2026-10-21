@@ -212,7 +212,8 @@ nowhere. Run and the panel thumbnail show the screen the panel is on.
 | Widget | Input | Output |
 | --- | --- | --- |
 | Text, Marquee | Text: string (Value role) | — |
-| Numeric Readout, Progress, Value Meter, Arc Gauge | Value: float | — |
+| Numeric Readout, Progress, Value Meter, Arc Gauge, Chart | Value: float | — |
+| Spectrum | Audio: audio (Value role) | — |
 | Timecode | Seconds: float (Value role) | — |
 | Status Indicator | Value: boolean | — |
 | Colour Swatch | Colour: colour (Value role) | — |
@@ -261,6 +262,21 @@ from the panel's source, carries on from where the old text had reached. The
 default speed, 40 pixels per second, is the one a scrolling Text uses. A
 Marquee repaints its whole box on every frame it moves, so keep it to the one
 line it needs.
+
+A **Chart** plots a number over time. It takes a reading every **Seconds
+between readings**, by the clock rather than when the value changes, so a
+steady value draws a flat line, and keeps the newest **Readings shown** (8 to
+64) with the newest on the right. Readings are placed between **Minimum** and
+**Maximum**; a reading that is not a number leaves a gap. Its **Style** is a
+line or bars. It starts empty in the preview and on the device and fills from the
+left as it reads. Wire it like a Numeric Readout, or set its **Reads** row to
+a field of the panel’s source, such as a power monitor’s watts.
+
+A **Spectrum** draws live audio as **Bars** (4 to 32), bass on the left. Wire
+the **Audio** node's output to it, as you would to an FFT Analyzer. It folds
+the analyser's 32 bands into its bars and redraws at most 20 times a second.
+It needs a normal sketch with a microphone or line input: the generative show
+and the SD player report that they do not analyse live audio for it.
 
 A **Text Entry** is a one-line text field. Tap it and the panel's keyboard
 opens at the bottom of the screen; type, then press the tick key (or Enter) to

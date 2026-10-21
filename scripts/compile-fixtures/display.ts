@@ -62,9 +62,9 @@ function fullDocument(id: string, bindings: Readonly<Record<string, string>> = {
   document = adoptDisplayWidgets(document, [child.id])
   if (!document.widgets.some((entry) => entry.parentId === container.id)) throw new Error(`${id}: the Text did not go in the Container`)
   // A Text Entry, which brings the keyboard, a Text showing what it types,
-  // and a second screen a Button
+  // a Chart, which brings LVGL's chart, and a second screen a Button
   // goes to, which brings navigation: both appended, so no index moves.
-  document = addDisplayWidget(addDisplayWidget(document, 'Text Entry'), 'Text')
+  document = addDisplayWidget(addDisplayWidget(addDisplayWidget(document, 'Text Entry'), 'Text'), 'Chart')
   const more = addDisplayScreen(document, 'More')
   document = addDisplayWidget(more.document, 'Button', more.screenId!)
   const goes = document.widgets.find((entry) => entry.type === 'Button')!
@@ -204,6 +204,7 @@ const commonWires = [
   edge('math', 'result', 'custom-tft', 'widget:arc-gauge:value'),
   // Typed text out of the keyboard, shown by the Text beside it.
   edge('custom-tft-touch', 'widget:text-entry:out', 'custom-tft', 'widget:text-4:value'),
+  edge('math', 'result', 'custom-tft', 'widget:chart:value'),
 ]
 
 const rtc = () => node('rtc', 'RTCInput', {
@@ -227,16 +228,16 @@ const normalEdges = [
 ]
 
 const showNodes = [
-  ...commonFor(showDocument, 'brightness', 'patternNext', 'masterSpeed'), fixedPanel(), touch('fixed-tft'),
+  ...commonFor(showDocument, 'brightness', 'patternNext'), fixedPanel(), touch('fixed-tft'),
   node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
   node('show', 'PatternSlideshow'), node('speed', 'MasterSpeed', { speed: 0.75 }),
 ]
 const showEdges = [
   ...commonWires,
   edge('custom-tft-touch', 'widget:button:out', 'controls', 'patternNext'),
-  edge('math', 'result', 'controls', 'masterSpeed'),
+  // Master Speed takes its knob on its own Speed input, not the bundle.
+  edge('math', 'result', 'speed', 'speed'),
   edge('controls', 'controls', 'show', 'controls'),
-  edge('controls', 'controls', 'speed', 'controls'),
   edge('collection', 'patternset', 'show', 'patternset'),
   edge('show', 'frame', 'out', 'frame'),
   edge('show', 'display', 'fixed-tft', 'display'),

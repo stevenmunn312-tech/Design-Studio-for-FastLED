@@ -53,7 +53,7 @@ export function normalizeDisplayControlRole(value: unknown): TemplateControlRole
 }
 
 export type DisplayWidgetPortRoleId = 'value' | 'out' | 'set'
-export type DisplayWidgetPortDataType = 'string' | 'float' | 'bool' | 'color' | 'patternselect'
+export type DisplayWidgetPortDataType = 'string' | 'float' | 'bool' | 'color' | 'patternselect' | 'audio'
 export type DisplayWidgetState = 'default' | 'pressed' | 'active' | 'inactive' | 'disabled'
 export type DisplayAssetKind = 'image' | 'icon' | 'pattern-thumbnail'
 
@@ -104,12 +104,12 @@ export interface DisplayWidgetSize {
 export type DisplayPreviewRenderer =
   | 'text' | 'marquee' | 'numeric' | 'timecode' | 'progress' | 'meter' | 'status'
   | 'swatch' | 'pattern-browser' | 'image' | 'button' | 'toggle' | 'slider' | 'dial'
-  | 'choice' | 'stepper' | 'colour-picker' | 'gauge' | 'container' | 'text-entry'
+  | 'choice' | 'stepper' | 'colour-picker' | 'gauge' | 'container' | 'text-entry' | 'chart' | 'spectrum'
 
 export type DisplayLvglEmitter =
   | 'label' | 'marquee' | 'bar' | 'led' | 'swatch' | 'pattern-browser' | 'image'
   | 'button' | 'switch' | 'slider' | 'arc' | 'choice' | 'stepper' | 'colour-picker' | 'gauge' | 'container'
-  | 'text-entry'
+  | 'text-entry' | 'chart' | 'spectrum'
 
 export interface DisplayWidgetDefinition {
   type: DisplayWidgetType
@@ -508,6 +508,62 @@ export function displayTextEntryClamp(widget: Pick<DisplayWidget, 'properties'>,
   return characters.join('')
 }
 
+export const DISPLAY_CHART_MIN_POINTS = 8
+export const DISPLAY_CHART_MAX_POINTS = 64
+export const DISPLAY_CHART_MIN_INTERVAL = 0.05
+export const DISPLAY_CHART_MAX_INTERVAL = 600
+
+/** How many readings a Chart keeps: its width in samples. */
+export function displayChartPoints(widget: Pick<DisplayWidget, 'properties'>): number {
+  const points = numericProperty(widget.properties, 'points', 32)
+  return Math.max(DISPLAY_CHART_MIN_POINTS, Math.min(DISPLAY_CHART_MAX_POINTS, Math.round(points)))
+}
+
+/** Milliseconds between a Chart's readings, by the wall clock. */
+export function displayChartIntervalMs(widget: Pick<DisplayWidget, 'properties'>): number {
+  const seconds = numericProperty(widget.properties, 'interval', 0.5)
+  return Math.round(Math.max(DISPLAY_CHART_MIN_INTERVAL, Math.min(DISPLAY_CHART_MAX_INTERVAL, seconds)) * 1000)
+}
+
+/**
+ * A reading as the fraction of its range a Chart or Spectrum plots: held to
+ * 0..1, nothing for a value that is not a number. `_cdScaled` is this rule.
+ */
+export function displayChartUnit(value: unknown, min: number, max: number): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !(max > min)) return null
+  return Math.max(0, Math.min(1, (value - min) / (max - min)))
+}
+
+export const DISPLAY_SPECTRUM_MIN_BARS = 4
+export const DISPLAY_SPECTRUM_MAX_BARS = 32
+/** A Spectrum redraws at most this often, so a panel is not repainted every LED frame. */
+export const DISPLAY_SPECTRUM_REFRESH_MS = 50
+
+/** How many bars a Spectrum draws. */
+export function displaySpectrumBars(widget: Pick<DisplayWidget, 'properties'>): number {
+  const bars = numericProperty(widget.properties, 'bars', 16)
+  return Math.max(DISPLAY_SPECTRUM_MIN_BARS, Math.min(DISPLAY_SPECTRUM_MAX_BARS, Math.round(bars)))
+}
+
+/**
+ * The 32-bin analysis spectrum folded into `bars` bars, each the mean of the
+ * bins under it and held to 0..1. Bar b covers bins [b*32/bars,
+ * (b+1)*32/bars), at least one, which is the firmware's integer loop.
+ */
+export function displaySpectrumHeights(spectrum: readonly number[], bars: number): number[] {
+  return Array.from({ length: bars }, (_, bar) => {
+    const lo = Math.floor((bar * 32) / bars)
+    const next = Math.floor(((bar + 1) * 32) / bars)
+    const hi = next > lo ? next : lo + 1
+    let sum = 0
+    for (let bin = lo; bin < hi; bin++) {
+      const value = spectrum[bin]
+      sum += typeof value === 'number' && Number.isFinite(value) ? value : 0
+    }
+    return Math.max(0, Math.min(1, sum / (hi - lo)))
+  })
+}
+
 /** Width of a Colour Picker's position marker, in pixels. */
 export const DISPLAY_PICKER_MARKER_PX = 8
 
@@ -682,6 +738,22 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     previewRenderer: 'text-entry', lvglEmitter: 'text-entry',
     propertyInspector: [text('text', 'Starts with'), text('placeholder', 'Hint when empty', 32), number('maxLength', 'Maximum length (characters)', 1, DISPLAY_TEXT_BUFFER_BYTES - 1, 1, true), number('fontSize', 'Font size', 8, 48, 1, true)],
     states: CONTROL_STATES, assetSlots: NO_ASSETS, validateProperties: noPropertyIssues,
+  },
+  Chart: {
+    type: 'Chart', label: 'Chart', description: 'A value plotted over time: a reading taken at a steady interval, newest on the right.',
+    portRoles: input('float'), defaultProperties: { min: 0, max: 1, points: 32, interval: 0.5, style: 'line' },
+    minimumVisualSize: { width: 96, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'chart', lvglEmitter: 'chart',
+    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('points', 'Readings shown', DISPLAY_CHART_MIN_POINTS, DISPLAY_CHART_MAX_POINTS, 1, true), number('interval', 'Seconds between readings', DISPLAY_CHART_MIN_INTERVAL, DISPLAY_CHART_MAX_INTERVAL, 0.05), select('style', 'Style', ['line', 'bar'])],
+    states: VALUE_STATES, assetSlots: NO_ASSETS, validateProperties: rangePropertyIssues,
+  },
+  Spectrum: {
+    type: 'Spectrum', label: 'Spectrum', description: 'The live audio spectrum as bars, bass on the left.',
+    portRoles: input('audio', 'Audio'), defaultProperties: { bars: 16 },
+    minimumVisualSize: { width: 64, height: 32 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'spectrum', lvglEmitter: 'spectrum',
+    propertyInspector: [number('bars', 'Bars', DISPLAY_SPECTRUM_MIN_BARS, DISPLAY_SPECTRUM_MAX_BARS, 1, true)],
+    states: VALUE_STATES, assetSlots: NO_ASSETS, validateProperties: noPropertyIssues,
   },
 }
 

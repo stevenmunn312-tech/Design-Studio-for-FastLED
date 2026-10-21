@@ -42,6 +42,12 @@ export interface DisplayWidgetRuntime {
   dirty: boolean
   /** Why this widget cannot be honoured in preview, if it cannot. */
   diagnostic?: string
+  /**
+   * A Chart's readings, oldest first, and the wall-clock time of the last.
+   * A new array on every reading, so a renderer can compare by identity.
+   */
+  history?: readonly (number | null)[]
+  historyAt?: number
 }
 
 export interface DisplayRuntimeDiagnostic {
@@ -72,6 +78,19 @@ interface DisplayRuntimeState {
     value: DisplayRuntimeValue,
   ) => void
   readDisplayWidget: (displayId: string, widgetId: string) => DisplayWidgetRuntime | undefined
+  /**
+   * Take a Chart reading if its interval has passed since the last, keeping
+   * the newest `points`. The first reading is taken at once, as on the
+   * device. A value that is not a number is a gap, not a zero.
+   */
+  sampleDisplayChart: (
+    displayId: string,
+    widgetId: string,
+    value: number | null,
+    nowMs: number,
+    intervalMs: number,
+    points: number,
+  ) => void
   /** Show a screen on this glass, as a Go to screen button does. */
   showDisplayScreen: (displayId: string, screenId: string) => void
   /**
@@ -188,6 +207,14 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
     },
 
     readDisplayWidget: (displayId, widgetId) => get().displays.get(displayId)?.get(widgetId),
+    sampleDisplayChart: (displayId, widgetId, value, nowMs, intervalMs, points) => {
+      const runtime = widgetRuntime(displayId, widgetId)
+      if (runtime.historyAt !== undefined && nowMs - runtime.historyAt < intervalMs) return
+      runtime.historyAt = nowMs
+      runtime.history = [...(runtime.history ?? []), value].slice(-points)
+      runtime.dirty = true
+      bumpDisplayRevision(displayId)
+    },
     showDisplayScreen: (displayId, screenId) => {
       const screens = get().activeScreens
       if (screens.get(displayId) === screenId) return
