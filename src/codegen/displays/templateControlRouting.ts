@@ -12,7 +12,8 @@ import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlButtonEmit, type PlayerControlsEmit } from '../player/playerControlsCpp'
 import { designControlBundle, toggleWidgetSource } from '../../state/displays/designControlBundle'
 import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
-import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
+import { displayScreens, type DisplayDocumentRegistry } from '../../state/displays/displayDocument'
+import { DISPLAY_SCREEN_INPUT_ID } from '../../state/displays/displayRegistry'
 import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources } from './customDisplayControlGraph'
 import { normalSketchSourceExpressions, type DisplaySourceExpressions, type LedStatusExpressions } from './displaySourceExpressions'
 import { rtcDateTimeSymbol } from '../peripherals/rtcInputCpp'
@@ -360,6 +361,13 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   for (const display of custom.displays) {
     const wired = displaySources.get(`${display.panelNodeId}:enabled`)
     if (wired) display.panel.enabledExpr = wired
+    // The Screen input belongs to the design rather than the library, so the
+    // walk above never sees it. It is a number like any other control wire.
+    if (displayScreens(display.emit.document).length > 1 && incoming.has(`${display.panelNodeId}:${DISPLAY_SCREEN_INPUT_ID}`)) {
+      const reference = graph.input(display.panelNodeId, DISPLAY_SCREEN_INPUT_ID, 'float')
+      if (reference) display.emit.screenExpr = controlReferenceCpp(reference)
+      else unsupported(display.panelNodeId, DISPLAY_SCREEN_INPUT_ID)
+    }
   }
   // Keep the consumer in the headline and retain the typed cause (cycle,
   // invalid handle, limits) for an actionable error from either entry point.

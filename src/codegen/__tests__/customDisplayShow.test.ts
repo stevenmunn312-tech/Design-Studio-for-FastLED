@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
-import { createDisplayDocument, addDisplayWidget } from '../../state/displays/displayEditor'
+import { addDisplayScreen, createDisplayDocument, addDisplayWidget } from '../../state/displays/displayEditor'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { customDisplayAssetRequests } from '../../state/displays/customDisplayResources'
 import { displayWidgetSources } from '../../state/displays/displayRegistry'
@@ -152,6 +152,19 @@ describe('custom displays in generative shows', () => {
     )
     expect(cpp).toContain('_cdPanelOn_tft = _cdOn_tft;')
     expect(cpp).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
+  })
+
+  it('takes a wired Screen input and builds every screen of the design', () => {
+    const added = addDisplayScreen(document(), 'Second')
+    const doc = addDisplayWidget(added.document, 'Button', added.screenId!)
+    const cpp = generate(
+      [panel('tft'), node('pick', 'Math', { mathOp: 'add', a: 1, b: 0 })],
+      [edge('pick', 'result', 'tft', 'screen')],
+      { screen: doc },
+    )
+    expect(cpp).toContain('_cdScreen_screen_1 = lv_obj_create(nullptr);')
+    expect(cpp).toContain('static lv_obj_t *_cdScreens_screen[2] = {};')
+    expect(cpp).toMatch(/float _cdScreenValue = \(float\)\(n_pick_result\);/)
   })
 
   it('requires prepared assets and emits their actual PROGMEM bytes', () => {

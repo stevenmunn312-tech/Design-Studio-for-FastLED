@@ -5,6 +5,7 @@ import type {
   DisplayWidgetProperty,
   DisplayWidgetType,
   PlacedDisplayWidget,
+  ScreenScope,
 } from './displayDocument'
 import { displayAsset, normalizeDisplayAssetId } from './displayAssets'
 import type { NodePort } from '../../types'
@@ -71,6 +72,9 @@ export type DisplayWidgetPropertyControl =
   | { control: 'select'; options: readonly string[] }
   | { control: 'color' }
   | { control: 'asset'; kinds: readonly DisplayAssetKind[]; optional?: boolean }
+  /** One of the design's screens by id, or none. Which ids exist is the
+   * document's fact, so the document's normalize drops one it lacks. */
+  | { control: 'screen' }
 
 export interface DisplayWidgetPropertyDefinition {
   key: string
@@ -204,6 +208,12 @@ const color = (key: string, label: string): DisplayWidgetPropertyDefinition => (
   key,
   label,
   control: { control: 'color' },
+})
+
+const screen = (key: string, label: string): DisplayWidgetPropertyDefinition => ({
+  key,
+  label,
+  control: { control: 'screen' },
 })
 
 const asset = (
@@ -538,7 +548,7 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     portRoles: output('bool'), defaultProperties: { text: 'Button', assetId: '', presentation: 'text' },
     minimumVisualSize: { width: 48, height: 32 }, minimumTouchSize: { width: 48, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
     previewRenderer: 'button', lvglEmitter: 'button',
-    propertyInspector: [text('text', 'Text', 32), asset('assetId', 'Icon', ['icon'], true), select('presentation', 'Presentation', ['text', 'icon', 'text+icon'])],
+    propertyInspector: [text('text', 'Text', 32), asset('assetId', 'Icon', ['icon'], true), select('presentation', 'Presentation', ['text', 'icon', 'text+icon']), screen('goTo', 'Go to screen')],
     states: CONTROL_STATES,
     assetSlots: [assetSlot('assetId', 'Icon', ['icon'], false, true)], validateProperties: noPropertyIssues,
   },
@@ -716,6 +726,10 @@ export function normalizeDisplayWidgetProperties(
       if (typeof raw === 'string' && control.options.includes(raw)) result[key] = raw
     } else if (control.control === 'color') {
       if (typeof raw === 'string' && COLOR_RE.test(raw)) result[key] = raw.toLowerCase()
+    } else if (control.control === 'screen') {
+      // The shape of a screen id; whether the design has it is settled by the
+      // document's own normalize, which can see its screens.
+      if (typeof raw === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(raw.trim())) result[key] = raw.trim()
     } else if (control.control === 'asset') {
       // The asset registry is the only authority on what an id may be: a shape
       // test would happily persist a working-folder path that merely looks like
@@ -906,7 +920,7 @@ export function displayWidgetSources(
  * identity, and a widget bound to the panel's own source has no input port to
  * draw a cable into. */
 export function displayDocumentPorts(
-  document: Pick<DisplayDocument, 'widgets'>,
+  document: Pick<DisplayDocument, 'widgets'> & ScreenScope,
 ): { inputs: NodePort[]; outputs: NodePort[] } {
   return {
     inputs: displayDocumentInputPorts(document),
@@ -914,11 +928,23 @@ export function displayDocumentPorts(
   }
 }
 
+/**
+ * The panel's Screen input: a number choosing which screen of its design the
+ * glass shows, counting the first as 0. Not a widget port, so
+ * `parseDisplayWidgetPortId` does not read it, and offered only where there is
+ * more than one screen to choose from.
+ */
+export const DISPLAY_SCREEN_INPUT_ID = 'screen'
+
 /** Graph-facing widget inputs for the panel that owns this document. */
 export function displayDocumentInputPorts(
-  document: Pick<DisplayDocument, 'widgets'>,
+  document: Pick<DisplayDocument, 'widgets'> & ScreenScope,
 ): NodePort[] {
-  const inputs: NodePort[] = []
+  // Read off the list rather than through `displayScreens`, which would make
+  // this module's import of the document module a value cycle.
+  const inputs: NodePort[] = (document.screens?.length ?? 0) > 1
+    ? [{ id: DISPLAY_SCREEN_INPUT_ID, label: 'Screen', dataType: 'float' }]
+    : []
   for (const widget of document.widgets) {
     for (const port of displayWidgetInputPorts(widget)) {
       inputs.push({ id: port.id, label: port.label, dataType: port.dataType })

@@ -1,5 +1,6 @@
 import { useCallback, useSyncExternalStore, type ReactNode } from 'react'
-import { placedWidgets, type DisplayDocument, type PlacedDisplayWidget } from '../../state/displays/displayDocument'
+import { screenWidgets, type DisplayDocument, type PlacedDisplayWidget } from '../../state/displays/displayDocument'
+import { editingDisplayScreenId } from '../../state/displays/displayEditor'
 import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
 import { displayRunValue } from './displayRunPreview'
 
@@ -31,7 +32,9 @@ export default function DisplayRuntimeWidgets({
   // Only what is on the screen draws. A widget that has been wired but not yet
   // placed lives in the designer's Connected group, not on the glass — and this
   // one narrowing covers both consumers, the Run surface and the thumbnail.
-  return placedWidgets(document).map((widget) => (
+  // Of a design with several screens, only the one this glass shows.
+  const screenId = editingDisplayScreenId(document, runtime.activeDisplayScreen(displayId))
+  return screenWidgets(document, screenId).map((widget) => (
     children(widget, displayRunValue(widget, runtime.readDisplayWidget(displayId, widget.id)))
   ))
 }

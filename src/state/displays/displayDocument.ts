@@ -93,6 +93,13 @@ export interface DisplayWidget {
    * `displayWidgetParent` is the one reading of whether it holds.
    */
   parentId?: string
+  /**
+   * The screen of its design it is drawn on. Only a placed widget has one;
+   * normalize writes it for every placed widget, so a reorder of the screens
+   * never moves what is on them. `displayWidgetScreenId` is the one reading,
+   * and falls back to the first screen for a widget built in code.
+   */
+  screenId?: string
   properties: Record<string, DisplayWidgetProperty>
 }
 
@@ -117,12 +124,16 @@ export function placedWidgets(
  * itself — including when its `parentId` names something that cannot hold it.
  */
 export function displayWidgetParent(
-  document: { readonly widgets: readonly DisplayWidget[] },
+  document: ScreenScope & { readonly widgets: readonly DisplayWidget[] },
   widget: DisplayWidget,
 ): PlacedDisplayWidget | null {
   if (!widget.parentId || !isPlacedWidget(widget) || widget.type === 'Container') return null
   const parent = document.widgets.find((entry) => entry.id === widget.parentId)
-  return parent && parent.type === 'Container' && isPlacedWidget(parent) ? parent : null
+  return parent && parent.type === 'Container' && isPlacedWidget(parent)
+    // A container holds only what is drawn on its own screen.
+    && displayWidgetScreenId(document, parent) === displayWidgetScreenId(document, widget)
+    ? parent
+    : null
 }
 
 /** The widget on the screen itself: the same widget with no `parentId` field. */
@@ -145,8 +156,11 @@ export function withoutDisplayParent<T extends DisplayWidget>(widget: T): T {
  * order the same thing, so the emitter creates in list order and the preview
  * stacks in it. Every edit that can change a parent ends here.
  */
-export function orderDisplayWidgetTree(widgets: readonly DisplayWidget[]): DisplayWidget[] {
-  const document = { widgets }
+export function orderDisplayWidgetTree(
+  widgets: readonly DisplayWidget[],
+  screens?: readonly DisplayScreen[],
+): DisplayWidget[] {
+  const document = { widgets, screens }
   const children = new Map<string, DisplayWidget[]>()
   const settled = widgets.map((widget) => {
     const parent = displayWidgetParent(document, widget)
@@ -162,6 +176,17 @@ export function orderDisplayWidgetTree(widgets: readonly DisplayWidget[]): Displ
   })
 }
 
+/**
+ * One screen of a design: the glass shows one at a time, and a Button's
+ * Go to screen or the panel's Screen input moves between them. The id is a
+ * stable stem, never a label, so renaming a screen keeps every button that
+ * goes to it.
+ */
+export interface DisplayScreen {
+  id: string
+  name: string
+}
+
 export interface DisplayDocument {
   schemaVersion: typeof DISPLAY_DOCUMENT_SCHEMA_VERSION
   displayId: string
@@ -170,13 +195,93 @@ export interface DisplayDocument {
   orientation: DisplayOrientation
   gridSize: number
   theme: DisplayTheme
+  /** At least one, in the order the Screen input counts them; the first is
+   * the one the glass starts on. */
+  screens: DisplayScreen[]
   widgets: DisplayWidget[]
+}
+
+/** Anything that may know a design's screens; absent means the one default. */
+export interface ScreenScope {
+  readonly screens?: readonly DisplayScreen[]
+}
+
+/** The screen a design made before it had several is called this. */
+export const DEFAULT_DISPLAY_SCREEN: DisplayScreen = { id: 'main', name: 'Main' }
+
+/** The screens, never empty, for a document that may predate them. */
+export function displayScreens(document: ScreenScope | null | undefined): readonly DisplayScreen[] {
+  const screens = document?.screens
+  return screens && screens.length > 0 ? screens : [DEFAULT_DISPLAY_SCREEN]
+}
+
+/** The screen the glass starts on. */
+export function firstDisplayScreenId(document: ScreenScope | null | undefined): string {
+  return displayScreens(document)[0].id
+}
+
+/**
+ * The screen a widget is drawn on: its own `screenId` when the design has that
+ * screen, otherwise the first. A widget's container is on the same screen by
+ * construction, so this is all a reader needs to ask.
+ */
+export function displayWidgetScreenId(
+  document: ScreenScope,
+  widget: Pick<DisplayWidget, 'screenId'>,
+): string {
+  // A caller that only has the widgets compares them as they are written.
+  if (!document.screens) return widget.screenId ?? DEFAULT_DISPLAY_SCREEN.id
+  const screens = displayScreens(document)
+  return widget.screenId && screens.some((screen) => screen.id === widget.screenId)
+    ? widget.screenId
+    : screens[0].id
+}
+
+/** The pixels of one screen: what is placed on it, in paint order. */
+export function screenWidgets(
+  document: (ScreenScope & Pick<DisplayDocument, 'widgets'>) | null | undefined,
+  screenId: string,
+): PlacedDisplayWidget[] {
+  if (!document) return []
+  return placedWidgets(document).filter((widget) => displayWidgetScreenId(document, widget) === screenId)
+}
+
+/** A screen's index in the design, the number the Screen input selects it by. */
+export function displayScreenIndex(document: ScreenScope, screenId: string): number {
+  return Math.max(0, displayScreens(document).findIndex((screen) => screen.id === screenId))
+}
+
+/**
+ * The screen a Button goes to when tapped, or null. One on the screen it
+ * names already shows it, so it goes nowhere. Every renderer and the emitter
+ * ask this, so a press moves the preview and the glass alike.
+ */
+export function displayWidgetGoTo(
+  document: ScreenScope,
+  widget: Pick<DisplayWidget, 'type' | 'properties' | 'screenId'>,
+): string | null {
+  const target = widget.type === 'Button' ? widget.properties.goTo : undefined
+  if (typeof target !== 'string' || !displayScreens(document).some((screen) => screen.id === target)) return null
+  return target === displayWidgetScreenId(document, widget) ? null : target
+}
+
+/**
+ * The screen a Screen input value selects: rounded to the nearest whole
+ * screen and held to the ones there are, so any number names one. A value
+ * that is not a number selects none. The firmware's `_cdScreenAt` is this rule.
+ */
+export function displayScreenAt(document: ScreenScope, value: unknown): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  const screens = displayScreens(document)
+  return screens[Math.max(0, Math.min(screens.length - 1, Math.round(value)))].id
 }
 
 export type DisplayDocumentRegistry = Record<string, DisplayDocument>
 
 export const DISPLAY_DOCUMENT_LIMITS = {
   documents: 8,
+  screensPerDocument: 8,
+  screenNameLength: 32,
   widgetsPerDocument: 64,
   designWidth: 1024,
   designHeight: 1024,
@@ -279,7 +384,12 @@ function normalizeProperties(type: DisplayWidgetType, value: unknown): Record<st
   )
 }
 
-function normalizeWidget(value: unknown, width: number, height: number): DisplayWidget | null {
+function normalizeWidget(
+  value: unknown,
+  width: number,
+  height: number,
+  screens: readonly DisplayScreen[],
+): DisplayWidget | null {
   const source = record(value)
   const bounds = record(source?.bounds)
   const id = normalizedId(source?.id)
@@ -299,16 +409,46 @@ function normalizeWidget(value: unknown, width: number, height: number): Display
     }
   })() : undefined
   const parentId = normalizedId(source.parentId)
+  // Only a placed widget is on a screen; one that names a screen the design
+  // does not have is drawn on the first.
+  const named = normalizedId(source.screenId)
+  const screenId = named && screens.some((screen) => screen.id === named) ? named : screens[0].id
+  const properties = normalizeProperties(source.type as DisplayWidgetType, source.properties)
+  // A button that goes to a screen the design does not have goes nowhere.
+  if (typeof properties.goTo === 'string' && !screens.some((screen) => screen.id === properties.goTo)) {
+    delete properties.goTo
+  }
   return {
     id,
     type: source.type as DisplayWidgetType,
     label: typeof source.label === 'string'
       ? [...source.label].slice(0, DISPLAY_DOCUMENT_LIMITS.labelLength).join('')
       : '',
-    ...(placedBounds ? { bounds: placedBounds } : {}),
+    ...(placedBounds ? { bounds: placedBounds, screenId } : {}),
     ...(parentId ? { parentId } : {}),
-    properties: normalizeProperties(source.type as DisplayWidgetType, source.properties),
+    properties,
   }
+}
+
+/**
+ * The design's screens, never none. A document saved before a design could
+ * have several has none listed, and everything it draws is its one screen.
+ */
+function normalizeScreens(value: unknown): DisplayScreen[] {
+  const seen = new Set<string>()
+  const screens = (Array.isArray(value) ? value : [])
+    .slice(0, DISPLAY_DOCUMENT_LIMITS.screensPerDocument)
+    .flatMap((raw): DisplayScreen[] => {
+      const source = record(raw)
+      const id = normalizedId(source?.id)
+      if (!source || !id || seen.has(id)) return []
+      seen.add(id)
+      const name = typeof source.name === 'string'
+        ? [...source.name.trim()].slice(0, DISPLAY_DOCUMENT_LIMITS.screenNameLength).join('')
+        : ''
+      return [{ id, name: name || id }]
+    })
+  return screens.length > 0 ? screens : [{ ...DEFAULT_DISPLAY_SCREEN }]
 }
 
 export function normalizeDisplayDocument(value: unknown): DisplayDocument | null {
@@ -318,10 +458,11 @@ export function normalizeDisplayDocument(value: unknown): DisplayDocument | null
   if (!source || source.schemaVersion !== DISPLAY_DOCUMENT_SCHEMA_VERSION || !size || !displayId) return null
   const width = boundedInteger(size.width, 240, 1, DISPLAY_DOCUMENT_LIMITS.designWidth)
   const height = boundedInteger(size.height, 320, 1, DISPLAY_DOCUMENT_LIMITS.designHeight)
+  const screens = normalizeScreens(source.screens)
   const seen = new Set<string>()
   const widgets = (Array.isArray(source.widgets) ? source.widgets : [])
     .slice(0, DISPLAY_DOCUMENT_LIMITS.widgetsPerDocument)
-    .map((widget) => normalizeWidget(widget, width, height))
+    .map((widget) => normalizeWidget(widget, width, height, screens))
     .filter((widget): widget is DisplayWidget => {
       if (!widget || seen.has(widget.id)) return false
       seen.add(widget.id)
@@ -335,7 +476,8 @@ export function normalizeDisplayDocument(value: unknown): DisplayDocument | null
     orientation: orientation === '90' || orientation === '180' || orientation === '270' ? orientation : '0',
     gridSize: boundedInteger(source.gridSize, 8, 1, DISPLAY_DOCUMENT_LIMITS.gridSize),
     theme: normalizeDisplayTheme(source.theme),
-    widgets: orderDisplayWidgetTree(widgets),
+    screens,
+    widgets: orderDisplayWidgetTree(widgets, screens),
   }
 }
 

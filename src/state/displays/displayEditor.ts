@@ -1,7 +1,14 @@
 import {
+  DISPLAY_DOCUMENT_LIMITS,
   DISPLAY_DOCUMENT_SCHEMA_VERSION,
+  DEFAULT_DISPLAY_SCREEN,
   DEFAULT_DISPLAY_THEME,
+  displayScreens,
+  displayWidgetScreenId,
+  firstDisplayScreenId,
+  screenWidgets,
   type DisplayBounds,
+  type DisplayScreen,
   type DisplayDocument,
   type DisplayOrientation,
   type DisplayTheme,
@@ -72,6 +79,7 @@ export function createDisplayDocument(
     orientation,
     gridSize: 8,
     theme: structuredClone(DEFAULT_DISPLAY_THEME),
+    screens: [{ ...DEFAULT_DISPLAY_SCREEN }],
     widgets: [],
   }
 }
@@ -104,7 +112,32 @@ export function resizeDisplayDocument(
   const scaleX = width / Math.max(1, document.designSize.width)
   const scaleY = height / Math.max(1, document.designSize.height)
   const target = { designSize: { width, height }, gridSize: document.gridSize }
-  const onScreen = placedWidgets(document)
+  const settled = new Map<string, PlacedDisplayWidget>()
+  // Each screen is its own composition: a template is recognised on the
+  // screen it was placed on, and only widgets drawn together can be too close.
+  for (const screen of displayScreens(document)) {
+    for (const widget of resizedScreenWidgets(document, screenWidgets(document, screen.id), target, scaleX, scaleY)) {
+      settled.set(widget.id, widget)
+    }
+  }
+  return {
+    ...document,
+    designSize: { width, height },
+    orientation,
+    // Unplaced widgets keep their place in the list and gain no geometry: a
+    // rotation turns the glass, and they are not on it.
+    widgets: document.widgets.map((widget) => settled.get(widget.id) ?? widget),
+  }
+}
+
+function resizedScreenWidgets(
+  document: DisplayDocument,
+  onScreen: PlacedDisplayWidget[],
+  target: Pick<DisplayDocument, 'designSize' | 'gridSize'>,
+  scaleX: number,
+  scaleY: number,
+): PlacedDisplayWidget[] {
+  const { width, height } = target.designSize
   const templateBounds = canonicalDisplayTemplateBounds(onScreen, width, height)
   const scaled = onScreen.map((widget, index) => ({
     ...widget,
@@ -152,16 +185,7 @@ export function resizeDisplayDocument(
     placed.push({ ...widget, bounds })
   }
   const boundsById = new Map(placed.map((widget) => [widget.id, widget.bounds]))
-  const settled = new Map(scaled.map((widget) =>
-    [widget.id, { ...widget, bounds: boundsById.get(widget.id) ?? widget.bounds }]))
-  return {
-    ...document,
-    designSize: { width, height },
-    orientation,
-    // Unplaced widgets keep their place in the list and gain no geometry: a
-    // rotation turns the glass, and they are not on it.
-    widgets: document.widgets.map((widget) => settled.get(widget.id) ?? widget),
-  }
+  return scaled.map((widget) => ({ ...widget, bounds: boundsById.get(widget.id) ?? widget.bounds }))
 }
 
 function preservesControlAspect(widget: PlacedDisplayWidget): boolean {
@@ -251,7 +275,7 @@ export function constrainDisplayWidgetBounds(
   }
 }
 
-function firstAvailableBounds(document: DisplayDocument, type: DisplayWidgetType): DisplayBounds {
+function firstAvailableBounds(document: DisplayDocument, type: DisplayWidgetType, screenId: string): DisplayBounds {
   const initial = defaultDisplayWidgetBounds(type, document.gridSize, document.gridSize)
   const candidate = constrainDisplayWidgetBounds(document, type, initial)
   const step = Math.max(1, document.gridSize)
@@ -259,7 +283,7 @@ function firstAvailableBounds(document: DisplayDocument, type: DisplayWidgetType
     for (let x = 0; x <= document.designSize.width - candidate.width; x += step) {
       const at = { ...candidate, x, y }
       const placed: PlacedWidget = { type, bounds: at }
-      const blocked = placedWidgets(document).some((widget) => (
+      const blocked = screenWidgets(document, screenId).some((widget) => (
         boundsIntersect(at, widget.bounds) || displayWidgetsTooClose(placed, widget)
       ))
       if (!blocked) return at
@@ -268,13 +292,24 @@ function firstAvailableBounds(document: DisplayDocument, type: DisplayWidgetType
   return candidate
 }
 
-export function addDisplayWidget(document: DisplayDocument, type: DisplayWidgetType): DisplayDocument {
+/** The screen to work on: the one named when the design has it, else the first. */
+function editingScreenId(document: DisplayDocument, screenId: string | undefined): string {
+  return displayWidgetScreenId(document, { screenId })
+}
+
+export function addDisplayWidget(
+  document: DisplayDocument,
+  type: DisplayWidgetType,
+  screenId?: string,
+): DisplayDocument {
   const definition = DISPLAY_WIDGET_LIBRARY[type]
+  const screen = editingScreenId(document, screenId)
   const widget: DisplayWidget = {
     id: nextDisplayWidgetId(document, type),
     type,
     label: definition.label,
-    bounds: firstAvailableBounds(document, type),
+    bounds: firstAvailableBounds(document, type, screen),
+    screenId: screen,
     properties: defaultDisplayWidgetProperties(type),
   }
   return { ...document, widgets: [...document.widgets, widget] }
@@ -289,14 +324,15 @@ export function addDisplayWidget(document: DisplayDocument, type: DisplayWidgetT
  * from the Connected group and one added from the palette therefore arrive
  * the same way, rather than the group inventing a second placement rule.
  */
-export function placeDisplayWidget(document: DisplayDocument, widgetId: string): DisplayDocument {
+export function placeDisplayWidget(document: DisplayDocument, widgetId: string, screenId?: string): DisplayDocument {
   const widget = document.widgets.find((entry) => entry.id === widgetId)
   if (!widget || isPlacedWidget(widget)) return document
-  const bounds = firstAvailableBounds(document, widget.type)
+  const screen = editingScreenId(document, screenId)
+  const bounds = firstAvailableBounds(document, widget.type, screen)
   return {
     ...document,
     widgets: document.widgets.map((entry) => (
-      entry.id === widgetId ? { ...entry, bounds } : entry
+      entry.id === widgetId ? { ...entry, bounds, screenId: screen } : entry
     )),
   }
 }
@@ -398,6 +434,8 @@ export function pasteDisplayWidgets(
   document: DisplayDocument,
   copiedWidgets: readonly DisplayWidget[],
   offset = document.gridSize,
+  /** The screen the copies land on; each keeps its own when omitted. */
+  screenId?: string,
 ): { document: DisplayDocument; widgetIds: string[] } {
   if (copiedWidgets.length === 0) return { document, widgetIds: [] }
   let working = document
@@ -420,6 +458,7 @@ export function pasteDisplayWidgets(
           x: source.bounds.x + offset,
           y: source.bounds.y + offset,
         }),
+        screenId: editingScreenId(document, screenId ?? source.screenId),
       } : {}),
       properties: { ...source.properties },
     }
@@ -534,7 +573,7 @@ function carryContainerChildren(
 export function adoptDisplayWidgets(document: DisplayDocument, widgetIds: Iterable<string>): DisplayDocument {
   const ids = new Set(widgetIds)
   if (ids.size === 0) return document
-  let widgets = orderDisplayWidgetTree(document.widgets)
+  let widgets = orderDisplayWidgetTree(document.widgets, document.screens)
   const inside = (container: PlacedDisplayWidget, widget: PlacedDisplayWidget) => (
     boundsContain(displayContainerInnerBounds(container, document.theme), widget.bounds)
   )
@@ -546,25 +585,28 @@ export function adoptDisplayWidgets(document: DisplayDocument, widgetIds: Iterab
     // After the anchor's whole block: the anchor and every child it holds.
     let index = without.findIndex((entry) => entry.id === anchorId)
     while (index + 1 < without.length && without[index + 1].parentId === anchorId) index++
-    widgets = orderDisplayWidgetTree([...without.slice(0, index + 1), rehomed, ...without.slice(index + 1)])
+    widgets = orderDisplayWidgetTree([...without.slice(0, index + 1), rehomed, ...without.slice(index + 1)], document.screens)
   }
 
+  const scope = () => ({ widgets, screens: document.screens })
   for (const id of ids) {
     const widget = widgets.find((entry) => entry.id === id)
     if (!widget || !isPlacedWidget(widget)) continue
+    // Only what is drawn together can be grouped together.
+    const screen = displayWidgetScreenId(document, widget)
     if (widget.type === 'Container') {
-      const taken = placedWidgets({ widgets }).filter((entry) => (
+      const taken = screenWidgets(scope(), screen).filter((entry) => (
         entry.type !== 'Container'
-        && !displayWidgetParent({ widgets }, entry)
+        && !displayWidgetParent(scope(), entry)
         && inside(widget, entry)
       ))
       for (const entry of taken) rehome(entry.id, widget.id, widget.id)
       continue
     }
-    const current = displayWidgetParent({ widgets }, widget)
+    const current = displayWidgetParent(scope(), widget)
     // Moved along with its own container, so still in it.
     if (current && ids.has(current.id)) continue
-    const host = placedWidgets({ widgets })
+    const host = screenWidgets(scope(), screen)
       .filter((entry) => entry.type === 'Container')
       .reverse()
       .find((container) => inside(container, widget))
@@ -609,8 +651,8 @@ export function restackDisplayWidgets(
   direction: DisplayRestack,
 ): DisplayDocument {
   const ids = new Set(widgetIds)
-  const tree = orderDisplayWidgetTree(document.widgets)
-  const scope = { widgets: tree }
+  const tree = orderDisplayWidgetTree(document.widgets, document.screens)
+  const scope = { widgets: tree, screens: document.screens }
   const top = tree.filter((widget) => isPlacedWidget(widget) && !displayWidgetParent(scope, widget))
   const children = new Map(top.map((widget) => [
     widget.id,
@@ -776,6 +818,8 @@ export function displayLayoutIssues(
      * where it shows. `onScreen` is in paint order, so `other` is the upper.
      */
     for (const other of onScreen.slice(index + 1)) {
+      // Two screens are never on the glass at once.
+      if (displayWidgetScreenId(document, other) !== displayWidgetScreenId(document, widget)) continue
       if (isDisplayTouchTarget(widget.type) && isDisplayTouchTarget(other.type)
         && boundsIntersect(displayControlHitBounds(widget), displayControlHitBounds(other))) {
         issues.push({
@@ -795,4 +839,107 @@ export function displayLayoutIssues(
     }
   }
   return issues
+}
+
+/** A fresh screen id stem, never one the design already has. */
+function nextDisplayScreenId(document: DisplayDocument): string {
+  const ids = new Set(displayScreens(document).map((screen) => screen.id))
+  let suffix = ids.size + 1
+  while (ids.has(`screen-${suffix}`)) suffix++
+  return `screen-${suffix}`
+}
+
+/** Whether the design can take another screen. */
+export function canAddDisplayScreen(document: DisplayDocument): boolean {
+  return displayScreens(document).length < DISPLAY_DOCUMENT_LIMITS.screensPerDocument
+}
+
+/**
+ * Add an empty screen after the others, or after `afterId`. Returns the new
+ * screen's id so the editor can open it.
+ */
+export function addDisplayScreen(
+  document: DisplayDocument,
+  name?: string,
+  afterId?: string,
+): { document: DisplayDocument; screenId: string | null } {
+  if (!canAddDisplayScreen(document)) return { document, screenId: null }
+  const screens = [...displayScreens(document)]
+  const id = nextDisplayScreenId(document)
+  const screen: DisplayScreen = { id, name: (name ?? '').trim() || `Screen ${screens.length + 1}` }
+  const at = afterId ? screens.findIndex((entry) => entry.id === afterId) : -1
+  screens.splice(at >= 0 ? at + 1 : screens.length, 0, screen)
+  return { document: { ...document, screens }, screenId: id }
+}
+
+/** A copy of a screen and everything drawn on it, placed after it. */
+export function duplicateDisplayScreen(
+  document: DisplayDocument,
+  screenId: string,
+): { document: DisplayDocument; screenId: string | null } {
+  const source = displayScreens(document).find((screen) => screen.id === screenId)
+  if (!source) return { document, screenId: null }
+  const added = addDisplayScreen(document, `${source.name} copy`, screenId)
+  if (!added.screenId) return added
+  // In place, not offset: the copy is a second page laid out the same way.
+  const pasted = pasteDisplayWidgets(added.document, screenWidgets(document, screenId), 0, added.screenId)
+  return { document: pasted.document, screenId: added.screenId }
+}
+
+export function renameDisplayScreen(document: DisplayDocument, screenId: string, name: string): DisplayDocument {
+  const trimmed = [...name.trim()].slice(0, DISPLAY_DOCUMENT_LIMITS.screenNameLength).join('')
+  if (!trimmed) return document
+  let changed = false
+  const screens = displayScreens(document).map((screen) => {
+    if (screen.id !== screenId || screen.name === trimmed) return screen
+    changed = true
+    return { ...screen, name: trimmed }
+  })
+  return changed ? { ...document, screens } : document
+}
+
+/** Move a screen one place earlier or later. The first screen is the start screen. */
+export function moveDisplayScreen(document: DisplayDocument, screenId: string, direction: -1 | 1): DisplayDocument {
+  const screens = [...displayScreens(document)]
+  const index = screens.findIndex((screen) => screen.id === screenId)
+  const to = index + direction
+  if (index < 0 || to < 0 || to >= screens.length) return document
+  ;[screens[index], screens[to]] = [screens[to], screens[index]]
+  return { ...document, screens }
+}
+
+/**
+ * Remove a screen. What was drawn on it goes with it, except the widgets in
+ * `keepIds` — controls whose wire still exists — which go back to the
+ * Connected group, as deleting a wired control from the canvas does. A
+ * button that went to the removed screen now goes nowhere. The last screen
+ * cannot be removed.
+ */
+export function removeDisplayScreen(
+  document: DisplayDocument,
+  screenId: string,
+  keepIds: Iterable<string> = [],
+): DisplayDocument {
+  const screens = displayScreens(document)
+  if (screens.length <= 1 || !screens.some((screen) => screen.id === screenId)) return document
+  const onScreen = new Set(screenWidgets(document, screenId).map((widget) => widget.id))
+  const keep = new Set([...keepIds].filter((id) => onScreen.has(id)))
+  const unplaced = unplaceDisplayWidgets(document, keep)
+  const remaining = screens.filter((screen) => screen.id !== screenId)
+  const widgets = unplaced.widgets
+    .filter((widget) => !onScreen.has(widget.id) || keep.has(widget.id))
+    .map((widget) => {
+      if (widget.properties.goTo !== screenId) return widget
+      const properties = { ...widget.properties }
+      delete properties.goTo
+      return { ...widget, properties }
+    })
+  return { ...document, screens: remaining, widgets: orderDisplayWidgetTree(widgets, remaining) }
+}
+
+/** The screen to open in the editor: `screenId` when the design has it, else the first. */
+export function editingDisplayScreenId(document: DisplayDocument, screenId: string | null | undefined): string {
+  return screenId && displayScreens(document).some((screen) => screen.id === screenId)
+    ? screenId
+    : firstDisplayScreenId(document)
 }

@@ -28,8 +28,15 @@ import {
   type DisplayWidgetPropertyDefinition,
 } from '../../state/displays/displayRegistry'
 import {
+  addDisplayScreen,
   addDisplayWidget,
   adoptDisplayWidgets,
+  canAddDisplayScreen,
+  duplicateDisplayScreen,
+  editingDisplayScreenId,
+  moveDisplayScreen,
+  removeDisplayScreen,
+  renameDisplayScreen,
   alignDisplayWidgets,
   constrainDisplayWidgetBounds,
   displayContainerChildren,
@@ -48,9 +55,11 @@ import {
   type DisplayRestack,
 } from '../../state/displays/displayEditor'
 import {
+  DISPLAY_DOCUMENT_LIMITS,
+  displayScreens,
   displayWidgetParent,
   isPlacedWidget,
-  placedWidgets,
+  screenWidgets,
   type DisplayBounds,
   type DisplayDocument,
   type DisplayOrientation,
@@ -256,6 +265,9 @@ export default function DisplayEditor() {
   const [draft, setDraft] = useState<DisplayDocument | null>(persisted ?? null)
   const draftRef = useRef<DisplayDocument | null>(persisted ?? null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // The screen of the design being drawn. Kept by id, so reordering the
+  // screens keeps the author on the one they were drawing.
+  const [screenChoice, setScreenChoice] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   // This picker chooses the icon *set*, while the Screen theme in the
   // inspector controls colour tokens. Keeping them separate lets an author
@@ -343,6 +355,13 @@ export default function DisplayEditor() {
 
   if (!document) return null
 
+  const screens = displayScreens(document)
+  const currentScreenId = editingDisplayScreenId(document, screenChoice)
+  const currentScreenIndex = Math.max(0, screens.findIndex((screen) => screen.id === currentScreenId))
+  const currentScreen = screens[currentScreenIndex]
+  // The pixels this view draws and edits: the screen being drawn, only.
+  const onScreen = screenWidgets(document, currentScreenId)
+
   const commit = (next: DisplayDocument, message?: string) => {
     draftRef.current = next
     setDraft(next)
@@ -363,7 +382,7 @@ export default function DisplayEditor() {
   }
 
   const add = (type: DisplayWidgetType) => {
-    const next = addDisplayWidget(document, type)
+    const next = addDisplayWidget(document, type, currentScreenId)
     const widget = next.widgets.at(-1)!
     commit(next, widget.bounds
       ? `${widget.type} added at ${widget.bounds.x}, ${widget.bounds.y}.`
@@ -382,7 +401,7 @@ export default function DisplayEditor() {
     // Through the same helper Graph Health's repair uses, so a control placed
     // from the group and one placed from the drawer land in the same rectangle
     // and adopt their target's range on the same terms.
-    const next = placeTouchControlIn(document, displayId, widgetId, graphNodes, graphEdges)
+    const next = placeTouchControlIn(document, displayId, widgetId, graphNodes, graphEdges, currentScreenId)
     if (next === document) return
     const widget = next.widgets.find((entry) => entry.id === widgetId)!
     commit(next, widgetAnnouncement(next, widgetId, displayLayoutIssues(next)))
@@ -394,7 +413,7 @@ export default function DisplayEditor() {
     const type: DisplayWidgetType = TOGGLE_CONTROL_ICONS.has(iconName)
       ? 'Toggle'
       : 'Button'
-    const next = addDisplayWidget(document, type)
+    const next = addDisplayWidget(document, type, currentScreenId)
     const widget = next.widgets.at(-1)!
     const label = CONTROL_LABELS[iconName] ?? iconName
     const configured: DisplayDocument = {
@@ -463,7 +482,7 @@ export default function DisplayEditor() {
   const insertTemplate = (id: DisplayTemplateId) => {
     const template = displayTemplate(id)
     if (!template) return
-    const next = applyDisplayTemplate(document, id, controlThemeId)
+    const next = applyDisplayTemplate(document, id, controlThemeId, currentScreenId)
     const added = next.widgets.slice(document.widgets.length)
     const placed = `${template.label} template inserted with ${added.length} widgets. ${validationAnnouncement(displayLayoutIssues(next))}`
     commit(next, placed)
@@ -665,7 +684,8 @@ export default function DisplayEditor() {
   }
 
   const pasteSelection = () => {
-    const result = pasteDisplayWidgets(document, displayWidgetClipboard)
+    // Onto the screen being drawn, wherever the copies came from.
+    const result = pasteDisplayWidgets(document, displayWidgetClipboard, document.gridSize, currentScreenId)
     if (result.widgetIds.length === 0) return
     commit(result.document, `${result.widgetIds.length} ${result.widgetIds.length === 1 ? 'widget' : 'widgets'} pasted.`)
     setSelectedIds(result.widgetIds)
@@ -795,6 +815,58 @@ export default function DisplayEditor() {
     commit(next, `${orientation === '0' ? 'Portrait' : 'Landscape'} view applied at ${designSize.width} × ${designSize.height}.`)
   }
 
+  const openScreen = (screenId: string, message?: string) => {
+    setScreenChoice(screenId)
+    setSelectedIds([])
+    const index = displayScreens(document).findIndex((screen) => screen.id === screenId)
+    setAnnouncement(message ?? `${displayScreens(document)[index]?.name ?? 'Screen'} open, screen ${index + 1} of ${displayScreens(document).length}.`)
+  }
+
+  const addScreen = () => {
+    const result = addDisplayScreen(document, undefined, currentScreenId)
+    if (!result.screenId) return
+    commit(result.document)
+    setScreenChoice(result.screenId)
+    setSelectedIds([])
+    setAnnouncement(`${displayScreens(result.document).find((screen) => screen.id === result.screenId)?.name} added.`)
+  }
+
+  const duplicateScreen = () => {
+    const result = duplicateDisplayScreen(document, currentScreenId)
+    if (!result.screenId) return
+    commit(result.document)
+    setScreenChoice(result.screenId)
+    setSelectedIds([])
+    setAnnouncement(`${currentScreen.name} duplicated.`)
+  }
+
+  /*
+   * Removing a screen takes what is drawn on it with it, so it asks first
+   * when there is anything to lose. A control whose wire still exists goes
+   * back to the Connected group instead, as deleting it from the canvas does.
+   */
+  const removeScreen = async () => {
+    if (screens.length <= 1) return
+    const state = useGraphStore.getState()
+    const wired = displayControlEdges(displayId, rootGraphNodes(state), rootGraphEdges(state))
+    const keep = onScreen.filter((widget) => wired.has(widget.id)).map((widget) => widget.id)
+    const lost = onScreen.length - keep.length
+    if (lost > 0) {
+      const ok = await requestConfirm({
+        title: `Delete ${currentScreen.name}?`,
+        message: `${lost} ${lost === 1 ? 'widget' : 'widgets'} on this screen will be deleted.${keep.length > 0 ? ` ${keep.length} wired ${keep.length === 1 ? 'control goes' : 'controls go'} back to Connected.` : ''} Buttons that go to this screen will go nowhere.`,
+        confirmLabel: 'Delete screen',
+        cancelLabel: 'Keep screen',
+        tone: 'danger',
+      })
+      if (!ok) return
+    }
+    const next = removeDisplayScreen(document, currentScreenId, keep)
+    commit(next, `${currentScreen.name} deleted.`)
+    setScreenChoice(displayScreens(next)[Math.max(0, currentScreenIndex - 1)]?.id ?? null)
+    setSelectedIds([])
+  }
+
   /*
    * One inspector control for one widget property. Shared by the Appearance
    * and Connection sections, which split the same registry list by what a
@@ -851,6 +923,22 @@ export default function DisplayEditor() {
     if (property.control.control === 'color') {
       return <label key={property.key}>{property.label}<input type="color" value={typeof value === 'string' ? value : '#ffffff'} onChange={(event) => updateProperty(event.target.value)} /></label>
     }
+    if (property.control.control === 'screen') {
+      // The design's own screens, less the one this widget is on: going to
+      // the screen already showing is going nowhere.
+      const own = displayScreens(document).find((screen) => screen.id === (widget.screenId ?? currentScreenId))
+      return (
+        <label key={property.key}>{property.label}
+          <select value={typeof value === 'string' ? value : ''} onChange={(event) => updateProperty(event.target.value)}>
+            <option value="">Nowhere</option>
+            {displayScreens(document).filter((screen) => screen.id !== own?.id).map((screen) => (
+              <option key={screen.id} value={screen.id}>{screen.name}</option>
+            ))}
+          </select>
+          {screens.length < 2 && <span className={styles.hint}>Add a screen to go to with Add screen above the canvas.</span>}
+        </label>
+      )
+    }
     if (property.control.control === 'asset') {
       // The pack is the list. Typing an id by hand could only ever
       // produce one the registry drops, so the inspector offers
@@ -883,7 +971,7 @@ export default function DisplayEditor() {
         if (mod && direction.toLowerCase() === 'a') {
           event.preventDefault()
           event.stopPropagation()
-          const ids = document.widgets.map((widget) => widget.id)
+          const ids = onScreen.map((widget) => widget.id)
           setSelectedIds(ids)
           setAnnouncement(selectionAnnouncement(document, ids, issues))
           return
@@ -970,7 +1058,7 @@ export default function DisplayEditor() {
             <button type="button" aria-pressed={document.designSize.height >= document.designSize.width} onClick={() => setDisplayOrientation('0')}>Portrait</button>
             <button type="button" aria-pressed={document.designSize.width > document.designSize.height} onClick={() => setDisplayOrientation('90')}>Landscape</button>
           </div>
-          <button type="button" onClick={() => { const ids = document.widgets.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids, issues)) }} disabled={document.widgets.length === 0}>Select all</button>
+          <button type="button" onClick={() => { const ids = onScreen.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids, issues)) }} disabled={onScreen.length === 0}>Select all</button>
           <button type="button" onClick={copySelection} disabled={selectedWidgets.length === 0}>Copy</button>
           <button type="button" onClick={pasteSelection} disabled={displayWidgetClipboard.length === 0}>Paste</button>
           <button type="button" onClick={() => setZoom((value) => Math.max(0.35, value - 0.1))} aria-label="Zoom out">−</button>
@@ -979,6 +1067,37 @@ export default function DisplayEditor() {
           <button type="button" onClick={fit}>Fit</button>
         </div>
       </header>
+      {/*
+        * The design's screens. The panel starts on the first; a Button's Go to
+        * screen, or the panel's Screen input, moves between them.
+        */}
+      <nav className={styles.screenTabs} aria-label="Screens">
+        <div role="tablist" aria-label="Screens of this design">
+          {screens.map((screen, index) => (
+            <button
+              key={screen.id}
+              type="button"
+              role="tab"
+              aria-selected={screen.id === currentScreenId}
+              title={index === 0 ? `${screen.name}: the screen the panel starts on` : `${screen.name}: screen ${index}`}
+              onClick={() => openScreen(screen.id)}
+            >
+              {screen.name}
+              {index === 0 && screens.length > 1 && <small aria-hidden="true">start</small>}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addScreen}
+          disabled={!canAddDisplayScreen(document)}
+          title={canAddDisplayScreen(document)
+            ? 'Add an empty screen after this one'
+            : `A design holds at most ${DISPLAY_DOCUMENT_LIMITS.screensPerDocument} screens`}
+        >
+          Add screen
+        </button>
+      </nav>
 
       <div className={styles.body}>
         <aside className={styles.palette} aria-label="Widget palette">
@@ -1128,7 +1247,7 @@ export default function DisplayEditor() {
             * fill come first, by the same template/source mapping the shelf
             * uses, and the rest follow rather than being hidden.
             */}
-          {placedWidgets(document).length === 0 && !startDismissed && (
+          {onScreen.length === 0 && !startDismissed && (
             <section className={styles.startCard} aria-labelledby="display-start-heading">
               <h2 id="display-start-heading">Start with a template</h2>
               <p>
@@ -1175,7 +1294,7 @@ export default function DisplayEditor() {
               }}
               onPointerDown={() => select(null)}
             >
-              {placedWidgets(document).map((widget) => {
+              {onScreen.map((widget) => {
                 const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
                 const isSelected = selectedIds.includes(widget.id)
                 const inert = inertReasons.get(widget.id)
@@ -1397,6 +1516,35 @@ export default function DisplayEditor() {
           ) : (
             <>
               <p>Select a widget to change how it looks and what it is connected to.</p>
+              <section className={styles.inspectorSection} aria-labelledby="display-inspector-screen">
+                <h3 id="display-inspector-screen">This screen</h3>
+                <p className={styles.sectionHint}>
+                  {screens.length === 1
+                    ? 'A design can have several screens. Buttons go between them, and the panel gains a Screen input to choose one from the graph.'
+                    : currentScreenIndex === 0
+                      ? `Screen 0 of ${screens.length - 1}: the screen the panel starts on. The panel's Screen input counts from here.`
+                      : `Screen ${currentScreenIndex} on the panel's Screen input, which counts the first as 0.`}
+                </p>
+                <label>Name
+                  <input
+                    key={currentScreenId}
+                    defaultValue={currentScreen.name}
+                    maxLength={DISPLAY_DOCUMENT_LIMITS.screenNameLength}
+                    onBlur={(event) => {
+                      const next = renameDisplayScreen(document, currentScreenId, event.target.value)
+                      if (next !== document) commit(next, `Screen renamed ${event.target.value.trim()}.`)
+                      else event.target.value = currentScreen.name
+                    }}
+                    onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                  />
+                </label>
+                <div className={styles.selectionActions} aria-label="Screen actions">
+                  <button type="button" disabled={currentScreenIndex === 0} onClick={() => commit(moveDisplayScreen(document, currentScreenId, -1), `${currentScreen.name} moved earlier.`)}>Earlier</button>
+                  <button type="button" disabled={currentScreenIndex === screens.length - 1} onClick={() => commit(moveDisplayScreen(document, currentScreenId, 1), `${currentScreen.name} moved later.`)}>Later</button>
+                  <button type="button" disabled={!canAddDisplayScreen(document)} onClick={duplicateScreen}>Duplicate</button>
+                  <button type="button" disabled={screens.length <= 1} onClick={() => { void removeScreen() }}>Delete screen</button>
+                </div>
+              </section>
               <label>Grid<input type="number" min="1" max="64" value={document.gridSize} onChange={(event) => commit({ ...document, gridSize: Math.max(1, Math.min(64, Math.round(Number(event.target.value)))) })} /></label>
               <label>Theme
                 <select

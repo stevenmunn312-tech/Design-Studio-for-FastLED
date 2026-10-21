@@ -51,6 +51,10 @@ export interface DisplayRuntimeDiagnostic {
 
 interface DisplayRuntimeState {
   displays: Map<string, Map<string, DisplayWidgetRuntime>>
+  /** The screen each glass is showing, by screen id. Absent means its first. */
+  activeScreens: Map<string, string>
+  /** The last screen index each glass's Screen input selected. */
+  screenInputs: Map<string, number>
   /** Monotonic per-display paint revision, polled by any number of renderers. */
   displayRevisions: Map<string, number>
   diagnosticsVersion: number
@@ -68,6 +72,16 @@ interface DisplayRuntimeState {
     value: DisplayRuntimeValue,
   ) => void
   readDisplayWidget: (displayId: string, widgetId: string) => DisplayWidgetRuntime | undefined
+  /** Show a screen on this glass, as a Go to screen button does. */
+  showDisplayScreen: (displayId: string, screenId: string) => void
+  /**
+   * The Screen input's selection. It moves the glass only when it changes,
+   * so a steady input leaves the buttons free to move between screens; the
+   * first selection after a reset always applies, as on the device.
+   */
+  selectDisplayScreenInput: (displayId: string, index: number, screenId: string) => void
+  /** The screen this glass is showing, or undefined for its first. */
+  activeDisplayScreen: (displayId: string) => string | undefined
   displayRevision: (displayId: string) => number
   subscribeDisplay: (displayId: string, listener: () => void) => () => void
   takeDirtyDisplayWidgets: (displayId: string) => string[]
@@ -131,6 +145,8 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
 
   return {
     displays: new Map(),
+    activeScreens: new Map(),
+    screenInputs: new Map(),
     displayRevisions: new Map(),
     diagnosticsVersion: 0,
 
@@ -172,6 +188,19 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
     },
 
     readDisplayWidget: (displayId, widgetId) => get().displays.get(displayId)?.get(widgetId),
+    showDisplayScreen: (displayId, screenId) => {
+      const screens = get().activeScreens
+      if (screens.get(displayId) === screenId) return
+      screens.set(displayId, screenId)
+      bumpDisplayRevision(displayId)
+    },
+    selectDisplayScreenInput: (displayId, index, screenId) => {
+      const inputs = get().screenInputs
+      if (inputs.get(displayId) === index) return
+      inputs.set(displayId, index)
+      get().showDisplayScreen(displayId, screenId)
+    },
+    activeDisplayScreen: (displayId) => get().activeScreens.get(displayId),
     displayRevision: (displayId) => get().displayRevisions.get(displayId) ?? 0,
     subscribeDisplay: (displayId, listener) => {
       let listeners = displayListeners.get(displayId)
@@ -223,6 +252,8 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
         const keep = live[displayId]
         if (!keep) {
           displays.delete(displayId)
+          get().activeScreens.delete(displayId)
+          get().screenInputs.delete(displayId)
           revisions.delete(displayId)
           displayListeners.get(displayId)?.forEach((listener) => listener())
           changed = true
@@ -251,10 +282,14 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
       if (displayId === undefined) {
         const subscribedDisplays = [...displayListeners.keys()]
         displays.clear()
+        get().activeScreens.clear()
+        get().screenInputs.clear()
         revisions.clear()
         subscribedDisplays.forEach((id) => displayListeners.get(id)?.forEach((listener) => listener()))
       } else {
         displays.delete(displayId)
+        get().activeScreens.delete(displayId)
+        get().screenInputs.delete(displayId)
         bumpDisplayRevision(displayId)
       }
       set({ diagnosticsVersion: get().diagnosticsVersion + 1 })

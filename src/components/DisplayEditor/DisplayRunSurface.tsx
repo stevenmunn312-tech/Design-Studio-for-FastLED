@@ -19,7 +19,7 @@ import {
   displayWidgetIsNumericControl,
 } from '../../state/displays/displayRegistry'
 import { rgbToHex } from '../../state/palettes/customPalette'
-import type { DisplayDocument, PlacedDisplayWidget } from '../../state/displays/displayDocument'
+import { displayWidgetGoTo, type DisplayDocument, type PlacedDisplayWidget } from '../../state/displays/displayDocument'
 import { displayWidgetTextTokens, displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
 import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
@@ -55,9 +55,11 @@ interface RunDisplayWidgetProps {
   value: unknown
   onValue: (value: DisplayControlValue, held: boolean) => void
   onRelease: () => void
+  /** A Button's Go to screen, called once a press completes. */
+  onNavigate?: () => void
 }
 
-function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease }: RunDisplayWidgetProps) {
+function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease, onNavigate }: RunDisplayWidgetProps) {
   const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
   const interactive = isInteractiveDisplayWidget(widget)
   const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
@@ -156,7 +158,12 @@ function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease }: Ru
   const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     setTouchOwned(false)
     stopStepRepeat()
-    if (widget.type === 'Button') onValue(false, false)
+    if (widget.type === 'Button') {
+      onValue(false, false)
+      // LVGL's click: a release that was not cancelled. The press is reported
+      // first, so the button's own output reads a whole press either way.
+      if (event.type === 'pointerup' && touchOwned) onNavigate?.()
+    }
     else onRelease()
     if (event.type === 'pointercancel') suppressToggleClick.current = false
     if (drag.current?.pointerId === event.pointerId) drag.current = null
@@ -250,6 +257,7 @@ function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease }: Ru
         if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
           event.preventDefault()
           onValue(false, false)
+          onNavigate?.()
         } else if (widget.type === 'Toggle' && (event.key === ' ' || event.key === 'Enter')) {
           event.preventDefault()
           onRelease()
@@ -277,6 +285,10 @@ export default function DisplayRunSurface({
   const releaseRunValue = (widgetId: string) => {
     useDisplayRuntimeStore.getState().releaseDisplayWidget(displayId, widgetId)
   }
+  const navigate = (widget: PlacedDisplayWidget) => {
+    const target = displayWidgetGoTo(document, widget)
+    return target ? () => useDisplayRuntimeStore.getState().showDisplayScreen(displayId, target) : undefined
+  }
 
   return (
     <div
@@ -299,6 +311,7 @@ export default function DisplayRunSurface({
             value={value}
             onValue={(next, held) => writeRunValue(widget.id, next, held)}
             onRelease={() => releaseRunValue(widget.id)}
+            onNavigate={navigate(widget)}
           />
         )}
       </DisplayRuntimeWidgets>

@@ -3845,7 +3845,12 @@ export function connectTouchControl(
     // but giving the creation path a placement rule of its own is exactly how
     // the two would come to disagree.
     if (placing) {
-      nextDocument = placeTouchControlIn(nextDocument, displayId, widgetId, nodes, edges)
+      // On the screen the live view is showing, which is the one in front of
+      // the author when they held the modifier.
+      const panelId = String((touch.data.properties as Record<string, unknown>).panelId ?? '')
+      const showing = useDisplayRuntimeStore.getState()
+        .activeDisplayScreen(displayRuntimeId(panelId, displayId, nodes))
+      nextDocument = placeTouchControlIn(nextDocument, displayId, widgetId, nodes, edges, showing)
       placed = nextDocument.widgets.some((widget) => (
         widget.id === widgetId && isPlacedWidget(widget)
       ))

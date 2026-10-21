@@ -308,6 +308,30 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   is the arc's child 0 (`_cdSetChildText`). LVGL insets an arc by its padding
   alone, so the emitter pads it by border plus `DISPLAY_GAUGE_PAD_PX`, the
   inset `displayGaugeGeometry` gives the preview.
+- **A design's screens are a list; a widget names its own.** `screens` is
+  never empty (`displayScreens`; a document saved before screens reads as one
+  `main`), and normalize writes `screenId` on every placed widget and strips it
+  from an unplaced one, so reordering screens never moves a widget. Read a
+  widget's screen only through `displayWidgetScreenId`, which falls back to the
+  first screen, and walk pixels per screen with `screenWidgets`: every
+  geometric rule (free-rectangle search, overlap, touch separation, container
+  membership, the template recognised on rotation) applies within one screen,
+  and `displayWidgetParent` refuses a container on another screen. The flash
+  walks (assets, fonts, RAM) still count every placed widget, since every
+  screen is built. The first screen keeps the LVGL object name a one-screen
+  design always had (`_cdScreen_<id>`), later ones are `_cdScreen_<id>_<n>`,
+  and all are created before any widget so a Go to screen button can name one
+  drawn later. Navigation costs nothing unless used: `_cdGoTo` is emitted only
+  when `customDisplayNeedsNavigation`, attached per button as an
+  `LV_EVENT_CLICKED` callback with the target screen as user data (no runtime
+  field), and `displayWidgetGoTo` is the one reading of where a button goes.
+  The panel's **Screen** input is a document-derived port
+  (`DISPLAY_SCREEN_INPUT_ID`, offered only with two or more screens), so the
+  template router resolves it beside the library walk; it is edge-triggered on
+  the selected index (`displayScreenAt` in the preview, `_cdScreenLast_<id>` on
+  the device) so a steady input never fights a button, and the first pass
+  always applies. The live screen per glass is `activeScreens` in
+  `displayRuntimeStore`; `DisplayRuntimeWidgets` draws only that screen.
 - **List order is paint order and LVGL tree order.** `document.widgets` draws
   later over earlier in every renderer, and each Container is followed at once
   by its children (`orderDisplayWidgetTree`, applied by normalize and by every

@@ -6,6 +6,7 @@ import type {
   DisplayWidgetType,
   PlacedDisplayWidget,
 } from './displayDocument'
+import { displayWidgetScreenId } from './displayDocument'
 import { constrainDisplayWidgetBounds, nextDisplayWidgetId } from './displayEditor'
 import { defaultDisplayWidgetProperties, displayWidgetBoundField } from './displayRegistry'
 import { displayControlAssetId, type DisplayControlIconName } from './displayAssets'
@@ -562,9 +563,12 @@ export function applyDisplayTemplate(
   document: DisplayDocument,
   id: DisplayTemplateId,
   controlThemeId?: string,
+  /** The screen of the design it is laid out on; the first when omitted. */
+  screenId?: string,
 ): DisplayDocument {
   const template = displayTemplate(id)
   if (!template) return document
+  const screen = displayWidgetScreenId(document, { screenId })
   const specs = templateComposition(template, document.designSize.width, document.designSize.height)
   let working = document
   for (const spec of specs) {
@@ -575,6 +579,7 @@ export function applyDisplayTemplate(
       type: spec.type,
       label: spec.label,
       bounds: constrainDisplayWidgetBounds(working, spec.type, spec.bounds),
+      screenId: screen,
       properties: {
         ...defaultDisplayWidgetProperties(spec.type),
         ...spec.properties,

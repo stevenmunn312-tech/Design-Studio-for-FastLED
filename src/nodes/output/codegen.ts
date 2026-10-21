@@ -57,7 +57,7 @@ import {
   customDisplayPanelSetupCpp,
   customDisplayPanelEnableCpp,
 } from '../../codegen/displays/customDisplayPanelCpp'
-import { displayDocumentPorts, displayWidgetFormatsNumber, parseDisplayWidgetPortId } from '../../state/displays/displayRegistry'
+import { DISPLAY_SCREEN_INPUT_ID, displayDocumentPorts, displayWidgetFormatsNumber, parseDisplayWidgetPortId } from '../../state/displays/displayRegistry'
 import { designControlBundle } from '../../state/displays/designControlBundle'
 import { resolveBoundWidgets, normalSketchSourceExpressions } from '../../codegen/displays/displaySourceExpressions'
 import { OLED_CONTROLLERS, asOledAddress, oledRotationCommands, asOledRotation } from '../../state/displays/oledSurface'
@@ -443,6 +443,12 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         // rather than to the glass it happens to be drawn on.
         assets: opts.customDisplayAssets?.[documentId],
         initialValues,
+        // The panel's Screen input, when the design has screens to choose
+        // and something chooses between them.
+        ...(() => {
+          const screenExpr = widgetInputExpr(incoming.get(`${node.id}:${DISPLAY_SCREEN_INPUT_ID}`), 'float')
+          return screenExpr ? { screenExpr } : {}
+        })(),
       }
       const touchNode = nodes.find((entry) => entry.data.nodeType === 'TouchInput'
         && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)

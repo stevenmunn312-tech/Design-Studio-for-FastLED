@@ -60,6 +60,7 @@ describe('parseProjectFile — display document boundary', () => {
     orientation: '0',
     gridSize: 8,
     theme: { ...DEFAULT_DISPLAY_THEME, background: { kind: 'image', assetId: 'background:01-neon-orbit:320x240' } },
+    screens: [{ id: 'main', name: 'Main' }],
     widgets: [{
       id: 'art', type: 'Image/Icon', label: 'Artwork',
       bounds: { x: 0, y: 0, width: 48, height: 48 },

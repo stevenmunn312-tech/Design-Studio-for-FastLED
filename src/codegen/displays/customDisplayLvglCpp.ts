@@ -8,7 +8,11 @@ import { customDisplayId as safeId } from './customDisplayId'
 // callbacks, bounded caches and bindings.
 
 import {
+  displayScreenIndex,
+  displayScreens,
+  displayWidgetGoTo,
   displayWidgetParent,
+  displayWidgetScreenId,
   placedWidgets,
   type DisplayDocument,
   type DisplayWidget,
@@ -116,6 +120,12 @@ export interface CustomDisplayLvglEmit {
    * firmware. Absent for a widget driving nothing, which keeps its minimum.
    */
   initialValues?: Readonly<Record<string, number | boolean>>
+  /**
+   * The panel's Screen input, already resolved by the graph generator, when
+   * something is wired to it. A change in its value loads the screen it
+   * selects; a steady value leaves the Go to screen buttons free to move.
+   */
+  screenExpr?: string
 }
 
 
@@ -168,6 +178,30 @@ function object(emit: CustomDisplayLvglEmit, index: number): string {
 
 function runtime(emit: CustomDisplayLvglEmit, index: number): string {
   return `_cd_${safeId(emit.id)}[${index}]`
+}
+
+/**
+ * A screen's LVGL object. The first keeps the name a one-screen design has
+ * always had, so a design that never gained a second screen emits as before.
+ */
+function screenObject(emit: Pick<CustomDisplayLvglEmit, 'id'>, screenIndex: number): string {
+  return screenIndex === 0 ? `_cdScreen_${safeId(emit.id)}` : `_cdScreen_${safeId(emit.id)}_${screenIndex}`
+}
+
+/** The screen a widget is drawn on, as its LVGL object. */
+function widgetScreenObject(emit: CustomDisplayLvglEmit, widget: DisplayWidget): string {
+  return screenObject(emit, displayScreenIndex(emit.document, displayWidgetScreenId(emit.document, widget)))
+}
+
+/** The screen a Button goes to, as an index, or null (`displayWidgetGoTo`). */
+function buttonGoToScreen(document: DisplayDocument, widget: DisplayWidget): number | null {
+  const target = displayWidgetGoTo(document, widget)
+  return target === null ? null : displayScreenIndex(document, target)
+}
+
+/** Whether any button on this design moves between its screens. */
+export function customDisplayNeedsNavigation(document: DisplayDocument): boolean {
+  return placedWidgets(document).some((widget) => buttonGoToScreen(document, widget) !== null)
 }
 
 function alignCpp(align: 'left' | 'center' | 'right'): string {
@@ -296,7 +330,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   const parent = displayWidgetParent(emit.document, widget)
   const holder = parent
     ? object(emit, emittedWidgets(emit).findIndex((entry) => entry.id === parent.id))
-    : `_cdScreen_${safeId(emit.id)}`
+    : widgetScreenObject(emit, widget)
   const origin = parent ? displayContainerInnerBounds(parent, emit.document.theme) : { x: 0, y: 0 }
   const kind = controlKind(widget)
   const lines = [
@@ -387,6 +421,11 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
         : `  lv_arc_set_value(${obj}, ${raw});`)
     }
   }
+
+  // Loaded on the click, after `_cdEvent` has seen the release, so the
+  // button's own output still reads a whole press.
+  const goTo = buttonGoToScreen(emit.document, widget)
+  if (goTo !== null) lines.push(`  lv_obj_add_event_cb(${obj}, _cdGoTo, LV_EVENT_CLICKED, ${screenObject(emit, goTo)});`)
 
   if (kind > 0) {
     lines.push(`  ${rt}.kind = ${kind};`)
@@ -1042,6 +1081,17 @@ static CRGB _cdHueColor(float hue, float saturation, float value) {
 `
 
 /**
+ * A Button's Go to screen, emitted only into a sketch with a design that
+ * navigates (`customDisplayNeedsNavigation`). The target screen is the
+ * event's user data, so a button needs no runtime field of its own.
+ */
+export const CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP = `// Load the screen a Go to screen button names, on its own display.
+static void _cdGoTo(lv_event_t *event) {
+  lv_screen_load((lv_obj_t *)lv_event_get_user_data(event));
+}
+`
+
+/**
  * One monotonic LVGL clock and one bounded service gate per sketch.
  *
  * LVGL reads Arduino's millisecond clock directly. There is deliberately no
@@ -1112,9 +1162,17 @@ function emittedWidgets(emit: CustomDisplayLvglEmit): PlacedDisplayWidget[] {
 export function customDisplayLvglGlobalCpp(emit: CustomDisplayLvglEmit): string {
   const id = safeId(emit.id)
   const count = Math.max(1, emittedWidgets(emit).length)
+  const screens = displayScreens(emit.document)
   return [
     `// FLS-LVGL-FONTS:${customDisplayFontSizes(emit.document).join(',')}`,
-    `static lv_obj_t *_cdScreen_${id} = nullptr;`,
+    ...screens.map((_, index) => `static lv_obj_t *${screenObject(emit, index)} = nullptr;`),
+    // Indexed by the Screen input, so declared only where it is wired.
+    ...(screenInputWired(emit)
+      ? [
+        `static lv_obj_t *_cdScreens_${id}[${screens.length}] = {};`,
+        `static int32_t _cdScreenLast_${id} = INT32_MIN;`,
+      ]
+      : []),
     `static CustomDisplayWidgetRuntime _cd_${id}[${count}] = {};`,
   ].join('\n')
 }
@@ -1128,24 +1186,35 @@ export function customDisplayLvglSetupCpp(emit: CustomDisplayLvglEmit): string[]
     : theme.background.kind === 'gradient'
       ? theme.background.startColor
       : theme.background.fallbackColor
-  const lines = [
-    `  _cdScreen_${id} = lv_obj_create(nullptr);`,
-    `  lv_obj_remove_flag(_cdScreen_${id}, LV_OBJ_FLAG_SCROLLABLE);`,
-    `  lv_obj_set_style_pad_all(_cdScreen_${id}, 0, LV_PART_MAIN);`,
-    `  lv_obj_set_style_border_width(_cdScreen_${id}, 0, LV_PART_MAIN);`,
-    `  lv_obj_set_style_bg_color(_cdScreen_${id}, lv_color_hex(${colorHex(background)}), LV_PART_MAIN);`,
-    `  lv_obj_set_style_bg_opa(_cdScreen_${id}, LV_OPA_COVER, LV_PART_MAIN);`,
-  ]
-  if (theme.background.kind === 'gradient') {
-    lines.push(`  lv_obj_set_style_bg_grad_color(_cdScreen_${id}, lv_color_hex(${colorHex(theme.background.endColor)}), LV_PART_MAIN);`)
-    lines.push(`  lv_obj_set_style_bg_grad_dir(_cdScreen_${id}, ${theme.background.direction === 'vertical' ? 'LV_GRAD_DIR_VER' : 'LV_GRAD_DIR_HOR'}, LV_PART_MAIN);`)
-  }
   const backgroundIndex = emit.assets ? customDisplayAssetIndex(emit.document, { kind: 'background' }) : null
-  if (backgroundIndex !== null) {
-    lines.push(`  lv_obj_t *_cdBackground_${id} = lv_image_create(_cdScreen_${id});`)
-    lines.push(`  lv_image_set_src(_cdBackground_${id}, &${customDisplayAssetSymbol(customDisplayAssetStem(emit), backgroundIndex)});`)
-    lines.push(`  lv_obj_set_pos(_cdBackground_${id}, 0, 0);`)
-    lines.push(`  lv_obj_set_size(_cdBackground_${id}, ${emit.document.designSize.width}, ${emit.document.designSize.height});`)
+  const screens = displayScreens(emit.document)
+  const lines: string[] = []
+  // Every screen exists before any widget, so a Go to screen button can name
+  // one drawn after it. Each carries the design's own background.
+  screens.forEach((_, screenIndex) => {
+    const screen = screenObject(emit, screenIndex)
+    lines.push(
+      `  ${screen} = lv_obj_create(nullptr);`,
+      `  lv_obj_remove_flag(${screen}, LV_OBJ_FLAG_SCROLLABLE);`,
+      `  lv_obj_set_style_pad_all(${screen}, 0, LV_PART_MAIN);`,
+      `  lv_obj_set_style_border_width(${screen}, 0, LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_color(${screen}, lv_color_hex(${colorHex(background)}), LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_opa(${screen}, LV_OPA_COVER, LV_PART_MAIN);`,
+    )
+    if (theme.background.kind === 'gradient') {
+      lines.push(`  lv_obj_set_style_bg_grad_color(${screen}, lv_color_hex(${colorHex(theme.background.endColor)}), LV_PART_MAIN);`)
+      lines.push(`  lv_obj_set_style_bg_grad_dir(${screen}, ${theme.background.direction === 'vertical' ? 'LV_GRAD_DIR_VER' : 'LV_GRAD_DIR_HOR'}, LV_PART_MAIN);`)
+    }
+    if (backgroundIndex !== null) {
+      const image = `_cdBackground_${id}${screenIndex === 0 ? '' : `_${screenIndex}`}`
+      lines.push(`  lv_obj_t *${image} = lv_image_create(${screen});`)
+      lines.push(`  lv_image_set_src(${image}, &${customDisplayAssetSymbol(customDisplayAssetStem(emit), backgroundIndex)});`)
+      lines.push(`  lv_obj_set_pos(${image}, 0, 0);`)
+      lines.push(`  lv_obj_set_size(${image}, ${emit.document.designSize.width}, ${emit.document.designSize.height});`)
+    }
+  })
+  if (screenInputWired(emit)) {
+    screens.forEach((_, screenIndex) => lines.push(`  _cdScreens_${id}[${screenIndex}] = ${screenObject(emit, screenIndex)};`))
   }
   emittedWidgets(emit).forEach((widget, index) => lines.push(...setupWidgetLines(emit, widget, index)))
   lines.push(`  lv_screen_load(_cdScreen_${id});`)
@@ -1247,12 +1316,41 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
  * of LVGL's timer handler; the generator decides where graph publication ends
  * and the later scheduling slice decides when LVGL flushes it. */
 export function customDisplayLvglLoopCpp(emit: CustomDisplayLvglEmit): string[] {
-  const lines: string[] = []
+  const lines: string[] = [...screenInputLines(emit)]
   emittedWidgets(emit).forEach((widget, index) => {
     lines.push(...passiveUpdateLines(emit, widget, index))
     lines.push(...synchronizedUpdateLines(emit, widget, index))
   })
   return lines
+}
+
+/** Whether the Screen input is wired and has more than one screen to choose. */
+function screenInputWired(emit: CustomDisplayLvglEmit): boolean {
+  return Boolean(emit.screenExpr) && displayScreens(emit.document).length > 1
+}
+
+/**
+ * The panel's Screen input: the screen it selects, rounded and held to the
+ * screens there are (`displayScreenAt`), loaded when the selection changes. A
+ * value that is not a number changes nothing. The first pass loads whatever
+ * the input selects, so the graph decides the screen a build starts on.
+ */
+function screenInputLines(emit: CustomDisplayLvglEmit): string[] {
+  if (!screenInputWired(emit)) return []
+  const id = safeId(emit.id)
+  const count = displayScreens(emit.document).length
+  return [
+    `  { // ${id} screen`,
+    `    float _cdScreenValue = (float)(${emit.screenExpr});`,
+    `    if (isfinite(_cdScreenValue)) {`,
+    `      int32_t _cdScreenIndex = constrain((int32_t)lroundf(_cdScreenValue), 0, ${count - 1});`,
+    `      if (_cdScreenIndex != _cdScreenLast_${id}) {`,
+    `        _cdScreenLast_${id} = _cdScreenIndex;`,
+    `        lv_screen_load(_cdScreens_${id}[_cdScreenIndex]);`,
+    `      }`,
+    `    }`,
+    `  }`,
+  ]
 }
 
 /** Graph-facing touch value for a widget output role. */

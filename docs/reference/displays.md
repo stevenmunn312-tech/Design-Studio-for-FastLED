@@ -183,6 +183,30 @@ editing. Run redraws passive graph-fed readouts as values are published, as does
 the panel thumbnail. Run is not device telemetry. Changing mode resets local
 control state. A disabled panel's thumbnail is dark; editing remains available.
 
+### Screens
+
+A design can hold up to eight screens, shown as tabs above the canvas. The
+panel starts on the first. **Add screen** adds an empty one after the screen
+you are drawing; select no widget to rename, reorder, duplicate or delete the
+screen from the inspector. Widgets, templates and pasted widgets land on the
+screen you are drawing, and only that screen's widgets are checked against
+each other for overlap.
+
+Two things move the glass between screens:
+
+- A **Button**'s **Go to screen** loads that screen when the press is released.
+  The button still reports its press on its own output.
+- With two or more screens the panel gains a **Screen** input. It counts the
+  first screen as 0, rounds the number and holds it to the screens there are,
+  and moves the glass only when the screen it selects changes, so a steady
+  value leaves the buttons free to move. On a build's first pass it shows the
+  screen the input selects.
+
+Controls on a screen that is not showing keep the value they last had, in the
+preview and on the device. Deleting a screen deletes what is drawn on it,
+except wired controls, which return to **Connected**; buttons that went to it go
+nowhere. Run and the panel thumbnail show the screen the panel is on.
+
 ### Widget ports
 
 | Widget | Input | Output |

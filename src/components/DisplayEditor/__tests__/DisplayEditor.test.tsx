@@ -684,4 +684,49 @@ describe('DisplayEditor', () => {
       .publishDisplayRoleValue('panel', 'numeric-readout', 'value', 0.625))
     expect(screen.getByText('0.6')).toBeTruthy()
   })
+  it('draws one screen at a time and adds widgets to the screen being drawn', () => {
+    const view = renderEditor()
+    fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add screen' }))
+    const tabs = within(view.getByRole('tablist', { name: 'Screens of this design' }))
+    expect(tabs.getByRole('tab', { name: 'Screen 2' }).getAttribute('aria-selected')).toBe('true')
+    // The new screen is empty: the first screen's button is not drawn on it.
+    expect(view.queryByRole('button', { name: /Button, Button\. Position/ })).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
+
+    const document = useGraphStore.getState().displayDocuments.panel
+    expect(document.screens.map((entry) => entry.name)).toEqual(['Main', 'Screen 2'])
+    expect(document.widgets.map((widget) => widget.screenId)).toEqual(['main', document.screens[1].id])
+
+    fireEvent.click(tabs.getByRole('tab', { name: /Main/ }))
+    expect(view.getByRole('button', { name: /Button, Button\. Position/ })).toBeTruthy()
+    // A button on Main can go to the other screen.
+    fireEvent.click(view.getByRole('button', { name: /Button, Button\. Position/ }))
+    fireEvent.change(view.getByLabelText('Go to screen'), { target: { value: document.screens[1].id } })
+    expect(useGraphStore.getState().displayDocuments.panel.widgets[0].properties.goTo).toBe(document.screens[1].id)
+  })
+
+  it('moves the live screen when a Go to screen button is tapped', () => {
+    let document = createDisplayDocument('panel', 320, 240)
+    useGraphStore.getState().setDisplayDocument(document)
+    const view = renderEditor()
+    fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add screen' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
+    document = useGraphStore.getState().displayDocuments.panel
+    useGraphStore.getState().setDisplayDocument({
+      ...document,
+      widgets: document.widgets.map((widget) => widget.type === 'Button'
+        ? { ...widget, properties: { ...widget.properties, goTo: document.screens[1].id } }
+        : widget),
+    })
+    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    expect(screen.queryByRole('slider', { name: 'Slider run preview' })).toBeNull()
+    const button = screen.getByRole('button', { name: 'Button run preview' })
+    fireEvent.pointerDown(button, { button: 0, pointerId: 1 })
+    fireEvent.pointerUp(button, { button: 0, pointerId: 1 })
+    expect(useDisplayRuntimeStore.getState().activeDisplayScreen('panel')).toBe(document.screens[1].id)
+    expect(screen.getByRole('slider', { name: 'Slider run preview' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Button run preview' })).toBeNull()
+  })
 })

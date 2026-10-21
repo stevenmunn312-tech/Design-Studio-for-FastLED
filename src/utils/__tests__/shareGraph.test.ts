@@ -25,6 +25,7 @@ const workspace: PersistedWorkspace = {
         warningColor: '#ffaa00', successColor: '#00aa66', inactiveColor: '#777777', disabledColor: '#333333',
         font: 'sans', fontSize: 16, cornerRadius: 4, borderWidth: 1,
       },
+      screens: [{ id: 'main', name: 'Main' }],
       widgets: [{
         id: 'art', type: 'Image/Icon', label: 'Artwork',
         bounds: { x: 0, y: 0, width: 48, height: 48 },

@@ -620,8 +620,10 @@ export function placeTouchControlIn(
   widgetId: string,
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
+  /** The screen of the design it goes on; the first when omitted. */
+  screenId?: string,
 ): DisplayDocument {
-  const placed = placeDisplayWidget(document, widgetId)
+  const placed = placeDisplayWidget(document, widgetId, screenId)
   if (placed === document) return document
   const widget = placed.widgets.find((entry) => entry.id === widgetId)
   if (!widget || !displayControlIsUnconfigured(widget)) return placed

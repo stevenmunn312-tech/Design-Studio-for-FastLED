@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Screen designs** can hold up to eight screens, drawn as tabs in the screen
+  editor. A Button's **Go to screen** moves the glass to another screen when
+  tapped, and a panel whose design has more than one screen gains a **Screen**
+  input that picks one by number from the graph. The preview, the live touch
+  screen, the normal sketch, the show and the SD player all follow the same
+  rule. A design saved with one screen loads as a single **Main** screen and
+  builds exactly as before.
 - **Display Panel**'s **Show Status** layout now pictures the pattern a
   Pattern Slideshow is running, between the running rows and the browsing
   rows, from the same 96x96 artwork Now Playing uses. The preview and the

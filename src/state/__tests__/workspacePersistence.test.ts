@@ -106,6 +106,7 @@ describe('PersistedWorkspace round-tripping', () => {
           warningColor: '#ffaa00', successColor: '#00aa66', inactiveColor: '#777777', disabledColor: '#333333',
           font: 'sans' as const, fontSize: 16, cornerRadius: 4, borderWidth: 1,
         },
+        screens: [{ id: 'main', name: 'Main' }],
         widgets: [],
       },
     }
