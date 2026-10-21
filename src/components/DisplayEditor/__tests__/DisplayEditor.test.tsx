@@ -302,6 +302,14 @@ describe('DisplayEditor', () => {
    * group — there is no pending list to keep in step, and placing it is the
    * only thing that can take it out.
    */
+  it('states the size limits of the panel the design is drawn for', () => {
+    useGraphStore.setState({ nodes: [panelNode()], edges: [] })
+    const view = renderEditor()
+    const note = view.getByLabelText('Panel size limits').textContent ?? ''
+    expect(note).toMatch(/This 2\.\d-inch panel shows \d+\.\d pixels per millimetre\./)
+    expect(note).toMatch(/Make controls at least \d+ px \([\d.]+ mm\) across and \d+ px apart, and text \d+ px or larger\./)
+  })
+
   it('lists a control created by wiring it, says what it drives, and places it', () => {
     useGraphStore.setState({
       nodes: [

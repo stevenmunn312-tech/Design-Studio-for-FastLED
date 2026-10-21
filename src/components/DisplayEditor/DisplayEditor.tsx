@@ -94,6 +94,7 @@ import {
   documentDisplaySourceKind, documentDisplaySourceLabel, mountedPanelGeometry, panelsShowingDocument,
 } from '../../state/displays/mountedDisplays'
 import { displayWidgetTargetRangeRepair } from '../../state/displays/displayControlRangeRepair'
+import { displayDensityLimits, displayPxToMm } from '../../state/displays/displayDensity'
 import {
   controlDestination,
   controlDestinationLabel,
@@ -318,7 +319,11 @@ export default function DisplayEditor() {
   }, [persisted])
 
   const document = draft ?? persisted
-  const issues = useMemo(() => document ? displayLayoutIssues(document) : [], [document])
+  // What the glass this design is drawn for allows: how big a control must
+  // be to hit and text to read, from the panel's measured size and touch.
+  const panelPartId = String(mountedPanel?.data.properties.partId ?? '')
+  const densityLimits = useMemo(() => (panelPartId ? displayDensityLimits(panelPartId) : null), [panelPartId])
+  const issues = useMemo(() => document ? displayLayoutIssues(document, 'touch-tft', densityLimits) : [], [document, densityLimits])
   const issuesByWidget = useMemo(() => new Map(document?.widgets.map((widget) => (
     [widget.id, issuesForWidget(issues, widget.id)]
   )) ?? []), [document, issues])
@@ -404,7 +409,7 @@ export default function DisplayEditor() {
     const next = placeTouchControlIn(document, displayId, widgetId, graphNodes, graphEdges, currentScreenId)
     if (next === document) return
     const widget = next.widgets.find((entry) => entry.id === widgetId)!
-    commit(next, widgetAnnouncement(next, widgetId, displayLayoutIssues(next)))
+    commit(next, widgetAnnouncement(next, widgetId, displayLayoutIssues(next, 'touch-tft', densityLimits)))
     setSelectedIds([widget.id])
   }
 
@@ -484,7 +489,7 @@ export default function DisplayEditor() {
     if (!template) return
     const next = applyDisplayTemplate(document, id, controlThemeId, currentScreenId)
     const added = next.widgets.slice(document.widgets.length)
-    const placed = `${template.label} template inserted with ${added.length} widgets. ${validationAnnouncement(displayLayoutIssues(next))}`
+    const placed = `${template.label} template inserted with ${added.length} widgets. ${validationAnnouncement(displayLayoutIssues(next, 'touch-tft', densityLimits))}`
     commit(next, placed)
     setSelectedIds(added.map((widget) => widget.id))
     // In the same tick as the commit above, so the widgets and the wires they
@@ -627,7 +632,7 @@ export default function DisplayEditor() {
       draftRef.current = next
       setDraft(next)
       setDisplayDocument(next)
-      setAnnouncement(widgetAnnouncement(next, active.widgetId, displayLayoutIssues(next)))
+      setAnnouncement(widgetAnnouncement(next, active.widgetId, displayLayoutIssues(next, 'touch-tft', densityLimits)))
     }
   }
 
@@ -1025,7 +1030,7 @@ export default function DisplayEditor() {
         const dx = direction === 'ArrowLeft' ? -amount : direction === 'ArrowRight' ? amount : 0
         const dy = direction === 'ArrowUp' ? -amount : direction === 'ArrowDown' ? amount : 0
         const next = adoptDisplayWidgets(translateDisplayWidgets(document, selectedIds, dx, dy, !event.shiftKey), selectedIds)
-        commit(next, selectionAnnouncement(next, selectedIds, displayLayoutIssues(next)))
+        commit(next, selectionAnnouncement(next, selectedIds, displayLayoutIssues(next, 'touch-tft', densityLimits)))
       }}
     >
       <header className={styles.header}>
@@ -1545,6 +1550,15 @@ export default function DisplayEditor() {
                   <button type="button" disabled={screens.length <= 1} onClick={() => { void removeScreen() }}>Delete screen</button>
                 </div>
               </section>
+              {densityLimits && (
+                <p className={styles.sectionHint} aria-label="Panel size limits">
+                  This {densityLimits.diagonalInches.toFixed(1)}-inch panel shows {densityLimits.pxPerMm.toFixed(1)} pixels per millimetre.
+                  {densityLimits.touchAccuracyMm !== null
+                    ? ` Make controls at least ${densityLimits.touchTargetPx} px (${displayPxToMm(densityLimits, densityLimits.touchTargetPx)} mm) across and ${densityLimits.separationPx} px apart,`
+                    : ''}
+                  {` ${densityLimits.touchAccuracyMm !== null ? 'and' : 'Make'} text ${densityLimits.minFontPx} px or larger. Layout issues say where a design falls short.`}
+                </p>
+              )}
               <label>Grid<input type="number" min="1" max="64" value={document.gridSize} onChange={(event) => commit({ ...document, gridSize: Math.max(1, Math.min(64, Math.round(Number(event.target.value)))) })} /></label>
               <label>Theme
                 <select

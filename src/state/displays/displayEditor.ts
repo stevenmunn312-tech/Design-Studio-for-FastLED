@@ -36,6 +36,8 @@ import {
 } from './displayRegistry'
 import { displayWidgetTextTokens, resolveDisplayThemeTokens } from './displayTheme'
 import { canonicalDisplayTemplateBounds } from './displayTemplates'
+import { displayPxToMm, type DisplayDensityLimits } from './displayDensity'
+import { displayWidgetTextSizes } from './customDisplayResources'
 
 /**
  * Run a geometry pass over the screen, leaving anything not on it untouched.
@@ -61,7 +63,12 @@ function overPlacedWidgets(
 
 export interface DisplayLayoutIssue {
   widgetId: string
-  code: 'collision' | 'separation' | 'bounds' | 'widget'
+  /**
+   * `reach` and `legibility` are measured against the panel's own glass
+   * (`displayDensityLimits`): a control a finger will miss, text too small
+   * to read. Warnings only — the design builds and works as drawn.
+   */
+  code: 'collision' | 'separation' | 'bounds' | 'widget' | 'reach' | 'legibility'
   message: string
   otherWidgetId?: string
 }
@@ -758,6 +765,8 @@ export function distributeDisplayWidgets(
 export function displayLayoutIssues(
   document: DisplayDocument,
   displayClass: DisplayClass = 'touch-tft',
+  /** The panel's own limits; without them only the reference-screen rules apply. */
+  limits: DisplayDensityLimits | null = null,
 ): DisplayLayoutIssue[] {
   const issues: DisplayLayoutIssue[] = []
   // Whether a widget suits this display is true of it whether or not it is on
@@ -800,6 +809,7 @@ export function displayLayoutIssues(
         message: `${widget.label} is too short to show its label as well.`,
       })
     }
+    if (limits) issues.push(...densityIssues(document, widget, limits))
     const parent = displayWidgetParent(document, widget)
     if (parent && !boundsContain(displayContainerInnerBounds(parent, document.theme), widget.bounds)) {
       issues.push({
@@ -828,7 +838,17 @@ export function displayLayoutIssues(
           code: 'collision',
           message: `${widget.label} is under ${other.label}, so a touch where they overlap reaches only ${other.label}.`,
         })
-      } else if (displayWidgetsTooClose(widget, other)) {
+      } else if (limits && isDisplayTouchTarget(widget.type) && isDisplayTouchTarget(other.type)
+        && boundsIntersect(displayControlHitBounds(widget), displayControlHitBounds(other), limits.separationPx)) {
+        // On a measured panel the gap a finger needs is the panel's, which
+        // replaces the reference screen's fixed one.
+        issues.push({
+          widgetId: widget.id,
+          otherWidgetId: other.id,
+          code: 'separation',
+          message: `${widget.label} needs ${limits.separationPx} px (${displayPxToMm(limits, limits.separationPx)} mm) of separation from ${other.label} on this panel.`,
+        })
+      } else if (!limits && displayWidgetsTooClose(widget, other)) {
         issues.push({
           widgetId: widget.id,
           otherWidgetId: other.id,
@@ -942,4 +962,41 @@ export function editingDisplayScreenId(document: DisplayDocument, screenId: stri
   return screenId && displayScreens(document).some((screen) => screen.id === screenId)
     ? screenId
     : firstDisplayScreenId(document)
+}
+
+/**
+ * What this panel's glass says about one widget: a control smaller than a
+ * finger can reliably hit, or text smaller than reads at arm's length. Both
+ * name the size in millimetres, because that is what makes the warning
+ * believable on a panel whose pixels are unusually small.
+ */
+function densityIssues(
+  document: DisplayDocument,
+  widget: PlacedDisplayWidget,
+  limits: DisplayDensityLimits,
+): DisplayLayoutIssue[] {
+  const issues: DisplayLayoutIssue[] = []
+  if (limits.touchAccuracyMm !== null && isDisplayTouchTarget(widget.type)) {
+    const hit = displayControlHitBounds(widget)
+    const short = Math.min(hit.width, hit.height)
+    if (short < limits.touchTargetPx) {
+      issues.push({
+        widgetId: widget.id,
+        code: 'reach',
+        message: `${widget.label} is ${displayPxToMm(limits, short)} mm across on this panel; a finger needs about ${displayPxToMm(limits, limits.touchTargetPx)} mm (${limits.touchTargetPx} px) to hit it every time.`,
+      })
+    }
+  }
+  const smallest = displayWidgetTextSizes(widget, document.theme)
+    .filter((run) => run.fontSize < limits.minFontPx)
+    .sort((a, b) => a.fontSize - b.fontSize)[0]
+  if (smallest) {
+    const what = smallest.what === 'caption' ? 'its label' : smallest.what === 'keyboard' ? 'its keyboard keys' : 'text'
+    issues.push({
+      widgetId: widget.id,
+      code: 'legibility',
+      message: `${widget.label} draws ${what} ${displayPxToMm(limits, smallest.fontSize)} mm tall on this panel; use ${limits.minFontPx} px or larger to read it at arm's length.`,
+    })
+  }
+  return issues
 }

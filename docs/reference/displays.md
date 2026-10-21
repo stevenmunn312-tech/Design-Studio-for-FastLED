@@ -323,6 +323,16 @@ Ctrl/Cmd+A selects all, Ctrl/Cmd+C/V copies/pastes, Ctrl/Cmd+D duplicates, and
 Delete removes the selection. Multiple selections expose alignment and
 distribution controls.
 
+A design drawn for a measured panel is checked against that glass, not only
+against the 320 × 240 reference screen. With no widget selected, the
+inspector states the panel's diagonal, its pixels per millimetre, how large a
+control must be to hit every time (a 6 mm fingertip plus the touch surface's
+own error on each side), how far apart two controls must be, and the smallest
+text that reads at arm's length (1.8 mm). **Layout issues** name each control
+or text that falls short, in millimetres. These are warnings: the design
+builds and works as drawn, and the same design opened for another panel is
+checked against that one.
+
 Widgets may overlap. A widget added later draws over an earlier one, and
 **To front**, **Forward**, **Backward** and **To back** in the inspector change
 that order (Ctrl/Cmd+] and Ctrl/Cmd+[, with Shift to go all the way). Only a

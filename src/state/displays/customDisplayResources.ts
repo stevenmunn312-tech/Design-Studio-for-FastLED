@@ -64,30 +64,45 @@ export function customDisplayFontSize(size: number): number {
   ), 14 as number)
 }
 
+/**
+ * The text sizes a widget paints, in pixels as authored: its own text, where
+ * it has any, then its caption, then a Text Entry's keyboard. One list, read
+ * by the font marker and by the editor's legibility check, so a size the
+ * check passes is a size the build compiles.
+ */
+export function displayWidgetTextSizes(
+  widget: PlacedDisplayWidget,
+  theme: DisplayDocument['theme'],
+): { what: 'text' | 'caption' | 'keyboard'; fontSize: number }[] {
+  const sizes: { what: 'text' | 'caption' | 'keyboard'; fontSize: number }[] = []
+  const fontSize = displayWidgetTextTokens(widget, theme).fontSize
+  const hasText = widget.type === 'Text'
+    || widget.type === 'Marquee'
+    || widget.type === 'Numeric Readout'
+    || widget.type === 'Timecode'
+    || widget.type === 'Pattern Browser'
+    || widget.type === 'Button'
+    || widget.type === 'Toggle'
+    || widget.type === 'Choice Strip'
+    || widget.type === 'Step Control'
+    || widget.type === 'Text Entry'
+    || (widget.type === 'Arc Gauge' && widget.properties.showValue !== false)
+  if (hasText) sizes.push({ what: 'text', fontSize })
+  // A caption is set smaller than the widget it names, so it pins a face of
+  // its own rather than riding the widget's — a screen of nothing but
+  // captioned sliders paints text the list above would not have pinned.
+  const caption = displayWidgetCaptionLayout(widget, fontSize, widget.bounds.height)
+  if (caption) sizes.push({ what: 'caption', fontSize: caption.fontSize })
+  // A Text Entry's keyboard draws its keys in a size of its own.
+  if (widget.type === 'Text Entry') sizes.push({ what: 'keyboard', fontSize: DISPLAY_KEYBOARD_FONT_SIZE })
+  return sizes
+}
+
 /** Only fonts that a document actually paints are enabled in lv_conf.h. */
 export function customDisplayFontSizes(document: DisplayDocument): number[] {
   const sizes = new Set<number>()
   for (const widget of placedWidgets(document)) {
-    const fontSize = displayWidgetTextTokens(widget, document.theme).fontSize
-    const hasText = widget.type === 'Text'
-      || widget.type === 'Marquee'
-      || widget.type === 'Numeric Readout'
-      || widget.type === 'Timecode'
-      || widget.type === 'Pattern Browser'
-      || widget.type === 'Button'
-      || widget.type === 'Toggle'
-      || widget.type === 'Choice Strip'
-      || widget.type === 'Step Control'
-      || widget.type === 'Text Entry'
-      || (widget.type === 'Arc Gauge' && widget.properties.showValue !== false)
-    if (hasText) sizes.add(customDisplayFontSize(fontSize))
-    // A Text Entry's keyboard draws its keys in a size of its own.
-    if (widget.type === 'Text Entry') sizes.add(customDisplayFontSize(DISPLAY_KEYBOARD_FONT_SIZE))
-    // A caption is set smaller than the widget it names, so it pins a face of
-    // its own rather than riding the widget's — a screen of nothing but
-    // captioned sliders paints text the list above would not have pinned.
-    const caption = displayWidgetCaptionLayout(widget, fontSize, widget.bounds.height)
-    if (caption) sizes.add(customDisplayFontSize(caption.fontSize))
+    for (const run of displayWidgetTextSizes(widget, document.theme)) sizes.add(customDisplayFontSize(run.fontSize))
   }
   // Helpers and empty screens still use the pinned default font safely.
   return sizes.size > 0 ? [...sizes].sort((a, b) => a - b) : [14]

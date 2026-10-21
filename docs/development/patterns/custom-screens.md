@@ -366,6 +366,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   their last-sample time in the runtime's `lastColor` (UINT32_MAX before the
   first); the two helpers are emitted only where a sample call is, and
   `// FLS-LVGL-WIDGETS:chart` switches on `LV_USE_CHART`.
+- **Size limits are the panel's, and only warn.** `displayDensityLimits(partId)`
+  turns the catalogued glass (the render's measured screen rectangle at its own
+  px/mm, else the diagonal in the part's label) and touch surface (XPT2046,
+  bare resistive, capacitive) into pixel limits; `displayLayoutIssues` takes
+  them as an optional argument and adds `reach` and `legibility` issues and a
+  panel-scaled separation. They never constrain bounds: the registry's 48 px
+  touch minimum stays the hard floor, so `reach` fires only on glass denser
+  than every catalogued touch panel today, which a test holds. Text sizes come
+  from `displayWidgetTextSizes`, the same list the font marker compiles, so a
+  size the check passes is one the build has a face for.
 - **List order is paint order and LVGL tree order.** `document.widgets` draws
   later over earlier in every renderer, and each Container is followed at once
   by its children (`orderDisplayWidgetTree`, applied by normalize and by every

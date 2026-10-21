@@ -60,6 +60,16 @@ chooses the supported combinations from whatever is on record at release.
   has never drawn, so its touch is unjudged. Next step: instrument the
   generated `setup()` with serial markers and read the last one
   ([bring-up](docs/reports/bench/xc4630-bring-up.md#next-step)).
+- **D-02 screens and widgets:** on a touch panel, a design with two screens
+  moved by a Go to screen button and by a wired Screen input; a Text Entry typed
+  on the keyboard and its text reaching a Text; a Chart filling at its interval
+  and a Spectrum following a microphone; Show Status picturing the slideshow's
+  pattern. All compile only at the v1 freeze
+  ([custom screens](docs/development/patterns/custom-screens.md)).
+- **D-02 Web Remote:** the phone page on an ESP32 and an ESP8266 on a real
+  Wi-Fi network, reached by its `.local` name, every control type driving the
+  LEDs, a held button released by the timeout, and a reconnect after Wi-Fi drops
+  ([design](docs/design/web-remote.md)).
 - **Custom boards:** one custom layout compared against its board's documented
   pinout, then representative projects flashed. The software compile is
   recorded
@@ -276,17 +286,6 @@ chooses the supported combinations from whatever is on record at release.
 
 ## 5. Release track (in order)
 
-- [ ] **D-02 · Custom screens, v1 remainder (L).** Pulled into v1 on
-  2026-10-21: multiple screens with navigation between them; chart and
-  history widgets that plot a value over time; on-device text entry whose
-  text becomes a string value; a remote and phone control page served over
-  Wi-Fi on ESP32 and ESP8266; widget size and density limits derived from each
-  display's resolution, physical size and touch accuracy, with an editor
-  warning when a design will be hard to read or to hit; and Show Status
-  artwork drawn from the Slideshow's collection into the player-owned 96x96
-  bake. Check each against the HW-11 budgets
-  ([auxiliary displays](docs/design/auxiliary-displays.md#deferred-dropped-and-why)).
-  Each changes the screen document shape, so it lands before the HW-18 freeze.
 - [ ] **D-03 · Multi-board, library sharing and UNO R4 networking (L).**
   Pulled into v1 on 2026-10-21. One project driving several controllers that
   stay in time with each other, through the Build Diagram and the upload flow.
@@ -562,6 +561,11 @@ and an Upload information shelf in
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
 are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
+- **D-02 · Custom screens, v1 remainder**: several screens with Go to screen
+  and a Screen input, Text Entry, Chart and Spectrum, the Web Remote node,
+  panel-measured size limits, and Show Status artwork
+  ([custom screens](docs/development/patterns/custom-screens.md);
+  [Web Remote](docs/design/web-remote.md)).
 - **D-02 · Larger UI scope, v1 part**: shared-document panels, Choice Strip,
   Step Control, Colour Picker, Arc Gauge, Marquee and Containers
   ([widget ports](docs/reference/displays.md#widget-ports)).

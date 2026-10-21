@@ -776,12 +776,18 @@ budgets.
 containers and overlapping widgets (all shipped). They reuse the existing widget and binding
 path, so they join v1 ahead of the HW-18 save-format freeze.
 
-**Pulled into v1 on 2026-10-21** (root todo, D-02): multiple screens and
-navigation, charts and waveform/spectrum histories, on-device text entry,
-remote/network UI ([Web Remote](web-remote.md)), size and density limits from each display's real
-capabilities, and Show Status artwork from the Slideshow's collection. Each
-needs new plumbing (a new document shape, a firmware data feed, text storage or
-networking), so each lands before the HW-18 save-format freeze.
+**Pulled into v1 on 2026-10-21 and shipped the same day** (D-02): multiple
+screens with Go to screen buttons and a Screen input; the Chart (a value over
+time) and Spectrum (live audio, normal sketches only) widgets; on-device text
+entry through a Text Entry and its keyboard, kept in RAM until restart; the
+remote/network UI as a [Web Remote](web-remote.md) node rather than a mirror of
+a panel, so it works on ESP8266 with no display; size and density limits from
+each panel's measured glass, as editor warnings rather than constraints; and
+Show Status artwork from the Slideshow's collection. Their contracts are in
+[custom screens](../development/patterns/custom-screens.md) and the
+[display reference](../reference/displays.md); none is bench-tested, and none
+is compiled until the v1-freeze compile run. A Spectrum in a show or SD player
+build is refused by name, since those builds do not analyse live audio.
 
 **Deferred until after v1:** large RGB/HDMI panels. They stay out because they
 are a different runtime class, not because they are exotic.

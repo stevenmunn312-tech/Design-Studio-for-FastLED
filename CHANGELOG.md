@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The screen editor checks a design against the glass it is drawn for: each
+  panel's measured size, resolution and touch surface set how large a control
+  must be to hit, how far apart controls must be, and the smallest readable
+  text, and Layout issues warn, in millimetres, where a design falls short.
 - **Chart** and **Spectrum** screen widgets. A Chart plots a wired or bound
   number over time, one reading per interval, as a line or bars. A Spectrum
   draws live microphone or line-in audio as bars in a normal sketch. The
