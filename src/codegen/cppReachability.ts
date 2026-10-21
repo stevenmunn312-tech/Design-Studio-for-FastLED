@@ -14,8 +14,37 @@ export interface CppUnit {
 
 /** Mask comments and literals without changing offsets or line boundaries. */
 export function cppCode(source: string): string {
-  return source.replace(LEXEMES, (text) => text.replace(/[^\r\n]/g, ' '))
+  // Every pass over a whole sketch masks the same text again; keep the last
+  // few. Fragments are cheap to mask and would only churn the cache.
+  if (source.length < 10_000) return maskLexemes(source)
+  const cached = recentCode.get(source)
+  if (cached !== undefined) return cached
+  const code = maskLexemes(source)
+  if (recentCode.size >= 8) recentCode.delete(recentCode.keys().next().value!)
+  recentCode.set(source, code)
+  return code
 }
+
+/** The struct, class and union bodies in `code`, as `[open, close]` brace
+ * offsets; a body left open runs to the end. Found in one pass, so asking
+ * about every declaration in a large sketch stays linear. */
+export function recordBodies(code: string): [number, number][] {
+  const bodies: [number, number][] = []
+  const open: (number | null)[] = []
+  for (let i = 0; i < code.length; i++) {
+    if (code[i] === '{') {
+      open.push(/\b(?:struct|class|union)(?:\s+\w+)?\s*(?::[^;{}()]*)?$/.test(code.slice(Math.max(0, i - 200), i)) ? i : null)
+    } else if (code[i] === '}') {
+      const start = open.pop()
+      if (start != null) bodies.push([start, i])
+    }
+  }
+  for (const start of open) if (start != null) bodies.push([start, code.length])
+  return bodies
+}
+
+const recentCode = new Map<string, string>()
+const maskLexemes = (source: string) => source.replace(LEXEMES, (text) => text.replace(/[^\r\n]/g, ' '))
 
 // Raw and plain strings, character literals and comments, matched together so
 // a quote inside a comment, or `//` inside a string, is not misread.

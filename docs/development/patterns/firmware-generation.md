@@ -417,6 +417,14 @@ sketch still carries only what the graph reaches.
   `return`/`break` go, and an `if` with an empty body and a pure condition
   goes. `finishCpp` prunes first, then alternates folding and pruning until
   neither changes the sketch.
+- Cost trap: these passes run over the whole sketch, about ten times over,
+  and a large slideshow sketch is 1 MB. Anything done per declaration, flag
+  or use must not rescan the sketch: build an index once per pass
+  (`identifierIndex`, `recordBodies`, the declarator lists in
+  `withoutUnreadLocals`), and test the tail of a prefix rather than an
+  end-anchored regex over all of it. Per-flag whole-sketch scans once made
+  generation take 7 s. Prove a speed-up changes nothing by hashing the
+  sketches of saved projects before and after.
 - Fold traps: a variable passed whole to a function whose parameter is a
   reference (`bool &full`) or unknown (a library or method call) may be
   written, so it is never folded. A `switch` arm that falls through, or one

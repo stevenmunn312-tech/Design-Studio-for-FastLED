@@ -1,4 +1,4 @@
-import { cppCode, cppUnits, pruneCpp, withAttachedComments, withoutBlankRuns } from './cppReachability'
+import { cppCode, cppUnits, pruneCpp, recordBodies, withAttachedComments, withoutBlankRuns } from './cppReachability'
 import { foldConstants, PURE_CALL, withoutEmptyIfs } from './cppSpecialize'
 
 const CONTROL_WORD = /^(?:if|for|while|switch|return|sizeof)$/
@@ -24,7 +24,8 @@ function pureFunctions(source: string): Set<string> {
     // An overload set is judged as one name, so it is judged as impure.
     bodies.set(unit.names[0], bodies.has(unit.names[0]) ? null : code.slice(unit.start, unit.end))
   }
-  const pure = new Set([...bodies].filter(([, text]) => text !== null).map(([name]) => name))
+  // A body's own effects never change; only whether its callees stay pure
+  // does. Judge each body once, then settle the calls to a fixed point.
   const effectFree = (text: string): boolean => {
     const open = text.indexOf('{')
     const head = text.slice(0, open)
@@ -51,12 +52,18 @@ function pureFunctions(source: string): Set<string> {
       const plain = target.match(/(?<![.>*\w])(\w+)$/)
       if (!plain || !scalars.has(plain[1])) return false
     }
-    return callsIn(body).every((name) => PURE_CALL.test(name) || pure.has(name))
+    return true
   }
+  const callees = new Map<string, string[]>()
+  for (const [name, text] of bodies) {
+    if (text === null || !effectFree(text)) continue
+    callees.set(name, [...new Set(callsIn(text.slice(text.indexOf('{'))))].filter((callee) => !PURE_CALL.test(callee)))
+  }
+  const pure = new Set(callees.keys())
   for (let changed = true; changed;) {
     changed = false
     for (const name of [...pure]) {
-      if (!effectFree(bodies.get(name)!)) { pure.delete(name); changed = true }
+      if (!callees.get(name)!.every((callee) => pure.has(callee))) { pure.delete(name); changed = true }
     }
   }
   return pure
@@ -81,6 +88,12 @@ export function withoutUnreadLocals(source: string): string {
     }
     const counts = new Map([...mentions].map(([name, at]) => [name, at.length]))
     const declarations = [...code.matchAll(DECLARATION)]
+    // Split once per pass: the passes below all read the same lists, and
+    // edits run back to front, so an earlier list's offsets stay valid.
+    const lists = new Map(declarations.map((match) => {
+      const listStart = match.index! + match[1].length
+      return [match.index!, splitDeclarators(source.slice(listStart, listStart + match[2].length))]
+    }))
     const blockEnds = enclosingBlockEnds(code, declarations.map((match) => match.index!))
     const preprocessed = new Set([...code.matchAll(/^[ \t]*#.*$/gm)].flatMap((line) => line[0].match(/\b[A-Za-z_]\w*\b/g) ?? []))
     // Read nowhere in the sketch, or nowhere in its own block after it: two
@@ -90,7 +103,7 @@ export function withoutUnreadLocals(source: string): string {
       if (seen.length === 1) return true
       const end = blockEnds.get(at)
       if (end === undefined || preprocessed.has(d.name)) return false
-      return seen.filter((i) => i >= at && i < end).length === 1
+      return lowerBound(seen, end) - lowerBound(seen, at) === 1
     }
     // A member is layout, not a local: positional initialisers depend on it.
     const members = recordBodies(code)
@@ -107,7 +120,7 @@ export function withoutUnreadLocals(source: string): string {
       source = emptied
       continue
     }
-    const writeOnly = writeOnlyNames(code, source, counts, members, isPure)
+    const writeOnly = writeOnlyNames(declarations, lists, code, counts, members, isPure)
     if (writeOnly.size) {
       source = withoutStores(source, code, writeOnly, isPure)
       continue
@@ -117,8 +130,7 @@ export function withoutUnreadLocals(source: string): string {
     const silencers: [number, number][] = []
     for (const match of declarations) {
       if (members.some(([open, close]) => match.index! > open && match.index! < close)) continue
-      const listStart = match.index! + match[1].length
-      const declarators = splitDeclarators(source.slice(listStart, listStart + match[2].length))
+      const declarators = lists.get(match.index!)
       for (const d of declarators ?? []) {
         const dropped = unreadAt(d, match.index!)
           && (isPure(d.init) || (declarators!.length === 1 && !match[1].startsWith('static')))
@@ -142,7 +154,7 @@ export function withoutUnreadLocals(source: string): string {
     for (const match of [...declarations].reverse()) {
       if (members.some(([open, close]) => match.index! > open && match.index! < close)) continue
       const listStart = match.index! + match[1].length
-      const declarators = splitDeclarators(source.slice(listStart, listStart + match[2].length))
+      const declarators = lists.get(match.index!)
       if (!declarators) continue
       const unread = (d: Declarator) => unreadAt(d, match.index!)
       const kept = declarators.filter((d) => !unread(d) || !isPure(d.init))
@@ -199,19 +211,20 @@ const STORE = /(?:^|[;{}):]|\belse)\s*([A-Za-z_]\w*)\s*=(?!=)/gm
  * is a plain store: written, never read. Their declarations go on the next
  * pass, once `withoutStores` has removed the stores.
  */
-function writeOnlyNames(code: string, source: string, counts: Map<string, number>,
-  members: [number, number][], isPure: (init: string) => boolean): Set<string> {
-  const declared = new Map<string, number>()
-  const removable = new Set<string>()
-  for (const match of code.matchAll(DECLARATION)) {
-    const listStart = match.index! + match[1].length
-    for (const d of splitDeclarators(source.slice(listStart, listStart + match[2].length)) ?? []) {
-      declared.set(d.name, (declared.get(d.name) ?? 0) + 1)
-      if (isPure(d.init) && !members.some(([open, close]) => match.index! > open && match.index! < close)) removable.add(d.name)
-    }
-  }
+function writeOnlyNames(declarations: RegExpExecArray[], lists: Map<number, Declarator[] | null>, code: string,
+  counts: Map<string, number>, members: [number, number][], isPure: (init: string) => boolean): Set<string> {
   const stores = new Map<string, number>()
   for (const store of code.matchAll(STORE)) stores.set(store[1], (stores.get(store[1]) ?? 0) + 1)
+  const declared = new Map<string, number>()
+  const removable = new Set<string>()
+  for (const match of declarations) {
+    for (const d of lists.get(match.index!) ?? []) {
+      declared.set(d.name, (declared.get(d.name) ?? 0) + 1)
+      // Purity is the costly test, and only a stored name can be write-only.
+      if (stores.has(d.name) && isPure(d.init)
+        && !members.some(([open, close]) => match.index! > open && match.index! < close)) removable.add(d.name)
+    }
+  }
   return new Set([...stores].filter(([name, n]) =>
     declared.get(name) === 1 && removable.has(name) && counts.get(name) === n + 1).map(([name]) => name))
 }
@@ -242,20 +255,16 @@ function withoutStores(source: string, code: string, names: Set<string>, isPure:
   return source
 }
 
-/** Brace ranges of struct, class and union bodies. */
-function recordBodies(code: string): [number, number][] {
-  const ranges: [number, number][] = []
-  const open: { at: number; record: boolean }[] = []
-  for (let i = 0; i < code.length; i++) {
-    if (code[i] === '{') {
-      const head = code.slice(Math.max(0, i - 200), i)
-      open.push({ at: i, record: /\b(?:struct|class|union)(?:\s+\w+)?\s*(?::[^;{}()]*)?$/.test(head) })
-    } else if (code[i] === '}') {
-      const block = open.pop()
-      if (block?.record) ranges.push([block.at, i])
-    }
+/** How many of the ascending `values` fall below `limit`. */
+function lowerBound(values: number[], limit: number): number {
+  let low = 0
+  let high = values.length
+  while (low < high) {
+    const middle = (low + high) >> 1
+    if (values[middle] < limit) low = middle + 1
+    else high = middle
   }
-  return ranges
+  return low
 }
 
 /** `a = x, b = y` into its declarators; null when one has no initializer. */

@@ -1,4 +1,4 @@
-import { cppCode, cppUnits, withAttachedComments } from './cppReachability'
+import { cppCode, cppUnits, recordBodies, withAttachedComments } from './cppReachability'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import type { StudioNode } from '../state/graphStore'
 
@@ -619,14 +619,30 @@ function changes(code: string, at: number, name: string, lists: Map<string, stri
   return parameter === undefined || parameter.includes('&')
 }
 
-/** Whether `at` lies inside a struct, class or union body. */
-function insideRecord(code: string, at: number): boolean {
-  const open: boolean[] = []
-  for (let i = 0; i < at; i++) {
-    if (code[i] === '{') open.push(/\b(?:struct|class|union)(?:\s+\w+)?\s*(?::[^;{}()]*)?$/.test(code.slice(Math.max(0, i - 200), i)))
-    else if (code[i] === '}') open.pop()
+/** Whether `at` lies inside one of the `bodies` from recordBodies. */
+const insideRecord = (bodies: [number, number][], at: number) =>
+  bodies.some(([open, close]) => open < at && at <= close)
+
+/** Every identifier in `code` in one pass: where each stands as a name of its
+ * own (the places `nameAt` finds), and which are ever reached as a member
+ * after `.` or `->`. Searching the whole sketch once per flag instead made
+ * folding a large show take seconds. */
+function identifierIndex(code: string): { uses: Map<string, number[]>; members: Set<string> } {
+  const uses = new Map<string, number[]>()
+  const members = new Set<string>()
+  for (const match of code.matchAll(/(?<!\w)[A-Za-z_]\w*/g)) {
+    const at = match.index!
+    const name = match[0]
+    const before = code[at - 1] ?? ''
+    let prior = at - 1
+    while (prior >= 0 && /\s/.test(code[prior])) prior--
+    if (code[prior] === '.' || (code[prior] === '>' && code[prior - 1] === '-')) members.add(name)
+    if (before === '.' || (before === '>' && code[at - 2] === '-') || (before === ':' && code[at - 2] === ':')) continue
+    const list = uses.get(name)
+    if (list) list.push(at)
+    else uses.set(name, [at])
   }
-  return open.includes(true)
+  return { uses, members }
 }
 
 /** `bool armed = false;` becomes the literal when nothing changes it, or
@@ -635,8 +651,10 @@ function withConstantFlags(source: string): string {
   const code = cppCode(source)
   const DECLARATION = /(?<![\w.>])(?:static\s+)?(?:const\s+)?bool\s+([^;{}()]+);/g
   let lists: Map<string, string[]> | undefined
+  let records: [number, number][] | undefined
+  let index: ReturnType<typeof identifierIndex> | undefined
   for (const declaration of code.matchAll(DECLARATION)) {
-    if (insideRecord(code, declaration.index!)) continue
+    if (insideRecord(records ??= recordBodies(code), declaration.index!)) continue
     const listStart = declaration.index! + declaration[0].length - declaration[1].length - 1
     const declarators = declaration[1].split(',').map((text, n, all) => {
       const start = listStart + all.slice(0, n).reduce((sum, part) => sum + part.length + 1, 0)
@@ -647,9 +665,9 @@ function withConstantFlags(source: string): string {
     for (const declarator of declarators) {
       const name = declarator.name!
       const value = String(declarator.value)
-      if (new RegExp(`(?:\\.|->)\\s*${name}\\b`).test(code)) continue
-      const uses = [...code.matchAll(nameAt(name))].map((use) => use.index!)
-        .filter((at) => at < declarator.start || at >= declarator.end)
+      index ??= identifierIndex(code)
+      if (index.members.has(name)) continue
+      const uses = (index.uses.get(name) ?? []).filter((at) => at < declarator.start || at >= declarator.end)
       lists ??= parameterLists(sketchFunctions(source))
       const edits: Edit[] = []
       let constant = true
@@ -658,7 +676,9 @@ function withConstantFlags(source: string): string {
         if (!changes(code, at, name, lists)) { edits.push({ start: at, end: at + name.length, text: value }); continue }
         // A store of the value it already holds, as a statement of its own.
         const store = code.slice(at + name.length).match(/^\s*=\s*\(?\s*(true|false|0|1)\s*\)?\s*;/)
-        const before = code.slice(0, at).trimEnd()
+        // The tail is enough to test, and an end-anchored test of the whole
+        // prefix would scan the sketch from its start.
+        const before = code.slice(0, at).trimEnd().slice(-6)
         if (!store || String(store[1] === 'true' || store[1] === '1') !== value || !/(?:^|[;{}])$|(?:\)|\belse)$/.test(before)) {
           constant = false
           break
