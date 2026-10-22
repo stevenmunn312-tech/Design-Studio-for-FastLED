@@ -4,7 +4,7 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { hasDerivedDisplayPorts, rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { orderPorts } from '../../utils/portOrder'
 import { compositionDims } from '../../state/output/outputRouting'
-import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
+import type { StudioEdge, StudioNode as StudioNodeT, StudioNodeData } from '../../state/graphStore'
 import { useUiStore, type ConnectionDragHint } from '../../state/uiStore'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyOptions, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/player/performanceDeck'
@@ -58,6 +58,8 @@ import {
   micUnsupportedMessage,
 } from '../../build/pins/micPinDefaults'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { boardIdOf, isBoardAttachedNodeType } from '../../build/boardPartition'
+import { boardOrdinalLabel, useBoardNodes } from '../Hardware/boardSelection'
 import { boardPinTable } from '../../build/boards/boardPinPolicy'
 import { usePerformanceBakeStore } from '../../state/player/performanceBakeStore'
 import { getCodeError } from '../../state/graphEvaluator'
@@ -1494,6 +1496,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const headerCode = moduleCode(d.nodeType)
   const nodeTag = id.slice(-3).toUpperCase()
   const displayName = nodeDisplayLabel(d.nodeType, props, d.label)
+  // "LED Matrix · Board 2": which controller a part or output belongs to, said
+  // only once the project has more than one (docs/design/multi-board.md).
+  const boards = useBoardNodes()
+  const boardSuffix = boards.length > 1 && isBoardAttachedNodeType(d.nodeType)
+    ? boardOrdinalLabel(boards, boardIdOf({ data: d } as StudioNodeT, boards[0].id, new Set(boards.map((board) => board.id))))
+    : null
   const minimizedType = (outputs[0]?.dataType ?? inputs[0]?.dataType ?? 'control').toUpperCase()
   const minimizedTypeLine = def?.subcategory
     ? `${minimizedType} · ${def.subcategory.toUpperCase()}`
@@ -1594,7 +1602,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             />
           )
         })}
-        <span className={styles.headerTitle}>{displayName}</span>
+        <span className={styles.headerTitle}>
+          {displayName}
+          {boardSuffix && <span className={styles.headerBoard}> · {boardSuffix}</span>}
+        </span>
         <span className={styles.headerMeta}>
           <span className={styles.headerTag}>{categoryTag}</span>
           <span className={styles.headerCode}>{headerCode}-{nodeTag}</span>

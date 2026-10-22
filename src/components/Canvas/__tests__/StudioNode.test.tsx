@@ -160,6 +160,20 @@ describe('StudioNode', () => {
     expect(getByText('Color')).toBeTruthy()          // input port label
   })
 
+  it('names the board an output belongs to once the project has two', () => {
+    const output = { ...makeNode('MatrixOutput', { ...libraryDefaults('MatrixOutput'), boardId: 'board-2' }), id: 'out' } as StudioNodeT
+    const boards = [
+      { ...makeNode('Board', { profileId: '' }), id: 'board-root' },
+      { ...makeNode('Board', { profileId: '' }), id: 'board-2' },
+    ] as StudioNodeT[]
+    useGraphStore.setState({ nodes: [boards[0], output], edges: [] })
+    const props = { id: output.id, data: output.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const view = render(<StudioNode {...props} />)
+    expect(view.queryByText(/Board 2/)).toBeNull()
+    act(() => { useGraphStore.setState({ nodes: [...boards, output] }) })
+    expect(view.getByText(/· Board 2/)).toBeTruthy()
+  })
+
   it('draws every channel on the selected relay module', () => {
     // NODE_LIBRARY declares the one-channel default. The selected physical
     // module is what determines the real port count on this instance.

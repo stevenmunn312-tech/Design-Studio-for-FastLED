@@ -175,6 +175,12 @@
   white-space: nowrap;
 }
 
+/* "· Board 2" after a part's title in a project with several boards. */
+.headerBoard {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
 .headerMeta {
   margin-left: auto;
   display: inline-flex;
