@@ -297,19 +297,6 @@ chooses the supported combinations from whatever is on record at release.
 
 ## 5. Release track (in order)
 
-- [ ] **D-04 · Code and field fidelity (L).** Pulled into v1 on 2026-10-21.
-  Open: VU expansion, clocked strings, unequal lengths and several fixtures
-  per board, from the [expansion design](docs/design/stereo-vu-expansion.md),
-  which defers the stereo FFT and streamed audio until a node or a user needs
-  them. Shipped: persistent globals, integer wrap and timing macros; writable
-  Field Formula buffers (`prev`, 2026-10-22,
-  [design](docs/design/animartrix-float-field.md#writable-field-formula-buffers-implemented-2026-10-22));
-  Code-node includes and defines, gradient palettes, custom XY maps, static
-  locals and typed arrays in the preview (2026-10-23,
-  [code node](docs/design/code-node.md), whose Deferred list holds what
-  remains); show-side Vibe, Song Structure and Pitch Detect baked offline
-  into an `ADET` trailer, Waveform staying inactive in shows by design
-  (2026-10-23, [audio detectors](docs/design/audio-detectors.md#shows-and-the-sd-player)).
 - [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
@@ -552,6 +539,15 @@ and an Upload information shelf in
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
 are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
+- **D-04 · Code and field fidelity**: Code-node includes and defines, gradient
+  palettes, custom XY maps, static locals and typed arrays in the preview
+  ([code node](docs/design/code-node.md)); writable Field Formula buffers
+  (`prev`); show-side Vibe, Song Structure and Pitch Detect baked into an
+  `ADET` trailer, Waveform inactive in shows by design
+  ([audio detectors](docs/design/audio-detectors.md)); Stereo VU Meter
+  clocked rails, unequal rail lengths and several fixtures per board, with
+  the stereo FFT and streamed audio deferred until a consumer exists
+  ([expansion design](docs/design/stereo-vu-expansion.md)).
 - **D-06 · Segment networks and millimetre string positions**: a positioned
   string's span in millimetres on the Build Diagram card with an overlap
   warning; `stripLayout: 'network'` laying a string along a graph's edges
