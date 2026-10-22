@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty, BUNDLED_TITLES } from '../nodeLibrary'
 import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
 import { EASE_TYPES } from '../../nodes/math/easing'
@@ -947,6 +947,16 @@ describe('nodeLibrary', () => {
       expect(nodeDisplayLabel('Ease', { easeType }, 'Ease'), easeType).not.toBe('Ease')
     }
     expect(nodeDisplayLabel('Ease', { easeType: 'unknown' }, 'Ease')).toBe('Ease')
+  })
+
+  // Derived from the title table, so a variant added to a select without a
+  // title (Luminova was) shows up here rather than as the bare node name.
+  it('titles every option of every bundled node variant select', () => {
+    for (const [nodeType, { prop }] of Object.entries(BUNDLED_TITLES)) {
+      for (const option of propertyOptions(nodeType, prop, {})) {
+        expect(nodeDisplayLabel(nodeType, { [prop]: option }, '<untitled>'), `${nodeType} ${option}`).not.toBe('<untitled>')
+      }
+    }
   })
 
   it('color todo nodes expose editable defaults and bounded hue controls', () => {

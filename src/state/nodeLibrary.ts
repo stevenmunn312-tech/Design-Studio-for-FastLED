@@ -4553,7 +4553,7 @@ export function spliceTargetPorts(
  * reflects the current selection. Keep the variant keys in sync with the
  * matching `PROPERTY_META` options and the evaluator/codegen cases.
  */
-const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, string> }> = {
+export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Record<string, string> }>> = {
   // The one output node titles itself after the thing it is: LED String, LED
   // Matrix, LED Ring, LED Corkscrew, HUB75 Panel.
   MatrixOutput: { prop: 'form', labels: LED_OUTPUT_FORM_LABELS },
@@ -4649,7 +4649,7 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
       comet: 'Comet', snow: 'Snow', rain: 'Rain', embers: 'Embers',
       bubbles: 'Bubbles', vortex: 'Vortex', orbit: 'Orbit', confetti: 'Confetti',
       fireflies: 'Fireflies', meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
-      bounce: 'Bounce', attractor: 'Attractor', waterfall: 'Waterfall',
+      bounce: 'Bounce', attractor: 'Attractor', waterfall: 'Waterfall', luminova: 'Luminova',
     },
   },
   FormulaPoints: {
