@@ -299,16 +299,18 @@ chooses the supported combinations from whatever is on record at release.
 
 - [ ] **D-04 · Code and field fidelity (L).** Pulled into v1 on 2026-10-21.
   In the preview: Code-node includes, custom gradient palettes, custom XY maps
-  and C++ type inference for every local and expression. Writable FieldFormula
-  buffers, the same in preview and firmware, with their RAM cost and the
-  entry-policy reset. VU expansion beyond the current contract (clocked
-  strings, unequal lengths, multiple pairs, stereo FFT and streamed audio),
-  each with its own protocol and resource design. Show-side Vibe, Song
-  Structure, Pitch Detect and Waveform, with per-frame detector output baked
-  offline into the show envelope
+  and C++ type inference for every local and expression. VU expansion: clocked
+  strings, unequal lengths and several fixtures per board, from the
+  [expansion design](docs/design/stereo-vu-expansion.md), which defers the
+  stereo FFT and streamed audio until a node or a user needs them. Show-side
+  Vibe, Song Structure and Pitch Detect, with per-frame detector output baked
+  offline into the show envelope; Waveform stays inactive in shows by that
+  design
   ([audio detectors](docs/design/audio-detectors.md);
   [code node](docs/design/code-node.md#deferred-known-divergences--follow-ups)).
-  Persistent globals, integer wrap and timing macros already shipped.
+  Shipped: persistent globals, integer wrap and timing macros; writable Field
+  Formula buffers (`prev`, 2026-10-22,
+  [design](docs/design/animartrix-float-field.md#writable-field-formula-buffers-implemented-2026-10-22)).
 - [ ] **D-06 · Segment networks and millimetre string positions (M).** Pulled
   into v1 on 2026-10-21, from
   [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons).
