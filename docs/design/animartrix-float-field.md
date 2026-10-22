@@ -65,6 +65,7 @@ optionally a `frame` when a palette is wired and `outputMode = 'frame'`).
 | `W`, `H` | Grid dimensions |
 | `a`, `b` | Wired float inputs (default 0) |
 | `fieldIn` | Wired field input value at `(x, y)` (default 0) |
+| `prev` | This node's own value at `(x, y)` last frame, 0 on the first frame and after a Restart entry. Reading it makes the buffer persistent (below) |
 
 **FastLED trig shims** added to the sandbox:
 | Shim | C++ equivalent | Note |
@@ -345,8 +346,33 @@ params — a different operation that doesn't map onto an additive offset field.
 
 ---
 
-## Remaining design choice
+## Writable Field Formula buffers (implemented 2026-10-22)
 
-Writable `FieldFormula` pixel buffers remain deferred (root todo D-04).
+A Field Formula that reads `prev` writes the buffer it reads back next frame,
+so the field is persistent: decay (`max(prev*0.95, fieldIn)`), accumulation
+(`prev + 0.01`) and feedback are one expression each, with no second node. The
+rule is the same in the preview and the sketch:
+
+- **Vocabulary.** `prev` is appended to the shared positional list after
+  `fieldIn` and before the shims (`FIELD_FORMULA_VARIABLES` in
+  `formulaLang.ts`). Custom Formula does not have it: its output is a frame,
+  and there is no scalar to read back. `fieldFormulaReadsPrev` decides
+  persistence from the validated text, so a formula without `prev` costs what
+  it always did.
+- **Preview.** `evalFieldFormula` keeps the field in `fieldFormulaState`, an
+  `instanceState` map keyed by `stateKey(id)`, never a pooled buffer. Each
+  pixel reads its own old value before overwriting it, so the write is in
+  place. The map is cleared with the rest of a pattern's state on a Restart
+  entry and by the idle sweep.
+- **Firmware.** The emitter asks for `ownField('field', { persists: true })`
+  and emits `float prev=field_<id>[_y*WIDTH+_x];` before the expression. The
+  buffer carries the persists mark, so a show keeps it per pattern instead of
+  pooling it, a native multi-render pass declares it static, and
+  `applyEntryReset` memsets it on a Restart entry
+  ([entry policy](show-sequencing.md#entry-policy)).
+- **RAM.** `estimateFirmwareRam` counts a `prev`-reading Field Formula in
+  `persistentFieldBytes`, summed across collected patterns like persistent
+  frames, while the other fields stay in the pooled scratch maximum.
+
 `FieldToFrame.brightness` is already an input and `FieldNoise` already provides
 the noise-field source; those earlier Phase 2 questions are closed.

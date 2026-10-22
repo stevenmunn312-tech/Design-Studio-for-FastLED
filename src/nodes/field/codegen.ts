@@ -4,7 +4,7 @@ import {
   NOISE_FIELD_PIXEL_CPP, ROSE_PIXEL_CPP, noiseFieldFrameCpp, roseFrameCpp, truchetFrameCpp, truchetPixelCpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
 import { usesShims, cppRewriteShims } from '../shared/fastledShims'
-import { isNodeFormulaValid } from '../shared/formulaLang'
+import { fieldFormulaReadsPrev, isFieldFormulaValid } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
@@ -35,11 +35,14 @@ export const FIELD_EMITTERS: NodeEmitters = {
     needsT.v = true
     const raw = String(p.formula ?? 'sin8(r*200 + t*60)/255')
     // Same fail-closed validation as CustomFormula above.
-    const safe = isNodeFormulaValid(raw)
+    const safe = isFieldFormulaValid(raw)
     if (safe && usesShims(raw)) needsShims.v = true
     if (safe && /\bPHI\b/.test(raw)) needsPhi.v = true
     const formula = safe ? cppRewriteShims(raw).replace(/\*\//g, '* /') : '0.0f'
-    const of = ownField()
+    // Reading `prev` makes the field a persistent buffer: declared static,
+    // priced as the node's own RAM, and memset on a Restart entry.
+    const persists = safe && fieldFormulaReadsPrev(raw)
+    const of = ownField('field', { persists })
     const a = f('a', 'a', 0), b = f('b', 'b', 0)
     const fin = srcField('fieldIn')
     ln(`  { /* FieldFormula: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — rendering blank' } */`)
@@ -50,6 +53,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
     ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
     ln(`      float fieldIn=${fin ? `${fin}[_y*WIDTH+_x]` : '0.0f'}; (void)fieldIn;`)
+    if (persists) ln(`      float prev=${of}[_y*WIDTH+_x];`)
     ln(`      float _v=${formula};`)
     ln(`      ${of}[_y*WIDTH+_x]=constrain(_v,0.0f,1.0f);}}`)
   },

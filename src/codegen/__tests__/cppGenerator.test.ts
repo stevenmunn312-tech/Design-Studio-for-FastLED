@@ -2887,6 +2887,24 @@ describe('Float Field codegen', () => {
     expect(cpp).toContain('field_ff[_y*WIDTH+_x]=constrain(')
     // polar/centred coordinate vars available to the expression
     expect(cpp).toContain('float r=sqrtf(cx*cx+cy*cy)')
+    expect(cpp).not.toContain('float prev=')
+  })
+
+  it('FieldFormula reading prev keeps a persistent field buffer and reads it back per pixel', () => {
+    const ff = node('ff', 'FieldFormula', 'pattern', { formula: 'max(prev * 0.9, fieldIn)' })
+    // Varies with t, so frame invariance does not make it persistent either.
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'sin8(r*200 + t*60)/255' })
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
+    const cpp = generateCpp(
+      [src, ff, f2f, outputNode],
+      [edge('e0', 'src', 'ff', 'field', 'fieldIn'), edge('e1', 'ff', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
+    )
+    // The buffer persists (never pooled as scratch) and is read before the write.
+    expect(cpp).toContain('float field_ff[NUM_LEDS];   // keeps its pixels between frames')
+    expect(cpp).toContain('float prev=field_ff[_y*WIDTH+_x];')
+    expect(cpp).toContain('float _v=max(prev * 0.9, fieldIn);')
+    // The feeding formula does not read prev, so its buffer stays scratch.
+    expect(cpp).not.toContain('float field_src[NUM_LEDS];   // keeps')
   })
 
   it('FieldToFrame maps the upstream field through a palette', () => {

@@ -164,6 +164,24 @@ describe('entry reset', () => {
     expect(fn).not.toMatch(/[^:]memset\(/)
   })
 
+  it('clears a Field Formula that reads prev on a Restart entry, as its own persistent float buffer', () => {
+    const chain = (formula: string): GroupRegistry => ({
+      g: {
+        nodes: [node('ff', 'FieldFormula', { formula }), node('col', 'FieldToFrame'), node('go', 'GroupOutput')],
+        edges: [edge('t1', 'ff', 'field', 'col', 'field'), edge('t2', 'col', 'frame', 'go', 'frame')],
+      },
+    } as unknown as GroupRegistry)
+    const kept = buildPatternRenderers(['g'], chain('max(prev * 0.9, r)'), [], false, false, ['restart'])
+    expect(kept.buffers).toContain('float p0_field_ff[NUM_LEDS];   // keeps its pixels between frames')
+    expect(kept.entryReset).toEqual([true])
+    expect(kept.functions[0]).toContain('if (entry) ::memset(p0_field_ff, 0, sizeof(float) * NUM_LEDS);')
+    expect(kept.functions[0]).toContain('float prev=p0_field_ff[_y*WIDTH+_x];')
+    // Without prev the field is scratch: pooled, never cleared, no entry flag.
+    const scratch = buildPatternRenderers(['g'], chain('sin8(r*200 + t*60)/255'), [], false, false, ['restart'])
+    expect(scratch.buffers.some((line) => line.includes('field_ff'))).toBe(false)
+    expect(scratch.entryReset).toEqual([false])
+  })
+
   it('reassigns a scalar whose initializer indexes an array instead of memsetting it', () => {
     const { fn } = applyEntryReset('void render_p0(uint32_t ms) {\n  static int x = arr[2];\n  static float h[4];\n}', [])
     expect(fn).toContain('  if (entry) x = arr[2];')

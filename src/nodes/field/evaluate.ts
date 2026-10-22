@@ -1,4 +1,5 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
+import { compileFieldFormula, fieldFormulaReadsPrev } from '../shared/formulaLang'
 import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
@@ -135,9 +136,25 @@ function evalFieldNoise(key: string, speed: number, scale: number, octaves: numb
   return out
 }
 
-function evalFieldFormula(formula: string, a: number, b: number, fieldIn: Field | null, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = allocField(W * H)
-  const fn = compileFormula(formula, fieldFormulaCache)
+// A Field Formula that reads `prev` keeps its field between frames: the
+// formula writes the buffer it reads back next frame, the same persistence
+// the sketch gives it (`ownField({ persists: true })`). Never pool-allocated,
+// so a recycled buffer can never stand in for last frame. A formula without
+// `prev` writes a pooled scratch field like every other field node.
+const fieldFormulaState = instanceState('fieldFormulaState', new Map<string, Field>())
+
+function evalFieldFormula(key: string, formula: string, a: number, b: number, fieldIn: Field | null, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const fn = compileFormula(formula, fieldFormulaCache, compileFieldFormula)
+  const persists = fn !== null && fieldFormulaReadsPrev(formula)
+  let out: Field
+  if (persists) {
+    const kept = fieldFormulaState.get(key)
+    out = kept && kept.length === W * H ? kept : new Float32Array(W * H)
+    fieldFormulaState.set(key, out)
+  } else {
+    fieldFormulaState.delete(key)
+    out = allocField(W * H)
+  }
   if (!fn) return out
   const shims = makeShims(t)
   const sv = SHIM_NAMES.map((n) => shims[n])
@@ -146,11 +163,15 @@ function evalFieldFormula(formula: string, a: number, b: number, fieldIn: Field 
     for (let xi = 0; xi < W; xi++) {
       const cx = centeredX(xi, W), cy = centeredY(yi, H)
       const r = Math.sqrt(cx * cx + cy * cy), angle = Math.atan2(cy, cx)
-      const fin = fieldIn ? fieldIn[yi * W + xi] : 0
+      const i = yi * W + xi
+      const fin = fieldIn ? fieldIn[i] : 0
+      // Each pixel reads its own last value before overwriting it, so the
+      // write-in-place is exact; the sketch does the same.
+      const prev = persists ? out[i] : 0
       let v = 0
       // FieldFormula uses integer pixel coords for x,y (ANIMartRIX convention).
-      try { v = fn(xi, yi, cx, cy, r, angle, t, W, H, a, b, fin, ...sv) } catch { v = 0 }
-      out[yi * W + xi] = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0
+      try { v = fn(xi, yi, cx, cy, r, angle, t, W, H, a, b, fin, prev, ...sv) } catch { v = 0 }
+      out[i] = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0
     }
   }
   return out
@@ -669,13 +690,13 @@ export function evalSliceTiling(
 }
 
 export const FIELD_EVALUATORS: NodeEvaluators = {
-  FieldFormula({ input, num, t, W, H, trusted }, id, props) {
+  FieldFormula({ input, num, t, W, H, trusted, stateKey }, id, props) {
     const a = num(id, 'a', props, 'a', 0)
     const b = num(id, 'b', props, 'b', 0)
     const fin = input(id, 'fieldIn', null)
     const fieldIn = fin instanceof Float32Array ? fin : null
     const formula = String(props.formula ?? 'sin8(r*200 + t*60)/255')
-    return { field: trusted ? evalFieldFormula(formula, a, b, fieldIn, t, W, H) : allocField(W * H) }
+    return { field: trusted ? evalFieldFormula(stateKey(id), formula, a, b, fieldIn, t, W, H) : allocField(W * H) }
   },
   FieldNoise({ num, t, W, H, stateKey }, id, props) {
     const key = stateKey(id)

@@ -2072,7 +2072,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Palette the formula result (0–1, wrapping) is looked up in; a wired Palette overrides it.',
   },
   FieldFormula: {
-    formula: `${FORMULA_LANG_HELP} Field Formula also provides fieldIn.`,
+    formula: `${FORMULA_LANG_HELP} Field Formula also provides fieldIn and prev, its own value here last frame (0 at first). Reading prev keeps the field between frames.`,
   },
   FieldLevels: {
     low: 'Input values at or below this point map to 0. When Low meets or exceeds High, this becomes the hard threshold.',

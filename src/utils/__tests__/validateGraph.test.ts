@@ -1745,6 +1745,26 @@ describe('validateGraph', () => {
         expect(priced.statefulBytes - bare.statefulBytes).toBe(4 * 48)
       })
 
+      it('keeps a Field Formula that reads prev per pattern and pools the fields that do not', () => {
+        const fieldPattern = (formula: string) => ({
+          nodes: [node('ff', 'FieldFormula', { formula }), node('paint', 'FieldToFrame'), node('go', 'GroupOutput')],
+          edges: [
+            { id: 'f', source: 'ff', sourceHandle: 'field', target: 'paint', targetHandle: 'field' } as unknown as StudioEdge,
+            edge('o', 'paint', 'go', 'frame'),
+          ],
+        })
+        const fields = {
+          kept: fieldPattern('max(prev * 0.9, r)'),
+          keptToo: fieldPattern('prev + 0.01'),
+          scratch: fieldPattern('sin8(r*200 + t*60)/255'),
+        } as GroupRegistry
+        const { nodes, edges } = show(['kept', 'keptToo', 'scratch'])
+        const bare = estimateFirmwareRam(nodes, edges)!
+        const priced = estimateFirmwareRam(nodes, edges, undefined, fields)!
+        // Two persistent 16-float fields of their own plus one pooled scratch field.
+        expect(priced.fieldBufferBytes - bare.fieldBufferBytes).toBe(2 * 64 + 64)
+      })
+
       it('moves the patterns\' buffers and rings to PSRAM with the board', () => {
         const { nodes, edges } = show(['trails', 'feedback'], [node('board', 'Board', { psramPolicy: 'on' })])
         const bare = estimateFirmwareRam(nodes, edges)!

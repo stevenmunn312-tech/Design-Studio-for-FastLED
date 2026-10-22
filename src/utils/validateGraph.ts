@@ -22,7 +22,7 @@ import {
   DEFAULT_STANDALONE_VU_LED_COUNT,
 } from '../state/audio/stereoVuSizing'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../nodes/shared/scalarExpression'
-import { isNodeFormulaValid, isScalarFormulaValid } from '../nodes/shared/formulaLang'
+import { fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, isScalarFormulaValid } from '../nodes/shared/formulaLang'
 import { isValidRtcDateTime } from '../state/peripherals/rtc'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
@@ -660,6 +660,9 @@ interface GraphAllocations {
    *  between frames. A collected pattern keeps these; the rest is pooled. */
   persistentFrameBytes: number
   fieldBufferBytes: number
+  /** The part of `fieldBufferBytes` a Field Formula keeps between frames by
+   *  reading `prev`. A collected pattern keeps these; the rest is pooled. */
+  persistentFieldBytes: number
   statefulBytes: number
   /** Frame Feedback history rings, placed with the render buffers. */
   feedbackBytes: number
@@ -696,7 +699,7 @@ function graphAllocations(
   const { w, h } = dims
   const renderLedCount = w * h
   const byId = new Map(nodes.map((n) => [n.id, n]))
-  let frameBufferBytes = 0, persistentFrameBytes = 0, fieldBufferBytes = 0, statefulBytes = 0, feedbackBytes = 0
+  let frameBufferBytes = 0, persistentFrameBytes = 0, fieldBufferBytes = 0, persistentFieldBytes = 0, statefulBytes = 0, feedbackBytes = 0
   for (const id of reachable) {
     const n = byId.get(id)
     if (!n) continue
@@ -709,6 +712,10 @@ function graphAllocations(
       const wiredExtras = (EXTRA_FIELD_OUTPUTS_BY_NODE_TYPE.get(n.data.nodeType) ?? [])
         .filter((port) => edges.some((e) => e.source === id && e.sourceHandle === port)).length
       fieldBufferBytes += renderLedCount * 4 * (1 + wiredExtras)
+      if (n.data.nodeType === 'FieldFormula'
+        && fieldFormulaReadsPrev(String((n.data.properties as Record<string, unknown>).formula ?? ''))) {
+        persistentFieldBytes += renderLedCount * 4
+      }
     }
     // ColorTrails' separable subpixel advection needs one intermediate CRGB
     // frame in addition to its persistent output buffer. Codegen declares it
@@ -765,7 +772,7 @@ function graphAllocations(
       namedPalettes.add(String(props.palette ?? 'rainbow').toLowerCase())
     }
   }
-  return { frameBufferBytes, persistentFrameBytes, fieldBufferBytes, statefulBytes, feedbackBytes, namedPalettes, builderPalettes }
+  return { frameBufferBytes, persistentFrameBytes, fieldBufferBytes, persistentFieldBytes, statefulBytes, feedbackBytes, namedPalettes, builderPalettes }
 }
 
 /**
@@ -790,7 +797,7 @@ function collectionAllocations(
     if (Array.isArray(ids)) for (const id of ids) if (typeof id === 'string') patternIds.add(id)
   }
   const total: GraphAllocations = {
-    frameBufferBytes: 0, persistentFrameBytes: 0, fieldBufferBytes: 0, statefulBytes: 0, feedbackBytes: 0,
+    frameBufferBytes: 0, persistentFrameBytes: 0, fieldBufferBytes: 0, persistentFieldBytes: 0, statefulBytes: 0, feedbackBytes: 0,
     namedPalettes: new Set(), builderPalettes: 0,
   }
   let scratchFrame = 0, scratchField = 0, priced = 0
@@ -801,8 +808,9 @@ function collectionAllocations(
     const terminals = group.nodes.filter((n) => n.data.nodeType === 'GroupOutput').map((n) => n.id)
     const pattern = graphAllocations(group.nodes, group.edges, reachableFrom(terminals, group.edges), dims, null)
     total.persistentFrameBytes += pattern.persistentFrameBytes
+    total.persistentFieldBytes += pattern.persistentFieldBytes
     scratchFrame = Math.max(scratchFrame, pattern.frameBufferBytes - pattern.persistentFrameBytes)
-    scratchField = Math.max(scratchField, pattern.fieldBufferBytes)
+    scratchField = Math.max(scratchField, pattern.fieldBufferBytes - pattern.persistentFieldBytes)
     total.statefulBytes += pattern.statefulBytes
     total.feedbackBytes += pattern.feedbackBytes
     for (const name of pattern.namedPalettes) total.namedPalettes.add(name)
@@ -811,7 +819,7 @@ function collectionAllocations(
   if (priced === 0) return null
   const transitionFrames = 2 * dims.w * dims.h * 3
   total.frameBufferBytes = total.persistentFrameBytes + scratchFrame + transitionFrames
-  total.fieldBufferBytes = scratchField
+  total.fieldBufferBytes = total.persistentFieldBytes + scratchField
   return total
 }
 
@@ -1650,7 +1658,8 @@ export function findFormulaErrors(nodes: StudioNode[]): string[] {
 /** The sandboxed parser a formula node's `formula` must pass, or null for any
  *  other node. Expression is one value a frame, so its vocabulary is smaller. */
 function formulaValidator(nodeType: string): ((formula: string) => boolean) | null {
-  if (nodeType === 'CustomFormula' || nodeType === 'FieldFormula') return isNodeFormulaValid
+  if (nodeType === 'CustomFormula') return isNodeFormulaValid
+  if (nodeType === 'FieldFormula') return isFieldFormulaValid
   if (nodeType === 'Expression') return isScalarFormulaValid
   return null
 }

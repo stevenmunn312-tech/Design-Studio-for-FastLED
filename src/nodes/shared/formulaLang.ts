@@ -373,6 +373,39 @@ export function nodeFormulaError(source: string): string | null {
   return formulaError(source, NODE_FORMULA_VARIABLES)
 }
 
+// ── The Field Formula contract ────────────────────────────────────────────
+//
+// Field Formula sees everything Custom Formula sees plus `prev`: this node's
+// own field value at (x, y) from the previous frame, 0 on the first frame and
+// after a Restart entry. Reading it makes the node's field buffer persistent
+// in the preview and in the sketch (the "writable buffer": the formula writes
+// the field it will read back next frame), so decay, diffusion-by-feedback
+// and accumulation are one line each. The argument is appended after the
+// shared positional list and before the shims.
+export const FIELD_FORMULA_VARIABLES = [...NODE_FORMULA_VARIABLES, 'prev'] as const
+
+/** Compile a FieldFormula source string; `null` when invalid. */
+export function compileFieldFormula(source: string): FormulaFn | null {
+  return compileFormulaSource(source, { variables: FIELD_FORMULA_VARIABLES, callableVariables: SHIM_NAMES })
+}
+
+/** True when a Field Formula parses cleanly and is therefore safe to emit into C++. */
+export function isFieldFormulaValid(source: string): boolean {
+  return compileFieldFormula(source) !== null
+}
+
+/** Why a Field Formula source does not parse, for the editor; `null` when valid. */
+export function fieldFormulaError(source: string): string | null {
+  return formulaError(source, FIELD_FORMULA_VARIABLES)
+}
+
+/** True when a valid Field Formula reads `prev`, so its buffer must persist.
+ *  The tokenizer only ever yields `prev` as an identifier, so a word match on
+ *  a formula that has passed the parser is exact. */
+export function fieldFormulaReadsPrev(source: string): boolean {
+  return /\bprev\b/.test(source)
+}
+
 // ── The Expression node contract ──────────────────────────────────────────
 //
 // One scalar per frame rather than one per pixel, so the per-pixel coordinates

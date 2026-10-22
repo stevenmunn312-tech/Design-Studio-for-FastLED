@@ -3598,6 +3598,24 @@ describe('Float Field pipeline', () => {
     expect([...fieldOf('-3')].every((v) => v === 0)).toBe(true)
   })
 
+  it('FieldFormula reading prev keeps its field between frames, starting from 0', () => {
+    // prev is 0 on the first frame, then the formula accumulates 0.25 a frame
+    // into the buffer it wrote last time: a writable buffer, as the sketch has.
+    expect([...fieldOf('prev + 0.25')].every((v) => Math.abs(v - 0.25) < 1e-6)).toBe(true)
+    expect([...fieldOf('prev + 0.25', {}, 1)].every((v) => Math.abs(v - 0.5) < 1e-6)).toBe(true)
+    expect([...fieldOf('prev + 0.25', {}, 2)].every((v) => Math.abs(v - 0.75) < 1e-6)).toBe(true)
+    // Editing the formula away from prev drops the kept buffer.
+    expect([...fieldOf('0.1')].every((v) => Math.abs(v - 0.1) < 1e-6)).toBe(true)
+    expect([...fieldOf('prev + 0.25')].every((v) => Math.abs(v - 0.25) < 1e-6)).toBe(true)
+  })
+
+  it('FieldFormula keeps prev as instance state, cleared with the rest on reset', () => {
+    fieldOf('prev + 0.25')
+    fieldOf('prev + 0.25', {}, 1)
+    resetEvaluatorState()
+    expect([...fieldOf('prev + 0.25', {}, 2)].every((v) => Math.abs(v - 0.25) < 1e-6)).toBe(true)
+  })
+
   it('FieldFormula exposes integer pixel x,y', () => {
     // value = x/(W-1) → first column 0, last column 1
     const fld = fieldOf('x/(W-1)')

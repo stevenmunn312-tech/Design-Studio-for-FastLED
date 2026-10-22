@@ -163,7 +163,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   so:** `ownBuf({ persists: true })` or `ownField(port, { persists: true })`.
   That covers a fade or accumulate (Trails, Confetti, Juggle, Color Trails), a
   scroll (the Spectrum waterfall), a partial or occasional write (DDP, SD
-  Video) and state kept in the buffer (Reaction Diffusion's V). Every other
+  Video), state kept in the buffer (Reaction Diffusion's V) and a Field
+  Formula that reads `prev` (decided per formula text, so the RAM estimate
+  reads the same rule through `fieldFormulaReadsPrev`). Every other
   buffer is scratch and is shared: a sketch with several output shapes
   (`nativeMultiRender`) reuses one global set across its passes, and a show or
   player pools scratch across collected patterns (`_pool_buf_<n>`,

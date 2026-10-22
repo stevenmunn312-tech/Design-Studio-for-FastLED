@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compileFormulaSource, isNodeFormulaValid, nodeFormulaError } from '../formulaLang'
+import { compileFieldFormula, compileFormulaSource, fieldFormulaError, fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, nodeFormulaError } from '../formulaLang'
 import { SHIM_NAMES, makeShims } from '../fastledShims'
 
 const VARIABLES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn'] as const
@@ -151,5 +151,30 @@ describe('nodeFormulaError — the reason the Custom Formula editor shows', () =
     }
     expect(nodeFormulaError('foo + x')).toMatch(/Unknown identifier 'foo'/)
     expect(nodeFormulaError('foo(x)')).toMatch(/Unknown function 'foo'/)
+  })
+})
+
+describe('Field Formula vocabulary: prev is the node’s own last value', () => {
+  it('compiles prev for Field Formula and resolves it after fieldIn, before the shims', () => {
+    const fn = compileFieldFormula('max(prev * 0.9, fieldIn)')!
+    expect(fn).not.toBeNull()
+    const shims = makeShims(0)
+    const sv = SHIM_NAMES.map((n) => shims[n])
+    // x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, prev, ...shims
+    expect(fn(0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0.2, 0.5, ...sv)).toBeCloseTo(0.45)
+    expect(fn(0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0.8, 0.5, ...sv)).toBeCloseTo(0.8)
+  })
+
+  it('refuses prev in Custom Formula, whose output is a frame with no scalar to read back', () => {
+    expect(isNodeFormulaValid('prev * 0.9')).toBe(false)
+    expect(nodeFormulaError('prev * 0.9')).toMatch(/prev/)
+    expect(isFieldFormulaValid('prev * 0.9')).toBe(true)
+    expect(fieldFormulaError('prev * 0.9')).toBeNull()
+  })
+
+  it('reports whether a formula reads prev, so only those buffers persist', () => {
+    expect(fieldFormulaReadsPrev('max(prev * 0.9, fieldIn)')).toBe(true)
+    expect(fieldFormulaReadsPrev('sin8(r*200 + t*60)/255')).toBe(false)
+    expect(fieldFormulaReadsPrev('preview')).toBe(false)
   })
 })
