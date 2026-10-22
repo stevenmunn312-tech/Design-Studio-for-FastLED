@@ -57,8 +57,8 @@ Three distinct concepts (Library ≠ Collection):
    **Energy Pacing** and **Dwells & Bursts** vary that rhythm. The first leans
    each hold toward Min Time while the track is intense relative to its own
    recent range, and toward Max Time while it is calm. The second sometimes
-   holds one pattern for four times Max Time and sometimes changes three to
-   five patterns in quick succession, each change just after its transition.
+   holds one pattern for twice Max Time and sometimes changes eight
+   patterns in quick succession, each change just after its transition.
    Both feed the same cooldown, so Beat Transitions still puts every change on
    a beat. The rules live in `src/state/player/patternPacing.ts`.
 

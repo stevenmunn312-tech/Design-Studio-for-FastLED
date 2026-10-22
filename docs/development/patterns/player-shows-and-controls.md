@@ -34,7 +34,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   leans a normal hold toward Min Time when the track is intense, measured
   against its own recent loudest and quietest smoothed energy, so a quiet song
   and a loud master both vary. Dwells & Bursts (`dwellsAndBursts`) sometimes
-  holds four times Max Time and sometimes makes three to five quick changes,
+  holds twice Max Time and sometimes makes eight quick changes,
   and always returns to a normal hold after either. Holds are re-read every
   frame, so a normal hold shortens as the music builds. With both options off
   the preview draws exactly one random number per hold and the sketch emits the

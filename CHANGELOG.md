@@ -79,8 +79,8 @@ versioning (`0.y.z`) until the first stable release.
   the gate.
 - **Music Player** gains **Energy Pacing** (holds lean toward Min Time as the
   music grows more intense and toward Max Time as it calms) and **Dwells &
-  Bursts** (an occasional hold of four times Max Time, and an occasional run
-  of three to five quick changes). Both are off by default; the preview and
+  Bursts** (an occasional hold of twice Max Time, and an occasional run
+  of eight quick changes). Both are off by default; the preview and
   the SD player sketch both follow them.
 - **Player Particles** gains a Frequency group: **Bursts in a Row** (1–8
   beats that each throw a burst), **Rest** (0–30 s before the next run;

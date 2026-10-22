@@ -480,9 +480,9 @@ describe('playerSketchGenerator', () => {
       })
       expect(sketch).not.toContain('pickHoldMs')
       expect(sketch).toContain('if (posMs - rotatedAtMs >= rotateLeadMs + paceHoldMs()) {')
-      expect(sketch).toContain('if (holdKind == 1) return (uint32_t)(4.0000f * maxHold * 1000.0f);')
+      expect(sketch).toContain('if (holdKind == 1) return (uint32_t)(2.0000f * maxHold * 1000.0f);')
       expect(sketch).toContain('holdKind = r < 0.1200f ? 1 : r < 0.2400f ? 2 : 0;')
-      expect(sketch).toContain('if (holdKind == 2) burstLeft = (uint8_t)(2 + random(3));')
+      expect(sketch).toContain('if (holdKind == 2) burstLeft = (uint8_t)(7 + random(1));')
       expect(sketch).toContain('rotateLeadMs = transitionMs;\n      paceNext();')
       // Without Energy Pacing nothing reads the track's energy.
       expect(sketch).not.toContain('paceLevel')

@@ -13,14 +13,14 @@
 //   waits for a beat when Beat Transitions is on.
 
 /** A dwell holds this many times Max Time. */
-export const DWELL_HOLD_FACTOR = 4
+export const DWELL_HOLD_FACTOR = 2
 /** Chance a normal hold is followed by a dwell. */
 export const DWELL_CHANCE = 0.12
 /** Chance a normal hold is followed by a burst. */
 export const BURST_CHANCE = 0.12
-/** A burst changes pattern this many times, chosen uniformly. */
-export const BURST_CHANGES_MIN = 3
-export const BURST_CHANGES_MAX = 5
+/** A burst changes pattern this many times. Min and max match, so every burst is eight. */
+export const BURST_CHANGES_MIN = 8
+export const BURST_CHANGES_MAX = 8
 /** A burst holds this fraction of the transition time after each change, so
  *  changes come slightly slower than the transitions themselves... */
 export const BURST_HOLD_FRACTION = 0.25

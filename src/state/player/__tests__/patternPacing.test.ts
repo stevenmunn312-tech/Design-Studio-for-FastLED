@@ -31,14 +31,14 @@ describe('pattern holds', () => {
     expect(draws).toBe(2)
   })
 
-  it('dwells for four times Max Time and then returns to normal', () => {
+  it('dwells for twice Max Time and then returns to normal', () => {
     const dwell = nextPatternHold(firstPatternHold(() => 0.5), () => 0.01, true)
     expect(dwell.kind).toBe('dwell')
     expect(patternHoldSeconds(dwell, TIMING, 0.5)).toBe(DWELL_HOLD_FACTOR * 12)
     expect(nextPatternHold(dwell, () => 0.01, true).kind).toBe('normal')
   })
 
-  it('bursts through three to five quick changes, each just after its transition', () => {
+  it('bursts through eight quick changes, each just after its transition', () => {
     const sequence = [0.15, 0.99, 0.5]  // a burst, the most changes, its draw
     const rand = () => sequence.shift() ?? 0.5
     let hold: PatternHold = nextPatternHold(firstPatternHold(() => 0.5), rand, true)
@@ -70,14 +70,16 @@ describe('pattern holds', () => {
   it('happens now and then rather than every change', () => {
     const rand = lcg(7)
     let hold = firstPatternHold(rand)
-    const counts = { normal: 0, dwell: 0, burst: 0 }
+    // Each burst is eight holds, so count the decision after a normal hold.
+    const starts = { normal: 0, dwell: 0, burst: 0 }
     for (let i = 0; i < 2000; i++) {
+      const prevKind = hold.kind
       hold = nextPatternHold(hold, rand, true)
-      counts[hold.kind]++
+      if (prevKind === 'normal') starts[hold.kind]++
     }
-    expect(counts.normal).toBeGreaterThan(counts.dwell + counts.burst)
-    expect(counts.dwell).toBeGreaterThan(100)
-    expect(counts.burst).toBeGreaterThan(300)
+    expect(starts.normal).toBeGreaterThan(starts.dwell + starts.burst)
+    expect(starts.dwell).toBeGreaterThan(50)
+    expect(starts.burst).toBeGreaterThan(50)
   })
 })
 
