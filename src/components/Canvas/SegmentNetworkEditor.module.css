@@ -1,0 +1,121 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: color-mix(in srgb, black 55%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.dialog {
+  width: min(900px, 100%);
+  max-height: min(680px, 100%);
+  overflow: auto;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-glow);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar h2 {
+  margin: 0;
+  font-size: 14px;
+  flex: 1;
+}
+
+.hint, .status {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.canvas {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.edge, .edgeSelected {
+  stroke: var(--text-secondary);
+  stroke-width: 4;
+  stroke-linecap: round;
+  cursor: pointer;
+}
+
+.edgeSelected {
+  stroke: var(--accent, #1fa5ad);
+}
+
+.edgeLabel {
+  font-size: 11px;
+  fill: var(--text-primary);
+  pointer-events: none;
+  user-select: none;
+}
+
+.node, .nodeSelected, .nodeArmed {
+  fill: var(--text-primary);
+  stroke: var(--bg-primary);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.nodeSelected {
+  fill: var(--accent, #1fa5ad);
+}
+
+.nodeArmed {
+  fill: #f2c766;
+}
+
+.edgeList {
+  margin: 0;
+  padding: 0 0 0 20px;
+  max-height: 360px;
+  overflow: auto;
+  font-size: var(--fs-caption);
+}
+
+.edgeRow, .edgeRowSelected {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+}
+
+.edgeRowSelected .edgeName {
+  color: var(--accent, #1fa5ad);
+}
+
+.edgeName {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}

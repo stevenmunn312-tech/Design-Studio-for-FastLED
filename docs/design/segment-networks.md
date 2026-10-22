@@ -5,9 +5,8 @@ Design for root todo D-06, pulled into v1 on 2026-10-21 from
 Two pieces, in this order: positioned strings measured in millimetres, so the
 Build Diagram can draw a string where it hangs; then segment networks, a
 string laid along the edges of a graph with a `Ripple` pattern that travels
-node to node, the Chromancer model. Written 2026-10-22. Part 1, the network
-model (step 2) and `Ripple` (step 4) shipped by 2026-10-23; the layout editor
-(step 3) is open, so a custom network is typed as JSON until it lands.
+node to node, the Chromancer model. Written 2026-10-22; all four steps
+shipped by 2026-10-23.
 
 ## Where this starts
 
@@ -105,15 +104,18 @@ Limits: 64 nodes, 128 edges, 300 LEDs, the positioned-string ceiling.
 
 ### Layout editor
 
-A dialog from the LED Output's property grid, *Edit network*, closed by
-Escape through `useEscapeLayer`. A canvas with the nodes as draggable dots and
-the edges as lines; click empty space to add a node, drag node to node to add
-an edge, click an edge to flip its direction, Delete removes the selection.
-The edge list beside it shows the wiring order and lets an edge be moved up or
-down. A preset loads into the editor, and the first edit makes it custom. The
-editor is the one place the model is edited, so the JSON property never has
-to be typed, but it stays a property so a project file carries it and a
-share link works.
+`SegmentNetworkEditor` (`src/components/Canvas/`), opened by the pencil
+button beside the `network` row of an LED Output or a Ripple node, closed by
+Escape through `useModalFocus` (which goes through `useEscapeLayer`). A
+16 × 10 unit canvas with the nodes as draggable dots and the edges as
+numbered lines: click empty space to add a node, click one node and then
+another to join them, drag a node to move it, click an edge to flip its
+direction, Delete removes the selection. The wiring list beside it moves an
+edge up or down and flips it. Hexagons and Triangles load a preset; Apply
+writes the custom JSON (`networkToJson`, coordinates to a hundredth) and
+selects the custom preset, so the output fits the shape to its own canvas as
+it would any custom network. The JSON stays the saved form, so a project
+file carries it and a share link works; the editor only spares the typing.
 
 ### The Ripple pattern
 
@@ -176,6 +178,7 @@ adds nothing beyond the node's own frame buffer.
    edge order, limits, baked table parity. **Shipped 2026-10-22** (the JSON
    is typed until the editor lands).
 3. The layout editor. Tests: add, connect, flip, reorder, Escape.
+   **Shipped 2026-10-23.**
 4. `Ripple`: shared kernel, evaluator, codegen, help entry with a live example,
    README count. Tests: each behaviour's node choice on the hexagon, lifetime,
    parity of the kernel, codegen snapshot. **Shipped 2026-10-23.**

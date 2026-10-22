@@ -311,20 +311,6 @@ chooses the supported combinations from whatever is on record at release.
   Shipped: persistent globals, integer wrap and timing macros; writable Field
   Formula buffers (`prev`, 2026-10-22,
   [design](docs/design/animartrix-float-field.md#writable-field-formula-buffers-implemented-2026-10-22)).
-- [ ] **D-06 · Segment networks and millimetre string positions (M).** Pulled
-  into v1 on 2026-10-21, from
-  [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons).
-  Segment networks: strings as the edges of a graph with a travelling
-  `Ripple`, the Chromancer model, drawn in a new layout editor. Positioned
-  strings in the Build Diagram, which needs positions in millimetres rather
-  than canvas units. Designed 2026-10-22 in
-  [segment networks](docs/design/segment-networks.md), in four shippable
-  steps. Shipped 2026-10-22: step 1 (`positionsMmPerUnit`, the catenary's
-  scale from the tape, the span and overlap warning, the output card pictures
-  the string) and step 2 (the network model, hexagon and triangle presets,
-  custom JSON, `stripLayout: 'network'` as a positioned string) and step 4
-  (the `Ripple` pattern, 2026-10-23). Step 3, the layout editor, is open; a
-  custom network is typed as JSON until it lands.
 - [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
@@ -567,6 +553,12 @@ and an Upload information shelf in
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
 are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
+- **D-06 · Segment networks and millimetre string positions**: a positioned
+  string's span in millimetres on the Build Diagram card with an overlap
+  warning; `stripLayout: 'network'` laying a string along a graph's edges
+  (hexagon and triangle presets, custom JSON, a layout editor); and the
+  `Ripple` pattern that travels the network, with the turning rule baked into
+  the sketch ([segment networks](docs/design/segment-networks.md)).
 - **D-07 · Build Diagram panel in the shared sidebar**: the information
   panel portals into the shared sidebar host with the shared width, resize and
   toggle controls, its own controls removed; the content is unchanged

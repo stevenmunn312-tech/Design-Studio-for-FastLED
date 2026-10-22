@@ -87,6 +87,7 @@ import {
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displays/displayRegistry'
 import { isControlDriverPort, touchControlPlan, writeControlDriverValue } from '../../state/player/wireFirstControls'
 import PropertyInputMenu from './PropertyInputMenu'
+import SegmentNetworkEditor from './SegmentNetworkEditor'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../nodes/shared/signalRange'
 import { effectiveDataRateMhz } from '../../build/ledDrivers'
@@ -424,6 +425,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
   const revealGraphNodes = useUiStore((s) => s.revealGraphNodes)
   const flashNode = useUiStore((s) => s.flashNode)
   const [inputMenu, setInputMenu] = useState<{ anchor: FloatingAnchor; propertyKey?: string } | null>(null)
+  // The segment network's layout editor (docs/design/segment-networks.md).
+  const [networkEditorOpen, setNetworkEditorOpen] = useState(false)
   const closeInputMenu = useCallback(() => setInputMenu(null), [])
   const updateNodeInternals = useUpdateNodeInternals()
   const propertyAreaRef = useRef<HTMLDivElement>(null)
@@ -567,6 +570,14 @@ const LivePropertyControls = memo(function LivePropertyControls({
           onClick={(event) => setInputMenu({ anchor: event.currentTarget })}>
           Expose input…
         </button>
+      )}
+      {networkEditorOpen && !locked && (
+        <SegmentNetworkEditor
+          properties={props}
+          title={nodeLabel}
+          onClose={() => setNetworkEditorOpen(false)}
+          onCommit={(updates) => { updateNodeProperties(nodeId, updates); setNetworkEditorOpen(false) }}
+        />
       )}
       {inputMenu && !locked && (
         <PropertyInputMenu anchor={inputMenu.anchor} nodeType={nodeType}
@@ -861,6 +872,17 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => writeValue(e.target.value)}
               />
+            )}
+            {key === 'network' && !disabled && (
+              <button
+                type="button"
+                className={`nodrag ${styles.pinBtn}`}
+                title="Draw the network: nodes, edges and their wiring order"
+                aria-label="Edit network"
+                onClick={() => setNetworkEditorOpen(true)}
+              >
+                ✎
+              </button>
             )}
             {!wired && isPinnableProperty(nodeType, key, val) && (() => {
               const pinId = pinnedKeys.get(key)
