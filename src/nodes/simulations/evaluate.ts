@@ -127,7 +127,8 @@ function evalFire(
   }
   const heat = fireHeat.get(nodeId)!
   const cool = Math.max(0, Math.min(255, cooling)) / 255 * 0.18
-  const spread = Math.max(0, Math.round(turbulence))
+  // Bounded as the sketch bounds it, so a wired value cannot widen it further.
+  const spread = Math.round(Math.max(0, Math.min(2, turbulence)))
 
   for (let p = 0; p < P; p++)
     for (let s = 0; s < S; s++)
@@ -1022,7 +1023,8 @@ function evalFire2012(
   } else {
     heat = stored
   }
-  const spread = Math.max(0, Math.round(turbulence))
+  // Bounded as the sketch bounds it, so a wired value cannot widen it further.
+  const spread = Math.round(Math.max(0, Math.min(2, turbulence)))
 
   for (let p = 0; p < P; p++)
     for (let s = 0; s < S; s++) {

@@ -5,7 +5,8 @@ import { DEFAULT_FONT, textColumns } from '../../nodes/shared/font'
 import { DEFAULT_MIC_MODULE, MIC_MODULES } from '../../state/peripherals/micModules'
 import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/output/ledOutputForm'
 import { resolveSlicePattern } from '../../nodes/field/sliceTiling'
-import { worleyHash } from '../../state/evaluator/random'
+import { worleyHash, seedOffset } from '../../state/evaluator/random'
+import { floatLit } from '../cppLiterals'
 import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
 import { fourierTable, fourierTableQ } from '../../nodes/shapes/fourierOutline'
@@ -1309,6 +1310,15 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(paldef_heat, _h)')
   })
 
+  it('cools and sparks the classic Fire over the preview heat range, scaled to 0-255', () => {
+    // The preview takes cool..2*cool off a 0-1 cell, cool = cooling/255*0.18,
+    // and lands sparks at 0.75..1.
+    const cpp = generateCpp([node('f', 'Fire', 'pattern', {})], [])
+    expect(cpp).toContain('*0.18f;')
+    expect(cpp).toContain('(uint8_t)((1.0f+(random8()/255.0f))*_cool)')
+    expect(cpp).toContain('(uint8_t)(191.25f + (random8()/255.0f)*63.75f)')
+  })
+
   describe.each([
     ['Fire', {}],
     ['Fire2012', { fireStyle: 'fire2012' }],
@@ -1328,8 +1338,8 @@ describe('generateCpp', () => {
       // knob reads from a per-frame local and the value is in its initialiser.
       const narrow = generateCpp([fireNode({ turbulence: 0 })], [])
       const wide = generateCpp([fireNode({ turbulence: 2 })], [])
-      expect(narrow).toContain('int _fireSpread_f=(int)constrain(0,0.0f,2.0f)')
-      expect(wide).toContain('int _fireSpread_f=(int)constrain(2,0.0f,2.0f)')
+      expect(narrow).toContain('int _fireSpread_f=(int)roundf(constrain(0,0.0f,2.0f))')
+      expect(wide).toContain('int _fireSpread_f=(int)roundf(constrain(2,0.0f,2.0f))')
       for (const cpp of [narrow, wide]) {
         expect(cpp).toContain('_ds=-_fireSpread_f; _ds<=_fireSpread_f')
         expect(cpp).toContain('(_fireSpread_f*2+2)')
@@ -1377,7 +1387,8 @@ describe('generateCpp', () => {
 
     const noiseCpp = generateCpp([node('n', 'Noise', 'pattern', { noiseType: 'simplex', seed: 9 })], [])
     expect(noiseCpp).toContain('float _spd=')
-    expect(noiseCpp).toContain('(t+0.117f)')
+    // The preview's seedOffset seeds the phase clock, as speedPhase(key, t + offset) does.
+    expect(noiseCpp).toContain(`(t + ${floatLit(seedOffset(9, 0), 6)}) * (_spd)`)
 
     const confetti = generateCpp([node('c', 'Confetti', 'pattern', { seed: 17 })], [])
     expect(confetti).toContain('static uint32_t _rng_c=17u')
@@ -1648,7 +1659,7 @@ describe('generateCpp', () => {
 
     // fBm writes the shared field buffer, so shaping is Noise's common line.
     const fractal = (props: Record<string, unknown>) => noise({ noiseType: 'fbm', ...props })
-    expect(fractal({})).toContain('field_n[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);')
+    expect(fractal({})).toContain('field_n[_y*WIDTH+_x]=constrain((_v/_norm)*0.5f+0.5f,0.0f,1.0f);')
     expect(fractal({})).not.toContain('fabsf(2.0f*constrain')
     expect(fractal({ noiseShape: 'ridged' }))
       .toContain('field_n[_i]=(1.0f-fabsf(2.0f*constrain(field_n[_i],0.0f,1.0f)-1.0f));')
@@ -2174,10 +2185,11 @@ describe('generateCpp', () => {
     })
   })
 
-  it('emits a PlasmaFractal with sin sums and inoise8 octaves', () => {
+  it('emits a PlasmaFractal with sin sums and simplex octaves', () => {
     const pf = node('pf', 'Noise', 'pattern', { noiseType: 'plasma', speed: 1, scale: 0.15, palette: 'rainbow' })
     const cpp = generateCpp([pf, outputNode], [edge('e', 'pf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('inoise8(')
+    expect(cpp).toContain('_fn+=_amp*_snoise2(_x*_fr+_phase_pf*0.1f,_y*_fr);')
+    expect(cpp.match(/^float _snoise2\(float x, float y\) \{$/gm)).toHaveLength(1)
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
     expect(cpp).toContain('float t = millis()')
   })
@@ -2474,11 +2486,11 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_ibase=_ifr*_iw*_ih')
   })
 
-  it('emits fractal noise via summed inoise8 octaves', () => {
+  it('emits fractal noise via summed simplex octaves', () => {
     const fn = node('fn', 'Noise', 'pattern', { noiseType: 'fbm', speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
     const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('// Fractal noise (fBm via inoise8)')
-    expect(cpp).toContain('inoise8(')
+    expect(cpp).toContain('// Fractal noise (fBm of simplex octaves)')
+    expect(cpp).toContain('_v+=_amp*_snoise2(_x*_fr+_z,_y*_fr-_z*0.5f);')
     // Octaves is a loop bound, so it reads from a local, hoisted before the
     // pixel loop, and the count is in that local's initialiser.
     expect(cpp).toContain('int _octv=(int)constrain(4,1.0f,6.0f);')
@@ -2500,10 +2512,10 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(paldef_forest')
   })
 
-  it('emits looping 4D noise through inoise16(x, y, z, t)', () => {
+  it('emits looping 4D noise around a circle in two hidden dimensions', () => {
     const n4 = node('n4', 'Noise', 'pattern', { noiseType: 'noise4d', speed: 0.5, scale: 0.5, palette: 'ocean' })
     const cpp = generateCpp([n4, outputNode], [edge('e', 'n4', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('inoise16((uint32_t)(_x*_fr),(uint32_t)(_y*_fr),_z+(uint32_t)(_o*8192),_w+(uint32_t)(_o*12288))')
+    expect(cpp).toContain('float _ox=cosf(_ang+_o*0.9f)*0.8f,_oy=sinf(_ang+_o*1.1f)*0.8f;')
     expect(cpp).toContain('float _spd=')
     expect(cpp).toContain('_ang=_phase_n4*6.2831853f;')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')

@@ -52,7 +52,7 @@ function fire2012Cpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }: Emit
   // The diffusion window is a loop bound and a divisor, not an array
   // size, so both become runtime reads of one local.
   const spread = `_fireSpread_${id}`
-  const spreadDecl = `    int ${spread}=(int)constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f);`
+  const spreadDecl = `    int ${spread}=(int)roundf(constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f));`
   // The palette blend picks between two emitted blocks, so the mix arm is
   // emitted whenever the knob can move — wired, or already below 1.
   const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
@@ -117,7 +117,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     // The diffusion window is a loop bound and a divisor, not an array
     // size, so both become runtime reads of one local.
     const spread = `_fireSpread_${id}`
-    const spreadDecl = `    int ${spread}=(int)constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f);`
+    const spreadDecl = `    int ${spread}=(int)roundf(constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f));`
     // The palette blend picks between two emitted blocks, so the mix arm is
     // emitted whenever the knob can move — wired, or already below 1.
     const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
@@ -135,10 +135,13 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(spreadDecl)
     ln(`    static uint8_t ${HB}[${P}][${S}];`)
     if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
-    ln(`    float _cool=max(0.0f,min(255.0f,${cooling}))*(55.0f/255.0f);`)
+    // Heat runs 0-255 here and 0-1 in the preview, which takes cool..2*cool
+    // off each cell with cool = cooling/255*0.18; scaled by 255 that is
+    // cooling*0.18. Sparks land at 0.75..1 there, 191..255 here.
+    ln(`    float _cool=max(0.0f,min(255.0f,${cooling}))*0.18f;`)
     ln(`    float _spark=min(1.0f,max(0.0f,(max(0.0f,min(255.0f,${sparking}))/255.0f)*(0.35f+min(1.0f,max(0.0f,${intensity}))*0.65f)));`)
     ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++)`)
-    ln(`      ${HB}[_p][_s] = qsub8(${HB}[_p][_s], (uint8_t)(${rnd01}*_cool));`)
+    ln(`      ${HB}[_p][_s] = qsub8(${HB}[_p][_s], (uint8_t)((1.0f+${rnd01})*_cool));`)
     // Propagate from _p-1 (closer to the flame base) into _p, averaging a
     // turbulence-wide window (spread=1 reproduces the original fixed
     // 3-wide/4-sample kernel exactly). Mirrors evalFire in graphEvaluator.ts.
@@ -146,7 +149,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      int _sum=0; for (int _ds=-${spread}; _ds<=${spread}; _ds++) _sum += ${HB}[_p-1][max(0,min((${S})-1,_s+_ds))];`)
     ln(`      ${HB}[_p][_s] = (${HB}[_p][_s] + _sum) / (${spread}*2+2); }`)
     ln(`    for (int _s = 0; _s < ${S}; _s++)`)
-    ln(`      if (${rnd01} < _spark) ${HB}[0][_s] = (uint8_t)(200 + ${rnd01}*55);`)
+    ln(`      if (${rnd01} < _spark) ${HB}[0][_s] = (uint8_t)(191.25f + ${rnd01}*63.75f);`)
     ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
     const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
     if (smoke) {
