@@ -78,8 +78,11 @@ emits the inactive constants, exactly like the preview.
 ### Payload
 
 `AudioSignal.vibe` is optional. `audioStore`, the decoder store and the
-recorder carry it. The SD player supplies no processor, so a baked show reads
-Vibe as inactive.
+recorder carry it. A baked show carries it as a 7-byte record per envelope
+frame (levels at scale 32, a spike flags byte; `volume` is derived), which the
+show preview, the card and the SD player's fallback all read; see
+[Shows and the SD player](#shows-and-the-sd-player). A show baked before the
+detectors existed has no record and reads Vibe as inactive.
 
 ## Song Structure
 
@@ -148,8 +151,13 @@ emits the inactive constants.
 ### Payload
 
 `AudioSignal.structure` is optional. The audio store, decoder store and
-recorder carry it. The SD player supplies no processor, so a baked show reads
-Song Structure as inactive.
+recorder carry it. A baked show carries it as a 7-byte record per envelope
+frame (a flags byte with `downbeat`, `drop`, `building` and `tempoStable`,
+then the beat number and the five levels), read by the show preview, the
+card and the SD player's fallback; `downbeat` and `drop` fire once per
+flagged frame on both sides. See
+[Shows and the SD player](#shows-and-the-sd-player). A show baked before the
+detectors existed reads Song Structure as inactive.
 
 ## Pitch Detect
 
@@ -232,8 +240,13 @@ for the sample and autocorrelation buffers.
 ### Payload
 
 `AudioSignal.pitch` is optional. The audio store, decoder store and recorder
-carry it. The SD player has no processor, so a baked show reads Pitch Detect as
-inactive.
+carry it. A baked show carries it as an 8-byte record per envelope frame (hz
+as a 16-bit integer, note, velocity, confidence, key root with 255 for no key,
+a flags byte with `noteOn` and `keyMinor`, key confidence), read by the show
+preview, the card and the SD player's fallback; `noteOn` fires once per
+flagged frame on both sides. See
+[Shows and the SD player](#shows-and-the-sd-player). A show baked before the
+detectors existed reads Pitch Detect as inactive.
 
 ## Waveform
 
@@ -264,8 +277,9 @@ keeps the sample furthest from zero in each block of `floor(n / 128)`, first on
 a tie, so peaks survive. The sketch publishes the same `_audioWave[128]` from
 `Processor::getSample().pcm()`, once per new chunk, and only when a Waveform
 node exists in the graph or a group. The payload is optional; every reader
-treats a missing field as silence, and the SD player (no processor) reads it as
-silence too.
+treats a missing field as silence. A baked show carries no samples (see
+[Shows and the SD player](#shows-and-the-sd-player)), so a show preview and the
+SD player's fallback draw the flat trace; only the live decoder tap animates it.
 
 ### Styles
 
@@ -298,15 +312,81 @@ frame.
 
 ## Shows and the SD player
 
-A baked show carries only the coarse envelope (bass, mids, treble and the two
-stereo levels), and the SD player runs no FastLED processor. `showAudioOverride`
-therefore supplies none of `vibe`, `structure`, `pitch` or `samples`, so all four
-nodes read inactive in a show preview and on the card, and the preview matches
-the device. Carrying them would mean baking per-frame detector output offline
-and teaching the player to replay it; a waveform alone is 128 values per frame.
-That is a design choice for a later phase, not a gap in these nodes. The
-song analysis already extracts key and mood offline, and is the natural source
-if a show-side Pitch Detect key or Song Structure mood is ever wanted.
+A baked show carries the coarse envelope (bass, mids, treble, the two stereo
+levels and the 16 equalizer bytes per frame) and, since the detectors were
+baked, one fixed-width record per envelope frame for Vibe, Song Structure and
+Pitch Detect. Song analysis (`bakeDetectorTracks` in
+`src/audio/fastledSongAnalysis.ts`, run in the analysis worker) runs the live
+analyzer — conditioner, FFT and the three browser mirrors — over the decoded
+mono samples in 512-sample chunks, the device's I2S cadence, with the sample
+position as its clock, so Vibe's frame-rate conversion and Pitch's note timing
+see the intervals a decoder tap feeds them and the bake is deterministic. Each
+detector's state is sampled at the envelope rate (50 Hz): levels take the last
+chunk in the frame; the one-frame events (`downbeat`, `drop`, `noteOn`) are
+OR-ed over the chunks in it, so none is lost to the coarser rate and none
+fires twice. The browser mirrors differ from the C++ as recorded above, so a
+baked value is the preview's, not the device processor's, to within those
+differences.
+
+The record layouts live in `src/audio/detectorTrack.ts`, which the preview,
+the show writer and the firmware emitter all import:
+
+| Block | Bytes | Layout |
+|---|---|---|
+| Vibe | 7 | `bass`, `mid`, `treble`, `bassAtt`, `midAtt`, `trebleAtt` as u8 at scale 32 (value × 32, clamped 0–255, so 1.0 = 32 and the top is 7.97), then flags: bit0 `bassSpike`, bit1 `midSpike`, bit2 `trebleSpike`. `volume` is derived by the reader as the mean of the three levels, which is its definition. |
+| Song Structure | 7 | flags (bit0 `downbeat`, bit1 `drop`, bit2 `building`, bit3 `tempoStable`), `beatNumber` u8, `measurePhase` u8 (× 255), `buildupProgress` u8 (× 255), `dropImpact` u8 (× 255), `valence` i8 (× 127), `arousal` u8 (× 255). |
+| Pitch | 8 | `hz` u16 little-endian (whole Hz), `note` u8, `velocity` u8 (× 255), `confidence` u8 (× 255), `keyRoot` u8 (0–11, 255 while no key is accepted), flags (bit0 `noteOn`, bit1 `keyMinor`), `keyConfidence` u8 (× 255). |
+
+`SongAnalysis.detectors` holds the three tracks as base64 at the analysis
+rate; `bakeEnvelope` copies them onto the envelope frames
+(`resampleDetectorBytes`: nearest frame, each source frame's events carried
+once) into `AudioEnvelope.vibe`, `.structure` and `.pitch`. All three are
+optional and additive: `AudioEnvelope.version` stays 3, a show baked before
+them has none, its nodes read inactive, and analysing the song again adds
+them.
+
+**Preview and card.** `showAudioOverride` (`src/state/player/showAudio.ts`)
+decodes the frame whose span holds the playback position — the firmware's
+`i`, no interpolation — into `vibe`, `structure` and `pitch` on the
+`AudioSignal`, so the node evaluators read a show exactly as they read a live
+decoder. The preview runs at 60 fps over a 50 Hz bake, so some frames are
+served twice: `showPreview.ts` keeps the last served frame index per show
+(`ShowDetectorCursor`) and the events fire only when that index changes, once
+per flagged frame, and again after a rewind lands on one. One override serves
+both sides of a transition. The pattern card and rating render through the
+same `renderShowFrame`, so they get the detectors with it.
+
+**Firmware.** `showFileToBinary` appends a tagged `ADET` trailer after `AENV`
+(and after the optional `PARM`): `'A','D','E','T'`, version u8 = 1, flags u8
+(bit0 vibe, bit1 structure, bit2 pitch), frames u32 LE, then the flagged
+blocks in that order, each `frames × recordBytes`. The player
+(`playerSketchGenerator.ts`) emits the reader only when a collected pattern
+reads one of the detector globals (the same `audioFeaturesInCode` regexes the
+decoder tap uses), mallocs only those blocks and `seek`s past the rest; it
+notes where the trailer starts before the spectrum block, so the trailer is
+found whether or not the spectrum was loaded. An absent block, a block
+without memory, a show without `ADET` or an unknown version all leave the
+detectors inactive, as a show written before the trailer did; a player whose
+patterns read no detector stays byte-identical. `updateShowAudio` fills the
+same globals the live engine fills (`_audioVibe*`, `_audioDownbeat` …
+`_audioArousal`, `_audioPitch*`, `_audioKey*`) from the frame it already
+computes for the envelope, and fires `_audioDownbeat`, `_audioDrop` and
+`_audioPitchNoteOn` once per flagged frame through `audioDetLast`. Without a
+decoder tap the player declares those globals itself; with one, the tap's
+own `fl::audio::Processor` over the decoded PCM wins while it is live and
+the baked records are the startup and failure fallback, as the envelope is
+for the bands.
+
+**RAM.** 22 bytes per frame with all three blocks, 66 KB a minute at 50 Hz,
+beside the envelope's 21. `estimateFirmwareRam` prices neither the envelope
+nor the detectors: a show's buffers are sized by the song at load time, not
+by the graph, and a block that does not fit is simply left inactive.
+
+**Waveform** is the one remaining show-side limit. 128 samples per frame is
+1.5 MB for a four-minute song, beyond internal RAM and only servable by
+per-frame SD reads beside the decoder, so it is not baked: a show preview and
+the player's fallback draw the flat trace, and only the live decoder tap
+animates it.
 
 ## Offline song analysis
 

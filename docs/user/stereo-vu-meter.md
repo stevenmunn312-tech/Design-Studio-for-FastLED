@@ -130,6 +130,14 @@ read them. The player reads only this format; a show file without it plays
 with no baked audio. Re-export any
 show written before this format so its envelope is rebuilt.
 
+A song analysed since the detectors were baked also carries an `ADET`
+trailer after `AENV`: version 1, a flags byte, the frame count and then the
+per-frame Vibe (7 bytes), Song Structure (7) and Pitch Detect (8) records
+that let those nodes read the song in a show. The player loads only the
+blocks its patterns read and ignores the trailer otherwise; see
+[audio detectors](../design/audio-detectors.md#shows-and-the-sd-player) for
+the layouts.
+
 When the live decoder tap resumes, the same per-fixture attack/release state
 continues; track changes clear capture values but do not reset VU peaks, trails,
 or mode-cycle state.

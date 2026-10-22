@@ -10,7 +10,7 @@
 
 import { evaluateGraph, compositeTransition, renderParticleBurst, PARTICLE_LIFE_MS, type Frame, type GroupRegistry, type PortValue, type AudioOverride } from '../graphEvaluator'
 import { hsv } from '../palettes/ledColor'
-import { showAudioOverride } from './showAudio'
+import { createShowDetectorCursor, showAudioOverride, type ShowDetectorCursor } from './showAudio'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { isStudioPalette } from '../palettes/paletteCatalog'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -274,6 +274,21 @@ function renderGroupFrame(
   ) ?? blank(W, H)
 }
 
+// The last envelope frame each show's detectors were served from, so a
+// downbeat, drop or note-on baked on one 50 Hz frame fires once even though
+// the 60 fps preview serves some frames twice. Keyed by show identity like the
+// event index: an edit makes a new show object, and its cursor starts fresh.
+const detectorCursors = new WeakMap<ShowFile, ShowDetectorCursor>()
+
+function detectorCursorFor(show: ShowFile): ShowDetectorCursor {
+  let cursor = detectorCursors.get(show)
+  if (!cursor) {
+    cursor = createShowDetectorCursor()
+    detectorCursors.set(show, cursor)
+  }
+  return cursor
+}
+
 /** The collection group a state plays, or undefined when it plays a built-in. */
 function stateGroupId(show: ShowFile, st: ShowState): string | undefined {
   return show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
@@ -364,10 +379,12 @@ export function renderShowFrame(
   const st = showStateAt(show, timeMs)
   const policyOf = (index: number): PatternEntryPolicy => entry[index] === 'resume' ? 'resume' : 'restart'
 
-  // Feed the song's baked bass/mids/treble to the group's Audio GroupInput,
-  // mirroring the firmware player. The group's explicit Audio cables decide
-  // which analyzers react; the override is not an ambient analyzer input.
-  const audioOverride = showAudioOverride(show.audio, timeMs)
+  // Feed the song's baked bass/mids/treble and detector records to the group's
+  // Audio GroupInput, mirroring the firmware player. The group's explicit Audio
+  // cables decide which analyzers react; the override is not an ambient
+  // analyzer input. One override serves both sides of a transition, so a
+  // downbeat flagged on this frame reaches each exactly once.
+  const audioOverride = showAudioOverride(show.audio, timeMs, detectorCursorFor(show))
 
   // Mid-transition: blend the outgoing pattern (state just before the switch)
   // into the incoming one (the state now, as the player renders whatever its

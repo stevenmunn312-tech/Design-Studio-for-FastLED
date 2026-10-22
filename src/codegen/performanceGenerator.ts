@@ -1,5 +1,10 @@
 import type { SongAnalysis, SongSection, ShowFile, ShowEvent, AudioEnvelope, EnergyPoint } from '../types/showFile'
 import { encodeSpectrumBytes, spectrumBytes, SPECTRUM_TRACK_BINS, type SpectrumTrack } from '../audio/spectrumTrack'
+import {
+  DETECTOR_KINDS, DETECTOR_RECORD_BYTES, DETECTOR_TRAILER_FLAG_PITCH, DETECTOR_TRAILER_FLAG_STRUCTURE,
+  DETECTOR_TRAILER_FLAG_VIBE, DETECTOR_TRAILER_VERSION, detectorBytes, encodeDetectorBytes,
+  resampleDetectorBytes, type DetectorKind, type DetectorTracks,
+} from '../audio/detectorTrack'
 import { PALETTE_IDS, STUDIO_PALETTES, isStudioPalette } from '../state/palettes/paletteCatalog'
 import { BUILTIN_SHOW_PATTERN_NAMES } from '../state/player/builtinShowPatterns'
 import {
@@ -59,6 +64,20 @@ function resampleSpectrum(track: SpectrumTrack, rateHz: number, frameCount: numb
   return encodeSpectrumBytes(out)
 }
 
+/** The analysis's baked detector tracks at the envelope's frames, nearest
+ *  frame with the one-frame events carried over (see resampleDetectorBytes).
+ *  A track the analysis lacks stays absent, so the node reads inactive. */
+function resampleDetectors(tracks: DetectorTracks | undefined, rateHz: number, frameCount: number): Partial<Record<DetectorKind, string>> {
+  const out: Partial<Record<DetectorKind, string>> = {}
+  if (!tracks || !(tracks.rateHz > 0)) return out
+  for (const kind of DETECTOR_KINDS) {
+    const data = tracks[kind]
+    if (typeof data !== 'string') continue
+    out[kind] = encodeDetectorBytes(resampleDetectorBytes(detectorBytes(tracks, kind, data), kind, tracks.rateHz, rateHz, frameCount))
+  }
+  return out
+}
+
 /**
  * Resample the analysis's ~100 ms energy envelope to a fixed `rateHz` bass/mids/
  * treble track (0–1) so the player can drive a pattern's FFTAnalyzer in perfect
@@ -109,7 +128,22 @@ export function bakeEnvelope(analysis: SongAnalysis, rateHz = ENVELOPE_RATE_HZ):
     rightLevel,
     channelCount: analysis.channelCount === 2 ? 2 : 1,
     spectrum: resampleSpectrum(analysis.spectrum, rateHz, frameCount),
+    ...resampleDetectors(analysis.detectors, rateHz, frameCount),
   }
+}
+
+/** The `ADET` blocks an envelope carries, in trailer order, with their flag bits. */
+function detectorBlocks(env: AudioEnvelope): { kind: DetectorKind; flag: number; bytes: Uint8Array }[] {
+  const flags: Record<DetectorKind, number> = {
+    vibe: DETECTOR_TRAILER_FLAG_VIBE, structure: DETECTOR_TRAILER_FLAG_STRUCTURE, pitch: DETECTOR_TRAILER_FLAG_PITCH,
+  }
+  const blocks: { kind: DetectorKind; flag: number; bytes: Uint8Array }[] = []
+  for (const kind of DETECTOR_KINDS) {
+    const data = env[kind]
+    if (typeof data !== 'string' || data.length === 0) continue
+    blocks.push({ kind, flag: flags[kind], bytes: detectorBytes(env, kind, data) })
+  }
+  return blocks
 }
 
 // ── Palette map: mood → palette name ─────────────────────────────────────────
@@ -760,11 +794,18 @@ export function showFileToBinary(show: ShowFile, builtinSlots: readonly string[]
   const env = show.audio
   const envFrames = env?.bass.length ?? 0
   const envBytes = env ? 12 + envFrames * (5 + SPECTRUM_TRACK_BINS) : 0
+  // Detectors: ADET(4) + version(1) + flags(1) + frameCount(4), then one block
+  // per flagged detector of `frames × recordBytes`, in flag order. Written only
+  // when the envelope carries one, so other shows keep their bytes.
+  const detectors = env ? detectorBlocks(env) : []
+  const detBytes = detectors.length
+    ? 10 + detectors.reduce((sum, block) => sum + envFrames * DETECTOR_RECORD_BYTES[block.kind], 0)
+    : 0
   const paramNames = show.params ?? []
   const parmBytes = paramNames.length
     ? 4 + 1 + paramNames.reduce((sum, name) => sum + 1 + Math.min(255, name.length), 0)
     : 0
-  const buf = new ArrayBuffer(headerBytes + eventBytes + parmBytes + envBytes)
+  const buf = new ArrayBuffer(headerBytes + eventBytes + parmBytes + envBytes + detBytes)
   const view = new DataView(buf)
   let off = 0
 
@@ -822,6 +863,22 @@ export function showFileToBinary(show: ShowFile, builtinSlots: readonly string[]
     }
     const spectrum = spectrumBytes(env, env.spectrum)
     for (let i = 0; i < n * SPECTRUM_TRACK_BINS; i++) view.setUint8(off++, spectrum[i] ?? 0)
+  }
+
+  // Baked detectors last, after the envelope they share a frame clock with.
+  // A player written before the trailer stops at the envelope's end; one that
+  // reads it loads only the blocks its patterns read.
+  if (env && detectors.length > 0) {
+    const n = env.bass.length
+    view.setUint8(off++, 0x41); view.setUint8(off++, 0x44) // "ADET"
+    view.setUint8(off++, 0x45); view.setUint8(off++, 0x54)
+    view.setUint8(off++, DETECTOR_TRAILER_VERSION)
+    view.setUint8(off++, detectors.reduce((flags, block) => flags | block.flag, 0))
+    view.setUint32(off, n, true); off += 4
+    for (const block of detectors) {
+      const size = n * DETECTOR_RECORD_BYTES[block.kind]
+      for (let i = 0; i < size; i++) view.setUint8(off++, block.bytes[i] ?? 0)
+    }
   }
 
   return buf.slice(0, off)

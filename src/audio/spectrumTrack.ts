@@ -25,6 +25,14 @@ export function encodeSpectrumBytes(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
+/** The bytes a base64 track holds; the detector tracks share this decoder. */
+export function decodeBase64Bytes(data: string): Uint8Array {
+  const binary = atob(data)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
+
 const decoded = new WeakMap<object, Uint8Array>()
 
 /** Decode `owner`'s base64 spectrum once and cache it on `owner`, because the
@@ -32,9 +40,7 @@ const decoded = new WeakMap<object, Uint8Array>()
 export function spectrumBytes(owner: object, data: string): Uint8Array {
   const cached = decoded.get(owner)
   if (cached) return cached
-  const binary = atob(data)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const bytes = decodeBase64Bytes(data)
   decoded.set(owner, bytes)
   return bytes
 }

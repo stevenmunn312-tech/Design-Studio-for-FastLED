@@ -3,6 +3,7 @@
 // executes in sync with audio playback.
 
 import type { SpectrumTrack } from '../audio/spectrumTrack'
+import type { DetectorTracks } from '../audio/detectorTrack'
 
 export type ShowCommand =
   | 'SET_PATTERN'      // switch to a named pattern
@@ -72,6 +73,15 @@ export interface AudioEnvelope {
   channelCount: 1 | 2
   /** Base64 of one SPECTRUM_TRACK_BINS-byte equalizer frame per envelope frame. */
   spectrum: string
+  /**
+   * Baked detector output, one record per envelope frame (layouts in
+   * audio/detectorTrack). Each is optional and additive: a show baked before
+   * the detectors existed has none, and its Vibe, Song Structure and Pitch
+   * Detect nodes read inactive. The firmware reads them from the `ADET` trailer.
+   */
+  vibe?: string
+  structure?: string
+  pitch?: string
 }
 
 // ── Song analysis output from musicAnalyzer ───────────────────────────────────
@@ -112,6 +122,10 @@ export interface SongAnalysis {
   energy: EnergyPoint[]  // sampled every ~100ms
   /** FastLED equalizer bins over the whole song (see audio/spectrumTrack). */
   spectrum: SpectrumTrack
+  /** Vibe, Song Structure and Pitch Detect run over the whole song at the
+   * live chunk cadence and sampled per envelope frame (audio/detectorTrack).
+   * Absent on analyses from before the detectors were baked. */
+  detectors?: DetectorTracks
   channelLevels: StereoLevelPoint[]
   channelCount: 1 | 2
   sections: SongSection[]
