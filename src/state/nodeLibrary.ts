@@ -4152,6 +4152,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'motion', label: 'Motion', keys: ['speed'] },
     { key: 'audio', label: 'Audio Reactivity', keys: ['audioAmount'] },
   ],
+  Ripple: [
+    { key: 'network', label: 'Network', keys: ['networkPreset', 'network', 'ledsPerEdge'] },
+    { key: 'ripples', label: 'Ripples', keys: ['behaviour', 'startNode', 'speed', 'rate', 'lifetime', 'width', 'fade', 'seed'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
+  ],
   StringParticles: [
     { key: 'track', label: 'Track', keys: ['track', 'ringLeds'] },
     { key: 'particles', label: 'Particles', keys: ['mode', 'count', 'spawn', 'speed', 'fade', 'bed'] },
