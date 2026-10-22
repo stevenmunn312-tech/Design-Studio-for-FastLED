@@ -276,6 +276,17 @@ describe('segment display edge cases', () => {
       expect(src).not.toContain('_segLvl_seg')
     })
 
+    // The colon belongs to the time, as in the preview: never lit over an
+    // index, a level, or the dashes an invalid clock shows.
+    it('lights the colon only on a branch that drew a time', () => {
+      for (const mode of ['Index', 'Level', 'Waiting'] as const) {
+        expect(loop({ mode, valueExpr: '3' }), mode).not.toMatch(/_segCol_seg = (true|\()/)
+      }
+      const clock = loop({ mode: 'Clock', dateTimeExpr: '_dt' })
+      expect(clock).toMatch(/_segClock\(_segBuf_seg, [^;]*\);\s*_segCol_seg = \(\(millis\(\) \/ 1000\) % 2\) == 0;\s*\} else \{\s*_segAllDash/)
+      expect(loop({ mode: 'Elapsed', valueExpr: 'songElapsedSec()', showColon: false })).not.toContain('_segCol_seg = true')
+    })
+
     it('reads the effective level once an LED output is wired', () => {
       const src = loop({ mode: 'Level', ledStatus: { enabledExpr: '_ledOn', brightnessExpr: '_ledLevel' } })
       expect(src).toContain('float _segLvl_seg = (_ledOn) ? constrain((float)(_ledLevel), 0.0f, 1.0f) : 0.0f;')

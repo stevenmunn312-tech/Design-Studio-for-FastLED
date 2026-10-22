@@ -268,6 +268,19 @@ describe('Frame Stream, Analog RGB Strip and DIN MIDI', () => {
     expect(generateCpp([node('q', 'AnalogStripOutput')], [])).not.toContain('_r=255-_r')
   })
 
+  // ESP32 core 2 needs an LEDC channel per pin; fixed 13-15 made two strips
+  // show whichever colour was written last, and could land on a fan's channel.
+  it('gives each strip its own core-2 LEDC channels from the shared plan', () => {
+    const cpp = generateCpp([
+      node('s1', 'AnalogStripOutput', { rPin: 12, gPin: 13, bPin: 14, pwmHz: 2000 }),
+      node('s2', 'AnalogStripOutput', { rPin: 25, gPin: 26, bPin: 27, pwmHz: 2000 }),
+      node('fan', 'CoolingFanOutput'),
+    ], [])
+    const channels = [...cpp.matchAll(/ledcAttachPin\((\d+), (\d+)\)/g)].map((m) => Number(m[2]))
+    expect(channels).toHaveLength(7)
+    expect(new Set(channels).size).toBe(7)
+  })
+
   it('reads a DIN jack on a UART in firmware, and stays preview-only on Web MIDI', () => {
     const web = node('m', 'MidiInput')
     expect(generateCpp([web], [])).toContain('// Web MIDI is preview-only')

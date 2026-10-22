@@ -466,7 +466,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     Object.assign(out, { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload) })
     return out
   },
-  SegmentDisplay({ input, t, elapsedT, stateKey, incoming }, id, props): Record<string, PortValue> {
+  SegmentDisplay({ input, elapsedT, stateKey, incoming }, id, props): Record<string, PortValue> {
     // A display is a terminal: it updates whether or not anything downstream
     // reads it. The rendered characters come from state/displays/segmentDisplay.ts,
     // which the C++ generator also uses, so the module shows the same four
@@ -494,9 +494,9 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     } else if (signal.kind === 'clock') {
       const clock = signal.clock
       if (clock.valid) {
-        // The colon blinks once a second, driven by wall-clock `t` like
-        // every other animation here rather than by a frame counter.
-        const blink = props.showColon === false ? false : Math.floor(t) % 2 === 0
+        // The colon blinks once a real second, as the sketch's millis()
+        // does: Master Speed scales `t`, not the clock on the wall.
+        const blink = props.showColon === false ? false : Math.floor(elapsedT) % 2 === 0
         segment = renderSegmentClock(
           clock.hour, clock.minute,
           blink && segCtl.hasColon, segCtl.digits, clock.second,

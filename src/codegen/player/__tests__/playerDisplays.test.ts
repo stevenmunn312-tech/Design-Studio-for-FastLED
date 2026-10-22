@@ -193,7 +193,9 @@ describe('displays in the player sketch', () => {
     expect(sketch).toContain('!sdMounted ? SEG_FAULT_SD_CARD')
     expect(sketch).toContain('!playbackReady ? SEG_FAULT_NO_TRACK')
     expect(sketch).toContain('_segFaultCode(_segBuf_seg, 4, _segFault_seg);')
-    expect(sketch).toContain('((_segFault_seg == SEG_FAULT_NONE) && (true))')
+    // The colon is lit by the elapsed branch only, so a fault leaves it dark.
+    expect(sketch).toMatch(/_segClock\(_segBuf_seg, [^;]*\);\s*_segCol_seg = true;/)
+    expect(sketch).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg, _segCol_seg);')
   })
 
   /*

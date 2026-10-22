@@ -438,11 +438,16 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
   const d = `_segDec_${display.id}`
   const on = `_segOn_${display.id}`
   const fault = `_segFault_${display.id}`
+  const col = `_segCol_${display.id}`
   const digits = display.digits
+  // The colon belongs to the clock renderer, as in the preview: lit only on a
+  // branch that drew a time, never over an index, a level, dashes or a fault.
+  const colon = display.showColon && display.controller === 'TM1637'
   const lines = [
     `  { // Segment Display`,
     `    char ${v}[SEG_MAX_DIGITS + 1];`,
     `    int ${d} = 0;`,
+    `    bool ${col} = false;`,
     `    bool ${on} = ${display.enabledExpr};`,
     ...(display.faultCodeExpr ? [`    uint16_t ${fault} = (uint16_t)(${display.faultCodeExpr});`] : []),
     `    if (!${on}) {`,
@@ -464,6 +469,7 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
       `    } else if (${dt ? `${dt}.valid` : 'false'}) {`,
       `      _segClock(${v}, ${digits}, ${dt ? `${dt}.hour` : '0'}, ` +
         `${dt ? `${dt}.minute` : '0'}, ${dt ? `${dt}.second` : '0'});`,
+      ...(colon ? [`      ${col} = ((millis() / 1000) % 2) == 0;`] : []),
       `    } else {`,
       `      _segAllDash(${v}, ${digits});`,
     )
@@ -478,7 +484,7 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
       `      uint32_t _segNow_${display.id} = millis();`,
       `      float _segAmpValue_${display.id} = _segAmps_${display.id}.update(${display.powerMonitor?.amps ?? 'NAN'}, _segNow_${display.id});`,
       ...(digits >= 8 ? [`      ${d} = _segPowerField(${v}, _segAmpValue_${display.id}, 4);`]
-        : [`      ${d} = _segPowerColonAmps(${v}, _segAmpValue_${display.id}) ? 2 : 0;`]),
+        : [`      ${d} = _segPowerColonAmps(${v}, _segAmpValue_${display.id}) ? 2 : 0;`, `      ${col} = (${d} != 0);`]),
       ...(digits >= 8 ? [
         `      float _segWattValue_${display.id} = _segWatts_${display.id}.update(${display.powerMonitor?.watts ?? 'NAN'}, _segNow_${display.id});`,
         `      ${d} |= _segPowerField(${v} + 4, _segWattValue_${display.id}, 4) << 4;`,
@@ -522,6 +528,9 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
       `      long ${sec} = (long)(${display.valueExpr ?? '0'});`,
       `      if (${sec} < 0) ${sec} = 0;`,
       `      _segClock(${v}, ${digits}, ${clockArgs});`,
+      // Elapsed keeps a steady colon: a blinking one on a running clock reads
+      // as the second hand, and on a track position it reads as a fault.
+      ...(colon ? [`      ${col} = true;`] : []),
     )
   } else {
     // Nothing plugged in. A segment module cannot spell it, so it says the
@@ -532,19 +541,9 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
     )
   }
 
-  const colon = display.showColon && display.controller === 'TM1637'
-  const baseColonExpr = display.mode === 'Clock' && colon
-    ? '((millis() / 1000) % 2) == 0'
-    // Elapsed keeps a steady colon: a blinking one on a running clock reads as
-    // the second hand, and on a track position it reads as a fault.
-    : display.mode === 'Power' && digits < 8 ? `(${d} != 0)`
-    : colon && display.mode !== 'Waiting' && display.mode !== 'Power' ? 'true' : 'false'
-  const colonExpr = display.faultCodeExpr && baseColonExpr !== 'false'
-    ? `((${fault} == SEG_FAULT_NONE) && (${baseColonExpr}))`
-    : baseColonExpr
   lines.push(
     `    }`,
-    `    _segWrite(_seg_${display.id}, ${v}, ${d}, ${colonExpr}, ${on});`,
+    `    _segWrite(_seg_${display.id}, ${v}, ${d}, ${col}, ${on});`,
     `  }`,
   )
   return lines

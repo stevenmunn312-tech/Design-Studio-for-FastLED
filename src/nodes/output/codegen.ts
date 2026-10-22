@@ -111,6 +111,13 @@ function dimmedPowerSwitchChannels(
   })
 }
 
+/** An Analog Strip's PWM frequency, bounded as its slider is. */
+function analogStripHz(p: Record<string, unknown>): number {
+  return Math.max(ANALOG_PWM_HZ.min, Math.min(ANALOG_PWM_HZ.max, Math.round(Number(p.pwmHz) || ANALOG_PWM_HZ.default)))
+}
+
+const ANALOG_STRIP_CHANNELS = ['r', 'g', 'b'] as const
+
 /** Every ESP32 core-2 LEDC user, allocated together to avoid channel clashes. */
 function esp32PwmChannels(
   nodes: StudioNode[],
@@ -123,6 +130,8 @@ function esp32PwmChannels(
       key: `${candidate.id}:fan`,
       hz: coolingFanSpec(props(candidate).partId).pwmHz,
     })),
+    ...nodes.filter((candidate) => candidate.data.nodeType === 'AnalogStripOutput').flatMap((candidate) =>
+      ANALOG_STRIP_CHANNELS.map((channel) => ({ key: `${candidate.id}:${channel}`, hz: analogStripHz(props(candidate)) }))),
   ]
 }
 
@@ -927,17 +936,19 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
   },
   // Three PWM channels for one colour, through the ESP32's LEDC on either
   // core generation or analogWrite elsewhere; a common-anode strip is
-  // driven inverted. The channels live in their own block so two strips
-  // never share one.
-  AnalogStripOutput({ id, p, ln, f, channelColor, pinSetupLines, setupLines }) {
+  // driven inverted. On core 2 its LEDC channels come from the sketch-wide
+  // plan, so two strips, a Power Switch and a Cooling Fan never share one.
+  AnalogStripOutput({ node, p, ln, f, channelColor, pinSetupLines, setupLines, nodes, incoming, props }) {
     const rPin = sanitizePin(p.rPin, 25), gPin = sanitizePin(p.gPin, 26), bPin = sanitizePin(p.bPin, 27)
-    const hz = Math.max(ANALOG_PWM_HZ.min, Math.min(ANALOG_PWM_HZ.max, Math.round(Number(p.pwmHz) || ANALOG_PWM_HZ.default)))
+    const hz = analogStripHz(p)
+    const plan = powerSwitchPwmPlan(esp32PwmChannels(nodes, incoming, props))
+    const [rCh, gCh, bCh] = ANALOG_STRIP_CHANNELS.map((channel) => plan.ledcChannels.get(`${node.id}:${channel}`) ?? 0)
     const invert = Boolean(p.commonAnode)
     for (const pin of [rPin, gPin, bPin]) pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
     setupLines.push(`#if defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3`)
     setupLines.push(`  ledcAttach(${rPin}, ${hz}, 8); ledcAttach(${gPin}, ${hz}, 8); ledcAttach(${bPin}, ${hz}, 8);`)
     setupLines.push(`#elif defined(ESP32)`)
-    setupLines.push(`  ledcSetup(13, ${hz}, 8); ledcAttachPin(${rPin}, 13); ledcSetup(14, ${hz}, 8); ledcAttachPin(${gPin}, 14); ledcSetup(15, ${hz}, 8); ledcAttachPin(${bPin}, 15);`)
+    setupLines.push(`  ledcSetup(${rCh}, ${hz}, 8); ledcAttachPin(${rPin}, ${rCh}); ledcSetup(${gCh}, ${hz}, 8); ledcAttachPin(${gPin}, ${gCh}); ledcSetup(${bCh}, ${hz}, 8); ledcAttachPin(${bPin}, ${bCh});`)
     setupLines.push(`#endif`)
     ln(`  { // Analog RGB Strip`)
     ln(`    CRGB _c=${channelColor('color', 255, 96, 0)}; float _br=constrain(${f('brightness', 'brightness', 1)},0.0f,1.0f);`)
@@ -946,12 +957,11 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     ln(`#if defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3`)
     ln(`    ledcWrite(${rPin}, _r); ledcWrite(${gPin}, _g); ledcWrite(${bPin}, _b);`)
     ln(`#elif defined(ESP32)`)
-    ln(`    ledcWrite(13, _r); ledcWrite(14, _g); ledcWrite(15, _b);`)
+    ln(`    ledcWrite(${rCh}, _r); ledcWrite(${gCh}, _g); ledcWrite(${bCh}, _b);`)
     ln(`#else`)
     ln(`    analogWrite(${rPin}, _r); analogWrite(${gPin}, _g); analogWrite(${bPin}, _b);`)
     ln(`#endif`)
     ln(`  }`)
-    void id
   },
   MasterSpeed() {
     // Emitted by the loop's clock, not here: it changes what `t` is rather
