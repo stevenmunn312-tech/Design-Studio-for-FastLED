@@ -75,7 +75,13 @@ function buildShowIndex(show: ShowFile): ShowEventIndex {
       case 'SET_SPEED':      st = { ...st, speed: Number(ev.params.value) }; break
       case 'SET_ENERGY':     st = { ...st, energy: Number(ev.params.value) }; break
       case 'SET_BRIGHTNESS': st = { ...st, brightness: Number(ev.params.value) }; break
-      case 'SET_PARAM':      break
+      case 'SET_PARAM': {
+        // A slot named for a role is that role's channel, as in the sketch.
+        const name = show.params?.[Number(ev.params.index)]
+        if (name === 'speed') st = { ...st, speed: Number(ev.params.value) }
+        else if (name === 'energy') st = { ...st, energy: Number(ev.params.value) }
+        break
+      }
       case 'TRANSITION':     transitions.push(ev); break
       case 'PARTICLE_BURST': bursts.push(ev); break
       case 'BEAT_FLASH':     beats.push(ev); break
@@ -119,8 +125,10 @@ export function showStateAt(show: ShowFile, timeMs: number): ShowState {
   const speed = blankRampChannel(DEFAULT_SHOW_STATE.speed)
   const energy = blankRampChannel(DEFAULT_SHOW_STATE.energy)
   const brightness = blankRampChannel(DEFAULT_SHOW_STATE.brightness)
+  // A slot named `speed` or `energy` drives that role's channel, so SET_PARAM
+  // and SET_SPEED on it agree and the role scaling below applies to both.
   const channels: Record<string, RampChannel> = {}
-  for (const name of names) channels[name] = blankRampChannel(0)
+  for (const name of names) if (name !== 'speed' && name !== 'energy') channels[name] = blankRampChannel(0)
   for (const event of show.events) {
     if (event.t > timeMs) break
     switch (event.cmd) {
@@ -142,7 +150,8 @@ export function showStateAt(show: ShowFile, timeMs: number): ShowState {
         break
       case 'SET_PARAM': {
         const name = names[Number(event.params.index)]
-        if (name && channels[name]) applyRamp(channels[name], event.t, Number(event.params.value), rampMsOf(event))
+        const channel = name === 'speed' ? speed : name === 'energy' ? energy : name ? channels[name] : undefined
+        if (channel) applyRamp(channel, event.t, Number(event.params.value), rampMsOf(event))
         break
       }
       default:
@@ -150,7 +159,7 @@ export function showStateAt(show: ShowFile, timeMs: number): ShowState {
     }
   }
   const params: Record<string, number> = {}
-  for (const name of names) params[name] = channelAt(channels[name], timeMs)
+  for (const name of Object.keys(channels)) params[name] = channelAt(channels[name], timeMs)
   return {
     pattern,
     patternIndex,

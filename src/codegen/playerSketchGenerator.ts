@@ -837,7 +837,11 @@ export function generatePlayerSketch(
   const outgoingRoles = transitions && !genericPlayer ? roleParams : []
   const prevRole = (role: string) => `prev${role[0].toUpperCase()}${role.slice(1)}`
   const extraParams = paramNames.filter((name) => name !== 'energy' && name !== 'speed' && name !== 'palette')
-  const speedExpr = renderers?.rawSpeed ? 'ev.params[0]' : 'constrain(ev.params[0] * 0.5f, 0.0f, 1.0f)'
+  // SET_SPEED carries a 0–2 multiplier; the `speed` role takes 0–1 unless the
+  // patterns want the multiplier itself. A SET_PARAM slot named `speed` is the
+  // same channel, so it takes the same scaling (showStateAt routes it likewise).
+  const normSpeed = (source: string) => renderers?.rawSpeed ? source : `constrain(${source} * 0.5f, 0.0f, 1.0f)`
+  const speedExpr = normSpeed('ev.params[0]')
   const brightnessNow = (value: string) => hasControls
     ? `showBrightness = constrain(${value} / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();`
     : isHub75
@@ -860,10 +864,11 @@ ${paramSlots.map((name, index) => {
     const declared = validParamName(name) && (name === 'energy' ? hasEnergy : name === 'speed' ? hasSpeed : name !== 'palette')
     if (!declared) return ''
     const ramp = name === 'speed' ? 'rampSpeed' : name === 'energy' ? 'rampEnergy' : `rampParam_${name}`
+    const scale = name === 'speed' && normSpeed('to') !== 'to' ? `to = ${normSpeed('to')}; ` : ''
     const write = rampPlayer
       ? `if (ev.paramCount > 2) ${ramp}.begin(ev.t, to, ev.params[2]); else { ${ramp}.from = to; ${ramp}.to = to; ${ramp}.t = ev.t; ${ramp}.rampMs = 0; ${name} = to; }`
       : `${name} = to;`
-    return `      if (which == ${index}) { ${write} }`
+    return `      if (which == ${index}) { ${scale}${write} }`
   }).filter(Boolean).join('\n')}
       break;
     }`

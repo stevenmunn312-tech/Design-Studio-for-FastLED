@@ -61,6 +61,15 @@ describe('SET_PARAM slot indices', () => {
     expect(ino).not.toContain('CMD_SET_PARAM')
   })
 
+  it('scales a slot named speed like SET_SPEED, unless the patterns take the raw multiplier', () => {
+    const scaled = generatePlayerSketch({}, renderersReading('speed'), { showParams: ['speed'] })
+    expect(scaled).toContain('case CMD_SET_SPEED:      speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f); break;')
+    expect(scaled).toContain('if (which == 0) { to = constrain(to * 0.5f, 0.0f, 1.0f); speed = to; }')
+    const raw = generatePlayerSketch({}, { ...renderersReading('speed'), rawSpeed: true }, { showParams: ['speed'] })
+    expect(raw).toContain('case CMD_SET_SPEED:      speed = ev.params[0]; break;')
+    expect(raw).toContain('if (which == 0) { speed = to; }')
+  })
+
   it('declares a repeated name once', () => {
     const ino = generatePlayerSketch({}, renderersReading('gain'), { showParams: ['gain', 'gain'], ramps: true })
     expect(ino.match(/float {6}gain = 0\.0f;/g)).toHaveLength(1)

@@ -39,6 +39,23 @@ describe('showStateAt', () => {
     expect(showStateAt(show, 1500).pattern).toBe('Fire')
     expect(showStateAt(show, 1500).brightness).toBe(0)
   })
+
+  it('routes a SET_PARAM slot named speed or energy to that role channel', () => {
+    // The sketch scales a `speed` slot like SET_SPEED; the preview does the
+    // same by reading it as the speed channel, which the role mapping halves.
+    const named: ShowFile = {
+      ...show, params: ['speed', 'gain', 'energy'],
+      events: [
+        { t: 0, cmd: 'SET_PARAM', params: { index: 0, value: 2 } },
+        { t: 0, cmd: 'SET_PARAM', params: { index: 1, value: 0.25 } },
+        { t: 0, cmd: 'SET_PARAM', params: { index: 2, value: 0.75 } },
+      ],
+    }
+    const st = showStateAt(named, 10)
+    expect(st.speed).toBe(2)
+    expect(st.energy).toBe(0.75)
+    expect(st.params).toEqual({ gain: 0.25 })
+  })
 })
 
 describe('beatFlashAt', () => {
