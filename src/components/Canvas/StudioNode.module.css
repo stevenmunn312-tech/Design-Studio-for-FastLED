@@ -175,12 +175,6 @@
   white-space: nowrap;
 }
 
-/* "· Board 2" after a part's title in a project with several boards. */
-.headerBoard {
-  color: var(--text-secondary);
-  font-weight: 400;
-}
-
 .headerMeta {
   margin-left: auto;
   display: inline-flex;
@@ -271,6 +265,8 @@
   -webkit-line-clamp: 2;
 }
 
+/* "BOARD 2": the controller a part is wired to, in a project with several. */
+.headerBoard,
 .headerTag,
 .headerCode {
   padding: 2px 4px;

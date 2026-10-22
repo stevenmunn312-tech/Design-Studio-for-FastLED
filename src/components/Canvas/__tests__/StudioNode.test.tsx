@@ -169,9 +169,9 @@ describe('StudioNode', () => {
     useGraphStore.setState({ nodes: [boards[0], output], edges: [] })
     const props = { id: output.id, data: output.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
     const view = render(<StudioNode {...props} />)
-    expect(view.queryByText(/Board 2/)).toBeNull()
+    expect(view.queryByText('BOARD 2')).toBeNull()
     act(() => { useGraphStore.setState({ nodes: [...boards, output] }) })
-    expect(view.getByText(/· Board 2/)).toBeTruthy()
+    expect(view.getByText('BOARD 2')).toBeTruthy()
   })
 
   it('draws every channel on the selected relay module', () => {

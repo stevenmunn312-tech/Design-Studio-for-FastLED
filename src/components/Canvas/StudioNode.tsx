@@ -1496,8 +1496,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const headerCode = moduleCode(d.nodeType)
   const nodeTag = id.slice(-3).toUpperCase()
   const displayName = nodeDisplayLabel(d.nodeType, props, d.label)
-  // "LED Matrix · Board 2": which controller a part or output belongs to, said
-  // only once the project has more than one (docs/design/multi-board.md).
+  // A "BOARD 2" pill: which controller a part or output belongs to, shown
+  // only once the project has more than one (docs/design/multi-board.md). A
+  // pill rather than a title suffix, because the title clips to its width.
   const boards = useBoardNodes()
   const boardSuffix = boards.length > 1 && isBoardAttachedNodeType(d.nodeType)
     ? boardOrdinalLabel(boards, boardIdOf({ data: d } as StudioNodeT, boards[0].id, new Set(boards.map((board) => board.id))))
@@ -1602,11 +1603,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             />
           )
         })}
-        <span className={styles.headerTitle}>
-          {displayName}
-          {boardSuffix && <span className={styles.headerBoard}> · {boardSuffix}</span>}
-        </span>
+        <span className={styles.headerTitle}>{displayName}</span>
         <span className={styles.headerMeta}>
+          {boardSuffix && <span className={styles.headerBoard} title={`On ${boardSuffix}`}>{boardSuffix.toUpperCase()}</span>}
           <span className={styles.headerTag}>{categoryTag}</span>
           <span className={styles.headerCode}>{headerCode}-{nodeTag}</span>
           {showLiveNodeVisuals && (
