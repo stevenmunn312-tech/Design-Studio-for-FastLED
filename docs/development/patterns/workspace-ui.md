@@ -222,6 +222,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   zooms the canvas or, uncapped, grows the node taller than the canvas. Give the
   list `nowheel`, `overflow-y: auto` and a `max-height`, as `PaletteBankBody.tsx`
   does for its bank strip and catalogue grid.
+- **A workspace that owns its sidebar panel insets its own canvas.** The
+  shared sidebar is a floating dock (`.sidebarDock` in `App.module.css` is
+  absolutely positioned over `.mainRegion`), not a flex column, so a
+  workspace that portals its panel into the sidebar host (`HardwarePane`,
+  `BuildDiagramWorkspace`, the Upload deploy controls) sits *under* the panel
+  unless it steps aside by `sidebarOpen ? sidebarWidth : 0` from `useUiStore`
+  — `HardwarePane`'s `leftInset`, `BuildDiagramWorkspace`'s `marginLeft`.
+  Read the host with `document.getElementById` in a `useLayoutEffect` and
+  keep an inline fallback for when there is none, so a test mounting the
+  workspace alone still finds the panel; apply the inset only while docked,
+  or the fallback column doubles it. The host id lives in its own tiny module
+  (`hardwareShelfHost.ts`, `uploadControlsHost.ts`, `buildDiagramShelfHost.ts`)
+  because `App.tsx` renders the host but loads the workspace lazily.
 - **One Escape closes one layer.** Every popup, menu and dialog that closes on
   Escape registers with `useEscapeLayer(onEscape, open)`
   (`src/hooks/useEscapeLayer.ts`), which gives the keystroke to the most

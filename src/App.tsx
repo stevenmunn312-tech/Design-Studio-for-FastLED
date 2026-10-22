@@ -37,6 +37,7 @@ import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SI
 import { enterStagePresentation, exitStagePresentation } from './utils/stagePresentation'
 import { HARDWARE_SHELF_HOST_ID } from './components/Hardware/hardwareShelfHost'
 import { UPLOAD_CONTROLS_HOST_ID } from './components/Upload/uploadControlsHost'
+import { BUILD_DIAGRAM_SHELF_HOST_ID } from './components/BuildDiagram/buildDiagramShelfHost'
 import WorkspaceTabs from './components/Layout/WorkspaceTabs'
 import LiveTouchScreen from './components/DisplayEditor/LiveTouchScreen'
 import styles from './App.module.css'
@@ -132,21 +133,27 @@ export default function App() {
   const [stageCursorHidden, setStageCursorHidden] = useState(false)
   const [capacityWatcherReady, setCapacityWatcherReady] = useState(false)
   const displayEditorOpen = designWorkspaceView.kind === 'display'
-  const workspaceSidebarVisible = !displayEditorOpen && workspaceMode !== 'build'
+  const workspaceSidebarVisible = !displayEditorOpen
   // The display editor takes the full width, so the preview collapses while it
   // is open. It stays mounted, though: the preview owns the music player's
   // <audio> element and playlist, and unmounting it would stop the track and
   // drop every loaded file.
   const previewShown = previewPanelOpen && !displayEditorOpen
   // What the left panel holds follows the workspace: parts on the bench,
-  // the deploy controls while flashing, the node library where a graph is
-  // being drawn. Upload has no graph to add nodes to, so the library there
-  // was a panel of dead weight beside the one thing the tab is for.
+  // the deploy controls while flashing, the build panel beside the wiring
+  // diagram, the node library where a graph is being drawn. Upload has no
+  // graph to add nodes to, so the library there was a panel of dead weight
+  // beside the one thing the tab is for. Each workspace that owns its panel
+  // portals it into the host rendered here, so the width, resize and toggle
+  // controls below are the same four times over.
+  const sidebarHosted = workspaceMode === 'hardware' || workspaceMode === 'upload' || workspaceMode === 'build'
   const sidebarHostId = workspaceMode === 'hardware' ? HARDWARE_SHELF_HOST_ID
     : workspaceMode === 'upload' ? UPLOAD_CONTROLS_HOST_ID
+    : workspaceMode === 'build' ? BUILD_DIAGRAM_SHELF_HOST_ID
     : 'node-library'
   const sidebarLabel = workspaceMode === 'hardware' ? 'parts shelf'
     : workspaceMode === 'upload' ? 'upload tools'
+    : workspaceMode === 'build' ? 'build details'
     : 'node library'
 
   // CapacityWatcher assembles the exact firmware text used by a later manual
@@ -701,7 +708,7 @@ export default function App() {
                     aria-hidden={!sidebarOpen}
                     inert={!sidebarOpen}
                   >
-                    {workspaceMode === 'hardware' || workspaceMode === 'upload'
+                    {sidebarHosted
                       ? <div id={sidebarHostId} className={styles.sidebarShelfHost} />
                       : <Sidebar />}
                   </div>

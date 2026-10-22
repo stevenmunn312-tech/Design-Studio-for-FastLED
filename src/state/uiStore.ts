@@ -124,7 +124,10 @@ const PREVIEW_WIDTH_KEY = 'design-studio-for-fastled-preview-width'
 const LAYOUT_PRESET_KEY = 'design-studio-for-fastled-layout-preset'
 const HARDWARE_RATIO_KEY = 'design-studio-for-fastled-hardware-pane-ratio'
 const HARDWARE_SHELF_CATEGORY_KEY = 'design-studio-for-fastled-hardware-shelf-category'
-const WORKSPACE_LAYOUTS_KEY = 'design-studio-for-fastled-workspace-panel-layouts-v1'
+// v2: Build Diagram's panel moved into the shared sidebar, so its layout
+// starts open like the other workspaces'; a v1 record said closed because the
+// sidebar was switched off there and the value was never the user's choice.
+const WORKSPACE_LAYOUTS_KEY = 'design-studio-for-fastled-workspace-panel-layouts-v2'
 
 function clampHardwarePaneRatio(value: unknown, fallback = 0.5): number {
   const ratio = typeof value === 'number' && Number.isFinite(value) ? value : fallback
@@ -188,7 +191,7 @@ function defaultWorkspaceLayouts(): WorkspacePanelLayouts {
       layoutPreset: 'custom',
     },
     build: {
-      sidebarOpen: false,
+      sidebarOpen: true,
       previewPanelOpen: false,
       sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
       previewWidth: LAYOUT_PRESETS.build.previewWidth,

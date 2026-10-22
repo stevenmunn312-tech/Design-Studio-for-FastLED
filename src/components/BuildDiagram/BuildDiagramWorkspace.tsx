@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import {
   boardPinForGpio,
@@ -42,6 +42,7 @@ import {
 } from './physicalDiagramLayout'
 import { inlineSvgImages } from './svgExport'
 import { panOffsetForPointerZoom } from './viewportZoom'
+import { BUILD_DIAGRAM_SHELF_HOST_ID } from './buildDiagramShelfHost'
 import styles from './BuildDiagramWorkspace.module.css'
 
 interface DiagramConnection {
@@ -68,10 +69,6 @@ const FIT_MIN_ZOOM = 0.2
 const MAX_ZOOM = 2.8
 const ZOOM_STEP = 0.15
 const FIT_PADDING = 48
-const PANEL_WIDTH_STEP = 32
-const DEFAULT_SIDEBAR_WIDTH = 340
-const MIN_SIDEBAR_WIDTH = 280
-const MAX_SIDEBAR_WIDTH = 420
 
 function downloadBuildFile(contents: string, filename: string, type: string) {
   const url = URL.createObjectURL(new Blob([contents], { type }))
@@ -249,8 +246,17 @@ export default function BuildDiagramWorkspace() {
   const selectedTarget = boardByFqbn(selectedFqbn)
   const [selectedItemId, setSelectedItemId] = useState<string>(() => exactBoard ? 'controller' : '')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
+  // The information panel is drawn in the shared workspace sidebar, which
+  // `App.tsx` renders as an empty host and sizes, hides and resizes the same
+  // way for every workspace. With no host (a test rendering this on its own)
+  // the panel falls back to its own column beside the diagram, so it is never
+  // merely absent.
+  const [panelHost, setPanelHost] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    setPanelHost(document.getElementById(BUILD_DIAGRAM_SHELF_HOST_ID))
+  }, [])
+  const sidebarOpen = useUiStore((state) => state.sidebarOpen)
+  const sidebarWidth = useUiStore((state) => state.sidebarWidth)
   const [diagramZoom, setDiagramZoom] = useState(1)
   const [diagramPan, setDiagramPan] = useState<DiagramPan>({ x: 0, y: 0 })
   const [printSheetsMounted, setPrintSheetsMounted] = useState(false)
@@ -504,10 +510,6 @@ export default function BuildDiagramWorkspace() {
       status: exportDraftStatus,
       ruleSetVersion: electricalPlan.ruleSetVersion,
     }), 'fastled-build-bom.csv', 'text/csv;charset=utf-8')
-  }
-
-  const adjustSidebarWidth = (delta: number) => {
-    setSidebarWidth((current) => Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, current + delta)))
   }
 
   const controllerBox = useMemo(() => {
@@ -805,421 +807,391 @@ export default function BuildDiagramWorkspace() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exactBoard?.id, canvasWidth, canvasHeight, activeSection.id])
 
-  const workspaceStyle = {
-    '--build-sidebar-width': `${sidebarWidth}px`,
-  } as CSSProperties
+  // The sidebar floats over the main region rather than beside it, so the
+  // diagram insets by the open panel's width the way the bench does. Only when
+  // docked: the inline fallback already has the panel in its own column.
+  const panelDocked = panelHost !== null
+  const leftInset = panelDocked && sidebarOpen ? sidebarWidth : 0
+  const dockPanel = (panel: ReactNode) => (panelHost ? createPortal(panel, panelHost) : panel)
 
   return (
     <section
       className={[
         styles.workspace,
-        sidebarCollapsed ? styles.workspaceSidebarCollapsed : '',
+        panelDocked ? styles.workspaceDocked : '',
         exportMode === 'complete-build' ? styles.exportCompleteMode : '',
       ].join(' ').trim()}
       aria-label="Build Diagram workspace"
-      style={workspaceStyle}
+      style={{ marginLeft: leftInset }}
     >
-      <aside className={styles.sidebar}>
-        {sidebarCollapsed ? (
-          <button type="button" className={styles.collapsedRail} onClick={() => setSidebarCollapsed(false)}>
-            Show build panel
-          </button>
-        ) : (
-          <>
-            <div className={styles.panelHeader}>
-              <h2 className={styles.panelTitle}>Build Diagram</h2>
-              <div className={styles.headerActions}>
-                <div className={styles.panelSizeControls}>
-                  <button
-                    type="button"
-                    className={styles.smallButton}
-                    onClick={() => adjustSidebarWidth(-PANEL_WIDTH_STEP)}
-                    disabled={sidebarWidth <= MIN_SIDEBAR_WIDTH}
-                    aria-label="Narrow build panel"
-                    title="Narrow build panel"
-                  >
-                    <span aria-hidden="true">-</span><span className={styles.visuallyHidden}>Narrow build panel</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.smallButton}
-                    onClick={() => adjustSidebarWidth(PANEL_WIDTH_STEP)}
-                    disabled={sidebarWidth >= MAX_SIDEBAR_WIDTH}
-                    aria-label="Widen build panel"
-                    title="Widen build panel"
-                  >
-                    <span aria-hidden="true">+</span><span className={styles.visuallyHidden}>Widen build panel</span>
-                  </button>
-                </div>
-                <button type="button" className={styles.smallButton} onClick={() => setSidebarCollapsed(true)}>
-                  <span aria-hidden="true">&lt;&lt;</span><span className={styles.visuallyHidden}>Hide build panel</span>
-                </button>
-              </div>
-            </div>
+      {dockPanel(
+        <aside className={styles.sidebar} aria-label="Build panel">
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Build Diagram</h2>
+          </div>
 
-            <section className={`${styles.card} ${styles.compactHardwareCard}`}>
-              <h3 className={styles.cardTitle}>Graph hardware</h3>
-              <div className={styles.hardwareList}>
-                {primaryItems.length === 0 ? (
-                  <p className={styles.copyMuted}>No additional hardware is present in the graph.</p>
-                ) : primaryItems.map((item) => {
-                  const isVisible = buildProfile.visibility?.[item.id] !== false
-                  const done = buildProfile.done?.[item.id]
-                  const isDone = isItemDone(item.id)
-                  const isStale = !!done && !isDone
-                  return (
-                    <div key={item.id} className={`${styles.hardwareRow} ${selectedItemId === item.id ? styles.hardwareRowActive : ''}`}>
-                      <button type="button" className={styles.hardwareMain} onClick={() => setSelectedItemId(item.id)}>
-                        <span className={styles.hardwareTitle}>{item.title}</span>
-                        {isStale && <span className={styles.staleNotice}>Recheck</span>}
+          <section className={`${styles.card} ${styles.compactHardwareCard}`}>
+            <h3 className={styles.cardTitle}>Graph hardware</h3>
+            <div className={styles.hardwareList}>
+              {primaryItems.length === 0 ? (
+                <p className={styles.copyMuted}>No additional hardware is present in the graph.</p>
+              ) : primaryItems.map((item) => {
+                const isVisible = buildProfile.visibility?.[item.id] !== false
+                const done = buildProfile.done?.[item.id]
+                const isDone = isItemDone(item.id)
+                const isStale = !!done && !isDone
+                return (
+                  <div key={item.id} className={`${styles.hardwareRow} ${selectedItemId === item.id ? styles.hardwareRowActive : ''}`}>
+                    <button type="button" className={styles.hardwareMain} onClick={() => setSelectedItemId(item.id)}>
+                      <span className={styles.hardwareTitle}>{item.title}</span>
+                      {isStale && <span className={styles.staleNotice}>Recheck</span>}
+                    </button>
+                    <div className={styles.hardwareActions}>
+                      <button type="button" className={styles.iconButton} aria-label={isVisible ? `Hide ${item.title}` : `Show ${item.title}`} title={isVisible ? 'Hide' : 'Show'} onClick={() => toggleVisibility(item.id)}>
+                        <EyeIcon crossed={!isVisible} />
                       </button>
-                      <div className={styles.hardwareActions}>
-                        <button type="button" className={styles.iconButton} aria-label={isVisible ? `Hide ${item.title}` : `Show ${item.title}`} title={isVisible ? 'Hide' : 'Show'} onClick={() => toggleVisibility(item.id)}>
-                          <EyeIcon crossed={!isVisible} />
-                        </button>
-                        <button type="button" className={`${styles.iconButton} ${isolatedItemId === item.id ? styles.iconButtonActive : ''}`} aria-label={isolatedItemId === item.id ? `Show all hardware around ${item.title}` : `Isolate ${item.title}`} title={isolatedItemId === item.id ? 'Show all' : 'Isolate'} onClick={() => setIsolatedItemId(isolatedItemId === item.id ? null : item.id)}>
-                          <IsolateIcon active={isolatedItemId === item.id} />
-                        </button>
-                        <button type="button" className={`${styles.iconButton} ${isDone ? styles.iconButtonDone : ''}`} aria-label={isDone ? `Mark ${item.title} unfinished` : `Mark ${item.title} done`} title={isDone ? 'Done' : 'Mark done'} onClick={() => toggleDone(item)}>
-                          <DoneIcon active={isDone} />
-                        </button>
-                      </div>
+                      <button type="button" className={`${styles.iconButton} ${isolatedItemId === item.id ? styles.iconButtonActive : ''}`} aria-label={isolatedItemId === item.id ? `Show all hardware around ${item.title}` : `Isolate ${item.title}`} title={isolatedItemId === item.id ? 'Show all' : 'Isolate'} onClick={() => setIsolatedItemId(isolatedItemId === item.id ? null : item.id)}>
+                        <IsolateIcon active={isolatedItemId === item.id} />
+                      </button>
+                      <button type="button" className={`${styles.iconButton} ${isDone ? styles.iconButtonDone : ''}`} aria-label={isDone ? `Mark ${item.title} unfinished` : `Mark ${item.title} done`} title={isDone ? 'Done' : 'Mark done'} onClick={() => toggleDone(item)}>
+                        <DoneIcon active={isDone} />
+                      </button>
                     </div>
-                  )
-                })}
-              </div>
-            </section>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
 
-            <section className={`${styles.card} ${styles.powerSummaryCard}`}>
-              <h3 className={styles.cardTitle}>Power summary</h3>
-              {electricalPlan.totals ? (
-                <>
-                  <span className={styles.powerSummaryValue}>{formatCurrentMa(electricalPlan.totals.designCurrentMa)}</span>
-                  <span className={styles.powerSummaryMeta}>
-                    full-white design load @ {formatVoltage(electricalPlan.totals.nominalVoltage)}
+          <section className={`${styles.card} ${styles.powerSummaryCard}`}>
+            <h3 className={styles.cardTitle}>Power summary</h3>
+            {electricalPlan.totals ? (
+              <>
+                <span className={styles.powerSummaryValue}>{formatCurrentMa(electricalPlan.totals.designCurrentMa)}</span>
+                <span className={styles.powerSummaryMeta}>
+                  full-white design load @ {formatVoltage(electricalPlan.totals.nominalVoltage)}
+                </span>
+                {electricalPlan.totals.operatingCurrentCapMa != null && (
+                  <span className={styles.powerSummaryLimit}>
+                    {electricalPlan.outputs
+                      .filter((output) => output.operatingCurrentCapMa != null)
+                      .map((output) => `${output.title}: ${formatCurrentMa(output.operatingCurrentCapMa ?? 0)} running limit`)
+                      .join(' · ')}
+                    {' '}· hardware is still sized for full white
                   </span>
-                  {electricalPlan.totals.operatingCurrentCapMa != null && (
-                    <span className={styles.powerSummaryLimit}>
-                      {electricalPlan.outputs
-                        .filter((output) => output.operatingCurrentCapMa != null)
-                        .map((output) => `${output.title}: ${formatCurrentMa(output.operatingCurrentCapMa ?? 0)} running limit`)
-                        .join(' · ')}
-                      {' '}· hardware is still sized for full white
-                    </span>
-                  )}
-                  <span className={styles.powerSummaryBudget}>
-                    Supply budget {formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / {formatWattage(electricalPlan.totals.recommendedSupplyWattage)}
-                  </span>
-                </>
-              ) : (
-                <p className={styles.copyMuted}>Add the missing installation facts to calculate the conservative supply budget.</p>
-              )}
-            </section>
+                )}
+                <span className={styles.powerSummaryBudget}>
+                  Supply budget {formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / {formatWattage(electricalPlan.totals.recommendedSupplyWattage)}
+                </span>
+              </>
+            ) : (
+              <p className={styles.copyMuted}>Add the missing installation facts to calculate the conservative supply budget.</p>
+            )}
+          </section>
 
-            {/* Every blocker except the exact board, which Readiness names:
-                unsupported parts with their own reasons, and the power plan's
-                safety rules. Always visible, since any one keeps exports draft. */}
-            {powerProblems.length > 0 && (
-              <section className={styles.card} data-power-problems={powerProblems.length}>
-                <h3 className={`${styles.cardTitle} ${styles.problemTitle}`}>Fix before building</h3>
+          {/* Every blocker except the exact board, which Readiness names:
+              unsupported parts with their own reasons, and the power plan's
+              safety rules. Always visible, since any one keeps exports draft. */}
+          {powerProblems.length > 0 && (
+            <section className={styles.card} data-power-problems={powerProblems.length}>
+              <h3 className={`${styles.cardTitle} ${styles.problemTitle}`}>Fix before building</h3>
+              <ul className={styles.flatList}>
+                {powerProblems.map((entry) => (
+                  <li key={entry.id}>
+                    <strong>{entry.title}</strong>: {entry.detail}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {selectedItemId ? <>
+          <section className={styles.card}>
+            <h3 className={styles.cardTitle}>Selected item</h3>
+            <p className={styles.copy}><strong>{selectedItem.title}</strong></p>
+            <p className={styles.copyMuted}>{selectedItem.subtitle}</p>
+            {selectedItemId === 'controller' && exactBoard && (
+              <>
+                <p className={styles.copyMuted}>{exactBoard.sourceSummary}</p>
+                {exactBoard.confidence !== 'manufacturer-verified' && (
+                  <p className={`${styles.warningText} ${styles.confidenceCallout}`}>{confidenceSummary(exactBoard)}</p>
+                )}
+                {exactBoard.notes.length > 0 && (
+                  <>
+                    <h4 className={styles.subTitle}>Board notes</h4>
+                    <ul className={styles.flatList}>
+                      {exactBoard.notes.map((note) => <li key={note}>{note}</li>)}
+                    </ul>
+                  </>
+                )}
+                {exactBoard.caveats.length > 0 && (
+                  <>
+                    <h4 className={styles.subTitle}>Caveats</h4>
+                    <ul className={styles.flatList}>
+                      {exactBoard.caveats.map((note) => <li key={note}>{note}</li>)}
+                    </ul>
+                  </>
+                )}
+              </>
+            )}
+            {selectedItemId !== 'controller' && !exactBoard && (
+              <p className={styles.warningText}>Select an exact board profile before pin definitions or controller-side connections appear here.</p>
+            )}
+            {selectedConnections.length > 0 && canRenderControllerPins && (
+              <>
+                <h4 className={styles.subTitle}>Controller pins</h4>
                 <ul className={styles.flatList}>
-                  {powerProblems.map((entry) => (
+                  {selectedConnections.map((connection) => (
+                    <li key={connection.id} className={styles.pinRow}>
+                      <strong>{boardPinLabelForUse(exactBoard, connection.pinUse)}</strong> · {connection.pinUse.label}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {selectedConnections.some((connection) => connection.unresolvedReason) && (
+              <>
+                <h4 className={styles.subTitle}>Needs review</h4>
+                <ul className={styles.flatList}>
+                  {selectedConnections
+                    .filter((connection) => connection.unresolvedReason)
+                    .map((connection) => (
+                      <li key={connection.id}>{connection.unresolvedReason}</li>
+                    ))}
+                </ul>
+              </>
+            )}
+            {Object.keys(selectedItem.facts).length > 0 && (
+              <dl className={styles.factList}>
+                {Object.entries(selectedItem.facts).map(([key, value]) => (
+                  <div key={key} className={styles.factRow}>
+                    <dt>{formatFactLabel(key)}</dt>
+                    <dd>{formatFactValue(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </section>
+
+          <section className={styles.card}>
+            <h3 className={styles.cardTitle}>Readiness</h3>
+            <ul className={styles.flatList}>
+              <li>Graph hardware: captured automatically</li>
+              <li>Exact board: {exactBoard ? 'confirmed' : 'select one board profile'}</li>
+              <li>Wiring plan: {requirementsCalculatedText}</li>
+              <li>Signal plan: {readinessText}</li>
+              <li>Power plan: {electricalPlan.powerReadyText}</li>
+              <li>Build reference: {buildReadyText}</li>
+            </ul>
+          </section>
+
+          <section className={styles.card}>
+            <h3 className={styles.cardTitle}>Connections</h3>
+            {connectionRows.length === 0 ? (
+              <p className={styles.copyMuted}>Controller-side connections appear here after an exact board with a reviewed pin map is selected.</p>
+            ) : (
+              <div className={styles.connectionList}>
+                {connectionRows.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    className={`${styles.connectionRow} ${selectedItemId === row.itemId ? styles.connectionRowActive : ''}`}
+                    onClick={() => setSelectedItemId(row.itemId)}
+                  >
+                    <strong>{row.itemTitle}</strong>
+                    <span>{boardPinLabelForUse(exactBoard, row.pinUse)} → {row.pinUse.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {unresolvedConnections.length > 0 && (
+              <>
+                <h4 className={styles.subTitle}>Unresolved</h4>
+                <ul className={styles.flatList}>
+                  {unresolvedConnections.map((connection) => (
+                    <li key={connection.id}>
+                      <strong>{connection.itemTitle}</strong>: {connection.unresolvedReason}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.rowBetween}>
+              <h3 className={styles.cardTitle}>Parts</h3>
+              <span className={styles.progressPill}>{partsSummary.length} lines</span>
+            </div>
+            <div className={styles.partsTable}>
+              {partsSummary.map((part) => (
+                <div key={part.id} className={styles.partsRow}>
+                  <span className={styles.partsQuantity}>{part.quantity}</span>
+                  <span>{part.label}</span>
+                  <span className={part.pending ? styles.partPending : styles.partReady} title={part.pending ? 'Rating or exact part still pending' : 'Configured'}>
+                    {part.pending ? '?' : 'OK'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.card}>
+            <h3 className={styles.cardTitle}>Calculated requirements</h3>
+            {electricalPlan.battery && (
+              <div data-battery-requirements="true">
+                <h4 className={styles.subTitle}>Battery pack</h4>
+                <ul className={styles.flatList}>
+                  <li>{electricalPlan.battery.pack.series}S{electricalPlan.battery.pack.parallel}P · {electricalPlan.battery.pack.cellCount} × {electricalPlan.battery.pack.label}</li>
+                  <li>Source window: {electricalPlan.battery.window.minV} V minimum, {electricalPlan.battery.window.fullV} V full, {electricalPlan.battery.window.ceilingV} V ceiling</li>
+                  <li>Rated pack: {electricalPlan.battery.pack.nominalV} V · {electricalPlan.battery.pack.capacityAh} Ah · {electricalPlan.battery.pack.energyWh} Wh</li>
+                  <li>Full-white pack current: about {formatCurrentMa(electricalPlan.battery.dischargeDesignCurrentMa)}</li>
+                  <li>Main fuse: {electricalPlan.battery.mainFuse.ratingMa && electricalPlan.battery.mainFuseClass ? `${formatCurrentMa(electricalPlan.battery.mainFuse.ratingMa)} ${electricalPlan.battery.mainFuseClass.label} · ${electricalPlan.battery.mainFuseClass.interruptRatingA} A interrupting at ${electricalPlan.battery.mainFuseClass.maximumVoltageV} V DC` : 'unresolved'} · limited by {electricalPlan.battery.limitedBy}</li>
+                  {electricalPlan.battery.prospectiveShortCircuitA != null && <li>Conservative prospective short-circuit current: {electricalPlan.battery.prospectiveShortCircuitA} A</li>}
+                  {electricalPlan.battery.runtimeHours != null && <li>Full-white runtime: at most about {electricalPlan.battery.runtimeHours} h</li>}
+                  {electricalPlan.battery.limitedRuntimeHours != null && <li>Configured running-limit runtime: about {electricalPlan.battery.limitedRuntimeHours} h</li>}
+                </ul>
+              </div>
+            )}
+            {electricalPlan.outputs.length === 0 ? (
+              <p className={styles.copyMuted}>
+                The graph has no supported 5 V LED output requiring an external power plan.
+              </p>
+            ) : (
+              <>
+                <p className={styles.copyMuted}>
+                  This is the hardware to use, calculated automatically from the graph. Ratings are conservative full-white design values, not questions for the user to answer.
+                </p>
+                {electricalPlan.totals && (
+                  <ul className={styles.flatList}>
+                    <li>Full-white design load: {formatCurrentMa(electricalPlan.totals.designCurrentMa)} @ {electricalPlan.totals.nominalVoltage} V</li>
+                    {electricalPlan.totals.source && (
+                      <li>Upstream source: {electricalPlan.totals.source.voltage} V, at least {formatCurrentMa(electricalPlan.totals.source.recommendedCurrentMa)} / {formatWattage(electricalPlan.totals.source.recommendedWattage)} continuous</li>
+                    )}
+                    {electricalPlan.totals.supplies.map((supply, index) => (
+                      <li key={supply.id}>
+                        {supply.converter ? `Converter ${index + 1}: ${supply.converter.label}, ${formatCurrentMa(supply.converter.deratedCurrentMa)} at 40 °C` : `PSU ${index + 1}: ${electricalPlan.totals?.nominalVoltage} V, at least ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} continuous`}
+                        {' '}for {supply.outputTitles.join(', ')} ({electricalPlan.totals?.headroomPercent}% headroom)
+                      </li>
+                    ))}
+                    {electricalPlan.totals.supplies.length > 1 && <li>Keep separate {electricalPlan.totals.supplies.some((supply) => supply.converter) ? 'converter' : 'PSU'} +5 V zones isolated; join grounds for the shared controller data reference.</li>}
+                    {electricalPlan.controllerPowerPath && <li>Controller branch: {electricalPlan.controllerPowerPath}</li>}
+                  </ul>
+                )}
+                <div className={styles.outputFactList}>
+                  {electricalPlan.outputs.map((output) => (
+                    <section key={output.itemId} className={styles.outputFactCard}>
+                      <div className={styles.rowBetween}>
+                        <div>
+                          <h4 className={styles.subTitle}>{output.title}</h4>
+                          <p className={styles.copyMuted}>{output.pixelCount} px · {output.topology} · generated distributed power</p>
+                        </div>
+                        <span className={styles.progressPill}>{formatCurrentMa(output.designCurrentMa)}</span>
+                      </div>
+                      <ul className={styles.flatList}>
+                        {output.operatingCurrentCapMa != null && <li>Configured FastLED running limit: {formatCurrentMa(output.operatingCurrentCapMa)} (does not reduce the hardware)</li>}
+                        <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned {electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'converter distribution zone' : 'PSU distribution zone'}</li>
+                        {output.injections.map((injection) => (
+                          <li key={injection.id}>
+                            {injection.role} @ {injection.positionMm} mm: {formatCurrentMa(injection.designCurrentMa)} / {injection.pixelCount} px,
+                            {' '}{injection.conductor ? `AWG ${injection.conductor.awg}` : 'wire unresolved'},
+                            {' '}{injection.fuse.ratingMa ? `${formatCurrentMa(injection.fuse.ratingMa)} fuse` : 'fuse unresolved'},
+                            {' '}{injection.supplyId?.replace('supply-', electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'Converter ' : 'PSU ') ?? `${electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'Converter' : 'PSU'} unresolved`}
+                          </li>
+                        ))}
+                        <li>Output supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
+                        {output.conductor && (
+                          <li>Each feed conductor: AWG {output.conductor.awg} / {output.conductor.crossSectionMm2} mm2 {output.conductor.material} minimum</li>
+                        )}
+                        {output.connectorMinimumMa && <li>Connector minimum: {formatCurrentMa(output.connectorMinimumMa)} continuous</li>}
+                        {output.fuse.ratingMa && <li>Each feed fuse: {formatCurrentMa(output.fuse.ratingMa)}</li>}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+              </>
+            )}
+            {electricalPlan.recommendations.length > 0 && (
+              <>
+                <h4 className={styles.subTitle}>Recommendations</h4>
+                <ul className={styles.flatList}>
+                  {electricalPlan.recommendations.map((entry) => <li key={entry}>{entry}</li>)}
+                </ul>
+              </>
+            )}
+            {electricalPlan.unresolved.length > 0 && (
+              <>
+                <h4 className={styles.subTitle}>Still unresolved</h4>
+                <ul className={styles.flatList}>
+                  {electricalPlan.unresolved.map((entry) => <li key={entry}>{entry}</li>)}
+                </ul>
+              </>
+            )}
+            {electricalPlan.assumptionsUsed.length > 0 && (
+              <>
+                <h4 className={styles.subTitle}>Assumptions used</h4>
+                <ul className={styles.flatList}>
+                  {electricalPlan.assumptionsUsed.map((entry) => <li key={entry}>{entry}</li>)}
+                </ul>
+              </>
+            )}
+            {electricalPlan.warnings.length > 0 && (
+              <>
+                <h4 className={styles.subTitle}>Planner warnings</h4>
+                <ul className={styles.flatList}>
+                  {electricalPlan.warnings.map((entry) => (
                     <li key={entry.id}>
                       <strong>{entry.title}</strong>: {entry.detail}
                     </li>
                   ))}
                 </ul>
-              </section>
+              </>
             )}
+          </section>
 
-            {selectedItemId ? <>
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Selected item</h3>
-              <p className={styles.copy}><strong>{selectedItem.title}</strong></p>
-              <p className={styles.copyMuted}>{selectedItem.subtitle}</p>
-              {selectedItemId === 'controller' && exactBoard && (
-                <>
-                  <p className={styles.copyMuted}>{exactBoard.sourceSummary}</p>
-                  {exactBoard.confidence !== 'manufacturer-verified' && (
-                    <p className={`${styles.warningText} ${styles.confidenceCallout}`}>{confidenceSummary(exactBoard)}</p>
-                  )}
-                  {exactBoard.notes.length > 0 && (
-                    <>
-                      <h4 className={styles.subTitle}>Board notes</h4>
-                      <ul className={styles.flatList}>
-                        {exactBoard.notes.map((note) => <li key={note}>{note}</li>)}
-                      </ul>
-                    </>
-                  )}
-                  {exactBoard.caveats.length > 0 && (
-                    <>
-                      <h4 className={styles.subTitle}>Caveats</h4>
-                      <ul className={styles.flatList}>
-                        {exactBoard.caveats.map((note) => <li key={note}>{note}</li>)}
-                      </ul>
-                    </>
-                  )}
-                </>
-              )}
-              {selectedItemId !== 'controller' && !exactBoard && (
-                <p className={styles.warningText}>Select an exact board profile before pin definitions or controller-side connections appear here.</p>
-              )}
-              {selectedConnections.length > 0 && canRenderControllerPins && (
-                <>
-                  <h4 className={styles.subTitle}>Controller pins</h4>
-                  <ul className={styles.flatList}>
-                    {selectedConnections.map((connection) => (
-                      <li key={connection.id} className={styles.pinRow}>
-                        <strong>{boardPinLabelForUse(exactBoard, connection.pinUse)}</strong> · {connection.pinUse.label}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {selectedConnections.some((connection) => connection.unresolvedReason) && (
-                <>
-                  <h4 className={styles.subTitle}>Needs review</h4>
-                  <ul className={styles.flatList}>
-                    {selectedConnections
-                      .filter((connection) => connection.unresolvedReason)
-                      .map((connection) => (
-                        <li key={connection.id}>{connection.unresolvedReason}</li>
-                      ))}
-                  </ul>
-                </>
-              )}
-              {Object.keys(selectedItem.facts).length > 0 && (
-                <dl className={styles.factList}>
-                  {Object.entries(selectedItem.facts).map(([key, value]) => (
-                    <div key={key} className={styles.factRow}>
-                      <dt>{formatFactLabel(key)}</dt>
-                      <dd>{formatFactValue(value)}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Readiness</h3>
-              <ul className={styles.flatList}>
-                <li>Graph hardware: captured automatically</li>
-                <li>Exact board: {exactBoard ? 'confirmed' : 'select one board profile'}</li>
-                <li>Wiring plan: {requirementsCalculatedText}</li>
-                <li>Signal plan: {readinessText}</li>
-                <li>Power plan: {electricalPlan.powerReadyText}</li>
-                <li>Build reference: {buildReadyText}</li>
-              </ul>
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Connections</h3>
-              {connectionRows.length === 0 ? (
-                <p className={styles.copyMuted}>Controller-side connections appear here after an exact board with a reviewed pin map is selected.</p>
-              ) : (
-                <div className={styles.connectionList}>
-                  {connectionRows.map((row) => (
-                    <button
-                      key={row.id}
-                      type="button"
-                      className={`${styles.connectionRow} ${selectedItemId === row.itemId ? styles.connectionRowActive : ''}`}
-                      onClick={() => setSelectedItemId(row.itemId)}
-                    >
-                      <strong>{row.itemTitle}</strong>
-                      <span>{boardPinLabelForUse(exactBoard, row.pinUse)} → {row.pinUse.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {unresolvedConnections.length > 0 && (
-                <>
-                  <h4 className={styles.subTitle}>Unresolved</h4>
-                  <ul className={styles.flatList}>
-                    {unresolvedConnections.map((connection) => (
-                      <li key={connection.id}>
-                        <strong>{connection.itemTitle}</strong>: {connection.unresolvedReason}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </section>
-
-            <section className={styles.card}>
-              <div className={styles.rowBetween}>
-                <h3 className={styles.cardTitle}>Parts</h3>
-                <span className={styles.progressPill}>{partsSummary.length} lines</span>
-              </div>
-              <div className={styles.partsTable}>
-                {partsSummary.map((part) => (
-                  <div key={part.id} className={styles.partsRow}>
-                    <span className={styles.partsQuantity}>{part.quantity}</span>
-                    <span>{part.label}</span>
-                    <span className={part.pending ? styles.partPending : styles.partReady} title={part.pending ? 'Rating or exact part still pending' : 'Configured'}>
-                      {part.pending ? '?' : 'OK'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Calculated requirements</h3>
-              {electricalPlan.battery && (
-                <div data-battery-requirements="true">
-                  <h4 className={styles.subTitle}>Battery pack</h4>
-                  <ul className={styles.flatList}>
-                    <li>{electricalPlan.battery.pack.series}S{electricalPlan.battery.pack.parallel}P · {electricalPlan.battery.pack.cellCount} × {electricalPlan.battery.pack.label}</li>
-                    <li>Source window: {electricalPlan.battery.window.minV} V minimum, {electricalPlan.battery.window.fullV} V full, {electricalPlan.battery.window.ceilingV} V ceiling</li>
-                    <li>Rated pack: {electricalPlan.battery.pack.nominalV} V · {electricalPlan.battery.pack.capacityAh} Ah · {electricalPlan.battery.pack.energyWh} Wh</li>
-                    <li>Full-white pack current: about {formatCurrentMa(electricalPlan.battery.dischargeDesignCurrentMa)}</li>
-                    <li>Main fuse: {electricalPlan.battery.mainFuse.ratingMa && electricalPlan.battery.mainFuseClass ? `${formatCurrentMa(electricalPlan.battery.mainFuse.ratingMa)} ${electricalPlan.battery.mainFuseClass.label} · ${electricalPlan.battery.mainFuseClass.interruptRatingA} A interrupting at ${electricalPlan.battery.mainFuseClass.maximumVoltageV} V DC` : 'unresolved'} · limited by {electricalPlan.battery.limitedBy}</li>
-                    {electricalPlan.battery.prospectiveShortCircuitA != null && <li>Conservative prospective short-circuit current: {electricalPlan.battery.prospectiveShortCircuitA} A</li>}
-                    {electricalPlan.battery.runtimeHours != null && <li>Full-white runtime: at most about {electricalPlan.battery.runtimeHours} h</li>}
-                    {electricalPlan.battery.limitedRuntimeHours != null && <li>Configured running-limit runtime: about {electricalPlan.battery.limitedRuntimeHours} h</li>}
-                  </ul>
-                </div>
-              )}
-              {electricalPlan.outputs.length === 0 ? (
-                <p className={styles.copyMuted}>
-                  The graph has no supported 5 V LED output requiring an external power plan.
-                </p>
-              ) : (
-                <>
-                  <p className={styles.copyMuted}>
-                    This is the hardware to use, calculated automatically from the graph. Ratings are conservative full-white design values, not questions for the user to answer.
-                  </p>
-                  {electricalPlan.totals && (
-                    <ul className={styles.flatList}>
-                      <li>Full-white design load: {formatCurrentMa(electricalPlan.totals.designCurrentMa)} @ {electricalPlan.totals.nominalVoltage} V</li>
-                      {electricalPlan.totals.source && (
-                        <li>Upstream source: {electricalPlan.totals.source.voltage} V, at least {formatCurrentMa(electricalPlan.totals.source.recommendedCurrentMa)} / {formatWattage(electricalPlan.totals.source.recommendedWattage)} continuous</li>
-                      )}
-                      {electricalPlan.totals.supplies.map((supply, index) => (
-                        <li key={supply.id}>
-                          {supply.converter ? `Converter ${index + 1}: ${supply.converter.label}, ${formatCurrentMa(supply.converter.deratedCurrentMa)} at 40 °C` : `PSU ${index + 1}: ${electricalPlan.totals?.nominalVoltage} V, at least ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} continuous`}
-                          {' '}for {supply.outputTitles.join(', ')} ({electricalPlan.totals?.headroomPercent}% headroom)
-                        </li>
-                      ))}
-                      {electricalPlan.totals.supplies.length > 1 && <li>Keep separate {electricalPlan.totals.supplies.some((supply) => supply.converter) ? 'converter' : 'PSU'} +5 V zones isolated; join grounds for the shared controller data reference.</li>}
-                      {electricalPlan.controllerPowerPath && <li>Controller branch: {electricalPlan.controllerPowerPath}</li>}
-                    </ul>
-                  )}
-                  <div className={styles.outputFactList}>
-                    {electricalPlan.outputs.map((output) => (
-                      <section key={output.itemId} className={styles.outputFactCard}>
-                        <div className={styles.rowBetween}>
-                          <div>
-                            <h4 className={styles.subTitle}>{output.title}</h4>
-                            <p className={styles.copyMuted}>{output.pixelCount} px · {output.topology} · generated distributed power</p>
-                          </div>
-                          <span className={styles.progressPill}>{formatCurrentMa(output.designCurrentMa)}</span>
-                        </div>
-                        <ul className={styles.flatList}>
-                          {output.operatingCurrentCapMa != null && <li>Configured FastLED running limit: {formatCurrentMa(output.operatingCurrentCapMa)} (does not reduce the hardware)</li>}
-                          <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned {electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'converter distribution zone' : 'PSU distribution zone'}</li>
-                          {output.injections.map((injection) => (
-                            <li key={injection.id}>
-                              {injection.role} @ {injection.positionMm} mm: {formatCurrentMa(injection.designCurrentMa)} / {injection.pixelCount} px,
-                              {' '}{injection.conductor ? `AWG ${injection.conductor.awg}` : 'wire unresolved'},
-                              {' '}{injection.fuse.ratingMa ? `${formatCurrentMa(injection.fuse.ratingMa)} fuse` : 'fuse unresolved'},
-                              {' '}{injection.supplyId?.replace('supply-', electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'Converter ' : 'PSU ') ?? `${electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'Converter' : 'PSU'} unresolved`}
-                            </li>
-                          ))}
-                          <li>Output supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
-                          {output.conductor && (
-                            <li>Each feed conductor: AWG {output.conductor.awg} / {output.conductor.crossSectionMm2} mm2 {output.conductor.material} minimum</li>
-                          )}
-                          {output.connectorMinimumMa && <li>Connector minimum: {formatCurrentMa(output.connectorMinimumMa)} continuous</li>}
-                          {output.fuse.ratingMa && <li>Each feed fuse: {formatCurrentMa(output.fuse.ratingMa)}</li>}
-                        </ul>
-                      </section>
-                    ))}
-                  </div>
-                </>
-              )}
-              {electricalPlan.recommendations.length > 0 && (
-                <>
-                  <h4 className={styles.subTitle}>Recommendations</h4>
-                  <ul className={styles.flatList}>
-                    {electricalPlan.recommendations.map((entry) => <li key={entry}>{entry}</li>)}
-                  </ul>
-                </>
-              )}
-              {electricalPlan.unresolved.length > 0 && (
-                <>
-                  <h4 className={styles.subTitle}>Still unresolved</h4>
-                  <ul className={styles.flatList}>
-                    {electricalPlan.unresolved.map((entry) => <li key={entry}>{entry}</li>)}
-                  </ul>
-                </>
-              )}
-              {electricalPlan.assumptionsUsed.length > 0 && (
-                <>
-                  <h4 className={styles.subTitle}>Assumptions used</h4>
-                  <ul className={styles.flatList}>
-                    {electricalPlan.assumptionsUsed.map((entry) => <li key={entry}>{entry}</li>)}
-                  </ul>
-                </>
-              )}
-              {electricalPlan.warnings.length > 0 && (
-                <>
-                  <h4 className={styles.subTitle}>Planner warnings</h4>
-                  <ul className={styles.flatList}>
-                    {electricalPlan.warnings.map((entry) => (
-                      <li key={entry.id}>
-                        <strong>{entry.title}</strong>: {entry.detail}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Exports</h3>
-              <div className={styles.exportModeRow} role="radiogroup" aria-label="Build Diagram export mode">
-                <button
-                  type="button"
-                  className={`${styles.exportModeButton} ${exportMode === 'complete-build' ? styles.exportModeButtonActive : ''}`}
-                  aria-pressed={exportMode === 'complete-build'}
-                  onClick={() => setExportMode('complete-build')}
-                >
-                  Complete build
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.exportModeButton} ${exportMode === 'current-view' ? styles.exportModeButtonActive : ''}`}
-                  aria-pressed={exportMode === 'current-view'}
-                  onClick={() => setExportMode('current-view')}
-                >
-                  Current view
-                </button>
-              </div>
-              <p className={styles.copyMuted}>
-                {exportMode === 'complete-build'
-                  ? hiddenPrimaryItemCount > 0 || !!isolatedItemId || activeSection.id !== 'all'
-                    ? 'Complete build is selected. Hardware hidden by the eye, isolation, or the current section will still be included.'
-                    : 'Complete build is selected. Exports will include every configured hardware item by default.'
-                  : `Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state and the ${activeSection.label} section.`}
-              </p>
-              <p className={styles.warningText}>{exportDraftStatus}</p>
-              <p className={styles.copyMuted}>
-                {exportDraftReason}
-              </p>
-              <div className={styles.exportActionGrid}>
-                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportDiagramSvg}>Export SVG</button>
-                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={printBuildSheets}>Print / PDF</button>
-                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportConnectionsCsv}>Connections CSV</button>
-                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportBomCsv}>BOM CSV</button>
-              </div>
-            </section>
-            </> : (
-              <p className={styles.detailIdle}>Select the controller or graph hardware to see its build details.</p>
-            )}
-          </>
-        )}
-      </aside>
+          <section className={styles.card}>
+            <h3 className={styles.cardTitle}>Exports</h3>
+            <div className={styles.exportModeRow} role="radiogroup" aria-label="Build Diagram export mode">
+              <button
+                type="button"
+                className={`${styles.exportModeButton} ${exportMode === 'complete-build' ? styles.exportModeButtonActive : ''}`}
+                aria-pressed={exportMode === 'complete-build'}
+                onClick={() => setExportMode('complete-build')}
+              >
+                Complete build
+              </button>
+              <button
+                type="button"
+                className={`${styles.exportModeButton} ${exportMode === 'current-view' ? styles.exportModeButtonActive : ''}`}
+                aria-pressed={exportMode === 'current-view'}
+                onClick={() => setExportMode('current-view')}
+              >
+                Current view
+              </button>
+            </div>
+            <p className={styles.copyMuted}>
+              {exportMode === 'complete-build'
+                ? hiddenPrimaryItemCount > 0 || !!isolatedItemId || activeSection.id !== 'all'
+                  ? 'Complete build is selected. Hardware hidden by the eye, isolation, or the current section will still be included.'
+                  : 'Complete build is selected. Exports will include every configured hardware item by default.'
+                : `Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state and the ${activeSection.label} section.`}
+            </p>
+            <p className={styles.warningText}>{exportDraftStatus}</p>
+            <p className={styles.copyMuted}>
+              {exportDraftReason}
+            </p>
+            <div className={styles.exportActionGrid}>
+              <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportDiagramSvg}>Export SVG</button>
+              <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={printBuildSheets}>Print / PDF</button>
+              <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportConnectionsCsv}>Connections CSV</button>
+              <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportBomCsv}>BOM CSV</button>
+            </div>
+          </section>
+          </> : (
+            <p className={styles.detailIdle}>Select the controller or graph hardware to see its build details.</p>
+          )}
+        </aside>,
+      )}
 
       <main className={styles.diagramPane}>
         <BoardSelector />
