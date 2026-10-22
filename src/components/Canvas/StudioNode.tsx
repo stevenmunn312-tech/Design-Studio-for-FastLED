@@ -574,7 +574,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
       {networkEditorOpen && !locked && (
         <SegmentNetworkEditor
           properties={props}
-          title={nodeLabel}
+          title={nodeDisplayLabel(nodeType, props, nodeLabel)}
           onClose={() => setNetworkEditorOpen(false)}
           onCommit={(updates) => { updateNodeProperties(nodeId, updates); setNetworkEditorOpen(false) }}
         />
@@ -873,7 +873,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 onChange={(e) => writeValue(e.target.value)}
               />
             )}
-            {key === 'network' && !disabled && (
+            {key === 'networkPreset' && !disabled && (
               <button
                 type="button"
                 className={`nodrag ${styles.pinBtn}`}
