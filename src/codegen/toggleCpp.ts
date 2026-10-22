@@ -7,7 +7,8 @@ export function toggleCpp(id: string, output: string, initial: boolean, trigger:
     ...(active(trigger) ? [`if (_t && !_trP_${id}) ${output} = !${output};`] : []),
   ]
   return [
-    `  static bool ${output} = ${initial ? 'true' : 'false'};${active(trigger) ? ` static bool _trP_${id} = false;` : ''}`,
-    ...(branches.length ? [`  { ${active(trigger) ? `bool _t = (${trigger}); ` : ''}${branches.join(' else ')}${active(trigger) ? ` _trP_${id} = _t;` : ''} }`] : []),
+    `  static bool ${output} = ${initial ? 'true' : 'false'};${active(trigger) ? ` static bool _trP_${id} = false, _trI_${id} = false;` : ''}`,
+    // The edge memory starts at the first frame's level, as the preview's does.
+    ...(branches.length ? [`  { ${active(trigger) ? `bool _t = (${trigger}); if (!_trI_${id}) { _trP_${id} = _t; _trI_${id} = true; } ` : ''}${branches.join(' else ')}${active(trigger) ? ` _trP_${id} = _t;` : ''} }`] : []),
   ]
 }

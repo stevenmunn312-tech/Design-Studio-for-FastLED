@@ -36,7 +36,8 @@ export function functionCpp(fn: unknown, x: string): string {
     case 'sqrt':   return `sqrtf(fmaxf(0.0f, ${x}))`
     case 'square': return `((${x}) * (${x}))`
     case 'floor':  return `floorf(${x})`
-    case 'round':  return `roundf(${x})`
+    // Math.round: halves go up, so -2.5 is -2 where roundf gives -3.
+    case 'round':  return `floorf((${x}) + 0.5f)`
     case 'sin':
     default:       return `sin((${x}) * TWO_PI)`
   }

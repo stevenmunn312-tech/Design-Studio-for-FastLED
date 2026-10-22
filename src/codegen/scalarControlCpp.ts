@@ -88,7 +88,9 @@ export function scalarControlCpp(
       }
       break
     case 'Lerp': expression = `(${f.a}) + ((${f.b}) - (${f.a})) * (${f.t})`; break
-    case 'Clamp': expression = `constrain(${f.value}, ${f.min}, ${f.max})`; break
+    // The preview's max(min, min(max, value)): with min above max it is min,
+    // where Arduino's constrain answers min or max depending on the value.
+    case 'Clamp': expression = `fmaxf(${f.min}, fminf(${f.max}, ${f.value}))`; break
     case 'MapRange': expression = `mapFloat(${f.value}, ${f.inMin}, ${f.inMax}, ${f.outMin}, ${f.outMax})`; break
     case 'StepValue': {
       const settings = normalizeStepValueSettings(props)
@@ -127,6 +129,12 @@ export function scalarControlCpp(
     case 'Wave': loop = waveCpp(output, String(props.waveform ?? 'sine'), f.amplitude, waveHzCpp(props.rateUnit, () => f.frequency, () => f.bpm), f.phase, time, { unipolar: props.unipolar === true, offset: f.offset }); break
     case 'Trigger': {
       const op = String(props.triggerOp ?? 'debounce')
+      // The edge memory starts at the first frame's level, as the preview's
+      // does, so a trigger already high at boot is not a rising edge.
+      // An unwired trigger is a constant with no edge to seed.
+      const live = f.trigger !== 'false' && f.trigger !== '0'
+      const edgeState = live ? `static bool _trP_${id} = false, _trI_${id} = false;` : `static bool _trP_${id} = false;`
+      const readTrigger = live ? `bool _t = (${f.trigger}); if (!_trI_${id}) { _trP_${id} = _t; _trI_${id} = true; }` : `bool _t = (${f.trigger});`
       if (op === 'toggle') {
         loop = toggleCpp(id, output, props.initialState === true, f.trigger, f.on, f.off)
       } else if (op === 'changed') {
@@ -135,26 +143,30 @@ export function scalarControlCpp(
           `  { bool _t = (${f.trigger}); if (!_trInit_${id}) { _trP_${id} = _t; _trInit_${id} = true; } else { ${output} = (_t != _trP_${id}); _trP_${id} = _t; } }`,
         ]
       } else if (op === 'oneShot') {
-        const ms = Math.max(20, Math.round(Number(props.holdTime ?? 0.1) * 1000))
+        // `_trF` says an edge has happened: a start time of 0xFFFFFFFF read
+        // as one millisecond ago, so the output was high for the hold after boot.
+        const ms = Math.max(10, Math.round(Number(props.holdTime ?? 0.1) * 1000))
         loop = [
-          `  static uint32_t _trT_${id} = 0xFFFFFFFFu; static bool _trP_${id} = false;`,
-          `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) _trT_${id} = millis(); _trP_${id} = _t; }`,
-          `  bool ${output} = (millis() - _trT_${id}) < ${ms}u;`,
+          `  static uint32_t _trT_${id} = 0; static bool _trF_${id} = false; ${edgeState}`,
+          `  { ${readTrigger} if (_t && !_trP_${id}) { _trT_${id} = millis(); _trF_${id} = true; } _trP_${id} = _t; }`,
+          `  bool ${output} = _trF_${id} && (millis() - _trT_${id}) < ${ms}u;`,
         ]
       } else if (op === 'pulseDivider') {
         // The counter is a uint8_t, so a divisor past 255 could never fire;
         // the wired form clamps to the same 2–255 (math/codegen.ts).
         const n = Math.min(255, Math.max(2, Math.round(Number(props.divideBy ?? 2)) || 2))
         loop = [
-          `  static uint8_t _trC_${id} = 0; static bool _trP_${id} = false; bool ${output} = false;`,
-          `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) { _trC_${id}++; if (_trC_${id} >= ${n}) { _trC_${id} = 0; ${output} = true; } } _trP_${id} = _t; }`,
+          `  static uint8_t _trC_${id} = 0; ${edgeState} bool ${output} = false;`,
+          `  { ${readTrigger} if (_t && !_trP_${id}) { _trC_${id}++; if (_trC_${id} >= ${n}) { _trC_${id} = 0; ${output} = true; } } _trP_${id} = _t; }`,
         ]
       } else if (op === 'delay') {
         const ms = Math.max(10, Math.round(Number(props.delayTime ?? 0.5) * 1000))
+        // Elapsed time from the edge, which survives millis() wrapping; an
+        // absolute deadline past the wrap fired at once.
         loop = [
-          `  static uint32_t _trS_${id} = 0; static bool _trA_${id} = false, _trP_${id} = false; bool ${output} = false;`,
-          `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) { _trS_${id} = millis() + ${ms}u; _trA_${id} = true; } _trP_${id} = _t; }`,
-          `  if (_trA_${id} && millis() >= _trS_${id}) { ${output} = true; _trA_${id} = false; }`,
+          `  static uint32_t _trS_${id} = 0; static bool _trA_${id} = false; ${edgeState} bool ${output} = false;`,
+          `  { ${readTrigger} if (_t && !_trP_${id}) { _trS_${id} = millis(); _trA_${id} = true; } _trP_${id} = _t; }`,
+          `  if (_trA_${id} && millis() - _trS_${id} >= ${ms}u) { ${output} = true; _trA_${id} = false; }`,
         ]
       } else {
         const ms = Math.max(5, Math.round(Number(props.stableTime ?? 0.05) * 1000))

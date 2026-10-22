@@ -26,9 +26,9 @@ type Frame = { ms: number; inputs?: Record<string, Value> }
  * a double and whole milliseconds may round either way and the comparison
  * would test float representation rather than the node.
  */
-function frames(count: number, inputsAt: (ms: number, i: number) => Record<string, Value> = () => ({})): Frame[] {
+function frames(count: number, inputsAt: (ms: number, i: number) => Record<string, Value> = () => ({}), startMs = 1000.13): Frame[] {
   const out: Frame[] = []
-  let ms = 1000.13
+  let ms = startMs
   for (let i = 0; i < count; i++) {
     out.push({ ms, inputs: inputsAt(ms, i) })
     ms += 11.37 + ((i * 7919) % 19)
@@ -135,5 +135,25 @@ describe('stateful signal nodes: preview and firmware agree frame by frame', () 
     const ports = triggerOp === 'toggle' ? ['trigger', 'on', 'off'] : ['trigger']
     const lines = scalarControlCpp('Trigger', 'n', props, (port) => `in_${port}`)!.loop
     expectSame(preview(MATH_EVALUATORS.Trigger, props, 'out', run), firmware(lines, ports, 'n_n_out', run))
+  })
+
+  // From boot, with the trigger already high on the first frame: neither side
+  // counts that as a rising edge, and One Shot is low until a real edge.
+  it.each(['toggle', 'changed', 'oneShot', 'pulseDivider', 'delay'])('Trigger %s from a high first frame at boot', (triggerOp) => {
+    const props = { ...libraryDefaults('Trigger'), triggerOp, holdTime: 0.1, divideBy: 2, delayTime: 0.2 }
+    const run = frames(200, pulses(0, 30, 6), 3.13)
+    const ports = triggerOp === 'toggle' ? ['trigger', 'on', 'off'] : ['trigger']
+    const lines = scalarControlCpp('Trigger', 'n', props, (port) => `in_${port}`)!.loop
+    const previewed = preview(MATH_EVALUATORS.Trigger, props, 'out', run)
+    expectSame(previewed, firmware(lines, ports, 'n_n_out', run))
+    if (triggerOp === 'oneShot') expect(previewed.slice(0, 6).some(Boolean)).toBe(false)
+  })
+
+  it('Trigger oneShot is low at boot with no trigger', () => {
+    const props = { ...libraryDefaults('Trigger'), triggerOp: 'oneShot', holdTime: 0.1 }
+    const run = frames(20, () => ({ trigger: false }), 0.13)
+    const lines = scalarControlCpp('Trigger', 'n', props, (port) => `in_${port}`)!.loop
+    expect(lines.join(' ')).not.toContain('0xFFFFFFFF')
+    expectSame(preview(MATH_EVALUATORS.Trigger, props, 'out', run), firmware(lines, ['trigger'], 'n_n_out', run))
   })
 })

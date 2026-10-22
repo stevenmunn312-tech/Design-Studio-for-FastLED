@@ -2,7 +2,6 @@ import { formatDateTimeCpp } from '../../codegen/displays/displayTextCpp'
 import { asDateTimeTextMode } from '../../state/displays/displayText'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId } from '../../codegen/cppLiterals'
-import { toggleCpp } from '../../codegen/toggleCpp'
 import { logicCpp } from './logic'
 import { cppRewriteShims, usesShims } from '../shared/fastledShims'
 import { isScalarFormulaValid } from '../shared/formulaLang'
@@ -92,41 +91,5 @@ export const MATH_EMITTERS: NodeEmitters = {
     const dtUp = incoming.get(`${node.id}:dateTime`)
     const dtExpr = dtUp ? `n_${safeId(dtUp.srcId)}_${safeId(dtUp.srcPort)}` : null
     for (const line of formatDateTimeCpp(v('text'), dtExpr, asDateTimeTextMode(p.dateTimeFormat))) ln(line)
-  },
-  // Bundled trigger/edge utility — `triggerOp` picks the variant. Every
-  // branch is a millis()-based static, mirroring the stateful `Trigger`
-  // case in graphEvaluator.ts so preview and firmware timing match.
-  Trigger({ node, id, p, ln, v, f, boolExpr }) {
-    const op = String(p.triggerOp ?? 'debounce')
-    const trig = boolExpr(node.id, 'trigger')
-    const outVar = v('out')
-    if (op === 'toggle') {
-      for (const line of toggleCpp(id, outVar, p.initialState === true, trig, boolExpr(node.id, 'on'), boolExpr(node.id, 'off'))) ln(line)
-    } else if (op === 'changed') {
-      ln(`  static bool _trP_${id} = false, _trInit_${id} = false; bool ${outVar} = false;`)
-      ln(`  { bool _t = (${trig}); if (!_trInit_${id}) { _trP_${id} = _t; _trInit_${id} = true; } else { ${outVar} = (_t != _trP_${id}); _trP_${id} = _t; } }`)
-    } else if (op === 'oneShot') {
-      ln(`  uint32_t _trMs_${id} = (uint32_t)fmaxf(20.0f, (${f('holdTime', 'holdTime', 0.1)})*1000.0f);`)
-      ln(`  static uint32_t _trT_${id} = 0xFFFFFFFFu; static bool _trP_${id} = false;`)
-      ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) _trT_${id} = millis(); _trP_${id} = _t; }`)
-      ln(`  bool ${outVar} = (millis() - _trT_${id}) < _trMs_${id};`)
-    } else if (op === 'pulseDivider') {
-      ln(`  uint8_t _trN_${id} = (uint8_t)constrain(${f('divideBy', 'divideBy', 2)},2.0f,255.0f);`)
-      ln(`  static uint8_t _trC_${id} = 0; static bool _trP_${id} = false; bool ${outVar} = false;`)
-      ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) { _trC_${id}++; if (_trC_${id} >= _trN_${id}) { _trC_${id} = 0; ${outVar} = true; } } _trP_${id} = _t; }`)
-    } else if (op === 'delay') {
-      ln(`  uint32_t _trMs_${id} = (uint32_t)fmaxf(10.0f, (${f('delayTime', 'delayTime', 0.5)})*1000.0f);`)
-      ln(`  static uint32_t _trS_${id} = 0; static bool _trA_${id} = false, _trP_${id} = false; bool ${outVar} = false;`)
-      ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) { _trS_${id} = millis() + _trMs_${id}; _trA_${id} = true; } _trP_${id} = _t; }`)
-      ln(`  if (_trA_${id} && millis() >= _trS_${id}) { ${outVar} = true; _trA_${id} = false; }`)
-    } else { // debounce
-      ln(`  uint32_t _trMs_${id} = (uint32_t)fmaxf(5.0f, (${f('stableTime', 'stableTime', 0.05)})*1000.0f);`)
-      ln(`  static bool _trC_${id} = false, _trCommit_${id} = false, _trInit_${id} = false; static uint32_t _trSince_${id} = 0;`)
-      ln(`  { bool _t = (${trig});`)
-      ln(`    if (!_trInit_${id}) { _trC_${id} = _t; _trCommit_${id} = _t; _trSince_${id} = millis(); _trInit_${id} = true; }`)
-      ln(`    else { if (_t != _trC_${id}) { _trC_${id} = _t; _trSince_${id} = millis(); }`)
-      ln(`      if (_t == _trC_${id} && (millis() - _trSince_${id}) >= _trMs_${id}) _trCommit_${id} = _t; } }`)
-      ln(`  bool ${outVar} = _trCommit_${id};`)
-    }
   },
 }

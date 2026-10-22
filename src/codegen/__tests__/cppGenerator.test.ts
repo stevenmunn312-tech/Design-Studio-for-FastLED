@@ -967,7 +967,7 @@ describe('generateCpp', () => {
     expect(emit('sqrt')).toContain('float n_fn_result = sqrtf(fmaxf(0.0f, 0.25));')
     expect(emit('square')).toContain('float n_fn_result = ((0.25) * (0.25));')
     expect(emit('floor')).toContain('float n_fn_result = floorf(0.25);')
-    expect(emit('round')).toContain('float n_fn_result = roundf(0.25);')
+    expect(emit('round')).toContain('float n_fn_result = floorf((0.25) + 0.5f);')
   })
 
   it('emits an HSV To RGB node in FastLED byte hue units', () => {
@@ -5108,9 +5108,11 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
 
   it('Trigger oneShot holds true for holdTime after a rising edge', () => {
     const t = tail('tro', 'out')
-    const cpp = generateCpp([node('tro', 'Trigger', 'math', { triggerOp: 'oneShot', holdTime: 0.3 }), ...t.nodes], t.edges)
-    expect(cpp).toContain('_trT_tro')
-    expect(cpp).toContain('300u')
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const cpp = generateCpp([lfo, node('tro', 'Trigger', 'math', { triggerOp: 'oneShot', holdTime: 0.3 }), ...t.nodes],
+      [...t.edges, edge('t0', 'lfo', 'tro', 'value', 'trigger')])
+    // Low until a first edge: no start time stands in for "never".
+    expect(cpp).toContain('bool n_tro_out = _trF_tro && (millis() - _trT_tro) < 300u;')
   })
 
   it('Trigger pulseDivider counts rising edges up to divideBy', () => {
@@ -5126,7 +5128,9 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     const lfo = node('lfo', 'LFO', 'input', {})
     const cpp = generateCpp([lfo, node('trl', 'Trigger', 'math', { triggerOp: 'delay', delayTime: 0.4 }), ...t.nodes],
       [...t.edges, edge('t0', 'lfo', 'trl', 'value', 'trigger')])
-    expect(cpp).toContain('_trS_trl = millis() + 400u;')
+    // Elapsed from the edge, so it survives millis() wrapping.
+    expect(cpp).toContain('_trS_trl = millis();')
+    expect(cpp).toContain('millis() - _trS_trl >= 400u')
   })
 
   it('FrameSwitch copies the selected source buffer', () => {
