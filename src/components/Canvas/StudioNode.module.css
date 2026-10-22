@@ -267,8 +267,7 @@
 
 /* "BOARD 2": the controller a part is wired to, in a project with several. */
 .headerBoard,
-.headerTag,
-.headerCode {
+.headerTag {
   padding: 2px 4px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.14);

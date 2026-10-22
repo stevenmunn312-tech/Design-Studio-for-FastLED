@@ -25,10 +25,6 @@ export const CATEGORY_TAG: Record<string, string> = {
   note: 'NOTE',
 }
 
-export function moduleCode(nodeType: string): string {
-  return nodeType.replace(/[^A-Z0-9]/gi, '').slice(0, 3).toUpperCase().padEnd(3, '·')
-}
-
 /**
  * Nodes wider than the 240 px frame. The property row grid gives a label the
  * width left beside its 112 px control and 16 px pin slot, so at 240 px a

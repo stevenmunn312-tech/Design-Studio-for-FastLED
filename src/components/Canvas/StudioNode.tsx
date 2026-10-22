@@ -78,7 +78,7 @@ import { CUSTOM_DESIGN_LAYOUT,
 import styles from './StudioNode.module.css'
 import {
   CATEGORY_TAG, HARDWARE_INPUT_WIDGET_TYPES, NODE_WIDTH_OVERRIDES, PREVIEW_NOTES,
-  editableProperties, hasRgbProperties, moduleCode,
+  editableProperties, hasRgbProperties,
 } from './studioNodeChrome'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 import {
@@ -1493,8 +1493,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const signalKey = outPort ? `${id}:${outPort.id}` : null
   const categoryClass = CATEGORY_CLASS[d.category] ?? ''
   const categoryTag = CATEGORY_TAG[d.category] ?? 'MOD'
-  const headerCode = moduleCode(d.nodeType)
-  const nodeTag = id.slice(-3).toUpperCase()
   const displayName = nodeDisplayLabel(d.nodeType, props, d.label)
   // A "BOARD 2" pill: which controller a part or output belongs to, shown
   // only once the project has more than one (docs/design/multi-board.md). A
@@ -1607,7 +1605,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         <span className={styles.headerMeta}>
           {boardSuffix && <span className={styles.headerBoard} title={`On ${boardSuffix}`}>{boardSuffix.toUpperCase()}</span>}
           <span className={styles.headerTag}>{categoryTag}</span>
-          <span className={styles.headerCode}>{headerCode}-{nodeTag}</span>
           {showLiveNodeVisuals && (
             <span ref={signalMeterRef} className={styles.headerMeter} aria-hidden="true">
               <span style={{ opacity: 'clamp(0.2, calc(var(--signal-energy) * 1.5), 1)' }} />
