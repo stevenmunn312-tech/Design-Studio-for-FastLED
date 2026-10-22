@@ -298,19 +298,18 @@ chooses the supported combinations from whatever is on record at release.
 ## 5. Release track (in order)
 
 - [ ] **D-04 · Code and field fidelity (L).** Pulled into v1 on 2026-10-21.
-  In the preview: Code-node includes, custom gradient palettes, custom XY maps
-  and C++ type inference for every local and expression. VU expansion: clocked
-  strings, unequal lengths and several fixtures per board, from the
-  [expansion design](docs/design/stereo-vu-expansion.md), which defers the
-  stereo FFT and streamed audio until a node or a user needs them. Show-side
-  Vibe, Song Structure and Pitch Detect, with per-frame detector output baked
-  offline into the show envelope; Waveform stays inactive in shows by that
-  design
-  ([audio detectors](docs/design/audio-detectors.md);
-  [code node](docs/design/code-node.md#deferred-known-divergences--follow-ups)).
-  Shipped: persistent globals, integer wrap and timing macros; writable Field
-  Formula buffers (`prev`, 2026-10-22,
-  [design](docs/design/animartrix-float-field.md#writable-field-formula-buffers-implemented-2026-10-22)).
+  Open: VU expansion, clocked strings, unequal lengths and several fixtures
+  per board, from the [expansion design](docs/design/stereo-vu-expansion.md),
+  which defers the stereo FFT and streamed audio until a node or a user needs
+  them. Shipped: persistent globals, integer wrap and timing macros; writable
+  Field Formula buffers (`prev`, 2026-10-22,
+  [design](docs/design/animartrix-float-field.md#writable-field-formula-buffers-implemented-2026-10-22));
+  Code-node includes and defines, gradient palettes, custom XY maps, static
+  locals and typed arrays in the preview (2026-10-23,
+  [code node](docs/design/code-node.md), whose Deferred list holds what
+  remains); show-side Vibe, Song Structure and Pitch Detect baked offline
+  into an `ADET` trailer, Waveform staying inactive in shows by design
+  (2026-10-23, [audio detectors](docs/design/audio-detectors.md#shows-and-the-sd-player)).
 - [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
