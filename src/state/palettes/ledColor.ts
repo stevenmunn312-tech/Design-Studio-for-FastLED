@@ -71,22 +71,92 @@ function paletteAt(palette: Palette, h: number): RGB {
   return sampleNamedPalette(palette, h) ?? hsv(h * 360, 1, 1)
 }
 
+/** FastLED's `TBlendType` values as the Code node's shim exposes them. */
+export const NOBLEND = 0, LINEARBLEND = 1, LINEARBLEND_NOWRAP = 2
+
 // Sample a palette at a 0–255 index, scaled by 0–255 brightness (FastLED's
 // ColorFromPalette semantics) — shared by ColorFromPalette and fill_palette.
-export function palAt(pal: Palette, index: number, bright: number): RGB {
+// An RGB[] is read as FastLED reads a CRGBPaletteN: its n entries sit at
+// index i·256/n and LINEARBLEND blends each into the next, the last back
+// into the first (NOWRAP holds the last; NOBLEND takes the entry alone). A
+// 16-entry table therefore samples exactly as a CRGBPalette16 does and a
+// 256-entry one (a gradient from `gradientPaletteStops`) indexes directly.
+// A named preset goes through `samplePalette`.
+export function palAt(pal: Palette, index: number, bright: number, blend: number = LINEARBLEND): RGB {
   const c8 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
-  const c = samplePalette(pal ?? 'rainbow', ((((index | 0) % 256) + 256) % 256) / 255)
+  const i8 = (((index | 0) % 256) + 256) % 256
+  let c: RGB
+  if (Array.isArray(pal)) {
+    const n = pal.length
+    if (n === 0) c = { r: 0, g: 0, b: 0 }
+    else {
+      const pos = (i8 * n) / 256
+      const i = Math.floor(pos)
+      const f = pos - i
+      const a = pal[i]
+      const b = blend === NOBLEND ? a : pal[blend === LINEARBLEND_NOWRAP ? Math.min(i + 1, n - 1) : (i + 1) % n]
+      c = { r: Math.round(a.r + (b.r - a.r) * f), g: Math.round(a.g + (b.g - a.g) * f), b: Math.round(a.b + (b.b - a.b) * f) }
+    }
+  } else {
+    c = samplePalette(pal ?? 'rainbow', i8 / 255)
+  }
   const k = c8(bright) / 255
   return { r: Math.round(c.r * k), g: Math.round(c.g * k), b: Math.round(c.b * k) }
 }
 
-// Common FastLED named colours for `CRGB::<Name>` (extend as needed).
+/**
+ * Resolve a FastLED gradient table — `DEFINE_GRADIENT_PALETTE` bytes, four
+ * per stop: position 0–255, r, g, b — into the 256 colours it spans, linear
+ * between stops, so `ColorFromPalette` indexes it directly. Positions before
+ * the first stop hold the first colour and after the last stop the last, as
+ * FastLED's `CRGBPalette16(TProgmemRGBGradientPalette)` constructor does.
+ */
+export function gradientPaletteStops(bytes: number[]): RGB[] {
+  const stops: { pos: number; c: RGB }[] = []
+  for (let i = 0; i + 3 < bytes.length; i += 4) {
+    const b = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
+    stops.push({ pos: b(bytes[i]), c: { r: b(bytes[i + 1]), g: b(bytes[i + 2]), b: b(bytes[i + 3]) } })
+  }
+  if (stops.length === 0) return Array.from({ length: 256 }, () => ({ r: 0, g: 0, b: 0 }))
+  stops.sort((a, b) => a.pos - b.pos)
+  const out: RGB[] = []
+  let k = 0
+  for (let i = 0; i < 256; i++) {
+    while (k + 1 < stops.length && stops[k + 1].pos <= i) k++
+    const a = stops[k]
+    const next = stops[k + 1]
+    if (!next || i <= a.pos) { out.push({ ...a.c }); continue }
+    const f = (i - a.pos) / (next.pos - a.pos)
+    out.push({
+      r: Math.round(a.c.r + (next.c.r - a.c.r) * f),
+      g: Math.round(a.c.g + (next.c.g - a.c.g) * f),
+      b: Math.round(a.c.b + (next.c.b - a.c.b) * f),
+    })
+  }
+  return out
+}
+
+// Common FastLED named colours for `CRGB::<Name>` (the HTML colour values
+// FastLED uses; extend as needed). `crgbConst` hands out copies, so a user
+// `px.r = …` on one never edits the table.
+const hex = (v: number): RGB => ({ r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 })
 export const CRGB_CONSTANTS: Record<string, RGB> = {
-  Black: { r: 0, g: 0, b: 0 }, White: { r: 255, g: 255, b: 255 },
-  Red: { r: 255, g: 0, b: 0 }, Green: { r: 0, g: 255, b: 0 }, Blue: { r: 0, g: 0, b: 255 },
-  Yellow: { r: 255, g: 255, b: 0 }, Cyan: { r: 0, g: 255, b: 255 }, Magenta: { r: 255, g: 0, b: 255 },
-  Orange: { r: 255, g: 165, b: 0 }, Purple: { r: 128, g: 0, b: 128 }, Pink: { r: 255, g: 192, b: 203 },
-  Gold: { r: 255, g: 215, b: 0 }, Aqua: { r: 0, g: 255, b: 255 }, Lime: { r: 0, g: 255, b: 0 },
+  Black: hex(0x000000), White: hex(0xFFFFFF), Red: hex(0xFF0000), Green: hex(0x008000), Blue: hex(0x0000FF),
+  Yellow: hex(0xFFFF00), Cyan: hex(0x00FFFF), Magenta: hex(0xFF00FF), Orange: hex(0xFFA500), Purple: hex(0x800080),
+  Pink: hex(0xFFC0CB), Gold: hex(0xFFD700), Aqua: hex(0x00FFFF), Lime: hex(0x00FF00), Grey: hex(0x808080),
+  Gray: hex(0x808080), DarkGrey: hex(0xA9A9A9), DarkGray: hex(0xA9A9A9), DimGrey: hex(0x696969), DimGray: hex(0x696969),
+  LightGrey: hex(0xD3D3D3), LightGray: hex(0xD3D3D3), Silver: hex(0xC0C0C0), Navy: hex(0x000080), DarkBlue: hex(0x00008B),
+  MediumBlue: hex(0x0000CD), RoyalBlue: hex(0x4169E1), SkyBlue: hex(0x87CEEB), LightBlue: hex(0xADD8E6),
+  DeepSkyBlue: hex(0x00BFFF), DodgerBlue: hex(0x1E90FF), SteelBlue: hex(0x4682B4), Teal: hex(0x008080),
+  Turquoise: hex(0x40E0D0), DarkRed: hex(0x8B0000), Maroon: hex(0x800000), Crimson: hex(0xDC143C), Coral: hex(0xFF7F50),
+  Salmon: hex(0xFA8072), Tomato: hex(0xFF6347), OrangeRed: hex(0xFF4500), DarkOrange: hex(0xFF8C00), Brown: hex(0xA52A2A),
+  Chocolate: hex(0xD2691E), Tan: hex(0xD2B48C), Khaki: hex(0xF0E68C), Olive: hex(0x808000), DarkGreen: hex(0x006400),
+  ForestGreen: hex(0x228B22), SeaGreen: hex(0x2E8B57), SpringGreen: hex(0x00FF7F), Chartreuse: hex(0x7FFF00),
+  YellowGreen: hex(0x9ACD32), GreenYellow: hex(0xADFF2F), LawnGreen: hex(0x7CFC00), Violet: hex(0xEE82EE),
+  Indigo: hex(0x4B0082), MediumPurple: hex(0x9370DB), DarkViolet: hex(0x9400D3), BlueViolet: hex(0x8A2BE2),
+  Plum: hex(0xDDA0DD), Orchid: hex(0xDA70D6), Fuchsia: hex(0xFF00FF), HotPink: hex(0xFF69B4), DeepPink: hex(0xFF1493),
+  Lavender: hex(0xE6E6FA), Amethyst: hex(0x6600FF), Azure: hex(0xF0FFFF), Ivory: hex(0xFFFFF0), Beige: hex(0xF5F5DC),
+  FairyLight: hex(0xFFE42D), FairyLightNCC: hex(0xFF9D2A),
 }
 
 // FastLED preset palette constants mapped onto the evaluator's palette model

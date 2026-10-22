@@ -1425,7 +1425,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Code: {
     overview: [
       'Code runs raw FastLED C++ that writes into leds[], exactly as in a hand-written sketch. Paste a loop body and it is compiled into the firmware verbatim.',
-      'The preview translates the code to approximate it in the browser, so most FastLED idioms — beatsin16, CHSV, fadeToBlackBy, |= — show live. Global Code holds variables and helpers that persist between frames. Wire a frame into Frame to start from it instead of the previous output.',
+      'The preview translates the code to approximate it in the browser, so most FastLED idioms — beatsin16, CHSV, fadeToBlackBy, |=, EVERY_N_MILLISECONDS, ColorFromPalette with your own DEFINE_GRADIENT_PALETTE or fill_gradient palettes, a custom XY() map, static locals and typed arrays — show live, and a pasted sketch header with its #includes and #defines compiles. Global Code holds variables and helpers that persist between frames. Wire a frame into Frame to start from it instead of the previous output.',
       'Code runs only in a trusted workspace; an untrusted project shows black until you trust it.',
     ],
     inputs: {

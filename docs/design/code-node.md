@@ -1,6 +1,6 @@
 # Code node — design note
 
-Status: implemented (first-slice scope shipped; preview fidelity for the FastLED classics 2026-10-13) · Owner: app · Date: 2026-06-27
+Status: implemented (first-slice scope shipped; preview fidelity for the FastLED classics 2026-10-13; includes, statics, palettes, XY maps and local types 2026-10-22) · Owner: app · Date: 2026-06-27
 
 A **Code node** lets a user paste raw FastLED/Arduino C++ — a loop body that
 writes directly into `leds[]` — and have it both (a) compile into the generated
@@ -123,59 +123,143 @@ variable does on the board, and a global helper sees `leds[]`, `NUM_LEDS`,
 as `let`s at its top and the loop function rebinds each frame (the shim closes
 over that frame's `t` and `leds[]`). Editing either section recompiles and
 re-initialises the globals, as re-uploading would. The transpile runs on the
-main thread (only the *compiled source* crosses into the worker) — a handful
-of regex rewrites and one small scanner applied before `new Function`:
+main thread (only the *compiled source* crosses into the worker) — a
+pipeline of small scanners and regex rewrites applied before `new Function`,
+in this order:
 
-- **Drop storage qualifiers** (`static uint8_t x` → `x`).
-- **C++ function definition → JS function**: `<retType> name(<typed args>) {` →
-  `function name(<stripped args>) {`, so global helper functions run.
-- **Strip C++ type keywords** at declaration sites → `let`.
-- **Wrap narrow integers.** Every scalar declared `uint8_t`, `byte`, `int8_t`,
-  `uint16_t` or `int16_t` (a variable or a typed helper argument) is remembered
-  by name across both sections, and each assignment to it masks the stored
-  value to that width: `x = E` → `x = (E) & 255`, `x += E` →
-  `x = (x + (E)) & 255`, `x++` → `((x = (x + 1) & 255), (x - 1) & 255)` so
-  postfix keeps its value; signed types sign-extend with a shift pair. The
-  right-hand side ends at the first `;`, `,` or closing bracket at depth zero,
-  so a for-header `i += 2)` and `x = CRGB(1, 2, 3);` both stop where C++
-  does, and a right-hand side that itself assigns (`y = x++`) is rewritten
-  inside. `int` and wider types are left alone: `int` is 32-bit on the ESP32
-  targets the preview models, so `for (int i …)` never wraps. A `uint8_t`
-  loop counter against a strip longer than 255 spins forever in the preview
-  exactly as it would on the board, and the run timeout reports it.
-- **Timing macros.** `EVERY_N_MILLISECONDS(n)`, `EVERY_N_MILLIS(n)` and
-  `EVERY_N_SECONDS(n)` become `if (everyN(k, n))`, where `k` numbers the
-  macro's position across both sections and the worker keeps that timer's
-  last-fire time in evaluator milliseconds (`t * 1000`), so Master Speed
-  scales it with everything else. The timer follows FastLED's `CEveryNTime`:
-  created on first reach with its trigger time set to now, it fires once the
-  period has elapsed and re-arms from the fire time, not from the schedule.
-  Timers reset on recompile, as fresh statics would.
+- **Comments and the preprocessor.** Comments are stripped first (they would
+  otherwise feed the rewrites below). `#include`, `#pragma`, `#if`/`#ifdef`/
+  `#else`/`#endif` and every other directive line is dropped. `#define NAME
+  value` is substituted textually, as the preprocessor does — a bare word or
+  number as is, an expression in parentheses — so an unused `#define LED_TYPE
+  WS2812B` costs nothing and a Global define reaches the Loop section;
+  `#define NAME(args) body` becomes `const NAME = (args) => (body)`; a bare
+  `#define NAME` is dropped. A define (or declaration) of `NUM_LEDS`, `WIDTH`,
+  `HEIGHT`, `leds` or `t` is dropped: the factory binds those itself, so a
+  pasted header's `#define NUM_LEDS 64` / `CRGB leds[NUM_LEDS];` yields to the
+  preview's own buffer and size. `PROGMEM`/`FL_PROGMEM` vanish and
+  `pgm_read_byte(&tbl[i])` reads `tbl[i]`.
+- **Function-scope statics persist.** A `static` declaration inside the Loop
+  section is lifted to the end of the Global section, and one inside a global
+  helper to just above that helper, so it initialises once at compile time
+  and keeps its value across frames — a function-scope static on the board.
+  Two statics of one name in different scopes, or a static shadowing a
+  global, are renamed `name__s1`, `name__s2`, … (per occurrence, inside their
+  own block) before lifting. A file-scope `static` just loses the keyword;
+  `static` functions are untouched.
+- **C++ function definition → JS function**: `<retType> name(<typed args>) {`
+  → `function name(<stripped args>) {`, so global helper functions run.
+  `const`, `&`/`*` and default values (`uint8_t n = 3`) in the argument list
+  are handled; a forward declaration (`void f(uint8_t);`) is dropped. A
+  pasted `setup()`/`loop()` compiles as a helper nobody calls, so its
+  `FastLED.addLeds<…>(…)` only has to parse.
+- **Casts and `sizeof`.** `(uint8_t)x`, `uint8_t(x)` and
+  `static_cast<uint8_t>(x)` mask their operand to the type's width (`int`
+  → `| 0`, `uint32_t`/`unsigned` → `>>> 0`, `float` → as is, `bool` →
+  `!!`); a C-style cast binds to the unary operand only, so `(int)y * 3`
+  casts `y`. `sizeof(arr) / sizeof(arr[0])` is `arr.length` and
+  `sizeof(<type>)` its byte count.
+- **Declarations.** `<type> declarator, declarator;` becomes `let` (or
+  `const` when qualified) with each declarator given a JS shape: a scalar
+  keeps its initialiser or gets the type's zero (`0`, `false`, `CRGB(0, 0,
+  0)`, `CRGBPalette16()`); `uint8_t heat[N]` → `new Array(N).fill(0)`; a
+  CRGB array gets a fresh `{ r, g, b }` per element; `uint8_t grid[H][W]`
+  nests; a brace initialiser becomes an array literal, padded to the declared
+  size (`bool flags[8] = {false}`); `CRGB &px = leds[i]` aliases the element
+  so `px.r = …` writes through; `CRGB c(255, 0, 0)` and `CRGBPalette16 p(a,
+  b)` call the shim; `for (CRGB &px : leds)` is `for (let px of leds)`. The
+  type vocabulary covers the C integer and Arduino names (`unsigned int`,
+  `unsigned long`, `long long`, `unsigned char`, `signed char`, `size_t`,
+  `int32_t`, `uint64_t`, `word`, `boolean`, `auto`, …) and the FastLED
+  classes.
+- **Wrap narrow integers.** Every scalar declared `uint8_t`, `byte`,
+  `unsigned char`, `int8_t`, `signed char`, `char`, `uint16_t`, `word`,
+  `unsigned short`, `int16_t` or `short` (a variable, a comma declarator or
+  a typed helper argument) is remembered by name across both sections, and
+  each assignment to it masks the stored value to that width: `x = E` → `x =
+  (E) & 255`, `x += E` → `x = (x + (E)) & 255`, `x++` → `((x = (x + 1) &
+  255), (x - 1) & 255)` so postfix keeps its value; signed types sign-extend
+  with a shift pair. The right-hand side ends at the first `;`, `,` or
+  closing bracket at depth zero, so a for-header `i += 2)` and `x = CRGB(1,
+  2, 3);` both stop where C++ does, and a right-hand side that itself assigns
+  (`y = x++`) is rewritten inside. `int` and wider types are left alone:
+  `int` is 32-bit on the ESP32 targets the preview models, so `for (int i …)`
+  never wraps. A `uint8_t` loop counter against a strip longer than 255 spins
+  forever in the preview exactly as it would on the board, and the run
+  timeout reports it.
+- **Timing macros.** `EVERY_N_MILLISECONDS(n)`, `EVERY_N_MILLIS(n)`,
+  `EVERY_N_SECONDS(n)`, `EVERY_N_MINUTES(n)` and `EVERY_N_HOURS(n)` become
+  `if (everyN(k, n))` (seconds, minutes and hours scaled to milliseconds),
+  where `k` numbers the macro's position across both sections and the worker
+  keeps that timer's last-fire time in evaluator milliseconds (`t * 1000`),
+  so Master Speed scales it with everything else. The timer follows FastLED's
+  `CEveryNTime`: created on first reach with its trigger time set to now, it
+  fires once the period has elapsed and re-arms from the fire time, not from
+  the schedule. The `_I` named forms (`EVERY_N_MILLISECONDS_I(name, n)`) are
+  the same timer keyed by position; `name.setPeriod(x)` overrides its period
+  and `name.reset()` re-arms it from now. Timers reset on recompile, as fresh
+  statics would.
 - **Rewrite `leds[]` writes** (JS can't overload the CRGB operators):
   - `leds[EXPR] += RHS;` → `addLed(EXPR, RHS);` (`qadd8` per channel, saturating)
   - `leds[EXPR] |= RHS;` → `maxLed(EXPR, RHS);` (per-channel maximum, as FastLED's `|=`)
-  - `leds[EXPR] = RHS;`  → `setLed(EXPR, RHS);`
-  - index `EXPR` is matched as `leds\[([^\]]*)\]` (no nested `[`, which covers the
-    demo vocabulary including `beatsin16(...)` indices).
+  - `leds[EXPR] -= RHS;` → `subLed(EXPR, RHS);` (`qsub8` per channel)
+  - `leds[EXPR] = RHS;`  → `setLed(EXPR, RHS);` (`==` is left alone)
+  - the index is scanned with bracket matching, so `leds[XYTable[i]]` works;
+    `leds[i].r = …` and reads are untouched (elements are plain objects).
+  - a CRGB array the code declares (`CRGB buf[N]`) gets the same operators
+    through `addPx/maxPx/subPx/setPx(buf, EXPR, RHS)`.
+  - CRGB member calls — `leds[i].nscale8(s)`, `.fadeToBlackBy(f)`,
+    `.fadeLightBy`, `.setHSV`, `.setRGB`, `.addToRGB`, `.subtractFromRGB`,
+    `.maximizeBrightness`, `.getAverageLight`, `.getLuma` — route through
+    `rgbMethod(target, 'name', …)`.
 - **Named colour constants:** `CRGB::Red` (invalid JS `::`) → `crgbConst('Red')`,
-  resolved against a small common table (extend as needed).
+  resolved against FastLED's HTML colour table (`CRGB::Green` is `0x008000`,
+  `CRGB::Lime` is `0x00FF00`; about eighty names, extend as needed). Each
+  call hands out a copy, so `px.r = …` on one never edits the table.
 - **Shim runtime in scope:** `beatsin16/8`, `beat8/16`, `sin8/cos8`, `sin16`,
   `triwave8`, `quadwave8`, `cubicwave8`, `ease8InOutQuad`, `ease8InOutCubic`,
-  `CHSV`, `CRGB`, `qadd8`, `qsub8`, `scale8`, `nscale8`, `blend8`, `lerp8by8`,
-  `lerp16by16`, `sqrt16`, `random8/16`, `millis()`, `XY(x,y)`,
-  `fadeToBlackBy`, `fill_solid`, `fill_rainbow`, `nblend`, plus the constants
-  `NUM_LEDS / WIDTH / HEIGHT`. `t` (seconds) is available so timing matches the
-  rest of the evaluator (wall-clock based). The fixed-point wave/scale shims
+  `CHSV`, `CRGB` (three channels, a `0xRRGGBB` number, or a copy), `qadd8`,
+  `qsub8`, `scale8`, `scale8_video`, `nscale8`, `blend8`, `blend`,
+  `lerp8by8`, `lerp16by16`, `sqrt16`, `random8/16` (one- and two-argument),
+  `random`, `millis()`, `micros()`, `XY(x,y)`, `fadeToBlackBy`,
+  `fadeLightBy`, `fill_solid`, `fill_rainbow`, `nblend`, `HeatColor`, the
+  `HUE_*` constants, plus the constants `NUM_LEDS / WIDTH / HEIGHT`. `t`
+  (seconds) is available so timing matches the rest of the evaluator
+  (wall-clock based). Sketch plumbing is harmless: `FastLED.show()`,
+  `.setBrightness()`, `.delay()` and friends are no-ops (`FastLED.clear()`
+  blacks `leds[]`), `Serial.*` is swallowed, `delay()` returns at once, and
+  `map`, `constrain`, `min`, `max`, `abs`, `sqrt`, `pow`, `sin`, `cos`,
+  `floor`, `round` and `PI` exist. The fixed-point wave/scale shims
   (`sin8`…`sqrt16`) come from the shared `src/nodes/shared/fastledShims.ts`, so the
   field-formula nodes accept the same vocabulary and the C++ generator stays in
   sync.
-- **Palettes:** `ColorFromPalette(pal, index, brightness)`, `fill_palette(...)`,
-  and the `CRGBPalette16(...)` constructor, all backed by the evaluator's own
-  `samplePalette`. The FastLED preset constants (`RainbowColors_p`,
+- **A user definition wins over the shim.** Every name the transpiled source
+  declares (`function XY`, `let`/`const` declarators) is left out of the
+  factory's destructure *and* the per-frame rebind, so a pasted `uint16_t
+  XY(uint8_t x, uint8_t y) { … }`, an `XYTable[]` it indexes, or a custom
+  `fadeToBlackBy` is what both sections call.
+- **Palettes:** `ColorFromPalette(pal, index, brightness[, blend])`,
+  `fill_palette(...)`, the `CRGBPalette16/32/256(...)` constructors (a preset,
+  an entry list, one colour, or two to four colours spread into a gradient),
+  `DEFINE_GRADIENT_PALETTE(name) { pos, r, g, b, … };` (and the explicit
+  `TProgmemRGBGradientPalette_byte name[]` form), the brace initialiser
+  `CRGBPalette16 p = { CRGB::Red, 0x0000FF, … }` (entries at `i·16`, the rest
+  black, as C++ fills them), `fill_gradient_RGB(pal_or_leds, n, c1, c2[, c3[,
+  c4]])` and its positional `(arr, start, c1, end, c2)` form,
+  `fill_gradient(...)` likewise but walking hue between `CHSV` colours
+  (`SHORTEST_HUES` by default; `FORWARD`/`BACKWARD`/`LONGEST_HUES` accepted),
+  and `nblendPaletteTowardPalette`. A gradient table resolves through
+  `gradientPaletteStops` (`src/state/palettes/ledColor.ts`) into the 256
+  colours it spans, linear between stops, and `palAt` reads any RGB[] as
+  FastLED reads a `CRGBPaletteN`: entry `i` at index `i·256/n`,
+  `LINEARBLEND` blending each into the next and the last back into the first,
+  `LINEARBLEND_NOWRAP` holding the last, `NOBLEND` taking the entry alone — so
+  a 16-entry table samples exactly as a `CRGBPalette16` and a gradient
+  indexes directly. The FastLED preset constants (`RainbowColors_p`,
   `OceanColors_p`, `LavaColors_p`, `ForestColors_p`, `PartyColors_p`,
-  `HeatColors_p`, `CloudColors_p`, `RainbowStripeColors_p`) and blend-type enums
-  (`LINEARBLEND`/`NOBLEND`) are in scope; `CRGBPalette16 p = …` is type-stripped
-  like any declaration. (`RainbowStripe` approximates as `rainbow`.)
+  `HeatColors_p`, `CloudColors_p`, `RainbowStripeColors_p`) are in scope and go
+  through the evaluator's own `samplePalette`. (`RainbowStripe` approximates
+  as `rainbow`.)
 
 ### Error handling
 
@@ -201,22 +285,28 @@ and unit tests (transpile/eval cases + codegen snapshots).
 
 ## Deferred (known divergences / follow-ups)
 
-- **`static` locals in the Loop section** re-initialise each frame: `static`
-  is stripped and the declaration becomes a `let` inside the per-frame
-  function. On the board a function-scope static persists. Move the variable
-  to the Global section, which does persist in the preview.
 - **Integer wrap covers assignments to named scalars only.** A wider
   expression that is never stored back into a narrow variable (`CHSV(h + 300,
-  …)`) is not wrapped, nor are `uint8_t` arrays, `int` on AVR (16-bit there,
-  32-bit on every ESP32 target), or a name declared narrow in one place and
-  wide in another.
-- **Timing macros** cover `EVERY_N_MILLISECONDS`, `EVERY_N_MILLIS` and
-  `EVERY_N_SECONDS`. The `_I` named forms, `EVERY_N_MINUTES`/`HOURS` and the
-  `CEveryNMillis` objects are not rewritten.
-- `#include`s; custom `CRGBPalette16` gradient definitions (`CRGBPalette16 p = { … }`
-  / `fill_gradient`*), beyond the constructor-from-colours and preset forms;
-  `XY`-map customisation in the preview shim.
-- Multi-statement type inference beyond the `let` blanket.
+  …)` — though `CHSV` itself wraps its hue byte) is not wrapped, nor are
+  `uint8_t` array elements (`heat[k] = (a + b) / 3` keeps its fraction in
+  the preview where the board truncates; `px.r = 300` clamps on packing
+  rather than wrapping), `int` on AVR (16-bit there, 32-bit on every ESP32
+  target), or a name declared narrow in one place and wide in another. Still
+  open.
+- **Timing objects.** `CEveryNMillis`/`CEveryNSeconds` declared as objects
+  (`CEveryNMillis timer(20); if (timer) …`) are not rewritten; only the
+  `EVERY_N_*` macros, the `_I` forms and their `setPeriod`/`reset` are.
+- **Preprocessor approximations.** `#if`/`#ifdef` conditions are ignored
+  (both branches stay); a function-like macro is an arrow function, so its
+  arguments evaluate once and it cannot expand to a statement list; an
+  object-like define is substituted only into text that follows it in the
+  same section (or the Loop section).
+- **Unsupported functions surface as the runtime-error banner** rather than
+  being approximated: `blur1d`/`blur2d`, `beatsin88`, `nscale8_video` on
+  arrays, `sizeof` of anything but the two idioms above, template calls
+  outside a never-called `setup()`, and char literals in arithmetic.
+- Two statics of the same name in sibling blocks of one function collide
+  (they share a rename scope); separate functions and the loop are fine.
 
 ## Touch points
 
@@ -224,27 +314,37 @@ and unit tests (transpile/eval cases + codegen snapshots).
 - `src/state/graphEvaluator.ts` — `Code` case, calling `evalCodeAsync` (below);
   no longer owns the compile/execute pipeline itself.
 - `src/state/codeSandboxRuntime.ts` — main-thread controller:
-  `transpileSections` (storage/function-def/type/`::`/leds rewrites, the
-  integer-wrap scanner and the `EVERY_N_*` rewrite, sharing one type table and
-  timer numbering across both sections; `transpileCode` is the one-section
-  form for tests), per-instance worker pool, the run-timeout/respawn logic,
+  `transpileSections` (comment strip and preprocessor, static hoisting with
+  collision renames, function-def/prototype, cast and `sizeof`, the
+  declaration parser, `::`, leds/CRGB-array/member rewrites, the `EVERY_N_*`
+  rewrite with named timers, and the integer-wrap scanner — sharing one type
+  table, CRGB-array set and timer numbering across both sections;
+  `transpileCode` transpiles one section as the Loop of an empty sketch, for
+  tests), per-instance worker pool, the run-timeout/respawn logic,
   `evalCodeAsync`, and `codeError`/`getCodeError`/`disposeCodeSandbox`.
 - `src/state/codeSandbox.worker.ts` — the sandboxed worker: bootstrap that
-  closes network/storage/messaging APIs, `compileSections` (the global-once
-  factory), `makeCodeShim` with the `everyN` timers, and `handleRunRequest`
-  (size `leds[]`, compile if the source changed, run one tick, pack).
-- `src/state/palettes/ledColor.ts` — `RGB`/`Palette`/`hsv`/`samplePalette`/`palAt`/the
-  FastLED preset-palette tables, shared by the worker and the main-thread
-  evaluator (re-exported from `graphEvaluator.ts` for existing importers).
+  closes network/storage/messaging APIs, `SHIM_NAMES` and `declaredNames`
+  (the user-definition exclusion), `compileSections` (the global-once
+  factory), `makeCodeShim` with the `everyN` timers and their period
+  overrides, the palette builders (`makePalette`, `fillGradient`), `rgbMethod`
+  and the sketch-plumbing no-ops, and `handleRunRequest` (size `leds[]`,
+  compile if the source changed, run one tick, pack).
+- `src/state/palettes/ledColor.ts` — `RGB`/`Palette`/`hsv`/`samplePalette`/`palAt`
+  (FastLED's `CRGBPaletteN` indexing and blend types)/`gradientPaletteStops`/
+  the FastLED preset-palette tables and `CRGB_CONSTANTS`, shared by the worker
+  and the main-thread evaluator (re-exported from `graphEvaluator.ts` for
+  existing importers).
 - `src/codegen/cppGenerator.ts` — `Code` case + `globalLines` (file scope) and
   the loop block (buffer alias + verbatim body) — unchanged, still pass-through.
 - `src/components/Canvas/StudioNode.tsx` — the Global + Loop `<textarea>` editors
   and the `CodeError` banner.
-- Tests: `src/state/__tests__/codeTranspile.test.ts` (the wrap and timer
-  rewrites as strings), `src/state/__tests__/codeSandbox.worker.test.ts`
+- Tests: `src/state/__tests__/codeTranspile.test.ts` (every rewrite as
+  strings: preprocessor, statics, declarations, casts, palettes, XY, the
+  wrap and timer rewrites), `src/state/__tests__/codeSandbox.worker.test.ts`
   (compile/execute/persistence/error cases against `handleRunRequest`
-  directly, including persistent globals, wrap and `EVERY_N_*` through the
-  worker),
+  directly, including persistent globals and statics, wrap, `EVERY_N_*`,
+  gradient and brace palettes, `fill_gradient*`, user `XY`, arrays and a
+  verbatim Fire2012 through the worker),
   `src/state/__tests__/codeSandboxRuntime.test.ts` (message protocol, timeout/
   respawn, fail-closed, against a mocked `Worker`), and `src/codegen/__tests__/`
   for codegen (unchanged).
