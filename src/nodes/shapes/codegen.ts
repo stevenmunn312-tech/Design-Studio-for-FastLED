@@ -24,6 +24,7 @@ import { customPathTable } from './customPath'
 import { gradientMixMode } from '../../state/palettes/hueMix'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
+import { hexCrgbCpp } from '../../codegen/colorControlCpp'
 import {
   FOURIER_SCALE_MIN, FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
   fourierOutline, fourierTable, fourierTableQ,
@@ -223,11 +224,6 @@ export const SHAPES_EMITTERS: NodeEmitters = {
   Shape({ node, p, ln, f, ownBuf, seedFrom, incoming, colorExpr, needsSdf }) {
     needsSdf.v = true
     const ob = ownBuf()
-    const hexCrgb = (hex: unknown, def: number) => {
-      const m = /^#([0-9a-f]{6})$/i.exec(String(hex))
-      const n = m ? parseInt(m[1], 16) : def
-      return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
-    }
     const shape = ['rect', 'ellipse'].includes(String(p.shape)) ? String(p.shape) : 'polygon'
     const cx = Number(p.cx ?? 0.5), cy = Number(p.cy ?? 0.5)
     const size = Math.max(0.5, Number(p.size ?? 6))
@@ -235,8 +231,8 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const rot = Number(p.rotation ?? 0)
     const thick = Math.max(0, Number(p.thickness ?? 1.5))
     const filled = (p.filled ?? true) !== false
-    const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff3080)
-    const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgb(p.edge, 0x00e0ff)
+    const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgbCpp(p.fill, 0xff3080)
+    const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgbCpp(p.edge, 0x00e0ff)
     const emitShapePass = (cxExpr: string, cyExpr: string, indent: string) => {
       ln(`${indent}for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
       ln(`${indent}  float _dx=(_x+0.5f)-${cxExpr},_dy=(_y+0.5f)-${cyExpr},_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr,_sd;`)
@@ -248,7 +244,8 @@ export const SHAPES_EMITTERS: NodeEmitters = {
         ln(`${indent}  _sd=_sdfMorphPolygon(_lx,_ly,_sides,_size);`)
       }
       ln(`${indent}  float _fc=${filled ? 'constrain(0.5f-_sd,0.0f,1.0f)' : '0.0f'};`)
-      ln(`${indent}  float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);`)
+      // No outline at all at thickness 0, as the preview draws none.
+      ln(`${indent}  float _ec=_th>0.0f?constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f):0.0f;`)
       ln(`${indent}  float _al=max(_fc,_ec); if(_al<=0.0f) continue;`)
       ln(`${indent}  CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); }`)
     }
@@ -708,7 +705,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    float _rng=max(1e-6f,_pmax-_pmin);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _tn=(_x*_co+_y*_si-_pmin)/_rng;`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_tn*${repeat}${scroll})*255));}}`)
+    // The scroll phase grows without bound and repeat passes 1, so the
+    // position wraps before the byte cast, as samplePalette wraps it.
+    ln(`      float _pp=_tn*${repeat}${scroll}; ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_pp-floorf(_pp))*255));}}`)
   },
   PolarGradient({ node, id, p, ln, f, ownBuf, paletteExpr, needsT, needsAtan16 }) {
     const ob = ownBuf()

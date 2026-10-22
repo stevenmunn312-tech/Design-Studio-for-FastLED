@@ -2342,7 +2342,8 @@ describe('generateCpp', () => {
     expect(cpp).toContain('45*0.01745329f')
     expect(cpp).toContain('_pmax-_pmin')
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
-    expect(cpp).toContain('_tn*2+_phase_g)*255')
+    // Wrapped before the byte cast: scroll and repeat leave 0..1 in normal use.
+    expect(cpp).toContain('float _pp=_tn*2+_phase_g; buf_g[_y*WIDTH+_x]=ColorFromPalette(paldef_rainbow,(uint8_t)((_pp-floorf(_pp))*255));')
   })
 
   it('declares CustomFormula A/B inputs before using them', () => {
@@ -2529,6 +2530,13 @@ describe('generateCpp', () => {
     expect(emit('dissolve')).toContain('0x9E3779B1u')     // shared dissolve rank
   })
 
+  it('wraps a Palette Sampler position before the byte cast', () => {
+    const ps = node('ps', 'PaletteSampler', 'color', { t: 1.25, palette: 'rainbow' })
+    const sc = node('sc', 'SolidColor', 'pattern')
+    const cpp = generateCpp([ps, sc, outputNode], [edge('e1', 'ps', 'sc', 'color', 'color'), edge('e2', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('{ float _ps=1.25; n_ps_color = ColorFromPalette(paldef_rainbow, (uint8_t)((_ps-floorf(_ps))*255)); }')
+  })
+
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
     const t = node('t', 'Temperature', 'color', { warmth: (3000 - 1000) / 11000 })
     const sp = node('sp', 'Shape', 'pattern', { shape: 'ellipse', cx: 2, cy: 2, size: 2 })
@@ -2549,7 +2557,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
     expect(cpp).toContain('_sd=_sdfEllipse(_lx,_ly,_size*_aspect,_size);')
     expect(cpp).toContain('float _fc=0.0f;')                                        // unfilled: no fill coverage
-    expect(cpp).toContain('float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);')
+    expect(cpp).toContain('float _ec=_th>0.0f?constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f):0.0f;')
     expect(cpp).toContain('CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f));')
     expect(cpp).toContain('CRGB(255, 0, 0)')
   })

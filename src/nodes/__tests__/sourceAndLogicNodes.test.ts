@@ -50,12 +50,19 @@ describe('Constant', () => {
 })
 
 describe('Color', () => {
-  it('outputs the picked hex as RGB on both sides and falls back from a bad value', () => {
+  it('reads the picked hex the same way on both sides, loose spellings and bad values included', () => {
     const picked = node('c', 'Color', { color: '#1a2b3c' })
     expect(outputsOf([picked], []).get('c')!.color).toEqual({ r: 26, g: 43, b: 60 })
     expect(generateCpp([picked], [])).toContain('CRGB n_c_color = CRGB(26, 43, 60);')
-    const broken = node('b', 'Color', { color: 'teal' })
-    expect(generateCpp([broken], [])).toContain('CRGB n_b_color = CRGB(255, 48, 128);')
+    // No `#` and padding still read as the colour; a bad value is black.
+    for (const [color, rgb] of [['1a2b3c', 'CRGB(26, 43, 60)'], [' #1a2b3c ', 'CRGB(26, 43, 60)'], ['teal', 'CRGB(0, 0, 0)']]) {
+      const n = node('b', 'Color', { color })
+      expect(generateCpp([n], [])).toContain(`CRGB n_b_color = ${rgb};`)
+      const [r, g, b] = rgb.slice(5, -1).split(', ').map(Number)
+      expect(outputsOf([n], []).get('b')!.color).toEqual({ r, g, b })
+    }
+    // Missing altogether, both sides use the node's default.
+    expect(generateCpp([node('d', 'Color', {})], [])).toContain('CRGB n_d_color = CRGB(255, 48, 128);')
   })
 
   it('is a control-graph colour source', () => {

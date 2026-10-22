@@ -7,6 +7,7 @@
 // binding, so a later colour node can still read the CRGB.
 
 import { gradientMixMode, hueUnits } from '../state/palettes/hueMix'
+import { hexToRgb } from '../state/palettes/polinePalette'
 
 /** HSV → RGB's Hue in degrees for `_hsv`, which wraps it, from the node's units. */
 export function hsvDegreesCpp(units: unknown, hue: string): string {
@@ -19,11 +20,17 @@ export function hsvDegreesCpp(units: unknown, hue: string): string {
 export function hsvColorCpp(units: unknown, h: string, s: string, v: string): string {
   return `_hsv(${hsvDegreesCpp(units, h)}, ${s}, ${v})`
 }
-/** A `#rrggbb` property as a CRGB literal; anything else is `fallback` (0xRRGGBB). */
+/**
+ * A hex colour property as a CRGB literal, read as the preview reads it:
+ * `fallback` (0xRRGGBB) only when the property is missing, otherwise
+ * `hexToRgb`, which takes a missing `#` and surrounding spaces and gives black
+ * for anything that is not a colour.
+ */
 export function hexCrgbCpp(hex: unknown, fallback: number): string {
-  const match = /^#([0-9a-f]{6})$/i.exec(String(hex))
-  const n = match ? parseInt(match[1], 16) : fallback
-  return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+  const { r, g, b } = hex === undefined || hex === null
+    ? { r: (fallback >> 16) & 255, g: (fallback >> 8) & 255, b: fallback & 255 }
+    : hexToRgb(String(hex))
+  return `CRGB(${r}, ${g}, ${b})`
 }
 
 export interface ColorControlSpec {

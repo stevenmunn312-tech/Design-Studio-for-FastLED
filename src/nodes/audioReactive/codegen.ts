@@ -404,7 +404,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
   DanceFlash({ node, id, p, ln, ownBuf, seedFrom, incoming, boolExpr, channelColor, needsT }) {
     needsT.v = true
     const ob = ownBuf()
-    const seed = seedProp(p)
+    // A missing seed is the evaluator's 1, not an unseeded 0: an older save
+    // without the property repeats its poses in the preview, so it must here.
+    const seed = seedProp({ seed: p.seed ?? 1 })
     const beatWired = incoming.has(`${node.id}:beat`)
     const beat = boolExpr(node.id, 'beat')
     const color = channelColor(null, 255, 255, 255)

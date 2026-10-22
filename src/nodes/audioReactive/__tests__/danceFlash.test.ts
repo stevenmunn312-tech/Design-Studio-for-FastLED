@@ -200,3 +200,13 @@ describe('Dance Flash firmware', () => {
     expect(cpp).not.toContain('_dfRng_dance=_dfRng_dance*1664525u')
   })
 })
+
+describe('Dance Flash without a seed property', () => {
+  it('uses the preview fallback seed of 1, not an unseeded draw', () => {
+    const output = node('out', 'MatrixOutput', 'output', { width: 16, height: 16 })
+    const dance = node('dance', 'DanceFlash', 'pattern', {})
+    const cpp = generateCpp([dance, output], [edge('e1', 'dance', 'frame', 'out', 'frame')])
+    expect(cpp).toContain('static uint32_t _dfRng_dance=1u;')
+    expect(cpp).not.toContain('random16()%3500')
+  })
+})

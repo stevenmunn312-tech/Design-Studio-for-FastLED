@@ -64,7 +64,10 @@ export const COLOR_EMITTERS: NodeEmitters = {
   },
   PaletteSampler({ node, p, ln, v, f, paletteExpr }) {
     const tt = f('t', 't', 0), pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)((${tt})*255));`)
+    // Wrapped round the palette before the byte cast, as samplePalette wraps;
+    // casting an out-of-range float to uint8_t is undefined behaviour.
+    ln(`  CRGB ${v('color')};`)
+    ln(`  { float _ps=${tt}; ${v('color')} = ColorFromPalette(${pal}, (uint8_t)((_ps-floorf(_ps))*255)); }`)
   },
   PaletteSweep({ node, id, p, ln, v, f, paletteExpr, needsT }) {
     needsT.v = true
