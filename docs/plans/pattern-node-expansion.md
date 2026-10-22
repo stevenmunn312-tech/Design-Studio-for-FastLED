@@ -40,8 +40,8 @@ holds the two together.
 ## Non-goals
 
 - **No projectM-eval dependency.** Formulas already compile ahead of time on
-  both sides (`src/nodes/shared/formulaLang.ts` in the browser, `cppRewriteShims` for
-  the sketch). A runtime interpreter would be slower per pixel on the
+  both sides (`src/nodes/shared/formulaLang.ts` evaluates the parsed tree in the
+  browser and prints it as C++ for the sketch). A runtime interpreter would be slower per pixel on the
   controller and a new sandbox surface in the browser. The library is a grammar
   reference only, if the formula language ever grows assignments and state.
 - **No Milkdrop preset importer.** Presets carry HLSL warp and composite

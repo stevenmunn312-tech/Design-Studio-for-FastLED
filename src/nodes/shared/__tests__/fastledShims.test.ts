@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { makeShims, cppRewriteShims, usesShims, SHIM_NAMES, CPP_SHIM_HELPERS } from '../fastledShims'
+import { makeShims, usesShims, SHIM_NAMES, CPP_SHIM_HELPERS } from '../fastledShims'
 
 describe('makeShims', () => {
   const s = makeShims(0)
@@ -96,33 +96,6 @@ describe('makeShims', () => {
   it('nscale8 scales a byte like scale8', () => {
     expect(s.nscale8(255, 128)).toBe(127)
     expect(s.nscale8(255, 255)).toBe(254)
-  })
-})
-
-describe('cppRewriteShims', () => {
-  it('rewrites shim calls to the float wrappers', () => {
-    expect(cppRewriteShims('sin8(x) + cos8(y)')).toBe('_fsin8(x) + _fcos8(y)')
-    expect(cppRewriteShims('scale8(v, s)')).toBe('_fscale8(v, s)')
-  })
-
-  it('does not clip beatsin8 with the sin8 rule', () => {
-    expect(cppRewriteShims('beatsin8(60, 0, 255)')).toBe('_fbeatsin8(60, 0, 255)')
-    // and a later sin8 pass must not touch the already-rewritten name
-    expect(cppRewriteShims('beatsin8(60) + sin8(x)')).toBe('_fbeatsin8(60) + _fsin8(x)')
-  })
-
-  it('leaves non-shim trig alone', () => {
-    expect(cppRewriteShims('sin(x) + cos(y)')).toBe('sin(x) + cos(y)')
-  })
-
-  it('rewrites nscale8 without the scale8 rule clipping it', () => {
-    expect(cppRewriteShims('nscale8(v, s)')).toBe('_fnscale8(v, s)')
-    expect(cppRewriteShims('scale8(v, s) + nscale8(a, b)')).toBe('_fscale8(v, s) + _fnscale8(a, b)')
-  })
-
-  it('rewrites the new wave/easing/blend shims', () => {
-    expect(cppRewriteShims('cubicwave8(t) + triwave8(x)')).toBe('_fcubicwave8(t) + _ftriwave8(x)')
-    expect(cppRewriteShims('lerp8by8(a, b, f)')).toBe('_flerp8by8(a, b, f)')
   })
 })
 

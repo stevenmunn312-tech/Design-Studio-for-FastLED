@@ -2349,7 +2349,7 @@ describe('generateCpp', () => {
     const formula = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(r + a + b + t)', a: 0.2, b: 0.4 })
     const cpp = generateCpp([formula, outputNode], [edge('e', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float a=0.2, b=0.4;')
-    expect(cpp.indexOf('float a=')).toBeLessThan(cpp.indexOf('float _v=sin(r + a + b + t)'))
+    expect(cpp.indexOf('float a=')).toBeLessThan(cpp.indexOf('float _v=sinf((((r+a)+b)+t));'))
   })
 
   // A formula string travels inside a shared graph, so codegen must apply the
@@ -2377,10 +2377,10 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _v=0.0f;')
   })
 
-  it('still emits a valid formula unchanged', () => {
+  it('prints a valid formula from its parse tree, with float literals', () => {
     const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
     const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _v=sin(x*6+t)*0.5+0.5;')
+    expect(cpp).toContain('float _v=((sinf(((x*6.0f)+t))*0.5f)+0.5f);')
     expect(cpp).not.toContain('invalid formula')
   })
 
@@ -2935,7 +2935,7 @@ describe('Float Field codegen', () => {
     // The buffer persists (never pooled as scratch) and is read before the write.
     expect(cpp).toContain('float field_ff[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('float prev=field_ff[_y*WIDTH+_x];')
-    expect(cpp).toContain('float _v=max(prev * 0.9, fieldIn);')
+    expect(cpp).toContain('float _v=fmaxf((prev*0.9f), fieldIn);')
     // The feeding formula does not read prev, so its buffer stays scratch.
     expect(cpp).not.toContain('float field_src[NUM_LEDS];   // keeps')
   })
@@ -2960,7 +2960,7 @@ describe('Float Field codegen', () => {
       [edge('e1', 'ff', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
     )
     expect(a).toContain('float _fsin8(float x)')
-    expect(a).toContain('_fsin8(r*200)/255')   // call rewritten to the wrapper
+    expect(a).toContain('(_fsin8((r*200.0f))/255.0f)')   // call printed as the wrapper
 
     const noShim = node('ff', 'FieldFormula', 'pattern', { formula: 'r' })
     const b = generateCpp(
@@ -3209,7 +3209,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     // The formula reads W and x only: H, y and the per-pixel geometry go.
     expect(cpp).toContain('float W=WIDTH;')
     expect(cpp).not.toMatch(/\bH=HEIGHT|sqrtf\(cx|atan2f\(cy/)
-    expect(cpp).toContain('float _v=x/(W-1)')
+    expect(cpp).toContain('float _v=(x/(W-1.0f))')
     expect(build(true)).toContain(`_wallpaperSourceQ8(_x,_y,${groupId},_wpK,_wpCo,_wpSi,_wpOx,_wpOy,_sx,_sy)`)
     expect(cpp).toContain('field_field_symmetry[_y*WIDTH+_x]=field_sym_field_source[constrain((_sy+128)>>8,0,HEIGHT-1)*WIDTH+constrain((_sx+128)>>8,0,WIDTH-1)]')
     expect(cpp.match(/static void _wallpaperSourceQ8/g)).toHaveLength(1)

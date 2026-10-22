@@ -45,7 +45,7 @@ function easeInOutCubic8(input: number): number {
 }
 
 /** The shim names exposed inside a formula sandbox. Kept in one place so the
- *  JS sandbox, the C++ helpers and the call-rewrite stay in sync. */
+ *  JS sandbox, the C++ helpers and the C++ printer (formulaLang.ts) stay in sync. */
 export const SHIM_NAMES = [
   'sin8', 'cos8', 'sin16', 'beatsin8', 'beatsin16', 'scale8', 'qadd8', 'qsub8',
   'triwave8', 'quadwave8', 'cubicwave8', 'ease8InOutQuad', 'ease8InOutCubic',
@@ -113,17 +113,6 @@ export const CPP_SHIM_HELPERS = [
   'float _fsqrt16(float x){ return sqrt16((uint16_t)x); }',
   'float _fnscale8(float v, float s){ return scale8((uint8_t)v, (uint8_t)s); }',
 ].join('\n')
-
-/** Rewrite shim call sites in a user formula to the float wrappers above.
- *  `\b` before the bare name means `beatsin8(` is left for its own rule and
- *  isn't clipped by the `sin8` rule. */
-export function cppRewriteShims(expr: string): string {
-  let out = expr
-  for (const name of SHIM_NAMES) {
-    out = out.replace(new RegExp(`\\b${name}\\s*\\(`, 'g'), `_f${name}(`)
-  }
-  return out
-}
 
 /** Whether a formula references any shim — used to gate emitting the helpers. */
 export function usesShims(expr: string): boolean {

@@ -101,12 +101,12 @@ describe('Expression', () => {
     expect(outputsOf([expr], [], 90).get('x')!.result).toBeCloseTo(1.5 * 2 + 0.25 + 1 + 1, 6)
     const cpp = generateCpp([expr], [])
     expect(cpp).toContain('/* Expression: a*2 + b + W/H + floor(t) */')
-    expect(cpp).toContain('n_x_result = a*2 + b + W/H + floor(t); }')
+    expect(cpp).toContain('n_x_result = ((((a*2.0f)+b)+(W/H))+floorf(t)); }')
   })
 
   it('rewrites FastLED shims and keeps a formula the parser rejects out of the sketch', () => {
     const shim = node('s', 'Expression', { formula: 'sin8(t*40)/255' })
-    expect(generateCpp([shim], [])).toContain('n_s_result = _fsin8(t*40)/255; }')
+    expect(generateCpp([shim], [])).toContain('n_s_result = (_fsin8((t*40.0f))/255.0f); }')
     const injected = node('bad', 'Expression', { formula: 'a; system("rm")' })
     const cpp = generateCpp([injected], [])
     expect(cpp).not.toContain('system(')

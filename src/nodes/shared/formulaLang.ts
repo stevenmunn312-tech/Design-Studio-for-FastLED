@@ -73,7 +73,9 @@ function tokenize(source: string): Token[] {
   const tokens: Token[] = []
   TOKEN_RE.lastIndex = 0
   let lastIndex = 0
-  while (TOKEN_RE.lastIndex < source.length) {
+  // Trailing whitespace is not a token: stop where the last one ends.
+  const end = source.trimEnd().length
+  while (TOKEN_RE.lastIndex < end) {
     const pos = TOKEN_RE.lastIndex
     const m = TOKEN_RE.exec(source)
     if (!m || TOKEN_RE.lastIndex === lastIndex && m[0].length === 0) {
@@ -92,11 +94,14 @@ function tokenize(source: string): Token[] {
 // ── AST ───────────────────────────────────────────────────────────────────
 type BinaryOp = '+' | '-' | '*' | '/' | '%' | '<' | '<=' | '>' | '>=' | '==' | '!=' | '&&' | '||'
 
+// Names ride along so `formulaToCpp` can print the tree; evaluation reads
+// only the index or function.
 type Node =
-  | { type: 'num'; value: number }
-  | { type: 'var'; index: number }
-  | { type: 'call'; kind: 'shim'; index: number; args: Node[] }
-  | { type: 'call'; kind: 'math'; fn: (...a: number[]) => number; args: Node[] }
+  | { type: 'num'; value: number; text: string }
+  | { type: 'const'; value: number; name: string }
+  | { type: 'var'; index: number; name: string }
+  | { type: 'call'; kind: 'shim'; index: number; name: string; args: Node[] }
+  | { type: 'call'; kind: 'math'; fn: (...a: number[]) => number; name: string; args: Node[] }
   | { type: 'unary'; op: '-' | '+' | '!'; arg: Node }
   | { type: 'binary'; op: BinaryOp; left: Node; right: Node }
   | { type: 'ternary'; test: Node; then: Node; else: Node }
@@ -239,7 +244,7 @@ class Parser {
     if (t.type === 'num') {
       const value = Number(t.value)
       if (!Number.isFinite(value)) throw new FormulaParseError(`Invalid number at ${t.pos}`)
-      return { type: 'num', value }
+      return { type: 'num', value, text: t.value }
     }
     if (t.type === 'punct' && t.value === '(') {
       const inner = this.parseExpression()
@@ -254,20 +259,20 @@ class Parser {
         this.expectPunct(')')
         const shimIndex = this.callableVariables.indexOf(name)
         if (shimIndex !== -1) {
-          return { type: 'call', kind: 'shim', index: this.variables.length + shimIndex, args }
+          return { type: 'call', kind: 'shim', index: this.variables.length + shimIndex, name, args }
         }
         const mathFn = MATH_FUNCTIONS[name]
         if (mathFn) {
           if (args.length < mathFn.minArgs || args.length > mathFn.maxArgs) {
             throw new FormulaParseError(`'${name}' expects ${mathFn.minArgs}-${mathFn.maxArgs === Infinity ? 'many' : mathFn.maxArgs} argument(s) at ${t.pos}`)
           }
-          return { type: 'call', kind: 'math', fn: mathFn.fn, args }
+          return { type: 'call', kind: 'math', fn: mathFn.fn, name, args }
         }
         throw new FormulaParseError(`Unknown function '${name}' at ${t.pos}`)
       }
       const varIndex = this.variables.indexOf(name)
-      if (varIndex !== -1) return { type: 'var', index: varIndex }
-      if (name in MATH_CONSTANTS) return { type: 'num', value: MATH_CONSTANTS[name] }
+      if (varIndex !== -1) return { type: 'var', index: varIndex, name }
+      if (name in MATH_CONSTANTS) return { type: 'const', value: MATH_CONSTANTS[name], name }
       throw new FormulaParseError(`Unknown identifier '${name}' at ${t.pos}`)
     }
     throw new FormulaParseError(`Unexpected token '${t.value}' at ${t.pos}`)
@@ -277,7 +282,7 @@ class Parser {
 // ── Evaluator ─────────────────────────────────────────────────────────────
 function evalNode(node: Node, args: unknown[]): number {
   switch (node.type) {
-    case 'num': return node.value
+    case 'num': case 'const': return node.value
     case 'var': return args[node.index] as number
     case 'call': {
       const argv = node.args.map((a) => evalNode(a, args))
@@ -295,9 +300,10 @@ function evalNode(node: Node, args: unknown[]): number {
     }
     case 'binary': {
       const l = evalNode(node.left, args)
+      // 1 or 0, as C's && and || give on the board, still short-circuiting.
       switch (node.op) {
-        case '&&': return l ? evalNode(node.right, args) : l
-        case '||': return l ? l : evalNode(node.right, args)
+        case '&&': return l && evalNode(node.right, args) ? 1 : 0
+        case '||': return l || evalNode(node.right, args) ? 1 : 0
         default: break
       }
       const r = evalNode(node.right, args)
@@ -320,6 +326,74 @@ function evalNode(node: Node, args: unknown[]): number {
       return evalNode(node.test, args) ? evalNode(node.then, args) : evalNode(node.else, args)
   }
   throw new Error('unreachable')
+}
+
+// ── C++ printer ───────────────────────────────────────────────────────────
+//
+// The sketch gets the parsed tree printed back as C++, never the source text,
+// so the formula means the same thing on both sides: every literal is a float
+// (`1/2` is 0.5, not C's integer 0), `%` is fmodf (C has no float `%`),
+// comparisons and logic yield 1.0f or 0.0f, and the any-arity min/max/hypot
+// the preview accepts fold into two-argument calls.
+
+/** A float literal for a number token, keeping its exact digits. */
+function cppNumber(text: string): string {
+  const n = text.replace(/^\./, '0.')
+  return /[.eE]/.test(n) ? `${n}f` : `${n}.0f`
+}
+
+const CPP_MATH: Readonly<Record<string, string>> = {
+  sin: 'sinf', cos: 'cosf', tan: 'tanf', sqrt: 'sqrtf', pow: 'powf', floor: 'floorf', ceil: 'ceilf',
+  abs: 'fabsf', atan2: 'atan2f', log: 'logf', exp: 'expf',
+}
+
+const truthy = (expr: string) => `(${expr})!=0.0f`
+
+function cppNode(node: Node): string {
+  switch (node.type) {
+    case 'num': return cppNumber(node.text)
+    case 'const': return node.name
+    case 'var': return node.name
+    case 'call': {
+      const args = node.args.map(cppNode)
+      if (node.kind === 'shim') return `_f${node.name}(${args.join(', ')})`
+      // Math.round sends halves up, -2.5 to -2; roundf sends them away from 0.
+      if (node.name === 'round') return `floorf(${args[0]}+0.5f)`
+      if (node.name === 'min' || node.name === 'max') {
+        const fn = node.name === 'min' ? 'fminf' : 'fmaxf'
+        return args.reduce((acc, arg) => `${fn}(${acc}, ${arg})`)
+      }
+      if (node.name === 'hypot') {
+        return args.length === 1 ? `fabsf(${args[0]})` : args.reduce((acc, arg) => `hypotf(${acc}, ${arg})`)
+      }
+      return `${CPP_MATH[node.name]}(${args.join(', ')})`
+    }
+    case 'unary': {
+      const arg = cppNode(node.arg)
+      return node.op === '!' ? `(${truthy(arg)}?0.0f:1.0f)` : `(${node.op}${arg})`
+    }
+    case 'binary': {
+      const l = cppNode(node.left), r = cppNode(node.right)
+      switch (node.op) {
+        case '%': return `fmodf(${l}, ${r})`
+        case '&&': return `((${truthy(l)}&&${truthy(r)})?1.0f:0.0f)`
+        case '||': return `((${truthy(l)}||${truthy(r)})?1.0f:0.0f)`
+        case '+': case '-': case '*': case '/': return `(${l}${node.op}${r})`
+        default: return `((${l}${node.op}${r})?1.0f:0.0f)`
+      }
+    }
+    case 'ternary': return `(${truthy(cppNode(node.test))}?${cppNode(node.then)}:${cppNode(node.else)})`
+  }
+}
+
+/** The formula as one C++ float expression, or `null` when it does not parse. */
+function formulaToCpp(source: string, variables: readonly string[]): string | null {
+  if (source.length > MAX_SOURCE_LENGTH) return null
+  try {
+    return cppNode(new Parser(tokenize(source), variables, SHIM_NAMES).parseProgram())
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -367,6 +441,11 @@ export function isNodeFormulaValid(source: string): boolean {
   return compileNodeFormula(source) !== null
 }
 
+/** A CustomFormula's C++ expression; `null` when invalid. */
+export function nodeFormulaCpp(source: string): string | null {
+  return formulaToCpp(source, NODE_FORMULA_VARIABLES)
+}
+
 /** Why a CustomFormula/FieldFormula source does not parse, for the editor;
  *  `null` when it is valid. Agrees with `isNodeFormulaValid`. */
 export function nodeFormulaError(source: string): string | null {
@@ -392,6 +471,11 @@ export function compileFieldFormula(source: string): FormulaFn | null {
 /** True when a Field Formula parses cleanly and is therefore safe to emit into C++. */
 export function isFieldFormulaValid(source: string): boolean {
   return compileFieldFormula(source) !== null
+}
+
+/** A Field Formula's C++ expression; `null` when invalid. */
+export function fieldFormulaCpp(source: string): string | null {
+  return formulaToCpp(source, FIELD_FORMULA_VARIABLES)
 }
 
 /** Why a Field Formula source does not parse, for the editor; `null` when valid. */
@@ -422,6 +506,11 @@ export function compileScalarFormula(source: string): FormulaFn | null {
 /** True when an Expression formula parses cleanly and is therefore safe to emit into C++. */
 export function isScalarFormulaValid(source: string): boolean {
   return compileScalarFormula(source) !== null
+}
+
+/** An Expression's C++ expression; `null` when invalid. */
+export function scalarFormulaCpp(source: string): string | null {
+  return formulaToCpp(source, SCALAR_FORMULA_VARIABLES)
 }
 
 /** Why an Expression source does not parse, for the editor; `null` when valid. */

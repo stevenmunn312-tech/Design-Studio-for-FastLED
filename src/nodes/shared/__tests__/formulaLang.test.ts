@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compileFieldFormula, compileFormulaSource, fieldFormulaError, fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, nodeFormulaError } from '../formulaLang'
+import { compileFieldFormula, compileFormulaSource, fieldFormulaError, fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, nodeFormulaCpp, nodeFormulaError } from '../formulaLang'
 import { SHIM_NAMES, makeShims } from '../fastledShims'
 
 const VARIABLES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn'] as const
@@ -36,10 +36,12 @@ describe('formulaLang — legitimate formulas evaluate correctly', () => {
     expect(run('a != b ? 1 : 0', { a: 5, b: 5 })).toBeCloseTo(0)
   })
 
-  it('logical operators short-circuit like JS', () => {
-    expect(run('1 && 2')).toBeCloseTo(2)
-    expect(run('0 && 2')).toBeCloseTo(0)
-    expect(run('0 || 3')).toBeCloseTo(3)
+  // 1 or 0, as C's && and || give on the board; still short-circuiting.
+  it('logical operators give 1 or 0', () => {
+    expect(run('1 && 2')).toBe(1)
+    expect(run('0 && 2')).toBe(0)
+    expect(run('0 || 3')).toBe(1)
+    expect(run('0 || 0')).toBe(0)
     expect(run('!0')).toBeCloseTo(1)
     expect(run('!1')).toBeCloseTo(0)
   })
@@ -176,5 +178,44 @@ describe('Field Formula vocabulary: prev is the node’s own last value', () => 
     expect(fieldFormulaReadsPrev('max(prev * 0.9, fieldIn)')).toBe(true)
     expect(fieldFormulaReadsPrev('sin8(r*200 + t*60)/255')).toBe(false)
     expect(fieldFormulaReadsPrev('preview')).toBe(false)
+  })
+})
+
+describe('formulaLang — the sketch reads the formula as the preview does', () => {
+  // The printed C++, run with each C maths name bound to its JavaScript twin.
+  // Float literals lose their suffix; everything else is already valid JS.
+  const C_RUNTIME: Record<string, (...a: number[]) => number> = {
+    sinf: Math.sin, cosf: Math.cos, tanf: Math.tan, sqrtf: Math.sqrt, powf: Math.pow, floorf: Math.floor,
+    ceilf: Math.ceil, fabsf: Math.abs, atan2f: Math.atan2, logf: Math.log, expf: Math.exp,
+    fminf: Math.min, fmaxf: Math.max, hypotf: Math.hypot, fmodf: (a, b) => a % b,
+  }
+  const shims = makeShims(0)
+  for (const name of SHIM_NAMES) C_RUNTIME[`_f${name}`] = shims[name]
+  const sketch = (formula: string, scalars: Partial<Record<(typeof VARIABLES)[number], number>>) => {
+    const cpp = nodeFormulaCpp(formula)!.replace(/(?<![A-Za-z_\d.])(\d+(?:\.\d*)?(?:e[+-]?\d+)?)f\b/g, '$1')
+    const names = [...Object.keys(C_RUNTIME), ...VARIABLES, 'PI']
+    const values = [...Object.values(C_RUNTIME), ...VARIABLES.map((v) => scalars[v] ?? 0), Math.PI]
+    return new Function(...names, `return ${cpp}`)(...values) as number
+  }
+
+  it.each([
+    '1/2', '7/2*2', 'x % 2', '-x % 2', 'a && b', 'a || b', '!a', 'a && 0 || b',
+    'min(x)', 'min(x, a, b)', 'max(b, x, a, 0.25)', 'hypot(x)', 'hypot(x, a, b)',
+    'round(x)', 'round(-x)', 'x > a ? 1e-3 : .5', 'a == b', 'a != b', '-(-x)', 'sin8(x*40)/255',
+    'pow(abs(x), 0.5) + floor(a) - ceil(b) + atan2(a, b) + PI',
+  ])('%s', (formula) => {
+    for (const scalars of [{ x: 2.5, a: 3, b: 0 }, { x: -1.5, a: 0, b: 2 }, { x: 7.25, a: 1, b: 1 }]) {
+      expect(sketch(formula, scalars), JSON.stringify(scalars)).toBeCloseTo(run(formula, scalars)!, 9)
+    }
+  })
+
+  it('prints float literals, so 1/2 is a half on the board', () => {
+    expect(nodeFormulaCpp('1/2')).toBe('(1.0f/2.0f)')
+    expect(nodeFormulaCpp('x % 2')).toBe('fmodf(x, 2.0f)')
+  })
+
+  it('accepts trailing whitespace', () => {
+    expect(isNodeFormulaValid('x ')).toBe(true)
+    expect(run('x + 1  \n', { x: 2 })).toBe(3)
   })
 })

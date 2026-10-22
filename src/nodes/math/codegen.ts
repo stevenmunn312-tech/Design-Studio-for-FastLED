@@ -3,8 +3,8 @@ import { asDateTimeTextMode } from '../../state/displays/displayText'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId } from '../../codegen/cppLiterals'
 import { logicCpp } from './logic'
-import { cppRewriteShims, usesShims } from '../shared/fastledShims'
-import { isScalarFormulaValid } from '../shared/formulaLang'
+import { usesShims } from '../shared/fastledShims'
+import { scalarFormulaCpp } from '../shared/formulaLang'
 
 export const MATH_EMITTERS: NodeEmitters = {
   Constant({ ln, v, f }) {
@@ -16,10 +16,11 @@ export const MATH_EMITTERS: NodeEmitters = {
   Expression({ p, ln, v, f, needsT, needsShims, needsPhi }) {
     needsT.v = true
     const raw = String(p.formula ?? '')
-    const safe = isScalarFormulaValid(raw)
+    const cpp = scalarFormulaCpp(raw)
+    const safe = cpp !== null
     if (safe && usesShims(raw)) needsShims.v = true
     if (safe && /\bPHI\b/.test(raw)) needsPhi.v = true
-    const formula = safe ? cppRewriteShims(raw).replace(/\*\//g, '* /') : '0.0f'
+    const formula = cpp ?? '0.0f'
     ln(`  float ${v('result')};`)
     ln(`  { /* Expression: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — outputs 0'} */`)
     ln(`    float a=${f('a', 'a', 0)}, b=${f('b', 'b', 0)}; (void)a; (void)b;`)

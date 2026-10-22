@@ -1,5 +1,5 @@
-import { usesShims, cppRewriteShims } from '../shared/fastledShims'
-import { isNodeFormulaValid } from '../shared/formulaLang'
+import { usesShims } from '../shared/fastledShims'
+import { nodeFormulaCpp } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 
 export const CODE_EMITTERS: NodeEmitters = {
@@ -11,10 +11,12 @@ export const CODE_EMITTERS: NodeEmitters = {
     // into an expression is a C++ injection hole. `validateGraph` blocks
     // export/upload on the same check, so this is the last line rather
     // than the message the user sees.
-    const safe = isNodeFormulaValid(raw)
+    // The parsed tree is printed as C++ (formulaLang.ts), never the text.
+    const cpp = nodeFormulaCpp(raw)
+    const safe = cpp !== null
     if (safe && usesShims(raw)) needsShims.v = true
     if (safe && /\bPHI\b/.test(raw)) needsPhi.v = true
-    const formula = safe ? cppRewriteShims(raw).replace(/\*\//g, '* /') : '0.0f'
+    const formula = cpp ?? '0.0f'
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { /* CustomFormula: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — rendering blank' } */`)
@@ -24,6 +26,8 @@ export const CODE_EMITTERS: NodeEmitters = {
     ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
     ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
     ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
+    // Custom Formula has no field input; the name reads 0, as in the preview.
+    ln(`      float fieldIn=0.0f; (void)fieldIn;`)
     ln(`      float _v=${formula};`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
   },

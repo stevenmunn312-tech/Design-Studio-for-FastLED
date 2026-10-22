@@ -3,8 +3,8 @@ import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   NOISE_FIELD_PIXEL_CPP, ROSE_PIXEL_CPP, noiseFieldFrameCpp, roseFrameCpp, truchetFrameCpp, truchetPixelCpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
-import { usesShims, cppRewriteShims } from '../shared/fastledShims'
-import { fieldFormulaReadsPrev, isFieldFormulaValid } from '../shared/formulaLang'
+import { usesShims } from '../shared/fastledShims'
+import { fieldFormulaCpp, fieldFormulaReadsPrev } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
@@ -35,10 +35,11 @@ export const FIELD_EMITTERS: NodeEmitters = {
     needsT.v = true
     const raw = String(p.formula ?? 'sin8(r*200 + t*60)/255')
     // Same fail-closed validation as CustomFormula above.
-    const safe = isFieldFormulaValid(raw)
+    const cpp = fieldFormulaCpp(raw)
+    const safe = cpp !== null
     if (safe && usesShims(raw)) needsShims.v = true
     if (safe && /\bPHI\b/.test(raw)) needsPhi.v = true
-    const formula = safe ? cppRewriteShims(raw).replace(/\*\//g, '* /') : '0.0f'
+    const formula = cpp ?? '0.0f'
     // Reading `prev` makes the field a persistent buffer: declared static,
     // priced as the node's own RAM, and memset on a Restart entry.
     const persists = safe && fieldFormulaReadsPrev(raw)
