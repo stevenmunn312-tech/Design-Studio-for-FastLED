@@ -3,7 +3,8 @@ import { SONG_INFO_PORTS } from '../../state/player/songInfo'
 import { playerControlsServiceCpp, PLAYER_CONTROL_BUTTONS } from '../../codegen/player/playerControlsCpp'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
-import { safeId } from '../../codegen/cppLiterals'
+import { safeId, floatLit } from '../../codegen/cppLiterals'
+import { dissolveRankCpp, dissolveThresholdCpp } from './dissolveHash'
 
 /**
  * Show-pipeline nodes have no emitter *by design* — they are handled by a
@@ -41,7 +42,7 @@ export const SHOW_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const a = srcBuf('a'), b = srcBuf('b'), tt = f('t', 't', 0.5)
     const type = String(p.transitionType ?? 'crossfade')
-    const B = b ?? ob                                  // unconnected B ⇒ behaves like A
+    // An unconnected A or B is black, as the preview's blank frame is.
     const aPix = (i: string) => a ? `${a}[${i}]` : 'CRGB::Black'
     const bPix = (i: string) => b ? `${b}[${i}]` : 'CRGB::Black'
     // The unit sampler takes a null buffer and answers black, which is
@@ -63,26 +64,27 @@ export const SHOW_EMITTERS: NodeEmitters = {
         const dir = String(p.direction ?? 'right')
         const axis = (dir === 'up' || dir === 'down') ? '_y' : '_x'
         const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
-        const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
-        const rhs  = (dir === 'right' || dir === 'down') ? `(int)(_tt*${dim})` : `(int)((1.0f-_tt)*${dim})`
-        reveal('', [`if(${axis} ${cmp} ${rhs}) ${ob}[${idx}] = ${B}[${idx}];`])
+        // Float edges, as the preview compares them; truncating the edge
+        // moved it a column.
+        const test = (dir === 'right' || dir === 'down') ? `(float)${axis} < _tt*${dim}` : `(float)${axis} >= (1.0f-_tt)*${dim}`
+        reveal('', [`if(${test}) ${ob}[${idx}] = ${bPix(idx)};`])
         break
       }
       case 'dissolve':
-        ln(`  { ${seed} float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
-        ln(`      uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
-        ln(`      if((_h&0xFFFF)<(uint32_t)(_tt*65535)) ${ob}[_i] = ${B}[_i]; } }`)
+        ln(`  { ${seed} uint32_t _th=${dissolveThresholdCpp(tt)}; for(int _i=0;_i<NUM_LEDS;_i++){`)
+        ln(`      ${dissolveRankCpp('_h', '_i')}`)
+        ln(`      if(_h<_th) ${ob}[_i] = ${bPix('_i')}; } }`)
         break
       case 'iris':
         reveal('float _cx=WIDTH*0.5f,_cy=HEIGHT*0.5f,_r=_tt*sqrtf(_cx*_cx+_cy*_cy);', [
           `float _dx=_x-_cx,_dy=_y-_cy;`,
-          `if(sqrtf(_dx*_dx+_dy*_dy)<_r) ${ob}[${idx}] = ${B}[${idx}];`,
+          `if(sqrtf(_dx*_dx+_dy*_dy)<_r) ${ob}[${idx}] = ${bPix(idx)};`,
         ])
         break
       case 'clockwipe':
         reveal('float _cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;', [
           `float _n=(atan2f(_x-_cx,-(_y-_cy))+3.14159265f)/6.2831853f;`,
-          `if(_n<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+          `if(_n<_tt) ${ob}[${idx}] = ${bPix(idx)};`,
         ])
         break
       case 'push': {
@@ -105,14 +107,14 @@ export const SHOW_EMITTERS: NodeEmitters = {
         reveal('', [
           `int _tx=_x/${tile},_ty=_y/${tile};`,
           `float _thr=((_tx+_ty)%2==0)?_tt*2.0f:_tt*2.0f-1.0f;`,
-          `if(_thr>=1.0f) ${ob}[${idx}] = ${B}[${idx}];`,
+          `if(_thr>=1.0f) ${ob}[${idx}] = ${bPix(idx)};`,
         ])
         break
       }
       case 'diagonal':
         reveal('', [
           `float _n=((float)_x/WIDTH+(float)_y/HEIGHT)*0.5f;`,
-          `if(_n<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+          `if(_n<_tt) ${ob}[${idx}] = ${bPix(idx)};`,
         ])
         break
       case 'fadeblack':
@@ -132,23 +134,24 @@ export const SHOW_EMITTERS: NodeEmitters = {
         const pos = axis === 'horizontal' ? '_y' : '_x'
         reveal(`int _slat=max(1,${dim}/${count});`, [
           `float _p=(float)(${pos}%_slat)/_slat;`,
-          `if(_p<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+          `if(_p<_tt) ${ob}[${idx}] = ${bPix(idx)};`,
         ])
         break
       }
       case 'ripple':
         reveal('float _cx=WIDTH*0.5f,_cy=HEIGHT*0.5f,_maxR=sqrtf(_cx*_cx+_cy*_cy),_e=0.08f;', [
           `float _dx=_x-_cx,_dy=_y-_cy,_n=sqrtf(_dx*_dx+_dy*_dy)/_maxR;`,
-          `if(_n<_tt-_e) ${ob}[${idx}] = ${B}[${idx}];`,
-          `else if(_n<_tt){ float _bl=(_tt-_n)/_e; ${ob}[${idx}]=blend(${ob}[${idx}], ${B}[${idx}], (uint8_t)(_bl*255)); }`,
+          `if(_n<_tt-_e) ${ob}[${idx}] = ${bPix(idx)};`,
+          `else if(_n<_tt){ float _bl=(_tt-_n)/_e; ${ob}[${idx}]=blend(${ob}[${idx}], ${bPix(idx)}, (uint8_t)(_bl*255)); }`,
         ])
         break
       case 'spiral': {
-        const turns = Math.max(1, Math.round(Number(p.turns ?? 2)))
+        // Fractional turns are honoured, as the preview does.
+        const turns = floatLit(Math.max(1, Number(p.turns ?? 2) || 2))
         reveal(`float _cx=WIDTH*0.5f,_cy=HEIGHT*0.5f,_maxR=sqrtf(_cx*_cx+_cy*_cy),_k=1.0f+1.0f/(float)${turns};`, [
           `float _dx=_x-_cx,_dy=_y-_cy,_r=sqrtf(_dx*_dx+_dy*_dy)/_maxR;`,
           `float _na=(atan2f(_dy,_dx)+3.14159265f)/6.2831853f;`,
-          `if((_r+_na/(float)${turns})/_k<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+          `if((_r+_na/(float)${turns})/_k<_tt) ${ob}[${idx}] = ${bPix(idx)};`,
         ])
         break
       }
@@ -156,20 +159,21 @@ export const SHOW_EMITTERS: NodeEmitters = {
         const axis = String(p.axis ?? 'horizontal')
         const dist = axis === 'horizontal' ? 'fabsf(2.0f*_y/HEIGHT-1.0f)' : 'fabsf(2.0f*_x/WIDTH-1.0f)'
         reveal('', [
-          `if(${dist}<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+          `if(${dist}<_tt) ${ob}[${idx}] = ${bPix(idx)};`,
         ])
         break
       }
       case 'scanlines':
         reveal('', [
           `float _thr=(_y%2==0)?((float)_y/HEIGHT)*0.5f:0.5f+((float)(_y-1)/HEIGHT)*0.5f;`,
-          `if(_tt>_thr) ${ob}[${idx}] = ${B}[${idx}];`,
+          `if(_tt>_thr) ${ob}[${idx}] = ${bPix(idx)};`,
         ])
         break
       case 'zoom':
         ln(`  { ${seed} float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f,_sc=max(0.01f,_tt);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      int _bx=(int)((_x-_cx)/_sc+_cx),_by=(int)((_y-_cy)/_sc+_cy);`)
+          // floorf(v+0.5f) is the preview's Math.round, negative halves included.
+        ln(`      int _bx=(int)floorf((_x-_cx)/_sc+_cx+0.5f),_by=(int)floorf((_y-_cy)/_sc+_cy+0.5f);`)
         ln(`      if(_bx>=0&&_bx<WIDTH&&_by>=0&&_by<HEIGHT) ${ob}[${idx}]=blend(${ob}[${idx}], ${bPix('_by*WIDTH+_bx')}, (uint8_t)(_tt*255));`)
         ln(`      else ${ob}[${idx}].nscale8((uint8_t)((1.0f-_tt)*255));`)
         ln(`    } }`)
@@ -270,7 +274,9 @@ export const SHOW_EMITTERS: NodeEmitters = {
         ln(`    } }`)
         break
       default: // crossfade
-        ln(`  { ${seed} nblend(${ob}, ${B}, NUM_LEDS, (uint8_t)((${tt}) * 255)); }`)
+        ln(b
+          ? `  { ${seed} nblend(${ob}, ${b}, NUM_LEDS, (uint8_t)((${tt}) * 255)); }`
+          : `  { ${seed} nscale8(${ob}, NUM_LEDS, 255 - (uint8_t)((${tt}) * 255)); }`)
     }
   },
   SongInfo({ id, ln }) {

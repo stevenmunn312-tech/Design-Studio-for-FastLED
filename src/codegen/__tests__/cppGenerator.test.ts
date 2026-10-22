@@ -2513,10 +2513,10 @@ describe('generateCpp', () => {
     const emit = (transitionType: string, props: Record<string, unknown> = {}) =>
       generateCpp([node('tr', 'Transition', 'composite', { transitionType, t: 0.5, ...props }), outputNode],
         [edge('e', 'tr', 'out', 'frame', 'frame')])
-    expect(emit('crossfade')).toContain('nblend(')
+    expect(emit('crossfade')).toContain('nscale8(')       // unwired B fades A to black
     const wipe = emit('wipe', { direction: 'up' })
-    expect(wipe).toContain('if(_y')                      // wipe iterates on the y axis
-    expect(emit('dissolve')).toContain('1664525u')       // dissolve hash constant
+    expect(wipe).toContain('if((float)_y')               // wipe iterates on the y axis
+    expect(emit('dissolve')).toContain('0x9E3779B1u')     // shared dissolve rank
   })
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {

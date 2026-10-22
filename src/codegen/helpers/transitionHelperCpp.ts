@@ -11,6 +11,7 @@
 
 import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { specializeSwitch } from '../cppSpecialize'
+import { dissolveRankCpp, dissolveThresholdCpp } from '../../nodes/show/dissolveHash'
 
 /** Dolly, card flip, cube, door and tilt: the styles that sample frames in 3D. */
 const TRANSITION_3D_STYLE_IDS: readonly number[] = [16, 17, 18, 19, 20]
@@ -55,16 +56,17 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
   switch (type) {
     case 1: {  // wipe (rightward)
       ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
-      int thr = (int)(tt * WIDTH);
+      float thr = tt * WIDTH;
       for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++)
-        if (x < thr) out[y*WIDTH+x] = b[y*WIDTH+x];
+        if ((float)x < thr) out[y*WIDTH+x] = b[y*WIDTH+x];
       break;
     }
     case 2: {  // dissolve
       ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      uint32_t th = ${dissolveThresholdCpp('tt')};
       for (int i = 0; i < NUM_LEDS; i++) {
-        uint32_t h = ((uint32_t)i * 1664525u + 1013904223u);
-        if ((h & 0xFFFF) < (uint32_t)(tt * 65535)) out[i] = b[i];
+        ${dissolveRankCpp('h', 'i')}
+        if (h < th) out[i] = b[i];
       }
       break;
     }
@@ -169,7 +171,7 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
       ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
       float cx = WIDTH*0.5f, cy = HEIGHT*0.5f, sc = max(0.01f, tt);
       for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        int bx = (int)((x-cx)/sc + cx), by = (int)((y-cy)/sc + cy), idx = y*WIDTH+x;
+        int bx = (int)floorf((x-cx)/sc + cx + 0.5f), by = (int)floorf((y-cy)/sc + cy + 0.5f), idx = y*WIDTH+x;
         if (bx >= 0 && bx < WIDTH && by >= 0 && by < HEIGHT)
           out[idx] = blend(out[idx], b[by*WIDTH+bx], (uint8_t)(tt*255));
         else out[idx].nscale8((uint8_t)((1.0f-tt)*255));

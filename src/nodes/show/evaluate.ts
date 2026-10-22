@@ -42,6 +42,7 @@ import { usePlayerTransport } from '../../state/player/playerTransport'
 import { playerControlActionRepeats, playerControlActionPortsFor } from '../../state/player/playerControlAssignments'
 import { clamp01, DEFAULT_W, DEFAULT_H, buildFrame, blankFrame, cloneFrame, sampleFrameScaled } from '../../state/evaluator/frames'
 import { seededRandom, seededRngState, normalizedSeed } from '../../state/evaluator/random'
+import { dissolveRank, dissolveThreshold } from './dissolveHash'
 import {
   blankPlayerControls,
   playerControlsState,
@@ -198,21 +199,21 @@ const IDLE_PLAYER_CONTROLS: PlayerControls = {
 function evalWipe(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return buildFrame(W, H, (x, y) => {
       let revealed: boolean
+      // `>=` on the trailing edge, so t=1 reveals column/row 0 too. The
+      // firmware compares the same floats rather than a truncated edge.
       switch (direction) {
-        case 'left':  revealed = x > W * (1 - tt); break
-        case 'up':    revealed = y > H * (1 - tt); break
-        case 'down':  revealed = y < H * tt;       break
-        default:      revealed = x < W * tt;       break // 'right'
+        case 'left':  revealed = x >= W * (1 - tt); break
+        case 'up':    revealed = y >= H * (1 - tt); break
+        case 'down':  revealed = y < H * tt;        break
+        default:      revealed = x < W * tt;        break // 'right'
       }
       return revealed ? { ...b[y][x] } : { ...a[y][x] }
     })
 }
 
 function evalDissolve(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => {
-      const hash = (((x * 1664525 + y * 1013904223) >>> 0) / 0xffffffff)
-      return hash < tt ? { ...b[y][x] } : { ...a[y][x] }
-    })
+  const threshold = dissolveThreshold(tt)
+  return buildFrame(W, H, (x, y) => dissolveRank(y * W + x) < threshold ? { ...b[y][x] } : { ...a[y][x] })
 }
 
 // ── Extra transition variants (bundled into the `Transition` node) ───────────
