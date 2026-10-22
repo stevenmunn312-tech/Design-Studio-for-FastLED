@@ -51,6 +51,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 
 - [Audio detectors from FastLED's processor](design/audio-detectors.md)
 - [Audio hardware — microphones and amplifiers](design/audio-hardware.md)
+- [Stereo VU Meter expansion](design/stereo-vu-expansion.md)
 - [Collection-driven performance](design/collection-driven-performance.md)
 - [Generative pattern show](design/generative-pattern-show.md)
 - [Show sequencing](design/show-sequencing.md)
