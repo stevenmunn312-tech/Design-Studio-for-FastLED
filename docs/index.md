@@ -42,6 +42,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 - [Simulations, fractals and classics](design/simulation-fields.md)
 - [Slice Tiling](design/slice-tiling.md)
 - [Strings and rings: the track contract](design/strings-and-rings.md)
+- [Segment networks and millimetre string positions](design/segment-networks.md)
 - [Wallpaper symmetry groups](design/symmetry-groups.md)
 - [Transition catalogue](design/transition-catalogue.md)
 - [Truchet Tiles](design/truchet-tiles.md)

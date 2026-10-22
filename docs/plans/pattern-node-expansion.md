@@ -502,7 +502,9 @@ through step 11 of the
       yet. Compile record: [Phase 11](../reports/compile/pattern-node-compile-checks.md).
 - [ ] **Segment networks.** A layout where strings are edges of a graph and a
       `Ripple` pattern travels node to node with turning rules, the Chromancer
-      model; long-term, since it needs a layout editor.
+      model. In v1 (root todo D-06); the model, editor, pattern and the
+      millimetre positions the Build Diagram needs are designed in
+      [segment networks](../design/segment-networks.md).
 - [x] Add step 11 to the hardware roadmap pointing here.
 
 ## Budget
