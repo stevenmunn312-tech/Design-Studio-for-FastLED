@@ -942,3 +942,82 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
     expect(queryByText('Card reader available')).toBeNull()
   })
 })
+
+/*
+ * Several boards: the Upload tab builds and gates the active board's
+ * partition, and its heading says which board that is. One board draws no
+ * selector and no prefix. See docs/design/multi-board.md.
+ */
+describe('MatrixOutputDeployPopup with several boards', () => {
+  function boardNode(id: string) {
+    return {
+      id, type: 'studioNode', position: { x: 0, y: 0 }, hidden: true,
+      data: {
+        label: 'Board', nodeType: 'Board', category: 'output',
+        properties: { profileId: 'espressif-esp32-s3-devkitc-1' }, inputs: [], outputs: [],
+      },
+    }
+  }
+
+  beforeEach(() => {
+    vi.mocked(findDeployBlockingErrors).mockClear().mockReturnValue([])
+    setMatrixGraph()
+    const [matrix] = useGraphStore.getState().nodes
+    useGraphStore.setState({
+      nodes: [
+        boardNode('board-root'),
+        boardNode('board-2'),
+        matrix,
+        { ...matrix, id: 'matrix-2', data: { ...matrix.data, properties: { ...matrix.data.properties, dataPin: 7, boardId: 'board-2' } } },
+      ] as never[],
+      displayDocuments: {},
+      trusted: true,
+    })
+    useUiStore.setState({ activeBoardId: 'board-root' })
+    useMusicStore.setState({ entries: [] })
+    useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+    useCapacityStore.getState().clear()
+    useUploadStore.setState({
+      helper: null, installedCores: [], selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: '',
+      portsScanned: true, ports: [], busy: false, status: { phase: 'idle', message: '' },
+      codeViewOpen: false, deployPopupOpen: true,
+      refreshHelper: vi.fn(), refreshPorts: vi.fn(), installCore: vi.fn(), openBoardPopup: vi.fn(),
+      openCliPopup: vi.fn(), openConsole: vi.fn(), openCodeView: vi.fn(), closeDeployPopup: vi.fn(),
+      runUpload: vi.fn(), runLastUpload: vi.fn(), runShowUpload: vi.fn(), exportIno: vi.fn(), exportBinary: vi.fn(),
+    })
+  })
+
+  afterEach(() => {
+    useUiStore.setState({ activeBoardId: 'board-root' })
+  })
+
+  const gatedIds = () => {
+    const calls = vi.mocked(findDeployBlockingErrors).mock.calls
+    const nodes = calls[calls.length - 1][0] as Array<{ id: string }>
+    return nodes.map((node) => node.id)
+  }
+
+  it('gates and names the active board, and switches with the selector', () => {
+    const { getByRole, getByText, queryByText } = render(<MatrixOutputDeployPopup />)
+
+    expect(getByText(/^Board 1 · /)).toBeTruthy()
+    expect(getByRole('tab', { name: /^Board 1/ }).getAttribute('aria-selected')).toBe('true')
+    expect(gatedIds()).toEqual(['board-root', 'matrix'])
+
+    fireEvent.click(getByRole('tab', { name: /^Board 2/ }))
+
+    expect(useUiStore.getState().activeBoardId).toBe('board-2')
+    expect(getByText(/^Board 2 · /)).toBeTruthy()
+    expect(queryByText(/^Board 1 · /)).toBeNull()
+    expect(gatedIds()).toEqual(['board-2', 'matrix-2'])
+  })
+
+  it('draws no selector and no board prefix with one board', () => {
+    useGraphStore.setState({ nodes: [boardNode('board-root'), useGraphStore.getState().nodes[2]] as never[] })
+    const { queryByRole, queryByText, getByText } = render(<MatrixOutputDeployPopup />)
+
+    expect(queryByRole('tablist', { name: 'Boards' })).toBeNull()
+    expect(queryByText(/^Board 1 · /)).toBeNull()
+    expect(getByText(/ · No port/)).toBeTruthy()
+  })
+})

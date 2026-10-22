@@ -13,7 +13,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
-import { useGraphStore, useRootNodes, useRootEdges, type StudioNode } from '../../state/graphStore'
+import { useGraphStore, useBoardPartition, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY, CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { normalizeButtonBankEntries } from '../../state/player/buttonBank'
@@ -40,6 +40,8 @@ import { LED_CELL_FILL } from './ledPreviewGeometry'
 import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
 import FloatingMenu from './FloatingMenu'
+import BoardSelector from './BoardSelector'
+import BoardFleetControls from './BoardFleetControls'
 import HardwarePartsShelf, { HARDWARE_SHELF_HOST_ID } from './HardwarePartsShelf'
 import { hardwareShelfCategories } from './hardwareShelfModel'
 import { useBenchParts } from './useBenchParts'
@@ -85,8 +87,15 @@ export default function HardwarePane() {
   const removeNodeCompletely = useGraphStore((state) => state.removeNodeCompletely)
   // The bench is the project's hardware, which lives in the root graph — so it
   // stays visible and editable while a pattern group is open on the canvas.
-  const nodes = useRootNodes()
-  const edges = useRootEdges()
+  // It shows one board at a time: the active board's partition, which holds
+  // that Board, the parts attached to it and the signal nodes that reach
+  // them. Never the root graph directly — with several boards, that would
+  // draw every board's parts on one bench and hand the pin allocator pins
+  // another board owns. See docs/design/multi-board.md.
+  const activeBoardId = useUiStore((state) => state.activeBoardId)
+  const partition = useBoardPartition(activeBoardId)
+  const nodes = partition.nodes
+  const edges = partition.edges
   const viewCenter = useUiStore((state) => state.viewCenter)
   const setStatus = useUiStore((state) => state.setStatus)
   const focusNode = useGraphStore((state) => state.focusNode)
@@ -151,10 +160,7 @@ export default function HardwarePane() {
 
   const boardSelection = useMemo(() => selectedBoardResolution(nodes), [nodes])
   const selectedBoard = boardSelection.profile
-  const boardNodeId = useMemo(
-    () => nodes.find((node) => node.data.nodeType === 'Board')?.id ?? ROOT_BOARD_NODE_ID,
-    [nodes],
-  )
+  const boardNodeId = partition.board?.id ?? ROOT_BOARD_NODE_ID
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
   const { inputParts, ledOutputs, boardProfile, nextLedPin, fixtureParts, boardPanels } = useBenchParts({
     nodes, edges, selectedBoard, boardUnresolved: boardSelection.kind === 'custom' && !selectedBoard,
@@ -585,6 +591,16 @@ export default function HardwarePane() {
           onTargetHandled={clearShelfTarget}
         />,
         shelfHost,
+      )}
+
+      {/* Inset like the stage: the sidebar and preview overlay this pane. */}
+      {paneTab === 'hardware' && (
+        <div
+          className={styles.boardSelectorBar}
+          style={{ paddingLeft: leftInset + 16, paddingRight: rightInset + 16 }}
+        >
+          <BoardSelector className={styles.boardSelector} />
+        </div>
       )}
 
       {paneTab === 'upload' && (
@@ -1103,6 +1119,7 @@ export default function HardwarePane() {
           <Suspense fallback={<div className={styles.lazyPanelStatus} role="status">Loading board settings…</div>}>
             <BoardNodeBody nodeId={boardNodeId} />
           </Suspense>
+          <BoardFleetControls boardNodeId={boardNodeId} onClose={() => setBoardMenu(null)} />
         </FloatingMenu>
       )}
 

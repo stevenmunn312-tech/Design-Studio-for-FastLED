@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useUiStore, visibleLiveTouchScreen } from './state/uiStore'
-import { rootGraphNodes, useGraphStore } from './state/graphStore'
+import { boardPartitionOf, rootGraphNodes, useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audio/audioStore'
 import { useShowPlayback } from './state/player/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
@@ -104,11 +104,16 @@ export default function App() {
   })
   const audioInputProps = (audioInputNode?.data.properties as Record<string, unknown> | undefined) ?? null
   const hasAudioInputNode = audioInputProps !== null
-  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
+  // The active board's partition, so switching boards re-mirrors that board's
+  // FQBN into the upload store and retargets that board's pins — never the
+  // first Board node's. See docs/design/multi-board.md.
+  const activeBoardId = useUiStore((s) => s.activeBoardId)
+  const selectedBoardProfile = useGraphStore((s) =>
+    selectedPhysicalBoardProfile(boardPartitionOf(s, activeBoardId).nodes))
   // A custom board whose definition does not resolve is not a board change:
   // nothing is retargeted until it is repaired.
   const boardUnresolved = useGraphStore((s) => {
-    const resolution = selectedBoardResolution(rootGraphNodes(s))
+    const resolution = selectedBoardResolution(boardPartitionOf(s, activeBoardId).nodes)
     return resolution.kind === 'custom' && !resolution.profile
   })
   const showPreviewPlaying = useShowPlayback((s) => s.playing)
@@ -366,17 +371,21 @@ export default function App() {
   // profile exposes, and never a pin the user has edited themselves. Loading a
   // project is not itself a board change.
   const retargetHardwarePins = useGraphStore((s) => s.retargetHardwarePins)
-  const lastBoardKey = useRef<string | null>(null)
+  // Remembered per board: switching the active board from an ESP32 to an S3
+  // is not a board change, so the key is reset rather than compared when the
+  // board it was taken on is no longer the active one.
+  const lastBoardKey = useRef<{ boardId: string; key: string } | null>(null)
   useEffect(() => {
     if (boardUnresolved) return
-    const previous = lastBoardKey.current
+    const remembered = lastBoardKey.current
+    const previous = remembered && remembered.boardId === activeBoardId ? remembered.key : null
     const boardFqbn = selectedBoardProfile?.compatibleFqbns[0] ?? selectedFqbn
     // Keyed on the profile: several profiles share one FQBN — `esp32:esp32:esp32`
     // belongs to both the 38-pin generic DevKit and the 30-pin DevKit v1 — so
     // watching the FQBN alone meant swapping between two boards with genuinely
     // different headers registered as no change and nothing was retargeted.
     const boardKey = selectedBoardProfile?.id ?? boardFqbn
-    lastBoardKey.current = boardKey
+    lastBoardKey.current = { boardId: activeBoardId, key: boardKey }
     if (selectedBoardProfile?.compatibleFqbns[0] && selectedBoardProfile.compatibleFqbns[0] !== selectedFqbn) {
       useUploadStore.getState().setSelectedFqbn(selectedBoardProfile.compatibleFqbns[0])
     }
@@ -385,7 +394,7 @@ export default function App() {
     if (moved > 0) {
       setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins`, 'info')
     }
-  }, [boardUnresolved, selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
+  }, [activeBoardId, boardUnresolved, selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
 
   // Keep the browser analysis gain and noise gate in sync with the selected
   // physical input.

@@ -18,9 +18,12 @@ import { customBoardEndpointFingerprint, customBoardGeometry, customBoardPowerPa
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/power/powerDistribution'
-import { rootGraphNodes, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { useBoardPartition, useGraphStore } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
+import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
+import BoardSelector from '../Hardware/BoardSelector'
+import { boardOrdinalLabel, useBoardNodes } from '../Hardware/boardSelection'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
 import BuildPrintSheets from './BuildPrintSheets'
 import {
@@ -221,9 +224,12 @@ function boundsForLayouts(
 export default function BuildDiagramWorkspace() {
   // The whole diagram describes physical hardware, which lives in the root
   // graph — so it reads the root graph even while a pattern group is open on
-  // the canvas, rather than showing an empty bench with no board.
-  const nodes = useRootNodes()
-  const edges = useRootEdges()
+  // the canvas, rather than showing an empty bench with no board. One board
+  // at a time: the active board's partition, so the manifest, the electrical
+  // plan and the sheets are that board's alone. See docs/design/multi-board.md.
+  const activeBoardId = useUiStore((state) => state.activeBoardId)
+  const { nodes, edges, board: activeBoard } = useBoardPartition(activeBoardId)
+  const boards = useBoardNodes()
   const storedBuildProfile = useGraphStore((state) => state.buildProfile)
   const updateBuildProfile = useGraphStore((state) => state.updateBuildProfile)
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
@@ -232,7 +238,7 @@ export default function BuildDiagramWorkspace() {
   // The Board node is where the user says which controller is on the bench, so
   // it is the only place this view may read that from. Keeping a second exact
   // board selection in the build profile once let the two views disagree.
-  const benchBoard = useGraphStore((state) => selectedPhysicalBoardProfile(rootGraphNodes(state)))
+  const benchBoard = useMemo(() => selectedPhysicalBoardProfile(nodes), [nodes])
   // A chosen exact board only applies while it still matches the upload target.
   // Switching FQBN used to leave the old board's render and pin map in place —
   // an ESP32 wiring diagram presented as if it were for the newly selected S3.
@@ -419,7 +425,12 @@ export default function BuildDiagramWorkspace() {
   })), [exactBoard, exportItems])
   const projectName = useProjectStore((state) =>
     state.projects.find((project) => project.id === state.currentProjectId)?.name)
-  const patchBuildProfile = (recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
+  // The sheets name the board they belong to once there is more than one, so
+  // two printed builds from one project cannot be mistaken for each other.
+  const sheetProjectName = boards.length > 1 && activeBoard
+    ? `${projectName ?? 'Design Studio for FastLED build'} · ${boardOrdinalLabel(boards, activeBoard.id)}`
+    : projectName
+  const patchBuildProfile =(recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
     updateBuildProfile((current) => recipe(ensureBuildProfile(current)))
   }
 
@@ -1211,6 +1222,7 @@ export default function BuildDiagramWorkspace() {
       </aside>
 
       <main className={styles.diagramPane}>
+        <BoardSelector />
         <div className={styles.diagramHeader}>
           <div>
             <h2 className={styles.panelTitle}>Wiring Diagram</h2>
@@ -1353,7 +1365,7 @@ export default function BuildDiagramWorkspace() {
           connections={exportDiagramConnections}
           connectionRows={exportConnectionRows}
           bomRows={exportBomRows}
-          projectName={projectName}
+          projectName={sheetProjectName}
           targetLabel={selectedTarget?.label ?? selectedFqbn}
           exportScope={exportMode}
           exportScopeLabel={exportMode === 'complete-build'

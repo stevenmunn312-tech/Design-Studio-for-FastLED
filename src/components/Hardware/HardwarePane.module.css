@@ -28,6 +28,23 @@
   border-color: color-mix(in srgb, var(--accent-output) 65%, var(--border-glow));
 }
 
+/* The board strip sits above the stage in flow, so the bench shrinks under it
+   rather than hiding its top row of parts. Empty (no padding, no height) in a
+   one-board project, where the strip draws nothing. */
+.boardSelectorBar {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+}
+
+.boardSelectorBar:has(.boardSelector) {
+  padding-top: 10px;
+}
+
+.boardSelector {
+  margin-bottom: 0;
+}
+
 /*
  * The stage is the viewport the arrangement is drawn into. Part positions come
  * from the layered layout in `hardwareLayout.ts` (the canvas Tidy's engine), so

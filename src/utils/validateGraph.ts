@@ -4028,9 +4028,11 @@ export function buildGraphDiagnostics(
     })
   }
 
-  findNetworkConfigWarnings(nodes).forEach((message, index) => {
+  // Keyed by the message, not its index, so two boards' different warnings
+  // keep their own cards when the per-board lists are merged by id.
+  findNetworkConfigWarnings(nodes).forEach((message) => {
     diagnostics.push({
-      id: `network-config-${index}`,
+      id: `network-config-${message.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       severity: 'warning',
       category: 'board',
       title: 'Network configuration needs attention',

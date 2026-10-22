@@ -2538,9 +2538,14 @@ export const useGraphStore = create<GraphState>()(
         const saved = useNodeDefaults.getState().micOverridesByFqbn[fqbn]
         set((s) => {
           // Hardware is root-graph content, so retargeting reads and rewrites
-          // the root graph even while a pattern group is the active one.
-          const hardwareNodes = rootGraphNodes(s)
-          const hardwareEdges = rootGraphEdges(s)
+          // the root graph even while a pattern group is the active one. Only
+          // the active board's partition moves: a board change on Board 2 must
+          // not walk Board 1's parts onto Board 2's pins. With one board the
+          // partition is the whole root graph. See docs/design/multi-board.md.
+          const allRootNodes = rootGraphNodes(s)
+          const partition = boardPartition(allRootNodes, rootGraphEdges(s), useUiStore.getState().activeBoardId)
+          const hardwareNodes = partition.nodes
+          const hardwareEdges = partition.edges
           // The Board node's profile knows which pads this exact board exposes,
           // where the FQBN only names the chip. Falls back to the FQBN table.
           const profile = selectedPhysicalBoardProfile(hardwareNodes)
@@ -2564,7 +2569,10 @@ export const useGraphStore = create<GraphState>()(
           moved += result.moved
           // No-op when nothing moved, so re-selecting the same effective
           // wiring doesn't push an empty step onto the undo stack.
-          return moved > 0 ? withRootNodes(s, result.nodes) : {}
+          if (moved === 0) return {}
+          // Back into root order, with the other boards' nodes untouched.
+          const retargeted = new Map(result.nodes.map((node) => [node.id, node]))
+          return withRootNodes(s, allRootNodes.map((node) => retargeted.get(node.id) ?? node))
         })
         return moved
       },

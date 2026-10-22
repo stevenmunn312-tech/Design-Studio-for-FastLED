@@ -355,6 +355,11 @@ bench rows in `todo.md` hold evidence and
   interrupt-rating checks.
 - Unsupported graph hardware is reported and omitted rather than wired
   speculatively.
+- One diagram per board. A project with several Board nodes shows the active
+  board's partition — its parts, outputs, supply, fuses and trunk — chosen
+  with the board selector strip; the printed sheets carry the board's label
+  after the project name. Grounds bonded between boards are the user's
+  wiring, not modelled. See [multi-board](../design/multi-board.md).
 
 Both the fixed-supply WS2812 path and the families listed under
 [Independent Electrical Review](#independent-electrical-review) have had

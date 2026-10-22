@@ -1,0 +1,53 @@
+/* The board strip: one tab per Board node, drawn only when there are two or
+   more. Shared by the Hardware pane, the Build Diagram and the Upload tab. */
+.selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 85%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-caption);
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tab strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tab span {
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tab:hover {
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent-output);
+  outline-offset: 1px;
+}
+
+.tabActive {
+  border-color: color-mix(in srgb, var(--accent-output) 70%, var(--border-glow));
+  background: color-mix(in srgb, var(--bg-panel) 78%, var(--accent-output) 14%);
+  color: var(--text-primary);
+}

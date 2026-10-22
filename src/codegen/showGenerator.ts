@@ -101,6 +101,11 @@ import {
 } from './player/showControlRouting'
 import { controlGraphCpp } from './controlGraph'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
+import { networkSketchCpp, networkSourceIn } from './peripherals/networkCpp'
+import {
+  SYNC_NOW_MS, boardSyncFollowerAdoptCpp, boardSyncFollowerAdoptSequenceCpp, boardSyncGlobalsCpp,
+  boardSyncServiceCallCpp, clockSyncRoleIn,
+} from './peripherals/boardSyncCpp'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './displays/customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './player/playerControlsCpp'
@@ -943,6 +948,16 @@ export function generateShowSketch(
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
   const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
   const controlGraph = controlGraphCpp(controls.graph, `${speedNode ? 'animNow' : 'now'} / 1000.0f`)
+  // Clock sync: the Board is a network user, so the connection comes up even
+  // when no control in the graph asks for it. The same source and text as an
+  // NTP clock or Web Remote in the control graph would emit, so the include,
+  // bootstrap and setup sets below dedupe to one connection.
+  const clockSync = clockSyncRoleIn(nodes)
+  const syncSource = clockSync ? networkSourceIn(nodes) : null
+  const syncNetwork = syncSource ? networkSketchCpp(nodes, syncSource) : null
+  const syncIncludes = syncNetwork ? [syncNetwork.include] : []
+  const syncHelpers = syncNetwork ? [syncNetwork.bootstrap] : []
+  const syncSetup = syncNetwork ? syncNetwork.setup.filter((line) => !controlGraph.setup.includes(line)) : []
   const initialMasterSpeed = clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT)
   const masterSpeedEmit: MasterSpeedEmit = {
     present: !!speedNode,
@@ -1016,7 +1031,7 @@ export function generateShowSketch(
   L.push('#include <FastLED.h>')
   if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))
   if (audio) L.push(audio.include)
-  for (const include of new Set([...controlGraph.includes, ...displays.includes, ...customDisplays.includes])) L.push(include)
+  for (const include of new Set([...controlGraph.includes, ...syncIncludes, ...displays.includes, ...customDisplays.includes])) L.push(include)
   L.push('')
   L.push('// Explicit FastLED-typed declarations keep the Arduino preprocessor')
   L.push('// from injecting its own before <FastLED.h>, which breaks CRGB names.')
@@ -1096,10 +1111,14 @@ export function generateShowSketch(
   // transition brings the same frame sampler Frame Warp and Symmetry use.
   for (const h of new Set([
     ...(transitions ? transitionSupportCpp(info.transitionIds) : []),
-    ...renderers.helpers, ...controlGraph.helpers, ...customDisplays.shared,
+    ...renderers.helpers, ...controlGraph.helpers, ...syncHelpers, ...customDisplays.shared,
   ])) {
     L.push(h); L.push('')
   }
+  // After the network bootstrap it calls. A rotating show carries its state
+  // in the datagram; a single pattern has nothing to adopt, and a sequence
+  // adopts the pattern only, so it has no use for the leader's style.
+  if (clockSync) { L.push(boardSyncGlobalsCpp(clockSync, rotates, pooled && !sequenceActive)); L.push('') }
   if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
 
   if (multiOutput) {
@@ -1225,6 +1244,7 @@ export function generateShowSketch(
   L.push(...customDisplays.setup)
   const displayStartsI2c = displays.setup.some((line) => line.trimStart().startsWith('Wire.begin('))
   L.push(...controlGraph.setup.filter((line) => !displayStartsI2c || !line.trimStart().startsWith('Wire.begin(')))
+  L.push(...syncSetup)
   for (let step = 1; step <= 6; step++) {
     for (const line of infoDisplayStartupStageBatchCpp(displays.info, step)) L.push(line)
   }
@@ -1260,8 +1280,9 @@ export function generateShowSketch(
   L.push('void loop() {')
   if (emitTelemetry) L.push(TELEMETRY_LOOP_BEGIN_CPP)
   // Timed controls and patterns observe one clock snapshot. A wired Master
-  // Speed is resolved below and takes effect on the next pass.
-  L.push('  uint32_t now = millis();')
+  // Speed is resolved below and takes effect on the next pass, as does a
+  // follower's clock offset: the sync service runs after this snapshot.
+  L.push(`  uint32_t now = ${clockSync ? SYNC_NOW_MS : 'millis()'};`)
   L.push(...masterShowClockLoopCpp(masterSpeedEmit))
   L.push(...displays.sample)
   L.push(...customDisplays.sample)
@@ -1296,6 +1317,16 @@ export function generateShowSketch(
     }
   }
   L.push(...masterShowSpeedUpdateCpp(masterSpeedEmit))
+  // The sync service runs once the show state it reports exists (the statics
+  // above), and before the dwell and pick logic a locked follower must not
+  // run: a follower adopts the leader's pattern, transition and phase start
+  // here, and `locked` guards its own picks below. A cursor-driven show also
+  // moves its cursor with the adoption, or the cursor would step it back.
+  const syncCursor = selection.used && !sequenceActive ? selection.variable : null
+  const syncService = (show: { cur: string; nxt: string; transType: string; transitioning: string; phaseStart: string } | null) =>
+    clockSync ? [boardSyncServiceCallCpp(clockSync, show)] : []
+  const syncAdopt = (lines: string[]) => clockSync === 'follower' ? lines : []
+  const locked = (condition: string) => clockSync === 'follower' && rotates ? `!_syncLocked() && ${condition}` : condition
   const patternNow = masterSpeedEmit.present ? 'animNow' : 'now'
   const renderCall = (indexExpr: string, slot: number, allowNew: boolean) => entryOn
     ? `renderCollected(${slot}, (uint8_t)(${indexExpr}), ${patternNow}, ${allowNew ? 'true' : 'false'})`
@@ -1324,8 +1355,13 @@ export function generateShowSketch(
     L.push('    uint8_t sectionBit = pgm_read_byte(&seqSection[0]);')
     L.push(`    ${choose('cur', true)}`)
     L.push('  }')
+    L.push(...syncService({
+      cur: 'cur', nxt: 'nxt', transType: transitions ? 'transType' : '0',
+      transitioning: 'transitioning', phaseStart: transitions ? 'phaseStart' : 'seqAt',
+    }))
+    L.push(...syncAdopt(boardSyncFollowerAdoptSequenceCpp()))
     L.push(`  int16_t seqDelta = (int16_t)(${stepExpr});`)
-    L.push('  bool seqDue = !transitioning && (seqDelta != 0 || now - seqAt >= pgm_read_dword(&seqHoldMs[seqStep]));')
+    L.push(`  bool seqDue = ${locked('!transitioning && (seqDelta != 0 || now - seqAt >= pgm_read_dword(&seqHoldMs[seqStep]))')};`)
     L.push('  if (seqDue) {')
     L.push('    if (seqDelta != 0) {')
     L.push('      int nextStep = (int)seqStep + seqDelta;')
@@ -1362,6 +1398,7 @@ export function generateShowSketch(
     if (displays.helpers.length > 0 || selection.used) L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
     L.push('')
   } else if (!rotates) {
+    L.push(...syncService(null))
     L.push(entryOn
       ? `  ${renderCall('0', 0, true)};`
       : `  render_p0(${patternNow});   // the collection holds a single pattern`)
@@ -1374,13 +1411,20 @@ export function generateShowSketch(
       L.push(...selectionCpp.apply)
       L.push(`  cur = (uint8_t)${selection.variable}.active;`)
     }
-    L.push(`  if (now - phaseStart >= ${dwellMs}) { cur = ${weightedNext}; phaseStart = now; }`)
+    L.push(...syncService({ cur: 'cur', nxt: '0', transType: '0', transitioning: 'false', phaseStart: 'phaseStart' }))
+    L.push(...syncAdopt(boardSyncFollowerAdoptCpp({ transitions: false, transType: null, cursor: syncCursor })))
+    L.push(`  if (${locked(`now - phaseStart >= ${dwellMs}`)}) { cur = ${weightedNext}; phaseStart = now; }`)
     L.push(`  ${renderCall('cur', 0, true)};`)
     if (displays.helpers.length > 0 || selection.used) L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
   } else {
+    L.push(...syncService({
+      cur: 'cur', nxt: 'nxt', transType: pooled ? 'transType' : String(info.transitionIds[0]),
+      transitioning: 'transitioning', phaseStart: 'phaseStart',
+    }))
+    L.push(...syncAdopt(boardSyncFollowerAdoptCpp({ transitions: true, transType: pooled ? 'transType' : null, cursor: syncCursor })))
     L.push('  if (!transitioning) {')
     L.push(`    ${renderCall('cur', 0, true)};`)
-    L.push(`    if (now - phaseStart >= ${dwellMs}) {`)
+    L.push(`    if (${locked(`now - phaseStart >= ${dwellMs}`)}) {`)
     L.push(`      nxt = ${weightedNext};`)
     if (pooled) L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
     L.push('      transitioning = true; phaseStart = now;')

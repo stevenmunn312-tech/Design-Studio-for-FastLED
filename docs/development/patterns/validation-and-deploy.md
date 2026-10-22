@@ -44,6 +44,47 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (Storage capability, the VU meter's data pins, its chipset), which would have
   blocked Upload with nothing in the drawer to explain it — the inverse of the
   HUB75 fault.
+- Several boards: the root graph is validated one board at a time, never as a
+  whole. `src/utils/multiBoardValidation.ts` runs `validateGraph` /
+  `buildGraphDiagnostics` on each board's partition
+  (`src/build/boardPartition.ts`) with that board's FQBN — its own
+  `uploadTargets` entry, else the primary's, else the caller's default; the
+  active board's is `uploadStore.selectedFqbn` (`boardFqbnTargets`) — and
+  merges the lists: diagnostics by `id`, first board wins; messages by text. A
+  finding more than one board reports (a shared signal node, or one no board
+  reaches, which lands in every partition) is said once, unprefixed; one a
+  single board reports gets a "Board N:" prefix (`boardLabel`, `boardNodesIn`
+  order) once there are two or more boards. With one board the merged result
+  is the one-board result exactly, which
+  `multiBoardValidation.test.ts` holds against every starter. The Graph Health
+  drawer calls `buildBoardDiagnostics` for the root graph (groups keep
+  `buildGraphDiagnostics`). Three findings only the whole root graph can make
+  are appended: `cross-board-<source>-<target>` (error, `connection`; a part's
+  signal reaching another board's output, from `findCrossBoardIssues`),
+  `board-drives-nothing-<boardId>` (warning, `board`; no LED output and no
+  attached sink — the per-board `missing-MatrixOutput` card and "Missing
+  MatrixOutput node" message are dropped in its favour while any other board
+  has an output; an empty project keeps the primary's "Nothing here yet"), and
+  with `clockSync` on, `board-sync-network-<boardId>` (error: no Wi-Fi and no
+  wired link — the Board is a network user while sync is on, so this is the
+  Art-Net/NTP board gate said of it), `board-sync-credentials-<boardId>`
+  (error: no wired link and `getNetworkCredentials(boardId).ssid` empty; not
+  raised alongside the network error) and `board-sync-collection-<boardId>`
+  (warning: a follower's first Pattern Collection in a different `patternIds`
+  order from the leader's). Because `usesNetwork` counts a syncing Board, the
+  one-board validators already refuse it a radio-less board and ask it for an
+  SSID in the Art-Net node's words; `saidOfSyncingBoard` drops those from a
+  syncing board's run (`<boardId>-board-network`, the "Board is missing its
+  Wi-Fi SSID" warning, and the generic gate message only when the Board is
+  the partition's sole network user) so each fault is said once, by name. The
+  `network-config-*` card ids are keyed by message, not index, so two boards'
+  different warnings do not collide in the merge. **A cross-board error belongs to both boards'
+  deploy gates**: `findDeployBlockingErrorsForBoard(nodes, edges, boardId,
+  fqbn, …)` is `findDeployBlockingErrors` on the partition plus the
+  cross-board errors that touch that board and its own sync errors, and the
+  Upload tab, which flashes one board at a time, must gate on it rather than
+  on the partition alone. `readinessLayers` and `uploadBlockReason` stay pure
+  counts, fed by that per-board list.
 - The capacity meter names what a reading actually establishes rather than
   always saying "Fits": `src/utils/capacityFormat.ts`'s `summarizeCapacity`
   derives a `CapacityVerdict`

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useGraphStore, useRootNodes } from '../../../state/graphStore'
+import { useGraphStore, useBoardPartition } from '../../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../../state/upload/uploadStore'
 import { controllerSettings } from '../../../build/controllerSettings'
 import { ledDriverOptionsForBoard } from '../../../build/ledDriverSelection'
@@ -45,7 +45,10 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const ports = useUploadStore((s) => s.ports)
-  const graphNodes = useRootNodes()
+  // This Board's own partition: with several boards, `controllerSettings` and
+  // the power estimate must describe the board this menu is open for, not
+  // whichever Board node comes first in the root graph.
+  const graphNodes = useBoardPartition(nodeId).nodes
   const [pinoutPickerOpen, setPinoutPickerOpen] = useState(false)
   const [customEditorOpen, setCustomEditorOpen] = useState(false)
   const closeCustomEditor = useCallback(() => setCustomEditorOpen(false), [])

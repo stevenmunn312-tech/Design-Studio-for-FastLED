@@ -1818,3 +1818,65 @@ describe('BuildDiagramWorkspace', () => {
     expect(document.body.querySelector('[data-build-print-document]')).toBeNull()
   })
 })
+
+/*
+ * Several boards: one diagram per board, drawn from the active board's
+ * partition and chosen with the same selector strip as the Hardware pane.
+ * See docs/design/multi-board.md.
+ */
+describe('BuildDiagramWorkspace with several boards', () => {
+  const DEVKIT = 'espressif-esp32-s3-devkitc-1'
+
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [
+        boardNode(DEVKIT),
+        { ...boardNode(DEVKIT), id: 'board-2' },
+        matrixNode(14, 16, 16, 'out'),
+        matrixNode(15, 30, 1, 'out-2', { form: 'strip', boardId: 'board-2' }),
+      ] as never[],
+      edges: [],
+      buildProfile: undefined,
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+    useUiStore.setState({ workspaceMode: 'build', activeBoardId: 'board-root' })
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
+  })
+
+  afterEach(() => {
+    useUiStore.setState({ activeBoardId: 'board-root' })
+  })
+
+  it('draws no selector with one board', () => {
+    useGraphStore.setState({ nodes: [boardNode(DEVKIT), matrixNode()] as never[] })
+    const { queryByRole } = render(<BuildDiagramWorkspace />)
+    expect(queryByRole('tablist', { name: 'Boards' })).toBeNull()
+  })
+
+  it("draws the active board's hardware and switches with the selector", () => {
+    const { getByRole, getAllByText, queryByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getByRole('tab', { name: /^Board 1/ }).getAttribute('aria-selected')).toBe('true')
+    expect(getAllByText('LED Matrix').length).toBeGreaterThan(0)
+    expect(queryByText('LED String')).toBeNull()
+
+    fireEvent.click(getByRole('tab', { name: /^Board 2/ }))
+
+    expect(useUiStore.getState().activeBoardId).toBe('board-2')
+    expect(getByRole('tab', { name: /^Board 2/ }).getAttribute('aria-selected')).toBe('true')
+    expect(getAllByText('LED String').length).toBeGreaterThan(0)
+    expect(queryByText('LED Matrix')).toBeNull()
+  })
+
+  it('names the board on the printed sheets', () => {
+    useUiStore.setState({ activeBoardId: 'board-2' })
+    render(<BuildDiagramWorkspace />)
+
+    fireEvent(window, new Event('beforeprint'))
+    const sheet = document.body.querySelector('[data-build-print-document]')
+    expect(sheet?.textContent).toContain('Board 2')
+    fireEvent(window, new Event('afterprint'))
+  })
+})

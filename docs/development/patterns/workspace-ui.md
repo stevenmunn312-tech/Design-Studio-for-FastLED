@@ -18,6 +18,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Workspaces and guides
 
+- The board selector strip (`src/components/Hardware/BoardSelector.tsx`, a
+  `tablist` named "Boards") appears at the top of the Hardware pane, above the
+  Build Diagram's wiring header and in the Upload tab's deploy controls
+  whenever the project has two or more Board nodes; it sets `activeBoardId`
+  in `uiStore`, which is session-only and resets to the primary board on
+  project load. Reuse it rather than drawing a second picker, and keep it in
+  flow (the Hardware pane insets it like the stage, under the overlaying
+  sidebar and preview) so the bench shrinks beneath it instead of hiding its
+  top row. See [hardware and Build Diagram](hardware-and-build-diagram.md#several-boards).
 - Workspace tabs replaced the split graph/hardware canvas with four full-canvas
   workspaces selected by a tab strip (`src/components/Layout/WorkspaceTabs.tsx`;
   `WorkspaceMode` in `uiStore.ts` is

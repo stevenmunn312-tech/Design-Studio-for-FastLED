@@ -12,6 +12,7 @@ import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../build/har
 import { CUSTOM_BOARD_PROFILE_ID } from '../../../build/boards/customBoard'
 import { MIC_MODULES } from '../../../state/peripherals/micModules'
 import { boardI2cDefault } from '../../../build/boards/boardI2cDefaults'
+import { boardProfileById } from '../../../build/boards/boardProfiles'
 
 class ResizeObserverStub {
   observe() {}
@@ -82,6 +83,7 @@ describe('HardwarePane', () => {
       uiEffectsEnabled: true,
       hardwareInspectorNodeId: null,
       controllerHintDismissed: false,
+      activeBoardId: ROOT_BOARD_NODE_ID,
     })
   })
 
@@ -862,6 +864,113 @@ describe('HardwarePane', () => {
     expect(rtc!.data.properties).toMatchObject({
       timeSource: 'DS3231',
       partId: 'jaycar-xc9044-rtc-module',
+    })
+  })
+
+  /*
+   * Several boards: the bench shows the active board's partition and the
+   * selector strip is how you move between them. One board draws no strip.
+   * See docs/design/multi-board.md.
+   */
+  describe('several boards', () => {
+    const S3_PROFILE_ID = 'espressif-esp32-s3-devkitc-1'
+    const twoBoards = () => {
+      useGraphStore.setState({
+        nodes: [
+          node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }),
+          node('Board', 'board-2', { profileId: S3_PROFILE_ID }),
+          node('MatrixOutput', 'out-1', { width: 8, height: 8, dataPin: 5 }),
+          node('MatrixOutput', 'out-2', { width: 8, height: 8, dataPin: 7, boardId: 'board-2' }),
+        ] as never[],
+        edges: [],
+      })
+    }
+    const outputOnPin = (pin: number) => screen.queryByRole('button', { name: `LED Matrix, 8 by 8 on pin ${pin}` })
+
+    it('draws no selector while the project has one board', () => {
+      render(<HardwarePane />)
+      expect(screen.queryByRole('tablist', { name: 'Boards' })).toBeNull()
+    })
+
+    it("shows only the active board's outputs and switches with the selector", () => {
+      twoBoards()
+      render(<HardwarePane />)
+
+      const tabs = screen.getAllByRole('tab')
+      expect(tabs.map((tab) => tab.textContent)).toEqual([
+        `Board 1${boardProfileById(DEFAULT_BOARD_PROFILE_ID)?.label}`,
+        `Board 2${boardProfileById(S3_PROFILE_ID)?.label}`,
+      ])
+      expect(tabs[0].getAttribute('aria-selected')).toBe('true')
+      expect(outputOnPin(5)).toBeTruthy()
+      expect(outputOnPin(7)).toBeNull()
+
+      fireEvent.click(screen.getByRole('tab', { name: /^Board 2/ }))
+
+      expect(useUiStore.getState().activeBoardId).toBe('board-2')
+      expect(screen.getByRole('tab', { name: /^Board 2/ }).getAttribute('aria-selected')).toBe('true')
+      expect(outputOnPin(7)).toBeTruthy()
+      expect(outputOnPin(5)).toBeNull()
+      // The board card is the active board's controller.
+      expect(screen.getByAltText(boardProfileById(S3_PROFILE_ID)!.label)).toBeTruthy()
+    })
+
+    it('adds a controller from the board menu and makes it the active board', async () => {
+      render(<HardwarePane />)
+      fireEvent.click(screen.getByTitle('Click for board options'))
+
+      fireEvent.click(await within(document.body).findByRole('button', { name: 'Add another controller' }))
+
+      const boards = rootGraphNodes(useGraphStore.getState()).filter((entry) => entry.data.nodeType === 'Board')
+      expect(boards.map((entry) => entry.id)).toEqual([ROOT_BOARD_NODE_ID, 'board-2'])
+      expect(boards[1].data.properties.profileId).toBe(DEFAULT_BOARD_PROFILE_ID)
+      expect(useUiStore.getState().activeBoardId).toBe('board-2')
+      expect(screen.getByRole('tab', { name: /^Board 2/ }).getAttribute('aria-selected')).toBe('true')
+      // The menu closed with the switch; the new board's bench is empty.
+      expect(within(document.body).queryByRole('button', { name: 'Add another controller' })).toBeNull()
+      expect(screen.getByText(/Add hardware here/)).toBeTruthy()
+    })
+
+    it('removes a secondary board, with its parts, after confirmation', async () => {
+      twoBoards()
+      useUiStore.setState({ activeBoardId: 'board-2' })
+      const requestConfirm = useUiStore.getState().requestConfirm
+      useUiStore.setState({ requestConfirm: vi.fn(async () => true) })
+      try {
+        render(<HardwarePane />)
+        fireEvent.click(screen.getByTitle('Click for board options'))
+
+        fireEvent.click(await within(document.body).findByRole('button', { name: 'Remove this controller' }))
+
+        await waitFor(() => expect(useUiStore.getState().activeBoardId).toBe(ROOT_BOARD_NODE_ID))
+        const ids = rootGraphNodes(useGraphStore.getState()).map((entry) => entry.id)
+        expect(ids).toEqual([ROOT_BOARD_NODE_ID, 'out-1'])
+        expect(screen.queryByRole('tablist', { name: 'Boards' })).toBeNull()
+        expect(outputOnPin(5)).toBeTruthy()
+      } finally {
+        useUiStore.setState({ requestConfirm })
+      }
+    })
+
+    it('offers the primary board no removal, and the sync toggle only with two boards', async () => {
+      render(<HardwarePane />)
+      fireEvent.click(screen.getByTitle('Click for board options'))
+      expect(await within(document.body).findByRole('button', { name: 'Add another controller' })).toBeTruthy()
+      expect(within(document.body).queryByRole('button', { name: 'Remove this controller' })).toBeNull()
+      expect(within(document.body).queryByLabelText('Keep boards in time')).toBeNull()
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+
+      twoBoards()
+      fireEvent.click(screen.getByTitle('Click for board options'))
+      const sync = await within(document.body).findByLabelText('Keep boards in time')
+      fireEvent.click(sync)
+
+      const boards = rootGraphNodes(useGraphStore.getState()).filter((entry) => entry.data.nodeType === 'Board')
+      expect(boards.map((entry) => entry.data.properties.clockSync)).toEqual(['leader', 'follower'])
+      expect(boards.map((entry) => entry.data.properties.wifiHostname)).toEqual(['fastled-board-1', 'fastled-board-2'])
+      // The primary has no wired link, so it asks for Wi-Fi credentials.
+      expect(within(document.body).getByLabelText('Wi-Fi SSID')).toBeTruthy()
+      expect((within(document.body).getByLabelText('Hostname') as HTMLInputElement).value).toBe('fastled-board-1')
     })
   })
 })

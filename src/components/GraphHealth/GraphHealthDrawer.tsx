@@ -19,6 +19,7 @@ import {
   useGraphStore,
   useRootNodes,
 } from '../../state/graphStore'
+import { useProjectStore } from '../../state/projectStore'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import { useUiStore } from '../../state/uiStore'
 import {
@@ -29,6 +30,7 @@ import {
   type GraphDiagnosticFix,
   type GraphDiagnosticSeverity,
 } from '../../utils/validateGraph'
+import { boardFqbnTargets, buildBoardDiagnostics } from '../../utils/multiBoardValidation'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
 import styles from './GraphHealthDrawer.module.css'
 
@@ -85,14 +87,28 @@ export default function GraphHealthDrawer() {
   const toggle = useUiStore((state) => state.toggleGraphHealth)
   const revealGraphNodes = useUiStore((state) => state.revealGraphNodes)
   const setStatus = useUiStore((state) => state.setStatus)
+  const activeBoardId = useUiStore((state) => state.activeBoardId)
+  const uploadTargets = useProjectStore((state) =>
+    state.projects.find((project) => project.id === state.currentProjectId)?.uploadTargets)
   const [filter, setFilter] = useState<Filter>('all')
 
-  const diagnostics = useMemo(() => buildGraphDiagnostics(nodes, edges, {
-    selectedFqbn,
-    target: activeGraphId === ROOT_GRAPH_ID ? 'matrix' : 'group',
-    capabilityNodes,
-    displayDocuments, groups,
-  }), [activeGraphId, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups])
+  // The root graph is validated one board at a time, each against its own
+  // FQBN, and merged (multiBoardValidation); with one board that is exactly
+  // buildGraphDiagnostics on the root. A group is validated as itself.
+  const diagnostics = useMemo(() => (activeGraphId === ROOT_GRAPH_ID
+    ? buildBoardDiagnostics(nodes, edges, {
+        targets: boardFqbnTargets(nodes, uploadTargets, activeBoardId, selectedFqbn),
+        defaultFqbn: selectedFqbn,
+        target: 'matrix',
+        capabilityNodes,
+        displayDocuments, groups,
+      })
+    : buildGraphDiagnostics(nodes, edges, {
+        selectedFqbn,
+        target: 'group',
+        capabilityNodes,
+        displayDocuments, groups,
+      })), [activeGraphId, activeBoardId, uploadTargets, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups])
   const errors = diagnostics.filter((issue) => issue.severity === 'error').length
   const warnings = diagnostics.length - errors
   const visible = filter === 'all' ? diagnostics : diagnostics.filter((issue) => issue.severity === filter)

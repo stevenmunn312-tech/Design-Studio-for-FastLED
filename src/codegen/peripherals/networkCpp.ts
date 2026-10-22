@@ -20,6 +20,7 @@ import { streamUsesNetwork } from '../../nodes/output/frameStream'
 import { partById } from '../../build/parts/partCatalogue'
 import { cppStringLiteral } from '../cppLiterals'
 import { sanitizePin } from '../hardwarePins'
+import { boardSyncsClock } from './boardSyncCpp'
 import {
   ETHERNET_INCLUDES_CPP, ONBOARD_ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp, onboardEthernetBootstrapCpp,
 } from './ethernetCpp'
@@ -38,8 +39,9 @@ export interface NetworkSketchEmit {
 }
 
 /**
- * Art-Net or sACN receive, DDP, a network Frame Stream, NTP time sync and the
- * Web Remote's page are the users of the network.
+ * Art-Net or sACN receive, DDP, a network Frame Stream, NTP time sync, the
+ * Web Remote's page and a Board whose clock sync is on are the users of the
+ * network.
  */
 export function usesNetwork(node: Pick<StudioNode, 'data'>): boolean {
   const props = node.data.properties as Record<string, unknown>
@@ -48,15 +50,20 @@ export function usesNetwork(node: Pick<StudioNode, 'data'>): boolean {
     || node.data.nodeType === 'DdpInput'
     || (node.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
     || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
+    || boardSyncsClock(node)
 }
 
 /**
  * The node whose hostname, addressing and Wi-Fi credentials the connection
  * uses: the first network user in the order given. Validation warns when
- * network users disagree rather than silently picking one.
+ * network users disagree rather than silently picking one. A syncing Board
+ * is the source only when nothing else uses the network: it carries a
+ * hostname and credentials but no addressing, and turning sync on must not
+ * take the connection's settings away from the Art-Net or NTP node that
+ * already owns them.
  */
 export function networkSourceIn<T extends Pick<StudioNode, 'data'>>(nodes: readonly T[]): T | null {
-  return nodes.find(usesNetwork) ?? null
+  return nodes.find((node) => usesNetwork(node) && !boardSyncsClock(node)) ?? nodes.find(usesNetwork) ?? null
 }
 
 export function parseIpv4Literal(value: unknown): [number, number, number, number] | null {
@@ -177,7 +184,7 @@ function wifiBootstrapCpp(wifi: WifiEmit): string {
  */
 export function networkSketchCpp(nodes: readonly StudioNode[], source: Pick<StudioNode, 'id' | 'data'>): NetworkSketchEmit {
   const props = source.data.properties as Record<string, unknown>
-  const hostname = cppStringLiteral(props.wifiHostname ?? 'fastled-node')
+  const hostname = cppStringLiteral(props.wifiHostname ?? (source.data.nodeType === 'Board' ? 'fastled-board' : 'fastled-node'))
   const staticIp = parseIpv4Literal(props.staticIp)
   const staticGateway = parseIpv4Literal(props.staticGateway)
   const staticSubnet = parseIpv4Literal(props.staticSubnet)

@@ -13,6 +13,7 @@ import {
   segmentDisplayGlobalCpp,
 } from './displays/segmentDisplayCpp'
 import { networkSketchCpp, networkSourceIn } from './peripherals/networkCpp'
+import { boardSyncGlobalsCpp, boardSyncServiceCallCpp, clockSyncRoleIn } from './peripherals/boardSyncCpp'
 import {
   NODE_LIBRARY,
   resolveNodeNumericProperties,
@@ -640,6 +641,9 @@ export function generateCpp(
   // cable is a hardware-only part with no ports to sort by.
   const networkSource = networkSourceIn(sorted)
   const network = networkSource ? networkSketchCpp(nodes, networkSource) : null
+  // A syncing Board is itself a network user, so `network` is never null
+  // when `clockSync` is set. A normal sketch has no show state to carry.
+  const clockSync = clockSyncRoleIn(nodes)
 
   /*
    * A float wired into a bool port, read as the switch the evaluator's `input`
@@ -1537,6 +1541,7 @@ export function generateCpp(
   if (touchPads.length > 0) lines.push(...TOUCH_PAD_HELPER_CPP)
 
   if (network) lines.push(network.bootstrap)
+  if (clockSync) { lines.push(boardSyncGlobalsCpp(clockSync, false)); lines.push(``) }
 
   lines.push(...customPaletteDeclarationsCpp(usedPalettes))
   lines.push(``)
@@ -1666,7 +1671,9 @@ export function generateCpp(
   if (emitTelemetry) lines.push(TELEMETRY_LOOP_BEGIN_CPP)
   if (emitEngine) lines.push(`  updateAudio();`)
   if (needsDs3231) lines.push(`  _rtcHandleSerialSet();`)
-  if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit))
+  if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit, clockSync !== null))
+  // After the clock snapshot: a follower's offset applies from the next pass.
+  if (clockSync) lines.push(boardSyncServiceCallCpp(clockSync, null))
   for (const panel of customDisplayPanels) {
     if (!panel.touch) continue
     const read = `lv_indev_read(_cdIndev_${panel.id});`

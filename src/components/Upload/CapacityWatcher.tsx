@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { useBoardPartition, useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, boardHasUsbCdc, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
@@ -45,8 +46,11 @@ function identityToken(value: object | undefined): string {
 }
 
 export default function CapacityWatcher() {
-  const nodes = useRootNodes()
-  const edges = useRootEdges()
+  // The active board's partition: the target is that board's sketch on that
+  // board's FQBN, so switching boards re-keys the reading and the next Check
+  // measures the board the Upload tab is on. See docs/design/multi-board.md.
+  const activeBoardId = useUiStore((s) => s.activeBoardId)
+  const { nodes, edges } = useBoardPartition(activeBoardId)
   const { helper, installedCores, selectedFqbn, selectedPort, ports } = useUploadStore(useShallow((s) => ({
     helper: s.helper,
     installedCores: s.installedCores,
@@ -128,7 +132,7 @@ export default function CapacityWatcher() {
       || customAssets.routingErrors.length > 0 || ramBudgetIssue) return null
     if (codegenBuild.mode !== 'player' && !codegenBuild.capabilities.buildable) return null
     const inputKey = [
-      codegenBuild.mode, selectedFqbn, String(psramSupported), projectName, String(customAssets.trusted),
+      codegenBuild.mode, selectedFqbn, activeBoardId, String(psramSupported), projectName, String(customAssets.trusted),
       codegenSignature(codegenGraph.nodes, codegenGraph.edges),
       registrySignature(groups),
       JSON.stringify(Object.values(graphs).map((graph) => [graph.id, graph.name])),
@@ -168,7 +172,7 @@ export default function CapacityWatcher() {
         : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
     }
     return { generate, inputKey }
-  }, [codegenGraph, codegenBuild, groups, graphs, psramSupported, selectedFqbn, projectName, ramBudgetIssue, shows,
+  }, [codegenGraph, codegenBuild, groups, graphs, psramSupported, selectedFqbn, activeBoardId, projectName, ramBudgetIssue, shows,
     customAssets.pending, customAssets.errors, customAssets.routingErrors,
     customAssets.documents, customAssets.assets, customAssets.trusted])
 

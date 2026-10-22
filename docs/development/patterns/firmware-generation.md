@@ -549,3 +549,33 @@ sketch still carries only what the graph reaches.
   pattern, or that output silently stays on the default driver
   (`ledDriverCpp.test.ts` holds the shapes). The classic ESP32's I2S driver is
   a define before the include instead, never a `Bus`.
+
+## Clock sync
+
+- A Board whose `clockSync` is `leader` or `follower` is a network user
+  (`usesNetwork`), so the one shared connection (`networkCpp.ts`) comes up
+  from the Board alone, under its `wifiHostname` (default `fastled-board`)
+  and the credentials keyed by its node id. It is the connection's source
+  only when nothing else uses the network: an Art-Net or NTP node that
+  already owns the hostname, addressing and credentials keeps them, and the
+  sync rides that link. `peripherals/boardSyncCpp.ts` emits the protocol
+  (port 6464, `FLSY`, little-endian fields written byte by byte) once per
+  sketch, no node-id suffixes, and only what the role can reach: a leader has
+  no offset or lock, a follower no broadcast, and the show mirrors and
+  `_syncLocked()` exist only in a rotating show.
+- `_syncNowMs()` is the only animation clock read when sync is on: `float t`,
+  the Master Speed accumulator's `_tNowMs` and the show's `now` all read it
+  through `masterClockLoopCpp(emit, synced)` and the show's snapshot line, and
+  nothing else in the sketch changes. With sync off every generator's output
+  is byte-identical to a graph without the property (`boardSync.test.ts`
+  compares them), so keep `millis()` as the default and thread the boolean
+  rather than reading the Board again downstream.
+- The service call follows the clock snapshot, so a follower's new offset
+  applies on the next pass. In a show it comes after the show's statics are
+  declared, because the leader hands `cur`, `nxt`, the transition style, the
+  transition flag and `phaseStart` to it; the follower then adopts those
+  before the dwell and pick logic, which is guarded with `!_syncLocked()` so
+  a locked follower never picks. A sequence owns its cursor and follows `cur`
+  only; a cursor-driven show moves its cursor with the adoption, or the next
+  pass would step it straight back. The SD/music player emits none of this
+  even with sync on: its clock is the track position.

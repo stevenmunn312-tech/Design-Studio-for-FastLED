@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { getGroupRegistry, useBoardPartition, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { findDeployBlockingErrorsForBoard } from '../../utils/multiBoardValidation'
 import { useUiStore } from '../../state/uiStore'
+import BoardSelector from '../Hardware/BoardSelector'
+import { boardOrdinalLabel, useBoardNodes } from '../Hardware/boardSelection'
 import { trustCurrentProject } from '../../utils/trustPrompt'
 import { uploadBlockReason, type UploadBlockAction } from '../../utils/uploadBlockReason'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/upload/uploadStore'
@@ -16,7 +19,7 @@ import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/sketches/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/sketches/wiringDiagnosticGenerator'
 import { analysedShows, readySongCount, buildShowPayload, buildShowPlayerForMeasurement, showPackagingIssues } from '../../utils/showUpload'
-import { buildGraphDiagnostics, findDeployBlockingErrors, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
+import { buildGraphDiagnostics, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { formatElapsed, summarizeCapacity } from '../../utils/capacityFormat'
 import { useElapsedSeconds } from '../../hooks/useElapsedSeconds'
 import { useCodegenGraph } from '../../utils/codegenGraph'
@@ -77,10 +80,17 @@ export default function MatrixOutputDeployPopup({
 }: MatrixOutputDeployPopupProps = {}) {
   const [readinessOpen, setReadinessOpen] = useState(false)
   const [validationAction, setValidationAction] = useState<HardwareValidationAction | null>(null)
-  const nodes = useRootNodes()
+  // The active board's partition, not the root graph: the sketch, the deploy
+  // gate, the readiness rows and the diagnostics below all describe the one
+  // board being flashed. Groups and display documents are shared design and
+  // stay as they are. See docs/design/multi-board.md.
+  const activeBoardId = useUiStore((state) => state.activeBoardId)
+  const { nodes, edges, board: activeBoard } = useBoardPartition(activeBoardId)
+  const rootNodes = useRootNodes()
+  const rootEdges = useRootEdges()
+  const boards = useBoardNodes()
   const projectTrusted = useGraphStore((state) => state.trusted)
   const telemetryRun = useDeviceTelemetryStore((state) => state.run)
-  const edges = useRootEdges()
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const projectName = useProjectStore((s) =>
@@ -187,7 +197,10 @@ export default function MatrixOutputDeployPopup({
     () => describePort({ helper, selectedPort, ports, portsScanned }),
     [helper, selectedPort, ports, portsScanned],
   )
-  const target = `${board?.label ?? 'No board'} · ${port.text}`
+  // "Board 2 · ESP32-S3 DevKit · COM7": which board is being built, once
+  // there is more than one to tell apart.
+  const boardPrefix = boards.length > 1 && activeBoard ? `${boardOrdinalLabel(boards, activeBoard.id)} · ` : ''
+  const target = `${boardPrefix}${board?.label ?? 'No board'} · ${port.text}`
   const portDetected = port.state === 'connected'
   const helperReady = !!helper
   const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
@@ -197,10 +210,12 @@ export default function MatrixOutputDeployPopup({
   // Graph Health read too. Assembling it here is what let rules go missing from
   // the buttons while the drawer called them errors; see
   // findDeployBlockingErrors. The prepared documents are passed because a custom
-  // screen's bindings cannot be resolved without them.
+  // screen's bindings cannot be resolved without them. Asked of the root graph
+  // for the active board, so a wire into another board's part blocks this
+  // board's build too (docs/design/multi-board.md).
   const graphBlockers = useMemo(
-    () => findDeployBlockingErrors(nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups),
-    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups],
+    () => findDeployBlockingErrorsForBoard(rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups),
+    [rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups],
   )
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
@@ -622,6 +637,7 @@ export default function MatrixOutputDeployPopup({
           )}
         </div>
 
+        <BoardSelector />
         <div className={`${styles.targetBig} ${styles.deployTarget}`}>{target}</div>
         <div className={styles.targetActionRow}>
           {/* The guided setup used to hang off the output node's strip, which

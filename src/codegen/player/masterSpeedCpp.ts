@@ -13,6 +13,8 @@
 // emitted at the top of the loop and a wired speed comes from nodes emitted
 // below it, which may themselves read `t`.
 
+import { SYNC_NOW_MS } from '../peripherals/boardSyncCpp'
+
 /** What the loop needs to know about a graph's Master Speed knob. */
 export interface MasterSpeedEmit {
   /**
@@ -30,9 +32,14 @@ export interface MasterSpeedEmit {
   max: number
 }
 
-/** The `float t` line, or the accumulator that replaces it. */
-export function masterClockLoopCpp(emit: MasterSpeedEmit): string[] {
-  if (!emit.present) return ['  float t = millis() / 1000.0f;']
+/**
+ * The `float t` line, or the accumulator that replaces it. With clock sync on
+ * the wall clock is `_syncNowMs()` (peripherals/boardSyncCpp.ts), the one
+ * animation clock every synced board reads; otherwise `millis()`.
+ */
+export function masterClockLoopCpp(emit: MasterSpeedEmit, synced = false): string[] {
+  const clock = synced ? SYNC_NOW_MS : 'millis()'
+  if (!emit.present) return [`  float t = ${clock} / 1000.0f;`]
 
   const lines = [
     '  // Master Speed: accumulate, never multiply — scaling millis() directly',
@@ -46,7 +53,7 @@ export function masterClockLoopCpp(emit: MasterSpeedEmit): string[] {
   if (emit.speedExpr) lines.push(`  static float _tSpeed = ${emit.initial.toFixed(4)}f;`)
   else lines.push(`  const float _tSpeed = ${emit.initial.toFixed(4)}f;`)
   lines.push(
-    '  uint32_t _tNowMs = millis();',
+    `  uint32_t _tNowMs = ${clock};`,
     // Zero on the first pass: there is no previous frame to have taken time.
     '  if (_tLastMs) _tAnim += ((_tNowMs - _tLastMs) / 1000.0f) * _tSpeed;',
     '  _tLastMs = _tNowMs;',

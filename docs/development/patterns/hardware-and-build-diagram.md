@@ -652,6 +652,30 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Pin captions follow each catalogue part's `pinLabelsLeftToRight` order. GPIO
   numbers never reorder physical header labels.
 
+### Several boards
+
+- The Hardware pane, the Build Diagram and the Upload tab (with its
+  `CapacityWatcher`) all read the **active board's partition** —
+  `useBoardPartition(activeBoardId)` from `graphStore`, `activeBoardId` from
+  `uiStore` — never the root nodes directly for anything that is per board:
+  parts, LED outputs, pin allocation (`assignHardwarePartPins`,
+  `nextFreeLedDataPin`), the hardware manifest, the deploy gate, the sketch
+  and `controllerSettings`. Inside a partition there is exactly one Board, so
+  the one-board helpers keep working; given the root graph they would find the
+  first Board and every board's parts. `BoardNodeBody` and the board menu's
+  `BoardFleetControls` follow the same rule for the board they were opened
+  for. The store's `retargetHardwarePins` moves only the active board's
+  partition and merges it back into root order. The root graph is still the
+  place for hardware *writes* and for the board list itself
+  (`useBoardNodes` in `boardSelection.ts`). See
+  [multi-board](../../design/multi-board.md).
+- `BoardSelector` (`src/components/Hardware/BoardSelector.tsx`) is the one
+  strip all three tabs share; it draws nothing with one board, so a surface
+  that includes it needs no `boards.length > 1` guard of its own. Labels come
+  from `boardOrdinalLabel` ("Board 2") and `boardProfileLabel` in
+  `boardSelection.ts`, so headings and sheets name a board the way its tab
+  does.
+
 ## Indicator LEDs on the bench
 
 - A part's or board's indicator LEDs are measured from its model by

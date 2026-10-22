@@ -1,0 +1,90 @@
+/* The several-boards section of the board menu, under the Board node's own
+   settings. Field styling follows the DMX body's credential fields. */
+.fleet {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--divider);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.header span {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.button {
+  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--border-glow));
+  background: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-output) 10%);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: var(--fs-caption);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover {
+  border-color: color-mix(in srgb, var(--accent-output) 65%, var(--border-glow));
+}
+
+.danger {
+  border-color: color-mix(in srgb, var(--error) 45%, var(--border-glow));
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+}
+
+.note {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.35;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fieldLabel {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1;
+}
+
+.fieldInput {
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border-glow);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-family: inherit;
+}
+
+.fieldInput:focus-visible {
+  outline: 2px solid var(--accent-output);
+  outline-offset: 1px;
+}

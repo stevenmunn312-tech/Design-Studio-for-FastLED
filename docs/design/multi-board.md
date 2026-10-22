@@ -80,9 +80,14 @@ is one path.
 
 A follower running the same show adopts the leader's pattern, transition and
 phase start whenever they differ from its own and it is not mid-transition, and
-makes no picks of its own while locked. Lock is lost five seconds after the
+makes no picks of its own while locked. A sequence owns its cursor, so a
+sequence-driven follower adopts the pattern only and keeps its own transition
+timing. Lock is lost five seconds after the
 last datagram; the follower then runs its own clock and its own picks until
 the leader is heard again, which is what it would have done without sync.
+In a show the sync service runs once the show's state exists, after the clock
+snapshot and before the dwell and pick logic, so a new offset applies on the
+next pass as a wired Master Speed does.
 
 The sync is only as good as what is compiled on each board: a show stays in
 step when every board carries the same collection in the same order, so the
@@ -97,21 +102,30 @@ while sync is on starts as a follower. The Board node counts as a network user
 when its sync is on, so its board needs Wi-Fi (or a wired link) and Wi-Fi
 credentials, entered in the Hardware pane's board options and kept in the
 same browser-local store as the Art-Net and NTP ones, keyed by the Board node
-id.
+id. The Board is the connection's source (hostname, default `fastled-board`,
+addressing and credentials) only when nothing else on that board uses the
+network; an Art-Net, DDP, Frame Stream, NTP or Web Remote node that already
+owns the connection keeps its settings and credentials, and the sync rides
+that link. The firmware side is `src/codegen/peripherals/boardSyncCpp.ts`.
 
 ## Validation
 
-- Every partition is validated with its own FQBN; the Graph Health drawer
-  merges the per-board diagnostics by id and prefixes a board-specific finding
-  with the board's label when there is more than one board.
+- Every partition is validated with its own FQBN
+  (`src/utils/multiBoardValidation.ts`); the Graph Health drawer merges the
+  per-board diagnostics by id and prefixes a board-specific finding with the
+  board's label ("Board 2: …") when there is more than one board.
 - `findCrossBoardIssues`: an edge between two partitions is an error naming
-  both nodes and both boards.
-- A board with no output and no sink is a warning (it will compile to a sketch
-  that drives nothing).
-- With sync on, each board must be able to reach the network (the usual
-  "needs a Wi-Fi-capable board" gate, now also raised for the Board node) and
-  each must have credentials unless it has a wired link; followers with a
-  collection whose pattern order differs from the leader's get a warning.
+  both nodes and both boards ("A wire crosses boards"), and it sits in both
+  boards' deploy gates (`findDeployBlockingErrorsForBoard`).
+- A board with no output and no sink is a warning ("Board N drives nothing":
+  it would compile to a sketch that drives nothing); the one-board "LED output
+  is missing" error is dropped for it while another board has an output.
+- With sync on, each board must be able to reach the network ("Board N cannot
+  keep time with the others" — the usual "needs a Wi-Fi-capable board" gate,
+  raised for the Board node) and each must have credentials unless it has a
+  wired link ("Board N has no Wi-Fi credentials for clock sync"); followers
+  with a collection whose pattern order differs from the leader's get a
+  warning ("Board N's show will not stay in step").
 
 ## Build Diagram and the electrical plan
 
