@@ -122,8 +122,9 @@ describe('codeSandbox.worker — handleRunRequest', () => {
   it('recompiles when the code changes even if the previous compile is cached', () => {
     const first = run('leds[0] = CRGB::Red;')
     expect(pixelAt(first.pixels, 0, 0)).toEqual({ r: 255, g: 0, b: 0 })
+    // FastLED's CRGB::Green is HTML green (0x008000); CRGB::Lime is 0x00FF00.
     const second = run('leds[0] = CRGB::Green;')
-    expect(pixelAt(second.pixels, 0, 0)).toEqual({ r: 0, g: 255, b: 0 })
+    expect(pixelAt(second.pixels, 0, 0)).toEqual({ r: 0, g: 128, b: 0 })
   })
 
   // ── D-04: preview fidelity for pasted FastLED classics ────────────────────
@@ -207,5 +208,203 @@ describe('codeSandbox.worker — handleRunRequest', () => {
     const res = run(code, { globalCode, t: 0.5 })
     expect(res.error).toBeNull()
     expect(pixelAt(res.pixels, 0, 0)).not.toEqual({ r: 0, g: 0, b: 0 })
+  })
+})
+
+// ── D-04: includes, statics, palettes, XY maps and local types through the worker ──
+
+describe('codeSandbox.worker — pasted sketches', () => {
+  it('compiles a pasted sketch header: includes, defines, its own leds[] and setup()', () => {
+    const globalCode = [
+      '#include <FastLED.h>',
+      '#define DATA_PIN 3',
+      '#define BRIGHTNESS 96',
+      '#define NUM_LEDS 64',
+      '#define LED_TYPE WS2812B',
+      'CRGB leds[NUM_LEDS];',
+      'void setup() {',
+      '  FastLED.addLeds<LED_TYPE, DATA_PIN, GRB>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);',
+      '  FastLED.setBrightness(BRIGHTNESS);',
+      '}',
+    ].join('\n')
+    const res = run('leds[0] = CRGB(BRIGHTNESS, 0, 0); FastLED.show(); Serial.println("ok");', { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 96, g: 0, b: 0 })
+  })
+
+  it('a Loop-section static persists across frames and wraps at its width', () => {
+    const code = 'static uint8_t n = 0; n += 100; leds[0] = CRGB(n, 0, 0);'
+    expect(pixelAt(run(code).pixels, 0, 0).r).toBe(100)
+    expect(pixelAt(run(code).pixels, 0, 0).r).toBe(200)
+    expect(pixelAt(run(code).pixels, 0, 0).r).toBe(44)
+  })
+
+  it('a helper static persists and shadows a global of the same name', () => {
+    const globalCode = 'uint8_t n = 5;\nuint8_t tick() { static uint8_t n = 0; n += 10; return n; }'
+    const code = 'leds[0] = CRGB(tick(), n, 0);'
+    expect(pixelAt(run(code, { globalCode }).pixels, 0, 0)).toEqual({ r: 10, g: 5, b: 0 })
+    expect(pixelAt(run(code, { globalCode }).pixels, 0, 0)).toEqual({ r: 20, g: 5, b: 0 })
+  })
+
+  it('samples a DEFINE_GRADIENT_PALETTE linearly between its stops', () => {
+    const globalCode = 'DEFINE_GRADIENT_PALETTE(heat_gp) { 0, 0,0,0, 128, 255,0,0, 255, 255,255,0 };\nCRGBPalette16 gPal = heat_gp;'
+    const res = run('leds[0] = ColorFromPalette(gPal, 64); leds[1] = ColorFromPalette(gPal, 128); leds[2] = ColorFromPalette(gPal, 255);', { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 128, g: 0, b: 0 })
+    expect(pixelAt(res.pixels, 1, 0)).toEqual({ r: 255, g: 0, b: 0 })
+    expect(pixelAt(res.pixels, 2, 0)).toEqual({ r: 255, g: 255, b: 0 })
+  })
+
+  it('a brace-initialised CRGBPalette16 holds its entries at i*16, black beyond the list', () => {
+    const globalCode = 'CRGBPalette16 p = { CRGB::Red, 0x0000FF };'
+    const res = run('leds[0] = ColorFromPalette(p, 0); leds[1] = ColorFromPalette(p, 8); leds[2] = ColorFromPalette(p, 16); leds[3] = ColorFromPalette(p, 32);', { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 255, g: 0, b: 0 })
+    expect(pixelAt(res.pixels, 1, 0)).toEqual({ r: 128, g: 0, b: 128 })
+    expect(pixelAt(res.pixels, 2, 0)).toEqual({ r: 0, g: 0, b: 255 })
+    expect(pixelAt(res.pixels, 3, 0)).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('fill_gradient_RGB writes into an existing palette, and the blend types read it as FastLED does', () => {
+    const globalCode = 'CRGBPalette16 p;'
+    const code = [
+      'fill_gradient_RGB(p, 16, CRGB::Red, CRGB::Blue);',
+      'leds[0] = ColorFromPalette(p, 0);',
+      'leds[1] = ColorFromPalette(p, 240);',
+      'leds[2] = ColorFromPalette(p, 248, 255, LINEARBLEND);',
+      'leds[3] = ColorFromPalette(p, 248, 255, NOBLEND);',
+      'leds[4] = ColorFromPalette(p, 255, 255, LINEARBLEND_NOWRAP);',
+    ].join('\n')
+    const res = run(code, { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 255, g: 0, b: 0 })
+    expect(pixelAt(res.pixels, 1, 0)).toEqual({ r: 0, g: 0, b: 255 })
+    expect(pixelAt(res.pixels, 2, 0)).toEqual({ r: 128, g: 0, b: 128 })   // halfway back toward entry 0
+    expect(pixelAt(res.pixels, 3, 0)).toEqual({ r: 0, g: 0, b: 255 })
+    expect(pixelAt(res.pixels, 0, 1)).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
+  it('fill_gradient walks hue between two CHSV colours', () => {
+    const res = run('fill_gradient(leds, NUM_LEDS, CHSV(0, 255, 255), CHSV(96, 255, 255));')
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 255, g: 0, b: 0 })
+    const mid = pixelAt(res.pixels, 3, 1)   // index 7: around hue 45, yellow-ish
+    expect(mid.r).toBeGreaterThan(0)
+    expect(mid.g).toBeGreaterThan(0)
+    expect(mid.b).toBe(0)
+    const last = pixelAt(res.pixels, W - 1, H - 1)
+    expect(last.g).toBe(255)
+    expect(last.r).toBe(0)
+  })
+
+  it("a user XY() wins over the shim's", () => {
+    const globalCode = 'uint16_t XY(uint8_t x, uint8_t y) { return 15 - (y * WIDTH + x); }'
+    const res = run('leds[XY(0, 0)] = CRGB::Red;', { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 3, 3)).toEqual({ r: 255, g: 0, b: 0 })
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('a lookup-table XY() indexes its own table', () => {
+    const globalCode = 'const uint16_t XYTable[] = { 5, 6 };\nuint16_t XY(uint8_t x, uint8_t y) { return XYTable[x]; }'
+    const res = run('leds[XY(1, 0)] = CRGB::Blue;', { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 2, 1)).toEqual({ r: 0, g: 0, b: 255 })   // index 6
+  })
+
+  it('a user helper named like a shim function wins in both sections', () => {
+    const globalCode = 'void fadeToBlackBy(CRGB* arr, uint16_t n, uint8_t amt) { arr[0] = CRGB::Blue; }'
+    const res = run('fadeToBlackBy(leds, NUM_LEDS, 10);', { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
+  it('arrays are sized, 2-D, and CRGB buffers get fresh elements and the += operator', () => {
+    const code = [
+      'CRGB buf[NUM_LEDS]; buf[3] += CRGB(200, 0, 0); buf[3] += CRGB(100, 0, 0);',
+      'uint8_t grid[HEIGHT][WIDTH]; grid[1][2] = 7;',
+      'CRGB b2[2]; b2[0].r = 9;',
+      'leds[3] = buf[3]; leds[0] = CRGB(grid[1][2], b2[1].r, 0);',
+    ].join('\n')
+    const res = run(code)
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 3, 0)).toEqual({ r: 255, g: 0, b: 0 })
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 7, g: 0, b: 0 })
+  })
+
+  it('a CRGB reference writes through to leds[]', () => {
+    const res = run('CRGB &px = leds[0]; px.r = 77; px.g = 1;')
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 77, g: 1, b: 0 })
+  })
+
+  it('casts and the char types wrap like the board', () => {
+    const res = run('uint8_t v = (uint8_t)300; unsigned char c = 250; c += 10; leds[0] = CRGB(v, (int)2.9, uint8_t(256 + 5)); leds[1] = CRGB(c, 0, 0);')
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 44, g: 2, b: 5 })
+    expect(pixelAt(res.pixels, 1, 0)).toEqual({ r: 4, g: 0, b: 0 })
+  })
+
+  it('EVERY_N_MINUTES counts in minutes', () => {
+    const globalCode = 'uint8_t hits = 0;'
+    const code = 'EVERY_N_MINUTES(1) { hits++; } leds[0] = CRGB(hits, 0, 0);'
+    expect(pixelAt(run(code, { globalCode, t: 0 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 59 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 60 }).pixels, 0, 0).r).toBe(1)
+  })
+
+  it('a named _I timer honours setPeriod and reset', () => {
+    const globalCode = 'uint8_t hits = 0;'
+    const code = 'EVERY_N_MILLISECONDS_I(tm, 1000) { hits++; } tm.setPeriod(100); if (millis() == 50) tm.reset(); leds[0] = CRGB(hits, 0, 0);'
+    // t=0 creates the timer (period now 100ms); the reset at 50ms re-arms it,
+    // so 100ms is too soon and 150ms is the first fire.
+    expect(pixelAt(run(code, { globalCode, t: 0 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 0.05 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 0.1 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 0.15 }).pixels, 0, 0).r).toBe(1)
+  })
+
+  it('runs the Fire2012 example unchanged, with its static heat[] and HeatColor', () => {
+    const globalCode = [
+      '#define COOLING  55',
+      '#define SPARKING 255',
+      'bool gReverseDirection = false;',
+      'void Fire2012()',
+      '{',
+      '// Array of temperature readings at each simulation cell',
+      '  static uint8_t heat[NUM_LEDS];',
+      '  // Step 1.  Cool down every cell a little',
+      '    for( int i = 0; i < NUM_LEDS; i++) {',
+      '      heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / NUM_LEDS) + 2));',
+      '    }',
+      "    // Step 2.  Heat from each cell drifts 'up' and diffuses a little",
+      '    for( int k= NUM_LEDS - 1; k >= 2; k--) {',
+      '      heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;',
+      '    }',
+      "    // Step 3.  Randomly ignite new 'sparks' of heat near the bottom",
+      '    if( random8() < SPARKING ) {',
+      '      int y = random8(7);',
+      '      heat[y] = qadd8( heat[y], random8(160,255) );',
+      '    }',
+      '    // Step 4.  Map from heat cells to LED colors',
+      '    for( int j = 0; j < NUM_LEDS; j++) {',
+      '      CRGB color = HeatColor( heat[j]);',
+      '      int pixelnumber;',
+      '      if( gReverseDirection ) {',
+      '        pixelnumber = (NUM_LEDS-1) - j;',
+      '      } else {',
+      '        pixelnumber = j;',
+      '      }',
+      '      leds[pixelnumber] = color;',
+      '    }',
+      '}',
+    ].join('\n')
+    let lit = false
+    for (let frame = 0; frame < 20; frame++) {
+      const res = run('Fire2012();', { globalCode, t: frame / 60 })
+      expect(res.error).toBeNull()
+      for (let i = 0; i < 7; i++) if (pixelAt(res.pixels, i % W, Math.floor(i / W)).r > 0) lit = true
+    }
+    expect(lit).toBe(true)
   })
 })
