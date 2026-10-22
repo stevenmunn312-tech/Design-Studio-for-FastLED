@@ -5,8 +5,9 @@ Design for root todo D-06, pulled into v1 on 2026-10-21 from
 Two pieces, in this order: positioned strings measured in millimetres, so the
 Build Diagram can draw a string where it hangs; then segment networks, a
 string laid along the edges of a graph with a `Ripple` pattern that travels
-node to node, the Chromancer model. Written 2026-10-22. Part 1 and the
-network model (step 2) shipped the same day; the editor and `Ripple` are open.
+node to node, the Chromancer model. Written 2026-10-22. Part 1, the network
+model (step 2) and `Ripple` (step 4) shipped by 2026-10-23; the layout editor
+(step 3) is open, so a custom network is typed as JSON until it lands.
 
 ## Where this starts
 
@@ -124,32 +125,36 @@ geometry by property rather than reading the output: it holds the same
 network, and a mismatch shows in the preview as the LED Output pane draws the
 string.
 
-- Inputs: `trigger` (bool, rising edge starts a ripple at `startNode`),
-  `speed` (float), `palette`. Properties: `startNode` (index, or `random`),
-  `behaviour`, `lifetimeMs` (200–10000), `width` (LEDs, 1–8), `maxRipples`
-  (1–16), `decay`.
-- Behaviours, Chromancer's set: `weaving` (at each node, continue along the
-  edge that turns least; mirrored copies alternate left and right), `explode`
-  (one ripple per outgoing edge at every node, each at half brightness),
-  `angry` (turn toward the edge that departs furthest from the heading),
-  `always-right` and `always-left` (turn the same way at every node, so a
-  ripple circles a cell), `random` (a random outgoing edge).
-- A ripple is a position along an edge (edge index, offset in LEDs, heading
-  as the edge's direction), a colour index, an age and a brightness. Each
-  frame it advances `speed × dt` LEDs; when its offset passes the edge's end
-  it arrives at a node and the behaviour picks the next edge (never the one
-  it came from, unless that is the only edge). The ripple ends when its age
-  passes `lifetimeMs` or it reaches a node with no other edge.
-- Rendering: the pattern draws on the canvas, splatting each ripple's head
-  over `width` LEDs of its edge, mapped back to canvas pixels through the
-  same positions the output samples, with a trailing fade over the whole
-  canvas (`decay`, the Trails rule). Because the pattern draws at the LED
-  positions and the output samples at the same positions, the ripple lands on
-  exactly the LEDs it is on, bilinear sampling included.
-- Preview and sketch share one integer kernel in `src/nodes/shared/` for the
-  node choice and the advance, so the turning rule is one function. The
-  random behaviour uses the seeded LCG in the preview and `random16` in the
-  sketch, the documented String Particles divergence.
+- Inputs: `trigger` (bool, a rising edge starts one ripple), `speed`,
+  `rate` (ripples started on their own each second), `fade` and `palette`.
+  Properties: `networkPreset`, `network`, `ledsPerEdge` (the output's),
+  `behaviour`, `startNode` (-1 for a random node), `lifetime` (0.2–10 s),
+  `width` (LEDs behind the head, 1–8), `seed`. At most 16 ripples live.
+- Behaviours: `straight` (the least turn), `left` and `right` (always that
+  way, so a ripple circles a cell), `angry` (the sharpest turn), `explode`
+  (one ripple down every edge from the node, sharing the parent's colour and
+  age) and `random`. A ripple never takes the edge it arrived on unless it is
+  the only one, so a dead end bounces it back.
+- A ripple is an edge, a direction along it, an offset in LEDs, a palette
+  index and an age. Each frame it advances `speed × dt` LEDs (speed 1 is
+  60 LEDs a second); past the edge's end it arrives at a node and the
+  behaviour picks the next edge, carrying the leftover distance. It ends when
+  its age passes `lifetime`. Each ripple is born one palette step (37/256)
+  along from the last.
+- Rendering: the node's own frame fades by `fade` each tick, then every head
+  is drawn over `width` LEDs behind it at the LED points of its edge,
+  brighter at the head and as the ripple is young. The points come from the
+  network fitted to the pattern's canvas with the same rule the output uses
+  (`fitNetworkToCanvas`), so with the output's canvas at the graph's size the
+  ripple lands on exactly the LEDs it is on.
+- The turning rule runs once per (edge, end) in `src/nodes/shared/rippleNetwork.ts`
+  (`buildRippleTables`): the preview walks those tables, and the sketch bakes
+  them as PROGMEM (`nd`, `ed`, `off`, `out`, `pk`) and fits the nodes at
+  start-up, so the device makes the same choice at every node and carries no
+  trigonometry. Only `random` diverges (the preview's seeded LCG against
+  `random16`), the documented String Particles gap. The frame buffer
+  persists (`PERSISTENT_FRAME_NODE_TYPES`), so a show keeps it per pattern
+  and clears it on a Restart entry.
 
 ### Resources
 
@@ -173,7 +178,7 @@ adds nothing beyond the node's own frame buffer.
 3. The layout editor. Tests: add, connect, flip, reorder, Escape.
 4. `Ripple`: shared kernel, evaluator, codegen, help entry with a live example,
    README count. Tests: each behaviour's node choice on the hexagon, lifetime,
-   parity of the kernel, codegen snapshot.
+   parity of the kernel, codegen snapshot. **Shipped 2026-10-23.**
 
 Each step is shippable on its own. Compile once at step 4, with the rest of
 the v1 hardware pass.

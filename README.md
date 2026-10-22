@@ -19,7 +19,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 234 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 235 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Live Focus, the Control Deck, Stage View, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.

@@ -3572,6 +3572,42 @@ describe('Transition variants', () => {
   }
 })
 
+describe('Ripple', () => {
+  type Px = { r: number; g: number; b: number }
+  const lit = (frame: Px[][]) => frame.flat().filter((p) => p.r + p.g + p.b > 0).length
+
+  it('starts a ripple on a rising trigger and runs it along the network, leaving a trail', () => {
+    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, rate: 0, startNode: 0, speed: 0.5, width: 2, fade: 0.5, seed: 1 })
+    const trig = node('tg', 'Constant', 'math', { value: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e1', 'tg', 'value', 'rp', 'trigger'), edge('e2', 'rp', 'frame', 'out', 'frame')]
+    const at = (tick: number, on: boolean): Px[][] => {
+      trig.data.properties = { value: on ? 1 : 0 }
+      return JSON.parse(JSON.stringify(evaluateGraphFull([ripple, trig, out], edges, tick, W, H).outputs.get('rp')!.frame))
+    }
+    // Ticks are frames at 60 fps: the evaluator's `t` is tick / 60.
+    expect(lit(at(0, false))).toBe(0)
+    const first = at(3, true)
+    expect(lit(first)).toBeGreaterThan(0)
+    // Held high, no second ripple; the one ripple moves on and its trail fades.
+    const later = at(24, true)
+    expect(lit(later)).toBeGreaterThan(0)
+    expect(JSON.stringify(later)).not.toBe(JSON.stringify(first))
+  })
+
+  it('keeps its ripples as instance state, cleared on reset', () => {
+    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'triangles', ledsPerEdge: 3, rate: 5, speed: 0.5, seed: 2 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e2', 'rp', 'frame', 'out', 'frame')]
+    evaluateGraphFull([ripple, out], edges, 0, W, H)
+    const running = evaluateGraphFull([ripple, out], edges, 30, W, H).outputs.get('rp')!.frame as Px[][]
+    expect(lit(running)).toBeGreaterThan(0)
+    resetEvaluatorState()
+    const fresh = evaluateGraphFull([ripple, out], edges, 30, W, H).outputs.get('rp')!.frame as Px[][]
+    expect(lit(fresh)).toBe(0)
+  })
+})
+
 describe('Float Field pipeline', () => {
   // FieldFormula outputs a per-pixel scalar `field`; read it via evaluateGraphFull.
   function fieldOf(formula: string, props: Record<string, unknown> = {}, tick = 0): Float32Array {

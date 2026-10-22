@@ -322,8 +322,9 @@ chooses the supported combinations from whatever is on record at release.
   steps. Shipped 2026-10-22: step 1 (`positionsMmPerUnit`, the catenary's
   scale from the tape, the span and overlap warning, the output card pictures
   the string) and step 2 (the network model, hexagon and triangle presets,
-  custom JSON, `stripLayout: 'network'` as a positioned string). Steps 3 and
-  4 (the layout editor and `Ripple`) are open.
+  custom JSON, `stripLayout: 'network'` as a positioned string) and step 4
+  (the `Ripple` pattern, 2026-10-23). Step 3, the layout editor, is open; a
+  custom network is typed as JSON until it lands.
 - [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every

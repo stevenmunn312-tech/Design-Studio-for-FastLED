@@ -436,7 +436,7 @@ export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]):
 // ── Scoring ──────────────────────────────────────────────────────────────────
 
 const STATIC_TYPES = new Set(['SolidColor', 'Text', 'Image', 'ClockDisplay', 'GradientFrame', 'PaletteGradient'])
-const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'StringParticles', 'Lightning', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst', 'FourierEpicycles'])
+const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'StringParticles', 'Ripple', 'Lightning', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst', 'FourierEpicycles'])
 const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FieldNoise', 'TuringField', 'Automaton', 'FractalField', 'FluidSim', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
 const ANIMATED_TYPES = new Set([
   'TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave',

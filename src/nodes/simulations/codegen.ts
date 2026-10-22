@@ -10,6 +10,9 @@ import {
   LUMINOVA_TRAIL_DECAY, LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
 } from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack } from '../../state/evaluator/stringTrack'
+import {
+  RIPPLE_LIFETIME_SEC, RIPPLE_MAX_RIPPLES, RIPPLE_WIDTH, arrivalEnd, buildRippleTables, rippleBehaviour, rippleShape,
+} from '../shared/rippleNetwork'
 import { particleRadius } from './particleScale'
 import { particleMode, particlePoolSize } from './particleModes'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
@@ -511,6 +514,86 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      ${px}[_i]=fmodf(${px}[_i]+_dx*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+_dy*_spd*0.6f+HEIGHT,HEIGHT);`)
     ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f); } }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${tr}[_i]*255)); }`)
+  },
+  // Ripple: the turning rule runs here once per (edge, end) and is baked as
+  // tables, so the sketch makes the same choice at every node as the preview
+  // and carries no trigonometry. The network is fitted to the render canvas
+  // at start-up with the same rule as fitNetworkToCanvas, so a multi-render
+  // pass lands its LEDs where its own canvas puts them.
+  Ripple({ node, id, p, ln, f, ownBuf, paletteExpr, boolExpr, needsT }) {
+    needsT.v = true
+    const ob = ownBuf({ persists: true })
+    const { shape, ledsPerEdge } = rippleShape(p)
+    const tables = buildRippleTables(shape, ledsPerEdge, 64, 64)
+    const behaviour = rippleBehaviour(p.behaviour)
+    const edges = shape.edges.length, nodes = shape.nodes.length
+    const lifetime = Math.max(RIPPLE_LIFETIME_SEC.min, Math.min(RIPPLE_LIFETIME_SEC.max, Number(p.lifetime ?? RIPPLE_LIFETIME_SEC.default)))
+    const width = Math.max(RIPPLE_WIDTH.min, Math.min(RIPPLE_WIDTH.max, Math.round(Number(p.width ?? RIPPLE_WIDTH.default))))
+    const startNode = Math.round(Number(p.startNode ?? -1))
+    const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.Ripple)
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    const seed = seedProp(p)
+    const A = `_rp_${id}`
+    const N = String(ledsPerEdge), M = String(RIPPLE_MAX_RIPPLES)
+    // The outgoing lists of every edge end, flattened: offsets, then entries
+    // as (edge << 1) | (dir is from→to), then the four deterministic picks.
+    const offsets: number[] = [0]
+    const list: number[] = []
+    const picks: string[] = []
+    for (let end = 0; end < tables.ends.length; end++) {
+      const e = tables.ends[end]
+      for (const o of e.outgoing) list.push((o.edge << 1) | (o.dir === 1 ? 1 : 0))
+      offsets.push(list.length)
+      picks.push(`{${e.straight},${e.left},${e.right},${e.angry}}`)
+    }
+    const pick = behaviour === 'straight' ? 0 : behaviour === 'left' ? 1 : behaviour === 'right' ? 2 : 3
+    ln(`  { // Ripple on a ${edges}-edge network`)
+    ln(`    static const float ${A}nd[${nodes}][2] PROGMEM = {${shape.nodes.map(([x, y]) => `{${floatLit(x)},${floatLit(y)}}`).join(',')}};`)
+    ln(`    static const uint8_t ${A}ed[${edges}][2] PROGMEM = {${shape.edges.map(([a, b]) => `{${a},${b}}`).join(',')}};`)
+    ln(`    static const uint16_t ${A}off[${offsets.length}] PROGMEM = {${offsets.join(',')}};`)
+    ln(`    static const uint8_t ${A}out[${list.length}] PROGMEM = {${list.join(',')}};`)
+    ln(`    static const uint8_t ${A}pk[${tables.ends.length}][4] PROGMEM = {${picks.join(',')}};`)
+    ln(`    static uint16_t ${A}px[${edges * ledsPerEdge}]; static uint8_t ${A}e[${M}], ${A}d[${M}]; static float ${A}o[${M}], ${A}a[${M}], ${A}h[${M}]; static bool ${A}l[${M}];`)
+    ln(`    static float ${A}t=0, ${A}acc=0; static bool ${A}prev=false, ${A}init=false; static uint16_t ${A}born=0;`)
+    ln(`    bool _tr=(${boolExpr(node.id, 'trigger')});`)
+    ln(`    if(!${A}init){`)
+    if (seed) ln(`      random16_set_seed(${seed}u);`)
+    ln(`      float _mnx=1e9f,_mxx=-1e9f,_mny=1e9f,_mxy=-1e9f;`)
+    ln(`      for(int _i=0;_i<${nodes};_i++){ float _x=pgm_read_float(&${A}nd[_i][0]),_y=pgm_read_float(&${A}nd[_i][1]); _mnx=min(_mnx,_x); _mxx=max(_mxx,_x); _mny=min(_mny,_y); _mxy=max(_mxy,_y); }`)
+    ln(`      float _sx=_mxx-_mnx,_sy=_mxy-_mny,_iw=max(0,WIDTH-1),_ih=max(0,HEIGHT-1);`)
+    ln(`      float _k=min(_sx>1e-6f?_iw/_sx:1e9f,_sy>1e-6f?_ih/_sy:1e9f); if(_k>1e8f) _k=1.0f;`)
+    ln(`      float _lf=0.5f+(_iw-_sx*_k)/2.0f,_tp=0.5f+(_ih-_sy*_k)/2.0f;`)
+    ln(`      for(int _ei=0;_ei<${edges};_ei++){ int _a=pgm_read_byte(&${A}ed[_ei][0]),_b=pgm_read_byte(&${A}ed[_ei][1]);`)
+    ln(`        float _ax=_lf+(pgm_read_float(&${A}nd[_a][0])-_mnx)*_k,_ay=_tp+(pgm_read_float(&${A}nd[_a][1])-_mny)*_k,_bx=_lf+(pgm_read_float(&${A}nd[_b][0])-_mnx)*_k,_by=_tp+(pgm_read_float(&${A}nd[_b][1])-_mny)*_k;`)
+    ln(`        for(int _i=0;_i<${N};_i++){ float _u=(_i+0.5f)/${N}; int _x=constrain((int)lroundf(_ax+(_bx-_ax)*_u-0.5f),0,WIDTH-1),_y=constrain((int)lroundf(_ay+(_by-_ay)*_u-0.5f),0,HEIGHT-1); ${A}px[_ei*${N}+_i]=_y*WIDTH+_x; } }`)
+    ln(`      for(int _i=0;_i<${M};_i++) ${A}l[_i]=false; fill_solid(${ob}, NUM_LEDS, CRGB::Black); ${A}t=t; ${A}prev=_tr; ${A}init=true; }`)
+    ln(`    float _dt=constrain(t-${A}t,0.0f,0.25f); ${A}t=t;`)
+    ln(`    float _spd=${speed},_rate=max(0.0f,${f('rate', 'rate', 1)}),_life=${floatLit(lifetime)}; uint8_t _fq=(uint8_t)(constrain(${f('fade', 'fade', 0.85)},0.0f,1.0f)*255.0f);`)
+    ln(`    ${A}acc+=_rate*_dt; int _sp=(int)floorf(${A}acc); ${A}acc-=_sp; if(_tr&&!${A}prev) _sp++; ${A}prev=_tr;`)
+    ln(`    for(int _s=0;_s<_sp;_s++){ int _slot=-1; for(int _i=0;_i<${M};_i++) if(!${A}l[_i]){ _slot=_i; break; } if(_slot<0) break;`)
+    ln(`      int _n=${startNode >= 0 && startNode < nodes ? String(startNode) : `random16(${nodes})`}; int _ei=-1; uint8_t _dd=1;`)
+    ln(`      for(int _j=0;_j<${edges};_j++){ int _a=pgm_read_byte(&${A}ed[_j][0]),_b=pgm_read_byte(&${A}ed[_j][1]); if(_a==_n){ _ei=_j; _dd=1; break; } if(_b==_n){ _ei=_j; _dd=0; break; } }`)
+    ln(`      if(_ei<0) break; ${A}e[_slot]=_ei; ${A}d[_slot]=_dd; ${A}o[_slot]=0; ${A}a[_slot]=0; ${A}h[_slot]=((${A}born*37)%256)/256.0f; ${A}born++; ${A}l[_slot]=true; }`)
+    ln(`    for(int _i=0;_i<${M};_i++){ if(!${A}l[_i]) continue; ${A}a[_i]+=_dt; if(${A}a[_i]>=_life){ ${A}l[_i]=false; continue; }`)
+    ln(`      float _of=${A}o[_i]+_spd*_dt; int _ei=${A}e[_i]; uint8_t _dd=${A}d[_i]; int _guard=0;`)
+    ln(`      while(_of>=${N}&&_guard++<64){ int _end=_ei*2+(_dd?1:0); uint16_t _o0=pgm_read_word(&${A}off[_end]),_o1=pgm_read_word(&${A}off[_end+1]); int _cnt=_o1-_o0; float _carry=_of-${N};`)
+    if (behaviour === 'explode') {
+      ln(`        for(int _c=1;_c<_cnt;_c++){ int _slot=-1; for(int _j=0;_j<${M};_j++) if(!${A}l[_j]){ _slot=_j; break; } if(_slot<0) break; uint8_t _v=pgm_read_byte(&${A}out[_o0+_c]); ${A}e[_slot]=_v>>1; ${A}d[_slot]=_v&1; ${A}o[_slot]=_carry; ${A}a[_slot]=${A}a[_i]; ${A}h[_slot]=${A}h[_i]; ${A}l[_slot]=true; }`)
+      ln(`        uint8_t _v=pgm_read_byte(&${A}out[_o0]);`)
+    } else if (behaviour === 'random') {
+      ln(`        uint8_t _v=pgm_read_byte(&${A}out[_o0+random16(_cnt)]);`)
+    } else {
+      ln(`        uint8_t _v=pgm_read_byte(&${A}out[_o0+pgm_read_byte(&${A}pk[_end][${pick}])]);`)
+    }
+    ln(`        _ei=_v>>1; _dd=_v&1; _of=_carry; }`)
+    ln(`      ${A}e[_i]=_ei; ${A}d[_i]=_dd; ${A}o[_i]=_of; }`)
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ ${ob}[_i].r=scale8(${ob}[_i].r,_fq); ${ob}[_i].g=scale8(${ob}[_i].g,_fq); ${ob}[_i].b=scale8(${ob}[_i].b,_fq); }`)
+    ln(`    for(int _i=0;_i<${M};_i++){ if(!${A}l[_i]) continue; float _lf=1.0f-${A}a[_i]/_life; CRGB _c=ColorFromPalette(${pal},(uint8_t)(${A}h[_i]*255.0f));`)
+    ln(`      for(int _k=0;_k<${width};_k++){ float _of=${A}o[_i]-_k; if(_of<0) break; int _li=constrain((int)floorf(_of),0,${N}-1); if(!${A}d[_i]) _li=${N}-1-_li;`)
+    ln(`        uint16_t _p=${A}px[${A}e[_i]*${N}+_li]; uint8_t _q=(uint8_t)(constrain(_lf*(1.0f-(float)_k/${width}),0.0f,1.0f)*255.0f);`)
+    ln(`        ${ob}[_p].r=max(${ob}[_p].r,scale8(_c.r,_q)); ${ob}[_p].g=max(${ob}[_p].g,scale8(_c.g,_q)); ${ob}[_p].b=max(${ob}[_p].b,scale8(_c.b,_q)); } }`)
+    ln(`  }`)
+    void arrivalEnd
   },
   StringParticles({ node, id, p, ln, f, ownBuf, paletteExpr, boolExpr, needsT }) {
     const ob = ownBuf()

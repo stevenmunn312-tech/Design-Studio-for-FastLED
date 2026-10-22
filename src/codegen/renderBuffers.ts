@@ -19,7 +19,7 @@ const PERSISTS_MARK = '// keeps its pixels between frames'
  * list from every node variant, so it cannot drift.
  */
 export const PERSISTENT_FRAME_NODE_TYPES: ReadonlySet<string> = new Set([
-  'Code', 'ColorTrails', 'Confetti', 'DdpInput', 'FormulaPoints', 'Juggle',
+  'Code', 'ColorTrails', 'Confetti', 'DdpInput', 'FormulaPoints', 'Juggle', 'Ripple',
   'SDVideo', 'SpectrumVisualizer', 'Trails', 'TrebleSparks',
 ])
 

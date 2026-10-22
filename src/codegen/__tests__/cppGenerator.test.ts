@@ -2875,6 +2875,29 @@ describe('generateCpp', () => {
   })
 })
 
+describe('Ripple codegen', () => {
+  it('bakes the network and its turning tables, fits them at start-up, and keeps the trail buffer', () => {
+    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'left', width: 2 })
+    const cpp = generateCpp([ripple, outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('// Ripple on a 19-edge network')
+    expect(cpp).toContain('static const float _rp_rpnd[16][2] PROGMEM')
+    expect(cpp).toContain('static const uint8_t _rp_rped[19][2] PROGMEM')
+    expect(cpp).toContain('static const uint8_t _rp_rppk[38][4] PROGMEM')
+    // Left picks column 1 of the baked choices; no trigonometry in the sketch.
+    expect(cpp).toContain('pgm_read_byte(&_rp_rppk[_end][1])')
+    expect(cpp).not.toContain('atan2f')
+    expect(cpp).toContain('for(int _k=0;_k<2;_k++)')
+  })
+
+  it('explode splits down every edge and random draws from the outgoing list', () => {
+    const explode = generateCpp([node('rp', 'Ripple', 'pattern', { behaviour: 'explode' }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
+    expect(explode).toContain('for(int _c=1;_c<_cnt;_c++)')
+    const random = generateCpp([node('rp', 'Ripple', 'pattern', { behaviour: 'random', seed: 7 }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
+    expect(random).toContain('random16(_cnt)')
+    expect(random).toContain('random16_set_seed(')
+  })
+})
+
 describe('Float Field codegen', () => {
   it('FieldFormula declares a float field buffer and writes into it', () => {
     const ff = node('ff', 'FieldFormula', 'pattern', { formula: 'r' })

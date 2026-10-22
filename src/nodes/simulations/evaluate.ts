@@ -12,6 +12,10 @@ import {
   LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
 } from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack, trackIndices, trackSplat, wrapTrack, type StringTrack } from '../../state/evaluator/stringTrack'
+import {
+  RIPPLE_LIFETIME_SEC, RIPPLE_MAX_RIPPLES, RIPPLE_WIDTH, advanceRipple, buildRippleTables, rippleBehaviour, ripplePoint,
+  rippleShape, type Ripple, type RippleTables,
+} from '../shared/rippleNetwork'
 import { type Frame, type Palette, samplePalette, hsv, type RGB } from '../../state/palettes/ledColor'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 import {
@@ -621,6 +625,100 @@ export interface StringParticleOptions {
   track: StringTrack; mode: string; ringLeds: number; count: number; bed: number
 }
 
+// ── Ripple ────────────────────────────────────────────────────────────────
+// Ripples run along a segment network's edges and turn at its nodes by the
+// kernel in shared/rippleNetwork.ts; the sketch bakes the same choices as
+// tables. The trail is the node's own frame, faded in place each tick.
+interface RippleState {
+  shapeKey: string
+  tables: RippleTables
+  ripples: Ripple[]
+  frame: Frame
+  lastT: number
+  prevTrigger: boolean
+  spawnAcc: number
+  born: number
+}
+const rippleState = instanceState('rippleState', new Map<string, RippleState>())
+
+/** Where a ripple born at `node` first heads: the first edge at that node. */
+export function rippleStart(tables: RippleTables, node: number): { edge: number; dir: 1 | -1 } | null {
+  const edge = tables.network.edges.findIndex(([a, b]) => a === node || b === node)
+  if (edge < 0) return null
+  return { edge, dir: tables.network.edges[edge][0] === node ? 1 : -1 }
+}
+
+function evalRipple(key: string, props: Record<string, unknown>, trigger: boolean, speed: number, rate: number, fade: number, t: number, palette: Palette, W: number, H: number, seed: number): Frame {
+  const { shape, ledsPerEdge } = rippleShape(props)
+  const shapeKey = `${W}x${H}|${ledsPerEdge}|${JSON.stringify(shape)}|${seed}`
+  let state = rippleState.get(key)
+  if (!state || state.shapeKey !== shapeKey) {
+    state = {
+      shapeKey, tables: buildRippleTables(shape, ledsPerEdge, W, H), ripples: [], frame: rawBlankFrame(W, H),
+      lastT: t, prevTrigger: trigger, spawnAcc: 0, born: 0,
+    }
+    seededRngState.delete(`${key}:ripple`)
+    rippleState.set(key, state)
+  }
+  const s = state
+  const rnd = () => seededRandom(`${key}:ripple`, seed)
+  const dt = Math.max(0, Math.min(0.25, t - s.lastT))
+  s.lastT = t
+  const behaviour = rippleBehaviour(props.behaviour)
+  const lifetime = Math.max(RIPPLE_LIFETIME_SEC.min, Math.min(RIPPLE_LIFETIME_SEC.max, Number(props.lifetime ?? RIPPLE_LIFETIME_SEC.default)))
+  const width = Math.max(RIPPLE_WIDTH.min, Math.min(RIPPLE_WIDTH.max, Math.round(Number(props.width ?? RIPPLE_WIDTH.default))))
+  const nodeCount = s.tables.network.nodes.length
+  const startNode = Math.round(Number(props.startNode ?? -1))
+
+  // Spawn: a rising trigger, plus `rate` ripples a second.
+  s.spawnAcc += rate * dt
+  let spawns = Math.floor(s.spawnAcc)
+  s.spawnAcc -= spawns
+  if (trigger && !s.prevTrigger) spawns++
+  s.prevTrigger = trigger
+  for (let k = 0; k < spawns && s.ripples.length < RIPPLE_MAX_RIPPLES; k++) {
+    const node = startNode >= 0 && startNode < nodeCount ? startNode : Math.min(nodeCount - 1, Math.floor(rnd() * nodeCount))
+    const start = rippleStart(s.tables, node)
+    if (!start) break
+    s.ripples.push({ edge: start.edge, dir: start.dir, offset: 0, hue: ((s.born++ * 37) % 256) / 256, ageSec: 0 })
+  }
+
+  // Age and advance.
+  const next: Ripple[] = []
+  for (const r of s.ripples) {
+    const aged = { ...r, ageSec: r.ageSec + dt }
+    if (aged.ageSec >= lifetime) continue
+    for (const moved of advanceRipple(s.tables, aged, speed * dt, behaviour, rnd)) {
+      if (next.length < RIPPLE_MAX_RIPPLES) next.push(moved)
+    }
+  }
+  s.ripples = next
+
+  // Fade the trail in place, then draw each head over `width` LEDs behind it.
+  const frame = s.frame
+  for (let y = 0; y < H; y++) {
+    const row = frame[y]
+    for (let x = 0; x < W; x++) {
+      const px = row[x]
+      px.r = Math.round(px.r * fade); px.g = Math.round(px.g * fade); px.b = Math.round(px.b * fade)
+    }
+  }
+  for (const r of s.ripples) {
+    const life = 1 - r.ageSec / lifetime
+    const c = samplePalette(palette, r.hue)
+    for (let k = 0; k < width; k++) {
+      const offset = r.offset - k
+      if (offset < 0) break
+      const [px, py] = ripplePoint(s.tables, r.edge, r.dir, offset)
+      const x = Math.max(0, Math.min(W - 1, Math.round(px - 0.5))), y = Math.max(0, Math.min(H - 1, Math.round(py - 0.5)))
+      const q = life * (1 - k / width)
+      const cell = frame[y][x]
+      cell.r = Math.max(cell.r, Math.round(c.r * q)); cell.g = Math.max(cell.g, Math.round(c.g * q)); cell.b = Math.max(cell.b, Math.round(c.b * q))
+    }
+  }
+  return frame
+}
+
 function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: number, trigger: boolean, speed: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const idx = trackIndices(o.track, W, H, o.ringLeds)
   const len = idx.length
@@ -1047,6 +1145,13 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
       bed: Number(props.bed ?? 0.3),
     }
     return { frame: evalStringParticles(stateKey(id), opts, spawn, Boolean(input(id, 'trigger', false)), speed, fade, t, palette, W, H, normalizedSeed(props.seed)) }
+  },
+  Ripple({ input, num, pal, t, W, H, stateKey }, id, props) {
+    const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Ripple)
+    const rate = Math.max(0, num(id, 'rate', props, 'rate', 1))
+    const fade = clamp01(num(id, 'fade', props, 'fade', 0.85))
+    const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    return { frame: evalRipple(stateKey(id), props, Boolean(input(id, 'trigger', false)), speed, rate, fade, t, palette, W, H, normalizedSeed(props.seed)) }
   },
   Starfield({ num, pal, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.Starfield)

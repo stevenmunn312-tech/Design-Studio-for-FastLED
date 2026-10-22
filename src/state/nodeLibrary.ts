@@ -48,7 +48,8 @@ import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
 import { RENDER_SCALE_OPTIONS } from './output/renderScale'
 import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
-import { NETWORK_LEDS_PER_EDGE, NETWORK_PRESETS } from './output/segmentNetwork'
+import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
+import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/pixelDataExtender'
 import { relayChannelPropertyEnabled, relayPinKeys } from './peripherals/relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, powerSwitchChannelPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
@@ -987,6 +988,17 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01,
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     count: { control: 'slider', min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max, step: 1 },
+  },
+  Ripple: {
+    speed: N01, fade: N01,
+    rate:      { control: 'slider', min: 0, max: 10, step: 0.1 },
+    lifetime:  { control: 'slider', min: RIPPLE_LIFETIME_SEC.min, max: RIPPLE_LIFETIME_SEC.max, step: 0.1 },
+    width:     { control: 'slider', min: RIPPLE_WIDTH.min, max: RIPPLE_WIDTH.max, step: 1 },
+    startNode: { control: 'slider', min: -1, max: NETWORK_MAX_NODES - 1, step: 1 },
+    seed:      { control: 'slider', min: 0, max: 9999, step: 1 },
+    behaviour: { control: 'select', options: [...RIPPLE_BEHAVIOURS] },
+    networkPreset: { control: 'select', options: NETWORK_PRESETS },
+    ledsPerEdge: { control: 'slider', min: NETWORK_LEDS_PER_EDGE.min, max: NETWORK_LEDS_PER_EDGE.max, step: 1 },
   },
   StringParticles: {
     speed: N01, spawn: N01, fade: N01, bed: N01,
@@ -2162,6 +2174,20 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   TVSimulator: {
     cutRate: 'Scene cuts per second.',
     brightness: 'Overall level of the screen glow, 0 off to 1 full.',
+  },
+  Ripple: {
+    networkPreset: 'The network the ripples run on. Match the LED output\'s network so each ripple lands on its LEDs: Hexagons, Triangles, or the same custom JSON.',
+    network: 'The custom network JSON, the same text as the LED output\'s.',
+    ledsPerEdge: 'LEDs along each edge, the same as the LED output\'s.',
+    behaviour: 'What a ripple does at each node. Straight keeps the least turn, Left and Right always turn that way, Angry turns the sharpest, Explode splits down every edge, Random picks one.',
+    startNode: 'The node new ripples start from, or -1 for a random node each time.',
+    speed: 'How fast a ripple travels, 0 still to 1 sixty LEDs a second.',
+    rate: 'Ripples started on their own each second. A rising Trigger starts one more.',
+    lifetime: 'Seconds a ripple lives before it fades out.',
+    width: 'LEDs lit behind each ripple\'s head.',
+    fade: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    palette: 'Each ripple takes the next colour along the palette.',
+    seed: 'Seed for random start nodes and the Random behaviour. 0 varies every run.',
   },
   StringParticles: {
     track: 'The line the particles ride: the middle row, the middle column, or the ring of pixels an LED ring reads.',
@@ -3559,6 +3585,13 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   Truchet: {
     lineWidth: 'line width',
+  },
+  Ripple: {
+    networkPreset: 'network',
+    network: 'network JSON',
+    ledsPerEdge: 'LEDs per edge',
+    startNode: 'start node',
+    lifetime: 'lifetime (s)',
   },
   StringParticles: {
     ringLeds: 'ring LEDs',

@@ -182,6 +182,29 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { track: 'row', mode: 'drift', count: 12, ringLeds: 60, bed: 0.3, spawn: 0.5, speed: 0.5, fade: 0.85, palette: 'rainbow', seed: 0 },
   },
   {
+    // Ripples travelling the edges of a segment network, choosing a turn at
+    // every node: the Chromancer model (docs/design/segment-networks.md).
+    // Repeats the LED output's network by property, as String Particles
+    // repeats a ring's LED count.
+    type: 'Ripple',
+    label: 'Ripple',
+    category: 'pattern',
+    subcategory: 'Simulations',
+    inputs: [
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'rate', label: 'Rate', dataType: 'float' },
+      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    propertyInputs: { speed: 'speed', rate: 'rate', fade: 'fade', palette: 'paletteIn' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      networkPreset: 'hexagons', network: '', ledsPerEdge: 14, behaviour: 'straight', startNode: -1,
+      speed: 0.4, rate: 1, lifetime: 3, width: 3, fade: 0.85, palette: 'rainbow', seed: 0,
+    },
+  },
+  {
     // Warp starfield — stars streak outward from the centre.
     type: 'Starfield',
     label: 'Starfield',
@@ -268,6 +291,7 @@ export const SIMULATIONS_DESCRIPTIONS: Record<string, string> = {
   FormulaPoints: 'Curated point generator: phyllotaxis, Lissajous/rose, logistic map, attractor.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   StringParticles: 'Particles on one line: a string, a column or an LED ring.',
+  Ripple: 'Ripples that travel the edges of a segment network, turning at each node.',
   Starfield: 'Warp starfield — stars streak outward from the centre.',
   Boids: 'Flocking swarm — agents steer by separation, alignment and cohesion.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes, with named presets.',
