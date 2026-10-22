@@ -562,8 +562,15 @@ function arrangeAtBand(
   // declared: a part that feeds the board is an input and goes above it, and
   // everything else hangs below. Nothing has to tell the layout what a part is.
   const feeds = new Set(links.filter((link) => link.target === anchorId).map((link) => link.source))
+  const downstream = new Map<string, HardwarePartBox[]>()
+  for (const link of links) {
+    if (link.source === anchorId || link.target === anchorId) continue
+    const child = parts.find((part) => part.id === link.target)
+    if (child) downstream.set(link.source, [...(downstream.get(link.source) ?? []), child])
+  }
+  const children = new Set([...downstream.values()].flat().map((part) => part.id))
   const inputs = parts.filter((part) => part.id !== anchorId && feeds.has(part.id))
-  const outputs = parts.filter((part) => part.id !== anchorId && !feeds.has(part.id))
+  const outputs = parts.filter((part) => part.id !== anchorId && !feeds.has(part.id) && !children.has(part.id))
 
   /*
    * A row of parts, spread across the bench and centred on the board.
@@ -573,12 +580,17 @@ function arrangeAtBand(
    * caption otherwise writes across its neighbour's. Width is the dimension
    * this view has to spare, so spending it here is the point.
    */
-  const rowSlots = (row: HardwarePartBox[], centreX: number) => {
-    const widths = row.map((part) => Math.max(
+  const subtreeWidth = (part: HardwarePartBox): number => {
+    const descendants = downstream.get(part.id) ?? []
+    return Math.max(
       drawn.get(part.id)!.width,
       SLOT_MIN_WIDTH * layoutScale,
       captionBlock.get(part.id)! > 0 ? CAPTION_SLOT_WIDTH * captionScale : 0,
-    ))
+      descendants.reduce((sum, child) => sum + subtreeWidth(child), 0) + gapX * Math.max(0, descendants.length - 1),
+    )
+  }
+  const rowSlots = (row: HardwarePartBox[], centreX: number) => {
+    const widths = row.map(subtreeWidth)
     const total = widths.reduce((sum, width) => sum + width, 0)
       + gapX * Math.max(0, row.length - 1)
     let cursor = centreX - total / 2
@@ -653,17 +665,25 @@ function arrangeAtBand(
       'above',
     )
   }
-  for (const slot of rowSlots(outputs, centreX)) {
-    const size = drawn.get(slot.part.id)!
-    place(
-      slot.part,
-      slot.x + (slot.width - size.width) / 2,
-      outputTop,
-      slot.x + slot.width / 2,
-      slot.width,
-      'below',
-    )
+  const placeOutputRow = (row: HardwarePartBox[], center: number, top: number) => {
+    for (const slot of rowSlots(row, center)) {
+      const size = drawn.get(slot.part.id)!
+      place(
+        slot.part,
+        slot.x + (slot.width - size.width) / 2,
+        top,
+        slot.x + slot.width / 2,
+        slot.width,
+        'below',
+      )
+      const descendants = downstream.get(slot.part.id) ?? []
+      if (descendants.length) {
+        placeOutputRow(descendants, slot.x + slot.width / 2,
+          top + size.height + captionBlock.get(slot.part.id)! + channel(descendants.length) + CAPTION_GAP * layoutScale)
+      }
+    }
   }
+  placeOutputRow(outputs, centreX, outputTop)
   // Planned before the board is placed, because its caption is placed beside it
   // and the bundle coming down that flank is what the caption has to clear.
   const runs = planBus(
@@ -693,11 +713,28 @@ function arrangeAtBand(
 
   return {
     parts: placedParts,
-    links: routeBus(runs, placedParts, anchorId, {
+    links: [...routeBus(runs, placedParts, anchorId, {
       laneMargin,
       laneStep,
       corner: LINK_CORNER * layoutScale,
-    }),
+    }), ...links.filter((link) => link.source !== anchorId && link.target !== anchorId).flatMap((link) => {
+      const source = placedParts.find((part) => part.id === link.source)
+      const target = placedParts.find((part) => part.id === link.target)
+      if (!source || !target) return []
+      const siblings = downstream.get(source.id) ?? []
+      const branch = siblings.findIndex((part) => part.id === target.id)
+      const x1 = source.x + source.width * (branch + 1) / (siblings.length + 1)
+      const y1 = source.y + source.height
+      const x2 = target.x + target.width / 2
+      const y2 = target.y
+      const laneY = y2 - laneMargin
+      // Leave beside the caption, then turn down into the next stage.
+      const exitX = x2 < source.x + source.width / 2
+        ? source.x - laneMargin
+        : source.x + source.width + laneMargin
+      return [{ ...link, x1, y1, x2, y2, corner: LINK_CORNER * layoutScale,
+        points: [{ x: x1, y: y1 }, { x: exitX, y: y1 }, { x: exitX, y: laneY }, { x: x2, y: laneY }, { x: x2, y: y2 }] }]
+    })],
     mmScale,
     band,
     uiScale: layoutScale,

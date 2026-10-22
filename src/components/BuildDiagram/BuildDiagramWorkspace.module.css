@@ -936,7 +936,7 @@
 
 .physicalDiagram {
   display: block;
-  width: 1120px;
+  width: var(--physical-diagram-width, 1120px);
   height: auto;
   font-family: var(--font-body);
   user-select: none;

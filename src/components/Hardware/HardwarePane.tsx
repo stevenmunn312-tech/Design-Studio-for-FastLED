@@ -18,8 +18,9 @@ import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY, CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { normalizeButtonBankEntries } from '../../state/player/buttonBank'
 import { partRenderForNodeType } from '../../build/parts/partRenders'
+import { partDimensionsMm, partRenderSrc } from '../../build/parts/partCatalogue'
 import { resolvePartIdentity } from '../../build/parts/partOptions'
-import { powerAmplifierFeed } from '../../state/audio/audioOutput'
+import { powerAmplifierFeed, powerAmplifierSource } from '../../state/audio/audioOutput'
 import { fixtureLinkDataType, fixtureLinkLabel } from './fixtureLink'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/upload/uploadStore'
@@ -80,6 +81,9 @@ const BoardNodeBody = lazy(() => import('../Canvas/bodies/BoardNodeBody'))
 const CONTROLLER_HINT_FADE_MS = 600
 /** The board's LEDs read no node properties; one stable object for them. */
 const NO_PROPERTIES: Record<string, unknown> = {}
+const SPEAKER_PART_ID = 'speaker-4ohm-3w-40mm'
+const SPEAKER_FOOTPRINT = partDimensionsMm(SPEAKER_PART_ID, { width: 40, height: 40 })
+const SPEAKER_RENDER = partRenderSrc(SPEAKER_PART_ID)
 
 export default function HardwarePane() {
   const addNode = useGraphStore((state) => state.addNode)
@@ -316,11 +320,22 @@ export default function HardwarePane() {
         heightMm: part.entry.footprint.height,
         run: (part.run as HardwarePartRun | null) ?? undefined,
       })
-      // A power amplifier is wired to the board only when the board's own DAC
-      // feeds it. Fed by a DAC it hangs off that module's line out, a run the
-      // bench has no lane for — so it draws none rather than a board run that
-      // does not exist.
-      if (part.node.data.nodeType === 'PowerAmplifier' && powerAmplifierFeed(nodes) !== 'internalDac') continue
+      if (part.node.data.nodeType === 'PowerAmplifier') {
+        for (const channel of ['L', 'R']) {
+          const id = `${part.partId}-speaker-${channel}`
+          parts.push({ id, widthMm: SPEAKER_FOOTPRINT.width, heightMm: SPEAKER_FOOTPRINT.height })
+          links.push({ source: part.partId, target: id })
+        }
+        const feed = powerAmplifierFeed(nodes)
+        if (feed !== 'internalDac') {
+          const source = powerAmplifierSource(nodes)
+          const sourcePart = fixtureParts.find((candidate) => candidate.node.id === source?.id)
+          if (sourcePart && (feed === 'dac' || feed === 'dfPlayer')) {
+            links.push({ source: sourcePart.partId, target: part.partId })
+          }
+          continue
+        }
+      }
       // A PD trigger is an upstream power source: nothing on it reaches the board, so it draws no run.
       if (['PdTriggerSource', 'BatteryPack', 'BatteryModule'].includes(part.node.data.nodeType)) continue
       links.push({ source: BOARD_PART_ID, target: part.partId })
@@ -653,15 +668,22 @@ export default function HardwarePane() {
                     dataType={fixtureLinkDataType(part.node.data.nodeType)}
                     color={CATEGORY_COLOR.output}
                     effects={uiEffectsEnabled}
-                    label={fixtureLinkLabel(
-                      part.node.data.nodeType,
-                      part.node.data.properties as Record<string, unknown>,
-                      part.entry.label,
-                    )}
+                    label={link.source !== BOARD_PART_ID
+                      ? `${fixtureParts.find((source) => source.partId === link.source)?.entry.label ?? 'DAC'} line out to ${part.entry.label}`
+                      : fixtureLinkLabel(
+                        part.node.data.nodeType,
+                        part.node.data.properties as Record<string, unknown>,
+                        part.entry.label,
+                      )}
                     visualScale={linkVisualScale}
                     {...link}
                   />
                 )))}
+              {arrangement.links.filter((link) => /-speaker-[LR]$/.test(link.target)).map((link) => (
+                <HardwareLink key={link.target} {...link} dataType="audio" color={CATEGORY_COLOR.output}
+                  effects={uiEffectsEnabled} visualScale={linkVisualScale}
+                  label={`${link.target.endsWith('-L') ? 'L' : 'R'} speaker output`} />
+              ))}
               {ledOutputs.map((output) => arrangement.links
                 .filter((link) => link.target === output.partId)
                 .map((link) => (
@@ -804,6 +826,14 @@ export default function HardwarePane() {
             </svg>
           ))}
           {renderCaption(BOARD_PART_ID, boardProfile.label, 'Click for board options')}
+
+          {arrangement?.parts.filter((part) => /-speaker-[LR]$/.test(part.id)).map((part) => (
+            <Fragment key={part.id}>
+              <img className={styles.speakerRender} style={partStyle(part.id)} src={SPEAKER_RENDER ?? undefined}
+                alt={`${part.id.endsWith('-L') ? 'L' : 'R'} speaker`} draggable={false} />
+              {renderCaption(part.id, `${part.id.endsWith('-L') ? 'L' : 'R'} speaker`, '')}
+            </Fragment>
+          ))}
 
           {fixtureParts.filter((part) => part.entry.footprint).map((part) => (
             <Fragment key={part.node.id}>

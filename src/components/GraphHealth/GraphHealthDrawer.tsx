@@ -68,6 +68,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (action === 'disconnect-touch-controls') return 'Disconnect Controls'
   if (action === 'open-start-gallery') return 'Browse starters'
   if (action === 'open-led-outputs') return 'Show LED outputs'
+  if (action === 'open-audio-outputs') return 'Choose a DAC'
   if (action === 'add-audio-node') return 'Add Audio node'
   return 'Open library'
 }
@@ -219,6 +220,11 @@ export default function GraphHealthDrawer() {
       focusNode(id)
       revealGraphNodes([id])
       setStatus('Audio node added to the graph', 'success')
+      return
+    }
+    if (issue.action === 'open-audio-outputs') {
+      useUiStore.getState().openHardwareShelf('Amplifier')
+      setStatus('Choose a PCM5102A or UDA1334A DAC from the Audio outputs shelf', 'info')
       return
     }
     if (issue.action === 'open-led-outputs') {

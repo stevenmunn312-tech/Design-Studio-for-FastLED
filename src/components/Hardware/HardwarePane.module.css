@@ -226,6 +226,13 @@
  * through one shared scale, so a 21 mm XIAO draws a third of the width of a
  * 63.5 mm DevKit — the size difference on the bench.
  */
+.speakerRender {
+  position: absolute;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .part {
   /* Above its own spill pools, which are painted behind it. */
   z-index: 1;

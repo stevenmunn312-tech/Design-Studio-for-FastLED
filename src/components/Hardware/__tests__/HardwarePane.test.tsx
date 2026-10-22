@@ -596,6 +596,23 @@ describe('HardwarePane', () => {
     expect(screen.queryByText(/Hardware only/)).toBeNull()
   })
 
+  it('draws the DAC feeding the power amplifier and separate stereo speakers', () => {
+    useGraphStore.setState({ nodes: [
+      ...useGraphStore.getState().nodes,
+      node('PowerAmplifier', 'power', { partId: 'dx-0809-stereo-amplifier' }) as never,
+      node('Amplifier', 'dac', { model: 'uda1334a-i2s-dac', i2sBclk: 17, i2sLrc: 18, i2sDout: 16 }) as never,
+    ] })
+    const { container } = render(<HardwarePane />)
+    const dac = container.querySelector<HTMLElement>('[data-hardware-node-id="dac"]')!
+    const power = container.querySelector<HTMLElement>('[data-hardware-node-id="power"]')!
+    expect(parseFloat(power.style.top)).toBeGreaterThan(parseFloat(dac.style.top))
+    for (const channel of ['L', 'R']) {
+      expect(screen.getByRole('img', { name: `${channel} speaker` }).getAttribute('src'))
+        .toContain('parts/speaker-4ohm-3w-40mm.webp')
+    }
+    expect(container.querySelector('g[aria-label*="line out to"]')).toBeTruthy()
+  })
+
   it('shows the assigned SPI pins below an SD module', () => {
     useGraphStore.setState({
       nodes: [

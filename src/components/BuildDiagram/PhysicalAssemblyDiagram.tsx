@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type CSSProperties } from 'react'
 import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { POWER_PATH_KINDS, type HardwareManifestItem } from '../../build/hardwareManifest'
@@ -11,6 +11,9 @@ import { wireTooltipHandlers } from './wireTooltipHandlers'
 import type { BuildSectionLayers } from './diagramSections'
 import {
   itemLayouts,
+  amplifierSourceItem,
+  analogAudioPads,
+  PERIPHERAL_RENDER_H,
   powerSectionStartY,
   peripheralPowerNet,
   physicalAssemblyDiagramHeight,
@@ -68,6 +71,7 @@ import {
   routeFromLevelShifterOutput,
   routeToControlPad,
   levelShifterPinLeadPath,
+  physicalDiagramFrame,
 } from './wireRouting'
 
 interface PhysicalAssemblyDiagramProps {
@@ -141,6 +145,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       .map(({ connection }, rank) => [connection.id, rank] as const)
   )
   const leftLaneSlots = laneSlots('left')
+  const frame = physicalDiagramFrame(layers.signalWires ? leftLaneSlots.size : 0)
   // Every output route eventually descends on the controller's right, even
   // when its pad is on the left rail, so the bus family ranks together here.
   // Right-rail control wires descend on the same side and take their slots
@@ -166,8 +171,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   return (
     <svg
       className={styles.physicalDiagram}
-      viewBox={`0 ${viewTop} ${CANVAS_WIDTH} ${viewHeight}`}
-      width={CANVAS_WIDTH}
+      viewBox={`${frame.x} ${viewTop} ${frame.width} ${viewHeight}`}
+      width={frame.width}
+      style={{ '--physical-diagram-width': `${frame.width}px` } as CSSProperties}
       height={viewHeight}
       role="img"
       data-build-export={exportScope}
@@ -185,7 +191,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         <linearGradient id="supply-body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#405248" /><stop offset="1" stopColor="#171d1a" /></linearGradient>
       </defs>
 
-      <rect data-pan-background="true" width={CANVAS_WIDTH} height={canvasHeight} fill="#f4f4f1" />
+      <rect data-pan-background="true" x={frame.x} width={frame.width} height={canvasHeight} fill="#f4f4f1" />
       <g opacity=".23">
         {Array.from({ length: 22 }, (_, index) => <line key={`v${index}`} x1={index * 52} y1="0" x2={index * 52} y2={canvasHeight} stroke="#afb4b4" strokeWidth=".7" />)}
         {Array.from({ length: Math.ceil(canvasHeight / 52) }, (_, index) => <line key={`h${index}`} x1="0" y1={index * 52} x2={CANVAS_WIDTH} y2={index * 52} stroke="#afb4b4" strokeWidth=".7" />)}
@@ -527,6 +533,32 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       </g>
       {outputLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><OutputGraphic layout={layout} connection={outputConnections.find((entry) => entry.itemId === layout.item.id)} selected={selectedItemId === layout.item.id} plan={plan.outputs.find((entry) => entry.itemId === layout.item.id)} powerPlanBelow={showPowerDistribution} /></g>)}
       {peripheralLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><InputGraphic layout={layout} connections={connections.filter((connection) => connection.itemId === layout.item.id)} selected={selectedItemId === layout.item.id} /></g>)}
+
+      {layers.signalWires && peripheralLayouts.map((target) => {
+        const sourceItem = amplifierSourceItem(target.item, items)
+        const source = peripheralLayouts.find((layout) => layout.item === sourceItem)
+        if (!source) return null
+        const outputPads = analogAudioPads(source.item, 'out')
+        const inputPads = analogAudioPads(target.item, 'in')
+        if (!outputPads || !inputPads) return null
+        const active = selectedItemId === 'controller' || [source.item.id, target.item.id].includes(selectedItemId)
+        return <g key={target.item.id} data-audio-chain={target.item.id} className={styles.physicalWires}>
+          {outputPads.map((padIndex, index) => {
+            const start = peripheralPadPoint(source, padIndex)
+            const end = peripheralPadPoint(target, inputPads[index])
+            const exitY = source.y + source.height - 16 - index * 8
+            const corridorX = target.x + target.width + 10 + index * 8
+            const entryY = target.y + PERIPHERAL_RENDER_H + 32 + index * 8
+            const channel = ['L', 'R', 'GND'][index]
+            return <HoverWire key={channel}
+              data-wire={`${target.item.id}-line-${channel}`}
+              tip={`${source.item.title} ${peripheralPadLabel(source.item, padIndex)} · ${target.item.title} ${peripheralPadLabel(target.item, inputPads[index])}`}
+              d={`M${start.x} ${start.y}V${exitY}H${corridorX}V${entryY}H${end.x}V${end.y}`}
+              className={active ? styles.signalWire : styles.dimWire}
+              style={active ? { stroke: ['#9460d4', '#dc4084', '#334b42'][index] } : undefined} />
+          })}
+        </g>
+      })}
 
       <g transform="translate(30 28)">
         <rect width="272" height="68" rx="8" fill="#ffffff" stroke="#d2d4d1" />
