@@ -120,6 +120,19 @@ export default function GraphHealthDrawer() {
   const graphName = graphs[activeGraphId]?.name ?? (activeGraphId === ROOT_GRAPH_ID ? 'Main' : 'Group')
   const boardLabel = boardByFqbn(selectedFqbn)?.label ?? 'No board selected'
 
+  // A Board node lives on the Hardware bench, not the canvas: an issue about
+  // the board itself (drives nothing, clock sync) is shown by making that
+  // board the active one and opening Hardware, never by framing the graph.
+  const boardOf = (issue: GraphDiagnostic) => (issue.nodeIds.length === 1
+    ? capabilityNodes.find((node) => node.id === issue.nodeIds[0] && node.data.nodeType === 'Board') ?? null
+    : null)
+  const showBoard = (boardId: string, label: string) => {
+    const ui = useUiStore.getState()
+    ui.setActiveBoardId(boardId)
+    ui.setWorkspaceMode('hardware')
+    setStatus(`Showing ${label} on Hardware`, 'info')
+  }
+
   const locate = (issue: GraphDiagnostic) => {
     if (issue.nodeIds.length === 0) return
     focusNode(issue.nodeIds[0])
@@ -348,7 +361,11 @@ export default function GraphHealthDrawer() {
                     }}>
                       Show {capabilityNodes.find((node) => node.id === id)?.data.label ?? 'hardware'} hardware
                     </button>
-                  )) : issue.nodeIds.length > 0 && (
+                  )) : boardOf(issue) ? (
+                    <button type="button" onClick={() => showBoard(issue.nodeIds[0], issue.nodeLabel ?? 'board')}>
+                      Show {issue.nodeLabel ?? 'board'} on Hardware
+                    </button>
+                  ) : issue.nodeIds.length > 0 && (
                     <button type="button" onClick={() => locate(issue)}>
                       {issue.edgeIds?.length
                         ? issue.edgeIds.length > 1 ? `Show ${issue.edgeIds.length} wires` : 'Show the wire'

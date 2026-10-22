@@ -98,6 +98,29 @@ describe('GraphHealthDrawer', () => {
     expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 1, nodeIds: ['random'] })
   })
 
+  // A Board is not on the canvas, so "Locate node" framed nothing. Its
+  // issues open that board on the Hardware bench instead.
+  it('shows a board issue on the Hardware bench for that board', () => {
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+      node('board-2', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+      node('random', 'Random', { min: 0, max: 1 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+      node('pot', 'PotInput', { pin: 4, boardId: 'board-2' }),
+    ], [edge('random', 'out')])
+    useUiStore.setState({ activeBoardId: 'board-root' })
+    const { getByText } = render(<GraphHealthDrawer />)
+    const card = getByText('Board 2 drives nothing').closest('article')!
+    expect(within(card).queryByRole('button', { name: /Locate/ })).toBeNull()
+
+    fireEvent.click(within(card).getByRole('button', { name: 'Show Board 2 on Hardware' }))
+
+    expect(useUiStore.getState().activeBoardId).toBe('board-2')
+    expect(useUiStore.getState().workspaceMode).toBe('hardware')
+    expect(useUiStore.getState().hardwarePaneTab).toBe('hardware')
+    expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 0 })
+  })
+
   it('rechecks continuously after a property fix', async () => {
     const { getByText, queryByText } = render(<GraphHealthDrawer />)
     expect(getByText('Random has an invalid expression')).toBeTruthy()
