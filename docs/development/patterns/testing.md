@@ -55,6 +55,14 @@ patterns here, not in `CLAUDE.md`.
   `Float32Array.from(field)`, `[...field]` or `structuredClone(frame)` before
   the next evaluation.
 
+## Ticks are frames
+
+- `evaluateGraph`/`evaluateGraphFull` take a `tick` in frames at 60 fps and
+  hand nodes `t = tick / 60` seconds. A test that steps a stateful node by
+  "0.5" advances it 8 ms, not half a second: a rate of one event a second
+  never fires and a `dt`-driven node looks frozen. Step in frames (30 for
+  half a second) and say so in the test.
+
 ## Firmware state against the preview
 
 - **Run the emitted snippet, frame by frame, rather than matching its text.**
