@@ -1467,10 +1467,9 @@ describe('BuildDiagramWorkspace', () => {
     })
   })
 
-  it('supports zoom, isolation, and panel sizing without changing generated wiring data', () => {
+  it('supports zoom and isolation without changing generated wiring data', () => {
     selectDevKit()
-    const { container, getByLabelText, getByRole, getByText, queryByText } = render(<BuildDiagramWorkspace />)
-    const workspace = getByLabelText('Build Diagram workspace')
+    const { container, getByRole, getByText, queryByText } = render(<BuildDiagramWorkspace />)
     const viewport = container.querySelector('[data-pan-surface="true"]')?.parentElement?.parentElement
     const canvas = container.querySelector('[data-pan-surface="true"]')
     expect(viewport).toBeTruthy()
@@ -1535,9 +1534,6 @@ describe('BuildDiagramWorkspace', () => {
 
     fireEvent.click(getByRole('button', { name: 'Isolate LED Matrix' }))
     expect(getByRole('button', { name: 'Show all hardware around LED Matrix' })).toBeTruthy()
-
-    fireEvent.click(getByText('Widen build panel'))
-    expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 372px')
   })
 
   it('uses a four-by-four LED preview and labels the recommended PSU power', () => {

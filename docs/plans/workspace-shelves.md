@@ -4,10 +4,11 @@ Follows [one canvas, four workspaces](../design/workspace-tabs.md), which shippe
 on 2026-09-08 (`659f8b50`, tidied by `64fa8b15`). That note is the contract for
 the tabs themselves; this one covers what the tabs exposed.
 
-Status: **Hardware shelf and persistent four-workspace preview implemented on
-2026-09-09.** Build Diagram's information shelf exists as its own left panel;
-moving that panel into the shared sidebar is the one remaining step (root todo
-D-07). Raised from bench use the same evening the tabs landed.
+Status: **Complete.** Hardware shelf and persistent four-workspace preview
+implemented on 2026-09-09; Build Diagram's information panel moved into the
+shared sidebar on 2026-10-22 (root todo D-07), so all four workspaces now share
+one sidebar host with one set of width, resize and toggle controls. Raised from
+bench use the same evening the tabs landed.
 
 ## What the tabs exposed
 
@@ -111,16 +112,23 @@ separate workflow without a reviewed design.
 3. Build Diagram's own tidy-up, then its information shelf.
 4. Upload's information shelf, if it wants one at all.
 
-Steps 1 and 2 shipped. For step 3, the information shelf already exists: Build
-Diagram's left panel carries the power summary, fix-before-building list,
-selected item, readiness, connections, parts, calculated requirements and
-exports. What remains is plumbing. The panel is a separate `<aside>` in
-`BuildDiagramWorkspace.tsx` with its own width and hide controls, and `App.tsx`
-switches the shared sidebar off on that workspace; moving the panel into the
-shared sidebar host, as Hardware and Upload do, makes the four workspaces
-behave alike without changing what the panel shows; it is in v1 (root todo,
-D-07). Step 4 was dropped on 2026-10-21: Upload's sidebar already holds its
-controls, and no user asked for an information shelf there.
+Steps 1 and 2 shipped. Step 3 shipped on 2026-10-22 (root todo D-07). The
+information shelf already existed: Build Diagram's left panel carries the power
+summary, fix-before-building list, selected item, readiness, connections,
+parts, calculated requirements and exports. What landed was the plumbing.
+`BuildDiagramWorkspace.tsx` now portals that panel into the shared sidebar
+host (`BUILD_DIAGRAM_SHELF_HOST_ID`, `src/components/BuildDiagram/buildDiagramShelfHost.ts`)
+the way Hardware and Upload do, falling back to an inline column only when no
+host is rendered (a test mounting the workspace alone); `App.tsx` no longer
+switches the sidebar off on that workspace, so its width, resize grip and
+show/hide handle are the shared ones, and the panel's own narrow/widen/hide
+controls are gone. The sidebar floats over the main region, so the diagram
+insets by the open sidebar's width, as the bench does. Build's panel starts
+open like the other workspaces', which is why the persisted panel-layout
+record moved from `-v1` to `-v2`: a v1 record said closed because the sidebar
+was switched off there, never because the user chose it. What the panel shows
+did not change. Step 4 was dropped on 2026-10-21: Upload's sidebar already
+holds its controls, and no user asked for an information shelf there.
 
 ## What is already settled
 

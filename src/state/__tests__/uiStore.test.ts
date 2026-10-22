@@ -175,7 +175,7 @@ describe('uiStore.setStatus auto-clear', () => {
       previewPanelOpen: true,
       previewWidth: 420,
     })
-    expect(localStorage.getItem('design-studio-for-fastled-workspace-panel-layouts-v1')).not.toBeNull()
+    expect(localStorage.getItem('design-studio-for-fastled-workspace-panel-layouts-v2')).not.toBeNull()
   })
 
   it('enters and exits stage mode without persisting it across sessions', () => {
@@ -239,7 +239,7 @@ describe('uiStore.setStatus auto-clear', () => {
   })
 
   it('starts secondary previews collapsed while keeping Graph preview-first', async () => {
-    const key = 'design-studio-for-fastled-workspace-panel-layouts-v1'
+    const key = 'design-studio-for-fastled-workspace-panel-layouts-v2'
     localStorage.removeItem(key)
     vi.resetModules()
     const freshModule = await import('../uiStore')

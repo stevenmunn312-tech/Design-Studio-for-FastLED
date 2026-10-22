@@ -316,13 +316,6 @@ chooses the supported combinations from whatever is on record at release.
   `Ripple`, the Chromancer model, drawn in a new layout editor. Positioned
   strings in the Build Diagram, which needs positions in millimetres rather
   than canvas units.
-- [ ] **D-07 · Build Diagram panel into the shared sidebar (S).** Build
-  Diagram's own left panel already is its information shelf (power, readiness,
-  connections, parts, requirements and exports), but it is a separate `<aside>`
-  with its own width and hide controls, and the shared sidebar is switched off
-  on that workspace. Move it into the shared sidebar host the way Hardware and
-  Upload do, so all four workspaces behave alike. The content does not change
-  ([workspace shelves](docs/plans/workspace-shelves.md#order)).
 - [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
@@ -565,6 +558,10 @@ and an Upload information shelf in
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
 are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
+- **D-07 · Build Diagram panel in the shared sidebar**: the information
+  panel portals into the shared sidebar host with the shared width, resize and
+  toggle controls, its own controls removed; the content is unchanged
+  ([workspace shelves](docs/plans/workspace-shelves.md#order)).
 - **D-02 · Custom screens, v1 remainder**: several screens with Go to screen
   and a Screen input, Text Entry, Chart and Spectrum, the Web Remote node,
   panel-measured size limits, and Show Status artwork

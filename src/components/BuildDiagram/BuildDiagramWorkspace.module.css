@@ -1,7 +1,11 @@
 .workspace {
   display: grid;
+  /* The inline fallback, with no sidebar host to portal the panel into (a
+     test rendering the workspace on its own): the panel takes its own
+     column. Docked, the panel lives in the shared sidebar and the diagram
+     takes the whole width. */
   grid-template-columns:
-    minmax(280px, var(--build-sidebar-width, 340px))
+    minmax(280px, 340px)
     minmax(0, 1fr);
   gap: 16px;
   /*
@@ -19,8 +23,11 @@
   overflow: hidden;
 }
 
-.workspaceSidebarCollapsed {
-  grid-template-columns: 68px minmax(0, 1fr);
+.workspaceDocked {
+  grid-template-columns: minmax(0, 1fr);
+  /* The shared sidebar slides on the same curve (`.sidebarPanel` in
+     App.module.css), so the inset follows it rather than jumping. */
+  transition: margin-left 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar,
@@ -32,6 +39,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Fills the host so the panel scrolls inside the sidebar, not past it. */
+  height: 100%;
   overflow: auto;
 }
 
@@ -79,25 +88,6 @@
   border-color: color-mix(in srgb, var(--accent-output) 62%, var(--border-glow));
   background: color-mix(in srgb, var(--accent-output) 18%, var(--bg-panel));
   color: var(--text-primary);
-}
-
-.headerActions {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.headerActions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.panelSizeControls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
 }
 
 .panelHeader,
@@ -455,22 +445,6 @@
   background: color-mix(in srgb, var(--accent-success) 24%, var(--bg-panel));
 }
 
-.collapsedRail {
-  width: 100%;
-  height: 100%;
-  min-height: 220px;
-  padding: 14px 10px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--bg-panel) 84%, rgba(255, 255, 255, 0.03));
-  color: var(--text-primary);
-  font: inherit;
-  font-weight: 700;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  cursor: pointer;
-}
-
 .staleNotice,
 .warningText {
   margin-top: 6px;
@@ -767,8 +741,8 @@
     grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
   }
 
-  .workspaceSidebarCollapsed {
-    grid-template-columns: 68px minmax(0, 1fr);
+  .workspaceDocked {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -779,6 +753,10 @@
     overflow: auto;
   }
 
+  .workspaceDocked {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
   .sidebar,
   .diagramPane {
     overflow: visible;
@@ -786,12 +764,6 @@
 
   .diagramViewport {
     min-height: 560px;
-  }
-
-  .collapsedRail {
-    min-height: 56px;
-    writing-mode: horizontal-tb;
-    transform: none;
   }
 
   .formGrid {
@@ -839,8 +811,11 @@
   min-height: 68px;
   /* The preview panel's 22 px handle floats over the workspace's top-right
      corner, so the right edge clears it: at 1024 px the Fit button ran under
-     it. */
-  padding: 11px calc(14px + 22px) 11px 14px;
+     it. The shared sidebar's handle sits on the top-left the same way — at
+     the panel's edge while open, at the workspace's own edge while hidden —
+     so the left edge clears it too, or the heading's first letters sit
+     under the arrow. */
+  padding: 11px calc(14px + 22px);
   border-bottom: 1px solid #c7cac7;
   background: #f4f5f2;
 }

@@ -76,7 +76,7 @@ function GuideStrip() {
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const previewWidth = useUiStore((s) => s.previewWidth)
   const displayEditorOpen = useUiStore((s) => s.designWorkspaceView.kind === 'display')
-  const hasSidebar = !displayEditorOpen && workspaceMode !== 'build'
+  const hasSidebar = !displayEditorOpen
   const left = hasSidebar ? (sidebarOpen ? sidebarWidth : 0) + PANEL_HANDLE_WIDTH : 0
   // Build Diagram's main region already ends at an open preview's left edge;
   // only its handle overlays that workspace. The other workspaces sit beneath
