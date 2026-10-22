@@ -139,7 +139,7 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     fftLevels.set(key, levels)
     return levels
   },
-  BeatDetect({ input, num, t, elapsedT, stateKey }, id, props) {
+  BeatDetect({ input, num, elapsedT, stateKey }, id, props) {
     let out: Record<string, PortValue> = {}
     const key = stateKey(id)
     const audioValue = input(id, 'audio', null)
@@ -171,8 +171,10 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       const attack = denormalizeBeatParam('attack', num(id, 'attack', props, 'attack', 0.55))
       const decay = denormalizeBeatParam('decay', num(id, 'decay', props, 'decay', 0.25))
       const prev = beatLevels.get(key)
+      // Real time, like the firmware's millis(): Master Speed scales `t`,
+      // and a scaled clock would read a doubled BPM at 2x.
       if (audio?.active) {
-        const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev ?? createBeatDetectorState(), { threshold, attack, decay })
+        const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], elapsedT * 1000, prev ?? createBeatDetectorState(), { threshold, attack, decay })
         beatLevels.set(key, result.state)
         out = {
           beat: result.beat,
@@ -189,7 +191,7 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
         // a momentary mic hiccup fades rather than cuts. Self-clears once
         // the envelope is imperceptible instead of lingering forever.
         const silence = prev.prevSpectrum.length ? new Array(prev.prevSpectrum.length).fill(0) : []
-        const result = updateBeatDetectorFromSpectrum(silence, t * 1000, prev, { threshold, attack, decay })
+        const result = updateBeatDetectorFromSpectrum(silence, elapsedT * 1000, prev, { threshold, attack, decay })
         if (result.state.fast < 0.002 && result.state.slow < 0.002) {
           beatLevels.delete(key)
           out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }

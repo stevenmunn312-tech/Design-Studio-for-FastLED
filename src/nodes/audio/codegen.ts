@@ -41,7 +41,7 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`  float ${rawBass}, ${rawMids}, ${rawTreble};`)
     ln(`  {`)
     ln(`    float ${bandsVar}[${bands}];`)
-    ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _next = ((_b + 1) * 32) / ${bands}, _hi = _next > _lo ? _next : _lo + 1; float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
+    ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _next = ((_b + 1) * 32 + ${bands - 1}) / ${bands}, _hi = _next > _lo ? _next : _lo + 1; float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
     ln(`    ${rawBass} = ${groupExpr(bassFrom, bassTo)};`)
     ln(`    ${rawMids} = ${groupExpr(midsFrom, midsTo)};`)
     ln(`    ${rawTreble} = ${groupExpr(trebleFrom, trebleTo)};`)
