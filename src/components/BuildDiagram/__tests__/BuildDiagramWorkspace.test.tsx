@@ -1128,6 +1128,26 @@ describe('BuildDiagramWorkspace', () => {
     expect(new Set(corridorXs).size).toBe(routes.length)
   })
 
+  it('stacks the DAC above its power amplifier and wires all three line terminals', () => {
+    useGraphStore.setState({ nodes: [boardNode(), microphoneNode(),
+      { ...amplifierNode(), id: 'power', data: { ...amplifierNode().data, nodeType: 'PowerAmplifier', properties: { partId: 'dx-0809-stereo-amplifier' } } },
+      { ...amplifierNode(), id: 'dac', data: { ...amplifierNode().data, properties: { model: 'uda1334a-i2s-dac', i2sBclk: 17, i2sLrc: 18, i2sDout: 16 } } },
+    ] as never[] })
+    selectBoard('generic-esp32-s3-n16r8-44pin-dual-usbc')
+    const { container } = render(<BuildDiagramWorkspace />)
+    for (const diagram of container.querySelectorAll('svg[data-build-export]')) {
+      const dac = diagram.querySelector('image[data-component-render="uda1334a-i2s-dac"]')!
+      const power = diagram.querySelector('image[data-component-render="dx-0809-stereo-amplifier"]')!
+      expect(Number(power.getAttribute('x'))).toBe(Number(dac.getAttribute('x')))
+      expect(Number(power.getAttribute('y'))).toBeGreaterThan(Number(dac.getAttribute('y')))
+      expect(diagram.querySelectorAll('[data-audio-chain] path[data-wire]')).toHaveLength(3)
+      const tips = Array.from(diagram.querySelectorAll('[data-audio-chain] [data-wire-tip]'), (wire) => wire.getAttribute('data-wire-tip'))
+      expect(tips.some((tip) => tip?.includes('Lout') && tip.endsWith('AUX-L'))).toBe(true)
+      expect(tips.some((tip) => tip?.includes('Rout') && tip.endsWith('AUX-R'))).toBe(true)
+      expect(tips.some((tip) => tip?.includes('AGND') && tip.endsWith('AUX-GND'))).toBe(true)
+    }
+  })
+
   it('keeps complete-build signal wires out of each other\'s channels', () => {
     useGraphStore.setState({
       nodes: [
@@ -1151,6 +1171,12 @@ describe('BuildDiagramWorkspace', () => {
       'path[data-wire-role="ws"]',
       'path[data-wire-role="dout"]',
     ].join(',')) ?? [])
+
+    const viewLeft = Number(diagram?.getAttribute('viewBox')?.split(' ')[0])
+    for (const path of paths) {
+      const horizontalPositions = [...(path.getAttribute('d') ?? '').matchAll(/[MH](-?[\d.]+)/g)].map((match) => Number(match[1]))
+      expect(Math.min(...horizontalPositions)).toBeGreaterThan(viewLeft)
+    }
 
     const segments = paths.flatMap((path) => {
       const wire = path.getAttribute('data-wire') ?? ''

@@ -16,6 +16,7 @@ import { paletteBankBlend, paletteBankEntries } from '../state/palettes/paletteB
 import type { SignalRangeMismatch } from '../nodes/shared/signalRange'
 import { playerControlFunction } from '../state/player/playerControlAssignments'
 import { audioOutputMissing, hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource, powerAmplifierStage } from '../state/audio/audioOutput'
+import { boardHasDacOutput } from '../build/boards/boardDacOutput'
 import { dfPlayerUartPort } from '../state/peripherals/dfPlayer'
 import { resolveShowTarget } from '../state/player/showTarget'
 import {
@@ -1405,7 +1406,7 @@ export function findShowRequirementErrors(
   if (!hasAudioOutputStage(nodes)) {
     errors.push('The music show has nothing to play the song through — add an Amplifier on the Hardware tab (a MAX98357A drives a speaker directly; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers)')
   } else if (audioOutputMissing(nodes, selectedFqbn)) {
-    errors.push('The SD show\'s power amplifier has nothing to feed it on this board — with no DAC on the bench it needs the internal DAC, which only the classic ESP32 has. Add a PCM5102A or UDA1334A to feed it')
+    errors.push('The SD show\'s power amplifier has nothing to feed it on this board — with no DAC on the bench it needs internal-DAC playback, which Studio supports only on the classic ESP32. Add a PCM5102A or UDA1334A to feed it')
   }
 
   return errors
@@ -1588,18 +1589,8 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
     && !ethernetModuleIn(nodes) && !fqbnHasWifi(selectedFqbn)) {
     errors.push('Art-Net, sACN, DDP and NTP time sync require a Wi-Fi-capable ESP32-family board, ESP8266 or Arduino UNO R4 WiFi')
   }
-  /*
-   * "Internal DAC on a board with no DAC" used to be an error here. It cannot
-   * happen any more: the output mode is derived from the parts present, and
-   * `internalDac` is only ever chosen on a board that has one. The check went
-   * with the property — a rule the model cannot express needs no validation.
-   *
-   * "A card full of music and nothing to play it through" moved too, to
-   * `findShowRequirementErrors`, which now asks for the audio module outright
-   * rather than only when the board has no DAC to fall back on. Both live there
-   * so a show reports its missing parts in one place, and so the two rules
-   * cannot both fire for one bench.
-   */
+  // Show audio requirements live in findShowRequirementErrors. The separate
+  // powerAmplifierInputWarnings check also covers benches without a show.
   // ESP32-HUB75-MatrixPanel-DMA needs the ESP32/S2/S3 'LCD mode' DMA
   // peripheral; RISC-V ESP32 variants (C3/C6/H2) have no such hardware, per
   // the library's own supported-variants list — confirmed against its README
@@ -1763,6 +1754,7 @@ export const NO_CONTROLS_TO_CARRY = "'s screen design has no transport controls 
 export type GraphDiagnosticAction =
   | 'open-node-library'
   | 'open-led-outputs'
+  | 'open-audio-outputs'
   | 'add-audio-node'
   | 'choose-board'
   | 'insert-map-range'
@@ -2276,6 +2268,22 @@ function stepValueValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
  * return. It is refused as a bench description rather than as a show problem,
  * because the parts are wrong before any sketch is built.
  */
+function powerAmplifierInputWarnings(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn: string): GraphDiagnostic[] {
+  if (!selectedFqbn || powerAmplifierFeed(nodes) !== 'internalDac' || boardHasDacOutput(selectedFqbn)) return []
+  // A generated show already reports this as a deploy-blocking audio error.
+  if (relevantPerformanceGenerator(nodes, edges) && audioOutputMissing(nodes, selectedFqbn)) return []
+  const power = powerAmplifierStage(nodes)!
+  const label = resolvePartIdentity('PowerAmplifier', power.data.properties as Record<string, unknown>)?.option.label ?? nodeLabel(power)
+  return [{
+    id: `${power.id}-audio-out`, severity: 'warning', category: 'board',
+    title: 'This power amplifier needs a DAC',
+    message: `${label} needs an analog line-level input. No DAC or line-output player feeds it, and the selected board has no known DAC output.`,
+    fix: 'Add a PCM5102A or UDA1334A DAC on the Hardware tab to feed the power amplifier, or choose a board with DAC output.',
+    action: 'open-audio-outputs',
+    nodeIds: [power.id], nodeLabel: label,
+  }]
+}
+
 function audioChainValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
   if (powerAmplifierFeed(nodes) !== 'speakerAmp') return []
   const power = powerAmplifierStage(nodes)!
@@ -3687,6 +3695,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
   diagnostics.push(...audioChainValidationIssues(nodes))
+  diagnostics.push(...powerAmplifierInputWarnings(nodes, edges, options.selectedFqbn ?? ''))
 
   for (const meter of nodes.filter((node) => node.data.nodeType === 'StereoVuMeter')) {
     const props = meter.data.properties as Record<string, unknown>
@@ -4289,8 +4298,9 @@ export function buildGraphDiagnostics(
       diagnostics.push({
         id: `${amplifier.id}-audio-out`, severity: 'error', category: 'board',
         title: 'Nothing feeds this power amplifier on this board',
-        message: 'A power amplifier takes line level. With no DAC on the bench that has to come from the internal DAC, and only the classic ESP32 has one.',
+        message: 'A power amplifier takes line level. With no DAC on the bench that has to come from the internal DAC. Studio supports internal-DAC show playback only on the classic ESP32.',
         fix: 'Add a PCM5102A or UDA1334A on the Hardware tab to feed it, or choose a classic ESP32.',
+        action: 'open-audio-outputs',
         nodeIds: [amplifier.id], nodeLabel: nodeLabel(amplifier),
       })
     }
@@ -4677,6 +4687,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...webRemoteValidationIssues(nodes, selectedFqbn)
     .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...findBuzzerWarnings(nodes, selectedFqbn))
+  warnings.push(...powerAmplifierInputWarnings(nodes, edges, selectedFqbn).map(validationIssueMessage))
   warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)

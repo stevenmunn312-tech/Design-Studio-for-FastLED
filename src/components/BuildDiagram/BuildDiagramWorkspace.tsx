@@ -25,6 +25,8 @@ import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import BoardSelector from '../Hardware/BoardSelector'
 import { boardOrdinalLabel, useBoardNodes } from '../Hardware/boardSelection'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
+import { controllerConnectionPoint } from './controllerGeometry'
+import { physicalDiagramFrame } from './wireRouting'
 import BuildPrintSheets from './BuildPrintSheets'
 import {
   availableSections,
@@ -538,10 +540,20 @@ export default function BuildDiagramWorkspace() {
     })
   }, [controllerBox.width, controllerBox.x, primaryItems])
   const canvasHeight = physicalAssemblyDiagramHeight(visiblePrimaryItems, visibleElectricalPlan, activeSection.layers)
+  const canvasFrame = useMemo(() => {
+    if (!exactBoard || !activeSection.layers.signalWires) return physicalDiagramFrame(0)
+    const pins = visiblePrimaryItems.flatMap((item) => item.pins)
+    const leftCount = pins.filter((pin, index) => controllerConnectionPoint({
+      id: `${pin.nodeId}:${pin.propertyKey}`, itemId: pin.nodeId,
+      pinLabel: boardPinLabelForUse(exactBoard, pin), useLabel: pin.label,
+      boardAnchorId: boardPinForUse(exactBoard, pin)?.anchorId,
+    }, index, pins.length, exactBoard).side === 'left').length
+    return physicalDiagramFrame(leftCount)
+  }, [activeSection.layers.signalWires, exactBoard, visiblePrimaryItems])
   const allBounds = useMemo(() => {
     const bounds = boundsForLayouts(controllerBox, allDeviceLayouts)
-    return { ...bounds, height: Math.max(bounds.height, canvasHeight - bounds.y) }
-  }, [allDeviceLayouts, canvasHeight, controllerBox])
+    return { ...bounds, width: canvasFrame.width, height: Math.max(bounds.height, canvasHeight - bounds.y) }
+  }, [allDeviceLayouts, canvasFrame.width, canvasHeight, controllerBox])
   /*
    * Opening fit frames the controller and parts, not the PSU stack. A 13-wire
    * shield plus a 64×64 feed plan is taller than the pane at the manual zoom
@@ -550,17 +562,17 @@ export default function BuildDiagramWorkspace() {
    */
   const hardwareFitBounds = useMemo(() => {
     if (activeSection.layers.powerDistribution && !activeSection.layers.signalWires) {
-      return { x: 0, y: 0, width: 1120, height: canvasHeight }
+      return { x: 0, y: 0, width: canvasFrame.width, height: canvasHeight }
     }
     const bottom = diagramContentBottom(visiblePrimaryItems, activeSection.layers)
     return {
       x: 0,
       y: 0,
-      width: 1120,
+      width: canvasFrame.width,
       height: Math.max(400, bottom
         + COMMON_NET_CALLOUT_GAP + COMMON_NET_CALLOUT_HEIGHT + DIAGRAM_LEGEND_BAND),
     }
-  }, [activeSection.layers, canvasHeight, visiblePrimaryItems])
+  }, [activeSection.layers, canvasFrame.width, canvasHeight, visiblePrimaryItems])
 
   const boardAnchorsById = useMemo(() => new Map((exactBoard?.pinAnchors ?? []).map((anchor) => [anchor.id, anchor])), [exactBoard])
   const canRenderControllerPins = !!exactBoard && boardAnchorsById.size > 0 && (exactBoard.pins?.length ?? 0) > 0
@@ -657,7 +669,7 @@ export default function BuildDiagramWorkspace() {
           ? 'Exports stay draft only when the graph contains an electrical route the generated planner does not support.'
           : 'The exported reference includes the selected board confidence, calculation ruleset, connections, and parts plan.'
 
-  const canvasWidth = 1120
+  const canvasWidth = canvasFrame.width
   const updateViewport = (
     nextZoom: number,
     focusRect?: { x: number; y: number; width: number; height: number },

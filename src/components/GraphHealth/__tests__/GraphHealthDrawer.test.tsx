@@ -158,4 +158,21 @@ describe('GraphHealthDrawer', () => {
 
     expect(openBoardPopup).toHaveBeenCalledOnce()
   })
+
+  it('shows the missing DAC warning and opens Audio outputs from its repair', async () => {
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' }),
+      node('power', 'PowerAmplifier', { partId: 'dx-0809-stereo-amplifier' }),
+    ], [])
+    const { getByText, queryByText } = render(<GraphHealthDrawer />)
+    const card = getByText('This power amplifier needs a DAC').closest('article')!
+    fireEvent.click(within(card).getByRole('button', { name: 'Choose a DAC' }))
+    expect(useUiStore.getState().workspaceMode).toBe('hardware')
+    expect(useUiStore.getState().hardwareShelfTarget).toBe('Amplifier')
+
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
+    await waitFor(() => expect(queryByText('This power amplifier needs a DAC')).toBeNull())
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+    await waitFor(() => expect(queryByText('This power amplifier needs a DAC')).not.toBeNull())
+  })
 })

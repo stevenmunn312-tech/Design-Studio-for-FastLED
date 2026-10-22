@@ -59,6 +59,26 @@ const index = <T extends { id: string }>(parts: T[]) =>
   new Map(parts.map((part) => [part.id, part]))
 
 describe('hardware arrangement', () => {
+  it('stacks an audio chain and keeps its two speaker branches below the amplifier', () => {
+    const parts = [BOARD, PANEL,
+      { id: 'power', widthMm: 130, heightMm: 105 },
+      { id: 'dac', widthMm: 40, heightMm: 25 },
+      { id: 'left', widthMm: 24, heightMm: 24 },
+      { id: 'right', widthMm: 24, heightMm: 24 }]
+    const links = [
+      { source: 'board', target: 'panel' }, { source: 'board', target: 'dac' },
+      { source: 'dac', target: 'power' },
+      { source: 'power', target: 'left' }, { source: 'power', target: 'right' },
+    ]
+    const result = hardwareArrangement(parts, links, { ...STAGE, height: 900 }, 'board')
+    const [dac, power, left, right] = ['dac', 'power', 'left', 'right'].map((id) => result.parts.find((part) => part.id === id)!)
+    expect(power.x + power.width / 2).toBeCloseTo(dac.x + dac.width / 2)
+    expect(power.y).toBeGreaterThan(dac.captionY + dac.captionBlock)
+    expect(left.y).toBeGreaterThan(power.captionY + power.captionBlock)
+    expect(right.y).toBe(left.y)
+    expect(left.x + left.width).toBeLessThan(right.x)
+    expect(result.links.map(({ source, target }) => ({ source, target }))).toEqual(expect.arrayContaining(links))
+  })
   it('scales captions with the resizeable hardware band', () => {
     expect(hardwareCaptionScale(mediaBandHeight(452))).toBe(1)
     expect(hardwareCaptionScale(mediaBandHeight(226))).toBeCloseTo(0.5)

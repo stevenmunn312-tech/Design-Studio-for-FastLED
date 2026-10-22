@@ -43,6 +43,12 @@ const RIGHT_CONTROLLER_LANE_X = 266
 const LEFT_CONTROLLER_LANE_X = CONTROLLER_SLOT_X - 8
 const CONTROLLER_LANE_SPACING = 6
 
+/** Expand the sheet to include every left-hand corridor and its hover stroke. */
+export function physicalDiagramFrame(leftLaneCount: number) {
+  const x = Math.min(0, LEFT_CONTROLLER_LANE_X - Math.max(0, leftLaneCount - 1) * CONTROLLER_LANE_SPACING - 24)
+  return { x, width: 1120 - x }
+}
+
 /**
  * A left-rail pin has to get around the board to reach anything on the right,
  * and below is the only clear band — the wiring-plan callout fills the top-left

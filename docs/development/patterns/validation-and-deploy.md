@@ -7,6 +7,16 @@ Moved out of the always-loaded `CLAUDE.md` so a session reads it only when
 working in this area; record new patterns for this area here, not there. History
 of the entries before the move: `git log -p -- CLAUDE.md`.
 
+- A PowerAmplifier with no line-level source warns in every graph, including
+  Music Player and hardware-only builds, when its board lacks a known DAC
+  output. `powerAmplifierInputWarnings` shares the rule between Graph Health
+  and `validateGraph`; a generated show's existing audio error takes precedence
+  to avoid duplicate cards. `boardHasDacOutput` describes hardware capability,
+  independently of `boardHasInternalDac`, which describes Studio's supported
+  internal-DAC playback path. Do not treat PWM or ADC inputs as DAC outputs.
+  The repair opens the Audio outputs shelf; adding a DAC or DFPlayer line
+  output clears the warning. Each board's partition owns its audio source.
+
 - Pin diagnostics open each affected part's Hardware wiring inspector instead
   of locating signal nodes. The split-I2C-bus card offers `move-i2c-pins` with
   a `Fix` button. `moveI2cPartsToBoardPins` rechecks the live root hardware,

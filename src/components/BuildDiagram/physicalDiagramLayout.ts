@@ -585,6 +585,27 @@ export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number)
   return pads[Math.min(Math.max(padIndex, 0), pads.length - 1)]
 }
 
+/** Resolve the physical line source by identity, including when labels repeat. */
+export function amplifierSourceItem(item: HardwareManifestItem, items: HardwareManifestItem[]) {
+  if (item.facts.stage !== 'power' || !['dac', 'dfPlayer'].includes(String(item.facts.feed))) return undefined
+  if (typeof item.facts.fedByNodeId !== 'string') return undefined
+  return items.find((source) => source.sourceNodeId === item.facts.fedByNodeId && source !== item)
+}
+
+export function analogAudioPads(item: HardwareManifestItem, direction: 'in' | 'out') {
+  const labels = peripheralPads(item).map((label) => label.toUpperCase())
+  const names = direction === 'in'
+    ? [['LIN', 'INL', 'AUX-L'], ['RIN', 'INR', 'AUX-R'], ['AUX-GND', 'AGND', 'GND']]
+    : [['LOUT', 'DAC_L'], ['ROUT', 'DAC_R'], ['AGND', 'GND']]
+  const pads = names.map((aliases) => aliases.map((label) => labels.indexOf(label)).find((index) => index >= 0) ?? -1)
+  if (pads[2] >= 0 && labels[pads[2]] === 'GND') {
+    const signalGround = labels.findIndex((label, index) => label === 'GND'
+      && index > Math.min(pads[0], pads[1]) && index < Math.max(pads[0], pads[1]))
+    if (signalGround >= 0) pads[2] = signalGround
+  }
+  return pads.every((index) => index >= 0) ? pads : null
+}
+
 /** Supply and ground, found by the name printed beside the pad. */
 // `+` and `VS` join the list for the IR receivers: a KY-022 prints its
 // supply as a bare plus, and Vishay's datasheet names the pin VS.
@@ -1394,6 +1415,26 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
    */
   // A controller converter sits in the controller's power slot, not a row.
   const peripherals = items.filter((item) => item.kind !== 'matrix-output' && !POWER_PATH_KINDS.has(item.kind))
+  // Keep a line source in the first slot of its chain, with its power stage
+  // directly below it. Reserve those cells before packing unrelated modules.
+  const parents = new Map(peripherals.flatMap((item) => {
+    const source = amplifierSourceItem(item, peripherals)
+    return source ? [[item.id, source.id] as const] : []
+  }))
+  const roots = peripherals.filter((item) => !parents.has(item.id))
+  const order = (item: HardwareManifestItem) => Math.min(peripherals.indexOf(item),
+    ...peripherals.filter((child) => parents.get(child.id) === item.id).map((child) => peripherals.indexOf(child)))
+  roots.sort((a, b) => order(a) - order(b))
+  const slots: Array<HardwareManifestItem | undefined> = []
+  for (const root of roots) {
+    let slot = 0
+    while (slots[slot]) slot++
+    slots[slot] = root
+    for (const child of peripherals.filter((item) => parents.get(item.id) === root.id)) {
+      slot += PERIPHERALS_PER_ROW
+      slots[slot] = child
+    }
+  }
   let outputY = 92
   const layouts: ItemLayout[] = outputs.map((item) => {
     const baseHeight = outputIsSingleRow(item) ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
@@ -1410,9 +1451,11 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   // does not reserve the space an encoder-heavy row would.
   const rowSignalCounts: number[] = []
   const rowItems: HardwareManifestItem[][] = []
-  peripherals.forEach((item, index) => {
+  slots.forEach((item, index) => {
+    if (!item) return
     const row = Math.floor(index / PERIPHERALS_PER_ROW)
-    rowSignalCounts[row] = (rowSignalCounts[row] ?? 0) + item.pins.length
+    const lineOutputs = peripherals.some((child) => parents.get(child.id) === item.id) ? 3 : 0
+    rowSignalCounts[row] = (rowSignalCounts[row] ?? 0) + item.pins.length + lineOutputs
     rowItems[row] = [...(rowItems[row] ?? []), item]
   })
   const rowHeights = rowSignalCounts.map((count, row) =>
@@ -1431,7 +1474,8 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
     const gap = Math.max(PERIPHERAL_ROW_GAP, rowOverhang[row] + PART_TITLE_ROW_AIR)
     rowTops.push(rowTops[row - 1] + rowHeights[row - 1] + gap)
   })
-  peripherals.forEach((item, index) => {
+  slots.forEach((item, index) => {
+    if (!item) return
     const column = index % PERIPHERALS_PER_ROW
     const row = Math.floor(index / PERIPHERALS_PER_ROW)
     layouts.push({

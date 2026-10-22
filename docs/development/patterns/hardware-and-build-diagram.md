@@ -208,6 +208,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Peripherals
 
+- Audio output chains follow the resolved physical source. The Hardware view
+  places the power amplifier below its DAC or line-output player, then draws
+  separate L/R speaker renders below the amplifier. These speakers are layout
+  endpoints, not saved graph nodes; their render and footprint come from the
+  imported `speaker-4ohm-3w-40mm` asset. The Build Diagram uses `fedByNodeId` from
+  the manifest to reserve a shared column for the source and amplifier; labels
+  are not identifiers. Analog wires resolve the catalogued output/input pads,
+  preferring AGND/AUX-GND over a module's digital or supply ground. Reserve
+  their routing lanes in the source row before placing the amplifier.
+- The physical SVG frame includes the left controller corridors, which can
+  extend beyond x=0 on dense builds. Keep its viewBox, background, workspace
+  width and fit bounds in sync through `physicalDiagramFrame`. Preserve the
+  print sheet's CSS sizing so the wider viewBox still fits a printed page.
+
 - Battery protection wiring distinguishes cell terminals from protected output
   terminals. Resolve those pads from `powerTerminals` by role. Cell positive is
   `B+`, `+BAT` or `BAT+`. Protected positive is `P+` or `OUT+` when the board

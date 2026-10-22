@@ -21,7 +21,8 @@ export function isClassicEsp32Fqbn(fqbn: string): boolean {
     && !/esp32(s3|s2|c3|c6|h2)/i.test(fqbn.replace('esp32:esp32:', ''))
 }
 
-/** Classic ESP32 only: the S3/S2/C3 have no DAC peripheral at all. */
+/** Targets supported by Studio's internal-DAC audio playback implementation.
+ * Other boards can have hardware DACs without supporting that decoder path. */
 export function boardHasInternalDac(fqbn: string): boolean {
   return fqbn.startsWith('esp32:esp32:esp32') && isClassicEsp32Fqbn(fqbn)
 }

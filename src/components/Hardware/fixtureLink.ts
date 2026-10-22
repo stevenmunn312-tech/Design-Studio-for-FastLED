@@ -29,7 +29,7 @@ function fixtureBus(nodeType: string, properties: Record<string, unknown>): stri
   switch (nodeType) {
     case 'Amplifier': return 'I2S'
     case 'DFPlayerOutput': return 'UART'
-    // Only drawn when the board's own DAC feeds it; a DAC-fed amp has no run.
+    // Module-fed runs get their source label in HardwarePane.
     case 'PowerAmplifier': return 'DAC line'
     case 'SDCard': return 'SPI'
     case 'EthernetModule': return 'SPI'
