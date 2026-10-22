@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Vibe, Song Structure and Pitch Detect read a show's song.** Song analysis
+  bakes each detector's per-frame output beside the envelope, the show
+  preview and pattern card play it back, and the SD player reads it from a
+  new `ADET` trailer when a collected pattern uses one of the nodes, firing
+  downbeat, drop and note-on once per frame on both sides. Waveform stays
+  live-only. Analyse a song again to gain the tracks; older shows keep
+  reading those nodes as inactive.
 - **Several boards in one project.** The Hardware pane's board menu adds
   another controller; each bench part and LED output belongs to one board,
   and the Hardware pane, Build Diagram and Upload tab work on the board

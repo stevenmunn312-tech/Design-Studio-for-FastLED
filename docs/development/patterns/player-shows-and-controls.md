@@ -540,6 +540,23 @@ that are easy to split across preview and firmware:
   silent. The firmware loads the equalizer block only when a pattern reads
   `_audioSpectrum`, and falls back to a three-band fill when the block does
   not fit in memory.
+- **A baked show's Vibe, Song Structure and Pitch Detect are the browser
+  mirrors, run offline.** Song analysis runs `FastLedAudioAnalyzer` over the
+  song in 512-sample chunks on the sample clock and stores one fixed-width
+  record per 50 Hz envelope frame; `src/audio/detectorTrack.ts` holds the
+  layouts and the encode/decode that the preview, `showFileToBinary` and the
+  player emitter share, so a byte means one thing on both sides. The show
+  writer appends an `ADET` trailer after `AENV` (and `PARM`); the player emits
+  its reader only when a collected pattern reads a detector global, loads only
+  those blocks, seeks past the rest, and treats an absent or unknown trailer
+  as no detectors. One-frame events (`downbeat`, `drop`, `noteOn`) are baked
+  once per frame and fired once per served frame on both sides: the preview
+  keeps a per-show `ShowDetectorCursor`, the sketch an `audioDetLast`. Levels
+  take the frame holding the position, not an interpolation. Waveform is not
+  baked. Trap: a sketch that reads a detector global but not a particular
+  one loses that store to the dead-code pass, so a test of the reader must
+  read every global it asserts. See
+  [audio detectors](../../design/audio-detectors.md#shows-and-the-sd-player).
 - VU meter levels are gated and scaled in exactly one place per side of the
   browser/firmware split, not re-derived at each measurement site:
   `src/audio/stereoLevels.ts`'s `VU_RMS_NOISE_GATE`/`VU_RMS_REFERENCE` condition

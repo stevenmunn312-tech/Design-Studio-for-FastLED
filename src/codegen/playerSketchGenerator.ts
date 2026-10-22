@@ -50,6 +50,12 @@ import {
   audioFeatureGlobalsCpp, audioFeatureHelpersCpp, audioFeatureResetCpp, audioFeatureSetupCpp,
   audioFeatureUpdateCpp, audioFeaturesInCode,
 } from './audio/audioEngineCpp'
+import {
+  DETECTOR_TRAILER_FLAG_PITCH, DETECTOR_TRAILER_FLAG_STRUCTURE, DETECTOR_TRAILER_FLAG_VIBE, DETECTOR_TRAILER_VERSION,
+  PITCH_FLAG_KEY_MINOR, PITCH_FLAG_NOTE_ON, PITCH_NO_KEY, PITCH_RECORD_BYTES,
+  STRUCTURE_FLAG_BUILDING, STRUCTURE_FLAG_DOWNBEAT, STRUCTURE_FLAG_DROP, STRUCTURE_FLAG_TEMPO_STABLE, STRUCTURE_RECORD_BYTES,
+  VIBE_FLAG_BASS_SPIKE, VIBE_FLAG_MID_SPIKE, VIBE_FLAG_TREBLE_SPIKE, VIBE_LEVEL_SCALE, VIBE_RECORD_BYTES,
+} from '../audio/detectorTrack'
 import { PLAYER_SONG_INFO_CPP } from './player/playerSongInfoCpp'
 import type { PlayerDisplays } from './player/playerDisplays'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
@@ -610,8 +616,18 @@ export function generatePlayerSketch(
   ].join('\n'))
   const needsStereoLevels = hasStereoVu || /\b_audio(?:Left|Right)Level\b/.test(consumerCode)
   const needsSpectrum = /\b_audioSpectrum\b/.test(consumerCode)
+  // The detectors a baked show replays for its patterns from the ADET trailer
+  // (audio/detectorTrack). Waveform is not baked: it stays silent without the
+  // live tap.
+  const consumerFeatures = audioFeaturesInCode([consumerCode])
+  const bakedDetectors = { vibe: consumerFeatures.vibe, structure: consumerFeatures.structure, pitch: consumerFeatures.pitch }
+  const readsDetector = bakedDetectors.vibe || bakedDetectors.structure || bakedDetectors.pitch
   const bakedAudio = !genericPlayer && !!opts.audioEnvelope
-    && (needsStereoLevels || /\b_audio(?:Bass|Mids|Treble|Bpm|Beat|Spectrum)\b/.test(consumerCode))
+    && (needsStereoLevels || readsDetector || /\b_audio(?:Bass|Mids|Treble|Bpm|Beat|Spectrum)\b/.test(consumerCode))
+  const bakedDet = bakedAudio && readsDetector
+  const detVibe = bakedDet && bakedDetectors.vibe
+  const detStructure = bakedDet && bakedDetectors.structure
+  const detPitch = bakedDet && bakedDetectors.pitch
   const environmentSensorForward = (compiledGraph?.helpers ?? []).some((block) =>
     block.includes('struct _Bme280Calibration {'))
     ? `${ENVIRONMENT_SENSOR_CPP_FORWARD}\n`
@@ -1570,7 +1586,11 @@ uint8_t*  audioEnv = nullptr;        // frameCount * 5 bytes: B/M/T/L/R
 ${needsSpectrum ? 'uint8_t*  audioEnvSpectrum = nullptr; // frameCount * 16 equalizer bins\n' : ''}uint32_t  audioEnvFrames = 0;
 uint8_t   audioEnvRate = 50;
 uint8_t   audioEnvChannels = 1;
-` : ''}
+${bakedDet ? `// Baked detector records from the show's ADET trailer, one per envelope
+// frame; a block the file lacks or memory refuses leaves its globals inactive.
+${detVibe ? `uint8_t*  audioDetVibe = nullptr;      // frameCount * ${VIBE_RECORD_BYTES}: six levels x${VIBE_LEVEL_SCALE}, spike flags\n` : ''}${detStructure ? `uint8_t*  audioDetStructure = nullptr; // frameCount * ${STRUCTURE_RECORD_BYTES}: flags, beat, phase, buildup, drop, valence, arousal\n` : ''}${detPitch ? `uint8_t*  audioDetPitch = nullptr;     // frameCount * ${PITCH_RECORD_BYTES}: hz lo/hi, note, velocity, confidence, key, flags, key confidence\n` : ''}uint32_t  audioDetFrames = 0;
+uint32_t  audioDetLast = 0xFFFFFFFF;   // last frame served, so one-frame events fire once
+` : ''}${bakedDet && !decoderTap ? lines(audioFeatureGlobalsCpp({ ...bakedDetectors, waveform: false })) : ''}` : ''}
 ${decoderTap ? `
 // ESP32-audioI2S calls audio_process_i2s() after decode/gain and immediately
 // before the samples are written to I2S. Queue complete mono blocks there,
@@ -1660,7 +1680,9 @@ ${bakedAudio ? `
   audioEnv = nullptr;
 ${needsSpectrum ? '  if (audioEnvSpectrum) free(audioEnvSpectrum);\n  audioEnvSpectrum = nullptr;\n' : ''}  audioEnvFrames = 0;
   audioEnvChannels = 1;
-  if (f.available() >= 12) {
+${bakedDet ? `${[detVibe && 'audioDetVibe', detStructure && 'audioDetStructure', detPitch && 'audioDetPitch'].filter(Boolean).map((name) => `  if (${name}) free(${name});\n  ${name} = nullptr;\n`).join('')}  audioDetFrames = 0;
+  audioDetLast = 0xFFFFFFFF;
+` : ''}  if (f.available() >= 12) {
     uint8_t tag[4]; f.read(tag, 4);
 ${paramPlayer ? `    if (tag[0]=='P' && tag[1]=='A' && tag[2]=='R' && tag[3]=='M') {
       uint8_t nameCount = f.read();
@@ -1678,20 +1700,49 @@ ${paramPlayer ? `    if (tag[0]=='P' && tag[1]=='A' && tag[2]=='R' && tag[3]=='M
     uint8_t cb[4];
     if (tagged && version == 3 && f.read(cb, 4) == 4) {
       uint32_t frames = ((uint32_t)cb[0])|((uint32_t)cb[1]<<8)|((uint32_t)cb[2]<<16)|((uint32_t)cb[3]<<24);
-${needsSpectrum ? '      uint8_t bins = f.read();\n' : '      f.read();  // equalizer bins per frame; no pattern reads the spectrum\n'}      uint32_t remaining = (uint32_t)f.available();
+${needsSpectrum || bakedDet ? '      uint8_t bins = f.read();\n' : '      f.read();  // equalizer bins per frame; no pattern reads the spectrum\n'}      uint32_t remaining = (uint32_t)f.available();
       if (audioEnvRate > 0 && frames <= remaining / 5) {
         audioEnv = (uint8_t*)malloc(frames * 5);
         if (audioEnv && f.read(audioEnv, frames * 5) == frames * 5)
           audioEnvFrames = frames;
         else { if (audioEnv) free(audioEnv); audioEnv = nullptr; }
       }
-${needsSpectrum ? `      // The spectrum is optional: without the memory for it, the coarse
+${bakedDet ? '      // Where the detector trailer starts: past the spectrum, read or not.\n      uint32_t detPos = (uint32_t)f.position() + frames * bins;\n' : ''}${needsSpectrum ? `      // The spectrum is optional: without the memory for it, the coarse
       // three-band fill in updateShowAudio() still drives the patterns.
       if (audioEnvFrames > 0 && bins == 16 && (uint32_t)f.available() >= frames * 16) {
         audioEnvSpectrum = (uint8_t*)malloc(frames * 16);
         if (audioEnvSpectrum && f.read(audioEnvSpectrum, frames * 16) != frames * 16) {
           free(audioEnvSpectrum);
           audioEnvSpectrum = nullptr;
+        }
+      }
+` : ''}${bakedDet ? `      // Detector trailer: ADET, version ${DETECTOR_TRAILER_VERSION}, flags (${DETECTOR_TRAILER_FLAG_VIBE} vibe, ${DETECTOR_TRAILER_FLAG_STRUCTURE} structure,
+      // ${DETECTOR_TRAILER_FLAG_PITCH} pitch), frame count, then the flagged blocks in that order. Only
+      // the blocks a pattern reads are kept; an absent or unknown trailer
+      // leaves every detector inactive, as a show written before it did.
+      if (audioEnvFrames > 0 && f.seek(detPos) && f.available() >= 10) {
+        uint8_t dtag[4]; f.read(dtag, 4);
+        uint8_t dver = f.read();
+        uint8_t dflags = f.read();
+        uint8_t dc[4];
+        if (dtag[0]=='A' && dtag[1]=='D' && dtag[2]=='E' && dtag[3]=='T' && dver == ${DETECTOR_TRAILER_VERSION} && f.read(dc, 4) == 4) {
+          uint32_t dframes = ((uint32_t)dc[0])|((uint32_t)dc[1]<<8)|((uint32_t)dc[2]<<16)|((uint32_t)dc[3]<<24);
+          if (dframes == frames) {
+            audioDetFrames = frames;
+${[
+  { flag: DETECTOR_TRAILER_FLAG_VIBE, size: VIBE_RECORD_BYTES, kept: detVibe, name: 'audioDetVibe', label: 'vibe' },
+  { flag: DETECTOR_TRAILER_FLAG_STRUCTURE, size: STRUCTURE_RECORD_BYTES, kept: detStructure, name: 'audioDetStructure', label: 'structure' },
+  { flag: DETECTOR_TRAILER_FLAG_PITCH, size: PITCH_RECORD_BYTES, kept: detPitch, name: 'audioDetPitch', label: 'pitch' },
+].map((block) => block.kept
+  ? `            if (dflags & ${block.flag}) {
+              uint32_t next = (uint32_t)f.position() + frames * ${block.size};
+              ${block.name} = (uint8_t*)malloc(frames * ${block.size});
+              if (${block.name} && f.read(${block.name}, frames * ${block.size}) != frames * ${block.size}) { free(${block.name}); ${block.name} = nullptr; }
+              f.seek(next);
+            }
+`
+  : `            if (dflags & ${block.flag}) f.seek(f.position() + frames * ${block.size});  // ${block.label}: no pattern reads it
+`).join('')}          }
         }
       }
 ` : ''}    }
@@ -1708,7 +1759,7 @@ void updateShowAudio(uint32_t ms) {
   if (!audioEnv || audioEnvFrames == 0) {
     _audioBass = _audioMids = _audioTreble = 0;
     _audioLeftLevel = _audioRightLevel = 0;
-${needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;\n' : ''}
+${needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;\n' : ''}${bakedDet ? `${lines(audioFeatureResetCpp({ vibe: detVibe, structure: detStructure, pitch: false, waveform: false }))}${detPitch ? '    _audioPitchHz = _audioPitchConf = _audioPitchVelocity = 0.0f;\n    _audioPitchNote = 0; _audioPitchNoteOn = false;\n    _audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f;\n' : ''}` : ''}
     return;
   }
   float fpos = ms * (audioEnvRate / 1000.0f);
@@ -1734,6 +1785,37 @@ ${needsSpectrum ? `  // The song's equalizer bins, each filling two slots as get
   } else {
     for (int b = 0; b < 32; b++) _audioSpectrum[b] = b < 6 ? _audioBass : (b < 16 ? _audioMids : _audioTreble);
   }
+` : ''}${bakedDet ? `  // The baked detectors at the same frame, as the preview's showDetectorSignals
+  // reads them: levels as stored, the one-frame events once per flagged frame
+  // however many loops serve it.
+  if (audioDetFrames > 0) {
+    uint32_t d = i < audioDetFrames ? i : audioDetFrames - 1;
+    bool fresh = d != audioDetLast;
+    audioDetLast = d;
+${detVibe ? `    if (audioDetVibe) {
+      const uint8_t* r = audioDetVibe + d * ${VIBE_RECORD_BYTES};
+      _audioVibeBass = r[0] / ${VIBE_LEVEL_SCALE}.0f; _audioVibeMid = r[1] / ${VIBE_LEVEL_SCALE}.0f; _audioVibeTreble = r[2] / ${VIBE_LEVEL_SCALE}.0f;
+      _audioVibeVolume = (_audioVibeBass + _audioVibeMid + _audioVibeTreble) / 3.0f;
+      _audioVibeBassAtt = r[3] / ${VIBE_LEVEL_SCALE}.0f; _audioVibeMidAtt = r[4] / ${VIBE_LEVEL_SCALE}.0f; _audioVibeTrebleAtt = r[5] / ${VIBE_LEVEL_SCALE}.0f;
+      _audioVibeBassSpike = (r[6] & ${VIBE_FLAG_BASS_SPIKE}) != 0; _audioVibeMidSpike = (r[6] & ${VIBE_FLAG_MID_SPIKE}) != 0; _audioVibeTrebleSpike = (r[6] & ${VIBE_FLAG_TREBLE_SPIKE}) != 0;
+    }
+` : ''}${detStructure ? `    if (audioDetStructure) {
+      const uint8_t* r = audioDetStructure + d * ${STRUCTURE_RECORD_BYTES};
+      _audioDownbeat = fresh && (r[0] & ${STRUCTURE_FLAG_DOWNBEAT}) != 0; _audioDrop = fresh && (r[0] & ${STRUCTURE_FLAG_DROP}) != 0;
+      _audioBuilding = (r[0] & ${STRUCTURE_FLAG_BUILDING}) != 0; _audioTempoStable = (r[0] & ${STRUCTURE_FLAG_TEMPO_STABLE}) != 0;
+      _audioBeatNumber = r[1];
+      _audioMeasurePhase = r[2] / 255.0f; _audioBuildupProgress = r[3] / 255.0f; _audioDropImpact = r[4] / 255.0f;
+      _audioValence = (int8_t)r[5] / 127.0f; _audioArousal = r[6] / 255.0f;
+    }
+` : ''}${detPitch ? `    if (audioDetPitch) {
+      const uint8_t* r = audioDetPitch + d * ${PITCH_RECORD_BYTES};
+      _audioPitchHz = (float)(r[0] | (r[1] << 8)); _audioPitchNote = r[2];
+      _audioPitchVelocity = r[3] / 255.0f; _audioPitchConf = r[4] / 255.0f;
+      _audioPitchNoteOn = fresh && (r[6] & ${PITCH_FLAG_NOTE_ON}) != 0;
+      _audioKeyRoot = r[5] == ${PITCH_NO_KEY} ? 0 : r[5]; _audioKeyMinor = r[5] != ${PITCH_NO_KEY} && (r[6] & ${PITCH_FLAG_KEY_MINOR}) != 0;
+      _audioKeyConf = r[5] == ${PITCH_NO_KEY} ? 0.0f : r[7] / 255.0f;
+    }
+` : ''}  }
 ` : ''}
 }
 ` : ''}

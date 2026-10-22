@@ -23,11 +23,15 @@
 // songs with scripts/bench/song-analysis-bench.ts; rerun it after any change.
 
 import type { BeatInfo, EnergyPoint, SongAnalysis, SongAnalysisCore } from '../types/showFile'
-import { aggregateLogBins, EqualizerSpectrum, I16_FULL_SCALE } from './fastledReactive'
+import { aggregateLogBins, EqualizerSpectrum, FastLedAudioAnalyzer, I16_FULL_SCALE } from './fastledReactive'
 import { encodeSpectrumBytes, SPECTRUM_TRACK_BINS, type SpectrumTrack } from './spectrumTrack'
 import { correlateWithProfile, MAJOR_PROFILE, MINOR_PROFILE } from './fastledPitch'
-import { fftInPlace } from './micAnalysis'
+import { fftInPlace, MIC_FFT_SIZE, MIC_SPECTRUM_BARS } from './micAnalysis'
 import { ENERGY_HOP_MS, detectSections, normalizeEnergy } from './songAnalysisCommon'
+import {
+  DETECTOR_EVENTS, encodeDetectorBytes, encodePitchRecord, encodeStructureRecord, encodeVibeRecord,
+  PITCH_RECORD_BYTES, STRUCTURE_RECORD_BYTES, VIBE_RECORD_BYTES, type DetectorTracks,
+} from './detectorTrack'
 
 const FRAME_SIZE = 2048
 const HOP_SIZE = 512
@@ -454,6 +458,77 @@ function estimateMood(energy: EnergyPoint[], key: string, scale: string, drive: 
   return { energy: moodEnergy, valence, key: key ? `${key} ${scale}` : 'C major' }
 }
 
+/** The live engine's chunk: FastLED's I2S buffer, 512 samples. */
+const DETECTOR_CHUNK = MIC_FFT_SIZE
+
+/**
+ * Run the live analyzer — conditioner, FFT, Vibe, Song Structure and Pitch —
+ * over the song chunk by chunk at the device's cadence (512 samples per
+ * frame, so Vibe's frame-rate conversion and Pitch's note timing see the
+ * intervals a decoder tap would feed them), and sample each detector's state
+ * once per envelope frame. Levels take the last chunk in the frame; the
+ * one-frame events (downbeat, drop, note-on) are OR-ed over every chunk in
+ * it, so none is lost to the coarser rate and none fires twice. A frame no
+ * chunk lands in repeats the previous record with its events cleared.
+ * Deterministic: the clock is the sample position, not the wall clock.
+ */
+export function bakeDetectorTracks(mono: Float32Array, sampleRate: number, rateHz = SPECTRUM_RATE_HZ): DetectorTracks {
+  const frames = Math.max(1, Math.ceil((mono.length / sampleRate) * rateHz))
+  const vibe = new Uint8Array(frames * VIBE_RECORD_BYTES)
+  const structure = new Uint8Array(frames * STRUCTURE_RECORD_BYTES)
+  const pitch = new Uint8Array(frames * PITCH_RECORD_BYTES)
+  const analyzer = new FastLedAudioAnalyzer(DETECTOR_CHUNK)
+  const chunk = new Float32Array(DETECTOR_CHUNK)
+  const spectrumOut = new Array<number>(MIC_SPECTRUM_BARS).fill(0)
+  const chunkCount = Math.ceil(mono.length / DETECTOR_CHUNK)
+  let frame = -1
+  let structureEvents = 0
+  let pitchEvents = 0
+  for (let c = 0; c < chunkCount; c++) {
+    const start = c * DETECTOR_CHUNK
+    for (let i = 0; i < DETECTOR_CHUNK; i++) chunk[i] = start + i < mono.length ? mono[start + i] : 0
+    const nowMs = (start / sampleRate) * 1000
+    const result = analyzer.process(chunk, sampleRate, nowMs, 1, spectrumOut)
+    const k = Math.min(frames - 1, Math.floor((nowMs / 1000) * rateHz))
+    if (k !== frame) {
+      // Frames between the last chunk's and this one hold that record, eventless.
+      for (let f = frame + 1; f < k; f++) {
+        if (f === 0) continue
+        vibe.copyWithin(f * VIBE_RECORD_BYTES, (f - 1) * VIBE_RECORD_BYTES, f * VIBE_RECORD_BYTES)
+        structure.copyWithin(f * STRUCTURE_RECORD_BYTES, (f - 1) * STRUCTURE_RECORD_BYTES, f * STRUCTURE_RECORD_BYTES)
+        structure[f * STRUCTURE_RECORD_BYTES + DETECTOR_EVENTS.structure.offset] &= ~DETECTOR_EVENTS.structure.mask
+        pitch.copyWithin(f * PITCH_RECORD_BYTES, (f - 1) * PITCH_RECORD_BYTES, f * PITCH_RECORD_BYTES)
+        pitch[f * PITCH_RECORD_BYTES + DETECTOR_EVENTS.pitch.offset] &= ~DETECTOR_EVENTS.pitch.mask
+      }
+      frame = k
+      structureEvents = 0
+      pitchEvents = 0
+    }
+    encodeVibeRecord(result.vibe, vibe, k * VIBE_RECORD_BYTES)
+    encodeStructureRecord(result.structure, structure, k * STRUCTURE_RECORD_BYTES)
+    encodePitchRecord(result.pitch, pitch, k * PITCH_RECORD_BYTES)
+    const sAt = k * STRUCTURE_RECORD_BYTES + DETECTOR_EVENTS.structure.offset
+    structureEvents |= structure[sAt] & DETECTOR_EVENTS.structure.mask
+    structure[sAt] |= structureEvents
+    const pAt = k * PITCH_RECORD_BYTES + DETECTOR_EVENTS.pitch.offset
+    pitchEvents |= pitch[pAt] & DETECTOR_EVENTS.pitch.mask
+    pitch[pAt] |= pitchEvents
+  }
+  for (let f = Math.max(1, frame + 1); f < frames; f++) {
+    vibe.copyWithin(f * VIBE_RECORD_BYTES, (f - 1) * VIBE_RECORD_BYTES, f * VIBE_RECORD_BYTES)
+    structure.copyWithin(f * STRUCTURE_RECORD_BYTES, (f - 1) * STRUCTURE_RECORD_BYTES, f * STRUCTURE_RECORD_BYTES)
+    structure[f * STRUCTURE_RECORD_BYTES + DETECTOR_EVENTS.structure.offset] &= ~DETECTOR_EVENTS.structure.mask
+    pitch.copyWithin(f * PITCH_RECORD_BYTES, (f - 1) * PITCH_RECORD_BYTES, f * PITCH_RECORD_BYTES)
+    pitch[f * PITCH_RECORD_BYTES + DETECTOR_EVENTS.pitch.offset] &= ~DETECTOR_EVENTS.pitch.mask
+  }
+  return {
+    rateHz,
+    vibe: encodeDetectorBytes(vibe),
+    structure: encodeDetectorBytes(structure),
+    pitch: encodeDetectorBytes(pitch),
+  }
+}
+
 export function analyzeSongSamples(
   mono: Float32Array,
   sampleRate: number,
@@ -465,5 +540,6 @@ export function analyzeSongSamples(
   const key = detectKey(mono, sampleRate)
   const sections = detectSections(energy, durationMs)
   const mood = estimateMood(energy, key?.key ?? '', key?.scale ?? 'major', rhythmDrive(clarity))
-  return { title, durationMs, beats, energy, spectrum, sections, mood }
+  const detectors = bakeDetectorTracks(mono, sampleRate)
+  return { title, durationMs, beats, energy, spectrum, detectors, sections, mood }
 }
