@@ -10,6 +10,7 @@ import {
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
+import { seedOffset } from '../../state/evaluator/random'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
 import {
   CLASSIC_HASH_CPP, CLASSIC_VALUE_NOISE_CPP, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, LIGHTNING_AFTERGLOW, LIGHTNING_AFTERGLOW_TAU,
@@ -22,7 +23,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   // writes a raw scalar field, then the node maps that field through its
   // palette for the normal frame output. Keep the cases in sync with
   // PROPERTY_META.noiseType and the `Noise` case in graphEvaluator.
-  Noise({ node, id, p, ln: emitLine, f, ownBuf, ownField, paletteExpr, needsWorley, needsT, needsWrapX }) {
+  Noise({ node, id, p, ln: emitLine, f, ownBuf, ownField, paletteExpr, needsWorley, needsSimplex, needsT, needsWrapX }) {
     needsT.v = true
     // The variant is written as one block, then repeated shifted and blended
     // when `wrapX` asks for a seamless left/right join (see wrapXHelperCpp.ts).
@@ -35,59 +36,59 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
     const seed = seedProp(p)
-    const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
-    // `∫ _spd dt`, carried onto the seed's time offset: `_t*_spd` at a constant rate.
-    const phase = (): string => {
-      const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-      if (!seed) return ph
-      ln(`    float _tph=${ph}+(_t-t)*_spd;`)
-      return '_tph'
+    // The preview runs every type but Gabor on `t + seedOffset(seed)`; the
+    // offset seeds the phase, as speedPhase(key, t + offset) does.
+    const phase = (): string =>
+      speedPhaseCpp(ln, phaseTag(id), '_spd', '    ', seed ? floatLit(seedOffset(seed, 0), 6) : '')
+    // `_snoise2` octaves, written as the preview's evaluators write them.
+    const simplexPixels = (body: string[], value: string) => {
+      needsSimplex.v = true
+      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+      for (const line of body) ln(`      ${line}`)
+      ln(`      ${of}[_y*WIDTH+_x]=${value};}}`)
     }
     const pal = paletteExpr(node.id, 'paletteIn', p)
     switch (noiseType) {
       case 'simplex': {
         ln(`  { // Simplex2D`)
-        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+${tp}*0.5f)+${tp})`)
-        ln(`            +0.5f*sin(_x*_sc*2+${tp}*1.9f)+0.25f*sin(_x*_sc*4+${tp}*4.1f);`)
-        ln(`      ${of}[_y*WIDTH+_x]=constrain(_n*0.25f+0.5f,0.0f,1.0f);}}`)
+        simplexPixels([
+          `float _v=0.0f,_amp=1.0f,_fr=_sc;`,
+          `for(int _o=0;_o<4;_o++){ _v+=_amp*_snoise2(_x*_fr+${tp}*0.13f,_y*_fr+${tp}*0.1f); _amp*=0.5f; _fr*=2.0f; }`,
+          `_v=_v*0.5f+0.5f;`,
+        ], '_v-floorf(_v)')
         break
       }
       case 'noise3d': {
         ln(`  { // Noise3D`)
-        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _n=(sin(_x*_sc+${tp})+cos(_y*_sc+${tp}*0.7f))*0.5f`)
-        ln(`            +(sin(_x*_sc*1.7f+${tp}*1.3f+_y*_sc*0.9f)*0.33f)`)
-        ln(`            +(cos(_x*_sc*2.9f+${tp}*2.1f)*0.17f);`)
-        ln(`      ${of}[_y*WIDTH+_x]=constrain(_n*0.3f+0.5f,0.0f,1.0f);}}`)
+        ln(`    float _z=${tp}*0.08f;`)
+        simplexPixels([
+          `float _v=0.0f,_amp=1.0f,_fr=_sc;`,
+          `for(int _o=0;_o<3;_o++){ _v+=_amp*(_snoise2(_x*_fr+_z*0.37f,_y*_fr)*0.6f+_snoise2(_x*_fr*0.9f,_y*_fr+_z*0.61f)*0.4f); _amp*=0.5f; _fr*=2.1f; }`,
+          `_v=_v*0.5f+0.5f;`,
+        ], '_v-floorf(_v)')
         break
       }
       case 'noise4d': {
-        ln(`  { // Noise4D (looping inoise16 x,y,z,t path)`)
-        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+        ln(`  { // Noise4D (looping path through two hidden dimensions)`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
         ln(`    float _ang=${tp}*6.2831853f;`)
-        ln(`    uint32_t _z=(uint32_t)((cosf(_ang)*0.5f+0.5f)*65535.0f);`)
-        ln(`    uint32_t _w=(uint32_t)((sinf(_ang)*0.5f+0.5f)*65535.0f);`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _amp=1.0f,_fr=_sc*128.0f,_fn=0.0f,_sum=0.0f;`)
-        ln(`      for(int _o=0;_o<3;_o++){`)
-        ln(`        uint16_t _raw=inoise16((uint32_t)(_x*_fr),(uint32_t)(_y*_fr),_z+(uint32_t)(_o*8192),_w+(uint32_t)(_o*12288));`)
-        ln(`        _fn+=_amp*(_raw/65535.0f); _sum+=_amp; _amp*=0.5f; _fr*=2.0f;`)
-        ln(`      }`)
-        ln(`      ${of}[_y*WIDTH+_x]=constrain(_fn/max(0.001f,_sum),0.0f,1.0f);`)
-        ln(`    }`)
-        ln(`  }`)
+        simplexPixels([
+          `float _v=0.0f,_amp=1.0f,_fr=_sc;`,
+          `for(int _o=0;_o<3;_o++){ float _ox=cosf(_ang+_o*0.9f)*0.8f,_oy=sinf(_ang+_o*1.1f)*0.8f;`,
+          `  _v+=_amp*(_snoise2(_x*_fr+_ox,_y*_fr+_oy)*0.65f+_snoise2(_x*_fr+_oy*0.7f+11.3f,_y*_fr+_ox*0.7f-7.1f)*0.35f); _amp*=0.5f; _fr*=2.0f; }`,
+          `_v=_v*0.5f+0.5f;`,
+        ], '_v-floorf(_v)')
         break
       }
       case 'worley': {
         needsWorley.v = true
         ln(`  { // Worley noise`)
-        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _f1=1e9f${wMode === 'f1' ? '' : ',_f2=1e9f'};`)
@@ -100,19 +101,19 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         break
       }
       case 'plasma': {
-        ln(`  { float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+        ln(`  { // Plasma fractal`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
-        ln(`    uint16_t _z=(uint16_t)(${tp}*10);`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _v=sin(_x*0.2f+${tp})+sin(_y*0.25f+${tp}*0.8f)+sin((_x+_y)*0.15f+${tp}*0.6f);`)
-        ln(`      float _amp=1,_fr=_sc*96,_fn=0; for(int _o=0;_o<3;_o++){ _fn+=_amp*(inoise8((uint16_t)(_x*_fr),(uint16_t)(_y*_fr),_z)/255.0f-0.5f); _amp*=0.5f; _fr*=2; }`)
-        ln(`      _v+=_fn*5; float _nf=fmodf(_v*0.15f,1.0f); if(_nf<0)_nf+=1.0f;`)
-        ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
+        simplexPixels([
+          `float _v=sin(_x*0.2f+${tp})+sin(_y*0.25f+${tp}*0.8f)+sin((_x+_y)*0.15f+${tp}*0.6f);`,
+          `float _amp=1.0f,_fr=_sc,_fn=0.0f; for(int _o=0;_o<3;_o++){ _fn+=_amp*_snoise2(_x*_fr+${tp}*0.1f,_y*_fr); _amp*=0.5f; _fr*=2.0f; }`,
+          `_v=(_v+_fn*2.5f)*0.15f;`,
+        ], '_v-floorf(_v)')
         break
       }
       case 'sine': {
         ln(`  { // Sine 2D — layered sine/cosine interference`)
-        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _v=0,_amp=1,_fr=_sc;`)
@@ -122,17 +123,15 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         break
       }
       case 'fbm': {
-        ln(`  { // Fractal noise (fBm via inoise8)`)
-        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+        ln(`  { // Fractal noise (fBm of simplex octaves)`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
-        ln(`    uint16_t _z=(uint16_t)(${tp}*40);`)
+        ln(`    float _z=${tp}*0.15f;`)
         ln(`    int _octv=(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f);`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
-        ln(`      for(int _o=0;_o<_octv;_o++){`)
-        ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
-        ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
-        ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
+        simplexPixels([
+          `float _v=0.0f,_amp=0.5f,_norm=0.0f,_fr=_sc;`,
+          `for(int _o=0;_o<_octv;_o++){ _v+=_amp*_snoise2(_x*_fr+_z,_y*_fr-_z*0.5f); _norm+=_amp; _amp*=0.5f; _fr*=2.0f; }`,
+        ], 'constrain((_v/_norm)*0.5f+0.5f,0.0f,1.0f)')
         break
       }
       case 'gabor': {
@@ -156,7 +155,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
       case 'field':
       default: {
         ln(`  {`)
-        ln(`    float _spd = ${speed}, _scl = ${scale}, _t=${timeExpr};`)
+        ln(`    float _spd = ${speed}, _scl = ${scale};`)
         const tp = phase()
         // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
         for (const line of sineFieldFrameCpp('_scl', tp)) ln(`    ${line}`)
@@ -375,8 +374,14 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
       ln(`    const int _dots=${dots};`)
     }
     ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
+    // The preview's per-dot phase, seedOffset(seed, d), reduced a turn at a
+    // time: it only feeds sines, and float holds the remainder exactly enough.
+    if (seed) {
+      const phases = Array.from({ length: JUGGLE_COUNT.max }, (_, d) => floatLit(seedOffset(seed, d) % (Math.PI * 2), 6))
+      ln(`    static const float _jph_${id}[${JUGGLE_COUNT.max}]={${phases.join(',')}};`)
+    }
     ln(`    for(int _d=0; _d<_dots; _d++){`)
-    ln(`      float _phase=${seed ? `${(seed * 0.013).toFixed(3)}f+_d*0.17f` : '0.0f'};`)
+    ln(`      float _phase=${seed ? `_jph_${id}[_d]` : '0.0f'};`)
     ln(`      float _travel=sinf(${ph}*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;`)
     ln(`      int _x=(int)roundf(_travel*(WIDTH-1));`)
     ln(`      int _y=_dots<=1 ? (int)roundf((HEIGHT-1)*0.5f) : (int)roundf(((_d+0.5f)*HEIGHT)/(float)_dots-0.5f);`)

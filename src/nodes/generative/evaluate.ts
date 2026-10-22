@@ -354,10 +354,9 @@ function evalNoise3DField(key: string, speed: number, scale: number, t: number, 
   return out
 }
 
-// Looping "4D" noise approximation for the browser preview: animate around a
-// circle in two hidden dimensions so the pattern returns to its starting point
-// every cycle, matching the firmware variant's circular z/t path through
-// FastLED's real inoise16(x, y, z, t).
+// Looping "4D" noise: animate around a circle in two hidden dimensions so the
+// pattern returns to its starting point every cycle. The sketch runs the same
+// octaves through its `_snoise2` twin (codegen/helpers/simplexHelperCpp.ts).
 function evalNoise4DField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   const ang = speedPhase(key, t, speed) * Math.PI * 2
   const out = allocField(W * H)

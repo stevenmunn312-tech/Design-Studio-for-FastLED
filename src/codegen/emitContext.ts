@@ -134,6 +134,8 @@ export interface SketchEmitContext {
   globalLines: string[]
   needsMapFloat: boolean[]
   needsWorley: Need
+  /** `_snoise2`, the preview's 2D simplex noise (helpers/simplexHelperCpp.ts). */
+  needsSimplex: Need
   need3d: Need
   needsKelvin: Need
   needsT: Need

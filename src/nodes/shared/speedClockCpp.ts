@@ -16,10 +16,14 @@ export function phaseTag(id: string, term = ''): string {
  * Emit `_phase_<tag>` = `∫ rate dt` and return its name. `rateExpr` is
  * evaluated twice on the seeding frame and once per frame after, so pass a
  * variable or a cheap expression. The caller must have set `needsT`.
+ * `offset` is a constant time offset (a C float literal) for a node whose
+ * preview passes `t + offset` to `speedPhase`: it moves only the seed, and the
+ * increments stay on `t`, so a large offset costs no float precision.
  */
-export function speedPhaseCpp(ln: (line: string) => void, tag: string, rateExpr: string, indent = '    '): string {
+export function speedPhaseCpp(ln: (line: string) => void, tag: string, rateExpr: string, indent = '    ', offset = ''): string {
   const v = `_phase_${tag}`
+  const seedTime = offset ? `(t + ${offset})` : 't'
   ln(`${indent}static float ${v} = 0.0f, ${v}T = -1.0f;`)
-  ln(`${indent}${v} = (${v}T < 0.0f) ? t * (${rateExpr}) : ${v} + (t - ${v}T) * (${rateExpr}); ${v}T = t;`)
+  ln(`${indent}${v} = (${v}T < 0.0f) ? ${seedTime} * (${rateExpr}) : ${v} + (t - ${v}T) * (${rateExpr}); ${v}T = t;`)
   return v
 }

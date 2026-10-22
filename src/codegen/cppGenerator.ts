@@ -130,6 +130,7 @@ import { ATAN16_HELPER_CPP, LATTICE_Q12_CPP } from '../nodes/shared/integerPatte
 import { FLUID_HELPER_CPP } from './helpers/fluidHelperCpp'
 import { pressSourceBounces } from '../state/player/pressSource'
 import { FOURIER_HELPER_CPP } from './helpers/fourierHelperCpp'
+import { SIMPLEX_HELPER_CPP } from './helpers/simplexHelperCpp'
 import { SYMMETRY_HELPER_CPP } from './helpers/symmetryHelperCpp'
 import {
   type StereoVuEmit,
@@ -813,6 +814,7 @@ export function generateCpp(
   const globalLines: string[] = []
   const needsMapFloat: boolean[] = [false]
   const needsWorley = { v: false }
+  const needsSimplex = { v: false }
   const need3d = { v: false }
   const needsKelvin = { v: false }
   const needsT = { v: false }
@@ -897,7 +899,7 @@ export function generateCpp(
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
-    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsLatticeQ, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
+    needsMapFloat, needsWorley, needsSimplex, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsLatticeQ, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
     customDisplayOwners,
@@ -1476,6 +1478,11 @@ export function generateCpp(
 
   if (needsWorley.v) {
     lines.push(WORLEY_HASH_CPP)
+    lines.push(``)
+  }
+
+  if (needsSimplex.v) {
+    lines.push(SIMPLEX_HELPER_CPP)
     lines.push(``)
   }
 

@@ -28,6 +28,7 @@ import { TURING_HELPER_CPP } from './helpers/turingHelperCpp'
 import { ATAN16_HELPER_CPP, LATTICE_Q12_CPP } from '../nodes/shared/integerPatterns'
 import { FLUID_HELPER_CPP } from './helpers/fluidHelperCpp'
 import { FOURIER_HELPER_CPP } from './helpers/fourierHelperCpp'
+import { SIMPLEX_HELPER_CPP } from './helpers/simplexHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
 import { wiredTransitionStyles } from '../state/patterns/patternCollectionWiring'
 import { SYMMETRY_HELPER_CPP } from './helpers/symmetryHelperCpp'
@@ -253,6 +254,7 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   atan16: ATAN16_HELPER_CPP,
   fluid: FLUID_HELPER_CPP,
   fourier: FOURIER_HELPER_CPP,
+  simplex: SIMPLEX_HELPER_CPP,
   symmetry: SYMMETRY_HELPER_CPP,
   hueMix: HUE_MIX_HELPER_CPP,
   wrapX: WRAP_X_HELPER_CPP,
