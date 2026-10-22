@@ -3593,6 +3593,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     positionsPreset: 'preset',
     positionsWidth: 'width',
     positionsHeight: 'height',
+    positionsMmPerUnit: 'mm per pixel',
     routeMode: 'route',
     routeX: 'offset X',
     routeY: 'offset Y',
@@ -3976,7 +3977,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'hub75ClkPin', 'hub75LatPin', 'hub75OePin', 'hub75ColorDepthBits',
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
-    { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'positionsWidth', 'positionsHeight', 'positions'] },
+    { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'positionsWidth', 'positionsHeight', 'positionsMmPerUnit', 'positions'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'renderScale', 'correction', 'whitePoint', 'dither'] },
     // The least-used group last: a crop offset into a larger frame.
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
@@ -5069,7 +5070,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     // matter once it is chosen.
     if (key === 'stripLayout') return form === 'strip'
     if (key === 'positionsPreset' || key === 'positionsWidth' || key === 'positionsHeight') return usesPositions(properties)
-    if (key === 'positions') return usesPositions(properties) && properties.positionsPreset !== 'catenary'
+    if (key === 'positions' || key === 'positionsMmPerUnit') return usesPositions(properties) && properties.positionsPreset !== 'catenary'
   }
   if (nodeType === 'Mirror' && key === 'glowAmount') {
     return properties.glow === true

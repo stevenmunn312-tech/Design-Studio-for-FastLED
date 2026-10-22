@@ -61,6 +61,7 @@ const BLOCKED_KEYS = new Set([
   'psramMode',
   'positions',
   'positionsHeight',
+  'positionsMmPerUnit',
   'positionsPreset',
   'positionsWidth',
   'psramPolicy',
