@@ -543,7 +543,7 @@ describe('the emitted sketch, for a bundle', () => {
         edge('e2', 'trg', 'out', 'out', 'ledToggle'),
       ],
     )
-    expect(src).toContain('static bool n_trg_out = true; static bool _trP_trg = false;')
+    expect(src).toContain('static bool n_trg_out = true; static bool _trP_trg = false, _trI_trg = false;')
   })
 
   // The firmware mirror of composeLedOutputRuntime: the latch is a factor, not
