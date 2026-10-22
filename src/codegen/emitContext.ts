@@ -154,6 +154,8 @@ export interface SketchEmitContext {
   /** `_latticeCellQ12`, the integer square/hex cell finder (shared/integerPatterns.ts). */
   needsLatticeQ: Need
   needsHueMix: Need
+  /** `_hsv` and friends, the preview's colour wheel (helpers/hsvHelperCpp.ts). */
+  needsHsv: Need
   needsWrapX: Need
   needsFrameSample: Need
   needsDisplayText: { number: boolean; dateTime: boolean }

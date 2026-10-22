@@ -182,19 +182,35 @@ function evalArray(
   return out
 }
 
+/**
+ * FastLED 3.10.5's `blur2d` on a rectangular grid (fl/gfx/blur.cpp.hpp), byte
+ * for byte: every row, then every column, keeps `255-amount` of each pixel and
+ * seeps `amount>>1` into both neighbours. The sketch calls the real one, so an
+ * amount of 0 leaves the frame untouched on both sides.
+ */
 function evalBlur2D(src: Frame, amount: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const radius = Math.max(1, Math.round(amount / 255 * 3))
-  return buildFrame(W, H, (x, y) => {
-      let r = 0, g = 0, b = 0, count = 0
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          const nx = Math.max(0, Math.min(W-1, x+dx))
-          const ny = Math.max(0, Math.min(H-1, y+dy))
-          r += src[ny][nx].r; g += src[ny][nx].g; b += src[ny][nx].b; count++
+  const out = buildFrame(W, H, (x, y) => ({ ...src[y][x] }))
+  const keep = 255 - amount, seep = amount >> 1
+  const pass = (count: number, length: number, at: (line: number, i: number) => RGB) => {
+    for (let line = 0; line < count; line++) {
+      let carry: RGB = { r: 0, g: 0, b: 0 }
+      for (let i = 0; i < length; i++) {
+        const px = at(line, i)
+        const part = { r: scale8(px.r, seep), g: scale8(px.g, seep), b: scale8(px.b, seep) }
+        if (i) {
+          const prev = at(line, i - 1)
+          prev.r = Math.min(255, prev.r + part.r); prev.g = Math.min(255, prev.g + part.g); prev.b = Math.min(255, prev.b + part.b)
         }
+        px.r = Math.min(255, scale8(px.r, keep) + carry.r)
+        px.g = Math.min(255, scale8(px.g, keep) + carry.g)
+        px.b = Math.min(255, scale8(px.b, keep) + carry.b)
+        carry = part
       }
-      return { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) }
-    })
+    }
+  }
+  pass(H, W, (row, i) => out[row][i])
+  pass(W, H, (col, i) => out[i][col])
+  return out
 }
 
 export const COMPOSITE_EVALUATORS: NodeEvaluators = {
@@ -292,6 +308,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       const zy = Math.max(0, Math.min(1, Number(props[`${key}Y`] ?? 0)))
       const zw = Math.max(0, Math.min(1, Number(props[`${key}W`] ?? 1)))
       const zh = Math.max(0, Math.min(1, Number(props[`${key}H`] ?? 1)))
+      // Rounded edges, as the sketch rounds them (floorf(v+0.5f)).
       const x0 = Math.round(zx * W), x1 = Math.min(W, Math.round((zx + zw) * W))
       const y0 = Math.round(zy * H), y1 = Math.min(H, Math.round((zy + zh) * H))
       for (let y = y0; y < y1; y++) {
@@ -584,6 +601,6 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     // `amount` is a 0–1 strength; FastLED's blur2d takes a 0–255 blur amount.
     const amount = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 0.15)))
     if (!src) { return { frame: blankFrame(W, H) } }
-    return { frame: evalBlur2D(src, amount * 255, W, H) }
+    return { frame: evalBlur2D(src, Math.trunc(amount * 255), W, H) }
   },
 }

@@ -33,6 +33,7 @@ import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
 import { wiredTransitionStyles } from '../state/patterns/patternCollectionWiring'
 import { SYMMETRY_HELPER_CPP } from './helpers/symmetryHelperCpp'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
+import { HSV_HELPER_CPP } from './helpers/hsvHelperCpp'
 import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
 import { POLINE_HELPER_CPP } from './helpers/polineHelperCpp'
 import { buildXYTable } from '../state/output/xyLayout'
@@ -257,6 +258,7 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   simplex: SIMPLEX_HELPER_CPP,
   symmetry: SYMMETRY_HELPER_CPP,
   hueMix: HUE_MIX_HELPER_CPP,
+  hsv: HSV_HELPER_CPP,
   wrapX: WRAP_X_HELPER_CPP,
   // Only a Poline with a wired anchor builds its palette at run time.
   poline: POLINE_HELPER_CPP,

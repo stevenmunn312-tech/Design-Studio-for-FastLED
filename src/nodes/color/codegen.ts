@@ -13,31 +13,34 @@ import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRg
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
 import { POLINE_HELPER_CPP, polinePositionId } from '../../codegen/helpers/polineHelperCpp'
-import { hexCrgbCpp, hsvHueCpp, levelByteCpp } from '../../codegen/colorControlCpp'
+import { hexCrgbCpp, hsvColorCpp } from '../../codegen/colorControlCpp'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 
 export const COLOR_EMITTERS: NodeEmitters = {
-  HueCycle({ id, ln, v, f, needsT }) {
+  HueCycle({ id, ln, v, f, needsT, needsHsv }) {
     needsT.v = true
+    needsHsv.v = true
     const rate = f('rate', 'rate', 0.1), s = f('s', 's', 1), val = f('v', 'v', 1)
     ln(`  CRGB ${v('color')};`)
     ln(`  {`)
     const ph = speedPhaseCpp(ln, phaseTag(id), rate)
-    ln(`    float _huePhase = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f); ${v('color')} = CHSV((uint8_t)(_huePhase * 256.0f), ${levelByteCpp(s)}, ${levelByteCpp(val)}); }`)
+    ln(`    float _huePhase = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f); ${v('color')} = _hsv(_huePhase * 360.0f, ${s}, ${val}); }`)
   },
   Color({ p, ln, v }) {
     ln(`  CRGB ${v('color')} = ${hexCrgbCpp(p.color, 0xff3080)};`)
   },
-  HSVToRGB({ p, ln, v, f }) {
-    ln(`  CRGB ${v('color')} = CHSV(${hsvHueCpp(p.hueUnits, f('h', 'h', 0))}, ${levelByteCpp(f('s', 's', 1))}, ${levelByteCpp(f('v', 'v', 1))});`)
+  HSVToRGB({ p, ln, v, f, needsHsv }) {
+    needsHsv.v = true
+    ln(`  CRGB ${v('color')} = ${hsvColorCpp(p.hueUnits, f('h', 'h', 0), f('s', 's', 1), f('v', 'v', 1))};`)
   },
-  // The inverse of HSVToRGB — via FastLED's rgb2hsv_approximate.
-  RGBToHSV({ id, ln, v, channelColor }) {
+  // The inverse of HSVToRGB, on the same wheel as the preview.
+  RGBToHSV({ id, ln, v, channelColor, needsHsv }) {
+    needsHsv.v = true
     const rgb = channelColor('rgb', 0, 0, 0)
-    ln(`  CHSV _hsv_${id} = rgb2hsv_approximate(${rgb});`)
-    ln(`  float ${v('h')} = _hsv_${id}.hue / 255.0f * 360.0f;`)
-    ln(`  float ${v('s')} = _hsv_${id}.sat / 255.0f;`)
-    ln(`  float ${v('v')} = _hsv_${id}.val / 255.0f;`)
+    ln(`  CRGB _hsv_${id} = ${rgb};`)
+    ln(`  float ${v('h')} = _rgbHue(_hsv_${id});`)
+    ln(`  float ${v('s')} = _rgbSat(_hsv_${id});`)
+    ln(`  float ${v('v')} = _rgbVal(_hsv_${id});`)
   },
   Temperature({ ln, v, f, needsMapFloat, needsKelvin }) {
     needsKelvin.v = true

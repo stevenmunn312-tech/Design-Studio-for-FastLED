@@ -16,6 +16,7 @@ import { RTC_CONTROL_OUTPUTS, rtcControlEmission, rtcTimeSource } from './periph
 import { RTC_CPP_FORWARD } from './peripherals/rtcCpp'
 import { webRemoteControlEmission } from './peripherals/webRemoteCpp'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
+import { HSV_HELPER_CPP } from './helpers/hsvHelperCpp'
 import { KELVIN_TO_RGB_CPP } from './helpers/kelvinCpp'
 
 export const MAX_CONTROL_GRAPH_NODES = 256
@@ -284,6 +285,7 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>, ti
       if (emitted.needsMapFloat) helpers.add(MAP_FLOAT_CPP)
       if (emitted.needsKelvin) helpers.add(KELVIN_TO_RGB_CPP)
       if (emitted.needsHueMix) helpers.add(HUE_MIX_HELPER_CPP)
+      if (emitted.needsHsv) helpers.add(HSV_HELPER_CPP)
       continue
     }
     if (instruction.kind === 'timed') {

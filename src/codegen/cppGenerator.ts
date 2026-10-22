@@ -123,6 +123,7 @@ import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
 import { SDF_HELPER_CPP } from './helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD, WORLEY_HASH_CPP } from './helpers/latticeHelperCpp'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
+import { HSV_HELPER_CPP } from './helpers/hsvHelperCpp'
 import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
 import { TRUCHET_HELPER_CPP } from './helpers/truchetHelperCpp'
 import { TURING_HELPER_CPP } from './helpers/turingHelperCpp'
@@ -831,6 +832,7 @@ export function generateCpp(
   const needsAtan16 = { v: false }
   const needsLatticeQ = { v: false }
   const needsHueMix = { v: false }
+  const needsHsv = { v: false }
   const needsWrapX = { v: false }
   const needsFrameSample = { v: false }
   const needsDisplayText = { number: false, dateTime: false }
@@ -899,7 +901,7 @@ export function generateCpp(
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
-    needsMapFloat, needsWorley, needsSimplex, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsLatticeQ, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
+    needsMapFloat, needsWorley, needsSimplex, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsLatticeQ, needsHueMix, needsHsv, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
     customDisplayOwners,
@@ -1430,6 +1432,11 @@ export function generateCpp(
 
   if (needsWrapX.v) {
     lines.push(WRAP_X_HELPER_CPP)
+    lines.push(``)
+  }
+
+  if (needsHsv.v) {
+    lines.push(HSV_HELPER_CPP)
     lines.push(``)
   }
 

@@ -222,7 +222,7 @@ describe('show scratch-buffer pool', () => {
     expect(scratch).toHaveLength(2)
     expect(decls.filter((d) => d!.persists).map((d) => d!.name)).toEqual(['p1_buf_b_1'])
     expect(cpp).not.toMatch(/\bp[02]_buf_/)
-    expect(cpp).toMatch(/fadeToBlackBy\(p1_buf_b_1,/)
+    expect(cpp).toMatch(/p1_buf_b_1\[_i\]=CRGB\(\(uint8_t\)\(p1_buf_b_1\[_i\]\.r\*_keep/)
     expect(cpp).toMatch(/nblend\(_pool_buf_0, _pool_buf_1,/)
   })
 

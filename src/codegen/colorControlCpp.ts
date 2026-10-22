@@ -8,28 +8,16 @@
 
 import { gradientMixMode, hueUnits } from '../state/palettes/hueMix'
 
-/*
- * Colour bytes from wireable floats. A bare `(uint8_t)(x * 255)` wraps a wired
- * 1.1 round to 25 and is undefined for a negative, where the preview's `hsv()`
- * clamps a level and wraps a hue. Both generators build CHSV bytes through
- * these so the board does what the preview does once a wire leaves the
- * slider's range; inside it they emit the same truncated byte as before.
+/** HSV → RGB's Hue in degrees for `_hsv`, which wraps it, from the node's units. */
+export function hsvDegreesCpp(units: unknown, hue: string): string {
+  return hueUnits(units) === 'bytes' ? `(${hue})*(360.0f/255.0f)` : `(${hue})`
+}
+/**
+ * HSV → RGB through `_hsv` (helpers/hsvHelperCpp.ts), the preview's wheel.
+ * CHSV is FastLED's rainbow wheel, which put 60 degrees at orange.
  */
-/** A 0–1 level as a 0–255 byte. */
-export function levelByteCpp(level: string): string {
-  return `(uint8_t)(constrain(${level}, 0.0f, 1.0f) * 255.0f)`
-}
-/** Degrees as a CHSV hue, wrapped round the wheel. */
-export function degreesHueCpp(degrees: string): string {
-  return `(uint8_t)(fmodf(fmodf(${degrees}, 360.0f) + 360.0f, 360.0f) / 360.0f * 255.0f)`
-}
-/** A FastLED 0–255 hue, wrapped round the wheel. */
-export function hueByteCpp(hue: string): string {
-  return `(uint8_t)fmodf(fmodf(${hue}, 256.0f) + 256.0f, 256.0f)`
-}
-/** HSV → RGB's Hue as a CHSV hue, read in the units the node declares. */
-export function hsvHueCpp(units: unknown, hue: string): string {
-  return hueUnits(units) === 'bytes' ? hueByteCpp(hue) : degreesHueCpp(hue)
+export function hsvColorCpp(units: unknown, h: string, s: string, v: string): string {
+  return `_hsv(${hsvDegreesCpp(units, h)}, ${s}, ${v})`
 }
 /** A `#rrggbb` property as a CRGB literal; anything else is `fallback` (0xRRGGBB). */
 export function hexCrgbCpp(hex: unknown, fallback: number): string {
@@ -82,7 +70,7 @@ export function colorControlCpp(
   floats: Readonly<Record<string, string>>,
   colors: Readonly<Record<string, string>>,
   time: string,
-): { loop: string[]; needsMapFloat: boolean; needsKelvin: boolean; needsHueMix: boolean; needsTime: boolean } | null {
+): { loop: string[]; needsMapFloat: boolean; needsKelvin: boolean; needsHueMix: boolean; needsHsv: boolean; needsTime: boolean } | null {
   const spec = COLOR_CONTROL_NODES[type]
   if (!spec) return null
   const colorPort = Object.entries(spec.outputs).find(([, kind]) => kind === 'color')?.[0]
@@ -91,12 +79,14 @@ export function colorControlCpp(
   let needsMapFloat = false
   let needsKelvin = false
   let needsHueMix = false
+  let needsHsv = false
   switch (type) {
     case 'Color':
       loop = [`  CRGB ${color} = ${hexCrgbCpp(props.color, 0xff3080)};`]
       break
     case 'HSVToRGB':
-      loop = [`  CRGB ${color} = CHSV(${hsvHueCpp(props.hueUnits, floats.h)}, ${levelByteCpp(floats.s)}, ${levelByteCpp(floats.v)});`]
+      needsHsv = true
+      loop = [`  CRGB ${color} = ${hsvColorCpp(props.hueUnits, floats.h, floats.s, floats.v)};`]
       break
     case 'Temperature':
       needsKelvin = true
@@ -109,8 +99,9 @@ export function colorControlCpp(
     case 'HueCycle':
       loop = [
         `  CRGB ${color};`,
-        `  { float _huePhase = fmodf(fmodf(${time} * (${floats.rate}), 1.0f) + 1.0f, 1.0f); ${color} = CHSV((uint8_t)(_huePhase * 256.0f), ${levelByteCpp(floats.s)}, ${levelByteCpp(floats.v)}); }`,
+        `  { float _huePhase = fmodf(fmodf(${time} * (${floats.rate}), 1.0f) + 1.0f, 1.0f); ${color} = _hsv(_huePhase * 360.0f, ${floats.s}, ${floats.v}); }`,
       ]
+      needsHsv = true
       break
     case 'GradientSampler': {
       const tt = `(${floats.t})`
@@ -128,14 +119,15 @@ export function colorControlCpp(
     }
     case 'RGBToHSV':
       loop = [
-        `  CHSV _hsv_${id} = rgb2hsv_approximate(${colors.rgb});`,
-        `  float n_${id}_h = _hsv_${id}.hue / 255.0f * 360.0f;`,
-        `  float n_${id}_s = _hsv_${id}.sat / 255.0f;`,
-        `  float n_${id}_v = _hsv_${id}.val / 255.0f;`,
+        `  CRGB _hsv_${id} = ${colors.rgb};`,
+        `  float n_${id}_h = _rgbHue(_hsv_${id});`,
+        `  float n_${id}_s = _rgbSat(_hsv_${id});`,
+        `  float n_${id}_v = _rgbVal(_hsv_${id});`,
       ]
+      needsHsv = true
       break
     default:
       return null
   }
-  return { loop, needsMapFloat, needsKelvin, needsHueMix, needsTime: spec.needsTime === true }
+  return { loop, needsMapFloat, needsKelvin, needsHueMix, needsHsv, needsTime: spec.needsTime === true }
 }

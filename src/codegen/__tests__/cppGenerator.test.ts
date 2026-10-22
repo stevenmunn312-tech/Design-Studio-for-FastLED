@@ -973,8 +973,9 @@ describe('generateCpp', () => {
   it('emits an HSV To RGB node in FastLED byte hue units', () => {
     const hsv = node('c', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 128, s: 1, v: 0.8 })
     const cpp = generateCpp([hsv], [])
-    // The 0–255 hue wraps round the wheel; s and v are 0–1 levels scaled to bytes.
-    expect(cpp).toContain('CRGB n_c_color = CHSV((uint8_t)fmodf(fmodf(128, 256.0f) + 256.0f, 256.0f), (uint8_t)(constrain(1, 0.0f, 1.0f) * 255.0f), (uint8_t)(constrain(0.8, 0.0f, 1.0f) * 255.0f));')
+    // The 0–255 hue becomes degrees on the preview's wheel, which _hsv wraps.
+    expect(cpp).toContain('CRGB n_c_color = _hsv((128)*(360.0f/255.0f), 1, 0.8);')
+    expect(cpp.match(/^CRGB _hsv\(float h, float s, float v\) \{$/gm)).toHaveLength(1)
   })
 
   it('emits a time-based HueCycle color in cycles per second', () => {
@@ -990,10 +991,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float t = millis() / 1000.0f;')
     expect(cpp).toContain('t * (0.25)')
     expect(cpp).toContain('fmodf(fmodf(_phase_hc, 1.0f) + 1.0f, 1.0f)')
-    expect(cpp).toContain('n_hc_color = CHSV((uint8_t)(_huePhase * 256.0f)')
-    // Bounded as the preview's hsv() bounds them, so a wired 1.1 cannot wrap.
-    expect(cpp).toContain('(uint8_t)(constrain(0.8, 0.0f, 1.0f) * 255.0f)')
-    expect(cpp).toContain('(uint8_t)(constrain(0.7, 0.0f, 1.0f) * 255.0f)')
+    expect(cpp).toContain('n_hc_color = _hsv(_huePhase * 360.0f, 0.8, 0.7);')
     expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, n_hc_color);')
   })
 
@@ -2751,7 +2749,7 @@ describe('generateCpp', () => {
       edge('e3', 'lb', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB buf_b[NUM_LEDS];')
-    expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)((0.5) * 255))')
+    expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)(constrain(0.5,0.0f,1.0f) * 255))')
     // The terminal node renders into `leds` directly — no second buffer to
     // copy — and blends onto A in place, so A renders there too.
     expect(cpp).toContain('CRGB* const buf_lb = leds;')
@@ -5169,8 +5167,8 @@ describe('Zones', () => {
     // Zones works on the base in place, so the base renders into `leds`.
     expect(cpp).toContain('CRGB* const buf_zbase = leds;')
     expect(cpp).not.toContain('::memmove(buf_zn, buf_zbase,')
-    expect(cpp).toContain('for (int _y=(int)(0.0f*HEIGHT); _y<(int)(1.0f*HEIGHT) && _y<HEIGHT; _y++)')
-    expect(cpp).toContain('for (int _x=(int)(0.0f*WIDTH); _x<(int)(0.5f*WIDTH) && _x<WIDTH; _x++)')
+    expect(cpp).toContain('for (int _y=(int)floorf(0.0f*HEIGHT+0.5f); _y<(int)floorf(1.0f*HEIGHT+0.5f) && _y<HEIGHT; _y++)')
+    expect(cpp).toContain('for (int _x=(int)floorf(0.0f*WIDTH+0.5f); _x<(int)floorf(0.5f*WIDTH+0.5f) && _x<WIDTH; _x++)')
     expect(cpp).toContain('buf_zn[_y*WIDTH+_x] = buf_za[_y*WIDTH+_x];')
   })
 
@@ -5197,8 +5195,8 @@ describe('Trails (feedback/persistence)', () => {
     // Persistent, so never `leds`: the output dims that in place every frame.
     expect(cpp).toContain('CRGB buf_tr[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('::memmove(leds, buf_tr, sizeof(CRGB) * NUM_LEDS);')
-    expect(cpp).toContain('float _decay = constrain(0.4,0.0f,1.0f); _decay = _decay*_decay*_decay;')
-    expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, (uint8_t)(_decay*255.0f));')
+    expect(cpp).toContain('float _decay = constrain(0.4,0.0f,1.0f); float _keep = 1.0f - _decay*_decay*_decay;')
+    expect(cpp).toContain('buf_tr[_i]=CRGB((uint8_t)(buf_tr[_i].r*_keep+0.5f),')
     expect(cpp).toContain('if(buf_sc[_i].r>buf_tr[_i].r)buf_tr[_i].r=buf_sc[_i].r;')
     // No memmove/fill_solid seeding buf_tr from buf_sc — it must persist across frames.
     expect(cpp).not.toContain('::memmove(buf_tr')
@@ -5359,15 +5357,14 @@ describe('Pride2015 / Pacifica (codegen)', () => {
 })
 
 describe('Saturation / RGBToHSV (codegen)', () => {
-  it('Saturation scales sat via rgb2hsv_approximate and reconstructs with CHSV', () => {
+  it('Saturation scales sat on the preview wheel', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 200, g: 50, b: 50 })
     const satn = node('satn', 'Saturation', 'composite', { amount: 0 })
     const cpp = generateCpp(
       [sc, satn, outputNode],
       [edge('e1', 'sc', 'satn', 'frame', 'frame'), edge('e2', 'satn', 'out', 'frame', 'frame')],
     )
-    expect(cpp).toContain('rgb2hsv_approximate(buf_satn[_i])')
-    expect(cpp).toContain('_hs.sat * (0)')
+    expect(cpp).toContain('float _sm = 0; for (int _i = 0; _i < NUM_LEDS; _i++) buf_satn[_i] = _hsvAdjust(buf_satn[_i], 0.0f, _sm);')
   })
 
   it('ColorBoost emits luminance-preserving channel scaling', () => {
@@ -5440,8 +5437,8 @@ describe('Saturation / RGBToHSV (codegen)', () => {
         edge('e4', 'bm', 'out', 'frame', 'frame'),
       ],
     )
-    expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(n_c_rgb);')
-    expect(cpp).toContain('float n_rh_v = _hsv_rh.val / 255.0f;')
+    expect(cpp).toContain('CRGB _hsv_rh = n_c_rgb;')
+    expect(cpp).toContain('float n_rh_v = _rgbVal(_hsv_rh);')
     // Only V is wired; the hue and saturation ports are never read.
     expect(cpp).not.toContain('n_rh_h')
     expect(cpp).not.toContain('n_rh_s')
@@ -5450,7 +5447,7 @@ describe('Saturation / RGBToHSV (codegen)', () => {
   it('RGBToHSV emits its editable color fallback when unwired', () => {
     const rh = node('rh', 'RGBToHSV', 'color', { r: 0, g: 255, b: 0 })
     const cpp = generateCpp([rh], [])
-    expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(CRGB(0, 255, 0));')
+    expect(cpp).toContain('CRGB _hsv_rh = CRGB(0, 255, 0);')
   })
 })
 

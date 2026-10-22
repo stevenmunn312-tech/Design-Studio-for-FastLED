@@ -40,8 +40,10 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
       const zy = Math.max(0, Math.min(1, Number(p[`${key}Y`] ?? 0)))
       const zw = Math.max(0, Math.min(1, Number(p[`${key}W`] ?? 1)))
       const zh = Math.max(0, Math.min(1, Number(p[`${key}H`] ?? 1)))
-      ln(`  for (int _y=(int)(${floatLit(zy)}*HEIGHT); _y<(int)(${floatLit(zy + zh)}*HEIGHT) && _y<HEIGHT; _y++)`)
-      ln(`    for (int _x=(int)(${floatLit(zx)}*WIDTH); _x<(int)(${floatLit(zx + zw)}*WIDTH) && _x<WIDTH; _x++)`)
+      // Edges round like the preview's Math.round; truncating moved a zone a column.
+      const edge = (frac: number, dim: string) => `(int)floorf(${floatLit(frac, 6)}*${dim}+0.5f)`
+      ln(`  for (int _y=${edge(zy, 'HEIGHT')}; _y<${edge(zy + zh, 'HEIGHT')} && _y<HEIGHT; _y++)`)
+      ln(`    for (int _x=${edge(zx, 'WIDTH')}; _x<${edge(zx + zw, 'WIDTH')} && _x<WIDTH; _x++)`)
       ln(`      ${ob}[_y*WIDTH+_x] = ${zbuf}[_y*WIDTH+_x];`)
     }
   },
@@ -54,10 +56,12 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     if (!src) { ln(`  fill_solid(${ownBuf()}, NUM_LEDS, CRGB::Black);`); return }
     const ob = ownBuf({ persists: true })
     const decay = f('decay', 'decay', 0.15)
-    ln(`  { // Trails: fadeToBlackBy(decay^3) then re-lighten from the input (per-channel max)`)
-    ln(`    float _decay = constrain(${decay},0.0f,1.0f); _decay = _decay*_decay*_decay;`)
-    ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_decay*255.0f));`)
+    // Each channel keeps round(c*(1-decay^3)), as the preview does. A byte
+    // fadeToBlackBy truncated any decay under ~0.16 to no fade at all.
+    ln(`  { // Trails: keep 1-decay^3 of each channel, then re-lighten from the input (per-channel max)`)
+    ln(`    float _decay = constrain(${decay},0.0f,1.0f); float _keep = 1.0f - _decay*_decay*_decay;`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
+    ln(`      ${ob}[_i]=CRGB((uint8_t)(${ob}[_i].r*_keep+0.5f),(uint8_t)(${ob}[_i].g*_keep+0.5f),(uint8_t)(${ob}[_i].b*_keep+0.5f));`)
     ln(`      if(${src}[_i].r>${ob}[_i].r)${ob}[_i].r=${src}[_i].r;`)
     ln(`      if(${src}[_i].g>${ob}[_i].g)${ob}[_i].g=${src}[_i].g;`)
     ln(`      if(${src}[_i].b>${ob}[_i].b)${ob}[_i].b=${src}[_i].b;}`)
@@ -188,19 +192,19 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     if (mask) ln(`    for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i].nscale8((${mask}[_i].r + ${mask}[_i].g + ${mask}[_i].b) / 3);`)
     ln(`  }`)
   },
-  HueShift({ ln, f, ownBuf, seedFrom }) {
+  // Shift is in turns; _hsv wraps any hue, so a negative or >1 shift is safe.
+  HueShift({ ln, f, ownBuf, seedFrom, needsHsv }) {
+    needsHsv.v = true
     const ob = ownBuf()
     const shift = f('shift', 'shift', 0)
-    ln(`  { ${seedFrom('frame')} uint8_t _sh = (uint8_t)((${shift}) * 255); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CHSV(rgb2hsv_approximate(${ob}[_i]).hue + _sh, rgb2hsv_approximate(${ob}[_i]).sat, rgb2hsv_approximate(${ob}[_i]).val); }`)
+    ln(`  { ${seedFrom('frame')} float _dh = (${shift}) * 360.0f; for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], _dh, 1.0f); }`)
   },
-  // RGB→HSV (rgb2hsv_approximate)→scale saturation→CHSV back to RGB.
-  Saturation({ ln, f, ownBuf, seedFrom }) {
+  // RGB→HSV→scale saturation→RGB, on the preview's wheel.
+  Saturation({ ln, f, ownBuf, seedFrom, needsHsv }) {
+    needsHsv.v = true
     const ob = ownBuf()
     const amount = f('amount', 'amount', 1)
-    ln(`  { ${seedFrom('frame')} for (int _i = 0; _i < NUM_LEDS; _i++) {`)
-    ln(`      CHSV _hs = rgb2hsv_approximate(${ob}[_i]);`)
-    ln(`      uint8_t _s2 = (uint8_t)constrain((float)_hs.sat * (${amount}), 0.0f, 255.0f);`)
-    ln(`      ${ob}[_i] = CHSV(_hs.hue, _s2, _hs.val); } }`)
+    ln(`  { ${seedFrom('frame')} float _sm = ${amount}; for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], 0.0f, _sm); }`)
   },
   ColorBoost({ ln, f, ownBuf, seedFrom }) {
     const ob = ownBuf()
@@ -304,7 +308,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     } else if (mode === 'normal' && perPixel) {
       ln(`    for(int _i=0;_i<NUM_LEDS;_i++) nblend(${ob}[_i], ${b}[_i], ${perPixel}); }`)
     } else if (mode === 'normal') {
-      ln(`    nblend(${ob}, ${b}, NUM_LEDS, (uint8_t)((${amt}) * 255)); }`)
+      ln(`    nblend(${ob}, ${b}, NUM_LEDS, (uint8_t)(constrain(${amt},0.0f,1.0f) * 255)); }`)
     } else {
       // Integer blend (shared/integerPatterns.ts): the opacity is a byte, a
       // mask's brightness scales it per pixel.
