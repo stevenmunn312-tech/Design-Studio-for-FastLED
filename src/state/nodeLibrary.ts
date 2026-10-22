@@ -47,7 +47,8 @@ import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/play
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
 import { RENDER_SCALE_OPTIONS } from './output/renderScale'
-import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesPositions } from './output/stringPositions'
+import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
+import { NETWORK_LEDS_PER_EDGE, NETWORK_PRESETS } from './output/segmentNetwork'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/pixelDataExtender'
 import { relayChannelPropertyEnabled, relayPinKeys } from './peripherals/relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, powerSwitchChannelPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
@@ -792,6 +793,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     positionsWidth: { control: 'slider', min: 2, max: MAX_MATRIX_SIDE, step: 1 },
     positionsHeight: { control: 'slider', min: 1, max: MAX_MATRIX_SIDE, step: 1 },
     positionsMmPerUnit: { control: 'slider', min: 1, max: POSITIONS_MM_PER_UNIT_MAX, step: 1 },
+    networkPreset: { control: 'select', options: NETWORK_PRESETS },
+    ledsPerEdge: { control: 'slider', min: NETWORK_LEDS_PER_EDGE.min, max: NETWORK_LEDS_PER_EDGE.max, step: 1 },
     routeMode: { control: 'select', options: ['native', 'fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
     routeY: { control: 'slider', min: 0, max: 63, step: 1 },
@@ -1653,11 +1656,14 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
   overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',
-  stripLayout: 'Line runs the string as a straight row. Positions places each LED at its own spot on a canvas, so a string hung in a curve, or wound round a shape, shows the part of the picture it actually sits over.',
+  stripLayout: 'Line runs the string as a straight row. Positions places each LED at its own spot on a canvas, so a string hung in a curve, or wound round a shape, shows the part of the picture it actually sits over. Network lays the string along the edges of a small graph, hexagons or triangles, edge by edge in wiring order.',
   positionsPreset: 'Catenary hangs the string in a sag between two points along the top of the canvas (the sailboat mast lights). Custom reads the positions list.',
   positionsWidth: 'Width of the canvas the string sits on, in pixels. Positions are measured in these units.',
   positionsHeight: 'Height of the canvas the string sits on, in pixels.',
   positionsMmPerUnit: 'How long one canvas pixel is on the bench, in millimetres, so the Build Diagram can show the span the string covers. Catenary works it out from the tape length and ignores this.',
+  networkPreset: 'Hexagons is four pointy-top hexagons in two rows, 19 edges. Triangles is a triangle of side three, 18 edges. Custom reads the network JSON.',
+  network: 'A custom network as JSON: {"nodes": [[x, y], …], "edges": [[from, to], …]} with positions in canvas pixels and edges as node indices in wiring order, from to to. Up to 64 nodes and 128 edges. An unreadable network shows the hexagons instead.',
+  ledsPerEdge: 'LEDs along each edge of the network. The string has this many times the number of edges, capped at 300 LEDs in all.',
   positions: 'One x,y pair per LED in wire order, in canvas pixels, for example 2,3 4.5,3.5 7,4. Separate with commas, spaces or new lines. Needs a pair for every LED, otherwise the LEDs fall back to a straight row across the middle.',
   renderScale: 'Render the graph at half the panel resolution and upscale it smoothly onto the LEDs. It quarters the render cost and memory on a large panel, and the picture is softer. Turn off Supersample first: the two cannot combine.',
   whitePoint: "The colour temperature the LEDs treat as white (FastLED.setTemperature), for example Tungsten100W for a warmer white. It scales the red, green and blue channels, so it lowers brightness, and it doesn't change the live preview. Dimming stays linear in light output.",
@@ -3594,6 +3600,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     positionsWidth: 'width',
     positionsHeight: 'height',
     positionsMmPerUnit: 'mm per pixel',
+    networkPreset: 'network',
+    network: 'network JSON',
+    ledsPerEdge: 'LEDs per edge',
     routeMode: 'route',
     routeX: 'offset X',
     routeY: 'offset Y',
@@ -3977,7 +3986,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'hub75ClkPin', 'hub75LatPin', 'hub75OePin', 'hub75ColorDepthBits',
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
-    { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'positionsWidth', 'positionsHeight', 'positionsMmPerUnit', 'positions'] },
+    { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'networkPreset', 'ledsPerEdge', 'positionsWidth', 'positionsHeight', 'positionsMmPerUnit', 'positions', 'network'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'renderScale', 'correction', 'whitePoint', 'dither'] },
     // The least-used group last: a crop offset into a larger frame.
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
@@ -5033,7 +5042,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     const hub75 = form === 'hub75'
     const linear = isLinearForm(form)
     // Chain forms are a length; a matrix and a panel are a grid.
-    if (key === 'ledCount') return linear
+    if (key === 'ledCount') return linear && !usesNetwork(properties)
     if (key === 'width' || key === 'height') return !linear
     if (key === 'ringStartAngle' || key === 'ringDirection') return form === 'ring'
     if (key === 'corkscrewTurns' || key === 'corkscrewStartAngle' || key === 'corkscrewDirection'
@@ -5069,8 +5078,12 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     // A positioned layout is a string-only choice, and its sub-settings only
     // matter once it is chosen.
     if (key === 'stripLayout') return form === 'strip'
-    if (key === 'positionsPreset' || key === 'positionsWidth' || key === 'positionsHeight') return usesPositions(properties)
-    if (key === 'positions' || key === 'positionsMmPerUnit') return usesPositions(properties) && properties.positionsPreset !== 'catenary'
+    if (key === 'positionsWidth' || key === 'positionsHeight') return usesPositions(properties)
+    if (key === 'positionsPreset') return usesPositions(properties) && !usesNetwork(properties)
+    if (key === 'positions') return usesPositions(properties) && !usesNetwork(properties) && properties.positionsPreset !== 'catenary'
+    if (key === 'positionsMmPerUnit') return usesPositions(properties) && (usesNetwork(properties) || properties.positionsPreset !== 'catenary')
+    if (key === 'networkPreset' || key === 'ledsPerEdge') return usesNetwork(properties)
+    if (key === 'network') return usesNetwork(properties) && properties.networkPreset === 'custom'
   }
   if (nodeType === 'Mirror' && key === 'glowAmount') {
     return properties.glow === true

@@ -194,6 +194,11 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       positionsMmPerUnit: 10,
       // "x,y" pairs in canvas units, one per LED, any separators.
       positions: '',
+      // Network layout: a preset graph or custom JSON `{ nodes, edges }`, and
+      // the LEDs along each edge; ledCount is derived (src/state/output/segmentNetwork.ts).
+      networkPreset: 'hexagons',
+      network: '',
+      ledsPerEdge: 14,
       // The Frame cable into each LED output is an explicit hardware route.
       // Native renders the graph at this output's own geometry. Fit/crop opt
       // into the shared composition canvas for intentional multi-panel work.

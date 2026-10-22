@@ -12,7 +12,7 @@
 // how many LEDs there are, what the composition canvas looks like, which
 // editors apply — follows from it.
 
-import { positionCanvasDims, usesPositions } from './stringPositions'
+import { positionCanvasDims, stringLedCount, usesPositions } from './stringPositions'
 
 /** The output forms the authoring geometry understands. */
 export type LedOutputForm = 'strip' | 'matrix' | 'ring' | 'corkscrew' | 'hub75'
@@ -73,7 +73,7 @@ export function isLinearForm(form: LedOutputForm): boolean {
  */
 export function outputLedTotal(props: Record<string, unknown>): number {
   const form = outputForm(props)
-  if (isLinearForm(form)) return int(props.ledCount, 60, 1, MAX_LED_RUN)
+  if (isLinearForm(form)) return Math.min(MAX_LED_RUN, stringLedCount(props))
   return int(props.width, 16, 1, MAX_MATRIX_SIDE) * int(props.height, 16, 1, MAX_MATRIX_SIDE)
 }
 
@@ -87,7 +87,7 @@ export function outputLedTotal(props: Record<string, unknown>): number {
  */
 export function outputGridDims(props: Record<string, unknown>): { width: number; height: number } {
   const form = outputForm(props)
-  if (isLinearForm(form)) return { width: int(props.ledCount, 60, 1, MAX_LED_RUN), height: 1 }
+  if (isLinearForm(form)) return { width: Math.min(MAX_LED_RUN, stringLedCount(props)), height: 1 }
   return {
     width: int(props.width, 16, 1, MAX_MATRIX_SIDE),
     height: int(props.height, 16, 1, MAX_MATRIX_SIDE),

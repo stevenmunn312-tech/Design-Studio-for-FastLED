@@ -5,8 +5,8 @@ Design for root todo D-06, pulled into v1 on 2026-10-21 from
 Two pieces, in this order: positioned strings measured in millimetres, so the
 Build Diagram can draw a string where it hangs; then segment networks, a
 string laid along the edges of a graph with a `Ripple` pattern that travels
-node to node, the Chromancer model. Written 2026-10-22. Part 1 shipped the
-same day; Part 2 is not implemented yet.
+node to node, the Chromancer model. Written 2026-10-22. Part 1 and the
+network model (step 2) shipped the same day; the editor and `Ripple` are open.
 
 ## Where this starts
 
@@ -81,10 +81,17 @@ interface SegmentNetwork {
 ```
 
 Properties on the string output: `stripLayout` gains `'network'`;
-`networkPreset` is `'hexagon' | 'triangles' | 'custom'` (the hexagon is
-Chromancer's lattice, triangles a 4-wide triangular lattice), `network` is the
-custom JSON above, `ledsPerEdge` is shared. `ledCount` is derived
-(`edges × ledsPerEdge`) and shown, not edited, while the layout is a network.
+`networkPreset` is `'hexagons' | 'triangles' | 'custom'` (hexagons: four
+pointy-top cells in two rows, 16 nodes and 19 edges; triangles: a triangle of
+side three subdivided, 10 nodes and 18 edges), `network` is the custom JSON
+above, `ledsPerEdge` is shared and clamped so the string never passes 300
+LEDs. `ledCount` is derived (`edges × ledsPerEdge`, `stringLedCount`) and
+hidden while the layout is a network; `outputLedTotal` and `outputGridDims`
+read the derived count. A custom JSON that does not parse falls back to the
+hexagons (`source: 'fallback'`) so the string never lights nothing. The
+model, presets, parser, canvas fit and LED placement live in
+`src/state/output/segmentNetwork.ts`, import-free like `stringPositions.ts`,
+which reads it.
 Positions follow from the model: each edge's LEDs sit at
 `from + (i + 0.5) / ledsPerEdge × (to − from)`, and from there the string is a
 positioned string. **The network layout is a generator of positions**, so
@@ -161,7 +168,8 @@ adds nothing beyond the node's own frame buffer.
    **Shipped 2026-10-22.**
 2. `SegmentNetwork` model, presets, `stripLayout: 'network'` through
    `stringPositions()`, derived `ledCount`. Tests: positions from a network,
-   edge order, limits, baked table parity.
+   edge order, limits, baked table parity. **Shipped 2026-10-22** (the JSON
+   is typed until the editor lands).
 3. The layout editor. Tests: add, connect, flip, reorder, Escape.
 4. `Ripple`: shared kernel, evaluator, codegen, help entry with a live example,
    README count. Tests: each behaviour's node choice on the hexagon, lifetime,

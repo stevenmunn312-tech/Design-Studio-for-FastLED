@@ -8,10 +8,16 @@
 // sketch take their four source pixels and weights from `positionTap`, so both
 // light an LED from the same place.
 //
-// Deliberately free of imports: `ledOutputForm.ts` asks for the canvas size, so
-// this module cannot import it back.
+// Deliberately free of imports (segmentNetwork.ts is import-free too):
+// `ledOutputForm.ts` asks for the canvas size, so this module cannot import
+// it back.
 
-export const STRIP_LAYOUTS = ['line', 'positions'] as const
+import {
+  fitNetworkToCanvas, networkLedsPerEdge, networkPositions, parseSegmentNetwork, presetNetwork,
+  type NetworkPreset, type SegmentNetwork,
+} from './segmentNetwork'
+
+export const STRIP_LAYOUTS = ['line', 'positions', 'network'] as const
 export type StripLayout = (typeof STRIP_LAYOUTS)[number]
 
 export const POSITION_PRESETS = ['custom', 'catenary'] as const
@@ -32,8 +38,11 @@ export interface StringPositions {
   /** The same points, interleaved x, y and rounded to 1/256 of a canvas unit —
    *  the table the sketch bakes. */
   fixed: number[]
-  /** Where the points came from; `fallback` means a custom list was unusable. */
-  source: 'catenary' | 'custom' | 'fallback'
+  /** Where the points came from; `fallback` means a custom list or network
+   *  was unusable and a stand-in (a row, the hexagons) is shown instead. */
+  source: 'catenary' | 'custom' | 'network' | 'fallback'
+  /** The network the points were generated from, fitted to the canvas. */
+  network?: SegmentNetwork
 }
 
 function int(value: unknown, fallback: number, min: number, max: number): number {
@@ -41,9 +50,41 @@ function int(value: unknown, fallback: number, min: number, max: number): number
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback
 }
 
-/** True when a string output is laid out by positions rather than as a line. */
+/** True when a string output is laid out by positions rather than as a line:
+ *  a positions list, or a segment network that generates one. */
 export function usesPositions(props: Record<string, unknown> | undefined | null): boolean {
-  return !!props && props.form === 'strip' && props.stripLayout === 'positions'
+  return !!props && props.form === 'strip' && (props.stripLayout === 'positions' || props.stripLayout === 'network')
+}
+
+/** True when the string is laid along a segment network's edges. */
+export function usesNetwork(props: Record<string, unknown> | undefined | null): boolean {
+  return !!props && props.form === 'strip' && props.stripLayout === 'network'
+}
+
+/**
+ * The segment network a string follows, fitted to its canvas, with the LEDs
+ * per edge it can afford. Null for any other layout. A custom JSON that does
+ * not parse falls back to the hexagons so the string never lights nothing.
+ */
+export function stringNetwork(props: Record<string, unknown> | undefined | null): { network: SegmentNetwork; ledsPerEdge: number; source: 'network' | 'fallback' } | null {
+  if (!props || !usesNetwork(props)) return null
+  const preset = (props.networkPreset === 'triangles' || props.networkPreset === 'custom' ? props.networkPreset : 'hexagons') as NetworkPreset
+  const custom = preset === 'custom' ? parseSegmentNetwork(props.network) : null
+  const shape = custom ?? presetNetwork(preset === 'custom' ? 'hexagons' : preset)
+  const { width, height } = positionCanvasDims(props)
+  return {
+    network: fitNetworkToCanvas(shape, width, height),
+    ledsPerEdge: networkLedsPerEdge(props.ledsPerEdge, shape.edges.length),
+    source: preset === 'custom' && !custom ? 'fallback' : 'network',
+  }
+}
+
+/** How many LEDs a string has: its `ledCount`, or for a network the edges
+ *  times the LEDs on each, which the property grid shows rather than edits. */
+export function stringLedCount(props: Record<string, unknown>, fallback = 60): number {
+  const network = stringNetwork(props)
+  if (network) return network.network.edges.length * network.ledsPerEdge
+  return int(props.ledCount, fallback, 1, MAX_LEDS)
 }
 
 /** The canvas a positioned string reads: its own, not the string's N x 1. */
@@ -90,17 +131,23 @@ const cache = new Map<string, StringPositions>()
  */
 export function stringPositions(props: Record<string, unknown> | undefined | null): StringPositions | null {
   if (!props || !usesPositions(props)) return null
-  const count = int(props.ledCount, 60, 1, MAX_LEDS)
+  const network = stringNetwork(props)
+  const count = network ? network.network.edges.length * network.ledsPerEdge : int(props.ledCount, 60, 1, MAX_LEDS)
   const { width: w, height: h } = positionCanvasDims(props)
   const preset: PositionPreset = props.positionsPreset === 'catenary' ? 'catenary' : 'custom'
-  const text = preset === 'custom' ? String(props.positions ?? '') : ''
-  const key = `${count}|${w}|${h}|${preset}|${text}`
+  const text = network
+    ? `${String(props.networkPreset ?? '')}|${String(props.network ?? '')}`
+    : preset === 'custom' ? String(props.positions ?? '') : ''
+  const key = `${network ? 'network' : preset}|${count}|${w}|${h}|${text}`
   const hit = cache.get(key)
   if (hit) return hit
 
   let points: Array<[number, number]>
   let source: StringPositions['source']
-  if (preset === 'catenary') {
+  if (network) {
+    points = networkPositions(network.network, network.ledsPerEdge)
+    source = network.source
+  } else if (preset === 'catenary') {
     points = catenaryPoints(count, w, h)
     source = 'catenary'
   } else {
@@ -115,7 +162,7 @@ export function stringPositions(props: Record<string, unknown> | undefined | nul
   }
   const clamped = points.map(([x, y]) => [Math.min(Math.max(x, 0), w), Math.min(Math.max(y, 0), h)] as [number, number])
   const fixed = clamped.flatMap(([x, y]) => [Math.round(x * POSITION_FIXED_SCALE), Math.round(y * POSITION_FIXED_SCALE)])
-  const result: StringPositions = { canvasW: w, canvasH: h, points: clamped, fixed, source }
+  const result: StringPositions = { canvasW: w, canvasH: h, points: clamped, fixed, source, ...(network ? { network: network.network } : {}) }
   if (cache.size > 64) cache.clear()
   cache.set(key, result)
   return result
