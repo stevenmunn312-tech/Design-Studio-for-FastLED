@@ -419,6 +419,16 @@ Unless a future row says otherwise, treat the following as experimental:
   that the classic I2S driver may be unreliable on ESP-IDF 5. Graduating each
   driver needs a dated row driving several outputs under Wi-Fi load.
 
+- **Several boards in one project** (root todo, D-03): a second controller
+  on the bench, its own parts and sketch, and the clock-sync protocol that
+  keeps boards on one animation clock and one show pattern over UDP
+  ([design](../design/multi-board.md)). Generated and tested against the
+  preview only; no multi-board sketch has been compiled or run, and the
+  bench row is in the root todo, section 4.
+- **Library bundles** (patterns, palettes, collections by file, clipboard or
+  link) are software-only and need no hardware row; trust on import is
+  decided when the content reaches the canvas
+  ([design](../design/library-sharing.md)).
 - All browsers except the exact Chrome builds named by a supported row above.
 - All host OS + browser combinations except the exact Windows 11 Home (build
   10.0.26200) + Chrome combinations named by a supported row above.

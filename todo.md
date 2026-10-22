@@ -274,6 +274,17 @@ chooses the supported combinations from whatever is on record at release.
 
 ### Network and data links
 
+- **D-03 multi-board sync:** two ESP32 boards on one Wi-Fi network, the
+  primary leading, running the same pattern and then the same collection
+  show: the follower's clock offset settles and the two stay on one pattern
+  through transitions, and the follower resumes its own picks five seconds
+  after the leader is unplugged. Compile both partitions first; no
+  multi-board sketch has compiled yet.
+- **D-03 UNO R4 WiFi networking:** NTP sync and Art-Net receive through
+  WiFiS3 on an Arduino UNO R4 WiFi: first compile on arduino-cli (the
+  `ARDUINO_UNOWIFIR4` define, `WiFiS3.h`, `setHostname` and the
+  DNS-second `config` order are assumed from the core), then an NTP-synced
+  Clock Display and a desk-driven Art-Net universe.
 - **D-05 wired Ethernet:** the WIZ850io on a real network: link-up, DHCP and
   static addressing, Art-Net over the cable, NTP sync, and cable pull/replug
   recovery; the row's requirements are in the support matrix.
@@ -286,13 +297,6 @@ chooses the supported combinations from whatever is on record at release.
 
 ## 5. Release track (in order)
 
-- [ ] **D-03 · Multi-board, library sharing and UNO R4 networking (L).**
-  Pulled into v1 on 2026-10-21. One project driving several controllers that
-  stay in time with each other, through the Build Diagram and the upload flow.
-  Sharing patterns, palettes and collections beyond file export, with trust
-  handled on import. NTP and Art-Net on the UNO R4 WiFi through its WiFiS3
-  library, past today's ESP32/ESP8266 FQBN gate. Keep Collection/engine
-  ownership separate unless user research establishes a better model.
 - [ ] **D-04 · Code and field fidelity (L).** Pulled into v1 on 2026-10-21.
   In the preview: Code-node includes, custom gradient palettes, custom XY maps
   and C++ type inference for every local and expression. Writable FieldFormula
@@ -625,6 +629,19 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   emitter, and the control graph's NTP refusal is lifted
   ([RTC design](docs/design/rtc-clock-and-schedule.md#time-sources-software-clock-optional-ntp-or-a-ds3231);
   [compile checks](docs/reports/compile/control-graph-compile-checks.md)).
+- **D-03 · Multi-board, library sharing and UNO R4 networking** (software
+  complete 2026-10-22): a project carries several boards as partitions of
+  the root graph, each with its own parts, pins, validation, sketch and
+  upload target, worked on one at a time through a board selector in the
+  Hardware pane, the Build Diagram and the Upload tab; with clock sync on
+  the primary board leads over UDP and followers adopt its clock and show
+  state ([design](docs/design/multi-board.md)). Patterns, palettes and
+  collections travel as one library bundle by file, clipboard or link,
+  never remembered as known content on import
+  ([design](docs/design/library-sharing.md)). NTP and Art-Net/sACN/DDP work
+  on the Arduino UNO R4 WiFi through WiFiS3, with the RTC running its own
+  SNTP exchange. Collection and engine ownership stay separate. Compiles
+  and bench rows are in section 4.
 - **HW-01–HW-10, HW-15, HW-21–HW-31**: controls and screens, workflow, catalogue
   and helper work.
 - **Direct controls and LED output status**: software complete; bench readings

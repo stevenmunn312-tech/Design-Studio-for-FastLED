@@ -9,6 +9,24 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Several boards in one project.** The Hardware pane's board menu adds
+  another controller; each bench part and LED output belongs to one board,
+  and the Hardware pane, Build Diagram and Upload tab work on the board
+  chosen in a selector strip, each with its own pins, wiring sheet, FQBN and
+  port. Graph Health validates every board and names the board in its
+  findings; a wire from one board's part into another board's pattern is an
+  error. **Keep boards in time** makes the first board broadcast its clock
+  and show state over the network so the others stay on the same frame and
+  the same pattern. Experimental: generated, not yet compiled on hardware.
+- **Library bundles.** Export a pattern, a palette or a whole collection
+  (with its show profiles) as a file, copy it as a share link, or export the
+  library; import by dropping files on the sidebar, pasting a link or JSON
+  into its Import popup, or opening a link. Imported content is never
+  trusted by the import itself: trust is asked for when it reaches the
+  canvas, as for a dropped pattern, and an import never overwrites a library
+  entry that has the same id but different content.
+- **Arduino UNO R4 WiFi** can now sync NTP and receive Art-Net, sACN and DDP
+  through its WiFiS3 library. Experimental until its first compile.
 - The screen editor checks a design against the glass it is drawn for: each
   panel's measured size, resolution and touch surface set how large a control
   must be to hit, how far apart controls must be, and the smallest readable
