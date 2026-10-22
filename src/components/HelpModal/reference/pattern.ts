@@ -1099,7 +1099,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   DanceFlash: {
     overview: [
       'Dance Flash briefly stamps a silhouette over the frame you give it: a DJ at the decks, a man dancing, a woman dancing, or the two of them together. The pictures are drawn at 16×16 and scaled to the largest square the matrix holds, centred, so a wide or tall panel shows the same pose without squashing it.',
-      'It stays quiet for several seconds, then flashes for a fraction of a second. Each flash picks one of the four poses and may mirror it left to right. Leave Beat unwired and the flashes keep their own time. Wire a beat and a due flash waits for the next one, so it lands in the music.',
+      'It stays quiet for two to five minutes, then flashes for a fraction of a second. Each flash picks one of the four poses and may mirror it left to right. Leave Beat unwired and the flashes keep their own time. Wire a beat and a due flash waits for the next one, so it lands in the music.',
     ],
     inputs: {
       frame: 'The picture the silhouette flashes over. Unwired, it flashes on black.',
@@ -1115,8 +1115,8 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         dance: ['DanceFlash', { seed: 1 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.bass > pulse.bass', 'pulse.frame > dance.frame'],
-      explanation: 'FFT Analyzer’s bass drives Bass Pulse. Dance Flash sits in front of the matrix and, every few seconds, flashes a silhouette of a DJ or a dancer over that pulse. Each flash is mirrored left or right at random. Wire Beat Detect into Beat and the flash waits for the next beat.',
-      preview: 'Play music near the microphone. The {output} shows a bass pulse, and every few seconds a white silhouette of a DJ or a dancer flashes across it.',
+      explanation: 'FFT Analyzer’s bass drives Bass Pulse. Dance Flash sits in front of the matrix and, every two to five minutes, flashes a silhouette of a DJ or a dancer over that pulse. Each flash is mirrored left or right at random. Wire Beat Detect into Beat and the flash waits for the next beat.',
+      preview: 'Play music near the microphone. The {output} shows a bass pulse, and now and then a white silhouette of a DJ or a dancer flashes across it.',
     }),
   },
 

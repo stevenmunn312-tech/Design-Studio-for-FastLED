@@ -92,8 +92,8 @@ describe('Dance Flash schedule', () => {
       mirrors.add(clock.mirror)
       expect(danceFlashAdvance(clock, t + DANCE_FLASH_HOLD_MS / 1000 - 0.001, false, false)).toBe(true)
       expect(danceFlashAdvance(clock, clock.until, false, false)).toBe(false)
-      expect(clock.nextAt - clock.until).toBeGreaterThanOrEqual(7)
-      expect(clock.nextAt - clock.until).toBeLessThan(16)
+      expect(clock.nextAt - clock.until).toBeGreaterThanOrEqual(120)
+      expect(clock.nextAt - clock.until).toBeLessThan(300)
     }
     expect(figures).toEqual(new Set([0, 1, 2, 3]))
     expect(mirrors).toEqual(new Set([false, true]))

@@ -10,10 +10,10 @@ export const DANCE_SIZE = 16
 export const DANCE_FIGURE_COUNT = 4
 /** How long one silhouette stays lit. */
 export const DANCE_FLASH_HOLD_MS = 180
-/** Quiet time after a flash, before the next one may start. */
-export const DANCE_FLASH_GAP_MIN_MS = 7000
-/** Added to the minimum gap as `rng % span`, so the gap is 7.000–15.999 s. */
-export const DANCE_FLASH_GAP_SPAN_MS = 9000
+/** Quiet time after a flash, before the next one may start: two minutes. */
+export const DANCE_FLASH_GAP_MIN_MS = 120000
+/** Added to the minimum gap as `rng % span`, so the gap is 2:00–4:59.999. */
+export const DANCE_FLASH_GAP_SPAN_MS = 180000
 /** First flash, so a new pattern shows the feature without waiting a full gap. */
 export const DANCE_FLASH_FIRST_MIN_MS = 2500
 export const DANCE_FLASH_FIRST_SPAN_MS = 3500

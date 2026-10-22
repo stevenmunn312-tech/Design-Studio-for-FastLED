@@ -439,7 +439,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
       ln(`      ${lcg} float _dfGap_${id}=(${DANCE_FLASH_GAP_MIN_MS}u+(_dfRng_${id}%${DANCE_FLASH_GAP_SPAN_MS}u))/1000.0f;`)
     } else {
       ln(`      _dfFig_${id}=random8()%${DANCE_FIGURE_COUNT}; _dfMir_${id}=(random8()&1u)!=0u;`)
-      ln(`      float _dfGap_${id}=(${DANCE_FLASH_GAP_MIN_MS}u+(random16()%${DANCE_FLASH_GAP_SPAN_MS}u))/1000.0f;`)
+      // The span is wider than random16's range, so scale rather than mod.
+      ln(`      float _dfGap_${id}=(${DANCE_FLASH_GAP_MIN_MS}u+(uint32_t)(((uint64_t)random16()*${DANCE_FLASH_GAP_SPAN_MS}u)>>16))/1000.0f;`)
     }
     ln(`      _dfUntil_${id}=t+${DANCE_FLASH_HOLD_MS}/1000.0f; _dfNext_${id}=_dfUntil_${id}+_dfGap_${id}; _dfOn_${id}=true;`)
     if (beatWired) ln(`      }`)
