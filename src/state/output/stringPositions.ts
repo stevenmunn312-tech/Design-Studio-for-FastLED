@@ -121,6 +121,58 @@ export function stringPositions(props: Record<string, unknown> | undefined | nul
   return result
 }
 
+// ── Millimetres ─────────────────────────────────────────────────────────────
+// The points stay in canvas units, because the canvas is what the graph
+// renders. The bench needs the string's physical extent, so one number says
+// how long a canvas unit is: `positionsMmPerUnit`. The catenary preset is a
+// length of tape hung between two masts, so its scale follows from the tape
+// (count × pitch over the arc the points trace) and the property is ignored.
+
+export const POSITIONS_MM_PER_UNIT_DEFAULT = 10
+export const POSITIONS_MM_PER_UNIT_MAX = 200
+
+function arcLength(points: Array<[number, number]>): number {
+  let length = 0
+  for (let i = 1; i < points.length; i++) {
+    length += Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1])
+  }
+  return length
+}
+
+/** Millimetres per canvas unit for a positioned string. `pitchMm` is the LED
+ *  pitch of the tape, which fixes the catenary's scale. */
+export function positionsMmPerUnit(props: Record<string, unknown>, positions: StringPositions, pitchMm: number): number {
+  if (positions.source === 'catenary') {
+    const arc = arcLength(positions.points)
+    const tapeMm = positions.points.length * Math.max(0.1, pitchMm)
+    return arc > 0 ? Math.max(0.1, tapeMm / arc) : POSITIONS_MM_PER_UNIT_DEFAULT
+  }
+  const parsed = Number(props.positionsMmPerUnit)
+  return Number.isFinite(parsed) ? Math.max(1, Math.min(POSITIONS_MM_PER_UNIT_MAX, parsed)) : POSITIONS_MM_PER_UNIT_DEFAULT
+}
+
+/** The box the LEDs occupy on the bench, from the first to the last point on
+ *  each axis, in whole millimetres. */
+export function stringSpanMm(positions: StringPositions, mmPerUnit: number): { widthMm: number; heightMm: number } {
+  const xs = positions.points.map(([x]) => x)
+  const ys = positions.points.map(([, y]) => y)
+  const span = (values: number[]) => values.length ? Math.max(...values) - Math.min(...values) : 0
+  return { widthMm: Math.round(span(xs) * mmPerUnit), heightMm: Math.round(span(ys) * mmPerUnit) }
+}
+
+/** The shortest distance between two consecutive LEDs, in millimetres; null
+ *  for a string of one LED. Two LEDs closer than the tape's pitch cannot both
+ *  be where the list says. */
+export function closestLedSpacingMm(positions: StringPositions, mmPerUnit: number): number | null {
+  const { points } = positions
+  if (points.length < 2) return null
+  let closest = Infinity
+  for (let i = 1; i < points.length; i++) {
+    closest = Math.min(closest, Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]))
+  }
+  return closest * mmPerUnit
+}
+
 /** The fixed-point table against a render canvas that may not be the string's
  *  own (a shared composition in fit/crop routing): coordinates scale with it. */
 export function positionsFixedFor(positions: StringPositions, canvasW: number, canvasH: number): number[] {

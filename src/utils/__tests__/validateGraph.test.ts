@@ -1282,6 +1282,25 @@ describe('validateGraph', () => {
       const { errors } = validateGraph(nodes, edges)
       expect(errors).toContain('MatrixOutput: Custom XY map repeats LED index 0')
     })
+
+    it('warns, not errors, when a custom positions list puts two LEDs closer than the tape pitch', () => {
+      const positioned = (positions: string, positionsMmPerUnit = 10) => node('out', 'MatrixOutput', {
+        form: 'strip', stripLayout: 'positions', positionsPreset: 'custom', ledCount: 3,
+        positionsWidth: 8, positionsHeight: 4, positionsMmPerUnit, positions,
+      })
+      const overlap = buildGraphDiagnostics([node('sc', 'SolidColor'), positioned('1,1 1.5,1 4,1')], [edge('e1', 'sc', 'out', 'frame')])
+      expect(overlap).toContainEqual(expect.objectContaining({
+        id: 'out-positions-spacing', severity: 'warning', category: 'layout', propertyKey: 'positions',
+      }))
+      // Spread by the scale, the same list is fine: 0.5 units at 30 mm each is 15 mm.
+      const spread = buildGraphDiagnostics([node('sc', 'SolidColor'), positioned('1,1 1.5,1 4,1', 30)], [edge('e1', 'sc', 'out', 'frame')])
+      expect(spread.some((d) => d.id === 'out-positions-spacing')).toBe(false)
+      // The catenary preset is spaced by the tape itself, so it never warns.
+      const hung = buildGraphDiagnostics([node('sc', 'SolidColor'), node('out', 'MatrixOutput', {
+        form: 'strip', stripLayout: 'positions', positionsPreset: 'catenary', ledCount: 60, positionsWidth: 4, positionsHeight: 2,
+      })], [edge('e1', 'sc', 'out', 'frame')])
+      expect(hung.some((d) => d.id === 'out-positions-spacing')).toBe(false)
+    })
   })
 
   describe('estimatePowerLoad', () => {

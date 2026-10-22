@@ -472,8 +472,10 @@ through step 11 of the
       shared by the preview's `routeFrame` and the sketch. Deviations from the
       plan: the LED Output node's own preview draws the string over its canvas,
       and since 2026-10-13 the main LED Output pane draws it, a ring and a
-      corkscrew in their real shape too (`shapeLayoutFor`); the Build Diagram
-      still draws a straight run, because canvas units are not millimetres. The
+      corkscrew in their real shape too (`shapeLayoutFor`); since 2026-10-22
+      the Build Diagram pictures the shape on the output card with its span in
+      millimetres (`positionsMmPerUnit`; see
+      [segment networks](../design/segment-networks.md)). The
       Music Player and SD player sketches at first did not
       generate the map and were blocked; since 2026-10-13 they bake it through
       the shared `src/codegen/output/shapeMapCpp.ts` beside the normal sketch,

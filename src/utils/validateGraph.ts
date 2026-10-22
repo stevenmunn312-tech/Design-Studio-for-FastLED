@@ -27,7 +27,7 @@ import { isValidRtcDateTime } from '../state/peripherals/rtc'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
 import { renderScaleHalf } from '../state/output/renderScale'
-import { usesPositions } from '../state/output/stringPositions'
+import { closestLedSpacingMm, positionsMmPerUnit, stringPositions, usesPositions } from '../state/output/stringPositions'
 import { asSdVideoClip } from '../state/evaluator/sdVideo'
 import { boardGpioInfo } from '../state/upload/uploadStore'
 import { boardPinTable } from '../build/boards/boardPinPolicy'
@@ -76,7 +76,7 @@ import { controllerSettings } from '../build/controllerSettings'
 import { estimateWireTime, wireTimeAdvice } from './wireTime'
 import { findLedDriverErrors, ledDriverDiagnostics } from './ledDriverIssues'
 import type { LedDriverChoice } from '../build/ledDrivers'
-import { isHardwareManagedSignalNodeType } from '../build/hardware'
+import { isHardwareManagedSignalNodeType, ledPitchMm } from '../build/hardware'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../build/pins/pinRetarget'
 import { partOptionsFor, resolvePartIdentity } from '../build/parts/partOptions'
 import { displayHasTouch, partById } from '../build/parts/partCatalogue'
@@ -3926,6 +3926,22 @@ export function buildGraphDiagnostics(
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     })
+    // Two LEDs closer than the tape's pitch cannot both sit where a custom
+    // list puts them. The layout still lights, so this is a warning.
+    const positioned = stringPositions(props)
+    if (positioned && positioned.source === 'custom') {
+      const pitch = ledPitchMm(outputForm(props))
+      const closest = closestLedSpacingMm(positioned, positionsMmPerUnit(props, positioned, pitch))
+      if (closest !== null && closest < pitch) {
+        diagnostics.push({
+          id: `${matrixOutput.id}-positions-spacing`, severity: 'warning', category: 'layout',
+          title: 'Positioned LEDs overlap on the bench',
+          message: `Two consecutive LEDs sit ${closest.toFixed(1)} mm apart, closer than the tape's ${pitch} mm pitch at ${positionsMmPerUnit(props, positioned, pitch)} mm per canvas pixel.`,
+          fix: 'Spread the positions list, or raise Mm per unit so the canvas covers the real span.',
+          nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput), propertyKey: 'positions',
+        })
+      }
+    }
     const hub75Issue = hub75Issues.find((issue) => issue.nodeId === matrixOutput.id)
     if (hub75Issue) {
       diagnostics.push({

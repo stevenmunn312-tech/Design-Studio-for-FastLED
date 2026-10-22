@@ -40,6 +40,8 @@ import {
   OUTPUT_STRIP_CARD_HEIGHT,
   OUTPUT_CARD_HEIGHT,
   DEFAULT_PAD_HOLE_RADIUS,
+  outputIsSingleRow,
+  positionedStringPoints,
 } from './physicalDiagramLayout'
 import { LedPixels } from './ControllerGraphic'
 import {
@@ -256,10 +258,32 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
 /** Clears the TX DATA caption and the RX wire's turn on either side of the pair's render. */
 const EXTENDER_RENDER_INSET = 40
 
+/** A positioned string pictured where its LEDs hang: the wire as a polyline
+ *  through the LED points, the LEDs as dots, the span in millimetres below. */
+function PositionedString({ points, item }: { points: Array<[number, number]>; item: HardwareManifestItem }) {
+  const span = item.facts.spanMm as { widthMm: number; heightMm: number } | undefined
+  const path = points.map(([px, py], index) => `${index === 0 ? 'M' : 'L'}${px.toFixed(1)} ${py.toFixed(1)}`).join(' ')
+  const bottom = Math.max(...points.map(([, py]) => py))
+  return (
+    <g data-positioned-string={points.length} data-span-mm={span ? `${span.widthMm}x${span.heightMm}` : undefined}>
+      <path d={path} fill="none" stroke="#515759" strokeWidth="1.5" strokeLinejoin="round" />
+      {points.map(([px, py], index) => (
+        <circle key={index} cx={px} cy={py} r="2.2" fill="#f2f4e6" />
+      ))}
+      {span && (
+        <text x={points.reduce((sum, [px]) => sum + px, 0) / points.length} y={Math.min(bottom + 14, 160)} textAnchor="middle" className={styles.physicalMetaLabel}>
+          {span.widthMm} × {span.heightMm} mm
+        </text>
+      )}
+    </g>
+  )
+}
+
 export function OutputGraphic({ layout, connection, selected, plan, powerPlanBelow }: { layout: ItemLayout; connection?: PhysicalDiagramConnection; selected: boolean; plan?: OutputElectricalPlan; powerPlanBelow: boolean }) {
   const { x, y, width, height, item } = layout
   const presentation = connection ? signalPresentation(connection) : { role: 'data', color: '#24963e' }
-  const singleRow = item.facts.form === 'strip'
+  const singleRow = outputIsSingleRow(item)
+  const positioned = positionedStringPoints(item, { x: x + ((width - 128) / 2), y: y + 18, width: 128, height: 128 })
   const dataOffset = singleRow ? 34 : 66
   const groundOffset = singleRow ? 18 : 34
   const powerOffset = singleRow ? 50 : 98
@@ -281,9 +305,11 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
       <text x={x + (width / 2)} y={y - 14} textAnchor="middle" className={styles.physicalMetaLabel}>{item.subtitle}</text>
       <rect x={x} y={y} width={width} height={height} rx="8" fill="#202426" stroke={selected ? '#1fa5ad' : '#0f1213'} strokeWidth={selected ? 4 : 2} />
       <rect x={x + 18} y={y + (singleRow ? 10 : 12)} width={width - 30} height={singleRow ? 48 : 140} fill="#15191a" stroke="#515759" />
-      {singleRow
-        ? <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={32} singleRow />
-        : <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={128} />}
+      {positioned
+        ? <PositionedString points={positioned} item={item} />
+        : singleRow
+          ? <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={32} singleRow />
+          : <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={128} />}
       <NetStub x={x} y={y + groundOffset} kind="gnd" direction="left" wireId={`${item.id}-led-ground-net`} />
       <NetStub x={x} y={y + powerOffset} kind="v5" direction="left" wireId={`${item.id}-led-5v-net`} />
       <g data-terminal={`${item.id}-gnd`}>

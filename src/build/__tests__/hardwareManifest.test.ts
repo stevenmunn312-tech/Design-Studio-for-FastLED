@@ -212,6 +212,30 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('carries the shape and millimetre span of a positioned string for the diagram', () => {
+    const manifest = buildHardwareManifest([
+      node('out', 'MatrixOutput', {
+        form: 'strip', stripLayout: 'positions', positionsPreset: 'custom', ledCount: 3,
+        positionsWidth: 8, positionsHeight: 4, positionsMmPerUnit: 20, positions: '1,1 4,3 7,1',
+        chipset: 'WS2812B', dataPin: 14,
+      }),
+    ], [], 'esp32:esp32:esp32s3')
+
+    expect(manifest.primaryItems[0]).toMatchObject({
+      subtitle: '3-LED WS2812B strip route · positioned over 120 × 40 mm',
+      facts: {
+        form: 'strip', pixelCount: 3,
+        positions: [[1, 1], [4, 3], [7, 1]],
+        positionCanvas: { width: 8, height: 4 },
+        positionsMmPerUnit: 20,
+        spanMm: { widthMm: 120, heightMm: 40 },
+      },
+    })
+    expect((manifest.primaryItems[0].facts.closestLedSpacingMm as number)).toBeCloseTo(Math.hypot(3, 2) * 20)
+    const straight = buildHardwareManifest([node('out', 'MatrixOutput', { form: 'strip', ledCount: 3, dataPin: 14 })], [], 'esp32:esp32:esp32s3')
+    expect(straight.primaryItems[0].facts.positions).toBeUndefined()
+  })
+
   it('maps a DS3231 to the exact board default SDA/SCL pads', () => {
     const manifest = buildHardwareManifest([
       node('board', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' }),

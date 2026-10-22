@@ -1164,6 +1164,26 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
 }
 
 export const OUTPUT_CARD_HEIGHT = 174
+
+/** A positioned string is pictured in its shape and takes the full card; a
+ *  straight run keeps the short one. */
+export function outputIsSingleRow(item: HardwareManifestItem): boolean {
+  return item.facts?.form === 'strip' && !Array.isArray(item.facts.positions)
+}
+
+/** The LEDs of a positioned string, fitted into a box with the canvas aspect
+ *  kept, so the card pictures the shape the LED Output pane draws. */
+export function positionedStringPoints(
+  item: HardwareManifestItem, box: { x: number; y: number; width: number; height: number },
+): Array<[number, number]> | null {
+  const points = item.facts.positions
+  const canvas = item.facts.positionCanvas as { width: number; height: number } | undefined
+  if (!Array.isArray(points) || !canvas || canvas.width <= 0 || canvas.height <= 0) return null
+  const scale = Math.min(box.width / canvas.width, box.height / canvas.height)
+  const left = box.x + (box.width - canvas.width * scale) / 2
+  const top = box.y + (box.height - canvas.height * scale) / 2
+  return (points as Array<[number, number]>).map(([x, y]) => [left + x * scale, top + y * scale])
+}
 /** Compact card used by one-dimensional LED strings and VU-meter rails. */
 export const OUTPUT_STRIP_CARD_HEIGHT = 96
 /** Room below an LED fixture for the matched TX/RX boards and their link notes. */
@@ -1376,7 +1396,7 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   const peripherals = items.filter((item) => item.kind !== 'matrix-output' && !POWER_PATH_KINDS.has(item.kind))
   let outputY = 92
   const layouts: ItemLayout[] = outputs.map((item) => {
-    const baseHeight = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
+    const baseHeight = outputIsSingleRow(item) ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
     const height = baseHeight + (outputHasDataExtender(item) ? OUTPUT_DATA_EXTENDER_HEIGHT : 0)
     const layout = { item, x: 820, y: outputY, width: 184, height }
     const titleLines = fitPartTitle(item.title, layout.width).length

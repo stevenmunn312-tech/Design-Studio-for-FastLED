@@ -5,8 +5,8 @@ Design for root todo D-06, pulled into v1 on 2026-10-21 from
 Two pieces, in this order: positioned strings measured in millimetres, so the
 Build Diagram can draw a string where it hangs; then segment networks, a
 string laid along the edges of a graph with a `Ripple` pattern that travels
-node to node, the Chromancer model. Written 2026-10-22; nothing here is
-implemented yet.
+node to node, the Chromancer model. Written 2026-10-22. Part 1 shipped the
+same day; Part 2 is not implemented yet.
 
 ## Where this starts
 
@@ -33,26 +33,32 @@ catenary preset, a 60-LED string at 16.7 mm pitch, reads about 1000 mm of
 tape sagging across a 320 mm canvas, which is wrong; so the preset also sets
 the scale from the tape: `mmPerUnit = ledCount × pitchMm / arcLength(points)`,
 where `pitchMm` is the part catalogue's `pitchMm` for the chosen strip, and
-the property is shown read-only while the preset is `catenary`. A custom list
-keeps the user's number. No second coordinate system is introduced: there is
-one list of points and one scale.
+the property is ignored while the preset is `catenary` (its help says so). A
+custom list keeps the user's number. No second coordinate system is
+introduced: there is one list of points and one scale.
+`positionsMmPerUnit`, `stringSpanMm` and `closestLedSpacingMm` live beside the
+points in `stringPositions.ts`; the manifest carries the points, canvas, scale
+and span as facts on the output item.
 
 ### Build Diagram
 
-`physicalDiagramLayout.ts` draws a positioned string as its polyline at the
-part's own `mmScale`, LEDs at the listed points, instead of a broken run. The
-run-break rule does not apply, because a positioned string is a shape the
-user chose, not a length of tape bought by the metre; a string whose span is
-longer than the stage shrinks with the stage like a panel does. The caption
-keeps the real count. The hardware workbench (`ledPreviewGeometry.ts`) already
-draws the shape and gains nothing new.
+The output card is a schematic, not a scale drawing: a straight string shows a
+generic row of pixels in the short card. A positioned string takes the full
+card and `OutputGraphic` pictures it (`PositionedString`): the wire as a
+polyline through the LED points fitted to the card with the canvas aspect
+kept, the LEDs as dots, and the span in millimetres under it, with the same
+span in the card's subtitle. The run-break rule does not apply, because a
+positioned string is a shape the user chose, not a length of tape bought by
+the metre. The hardware workbench (`ledPreviewGeometry.ts`) already draws the
+shape and gains nothing new.
 
 ### Validation and health
 
-A custom list whose consecutive points are closer than half the LED pitch
-(after `mmPerUnit`) is a Graph Health warning, not an error: LEDs overlapping
-on the bench is physically impossible, but the layout still lights. The
-existing fallback for a short list stays.
+A custom list whose consecutive points are closer than the LED pitch (after
+`mmPerUnit`) is a Graph Health warning, not an error
+(`<output>-positions-spacing`): LEDs overlapping on the bench is physically
+impossible, but the layout still lights. The catenary never warns, since the
+tape spaces it. The existing fallback for a short list stays.
 
 ## Part 2: segment networks
 
@@ -152,6 +158,7 @@ adds nothing beyond the node's own frame buffer.
 1. `positionsMmPerUnit`, the catenary scale from `pitchMm`, and the Build
    Diagram polyline. Small; closes the "canvas units are not millimetres" note
    in Phase 11. Tests: layout geometry, manifest caption, health warning.
+   **Shipped 2026-10-22.**
 2. `SegmentNetwork` model, presets, `stripLayout: 'network'` through
    `stringPositions()`, derived `ledCount`. Tests: positions from a network,
    edge order, limits, baked table parity.

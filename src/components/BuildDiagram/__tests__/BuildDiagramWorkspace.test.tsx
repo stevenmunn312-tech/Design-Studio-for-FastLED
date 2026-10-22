@@ -699,6 +699,27 @@ describe('BuildDiagramWorkspace', () => {
     }
   })
 
+  it('pictures a positioned string in its shape with its millimetre span, and a plain string as a row', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(14, 3, 1, 'hung', {
+          form: 'strip', stripLayout: 'positions', positionsPreset: 'custom', ledCount: 3,
+          positionsWidth: 8, positionsHeight: 4, positionsMmPerUnit: 20, positions: '1,1 4,3 7,1',
+        }),
+        matrixNode(27, 3, 1, 'row', { form: 'strip', ledCount: 3 }),
+      ] as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+    const hung = diagram?.querySelector('[data-output-card="output:hung"] [data-positioned-string]')
+    expect(hung?.getAttribute('data-positioned-string')).toBe('3')
+    expect(hung?.getAttribute('data-span-mm')).toBe('120x40')
+    expect(hung?.querySelectorAll('circle').length).toBe(3)
+    expect(hung?.textContent).toContain('120 × 40 mm')
+    expect(diagram?.querySelector('[data-output-card="output:row"] [data-positioned-string]')).toBeNull()
+  })
+
   it('shows two 5 A running limits and still sizes the supply for full white', () => {
     useGraphStore.setState({
       nodes: [

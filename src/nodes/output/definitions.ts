@@ -189,6 +189,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       positionsPreset: 'catenary',
       positionsWidth: 32,
       positionsHeight: 16,
+      // Millimetres per canvas unit, so the Build Diagram knows the string's
+      // span. The catenary preset takes its scale from the tape and ignores it.
+      positionsMmPerUnit: 10,
       // "x,y" pairs in canvas units, one per LED, any separators.
       positions: '',
       // The Frame cable into each LED output is an explicit hardware route.

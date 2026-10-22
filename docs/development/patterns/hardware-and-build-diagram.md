@@ -829,3 +829,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `document.body` rather than drawn inside the diagram's own SVG coordinates,
   since that surface is pan/zoom-transformed and an in-place tooltip would
   shrink with zoom and clip at the viewport edge.
+
+## Positioned strings on the output card
+
+- A positioned string (`stripLayout: 'positions'`) reaches the Build Diagram
+  as facts on its manifest item: `positions`, `positionCanvas`,
+  `positionsMmPerUnit`, `spanMm` and `closestLedSpacingMm`, built in
+  `buildMatrixOutputItem` from `stringPositions.ts`. The card decides its
+  height from `outputIsSingleRow(item)`, not from `facts.form`, so a
+  positioned string gets the full card and `PositionedString` draws the
+  polyline fitted by `positionedStringPoints`. Add a new layout by adding
+  facts and a graphic; never by teaching the card about output properties.
+- The catenary's millimetre scale comes from the tape (`ledCount × pitchMm`
+  over the arc), so `positionsMmPerUnit` is ignored for it; a custom list uses
+  the property. Keep the scale beside the points in `stringPositions.ts`,
+  which stays import-free. See [segment networks](../../design/segment-networks.md).

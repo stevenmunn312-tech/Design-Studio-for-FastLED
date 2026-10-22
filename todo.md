@@ -319,7 +319,10 @@ chooses the supported combinations from whatever is on record at release.
   strings in the Build Diagram, which needs positions in millimetres rather
   than canvas units. Designed 2026-10-22 in
   [segment networks](docs/design/segment-networks.md), in four shippable
-  steps; none implemented yet.
+  steps. Step 1 shipped 2026-10-22: `positionsMmPerUnit`, the catenary's scale
+  from the tape, the span and overlap warning, and the output card pictures
+  the string. Steps 2 to 4 (the network model, its editor and `Ripple`) are
+  open.
 - [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every

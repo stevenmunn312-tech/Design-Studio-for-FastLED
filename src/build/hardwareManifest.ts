@@ -22,7 +22,8 @@ import {
 import { rtcI2cPinsForProfile } from './pins/rtcPins'
 import { segmentControllerFor } from '../state/displays/segmentDisplay'
 import { OLED_TRANSPORT_PINS, asOledAddress, oledAddressLabel } from '../state/displays/oledSurface'
-import { isHardwareNodeType } from './hardware'
+import { isHardwareNodeType, ledPitchMm } from './hardware'
+import { closestLedSpacingMm, positionsMmPerUnit, stringPositions, stringSpanMm } from '../state/output/stringPositions'
 import { partById, partPinLabelForProperty } from './parts/partCatalogue'
 import { PART_FIELDS } from './parts/partFields'
 import type { BusAssignment } from './pins/busTopology'
@@ -606,6 +607,11 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
   const chipset = String(props.chipset ?? 'WS2812B')
   const dataLink = String(props.dataLink ?? DIRECT_PIXEL_DATA_LINK)
   const extender = usesNledPixelDataExtender(props) ? nledPixelDataExtenderSpec() : null
+  // A positioned string carries its shape and its physical span, so the
+  // diagram can picture where the LEDs hang instead of a straight run.
+  const positioned = stringPositions(props)
+  const mmPerUnit = positioned ? positionsMmPerUnit(props, positioned, ledPitchMm(form)) : null
+  const span = positioned && mmPerUnit ? stringSpanMm(positioned, mmPerUnit) : null
   return {
     id: `output:${node.id}`,
     kind: 'matrix-output',
@@ -613,6 +619,7 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
     subtitle: (form === 'matrix' || form === 'hub75'
       ? `${width}×${height} ${chipset} route`
       : `${pixelCount}-LED ${chipset} ${form} route`)
+      + (span ? ` · positioned over ${span.widthMm} × ${span.heightMm} mm` : '')
       + (dataLink === NLED_PIXEL_DATA_LINK ? ' · differential link' : ''),
     sourceNodeId: node.id,
     sourceNodeType: node.data.nodeType,
@@ -627,6 +634,13 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       layout: String(props.layout ?? 'matrix'),
       chipset,
       dataLink,
+      ...(positioned && mmPerUnit && span ? {
+        positions: positioned.points,
+        positionCanvas: { width: positioned.canvasW, height: positioned.canvasH },
+        positionsMmPerUnit: mmPerUnit,
+        spanMm: span,
+        closestLedSpacingMm: closestLedSpacingMm(positioned, mmPerUnit),
+      } : {}),
       ...(extender ? {
         dataLinkPartId: NLED_PIXEL_DATA_EXTENDER_PART_ID,
         dataLinkMaxDistanceMeters: extender.maxDistanceMeters,

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   catenaryPoints,
+  closestLedSpacingMm,
   parsePositionNumbers,
   positionsFixedFor,
+  positionsMmPerUnit,
   positionTap,
   stringPositions,
+  stringSpanMm,
   usesPositions,
 } from '../stringPositions'
 import { outputCanvasDims } from '../ledOutputForm'
@@ -96,5 +99,27 @@ describe('positioned string layout', () => {
     expect(out[0][0].r).toBeCloseTo(0, 6)
     expect(out[0][1].r).toBeCloseTo(21, 6)
     expect(out[0][2].r).toBeCloseTo(33, 6)
+  })
+})
+
+describe('positioned string millimetres', () => {
+  it('reads the custom scale from the property, clamped, and defaults to 10 mm', () => {
+    const custom = stringPositions({ ...base, positionsPreset: 'custom', positions: '0,0 2,0 4,0 6,0 8,0' })!
+    expect(positionsMmPerUnit({ ...base, positionsMmPerUnit: 25 }, custom, 10)).toBe(25)
+    expect(positionsMmPerUnit({ ...base, positionsMmPerUnit: 900 }, custom, 10)).toBe(200)
+    expect(positionsMmPerUnit({ ...base, positionsMmPerUnit: 'x' }, custom, 10)).toBe(10)
+  })
+
+  it('scales the catenary from the tape: count times pitch over the arc it traces', () => {
+    const hung = stringPositions({ ...base, positionsPreset: 'catenary', positionsMmPerUnit: 50 })!
+    const arc = hung.points.slice(1).reduce((sum, [x, y], i) => sum + Math.hypot(x - hung.points[i][0], y - hung.points[i][1]), 0)
+    expect(positionsMmPerUnit({ ...base, positionsMmPerUnit: 50 }, hung, 16.7)).toBeCloseTo((5 * 16.7) / arc, 6)
+  })
+
+  it('reports the span the LEDs cover and the closest neighbours, in millimetres', () => {
+    const custom = stringPositions({ ...base, positionsPreset: 'custom', positions: '0,0 2,0 4,0 6,1 8,3' })!
+    expect(stringSpanMm(custom, 10)).toEqual({ widthMm: 80, heightMm: 30 })
+    expect(closestLedSpacingMm(custom, 10)).toBeCloseTo(20)
+    expect(closestLedSpacingMm(stringPositions({ ...base, ledCount: 1, positionsPreset: 'custom', positions: '1,1' })!, 10)).toBeNull()
   })
 })

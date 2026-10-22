@@ -47,7 +47,7 @@ import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/play
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
 import { RENDER_SCALE_OPTIONS } from './output/renderScale'
-import { POSITION_PRESETS, STRIP_LAYOUTS, usesPositions } from './output/stringPositions'
+import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesPositions } from './output/stringPositions'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/pixelDataExtender'
 import { relayChannelPropertyEnabled, relayPinKeys } from './peripherals/relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, powerSwitchChannelPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
@@ -791,6 +791,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     positionsPreset: { control: 'select', options: POSITION_PRESETS },
     positionsWidth: { control: 'slider', min: 2, max: MAX_MATRIX_SIDE, step: 1 },
     positionsHeight: { control: 'slider', min: 1, max: MAX_MATRIX_SIDE, step: 1 },
+    positionsMmPerUnit: { control: 'slider', min: 1, max: POSITIONS_MM_PER_UNIT_MAX, step: 1 },
     routeMode: { control: 'select', options: ['native', 'fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
     routeY: { control: 'slider', min: 0, max: 63, step: 1 },
@@ -1656,6 +1657,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   positionsPreset: 'Catenary hangs the string in a sag between two points along the top of the canvas (the sailboat mast lights). Custom reads the positions list.',
   positionsWidth: 'Width of the canvas the string sits on, in pixels. Positions are measured in these units.',
   positionsHeight: 'Height of the canvas the string sits on, in pixels.',
+  positionsMmPerUnit: 'How long one canvas pixel is on the bench, in millimetres, so the Build Diagram can show the span the string covers. Catenary works it out from the tape length and ignores this.',
   positions: 'One x,y pair per LED in wire order, in canvas pixels, for example 2,3 4.5,3.5 7,4. Separate with commas, spaces or new lines. Needs a pair for every LED, otherwise the LEDs fall back to a straight row across the middle.',
   renderScale: 'Render the graph at half the panel resolution and upscale it smoothly onto the LEDs. It quarters the render cost and memory on a large panel, and the picture is softer. Turn off Supersample first: the two cannot combine.',
   whitePoint: "The colour temperature the LEDs treat as white (FastLED.setTemperature), for example Tungsten100W for a warmer white. It scales the red, green and blue channels, so it lowers brightness, and it doesn't change the live preview. Dimming stays linear in light output.",
