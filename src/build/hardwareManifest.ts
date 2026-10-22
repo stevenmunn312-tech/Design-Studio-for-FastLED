@@ -1,7 +1,9 @@
 import type { StudioEdge, StudioNode } from '../state/graphStore'
+import { stereoVuRailCounts } from '../state/audio/stereoVuSizing'
 import {
   HUB75_CHIPSET,
   SPI_CHIPSETS,
+  stereoVuPinKeys,
   gpioRequirementForProperty,
   libraryDefaults,
   oledTransportForProps,
@@ -365,8 +367,14 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         }
         break
       case 'StereoVuMeter':
+        // Two data lines always; the two clock lines only on a clocked
+        // chipset, so a clockless fixture never holds pins it does not drive.
         push(node, `${baseLabel} left data pin`, 'leftDataPin', props.leftDataPin)
         push(node, `${baseLabel} right data pin`, 'rightDataPin', props.rightDataPin)
+        if (stereoVuPinKeys(props).includes('leftClockPin')) {
+          push(node, `${baseLabel} left clock pin`, 'leftClockPin', props.leftClockPin)
+          push(node, `${baseLabel} right clock pin`, 'rightClockPin', props.rightClockPin)
+        }
         break
       case 'InfoDisplay': {
         // Which wires exist depends on the module: a 7-pin SPI SH1106 has a
@@ -708,12 +716,18 @@ function buildMatrixOutputItems(node: StudioNode, ordinal: number, count: number
 
 function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): HardwareManifestItem[] {
   const props = node.data.properties as Record<string, unknown>
-  const ledCount = Math.max(1, Math.round(Number(props.ledCount ?? 60)))
+  const counts = stereoVuRailCounts(props)
   const chipset = String(props.chipset ?? 'WS2812B')
-  const supported = BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset)
+  // A clocked 5 V rail draws like a clockless one and is wired the same way
+  // plus a clock line, so the fixture rows accept the clocked chipsets too.
+  const clocked = SPI_CHIPSETS.has(chipset)
+  const supported = BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset) || clocked
   const pairCap = props.powerLimit === true ? Math.max(0, Number(props.milliamps ?? 0)) : null
   return (['left', 'right'] as const).map((side) => {
-    const propertyKey = `${side}DataPin`
+    const ledCount = counts[side]
+    // Data first: the physical diagram draws an output's first pin as its
+    // data run, and the clock pin rides along as a second use on the item.
+    const railKeys = [`${side}DataPin`, ...(clocked ? [`${side}ClockPin`] : [])]
     const direction = String(props[`${side}Direction`] ?? 'Bottom')
     return {
       id: `output:${node.id}:${side}`,
@@ -723,7 +737,7 @@ function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): H
       sourceNodeId: node.id,
       sourceNodeType: node.data.nodeType,
       supported,
-      pins: pinUses.filter((pin) => pin.propertyKey === propertyKey),
+      pins: railKeys.flatMap((key) => pinUses.filter((pin) => pin.propertyKey === key)),
       facts: {
         pixelCount: ledCount,
         width: 1,
@@ -733,6 +747,7 @@ function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): H
         side,
         dataIn: direction,
         chipset,
+        clocked,
         colorOrder: String(props.colorOrder ?? 'GRB'),
         nominalVoltage: 5,
         desiredCurrentCapMa: pairCap == null ? null : Math.round(pairCap / 2),
@@ -740,7 +755,7 @@ function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): H
       },
       reasons: supported
         ? undefined
-        : [`${chipset} is outside the reviewed clockless Stereo VU Meter wiring profile.`],
+        : [`${chipset} is outside the reviewed Stereo VU Meter wiring profile.`],
     }
   })
 }

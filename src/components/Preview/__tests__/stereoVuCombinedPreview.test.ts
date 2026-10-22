@@ -19,23 +19,24 @@ describe('combined Stereo VU preview', () => {
       node('vu', 'StereoVuMeter', { targetOutputId: 'out-b', swapChannels: true }),
     ]
     expect(combinedStereoVuFixture(nodes, 'out-a')).toBeNull()
-    expect(combinedStereoVuFixture(nodes, 'out-b')).toEqual({ id: 'vu', swapChannels: true, ledCount: 16, standalone: false })
+    expect(combinedStereoVuFixture(nodes, 'out-b')).toEqual({ id: 'vu', swapChannels: true, leftLedCount: 16, rightLedCount: 16, standalone: false })
   })
 
   it('shows the meter by itself when the project has no LED output', () => {
-    const nodes = [node('vu', 'StereoVuMeter', { ledCount: 24 })]
-    expect(combinedStereoVuFixture(nodes, '')).toEqual({ id: 'vu', swapChannels: false, ledCount: 24, standalone: true })
+    const nodes = [node('vu', 'StereoVuMeter', { leftLedCount: 24, rightLedCount: 24 })]
+    expect(combinedStereoVuFixture(nodes, '')).toEqual({ id: 'vu', swapChannels: false, leftLedCount: 24, rightLedCount: 24, standalone: true })
   })
 
   it('flanks a matrix when the meter has no explicit target', () => {
     const nodes = [
       node('matrix', 'MatrixOutput', { form: 'matrix' }),
-      node('vu', 'StereoVuMeter', { targetOutputId: '', ledCount: 20 }),
+      node('vu', 'StereoVuMeter', { targetOutputId: '', leftLedCount: 20, rightLedCount: 20 }),
     ]
     expect(combinedStereoVuFixture(nodes, 'matrix')).toEqual({
       id: 'vu',
       swapChannels: false,
-      ledCount: 20,
+      leftLedCount: 20,
+      rightLedCount: 20,
       standalone: false,
     })
   })
@@ -51,7 +52,7 @@ describe('combined Stereo VU preview', () => {
   it('stays standalone when an unrelated LED String exists', () => {
     const nodes = [
       node('strip', 'MatrixOutput', { form: 'strip', ledCount: 60 }),
-      node('vu', 'StereoVuMeter', { targetOutputId: '', ledCount: 16 }),
+      node('vu', 'StereoVuMeter', { targetOutputId: '', leftLedCount: 16, rightLedCount: 16 }),
     ]
     expect(combinedStereoVuFixture(nodes, 'strip')?.standalone).toBe(true)
   })

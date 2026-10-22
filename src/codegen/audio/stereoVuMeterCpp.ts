@@ -10,6 +10,7 @@ import {
   hexToRgb as customHexToRgb,
   normalizeCustomPalette,
 } from '../../state/palettes/customPalette'
+import { SPI_CHIPSETS } from '../../state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { sanitizePin } from '../hardwarePins'
 
@@ -20,6 +21,11 @@ export interface StereoVuEmit {
   properties: Record<string, unknown>
   leftPin: number
   rightPin: number
+  /** Only meaningful when `clocked`; a clockless rail never reads them. */
+  leftClockPin: number
+  rightClockPin: number
+  /** The chipset needs a clock line beside each rail's data line. */
+  clocked: boolean
   activeExpr: string
   leftExpr: string
   rightExpr: string
@@ -33,6 +39,19 @@ export interface StereoVuExpressions {
   left: string
   right: string
   beat: string
+}
+
+export type StereoVuRail = 'left' | 'right'
+
+/** The fixture's pins as the sketch sees them, one place for every generator. */
+export function stereoVuPins(properties: Record<string, unknown>): Pick<StereoVuEmit, 'leftPin' | 'rightPin' | 'leftClockPin' | 'rightClockPin' | 'clocked'> {
+  return {
+    leftPin: sanitizePin(properties.leftDataPin, 5),
+    rightPin: sanitizePin(properties.rightDataPin, 6),
+    leftClockPin: sanitizePin(properties.leftClockPin, 18),
+    rightClockPin: sanitizePin(properties.rightClockPin, 19),
+    clocked: SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B')),
+  }
 }
 
 /** Fixed-template generators do not walk sinks through generateCpp. Resolve
@@ -74,8 +93,7 @@ export function stereoVuEmitsFromGraph(
       return {
         id: safeMeterId,
         properties,
-        leftPin: sanitizePin(properties.leftDataPin, 5),
-        rightPin: sanitizePin(properties.rightDataPin, 6),
+        ...stereoVuPins(properties),
         activeExpr: properties.enabled === false ? 'false' : expressions.active,
         leftExpr: expressions.left,
         rightExpr: expressions.right,
@@ -99,22 +117,62 @@ export function stereoVuPaletteId(properties: Record<string, unknown>): string {
   return resolvePaletteId(String(properties.palette ?? 'party').toLowerCase())
 }
 
+const RAIL = { left: 'LEFT', right: 'RIGHT' } as const
+const RAIL_NAME = { left: 'Left', right: 'Right' } as const
+
+/** The macros one rail's globals and `addLeds` call share. */
+export function stereoVuRailMacros(id: string, rail: StereoVuRail) {
+  return {
+    leds: `VU_${RAIL[rail]}_LEDS_${id}`,
+    dataPin: `VU_${RAIL[rail]}_PIN_${id}`,
+    clockPin: `VU_${RAIL[rail]}_CLOCK_PIN_${id}`,
+    array: `_vu${RAIL_NAME[rail]}_${id}`,
+    history: `_vu${RAIL_NAME[rail]}History_${id}`,
+    controller: `_vu${RAIL_NAME[rail]}Controller_${id}`,
+  }
+}
+
+/**
+ * The `fastledSetupCpp` options for one rail. Every generator — the normal
+ * sketch, the show sketch and the player — registers a rail through this, so
+ * a clocked fixture gets its clock macro in all three or in none.
+ */
+export function stereoVuRailSetupOptions(emit: StereoVuEmit, rail: StereoVuRail) {
+  const macros = stereoVuRailMacros(emit.id, rail)
+  return {
+    dataPinMacro: macros.dataPin,
+    clockPinMacro: macros.clockPin,
+    brightness: null,
+    ledCountMacro: macros.leds,
+    ledsName: macros.array,
+    controllerName: macros.controller,
+  }
+}
+
 export function stereoVuGlobalCpp(emit: StereoVuEmit): string {
   const s = stereoVuSettings(emit.properties, emit.id)
   const left = hexToRgb(String(emit.properties.leftColor ?? '#20ff70'))
   const right = hexToRgb(String(emit.properties.rightColor ?? '#20a0ff'))
   const shuffle = stereoVuShuffleOrder(emit.id).join(', ')
+  const L = stereoVuRailMacros(emit.id, 'left')
+  const R = stereoVuRailMacros(emit.id, 'right')
+  // A clock macro only exists when the chipset reads one: a clockless sketch
+  // never names the pins, so nothing can wire them by accident.
+  const clockDefines = emit.clocked
+    ? `#define ${L.clockPin} ${emit.leftClockPin}\n#define ${R.clockPin} ${emit.rightClockPin}\n`
+    : ''
   return `${emit.paletteDeclaration ? `${emit.paletteDeclaration}\n` : ''}// Stereo VU Meter ${emit.id}: state is per fixture, so peaks, history and policy never leak.
-#define VU_LEDS_${emit.id} ${s.ledCount}
-#define VU_LEFT_PIN_${emit.id} ${emit.leftPin}
-#define VU_RIGHT_PIN_${emit.id} ${emit.rightPin}
-CRGB _vuLeft_${emit.id}[VU_LEDS_${emit.id}];
-CRGB _vuRight_${emit.id}[VU_LEDS_${emit.id}];
-float _vuLeftHistory_${emit.id}[VU_LEDS_${emit.id}] = {};
-float _vuRightHistory_${emit.id}[VU_LEDS_${emit.id}] = {};
+#define ${L.leds} ${s.leftLedCount}
+#define ${R.leds} ${s.rightLedCount}
+#define ${L.dataPin} ${emit.leftPin}
+#define ${R.dataPin} ${emit.rightPin}
+${clockDefines}CRGB ${L.array}[${L.leds}];
+CRGB ${R.array}[${R.leds}];
+float ${L.history}[${L.leds}] = {};
+float ${R.history}[${R.leds}] = {};
 StereoVuState _vuState_${emit.id} = {};
 const StereoVuConfig _vuConfig_${emit.id} = {
-  VU_LEDS_${emit.id}, ${MODE[s.mode]}, ${POLICY[s.policy]}, ${floatLit(s.cycleIntervalSec)},
+  ${L.leds}, ${R.leds}, ${MODE[s.mode]}, ${POLICY[s.policy]}, ${floatLit(s.cycleIntervalSec)},
   CRGB(${left.r}, ${left.g}, ${left.b}), CRGB(${right.r}, ${right.g}, ${right.b}),
   ${floatLit(s.gain)}, ${floatLit(s.noiseGate)}, ${floatLit(s.responseCurve)},
   ${floatLit(s.attackMs / 1000)}, ${floatLit(s.releaseMs / 1000)}, ${floatLit(s.peakHoldMs / 1000)},
@@ -126,14 +184,16 @@ const StereoVuConfig _vuConfig_${emit.id} = {
 
 export function stereoVuLoopCpp(emit: StereoVuEmit): string {
   const palette = emit.paletteExpr ?? paletteCppRef(stereoVuPaletteId(emit.properties))
+  const L = stereoVuRailMacros(emit.id, 'left')
+  const R = stereoVuRailMacros(emit.id, 'right')
   return `  _stereoVuRender(_vuState_${emit.id}, _vuConfig_${emit.id},
-    _vuLeftHistory_${emit.id}, _vuRightHistory_${emit.id}, _vuLeft_${emit.id}, _vuRight_${emit.id},
+    ${L.history}, ${R.history}, ${L.array}, ${R.array},
     ${palette}, ${emit.activeExpr}, ${emit.leftExpr}, ${emit.rightExpr}, ${emit.beatExpr}, millis());`
 }
 
 export const STEREO_VU_CPP_HELPERS = String.raw`// ── Stereo VU Meter renderer ────────────────────────────────────────────────
 struct StereoVuConfig {
-  uint16_t count; uint8_t mode, policy; float cycleSec;
+  uint16_t leftCount, rightCount; uint8_t mode, policy; float cycleSec;
   CRGB leftColor, rightColor;
   float gain, gate, curve, attackSec, releaseSec, peakHoldSec, peakFall, trail, beatAccent, brightness;
   bool reverseLeft, reverseRight, swapChannels;
@@ -194,10 +254,21 @@ static float _vuFollow(float previous, float target, float dt, float attack, flo
   return previous + (target - previous) * (1.0f - expf(-dt / tau));
 }
 
-static void _vuReset(StereoVuState& s, float* leftHistory, float* rightHistory, uint16_t count, uint32_t now, uint8_t mode) {
+static void _vuReset(StereoVuState& s, float* leftHistory, float* rightHistory, const StereoVuConfig& c, uint32_t now) {
   memset(&s, 0, sizeof(s));
-  s.initialized = true; s.lastMs = s.historyMs = s.policyMs = now; s.policyMode = mode;
-  for (uint16_t i = 0; i < count; ++i) leftHistory[i] = rightHistory[i] = 0.0f;
+  s.initialized = true; s.lastMs = s.historyMs = s.policyMs = now; s.policyMode = c.mode;
+  for (uint16_t i = 0; i < c.leftCount; ++i) leftHistory[i] = 0.0f;
+  for (uint16_t i = 0; i < c.rightCount; ++i) rightHistory[i] = 0.0f;
+}
+
+// Scroll one rail's history by 'steps' samples. Past the rail's own length
+// every slot already holds 'level', so a shorter rail stops there.
+static void _vuShiftHistory(float* history, uint16_t count, uint16_t steps, float level) {
+  steps = min<uint16_t>(steps, count);
+  for (uint16_t step = 0; step < steps; ++step) {
+    for (uint16_t i = count - 1; i > 0; --i) history[i] = history[i - 1];
+    history[0] = level;
+  }
 }
 
 static void _vuPeak(float level, float& peak, uint32_t& holdUntil, uint32_t now, float dt, const StereoVuConfig& c) {
@@ -206,9 +277,11 @@ static void _vuPeak(float level, float& peak, uint32_t& holdUntil, uint32_t now,
   peak = max(level, peak - c.peakFall * dt);
 }
 
-static CRGB _vuPixel(uint8_t mode, uint16_t i, const StereoVuConfig& c, const CRGBPalette16& palette,
+// One pixel of one rail. 'n' is that rail's own length: every mode draws at
+// the rail's resolution, and the modes that read the other rail's level
+// (Stereo Balance) still draw on this rail's pixels.
+static CRGB _vuPixel(uint8_t mode, uint16_t i, uint16_t n, const StereoVuConfig& c, const CRGBPalette16& palette,
                      float level, float peak, const float* history, CRGB base, float other, bool left, float beatGlow) {
-  const uint16_t n = c.count;
   const float position = n == 1 ? 0.0f : (float)i / (float)(n - 1);
   const float coverage = _vuClamp(level * n - i);
   const CRGB pal = ColorFromPalette(palette, _vuByte(position * 0.82f), 255, LINEARBLEND);
@@ -273,10 +346,10 @@ static CRGB _vuPixel(uint8_t mode, uint16_t i, const StereoVuConfig& c, const CR
 static void _stereoVuRender(StereoVuState& s, const StereoVuConfig& c, float* leftHistory, float* rightHistory,
                             CRGB* leftPixels, CRGB* rightPixels, const CRGBPalette16& palette,
                             bool active, float rawLeft, float rawRight, bool beat, uint32_t now) {
-  if (!s.initialized) _vuReset(s, leftHistory, rightHistory, c.count, now, c.mode);
+  if (!s.initialized) _vuReset(s, leftHistory, rightHistory, c, now);
   if (!active) {
-    _vuReset(s, leftHistory, rightHistory, c.count, now, c.mode);
-    fill_solid(leftPixels, c.count, CRGB::Black); fill_solid(rightPixels, c.count, CRGB::Black); return;
+    _vuReset(s, leftHistory, rightHistory, c, now);
+    fill_solid(leftPixels, c.leftCount, CRGB::Black); fill_solid(rightPixels, c.rightCount, CRGB::Black); return;
   }
   float dt = min(0.25f, (now - s.lastMs) / 1000.0f); s.lastMs = now;
   float l = c.swapChannels ? rawRight : rawLeft, r = c.swapChannels ? rawLeft : rawRight;
@@ -288,11 +361,10 @@ static void _stereoVuRender(StereoVuState& s, const StereoVuConfig& c, float* le
   s.beatGlow = beatEdge ? 1.0f : max(0.0f, s.beatGlow - dt * 5.0f);
   const uint32_t historyPeriod = 1000u / 30u;
   if (now - s.historyMs >= historyPeriod) {
-    uint16_t steps = min<uint16_t>(c.count, (now - s.historyMs) / historyPeriod);
-    for (uint16_t step = 0; step < steps; ++step) {
-      for (uint16_t i = c.count - 1; i > 0; --i) { leftHistory[i] = leftHistory[i - 1]; rightHistory[i] = rightHistory[i - 1]; }
-      leftHistory[0] = s.leftLevel; rightHistory[0] = s.rightLevel;
-    }
+    // One clock for both rails, bounded by the longer one.
+    uint16_t steps = min<uint16_t>(max(c.leftCount, c.rightCount), (now - s.historyMs) / historyPeriod);
+    _vuShiftHistory(leftHistory, c.leftCount, steps, s.leftLevel);
+    _vuShiftHistory(rightHistory, c.rightCount, steps, s.rightLevel);
     s.historyMs += steps * historyPeriod;
   }
   uint8_t mode = c.mode;
@@ -304,10 +376,13 @@ static void _stereoVuRender(StereoVuState& s, const StereoVuConfig& c, float* le
     if (beatEdge && now - s.policyMs >= 350u) { s.policyMode = (s.policyMode + 1) % 12; s.policyMs = now; }
     mode = s.policyMode;
   }
-  for (uint16_t i = 0; i < c.count; ++i) {
-    CRGB lp = _vuScale(_vuPixel(mode, i, c, palette, s.leftLevel, s.leftPeak, leftHistory, c.leftColor, s.rightLevel, true, s.beatGlow), c.brightness);
-    CRGB rp = _vuScale(_vuPixel(mode, i, c, palette, s.rightLevel, s.rightPeak, rightHistory, c.rightColor, s.leftLevel, false, s.beatGlow), c.brightness);
-    leftPixels[c.reverseLeft ? c.count - 1 - i : i] = lp;
-    rightPixels[c.reverseRight ? c.count - 1 - i : i] = rp;
+  // Each rail at its own length; nothing maps one rail's pixels onto the other's.
+  for (uint16_t i = 0; i < c.leftCount; ++i) {
+    CRGB lp = _vuScale(_vuPixel(mode, i, c.leftCount, c, palette, s.leftLevel, s.leftPeak, leftHistory, c.leftColor, s.rightLevel, true, s.beatGlow), c.brightness);
+    leftPixels[c.reverseLeft ? c.leftCount - 1 - i : i] = lp;
+  }
+  for (uint16_t i = 0; i < c.rightCount; ++i) {
+    CRGB rp = _vuScale(_vuPixel(mode, i, c.rightCount, c, palette, s.rightLevel, s.rightPeak, rightHistory, c.rightColor, s.leftLevel, false, s.beatGlow), c.brightness);
+    rightPixels[c.reverseRight ? c.rightCount - 1 - i : i] = rp;
   }
 }`

@@ -37,6 +37,7 @@ import { profileI2cDefault } from '../boards/boardI2cDefaults'
 import { boardOffersPins } from '../boards/boardPinPolicy'
 import {
   SPI_CHIPSETS,
+  stereoVuPinKeys,
   oledTransportForProps,
   segmentControllerForProps,
   transportDisplayPinKeysForProps,
@@ -139,8 +140,13 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     ],
   },
   StereoVuMeter: {
-    keys: ['leftDataPin', 'rightDataPin'],
-    requests: [{ key: 'leftDataPin' }, { key: 'rightDataPin' }],
+    keys: ['leftDataPin', 'rightDataPin', 'leftClockPin', 'rightClockPin'],
+    // Clock lines move only when the chipset reads them, as for the LED output.
+    keysFor: (properties) => [...stereoVuPinKeys(properties)],
+    requests: [
+      { key: 'leftDataPin' }, { key: 'rightDataPin' },
+      { key: 'leftClockPin', capability: 'digitalOutput' }, { key: 'rightClockPin', capability: 'digitalOutput' },
+    ],
   },
   Amplifier: {
     keys: ['i2sBclk', 'i2sLrc', 'i2sDout'],

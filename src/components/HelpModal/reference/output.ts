@@ -68,9 +68,10 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       'Stereo VU Meter drives two separate addressable strings as left and right level rails — the classic hi-fi meter — from one Audio wire. It is its own fixture, beside the main LED output rather than part of its frame.',
       'Twelve looks are built in, from the classic ladder and peak caps to comets, centre bursts and beat sparks. It can hold one, cycle on a timer or on beats, or shuffle. Gain, noise gate, response curve, attack, release and peak hold shape how the bars move.',
       'Mono sources move both rails together; a stereo source such as Line In or the decoder moves them independently. A power cap shared by both rails keeps a loud track from browning out the supply.',
+      'Each rail has its own length, so a 40-LED left and a 32-LED right each fill at their own resolution. Clocked chipsets (APA102, HD108, WS2801) take a clock pin per rail beside its data pin. A board can carry several fixtures, each showing the same music on its own pair of rails.',
     ],
     steps: [
-      'Add the Stereo VU Meter from the Hardware tab and wire each rail’s data pin.',
+      'Add the Stereo VU Meter from the Hardware tab and wire each rail’s data pin — and its clock pin on a clocked chipset.',
       'Choose which LED output it flanks, if any, so the preview draws the rails beside it.',
       'Wire an Audio node into it.',
     ],

@@ -21,6 +21,7 @@ import { partRenderForNodeType } from '../../build/parts/partRenders'
 import { partDimensionsMm, partRenderSrc } from '../../build/parts/partCatalogue'
 import { resolvePartIdentity } from '../../build/parts/partOptions'
 import { powerAmplifierFeed, powerAmplifierSource } from '../../state/audio/audioOutput'
+import { stereoVuRailCounts } from '../../state/audio/stereoVuSizing'
 import { fixtureLinkDataType, fixtureLinkLabel } from './fixtureLink'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/upload/uploadStore'
@@ -876,7 +877,8 @@ export default function HardwarePane() {
                       const direction = String(
                         part.node.data.properties[`${side.toLowerCase()}Direction`] ?? 'Bottom',
                       )
-                      const ledCount = Math.max(1, Math.round(Number(part.node.data.properties.ledCount ?? 16)))
+                      // Each rail is its own length; the box is sized by the longer one.
+                      const ledCount = stereoVuRailCounts(part.node.data.properties as Record<string, unknown>)[side.toLowerCase() as 'left' | 'right']
                       // A rail is a one-column matrix on the same pitch a
                       // string is: one square cell per LED, so the board is one
                       // tile wide and its diffuser tiles square over it.

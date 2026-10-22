@@ -4,10 +4,11 @@ import { boardProfileById } from '../../../build/boards/boardProfiles'
 import { validateGraph } from '../../../utils/validateGraph'
 import { busAssignmentFor, findPinCollisions } from '../../../build/pins/busTopology'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../../build/hardware'
-import { NODE_LIBRARY, gpioRequirementForProperty, propertyLabel } from '../../nodeLibrary'
+import { NODE_LIBRARY, gpioRequirementForProperty, propertyLabel, stereoVuPinKeys } from '../../nodeLibrary'
 import { retargetHardwarePins, withAssignedPins } from '../../../build/pins/pinRetarget'
 import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from '../stereoVuSizing'
-import type { StudioEdge, StudioNode } from '../../graphStore'
+import { FIXTURE_PARTS } from '../../../components/Hardware/hardwarePartCatalog'
+import { canAddNodeType, SINGLETON_NODE_TYPES, type StudioEdge, type StudioNode } from '../../graphStore'
 
 const S3_PROFILE = 'esp32-s3-devkitc-1'
 const S3_FQBN = 'esp32:esp32:esp32s3'
@@ -41,7 +42,8 @@ describe('Stereo VU Meter hardware contract', () => {
       ],
       outputs: [],
       defaultProperties: {
-        ledCount: 16,
+        leftLedCount: 16,
+        rightLedCount: 16,
         leftDirection: 'Bottom',
         rightDirection: 'Bottom',
         chipset: 'WS2812B',
@@ -74,6 +76,78 @@ describe('Stereo VU Meter hardware contract', () => {
     expect(findPinCollisions(collectPinUses([meter({ leftDataPin: 12, rightDataPin: 12 })]))).toHaveLength(1)
   })
 
+  it('reserves a clock pin per rail only on a clocked chipset (docs/design/stereo-vu-expansion.md)', () => {
+    // Clockless: the clock properties exist but are not wires.
+    expect(collectPinUses([meter({ leftDataPin: 12, rightDataPin: 13, leftClockPin: 12, rightClockPin: 13 })])
+      .map((use) => use.propertyKey)).toEqual(['leftDataPin', 'rightDataPin'])
+    expect(stereoVuPinKeys({ chipset: 'WS2812B' })).toEqual(['leftDataPin', 'rightDataPin'])
+    expect(NODE_LIBRARY.find((entry) => entry.type === 'StereoVuMeter')!.defaultProperties).toMatchObject({
+      leftClockPin: 18, rightClockPin: 19,
+    })
+
+    // Clocked: four exclusive LED lines, and a shared pin is a collision.
+    const clocked = meter({ chipset: 'APA102', leftDataPin: 12, rightDataPin: 13, leftClockPin: 14, rightClockPin: 15 })
+    const uses = collectPinUses([clocked])
+    expect(uses.map(({ propertyKey, pin, label }) => ({ propertyKey, pin, label }))).toEqual([
+      { propertyKey: 'leftDataPin', pin: 12, label: 'Stereo VU Meter left data pin' },
+      { propertyKey: 'rightDataPin', pin: 13, label: 'Stereo VU Meter right data pin' },
+      { propertyKey: 'leftClockPin', pin: 14, label: 'Stereo VU Meter left clock pin' },
+      { propertyKey: 'rightClockPin', pin: 15, label: 'Stereo VU Meter right clock pin' },
+    ])
+    expect(gpioRequirementForProperty('StereoVuMeter', 'leftClockPin', {})).toEqual({
+      capability: 'digitalOutput', pullup: false,
+    })
+    expect(busAssignmentFor('StereoVuMeter', 'leftClockPin')).toEqual({ kind: 'led', role: 'exclusive' })
+    expect(findPinCollisions(uses)).toEqual([])
+    expect(findPinCollisions(collectPinUses([
+      meter({ chipset: 'APA102', leftDataPin: 12, rightDataPin: 13, leftClockPin: 12, rightClockPin: 15 }),
+    ]))).toHaveLength(1)
+    expect(propertyLabel('StereoVuMeter', 'leftClockPin')).toBe('left clock pin')
+  })
+
+  it('retargets the clock pins with the data pins only when the chipset reads them', () => {
+    const stamped = withAssignedPins(
+      { leftDataPin: 45, rightDataPin: 46, leftClockPin: 47, rightClockPin: 48 },
+      { leftDataPin: 45, rightDataPin: 46, leftClockPin: 47, rightClockPin: 48 },
+      'old-board',
+    )
+    const clocked = retargetHardwarePins([meter({ ...stamped, chipset: 'APA102' })], boardProfileById(S3_PROFILE), S3_FQBN, 'old-board')
+    const clockedProps = clocked.nodes[0].data.properties as Record<string, unknown>
+    expect(new Set([clockedProps.leftDataPin, clockedProps.rightDataPin, clockedProps.leftClockPin, clockedProps.rightClockPin]).size).toBe(4)
+    expect(collectPinUses(clocked.nodes)).toHaveLength(4)
+
+    const clockless = retargetHardwarePins([meter({ ...stamped, chipset: 'WS2812B' })], boardProfileById(S3_PROFILE), S3_FQBN, 'old-board')
+    const clocklessProps = clockless.nodes[0].data.properties as Record<string, unknown>
+    expect(clocklessProps.leftDataPin).not.toBe(45)
+    // Unread pins are left where they were rather than spent on the new board.
+    expect(clocklessProps.leftClockPin).toBe(47)
+    expect(clocklessProps.rightClockPin).toBe(48)
+  })
+
+  it('is no longer a one-per-board part', () => {
+    expect(FIXTURE_PARTS.find((entry) => entry.nodeType === 'StereoVuMeter')?.singleton).toBeUndefined()
+    expect(SINGLETON_NODE_TYPES.has('StereoVuMeter')).toBe(false)
+    expect(canAddNodeType([meter()], 'StereoVuMeter')).toBe(true)
+  })
+
+  it('exports clocked, unequal rails as supported Build Diagram routes with their clock wires', () => {
+    const manifest = buildHardwareManifest([meter({
+      chipset: 'APA102', leftLedCount: 40, rightLedCount: 32,
+      leftDataPin: 12, rightDataPin: 13, leftClockPin: 14, rightClockPin: 15,
+    })], [], S3_FQBN)
+    const rails = manifest.primaryItems.filter((item) => item.sourceNodeType === 'StereoVuMeter')
+    expect(rails.map((item) => item.supported)).toEqual([true, true])
+    expect(rails.map((item) => item.pins.map((pin) => pin.propertyKey))).toEqual([
+      ['leftDataPin', 'leftClockPin'],
+      ['rightDataPin', 'rightClockPin'],
+    ])
+    expect(rails.map((item) => item.facts)).toEqual([
+      expect.objectContaining({ side: 'left', pixelCount: 40, height: 40, clocked: true, chipset: 'APA102' }),
+      expect.objectContaining({ side: 'right', pixelCount: 32, height: 32, clocked: true, chipset: 'APA102' }),
+    ])
+    expect(rails[0].subtitle).toBe('40-LED APA102 vertical rail; data-in at bottom')
+  })
+
   it('retargets both rails to distinct pins on the selected board', () => {
     const original = meter({
       ...withAssignedPins({ leftDataPin: 45, rightDataPin: 46 }, { leftDataPin: 45, rightDataPin: 46 }, 'old-board'),
@@ -87,7 +161,8 @@ describe('Stereo VU Meter hardware contract', () => {
 
   it('exports left and right as separate Build Diagram LED routes', () => {
     const manifest = buildHardwareManifest([meter({
-      ledCount: 48,
+      leftLedCount: 48,
+      rightLedCount: 48,
       leftDataPin: 12,
       rightDataPin: 13,
       leftDirection: 'Bottom',
@@ -130,11 +205,13 @@ describe('Stereo VU Meter hardware contract', () => {
   it('normalizes a removed matrix target to Standalone without discarding a custom rail length', () => {
     const normalized = syncAutomaticStereoVuLedCounts([meter({
       targetOutputId: 'removed-output',
-      ledCount: 42,
+      leftLedCount: 42,
+      rightLedCount: 42,
       [VU_LED_COUNT_CUSTOM_KEY]: true,
     })])[0]
 
     expect(normalized.data.properties.targetOutputId).toBe('')
-    expect(normalized.data.properties.ledCount).toBe(42)
+    expect(normalized.data.properties.leftLedCount).toBe(42)
+    expect(normalized.data.properties.rightLedCount).toBe(42)
   })
 })

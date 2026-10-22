@@ -55,11 +55,11 @@ describe('estimateWireTime', () => {
   })
 
   it('counts both Stereo VU rails and excludes an unwired meter', () => {
-    const nodes = [board(S3), node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B' }), node('vu', 'StereoVuMeter', { ledCount: 20 })]
+    const nodes = [board(S3), node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B' }), node('vu', 'StereoVuMeter', { leftLedCount: 20, rightLedCount: 20 })]
     const wired = estimateWireTime(nodes, [edge('audio-vu', 'audio', 'vu', 'audio')])!
     expect(wired).toMatchObject({ ledCount: 104, controllerCount: 3, estimatedMicros: chipsetSendMicros('WS2812B', 64) })
     expect(estimateWireTime(nodes, [])!.controllerCount).toBe(1)
-    expect(estimateWireTime([node('vu', 'StereoVuMeter', { ledCount: 30 })], [])).toBeNull()
+    expect(estimateWireTime([node('vu', 'StereoVuMeter', { leftLedCount: 30, rightLedCount: 30 })], [])).toBeNull()
   })
 
   it('excludes HUB75 DMA refresh', () => {

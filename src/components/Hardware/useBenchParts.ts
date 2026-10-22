@@ -20,6 +20,8 @@ import {
   VU_PAIR_WIDTH_MM,
 } from './hardwarePartCatalog'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import { stereoVuPinKeys } from '../../state/nodeLibrary'
+import { stereoVuRailCounts } from '../../state/audio/stereoVuSizing'
 import { batteryPackFootprint } from '../../state/peripherals/battery'
 import { dataLanePlan } from '../../state/output/dataLanes'
 
@@ -212,14 +214,18 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
         label: partPinLabelForProperty(identity?.option.id ?? '', key) ?? MODULE_PIN_LABELS[key] ?? key,
       }))
       // Silkscreen first here too: the KY-012 prints SIG, the KY-006 only S.
-      : (entry.pinFields ?? []).map((field) => ({
+      // A VU fixture shows its clock pads only on a clocked chipset.
+      : (entry.pinFields ?? []).filter((field) => entry.nodeType !== 'StereoVuMeter'
+        || stereoVuPinKeys(node.data.properties as Record<string, unknown>).includes(field.key)).map((field) => ({
         ...field,
         label: partPinLabelForProperty(identity?.option.id ?? '', field.key) ?? field.label,
       }))
     const props = node.data.properties as Record<string, unknown>
     const pinSummary = numericPinSummary(props, pinFields, entry.nodeType, chosen?.partId)
+    // The pair's box is as tall as its longer rail; a shorter rail is drawn
+    // short inside it (`HardwarePane`), so unequal rails read as unequal.
     const vuLedCount = entry.nodeType === 'StereoVuMeter'
-      ? Math.max(1, Math.round(Number(props.ledCount ?? 16)))
+      ? Math.max(stereoVuRailCounts(props).left, stereoVuRailCounts(props).right)
       : null
     const batteryFootprint = entry.nodeType === 'BatteryPack'
       ? batteryPackFootprint(chosen?.partId, props.series, props.parallel)

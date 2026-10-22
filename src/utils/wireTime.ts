@@ -31,7 +31,7 @@
 import type { StudioEdge, StudioNode } from '../state/graphStore'
 import { leadingOutputRoutes } from '../state/output/outputRouting'
 import { outputForm, outputLedTotal } from '../state/output/ledOutputForm'
-import { DEFAULT_STANDALONE_VU_LED_COUNT } from '../state/audio/stereoVuSizing'
+import { stereoVuRailCounts } from '../state/audio/stereoVuSizing'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { targetFamilyFromFqbn, type BuildTargetFamily } from '../build/buildProfile'
 import { controllerSettings, FRAME_RATE } from '../build/controllerSettings'
@@ -142,9 +142,11 @@ export function wireOutputs(nodes: StudioNode[], edges: readonly StudioEdge[]): 
     if (meter.data.nodeType !== 'StereoVuMeter') continue
     if (!edges.some((edge) => edge.target === meter.id && edge.targetHandle === 'audio')) continue
     const props = meter.data.properties as Record<string, unknown>
-    const leds = positiveInt(Math.round(Number(props.ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT)), DEFAULT_STANDALONE_VU_LED_COUNT)
+    const counts = stereoVuRailCounts(props)
     const chipset = String(props.chipset ?? 'WS2812B')
-    for (const side of ['left', 'right']) {
+    // Each rail is its own controller sending its own length.
+    for (const side of ['left', 'right'] as const) {
+      const leds = counts[side]
       outputs.push({
         nodeId: meter.id,
         label: `${String(meter.data.label ?? 'Stereo VU Meter')} ${side}`,

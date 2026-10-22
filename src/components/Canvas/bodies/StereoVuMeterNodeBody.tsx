@@ -4,6 +4,7 @@ import { LED_OUTPUT_FORM_LABELS, outputForm } from '../../../state/output/ledOut
 import { usePreviewStore } from '../../../state/previewStore'
 import type { RGB } from '../../../state/palettes/ledColor'
 import type { StereoVuFrame } from '../../../state/audio/stereoVuMeter'
+import { stereoVuRailCounts } from '../../../state/audio/stereoVuSizing'
 import styles from './StereoVuMeterNodeBody.module.css'
 
 const rgbCss = (color: RGB): string => `rgb(${color.r} ${color.g} ${color.b})`
@@ -36,10 +37,12 @@ export default function StereoVuMeterNodeBody({ nodeId }: { nodeId: string }) {
   }, [nodeId, targetExists, targetOutputId, updateNodeProperty])
   const mode = String(node?.data.properties.visualizationMode ?? 'Classic Ladder')
   const live = usePreviewStore((state) => state.outputs.get(nodeId)?.vu) as StereoVuFrame | undefined
-  const ledCount = Math.max(1, Math.round(Number(node?.data.properties.ledCount ?? 60)))
-  const blank = useMemo(() => Array.from({ length: ledCount }, () => ({ r: 0, g: 0, b: 0 })), [ledCount])
-  const left = live?.left ?? blank
-  const right = live?.right ?? blank
+  // Each rail is drawn at its own length, live or blank.
+  const counts = stereoVuRailCounts((node?.data.properties ?? {}) as Record<string, unknown>)
+  const blankLeft = useMemo(() => Array.from({ length: counts.left }, () => ({ r: 0, g: 0, b: 0 })), [counts.left])
+  const blankRight = useMemo(() => Array.from({ length: counts.right }, () => ({ r: 0, g: 0, b: 0 })), [counts.right])
+  const left = live?.left ?? blankLeft
+  const right = live?.right ?? blankRight
 
   return (
     <div className={styles.body}>

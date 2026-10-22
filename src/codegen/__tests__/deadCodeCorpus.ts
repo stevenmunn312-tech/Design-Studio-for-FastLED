@@ -147,7 +147,7 @@ function showSketches(): Record<string, string> {
     'music-vu-only': musicPlayer([], {
       noOutput: true,
       nodes: [node('audio', 'Audio', { sourceId: 'decoder' }), node('vu', 'StereoVuMeter', {
-        targetOutputId: '', ledCount: 24, leftDataPin: 5, rightDataPin: 6, chipset: 'WS2812B', colorOrder: 'GRB',
+        targetOutputId: '', leftLedCount: 24, rightLedCount: 24, leftDataPin: 5, rightDataPin: 6, chipset: 'WS2812B', colorOrder: 'GRB',
       })],
       edges: [edge('vu', 'audio', 'audio', 'vu', 'audio')],
     }),

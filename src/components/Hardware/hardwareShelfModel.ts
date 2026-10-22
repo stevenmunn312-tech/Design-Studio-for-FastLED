@@ -131,18 +131,18 @@ export function hardwareShelfCategories({
   const pdTriggerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PdTriggerSource')
   const batteryPackFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BatteryPack')
   const batteryModuleFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BatteryModule')
+  // Several fixtures per board: the only thing that can block another pair is
+  // running out of free pins for its two data lines.
   const stereoVuBlocker = stereoVuFixture
-    ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
-      ? 'One stereo VU meter per board'
-      : (() => {
-          const assigned = assignPartPins(
-            boardProfile,
-            selectedFqbn,
-            nodes,
-            stereoVuFixture.pinRequests ?? [],
-          )
-          return assigned.ok ? null : assigned.reason
-        })()
+    ? (() => {
+        const assigned = assignPartPins(
+          boardProfile,
+          selectedFqbn,
+          nodes,
+          stereoVuFixture.pinRequests ?? [],
+        )
+        return assigned.ok ? null : assigned.reason
+      })()
     : 'Stereo VU Meter is unavailable'
 
   // Same wording as every other part, so a full board reads as full on the

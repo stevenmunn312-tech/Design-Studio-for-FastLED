@@ -137,6 +137,8 @@ import {
   STEREO_VU_CPP_HELPERS,
   stereoVuPaletteId,
   stereoVuGlobalCpp,
+  stereoVuPins,
+  stereoVuRailSetupOptions,
 } from './audio/stereoVuMeterCpp'
 import { audioEngineForGraph } from './audio/audioEngineCpp'
 import { safeId, cppComment, floatLit } from './cppLiterals'
@@ -754,8 +756,7 @@ export function generateCpp(
       return {
         id: safeId(node.id),
         properties: p,
-        leftPin: sanitizePin(p.leftDataPin, 5),
-        rightPin: sanitizePin(p.rightDataPin, 6),
+        ...stereoVuPins(p),
         activeExpr: p.enabled === false ? 'false' : emitEngine ? '(bool)_audioProcessor' : 'true',
         leftExpr: '_audioLeftLevel',
         rightExpr: '_audioRightLevel',
@@ -1635,20 +1636,8 @@ export function generateCpp(
   }
   for (const meter of stereoVuMeters) {
     const meterHw = ledHardwareFromProps(meter.properties)
-    lines.push(...fastledSetupCpp(meterHw, {
-      dataPinMacro: `VU_LEFT_PIN_${meter.id}`,
-      brightness: null,
-      ledCountMacro: `VU_LEDS_${meter.id}`,
-      ledsName: `_vuLeft_${meter.id}`,
-      controllerName: `_vuLeftController_${meter.id}`,
-    }))
-    lines.push(...fastledSetupCpp(meterHw, {
-      dataPinMacro: `VU_RIGHT_PIN_${meter.id}`,
-      brightness: null,
-      ledCountMacro: `VU_LEDS_${meter.id}`,
-      ledsName: `_vuRight_${meter.id}`,
-      controllerName: `_vuRightController_${meter.id}`,
-    }))
+    lines.push(...fastledSetupCpp(meterHw, stereoVuRailSetupOptions(meter, 'left')))
+    lines.push(...fastledSetupCpp(meterHw, stereoVuRailSetupOptions(meter, 'right')))
   }
   if (stereoVuMeters.length > 0) {
     lines.push(`  // The fixture scales its own pixels first; the Board's FastLED master brightness`)

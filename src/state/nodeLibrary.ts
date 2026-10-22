@@ -365,6 +365,22 @@ export const CLOCKLESS_CHIPSET_OPTIONS = ADDRESSABLE_CHIPSET_OPTIONS.filter(
   (chipset) => !SPI_CHIPSETS.has(chipset),
 )
 
+export const STEREO_VU_DATA_PIN_KEYS = ['leftDataPin', 'rightDataPin'] as const
+export const STEREO_VU_CLOCK_PIN_KEYS = ['leftClockPin', 'rightClockPin'] as const
+
+/**
+ * The GPIO properties a Stereo VU Meter actually drives: both rails' data
+ * pins, plus both clock pins only when the chipset is clocked. The bench, the
+ * manifest and pin retargeting all read this, so a clockless fixture never
+ * reserves or shows a clock line it does not wire — the way the Info Display
+ * reserves only the wires its module has.
+ */
+export function stereoVuPinKeys(properties: Record<string, unknown>): readonly string[] {
+  return SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
+    ? [...STEREO_VU_DATA_PIN_KEYS, ...STEREO_VU_CLOCK_PIN_KEYS]
+    : STEREO_VU_DATA_PIN_KEYS
+}
+
 /** HUB75 scan-panel matrices (docs/design/hub75-output.md) — driven
  *  over a 13-14 signal ribbon via a DMA library, not a FastLED addLeds<>() pin
  *  pair, so they're neither a clockless nor an SPI chipset in the sense above. */
@@ -804,12 +820,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     tilesY: { control: 'slider', min: 1, max: 16, step: 1 },
   },
   StereoVuMeter: {
-    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    leftLedCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    rightLedCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
     leftDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     rightDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    leftClockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    rightClockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     leftDirection: { control: 'select', options: ['Bottom', 'Top'] },
     rightDirection: { control: 'select', options: ['Bottom', 'Top'] },
-    chipset: { control: 'select', options: CLOCKLESS_CHIPSET_OPTIONS },
+    chipset: { control: 'select', options: ADDRESSABLE_CHIPSET_OPTIONS },
     visualizationPolicy: { control: 'select', options: ['Manual', 'Timed cycle', 'Beat cycle', 'Shuffle'] },
     visualizationMode: { control: 'select', options: [
       'Classic Ladder', 'Palette Fill', 'Solid Channel', 'Segmented Blocks',
@@ -1871,9 +1890,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rightDirection: 'Where the right string data enters. The renderer keeps visual right on screen-right and reverses physical LED order as needed.',
     swapChannels: 'Swaps audio channels without swapping the physical left/right rail placement.',
     milliamps: 'Current cap shared by both side strings.',
-    ledCount: 'LEDs on each rail. Both rails must be the same length.',
+    leftLedCount: 'LEDs on the left rail. Each rail renders at its own length, so the two need not match.',
+    rightLedCount: 'LEDs on the right rail. Each rail renders at its own length, so the two need not match.',
     leftDataPin: 'The GPIO wired to the left rail\'s data-in.',
     rightDataPin: 'The GPIO wired to the right rail\'s data-in.',
+    leftClockPin: 'Clocked chipsets only — the GPIO wired to the left rail\'s clock-in.',
+    rightClockPin: 'Clocked chipsets only — the GPIO wired to the right rail\'s clock-in.',
     brightness: 'Overall level of both rails, 0 to 1, under the Board\'s master level.',
     powerLimit: 'Cap the current of both rails together so a loud track cannot brown out the supply.',
     enabled: 'Off darkens both rails without removing the part from the build.',
@@ -3655,9 +3677,12 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   StereoVuMeter: {
     targetOutputId: 'target LED output',
-    ledCount: 'LEDs per side',
+    leftLedCount: 'left LEDs',
+    rightLedCount: 'right LEDs',
     leftDataPin: 'left data pin',
     rightDataPin: 'right data pin',
+    leftClockPin: 'left clock pin',
+    rightClockPin: 'right clock pin',
     leftDirection: 'left data-in',
     rightDirection: 'right data-in',
     swapChannels: 'swap channels',
@@ -4030,7 +4055,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   StereoVuMeter: [
     { key: 'mounting', label: 'Mounting', keys: ['targetOutputId', 'leftDirection', 'rightDirection', 'swapChannels'] },
-    { key: 'wiring', label: 'Wiring', keys: ['ledCount', 'chipset', 'colorOrder', 'leftDataPin', 'rightDataPin'] },
+    { key: 'wiring', label: 'Wiring', keys: [
+      'leftLedCount', 'rightLedCount', 'chipset', 'colorOrder',
+      'leftDataPin', 'rightDataPin', 'leftClockPin', 'rightClockPin',
+    ] },
     { key: 'visualization', label: 'Visualization', keys: [
       'visualizationPolicy', 'visualizationMode', 'cycleInterval', 'palette', 'leftColor', 'rightColor',
     ] },
@@ -4366,7 +4394,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
     'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75EPin',
     'hub75ClkPin', 'hub75LatPin', 'hub75OePin',
   ]),
-  StereoVuMeter: new Set(['leftDataPin', 'rightDataPin']),
+  StereoVuMeter: new Set(['leftDataPin', 'rightDataPin', 'leftClockPin', 'rightClockPin']),
 }
 
 export function isGpioPinProperty(nodeType: string, key: string): boolean {
@@ -5033,6 +5061,8 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'StereoVuMeter') {
     if (key === 'cycleInterval') return properties.visualizationPolicy !== 'Manual'
     if (key === 'milliamps') return properties.powerLimit === true
+    // A clock line only exists on an SPI chipset, as on the LED output.
+    if (key === 'leftClockPin' || key === 'rightClockPin') return SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
   }
   if (nodeType === 'Image') {
     // Playback controls only apply once an animation (not a still) is loaded.

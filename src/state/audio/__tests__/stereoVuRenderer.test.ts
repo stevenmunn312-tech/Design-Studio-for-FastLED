@@ -13,7 +13,8 @@ import type { StudioEdge, StudioNode } from '../../graphStore'
 
 function settings(overrides: Record<string, unknown> = {}, instanceKey = 'fixture-a'): StereoVuSettings {
   return stereoVuSettings({
-    ledCount: 8,
+    leftLedCount: 8,
+    rightLedCount: 8,
     enabled: true,
     visualizationMode: 'Classic Ladder',
     visualizationPolicy: 'Manual',
@@ -75,10 +76,52 @@ describe('stereo VU renderer', () => {
   })
 
   it.each([1, 2, 7, 8])('renders edge-case rail length %i', (ledCount) => {
-    const rendered = renderAt(settings({ ledCount, visualizationMode: 'Center Burst' }))
+    const rendered = renderAt(settings({ leftLedCount: ledCount, rightLedCount: ledCount, visualizationMode: 'Center Burst' }))
     expect(rendered.frame.left).toHaveLength(ledCount)
     expect(rendered.frame.right).toHaveLength(ledCount)
     expect(rendered.frame.left.every((pixel) => Object.values(pixel).every(Number.isFinite))).toBe(true)
+  })
+
+  it('renders unequal rails each at its own resolution from its own level', () => {
+    // A 40-LED left and a 32-LED right (docs/design/stereo-vu-expansion.md).
+    const unequal = settings({ leftLedCount: 40, rightLedCount: 32 })
+    const rendered = renderAt(unequal, 0.5, 0.5)
+    expect(rendered.frame.left).toHaveLength(40)
+    expect(rendered.frame.right).toHaveLength(32)
+    expect(rendered.frame.leftPhysical).toHaveLength(40)
+    expect(rendered.frame.rightPhysical).toHaveLength(32)
+    // Same level, so each rail is half full of its own length: nothing maps
+    // one rail's pixels onto the other's.
+    const lit = (pixels: Array<{ r: number; g: number; b: number }>) => pixels.filter((p) => p.r + p.g + p.b > 0).length
+    expect(lit(rendered.frame.left)).toBe(20)
+    expect(lit(rendered.frame.right)).toBe(16)
+    expect(rendered.state.leftHistory).toHaveLength(40)
+    expect(rendered.state.rightHistory).toHaveLength(32)
+
+    // Every mode draws both lengths without reading past a rail.
+    for (const mode of STEREO_VU_MODES) {
+      const frame = renderAt(settings({ leftLedCount: 5, rightLedCount: 9, visualizationMode: mode }), 0.8, 0.3, true).frame
+      expect(frame.left).toHaveLength(5)
+      expect(frame.right).toHaveLength(9)
+      expect([...frame.left, ...frame.right].every((pixel) => Object.values(pixel).every(Number.isFinite))).toBe(true)
+    }
+
+    // The inactive frame is black at each rail's own length too.
+    const dark = renderStereoVu({ active: false, left: 0, right: 0, beat: false, timeSec: 1 }, unequal, rendered.state).frame
+    expect(dark.left).toHaveLength(40)
+    expect(dark.right).toHaveLength(32)
+  })
+
+  it('scrolls History Trail on each rail by one shared clock, bounded by the longer rail', () => {
+    const config = settings({ leftLedCount: 3, rightLedCount: 6, visualizationMode: 'History Trail', attackMs: 0, releaseMs: 0 })
+    let state = blankStereoVuState(config, 0)
+    // Ten history periods elapse at once; the short rail cannot scroll past
+    // its own length, the long one takes every step it has room for.
+    const result = renderStereoVu({ active: true, left: 1, right: 0.5, beat: false, timeSec: 10 / 30 + 0.001 }, config, state)
+    state = result.state
+    expect(state.leftHistory).toEqual([1, 1, 1])
+    expect(state.rightHistory).toEqual([0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+    expect(state.historyAt).toBeCloseTo(6 / 30)
   })
 
   it('maps logical bottom-to-top pixels into each physical data direction', () => {
@@ -130,7 +173,7 @@ describe('stereo VU renderer', () => {
     )
     expect(sourceReset.state.leftPeak).toBe(0)
 
-    const resized = settings({ ledCount: 3, peakHoldMs: 1000, releaseMs: 1000 }, 'source-a')
+    const resized = settings({ leftLedCount: 3, rightLedCount: 3, peakHoldMs: 1000, releaseMs: 1000 }, 'source-a')
     const geometryReset = renderStereoVu(
       { active: true, left: 0, right: 0, beat: false, timeSec: 0.2 }, resized, lit,
     )
@@ -159,7 +202,7 @@ describe('stereo VU renderer', () => {
   })
 
   it('keeps History Trail rendering for two 1024-pixel rails inside a 60 fps frame budget', () => {
-    const config = settings({ ledCount: 1024, visualizationMode: 'History Trail' })
+    const config = settings({ leftLedCount: 1024, rightLedCount: 1024, visualizationMode: 'History Trail' })
     let state = blankStereoVuState(config, 0)
     const frames = 120
     const started = performance.now()
@@ -217,7 +260,7 @@ describe('StereoVuMeter evaluator integration', () => {
     const nodes = [
       node('mic', 'MicInput'),
       node('audio', 'Audio', { sourceId: 'mic' }),
-      node('vu', 'StereoVuMeter', { attackMs: 0, releaseMs: 0, noiseGate: 0, responseCurve: 1, brightness: 1, ledCount: 8 }),
+      node('vu', 'StereoVuMeter', { attackMs: 0, releaseMs: 0, noiseGate: 0, responseCurve: 1, brightness: 1, leftLedCount: 8, rightLedCount: 8 }),
     ]
     const edges = [{
       id: 'audio-vu', source: 'audio', sourceHandle: 'audio', target: 'vu', targetHandle: 'audio',
@@ -231,7 +274,7 @@ describe('StereoVuMeter evaluator integration', () => {
   })
 
   it('keeps an unwired fixture inactive instead of sampling ambient audio', () => {
-    const vu = node('vu', 'StereoVuMeter', { ledCount: 4 })
+    const vu = node('vu', 'StereoVuMeter', { leftLedCount: 4, rightLedCount: 4 })
     const frame = evaluateGraphFull([vu], [], 6, 8, 8, {}, false, true, '', audio)
       .outputs.get('vu')?.vu as StereoVuFrame
     expect(frame.active).toBe(false)
@@ -247,7 +290,7 @@ describe('StereoVuMeter evaluator integration', () => {
       }),
       node('vu', 'StereoVuMeter', {
         attackMs: 0, releaseMs: 0, noiseGate: 0, responseCurve: 1,
-        brightness: 1, ledCount: 8, visualizationMode: 'Palette Fill',
+        brightness: 1, leftLedCount: 8, rightLedCount: 8, visualizationMode: 'Palette Fill',
         visualizationPolicy: 'Manual', palette: 'party',
       }),
     ]

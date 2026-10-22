@@ -255,13 +255,31 @@ describe('validateGraph', () => {
     expect(errors).toContainEqual(expect.stringMatching(/right data pin is missing or invalid/))
   })
 
-  it('rejects a clocked chipset imported into a Stereo VU Meter', () => {
-    const meter = node('vu', 'StereoVuMeter', {
-      targetOutputId: '', enabled: true, leftDataPin: 5, rightDataPin: 6, chipset: 'APA102',
+  it('accepts a clocked chipset on a Stereo VU Meter once both clock pins are usable', () => {
+    const wire = (meter: StudioNode) => [edge('audio-vu', 'audio-source', meter.id, 'audio')]
+    const clocked = node('vu', 'StereoVuMeter', {
+      targetOutputId: '', enabled: true, leftDataPin: 5, rightDataPin: 6, leftClockPin: 18, rightClockPin: 19, chipset: 'APA102',
     })
-    const errors = validateGraph([meter], [edge('audio-vu', 'audio-source', meter.id, 'audio')]).errors
+    expect(validateGraph([clocked], wire(clocked)).errors).toEqual([])
 
-    expect(errors).toContain('StereoVuMeter uses unsupported chipset APA102 — choose a clockless addressable chipset for both rails')
+    const missingClock = node('vu', 'StereoVuMeter', {
+      targetOutputId: '', enabled: true, leftDataPin: 5, rightDataPin: 6, leftClockPin: 5.5, chipset: 'APA102',
+    })
+    const errors = validateGraph([missingClock], wire(missingClock)).errors
+    expect(errors).toContainEqual(expect.stringMatching(/left clock pin is missing or invalid — APA102 needs a clock line/))
+    expect(errors).toContainEqual(expect.stringMatching(/right clock pin is missing or invalid/))
+
+    // A clockless rail never reads the clock pins, so garbage there is not an error.
+    const clockless = node('vu', 'StereoVuMeter', {
+      targetOutputId: '', enabled: true, leftDataPin: 5, rightDataPin: 6, leftClockPin: 5.5, chipset: 'WS2812B',
+    })
+    expect(validateGraph([clockless], wire(clockless)).errors).toEqual([])
+
+    const hub75 = node('vu', 'StereoVuMeter', {
+      targetOutputId: '', enabled: true, leftDataPin: 5, rightDataPin: 6, chipset: 'HUB75',
+    })
+    expect(validateGraph([hub75], wire(hub75)).errors)
+      .toContain('StereoVuMeter uses unsupported chipset HUB75 — choose an addressable chipset for both rails')
   })
 
   it('limits PCM1802 line-in firmware to ESP32-S3', () => {
@@ -1321,7 +1339,7 @@ describe('validateGraph', () => {
 
     it('counts both rails of a standalone Stereo VU Meter', () => {
       const power = estimatePowerLoad([node('vu', 'StereoVuMeter', {
-        ledCount: 16, enabled: true, targetOutputId: '',
+        leftLedCount: 16, rightLedCount: 16, enabled: true, targetOutputId: '',
       })])!
 
       expect(power.ledCount).toBe(32)
@@ -1333,7 +1351,7 @@ describe('validateGraph', () => {
     it('sums VU rails with a primary LED output', () => {
       const power = estimatePowerLoad([
         node('out', 'MatrixOutput', { width: 8, height: 8 }),
-        node('vu', 'StereoVuMeter', { ledCount: 20, enabled: true, targetOutputId: 'out' }),
+        node('vu', 'StereoVuMeter', { leftLedCount: 20, rightLedCount: 20, enabled: true, targetOutputId: 'out' }),
       ])!
 
       expect(power.ledCount).toBe(64 + 40)
@@ -1438,7 +1456,7 @@ describe('validateGraph', () => {
 
     it('budgets both Stereo VU rails and their history state without a MatrixOutput', () => {
       const meter = node('vu', 'StereoVuMeter', {
-        enabled: true, ledCount: 16, leftDataPin: 5, rightDataPin: 6, palette: 'rainbow',
+        enabled: true, leftLedCount: 16, rightLedCount: 16, leftDataPin: 5, rightDataPin: 6, palette: 'rainbow',
       })
       const ram = estimateFirmwareRam([meter], [edge('audio-vu', 'audio', meter.id, 'audio')])!
 
@@ -1450,7 +1468,7 @@ describe('validateGraph', () => {
     })
 
     it('does not budget an unwired Stereo VU Meter that codegen will omit', () => {
-      const meter = node('vu', 'StereoVuMeter', { enabled: true, ledCount: 16 })
+      const meter = node('vu', 'StereoVuMeter', { enabled: true, leftLedCount: 16, rightLedCount: 16 })
       expect(estimateFirmwareRam([meter], [])).toBeNull()
     })
 

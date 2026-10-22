@@ -1,11 +1,14 @@
 import type { StudioNode } from '../../state/graphStore'
 import type { RGB } from '../../state/palettes/ledColor'
+import { stereoVuRailCounts } from '../../state/audio/stereoVuSizing'
 import { renderGridFrame } from './frameCanvas'
 
 export interface CombinedStereoVuFixture {
   id: string
   swapChannels: boolean
-  ledCount: number
+  /** Each rail's own length; the standalone grid is as tall as the longer one. */
+  leftLedCount: number
+  rightLedCount: number
   standalone: boolean
 }
 
@@ -25,14 +28,15 @@ export function combinedStereoVuFixture(
     || (selectedOutputIsMatrix && String(node.data.properties.targetOutputId ?? '') === '')
     || (!hasMatrix && String(node.data.properties.targetOutputId ?? '') === '')
   ))
-  return fixture
-    ? {
-        id: fixture.id,
-        swapChannels: fixture.data.properties.swapChannels === true,
-        ledCount: Math.max(1, Math.round(Number(fixture.data.properties.ledCount ?? 16))),
-        standalone: !hasMatrix && String(fixture.data.properties.targetOutputId ?? '') === '',
-      }
-    : null
+  if (!fixture) return null
+  const counts = stereoVuRailCounts(fixture.data.properties as Record<string, unknown>)
+  return {
+    id: fixture.id,
+    swapChannels: fixture.data.properties.swapChannels === true,
+    leftLedCount: counts.left,
+    rightLedCount: counts.right,
+    standalone: !hasMatrix && String(fixture.data.properties.targetOutputId ?? '') === '',
+  }
 }
 
 export interface StereoVuRailSegment {

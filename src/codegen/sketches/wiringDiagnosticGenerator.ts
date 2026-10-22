@@ -6,6 +6,8 @@ import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
 import { controllerSettings, ledPropsWithController } from '../../build/controllerSettings'
 import { outputGridDims } from '../../state/output/ledOutputForm'
 import { amplifierIdleCpp } from '../audio/amplifierIdle'
+import { stereoVuPins } from '../audio/stereoVuMeterCpp'
+import { stereoVuRailCounts } from '../../state/audio/stereoVuSizing'
 import { standaloneDisplaysCpp } from '../displays/standaloneDisplayCpp'
 
 function intProp(val: unknown, def: number, min: number, max: number): number {
@@ -43,9 +45,8 @@ export function generateWiringDiagnosticSketch(
   const p = outputNode.data.properties as Record<string, unknown>
   const vuNode = targetedStereoVuNode(nodes, outputNode.id)
   const vuProps = vuNode?.data.properties as Record<string, unknown> | undefined
-  const vuCount = vuProps ? intProp(vuProps.ledCount, 60, 1, 1024) : 0
-  const vuLeftPin = vuProps ? sanitizePin(vuProps.leftDataPin, 5) : 0
-  const vuRightPin = vuProps ? sanitizePin(vuProps.rightDataPin, 6) : 0
+  const vuCounts = vuProps ? stereoVuRailCounts(vuProps) : { left: 0, right: 0 }
+  const vuPins = vuProps ? stereoVuPins(vuProps) : null
   const vuHw = vuProps ? ledHardwareFromProps(ledPropsWithController(vuProps, nodes)) : null
   const vuLeftReversed = vuProps?.leftDirection === 'Top'
   const vuRightReversed = vuProps?.rightDirection === 'Top'
@@ -138,19 +139,24 @@ export function generateWiringDiagnosticSketch(
     lines.push(`#define DATA_LANES ${laneCount}`)
     lines.push('#define LANE_LEDS (NUM_LEDS / DATA_LANES)')
   }
-  if (vuNode) {
+  if (vuNode && vuPins) {
     lines.push('#define DIAG_BRIGHTNESS 64')
-    lines.push(`#define VU_LED_COUNT ${vuCount}`)
-    lines.push(`#define VU_LEFT_PIN ${vuLeftPin}`)
-    lines.push(`#define VU_RIGHT_PIN ${vuRightPin}`)
+    lines.push(`#define VU_LEFT_LED_COUNT ${vuCounts.left}`)
+    lines.push(`#define VU_RIGHT_LED_COUNT ${vuCounts.right}`)
+    lines.push(`#define VU_LEFT_PIN ${vuPins.leftPin}`)
+    lines.push(`#define VU_RIGHT_PIN ${vuPins.rightPin}`)
+    if (vuPins.clocked) {
+      lines.push(`#define VU_LEFT_CLOCK_PIN ${vuPins.leftClockPin}`)
+      lines.push(`#define VU_RIGHT_CLOCK_PIN ${vuPins.rightClockPin}`)
+    }
     lines.push(`#define VU_LEFT_REVERSED ${vuLeftReversed ? 1 : 0}`)
     lines.push(`#define VU_RIGHT_REVERSED ${vuRightReversed ? 1 : 0}`)
   }
   lines.push('')
   lines.push('CRGB leds[NUM_LEDS];')
   if (vuNode) {
-    lines.push('CRGB vuLeft[VU_LED_COUNT];')
-    lines.push('CRGB vuRight[VU_LED_COUNT];')
+    lines.push('CRGB vuLeft[VU_LEFT_LED_COUNT];')
+    lines.push('CRGB vuRight[VU_RIGHT_LED_COUNT];')
   }
   if (isHub75) lines.push(...hub75GlobalsCpp(hub75Hw!))
   lines.push(...displays.helpers)
@@ -362,25 +368,26 @@ export function generateWiringDiagnosticSketch(
     lines.push('')
   }
   if (vuNode) {
-    lines.push('void drawVuRail(CRGB* pixels, bool reversed, const CRGB& sideColor, uint32_t now) {')
-    lines.push('  fill_solid(pixels, VU_LED_COUNT, CRGB::Black);')
-    lines.push('  uint16_t logical = (uint16_t)((now / DIAG_CHASE_MS) % VU_LED_COUNT);')
-    lines.push('  uint16_t physical = reversed ? VU_LED_COUNT - 1 - logical : logical;')
-    lines.push('  for (uint16_t i = 0; i < VU_LED_COUNT; i++) pixels[i] = sideColor;')
+    lines.push('// Each rail chases over its own length, so unequal rails each reach their top.')
+    lines.push('void drawVuRail(CRGB* pixels, uint16_t count, bool reversed, const CRGB& sideColor, uint32_t now) {')
+    lines.push('  fill_solid(pixels, count, CRGB::Black);')
+    lines.push('  uint16_t logical = (uint16_t)((now / DIAG_CHASE_MS) % count);')
+    lines.push('  uint16_t physical = reversed ? count - 1 - logical : logical;')
+    lines.push('  for (uint16_t i = 0; i < count; i++) pixels[i] = sideColor;')
     lines.push('  pixels[physical] = CRGB::White;')
     lines.push('  if (logical > 0) {')
     lines.push('    uint16_t trailLogical = logical - 1;')
-    lines.push('    uint16_t trailPhysical = reversed ? VU_LED_COUNT - 1 - trailLogical : trailLogical;')
+    lines.push('    uint16_t trailPhysical = reversed ? count - 1 - trailLogical : trailLogical;')
     lines.push('    pixels[trailPhysical] = CRGB(qadd8(sideColor.r, 48), qadd8(sideColor.g, 48), qadd8(sideColor.b, 48));')
     lines.push('  }')
     lines.push('}')
     lines.push('')
     lines.push('void drawVuWiringDiagnostic(uint32_t now) {')
     lines.push('  uint8_t identify = (uint8_t)((now / DIAG_MODE_MS) % 3);')
-    lines.push('  if (identify == 0 || identify == 2) drawVuRail(vuLeft, VU_LEFT_REVERSED, CRGB(64, 0, 0), now);')
-    lines.push('  else fill_solid(vuLeft, VU_LED_COUNT, CRGB::Black);')
-    lines.push('  if (identify == 1 || identify == 2) drawVuRail(vuRight, VU_RIGHT_REVERSED, CRGB(0, 0, 64), now);')
-    lines.push('  else fill_solid(vuRight, VU_LED_COUNT, CRGB::Black);')
+    lines.push('  if (identify == 0 || identify == 2) drawVuRail(vuLeft, VU_LEFT_LED_COUNT, VU_LEFT_REVERSED, CRGB(64, 0, 0), now);')
+    lines.push('  else fill_solid(vuLeft, VU_LEFT_LED_COUNT, CRGB::Black);')
+    lines.push('  if (identify == 1 || identify == 2) drawVuRail(vuRight, VU_RIGHT_LED_COUNT, VU_RIGHT_REVERSED, CRGB(0, 0, 64), now);')
+    lines.push('  else fill_solid(vuRight, VU_RIGHT_LED_COUNT, CRGB::Black);')
     lines.push('}')
     lines.push('')
   }
@@ -391,12 +398,12 @@ export function generateWiringDiagnosticSketch(
   lines.push(...displays.setup)
   if (vuNode && vuHw) {
     lines.push(...fastledSetupCpp(vuHw, {
-      dataPinMacro: 'VU_LEFT_PIN', brightness: null, ledCountMacro: 'VU_LED_COUNT',
-      ledsName: 'vuLeft', controllerName: '_vuLeftController',
+      dataPinMacro: 'VU_LEFT_PIN', clockPinMacro: 'VU_LEFT_CLOCK_PIN', brightness: null,
+      ledCountMacro: 'VU_LEFT_LED_COUNT', ledsName: 'vuLeft', controllerName: '_vuLeftController',
     }))
     lines.push(...fastledSetupCpp(vuHw, {
-      dataPinMacro: 'VU_RIGHT_PIN', brightness: null, ledCountMacro: 'VU_LED_COUNT',
-      ledsName: 'vuRight', controllerName: '_vuRightController',
+      dataPinMacro: 'VU_RIGHT_PIN', clockPinMacro: 'VU_RIGHT_CLOCK_PIN', brightness: null,
+      ledCountMacro: 'VU_RIGHT_LED_COUNT', ledsName: 'vuRight', controllerName: '_vuRightController',
     }))
     lines.push('  // Conservative bench level across the matrix and both side rails.')
     lines.push('  FastLED.setBrightness(DIAG_BRIGHTNESS);')

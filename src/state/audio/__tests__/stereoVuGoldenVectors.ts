@@ -26,7 +26,8 @@ export interface StereoVuGoldenStep {
  * leave them measuring what they were recorded against.
  */
 export const STEREO_VU_GOLDEN_PROPERTIES: Record<string, unknown> = {
-  ledCount: 8,
+  leftLedCount: 8,
+  rightLedCount: 8,
   enabled: true,
   visualizationPolicy: 'Manual',
   cycleInterval: 20,
@@ -46,6 +47,17 @@ export const STEREO_VU_GOLDEN_PROPERTIES: Record<string, unknown> = {
   leftDirection: 'Bottom',
   rightDirection: 'Top',
   swapChannels: false,
+}
+
+/**
+ * The same fixture with unequal rails (docs/design/stereo-vu-expansion.md):
+ * each rail renders at its own resolution from its own level, so the equal
+ * vectors above stay untouched and this pair proves the per-rail path.
+ */
+export const STEREO_VU_GOLDEN_UNEQUAL_PROPERTIES: Record<string, unknown> = {
+  ...STEREO_VU_GOLDEN_PROPERTIES,
+  leftLedCount: 8,
+  rightLedCount: 5,
 }
 
 /** A stable instance key: the shuffle order is seeded from it. */
