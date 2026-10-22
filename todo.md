@@ -317,7 +317,9 @@ chooses the supported combinations from whatever is on record at release.
   Segment networks: strings as the edges of a graph with a travelling
   `Ripple`, the Chromancer model, drawn in a new layout editor. Positioned
   strings in the Build Diagram, which needs positions in millimetres rather
-  than canvas units.
+  than canvas units. Designed 2026-10-22 in
+  [segment networks](docs/design/segment-networks.md), in four shippable
+  steps; none implemented yet.
 - [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
