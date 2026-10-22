@@ -55,10 +55,9 @@ For each received report:
 The first planned pre-beta SD-show test should use the **Music-synced SD Show**
 starter and record the following as separate observations:
 
-- Provisioner sketch compiles and flashes.
+- Player sketch compiles and flashes once.
 - Music and `.show` files transfer to the SD card without truncation or path
-  errors.
-- Final player sketch compiles and flashes.
+  errors through the player's built-in receiver.
 - The player mounts the SD card after reboot and starts the intended track.
 - I2S audio is clean at a conservative volume and uses the reported BCLK/LRC/
   DOUT pins.

@@ -1,9 +1,8 @@
 # Display node reference
 
-Physical displays are root-level Hardware parts. A colour panel may
-carry a **screen design** on itself (`displayId`); there is no separate
-document node and no Screen Design cable. Widget outputs leave through
-the companion **Touch Screen** node. The
+Physical displays are root-level Hardware parts. A colour panel references
+a **screen design** through `displayId`; panels can share a design. Widget
+outputs leave through the companion **Touch Screen** node. The
 [workbench guide](../user/hardware-workbench.md#add-and-connect-a-display)
 describes the current flow; in-app Help describes the same ownership.
 
@@ -17,8 +16,11 @@ describes the current flow; in-app Help describes the same ownership.
 | Info Display | SH1106 0.96-inch | 128×64 OLED, seven-pin SPI module |
 | Info Display | SH1106 1.3-inch (I²C) | 128×64 OLED, four-pin I²C module, 0x3C or 0x3D |
 | Info Display | SSD1306 0.96-inch | 128×64 OLED, four-pin I²C module, address 0x3C or 0x3D |
+| Info Display | SSD1306 0.96-inch (Adafruit) | 128×64 OLED, STEMMA QT I²C breakout, address 0x3C or 0x3D |
 | Display Panel | ST7789 1.54-inch | 240×240 colour TFT, SPI, no touch |
+| Display Panel | XC4630 2.8-inch shield + touch | 320×240 ILI9341 TFT, 8-bit parallel, resistive touch sharing panel lines |
 | Display Panel | ST7789V 2.4-inch + touch | 240×320 colour TFT, SPI, XPT2046 touch with its own header |
+| Display Panel | ILI9341 2.8-inch + touch (DFR0665) | 320×240 colour TFT, SPI, XPT2046 touch and microSD |
 
 These are implemented catalogue choices, not a list of physically validated
 combinations. Unlisted controllers, panel sizes, interfaces, and touch modules
@@ -367,10 +369,11 @@ Button or Toggle. The picker changes control art only, while the Screen
 **Theme** in the inspector changes the display's colours and background.
 Templates use the currently selected icon theme for their transport and action
 controls, including Shuffle, Auto advance, and Freeze.
-All nine built-in templates — Clock, Now Playing, Minimal Transport, Pattern
-Deck, Show Status, LED Performance, Audio Reactor, Diagnostics, and DMX Monitor
-— have separate 320×240 and 240×320 compositions. The editor places the portrait
-composition directly rather than squeezing or clipping the landscape one.
+All ten built-in templates — Clock, Now Playing, Minimal Transport, Pattern
+Deck, Show Status, LED Performance, Audio Reactor, Diagnostics, DMX Monitor,
+and Power Monitor — have separate 320×240 and 240×320 compositions. The editor
+places the portrait composition directly rather than squeezing or clipping the
+landscape one.
 The shelf is ordered by what the panel is wired to. The layouts that source can
 fill come first, under a **Mapped to** heading naming it — Now Playing and
 Minimal Transport for a Music Player, Pattern Deck and Show Status for either a
@@ -443,15 +446,13 @@ evaluate every wire connected to it.
 The software repairs from the 2026-09-08 review are implemented: slideshow
 controls and TFT-only Show Status share selection state, panels own their
 geometry and Enabled, RAM estimates use the mount plan, and Run readouts
-repaint. A design shared between panels or attached to none — which those
-repairs gave build rules for — is no longer possible to express, since a panel
-owns its design outright. Fresh compile runs and physical validation
-remain separate gates; see [the active checklist](../../todo.md).
+repaint. Panels can share a design through `displayId`. Fresh compile runs and
+physical validation remain separate gates; see [the active checklist](../../todo.md).
 
 The [compile record](../reports/compile/display-compile-checks.md) preserves historical
 normal/show/player builds through both toolchains; it is not a fresh validation
 of the panel/document split. Calibration, rotation on real modules, bus sharing
 under load, LED rate and runtime memory still require physical checks. The
-browser calibration wizard is implemented, but its raw-sample firmware emitter
-and on-device verification remain separate work; default numeric bounds are not
+browser calibration wizard and its raw-sample firmware emitter are implemented,
+but on-device verification remains separate work; default numeric bounds are not
 a measured calibration for your module.

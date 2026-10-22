@@ -210,8 +210,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - A Colour Swatch packs its `CRGB` at the binding. Palette, image and harmony
   colours stay explicit failures. A Pattern Browser wire is accepted only from
   the template engine's `patternSelect` and publishes the running pattern's
-  name, as a source-field pattern name does. That wire sets
-  `patternNameBindings`, which turns the name table and cursor on. LED status
+  name, as a source-field pattern name does. The binding uses
+  `patternPositionExpr` for the selection and `patternNameExpr` for the display
+  name; the name table and cursor follow those expressions. LED status
   uses the output's own runtime for an output the template drives. Show status
   shares `ledOutputRuntimeExpressions` with the pixel latch. Player status is
   the driven output's manual settings with the latch off, and must not include

@@ -47,7 +47,7 @@ an internal record.
 
 | # | Issue | Version confirmed | Our workaround | Still needed? |
 |---|-------|-------------------|----------------|---------------|
-| 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | **Fixed in 2.5.21 — vendoring kept for FastLED alone, see below** |
+| 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | **Fixed in 2.5.21 — vendoring retained for FastLED and optional libraries, see below** |
 | 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
 | 3 | Shared scaffold corrupts under concurrent builds | Architecture, rechecked with 2.5.26 | External process-wide lock | Yes — the helper writes one shared source before invoking fbuild |
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
@@ -72,14 +72,20 @@ an internal record.
 it means an existing `platformio.ini` with `lib_deps` does *not* build unmodified.
 
 **Workaround.** Vendor every library into `lib/` by `git clone`, relying on
-PlatformIO's local-library auto-discovery instead of the registry. Three libraries
-are vendored this way:
+PlatformIO's local-library auto-discovery instead of the registry. The helper
+vendors these libraries when a build needs them:
 
 | Library | Function | Fetched |
 |---|---|---|
 | FastLED | always | first fbuild compile (`_ensure_fbuild_project`) |
 | ESP32-audioI2S | music-sync Player sketch only | lazily, first Player build (`_ensure_fbuild_audio_lib`) |
 | esp_dmx | DMX512 firmware only | lazily, first DMX512 build (`_ensure_fbuild_esp_dmx_lib`) |
+| ESP32-HUB75-MatrixPanel-DMA | HUB75 display firmware | lazily, first HUB75 build (`_ensure_fbuild_hub75_lib`) |
+| Adafruit ZeroI2S and ZeroDMA | SAMD51 microphone capture | lazily, first matching build (`_ensure_fbuild_zero_i2s_lib`) |
+| LVGL | custom screen firmware | lazily, first LVGL build (`_ensure_fbuild_lvgl_lib`) |
+| IRremote | IR receiver firmware | lazily, first IR build (`_ensure_fbuild_irremote_lib`) |
+| VL53L0X | VL53L0X distance sensor | lazily, first matching build (`_ensure_fbuild_vl53l0x_lib`) |
+| VL53L1X | VL53L1X distance sensor | lazily, first matching build (`_ensure_fbuild_vl53l1x_lib`) |
 
 **Cost.** A first-run `git clone` inside the user's build log, no version pinning via
 the manifest, and a hand-rolled cache-validity check per library.
@@ -97,11 +103,11 @@ build succeeded in 26.0s
 ```
 
 **Workaround kept anyway, for one reason.** We do not merely fetch FastLED, we *patch*
-it: `_patch_fastled_samd51_build` edits four vendored headers to fix SAMD51 compile
+it: `_patch_fastled_samd51_build` edits up to six vendored headers to fix SAMD51 compile
 errors upstream has not landed yet. A registry-resolved library is not ours to edit, so
 FastLED stays vendored until those patches are unnecessary.
 
-**The other four stay vendored too, on 2.5.37 evidence (2026-10-12).** Each was tried
+**Four registry alternatives were tested on 2.5.37 (2026-10-12).** Each was tried
 as a pinned `lib_deps` entry in a throwaway project:
 
 | Library | `lib_deps` entry tried | Result |
@@ -175,10 +181,11 @@ overflow.
 checks while the user edits, so a real Upload racing a capacity check — or two rapid-fire
 capacity checks — is routine rather than exotic.
 
-**Workaround.** `_fbuild_build_lock`, a `threading.Lock` held for the *entire* duration of
-every `_compile_upload_fbuild` run, serialising all fbuild compiles process-wide. Bounded
-by `_FBUILD_LOCK_TIMEOUT_S = 180` so a genuinely wedged build fails visibly instead of
-queueing every later request forever with no output.
+**Workaround.** `_fbuild_build_lock` is an `_FbuildBuildLock` held for the *entire*
+duration of every `_compile_upload_fbuild` run, serialising fbuild compiles
+process-wide. Its release tokens prevent an abandoned holder from unlocking a
+new holder's build, and a waiter can reclaim a stale holder. Waiting is bounded
+by `_FBUILD_LOCK_TIMEOUT_S = 180` so a wedged build fails visibly.
 
 **Upstream ask.** Either per-invocation isolation (a build directory keyed by env/source
 hash) or a documented statement that concurrent invocations against one project are

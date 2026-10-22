@@ -25,7 +25,7 @@ Do not use a mouse or touchpad during this pass.
    bar, node library, canvas controls, preview, Graph Health, and status bar.
 2. Open and close the File and View menus. Verify arrow-key navigation,
    Home/End, Escape, and focus restoration.
-3. Start with the Rainbow starter.
+3. Start with the Juggle starter.
 4. Press `Ctrl+K`, search for a node, and add it with the keyboard.
 5. Focus a source port, press Enter or Space to start a connection, focus a
    compatible destination port, and press Enter or Space to finish it.

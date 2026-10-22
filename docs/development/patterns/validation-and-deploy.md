@@ -226,8 +226,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   RMT and RX shares TX memory; today the capture runs only on the S3, whose RX
   memory is separate, so the share is zero. Clocked outputs send at
   `effectiveDataRateMhz` and are added one after another, a conservative
-  reading. `ledOutputConcurrency` is the seam for the Board's `ledDriver`: any
-  value other than `auto` is read as auto until its concurrency is recorded.
+  reading. `ledOutputConcurrency` uses the selected Board `ledDriver`'s
+  `parallelOutputs` when one is chosen; an RMT driver's count is also capped by
+  available RMT memory. `auto` uses the board family's default driver facts.
 - When the wire time exceeds the Board's frame period, `wireTimeAdvice` gives
   a `warning` (a suggestion, never an error or a deploy gate) naming the frame
   rate the graph reaches. Its fixes come only from `wireTimeFixes`, in order:

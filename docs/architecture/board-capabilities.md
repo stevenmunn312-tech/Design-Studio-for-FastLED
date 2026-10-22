@@ -72,7 +72,7 @@ is intentionally not the chip's headline SRAM capacity, because
 `estimateFirmwareRam` counts only design-owned LED, render, simulation,
 palette, and display allocations.
 
-The profiled classic ESP32 boards currently allow 48 KiB of those allocations;
+The profiled classic ESP32 boards currently allow 96 KiB of those allocations;
 the profiled ESP32-S3 boards allow 192 KiB. When an estimate exceeds the
 selected profile's allowance, Graph Health reports an error and Upload and the
 compile-capacity check are disabled before a toolchain build begins. The error
@@ -307,9 +307,8 @@ more clockless outputs than RMT sends at once.
 The following proposal slices remain open and must not be described as shipped:
 
 - timed-sequence authoring beyond the existing RTC/ScheduleTrigger graph tools;
-- multi-board attachment; and
 - a Raspberry Pi/Linux code-generation backend.
 
 These items are tracked in
 [root todo, D-03](../../todo.md). The current two-view
-component contract is documented in [`hardware-nodes.md`](hardware-model.md).
+component contract is documented in [`hardware-model.md`](hardware-model.md).

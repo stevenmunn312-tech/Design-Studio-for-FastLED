@@ -44,6 +44,9 @@ CORS allows matching local origins to read responses.
 | POST | `/api/artnet/stop` | Stop the Art-Net receiver. |
 | GET | `/api/artnet/status` | Return receiver/liveness and packet-rate status. |
 | GET | `/api/artnet/snapshot` | Return the latest cached 512-channel universe. |
+| POST | `/api/ddp/start` | Start the DDP UDP listener (optional `port`, default 4048). |
+| POST | `/api/ddp/stop` | Stop the DDP listener. |
+| GET | `/api/ddp/frame` | Return the latest DDP frame as base64 bytes (optional `pixels` limit). |
 | POST | `/api/arduino-cli/locate` | Point the helper at a user-supplied `arduino-cli` binary. |
 | POST | `/api/arduino-cli/install` | Download the official `arduino-cli` into `backend/bin`. |
 | GET | `/api/cores` | List board-manager cores (`arduino-cli` engine only). |

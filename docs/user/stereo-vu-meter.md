@@ -46,8 +46,10 @@ itself.
 - **INMP441**, mono browser input, and mono music files intentionally mirror one
   measured channel onto both rails. Identical motion is expected, not a wiring
   fault.
-- Shows exported before the stereo trailer existed remain compatible. Their
-  three baked bands resolve to one mono level and are mirrored.
+- Re-export older shows before using the Stereo VU Meter. Restored library
+  entries with older audio analysis are re-analysed when the music file is
+  available. The generated player reads version 3 audio trailers; an older
+  `.show` file does not supply its stereo envelope.
 
 Channel swap changes which signal drives each physical rail; it does not swap
 their positions in the preview. The labels identify the source channel after a

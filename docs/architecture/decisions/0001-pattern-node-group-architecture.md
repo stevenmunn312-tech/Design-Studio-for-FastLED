@@ -104,7 +104,7 @@ where it is needed.
 
 ## Implementation phases
 
-- **Phase 0 — Shapes (no architecture change).** Add `Span`/`Rect` shape nodes
+- **Phase 0 — Shapes (no architecture change).** Add shape nodes
   and an `(x, y)` grid model so sub-regions of the matrix can be addressed and
   painted, proving the "draw in grid space, codegen emits the loop" bargain.
   Ships immediate value in the current single-graph model.
@@ -123,8 +123,8 @@ where it is needed.
 - **Phase 3 — Compositing richness.** _Done:_ the `Sequencer` node (preview +
   codegen) and the **per-layer buffer codegen** — each frame node renders into
   its own `CRGB buf_<id>` and `MatrixOutput` copies the final buffer to `leds`,
-  so `LayerBlend`/`BlendFrames`/`Crossfade`/`Wipe`/`Dissolve` emit real
-  `nblend`-based compositing and `Sequencer` emits a millis-driven crossfade
+  so `Blend` emits frame compositing and `Transition` provides crossfade, wipe,
+  and dissolve modes. `Sequencer` emits a millis-driven crossfade
   across its input buffers. **Exposed group parameters** also landed: grouping a
   selection turns each boundary input edge into a `GroupInput` node + a port on
   the `Group` node, so external values (math, audio, a hardware knob) drive a
@@ -136,8 +136,8 @@ where it is needed.
   shared by evaluator + codegen) and can scroll; the font is plain data so a
   custom font drops in without other changes — and a `Text` node can now load a
   **custom font** by uploading a `{ w, h, glyphs }` JSON in the Inspector
-  (stored per-node, flowing through evaluator and codegen). `Circle` (ring or
-  filled disc) and `Line` (Bresenham) join `Span`/`Rect` in the shape family,
+  (stored per-node, flowing through evaluator and codegen). `Shape` (including
+  circle and rectangle modes) and `Line` (Bresenham) form the shape family,
   each painting over an optional base frame. Phase 4 complete.
 
 ## Open questions
@@ -146,8 +146,8 @@ where it is needed.
   user is doing rather than by primary output type: `input` (live device IO),
   `audio` (analysis), `signal` (time-varying control sources), `math`, `color`,
   `pattern` (frame generators), `field` (the scalar-field pipeline), `composite`
-  (frame→frame, displayed "Effects"), `show` (the show workflow), `output` — ten
-  categories total, each with a hue-swept accent colour (see the `CATEGORIES`
+  (frame→frame, displayed "Effects"), `show` (the show workflow), `output`,
+  `note` — eleven categories total, each with a hue-swept accent colour (see the `CATEGORIES`
   table in `src/state/nodeLibrary.ts` and `src/themes/tokens.css`). `category` is still a coarse,
   UI-facing grouping; the real type system remains the per-port `dataType`.
 - **Serpentine wiring.** _Resolved._ Buffers stay row-major in grid space; the

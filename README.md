@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 235 modules · 73 included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 235 modules · included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -143,7 +143,7 @@ When it is time to build the rig rather than the patch, switch to the **Build Di
 The Pattern Library turns good experiments into a personal visual vocabulary:
 
 - New saves and imports land in **New & Unsorted**.
-- **Standard** and **Audio Reactive** are built-in shelves holding 40 curated patterns, 20 on each.
+- **Standard** and **Audio Reactive** are built-in shelves with curated patterns. Their contents grow with releases.
 - **Scan patterns** adds a Studio Score judged against what each pattern is for, alongside your own 1–5 star rating. Sort or filter a collection by either.
 - Create your own shelves, drag patterns between them, and remove a shelf without deleting its contents.
 - Click or drag a pattern onto the canvas, or drop it directly into a Pattern Collection.
@@ -177,7 +177,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Audio reactive:** live microphone and PCM1802 line-in analysis, FFT bands, beat/percussion features, audio-driven color and pattern nodes, on-device I2S MEMS microphone support (INMP441, ICS-43434, or a generic MSM261-class board), and decoded-PCM analysis for SD-player collection shows.
 - **IR remote control:** learn named keys from a demodulating receiver, use once or held-repeat events for actions, and route increment/decrement/reset keys through Step Value to drive an exposed numeric property. Separate remote On and Off keys connect directly to Toggle’s On and Off inputs; its Out feeds the LED output’s Enabled input and remembers the state between presses. IR hardware support remains experimental; use the [Hardware guide](docs/user/hardware-workbench.md#add-an-ir-remote-receiver) and [beta matrix](docs/release/beta-support-matrix.md#experimental-until-validated) before choosing a board or receiver.
 - **Fields and simulations:** scalar-field math, Slice and Truchet tilings, warping and wallpaper symmetry, multi-scale Turing fields, reaction diffusion with named presets, Fourier epicycles, Game of Life, particles, flow fields, boids, feedback, trails, image palettes, and custom formulas.
-- **Show control:** reusable pattern collections with weights and energy tags, 16 transition styles, beat-driven particles, section-aware music shows, lane editing with ramps and locked sections, looping sequences, and performance controls. Weighted picks, sequences and ramped shows remain experimental until a bench row exists; see the [beta matrix](docs/release/beta-support-matrix.md#experimental-until-validated).
+- **Show control:** reusable pattern collections with weights and energy tags, 21 transition styles, beat-driven particles, section-aware music shows, lane editing with ramps and locked sections, looping sequences, and performance controls. Weighted picks, sequences and ramped shows remain experimental until a bench row exists; see the [beta matrix](docs/release/beta-support-matrix.md#experimental-until-validated).
 - **Physical layouts:** strings, rings, unwrapped-cylinder corkscrew authoring, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
 - **DMX, Art-Net, sACN and DDP:** Art-Net and sACN (E1.31) preview through the local helper plus Art-Net, sACN or DMX512 firmware paths; a DDP Input receives a frame from xLights, LedFx or WLED, and a Frame Stream sends one on by DDP or Adalight. Hardware validation has not yet been recorded, so all modes remain experimental.
 - **Clock and schedules:** build-time, manual, NTP-backed, and battery-backed DS3231 clocks; time windows and scheduled triggers; digital/analog clock patterns. The DS3231 set/read/display path is validated on one classic ESP-32D DevKit v1 combination; other clock paths and boards remain experimental.

@@ -63,7 +63,7 @@ tmp/venv-backend-check/bin/pytest backend/tests
 
 On Windows, use the matching `Scripts\\pip.exe` / `Scripts\\pytest.exe` paths.
 
-5. Confirm CI passes, especially the cross-platform `backend-install` job.
+5. Confirm CI passes, especially the cross-platform `install` job in `backend-dependencies.yml`.
 
 ## Why Both Files Exist
 

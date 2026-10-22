@@ -26,7 +26,7 @@
 import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import {
-  NODE_LIBRARY, CATEGORIES, CATEGORY_COLOR, categoryNodes, portColor,
+  NODE_LIBRARY, CATEGORIES, HARDWARE_CATEGORY, CATEGORY_COLOR, categoryNodes, portColor,
   propertyMeta, propertyLabel, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
   bypassPort, nodeDisplayLabel, libraryDefaults, supportsScalarExpression, isGpioPinProperty,
 } from '../../src/state/nodeLibrary'
@@ -1547,7 +1547,7 @@ function galleryMd(): string {
     'Regenerate after adding or changing a node — do not edit the SVGs by hand.',
     '',
   ]
-  for (const cat of CATEGORIES) {
+  for (const cat of [...CATEGORIES, HARDWARE_CATEGORY]) {
     const nodes = categoryNodes(cat.id)
     if (nodes.length === 0) continue
     lines.push(`## ${cat.label}`, '')

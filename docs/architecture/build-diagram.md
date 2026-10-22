@@ -223,7 +223,7 @@ converter lands on the same pad, without the USB back-feed warning.
 
 The `ESP32 DevKit v1, 30-pin (ESP-32D)` profile is pinout verified from a
 user-supplied pinout image with the 15 + 15 rail count confirmed against the
-physical board. It is the only classic-ESP32 profile, so it is offered for both
+physical board. It is offered for both
 catalogue entries that map to that silicon (`esp32:esp32:esp32doit-devkit-v1`
 and `esp32:esp32:esp32`) and never for an ESP32-S3 project. GPIO0 is absent
 from its pin list on purpose — the BOOT button is that pad's only connection,
@@ -339,9 +339,9 @@ bench rows in `todo.md` hold evidence and
 
 ## Current Scope
 
-- Exact profiles for the generic ESP32-S3 N16R8 dual-USB-C board, Espressif
-  ESP32-S3-DevKitC-1, Seeed Studio XIAO ESP32S3, and the 30-pin ESP32 DevKit v1
-  (ESP-32D).
+- Exact board profiles from `BOARD_PROFILES` in
+  `src/build/boards/boardProfiles.ts`, including the generic ESP32-S3 N16R8
+  dual-USB-C board and the 30-pin ESP32 DevKit v1 (ESP-32D).
 - WS2812-class strips and matrices, I2S MEMS microphones, momentary buttons,
   analog potentiometers, and rotary encoders.
 - One independent conditioned data route per supported `MatrixOutput`; four

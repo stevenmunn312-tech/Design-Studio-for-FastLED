@@ -58,16 +58,14 @@ data lead or choose a new pin.
 
 ## Which parts appear in the graph
 
-`isHardwareManagedSignalNodeType` defines the parts visible in both views:
+`isHardwareManagedSignalNodeType` in `src/build/hardware.ts` defines the parts
+visible in both views. It includes physical inputs, outputs, and auxiliary
+displays. `MatrixOutput` is the implementation type behind all five LED-output
+forms. Use that set as the current type list when changing graph ownership.
 
-- `MicInput`, `LineInput`, `ButtonInput`, `TouchButtonInput`, `ButtonBank`,
-  `PotInput`, and `EncoderInput`;
-- `MotionInput`, `PresenceInput`, `LightInput` and `PowerMonitorInput`;
-- `RTCInput`, `RelayOutput` and `PowerSwitchOutput`; and
-- `MatrixOutput` (the implementation type behind all five LED-output forms).
-
-`Board`, `SDCard`, and `Amplifier` are hardware-only. They carry configuration,
-not graph data.
+`isHardwareOnlyNodeType` derives the parts that carry configuration but no
+graph data: `Board`, `Amplifier`, `PowerAmplifier`, `SDCard`, `EthernetModule`,
+`PowerConverter`, `PdTriggerSource`, `BatteryPack`, and `BatteryModule`.
 
 `RelayOutput` is a terminal sink whose selected physical module determines its
 one to eight boolean channel inputs and matching GPIO assignments. Generated
@@ -109,7 +107,8 @@ inputs, `channel0` to `channel15`, each a 0 to 1 level. Its `pwmDriver` catalogu
 carries the channel count, resolution, the offered addresses (0x40 to 0x6F, since 0x70
 is the chip's all-call address and the range above is reserved), the oscillator and the
 frequency range, so the firmware, the address picker and validation read one source.
-The prescale is `round(osc / (4096 * hz)) - 1`, computed in `pwmDriverPrescale`. Firmware
+The prescale is `clamp(round(osc / (4096 * hz)) - 1, 3, 255)`, computed in
+`pwmDriverPrescale`. Firmware
 configures the chip on first contact and again after any failed write, retried once a
 second while it is absent without stalling the loop, writes only the channels that have
 a wire and only when the quantised level changes, and sets the full-off and full-on bits

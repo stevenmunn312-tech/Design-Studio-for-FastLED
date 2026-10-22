@@ -307,7 +307,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `LV_GRAD_DIR_HOR` segments then the marker, and `_cdSetHue` finds the marker
   as child 6, so that order is a contract. `_cdHueColor` is the one LVGL helper
   that names `CRGB`, so it lives in `CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP`, emitted
-  only when `customDisplayNeedsHueColor`: in the shared helpers it would keep
+  only when emitted display code calls `_cdHueColor(`: in the shared helpers it would keep
   FastLED in a screen-only sketch (`withoutUnusedFastLed` keys on emitted text).
   A colour Output is a `CRGB` sample in every generator and rests at
   `CRGB::Black` on a dark panel. The Arc Gauge is the Dial's `lv_arc`, not
@@ -567,7 +567,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   carries an optional `squareWidgets`; a square panel falls back to
   `portraitWidgets`, not `widgets`, because portrait is already authored 240
   wide (nothing to clamp horizontally), while landscape is 320 wide and clamping
-  it slides every right-hand widget onto its neighbour. Only the five of eight
+  it slides every right-hand widget onto its neighbour. Only seven of ten
   templates whose portrait layout overruns 240 rows declare `squareWidgets`; the
   other three deliberately don't, and `displayTemplateGolden.test.ts` asserts
   that correspondence so the absence stays a decision.

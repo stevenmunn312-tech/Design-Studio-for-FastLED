@@ -1405,3 +1405,35 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Comment node](../../public/node-cards/comment.svg)
 
 ![Comment example graph](../../public/node-cards/graphs/comment.svg)
+
+## Hardware
+
+### Ethernet
+
+![Ethernet node](../../public/node-cards/ethernet-module.svg)
+
+![Ethernet example graph](../../public/node-cards/graphs/ethernet-module.svg)
+
+### DC-DC Converter
+
+![DC-DC Converter node](../../public/node-cards/power-converter.svg)
+
+![DC-DC Converter example graph](../../public/node-cards/graphs/power-converter.svg)
+
+### Battery Pack
+
+![Battery Pack node](../../public/node-cards/battery-pack.svg)
+
+![Battery Pack example graph](../../public/node-cards/graphs/battery-pack.svg)
+
+### Pack Electronics
+
+![Pack Electronics node](../../public/node-cards/battery-module.svg)
+
+![Pack Electronics example graph](../../public/node-cards/graphs/battery-module.svg)
+
+### USB-C PD Trigger
+
+![USB-C PD Trigger node](../../public/node-cards/pd-trigger-source.svg)
+
+![USB-C PD Trigger example graph](../../public/node-cards/graphs/pd-trigger-source.svg)
