@@ -208,6 +208,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Peripherals
 
+- A Stereo VU Meter's four GPIO properties are not four wires. The clock pins
+  (`leftClockPin`, `rightClockPin`) exist on every fixture but are read only
+  on a clocked chipset, so every reader of its pins goes through
+  `stereoVuPinKeys(properties)` in `nodeLibrary.ts`: the manifest's pin uses,
+  the bench pad row (`useBenchParts`), retargeting's `keysFor`, and the
+  property-panel visibility rule. Reading `GPIO_PIN_PROPERTIES` or the
+  catalogue's `pinFields` directly reserves and draws two clock lines a
+  WS2812B fixture never drives — the same trap the Info Display's transport
+  pins avoid with `oledTransportForProps`. The fixture's rails are independent
+  lengths (`stereoVuRailCounts`), the Build Diagram item for each rail carries
+  its data pin first and its clock pin second (the physical sheet draws an
+  output's first pin as its data run), and the fixture is no longer a
+  singleton anywhere: not in the catalogue, not in `SINGLETON_NODE_TYPES`.
+  Design: [stereo-vu-expansion](../../design/stereo-vu-expansion.md).
 - Audio output chains follow the resolved physical source. The Hardware view
   places the power amplifier below its DAC or line-output player, then draws
   separate L/R speaker renders below the amplifier. These speakers are layout

@@ -12,6 +12,7 @@ import {
   STEREO_VU_GOLDEN_INSTANCE,
   STEREO_VU_GOLDEN_PROPERTIES,
   STEREO_VU_GOLDEN_STEPS,
+  STEREO_VU_GOLDEN_UNEQUAL_PROPERTIES,
   rgbToHex,
 } from './stereoVuGoldenVectors'
 
@@ -32,6 +33,9 @@ import {
  */
 
 const VECTOR_PATH = path.join(__dirname, 'stereoVuGolden.vectors.json')
+/** The unequal pair is its own file, so the equal-length vectors above are
+ * provably untouched by the per-rail rendering path. */
+const UNEQUAL_VECTOR_PATH = path.join(__dirname, 'stereoVuGoldenUnequal.vectors.json')
 
 interface RecordedStep {
   timeSec: number
@@ -62,9 +66,9 @@ function recordStep(frame: StereoVuFrame, timeSec: number): RecordedStep {
   }
 }
 
-function renderMode(mode: string): RecordedStep[] {
+function renderMode(mode: string, properties: Record<string, unknown> = STEREO_VU_GOLDEN_PROPERTIES): RecordedStep[] {
   const settings = stereoVuSettings(
-    { ...STEREO_VU_GOLDEN_PROPERTIES, visualizationMode: mode },
+    { ...properties, visualizationMode: mode },
     STEREO_VU_GOLDEN_INSTANCE,
   )
   let state: StereoVuState | undefined
@@ -79,38 +83,66 @@ function renderMode(mode: string): RecordedStep[] {
   })
 }
 
-function currentVectors(): RecordedVectors {
+function currentVectors(properties?: Record<string, unknown>): RecordedVectors {
   const vectors: RecordedVectors = {}
-  for (const mode of STEREO_VU_MODES) vectors[mode] = renderMode(mode)
+  for (const mode of STEREO_VU_MODES) vectors[mode] = renderMode(mode, properties)
   return vectors
+}
+
+function readVectors(vectorPath: string): RecordedVectors {
+  return existsSync(vectorPath)
+    ? JSON.parse(readFileSync(vectorPath, 'utf8')) as RecordedVectors
+    : {}
 }
 
 describe('Stereo VU golden vectors', () => {
   const produced = currentVectors()
+  const producedUnequal = currentVectors(STEREO_VU_GOLDEN_UNEQUAL_PROPERTIES)
 
   if (process.env.STEREO_VU_UPDATE_GOLDEN === '1') {
     writeFileSync(VECTOR_PATH, `${JSON.stringify(produced, null, 2)}\n`, 'utf8')
+    writeFileSync(UNEQUAL_VECTOR_PATH, `${JSON.stringify(producedUnequal, null, 2)}\n`, 'utf8')
   }
 
   it('has a recorded vector file to compare against', () => {
     // Without this the suite would pass by writing whatever it just computed,
     // which is the one way a golden-vector test can be worse than none.
     expect(existsSync(VECTOR_PATH)).toBe(true)
+    expect(existsSync(UNEQUAL_VECTOR_PATH)).toBe(true)
   })
 
-  const recorded: RecordedVectors = existsSync(VECTOR_PATH)
-    ? JSON.parse(readFileSync(VECTOR_PATH, 'utf8')) as RecordedVectors
-    : {}
+  const recorded = readVectors(VECTOR_PATH)
+  const recordedUnequal = readVectors(UNEQUAL_VECTOR_PATH)
 
   it('covers every visualization, so a new mode cannot ship unrecorded', () => {
     expect(Object.keys(recorded).sort()).toEqual([...STEREO_VU_MODES].sort())
+    expect(Object.keys(recordedUnequal).sort()).toEqual([...STEREO_VU_MODES].sort())
   })
 
   for (const mode of STEREO_VU_MODES) {
     it(`reproduces ${mode} exactly`, () => {
       expect(produced[mode]).toEqual(recorded[mode])
     })
+
+    it(`reproduces ${mode} exactly on an unequal pair`, () => {
+      expect(producedUnequal[mode]).toEqual(recordedUnequal[mode])
+    })
   }
+
+  it('renders an unequal pair at each rail\'s own resolution from the same levels', () => {
+    // Left is the equal fixture's left, pixel for pixel: the right rail's
+    // length changes nothing on the left. The right rail is 5 pixels drawn
+    // from its own level, not 8 pixels resampled.
+    for (const mode of STEREO_VU_MODES) {
+      producedUnequal[mode].forEach((step, index) => {
+        const equal = produced[mode][index]
+        expect(step.leftLevel).toBe(equal.leftLevel)
+        expect(step.rightLevel).toBe(equal.rightLevel)
+        expect(step.leftPhysical).toEqual(equal.leftPhysical)
+        expect(step.rightPhysical).toHaveLength(5)
+      })
+    }
+  })
 
   it('separates the channels rather than mirroring one onto both', () => {
     // The asymmetric step exists to catch a renderer that reads one channel

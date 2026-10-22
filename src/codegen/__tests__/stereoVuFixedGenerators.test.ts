@@ -37,7 +37,7 @@ const baseEdges = [
   edge('frame', 'master', 'frame', 'out', 'frame'),
 ]
 const meter = node('side-vu', 'StereoVuMeter', {
-  targetOutputId: 'out', ledCount: 24, leftDataPin: 5, rightDataPin: 6,
+  targetOutputId: 'out', leftLedCount: 24, rightLedCount: 24, leftDataPin: 5, rightDataPin: 6,
   chipset: 'WS2812B', colorOrder: 'GRB', visualizationMode: 'History Trail',
   visualizationPolicy: 'Manual', brightness: 0.65,
 })

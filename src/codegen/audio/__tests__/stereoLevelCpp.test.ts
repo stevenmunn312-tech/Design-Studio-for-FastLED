@@ -30,7 +30,7 @@ const renderers: PatternRenderers = {
 }
 
 const meter = node('side-vu', 'StereoVuMeter', {
-  targetOutputId: 'out', ledCount: 24, leftDataPin: 5, rightDataPin: 6,
+  targetOutputId: 'out', leftLedCount: 24, rightLedCount: 24, leftDataPin: 5, rightDataPin: 6,
   chipset: 'WS2812B', colorOrder: 'GRB', visualizationMode: 'Peak Cap',
   visualizationPolicy: 'Manual', brightness: 0.65,
 })

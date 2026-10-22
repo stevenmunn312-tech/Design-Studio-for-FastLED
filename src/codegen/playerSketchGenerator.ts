@@ -101,7 +101,7 @@ import { hexToRgb } from '../state/palettes/polinePalette'
 import { buttonBankEntryForHandle } from '../state/player/buttonBank'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuGlobalCpp,
-  stereoVuLoopCpp, type StereoVuEmit,
+  stereoVuLoopCpp, stereoVuRailSetupOptions, type StereoVuEmit,
 } from './audio/stereoVuMeterCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
 import { SPI_BUS_CPP } from './helpers/spiBusCpp'
@@ -801,16 +801,8 @@ export function generatePlayerSketch(
   const stereoVuSetupLines = stereoVuMeters.flatMap((meter) => {
     const meterHw = ledHardwareFromProps(meter.properties)
     return [
-      ...fastledSetupCpp(meterHw, {
-        dataPinMacro: `VU_LEFT_PIN_${meter.id}`, brightness: null,
-        ledCountMacro: `VU_LEDS_${meter.id}`, ledsName: `_vuLeft_${meter.id}`,
-        controllerName: `_vuLeftController_${meter.id}`,
-      }),
-      ...fastledSetupCpp(meterHw, {
-        dataPinMacro: `VU_RIGHT_PIN_${meter.id}`, brightness: null,
-        ledCountMacro: `VU_LEDS_${meter.id}`, ledsName: `_vuRight_${meter.id}`,
-        controllerName: `_vuRightController_${meter.id}`,
-      }),
+      ...fastledSetupCpp(meterHw, stereoVuRailSetupOptions(meter, 'left')),
+      ...fastledSetupCpp(meterHw, stereoVuRailSetupOptions(meter, 'right')),
       ...(isHub75 ? [`  FastLED.setBrightness(${c.ledBrightness});`] : []),
     ]
   }).join('\n')

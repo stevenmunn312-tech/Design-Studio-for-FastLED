@@ -131,7 +131,10 @@ import {
   type WebRemoteControlType,
 } from './peripherals/webRemote'
 import { forgetWebRemoteControl, writeWebRemoteControl } from './peripherals/webRemoteRuntime'
-import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './audio/stereoVuSizing'
+import { STEREO_VU_RAIL_COUNT_KEYS, syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './audio/stereoVuSizing'
+
+const isStereoVuRailCountKey = (key: string): boolean =>
+  (STEREO_VU_RAIL_COUNT_KEYS as readonly string[]).includes(key)
 import { audioCapabilityIntent, type AudioCapabilityKind } from './audio/audioCapabilities'
 import {
   INTEGRATED_BOARD_PROFILE_KEY,
@@ -462,7 +465,10 @@ export function isGroupExcludedNodeType(nodeType: string): boolean {
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
  *  preserves the one-per-canvas invariant. */
-export const SINGLETON_NODE_TYPES = new Set(['Audio', 'MicInput', 'LineInput', 'DMXInput', 'StereoVuMeter'])
+// A Stereo VU Meter is deliberately not here: a board can carry several
+// fixtures, each its own pair of rails reading the board's one audio source
+// (docs/design/stereo-vu-expansion.md).
+export const SINGLETON_NODE_TYPES = new Set(['Audio', 'MicInput', 'LineInput', 'DMXInput'])
 
 export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
   return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)
@@ -2362,14 +2368,14 @@ export const useGraphStore = create<GraphState>()(
         }),
 
       updateNodeProperty: (id, key, value) =>
-        set((s) => editNodePropertyAndSyncVu(s, id, { [key]: value }, key === 'ledCount')),
+        set((s) => editNodePropertyAndSyncVu(s, id, { [key]: value }, isStereoVuRailCountKey(key))),
 
       updateNodeProperties: (id, updates) =>
         set((s) => editNodePropertyAndSyncVu(
           s,
           id,
           updates,
-          Object.prototype.hasOwnProperty.call(updates, 'ledCount'),
+          Object.keys(updates).some(isStereoVuRailCountKey),
         )),
 
       /*

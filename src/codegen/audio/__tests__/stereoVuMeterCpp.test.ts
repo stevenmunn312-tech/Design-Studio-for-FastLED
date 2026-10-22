@@ -31,7 +31,8 @@ const output = node('out', 'MatrixOutput', 'output', {
 
 function meter(properties: Record<string, unknown> = {}): StudioNode {
   return node('side-vu', 'StereoVuMeter', 'output', {
-    ledCount: 24,
+    leftLedCount: 24,
+    rightLedCount: 24,
     leftDataPin: 5,
     rightDataPin: 6,
     chipset: 'WS2812B',
@@ -66,11 +67,14 @@ function sketch(properties: Record<string, unknown> = {}): string {
 describe('normal sketch Stereo VU Meter generation', () => {
   it('emits two independent clockless controllers and consumes the stereo audio globals', () => {
     const cpp = sketch()
-    expect(cpp).toContain('#define VU_LEDS_side_vu 24')
+    expect(cpp).toContain('#define VU_LEFT_LEDS_side_vu 24')
+    expect(cpp).toContain('#define VU_RIGHT_LEDS_side_vu 24')
     expect(cpp).toContain('#define VU_LEFT_PIN_side_vu 5')
     expect(cpp).toContain('#define VU_RIGHT_PIN_side_vu 6')
-    expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_LEFT_PIN_side_vu, GRB>(_vuLeft_side_vu, VU_LEDS_side_vu)')
-    expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_RIGHT_PIN_side_vu, GRB>(_vuRight_side_vu, VU_LEDS_side_vu)')
+    // A clockless rail never names a clock pin, so nothing can wire one by accident.
+    expect(cpp).not.toContain('VU_LEFT_CLOCK_PIN_side_vu')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_LEFT_PIN_side_vu, GRB>(_vuLeft_side_vu, VU_LEFT_LEDS_side_vu)')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_RIGHT_PIN_side_vu, GRB>(_vuRight_side_vu, VU_RIGHT_LEDS_side_vu)')
     expect(cpp).toContain('_audioLeftLevel, _audioRightLevel, _audioBeat, millis()')
     expect(cpp).toContain('_audioLeftLevel = _lineInput ? _lineInput->leftLevel() : 0.0f;')
     expect(cpp).toContain('_audioRightLevel = _lineInput ? _lineInput->rightLevel() : 0.0f;')
@@ -96,7 +100,7 @@ describe('normal sketch Stereo VU Meter generation', () => {
 
   it('omits an unwired fixture and its controllers instead of sampling ambient audio', () => {
     const cpp = generateCpp([board, lineIn, audio, output, meter()], [])
-    expect(cpp).not.toContain('VU_LEDS_side_vu')
+    expect(cpp).not.toContain('VU_LEFT_LEDS_side_vu')
     expect(cpp).not.toContain('_stereoVuRender(')
     expect(cpp).toContain('FastLED.show();')
   })
@@ -110,7 +114,7 @@ describe('normal sketch Stereo VU Meter generation', () => {
   it.each(STEREO_VU_MODES)('emits the %s visualization through the shared renderer', (mode) => {
     const cpp = sketch({ visualizationMode: mode })
     const expectedMode = STEREO_VU_MODES.indexOf(mode)
-    expect(cpp).toContain(`VU_LEDS_side_vu, ${expectedMode}, 0, 8.0f`)
+    expect(cpp).toContain(`VU_LEFT_LEDS_side_vu, VU_RIGHT_LEDS_side_vu, ${expectedMode}, 0, 8.0f`)
     expect(cpp).toContain('static CRGB _vuPixel(')
   })
 
@@ -122,15 +126,16 @@ describe('normal sketch Stereo VU Meter generation', () => {
   ])('bakes %s/%s physical data direction independently', (leftDirection, rightDirection, flags) => {
     const cpp = sketch({ leftDirection, rightDirection })
     expect(cpp).toContain(`${flags}, false,`)
-    expect(cpp).toContain('leftPixels[c.reverseLeft ? c.count - 1 - i : i] = lp;')
-    expect(cpp).toContain('rightPixels[c.reverseRight ? c.count - 1 - i : i] = rp;')
+    expect(cpp).toContain('leftPixels[c.reverseLeft ? c.leftCount - 1 - i : i] = lp;')
+    expect(cpp).toContain('rightPixels[c.reverseRight ? c.rightCount - 1 - i : i] = rp;')
   })
 
   it('emits elapsed-time ballistics, deterministic shuffle, and per-instance history', () => {
     const cpp = sketch({ visualizationPolicy: 'Shuffle' })
     expect(cpp).toContain('float dt = min(0.25f, (now - s.lastMs) / 1000.0f)')
     expect(cpp).toContain('mode = c.policy == 1 ? (c.mode + steps) % 12 : c.shuffle[steps % 12]')
-    expect(cpp).toContain('float _vuLeftHistory_side_vu[VU_LEDS_side_vu]')
+    expect(cpp).toContain('float _vuLeftHistory_side_vu[VU_LEFT_LEDS_side_vu]')
+    expect(cpp).toContain('float _vuRightHistory_side_vu[VU_RIGHT_LEDS_side_vu]')
     expect(cpp).toContain('StereoVuState _vuState_side_vu = {}')
   })
 
@@ -144,6 +149,59 @@ describe('normal sketch Stereo VU Meter generation', () => {
     )
     expect(cpp).toContain('CRGBPalette16 pal_custom_palette(')
     expect(cpp).toContain('pal_custom_palette, (bool)_audioProcessor, _audioLeftLevel')
+  })
+})
+
+describe('Stereo VU Meter expansion (docs/design/stereo-vu-expansion.md)', () => {
+  it('registers a clocked chipset with a clock pin per rail', () => {
+    const cpp = sketch({ chipset: 'APA102', colorOrder: 'BGR', leftClockPin: 18, rightClockPin: 19 })
+    expect(cpp).toContain('#define VU_LEFT_CLOCK_PIN_side_vu 18')
+    expect(cpp).toContain('#define VU_RIGHT_CLOCK_PIN_side_vu 19')
+    expect(cpp).toContain('FastLED.addLeds<APA102, VU_LEFT_PIN_side_vu, VU_LEFT_CLOCK_PIN_side_vu, BGR>(_vuLeft_side_vu, VU_LEFT_LEDS_side_vu)')
+    expect(cpp).toContain('FastLED.addLeds<APA102, VU_RIGHT_PIN_side_vu, VU_RIGHT_CLOCK_PIN_side_vu, BGR>(_vuRight_side_vu, VU_RIGHT_LEDS_side_vu)')
+  })
+
+  it('sizes each rail, its history and its loops from its own length', () => {
+    const cpp = sketch({ leftLedCount: 40, rightLedCount: 32 })
+    expect(cpp).toContain('#define VU_LEFT_LEDS_side_vu 40')
+    expect(cpp).toContain('#define VU_RIGHT_LEDS_side_vu 32')
+    expect(cpp).toContain('CRGB _vuLeft_side_vu[VU_LEFT_LEDS_side_vu];')
+    expect(cpp).toContain('CRGB _vuRight_side_vu[VU_RIGHT_LEDS_side_vu];')
+    expect(cpp).toContain('VU_LEFT_LEDS_side_vu, VU_RIGHT_LEDS_side_vu, 0, 0, 8.0f')
+    expect(cpp).toContain('uint16_t leftCount, rightCount;')
+    expect(cpp).toContain('for (uint16_t i = 0; i < c.leftCount; ++i)')
+    expect(cpp).toContain('for (uint16_t i = 0; i < c.rightCount; ++i)')
+    expect(cpp).toContain('_vuShiftHistory(leftHistory, c.leftCount, steps, s.leftLevel);')
+    expect(cpp).toContain('_vuShiftHistory(rightHistory, c.rightCount, steps, s.rightLevel);')
+    expect(cpp).toContain('fill_solid(leftPixels, c.leftCount, CRGB::Black); fill_solid(rightPixels, c.rightCount, CRGB::Black);')
+  })
+
+  it('emits a complete, non-colliding set for each of two fixtures on one board', () => {
+    const second = node('door-vu', 'StereoVuMeter', 'output', {
+      ...(meter().data.properties as Record<string, unknown>),
+      leftLedCount: 12, rightLedCount: 10, leftDataPin: 7, rightDataPin: 8, chipset: 'APA102', leftClockPin: 18, rightClockPin: 19,
+    })
+    const cpp = generateCpp(
+      [board, lineIn, audio, output, meter(), second],
+      [audioWire, edge('audio-vu-2', 'audio', 'door-vu', 'audio', 'audio')],
+    )
+    for (const id of ['side_vu', 'door_vu']) {
+      expect(cpp).toContain(`StereoVuState _vuState_${id} = {};`)
+      expect(cpp).toContain(`const StereoVuConfig _vuConfig_${id} = {`)
+      expect(cpp).toContain(`CLEDController& _vuLeftController_${id} = `)
+      expect(cpp).toContain(`CLEDController& _vuRightController_${id} = `)
+      expect(cpp).toContain(`_stereoVuRender(_vuState_${id}, _vuConfig_${id},`)
+    }
+    expect(cpp).toContain('#define VU_LEFT_LEDS_door_vu 12')
+    expect(cpp).toContain('#define VU_RIGHT_LEDS_door_vu 10')
+    expect(cpp).toContain('#define VU_LEFT_PIN_door_vu 7')
+    expect(cpp).toContain('#define VU_LEFT_CLOCK_PIN_door_vu 18')
+    expect(cpp).not.toContain('VU_LEFT_CLOCK_PIN_side_vu')
+    // The shared renderer is defined once; every macro and global is per fixture.
+    expect(cpp.match(/static void _stereoVuRender\(/g)).toHaveLength(1)
+    const defines = cpp.match(/^#define VU_[A-Z_]+_(?:side|door)_vu /gm) ?? []
+    expect(new Set(defines).size).toBe(defines.length)
+    expect(cpp.match(/^ {2}FastLED\.show\(\);/gm)).toHaveLength(1)
   })
 })
 

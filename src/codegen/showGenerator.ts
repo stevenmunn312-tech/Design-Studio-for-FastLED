@@ -92,7 +92,7 @@ import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuEmitsFromGraph,
-  stereoVuGlobalCpp, stereoVuLoopCpp,
+  stereoVuGlobalCpp, stereoVuLoopCpp, stereoVuRailSetupOptions,
 } from './audio/stereoVuMeterCpp'
 import { masterShowClockLoopCpp, masterShowSpeedUpdateCpp, type MasterSpeedEmit } from './player/masterSpeedCpp'
 import {
@@ -1221,16 +1221,8 @@ export function generateShowSketch(
   }
   for (const meter of stereoVuMeters) {
     const meterHw = ledHardwareFromProps(ledPropsWithController(meter.properties, nodes))
-    for (const s of fastledSetupCpp(meterHw, {
-      dataPinMacro: `VU_LEFT_PIN_${meter.id}`, brightness: null,
-      ledCountMacro: `VU_LEDS_${meter.id}`, ledsName: `_vuLeft_${meter.id}`,
-      controllerName: `_vuLeftController_${meter.id}`,
-    })) L.push(s)
-    for (const s of fastledSetupCpp(meterHw, {
-      dataPinMacro: `VU_RIGHT_PIN_${meter.id}`, brightness: null,
-      ledCountMacro: `VU_LEDS_${meter.id}`, ledsName: `_vuRight_${meter.id}`,
-      controllerName: `_vuRightController_${meter.id}`,
-    })) L.push(s)
+    for (const s of fastledSetupCpp(meterHw, stereoVuRailSetupOptions(meter, 'left'))) L.push(s)
+    for (const s of fastledSetupCpp(meterHw, stereoVuRailSetupOptions(meter, 'right'))) L.push(s)
   }
   if (isHub75 && stereoVuMeters.length > 0) L.push(`  FastLED.setBrightness(${controller.brightness});`)
   if (controller.powerLimit && (!isHub75 || stereoVuMeters.length > 0)) {

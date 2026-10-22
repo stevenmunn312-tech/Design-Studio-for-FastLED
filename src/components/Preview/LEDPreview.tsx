@@ -253,11 +253,15 @@ export default function LEDPreview() {
     .find((node) => node.data.nodeType === 'StereoVuMeter')?.id ?? '')
   const combinedVuKey = useGraphStore((s) => {
     const fixture = combinedStereoVuFixture(rootGraphNodes(s), activeOutputId)
-    return fixture ? `${fixture.id}|${fixture.swapChannels ? 1 : 0}|${fixture.ledCount}|${fixture.standalone ? 1 : 0}` : ''
+    return fixture ? `${fixture.id}|${fixture.swapChannels ? 1 : 0}|${fixture.leftLedCount}|${fixture.rightLedCount}|${fixture.standalone ? 1 : 0}` : ''
   })
-  const [combinedVuId = '', combinedVuSwapFlag = '0', combinedVuCountFlag = '16', standaloneVuFlag = '0'] = combinedVuKey.split('|')
+  const [combinedVuId = '', combinedVuSwapFlag = '0', combinedVuLeftFlag = '16', combinedVuRightFlag = '16', standaloneVuFlag = '0'] = combinedVuKey.split('|')
   const combinedVuSwap = combinedVuSwapFlag === '1'
-  const combinedVuCount = Math.max(1, Number(combinedVuCountFlag) || 16)
+  const combinedVuLeftCount = Math.max(1, Number(combinedVuLeftFlag) || 16)
+  const combinedVuRightCount = Math.max(1, Number(combinedVuRightFlag) || 16)
+  // The standalone grid is as tall as the longer rail; each rail still draws
+  // its own length in its own column.
+  const combinedVuCount = Math.max(combinedVuLeftCount, combinedVuRightCount)
   const standaloneVu = combinedVuId !== '' && standaloneVuFlag === '1'
   // Real hardware dimensions. Fullscreen may derive a denser display-only grid
   // later, but routing, streaming, firmware parity and the W×H readout stay on
@@ -1167,7 +1171,11 @@ export default function LEDPreview() {
             <span className={styles.liveDot} aria-hidden="true" />
             <span className={styles.stageTitle}>Live output</span>
             <span className={styles.stageMeta}>
-              {standaloneVu ? `${combinedVuCount} LEDs per side` : `${gridW}×${gridH}`} · {fps} FPS · Memory Used: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
+              {standaloneVu
+                ? combinedVuLeftCount === combinedVuRightCount
+                  ? `${combinedVuCount} LEDs per side`
+                  : `L ${combinedVuLeftCount} / R ${combinedVuRightCount} LEDs`
+                : `${gridW}×${gridH}`} · {fps} FPS · Memory Used: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
             </span>
           </div>
         ) : (

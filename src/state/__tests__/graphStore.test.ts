@@ -1,6 +1,6 @@
 import { buildGraphDiagnostics } from '../../utils/validateGraph'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory, enterDisplayHistoryScope, leaveDisplayHistoryScope, reachableGroupRegistry, rootGraphNodes } from '../graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, canAddNodeType, clearStashedGraphHistory, enterDisplayHistoryScope, leaveDisplayHistoryScope, reachableGroupRegistry, rootGraphNodes } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -996,7 +996,7 @@ describe('graphStore — loadGraph normalization', () => {
     const hue = node('ah', 'AudioHue', { bass: 0.5, mids: 0.5, treble: 0.5 })
     const circle = node('c', 'Circle', { radius: 6 })
     const clock = node('clk', 'ClockDisplay', { radius: 6 })
-    const vu = node('vu', 'StereoVuMeter', { ledCount: 16 })
+    const vu = node('vu', 'StereoVuMeter', { leftLedCount: 16, rightLedCount: 16 })
     useGraphStore.getState().loadGraph([hue, circle, clock, vu], [])
 
     expect(dataOf('ah').properties).toEqual({ bass: 0.5, mids: 0.5, treble: 0.5 })
@@ -1097,26 +1097,38 @@ describe('graphStore — LED output chipset change', () => {
 describe('graphStore — Stereo VU sizing', () => {
   beforeEach(() => reset())
 
-  it('tracks its target matrix height until its count is customised', () => {
+  it('tracks its target matrix height on both rails until either count is customised', () => {
     reset([
       node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 24 }),
-      node('vu', 'StereoVuMeter', { targetOutputId: 'out', ledCount: 24, _ledCountCustom: false }),
+      node('vu', 'StereoVuMeter', { targetOutputId: 'out', leftLedCount: 24, rightLedCount: 24, _ledCountCustom: false }),
     ])
 
     useGraphStore.getState().updateNodeProperty('out', 'height', 32)
-    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'vu')!.data.properties.ledCount).toBe(32)
+    const synced = useGraphStore.getState().nodes.find((entry) => entry.id === 'vu')!.data.properties
+    expect(synced.leftLedCount).toBe(32)
+    expect(synced.rightLedCount).toBe(32)
 
-    useGraphStore.getState().updateNodeProperty('vu', 'ledCount', 20)
+    // Typing one rail's length makes the pair custom: the other rail keeps the
+    // length it had and neither follows the matrix again.
+    useGraphStore.getState().updateNodeProperty('vu', 'rightLedCount', 20)
     useGraphStore.getState().updateNodeProperties('out', { width: 64, height: 64 })
     const properties = useGraphStore.getState().nodes.find((entry) => entry.id === 'vu')!.data.properties
-    expect(properties.ledCount).toBe(20)
+    expect(properties.leftLedCount).toBe(32)
+    expect(properties.rightLedCount).toBe(20)
     expect(properties._ledCountCustom).toBe(true)
   })
 
-  it('uses 16 LEDs when its target is removed', () => {
-    reset([node('vu', 'StereoVuMeter', { targetOutputId: '', ledCount: 60, _ledCountCustom: false })])
+  it('uses 16 LEDs per rail when its target is removed', () => {
+    reset([node('vu', 'StereoVuMeter', { targetOutputId: '', leftLedCount: 60, rightLedCount: 60, _ledCountCustom: false })])
     useGraphStore.getState().updateNodeProperty('vu', 'targetOutputId', '')
-    expect(useGraphStore.getState().nodes[0].data.properties.ledCount).toBe(16)
+    expect(useGraphStore.getState().nodes[0].data.properties.leftLedCount).toBe(16)
+    expect(useGraphStore.getState().nodes[0].data.properties.rightLedCount).toBe(16)
+  })
+
+  it('allows several fixtures on one board', () => {
+    reset([node('vu-a', 'StereoVuMeter', { targetOutputId: '' })])
+    expect(canAddNodeType(useGraphStore.getState().nodes, 'StereoVuMeter')).toBe(true)
+    expect(canAddNodeType(useGraphStore.getState().nodes, 'Audio')).toBe(true)
   })
 })
 
@@ -1897,7 +1909,7 @@ describe('graphStore — hardware while a group is open', () => {
   it('turns a VU meter standalone when its selected matrix is removed', () => {
     reset([
       node('out', 'MatrixOutput'),
-      node('vu', 'StereoVuMeter', { targetOutputId: 'out', ledCount: 16 }),
+      node('vu', 'StereoVuMeter', { targetOutputId: 'out', leftLedCount: 16, rightLedCount: 16 }),
     ])
 
     useGraphStore.getState().removeNodeCompletely('out')

@@ -3,9 +3,11 @@ import type { GroupRegistry } from '../state/evaluator/types'
 import { playerControlGraph } from '../codegen/player/playerControlGraph'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import {
+  ADDRESSABLE_CHIPSET_OPTIONS,
   CLOCKLESS_CHIPSET_OPTIONS,
   isPortlessNodeType,
   NODE_LIBRARY,
+  SPI_CHIPSETS,
   supportsScalarExpression,
   xptTouchPinsForProps,
 } from '../state/nodeLibrary'
@@ -19,9 +21,7 @@ import { audioOutputMissing, hasAudioOutputStage, powerAmplifierFeed, powerAmpli
 import { boardHasDacOutput } from '../build/boards/boardDacOutput'
 import { dfPlayerUartPort } from '../state/peripherals/dfPlayer'
 import { resolveShowTarget } from '../state/player/showTarget'
-import {
-  DEFAULT_STANDALONE_VU_LED_COUNT,
-} from '../state/audio/stereoVuSizing'
+import { stereoVuTotalLeds } from '../state/audio/stereoVuSizing'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../nodes/shared/scalarExpression'
 import { fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, isScalarFormulaValid } from '../nodes/shared/formulaLang'
 import { isValidRtcDateTime } from '../state/peripherals/rtc'
@@ -235,8 +235,17 @@ export function findStereoVuMeterErrors(nodes: StudioNode[], edges: StudioEdge[]
       }
     }
     const chipset = String(props.chipset ?? 'WS2812B')
-    if (!(CLOCKLESS_CHIPSET_OPTIONS as readonly string[]).includes(chipset)) {
-      errors.push(`${label} uses unsupported chipset ${chipset} — choose a clockless addressable chipset for both rails`)
+    if (!(ADDRESSABLE_CHIPSET_OPTIONS as readonly string[]).includes(chipset)) {
+      errors.push(`${label} uses unsupported chipset ${chipset} — choose an addressable chipset for both rails`)
+    } else if (SPI_CHIPSETS.has(chipset)) {
+      // A clocked rail is a data line and a clock line; the clock pins are
+      // only a question once the chipset asks for them.
+      for (const [key, side] of [['leftClockPin', 'left'], ['rightClockPin', 'right']] as const) {
+        const pin = props[key]
+        if (typeof pin !== 'number' || !isValidPinNumber(pin)) {
+          errors.push(`${label} ${side} clock pin is missing or invalid — ${chipset} needs a clock line beside each rail's data line; choose a whole-number GPIO from 0–${MAX_PIN_NUMBER}`)
+        }
+      }
     }
     const targetOutputId = String(props.targetOutputId ?? '')
     if (targetOutputId && !nodes.some((candidate) =>
@@ -436,10 +445,8 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
     node.data.nodeType === 'StereoVuMeter'
     && (node.data.properties as Record<string, unknown>).enabled !== false)
   if (outputs.length === 0 && vuMeters.length === 0) return null
-  const vuLedCount = vuMeters.reduce((sum, meter) => {
-    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
-    return sum + (Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2)
-  }, 0)
+  const vuLedCount = vuMeters.reduce((sum, meter) =>
+    sum + stereoVuTotalLeds(meter.data.properties as Record<string, unknown>), 0)
   const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0) + vuLedCount
   const controller = controllerSettings(nodes)
   // The per-LED figure is a 5 V draw. A 12 V chipset draws the same power at
@@ -641,11 +648,11 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
 // Particles uses a fixed-size pool independent of matrix size (see the
 // `Particles` case in cppGenerator.ts): 6 floats + 3 uint8 per slot.
 const PARTICLE_BYTES_PER_SLOT = 27
-// Two float history arrays plus the aligned StereoVuState emitted by
+// One float history per rail plus the aligned StereoVuState emitted by
 // stereoVuMeterCpp.ts. The two CRGB rail arrays are counted as physical LED
 // storage below, not as state.
 const STEREO_VU_STATE_BYTES = 48
-const STEREO_VU_HISTORY_BYTES_PER_LED = 8
+const STEREO_VU_HISTORY_BYTES_PER_RAIL_LED = 4
 
 function emittedStereoVuMeters(nodes: StudioNode[], edges: readonly StudioEdge[]): StudioNode[] {
   return nodes.filter((node) =>
@@ -850,10 +857,8 @@ export function estimateFirmwareRam(
   const outputLedCountTotal = outputs
     .filter((output) => controllers.has(output.id))
     .reduce((sum, output) => sum + outputLedCount(output), 0)
-  const stereoVuLedCount = stereoVuMeters.reduce((sum, meter) => {
-    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
-    return sum + Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2
-  }, 0)
+  const stereoVuLedCount = stereoVuMeters.reduce((sum, meter) =>
+    sum + stereoVuTotalLeds(meter.data.properties as Record<string, unknown>), 0)
   const ledCount = outputLedCountTotal + stereoVuLedCount
 
   // Only nodes that actually feed the terminal frame get a buffer in the
@@ -901,11 +906,11 @@ export function estimateFirmwareRam(
   const fieldBufferBytes = root.fieldBufferBytes + (patterns?.fieldBufferBytes ?? 0)
   let statefulBytes = root.statefulBytes + (patterns?.statefulBytes ?? 0)
   const feedbackBytes = root.feedbackBytes + (patterns?.feedbackBytes ?? 0)
-  statefulBytes += stereoVuMeters.reduce((sum, meter) => {
-    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
-    const safeCount = Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT)
-    return sum + STEREO_VU_STATE_BYTES + safeCount * STEREO_VU_HISTORY_BYTES_PER_LED
-  }, 0)
+  // Each rail keeps its own float history, so the per-LED figure is per rail
+  // LED: `stereoVuTotalLeds` is both rails and the constant is one float.
+  statefulBytes += stereoVuMeters.reduce((sum, meter) =>
+    sum + STEREO_VU_STATE_BYTES
+      + stereoVuTotalLeds(meter.data.properties as Record<string, unknown>) * STEREO_VU_HISTORY_BYTES_PER_RAIL_LED, 0)
 
   // Palette globals. Codegen declares one shared `paldef_<name>` per distinct
   // named palette a sketch references, plus one `pal_<id>` per palette-building
@@ -3722,14 +3727,27 @@ export function buildGraphDiagnostics(
       }
     }
     const meterChipset = String(props.chipset ?? 'WS2812B')
-    if (!(CLOCKLESS_CHIPSET_OPTIONS as readonly string[]).includes(meterChipset)) {
+    if (!(ADDRESSABLE_CHIPSET_OPTIONS as readonly string[]).includes(meterChipset)) {
       diagnostics.push({
         id: `${meter.id}-chipset`, severity: 'error', category: 'layout',
         title: 'Stereo VU Meter chipset is not supported',
-        message: `${meterChipset} needs a separate clock line, and both rails are driven as clockless strings.`,
-        fix: 'Choose a clockless addressable chipset (WS2812B, WS2811, SK6812, …) for the meter.',
+        message: `${meterChipset} is not an addressable string chipset FastLED can drive as a rail.`,
+        fix: 'Choose an addressable chipset (WS2812B, SK6812, APA102, …) for the meter.',
         nodeIds: [meter.id], nodeLabel: nodeLabel(meter), propertyKey: 'chipset',
       })
+    } else if (SPI_CHIPSETS.has(meterChipset)) {
+      for (const [key, side] of [['leftClockPin', 'left'], ['rightClockPin', 'right']] as const) {
+        const pin = props[key]
+        if (typeof pin !== 'number' || !isValidPinNumber(pin)) {
+          diagnostics.push({
+            id: `${meter.id}-${key}`, severity: 'error', category: 'pins',
+            title: `Stereo VU Meter ${side} clock pin is not a usable GPIO`,
+            message: `${meterChipset} needs a clock line beside each rail's data line; the ${side} rail's clock is set to ${pin === undefined ? 'nothing' : String(pin)}.`,
+            fix: `Enter a whole-number GPIO from 0–${MAX_PIN_NUMBER} for the ${side} rail's clock.`,
+            nodeIds: [meter.id], nodeLabel: nodeLabel(meter), propertyKey: key,
+          })
+        }
+      }
     }
     const targetOutputId = String(props.targetOutputId ?? '')
     if (targetOutputId && !nodes.some((node) =>

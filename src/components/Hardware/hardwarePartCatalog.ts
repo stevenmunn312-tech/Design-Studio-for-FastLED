@@ -280,12 +280,17 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     label: 'Stereo VU Meter',
     hint: 'Paired vertical addressable strings for left/right audio level',
     footprint: { width: VU_PAIR_WIDTH_MM, height: 600 },
+    // The clock fields only show, and are only reserved, on a clocked chipset
+    // (`stereoVuPinKeys`); the shipped default is clockless, so a new fixture
+    // asks the board for its two data pins only. Not a singleton: a board can
+    // carry several fixtures, each its own pair of rails on its own pins.
     pinFields: [
       { key: 'leftDataPin', label: 'LEFT DATA' },
       { key: 'rightDataPin', label: 'RIGHT DATA' },
+      { key: 'leftClockPin', label: 'LEFT CLK' },
+      { key: 'rightClockPin', label: 'RIGHT CLK' },
     ],
     pinRequests: [{ key: 'leftDataPin' }, { key: 'rightDataPin' }],
-    singleton: true,
   },
   {
     nodeType: 'TransportDisplay',

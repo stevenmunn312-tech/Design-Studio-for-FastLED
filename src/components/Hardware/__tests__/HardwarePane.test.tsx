@@ -508,7 +508,8 @@ describe('HardwarePane', () => {
     const meters = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'StereoVuMeter')
     expect(meters).toHaveLength(1)
     expect(meters[0].data.properties.targetOutputId).toBe('out')
-    expect(meters[0].data.properties.ledCount).toBe(16)
+    expect(meters[0].data.properties.leftLedCount).toBe(16)
+    expect(meters[0].data.properties.rightLedCount).toBe(16)
     expect(meters[0].data.properties._ledCountCustom).toBe(false)
     expect(meters[0].data.properties.leftDataPin).not.toBe(meters[0].data.properties.rightDataPin)
     expect(useGraphStore.getState().edges).toEqual(expect.arrayContaining([
@@ -518,7 +519,14 @@ describe('HardwarePane', () => {
     ]))
     expect(container.querySelector('[aria-label="Stereo VU Meter paired LED strings"]')).toBeTruthy()
 
-    expect((screen.getByRole('button', { name: 'Add Stereo VU Meter' }) as HTMLButtonElement).disabled).toBe(true)
+    // Not a singleton: a second pair lands on its own free pins.
+    expect((screen.getByRole('button', { name: 'Add Stereo VU Meter' }) as HTMLButtonElement).disabled).toBe(false)
+    addPart('LED outputs', 'Stereo VU Meter')
+    const pair = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'StereoVuMeter')
+    expect(pair).toHaveLength(2)
+    const pins = pair.flatMap((meter) => [meter.data.properties.leftDataPin, meter.data.properties.rightDataPin])
+    expect(new Set(pins).size).toBe(4)
+    expect(container.querySelectorAll('[aria-label="Stereo VU Meter paired LED strings"]')).toHaveLength(2)
   })
 
   it('adds a standalone Stereo VU Meter with 16 LEDs per side', () => {
@@ -527,7 +535,8 @@ describe('HardwarePane', () => {
 
     const meter = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'StereoVuMeter')!
     expect(meter.data.properties.targetOutputId).toBe('')
-    expect(meter.data.properties.ledCount).toBe(16)
+    expect(meter.data.properties.leftLedCount).toBe(16)
+    expect(meter.data.properties.rightLedCount).toBe(16)
   })
 
   it('adds and auto-wires the Stereo VU Meter in the root graph while a group is open', () => {

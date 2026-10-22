@@ -143,28 +143,44 @@ describe('generateWiringDiagnosticSketch', () => {
 
   it('identifies a targeted Stereo VU fixture and verifies each configured direction', () => {
     const vu = node('vu', 'StereoVuMeter', 'output', {
-      targetOutputId: 'out', ledCount: 36, leftDataPin: 6, rightDataPin: 7,
+      targetOutputId: 'out', leftLedCount: 36, rightLedCount: 36, leftDataPin: 6, rightDataPin: 7,
       chipset: 'WS2812B', colorOrder: 'GRB', leftDirection: 'Top', rightDirection: 'Bottom',
     })
     const sketch = generateWiringDiagnosticSketch([outputNode, vu], 'out')!
-    expect(sketch).toContain('#define VU_LED_COUNT 36')
+    expect(sketch).toContain('#define VU_LEFT_LED_COUNT 36')
+    expect(sketch).toContain('#define VU_RIGHT_LED_COUNT 36')
     expect(sketch).toContain('#define VU_LEFT_PIN 6')
     expect(sketch).toContain('#define VU_RIGHT_PIN 7')
+    expect(sketch).not.toContain('VU_LEFT_CLOCK_PIN')
     expect(sketch).toContain('#define VU_LEFT_REVERSED 1')
     expect(sketch).toContain('#define VU_RIGHT_REVERSED 0')
-    expect(sketch).toContain('FastLED.addLeds<WS2812B, VU_LEFT_PIN, GRB>(vuLeft, VU_LED_COUNT)')
-    expect(sketch).toContain('FastLED.addLeds<WS2812B, VU_RIGHT_PIN, GRB>(vuRight, VU_LED_COUNT)')
-    expect(sketch).toContain('drawVuRail(vuLeft, VU_LEFT_REVERSED, CRGB(64, 0, 0), now)')
-    expect(sketch).toContain('drawVuRail(vuRight, VU_RIGHT_REVERSED, CRGB(0, 0, 64), now)')
-    expect(sketch).toContain('physical = reversed ? VU_LED_COUNT - 1 - logical : logical')
+    expect(sketch).toContain('FastLED.addLeds<WS2812B, VU_LEFT_PIN, GRB>(vuLeft, VU_LEFT_LED_COUNT)')
+    expect(sketch).toContain('FastLED.addLeds<WS2812B, VU_RIGHT_PIN, GRB>(vuRight, VU_RIGHT_LED_COUNT)')
+    expect(sketch).toContain('drawVuRail(vuLeft, VU_LEFT_LED_COUNT, VU_LEFT_REVERSED, CRGB(64, 0, 0), now)')
+    expect(sketch).toContain('drawVuRail(vuRight, VU_RIGHT_LED_COUNT, VU_RIGHT_REVERSED, CRGB(0, 0, 64), now)')
+    expect(sketch).toContain('physical = reversed ? count - 1 - logical : logical')
     expect(sketch).toContain('FastLED.setBrightness(DIAG_BRIGHTNESS);')
     expect(sketch.match(/FastLED\.show\(\);/g)).toHaveLength(1)
   })
 
-  it('does not test a Stereo VU fixture assigned to another output route', () => {
-    const vu = node('vu', 'StereoVuMeter', 'output', { targetOutputId: 'other', ledCount: 36 })
+  it('chases each rail over its own length and clocks a clocked fixture', () => {
+    const vu = node('vu', 'StereoVuMeter', 'output', {
+      targetOutputId: 'out', leftLedCount: 40, rightLedCount: 32, leftDataPin: 6, rightDataPin: 7,
+      leftClockPin: 18, rightClockPin: 19, chipset: 'APA102', colorOrder: 'BGR',
+    })
     const sketch = generateWiringDiagnosticSketch([outputNode, vu], 'out')!
-    expect(sketch).not.toContain('VU_LED_COUNT')
+    expect(sketch).toContain('#define VU_LEFT_LED_COUNT 40')
+    expect(sketch).toContain('#define VU_RIGHT_LED_COUNT 32')
+    expect(sketch).toContain('#define VU_LEFT_CLOCK_PIN 18')
+    expect(sketch).toContain('#define VU_RIGHT_CLOCK_PIN 19')
+    expect(sketch).toContain('FastLED.addLeds<APA102, VU_LEFT_PIN, VU_LEFT_CLOCK_PIN, BGR>(vuLeft, VU_LEFT_LED_COUNT)')
+    expect(sketch).toContain('FastLED.addLeds<APA102, VU_RIGHT_PIN, VU_RIGHT_CLOCK_PIN, BGR>(vuRight, VU_RIGHT_LED_COUNT)')
+  })
+
+  it('does not test a Stereo VU fixture assigned to another output route', () => {
+    const vu = node('vu', 'StereoVuMeter', 'output', { targetOutputId: 'other', leftLedCount: 36, rightLedCount: 36 })
+    const sketch = generateWiringDiagnosticSketch([outputNode, vu], 'out')!
+    expect(sketch).not.toContain('VU_LEFT_LED_COUNT')
     expect(sketch).not.toContain('drawVuWiringDiagnostic')
   })
 

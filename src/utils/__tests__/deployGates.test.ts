@@ -247,17 +247,17 @@ const CASES: GateCase[] = [
     diagnostic: 'vu-leftDataPin',
   },
   {
-    name: 'a Stereo VU Meter on a chipset that needs a clock line',
+    name: 'a Stereo VU Meter on a clocked chipset with no usable clock pin',
     nodes: [
-      node('vu', 'StereoVuMeter', { enabled: true, targetOutputId: '', leftDataPin: 5, rightDataPin: 6, chipset: 'APA102' }),
+      node('vu', 'StereoVuMeter', { enabled: true, targetOutputId: '', leftDataPin: 5, rightDataPin: 6, leftClockPin: 5.5, rightClockPin: 19, chipset: 'APA102' }),
       node('sc', 'SolidColor'),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 7 }),
     ],
     edges: [edge('e1', 'audio-src', 'vu', 'audio'), edge('e2', 'sc', 'out')],
     fqbn: S3,
-    blocks: /unsupported chipset APA102/,
-    names: ['StereoVuMeter', 'APA102', 'clockless'],
-    diagnostic: 'vu-chipset',
+    blocks: /left clock pin is missing or invalid/,
+    names: ['StereoVuMeter', 'APA102', 'left clock pin'],
+    diagnostic: 'vu-leftClockPin',
   },
   {
     name: 'a numeric property expression the parser rejects',

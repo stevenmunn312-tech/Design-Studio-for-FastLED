@@ -275,9 +275,14 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     outputs: [],
     defaultProperties: {
       targetOutputId: '',
-      ledCount: 16,
+      leftLedCount: 16,
+      rightLedCount: 16,
       leftDataPin: 5,
       rightDataPin: 6,
+      // Read only when the chipset is clocked (SPI_CHIPSETS); a clockless
+      // rail leaves them unused and the manifest does not reserve them.
+      leftClockPin: 18,
+      rightClockPin: 19,
       leftDirection: 'Bottom',
       rightDirection: 'Bottom',
       swapChannels: false,
@@ -693,7 +698,7 @@ export const OUTPUT_DESCRIPTIONS: Record<string, string> = {
   // output
   Board: 'The controller board — exact model, its pins, and what it supports.',
   MatrixOutput: 'An LED output for strings, matrices, rings, corkscrews, and HUB75 panels.',
-  StereoVuMeter: 'A paired left/right addressable-string VU meter driven by one Audio connection.',
+  StereoVuMeter: 'Two independent addressable VU rails, left and right, from one Audio wire.',
   RelayOutput: 'Switches one to eight relay channels from boolean signals.',
   PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
   PwmDriverOutput: 'Sets up to sixteen PWM levels on a PCA9685 over I2C.',

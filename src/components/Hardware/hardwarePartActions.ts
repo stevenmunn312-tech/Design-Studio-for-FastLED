@@ -199,7 +199,8 @@ export function benchPartActions({
       : undefined
     const vuSizing = targetOutputId !== undefined
       ? {
-          ledCount: automaticStereoVuLedCount(nodes, targetOutputId),
+          leftLedCount: automaticStereoVuLedCount(nodes, targetOutputId),
+          rightLedCount: automaticStereoVuLedCount(nodes, targetOutputId),
           [VU_LED_COUNT_CUSTOM_KEY]: false,
         }
       : {}

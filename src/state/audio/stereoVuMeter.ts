@@ -1,5 +1,6 @@
 import { samplePalette, type Palette, type RGB } from '../palettes/ledColor'
 import { hexToRgb } from '../palettes/polinePalette'
+import { stereoVuRailCounts } from './stereoVuSizing'
 
 export const STEREO_VU_MODES = [
   'Classic Ladder',
@@ -20,7 +21,10 @@ export type StereoVuMode = typeof STEREO_VU_MODES[number]
 export type StereoVuPolicy = 'Manual' | 'Timed cycle' | 'Beat cycle' | 'Shuffle'
 
 export interface StereoVuSettings {
-  ledCount: number
+  /** Each rail's own length. The rails are independent: a 40-LED left and a
+   * 32-LED right each render at their own resolution from their own level. */
+  leftLedCount: number
+  rightLedCount: number
   enabled: boolean
   mode: StereoVuMode
   policy: StereoVuPolicy
@@ -127,8 +131,10 @@ const validMode = (value: string): StereoVuMode => (
 
 export function stereoVuSettings(properties: Record<string, unknown>, instanceKey = ''): StereoVuSettings {
   const policy = String(properties.visualizationPolicy ?? 'Shuffle')
+  const counts = stereoVuRailCounts(properties)
   return {
-    ledCount: Math.max(1, Math.min(1024, Math.round(Number(properties.ledCount ?? 60) || 60))),
+    leftLedCount: counts.left,
+    rightLedCount: counts.right,
     enabled: properties.enabled !== false,
     mode: validMode(String(properties.visualizationMode ?? 'Classic Ladder')),
     policy: ['Manual', 'Timed cycle', 'Beat cycle', 'Shuffle'].includes(policy)
@@ -179,7 +185,8 @@ export function stereoVuShuffleOrder(key: string): number[] {
 function stateSignature(settings: StereoVuSettings): string {
   return [
     settings.instanceKey,
-    settings.ledCount,
+    settings.leftLedCount,
+    settings.rightLedCount,
     settings.enabled ? 1 : 0,
     settings.mode,
     settings.policy,
@@ -197,8 +204,8 @@ export function blankStereoVuState(settings: StereoVuSettings, timeSec = 0): Ste
     rightPeak: 0,
     leftHoldUntil: timeSec,
     rightHoldUntil: timeSec,
-    leftHistory: Array(settings.ledCount).fill(0),
-    rightHistory: Array(settings.ledCount).fill(0),
+    leftHistory: Array(settings.leftLedCount).fill(0),
+    rightHistory: Array(settings.rightLedCount).fill(0),
     historyAt: timeSec,
     beatGlow: 0,
     previousBeat: false,
@@ -236,6 +243,8 @@ function filled(count: number, level: number, colorAt: (position: number) => RGB
 }
 
 interface RailRender {
+  /** This rail's own length: every mode draws at the rail's resolution. */
+  count: number
   level: number
   peak: number
   history: number[]
@@ -245,7 +254,7 @@ interface RailRender {
 }
 
 function renderRail(mode: StereoVuMode, settings: StereoVuSettings, rail: RailRender, beatGlow: number): RGB[] {
-  const n = settings.ledCount
+  const n = rail.count
   const paletteAt = (position: number) => samplePalette(settings.palette, position * 0.82)
   switch (mode) {
     case 'Palette Fill':
@@ -346,6 +355,13 @@ function selectedMode(settings: StereoVuSettings, state: StereoVuState, beatEdge
   return STEREO_VU_MODES[state.policyMode]
 }
 
+function shiftHistory(history: number[], steps: number, level: number): void {
+  for (let i = 0; i < steps; i++) {
+    history.unshift(level)
+    history.pop()
+  }
+}
+
 function advancePeak(level: number, peak: number, holdUntil: number, timeSec: number, dt: number, settings: StereoVuSettings): [number, number] {
   if (level >= peak) return [level, timeSec + settings.peakHoldMs / 1000]
   if (timeSec < holdUntil) return [peak, holdUntil]
@@ -370,14 +386,14 @@ export function renderStereoVu(
 
   if (!settings.enabled || !input.active) {
     state = blankStereoVuState(settings, timeSec)
-    const black = Array.from({ length: settings.ledCount }, () => ({ ...BLACK }))
+    const black = (count: number) => Array.from({ length: count }, () => ({ ...BLACK }))
     return {
       state,
       frame: {
-        left: black,
-        right: black.map((pixel) => ({ ...pixel })),
-        leftPhysical: black.map((pixel) => ({ ...pixel })),
-        rightPhysical: black.map((pixel) => ({ ...pixel })),
+        left: black(settings.leftLedCount),
+        right: black(settings.rightLedCount),
+        leftPhysical: black(settings.leftLedCount),
+        rightPhysical: black(settings.rightLedCount),
         mode: settings.mode,
         active: false,
         leftLevel: 0,
@@ -407,18 +423,21 @@ export function renderStereoVu(
 
   const historyPeriod = 1 / 30
   if (timeSec - state.historyAt >= historyPeriod) {
-    const steps = Math.min(settings.ledCount, Math.floor((timeSec - state.historyAt) / historyPeriod))
-    for (let i = 0; i < steps; i++) {
-      state.leftHistory.unshift(state.leftLevel)
-      state.rightHistory.unshift(state.rightLevel)
-      state.leftHistory.pop()
-      state.rightHistory.pop()
-    }
+    // One clock for both rails, bounded by the longer one. A shorter rail
+    // shifts at most its own length: past that every slot already holds the
+    // current level, so the extra shifts would change nothing.
+    const steps = Math.min(
+      Math.max(settings.leftLedCount, settings.rightLedCount),
+      Math.floor((timeSec - state.historyAt) / historyPeriod),
+    )
+    shiftHistory(state.leftHistory, Math.min(steps, settings.leftLedCount), state.leftLevel)
+    shiftHistory(state.rightHistory, Math.min(steps, settings.rightLedCount), state.rightLevel)
     state.historyAt += steps * historyPeriod
   }
 
   const mode = selectedMode(settings, state, beatEdge, timeSec)
   const leftRaw = renderRail(mode, settings, {
+    count: settings.leftLedCount,
     level: state.leftLevel,
     peak: state.leftPeak,
     history: state.leftHistory,
@@ -427,6 +446,7 @@ export function renderStereoVu(
     side: 'left',
   }, state.beatGlow)
   const rightRaw = renderRail(mode, settings, {
+    count: settings.rightLedCount,
     level: state.rightLevel,
     peak: state.rightPeak,
     history: state.rightHistory,

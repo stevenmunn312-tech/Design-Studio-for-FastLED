@@ -12,8 +12,15 @@ the main LED output remains an independent frame output.
    the graph.
 3. Choose the LED Matrix or HUB75 Panel that the rails should flank. Choose
    **Standalone** if there is no main frame.
-4. Set the LED count, data pins, chipset, colour order, and the data-in end for
-   each rail.
+4. Set each rail's LED count, data pin, the chipset and colour order, and the
+   data-in end for each rail. On a clocked chipset (APA102, APA102HD, HD108,
+   WS2801) set each rail's clock pin as well.
+
+The two rails need not be the same length: a 40-LED left and a 32-LED right
+each fill at their own resolution from their own level, and nothing maps one
+rail's pixels onto the other's. A board can also carry several fixtures; each
+is its own pair of rails on its own pins, showing the same music, because the
+board has one audio source.
 
 No Audio cable means no inferred or ambient input: the rails remain black and
 Graph Health explains what is missing. An inactive provider turns the rails
@@ -99,11 +106,14 @@ show: its conservative pattern identifies Left and Right independently and
 makes direction mistakes visible.
 
 Use one controller data pin per rail, a common ground, and a suitable external
-5 V LED supply. Ground must be shared by the controller, audio ADC, LED supply,
-and both strings. Do not power either string from the controller's USB or 3.3 V
-pin. Put a data resistor near each controller output and use a logic-level
-shifter when the LED voltage and cable length require it. Follow Build Diagram
-power-injection guidance for the combined LED count and physical run.
+5 V LED supply. A clocked chipset adds one controller clock pin per rail
+beside its data pin, so two clocked rails take four GPIOs; the clock pins are
+only read, reserved and shown on the bench when the chipset needs them. Ground
+must be shared by the controller, audio ADC, LED supply, and both strings. Do
+not power either string from the controller's USB or 3.3 V pin. Put a data
+resistor near each controller output and use a logic-level shifter when the
+LED voltage and cable length require it. Follow Build Diagram power-injection
+guidance for the combined LED count and physical run.
 
 The fixture brightness is applied to VU pixels first. Board/global FastLED
 brightness is applied at output second, so the two controls combine
