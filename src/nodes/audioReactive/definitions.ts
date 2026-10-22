@@ -260,6 +260,29 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
+    // A short silhouette over the frame: DJ, man, woman, or the pair.
+    // Artwork is 16×16, scaled to the largest centred square the matrix
+    // holds. See danceFlash.ts.
+    type: 'DanceFlash',
+    label: 'Dance Flash',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'frame', label: 'Base', dataType: 'frame' },
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'r', label: 'R', dataType: 'float' },
+      { id: 'g', label: 'G', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+    ],
+    propertyInputs: { r: 'r', g: 'g', b: 'b' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      // 1 is repeatable in preview and firmware. 0 draws freely on each side.
+      seed: 1,
+      r: 255, g: 255, b: 255,
+    },
+  },
+  {
     // Expanding shockwave rings spawned by kick/snare, textured with hihat grain.
     type: 'KickShock',
     label: 'Kick Shock',
@@ -593,6 +616,7 @@ export const AUDIO_REACTIVE_DESCRIPTIONS: Record<string, string> = {
   TreblePrism: 'Sharp diagonal prisms that shimmer with treble energy.',
   AudioCascade: 'Full-spectrum ribbons with bass glow, mids flow, and treble shimmer.',
   BeatFlash: 'Flashes toward a color/palette on each beat — attack, decay, intensity, blend.',
+  DanceFlash: 'Briefly flashes a DJ or dancer silhouette over the frame.',
   KickShock: 'Expanding shockwave rings triggered by kick and snare, with hi-hat grain.',
   VocalAurora: 'Vertical aurora curtains shaped by vocals; dims to black on silence.',
   BeatKaleidoscope: 'Wedge-mirrored plasma that snaps wider and spins on every beat.',

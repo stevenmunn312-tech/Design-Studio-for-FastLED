@@ -15,6 +15,11 @@ import {
 } from '../../state/evaluator/waveform'
 import { BEAT_FLASH_ATTACK_MAX_SEC, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN } from './evaluate'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterOrigin } from './levelMeter'
+import {
+  DANCE_FIGURE_COUNT, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_FIRST_MIN_MS, DANCE_FLASH_FIRST_SPAN_MS,
+  DANCE_FLASH_GAP_MIN_MS, DANCE_FLASH_GAP_SPAN_MS, DANCE_FLASH_HOLD_MS, DANCE_LCG_A, DANCE_LCG_C,
+  DANCE_SIZE, danceRowsLiteral,
+} from './danceFlash'
 
 /**
  * Spectrum Visualizer's Three Band style. A wired band wins; an unwired one
@@ -390,6 +395,63 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
       ln(`        ${ob}[_i].g = qadd8(${ob}[_i].g, (uint8_t)max(0.0f, ((float)_fc_${id}.g - ${ob}[_i].g) * _feff_${id}));`)
       ln(`        ${ob}[_i].b = qadd8(${ob}[_i].b, (uint8_t)max(0.0f, ((float)_fc_${id}.b - ${ob}[_i].b) * _feff_${id}));`)
     }
+    ln(`      }`)
+    ln(`    }`)
+    ln(`  }`)
+  },
+  // Keep in lockstep with the `DanceFlash` evaluator (danceFlash.ts): the
+  // same artwork, nearest-neighbour fit to a centred square, and millisecond LCG schedule.
+  DanceFlash({ node, id, p, ln, ownBuf, seedFrom, incoming, boolExpr, channelColor, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    const seed = seedProp(p)
+    const beatWired = incoming.has(`${node.id}:beat`)
+    const beat = boolExpr(node.id, 'beat')
+    const color = channelColor(null, 255, 255, 255)
+    const lcg = `_dfRng_${id}=_dfRng_${id}*${DANCE_LCG_A}u+${DANCE_LCG_C}u;`
+    ln(`  { ${seedFrom('frame')} // Dance Flash`)
+    ln(`    static const uint16_t _dfGlyph[4][16]={${danceRowsLiteral()}};`)
+    if (seed) ln(`    static uint32_t _dfRng_${id}=${seed}u;`)
+    ln(`    static float _dfNext_${id}=-1.0f,_dfUntil_${id}=-1.0f,_dfLast_${id}=-1.0f;`)
+    ln(`    static uint8_t _dfFig_${id}=0; static bool _dfMir_${id}=false,_dfPrev_${id}=false,_dfInit_${id}=false;`)
+    ln(`    if(!_dfInit_${id}||t<_dfLast_${id}){`)
+    ln(`      _dfInit_${id}=true; _dfUntil_${id}=-1.0f; _dfPrev_${id}=false;`)
+    if (seed) {
+      ln(`      _dfRng_${id}=${seed}u; ${lcg}`)
+      ln(`      _dfNext_${id}=(${DANCE_FLASH_FIRST_MIN_MS}u+(_dfRng_${id}%${DANCE_FLASH_FIRST_SPAN_MS}u))/1000.0f;`)
+    } else {
+      ln(`      _dfNext_${id}=(${DANCE_FLASH_FIRST_MIN_MS}u+(random16()%${DANCE_FLASH_FIRST_SPAN_MS}u))/1000.0f;`)
+    }
+    ln(`    }`)
+    ln(`    _dfLast_${id}=t;`)
+    if (beatWired) {
+      ln(`    bool _dfBeat_${id}=${beat}; bool _dfRise_${id}=_dfBeat_${id}&&!_dfPrev_${id}; _dfPrev_${id}=_dfBeat_${id};`)
+    }
+    ln(`    bool _dfOn_${id}=t<_dfUntil_${id};`)
+    ln(`    if(!_dfOn_${id}&&t>=_dfNext_${id}){`)
+    if (beatWired) {
+      ln(`      bool _dfLate_${id}=t>=_dfNext_${id}+(${DANCE_FLASH_BEAT_WAIT_MS}/1000.0f);`)
+      ln(`      if(_dfRise_${id}||_dfLate_${id}){`)
+    }
+    if (seed) {
+      ln(`      ${lcg} _dfFig_${id}=(uint8_t)(_dfRng_${id}%${DANCE_FIGURE_COUNT}u);`)
+      ln(`      ${lcg} _dfMir_${id}=(_dfRng_${id}&1u)!=0u;`)
+      ln(`      ${lcg} float _dfGap_${id}=(${DANCE_FLASH_GAP_MIN_MS}u+(_dfRng_${id}%${DANCE_FLASH_GAP_SPAN_MS}u))/1000.0f;`)
+    } else {
+      ln(`      _dfFig_${id}=random8()%${DANCE_FIGURE_COUNT}; _dfMir_${id}=(random8()&1u)!=0u;`)
+      ln(`      float _dfGap_${id}=(${DANCE_FLASH_GAP_MIN_MS}u+(random16()%${DANCE_FLASH_GAP_SPAN_MS}u))/1000.0f;`)
+    }
+    ln(`      _dfUntil_${id}=t+${DANCE_FLASH_HOLD_MS}/1000.0f; _dfNext_${id}=_dfUntil_${id}+_dfGap_${id}; _dfOn_${id}=true;`)
+    if (beatWired) ln(`      }`)
+    ln(`    }`)
+    ln(`    if(_dfOn_${id}){ CRGB _dfCol_${id}=${color};`)
+    // The largest square the matrix holds, centred (danceFit), so the
+    // figure keeps its shape on a wide or tall panel.
+    ln(`      int _dfS=max(1,min(WIDTH,HEIGHT)); int _dfOx=(WIDTH-_dfS)/2,_dfOy=(HEIGHT-_dfS)/2;`)
+    ln(`      for(int _fy=0;_fy<_dfS;_fy++) for(int _fx=0;_fx<_dfS;_fx++){`)
+    ln(`        int _sx=min(${DANCE_SIZE - 1},(_fx*${DANCE_SIZE})/_dfS); if(_dfMir_${id}) _sx=${DANCE_SIZE - 1}-_sx;`)
+    ln(`        int _sy=min(${DANCE_SIZE - 1},(_fy*${DANCE_SIZE})/_dfS);`)
+    ln(`        if(_dfGlyph[_dfFig_${id}][_sy]&(uint16_t)(1u<<(${DANCE_SIZE - 1}-_sx))) ${ob}[(_fy+_dfOy)*WIDTH+_fx+_dfOx]=_dfCol_${id};`)
     ln(`      }`)
     ln(`    }`)
     ln(`  }`)

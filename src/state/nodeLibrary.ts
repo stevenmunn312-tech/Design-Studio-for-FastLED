@@ -721,6 +721,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     palette:   { control: 'select', options: ['none', ...PALETTES] },
     blendMode: { control: 'select', options: ['screen', 'add'] },
   },
+  DanceFlash: {
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
     gain:      { control: 'slider', min: 0.25, max: 4, step: 0.05 },

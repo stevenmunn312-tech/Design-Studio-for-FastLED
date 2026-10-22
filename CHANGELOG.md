@@ -27,6 +27,11 @@ versioning (`0.y.z`) until the first stable release.
   entry that has the same id but different content.
 - **Arduino UNO R4 WiFi** can now sync NTP and receive Art-Net, sACN and DDP
   through its WiFiS3 library. Experimental until its first compile.
+- **Dance Flash** occasionally stamps a 16×16 silhouette over a frame and
+  scales it to the largest square the matrix holds, centred: a DJ at the decks, a man dancing, a woman
+  dancing, or the two together. Each flash picks one pose and may mirror it
+  left to right. Place it after an audio-reactive pattern. A wired Beat input
+  holds the flash for the next beat.
 - The screen editor checks a design against the glass it is drawn for: each
   panel's measured size, resolution and touch surface set how large a control
   must be to hit, how far apart controls must be, and the smallest readable

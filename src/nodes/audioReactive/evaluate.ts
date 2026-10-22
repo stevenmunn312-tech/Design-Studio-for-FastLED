@@ -31,8 +31,12 @@ import {
 import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
+import {
+  danceFlashAdvance, danceFlashStart, stampDanceFlash, type DanceFlashClock,
+} from './danceFlash'
 
 const levelMeterPeaks = instanceState('levelMeterPeaks', new Map<string, { peak: number; since: number; lastT: number }>())
+const danceClocks = instanceState('danceFlash', new Map<string, { seed: number; clock: DanceFlashClock; lastT: number }>())
 
 // An AnimARTrix instance is instance state held outside the evaluator's maps.
 onInstanceDisposed(disposeAnimartrixState)
@@ -1267,6 +1271,29 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
         b: byte(num(id, 'b', props, 'b', 255) / 255),
       }
     return { frame: blendBeatFlash(baseFrame, level, color, intensity, blendMode, preserveBase, W, H) }
+  },
+  // Keep in lockstep with the `DanceFlash` emitter: same 16×16 art, same
+  // centred square fit, same millisecond schedule (danceFlash.ts).
+  DanceFlash({ input, num, W, H, stateKey, incoming, t }, id, props) {
+    const base = input(id, 'frame', null) as Frame | null
+    const beatWired = incoming.has(`${id}:beat`)
+    const beat = beatWired && input(id, 'beat', false) === true
+    const seed = normalizedSeed(props.seed ?? 1)
+    const key = stateKey(id)
+    let slot = danceClocks.get(key)
+    if (!slot || slot.seed !== seed || !(t >= slot.lastT)) {
+      slot = { seed, clock: danceFlashStart(seed), lastT: t }
+      danceClocks.set(key, slot)
+    }
+    slot.lastT = t
+    const showing = danceFlashAdvance(slot.clock, t, beat, beatWired)
+    if (!showing) return { frame: base ?? blankFrame(W, H) }
+    const color = {
+      r: byte(num(id, 'r', props, 'r', 255) / 255),
+      g: byte(num(id, 'g', props, 'g', 255) / 255),
+      b: byte(num(id, 'b', props, 'b', 255) / 255),
+    }
+    return { frame: stampDanceFlash(base, W, H, slot.clock.figure, slot.clock.mirror, color) }
   },
   KickShock({ num, pal, t, W, H, stateKey }, id, props) {
     const kick = num(id, 'kick', props, 'kick', 0)

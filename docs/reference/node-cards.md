@@ -850,6 +850,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Beat Flash example graph](../../public/node-cards/graphs/beat-flash.svg)
 
+### Dance Flash
+
+![Dance Flash node](../../public/node-cards/dance-flash.svg)
+
+![Dance Flash example graph](../../public/node-cards/graphs/dance-flash.svg)
+
 ### Kick Shock
 
 ![Kick Shock node](../../public/node-cards/kick-shock.svg)

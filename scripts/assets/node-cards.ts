@@ -32,7 +32,7 @@ import {
 } from '../../src/state/nodeLibrary'
 import {
   CATEGORY_TAG, HARDWARE_INPUT_WIDGET_TYPES, NODE_WIDTH_OVERRIDES, PREVIEW_NOTES,
-  editableProperties, hasRgbProperties, moduleCode,
+  editableProperties, hasRgbProperties,
 } from '../../src/components/Canvas/studioNodeChrome'
 import { isPinnableProperty } from '../../src/state/player/performanceDeck'
 import { evaluateGraphFull, evaluateScalarSeries, resetEvaluatorState } from '../../src/state/graphEvaluator'
@@ -69,6 +69,7 @@ import { MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewRead
 import { distancePreviewDefault, distancePreviewReading } from '../../src/state/peripherals/distanceSensor'
 import { tidyLayout } from '../../src/utils/tidyLayout'
 import { nodeReferenceSlug as kebab } from '../../src/utils/nodeReferenceAssets'
+import { dancePreviewTick } from '../../src/nodes/audioReactive/danceFlash'
 import type { LiveExampleSpec } from '../../src/utils/insertLiveExample'
 import type { StudioNode, StudioEdge } from '../../src/state/graphStore'
 import type { NodeDefinition, NodePort } from '../../src/types'
@@ -227,12 +228,6 @@ const EMBEDDED_UI: Record<string, { label: string; h: number; top?: boolean }> =
 // ── Small helpers ──
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
-const hash3 = (t: string) => {
-  let h = 0
-  for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0
-  return String(100 + (h % 900))
-}
 
 const fmtNum = (v: number) => {
   if (Number.isInteger(v)) return String(v)
@@ -508,6 +503,14 @@ function buildPreview(def: NodeDefinition, out: NodePort, overrides?: Record<str
         const res = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID)
         last = res.outputs.get(targetId)?.[out.id]
       }
+      // The silhouette is only lit for a fraction of a second. Sample that
+      // window so the card shows a pose instead of the quiet gap around it.
+      if (def.type === 'DanceFlash') {
+        const seed = Number((nodes.find((node) => node.id === targetId)?.data.properties as { seed?: unknown } | undefined)?.seed ?? 1)
+        const tick = dancePreviewTick(Number.isFinite(seed) ? seed : 1)
+        const res = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID)
+        last = res.outputs.get(targetId)?.[out.id]
+      }
       return last
     })
     if (out.dataType === 'frame') {
@@ -731,26 +734,23 @@ function outputShapeFor(props: Record<string, unknown>, contentW: number): Outpu
 function headerSvg(def: NodeDefinition, w: number, accent: string, props: Record<string, unknown>): string {
   const title = nodeDisplayLabel(def.type, props, def.label)
   const tag = CATEGORY_TAG[def.category] ?? 'MOD'
-  const code = `${moduleCode(def.type)}-${hash3(def.type)}`
   const tagW = Math.round(tag.length * BADGE_PX * 10) / 10 + 8
-  const codeW = Math.round(code.length * BADGE_PX * 10) / 10 + 8
   const meterW = 20
-  // .headerMeta: padding-left 8, badges and the meter 6px apart, then the
+  // .headerMeta: padding-left 8, the badge and the meter 6px apart, then the
   // window buttons (2 × 18px, 2px apart) 6px further right, inside the 8px
   // header padding.
   const actionsX = w - BODY_PAD - 38
-  const metaW = 8 + tagW + 6 + codeW + 6 + meterW
+  const metaW = 8 + tagW + 6 + meterW
   const metaX = actionsX - 6 - metaW
   const tagX = metaX + 8
-  const codeX = tagX + tagW + 6
-  const meterX = codeX + codeW + 6
+  const meterX = tagX + tagW + 6
   const titleMax = metaX - BODY_PAD
   const parts: string[] = []
   parts.push(`<path d="M0,${HEADER_H} L0,${RADIUS} Q0,0 ${RADIUS},0 L${w - RADIUS},0 Q${w},0 ${w},${RADIUS} L${w},${HEADER_H} Z" fill="${accent}"/>`)
   // box-shadow: 0 4px 12px accent@18% — the glow the header throws on the body.
   parts.push(`<rect x="1" y="${HEADER_H}" width="${w - 2}" height="12" fill="url(#headerGlow)" opacity="0.18"/>`)
   parts.push(`<text x="${BODY_PAD}" y="21" font-family=${JSON.stringify(DISPLAY)} font-size="14" font-weight="600" fill="#000">${esc(truncate(title, titleMax, TITLE_PX))}</text>`)
-  for (const [x, bw, label] of [[tagX, tagW, tag], [codeX, codeW, code]] as const) {
+  for (const [x, bw, label] of [[tagX, tagW, tag]] as const) {
     parts.push(`<rect x="${x}" y="8" width="${bw}" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>`)
     parts.push(`<text x="${x + bw / 2}" y="19.5" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="9" letter-spacing="0.08em" fill="#000">${esc(label)}</text>`)
   }
@@ -1372,6 +1372,18 @@ function evalSpecFrame(spec: ReferenceLiveExample, slug: string): Frame | null {
     return withRandomSeed(`example-preview:${slug}`, () => {
       let frame: Frame | null = null
       for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
+        const evaluated = evaluateGraphFull(nodes, edges, tick, canvas.width, canvas.height)
+        if (spec.previewTarget) {
+          const value = evaluated.outputs.get(`${slug}-${spec.previewTarget.node}`)?.[spec.previewTarget.handle]
+          frame = Array.isArray(value) ? value as Frame : null
+        } else {
+          frame = evaluated.frame
+        }
+      }
+      const dance = spec.nodes.find((node) => node.type === 'DanceFlash')
+      if (dance) {
+        const seed = Number(dance.properties?.seed ?? libraryDefaults('DanceFlash').seed ?? 1)
+        const tick = dancePreviewTick(Number.isFinite(seed) ? seed : 1)
         const evaluated = evaluateGraphFull(nodes, edges, tick, canvas.width, canvas.height)
         if (spec.previewTarget) {
           const value = evaluated.outputs.get(`${slug}-${spec.previewTarget.node}`)?.[spec.previewTarget.handle]
