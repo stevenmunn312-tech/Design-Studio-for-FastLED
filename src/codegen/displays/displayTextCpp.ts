@@ -77,7 +77,14 @@ static void _dsCopy(char *dst, const char *src) {
   for (int i = 0; i < decimals; i++) scale *= 10.0;
   // Half away from zero, in both directions, matching scaleAndRound().
   double product = value * scale;
-  long long scaled = (long long)(product < 0 ? -floor(-product + 0.5) : floor(product + 0.5));
+  double rounded = product < 0 ? -floor(-product + 0.5) : floor(product + 0.5);
+  // Past what a long long holds the cast below is undefined, and any such
+  // value has more integer digits than the widest field allows anyway.
+  if (fabs(rounded) >= 9e18) {
+    snprintf(dst, DS_TEXT_BYTES, "%s${DISPLAY_TEXT_OVERFLOW}%s", prefix, suffix);
+    return;
+  }
+  long long scaled = (long long)rounded;
 
   bool negative = scaled < 0;
   unsigned long long magnitude = (unsigned long long)(negative ? -scaled : scaled);

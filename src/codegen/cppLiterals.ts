@@ -27,9 +27,13 @@ export function floatLit(value: number, digits = 4): string {
  *  the generator that depends on it, and is enforced by code with no idea
  *  codegen relies on it. Escaping here keeps it an incidental fact rather than
  *  a load-bearing one, so adding node renaming later can't quietly turn an
- *  imported project's label into an injection point in exported firmware. */
+ *  imported project's label into an injection point in exported firmware.
+ *
+ *  A trailing backslash (GCC also takes one followed by spaces) would splice
+ *  the next generated line into the comment, so it goes after truncation,
+ *  which could otherwise expose one. */
 export function cppComment(value: unknown): string {
-  return String(value ?? '').replace(/[\r\n\u2028\u2029]+/g, ' ').slice(0, 120)
+  return String(value ?? '').replace(/[\r\n\u2028\u2029]+/g, ' ').slice(0, 120).replace(/\\[\\\s]*$/, '')
 }
 
 export function cppStringLiteral(value: unknown): string {

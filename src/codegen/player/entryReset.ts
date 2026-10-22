@@ -50,7 +50,7 @@ function declarator(fragment: string): Declarator | null {
   if (!named) return null
   const name = named[1]
   if (name === 'static' || name === 'const' || name === 'constexpr') return null
-  const array = text.includes('[')
+  const array = named[2] !== undefined
   const init = named[3]?.trim() || null
   return { name, array, init }
 }

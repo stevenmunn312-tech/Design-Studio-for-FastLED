@@ -214,7 +214,8 @@ export const MATH_EVALUATORS: NodeEvaluators = {
         break
       }
       case 'pulseDivider': {
-        const divideBy = Math.max(2, Math.round(num(id, 'divideBy', props, 'divideBy', 2)))
+        // Firmware counts in a uint8_t, so the preview stops at the same 255.
+        const divideBy = Math.min(255, Math.max(2, Math.round(num(id, 'divideBy', props, 'divideBy', 2))))
         if (trig && !st.prevTrig) {
           st.count += 1
           if (st.count >= divideBy) { st.count = 0; result = true }

@@ -22,9 +22,20 @@ import {
 } from '../../state/patterns/patternThumbnail'
 import { cppStringLiteral, displayString, DISPLAY_TEXT_BUFFER_BYTES } from '../../state/displays/displayText'
 
-/** Identifier-safe stem so several collections cannot collide in one sketch. */
+/**
+ * Identifier-safe stem so several collections cannot collide in one sketch.
+ *
+ * Each character outside `[A-Za-z0-9_]` becomes its code point in hex, so
+ * `a-b` (`a_2db`) and `a_b` stay distinct: folding every stray character to
+ * `_` gave both the same `#define`s and symbols. An id that is already an
+ * identifier passes through unchanged, which the panels that call
+ * `_patName_<stem>_read` with the stem they were handed rely on.
+ */
 function stem(id: string): string {
-  return id.replace(/[^A-Za-z0-9_]/g, '_')
+  return id.replace(/[^A-Za-z0-9_]/g, (c) => {
+    const code = c.codePointAt(0) ?? 0
+    return code <= 0xff ? `_${code.toString(16).padStart(2, '0')}` : `_u${code.toString(16).padStart(4, '0')}`
+  })
 }
 
 function byteRows(data: Uint8Array, perRow = 16): string[] {

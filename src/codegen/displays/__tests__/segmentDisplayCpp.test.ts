@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../../state/graphStore'
-import { SEGMENT_DISPLAY_CPP_HELPERS } from '../segmentDisplayCpp'
+import { SEGMENT_DISPLAY_CPP_HELPERS, segmentDisplayLoopCpp, type SegmentDisplayEmit } from '../segmentDisplayCpp'
 import { SEGMENT_GLYPHS, SEGMENT_CONTROLLERS } from '../../../state/displays/segmentDisplay'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
@@ -246,6 +246,41 @@ describe('segment display edge cases', () => {
     expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(hour) % 100')
     expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(minute) % 100')
     expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(second) % 100')
+  })
+
+  describe('modes emitted straight from the display contract', () => {
+    const emit = (over: Partial<SegmentDisplayEmit>): SegmentDisplayEmit => ({
+      id: 'seg', controller: 'TM1637', digits: 4, clkPin: 18, dataPin: 19, csPin: 21, brightness: 4,
+      mode: 'Waiting', showColon: true, valueExpr: null, dateTimeExpr: null, enabledExpr: 'true',
+      ...over,
+    })
+    const loop = (over: Partial<SegmentDisplayEmit>) => segmentDisplayLoopCpp(emit(over)).join('\n')
+
+    // _segClock prints HHMMSS once it has six digits, so handing it
+    // (minutes, seconds, 0) there showed 90 s as "013000" — 1:30:00.
+    it('splits an elapsed position into hours, minutes and seconds on six or more digits', () => {
+      const src = loop({ mode: 'Elapsed', controller: 'MAX7219', digits: 8, valueExpr: 'songElapsedSec()' })
+      expect(src).toContain('_segClock(_segBuf_seg, 8, (int)(_segSec_seg / 3600), (int)((_segSec_seg / 60) % 60), (int)(_segSec_seg % 60));')
+    })
+
+    it('keeps an elapsed position as minutes and seconds on four digits', () => {
+      const src = loop({ mode: 'Elapsed', digits: 4, valueExpr: 'songElapsedSec()' })
+      expect(src).toContain('_segClock(_segBuf_seg, 4, (int)(_segSec_seg / 60), (int)(_segSec_seg % 60), 0);')
+    })
+
+    // No LED output wired means no level to report: dashes, never a
+    // confident 0 beside a fixture the module knows nothing about.
+    it('dashes a level with no LED output wired', () => {
+      const src = loop({ mode: 'Level' })
+      expect(src).toContain('_segAllDash(_segBuf_seg, 4);')
+      expect(src).not.toContain('_segLvl_seg')
+    })
+
+    it('reads the effective level once an LED output is wired', () => {
+      const src = loop({ mode: 'Level', ledStatus: { enabledExpr: '_ledOn', brightnessExpr: '_ledLevel' } })
+      expect(src).toContain('float _segLvl_seg = (_ledOn) ? constrain((float)(_ledLevel), 0.0f, 1.0f) : 0.0f;')
+      expect(src).not.toContain('_segAllDash')
+    })
   })
 
   describe('two modules in one sketch', () => {

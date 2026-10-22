@@ -9,6 +9,7 @@ import {
   SEGMENT_BRIGHTNESS_MIN,
   SEGMENT_BRIGHTNESS_MAX,
   renderSegmentClock,
+  renderSegmentElapsed,
   renderSegmentIndex,
   segmentFrameText,
   segmentBytes,
@@ -81,6 +82,21 @@ describe('renderSegmentClock', () => {
   it('wraps rather than overflowing its two digits', () => {
     expect(renderSegmentClock(23, 59, true).digits).toBe('2359')
     expect(renderSegmentClock(-1, 100, true).digits.length).toBe(SEGMENT_DIGITS)
+  })
+})
+
+describe('renderSegmentElapsed', () => {
+  it('shows a track position as minutes and seconds on four digits', () => {
+    expect(renderSegmentElapsed(90, false, 4).digits).toBe('0130')
+  })
+  it('splits a track position into hours, minutes and seconds on six or more digits', () => {
+    // (min, sec, 0) would print 013000 and read 1:30 as 1:30:00.
+    expect(renderSegmentElapsed(90, false, 8).digits).toBe('  000130')
+    expect(renderSegmentElapsed(3725, false, 6).digits).toBe('010205')
+  })
+  it('clamps a negative or missing position to zero', () => {
+    expect(renderSegmentElapsed(-5, false, 4).digits).toBe('0000')
+    expect(renderSegmentElapsed(Number.NaN, false, 4).digits).toBe('0000')
   })
 })
 

@@ -99,6 +99,19 @@ describe('the pattern name table', () => {
     expect(patternNameTableCpp('two', ['X'])).not.toContain('_patName_br_')
   })
 
+  // Folding every stray character to `_` gave `a-b` and `a_b` one stem, and
+  // one stem is a duplicate #define and a duplicate symbol in the same sketch.
+  it('keeps ids that differ only in a non-identifier character apart', () => {
+    const dashed = patternNameTableCpp('a-b', ['X'])
+    const underscored = patternNameTableCpp('a_b', ['X'])
+    expect(dashed).toContain('PATTERN_NAME_COUNT_a_2db')
+    expect(dashed).not.toContain('PATTERN_NAME_COUNT_a_b ')
+    expect(underscored).toContain('PATTERN_NAME_COUNT_a_b ')
+    expect(patternThumbnailTableCpp('a-b', [blankThumbnail()])).toContain('THUMB_COUNT_a_2db')
+    // An id that is already an identifier is the stem the panels were handed.
+    expect(patternNameTableCpp('show', ['X'])).toContain('_patName_show_read')
+  })
+
   it('escapes a name rather than ending the string literal', () => {
     expect(patternNameTableCpp('br', ['A "QUOTED" ONE'])).toContain('\\"')
   })

@@ -217,6 +217,10 @@ export function tftDisplayHelperProfile(displays: readonly TftDisplayEmit[]): Tf
     }
   }
 
+  // pictureLines() outlines the picture's frame with _tftRect on every layout
+  // that streams one, so a picture always brings the rectangle helper with it.
+  if (picture) rect = true
+
   return {
     textSlots,
     valueSlots,

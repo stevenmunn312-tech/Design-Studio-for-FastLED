@@ -77,6 +77,16 @@ describe('per-sketch helper specialization', () => {
     expect(source).toContain('digitalWrite(p.wr, HIGH);')
   })
 
+  // pictureLines() outlines the picture's frame with _tftRect, so a Show
+  // Status panel with a picture called a helper no profile had emitted.
+  it('brings the rectangle helper in with a Show Status picture', () => {
+    const panel = emit({ layout: 'Show Status', picture: { pixels: 'leds', width: 32, height: 8 } })
+    const profile = tftDisplayHelperProfile([panel])
+    expect(profile).toMatchObject({ picture: true, rect: true })
+    expect(tftDisplayHelpersCpp(profile)).toContain('static void _tftRect(')
+    expect(tftDisplayLoopCpp(panel).join('\n')).toContain('_tftRect(_tft_tft1,')
+  })
+
   it('keeps the discriminator only when both transports occur', () => {
     const source = tftDisplayHelpersCpp(tftDisplayHelperProfile([
       emit(),

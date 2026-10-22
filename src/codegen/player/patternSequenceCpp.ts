@@ -32,7 +32,7 @@ export function sequenceTableCpp(steps: readonly PatternStep[], countBeats = fal
     `static const uint32_t seqTransMs[] PROGMEM = { ${cell(steps.map((step) => String(Math.max(0, Math.round(step.transitionSec * 1000)))))} };`,
     `static const uint8_t seqBand[] PROGMEM = { ${cell(steps.map((step) => String(energyMask((step.energy ?? []) as EnergyBand[]))))} };`,
     `static const uint8_t seqSection[] PROGMEM = { ${cell(steps.map((step) => String(sectionMask(step.sections ?? []))))} };`,
-    `static const uint8_t SEQ_COUNT = ${steps.length};`,
+    `static const uint16_t SEQ_COUNT = ${steps.length};`,
   ].join('\n')
 }
 

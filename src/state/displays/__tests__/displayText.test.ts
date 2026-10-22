@@ -186,6 +186,16 @@ describe('formatNumberText', () => {
     expect(DISPLAY_TEXT_OVERFLOW).not.toBe(DISPLAY_TEXT_NO_READING)
   })
 
+  // Past 1e21 String() switches to exponent form, whose few characters once
+  // let 1e30 through a six-digit field as "1e+30.72". The firmware refuses the
+  // same value before its cast, so both show the marker.
+  it('marks a value too large for a string length to measure', () => {
+    expect(formatNumberText(1e30, fmt({ decimals: 2 }))).toBe(DISPLAY_TEXT_OVERFLOW)
+    expect(formatNumberText(-1e30, fmt())).toBe(DISPLAY_TEXT_OVERFLOW)
+    expect(formatNumberText(999999, fmt())).toBe('999999')
+    expect(formatNumberText(1000000, fmt())).toBe(DISPLAY_TEXT_OVERFLOW)
+  })
+
   it('keeps prefix and suffix around every outcome', () => {
     const decorated = fmt({ prefix: 'T', suffix: 'C' })
     expect(formatNumberText(21, decorated)).toBe('T21C')

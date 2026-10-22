@@ -25,7 +25,9 @@ export function specializeCpp(source: string, facts: Record<string, boolean> = {
   const known = new Map(Object.entries(facts))
   // The sketch's own #defines: a number, or null for one with another value.
   const defines = new Map<string, number | null>()
-  const number = (text: string) => /^-?\d+$/.test(text) ? Number(text) : defines.get(text) ?? undefined
+  // Names the sketch has #undef'd: not defined, and 0 in an #if expression.
+  const undefs = new Set<string>()
+  const number = (text: string) => /^-?\d+$/.test(text) ? Number(text) : defines.get(text) ?? (undefs.has(text) ? 0 : undefined)
   const truth = (expression: string): Truth => {
     const text = expression.replace(/\/\/[^]*$/, '').trim()
     if (text.startsWith('(') && text.endsWith(')')) {
@@ -61,7 +63,7 @@ export function specializeCpp(source: string, facts: Record<string, boolean> = {
     const defined = text.match(/^defined\s*(?:\(\s*(\w+)\s*\)|(\w+))$/)
     if (defined) {
       const name = defined[1] ?? defined[2]
-      return known.has(name) ? known.get(name) : defines.has(name) ? true : undefined
+      return known.has(name) ? known.get(name) : defines.has(name) ? true : undefs.has(name) ? false : undefined
     }
     if (known.has(text)) return known.get(text)
     const value = number(text)
@@ -76,6 +78,12 @@ export function specializeCpp(source: string, facts: Record<string, boolean> = {
       if (define) {
         const value = define[3].replace(/\/\/.*$/, '').trim()
         defines.set(define[1], !define[2] && /^-?\d+$/.test(value) ? Number(value) : value ? null : 1)
+        undefs.delete(define[1])
+      }
+      const undef = line.match(/^\s*#undef\s+(\w+)/)
+      if (undef) {
+        defines.delete(undef[1])
+        undefs.add(undef[1])
       }
       const open = line.match(/^\s*#(if|ifdef|ifndef)\s+(.+)$/)
       if (!open) { out.push(line); continue }
@@ -97,14 +105,23 @@ export function specializeCpp(source: string, facts: Record<string, boolean> = {
         if (value) { chosen = n; break }
       }
       if (uncertain) {
-        // A #define inside an arm that may not be compiled is not promoted.
-        const saved = new Map(defines)
-        const restore = () => { defines.clear(); for (const [name, value] of saved) defines.set(name, value) }
+        // A #define or #undef inside an arm that may not be compiled is not
+        // promoted: a macro any arm touches is unknown afterwards.
+        const saved = new Map(defines), savedUndefs = new Set(undefs)
+        const restore = () => {
+          defines.clear(); for (const [name, value] of saved) defines.set(name, value)
+          undefs.clear(); for (const name of savedUndefs) undefs.add(name)
+        }
+        const touched = new Set<string>()
         for (let n = 0; n < arms.length; n++) {
           restore()
           out.push(lines[arms[n].line], ...process(arms[n].line + 1, arms[n + 1]?.line ?? close))
+          for (const name of new Set([...saved.keys(), ...defines.keys(), ...savedUndefs, ...undefs])) {
+            if (saved.has(name) !== defines.has(name) || saved.get(name) !== defines.get(name) || savedUndefs.has(name) !== undefs.has(name)) touched.add(name)
+          }
         }
         restore()
+        for (const name of touched) { defines.delete(name); undefs.delete(name) }
         out.push(lines[close])
       } else if (chosen >= 0) out.push(...process(arms[chosen].line + 1, arms[chosen + 1]?.line ?? close))
       i = close
@@ -376,12 +393,24 @@ function foldJunction(text: string, operator: '||' | '&&', macros: Macros): Fold
     from = cut + 2
   }
   // `true` decides an `||` and `false` an `&&`; the other value drops out.
+  // C++ still evaluates every operand before the deciding literal, so one
+  // with a side effect stays and only the operands after it go; the
+  // junction's value is then not a literal the surrounding `if` or `?:` may
+  // fold on. Pure reads before the decider drop with it.
   const decides = operator === '||'
-  if (parts.some((part) => part.value === decides)) return { text: String(decides), value: decides, changed: true }
-  const kept = parts.filter((part) => part.value === undefined)
+  const decider = parts.findIndex((part) => part.value === decides)
+  if (decider >= 0 && parts.slice(0, decider).every((part) => part.value !== undefined || sideEffectFree(cppCode(part.text)))) return { text: String(decides), value: decides, changed: true }
+  const reached = decider < 0 ? parts : parts.slice(0, decider + 1)
+  const kept = reached.filter((part, n) => part.value === undefined || n === decider)
   if (!kept.length) return { text: String(!decides), value: !decides, changed: true }
   if (kept.length === parts.length && !parts.some((part) => part.changed)) return { text, changed: false }
   return { text: kept.map((part) => part.text.trim()).join(` ${operator} `), changed: true }
+}
+
+/** No call, increment or assignment: evaluating it changes nothing. */
+function sideEffectFree(code: string): boolean {
+  return !/[\w\])]\s*\(/.test(code) && !/\+\+|--/.test(code)
+    && !/(^|[^=!<>])=(?!=)/.test(code) && !/(<<|>>)=/.test(code)
 }
 
 function foldOperand(text: string, macros: Macros): Folded {

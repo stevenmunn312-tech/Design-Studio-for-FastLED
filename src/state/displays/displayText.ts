@@ -222,7 +222,10 @@ export function formatNumberText(value: number, format: NumberTextFormat): strin
   const whole = Math.floor(magnitude / scale)
   const fraction = magnitude % scale
 
-  if (String(whole).length > format.maxIntegerDigits) {
+  // Compared as a number rather than by the length of its string: past 1e21
+  // String() switches to exponent form, whose five characters let 1e30 through
+  // a six-digit field as "1e+30".
+  if (whole >= 10 ** format.maxIntegerDigits) {
     return format.prefix + DISPLAY_TEXT_OVERFLOW + format.suffix
   }
 

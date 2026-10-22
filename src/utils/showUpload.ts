@@ -124,14 +124,20 @@ export function buildShowPlayer(
     ?? (nodes.find((n) => nodeType(n) === 'PerformanceGenerator' || nodeType(n) === 'PatternMaster')?.data as StudioNodeData | undefined)?.properties
     ?? {}
   const profiles = wiredPatternCollection(nodes, edges, selectedEngine?.id)
+  // A show's SET_PARAM carries a position in that show's own `params`, so each
+  // name keeps its position here, invalid names included (the sketch skips
+  // those). A name another show already holds that slot for goes after them.
   const showParams: string[] = []
   for (const show of opts.shows ?? []) {
-    for (const name of show.params ?? []) {
-      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !showParams.includes(name)) showParams.push(name)
-    }
+    show.params?.forEach((name, index) => { if (showParams[index] === undefined) showParams[index] = name })
+  }
+  for (const show of opts.shows ?? []) {
+    for (const name of show.params ?? []) if (!showParams.includes(name)) showParams.push(name)
   }
   const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
-  for (const name of showParams) if (!roleParams.includes(name)) roleParams.push(name)
+  for (const name of showParams) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !roleParams.includes(name)) roleParams.push(name)
+  }
   const patternSet = opts.patternSet ?? []
   const entryPolicies = patternSet.length > 0
     ? patternSet.map((id) => profiles.entry[profiles.ids.indexOf(id)] ?? 'restart')

@@ -530,7 +530,12 @@ export function generatePlayerSketch(
   // Ramps and named inputs change the loader. A sketch that was not asked for
   // them keeps the historical parameter check, character for character.
   const rampPlayer = opts.ramps === true && !genericPlayer
-  const paramNames = (opts.showParams ?? []).filter((name) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
+  // A SET_PARAM's index is a position in the show's `params` array, invalid
+  // names included (showStateAt reads it the same way), so a slot keeps its
+  // index and an invalid name only loses its arm.
+  const validParamName = (name: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)
+  const paramSlots = opts.showParams ?? []
+  const paramNames = [...new Set(paramSlots.filter(validParamName))]
   const paramPlayer = paramNames.length > 0 && !genericPlayer
   const parameterGuard = rampPlayer || paramPlayer
     ? `    static const uint8_t parameterCounts[] = {1, 1, 1, 1, 2, 2, 1, 3${paramPlayer ? ', 2' : ''}};
@@ -851,8 +856,8 @@ export function generatePlayerSketch(
     case CMD_SET_PARAM: {
       float to = ev.params[1];
       uint8_t which = (uint8_t)ev.params[0];
-${paramNames.map((name, index) => {
-    const declared = name === 'energy' ? hasEnergy : name === 'speed' ? hasSpeed : name !== 'palette'
+${paramSlots.map((name, index) => {
+    const declared = validParamName(name) && (name === 'energy' ? hasEnergy : name === 'speed' ? hasSpeed : name !== 'palette')
     if (!declared) return ''
     const ramp = name === 'speed' ? 'rampSpeed' : name === 'energy' ? 'rampEnergy' : `rampParam_${name}`
     const write = rampPlayer
@@ -1048,7 +1053,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   const sequenceWalker = sequenceActive ? [
     '  // Sequence order walks its own steps. Next and Previous land in seqDelta.',
     '  {',
-    '    static uint8_t seqStep = 0;',
+    '    static uint16_t seqStep = 0;',
     '    static uint32_t seqAt = 0;',
     '    static uint16_t seqBeats = 0;',
     '    static bool seqInit = false;',
@@ -1099,14 +1104,14 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     '        int nextStep = (int)seqStep + seqDelta;',
     '        seqDelta = 0;',
     '        while (nextStep < 0) nextStep += SEQ_COUNT;',
-    '        seqStep = (uint8_t)(nextStep % SEQ_COUNT);',
+    '        seqStep = (uint16_t)(nextStep % SEQ_COUNT);',
     '        seqAt = posMs;',
     '        seqBeats = 0;',
     '        takeSeq(false);',
     '      } else if (!seqTransitioning && (' + (patternTiming.beatTransitions
       ? 'beatEdge && (uint32_t)seqBeats + 1 >= pgm_read_dword(&seqHoldMs[seqStep])'
       : 'posMs - seqAt >= pgm_read_dword(&seqHoldMs[seqStep])') + ')) {',
-    '        seqStep = (uint8_t)((seqStep + 1) % SEQ_COUNT);',
+    '        seqStep = (uint16_t)((seqStep + 1) % SEQ_COUNT);',
     '        seqAt = posMs;',
     '        seqBeats = 0;',
     '        takeSeq(false);',

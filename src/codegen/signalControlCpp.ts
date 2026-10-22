@@ -87,7 +87,7 @@ export function envelopeCpp(
 export function noiseSignalCpp(id: string, v: Value, expr: Expr, props: Record<string, unknown>): string[] {
   const speed = rateCpp(expr.speed, SPEED_MAX.NoiseSignal)
   const lo = `_nsLo_${id}`
-  const octaves = Math.max(1, Math.min(3, Math.floor(Number(props.octaves ?? 1))))
+  const octaves = Math.max(1, Math.min(3, Math.floor(Number(props.octaves ?? 1)) || 1))
   const seed = seedProp(props)
   const zOff = floatLit(seedOffset(seed, 0) % 256)
   const yOff = floatLit(seedOffset(seed, 1) % 256)

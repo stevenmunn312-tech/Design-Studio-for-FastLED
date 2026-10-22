@@ -127,6 +127,11 @@ describe('fixed touch routing in generative shows', () => {
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
     expect(cpp).toContain('PlayerControlsValue n_show_direct_controls;')
     expect(cpp).toContain('static CtlEdge _pcE_show_direct_patternNext;')
+    // A physical contact on a direct action wire debounces for the same
+    // default as one through Player Controls; a hard-coded 0 ms let the
+    // contact's bounce step the show several patterns on one press.
+    const { debounceMs, repeatDelayMs, repeatIntervalMs } = DEFAULT_BUTTON_EDGE_SETTINGS
+    expect(loop).toContain(`_pcE_show_direct_patternNext.update(n_button_pressed, _pcNow_show_direct, true, ${debounceMs}u, ${repeatDelayMs}u, ${repeatIntervalMs}u)`)
     expect(loop).toContain('n_show_direct_controls.patternSteps += 1;')
     expect(loop).toContain('_selUpdate(_sel_show, PATTERN_COUNT, n_show_direct_controls.patternSteps);')
   })

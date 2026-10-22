@@ -164,6 +164,20 @@ const dashes = segmentDashes
  * once-a-second pulse a clock is expected to have; a caller that wants a steady
  * colon passes true.
  */
+/** A track position as M:SS, or H:MM:SS once the module has six digits.
+ * Shared by the preview and `_segClock` in firmware: passing (min, sec, 0)
+ * to a six-digit clock would read 1:30 as 1:30:00. */
+export function renderSegmentElapsed(
+  elapsedSec: number,
+  colonOn: boolean,
+  digits = DEFAULT_SEGMENT_CONTROLLER.digits,
+): SegmentFrame {
+  const sec = Math.max(0, Math.floor(Number.isFinite(elapsedSec) ? elapsedSec : 0))
+  return digits >= 6
+    ? renderSegmentClock(Math.floor(sec / 3600), Math.floor(sec / 60) % 60, colonOn, digits, sec % 60)
+    : renderSegmentClock(Math.floor(sec / 60), sec % 60, colonOn, digits, 0)
+}
+
 export function renderSegmentClock(
   hour: number,
   minute: number,

@@ -164,6 +164,13 @@ describe('entry reset', () => {
     expect(fn).not.toMatch(/[^:]memset\(/)
   })
 
+  it('reassigns a scalar whose initializer indexes an array instead of memsetting it', () => {
+    const { fn } = applyEntryReset('void render_p0(uint32_t ms) {\n  static int x = arr[2];\n  static float h[4];\n}', [])
+    expect(fn).toContain('  if (entry) x = arr[2];')
+    expect(fn).toContain('  if (entry) ::memset(h, 0, sizeof(h));')
+    expect(fn).not.toContain('memset(x')
+  })
+
   it('keeps a player sketch unchanged until a Restart pattern has state', () => {
     const plain = {
       buffers: [], helpers: [], count: 1, params: [],

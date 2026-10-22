@@ -51,7 +51,10 @@ export default function ShowLaneEditor({ show, title, sections, beats, energy = 
   const visible = useMemo(() => eventsInWindow(ordered, startMs, endMs), [ordered, startMs, endMs])
   const clips = useMemo(() => patternClips({ ...show, events: ordered }), [show, ordered])
   const xOf = (t: number) => ((t - startMs) / windowMs) * width
-  const paramNames = (show.params ?? []).filter((name) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
+  // SET_PARAM carries a slot's position in `show.params`, so an invalid name
+  // keeps its slot: filtering first would shift every lane after it.
+  const paramSlots = show.params ?? []
+  const paramNames = paramSlots.filter((name) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
   const lanes = paramNames.length > 0 ? LANE_COMMANDS.filter((cmd) => cmd !== 'SET_PARAM' && cmd !== 'SET_PATTERN') : LANE_COMMANDS.filter((cmd) => cmd !== 'SET_PATTERN')
 
   function fileOf(nextEvents: ShowEvent[], nextSections: SongSection[]): ShowFile {
@@ -338,7 +341,7 @@ export default function ShowLaneEditor({ show, title, sections, beats, energy = 
               ))}
             </div>
           </div>
-          {paramNames.map((name, paramIndex) => (
+          {paramSlots.map((name, paramIndex) => paramNames.includes(name) && (
             <LaneRow
               key={name}
               name={name}

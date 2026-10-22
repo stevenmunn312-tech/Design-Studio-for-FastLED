@@ -436,6 +436,16 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
     }
   }
 
+  // A Toggle driving a property that is already on starts on, as the preview
+  // seeds it (`connectTouchControl`): the runtime and the switch together, or
+  // the first pass reports off and turns that property off. A Button is a
+  // momentary contact, held from press to release, so it takes no seed: a
+  // seeded `true` would read as a press held from boot.
+  if (widget.type === 'Toggle' && emit.initialValues?.[widget.id] === true) {
+    lines.push(`  ${rt}.boolValue = true;`)
+    lines.push(`  lv_obj_add_state(${obj}, LV_STATE_CHECKED);`)
+  }
+
   // Loaded on the click, after `_cdEvent` has seen the release, so the
   // button's own output still reads a whole press.
   const goTo = buttonGoToScreen(emit.document, widget)

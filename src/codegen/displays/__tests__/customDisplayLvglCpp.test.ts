@@ -317,4 +317,33 @@ describe('a control starts where the graph already is', () => {
     })
     expect(cpp).toContain('.floatValue = 1.0f;')
   })
+
+  it('starts a Toggle on when the property it drives is on', () => {
+    // The preview seeds a Toggle from a boolean property the same way it seeds
+    // a Slider from a number; firmware read only the number and left the
+    // switch off, so the first pass turned the driven property off.
+    const toggle = widget('Toggle', 0)
+    const cpp = emitted({
+      id: 'panel',
+      document: document([toggle]),
+      initialValues: { [toggle.id]: true },
+    })
+    expect(cpp).toContain('_cd_panel[0].boolValue = true;')
+    expect(cpp).toContain('lv_obj_add_state(_cd_panel[0].object, LV_STATE_CHECKED);')
+    expect(cpp.indexOf('lv_obj_add_state(_cd_panel[0].object, LV_STATE_CHECKED);'))
+      .toBeLessThan(cpp.indexOf('lv_obj_add_event_cb(_cd_panel[0].object, _cdEvent'))
+  })
+
+  it('leaves a Toggle off, and a Button unseeded, otherwise', () => {
+    const toggle = widget('Toggle', 0)
+    const button = widget('Button', 1)
+    for (const initialValues of [undefined, { [toggle.id]: false, [button.id]: true }]) {
+      const cpp = emitted({ id: 'panel', document: document([toggle, button]), initialValues })
+      expect(cpp).not.toContain('.boolValue = true;')
+      expect(cpp).not.toContain('lv_obj_add_state(_cd_panel[0].object, LV_STATE_CHECKED);')
+      // A Button is a momentary contact: seeding it would read as a press
+      // held from boot.
+      expect(cpp).not.toContain('lv_obj_add_state(_cd_panel[1].object, LV_STATE_CHECKED);')
+    }
+  })
 })

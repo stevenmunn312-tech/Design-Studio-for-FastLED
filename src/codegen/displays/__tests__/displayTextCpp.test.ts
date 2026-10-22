@@ -77,6 +77,17 @@ describe('display text C++ helpers', () => {
     expect(DISPLAY_TEXT_CPP_HELPERS).toContain('double product = value * scale')
   })
 
+  // Casting a double past long long's range is undefined; UBSan aborts on 1e30
+  // where the browser prints the overflow marker.
+  it('marks an overflow before casting a value long long cannot hold', () => {
+    const start = DISPLAY_TEXT_CPP_HELPERS.indexOf('static void _dsFormatNumber(')
+    const body = DISPLAY_TEXT_CPP_HELPERS.slice(start, DISPLAY_TEXT_CPP_HELPERS.indexOf('\n}', start))
+    const guard = body.indexOf('if (fabs(rounded) >= 9e18) {')
+    expect(guard).toBeGreaterThan(-1)
+    expect(body.slice(guard)).toContain(`"%s${DISPLAY_TEXT_OVERFLOW}%s"`)
+    expect(guard).toBeLessThan(body.indexOf('long long scaled = (long long)rounded;'))
+  })
+
   it('never reaches for an Arduino String', () => {
     expect(DISPLAY_TEXT_CPP_HELPERS).not.toMatch(/\bString\b/)
     expect(DISPLAY_TEXT_CPP_HELPERS).toContain('snprintf')

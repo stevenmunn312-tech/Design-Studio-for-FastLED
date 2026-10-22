@@ -1,4 +1,5 @@
 import { sanitizePin } from '../hardwarePins'
+import { libraryDefaults } from '../../state/nodeLibrary'
 import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/peripherals/keypad'
 
 /*
@@ -27,8 +28,13 @@ export const KEYPAD_HELPER_CPP: readonly string[] = [
   '}',
 ]
 
-const pins = (props: Record<string, unknown>, keys: readonly string[]) =>
-  keys.map((key, index) => sanitizePin(props[key], 13 + index))
+// A missing pin property falls back to the node's own default for that row or
+// column. One shared `13 + index` fallback put rows and columns on the same
+// GPIOs, and a column driven low on its own row line reads key 0 every frame.
+const pins = (props: Record<string, unknown>, keys: readonly string[]) => {
+  const defaults = libraryDefaults('KeypadInput')
+  return keys.map((key) => sanitizePin(props[key], Number(defaults[key])))
+}
 
 export function keypadSetupCpp(props: Record<string, unknown>): string[] {
   return [

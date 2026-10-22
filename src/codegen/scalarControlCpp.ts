@@ -142,7 +142,9 @@ export function scalarControlCpp(
           `  bool ${output} = (millis() - _trT_${id}) < ${ms}u;`,
         ]
       } else if (op === 'pulseDivider') {
-        const n = Math.max(2, Math.round(Number(props.divideBy ?? 2)))
+        // The counter is a uint8_t, so a divisor past 255 could never fire;
+        // the wired form clamps to the same 2–255 (math/codegen.ts).
+        const n = Math.min(255, Math.max(2, Math.round(Number(props.divideBy ?? 2)) || 2))
         loop = [
           `  static uint8_t _trC_${id} = 0; static bool _trP_${id} = false; bool ${output} = false;`,
           `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) { _trC_${id}++; if (_trC_${id} >= ${n}) { _trC_${id} = 0; ${output} = true; } } _trP_${id} = _t; }`,

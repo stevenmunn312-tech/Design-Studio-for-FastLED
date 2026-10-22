@@ -353,6 +353,43 @@ describe('showGenerator', () => {
     expect(renderers.functions[0]).toContain('ColorFromPalette(p0_pal_extract,')
   })
 
+  it('hoists every baked image palette in a pattern, not just the last', () => {
+    const image = { w: 2, h: 1, pixels: [255, 0, 0, 0, 0, 255] }
+    const paletteInput = [{ id: 'image', dataType: 'image' }]
+    const paletteOutput = [{ id: 'palette', dataType: 'palette' }]
+    const groupsTwo: GroupRegistry = {
+      gp: {
+        nodes: [
+          node('img', 'Image', { image }, [], [
+            { id: 'frame', dataType: 'frame' },
+            { id: 'image', dataType: 'image' },
+          ]),
+          node('palA', 'PaletteFromImage', { count: 2 }, paletteInput, paletteOutput),
+          node('palB', 'PaletteFromImage', { count: 4 }, paletteInput, paletteOutput),
+          node('noiseA', 'Noise', { noiseType: 'simplex' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('noiseB', 'Noise', { noiseType: 'simplex' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('mix', 'Blend', {}, [{ id: 'a', dataType: 'frame' }, { id: 'b', dataType: 'frame' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('go', 'GroupOutput'),
+        ],
+        edges: [
+          edge('e1', 'img', 'image', 'palA', 'image'),
+          edge('e2', 'img', 'image', 'palB', 'image'),
+          edge('e3', 'palA', 'palette', 'noiseA', 'paletteIn'),
+          edge('e4', 'palB', 'palette', 'noiseB', 'paletteIn'),
+          edge('e5', 'noiseA', 'frame', 'mix', 'a'),
+          edge('e6', 'noiseB', 'frame', 'mix', 'b'),
+          edge('e7', 'mix', 'frame', 'go', 'frame'),
+        ],
+      },
+    }
+    const renderers = buildPatternRenderers(['gp'], groupsTwo)
+    const helpers = renderers.helpers.join('\n')
+    expect(helpers).toContain('const CRGBPalette16 p0_pal_palA(')
+    expect(helpers).toContain('const CRGBPalette16 p0_pal_palB(')
+    expect(renderers.functions[0]).toContain('p0_pal_palA')
+    expect(renderers.functions[0]).toContain('p0_pal_palB')
+  })
+
   it('moves show + pattern buffers to PSRAM when Board policy is on', () => {
     const psNodes = [node('board', 'Board', { psramPolicy: 'on' }), nodes[0], nodes[1],
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })]

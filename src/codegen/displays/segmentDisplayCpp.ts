@@ -490,21 +490,38 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
     // would return to. See renderSegmentLevel — the panels with room to say
     // both draw BLACKOUT beside the level; four digits do not have that room,
     // and 85 beside a dark fixture sends someone hunting a wiring fault.
+    //
+    // No LED output wired means no level to report, so the module dashes
+    // rather than printing a confident 0 beside a fixture it knows nothing
+    // about — the same answer renderSegmentLevel gives a reading it lacks.
     const st = display.ledStatus
-    lines.push(
-      `    } else {`,
-      `      float _segLvl_${display.id} = (${st ? st.enabledExpr : 'false'}) `
-        + `? constrain((float)(${st ? st.brightnessExpr : '0.0f'}), 0.0f, 1.0f) : 0.0f;`,
-      `      _segIndex(${v}, ${digits}, (long)lroundf(_segLvl_${display.id} * 100.0f));`,
-    )
+    if (st) {
+      lines.push(
+        `    } else {`,
+        `      float _segLvl_${display.id} = (${st.enabledExpr}) `
+          + `? constrain((float)(${st.brightnessExpr}), 0.0f, 1.0f) : 0.0f;`,
+        `      _segIndex(${v}, ${digits}, (long)lroundf(_segLvl_${display.id} * 100.0f));`,
+      )
+    } else {
+      lines.push(
+        `    } else {`,
+        `      _segAllDash(${v}, ${digits});`,
+      )
+    }
   } else if (display.mode === 'Elapsed') {
     // M:SS through the clock renderer, because minutes and seconds on a colon
-    // module are the same two pairs a clock draws.
+    // module are the same two pairs a clock draws. `_segClock` prints HHMMSS
+    // once it has six digits, so there the position is split into real hours,
+    // minutes and seconds; passing (min, sec, 0) would read 1:30 as 1:30:00.
+    const sec = `_segSec_${display.id}`
+    const clockArgs = digits >= 6
+      ? `(int)(${sec} / 3600), (int)((${sec} / 60) % 60), (int)(${sec} % 60)`
+      : `(int)(${sec} / 60), (int)(${sec} % 60), 0`
     lines.push(
       `    } else {`,
-      `      long _segSec_${display.id} = (long)(${display.valueExpr ?? '0'});`,
-      `      if (_segSec_${display.id} < 0) _segSec_${display.id} = 0;`,
-      `      _segClock(${v}, ${digits}, (int)(_segSec_${display.id} / 60), (int)(_segSec_${display.id} % 60), 0);`,
+      `      long ${sec} = (long)(${display.valueExpr ?? '0'});`,
+      `      if (${sec} < 0) ${sec} = 0;`,
+      `      _segClock(${v}, ${digits}, ${clockArgs});`,
     )
   } else {
     // Nothing plugged in. A segment module cannot spell it, so it says the

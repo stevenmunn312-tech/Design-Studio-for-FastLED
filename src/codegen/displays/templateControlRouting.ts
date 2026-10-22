@@ -256,7 +256,10 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
         volumeExpr: directVolumeExpr,
         brightnessExpr: null,
         patternPositionExpr: null,
-        settings: { debounceMs: 0, repeatDelayMs: 400, repeatIntervalMs: 120 },
+        // A direct action wire has no Player Controls row to carry timing, so
+        // it takes the defaults the normal sketch's direct path uses: a
+        // physical contact still debounces (`pressButton` keeps its flag).
+        settings: normalizeButtonEdgeSettings({}),
         volumeStep: 0.05,
         brightnessStep: 0.05,
       }

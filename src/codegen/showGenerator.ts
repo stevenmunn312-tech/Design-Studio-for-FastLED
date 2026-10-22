@@ -383,8 +383,9 @@ function buildPattern(
     if (/^CRGB _fb_[A-Za-z0-9_]+\[\d+\]\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
     // PaletteFromImage is fully baked at generation time and emitted as a
     // file-scope constant. Hoist it with a per-pattern-prefixed symbol.
-    if (/^const CRGBPalette16 pal_[A-Za-z0-9_]+\(/.test(line)) {
-      helpers.set(`imagePalette:${index}`, pfx(line))
+    const imagePalette = line.match(/^const CRGBPalette16 (pal_[A-Za-z0-9_]+)\(/)
+    if (imagePalette) {
+      helpers.set(`imagePalette:${index}:${imagePalette[1]}`, pfx(line))
       continue
     }
     // Formula shims are emitted as one-line helper functions. They used to be
@@ -1345,7 +1346,7 @@ export function generateShowSketch(
       : opening ? '0' : `(uint8_t)(${nextPattern})`
     const choose = (target: string, opening = false) =>
       `${target} = (chosen >= 0 && chosen < PATTERN_COUNT) ? (uint8_t)chosen : ${tagPick(opening)};`
-    L.push('  static uint8_t seqStep = 0;')
+    L.push('  static uint16_t seqStep = 0;')
     L.push('  static uint32_t seqAt = 0;')
     L.push('  static bool seqInit = false;')
     L.push('  if (!seqInit) {')
@@ -1366,8 +1367,8 @@ export function generateShowSketch(
     L.push('    if (seqDelta != 0) {')
     L.push('      int nextStep = (int)seqStep + seqDelta;')
     L.push('      while (nextStep < 0) nextStep += SEQ_COUNT;')
-    L.push('      seqStep = (uint8_t)(nextStep % SEQ_COUNT);')
-    L.push('    } else seqStep = (uint8_t)((seqStep + 1) % SEQ_COUNT);')
+    L.push('      seqStep = (uint16_t)(nextStep % SEQ_COUNT);')
+    L.push('    } else seqStep = (uint16_t)((seqStep + 1) % SEQ_COUNT);')
     L.push('    seqAt = now;')
     L.push('    int16_t chosen = (int16_t)pgm_read_word(&seqIndex[seqStep]);')
     L.push('    uint8_t bandBit = pgm_read_byte(&seqBand[seqStep]);')

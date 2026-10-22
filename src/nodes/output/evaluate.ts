@@ -16,6 +16,7 @@ import {
   type SegmentFrame,
   segmentDashes,
   renderSegmentClock,
+  renderSegmentElapsed,
   renderSegmentPower,
   smoothSegmentPower,
   type SegmentPowerSmoothingState,
@@ -505,14 +506,8 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
         segment = segmentDashes(segCtl.digits)
       }
     } else if (signal.kind === 'player') {
-      // Elapsed as M:SS through the clock renderer, because minutes and
-      // seconds on a colon module are the same two pairs a clock draws.
-      const elapsed = Math.max(0, Math.floor(signal.song.elapsedSec))
       const blink = props.showColon === false ? false : true
-      segment = renderSegmentClock(
-        Math.floor(elapsed / 60), elapsed % 60,
-        blink && segCtl.hasColon, segCtl.digits, 0,
-      )
+      segment = renderSegmentElapsed(signal.song.elapsedSec, blink && segCtl.hasColon, segCtl.digits)
     } else if (signal.kind === 'powerMonitor') {
       const sourceId = incoming.get(`${id}:display`)?.srcId ?? ''
       const previous = segmentPowerState.get(key)
