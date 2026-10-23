@@ -73,6 +73,8 @@ import {
   bindsAnyField, DISPLAY_NAME_SOURCE_FIELDS, DISPLAY_SELECTION_SOURCE_FIELDS,
 } from './displays/displaySourceExpressions'
 import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
+import { boardLinkFirmware } from './peripherals/espNowLinkCpp'
+import { getBoardLinkKey } from '../state/peripherals/boardLinkKey'
 import { PARTICLE_HASH_CPP, transitionHelperCpp, transitionSupportCpp } from './helpers/transitionHelperCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/patternSelectionCpp'
 import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './displays/tftTouchCpp'
@@ -610,6 +612,17 @@ export function generatePlayerSketch(
     graphRouting?.timingInputs[port] ?? `${patternTiming[port].toFixed(4)}f`
   if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
   const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
+  // The board link, when this board sends a value or reads one over ESP-NOW.
+  // It rides Wi-Fi only where the control graph brings the connection up. A
+  // wired link is started from setup (its one setup line) and leaves the
+  // radio alone, so it counts as no network.
+  const link = graphRouting?.link ?? null
+  const linkFirmware = link ? boardLinkFirmware(link.plan, link.sends, {
+    joinsWifi: (compiledGraph?.helpers ?? []).some((block) => block.includes('void _netEnsureConnected()'))
+      && !(compiledGraph?.setup ?? []).some((line) => line.includes('_netEnsureConnected();')),
+    key: getBoardLinkKey(link.plan.context.linkId),
+    telemetry: opts.telemetry === true,
+  }) : null
   const consumerCode = cppCode([
     ...(renderers?.helpers ?? []), ...(renderers?.functions ?? []),
     ...(compiledGraph?.helpers ?? []), ...(compiledGraph?.loop ?? []),
@@ -1039,7 +1052,9 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   const hasInfoDisplays = displays.info.length > 0
   const hasSegmentDisplays = displays.segment.length > 0
   const hasTftDisplays = displays.tft.length > 0
+  // A track field sent over a board link reads the same song accessors a panel does.
   const hasDisplays = hasInfoDisplays || hasSegmentDisplays || hasTftDisplays || !!graphRouting?.hasSongSources || !!customDisplays?.includes.length
+    || (link?.fields.size ?? 0) > 0
 
   const browserEmits = displays.info
     .filter((display) => display.layout === 'Pattern Browser')
@@ -1056,7 +1071,10 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // A widget bound to the panel's source is one more reader of the cursor,
   // counted here beside the fixed layouts rather than left to reference a
   // variable no line declares.
-  const boundFields = graphRouting ? boundDisplaySourceFields(graphRouting.custom) : new Set<string>()
+  // A pattern field sent over a board link reads the cursor as a bound widget does.
+  const boundFields = graphRouting
+    ? new Set([...boundDisplaySourceFields(graphRouting.custom), ...(link?.fields ?? [])])
+    : new Set<string>()
   const boundNames = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
   const hasPatternSelection = browserEmits.length > 0 || hasPatternControls
     || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS)
@@ -1293,6 +1311,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     touchEmits.some((touch) => touch.resistive) ? RESISTIVE_TOUCH_CPP_HELPERS : '',
     touchEmits.length > 0 ? touchEmits.map(tftTouchGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
+    linkFirmware?.globals ?? '',
   ])].filter(Boolean).join('\n')
 
   const songOpen = (nameExpr: string) => (hasDisplays ? `songResetFromFile(${nameExpr});` : '')
@@ -1320,6 +1339,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     ...segmentEmits.flatMap(segmentDisplaySetupCpp),
     ...tftEmits.flatMap(tftDisplaySetupCpp),
     ...touchEmits.flatMap(tftTouchSetupCpp),
+    ...(linkFirmware?.setup ?? []),
   ].join('\n')
 
   const playerEarlyStagesCpp = [1, 2, 3, 4]
@@ -1338,6 +1358,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   ].join('\n')
 
   const graphLoopCpp = graphRouting ? [
+    ...(linkFirmware?.receive ?? []),
     ...(customDisplays?.sample ?? []),
     ...graphRouting.sample,
     ...touchEmits.flatMap((touch) => [
@@ -1350,7 +1371,11 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     ...(customDisplays?.enable ?? []),
     ...playerControlApplyCpp(graphRouting.bundle, hasPatternSelection, PLAYER_SELECTION_STEM),
   ].join('\n') : ''
-  const publishDisplaysCpp = graphRouting ? [displayLoopCpp, ...(customDisplays?.loop ?? [])].filter(Boolean).join('\n') : ''
+  const publishDisplaysCpp = graphRouting ? [
+    // What this board sends over the link, after the frame has shipped.
+    ...(linkFirmware ? [...linkFirmware.stage, ...linkFirmware.transmit] : []),
+    displayLoopCpp, ...(customDisplays?.loop ?? []),
+  ].filter(Boolean).join('\n') : ''
 
   /*
    * Bench telemetry, added to the finished sketch rather than threaded through
@@ -1429,7 +1454,7 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
 //   - SD (built-in Arduino)
 // Hardware: SD card on SPI, audio out via ${internalDac ? "the ESP32's internal DAC (fixed GPIO25/26 — classic ESP32 only, no ESP32-S3/S2/C3 support)" : 'an I2S DAC (MAX98357A or PCM5102) on pins below'}.
 
-${overclockDefines}${compiledGraph?.includes.length ? `${compiledGraph.includes.join('\n')}\n` : ''}// Arduino-IRremote must be parsed before Audio.h. ESP32-audioI2S puts
+${overclockDefines}${compiledGraph?.includes.length ? `${compiledGraph.includes.join('\n')}\n` : ''}${linkFirmware ? `${linkFirmware.include}\n` : ''}// Arduino-IRremote must be parsed before Audio.h. ESP32-audioI2S puts
 // "using namespace std" in its public header; IRremote 4.7.1 then sees both its
 // global void_t alias and std::void_t, and its has_ull_print specialization
 // is ambiguous. Include order keeps those independent upstream libraries

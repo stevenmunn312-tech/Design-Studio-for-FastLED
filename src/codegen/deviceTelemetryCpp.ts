@@ -17,6 +17,9 @@ import { isLoopPacing } from './loopPacing'
 import { cppCode } from './cppReachability'
 import {
   TELEMETRY_INTERVAL_MS,
+  TELEMETRY_LINK_AGE_KEY,
+  TELEMETRY_LINK_DROP_KEYS,
+  TELEMETRY_LINK_RX_KEY,
   TELEMETRY_MARKER,
   TELEMETRY_RENDER_KEY,
   TELEMETRY_SEND_KEY,
@@ -53,6 +56,8 @@ export interface DeviceTelemetryEmit {
    * `_telNodeEnd(index)`. Zero leaves the timing and the `top` key out.
    */
   timedNodes?: number
+  /** The sketch receives over a board link, whose counters the report prints. */
+  link?: boolean
 }
 
 /**
@@ -216,6 +221,16 @@ export function deviceTelemetryGlobalsCpp(emit: DeviceTelemetryEmit = {}): strin
   if (drawBuffer.length > 0) {
     lines.push(`  Serial.printf(" drawbuf=%lu", (unsigned long)(${drawBuffer.join(' + ')}));`)
   }
+  if (emit.link) {
+    const drop = TELEMETRY_LINK_DROP_KEYS
+    lines.push(
+      `  Serial.printf(" ${TELEMETRY_LINK_RX_KEY}=%lu ${drop.id}=%lu ${drop.hash}=%lu ${drop.tag}=%lu ${drop.stale}=%lu ${drop.ring}=%lu",`,
+      '    (unsigned long)_lnkRxFrames, (unsigned long)_lnkDropId, (unsigned long)_lnkDropHash,',
+      '    (unsigned long)_lnkDropTag, (unsigned long)_lnkDropOld, (unsigned long)_lnkDropRing);',
+      '  // Left out until the first valid frame: no frame yet is not a frame 0 ms ago.',
+      `  if (_lnkHeardAny) Serial.printf(" ${TELEMETRY_LINK_AGE_KEY}=%lu", (unsigned long)(nowMs - _lnkSeenAny));`,
+    )
+  }
   if (timed > 0) lines.push(...telemetryTopReportCpp(timed))
   lines.push(
     '  Serial.println();',
@@ -305,6 +320,7 @@ export function telemetryEmitFromSource(lines: readonly string[]): DeviceTelemet
     send: loopBody(lines).some((index) => isLoopSend(lines[index])),
     // The map and the calls arrive together; either alone times nothing.
     timedNodes: /\b_telNodeEnd\(/.test(source) ? telemetryNodeLabels(source).length : 0,
+    link: /\b_lnkRxFrames\b/.test(source),
   }
 }
 

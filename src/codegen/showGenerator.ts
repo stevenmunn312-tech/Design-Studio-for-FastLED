@@ -69,6 +69,9 @@ import {
 } from './deviceTelemetryCpp'
 import { amplifierIdleCpp } from './audio/amplifierIdle'
 import { playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from './player/playerDisplays'
+import { boardLinkFirmware } from './peripherals/espNowLinkCpp'
+import { getBoardLinkKey } from '../state/peripherals/boardLinkKey'
+import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
   infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp, type InfoDisplayEmit,
@@ -963,6 +966,16 @@ export function generateShowSketch(
   const syncIncludes = syncNetwork ? [syncNetwork.include] : []
   const syncHelpers = syncNetwork ? [syncNetwork.bootstrap] : []
   const syncSetup = syncNetwork ? syncNetwork.setup.filter((line) => !controlGraph.setup.includes(line)) : []
+  // The board link: what arrives is read before the control graph, what this
+  // board sends is staged once the frame has shipped. It rides the network
+  // only where this sketch brings one up.
+  const linkFirmware = controls.link ? boardLinkFirmware(controls.link.plan, controls.link.sends, {
+    joinsWifi: [...controlGraph.helpers, ...syncHelpers].some((block) => block.includes('void _netEnsureConnected()'))
+      && !wiredNetworkIn(nodes),
+    key: getBoardLinkKey(controls.link.plan.context.linkId),
+    telemetry: nodes.some((entry) => entry.data.nodeType === 'Board' && entry.data.properties?.reportTelemetry === true)
+      && boardSupportsTelemetry(selectedPhysicalBoardProfile(nodes)?.targetFamilies),
+  }) : null
   const initialMasterSpeed = clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT)
   const masterSpeedEmit: MasterSpeedEmit = {
     present: !!speedNode,
@@ -988,7 +1001,8 @@ export function generateShowSketch(
   const selection = showSelectionPlan(
     resolvedDisplays,
     controls.patternCommands,
-    boundDisplaySourceFields(controls.custom),
+    // A pattern field sent over a board link reads the cursor as a bound widget does.
+    new Set([...boundDisplaySourceFields(controls.custom), ...(controls.link?.fields ?? [])]),
   )
   const selectionCpp = showSelectionCpp(
     selection, renderers.count,
@@ -1036,7 +1050,8 @@ export function generateShowSketch(
   L.push('#include <FastLED.h>')
   if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))
   if (audio) L.push(audio.include)
-  for (const include of new Set([...controlGraph.includes, ...syncIncludes, ...displays.includes, ...customDisplays.includes])) L.push(include)
+  for (const include of new Set([...controlGraph.includes, ...syncIncludes, ...displays.includes, ...customDisplays.includes,
+    ...(linkFirmware ? [linkFirmware.include] : [])])) L.push(include)
   L.push('')
   L.push('// Explicit FastLED-typed declarations keep the Arduino preprocessor')
   L.push('// from injecting its own before <FastLED.h>, which breaks CRGB names.')
@@ -1124,6 +1139,7 @@ export function generateShowSketch(
   // in the datagram; a single pattern has nothing to adopt, and a sequence
   // adopts the pattern only, so it has no use for the leader's style.
   if (clockSync) { L.push(boardSyncGlobalsCpp(clockSync, rotates, pooled && !sequenceActive)); L.push('') }
+  if (linkFirmware) L.push(linkFirmware.globals)
   if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
 
   if (multiOutput) {
@@ -1204,6 +1220,7 @@ export function generateShowSketch(
   L.push('void setup() {')
   if (emitTelemetry || controlGraph.irDebug || controlGraph.powerMonitorDebug) L.push(emitTelemetry
     ? TELEMETRY_SERIAL_BEGIN_CPP : '  Serial.begin(115200);  // Hardware diagnostics')
+  else if (linkFirmware?.receives) L.push('  Serial.begin(115200);  // board link reports a schema mismatch')
   L.push(...amplifierIdle.setup)
   for (const a of psramAllocs) L.push(a)
   if (multiOutput) {
@@ -1242,6 +1259,7 @@ export function generateShowSketch(
   const displayStartsI2c = displays.setup.some((line) => line.trimStart().startsWith('Wire.begin('))
   L.push(...controlGraph.setup.filter((line) => !displayStartsI2c || !line.trimStart().startsWith('Wire.begin(')))
   L.push(...syncSetup)
+  if (linkFirmware) L.push(...linkFirmware.setup)
   for (let step = 1; step <= 6; step++) {
     for (const line of infoDisplayStartupStageBatchCpp(displays.info, step)) L.push(line)
   }
@@ -1281,6 +1299,7 @@ export function generateShowSketch(
   // follower's clock offset: the sync service runs after this snapshot.
   L.push(`  uint32_t now = ${clockSync ? SYNC_NOW_MS : 'millis()'};`)
   L.push(...masterShowClockLoopCpp(masterSpeedEmit))
+  if (linkFirmware) L.push(...linkFirmware.receive)
   L.push(...displays.sample)
   L.push(...customDisplays.sample)
   L.push(...controlGraph.loop)
@@ -1506,6 +1525,7 @@ export function generateShowSketch(
   if (!isHub75 || stereoVuMeters.length > 0) {
     L.push('  FastLED.show();')
   }
+  if (linkFirmware) L.push(...linkFirmware.stage, ...linkFirmware.transmit)
   // After the frame has shipped, never before it. A panel repaint is worth
   // several LED frames of SPI time, and the acceptance gate for displays is no
   // regression to wall-clock LED timing — so the pixels go out first and the

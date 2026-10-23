@@ -18,6 +18,7 @@ import type { SegmentDisplayEmit } from './displays/segmentDisplayCpp'
 import type { InfoDisplayEmit } from './displays/infoDisplayCpp'
 import type { TftDisplayEmit } from './displays/tftDisplayCpp'
 import type { TftTouchEmit } from './displays/tftTouchCpp'
+import type { BoardLinkPlan } from './peripherals/espNowLinkCpp'
 import type { CustomDisplayLvglEmit } from './displays/customDisplayLvglCpp'
 import type { CustomDisplayPanelEmit } from './displays/customDisplayPanelCpp'
 
@@ -172,6 +173,8 @@ export interface SketchEmitContext {
   frameBufs: Set<string>
   feedbackHistoryBufs: Map<string, number>
   customDisplayOwners: Set<string>
+  /** The board link this partition takes part in, or null (see espNowLinkCpp.ts). */
+  boardLink: BoardLinkPlan | null
 }
 
 /** The node being emitted and the helpers bound to it. */

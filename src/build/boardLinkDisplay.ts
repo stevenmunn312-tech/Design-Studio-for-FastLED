@@ -1,5 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from '../state/displays/displaySignal'
+import {
+  DISPLAY_SOURCE_NODE_TYPES, LINKED_SKETCH_DISPLAY_SOURCE_KINDS, type DisplaySignalKind,
+} from '../state/displays/displaySignal'
 import { displaySourceFields } from '../state/displays/displaySourceFields'
 import { asTransportDisplayLayout, shownDesignId, transportLayoutForKind } from '../state/displays/transportDisplay'
 import { SONG_INFO_PORTS } from '../state/player/songInfo'
@@ -21,7 +23,7 @@ import type { BoardLinkWireKind } from './boardLinks'
 export const BOARD_LINK_CLOCK_FIELD = 'dateTime'
 
 /** The kinds a linked display can carry. An LED output's status is not one: its name and size are the sender's compile-time facts. */
-export const LINKED_DISPLAY_KINDS: readonly DisplaySignalKind[] = ['player', 'slideshow', 'clock', 'powerMonitor']
+export const LINKED_DISPLAY_KINDS = LINKED_SKETCH_DISPLAY_SOURCE_KINDS
 
 /** The fields each fixed layout draws, by layout name. */
 const LAYOUT_FIELDS: Record<string, readonly string[]> = {

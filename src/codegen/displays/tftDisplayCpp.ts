@@ -857,6 +857,8 @@ export interface TftDisplayEmit {
   backlightPin: number
   powerMonitor?: { volts: string; amps: string; watts: string }
   enabledExpr: string
+  /** C++ true while a source arriving over a board link is absent: the layout gives way to the waiting screen. */
+  waitingExpr?: string
   /** Clock: the wired RTCInput's `_RtcDateTimeValue`, or null when unresolved. */
   dateTimeExpr: string | null
   /** Now Playing. Text expressions are `const char *`; the rest are numeric. */
@@ -921,6 +923,7 @@ export function tftDisplayGlobalCpp(display: TftDisplayEmit): string {
     `static bool _tftOn_${display.id} = true;`,
     // When the picture was last streamed, so it moves at its own pace.
     ...(display.picture ? [`static uint32_t _tftPictureMs_${display.id} = 0;`] : []),
+    ...(tftWaitsAtRunTime(display) ? [`static bool _tftWasAbsent_${display.id} = false, _tftClear_${display.id} = false;`] : []),
   ].join('\n')
 }
 
@@ -1341,6 +1344,29 @@ export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
       ? fixedTransportLoop(display, size.width, size.height)
       : nowPlayingLoop(display, size.width, size.height)
 
+  if (tftWaitsAtRunTime(display)) {
+    // A signal over a board link can go absent and come back. Either change
+    // clears the glass and repaints whole, so neither screen's rows are left
+    // behind under the other's.
+    const p = `_tft_${id}`
+    return [
+      `  { // Transport Display`,
+      `    _tftOn_${id} = ${display.enabledExpr};`,
+      `    _tftBacklight(${p}, _tftOn_${id});`,
+      `    bool _tftAbsent_${id} = ${display.waitingExpr};`,
+      `    if (_tftAbsent_${id} != _tftWasAbsent_${id}) { _tftWasAbsent_${id} = _tftAbsent_${id}; ${p}.painted = false; _tftClear_${id} = true; }`,
+      `    bool _tftFull_${id} = false;`,
+      `    if (_tftOn_${id} && _tftPaint(${p}, _tftFull_${id})) {`,
+      `      if (_tftClear_${id}) { _tftClear_${id} = false; _tftFillRect(${p}, 0, 0, ${size.width}, ${size.height}, TFT_C_BG); }`,
+      `      if (_tftAbsent_${id}) {`,
+      ...waitingLoop(display, size.width, size.height).map((line) => `  ${line}`),
+      `      } else {`,
+      ...body.map((line) => `  ${line}`),
+      `      }`,
+      `    }`,
+      `  }`,
+    ]
+  }
   return [
     `  { // Transport Display`,
     `    _tftOn_${id} = ${display.enabledExpr};`,
@@ -1351,6 +1377,11 @@ export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
     `    }`,
     `  }`,
   ]
+}
+
+/** A layout whose source can go absent while the sketch runs (a board link). */
+function tftWaitsAtRunTime(display: TftDisplayEmit): boolean {
+  return Boolean(display.waitingExpr) && display.layout !== 'Waiting' && display.layout !== 'Diagnostics'
 }
 
 function powerMonitorLoop(display: TftDisplayEmit, width: number, height: number): string[] {

@@ -34,7 +34,8 @@ import {
   infoDisplayLoopCpp,
 } from '../../codegen/displays/infoDisplayCpp'
 import { infoLayoutForKind } from '../../state/displays/infoDisplay'
-import { DISPLAY_SOURCE_NODE_TYPES, SKETCH_DISPLAY_SOURCE_KINDS } from '../../state/displays/displaySignal'
+import { DISPLAY_SOURCE_NODE_TYPES, sketchAnswersDisplayKind } from '../../state/displays/displaySignal'
+import { linkedDisplayOf, type LinkedDisplay } from '../../codegen/peripherals/espNowLinkCpp'
 import { type TftDisplayEmit, tftDisplaySetupCpp, tftDisplayLoopCpp } from '../../codegen/displays/tftDisplayCpp'
 import {
   shownDesignId,
@@ -133,6 +134,32 @@ function esp32PwmChannels(
     ...nodes.filter((candidate) => candidate.data.nodeType === 'AnalogStripOutput').flatMap((candidate) =>
       ANALOG_STRIP_CHANNELS.map((channel) => ({ key: `${candidate.id}:${channel}`, hz: analogStripHz(props(candidate)) }))),
   ]
+}
+
+/** A power reading that arrives over a board link: its three fields. */
+function linkedPowerMonitor(linked: LinkedDisplay) {
+  return { volts: linked.fields.volts ?? 'NAN', amps: linked.fields.amps ?? 'NAN', watts: linked.fields.watts ?? 'NAN' }
+}
+
+/**
+ * A colour panel's rows from a display that arrives over a board link. Show
+ * Status counts the running pattern from zero, as a show holds it, and the
+ * field counts from one, as a person reads it.
+ */
+function linkedTransportFields(linked: LinkedDisplay, field: (id: string) => string | undefined): Partial<TftDisplayEmit> {
+  return {
+    waitingExpr: `!${linked.upExpr}`,
+    titleExpr: field('title') ?? null,
+    artistExpr: field('artist') ?? null,
+    patternNameExpr: field('patternName') ?? null,
+    elapsedExpr: field('elapsed') ?? '0.0f',
+    durationExpr: field('duration') ?? '0.0f',
+    progressExpr: field('progress') ?? '0.0f',
+    playingExpr: field('playing') ?? 'false',
+    volumeExpr: field('volume') ?? '0.0f',
+    patternIndexExpr: field('patternIndex') ? `(${field('patternIndex')} - 1.0f)` : '0.0f',
+    patternCountExpr: field('patternCount') ?? '0.0f',
+  }
 }
 
 function powerMonitorExpressions(sourceId: string | undefined) {
@@ -289,19 +316,25 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       for (const line of powerSwitchPwmLoopCpp(emit)) ln(line)
     }
   },
-  InfoDisplay({ node, id, p, ln, ledStatusEmit, bootTitle, bootDevice, incoming, nodeMap, intProp, boolExpr, setupLines, infoDisplays }) {
+  InfoDisplay({ node, id, p, ln, ledStatusEmit, bootTitle, bootDevice, incoming, nodeMap, intProp, boolExpr, setupLines, infoDisplays, boardLink }) {
     // One content input, and a normal sketch has exactly one source it can
     // answer for: an RTC. A player or a slideshow plugged in here builds a
     // different generator, which validation reports before upload; the
-    // panel draws its waiting screen rather than a blank one.
+    // panel draws its waiting screen rather than a blank one. One that
+    // arrives over a board link is answered from the fields it carries.
     const displayUp = incoming.get(`${node.id}:display`)
     const displaySource = displayUp && nodeMap.get(displayUp.srcId)
-    const kind = displaySource
+    const linked = linkedDisplayOf(boardLink, displaySource)
+    const kind = linked?.kind ?? (displaySource
       ? DISPLAY_SOURCE_NODE_TYPES[String(displaySource.data.nodeType ?? '')]
-      : undefined
-    const clockExpr = kind === 'clock' && displayUp
+      : undefined)
+    const clockExpr = linked ? linked.clockExpr : kind === 'clock' && displayUp
       ? `n_${safeId(displayUp.srcId)}_dateTime`
       : null
+    // A Pattern Browser pictures a collection from tables only the sending
+    // board has, so a linked slideshow draws the waiting screen here.
+    const answerable = sketchAnswersDisplayKind(kind, !!linked) && !(linked && kind === 'slideshow')
+    const field = (fieldId: string) => linked?.fields[fieldId]
     const controller = oledControllerForProps(p)
     const transport = oledTransportForProps(p)
     const emit: InfoDisplayEmit = {
@@ -319,19 +352,21 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       columnOffset: columnOffsetFor(controller),
       segmentRemap: oledRotationCommands(asOledRotation(p.oledRotation)).segmentRemap,
       comScan: oledRotationCommands(asOledRotation(p.oledRotation)).comScan,
-      layout: kind && SKETCH_DISPLAY_SOURCE_KINDS.includes(kind) ? infoLayoutForKind(kind) : 'Waiting',
-      powerMonitor: kind === 'powerMonitor' ? powerMonitorExpressions(displayUp?.srcId) : undefined,
-      ledStatus: kind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
+      layout: kind && answerable ? infoLayoutForKind(kind) : 'Waiting',
+      powerMonitor: kind === 'powerMonitor'
+        ? (linked ? linkedPowerMonitor(linked) : powerMonitorExpressions(displayUp?.srcId)) : undefined,
+      ledStatus: kind === 'ledOutput' && !linked ? ledStatusEmit(displaySource) : undefined,
       enabledExpr: incoming.get(`${node.id}:enabled`)
         ? boolExpr(node.id, 'enabled')
         : (p.enabled === false ? 'false' : 'true'),
-      titleExpr: null,
+      ...(linked && answerable ? { waitingExpr: `!${linked.upExpr}` } : {}),
+      titleExpr: field('title') ?? null,
       line2Expr: null,
-      valueExpr: '0.0f',
-      progressExpr: '0.0f',
-      playingExpr: 'false',
-      volumeExpr: '0.0f',
-      durationExpr: '0.0f',
+      valueExpr: field('elapsed') ?? '0.0f',
+      progressExpr: field('progress') ?? '0.0f',
+      playingExpr: field('playing') ?? 'false',
+      volumeExpr: field('volume') ?? '0.0f',
+      durationExpr: field('duration') ?? '0.0f',
       dateTimeExpr: clockExpr,
       boot: { project: bootTitle, device: bootDevice },
     }
@@ -339,7 +374,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     for (const line of infoDisplaySetupCpp(emit)) setupLines.push(line)
     for (const line of infoDisplayLoopCpp(emit)) ln(line)
   },
-  TransportDisplay({ node, id, p, ln, ledStatusEmit, nodes, edges, opts, incoming, nodeMap, intProp, nativeMultiRender, boolExpr, customDisplaySamples, customDisplayPublication, setupLines, globalLines, needsDisplayText, tftDisplays, playerControlNodes, tftTouches, emitTelemetry, customDisplays, customDisplayPanels, customDisplayOwners, hasExplicitAudioInput }) {
+  TransportDisplay({ node, id, p, ln, ledStatusEmit, nodes, edges, opts, incoming, nodeMap, intProp, nativeMultiRender, boolExpr, customDisplaySamples, customDisplayPublication, setupLines, globalLines, needsDisplayText, tftDisplays, playerControlNodes, tftTouches, emitTelemetry, customDisplays, customDisplayPanels, customDisplayOwners, hasExplicitAudioInput, boardLink }) {
     // A panel draws its screen design when it has one, and one of the
     // fixed layouts otherwise (see
     // docs/design/large-displays-and-control-routing.md).
@@ -365,9 +400,13 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     // in a normal sketch renders as a black fill, so its fields are the
     // same blanks the fixed layouts below leave.
     const panelDisplayUp = incoming.get(`${node.id}:display`)
-    const panelSourceKind = panelDisplayUp
+    // A display that arrives over a board link answers from the fields it
+    // carries, a player's or a slideshow's included: they arrive rather than
+    // being computed here.
+    const panelLinked = linkedDisplayOf(boardLink, panelDisplayUp ? nodeMap.get(panelDisplayUp.srcId) : undefined)
+    const panelSourceKind = panelLinked?.kind ?? (panelDisplayUp
       ? DISPLAY_SOURCE_NODE_TYPES[String(nodeMap.get(panelDisplayUp.srcId)?.data.nodeType ?? '')]
-      : null
+      : null)
     const panelClockExpr = panelSourceKind === 'clock' && panelDisplayUp
       ? `n_${safeId(panelDisplayUp.srcId)}_dateTime`
       : null
@@ -413,10 +452,12 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
        * already leave. A field this sketch has no reading for is reported
        * by name rather than filled in.
        */
-      const sourceExpressions = normalSketchSourceExpressions(
-        panelClockExpr, panelLedStatus,
-        panelSourceKind === 'powerMonitor' ? powerMonitorExpressions(panelDisplayUp?.srcId) : null,
-      )
+      const sourceExpressions = panelLinked
+        ? (panelLinked.clockExpr ? normalSketchSourceExpressions(panelLinked.clockExpr) : panelLinked.fields)
+        : normalSketchSourceExpressions(
+          panelClockExpr, panelLedStatus,
+          panelSourceKind === 'powerMonitor' ? powerMonitorExpressions(panelDisplayUp?.srcId) : null,
+        )
       for (const bound of resolveBoundWidgets(p.widgetSources, sourceExpressions).bindings) {
         const bindings = bindingsByWidget[bound.widgetId] ?? (bindingsByWidget[bound.widgetId] = [])
         bindings.push({ role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression })
@@ -539,12 +580,14 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     // not a fixed layout's job.
     const displayUp = incoming.get(`${node.id}:display`)
     const displaySource = displayUp && nodeMap.get(displayUp.srcId)
-    const kind = displaySource
+    const linked = linkedDisplayOf(boardLink, displaySource)
+    const kind = linked?.kind ?? (displaySource
       ? DISPLAY_SOURCE_NODE_TYPES[String(displaySource.data.nodeType ?? '')]
-      : undefined
-    const clockExpr = kind === 'clock' && displayUp
+      : undefined)
+    const clockExpr = linked ? linked.clockExpr : kind === 'clock' && displayUp
       ? `n_${safeId(displayUp.srcId)}_dateTime`
       : null
+    const field = (fieldId: string) => linked?.fields[fieldId]
     const layout: TransportDisplayLayout = asTransportDisplayLayout(p.tftLayout) === 'Diagnostics'
       ? 'Diagnostics'
       // Deliberately not narrowed to the kinds a normal sketch can fill.
@@ -639,9 +682,11 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       volumeExpr: '0.0f',
       patternIndexExpr: '0.0f',
       patternCountExpr: '0.0f',
-      powerMonitor: kind === 'powerMonitor' ? powerMonitorExpressions(displayUp?.srcId) : undefined,
-      ledStatus: kind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
+      powerMonitor: kind === 'powerMonitor'
+        ? (linked ? linkedPowerMonitor(linked) : powerMonitorExpressions(displayUp?.srcId)) : undefined,
+      ledStatus: kind === 'ledOutput' && !linked ? ledStatusEmit(displaySource) : undefined,
       diagnosticTouch,
+      ...(linked ? linkedTransportFields(linked, field) : {}),
     }
     // No artwork table here. Now Playing is a player screen and a player
     // in a normal sketch renders as a black fill, so this generator can
@@ -718,16 +763,21 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     for (const line of tftDisplaySetupCpp(emit)) setupLines.push(line)
     for (const line of tftDisplayLoopCpp(emit)) ln(line)
   },
-  SegmentDisplay({ node, id, p, ln, ledStatusEmit, incoming, nodeMap, intProp, boolExpr, setupLines, segmentDisplays }) {
-    // Same one input as the OLED, same one source a normal sketch has.
+  SegmentDisplay({ node, id, p, ln, ledStatusEmit, incoming, nodeMap, intProp, boolExpr, setupLines, segmentDisplays, boardLink }) {
+    // Same one input as the OLED, same one source a normal sketch has, or
+    // the fields a board link carries.
     const displayUp = incoming.get(`${node.id}:display`)
     const displaySource = displayUp && nodeMap.get(displayUp.srcId)
-    const segKind = displaySource
+    const linked = linkedDisplayOf(boardLink, displaySource)
+    const segKind = linked?.kind ?? (displaySource
       ? DISPLAY_SOURCE_NODE_TYPES[String(displaySource.data.nodeType ?? '')]
-      : undefined
-    const segClockExpr = segKind === 'clock' && displayUp
+      : undefined)
+    const segClockExpr = linked ? linked.clockExpr : segKind === 'clock' && displayUp
       ? `n_${safeId(displayUp.srcId)}_dateTime`
       : null
+    const segAnswerable = sketchAnswersDisplayKind(segKind, !!linked)
+    // Elapsed seconds from a player, the running pattern from a slideshow.
+    const segValue = linked ? linked.fields[segKind === 'slideshow' ? 'patternIndex' : 'elapsed'] : undefined
     const segCtl = segmentControllerFor(partById(String(p.partId ?? ''))?.display?.controller)
     const isMax = segCtl.id === 'MAX7219'
     const emit: SegmentDisplayEmit = {
@@ -738,11 +788,13 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       dataPin: isMax ? intProp(p.dinPin, 19, 0, MAX_PIN_NUMBER) : intProp(p.dioPin, 19, 0, MAX_PIN_NUMBER),
       csPin: intProp(p.csPin, 21, 0, MAX_PIN_NUMBER),
       brightness: clampSegmentBrightness(p.brightness, segCtl),
-      mode: segKind && SKETCH_DISPLAY_SOURCE_KINDS.includes(segKind) ? segmentModeForKind(segKind) : 'Waiting',
-      powerMonitor: segKind === 'powerMonitor' ? powerMonitorExpressions(displayUp?.srcId) : undefined,
-      ledStatus: segKind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
+      mode: segKind && segAnswerable ? segmentModeForKind(segKind) : 'Waiting',
+      powerMonitor: segKind === 'powerMonitor'
+        ? (linked ? linkedPowerMonitor(linked) : powerMonitorExpressions(displayUp?.srcId)) : undefined,
+      ledStatus: segKind === 'ledOutput' && !linked ? ledStatusEmit(displaySource) : undefined,
+      ...(linked && segAnswerable ? { waitingExpr: `!${linked.upExpr}` } : {}),
       showColon: p.showColon !== false,
-      valueExpr: '0.0f',
+      valueExpr: segValue ?? '0.0f',
       dateTimeExpr: segClockExpr,
       enabledExpr: incoming.get(`${node.id}:enabled`)
         ? boolExpr(node.id, 'enabled')

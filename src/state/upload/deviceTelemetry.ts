@@ -44,6 +44,27 @@ export const TELEMETRY_TOP_COUNT = 3
 export const TELEMETRY_TOP_ENTRY_SEPARATOR = ','
 export const TELEMETRY_TOP_FIELD_SEPARATOR = ':'
 
+/**
+ * Board link keys (docs/design/board-links.md), sent only by a board that
+ * receives over one: valid frames applied since boot, frames dropped by
+ * reason since boot (wrong link id, wrong schema hash, bad tag or framing, a
+ * counter not above the last one, a full receive ring), and milliseconds since
+ * the last valid frame, left out until the first one arrives.
+ */
+export const TELEMETRY_LINK_RX_KEY = 'lnkrx'
+export const TELEMETRY_LINK_DROP_KEYS = {
+  id: 'lnkid', hash: 'lnkhash', tag: 'lnktag', stale: 'lnkold', ring: 'lnkring',
+} as const
+export const TELEMETRY_LINK_AGE_KEY = 'lnkms'
+
+/** A board link's receive counts, as the device last reported them. */
+export interface TelemetryLinkReport {
+  framesReceived: number
+  dropped: Record<keyof typeof TELEMETRY_LINK_DROP_KEYS, number>
+  /** Null before the first valid frame. */
+  msSinceFrame: number | null
+}
+
 /** Opens the sketch comment that maps a timed node's index to its label. */
 export const TELEMETRY_NODE_MAP_PREFIX = `// ${TELEMETRY_MARKER} nodes `
 
@@ -174,6 +195,18 @@ export interface DeviceTelemetrySample {
   touchLatencyMs: number | null
   /** Bytes of display draw buffer the build allocated. A build constant. */
   drawBufferBytes: number | null
+  /** The board link's receive counts; null on a board that receives none. */
+  link?: TelemetryLinkReport | null
+}
+
+function parseTelemetryLink(fields: Map<string, string>): TelemetryLinkReport | null {
+  const received = numeric(fields.get(TELEMETRY_LINK_RX_KEY))
+  if (received === null) return null
+  const dropped = {} as TelemetryLinkReport['dropped']
+  for (const [reason, key] of Object.entries(TELEMETRY_LINK_DROP_KEYS) as [keyof typeof TELEMETRY_LINK_DROP_KEYS, string][]) {
+    dropped[reason] = numeric(fields.get(key)) ?? 0
+  }
+  return { framesReceived: received, dropped, msSinceFrame: numeric(fields.get(TELEMETRY_LINK_AGE_KEY)) }
 }
 
 const REQUIRED = ['uptime', 'heap', 'minheap', 'fps'] as const
@@ -222,7 +255,14 @@ export function parseTelemetryLine(line: string): DeviceTelemetrySample | null {
     topNodes: parseTelemetryTop(fields.get(TELEMETRY_TOP_KEY)),
     touchLatencyMs: numeric(fields.get('touchms')),
     drawBufferBytes: numeric(fields.get('drawbuf')),
+    // Absent rather than null when the line carries no link keys, so a sample
+    // from a board without a link reads exactly as it did before links existed.
+    ...linkField(parseTelemetryLink(fields)),
   }
+}
+
+function linkField(link: TelemetryLinkReport | null): { link?: TelemetryLinkReport } {
+  return link ? { link } : {}
 }
 
 /**
