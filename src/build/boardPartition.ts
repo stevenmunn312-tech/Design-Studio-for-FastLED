@@ -245,24 +245,38 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
     const type = outputPortDataType(byId.get(edge.source)!, edge.sourceHandle)
     return isBoardLinkDataType(type) ? type : null
   }
-  const foreignMemo = new Map<string, Map<string, boolean>>(boardOrder.map((id) => [id, new Map()]))
+  // Foreign is the closure of "anchored elsewhere" along the wires no link
+  // carries, computed forward per board, so a feedback loop in the graph
+  // reaches the same answer whichever node the walk meets first.
+  const outgoing = new Map<string, StudioEdge[]>()
+  for (const list of incoming.values()) for (const edge of list) push(outgoing, edge.source, edge)
+  const foreignSets = new Map<string, Set<string>>()
+  const foreignSetOf = (boardId: string): Set<string> => {
+    const known = foreignSets.get(boardId)
+    if (known) return known
+    const set = new Set<string>()
+    const queue: string[] = []
+    for (const [nodeId, anchored] of anchors) {
+      if (!anchored.has(boardId)) { set.add(nodeId); queue.push(nodeId) }
+    }
+    while (queue.length) {
+      const id = queue.pop()!
+      for (const edge of outgoing.get(id) ?? []) {
+        const target = edge.target
+        if (set.has(target) || anchors.has(target) || boardIds.has(target)) continue
+        if (carriedType(edge) !== null) continue
+        set.add(target)
+        queue.push(target)
+      }
+    }
+    foreignSets.set(boardId, set)
+    return set
+  }
   const foreign = (boardId: string, nodeId: string): boolean => {
     if (boardIds.has(nodeId)) return nodeId !== boardId
     const anchored = anchors.get(nodeId)
     if (anchored) return !anchored.has(boardId)
-    const memo = foreignMemo.get(boardId)!
-    const known = memo.get(nodeId)
-    if (known !== undefined) return known
-    memo.set(nodeId, false) // a cycle reads as not foreign
-    let result = false
-    for (const edge of incoming.get(nodeId) ?? []) {
-      if (carriedType(edge) === null && foreign(boardId, edge.source)) {
-        result = true
-        break
-      }
-    }
-    memo.set(nodeId, result)
-    return result
+    return foreignSetOf(boardId).has(nodeId)
   }
   const homeOf = (nodeId: string): string | null => boardOrder.find((id) => !foreign(id, nodeId)) ?? null
 
@@ -285,16 +299,20 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
   // wire into it is. Walk back to the first such wire, so the finding names
   // the microphone, not every pattern downstream of it.
   const rootWire = (boardId: string, start: StudioEdge): StudioEdge => {
-    let edge = start
-    const seen = new Set<string>()
-    while (!anchors.has(edge.source) && !seen.has(edge.id)) {
-      seen.add(edge.id)
-      const cause = (incoming.get(edge.source) ?? [])
-        .find((wire) => carriedType(wire) === null && foreign(boardId, wire.source))
-      if (!cause) break
-      edge = cause
+    // Breadth first, so a feedback loop on the way back cannot hide the wire
+    // from the anchored node that made the loop foreign in the first place.
+    const seen = new Set<string>([start.id])
+    const queue = [start]
+    for (let i = 0; i < queue.length; i += 1) {
+      const edge = queue[i]
+      if (anchors.has(edge.source)) return edge
+      for (const wire of incoming.get(edge.source) ?? []) {
+        if (seen.has(wire.id) || carriedType(wire) !== null || !foreign(boardId, wire.source)) continue
+        seen.add(wire.id)
+        queue.push(wire)
+      }
     }
-    return edge
+    return start
   }
   const report = (found: StudioEdge, boardId: string, foundType: string | null) => {
     const edge = rootWire(boardId, found)
@@ -396,6 +414,28 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
       }
       slot.displayKind = kind
       slot.fields = displaySlotFields(kind, wanted).map((field) => ({ ...field, index: -1 }))
+    }
+  }
+
+  // A screen reading whose receivers read no field a link carries (a Pattern
+  // Browser, whose thumbnails exist only on the sending board) has nothing to
+  // send: it is a wire that cannot cross, not an empty slot that would compile
+  // a receive path waiting for frames that never come.
+  const edgeById = new Map(edges.map((edge) => [edge.id, edge]))
+  for (const own of sent.values()) {
+    for (const [key, slot] of own) {
+      if (slot.dataType !== 'display' || (slot.fields && slot.fields.length > 0)) continue
+      own.delete(key)
+      for (const receiver of slot.receivers) {
+        linkIns.get(receiver.boardId)!.delete(key)
+        const received = linkedEdges.get(receiver.boardId)!
+        for (const [edgeId, carried] of received) {
+          if (carried !== slot) continue
+          received.delete(edgeId)
+          const edge = edgeById.get(edgeId)
+          if (edge) report(edge, receiver.boardId, 'display')
+        }
+      }
     }
   }
 

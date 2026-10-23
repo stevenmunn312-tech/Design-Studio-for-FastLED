@@ -235,6 +235,10 @@ int main(int argc, char **argv) {
   uint8_t bad[250]; memcpy(bad, f, n); bad[24] ^= 1;
   rx::_lnkAccept(bad, n, 1030); assert(rx::_lnkCtr1 == ctr);
   memcpy(bad, f, n); bad[11] ^= 1;
+  // A wrong schema hash on an unsigned frame is noise, not a board to report.
+  rx::_lnkAccept(bad, n, 1030); assert(rx::_lnkCtr1 == ctr && !rx::_lnkMismatch);
+  // Signed, it is a board running other firmware: dropped and reported.
+  uint8_t resigned[32]; rx::_lnkHmac(bad, n - 8, resigned); memcpy(bad + n - 8, resigned, 8);
   rx::_lnkAccept(bad, n, 1030); assert(rx::_lnkCtr1 == ctr && rx::_lnkMismatch); rx::_lnkMismatch = false;
   rx::_lnkAccept(f, n, 1030); rx::_lnkTick(1030); assert(!rx::press());
   tx::in_press = true; tx::stage(); tx::in_press = false; tx::stage();
@@ -288,4 +292,56 @@ int main(int argc, char **argv) {
     // slider at 0.25, a picker at red, an empty text) are still what it reads.
     expect(run(forged.toString('hex'))).toBe('0 0.250000 0 ff0000')
   })
+})
+
+describe.skipIf(!nativeGpp && !wslGpp)('board link frame fairness on the host', () => {
+  it('sends every slot when more change each pass than one frame holds', () => {
+    // Sixty floats that all change on every pass: 23 + 60 × 5 bytes is more
+    // than a frame, so a frame built from the head every time would never
+    // reach the tail.
+    const count = 60
+    const table = Array.from({ length: count }, (_, index) => ({ index, kind: 'float' as const }))
+    const plan: BoardLinkPlan = {
+      context: { hash: 0x01020304, linkId: LINK_ID, channel: 1, boardOrder: ['board-root', 'board-2'], frames: { 'board-2': table } },
+      self: 1, receivers: [], linkIns: [], linkOuts: [], table,
+    }
+    const sends = table.map(({ index }) => ({ index, kind: 'float' as const, expr: `v[${index}]`, label: `v${index}`, at: index }))
+    const stage = boardLinkFirmware(plan, sends, { joinsWifi: false, key: Buffer.from(KEY_HEX, 'hex') }).stage
+    const dir = path.resolve(mkdtempSync(path.join(tmpdir(), 'board-link-fair-')))
+    try {
+      const source = path.join(dir, 'fair.cpp')
+      const exe = path.join(dir, nativeGpp && process.platform === 'win32' ? 'fair.exe' : 'fair')
+      writeFileSync(source, `#include <cstdint>
+#include <cstddef>
+#include <cstring>
+#include <cstdio>
+#include <vector>
+static float v[${count}];
+${boardLinkKeyCpp(plan, Buffer.from(KEY_HEX, 'hex'))}
+static void _lnkHmac(const uint8_t *, size_t, uint8_t *out) { memset(out, 0, 32); }
+${boardLinkCodecCpp(plan, sends)}
+int main() {
+  bool seen[${count}] = {false};
+  uint8_t f[250];
+  for (int pass = 0; pass < 8; pass++) {
+    for (int i = 0; i < ${count}; i++) v[i] = (float)(pass * 100 + i);
+${stage.join('\n')}
+    // Within one heartbeat, a frame every 20 ms.
+    size_t n = _lnkBuild(f, 10u + 20u * (uint32_t)pass);
+    for (size_t at = 23; n && at + 8 < n; at += 5) seen[f[at]] = true;
+  }
+  int missing = 0;
+  for (int i = 0; i < ${count}; i++) if (!seen[i]) missing++;
+  printf("%d", missing);
+  return 0;
+}
+`)
+      const args = ['-std=c++17', '-Wall', '-Wextra', '-Werror', '-Wno-unused-function', source, '-o', exe]
+      execFileSync(wslGpp ? 'wsl' : 'g++', wslGpp ? ['--exec', 'g++', ...args.map(compilerPath)] : args)
+      const out = execFileSync(wslGpp ? 'wsl' : exe, wslGpp ? ['--exec', compilerPath(exe)] : []).toString().trim()
+      expect(out).toBe('0')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
 })

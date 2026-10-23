@@ -436,15 +436,17 @@ export function boardLinkCodecCpp(plan: BoardLinkPlan, sends: readonly LinkSend[
   const kindsRead = new Set(plan.receivers.flatMap((receiver) => [...receiver.storage.values()].map((store) => store.kind)))
   const floats = kindsSent.has('float') || kindsRead.has('float')
 
-  push(
-    `// ── Board link (ESP-NOW) ── see docs/design/board-links.md`,
-    `static void _lnkPut32(uint8_t *p, uint32_t v) {`,
-    `  p[0] = (uint8_t)(v & 0xFFu);`,
-    `  p[1] = (uint8_t)((v >> 8) & 0xFFu);`,
-    `  p[2] = (uint8_t)((v >> 16) & 0xFFu);`,
-    `  p[3] = (uint8_t)((v >> 24) & 0xFFu);`,
-    `}`,
-  )
+  push(`// ── Board link (ESP-NOW) ── see docs/design/board-links.md`)
+  if (sendsAny) {
+    push(
+      `static void _lnkPut32(uint8_t *p, uint32_t v) {`,
+      `  p[0] = (uint8_t)(v & 0xFFu);`,
+      `  p[1] = (uint8_t)((v >> 8) & 0xFFu);`,
+      `  p[2] = (uint8_t)((v >> 16) & 0xFFu);`,
+      `  p[3] = (uint8_t)((v >> 24) & 0xFFu);`,
+      `}`,
+    )
+  }
   if (receives) {
     push(
       `static uint32_t _lnkGet32(const uint8_t *p) {`,
@@ -551,19 +553,31 @@ function sendCodecCpp(plan: BoardLinkPlan, sends: readonly LinkSend[], kinds: Re
       `    _lnkTxTextTurn = (uint8_t)((_lnkTxTextTurn + 1) % ${texts.length});`,
     ] : []),
   ]
-  const appendSlot = (send: LinkSend): string[] => {
-    const bytes = send.kind === 'float' || send.kind === 'datetime' ? 4 : send.kind === 'bool' ? 1 : 3
+  const wireBytes = (send: LinkSend) => (send.kind === 'float' || send.kind === 'datetime' ? 4 : send.kind === 'bool' ? 1 : 3)
+  // When every slot at its largest fits one frame, the frame is built in table
+  // order. Otherwise a slot that changes on every pass could keep the frame
+  // full and starve the slots after it, so each frame starts at the first slot
+  // the last one could not fit.
+  const largest = sends.reduce((sum, send) => sum + (send.kind === 'text' ? 2 + DISPLAY_TEXT_MAX_BYTES : 1 + wireBytes(send)), 0)
+  const rotates = LINK_HEADER_BYTES + largest > slotEnd
+  if (rotates) {
+    lines.push(`static uint8_t _lnkTxStart = 0;  // the send the next frame begins with`)
+  }
+  const appendSlot = (send: LinkSend, position: number): string[] => {
+    const bytes = wireBytes(send)
     const dirty = `_lnkTxDirty[${send.index}]`
     const note = `  // ${cppComment(send.label)}`
+    const turn = rotates ? `(pass == 0) == (${position} >= _lnkTxStart) && ` : ''
+    const missed = rotates ? [` else if (${dirty} && skipped < 0) skipped = ${position};`] : []
     if (send.kind === 'text') {
       return [
-        `  {${note}`,
+        rotates ? `  if (${turn.slice(0, -4)}) {${note}` : `  {${note}`,
         `    size_t len = strlen(_lnkTxText[${send.at}]);`,
         `    if (${dirty} && at + 2 + len <= ${slotEnd}) {`,
         `      f[at++] = ${send.index}; f[at++] = (uint8_t)len;`,
         `      memcpy(f + at, _lnkTxText[${send.at}], len); at += len;`,
         `      ${dirty} = false;`,
-        `    }`,
+        `    }${missed.join('')}`,
         `  }`,
       ]
     }
@@ -579,12 +593,12 @@ function sendCodecCpp(plan: BoardLinkPlan, sends: readonly LinkSend[], kinds: Re
           ? [`    f[at] = (uint8_t)(_lnkTxWord[${send.at}] & 0xFFu); f[at + 1] = (uint8_t)((_lnkTxWord[${send.at}] >> 8) & 0xFFu); f[at + 2] = (uint8_t)((_lnkTxWord[${send.at}] >> 16) & 0xFFu);`]
           : [`    ${LE32('f + at', `_lnkTxWord[${send.at}]`)}`]
     return [
-      `  if (${dirty} && at + ${1 + bytes} <= ${slotEnd}) {${note}`,
+      `  if (${turn}${dirty} && at + ${1 + bytes} <= ${slotEnd}) {${note}`,
       `    f[at++] = ${send.index};`,
       ...write,
       `    at += ${bytes};`,
       `    ${dirty} = false;`,
-      `  }`,
+      `  }${rotates ? ` else if (${turn.slice(0, -4)} && ${dirty} && skipped < 0) skipped = ${position};` : ''}`,
     ]
   }
   lines.push(
@@ -610,7 +624,15 @@ function sendCodecCpp(plan: BoardLinkPlan, sends: readonly LinkSend[], kinds: Re
     `  _lnkTxCounter++;`,
     `  ${LE32('f + 19', '_lnkTxCounter')}`,
     `  size_t at = ${LINK_HEADER_BYTES};`,
-    ...sends.flatMap(appendSlot),
+    ...(rotates
+      ? [
+          `  int16_t skipped = -1;`,
+          `  for (uint8_t pass = 0; pass < 2; pass++) {`,
+          ...sends.flatMap((send, position) => appendSlot(send, position).map((line) => `  ${line}`)),
+          `  }`,
+          `  _lnkTxStart = skipped >= 0 ? (uint8_t)skipped : 0;`,
+        ]
+      : sends.flatMap((send, position) => appendSlot(send, position))),
     `  uint8_t tag[32];`,
     `  _lnkHmac(f, at, tag);`,
     `  memcpy(f + at, tag, ${LINK_TAG_BYTES});`,
@@ -732,12 +754,12 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
   }
 
   lines.push(
-    `// Checked in the order that costs least first; the tag last, over every byte`,
-    `// before it. A new session is a sender that reset, accepted on a valid tag.`,
+    `// Checked in the order that costs least first, the tag over every byte before`,
+    `// it, and the schema hash only once the frame is known to be genuine. A new`,
+    `// session is a sender that reset, accepted on a valid tag.`,
     `static void _lnkAccept(const uint8_t *f, size_t n, uint32_t now) {`,
     `  if (n < ${LINK_HEADER_BYTES + LINK_TAG_BYTES} || n > ${LINK_FRAME_MAX_BYTES} || f[0] != 'F' || f[1] != 'L' || f[2] != 'L' || f[3] != 'K' || f[4] != ${LINK_VERSION}) {${count('_lnkDropTag')} return; }`,
     `  if (_lnkGet32(f + 7) != LNK_LINK_ID) {${count('_lnkDropId')} return; }`,
-    `  if (_lnkGet32(f + 11) != LNK_SCHEMA_HASH) {${count('_lnkDropHash')} _lnkMismatch = true; return; }`,
     `  uint8_t s = f[5];`,
     `  if (${plan.receivers.map((receiver) => `s != ${receiver.sender}`).join(' && ')}) return;  // a board whose values this one does not read`,
     `  uint8_t tag[32];`,
@@ -745,6 +767,8 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
     `  uint8_t diff = 0;`,
     `  for (uint8_t i = 0; i < ${LINK_TAG_BYTES}; i++) diff |= (uint8_t)(tag[i] ^ f[n - ${LINK_TAG_BYTES} + i]);`,
     `  if (diff != 0) {${count('_lnkDropTag')} return; }`,
+    `  // Only a signed frame may say the other board runs older firmware.`,
+    `  if (_lnkGet32(f + 11) != LNK_SCHEMA_HASH) {${count('_lnkDropHash')} _lnkMismatch = true; return; }`,
     `  uint32_t session = _lnkGet32(f + 15), counter = _lnkGet32(f + 19);`,
     `  const uint8_t *slots = f + ${LINK_HEADER_BYTES};`,
     `  size_t len = n - ${LINK_HEADER_BYTES + LINK_TAG_BYTES};`,

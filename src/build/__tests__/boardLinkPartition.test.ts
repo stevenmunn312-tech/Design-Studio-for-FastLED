@@ -155,6 +155,48 @@ describe('board links — the partition', () => {
     expect(boardLinkPropertiesOf(linkIn)!.fields).toEqual([{ id: 'artist', kind: 'text', index: 0 }])
   })
 
+  it('refuses a reading the receiving panel cannot draw, rather than sending an empty slot', () => {
+    // An OLED Pattern Browser draws a slideshow from thumbnails only the
+    // sending board has: nothing of it is carried.
+    const nodes = [
+      node('board-root', 'Board'), node('board-2', 'Board'),
+      node('show', 'PatternSlideshow'), node('leds', 'MatrixOutput'), node('oled', 'InfoDisplay', on2),
+    ]
+    const edges = [edge('show', 'frame', 'leds', 'frame'), edge('show', 'display', 'oled', 'display')]
+    expect(boardLinkSchema(nodes, edges).slots).toEqual([])
+    expect(findCrossBoardIssues(nodes, edges)).toEqual([{
+      sourceNodeId: 'show', targetNodeId: 'oled', sourceBoardId: 'board-root', targetBoardId: 'board-2', dataType: 'display',
+    }])
+    const two = boardPartition(nodes, edges, 'board-2')
+    expect(two.nodes.some((n) => n.data.nodeType === BOARD_LINK_IN_NODE_TYPE)).toBe(false)
+    expect(boardPartition(nodes, edges, 'board-root').nodes.some((n) => n.data.nodeType === BOARD_LINK_OUT_NODE_TYPE)).toBe(false)
+  })
+
+  it('reads a feedback loop the same whichever node the walk meets first', () => {
+    // A microphone on Board 2 feeds a loop of two patterns; the loop's frame
+    // reaches Board 1's LEDs. Both patterns are Board 2's to compute, in
+    // either root order, and the finding names the microphone's wire.
+    for (const order of [['fxA', 'fxB'], ['fxB', 'fxA']]) {
+      const nodes = [
+        node('board-root', 'Board'), node('board-2', 'Board'),
+        node('mic', 'MicInput', on2),
+        ...order.map((id) => node(id, 'Juggle')),
+        node('leds', 'MatrixOutput'),
+      ]
+      const edges = [
+        edge('fxB', 'frame', 'fxA', 'frame'),
+        edge('mic', 'audio', 'fxA', 'audio'),
+        edge('fxA', 'frame', 'fxB', 'frame'),
+        edge('fxA', 'frame', 'leds', 'frame'),
+        edge('fxB', 'frame', 'leds', 'frame'),
+      ]
+      const one = ids(boardPartition(nodes, edges, 'board-root').nodes)
+      expect(one).not.toContain('fxA')
+      expect(one).not.toContain('fxB')
+      expect(findCrossBoardIssues(nodes, edges).map((issue) => [issue.sourceNodeId, issue.dataType])).toEqual([['mic', 'audio']])
+    }
+  })
+
   it('sends a linked clock whole, as one datetime', () => {
     const nodes = [...base, node('rtc', 'RTCInput')]
     const edges = [...baseEdges, edge('rtc', 'display', 'panel', 'display')]

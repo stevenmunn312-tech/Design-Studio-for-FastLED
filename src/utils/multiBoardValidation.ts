@@ -466,6 +466,14 @@ function crossBoardCopy(
       fix: `Put the parts ${sourceName} reads on one board, or give ${to} its own ${sourceName}.`,
     }
   }
+  if (wire.dataType === 'display') {
+    // A screen reading whose receiving panel reads nothing a link carries.
+    return {
+      title: `${targetName} cannot show ${sourceName} from another board`,
+      message: `${targetName} on ${to} draws ${sourceName}'s reading from what only ${from} has, such as its pattern pictures, so nothing of it can be sent.`,
+      fix: `Put the ${targetName} on ${from}, or choose a layout that shows text and numbers.`,
+    }
+  }
   const sourceType = nodeTypeOf(source)
   const targetType = nodeTypeOf(target)
   const fix = isBoardAttachedNodeType(sourceType)
@@ -487,9 +495,11 @@ function projectIsEmpty(nodes: readonly StudioNode[]): boolean {
   return nodes.every((node) => nodeTypeOf(node) === 'Board')
 }
 
-/** Whether a board has an output of its own: an LED output or an attached part that takes a signal. */
-// A board that only sends values over a link (the controls of a split build)
-// drives the other board, so its link-outs count as something it drives.
+/**
+ * Whether a board drives something: an LED output, an attached part that
+ * takes a signal, or a value it sends over a link (the controls half of a
+ * split build drives the other board).
+ */
 function drivesSomething(run: BoardedRun): boolean {
   return run.partition.nodes.some((node) => {
     const type = nodeTypeOf(node)
