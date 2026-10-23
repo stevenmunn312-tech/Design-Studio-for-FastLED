@@ -1069,25 +1069,6 @@
   opacity: 1;
 }
 
-.wireTooltip {
-  position: fixed;
-  z-index: 10000;
-  box-sizing: border-box;
-  width: max-content;
-  max-width: min(360px, calc(100vw - 24px));
-  padding: 6px 10px;
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
-  background: var(--bg-panel);
-  box-shadow: 0 6px 18px var(--active-shadow);
-  color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: var(--fs-caption);
-  pointer-events: none;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
 /* Shared-rail net stubs: short lead + net symbol in place of a drawn run. */
 .groundStubLead {
   fill: none;

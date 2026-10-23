@@ -83,11 +83,15 @@ describe('GlowEdge link wire', () => {
       const mark = container.querySelector('[data-board-link]')!
       expect(mark.getAttribute('data-board-link')).toBe('Board 2 to Board 1 over ESP-NOW')
       expect(container.querySelector('[stroke-dasharray="8 4"]')).not.toBeNull()
-      expect(container.textContent).not.toContain('ESP-NOW')
-      fireEvent.mouseEnter(mark)
-      expect(container.textContent).toContain('Board 2 to Board 1 over ESP-NOW')
+      expect(document.querySelector('[role="tooltip"]')).toBeNull()
+      fireEvent.mouseEnter(mark, { clientX: 200, clientY: 150 })
+      // On the page, not in the canvas: the nodes drawn after every edge
+      // would otherwise cover it.
+      const tip = document.querySelector('[role="tooltip"]')!
+      expect(tip.textContent).toBe('Board 2 to Board 1 over ESP-NOW')
+      expect(container.contains(tip)).toBe(false)
       fireEvent.mouseLeave(mark)
-      expect(container.textContent).not.toContain('ESP-NOW')
+      expect(document.querySelector('[role="tooltip"]')).toBeNull()
     })
 
     it(`draws a plain wire plainly with UI effects ${effects ? 'on' : 'off'}`, () => {

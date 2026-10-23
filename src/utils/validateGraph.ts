@@ -58,7 +58,7 @@ import {
 } from '../state/displays/mountedDisplays'
 import { transportTouchRegions } from '../state/displays/transportTouch'
 import {
-  normalSketchSourceExpressions, resolveBoundWidgets, unresolvedBindingIssue, PROBE_CLOCK_EXPR,
+  normalSketchSourceExpressions, resolveBoundWidgets, unresolvedBindingIssue, PROBE_CLOCK_EXPR, linkedDisplayFieldsOf,
   PROBE_LED_STATUS,
 } from '../codegen/displays/displaySourceExpressions'
 import { resolveBuildMode } from '../state/upload/buildMode'
@@ -3061,7 +3061,10 @@ export function findDisplayGeneratorIssues(
       // show controller instead. The probe asks which fields the table holds,
       // not what they emit to.
       const kind = panelDisplaySourceKind(mounted.panel, nodes, edges)
-      const table = normalSketchSourceExpressions(
+      // A reading from another board answers exactly the fields its link
+      // carries, which the partition chose from this panel's own bindings.
+      const linked = linkedDisplayFieldsOf(mounted.panel, nodes, edges)
+      const table = linked ?? normalSketchSourceExpressions(
         kind === 'clock' ? PROBE_CLOCK_EXPR : null,
         kind === 'ledOutput' ? PROBE_LED_STATUS : null,
         kind === 'powerMonitor' ? { volts: '_probeVolts', amps: '_probeAmps', watts: '_probeWatts' } : null,

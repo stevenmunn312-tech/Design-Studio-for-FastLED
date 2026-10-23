@@ -10,6 +10,7 @@ import { useUiStore } from '../../state/uiStore'
 import { familyMotion, signalFamily } from './noodleMotion'
 import { edgeDisplayColor } from './edgeDisplayColor'
 import styles from './GlowEdge.module.css'
+import { ScreenTooltip } from '../ScreenTooltip/ScreenTooltip'
 
 function formatSignalValue(value: unknown): string | null {
   if (typeof value === 'number') {
@@ -104,7 +105,7 @@ function GlowEdge({
   const splicePreview = edgeData?.splicePreview === true
   const focusState = edgeData?.focusState
   const boardLink = typeof edgeData?.boardLink === 'string' && edgeData.boardLink ? edgeData.boardLink : null
-  const [linkHovered, setLinkHovered] = useState(false)
+  const [linkHover, setLinkHover] = useState<{ x: number; y: number } | null>(null)
   const familyClass =
     family === 'frame' ? styles.familyFrame :
     family === 'audio' ? styles.familyAudio :
@@ -153,26 +154,15 @@ function GlowEdge({
       className={styles.linkMark}
       transform={`translate(${labelX}, ${labelY})`}
       data-board-link={boardLink}
-      onMouseEnter={() => setLinkHovered(true)}
-      onMouseLeave={() => setLinkHovered(false)}
+      onMouseEnter={(event) => setLinkHover({ x: event.clientX, y: event.clientY })}
+      onMouseMove={(event) => setLinkHover({ x: event.clientX, y: event.clientY })}
+      onMouseLeave={() => setLinkHover(null)}
     >
       <circle className={styles.linkMarkDisc} r={LINK_MARK_RADIUS} stroke={color} />
       <circle r={1.6} fill={color} />
       <path d="M -3.2 -2.6 A 4 4 0 0 0 -3.2 2.6 M 3.2 -2.6 A 4 4 0 0 1 3.2 2.6" fill="none" stroke={color} strokeWidth={1.2} strokeLinecap="round" />
-      {linkHovered && (
-        <g className={styles.linkTooltip} transform={`translate(0, ${-LINK_MARK_RADIUS - 14})`}>
-          <rect
-            className={styles.linkTooltipBox}
-            x={-(boardLink.length * 6.4 + 12) / 2}
-            y={-9}
-            width={boardLink.length * 6.4 + 12}
-            height={18}
-            rx={4}
-            stroke={color}
-          />
-          <text className={styles.linkTooltipText} x={0} y={4} textAnchor="middle">{boardLink}</text>
-        </g>
-      )}
+      {/* In screen space, above the nodes drawn after every edge. */}
+      {linkHover && <ScreenTooltip tip={boardLink} x={linkHover.x} y={linkHover.y} />}
     </g>
   )
 

@@ -164,21 +164,6 @@
   stroke-width: 1.4;
 }
 
-.linkTooltip {
-  pointer-events: none;
-}
-
-.linkTooltipBox {
-  fill: color-mix(in srgb, var(--bg-primary) 92%, transparent);
-  stroke-width: 1;
-}
-
-.linkTooltipText {
-  fill: var(--text-primary);
-  font-family: var(--font-code, monospace);
-  font-size: 11px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .core,
   .spliceTarget {

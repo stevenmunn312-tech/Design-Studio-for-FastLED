@@ -318,3 +318,42 @@ describe('board link validation', () => {
     expect(estimateFirmwareRam(wiredPartition.nodes, wiredPartition.edges)!.radioBytes).toBe(BOARD_LINK_WIFI_DRIVER_RAM_BYTES)
   })
 })
+
+describe('board link validation — a screen design on the receiving board', () => {
+  it('reads the linked player for every field a Now Playing screen binds, and carries its Controls', async () => {
+    const { NODE_LIBRARY, libraryDefaults } = await import('../../state/nodeLibrary')
+    const { createDisplayDocument } = await import('../../state/displays/displayEditor')
+    const { applyDisplayTemplate } = await import('../../state/displays/displayTemplates')
+    const { rootGraphEdges, rootGraphNodes } = await import('../../state/graphStore')
+    const full = (id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode => {
+      const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
+      return { id, type: 'studioNode', position: { x: 0, y: 0 }, data: {
+        label: definition.label, nodeType, category: definition.category,
+        properties: { ...libraryDefaults(nodeType), ...properties }, inputs: definition.inputs, outputs: definition.outputs,
+      } } as StudioNode
+    }
+    const wire = (a: string, ah: string, b: string, bh: string) =>
+      ({ id: [a, ah, b, bh].join('-'), source: a, sourceHandle: ah, target: b, targetHandle: bh }) as StudioEdge
+    useGraphStore.getState().loadGraph([
+      full('board-root', 'Board', { linkId: LINK_ID }), full('board-2', 'Board'),
+      full('master', 'PatternMaster'), full('card', 'SDCard'), full('amp', 'Amplifier'),
+      full('collection', 'PatternCollection'), full('out', 'MatrixOutput', { width: 16, height: 16 }),
+      full('tft', 'TransportDisplay', {
+        partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'screen-1', ...on2,
+      }),
+      full('touch', 'TouchInput', { panelId: 'tft', ...on2 }),
+    ], [
+      wire('collection', 'patternset', 'master', 'patternset'), wire('master', 'frame', 'out', 'frame'),
+      wire('card', 'storage', 'master', 'storage'), wire('master', 'audio', 'amp', 'audio'),
+      wire('master', 'display', 'tft', 'display'), wire('touch', 'controls', 'master', 'controls'),
+    ])
+    useGraphStore.getState().setDisplayDocument(applyDisplayTemplate(createDisplayDocument('screen-1', 240, 320), 'now-playing'))
+    const state = useGraphStore.getState()
+    const nodes = rootGraphNodes(state)
+    const edges = rootGraphEdges(state)
+    const diagnostics = buildBoardDiagnostics(nodes, edges, { targets, displayDocuments: state.displayDocuments })
+    const titles = diagnostics.map((issue) => issue.title)
+    expect(titles.filter((title) => /leave a value blank/.test(title))).toEqual([])
+    expect(titles.filter((title) => /cannot cross|no controls to send|disconnected|cannot honour/i.test(title))).toEqual([])
+  })
+})

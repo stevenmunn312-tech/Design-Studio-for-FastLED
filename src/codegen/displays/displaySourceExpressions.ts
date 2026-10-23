@@ -15,6 +15,8 @@
 // than filled with a plausible zero.
 
 import { cppStringLiteral } from '../../state/displays/displayText'
+import { boardLinkPropertiesOf } from '../../build/boardLinks'
+import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { DISPLAY_SELECTION_SOURCE_FIELD } from '../../state/displays/displaySourceFields'
 
 /**
@@ -85,6 +87,25 @@ export function unresolvedBindingIssue(
  * emitted code.
  */
 export const PROBE_CLOCK_EXPR = '_probeClock'
+
+/**
+ * The fields a panel's reading carries when it arrives from another board,
+ * as a probe table (shape only), or null when the panel's `display` wire
+ * does not start at a board link. A linked clock answers every clock field,
+ * as the struct it is rebuilt into.
+ */
+export function linkedDisplayFieldsOf(
+  panel: StudioNode,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): DisplaySourceExpressions | null {
+  const wire = edges.find((edge) => edge.target === panel.id && edge.targetHandle === 'display')
+  const source = wire ? nodes.find((node) => node.id === wire.source) : undefined
+  const props = source ? boardLinkPropertiesOf(source) : null
+  if (!props || props.dataType !== 'display') return null
+  if (props.displayKind === 'clock') return normalSketchSourceExpressions(PROBE_CLOCK_EXPR)
+  return Object.fromEntries((props.fields ?? []).map((field) => [field.id, `_probe_${field.id}`]))
+}
 
 /** The same trick for an LED output, whose readings are two expressions and
  *  three compile-time facts. Shape only; never reaches emitted code. */

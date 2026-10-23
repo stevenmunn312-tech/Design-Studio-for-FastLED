@@ -10,6 +10,7 @@ import {
   isSinkNodeType,
 } from '../boardPartition'
 import { CUSTOM_DESIGN_LAYOUT } from '../../state/displays/transportDisplay'
+import { linkedDisplayFieldsOf, resolveBoundWidgets } from '../../codegen/displays/displaySourceExpressions'
 import {
   BOARD_LINK_IN_NODE_TYPE,
   BOARD_LINK_OUT_NODE_TYPE,
@@ -224,6 +225,25 @@ describe('board links — the partition', () => {
     const direct = [...edges, edge('touch', 'widget:skip:out', 'player', 'next')]
     const fields = boardLinkSchema(nodes, direct).slots.find((entry) => entry.dataType === 'playercontrols')!.fields!
     expect(fields.map((field) => field.id)).not.toContain('next')
+  })
+
+  it('lets the receiving board’s screen design read every field it binds', () => {
+    // A Board 2 screen binds the track title, play state and volume of
+    // Board 1's Music Player: each arrives over the link, so none is blank.
+    const widgetSources = {
+      t: { field: 'title', roles: ['value'] },
+      p: { field: 'playing', roles: ['value'] },
+      v: { field: 'volume', roles: ['value'] },
+    }
+    const panel = node('panel', 'TransportDisplay', { ...on2, tftLayout: CUSTOM_DESIGN_LAYOUT, displayId: 'screen', widgetSources })
+    const nodes = [...base.filter((n) => n.id !== 'panel'), panel]
+    const edges = [...baseEdges, edge('player', 'display', 'panel', 'display')]
+    const two = boardPartition(nodes, edges, 'board-2')
+    const table = linkedDisplayFieldsOf(panel, two.nodes, two.edges)!
+    expect(Object.keys(table).sort()).toEqual(['playing', 'title', 'volume'])
+    expect(resolveBoundWidgets(widgetSources, table).unresolved).toEqual([])
+    // A panel fed on its own board is not a linked one.
+    expect(linkedDisplayFieldsOf(panel, nodes, edges)).toBeNull()
   })
 
   it('sends a linked clock whole, as one datetime', () => {
