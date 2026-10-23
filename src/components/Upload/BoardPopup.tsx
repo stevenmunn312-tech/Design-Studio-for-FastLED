@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useGroupRegistry } from '../../hooks/useGroupRegistry'
-import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { useBoardPartition, useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
 import { describePort } from '../../utils/portStatus'
@@ -40,8 +41,11 @@ export default function BoardPopup() {
     closeBoardPopup, openCliPopup,
     addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
-  const nodes = useRootNodes()
-  const edges = useRootEdges()
+  // The controller settings, PSRAM and RAM are facts about one firmware
+  // image: the active board's partition, whose one Board is the board this
+  // popup is choosing for (with one board, the whole root graph).
+  const activeBoardId = useUiStore((s) => s.activeBoardId)
+  const { nodes, edges } = useBoardPartition(activeBoardId)
   const displayDocuments = useGraphStore((state) => state.displayDocuments)
   const [newBoard, setNewBoard] = useState(EMPTY_CUSTOM_BOARD)
   const [addError, setAddError] = useState<string | null>(null)
