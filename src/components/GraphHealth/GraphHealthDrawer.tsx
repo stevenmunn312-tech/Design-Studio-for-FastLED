@@ -32,6 +32,8 @@ import {
 } from '../../utils/validateGraph'
 import { boardFqbnTargets, buildBoardDiagnostics } from '../../utils/multiBoardValidation'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
+import { boardNodesIn } from '../../build/boardPartition'
+import { boardLinkSettings, getBoardLinkKey } from '../../state/peripherals/boardLinkKey'
 import styles from './GraphHealthDrawer.module.css'
 
 type Filter = 'all' | GraphDiagnosticSeverity
@@ -70,6 +72,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (action === 'open-led-outputs') return 'Show LED outputs'
   if (action === 'open-audio-outputs') return 'Choose a DAC'
   if (action === 'add-audio-node') return 'Add Audio node'
+  if (action === 'renew-board-link-key') return 'Make a new key'
   return 'Open library'
 }
 
@@ -187,6 +190,20 @@ export default function GraphHealthDrawer() {
     }
     if (issue.action === 'choose-board') {
       openBoardPopup()
+      return
+    }
+    if (issue.repair?.kind === 'renew-board-link-key') {
+      // Re-checked first: a second key would strand every board already
+      // flashed with the first, so a card read after the fix changes nothing.
+      const primary = boardNodesIn(capabilityNodes)[0]
+      if (getBoardLinkKey(boardLinkSettings(primary?.data.properties).linkId)) {
+        setStatus('This computer already has the board link key', 'info')
+        return
+      }
+      const linkId = useGraphStore.getState().renewBoardLinkKey()
+      setStatus(linkId
+        ? 'New board link key made — upload every linked board so they all use it'
+        : 'There is no Board to keep the link on', linkId ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'signal-range') {

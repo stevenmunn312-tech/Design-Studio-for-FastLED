@@ -545,7 +545,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const state = get()
     const projectId = id ?? state.currentProjectId
     const current = state.projects.find((project) => project.id === projectId)
-    const normalized = normalizeUploadTarget(uploadTarget)
+    // Choosing a board or port says nothing about what the board runs, so the
+    // link schema hash its last upload recorded stays unless one is given.
+    const previousHash = current?.uploadTargets?.[boardId]?.linkSchemaHash
+    const normalized = normalizeUploadTarget(uploadTarget.linkSchemaHash === undefined && previousHash !== undefined
+      ? { ...uploadTarget, linkSchemaHash: previousHash }
+      : uploadTarget)
     if (!current || !boardId || !normalized) return
     if (sameUploadTarget(current.uploadTargets?.[boardId], normalized)) return
     const uploadTargets = normalizeProjectUploadTargets({

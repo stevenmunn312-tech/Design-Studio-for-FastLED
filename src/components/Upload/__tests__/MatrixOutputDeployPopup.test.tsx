@@ -1012,6 +1012,33 @@ describe('MatrixOutputDeployPopup with several boards', () => {
     expect(gatedIds()).toEqual(['board-2', 'matrix-2'])
   })
 
+  it('says which other linked board runs an older link, without blocking', () => {
+    // A pot on Board 2 sets Board 1's brightness: Board 2 sends one slot.
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        id: 'pot', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Pot', nodeType: 'PotInput', category: 'input', properties: { boardId: 'board-2' }, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [{ id: 'pot-matrix', source: 'pot', sourceHandle: 'value', target: 'matrix', targetHandle: 'brightness' }] as never[],
+    })
+    useProjectStore.setState({
+      projects: [{
+        id: 'rig', name: 'Rig', createdAt: 0, updatedAt: 0, workspace: { nodes: [], edges: [] },
+        // Board 2 was last flashed with a link that is not this one.
+        uploadTargets: { 'board-2': { selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM8', linkSchemaHash: 1 } },
+      }],
+      currentProjectId: 'rig',
+    })
+    const note = 'The link changed since Board 2 was uploaded. Upload Board 2 as well.'
+    const { getByRole, getByText, queryByText } = render(<MatrixOutputDeployPopup />)
+    expect(getByText(note)).toBeTruthy()
+
+    // Board 1 has no recorded flash, so from Board 2 there is nothing to say.
+    fireEvent.click(getByRole('tab', { name: /^Board 2/ }))
+    expect(queryByText(note)).toBeNull()
+    expect(queryByText(/The link changed since/)).toBeNull()
+  })
+
   it('draws no selector and no board prefix with one board', () => {
     useGraphStore.setState({ nodes: [boardNode('board-root'), useGraphStore.getState().nodes[2]] as never[] })
     const { queryByRole, queryByText, getByText } = render(<MatrixOutputDeployPopup />)

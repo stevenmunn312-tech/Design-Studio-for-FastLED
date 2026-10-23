@@ -157,10 +157,16 @@ describe('board link id and key', () => {
 
   it('renewBoardLinkKey gives a project with no id one, with its key', () => {
     useGraphStore.getState().loadGraph(nodes(), [...local, crossing])
-    const linkId = useGraphStore.getState().renewBoardLinkKey()
+    const linkId = useGraphStore.getState().renewBoardLinkKey() as string
     expect(linkId).toMatch(/^[0-9a-f]{8}$/)
     expect(primaryProps().linkId).toBe(linkId)
     expect(useBoardLinkKeyStore.getState().byLinkId[linkId]).toMatch(/^[0-9a-f]{32}$/)
+  })
+
+  it('renewBoardLinkKey returns null, making no key, with no Board', () => {
+    useGraphStore.setState({ nodes: [], edges: [] })
+    expect(useGraphStore.getState().renewBoardLinkKey()).toBeNull()
+    expect(keyCount()).toBe(0)
   })
 
   it('drops a malformed id and a bad channel on load', () => {

@@ -22,6 +22,7 @@ import type { SavedPattern } from './patterns/patternLibrary'
 import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patterns/patternTrust'
 import { withoutPatternProfiles } from './patterns/patternPick'
 import { useNetworkCredentialsStore } from './peripherals/networkCredentials'
+import { boardLinkSettings, newBoardLinkId, useBoardLinkKeyStore } from './peripherals/boardLinkKey'
 import { retargetedMicPins } from '../build/pins/micPinDefaults'
 import { retargetDefaultI2c, retargetHardwarePins as retargetHardwarePinsFor } from '../build/pins/pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
@@ -49,7 +50,6 @@ import {
   type BoardPartition,
 } from '../build/boardPartition'
 import { isNetworkEndpointNodeType } from '../build/boardLinks'
-import { boardLinkSettings, newBoardLinkId, useBoardLinkKeyStore } from './peripherals/boardLinkKey'
 import { sameNodeData } from '../utils/sameNodeData'
 import { ledDriverOptionsForBoard, withLedDriverNormalized } from '../build/ledDriverSelection'
 import { LED_DRIVER_AUTO, type LedDriverChoice } from '../build/ledDrivers'
@@ -346,12 +346,13 @@ interface GraphState {
   /** Primary leads and every other board follows, or no board syncs at all. */
   setBoardClockSync: (enabled: boolean) => void
   /**
-   * Make a fresh board link key on this machine, giving the project a link id
-   * first if it has none; returns the link id. The repair for "no link key on
-   * this machine", which means reflashing every linked board. See
-   * docs/design/board-links.md.
+   * Give the project's board link a fresh key on this machine: a link id on
+   * the primary Board first when it has none, then a new key for that id.
+   * Every linked board must be flashed again afterwards. Returns the link id,
+   * or null with no Board to keep it on. Validation's repair for "no link
+   * key on this machine". See docs/design/board-links.md.
    */
-  renewBoardLinkKey: () => string
+  renewBoardLinkKey: () => string | null
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   /** Duplicate every currently multi-selected node plus the edges wiring them
@@ -3813,12 +3814,14 @@ function writeBoardLinkId(linkId: string): void {
 /**
  * The project's link id, assigning one when it has none, with a key on this
  * machine. `freshKey` replaces the key even when one exists (the repair);
- * without it an id that already has a key keeps it.
+ * without it an id that already has a key keeps it. Null, changing nothing,
+ * while the root graph has no Board to keep the id on.
  */
-function assignBoardLinkId(freshKey: boolean): string {
+function assignBoardLinkId(freshKey: boolean): string | null {
   const keys = useBoardLinkKeyStore.getState()
   const primary = boardNodesIn(rootGraphNodes(useGraphStore.getState()))[0]
-  const existing = boardLinkSettings(primary?.data.properties).linkId
+  if (!primary) return null
+  const existing = boardLinkSettings(primary.data.properties).linkId
   if (existing) {
     if (freshKey) keys.createKey(existing)
     sessionBoardLinkId = existing
