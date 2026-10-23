@@ -41,12 +41,16 @@ import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNo
 import { controllerSettings, DEFAULT_BOARD_CONTROLLER_PROPERTIES, FRAME_RATE } from '../build/controllerSettings'
 import {
   boardIdOf,
+  boardLinkSchema,
   boardNodesIn,
   boardPartition,
   isBoardAttachedNodeType,
   primaryBoardId,
   type BoardPartition,
 } from '../build/boardPartition'
+import { isNetworkEndpointNodeType } from '../build/boardLinks'
+import { boardLinkSettings, newBoardLinkId, useBoardLinkKeyStore } from './peripherals/boardLinkKey'
+import { sameNodeData } from '../utils/sameNodeData'
 import { ledDriverOptionsForBoard, withLedDriverNormalized } from '../build/ledDriverSelection'
 import { LED_DRIVER_AUTO, type LedDriverChoice } from '../build/ledDrivers'
 import {
@@ -336,10 +340,18 @@ interface GraphState {
    * is on. See docs/design/multi-board.md.
    */
   addBoard: (profileId?: string) => string
-  /** Remove a non-primary Board with every part and output attached to it. */
+  /** Remove a non-primary Board with every part and output attached to it;
+   *  network endpoints on it move to the primary. */
   removeBoard: (boardId: string) => void
   /** Primary leads and every other board follows, or no board syncs at all. */
   setBoardClockSync: (enabled: boolean) => void
+  /**
+   * Make a fresh board link key on this machine, giving the project a link id
+   * first if it has none; returns the link id. The repair for "no link key on
+   * this machine", which means reflashing every linked board. See
+   * docs/design/board-links.md.
+   */
+  renewBoardLinkKey: () => string
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   /** Duplicate every currently multi-selected node plus the edges wiring them
@@ -883,6 +895,23 @@ function v1BoardProperties(properties: Record<string, unknown>): Record<string, 
 }
 
 /**
+ * The board link's settings, when a Board carries them: a malformed `linkId`
+ * is dropped (the repair, or the next first link, assigns one) and a
+ * `linkChannel` that is not a channel reads as the default. Absent stays
+ * absent, so a project that never linked saves exactly as before. See
+ * docs/design/board-links.md.
+ */
+function withBoardLinkSettingsNormalized(properties: Record<string, unknown>): Record<string, unknown> {
+  if (!('linkId' in properties) && !('linkChannel' in properties)) return properties
+  const settings = boardLinkSettings(properties)
+  const next = { ...properties }
+  if (settings.linkId) next.linkId = settings.linkId
+  else delete next.linkId
+  if ('linkChannel' in next) next.linkChannel = settings.channel
+  return next
+}
+
+/**
  * Every Board node is kept and brought to the same shape: hidden, fixed,
  * controller defaults filled in, a resolved profile and a valid `clockSync`.
  * The primary is `board-root` when present, else the first Board; its id is
@@ -908,12 +937,12 @@ function ensureRootBoardNode(nodes: StudioNode[]): StudioNode[] {
         ...node.data,
         label: 'Board',
         category: 'output',
-        properties: {
+        properties: withBoardLinkSettingsNormalized({
           ...DEFAULT_BOARD_CONTROLLER_PROPERTIES,
           ...currentProps,
           profileId: explicitProfileId,
           clockSync: boardClockSync(props.clockSync),
-        },
+        }),
         inputs: [],
         outputs: [],
       },
@@ -926,9 +955,15 @@ function ensureRootBoardNode(nodes: StudioNode[]): StudioNode[] {
  * Only the attachment is written, and only when the part carries none and
  * the active board is a real, non-primary Board: a one-board project keeps
  * its parts `boardId`-free, so its save reads exactly as before.
+ *
+ * A network endpoint (Web Remote, DMX, DDP, Stream Output) added to the root
+ * graph is stamped the same way, since it too runs on one board; one added
+ * inside a group is not, because only root nodes are anchored to a board.
  */
-function stampActiveBoard(node: StudioNode, rootNodes: readonly StudioNode[]): StudioNode {
-  if (!isBoardAttachedNodeType(node.data.nodeType)) return node
+function stampActiveBoard(node: StudioNode, rootNodes: readonly StudioNode[], inRootGraph: boolean): StudioNode {
+  const attached = isBoardAttachedNodeType(node.data.nodeType)
+    || (inRootGraph && isNetworkEndpointNodeType(node.data.nodeType))
+  if (!attached) return node
   const properties = (node.data.properties ?? {}) as Record<string, unknown>
   if (typeof properties.boardId === 'string' && properties.boardId) return node
   const { activeBoardId } = useUiStore.getState()
@@ -2178,7 +2213,7 @@ export const useGraphStore = create<GraphState>()(
           if (centreOnDrop) pendingCentreY.set(node.id, node.position.y)
           const next = [
             ...target.map((n) => (n.selected ? { ...n, selected: false } : n)),
-            { ...stampActiveBoard(node, rootGraphNodes(s)), selected: !rootScoped },
+            { ...stampActiveBoard(node, rootGraphNodes(s), rootScoped || s.activeGraphId === ROOT_GRAPH_ID), selected: !rootScoped },
           ]
           if (rootScoped) return withRootNodes(s, next)
           return { nodes: next, selectedNodeId: node.id }
@@ -2620,8 +2655,20 @@ export const useGraphStore = create<GraphState>()(
         }
         scheduleOrphanGraphPrune()
         set((s) => {
+          // A network endpoint on the board is a design element, not a part
+          // bolted to it: it moves to the primary rather than going with the
+          // board, so a Web Remote's controls and wires survive. Dropping the
+          // id, rather than leaving it dangling, keeps a later "Add another
+          // controller" (which reuses the freed id) from claiming it back.
+          const rehomed = rootGraphNodes(s).map((node) => {
+            if (!isNetworkEndpointNodeType(node.data.nodeType)) return node
+            if (node.data.properties?.boardId !== boardId) return node
+            const properties = { ...node.data.properties }
+            delete properties.boardId
+            return { ...node, data: { ...node.data, properties } }
+          })
           const removed = removeNodeAndEdges(
-            rootGraphNodes(s), rootGraphEdges(s), s.selectedNodeId, s.performanceDeck, removeIds)
+            rehomed, rootGraphEdges(s), s.selectedNodeId, s.performanceDeck, removeIds)
           const { nodes, edges, ...rest } = removed
           let displayDocuments = s.displayDocuments
           for (const displayId of displayIds) {
@@ -2648,13 +2695,17 @@ export const useGraphStore = create<GraphState>()(
           return changed ? withRootNodes(s, next) : {}
         }),
 
+      renewBoardLinkKey: () => assignBoardLinkId(true),
+
       loadGraph: (nodes, edges, workspace) => {
         // Replacing the workspace invalidates every graph's history, stashed
         // stacks included — otherwise entering a group whose id happens to
         // recur in the newly loaded workspace would restore the old project's
         // undo steps. Callers clear the live stacks themselves right after.
         clearStashedGraphHistory()
-        set(() => {
+        // A load is not an edit: the board link's identity is never assigned
+        // to a project as it opens (see the board link subscription below).
+        whileLoadingWorkspace(() => set(() => {
           // Restore the active graph plus every stashed pattern-group subgraph.
           const active = normalizeLoadedGraph(nodes, edges)
           const graphData: Record<string, GraphContent> = {}
@@ -2707,7 +2758,8 @@ export const useGraphStore = create<GraphState>()(
             panicActive: false,
             panicRestoreValues: null,
           }
-        })
+        }))
+        noteLoadedBoardLink()
         restoreMusicLibrary(workspace?.musicLibrary)
         // The active board is a session choice about the project that was
         // open; the one that just loaded starts on its primary.
@@ -3681,6 +3733,119 @@ useGraphStore.subscribe((state, previous) => {
   } else if (isContentKnown(state.nodes, state.graphData)) {
     useGraphStore.setState({ trusted: true })
   }
+})
+
+/*
+ * A project gets its board link identity the moment it first has a link.
+ *
+ * The link id lives on the primary Board (`linkId`) and the key it names in
+ * this browser's credentials store (boardLinkKey.ts), so both are made
+ * together, by the edit that takes the root graph from no link to one: a
+ * wire drawn, a part or endpoint moved to another board. Never by a load,
+ * and never by a later edit to a project that already had its link. A
+ * project opened with a link but no id, or with an id this machine holds no
+ * key for, is left exactly as it was saved, and validation offers the fix
+ * (`renewBoardLinkKey`), because a new key means reflashing every linked
+ * board and that is the user's call.
+ *
+ * Kept out of undo history: the write rides along with the edit that made
+ * the link, so undoing that edit takes the id with it, and redrawing the wire
+ * in the same session reuses the id (and the key already made for it) rather
+ * than minting another. See docs/design/board-links.md.
+ */
+let loadingWorkspace = false
+/** The wiring the last check saw, so an edit elsewhere costs one compare. */
+let boardLinkWiringSeen = ''
+/** Whether that wiring had a link: the id is given on the step from none to one. */
+let boardLinkSeenLinked = false
+/** The link id this session last gave or loaded, reused after an undo. */
+let sessionBoardLinkId: string | null = null
+
+function whileLoadingWorkspace(run: () => void): void {
+  loadingWorkspace = true
+  try {
+    run()
+  } finally {
+    loadingWorkspace = false
+  }
+}
+
+/** What decides whether a wire crosses boards: who sits on which board, and the wires. */
+function boardLinkWiring(nodes: readonly StudioNode[], edges: readonly StudioEdge[]): string {
+  const anchors = nodes
+    .filter((node) => node.data.nodeType === 'Board' || isBoardAttachedNodeType(node.data.nodeType)
+      || isNetworkEndpointNodeType(node.data.nodeType))
+    .map((node) => `${node.id}@${String(node.data.properties?.boardId ?? '')}`)
+  const wires = edges.map((edge) => `${edge.source}.${edge.sourceHandle ?? ''}>${edge.target}.${edge.targetHandle ?? ''}`)
+  return `${anchors.join(',')}|${wires.join(',')}`
+}
+
+function rootHasBoardLink(nodes: readonly StudioNode[], edges: readonly StudioEdge[]): boolean {
+  return boardNodesIn(nodes).length > 1 && boardLinkSchema(nodes, edges).slots.length > 0
+}
+
+/** Take the workspace as it now stands as the baseline: a load, or boot. */
+function noteLoadedBoardLink(): void {
+  const state = useGraphStore.getState()
+  const nodes = rootGraphNodes(state)
+  const edges = rootGraphEdges(state)
+  boardLinkWiringSeen = boardLinkWiring(nodes, edges)
+  boardLinkSeenLinked = rootHasBoardLink(nodes, edges)
+  sessionBoardLinkId = boardLinkSettings(boardNodesIn(nodes)[0]?.data.properties).linkId
+}
+
+/** Write the link id onto the primary Board without an undo step of its own. */
+function writeBoardLinkId(linkId: string): void {
+  const temporalApi = useGraphStore.temporal.getState()
+  const wasTracking = temporalApi.isTracking
+  if (wasTracking) temporalApi.pause()
+  useGraphStore.setState((s) => {
+    const rootNodes = rootGraphNodes(s)
+    const primaryId = boardNodesIn(rootNodes)[0]?.id
+    if (!primaryId) return {}
+    return withRootNodes(s, rootNodes.map((node) => node.id === primaryId
+      ? { ...node, data: { ...node.data, properties: { ...node.data.properties, linkId } } }
+      : node))
+  })
+  if (wasTracking) useGraphStore.temporal.getState().resume()
+}
+
+/**
+ * The project's link id, assigning one when it has none, with a key on this
+ * machine. `freshKey` replaces the key even when one exists (the repair);
+ * without it an id that already has a key keeps it.
+ */
+function assignBoardLinkId(freshKey: boolean): string {
+  const keys = useBoardLinkKeyStore.getState()
+  const primary = boardNodesIn(rootGraphNodes(useGraphStore.getState()))[0]
+  const existing = boardLinkSettings(primary?.data.properties).linkId
+  if (existing) {
+    if (freshKey) keys.createKey(existing)
+    sessionBoardLinkId = existing
+    return existing
+  }
+  const linkId = sessionBoardLinkId && keys.byLinkId[sessionBoardLinkId] ? sessionBoardLinkId : newBoardLinkId()
+  if (freshKey || !keys.byLinkId[linkId]) keys.createKey(linkId)
+  sessionBoardLinkId = linkId
+  writeBoardLinkId(linkId)
+  return linkId
+}
+
+noteLoadedBoardLink()
+
+useGraphStore.subscribe((state, previous) => {
+  if (loadingWorkspace) return
+  const nodes = rootGraphNodes(state)
+  const edges = rootGraphEdges(state)
+  if (edges === rootGraphEdges(previous) && sameNodeData(nodes, rootGraphNodes(previous))) return
+  const boards = boardNodesIn(nodes)
+  if (boards.length < 2 || boardLinkSettings(boards[0].data.properties).linkId) return
+  const wiring = boardLinkWiring(nodes, edges)
+  if (wiring === boardLinkWiringSeen) return
+  boardLinkWiringSeen = wiring
+  const wasLinked = boardLinkSeenLinked
+  boardLinkSeenLinked = rootHasBoardLink(nodes, edges)
+  if (boardLinkSeenLinked && !wasLinked) assignBoardLinkId(false)
 })
 
 // Dev-only: expose the store on window so external tooling (e.g. a browser

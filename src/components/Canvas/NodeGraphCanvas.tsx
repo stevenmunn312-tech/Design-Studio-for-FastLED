@@ -54,6 +54,7 @@ import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/inter
 import { isHardwareLibraryHiddenNodeType } from '../../build/hardware'
 import { BUTTON_BANK_ADD_HANDLE } from '../../state/player/buttonBank'
 import { outputSignalRange } from '../../nodes/shared/signalRange'
+import { boardLinkWireLabels, NO_BOARD_LINK_LABELS } from './boardLinkWireLabels'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1226,6 +1227,12 @@ function NodeGraphCanvasInner() {
       outputs: data.outputs ?? [],
     }]
   })), [nodes])
+  // A root wire a board link carries is drawn as a link wire. Only the root
+  // graph has boards; inside a group `allNodes` is the group's, not the root.
+  const boardLinkLabels = useMemo(
+    () => activeGraphId === ROOT_GRAPH_ID ? boardLinkWireLabels(allNodes, allEdges) : NO_BOARD_LINK_LABELS,
+    [activeGraphId, allEdges, allNodes],
+  )
   const displayEdges = useMemo(() => {
     // A located wire outranks the selection's focus: it is the one thing the
     // user just asked to see.
@@ -1243,9 +1250,10 @@ function NodeGraphCanvasInner() {
       const targetPort = target?.inputs.find((port) => port.id === edge.targetHandle)
       const sourceLabel = source?.label ?? edge.source
       const targetLabel = target?.label ?? edge.target
+      const boardLink = boardLinkLabels.get(edge.id)
       return {
         ...edge,
-        ariaLabel: `Connection from ${sourceLabel} ${sourcePort?.label ?? edge.sourceHandle ?? 'output'} output to ${targetLabel} ${targetPort?.label ?? edge.targetHandle ?? 'input'} input.`,
+        ariaLabel: `Connection from ${sourceLabel} ${sourcePort?.label ?? edge.sourceHandle ?? 'output'} output to ${targetLabel} ${targetPort?.label ?? edge.targetHandle ?? 'input'} input.${boardLink ? ` Linked from ${boardLink}.` : ''}`,
         // The selected node's glow (.nodeSelected/.nodePath) reads as "front" even
         // when React Flow's own elevateEdgesOnSelect hasn't kicked in (e.g. a
         // freshly-added node is never RF-`.selected`, only tracked via our own
@@ -1257,6 +1265,7 @@ function NodeGraphCanvasInner() {
           spliceArmed: Boolean(draggingNodeType || canvasDragNodeId),
           splicePreview: edge.id === spliceEdgeId,
           focusState,
+          boardLink,
           connectionPulse:
             connectionPulse
             && edge.source === connectionPulse.source
@@ -1268,7 +1277,7 @@ function NodeGraphCanvasInner() {
         },
       }
     })
-  }, [accessibleNodeInfo, canvasDragNodeId, connectionPulse, draggingNodeType, edges, focusedNodes, locatedEdgeIds, selectedNodeId, spliceEdgeId])
+  }, [accessibleNodeInfo, boardLinkLabels, canvasDragNodeId, connectionPulse, draggingNodeType, edges, focusedNodes, locatedEdgeIds, selectedNodeId, spliceEdgeId])
 
   return (
     <div
