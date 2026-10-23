@@ -183,8 +183,9 @@ export const TFT_TRANSPORT_PINS: Record<TftTransport, readonly string[]> = {
  *
  * This board has no touch controller: the panel is a bare resistive sheet
  * wired across four lines the LCD bus already owns. Reading it means driving a
- * gradient across one axis and measuring the other, which is why these four
- * need `analogInput` and the other nine do not.
+ * gradient across one axis and measuring the other: all four switch between
+ * driving and floating, but only Y+ and X- are ever sampled (see
+ * `PARALLEL_TOUCH_ANALOG_PIN_KEYS`).
  *
  * They are not a second claim on those GPIOs. The pins belong to the panel,
  * are declared once by it, and the Touch node paired with it declares none -
@@ -202,6 +203,19 @@ export const PARALLEL_TOUCH_ELECTRODES = {
 /** The panel pin properties that double as touch electrodes on a bare sheet. */
 export const PARALLEL_TOUCH_PIN_KEYS: readonly string[] =
   Object.values(PARALLEL_TOUCH_ELECTRODES)
+
+/**
+ * The two electrodes the firmware samples with `analogRead` (`_resPoint`:
+ * pressure and Y on X-, X on Y+). X+ and Y- are only ever driven or floated,
+ * so they are plain outputs. Asking all four for an ADC is unsatisfiable
+ * cleanly on a classic ESP32, whose only output-capable ADC1 pins are 32 and
+ * 33, and pushed the other two onto ADC2 with a Wi-Fi caveat that never
+ * applied to them.
+ */
+export const PARALLEL_TOUCH_ANALOG_PIN_KEYS: readonly string[] = [
+  PARALLEL_TOUCH_ELECTRODES.yp,
+  PARALLEL_TOUCH_ELECTRODES.xm,
+]
 
 /**
  * The controller a catalogued part drives, by its declared controller string.

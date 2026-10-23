@@ -148,6 +148,35 @@ describe('HardwareReadiness — the capacity chip', () => {
   })
 })
 
+describe('HardwareReadiness — the pins chip', () => {
+  const nodeOf = (id: string, nodeType: string, properties: Record<string, unknown>) => ({
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: id, nodeType, category: 'output', properties, inputs: [], outputs: [] },
+  })
+
+  beforeEach(() => {
+    localStorage.clear()
+    setGraph()
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', openConsole: vi.fn() })
+    useCapacityStore.getState().clear()
+  })
+
+  it('counts only the active board, so two boards on the same GPIO are not a conflict', () => {
+    // Each board is its own firmware image; GPIO 5 on one is not GPIO 5 on the other.
+    useGraphStore.setState({
+      nodes: [
+        nodeOf('board-a', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+        nodeOf('board-b', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+        nodeOf('matrix-a', 'MatrixOutput', { form: 'matrix', width: 8, height: 8, chipset: 'WS2812B', dataPin: 5, boardId: 'board-a' }),
+        nodeOf('matrix-b', 'MatrixOutput', { form: 'matrix', width: 8, height: 8, chipset: 'WS2812B', dataPin: 5, boardId: 'board-b' }),
+      ] as never[],
+    })
+    useUiStore.setState({ activeBoardId: 'board-b' })
+    const { getByTitle } = render(<HardwareReadiness />)
+    expect(getByTitle(/Pin conflicts/).textContent).toContain('pins ok')
+  })
+})
+
 describe('HardwareReadiness — the frame chip', () => {
   const nodeOf = (id: string, nodeType: string, properties: Record<string, unknown>) => ({
     id, type: 'studioNode', position: { x: 0, y: 0 },

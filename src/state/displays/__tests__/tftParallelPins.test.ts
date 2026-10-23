@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  TFT_TRANSPORT_PINS, PARALLEL_TOUCH_ELECTRODES, PARALLEL_TOUCH_PIN_KEYS,
+  TFT_TRANSPORT_PINS, PARALLEL_TOUCH_ELECTRODES, PARALLEL_TOUCH_PIN_KEYS, PARALLEL_TOUCH_ANALOG_PIN_KEYS,
 } from '../tftSurface'
 import {
   isGpioPinProperty, isPropertyEnabled, gpioRequirementForProperty, libraryDefaults,
@@ -74,13 +74,17 @@ describe('the four shared touch electrodes', () => {
     expect(Object.keys(PARALLEL_TOUCH_ELECTRODES).sort()).toEqual(['xm', 'xp', 'ym', 'yp'])
   })
 
-  it('require analog input, which the other nine do not', () => {
-    for (const key of PARALLEL_TOUCH_PIN_KEYS) {
+  it('require analog input only on the two the firmware samples', () => {
+    // `_resPoint` reads X- and Y+; X+ and Y- are only driven or floated, and
+    // demanding an ADC for them forced ADC2 on a classic ESP32.
+    expect([...PARALLEL_TOUCH_ANALOG_PIN_KEYS].sort()).toEqual(['csPin', 'dcPin'])
+    for (const key of PARALLEL_TOUCH_ANALOG_PIN_KEYS) {
+      expect(PARALLEL_TOUCH_PIN_KEYS, key).toContain(key)
       expect(gpioRequirementForProperty('TransportDisplay', key, props(XC4630)), key)
         .toEqual({ capability: 'analogInput', pullup: false })
     }
-    const plain = TFT_TRANSPORT_PINS.parallel.filter((k) => !PARALLEL_TOUCH_PIN_KEYS.includes(k))
-    expect(plain.length).toBe(9)
+    const plain = TFT_TRANSPORT_PINS.parallel.filter((k) => !PARALLEL_TOUCH_ANALOG_PIN_KEYS.includes(k))
+    expect(plain.length).toBe(11)
     for (const key of plain) {
       expect(gpioRequirementForProperty('TransportDisplay', key, props(XC4630))?.capability, key)
         .toBe('digitalOutput')
@@ -98,7 +102,7 @@ describe('the four shared touch electrodes', () => {
   it('defaults onto ADC1, where the radio cannot disable the reading', () => {
     const board = BOARD_GPIO_BY_FQBN[S3]
     const defaults = libraryDefaults('TransportDisplay')
-    for (const key of PARALLEL_TOUCH_PIN_KEYS) {
+    for (const key of PARALLEL_TOUCH_ANALOG_PIN_KEYS) {
       const pin = board.recommended.find((note) => note.pin === defaults[key])
       expect(pin, `${key} -> GPIO${defaults[key]} is not a usable S3 pin`).toBeDefined()
       expect(pinSupports(pin!, 'analogInput'), `${key} must read analog`).toBe(true)

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useGroupRegistry } from '../../hooks/useGroupRegistry'
-import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { useBoardPartition, useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
 import { useUiStore } from '../../state/uiStore'
@@ -34,10 +34,13 @@ interface HardwareReadinessProps {
 }
 
 export default function HardwareReadiness({ compact = false }: HardwareReadinessProps) {
-  // Power, RAM and pin conflicts are all questions about the project's
-  // hardware, which lives in the root graph.
+  // Power is the whole bench's load, so it reads the root graph. RAM, wire
+  // time and pins are facts about one firmware image: they read the active
+  // board's partition with that board's FQBN (the upload store mirrors it), or
+  // two boards' pins collide with each other and are judged against one chip.
   const nodes = useRootNodes()
-  const edges = useRootEdges()
+  const activeBoardId = useUiStore((s) => s.activeBoardId)
+  const board = useBoardPartition(activeBoardId)
   const displayDocuments = useGraphStore((state) => state.displayDocuments)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const openConsole = useUploadStore((s) => s.openConsole)
@@ -53,16 +56,18 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const groups = useGroupRegistry()
-  const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments, groups), [nodes, edges, displayDocuments, groups])
-  const wire = useMemo(() => estimateWireTime(nodes, edges), [nodes, edges])
+  const ram = useMemo(
+    () => estimateFirmwareRam(board.nodes, board.edges, displayDocuments, groups),
+    [board, displayDocuments, groups],
+  )
+  const wire = useMemo(() => estimateWireTime(board.nodes, board.edges), [board])
   const pinTrouble = useMemo(() => {
-    const conflicts = findPinConflicts(nodes, edges, selectedFqbn)
-    const exact = findExactBoardPinIssues(nodes)
+    const conflicts = findPinConflicts(board.nodes, board.edges, selectedFqbn)
+    const exact = findExactBoardPinIssues(board.nodes)
     return { errors: conflicts.length + exact.errors.length, warnings: exact.warnings.length }
-  }, [nodes, edges, selectedFqbn])
+  }, [board, selectedFqbn])
 
-  const board = boardByFqbn(selectedFqbn)
-  const capacity = summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError)
+  const capacity = summarizeCapacity(boardByFqbn(selectedFqbn), capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError)
   const capacityFailed = capacity.level === 'error'
   const capacityLevel = capacity.tone === 'error' ? 'bad' : capacity.tone
   // A check compiles the design for real, so it only ever runs from a press —

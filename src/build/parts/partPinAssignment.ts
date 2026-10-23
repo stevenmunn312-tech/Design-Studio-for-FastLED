@@ -104,9 +104,9 @@ export function assignPartPins(
   const pins: Record<string, number> = {}
   // Analog is the stricter capability: every analog-capable pin can also drive
   // a digital line, but not the reverse. Assigning digital first on a mixed
-  // part (the XC4630's four touch electrodes plus nine strobes) lets the
-  // strobes eat the ADC pins and then reports "no analog pin" on a board that
-  // still had four. Analog first is the same order `assignPartPins` already
+  // part (the XC4630's two sampled touch electrodes plus eleven strobes) lets
+  // the strobes eat the ADC pins and then reports "no analog pin" on a board
+  // that still had two. Analog first is the same order `assignPartPins` already
   // uses within a capability — clean, then warned — one level up.
   const ordered = [...requests].sort((left, right) => (
     Number(left.capability === 'analogInput' ? 0 : 1)

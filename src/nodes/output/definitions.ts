@@ -529,10 +529,10 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       touchSckPin: 18,
       touchMosiPin: 23,
       touchMisoPin: 19,
-      // 8-bit parallel lines, shown only for a parallel module. The four that
-      // double as touch electrodes - csPin, dcPin, d0Pin, d1Pin - default onto
-      // the ESP32-S3's ADC1 range so a fresh graph is not quietly placed on an
-      // ADC the radio disables.
+      // 8-bit parallel lines, shown only for a parallel module. The two touch
+      // electrodes the firmware samples - csPin and dcPin - default onto the
+      // ESP32-S3's ADC1 range so a fresh graph is not quietly placed on an ADC
+      // the radio disables.
       wrPin: 33,
       rdPin: 34,
       d0Pin: 7,

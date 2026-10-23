@@ -339,9 +339,9 @@ describe('HardwarePane', () => {
     for (const key of keys) {
       expect(Number.isFinite(Number(panel!.data.properties[key])), `${key} was not assigned`).toBe(true)
     }
-    // The four touch electrodes have to sit on ADC pins. Digital-first
+    // The two sampled touch electrodes have to sit on ADC pins. Digital-first
     // assignment spent those on strobes and then refused the shield.
-    for (const key of ['csPin', 'dcPin', 'd0Pin', 'd1Pin']) {
+    for (const key of ['csPin', 'dcPin']) {
       expect(gpioRequirementForProperty('TransportDisplay', key, panel!.data.properties)?.capability)
         .toBe('analogInput')
     }

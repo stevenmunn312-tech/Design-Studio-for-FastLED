@@ -344,7 +344,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   first strobe is a real edge.
 - A parallel colour panel's own module declares its wiring, and a bare resistive
   touch sheet on it borrows four of those same lines rather than claiming a
-  second set. `TFT_TRANSPORT_PINS.parallel` (`tftSurface.ts`) is the thirteen
+  second set. Only Y+ (csPin) and X- (dcPin) are ever `analogRead`, so only
+  those two require `analogInput` (`PARALLEL_TOUCH_ANALOG_PIN_KEYS`); X+ and Y-
+  are driven outputs. Requiring all four was unsatisfiable on a classic ESP32,
+  whose only output-capable ADC1 pins are 32 and 33. `TFT_TRANSPORT_PINS.parallel` (`tftSurface.ts`) is the thirteen
   lines a parallel shield actually has — csPin, dcPin, resetPin, wrPin, rdPin,
   d0Pin..d7Pin, no clock, no MISO, no touch header — mirroring
   `OLED_TRANSPORT_PINS`; `dcPin` carries what the shield silkscreens LCD_RS

@@ -32,7 +32,7 @@ import { partById, partPinLabelForProperty } from '../build/parts/partCatalogue'
 import { PATTERN_SLIDESHOW_ORDERS } from './patterns/patternSlideshow'
 import { OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, oledControllerFor, oledTransportFor, type OledController, type OledTransport } from './displays/oledSurface'
 import {
-  tftControllerFor, tftTransportFor, TFT_TRANSPORT_PINS, PARALLEL_TOUCH_PIN_KEYS,
+  tftControllerFor, tftTransportFor, TFT_TRANSPORT_PINS, PARALLEL_TOUCH_ANALOG_PIN_KEYS,
   type TftController,
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
@@ -4489,7 +4489,8 @@ export function gpioRequirementForProperty(
   }
   /*
    * On a bare resistive sheet four of the panel's own lines are also the touch
-   * electrodes, so they have to read analog as well as drive.
+   * electrodes; the two the firmware samples have to read analog as well as
+   * drive. The other two only drive, so they stay plain outputs.
    *
    * `analogInput` is the binding half of that pair rather than an alternative
    * to it: every analog-capable pin on these parts is also an output, so
@@ -4501,7 +4502,7 @@ export function gpioRequirementForProperty(
    * turned the radio on.
    */
   if (nodeType === 'TransportDisplay'
-    && PARALLEL_TOUCH_PIN_KEYS.includes(key)
+    && PARALLEL_TOUCH_ANALOG_PIN_KEYS.includes(key)
     && tftTransportForProps(props) === 'parallel') {
     return { capability: 'analogInput', pullup: false }
   }

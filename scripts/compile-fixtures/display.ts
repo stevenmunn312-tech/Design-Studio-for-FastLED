@@ -309,8 +309,8 @@ const altPartNodes = [
 /*
  * The parallel shield, in its own sketch.
  *
- * Thirteen lines is more than any other display here, and four of them are
- * touch electrodes that have to sit on ADC1, so sharing the crowded
+ * Thirteen lines is more than any other display here, and two of them are
+ * sampled touch electrodes that have to sit on ADC1, so sharing the crowded
  * `part-families` set would let the pin budget decide the test rather than the
  * generator. It carries a Touch node because the sheet is the point: without
  * one the sketch compiles the panel and never emits `_resPoint`.
