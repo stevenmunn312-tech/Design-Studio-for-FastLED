@@ -14,6 +14,10 @@ import {
 } from './displays/segmentDisplayCpp'
 import { networkSketchCpp, networkSourceIn } from './peripherals/networkCpp'
 import { boardSyncGlobalsCpp, boardSyncServiceCallCpp, clockSyncRoleIn } from './peripherals/boardSyncCpp'
+import { boardLinkFirmware, boardLinkPlan, boardLinkSends } from './peripherals/espNowLinkCpp'
+import { BOARD_LINK_IN_NODE_TYPE, BOARD_LINK_OUT_NODE_TYPE, boardLinkPropertiesOf } from '../build/boardLinks'
+import { getBoardLinkKey } from '../state/peripherals/boardLinkKey'
+import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import {
   NODE_LIBRARY,
   resolveNodeNumericProperties,
@@ -241,11 +245,14 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
  * pruned out of the sketch along with everything feeding it, which is how a
  * configured display used to vanish from a build.
  */
-const TERMINAL_NODE_TYPES = new Set(
-  NODE_LIBRARY
+const TERMINAL_NODE_TYPES = new Set([
+  ...NODE_LIBRARY
     .filter((def) => def.inputs.length > 0 && (def.outputs.length === 0 || def.category === 'output'))
     .map((def) => def.type),
-)
+  // A value this board sends over a board link: nothing on this board reads
+  // it, so without being a root it and its sources would be pruned.
+  BOARD_LINK_OUT_NODE_TYPE,
+])
 
 /**
  * Golden ratio for a CustomFormula/FieldFormula expression that uses PHI,
@@ -352,6 +359,9 @@ export function generateCpp(
   }
 
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
+  // The board link, when this partition receives or sends over one
+  // (docs/design/board-links.md). Null for a one-board project.
+  const boardLink = boardLinkPlan(nodes)
 
   const allOutputNodes = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
   const controller = controllerSettings(nodes)
@@ -581,7 +591,10 @@ export function generateCpp(
     if (consumers.length !== 1) return null
     return live.some((n) => n.id === up.srcId) ? safeId(up.srcId) : null
   })()
-  const emitRtcHelpers = sorted.some((n) => n.data.nodeType === 'RTCInput')
+  // A clock that arrives over a board link is turned back into the struct an
+  // RTC writes, with the same calendar helpers.
+  const emitRtcHelpers = sorted.some((n) => n.data.nodeType === 'RTCInput' || (n.data.nodeType === BOARD_LINK_IN_NODE_TYPE
+    && (boardLinkPropertiesOf(n)?.dataType === 'datetime' || boardLinkPropertiesOf(n)?.displayKind === 'clock')))
   const needsDs3231 = sorted.some((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'DS3231')
   // Everything sharing the board's one `Wire` bus. A 4-pin OLED joins the
   // DS3231 on it, which is why `Wire.begin` is started once below rather than
@@ -904,7 +917,7 @@ export function generateCpp(
     needsMapFloat, needsWorley, needsSimplex, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsLatticeQ, needsHueMix, needsHsv, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
-    customDisplayOwners,
+    customDisplayOwners, boardLink,
   }
 
   function emit(node: StudioNode): void {
@@ -1169,6 +1182,27 @@ export function generateCpp(
   for (const line of irEmission.setup) pinSetupLines.add(line)
   loopLines.push(...customDisplayPublication)
 
+  /*
+   * What this board sends over the link, read from the wire into each
+   * link-out after the graph has run. A display is sent field by field: a
+   * normal sketch answers a clock and a power reading, and has no track or
+   * pattern to send, so those fields go out at rest.
+   */
+  const link = boardLink ? boardLinkFirmware(boardLink, boardLinkSends(boardLink, (linkOut, linkProps, field) => {
+    const up = incoming.get(`${linkOut.id}:value`)
+    if (!up) return null
+    const value = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
+    if (field === null) return value
+    if (linkProps.displayKind === 'clock') return `n_${safeId(up.srcId)}_dateTime`
+    if (linkProps.displayKind === 'powerMonitor') return `n_${safeId(up.srcId)}_${safeId(field)}`
+    return null
+  }), {
+    joinsWifi: !!network && !wiredNetworkIn(nodes),
+    key: getBoardLinkKey(boardLink.context.linkId),
+    telemetry: emitTelemetry,
+  }) : null
+  if (link) loopLines.push(...link.stage)
+
   const lines: string[] = []
 
   // Header (the overclock define must precede the FastLED include)
@@ -1193,6 +1227,7 @@ export function generateCpp(
   }
   if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_INCLUDE)
   if (network) lines.push(network.include)
+  if (link) lines.push(link.include)
   if (needsDmx512) {
     lines.push(`#if defined(ESP32)`)
     lines.push(`#include <esp_dmx.h>`)
@@ -1557,6 +1592,7 @@ export function generateCpp(
 
   if (network) lines.push(network.bootstrap)
   if (clockSync) { lines.push(boardSyncGlobalsCpp(clockSync, false)); lines.push(``) }
+  if (link) lines.push(link.globals)
 
   lines.push(...customPaletteDeclarationsCpp(usedPalettes))
   lines.push(``)
@@ -1620,6 +1656,8 @@ export function generateCpp(
   // Share one serial port between telemetry, hardware diagnostics and RTC commands.
   if ((emitTelemetry || irEmission.debug || powerMonitors.some((node) => props(node).debug === true)) && !needsDs3231) {
     lines.push(emitTelemetry ? TELEMETRY_SERIAL_BEGIN_CPP : '  Serial.begin(115200);  // Hardware diagnostics')
+  } else if (link?.receives && !needsDs3231) {
+    lines.push('  Serial.begin(115200);  // board link reports a schema mismatch')
   }
   // Must run before any other LVGL call — every custom Display's screen and
   // panel setup below (in setupLines) creates LVGL objects.
@@ -1628,6 +1666,8 @@ export function generateCpp(
   // in setupLines below. Starting it does not wait for a cable or an address.
   if (network) lines.push(...network.setup)
   lines.push(...setupLines)
+  // After the network setup: a linked board on Wi-Fi starts the connection it rides.
+  if (link) lines.push(...link.setup)
   if (customDisplays.length > 0) lines.push(customDisplayLvglTimingSetupCpp())
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 1))
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 2))
@@ -1677,6 +1717,7 @@ export function generateCpp(
   if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit, clockSync !== null))
   // After the clock snapshot: a follower's offset applies from the next pass.
   if (clockSync) lines.push(boardSyncServiceCallCpp(clockSync, null))
+  if (link) lines.push(...link.receive)
   for (const panel of customDisplayPanels) {
     if (!panel.touch) continue
     const read = `lv_indev_read(_cdIndev_${panel.id});`
@@ -1702,6 +1743,7 @@ export function generateCpp(
   // Bounded by its own wall-clock gate, so a fast LED loop cannot over-service
   // it and a slow one still redraws promptly.
   if (customDisplays.length > 0) lines.push(customDisplayLvglTimingLoopCpp())
+  if (link) lines.push(...link.transmit)
   // Before the pacing delay: the report then measures the work a pass did, not
   // the sleep it was told to take.
   if (emitTelemetry) lines.push(TELEMETRY_REPORT_CPP)

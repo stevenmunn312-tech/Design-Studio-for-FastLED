@@ -69,8 +69,14 @@ describe('board links — the partition', () => {
     const slot = { sourceNodeId: 'enc', sourceHandle: 'position' }
     const linkIn = one.nodes.find((n) => n.id === boardLinkInNodeId(slot))!
     expect(linkIn.data.nodeType).toBe(BOARD_LINK_IN_NODE_TYPE)
-    expect(boardLinkPropertiesOf(linkIn)).toEqual({
+    expect(boardLinkPropertiesOf(linkIn)).toMatchObject({
       slot: 0, senderBoardId: 'board-2', sourceNodeId: 'enc', sourceHandle: 'position', dataType: 'float', momentary: false,
+      start: 0,
+    })
+    // Both sketches compile from one context: the frame order and each sender's table.
+    expect(boardLinkPropertiesOf(linkIn)!.link).toMatchObject({
+      boardOrder: ['board-root', 'board-2'], channel: 1, linkId: null,
+      frames: { 'board-2': [{ index: 0, kind: 'float' }] },
     })
     // The wire keeps its id and now starts at the link-in.
     const wire = one.edges.find((e) => e.id === 'e-enc-position-map-value')!
@@ -102,6 +108,57 @@ describe('board links — the partition', () => {
     expect(boardLinkWires(base, edges).get('e-player-display-panel-display')).toEqual({
       senderBoardId: 'board-root', receiverBoardIds: ['board-2'],
     })
+  })
+
+  it('sends only the display fields the receiving panel draws, one index each', () => {
+    const edges = [
+      ...baseEdges,
+      edge('player', 'display', 'panel', 'display'),
+      edge('enc', 'pressed', 'player', 'next'),
+    ]
+    const nodes = base.map((n) => (n.id === 'panel'
+      ? node('panel', 'TransportDisplay', { ...on2, tftLayout: 'Fixed Transport' }) : n))
+    const { slots } = boardLinkSchema(nodes, edges)
+    expect(slots[0].displayKind).toBe('player')
+    // Fixed Transport draws title, pattern, play state and volume, in the catalogue's order.
+    expect(slots[0].fields).toEqual([
+      { id: 'title', kind: 'text', index: 0 },
+      { id: 'playing', kind: 'bool', index: 1 },
+      { id: 'volume', kind: 'float', index: 2 },
+      { id: 'patternName', kind: 'text', index: 3 },
+    ])
+    expect(slots[1].link!.frames['board-2']).toEqual([{ index: 0, kind: 'press' }])
+    expect(slots[0].link!.frames['board-root'].map((entry) => entry.kind)).toEqual(['text', 'bool', 'float', 'text'])
+    // A panel that draws more moves the indexes, so the hash moves with them.
+    const nowPlaying = base.map((n) => (n.id === 'panel'
+      ? node('panel', 'TransportDisplay', { ...on2, tftLayout: 'Now Playing' }) : n))
+    expect(boardLinkSchema(nowPlaying, edges).hash).not.toBe(boardLinkSchema(nodes, edges).hash)
+  })
+
+  it('reads a screen design\'s bound fields and a Song Info node\'s wired outputs', () => {
+    const designed = base.map((n) => (n.id === 'panel'
+      ? node('panel', 'TransportDisplay', { ...on2, tftLayout: 'Custom design', displayId: 'doc', widgetSources: { w1: { field: 'elapsed' }, w2: { field: 'title' } } })
+      : n))
+    const edges = [...baseEdges, edge('player', 'display', 'panel', 'display')]
+    expect(boardLinkSchema(designed, edges).slots[0].fields!.map((field) => field.id)).toEqual(['title', 'elapsed'])
+
+    const nodes = [...base, node('song', 'SongInfo'), node('seg', 'SegmentDisplay', on2), node('fmt', 'FormatNumber')]
+    const songEdges = [
+      ...baseEdges,
+      edge('player', 'display', 'song', 'display'),
+      edge('song', 'artist', 'fmt', 'value'),
+      edge('fmt', 'text', 'panel', 'widget:w1:value'),
+    ]
+    const two = boardPartition(nodes, songEdges, 'board-2')
+    expect(ids(two.nodes)).toContain('song')
+    const linkIn = two.nodes.find((n) => n.data.nodeType === BOARD_LINK_IN_NODE_TYPE)!
+    expect(boardLinkPropertiesOf(linkIn)!.fields).toEqual([{ id: 'artist', kind: 'text', index: 0 }])
+  })
+
+  it('sends a linked clock whole, as one datetime', () => {
+    const nodes = [...base, node('rtc', 'RTCInput')]
+    const edges = [...baseEdges, edge('rtc', 'display', 'panel', 'display')]
+    expect(boardLinkSchema(nodes, edges).slots[0].fields).toEqual([{ id: 'dateTime', kind: 'datetime', index: 0 }])
   })
 
   it('refuses audio across boards and names the type', () => {

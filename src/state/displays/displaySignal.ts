@@ -112,6 +112,23 @@ export const DISPLAY_SOURCE_LABELS: Record<DisplaySignalKind, string> = {
 export const SKETCH_DISPLAY_SOURCE_KINDS: readonly DisplaySignalKind[] = ['clock', 'ledOutput', 'powerMonitor']
 
 /**
+ * The sources a normal sketch can fill a display from when the signal arrives
+ * over a board link (docs/design/board-links.md).
+ *
+ * A player and a slideshow join the list here because their values arrive
+ * rather than being computed: the board running the player sends the fields
+ * the panel draws. An LED output does not: its name and size are the sending
+ * sketch's compile-time facts, not values on the wire.
+ */
+export const LINKED_SKETCH_DISPLAY_SOURCE_KINDS: readonly DisplaySignalKind[] = ['clock', 'powerMonitor', 'player', 'slideshow']
+
+/** Whether a normal sketch can draw `kind`, local or arriving over a link. */
+export function sketchAnswersDisplayKind(kind: DisplaySignalKind | null | undefined, linked: boolean): boolean {
+  if (!kind) return false
+  return (linked ? LINKED_SKETCH_DISPLAY_SOURCE_KINDS : SKETCH_DISPLAY_SOURCE_KINDS).includes(kind)
+}
+
+/**
  * The node types that publish each kind, for resolution without evaluation.
  *
  * Two nodes publish `player`, and they are not a duplication: both are holding

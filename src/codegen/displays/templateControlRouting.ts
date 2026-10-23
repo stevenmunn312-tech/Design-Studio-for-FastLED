@@ -18,6 +18,7 @@ import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplayS
 import { normalSketchSourceExpressions, type DisplaySourceExpressions, type LedStatusExpressions } from './displaySourceExpressions'
 import { rtcDateTimeSymbol } from '../peripherals/rtcInputCpp'
 import { drivenOutputLedStatus, ledOutputManualExprs, ledOutputRuntimeExpressions } from '../output/ledOutputRuntimeCpp'
+import { templateBoardLink } from '../peripherals/boardLinkTemplate'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
 
@@ -372,6 +373,10 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       else unsupported(display.panelNodeId, DISPLAY_SCREEN_INPUT_ID)
     }
   }
+  // What this board sends over a board link, resolved through the same graph
+  // so a value the template cannot evaluate is refused here as well.
+  const link = templateBoardLink(nodes, graph, context.sourceExpressions ?? {}, clockFor, context.label)
+  for (const error of link?.errors ?? []) errors.add(error)
   // Keep the consumer in the headline and retain the typed cause (cycle,
   // invalid handle, limits) for an actionable error from either entry point.
   const issues = [...errors]
@@ -382,7 +387,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   }
   return {
     touchIds, graph, custom, displaySources, controls, bundles, scalarOutputs, scalarInputs,
-    ledStatusFor, clockFor, errors: issues,
+    ledStatusFor, clockFor, errors: issues, link,
   }
 }
 

@@ -415,6 +415,8 @@ export interface SegmentDisplayEmit {
   ledStatus?: { enabledExpr: string; brightnessExpr: string }
   powerMonitor?: { volts: string; amps: string; watts: string }
   enabledExpr: string
+  /** C++ true while a source arriving over a board link is absent: the module dashes. */
+  waitingExpr?: string
   /** Zero for healthy, otherwise one of the generated SEG_FAULT_* values. */
   faultCodeExpr?: string | null
 }
@@ -459,6 +461,13 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
     lines.push(
       `    } else if (${fault} != SEG_FAULT_NONE) {`,
       `      _segFaultCode(${v}, ${digits}, ${fault});`,
+    )
+  }
+  // A source over a board link that has gone absent dashes, as nothing wired does.
+  if (display.waitingExpr && display.mode !== 'Waiting') {
+    lines.push(
+      `    } else if (${display.waitingExpr}) {`,
+      `      _segAllDash(${v}, ${digits});`,
     )
   }
 

@@ -5,6 +5,7 @@ import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
 import { dissolveRankCpp, dissolveThresholdCpp } from './dissolveHash'
+import { linkedDisplayOf } from '../../codegen/peripherals/espNowLinkCpp'
 
 /**
  * Show-pipeline nodes have no emitter *by design* — they are handled by a
@@ -279,14 +280,21 @@ export const SHOW_EMITTERS: NodeEmitters = {
           : `  { ${seed} nscale8(${ob}, NUM_LEDS, 255 - (uint8_t)((${tt}) * 255)); }`)
     }
   },
-  SongInfo({ id, ln }) {
+  SongInfo({ node, id, ln, incoming, nodeMap, boardLink }) {
     // The player it reads renders as a black fill here, so there is no
     // track to report. Blanks rather than omitted variables: anything
     // downstream already names these, and a missing definition would fail
-    // the build on a line no generator wrote.
+    // the build on a line no generator wrote. A player on another board
+    // sends the fields wired onward from here over the board link.
+    const up = incoming.get(`${node.id}:display`)
+    const linked = linkedDisplayOf(boardLink, up ? nodeMap.get(up.srcId) : undefined)
     for (const port of SONG_INFO_PORTS) {
       const name = `n_${id}_${safeId(port.id)}`
-      if (port.dataType === 'string') ln(textValueCpp(name, ''))
+      const field = linked?.kind === 'player' ? linked.fields[port.id] : undefined
+      if (field) {
+        const type = port.dataType === 'string' ? 'const char *' : port.dataType === 'bool' ? 'bool' : 'float'
+        ln(`  ${type} ${name} = ${field};`)
+      } else if (port.dataType === 'string') ln(textValueCpp(name, ''))
       else if (port.dataType === 'bool') ln(`  bool ${name} = false;`)
       else ln(`  float ${name} = 0.0f;`)
     }

@@ -581,3 +581,27 @@ sketch still carries only what the graph reaches.
   only; a cursor-driven show moves its cursor with the adoption, or the next
   pass would step it straight back. The SD/music player emits none of this
   even with sync on: its clock is the track position.
+
+## Board links
+
+- `peripherals/espNowLinkCpp.ts` turns a partition's `BoardLinkIn`/`BoardLinkOut`
+  nodes into firmware; with none it emits nothing, so one-board sketches are
+  unchanged. Each link node carries the shared `BoardLinkContext` (link id,
+  channel, board order, every sender's frame table) computed once in
+  `boardPartition.ts`, so both sketches decode by the same table. A display
+  slot takes one frame index per field (`fields: [{ id, kind, index }]`),
+  chosen from its receivers in `build/boardLinkDisplay.ts`.
+- The C++ is three parts: `_lnkHmac` (mbedTLS / BearSSL), a portable codec
+  that takes the time as an argument, and the radio. Keep the codec free of
+  Arduino calls: `espNowLinkNative.test.ts` compiles it on the host with a
+  reference HMAC and holds it to a TypeScript mirror of the frame.
+- The normal sketch receives right after the clock snapshot and stages sends
+  as its last loop lines (inside a native multi-output pass too, harmless
+  because staging is idempotent), transmitting after the frame. The templates
+  read a link-in through the control graph (`boardLinkControlEmission`) and
+  resolve link-outs in `templateControlRouting`
+  (`peripherals/boardLinkTemplate.ts`), so validation sees the same refusals;
+  a sent pattern or track field joins the bound fields that switch the cursor
+  and the name table on.
+- A panel fed over a link gets `waitingExpr`: the OLED and colour panels draw
+  the waiting screen and a segment module dashes while the sender is lost.

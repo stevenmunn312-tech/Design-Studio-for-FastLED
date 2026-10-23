@@ -422,6 +422,12 @@ export interface InfoDisplayEmit {
   height: number
   powerMonitor?: { volts: string; amps: string; watts: string }
   enabledExpr: string
+  /**
+   * C++ that is true while the source is absent, for a signal that arrives
+   * over a board link: the panel then draws its waiting screen. Absent for a
+   * local source, which is there for as long as the sketch runs.
+   */
+  waitingExpr?: string
   titleExpr: string | null
   line2Expr: string | null
   valueExpr: string
@@ -628,6 +634,7 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     )
   }
 
+  const bodyStart = lines.length
   if (display.layout === 'Power Monitor') {
     powerMonitorGeometry(width, height).forEach((g, i) => {
       const value = display.powerMonitor?.[POWER_MONITOR_FIELDS[i]] ?? 'NAN'
@@ -665,15 +672,7 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
   } else if (display.layout === 'Waiting') {
     // Nothing plugged in, said outright. A blank panel and a dead panel look
     // identical on a bench, and the second row names the user's next move.
-    const g = waitingGeometry(width, height)
-    lines.push(
-      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "${DISPLAY_WAITING_TEXT}", ${g.message.w});`,
-      `      _oledText(${p}, max(${g.message.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.message.y}, _oledBuf_${display.id});`,
-    )
-    if (g.hint) lines.push(
-      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "WIRE A SOURCE TO DISPLAY", ${g.hint.w});`,
-      `      _oledText(${p}, max(${g.hint.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.hint.y}, _oledBuf_${display.id});`,
-    )
+    lines.push(...infoWaitingLines(display))
   } else if (display.layout === 'LED Status') {
     // The mono twin of the colour panel's layout of the same name, resolving
     // the same geometry function so the two cannot place a row differently.
@@ -761,12 +760,40 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     )
   }
 
+  // A signal that arrives over a board link can go absent at run time: the
+  // panel then draws the same waiting screen as one with nothing wired.
+  if (display.waitingExpr && display.layout !== 'Waiting') {
+    const body = lines.splice(bodyStart).map((line) => `  ${line}`)
+    lines.push(
+      `      if (${display.waitingExpr}) {`,
+      ...infoWaitingLines(display).map((line) => `  ${line}`),
+      `      } else {`,
+      ...body,
+      `      }`,
+    )
+  }
+
   if (display.boot?.faultExpr) lines.push(`      }`)
 
   lines.push(
     `    }`,
     `    _oledFlush(${p}, _oledOn_${display.id});`,
     `  }`,
+  )
+  return lines
+}
+
+function infoWaitingLines(display: InfoDisplayEmit): string[] {
+  const p = `_oled_${display.id}`
+  const { width, height } = display
+  const g = waitingGeometry(width, height)
+  const lines = [
+    `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "${DISPLAY_WAITING_TEXT}", ${g.message.w});`,
+    `      _oledText(${p}, max(${g.message.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.message.y}, _oledBuf_${display.id});`,
+  ]
+  if (g.hint) lines.push(
+    `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "WIRE A SOURCE TO DISPLAY", ${g.hint.w});`,
+    `      _oledText(${p}, max(${g.hint.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.hint.y}, _oledBuf_${display.id});`,
   )
   return lines
 }

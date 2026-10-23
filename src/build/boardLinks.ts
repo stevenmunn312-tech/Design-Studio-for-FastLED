@@ -1,7 +1,12 @@
 import type { StudioNode } from '../state/graphStore'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
-import { displayWidgetPortId, parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
-import { normalizeWebRemoteControls, parseWebRemotePortId, webRemoteControlKind } from '../state/peripherals/webRemote'
+import {
+  displayHueColor, displayPickerTone, displayWidgetPortId, parseDisplayWidgetPortId,
+} from '../state/displays/displayRegistry'
+import type { DisplaySignalKind } from '../state/displays/displaySignal'
+import {
+  normalizeWebRemoteControls, parseWebRemotePortId, webRemoteControlKind, webRemoteStartState,
+} from '../state/peripherals/webRemote'
 
 /**
  * Board links — the vocabulary the partition walk and the generators share.
@@ -76,11 +81,60 @@ export function outputPortDataType(node: StudioNode, handle: string | null | und
 }
 
 /**
+ * How one value is written into a frame. A held bool is one byte, a press a
+ * counter and the level, a string its length and up to 63 bytes; see "What a
+ * link carries" in docs/design/board-links.md.
+ */
+export type BoardLinkWireKind = 'float' | 'bool' | 'press' | 'color' | 'text' | 'datetime'
+
+/** A value's bytes on the wire, or for text the most it can take. */
+export const BOARD_LINK_WIRE_BYTES: Record<BoardLinkWireKind, number> = {
+  float: 4, bool: 1, press: 3, color: 3, text: 64, datetime: 4,
+}
+
+/**
+ * One field of a display wire, at its own frame index. A display slot is
+ * decomposed into the fields its receiving panels read, so a panel that shows
+ * a title and a position costs two values on the wire.
+ */
+export interface BoardLinkField {
+  /** The source-field id (`title`, `elapsed`, …), or `dateTime` for a clock. */
+  id: string
+  kind: BoardLinkWireKind
+  /** The field's index in its sender's frame. */
+  index: number
+}
+
+/** One value a board sends, as its frame table lists it. */
+export interface BoardLinkFrameEntry {
+  index: number
+  kind: BoardLinkWireKind
+}
+
+/**
+ * What every linked sketch compiles beside its own slots: the link's identity,
+ * its radio channel and every sender's frame table. A receiver decodes a
+ * frame by its sender's table, skipping the values it does not read, so each
+ * board's tables are built from the one slot list both sides share.
+ */
+export interface BoardLinkContext {
+  hash: number
+  /** The project's link id (eight hex digits), or null before one is made. */
+  linkId: string | null
+  /** The channel the boards use when none joins a network. */
+  channel: number
+  /** Board ids in frame order: a frame's sender byte indexes this list. */
+  boardOrder: string[]
+  /** Each sending board's frame table, in index order. */
+  frames: Record<string, BoardLinkFrameEntry[]>
+}
+
+/**
  * The properties a synthetic link node carries: which slot it stands for and
  * what it replaced. The generators read these and nothing else.
  */
 export interface BoardLinkNodeProperties {
-  /** The slot's position in its sending board's frame. */
+  /** The slot's frame index in its sending board's frame (a display slot's first field). */
   slot: number
   /** The board that sends the slot. */
   senderBoardId: string
@@ -90,6 +144,52 @@ export interface BoardLinkNodeProperties {
   dataType: BoardLinkDataType
   /** A bool that is a press (counted) rather than a level (held). */
   momentary: boolean
+  /** A display slot: the source's kind and the fields its receivers read. */
+  displayKind?: DisplaySignalKind | null
+  fields?: BoardLinkField[]
+  /**
+   * What a link-in reads before the first frame: the sending node's start
+   * value, the same one the preview has at time zero.
+   */
+  start?: number | boolean | string
+  link?: BoardLinkContext
+}
+
+/** How a non-display slot's value is written into the frame. */
+export function boardLinkWireKind(slot: Pick<BoardLinkNodeProperties, 'dataType' | 'momentary'>): BoardLinkWireKind {
+  switch (slot.dataType) {
+    case 'bool': return slot.momentary ? 'press' : 'bool'
+    case 'color': return 'color'
+    case 'string': return 'text'
+    case 'datetime': return 'datetime'
+    default: return 'float'
+  }
+}
+
+/**
+ * A sending node's value before anything has moved it: a Web Remote control's
+ * start state, and for everything else the rest value of its type (0, false,
+ * black, an empty string), which is what a part reads before its first sample.
+ * A colour is packed 0xRRGGBB.
+ */
+export function boardLinkStartValue(node: StudioNode, handle: string, dataType: BoardLinkDataType): number | boolean | string {
+  const type = String((node.data as { nodeType?: string }).nodeType ?? '')
+  if (type === 'WebRemoteInput') {
+    const id = parseWebRemotePortId(handle)
+    const control = normalizeWebRemoteControls(node.data.properties?.controls).find((entry) => entry.id === id)
+    if (control) {
+      const start = webRemoteStartState(control)
+      if (dataType === 'color' && typeof start === 'number') {
+        const tone = displayPickerTone(control)
+        const rgb = displayHueColor(start, tone.saturation, tone.brightness)
+        return (rgb.r << 16) | (rgb.g << 8) | rgb.b
+      }
+      if (dataType === 'bool') return start === true
+      if (dataType === 'string') return typeof start === 'string' ? start : ''
+      if (typeof start === 'number' && Number.isFinite(start)) return start
+    }
+  }
+  return dataType === 'bool' ? false : dataType === 'string' ? '' : 0
 }
 
 export function boardLinkPropertiesOf(node: StudioNode): BoardLinkNodeProperties | null {
@@ -134,12 +234,14 @@ export function fnv1a32(text: string): number {
  * The hash of a slot table. Only what both sketches depend on goes in: who
  * sends, the slot's position, the value's identity and how it is encoded.
  * Receivers are left out, because a new consumer of an existing slot changes
- * nothing on the wire.
+ * nothing on the wire; a display slot's fields are in, because a panel that
+ * starts reading another field moves every index after it.
  */
 export function boardLinkSchemaHash(slots: readonly BoardLinkSlot[], boardOrder: readonly string[]): number {
   const rows = slots.map((slot) => [
     boardOrder.indexOf(slot.senderBoardId), slot.slot, slot.sourceNodeId, slot.sourceHandle,
     slot.dataType, slot.momentary ? 1 : 0,
+    ...(slot.fields ? [slot.fields.map((field) => `${field.id}/${field.kind}/${field.index}`).join(',')] : []),
   ].join(':'))
   return fnv1a32(rows.join('|'))
 }

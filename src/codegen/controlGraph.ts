@@ -15,6 +15,8 @@ import { TIMED_CONTROL_NODES, timedControlCpp } from './signalControlCpp'
 import { RTC_CONTROL_OUTPUTS, rtcControlEmission, rtcTimeSource } from './peripherals/rtcInputCpp'
 import { RTC_CPP_FORWARD } from './peripherals/rtcCpp'
 import { webRemoteControlEmission } from './peripherals/webRemoteCpp'
+import { boardLinkControlEmission, boardLinkPlan, type BoardLinkPlan } from './peripherals/espNowLinkCpp'
+import { BOARD_LINK_IN_NODE_TYPE } from '../build/boardLinks'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
 import { HSV_HELPER_CPP } from './helpers/hsvHelperCpp'
 import { KELVIN_TO_RGB_CPP } from './helpers/kelvinCpp'
@@ -58,6 +60,8 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
   const samples = new Map(sampledSources.map((source) => [JSON.stringify([source.nodeId, source.port]), source]))
   // One serial reader serves every DS3231. The first chip to be emitted owns it.
   let rtcSerialArmed = false
+  // Planned on the first link-in reached; most graphs have none.
+  let linkPlan: BoardLinkPlan | null | undefined
   // Samples are declared before the graph even when no consumer reads them.
   // Reserve all their symbols so an otherwise unused output cannot collide.
   for (const source of sampledSources) {
@@ -79,8 +83,12 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     // built here rather than by `controlInputCpp`, which sees one node.
     const remote = node.data.nodeType === 'WebRemoteInput'
       ? webRemoteControlEmission(safeId(node.id), node.data.properties, nodes) : null
+    // A value another board sends, read off the board link before this pass.
+    if (node.data.nodeType === BOARD_LINK_IN_NODE_TYPE && linkPlan === undefined) linkPlan = boardLinkPlan(nodes)
+    const linked = node.data.nodeType === BOARD_LINK_IN_NODE_TYPE
+      ? boardLinkControlEmission(linkPlan ?? null, node, safeId(node.id)) : null
     const gpio = scalar || clock || color || timed || rtc ? null
-      : remote ?? controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
+      : remote ?? linked ?? controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
     const sample = samples.get(JSON.stringify([nodeId, port]))
     const outputs: Readonly<Record<string, ControlDataType>> = clock ? TIME_CONTROL_OUTPUTS
       : scalar ? { [scalar.port]: scalar.type }
