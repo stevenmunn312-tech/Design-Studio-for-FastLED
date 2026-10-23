@@ -160,9 +160,10 @@ describe('boardPartition — two boards', () => {
 
   it('reports a wire from one board part to a pattern only another board shows', () => {
     const wired = [...edges, edge('potB', 'onlyA')]
+    // The fixture's handles name no port, so no link can carry the wire.
     const issues = findCrossBoardIssues(nodes, wired)
     expect(issues).toEqual([{
-      sourceNodeId: 'potB', targetNodeId: 'outA', sourceBoardId: 'board-2', targetBoardId: 'board-root',
+      sourceNodeId: 'potB', targetNodeId: 'onlyA', sourceBoardId: 'board-2', targetBoardId: 'board-root', dataType: null,
     }])
     // The far side of the wire is not pulled into the primary's partition.
     expect(ids(boardPartition(nodes, wired, 'board-root').nodes)).not.toContain('potB')
@@ -170,8 +171,10 @@ describe('boardPartition — two boards', () => {
 
   it('reports a part feeding a pattern another board also shows', () => {
     const wired = [...edges, edge('potB', 'shared')]
+    // The finding names the wire that cannot be carried, not the frame
+    // downstream of it.
     expect(findCrossBoardIssues(nodes, wired)).toEqual([{
-      sourceNodeId: 'potB', targetNodeId: 'outA', sourceBoardId: 'board-2', targetBoardId: 'board-root',
+      sourceNodeId: 'potB', targetNodeId: 'shared', sourceBoardId: 'board-2', targetBoardId: 'board-root', dataType: null,
     }])
     // The pot is board-2's, and the primary's partition stops at it.
     expect(ids(boardPartition(nodes, wired, 'board-root').nodes)).not.toContain('potB')

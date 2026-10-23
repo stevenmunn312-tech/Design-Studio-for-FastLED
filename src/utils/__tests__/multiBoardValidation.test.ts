@@ -110,7 +110,7 @@ describe('multiBoardValidation — several boards', () => {
 
   it('validates each board with its own FQBN and prefixes what only that board reports', () => {
     const { nodes, edges } = twoBoards({
-      nodes: [node('dmx', 'DMXInput', { inputMode: 'Art-Net', universe: 0 }), node('ch', 'DMXChannel', { channel: 1 }), node('fade', 'BrightnessMod')],
+      nodes: [node('dmx', 'DMXInput', { inputMode: 'Art-Net', universe: 0, boardId: 'board-2' }), node('ch', 'DMXChannel', { channel: 1 }), node('fade', 'BrightnessMod')],
       edges: [edge('dmx', 'ch', 'dmx', 'dmx'), edge('p2', 'fade'), edge('ch', 'fade', 'brightness', 'value')],
     })
     // Board 2 shows the Art-Net-driven pattern through fade → out2.
@@ -167,21 +167,22 @@ describe('multiBoardValidation — several boards', () => {
 
   it('reports a wire that crosses boards as an error on both boards', () => {
     const { nodes, edges } = twoBoards({
-      nodes: [node('pot', 'PotInput', { pin: 34, boardId: 'board-2' }), node('fade', 'BrightnessMod')],
-      edges: [edge('pot', 'fade', 'brightness', 'value'), edge('p1', 'fade')],
+      // Audio cannot cross boards; a pot's value could, over a link.
+      nodes: [node('pot', 'MicInput', { boardId: 'board-2' }), node('fade', 'BrightnessMod')],
+      edges: [edge('pot', 'fade', 'frame', 'audio'), edge('p1', 'fade')],
     })
     edges.push(edge('fade', 'out1'))
     const targets = { 'board-root': S3, 'board-2': ESP32 }
 
     const diagnostics = buildBoardDiagnostics(nodes, edges, { targets })
-    const card = diagnostics.find((issue) => issue.id === 'cross-board-pot-out1')
+    const card = diagnostics.find((issue) => issue.id === 'cross-board-pot-fade')
     expect(card).toMatchObject({
       severity: 'error', category: 'connection', title: 'A wire crosses boards',
-      nodeIds: ['pot', 'out1'],
+      nodeIds: ['pot', 'fade'],
       fix: 'Move the part to the board that shows the pattern, or give that board its own copy of the pattern.',
     })
-    expect(card?.message).toContain('PotInput on Board 2')
-    expect(card?.message).toContain('MatrixOutput on Board 1')
+    expect(card?.message).toContain('MicInput on Board 2')
+    expect(card?.message).toContain('BrightnessMod on Board 1')
 
     const result = validateBoards(nodes, edges, targets)
     expect(result.errors.filter((error) => error.startsWith('A wire crosses boards'))).toHaveLength(1)
@@ -269,7 +270,7 @@ describe('multiBoardValidation — several boards', () => {
     expect(findDeployBlockingErrorsForBoard(nodes, edges, 'board-2', UNO).some((error) => error.includes('time sync require'))).toBe(false)
 
     // An Art-Net node on the same board keeps the gate in its own words too.
-    const withDmx = [...nodes, node('dmx', 'DMXInput', { inputMode: 'Art-Net', universe: 0 })]
+    const withDmx = [...nodes, node('dmx', 'DMXInput', { inputMode: 'Art-Net', universe: 0, boardId: 'board-2' })]
     const dmxEdges = [...edges, edge('dmx', 'out2', 'frame', 'dmx')]
     expect(validateBoards(withDmx, dmxEdges, { 'board-root': S3, 'board-2': UNO }).errors
       .some((error) => error.includes('time sync require'))).toBe(true)

@@ -1,6 +1,22 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
+import {
+  BOARD_LINK_IN_NODE_TYPE,
+  BOARD_LINK_OUT_NODE_TYPE,
+  BOARD_LINK_PORT_ID,
+  boardLinkSchemaHash,
+  isBoardLinkDataType,
+  isGeneratorOwnerNodeType,
+  isMomentaryBoolSource,
+  isNetworkEndpointNodeType,
+  outputPortDataType,
+  type BoardLinkDataType,
+  type BoardLinkNodeProperties,
+  type BoardLinkReceiver,
+  type BoardLinkSchema,
+  type BoardLinkSlot,
+} from './boardLinks'
 
 /**
  * Board partitions — the multi-board model's one new idea.
@@ -12,6 +28,10 @@ import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
  * every one-board consumer (`find(Board)`, `collectPinUses`, `generateCpp`,
  * validation) keeps working unchanged — it is simply handed a partition
  * instead of the whole root graph. See docs/design/multi-board.md.
+ *
+ * A wire whose value one board computes and another consumes is cut as close
+ * to its source as a link can carry it, and the partition stands a synthetic
+ * `BoardLinkIn` and `BoardLinkOut` in for it. See docs/design/board-links.md.
  */
 
 export interface BoardPartition {
@@ -22,11 +42,20 @@ export interface BoardPartition {
 }
 
 export interface CrossBoardIssue {
-  /** The part or output where the wire starts, and the one it reaches. */
+  /** The wire's two ends: a node one board computes, and a node of another. */
   sourceNodeId: string
   targetNodeId: string
   sourceBoardId: string
   targetBoardId: string
+  /** The wire's type, which no link carries (`frame`, `audio`, …), or null
+   *  for a carried type whose source no single board can compute. */
+  dataType: string | null
+}
+
+/** A root wire a link carries: the board that sends it and those receiving it. */
+export interface BoardLinkWire {
+  senderBoardId: string
+  receiverBoardIds: string[]
 }
 
 /**
@@ -51,7 +80,7 @@ export function isBoardAttachedNodeType(nodeType: string): boolean {
 }
 
 export function isSinkNodeType(nodeType: string): boolean {
-  return SINK_NODE_TYPES.has(nodeType)
+  return SINK_NODE_TYPES.has(nodeType) || nodeType === BOARD_LINK_OUT_NODE_TYPE
 }
 
 function nodeTypeOf(node: StudioNode): string {
@@ -92,51 +121,65 @@ export function boardIdOf(
 interface Membership {
   boards: StudioNode[]
   primaryId: string
-  /** Board id → ids of every node in that board's partition. */
+  /** Board id → ids of every root node in that board's partition. */
   byBoard: Map<string, Set<string>>
   /** Node id → the boards whose partition holds it. */
   byNode: Map<string, Set<string>>
-  /** Part or output id → the board it is attached to. */
-  attachedTo: Map<string, string>
-  /** Node id → the ids its edges lead to. */
-  downstream: Map<string, string[]>
+  /** Receiving board id → the slots it reads, keyed by source node and port. */
+  linkIns: Map<string, Map<string, BoardLinkSlot>>
+  /** Board id → the root edges it receives over a link, by edge id. */
+  linkedEdges: Map<string, Map<string, BoardLinkSlot>>
+  /** The slots every board sends, sender by sender in board order. */
+  slots: BoardLinkSlot[]
+  hash: number
+  issues: CrossBoardIssue[]
+  wires: Map<string, BoardLinkWire>
+  partitions: Map<string, BoardPartition>
 }
 
+const slotKey = (nodeId: string, handle: string) => `${nodeId}\u0000${handle}`
+
 /**
- * Which nodes land in which board's partition. One walk for every board:
+ * Which nodes land in which board's partition, and what crosses between them.
  *
- * - each board takes the parts and outputs attached to it;
- * - from those it walks the signal graph both ways, upstream from its outputs
- *   and sinks and downstream from its inputs, taking every non-attached node
- *   it reaches and stopping at a part attached to another board;
- * - a non-attached node no board reached (an unfinished patch, or a sink such
- *   as Master Speed that every sketch applies) lands in every partition, so
- *   each board compiles it and the drawer diagnoses it once by id.
+ * - A node is **anchored** to the boards that alone can compute it: a part or
+ *   LED output to its board, a network endpoint to the board in its
+ *   `boardId`, and a generator owner (Music Player, Performance Generator,
+ *   Pattern Slideshow) to every board whose LED output it reaches.
+ * - A node is **foreign** to a board when it is anchored elsewhere, or takes
+ *   a wire no link carries from a node foreign to that board.
+ * - Each board walks upstream from its Board and anchors. The walk stops at
+ *   a foreign node: a wire from one that a link carries becomes a link-in,
+ *   any other is a cross-board issue. A link-in's source is computed and sent
+ *   by its home, the first board it is not foreign to, which walks upstream
+ *   from it in turn; the walks repeat until no board gains a node.
+ * - A node no walk reached (an unfinished patch, or a sink such as Master
+ *   Speed that every sketch applies) joins each board it is wired to through
+ *   other unreached nodes, and failing that every board it is not foreign
+ *   to, so the drawer diagnoses it once by id, as before links.
  */
 function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]): Membership {
   const boards = boardNodesIn(nodes)
   const primaryId = boards[0]?.id ?? ROOT_BOARD_NODE_ID
   const boardIds = new Set(boards.map((board) => board.id))
+  const boardOrder = boards.map((board) => board.id)
   const byId = new Map(nodes.map((node) => [node.id, node]))
 
   const neighbours = new Map<string, string[]>()
   const downstream = new Map<string, string[]>()
-  const link = (map: Map<string, string[]>, from: string, to: string) => {
-    const list = map.get(from)
-    if (list) list.push(to)
-    else map.set(from, [to])
+  const incoming = new Map<string, StudioEdge[]>()
+  const push = <T>(map: Map<string, T[]>, key: string, value: T) => {
+    const list = map.get(key)
+    if (list) list.push(value)
+    else map.set(key, [value])
   }
   for (const edge of edges) {
     if (!edge.source || !edge.target) continue
     if (!byId.has(edge.source) || !byId.has(edge.target)) continue
-    link(neighbours, edge.source, edge.target)
-    link(neighbours, edge.target, edge.source)
-    link(downstream, edge.source, edge.target)
-  }
-
-  const attachedTo = new Map<string, string>()
-  for (const node of nodes) {
-    if (isBoardAttachedNodeType(nodeTypeOf(node))) attachedTo.set(node.id, boardIdOf(node, primaryId, boardIds))
+    push(neighbours, edge.source, edge.target)
+    push(neighbours, edge.target, edge.source)
+    push(downstream, edge.source, edge.target)
+    push(incoming, edge.target, edge)
   }
 
   const byBoard = new Map<string, Set<string>>()
@@ -147,40 +190,212 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
     if (owners) owners.add(boardId)
     else byNode.set(nodeId, new Set([boardId]))
   }
+  for (const board of boards) byBoard.set(board.id, new Set())
 
-  for (const board of boards) {
-    const members = new Set<string>([board.id])
-    byBoard.set(board.id, members)
-    byNode.set(board.id, new Set([board.id]))
-    const pending: string[] = []
-    for (const [nodeId, owner] of attachedTo) {
-      if (owner !== board.id) continue
-      place(board.id, nodeId)
-      pending.push(nodeId)
+  const empty: Membership = {
+    boards, primaryId, byBoard, byNode, linkIns: new Map(), linkedEdges: new Map(),
+    slots: [], hash: 0, issues: [], wires: new Map(), partitions: new Map(),
+  }
+  if (boards.length === 0) return empty
+  if (boards.length === 1) {
+    for (const node of nodes) place(primaryId, node.id)
+    return empty
+  }
+
+  // ── Anchors ────────────────────────────────────────────────────────────
+  const anchors = new Map<string, Set<string>>()
+  const anchor = (nodeId: string, boardId: string) => {
+    const set = anchors.get(nodeId)
+    if (set) set.add(boardId)
+    else anchors.set(nodeId, new Set([boardId]))
+  }
+  for (const node of nodes) {
+    const type = nodeTypeOf(node)
+    if (isBoardAttachedNodeType(type) || isNetworkEndpointNodeType(type)) {
+      anchor(node.id, boardIdOf(node, primaryId, boardIds))
     }
+  }
+  for (const node of nodes) {
+    if (!isGeneratorOwnerNodeType(nodeTypeOf(node))) continue
+    const seen = new Set<string>([node.id])
+    const pending = [node.id]
     while (pending.length) {
       const id = pending.pop()!
-      for (const next of neighbours.get(id) ?? []) {
-        if (members.has(next)) continue
-        // Another board's part is the far side of a cross-board wire: it is
-        // not ours, and nothing beyond it is reached through it.
-        if (attachedTo.has(next) && attachedTo.get(next) !== board.id) continue
-        if (boardIds.has(next)) continue
-        place(board.id, next)
+      for (const next of downstream.get(id) ?? []) {
+        if (seen.has(next) || boardIds.has(next)) continue
+        seen.add(next)
+        const target = byId.get(next)!
+        if (isBoardAttachedNodeType(nodeTypeOf(target))) {
+          if (nodeTypeOf(target) === 'MatrixOutput') anchor(node.id, boardIdOf(target, primaryId, boardIds))
+          continue
+        }
         pending.push(next)
       }
     }
   }
 
-  if (boards.length > 0) {
-    for (const node of nodes) {
-      if (byNode.has(node.id)) continue
-      if (attachedTo.has(node.id) || boardIds.has(node.id)) continue
-      for (const board of boards) place(board.id, node.id)
+  // ── The foreign rule ───────────────────────────────────────────────────
+  const carriedType = (edge: StudioEdge): BoardLinkDataType | null => {
+    const type = outputPortDataType(byId.get(edge.source)!, edge.sourceHandle)
+    return isBoardLinkDataType(type) ? type : null
+  }
+  const foreignMemo = new Map<string, Map<string, boolean>>(boardOrder.map((id) => [id, new Map()]))
+  const foreign = (boardId: string, nodeId: string): boolean => {
+    if (boardIds.has(nodeId)) return nodeId !== boardId
+    const anchored = anchors.get(nodeId)
+    if (anchored) return !anchored.has(boardId)
+    const memo = foreignMemo.get(boardId)!
+    const known = memo.get(nodeId)
+    if (known !== undefined) return known
+    memo.set(nodeId, false) // a cycle reads as not foreign
+    let result = false
+    for (const edge of incoming.get(nodeId) ?? []) {
+      if (carriedType(edge) === null && foreign(boardId, edge.source)) {
+        result = true
+        break
+      }
+    }
+    memo.set(nodeId, result)
+    return result
+  }
+  const homeOf = (nodeId: string): string | null => boardOrder.find((id) => !foreign(id, nodeId)) ?? null
+
+  // ── The walks ──────────────────────────────────────────────────────────
+  const pending = new Map<string, string[]>(boardOrder.map((id) => [id, []]))
+  const seed = (boardId: string, nodeId: string) => {
+    if (byBoard.get(boardId)!.has(nodeId)) return
+    place(boardId, nodeId)
+    pending.get(boardId)!.push(nodeId)
+  }
+  for (const board of boards) seed(board.id, board.id)
+  for (const [nodeId, owners] of anchors) for (const boardId of owners) seed(boardId, nodeId)
+
+  const sent = new Map<string, Map<string, BoardLinkSlot>>(boardOrder.map((id) => [id, new Map()]))
+  const linkIns = new Map<string, Map<string, BoardLinkSlot>>(boardOrder.map((id) => [id, new Map()]))
+  const linkedEdges = new Map<string, Map<string, BoardLinkSlot>>(boardOrder.map((id) => [id, new Map()]))
+  const issues: CrossBoardIssue[] = []
+  const reported = new Set<string>()
+  // A node made foreign by an uncarried wire is not where the problem is: the
+  // wire into it is. Walk back to the first such wire, so the finding names
+  // the microphone, not every pattern downstream of it.
+  const rootWire = (boardId: string, start: StudioEdge): StudioEdge => {
+    let edge = start
+    const seen = new Set<string>()
+    while (!anchors.has(edge.source) && !seen.has(edge.id)) {
+      seen.add(edge.id)
+      const cause = (incoming.get(edge.source) ?? [])
+        .find((wire) => carriedType(wire) === null && foreign(boardId, wire.source))
+      if (!cause) break
+      edge = cause
+    }
+    return edge
+  }
+  const report = (found: StudioEdge, boardId: string, foundType: string | null) => {
+    const edge = rootWire(boardId, found)
+    const dataType = edge === found ? foundType : outputPortDataType(byId.get(edge.source)!, edge.sourceHandle)
+    if (reported.has(edge.id)) return
+    reported.add(edge.id)
+    const source = edge.source
+    issues.push({
+      sourceNodeId: source,
+      targetNodeId: edge.target,
+      sourceBoardId: homeOf(source) ?? [...(anchors.get(source) ?? [])][0] ?? primaryId,
+      targetBoardId: boardId,
+      dataType,
+    })
+  }
+
+  let moved = true
+  while (moved) {
+    moved = false
+    for (const boardId of boardOrder) {
+      const queue = pending.get(boardId)!
+      while (queue.length) {
+        moved = true
+        const id = queue.pop()!
+        for (const edge of incoming.get(id) ?? []) {
+          const source = edge.source
+          if (boardIds.has(source)) continue
+          if (!foreign(boardId, source)) {
+            seed(boardId, source)
+            continue
+          }
+          const dataType = carriedType(edge)
+          const sender = dataType ? homeOf(source) : null
+          if (!dataType || !sender) {
+            report(edge, boardId, dataType ? null : outputPortDataType(byId.get(source)!, edge.sourceHandle))
+            continue
+          }
+          const handle = edge.sourceHandle ?? ''
+          const key = slotKey(source, handle)
+          let slot = sent.get(sender)!.get(key)
+          if (!slot) {
+            slot = {
+              slot: -1, senderBoardId: sender, sourceNodeId: source, sourceHandle: handle, dataType,
+              momentary: dataType === 'bool' && isMomentaryBoolSource(byId.get(source)!, handle, nodes),
+              receivers: [],
+            }
+            sent.get(sender)!.set(key, slot)
+            seed(sender, source)
+          }
+          const receiver: BoardLinkReceiver = { boardId, nodeId: edge.target, handle: edge.targetHandle ?? '' }
+          slot.receivers.push(receiver)
+          linkIns.get(boardId)!.set(key, slot)
+          linkedEdges.get(boardId)!.set(edge.id, slot)
+        }
+      }
     }
   }
 
-  return { boards, primaryId, byBoard, byNode, attachedTo, downstream }
+  // ── Nodes no walk reached ──────────────────────────────────────────────
+  const unplaced = (nodeId: string) => !byNode.has(nodeId) && !boardIds.has(nodeId)
+  const reach = new Map<string, Set<string>>()
+  for (const boardId of boardOrder) {
+    const found = new Set<string>()
+    const queue = [...byBoard.get(boardId)!]
+    while (queue.length) {
+      const id = queue.pop()!
+      for (const next of neighbours.get(id) ?? []) {
+        if (found.has(next) || !unplaced(next) || foreign(boardId, next)) continue
+        found.add(next)
+        queue.push(next)
+      }
+    }
+    reach.set(boardId, found)
+  }
+  for (const [boardId, found] of reach) for (const nodeId of found) place(boardId, nodeId)
+  for (const node of nodes) {
+    if (!unplaced(node.id)) continue
+    for (const boardId of boardOrder) if (!foreign(boardId, node.id)) place(boardId, node.id)
+  }
+
+  // ── Slot numbers and the hash ──────────────────────────────────────────
+  // Numbered in root order of their source, so an edit elsewhere in the
+  // graph leaves every slot where it was and the hash unchanged.
+  const rootIndex = new Map(nodes.map((node, index) => [node.id, index]))
+  const slots: BoardLinkSlot[] = []
+  for (const boardId of boardOrder) {
+    const own = [...sent.get(boardId)!.values()].sort((a, b) =>
+      (rootIndex.get(a.sourceNodeId)! - rootIndex.get(b.sourceNodeId)!)
+      || (a.sourceHandle < b.sourceHandle ? -1 : a.sourceHandle > b.sourceHandle ? 1 : 0))
+    own.forEach((slot, index) => { slot.slot = index })
+    slots.push(...own)
+  }
+
+  const wires = new Map<string, BoardLinkWire>()
+  for (const boardId of boardOrder) {
+    for (const [edgeId, slot] of linkedEdges.get(boardId)!) {
+      const wire = wires.get(edgeId)
+      if (wire) wire.receiverBoardIds.push(boardId)
+      else wires.set(edgeId, { senderBoardId: slot.senderBoardId, receiverBoardIds: [boardId] })
+    }
+  }
+
+  return {
+    boards, primaryId, byBoard, byNode, linkIns, linkedEdges, slots,
+    hash: slots.length ? boardLinkSchemaHash(slots, boardOrder) : 0,
+    issues, wires, partitions: new Map(),
+  }
 }
 
 // Single-entry cache: the store asks for partitions on every render of the
@@ -198,30 +413,94 @@ function membershipOf(nodes: readonly StudioNode[], edges: readonly StudioEdge[]
   return cachedMembership
 }
 
+/** A synthetic link node: never on the canvas, never saved. */
+function linkNode(type: string, id: string, slot: BoardLinkSlot, label: string): StudioNode {
+  const port = { id: BOARD_LINK_PORT_ID, label: 'Value', dataType: slot.dataType }
+  const properties: BoardLinkNodeProperties = {
+    slot: slot.slot,
+    senderBoardId: slot.senderBoardId,
+    sourceNodeId: slot.sourceNodeId,
+    sourceHandle: slot.sourceHandle,
+    dataType: slot.dataType,
+    momentary: slot.momentary,
+  }
+  return {
+    id,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label,
+      nodeType: type,
+      category: 'signal',
+      properties: properties as unknown as Record<string, unknown>,
+      inputs: type === BOARD_LINK_OUT_NODE_TYPE ? [port] : [],
+      outputs: type === BOARD_LINK_IN_NODE_TYPE ? [port] : [],
+    },
+  } as unknown as StudioNode
+}
+
+export const boardLinkInNodeId = (slot: Pick<BoardLinkSlot, 'sourceNodeId' | 'sourceHandle'>) =>
+  `board-link-in:${slot.sourceNodeId}:${slot.sourceHandle}`
+export const boardLinkOutNodeId = (slot: Pick<BoardLinkSlot, 'sourceNodeId' | 'sourceHandle'>) =>
+  `board-link-out:${slot.sourceNodeId}:${slot.sourceHandle}`
+
 /**
  * The slice of the root graph board `boardId` compiles: its Board node, the
  * parts and outputs attached to it, the signal nodes that reach them, and the
- * edges with both ends inside. Root order is kept, so the result reads as the
- * same graph with the other boards' halves removed. An unknown `boardId`
- * reads as the primary, like a part's dangling `boardId` does.
+ * edges with both ends inside, in root order. A wire it receives over a link
+ * arrives from a `BoardLinkIn`, keeping the wire's own id; a value it sends
+ * leaves through a `BoardLinkOut`. Link nodes follow the root nodes. An
+ * unknown `boardId` reads as the primary, like a part's dangling `boardId`.
  */
 export function boardPartition(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
   boardId: string,
 ): BoardPartition {
-  const { boards, primaryId, byBoard } = membershipOf(nodes, edges)
+  const state = membershipOf(nodes, edges)
+  const { boards, primaryId, byBoard } = state
   if (boards.length === 0) return { board: null, nodes: [...nodes], edges: [...edges] }
   const id = byBoard.has(boardId) ? boardId : primaryId
+  const cached = state.partitions.get(id)
+  if (cached) return cached
+
   const members = byBoard.get(id)!
-  return {
-    board: boards.find((board) => board.id === id) ?? null,
-    nodes: nodes.filter((node) => members.has(node.id)),
-    edges: edges.filter((edge) => members.has(edge.source ?? '') && members.has(edge.target ?? '')),
+  const linked = state.linkedEdges.get(id) ?? new Map<string, BoardLinkSlot>()
+  const partNodes = nodes.filter((node) => members.has(node.id))
+  const partEdges: StudioEdge[] = []
+  for (const edge of edges) {
+    const slot = linked.get(edge.id)
+    if (slot) {
+      partEdges.push({ ...edge, source: boardLinkInNodeId(slot), sourceHandle: BOARD_LINK_PORT_ID })
+    } else if (members.has(edge.source ?? '') && members.has(edge.target ?? '')) {
+      partEdges.push(edge)
+    }
   }
+  for (const slot of state.linkIns.get(id)?.values() ?? []) {
+    partNodes.push(linkNode(BOARD_LINK_IN_NODE_TYPE, boardLinkInNodeId(slot), slot, 'Board link in'))
+  }
+  for (const slot of state.slots) {
+    if (slot.senderBoardId !== id) continue
+    const linkOutId = boardLinkOutNodeId(slot)
+    partNodes.push(linkNode(BOARD_LINK_OUT_NODE_TYPE, linkOutId, slot, 'Board link out'))
+    partEdges.push({
+      id: `board-link-edge:${slot.sourceNodeId}:${slot.sourceHandle}`,
+      source: slot.sourceNodeId,
+      sourceHandle: slot.sourceHandle,
+      target: linkOutId,
+      targetHandle: BOARD_LINK_PORT_ID,
+    } as StudioEdge)
+  }
+  const result: BoardPartition = {
+    board: boards.find((board) => board.id === id) ?? null,
+    nodes: partNodes,
+    edges: partEdges,
+  }
+  state.partitions.set(id, result)
+  return result
 }
 
-/** Node id → the ids of the boards whose partition holds that node. */
+/** Node id → the ids of the boards whose partition holds that root node. */
 export function boardMembership(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
@@ -230,36 +509,35 @@ export function boardMembership(
 }
 
 /**
- * Signal wires no firmware can carry: a part on one board whose signal runs,
- * through any run of signal nodes, into a part or output on another. A
- * pattern two boards both show makes none; a pot on board A feeding a pattern
- * board B shows does, because B's sketch would read a pot it does not have.
+ * Wires no link can carry between boards: a `frame`, `audio` or other
+ * structure from a node one board computes into a node another computes (a
+ * microphone on Board 2 feeding a pattern Board 1 shows), or a carried type
+ * whose source no single board can compute. Two boards showing one pattern
+ * makes none.
  */
 export function findCrossBoardIssues(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
 ): CrossBoardIssue[] {
-  const { boards, attachedTo, downstream } = membershipOf(nodes, edges)
-  if (boards.length < 2) return []
-  const boardIds = new Set(boards.map((board) => board.id))
-  const issues: CrossBoardIssue[] = []
-  for (const [startId, startBoard] of attachedTo) {
-    const visited = new Set<string>([startId])
-    const pending = [startId]
-    while (pending.length) {
-      const id = pending.pop()!
-      for (const next of downstream.get(id) ?? []) {
-        if (visited.has(next)) continue
-        visited.add(next)
-        const farBoard = attachedTo.get(next)
-        if (farBoard === undefined) {
-          if (!boardIds.has(next)) pending.push(next)
-          continue
-        }
-        if (farBoard === startBoard) continue
-        issues.push({ sourceNodeId: startId, targetNodeId: next, sourceBoardId: startBoard, targetBoardId: farBoard })
-      }
-    }
-  }
-  return issues
+  return membershipOf(nodes, edges).issues
+}
+
+/**
+ * The slot table both ends of every link compile from, and its hash. Empty
+ * (hash 0) when no wire crosses boards.
+ */
+export function boardLinkSchema(
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): BoardLinkSchema {
+  const { slots, hash } = membershipOf(nodes, edges)
+  return { slots, hash }
+}
+
+/** Root edge id → the boards a link wire runs between, for the canvas. */
+export function boardLinkWires(
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): ReadonlyMap<string, BoardLinkWire> {
+  return membershipOf(nodes, edges).wires
 }
