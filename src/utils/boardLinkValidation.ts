@@ -12,7 +12,7 @@ import {
   boardNodesIn,
   type BoardPartition,
 } from '../build/boardPartition'
-import type { BoardLinkSlot } from '../build/boardLinks'
+import { isGeneratorOwnerNodeType, type BoardLinkSlot } from '../build/boardLinks'
 import { networkSourceIn } from '../codegen/peripherals/networkCpp'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { fqbnHasEspNow, fqbnHasWifi } from '../state/peripherals/networkCapability'
@@ -48,14 +48,18 @@ function nodeLabel(node: StudioNode): string {
 }
 
 /**
- * Whether a slot carries text. A display field the partition decomposes a
- * screen reading into may say its own type beside the slot's; a text field
- * costs a text slot like a wired string does.
+ * The frame indexes a slot takes. A display slot is decomposed into the
+ * fields its receiving panels read, and each field is its own index on the
+ * wire, so it counts once per field against the bound.
  */
-function isTextSlot(slot: BoardLinkSlot): boolean {
-  if (slot.dataType === 'string') return true
-  const extra = slot as BoardLinkSlot & { field?: { dataType?: unknown }; fieldDataType?: unknown }
-  return extra.field?.dataType === 'string' || extra.fieldDataType === 'string'
+function frameIndexesOf(slot: BoardLinkSlot): number {
+  return slot.fields ? slot.fields.length : 1
+}
+
+/** The text values a slot carries: a wired string, or a display's text fields. */
+function textIndexesOf(slot: BoardLinkSlot): number {
+  if (slot.fields) return slot.fields.filter((field) => field.kind === 'text').length
+  return slot.dataType === 'string' ? 1 : 0
 }
 
 function listOf(labels: readonly string[]): string {
@@ -161,26 +165,52 @@ export function boardLinkFindings(
     }
   }
 
+  // ── What a show or player sketch can receive ───────────────────────────
+  // A board whose sketch is a show or a Music Player reads linked values as
+  // control-graph sources, which carry numbers, switches, presses, colours
+  // and text. A linked screen reading or time has nowhere to land there.
+  for (const slot of slots) {
+    if (slot.dataType !== 'display' && slot.dataType !== 'datetime') continue
+    for (const receiver of slot.receivers) {
+      if (!concerns(receiver.boardId)) continue
+      const run = runOf.get(receiver.boardId)
+      const owner = run?.partition.nodes.find((member) => isGeneratorOwnerNodeType(String(member.data.nodeType)))
+      const source = byId.get(slot.sourceNodeId)
+      const target = byId.get(receiver.nodeId)
+      if (!run || !owner || !source || !target) continue
+      const what = slot.dataType === 'display' ? 'a screen reading' : 'a time'
+      issues.push({
+        id: `board-link-show-receive-${receiver.boardId}-${receiver.nodeId}`, severity: 'error', category: 'board',
+        title: `${run.label} cannot show ${what} from another board`,
+        message: `${nodeLabel(target)} on ${run.label} reads ${nodeLabel(source)} from ${labelOf(slot.senderBoardId)}, and ${nodeLabel(owner)}'s sketch takes only numbers, switches, presses, colours and text over a link.`,
+        fix: `Put ${nodeLabel(target)} on ${labelOf(slot.senderBoardId)}, or give ${run.label} its own ${nodeLabel(source)}.`,
+        nodeIds: [target.id, source.id], nodeLabel: nodeLabel(target),
+      })
+    }
+  }
+
   // ── What one board can send ────────────────────────────────────────────
   for (const run of linkedRuns) {
     if (!concerns(run.board.id)) continue
     const sent = slots.filter((slot) => slot.senderBoardId === run.board.id)
     const sources = [...new Set(sent.map((slot) => slot.sourceNodeId))].filter((id) => byId.has(id))
-    if (sent.length > BOARD_LINK_MAX_SLOTS) {
+    const indexes = sent.reduce((sum, slot) => sum + frameIndexesOf(slot), 0)
+    if (indexes > BOARD_LINK_MAX_SLOTS) {
       issues.push({
         id: `board-link-slots-${run.board.id}`, severity: 'error', category: 'board',
         title: `${run.label} sends more than the link can carry`,
-        message: `${run.label} sends ${sent.length} values over the link, and one board can send at most ${BOARD_LINK_MAX_SLOTS}.`,
+        message: `${run.label} sends ${indexes} values over the link, and one board can send at most ${BOARD_LINK_MAX_SLOTS}.`,
         fix: 'Send fewer: compute a value on the board that uses it, or put a control on the board it controls.',
         nodeIds: sources, nodeLabel: run.label,
       })
     }
-    const text = sent.filter(isTextSlot)
-    if (text.length > BOARD_LINK_MAX_TEXT_SLOTS) {
+    const text = sent.filter((slot) => textIndexesOf(slot) > 0)
+    const textCount = text.reduce((sum, slot) => sum + textIndexesOf(slot), 0)
+    if (textCount > BOARD_LINK_MAX_TEXT_SLOTS) {
       issues.push({
         id: `board-link-text-${run.board.id}`, severity: 'error', category: 'board',
         title: `${run.label} sends too much text over the link`,
-        message: `${run.label} sends ${text.length} text values over the link, and one board can send at most ${BOARD_LINK_MAX_TEXT_SLOTS}.`,
+        message: `${run.label} sends ${textCount} text values over the link, and one board can send at most ${BOARD_LINK_MAX_TEXT_SLOTS}.`,
         fix: `Show fewer text readings on the linked boards, or move a panel that shows them onto ${run.label}.`,
         nodeIds: [...new Set(text.map((slot) => slot.sourceNodeId))].filter((id) => byId.has(id)),
         nodeLabel: run.label,

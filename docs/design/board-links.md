@@ -1,6 +1,7 @@
 # Board links: controls and readings between boards over ESP-NOW
 
-Status: designed, not built · Owner: app · Date: 2026-10-23 · Root todo, D-13
+Status: implemented, experimental (generated firmware; no compile or bench row
+yet) · Owner: app · Date: 2026-10-23 · Root todo, D-13
 (v1)
 
 Builds on [multi-board projects](multi-board.md), which lets a project carry
@@ -92,7 +93,9 @@ on Board 2 feeding a Map Range that feeds Board 1's Player Controls sends the
 encoder's raw value; Board 1 computes the Map Range. A Song Info node fed by
 Board 1's Music Player takes a `music` wire, which cannot be carried, so it is
 foreign to Board 2 and computed on Board 1; its numbers and text then travel
-to Board 2's panel.
+to Board 2's panel. (As built, Song Info takes the player's `display` wire,
+so a Song Info on the receiving board reads the player's fields over the
+link, one slot per Song Info output it wires onward.)
 
 Two worked cases:
 
@@ -311,6 +314,34 @@ enclosures, so antennas stay clear. Grounds need no bond for a radio link.
 - The Wi-Fi driver's heap cost on the render board is not yet measured; the
   bench row records it.
 - Only boards from one project link to each other.
+
+## As built
+
+Where the build differs from, or narrows, the design above:
+
+- The slot table lives in `src/build/boardPartition.ts` (`boardLinkSchema`,
+  `boardLinkWires`) with the vocabulary in `src/build/boardLinks.ts`; display
+  fields are decomposed in `src/build/boardLinkDisplay.ts`. A display slot
+  takes one frame index per field, and the slot bounds count frame indexes.
+- The firmware is `src/codegen/peripherals/espNowLinkCpp.ts`, with the show and
+  player plumbing in `boardLinkTemplate.ts`; its codec is checked byte for
+  byte against a TypeScript mirror on the host (WSL g++). Nothing has been
+  compiled for an ESP32 or ESP8266 yet.
+- Validation is `src/utils/boardLinkValidation.ts`. Beyond the design it warns
+  when a linked board off Wi-Fi sits beside one on Wi-Fi ("may not hear"),
+  and refuses a linked screen reading or time into a board whose sketch is a
+  show or a Music Player, whose control graph carries only numbers, switches,
+  presses, colours and text.
+- The key is made when the first link wire is drawn, never on load; a project
+  opened elsewhere gets a new key only from Graph Health's fix.
+- Removing a board moves its network endpoints to the primary rather than
+  deleting them, since they carry design.
+- Start values: Web Remote controls start at their real start state; every
+  other source starts at 0, false, black or empty text.
+- Not carried: a linked LED-output status, and a Pattern Browser's
+  thumbnails (they exist only on the sending board, so a remote OLED Pattern
+  Browser shows its waiting screen). A screen design has no waiting screen of
+  its own; while the link is lost its bound widgets read blank.
 
 ## Deliberately out of scope for v1
 

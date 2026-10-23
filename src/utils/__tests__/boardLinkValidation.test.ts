@@ -164,6 +164,30 @@ describe('board link validation', () => {
       .some((error) => error.includes('may not hear'))).toBe(false)
   })
 
+  it('refuses a clock reading into a board whose sketch is a slideshow', () => {
+    const { nodes, edges } = linked({
+      nodes: [
+        node('rtc', 'RTCInput', {}, [{ id: 'display', dataType: 'display' }]),
+        node('show', 'PatternSlideshow'),
+        node('out2', 'MatrixOutput', { width: 8, height: 8, dataPin: 6, ...on2 }),
+        node('oled', 'InfoDisplay', on2),
+      ],
+      edges: [edge('show', 'frame', 'out2', 'frame'), edge('rtc', 'display', 'oled', 'display')],
+    })
+    const card = buildBoardDiagnostics(nodes, edges, { targets })
+      .find((issue) => issue.id === 'board-link-show-receive-board-2-oled')
+    expect(card).toMatchObject({ severity: 'error', title: 'Board 2 cannot show a screen reading from another board' })
+    expect(findDeployBlockingErrorsForBoard(nodes, edges, 'board-2', ESP32)
+      .some((error) => error.includes('cannot show a screen reading'))).toBe(true)
+    // A normal sketch on Board 2 draws it.
+    const normal = linked({
+      nodes: [node('rtc', 'RTCInput', {}, [{ id: 'display', dataType: 'display' }]), node('oled', 'InfoDisplay', on2)],
+      edges: [edge('rtc', 'display', 'oled', 'display')],
+    })
+    expect(ids(buildBoardDiagnostics(normal.nodes, normal.edges, { targets }))
+      .filter((id) => id.startsWith('board-link-show-receive'))).toEqual([])
+  })
+
   it('bounds the slots and the text slots one board sends', () => {
     const many = (count: number, dataType: string) => Array.from({ length: count }, (_, index) => ({ id: `v${index}`, dataType }))
     const build = (count: number, dataType: string) => {

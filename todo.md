@@ -36,18 +36,13 @@ HW-32 (frame performance) is under [Completed](#completed); its bench rows are
 in section 4.
 
 - [ ] **D-13 · Board links over ESP-NOW (L).** Controls and readings travel
-  between the boards of one project, so one board can run the LEDs and the
-  music while another runs the screen, the buttons and the encoders, or an
-  ESP8266's Web Remote sets an ESP32's brightness. A wire a link can carry
-  (numbers, switches, presses, colours, text, times, display fields) becomes a
-  link wire instead of a cross-board error; frames and audio still cannot
-  cross. Steps, in order: partition rework with anchors and synthetic
-  link-in/link-out nodes; a board for each network endpoint; canvas link wires,
-  link channel and key; the ESP-NOW emitter in all three generators;
-  validation and the Upload tab's out-of-date warning; help, guides and an
-  experimental support-matrix row
-  ([design](docs/design/board-links.md#implementation-order)). Compiles wait
-  for the v1 freeze; the bench row is in section 4.
+  between the boards of one project over ESP-NOW. The software is built: the
+  partition cut, link wires, Runs on for network endpoints, the link channel
+  and key, the emitter in all three generators, validation, the Upload tab's
+  out-of-date note, help and an experimental support-matrix row
+  ([design](docs/design/board-links.md#as-built)). What closes it: the first
+  ESP32 and ESP8266 compiles of a linked pair at the v1 freeze; the bench row
+  is in section 4.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

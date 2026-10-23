@@ -425,6 +425,14 @@ Unless a future row says otherwise, treat the following as experimental:
   ([design](../design/multi-board.md)). Generated and tested against the
   preview only; no multi-board sketch has been compiled or run, and the
   bench row is in the root todo, section 4.
+- **Board links over ESP-NOW** (root todo, D-13): numbers, switches, presses,
+  colours, text, times and panel fields sent between the boards of one project
+  over authenticated ESP-NOW broadcast, so one board can run the LEDs and music
+  while another runs the screen and controls
+  ([design](../design/board-links.md)). ESP32 with a radio (classic, S2, S3,
+  C3, C6) and ESP8266 only. The frame codec is checked on the host; no linked
+  sketch has been compiled or run, and the link's latency, range and Wi-Fi heap
+  cost are unmeasured. The bench row is in the root todo, section 4.
 - **Library bundles** (patterns, palettes, collections by file, clipboard or
   link) are software-only and need no hardware row; trust on import is
   decided when the content reaches the canvas
