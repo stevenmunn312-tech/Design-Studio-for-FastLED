@@ -114,6 +114,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   or blocking (costing as much as the cold build being avoided). All three call
   sites (`upload`, `compile_check`, the SD-show `_build_flash`) get their sketch
   directory through `with _sketch_workspace(...) as sketch_dir:`.
+- The SD player builds in its own workspace, `PLAYER_SKETCH` (`player`), not
+  `toolchain.SKETCH`, so a player and an ordinary sketch never evict each
+  other's cache. Anything that compiles the player ahead of its upload must
+  use the same folder or the upload starts cold (a 6½-minute ESP32-S3 rebuild
+  after a capacity check, 2026-10-23): `/api/compile-check` takes
+  `"sketch": "player"`, which `compileCheck(..., 'player')` sends for a
+  player subject and for the card-reader fit check.
+- `GET /api/serial/ports?quick=1` lists ports from pyserial alone and never
+  runs `arduino-cli board list`, which opens every port to name it and would
+  fight the serial monitor. The open Upload tab polls it every 3 s
+  (`uploadStore.checkPorts`) so an unplugged board stops reading as
+  connected; the full scan keeps naming ports when a popup opens. An
+  automatic port pick never takes a port another board of the project
+  uploads through, and a second board with no saved target starts with no
+  port rather than the first board's.
 - Physical ESP32 module facts must reach **both** build engines. The Board node's
   `flashMb` is not encoded by a generic FQBN such as `esp32:esp32:esp32s3`;
   `_arduino_fqbn` resolves declared `_PIO_BOARDS` variants into Arduino menu

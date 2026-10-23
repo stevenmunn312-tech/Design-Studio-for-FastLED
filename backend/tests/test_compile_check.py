@@ -197,3 +197,28 @@ def test_compile_check_400_when_ino_blank(client, monkeypatch):
 
     r = client.post("/api/compile-check", json={"ino": "   ", "fqbn": "esp32:esp32:esp32s3"})
     assert r.status_code == 400
+
+
+def test_compile_check_measures_the_player_in_the_player_workspace(client, monkeypatch, tmp_path):
+    # The SD player uploads from its own sketch folder; a capacity check that
+    # compiled it anywhere else would leave that upload a cold arduino-cli
+    # cache, which keys on the folder's path.
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "arduino-cli")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    seen = []
+
+    def fake_compile_upload(
+        label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False,
+        flash_mb=None,
+    ):
+        seen.append(sketch_dir.name)
+        yield "Sketch uses 1000 bytes (1%) of program storage space. Maximum is 100000 bytes.\n"
+        return 0, "compile"
+
+    monkeypatch.setattr(firmware, "_compile_upload", fake_compile_upload)
+
+    client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3", "sketch": "player"})
+    client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3"})
+    client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3", "sketch": "../x"})
+    assert seen == [firmware.PLAYER_SKETCH, toolchain.SKETCH, toolchain.SKETCH]

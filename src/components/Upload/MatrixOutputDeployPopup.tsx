@@ -51,6 +51,9 @@ const CAPACITY_LEVEL_CLASS = {
   ok: 'capacityOk', warn: 'capacityWarn', error: 'capacityError', pending: 'capacityPending',
 } as const
 
+/** How often the open Upload tab checks which serial ports are present. */
+const PORT_CHECK_INTERVAL_MS = 3000
+
 /**
  * The upload tools.
  *
@@ -177,6 +180,17 @@ export default function MatrixOutputDeployPopup({
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }
+  // While this is open, notice a board being unplugged or plugged in: a quick
+  // presence check that opens no port, so it cannot disturb the serial monitor
+  // or an upload. Paused while the page is hidden.
+  useEffect(() => {
+    const check = () => {
+      if (document.visibilityState === 'visible') void useUploadStore.getState().checkPorts()
+    }
+    const timer = setInterval(check, PORT_CHECK_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [])
+
   // Generated only while the code view shows it. A large show or player
   // sketch takes seconds to build, and generating it whenever this tab mounted
   // froze the switch to Upload for that long; upload and export generate their

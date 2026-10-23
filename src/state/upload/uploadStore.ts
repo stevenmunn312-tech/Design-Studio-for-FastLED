@@ -343,11 +343,25 @@ function activeUploadTargetKey(): string {
 function projectSelection(fallback: Persisted): Pick<UploadState, 'selectedFqbn' | 'selectedPort'> {
   const { currentProjectId, projects } = useProjectStore.getState()
   const current = projects.find((project) => project.id === currentProjectId)
-  const target = current?.uploadTargets?.[activeUploadTargetKey()]
+  const key = activeUploadTargetKey()
+  const target = current?.uploadTargets?.[key]
   return {
     selectedFqbn: target?.selectedFqbn || fallback.selectedFqbn,
-    selectedPort: target?.selectedPort || fallback.selectedPort,
+    // The last port used anywhere is a fair guess for the project's one board,
+    // and a wrong one for a second board, which is a different device on a
+    // different port: it starts with none, and the next scan picks a free one.
+    selectedPort: target?.selectedPort || (key === PRIMARY_UPLOAD_TARGET_KEY ? fallback.selectedPort : ''),
   }
+}
+
+/** Ports another board of this project last uploaded through. */
+function portsOfOtherBoards(): Set<string> {
+  const { currentProjectId, projects } = useProjectStore.getState()
+  const targets = projects.find((project) => project.id === currentProjectId)?.uploadTargets ?? {}
+  const key = activeUploadTargetKey()
+  return new Set(Object.entries(targets)
+    .filter(([board, target]) => board !== key && target?.selectedPort)
+    .map(([, target]) => target!.selectedPort))
 }
 
 function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort' | 'customBoards' | 'cardReader' | 'verboseOutput'>) {
@@ -421,6 +435,9 @@ interface UploadState {
   // helper / hardware
   refreshHelper: () => Promise<void>
   refreshPorts: () => Promise<void>
+  /** A quick presence check (no port opened), for polling while the Upload tab
+   *  is open: an unplugged board stops reading as connected. */
+  checkPorts: () => Promise<void>
   refreshCores: () => Promise<void>
   /** Switch the helper's build engine. `fbuild` manages its own per-board
    *  toolchains; `arduino-cli` additionally supports custom boards-by-URL and
@@ -555,6 +572,25 @@ function recordFlashedLink(boardKey: string, selectedFqbn: string, selectedPort:
   useProjectStore.getState().setProjectUploadTarget(boardKey, { selectedFqbn, selectedPort, flashedLink })
 }
 
+/**
+ * A finished port scan. Defaults to the first detected port when nothing is
+ * chosen, or when the selected one has disappeared (a board re-enumerated on
+ * another port after a replug); otherwise `selectedPort` keeps pointing at a
+ * port that no longer exists while the <select> silently shows the first
+ * option, so it looks right while uploads still target the stale one. Never
+ * a port another board of the project uploads through: with two boards
+ * plugged in, the first port is as likely to be the other board, and
+ * flashing it would put this board's sketch on the wrong controller.
+ */
+function applyPortScan(ports: SerialPort[]) {
+  useUploadStore.setState({ ports, portsScanned: true })
+  const { selectedPort, setSelectedPort } = useUploadStore.getState()
+  if (selectedPort && ports.some((port) => port.address === selectedPort)) return
+  const taken = portsOfOtherBoards()
+  const free = ports.find((port) => !taken.has(port.address))
+  if (free) setSelectedPort(free.address)
+}
+
 export const useUploadStore = create<UploadState>((set, get) => ({
   helper: undefined,
   ports: [],
@@ -603,18 +639,24 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   },
 
   refreshPorts: async () => {
-    const ports = await listPorts()
-    set({ ports, portsScanned: true })
-    // Default to the first detected board when nothing is chosen, or when the
-    // previously selected port has disappeared from the list (e.g. the board
-    // re-enumerated on a different port after a replug). Otherwise
-    // `selectedPort` keeps pointing at a port that no longer exists while the
-    // <select> silently falls back to displaying the first option — making it
-    // look like the right port is selected when uploads still target the
-    // stale one.
-    const { selectedPort } = get()
-    const stillPresent = selectedPort && ports.some((p) => p.address === selectedPort)
-    if (!stillPresent && ports[0]) get().setSelectedPort(ports[0].address)
+    applyPortScan(await listPorts())
+  },
+
+  checkPorts: async () => {
+    if (!get().helper?.ok || get().busy) return
+    const quick = await listPorts(true)
+    // Presence from the OS; the names and board matches the last full scan
+    // found stay with the ports that are still there.
+    const named = new Map(get().ports.map((port) => [port.address, port]))
+    const ports = quick.map((port) => {
+      const known = named.get(port.address)
+      return known ? { ...port, label: known.label, boards: known.boards } : port
+    })
+    // An unchanged list keeps its array, so nothing reading it re-renders on
+    // every poll; the selection is still checked against it.
+    const same = get().portsScanned && ports.length === get().ports.length
+      && ports.every((port, index) => port.address === get().ports[index]?.address)
+    applyPortScan(same ? get().ports : ports)
   },
 
   refreshCores: async () => set({ installedCores: await listCores() }),
@@ -888,7 +930,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         // follows compiles identical source and hits the engine's cache.
         get().appendLog('\n=== Checking the player fits ===\n')
         try {
-          const fit = await compileCheck(payload.player, showFqbn, undefined, flashMb, usbCdcOnBoot)
+          const fit = await compileCheck(payload.player, showFqbn, undefined, flashMb, usbCdcOnBoot, 'player')
           if (!fit.ok) {
             get().appendLog(
               fit.overflow
@@ -1105,4 +1147,6 @@ useProjectStore.subscribe(() => {
 useUiStore.subscribe((state, previous) => {
   if (state.activeBoardId === previous.activeBoardId) return
   useUploadStore.getState().syncSelectionToActiveBoard()
+  // A board with no port yet takes a free one from what is plugged in now.
+  void useUploadStore.getState().checkPorts()
 })

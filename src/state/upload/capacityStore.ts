@@ -253,7 +253,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     if (!target || target.generate === null || !target.toolchainReady) return
 
     cancelInFlight()
-    const { generate, fqbn, key, flashMb, usbCdcOnBoot } = target
+    const { generate, fqbn, key, flashMb, usbCdcOnBoot, subject } = target
     let attempt = 0
     // Generated once per check, on the first attempt, and reused by busy
     // retries: the target it describes is fixed for the life of this check.
@@ -295,7 +295,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
         .then((text) => {
           if (controller.signal.aborted || superseded()) throw controller.signal.reason
           set({ checkPhase: 'compiling' })
-          return compileCheck(text, fqbn, controller.signal, flashMb, usbCdcOnBoot)
+          return compileCheck(text, fqbn, controller.signal, flashMb, usbCdcOnBoot, subject)
         })
         .then((res) => {
           if (controller.signal.aborted || superseded()) return

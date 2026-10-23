@@ -237,6 +237,8 @@ describe('uploadStore', () => {
         undefined,
         16,
         true,
+        // In the player's own sketch folder, so the flash that follows reuses it.
+        'player',
       )
     })
 
@@ -516,18 +518,70 @@ describe('uploadStore — one target per board', () => {
     expect(project?.uploadTarget).toEqual({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
   })
 
-  it('a board with no target yet keeps the last selection until one is chosen', async () => {
+  it('a second board with no target yet keeps the board type but not the other board’s port', async () => {
     const { useProjectStore, useUploadStore } = await freshStores()
     const { useUiStore } = await import('../../uiStore')
     const { useGraphStore } = await import('../../graphStore')
     useProjectStore.getState().createProject('Rig', workspace(['main']))
     useGraphStore.getState().loadGraph([boardNode('board-root'), boardNode('board-2')], [])
     useUploadStore.getState().setSelectedFqbn('esp32:esp32:esp32s3')
-    useUploadStore.getState().setSelectedPort('COM7')
+    useUploadStore.getState().setSelectedPort('COM8')
 
+    // Board 2 is a different device on a different port: COM8 is Board 1's.
     useUiStore.getState().setActiveBoardId('board-2')
     expect(useUploadStore.getState().selectedFqbn).toBe('esp32:esp32:esp32s3')
-    expect(useUploadStore.getState().selectedPort).toBe('COM7')
+    expect(useUploadStore.getState().selectedPort).toBe('')
+  })
+
+  it('picks a free port for a board, never the one another board uploads through', async () => {
+    const { useProjectStore, useUploadStore } = await freshStores()
+    const { useUiStore } = await import('../../uiStore')
+    const { useGraphStore } = await import('../../graphStore')
+    useProjectStore.getState().createProject('Rig', workspace(['main']))
+    useGraphStore.getState().loadGraph([boardNode('board-root'), boardNode('board-2')], [])
+    useUploadStore.getState().setSelectedPort('COM8')
+    useUiStore.getState().setActiveBoardId('board-2')
+
+    // Both boards plugged in; COM8 is listed first and is Board 1's.
+    mocks.listPorts.mockResolvedValueOnce([
+      { address: 'COM8', label: 'COM8', boards: [] }, { address: 'COM5', label: 'COM5', boards: [] },
+    ])
+    await useUploadStore.getState().refreshPorts()
+    expect(useUploadStore.getState().selectedPort).toBe('COM5')
+
+    // Only Board 1 plugged in: nothing free, so nothing is chosen for Board 2.
+    useUploadStore.getState().setSelectedPort('')
+    useProjectStore.getState().setProjectUploadTarget('board-2', { selectedFqbn: 'esp32:esp32:esp32', selectedPort: '' })
+    mocks.listPorts.mockResolvedValueOnce([{ address: 'COM8', label: 'COM8', boards: [] }])
+    await useUploadStore.getState().refreshPorts()
+    expect(useUploadStore.getState().selectedPort).toBe('')
+  })
+
+  it('notices an unplugged board with a quick check that keeps the names it knew', async () => {
+    const { useUploadStore } = await freshStores()
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'arduino-cli', fbuild: false, arduinoCli: true } as never,
+      ports: [{ address: 'COM8', label: 'COM8 (ESP32-S3)', boards: [{ name: 'ESP32-S3', fqbn: 'esp32:esp32:esp32s3' }] }] as never,
+      portsScanned: true,
+      selectedPort: 'COM8',
+    })
+    mocks.listPorts.mockResolvedValueOnce([
+      { address: 'COM8', label: 'COM8 (USB JTAG)', boards: [] }, { address: 'COM5', label: 'COM5 (CH340)', boards: [] },
+    ])
+    await useUploadStore.getState().checkPorts()
+    expect(mocks.listPorts).toHaveBeenLastCalledWith(true)
+    expect(useUploadStore.getState().ports.map((port) => port.label)).toEqual(['COM8 (ESP32-S3)', 'COM5 (CH340)'])
+
+    // Unplugged: gone from the list on the next check.
+    mocks.listPorts.mockResolvedValueOnce([{ address: 'COM5', label: 'COM5 (CH340)', boards: [] }])
+    await useUploadStore.getState().checkPorts()
+    expect(useUploadStore.getState().ports.map((port) => port.address)).toEqual(['COM5'])
+
+    // Nothing is scanned during an upload.
+    mocks.listPorts.mockClear()
+    useUploadStore.setState({ busy: true })
+    await useUploadStore.getState().checkPorts()
+    expect(mocks.listPorts).not.toHaveBeenCalled()
   })
 
   it('records the board link each board was last flashed with, from project firmware only', async () => {

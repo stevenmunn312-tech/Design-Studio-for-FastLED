@@ -85,9 +85,11 @@ export async function setEngine(engine: 'fbuild' | 'arduino-cli'): Promise<{ ok:
 }
 
 /** Connected serial boards/ports, or [] when the helper or arduino-cli is absent. */
-export async function listPorts(): Promise<SerialPort[]> {
+/** The serial ports. `quick` is presence only, from the OS, opening none: what
+ *  the Upload tab polls with, since a full scan opens every port to name it. */
+export async function listPorts(quick = false): Promise<SerialPort[]> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/serial/ports`)
+    const res = await fetch(`${BACKEND_URL}/api/serial/ports${quick ? '?quick=1' : ''}`)
     const data = await res.json()
     return data.ok ? (data.ports as SerialPort[]) : []
   } catch {
@@ -495,11 +497,14 @@ export interface CompileCheckResult {
  */
 export async function compileCheck(
   code: string, fqbn: string, signal?: AbortSignal, flashMb?: number, usbCdcOnBoot?: boolean,
+  subject: 'sketch' | 'player' = 'sketch',
 ): Promise<CompileCheckResult> {
   const res = await fetch(`${BACKEND_URL}/api/compile-check`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...sketchBody(code), fqbn, flashMb, usbCdcOnBoot }),
+    // The SD player is measured in the sketch folder its upload builds in, so
+    // that upload finds this build in arduino-cli's cache.
+    body: JSON.stringify({ ...sketchBody(code), fqbn, flashMb, usbCdcOnBoot, ...(subject === 'player' ? { sketch: 'player' } : {}) }),
     signal,
   })
   return (await res.json()) as CompileCheckResult

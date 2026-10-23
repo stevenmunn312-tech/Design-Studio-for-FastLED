@@ -51,6 +51,17 @@ describe('capacityStore', () => {
     expect(useCapacityStore.getState().result?.ok).toBe(true)
   })
 
+  it('measures an SD player where its upload builds it, so the upload reuses the build', async () => {
+    const { useCapacityStore } = await freshStore()
+    const { setTarget, check } = useCapacityStore.getState()
+
+    setTarget({ ...TARGET, subject: 'player' })
+    check()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(compileCheck).toHaveBeenCalledWith('CODE', 'esp32:esp32:esp32', expect.anything(), undefined, undefined, 'player')
+  })
+
   it('marks a reading stale once the graph moves on, without dropping it', async () => {
     // The cost of manual checking: a reading can outlive the design it
     // measured. It still says roughly where you stand, so it stays — but it

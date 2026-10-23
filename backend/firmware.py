@@ -67,6 +67,10 @@ def _files_kw(files: dict[str, str]) -> dict:
     return {"files": files} if files else {}
 
 
+# The SD player's sketch workspace, shared by its upload and its capacity check.
+PLAYER_SKETCH = "player"
+
+
 @contextlib.contextmanager
 def _sketch_workspace(name: str, ino: str, files: dict[str, str] | None = None):
     """Yield the <name>/<name>.ino directory to compile `ino` from (arduino-cli
@@ -1070,8 +1074,13 @@ def health():
 
 
 @router.get("/api/serial/ports")
-def serial_ports():
+def serial_ports(quick: bool = False):
     """List serial ports for the upload dropdown.
+
+    `quick` skips the arduino-cli half: presence only, from the OS, with no
+    port opened. The Upload tab polls with it so an unplugged board stops
+    reading as connected, without `board list` reaching into a port the serial
+    monitor holds every few seconds.
 
     Merges two sources so nothing is missed:
       1. `arduino-cli board list` — richer (includes matching board names/FQBNs).
@@ -1095,7 +1104,7 @@ def serial_ports():
     # dead board — none of which it is. Cost hours on 2026-08-16. pyserial's
     # enumeration below needs no open and still lists the port, so the dropdown
     # keeps working during an upload; only the board-name enrichment pauses.
-    if toolchain._ARDUINO_CLI and not _flash_in_progress():
+    if not quick and toolchain._ARDUINO_CLI and not _flash_in_progress():
         try:
             proc = subprocess.run(
                 toolchain._ARDUINO_BASE + ["board", "list", "--format", "json"],
@@ -1447,6 +1456,10 @@ def compile_check(payload: dict = Body(...)):
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
+    # The SD player is flashed from its own workspace (see `_build_flash`).
+    # Measuring it there too is what lets the upload that follows reuse this
+    # build: arduino-cli keys its cache on the sketch folder's path.
+    workspace = PLAYER_SKETCH if payload.get("sketch") == PLAYER_SKETCH else toolchain.SKETCH
     try:
         files = toolchain._sketch_files_from(payload.get("files"))
     except ValueError as exc:
@@ -1473,7 +1486,7 @@ def compile_check(payload: dict = Body(...)):
     else:
         flash_mb = toolchain._flash_mb_from(payload)
         usb_cdc = toolchain._usb_cdc_from(payload)
-        with _sketch_workspace(toolchain.SKETCH, ino, **_files_kw(files)) as sketch_dir:
+        with _sketch_workspace(workspace, ino, **_files_kw(files)) as sketch_dir:
             lines, (rc, phase) = _drain_compile(_compile_upload(
                 "Capacity check", sketch_dir, fqbn, "", usb_cdc=usb_cdc,
                 flash_mb=flash_mb))
@@ -1604,6 +1617,10 @@ def compile_binary(payload: dict = Body(...)):
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
+    # The SD player is flashed from its own workspace (see `_build_flash`).
+    # Measuring it there too is what lets the upload that follows reuse this
+    # build: arduino-cli keys its cache on the sketch folder's path.
+    workspace = PLAYER_SKETCH if payload.get("sketch") == PLAYER_SKETCH else toolchain.SKETCH
     try:
         files = toolchain._sketch_files_from(payload.get("files"))
     except ValueError as exc:
@@ -1735,7 +1752,7 @@ async def upload_show(
         use_port = port if target_port is None else target_port
         if engine == "fbuild":
             return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb, usb_cdc))
-        with _sketch_workspace(label.split()[0].lower(), ino) as sketch_dir:
+        with _sketch_workspace(PLAYER_SKETCH if label == "Player" else label.split()[0].lower(), ino) as sketch_dir:
             return (yield from _compile_upload(
                 label, sketch_dir, fqbn, use_port, usb_cdc=usb_cdc,
                 flash_mb=flash_mb))
