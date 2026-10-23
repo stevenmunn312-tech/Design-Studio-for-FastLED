@@ -353,6 +353,12 @@ interface GraphState {
    * key on this machine". See docs/design/board-links.md.
    */
   renewBoardLinkKey: () => string | null
+  /**
+   * Make `linkId` the open project's link id, with no undo step: Save As
+   * calls it once the copy is saved, so the session it carries on in is the
+   * copy's own link (see `withFreshBoardLink`).
+   */
+  adoptBoardLinkId: (linkId: string) => void
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   /** Duplicate every currently multi-selected node plus the edges wiring them
@@ -2697,6 +2703,11 @@ export const useGraphStore = create<GraphState>()(
         }),
 
       renewBoardLinkKey: () => assignBoardLinkId(true),
+
+      adoptBoardLinkId: (linkId) => {
+        sessionBoardLinkId = linkId
+        writeBoardLinkId(linkId)
+      },
 
       loadGraph: (nodes, edges, workspace) => {
         // Replacing the workspace invalidates every graph's history, stashed

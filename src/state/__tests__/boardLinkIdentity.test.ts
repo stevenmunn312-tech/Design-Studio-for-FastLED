@@ -169,6 +169,14 @@ describe('board link id and key', () => {
     expect(keyCount()).toBe(0)
   })
 
+  it('adoptBoardLinkId takes a Save As copy id with no undo step of its own', () => {
+    useGraphStore.getState().loadGraph(nodes({ linkId: 'abcdef01' }), [...local, crossing])
+    useGraphStore.temporal.getState().clear()
+    useGraphStore.getState().adoptBoardLinkId('12345678')
+    expect(primaryProps().linkId).toBe('12345678')
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(0)
+  })
+
   it('drops a malformed id and a bad channel on load', () => {
     useGraphStore.getState().loadGraph(nodes({ linkId: 'NOT-HEX', linkChannel: 40 }), local)
     expect(primaryProps().linkId).toBeUndefined()

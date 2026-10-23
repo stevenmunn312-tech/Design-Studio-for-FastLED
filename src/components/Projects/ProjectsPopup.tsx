@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore } from '../../state/graphStore'
+import { withFreshBoardLink } from '../../state/peripherals/boardLinkCopy'
+import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
 import { useProjectStore } from '../../state/projectStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
 import { nextDefaultProjectName } from '../../utils/projectFileIO'
@@ -86,7 +88,11 @@ export default function ProjectsPopup() {
     if (name === null) return
     const workspace = structuredClone(captureWorkspace(useGraphStore.getState()))
     useProjectStore.getState().saveCurrentWorkspace(workspace)
-    const project = createProject(name, workspace, { uploadTarget: currentProject.uploadTarget })
+    // The copy gets its own board link, so its boards and the original's never
+    // accept each other's frames.
+    const fresh = withFreshBoardLink(workspace)
+    if (fresh) useBoardLinkKeyStore.getState().createKey(fresh.linkId)
+    const project = createProject(name, fresh?.workspace ?? workspace, { uploadTarget: currentProject.uploadTarget })
     useGraphStore.getState().loadGraph(project.workspace.nodes, project.workspace.edges, project.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(`Duplicated into "${project.name}"`, 'success')

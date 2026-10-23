@@ -10,7 +10,8 @@ import { useUiStore } from '../uiStore'
 import { PRIMARY_UPLOAD_TARGET_KEY } from '../uploadTargets'
 import { useStreamStore } from '../output/streamStore'
 import { useGraphStore, rootGraphEdges, rootGraphNodes } from '../graphStore'
-import { boardLinkSchema, primaryBoardId } from '../../build/boardPartition'
+import { primaryBoardId } from '../../build/boardPartition'
+import { boardLinkFingerprint } from './boardLinkFlash'
 import { selectedBoardFlashMb } from '../../build/boards/boardProfiles'
 import { controllerSettings } from '../../build/controllerSettings'
 import { resolveUsbCdcOnBoot } from './serialRouting'
@@ -303,9 +304,9 @@ export function parseStatus(log: string): UploadStatus {
 // ── Persistence ───────────────────────────────────────────────────────────────
 const KEY = 'design-studio-for-fastled-upload'
 interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string; customBoards: Board[]; cardReader: boolean; verboseOutput: boolean }
-/** `linkSchemaHash` is the link the cached sketch was generated against, so
+/** `flashedLink` is the link the cached sketch was generated against, so
  *  a re-upload records what it actually flashes rather than today's link. */
-interface CachedSketchUpload { code: string; fqbnOpt?: string; linkSchemaHash?: number }
+interface CachedSketchUpload { code: string; fqbnOpt?: string; flashedLink?: number }
 
 function load(): Persisted {
   const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '', customBoards: [], cardReader: false, verboseOutput: false }
@@ -464,9 +465,9 @@ interface UploadState {
   // `cache: false` skips saving this sketch as the project's "re-upload last
   // sketch" target — used for one-off flashes like the live-stream receiver,
   // which shouldn't clobber the cached pattern sketch.
-  // `linkSchemaHash` overrides the board link the sketch was generated
+  // `flashedLink` overrides the board link the sketch was generated
   // against, for a re-upload of a cached sketch.
-  runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean; reuseCompiled?: boolean; linkSchemaHash?: number }) => Promise<void>
+  runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean; reuseCompiled?: boolean; flashedLink?: number }) => Promise<void>
   runLastUpload: () => Promise<void>
   runShowUpload: (payload: { player: string; files: ShowUploadFile[]; fqbnOpt?: string }) => Promise<void>
 
@@ -538,9 +539,9 @@ function saveProjectSelection(selectedFqbn: string, selectedPort: string) {
  * The board link the project's firmware is generated against right now:
  * read when an upload starts, because the graph can change while it runs.
  */
-function currentLinkSchemaHash(): number {
+function currentLinkFingerprint(): number {
   const state = useGraphStore.getState()
-  return boardLinkSchema(rootGraphNodes(state), rootGraphEdges(state)).hash
+  return boardLinkFingerprint(rootGraphNodes(state), rootGraphEdges(state))
 }
 
 /**
@@ -550,8 +551,8 @@ function currentLinkSchemaHash(): number {
  * receiver, calibration) record nothing: they are not the project's firmware,
  * and the next project upload records again.
  */
-function recordFlashedLink(boardKey: string, selectedFqbn: string, selectedPort: string, linkSchemaHash: number) {
-  useProjectStore.getState().setProjectUploadTarget(boardKey, { selectedFqbn, selectedPort, linkSchemaHash })
+function recordFlashedLink(boardKey: string, selectedFqbn: string, selectedPort: string, flashedLink: number) {
+  useProjectStore.getState().setProjectUploadTarget(boardKey, { selectedFqbn, selectedPort, flashedLink })
 }
 
 export const useUploadStore = create<UploadState>((set, get) => ({
@@ -735,12 +736,12 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     const currentProjectId = useProjectStore.getState().currentProjectId
     const projectUpload = opts?.cache !== false
     const boardKey = activeUploadTargetKey()
-    const linkSchemaHash = opts?.linkSchemaHash ?? currentLinkSchemaHash()
+    const flashedLink = opts?.flashedLink ?? currentLinkFingerprint()
     if (currentProjectId && projectUpload) {
       set((s) => ({
         lastSketchByProject: {
           ...s.lastSketchByProject,
-          [currentProjectId]: { code, fqbnOpt, linkSchemaHash },
+          [currentProjectId]: { code, fqbnOpt, flashedLink },
         },
       }))
     }
@@ -777,7 +778,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       // The board now runs this sketch, so its timed nodes are the ones a
       // `top` report counts.
       if (settled.phase === 'done') useDeviceTelemetryStore.getState().setNodeLabels(telemetryNodeLabels(code))
-      if (settled.phase === 'done' && projectUpload) recordFlashedLink(boardKey, selectedFqbn, selectedPort, linkSchemaHash)
+      if (settled.phase === 'done' && projectUpload) recordFlashedLink(boardKey, selectedFqbn, selectedPort, flashedLink)
       // Pop the output/serial console open whenever an upload finishes, not
       // just on failure, so the result is always visible without an extra click.
       set({ consoleOpen: true })
@@ -795,7 +796,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     const currentProjectId = useProjectStore.getState().currentProjectId
     const cached = currentProjectId ? get().lastSketchByProject[currentProjectId] : undefined
     if (!cached) return
-    await get().runUpload(cached.code, cached.fqbnOpt, { linkSchemaHash: cached.linkSchemaHash })
+    await get().runUpload(cached.code, cached.fqbnOpt, { flashedLink: cached.flashedLink })
   },
 
   setCardReader: (on) => { set({ cardReader: on }); persistFallback({ ...get(), cardReader: on }) },
@@ -827,7 +828,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     get().stopSerial()
     useStreamStore.getState().stop()
     const boardKey = activeUploadTargetKey()
-    const linkSchemaHash = currentLinkSchemaHash()
+    const flashedLink = currentLinkFingerprint()
 
     const onLog = (chunk: string) => {
       const log = (get().log + chunk).slice(-60000)
@@ -940,7 +941,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: final.phase === 'error' ? final : { phase: 'done', message: 'Done' } })
       // A show or player sketch times no nodes.
       if (final.phase !== 'error') useDeviceTelemetryStore.getState().setNodeLabels([])
-      if (final.phase !== 'error') recordFlashedLink(boardKey, selectedFqbn, selectedPort, linkSchemaHash)
+      if (final.phase !== 'error') recordFlashedLink(boardKey, selectedFqbn, selectedPort, flashedLink)
     } catch (err) {
       get().appendLog(`\n[error] ${err}\n`)
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })

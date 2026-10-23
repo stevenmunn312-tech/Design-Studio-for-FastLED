@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { boardLinkUploadNotes } from '../boardLinkFlash'
-import { boardLinkSchema } from '../../../build/boardPartition'
+import { boardLinkFingerprint, boardLinkUploadNotes } from '../boardLinkFlash'
+import { useBoardLinkKeyStore } from '../../peripherals/boardLinkKey'
 import { normalizeProjectUploadTargets, normalizeUploadTarget, type ProjectUploadTargets } from '../../uploadTargets'
 import type { StudioEdge, StudioNode } from '../../graphStore'
 
 /*
  * The Upload tab's note that a linked board runs an older link: every linked
- * sketch drops frames carrying another schema hash, so a change to the link
- * means flashing every linked board. See docs/design/board-links.md, "Upload".
+ * sketch drops frames carrying another schema hash, link id or key, so a
+ * change to any of them means flashing every linked board. See docs/design/board-links.md, "Upload".
  */
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -39,14 +39,14 @@ const linkedEdges = [...base, edge('pot', 'value', 'fade', 'brightness')]
 const changedEdges = [...linkedEdges, edge('knob', 'value', 'fade', 'speed')]
 
 const flashed = (hashes: Record<string, number | undefined>): ProjectUploadTargets => Object.fromEntries(
-  Object.entries(hashes).map(([key, linkSchemaHash]) => [key, {
+  Object.entries(hashes).map(([key, flashedLink]) => [key, {
     selectedFqbn: 'esp32:esp32:esp32', selectedPort: 'COM3',
-    ...(linkSchemaHash === undefined ? {} : { linkSchemaHash }),
+    ...(flashedLink === undefined ? {} : { flashedLink }),
   }]))
 
 describe('boardLinkUploadNotes', () => {
-  const before = boardLinkSchema(nodes, linkedEdges).hash
-  const after = boardLinkSchema(nodes, changedEdges).hash
+  const before = boardLinkFingerprint(nodes, linkedEdges)
+  const after = boardLinkFingerprint(nodes, changedEdges)
 
   it('names every other linked board flashed with an older link', () => {
     expect(before).not.toBe(after)
@@ -84,13 +84,29 @@ describe('boardLinkUploadNotes', () => {
   })
 
   it('keeps a recorded hash through a save and refuses one no schema makes', () => {
-    expect(normalizeUploadTarget({ selectedFqbn: 'a', selectedPort: 'b', linkSchemaHash: 3735928559 }))
-      .toEqual({ selectedFqbn: 'a', selectedPort: 'b', linkSchemaHash: 3735928559 })
-    expect(normalizeUploadTarget({ selectedFqbn: 'a', selectedPort: 'b', linkSchemaHash: -1 }))
+    expect(normalizeUploadTarget({ selectedFqbn: 'a', selectedPort: 'b', flashedLink: 3735928559 }))
+      .toEqual({ selectedFqbn: 'a', selectedPort: 'b', flashedLink: 3735928559 })
+    expect(normalizeUploadTarget({ selectedFqbn: 'a', selectedPort: 'b', flashedLink: -1 }))
       .toEqual({ selectedFqbn: 'a', selectedPort: 'b' })
-    expect(normalizeUploadTarget({ selectedFqbn: 'a', selectedPort: 'b', linkSchemaHash: '12' }))
+    expect(normalizeUploadTarget({ selectedFqbn: 'a', selectedPort: 'b', flashedLink: '12' }))
       .toEqual({ selectedFqbn: 'a', selectedPort: 'b' })
-    expect(normalizeProjectUploadTargets({ uploadTargets: { 'board-2': { selectedFqbn: 'a', selectedPort: 'b', linkSchemaHash: 7 } } })
-      .uploadTargets).toEqual({ 'board-2': { selectedFqbn: 'a', selectedPort: 'b', linkSchemaHash: 7 } })
+    expect(normalizeProjectUploadTargets({ uploadTargets: { 'board-2': { selectedFqbn: 'a', selectedPort: 'b', flashedLink: 7 } } })
+      .uploadTargets).toEqual({ 'board-2': { selectedFqbn: 'a', selectedPort: 'b', flashedLink: 7 } })
+  })
+
+  it('calls a board behind when only the key changed', () => {
+    const linkId = '0a1b2c3d'
+    const withId = nodes.map((entry) => (entry.id === 'board-root'
+      ? node('board-root', 'Board', { linkId }) : entry))
+    useBoardLinkKeyStore.getState().createKey(linkId)
+    const flashedWith = boardLinkFingerprint(withId, linkedEdges)
+    const targets = flashed({ 'board-root': flashedWith, 'board-2': flashedWith })
+    expect(boardLinkUploadNotes(withId, linkedEdges, targets, 'board-root')).toEqual([])
+    // A new key (the repair, or a copy of the project) leaves the slot table
+    // alone, but Board 2 still signs and checks with the old one.
+    useBoardLinkKeyStore.getState().createKey(linkId)
+    expect(boardLinkUploadNotes(withId, linkedEdges, targets, 'board-root'))
+      .toEqual(['The link changed since Board 2 was uploaded. Upload Board 2 as well.'])
+    useBoardLinkKeyStore.setState({ byLinkId: {} })
   })
 })

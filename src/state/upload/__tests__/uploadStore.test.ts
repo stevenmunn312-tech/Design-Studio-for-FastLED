@@ -534,7 +534,7 @@ describe('uploadStore — one target per board', () => {
     const { useProjectStore, useUploadStore } = await freshStores()
     const { useUiStore } = await import('../../uiStore')
     const { useGraphStore, rootGraphEdges, rootGraphNodes } = await import('../../graphStore')
-    const { boardLinkSchema } = await import('../../../build/boardPartition')
+    const { boardLinkFingerprint } = await import('../boardLinkFlash')
     const part = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => ({
       id, type: 'studioNode', position: { x: 0, y: 0 },
       data: { label: nodeType, nodeType, category: 'pattern', properties, inputs: [], outputs: [] },
@@ -550,10 +550,10 @@ describe('uploadStore — one target per board', () => {
     ], [wire('p1', 'frame', 'fade', 'frame'), wire('fade', 'frame', 'out1', 'frame'), wire('pot', 'value', 'fade', 'brightness')])
     const hash = () => {
       const state = useGraphStore.getState()
-      return boardLinkSchema(rootGraphNodes(state), rootGraphEdges(state)).hash
+      return boardLinkFingerprint(rootGraphNodes(state), rootGraphEdges(state))
     }
     const flashedHash = () => useProjectStore.getState().projects
-      .find((entry) => entry.id === id)?.uploadTargets?.['board-2']?.linkSchemaHash
+      .find((entry) => entry.id === id)?.uploadTargets?.['board-2']?.flashedLink
     const first = hash()
     expect(first).not.toBe(0)
 

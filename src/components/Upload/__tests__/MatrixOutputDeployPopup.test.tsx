@@ -1025,7 +1025,7 @@ describe('MatrixOutputDeployPopup with several boards', () => {
       projects: [{
         id: 'rig', name: 'Rig', createdAt: 0, updatedAt: 0, workspace: { nodes: [], edges: [] },
         // Board 2 was last flashed with a link that is not this one.
-        uploadTargets: { 'board-2': { selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM8', linkSchemaHash: 1 } },
+        uploadTargets: { 'board-2': { selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM8', flashedLink: 1 } },
       }],
       currentProjectId: 'rig',
     })

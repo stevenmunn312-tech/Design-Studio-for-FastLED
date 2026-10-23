@@ -4,6 +4,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
 import type { LayoutPresetId } from '../../state/layoutPresets'
 import { rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
+import { withFreshBoardLink } from '../../state/peripherals/boardLinkCopy'
+import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
 import { usePerformanceDeckSession } from '../../state/player/performanceDeckSessionStore'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { graphAudioCapabilityKind, graphAudioCapabilitySource } from '../../state/audio/audioCapabilities'
@@ -557,7 +559,15 @@ export default function MenuBar() {
     closeMenus()
     const workspace = captureWorkspace(useGraphStore.getState())
     if (currentProject) useProjectStore.getState().saveCurrentWorkspace(workspace)
-    const draft = buildProjectSnapshot(workspace, {
+    // The copy gets its own board link; the open session adopts it only once
+    // the copy exists, so a cancelled dialog leaves the original's link alone.
+    const fresh = withFreshBoardLink(workspace)
+    const adoptLink = () => {
+      if (!fresh) return
+      useBoardLinkKeyStore.getState().createKey(fresh.linkId)
+      useGraphStore.getState().adoptBoardLinkId(fresh.linkId)
+    }
+    const draft = buildProjectSnapshot(fresh?.workspace ?? workspace, {
       sourceProject: currentProject,
       name: currentProject ? `${currentProject.name} Copy` : `Project ${projects.length + 1}`,
       duplicate: true,
@@ -576,6 +586,7 @@ export default function MenuBar() {
         )
         if (!saved) throw new Error('No save dialog available')
         const project = useProjectStore.getState().upsertProject(saved)
+        adoptLink()
         setStatus(`Saved as "${project.name}"`, 'success')
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
@@ -587,6 +598,7 @@ export default function MenuBar() {
         a.click()
         URL.revokeObjectURL(url)
         const project = useProjectStore.getState().upsertProject(draft)
+        adoptLink()
         setStatus(`Downloaded "${project.name}" to the browser's download location`, 'info')
       }
     })()

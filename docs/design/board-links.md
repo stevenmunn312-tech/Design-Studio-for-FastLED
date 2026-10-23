@@ -334,6 +334,13 @@ Where the build differs from, or narrows, the design above:
   presses, colours and text.
 - The key is made when the first link wire is drawn, never on load; a project
   opened elsewhere gets a new key only from Graph Health's fix.
+- A Duplicate or Save As of a linked project takes a new link id and key
+  (`src/state/peripherals/boardLinkCopy.ts`), so the copy's boards and the
+  original's never accept each other's frames. Save As adopts the id only
+  once the copy is saved.
+- The Upload tab records a fingerprint of the schema hash, link id and key for
+  each board's last flash, so a new key or a copy asks for every other linked
+  board to be uploaded again, as a changed slot table does.
 - Removing a board moves its network endpoints to the primary rather than
   deleting them, since they carry design.
 - Start values: Web Remote controls start at their real start state; every
