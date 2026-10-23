@@ -30,9 +30,24 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   an entry once its outcome is recorded, and route details through
   [docs/index.md](docs/index.md).
 
-## 3. Frame performance (before the release track)
+## 3. Engineering before the release track
 
-Done: HW-32 is under [Completed](#completed); its bench rows are in section 4.
+HW-32 (frame performance) is under [Completed](#completed); its bench rows are
+in section 4.
+
+- [ ] **D-13 · Board links over ESP-NOW (L).** Controls and readings travel
+  between the boards of one project, so one board can run the LEDs and the
+  music while another runs the screen, the buttons and the encoders, or an
+  ESP8266's Web Remote sets an ESP32's brightness. A wire a link can carry
+  (numbers, switches, presses, colours, text, times, display fields) becomes a
+  link wire instead of a cross-board error; frames and audio still cannot
+  cross. Steps, in order: partition rework with anchors and synthetic
+  link-in/link-out nodes; a board for each network endpoint; canvas link wires,
+  link channel and key; the ESP-NOW emitter in all three generators;
+  validation and the Upload tab's out-of-date warning; help, guides and an
+  experimental support-matrix row
+  ([design](docs/design/board-links.md#implementation-order)). Compiles wait
+  for the v1 freeze; the bench row is in section 4.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
@@ -280,6 +295,14 @@ chooses the supported combinations from whatever is on record at release.
   through transitions, and the follower resumes its own picks five seconds
   after the leader is unplugged. Compile both partitions first; no
   multi-board sketch has compiled yet.
+- **D-13 board links:** two ESP32 boards, one running the Music Player and
+  its LEDs, the other a colour panel with an encoder and buttons: volume and
+  Next from the second board, the track title and position on its panel, a
+  reset of each board and the other's behaviour meanwhile, both on and off a
+  Wi-Fi network. Then an ESP8266 Web Remote driving an ESP32's brightness.
+  Record the link's latency, its range indoors, and the Wi-Fi driver's heap
+  cost on the render board
+  ([design](docs/design/board-links.md#limits)).
 - **D-03 UNO R4 WiFi networking:** NTP sync and Art-Net receive through
   WiFiS3 on an Arduino UNO R4 WiFi: first compile on arduino-cli (the
   `ARDUINO_UNOWIFIR4` define, `WiFiS3.h`, `setHostname` and the

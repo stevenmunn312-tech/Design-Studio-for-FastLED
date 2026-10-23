@@ -64,6 +64,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 - [HUB75 output](design/hub75-output.md)
 - [IR remote controls for graph properties](design/ir-remote-controls.md)
 - [Multi-board projects](design/multi-board.md)
+- [Board links: controls between boards over ESP-NOW](design/board-links.md)
 - [RTC clock and scheduled triggers](design/rtc-clock-and-schedule.md)
 - [Wired Ethernet](design/wired-ethernet.md)
 

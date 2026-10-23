@@ -149,7 +149,8 @@ No pre-1.0 migration: a saved project with one board is unchanged.
 ## Deliberately out of scope
 
 - A single sketch driving two boards' outputs, or outputs attached to no board.
-- Cross-board signal wires carried over the network.
+- Cross-board signal wires carried over the network: designed as
+  [board links](board-links.md), which also replace this note's partition walk.
 - Music player sync, and sync without a network (a wired pulse line).
 - Pin memory per board instance: `userPinsByBoard` stays keyed by profile id,
   so two boards of the same profile share their remembered pins.
