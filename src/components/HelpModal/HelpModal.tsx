@@ -318,6 +318,21 @@ function HardwareTab() {
       <div className={styles.divider} />
 
       <div className={styles.section}>
+        <div className={styles.sectionTitle}>Several boards in one project</div>
+        <div className={styles.definitionGrid}>
+          <div><strong>Each part has a board</strong><span>Add another controller from the board menu on the Hardware tab. A part belongs to the board that was active when you added it; the Web Remote, Art-Net, DDP and Frame Stream nodes choose theirs with <strong>Runs on</strong>.</span></div>
+          <div><strong>Link wires</strong><span>Wire across boards as usual. A number, switch, button press, colour, text, time or panel field travels over ESP-NOW and is drawn dashed with a radio mark; hover it to see which boards it joins. There is nothing to place or configure.</span></div>
+          <div><strong>What cannot cross</strong><span>LED frames, audio and other structures stay on one board. Graph Health says what to move, such as putting the microphone on the board that runs the music.</span></div>
+          <div><strong>Upload each board</strong><span>Both sides of a link are built from the same table. When a link changes, the Upload tab asks you to upload the other board as well; until then it ignores the out-of-date board&apos;s frames.</span></div>
+        </div>
+        <div className={styles.note}>
+          Board links are experimental: ESP32 boards with a radio and the ESP8266 only, a few tens of metres indoors, and every linked board on the same Wi-Fi network when any of them joins one.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
         <div className={styles.sectionTitle}>Changing boards and pins</div>
         <div className={styles.choiceGrid}>
           <div className={styles.choiceCard}>

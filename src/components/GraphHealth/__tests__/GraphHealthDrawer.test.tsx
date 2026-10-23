@@ -4,6 +4,7 @@ import GraphHealthDrawer from '../GraphHealthDrawer'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioEdge, type StudioNode } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/upload/uploadStore'
+import { useBoardLinkKeyStore } from '../../../state/peripherals/boardLinkKey'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -59,6 +60,30 @@ describe('GraphHealthDrawer', () => {
     expect(queryByText('I2C parts are on more than one bus')).toBeNull()
     expect(useGraphStore.getState().nodes.find((part) => part.id === 'oled')?.data.properties)
       .toMatchObject({ sdaPin: 8, sclPin: 9 })
+  })
+
+  it('makes a board link key from the card', () => {
+    useBoardLinkKeyStore.setState({ byLinkId: {} })
+    // A pot on Board 2 sets the brightness of Board 1's pattern.
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board'), node('board-2', 'Board'),
+      node('p1', 'SolidColor'), node('fade', 'BrightnessMod'), node('out1', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+      node('pot', 'PotInput', { pin: 34, boardId: 'board-2' }),
+    ], [
+      { id: 'a', source: 'p1', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+      { id: 'b', source: 'fade', sourceHandle: 'frame', target: 'out1', targetHandle: 'frame' },
+      { id: 'c', source: 'pot', sourceHandle: 'value', target: 'fade', targetHandle: 'brightness' },
+    ] as StudioEdge[])
+    const { getByText, queryByText } = render(<GraphHealthDrawer />)
+    const card = getByText('The board link has no key yet').closest('article')!
+    fireEvent.click(within(card).getByRole('button', { name: 'Make a new key' }))
+
+    expect(queryByText('The board link has no key yet')).toBeNull()
+    const linkId = String(useGraphStore.getState().nodes.find((entry) => entry.id === 'board-root')?.data.properties.linkId)
+    const key = useBoardLinkKeyStore.getState().byLinkId[linkId]
+    expect(key).toMatch(/^[0-9a-f]{32}$/)
+    expect(useUiStore.getState().statusText).toBe('New board link key made — upload every linked board so they all use it')
+    useBoardLinkKeyStore.setState({ byLinkId: {} })
   })
 
   it('locates the affected node and frames it on the canvas', () => {

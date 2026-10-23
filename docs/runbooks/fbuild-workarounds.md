@@ -12,12 +12,16 @@ an internal record.
   [#1671](https://github.com/FastLED/fbuild/issues/1671),
   [#1672](https://github.com/FastLED/fbuild/issues/1672) and
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
-- **Current repository pin:** 2.5.37 (`backend/requirements.txt` and
-  `backend/constraints.txt`), moved from 2.5.26 on 2026-10-07 and validated on
-  2026-10-08: every fbuild leg on record built as it did on 2.5.26
-  ([2.5.37 upgrade record](#upgrade-record-to-2537)). Rerun
-  `scripts/compile-fixtures/compile-matrix.py --engine fbuild` after any future
-  pin change.
+- **Current repository pin:** 2.5.44 (`backend/requirements.txt` and
+  `backend/constraints.txt`), moved from 2.5.37 on 2026-10-23 and **not yet
+  validated**: no fbuild leg has run on it. 2.5.44 bundles the upstream fixes
+  from roll-up [#1689](https://github.com/FastLED/fbuild/issues/1689) for
+  #1656 (§12), #1658 (§5), #1670–#1672 (IR RP2040, Renesas, SAMD21) and #1673
+  (Windows long paths); ESP8266 `deploy` (#1657, §7) is still open. Every
+  workaround below stays until the
+  `scripts/compile-fixtures/compile-matrix.py --engine fbuild` rerun shows it
+  can go. The last validated pin is 2.5.37
+  ([2.5.37 upgrade record](#upgrade-record-to-2537)).
 - **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
   a measurement is only about the version that produced it. On 2026-09-10 the pin was
   2.5.21 (moved to 2.5.22 the following day), `backend/.venv` held **2.5.0**, and
@@ -26,7 +30,8 @@ an internal record.
   Espressif Python. The upstream latest was **2.5.23**. Four versions, one bench. Every
   build report the script writes records `toolchain.engine_version`; read that rather
   than assuming the pin, and say which version a result is about. Both the active
-  Espressif Python and `backend/.venv` now hold 2.5.37.
+  Espressif Python and `backend/.venv` held 2.5.37 when the pin moved to 2.5.44;
+  install the pin into both before the validation run.
 - **Host:** Windows 11. Some issues below are Windows-specific and are marked as such.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`

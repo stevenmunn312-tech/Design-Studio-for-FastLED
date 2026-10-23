@@ -8,9 +8,10 @@
 // any threading. What this module adds is the merge — a diagnostic a shared
 // signal node raises in every partition is said once, a board-specific one is
 // prefixed with the board's label — and the findings only the whole graph can
-// make: a wire that crosses boards, a board with nothing to drive, and the
-// network and collection rules clock sync needs. See
-// docs/design/multi-board.md, "Validation".
+// make: a wire no board link can carry, what a board link needs of its boards
+// (`boardLinkValidation.ts`), a board with nothing to drive, and the network
+// and collection rules clock sync needs. See docs/design/multi-board.md and
+// docs/design/board-links.md, "Validation".
 //
 // With one board the merged result is the one-board result, unchanged: the
 // partition is the whole root graph and nothing is prefixed.
@@ -27,7 +28,10 @@ import {
   isSinkNodeType,
   primaryBoardId,
   type BoardPartition,
+  type CrossBoardIssue,
 } from '../build/boardPartition'
+import { BOARD_LINK_OUT_NODE_TYPE, isNetworkEndpointNodeType } from '../build/boardLinks'
+import { boardLinkFindings } from './boardLinkValidation'
 import { fqbnHasWifi } from '../state/peripherals/networkCapability'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
@@ -270,7 +274,8 @@ export function buildBoardDiagnostics(
 
 /**
  * `findDeployBlockingErrors` for one board: the gate on its partition, plus
- * every cross-board wire that touches it and its own clock-sync errors. The
+ * every cross-board wire that touches it, its own clock-sync errors and the
+ * board-link errors it is part of (`boardLinkFindings`' `onlyBoardId`). The
  * Upload tab, which flashes one board at a time, gates on this rather than on
  * the partition alone, so a wire no sketch can carry stops both of its boards.
  */
@@ -345,14 +350,17 @@ function multiBoardFindings(
     const source = byId.get(wire.sourceNodeId)
     const target = byId.get(wire.targetNodeId)
     if (!source || !target) continue
+    const edgeIds = edges
+      .filter((edge) => edge.source === wire.sourceNodeId && edge.target === wire.targetNodeId)
+      .map((edge) => edge.id)
     issues.push({
       id: `cross-board-${wire.sourceNodeId}-${wire.targetNodeId}`, severity: 'error', category: 'connection',
-      title: 'A wire crosses boards',
-      message: `${nodeLabel(source)} on ${labelOf(wire.sourceBoardId)} feeds ${nodeLabel(target)} on ${labelOf(wire.targetBoardId)}, and no sketch can carry that wire.`,
-      fix: 'Move the part to the board that shows the pattern, or give that board its own copy of the pattern.',
-      nodeIds: [source.id, target.id], nodeLabel: nodeLabel(source),
+      ...crossBoardCopy(wire, source, target, labelOf),
+      nodeIds: [source.id, target.id], ...(edgeIds.length ? { edgeIds } : {}), nodeLabel: nodeLabel(source),
     })
   }
+
+  issues.push(...boardLinkFindings(nodes, edges, runs, onlyBoardId))
 
   const syncOn = runs.some((run) => clockSyncOf(run.board) !== 'off')
   const leader = runs.find((run) => clockSyncOf(run.board) === 'leader') ?? runs[0]
@@ -412,15 +420,80 @@ function multiBoardFindings(
   return issues
 }
 
+/**
+ * What each wire type no link carries is called in a card's title. A type
+ * missing here (one added to the library later) reads as "A <type> wire".
+ */
+const UNCARRIED_TYPE_TITLES: Record<string, string> = {
+  audio: 'Audio',
+  frame: 'A pattern frame',
+  field: 'A field',
+  image: 'An image',
+  palette: 'A palette',
+  music: 'Music',
+  patternset: 'A pattern collection',
+  transitionset: 'A transition set',
+  playercontrols: 'Player controls',
+  playerparticles: 'Player particles',
+  storage: 'Storage',
+  dmx: 'DMX',
+}
+
+/**
+ * The cross-board card's words: the type that cannot cross in the title, and
+ * a fix that names what to move where. The partition walks a wire back to its
+ * root (the microphone, not every pattern downstream of it), so the source is
+ * nearly always anchored: a part, which can be put on the other board; a
+ * network endpoint, which can run on it; or a generator owner, which stays
+ * with its LED output, so the thing to move is the target.
+ */
+function crossBoardCopy(
+  wire: CrossBoardIssue,
+  source: StudioNode,
+  target: StudioNode,
+  labelOf: (boardId: string) => string,
+): Pick<GraphDiagnostic, 'title' | 'message' | 'fix'> {
+  const from = labelOf(wire.sourceBoardId)
+  const to = labelOf(wire.targetBoardId)
+  const sourceName = nodeLabel(source)
+  const targetName = nodeLabel(target)
+  if (wire.dataType === null) {
+    // A value a link could carry, from a node that takes wires no link
+    // carries from more than one board, so no one board can compute it.
+    return {
+      title: 'A value cannot cross boards',
+      message: `${sourceName} feeds ${targetName} on ${to}, but ${sourceName} reads from more than one board, so no single board can compute it and send it.`,
+      fix: `Put the parts ${sourceName} reads on one board, or give ${to} its own ${sourceName}.`,
+    }
+  }
+  const sourceType = nodeTypeOf(source)
+  const targetType = nodeTypeOf(target)
+  const fix = isBoardAttachedNodeType(sourceType)
+    ? `Put the ${sourceName} on ${to}.`
+    : isNetworkEndpointNodeType(sourceType)
+      ? `Run the ${sourceName} on ${to}.`
+      : isBoardAttachedNodeType(targetType)
+        ? `Put the ${targetName} on ${from}.`
+        : `Give ${to} its own ${sourceName}, or compute ${targetName} on ${from}.`
+  return {
+    title: `${UNCARRIED_TYPE_TITLES[wire.dataType] ?? `A ${wire.dataType} wire`} cannot cross boards`,
+    message: `${sourceName} on ${from} feeds ${targetName} on ${to}, and a board link carries only numbers, switches, colours, text, times and screen readings.`,
+    fix,
+  }
+}
+
 /** Every root graph carries its Board nodes, so "empty" means nothing but those. */
 function projectIsEmpty(nodes: readonly StudioNode[]): boolean {
   return nodes.every((node) => nodeTypeOf(node) === 'Board')
 }
 
 /** Whether a board has an output of its own: an LED output or an attached part that takes a signal. */
+// A board that only sends values over a link (the controls of a split build)
+// drives the other board, so its link-outs count as something it drives.
 function drivesSomething(run: BoardedRun): boolean {
   return run.partition.nodes.some((node) => {
     const type = nodeTypeOf(node)
+    if (type === BOARD_LINK_OUT_NODE_TYPE) return true
     return node.id !== run.board.id && isBoardAttachedNodeType(type) && (type === 'MatrixOutput' || isSinkNodeType(type))
   })
 }

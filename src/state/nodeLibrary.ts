@@ -1611,13 +1611,20 @@ export const INTERNAL_PROPERTY_KEYS: ReadonlySet<string> = new Set([
   // Which Display Panel a Touch node is the glass of. The two are one physical
   // module and are added together; the node says which panel in words.
   'panelId',
-  // Which Board a part or LED output is attached to, chosen on the bench by
-  // which board is active when the part is added; absent means the primary.
+  // Which Board a part, LED output or network endpoint is attached to, chosen
+  // on the bench by which board is active when it is added (an endpoint also
+  // by its "Runs on" picker); absent means the primary.
   // See docs/design/multi-board.md.
   'boardId',
   // A Board's place in the clock sync: leader, follower or off. Kept
   // consistent across every Board by one store action, never set per board.
   'clockSync',
+  // The board link's project id and radio channel, on the primary Board. The
+  // id is generated with the first link and names the key in this browser's
+  // credentials store; the channel is set in the board options.
+  // See docs/design/board-links.md.
+  'linkId',
+  'linkChannel',
 ])
 
 export function isInternalProperty(key: string): boolean {

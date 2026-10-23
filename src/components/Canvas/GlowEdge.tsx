@@ -97,10 +97,14 @@ function GlowEdge({
     splicePreview?: boolean
     focusState?: 'active' | 'dim'
     connectionPulse?: number
+    /** Set on a root wire a board link carries: its tooltip sentence. */
+    boardLink?: string
   } | undefined
   const spliceArmed = edgeData?.spliceArmed === true
   const splicePreview = edgeData?.splicePreview === true
   const focusState = edgeData?.focusState
+  const boardLink = typeof edgeData?.boardLink === 'string' && edgeData.boardLink ? edgeData.boardLink : null
+  const [linkHovered, setLinkHovered] = useState(false)
   const familyClass =
     family === 'frame' ? styles.familyFrame :
     family === 'audio' ? styles.familyAudio :
@@ -128,10 +132,47 @@ function GlowEdge({
     />
   )
 
+  // On a link wire the radio mark holds the midpoint, so the readout sits
+  // just past it.
+  const readoutX = boardLink ? labelX + LINK_MARK_RADIUS + 4 : labelX
   const valueReadout = readout != null && (
-    <g className={styles.signalReadout} transform={`translate(${labelX}, ${labelY})`}>
+    <g className={styles.signalReadout} transform={`translate(${readoutX}, ${labelY})`}>
       <rect x={-1} y={-9} width={readout.length * 6.4 + 10} height={16} rx={4} fill="rgba(10, 12, 16, 0.88)" stroke={color} strokeWidth={1} />
       <text x={4} y={3} fill={color} fontSize={11} fontFamily="monospace">{readout}</text>
+    </g>
+  )
+
+  /*
+   * A link wire: the value crosses boards over ESP-NOW rather than a cable,
+   * so it is drawn dashed with a radio mark at its midpoint, and hovering the
+   * mark names the boards. Static: nothing here animates, and nothing here
+   * carries a CSS filter. See docs/design/board-links.md.
+   */
+  const linkMark = boardLink && (
+    <g
+      className={styles.linkMark}
+      transform={`translate(${labelX}, ${labelY})`}
+      data-board-link={boardLink}
+      onMouseEnter={() => setLinkHovered(true)}
+      onMouseLeave={() => setLinkHovered(false)}
+    >
+      <circle className={styles.linkMarkDisc} r={LINK_MARK_RADIUS} stroke={color} />
+      <circle r={1.6} fill={color} />
+      <path d="M -3.2 -2.6 A 4 4 0 0 0 -3.2 2.6 M 3.2 -2.6 A 4 4 0 0 1 3.2 2.6" fill="none" stroke={color} strokeWidth={1.2} strokeLinecap="round" />
+      {linkHovered && (
+        <g className={styles.linkTooltip} transform={`translate(0, ${-LINK_MARK_RADIUS - 14})`}>
+          <rect
+            className={styles.linkTooltipBox}
+            x={-(boardLink.length * 6.4 + 12) / 2}
+            y={-9}
+            width={boardLink.length * 6.4 + 12}
+            height={18}
+            rx={4}
+            stroke={color}
+          />
+          <text className={styles.linkTooltipText} x={0} y={4} textAnchor="middle">{boardLink}</text>
+        </g>
+      )}
     </g>
   )
 
@@ -166,9 +207,11 @@ function GlowEdge({
           stroke={color}
           strokeWidth={2.4}
           strokeLinecap="round"
+          strokeDasharray={boardLink ? LINK_DASH : undefined}
           strokeOpacity={0.58 + activity * 0.28}
         />
         <circle cx={targetX} cy={targetY} r={3.2} fill={color} opacity={0.82} />
+        {linkMark}
         {valueReadout}
       </g>
     )
@@ -209,16 +252,20 @@ function GlowEdge({
       {/* Neutral carrier keeps dark noodles legible against the field even when
           the sampled signal is resting near black. It fades back as activity
           increases so the live color still owns the motion cue. */}
-      <path
-        className={styles.carrier}
-        d={edgePath}
-        fill="none"
-        stroke="rgba(255 255 255 / 0.78)"
-        strokeWidth={motion.coreWidth + 2}
-        strokeLinecap="round"
-        strokeOpacity={0.08 + idleVisibility * 0.12}
-      />
-      {/* Core — animated dash */}
+      {/* A link wire has no carrier: the gaps in its dash are the point. */}
+      {!boardLink && (
+        <path
+          className={styles.carrier}
+          d={edgePath}
+          fill="none"
+          stroke="rgba(255 255 255 / 0.78)"
+          strokeWidth={motion.coreWidth + 2}
+          strokeLinecap="round"
+          strokeOpacity={0.08 + idleVisibility * 0.12}
+        />
+      )}
+      {/* Core — animated dash. A link wire's longer dash marches the same
+          way; its period divides the flow's 72-unit loop, so it never jumps. */}
       <path
         id={id}
         className={`${styles.core} ${splicePreview ? styles.coreReady : ''}`}
@@ -226,8 +273,8 @@ function GlowEdge({
         fill="none"
         stroke={color}
         strokeWidth={motion.coreWidth}
-        strokeLinecap="round"
-        strokeDasharray={motion.dash}
+        strokeLinecap={boardLink ? 'butt' : 'round'}
+        strokeDasharray={boardLink ? LINK_DASH : motion.dash}
         strokeOpacity={0.62 + activity * 0.24}
         style={{
           '--edge-color': color,
@@ -261,7 +308,9 @@ function GlowEdge({
           cable rather than another decorative dashed line. Motion is a CSS
           offset-path animation (not SMIL animateMotion): CSS animations are far
           cheaper for the main thread with many edges alive at once. */}
-      {motion.packetRadii.slice(0, packetCap).map((radius, packet) => (
+      {/* A link wire carries no packets: it is radio, not a cable, and the
+          marching dash already shows which way the value goes. */}
+      {motion.packetRadii.slice(0, boardLink ? 0 : packetCap).map((radius, packet) => (
         <circle
           key={`${family}-${packet}`}
           className={styles.packet}
@@ -278,6 +327,7 @@ function GlowEdge({
       ))}
       {/* Bright dot at the target port */}
       <circle cx={targetX} cy={targetY} r={4} fill={color} opacity={0.85} />
+      {linkMark}
       {valueReadout}
     </g>
   )
@@ -286,5 +336,9 @@ function GlowEdge({
 // Matches the 48-flow-unit radius used by the geometric fallback in the
 // canvas (SVG stroke width extends equally on both sides of the noodle).
 const SPLICE_HIT_WIDTH = 96
+
+/** A link wire's dash; its 12-unit period divides `flow`'s 72-unit loop. */
+const LINK_DASH = '8 4'
+const LINK_MARK_RADIUS = 7
 
 export default memo(GlowEdge)

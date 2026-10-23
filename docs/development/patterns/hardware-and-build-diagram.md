@@ -704,6 +704,22 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   from `boardOrdinalLabel` ("Board 2") and `boardProfileLabel` in
   `boardSelection.ts`, so headings and sheets name a board the way its tab
   does.
+- Network endpoints (`isNetworkEndpointNodeType`: Web Remote, DMX, DDP,
+  Stream Output) carry `boardId` like parts, but only as root nodes: the
+  "BOARD 2" pill and the "Runs on" picker (`RunsOnBoardPicker`) show only
+  in the root graph, `stampActiveBoard` stamps them only when they land
+  there, and choosing the primary clears the property. `removeBoard` moves
+  them to the primary instead of deleting them, clearing the id so a re-added
+  `board-2` does not reclaim them.
+- The board link's `linkId` and its key are made by one `graphStore`
+  subscription on the edit that takes the root graph from no link to one,
+  never on `loadGraph` (which raises `loadingWorkspace` around its set) and
+  never on later edits to a project that already had a link; the repair is
+  `renewBoardLinkKey`. The write pauses history, so it rides on the edit's
+  own undo step. The canvas draws link wires from `boardLinkWireLabels`
+  (`src/components/Canvas/boardLinkWireLabels.ts`), which skips drag frames
+  by comparing node data identity (`sameNodeData`). See
+  [board links](../../design/board-links.md).
 
 ## Indicator LEDs on the bench
 

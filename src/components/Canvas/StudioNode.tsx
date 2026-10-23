@@ -1,7 +1,7 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
-import { hasDerivedDisplayPorts, rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { hasDerivedDisplayPorts, ROOT_GRAPH_ID, rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { orderPorts } from '../../utils/portOrder'
 import { compositionDims } from '../../state/output/outputRouting'
 import type { StudioEdge, StudioNode as StudioNodeT, StudioNodeData } from '../../state/graphStore'
@@ -40,6 +40,7 @@ import StorageCapabilityBody from './bodies/StorageCapabilityBody'
 import HardwareInputBody from './bodies/HardwareInputBody'
 import ButtonBankBody from './bodies/ButtonBankBody'
 import WebRemoteBody from './bodies/WebRemoteBody'
+import RunsOnBoardPicker from './bodies/RunsOnBoardPicker'
 import IRRemoteBody from './bodies/IRRemoteBody'
 import PlayerControlsBody from './bodies/PlayerControlsBody'
 import MidiInputBody from './bodies/MidiInputBody'
@@ -59,6 +60,7 @@ import {
 } from '../../build/pins/micPinDefaults'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { boardIdOf, isBoardAttachedNodeType } from '../../build/boardPartition'
+import { isNetworkEndpointNodeType } from '../../build/boardLinks'
 import { boardOrdinalLabel, useBoardNodes } from '../Hardware/boardSelection'
 import { boardPinTable } from '../../build/boards/boardPinPolicy'
 import { usePerformanceBakeStore } from '../../state/player/performanceBakeStore'
@@ -1519,8 +1521,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // A "BOARD 2" pill: which controller a part or output belongs to, shown
   // only once the project has more than one (docs/design/multi-board.md). A
   // pill rather than a title suffix, because the title clips to its width.
+  // A network endpoint is anchored too, but only in the root graph: one
+  // inside a group is part of a pattern no board owns.
   const boards = useBoardNodes()
-  const boardSuffix = boards.length > 1 && isBoardAttachedNodeType(d.nodeType)
+  const inRootGraph = useGraphStore((s) => s.activeGraphId === ROOT_GRAPH_ID)
+  const runsOnBoard = boards.length > 1 && inRootGraph && isNetworkEndpointNodeType(d.nodeType)
+  const boardSuffix = boards.length > 1 && (isBoardAttachedNodeType(d.nodeType) || runsOnBoard)
     ? boardOrdinalLabel(boards, boardIdOf({ data: d } as StudioNodeT, boards[0].id, new Set(boards.map((board) => board.id))))
     : null
   const minimizedType = (outputs[0]?.dataType ?? inputs[0]?.dataType ?? 'control').toUpperCase()
@@ -1702,6 +1708,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} partId={props.partId} maxLux={props.maxLux} deadzone={props.deadzone} />}
         {d.nodeType === 'ButtonBank' && <ButtonBankBody nodeId={id} />}
         {d.nodeType === 'IRRemoteInput' && <IRRemoteBody nodeId={id} />}
+        {runsOnBoard && <RunsOnBoardPicker nodeId={id} />}
         {d.nodeType === 'WebRemoteInput' && <WebRemoteBody nodeId={id} />}
         {d.nodeType === 'ControlMap' && <PlayerControlsBody nodeId={id} />}
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}

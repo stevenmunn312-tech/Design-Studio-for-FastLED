@@ -20,13 +20,14 @@ export interface ClampedNumberInputProps {
   max: number
   step?: number
   ariaLabel: string
+  id?: string
   className?: string
   disabled?: boolean
   onCommit: (value: number) => void
 }
 
 export default function ClampedNumberInput({
-  value, min, max, step, ariaLabel, className, disabled, onCommit,
+  value, min, max, step, ariaLabel, id, className, disabled, onCommit,
 }: ClampedNumberInputProps) {
   // null means "not being edited": show the canonical value from the store.
   const [draft, setDraft] = useState<string | null>(null)
@@ -57,6 +58,7 @@ export default function ClampedNumberInput({
       min={min}
       max={max}
       step={step}
+      id={id}
       className={className}
       disabled={disabled}
       aria-label={ariaLabel}

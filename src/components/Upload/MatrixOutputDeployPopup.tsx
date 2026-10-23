@@ -35,6 +35,7 @@ import HardwareValidationPopup from './HardwareValidationPopup'
 import OutputConsole from './OutputConsole'
 import DeviceTelemetryCard from './DeviceTelemetryCard'
 import { useDeviceTelemetryStore } from '../../state/upload/deviceTelemetryStore'
+import { boardLinkUploadNotes } from '../../state/upload/boardLinkFlash'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
@@ -95,6 +96,8 @@ export default function MatrixOutputDeployPopup({
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const projectName = useProjectStore((s) =>
     s.projects.find((project) => project.id === s.currentProjectId)?.name ?? '')
+  const uploadTargets = useProjectStore((s) =>
+    s.projects.find((project) => project.id === s.currentProjectId)?.uploadTargets)
   const {
     helper, installedCores, selectedFqbn, selectedPort, ports, portsScanned, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
@@ -220,6 +223,13 @@ export default function MatrixOutputDeployPopup({
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
   const mirrorNotes = useMemo(() => findMirroredOutputMismatches(nodes, edges), [nodes, edges])
+  // Linked boards flashed with an older link drop this board's frames until
+  // they are uploaded too: said here, never a blocker, since order does not
+  // matter (docs/design/board-links.md, "Upload").
+  const linkNotes = useMemo(
+    () => boardLinkUploadNotes(rootNodes, rootEdges, uploadTargets, activeBoardId),
+    [rootNodes, rootEdges, uploadTargets, activeBoardId],
+  )
   const liveStreamNotes = useMemo(() => streamReceiverCapabilityNotes(nodes), [nodes])
   const hub75TopologyErrors = useMemo(
     () => findHub75TopologyDiagnosticErrors(nodes, nodeId),
@@ -846,6 +856,11 @@ export default function MatrixOutputDeployPopup({
         {mirrorNotes.length > 0 && (
           <div className={styles.streamNote}>
             {mirrorNotes.map((note) => <div key={note}>{note}</div>)}
+          </div>
+        )}
+        {linkNotes.length > 0 && (
+          <div className={styles.streamNote}>
+            {linkNotes.map((note) => <div key={note}>{note}</div>)}
           </div>
         )}
 

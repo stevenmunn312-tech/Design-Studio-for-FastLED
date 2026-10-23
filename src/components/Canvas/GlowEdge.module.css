@@ -151,6 +151,34 @@
   pointer-events: none;
 }
 
+/* The radio mark at a link wire's midpoint, and the sentence it shows on
+   hover. Static on purpose: no animation and no filter (see the leak note
+   above), so a canvas full of link wires costs nothing per frame. */
+.linkMark {
+  pointer-events: all;
+  cursor: help;
+}
+
+.linkMarkDisc {
+  fill: var(--bg-primary);
+  stroke-width: 1.4;
+}
+
+.linkTooltip {
+  pointer-events: none;
+}
+
+.linkTooltipBox {
+  fill: color-mix(in srgb, var(--bg-primary) 92%, transparent);
+  stroke-width: 1;
+}
+
+.linkTooltipText {
+  fill: var(--text-primary);
+  font-family: var(--font-code, monospace);
+  font-size: 11px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .core,
   .spliceTarget {

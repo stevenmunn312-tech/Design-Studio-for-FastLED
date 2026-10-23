@@ -324,6 +324,10 @@ chooses the supported combinations from whatever is on record at release.
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
   fbuild leg and pick these up:
+  - The pin moved to 2.5.44 on 2026-10-23 and is unvalidated. Install it into
+    `backend/.venv` and the Espressif Python, then run
+    `compile-matrix.py --engine fbuild`. 2.5.44 bundles fixes for every issue
+    below except #1657.
   - Every known fbuild problem now has an upstream issue: §12 LVGL archive
     length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
     ESP8266 `deploy` ([#1657](https://github.com/FastLED/fbuild/issues/1657)),
