@@ -264,6 +264,9 @@ def _compile_upload(
     else:
         _compiled_uploads.pop(build_key, None)
         compile_lines = []
+        rc = yield from toolchain._ensure_arduino_fastled_lib()
+        if rc != 0:
+            return rc, "compile"
         uses_lvgl = any(
             toolchain._LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
             for path in sketch_dir.glob("*.ino")

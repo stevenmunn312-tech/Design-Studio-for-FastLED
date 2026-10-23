@@ -43,6 +43,32 @@ in section 4.
   ([design](docs/design/board-links.md#as-built)). What closes it: the first
   ESP32 and ESP8266 compiles of a linked pair at the v1 freeze; the bench row
   is in section 4.
+- [ ] **FastLED 3.10.8 pin follow-up (M).** Both engines moved from an
+  unpinned FastLED (arduino-cli: the registry's latest, 3.10.5 here; fbuild:
+  `main` on the day it first vendored) to `_FASTLED_VERSION` 3.10.8 on
+  2026-10-24. Source diffs against 3.10.5 already clear the preview ports:
+  2-D/3-D `inoise8`/`inoise16`, `ColorFromPalette`, `blur1d`/`blur2d`,
+  `hsv2rgb_rainbow` and the lib8tion math are unchanged in effect, and
+  `nblendPaletteTowardPalette` only gained an early return for a budget of 0,
+  which codegen never passes (a blend of 0 is a straight cut). Still to do in
+  hardware week:
+  - Arduino CLI compile of every family on 3.10.8 (the first compile installs
+    it), and record the ESP32 flash and RAM drop 3.10.7 promises.
+  - Recheck what is not pure source: `FastLED.delay` and `show()` pacing
+    ([loopPacing.ts](src/codegen/loopPacing.ts)), the ESP32 I2S microphone
+    format and the SAMD ISR naming
+    ([audioEngineCpp.ts](src/codegen/audio/audioEngineCpp.ts)), default buses
+    and driver choices ([ledDrivers.ts](src/build/ledDrivers.ts),
+    [ledDriverCpp.ts](src/codegen/output/ledDriverCpp.ts)), the ESP32 microphone
+    profiles ([micModules.ts](src/state/peripherals/micModules.ts)) and
+    `chipsetSendMicros` ([wireTime.ts](src/utils/wireTime.ts)). Then move
+    their "FastLED 3.10.5" comments and test names to 3.10.8.
+  - SAMD51: 3.10.6 fixed the compile break from 3.10.4, hardware SPI and the
+    I2S clash upstream. Try a SAMD51 build without
+    `_patch_fastled_samd51_build` and the audio workaround; drop each part the
+    build no longer needs.
+  - ESP8266 on the bench: `addLeds()` on GPIO12 no longer hangs, and the
+    `D1`-style pin constants work.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
@@ -319,11 +345,17 @@ chooses the supported combinations from whatever is on record at release.
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
   fbuild leg and pick these up:
-  - The pin moved to 2.5.44 on 2026-10-23 and is unvalidated. Install it into
-    `backend/.venv` and the Espressif Python, then run
-    `compile-matrix.py --engine fbuild`. 2.5.44 bundles fixes for every issue
-    below except #1657.
-  - Every known fbuild problem now has an upstream issue: §12 LVGL archive
+  - The pin moved to 2.5.44 on 2026-10-23; `backend/.venv` and the Espressif
+    Python hold it. On 2026-10-24 the fix legs ran: the LVGL archive (§12),
+    Renesas and SAMD21 now build; RP2040 passes boot2 and stops on the Pico
+    core's TinyUSB library, a new fbuild fault not yet reported
+    ([IR record](docs/reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
+    Still to do: the full `compile-matrix.py --engine fbuild` rerun, then
+    remove the §12 recovery and retry SAMD51 without its `_PIO_BOARDS`
+    `-DARDUINO_ARCH_SAMD`/`EIC_IRQn` flags. #1658 (§5) and #1673 have no
+    fixture of their own.
+  - Every known fbuild problem except the RP2040 TinyUSB one has an upstream
+    issue: §12 LVGL archive
     length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
     ESP8266 `deploy` ([#1657](https://github.com/FastLED/fbuild/issues/1657)),
     §5 no size summary on a link overflow
@@ -334,8 +366,8 @@ chooses the supported combinations from whatever is on record at release.
     [#1672](https://github.com/FastLED/fbuild/issues/1672)) and Windows long
     paths ([#1673](https://github.com/FastLED/fbuild/issues/1673)). Drop each
     workaround as its fix lands.
-  - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
-    fbuild fix lands.
+  - Recompile the RP2040 IR fbuild leg once fbuild stops compiling the Pico
+    core's TinyUSB library.
   - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
     `lib_deps` ignores its `#ref`, the HUB75 pin is ignored, esp_dmx 4.1.0
     does not build on IDF 5.5, and every `lib_deps` library is compiled

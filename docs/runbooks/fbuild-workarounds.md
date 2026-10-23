@@ -13,15 +13,18 @@ an internal record.
   [#1672](https://github.com/FastLED/fbuild/issues/1672) and
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
 - **Current repository pin:** 2.5.44 (`backend/requirements.txt` and
-  `backend/constraints.txt`), moved from 2.5.37 on 2026-10-23 and **not yet
-  validated**: no fbuild leg has run on it. 2.5.44 bundles the upstream fixes
-  from roll-up [#1689](https://github.com/FastLED/fbuild/issues/1689) for
-  #1656 (§12), #1658 (§5), #1670–#1672 (IR RP2040, Renesas, SAMD21) and #1673
-  (Windows long paths); ESP8266 `deploy` (#1657, §7) is still open. Every
-  workaround below stays until the
-  `scripts/compile-fixtures/compile-matrix.py --engine fbuild` rerun shows it
-  can go. The last validated pin is 2.5.37
-  ([2.5.37 upgrade record](#upgrade-record-to-2537)).
+  `backend/constraints.txt`), moved from 2.5.37 on 2026-10-23. 2.5.44 bundles
+  the upstream fixes from roll-up
+  [#1689](https://github.com/FastLED/fbuild/issues/1689) for #1656 (§12),
+  #1658 (§5), #1670–#1672 (IR RP2040, Renesas, SAMD21) and #1673 (Windows
+  long paths); ESP8266 `deploy` (#1657, §7) is still open. **Partly
+  validated on 2026-10-24**, with FastLED vendored at its pinned 3.10.8 tag:
+  `display/normal` passes without the §12 recovery, Renesas and SAMD21 IR
+  legs now pass, and RP2040 gets past boot2 but stops on the core's TinyUSB
+  library ([IR record](../reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
+  The rest of the fbuild legs have not run on 2.5.44; every workaround below
+  stays until `scripts/compile-fixtures/compile-matrix.py --engine fbuild`
+  shows it can go.
 - **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
   a measurement is only about the version that produced it. On 2026-09-10 the pin was
   2.5.21 (moved to 2.5.22 the following day), `backend/.venv` held **2.5.0**, and
@@ -30,8 +33,7 @@ an internal record.
   Espressif Python. The upstream latest was **2.5.23**. Four versions, one bench. Every
   build report the script writes records `toolchain.engine_version`; read that rather
   than assuming the pin, and say which version a result is about. Both the active
-  Espressif Python and `backend/.venv` held 2.5.37 when the pin moved to 2.5.44;
-  install the pin into both before the validation run.
+  Espressif Python and `backend/.venv` hold 2.5.44 since 2026-10-24.
 - **Host:** Windows 11. Some issues below are Windows-specific and are marked as such.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`
@@ -63,7 +65,7 @@ an internal record.
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.26, see below** |
 | 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **No — fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); workaround removed 2026-10-08 |
 | 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | **Partly fixed in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1409](https://github.com/FastLED/fbuild/issues/1409)): oversize flash now fails, and RAM overflow fails only on AVR. Keep the refusal for ESP32 RAM |
-| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | Yes — [#1656](https://github.com/FastLED/fbuild/issues/1656), filed 2026-10-07; `archive_objects` on upstream `main` is unchanged as of 2.5.37 |
+| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **Fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)): `display/normal` rebuilt `liblvgl.a` on 2026-10-24 without the recovery firing. Recovery code still in place; remove it after the full fbuild rerun |
 
 ---
 

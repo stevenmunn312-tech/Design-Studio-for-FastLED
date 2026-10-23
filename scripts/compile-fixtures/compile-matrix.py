@@ -115,9 +115,9 @@ def ir_legs(engine: str) -> list[Leg]:
     def leg(name: str, fqbn: str, tag: str, why: str | None = None) -> Leg:
         return Leg("ir", "compile-ir-smoke.py", engine, folder / f"{name}.ino", fqbn, tag, None, why)
 
-    boot2 = "fbuild assembles RP2040 boot2 with a malformed -D (IR record)"
-    renesas = "fbuild's Renesas core 1.2.2 misses <cstring> in IPAddress.cpp (IR record)"
-    samd = "fbuild's atmelsam adapter omits ARDUINO_ARCH_SAMD on SAMD21 (IR record)"
+    # Renesas and SAMD21 build since fbuild 2.5.44; RP2040 got past boot2 there
+    # and stops one step later.
+    tinyusb = "fbuild compiles the Pico core's Adafruit_TinyUSB library without TinyUSB selected (IR record)"
     return [
         *(leg(name, "esp32:esp32:esp32s3", "esp32s3-rmt") for name in ("normal", "slideshow", "player", "learn")),
         *(leg(name, CLASSIC, "esp32") for name in ("normal", "slideshow", "player", "no-ir")),
@@ -126,10 +126,10 @@ def ir_legs(engine: str) -> list[Leg]:
         leg("normal", "esp8266:esp8266:nodemcuv2", "esp8266"),
         leg("normal", "teensy:avr:teensy41", "teensy"),
         leg("normal", "STMicroelectronics:stm32:blackpill_f411ce", "stm32"),
-        leg("normal", "rp2040:rp2040:rpipico", "rp2040", boot2),
-        leg("normal", "arduino:renesas_uno:unor4wifi", "renesas", renesas),
-        leg("normal", "adafruit:samd:adafruit_feather_m0", "samd", samd),
-        leg("no-ir", "adafruit:samd:adafruit_feather_m0", "samd", samd),
+        leg("normal", "rp2040:rp2040:rpipico", "rp2040", tinyusb),
+        leg("normal", "arduino:renesas_uno:unor4wifi", "renesas"),
+        leg("normal", "adafruit:samd:adafruit_feather_m0", "samd"),
+        leg("no-ir", "adafruit:samd:adafruit_feather_m0", "samd"),
     ]
 
 

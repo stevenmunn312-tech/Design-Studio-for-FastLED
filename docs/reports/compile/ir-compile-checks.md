@@ -1,9 +1,10 @@
 # IR remote firmware compile checks
 
 > **Status: complete, except where fbuild itself is blocked.** Every board
-> family IR claims has at least one passing engine. Three fbuild legs cannot
-> run because fbuild fails on a board core before it reaches IR code: RP2040,
-> Renesas, and SAMD21. STM32 builds on both engines since 8 October 2026,
+> family IR claims has at least one passing engine. On fbuild 2.5.44 Renesas
+> and SAMD21 build too; only RP2040 is still blocked inside fbuild, now one
+> step later than before
+> ([fbuild 2.5.44 recheck](#fbuild-2544-recheck-24-october-2026)). STM32 builds on both engines since 8 October 2026,
 > when the helper began giving arduino-cli the STM32duino board and `pnum`
 > ([STM32 on Arduino CLI](#stm32-on-arduino-cli-8-october-2026)). This file
 > is the evidence for D-05a step 13 in [todo.md](../../../todo.md), closed
@@ -44,6 +45,31 @@ The runner compiles through the helper's own `_compile_upload` or
 report holds the source SHA-256, the toolchain, the pinned IRremote version and
 the flash/RAM figures. `backend/sketches/` is gitignored, so the tables below
 are the durable record.
+
+## fbuild 2.5.44 recheck, 24 October 2026
+
+fbuild 2.5.44 bundles the upstream fixes for the three blocked families
+([FastLED/fbuild#1689](https://github.com/FastLED/fbuild/issues/1689)). Only
+those four legs ran, in one `compile-matrix.py` run, with FastLED vendored at
+the newly pinned 3.10.8 tag. Both fixtures changed since the 2.5.37 recheck,
+and none of these legs ever passed on fbuild, so there is no size baseline.
+
+| Fixture | Target (FQBN) | Source SHA-256 | Result | Flash | RAM |
+| --- | --- | --- | --- | ---: | ---: |
+| normal | `rp2040:rp2040:rpipico` | `232dbf2a88ce` | **fail** (new cause, below) | — | — |
+| normal | `arduino:renesas_uno:unor4wifi` | `232dbf2a88ce` | **pass** | 38,103 | 17,705 |
+| normal | `adafruit:samd:adafruit_feather_m0` | `232dbf2a88ce` | **pass** | 36,987 | 5,960 |
+| no-ir | `adafruit:samd:adafruit_feather_m0` | `c8478f37d4ea` | **pass** | 31,273 | 5,110 |
+
+- **Renesas** ([#1671](https://github.com/FastLED/fbuild/issues/1671)) and
+  **SAMD21** ([#1672](https://github.com/FastLED/fbuild/issues/1672)) are
+  fixed: both build without any helper flags.
+- **RP2040** ([#1670](https://github.com/FastLED/fbuild/issues/1670)): boot2
+  now assembles, and the build stops one step later. fbuild compiles the Pico
+  core's own `Adafruit_TinyUSB_Arduino` library, which stops at
+  `#error TinyUSB is not selected, please select it in "Tools->Menu->USB Stack"`.
+  Neither the sketch nor FastLED (3.10.5 or 3.10.8) includes TinyUSB, so the
+  library is fbuild's selection. Not reported upstream yet.
 
 ## fbuild 2.5.37 recheck, 8 October 2026
 

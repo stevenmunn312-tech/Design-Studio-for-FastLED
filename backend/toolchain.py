@@ -209,6 +209,10 @@ _FBUILD_PROJECT_DIR = _DATA_DIR / ".fbuild-project"
 _FBUILD_SRC_DIR = _FBUILD_PROJECT_DIR / "src"
 _FBUILD_INI_PATH = _FBUILD_PROJECT_DIR / "platformio.ini"
 _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
+# Both engines build against this exact FastLED release. Codegen, the preview's
+# integer ports and the driver tables are read from it, so neither engine may
+# float to the registry's latest or to `main`.
+_FASTLED_VERSION = "3.10.8"
 # The music-sync Player sketch (playerSketchGenerator.ts) additionally needs
 # ESP32-audioI2S. Vendored the same way as FastLED, but lazily — only the
 # Player build path needs it, so it's not fetched for every ordinary compile.
@@ -954,6 +958,52 @@ def _write_fbuild_ini() -> None:
     _FBUILD_INI_PATH.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _fastled_checkout_matches_pin(path: Path) -> bool:
+    """True only for a complete checkout of the pinned FastLED release.
+
+    The `fl/stl/stdint.h` sentinel catches a cancelled checkout that left the
+    manifests behind with most sources staged as deleted."""
+    try:
+        versions = {
+            line.partition("=")[2].strip()
+            for line in (path / "library.properties").read_text(encoding="utf-8").splitlines()
+            if line.startswith("version=")
+        }
+    except (OSError, UnicodeDecodeError):
+        return False
+    return (
+        (path / "src" / "FastLED.h").is_file()
+        and (path / "src" / "fl" / "stl" / "stdint.h").is_file()
+        and versions == {_FASTLED_VERSION}
+    )
+
+
+_arduino_fastled_lib_ready = False
+
+
+def _ensure_arduino_fastled_lib():
+    """Install the pinned FastLED into the CLI's sketchbook unless it is already there."""
+    global _arduino_fastled_lib_ready
+    if _arduino_fastled_lib_ready:
+        return 0
+    libraries = _arduino_user_libraries_dir()
+    if libraries is not None and _fastled_checkout_matches_pin(libraries / "FastLED"):
+        _arduino_fastled_lib_ready = True
+        return 0
+    rc = yield from _run_phase(
+        f"install FastLED {_FASTLED_VERSION}",
+        _ARDUINO_BASE + ["lib", "install", f"FastLED@{_FASTLED_VERSION}"],
+    )
+    if rc != 0:
+        yield (
+            f"[error] failed to install FastLED {_FASTLED_VERSION}. Check the network connection or run "
+            f"'arduino-cli lib install FastLED@{_FASTLED_VERSION}' and try again.\n"
+        )
+        return rc
+    _arduino_fastled_lib_ready = True
+    return 0
+
+
 def _ensure_fbuild_project():
     """Idempotent scaffold, run before the first fbuild compile. A generator so
     the one-time FastLED vendor-clone streams into the caller's log.
@@ -968,9 +1018,8 @@ def _ensure_fbuild_project():
         return
     _FBUILD_SRC_DIR.mkdir(parents=True, exist_ok=True)
     _write_fbuild_ini()
-    fastled_sentinel = _FBUILD_LIB_DIR / "src" / "fl" / "stl" / "stdint.h"
-    if not (_FBUILD_LIB_DIR / "library.json").exists() or not fastled_sentinel.exists():
-        yield "\n=== vendoring FastLED (first run only) ===\n"
+    if not _fastled_checkout_matches_pin(_FBUILD_LIB_DIR):
+        yield f"\n=== vendoring FastLED {_FASTLED_VERSION} (first run, or after a pin change) ===\n"
         _FBUILD_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
         # A cancelled/failed checkout can leave library.json behind while most
         # source files are staged as deleted. Treat that as a corrupt build
@@ -984,10 +1033,11 @@ def _ensure_fbuild_project():
         # carriage returns rather than newlines.
         rc = yield from _run_phase(
             "vendor FastLED",
-            ["git", "clone", "--progress", "--depth", "1", "https://github.com/FastLED/FastLED.git", str(_FBUILD_LIB_DIR)],
+            ["git", "clone", "--progress", "--branch", _FASTLED_VERSION, "--depth", "1",
+             "https://github.com/FastLED/FastLED.git", str(_FBUILD_LIB_DIR)],
         )
-        if rc != 0:
-            yield "[error] failed to vendor FastLED — the build below will fail on FastLED.h\n"
+        if rc != 0 or not _fastled_checkout_matches_pin(_FBUILD_LIB_DIR):
+            yield f"[error] failed to vendor FastLED {_FASTLED_VERSION} — the build below will fail on FastLED.h\n"
     _patch_fastled_samd51_build()
     _fbuild_project_ready = True
 
@@ -1356,31 +1406,36 @@ def _ensure_fbuild_irremote_lib():
     _fbuild_irremote_lib_ready = True
 
 
-def _arduino_irremote_matches_pin() -> bool:
-    """Check the CLI's configured sketchbook without starting library management."""
+def _arduino_user_libraries_dir() -> Path | None:
+    """The CLI's configured sketchbook `libraries/`, read without starting library management."""
     try:
         proc = subprocess.run(
             _ARDUINO_BASE + ["config", "dump", "--format", "json"],
             capture_output=True, text=True, timeout=10,
         )
         if proc.returncode != 0:
-            return False
+            return None
         payload = json.loads(proc.stdout)
         if not isinstance(payload, dict):
-            return False
+            return None
         config = payload.get("config", payload)
         if not isinstance(config, dict):
-            return False
+            return None
         directories = config.get("directories")
         if not isinstance(directories, dict):
-            return False
+            return None
         user_dir = directories.get("user")
         if not isinstance(user_dir, str) or not user_dir.strip():
-            return False
-        return _irremote_checkout_matches_pin(Path(user_dir) / "libraries" / "IRremote")
+            return None
+        return Path(user_dir) / "libraries"
     except (OSError, subprocess.SubprocessError, ValueError):
         # Unavailable config must not prevent the normal install/repair path.
-        return False
+        return None
+
+
+def _arduino_irremote_matches_pin() -> bool:
+    libraries = _arduino_user_libraries_dir()
+    return libraries is not None and _irremote_checkout_matches_pin(libraries / "IRremote")
 
 
 def _ensure_arduino_irremote_lib():
@@ -1961,7 +2016,7 @@ def core_install(payload: dict = Body(...)):
         rc = yield from _run_phase("update index", _ARDUINO_BASE + ["core", "update-index"])
         rc = yield from _run_phase(f"install {core}", _ARDUINO_BASE + ["core", "install", core])
         if rc == 0:
-            yield from _run_phase("install FastLED", _ARDUINO_BASE + ["lib", "install", "FastLED"])
+            yield from _ensure_arduino_fastled_lib()
             yield f"\n{core} ready.\n"
         else:
             yield f"\n*** core install failed (exit {rc}) ***\n"

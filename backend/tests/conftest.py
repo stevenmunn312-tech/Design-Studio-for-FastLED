@@ -45,6 +45,14 @@ def _engine_binaries_present(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _pinned_fastled_present(monkeypatch):
+    """Every Arduino compile first checks the sketchbook for the pinned FastLED.
+    Mark it present so orchestration tests never read the developer's real
+    arduino-cli configuration; test_fastled_pin.py exercises the check itself."""
+    monkeypatch.setattr(toolchain, "_arduino_fastled_lib_ready", True)
+
+
+@pytest.fixture(autouse=True)
 def _clean_stream_state():
     """Every test starts with (and leaves) no open streaming session, no
     matter what a test does to app_module's stream globals."""
