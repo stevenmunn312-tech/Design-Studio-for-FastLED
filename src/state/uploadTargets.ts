@@ -4,6 +4,13 @@ import { ROOT_BOARD_NODE_ID } from '../build/hardware'
 export interface ProjectUploadTarget {
   selectedFqbn: string
   selectedPort: string
+  /**
+   * The board link schema hash (`boardLinkSchema(...).hash`, 0 with no link)
+   * of the project firmware last flashed onto this board, so the Upload tab
+   * can say which linked boards run an older link. Absent until the board's
+   * first project upload. See docs/design/board-links.md, "Upload".
+   */
+  linkSchemaHash?: number
 }
 
 /**
@@ -20,14 +27,22 @@ export const PRIMARY_UPLOAD_TARGET_KEY = ROOT_BOARD_NODE_ID
 export function normalizeUploadTarget(value: unknown): ProjectUploadTarget | undefined {
   if (!value || typeof value !== 'object') return undefined
   const maybe = value as Partial<ProjectUploadTarget>
-  return typeof maybe.selectedFqbn === 'string' && typeof maybe.selectedPort === 'string'
-    ? { selectedFqbn: maybe.selectedFqbn, selectedPort: maybe.selectedPort }
-    : undefined
+  if (typeof maybe.selectedFqbn !== 'string' || typeof maybe.selectedPort !== 'string') return undefined
+  const hash = maybe.linkSchemaHash
+  return {
+    selectedFqbn: maybe.selectedFqbn,
+    selectedPort: maybe.selectedPort,
+    // A 32-bit FNV-1a value, or nothing: a hand-edited save cannot make a
+    // board read as up to date with a hash no schema produces.
+    ...(typeof hash === 'number' && Number.isInteger(hash) && hash >= 0 && hash <= 0xffffffff
+      ? { linkSchemaHash: hash } : {}),
+  }
 }
 
 export function sameUploadTarget(a: ProjectUploadTarget | undefined, b: ProjectUploadTarget | undefined): boolean {
   return (a?.selectedFqbn ?? '') === (b?.selectedFqbn ?? '')
     && (a?.selectedPort ?? '') === (b?.selectedPort ?? '')
+    && a?.linkSchemaHash === b?.linkSchemaHash
 }
 
 /**

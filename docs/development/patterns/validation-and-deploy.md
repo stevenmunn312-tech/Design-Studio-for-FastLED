@@ -69,8 +69,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `multiBoardValidation.test.ts` holds against every starter. The Graph Health
   drawer calls `buildBoardDiagnostics` for the root graph (groups keep
   `buildGraphDiagnostics`). Three findings only the whole root graph can make
-  are appended: `cross-board-<source>-<target>` (error, `connection`; a part's
-  signal reaching another board's output, from `findCrossBoardIssues`),
+  are appended: `cross-board-<source>-<target>` (error, `connection`; a wire
+  no board link can carry, from `findCrossBoardIssues`, titled by the type
+  that cannot cross, "Audio cannot cross boards", with a fix naming what to
+  move where, and `edgeIds` for the wire),
   `board-drives-nothing-<boardId>` (warning, `board`; no LED output and no
   attached sink — the per-board `missing-MatrixOutput` card and "Missing
   MatrixOutput node" message are dropped in its favour while any other board
@@ -95,6 +97,30 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Upload tab, which flashes one board at a time, must gate on it rather than
   on the partition alone. `readinessLayers` and `uploadBlockReason` stay pure
   counts, fed by that per-board list.
+- Board links (`src/utils/boardLinkValidation.ts`, appended by
+  `multiBoardFindings`; [board links](../../design/board-links.md)) are
+  checked from `boardLinkSchema`, so a board is "linked" when it sends or
+  receives a slot. Errors: `board-link-radio-<boardId>` (its FQBN fails
+  `fqbnHasEspNow`, which unlike `fqbnHasWifi` excludes the UNO R4 WiFi;
+  skipped while the FQBN is unknown, so another board's gate never guesses),
+  `board-link-network-<boardId>` (two linked boards on Wi-Fi whose network
+  owners' SSIDs differ; a board on wired Ethernet alone is off Wi-Fi; never a
+  password), `board-link-slots-` / `board-link-text-<boardId>` (more than 64
+  slots or 8 text slots sent; the sender's gate only) and `board-link-key`
+  (no `linkId` on the primary or no key on this machine; every linked board's
+  gate; repair `renew-board-link-key` re-checks for a key first, because a
+  second key strands every board flashed with the first). Warnings:
+  `board-link-channel-<boardId>` (a linked board off Wi-Fi beside one on it
+  hears it only while the router uses the link channel) and
+  `board-link-picture-<panelId>` (a linked TFT panel whose fixed layout,
+  Now Playing or Show Status, draws the LED picture the link never sends).
+  `estimateFirmwareRam`'s `radioBytes` adds `BOARD_LINK_WIFI_DRIVER_RAM_BYTES`
+  on a partition holding a link node that is not already on Wi-Fi; the figure
+  is a documented placeholder until the bench row measures it. The Upload tab
+  notes, never blocks, a linked board whose upload target's `linkSchemaHash`
+  (written on a successful project upload, not a one-off test sketch, and
+  carried with the cached sketch for a re-upload) differs from the current
+  hash: `boardLinkUploadNotes` in `src/state/upload/boardLinkFlash.ts`.
 - The capacity meter names what a reading actually establishes rather than
   always saying "Fits": `src/utils/capacityFormat.ts`'s `summarizeCapacity`
   derives a `CapacityVerdict`

@@ -98,6 +98,7 @@ import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/periphera
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { usesNetwork } from '../codegen/peripherals/networkCpp'
+import { isBoardLinkNodeType } from '../build/boardLinks'
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
 import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
@@ -500,6 +501,10 @@ export interface FirmwareRamEstimate {
    *  counted here — the font tables and any baked thumbnails are PROGMEM and
    *  the compile-capacity check measures those for real. */
   displayBytes: number
+  /** The Wi-Fi driver ESP-NOW brings up on a board that links to another but
+   *  joins no network of its own (`BOARD_LINK_WIFI_DRIVER_RAM_BYTES`); zero
+   *  on a board that is on Wi-Fi already or has no link. Always internal. */
+  radioBytes: number
   /** Whether the Board's `usePsram` is on (frame/field buffers move to PSRAM). */
   usesPsram: boolean
   /** RAM that must fit in the MCU's internal SRAM regardless of PSRAM. */
@@ -926,14 +931,40 @@ export function estimateFirmwareRam(
   // they are walked *from*, not to. Count them over the whole graph instead.
   const displayBytes = displayRamBytes(nodes, displayDocuments)
 
+  const radioBytes = boardLinkRadioBytes(nodes)
+
   const ledsArrayBytes = ledCount * 3
   const usesPsram = controllerSettings(nodes).usePsram
   if (!usesPsram) statefulBytes += feedbackBytes
   const psramBytes = usesPsram ? frameBufferBytes + fieldBufferBytes + feedbackBytes : 0
-  const internalBytes = ledsArrayBytes + statefulBytes + paletteBytes + displayBytes
+  const internalBytes = ledsArrayBytes + statefulBytes + paletteBytes + displayBytes + radioBytes
     + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
 
-  return { ledCount, ledsArrayBytes, frameBufferBytes, fieldBufferBytes, statefulBytes, paletteBytes, displayBytes, usesPsram, internalBytes, psramBytes }
+  return { ledCount, ledsArrayBytes, frameBufferBytes, fieldBufferBytes, statefulBytes, paletteBytes, displayBytes, radioBytes, usesPsram, internalBytes, psramBytes }
+}
+
+/**
+ * The heap the ESP32 Wi-Fi driver takes once ESP-NOW starts it: Espressif's
+ * default configuration (ESP-IDF's "Wi-Fi Buffer Usage": ten static RX
+ * buffers of 1.6 KB, the dynamic RX and TX buffers, the management queues and
+ * the driver's own state), which Arduino-core measurements put at a 40-50 KB
+ * fall in free heap on `WiFi.mode(WIFI_STA)`. The top of that range, because a
+ * budget errs high. The figure awaits the board-link bench row (root todo,
+ * section 4), which records what a linked render board really pays; replace
+ * it with that measurement. See docs/design/board-links.md, "Limits".
+ */
+export const BOARD_LINK_WIFI_DRIVER_RAM_BYTES = 50 * 1024
+
+/**
+ * What a board partition pays for its board link's radio. A board already on
+ * Wi-Fi (an Art-Net, NTP, Web Remote or clock-sync user that is not on a
+ * cable) has the driver up anyway, so the link costs it nothing more; a board
+ * on wired Ethernet alone, or on no network, starts the driver for the link.
+ */
+function boardLinkRadioBytes(nodes: readonly StudioNode[]): number {
+  if (!nodes.some((node) => isBoardLinkNodeType(String(node.data.nodeType)))) return 0
+  const onWifi = nodes.some(usesNetwork) && !wiredNetworkIn(nodes)
+  return onWifi ? 0 : BOARD_LINK_WIFI_DRIVER_RAM_BYTES
 }
 
 // A conservative "worth a heads-up" threshold for boards whose exact profile
@@ -950,6 +981,7 @@ export function firmwareRamContributors(estimate: FirmwareRamEstimate): Firmware
     { label: 'physical LED array', bytes: estimate.ledsArrayBytes },
     { label: 'simulation state', bytes: estimate.statefulBytes },
     { label: 'palette tables', bytes: estimate.paletteBytes },
+    { label: 'board link radio', bytes: estimate.radioBytes },
   ]
   if (!estimate.usesPsram) {
     contributors.push(
@@ -1777,6 +1809,7 @@ export type GraphDiagnosticAction =
   | 'raise-data-rate'
   | 'split-across-pins'
   | 'set-led-driver'
+  | 'renew-board-link-key'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1815,6 +1848,10 @@ export type GraphRepair =
   | { kind: 'split-across-pins'; nodeId: string; dataLanes: number; lanePins: number[] }
   /** The Board LED driver to choose: a parallel one, or 'auto' to give a peripheral back. */
   | { kind: 'set-led-driver'; ledDriver: LedDriverChoice }
+  /** A board link with no key on this machine: make the project a new link
+   *  key (and a link id, when it has none), which every linked board must
+   *  then be flashed with. */
+  | { kind: 'renew-board-link-key' }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {

@@ -35,3 +35,13 @@ export function fqbnHasWifi(fqbn: string): boolean {
 export function fqbnServesWebRemote(fqbn: string): boolean {
   return espWithRadio(fqbn)
 }
+
+/**
+ * Whether a board target can join a board link: ESP-NOW is an Espressif
+ * radio protocol, so every ESP8266 and every ESP32 with a radio, and not the
+ * UNO R4 WiFi, whose radio is an ESP32-S3 behind a serial bridge the sketch
+ * cannot drive directly. See docs/design/board-links.md.
+ */
+export function fqbnHasEspNow(fqbn: string): boolean {
+  return espWithRadio(fqbn)
+}
