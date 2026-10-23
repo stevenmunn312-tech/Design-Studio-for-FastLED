@@ -22,6 +22,7 @@ import type { SavedPattern } from './patterns/patternLibrary'
 import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patterns/patternTrust'
 import { withoutPatternProfiles } from './patterns/patternPick'
 import { useNetworkCredentialsStore } from './peripherals/networkCredentials'
+import { boardLinkSettings, newBoardLinkId, useBoardLinkKeyStore } from './peripherals/boardLinkKey'
 import { retargetedMicPins } from '../build/pins/micPinDefaults'
 import { retargetDefaultI2c, retargetHardwarePins as retargetHardwarePinsFor } from '../build/pins/pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
@@ -340,6 +341,13 @@ interface GraphState {
   removeBoard: (boardId: string) => void
   /** Primary leads and every other board follows, or no board syncs at all. */
   setBoardClockSync: (enabled: boolean) => void
+  /**
+   * Give the project's board link a fresh key on this machine: a link id on
+   * the primary Board first when it has none, then a new key for that id.
+   * Every linked board must be flashed again afterwards. Returns the link id,
+   * or null with no Board to keep it on. See docs/design/board-links.md.
+   */
+  renewBoardLinkKey: () => string | null
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   /** Duplicate every currently multi-selected node plus the edges wiring them
@@ -2647,6 +2655,21 @@ export const useGraphStore = create<GraphState>()(
           })
           return changed ? withRootNodes(s, next) : {}
         }),
+
+      renewBoardLinkKey: () => {
+        const state: GraphState = useGraphStore.getState()
+        const primary: StudioNode | undefined = boardNodesIn(rootGraphNodes(state))[0]
+        if (!primary) return null
+        const existing = boardLinkSettings(primary.data.properties).linkId
+        const linkId: string = existing ?? newBoardLinkId()
+        if (!existing) {
+          set((s) => withRootNodes(s, rootGraphNodes(s).map((node) => node.id === primary.id
+            ? { ...node, data: { ...node.data, properties: { ...node.data.properties, linkId } } }
+            : node)))
+        }
+        useBoardLinkKeyStore.getState().createKey(linkId)
+        return linkId
+      },
 
       loadGraph: (nodes, edges, workspace) => {
         // Replacing the workspace invalidates every graph's history, stashed

@@ -176,25 +176,26 @@ describe('multiBoardValidation — several boards', () => {
 
     const diagnostics = buildBoardDiagnostics(nodes, edges, { targets })
     const card = diagnostics.find((issue) => issue.id === 'cross-board-pot-fade')
+    // The type that cannot cross in the title, and what to move where.
     expect(card).toMatchObject({
-      severity: 'error', category: 'connection', title: 'A wire crosses boards',
-      nodeIds: ['pot', 'fade'],
-      fix: 'Move the part to the board that shows the pattern, or give that board its own copy of the pattern.',
+      severity: 'error', category: 'connection', title: 'Audio cannot cross boards',
+      nodeIds: ['pot', 'fade'], edgeIds: [edges[2].id],
+      fix: 'Put the MicInput on Board 1.',
     })
     expect(card?.message).toContain('MicInput on Board 2')
     expect(card?.message).toContain('BrightnessMod on Board 1')
 
     const result = validateBoards(nodes, edges, targets)
-    expect(result.errors.filter((error) => error.startsWith('A wire crosses boards'))).toHaveLength(1)
+    expect(result.errors.filter((error) => error.startsWith('Audio cannot cross boards'))).toHaveLength(1)
 
     // The gate of each board the wire touches refuses it; a third board's does not.
     expect(findDeployBlockingErrorsForBoard(nodes, edges, 'board-root', S3)
-      .some((error) => error.startsWith('A wire crosses boards'))).toBe(true)
+      .some((error) => error.startsWith('Audio cannot cross boards'))).toBe(true)
     expect(findDeployBlockingErrorsForBoard(nodes, edges, 'board-2', ESP32)
-      .some((error) => error.startsWith('A wire crosses boards'))).toBe(true)
+      .some((error) => error.startsWith('Audio cannot cross boards'))).toBe(true)
     const three = [...nodes, board('board-3'), node('out3', 'MatrixOutput', { width: 4, height: 4, dataPin: 7, boardId: 'board-3' })]
     expect(findDeployBlockingErrorsForBoard(three, [...edges, edge('p2', 'out3')], 'board-3', ESP32)
-      .some((error) => error.startsWith('A wire crosses boards'))).toBe(false)
+      .some((error) => error.startsWith('Audio cannot cross boards'))).toBe(false)
   })
 
   it('warns about a board with nothing to drive, instead of calling its output missing', () => {

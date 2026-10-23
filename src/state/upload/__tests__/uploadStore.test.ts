@@ -529,4 +529,64 @@ describe('uploadStore — one target per board', () => {
     expect(useUploadStore.getState().selectedFqbn).toBe('esp32:esp32:esp32s3')
     expect(useUploadStore.getState().selectedPort).toBe('COM7')
   })
+
+  it('records the board link each board was last flashed with, from project firmware only', async () => {
+    const { useProjectStore, useUploadStore } = await freshStores()
+    const { useUiStore } = await import('../../uiStore')
+    const { useGraphStore, rootGraphEdges, rootGraphNodes } = await import('../../graphStore')
+    const { boardLinkSchema } = await import('../../../build/boardPartition')
+    const part = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => ({
+      id, type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: nodeType, nodeType, category: 'pattern', properties, inputs: [], outputs: [] },
+    }) as unknown as StudioNode
+    const wire = (source: string, sourceHandle: string, target: string, targetHandle: string) =>
+      ({ id: `${source}-${sourceHandle}-${target}-${targetHandle}`, source, sourceHandle, target, targetHandle })
+    const id = useProjectStore.getState().createProject('Rig', workspace(['main'])).id
+    // Board 1 shows a pattern whose brightness is a pot on Board 2.
+    useGraphStore.getState().loadGraph([
+      boardNode('board-root'), boardNode('board-2'),
+      part('p1', 'SolidColor'), part('fade', 'BrightnessMod'), part('out1', 'MatrixOutput'),
+      part('pot', 'PotInput', { boardId: 'board-2' }), part('knob', 'PotInput', { boardId: 'board-2' }),
+    ], [wire('p1', 'frame', 'fade', 'frame'), wire('fade', 'frame', 'out1', 'frame'), wire('pot', 'value', 'fade', 'brightness')])
+    const hash = () => {
+      const state = useGraphStore.getState()
+      return boardLinkSchema(rootGraphNodes(state), rootGraphEdges(state)).hash
+    }
+    const flashedHash = () => useProjectStore.getState().projects
+      .find((entry) => entry.id === id)?.uploadTargets?.['board-2']?.linkSchemaHash
+    const first = hash()
+    expect(first).not.toBe(0)
+
+    useUiStore.getState().setActiveBoardId('board-2')
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
+      selectedFqbn: 'esp32:esp32:esp32',
+      selectedPort: 'COM9',
+    })
+    mocks.uploadSketch.mockImplementation(async (_code, _fqbn, _port, onLog) => { onLog('Upload complete\n') })
+    await useUploadStore.getState().runUpload('void loop() {}')
+    expect(flashedHash()).toBe(first)
+
+    // The link changes; a one-off test sketch is not the project's firmware.
+    useGraphStore.setState({ edges: [...useGraphStore.getState().edges, wire('knob', 'value', 'fade', 'speed')] as never[] })
+    const second = hash()
+    expect(second).not.toBe(first)
+    await useUploadStore.getState().runUpload('void loop() {}', undefined, { cache: false })
+    expect(flashedHash()).toBe(first)
+    // Re-sending the cached sketch flashes the link it was generated against.
+    await useUploadStore.getState().runLastUpload()
+    expect(flashedHash()).toBe(first)
+    // Picking a port says nothing about what the board runs.
+    useUploadStore.getState().setSelectedPort('COM10')
+    expect(flashedHash()).toBe(first)
+
+    // A failed upload records nothing.
+    mocks.uploadSketch.mockImplementationOnce(async (_code, _fqbn, _port, onLog) => { onLog('*** FAILED ***\n') })
+    await useUploadStore.getState().runUpload('void loop() {}')
+    expect(useUploadStore.getState().status.phase).toBe('error')
+    expect(flashedHash()).toBe(first)
+
+    await useUploadStore.getState().runShowUpload({ player: 'player-ino', files: [] })
+    expect(flashedHash()).toBe(second)
+  })
 })
