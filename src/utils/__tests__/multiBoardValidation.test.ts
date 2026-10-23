@@ -223,6 +223,11 @@ describe('multiBoardValidation — several boards', () => {
     const buzzing = [...nodes, node('buzz', 'BuzzerOutput', { pin: 12, boardId: 'board-2' })]
     expect(titles(buildBoardDiagnostics(buzzing, [...edges, edge('pot', 'buzz', 'trigger', 'value')], { targets })))
       .not.toContain('Board 2 drives nothing')
+    // A board whose pot drives the other board's pattern over a link drives something.
+    const pot = { ...nodes[4], data: { ...nodes[4].data, outputs: [{ id: 'value', label: 'Value', dataType: 'float' }] } }
+    const linked = [...nodes.slice(0, 4), pot]
+    expect(titles(buildBoardDiagnostics(linked, [...edges, edge('pot', 'p1', 'brightness', 'value')], { targets })))
+      .not.toContain('Board 2 drives nothing')
     // The primary is a board like any other once another board has the output.
     const primaryEmpty = [board('board-root'), board('board-2'), node('p2', 'Rainbow'), node('out2', 'MatrixOutput', { width: 8, height: 8, dataPin: 6, boardId: 'board-2' })]
     const primaryDiagnostics = buildBoardDiagnostics(primaryEmpty, [edge('p2', 'out2')], { targets })

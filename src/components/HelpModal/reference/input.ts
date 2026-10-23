@@ -297,6 +297,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'Add a control for each thing you want to change from the phone.',
       'Enter the Wi-Fi network in the body and upload to an ESP32 or ESP8266.',
       'On a phone on the same network, open the address shown at the top of the node, or the board’s IP address.',
+      'With several boards, choose the board that serves the page in Runs on; its controls reach the other boards over a link.',
     ],
     outputs: {
       'add-control': 'Drag from here onto a property row to make a control for that property, already wired to it.',

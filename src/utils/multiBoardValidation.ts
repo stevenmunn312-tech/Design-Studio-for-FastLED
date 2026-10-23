@@ -30,7 +30,7 @@ import {
   type BoardPartition,
   type CrossBoardIssue,
 } from '../build/boardPartition'
-import { isNetworkEndpointNodeType } from '../build/boardLinks'
+import { BOARD_LINK_OUT_NODE_TYPE, isNetworkEndpointNodeType } from '../build/boardLinks'
 import { boardLinkFindings } from './boardLinkValidation'
 import { fqbnHasWifi } from '../state/peripherals/networkCapability'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
@@ -488,9 +488,12 @@ function projectIsEmpty(nodes: readonly StudioNode[]): boolean {
 }
 
 /** Whether a board has an output of its own: an LED output or an attached part that takes a signal. */
+// A board that only sends values over a link (the controls of a split build)
+// drives the other board, so its link-outs count as something it drives.
 function drivesSomething(run: BoardedRun): boolean {
   return run.partition.nodes.some((node) => {
     const type = nodeTypeOf(node)
+    if (type === BOARD_LINK_OUT_NODE_TYPE) return true
     return node.id !== run.board.id && isBoardAttachedNodeType(type) && (type === 'MatrixOutput' || isSinkNodeType(type))
   })
 }
