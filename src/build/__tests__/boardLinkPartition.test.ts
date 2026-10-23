@@ -9,6 +9,7 @@ import {
   findCrossBoardIssues,
   isSinkNodeType,
 } from '../boardPartition'
+import { CUSTOM_DESIGN_LAYOUT } from '../../state/displays/transportDisplay'
 import {
   BOARD_LINK_IN_NODE_TYPE,
   BOARD_LINK_OUT_NODE_TYPE,
@@ -195,6 +196,34 @@ describe('board links — the partition', () => {
       expect(one).not.toContain('fxB')
       expect(findCrossBoardIssues(nodes, edges).map((issue) => [issue.sourceNodeId, issue.dataType])).toEqual([['mic', 'audio']])
     }
+  })
+
+  it('carries a screen design’s Controls as the fields its role-stamped widgets publish', () => {
+    const panel = node('panel', 'TransportDisplay', { ...on2, tftLayout: CUSTOM_DESIGN_LAYOUT, displayId: 'screen' })
+    const touch = node('touch', 'TouchInput', { ...on2, panelId: 'panel' }, {
+      outputs: [
+        { id: 'controls', dataType: 'playercontrols' },
+        { id: 'widget:play:out', dataType: 'bool', controlRole: 'transportPlayPause', widgetType: 'Toggle' } as never,
+        { id: 'widget:skip:out', dataType: 'bool', controlRole: 'transportNext', widgetType: 'Button' } as never,
+        { id: 'widget:vol:out', dataType: 'float', controlRole: 'transportVolume', widgetType: 'Slider' } as never,
+        // A hand-placed widget with no role stays off the bundle.
+        { id: 'widget:mine:out', dataType: 'bool' },
+      ],
+    })
+    const nodes = [...base.filter((n) => n.id !== 'panel'), panel, touch]
+    // The panel's own readings are another wire's business (see the display
+    // cases above); this one is the Controls alone.
+    const edges = [...baseEdges, edge('touch', 'controls', 'player', 'controls')]
+    const slot = boardLinkSchema(nodes, edges).slots.find((entry) => entry.dataType === 'playercontrols')!
+    expect(slot.senderBoardId).toBe('board-2')
+    expect(slot.fields!.map((field) => [field.id, field.kind])).toEqual([
+      ['playPause', 'press'], ['next', 'press'], ['volume', 'float'], ['volumeSet', 'bool'],
+    ])
+    expect(findCrossBoardIssues(nodes, edges)).toEqual([])
+    // A widget wired on its own has a job already, and leaves the bundle.
+    const direct = [...edges, edge('touch', 'widget:skip:out', 'player', 'next')]
+    const fields = boardLinkSchema(nodes, direct).slots.find((entry) => entry.dataType === 'playercontrols')!.fields!
+    expect(fields.map((field) => field.id)).not.toContain('next')
   })
 
   it('sends a linked clock whole, as one datetime', () => {

@@ -15,6 +15,7 @@ import {
 import { networkSketchCpp, networkSourceIn } from './peripherals/networkCpp'
 import { boardSyncGlobalsCpp, boardSyncServiceCallCpp, clockSyncRoleIn } from './peripherals/boardSyncCpp'
 import { boardLinkFirmware, boardLinkPlan, boardLinkSends } from './peripherals/espNowLinkCpp'
+import { boardLinkControlsSendExpr } from './peripherals/boardLinkControlsCpp'
 import { BOARD_LINK_IN_NODE_TYPE, BOARD_LINK_OUT_NODE_TYPE, boardLinkPropertiesOf } from '../build/boardLinks'
 import { getBoardLinkKey } from '../state/peripherals/boardLinkKey'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
@@ -1193,6 +1194,7 @@ export function generateCpp(
     if (!up) return null
     const value = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
     if (field === null) return value
+    if (linkProps.dataType === 'playercontrols') return boardLinkControlsSendExpr(value, field)
     if (linkProps.displayKind === 'clock') return `n_${safeId(up.srcId)}_dateTime`
     if (linkProps.displayKind === 'powerMonitor') return `n_${safeId(up.srcId)}_${safeId(field)}`
     return null

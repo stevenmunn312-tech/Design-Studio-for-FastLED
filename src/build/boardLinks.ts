@@ -27,7 +27,11 @@ export const BOARD_LINK_PORT_ID = 'value'
 
 /** The wire types a link carries; everything else cannot cross boards. */
 export const BOARD_LINK_DATA_TYPES = ['float', 'bool', 'color', 'string', 'datetime', 'display'] as const
-export type BoardLinkDataType = (typeof BOARD_LINK_DATA_TYPES)[number]
+/**
+ * Plus a Touch Screen's Controls bundle, which crosses only from a Touch
+ * Screen (`isLinkedControlsSource`), split into its presses and levels.
+ */
+export type BoardLinkDataType = (typeof BOARD_LINK_DATA_TYPES)[number] | 'playercontrols'
 
 const LINKABLE = new Set<string>(BOARD_LINK_DATA_TYPES)
 

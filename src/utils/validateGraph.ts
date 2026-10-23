@@ -98,7 +98,7 @@ import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/periphera
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { usesNetwork } from '../codegen/peripherals/networkCpp'
-import { isBoardLinkNodeType } from '../build/boardLinks'
+import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType } from '../build/boardLinks'
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
 import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
@@ -3122,8 +3122,11 @@ export function findDisplayGeneratorIssues(
      */
     const touchNode = nodes.find((node) => node.data.nodeType === 'TouchInput'
       && String((node.data.properties as Record<string, unknown>).panelId ?? '') === display.id)
+    // Controls that leave over a board link are answered on the board that
+    // receives them, which sees the bundle arrive like any other.
     const controlsWired = !!touchNode
-      && edges.some((edge) => edge.source === touchNode.id && edge.sourceHandle === 'controls')
+      && edges.some((edge) => edge.source === touchNode.id && edge.sourceHandle === 'controls'
+        && nodeById.get(edge.target)?.data.nodeType !== BOARD_LINK_OUT_NODE_TYPE)
     // A fixed panel's touch regions are transport and volume — no layout emits
     // pattern intent — so an LED output's latch is the only thing it can
     // command outside a player build. In a show it has to be an output that

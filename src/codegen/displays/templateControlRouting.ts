@@ -10,6 +10,9 @@ import { pressSourceBounces } from '../../state/player/pressSource'
 import { createControlGraph, controlReferenceCpp, type ControlReference } from '../controlGraph'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlButtonEmit, type PlayerControlsEmit } from '../player/playerControlsCpp'
+import { BOARD_LINK_IN_NODE_TYPE } from '../../build/boardLinks'
+import { boardLinkPlan } from '../peripherals/espNowLinkCpp'
+import { boardLinkControlsEmit } from '../peripherals/boardLinkControlsCpp'
 import { designControlBundle, toggleWidgetSource } from '../../state/displays/designControlBundle'
 import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
 import { displayScreens, type DisplayDocumentRegistry } from '../../state/displays/displayDocument'
@@ -145,8 +148,22 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     return expr ? { port, repeat, expr, debounce: pressSourceBounces(edge ? byId.get(edge.source)?.data.nodeType : undefined) } : null
   }
 
+  const linkPlan = boardLinkPlan(nodes)
   const visit = (edge: StudioEdge): string | null => {
     const source = byId.get(edge.source)
+    // A Touch Screen's Controls from another board, rebuilt from the link.
+    if (source?.data.nodeType === BOARD_LINK_IN_NODE_TYPE) {
+      const variable = controlBundleVariable(source.id)
+      if (done.has(source.id)) return variable
+      const emit = boardLinkControlsEmit(linkPlan, source, safeId(source.id), variable)
+      if (!emit) {
+        unsupported(edge.target, edge.targetHandle ?? 'Controls')
+        return null
+      }
+      controls.push(emit)
+      done.add(source.id)
+      return variable
+    }
     if (!source || edge.sourceHandle !== 'controls') {
       unsupported(edge.target, edge.targetHandle ?? 'Controls')
       return null

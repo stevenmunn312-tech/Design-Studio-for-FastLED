@@ -1,6 +1,8 @@
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { boardLinkPropertiesOf } from '../../build/boardLinks'
 import { boardLinkDateTimeCpp, boardLinkValueExpr, linkedClockSymbol } from '../../codegen/peripherals/espNowLinkCpp'
+import { boardLinkControlsEmit } from '../../codegen/peripherals/boardLinkControlsCpp'
+import { playerControlsServiceCpp } from '../../codegen/player/playerControlsCpp'
 
 export const GRAPH_EMITTERS: NodeEmitters = {
   // A role-tagged group input kept by buildPattern (collection-show codegen)
@@ -26,9 +28,17 @@ export const GRAPH_EMITTERS: NodeEmitters = {
    * reads the fields straight off the link, and only a clock is declared, as
    * the struct an RTC would have written.
    */
-  BoardLinkIn({ node, ln, v, boardLink }) {
+  BoardLinkIn({ node, id, ln, v, boardLink, playerControlNodes }) {
     const props = boardLinkPropertiesOf(node)
     if (!props || !boardLink) return
+    // A Touch Screen's Controls on another board: rebuilt into the bundle
+    // its readers take, as a Player Controls node would build one.
+    const controls = boardLinkControlsEmit(boardLink, node, id, v('value'))
+    if (controls) {
+      for (const line of playerControlsServiceCpp(controls)) ln(line)
+      playerControlNodes.push(id)
+      return
+    }
     if (props.dataType === 'display') {
       const field = props.fields?.[0]
       if (props.displayKind === 'clock' && field) {

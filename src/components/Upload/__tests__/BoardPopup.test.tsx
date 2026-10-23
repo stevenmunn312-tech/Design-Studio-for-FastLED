@@ -69,7 +69,7 @@ describe('BoardPopup build-engine guidance', () => {
     useGraphStore.setState({ nodes, edges, activeGraphId: 'root' })
     useUiStore.setState({ activeBoardId: 'board-2' })
     const two = boardPartition(nodes, edges, 'board-2')
-    const expected = estimateFirmwareRam(two.nodes, two.edges, {}, {})
+    const expected = estimateFirmwareRam(two.nodes, two.edges, {}, {})!
     expect(expected.ledCount).toBe(64)
 
     const { getByText } = render(<BoardPopup />)

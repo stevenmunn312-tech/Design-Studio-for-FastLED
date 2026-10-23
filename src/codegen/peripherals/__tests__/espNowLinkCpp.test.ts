@@ -285,3 +285,95 @@ describe('board link — a slideshow on one board, its screen on another', () =>
     expect(cpp).toMatch(/_tftWhole\(\(\(_lnkUp0 \? _lnkFloat\(_lnkW0\[0\]\) : 0\.0f\) - 1\.0f\)\)/)
   })
 })
+
+describe('board link — a Touch Screen on one board driving a Music Player on another', () => {
+  // Board 2's panel is the transport: its Touch Screen's one Controls wire
+  // runs to Board 1's Music Player, exactly as it would on one board.
+  const touch = {
+    ...node('touch', 'TouchInput', { panelId: 'tft', ...on2 }),
+  } as StudioNode
+  touch.data.outputs = [
+    { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+    { id: 'previous', label: 'Previous', dataType: 'bool' },
+    { id: 'playPause', label: 'Play / Pause', dataType: 'bool' },
+    { id: 'next', label: 'Next', dataType: 'bool' },
+    { id: 'volume', label: 'Volume', dataType: 'float' },
+  ]
+  const nodes = [
+    node('board-root', 'Board', { linkId: LINK_ID }), node('board-2', 'Board'),
+    node('master', 'PatternMaster'), node('card', 'SDCard'), node('amp', 'Amplifier'),
+    node('collection', 'PatternCollection', { patternIds: ['pattern'] }), output,
+    tftPanel('tft', 'Fixed Transport', on2), touch,
+  ]
+  const edges = [
+    edge('collection', 'patternset', 'master', 'patternset'),
+    edge('master', 'frame', 'out', 'frame'),
+    edge('card', 'storage', 'master', 'storage'),
+    edge('master', 'audio', 'amp', 'audio'),
+    edge('master', 'display', 'tft', 'display'),
+    edge('touch', 'controls', 'master', 'controls'),
+  ]
+
+  it('carries the Controls wire as the presses and levels the panel can make', () => {
+    const one = boardPartition(nodes, edges, 'board-root')
+    const linkIn = one.nodes.find((entry) => entry.data.nodeType === 'BoardLinkIn' && entry.data.properties.dataType === 'playercontrols')
+    expect(linkIn).toBeDefined()
+    expect((linkIn!.data.properties.fields as { id: string; kind: string }[]).map((field) => [field.id, field.kind])).toEqual([
+      ['playPause', 'press'], ['previous', 'press'], ['next', 'press'], ['volume', 'float'], ['volumeSet', 'bool'],
+    ])
+    // The wire keeps its own id and lands on the player's Controls.
+    expect(one.edges.find((entry) => entry.id === 'touch-controls-master-controls')?.source).toBe(linkIn!.id)
+  })
+
+  it('rebuilds the bundle in the player sketch for the Music Player to read', () => {
+    const one = boardPartition(nodes, edges, 'board-root')
+    const routing = playerControlGraph(one.nodes, one.edges, {}, 'master')
+    expect(routing.errors).toEqual([])
+    const src = generatePlayerSketch({}, undefined, { controlGraph: routing, patternNames: { master: ['Aurora'] } })
+    expect(src).toContain('PlayerControlsValue')
+    // Each press is the link's counted press, with no debounce of its own.
+    expect(src).toMatch(/_pcE_\w+_playPause\.update\(_lnkPO1\[0\], _pcNow_\w+, false, 0u/)
+    expect(src).toMatch(/_pcE_\w+_next\.update\(_lnkPO1\[2\]/)
+    // The volume commands only once a finger has set it on Board 2.
+    expect(src).toMatch(/if \(\(_lnkUp1 && \(_lnkW1\[1\] != 0u\)\)\) \{/)
+  })
+
+  it('sends the finished bundle from the panel board', () => {
+    const two = boardPartition(nodes, edges, 'board-2')
+    const cpp = specializeCpp(generateCpp(two.nodes, two.edges), ESP32)
+    expect(cpp).toContain('PlayerControlsValue n_touch_controls;')
+    expect(cpp).toContain('_lnkStagePress(0, 0, n_touch_controls.playPause);')
+    expect(cpp).toContain('_lnkStagePress(2, 2, n_touch_controls.next);')
+    expect(cpp).toMatch(/_lnkStageWord\(3, 0, _lnkBits\(\(\[&\]\(\) \{ static float held = 0\.0f; if \(n_touch_controls\.hasVolume\)/)
+    // Board 2 receives too, but only the screen's readings: no press comes back.
+    expect(cpp).not.toMatch(/_lnkPO/)
+  })
+})
+
+describe('board link — a Touch Screen on one board driving another board\'s LEDs', () => {
+  it('rebuilds the bundle in a normal sketch for the LED output to latch', () => {
+    const touch = node('touch', 'TouchInput', { panelId: 'tft', ...on2 })
+    touch.data.outputs = [
+      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+      { id: 'ledToggle', label: 'LED On / Off', dataType: 'bool' },
+      { id: 'brightness', label: 'Brightness', dataType: 'float' },
+    ]
+    const nodes = [
+      node('board-root', 'Board', { linkId: LINK_ID }), node('board-2', 'Board'),
+      node('fill', 'SolidColor'), node('out', 'MatrixOutput', { width: 8, height: 1 }),
+      tftPanel('tft', 'Fixed Transport', on2), touch,
+    ]
+    const edges = [edge('fill', 'frame', 'out', 'frame'), edge('touch', 'controls', 'out', 'controls')]
+    const one = boardPartition(nodes, edges, 'board-root')
+    const cpp = specializeCpp(generateCpp(one.nodes, one.edges), ESP32)
+    expect(cpp).toContain('PlayerControlsValue n_board_link_in_touch_controls_value;')
+    expect(cpp).toMatch(/_pcE_\w+_ledToggle\.update\(_lnkPO1\[0\]/)
+    expect(cpp).toContain('n_board_link_in_touch_controls_value.hasBrightness = true;')
+    // The LED output latches the rebuilt bundle, as it would a local one.
+    expect(cpp).toContain('if (n_board_link_in_touch_controls_value.ledToggle) _ledOn_out = !_ledOn_out;')
+    const loop = cpp.slice(cpp.indexOf('void loop() {'))
+    const built = loop.indexOf('PlayerControlsValue n_board_link_in_touch_controls_value;')
+    expect(built).toBeGreaterThan(-1)
+    expect(loop.indexOf('n_board_link_in_touch_controls_value.ledToggle)')).toBeGreaterThan(built)
+  })
+})

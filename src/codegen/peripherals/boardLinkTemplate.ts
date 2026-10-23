@@ -50,6 +50,12 @@ export function templateBoardLink(
     const source = byId.get(props.sourceNodeId)
     if (!source) return null
     const type = String(source.data.nodeType ?? '')
+    // A template's Touch Screen drives its own transport; its bundle is not
+    // a value the template keeps for a link to read.
+    if (props.dataType === 'playercontrols') {
+      if (field === null || field === props.fields?.[0]?.id) refuse(source.id, 'its Controls')
+      return null
+    }
     if (field !== null) {
       if (isGeneratorOwnerNodeType(type)) {
         const expression = ownerExpressions[field]

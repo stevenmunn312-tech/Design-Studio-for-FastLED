@@ -3,6 +3,7 @@ import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { boardLinkSettings } from '../state/peripherals/boardLinkKey'
 import { displayKindOfSource, displaySlotFields, receiverDisplayFields } from './boardLinkDisplay'
+import { isLinkedControlsSource, touchControlsFields } from './boardLinkControls'
 import {
   BOARD_LINK_IN_NODE_TYPE,
   BOARD_LINK_OUT_NODE_TYPE,
@@ -242,7 +243,9 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
 
   // ── The foreign rule ───────────────────────────────────────────────────
   const carriedType = (edge: StudioEdge): BoardLinkDataType | null => {
-    const type = outputPortDataType(byId.get(edge.source)!, edge.sourceHandle)
+    const source = byId.get(edge.source)!
+    if (isLinkedControlsSource(source, edge.sourceHandle)) return 'playercontrols'
+    const type = outputPortDataType(source, edge.sourceHandle)
     return isBoardLinkDataType(type) ? type : null
   }
   // Foreign is the closure of "anchored elsewhere" along the wires no link
@@ -393,12 +396,17 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
     for (const boardId of boardOrder) if (!foreign(boardId, node.id)) place(boardId, node.id)
   }
 
-  // ── Display fields, start values ───────────────────────────────────────
-  // A display wire carries only the fields its receivers read; every other
+  // ── Display and controls fields, start values ──────────────────────────
+  // A display wire carries only the fields its receivers read, and a
+  // Controls wire the presses and levels its panel can produce; every other
   // slot starts where its source does before the first frame arrives.
   for (const own of sent.values()) {
     for (const slot of own.values()) {
       const source = byId.get(slot.sourceNodeId)!
+      if (slot.dataType === 'playercontrols') {
+        slot.fields = touchControlsFields(source, nodes, edges).map((field) => ({ ...field, index: -1 }))
+        continue
+      }
       if (slot.dataType !== 'display') {
         slot.start = boardLinkStartValue(source, slot.sourceHandle, slot.dataType)
         continue
@@ -418,13 +426,14 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
   }
 
   // A screen reading whose receivers read no field a link carries (a Pattern
-  // Browser, whose thumbnails exist only on the sending board) has nothing to
-  // send: it is a wire that cannot cross, not an empty slot that would compile
-  // a receive path waiting for frames that never come.
+  // Browser, whose thumbnails exist only on the sending board), or a Controls
+  // wire from a panel that publishes no control, has nothing to send: it is a
+  // wire that cannot cross, not an empty slot that would compile a receive
+  // path waiting for frames that never come.
   const edgeById = new Map(edges.map((edge) => [edge.id, edge]))
   for (const own of sent.values()) {
     for (const [key, slot] of own) {
-      if (slot.dataType !== 'display' || (slot.fields && slot.fields.length > 0)) continue
+      if (!slot.fields || slot.fields.length > 0) continue
       own.delete(key)
       for (const receiver of slot.receivers) {
         linkIns.get(receiver.boardId)!.delete(key)
@@ -433,7 +442,7 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
           if (carried !== slot) continue
           received.delete(edgeId)
           const edge = edgeById.get(edgeId)
-          if (edge) report(edge, receiver.boardId, 'display')
+          if (edge) report(edge, receiver.boardId, slot.dataType)
         }
       }
     }

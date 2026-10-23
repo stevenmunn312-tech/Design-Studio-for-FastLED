@@ -138,10 +138,12 @@ table both sides compile from (below).
 | `string` | the text, at most 63 bytes, clamped as Text Entry is | 1 + n bytes |
 | `datetime` | Unix seconds | 4 bytes |
 | `display` | one slot per field the receiving panel binds | per field |
+| `playercontrols` from a Touch Screen | one slot per press and level its panel publishes | per field |
 
 `frame`, `audio`, `field`, `image`, `palette`, `music`, `patternset`,
-`transitionset`, `playercontrols`, `playerparticles`, `storage` and `dmx`
-cannot cross. A frame stream needs far more bandwidth than ESP-NOW gives a
+`transitionset`, `playerparticles`, `storage` and `dmx` cannot cross, nor a
+`playercontrols` bundle from anything but a Touch Screen (a Player Controls
+node is computed on the board that reads it, from inputs a link carries). A frame stream needs far more bandwidth than ESP-NOW gives a
 control link, and the others are structures the receiving sketch does not
 have.
 
@@ -159,6 +161,19 @@ the existing ones, so a normal sketch can draw a linked `player` or
 `slideshow` signal. `SKETCH_DISPLAY_SOURCE_KINDS` learns that a linked player
 is answerable in a normal sketch, because the values arrive rather than being
 computed.
+
+A Touch Screen's Controls wire is carried in the same way, as the finished
+bundle its board builds: one counted press per one-shot field (Play / Pause,
+Previous, Next, LED On / Off, Previous and Next Pattern) and, per level
+(Volume, Brightness), the level with a flag that a finger has set it. The
+fields are the ones the panel publishes, read from the graph alone: a fixed
+layout's touch regions, or the screen design's role-stamped widgets, which the
+Touch Screen's ports carry with their role and type for exactly this
+(`touchControlsFields` in `src/build/boardLinkControls.ts`). The receiving
+board rebuilds the bundle with the service a Player Controls node uses, so a
+Music Player, Pattern Slideshow, LED output or Player Controls node there reads
+it as it would a Touch Screen of its own. The user wires one Controls wire,
+as on one board.
 
 ### Values, presses and dropouts
 

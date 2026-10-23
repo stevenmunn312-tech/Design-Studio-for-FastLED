@@ -474,6 +474,15 @@ function crossBoardCopy(
       fix: `Put the ${targetName} on ${from}, or choose a layout that shows text and numbers.`,
     }
   }
+  if (wire.dataType === 'playercontrols') {
+    // A Touch Screen's Controls cross as the controls its panel publishes,
+    // and this panel publishes none.
+    return {
+      title: `${sourceName} has no controls to send`,
+      message: `${sourceName} on ${from} feeds ${targetName} on ${to}, but its panel publishes no control on Controls, so nothing would cross.`,
+      fix: 'Give the panel a screen design with template controls (Previous, Play, Next, Volume, Brightness, Blackout), or choose the Now Playing or Fixed Transport layout.',
+    }
+  }
   const sourceType = nodeTypeOf(source)
   const targetType = nodeTypeOf(target)
   const fix = isBoardAttachedNodeType(sourceType)
@@ -485,7 +494,7 @@ function crossBoardCopy(
         : `Give ${to} its own ${sourceName}, or compute ${targetName} on ${from}.`
   return {
     title: `${UNCARRIED_TYPE_TITLES[wire.dataType] ?? `A ${wire.dataType} wire`} cannot cross boards`,
-    message: `${sourceName} on ${from} feeds ${targetName} on ${to}, and a board link carries only numbers, switches, colours, text, times and screen readings.`,
+    message: `${sourceName} on ${from} feeds ${targetName} on ${to}, and a board link carries only numbers, switches, colours, text, times, screen readings and touch controls.`,
     fix,
   }
 }

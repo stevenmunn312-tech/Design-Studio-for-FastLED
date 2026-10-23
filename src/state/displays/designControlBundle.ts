@@ -97,6 +97,54 @@ function edgeFor(widget: Pick<DisplayWidget, 'type'>, field: DesignBundleField):
   return displayWidgetIsRangedControl(widget.type) ? 'level' : null
 }
 
+/** One widget that could feed the bundle: on the screen, with a stamped role. */
+export interface DesignBundleCandidate {
+  widgetId: string
+  type: string
+  role: unknown
+}
+
+/**
+ * The bundle's rule over a list of candidate widgets, in screen order. Shared
+ * by `designControlBundle`, which reads them from the document, and the board
+ * link, which reads them from the Touch node's ports (`controlRole`,
+ * `widgetType`) because a board's partition has no documents.
+ *
+ * `slideshow` is whether the panel shows a slideshow; `wired` says whether a
+ * widget's own output is wired elsewhere, which takes it out of the bundle.
+ */
+export function designBundleControls(
+  candidates: readonly DesignBundleCandidate[],
+  slideshow: boolean,
+  wired: (portId: string) => boolean,
+): DesignBundleControl[] {
+  const controls: DesignBundleControl[] = []
+  const claimed = new Set<DesignBundleField>()
+  for (const candidate of candidates) {
+    const role = normalizeDisplayControlRole(candidate.role)
+    if (!role) continue
+    const field = fieldFor(role, slideshow)
+    if (!field) continue
+    const edge = edgeFor({ type: candidate.type } as Pick<DisplayWidget, 'type'>, field)
+    if (!edge) continue
+    const portId = displayWidgetPortId(candidate.widgetId, 'out')
+    if (wired(portId)) continue
+    // One widget per field. A level has one value per pass, so two sliders
+    // on volume would leave whichever was read last; and the firmware keys a
+    // field's edge state by the field, so a second press source would share it.
+    if (claimed.has(field)) continue
+    claimed.add(field)
+    controls.push({ widgetId: candidate.widgetId, portId, field, edge })
+  }
+  return controls
+}
+
+/** Whether a Touch node's output `portId` is wired anywhere. */
+function wiredFrom(touchNodeId: string | null | undefined, edges: readonly StudioEdge[]) {
+  return (portId: string) => Boolean(touchNodeId)
+    && edges.some((candidate) => candidate.source === touchNodeId && candidate.sourceHandle === portId)
+}
+
 /**
  * The controls a panel's design publishes on its Touch node's Controls output.
  *
@@ -111,27 +159,32 @@ export function designControlBundle(
   touchNodeId?: string | null,
 ): DesignBundleControl[] {
   const slideshow = panelDisplaySourceKind(panel, nodes, edges) === 'slideshow'
-  const controls: DesignBundleControl[] = []
-  const claimed = new Set<DesignBundleField>()
   // Placed widgets only: a control in the Connected group is on no screen, so
   // no finger can reach it and the firmware emits no object for it.
-  for (const widget of placedWidgets(document)) {
-    const role = normalizeDisplayControlRole(widget.properties?.controlRole)
-    if (!role) continue
-    const field = fieldFor(role, slideshow)
-    if (!field) continue
-    const edge = edgeFor(widget, field)
-    if (!edge) continue
-    const portId = displayWidgetPortId(widget.id, 'out')
-    if (touchNodeId && edges.some((candidate) => candidate.source === touchNodeId && candidate.sourceHandle === portId)) continue
-    // One widget per field. A level has one value per pass, so two sliders
-    // on volume would leave whichever was read last; and the firmware keys a
-    // field's edge state by the field, so a second press source would share it.
-    if (claimed.has(field)) continue
-    claimed.add(field)
-    controls.push({ widgetId: widget.id, portId, field, edge })
+  const candidates = placedWidgets(document)
+    .map((widget) => ({ widgetId: widget.id, type: widget.type, role: widget.properties?.controlRole }))
+  return designBundleControls(candidates, slideshow, wiredFrom(touchNodeId, edges))
+}
+
+/**
+ * The same controls read off a Touch node's own ports, for a graph with no
+ * documents to hand (a board partition). Each carried port says its widget's
+ * role and type; the rest of the rule is the same.
+ */
+export function touchNodeBundleControls(
+  touch: StudioNode,
+  panel: StudioNode,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): DesignBundleControl[] {
+  const slideshow = panelDisplaySourceKind(panel, nodes, edges) === 'slideshow'
+  const candidates: DesignBundleCandidate[] = []
+  for (const port of (touch.data.outputs ?? []) as readonly { id: string; controlRole?: string; widgetType?: string }[]) {
+    const parsed = parseDisplayWidgetPortId(port.id)
+    if (!parsed || parsed.role !== 'out' || !port.controlRole || !port.widgetType) continue
+    candidates.push({ widgetId: parsed.widgetId, type: port.widgetType, role: port.controlRole })
   }
-  return controls
+  return designBundleControls(candidates, slideshow, wiredFrom(touch.id, edges))
 }
 
 /**

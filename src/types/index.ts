@@ -11,6 +11,11 @@ export interface NodePort {
    *  wired to it directly, so a template's controls do not arrive as a row of
    *  outputs asking to be connected one by one. */
   carriedByControls?: boolean
+  /** On a Touch node's widget port that is on the screen and carried by its
+   *  Controls wire: the widget's role and type, so the board link can work
+   *  out the bundle's fields from the graph alone (`designBundleControls`). */
+  controlRole?: string
+  widgetType?: string
 }
 
 export interface NodeDefinition {
