@@ -1,11 +1,17 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
+import { boardLinkSettings } from '../state/peripherals/boardLinkKey'
+import { displayKindOfSource, displaySlotFields, receiverDisplayFields } from './boardLinkDisplay'
 import {
   BOARD_LINK_IN_NODE_TYPE,
   BOARD_LINK_OUT_NODE_TYPE,
   BOARD_LINK_PORT_ID,
   boardLinkSchemaHash,
+  boardLinkStartValue,
+  boardLinkWireKind,
+  type BoardLinkContext,
+  type BoardLinkFrameEntry,
   isBoardLinkDataType,
   isGeneratorOwnerNodeType,
   isMomentaryBoolSource,
@@ -369,18 +375,62 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
     for (const boardId of boardOrder) if (!foreign(boardId, node.id)) place(boardId, node.id)
   }
 
+  // ── Display fields, start values ───────────────────────────────────────
+  // A display wire carries only the fields its receivers read; every other
+  // slot starts where its source does before the first frame arrives.
+  for (const own of sent.values()) {
+    for (const slot of own.values()) {
+      const source = byId.get(slot.sourceNodeId)!
+      if (slot.dataType !== 'display') {
+        slot.start = boardLinkStartValue(source, slot.sourceHandle, slot.dataType)
+        continue
+      }
+      const kind = displayKindOfSource(source)
+      const wanted = new Set<string>()
+      for (const receiver of slot.receivers) {
+        const target = byId.get(receiver.nodeId)
+        if (!kind || !target) continue
+        for (const field of receiverDisplayFields(target, receiver.handle, kind, edges, byBoard.get(receiver.boardId)!)) {
+          wanted.add(field)
+        }
+      }
+      slot.displayKind = kind
+      slot.fields = displaySlotFields(kind, wanted).map((field) => ({ ...field, index: -1 }))
+    }
+  }
+
   // ── Slot numbers and the hash ──────────────────────────────────────────
   // Numbered in root order of their source, so an edit elsewhere in the
-  // graph leaves every slot where it was and the hash unchanged.
+  // graph leaves every slot where it was and the hash unchanged. A display
+  // slot takes one frame index per field it carries, from its own `slot` on.
   const rootIndex = new Map(nodes.map((node, index) => [node.id, index]))
   const slots: BoardLinkSlot[] = []
+  const frames: Record<string, BoardLinkFrameEntry[]> = {}
   for (const boardId of boardOrder) {
     const own = [...sent.get(boardId)!.values()].sort((a, b) =>
       (rootIndex.get(a.sourceNodeId)! - rootIndex.get(b.sourceNodeId)!)
       || (a.sourceHandle < b.sourceHandle ? -1 : a.sourceHandle > b.sourceHandle ? 1 : 0))
-    own.forEach((slot, index) => { slot.slot = index })
+    const table: BoardLinkFrameEntry[] = []
+    for (const slot of own) {
+      slot.slot = table.length
+      if (slot.fields) {
+        for (const field of slot.fields) {
+          field.index = table.length
+          table.push({ index: field.index, kind: field.kind })
+        }
+      } else {
+        table.push({ index: slot.slot, kind: boardLinkWireKind(slot) })
+      }
+    }
+    if (table.length) frames[boardId] = table
     slots.push(...own)
   }
+  const hash = slots.length ? boardLinkSchemaHash(slots, boardOrder) : 0
+  const settings = boardLinkSettings(boards[0]?.data.properties as Record<string, unknown> | undefined)
+  const context: BoardLinkContext = {
+    hash, linkId: settings.linkId, channel: settings.channel, boardOrder, frames,
+  }
+  for (const slot of slots) slot.link = context
 
   const wires = new Map<string, BoardLinkWire>()
   for (const boardId of boardOrder) {
@@ -392,8 +442,7 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
   }
 
   return {
-    boards, primaryId, byBoard, byNode, linkIns, linkedEdges, slots,
-    hash: slots.length ? boardLinkSchemaHash(slots, boardOrder) : 0,
+    boards, primaryId, byBoard, byNode, linkIns, linkedEdges, slots, hash,
     issues, wires, partitions: new Map(),
   }
 }
@@ -423,6 +472,9 @@ function linkNode(type: string, id: string, slot: BoardLinkSlot, label: string):
     sourceHandle: slot.sourceHandle,
     dataType: slot.dataType,
     momentary: slot.momentary,
+    ...(slot.fields ? { displayKind: slot.displayKind ?? null, fields: slot.fields } : {}),
+    ...(slot.start !== undefined ? { start: slot.start } : {}),
+    ...(slot.link ? { link: slot.link } : {}),
   }
   return {
     id,
