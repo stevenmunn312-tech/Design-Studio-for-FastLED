@@ -138,6 +138,42 @@ describe('graphStore — multi-board', () => {
     expect(props('pot4')?.boardId).toBeUndefined()
   })
 
+  it('stamps a network endpoint added to the root graph, not one inside a group', () => {
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
+      node('board-2', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
+    ], [])
+    useUiStore.getState().setActiveBoardId('board-2')
+    useGraphStore.getState().addNode(node('remote', 'WebRemoteInput'))
+    useGraphStore.getState().addNode(node('stream', 'StreamOutput'))
+    const rootProps = (id: string) => rootGraphNodes(useGraphStore.getState()).find((n) => n.id === id)?.data.properties
+    expect(rootProps('remote')?.boardId).toBe('board-2')
+    expect(rootProps('stream')?.boardId).toBe('board-2')
+
+    // Inside a group, with the two boards stashed in the root graph.
+    const { nodes, edges } = useGraphStore.getState()
+    useGraphStore.setState({ activeGraphId: 'group-1', nodes: [], edges: [], graphData: { [ROOT_GRAPH_ID]: { nodes, edges } } })
+    expect(boards()).toHaveLength(2)
+    useGraphStore.getState().addNode(node('dmx', 'DMXInput'))
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'dmx')?.data.properties.boardId).toBeUndefined()
+  })
+
+  it('removeBoard moves the network endpoints on it to the primary, keeping their wires', () => {
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
+      node('board-2', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
+      node('outA', 'MatrixOutput'),
+      node('ddp', 'DdpInput', { boardId: 'board-2' }),
+      node('dmx', 'DMXInput', { boardId: 'board-root' }),
+    ], [edge('e1', 'ddp', 'frame', 'outA', 'frame')])
+    useGraphStore.getState().removeBoard('board-2')
+    const props = (id: string) => useGraphStore.getState().nodes.find((n) => n.id === id)?.data.properties
+    expect(useGraphStore.getState().nodes.map((n) => n.id)).toEqual(['board-root', 'outA', 'ddp', 'dmx'])
+    expect(props('ddp') && 'boardId' in props('ddp')!).toBe(false)
+    expect(props('dmx')?.boardId).toBe('board-root')
+    expect(useGraphStore.getState().edges.map((e) => e.id)).toEqual(['e1'])
+  })
+
   it('a one-board project never stamps, so its save reads as before', () => {
     useGraphStore.getState().loadGraph([node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin' })], [])
     useUiStore.getState().setActiveBoardId('board-root')

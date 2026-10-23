@@ -2,7 +2,9 @@ import { boardPartitionOf, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { EMPTY_CREDENTIALS, useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
 import { wiredNetworkIn } from '../../state/peripherals/ethernetModule'
+import { BOARD_LINK_CHANNEL_MAX, BOARD_LINK_CHANNEL_MIN, boardLinkSettings } from '../../state/peripherals/boardLinkKey'
 import WifiPasswordInput from '../Canvas/WifiPasswordInput'
+import ClampedNumberInput from '../Canvas/ClampedNumberInput'
 import { boardOrdinalLabel, defaultBoardHostname, useBoardNodes } from './boardSelection'
 import styles from './BoardFleetControls.module.css'
 
@@ -35,6 +37,10 @@ export default function BoardFleetControls({ boardNodeId, onClose }: { boardNode
   const isPrimary = index <= 0
   const hostname = typeof props.wifiHostname === 'string' ? props.wifiHostname : ''
   const label = boardOrdinalLabel(boards, boardNodeId)
+  // The link channel is the project's, stored on the primary Board, so every
+  // board's menu shows and sets the same one.
+  const primary = boards[0]
+  const linkChannel = boardLinkSettings(primary?.data.properties).channel
 
   const addAnother = () => {
     const id = addBoard(profileId)
@@ -46,7 +52,7 @@ export default function BoardFleetControls({ boardNodeId, onClose }: { boardNode
   const removeThis = async () => {
     const ok = await requestConfirm({
       title: `Remove ${label}?`,
-      message: 'Its hardware parts and LED outputs are removed with it. Patterns and controls stay in the graph.',
+      message: 'Its hardware parts and LED outputs are removed with it. Network inputs and outputs on it move to Board 1; patterns and controls stay in the graph.',
       confirmLabel: 'Remove',
       tone: 'danger',
     })
@@ -141,6 +147,24 @@ export default function BoardFleetControls({ boardNodeId, onClose }: { boardNode
                   <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
                 </>
               )}
+            </>
+          )}
+          {primary && (
+            <>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor={`${boardNodeId}-link-channel`}>Link channel</label>
+                <ClampedNumberInput
+                  id={`${boardNodeId}-link-channel`}
+                  className={`nodrag ${styles.fieldInput}`}
+                  value={linkChannel}
+                  min={BOARD_LINK_CHANNEL_MIN}
+                  max={BOARD_LINK_CHANNEL_MAX}
+                  step={1}
+                  ariaLabel="Link channel"
+                  onCommit={(channel) => updateNodeProperty(primary.id, 'linkChannel', Math.round(channel))}
+                />
+              </div>
+              <div className={styles.note}>The Wi-Fi channel boards link on, used only when no linked board joins a network.</div>
             </>
           )}
         </>
