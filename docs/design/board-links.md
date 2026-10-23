@@ -26,9 +26,13 @@ less than it might seem.
 
 ## What the user does
 
-Nothing new. The user puts parts on two boards in the Hardware pane, as today,
-and wires an encoder on Board 2 into the Music Player's volume, or the Music
-Player's Display output into a colour panel on Board 2. Where the multi-board
+Nothing new. There is no link node to place and no link to configure: the
+Hardware pane already says which controller each part belongs to, and that is
+all a link needs. The user puts parts on two boards in the Hardware pane, as
+today, and creates controls as usual: wires an encoder on Board 2 into the
+Music Player's volume, or the Music Player's Display output into a colour
+panel on Board 2. Studio sends the value behind the scenes or refuses the
+wire with a message. Where the multi-board
 model reports "A wire crosses boards", a wire that a link can carry is now
 drawn as a **link wire**: dashed, with a radio mark, and a tooltip naming the
 two boards ("Board 2 to Board 1 over ESP-NOW"). A wire a link cannot carry
@@ -100,6 +104,13 @@ Two worked cases:
 | Board 2 microphone into a pattern on Board 1 | error: audio cannot cross boards | |
 
 ### Synthetic link nodes
+
+These are internal plumbing, not something the user sees. They never appear on
+the canvas, in the node library or in a saved project; they exist only in the
+board partition handed to validation and the generators, rebuilt from the
+wires on every change. The alternative, teaching every generator and
+validator to recognise a wire that leaves its board, would thread link logic
+through code that today knows nothing about boards.
 
 `boardPartition` emits two library-hidden node types that are never saved:
 `BoardLinkIn` (no inputs, one output) and `BoardLinkOut` (one input, no
