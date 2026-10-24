@@ -364,7 +364,9 @@ chooses the supported combinations from whatever is on record at release.
   - **Release blocker for fbuild on Windows:** every daemon compile opens a
     visible, focus-taking console window (§13,
     [#1722](https://github.com/FastLED/fbuild/issues/1722)); app users hit it
-    too. Bump the pin to the first fbuild that ships zccache 1.15.6 or later,
+    too. Fixed on fbuild `main` 2026-10-24 (#1723, zccache 1.15.6), with
+    #1719 (#1721) alongside; neither is released yet. Bump the pin to the
+    first release after 2.5.44 that carries both,
     and check with a short build that no window opens.
   - Every known fbuild problem has an upstream issue: RP2040 TinyUSB
     ([#1719](https://github.com/FastLED/fbuild/issues/1719)), §12 LVGL archive
@@ -378,7 +380,8 @@ chooses the supported combinations from whatever is on record at release.
     [#1672](https://github.com/FastLED/fbuild/issues/1672)) and Windows long
     paths ([#1673](https://github.com/FastLED/fbuild/issues/1673)). Drop each
     workaround as its fix lands.
-  - Recompile the RP2040 IR fbuild leg once #1719 is released.
+  - Recompile the RP2040 IR fbuild leg on that release (#1719 fixed on
+    `main` by #1721).
   - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
     `lib_deps` ignores its `#ref`, the HUB75 pin is ignored, esp_dmx 4.1.0
     does not build on IDF 5.5, and every `lib_deps` library is compiled

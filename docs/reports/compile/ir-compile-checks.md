@@ -72,7 +72,8 @@ and none of these legs ever passed on fbuild, so there is no size baseline.
   libraries, whose sources include `<Adafruit_TinyUSB.h>` under
   `#ifdef USE_TINYUSB`; fbuild follows that include although the macro is not
   defined. A FastLED-only Pico sketch reproduces it, a plain sketch does not.
-  Reported as [FastLED/fbuild#1719](https://github.com/FastLED/fbuild/issues/1719).
+  Reported as [FastLED/fbuild#1719](https://github.com/FastLED/fbuild/issues/1719)
+  and fixed on fbuild `main` the same day by #1721; not in a release yet.
 
 ## fbuild 2.5.37 recheck, 8 October 2026
 

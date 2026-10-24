@@ -22,6 +22,7 @@ an internal record.
   `display/normal` passes without the §12 recovery, Renesas and SAMD21 IR
   legs now pass, and RP2040 gets past boot2 but stops on the core's TinyUSB
   library, reported as [#1719](https://github.com/FastLED/fbuild/issues/1719)
+  (fixed on `main` 2026-10-24 by #1721, not yet released)
   ([IR record](../reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
   The rest of the fbuild legs have not run on 2.5.44; every workaround below
   stays until `scripts/compile-fixtures/compile-matrix.py --engine fbuild`
@@ -67,7 +68,7 @@ an internal record.
 | 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **No — fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); workaround removed 2026-10-08 |
 | 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | **Partly fixed in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1409](https://github.com/FastLED/fbuild/issues/1409)): oversize flash now fails, and RAM overflow fails only on AVR. Keep the refusal for ESP32 RAM |
 | 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **Fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)): `display/normal` rebuilt `liblvgl.a` on 2026-10-24 without the recovery firing. Recovery code still in place; remove it after the full fbuild rerun |
-| 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | Yes — [#1722](https://github.com/FastLED/fbuild/issues/1722), filed 2026-10-24: the embedded zccache 1.14.14 spawns through running-process 4.10.14, which omits `CREATE_NO_WINDOW` ([running-process#1214](https://github.com/zackees/running-process/issues/1214), fixed in 4.10.16 / zccache 1.15.6) |
+| 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | Until the next release — [#1722](https://github.com/FastLED/fbuild/issues/1722), filed and fixed on `main` 2026-10-24 by #1723 (zccache 1.15.6): the embedded zccache 1.14.14 spawns through running-process 4.10.14, which omits `CREATE_NO_WINDOW` ([running-process#1214](https://github.com/zackees/running-process/issues/1214), fixed in 4.10.16 / zccache 1.15.6) |
 
 ---
 
