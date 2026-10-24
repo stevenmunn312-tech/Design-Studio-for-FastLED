@@ -355,6 +355,11 @@ chooses the supported combinations from whatever is on record at release.
     remove the §12 recovery and retry SAMD51 without its `_PIO_BOARDS`
     `-DARDUINO_ARCH_SAMD`/`EIC_IRQn` flags. #1658 (§5) and #1673 have no
     fixture of their own.
+  - **Release blocker for fbuild on Windows:** every daemon compile opens a
+    visible, focus-taking console window (§13,
+    [#1722](https://github.com/FastLED/fbuild/issues/1722)); app users hit it
+    too. Bump the pin to the first fbuild that ships zccache 1.15.6 or later,
+    and check with a short build that no window opens.
   - Every known fbuild problem has an upstream issue: RP2040 TinyUSB
     ([#1719](https://github.com/FastLED/fbuild/issues/1719)), §12 LVGL archive
     length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
