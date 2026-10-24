@@ -1,7 +1,7 @@
 # Board links: controls and readings between boards over ESP-NOW
 
-Status: implemented, experimental (generated firmware; no compile or bench row
-yet) · Owner: app · Date: 2026-10-23 · Root todo, D-13
+Status: implemented, experimental (compiled on ESP32, ESP32-S3 and ESP8266;
+no bench row yet) · Owner: app · Date: 2026-10-23 · Root todo, D-13
 (v1)
 
 Builds on [multi-board projects](multi-board.md), which lets a project carry
@@ -340,8 +340,9 @@ Where the build differs from, or narrows, the design above:
   takes one frame index per field, and the slot bounds count frame indexes.
 - The firmware is `src/codegen/peripherals/espNowLinkCpp.ts`, with the show and
   player plumbing in `boardLinkTemplate.ts`; its codec is checked byte for
-  byte against a TypeScript mirror on the host (WSL g++). Nothing has been
-  compiled for an ESP32 or ESP8266 yet.
+  byte against a TypeScript mirror on the host (WSL g++). Both boards of
+  each bench run compile for ESP32, ESP32-S3 and ESP8266
+  ([compile checks](../reports/compile/board-link-compile-checks.md)).
 - Validation is `src/utils/boardLinkValidation.ts`. Beyond the design it warns
   when a linked board off Wi-Fi sits beside one on Wi-Fi ("may not hear"),
   and refuses a linked screen reading or time into a board whose sketch is a

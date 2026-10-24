@@ -155,6 +155,17 @@ def ethernet_legs(engine: str) -> list[Leg]:
             for name, fqbn in targets.items()]
 
 
+def board_link_legs() -> list[Leg]:
+    """D-13: both boards of each board-link bench run, cut from one root graph."""
+    folder = ROOT / "artifacts" / "board-link-compile"
+    targets = {"run1-board1-player": (S3, "s3"), "run1-board2-xc4630": (CLASSIC, "classic"),
+               "run2-board1-player": (S3, "s3"), "run2-board2-oled-encoder": (CLASSIC, "classic"),
+               "run3-board1-esp32": (CLASSIC, "classic"),
+               "run3-board2-esp8266-remote": ("esp8266:esp8266:d1_mini", "esp8266")}
+    return [Leg("board-links", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino", fqbn, tag)
+            for name, (fqbn, tag) in targets.items()]
+
+
 def power_switch_legs(engine: str) -> list[Leg]:
     folder = ROOT / "backend" / "sketches" / "power-switch-fixtures"
     targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed", "yynmos4")}
@@ -253,6 +264,7 @@ def plan() -> list[Leg]:
         *ethernet_legs("fbuild"),
         *custom_board_legs("arduino-cli"), *display_legs("arduino-cli"), *ethernet_legs("arduino-cli"),
         *power_switch_legs("arduino-cli"),
+        *board_link_legs(),
         *(Leg("control-graph", "compile-display-smoke.py", "arduino-cli",
               ROOT / "artifacts" / "control-graph-compile" / f"{mode}.ino")
           for mode in ("normal", "show", "player", "show-ntp", "player-ntp", "show-ethernet")),
@@ -268,7 +280,8 @@ def plan() -> list[Leg]:
 GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x",
               "ethernet": "ethernet", "power-switch": "power-switch", "control-graph": "control-graph",
               "dead-code": "dead-code", "pattern-collections": "pattern-collections",
-              "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers"}
+              "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers",
+              "board-links": "board-links"}
 
 
 def read_report(path: Path) -> dict | None:

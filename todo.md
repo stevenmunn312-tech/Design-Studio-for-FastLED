@@ -40,9 +40,11 @@ in section 4.
   partition cut, link wires, Runs on for network endpoints, the link channel
   and key, the emitter in all three generators, validation, the Upload tab's
   out-of-date note, help and an experimental support-matrix row
-  ([design](docs/design/board-links.md#as-built)). What closes it: the first
-  ESP32 and ESP8266 compiles of a linked pair at the v1 freeze; the bench row
-  is in section 4.
+  ([design](docs/design/board-links.md#as-built)). Both boards of all three
+  bench runs compile on arduino-cli
+  ([compile checks](docs/reports/compile/board-link-compile-checks.md)), and
+  the legs are in the freeze matrix. What closes it: the bench row in
+  section 4.
 - [ ] **FastLED 3.10.8 pin follow-up (M).** Both engines moved from an
   unpinned FastLED (arduino-cli: the registry's latest, 3.10.5 here; fbuild:
   `main` on the day it first vendored) to `_FASTLED_VERSION` 3.10.8 on
@@ -316,11 +318,15 @@ chooses the supported combinations from whatever is on record at release.
   through transitions, and the follower resumes its own picks five seconds
   after the leader is unplugged. Compile both partitions first; no
   multi-board sketch has compiled yet.
-- **D-13 board links:** two ESP32 boards, one running the Music Player and
-  its LEDs, the other a colour panel with an encoder and buttons: volume and
-  Next from the second board, the track title and position on its panel, a
-  reset of each board and the other's behaviour meanwhile, both on and off a
-  Wi-Fi network. Then an ESP8266 Web Remote driving an ESP32's brightness.
+- **D-13 board links:** an ESP32-S3 running the Music Player and its LEDs,
+  and a classic ESP32 as its remote, in two runs: first the XC4630 shield
+  alone (volume and Next from its touch sheet, the track title and position on
+  its panel), then an SSD1306 OLED and a bare encoder (volume from turning,
+  Next from its press, title and position on the OLED). In either run, a reset
+  of each board and the other's behaviour meanwhile, both on and off a Wi-Fi
+  network. Then an ESP8266 Web Remote driving an ESP32's brightness. The
+  sketches are the compiled fixtures
+  ([compile checks](docs/reports/compile/board-link-compile-checks.md)).
   Record the link's latency, its range indoors, and the Wi-Fi driver's heap
   cost on the render board
   ([design](docs/design/board-links.md#limits)).

@@ -150,6 +150,7 @@ record on Arduino CLI, one at a time, and writes a log and summary to
 compiles on Arduino CLI alone for now; the fbuild legs stay in the plan and run
 with `--engine fbuild` or `--engine all`.
 
+- [Board-link compile checks](reports/compile/board-link-compile-checks.md)
 - [Buzzer compile checks](reports/compile/buzzer-compile-checks.md)
 - [Controller-board compile checks](reports/compile/controller-board-compile-checks.md)
 - [Control graph compile checks](reports/compile/control-graph-compile-checks.md)
