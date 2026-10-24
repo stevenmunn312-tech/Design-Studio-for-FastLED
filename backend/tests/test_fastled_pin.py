@@ -16,7 +16,7 @@ def _fastled_checkout(path, version):
 
 def test_fastled_checkout_accepts_only_the_pinned_release(tmp_path):
     library = tmp_path / "FastLED"
-    _fastled_checkout(library, "3.10.5")
+    _fastled_checkout(library, "3.10.4")
     assert toolchain._fastled_checkout_matches_pin(library) is False
     (library / "library.properties").write_text(
         f"version={toolchain._FASTLED_VERSION}\n", encoding="utf-8",
@@ -32,7 +32,7 @@ def test_arduino_fastled_installs_the_pin_over_an_older_release(tmp_path, monkey
     monkeypatch.setattr(toolchain.subprocess, "run", lambda args, **kwargs: subprocess.CompletedProcess(
         args, 0, json.dumps({"config": {"directories": {"user": str(tmp_path)}}}),
     ))
-    _fastled_checkout(tmp_path / "libraries" / "FastLED", "3.10.5")
+    _fastled_checkout(tmp_path / "libraries" / "FastLED", "3.10.4")
     installs = []
 
     def fake_install(label, args):
@@ -64,7 +64,7 @@ def test_arduino_fastled_skips_install_when_the_pin_is_present(tmp_path, monkeyp
 
 def test_fbuild_vendors_the_pinned_tag_over_a_stale_checkout(tmp_path, monkeypatch):
     library = tmp_path / "lib" / "FastLED"
-    _fastled_checkout(library, "3.10.5")
+    _fastled_checkout(library, "3.10.4")
     monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", library)
     monkeypatch.setattr(toolchain, "_FBUILD_SRC_DIR", tmp_path / "src")
     monkeypatch.setattr(toolchain, "_write_fbuild_ini", lambda: None)

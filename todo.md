@@ -45,17 +45,22 @@ in section 4.
   ([compile checks](docs/reports/compile/board-link-compile-checks.md)), and
   the legs are in the freeze matrix. What closes it: the bench row in
   section 4.
-- [ ] **FastLED 3.10.8 pin follow-up (M).** Both engines moved from an
-  unpinned FastLED (arduino-cli: the registry's latest, 3.10.5 here; fbuild:
-  `main` on the day it first vendored) to `_FASTLED_VERSION` 3.10.8 on
-  2026-10-24. Source diffs against 3.10.5 already clear the preview ports:
+- [ ] **FastLED upgrade past 3.10.5 (M).** Both engines pin
+  `_FASTLED_VERSION` (2026-10-24; before that arduino-cli took the registry's
+  latest and fbuild cloned `main`). The pin is **3.10.5** because 3.10.7 and
+  3.10.8 cannot build ESP32-C3/C6: `platforms/esp/32/interrupts/riscv.hpp`
+  declares its functions `FL_NO_EXCEPT` (`noexcept` on ESP) and
+  `riscv.cpp.hpp` defines them without it, a hard GCC error on both engines
+  (fbuild `ethernet/c3@esp32c3`, 2026-10-24). FastLED fixed it on `master`
+  (`528a6fdbe`, #4831, 2026-10-20). Move to the first release with that fix,
+  then do the steps below. Source diffs 3.10.5→3.10.8 already clear the preview ports:
   2-D/3-D `inoise8`/`inoise16`, `ColorFromPalette`, `blur1d`/`blur2d`,
   `hsv2rgb_rainbow` and the lib8tion math are unchanged in effect, and
   `nblendPaletteTowardPalette` only gained an early return for a budget of 0,
-  which codegen never passes (a blend of 0 is a straight cut). Still to do in
-  hardware week:
-  - Arduino CLI compile of every family on 3.10.8 (the first compile installs
-    it), and record the ESP32 flash and RAM drop 3.10.7 promises.
+  which codegen never passes (a blend of 0 is a straight cut). On the upgrade:
+  - Arduino CLI compile of every family on the new release (the first
+    compile installs it), ESP32-C3 and C6 included, and record the ESP32
+    flash and RAM drop 3.10.7 promises.
   - Recheck what is not pure source: `FastLED.delay` and `show()` pacing
     ([loopPacing.ts](src/codegen/loopPacing.ts)), the ESP32 I2S microphone
     format and the SAMD ISR naming
@@ -64,7 +69,7 @@ in section 4.
     [ledDriverCpp.ts](src/codegen/output/ledDriverCpp.ts)), the ESP32 microphone
     profiles ([micModules.ts](src/state/peripherals/micModules.ts)) and
     `chipsetSendMicros` ([wireTime.ts](src/utils/wireTime.ts)). Then move
-    their "FastLED 3.10.5" comments and test names to 3.10.8.
+    their "FastLED 3.10.5" comments and test names to the new release.
   - SAMD51: 3.10.6 fixed the compile break from 3.10.4, hardware SPI and the
     I2S clash upstream. Try a SAMD51 build without
     `_patch_fastled_samd51_build` and the audio workaround; drop each part the

@@ -211,8 +211,11 @@ _FBUILD_INI_PATH = _FBUILD_PROJECT_DIR / "platformio.ini"
 _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
 # Both engines build against this exact FastLED release. Codegen, the preview's
 # integer ports and the driver tables are read from it, so neither engine may
-# float to the registry's latest or to `main`.
-_FASTLED_VERSION = "3.10.8"
+# float to the registry's latest or to `main`. 3.10.7 and 3.10.8 cannot build
+# ESP32-C3/C6: platforms/esp/32/interrupts/riscv.hpp declares its functions
+# FL_NO_EXCEPT (noexcept on ESP) and riscv.cpp.hpp defines them without it.
+# FastLED fixed it on master (528a6fdbe, #4831); move on once a release has it.
+_FASTLED_VERSION = "3.10.5"
 # The music-sync Player sketch (playerSketchGenerator.ts) additionally needs
 # ESP32-audioI2S. Vendored the same way as FastLED, but lazily — only the
 # Player build path needs it, so it's not fetched for every ordinary compile.
