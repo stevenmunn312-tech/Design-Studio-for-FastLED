@@ -21,7 +21,8 @@ an internal record.
   validated on 2026-10-24**, with FastLED vendored at its pinned 3.10.8 tag:
   `display/normal` passes without the §12 recovery, Renesas and SAMD21 IR
   legs now pass, and RP2040 gets past boot2 but stops on the core's TinyUSB
-  library ([IR record](../reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
+  library, reported as [#1719](https://github.com/FastLED/fbuild/issues/1719)
+  ([IR record](../reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
   The rest of the fbuild legs have not run on 2.5.44; every workaround below
   stays until `scripts/compile-fixtures/compile-matrix.py --engine fbuild`
   shows it can go.

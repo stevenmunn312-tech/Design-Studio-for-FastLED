@@ -348,14 +348,15 @@ chooses the supported combinations from whatever is on record at release.
   - The pin moved to 2.5.44 on 2026-10-23; `backend/.venv` and the Espressif
     Python hold it. On 2026-10-24 the fix legs ran: the LVGL archive (§12),
     Renesas and SAMD21 now build; RP2040 passes boot2 and stops on the Pico
-    core's TinyUSB library, a new fbuild fault not yet reported
+    core's TinyUSB library, reported as
+    [FastLED/fbuild#1719](https://github.com/FastLED/fbuild/issues/1719)
     ([IR record](docs/reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
     Still to do: the full `compile-matrix.py --engine fbuild` rerun, then
     remove the §12 recovery and retry SAMD51 without its `_PIO_BOARDS`
     `-DARDUINO_ARCH_SAMD`/`EIC_IRQn` flags. #1658 (§5) and #1673 have no
     fixture of their own.
-  - Every known fbuild problem except the RP2040 TinyUSB one has an upstream
-    issue: §12 LVGL archive
+  - Every known fbuild problem has an upstream issue: RP2040 TinyUSB
+    ([#1719](https://github.com/FastLED/fbuild/issues/1719)), §12 LVGL archive
     length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
     ESP8266 `deploy` ([#1657](https://github.com/FastLED/fbuild/issues/1657)),
     §5 no size summary on a link overflow
@@ -366,8 +367,7 @@ chooses the supported combinations from whatever is on record at release.
     [#1672](https://github.com/FastLED/fbuild/issues/1672)) and Windows long
     paths ([#1673](https://github.com/FastLED/fbuild/issues/1673)). Drop each
     workaround as its fix lands.
-  - Recompile the RP2040 IR fbuild leg once fbuild stops compiling the Pico
-    core's TinyUSB library.
+  - Recompile the RP2040 IR fbuild leg once #1719 is released.
   - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
     `lib_deps` ignores its `#ref`, the HUB75 pin is ignored, esp_dmx 4.1.0
     does not build on IDF 5.5, and every `lib_deps` library is compiled
