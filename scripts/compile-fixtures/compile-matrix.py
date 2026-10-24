@@ -118,6 +118,9 @@ def ir_legs(engine: str) -> list[Leg]:
     # Renesas and SAMD21 build since fbuild 2.5.44; RP2040 got past boot2 there
     # and stops one step later.
     tinyusb = "fbuild compiles the Pico core's Adafruit_TinyUSB library without TinyUSB selected (fbuild#1719)"
+    # SAMD21 built on FastLED 3.10.8, which no longer includes <SPI.h> there;
+    # the 3.10.5 pin brings it back behind an #if fbuild's selection misjudges.
+    samd_spi = "FastLED 3.10.5 includes <SPI.h> behind #if; fbuild does not select the core's SPI library"
     return [
         *(leg(name, "esp32:esp32:esp32s3", "esp32s3-rmt") for name in ("normal", "slideshow", "player", "learn")),
         *(leg(name, CLASSIC, "esp32") for name in ("normal", "slideshow", "player", "no-ir")),
@@ -128,8 +131,8 @@ def ir_legs(engine: str) -> list[Leg]:
         leg("normal", "STMicroelectronics:stm32:blackpill_f411ce", "stm32"),
         leg("normal", "rp2040:rp2040:rpipico", "rp2040", tinyusb),
         leg("normal", "arduino:renesas_uno:unor4wifi", "renesas"),
-        leg("normal", "adafruit:samd:adafruit_feather_m0", "samd"),
-        leg("no-ir", "adafruit:samd:adafruit_feather_m0", "samd"),
+        leg("normal", "adafruit:samd:adafruit_feather_m0", "samd", samd_spi),
+        leg("no-ir", "adafruit:samd:adafruit_feather_m0", "samd", samd_spi),
     ]
 
 

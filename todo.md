@@ -373,6 +373,16 @@ chooses the supported combinations from whatever is on record at release.
     #1719 (#1721) alongside; neither is released yet. Bump the pin to the
     first release after 2.5.44 that carries both,
     and check with a short build that no window opens.
+  - **fbuild `main` run, 2026-10-24** (local build of `710790b2`, FastLED
+    3.10.5): 45 of 46 legs pass with no console windows, RP2040 included;
+    C6, RP2350 and SAMD51 build; an overflow now prints region sizes (§5);
+    an ESP32 no-op rebuild takes 0.1 s. Open, drafted locally and not
+    posted (`tmp/fbuild-main/drafts/`): RP2040/RP2350 flash counts the
+    `.heap` reservation, and SAMD21 fails on FastLED 3.10.5 because fbuild
+    does not select the core's `SPI` library for an include behind `#if`
+    (both SAMD21 legs are expected failures until then). Also open: fbuild
+    ESP32 images carry about 255 KB more `.eh_frame` than Arduino CLI's,
+    cause not yet found.
   - Every known fbuild problem has an upstream issue: RP2040 TinyUSB
     ([#1719](https://github.com/FastLED/fbuild/issues/1719)), §12 LVGL archive
     length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
