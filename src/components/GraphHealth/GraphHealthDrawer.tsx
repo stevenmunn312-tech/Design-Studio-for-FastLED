@@ -14,6 +14,7 @@ import {
   setBoardFrameRate,
   setBoardLedDriver,
   setOutputDataRate,
+  setPanelLayout,
   splitOutputAcrossPins,
   ROOT_GRAPH_ID,
   useGraphStore,
@@ -54,6 +55,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (fix?.repair?.kind === 'set-frame-rate') return `Lower to ${fix.repair.frameRate} fps`
   if (fix?.repair?.kind === 'set-data-rate') return `Clock at ${fix.repair.dataRateMhz} MHz`
   if (fix?.repair?.kind === 'split-across-pins') return `Split across ${fix.repair.dataLanes} pins`
+  if (fix?.repair?.kind === 'set-panel-layout') return `Use ${fix.repair.layout}`
   if (fix?.repair?.kind === 'set-led-driver') return fix.repair.ledDriver === 'auto' ? 'Use FastLED’s driver' : `Use ${fix.repair.ledDriver}`
   if (action === 'choose-board') return 'Choose board'
   // Named rather than a bare "Fix", so the button says what will appear on the
@@ -183,6 +185,11 @@ export default function GraphHealthDrawer() {
       setStatus(result.ok
         ? result.ledDriver === 'auto' ? 'Board back on FastLED’s own LED driver' : `Board LED driver set to ${result.ledDriver}`
         : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'set-panel-layout') {
+      const done = setPanelLayout(issue.repair.panelId, issue.repair.layout)
+      setStatus(done ? `Display Panel switched to ${issue.repair.layout}` : 'That panel has already changed', done ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'set-data-rate') {

@@ -1821,6 +1821,7 @@ export type GraphDiagnosticAction =
   | 'split-across-pins'
   | 'set-led-driver'
   | 'renew-board-link-key'
+  | 'set-panel-layout'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1863,6 +1864,8 @@ export type GraphRepair =
    *  key (and a link id, when it has none), which every linked board must
    *  then be flashed with. */
   | { kind: 'renew-board-link-key' }
+  /** A Display Panel's fixed layout to switch to. */
+  | { kind: 'set-panel-layout'; panelId: string; layout: string }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {

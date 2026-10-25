@@ -792,7 +792,7 @@ function completeConnection(s: GraphState, connection: Connection): Partial<Grap
     edges,
     resolved,
   )
-  return adopted
+  return resolved.targetHandle === 'display' ? withDisplaysResynced(s, adopted) : adopted
 }
 
 function materializeButtonBankConnection(
@@ -1367,6 +1367,28 @@ function syncDisplayNodesInContent(
     return true
   })
   return { nodes, edges }
+}
+
+/**
+ * Re-derive panel and Touch ports after a write that changed what they are
+ * derived from: a panel's properties (its layout, design or part) or the wire
+ * into its Display input. A Touch node's fixed-layout outputs follow both, and
+ * validation, the board link and the generators read those outputs, so a
+ * stale list reported a Fixed Transport panel as publishing no control.
+ */
+function withDisplaysResynced(s: GraphState, next: Partial<GraphState>): Partial<GraphState> {
+  const merged = { ...s, ...next }
+  const root = syncDisplayNodesInContent(
+    { nodes: rootGraphNodes(merged), edges: rootGraphEdges(merged) },
+    merged.displayDocuments,
+  )
+  return { ...next, ...withRootContent(merged, root) }
+}
+
+/** Whether removing these edges takes a wire off a panel's Display input. */
+function unwiresPanel(nodes: readonly StudioNode[], removed: readonly StudioEdge[]): boolean {
+  return removed.some((edge) => edge.targetHandle === 'display'
+    && nodes.some((node) => node.id === edge.target && node.data.nodeType === 'TransportDisplay'))
 }
 
 /** Rebase one graph projection while keeping Display node ports derived from
@@ -2097,7 +2119,11 @@ export const useGraphStore = create<GraphState>()(
       },
 
       onEdgesChange: (changes) =>
-        set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
+        set((s) => {
+          const next = { edges: applyEdgeChanges(changes, s.edges) }
+          const removed = new Set(changes.flatMap((change) => (change.type === 'remove' ? [change.id] : [])))
+          return unwiresPanel(s.nodes, s.edges.filter((edge) => removed.has(edge.id))) ? withDisplaysResynced(s, next) : next
+        }),
 
       onConnect: (connection) =>
         set((s) => completeConnection(s, connection)),
@@ -2117,16 +2143,18 @@ export const useGraphStore = create<GraphState>()(
             { ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } },
             replaced,
           )
-          return {
-            ...withRootContent(s, {
-              edges,
-              nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
-            }),
-          }
+          const next = withRootContent(s, {
+            edges,
+            nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
+          })
+          return resolved.targetHandle === 'display' ? withDisplaysResynced(s, next) : next
         }),
 
       removeEdge: (id) =>
-        set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
+        set((s) => {
+          const next = { edges: s.edges.filter((e) => e.id !== id) }
+          return unwiresPanel(s.nodes, s.edges.filter((e) => e.id === id)) ? withDisplaysResynced(s, next) : next
+        }),
 
       removeButtonBankEntry: (nodeId, entryId) =>
         set((s) => {
@@ -2529,7 +2557,8 @@ export const useGraphStore = create<GraphState>()(
           } as StudioNode]
         }
 
-        return withRootNodes(s, nodes)
+        // The glass's outputs follow the panel it adopted or was given.
+        return withDisplaysResynced(s, withRootNodes(s, nodes))
       }),
 
       /*
@@ -4548,6 +4577,19 @@ export function setBoardFrameRate(frameRate: number): { ok: true; frameRate: num
  * root graph, written there in one undo step. Says so and changes nothing
  * when the output, its chipset or its rate has moved on.
  */
+/**
+ * Switch a Display Panel to another fixed layout: the remote-picture card's
+ * **Use Fixed Transport** fix. The panel lives in the root graph. Says so and
+ * changes nothing when the panel is gone or already on that layout.
+ */
+export function setPanelLayout(panelId: string, layout: string): boolean {
+  const panel = rootGraphNodes(useGraphStore.getState())
+    .find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
+  if (!panel || panel.data.properties.tftLayout === layout) return false
+  useGraphStore.getState().updateNodeProperty(panelId, 'tftLayout', layout)
+  return true
+}
+
 export function setOutputDataRate(nodeId: string, dataRateMhz: number): { ok: true; dataRateMhz: number } | { ok: false; reason: string } {
   const output = rootGraphNodes(useGraphStore.getState()).find((node) => node.id === nodeId && node.data.nodeType === 'MatrixOutput')
   const props = (output?.data.properties ?? {}) as Record<string, unknown>
@@ -4878,6 +4920,17 @@ function editNodePropertyAndSyncVu(
     ? displayDocumentsForMountedPanel(syncedRoot, s.displayDocuments, target.id)
     : s.displayDocuments
   const resized = displayDocuments === s.displayDocuments ? {} : { displayDocuments }
+  const next = editedWithRoot(s, edited, root, syncedRoot, resized)
+  return target?.data.nodeType === 'TransportDisplay' ? withDisplaysResynced(s, next) : next
+}
+
+function editedWithRoot(
+  s: GraphScope,
+  edited: Partial<GraphState>,
+  root: StudioNode[],
+  syncedRoot: StudioNode[],
+  resized: Partial<GraphState>,
+): Partial<GraphState> {
   if (s.activeGraphId === ROOT_GRAPH_ID) return { ...edited, nodes: syncedRoot, ...resized }
   if (!edited.graphData && syncedRoot === root) return edited
   const graphData = edited.graphData ?? s.graphData

@@ -14,7 +14,7 @@ import { boardPartition } from '../../build/boardPartition'
 import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
 import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
 import { UNO_R4_WIFI_FQBN } from '../../state/peripherals/networkCapability'
-import { useGraphStore } from '../../state/graphStore'
+import { setPanelLayout, useGraphStore } from '../../state/graphStore'
 import type { GraphDiagnostic } from '../validateGraph'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 
@@ -283,8 +283,17 @@ describe('board link validation', () => {
       title: 'TransportDisplay on Board 2 cannot show the LEDs',
       fix: 'Choose the Fixed Transport layout for it, or put the panel on Board 1.',
       edgeIds: ['e-player-display-panel-display'],
+      action: 'set-panel-layout',
+      repair: { kind: 'set-panel-layout', panelId: 'panel', layout: 'Fixed Transport' },
     })
     expect(card?.message).toContain('Now Playing layout draws the LED picture, which stays on Board 1')
+    // The button performs the switch it names, and the card goes with it.
+    useGraphStore.getState().loadGraph(nodes, edges)
+    expect(setPanelLayout('panel', 'Fixed Transport')).toBe(true)
+    expect(setPanelLayout('panel', 'Fixed Transport')).toBe(false)
+    const switched = useGraphStore.getState().nodes
+    expect(switched.find((entry) => entry.id === 'panel')?.data.properties.tftLayout).toBe('Fixed Transport')
+    expect(ids(buildBoardDiagnostics(switched, edges, { targets }))).not.toContain('board-link-picture-panel')
     // A warning, so no gate carries it.
     expect(findDeployBlockingErrorsForBoard(nodes, edges, 'board-2', ESP32).some((error) => error.includes('cannot show the LEDs'))).toBe(false)
 

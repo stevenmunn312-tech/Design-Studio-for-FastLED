@@ -389,6 +389,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   is in the part menu and the generators emit this read for it — see the
   XC4630/`CATALOGUE_ONLY` note above.
 
+## Touch node outputs
+
+A Touch node's fixed-layout outputs (Previous, Play / Pause, Next, Volume) are
+derived from its panel's layout and the wire into the panel's Display input,
+by `syncDisplayNodesInContent`. Validation, the board link and the generators
+read them off the node, so every write that changes either input re-derives
+them in the same store write (`withDisplaysResynced`): a panel property edit,
+a wire connected to or removed from a panel's Display input, and
+`selectBoardProfile`. Missing one left a Fixed Transport panel reported as
+publishing no control.
+
 ## Shared SPI touch
 
 `xptTouchPinsForProps` resolves every generator's digitiser wiring, including

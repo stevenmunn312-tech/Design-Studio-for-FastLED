@@ -265,6 +265,11 @@ export function boardLinkFindings(
           ? `Choose the Fixed Transport layout for it, or put the panel on ${sender}.`
           : `Put the panel on ${sender} to see the picture; the rest of the screen works as it is.`,
         nodeIds: [panel.id, source.id], edgeIds: [edge.id], nodeLabel: nodeLabel(panel),
+        // Fixed Transport is Now Playing without the picture, so it is the
+        // switch that keeps everything else the panel shows.
+        ...(layout === 'Now Playing'
+          ? { action: 'set-panel-layout' as const, repair: { kind: 'set-panel-layout' as const, panelId: panel.id, layout: 'Fixed Transport' } }
+          : {}),
       })
     }
   }
