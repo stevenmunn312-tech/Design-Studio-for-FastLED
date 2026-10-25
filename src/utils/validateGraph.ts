@@ -1189,17 +1189,7 @@ export function findExactBoardPinIssues(nodes: StudioNode[]): BoardPinCompatibil
   const errors: string[] = []
   const warnings: string[] = []
   if (!profile?.pinSafety) return { errors, warnings }
-  const byId = new Map(nodes.map((node) => [node.id, node]))
-  const isOwnFittedPin = (nodeId: string, propertyKey: string, pin: number): boolean => {
-    const node = byId.get(nodeId)
-    if (!node) return false
-    const fitted = integratedPinsFor(
-      String(node.data.nodeType),
-      node.data.properties as Record<string, unknown>,
-      profile.id,
-    )
-    return fitted?.[propertyKey] === pin
-  }
+  const isOwnFittedPin = ownFittedPinTest(nodes, profile.id)
   const uses = collectPinUses(nodes)
   // A part left on a reserved pin after a board change is there because the
   // allocator had nowhere to move it. Saying so turns "pick another pin" into
@@ -1223,6 +1213,25 @@ export function findExactBoardPinIssues(nodes: StudioNode[]): BoardPinCompatibil
 
 /** Checks every generated pin role against the selected board's Arduino pin
  * table. Custom boards without a table keep the numeric-only fallback. */
+/**
+ * Whether a pin use is a board's own fitted wiring on `profileId`. Neither the
+ * exact profile nor the chip table may report one: there is no other pin to
+ * choose, so a caveat on it can only be read as a repair nobody can make.
+ */
+function ownFittedPinTest(nodes: StudioNode[], profileId: string | undefined) {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  return (nodeId: string, propertyKey: string, pin: number): boolean => {
+    const node = byId.get(nodeId)
+    if (!node || !profileId) return false
+    const fitted = integratedPinsFor(
+      String(node.data.nodeType),
+      node.data.properties as Record<string, unknown>,
+      profileId,
+    )
+    return fitted?.[propertyKey] === pin
+  }
+}
+
 export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: string): BoardPinCompatibility {
   const profile = selectedBoardProfile(nodes)
   const gpio = profile
@@ -1231,8 +1240,10 @@ export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: str
   if (!gpio) return { errors: [], warnings: [] }
   const errors: string[] = []
   const warnings: string[] = []
+  const isOwnFittedPin = ownFittedPinTest(nodes, profile?.id)
   for (const use of collectPinUses(nodes)) {
     if (!isValidPinNumber(use.pin) || !use.requirement) continue
+    if (isOwnFittedPin(use.nodeId, use.propertyKey, use.pin)) continue
     const unavailable = gpio.caution.find((pin) => pin.pin === use.pin)
     if (unavailable) {
       errors.push(`${use.label} uses pin ${use.pin}, which is unavailable on the selected board: ${unavailable.note}`)

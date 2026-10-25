@@ -8,7 +8,7 @@ import {
 import { retargetHardwarePins } from '../../pins/pinRetarget'
 import { boardProfileById } from '../boardProfiles'
 import { collectPinUses } from '../../hardwareManifest'
-import { findPinConflicts, findExactBoardPinIssues } from '../../../utils/validateGraph'
+import { findBoardPinCompatibility, findPinConflicts, findExactBoardPinIssues } from '../../../utils/validateGraph'
 import { assignPartPins } from '../../parts/partPinAssignment'
 import { NO_PIN } from '../boardGpio'
 import { ROOT_BOARD_NODE_ID } from '../../hardware'
@@ -226,6 +226,19 @@ describe('soldered pins survive the pin walk', () => {
       node('board', 'Board', { profileId: CYD }),
       fitted(),
     ])).toEqual({ errors: [], warnings: [] })
+  })
+
+  // The chip table flags 15, 2 and 12 as strapping pins. On this board they
+  // are soldered to the panel, so "choose a compatible pin" has no answer.
+  it('gives no chip-table caveat on the fitted panel’s own pins', () => {
+    expect(findBoardPinCompatibility([
+      node('board', 'Board', { profileId: CYD }),
+      fitted(),
+    ], CYD_FQBN)).toEqual({ errors: [], warnings: [] })
+    expect(findBoardPinCompatibility([
+      node('board', 'Board', { profileId: CYD }),
+      node('button', 'ButtonInput', { pin: 15 }),
+    ], CYD_FQBN).warnings.join(' ')).toMatch(/pin 15/)
   })
 })
 
