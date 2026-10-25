@@ -25,6 +25,17 @@ describe('playerSketchGenerator', () => {
     expect(/float\s+_audioBass\b/.test(sketch)).toBe(fades)
   })
 
+  // A track whose header the library gave up on stops it without an EOF;
+  // the Music Player moves on rather than sitting silent until Next.
+  it('skips a track that stopped before it played, but not a paused one', () => {
+    const renderers = { buffers: [], helpers: [], functions: ['void render_p0(uint32_t ms) { (void)ms; }'], count: 1, params: [] }
+    const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true })
+    const check = sketch.indexOf('track stopped before it played')
+    expect(check).toBeGreaterThan(sketch.indexOf('  audio.loop();'))
+    expect(check).toBeLessThan(sketch.indexOf('  if (audioEnded) {'))
+    expect(sketch).toMatch(/if \(playbackReady && !provTransferring && !audioEnded && !audio\.isRunning\(\)(?: && !playerPaused)?\) \{/)
+  })
+
   // The transition dispatcher carries the frame sampler, so a Frame Warp or
   // Symmetry pattern must not emit a second copy, and the one copy has to sit
   // above the render functions that call it.
@@ -689,7 +700,10 @@ describe('playerSketchGenerator', () => {
     it('primes local-file decoding before expensive LED rendering can time it out', () => {
       expect(sketch).toContain('void primeAudioDecoder()')
       expect(sketch).toContain('millis() - deadline')
-      expect(sketch).toContain('audio.getAudioCurrentTime() == 0')
+      // Until the first frame decodes, not until a second of playback: a
+      // 400 KB cover-art tag was left half read when priming stopped early.
+      expect(sketch).toContain('audio.isRunning() && audio.getBitRate() == 0')
+      expect(sketch).not.toContain('audio.getAudioCurrentTime() == 0')
       expect(sketch).toMatch(/Playing \(fallback\): %s[^]*?primeAudioDecoder\(\);/)
     })
 

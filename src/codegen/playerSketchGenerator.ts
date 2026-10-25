@@ -1993,11 +1993,15 @@ ${outgoingRoles.map((role) => `      ${prevRole(role).padEnd(13)} = ${role};\n`)
  */
 void primeAudioDecoder() {
 ${decoderTap ? '  resetDecoderTapLevels();  // clear capture for the new source; VU state remains intact\n' : ''}  // ESP32-audioI2S parses local-file headers only when audio.loop() runs and
-  // abandons that phase after 2.5 seconds. A complex first LED frame can take
-  // long enough to starve those calls. Prime until playback time advances,
-  // bounded so a bad file or disconnected I2S device cannot wedge setup.
-  uint32_t deadline = millis() + 2000;
-  while ((int32_t)(millis() - deadline) < 0 && audio.getAudioCurrentTime() == 0) {
+  // abandons that phase 2.5 seconds after it starts. An ID3 tag can carry
+  // hundreds of KB of cover art, read through here a call at a time, and LED
+  // frames between calls starve it. So loop tight until the first frame
+  // decodes (the bitrate is known) or the library gives up, bounded just past
+  // its own window so a disconnected I2S device cannot wedge setup. Playback
+  // time was the old test, but it stays 0 for a whole second of good audio,
+  // so every start sat out the deadline and left a big tag half read.
+  uint32_t deadline = millis() + 3000;
+  while ((int32_t)(millis() - deadline) < 0 && audio.isRunning() && audio.getBitRate() == 0) {
     audio.loop();
     delay(1);
   }
@@ -2498,7 +2502,14 @@ ${graphRouting ? graphLoopCpp : `${hasControls ? '  servicePlayerControls();\n' 
   audio.loop();
 ${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has fed I2S/DAC\n' : ''}
 
-${genericPlayer ? `  if (audioEnded) {
+${genericPlayer ? `  // A file the library gave up on stops it without an EOF, and nothing would
+  // ever start the next track: the board sat silent until someone pressed
+  // Next. Pausing is the only other way the decoder stops.
+  if (playbackReady && !provTransferring && !audioEnded && !audio.isRunning()${hasControls ? ' && !playerPaused' : ''}) {
+    Serial.println("[audio] track stopped before it played, skipping it");
+    audioEnded = true;
+  }
+  if (audioEnded) {
     genericTrackIndex++;
     playbackReady = startPlayback();
 ${publishDisplaysCpp}
