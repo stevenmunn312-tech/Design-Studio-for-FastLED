@@ -2455,15 +2455,32 @@ export const useGraphStore = create<GraphState>()(
         const definition = LIBRARY_DEF.get('TransportDisplay')
         if (!integrated || !definition) return withRootNodes(s, nodes)
 
+        // The fitted hardware is this board's own. Only panels already on
+        // this board are adopted, and a new panel and its glass are attached
+        // to it exactly as a part added while it is active would be.
+        const boards = boardNodesIn(nodes)
+        const boardIds = new Set(boards.map((entry) => entry.id))
+        const primaryId = boards[0]?.id ?? id
+        const attachment = boards.length < 2 || id === primaryId ? {} : { boardId: id }
+        const panels = nodes.filter((node) => node.data.nodeType === 'TransportDisplay'
+          && boardIdOf(node, primaryId, boardIds) === id)
+        const existing = panels.find((node) => node.data.properties[INTEGRATED_BOARD_PROFILE_KEY] === profileId)
+          ?? panels.find((node) => matchesIntegratedTouchDisplay(node.data.properties, integrated))
+          // A touch screen already on this board is the one its own glass
+          // replaces: the board brings out too few pins to wire a second
+          // panel beside it, and adopting it keeps the screen's design,
+          // controls and Touch node rather than stranding them.
+          ?? panels.find((node) => displayHasTouch(String(node.data.properties.partId ?? '')))
         const used = new Set(nodes.map((node) => node.id))
-        const existing = nodes.find((node) => node.data.nodeType === 'TransportDisplay'
-          && node.data.properties[INTEGRATED_BOARD_PROFILE_KEY] === profileId)
-          ?? nodes.find((node) => node.data.nodeType === 'TransportDisplay'
-            && matchesIntegratedTouchDisplay(node.data.properties, integrated))
         const panelId = existing?.id ?? uniqueId(`TransportDisplay-${Date.now()}`, used)
-        used.add(panelId)
+        const adoptedProperties = { ...existing?.data.properties }
+        // App-placed pins belong to the part they were placed for.
+        if (adoptedProperties.partId !== integrated.panelProperties.partId) {
+          delete adoptedProperties.assignedPins
+          delete adoptedProperties.assignedPinsBoard
+        }
         const panelProperties: Record<string, unknown> = {
-          ...(existing ? existing.data.properties : libraryDefaults(definition.type)),
+          ...(existing ? adoptedProperties : { ...libraryDefaults(definition.type), ...attachment }),
           ...integrated.panelProperties,
           [INTEGRATED_BOARD_PROFILE_KEY]: profileId,
         }
@@ -2505,7 +2522,7 @@ export const useGraphStore = create<GraphState>()(
               label: touchDefinition.label,
               nodeType: touchDefinition.type,
               category: touchDefinition.category,
-              properties: { ...libraryDefaults(touchDefinition.type), panelId },
+              properties: { ...libraryDefaults(touchDefinition.type), ...attachment, panelId },
               inputs: touchDefinition.inputs,
               outputs: touchDefinition.outputs,
             },

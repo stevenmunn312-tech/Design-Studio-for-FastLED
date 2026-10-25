@@ -16,6 +16,7 @@ import { ROOT_BOARD_NODE_ID } from '../../hardware'
 const CYD = CYD_TOUCH_DISPLAY.boardProfileId
 const CYD_FQBN = 'esp32:esp32:esp32'
 const CLASSIC = 'esp32-generic-devkit-38pin'
+const S3_PROFILE = 'generic-esp32-s3-n16r8-44pin-dual-usbc'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   return {
@@ -83,6 +84,47 @@ describe('selecting an integrated board brings its own hardware', () => {
   it('leaves a board with nothing fitted to it alone', () => {
     useGraphStore.getState().selectBoardProfile(ROOT_BOARD_NODE_ID, CLASSIC)
     expect(panels()).toHaveLength(0)
+  })
+
+  // On Board 2 the fitted hardware is Board 2's: an unattached panel belongs
+  // to the primary, and a CYD panel already on Board 1 is not this one.
+  it('attaches the fitted panel and glass to the board chosen, not the primary', () => {
+    useGraphStore.getState().loadGraph([
+      node(ROOT_BOARD_NODE_ID, 'Board', { profileId: CYD }),
+      node('board-2', 'Board', { profileId: CLASSIC }),
+      node('board-1-panel', 'TransportDisplay', { ...CYD_TOUCH_DISPLAY.panelProperties, [INTEGRATED_BOARD_PROFILE_KEY]: CYD }),
+    ], [])
+    useGraphStore.getState().selectBoardProfile('board-2', CYD)
+
+    const added = panels().filter((panel) => panel.id !== 'board-1-panel')
+    expect(added).toHaveLength(1)
+    expect(added[0].data.properties.boardId).toBe('board-2')
+    const touch = rootNodes().filter((n) => n.data.nodeType === 'TouchInput')
+    expect(touch.map((n) => [n.data.properties.panelId, n.data.properties.boardId]))
+      .toEqual([[added[0].id, 'board-2']])
+  })
+
+  // A shield's pins are the CYD's own, and the CYD brings out two spare pads:
+  // the touch screen already on the board becomes the board's own glass,
+  // keeping its node, what it shows and its Touch node.
+  it('adopts a touch screen already on the board in place of a second one', () => {
+    useGraphStore.getState().loadGraph([
+      node(ROOT_BOARD_NODE_ID, 'Board', { profileId: S3_PROFILE }),
+      node('board-2', 'Board', { profileId: CLASSIC }),
+      node('shield', 'TransportDisplay', {
+        partId: 'ili9341-xc4630-parallel-touch-320x240', boardId: 'board-2', tftLayout: 'Waiting',
+        csPin: 32, dcPin: 33, assignedPins: { csPin: 32, dcPin: 33 }, assignedPinsBoard: CLASSIC,
+      }),
+      node('shield-touch', 'TouchInput', { panelId: 'shield', boardId: 'board-2' }),
+    ], [])
+    useGraphStore.getState().selectBoardProfile('board-2', CYD)
+
+    expect(panels().map((panel) => panel.id)).toEqual(['shield'])
+    const props = panels()[0].data.properties
+    expect(props).toMatchObject({ ...CYD_TOUCH_DISPLAY.panelProperties, boardId: 'board-2', tftLayout: 'Waiting', [INTEGRATED_BOARD_PROFILE_KEY]: CYD })
+    expect(props.assignedPins).toBeUndefined()
+    expect(props.assignedPinsBoard).toBeUndefined()
+    expect(rootNodes().filter((n) => n.data.nodeType === 'TouchInput').map((n) => n.id)).toEqual(['shield-touch'])
   })
 })
 

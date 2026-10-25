@@ -62,6 +62,22 @@ describe('GraphHealthDrawer', () => {
       .toMatchObject({ sdaPin: 8, sclPin: 9 })
   })
 
+  // The bench shows one board at a time, so a Board 2 part is shown on Board 2.
+  it('shows a part on the board it is attached to', () => {
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+      node('board-2', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
+      node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22, boardId: 'board-2' }),
+      node('oled', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 25, sclPin: 26, boardId: 'board-2' }),
+    ], [])
+    useUiStore.setState({ activeBoardId: 'board-root' })
+    const { getByText } = render(<GraphHealthDrawer />)
+    const card = getByText(/I2C parts are on more than one bus/).closest('article')!
+    fireEvent.click(within(card).getByRole('button', { name: 'Show RTC Clock hardware' }))
+    expect(useUiStore.getState().activeBoardId).toBe('board-2')
+    expect(useUiStore.getState().hardwareInspectorNodeId).toBe('rtc')
+  })
+
   it('makes a board link key from the card', () => {
     useBoardLinkKeyStore.setState({ byLinkId: {} })
     // A pot on Board 2 sets the brightness of Board 1's pattern.

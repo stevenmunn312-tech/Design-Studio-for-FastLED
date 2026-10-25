@@ -126,8 +126,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the Hardware tab's `BoardNodeBody` owns both the select and the side-by-side
   `BoardPinoutPicker`, Build Diagram only reports the board) materializes a
   CYD's fitted panel and Touch node when that profile is chosen — idempotent,
-  and adopting a panel already wired to the same fixed pinout rather than
-  duplicating it — and `pinRetarget`'s `ownedNow` answers with those pins ahead
+  scoped to the board being changed (on Board 2 both nodes carry its
+  `boardId`, and only Board 2's own panels are adopted), and adopting a panel
+  already wired to the same fixed pinout, or failing that a touch screen
+  already on that board (a shield cannot stay wired beside the board's own
+  glass), rather than duplicating it — and `pinRetarget`'s `ownedNow` answers with those pins ahead
   of every other rule, so they are claimed (everything else routes around them)
   and never moved (there is nowhere to move them to). A line the board ties
   off-GPIO, like that panel's reset on `EN`, is `NO_PIN` (255) — the value the

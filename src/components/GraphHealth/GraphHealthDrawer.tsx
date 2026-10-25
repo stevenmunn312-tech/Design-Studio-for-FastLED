@@ -32,7 +32,7 @@ import {
 } from '../../utils/validateGraph'
 import { boardFqbnTargets, buildBoardDiagnostics } from '../../utils/multiBoardValidation'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
-import { boardNodesIn } from '../../build/boardPartition'
+import { boardIdOf, boardNodesIn } from '../../build/boardPartition'
 import { boardLinkSettings, getBoardLinkKey } from '../../state/peripherals/boardLinkKey'
 import styles from './GraphHealthDrawer.module.css'
 
@@ -135,6 +135,20 @@ export default function GraphHealthDrawer() {
     ui.setActiveBoardId(boardId)
     ui.setWorkspaceMode('hardware')
     setStatus(`Showing ${label} on Hardware`, 'info')
+  }
+
+  // A part is inspected on the board it is attached to: the bench shows only
+  // the active board, so opening the inspector alone would leave a Board 2
+  // part's card pointing at Board 1.
+  const showPart = (id: string) => {
+    const ui = useUiStore.getState()
+    const part = capabilityNodes.find((node) => node.id === id)
+    if (part) {
+      const boards = boardNodesIn(capabilityNodes)
+      ui.setActiveBoardId(boardIdOf(part, boards[0]?.id ?? activeBoardId, new Set(boards.map((board) => board.id))))
+    }
+    ui.setHardwarePaneTab('hardware')
+    ui.setHardwareInspectorNodeId(id)
   }
 
   const locate = (issue: GraphDiagnostic) => {
@@ -378,10 +392,7 @@ export default function GraphHealthDrawer() {
                 </div>
                 <div className={styles.issueActions}>
                   {issue.category === 'pins' ? issue.nodeIds.map((id) => (
-                    <button key={id} type="button" onClick={() => {
-                      useUiStore.getState().setHardwarePaneTab('hardware')
-                      useUiStore.getState().setHardwareInspectorNodeId(id)
-                    }}>
+                    <button key={id} type="button" onClick={() => showPart(id)}>
                       Show {capabilityNodes.find((node) => node.id === id)?.data.label ?? 'hardware'} hardware
                     </button>
                   )) : boardOf(issue) ? (
