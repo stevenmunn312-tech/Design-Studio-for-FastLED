@@ -182,6 +182,15 @@ describe('entry reset', () => {
     expect(scratch.entryReset).toEqual([false])
   })
 
+  // `= 0` on a CRGBPalette16 is a null gradient-palette pointer: the board
+  // panicked (LoadProhibited at address 0) on the first frame of the pattern.
+  it('resets a static with no initializer to its own type, never to 0', () => {
+    const { fn } = applyEntryReset('void render_p0(uint32_t ms) {\n  static CRGBPalette16 pal; static uint32_t t0;\n}', [])
+    expect(fn).toContain('  if (entry) pal = decltype(pal)();')
+    expect(fn).toContain('  if (entry) t0 = decltype(t0)();')
+    expect(fn).not.toMatch(/= 0;/)
+  })
+
   it('reassigns a scalar whose initializer indexes an array instead of memsetting it', () => {
     const { fn } = applyEntryReset('void render_p0(uint32_t ms) {\n  static int x = arr[2];\n  static float h[4];\n}', [])
     expect(fn).toContain('  if (entry) x = arr[2];')

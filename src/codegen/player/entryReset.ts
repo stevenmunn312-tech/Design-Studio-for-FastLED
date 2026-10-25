@@ -11,6 +11,12 @@
 // again, and each array or persistent buffer is memset. static const and
 // static constexpr are left alone.
 //
+// A static with no initializer starts zero-initialized, and is reset by
+// value-initializing its own type. `= 0` was right only for numbers: on a
+// CRGBPalette16 it chose the gradient-palette `operator=(const uint8_t*)`
+// with a null pointer, and every Restart entry of a pattern with a Palette
+// Bank read address 0 and rebooted the board.
+//
 // Resets call `::memset`. FastLED declares CRGB in namespace fl beside its own
 // fl::memset, so an unqualified call on a CRGB buffer finds both through
 // argument-dependent lookup and fails to compile as ambiguous.
@@ -79,7 +85,7 @@ export function persistentBuffer(decl: string): PersistentBuffer | null {
 
 function resetLine(indent: string, item: Declarator): string {
   if (item.array) return `${indent}if (entry) ::memset(${item.name}, 0, sizeof(${item.name}));`
-  const init = item.init ?? '0'
+  const init = item.init ?? `decltype(${item.name})()`
   return `${indent}if (entry) ${item.name} = ${init};`
 }
 
@@ -99,13 +105,16 @@ export function applyEntryReset(fn: string, persistentBuffers: readonly Persiste
   let found = persistentBuffers.length > 0
   for (const line of lines) {
     out.push(line)
-    const match = line.match(/^(\s*)static\s+(?!const\b)(?!constexpr\b)([^;]*);/)
-    if (!match) continue
-    const indent = match[1]
-    for (const item of splitDeclarators(match[2]).map(declarator)) {
-      if (!item) continue
-      found = true
-      out.push(resetLine(indent || '  ', item))
+    const lead = line.match(/^(\s*)static\s/)
+    if (!lead) continue
+    const indent = lead[1]
+    // Emitters often declare several statics on one line; each is reset.
+    for (const match of line.matchAll(/(?<=^|;)\s*static\s+(?!const\b)(?!constexpr\b)([^;]*);/g)) {
+      for (const item of splitDeclarators(match[1]).map(declarator)) {
+        if (!item) continue
+        found = true
+        out.push(resetLine(indent || '  ', item))
+      }
     }
   }
   if (!found) return { fn, entry: false }
