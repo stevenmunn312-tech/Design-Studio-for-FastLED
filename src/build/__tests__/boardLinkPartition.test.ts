@@ -326,3 +326,28 @@ describe('board links — presses and levels', () => {
     expect(isMomentaryBoolSource(touch, 'widget:w2:out', [touch, panel])).toBe(false)
   })
 })
+
+describe('board links — a Web Remote driving another board', () => {
+  const remoteOn2 = (initial?: number) => node('remote', 'WebRemoteInput', {
+    ...on2,
+    controls: [{ id: 'slider', type: 'Slider', label: 'Brightness', properties: { min: 0, max: 1, step: 0.01, ...(initial !== undefined ? { initial } : {}) } }],
+  }, { outputs: [{ id: 'remote:slider', dataType: 'float' }] })
+  const startIn = (nodes: StudioNode[]) => {
+    const edges = [...baseEdges, edge('remote', 'remote:slider', 'leds', 'brightness')]
+    const sender = boardPartition(nodes, edges, 'board-2').nodes.find((entry) => entry.id === 'remote')!
+    const receiver = boardPartition(nodes, edges, 'board-root').nodes.find((entry) => entry.data.nodeType === BOARD_LINK_IN_NODE_TYPE)!
+    const control = (sender.data.properties.controls as { properties: { initial?: number } }[])[0]
+    return { sender: control.properties.initial, receiver: boardLinkPropertiesOf(receiver)?.start }
+  }
+
+  it('starts the slider where the Brightness it drives is, though the wire predates the copy', () => {
+    const nodes = base.map((entry) => entry.id === 'leds' ? node('leds', 'MatrixOutput', { outputBrightness: 0.68 }) : entry)
+    expect(startIn([...nodes, remoteOn2()])).toEqual({ sender: 0.68, receiver: 0.68 })
+    // A copy taken at an older value gives way to the node's value now.
+    expect(startIn([...nodes, remoteOn2(0)])).toEqual({ sender: 0.68, receiver: 0.68 })
+  })
+
+  it('starts at the node\'s default when the Brightness was never set', () => {
+    expect(startIn([...base, remoteOn2()])).toEqual({ sender: 1, receiver: 1 })
+  })
+})

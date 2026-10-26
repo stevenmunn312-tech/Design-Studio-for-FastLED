@@ -47,12 +47,15 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
 const LINK_ID = '0a1b2c3d'
 const KEY_HEX = '000102030405060708090a0b0c0d0e0f'
 
-/** A Web Remote on Board 2 sending one value of each kind to Board 1's LEDs. */
+/**
+ * A Web Remote on Board 2 sending one value of each kind to Board 1's LEDs.
+ * The slider starts where the Brightness it drives is, 0.25.
+ */
 function project() {
   const remote = node('remote', 'WebRemoteInput', {
     boardId: 'board-2',
     controls: [
-      { id: 'level', type: 'Slider', label: 'Level', properties: { min: 0, max: 1, step: 0.01, initial: 0.25 } },
+      { id: 'level', type: 'Slider', label: 'Level', properties: { min: 0, max: 1, step: 0.01 } },
       { id: 'go', type: 'Button', label: 'Go' },
       { id: 'tint', type: 'Colour Picker', label: 'Tint' },
       { id: 'msg', type: 'Text Entry', label: 'Message' },
@@ -60,7 +63,7 @@ function project() {
   })
   const nodes = [
     node('board-root', 'Board', { linkId: LINK_ID }), node('board-2', 'Board'), remote,
-    node('words', 'Text'), node('dim', 'BrightnessMod'), node('out', 'MatrixOutput', { width: 8, height: 1 }),
+    node('words', 'Text'), node('dim', 'BrightnessMod', { brightness: 0.25 }), node('out', 'MatrixOutput', { width: 8, height: 1 }),
   ]
   const edges = [
     edge('words', 'frame', 'dim', 'frame'), edge('dim', 'frame', 'out', 'frame'),

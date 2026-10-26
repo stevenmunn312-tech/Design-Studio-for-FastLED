@@ -128,7 +128,6 @@ import {
   parseWebRemotePortId,
   patchWebRemoteControl,
   WEB_REMOTE_NODE_TYPE,
-  webRemoteControlKind,
   webRemoteControlDataType,
   webRemoteOutputs,
   webRemotePortId,
@@ -136,6 +135,7 @@ import {
   type WebRemoteControl,
   type WebRemoteControlType,
 } from './peripherals/webRemote'
+import { webRemoteWiredStart } from './peripherals/webRemoteWiredStart'
 import { forgetWebRemoteControl, writeWebRemoteControl } from './peripherals/webRemoteRuntime'
 import { STEREO_VU_RAIL_COUNT_KEYS, syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './audio/stereoVuSizing'
 
@@ -650,14 +650,9 @@ function withRemoteControlStart(nodes: StudioNode[], connection: Connection): St
   const properties = remote.data.properties as Record<string, unknown>
   const controls = normalizeWebRemoteControls(properties.controls)
   const control = controls.find((entry) => entry.id === controlId)
-  const kind = control ? webRemoteControlKind(control.type) : null
-  if (!control || (kind !== 'range' && kind !== 'choice') || control.properties.initial !== undefined) return nodes
-  const propertyKey = controllableInputsFor(target.data.nodeType)
-    .find((port) => port.id === connection.targetHandle)?.propertyKey
-  const value = propertyKey ? (target.data.properties as Record<string, unknown>)[propertyKey] : undefined
-  if (typeof value !== 'number' || !Number.isFinite(value)) return nodes
-  const start = webRemoteQuantize(control, value)
-  if (typeof start !== 'number') return nodes
+  if (!control || control.properties.initial !== undefined) return nodes
+  const start = webRemoteWiredStart(control, target, connection.targetHandle)
+  if (start === undefined) return nodes
   const next = patchWebRemoteControl(controls, control.id, { properties: { initial: start } })
   return nodes.map((node) => node.id === remote.id
     ? { ...node, data: { ...node.data, properties: { ...properties, controls: next } } }

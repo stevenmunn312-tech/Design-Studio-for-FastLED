@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
+import { withWiredWebRemoteStarts } from '../state/peripherals/webRemoteWiredStart'
 import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { boardLinkSettings } from '../state/peripherals/boardLinkKey'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
@@ -129,6 +130,11 @@ export function boardIdOf(
 }
 
 interface Membership {
+  /**
+   * The root nodes the partitions are cut from: a Web Remote control wired
+   * to a property starts at that property (state/peripherals/webRemoteWiredStart.ts).
+   */
+  nodes: readonly StudioNode[]
   boards: StudioNode[]
   primaryId: string
   /** Board id → ids of every root node in that board's partition. */
@@ -203,7 +209,7 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
   for (const board of boards) byBoard.set(board.id, new Set())
 
   const empty: Membership = {
-    boards, primaryId, byBoard, byNode, linkIns: new Map(), linkedEdges: new Map(),
+    nodes, boards, primaryId, byBoard, byNode, linkIns: new Map(), linkedEdges: new Map(),
     slots: [], hash: 0, issues: [], wires: new Map(), partitions: new Map(),
   }
   if (boards.length === 0) return empty
@@ -506,7 +512,7 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
   }
 
   return {
-    boards, primaryId, byBoard, byNode, linkIns, linkedEdges, slots, hash,
+    nodes, boards, primaryId, byBoard, byNode, linkIns, linkedEdges, slots, hash,
     issues, wires, partitions: new Map(),
   }
 }
@@ -522,7 +528,7 @@ function membershipOf(nodes: readonly StudioNode[], edges: readonly StudioEdge[]
   if (cachedMembership && nodes === cachedNodes && edges === cachedEdges) return cachedMembership
   cachedNodes = nodes
   cachedEdges = edges
-  cachedMembership = membership(nodes, edges)
+  cachedMembership = membership(withWiredWebRemoteStarts(nodes, edges), edges)
   return cachedMembership
 }
 
@@ -575,14 +581,14 @@ export function boardPartition(
 ): BoardPartition {
   const state = membershipOf(nodes, edges)
   const { boards, primaryId, byBoard } = state
-  if (boards.length === 0) return { board: null, nodes: [...nodes], edges: [...edges] }
+  if (boards.length === 0) return { board: null, nodes: [...state.nodes], edges: [...edges] }
   const id = byBoard.has(boardId) ? boardId : primaryId
   const cached = state.partitions.get(id)
   if (cached) return cached
 
   const members = byBoard.get(id)!
   const linked = state.linkedEdges.get(id) ?? new Map<string, BoardLinkSlot>()
-  const partNodes = nodes.filter((node) => members.has(node.id))
+  const partNodes = state.nodes.filter((node) => members.has(node.id))
   const partEdges: StudioEdge[] = []
   for (const edge of edges) {
     const slot = linked.get(edge.id)
