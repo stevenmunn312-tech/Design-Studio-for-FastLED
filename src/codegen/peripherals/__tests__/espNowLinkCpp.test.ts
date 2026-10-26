@@ -509,3 +509,24 @@ describe('board link — a Controls bundle and a direct action from the same boa
     expect(merged).toBeGreaterThan(declared)
   })
 })
+
+describe('board link — a sender that restarts', () => {
+  it('holds only hand-set values, and takes readings and pots at once', () => {
+    const remote = node('remote', 'WebRemoteInput', {
+      ...on2, controls: [{ id: 'level', type: 'Slider', label: 'Level', properties: {} }],
+    })
+    const { nodes, edges } = controlsGraph({
+      nodes: [remote, node('pot', 'PotInput', { ...on2, pin: 34 }), node('dim2', 'BrightnessMod'), node('dim3', 'BrightnessMod')],
+      edges: [edge('remote', 'remote:level', 'dim2', 'brightness'), edge('pot', 'value', 'dim3', 'brightness')],
+    })
+    const chained = edges.filter((entry) => entry.id !== 'dim-frame-out-frame')
+      .concat([edge('dim', 'frame', 'dim2', 'frame'), edge('dim2', 'frame', 'dim3', 'frame'), edge('dim3', 'frame', 'out', 'frame')])
+    const two = boardPartition(nodes, chained, 'board-2')
+    const table = two.nodes.find((entry) => entry.data.nodeType === 'BoardLinkOut')!.data.properties.link as { frames: Record<string, { index: number; hold?: boolean }[]> }
+    // The encoder and the remote slider are set by hand; the pot is not.
+    expect(table.frames['board-2'].filter((entry) => entry.hold)).toHaveLength(2)
+    const { one } = sketches({ nodes, edges: chained })
+    expect(one).toContain('static bool _lnkHold1(uint8_t h, uint32_t v) {')
+    expect(one).toContain('if (_lnkHeard1 && session != _lnkSess1) for (uint8_t i = 0; i < 2; i++) { _lnkHH1[i] = true; _lnkHB1[i] = false; }')
+  })
+})

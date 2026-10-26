@@ -668,6 +668,13 @@ function sendCodecCpp(plan: BoardLinkPlan, sends: readonly LinkSend[], kinds: Re
   return lines
 }
 
+/** The frame indexes of a receiver's stored, hand-set values, in hold-slot order. */
+function heldStores(receiver: LinkReceiver): number[] {
+  return receiver.table
+    .filter((entry) => entry.hold && entry.kind !== 'press' && receiver.storage.has(entry.index))
+    .map((entry) => entry.index)
+}
+
 function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
   const lines: string[] = [
     `// What this board receives, kept per sender: its session, the last frame`,
@@ -692,6 +699,22 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
       )
     }
     if (receiver.texts) lines.push(`static char _lnkT${s}[${receiver.texts}][${TEXT_BYTES}];`)
+    const held = heldStores(receiver)
+    if (held.length) {
+      lines.push(
+        `// Hand-set values a restarted sender has not moved yet: held at what this`,
+        `// board had, until the value differs from the first one it sends again.`,
+        `static bool _lnkHH${s}[${held.length}], _lnkHB${s}[${held.length}];`,
+        `static uint32_t _lnkHV${s}[${held.length}];`,
+        `static bool _lnkHold${s}(uint8_t h, uint32_t v) {`,
+        `  if (!_lnkHH${s}[h]) return false;`,
+        `  if (!_lnkHB${s}[h]) { _lnkHB${s}[h] = true; _lnkHV${s}[h] = v; return true; }`,
+        `  if (v == _lnkHV${s}[h]) return true;`,
+        `  _lnkHH${s}[h] = false;`,
+        `  return false;`,
+        `}`,
+      )
+    }
   }
   lines.push(
     `static bool _lnkMismatch = false;`,
@@ -709,6 +732,11 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
   // other is stepped over. A slot that runs off the frame ends the decode.
   for (const receiver of plan.receivers) {
     const s = receiver.sender
+    const held = heldStores(receiver)
+    const holdOf = (entry: BoardLinkFrameEntry) => held.indexOf(entry.index)
+    const setWord = (entry: BoardLinkFrameEntry, at: number, expr: string) => (holdOf(entry) >= 0
+      ? `        { uint32_t v = ${expr}; if (!_lnkHold${s}(${holdOf(entry)}, v)) _lnkW${s}[${at}] = v; }`
+      : `        _lnkW${s}[${at}] = ${expr};`)
     const arms = receiver.table.map((entry) => {
       const store = receiver.storage.get(entry.index)
       const head = `      case ${entry.index}:`
@@ -719,7 +747,12 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
             `        if (at >= n) return;`,
             `        uint8_t len = p[at++];`,
             `        if (len > ${DISPLAY_TEXT_MAX_BYTES} || at + len > n) return;`,
-            ...(store ? [`        memcpy(_lnkT${s}[${store.at}], p + at, len); _lnkT${s}[${store.at}][len] = 0;`] : []),
+            ...(store ? [
+              ...(holdOf(entry) >= 0 ? [
+                `        uint32_t h = 2166136261u; for (uint8_t i = 0; i < len; i++) h = (h ^ p[at + i]) * 16777619u;`,
+                `        if (!_lnkHold${s}(${holdOf(entry)}, h)) { memcpy(_lnkT${s}[${store.at}], p + at, len); _lnkT${s}[${store.at}][len] = 0; }`,
+              ] : [`        memcpy(_lnkT${s}[${store.at}], p + at, len); _lnkT${s}[${store.at}][len] = 0;`]),
+            ] : []),
             `        at += len;`,
             `        break;`,
             `      }`,
@@ -743,7 +776,7 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
           return [
             `${head}`,
             `        if (at + 1 > n) return;`,
-            ...(store ? [`        _lnkW${s}[${store.at}] = p[at] != 0 ? 1u : 0u;`] : []),
+            ...(store ? [setWord(entry, store.at, 'p[at] != 0 ? 1u : 0u')] : []),
             `        at += 1;`,
             `        break;`,
           ]
@@ -751,7 +784,7 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
           return [
             `${head}`,
             `        if (at + 3 > n) return;`,
-            ...(store ? [`        _lnkW${s}[${store.at}] = (uint32_t)p[at] | ((uint32_t)p[at + 1] << 8) | ((uint32_t)p[at + 2] << 16);`] : []),
+            ...(store ? [setWord(entry, store.at, '(uint32_t)p[at] | ((uint32_t)p[at + 1] << 8) | ((uint32_t)p[at + 2] << 16)')] : []),
             `        at += 3;`,
             `        break;`,
           ]
@@ -759,7 +792,7 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
           return [
             `${head}`,
             `        if (at + 4 > n) return;`,
-            ...(store ? [`        _lnkW${s}[${store.at}] = _lnkGet32(p + at);`] : []),
+            ...(store ? [setWord(entry, store.at, '_lnkGet32(p + at)')] : []),
             `        at += 4;`,
             `        break;`,
           ]
@@ -805,6 +838,10 @@ function receiveCodecCpp(plan: BoardLinkPlan, telemetry: boolean): string[] {
       `    case ${s}: {`,
       `      bool fresh = !_lnkHeard${s} || session != _lnkSess${s};`,
       `      if (!fresh && counter <= _lnkCtr${s}) {${count('_lnkDropOld')} return; }`,
+      ...(heldStores(receiver).length ? [
+        `      // Heard before and now on a new session: it restarted. Hold its hand-set values.`,
+        `      if (_lnkHeard${s} && session != _lnkSess${s}) for (uint8_t i = 0; i < ${heldStores(receiver).length}; i++) { _lnkHH${s}[i] = true; _lnkHB${s}[i] = false; }`,
+      ] : []),
       ...(receiver.presses ? [
         `      // Presses made while the link was down are dropped, not replayed late.`,
         `      if (fresh || !_lnkUp${s}) for (uint8_t i = 0; i < ${receiver.presses}; i++) _lnkPA${s}[i] = true;`,

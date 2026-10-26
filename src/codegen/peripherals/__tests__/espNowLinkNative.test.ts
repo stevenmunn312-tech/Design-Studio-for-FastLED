@@ -258,10 +258,14 @@ int main(int argc, char **argv) {
   rx::_lnkAccept(f, n, 2100); rx::_lnkTick(2100);
   assert(rx::_lnkUp1 && !rx::press());
   // A sender that reset starts a new session at a low counter, and is accepted.
+  // Its slider restarts at its start: the level here holds until it moves.
   tx::_lnkSession = 0x9abcdef0u; tx::_lnkTxCounter = 0; tx::in_float = 0.1f; tx::stage();
   n = tx::_lnkBuild(f, 2400); assert(n > 0);
   rx::_lnkAccept(f, n, 2400); rx::_lnkTick(2400);
-  assert(rx::_lnkSess1 == 0x9abcdef0u && fabsf(rx::level() - 0.1f) < 1e-7f);
+  assert(rx::_lnkSess1 == 0x9abcdef0u && fabsf(rx::level() - 0.6f) < 1e-7f);
+  tx::in_float = 0.3f; tx::stage(); n = tx::_lnkBuild(f, 2500); assert(n > 0);
+  rx::_lnkAccept(f, n, 2500); rx::_lnkTick(2500);
+  assert(fabsf(rx::level() - 0.3f) < 1e-7f);
   return 0;
 }
 `)

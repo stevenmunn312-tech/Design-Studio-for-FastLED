@@ -11,6 +11,7 @@ import {
   BOARD_LINK_OUT_NODE_TYPE,
   BOARD_LINK_PORT_ID,
   boardLinkSchemaHash,
+  boardLinkSlotHolds,
   boardLinkStartValue,
   boardLinkWireKind,
   type BoardLinkContext,
@@ -470,7 +471,10 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
           table.push({ index: field.index, kind: field.kind })
         }
       } else {
-        table.push({ index: slot.slot, kind: boardLinkWireKind(slot) })
+        table.push({
+          index: slot.slot, kind: boardLinkWireKind(slot),
+          ...(boardLinkSlotHolds(byId.get(slot.sourceNodeId), slot.sourceHandle) ? { hold: true as const } : {}),
+        })
       }
     }
     if (table.length) frames[boardId] = table
