@@ -1,7 +1,7 @@
 # Board links: controls and readings between boards over ESP-NOW
 
 Status: implemented, experimental (compiled on ESP32, ESP32-S3 and ESP8266;
-bench run 1 passed, runs 2 and 3 to do) · Owner: app · Date: 2026-10-23 · Root todo, D-13
+bench runs 1 and 3 passed, run 2 to do) · Owner: app · Date: 2026-10-23 · Root todo, D-13
 (v1)
 
 Builds on [multi-board projects](multi-board.md), which lets a project carry

@@ -71,5 +71,59 @@ Each was a firmware bug found here and fixed before the passing runs above:
 - While its network is gone, Board 2 prints
   `wifi:sta is connecting, cannot set config` every 5 seconds: the reconnect
   calls `WiFi.begin` again during a connect.
-- Runs 2 (an OLED and a bare encoder) and 3 (an ESP8266 Web Remote) are not
-  yet run.
+- Run 2 (an OLED and a bare encoder) is not yet run.
+
+## Run 3 — an ESP8266 Web Remote on another board's brightness, 2026-10-26
+
+A phone page served by Board 2 sets the brightness of Board 1's LEDs while
+Board 1 plays music: a sender on Wi-Fi, a receiver off it, and an ESP8266 on
+the link for the first time.
+
+### Rig
+
+| | |
+|---|---|
+| Board 1 | Run 1's ESP32-S3 Music Player, its LED output's Brightness wired from Board 2 |
+| Board 2 | Wemos D1 R2 (ESP8266): a Web Remote with one Brightness slider, 0 to 1 in steps of 0.01, wired to Board 1's LED output Brightness |
+| Network | A phone hotspot on channel 1: Board 2 joins it to serve the page; Board 1 joins no Wi-Fi and follows the channel |
+| Telemetry | As run 1 |
+| Toolchain | As run 1, with ESP8266 core 3.1.2 for Board 2 |
+
+### Results
+
+| Test | Result |
+|---|---|
+| Slider to brightness | Pass: Board 1's LEDs follow the phone's slider |
+| The page | Pass: answers in 65 to 115 ms over the hotspot, at its address and at `fastled-remote.local` |
+| Board 2 reset | Pass: Board 1 kept the brightness set by hand; frames resumed about 2 s after the reset, the longest gap 518 ms |
+| Board 1 reset | Pass: Board 1 came back at the remote's current value |
+| Hotspot off 30 s, then on | Pass: the link was never lost. For about 35 s Board 1 heard half the usual frames while Board 2 searched for the network, the longest gap 890 ms against the 1 s loss limit; Board 2 rejoined without a restart, its page and name came back, and the slider kept its value |
+| Board 2 load | 60 fps, loop under 1 ms (8 ms while serving the page), about 47 KB heap free |
+| Rejected frames | 0 by key, link id, tag or age. 194 by link hash, all in the 40 s between the two boards' uploads, when they ran builds of different graphs |
+
+### What the bench changed
+
+- The Upload tab refused a board whose only job is to send over a link
+  (`a59dab50`).
+- Graph Health kept "is missing its Wi-Fi SSID" after a name was typed into
+  the Web Remote, until the next graph edit (`ca26fa7f`).
+- A Music Player driving an LED output whose Brightness is wired from
+  another node, here the remote, failed validation (`a63c69d9`).
+- A Web Remote that restarted threw Board 1 back to its slider's start; the
+  receiver now keeps a hand-set value until the restarted sender moves it
+  (`6eb889d8`).
+- The ESP8266 never served its page. The Wi-Fi bootstrap called
+  `WiFi.begin` again while the core was still reconnecting, which left
+  `status()` short of connected with an address in hand and sent the radio
+  scanning every 5 s (`78407551`).
+- The slider started at 0, not at the Brightness it drives, so a Board 1
+  reset after a remote restart came up dark. The start is now taken from the
+  driven property at build time (`c5c73200`, `6dc26443`).
+
+### Still open
+
+- A restarted remote shows its start value on its page while Board 1 keeps
+  the value set by hand; moving the slider puts them back in step. Saving a
+  remote's values across restarts would close this, and is not planned.
+- A lookup of `fastled-remote.local` from the PC sometimes timed out where
+  the address answered.

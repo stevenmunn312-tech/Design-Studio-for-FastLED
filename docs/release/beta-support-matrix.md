@@ -436,8 +436,9 @@ Unless a future row says otherwise, treat the following as experimental:
   ESP32-S3 Music Player and an ESP32 touch screen ran linked on and off Wi-Fi
   ([bench record](../reports/bench/board-link-bench.md)): about 250 ms from a
   press to the player acting, 15 m through four walls without loss, and 75 KB
-  of the render board's heap for the radio. The OLED-and-encoder and ESP8266
-  runs are still to do. The bench row is in the root todo, section 4.
+  of the render board's heap for the radio. An ESP8266 Web Remote on Wi-Fi
+  set that board's LED brightness through resets of each board and a hotspot
+  drop. The OLED-and-encoder run is still to do. The bench row is in the root todo, section 4.
 - **Library bundles** (patterns, palettes, collections by file, clipboard or
   link) are software-only and need no hardware row; trust on import is
   decided when the content reaches the canvas
