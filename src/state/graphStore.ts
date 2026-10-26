@@ -125,8 +125,11 @@ import {
   isWebRemoteControlType,
   MAX_WEB_REMOTE_CONTROLS,
   normalizeWebRemoteControls,
+  parseWebRemotePortId,
   patchWebRemoteControl,
   WEB_REMOTE_NODE_TYPE,
+  webRemoteControlKind,
+  webRemoteQuantize,
   webRemoteControlDataType,
   webRemoteOutputs,
   webRemotePortId,
@@ -630,6 +633,38 @@ function withAdoptedMirrorPin(
     : node)
 }
 
+/**
+ * A Web Remote control wired to a property starts where that property is.
+ *
+ * Kept as the control's own start (`initial`) rather than worked out when
+ * building: the firmware, the phone page and a board link's first value all
+ * read it there, and on a board that only sends, the property is on another
+ * board whose sketch this one never sees. Wiring a Slider to a Brightness at
+ * 1 used to start the strip at the slider's minimum, dark. A start someone
+ * already chose is kept, and only number controls take one.
+ */
+function withRemoteControlStart(nodes: StudioNode[], connection: Connection): StudioNode[] {
+  const controlId = parseWebRemotePortId(connection.sourceHandle)
+  const remote = controlId ? nodes.find((node) => node.id === connection.source) : undefined
+  const target = nodes.find((node) => node.id === connection.target)
+  if (!remote || remote.data.nodeType !== WEB_REMOTE_NODE_TYPE || !target) return nodes
+  const properties = remote.data.properties as Record<string, unknown>
+  const controls = normalizeWebRemoteControls(properties.controls)
+  const control = controls.find((entry) => entry.id === controlId)
+  const kind = control ? webRemoteControlKind(control.type) : null
+  if (!control || (kind !== 'range' && kind !== 'choice') || control.properties.initial !== undefined) return nodes
+  const propertyKey = controllableInputsFor(target.data.nodeType)
+    .find((port) => port.id === connection.targetHandle)?.propertyKey
+  const value = propertyKey ? (target.data.properties as Record<string, unknown>)[propertyKey] : undefined
+  if (typeof value !== 'number' || !Number.isFinite(value)) return nodes
+  const start = webRemoteQuantize(control, value)
+  if (typeof start !== 'number') return nodes
+  const next = patchWebRemoteControl(controls, control.id, { properties: { initial: start } })
+  return nodes.map((node) => node.id === remote.id
+    ? { ...node, data: { ...node.data, properties: { ...properties, controls: next } } }
+    : node)
+}
+
 function withAdoptedDisplayControl(
   s: GraphState,
   nodes: StudioNode[],
@@ -788,7 +823,7 @@ function completeConnection(s: GraphState, connection: Connection): Partial<Grap
   const edges = addEdge({ ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
   const adopted = withAdoptedDisplayControl(
     s,
-    withAdoptedMirrorPin(grown.nodes, edges, resolved),
+    withRemoteControlStart(withAdoptedMirrorPin(grown.nodes, edges, resolved), resolved),
     edges,
     resolved,
   )
@@ -4431,7 +4466,7 @@ export function connectWebRemoteControl(
     const expose = exposableInputsFor(target.data.nodeType).some((port) => port.id === targetPort)
       && !current.includes(targetPort)
     const exposedInputs = expose ? normalizeExposedInputs(target.data.nodeType, [...current, targetPort]) : null
-    const nodes = s.nodes.map((node) => {
+    const added = s.nodes.map((node) => {
       if (node.id === targetId && exposedInputs) return { ...node, data: { ...node.data, exposedInputs } }
       if (node.id !== remoteNodeId) return node
       return {
@@ -4442,6 +4477,9 @@ export function connectWebRemoteControl(
           outputs: webRemoteOutputs(appended.controls),
         },
       }
+    })
+    const nodes = withRemoteControlStart(added, {
+      source: remoteNodeId, sourceHandle, target: targetId, targetHandle: targetPort,
     })
     const edges = [...s.edges, {
       id: `remote-${remoteNodeId}-${control.id}-${targetId}-${targetPort}`,

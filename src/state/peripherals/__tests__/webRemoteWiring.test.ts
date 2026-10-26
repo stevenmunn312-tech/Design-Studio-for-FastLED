@@ -74,6 +74,21 @@ describe('Web Remote wire-first controls', () => {
     expect((remoteNode().data.outputs as { id: string; dataType: string }[])[0]).toEqual({ id: 'remote:slider', label: 'Petals', dataType: 'float' })
     expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'ff')!.data.exposedInputs).toContain('petals')
     expect(readWebRemoteControl('remote', 'slider', 0)).toBe(5)
+    // Kept as the control's own start, which the firmware, the page and a
+    // board link read: the preview's value alone left a board starting at 1.
+    expect(control.properties.initial).toBe(5)
+  })
+
+  it('starts a control wired by hand where the property is, and keeps a start already chosen', () => {
+    addWebRemoteControl('remote', 'Slider')
+    updateWebRemoteControl('remote', 'slider', { properties: { min: 1, max: 12, step: 1 } })
+    useGraphStore.getState().onConnect({ source: 'remote', sourceHandle: 'remote:slider', target: 'ff', targetHandle: 'petals' })
+    expect(controls()[0].properties.initial).toBe(5)
+
+    const second = addWebRemoteControl('remote', 'Slider')!
+    updateWebRemoteControl('remote', second, { properties: { min: 1, max: 12, step: 1, initial: 9 } })
+    useGraphStore.getState().onConnect({ source: 'remote', sourceHandle: `remote:${second}`, target: 'ff', targetHandle: 'petals' })
+    expect(controls()[1].properties.initial).toBe(9)
   })
 
   it('makes a Colour Picker for a colour, and refuses a second control on one value', () => {
