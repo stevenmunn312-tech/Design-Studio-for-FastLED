@@ -1668,6 +1668,45 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.021
     }
   },
+  "jaycar-sr1230-rotary-encoder": {
+    "partId": "jaycar-sr1230-rotary-encoder",
+    "label": "Jaycar SR1230 rotary encoder with push switch",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 14.0,
+      "height": 14.9
+    },
+    "manufacturer": "Jaycar Electronics (SR1230)",
+    "logicVoltage": "No supply pin. A, B and SW are switch contacts to ground, read through the controller's internal pull-ups; contacts rated 5 V, 10 mA",
+    "pinLabelsLeftToRight": [
+      "A",
+      "GND1",
+      "B",
+      "SW",
+      "GND2"
+    ],
+    "notes": [
+      "A bare encoder, not a module: there are no pull-up resistors and no supply pin. The firmware always turns on the controller's internal pull-ups for A, B and SW.",
+      "C is the common for A and B, and the push switch has two legs of its own. Wire C and one switch leg (GND1 and GND2 here) each to ground; nothing inside the part joins them.",
+      "15 pulses and 30 detents per turn, so each click is half a quadrature cycle: two transitions, not the four a KY-040 module makes. The app counts the SR1230 in the same per-click units as the module.",
+      "Pin order is the datasheet's shaft-end view: A, C, B left to right on the bottom row, 2.5 mm apart. The switch legs are on the far row, 5 mm apart, and sit just inside the body's top edge, so they cannot be seen from above.",
+      "The part has no markings on the face rendered here, so the pad names are functional rather than printed.",
+      "The two snap legs fit 2.1 mm slots 13.4 mm apart. The hex nut and washer are the supplied hardware, shown fitted."
+    ],
+    "encoder": {
+      "device": "SR1230",
+      "pulsesPerRevolution": 15,
+      "detents": 30,
+      "switchActive": "low",
+      "onboardPullUps": false
+    },
+    "render": {
+      "file": "parts/jaycar-sr1230-rotary-encoder.webp",
+      "widthPx": 400,
+      "heightPx": 424,
+      "pxPerMm": 26.571
+    }
+  },
   "jaycar-xc9044-rtc-module": {
     "partId": "jaycar-xc9044-rtc-module",
     "label": "DS3231 RTC Clock Module for Raspberry Pi",

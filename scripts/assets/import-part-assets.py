@@ -762,6 +762,26 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: joystick block needs a positive axisPotOhms and switchActive low or high — skipped",
                   file=sys.stderr)
+    # A quadrature encoder. Pulses and detents travel from the part because they
+    # decide how many transitions one click makes, which the firmware has to
+    # count the same way for every encoder.
+    encoder = data.get("encoder")
+    if encoder:
+        pulses, detents = encoder.get("pulsesPerRevolution"), encoder.get("detents")
+        if (isinstance(pulses, int) and pulses > 0 and isinstance(detents, int) and detents > 0
+                and (4 * pulses) % detents == 0
+                and encoder.get("switchActive") in ("low", "high")
+                and isinstance(encoder.get("onboardPullUps"), bool)):
+            entry["encoder"] = {
+                "device": encoder.get("device") or "",
+                "pulsesPerRevolution": pulses,
+                "detents": detents,
+                "switchActive": encoder["switchActive"],
+                "onboardPullUps": encoder["onboardPullUps"],
+            }
+        else:
+            print(f"  ! {part_id}: encoder block needs positive pulses and detents (a whole number of transitions per detent), switchActive low or high, and onboardPullUps — skipped",
+                  file=sys.stderr)
     # A pulse-ranging distance sensor. The measuring window and the echo level
     # travel from the part so the preview limits and the Build Diagram's echo
     # divider agree with the data sheet rather than with numbers typed into the app.

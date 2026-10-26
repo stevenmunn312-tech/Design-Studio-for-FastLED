@@ -395,6 +395,13 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'adafruit-bme280-environment-sensor': padRow([49, 99, 149, 200, 250, 301, 351], 400, 471, 527),
   // The probe's three bare wire ends: red VCC, black GND, yellow DATA.
   'ds18b20-waterproof-probe': padRow([104.5, 199.5, 294.5], 400, 948, 997),
+  // A bare part with legs on two rows. A, C and B are the strap ends below the
+  // body; the switch legs sit just inside its top edge, hidden from above, so
+  // the pads mark where they come through the board. Centres are the
+  // generator's own lead positions, checked against the render.
+  'jaycar-sr1230-rotary-encoder': padPoints(400, 424, [
+    [133.6, 406], [200, 406], [266.4, 406], [133.6, 20.7], [266.4, 20.7],
+  ]),
   // VCC, Trig, Echo, GND along the bottom edge. Computed from the model's own
   // coordinates (12 px/mm, 10 px margin, header at y = 2 mm, 2.54 mm pitch
   // centred on the board) and checked by drawing the result over the render.
@@ -682,6 +689,13 @@ export function peripheralPowerPadIndex(item: HardwareManifestItem): number | nu
   if (item.kind === 'buzzer-output') return null
   // The ULN2803A has no controller supply: its COM pin is the load supply's clamp return.
   if (item.kind === 'darlington-driver-output') return null
+  // A bare encoder is three switch contacts and no electronics: no supply pad.
+  // The module it shares a kind with prints VCC, so only a part without one is
+  // left unpowered.
+  if (item.kind === 'encoder-input') {
+    const supply = padIndexByLabel(item, POWER_PAD_LABELS, -1)
+    return supply >= 0 ? supply : null
+  }
   // The RCWL-0516 prints 3V3 as well as VIN, but 3V3 is its regulator's output, so the
   // supply lands on VIN, never on the first power-looking pad.
   if (item.kind === 'motion-input') {
@@ -974,6 +988,8 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'adafruit-bh1750-light-sensor': 7,
   'adafruit-bme280-environment-sensor': 9.5,
   'ds18b20-waterproof-probe': 6.5,
+  // Half the 0.8 mm lead width, so the colour sits on the lead rather than beside it.
+  'jaycar-sr1230-rotary-encoder': 9,
   'hc-sr04-ultrasonic-module': 6,
   'ky-023-joystick-module': 7.3,
   'matrix-keypad-4x4': 6,

@@ -17,6 +17,7 @@ import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { MIC_MODULES } from '../../state/peripherals/micModules'
 import { LIGHT_SENSOR_MODULES } from '../../state/peripherals/lightSensor'
 import { ETHERNET_MODULES } from '../../state/peripherals/ethernetModule'
+import { SR1230_ENCODER_PART_ID } from '../../state/peripherals/encoder'
 import { batteryCellPartIds, batteryModulePartIds, batteryModuleSummary } from '../../state/peripherals/battery'
 
 export interface PartOption {
@@ -74,7 +75,15 @@ export interface PartIdentity {
  * also carries `CreateIcs43434` and `CreateGenericMEMS`. What still varies by
  * board is the *capture backend*, not the microphone.
  */
-export const PART_OPTIONS: Record<string, { property: string; options: PartOption[] }> = {
+export const PART_OPTIONS: Record<string, {
+  property: string
+  options: PartOption[]
+  /**
+   * The node's default part predates the catalogue, so it cannot be an option.
+   * A node naming none of the options is then that part, not the first option.
+   */
+  uncataloguedDefault?: true
+}> = {
   DFPlayerOutput: {
     property: 'partId',
     options: [{
@@ -282,6 +291,21 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         label: '4x4 matrix keypad',
         summary: 'Sixteen keys on eight GPIOs',
         note: 'Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power.',
+      },
+    ],
+  },
+  EncoderInput: {
+    property: 'partId',
+    // The encoder module the app has always drawn has no `part.json` yet, so
+    // it keeps its bundled render and VCC/A/B/SW/GND header, and an encoder
+    // that names no part is still that module.
+    uncataloguedDefault: true,
+    options: [
+      {
+        id: SR1230_ENCODER_PART_ID,
+        label: 'Jaycar SR1230 bare encoder',
+        summary: 'Bare 12 mm encoder with a push switch',
+        note: 'No supply pin. Wire C and one switch leg each to ground; A, B and SW go to GPIOs, which always use the internal pull-up. Each click is two transitions rather than four, which the firmware counts as one click like the module.',
       },
     ],
   },
@@ -607,7 +631,8 @@ export function partOptionProperty(nodeType: string): string | null {
  * Falls back to the first option, which is the module the app was built
  * around — an unset or unrecognised value means "the default part", not "no
  * part", because every one of these nodes describes something physically on
- * the bench.
+ * the bench. Where that default is not catalogued yet, there is no identity
+ * to fall back to, and the answer is null.
  */
 export function resolvePartIdentity(
   nodeType: string,
@@ -617,8 +642,9 @@ export function resolvePartIdentity(
   if (!config || config.options.length === 0) return null
 
   const saved = String(properties[config.property] ?? '')
-  const option = config.options.find((candidate) => candidate.id === saved)
-    ?? config.options[0]
+  const chosen = config.options.find((candidate) => candidate.id === saved)
+  if (!chosen && config.uncataloguedDefault) return null
+  const option = chosen ?? config.options[0]
 
   const entry = partById(option.id)
   return {

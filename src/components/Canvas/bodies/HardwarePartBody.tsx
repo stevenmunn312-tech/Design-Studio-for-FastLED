@@ -17,6 +17,7 @@ import { normalizeButtonBankEntries } from '../../../state/player/buttonBank'
 import { partPinLabelForProperty } from '../../../build/parts/partCatalogue'
 import { i2sAudioStage } from '../../../state/audio/audioOutput'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
+import { encoderIsBare } from '../../../state/peripherals/encoder'
 
 // A physical part's settings, shown in the hardware view rather than on its
 // signal node. Hardware-only parts and graph-visible inputs/outputs share this
@@ -76,6 +77,8 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     .filter((field) => field.kind !== 'pin')
     .filter((field) => !(volumeStageLabel && field.key === 'maxVolume'))
     .filter((field) => !(nodeType === 'PowerConverter' && hasBatteryPack && field.key === 'sourceVoltage'))
+    // A bare encoder's contacts float without the pull-up, so it is not a choice.
+    .filter((field) => !(nodeType === 'EncoderInput' && field.key === 'pullup' && encoderIsBare(props)))
   const buttonEntries = nodeType === 'ButtonBank' ? normalizeButtonBankEntries(props.buttons) : []
   const updateButton = (entryId: string, patch: Record<string, unknown>) => {
     updateNodeProperty(nodeId, 'buttons', buttonEntries.map((entry) =>

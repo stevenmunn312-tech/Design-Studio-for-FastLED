@@ -443,7 +443,10 @@ allows an explicit custom GPIO. The part's other settings come from
 `PART_FIELDS` (`src/build/parts/partFields.ts`): selects, number fields
 bounded through `ClampedNumberInput`, and toggles such as a Button's or an
 Encoder's internal pull-up, which is a wiring fact and so lives beside the pin
-as it does on each Button Bank row. Every field carries its
+as it does on each Button Bank row. A bare encoder (the SR1230) hides that
+toggle: its catalogue `encoder` block says it has no pull-ups of its own, so
+`encoderUsesPullup` always answers yes, and its pulses and detents set how much
+each transition adds to Position. Every field carries its
 `propertyDescription` as its tooltip.
 
 `ButtonBank` is the compact graph form for several independent momentary

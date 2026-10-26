@@ -292,6 +292,19 @@ export interface PartJoystickSpec {
   switchActive: 'low' | 'high'
 }
 
+/** Contract carried by a quadrature rotary encoder. */
+export interface PartEncoderSpec {
+  device: string
+  /** Full quadrature cycles per turn; each is four A/B transitions. */
+  pulsesPerRevolution: number
+  /** Clicks per turn. */
+  detents: number
+  /** Which level SW reads when the shaft is pushed. */
+  switchActive: 'low' | 'high'
+  /** False for a bare encoder, whose contacts float without the controller's pull-ups. */
+  onboardPullUps: boolean
+}
+
 /** Measuring contract carried by a pulse-ranging distance sensor. */
 export interface PartDistanceSensorSpec {
   device: string
@@ -462,6 +475,8 @@ export interface PartCatalogueEntry {
   touchPad?: PartTouchPadSpec
   /** Present exactly on analog joystick modules. */
   joystick?: PartJoystickSpec
+  /** Present exactly on catalogued rotary encoders. */
+  encoder?: PartEncoderSpec
   /** Present exactly on pulse-ranging distance sensors. */
   distanceSensor?: PartDistanceSensorSpec
   /** Present exactly on 1-Wire temperature probes. */

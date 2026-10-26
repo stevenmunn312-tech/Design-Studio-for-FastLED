@@ -108,6 +108,7 @@ import { FRAME_RATE } from '../build/controllerSettings'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
 import { ADALIGHT_BAUDS, ANALOG_PWM_HZ, STREAM_PROTOCOLS, streamUsesNetwork } from '../nodes/output/frameStream'
 import { MIDI_SOURCES, midiUsesUart } from './peripherals/midiSource'
+import { encoderUsesPullup } from './peripherals/encoder'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   ...INPUT_DEFINITIONS,
@@ -4461,7 +4462,8 @@ export function gpioRequirementForProperty(
   if (nodeType === 'JoystickInput') return key === 'swPin' ? { capability: 'digitalInput', pullup: true } : { capability: 'analogInput', pullup: false }
   // Trig is driven, Echo is read; the module drives Echo both ways, so no pull-up.
   if (nodeType === 'DistanceInput') return { capability: key === 'trigPin' ? 'digitalOutput' : 'digitalInput', pullup: false }
-  if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank' || nodeType === 'EncoderInput') {
+  if (nodeType === 'EncoderInput') return { capability: 'digitalInput', pullup: encoderUsesPullup(props) }
+  if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }
   if (nodeType === 'DMXInput' && key === 'dmxRxPin') {

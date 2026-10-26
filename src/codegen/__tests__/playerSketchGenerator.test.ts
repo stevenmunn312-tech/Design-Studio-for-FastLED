@@ -306,7 +306,7 @@ describe('playerSketchGenerator', () => {
         bindings: {
           next: { kind: 'button', pin: 7, pullup: false },
           volume: { kind: 'pot', pin: 4 },
-          brightness: { kind: 'encoderPosition', pinA: 8, pinB: 9, pullup: true, key: 'encoder' },
+          brightness: { kind: 'encoderPosition', pinA: 8, pinB: 9, pullup: true, scale: 1, key: 'encoder' },
         },
         debounceMs: 45,
         volumeStep: 0.08,

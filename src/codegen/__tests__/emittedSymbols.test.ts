@@ -178,7 +178,7 @@ describe('the SD player sketch', () => {
       displays: playerDisplaysFromGraph(nodes as never, edges as never),
       controls: {
         bindings: {
-          patternSelect: { kind: 'encoderPosition', pinA: 8, pinB: 9, pullup: true, key: 'enc' },
+          patternSelect: { kind: 'encoderPosition', pinA: 8, pinB: 9, pullup: true, scale: 1, key: 'enc' },
           patternNext: { kind: 'encoderButton', pin: 10, pullup: true },
         },
         debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,

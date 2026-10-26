@@ -54,7 +54,7 @@ categories are:
 
 - **Inputs** — microphone, PCM1802 line-in ADC, button, button bank,
   Grove capacitive touch sensor, demodulating IR receiver, potentiometer,
-  encoder, PIR motion sensor,
+  encoder module, bare SR1230 encoder, PIR motion sensor,
   HLK-LD2410C radar presence sensor, ambient-light sensor, INA219 power monitor,
   and RTC module;
 - **Storage** — supported microSD modules;

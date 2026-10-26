@@ -110,6 +110,7 @@ import { SPI_BUS_CPP } from './helpers/spiBusCpp'
 import { withLedDriver } from './output/ledDriverCpp'
 import { selectedLedDriver } from '../build/ledDriverSelection'
 import type { SelectableLedDriver } from '../build/ledDrivers'
+import { encoderCountScale, encoderUsesPullup } from '../state/peripherals/encoder'
 
 export interface PlayerConfig {
   /** False when the player's only physical pixels are standalone VU rails. */
@@ -289,7 +290,7 @@ export type PlayerControlAction =
 export type PlayerControlSource =
   | { kind: 'button'; pin: number; pullup: boolean }
   | { kind: 'pot'; pin: number }
-  | { kind: 'encoderPosition'; pinA: number; pinB: number; pullup: boolean; key: string }
+  | { kind: 'encoderPosition'; pinA: number; pinB: number; pullup: boolean; scale: number; key: string }
   | { kind: 'encoderButton'; pin: number; pullup: boolean }
 
 export interface PlayerControlsConfig {
@@ -375,11 +376,11 @@ export function playerControlsFromGraph(
       } else if (source.data.nodeType === 'PotInput' && edge.sourceHandle === 'value') {
         result[action] = { kind: 'pot', pin: sanitizePin(props.pin, 4) }
       } else if (source.data.nodeType === 'EncoderInput' && edge.sourceHandle === 'pressed') {
-        result[action] = { kind: 'encoderButton', pin: sanitizePin(props.pinSW, 8), pullup: props.pullup !== false }
+        result[action] = { kind: 'encoderButton', pin: sanitizePin(props.pinSW, 8), pullup: encoderUsesPullup(props) }
       } else if (source.data.nodeType === 'EncoderInput' && edge.sourceHandle === 'position') {
         result[action] = {
           kind: 'encoderPosition', pinA: sanitizePin(props.pinA, 6), pinB: sanitizePin(props.pinB, 7),
-          pullup: props.pullup !== false, key: source.id,
+          pullup: encoderUsesPullup(props), scale: encoderCountScale(props), key: source.id,
         }
       }
     }
@@ -718,7 +719,7 @@ export function generatePlayerSketch(
       : 'false'
   const encoderReadCpp = (action: PlayerControlAction, source: PlayerControlSource): string =>
     source.kind === 'encoderPosition'
-      ? `_encoder_${action}.update(digitalRead(${source.pinA}), digitalRead(${source.pinB}))`
+      ? `_encoder_${action}.update(digitalRead(${source.pinA}), digitalRead(${source.pinB}))${source.scale === 1 ? '' : ` * ${source.scale}`}`
       : '0'
   const controlServiceLines = controlEntries.flatMap(([action, source]) => {
     if (oneShots.has(action) && (source.kind === 'button' || source.kind === 'encoderButton')) {

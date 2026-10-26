@@ -675,7 +675,9 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'In the preview, drag the dial on the node up or down to turn it and click it to press. On the board the sketch polls the A and B lines and reads the switch like a button.',
     ],
     steps: [
-      'Wire CLK (A), DT (B) and SW to the GPIOs shown, + to 3.3 V and GND to ground.',
+      'Add it from the hardware bench as the encoder module or the bare Jaycar SR1230.',
+      'For the module, wire CLK (A), DT (B) and SW to the GPIOs shown, + to 3.3 V and GND to ground.',
+      'For the bare SR1230, wire A, B and SW to the GPIOs shown, then C and the other switch leg each to ground. It has no supply pin, and its lines always use the board’s internal pull-ups.',
     ],
     outputs: {
       position: 'Steps turned since start-up: up one way, down the other, without limit.',

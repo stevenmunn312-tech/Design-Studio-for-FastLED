@@ -976,6 +976,18 @@ Unless a future row says otherwise, treat the following as experimental:
   Graduation needs a dated row naming the board/FQBN, the three GPIOs and the
   supply, with both axes centred and at full travel, the dead zone, and SW
   pressed and released.
+- **Jaycar SR1230 bare rotary encoder.** `EncoderInput` offers it beside the
+  encoder module, with a modelled asset, Build Diagram pads (no supply, C and
+  the switch's second leg grounded separately) and the same polling decoder.
+  Its contacts have no pull-ups of their own, so the firmware always uses
+  `INPUT_PULLUP`, and because it makes two transitions per click rather than
+  four, each transition counts twice so a click moves Position and pattern
+  selection by the same amount as the module. There is no compile or physical
+  row for the part yet. The 2026-09-08 bench encoder was also a bare encoder,
+  recorded before the part existed, under the module's counting.
+  Graduation needs a dated row naming the board/FQBN and the three GPIOs, with
+  one pattern per click in both directions, Pressed on push and release, and
+  Position stepping by four per click.
 - **HC-SR04 ultrasonic distance sensor.** `DistanceInput` has a modelled
   asset, preview, library-free trigger/echo firmware (10 µs Trig, timed Echo,
   a reading every 60 ms with the last good value held), manifest and Build

@@ -34,6 +34,7 @@ import { dividedInputPinKey } from '../../build/pins/receiveDivider'
 import { COOLING_FAN_PART_ID } from '../../state/peripherals/coolingFan'
 import { DFPLAYER_PART_ID } from '../../state/peripherals/dfPlayer'
 import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
+import { SR1230_ENCODER_PART_ID } from '../../state/peripherals/encoder'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -824,6 +825,27 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
       { key: 'pinB', label: 'B' },
       { key: 'pinSW', label: 'SW' },
     ],
+  },
+  {
+    // The bare part: no breakout, so its pins must take the controller's
+    // pull-up, which rules out the input-only GPIOs that have none.
+    nodeType: 'EncoderInput',
+    partId: 'encoder-sr1230',
+    label: 'SR1230 bare encoder',
+    hint: 'A bare rotary encoder with a push switch',
+    footprint: partDimensionsMm(SR1230_ENCODER_PART_ID, { width: 14, height: 14.9 }),
+    signalPort: 'position',
+    pinRequests: [
+      { key: 'pinA', capability: 'pullup' },
+      { key: 'pinB', capability: 'pullup' },
+      { key: 'pinSW', capability: 'pullup' },
+    ],
+    pinFields: [
+      { key: 'pinA', label: 'A' },
+      { key: 'pinB', label: 'B' },
+      { key: 'pinSW', label: 'SW' },
+    ],
+    properties: { partId: SR1230_ENCODER_PART_ID, pullup: true },
   },
 ]
 
