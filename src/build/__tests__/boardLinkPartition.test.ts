@@ -15,6 +15,7 @@ import {
   BOARD_LINK_IN_NODE_TYPE,
   BOARD_LINK_OUT_NODE_TYPE,
   boardLinkPropertiesOf,
+  boardLinkSlotHolds,
   isMomentaryBoolSource,
 } from '../boardLinks'
 
@@ -306,6 +307,13 @@ describe('board links — presses and levels', () => {
     expect(isMomentaryBoolSource(node('e', 'EncoderInput'), 'pressed', [])).toBe(true)
     expect(isMomentaryBoolSource(node('m', 'MotionInput'), 'motion', [])).toBe(false)
     expect(isMomentaryBoolSource(node('t', 'TouchInput'), 'next', [])).toBe(true)
+  })
+
+  it('holds an encoder\'s count and level through a sender restart, but not its press', () => {
+    const enc = node('enc', 'EncoderInput', on2)
+    expect(boardLinkSlotHolds(enc, 'position')).toBe(true)
+    expect(boardLinkSlotHolds(enc, 'level')).toBe(true)
+    expect(boardLinkSlotHolds(enc, 'pressed')).toBe(false)
   })
 
   it('reads a Web Remote Button as a press and its Toggle as a level', () => {

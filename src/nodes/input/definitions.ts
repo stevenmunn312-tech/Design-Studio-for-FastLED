@@ -10,6 +10,7 @@ import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
 import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE, TOUCH_CONTROL_ADD_LABEL } from '../../state/displays/displayRegistry'
 import { JOYSTICK_DEFAULT_DEADZONE, KY023_PART_ID } from '../../state/peripherals/joystick'
 import { KEYPAD_PART_ID } from '../../state/peripherals/keypad'
+import { ENCODER_LEVEL_DEFAULTS } from '../../state/peripherals/encoder'
 import { BH1750_DEFAULT_ADDRESS, DEFAULT_LIGHT_SENSOR_PART_ID, LIGHT_SENSOR_DEFAULT_MAX_LUX, formatLightSensorAddress } from '../../state/peripherals/lightSensor'
 import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorSpec } from '../../state/peripherals/motionVector'
 import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, formatI2cAddress, powerMonitorSpec } from '../../state/peripherals/powerMonitor'
@@ -415,16 +416,18 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     // Rotary encoder (e.g. KY-040) — polling quadrature decode (no interrupts,
     // matching ButtonInput/PotInput's plain digitalRead/analogRead approach).
     // `position` is an unbounded running count; wire through MapRange/Mod to
-    // normalise or wrap it.
+    // wrap it. `level` is the same turning held to 0-1 as it is counted
+    // (state/peripherals/encoder.ts), for a volume or a brightness.
     type: 'EncoderInput',
     label: 'Encoder',
     category: 'input',
     inputs: [],
     outputs: [
       { id: 'position', label: 'Position', dataType: 'float' },
+      { id: 'level', label: 'Level', dataType: 'float' },
       { id: 'pressed', label: 'Pressed', dataType: 'bool' },
     ],
-    defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false },
+    defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false, ...ENCODER_LEVEL_DEFAULTS },
   },
   {
     // Scene-wide DMX source. Browser preview reads helper-backed Art-Net;

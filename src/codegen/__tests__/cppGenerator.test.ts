@@ -5484,7 +5484,7 @@ describe('EncoderInput (codegen)', () => {
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 32, pinB: 33, pinSW: 25, resetOnPress: true })
     const cpp = generateCpp([enc], [])
     expect(cpp).toContain('static bool _encSwLast_enc = false;')
-    expect(cpp).toContain('if (n_enc_pressed && !_encSwLast_enc) _encPos_enc = 0;')
+    expect(cpp).toContain('if (n_enc_pressed && !_encSwLast_enc) { _encPos_enc = 0; }')
     expect(cpp).toContain('_encSwLast_enc = n_enc_pressed;')
     // The latch must run before `position` is read out, so the same frame a
     // press lands already reports the reset value.

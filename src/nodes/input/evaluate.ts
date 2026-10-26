@@ -3,6 +3,7 @@ import { useDmxStore } from '../../state/peripherals/dmxStore'
 import { useDdpStore } from '../../state/peripherals/ddpStore'
 import { buildFrame as buildDdpFrame } from '../../state/evaluator/frames'
 import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
+import { encoderLevelCountStep, encoderLevelSpan, encoderLevelStartCount } from '../../state/peripherals/encoder'
 import {
   powerMonitorLimitAmps,
   powerMonitorPreviewDefaults,
@@ -83,6 +84,9 @@ interface RtcManualPreviewState {
 const rtcManualPreviewState = instanceState('rtcManualPreviewState', new Map<string, RtcManualPreviewState>())
 
 const transportDisplayTouchState = instanceState('transportDisplayTouchState', new Map<string, { pressed: boolean }>())
+// An Encoder's Level is counted, not computed from Position: it stops at its
+// ends (encoderLevelCountStep), so it remembers its count and the last Position.
+const encoderLevelState = instanceState('encoderLevelState', new Map<string, { count: number; position: number; pressed: boolean; start: number }>())
 /** Per Touch node: each bundled widget's last press value or gesture count. */
 const designBundleState = instanceState('designBundleState', new Map<string, Map<string, number | boolean>>())
 
@@ -467,9 +471,17 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
         ?? presencePreviewDefaultDistance(props.partId),
     ) }
   },
-  EncoderInput(_c, id) {
+  EncoderInput({ stateKey }, id, props) {
     const enc = useHardwareInputStore.getState().encoder.get(id)
-    return { position: enc?.position ?? 0, pressed: enc?.pressed ?? false }
+    const position = enc?.position ?? 0, pressed = enc?.pressed ?? false
+    const key = markStateUsed(stateKey(id))
+    const prev = encoderLevelState.get(key)
+    const start = encoderLevelStartCount(props)
+    // A new start in the inspector shows at once, as a fresh upload would.
+    let count = prev && prev.start === start ? encoderLevelCountStep(prev.count, position - prev.position, props) : start
+    if (props.resetOnPress === true && pressed && !prev?.pressed) count = start
+    encoderLevelState.set(key, { count, position, pressed, start })
+    return { position, level: count / encoderLevelSpan(props), pressed }
   },
   // The helper's latest DDP bytes as a frame, pixel i at row-major i: a
   // sender that addresses the matrix the same way (xLights' default) lands

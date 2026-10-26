@@ -11,7 +11,8 @@ import { PART_OPTIONS, resolvePartIdentity } from '../../../build/parts/partOpti
 import type { StudioNode } from '../../graphStore'
 import { libraryDefaults, NODE_LIBRARY, gpioRequirementForProperty } from '../../nodeLibrary'
 import {
-  encoderCountScale, encoderIsBare, encoderUsesPullup, SR1230_ENCODER_PART_ID,
+  encoderCountScale, encoderIsBare, encoderLevelClicks, encoderLevelCountStep, encoderLevelSpan, encoderLevelStart,
+  encoderLevelStartCount, encoderUsesPullup, SR1230_ENCODER_PART_ID,
 } from '../encoder'
 
 const SR1230 = { partId: SR1230_ENCODER_PART_ID }
@@ -74,13 +75,57 @@ describe('counts per click', () => {
   it('leaves the module counting one per transition', () => {
     expect(encoderCountScale({})).toBe(1)
     const cpp = controlInputCpp('EncoderInput', 'enc', libraryDefaults('EncoderInput'))!
-    expect(cpp.loop.join('\n')).toContain('_encPos_enc+=_encTbl_enc[(_encLast_enc<<2)|_s];')
+    expect(cpp.loop.join('\n')).toContain('_encPos_enc+=_d;')
   })
 
   it('counts each SR1230 transition twice, so a click is four counts like the module', () => {
     expect(encoderCountScale(SR1230)).toBe(2)
     const cpp = controlInputCpp('EncoderInput', 'enc', { ...libraryDefaults('EncoderInput'), ...SR1230 })!
-    expect(cpp.loop.join('\n')).toContain('_encPos_enc+=_encTbl_enc[(_encLast_enc<<2)|_s] * 2;')
+    expect(cpp.loop.join('\n')).toContain('_encPos_enc+=_d * 2;')
+  })
+})
+
+describe('Level', () => {
+  const props = (extra: Record<string, unknown> = {}) => ({ ...libraryDefaults('EncoderInput'), ...extra })
+
+  it('starts where it is set and spans its clicks in four counts each', () => {
+    expect(encoderLevelStart(props())).toBe(0.5)
+    expect(encoderLevelClicks(props())).toBe(20)
+    expect(encoderLevelSpan(props({ levelClicks: 10 }))).toBe(40)
+    expect(encoderLevelStartCount(props({ levelStart: 1, levelClicks: 10 }))).toBe(40)
+    // Out-of-range or broken values are held to what the firmware can count.
+    expect(encoderLevelStart(props({ levelStart: 3 }))).toBe(1)
+    expect(encoderLevelClicks(props({ levelClicks: 0 }))).toBe(1)
+    expect(encoderLevelClicks(props({ levelClicks: 'x' }))).toBe(20)
+  })
+
+  it('stops at both ends, so the first click back moves it', () => {
+    const p = props({ levelStart: 1, levelClicks: 10 })
+    // Twenty clicks down from the top: ten reach 0, ten more are held there.
+    let count = encoderLevelStartCount(p)
+    for (let click = 0; click < 20; click++) count = encoderLevelCountStep(count, -4, p)
+    expect(count).toBe(0)
+    count = encoderLevelCountStep(count, 4, p)
+    expect(count / encoderLevelSpan(p)).toBe(0.1)
+    for (let click = 0; click < 30; click++) count = encoderLevelCountStep(count, 4, p)
+    expect(count / encoderLevelSpan(p)).toBe(1)
+  })
+
+  it('is counted only when something reads it, and returns to its start on a press', () => {
+    const p = props({ levelStart: 0.25, levelClicks: 10, resetOnPress: true })
+    const read = controlInputCpp('EncoderInput', 'enc', p, new Set(['level']))!
+    const loop = read.loop.join('\n')
+    expect(read.outputs.level).toBe('float')
+    expect(loop).toContain('static int16_t _encLvl_enc = 10;')
+    expect(loop).toContain('_encLvl_enc=constrain(_encLvl_enc+_d,0,40);')
+    expect(loop).toContain('_encPos_enc = 0; _encLvl_enc = 10;')
+    expect(loop).toContain('float n_enc_level = _encLvl_enc / 40.0f;')
+    const unread = controlInputCpp('EncoderInput', 'enc', p, new Set(['position']))!
+    expect(unread.outputs.level).toBeUndefined()
+    expect(unread.loop.join('\n')).not.toContain('_encLvl_enc')
+    // The SR1230's two counts a transition step Level the same way.
+    expect(controlInputCpp('EncoderInput', 'enc', { ...p, ...SR1230 }, new Set(['level']))!.loop.join('\n'))
+      .toContain('_encLvl_enc=constrain(_encLvl_enc+_d * 2,0,40);')
   })
 })
 

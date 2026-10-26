@@ -56,6 +56,11 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
   const symbols = new Map<string, string>()
   const usedSamples = new Map<string, ControlReference>()
   const label = (id: string) => String(byId.get(id)?.data.label || id)
+  // The outputs a source feeds, so one with a costly unused output skips it.
+  const portsReadFrom = (nodeId: string) => new Set([
+    ...edges.filter((edge) => edge.source === nodeId).map((edge) => edge.sourceHandle ?? ''),
+    ...sampledSources.filter((source) => source.nodeId === nodeId).map((source) => source.port),
+  ])
   const fail = (message: string): null => { errors.add(message); return null }
   const samples = new Map(sampledSources.map((source) => [JSON.stringify([source.nodeId, source.port]), source]))
   // One serial reader serves every DS3231. The first chip to be emitted owns it.
@@ -88,7 +93,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     const linked = node.data.nodeType === BOARD_LINK_IN_NODE_TYPE
       ? boardLinkControlEmission(linkPlan ?? null, node, safeId(node.id)) : null
     const gpio = scalar || clock || color || timed || rtc ? null
-      : remote ?? linked ?? controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
+      : remote ?? linked ?? controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties, portsReadFrom(node.id))
     const sample = samples.get(JSON.stringify([nodeId, port]))
     const outputs: Readonly<Record<string, ControlDataType>> = clock ? TIME_CONTROL_OUTPUTS
       : scalar ? { [scalar.port]: scalar.type }

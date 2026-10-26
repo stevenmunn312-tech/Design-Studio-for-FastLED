@@ -16,7 +16,7 @@ import { KEYPAD_HELPER_CPP, keypadLoopCpp, keypadSetupCpp } from './peripherals/
 import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './peripherals/joystickCpp'
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorIncludes, distanceSensorLoopCpp, distanceSensorSetupCpp } from './peripherals/distanceSensorCpp'
 import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
-import { encoderCountScale, encoderUsesPullup } from '../state/peripherals/encoder'
+import { encoderCountScale, encoderLevelSpan, encoderLevelStartCount, encoderUsesPullup } from '../state/peripherals/encoder'
 
 export interface ControlInputEmission {
   setup: string[]
@@ -39,7 +39,13 @@ export interface ControlInputEmission {
   ir?: IrRemoteProjectNode
 }
 
-export function controlInputCpp(nodeType: string, id: string, p: Record<string, unknown>): ControlInputEmission | null {
+/**
+ * `ports`, when given, are the outputs something reads; an output that costs
+ * work on every pass (an Encoder's Level) is left out when nothing does.
+ */
+export function controlInputCpp(
+  nodeType: string, id: string, p: Record<string, unknown>, ports?: ReadonlySet<string>,
+): ControlInputEmission | null {
   const setup: string[] = [], loop: string[] = []
   const outputs: ControlInputEmission['outputs'] = {}
   let ir: IrRemoteProjectNode | undefined
@@ -82,18 +88,29 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       const pullup = encoderUsesPullup(p)
       const scale = encoderCountScale(p)
       for (const pin of [pinA, pinB]) setup.push(`  pinMode(${pin}, ${pullup ? 'INPUT_PULLUP' : 'INPUT'});`)
-      loop.push(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;`)
+      // Level counts with Position but is held to 0..span as it goes, so
+      // turning back from an end moves it at once (state/peripherals/encoder.ts).
+      const level = !ports || ports.has('level')
+      const span = encoderLevelSpan(p), start = encoderLevelStartCount(p)
+      loop.push(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;${level ? ` static int16_t _encLvl_${id} = ${start};` : ''}`)
       loop.push(`  { int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`)
       loop.push(`    static const int8_t _encTbl_${id}[16]={0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};`)
-      loop.push(`    _encPos_${id}+=_encTbl_${id}[(_encLast_${id}<<2)|_s]${scale === 1 ? '' : ` * ${scale}`}; _encLast_${id}=_s; }`)
+      // Every catalogued part counts a whole number per transition (1 or 2).
+      const step = (factor: number) => factor === 1 ? '_d' : `_d * ${factor}`
+      loop.push(`    int8_t _d=_encTbl_${id}[(_encLast_${id}<<2)|_s]; _encLast_${id}=_s;`)
+      loop.push(`    _encPos_${id}+=${step(scale)};${level ? ` _encLvl_${id}=constrain(_encLvl_${id}+${step(Math.round(scale))},0,${span});` : ''} }`)
       button('pressed', pinSW, pullup)
       if (p.resetOnPress === true) {
         loop.push(`  static bool _encSwLast_${id} = false;`)
-        loop.push(`  if (${v('pressed')} && !_encSwLast_${id}) _encPos_${id} = 0;`)
+        loop.push(`  if (${v('pressed')} && !_encSwLast_${id}) { _encPos_${id} = 0;${level ? ` _encLvl_${id} = ${start};` : ''} }`)
         loop.push(`  _encSwLast_${id} = ${v('pressed')};`)
       }
       loop.push(`  float ${v('position')} = _encPos_${id};`)
       outputs.position = 'float'
+      if (level) {
+        loop.push(`  float ${v('level')} = _encLvl_${id} / ${span}.0f;`)
+        outputs.level = 'float'
+      }
       break
     }
     case 'IRRemoteInput': {

@@ -18,8 +18,9 @@ import { networkSourceIn } from '../../codegen/peripherals/networkCpp'
 import { dmxListenPort, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
 import { MIDI_BAUD, midiChannel, midiUsesUart } from '../../state/peripherals/midiSource'
 
-const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines }) => {
-  const emit = controlInputCpp(node.data.nodeType, id, p)!
+const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines, edges }) => {
+  const ports = new Set(edges.filter((edge) => edge.source === node.id).map((edge) => edge.sourceHandle ?? ''))
+  const emit = controlInputCpp(node.data.nodeType, id, p, ports)!
   for (const line of emit.setup) pinSetupLines.add(line)
   for (const line of emit.loop) ln(line)
 }

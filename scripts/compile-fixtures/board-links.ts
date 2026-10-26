@@ -105,12 +105,12 @@ const run2 = {
   nodes: [
     ...playerBoard, classicBoard2,
     node('oled', 'InfoDisplay', { ...on2, partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 21, sclPin: 22, i2cAddress: '0x3C' }),
-    node('enc', 'EncoderInput', { ...on2, pinA: 25, pinB: 26, pinSW: 27, pullup: true }),
+    node('enc', 'EncoderInput', { ...on2, pinA: 25, pinB: 26, pinSW: 27, pullup: true, levelStart: 1, levelClicks: 10 }),
   ],
   edges: [
     ...playerEdges,
     edge('master', 'display', 'oled', 'display'),
-    edge('enc', 'position', 'master', 'volume'),
+    edge('enc', 'level', 'master', 'volume'),
     edge('enc', 'pressed', 'master', 'next'),
   ],
 }

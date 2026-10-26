@@ -108,7 +108,7 @@ import { FRAME_RATE } from '../build/controllerSettings'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
 import { ADALIGHT_BAUDS, ANALOG_PWM_HZ, STREAM_PROTOCOLS, streamUsesNetwork } from '../nodes/output/frameStream'
 import { MIDI_SOURCES, midiUsesUart } from './peripherals/midiSource'
-import { encoderUsesPullup } from './peripherals/encoder'
+import { ENCODER_LEVEL_MAX_CLICKS, encoderUsesPullup } from './peripherals/encoder'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   ...INPUT_DEFINITIONS,
@@ -1283,6 +1283,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     pinA: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     pinB: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     pinSW: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    levelStart: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    levelClicks: { control: 'slider', min: 1, max: ENCODER_LEVEL_MAX_CLICKS, step: 1, entry: 'number' },
   },
   Sequencer: {
     fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
@@ -2366,6 +2368,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     pinA: 'GPIO wired to the encoder CLK (A) line.',
     pinB: 'GPIO wired to the encoder DT (B) line.',
     pinSW: 'GPIO wired to the encoder push-switch (SW) line.',
+    levelStart: 'Where Level starts when the board powers up, 0 to 1. Reset On Press returns it here too.',
+    levelClicks: 'Clicks that take Level from 0 to 1. Level stops at both ends, so the first click back always moves it.',
   },
   DMXInput: {
     inputMode: 'Art-Net or sACN (E1.31) receives over the network; DMX512 reads a wired DMX line through an RS-485 transceiver.',
@@ -3578,7 +3582,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     touchThreshold: 'touch threshold',
     releaseThreshold: 'release threshold',
   },
-  EncoderInput: { resetOnPress: 'reset on press' },
+  EncoderInput: { resetOnPress: 'reset on press', levelStart: 'level start', levelClicks: 'clicks 0 to 1' },
   PowerMonitorInput: {
     i2cAddress: 'I2C address',
     overcurrentAmps: 'overcurrent (A)',

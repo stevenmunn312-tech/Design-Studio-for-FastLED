@@ -115,9 +115,10 @@ export interface BoardLinkFrameEntry {
   kind: BoardLinkWireKind
   /**
    * A value someone sets by hand, which restarts at an arbitrary start: a
-   * Web Remote control, an encoder's count, a screen widget. When its sender
-   * restarts, a receiver keeps the value it has until this one moves, so a
-   * remote rebooting does not throw the board it drives back to its start.
+   * Web Remote control, an encoder's count or level, a screen widget. When
+   * its sender restarts, a receiver keeps the value it has until this one
+   * moves, so a remote rebooting does not throw the board it drives back to
+   * its start.
    * A reading, a pot or a switch reports the truth and is taken at once.
    */
   hold?: true
@@ -131,7 +132,7 @@ export function boardLinkSlotHolds(source: StudioNode | undefined, handle: strin
     const control = normalizeWebRemoteControls(source?.data.properties?.controls).find((entry) => entry.id === id)
     return !!control && webRemoteControlKind(control.type) !== 'press'
   }
-  if (type === 'EncoderInput') return handle === 'position'
+  if (type === 'EncoderInput') return handle === 'position' || handle === 'level'
   if (type === 'TouchInput') return parseDisplayWidgetPortId(handle) !== null && !isMomentaryBoolSource(source!, handle, [])
   return false
 }

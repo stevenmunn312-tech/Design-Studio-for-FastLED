@@ -5445,10 +5445,29 @@ describe('Saturation and RGBToHSV', () => {
 // ── EncoderInput ──────────────────────────────────────────────────────────────
 
 describe('EncoderInput', () => {
-  it('is an inert preview stub, like ButtonInput/PotInput', () => {
+  it('is an inert preview stub, like ButtonInput/PotInput, with Level at its start', () => {
     const enc = node('enc', 'EncoderInput', 'input', {})
     const { outputs } = evaluateGraphFull([enc], [], 0, W, H)
-    expect(outputs.get('enc')).toEqual({ position: 0, pressed: false })
+    expect(outputs.get('enc')).toEqual({ position: 0, level: 0.5, pressed: false })
+  })
+
+  it('steps Level with the dial and holds it at its ends, with no dead zone', () => {
+    const enc = node('enc-level', 'EncoderInput', 'input', { levelStart: 1, levelClicks: 10 })
+    const level = (position: number) => {
+      useHardwareInputStore.getState().setEncoder(enc.id, { position })
+      return evaluateGraphFull([enc], [], 0, W, H).outputs.get(enc.id)?.level
+    }
+    try {
+      expect(level(0)).toBe(1)
+      // Turned up past the top, then one click down: it moves at once.
+      expect(level(40)).toBe(1)
+      expect(level(36)).toBe(0.9)
+      // Eighty counts down reach 0 and stay; four back up read one click.
+      expect(level(-44)).toBe(0)
+      expect(level(-40)).toBe(0.1)
+    } finally {
+      useHardwareInputStore.getState().setEncoder(enc.id, { position: 0 })
+    }
   })
 })
 
