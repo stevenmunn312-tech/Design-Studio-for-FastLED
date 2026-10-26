@@ -42,7 +42,8 @@ in section 4.
   declares its functions `FL_NO_EXCEPT` (`noexcept` on ESP) and
   `riscv.cpp.hpp` defines them without it, a hard GCC error on both engines
   (fbuild `ethernet/c3@esp32c3`, 2026-10-24). FastLED fixed it on `master`
-  (`528a6fdbe`, #4831, 2026-10-20). Move to the first release with that fix,
+  (`528a6fdbe`, #4831, 2026-10-20); on 2026-10-27 3.10.8 is still the latest
+  release. Move to the first release with that fix,
   then do the steps below. Source diffs 3.10.5→3.10.8 already clear the preview ports:
   2-D/3-D `inoise8`/`inoise16`, `ColorFromPalette`, `blur1d`/`blur2d`,
   `hsv2rgb_rainbow` and the lib8tion math are unchanged in effect, and
@@ -334,8 +335,8 @@ chooses the supported combinations from whatever is on record at release.
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
   fbuild leg and pick these up:
-  - The pin moved to 2.5.44 on 2026-10-23; `backend/.venv` and the Espressif
-    Python hold it. On 2026-10-24 the fix legs ran: the LVGL archive (§12),
+  - The pin moved to 2.5.44 on 2026-10-23 and to 2.5.45 on 2026-10-27;
+    `backend/.venv` and the Espressif Python hold 2.5.45. On 2026-10-24 the fix legs ran: the LVGL archive (§12),
     Renesas and SAMD21 now build; RP2040 passes boot2 and stops on the Pico
     core's TinyUSB library, reported as
     [FastLED/fbuild#1719](https://github.com/FastLED/fbuild/issues/1719)
@@ -347,10 +348,9 @@ chooses the supported combinations from whatever is on record at release.
   - **Release blocker for fbuild on Windows:** every daemon compile opens a
     visible, focus-taking console window (§13,
     [#1722](https://github.com/FastLED/fbuild/issues/1722)); app users hit it
-    too. Fixed on fbuild `main` 2026-10-24 (#1723, zccache 1.15.6), with
-    #1719 (#1721) alongside; neither is released yet. Bump the pin to the
-    first release after 2.5.44 that carries both,
-    and check with a short build that no window opens.
+    too. Fixed upstream by #1723 (zccache 1.15.6), with #1719 (#1721)
+    alongside; both ship in 2.5.45, pinned 2026-10-27. Still to do: check
+    with a short build that no window opens.
   - **fbuild `main` run, 2026-10-24** (local build of `710790b2`, FastLED
     3.10.5): 45 of 46 legs pass with no console windows, RP2040 included;
     C6, RP2350 and SAMD51 build; an overflow now prints region sizes (§5);
