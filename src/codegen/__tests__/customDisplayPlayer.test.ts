@@ -149,7 +149,11 @@ describe('custom displays in SD-player firmware', () => {
       [panel('tft'), node('text', 'TextValue')],
       [edge('text', 'text', 'tft', 'widget:slider:set')],
     )).toThrow('requires float')
-    expect(() => generate([panel('tft'), touch()], [edge('tft-touch', 'widget:slider:out', 'out', 'brightness')])).toThrow('Player Controls')
+    // The output's own Brightness is read as a normal sketch reads it; its
+    // LED actions would latch a second lamp beside the player's.
+    expect(generate([panel('tft'), touch()], [edge('tft-touch', 'widget:slider:out', 'out', 'brightness')]))
+      .toContain('constrain(n_tft_touch_widget_slider_out, 0.0f, 1.0f) * 255.0f')
+    expect(() => generate([panel('tft'), touch()], [edge('tft-touch', 'widget:button:out', 'out', 'ledToggle')])).toThrow('Player Controls')
   })
 
   it('uses identical prepared asset bytes for measurement and the actual upload payload', () => {

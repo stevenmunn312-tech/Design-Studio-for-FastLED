@@ -15,6 +15,7 @@
 
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
+import { ENGINE_FRAME_NODE_TYPE, type EnginePostChain } from './enginePostChain'
 import { customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, PHI_DEFINE_CPP } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
@@ -118,7 +119,7 @@ import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs, ledOu
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
 } from '../state/player/masterSpeed'
-import { resolveBuildMode } from '../state/upload/buildMode'
+import { engineFrameOutputs, resolveBuildMode } from '../state/upload/buildMode'
 import { audioFeaturesInCode } from './audio/audioEngineCpp'
 import { cppCode } from './cppReachability'
 import { finishCpp } from './cppCleanup'
@@ -166,10 +167,9 @@ interface ShowInfo {
 // mode for patterns that should hold still; where they still belong is the
 // Music Player, whose own sketch keeps them.
 function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): ShowInfo | null {
-  const outputIds = new Set(nodes.filter((n) => nodeType(n) === 'MatrixOutput').map((n) => n.id))
+  // Straight to an output, or through the frame nodes it runs as its post-chain.
   const master = nodes.find((n) => nodeType(n) === 'PatternSlideshow'
-    && (!engineId || n.id === engineId) && edges.some((e) =>
-    e.source === n.id && e.sourceHandle === 'frame' && outputIds.has(e.target) && e.targetHandle === 'frame'))
+    && (!engineId || n.id === engineId) && engineFrameOutputs(n, nodes, edges).length > 0)
   if (!master) return null
   const setEdge = edges.find((e) => e.target === master.id && e.targetHandle === 'patternset')
   const collection = setEdge && nodes.find((n) => n.id === setEdge.source && nodeType(n) === 'PatternCollection')
@@ -277,11 +277,24 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
 // browser preview does (showPreview.ts renderStateFrame).
 const ENERGY_FROM_AUDIO = '((_audioBass + _audioMids + _audioTreble) / 3.0f)'
 
+/**
+ * How a compiled unit is named and where its buffers live. A collected
+ * pattern is `render_p<N>`, its symbols `p<N>_`, and its scratch shared with
+ * the other patterns, since only one renders at a time. The post-chain runs
+ * after the pattern has drawn, so it keeps buffers of its own.
+ */
+interface PatternUnitNaming {
+  fn: string
+  prefix: string
+  pooled: boolean
+}
+
 function buildPattern(
   groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = [],
   externalAudio = false, nativeFastLedAudio = false,
+  naming: PatternUnitNaming = { fn: `render_p${index}`, prefix: `p${index}`, pooled: true },
 ): PatternUnit {
-  const fnName = `render_p${index}`
+  const fnName = naming.fn
   // Signature: render_pN(uint32_t ms[, float energy, …][, const CRGBPalette16& palette])
   // — one extra param per exposed role when "Use group inputs" is on.
   const sig = `uint32_t ms${roleParams.map((p) => `, ${roleSig(p)}`).join('')}`
@@ -356,11 +369,11 @@ function buildPattern(
   const pfx = (source: string) => {
     let result = source.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b|\b_bitsB?_[A-Za-z0-9_]+\b/g, (m) => {
       const owner = sharedWith.get(m) ?? m
-      const type = scratchTypes.get(owner)
-      return type ? poolSlot(owner, type) : `p${index}_${m}`
+      const type = naming.pooled ? scratchTypes.get(owner) : undefined
+      return type ? poolSlot(owner, type) : `${naming.prefix}_${naming.pooled ? m : owner}`
     })
     for (const symbol of imagePaletteSymbols) {
-      result = result.replace(new RegExp(`\\b${symbol}\\b`, 'g'), `p${index}_${symbol}`)
+      result = result.replace(new RegExp(`\\b${symbol}\\b`, 'g'), `${naming.prefix}_${symbol}`)
     }
     return result
   }
@@ -382,17 +395,18 @@ function buildPattern(
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const decl = parseBufferDecl(line)
-    if (decl) { if (decl.persists) buffers.push(pfx(line)); continue }
+    // Unpooled, a unit keeps its scratch too, but never the host's own canvas.
+    if (decl) { if (decl.persists || (!naming.pooled && decl.name !== 'leds')) buffers.push(pfx(line)); continue }
     if (parseBufferAlias(line)) continue
     const sliceBits = line.match(/^static const uint8_t (_bitsB?_[A-Za-z0-9_]+)\[8\]=/)
-    if (sliceBits) { helpers.set(`sliceBits:${index}:${sliceBits[1]}`, pfx(line)); continue }
+    if (sliceBits) { helpers.set(`sliceBits:${naming.prefix}:${sliceBits[1]}`, pfx(line)); continue }
     // FrameFeedback's history ring buffer: `CRGB _fb_<id>[<capacity>][NUM_LEDS];`.
     if (/^CRGB _fb_[A-Za-z0-9_]+\[\d+\]\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
     // PaletteFromImage is fully baked at generation time and emitted as a
     // file-scope constant. Hoist it with a per-pattern-prefixed symbol.
     const imagePalette = line.match(/^const CRGBPalette16 (pal_[A-Za-z0-9_]+)\(/)
     if (imagePalette) {
-      helpers.set(`imagePalette:${index}:${imagePalette[1]}`, pfx(line))
+      helpers.set(`imagePalette:${naming.prefix}:${imagePalette[1]}`, pfx(line))
       continue
     }
     // Formula shims are emitted as one-line helper functions. They used to be
@@ -407,7 +421,7 @@ function buildPattern(
     if (/^\/\/ .*Code node .*globals/.test(line)) {
       const block: string[] = []
       for (; i < lines.length && lines[i] !== 'void setup() {'; i++) block.push(pfx(lines[i]))
-      helpers.set(`codeGlobals:${index}`, block.join('\n').trimEnd())
+      helpers.set(`codeGlobals:${naming.prefix}`, block.join('\n').trimEnd())
       i--
       continue
     }
@@ -429,6 +443,63 @@ function buildPattern(
   }
 
   return { buffers, scratch, helpers, fn: [`void ${fnName}(${sig}) {`, ...body, '}'].join('\n') }
+}
+
+/** A compiled post-chain: its buffers and helpers, and `postFrame()` itself. */
+export interface PostFrameRenderer {
+  buffers: string[]
+  helpers: string[]
+  fn: string
+  /** The C++ argument for each chain input, in parameter order. */
+  args: string[]
+}
+
+/**
+ * Compile an engine's post-chain into `postFrame(uint32_t ms, …)`, which
+ * reads the engine's finished `leds` and leaves the chain's result there.
+ *
+ * The chain becomes a group: an `EngineFrame` stands in for the engine and
+ * copies `leds` into a buffer of its own, each number or switch wired in
+ * from outside becomes a role parameter, and the frame that reached the LED
+ * output ends at a Group Output. `buildPattern` compiles it as it does a
+ * collected pattern, but with buffers of its own rather than the patterns'
+ * shared scratch, since it runs once a pattern has finished with that.
+ */
+export function buildPostFrame(
+  chain: EnginePostChain, nodes: readonly StudioNode[], edges: readonly StudioEdge[], groups: GroupRegistry,
+  args: readonly string[], externalAudio = false, nativeFastLedAudio = false,
+): PostFrameRenderer {
+  const node = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: { id: string; dataType: string }[], outputs: { id: string; dataType: string }[]) =>
+    ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'graph', properties, inputs, outputs } }) as unknown as StudioNode
+  const groupId = '__post_frame'
+  const outputId = '__post_out'
+  const chainNodes = nodes.filter((entry) => chain.nodeIds.has(entry.id))
+  const groupNodes: StudioNode[] = [
+    ...chainNodes,
+    node(chain.engineId, ENGINE_FRAME_NODE_TYPE, {}, [], [{ id: 'frame', dataType: 'frame' }]),
+    ...chain.inputs.map((input) => node(`__post_in_${input.param}`, 'GroupInput', { paramId: input.param }, [], [{ id: 'out', dataType: 'float' }])),
+    node(outputId, 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+  ]
+  const fromOutside = new Set(chain.inputs.map((input) => `${input.nodeId}:${input.port}`))
+  const groupEdges: StudioEdge[] = [
+    ...edges.filter((edge) => chain.nodeIds.has(edge.target)
+      && (chain.nodeIds.has(edge.source) || (edge.source === chain.engineId && edge.sourceHandle === 'frame'))
+      && !fromOutside.has(`${edge.target}:${edge.targetHandle}`)),
+    ...chain.inputs.map((input) => ({
+      id: `__post_in_${input.param}_edge`, source: `__post_in_${input.param}`, sourceHandle: 'out',
+      target: input.nodeId, targetHandle: input.port,
+    }) as StudioEdge),
+    { id: '__post_out_edge', source: chain.terminal.source, sourceHandle: chain.terminal.sourceHandle, target: outputId, targetHandle: 'frame' } as StudioEdge,
+  ]
+  const params = chain.inputs.map((input) => input.param)
+  const unit = buildPattern(groupId, { ...groups, [groupId]: { nodes: groupNodes, edges: groupEdges } as never }, 0, params,
+    externalAudio, nativeFastLedAudio, { fn: 'postFrame', prefix: 'post', pooled: false })
+  return { buffers: unit.buffers, helpers: [...unit.helpers.values()], fn: unit.fn, args: [...args] }
+}
+
+/** The C++ call that runs a compiled post-chain on this pass's `leds`. */
+export function postFrameCallCpp(post: PostFrameRenderer, msExpr: string): string {
+  return `  postFrame(${[msExpr, ...post.args.map((arg) => `(float)(${arg})`)].join(', ')});  // the frame nodes after the engine`
 }
 
 /** The reusable C++ pieces for a set of collected patterns: per-pattern frame
@@ -859,9 +930,8 @@ export function generateShowSketch(
     return '// Pattern Master has no patterns — add patterns to its Pattern Collection.\n' + generateCpp(nodes, edges, groups, opts)
   }
 
-  const routedOutputIds = new Set(edges.filter((edge) =>
-    edge.source === info.masterId && edge.sourceHandle === 'frame' && edge.targetHandle === 'frame'
-  ).map((edge) => edge.target))
+  const master = nodes.find((node) => node.id === info.masterId)
+  const routedOutputIds = new Set(master ? engineFrameOutputs(master, nodes, edges).map((output) => output.id) : [])
   const routedOutputs = nodes.filter((node) => nodeType(node) === 'MatrixOutput' && routedOutputIds.has(node.id))
   const out = routedOutputs[0]
   const op = out ? props(out) : {}
@@ -954,6 +1024,10 @@ export function generateShowSketch(
   // Resolve them against the controller template rather than the pattern walk.
   const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId, groups)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
+  // Frame nodes between the slideshow and its LEDs, run on the finished canvas.
+  const postFrame = controls.post
+    ? buildPostFrame(controls.post.chain, controls.post.nodes, controls.post.edges, {}, controls.post.args, !!audio, !!audio)
+    : null
   const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
   const controlGraph = controlGraphCpp(controls.graph, `${speedNode ? 'animNow' : 'now'} / 1000.0f`)
   // Clock sync: the Board is a network user, so the connection comes up even
@@ -1034,7 +1108,7 @@ export function generateShowSketch(
     ledOutputRuntimeCpp({ ...outputRuntimeExpressions(outputId), array, count })
   const fastLedDecls = new Set<string>()
   if (transitions) fastLedDecls.add('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
-  for (const block of [...renderers.helpers, ...renderers.functions, ...controlGraph.helpers]) {
+  for (const block of [...renderers.helpers, ...renderers.functions, ...(postFrame ? [...postFrame.helpers, postFrame.fn] : []), ...controlGraph.helpers]) {
     const proto = cppPrototype(block)
     if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
   }
@@ -1096,6 +1170,7 @@ export function generateShowSketch(
       'CRGB showB[NUM_LEDS];   // incoming pattern during a transition',
     ] : []),
     ...renderers.buffers,
+    ...(postFrame?.buffers ?? []),
   ]
   const psramAllocs: string[] = []
   for (const b of showBufs) {
@@ -1131,7 +1206,7 @@ export function generateShowSketch(
   // transition brings the same frame sampler Frame Warp and Symmetry use.
   for (const h of new Set([
     ...(transitions ? transitionSupportCpp(info.transitionIds) : []),
-    ...renderers.helpers, ...controlGraph.helpers, ...syncHelpers, ...customDisplays.shared,
+    ...renderers.helpers, ...(postFrame?.helpers ?? []), ...controlGraph.helpers, ...syncHelpers, ...customDisplays.shared,
   ])) {
     L.push(h); L.push('')
   }
@@ -1175,6 +1250,7 @@ export function generateShowSketch(
   // `pattern_N.h` in the compiled sketch folder (src/codegen/sketchBundle.ts);
   // as one file the blocks are comments and the sketch is the same sketch.
   renderers.functions.forEach((fn, index) => { L.push(sketchFileBlock(`pattern_${index}.h`, fn)); L.push('') })
+  if (postFrame) { L.push(postFrame.fn); L.push('') }
 
   // The bundle type belongs to every chain that builds one, not just to the
   // LED latches: a panel sampled into a bundle and a slideshow commanded by
@@ -1481,6 +1557,7 @@ export function generateShowSketch(
     L.push('  else if (_slideshowFade8 < 255) for (int _i = 0; _i < NUM_LEDS; _i++) leds[_i].nscale8_video(_slideshowFade8);')
     L.push('')
   }
+  if (postFrame) L.push(postFrameCallCpp(postFrame, 'millis()'))
   if (multiOutput) {
     for (const route of routes) {
       const dest = `leds_${route.safeId}`

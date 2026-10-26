@@ -288,7 +288,11 @@ describe('what a show or player build cannot honour', () => {
   it('points a player build at Player Controls', () => {
     const { nodes, edges } = showGraph()
     const player = [master, ...nodes.slice(1), node('sd', 'SDCard'), node('amp', 'Amplifier')]
-    const { errors } = findOutputRuntimeIssues(player, edges)
+    // Enabled is read as a normal sketch reads it; LED On / Off is the
+    // player's own lamp, so that wire is the one it redirects.
+    expect(findOutputRuntimeIssues(player, edges).errors).toEqual([])
+    const toggled = edges.map((entry) => entry.id === 'ee' ? { ...entry, targetHandle: 'ledToggle' } : entry)
+    const { errors } = findOutputRuntimeIssues(player, toggled)
     expect(selectedGenerator(player, edges)).toBe('player')
     expect(errors.join(' ')).toContain('Player Controls')
   })

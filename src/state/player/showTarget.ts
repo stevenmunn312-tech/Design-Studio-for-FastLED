@@ -17,6 +17,7 @@
  */
 
 import { LED_OUTPUT_FORM_LABELS, outputForm } from '../output/ledOutputForm'
+import { engineFrameOutputs } from '../upload/buildMode'
 
 /** Minimal structural node, so codegen does not have to import the store. */
 export interface ShowTargetNode {
@@ -66,12 +67,8 @@ export function resolveShowTarget<T extends ShowTargetNode>(
       || node.data.nodeType === 'PerformanceGenerator'))
   if (!generator) return { target: null, reached: [], problem: 'unconnected' }
 
-  const reached = edges
-    .filter((edge) => edge.source === generator.id
-      && (edge.sourceHandle ?? '') === 'frame'
-      && (edge.targetHandle ?? '') === 'frame')
-    .map((edge) => nodes.find((node) => node.id === edge.target))
-    .filter((node): node is T => !!node && node.data.nodeType === 'MatrixOutput')
+  // Straight, or through the frame nodes the engine runs as its post-chain.
+  const reached = engineFrameOutputs(generator, nodes, edges)
 
   if (reached.length === 0) return { target: null, reached, problem: 'unconnected' }
   if (reached.length > 1) return { target: null, reached, problem: 'ambiguous' }

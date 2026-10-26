@@ -22,6 +22,7 @@ import { normalSketchSourceExpressions, type DisplaySourceExpressions, type LedS
 import { rtcDateTimeSymbol } from '../peripherals/rtcInputCpp'
 import { drivenOutputLedStatus, ledOutputManualExprs, ledOutputRuntimeExpressions } from '../output/ledOutputRuntimeCpp'
 import { templateBoardLink } from '../peripherals/boardLinkTemplate'
+import { engineFrameOutputs } from '../../state/upload/buildMode'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
 
@@ -41,14 +42,12 @@ export function showControlTargets(nodes: StudioNode[], edges: StudioEdge[], eng
   engineId: string | null
   outputIds: Set<string>
 } {
-  const outputs = new Set(nodes.filter((n) => n.data.nodeType === 'MatrixOutput').map((n) => n.id))
+  // Straight, or through the frame nodes the show runs as its post-chain.
   const show = nodes.find((n) => n.data.nodeType === 'PatternSlideshow'
-    && (!engineId || n.id === engineId) && edges.some((e) =>
-    e.source === n.id && e.sourceHandle === 'frame' && e.targetHandle === 'frame' && outputs.has(e.target)))
+    && (!engineId || n.id === engineId) && engineFrameOutputs(n, nodes, edges).length > 0)
   return {
     engineId: show?.id ?? null,
-    outputIds: new Set(edges.filter((e) => e.source === show?.id && e.sourceHandle === 'frame'
-      && e.targetHandle === 'frame' && outputs.has(e.target)).map((e) => e.target)),
+    outputIds: new Set(show ? engineFrameOutputs(show, nodes, edges).map((output) => output.id) : []),
   }
 }
 

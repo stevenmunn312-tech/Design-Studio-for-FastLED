@@ -8,6 +8,7 @@ import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
 import { micModuleFor, MIC_MODULES } from '../state/peripherals/micModules'
 import { isLinearForm, LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, type LedOutputForm } from '../state/output/ledOutputForm'
 import { renderScaleHalf } from '../state/output/renderScale'
+import { engineFrameOutputs } from '../state/upload/buildMode'
 
 export type HardwareValidationAction =
   | 'normal-upload'
@@ -271,7 +272,7 @@ function defaultAction(nodes: StudioNode[], edges: StudioEdge[]): HardwareValida
   // what this action exercises.
   const engine = nodes.find((node) =>
     nodeType(node) === 'PatternSlideshow' || nodeType(node) === 'PatternMaster')
-  if (engine && output && edges.some((edge) => edge.source === engine.id && edge.target === output.id && edge.targetHandle === 'frame')) {
+  if (engine && output && engineFrameOutputs(engine, nodes, edges).some((reached) => reached.id === output.id)) {
     return 'generative-show'
   }
   if (nodes.some((node) => nodeType(node) === 'MicInput')) return 'microphone'

@@ -37,8 +37,8 @@ beforeEach(() => {
 })
 
 describe('a wire the build cannot read', () => {
-  // A button wired into an LED output's Enabled on a Music Player build: the
-  // player owns its lamp, so that one wire is the whole problem.
+  // A button wired into an LED output's LED On / Off on a Music Player build:
+  // the player owns its lamp, so that one wire is the whole problem.
   beforeEach(() => {
     useGraphStore.getState().loadGraph([
       node('player', 'PatternMaster'),
@@ -48,7 +48,7 @@ describe('a wire the build cannot read', () => {
       node('amp', 'Amplifier'),
     ], [
       edge('f', 'player', 'frame', 'out', 'frame'),
-      edge('lamp', 'btn', 'pressed', 'out', 'enabled'),
+      edge('lamp', 'btn', 'pressed', 'out', 'ledToggle'),
     ], { activeGraphId: ROOT_GRAPH_ID, graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } } })
   })
 

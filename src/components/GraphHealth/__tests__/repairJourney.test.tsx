@@ -76,7 +76,7 @@ describe('repair journey: touch Controls on an LED output, on a Music Player bui
     // 1. Upload is blocked, and says where to look.
     const blocked = uploadSays()
     expect(blocked?.action).toEqual({ kind: 'show-graph-health' })
-    expect(blockers().some((message) => /cannot read Enabled, Brightness, Controls/.test(message))).toBe(true)
+    expect(blockers().some((message) => /cannot read (?:Enabled, Brightness, )?Controls/.test(message))).toBe(true)
 
     // 2. Graph Health has the card, pointing at the one wire.
     const { getByText, queryByText } = render(<GraphHealthDrawer />)
@@ -92,7 +92,7 @@ describe('repair journey: touch Controls on an LED output, on a Music Player bui
     expect(useUiStore.getState().locatedEdgeIds).toEqual([])
 
     // 4. Back on Upload, with no reload: nothing in the graph is in the way.
-    expect(blockers().filter((message) => /cannot read Enabled, Brightness, Controls/.test(message))).toEqual([])
+    expect(blockers().filter((message) => /cannot read (?:Enabled, Brightness, )?Controls/.test(message))).toEqual([])
     expect(queryByText('Output firmware cannot honour these controls')).toBeNull()
     // Nothing at all is left in the way: the fixture is otherwise a clean build.
     expect(blockers()).toEqual([])
@@ -102,19 +102,20 @@ describe('repair journey: touch Controls on an LED output, on a Music Player bui
     vi.advanceTimersByTime(1000)
     useGraphStore.temporal.getState().undo()
     expect(useGraphStore.getState().edges.find((entry) => entry.id === 'lamp')?.target).toBe('out')
-    expect(blockers().some((message) => /cannot read Enabled, Brightness, Controls/.test(message))).toBe(true)
+    expect(blockers().some((message) => /cannot read (?:Enabled, Brightness, )?Controls/.test(message))).toBe(true)
     useGraphStore.temporal.getState().redo()
-    expect(blockers().some((message) => /cannot read Enabled, Brightness, Controls/.test(message))).toBe(false)
+    expect(blockers().some((message) => /cannot read (?:Enabled, Brightness, )?Controls/.test(message))).toBe(false)
   })
 
-  it('leaves a wire into Enabled to the author, since it needs a mapping only they can choose', () => {
+  // The player applies the output's own Enabled and Brightness wires, as a
+  // normal sketch does, so a switch there is a build rather than a card.
+  it('honours a wire into the driven output Enabled', () => {
     useGraphStore.setState((s) => ({
-      nodes: [...s.nodes, node('btn', 'ButtonInput', { pin: 4 })],
+      nodes: [...s.nodes, node('btn', 'ButtonInput', { pin: 33 })],
       edges: [...s.edges.filter((entry) => entry.id !== 'lamp'), edge('press', 'btn', 'pressed', 'out', 'enabled')],
     }))
-    const { getByText } = render(<GraphHealthDrawer />)
-    const card = getByText('Output firmware cannot honour these controls').closest('article')!
-    expect(within(card).queryByRole('button', { name: 'Move the wire' })).toBeNull()
-    expect(within(card).getByRole('button', { name: 'Show the wire' })).toBeTruthy()
+    const { queryByText } = render(<GraphHealthDrawer />)
+    expect(queryByText('Output firmware cannot honour these controls')).toBeNull()
+    expect(blockers()).toEqual([])
   })
 })

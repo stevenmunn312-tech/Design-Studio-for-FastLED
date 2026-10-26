@@ -116,18 +116,40 @@ export function describeBuildMode(
   }
 }
 
-function frameOutputs<T extends BuildModeNode>(
+const ENGINE_NODE_TYPES: ReadonlySet<string> = new Set(['PatternMaster', 'PerformanceGenerator', 'PatternSlideshow'])
+
+/**
+ * The LED outputs a source's frame reaches: straight, or through frame nodes
+ * such as a Brightness or a Blur, which an engine build compiles as its
+ * post-chain (codegen/enginePostChain.ts). Every frame output in the library
+ * is named `frame`, which is all this structural module reads. Another engine
+ * on the way is a different build, not a route.
+ */
+export function engineFrameOutputs<T extends BuildModeNode>(
   source: T,
-  nodes: T[],
-  edges: BuildModeEdge[],
+  nodes: readonly T[],
+  edges: readonly BuildModeEdge[],
 ): T[] {
   const byId = new Map(nodes.map((node) => [node.id, node]))
-  return edges
-    .filter((edge) => edge.source === source.id
-      && (edge.sourceHandle ?? '') === 'frame'
-      && (edge.targetHandle ?? '') === 'frame')
-    .map((edge) => byId.get(edge.target))
-    .filter((node): node is T => !!node && node.data.nodeType === 'MatrixOutput')
+  const reached = new Map<string, T>()
+  const seen = new Set([source.id])
+  const queue = [source.id]
+  while (queue.length) {
+    const id = queue.shift()!
+    for (const edge of edges) {
+      if (edge.source !== id || (edge.sourceHandle ?? '') !== 'frame' || seen.has(edge.target)) continue
+      const target = byId.get(edge.target)
+      if (!target) continue
+      if (target.data.nodeType === 'MatrixOutput') {
+        if ((edge.targetHandle ?? '') === 'frame') reached.set(target.id, target)
+        continue
+      }
+      if (ENGINE_NODE_TYPES.has(target.data.nodeType)) continue
+      seen.add(target.id)
+      queue.push(target.id)
+    }
+  }
+  return [...reached.values()]
 }
 
 function hasPatternCollection<T extends BuildModeNode>(
@@ -221,29 +243,29 @@ export function resolveBuildMode<T extends BuildModeNode>(
   const sendsOverLink = nodes.some((node) => node.data.nodeType === BUILD_MODE_LINK_OUT_TYPE)
 
   const musicPlayers = nodes.filter((node) => node.data.nodeType === 'PatternMaster')
-  const connectedMusicPlayer = musicPlayers.find((node) => frameOutputs(node, nodes, edges).length > 0)
+  const connectedMusicPlayer = musicPlayers.find((node) => engineFrameOutputs(node, nodes, edges).length > 0)
   const musicPlayer = connectedMusicPlayer ?? (hasStandaloneVu ? musicPlayers[0] : undefined)
   if (hasCard && hasAmplifier && musicPlayer) {
-    const reached = frameOutputs(musicPlayer, nodes, edges)
+    const reached = engineFrameOutputs(musicPlayer, nodes, edges)
     return resolution('player', 'music-player', musicPlayer, reached,
       hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink)
   }
 
   const performance = nodes
     .filter((node) => node.data.nodeType === 'PerformanceGenerator')
-    .find((node) => frameOutputs(node, nodes, edges).length > 0)
+    .find((node) => engineFrameOutputs(node, nodes, edges).length > 0)
   if (hasCard && performance) {
     return resolution('player', 'performance-show', performance,
-      frameOutputs(performance, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink)
+      engineFrameOutputs(performance, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink)
   }
 
   const slideshow = nodes
     .filter((node) => node.data.nodeType === 'PatternSlideshow')
-    .find((node) => frameOutputs(node, nodes, edges).length > 0
+    .find((node) => engineFrameOutputs(node, nodes, edges).length > 0
       && hasPatternCollection(node, nodes, edges))
   if (slideshow) {
     return resolution('show', 'pattern-slideshow', slideshow,
-      frameOutputs(slideshow, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink)
+      engineFrameOutputs(slideshow, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink)
   }
 
   return resolution('sketch', 'graph', null, [], hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink)

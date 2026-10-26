@@ -12,7 +12,8 @@ import { expandGroups } from '../../state/expandGroups'
 import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
 import { beatDetectThreshold } from '../../audio/beatDetection'
 import { nativeBeatGateCpp } from '../audio/nativeBeatGateCpp'
-import { floatLit } from '../cppLiterals'
+import { floatLit, safeId } from '../cppLiterals'
+import { enginePostChain, routePostChain } from '../enginePostChain'
 
 /**
  * One player, one cursor, one collection.
@@ -82,23 +83,40 @@ export function playerControlGraph(
     .map((node) => node.id))
   sources.push(...[...decoderBeats].map((nodeId): ControlReference => ({ nodeId, port: 'beat', type: 'bool' })))
   const drivenOutput = master ? resolveShowTarget(nodes, edges, master.id).target : null
+  // Frame nodes between the player and its LEDs: their number inputs are read
+  // here, with the rest of the player's controls.
+  const postChain = enginePostChain(nodes, edges, master?.id)
+  // The LED output's own Enabled and Brightness, wired: read with the other
+  // controls and applied to the strip as a normal sketch applies them.
+  const outputScalars = drivenOutput
+    ? (['enabled', 'brightness'] as const)
+      .filter((port) => edges.some((edge) => edge.target === drivenOutput.id && edge.targetHandle === port))
+      .map((port) => ({ nodeId: drivenOutput.id, port, type: port === 'enabled' ? 'bool' as const : 'float' as const }))
+    : []
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'an SD player', widgetLabel: 'the SD player',
     destinationIds: new Set(master ? [master.id] : []), sampledSources: sources,
     scalarInputs: master?.data.nodeType === 'PatternMaster' ? [
       ...(master.data.properties.beatTransitions === true ? [{ nodeId: master.id, port: 'beat', type: 'bool' as const }] : []),
       ...['minTime', 'maxTime', 'transitionSec'].map((port) => ({ nodeId: master.id, port, type: 'float' as const })),
-    ] : [],
+      ...(postChain?.inputs ?? []),
+      ...outputScalars,
+    ] : [...(postChain?.inputs ?? []), ...outputScalars],
     sourceExpressions: PLAYER_SOURCE_EXPRESSIONS,
     // The player applies the output's own fields and refuses direct wires, so
     // status does not latch and does not fold in the player's master brightness.
     ledStatus: { drivenIds: new Set(drivenOutput ? [drivenOutput.id] : []), latch: false },
   })
   routing.errors.push(...expanded.errors)
-  const outputRuntimePorts = ['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown']
+  const post = routePostChain(postChain, nodes, edges, routing.scalarInputs, routing.errors)
+  // Enabled and Brightness on the output the player drives are read above.
+  // Its Controls and LED actions would latch a second lamp beside the
+  // player's own, so they go to the player instead.
+  const outputRuntimePorts = ['controls', 'ledToggle', 'brightnessUp', 'brightnessDown']
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {
-    if (edges.some((edge) => edge.target === output.id && outputRuntimePorts.includes(edge.targetHandle ?? ''))) {
-      routing.errors.push(`${output.data.label || output.id}: an SD player build cannot read Enabled, Brightness, Controls or LED actions wired to the LED output. `
+    const ports = output.id === drivenOutput?.id ? outputRuntimePorts : ['enabled', 'brightness', ...outputRuntimePorts]
+    if (edges.some((edge) => edge.target === output.id && ports.includes(edge.targetHandle ?? ''))) {
+      routing.errors.push(`${output.data.label || output.id}: an SD player build cannot read ${output.id === drivenOutput?.id ? 'Controls or LED actions' : 'Enabled, Brightness, Controls or LED actions'} wired to ${output.id === drivenOutput?.id ? 'the LED output' : 'an LED output it does not drive'}. `
         + `Route lighting through ${master?.data.nodeType === 'PerformanceGenerator' ? 'Performance Generator' : 'Music Player'} instead; use Player Controls for continuous brightness or a named direct action where one exists.`)
     }
   }
@@ -128,7 +146,12 @@ export function playerControlGraph(
   const bundle = master ? routing.bundles.get(master.id) : undefined
   const hasPatternControls = routing.controls.some((control) => control.patternPositionExpr
     || control.buttons.some((button) => button.port.startsWith('pattern')))
-  return { ...routing, sample, bundle, hasPatternControls, hasSongSources: usedSources.length > 0,
+  const outputRuntime = drivenOutput ? {
+    id: safeId(drivenOutput.id),
+    enabledExpr: routing.scalarInputs.get(`${drivenOutput.id}:enabled`) ?? null,
+    brightnessExpr: routing.scalarInputs.get(`${drivenOutput.id}:brightness`) ?? null,
+  } : null
+  return { ...routing, sample, bundle, hasPatternControls, hasSongSources: usedSources.length > 0, post, outputRuntime,
     usesDecoderBeat: usedDecoderBeats.length > 0,
     timingInputs: Object.fromEntries(['beat', 'minTime', 'maxTime', 'transitionSec'].map((port) =>
       [port, routing.scalarInputs.get(`${master?.id}:${port}`)])),

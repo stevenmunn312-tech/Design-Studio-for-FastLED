@@ -37,7 +37,7 @@ import { displayTextCppHelpers } from './displays/displayTextCpp'
 //     Pattern Collection via showGenerator.buildPatternRenderers). Each
 //     SET_PATTERN index then dispatches to a `render_pN()` function.
 
-import { roleSig, type PatternRenderers } from './showGenerator'
+import { buildPostFrame, postFrameCallCpp, roleSig, type PatternRenderers } from './showGenerator'
 import { asSlideshowOrder, type PatternSlideshowOrder } from '../state/patterns/patternSlideshow'
 import { PALETTE_IDS, STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/palettes/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
@@ -612,6 +612,11 @@ export function generatePlayerSketch(
     graphRouting?.timingInputs[port] ?? `${patternTiming[port].toFixed(4)}f`
   if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
   const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
+  // Frame nodes between the engine and its LEDs, compiled as the collected
+  // patterns are and run on the finished canvas (codegen/enginePostChain.ts).
+  const postFrame = graphRouting?.post
+    ? buildPostFrame(graphRouting.post.chain, graphRouting.post.nodes, graphRouting.post.edges, {}, graphRouting.post.args, true, true)
+    : null
   // The board link, when this board sends a value or reads one over ESP-NOW.
   // It rides Wi-Fi only where the control graph brings the connection up. A
   // wired link is started from setup (its one setup line) and leaves the
@@ -625,6 +630,7 @@ export function generatePlayerSketch(
   }) : null
   const consumerCode = cppCode([
     ...(renderers?.helpers ?? []), ...(renderers?.functions ?? []),
+    ...(postFrame ? [...postFrame.helpers, postFrame.fn] : []),
     ...(compiledGraph?.helpers ?? []), ...(compiledGraph?.loop ?? []),
   ].join('\n'))
   const needsStereoLevels = hasStereoVu || /\b_audio(?:Left|Right)Level\b/.test(consumerCode)
@@ -840,6 +846,27 @@ export function generatePlayerSketch(
           .filter((h) => !graphShared.has(h) && !transitionSupport.includes(h))
           .flatMap((h) => [h, '']),
         ...renderers!.functions.flatMap((fn) => [fn, '']),
+      ].join('\n')
+    : ''
+  // A helper the patterns already declare is declared once.
+  // The LED output's wired Enabled and Brightness, on the array the strip
+  // shows, as a normal sketch applies them (ledOutputRuntimeCpp).
+  const outputRuntime = graphRouting?.outputRuntime
+  const outputRuntimeLines = outputRuntime && c.hasPrimaryLedOutput
+    ? ledOutputRuntimeCpp({
+        id: outputRuntime.id, array: isHub75 ? 'leds' : physical.array, count: isHub75 ? 'NUM_LEDS' : physical.count,
+        enabledExpr: outputRuntime.enabledExpr, brightnessExpr: outputRuntime.brightnessExpr,
+      }).map((line) => line + '\n').join('')
+    : ''
+  const postDecls = postFrame
+    ? [
+        '',
+        ...postFrame.buffers.map(playerBufferDecl),
+        ...postFrame.helpers
+          .filter((h) => !graphShared.has(h) && !(collection && renderers!.helpers.includes(h)) && !transitionSupport.includes(h))
+          .flatMap((h) => [h, '']),
+        postFrame.fn,
+        '',
       ].join('\n')
     : ''
 
@@ -1666,7 +1693,7 @@ ${paletteFromIdCases}
 ` : ''}
 ${transitionHelper}
 // ── Pattern renderers ─────────────────────────────────────────────────────────
-${patternDecls}${entryOn ? `${playerEntryClockCpp(entryFlags)}\n` : ''}${renderPatternFn}
+${patternDecls}${postDecls}${entryOn ? `${playerEntryClockCpp(entryFlags)}\n` : ''}${renderPatternFn}
 
 // ── Show file loader ──────────────────────────────────────────────────────────
 ${!genericPlayer ? `bool loadShowFile(const char* path) {
@@ -2826,7 +2853,7 @@ ${transitions ? `    float patternFade = tp < 1.0f
     }
   }
 ` : ''}
-${physicalCopyLines.map((line) => line + '\n').join('')}
+${postFrame ? postFrameCallCpp(postFrame, 'millis()') + '\n' : ''}${physicalCopyLines.map((line) => line + '\n').join('')}${outputRuntimeLines}
 ${stereoVuMeters.map(stereoVuLoopCpp).join('\n')}
   ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : ''}
   ${!isHub75 || hasStereoVu ? 'FastLED.show();' : ''}

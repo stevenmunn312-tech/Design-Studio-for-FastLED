@@ -18,6 +18,12 @@ export const GRAPH_EMITTERS: NodeEmitters = {
     else if (role === 'palette') ln(`  CRGBPalette16 pal_${id} = palette;`)
     else ln(`  float ${v('out')} = ${opts.groupInputExprs?.[role] ?? role};`)
   },
+  // The engine's finished canvas, as the first frame of its post-chain
+  // (codegen/enginePostChain.ts). Copied, so the chain can write `leds` back.
+  EngineFrame({ ln, ownBuf }) {
+    // Global: FastLED's own memcpy overload makes the bare call ambiguous.
+    ln(`  ::memcpy(${ownBuf()}, leds, sizeof(CRGB) * NUM_LEDS);`)
+  },
   Comment() {
     // Canvas-only annotation — no ports, nothing to emit.
   },

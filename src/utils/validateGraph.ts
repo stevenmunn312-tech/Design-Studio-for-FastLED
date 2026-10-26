@@ -61,7 +61,7 @@ import {
   normalSketchSourceExpressions, resolveBoundWidgets, unresolvedBindingIssue, PROBE_CLOCK_EXPR, linkedDisplayFieldsOf,
   PROBE_LED_STATUS,
 } from '../codegen/displays/displaySourceExpressions'
-import { resolveBuildMode } from '../state/upload/buildMode'
+import { engineFrameOutputs, resolveBuildMode } from '../state/upload/buildMode'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
@@ -2466,11 +2466,8 @@ interface ShowEngineIssue {
  */
 function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineIssue[] {
   const issues: ShowEngineIssue[] = []
-  const reachesOutput = (node: StudioNode): boolean => edges.some((edge) =>
-    edge.source === node.id
-    && (edge.sourceHandle ?? '') === 'frame'
-    && (edge.targetHandle ?? '') === 'frame'
-    && nodes.some((target) => target.id === edge.target && target.data.nodeType === 'MatrixOutput'))
+  // Straight, or through frame nodes the engine runs as its post-chain.
+  const reachesOutput = (node: StudioNode): boolean => engineFrameOutputs(node, nodes, edges).length > 0
 
   for (const master of nodes.filter((node) => node.data.nodeType === 'PatternMaster')) {
     if (!reachesOutput(master)) continue

@@ -320,6 +320,24 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Shows, collections and transitions
 
+- **Frame nodes after an engine are its post-chain.** A Music Player,
+  Performance Generator or Pattern Slideshow may reach its LED output through
+  Brightness, Blur, Blend and other frame nodes. `engineFrameOutputs`
+  (`src/state/upload/buildMode.ts`) is the one reach rule: build mode, show
+  target, slideshow routing and validation all ask it, so never test for a
+  direct `frame` wire. `enginePostChain` (`src/codegen/enginePostChain.ts`)
+  collects the chain; its number and switch inputs are resolved by the
+  engine's control routing as `scalarInputs` and passed in, and a remote,
+  link or touch source reaching it any other way is an error. `buildPostFrame`
+  compiles it with `buildPattern` into `postFrame()`, unpooled, behind an
+  `EngineFrame` that copies `leds` (`::memcpy`, since FastLED overloads
+  `memcpy`). It runs after the engine composites and before the strip copy.
+  A slideshow driving several outputs refuses a chain, since the canvas is
+  shared.
+- **A player applies its output's wired Enabled and Brightness** through
+  `ledOutputRuntimeCpp`, as a normal sketch does. The output's Controls and LED
+  actions still go to the player's own lamp (`routeControlsToEngine`).
+
 - Pattern Slideshow (`PatternSlideshow` node type,
   `src/state/patterns/patternSlideshow.ts`) is the show engine for a collection with no
   music: `slideshowSettings` resolves its

@@ -2326,7 +2326,7 @@ describe('diagnostic wording', () => {
     const nodes = [player, out, button, libraryNode('sd', 'SDCard', {}), libraryNode('amp', 'Amplifier', {})]
     const edges = [
       { id: 'f', source: 'master', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-      { id: 'b', source: 'btn', sourceHandle: 'pressed', target: 'out', targetHandle: 'enabled' },
+      { id: 'b', source: 'btn', sourceHandle: 'pressed', target: 'out', targetHandle: 'ledToggle' },
     ] as unknown as StudioEdge[]
     const found = buildGraphDiagnostics(nodes, edges).find((d) => d.title === 'Output firmware cannot honour these controls')
     expect(found).toBeTruthy()

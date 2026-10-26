@@ -2,6 +2,8 @@ import type { GroupRegistry } from '../../state/evaluator/types'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { templateControlRouting, showControlTargets } from '../displays/templateControlRouting'
+import { expandGroups } from '../../state/expandGroups'
+import { enginePostChain, routePostChain } from '../enginePostChain'
 import { selectionSourceExpressions } from '../displays/displaySourceExpressions'
 export { controlBundleVariable, showControlOutputIds, showControlTargets } from '../displays/templateControlRouting'
 
@@ -54,6 +56,10 @@ export function showControlRouting(
 ) {
   const targets = showControlTargets(nodes, edges, engineId)
   const speedNode = nodes.find((node) => node.data.nodeType === 'MasterSpeed')
+  // Frame nodes between the slideshow and its LEDs, on the graph the routing
+  // walks, so their number inputs are read with the show's other controls.
+  const expanded = expandGroups(nodes, edges, groups)
+  const postChain = enginePostChain(expanded.nodes, expanded.edges, targets.engineId)
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'a generated show controller', widgetLabel: 'the show',
     destinationIds: new Set([
@@ -61,12 +67,23 @@ export function showControlRouting(
       ...(targets.engineId ? [targets.engineId] : []),
     ]),
     scalarOutputIds: targets.outputIds,
-    scalarInputs: speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' }] : [],
+    scalarInputs: [
+      ...(speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' as const }] : []),
+      ...(postChain?.inputs ?? []),
+    ],
     sourceExpressions: SHOW_SOURCE_EXPRESSIONS,
     ledStatus: { drivenIds: targets.outputIds, latch: true },
   }, groups)
+  const post = routePostChain(postChain, expanded.nodes, expanded.edges, routing.scalarInputs, routing.errors)
+  // The chain runs on the one canvas every output is cut from, so it would
+  // reach outputs it is not wired to.
+  if (post && targets.outputIds.size > 1) {
+    routing.errors.push('Frame nodes after the Pattern Slideshow change its whole canvas, so with more than one LED output they would reach outputs they are not wired to. '
+      + 'Wire the slideshow straight to its outputs, or drive one output.')
+  }
   return {
     ...routing,
+    post,
     /** LED outputs with a bundle, keyed by output id. */
     outputs: new Map([...routing.bundles].filter(([id]) => targets.outputIds.has(id))),
     /** The bundle carrying pattern intent into the show's cursor, if wired. */
