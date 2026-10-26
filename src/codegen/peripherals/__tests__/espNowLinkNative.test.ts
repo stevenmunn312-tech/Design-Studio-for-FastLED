@@ -302,7 +302,7 @@ describe.skipIf(!nativeGpp && !wslGpp)('board link frame fairness on the host', 
     const count = 60
     const table = Array.from({ length: count }, (_, index) => ({ index, kind: 'float' as const }))
     const plan: BoardLinkPlan = {
-      context: { hash: 0x01020304, linkId: LINK_ID, channel: 1, boardOrder: ['board-root', 'board-2'], frames: { 'board-2': table } },
+      context: { hash: 0x01020304, linkId: LINK_ID, channel: 1, boardOrder: ['board-root', 'board-2'], frames: { 'board-2': table }, wifiByBoard: {} },
       self: 1, receivers: [], linkIns: [], linkOuts: [], table,
     }
     const sends = table.map(({ index }) => ({ index, kind: 'float' as const, expr: `v[${index}]`, label: `v${index}`, at: index }))

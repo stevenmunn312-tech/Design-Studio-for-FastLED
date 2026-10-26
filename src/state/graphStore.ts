@@ -129,7 +129,6 @@ import {
   patchWebRemoteControl,
   WEB_REMOTE_NODE_TYPE,
   webRemoteControlKind,
-  webRemoteQuantize,
   webRemoteControlDataType,
   webRemoteOutputs,
   webRemotePortId,
