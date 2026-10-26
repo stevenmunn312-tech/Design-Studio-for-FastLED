@@ -39,13 +39,15 @@ for (const expected of [
   'digitalWrite(16, LOW);',
   'pinMode(16, OUTPUT);',
   'digitalWrite(5, n_btn_pressed ? HIGH : LOW);',
-  'digitalWrite(16, false ? HIGH : LOW);',
 ]) {
   if (!source.includes(expected)) throw new Error(`ssr: missing ${expected}`)
 }
 const idle5 = source.indexOf('digitalWrite(5, LOW);')
 const mode5 = source.indexOf('pinMode(5, OUTPUT);')
 if (idle5 < 0 || mode5 < idle5) throw new Error('ssr: GPIO 5 is not held low before it becomes an output')
+if (source.slice(source.indexOf('void loop()')).indexOf('digitalWrite(16, LOW);') < 0) {
+  throw new Error('ssr: unwired channel 2 is not held low in loop')
+}
 if (source.includes('pinMode(17, OUTPUT);')) throw new Error('ssr: a third channel was emitted')
 
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/ssr-fixtures')

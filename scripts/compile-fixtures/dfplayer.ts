@@ -21,15 +21,23 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 const edge = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string) =>
   ({ id, source, sourceHandle, target, targetHandle }) as StudioEdge
 
+// Playing gates the LED output, so BUSY has a reader and is not pruned.
+function output(): StudioNode {
+  const result = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })
+  result.data.exposedInputs = ['enabled']
+  return result
+}
+
 const source = generateCpp([
   node('button', 'ButtonInput', { pin: 4 }),
   node('player', 'DFPlayerOutput', {
     partId: 'dfplayer-mini', uartRxPin: 16, uartTxPin: 17, busyPin: 27, track: 1, volume: 0.7,
   }),
   node('color', 'SolidColor', { r: 20, g: 40, b: 90 }),
-  node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+  output(),
 ], [
   edge('play', 'button', 'pressed', 'player', 'play'),
+  edge('playing', 'player', 'playing', 'out', 'enabled'),
   edge('frame', 'color', 'frame', 'out', 'frame'),
 ])
 

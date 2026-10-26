@@ -35,10 +35,13 @@ const driver = generateCpp([
 
 const fixtures = { driver }
 for (const [name, source] of Object.entries(fixtures)) {
-  const writes = source.match(/digitalWrite\(\d+, [^;]+ \? HIGH : LOW\);/g)?.length ?? 0
+  // Channels 1 and 8 follow the button; the six unwired ones fold to a held LOW.
+  const loop = source.slice(source.indexOf('void loop()'))
+  const writes = loop.match(/digitalWrite\(\d+, n_btn_pressed \? HIGH : LOW\);/g)?.length ?? 0
+  const held = loop.match(/digitalWrite\(\d+, LOW\);/g)?.length ?? 0
   const modes = source.match(/pinMode\(\d+, OUTPUT\);/g)?.length ?? 0
-  if (writes !== 8 || modes !== 8) {
-    throw new Error(`${name}: expected eight channel writes and output modes, found ${writes}/${modes}`)
+  if (writes !== 2 || held !== 6 || modes !== 8) {
+    throw new Error(`${name}: expected 2 wired and 6 held channel writes and 8 output modes, found ${writes}/${held}/${modes}`)
   }
 }
 

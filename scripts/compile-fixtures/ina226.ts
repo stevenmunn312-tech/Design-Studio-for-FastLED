@@ -56,12 +56,13 @@ const fixtures = {
 
 for (const [name, source] of Object.entries(fixtures)) {
   const count = (pattern: RegExp) => source.match(pattern)?.length ?? 0
-  const found = [
-    count(/static void _ina226Measure\(/g), count(/static void _ina219Measure\(/g), count(/Wire\.begin\(/g),
-  ]
-  const expected = name.startsWith('both') ? [1, 1, 1] : [1, 0, 1]
+  const debug = name.endsWith('-debug')
+  const found = debug
+    ? [count(/static void _powerMonitorDebugMeasure\(/g), count(/_powerMonitorDebugMeasure\(0x\w+, (true|false),/g), count(/Wire\.begin\(/g)]
+    : [count(/static void _ina226Measure\(/g), count(/static void _ina219Measure\(/g), count(/Wire\.begin\(/g)]
+  const expected = debug ? [1, 2, 1] : name.startsWith('both') ? [1, 1, 1] : [1, 0, 1]
   if (found.join() !== expected.join()) {
-    throw new Error(`${name}: expected INA226/INA219 helpers and bus starts ${expected}, found ${found}`)
+    throw new Error(`${name}: expected measuring helpers, calls and bus starts ${expected}, found ${found}`)
   }
   // The chips are driven through their registers over Wire: no library may be included.
   if (/#include <(INA226|INA219|Adafruit_INA219)/.test(source)) throw new Error(`${name}: unexpected library include`)

@@ -77,8 +77,8 @@ const slideshow = generateShowSketch([
 const fixtures = { normal: normalGraph(sr1230()), slideshow, module: normalGraph(encoderModule()) }
 for (const [name, source] of Object.entries(fixtures)) {
   const pullups = ['13', '14', '16'].filter((pin) => source.includes(`pinMode(${pin}, INPUT_PULLUP);`)).length
-  const scaled = source.includes('_encPos_enc+=_encTbl_enc[(_encLast_enc<<2)|_s] * 2;')
-  const plain = source.includes('_encPos_enc+=_encTbl_enc[(_encLast_enc<<2)|_s];')
+  const scaled = source.includes('_encPos_enc+=_d * 2;')
+  const plain = source.includes('_encPos_enc+=_d;')
   const bare = name !== 'module'
   if (pullups !== 3 || scaled !== bare || plain === bare) {
     throw new Error(`${name}: expected 3 pull-ups and ${bare ? 'scaled' : 'plain'} counting, found ${pullups}/${scaled}/${plain}`)

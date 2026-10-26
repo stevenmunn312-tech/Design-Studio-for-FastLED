@@ -106,8 +106,8 @@ const phase2Edges = [
 ]
 const phase2 = generateCpp(phase2Nodes, phase2Edges)
 for (const marker of [
-  '/* FrameWarp: wrap, bilinear */', '_sampleFrame(buf_noise,_sx,_sy,1,true)',
-  'float field_dx[NUM_LEDS];', 'float field_dy[NUM_LEDS];', '// FrameFeedback: 2-frame recursive ring buffer',
+  '/* FrameWarp: wrap, bilinear */', '_sampleFrame(buf_noise, _sx, _sy)',
+  'field_dx[_y*WIDTH+_x]=', 'field_dy[_y*WIDTH+_x]=', '// FrameFeedback: 2-frame recursive ring buffer',
 ]) {
   if (!phase2.includes(marker)) throw new Error(`Phase 2 fixture is missing ${marker}`)
 }
@@ -134,20 +134,17 @@ const phase3Edges = [
 ]
 const phase3 = generateCpp(phase3Nodes, phase3Edges)
 for (const marker of [
-  '/* FieldSymmetry: p4m */', '/* Symmetry: p6m */', '_squareCell(', '_hexCell(',
-  '_foldWallpaper(_cell.x,_cell.y,5,_foldX,_foldY)', '_foldWallpaper(_cell.x,_cell.y,8,_foldX,_foldY)',
-  '_sampleFrame(buf_color,_sx,_sy,0,true)',
+  '/* FieldSymmetry: p4m */', '/* Symmetry: p6m */',
+  '_latticeCellQ12(rx, ry, true,', '_latticeCellQ12(rx, ry, false,',
+  '_wallpaperSourceQ8(_x,_y,5,', '_wallpaperSourceQ8(_x,_y,8,',
 ]) {
   if (!phase3.includes(marker)) throw new Error(`Phase 3 fixture is missing ${marker}`)
 }
-if ((phase3.match(/static inline void _foldWallpaper/g)?.length ?? 0) !== 1) {
+if ((phase3.match(/static void _wallpaperSourceQ8\(/g)?.length ?? 0) !== 1) {
   throw new Error('Phase 3 fixture must emit the shared symmetry helper exactly once')
 }
-if ((phase3.match(/static inline _LatticeCell _squareCell/g)?.length ?? 0) !== 1) {
+if ((phase3.match(/static void _latticeCellQ12\(/g)?.length ?? 0) !== 1) {
   throw new Error('Phase 3 fixture must emit the shared lattice helper exactly once')
-}
-if ((phase3.match(/static inline CRGB _sampleFrame\(/g)?.length ?? 0) !== 1) {
-  throw new Error('Phase 3 fixture must emit the shared frame sampler exactly once')
 }
 
 const phase4Nodes = [
@@ -172,14 +169,14 @@ const phase4Edges = [
 const phase4 = generateCpp(phase4Nodes, phase4Edges)
 for (const marker of [
   '/* Truchet: square, diagonals */', '/* Truchet: hex, hexArcs */',
-  '_truchetDistance(0,1,', '_truchetDistance(1,3,', '_latticeHashBits(', '_truchetLine(',
+  '_truchetDistanceQ12(0,1,', '_truchetDistanceQ12(1,3,', '_truchetLineQ16(',
 ]) {
   if (!phase4.includes(marker)) throw new Error(`Phase 4 fixture is missing ${marker}`)
 }
-if ((phase4.match(/static inline float _truchetDistance/g)?.length ?? 0) !== 1) {
+if ((phase4.match(/static int32_t _truchetDistanceQ12\(/g)?.length ?? 0) !== 1) {
   throw new Error('Phase 4 fixture must emit the shared Truchet helper exactly once')
 }
-if ((phase4.match(/static inline _LatticeCell _squareCell/g)?.length ?? 0) !== 1) {
+if ((phase4.match(/static void _latticeCellQ12\(/g)?.length ?? 0) !== 1) {
   throw new Error('Phase 4 fixture must emit the shared lattice helper exactly once')
 }
 
@@ -244,7 +241,7 @@ function phase6Sketch(maxHarmonics: number): string {
   const sketch = generateCpp(nodes, edges)
   for (const marker of [
     `/* Fourier Epicycles: star, ${maxHarmonics} terms */`, `/* Fourier Epicycles: custom, ${maxHarmonics} terms */`,
-    `static const float _fe_star[${maxHarmonics}][3] PROGMEM`, '_fePen(_fe_custom,', ',0,WIDTH,HEIGHT,_col,&_penX,&_penY);',
+    `static const uint16_t _fe_star[${maxHarmonics}][3] PROGMEM`, '_fePen(_fe_custom,', ',0,WIDTH,HEIGHT,_col,&_penX,&_penY);',
     '_feTrail(_fe_startrail,',
   ]) {
     if (!sketch.includes(marker)) throw new Error(`Phase 6 fixture (${maxHarmonics}) is missing ${marker}`)
@@ -290,7 +287,7 @@ function bundledSketch(name: string, markers: string[]): string {
   return sketch
 }
 const phase7Rosette = bundledSketch('Breathing Rosette', ['/* SliceTiling:', 'float field_slices[NUM_LEDS];'])
-const phase7Mirage = bundledSketch('Liquid Mirage', ['/* FrameWarp: wrap, bilinear */', '// FrameFeedback:', 'float field_dx[NUM_LEDS];'])
+const phase7Mirage = bundledSketch('Liquid Mirage', ['/* FrameWarp: wrap, bilinear */', '// FrameFeedback:', 'field_dx[_y*WIDTH+_x]='])
 const phase7Maze = bundledSketch('Truchet Beat Maze', ['/* Truchet: square, tenPrint */', 'fl::audio::Processor'])
 
 // Phase 8 wires one detector per graph to a real INMP441 engine. The Vibe
@@ -314,6 +311,7 @@ function phase8VibeSketch(profileId: string): string {
     edge('level-dim', 'level', 'result', 'dim', 'brightness'),
     edge('plasma-dim', 'plasma', 'frame', 'dim', 'frame'),
     edge('spike-count', 'vibe', 'trebleSpike', 'spikes', 'trigger'),
+    edge('spike-speed', 'spikes', 'result', 'plasma', 'speed'),
     edge('dim-out', 'dim', 'frame', 'out', 'frame'),
   ]
   const sketch = generateCpp(nodes, edges)
@@ -380,10 +378,14 @@ function phase8PitchSketch(profileId: string): string {
     node('plasma', 'Plasma', { speed: 0.3 }),
     node('dim', 'BrightnessMod'),
     node('notes', 'Envelope'),
+    node('hz', 'MapRange', { inMin: 50, inMax: 2000, outMin: 0.05, outMax: 1, clamp: true }),
     node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
   ]
   const edges = [
     edge('audio-pitch', 'audio', 'audio', 'pitch', 'audio'),
+    edge('pitch-hz', 'pitch', 'hz', 'hz', 'value'),
+    edge('hz-decay', 'hz', 'result', 'notes', 'decay'),
+    edge('note-speed', 'notes', 'result', 'plasma', 'speed'),
     edge('pitch-level', 'pitch', 'confidence', 'level', 'value'),
     edge('level-dim', 'level', 'result', 'dim', 'brightness'),
     edge('plasma-dim', 'plasma', 'frame', 'dim', 'frame'),
@@ -704,7 +706,7 @@ const phase10Matrix = (() => {
   const last = blendChain(nodes, edges, [fields, 'flowx', 'flowy', 'fire', 'nova'], 'mix')
   edges.push(edge('mix-out', last, 'frame', 'out', 'frame'))
   return requireMarkers('matrix', generateCpp(nodes, edges), [
-    'static void _fluidStep(', '// Fractal (julia)', '// Fractal (mandelbrot)', '// Fractal (newton)', '// Fractal (burningShip)',
+    'static void _fluidVelocity(', '// Fractal (julia)', '// Fractal (mandelbrot)', '// Fractal (newton)', '// Fractal (burningShip)',
     '// Automaton (elementary)', '// Automaton (cyclic)', '// Automaton (brianBrain)', '// Automaton (sand)',
     'field_fluid_velocityX', 'field_fluid_velocityY', 'inoise8((uint16_t)(_s*90)', 'static bool _pa_novaem[8];',
   ])
@@ -720,7 +722,7 @@ const phase10Big = (() => {
   const edges: StudioEdge[] = []
   const color = fieldChain(nodes, edges, ['fluid', 'cyc', 'julia'], 'f')
   edges.push(edge('color-out', color, 'frame', 'out', 'frame'))
-  return requireMarkers('32×32', generateCpp(nodes, edges), ['static void _fluidStep(', '// Automaton (cyclic)', '// Fractal (julia)'])
+  return requireMarkers('32×32', generateCpp(nodes, edges), ['static void _fluidVelocity(', '// Automaton (cyclic)', '// Fractal (julia)'])
 })()
 
 // Phase 11: a ring driven by the show sketch and by the SD player. Both
