@@ -121,9 +121,17 @@ interface WifiEmit {
 
 /**
  * The Wi-Fi bootstrap. Never blocks: the first call sets the mode and
- * hostname, and every later call retries `WiFi.begin` at most once every five
+ * hostname and begins, and later calls begin again at most once every five
  * seconds until the station is connected, so a network that is out of range
  * leaves `_netConnected()` false and the sketch running.
+ *
+ * The first call begins at once, so a network saved on the chip from an
+ * earlier sketch never wins over this one. The ESP8266 reconnects by itself
+ * once begun, and reports `WL_DISCONNECTED` while it does, so there it begins
+ * again only after the core has given up. A begin while it is still connecting
+ * leaves `status()` short of connected though the station has its address:
+ * the D-13 bench remote answered pings but never served its page, and each
+ * retry sent the radio scanning off its channel.
  *
  * WiFiS3 (UNO R4 WiFi) differs in three places and is the same elsewhere: it
  * has no `mode()` (station is its only role), it names the board with
@@ -156,11 +164,16 @@ function wifiBootstrapCpp(wifi: WifiEmit): string {
         ]
       : []),
     `    _wifiInit = true;`,
+    `  } else {`,
+    `    if (WiFi.status() == WL_CONNECTED) return;`,
+    `    if (millis() - _wifiLastAttemptMs < 5000u) return;`,
+    `#if defined(ESP8266)`,
+    `    // Still connecting: the core retries by itself, and a begin now would`,
+    `    // leave status() short of connected once it has its address.`,
+    `    if (WiFi.status() == WL_DISCONNECTED) return;`,
+    `#endif`,
     `  }`,
-    `  if (WiFi.status() == WL_CONNECTED) return;`,
-    `  uint32_t _wifiNow = millis();`,
-    `  if (_wifiNow - _wifiLastAttemptMs < 5000u) return;`,
-    `  _wifiLastAttemptMs = _wifiNow;`,
+    `  _wifiLastAttemptMs = millis();`,
     `  // WiFiS3's begin() waits inside its own connect timeout before returning,`,
     `  // so on the UNO R4 WiFi this is a slow call at most once every five seconds.`,
     `  WiFi.begin(${wifi.ssid}, ${wifi.password});`,

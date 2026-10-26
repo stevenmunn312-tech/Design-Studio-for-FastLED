@@ -120,6 +120,13 @@ describe('normal sketch', () => {
       expect(cpp).toContain('WiFi.begin("Home \\"net\\"", "p\\\\w");')
       expect(cpp.match(/^void _netEnsureConnected\(\) \{/gm)).toHaveLength(1)
       expect(cpp).toContain('  if (_netConnected()) {\n    if (!_wrStarted_r) {\n      _wrServer_r.begin();')
+      // Begun at once; an ESP8266 still reconnecting is left to it, or its
+      // status() never reaches connected and the page is never served.
+      const esp8266 = specializeCpp(cpp, { ESP32: false, ESP8266: true })
+      const bootstrap = esp8266.slice(esp8266.indexOf('void _netEnsureConnected() {'), esp8266.indexOf('bool _netConnected() {'))
+      expect(bootstrap).toContain('    _wifiInit = true;\n  } else {')
+      expect(bootstrap).toContain('    if (WiFi.status() == WL_DISCONNECTED) return;')
+      expect(specializeCpp(cpp, { ESP32: true, ESP8266: false })).not.toContain('WL_DISCONNECTED')
     } finally {
       useNetworkCredentialsStore.getState().removeCredentials('r')
     }
