@@ -216,6 +216,10 @@ _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
 # FL_NO_EXCEPT (noexcept on ESP) and riscv.cpp.hpp defines them without it.
 # FastLED fixed it on master (528a6fdbe, #4831); move on once a release has it.
 _FASTLED_VERSION = "3.10.5"
+# Compiler flags every build passes to FastLED's own translation units. FastLED
+# enables FL_DBG whenever RELEASE is undefined, so without this its audio
+# detectors print debug lines to serial between the sketch's own output.
+_FASTLED_BUILD_FLAGS = "-DFASTLED_DISABLE_DBG=1"
 # The music-sync Player sketch (playerSketchGenerator.ts) additionally needs
 # ESP32-audioI2S. Vendored the same way as FastLED, but lazily — only the
 # Player build path needs it, so it's not fetched for every ordinary compile.
@@ -884,7 +888,7 @@ def _write_fbuild_ini() -> None:
         # builds (this static ini is written once for every env, not per
         # request) — the macro is inert for every sketch that doesn't include the
         # HUB75 header.
-        base_flags = list(meta.get("build_flags", []))
+        base_flags = [*meta.get("build_flags", []), _FASTLED_BUILD_FLAGS]
         if meta["platform"] == "espressif32":
             base_flags.extend(("-DCORE_DEBUG_LEVEL=0", "-DNO_GFX=1"))
         # The stock dual-OTA `default.csv` partition table caps each app slot at

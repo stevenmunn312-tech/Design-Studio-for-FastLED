@@ -748,6 +748,11 @@ def test_arduino_cli_compile_activates_lv_conf_only_for_lvgl(tmp_path, monkeypat
     list(firmware._compile_upload("Test", ordinary, "esp32:esp32:esp32s3", ""))
     assert installed == []
     assert not any("LV_CONF_INCLUDE_SIMPLE" in arg for arg in calls[-1])
+    # Every build silences FastLED's FL_DBG lines, in the C and C++ recipes.
+    assert [arg for arg in calls[-1] if "FASTLED_DISABLE_DBG" in arg] == [
+        "compiler.c.extra_flags=-DFASTLED_DISABLE_DBG=1",
+        "compiler.cpp.extra_flags=-DFASTLED_DISABLE_DBG=1",
+    ]
 
     custom = tmp_path / "custom"
     custom.mkdir()
@@ -757,8 +762,8 @@ def test_arduino_cli_compile_activates_lv_conf_only_for_lvgl(tmp_path, monkeypat
     assert installed == [True]
     lv_conf_flags = [arg for arg in calls[-1] if "LV_CONF_INCLUDE_SIMPLE" in arg]
     assert lv_conf_flags == [
-        "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
-        "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
+        "compiler.c.extra_flags=-DFASTLED_DISABLE_DBG=1 -DLV_CONF_INCLUDE_SIMPLE",
+        "compiler.cpp.extra_flags=-DFASTLED_DISABLE_DBG=1 -DLV_CONF_INCLUDE_SIMPLE",
     ]
 
 

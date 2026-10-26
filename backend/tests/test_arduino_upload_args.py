@@ -43,7 +43,10 @@ def test_physical_flash_partition_and_native_usb_reach_compile_and_upload(
     )
     sketch_dir = calls[0][1][-1]
     assert calls[0][1] == [
-        "arduino-cli", "compile", "-v", "--fqbn", expected, sketch_dir,
+        "arduino-cli", "compile", "-v", "--fqbn", expected,
+        "--build-property", "compiler.c.extra_flags=-DFASTLED_DISABLE_DBG=1",
+        "--build-property", "compiler.cpp.extra_flags=-DFASTLED_DISABLE_DBG=1",
+        sketch_dir,
     ]
     assert calls[1][1] == [
         "arduino-cli", "upload", "-v", "-p", "COM7", "--fqbn", expected,

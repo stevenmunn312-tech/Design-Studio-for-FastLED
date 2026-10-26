@@ -297,6 +297,10 @@ def _compile_upload(
             if rc != 0:
                 return rc, "compile"
             compile_args += ["--library", str(toolchain._ARDUINO_AUDIO_LIB_DIR)]
+        # The FastLED flags must reach the library's own translation units, where
+        # no sketch define does. Each extra_flags property is set once, so the
+        # LVGL define rides in the same value.
+        extra_flags = toolchain._FASTLED_BUILD_FLAGS
         if uses_lvgl:
             # The sketch directory is already on Arduino's include path. This flag
             # makes every separately compiled LVGL translation unit include the
@@ -304,10 +308,11 @@ def _compile_upload(
             # LVGL itself is C while the generated sketch is C++, so both compiler
             # recipes need the define; setting only cpp.extra_flags configures the
             # caller but leaves the runtime compiled with its default catalogue.
-            compile_args += [
-                "--build-property", "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
-                "--build-property", "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
-            ]
+            extra_flags = f"{extra_flags} -DLV_CONF_INCLUDE_SIMPLE"
+        compile_args += [
+            "--build-property", f"compiler.c.extra_flags={extra_flags}",
+            "--build-property", f"compiler.cpp.extra_flags={extra_flags}",
+        ]
         if output_dir is not None:
             # arduino-cli keeps its artifacts in a cache directory it names itself;
             # this copies them somewhere the caller can read. Only the firmware
