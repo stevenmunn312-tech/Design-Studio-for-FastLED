@@ -347,7 +347,8 @@ chooses the supported combinations from whatever is on record at release.
     core's TinyUSB library, reported as
     [FastLED/fbuild#1719](https://github.com/FastLED/fbuild/issues/1719)
     ([IR record](docs/reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
-    Still to do: the full `compile-matrix.py --engine fbuild` rerun, then
+    Still to do: the full fbuild run (`scripts/compile-fixtures/run-fbuild.cmd`,
+    then `--retry-failed` after fixing what it reports), then
     remove the §12 recovery and retry SAMD51 without its `_PIO_BOARDS`
     `-DARDUINO_ARCH_SAMD`/`EIC_IRQn` flags. #1658 (§5) and #1673 have no
     fixture of their own.

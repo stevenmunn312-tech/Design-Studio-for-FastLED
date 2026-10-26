@@ -149,6 +149,8 @@ record, one at a time, and writes a log and summary to
 `artifacts/compile-matrix/`. It keeps only the legs that build a library,
 configuration or FastLED, core or library name no other leg builds on that
 engine and board, and orders them so each build cache fills once. Run it with `--list --engine all` to see the plan.
+`scripts/compile-fixtures/run-fbuild.cmd` runs the fbuild half unattended; add
+`--retry-failed` afterwards to rebuild only what failed or did not run.
 Development compiles on Arduino CLI alone for now; `--engine fbuild` or
 `--engine all` adds the fbuild legs.
 

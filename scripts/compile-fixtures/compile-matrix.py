@@ -7,6 +7,8 @@ the summary after every leg, so a partial run can still be read.
 
     python scripts/compile-fixtures/compile-matrix.py              # the necessary arduino-cli legs
     python scripts/compile-fixtures/compile-matrix.py --list --engine all   # the v1 freeze plan, both engines
+    python scripts/compile-fixtures/compile-matrix.py --engine fbuild --retry-failed   # only what failed last time
+    scripts\compile-fixtures\run-fbuild.cmd [--retry-failed]   # the fbuild run, from Explorer or a terminal
     python scripts/compile-fixtures/compile-matrix.py --only ir/ --only ethernet/ --dry-run
     python scripts/compile-fixtures/compile-matrix.py --only dead-code/   # the D-09 corpus
     python scripts/compile-fixtures/compile-matrix.py --only dead-code/ --every   # all of it, about 250 sketches
@@ -405,10 +407,17 @@ def first_error(path: Path) -> str:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return ""
+    # The compiler's own `file:line:col: error:` first: fbuild wraps it in a
+    # "build failed: ... failed to compile <unit>" line that names no cause.
+    match = re.search(r"([^\s]+?\.\w+):(\d+):\d+: (?:fatal )?error: (.+)", text)
+    if match:
+        # File name and line, not the full path into the build tree.
+        name = re.split(r"[/\\]", match.group(1))[-1]
+        return f"{name}:{match.group(2)}: {match.group(3).strip()}"[:240]
     for pattern in (r"overflowed by [\d,]+ bytes", r"error: .+", r"build failed: .+", r"Error during build: .+"):
         match = re.search(pattern, text)
         if match:
-            return match.group(0).strip()[:200]
+            return match.group(0).strip()[:240]
     return ""
 
 
@@ -476,6 +485,33 @@ def resumable_passes(run_dir: Path) -> dict[str, dict]:
             if row.get("status") == "PASS" and row.get("source_sha256") and row.get("toolchain")}
 
 
+def latest_run(engine: str) -> Path | None:
+    """The newest run folder whose legs are all on `engine` (or both engines, for all)."""
+    wanted = set(ENGINES) if engine == "all" else {engine}
+    for run_dir in sorted((ROOT / "artifacts" / "compile-matrix").glob("*/"), reverse=True):
+        try:
+            legs = json.loads((run_dir / "summary.json").read_text(encoding="utf-8")).get("legs", [])
+        except (OSError, ValueError):
+            continue
+        if legs and {row.get("engine") for row in legs} <= wanted:
+            return run_dir
+    return None
+
+
+def board_of(fqbn: str | None) -> str:
+    return (fqbn or DISPLAY_RUNNER_FQBN).split(":")[2]
+
+
+def outcome_line(index: int, total: int, row: dict) -> str:
+    """One finished build: what it was for, the result, how long, how big."""
+    size = (f"flash {fmt_bytes(row['flash'])} B, RAM {fmt_bytes(row['ram'])} B" if row["flash"] is not None
+            else "no size")
+    line = f"[{index}/{total}] {row['leg']} on {board_of(row['fqbn'])}: {row['status']} in {row['duration']}, {size}"
+    if row["status"] != "PASS":
+        line += f"\n      {row['note'] or 'no error line found'}\n      log: {row['build_log']}"
+    return line
+
+
 class KeepAwake:
     """Ask Windows not to sleep while the run holds this. Changes no settings."""
 
@@ -523,14 +559,24 @@ def write_summary(out: Path, header: dict, rows: list[dict]) -> None:
         f"- arduino-cli: {header['arduino_cli']}",
         f"- Legs: {len(rows)} of {header.get('planned', 'unplanned')}; " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())),
         "",
+    ]
+    failed = [row for row in rows if row["status"] != "PASS"]
+    if failed:
+        lines += ["## Failed", "",
+                  *(f"- `{row['leg']}` on {board_of(row['fqbn'])} ({row['engine']}): {row['note'] or 'no error line found'}."
+                    f" Log: `{row['build_log']}`" for row in failed),
+                  "", "After fixing them, rebuild only these (passes carry over):", "",
+                  f"    python scripts/compile-fixtures/compile-matrix.py --engine {header.get('engine', 'fbuild')} --retry-failed",
+                  ""]
+    lines += [
         "Baseline is the previous report for the same leg, from the engine version shown.",
         "",
-        "| # | Leg | Engine | Status | Time | Flash | Δ flash | RAM | Δ RAM | Source | Baseline engine | Note |",
-        "| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
+        "| # | Leg | Board | Engine | Status | Time | Flash | Δ flash | RAM | Δ RAM | Source | Baseline engine | Note |",
+        "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
     ]
     for row in rows:
         lines.append(
-            f"| {row['index']} | `{row['leg']}` | {row['engine']} | **{row['status']}** | {row['duration']} "
+            f"| {row['index']} | `{row['leg']}` | {board_of(row['fqbn'])} | {row['engine']} | **{row['status']}** | {row['duration']} "
             f"| {fmt_bytes(row['flash'])} | {fmt_delta(row['flash'], row['baseline_flash'])} "
             f"| {fmt_bytes(row['ram'])} | {fmt_delta(row['ram'], row['baseline_ram'])} "
             f"| `{(row['source_sha256'] or '')[:12]}` | {row['baseline_engine'] or ''} | {row['note']} |")
@@ -552,9 +598,18 @@ def main() -> int:
     parser.add_argument("--resume", type=Path, action="append", metavar="RUN_DIR",
                         help="skip legs that passed in that run with an identical sketch (resume after STOP);"
                              " repeatable, later runs winning")
+    parser.add_argument("--retry-failed", action="store_true",
+                        help="resume the newest earlier run on this engine: rebuild only what failed, did not run,"
+                             " or changed since; carry every other pass")
     parser.add_argument("--low-priority", action="store_true",
                         help="run at below-normal priority on Windows; spawned compilers inherit it")
     args = parser.parse_args()
+    if args.retry_failed:
+        previous = latest_run(args.engine)
+        if previous is None:
+            print(f"No earlier {args.engine} run to retry.")
+            return 2
+        args.resume = [*(args.resume or []), previous]
 
     wanted = [leg for leg in candidates()
               if args.engine in ("all", leg.engine) and (not args.only or any(text in leg.name for text in args.only))]
@@ -602,6 +657,7 @@ def main() -> int:
         "fbuild": tool_version([toolchain._FBUILD_BIN, "--version"]) if toolchain._FBUILD_BIN else "not found",
         "arduino_cli": tool_version([toolchain._ARDUINO_CLI, "version"]) if toolchain._ARDUINO_CLI else "not found",
         "arduino_cores": core_list(),
+        "engine": args.engine,
     }
     pinned = re.search(r"^fbuild==(\S+)", (ROOT / "backend" / "requirements.txt").read_text(encoding="utf-8"), re.M)
     if pinned and pinned.group(1) not in header["fbuild"]:
@@ -641,7 +697,7 @@ def main() -> int:
                 # Carried into this summary so it reads as the whole corpus.
                 rows.append({**carried, "index": index,
                              "note": "carried from a resumed run; sketch and toolchain unchanged"})
-                say(f"[{index}/{len(legs)}] {leg.name} [{leg.engine}] skipped: passed in the resumed run, sketch and toolchain unchanged")
+                say(f"[{index}/{len(legs)}] {leg.name} on {leg.board.split(':')[2]}: passed before, unchanged, not rebuilt")
                 continue
             if (out / "STOP").exists():
                 say("STOP file found; stopping before the next leg.")
@@ -649,7 +705,7 @@ def main() -> int:
             baseline = read_report(leg.output(".json"))
             started = time.monotonic()
             started_utc = datetime.now(timezone.utc)
-            say(f"[{index}/{len(legs)}] {leg.name} [{leg.engine}] starting")
+            say(f"[{index}/{len(legs)}] {leg.name} on {leg.board.split(':')[2]} ({leg.engine}): building")
             runner_log = out / "legs" / f"{index:03}-{leg.engine}-{leg.name.replace('/', '-').replace('@', '-')}.txt"
             with runner_log.open("w", encoding="utf-8") as handle:
                 code = subprocess.run(leg.command(), cwd=ROOT, stdout=handle, stderr=subprocess.STDOUT, check=False).returncode
@@ -680,14 +736,19 @@ def main() -> int:
                 "build_log": display_path(build_log), "runner_output": display_path(runner_log),
                 "note": note,
             })
-            say(f"[{index}/{len(legs)}] {leg.name} [{leg.engine}] {status} in {rows[-1]['duration']}"
-                + (f" · flash {fmt_bytes(flash)} ({fmt_delta(flash, old_flash) or 'no baseline'})" if flash else "")
-                + (f" · {note}" if note else ""))
+            say(outcome_line(index, len(legs), rows[-1]))
             write_summary(out, header, rows)
 
     header["finished"] = datetime.now().isoformat(timespec="seconds")
     write_summary(out, header, rows)
-    say(f"Done: {len(rows)} legs, {failures} unexpected failure(s). Summary: {out / 'summary.md'}")
+    passed = sum(row["status"] == "PASS" for row in rows)
+    say(f"Done: {passed} passed, {len(rows) - passed} failed, {len(legs) - len(rows)} not run, of {len(legs)}.")
+    for row in rows:
+        if row["status"] != "PASS":
+            say(f"  FAILED {row['leg']} on {board_of(row['fqbn'])}: {row['note'] or 'no error line found'}")
+    if passed < len(legs):
+        say(f"Rebuild only the rest: python scripts/compile-fixtures/compile-matrix.py --engine {args.engine} --retry-failed")
+    say(f"Record: {out / 'summary.md'}")
     log.close()
     return 1 if failures else 0
 
