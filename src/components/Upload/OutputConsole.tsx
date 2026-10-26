@@ -96,6 +96,13 @@ export default function OutputConsole({ embedded = false }: { embedded?: boolean
   const [tab, setTab] = useState<'output' | 'serial'>('output')
   const capacityReport = useCapacityReport()
   const capacityChecking = useCapacityStore((s) => s.status === 'checking')
+  // A build that starts while Serial is showing would run unseen behind it, so
+  // bring Output forward as one begins. Only on the start: switching back to
+  // Serial mid-build stays the user's choice.
+  const building = busy || capacityChecking
+  useEffect(() => {
+    if (building) setTab('output')
+  }, [building])
   // Filtering is display-only — the store keeps every byte, so ticking Verbose
   // reveals this same run rather than needing another. Memoised because this
   // re-renders on every streamed chunk of a log that can reach megabytes.

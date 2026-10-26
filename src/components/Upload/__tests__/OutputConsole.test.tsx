@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import OutputConsole from '../OutputConsole'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useCapacityStore } from '../../../state/upload/capacityStore'
@@ -146,6 +146,22 @@ describe('OutputConsole', () => {
 
     fireEvent.click(getByRole('button', { name: 'Copy text' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('booted\nready\n'))
+  })
+
+  it.each([
+    ['an upload', () => useUploadStore.setState({ busy: true })],
+    ['a capacity check', () => useCapacityStore.setState({ status: 'checking', checkPhase: 'compiling', checkStartedAt: Date.now() })],
+  ])('switches from Serial to Output when %s starts compiling', (_label, start) => {
+    const { getByRole } = render(<OutputConsole />)
+    fireEvent.click(getByRole('tab', { name: 'Serial' }))
+    expect(getByRole('tab', { name: 'Serial' }).getAttribute('aria-selected')).toBe('true')
+
+    act(() => start())
+    expect(getByRole('tab', { name: 'Output' }).getAttribute('aria-selected')).toBe('true')
+
+    // Going back to Serial mid-build is the user's call and sticks.
+    fireEvent.click(getByRole('tab', { name: 'Serial' }))
+    expect(getByRole('tab', { name: 'Serial' }).getAttribute('aria-selected')).toBe('true')
   })
 
   it('disables serial connect until a port is selected', () => {
