@@ -84,16 +84,6 @@ def test_fbuild_vendors_the_pinned_tag_over_a_stale_checkout(tmp_path, monkeypat
     assert clones[0][clones[0].index("--branch") + 1] == toolchain._FASTLED_VERSION
 
 
-def test_riscv_patch_makes_definitions_match_their_declarations(tmp_path):
-    source = tmp_path / "src" / "platforms" / "esp" / "32" / "interrupts" / "riscv.cpp.hpp"
-    source.parent.mkdir(parents=True)
-    source.write_text(
-        "esp_err_t fastled_riscv_install_interrupt(\n    int priority\n) {\n    return ESP_OK;\n}\n"
-        "void FL_IRAM fastled_riscv_official_handler(void *arg) {\n    (void)arg;\n}\n",
-        encoding="utf-8",
-    )
-    toolchain._patch_fastled_riscv_noexcept(tmp_path)
-    toolchain._patch_fastled_riscv_noexcept(tmp_path)  # idempotent
-    patched = source.read_text(encoding="utf-8")
-    assert patched.count("FL_NO_EXCEPT {") == 2
-    assert "void FL_IRAM fastled_riscv_official_handler(void *arg) FL_NO_EXCEPT {" in patched
+def test_every_build_defines_fl_no_except_empty():
+    # 3.10.8 declares some ESP functions FL_NO_EXCEPT and defines them without it.
+    assert "-DFL_NO_EXCEPT=" in toolchain._FASTLED_BUILD_FLAGS.split()
