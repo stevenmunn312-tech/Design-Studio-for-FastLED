@@ -982,8 +982,9 @@ Unless a future row says otherwise, treat the following as experimental:
   Its contacts have no pull-ups of their own, so the firmware always uses
   `INPUT_PULLUP`, and because it makes two transitions per click rather than
   four, each transition counts twice so a click moves Position and pattern
-  selection by the same amount as the module. There is no compile or physical
-  row for the part yet. The 2026-09-08 bench encoder was also a bare encoder,
+  selection by the same amount as the module. Compile evidence is recorded in
+  [the SR1230 compile checks](../reports/compile/encoder-compile-checks.md), but
+  there is no physical row yet. The 2026-09-08 bench encoder was also a bare encoder,
   recorded before the part existed, under the module's counting.
   Graduation needs a dated row naming the board/FQBN and the three GPIOs, with
   one pattern per click in both directions, Pressed on push and release, and

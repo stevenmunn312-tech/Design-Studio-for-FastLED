@@ -161,6 +161,7 @@ with `--engine fbuild` or `--engine all`.
 - [Display firmware compile checks](reports/compile/display-compile-checks.md)
 - [Distance-sensor compile checks](reports/compile/distance-sensor-compile-checks.md)
 - [BME280 environment-sensor compile checks](reports/compile/environment-sensor-compile-checks.md)
+- [SR1230 bare-encoder compile checks](reports/compile/encoder-compile-checks.md)
 - [Wired-Ethernet firmware compile checks](reports/compile/ethernet-compile-checks.md)
 - [INA226 compile checks](reports/compile/ina226-compile-checks.md)
 - [IR remote firmware compile checks](reports/compile/ir-compile-checks.md)
