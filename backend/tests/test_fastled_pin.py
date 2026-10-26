@@ -84,6 +84,11 @@ def test_fbuild_vendors_the_pinned_tag_over_a_stale_checkout(tmp_path, monkeypat
     assert clones[0][clones[0].index("--branch") + 1] == toolchain._FASTLED_VERSION
 
 
-def test_every_build_defines_fl_no_except_empty():
-    # 3.10.8 declares some ESP functions FL_NO_EXCEPT and defines them without it.
-    assert "-DFL_NO_EXCEPT=" in toolchain._FASTLED_BUILD_FLAGS.split()
+def test_only_esp32_risc_v_builds_define_fl_no_except_empty():
+    # 3.10.8 declares some RISC-V functions FL_NO_EXCEPT and defines them without it.
+    for fqbn in ("esp32:esp32:esp32c3", "esp32:esp32:esp32c6:CDCOnBoot=cdc", "esp32:esp32:esp32h2",
+                 "esp32:esp32:esp32p4", "esp32:esp32:XIAO_ESP32C3", "esp32:esp32:lolin_c3_mini"):
+        assert "-DFL_NO_EXCEPT=" in toolchain._fastled_build_flags(fqbn).split(), fqbn
+    for fqbn in ("esp32:esp32:esp32", "esp32:esp32:esp32s3:PSRAM=opi", "esp32:esp32:XIAO_ESP32S3",
+                 "esp32:esp32:esp32s2", "arduino:avr:uno", "rp2040:rp2040:rpipico"):
+        assert toolchain._fastled_build_flags(fqbn) == toolchain._FASTLED_BUILD_FLAGS, fqbn

@@ -300,7 +300,7 @@ def _compile_upload(
         # The FastLED flags must reach the library's own translation units, where
         # no sketch define does. Each extra_flags property is set once, so the
         # LVGL define rides in the same value.
-        extra_flags = toolchain._FASTLED_BUILD_FLAGS
+        extra_flags = toolchain._fastled_build_flags(fqbn)
         if uses_lvgl:
             # The sketch directory is already on Arduino's include path. This flag
             # makes every separately compiled LVGL translation unit include the

@@ -29,8 +29,10 @@ Development runs on arduino-cli alone, so that is the default engine;
 To stop early, create a file named STOP in the run's output folder. The run
 finishes the current compile and stops before the next one. To resume, rerun the
 same filters with --resume <that run's folder> (repeatable): a leg is skipped only when it
-passed there and its regenerated sketch is byte-for-byte the one that passed,
-so legs added since, or changed by a commit since, still compile.
+passed there, its regenerated sketch is byte-for-byte the one that passed, and
+its toolchain fingerprint matches (engine and cores, FastLED flags for its
+board, every pinned library). So after a code change only the sketches it
+changed rebuild, and after a pin or flag change only the boards it reaches.
 
     python scripts/compile-fixtures/compile-matrix.py --only dead-code/ --resume artifacts/compile-matrix/2026-10-15_2205 --low-priority
 
@@ -410,6 +412,20 @@ def first_error(path: Path) -> str:
     return ""
 
 
+def core_list() -> str:
+    """The installed Arduino cores and their versions, one `id version` per line."""
+    if not toolchain._ARDUINO_CLI:
+        return "not found"
+    try:
+        result = subprocess.run([toolchain._ARDUINO_CLI, "core", "list", "--json"], capture_output=True, text=True,
+                                timeout=60, check=False)
+        platforms = json.loads(result.stdout or "{}").get("platforms", [])
+        return "; ".join(sorted(f"{entry.get('id')} {entry.get('installed_version') or entry.get('installed')}"
+                                for entry in platforms))
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        return "unavailable"
+
+
 def tool_version(command: list[str]) -> str:
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
@@ -439,11 +455,25 @@ def sketch_sha256(sketch: Path) -> str | None:
         return None
 
 
+def toolchain_fingerprint(leg: Leg, header: dict) -> str:
+    """Everything outside the sketch that decides whether a leg's build passes.
+
+    The engine and its version, the installed cores, the FastLED flags for the
+    leg's board and every pinned library. A resumed pass carries only when this
+    and the sketch both match, so a pin or flag change rebuilds the boards it
+    reaches and a sketch change rebuilds that sketch alone."""
+    engine = header["fbuild"] if leg.engine == "fbuild" else f"{header['arduino_cli']} | {header['arduino_cores']}"
+    parts = [leg.engine, engine, toolchain._fastled_build_flags(leg.board), toolchain._FASTLED_VERSION,
+             toolchain._LVGL_VERSION, toolchain._PLAYER_AUDIO_VERSION, toolchain._IRREMOTE_VERSION,
+             toolchain._VL53L0X_VERSION, toolchain._VL53L1X_VERSION]
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+
+
 def resumable_passes(run_dir: Path) -> dict[str, dict]:
     """`Leg.key` to summary row for every leg that passed in a previous run."""
     summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
     return {f"{row['engine']}:{row['leg']}": row for row in summary.get("legs", [])
-            if row.get("status") == "PASS" and row.get("source_sha256")}
+            if row.get("status") == "PASS" and row.get("source_sha256") and row.get("toolchain")}
 
 
 class KeepAwake:
@@ -571,6 +601,7 @@ def main() -> int:
         "git": tool_version(["git", "-C", str(ROOT), "log", "-1", "--format=%h %s"]),
         "fbuild": tool_version([toolchain._FBUILD_BIN, "--version"]) if toolchain._FBUILD_BIN else "not found",
         "arduino_cli": tool_version([toolchain._ARDUINO_CLI, "version"]) if toolchain._ARDUINO_CLI else "not found",
+        "arduino_cores": core_list(),
     }
     pinned = re.search(r"^fbuild==(\S+)", (ROOT / "backend" / "requirements.txt").read_text(encoding="utf-8"), re.M)
     if pinned and pinned.group(1) not in header["fbuild"]:
@@ -605,11 +636,12 @@ def main() -> int:
                 f"{len(resumed)} passed legs on record")
         for index, leg in enumerate(legs, 1):
             carried = resumed.get(leg.key)
-            if carried and carried["source_sha256"] == sketch_sha256(leg.sketch):
+            if (carried and carried["source_sha256"] == sketch_sha256(leg.sketch)
+                    and carried["toolchain"] == toolchain_fingerprint(leg, header)):
                 # Carried into this summary so it reads as the whole corpus.
                 rows.append({**carried, "index": index,
-                             "note": "carried from a resumed run; sketch unchanged"})
-                say(f"[{index}/{len(legs)}] {leg.name} [{leg.engine}] skipped: passed in the resumed run, sketch unchanged")
+                             "note": "carried from a resumed run; sketch and toolchain unchanged"})
+                say(f"[{index}/{len(legs)}] {leg.name} [{leg.engine}] skipped: passed in the resumed run, sketch and toolchain unchanged")
                 continue
             if (out / "STOP").exists():
                 say("STOP file found; stopping before the next leg.")
@@ -644,6 +676,7 @@ def main() -> int:
                 "flash": flash, "ram": ram, "baseline_flash": old_flash, "baseline_ram": old_ram,
                 "baseline_engine": ((baseline or {}).get("toolchain") or {}).get("engine_version"),
                 "source_sha256": (report or {}).get("source_sha256"), "fqbn": leg.fqbn,
+                "toolchain": toolchain_fingerprint(leg, header),
                 "build_log": display_path(build_log), "runner_output": display_path(runner_log),
                 "note": note,
             })
