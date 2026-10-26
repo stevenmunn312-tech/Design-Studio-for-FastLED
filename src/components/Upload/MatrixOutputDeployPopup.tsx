@@ -1068,12 +1068,14 @@ export default function MatrixOutputDeployPopup({
 
   /* The card reads the console's one serial connection, so it travels with the
      console rather than with `controls` — the docked branch below renders the
-     console alone, and the card has to follow it there too. */
+     console alone, and the card has to follow it there too. One column, so the
+     card sits under the console: as a second grid item it fell into a row of
+     its own below a console already filling the height, and was clipped. */
   const consolePane = (
-    <>
+    <div className={styles.consoleColumn}>
       <OutputConsole embedded />
       {showTelemetry && <DeviceTelemetryCard />}
-    </>
+    </div>
   )
 
   const body = (

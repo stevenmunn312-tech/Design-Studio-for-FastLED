@@ -310,7 +310,8 @@ describe('MatrixOutputDeployPopup', () => {
     const { getByRole, getByText } = render(<MatrixOutputDeployPopup inline />)
 
     // A collapsed sidebar removes the host, and the tools must not go with it.
-    const workbench = getByRole('log', { name: 'Upload and serial output' }).parentElement
+    // The console sits in its column, and the column in the workbench.
+    const workbench = getByRole('log', { name: 'Upload and serial output' }).parentElement?.parentElement
     expect(workbench?.contains(getByText('Deploy to hardware'))).toBe(true)
   })
 
@@ -345,8 +346,12 @@ describe('MatrixOutputDeployPopup', () => {
 
     it('appears once the Board property is on, before any upload', () => {
       askForTelemetry()
-      const { getByText } = render(<MatrixOutputDeployPopup inline />)
+      const { getByRole, getByText } = render(<MatrixOutputDeployPopup inline />)
       expect(getByText('Device telemetry')).toBeTruthy()
+      // In the console's own column, under it. As a sibling grid item it fell
+      // into a row below a console filling the height, and was clipped away.
+      const column = getByRole('log', { name: 'Upload and serial output' }).parentElement
+      expect(column?.contains(getByText('Device telemetry'))).toBe(true)
     })
 
     it('follows the console into the docked layout rather than the controls', () => {
