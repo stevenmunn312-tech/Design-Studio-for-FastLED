@@ -225,9 +225,19 @@ describe('custom Display LVGL object emitter', () => {
     const loop = customDisplayLvglLoopCpp(emit).join('\n')
     expect(loop).toContain('_cdSetText(_cd_panel[0], n_title_text);')
     expect(loop).toContain('_cdSetInteger(_cd_panel[1], _cdScaled((float)(n_progress_out), 0.0f, 1.0f));')
-    expect(loop).toContain('if (!_cd_panel[2].touchOwned && !_cd_panel[2].touchPending) _cdSetChecked(_cd_panel[2], (bool)(n_enabled_out));')
-    expect(loop).toContain('if (!_cd_panel[3].touchOwned && !_cd_panel[3].touchPending) {')
+    expect(loop).toContain('if (!_cdSyncHeld(_cd_panel[2])) _cdSetChecked(_cd_panel[2], (bool)(n_enabled_out));')
+    expect(loop).toContain('if (!_cdSyncHeld(_cd_panel[3])) {')
     expect(loop).toContain('_cdSetInteger(_cd_panel[3], _cdScaled(_cd_panel[3].floatValue')
+  })
+
+  it('keeps a synced control where it is while its reading comes from a board that is not heard', () => {
+    const slider = widget('Slider', 0)
+    const emit: CustomDisplayLvglEmit = {
+      id: 'panel',
+      document: document([slider]),
+      bindings: { [slider.id]: [{ role: 'set', expression: '(_lnkUp0 ? _lnkFloat(_lnkW0[1]) : 0.0f)', live: '_lnkUp0' }] },
+    }
+    expect(customDisplayLvglLoopCpp(emit).join('\n')).toContain('if (!_cdSyncHeld(_cd_panel[0]) && _lnkUp0) {')
   })
 
   it('publishes touch values by index without turning widget ids into C++ identifiers', () => {
@@ -256,8 +266,14 @@ describe('custom Display LVGL object emitter', () => {
     expect(source).toContain('runtime->touchPending = true;')
     expect(customDisplayLvglOutputExpression(emit, toggle.id)).toBe('_cdBoolOutput(_cd_panel[0])')
     expect(source).toContain('runtime.touchPending = false;')
-    expect(source).toContain('if (!_cd_panel[0].touchOwned && !_cd_panel[0].touchPending)')
-    expect(source).toContain('if (!_cd_panel[0].touchOwned) _cd_panel[0].touchPending = false;')
+    expect(source).toContain('if (!_cdSyncHeld(_cd_panel[0])) _cdSetChecked(_cd_panel[0], (bool)(n_enabled));')
+    // Held while a finger owns it, while a sampled intent is pending, and for
+    // a second after the last touch, so a reading that has to go round (a
+    // board link) cannot snap the control back before it arrives.
+    expect(source).toContain('if (runtime.touchOwned) return true;')
+    expect(source).toContain('|| (runtime.touchAtMs != 0 && millis() - runtime.touchAtMs < CD_SYNC_HOLD_MS);')
+    expect(source).toContain('#define CD_SYNC_HOLD_MS 1000u')
+    expect(source).toContain('runtime->touchAtMs = millis();')
   })
 
   it('keeps setup valid for an empty document', () => {

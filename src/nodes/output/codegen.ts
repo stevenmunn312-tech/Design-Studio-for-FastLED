@@ -35,7 +35,8 @@ import {
 } from '../../codegen/displays/infoDisplayCpp'
 import { infoLayoutForKind } from '../../state/displays/infoDisplay'
 import { DISPLAY_SOURCE_NODE_TYPES, sketchAnswersDisplayKind } from '../../state/displays/displaySignal'
-import { linkedDisplayOf, type LinkedDisplay } from '../../codegen/peripherals/espNowLinkCpp'
+import { boardLinkUpExpr, linkedDisplayOf, type LinkedDisplay } from '../../codegen/peripherals/espNowLinkCpp'
+import { boardLinkPropertiesOf } from '../../build/boardLinks'
 import { type TftDisplayEmit, tftDisplaySetupCpp, tftDisplayLoopCpp } from '../../codegen/displays/tftDisplayCpp'
 import {
   shownDesignId,
@@ -438,10 +439,15 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       for (const port of ports.inputs) {
         const parsed = parseDisplayWidgetPortId(port.id)
         if (!parsed) continue
-        const expr = widgetInputExpr(incoming.get(`${node.id}:${port.id}`), port.dataType, port.id)
+        const up = incoming.get(`${node.id}:${port.id}`)
+        const expr = widgetInputExpr(up, port.dataType, port.id)
         if (expr === null) continue
+        // A wire from another board is current only while that board is heard.
+        const upNode = up ? nodeMap.get(up.srcId) : undefined
+        const linkProps = upNode && boardLink ? boardLinkPropertiesOf(upNode) : null
+        const live = linkProps && boardLink ? boardLinkUpExpr(boardLink, linkProps.senderBoardId) : undefined
         const bindings = bindingsByWidget[parsed.widgetId] ?? (bindingsByWidget[parsed.widgetId] = [])
-        bindings.push({ role: parsed.role, expression: expr })
+        bindings.push({ role: parsed.role, expression: expr, ...(live ? { live } : {}) })
       }
       /*
        * Widgets reading the panel's own source rather than a cable.
@@ -460,7 +466,10 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         )
       for (const bound of resolveBoundWidgets(p.widgetSources, sourceExpressions).bindings) {
         const bindings = bindingsByWidget[bound.widgetId] ?? (bindingsByWidget[bound.widgetId] = [])
-        bindings.push({ role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression })
+        bindings.push({
+          role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression,
+          ...(panelLinked ? { live: panelLinked.upExpr } : {}),
+        })
       }
 
       /*

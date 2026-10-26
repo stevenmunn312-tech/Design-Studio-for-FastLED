@@ -162,8 +162,8 @@ describe('Choice Strip and Step Control on the glass', () => {
 
   it('follows its Set wire only while no finger holds it', () => {
     const loop = customDisplayLvglLoopCpp(emit).join('\n')
-    expect(loop).toContain('if (!_cd_panel[0].touchOwned && !_cd_panel[0].touchPending) _cdSetChoice(_cd_panel[0], (float)(n_mode));')
-    expect(loop).toContain('if (!_cd_panel[1].touchOwned && !_cd_panel[1].touchPending) _cdSetStep(_cd_panel[1], (float)(n_count));')
+    expect(loop).toContain('if (!_cdSyncHeld(_cd_panel[0])) _cdSetChoice(_cd_panel[0], (float)(n_mode));')
+    expect(loop).toContain('if (!_cdSyncHeld(_cd_panel[1])) _cdSetStep(_cd_panel[1], (float)(n_count));')
   })
 
   it('publishes a float and counts finger moves for the Controls wire', () => {

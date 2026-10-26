@@ -97,6 +97,13 @@ export interface CustomDisplayLvglBinding {
    * generator. Expressions are codegen-owned; document text never enters here. */
   role: DisplayWidgetPortRoleId
   expression: string
+  /**
+   * C++ that is true while the reading is current. A synchronized control
+   * keeps its own value while it is false rather than taking the reading's
+   * rest value: a reading carried over a board link is 0 while the sender is
+   * lost, and a volume slider set to that would show the music muted.
+   */
+  live?: string
 }
 
 export interface CustomDisplayLvglEmit {
@@ -178,6 +185,10 @@ export function customDisplayAssetStem(emit: Pick<CustomDisplayLvglEmit, 'id' | 
 
 function binding(emit: CustomDisplayLvglEmit, widgetId: string, role: DisplayWidgetPortRoleId): string | null {
   return emit.bindings?.[widgetId]?.find((candidate) => candidate.role === role)?.expression ?? null
+}
+
+function bindingLive(emit: CustomDisplayLvglEmit, widgetId: string, role: DisplayWidgetPortRoleId): string | null {
+  return emit.bindings?.[widgetId]?.find((candidate) => candidate.role === role)?.live ?? null
 }
 
 function object(emit: CustomDisplayLvglEmit, index: number): string {
@@ -921,6 +932,7 @@ struct CustomDisplayWidgetRuntime {
   uint8_t kind;                 // 0 passive, 1 button, 2 toggle, 3 slider, 4 dial, 5 choice, 6 step, 7 colour picker, 8 text entry
   bool touchOwned;
   bool touchPending;
+  uint32_t touchAtMs;           // the last finger input, 0 before the first
   bool boolValue;
   // Finger gestures on this widget, and only those: a Set write moves the
   // value without an LVGL event, so this is how a Toggle carried in a Controls
@@ -1173,6 +1185,26 @@ static void _cdEvent(lv_event_t *event) {
     }
     runtime->touchOwned = false;
   }
+  // Registered for every event, drawing included, so only a finger's count.
+  if (code == LV_EVENT_PRESSED || code == LV_EVENT_PRESSING || code == LV_EVENT_VALUE_CHANGED
+      || code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST || code == LV_EVENT_CLICKED
+      || code == LV_EVENT_LONG_PRESSED_REPEAT) {
+    runtime->touchAtMs = millis();
+  }
+}
+
+// A synchronized control ignores its reading while a finger owns it and for
+// CD_SYNC_HOLD_MS after the last touch. The reading answers what the touch set
+// only once the value has gone round, which over a board link is a round trip
+// of a few hundred milliseconds: taking it sooner snapped a dragged slider back
+// to where it had been, over and over.
+#define CD_SYNC_HOLD_MS 1000u
+static bool _cdSyncHeld(CustomDisplayWidgetRuntime &runtime) {
+  if (runtime.touchOwned) return true;
+  bool held = runtime.touchPending
+    || (runtime.touchAtMs != 0 && millis() - runtime.touchAtMs < CD_SYNC_HOLD_MS);
+  runtime.touchPending = false;
+  return held;
 }
 `
 
@@ -1532,40 +1564,23 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
   const expr = binding(emit, widget.id, 'set')
   if (!expr) return []
   const rt = runtime(emit, index)
-  if (widget.type === 'Toggle') {
-    return [
-      `  if (!${rt}.touchOwned && !${rt}.touchPending) _cdSetChecked(${rt}, (bool)(${expr}));`,
-      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
-    ]
-  }
+  const live = bindingLive(emit, widget.id, 'set')
+  const when = `if (!_cdSyncHeld(${rt})${live ? ` && ${live}` : ''})`
+  if (widget.type === 'Toggle') return [`  ${when} _cdSetChecked(${rt}, (bool)(${expr}));`]
   if (widget.type === 'Slider' || widget.type === 'Dial') {
     return [
-      `  if (!${rt}.touchOwned && !${rt}.touchPending) {`,
+      `  ${when} {`,
       `    ${rt}.floatValue = constrain((float)(${expr}), ${rt}.minimum, ${rt}.maximum);`,
       `    _cdSetInteger(${rt}, _cdScaled(${rt}.floatValue, ${rt}.minimum, ${rt}.maximum));`,
       `  }`,
-      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
     ]
   }
-  if (widget.type === 'Colour Picker') {
-    // The binding is the packed colour a Colour Swatch also stores.
-    return [
-      `  if (!${rt}.touchOwned && !${rt}.touchPending) _cdSetHue(${rt}, _cdColorHue((uint32_t)(${expr})));`,
-      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
-    ]
-  }
-  if (widget.type === 'Text Entry') {
-    return [
-      `  if (!${rt}.touchOwned && !${rt}.touchPending) _cdSetEntry(${rt}, ${expr});`,
-      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
-    ]
-  }
+  // The binding is the packed colour a Colour Swatch also stores.
+  if (widget.type === 'Colour Picker') return [`  ${when} _cdSetHue(${rt}, _cdColorHue((uint32_t)(${expr})));`]
+  if (widget.type === 'Text Entry') return [`  ${when} _cdSetEntry(${rt}, ${expr});`]
   if (widget.type === 'Choice Strip' || widget.type === 'Step Control') {
     const setter = widget.type === 'Choice Strip' ? '_cdSetChoice' : '_cdSetStep'
-    return [
-      `  if (!${rt}.touchOwned && !${rt}.touchPending) ${setter}(${rt}, (float)(${expr}));`,
-      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
-    ]
+    return [`  ${when} ${setter}(${rt}, (float)(${expr}));`]
   }
   return []
 }

@@ -78,8 +78,7 @@ describe('Text Entry widget', () => {
   it('takes a Set only while nobody is typing', () => {
     const emit = { id: 'screen', document: entryDocument(), bindings: { 'text-entry': [{ role: 'set' as const, expression: 'n_name_text' }] } }
     expect(customDisplayLvglLoopCpp(emit)).toEqual([
-      '  if (!_cd_screen[0].touchOwned && !_cd_screen[0].touchPending) _cdSetEntry(_cd_screen[0], n_name_text);',
-      '  if (!_cd_screen[0].touchOwned) _cd_screen[0].touchPending = false;',
+      '  if (!_cdSyncHeld(_cd_screen[0])) _cdSetEntry(_cd_screen[0], n_name_text);',
     ])
   })
 

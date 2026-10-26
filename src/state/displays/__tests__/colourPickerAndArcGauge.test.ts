@@ -204,7 +204,7 @@ describe('Colour Picker and Arc Gauge on the glass', () => {
   })
 
   it('moves to the hue of a Set colour only while no finger holds it', () => {
-    expect(loop).toContain('if (!_cd_panel[0].touchOwned && !_cd_panel[0].touchPending) _cdSetHue(_cd_panel[0], _cdColorHue((uint32_t)(n_tint)));')
+    expect(loop).toContain('if (!_cdSyncHeld(_cd_panel[0])) _cdSetHue(_cd_panel[0], _cdColorHue((uint32_t)(n_tint)));')
   })
 
   it('publishes a CRGB at its tone and is read on press and drag', () => {

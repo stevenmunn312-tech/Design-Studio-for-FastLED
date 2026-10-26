@@ -10,6 +10,10 @@ import { useBoardLinkKeyStore } from '../../../state/peripherals/boardLinkKey'
 import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
 import { parseTelemetryLine } from '../../../state/upload/deviceTelemetry'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
+import { applyDisplayTemplate } from '../../../state/displays/displayTemplates'
+import { createDisplayDocument } from '../../../state/displays/displayEditor'
+import { displayWidgetSources } from '../../../state/displays/displayRegistry'
+import { CUSTOM_DESIGN_LAYOUT } from '../../../state/displays/transportDisplay'
 
 /*
  * Board links in the three generators (docs/design/board-links.md): a
@@ -378,5 +382,32 @@ describe('board link — a Touch Screen on one board driving another board\'s LE
     const built = loop.indexOf('PlayerControlsValue n_board_link_in_touch_controls_value;')
     expect(built).toBeGreaterThan(-1)
     expect(loop.indexOf('n_board_link_in_touch_controls_value.ledToggle)')).toBeGreaterThan(built)
+  })
+})
+
+describe('board link — a screen design on one board showing another board\'s Music Player', () => {
+  it('holds its synced volume slider while the player\'s board is not heard', () => {
+    // The D-13 bench: a Music Player on Board 1, a CYD on Board 2 whose design
+    // binds a Slider to the player's volume. A track change keeps Board 1 from
+    // sending for over a second, and the reading's lost value is 0.
+    const design = applyDisplayTemplate(createDisplayDocument('remote-screen', 240, 320), 'minimal-transport')
+    const panel = tftPanel('tft', CUSTOM_DESIGN_LAYOUT, {
+      ...on2, displayId: design.displayId, widgetSources: displayWidgetSources(design),
+    })
+    const nodes = [
+      node('board-root', 'Board', { linkId: LINK_ID }), node('board-2', 'Board'),
+      node('master', 'PatternMaster'), node('card', 'SDCard'), node('amp', 'Amplifier'),
+      node('collection', 'PatternCollection', { patternIds: ['pattern'] }), output, panel,
+    ]
+    const edges = [
+      edge('collection', 'patternset', 'master', 'patternset'),
+      edge('master', 'frame', 'out', 'frame'),
+      edge('card', 'storage', 'master', 'storage'),
+      edge('master', 'audio', 'amp', 'audio'),
+      edge('master', 'display', 'tft', 'display'),
+    ]
+    const two = boardPartition(nodes, edges, 'board-2')
+    const cpp = generateCpp(two.nodes, two.edges, {}, { displayDocuments: { [design.displayId]: design } })
+    expect(cpp).toMatch(/if \(!_cdSyncHeld\(_cd_\w+\[\d+\]\) && _lnkUp0\) \{\n\s+_cd_\w+\[\d+\]\.floatValue = constrain\(\(float\)\(\(_lnkUp0 \? _lnkFloat/)
   })
 })
