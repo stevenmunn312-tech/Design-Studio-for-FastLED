@@ -170,9 +170,10 @@ chooses the supported combinations from whatever is on record at release.
   development, because every sketch keeps changing. Once the release track is
   done and before HW-18, run
   `python scripts/compile-fixtures/compile-matrix.py --engine all` at the
-  frozen code. On 2026-10-27 that plan was 397 legs of 956 candidates: 330
-  on Arduino CLI and 67 on fbuild, every fixture family included, each leg
-  compiling something no other leg compiles on its engine and board. The
+  frozen code. On 2026-10-27 that plan was 198 builds: 131 on Arduino CLI
+  and 67 on fbuild, picked from every fixture of every family so each board
+  builds every library, configuration and FastLED, core or library name the
+  fixtures use at least once (Steve chose this rule over 397 and 139). The
   count moves with the code; `--list` gives the current one. The last run
   stopped on 2026-10-21 at 154 of 271 legs, all passing, on code from before
   D-12.

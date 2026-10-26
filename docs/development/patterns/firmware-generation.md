@@ -447,9 +447,9 @@ sketch still carries only what the graph reaches.
   show variants (`__tests__/deadCodeCorpus.ts`) at the pass's fixed point. The
   same corpus compiles with
   `python scripts/compile-fixtures/compile-matrix.py --only dead-code/`
-  (arduino-cli, one at a time), which skips a sketch whose statements other
-  kept sketches already compile; `--every` builds all of it, about 250
-  sketches. Every leg passed in October 2026.
+  (arduino-cli, one at a time), which skips a sketch that brings no library,
+  configuration or FastLED, core or library name the kept sketches lack;
+  `--every` builds all of it, about 250 sketches. Every leg passed in October 2026.
 
 ## Instrument sketches
 

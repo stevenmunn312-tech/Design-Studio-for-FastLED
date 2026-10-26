@@ -16,8 +16,10 @@ the summary after every leg, so a partial run can still be read.
 
 The candidates are every fixture of every family, on arduino-cli and, for the
 boards its scaffold declares, on fbuild. A run regenerates them, then keeps
-only the legs that compile something no other kept leg compiles on that
-engine and board (`necessary`, `statements`); --every keeps them all. The
+only the legs that prove something no other kept leg proves on that engine
+and board: a library, configuration or conditional, or on arduino-cli a
+FastLED, core or library name (`necessary`, `coverage`); --every keeps them
+all. The
 legs run grouped by engine, board and library set, so each build cache fills
 once (`build_order`).
 
@@ -294,37 +296,48 @@ MEASURED_FAMILIES = {"pattern-collections"}
 _COMMENT = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
 _STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 _NUMBER = re.compile(r"\b\d[\w.]*\b")
-# Names codegen derives from node ids (`buf_spiral`, `n_btn_pressed`, `_encPos_enc`).
-_NODE_NAME = re.compile(r"\b(n|buf|field|paldef|_[A-Za-z]+)_\w+")
+# C++ words and the fixed-width types every core provides, never a reason to build.
+_CPP_WORDS = set("""
+    if else for while do switch case return sizeof static const constexpr inline void int float bool char
+    unsigned signed long short double auto struct class typedef enum break continue default true false
+    uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t size_t nullptr new delete volatile
+    template typename namespace using public private this operator extern
+""".split())
+# Names codegen makes up itself: node-derived values and buffers, and its own helpers.
+_GENERATED = re.compile(r"_|n_|buf_|field_|paldef_")
 
 
-def statements(sketch: Path, engine: str) -> set[str] | None:
-    """The sketch's lines as that engine's compile judges them.
+def coverage(sketch: Path, engine: str) -> set[str] | None:
+    """What a build of the sketch proves on that engine and board.
 
-    Comments and whitespace go. On arduino-cli, preprocessor lines stay exact,
-    because they pick libraries, pins, sizes and configuration, and every
-    other line keeps its shape but not its literals or node-derived names,
-    which change what the sketch does but not whether it compiles.
+    Both engines: every preprocessor line, numbers aside, so each library,
+    configuration macro and conditional a sketch brings is built once per
+    board. On arduino-cli also every name the sketch takes from FastLED, the
+    core or a library: functions it calls, methods, types and constants it
+    did not define itself. A FastLED or core change breaks a build through one
+    of those names, so each compiles at least once per board. The generated
+    arithmetic around them is the unit and host tests' to prove.
 
-    fbuild builds the same statements against nearly the same cores (ESP32
-    3.3.9 against arduino-cli's 3.3.11), and every fbuild-only failure so far
-    was in its board environments, library selection, flags or link. So on
-    fbuild only the preprocessor lines count, numbers aside: the libraries and
-    configuration a sketch brings, not its code, which arduino-cli proves."""
+    fbuild builds the same code against nearly the same cores (ESP32 3.3.9
+    against arduino-cli's 3.3.11), and every fbuild-only failure so far was in
+    its board environments, library selection, flags or link, so it gets the
+    preprocessor lines alone."""
     try:
         text = _COMMENT.sub("", sketch.read_text(encoding="utf-8"))
     except OSError:
         return None
-    lines = set()
-    for line in text.splitlines():
-        line = " ".join(line.split())
-        if not line:
-            continue
-        if line.startswith("#"):
-            lines.add(_NUMBER.sub("0", line) if engine == "fbuild" else line)
-        elif engine == "arduino-cli":
-            lines.add(_NODE_NAME.sub(r"\1_N", _NUMBER.sub("0", _STRING.sub('""', line))))
-    return lines
+    lines = text.splitlines()
+    proved = {_NUMBER.sub("0", " ".join(line.split())) for line in lines if line.strip().startswith("#")}
+    if engine == "fbuild":
+        return proved
+    code = _STRING.sub('""', "\n".join(line for line in lines if not line.strip().startswith("#")))
+    defined = set(re.findall(r"\b([A-Za-z_]\w*)\s*\([^;{)]*\)\s*(?:const\s*)?\{", code))
+    defined |= set(re.findall(r"\b(?:struct|class|enum)\s+([A-Za-z_]\w*)", code))
+    defined |= set(re.findall(r"^\s*#define\s+([A-Za-z_]\w*)", text, re.M))
+    used = set(re.findall(r"\b([A-Za-z_]\w*)\s*[(<]", code))  # calls and templates
+    used |= set(re.findall(r"(?:\.|->|::)\s*([A-Za-z_]\w*)", code))  # members
+    used |= set(re.findall(r"\b([A-Z][A-Za-z0-9_]*)\b", code))  # types and constants (CRGB, HIGH)
+    return proved | {name for name in used - defined - _CPP_WORDS if not _GENERATED.match(name)}
 
 
 def includes(sketch: Path) -> tuple[str, ...]:
@@ -335,17 +348,17 @@ def includes(sketch: Path) -> tuple[str, ...]:
 
 
 def necessary(legs: list[Leg]) -> list[Leg]:
-    """The legs that compile something no other kept leg compiles on that engine and board (`statements`).
+    """The legs that prove something no other kept leg proves on that engine and board (`coverage`).
 
-    Greedy cover per (engine, FQBN): take the sketch adding the most unseen
-    statements until every statement is covered. A missing sketch is kept,
-    since nothing can vouch for it."""
+    Greedy cover per (engine, FQBN): take the sketch adding the most unproved
+    items until every item is proved. A missing sketch is kept, since nothing
+    can vouch for it."""
     groups: dict[tuple[str, str], list[Leg]] = {}
     for leg in legs:
         groups.setdefault((leg.engine, leg.board), []).append(leg)
     kept = []
     for members in groups.values():
-        seen = {leg: statements(leg.sketch, leg.engine) for leg in sorted(members, key=lambda leg: leg.name)}
+        seen = {leg: coverage(leg.sketch, leg.engine) for leg in sorted(members, key=lambda leg: leg.name)}
         chosen = [leg for leg, lines in seen.items()
                   if lines is None or (leg.engine == "arduino-cli" and leg.family in MEASURED_FAMILIES)]
         covered = set().union(*(seen[leg] or set() for leg in chosen))
