@@ -19,6 +19,9 @@ export interface BuildModeNode {
  */
 const AUDIO_OUTPUT_STAGE_NODE_TYPES: ReadonlySet<string> = new Set(['Amplifier', 'PowerAmplifier'])
 
+/** The partition's link-out node type, as `BOARD_LINK_OUT_NODE_TYPE` in build/boardLinks.ts names it. */
+export const BUILD_MODE_LINK_OUT_TYPE = 'BoardLinkOut'
+
 /** True when anything on the bench turns the decoded song into sound. */
 export function hasAudioOutputStage(nodes: readonly { data: { nodeType: string } }[]): boolean {
   return nodes.some((node) => AUDIO_OUTPUT_STAGE_NODE_TYPES.has(node.data.nodeType))
@@ -41,6 +44,11 @@ export interface BuildCapabilities {
   standaloneVuOutput: boolean
   /** A wired auxiliary screen is useful physical output without any LEDs. */
   standaloneDisplayOutput: boolean
+  /**
+   * This board sends values to another board over a board link: a Web Remote
+   * or a set of controls whose only job is driving someone else's LEDs.
+   */
+  linkSend: boolean
   /** There is physical output worth generating or measuring. */
   buildable: boolean
   /** Fixed transport touch has a device transport to command. */
@@ -164,6 +172,7 @@ function resolution<T extends BuildModeNode>(
   frameOutput: boolean,
   standaloneVu: boolean,
   standaloneDisplay: boolean,
+  linkSend: boolean,
 ): BuildModeResolution<T> {
   // Every fixed template that has a graph node publishing a Display envelope
   // names it here. A performance show joined the list when Performance
@@ -182,7 +191,8 @@ function resolution<T extends BuildModeNode>(
       frameOutput,
       standaloneVuOutput: standaloneVu,
       standaloneDisplayOutput: standaloneDisplay,
-      buildable: frameOutput || standaloneVu || standaloneDisplay,
+      linkSend,
+      buildable: frameOutput || standaloneVu || standaloneDisplay || linkSend,
       fixedTransportControls: engineKind === 'music-player',
     },
   }
@@ -208,6 +218,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
   const hasAmplifier = hasAudioOutputStage(nodes)
   const hasStandaloneVu = standaloneVuOutput(nodes)
   const hasStandaloneDisplay = standaloneDisplayOutput(nodes, edges)
+  const sendsOverLink = nodes.some((node) => node.data.nodeType === BUILD_MODE_LINK_OUT_TYPE)
 
   const musicPlayers = nodes.filter((node) => node.data.nodeType === 'PatternMaster')
   const connectedMusicPlayer = musicPlayers.find((node) => frameOutputs(node, nodes, edges).length > 0)
@@ -215,7 +226,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
   if (hasCard && hasAmplifier && musicPlayer) {
     const reached = frameOutputs(musicPlayer, nodes, edges)
     return resolution('player', 'music-player', musicPlayer, reached,
-      hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay)
+      hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink)
   }
 
   const performance = nodes
@@ -223,7 +234,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
     .find((node) => frameOutputs(node, nodes, edges).length > 0)
   if (hasCard && performance) {
     return resolution('player', 'performance-show', performance,
-      frameOutputs(performance, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay)
+      frameOutputs(performance, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink)
   }
 
   const slideshow = nodes
@@ -232,8 +243,8 @@ export function resolveBuildMode<T extends BuildModeNode>(
       && hasPatternCollection(node, nodes, edges))
   if (slideshow) {
     return resolution('show', 'pattern-slideshow', slideshow,
-      frameOutputs(slideshow, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay)
+      frameOutputs(slideshow, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink)
   }
 
-  return resolution('sketch', 'graph', null, [], hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay)
+  return resolution('sketch', 'graph', null, [], hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink)
 }

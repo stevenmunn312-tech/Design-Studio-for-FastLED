@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { resolveBuildMode, type BuildModeEdge, type BuildModeNode } from '../buildMode'
+import { BUILD_MODE_LINK_OUT_TYPE, resolveBuildMode, type BuildModeEdge, type BuildModeNode } from '../buildMode'
+import { BOARD_LINK_OUT_NODE_TYPE } from '../../../build/boardLinks'
 
 const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}): BuildModeNode => ({
   id,
@@ -132,5 +133,22 @@ describe('build mode resolution', () => {
         buildable: true,
       },
     })
+  })
+
+  // A board whose only job is another board's LEDs: an ESP8266 serving a Web
+  // Remote. Its partition holds the remote and the link-out, no LED output.
+  it('builds a board that only sends over a board link', () => {
+    const remote = node('remote', 'WebRemoteInput')
+    const send = node('send', BUILD_MODE_LINK_OUT_TYPE)
+    const result = resolveBuildMode([remote, send], [
+      { source: 'remote', target: 'send', sourceHandle: 'remote:level', targetHandle: 'value' },
+    ])
+    expect(result.mode).toBe('sketch')
+    expect(result.capabilities).toMatchObject({ frameOutput: false, linkSend: true, buildable: true })
+    expect(resolveBuildMode([remote], []).capabilities.buildable).toBe(false)
+  })
+
+  it('names the link-out type the partition uses', () => {
+    expect(BUILD_MODE_LINK_OUT_TYPE).toBe(BOARD_LINK_OUT_NODE_TYPE)
   })
 })
