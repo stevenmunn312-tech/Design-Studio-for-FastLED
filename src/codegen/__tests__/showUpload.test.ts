@@ -501,7 +501,18 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('void audio_process_i2s(int16_t* outBuff, uint16_t validSamples')
     expect(ino).toContain('if (continueI2S) *continueI2S = true;')
     expect(ino).toContain('fl::make_shared<fl::audio::Processor>()')
-    expect(ino).toContain('_audioProcessor->update(sample);')
+    expect(ino).toContain('_audioProcessor->update(fl::audio::Sample(fl::span<const fl::i16>(block, DECODER_TAP_BLOCK_SAMPLES), millis()));')
+    // The decoder fills the ring from its own task, so the shared count only
+    // moves under the lock, and a pass takes at most one ring's worth.
+    expect(ino).toContain('static portMUX_TYPE _decoderTapMux = portMUX_INITIALIZER_UNLOCKED;')
+    expect(ino).toContain('for (uint8_t taken = 0; taken < DECODER_TAP_BLOCKS; taken++) {')
+    expect(ino).not.toContain('while (_decoderTapQueued > 0)')
+    const changes = [...ino.matchAll(/^ +_decoderTapQueued(?:\+\+|--| = 0);/gm)]
+    expect(changes.length).toBe(4)
+    for (const change of changes) {
+      const before = ino.slice(0, change.index)
+      expect(before.lastIndexOf('portENTER_CRITICAL(&_decoderTapMux);')).toBeGreaterThan(before.lastIndexOf('portEXIT_CRITICAL(&_decoderTapMux);'))
+    }
     expect(ino).not.toContain('_audioSpectrum')
     expect(ino).toContain('setupDecoderTap();')
     expect(ino).toContain('if (!_decoderTapLive) updateShowAudio(posMs);')

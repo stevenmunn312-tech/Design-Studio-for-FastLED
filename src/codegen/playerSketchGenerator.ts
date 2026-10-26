@@ -1614,13 +1614,20 @@ uint32_t  audioDetLast = 0xFFFFFFFF;   // last frame served, so one-frame events
 ${decoderTap ? `
 // ESP32-audioI2S calls audio_process_i2s() after decode/gain and immediately
 // before the samples are written to I2S. Queue complete mono blocks there,
-// then run FastLED's Processor after audio.loop() has handed the PCM to DMA so
-// FFT work cannot delay the write that keeps playback fed.
+// then run FastLED's Processor in the Arduino loop so FFT work cannot delay
+// the write that keeps playback fed.
+//
+// The two ends run in different tasks: 3.0.12 decodes in its own task, every
+// 7 ms at priority 4, on either core. The ring's indexes and count are shared
+// between them, so every change to them is made under _decoderTapMux. Unlocked,
+// a lost update once left the count at 255 and the loop analysed 255 stale
+// blocks back to back, freezing the LEDs and the board link for 9 seconds.
 #define DECODER_TAP_BLOCK_SAMPLES 512
 #define DECODER_TAP_BLOCKS 4
 #define DECODER_TAP_INTERNAL_DAC ${internalDac ? 1 : 0}
 static int16_t _decoderTapBlocks[DECODER_TAP_BLOCKS][DECODER_TAP_BLOCK_SAMPLES];
-static uint16_t _decoderTapFill = 0;
+static portMUX_TYPE _decoderTapMux = portMUX_INITIALIZER_UNLOCKED;
+static uint16_t _decoderTapFill = 0;  // the decode task's own
 static uint8_t _decoderTapWrite = 0, _decoderTapRead = 0, _decoderTapQueued = 0;
 static uint32_t _decoderTapLastMs = 0;
 static bool _decoderTapLive = false;
@@ -1869,25 +1876,34 @@ ${needsStereoLevels ? `    leftSquares += (uint64_t)((int64_t)stereo[0] * stereo
     rightSquares += (uint64_t)((int64_t)stereo[1] * stereo[1]);
 ` : ''}    int32_t mixed = mixedChannels == 1 ? stereo[0] : (stereo[0] + stereo[1]) / 2;
 
-    // One producer (audio.loop) and one consumer later in the same Arduino
-    // loop. Drop the oldest complete block if rendering fell behind playback.
-    if (_decoderTapFill == 0 && _decoderTapQueued == DECODER_TAP_BLOCKS) {
-      _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
-      _decoderTapQueued--;
+    // Drop the oldest complete block if rendering fell behind playback. The
+    // block being filled is never one the loop can take, so samples go in
+    // unlocked; only starting and finishing a block touch shared state.
+    if (_decoderTapFill == 0) {
+      portENTER_CRITICAL(&_decoderTapMux);
+      if (_decoderTapQueued == DECODER_TAP_BLOCKS) {
+        _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
+        _decoderTapQueued--;
+      }
+      portEXIT_CRITICAL(&_decoderTapMux);
     }
     _decoderTapBlocks[_decoderTapWrite][_decoderTapFill++] =
       (int16_t)mixed;
     if (_decoderTapFill == DECODER_TAP_BLOCK_SAMPLES) {
       _decoderTapFill = 0;
+      portENTER_CRITICAL(&_decoderTapMux);
       _decoderTapWrite = (_decoderTapWrite + 1) % DECODER_TAP_BLOCKS;
       _decoderTapQueued++;
+      portEXIT_CRITICAL(&_decoderTapMux);
     }
   }
   // Publish one short-window RMS accumulator. sqrtf stays in the main loop so
   // the callback returns to decoder/I2S DMA with only adds and multiplies.
-${needsStereoLevels ? `  _decoderLeftSquares = leftSquares;
+${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
+  _decoderLeftSquares = leftSquares;
   _decoderRightSquares = rightSquares;
   _decoderLevelFrames = validSamples;
+  portEXIT_CRITICAL(&_decoderTapMux);
 ` : ''}}
 
 void setupDecoderTap() {
@@ -1907,28 +1923,40 @@ ${vuNormalizedLevelCpp({ rmsScaleExpr: '_decoderVolumeComp' }).join('\n')}
 
 void updateDecoderAudio() {
   if (!_audioProcessor) {
+    portENTER_CRITICAL(&_decoderTapMux);
     _decoderTapQueued = 0;
+    portEXIT_CRITICAL(&_decoderTapMux);
     _decoderTapLive = false;
     return;
   }
 
+  // At most a full ring per pass, each block copied out under the lock and
+  // analysed outside it. The decoder keeps queueing while the Processor runs,
+  // so draining until empty never ends once analysis is slower than playback.
+  static int16_t block[DECODER_TAP_BLOCK_SAMPLES];
   bool processed = false;
-  while (_decoderTapQueued > 0) {
-    fl::audio::Sample sample(
-      fl::span<const fl::i16>(_decoderTapBlocks[_decoderTapRead], DECODER_TAP_BLOCK_SAMPLES),
-      millis());
-    _audioProcessor->update(sample);
-    _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
-    _decoderTapQueued--;
+  for (uint8_t taken = 0; taken < DECODER_TAP_BLOCKS; taken++) {
+    portENTER_CRITICAL(&_decoderTapMux);
+    bool have = _decoderTapQueued > 0;
+    if (have) {
+      memcpy(block, _decoderTapBlocks[_decoderTapRead], sizeof(block));
+      _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
+      _decoderTapQueued--;
+    }
+    portEXIT_CRITICAL(&_decoderTapMux);
+    if (!have) break;
+    _audioProcessor->update(fl::audio::Sample(fl::span<const fl::i16>(block, DECODER_TAP_BLOCK_SAMPLES), millis()));
     processed = true;
   }
   if (processed) _decoderTapLastMs = millis();
   _decoderTapLive = _decoderTapLastMs != 0 && millis() - _decoderTapLastMs < 250;
 
-${needsStereoLevels ? `  uint32_t levelFrames = _decoderLevelFrames;
+${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
+  uint32_t levelFrames = _decoderLevelFrames;
+  uint64_t leftSquares = _decoderLeftSquares, rightSquares = _decoderRightSquares;
+  _decoderLevelFrames = 0;
+  portEXIT_CRITICAL(&_decoderTapMux);
   if (levelFrames > 0) {
-    uint64_t leftSquares = _decoderLeftSquares, rightSquares = _decoderRightSquares;
-    _decoderLevelFrames = 0;
     _audioLeftLevel = _vuNormalizedLevel(leftSquares, levelFrames);
     _audioRightLevel = _vuNormalizedLevel(rightSquares, levelFrames);
   }
@@ -1952,7 +1980,7 @@ ${needsSpectrum ? '  for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProc
 }
 
 void resetDecoderTapLevels() {
-${needsStereoLevels ? '  _decoderLeftSquares = _decoderRightSquares = 0;\n  _decoderLevelFrames = 0;\n  _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}
+${needsStereoLevels ? '  portENTER_CRITICAL(&_decoderTapMux);\n  _decoderLeftSquares = _decoderRightSquares = 0;\n  _decoderLevelFrames = 0;\n  portEXIT_CRITICAL(&_decoderTapMux);\n  _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}
   _decoderTapLastMs = 0;
   _decoderTapLive = false;
 }
