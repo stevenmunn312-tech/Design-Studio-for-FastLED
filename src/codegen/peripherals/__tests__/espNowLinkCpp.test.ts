@@ -408,6 +408,6 @@ describe('board link — a screen design on one board showing another board\'s M
     ]
     const two = boardPartition(nodes, edges, 'board-2')
     const cpp = generateCpp(two.nodes, two.edges, {}, { displayDocuments: { [design.displayId]: design } })
-    expect(cpp).toMatch(/if \(!_cdSyncHeld\(_cd_\w+\[\d+\]\) && _lnkUp0\) \{\n\s+_cd_\w+\[\d+\]\.floatValue = constrain\(\(float\)\(\(_lnkUp0 \? _lnkFloat/)
+    expect(cpp).toMatch(/if \(_cdSyncTakes\(_cd_\w+\[\d+\], _lnkUp0\)\) \{\n\s+_cd_\w+\[\d+\]\.floatValue = constrain\(\(float\)\(\(_lnkUp0 \? _lnkFloat/)
   })
 })

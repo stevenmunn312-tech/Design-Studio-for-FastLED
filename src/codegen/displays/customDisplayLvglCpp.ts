@@ -933,6 +933,7 @@ struct CustomDisplayWidgetRuntime {
   bool touchOwned;
   bool touchPending;
   uint32_t touchAtMs;           // the last finger input, 0 before the first
+  uint32_t liveAtMs;            // when a live-gated reading came back, 0 while it is lost
   bool boolValue;
   // Finger gestures on this widget, and only those: a Set write moves the
   // value without an LVGL event, so this is how a Toggle carried in a Controls
@@ -1205,6 +1206,18 @@ static bool _cdSyncHeld(CustomDisplayWidgetRuntime &runtime) {
     || (runtime.touchAtMs != 0 && millis() - runtime.touchAtMs < CD_SYNC_HOLD_MS);
   runtime.touchPending = false;
   return held;
+}
+
+// The same, for a reading that is only current while \`live\` (another board,
+// heard over a link). While it is lost the control keeps its own value, and
+// for CD_SYNC_HOLD_MS after it returns as well: a board that has just
+// restarted reports its start-up value before it has heard this one's, and
+// taking that at once turned a reset into the volume back at full.
+static bool _cdSyncTakes(CustomDisplayWidgetRuntime &runtime, bool live) {
+  bool held = _cdSyncHeld(runtime);
+  if (!live) { runtime.liveAtMs = 0; return false; }
+  if (runtime.liveAtMs == 0) runtime.liveAtMs = millis() | 1u;
+  return !held && millis() - runtime.liveAtMs >= CD_SYNC_HOLD_MS;
 }
 `
 
@@ -1565,7 +1578,7 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
   if (!expr) return []
   const rt = runtime(emit, index)
   const live = bindingLive(emit, widget.id, 'set')
-  const when = `if (!_cdSyncHeld(${rt})${live ? ` && ${live}` : ''})`
+  const when = live ? `if (_cdSyncTakes(${rt}, ${live}))` : `if (!_cdSyncHeld(${rt}))`
   if (widget.type === 'Toggle') return [`  ${when} _cdSetChecked(${rt}, (bool)(${expr}));`]
   if (widget.type === 'Slider' || widget.type === 'Dial') {
     return [

@@ -237,7 +237,11 @@ describe('custom Display LVGL object emitter', () => {
       document: document([slider]),
       bindings: { [slider.id]: [{ role: 'set', expression: '(_lnkUp0 ? _lnkFloat(_lnkW0[1]) : 0.0f)', live: '_lnkUp0' }] },
     }
-    expect(customDisplayLvglLoopCpp(emit).join('\n')).toContain('if (!_cdSyncHeld(_cd_panel[0]) && _lnkUp0) {')
+    expect(customDisplayLvglLoopCpp(emit).join('\n')).toContain('if (_cdSyncTakes(_cd_panel[0], _lnkUp0)) {')
+    // And for a moment after the sender returns, so a board that restarted
+    // hears this one's value before this one takes its start-up value.
+    expect(emitted(emit)).toContain('if (!live) { runtime.liveAtMs = 0; return false; }')
+    expect(emitted(emit)).toContain('return !held && millis() - runtime.liveAtMs >= CD_SYNC_HOLD_MS;')
   })
 
   it('publishes touch values by index without turning widget ids into C++ identifiers', () => {
