@@ -2370,6 +2370,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     pinSW: 'GPIO wired to the encoder push-switch (SW) line.',
     levelStart: 'Where Level starts when the board powers up, 0 to 1. Reset On Press returns it here too.',
     levelClicks: 'Clicks that take Level from 0 to 1. Level stops at both ends, so the first click back always moves it.',
+    debug: 'Prints every change of Level and Position, and each press and release of the switch, to the serial monitor at 115200 baud. Upload again after changing this.',
   },
   DMXInput: {
     inputMode: 'Art-Net or sACN (E1.31) receives over the network; DMX512 reads a wired DMX line through an RS-485 transceiver.',

@@ -685,7 +685,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       level: 'The turning as a value from 0 to 1 that stops at each end, ready for a volume or a brightness.',
       pressed: 'True while the knob is pushed in.',
     },
-    propertyNote: 'Pin A, Pin B and Pin SW describe the wiring for the sketch. Pull-Up applies to all three pins. Level Start and Clicks 0 To 1 shape Level only; Reset On Press returns Level to its start as well.',
+    propertyNote: 'Pin A, Pin B and Pin SW describe the wiring for the sketch. Pull-Up applies to all three pins. Level Start and Clicks 0 To 1 shape Level only; Reset On Press returns Level to its start as well. Debug prints Level, Position and each press and release to the serial monitor.',
     example: example({
       featured: 'EncoderInput',
       title: 'Turn a star and flash it from one knob',

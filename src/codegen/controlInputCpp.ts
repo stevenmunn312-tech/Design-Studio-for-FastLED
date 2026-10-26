@@ -43,6 +43,12 @@ export interface ControlInputEmission {
  * `ports`, when given, are the outputs something reads; an output that costs
  * work on every pass (an Encoder's Level) is left out when nothing does.
  */
+/**
+ * Inputs with a Debug toggle that prints to the serial monitor. A debug node
+ * is built even before anything is wired to it, and its sketch starts Serial.
+ */
+export const SERIAL_DEBUG_INPUT_TYPES: readonly string[] = ['IRRemoteInput', 'PowerMonitorInput', 'EncoderInput']
+
 export function controlInputCpp(
   nodeType: string, id: string, p: Record<string, unknown>, ports?: ReadonlySet<string>,
 ): ControlInputEmission | null {
@@ -90,7 +96,8 @@ export function controlInputCpp(
       for (const pin of [pinA, pinB]) setup.push(`  pinMode(${pin}, ${pullup ? 'INPUT_PULLUP' : 'INPUT'});`)
       // Level counts with Position but is held to 0..span as it goes, so
       // turning back from an end moves it at once (state/peripherals/encoder.ts).
-      const level = !ports || ports.has('level')
+      const debug = p.debug === true
+      const level = !ports || ports.has('level') || debug
       const span = encoderLevelSpan(p), start = encoderLevelStartCount(p)
       loop.push(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;${level ? ` static int16_t _encLvl_${id} = ${start};` : ''}`)
       loop.push(`  { int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`)
@@ -110,6 +117,13 @@ export function controlInputCpp(
       if (level) {
         loop.push(`  float ${v('level')} = _encLvl_${id} / ${span}.0f;`)
         outputs.level = 'float'
+      }
+      if (debug) {
+        // Every change of Level and every edge of the switch, raw: a bouncing
+        // contact shows as several presses, which is what this is for.
+        loop.push(`  static int16_t _encDbgLvl_${id} = -1; static bool _encDbgSw_${id} = false;`)
+        loop.push(`  if (_encLvl_${id} != _encDbgLvl_${id}) { _encDbgLvl_${id} = _encLvl_${id}; Serial.printf("[encoder] level=%.3f position=%.0f\\n", ${v('level')}, ${v('position')}); }`)
+        loop.push(`  if (${v('pressed')} != _encDbgSw_${id}) { _encDbgSw_${id} = ${v('pressed')}; Serial.println(${v('pressed')} ? "[encoder] press" : "[encoder] release"); }`)
       }
       break
     }
@@ -216,6 +230,7 @@ export function controlInputCpp(
         ...(p.debug === true ? [POWER_MONITOR_DEBUG_HELPER_CPP.join('\n')] : []),
       ], includes: ['#include <Wire.h>'], serialDebug: p.debug === true }
       : {}),
+    ...(nodeType === 'EncoderInput' && p.debug === true ? { serialDebug: true } : {}),
     ...(nodeType === 'EnvironmentInput'
       ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),

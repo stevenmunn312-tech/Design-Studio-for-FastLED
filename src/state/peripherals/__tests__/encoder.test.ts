@@ -123,6 +123,12 @@ describe('Level', () => {
     const unread = controlInputCpp('EncoderInput', 'enc', p, new Set(['position']))!
     expect(unread.outputs.level).toBeUndefined()
     expect(unread.loop.join('\n')).not.toContain('_encLvl_enc')
+    // Debug counts Level even unread, and reports it and the switch's edges.
+    const debug = controlInputCpp('EncoderInput', 'enc', { ...p, debug: true }, new Set(['pressed']))!
+    expect(debug.serialDebug).toBe(true)
+    expect(debug.loop.join('\n')).toContain('Serial.printf("[encoder] level=%.3f position=%.0f\\n", n_enc_level, n_enc_position);')
+    expect(debug.loop.join('\n')).toContain('Serial.println(n_enc_pressed ? "[encoder] press" : "[encoder] release");')
+    expect(unread.serialDebug).toBeUndefined()
     // The SR1230's two counts a transition step Level the same way.
     expect(controlInputCpp('EncoderInput', 'enc', { ...p, ...SR1230 }, new Set(['level']))!.loop.join('\n'))
       .toContain('_encLvl_enc=constrain(_encLvl_enc+_d * 2,0,40);')

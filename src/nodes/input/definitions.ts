@@ -427,7 +427,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'level', label: 'Level', dataType: 'float' },
       { id: 'pressed', label: 'Pressed', dataType: 'bool' },
     ],
-    defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false, ...ENCODER_LEVEL_DEFAULTS },
+    defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false, ...ENCODER_LEVEL_DEFAULTS, debug: false },
   },
   {
     // Scene-wide DMX source. Browser preview reads helper-backed Art-Net;

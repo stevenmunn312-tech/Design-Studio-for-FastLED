@@ -180,6 +180,7 @@ import { shareScratchBuffers } from './scratchSharing'
 import { finishCpp } from './cppCleanup'
 import { boardCppFacts, specializeCpp } from './cppSpecialize'
 import { SHOW_PIPELINE_NOTES } from '../nodes/show/codegen'
+import { SERIAL_DEBUG_INPUT_TYPES } from './controlInputCpp'
 export { PSRAM_ALLOC_CPP, psramBufferDecl, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './output/ledHardwareCpp'
 export type { LedHardware } from './output/ledHardwareCpp'
 export { hub75HardwareFromProps, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar, hub75BlitRowsCpp, hub75SetupCpp } from './output/hub75Cpp'
@@ -500,7 +501,7 @@ export function generateCpp(
   const live = reachableFromOutputs(nodes, edges)
   // Hardware diagnostics also work before an output is wired.
   for (const node of nodes) {
-    if (['IRRemoteInput', 'PowerMonitorInput'].includes(node.data.nodeType) && node.data.properties.debug === true
+    if (SERIAL_DEBUG_INPUT_TYPES.includes(node.data.nodeType) && node.data.properties.debug === true
         && !live.some((entry) => entry.id === node.id)) live.push(node)
   }
   // A second laser sensor that does not feed an output still has to hold its
@@ -1656,7 +1657,8 @@ export function generateCpp(
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
   // Share one serial port between telemetry, hardware diagnostics and RTC commands.
-  if ((emitTelemetry || irEmission.debug || powerMonitors.some((node) => props(node).debug === true)) && !needsDs3231) {
+  const inputDebug = sorted.some((node) => SERIAL_DEBUG_INPUT_TYPES.includes(node.data.nodeType) && props(node).debug === true)
+  if ((emitTelemetry || irEmission.debug || inputDebug) && !needsDs3231) {
     lines.push(emitTelemetry ? TELEMETRY_SERIAL_BEGIN_CPP : '  Serial.begin(115200);  // Hardware diagnostics')
   } else if (link?.receives && !needsDs3231) {
     lines.push('  Serial.begin(115200);  // board link reports a schema mismatch')

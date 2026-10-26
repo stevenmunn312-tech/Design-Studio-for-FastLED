@@ -4,7 +4,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { inputClampRange, resolveNodeNumericProperties } from '../state/nodeLibrary'
 import { compositionDims } from '../state/output/outputRouting'
-import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
+import { controlInputCpp, SERIAL_DEBUG_INPUT_TYPES, type ControlInputEmission } from './controlInputCpp'
 import { i2cDistanceBusPeers } from '../state/peripherals/distanceSensor'
 import { irRemoteProjectEmission, type IrRemoteProjectNode } from './peripherals/irRemoteCpp'
 import { displayTextCppHelpers } from './displays/displayTextCpp'
@@ -241,7 +241,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
   }
   // Include unwired hardware when diagnostics are explicitly requested.
   for (const node of nodes) {
-    if (!['IRRemoteInput', 'PowerMonitorInput'].includes(node.data.nodeType) || node.data.properties.debug !== true) continue
+    if (!SERIAL_DEBUG_INPUT_TYPES.includes(node.data.nodeType) || node.data.properties.debug !== true) continue
     const emission = controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)!
     instructions.push({ kind: 'gpio', nodeId: node.id, emission })
     done.add(node.id)
