@@ -164,7 +164,9 @@ def board_link_legs() -> list[Leg]:
     targets = {"run1-board1-player": (S3, "s3"), "run1-board2-xc4630": (CLASSIC, "classic"),
                "run2-board1-player": (S3, "s3"), "run2-board2-oled-encoder": (CLASSIC, "classic"),
                "run3-board1-esp32": (CLASSIC, "classic"),
-               "run3-board2-esp8266-remote": ("esp8266:esp8266:d1_mini", "esp8266")}
+               "run3-board2-esp8266-remote": ("esp8266:esp8266:d1_mini", "esp8266"),
+               "run4-board1-player-follows": (S3, "s3"),
+               "run5-board2-esp8266-follows": ("esp8266:esp8266:d1_mini", "esp8266")}
     return [Leg("board-links", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino", fqbn, tag)
             for name, (fqbn, tag) in targets.items()]
 

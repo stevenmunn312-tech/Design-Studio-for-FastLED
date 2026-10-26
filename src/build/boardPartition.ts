@@ -2,6 +2,8 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { boardLinkSettings } from '../state/peripherals/boardLinkKey'
+import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
+import { networkSourceIn } from '../codegen/peripherals/networkCpp'
 import { displayKindOfSource, displaySlotFields, receiverDisplayFields } from './boardLinkDisplay'
 import { isLinkedControlsSource, touchControlsFields } from './boardLinkControls'
 import {
@@ -476,8 +478,17 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
   }
   const hash = slots.length ? boardLinkSchemaHash(slots, boardOrder) : 0
   const settings = boardLinkSettings(boards[0]?.data.properties as Record<string, unknown> | undefined)
+  // The same test validation applies: a board's network user brings up Wi-Fi
+  // unless the board is on a cable.
+  const wifiByBoard: Record<string, string> = {}
+  for (const boardId of boardOrder) {
+    const members = byBoard.get(boardId)!
+    const own = nodes.filter((node) => members.has(node.id))
+    const source = wiredNetworkIn(own) ? null : networkSourceIn(own)
+    if (source) wifiByBoard[boardId] = source.id
+  }
   const context: BoardLinkContext = {
-    hash, linkId: settings.linkId, channel: settings.channel, boardOrder, frames,
+    hash, linkId: settings.linkId, channel: settings.channel, boardOrder, frames, wifiByBoard,
   }
   for (const slot of slots) slot.link = context
 

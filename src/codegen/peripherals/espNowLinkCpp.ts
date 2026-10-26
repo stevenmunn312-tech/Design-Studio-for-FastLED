@@ -37,7 +37,8 @@ import {
 } from '../../build/boardLinks'
 import { DISPLAY_TEXT_MAX_BYTES } from '../../state/displays/displayText'
 import type { DisplaySignalKind } from '../../state/displays/displaySignal'
-import { cppComment, safeId } from '../cppLiterals'
+import { cppComment, cppStringLiteral, safeId } from '../cppLiterals'
+import { getNetworkCredentials } from '../../state/peripherals/networkCredentials'
 import type { ControlInputEmission } from '../controlInputCpp'
 
 export const LINK_MAGIC = 'FLLK'
@@ -57,6 +58,30 @@ export const LINK_LOST_MS = 1000
 export const LINK_RING_FRAMES = 4
 /** How often a schema mismatch is said on serial at most. */
 export const LINK_MISMATCH_REPORT_MS = 5000
+/** A board following a network's channel looks again once nothing has been heard for this long. */
+export const LINK_FOLLOW_LOST_MS = 3000
+/** And at most this often while it stays unheard, since a scan deafens the radio for a moment. */
+export const LINK_FOLLOW_RETRY_MS = 10000
+/** A board that only sends cannot tell it is unheard, so it looks again on this period. */
+export const LINK_FOLLOW_SENDER_MS = 60000
+/** Each channel's listen during a follow scan: thirteen of them is about 1.6 seconds. */
+const LINK_FOLLOW_SCAN_MS_PER_CHANNEL = 120
+
+/**
+ * The network whose channel a board off Wi-Fi follows: the one the first
+ * other linked board joins, or null when none joins one or its name is not
+ * set on this machine. Only the name reaches the sketch, never the password:
+ * the board scans for the network and never joins it.
+ */
+export function boardLinkFollowSsid(plan: BoardLinkPlan): string | null {
+  const self = plan.context.boardOrder[plan.self]
+  const wifiByBoard = plan.context.wifiByBoard ?? {}
+  for (const boardId of plan.context.boardOrder) {
+    if (boardId === self || !wifiByBoard[boardId]) continue
+    return getNetworkCredentials(wifiByBoard[boardId]).ssid || null
+  }
+  return null
+}
 /** Flag bit: this frame is a heartbeat. */
 export const LINK_FLAG_HEARTBEAT = 1
 
@@ -880,6 +905,60 @@ export function boardLinkRadioCpp(plan: BoardLinkPlan, sends: readonly LinkSend[
   if (opts.joinsWifi && sendsAny) {
     lines.push(`static uint8_t _lnkPeerChannel = 0;`)
   }
+  const follow = opts.joinsWifi ? null : boardLinkFollowSsid(plan)
+  if (follow) {
+    const heard = plan.receivers.map((receiver) => `_lnkUp${receiver.sender}`).join(' || ')
+    lines.push(
+      `// This board joins no Wi-Fi, but a board it links with does, and that`,
+      `// board's radio sits on its router's channel. The channel is found by a`,
+      `// scan for the network's name, without joining it: at start, and again`,
+      receives
+        ? `// once nothing has been heard for a while, since the router can move.`
+        : `// now and then, since the router can move and nothing here would notice.`,
+      `static const char _lnkFollowSsid[] = ${cppStringLiteral(follow)};`,
+      `static uint8_t _lnkChannel = ${channel};`,
+      `static bool _lnkScanning = false;`,
+      `static uint32_t _lnkScanAtMs = 0;`,
+      ...(receives ? [`static uint32_t _lnkHeardMs = 0;`] : []),
+      `static void _lnkScanStart(uint32_t now) {`,
+      `  _lnkScanAtMs = now == 0u ? 1u : now;`,
+      `#if defined(ESP32)`,
+      `  _lnkScanning = WiFi.scanNetworks(true, true, false, ${LINK_FOLLOW_SCAN_MS_PER_CHANNEL}, 0, _lnkFollowSsid) == WIFI_SCAN_RUNNING;`,
+      `#elif defined(ESP8266)`,
+      `  WiFi.scanNetworks(true, true, 0, (uint8 *)_lnkFollowSsid);`,
+      `  _lnkScanning = true;`,
+      `#endif`,
+      `}`,
+      `static void _lnkFollow(uint32_t now) {`,
+      `  if (_lnkScanning) {`,
+      `    int16_t found = WiFi.scanComplete();`,
+      `    if (found == WIFI_SCAN_RUNNING) return;`,
+      `    _lnkScanning = false;`,
+      `    for (int16_t i = 0; i < found; i++) {`,
+      `      if (WiFi.SSID(i) == _lnkFollowSsid) { _lnkChannel = (uint8_t)WiFi.channel(i); break; }`,
+      `    }`,
+      `    WiFi.scanDelete();`,
+      `    // A scan leaves the radio on the last channel it listened to.`,
+      `#if defined(ESP32)`,
+      `    esp_wifi_set_channel(_lnkChannel, WIFI_SECOND_CHAN_NONE);`,
+      `#elif defined(ESP8266)`,
+      `    wifi_set_channel(_lnkChannel);`,
+      ...(sendsAny ? [`    esp_now_set_peer_channel((uint8_t *)_lnkBroadcast, _lnkChannel);`] : []),
+      `#endif`,
+      ...(receives ? [`    _lnkHeardMs = now;`] : []),
+      `    return;`,
+      `  }`,
+      ...(receives ? [
+        `  if (${heard}) { _lnkHeardMs = now; return; }`,
+        `  if ((uint32_t)(now - _lnkHeardMs) < ${LINK_FOLLOW_LOST_MS}u) return;`,
+        `  if ((uint32_t)(now - _lnkScanAtMs) < ${LINK_FOLLOW_RETRY_MS}u) return;`,
+      ] : [
+        `  if ((uint32_t)(now - _lnkScanAtMs) < ${LINK_FOLLOW_SENDER_MS}u) return;`,
+      ]),
+      `  _lnkScanStart(now);`,
+      `}`,
+    )
+  }
 
   const radioMode = opts.joinsWifi
     ? {
@@ -900,6 +979,8 @@ export function boardLinkRadioCpp(plan: BoardLinkPlan, sends: readonly LinkSend[
         ],
         esp8266: [`  WiFi.mode(WIFI_STA);`, `  WiFi.disconnect();`, `  wifi_set_channel(${channel});`],
       }
+  // Ready on the link channel at once; the scan moves it when it finds the network.
+  const followStart = follow ? [`  _lnkScanStart(millis());`] : []
   lines.push(
     `static void _lnkBegin() {`,
     `#if defined(ESP32)`,
@@ -929,6 +1010,7 @@ export function boardLinkRadioCpp(plan: BoardLinkPlan, sends: readonly LinkSend[
     `  return;`,
     `#endif`,
     ...(sendsAny ? [`  if (_lnkSession == 0u) _lnkSession = 1u;`] : []),
+    ...followStart,
     `  _lnkReady = true;`,
     `}`,
   )
@@ -951,6 +1033,7 @@ export function boardLinkRadioCpp(plan: BoardLinkPlan, sends: readonly LinkSend[
       `    _lnkAccept(f, n, now);`,
       `  }`,
       `  _lnkTick(now);`,
+      ...(follow ? [`  _lnkFollow(now);`] : []),
       `  // A board running firmware from before the link last changed: say so, now and then.`,
       `  static uint32_t _lnkMismatchSaidMs = 0;`,
       `  if (_lnkMismatch && (_lnkMismatchSaidMs == 0u || (uint32_t)(now - _lnkMismatchSaidMs) >= ${LINK_MISMATCH_REPORT_MS}u)) {`,
@@ -965,6 +1048,7 @@ export function boardLinkRadioCpp(plan: BoardLinkPlan, sends: readonly LinkSend[
     lines.push(
       `static void _lnkTransmit() {`,
       `  if (!_lnkReady) return;`,
+      ...(follow && !receives ? [`  _lnkFollow(millis());`] : []),
       ...(opts.joinsWifi ? [
         `#if defined(ESP8266)`,
         `  // The access point can move the station; the broadcast peer moves with it.`,

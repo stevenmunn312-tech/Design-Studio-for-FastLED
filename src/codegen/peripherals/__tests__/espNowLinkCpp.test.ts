@@ -7,6 +7,7 @@ import { specializeCpp } from '../../cppSpecialize'
 import { boardPartition } from '../../../build/boardPartition'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import { useBoardLinkKeyStore } from '../../../state/peripherals/boardLinkKey'
+import { useNetworkCredentialsStore } from '../../../state/peripherals/networkCredentials'
 import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
 import { parseTelemetryLine } from '../../../state/upload/deviceTelemetry'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
@@ -409,5 +410,102 @@ describe('board link — a screen design on one board showing another board\'s M
     const two = boardPartition(nodes, edges, 'board-2')
     const cpp = generateCpp(two.nodes, two.edges, {}, { displayDocuments: { [design.displayId]: design } })
     expect(cpp).toMatch(/if \(_cdSyncTakes\(_cd_\w+\[\d+\], _lnkUp0\)\) \{\n\s+_cd_\w+\[\d+\]\.floatValue = constrain\(\(float\)\(\(_lnkUp0 \? _lnkFloat/)
+  })
+})
+
+describe('board link — a board off Wi-Fi beside one on it', () => {
+  afterEach(() => {
+    useNetworkCredentialsStore.getState().removeCredentials('remote')
+  })
+  const remote = (extra: Record<string, unknown> = {}) => node('remote', 'WebRemoteInput', {
+    controls: [{ id: 'level', type: 'Slider', label: 'Level', properties: {} }], ...extra,
+  })
+
+  it('scans for the network the other board joins, and takes its channel', () => {
+    // The D-13 bench: Board 2 joins the network, Board 1 joins none.
+    useNetworkCredentialsStore.getState().setCredentials('remote', { ssid: 'Studio "B"', password: 'secret-pass' })
+    const nodes = [
+      node('board-root', 'Board', { linkId: LINK_ID }), node('board-2', 'Board'),
+      node('fill', 'SolidColor'), node('dim', 'BrightnessMod'), node('out', 'MatrixOutput', { width: 8, height: 1 }),
+      remote(on2),
+    ]
+    const edges = [
+      edge('fill', 'frame', 'dim', 'frame'), edge('dim', 'frame', 'out', 'frame'),
+      edge('remote', 'remote:level', 'dim', 'brightness'),
+    ]
+    const { one, two } = sketches({ nodes, edges })
+    const follower = specializeCpp(one, ESP32)
+    expect(follower).toContain('static const char _lnkFollowSsid[] = "Studio \\"B\\"";')
+    expect(follower).toContain('WiFi.scanNetworks(true, true, false, 120, 0, _lnkFollowSsid) == WIFI_SCAN_RUNNING;')
+    // Started at once, looked at every pass, and the radio put back on the channel found.
+    expect(follower).toContain('  _lnkScanStart(millis());')
+    expect(follower).toContain('  _lnkFollow(now);')
+    expect(follower).toContain('esp_wifi_set_channel(_lnkChannel, WIFI_SECOND_CHAN_NONE);')
+    expect(follower).toContain('if ((uint32_t)(now - _lnkHeardMs) < 3000u) return;')
+    expect(specializeCpp(one, ESP8266)).toContain('wifi_set_channel(_lnkChannel);')
+    // The name only: the follower never joins, so the password stays out.
+    expect(one).not.toContain('secret-pass')
+    // The board on the network rides its router's channel and scans for nothing.
+    expect(two).not.toContain('_lnkFollow')
+  })
+
+  it('looks again now and then from a board that only sends', () => {
+    useNetworkCredentialsStore.getState().setCredentials('remote', { ssid: 'studio', password: 'x' })
+    const { nodes, edges } = controlsGraph({
+      nodes: [remote(), node('dim2', 'BrightnessMod')],
+      edges: [edge('remote', 'remote:level', 'dim2', 'brightness')],
+    })
+    const rewired = edges.map((entry) => (entry.id === 'dim-frame-out-frame'
+      ? edge('dim', 'frame', 'dim2', 'frame')
+      : entry))
+    rewired.push(edge('dim2', 'frame', 'out', 'frame'))
+    const { two } = sketches({ nodes, edges: rewired })
+    const sender = specializeCpp(two, ESP8266)
+    expect(sender).toContain('_lnkFollowSsid[] = "studio";')
+    expect(sender).toContain('if ((uint32_t)(now - _lnkScanAtMs) < 60000u) return;')
+    expect(sender).toContain('esp_now_set_peer_channel((uint8_t *)_lnkBroadcast, _lnkChannel);')
+    const transmit = sender.slice(sender.indexOf('static void _lnkTransmit() {'))
+    expect(transmit.indexOf('_lnkFollow(millis());')).toBeGreaterThan(-1)
+  })
+
+  it('follows nothing when no linked board joins a network', () => {
+    const { one, two } = sketches(controlsGraph())
+    expect(one + two).not.toContain('_lnkFollow')
+  })
+})
+
+describe('board link — a Controls bundle and a direct action from the same board', () => {
+  it('builds the arriving bundle before the Music Player merges a direct press into it', () => {
+    const touch = node('touch', 'TouchInput', { panelId: 'tft', ...on2 })
+    touch.data.outputs = [
+      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+      { id: 'next', label: 'Next', dataType: 'bool' },
+    ]
+    const back = node('back', 'WebRemoteInput', {
+      ...on2, controls: [{ id: 'back', type: 'Button', label: 'Back', properties: {} }],
+    })
+    const nodes = [
+      node('board-root', 'Board', { linkId: LINK_ID }), node('board-2', 'Board'),
+      node('master', 'PatternMaster'), node('card', 'SDCard'), node('amp', 'Amplifier'),
+      node('collection', 'PatternCollection', { patternIds: ['pattern'] }), output,
+      tftPanel('tft', 'Fixed Transport', on2), touch, back,
+    ]
+    const edges = [
+      edge('collection', 'patternset', 'master', 'patternset'),
+      edge('master', 'frame', 'out', 'frame'),
+      edge('card', 'storage', 'master', 'storage'),
+      edge('master', 'audio', 'amp', 'audio'),
+      edge('master', 'display', 'tft', 'display'),
+      edge('touch', 'controls', 'master', 'controls'),
+      edge('back', 'remote:back', 'master', 'previous'),
+    ]
+    const one = boardPartition(nodes, edges, 'board-root')
+    const routing = playerControlGraph(one.nodes, one.edges, {}, 'master')
+    expect(routing.errors).toEqual([])
+    const src = generatePlayerSketch({}, undefined, { controlGraph: routing, patternNames: { master: ['Aurora'] } })
+    const declared = src.indexOf('PlayerControlsValue n_board_link_in_touch_controls_controls;')
+    const merged = src.indexOf('n_master_direct_controls = n_board_link_in_touch_controls_controls;')
+    expect(declared).toBeGreaterThan(-1)
+    expect(merged).toBeGreaterThan(declared)
   })
 })

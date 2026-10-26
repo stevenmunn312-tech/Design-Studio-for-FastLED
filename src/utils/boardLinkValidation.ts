@@ -123,8 +123,9 @@ export function boardLinkFindings(
   // ── One Wi-Fi channel ──────────────────────────────────────────────────
   // A board that joins Wi-Fi sits on its router's channel, so every linked
   // board on Wi-Fi must join the same network. A cable does not move the
-  // radio: a board on wired Ethernet alone counts as off Wi-Fi, on the link
-  // channel like a board with no network at all.
+  // radio: a board on wired Ethernet alone counts as off Wi-Fi. A board off
+  // Wi-Fi beside one on it finds that network's channel by a scan
+  // (boardLinkFollowSsid), so it needs no advice here.
   const onWifi = linkedRuns.flatMap((run) => {
     if (radioless.has(run.board.id) || (run.fqbn && !fqbnHasWifi(run.fqbn))) return []
     if (wiredNetworkIn(run.partition.nodes)) return []
@@ -147,24 +148,6 @@ export function boardLinkFindings(
       nodeIds: [entry.owner.id, reference.owner.id], nodeLabel: nodeLabel(entry.owner),
     })
   }
-  if (onWifi.length > 0) {
-    const primary = boardNodesIn(nodes)[0]
-    const { channel } = boardLinkSettings(primary?.data.properties)
-    const wifiBoard = onWifi[0]
-    const network = wifiBoard.ssid ? `"${wifiBoard.ssid}"` : 'a Wi-Fi network'
-    for (const run of linkedRuns) {
-      if (radioless.has(run.board.id) || onWifi.some((entry) => entry.run === run)) continue
-      if (onlyBoardId) continue // advice, never a gate
-      issues.push({
-        id: `board-link-channel-${run.board.id}`, severity: 'warning', category: 'board',
-        title: `${run.label} may not hear ${wifiBoard.run.label}`,
-        message: `${wifiBoard.run.label} joins ${network}, so its radio is on that router's channel. ${run.label} joins no Wi-Fi network and listens on the link channel, ${channel}, so the two hear each other only while the router uses channel ${channel}.`,
-        fix: `Set the router to channel ${channel}, or set the link channel in ${labelOf(primary?.id ?? '')}'s options to the router's channel.`,
-        nodeIds: [run.board.id], nodeLabel: run.label,
-      })
-    }
-  }
-
   // ── What a show or player sketch can receive ───────────────────────────
   // A board whose sketch is a show or a Music Player reads linked values as
   // control-graph sources, which carry numbers, switches, presses, colours

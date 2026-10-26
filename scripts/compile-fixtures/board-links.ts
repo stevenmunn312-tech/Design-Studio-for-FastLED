@@ -1,6 +1,7 @@
 /**
  * Generate the board-link (D-13) compile fixtures: each board's sketch for the
- * three bench runs in the root todo, section 4. See docs/design/board-links.md.
+ * three bench runs in the root todo, section 4, and the two shapes of a board
+ * off Wi-Fi that follows a linked board's network. See docs/design/board-links.md.
  *
  * Each pair is one root graph cut by `boardPartition`, exactly as the Upload
  * tab cuts it, so a sketch here is the one that board would be flashed with.
@@ -20,6 +21,7 @@ import { findPinConflicts } from '../../src/utils/validateGraph'
 import { findCrossBoardIssues } from '../../src/build/boardPartition'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { useBoardLinkKeyStore } from '../../src/state/peripherals/boardLinkKey'
+import { useNetworkCredentialsStore } from '../../src/state/peripherals/networkCredentials'
 import { webRemoteOutputs } from '../../src/state/peripherals/webRemote'
 import { buildShowPlayer } from '../../src/utils/showUpload'
 
@@ -39,6 +41,11 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
 const LINK_ID = '0d13b0a7'
 useBoardLinkKeyStore.getState().createKey(LINK_ID)
 const on2 = { boardId: 'board-2' }
+// Every Web Remote here joins the bench network, so a board that joins none
+// scans for its channel. The name reaches the follower; the password does not.
+for (const id of ['remote', 'remote4', 'remote5']) {
+  useNetworkCredentialsStore.getState().setCredentials(id, { ssid: 'bench-network', password: 'fixture-only' })
+}
 
 const groups = {
   pattern: {
@@ -126,6 +133,37 @@ const run3 = {
   ],
 }
 
+/**
+ * Run 4: the run 1 Music Player off Wi-Fi beside a board on it. Board 2 also
+ * serves a Web Remote, so it rides the router's channel and the S3 follows.
+ */
+const run4 = {
+  nodes: [
+    ...run1.nodes,
+    node('remote4', 'WebRemoteInput', { ...on2, controls: [{ id: 'back', type: 'Button', label: 'Back', properties: {} }] }),
+  ],
+  edges: [...run1.edges, edge('remote4', 'remote:back', 'master', 'previous')],
+}
+
+/**
+ * Run 5: an ESP8266 that only sends, off Wi-Fi beside an ESP32 serving a Web
+ * Remote. It hears nothing, so it looks for the network's channel on a timer.
+ */
+const run5 = {
+  nodes: [
+    node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin', reportTelemetry: true, linkId: LINK_ID }),
+    node('board-2', 'Board', { profileId: 'esp8266-lolin-d1-mini', reportTelemetry: true }),
+    node('fill', 'SolidColor'), node('dim', 'BrightnessMod'), node('dim2', 'BrightnessMod'),
+    node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
+    node('remote5', 'WebRemoteInput', { controls: [{ id: 'level', type: 'Slider', label: 'Level', properties: {} }] }),
+    node('button', 'ButtonInput', { ...on2, pin: 5 }),
+  ],
+  edges: [
+    edge('fill', 'frame', 'dim', 'frame'), edge('dim', 'frame', 'dim2', 'frame'), edge('dim2', 'frame', 'out', 'frame'),
+    edge('remote5', 'remote:level', 'dim', 'brightness'), edge('button', 'pressed', 'dim2', 'brightness'),
+  ],
+}
+
 const player = (graph: { nodes: StudioNode[]; edges: StudioEdge[] }) => {
   const one = boardPartition(graph.nodes, graph.edges, 'board-root')
   return buildShowPlayer(one.nodes, one.edges, groups, {
@@ -137,7 +175,7 @@ const normal = (graph: { nodes: StudioNode[]; edges: StudioEdge[] }, boardId: st
   return generateCpp(part.nodes, part.edges, groups)
 }
 
-const graphs = { run1, run2, run3 }
+const graphs = { run1, run2, run3, run4, run5 }
 for (const [name, graph] of Object.entries(graphs)) {
   const crossing = findCrossBoardIssues(graph.nodes, graph.edges)
   if (crossing.length > 0) throw new Error(`${name}: a wire cannot cross boards: ${JSON.stringify(crossing)}`)
@@ -154,12 +192,20 @@ const sketches: Record<string, string> = {
   'run2-board2-oled-encoder': normal(run2, 'board-2'),
   'run3-board1-esp32': normal(run3, 'board-root'),
   'run3-board2-esp8266-remote': normal(run3, 'board-2'),
+  'run4-board1-player-follows': player(run4),
+  'run5-board2-esp8266-follows': normal(run5, 'board-2'),
 }
 
 // Every sketch is one half of a link: a sketch with no link code means the
 // partition dropped the wire, and the compile would prove nothing.
 for (const [name, source] of Object.entries(sketches)) {
   if (!source.includes('_lnkBegin(')) throw new Error(`${name}.ino has no board link`)
+}
+// The boards that join no Wi-Fi beside one that does follow its channel by
+// name, and never carry its password: they scan, they do not join.
+for (const name of ['run3-board1-esp32', 'run4-board1-player-follows', 'run5-board2-esp8266-follows']) {
+  if (!sketches[name].includes('_lnkFollow(')) throw new Error(`${name}.ino does not follow the network's channel`)
+  if (sketches[name].includes('fixture-only')) throw new Error(`${name}.ino carries the network's password`)
 }
 
 const outDir = resolve(process.argv[2] ?? 'artifacts/board-link-compile')

@@ -144,7 +144,7 @@ describe('board link validation', () => {
     expect(ids(buildBoardDiagnostics(nodes, edges, { targets }))).toEqual([])
   })
 
-  it('counts a board on a cable alone as off Wi-Fi, on the link channel', () => {
+  it('counts a board on a cable alone as off Wi-Fi, which follows the network rather than clashing with it', () => {
     const dmx2 = node('dmx2', 'DMXInput', { inputMode: 'Art-Net', universe: 0, ...on2 })
     const dmx1 = node('dmx1', 'DMXInput', { inputMode: 'Art-Net', universe: 0 })
     const eth = node('eth', 'EthernetModule', on2)
@@ -154,14 +154,9 @@ describe('board link validation', () => {
 
     const diagnostics = buildBoardDiagnostics(nodes, edges, { targets })
     expect(ids(diagnostics)).not.toContain('board-link-network-board-2')
-    // Not a blocker: it works while the router happens to sit on that channel.
-    expect(diagnostics.find((issue) => issue.id === 'board-link-channel-board-2')).toMatchObject({
-      severity: 'warning',
-      title: 'Board 2 may not hear Board 1',
-      fix: "Set the router to channel 6, or set the link channel in Board 1's options to the router's channel.",
-    })
-    expect(findDeployBlockingErrorsForBoard(nodes, edges, 'board-2', ESP32)
-      .some((error) => error.includes('may not hear'))).toBe(false)
+    // A board off Wi-Fi scans for the network's channel, so there is no
+    // channel to set by hand and nothing to warn about.
+    expect(ids(diagnostics).some((id) => id.startsWith('board-link-channel-'))).toBe(false)
   })
 
   it('refuses a clock reading into a board whose sketch is a slideshow', () => {

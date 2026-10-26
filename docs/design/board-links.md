@@ -231,13 +231,17 @@ ESP-NOW peers must share a Wi-Fi channel.
 - If no linked board joins Wi-Fi, every linked board sets the channel stored
   on the primary Board (`linkChannel`, default 1).
 - If any linked board joins Wi-Fi (clock sync, NTP, Web Remote, Art-Net), its
-  channel is the access point's, so every linked board must join the same
-  network. Validation enforces it. Wired Ethernet does not move the radio, so a
-  board on a cable alone counts as not on Wi-Fi.
+  channel is the access point's. Every linked board that joins Wi-Fi must join
+  the same network; validation enforces it. Wired Ethernet does not move the
+  radio, so a board on a cable alone counts as not on Wi-Fi.
+- A linked board that joins no Wi-Fi beside one that does follows that
+  network's channel: it scans for the network by name (never joining it, so
+  only the name reaches its sketch) at start, and again once it has heard
+  nothing for three seconds, at most every ten. A board that only sends cannot
+  tell it is unheard, so it scans every minute. A scan takes about 1.6 seconds
+  and runs alongside the loop; frames sent or due during it are lost.
 - A board that is on Wi-Fi and linked turns modem sleep off, or frames are
   missed between beacons.
-
-Finding a channel by scanning is not in v1 (see below).
 
 ### Key and link id
 
@@ -348,6 +352,10 @@ Where the build differs from, or narrows, the design above:
   and refuses a linked screen reading or time into a board whose sketch is a
   show or a Music Player, whose control graph carries only numbers, switches,
   presses, colours and text.
+- Channel following was out of scope here until the D-13 bench: a Music
+  Player sketch has no Wi-Fi of its own, so beside a CYD on clock sync the two
+  radios sat on different channels and heard nothing. The scan replaced
+  validation's "may not hear" warning, whose remedy was a channel set by hand.
 - The key is made when the first link wire is drawn, never on load; a project
   opened elsewhere gets a new key only from Graph Health's fix.
 - A Duplicate or Save As of a linked project takes a new link id and key
@@ -369,7 +377,6 @@ Where the build differs from, or narrows, the design above:
 ## Deliberately out of scope for v1
 
 - Frames or audio between boards.
-- Channel scanning, so a board off the network could find one on it.
 - A wired link (UART or RS-485) as a second transport. It costs no radio heap
   and suits a fixed install, and is the first follow-on.
 - UDP as a transport, and clock sync carried over ESP-NOW so synced shows work
