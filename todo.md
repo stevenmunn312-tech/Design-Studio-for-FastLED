@@ -35,17 +35,6 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 HW-32 (frame performance) is under [Completed](#completed); its bench rows are
 in section 4.
 
-- [ ] **D-13 · Board links over ESP-NOW (L).** Controls and readings travel
-  between the boards of one project over ESP-NOW. The software is built: the
-  partition cut, link wires, Runs on for network endpoints, the link channel
-  and key, the emitter in all three generators, validation, the Upload tab's
-  out-of-date note, help and an experimental support-matrix row
-  ([design](docs/design/board-links.md#as-built)). Both boards of all three
-  bench runs compile on arduino-cli
-  ([compile checks](docs/reports/compile/board-link-compile-checks.md)), and
-  the legs are in the freeze matrix. Runs 1 and 3 of the bench row passed on
-  2026-10-26 ([bench record](docs/reports/bench/board-link-bench.md)). What
-  closes it: run 2 in section 4.
 - [ ] **FastLED upgrade past 3.10.5 (M).** Both engines pin
   `_FASTLED_VERSION` (2026-10-24; before that arduino-cli took the registry's
   latest and fbuild cloned `main`). The pin is **3.10.5** because 3.10.7 and
@@ -324,24 +313,6 @@ chooses the supported combinations from whatever is on record at release.
   through transitions, and the follower resumes its own picks five seconds
   after the leader is unplugged. Compile both partitions first; no
   multi-board sketch has compiled yet.
-- **D-13 board links:** an ESP32-S3 running the Music Player and its LEDs,
-  and a classic ESP32 as its remote, in two runs: first the XC4630 shield
-  alone (volume and Next from its touch sheet, the track title and position on
-  its panel), then an SSD1306 OLED and a bare encoder (volume from turning,
-  Next from its press, title and position on the OLED). In either run, a reset
-  of each board and the other's behaviour meanwhile, both on and off a Wi-Fi
-  network. Then an ESP8266 Web Remote driving an ESP32's brightness. The
-  sketches are the compiled fixtures
-  ([compile checks](docs/reports/compile/board-link-compile-checks.md)).
-  Run 1 passed on 2026-10-26 with a CYD in place of the XC4630, on and off
-  Wi-Fi, with latency (about 250 ms press to action), range (15 m, four
-  walls, no loss) and heap (75 KB on the render board) recorded
-  ([bench record](docs/reports/bench/board-link-bench.md)). Run 3 passed the
-  same day: an ESP8266 Web Remote set the player's LED brightness through
-  resets of each board and a hotspot drop. Run 2 remains.
-  Record the link's latency, its range indoors, and the Wi-Fi driver's heap
-  cost on the render board
-  ([design](docs/design/board-links.md#limits)).
 - **D-03 UNO R4 WiFi networking:** NTP sync and Art-Net receive through
   WiFiS3 on an Arduino UNO R4 WiFi: first compile on arduino-cli (the
   `ARDUINO_UNOWIFIR4` define, `WiFiS3.h`, `setHostname` and the
@@ -458,6 +429,15 @@ and an Upload information shelf in
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
 are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
+- **D-13 · Board links over ESP-NOW**: controls and readings between the
+  boards of one project over authenticated ESP-NOW, with channel following
+  for a board off Wi-Fi, held hand-set values through a sender restart, and
+  the Encoder's Level output found on the way
+  ([design](docs/design/board-links.md#as-built);
+  [compile checks](docs/reports/compile/board-link-compile-checks.md)). All
+  three bench runs passed on 2026-10-26 and 27: a Music Player with a touch
+  screen, with an OLED and a bare encoder, and set by an ESP8266 Web Remote
+  ([bench record](docs/reports/bench/board-link-bench.md)).
 - **D-11 · Richer show and timeline tools**: weighted and tagged picks,
   Restart/Resume entry policies, song-show lanes with ramps and named inputs,
   locked-range regeneration, and looping Slideshow and Music Player sequences

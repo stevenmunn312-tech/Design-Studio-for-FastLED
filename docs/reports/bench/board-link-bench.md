@@ -71,7 +71,54 @@ Each was a firmware bug found here and fixed before the passing runs above:
 - While its network is gone, Board 2 prints
   `wifi:sta is connecting, cannot set config` every 5 seconds: the reconnect
   calls `WiFi.begin` again during a connect.
-- Run 2 (an OLED and a bare encoder) is not yet run.
+
+## Run 2 — an OLED and a bare encoder as the remote, 2026-10-27
+
+Board 2 is a classic ESP32 with a 128x64 SSD1306 and a bare encoder: the
+player's volume from turning, Next from pressing, and its title and position
+on the OLED. Both boards off Wi-Fi.
+
+### Rig
+
+| | |
+|---|---|
+| Board 1 | Run 1's ESP32-S3 Music Player |
+| Board 2 | Generic ESP32 DevKit, 38-pin: an SSD1306 0.96-inch OLED on I2C (SDA 21, SCL 22, 0x3C) and a Jaycar SR1230 bare encoder (A 13, B 14, SW 16, C and the switch's other leg to ground) |
+| Links | The Encoder's Level (start 1, 10 clicks from 0 to 1) into the Music Player's Volume; its Pressed into Next; the Music Player's Display into the OLED |
+| Network | None |
+| Telemetry | As run 1 |
+| Toolchain | As run 1 |
+
+### Results
+
+| Test | Result |
+|---|---|
+| Volume from turning | Pass, by Steve: the volume follows the knob and stops at silence and at full |
+| Next from pressing | Pass, by Steve |
+| Title and position on the OLED | Pass, by Steve |
+| Link | About five frames a second each way; Board 2 at 60 fps with its loop under 19 ms, 226 KB heap free |
+| Rejected frames | 0 by key, link id, tag or age. 784 by link hash, all before Board 2's upload caught up with Board 1's |
+
+Resets of each board and a pass on Wi-Fi were not repeated for this pair;
+runs 1 and 3 cover both for the same link.
+
+### What the bench changed
+
+- Volume from an encoder needed a Map Range from its raw Position with a
+  range worked out by hand, and Position ran on past the ends, so turning
+  back from silence did nothing for as many clicks as had been turned too
+  far. The Encoder now has a Level output held between 0 and 1 as it counts
+  (`e381f929`).
+- Nothing on the board said whether the encoder was being read. Its Debug
+  toggle prints Level, Position and each press and release to the serial
+  monitor (`a08074ec`).
+
+### Still open
+
+- Midway through, Board 1 stopped reading its SD card (the card answered
+  but its root would not open) while Windows kept dropping both boards' USB
+  ports. It cleared after the bench was checked; the cause was not recorded.
+  A track stalled once at 50 s during it, with nothing logged.
 
 ## Run 3 — an ESP8266 Web Remote on another board's brightness, 2026-10-26
 
