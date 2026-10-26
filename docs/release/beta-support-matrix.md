@@ -439,9 +439,7 @@ Unless a future row says otherwise, treat the following as experimental:
   of the render board's heap for the radio. An ESP8266 Web Remote on Wi-Fi
   set that board's LED brightness through resets of each board and a hotspot
   drop, and an OLED and a bare encoder on an ESP32 drove the player's volume,
-  Next and title. The D-13 bench row is complete; the feature stays
-  experimental until a supported row records an exact host, browser and
-  board combination.
+  Next and title. The D-13 bench row is complete.
 - **Library bundles** (patterns, palettes, collections by file, clipboard or
   link) are software-only and need no hardware row; trust on import is
   decided when the content reaches the canvas

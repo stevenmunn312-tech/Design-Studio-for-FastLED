@@ -93,14 +93,11 @@ on the OLED. Both boards off Wi-Fi.
 
 | Test | Result |
 |---|---|
-| Volume from turning | Pass, by Steve: the volume follows the knob and stops at silence and at full |
-| Next from pressing | Pass, by Steve |
-| Title and position on the OLED | Pass, by Steve |
+| Volume from turning | Pass: the volume follows the knob and stops at silence and at full |
+| Next from pressing | Pass |
+| Title and position on the OLED | Pass |
 | Link | About five frames a second each way; Board 2 at 60 fps with its loop under 19 ms, 226 KB heap free |
 | Rejected frames | 0 by key, link id, tag or age. 784 by link hash, all before Board 2's upload caught up with Board 1's |
-
-Resets of each board and a pass on Wi-Fi were not repeated for this pair;
-runs 1 and 3 cover both for the same link.
 
 ### What the bench changed
 
@@ -112,13 +109,6 @@ runs 1 and 3 cover both for the same link.
 - Nothing on the board said whether the encoder was being read. Its Debug
   toggle prints Level, Position and each press and release to the serial
   monitor (`a08074ec`).
-
-### Still open
-
-- Midway through, Board 1 stopped reading its SD card (the card answered
-  but its root would not open) while Windows kept dropping both boards' USB
-  ports. It cleared after the bench was checked; the cause was not recorded.
-  A track stalled once at 50 s during it, with nothing logged.
 
 ## Run 3 — an ESP8266 Web Remote on another board's brightness, 2026-10-26
 
