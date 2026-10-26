@@ -89,7 +89,8 @@ describe('custom displays in SD-player firmware', () => {
       edge('tft-touch', 'widget:slider:out', 'controls', 'volume'), edge('controls', 'controls', 'player', 'controls'),
       edge('player', 'display', 'song', 'display'), edge('song', 'volume', 'tft', 'widget:slider:set'),
     ])
-    expect(cpp).toContain('lroundf(playerVolume * 6)')
+    expect(cpp).toContain('static const uint8_t PLAYER_MAX_VOLUME = 6;')
+    expect(cpp).toContain('lroundf(playerVolume * PLAYER_MAX_VOLUME)')
     expect(cpp).toContain('float n_song_volume = playerVolume;')
     expect(cpp).toContain('constrain((float)(n_song_volume), _cd_screen[0].minimum, _cd_screen[0].maximum)')
     expect(cpp.indexOf('float n_song_volume = playerVolume;')).toBeLessThan(cpp.indexOf('playerVolume = constrain((n_controls_controls.hasVolume'))

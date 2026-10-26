@@ -336,6 +336,9 @@ describe('board link — a Touch Screen on one board driving a Music Player on a
     expect(src).toMatch(/_pcE_\w+_next\.update\(_lnkPO1\[2\]/)
     // The volume commands only once a finger has set it on Board 2.
     expect(src).toMatch(/if \(\(_lnkUp1 && \(_lnkW1\[1\] != 0u\)\)\) \{/)
+    // And the volume Board 2's panel reads back is on the scale it was set on:
+    // read out of 21 while set out of 18, a synced slider fell to zero.
+    expect(src).toContain('_lnkBits((PLAYER_MAX_VOLUME ? audio.getVolume() / (float)PLAYER_MAX_VOLUME : 0.0f))')
   })
 
   it('sends the finished bundle from the panel board', () => {

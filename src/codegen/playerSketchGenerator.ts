@@ -56,7 +56,7 @@ import {
   STRUCTURE_FLAG_BUILDING, STRUCTURE_FLAG_DOWNBEAT, STRUCTURE_FLAG_DROP, STRUCTURE_FLAG_TEMPO_STABLE, STRUCTURE_RECORD_BYTES,
   VIBE_FLAG_BASS_SPIKE, VIBE_FLAG_MID_SPIKE, VIBE_FLAG_TREBLE_SPIKE, VIBE_LEVEL_SCALE, VIBE_RECORD_BYTES,
 } from '../audio/detectorTrack'
-import { PLAYER_SONG_INFO_CPP } from './player/playerSongInfoCpp'
+import { PLAYER_SONG_EXPRESSIONS, PLAYER_SONG_INFO_CPP } from './player/playerSongInfoCpp'
 import type { PlayerDisplays } from './player/playerDisplays'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import {
@@ -1005,7 +1005,7 @@ bool playerPaused = false;
 bool startPlayback();
 
 void applyPlayerVolume() {
-  uint8_t step = (uint8_t)lroundf(playerVolume * ${c.maxVolume});
+  uint8_t step = (uint8_t)lroundf(playerVolume * PLAYER_MAX_VOLUME);
   if (step > 21) step = 21;
   audio.setVolume(step);
 ${decoderTap && needsStereoLevels ? `  uint8_t attenuated = DECODER_VOLUME_TABLE[step];
@@ -1254,7 +1254,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     durationExpr: display.sources.durationSec ?? 'songDurationSec()',
     progressExpr: display.sources.progress ?? 'songProgress()',
     playingExpr: display.sources.playing ?? 'songPlaying()',
-    volumeExpr: display.sources.volume ?? '(audio.getVolume() / 21.0f)',
+    volumeExpr: display.sources.volume ?? PLAYER_SONG_EXPRESSIONS.volume,
     // A player sketch has no show model, so Show Status can only report what
     // it is told. Zero patterns is what makes the panel say NO PATTERNS.
     patternIndexExpr: display.sources.patternIndex
@@ -1545,6 +1545,9 @@ CRGB leds[NUM_LEDS];
 ${physicalGlobals.map((line) => line + '\n').join('')}${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}${transitions && drawsFrame ? playerBufferDecl('CRGB showA[NUM_LEDS];             // outgoing pattern during a transition') : ''}
 ${transitions && drawsFrame ? playerBufferDecl('CRGB showB[NUM_LEDS];            // incoming pattern during a transition') : ''}
 Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
+// The library's volume step at full volume: 0-1 volume is set and read
+// against this one scale, so a panel showing it reads back what it sets.
+static const uint8_t PLAYER_MAX_VOLUME = ${c.maxVolume};
 uint32_t audioPosMs = 0;      // elapsed playback time, never read-ahead bytes
 uint32_t showDurationMs = 0;  // header duration; also the EOF event boundary
 bool audioEnded = false;
@@ -2460,7 +2463,7 @@ ${genericCollection && !sequentialPatterns && !sequenceActive ? `${patternCount 
 
 ${decoderTap ? '  setupDecoderTap();   // decoded PCM → FastLED audio analysis\n' : ''}
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
-  audio.setVolume(${c.maxVolume});
+  audio.setVolume(PLAYER_MAX_VOLUME);
 ${decoderTap && needsStereoLevels ? `  _decoderVolumeComp = ${decoderVolumeComp};   // undo the library gain the tap would otherwise measure
 ` : ''}
 

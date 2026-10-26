@@ -273,7 +273,8 @@ describe('generatePlayerSketch audio output', () => {
     expect(ino).toContain('#define I2S_BCLK      255')
     expect(ino).toContain('#define I2S_LRC       25')
     expect(ino).toContain('#define I2S_DOUT      22')
-    expect(ino).toContain('audio.setVolume(0);')
+    expect(ino).toContain('static const uint8_t PLAYER_MAX_VOLUME = 0;')
+    expect(ino).toContain('audio.setVolume(PLAYER_MAX_VOLUME);')
   })
 })
 

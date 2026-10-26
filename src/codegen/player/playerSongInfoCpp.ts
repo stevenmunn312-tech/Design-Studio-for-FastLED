@@ -138,7 +138,10 @@ export const PLAYER_SONG_EXPRESSIONS: Record<string, string> = {
   duration: 'songDurationSec()',
   remaining: 'songRemainingSec()',
   progress: 'songProgress()',
-  volume: '(audio.getVolume() / 21.0f)',
+  // On the scale applyPlayerVolume() sets, so a panel that reads it back and
+  // sends it on (a slider across a board link) holds still instead of
+  // shrinking it a step each round trip.
+  volume: '(PLAYER_MAX_VOLUME ? audio.getVolume() / (float)PLAYER_MAX_VOLUME : 0.0f)',
   bitrate: '((float)songBitrateKbps)',
 }
 
