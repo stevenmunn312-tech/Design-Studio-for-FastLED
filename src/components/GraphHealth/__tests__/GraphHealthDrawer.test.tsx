@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react'
 import GraphHealthDrawer from '../GraphHealthDrawer'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioEdge, type StudioNode } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useBoardLinkKeyStore } from '../../../state/peripherals/boardLinkKey'
+import { useNetworkCredentialsStore } from '../../../state/peripherals/networkCredentials'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -37,6 +38,21 @@ describe('GraphHealthDrawer', () => {
       designWorkspaceView: { kind: 'graph' },
     })
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+  })
+
+  // Wi-Fi names live outside the graph. Typed in after the last graph edit,
+  // a name has to clear its warning there and then, not at the next edit.
+  it('rechecks the network when a Wi-Fi name is entered', () => {
+    useNetworkCredentialsStore.getState().removeCredentials('remote')
+    useGraphStore.getState().loadGraph([
+      node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+      node('remote', 'WebRemoteInput', { controls: [], title: 'LED Remote', wifiHostname: 'fastled-remote', useDhcp: true }),
+    ], [])
+    const { queryAllByText } = render(<GraphHealthDrawer />)
+    expect(queryAllByText(/missing its Wi-Fi SSID/).length).toBeGreaterThan(0)
+    act(() => useNetworkCredentialsStore.getState().setCredentials('remote', { ssid: 'bench', password: 'x' }))
+    expect(queryAllByText(/missing its Wi-Fi SSID/)).toHaveLength(0)
+    useNetworkCredentialsStore.getState().removeCredentials('remote')
   })
 
   it('opens each affected hardware inspector and repairs a split I2C bus', () => {

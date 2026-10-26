@@ -4,6 +4,7 @@ import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStor
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
+import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
 import { useUiStore, type WorkspaceMode } from '../../state/uiStore'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { describePort } from '../../utils/portStatus'
@@ -97,9 +98,13 @@ function GuideStrip() {
     return () => observer.disconnect()
   }, [setStripHeight])
 
+  // Wi-Fi names and passwords live outside the graph, and the network checks
+  // read them: without this, a name typed in kept its "missing SSID" warning.
+  const networkCredentials = useNetworkCredentialsStore((state) => state.byNodeId)
   const graphBlockerCount = useMemo(
     () => findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments, groups).length,
-    [nodes, edges, selectedFqbn, displayDocuments, groups],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
+    [nodes, edges, selectedFqbn, displayDocuments, groups, networkCredentials],
   )
   const capacityVerdict = summarizeCapacity(
     boardByFqbn(selectedFqbn), capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError,

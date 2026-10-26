@@ -22,6 +22,7 @@ import {
 } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
+import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
 import { useUiStore } from '../../state/uiStore'
 import {
   buildGraphDiagnostics,
@@ -97,6 +98,9 @@ export default function GraphHealthDrawer() {
   const uploadTargets = useProjectStore((state) =>
     state.projects.find((project) => project.id === state.currentProjectId)?.uploadTargets)
   const [filter, setFilter] = useState<Filter>('all')
+  // Wi-Fi names and passwords live outside the graph, and the network checks
+  // read them: without this, a name typed in kept its "missing SSID" warning.
+  const networkCredentials = useNetworkCredentialsStore((state) => state.byNodeId)
 
   // The root graph is validated one board at a time, each against its own
   // FQBN, and merged (multiBoardValidation); with one board that is exactly
@@ -114,7 +118,8 @@ export default function GraphHealthDrawer() {
         target: 'group',
         capabilityNodes,
         displayDocuments, groups,
-      })), [activeGraphId, activeBoardId, uploadTargets, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups])
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
+      })), [activeGraphId, activeBoardId, uploadTargets, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups, networkCredentials])
   const errors = diagnostics.filter((issue) => issue.severity === 'error').length
   const warnings = diagnostics.length - errors
   const visible = filter === 'all' ? diagnostics : diagnostics.filter((issue) => issue.severity === filter)

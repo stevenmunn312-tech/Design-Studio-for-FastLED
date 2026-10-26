@@ -8,6 +8,7 @@ import { boardOrdinalLabel, useBoardNodes } from '../Hardware/boardSelection'
 import { trustCurrentProject } from '../../utils/trustPrompt'
 import { uploadBlockReason, type UploadBlockAction } from '../../utils/uploadBlockReason'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/upload/uploadStore'
+import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
 import { useStreamStore } from '../../state/output/streamStore'
 import { useMusicStore } from '../../state/player/musicStore'
 import { useProjectStore } from '../../state/projectStore'
@@ -230,9 +231,13 @@ export default function MatrixOutputDeployPopup({
   // screen's bindings cannot be resolved without them. Asked of the root graph
   // for the active board, so a wire into another board's part blocks this
   // board's build too (docs/design/multi-board.md).
+  // Wi-Fi names and passwords live outside the graph, and the network checks
+  // read them: without this, a name typed in kept its "missing SSID" warning.
+  const networkCredentials = useNetworkCredentialsStore((state) => state.byNodeId)
   const graphBlockers = useMemo(
     () => findDeployBlockingErrorsForBoard(rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups),
-    [rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
+    [rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials],
   )
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
@@ -437,7 +442,8 @@ export default function MatrixOutputDeployPopup({
     () => buildGraphDiagnostics(nodes, edges, {
       selectedFqbn, target: 'matrix', capabilityNodes: nodes, displayDocuments: customAssets.documents, groups: customAssets.groups,
     }).filter((issue) => issue.severity === 'warning').length,
-    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
+    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials],
   )
   const layers = useMemo(() => readinessLayers({
     previewLive: graphDrivesOutput(nodes, edges),
