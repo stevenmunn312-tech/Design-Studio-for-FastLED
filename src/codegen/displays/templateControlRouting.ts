@@ -281,7 +281,6 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
         volumeStep: 0.05,
         brightnessStep: 0.05,
       }
-      controls.push(directEmit)
       bundles.set(id, variable)
     }
     if (context.scalarOutputIds?.has(id)) {
@@ -291,15 +290,15 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       })
     }
     const edge = incoming.get(`${id}:controls`)
-    if (!edge) continue
-    const variable = visit(edge)
-    if (variable) {
-      if (directEmit) {
-        directEmit.upstream = variable
-        bundles.set(id, directEmit.variable)
-      } else {
-        bundles.set(id, variable)
-      }
+    const variable = edge ? visit(edge) : null
+    // Emitted after the bundle it merges into, which the walk above queues: a
+    // bundle arriving over a board link is built in this list, so a direct
+    // action queued first read it before its declaration.
+    if (directEmit) {
+      if (variable) directEmit.upstream = variable
+      controls.push(directEmit)
+    } else if (variable) {
+      bundles.set(id, variable)
     }
   }
   for (const target of context.scalarInputs ?? []) {
