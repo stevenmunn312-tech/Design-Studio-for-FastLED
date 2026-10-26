@@ -211,11 +211,9 @@ _FBUILD_INI_PATH = _FBUILD_PROJECT_DIR / "platformio.ini"
 _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
 # Both engines build against this exact FastLED release. Codegen, the preview's
 # integer ports and the driver tables are read from it, so neither engine may
-# float to the registry's latest or to `main`. 3.10.7 and 3.10.8 cannot build
-# ESP32-C3/C6: platforms/esp/32/interrupts/riscv.hpp declares its functions
-# FL_NO_EXCEPT (noexcept on ESP) and riscv.cpp.hpp defines them without it.
-# FastLED fixed it on master (528a6fdbe, #4831); move on once a release has it.
-_FASTLED_VERSION = "3.10.5"
+# float to the registry's latest or to `main`. 3.10.8 cannot build ESP32-C3/C6
+# as released; `_patch_fastled_riscv_noexcept` applies the upstream fix.
+_FASTLED_VERSION = "3.10.8"
 # Compiler flags every build passes to FastLED's own translation units. FastLED
 # enables FL_DBG whenever RELEASE is undefined, so without this its audio
 # detectors print debug lines to serial between the sketch's own output.
@@ -995,6 +993,7 @@ def _ensure_arduino_fastled_lib():
         return 0
     libraries = _arduino_user_libraries_dir()
     if libraries is not None and _fastled_checkout_matches_pin(libraries / "FastLED"):
+        _patch_fastled_riscv_noexcept(libraries / "FastLED")
         _arduino_fastled_lib_ready = True
         return 0
     rc = yield from _run_phase(
@@ -1007,6 +1006,8 @@ def _ensure_arduino_fastled_lib():
             f"'arduino-cli lib install FastLED@{_FASTLED_VERSION}' and try again.\n"
         )
         return rc
+    if libraries is not None:
+        _patch_fastled_riscv_noexcept(libraries / "FastLED")
     _arduino_fastled_lib_ready = True
     return 0
 
@@ -1045,8 +1046,28 @@ def _ensure_fbuild_project():
         )
         if rc != 0 or not _fastled_checkout_matches_pin(_FBUILD_LIB_DIR):
             yield f"[error] failed to vendor FastLED {_FASTLED_VERSION} — the build below will fail on FastLED.h\n"
+    _patch_fastled_riscv_noexcept(_FBUILD_LIB_DIR)
     _patch_fastled_samd51_build()
     _fbuild_project_ready = True
+
+
+def _patch_fastled_riscv_noexcept(library: Path) -> None:
+    """Make FastLED 3.10.8's ESP32 RISC-V interrupt definitions match their declarations.
+
+    `riscv.hpp` declares every function `FL_NO_EXCEPT` (`noexcept` on ESP) and
+    `riscv.cpp.hpp` defines them without it, a hard GCC error on ESP32-C3 and
+    C6 under both engines. This is upstream's own fix (FastLED 528a6fdbe,
+    #4831), unreleased as of 3.10.8. The rewrite only adds the specifier, so
+    a release that already has it is left as it is."""
+    source = library / "src" / "platforms" / "esp" / "32" / "interrupts" / "riscv.cpp.hpp"
+    try:
+        text = source.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return
+    patched = re.sub(r"^\) \{$", ") FL_NO_EXCEPT {", text, flags=re.M)
+    patched = re.sub(r"^(void FL_IRAM fastled_riscv_\w+_handler\(void \*arg\)) \{$", r"\1 FL_NO_EXCEPT {",
+                     patched, flags=re.M)
+    _write_if_changed(source, patched)
 
 
 def _patch_fastled_samd51_build() -> None:
