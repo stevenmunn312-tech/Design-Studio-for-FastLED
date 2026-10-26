@@ -14,6 +14,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 import firmware  # noqa: E402
 import toolchain  # noqa: E402
+from fixture_workspace import fixture_workspace_name  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("engine", choices=("arduino-cli", "fbuild"))
@@ -53,10 +54,7 @@ with log_path.open("w", encoding="utf-8") as log:
         result = drain(firmware._compile_upload_fbuild(f"{args.label.capitalize()} sensor smoke", ino, args.fqbn, "", 16), log)
         sizes = firmware._fbuild_size_bytes_report(lines)
     else:
-        board = "".join(ch for ch in args.fqbn.split(":")[2] if ch.isalnum())
-        # Keep one stable path per board so arduino-cli can reuse its library
-        # objects as the normal/show/player/no-sensor source changes.
-        with firmware._sketch_workspace(f"{args.label}_smoke_{board}", ino) as workspace:
+        with firmware._sketch_workspace(fixture_workspace_name(args.fqbn), ino) as workspace:
             result = drain(firmware._compile_upload(f"{args.label.capitalize()} sensor smoke", workspace, args.fqbn, ""), log)
         sizes = firmware._size_bytes_report(lines)
 

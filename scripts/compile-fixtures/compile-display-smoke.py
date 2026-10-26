@@ -10,6 +10,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 import firmware  # noqa: E402
 import toolchain  # noqa: E402
+from fixture_workspace import fixture_workspace_name  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("engine", choices=("arduino-cli", "fbuild"))
@@ -55,13 +56,7 @@ with log_path.open("w", encoding="utf-8") as log:
         result = drain(firmware._compile_upload_fbuild("Display smoke", ino, args.fqbn, "", 16), log)
         sizes = firmware._fbuild_size_bytes_report(lines)
     else:
-        # One serialized workspace per board reuses the library cache across
-        # every fixture built for it. Keyed on the board, not on one stable
-        # name, because arduino-cli caches per sketch *path*: sharing a
-        # directory between an S3 and a classic ESP32 makes each run evict the
-        # other's cores and rebuild all of FastLED.
-        board = "".join(ch if ch.isalnum() else "_" for ch in args.fqbn.split(":")[2] if ch != ":")
-        with firmware._sketch_workspace(f"display_smoke_{board or 'board'}", ino) as workspace:
+        with firmware._sketch_workspace(fixture_workspace_name(args.fqbn), ino) as workspace:
             result = drain(firmware._compile_upload("Display smoke", workspace, args.fqbn, ""), log)
         sizes = firmware._size_bytes_report(lines)
 toolchain_report = {

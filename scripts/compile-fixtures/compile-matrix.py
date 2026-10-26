@@ -5,17 +5,24 @@ overlapping arduino-cli run leaves a truncated cached object that fails the
 next link. On Windows it asks the system to stay awake while it runs. It writes
 the summary after every leg, so a partial run can still be read.
 
-    python scripts/compile-fixtures/compile-matrix.py              # every arduino-cli leg
-    python scripts/compile-fixtures/compile-matrix.py --list       # show the plan
-    python scripts/compile-fixtures/compile-matrix.py --engine all # fbuild legs too
+    python scripts/compile-fixtures/compile-matrix.py              # the necessary arduino-cli legs
+    python scripts/compile-fixtures/compile-matrix.py --list --engine all   # the v1 freeze plan, both engines
     python scripts/compile-fixtures/compile-matrix.py --only ir/ --only ethernet/ --dry-run
-    python scripts/compile-fixtures/compile-matrix.py --only dead-code/   # the D-09 corpus, about 250 sketches
+    python scripts/compile-fixtures/compile-matrix.py --only dead-code/   # the D-09 corpus
+    python scripts/compile-fixtures/compile-matrix.py --only dead-code/ --every   # all of it, about 250 sketches
     python scripts/compile-fixtures/compile-matrix.py --only pattern-collections/   # D-10 render-buffer RAM
     python scripts/compile-fixtures/compile-matrix.py --only show-sequencing/   # D-11 weights, sequence, ramps
     python scripts/compile-fixtures/compile-matrix.py --only led-drivers/   # HW-32 step 7 Board LED drivers
 
-Development runs on arduino-cli alone, so that is the default engine. The
-fbuild legs stay in the plan for when that engine is tested again.
+The candidates are every fixture of every family, on arduino-cli and, for the
+boards its scaffold declares, on fbuild. A run regenerates them, then keeps
+only the legs that compile something no other kept leg compiles on that
+engine and board (`necessary`, `statements`); --every keeps them all. The
+legs run grouped by engine, board and library set, so each build cache fills
+once (`build_order`).
+
+Development runs on arduino-cli alone, so that is the default engine;
+--engine fbuild or all adds fbuild.
 
 To stop early, create a file named STOP in the run's output folder. The run
 finishes the current compile and stops before the next one. To resume, rerun the
@@ -39,7 +46,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -54,22 +61,33 @@ sys.path.insert(0, str(ROOT / "backend"))
 import toolchain  # noqa: E402  (the same binaries the runners resolve)
 CLASSIC = "esp32:esp32:esp32"
 S3 = "esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB"
+ESP8266 = "esp8266:esp8266:nodemcuv2"
+UNO = "arduino:avr:uno"
+ENGINES = ("arduino-cli", "fbuild")
+DISPLAY_RUNNER_FQBN = S3  # compile-display-smoke.py's default board
 
 
 @dataclass(frozen=True)
 class Leg:
     family: str
     runner: str
-    engine: str
     sketch: Path
     fqbn: str | None = None  # None uses the runner's default
     tag: str | None = None
     label: str | None = None
-    expected_failure: str | None = None  # a known upstream failure, recorded in the compile record
+    engine: str = "arduino-cli"
 
     @property
     def name(self) -> str:
         return f"{self.family}/{self.sketch.stem}" + (f"@{self.tag}" if self.tag else "")
+
+    @property
+    def key(self) -> str:
+        return f"{self.engine}:{self.name}"
+
+    @property
+    def board(self) -> str:
+        return self.fqbn or DISPLAY_RUNNER_FQBN
 
     def output(self, suffix: str) -> Path:
         stem = f".{self.engine}.{self.tag}" if self.tag else f".{self.engine}"
@@ -86,75 +104,72 @@ class Leg:
         return command
 
 
-def display_legs(engine: str) -> list[Leg]:
+def manifest_names(folder: Path, generator: str) -> list[str]:
+    """The sketches a generator's manifest lists, generating them first if it has never run."""
+    manifest = folder / "manifest.json"
+    if not manifest.exists():
+        subprocess.run(f"npm run gen:compile-fixtures -- {generator}", shell=True, cwd=ROOT,
+                       capture_output=True, text=True, check=False)
+    try:
+        return sorted(json.loads(manifest.read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return []
+
+
+def display_legs() -> list[Leg]:
     folder = ROOT / "artifacts" / "display-compile"
     s3 = ["normal", "show", "player", "isolated-tft", "headless", "disabled", "multi-panel", "shared-design",
-          "part-families", "part-families-i2c", "part-parallel", "telemetry"]
-    legs = [Leg("display", "compile-display-smoke.py", engine, folder / f"{name}.ino") for name in s3]
-    legs.append(Leg("display", "compile-display-smoke.py", engine, folder / "classic-esp32-fixed.ino", CLASSIC, "classic"))
-    if engine == "arduino-cli":
-        legs += [Leg("display", "compile-display-smoke.py", engine, folder / f"{name}.ino")
-                 for name in ("ili9341-fixed", "ili9341-custom", "ili9341-show", "ili9341-player", "ili9341-calibration", "ili9341-sd-video")]
-        # The fbuild half of the display record is the twelve fixtures above.
-        legs += [Leg("display", "compile-display-smoke.py", engine, folder / f"{name}.ino") for name in ("template-led", "template-player")]
-        legs.append(Leg("display", "compile-display-smoke.py", engine, folder / "classic-caption-level.ino", CLASSIC, "classic"))
-        legs += [Leg("display", "compile-display-smoke.py", engine, folder / f"{name}.ino", CLASSIC, "cyd")
-                 for name in ("cyd-run1", "cyd-custom", "cyd-custom-telemetry", "cyd-run2")]
-    return legs
+          "part-families", "part-families-i2c", "part-parallel", "telemetry",
+          "ili9341-fixed", "ili9341-custom", "ili9341-show", "ili9341-player", "ili9341-calibration", "ili9341-sd-video",
+          "template-led", "template-player"]
+    return [
+        *(Leg("display", "compile-display-smoke.py", folder / f"{name}.ino") for name in s3),
+        *(Leg("display", "compile-display-smoke.py", folder / f"{name}.ino", CLASSIC, "classic")
+          for name in ("classic-esp32-fixed", "classic-caption-level")),
+        *(Leg("display", "compile-display-smoke.py", folder / f"{name}.ino", CLASSIC, "cyd")
+          for name in ("cyd-run1", "cyd-custom", "cyd-custom-telemetry", "cyd-run2")),
+    ]
 
 
-def custom_board_legs(engine: str) -> list[Leg]:
+def custom_board_legs() -> list[Leg]:
     folder = ROOT / "artifacts" / "custom-board-compile"
-    return [Leg("custom-board", "compile-display-smoke.py", engine, folder / f"{board}-{mode}.ino",
+    return [Leg("custom-board", "compile-display-smoke.py", folder / f"{board}-{mode}.ino",
                 CLASSIC if board == "esp32" else None)
             for board in ("esp32", "esp32s3") for mode in ("normal", "show", "player")]
 
 
-def ir_legs(engine: str) -> list[Leg]:
-    folder = ROOT / "backend" / "sketches" / "ir-remote-fixtures"
-    def leg(name: str, fqbn: str, tag: str, why: str | None = None) -> Leg:
-        return Leg("ir", "compile-ir-smoke.py", engine, folder / f"{name}.ino", fqbn, tag, None, why)
+def control_graph_legs() -> list[Leg]:
+    folder = ROOT / "artifacts" / "control-graph-compile"
+    return [Leg("control-graph", "compile-display-smoke.py", folder / f"{mode}.ino")
+            for mode in ("normal", "show", "player", "show-ntp", "player-ntp", "show-ethernet")]
 
-    # Renesas and SAMD21 build since fbuild 2.5.44; RP2040 got past boot2 there
-    # and stops one step later.
-    tinyusb = "fbuild compiles the Pico core's Adafruit_TinyUSB library without TinyUSB selected (fbuild#1719)"
-    # SAMD21 built on FastLED 3.10.8, which no longer includes <SPI.h> there;
-    # the 3.10.5 pin brings it back behind an #if fbuild's selection misjudges.
-    samd_spi = "FastLED 3.10.5 includes <SPI.h> behind #if; fbuild does not select the core's SPI library"
+
+def ir_legs() -> list[Leg]:
+    folder = ROOT / "backend" / "sketches" / "ir-remote-fixtures"
+    def leg(name: str, fqbn: str, tag: str) -> Leg:
+        return Leg("ir", "compile-ir-smoke.py", folder / f"{name}.ino", fqbn, tag)
+
     return [
         *(leg(name, "esp32:esp32:esp32s3", "esp32s3-rmt") for name in ("normal", "slideshow", "player", "learn")),
-        *(leg(name, CLASSIC, "esp32") for name in ("normal", "slideshow", "player", "no-ir")),
-        leg("normal", "arduino:avr:uno", "avr"),
+        *(leg(name, CLASSIC, "esp32") for name in ("normal", "normal-debug", "slideshow", "player", "no-ir")),
+        leg("normal", UNO, "avr"),
         leg("normal", "arduino:megaavr:nona4809", "megaavr"),
-        leg("normal", "esp8266:esp8266:nodemcuv2", "esp8266"),
+        leg("normal", ESP8266, "esp8266"),
         leg("normal", "teensy:avr:teensy41", "teensy"),
         leg("normal", "STMicroelectronics:stm32:blackpill_f411ce", "stm32"),
-        leg("normal", "rp2040:rp2040:rpipico", "rp2040", tinyusb),
+        leg("normal", "rp2040:rp2040:rpipico", "rp2040"),
         leg("normal", "arduino:renesas_uno:unor4wifi", "renesas"),
-        leg("normal", "adafruit:samd:adafruit_feather_m0", "samd", samd_spi),
-        leg("no-ir", "adafruit:samd:adafruit_feather_m0", "samd", samd_spi),
+        leg("normal", "adafruit:samd:adafruit_feather_m0", "samd"),
+        leg("no-ir", "adafruit:samd:adafruit_feather_m0", "samd"),
     ]
 
 
-def ir_arduino_cli_legs() -> list[Leg]:
-    """The STM32 IR leg, which checks the series board and pnum `_arduino_fqbn` substitutes."""
-    folder = ROOT / "backend" / "sketches" / "ir-remote-fixtures"
-    return [Leg("ir", "compile-ir-smoke.py", "arduino-cli", folder / "normal.ino",
-                "STMicroelectronics:stm32:blackpill_f411ce", "stm32")]
-
-
-def time_of_flight_legs(engine: str) -> list[Leg]:
-    # One real fbuild build of each closes the root-todo item for the pinned Pololu libraries.
-    return [Leg(chip, "compile-presence-smoke.py", engine, ROOT / "backend" / "sketches" / f"{chip}-fixtures" / "normal.ino",
-                CLASSIC, "esp32", "touchpad") for chip in ("vl53l0x", "vl53l1x")]
-
-
-def ethernet_legs(engine: str) -> list[Leg]:
+def ethernet_legs() -> list[Leg]:
     folder = ROOT / "backend" / "sketches" / "ethernet-fixtures"
     targets = {"artnet": CLASSIC, "ntp": CLASSIC, "static": CLASSIC, "wifi": CLASSIC,
                "c3": "esp32:esp32:esp32c3", "c3-panel": "esp32:esp32:esp32c3",
                "s2": "esp32:esp32:esp32s2", "s3": "esp32:esp32:esp32s3"}
-    return [Leg("ethernet", "compile-presence-smoke.py", engine, folder / f"{name}.ino", fqbn, fqbn.split(":")[2], "ethernet")
+    return [Leg("ethernet", "compile-presence-smoke.py", folder / f"{name}.ino", fqbn, fqbn.split(":")[2], "ethernet")
             for name, fqbn in targets.items()]
 
 
@@ -167,126 +182,194 @@ def board_link_legs() -> list[Leg]:
                "run3-board2-esp8266-remote": ("esp8266:esp8266:d1_mini", "esp8266"),
                "run4-board1-player-follows": (S3, "s3"),
                "run5-board2-esp8266-follows": ("esp8266:esp8266:d1_mini", "esp8266")}
-    return [Leg("board-links", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino", fqbn, tag)
+    return [Leg("board-links", "compile-display-smoke.py", folder / f"{name}.ino", fqbn, tag)
             for name, (fqbn, tag) in targets.items()]
 
 
-def power_switch_legs(engine: str) -> list[Leg]:
+def power_switch_legs() -> list[Leg]:
     folder = ROOT / "backend" / "sketches" / "power-switch-fixtures"
     targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed", "yynmos4")}
-    targets |= {"gated-esp8266": "esp8266:esp8266:nodemcuv2", "mixed-esp8266": "esp8266:esp8266:nodemcuv2",
+    targets |= {"gated-esp8266": ESP8266, "mixed-esp8266": ESP8266,
                 "gated-rp2040": "rp2040:rp2040:rpipico", "mixed-rp2040": "rp2040:rp2040:rpipico",
-                "gated-avr": "arduino:avr:uno", "mosfetti-avr": "arduino:avr:uno",
-                "mixed-teensy": "teensy:avr:teensy41"}
-    tags = {CLASSIC: "esp32", "esp8266:esp8266:nodemcuv2": "esp8266", "rp2040:rp2040:rpipico": "rp2040",
-            "arduino:avr:uno": "avr", "teensy:avr:teensy41": "teensy"}
-    return [Leg("power-switch", "compile-presence-smoke.py", engine, folder / f"{name}.ino", fqbn, tags[fqbn], "power-switch")
+                "gated-avr": UNO, "mosfetti-avr": UNO, "mixed-teensy": "teensy:avr:teensy41"}
+    tags = {CLASSIC: "esp32", ESP8266: "esp8266", "rp2040:rp2040:rpipico": "rp2040", UNO: "avr",
+            "teensy:avr:teensy41": "teensy"}
+    return [Leg("power-switch", "compile-presence-smoke.py", folder / f"{name}.ino", fqbn, tags[fqbn], "power-switch")
             for name, fqbn in targets.items()]
 
 
-def dead_code_legs() -> list[Leg]:
-    """The D-09 corpus: every live example and each player and show variant.
-
-    The sketch list comes from the generator's manifest, so a missing one is
-    generated now; the run regenerates it before compiling unless told not to.
-    """
-    folder = ROOT / "artifacts" / "dead-code-compile"
-    manifest = folder / "manifest.json"
-    if not manifest.exists():
-        subprocess.run("npm run gen:compile-fixtures -- dead-code", shell=True, cwd=ROOT,
-                       capture_output=True, text=True, check=False)
-    try:
-        names = sorted(json.loads(manifest.read_text(encoding="utf-8")))
-    except (OSError, ValueError):
-        return []
-    return [Leg("dead-code", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino") for name in names]
-
-
-def show_sequencing_legs() -> list[Leg]:
-    """D-11: weighted player, sequenced slideshow, beat-counted player, ramped show."""
-    folder = ROOT / "artifacts" / "show-sequencing-compile"
-    manifest = folder / "manifest.json"
-    if not manifest.exists():
-        subprocess.run("npm run gen:compile-fixtures -- show-sequencing", shell=True, cwd=ROOT,
-                       capture_output=True, text=True, check=False)
-    try:
-        names = sorted(json.loads(manifest.read_text(encoding="utf-8")))
-    except (OSError, ValueError):
-        return []
-    return [Leg("show-sequencing", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino") for name in names]
+def peripheral_legs() -> list[Leg]:
+    """One leg per sketch of each peripheral gate, on the board its compile record names."""
+    folders = {"buzzer": "buzzer", "cooling-fan": "cooling-fan", "darlington": "darlington", "dfplayer": "dfplayer",
+               "distance": "distance-sensor", "encoder": "encoder", "environment": "environment-sensor",
+               "ina226": "ina226", "joystick": "joystick", "keypad": "keypad", "light": "light-sensor",
+               "motion": "motion-sensor", "presence": "presence-sensor", "pwm-driver": "pwm-driver", "ssr": "ssr",
+               "temperature": "temperature-sensor", "touch-button": "touch-button", "touchpad": "touchpad",
+               "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x"}
+    uno = {"buzzer-passive-uno", "buzzer-passive-ir-uno"}
+    legs = []
+    for family, folder_name in folders.items():
+        folder = ROOT / "backend" / "sketches" / f"{folder_name}-fixtures"
+        for name in manifest_names(folder, family):
+            fqbn, tag = (UNO, "uno") if name in uno else (CLASSIC, "esp32")
+            legs.append(Leg(family, "compile-presence-smoke.py", folder / f"{name}.ino", fqbn, tag, family))
+    for family, fqbn, tag in (("nano-esp32", "esp32:esp32:nano_nora", "nano-esp32"),
+                              ("wt32-eth01", "esp32:esp32:wt32-eth01", "wt32-eth01")):
+        legs.append(Leg(family, "compile-presence-smoke.py",
+                        ROOT / "backend" / "sketches" / f"{family}-fixtures" / f"{family}.ino", fqbn, tag, family))
+    return legs
 
 
-def pattern_collection_legs() -> list[Leg]:
-    """D-10: every bundled pattern as SD-player collections, read for RAM."""
-    folder = ROOT / "artifacts" / "pattern-collections-compile"
-    manifest = folder / "manifest.json"
-    if not manifest.exists():
-        subprocess.run("npm run gen:compile-fixtures -- pattern-collections", shell=True, cwd=ROOT,
-                       capture_output=True, text=True, check=False)
-    try:
-        names = sorted(json.loads(manifest.read_text(encoding="utf-8")))
-    except (OSError, ValueError):
-        return []
-    return [Leg("pattern-collections", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino") for name in names]
+def pattern_node_legs() -> list[Leg]:
+    """Every pattern-node phase on classic ESP32; Phase 8 also on S3; the RAM-priced phases also on ESP8266."""
+    folder = ROOT / "backend" / "sketches" / "pattern-node-fixtures"
+    esp8266 = {"phase1", "phase5", "phase5-32", "phase6-16", "phase6-64", "phase9-ring", "phase9-string",
+               "phase10-string", "phase10-ring", "phase10-matrix"}
+    legs = []
+    for name in manifest_names(folder, "pattern-node"):
+        targets = [("esp32:esp32:esp32s3", "esp32s3")] if name.endswith("-s3") else [(CLASSIC, "esp32")]
+        if name in esp8266:
+            targets.append((ESP8266, "esp8266"))
+        legs += [Leg("pattern-node", "compile-presence-smoke.py", folder / f"{name}.ino", fqbn, tag, "pattern-node")
+                 for fqbn, tag in targets]
+    return legs
+
+
+def corpus_legs(family: str, folder_name: str) -> list[Leg]:
+    """A generated corpus on the display runner's default board (dead-code, show-sequencing, pattern-collections)."""
+    folder = ROOT / "artifacts" / folder_name
+    return [Leg(family, "compile-display-smoke.py", folder / f"{name}.ino")
+            for name in manifest_names(folder, family)]
 
 
 def lanes_legs() -> list[Leg]:
     """HW-32 step 6: one LED output split across data pins, per board family."""
     folder = ROOT / "artifacts" / "lanes-compile"
-    manifest = folder / "manifest.json"
-    if not manifest.exists():
-        subprocess.run("npm run gen:compile-fixtures -- lanes", shell=True, cwd=ROOT,
-                       capture_output=True, text=True, check=False)
-    try:
-        names = sorted(json.loads(manifest.read_text(encoding="utf-8")))
-    except (OSError, ValueError):
-        return []
-    targets = {"esp32s3": (None, None), "esp32": (CLASSIC, "esp32"), "uno": ("arduino:avr:uno", "avr")}
-    return [Leg("lanes", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino", *targets[name.split("-")[0]])
-            for name in names]
+    targets = {"esp32s3": (None, None), "esp32": (CLASSIC, "esp32"), "uno": (UNO, "avr")}
+    return [Leg("lanes", "compile-display-smoke.py", folder / f"{name}.ino", *targets[name.split("-")[0]])
+            for name in manifest_names(folder, "lanes")]
 
 
 def led_driver_legs() -> list[Leg]:
     """HW-32 step 7: one sketch per Board LED driver and family, each on its own FQBN."""
     folder = ROOT / "artifacts" / "led-driver-compile"
-    manifest = folder / "manifest.json"
-    if not manifest.exists():
-        subprocess.run("npm run gen:compile-fixtures -- led-drivers", shell=True, cwd=ROOT,
-                       capture_output=True, text=True, check=False)
+    manifest_names(folder, "led-drivers")
     try:
-        entries = json.loads(manifest.read_text(encoding="utf-8"))
+        entries = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-    return [Leg("led-drivers", "compile-display-smoke.py", "arduino-cli", folder / f"{name}.ino",
+    return [Leg("led-drivers", "compile-display-smoke.py", folder / f"{name}.ino",
                 entry["fqbn"], entry["fqbn"].split(":")[2])
             for name, entry in sorted(entries.items())]
 
 
-def plan() -> list[Leg]:
-    """fbuild first (the toolchain-upgrade check), then the arduino-cli refresh."""
-    return [
-        *custom_board_legs("fbuild"), *display_legs("fbuild"), *ir_legs("fbuild"), *time_of_flight_legs("fbuild"),
-        *ethernet_legs("fbuild"),
-        *custom_board_legs("arduino-cli"), *display_legs("arduino-cli"), *ethernet_legs("arduino-cli"),
-        *power_switch_legs("arduino-cli"),
-        *board_link_legs(),
-        *(Leg("control-graph", "compile-display-smoke.py", "arduino-cli",
-              ROOT / "artifacts" / "control-graph-compile" / f"{mode}.ino")
-          for mode in ("normal", "show", "player", "show-ntp", "player-ntp", "show-ethernet")),
-        *ir_arduino_cli_legs(),
-        *dead_code_legs(),
-        *pattern_collection_legs(),
-        *show_sequencing_legs(),
-        *lanes_legs(),
-        *led_driver_legs(),
+def candidates() -> list[Leg]:
+    """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
+    legs = [
+        *display_legs(), *custom_board_legs(), *control_graph_legs(), *ir_legs(), *ethernet_legs(),
+        *board_link_legs(), *power_switch_legs(), *peripheral_legs(), *pattern_node_legs(),
+        *corpus_legs("dead-code", "dead-code-compile"),
+        *corpus_legs("pattern-collections", "pattern-collections-compile"),
+        *corpus_legs("show-sequencing", "show-sequencing-compile"),
+        *lanes_legs(), *led_driver_legs(),
     ]
+    fbuild_boards = set(toolchain._PIO_BOARDS)
+    return [replace(leg, engine=engine) for engine in ENGINES for leg in legs
+            if engine == "arduino-cli" or ":".join(leg.board.split(":")[:3]) in fbuild_boards]
 
 
-GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x",
-              "ethernet": "ethernet", "power-switch": "power-switch", "control-graph": "control-graph",
-              "dead-code": "dead-code", "pattern-collections": "pattern-collections",
+# The generator behind each family's fixtures.
+GENERATORS = {"display": "display", "custom-board": "custom-board", "control-graph": "control-graph", "ir": "ir",
+              "ethernet": "ethernet", "board-links": "board-links", "power-switch": "power-switch",
+              "pattern-node": "pattern-node", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
               "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers",
-              "board-links": "board-links"}
+              **{family: family for family in (
+                  "buzzer", "cooling-fan", "darlington", "dfplayer", "distance", "encoder", "environment", "ina226",
+                  "joystick", "keypad", "light", "motion", "presence", "pwm-driver", "ssr", "temperature",
+                  "touch-button", "touchpad", "vl53l0x", "vl53l1x", "nano-esp32", "wt32-eth01")}}
+
+# Kept on arduino-cli whatever else covers them: these legs exist to read RAM.
+MEASURED_FAMILIES = {"pattern-collections"}
+
+_COMMENT = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
+_STRING = re.compile(r'"(?:\\.|[^"\\])*"')
+_NUMBER = re.compile(r"\b\d[\w.]*\b")
+# Names codegen derives from node ids (`buf_spiral`, `n_btn_pressed`, `_encPos_enc`).
+_NODE_NAME = re.compile(r"\b(n|buf|field|paldef|_[A-Za-z]+)_\w+")
+
+
+def statements(sketch: Path, engine: str) -> set[str] | None:
+    """The sketch's lines as that engine's compile judges them.
+
+    Comments and whitespace go. On arduino-cli, preprocessor lines stay exact,
+    because they pick libraries, pins, sizes and configuration, and every
+    other line keeps its shape but not its literals or node-derived names,
+    which change what the sketch does but not whether it compiles.
+
+    fbuild builds the same statements against nearly the same cores (ESP32
+    3.3.9 against arduino-cli's 3.3.11), and every fbuild-only failure so far
+    was in its board environments, library selection, flags or link. So on
+    fbuild only the preprocessor lines count, numbers aside: the libraries and
+    configuration a sketch brings, not its code, which arduino-cli proves."""
+    try:
+        text = _COMMENT.sub("", sketch.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    lines = set()
+    for line in text.splitlines():
+        line = " ".join(line.split())
+        if not line:
+            continue
+        if line.startswith("#"):
+            lines.add(_NUMBER.sub("0", line) if engine == "fbuild" else line)
+        elif engine == "arduino-cli":
+            lines.add(_NODE_NAME.sub(r"\1_N", _NUMBER.sub("0", _STRING.sub('""', line))))
+    return lines
+
+
+def includes(sketch: Path) -> tuple[str, ...]:
+    try:
+        return tuple(sorted(set(re.findall(r"^\s*#include\s*[<\"]([^>\"]+)", sketch.read_text(encoding="utf-8"), re.M))))
+    except OSError:
+        return ()
+
+
+def necessary(legs: list[Leg]) -> list[Leg]:
+    """The legs that compile something no other kept leg compiles on that engine and board (`statements`).
+
+    Greedy cover per (engine, FQBN): take the sketch adding the most unseen
+    statements until every statement is covered. A missing sketch is kept,
+    since nothing can vouch for it."""
+    groups: dict[tuple[str, str], list[Leg]] = {}
+    for leg in legs:
+        groups.setdefault((leg.engine, leg.board), []).append(leg)
+    kept = []
+    for members in groups.values():
+        seen = {leg: statements(leg.sketch, leg.engine) for leg in sorted(members, key=lambda leg: leg.name)}
+        chosen = [leg for leg, lines in seen.items()
+                  if lines is None or (leg.engine == "arduino-cli" and leg.family in MEASURED_FAMILIES)]
+        covered = set().union(*(seen[leg] or set() for leg in chosen))
+        rest = [leg for leg in seen if leg not in chosen]
+        while rest:
+            best = max(rest, key=lambda leg: len(seen[leg] - covered))
+            if not seen[best] - covered:
+                break
+            chosen.append(best)
+            covered |= seen[best]
+            rest.remove(best)
+        kept += chosen
+    return kept
+
+
+def build_order(legs: list[Leg]) -> list[Leg]:
+    """Engine, then exact FQBN, then library set, so each build cache fills once.
+
+    arduino-cli builds every fixture for one FQBN in one folder
+    (fixture_workspace.py), and fbuild one environment per board, so a board's
+    legs run back to back. arduino-cli also wipes a folder whose build options
+    change, and the extra library folders a sketch brings are among them, so
+    within a board the legs that include the same libraries run together."""
+    return sorted(legs, key=lambda leg: (ENGINES.index(leg.engine), leg.board, includes(leg.sketch), leg.name))
 
 
 def read_report(path: Path) -> dict | None:
@@ -344,9 +427,9 @@ def sketch_sha256(sketch: Path) -> str | None:
 
 
 def resumable_passes(run_dir: Path) -> dict[str, dict]:
-    """Leg name to summary row for every leg that passed in a previous run."""
+    """`Leg.key` to summary row for every leg that passed in a previous run."""
     summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
-    return {row["leg"]: row for row in summary.get("legs", [])
+    return {f"{row['engine']}:{row['leg']}": row for row in summary.get("legs", [])
             if row.get("status") == "PASS" and row.get("source_sha256")}
 
 
@@ -395,7 +478,7 @@ def write_summary(out: Path, header: dict, rows: list[dict]) -> None:
         f"- Git: `{header['git']}`",
         f"- fbuild: {header['fbuild']}",
         f"- arduino-cli: {header['arduino_cli']}",
-        f"- Legs: {len(rows)} of {header['planned']}; " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())),
+        f"- Legs: {len(rows)} of {header.get('planned', 'unplanned')}; " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())),
         "",
         "Baseline is the previous report for the same leg, from the engine version shown.",
         "",
@@ -421,6 +504,8 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="print the plan and exit")
     parser.add_argument("--dry-run", action="store_true", help="print each command without generating or compiling")
     parser.add_argument("--no-generate", action="store_true", help="compile the fixtures already on disk")
+    parser.add_argument("--every", action="store_true",
+                        help="run every candidate leg, not only the ones that compile something new")
     parser.add_argument("--resume", type=Path, action="append", metavar="RUN_DIR",
                         help="skip legs that passed in that run with an identical sketch (resume after STOP);"
                              " repeatable, later runs winning")
@@ -428,15 +513,22 @@ def main() -> int:
                         help="run at below-normal priority on Windows; spawned compilers inherit it")
     args = parser.parse_args()
 
-    legs = [leg for leg in plan()
-            if args.engine in ("all", leg.engine) and (not args.only or any(text in leg.name for text in args.only))]
+    wanted = [leg for leg in candidates()
+              if args.engine in ("all", leg.engine) and (not args.only or any(text in leg.name for text in args.only))]
+
+    def plan() -> list[Leg]:
+        return build_order(wanted if args.every else necessary(wanted))
+
     if args.list or args.dry_run:
+        # Judged from the fixtures on disk; a run regenerates them first.
+        legs = plan()
         for index, leg in enumerate(legs, 1):
-            expected = f"   (expected to fail: {leg.expected_failure})" if leg.expected_failure else ""
-            print(f"{index:3} {leg.engine:11} {leg.name}{expected}")
+            print(f"{index:3} {leg.engine:11} {leg.board.split(':')[2]:22} {leg.name}")
             if args.dry_run:
                 print("      " + " ".join(leg.command()))
-        print(f"{len(legs)} legs")
+        per_engine = ", ".join(f"{engine} {sum(leg.engine == engine for leg in legs)}"
+                               for engine in ENGINES if any(leg.engine == engine for leg in legs))
+        print(f"{len(legs)} legs of {len(wanted)} candidates ({per_engine})")
         return 0
 
     if args.low_priority and sys.platform == "win32":
@@ -466,7 +558,6 @@ def main() -> int:
         "git": tool_version(["git", "-C", str(ROOT), "log", "-1", "--format=%h %s"]),
         "fbuild": tool_version([toolchain._FBUILD_BIN, "--version"]) if toolchain._FBUILD_BIN else "not found",
         "arduino_cli": tool_version([toolchain._ARDUINO_CLI, "version"]) if toolchain._ARDUINO_CLI else "not found",
-        "planned": len(legs),
     }
     pinned = re.search(r"^fbuild==(\S+)", (ROOT / "backend" / "requirements.txt").read_text(encoding="utf-8"), re.M)
     if pinned and pinned.group(1) not in header["fbuild"]:
@@ -478,7 +569,7 @@ def main() -> int:
     failures = 0
     with KeepAwake():
         if not args.no_generate:
-            for family in dict.fromkeys(leg.family for leg in legs):
+            for family in dict.fromkeys(leg.family for leg in wanted):
                 say(f"Generating {family} fixtures")
                 result = subprocess.run(f"npm run gen:compile-fixtures -- {GENERATORS[family]}", shell=True, cwd=ROOT,
                                         capture_output=True, text=True, check=False)
@@ -488,6 +579,11 @@ def main() -> int:
                     write_summary(out, header, rows)
                     return 1
 
+        # The cover is judged on the sketches as just generated.
+        legs = plan()
+        header["planned"] = len(legs)
+        say(f"Plan: {len(legs)} legs of {len(wanted)} candidates")
+
         resumed: dict[str, dict] = {}
         for run_dir in args.resume or []:
             resumed.update(resumable_passes(run_dir))
@@ -495,7 +591,7 @@ def main() -> int:
             say(f"Resuming {', '.join(display_path(run_dir) for run_dir in args.resume)}: "
                 f"{len(resumed)} passed legs on record")
         for index, leg in enumerate(legs, 1):
-            carried = resumed.get(leg.name)
+            carried = resumed.get(leg.key)
             if carried and carried["source_sha256"] == sketch_sha256(leg.sketch):
                 # Carried into this summary so it reads as the whole corpus.
                 rows.append({**carried, "index": index,
@@ -519,12 +615,9 @@ def main() -> int:
                 report = None  # stale: the runner did not write a new one
             passed = code == 0 and bool(report) and report["result"][0] == 0
             build_log = leg.output(".log")
-            if leg.expected_failure:
-                status = "NOW PASSES" if passed else "expected fail"
-            else:
-                status = "PASS" if passed else ("FAIL" if report else "NO REPORT")
-            note = leg.expected_failure if (leg.expected_failure and not passed) else ""
-            if not passed and not leg.expected_failure:
+            status = "PASS" if passed else ("FAIL" if report else "NO REPORT")
+            note = ""
+            if not passed:
                 failures += 1
                 note = first_error(build_log) or first_error(runner_log)
             if leg.engine == "fbuild" and "response file for the Windows command-length limit" in (

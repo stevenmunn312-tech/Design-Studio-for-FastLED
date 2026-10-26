@@ -114,6 +114,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   or blocking (costing as much as the cold build being avoided). All three call
   sites (`upload`, `compile_check`, the SD-show `_build_flash`) get their sketch
   directory through `with _sketch_workspace(...) as sketch_dir:`.
+- The compile-fixture runners share one folder per exact FQBN
+  (`scripts/compile-fixtures/fixture_workspace.py`), whichever runner and
+  family a fixture belongs to. A folder per runner or family rebuilt FastLED
+  once for each; one folder for two FQBNs, or for one board with different
+  options, wipes the cache on every switch. `compile-matrix.py` orders its legs
+  by engine, FQBN and library set to match.
 - The SD player builds in its own workspace, `PLAYER_SKETCH` (`player`), not
   `toolchain.SKETCH`, so a player and an ordinary sketch never evict each
   other's cache. Anything that compiles the player ahead of its upload must

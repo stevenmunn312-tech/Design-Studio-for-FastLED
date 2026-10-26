@@ -35,16 +35,16 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 HW-32 (frame performance) is under [Completed](#completed); its bench rows are
 in section 4.
 
-- [ ] **FastLED upgrade past 3.10.5 (M).** Both engines pin
-  `_FASTLED_VERSION` (2026-10-24; before that arduino-cli took the registry's
-  latest and fbuild cloned `main`). The pin is **3.10.5** because 3.10.7 and
-  3.10.8 cannot build ESP32-C3/C6: `platforms/esp/32/interrupts/riscv.hpp`
-  declares its functions `FL_NO_EXCEPT` (`noexcept` on ESP) and
-  `riscv.cpp.hpp` defines them without it, a hard GCC error on both engines
-  (fbuild `ethernet/c3@esp32c3`, 2026-10-24). FastLED fixed it on `master`
-  (`528a6fdbe`, #4831, 2026-10-20); on 2026-10-27 3.10.8 is still the latest
-  release. Move to the first release with that fix,
-  then do the steps below. Source diffs 3.10.5→3.10.8 already clear the preview ports:
+- [ ] **FastLED upgrade to 3.10.8 (M).** Both engines pin
+  `_FASTLED_VERSION`, **3.10.8** since 2026-10-27 (3.10.5 before). As
+  released, 3.10.7 and 3.10.8 cannot build ESP32-C3/C6:
+  `platforms/esp/32/interrupts/riscv.hpp` declares its functions
+  `FL_NO_EXCEPT` (`noexcept` on ESP) and `riscv.cpp.hpp` defines them without
+  it, a hard GCC error on both engines (fbuild `ethernet/c3@esp32c3`,
+  2026-10-24). FastLED fixed it on `master` (`528a6fdbe`, #4831); the helper
+  applies that fix to both engines' copies (`_patch_fastled_riscv_noexcept`).
+  Drop the patch at the first release that has it. Nothing has compiled on
+  3.10.8 with the patch yet; the steps below are still to do. Source diffs 3.10.5→3.10.8 already clear the preview ports:
   2-D/3-D `inoise8`/`inoise16`, `ColorFromPalette`, `blur1d`/`blur2d`,
   `hsv2rgb_rainbow` and the lib8tion math are unchanged in effect, and
   `nblendPaletteTowardPalette` only gained an early return for a budget of 0,
@@ -168,9 +168,14 @@ chooses the supported combinations from whatever is on record at release.
   ([node-share bench](docs/reports/bench/node-share-bench.md#converted-for-d-12)).
 - **Compile matrix at the v1 freeze:** no compile runs during active v1
   development, because every sketch keeps changing. Once the release track is
-  done and before HW-18, run the whole matrix (dead-code corpus, LED-driver and
-  lane fixtures) at the frozen code. The last run stopped on 2026-10-21 at
-  154 of 271 legs, all passing, on code from before D-12.
+  done and before HW-18, run
+  `python scripts/compile-fixtures/compile-matrix.py --engine all` at the
+  frozen code. On 2026-10-27 that plan was 397 legs of 956 candidates: 330
+  on Arduino CLI and 67 on fbuild, every fixture family included, each leg
+  compiling something no other leg compiles on its engine and board. The
+  count moves with the code; `--list` gives the current one. The last run
+  stopped on 2026-10-21 at 154 of 271 legs, all passing, on code from before
+  D-12.
 - **Deploy gate on accreted graphs:** anyone with a graph that uploaded before
   2026-09-11 and is refused now should report it as a gate bug, not rewire the
   graph. Shipped starters are covered by `deployGates.test.ts`.

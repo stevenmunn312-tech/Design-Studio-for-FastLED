@@ -144,11 +144,13 @@ compile does not establish physical validation or change a support promise.
 
 ### Compile checks
 
-`scripts/compile-fixtures/compile-matrix.py` runs the fixture families on
-record on Arduino CLI, one at a time, and writes a log and summary to
-`artifacts/compile-matrix/`. Run it with `--list` to see the plan. Development
-compiles on Arduino CLI alone for now; the fbuild legs stay in the plan and run
-with `--engine fbuild` or `--engine all`.
+`scripts/compile-fixtures/compile-matrix.py` runs every fixture family on
+record, one at a time, and writes a log and summary to
+`artifacts/compile-matrix/`. It keeps only the legs that compile something no
+other leg compiles on that engine and board, and orders them so each build
+cache fills once. Run it with `--list --engine all` to see the plan.
+Development compiles on Arduino CLI alone for now; `--engine fbuild` or
+`--engine all` adds the fbuild legs.
 
 - [Board-link compile checks](reports/compile/board-link-compile-checks.md)
 - [Buzzer compile checks](reports/compile/buzzer-compile-checks.md)
