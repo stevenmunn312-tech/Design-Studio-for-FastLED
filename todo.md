@@ -43,8 +43,9 @@ in section 4.
   ([design](docs/design/board-links.md#as-built)). Both boards of all three
   bench runs compile on arduino-cli
   ([compile checks](docs/reports/compile/board-link-compile-checks.md)), and
-  the legs are in the freeze matrix. What closes it: the bench row in
-  section 4.
+  the legs are in the freeze matrix. Run 1 of the bench row passed on
+  2026-10-26 ([bench record](docs/reports/bench/board-link-bench.md)). What
+  closes it: runs 2 and 3 in section 4.
 - [ ] **FastLED upgrade past 3.10.5 (M).** Both engines pin
   `_FASTLED_VERSION` (2026-10-24; before that arduino-cli took the registry's
   latest and fbuild cloned `main`). The pin is **3.10.5** because 3.10.7 and
@@ -332,6 +333,11 @@ chooses the supported combinations from whatever is on record at release.
   network. Then an ESP8266 Web Remote driving an ESP32's brightness. The
   sketches are the compiled fixtures
   ([compile checks](docs/reports/compile/board-link-compile-checks.md)).
+  Run 1 passed on 2026-10-26 with a CYD in place of the XC4630, on and off
+  Wi-Fi, with latency (about 250 ms press to action), range (15 m, four
+  walls, no loss) and heap (75 KB on the render board) recorded
+  ([bench record](docs/reports/bench/board-link-bench.md)); runs 2 and 3
+  remain.
   Record the link's latency, its range indoors, and the Wi-Fi driver's heap
   cost on the render board
   ([design](docs/design/board-links.md#limits)).

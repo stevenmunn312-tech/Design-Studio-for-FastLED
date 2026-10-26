@@ -1,7 +1,7 @@
 # Board links: controls and readings between boards over ESP-NOW
 
 Status: implemented, experimental (compiled on ESP32, ESP32-S3 and ESP8266;
-no bench row yet) · Owner: app · Date: 2026-10-23 · Root todo, D-13
+bench run 1 passed, runs 2 and 3 to do) · Owner: app · Date: 2026-10-23 · Root todo, D-13
 (v1)
 
 Builds on [multi-board projects](multi-board.md), which lets a project carry
@@ -328,10 +328,14 @@ enclosures, so antennas stay clear. Grounds need no bond for a radio link.
 ## Limits
 
 - Range and reliability are ESP-NOW's: a few tens of metres indoors, less
-  through metal. Latency is a few milliseconds per frame; the 20 ms send
-  limit is the practical floor.
-- The Wi-Fi driver's heap cost on the render board is not yet measured; the
-  bench row records it.
+  through metal; the bench held 15 m through four walls without loss.
+  Latency is a few milliseconds per frame on the radio, but a press waits
+  for the sender's next frame and the receiver's next loop: about 250 ms end
+  to end on the bench's Music Player.
+- The radio costs the render board about 75 KB of internal heap (130 KB free
+  without the link, 55 KB with it, on an ESP32-S3 Music Player), on or off
+  Wi-Fi. A screen with LVGL still costs more.
+  ([bench record](../reports/bench/board-link-bench.md))
 - Only boards from one project link to each other.
 
 ## As built

@@ -183,6 +183,7 @@ with `--engine fbuild` or `--engine all`.
 
 ### Physical bench and bring-up
 
+- [Board links over ESP-NOW — bench record](reports/bench/board-link-bench.md)
 - [Input Peripheral Bench Records](reports/bench/input-peripheral-bench.md)
 - [Node shares on a board without an FPU](reports/bench/node-share-bench.md)
 - [Stereo VU Meter — physical validation](reports/bench/stereo-vu-bench.md)
