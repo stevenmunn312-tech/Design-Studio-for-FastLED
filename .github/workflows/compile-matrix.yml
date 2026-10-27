@@ -4,9 +4,14 @@ name: Compile matrix
 # split across parallel Windows runners and merged into one record. Started
 # by hand: Actions > Compile matrix > Run workflow, or
 #   gh workflow run compile-matrix.yml -f only="ir/normal@stm32 display/player"
+# GitHub lists the workflow from the default branch, so main carries a copy of
+# this file; it builds `ref` (Hardware unless told otherwise). Keep the two equal.
 on:
   workflow_dispatch:
     inputs:
+      ref:
+        description: Branch, tag or commit to build
+        default: Hardware
       shards:
         description: Parallel runners (1-20)
         default: "20"
@@ -44,6 +49,8 @@ jobs:
       - run: git config --global core.longpaths true
 
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-node@v5
         with:
@@ -101,6 +108,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-python@v6
         with:
