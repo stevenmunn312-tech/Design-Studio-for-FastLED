@@ -176,9 +176,13 @@ chooses the supported combinations from whatever is on record at release.
   and 67 on fbuild, picked from every fixture of every family so each board
   builds every library, configuration and FastLED, core or library name the
   fixtures use at least once (Steve chose this rule over 397 and 139). The
-  count moves with the code; `--list` gives the current one. The last run
-  stopped on 2026-10-21 at 154 of 271 legs, all passing, on code from before
-  D-12.
+  count moves with the code; `--list` gives the current one. Runs go to the
+  `Compile matrix` GitHub workflow (20 Windows runners). 2026-10-28, on FastLED
+  3.10.8 and Arduino core 3.3.12: Arduino CLI 130 of 130 pass
+  (`artifacts/compile-matrix/cloud-40518148901`, commit `ea42a73b`); fbuild
+  63 of 66 (`cloud-40505040758`), the two S3 LED-driver legs since fixed and
+  passing, the Nano ESP32 failing on an fbuild board-flag bug (report drafted,
+  not posted). The freeze run repeats this on the frozen code.
 - **Deploy gate on accreted graphs:** anyone with a graph that uploaded before
   2026-09-11 and is refused now should report it as a gate bug, not rewire the
   graph. Shipped starters are covered by `deployGates.test.ts`.
