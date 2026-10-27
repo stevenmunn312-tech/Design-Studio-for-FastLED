@@ -22,7 +22,7 @@ import type { BuildTargetFamily } from './buildProfile'
  * C6's `Bus::FLEX_IO, 0`), or `LEGACY` for a platform's per-pin controller
  * outside the channel API.
  */
-export type LedBus = 'RMT' | 'PARLIO' | 'I2S' | 'I2S_SPI' | 'LCD_SPI' | 'LCD_CLOCKLESS' | 'OBJECT_FLED' | 'LEGACY'
+export type LedBus = 'RMT' | 'PARLIO' | 'I2S_SPI' | 'LCD_SPI' | 'LCD_CLOCKLESS' | 'OBJECT_FLED' | 'LEGACY'
 
 /** The RMT peripheral's transmit side, as FastLED's RMT5 memory manager sees it. */
 export interface RmtFacts {
@@ -242,23 +242,23 @@ export function chipsetSendMicros(chipset: string, leds: number, dataRateHz?: nu
 //   Each chip's parallel engines sit behind `Bus::FLEX_IO` with an instance
 //   index (`BusTraits<Bus::FLEX_IO, N>`), and `busDriverName` names them;
 // - each engine's `bus_traits.h` for the header that makes its `BusTraits`
-//   visible: the S3's LCD_CAM clockless engine is `FLEX_IO, 0` in
-//   `drivers/lcd_spi/`, the classic ESP32's I2S1 engine `FLEX_IO, 0` in
-//   `drivers/i2s_spi/`, RMT5 `Bus::RMT` in `drivers/rmt/rmt_5/`;
+//   visible, and its `BusSupports` for the chipset families it takes: the
+//   S3's LCD_CAM engine is `FLEX_IO, 0` in `drivers/lcd_spi/`, RMT5
+//   `Bus::RMT` in `drivers/rmt/rmt_5/`;
 // - `platforms/esp/32/feature_flags/enabled.h` for which chip builds which
-//   (`FASTLED_ESP32_HAS_LCD_SPI` on the S3 only, `FASTLED_ESP32_HAS_I2S` on the
-//   classic ESP32 only, RMT5 on every chip with RMT).
+//   (`FASTLED_ESP32_HAS_LCD_SPI` on the S3 only, RMT5 on every chip with RMT).
 //
-// 3.10.8 removed `FASTLED_ESP32_I2S` (it only warns now, and the clockless
-// output stays on RMT) and keeps the S3's older I2S LCD_CAM driver as a
-// placeholder with no `BusTraits`, so neither is offered.
+// The classic ESP32 has no parallel clockless driver in 3.10.8: it removed
+// `FASTLED_ESP32_I2S` (the define only warns, and the LEDs stay on RMT), and
+// its I2S `FLEX_IO` slots declare `BusSupports` for SPI chipsets only, the
+// clockless engine being "ready for the swap" upstream
+// (`channel_drivers_esp32.impl.hpp`). The S3's older I2S LCD_CAM driver is a
+// placeholder with no `BusTraits`. Neither is offered.
 //
 // Deliberately not offered: UART (`channel_manager_esp32.cpp.hpp` ranks it
 // last as "broken, not recommended"), the clockless-over-SPI driver (ranked
-// below RMT "due to reliability issues", one SPI host per output), the
-// classic ESP32's second I2S bank (`FLEX_IO, 1`, on I2S0, contended with
-// clocked SPI) and BIT_BANG. None of them sends a frame faster than the
-// default.
+// below RMT "due to reliability issues", one SPI host per output) and
+// BIT_BANG. None of them sends a frame faster than the default.
 //
 // Documented in docs/architecture/board-capabilities.md ("LED drivers").
 
@@ -267,7 +267,7 @@ export const LED_DRIVER_AUTO = 'auto'
 export type LedDriverChoice = typeof LED_DRIVER_AUTO | LedBus
 
 /** A peripheral a driver takes for its own, for Graph Health's conflict checks. */
-export type LedDriverPeripheral = 'LCD_CAM' | 'I2S1' | 'RMT'
+export type LedDriverPeripheral = 'LCD_CAM' | 'RMT'
 
 /**
  * A driver the Board can choose. A sketch selects it with
@@ -310,18 +310,6 @@ const S3_LCD_CLOCKLESS: SelectableLedDriver = {
   peripheral: 'LCD_CAM',
 }
 
-const CLASSIC_I2S: SelectableLedDriver = {
-  bus: 'I2S',
-  channelBus: 'FLEX_IO',
-  which: 0,
-  label: 'I2S parallel',
-  summary: 'FastLED\'s I2S engine for the classic ESP32, up to 16 clockless outputs at once on the I2S1 peripheral, instead of eight at a time over RMT.',
-  traitsHeader: 'platforms/esp/32/drivers/i2s_spi/bus_traits.h',
-  parallelOutputs: 16,
-  sharedTiming: true,
-  peripheral: 'I2S1',
-}
-
 const rmtDriver = (txChannels: number): SelectableLedDriver => ({
   bus: 'RMT',
   channelBus: 'RMT',
@@ -340,7 +328,6 @@ const rmtDriver = (txChannels: number): SelectableLedDriver => ({
  */
 export function selectableLedDrivers(family: BuildTargetFamily, fqbn = ''): readonly SelectableLedDriver[] {
   switch (family) {
-    case 'esp32': return [CLASSIC_I2S]
     case 'esp32-s3': return [S3_LCD_CLOCKLESS]
     case 'esp32-c6':
     case 'esp32-h2': return [rmtDriver(ledDriverFacts(family, fqbn).rmt?.txChannels ?? 2)]
@@ -373,8 +360,7 @@ export interface LedDriverSuggestion {
  * A parallel driver to suggest when a graph has more clockless outputs (or
  * lanes) than the default RMT driver sends at once, so the rest wait their
  * turn. Applies where RMT is the default and the Board offers a parallel
- * driver: the S3, whose four TX channels drop further with a network up, and
- * the classic ESP32, whose eight do the same.
+ * driver: the S3, whose four TX channels drop further with a network up.
  * `reservedRmtWords` is TX memory something else holds on a shared-pool chip
  * (an IR receiver; the S3's RX memory is its own).
  */

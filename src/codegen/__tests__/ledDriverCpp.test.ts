@@ -99,13 +99,6 @@ describe('withLedDriver', () => {
     expect(withLedDriver('#include <FastLED.h>\nvoid setup() {}', lcd)).toBe('#include <FastLED.h>\nvoid setup() {}')
   })
 
-  it('selects the classic ESP32 I2S engine as FLEX_IO 0, not the define 3.10.8 removed', () => {
-    const out = withLedDriver(plain, selectableLedDrivers('esp32')[0]).split('\n')
-    expect(out[1]).toBe('#include "platforms/esp/32/drivers/i2s_spi/bus_traits.h"  // BusTraits<fl::Bus::FLEX_IO, 0>, the Board\'s LED driver')
-    expect(out).toContain('  FastLED.setExclusiveDriver<fl::Bus::FLEX_IO, 0>();')
-    expect(out.join('\n')).not.toContain('FASTLED_ESP32_I2S')
-    expect(out.join('\n')).not.toContain('FastLED.addLeds<WS2812B')
-  })
 })
 
 describe('the Board LED driver in every generator', () => {
@@ -128,7 +121,7 @@ describe('the Board LED driver in every generator', () => {
     expect(two.match(/setExclusiveDriver/g)).toHaveLength(1)
     expect(sketch(C6, 'RMT')).toContain('#include "platforms/esp/32/drivers/rmt/rmt_5/bus_traits.h"')
     expect(sketch(C6, 'RMT')).toContain('FastLED.setExclusiveDriver<fl::Bus::RMT, 0>();')
-    expect(sketch(ESP32, 'I2S')).toContain('#include "platforms/esp/32/drivers/i2s_spi/bus_traits.h"')
+    expect(sketch(ESP32, 'I2S')).not.toContain('setExclusiveDriver')
   })
 
   it('never lets a driver the board does not offer reach C++', () => {

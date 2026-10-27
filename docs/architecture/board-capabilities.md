@@ -220,7 +220,7 @@ The Board/profile model currently provides enough authority for:
 ## LED drivers
 
 `src/build/ledDrivers.ts` records what each `BuildTargetFamily`'s LED
-drivers can do, read from the pinned FastLED 3.10.5 sources it names. The
+drivers can do, read from the pinned FastLED 3.10.8 sources it names. The
 wire-time estimate, Graph Health and code generation read it; do not restate
 these figures elsewhere. `ledDriverFacts(family, fqbn)` refines a family by
 FQBN where one family covers different chips (Teensy 3.x versus 4.x, RP2040
@@ -232,7 +232,7 @@ versus RP2350).
 | ESP32-S2 | RMT | per controller | 4 | 4 ch, 256 words, 64/block, shared with RX | no |
 | ESP32-S3 | RMT | LCD_SPI | 4 | 4 ch, 192 words, 48/block | yes |
 | ESP32-C3 | RMT | per controller | 2 | 2 ch, 96 words, 48/block | no |
-| ESP32-C6 / H2 | PARLIO | per controller | 2 | 2 ch, 96 words, 48/block | no |
+| ESP32-C6 / H2 | PARLIO (`FLEX_IO, 0`) | per controller | 2 | 2 ch, 96 words, 48/block | no |
 | Teensy 4.x | ObjectFLED | per controller | 16 | — | yes |
 | Others (AVR, ESP8266, RP2040, SAMD, SAM, Teensy 3.x, Renesas, nRF52) | per-pin controller | per controller | 1 | — | per chip |
 
@@ -272,35 +272,45 @@ The Board's `ledDriver` is `auto` (FastLED's choice above) or one of
 `selectableLedDrivers(family, fqbn)`; the Board's select lists only those and
 is hidden where there are none. A value the selected board does not offer is
 `auto` everywhere it is read (`selectedLedDriver`), and a board change resets
-it (`withLedDriverNormalized`, which also resets `I2S`, a different driver on
-the S3 and the classic ESP32). Experimental: built from the FastLED sources,
-not bench-tested.
+it (`withLedDriverNormalized`). Each driver name belongs to one family, so a
+name a new board accepts is the driver it named before. Experimental: built
+from the FastLED sources, not bench-tested.
 
-| Family | Offered | At once | Takes | How the sketch selects it |
-| --- | --- | --- | --- | --- |
-| ESP32 | I2S (Yves driver) | 24 | I2S0 | `#define FASTLED_ESP32_I2S true` before the FastLED include; not a `Bus` |
-| ESP32-S3 | LCD_CLOCKLESS | 16 | LCD_CAM | `setExclusiveDriver` + channel API, `lcd_spi/bus_traits.h` |
-| ESP32-S3 | I2S (older LCD_CAM driver) | 16 | LCD_CAM | `setExclusiveDriver` + channel API, `i2s/bus_traits.h` |
-| ESP32-C6 / H2 | RMT (instead of PARLIO) | 2 | RMT | `setExclusiveDriver` + channel API, `rmt/rmt_5/bus_traits.h` |
+FastLED 3.10.8 keeps only portable `fl::Bus` selectors: each chip's parallel
+engines sit behind `Bus::FLEX_IO` with an instance index, so the Board stores
+the driver's name and `SelectableLedDriver` carries its `channelBus` and
+`which`.
+
+| Family | Offered (`ledDriver`) | Bus | At once | Takes | Traits header |
+| --- | --- | --- | --- | --- | --- |
+| ESP32-S3 | LCD_CLOCKLESS | `FLEX_IO, 0` | 16 | LCD_CAM | `lcd_spi/bus_traits.h` |
+| ESP32-C6 / H2 | RMT (instead of PARLIO) | `RMT, 0` | 2 | RMT | `rmt/rmt_5/bus_traits.h` |
+
+The classic ESP32 has no parallel clockless driver in 3.10.8: it removed
+`FASTLED_ESP32_I2S`, which now only warns and leaves the LEDs on RMT, and its
+I2S `FLEX_IO` slots declare `BusSupports` for SPI chipsets only (the clockless
+engine is "ready for the swap" upstream). The S3's older I2S LCD_CAM driver is
+a placeholder with no `BusTraits`. Neither is offered, and a saved `I2S` on
+either board falls back to `auto`.
 
 `withLedDriver` (`src/codegen/output/ledDriverCpp.ts`) applies the choice to
-each generator's finished sketch. `FastLED.setExclusiveDriver<B>()` only
-registers B above the platform default: a legacy `addLeds<WS2812B, PIN>`
-controller binds RMT or PARLIO in its own constructor and ignores it. So each
-clockless output is rebuilt on `fl::TypedChannel<B, fl::ClocklessChipset>`
-with `ChannelOptions::mBus = B` and added with `FastLED.add`; WS2816 and the
-clocked chipsets keep `addLeds`. UART, clockless-over-SPI, FLEX_IO and
-BIT_BANG are not offered: none sends a frame faster than the default.
+each generator's finished sketch. `FastLED.setExclusiveDriver<B, N>()` only
+registers the driver above the platform default: a legacy
+`addLeds<WS2812B, PIN>` controller binds RMT in its own constructor and
+ignores it. So each clockless output is rebuilt on
+`fl::TypedChannel<B, fl::ClocklessChipset, N>` with `ChannelOptions::mBus`
+and `mBusWhich` set and added with `FastLED.add`; WS2816 and the clocked
+chipsets keep `addLeds`. UART, clockless-over-SPI and BIT_BANG are not
+offered: none sends a frame faster than the default.
 
 Graph Health (`src/utils/ledDriverIssues.ts`) blocks a driver whose
-peripheral is taken (LCD_CAM with a HUB75 panel on the S3; I2S0 with I2S
-audio on the classic ESP32), advises on the classic I2S driver beside a HUB75
-panel (I2S1), on parallel lanes with different timings, and on outputs the
-channel driver cannot take, each with a fix back to `auto`. The parallel TFT
-panels are driven by GPIO writes, not LCD_CAM, so they do not conflict. The
-wire-time estimate counts the chosen driver's `parallelOutputs`, and
-`suggestParallelLedDriver` adds the LCD_CAM fix when an S3 graph on `auto` has
-more clockless outputs than RMT sends at once.
+peripheral is taken (LCD_CAM with a HUB75 panel on the S3), advises on
+parallel lanes with different timings and on outputs the channel driver
+cannot take, each with a fix back to `auto`. The parallel TFT panels are driven by GPIO writes, not
+LCD_CAM, so they do not conflict. The wire-time estimate counts the chosen
+driver's `parallelOutputs`, and `suggestParallelLedDriver` adds the LCD_CAM
+fix when an S3 graph on `auto` has more clockless outputs than RMT sends at
+once.
 
 ## Deferred capability abstractions
 

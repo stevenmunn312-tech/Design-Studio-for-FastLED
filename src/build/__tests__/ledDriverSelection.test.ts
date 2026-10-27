@@ -17,16 +17,16 @@ const board = (properties: Record<string, unknown>) =>
 describe('selectableLedDrivers', () => {
   it('offers the drivers FastLED 3.10.8 builds besides each family default', () => {
     expect(selectableLedDrivers('esp32-s3').map((d) => [d.bus, d.channelBus, d.which])).toEqual([['LCD_CLOCKLESS', 'FLEX_IO', 0]])
-    expect(selectableLedDrivers('esp32').map((d) => [d.bus, d.channelBus, d.which, d.peripheral])).toEqual([['I2S', 'FLEX_IO', 0, 'I2S1']])
     expect(selectableLedDrivers('esp32-c6').map((d) => d.bus)).toEqual(['RMT'])
     expect(selectableLedDrivers('esp32-h2').map((d) => d.bus)).toEqual(['RMT'])
-    for (const family of ['esp32-s2', 'esp32-c3', 'esp8266', 'rp2040', 'teensy', 'avr', 'unknown'] as const) {
+    // 3.10.8 has no parallel clockless driver for the classic ESP32.
+    for (const family of ['esp32', 'esp32-s2', 'esp32-c3', 'esp8266', 'rp2040', 'teensy', 'avr', 'unknown'] as const) {
       expect(selectableLedDrivers(family)).toEqual([])
     }
   })
 
   it('names each driver with the header that defines its BusTraits', () => {
-    for (const family of ['esp32', 'esp32-s3', 'esp32-c6', 'esp32-h2'] as const) {
+    for (const family of ['esp32-s3', 'esp32-c6', 'esp32-h2'] as const) {
       for (const driver of selectableLedDrivers(family)) {
         expect(driver.traitsHeader).toMatch(/^platforms\/esp\/32\/drivers\/[a-z_0-9/]+\/bus_traits\.h$/)
       }
@@ -56,15 +56,10 @@ describe('suggestParallelLedDriver', () => {
     expect(suggestParallelLedDriver('esp32-s3', '', 2, { networkActive: true })?.defaultOutputsAtOnce).toBe(1)
   })
 
-  it('suggests I2S once a classic ESP32 graph has more outputs than its eight RMT channels', () => {
-    expect(suggestParallelLedDriver('esp32', '', 8)).toBeNull()
-    expect(suggestParallelLedDriver('esp32', '', 12)).toMatchObject({ choice: 'I2S', defaultOutputsAtOnce: 8 })
-  })
-
   it('stays quiet where RMT is not the default or no parallel driver is offered', () => {
     expect(suggestParallelLedDriver('esp32-c6', '', 8)).toBeNull()
     expect(suggestParallelLedDriver('esp32-c3', '', 8)).toBeNull()
-    expect(suggestParallelLedDriver('esp32', '', 17)).toBeNull()
+    expect(suggestParallelLedDriver('esp32', '', 12)).toBeNull()
     expect(suggestParallelLedDriver('esp32-s3', '', 17)).toBeNull()
   })
 })
@@ -84,8 +79,10 @@ describe('Board LED driver selection', () => {
     expect(withLedDriverNormalized(kept)).toBe(kept)
   })
 
-  it('drops the S3 I2S choice FastLED 3.10.8 no longer builds', () => {
-    expect(selectedLedDriver([board({ profileId: S3, ledDriver: 'I2S' })])).toBeNull()
-    expect(withLedDriverNormalized({ profileId: S3, ledDriver: 'I2S' }).ledDriver).toBe(LED_DRIVER_AUTO)
+  it('drops the I2S choices FastLED 3.10.8 no longer builds', () => {
+    for (const profileId of [S3, ESP32]) {
+      expect(selectedLedDriver([board({ profileId, ledDriver: 'I2S' })])).toBeNull()
+      expect(withLedDriverNormalized({ profileId, ledDriver: 'I2S' }).ledDriver).toBe(LED_DRIVER_AUTO)
+    }
   })
 })

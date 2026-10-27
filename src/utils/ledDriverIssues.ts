@@ -14,9 +14,6 @@ import { CHIPSET_WIRE, LED_DRIVER_AUTO, type SelectableLedDriver } from '../buil
 import { LED_DRIVER_CHANNEL_TIMING } from '../codegen/output/ledDriverCpp'
 import type { GraphDiagnostic, GraphDiagnosticFix } from './validateGraph'
 
-/** Parts that run the ESP32's I2S peripheral for audio. */
-const I2S_AUDIO_NODE_TYPES: ReadonlySet<string> = new Set(['MicInput', 'LineInput', 'Amplifier'])
-
 interface ClocklessLane {
   node: StudioNode
   chipset: string
@@ -55,7 +52,6 @@ const backToAuto: GraphDiagnosticFix = { action: 'set-led-driver', repair: { kin
 function peripheralConflicts(nodes: readonly StudioNode[], driver: SelectableLedDriver, boardId: string): GraphDiagnostic[] {
   const issues: GraphDiagnostic[] = []
   const hub75 = nodes.filter((node) => node.data.nodeType === 'MatrixOutput' && outputForm(props(node)) === 'hub75')
-  const audio = nodes.filter((node) => I2S_AUDIO_NODE_TYPES.has(node.data.nodeType))
   if (driver.peripheral === 'LCD_CAM' && hub75.length > 0) {
     issues.push({
       id: 'led-driver-lcd-cam-hub75', severity: 'error', category: 'board',
@@ -63,29 +59,6 @@ function peripheralConflicts(nodes: readonly StudioNode[], driver: SelectableLed
       message: `The Board's ${driver.label} LED driver sends through the ESP32-S3's LCD_CAM peripheral, which the HUB75 panel library also drives ${hub75.map(label).join(', ')} with. The chip has one.`,
       fix: 'Put the Board back on FastLED\'s own LED driver (RMT), which leaves LCD_CAM to the panel.',
       nodeIds: [boardId, ...hub75.map((node) => node.id)], nodeLabel: 'Board', propertyKey: 'ledDriver',
-      ...backToAuto,
-    })
-  }
-  // FastLED 3.10.8's classic-ESP32 engine powers I2S1 itself
-  // (`periph_module_enable`) and never loads ESP-IDF's I2S driver; the audio
-  // parts run I2S0 through that driver, and the HUB75 library drives I2S1.
-  if (driver.peripheral === 'I2S1' && hub75.length > 0) {
-    issues.push({
-      id: 'led-driver-i2s-hub75', severity: 'error', category: 'board',
-      title: 'The LED driver and the HUB75 panel both need I2S1',
-      message: `The Board's ${driver.label} LED driver sends through the classic ESP32's I2S1 peripheral, which the HUB75 panel library also drives ${hub75.map(label).join(', ')} from. The two cannot share it.`,
-      fix: 'Put the Board back on FastLED\'s own LED driver (RMT), which leaves I2S1 to the panel.',
-      nodeIds: [boardId, ...hub75.map((node) => node.id)], nodeLabel: 'Board', propertyKey: 'ledDriver',
-      ...backToAuto,
-    })
-  }
-  if (driver.peripheral === 'I2S1' && audio.length > 0) {
-    issues.push({
-      id: 'led-driver-i2s-audio', severity: 'warning', category: 'board',
-      title: 'The LED driver and the audio parts both use I2S',
-      message: `The Board's ${driver.label} LED driver takes the classic ESP32's I2S1 and ${audio.map(label).join(', ')} run audio on I2S0. They are separate peripherals, but the two have not been run together.`,
-      fix: 'If the audio or the LEDs glitch, put the Board back on FastLED\'s own LED driver (RMT).',
-      nodeIds: [boardId, ...audio.map((node) => node.id)], nodeLabel: 'Board', propertyKey: 'ledDriver',
       ...backToAuto,
     })
   }

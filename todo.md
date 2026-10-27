@@ -55,12 +55,14 @@ in section 4.
   - Recheck what is not pure source: `FastLED.delay` and `show()` pacing
     ([loopPacing.ts](src/codegen/loopPacing.ts)), the ESP32 I2S microphone
     format and the SAMD ISR naming
-    ([audioEngineCpp.ts](src/codegen/audio/audioEngineCpp.ts)), default buses
-    and driver choices ([ledDrivers.ts](src/build/ledDrivers.ts),
-    [ledDriverCpp.ts](src/codegen/output/ledDriverCpp.ts)), the ESP32 microphone
-    profiles ([micModules.ts](src/state/peripherals/micModules.ts)) and
-    `chipsetSendMicros` ([wireTime.ts](src/utils/wireTime.ts)). Then move
-    their "FastLED 3.10.5" comments and test names to the new release.
+    ([audioEngineCpp.ts](src/codegen/audio/audioEngineCpp.ts)), the ESP32
+    microphone profiles ([micModules.ts](src/state/peripherals/micModules.ts))
+    and `chipsetSendMicros` ([wireTime.ts](src/utils/wireTime.ts)). Then move
+    their "FastLED 3.10.5" comments and test names to the new release. Default
+    buses and driver choices are done (2026-10-27): 3.10.8 selects parallel
+    engines as `Bus::FLEX_IO` plus an instance, and the classic ESP32 has no
+    parallel clockless driver until upstream declares one, so its I2S choice
+    is gone ([board capabilities](docs/architecture/board-capabilities.md#choosing-the-driver)).
   - SAMD51: 3.10.6 fixed the compile break from 3.10.4, hardware SPI and the
     I2S clash upstream. Try a SAMD51 build without
     `_patch_fastled_samd51_build` and the audio workaround; drop each part the

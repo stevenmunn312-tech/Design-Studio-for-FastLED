@@ -8,9 +8,7 @@
  *   npm run gen:compile-fixtures -- led-drivers [output-dir]
  *   python scripts/compile-fixtures/compile-matrix.py --only led-drivers/
  *
- * The manifest records each sketch's FQBN for the matrix legs. The classic
- * ESP32's I2S driver has a player fixture too: since FastLED 3.10.8 it sends
- * on I2S1 and the player's amplifier keeps I2S0.
+ * The manifest records each sketch's FQBN for the matrix legs.
  */
 import { createHash } from 'node:crypto'
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -41,7 +39,6 @@ const edge = (id: string, source: string, sourceHandle: string, target: string, 
 
 interface Target { profileId: string; fqbn: string; pins: [number, number, number] }
 const TARGETS: Record<string, Target> = {
-  esp32: { profileId: 'esp32-generic-devkit-38pin', fqbn: 'esp32:esp32:esp32', pins: [16, 17, 18] },
   s3: { profileId: 'espressif-esp32-s3-devkitc-1', fqbn: 'esp32:esp32:esp32s3', pins: [4, 5, 6] },
   c6: { profileId: 'esp32-c6-devkitc-1', fqbn: 'esp32:esp32:esp32c6', pins: [4, 5, 6] },
   h2: { profileId: 'esp32-h2-devkitm-1', fqbn: 'esp32:esp32:esp32h2', pins: [4, 5, 10] },
@@ -111,9 +108,6 @@ function player(name: string, target: Target, ledDriver: string): string {
 }
 
 const fixtures: Record<string, { fqbn: string; build: () => string }> = {
-  'esp32-i2s': { fqbn: TARGETS.esp32.fqbn, build: () => normal('esp32-i2s', TARGETS.esp32, 'I2S') },
-  'esp32-i2s-show': { fqbn: TARGETS.esp32.fqbn, build: () => show('esp32-i2s-show', TARGETS.esp32, 'I2S') },
-  'esp32-i2s-player': { fqbn: TARGETS.esp32.fqbn, build: () => player('esp32-i2s-player', TARGETS.esp32, 'I2S') },
   's3-lcd-clockless': { fqbn: TARGETS.s3.fqbn, build: () => normal('s3-lcd-clockless', TARGETS.s3, 'LCD_CLOCKLESS') },
   's3-lcd-clockless-show': { fqbn: TARGETS.s3.fqbn, build: () => show('s3-lcd-clockless-show', TARGETS.s3, 'LCD_CLOCKLESS') },
   's3-lcd-clockless-player': { fqbn: TARGETS.s3.fqbn, build: () => player('s3-lcd-clockless-player', TARGETS.s3, 'LCD_CLOCKLESS') },
