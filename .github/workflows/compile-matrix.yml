@@ -81,19 +81,25 @@ jobs:
         run: echo "slug=$(echo '${{ matrix.shard }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
 
       # fbuild's downloaded toolchains and its compiler cache, per shard, since
-      # each shard builds its own boards.
+      # each shard builds its own boards. Not its esptool installs: those are
+      # uv environments tied to an interpreter path on the runner that made
+      # them, and restored onto another runner they fail with "No Python at".
       - uses: actions/cache@v4
         with:
           path: |
             ~/.fbuild/prod/cache
             ~/.fbuild/prod/zccache
-          key: fbuild-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-${{ github.sha }}
+            !~/.fbuild/prod/cache/toolchains/pioarduino-esptool
+            !~/.fbuild/prod/cache/toolchains/tasmota-esptool
+          key: fbuild-v2-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-${{ github.sha }}
           restore-keys: |
-            fbuild-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-
-            fbuild-${{ hashFiles('backend/requirements.txt') }}-
+            fbuild-v2-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-
+            fbuild-v2-${{ hashFiles('backend/requirements.txt') }}-
 
       - name: Build shard ${{ matrix.shard }}
         shell: bash
+        env:
+          UV_PYTHON_PREFERENCE: only-system  # the 3.10 set up above, never a download
         run: |
           only=()
           for text in ${{ inputs.only }}; do only+=(--only "$text"); done
