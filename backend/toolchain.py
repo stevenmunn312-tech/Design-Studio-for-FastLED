@@ -61,13 +61,25 @@ _CORE_URLS = {
 }
 
 
+# Cores the helper installs at one release rather than the index's latest, so
+# Arduino CLI and fbuild (`_FBUILD_ESP32_PLATFORM`) build the same core and a
+# new major release (arduino-esp32 4.0) cannot arrive unannounced. Install,
+# the update check and upgrade all treat the pin as the latest version.
+_PINNED_CORES = {"esp32:esp32": "3.3.12"}
+
+
+def _core_spec(core: str) -> str:
+    """`core` as `core install` should name it: pinned cores carry their release."""
+    return f"{core}@{_PINNED_CORES[core]}" if core in _PINNED_CORES else core
+
+
 def _core_version_fields(entry: dict) -> tuple[str, str, str]:
     """Return (id, installed, latest) from one `core list --format json` entry.
     Handles both the older (`ID`/`Installed`/`Latest`) and current
     (`id`/`installed_version`/`latest_version`) arduino-cli JSON key casing."""
     cid = entry.get("id") or entry.get("ID") or ""
     installed = entry.get("installed_version") or entry.get("Installed") or ""
-    latest = entry.get("latest_version") or entry.get("Latest") or ""
+    latest = _PINNED_CORES.get(cid) or entry.get("latest_version") or entry.get("Latest") or ""
     return cid, installed, latest
 
 
@@ -489,11 +501,12 @@ def _remove_build_cache_tree(path: Path) -> None:
 # A bare `platform = espressif32` makes fbuild fetch pioarduino's moving
 # `stable` release, so two machines built different cores: 3.3.9 on one fetched
 # in June, 3.3.12 on a fresh CI runner (2026-10-27), with different image sizes
-# and a Nano ESP32 failure only on the newer one. fbuild takes a release zip URL
-# instead (registry pins like espressif32@6.5.0 fall back to `stable`). 55.03.311
-# is Arduino core 3.3.11 on ESP-IDF 5.5.5, the core the Arduino CLI builds use.
+# and different image sizes. fbuild takes a release zip URL instead (registry
+# pins like espressif32@6.5.0 fall back to `stable`). 55.03.312-1 is Arduino
+# core 3.3.12 on ESP-IDF 5.5.5, the release `_PINNED_CORES` gives Arduino CLI;
+# the -1 respin only patches pioarduino's verbose-compile script.
 _FBUILD_ESP32_PLATFORM = (
-    "https://github.com/pioarduino/platform-espressif32/releases/download/55.03.311/platform-espressif32.zip"
+    "https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip"
 )
 _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s3": {
@@ -2048,7 +2061,7 @@ def core_install(payload: dict = Body(...)):
                 _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
             )
         rc = yield from _run_phase("update index", _ARDUINO_BASE + ["core", "update-index"])
-        rc = yield from _run_phase(f"install {core}", _ARDUINO_BASE + ["core", "install", core])
+        rc = yield from _run_phase(f"install {core}", _ARDUINO_BASE + ["core", "install", _core_spec(core)])
         if rc == 0:
             yield from _ensure_arduino_fastled_lib()
             yield f"\n{core} ready.\n"
@@ -2086,22 +2099,24 @@ def core_updates(payload: dict = Body(default={})):
     except Exception:
         pass
     try:
-        proc = subprocess.run(
-            _ARDUINO_BASE + ["core", "list", "--format", "json"],
-            capture_output=True, text=True, timeout=30, env=_TOOLCHAIN_ENV,
-        )
-        data = json.loads(proc.stdout or "[]")
+        cores = _installed_cores()
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e), "updates": []}, status_code=500)
-    items = data.get("platforms", data) if isinstance(data, dict) else data
-    updates = []
-    for entry in items or []:
-        if not isinstance(entry, dict):
-            continue
-        cid, installed, latest = _core_version_fields(entry)
-        if cid and installed and latest and installed != latest:
-            updates.append({"core": cid, "installed": installed, "latest": latest})
+    updates = [{"core": cid, "installed": installed, "latest": latest}
+               for cid, installed, latest in cores if installed and latest and installed != latest]
     return {"ok": True, "updates": updates}
+
+
+def _installed_cores() -> list[tuple[str, str, str]]:
+    """(id, installed, latest) for every installed core; a pinned core's latest is its pin."""
+    proc = subprocess.run(
+        _ARDUINO_BASE + ["core", "list", "--format", "json"],
+        capture_output=True, text=True, timeout=30, env=_TOOLCHAIN_ENV,
+    )
+    data = json.loads(proc.stdout or "[]")
+    items = data.get("platforms", data) if isinstance(data, dict) else data
+    return [fields for fields in (_core_version_fields(entry) for entry in items or [] if isinstance(entry, dict))
+            if fields[0]]
 
 
 @router.post("/api/core/upgrade")
@@ -2109,8 +2124,9 @@ def core_upgrade(payload: dict = Body(default={})):
     """Upgrade installed board cores to their latest version, streaming progress.
 
     Body: {"cores": ["esp32:esp32", ...], "urls": [...]}. `cores` empty/omitted
-    upgrades every outdated core (plain `core upgrade`). `urls` are registered
-    first, same as /api/core/updates.
+    upgrades every outdated core. `urls` are registered first, same as
+    /api/core/updates. A pinned core (`_PINNED_CORES`) is installed at its pin
+    instead, which `core upgrade` would move past.
     """
     if not _ARDUINO_CLI:
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
@@ -2124,11 +2140,13 @@ def core_upgrade(payload: dict = Body(default={})):
                 _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
             )
         yield from _run_phase("update index", _ARDUINO_BASE + ["core", "update-index"])
-        if cores:
-            for core in cores:
+        if not cores:
+            cores = [cid for cid, _installed, _latest in _installed_cores()]
+        for core in cores:
+            if core in _PINNED_CORES:
+                yield from _run_phase(f"install {_core_spec(core)}", _ARDUINO_BASE + ["core", "install", _core_spec(core)])
+            else:
                 yield from _run_phase(f"upgrade {core}", _ARDUINO_BASE + ["core", "upgrade", core])
-        else:
-            yield from _run_phase("upgrade all", _ARDUINO_BASE + ["core", "upgrade"])
         yield "\nUpdate complete.\n"
 
     return StreamingResponse(stream(), media_type="text/plain")

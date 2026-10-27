@@ -92,3 +92,13 @@ def test_only_esp32_risc_v_builds_define_fl_no_except_empty():
     for fqbn in ("esp32:esp32:esp32", "esp32:esp32:esp32s3:PSRAM=opi", "esp32:esp32:XIAO_ESP32S3",
                  "esp32:esp32:esp32s2", "arduino:avr:uno", "rp2040:rp2040:rpipico"):
         assert toolchain._fastled_build_flags(fqbn) == toolchain._FASTLED_BUILD_FLAGS, fqbn
+
+
+def test_pinned_esp32_core_is_installed_and_reported_at_its_pin():
+    assert toolchain._core_spec("esp32:esp32") == f"esp32:esp32@{toolchain._PINNED_CORES['esp32:esp32']}"
+    assert toolchain._core_spec("rp2040:rp2040") == "rp2040:rp2040"
+    # The update check offers the pin, never the index's newer latest.
+    entry = {"id": "esp32:esp32", "installed_version": "3.3.11", "latest_version": "4.0.0"}
+    assert toolchain._core_version_fields(entry) == ("esp32:esp32", "3.3.11", toolchain._PINNED_CORES["esp32:esp32"])
+    # fbuild builds the same Arduino core release.
+    assert f"/55.03.{toolchain._PINNED_CORES['esp32:esp32'].replace('3.3.', '3')}" in toolchain._FBUILD_ESP32_PLATFORM
