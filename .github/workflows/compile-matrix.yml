@@ -59,14 +59,22 @@ jobs:
 
       - run: npm ci
 
+      # 3.11 runs the scripts. fbuild installs its pinned esptool for ESP32
+      # builds with `uv tool install --python 3.10`; with 3.10 already here and
+      # uv's cache restored, that step stops downloading an interpreter each
+      # time, which ran past fbuild's 300 s limit on a C3 shard.
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: |
+            3.10
+            3.11
 
       - run: pip install -r backend/requirements.txt -c backend/constraints.txt
 
-      # fbuild installs its pinned esptool for ESP32 builds with uv.
       - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/requirements.txt
 
       - id: name
         shell: bash
