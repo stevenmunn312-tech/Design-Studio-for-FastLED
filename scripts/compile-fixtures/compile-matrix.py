@@ -678,11 +678,17 @@ def main() -> int:
             return 2
         args.resume = [*(args.resume or []), previous]
 
-    wanted = [leg for leg in candidates()
-              if args.engine in ("all", leg.engine) and (not args.only or any(text in leg.name for text in args.only))]
+    wanted = [leg for leg in candidates() if args.engine in ("all", leg.engine)]
+    names = {leg.name for leg in wanted}
+
+    def chosen(leg: Leg) -> bool:
+        # A full leg name picks that leg alone; any other text, every leg containing it.
+        return not args.only or any(text == leg.name or (text not in names and text in leg.name) for text in args.only)
 
     def plan() -> list[Leg]:
-        legs = build_order(wanted if args.every else necessary(wanted))
+        # The cover is judged over every candidate, then --only narrows it, so a
+        # filtered run builds exactly the legs the full plan would.
+        legs = [leg for leg in build_order(wanted if args.every else necessary(wanted)) if chosen(leg)]
         if args.shard:
             index, count = (int(part) for part in args.shard.split("/"))
             legs = shard(legs, index, count)
