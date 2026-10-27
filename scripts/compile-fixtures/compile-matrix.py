@@ -485,6 +485,60 @@ def resumable_passes(run_dir: Path) -> dict[str, dict]:
             if row.get("status") == "PASS" and row.get("source_sha256") and row.get("toolchain")}
 
 
+def shard(legs: list[Leg], index: int, count: int) -> list[Leg]:
+    """Shard `index` (1-based) of `count`, for runs split across machines.
+
+    A board's legs stay together where they can, so each machine downloads the
+    fewest toolchains and reuses its caches: the ordered plan is cut into runs
+    of one board, each run split into pieces of at most an equal share, and
+    the pieces dealt largest first to the shard with the fewest legs. Every
+    machine computes the same plan from the same commit, so the shards
+    partition it."""
+    share = -(-len(legs) // count)
+    pieces: list[list[Leg]] = []
+    for leg in legs:
+        if pieces and pieces[-1][0].board == leg.board and pieces[-1][0].engine == leg.engine and len(pieces[-1]) < share:
+            pieces[-1].append(leg)
+        else:
+            pieces.append([leg])
+    shards: list[list[Leg]] = [[] for _ in range(count)]
+    for piece in sorted(pieces, key=len, reverse=True):
+        min(shards, key=len).extend(piece)
+    return build_order(shards[index - 1])
+
+
+def merge_runs(run_dirs: list[Path], out: Path) -> int:
+    """One record from several shard runs, rows renumbered.
+
+    A shard's run folder sits at `<shard root>/artifacts/compile-matrix/<stamp>`
+    beside that shard's logs, so each log path is rewritten from the shard
+    root, as the merged record's reader finds it."""
+    summaries = [json.loads((run_dir / "summary.json").read_text(encoding="utf-8")) for run_dir in run_dirs]
+    roots = [run_dir.parents[2] if run_dir.parent.name == "compile-matrix" else run_dir for run_dir in run_dirs]
+    header = {key: value for key, value in summaries[0].items() if key != "legs"}
+    header["planned"] = sum(summary.get("planned", 0) for summary in summaries)
+    header["shards"] = [root.name for root in roots]
+
+    def from_root(root: Path, path: str) -> str:
+        return f"{root.as_posix()}/{path.replace(chr(92), '/')}"
+
+    rows = [{**row, "shard": root.name, "build_log": from_root(root, row["build_log"]),
+             "runner_output": from_root(root, row["runner_output"])}
+            for root, summary in zip(roots, summaries) for row in summary.get("legs", [])]
+    rows.sort(key=lambda row: (ENGINES.index(row["engine"]), board_of(row["fqbn"]), row["leg"]))
+    for index, row in enumerate(rows, 1):
+        row["index"] = index
+    out.mkdir(parents=True, exist_ok=True)
+    write_summary(out, header, rows)
+    passed = sum(row["status"] == "PASS" for row in rows)
+    print(f"Merged {len(run_dirs)} shards: {passed} passed, {len(rows) - passed} failed, "
+          f"{header['planned'] - len(rows)} not run, of {header['planned']}.")
+    for row in rows:
+        if row["status"] != "PASS":
+            print(f"  FAILED {row['leg']} on {board_of(row['fqbn'])}: {row['note'] or 'no error line found'}")
+    return 0 if passed == header["planned"] else 1
+
+
 def latest_run(engine: str) -> Path | None:
     """The newest run folder whose legs are all on `engine` (or both engines, for all)."""
     wanted = set(ENGINES) if engine == "all" else {engine}
@@ -598,12 +652,19 @@ def main() -> int:
     parser.add_argument("--resume", type=Path, action="append", metavar="RUN_DIR",
                         help="skip legs that passed in that run with an identical sketch (resume after STOP);"
                              " repeatable, later runs winning")
+    parser.add_argument("--shard", metavar="I/N",
+                        help="run only shard I of N of the plan (1-based), for runs split across machines")
+    parser.add_argument("--merge", type=Path, nargs="+", metavar="RUN_DIR",
+                        help="write one summary from these shard run folders into --merge-out, then exit")
+    parser.add_argument("--merge-out", type=Path, default=ROOT / "artifacts" / "compile-matrix" / "merged")
     parser.add_argument("--retry-failed", action="store_true",
                         help="resume the newest earlier run on this engine: rebuild only what failed, did not run,"
                              " or changed since; carry every other pass")
     parser.add_argument("--low-priority", action="store_true",
                         help="run at below-normal priority on Windows; spawned compilers inherit it")
     args = parser.parse_args()
+    if args.merge:
+        return merge_runs(args.merge, args.merge_out)
     if args.retry_failed:
         previous = latest_run(args.engine)
         if previous is None:
@@ -615,7 +676,11 @@ def main() -> int:
               if args.engine in ("all", leg.engine) and (not args.only or any(text in leg.name for text in args.only))]
 
     def plan() -> list[Leg]:
-        return build_order(wanted if args.every else necessary(wanted))
+        legs = build_order(wanted if args.every else necessary(wanted))
+        if args.shard:
+            index, count = (int(part) for part in args.shard.split("/"))
+            legs = shard(legs, index, count)
+        return legs
 
     if args.list or args.dry_run:
         # Judged from the fixtures on disk; a run regenerates them first.

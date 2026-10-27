@@ -1,0 +1,134 @@
+name: Compile matrix
+
+# The fbuild compile fixtures (scripts/compile-fixtures/compile-matrix.py),
+# split across parallel Windows runners and merged into one record. Started
+# by hand: Actions > Compile matrix > Run workflow, or
+#   gh workflow run compile-matrix.yml -f only="ir/normal@stm32 display/player"
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: Parallel runners (1-20)
+        default: "20"
+      only:
+        description: Build only legs whose name contains one of these space-separated texts (blank for all)
+        default: ""
+
+concurrency:
+  group: compile-matrix-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.shards.outputs.list }}
+    steps:
+      - id: shards
+        shell: python
+        run: |
+          import json, os
+          count = max(1, min(20, int("${{ inputs.shards }}" or "20")))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"list={json.dumps([f'{i}/{count}' for i in range(1, count + 1)])}\n")
+
+  build:
+    needs: plan
+    runs-on: windows-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - run: git config --global core.longpaths true
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r backend/requirements.txt -c backend/constraints.txt
+
+      - id: name
+        shell: bash
+        run: echo "slug=$(echo '${{ matrix.shard }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
+      # fbuild's downloaded toolchains and its compiler cache, per shard, since
+      # each shard builds its own boards.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.fbuild/prod/cache
+            ~/.fbuild/prod/zccache
+          key: fbuild-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-${{ github.sha }}
+          restore-keys: |
+            fbuild-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-
+            fbuild-${{ hashFiles('backend/requirements.txt') }}-
+
+      - name: Build shard ${{ matrix.shard }}
+        shell: bash
+        run: |
+          only=()
+          for text in ${{ inputs.only }}; do only+=(--only "$text"); done
+          python scripts/compile-fixtures/compile-matrix.py --engine fbuild --shard "${{ matrix.shard }}" "${only[@]}"
+
+      # The run folder plus every fbuild log and report beside the sketches,
+      # at the paths summary.json names.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ steps.name.outputs.slug }}
+          path: |
+            artifacts/compile-matrix/
+            artifacts/*-compile/*.fbuild*.log
+            artifacts/*-compile/*.fbuild*.json
+            backend/sketches/*/*.fbuild*.log
+            backend/sketches/*/*.fbuild*.json
+          if-no-files-found: warn
+
+  merge:
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r backend/requirements.txt -c backend/constraints.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: shard-*
+          path: shards
+
+      # Each shard artifact holds one artifacts/compile-matrix/<stamp>/ beside its logs.
+      - name: Merge
+        shell: bash
+        run: |
+          runs=()
+          for run in shards/shard-*/artifacts/compile-matrix/*/; do
+            [ -f "$run/summary.json" ] && runs+=("${run%/}")
+          done
+          python scripts/compile-fixtures/compile-matrix.py --merge "${runs[@]}" --merge-out merged || status=$?
+          cat merged/summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit ${status:-0}
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compile-matrix-record
+          path: |
+            merged/
+            shards/
