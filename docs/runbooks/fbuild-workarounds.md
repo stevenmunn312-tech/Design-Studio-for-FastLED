@@ -25,10 +25,11 @@ an internal record.
   in `tmp/fbuild-drafts/nano-esp32-usb-product.md`, not posted. ESP32-H2
   is built on Arduino CLI only, since 2.5.45 has no `esp32-h2-devkitc-1`.
 - **ESP32 platform pin:** `_FBUILD_ESP32_PLATFORM` in `backend/toolchain.py`,
-  pioarduino 55.03.311 (Arduino core 3.3.11, the Arduino CLI core), since
-  2026-10-27. A bare `platform = espressif32` fetches pioarduino's moving
-  `stable`, so the laptop built 3.3.9 and a fresh runner 3.3.12, with images
-  about 240 KB apart. fbuild accepts only a release zip URL as a pin.
+  pioarduino 55.03.312-1 (Arduino core 3.3.12, ESP-IDF 5.5.5), the release the
+  helper pins Arduino CLI to (`_PINNED_CORES`), since 2026-10-27. A bare
+  `platform = espressif32` fetches pioarduino's moving `stable`, so the laptop
+  built 3.3.9 and a fresh runner 3.3.12, with images about 240 KB apart.
+  fbuild accepts only a release zip URL as a pin.
 - The pin moved from 2.5.37 to 2.5.44 on 2026-10-23. 2.5.44 bundles
   the upstream fixes from roll-up
   [#1689](https://github.com/FastLED/fbuild/issues/1689) for #1656 (§12),
