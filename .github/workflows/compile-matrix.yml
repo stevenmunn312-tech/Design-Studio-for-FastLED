@@ -65,6 +65,9 @@ jobs:
 
       - run: pip install -r backend/requirements.txt -c backend/constraints.txt
 
+      # fbuild installs its pinned esptool for ESP32 builds with uv.
+      - uses: astral-sh/setup-uv@v6
+
       - id: name
         shell: bash
         run: echo "slug=$(echo '${{ matrix.shard }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
