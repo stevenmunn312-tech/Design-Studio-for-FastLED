@@ -51,13 +51,14 @@ describe('ledDriverDiagnostics', () => {
     expect(buildGraphDiagnostics(nodes, []).some((d) => d.id === issue.id)).toBe(true)
   })
 
-  it('blocks the classic ESP32 I2S driver beside I2S audio, and only advises beside HUB75', () => {
+  it('blocks the classic ESP32 I2S driver beside HUB75 on I2S1, and only advises beside I2S0 audio', () => {
     for (const audio of [node('mic', 'MicInput'), node('line', 'LineInput'), node('amp', 'Amplifier')]) {
-      expect(ids([board(ESP32, 'I2S'), audio, strip('a')])).toEqual(['led-driver-i2s-audio'])
+      const issues = ledDriverDiagnostics([board(ESP32, 'I2S'), audio, strip('a')])
+      expect(issues.map((issue) => [issue.id, issue.severity])).toEqual([['led-driver-i2s-audio', 'warning']])
     }
     const hub = ledDriverDiagnostics([board(ESP32, 'I2S'), hub75, strip('a')])
-    expect(hub.map((issue) => [issue.id, issue.severity])).toEqual([['led-driver-i2s-hub75', 'warning']])
-    // The S3's I2S-named driver runs on LCD_CAM, not I2S: audio is fine there.
+    expect(hub.map((issue) => [issue.id, issue.severity])).toEqual([['led-driver-i2s-hub75', 'error']])
+    // 3.10.8 builds no S3 driver named I2S, so the value is ignored there.
     expect(ids([board(S3, 'I2S'), node('mic', 'MicInput'), strip('a')])).toEqual([])
   })
 
@@ -74,8 +75,8 @@ describe('ledDriverDiagnostics', () => {
 
   it('names the outputs a channel driver cannot take', () => {
     expect(ids([board(S3, 'LCD_CLOCKLESS'), strip('a', 'WS2816')])).toEqual(['led-driver-unsupported-chipset'])
-    // The classic I2S define swaps every clockless controller, WS2816's too.
-    expect(ids([board(ESP32, 'I2S'), strip('a', 'WS2816')])).toEqual([])
+    // The classic I2S engine is a channel driver now, so WS2816 stays behind there too.
+    expect(ids([board(ESP32, 'I2S'), strip('a', 'WS2816')])).toEqual(['led-driver-unsupported-chipset'])
   })
 
   it('ignores a driver the board does not offer, as code generation does', () => {

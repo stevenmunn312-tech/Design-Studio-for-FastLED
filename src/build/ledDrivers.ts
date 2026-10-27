@@ -1,11 +1,12 @@
 /**
  * What each board family's LED drivers can do, read from the pinned FastLED
- * 3.10.5 rather than from taste. The wire-time estimate, Graph Health and
+ * 3.10.8 rather than from taste. The wire-time estimate, Graph Health and
  * code generation all read these facts, so a driver claim is made once.
  *
  * Sources, all under the installed library's `src/`:
- * - default buses: `fl/channels/bus.h` (`DefaultBus<ClocklessChipset>`,
- *   `DefaultBus<SpiChipsetConfig>`);
+ * - default drivers: `fl/channels/bus.h` (`DefaultBus<ClocklessChipset>`,
+ *   `DefaultBus<SpiChipsetConfig>`, and `busDriverName`, which names the
+ *   engine a portable `Bus::FLEX_IO` slot holds on each chip);
  * - RMT channels and memory: `platforms/esp/32/drivers/rmt/rmt_5/README.md`,
  *   `rmt_memory_manager.cpp.hpp` and `common.h` (`FASTLED_RMT_MEM_BLOCKS` 2,
  *   `FASTLED_RMT_MEM_BLOCKS_NETWORK_MODE` 3);
@@ -16,10 +17,12 @@
  */
 import type { BuildTargetFamily } from './buildProfile'
 
-/** A FastLED 3.10.5 `fl::Bus`, or `LEGACY` for a platform's per-pin controller outside the channel API. */
-export type LedBus =
-  | 'RMT' | 'PARLIO' | 'I2S' | 'I2S_SPI' | 'LCD_SPI' | 'LCD_CLOCKLESS' | 'LCD_RGB'
-  | 'SPI' | 'UART' | 'OBJECT_FLED' | 'FLEX_IO' | 'LPUART' | 'BIT_BANG' | 'LEGACY'
+/**
+ * A FastLED LED driver by the name `busDriverName` gives it (`PARLIO` is the
+ * C6's `Bus::FLEX_IO, 0`), or `LEGACY` for a platform's per-pin controller
+ * outside the channel API.
+ */
+export type LedBus = 'RMT' | 'PARLIO' | 'I2S' | 'I2S_SPI' | 'LCD_SPI' | 'LCD_CLOCKLESS' | 'OBJECT_FLED' | 'LEGACY'
 
 /** The RMT peripheral's transmit side, as FastLED's RMT5 memory manager sees it. */
 export interface RmtFacts {
@@ -71,8 +74,9 @@ const FAMILY_FACTS: Record<BuildTargetFamily, LedDriverFacts> = {
   'esp32-s2': { chip: 'ESP32-S2', clocklessBus: 'RMT', spiBus: 'LEGACY', parallelOutputs: 4, rmt: rmt(4, 64, 256, true), fpu: false },
   'esp32-s3': { chip: 'ESP32-S3', clocklessBus: 'RMT', spiBus: 'LCD_SPI', parallelOutputs: 4, rmt: rmt(4, 48, 192, false), fpu: true },
   'esp32-c3': { chip: 'ESP32-C3', clocklessBus: 'RMT', spiBus: 'LEGACY', parallelOutputs: 2, rmt: rmt(2, 48, 96, false), fpu: false },
-  // PARLIO is the default on the C6 and H2; RMT stays the fallback FastLED uses
-  // when PARLIO cannot take an output, so its memory facts still apply.
+  // PARLIO (`Bus::FLEX_IO, 0` there) is the default on the C6 and H2; RMT stays
+  // the fallback FastLED uses when PARLIO cannot take an output, so its memory
+  // facts still apply.
   'esp32-c6': { chip: 'ESP32-C6', clocklessBus: 'PARLIO', spiBus: 'LEGACY', parallelOutputs: 2, rmt: rmt(2, 48, 96, false), fpu: false },
   'esp32-h2': { chip: 'ESP32-H2', clocklessBus: 'PARLIO', spiBus: 'LEGACY', parallelOutputs: 2, rmt: rmt(2, 48, 96, false), fpu: false },
   esp8266: sequential('ESP8266', false),
@@ -232,24 +236,29 @@ export function chipsetSendMicros(chipset: string, leds: number, dataRateHz?: nu
 
 // ── Drivers the Board can choose ─────────────────────────────────────────
 //
-// The Board's `ledDriver` property names one of these, or `auto` for FastLED's
-// own choice above. Read from the same pinned 3.10.5:
-// - `fl/channels/bus.h` (`enum class Bus`) and each driver's `bus_traits.h`
-//   for the spelling and the header that makes `BusTraits<B>` visible;
+// The Board's `ledDriver` property names one of these by its driver name, or
+// `auto` for FastLED's own choice above. Read from the same pinned 3.10.8:
+// - `fl/channels/bus.h`: `enum class Bus` keeps only portable selectors.
+//   Each chip's parallel engines sit behind `Bus::FLEX_IO` with an instance
+//   index (`BusTraits<Bus::FLEX_IO, N>`), and `busDriverName` names them;
+// - each engine's `bus_traits.h` for the header that makes its `BusTraits`
+//   visible: the S3's LCD_CAM clockless engine is `FLEX_IO, 0` in
+//   `drivers/lcd_spi/`, the classic ESP32's I2S1 engine `FLEX_IO, 0` in
+//   `drivers/i2s_spi/`, RMT5 `Bus::RMT` in `drivers/rmt/rmt_5/`;
 // - `platforms/esp/32/feature_flags/enabled.h` for which chip builds which
-//   driver (`FASTLED_ESP32_HAS_LCD_SPI` and `FASTLED_ESP32_HAS_I2S_LCD_CAM` on
-//   the S3 only, the RMT5 driver on every chip with RMT);
-// - `platforms/esp/32/drivers/i2s/clockless_i2s_esp32.h` and
-//   `platforms/esp/clockless.h` for the classic ESP32's I2S driver, which is
-//   not a `Bus` at all: `#define FASTLED_ESP32_I2S true` before the FastLED
-//   include swaps the clockless controller every `addLeds` builds. `Bus::I2S`
-//   names the S3's LCD_CAM driver instead (its `bus_traits.h` says so).
+//   (`FASTLED_ESP32_HAS_LCD_SPI` on the S3 only, `FASTLED_ESP32_HAS_I2S` on the
+//   classic ESP32 only, RMT5 on every chip with RMT).
+//
+// 3.10.8 removed `FASTLED_ESP32_I2S` (it only warns now, and the clockless
+// output stays on RMT) and keeps the S3's older I2S LCD_CAM driver as a
+// placeholder with no `BusTraits`, so neither is offered.
 //
 // Deliberately not offered: UART (`channel_manager_esp32.cpp.hpp` ranks it
 // last as "broken, not recommended"), the clockless-over-SPI driver (ranked
-// below RMT "due to reliability issues", one SPI host per output), FLEX_IO
-// (one strip at a time on FlexIO2 pins, behind Teensy's 16-lane ObjectFLED
-// default) and BIT_BANG. None of them sends a frame faster than the default.
+// below RMT "due to reliability issues", one SPI host per output), the
+// classic ESP32's second I2S bank (`FLEX_IO, 1`, on I2S0, contended with
+// clocked SPI) and BIT_BANG. None of them sends a frame faster than the
+// default.
 //
 // Documented in docs/architecture/board-capabilities.md ("LED drivers").
 
@@ -258,26 +267,29 @@ export const LED_DRIVER_AUTO = 'auto'
 export type LedDriverChoice = typeof LED_DRIVER_AUTO | LedBus
 
 /** A peripheral a driver takes for its own, for Graph Health's conflict checks. */
-export type LedDriverPeripheral = 'LCD_CAM' | 'I2S0' | 'RMT'
+export type LedDriverPeripheral = 'LCD_CAM' | 'I2S1' | 'RMT'
 
+/**
+ * A driver the Board can choose. A sketch selects it with
+ * `FastLED.setExclusiveDriver<channelBus, which>()` before the first output
+ * and builds its clockless outputs on the channel API, because a legacy
+ * `addLeds<CHIPSET, PIN>` controller binds RMT in its own constructor
+ * (`ClocklessIdf5` in `idf5_clockless.h`) and naming another bus alone moves
+ * nothing.
+ */
 export interface SelectableLedDriver {
-  /** The `fl::Bus` the sketch names (the Board's `ledDriver` value). */
+  /** FastLED's name for the driver: the Board's `ledDriver` value. */
   bus: LedBus
+  /** The `fl::Bus` selector the sketch names. */
+  channelBus: 'RMT' | 'FLEX_IO'
+  /** The instance of `channelBus` (`BusTraits<channelBus, which>`). */
+  which: number
   /** Short name for the Board's driver select. */
   label: string
   /** One sentence for the select's help and Graph Health. */
   summary: string
-  /**
-   * How a sketch selects it. `exclusive`: `FastLED.setExclusiveDriver<B>()`
-   * before the first output, with the clockless outputs built on the channel
-   * API, because a legacy `addLeds<CHIPSET, PIN>` controller binds the
-   * platform default in its own constructor (`idf5_clockless.h`,
-   * `clockless_parlio_esp32.h`) and naming another bus alone moves nothing.
-   * `legacy-define`: a define before the FastLED include.
-   */
-  selection: 'exclusive' | 'legacy-define'
-  /** The header giving `BusTraits<bus>`, under FastLED's `src/` (exclusive only). */
-  traitsHeader?: string
+  /** The header giving `BusTraits<channelBus, which>`, under FastLED's `src/`. */
+  traitsHeader: string
   /** Clockless outputs the driver sends at once. */
   parallelOutputs: number
   /** Whether every lane is clocked together, so all of them need one timing. */
@@ -288,21 +300,11 @@ export interface SelectableLedDriver {
 
 const S3_LCD_CLOCKLESS: SelectableLedDriver = {
   bus: 'LCD_CLOCKLESS',
+  channelBus: 'FLEX_IO',
+  which: 0,
   label: 'LCD_CAM parallel',
   summary: 'Sends up to 16 clockless outputs at once through the S3\'s LCD_CAM peripheral, instead of four at a time over RMT.',
-  selection: 'exclusive',
   traitsHeader: 'platforms/esp/32/drivers/lcd_spi/bus_traits.h',
-  parallelOutputs: 16,
-  sharedTiming: true,
-  peripheral: 'LCD_CAM',
-}
-
-const S3_I2S_LCD_CAM: SelectableLedDriver = {
-  bus: 'I2S',
-  label: 'LCD_CAM, older driver',
-  summary: 'FastLED\'s earlier LCD_CAM driver (named I2S in FastLED), up to 16 outputs at once. LCD_CAM parallel replaces it.',
-  selection: 'exclusive',
-  traitsHeader: 'platforms/esp/32/drivers/i2s/bus_traits.h',
   parallelOutputs: 16,
   sharedTiming: true,
   peripheral: 'LCD_CAM',
@@ -310,19 +312,22 @@ const S3_I2S_LCD_CAM: SelectableLedDriver = {
 
 const CLASSIC_I2S: SelectableLedDriver = {
   bus: 'I2S',
+  channelBus: 'FLEX_IO',
+  which: 0,
   label: 'I2S parallel',
-  summary: 'FastLED\'s I2S driver for the classic ESP32, up to 24 outputs at once. FastLED warns it may not be reliable on ESP-IDF 5 (Arduino-ESP32 3.x).',
-  selection: 'legacy-define',
-  parallelOutputs: 24,
+  summary: 'FastLED\'s I2S engine for the classic ESP32, up to 16 clockless outputs at once on the I2S1 peripheral, instead of eight at a time over RMT.',
+  traitsHeader: 'platforms/esp/32/drivers/i2s_spi/bus_traits.h',
+  parallelOutputs: 16,
   sharedTiming: true,
-  peripheral: 'I2S0',
+  peripheral: 'I2S1',
 }
 
 const rmtDriver = (txChannels: number): SelectableLedDriver => ({
   bus: 'RMT',
+  channelBus: 'RMT',
+  which: 0,
   label: 'RMT',
   summary: `The RMT peripheral instead of PARLIO, ${txChannels} outputs at once.`,
-  selection: 'exclusive',
   traitsHeader: 'platforms/esp/32/drivers/rmt/rmt_5/bus_traits.h',
   parallelOutputs: txChannels,
   sharedTiming: false,
@@ -336,7 +341,7 @@ const rmtDriver = (txChannels: number): SelectableLedDriver => ({
 export function selectableLedDrivers(family: BuildTargetFamily, fqbn = ''): readonly SelectableLedDriver[] {
   switch (family) {
     case 'esp32': return [CLASSIC_I2S]
-    case 'esp32-s3': return [S3_LCD_CLOCKLESS, S3_I2S_LCD_CAM]
+    case 'esp32-s3': return [S3_LCD_CLOCKLESS]
     case 'esp32-c6':
     case 'esp32-h2': return [rmtDriver(ledDriverFacts(family, fqbn).rmt?.txChannels ?? 2)]
     default: return []
@@ -368,7 +373,8 @@ export interface LedDriverSuggestion {
  * A parallel driver to suggest when a graph has more clockless outputs (or
  * lanes) than the default RMT driver sends at once, so the rest wait their
  * turn. Applies where RMT is the default and the Board offers a parallel
- * driver: the S3, whose four TX channels drop further with a network up.
+ * driver: the S3, whose four TX channels drop further with a network up, and
+ * the classic ESP32, whose eight do the same.
  * `reservedRmtWords` is TX memory something else holds on a shared-pool chip
  * (an IR receiver; the S3's RX memory is its own).
  */
@@ -390,7 +396,7 @@ export function suggestParallelLedDriver(
     : Math.min(facts.rmt.txChannels, Math.floor(Math.max(0, facts.rmt.txMemoryWords - reserved) / facts.rmt.blockWords)))
   if (clocklessOutputs <= atOnce) return null
   const driver = selectableLedDrivers(family, fqbn)
-    .find((candidate) => candidate.selection === 'exclusive' && candidate.parallelOutputs >= clocklessOutputs)
+    .find((candidate) => candidate.parallelOutputs >= clocklessOutputs)
   if (!driver) return null
   return {
     choice: driver.bus,

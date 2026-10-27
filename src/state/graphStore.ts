@@ -2506,7 +2506,7 @@ export const useGraphStore = create<GraphState>()(
 
         let nodes = rootNodes.map((node) => node.id === id
           // A driver the new board does not offer goes back to FastLED's own.
-          ? { ...node, data: { ...node.data, properties: withLedDriverNormalized({ ...node.data.properties, profileId }, node.data.properties) } }
+          ? { ...node, data: { ...node.data, properties: withLedDriverNormalized({ ...node.data.properties, profileId }) } }
           : node)
         const integrated = integratedTouchDisplayForBoard(profileId)
         const definition = LIBRARY_DEF.get('TransportDisplay')
@@ -2613,7 +2613,7 @@ export const useGraphStore = create<GraphState>()(
           if (!rootNodes.some((node) => node.id === id && node.data.nodeType === 'Board')) return s
           const previous = selectedPhysicalBoardProfile(rootNodes)
           let nodes = rootNodes.map((node) => node.id === id
-            ? { ...node, data: { ...node.data, properties: withLedDriverNormalized({ ...node.data.properties, profileId: CUSTOM_BOARD_PROFILE_ID, customBoard: definition }, node.data.properties) } }
+            ? { ...node, data: { ...node.data, properties: withLedDriverNormalized({ ...node.data.properties, profileId: CUSTOM_BOARD_PROFILE_ID, customBoard: definition }) } }
             : node)
           const before = profileI2cDefault(previous)
           const after = profileI2cDefault(next)

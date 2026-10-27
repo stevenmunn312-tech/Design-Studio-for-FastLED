@@ -9,8 +9,8 @@
  *   python scripts/compile-fixtures/compile-matrix.py --only led-drivers/
  *
  * The manifest records each sketch's FQBN for the matrix legs. The classic
- * ESP32's I2S driver gets no player fixture: the player always has an I2S
- * amplifier, which Graph Health blocks beside that driver.
+ * ESP32's I2S driver has a player fixture too: since FastLED 3.10.8 it sends
+ * on I2S1 and the player's amplifier keeps I2S0.
  */
 import { createHash } from 'node:crypto'
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -59,7 +59,7 @@ function board(target: Target, ledDriver: string): StudioNode {
 function checked(name: string, nodes: StudioNode[], edges: StudioEdge[], source: string): string {
   const errors = findDeployBlockingErrors(nodes, edges)
   if (errors.length > 0) throw new Error(`${name}: the graph is blocked: ${errors.join('; ')}`)
-  const selected = /setExclusiveDriver<fl::Bus::\w+>\(\);|#define FASTLED_ESP32_I2S true/.test(source)
+  const selected = /setExclusiveDriver<fl::Bus::\w+, \d+>\(\);/.test(source)
   if (!selected) throw new Error(`${name}: no LED driver selection in the sketch`)
   return source
 }
@@ -113,10 +113,10 @@ function player(name: string, target: Target, ledDriver: string): string {
 const fixtures: Record<string, { fqbn: string; build: () => string }> = {
   'esp32-i2s': { fqbn: TARGETS.esp32.fqbn, build: () => normal('esp32-i2s', TARGETS.esp32, 'I2S') },
   'esp32-i2s-show': { fqbn: TARGETS.esp32.fqbn, build: () => show('esp32-i2s-show', TARGETS.esp32, 'I2S') },
+  'esp32-i2s-player': { fqbn: TARGETS.esp32.fqbn, build: () => player('esp32-i2s-player', TARGETS.esp32, 'I2S') },
   's3-lcd-clockless': { fqbn: TARGETS.s3.fqbn, build: () => normal('s3-lcd-clockless', TARGETS.s3, 'LCD_CLOCKLESS') },
   's3-lcd-clockless-show': { fqbn: TARGETS.s3.fqbn, build: () => show('s3-lcd-clockless-show', TARGETS.s3, 'LCD_CLOCKLESS') },
   's3-lcd-clockless-player': { fqbn: TARGETS.s3.fqbn, build: () => player('s3-lcd-clockless-player', TARGETS.s3, 'LCD_CLOCKLESS') },
-  's3-i2s': { fqbn: TARGETS.s3.fqbn, build: () => normal('s3-i2s', TARGETS.s3, 'I2S') },
   'c6-rmt': { fqbn: TARGETS.c6.fqbn, build: () => normal('c6-rmt', TARGETS.c6, 'RMT') },
   'h2-rmt': { fqbn: TARGETS.h2.fqbn, build: () => normal('h2-rmt', TARGETS.h2, 'RMT') },
 }

@@ -52,15 +52,16 @@ describe('withLedDriver', () => {
 
   it('includes the traits header, selects the bus before the first output and rebuilds clockless outputs on it', () => {
     const out = withLedDriver(plain, lcd).split('\n')
-    expect(out[1]).toBe('#include "platforms/esp/32/drivers/lcd_spi/bus_traits.h"  // BusTraits<fl::Bus::LCD_CLOCKLESS>, the Board\'s LED driver')
-    const exclusive = out.indexOf('  FastLED.setExclusiveDriver<fl::Bus::LCD_CLOCKLESS>();')
+    expect(out[1]).toBe('#include "platforms/esp/32/drivers/lcd_spi/bus_traits.h"  // BusTraits<fl::Bus::FLEX_IO, 0>, the Board\'s LED driver')
+    const exclusive = out.indexOf('  FastLED.setExclusiveDriver<fl::Bus::FLEX_IO, 0>();')
     expect(exclusive).toBeGreaterThan(out.indexOf('void setup() {'))
     expect(out.findIndex((line) => line.includes('_ledChannel0'))).toBeGreaterThan(exclusive)
-    expect(out).toContain('  _ledDriverOptions.mBus = fl::Bus::LCD_CLOCKLESS;')
-    expect(out).toContain('  fl::ChannelPtr _ledChannel0 = fl::TypedChannel<fl::Bus::LCD_CLOCKLESS, fl::ClocklessChipset>::create(fl::ChannelConfig(fl::makeClockless<fl::TIMING_WS2812_800KHZ>(DATA_PIN), fl::span<CRGB>(leds, NUM_LEDS), GRB, _ledDriverOptions));')
+    expect(out).toContain('  _ledDriverOptions.mBus = fl::Bus::FLEX_IO;')
+    expect(out).toContain('  _ledDriverOptions.mBusWhich = 0;')
+    expect(out).toContain('  fl::ChannelPtr _ledChannel0 = fl::TypedChannel<fl::Bus::FLEX_IO, fl::ClocklessChipset, 0>::create(fl::ChannelConfig(fl::makeClockless<fl::TIMING_WS2812_800KHZ>(DATA_PIN), fl::span<CRGB>(leds, NUM_LEDS), GRB, _ledDriverOptions));')
     expect(out).toContain('  FastLED.add(_ledChannel0);')
     // Offset form, RGBW and a named controller keep their meaning.
-    expect(out).toContain('  fl::ChannelPtr _ledChannel1 = fl::TypedChannel<fl::Bus::LCD_CLOCKLESS, fl::ClocklessChipset>::create(fl::ChannelConfig(fl::makeClockless<fl::TIMING_SK6812>(DATA_PIN_b), fl::span<CRGB>(leds_b + (40), 60), RGB, _ledDriverOptions));')
+    expect(out).toContain('  fl::ChannelPtr _ledChannel1 = fl::TypedChannel<fl::Bus::FLEX_IO, fl::ClocklessChipset, 0>::create(fl::ChannelConfig(fl::makeClockless<fl::TIMING_SK6812>(DATA_PIN_b), fl::span<CRGB>(leds_b + (40), 60), RGB, _ledDriverOptions));')
     expect(out).toContain('  _ledChannel1->setRgbw(RgbwDefault());')
     expect(out).toContain('  CLEDController& controller_b = *_ledChannel1;')
     // NEOPIXEL is GRB with no order argument.
@@ -80,8 +81,8 @@ describe('withLedDriver', () => {
       '}',
     ].join('\n')
     const out = withLedDriver(lanes, lcd).split('\n')
-    expect(out.indexOf('  FastLED.setExclusiveDriver<fl::Bus::LCD_CLOCKLESS>();')).toBe(4)
-    expect(out).toContain('  fl::ChannelPtr _ledChannel1 = fl::TypedChannel<fl::Bus::LCD_CLOCKLESS, fl::ClocklessChipset>::create(fl::ChannelConfig(fl::makeClockless<fl::TIMING_WS2812_800KHZ>(5), fl::span<CRGB>(leds + (1 * (NUM_LEDS / 2)), NUM_LEDS / 2), GRB, _ledDriverOptions));  // lane 2')
+    expect(out.indexOf('  FastLED.setExclusiveDriver<fl::Bus::FLEX_IO, 0>();')).toBe(4)
+    expect(out).toContain('  fl::ChannelPtr _ledChannel1 = fl::TypedChannel<fl::Bus::FLEX_IO, fl::ClocklessChipset, 0>::create(fl::ChannelConfig(fl::makeClockless<fl::TIMING_WS2812_800KHZ>(5), fl::span<CRGB>(leds + (1 * (NUM_LEDS / 2)), NUM_LEDS / 2), GRB, _ledDriverOptions));  // lane 2')
     expect(out.join('\n')).not.toContain('FastLED.addLeds<')
   })
 
@@ -98,13 +99,12 @@ describe('withLedDriver', () => {
     expect(withLedDriver('#include <FastLED.h>\nvoid setup() {}', lcd)).toBe('#include <FastLED.h>\nvoid setup() {}')
   })
 
-  it('selects the classic ESP32 I2S driver with its define before the FastLED include', () => {
+  it('selects the classic ESP32 I2S engine as FLEX_IO 0, not the define 3.10.8 removed', () => {
     const out = withLedDriver(plain, selectableLedDrivers('esp32')[0]).split('\n')
-    const define = out.indexOf('#define FASTLED_ESP32_I2S true')
-    expect(define).toBeGreaterThanOrEqual(0)
-    expect(define).toBeLessThan(out.indexOf('#include <FastLED.h>'))
-    expect(out.join('\n')).not.toContain('setExclusiveDriver')
-    expect(out).toContain('  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
+    expect(out[1]).toBe('#include "platforms/esp/32/drivers/i2s_spi/bus_traits.h"  // BusTraits<fl::Bus::FLEX_IO, 0>, the Board\'s LED driver')
+    expect(out).toContain('  FastLED.setExclusiveDriver<fl::Bus::FLEX_IO, 0>();')
+    expect(out.join('\n')).not.toContain('FASTLED_ESP32_I2S')
+    expect(out.join('\n')).not.toContain('FastLED.addLeds<WS2812B')
   })
 })
 
@@ -118,7 +118,7 @@ describe('the Board LED driver in every generator', () => {
 
   it('emits the chosen driver in a normal sketch, multi-output included', () => {
     const one = sketch(S3, 'LCD_CLOCKLESS')
-    expect(one).toContain('FastLED.setExclusiveDriver<fl::Bus::LCD_CLOCKLESS>();')
+    expect(one).toContain('FastLED.setExclusiveDriver<fl::Bus::FLEX_IO, 0>();')
     expect(one).not.toMatch(/FastLED\.addLeds<WS2812B/)
     const two = sketch(S3, 'LCD_CLOCKLESS', [
       node('a', 'MatrixOutput', { form: 'strip', ledCount: 100, dataPin: 5 }),
@@ -127,7 +127,8 @@ describe('the Board LED driver in every generator', () => {
     expect(two.match(/FastLED\.add\(_ledChannel\d\);/g)).toHaveLength(2)
     expect(two.match(/setExclusiveDriver/g)).toHaveLength(1)
     expect(sketch(C6, 'RMT')).toContain('#include "platforms/esp/32/drivers/rmt/rmt_5/bus_traits.h"')
-    expect(sketch(ESP32, 'I2S')).toContain('#define FASTLED_ESP32_I2S true')
+    expect(sketch(C6, 'RMT')).toContain('FastLED.setExclusiveDriver<fl::Bus::RMT, 0>();')
+    expect(sketch(ESP32, 'I2S')).toContain('#include "platforms/esp/32/drivers/i2s_spi/bus_traits.h"')
   })
 
   it('never lets a driver the board does not offer reach C++', () => {
@@ -149,7 +150,7 @@ describe('the Board LED driver in every generator', () => {
       edge('set', 'pc', 'patternset', 'master', 'patternset'),
       edge('frame', 'master', 'frame', 'out', 'frame'),
     ], groups)
-    expect(show).toContain('FastLED.setExclusiveDriver<fl::Bus::LCD_CLOCKLESS>();')
+    expect(show).toContain('FastLED.setExclusiveDriver<fl::Bus::FLEX_IO, 0>();')
     expect(show).toContain('FastLED.add(_ledChannel0);')
   })
 
@@ -162,7 +163,7 @@ describe('the Board LED driver in every generator', () => {
     const config = playerConfigFromGraph(nodes, [edge('frame', 'master', 'frame', 'out', 'frame')], 'esp32:esp32:esp32s3')
     expect(config.ledDriver?.bus).toBe('LCD_CLOCKLESS')
     const player = generatePlayerSketch(config)
-    expect(player).toContain('FastLED.setExclusiveDriver<fl::Bus::LCD_CLOCKLESS>();')
+    expect(player).toContain('FastLED.setExclusiveDriver<fl::Bus::FLEX_IO, 0>();')
     expect(player).toContain('#include "platforms/esp/32/drivers/lcd_spi/bus_traits.h"')
     expect(generatePlayerSketch({ ...config, ledDriver: null })).not.toContain('setExclusiveDriver')
   })

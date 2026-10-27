@@ -57,25 +57,13 @@ export function ledDriverOptionsForBoard(properties: Record<string, unknown>): r
 /**
  * Board properties with `ledDriver` reset to `auto` when the board they name
  * does not offer it. A board change goes through here, so switching from an
- * S3 to a classic ESP32 does not carry LCD_CAM over as a stale choice.
- *
- * Pass the properties before the change as `previous` to also reset a value
- * that means a different driver on the new board: `I2S` is the S3's LCD_CAM
- * driver and the classic ESP32's I2S one, and a board change should not
- * quietly swap one for the other.
+ * S3 to a classic ESP32 does not carry LCD_CAM over as a stale choice. Each
+ * driver name belongs to one family, so a name the new board accepts is the
+ * same driver it named before.
  */
-export function withLedDriverNormalized(
-  properties: Record<string, unknown>,
-  previous?: Record<string, unknown>,
-): Record<string, unknown> {
+export function withLedDriverNormalized(properties: Record<string, unknown>): Record<string, unknown> {
   if (properties.ledDriver === undefined || properties.ledDriver === LED_DRIVER_AUTO) return properties
   const { family, fqbn } = ledDriverTargetForBoard(properties)
-  let ledDriver = normalizeLedDriverChoice(family, fqbn, properties.ledDriver)
-  if (previous && ledDriver !== LED_DRIVER_AUTO) {
-    const before = ledDriverTargetForBoard(previous)
-    const was = selectedLedDriverFor(before.family, before.fqbn, properties.ledDriver)
-    const now = selectedLedDriverFor(family, fqbn, ledDriver)
-    if (was && (was.peripheral !== now?.peripheral || was.selection !== now?.selection)) ledDriver = LED_DRIVER_AUTO
-  }
+  const ledDriver = normalizeLedDriverChoice(family, fqbn, properties.ledDriver)
   return ledDriver === properties.ledDriver ? properties : { ...properties, ledDriver }
 }

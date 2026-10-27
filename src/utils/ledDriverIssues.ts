@@ -66,23 +66,26 @@ function peripheralConflicts(nodes: readonly StudioNode[], driver: SelectableLed
       ...backToAuto,
     })
   }
-  if (driver.peripheral === 'I2S0' && audio.length > 0) {
+  // FastLED 3.10.8's classic-ESP32 engine powers I2S1 itself
+  // (`periph_module_enable`) and never loads ESP-IDF's I2S driver; the audio
+  // parts run I2S0 through that driver, and the HUB75 library drives I2S1.
+  if (driver.peripheral === 'I2S1' && hub75.length > 0) {
     issues.push({
-      id: 'led-driver-i2s-audio', severity: 'error', category: 'board',
-      title: 'The LED driver and the audio parts both need I2S',
-      message: `The Board's ${driver.label} LED driver programs the classic ESP32's I2S0 peripheral directly, and ${audio.map(label).join(', ')} run audio through I2S with ESP-IDF's own driver. The two cannot share it, and ESP-IDF 5 stops at boot when its old and new I2S drivers meet.`,
-      fix: 'Put the Board back on FastLED\'s own LED driver (RMT), which leaves I2S to the audio.',
-      nodeIds: [boardId, ...audio.map((node) => node.id)], nodeLabel: 'Board', propertyKey: 'ledDriver',
+      id: 'led-driver-i2s-hub75', severity: 'error', category: 'board',
+      title: 'The LED driver and the HUB75 panel both need I2S1',
+      message: `The Board's ${driver.label} LED driver sends through the classic ESP32's I2S1 peripheral, which the HUB75 panel library also drives ${hub75.map(label).join(', ')} from. The two cannot share it.`,
+      fix: 'Put the Board back on FastLED\'s own LED driver (RMT), which leaves I2S1 to the panel.',
+      nodeIds: [boardId, ...hub75.map((node) => node.id)], nodeLabel: 'Board', propertyKey: 'ledDriver',
       ...backToAuto,
     })
   }
-  if (driver.peripheral === 'I2S0' && hub75.length > 0) {
+  if (driver.peripheral === 'I2S1' && audio.length > 0) {
     issues.push({
-      id: 'led-driver-i2s-hub75', severity: 'warning', category: 'board',
-      title: 'The LED driver and the HUB75 panel both use I2S',
-      message: `The Board's ${driver.label} LED driver takes the classic ESP32's I2S0 and the HUB75 panel library drives ${hub75.map(label).join(', ')} from I2S1. They are separate peripherals, but the two drivers have not been run together.`,
-      fix: 'If the panel or the LEDs glitch, put the Board back on FastLED\'s own LED driver (RMT).',
-      nodeIds: [boardId, ...hub75.map((node) => node.id)], nodeLabel: 'Board', propertyKey: 'ledDriver',
+      id: 'led-driver-i2s-audio', severity: 'warning', category: 'board',
+      title: 'The LED driver and the audio parts both use I2S',
+      message: `The Board's ${driver.label} LED driver takes the classic ESP32's I2S1 and ${audio.map(label).join(', ')} run audio on I2S0. They are separate peripherals, but the two have not been run together.`,
+      fix: 'If the audio or the LEDs glitch, put the Board back on FastLED\'s own LED driver (RMT).',
+      nodeIds: [boardId, ...audio.map((node) => node.id)], nodeLabel: 'Board', propertyKey: 'ledDriver',
       ...backToAuto,
     })
   }
@@ -116,18 +119,16 @@ export function ledDriverDiagnostics(nodes: readonly StudioNode[]): GraphDiagnos
     }
   }
 
-  if (driver.selection === 'exclusive') {
-    const left = lanes.filter((lane) => !LED_DRIVER_CHANNEL_TIMING[lane.chipset])
-    if (left.length > 0) {
-      issues.push({
-        id: 'led-driver-unsupported-chipset', severity: 'warning', category: 'board',
-        title: 'Some outputs stay on the default LED driver',
-        message: `${[...new Set(left.map((lane) => label(lane.node)))].join(', ')} use ${[...new Set(left.map((lane) => lane.chipset))].join(', ')}, which the ${driver.label} driver cannot take, so ${left.length === 1 ? 'it keeps' : 'they keep'} FastLED's own driver while the rest move.`,
-        fix: 'Nothing to change if that is fine. Otherwise choose another chipset for them, or put the Board back on FastLED\'s own LED driver.',
-        nodeIds: [board.id, ...new Set(left.map((lane) => lane.node.id))], nodeLabel: 'Board', propertyKey: 'ledDriver',
-        ...backToAuto,
-      })
-    }
+  const left = lanes.filter((lane) => !LED_DRIVER_CHANNEL_TIMING[lane.chipset])
+  if (left.length > 0) {
+    issues.push({
+      id: 'led-driver-unsupported-chipset', severity: 'warning', category: 'board',
+      title: 'Some outputs stay on the default LED driver',
+      message: `${[...new Set(left.map((lane) => label(lane.node)))].join(', ')} use ${[...new Set(left.map((lane) => lane.chipset))].join(', ')}, which the ${driver.label} driver cannot take, so ${left.length === 1 ? 'it keeps' : 'they keep'} FastLED's own driver while the rest move.`,
+      fix: 'Nothing to change if that is fine. Otherwise choose another chipset for them, or put the Board back on FastLED\'s own LED driver.',
+      nodeIds: [board.id, ...new Set(left.map((lane) => lane.node.id))], nodeLabel: 'Board', propertyKey: 'ledDriver',
+      ...backToAuto,
+    })
   }
   return issues
 }
