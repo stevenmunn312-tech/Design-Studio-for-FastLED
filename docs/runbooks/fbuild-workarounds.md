@@ -21,8 +21,9 @@ an internal record.
   plus the `Compile matrix` workflow on GitHub) passed 65, RP2040 and
   ESP8266 included. The Arduino Nano ESP32 fails in the core, from flags
   fbuild takes from the board (escaped `USB_PRODUCT` strings, and
-  `BOARD_HAS_PIN_REMAP` without `ARDUINO_CORE_BUILD`); a report is drafted
-  in `tmp/fbuild-drafts/nano-esp32-usb-product.md`, not posted. ESP32-H2
+  `BOARD_HAS_PIN_REMAP` without `ARDUINO_CORE_BUILD`), reproduced with a
+  blank project that PlatformIO builds; reported as
+  [#1760](https://github.com/FastLED/fbuild/issues/1760) on 2026-10-28. ESP32-H2
   is built on Arduino CLI only, since 2.5.45 has no `esp32-h2-devkitc-1`.
 - **ESP32 platform pin:** `_FBUILD_ESP32_PLATFORM` in `backend/toolchain.py`,
   pioarduino 55.03.312-1 (Arduino core 3.3.12, ESP-IDF 5.5.5), the release the

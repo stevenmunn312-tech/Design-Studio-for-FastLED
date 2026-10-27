@@ -181,8 +181,8 @@ chooses the supported combinations from whatever is on record at release.
   3.10.8 and Arduino core 3.3.12: Arduino CLI 130 of 130 pass
   (`artifacts/compile-matrix/cloud-40518148901`, commit `ea42a73b`); fbuild
   63 of 66 (`cloud-40505040758`), the two S3 LED-driver legs since fixed and
-  passing, the Nano ESP32 failing on an fbuild board-flag bug (report drafted,
-  not posted). The freeze run repeats this on the frozen code.
+  passing, the Nano ESP32 failing on an fbuild board-flag bug
+  ([FastLED/fbuild#1760](https://github.com/FastLED/fbuild/issues/1760)). The freeze run repeats this on the frozen code.
 - **Deploy gate on accreted graphs:** anyone with a graph that uploaded before
   2026-09-11 and is refused now should report it as a gate bug, not rewire the
   graph. Shipped starters are covered by `deployGates.test.ts`.
