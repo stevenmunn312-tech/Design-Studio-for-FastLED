@@ -186,15 +186,12 @@ export function powerDistributionSectionLayout(feedCount: number) {
 }
 
 /**
- * Control-module renders (button / potentiometer / encoder).
- *
- * All three share one board artwork, cropped to the PCB edge, so a single set
- * of ratios locates every pad. Ratios were measured off the source renders:
- * the pad row sits at 86% of board height, and the pads are evenly spaced
- * about the centreline.
+ * The box every peripheral render is fitted into. The control-module renders
+ * (button / potentiometer / encoder) share one board artwork; see
+ * `BUNDLED_RENDER_PX` for where its pads are.
  */
 export const PERIPHERAL_RENDER_W = 220
-/** 220 x (598/828), the cropped render's own aspect. */
+/** 220 x (598/828), the aspect of the control-module crop this box was sized for. */
 export const PERIPHERAL_RENDER_H = 159
 /**
  * Air between part pictures. Wide enough that a two-line title, centred on
@@ -254,15 +251,18 @@ export const PERIPHERAL_ROW_GAP = 34
 export const PERIPHERALS_PER_ROW = 3
 
 /**
- * Measured from the gold pad rings themselves (centroid per hole), not from the
- * densest gold scanline — the corner mounting holes share that band and pulled
- * an earlier estimate ~4px high.
+ * The bundled button, potentiometer and encoder renders: one 1024 x 1024
+ * board artwork whose header is centred along the bottom on a 66.1 px pitch.
+ * Hole centres are the centroids of the render's see-through holes. Re-measure
+ * if the renders are replaced: the last replacement kept ratios measured on the
+ * old 828 x 598 crop, and every wire stopped below the board, off its hole.
  */
-const PAD_Y_RATIO = 0.884
-const PAD_X_RATIOS_3 = [0.4196, 0.4995, 0.579]
-const PAD_X_RATIOS_5 = [0.34, 0.4194, 0.4992, 0.5787, 0.658]
-/** The pitch both measured tables above share, for parts with no table yet. */
-const PAD_PITCH_RATIO = 0.0797
+const BUNDLED_RENDER_PX = 1024
+const BUNDLED_PAD_Y_PX = 742.7
+const BUNDLED_PAD_CENTRE_X_PX = 511.5
+const BUNDLED_PAD_PITCH_PX = 66.1
+/** Area-equivalent radius of those holes. */
+const BUNDLED_PAD_HOLE_RADIUS_PX = 10.4
 
 /** Header-hole centres measured in each audio render's own pixel space. */
 /*
@@ -405,6 +405,30 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // VCC, Trig, Echo, GND along the bottom edge. Computed from the model's own
   // coordinates (12 px/mm, 10 px margin, header at y = 2 mm, 2.54 mm pitch
   // centred on the board) and checked by drawing the result over the render.
+  // The lead tips, below the lens face: OUT, GND, VS.
+  'tsop38238-ir-receiver': padRow([85, 199.5, 314], 400, 578, 589),
+  // -, +, S along the bottom, measured from the drilled holes.
+  'ky-022-ir-receiver-module': padRow([155.6, 199.5, 243.4], 400, 267.5, 315),
+  // VCC, OUT, GND along the bottom, measured from the drilled holes.
+  'hc-sr501-pir-sensor': padRow([168.8, 199.5, 230], 400, 280.6, 304),
+  // S, VCC, GND along the bottom, measured from the drilled holes.
+  'photosensitive-ldr-module': padRow([172.8, 203.4, 234], 408, 281.8, 310),
+  // SIG, NC, VCC, GND along the bottom, measured from the drilled holes.
+  'seeed-grove-touch-sensor': padRow([152, 183.6, 215.4, 247], 400, 297.8, 337),
+  // GND, VCC, CTR2, CTR1: the Grove socket's mouth on the board edge, one
+  // contact under each printed name on the connector's 2 mm pitch.
+  'seeed-grove-2ch-ssr': padRow([261.5, 285.5, 309.5, 333.5], 592, 578, 592),
+  // GND, IN1..INn, VCC on the logic header, measured from the drilled holes.
+  'relay-module-1ch-5v': padRow([279.1, 309.5, 339.9], 620, 302.8, 332),
+  'relay-module-2ch-5v': padRow([263.7, 294.4, 324.7, 355.3], 620, 482.9, 512),
+  'relay-module-4ch-5v': padRow([389.4, 419.7, 450.4, 480.6, 511.4, 541.6], 932, 650.9, 680),
+  'relay-module-8ch-5v': padRow([501.1, 522.9, 544.9, 566.8, 588.6, 610.3, 632.2, 654.2, 676.1, 697.9], 1200, 478.3, 502),
+  // 5V, GND, SCK, BCK, LRCK, DOUT along the bottom, measured from the drilled holes.
+  'pcm1802-line-in-adc': padRow([239.3, 269.8, 300.2, 330.8, 361.2, 391.7], 632, 444.1, 464),
+  // GND, VCC, RPM, PWM. The render draws no cable, so the four are a 2.54 mm
+  // marker on the frame's bottom bar, where the lead leaves the fan, not a
+  // measured connector. Replace with the cable's end once the render has one.
+  'noctua-nf-a4x10-5v-pwm': padRow([204.25, 234.75, 265.25, 295.75], 500, 458, 500),
   // GND, +5V, VRx, VRy, SW along the bottom edge. Computed from the model's own
   // coordinates (14.615 px/mm, 10 px margin, header at y = 2.4 mm, 2.54 mm pitch
   // centred on the board).
@@ -933,8 +957,12 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
  */
 function fittedRenderBox(partId: string) {
   const render = partById(partId)?.render
-  if (!render) return null
-  const sourceAspect = render.widthPx / render.heightPx
+  return render ? fitRenderBox(render.widthPx, render.heightPx) : null
+}
+
+/** The same fit for a render of the given source size. */
+function fitRenderBox(widthPx: number, heightPx: number) {
+  const sourceAspect = widthPx / heightPx
   const boxAspect = PERIPHERAL_RENDER_W / PERIPHERAL_RENDER_H
   const width = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W : PERIPHERAL_RENDER_H * sourceAspect
   const height = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W / sourceAspect : PERIPHERAL_RENDER_H
@@ -943,7 +971,7 @@ function fittedRenderBox(partId: string) {
     height,
     offsetX: (PERIPHERAL_RENDER_W - width) / 2,
     offsetY: (PERIPHERAL_RENDER_H - height) / 2,
-    scale: width / render.widthPx,
+    scale: width / widthPx,
   }
 }
 
@@ -1017,11 +1045,29 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'ili9341-xc4630-parallel-touch-320x240': 3,
   'microsd-module-5v': 8.1,
   'microsd-breakout-3v3': 9.6,
+  // Half the lead width, as for the SR1230.
+  'tsop38238-ir-receiver': 14,
+  'ky-022-ir-receiver-module': 4,
+  'hc-sr501-pir-sensor': 5.3,
+  'photosensitive-ldr-module': 5.6,
+  'seeed-grove-touch-sensor': 6.4,
+  // A marker inside the Grove socket, at its 2 mm pitch.
+  'seeed-grove-2ch-ssr': 6,
+  'relay-module-1ch-5v': 4.9,
+  'relay-module-2ch-5v': 4.9,
+  'relay-module-4ch-5v': 5,
+  'relay-module-8ch-5v': 3.4,
+  'pcm1802-line-in-adc': 5.7,
+  // A marker, like a screw terminal's.
+  'noctua-nf-a4x10-5v-pwm': 6,
 }
 
 /** The radius a part's pads are coloured at on the sheet: its hole, scaled like its render. */
 export function peripheralPadRadius(item: HardwareManifestItem) {
   const partId = String(item.facts.partId ?? '')
+  if (!partById(partId)?.render) {
+    return BUNDLED_PAD_HOLE_RADIUS_PX * fitRenderBox(BUNDLED_RENDER_PX, BUNDLED_RENDER_PX).scale
+  }
   const radius = MODULE_PAD_HOLE_RADIUS[partId]
   const box = fittedRenderBox(partId)
   return radius === undefined || !box ? DEFAULT_PAD_HOLE_RADIUS : radius * box.scale
@@ -1155,10 +1201,15 @@ export function peripheralSignalEndPoint(layout: ItemLayout, signalIndex: number
  * midway between the rows, where the part's picture covers the jog.
  *
  * `null` for every pad with nothing below it, which is every single-row part.
+ * A leg hidden under the part's body takes `peripheralRearRoute` instead.
  */
 export function peripheralApproach(layout: ItemLayout, signalIndex: number): { x: number; jogY: number } | null {
   if (receiveDivider(layout)?.signalIndex === signalIndex) return null
   if (dataPullUp(layout)?.signalIndex === signalIndex) return null
+  // A leg under the part's own body is reached around the back instead: the
+  // climb runs beside the picture and the jog crosses over its top.
+  const rear = peripheralRearRoute(layout, peripheralSignalPadIndex(layout.item, signalIndex))
+  if (rear) return { x: rear.x, jogY: rear.overY }
   const end = peripheralSignalEndPoint(layout, signalIndex)
   const pads = Array.from({ length: peripheralPadCount(layout.item) }, (_, index) => peripheralPadPoint(layout, index))
   const below = pads
@@ -1168,6 +1219,36 @@ export function peripheralApproach(layout: ItemLayout, signalIndex: number): { x
   const row = pads.filter((pad) => Math.abs(pad.y - below.y) < 1.5 && Math.abs(pad.x - below.x) > 1.5)
   const pitch = row.length > 0 ? Math.min(...row.map((pad) => Math.abs(pad.x - below.x))) : 10
   return { x: end.x - (pitch / 2), jogY: (end.y + below.y) / 2 }
+}
+
+/**
+ * Bare parts whose far row of legs sits under their own body. The SR1230's
+ * switch legs are just inside its top edge, so a wire climbing straight up to
+ * one ran under the whole picture and its ground stub never showed at all.
+ */
+const REAR_ROW_PARTS = new Set(['jaycar-sr1230-rotary-encoder'])
+/** Air between the picture and a wire routed around it. */
+const REAR_ROUTE_CLEARANCE = 6
+
+/**
+ * How a wire reaches a far-row leg of a `REAR_ROW_PARTS` part: down the side
+ * of the picture nearer the leg (`x`) and across over its top (`overY`), then
+ * down into the leg. `null` for every other pad.
+ */
+export function peripheralRearRoute(layout: ItemLayout, padIndex: number): { x: number; overY: number } | null {
+  const partId = String(layout.item.facts.partId ?? '')
+  if (!REAR_ROW_PARTS.has(partId)) return null
+  const box = fittedRenderBox(partId)
+  if (!box) return null
+  const pad = peripheralPadPoint(layout, padIndex)
+  const top = layout.y + box.offsetY
+  if (pad.y > top + (box.height / 2)) return null
+  const left = layout.x + box.offsetX
+  const right = left + box.width
+  return {
+    x: pad.x < (left + right) / 2 ? left - REAR_ROUTE_CLEARANCE : right + REAR_ROUTE_CLEARANCE,
+    overY: top - REAR_ROUTE_CLEARANCE,
+  }
 }
 
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
@@ -1184,19 +1265,17 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
       y: layout.y + box.offsetY + (yRatio * box.height),
     }
   }
+  // An uncatalogued module is drawn with the bundled artwork, whose header is
+  // centred on one pitch, so any pad count lands on its holes. Spread about the
+  // centre rather than clamped to a fixed table, which stacked every pad past
+  // the last entry onto one point.
   const count = peripheralPadCount(layout.item)
-  // The 3- and 5-pad tables are measured against their artwork and share one
-  // pitch; anything else (an audio module has 6, 7, 9 or 11 pads) is spaced on
-  // that same pitch about the centre. Falling through to the 3-pad table
-  // instead clamped every pad past the third onto the third's position, which
-  // stacks four wires on one point.
-  const ratios = count === 5 ? PAD_X_RATIOS_5
-    : count === 3 ? PAD_X_RATIOS_3
-    : Array.from({ length: count }, (_, index) => 0.4995 + ((index - (count - 1) / 2) * PAD_PITCH_RATIO))
-  const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
+  const bundled = fitRenderBox(BUNDLED_RENDER_PX, BUNDLED_RENDER_PX)
+  const index = Math.min(Math.max(padIndex, 0), count - 1)
+  const xPx = BUNDLED_PAD_CENTRE_X_PX + ((index - ((count - 1) / 2)) * BUNDLED_PAD_PITCH_PX)
   return {
-    x: layout.x + (ratio * PERIPHERAL_RENDER_W),
-    y: layout.y + (PAD_Y_RATIO * PERIPHERAL_RENDER_H),
+    x: layout.x + bundled.offsetX + (xPx * bundled.scale),
+    y: layout.y + bundled.offsetY + (BUNDLED_PAD_Y_PX * bundled.scale),
   }
 }
 

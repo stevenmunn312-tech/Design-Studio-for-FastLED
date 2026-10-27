@@ -937,21 +937,23 @@ describe('BuildDiagramWorkspace', () => {
     // Pads sit on the bottom edge of the artwork, so their stubs point down.
     expect(diagram?.querySelector('[data-net-stub-for="button-input:button-ground"]')?.getAttribute('data-net-stub-direction')).toBe('down')
 
-    // Terminals must land on the holes in the render, not near them. The pad
-    // row was measured at 88.4% of board height; an earlier scanline estimate
-    // was ~4px high because the corner mounting holes share that band.
+    // Terminals must land on the holes in the render, not near them. The
+    // square 1024 px render is fitted to the box's height, and its pad row's
+    // see-through holes sit at y = 742.7 px. The ratios this replaced were
+    // measured on an earlier 828 x 598 crop and left every pad below its hole.
     const artwork = diagram?.querySelector('[data-component-render="button-module"]')
     const boardTop = Number(artwork?.getAttribute('y'))
     const boardHeight = Number(artwork?.getAttribute('height'))
     const sigY = Number(diagram?.querySelector('[data-terminal="button-input:button-button-input:button:pin"] circle')?.getAttribute('cy'))
-    expect((sigY - boardTop) / boardHeight).toBeCloseTo(0.884, 3)
+    expect((sigY - boardTop) / boardHeight).toBeCloseTo(742.7 / 1024, 3)
 
     // The stub symbol has to clear the board edge instead of drawing over it.
     const stubLead = Number(/V([\d.]+)$/.exec(
       diagram?.querySelector('[data-wire="button-input:button-ground"]')?.getAttribute('d') ?? '',
     )?.[1])
     const stubAnchorY = Number(diagram?.querySelector('[data-net-stub-for="button-input:button-ground"]')?.getAttribute('data-net-stub-y'))
-    expect(stubAnchorY + stubLead).toBeGreaterThan(boardTop + boardHeight)
+    // The PCB's own bottom edge, at 811 of the render's 1024 px.
+    expect(stubAnchorY + stubLead).toBeGreaterThan(boardTop + (boardHeight * 811 / 1024))
 
     // Encoder exposes VCC + A/B/SW + GND; its three signals land on pads 1..3,
     // strictly between the VCC pad and the GND pad.

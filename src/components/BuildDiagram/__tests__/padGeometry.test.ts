@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { DEFAULT_PAD_HOLE_RADIUS, MODULE_PAD_GEOMETRY, MODULE_PAD_HOLE_RADIUS, peripheralPadPoint, peripheralPadCount, peripheralPadRadius } from '../physicalDiagramLayout'
 import { partById } from '../../../build/parts/partCatalogue'
+import { PART_CATALOGUE_DATA } from '../../../build/generated/partCatalogueData'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 import type { ItemLayout } from '../physicalDiagramLayout'
 
@@ -23,6 +24,23 @@ describe('measured pad geometry', () => {
       'tm1637-4digit-display', 'max7219-8digit-7segment']) {
       expect(MODULE_PAD_GEOMETRY[partId], partId).toBeDefined()
     }
+  })
+
+  /*
+   * A catalogued part with no measured pads has nowhere true to put its wires:
+   * the fallback describes the bundled control-module artwork, not its render.
+   * A dozen parts shipped that way, every wire ending wherever that artwork's
+   * header happened to fall on someone else's board.
+   */
+  it('measures every catalogued part drawn as a peripheral', () => {
+    // Drawn by their own graphics, not as a peripheral module.
+    const elsewhere = new Set(['battery', 'power-conversion', 'led-output'])
+    const ownGraphic = new Set(['sn74ahct125n-dip14', 'speaker-4ohm-3w-40mm', 'nled-pixel-data-extender-pair'])
+    const missing = Object.values(PART_CATALOGUE_DATA)
+      .filter((part) => part.render && !elsewhere.has(part.category ?? '') && !ownGraphic.has(part.partId))
+      .filter((part) => !MODULE_PAD_GEOMETRY[part.partId])
+      .map((part) => part.partId)
+    expect(missing).toEqual([])
   })
 
   /*

@@ -31,6 +31,7 @@ import {
   peripheralSignalEndPoint,
   peripheralPadLabel,
   peripheralApproach,
+  peripheralRearRoute,
   CHANNEL_SELECT_STUB_DROP,
   DIVIDER_RESISTOR_W,
   levelShifterSupplyPoint,
@@ -287,6 +288,21 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             {peripheralChannelGroundPadIndexes(layout.item).map((padIndex) => {
               const pad = peripheralPadPoint(layout, padIndex)
               const name = peripheralPadLabel(layout.item, padIndex)
+              // A leg under the part's body hangs its symbol beside the part,
+              // level with the shared ground, reached over the top.
+              const rear = peripheralRearRoute(layout, padIndex)
+              if (rear) {
+                return <NetStub
+                  key={padIndex}
+                  x={rear.x}
+                  y={groundPad.y}
+                  route={`M${pad.x} ${pad.y}V${rear.overY}H${rear.x}V${groundPad.y}`}
+                  kind="gnd"
+                  direction="down"
+                  lead={PERIPHERAL_STUB_LEAD}
+                  wireId={`${layout.item.id}-ground-${name}`}
+                />
+              }
               return <NetStub key={padIndex} x={pad.x} y={pad.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-ground-${name}`} />
             })}
             {/*

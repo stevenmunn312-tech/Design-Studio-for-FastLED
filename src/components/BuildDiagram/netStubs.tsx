@@ -70,6 +70,11 @@ export interface NetStubProps {
   label?: string
   /** Put the caption back over the component side when an outward caption would leave the sheet. */
   labelInside?: boolean
+  /**
+   * An SVG path from a terminal the stub cannot hang straight from, ending at
+   * (x, y). Drawn in the lead's colour, so the run reads as the same net.
+   */
+  route?: string
 }
 
 export function NetStub({
@@ -82,6 +87,7 @@ export function NetStub({
   wireRole,
   label,
   labelInside = false,
+  route,
 }: NetStubProps) {
   const depth = symbolDepth(kind)
   const place = labelPlacement(direction, lead + depth, labelInside)
@@ -93,6 +99,7 @@ export function NetStub({
       data-net-stub-x={x}
       data-net-stub-y={y}
     >
+      {route && <path data-wire-route={wireId} d={route} className={NET_LEAD_CLASS[kind]} />}
       <g transform={`translate(${x} ${y}) rotate(${ROTATION[direction]})`}>
         <path data-wire={wireId} data-wire-role={wireRole} d={`M0 0V${lead}`} className={NET_LEAD_CLASS[kind]} />
         {kind === 'gnd' ? (

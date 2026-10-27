@@ -234,6 +234,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   are not identifiers. Analog wires resolve the catalogued output/input pads,
   preferring AGND/AUX-GND over a module's digital or supply ground. Reserve
   their routing lanes in the source row before placing the amplifier.
+- Every catalogued render drawn as a peripheral needs a `MODULE_PAD_GEOMETRY`
+  entry measured from that render's own holes; `padGeometry.test.ts` refuses
+  one without. The fallback describes only the bundled button, potentiometer
+  and encoder artwork (`BUNDLED_RENDER_PX`), so a part without a table drew
+  its wires wherever that artwork's header fell. Re-measure when a render is
+  replaced: the bundled renders once changed to 1024 x 1024 and left every
+  pad below its hole. A leg hidden under a bare part's body
+  (`REAR_ROW_PARTS`, the SR1230's switch legs) is wired around the picture by
+  `peripheralRearRoute`, signal and ground alike.
 - The physical SVG frame includes the left controller corridors, which can
   extend beyond x=0 on dense builds. Keep its viewBox, background, workspace
   width and fit bounds in sync through `physicalDiagramFrame`. Preserve the
