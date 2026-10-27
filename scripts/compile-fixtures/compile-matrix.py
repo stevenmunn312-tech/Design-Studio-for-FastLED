@@ -269,6 +269,43 @@ def led_driver_legs() -> list[Leg]:
             for name, entry in sorted(entries.items())]
 
 
+# The Arduino cores a fresh machine installs for the arduino-cli legs, at the
+# releases Steve's laptop builds with (2026-10-27), so a CI run and a local
+# run compile the same cores. ESP32 follows the helper's own pin.
+ARDUINO_CORES = {
+    "esp32:esp32": toolchain._PINNED_CORES["esp32:esp32"],
+    "esp8266:esp8266": "3.1.2",
+    "arduino:avr": "1.8.8",
+    "arduino:megaavr": "1.8.8",
+    "arduino:renesas_uno": "1.6.0",
+    "adafruit:samd": "1.7.17",
+    "rp2040:rp2040": "6.1.0",
+    "teensy:avr": "1.62.0",
+    "STMicroelectronics:stm32": "2.12.0",
+}
+
+
+def install_arduino_cores(legs: list[Leg], say) -> bool:
+    """Install the cores these arduino-cli legs build on, at `ARDUINO_CORES`."""
+    cores = sorted({":".join(leg.board.split(":")[:2]) for leg in legs if leg.engine == "arduino-cli"})
+    if not cores:
+        return True
+    base = toolchain._ARDUINO_BASE
+    # Creates a config only where none exists; an existing one is left alone.
+    subprocess.run(base + ["config", "init"], capture_output=True, text=True, check=False)
+    for url in sorted({toolchain._CORE_URLS[core] for core in cores if core in toolchain._CORE_URLS}):
+        subprocess.run(base + ["config", "add", "board_manager.additional_urls", url], capture_output=True, text=True, check=False)
+    subprocess.run(base + ["core", "update-index"], capture_output=True, text=True, check=False)
+    for core in cores:
+        spec = f"{core}@{ARDUINO_CORES[core]}" if core in ARDUINO_CORES else core
+        say(f"Installing Arduino core {spec}")
+        result = subprocess.run(base + ["core", "install", spec], capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            say(f"Core install failed for {spec}: {(result.stderr or result.stdout).strip()[-300:]}")
+            return False
+    return True
+
+
 # Boards built on arduino-cli alone, though the fbuild scaffold declares them.
 ARDUINO_CLI_ONLY = {
     "esp32:esp32:esp32h2": "fbuild 2.5.45 has no esp32-h2-devkitc-1 board definition",
@@ -667,6 +704,8 @@ def main() -> int:
     parser.add_argument("--retry-failed", action="store_true",
                         help="resume the newest earlier run on this engine: rebuild only what failed, did not run,"
                              " or changed since; carry every other pass")
+    parser.add_argument("--install-cores", action="store_true",
+                        help="install the Arduino cores the planned arduino-cli legs need first (fresh machines, CI)")
     parser.add_argument("--low-priority", action="store_true",
                         help="run at below-normal priority on Windows; spawned compilers inherit it")
     args = parser.parse_args()
@@ -761,6 +800,9 @@ def main() -> int:
         legs = plan()
         header["planned"] = len(legs)
         say(f"Plan: {len(legs)} legs of {len(wanted)} candidates")
+        if args.install_cores and not install_arduino_cores(legs, say):
+            write_summary(out, header, rows)
+            return 1
 
         resumed: dict[str, dict] = {}
         for run_dir in args.resume or []:

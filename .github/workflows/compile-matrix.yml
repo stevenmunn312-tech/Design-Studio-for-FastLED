@@ -1,7 +1,8 @@
 name: Compile matrix
 
-# The fbuild compile fixtures (scripts/compile-fixtures/compile-matrix.py),
-# split across parallel Windows runners and merged into one record. Started
+# The compile fixtures (scripts/compile-fixtures/compile-matrix.py) on fbuild,
+# Arduino CLI or both, split across parallel Windows runners and merged into
+# one record. Started
 # by hand: Actions > Compile matrix > Run workflow, or
 #   gh workflow run compile-matrix.yml -f only="ir/normal@stm32 display/player"
 # GitHub lists the workflow from the default branch, so main carries a copy of
@@ -12,6 +13,9 @@ on:
       ref:
         description: Branch, tag or commit to build
         default: Hardware
+      engine:
+        description: fbuild, arduino-cli or all
+        default: all
       shards:
         description: Parallel runners (1-20)
         default: "20"
@@ -76,11 +80,17 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/requirements.txt
 
+      # Arduino CLI 1.5.1, the release the laptop builds with; the cores the
+      # shard needs are installed by --install-cores at their pinned releases.
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: 1.5.1
+
       - id: name
         shell: bash
         run: echo "slug=$(echo '${{ matrix.shard }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
 
-      # fbuild's downloaded toolchains and its compiler cache, per shard, since
+      # fbuild's toolchains and compiler cache and the Arduino cores, per shard, since
       # each shard builds its own boards. Not its esptool installs: those are
       # uv environments tied to an interpreter path on the runner that made
       # them, and restored onto another runner they fail with "No Python at".
@@ -91,10 +101,12 @@ jobs:
             ~/.fbuild/prod/zccache
             !~/.fbuild/prod/cache/toolchains/pioarduino-esptool
             !~/.fbuild/prod/cache/toolchains/tasmota-esptool
-          key: fbuild-v2-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-${{ github.sha }}
+            ~/AppData/Local/Arduino15/packages
+            ~/AppData/Local/Arduino15/staging
+          key: builds-v3-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-${{ github.sha }}
           restore-keys: |
-            fbuild-v2-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-
-            fbuild-v2-${{ hashFiles('backend/requirements.txt') }}-
+            builds-v3-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-
+            builds-v3-${{ hashFiles('backend/requirements.txt') }}-
 
       - name: Build shard ${{ matrix.shard }}
         shell: bash
@@ -103,7 +115,7 @@ jobs:
         run: |
           only=()
           for text in ${{ inputs.only }}; do only+=(--only "$text"); done
-          python scripts/compile-fixtures/compile-matrix.py --engine fbuild --shard "${{ matrix.shard }}" "${only[@]}"
+          python scripts/compile-fixtures/compile-matrix.py --engine "${{ inputs.engine || 'all' }}" --install-cores             --shard "${{ matrix.shard }}" "${only[@]}"
 
       # The run folder plus every fbuild log and report beside the sketches,
       # at the paths summary.json names.
@@ -115,8 +127,12 @@ jobs:
             artifacts/compile-matrix/
             artifacts/*-compile/*.fbuild*.log
             artifacts/*-compile/*.fbuild*.json
+            artifacts/*-compile/*.arduino-cli*.log
+            artifacts/*-compile/*.arduino-cli*.json
             backend/sketches/*/*.fbuild*.log
             backend/sketches/*/*.fbuild*.json
+            backend/sketches/*/*.arduino-cli*.log
+            backend/sketches/*/*.arduino-cli*.json
           if-no-files-found: warn
 
   merge:
