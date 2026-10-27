@@ -477,7 +477,8 @@ def toolchain_fingerprint(leg: Leg, header: dict) -> str:
     leg's board and every pinned library. A resumed pass carries only when this
     and the sketch both match, so a pin or flag change rebuilds the boards it
     reaches and a sketch change rebuilds that sketch alone."""
-    engine = header["fbuild"] if leg.engine == "fbuild" else f"{header['arduino_cli']} | {header['arduino_cores']}"
+    engine = (f"{header['fbuild']} | {toolchain._FBUILD_ESP32_PLATFORM}" if leg.engine == "fbuild"
+              else f"{header['arduino_cli']} | {header['arduino_cores']}")
     parts = [leg.engine, engine, toolchain._fastled_build_flags(leg.board), toolchain._FASTLED_VERSION,
              toolchain._LVGL_VERSION, toolchain._PLAYER_AUDIO_VERSION, toolchain._IRREMOTE_VERSION,
              toolchain._VL53L0X_VERSION, toolchain._VL53L1X_VERSION]
