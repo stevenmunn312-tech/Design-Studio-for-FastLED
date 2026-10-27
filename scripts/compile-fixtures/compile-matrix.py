@@ -269,6 +269,12 @@ def led_driver_legs() -> list[Leg]:
             for name, entry in sorted(entries.items())]
 
 
+# Boards built on arduino-cli alone, though the fbuild scaffold declares them.
+ARDUINO_CLI_ONLY = {
+    "esp32:esp32:esp32h2": "fbuild 2.5.45 has no esp32-h2-devkitc-1 board definition",
+}
+
+
 def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
@@ -279,7 +285,7 @@ def candidates() -> list[Leg]:
         *corpus_legs("show-sequencing", "show-sequencing-compile"),
         *lanes_legs(), *led_driver_legs(),
     ]
-    fbuild_boards = set(toolchain._PIO_BOARDS)
+    fbuild_boards = set(toolchain._PIO_BOARDS) - set(ARDUINO_CLI_ONLY)
     return [replace(leg, engine=engine) for engine in ENGINES for leg in legs
             if engine == "arduino-cli" or ":".join(leg.board.split(":")[:3]) in fbuild_boards]
 
