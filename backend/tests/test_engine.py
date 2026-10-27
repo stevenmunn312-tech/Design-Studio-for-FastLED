@@ -209,6 +209,13 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     assert "-DNO_GFX=1" in text
     assert "NO_GFX" not in uno_section
 
+    # Every ESP32 env names one pinned pioarduino release, never the moving
+    # `stable` a bare `espressif32` fetches.
+    esp32_section = text.split("[env:esp32_esp32_esp32]")[1].split("[env:")[0]
+    assert f"platform = {toolchain._FBUILD_ESP32_PLATFORM}" in esp32_section
+    assert "platform = espressif32\n" not in text
+    assert "platform = atmelavr" in uno_section
+
     # fbuild must carry the SAMD51 identity into vendored library TUs, not just
     # the sketch, or FastLED falls through to its unsupported generic Arduino
     # pin implementation.

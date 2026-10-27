@@ -485,6 +485,16 @@ def _remove_build_cache_tree(path: Path) -> None:
 # ceiling. Fixing it properly means taking the size from the selected physical
 # board profile (which names the exact module) rather than from the generic
 # FQBN, since an N8 module must not be told it has 16MB.
+#
+# A bare `platform = espressif32` makes fbuild fetch pioarduino's moving
+# `stable` release, so two machines built different cores: 3.3.9 on one fetched
+# in June, 3.3.12 on a fresh CI runner (2026-10-27), with different image sizes
+# and a Nano ESP32 failure only on the newer one. fbuild takes a release zip URL
+# instead (registry pins like espressif32@6.5.0 fall back to `stable`). 55.03.311
+# is Arduino core 3.3.11 on ESP-IDF 5.5.5, the core the Arduino CLI builds use.
+_FBUILD_ESP32_PLATFORM = (
+    "https://github.com/pioarduino/platform-espressif32/releases/download/55.03.311/platform-espressif32.zip"
+)
 _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s3": {
         "platform": "espressif32", "board": "esp32-s3-devkitc-1",
@@ -934,7 +944,8 @@ def _write_fbuild_ini() -> None:
                          *(["-DARDUINO_USB_CDC_ON_BOOT=1"] if cdc else [])]
                 block += [
                     f"[env:{_env_id(base_fqbn, psram_id, flash_mb, cdc)}]",
-                    f"platform = {meta['platform']}", f"board = {meta['board']}",
+                    f"platform = {_FBUILD_ESP32_PLATFORM if is_esp32 else meta['platform']}",
+                    f"board = {meta['board']}",
                     "framework = arduino",
                     *([f"build_flags = {' '.join(flags)}"] if flags else []),
                     *extra_lines, "",

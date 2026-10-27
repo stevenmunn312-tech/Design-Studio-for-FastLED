@@ -17,8 +17,19 @@ an internal record.
   [#1721](https://github.com/FastLED/fbuild/pull/1721) (RP2040 TinyUSB,
   #1719), [#1723](https://github.com/FastLED/fbuild/pull/1723) (no console
   window per compile, #1722, §13) and the ESP8266 `deploy` and bootable-image
-  fixes (#1729, #1733, for #1657, §7); none of these is checked here yet.
-  The pin moved from 2.5.37 to 2.5.44 on 2026-10-23. 2.5.44 bundles
+  fixes (#1729, #1733, for #1657, §7). The 2026-10-27 run (66 legs, laptop
+  plus the `Compile matrix` workflow on GitHub) passed 65, RP2040 and
+  ESP8266 included. The Arduino Nano ESP32 fails in the core, from flags
+  fbuild takes from the board (escaped `USB_PRODUCT` strings, and
+  `BOARD_HAS_PIN_REMAP` without `ARDUINO_CORE_BUILD`); a report is drafted
+  in `tmp/fbuild-drafts/nano-esp32-usb-product.md`, not posted. ESP32-H2
+  is built on Arduino CLI only, since 2.5.45 has no `esp32-h2-devkitc-1`.
+- **ESP32 platform pin:** `_FBUILD_ESP32_PLATFORM` in `backend/toolchain.py`,
+  pioarduino 55.03.311 (Arduino core 3.3.11, the Arduino CLI core), since
+  2026-10-27. A bare `platform = espressif32` fetches pioarduino's moving
+  `stable`, so the laptop built 3.3.9 and a fresh runner 3.3.12, with images
+  about 240 KB apart. fbuild accepts only a release zip URL as a pin.
+- The pin moved from 2.5.37 to 2.5.44 on 2026-10-23. 2.5.44 bundles
   the upstream fixes from roll-up
   [#1689](https://github.com/FastLED/fbuild/issues/1689) for #1656 (§12),
   #1658 (§5), #1670–#1672 (IR RP2040, Renesas, SAMD21) and #1673 (Windows
