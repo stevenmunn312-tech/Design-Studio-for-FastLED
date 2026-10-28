@@ -1566,19 +1566,28 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
   PatternSlideshow({ inputSourceType, input, num, elapsedT, tick, elapsedTick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph, nodes, edges }, id, props) {
     // The same show as the Music Player with the music taken out. What is
     // shared is shared outright: one collected-pattern renderer, one
-    // `evalPatternShow`, one selection contract. What differs is only what
-    // a slideshow needs — a single interval, a stated order, and audio it
-    // ignores unless asked.
+    // `evalPatternShow`, one selection contract, the player's timing. What
+    // differs is only audio the patterns ignore unless asked.
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
-    const settings = slideshowSettings(
-      props,
-      incoming.has(`${id}:interval`) ? num(id, 'interval', props, 'interval', 20) : null,
-    )
+    const wired = (port: 'minTime' | 'maxTime' | 'transitionSec', fallback: number) =>
+      incoming.has(`${id}:${port}`) ? num(id, port, props, port, fallback) : null
+    const settings = slideshowSettings(props, {
+      minTime: wired('minTime', 20),
+      maxTime: wired('maxTime', 20),
+      transitionSec: wired('transitionSec', 1.5),
+    })
     const audioSignal = input(id, 'audio', null)
     // Reactivity is a switch, not a consequence of wiring: a slideshow with
     // a microphone attached holds still until it is asked to react, because
     // the mode exists for patterns that should not twitch at room noise.
     const audio = settings.audioReactive && isAudioSignal(audioSignal) ? audioSignal : null
+    // Beat Transitions and Energy Pacing are switches of their own, so they
+    // read the wire whatever Audio Reactive says. A source that is not live
+    // reads as no audio, as it does for the Music Player.
+    const timingAudio = isAudioSignal(audioSignal) && audioSignal.active ? audioSignal : null
+    // Energy Pacing with nothing to measure stays off, as the firmware leaves
+    // it out where there is no audio host.
+    const energyPacing = settings.energyPacing && timingAudio !== null
     const render = (gid: string): Frame => renderCollectedPattern(gid, {
       groups, groupStack, instancePrefix, nodeId: id, tick, W, H,
       elapsedTick,
@@ -1605,12 +1614,16 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     const sequencing = settings.order === 'Sequence'
     updatePatternSelection(selection, { ids, step: sequencing ? 0 : steps })
 
-    let frame = evalPatternShow(key, ids, render, false, {
-      minTime: settings.intervalSec,
-      maxTime: settings.intervalSec,
+    let frame = evalPatternShow(key, ids, render, Boolean(timingAudio?.beat), {
+      minTime: settings.minTime,
+      maxTime: settings.maxTime,
       transSec: settings.transitionSec,
       pool,
-      beatEnabled: false,
+      beatEnabled: timingAudio !== null,
+      beatTransitions: settings.beatTransitions,
+      energyPacing,
+      dwellsAndBursts: settings.dwellsAndBursts,
+      countBeats: settings.beatTransitions,
       particles: false,
       particleStyle: 0,
       particleColor: { r: 0, g: 0, b: 0 },
@@ -1621,9 +1634,12 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       particleEnergyGate: 0,
       seed: settings.seed,
       order: settings.order,
-      // A slideshow is the show with the music taken out: nothing fades,
-      // and energy tags do not narrow its picks.
-      audioEnergy: null,
+      // Silence is the slideshow's own envelope below, so nothing fades here,
+      // and energy tags do not narrow its picks. The energy is passed only
+      // for Energy Pacing to read.
+      audioEnergy: energyPacing && timingAudio
+        ? clamp01((timingAudio.micBass + timingAudio.micMids + timingAudio.micTreble) / 3)
+        : null,
       audioReactive: () => false,
       profiles: wiredProfiles(nodes, edges, id, ids),
       sequence: asPatternSteps(props.sequence, ids),

@@ -6,14 +6,20 @@ import {
 const f = (value: number) => `${value.toFixed(4)}f`
 
 /**
- * The generic SD player's twin of patternPacing.ts, emitted inside the
- * pattern-rotation block where `minHold`, `maxHold`, `transitionMs` and
- * `posMs` are in scope. The block replaces its fixed `rotateMs` with a lead
- * (the transition, when one runs) plus `paceHoldMs()`, read every loop so a
- * normal hold shortens as the music builds. Only what the options use is
- * emitted.
+ * The firmware twin of patternPacing.ts, emitted inside the pattern-rotation
+ * block where `minHold`, `maxHold`, `transitionMs` and `clock` (the SD
+ * player's `posMs`, the slideshow's `now`) are in scope. The SD player
+ * replaces its fixed `rotateMs` with a lead (the transition, when one runs)
+ * plus `paceHoldMs()`, read every loop so a normal hold shortens as the music
+ * builds; the slideshow compares its hold against it directly. Only what the
+ * options use is emitted.
  */
-export function patternPacingCpp(o: { energyPacing: boolean; dwellsAndBursts: boolean }) {
+export function patternPacingCpp(
+  o: { energyPacing: boolean; dwellsAndBursts: boolean },
+  clock = 'posMs',
+  /** Emit `paceReset()`. A caller with no seek or step to restart from leaves it out. */
+  withReset = true,
+) {
   const lines: string[] = [
     '    // Hold pacing, the same moves as the preview\'s patternPacing.ts.',
     '    static float holdU = random(10000) / 10000.0f;',
@@ -30,10 +36,10 @@ export function patternPacingCpp(o: { energyPacing: boolean; dwellsAndBursts: bo
       '    // Energy Pacing: the track\'s smoothed energy, placed in the range it',
       '    // has recently moved in.',
       '    static float paceLevel = 0.0f, paceLo = 0.0f, paceHi = 0.0f;',
-      '    static uint32_t paceAtMs = posMs;',
+      `    static uint32_t paceAtMs = ${clock};`,
       '    {',
-      '      const float dt = posMs >= paceAtMs ? (float)(posMs - paceAtMs) : 0.0f;',
-      '      paceAtMs = posMs;',
+      `      const float dt = ${clock} >= paceAtMs ? (float)(${clock} - paceAtMs) : 0.0f;`,
+      `      paceAtMs = ${clock};`,
       '      const float energy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);',
       `      paceLevel += (energy - paceLevel) * (1.0f - expf(-dt / ${f(PACING_LEVEL_TAU_MS)}));`,
       `      const float k = 1.0f - expf(-dt / ${f(PACING_RANGE_TAU_MS)});`,
@@ -58,9 +64,13 @@ export function patternPacingCpp(o: { energyPacing: boolean; dwellsAndBursts: bo
   lines.push(
     `      return (uint32_t)((minHold + (maxHold - minHold) * (${normalFraction})) * 1000.0f);`,
     '    };',
-    '    // A normal hold: after a seek, a new track or a confirm.',
-    `    auto paceReset = [&]() { ${o.dwellsAndBursts ? 'holdKind = 0; burstLeft = 0; ' : ''}holdU = random(10000) / 10000.0f; };`,
   )
+  if (withReset) {
+    lines.push(
+      '    // A normal hold: after a seek, a new track or a confirm.',
+      `    auto paceReset = [&]() { ${o.dwellsAndBursts ? 'holdKind = 0; burstLeft = 0; ' : ''}holdU = random(10000) / 10000.0f; };`,
+    )
+  }
   if (o.dwellsAndBursts) {
     lines.push(
       '    // The hold after a change. A burst runs out first, and a dwell or a',
@@ -80,6 +90,6 @@ export function patternPacingCpp(o: { energyPacing: boolean; dwellsAndBursts: bo
   return {
     declarations: lines.join('\n'),
     /** Statement starting the hold after a change. */
-    next: o.dwellsAndBursts ? 'paceNext();' : 'paceReset();',
+    next: o.dwellsAndBursts ? 'paceNext();' : withReset ? 'paceReset();' : 'holdU = random(10000) / 10000.0f;',
   }
 }

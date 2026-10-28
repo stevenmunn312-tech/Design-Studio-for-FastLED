@@ -519,7 +519,7 @@ const cydShowNodes = [
   // Six seconds rather than the default twenty, so an hour's soak crosses
   // hundreds of transitions instead of a handful, and a 90-second capture sees
   // any at all.
-  node('show', 'PatternSlideshow', { order: 'Sequential', interval: 6, transitionsEnabled: true, transitionSec: 1.5 }),
+  node('show', 'PatternSlideshow', { order: 'Sequential', minTime: 6, maxTime: 6, transitionsEnabled: true, transitionSec: 1.5 }),
   cydStrip(),
 ]
 const cydShowEdges = [

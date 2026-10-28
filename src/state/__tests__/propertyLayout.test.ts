@@ -47,7 +47,8 @@ describe('property labels', () => {
     expect(propertyLabel('PatternMaster', 'minTime')).toBe('min hold (s)')
     expect(propertyLabel('PatternMaster', 'maxTime')).toBe('max hold (s)')
     expect(propertyLabel('PatternMaster', 'transitionSec')).toBe('fade (s)')
-    expect(propertyLabel('PatternSlideshow', 'interval')).toBe('hold (s)')
+    expect(propertyLabel('PatternSlideshow', 'minTime')).toBe('min hold (s)')
+    expect(propertyLabel('PatternSlideshow', 'maxTime')).toBe('max hold (s)')
     expect(propertyLabel('PatternSlideshow', 'transitionSec')).toBe('fade (s)')
   })
 

@@ -612,7 +612,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     description: 'Cycle a collection of patterns on a timer — no music, no card, nothing to plug in but the LEDs.',
     completionSteps: [
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
-      'Add a few pattern groups and set the interval and order on the Pattern Slideshow.',
+      'Add a few pattern groups and set the hold times and order on the Pattern Slideshow.',
       'Optionally add a Microphone or Line Input on the Hardware tab and turn on audio reactivity.',
       'Check the LED output pins and capacity, then upload the sketch.',
     ],
@@ -622,7 +622,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       tutorialNote(
         'guide', 0, -1,
-        'SLIDESHOW \nAdd patterns to the collection and they play in turn.\nNo card, no amplifier, no music — set an interval and go.',
+        'SLIDESHOW \nAdd patterns to the collection and they play in turn.\nNo card, no amplifier, no music — set a hold time and go.',
         TRY_COLOR,
       ),
     ],

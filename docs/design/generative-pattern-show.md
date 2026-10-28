@@ -244,9 +244,16 @@ music-free case. Nobody would find that, so nobody did.
 
 **What is different from Music Player**, and why:
 
-- **One interval, not a min/max pair.** The randomised dwell exists to keep a
-  beat-driven show from feeling metronomic. A slideshow has no beat to feel
-  metronomic against.
+- **The Music Player's timing.** Min/Max Time, the fade, Beat Transitions,
+  Energy Pacing and Dwells & Bursts mean what they mean on the player, read
+  through `slideshowSettings` by the preview and `showGenerator.ts`. The
+  slideshow started with one interval, on the reasoning that it has no beat
+  to feel metronomic against; once a microphone could drive it, that stopped
+  being true, so it took the player's set (2026-10-28). Min equal to Max is
+  the old fixed hold and still compiles to one constant. Beat Transitions and
+  Energy Pacing read the wired Audio whatever Audio Reactive says, because
+  each is its own switch; with nothing wired, validation warns that a
+  beat-gated slideshow never changes pattern.
 - **Transitions are optional, with a fade built in.** Off means a cut. On with
   nothing wired means a fade, rather than requiring a `TransitionSet` to get the
   one transition everybody wants first.
@@ -267,7 +274,7 @@ music-free case. Nobody would find that, so nobody did.
   The cursor is emitted for anything that reads it (Pattern Browser, Show
   Status) or commands it — a headless three-button build has no
   display half at all and still needs one.
-- **Master Speed changes motion, not the programme.** Slideshow intervals and
+- **Master Speed changes motion, not the programme.** Slideshow holds and
   transition durations are wall-clock seconds. The preview and generated
   controller keep an unscaled elapsed clock for those decisions and pass a
   separate accumulated animation clock into collected patterns. A speed of

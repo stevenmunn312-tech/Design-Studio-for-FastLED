@@ -30,7 +30,7 @@ export const MAIN_SUBSTANCE_TYPES = new Set([
 /** Live runtime fields that already have a verified property input. */
 export const LIVE_PLAYER_SHOW_PROPERTIES: Record<string, readonly string[]> = {
   PatternMaster: ['volume', 'minTime', 'maxTime', 'transitionSec'],
-  PatternSlideshow: ['interval'],
+  PatternSlideshow: ['minTime', 'maxTime', 'transitionSec'],
   PlayerParticles: ['enabled', 'intensity', 'randomStyle', 'randomColor'],
   MatrixOutput: ['enabled', 'outputBrightness'],
   TransportDisplay: ['enabled'],
@@ -47,7 +47,7 @@ export const LIVE_PLAYER_SHOW_PROPERTIES: Record<string, readonly string[]> = {
  */
 export const BAKE_TIME_PROPERTIES: Record<string, readonly string[]> = {
   PatternMaster: ['seed', 'beatTransitions', 'energyPacing', 'dwellsAndBursts'],
-  PatternSlideshow: ['order', 'transitionsEnabled', 'transitionSec', 'audioReactive', 'seed'],
+  PatternSlideshow: ['order', 'beatTransitions', 'transitionsEnabled', 'energyPacing', 'dwellsAndBursts', 'audioReactive', 'seed'],
   PerformanceGenerator: [
     'beatIntensity',
     'energySensitivity',

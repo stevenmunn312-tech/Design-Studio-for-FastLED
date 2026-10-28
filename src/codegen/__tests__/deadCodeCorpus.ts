@@ -120,7 +120,7 @@ function performance(names: PatternName[], properties: Record<string, unknown> =
 function slideshow(names: PatternName[], properties: Record<string, unknown> = {}, transitions?: string[]) {
   const nodes = [
     node('collection', 'PatternCollection', { patternIds: names }),
-    node('show', 'PatternSlideshow', { interval: 8, transitionSec: 1, ...properties }),
+    node('show', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1, ...properties }),
     node('out', 'MatrixOutput', { width: 16, height: 16, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ...(transitions ? [node('pool', 'TransitionSet', { transitions })] : []),
   ]

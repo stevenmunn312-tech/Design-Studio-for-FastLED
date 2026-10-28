@@ -43,7 +43,7 @@ describe('sequence step table', () => {
     ]
     const nodes = [
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, order: 'Sequence', sequence }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1, order: 'Sequence', sequence }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ]
     const sketch = generateShowSketch(nodes, [edge('pc', 'patternset', 'pm', 'patternset'), edge('pm', 'frame', 'out', 'frame')], groups)

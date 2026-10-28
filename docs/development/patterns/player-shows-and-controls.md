@@ -341,8 +341,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Pattern Slideshow (`PatternSlideshow` node type,
   `src/state/patterns/patternSlideshow.ts`) is the show engine for a collection with no
   music: `slideshowSettings` resolves its
-  order/interval/transition/audio-reactive/seed properties once, read by both
-  the evaluator and `showGenerator.ts`, so a wired interval overrides the
+  order/timing/transition/audio-reactive/seed properties once, read by both
+  the evaluator and `showGenerator.ts`, so a wired Min Time, Max Time or
+  Transition overrides the
   property the same way on both sides. `isPatternShow`
   (`src/codegen/showGenerator.ts`) keys the pattern-show generator on this
   node's presence rather than on a Music Player with no card attached — the old

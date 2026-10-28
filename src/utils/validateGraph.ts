@@ -2527,6 +2527,21 @@ function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineI
         nodeLabel: nodeLabel(slideshow),
       })
     }
+    // Beat Transitions waits for a beat after every hold, so with nothing to
+    // hear the first pattern plays for ever. Not a blocker: the build is fine.
+    if (!audioNode && (slideshow.data.properties as Record<string, unknown>).beatTransitions === true) {
+      issues.push({
+        id: `${slideshow.id}-beat-transitions-unwired`,
+        severity: 'warning',
+        title: 'Pattern Slideshow waits for beats it cannot hear',
+        message: 'Beat Transitions changes pattern only on a beat. With no Audio node wired to the '
+          + 'slideshow, no beat arrives and the first pattern keeps playing.',
+        fix: 'Wire an Audio node set to Microphone or Line Input into the slideshow\'s Audio input, '
+          + 'or turn Beat Transitions off.',
+        nodeIds: [slideshow.id],
+        nodeLabel: nodeLabel(slideshow),
+      })
+    }
     if (audioNode) {
       const kind = selectedAudioCapabilityKind(
         nodes, (audioNode.data.properties as Record<string, unknown>).sourceId)

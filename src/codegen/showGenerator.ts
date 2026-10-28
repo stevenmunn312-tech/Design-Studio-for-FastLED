@@ -49,8 +49,10 @@ import {
 } from '../state/patterns/patternPick'
 import { asPatternSteps, type PatternStep } from '../state/patterns/patternSequence'
 import { sequenceTableCpp } from './player/patternSequenceCpp'
+import { patternPacingCpp } from './player/patternPacingCpp'
 import { sketchFileBlock } from './sketchBundle'
 import {
+  SLIDESHOW_MIN_INTERVAL_SEC,
   SLIDESHOW_SILENCE_FADE_IN_SEC,
   SLIDESHOW_SILENCE_FADE_OUT_SEC,
   SLIDESHOW_SILENCE_THRESHOLD,
@@ -143,9 +145,16 @@ export function isPatternShow(nodes: StudioNode[], edges: StudioEdge[]): boolean
 interface ShowInfo {
   masterId: string
   patternIds: string[]
-  /** Seconds one pattern holds. A slideshow has one interval, not a range. */
-  intervalSec: number
+  /** Shortest and longest hold in seconds, the Music Player's pair. */
+  minTime: number
+  maxTime: number
   transitionSec: number
+  /** Off makes every change a cut, whatever a wired Transition says. */
+  transitionsEnabled: boolean
+  /** Wait for a fresh beat once the hold ends; a Sequence hold counts beats. */
+  beatTransitions: boolean
+  energyPacing: boolean
+  dwellsAndBursts: boolean
   /** Transition style ids (0–15) the show draws from at random. */
   transitionIds: number[]
   /** Walk the collection in order, pick at random, or follow `steps`. */
@@ -162,10 +171,10 @@ interface ShowInfo {
 
 // Resolve the Pattern Slideshow + the collection feeding its patternset input.
 //
-// The beat-triggered early advance and the particle overlay are not read here
-// and are not emitted below. Both ride an audio beat, and a slideshow is the
-// mode for patterns that should hold still; where they still belong is the
-// Music Player, whose own sketch keeps them.
+// The particle overlay is not read here and is not emitted below: a slideshow
+// is the mode for patterns that should hold still, and the overlay belongs to
+// the Music Player, whose own sketch keeps it. Beat Transitions is read,
+// because it is a timing switch the user turns on.
 function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): ShowInfo | null {
   // Straight to an output, or through the frame nodes it runs as its post-chain.
   const master = nodes.find((n) => nodeType(n) === 'PatternSlideshow'
@@ -187,9 +196,14 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): 
   return {
     masterId: master.id,
     patternIds,
-    intervalSec: settings.intervalSec,
+    minTime: settings.minTime,
+    maxTime: settings.maxTime,
     transitionSec: settings.transitionSec,
-    transitionIds: sequencing || settings.transitionSec > 0 ? transitionStyleIds(pooledStyles) : [0],
+    transitionsEnabled: props(master).transitionsEnabled !== false,
+    beatTransitions: settings.beatTransitions,
+    energyPacing: settings.energyPacing,
+    dwellsAndBursts: settings.dwellsAndBursts,
+    transitionIds: sequencing || props(master).transitionsEnabled !== false ? transitionStyleIds(pooledStyles) : [0],
     order: settings.order,
     weights: profiles.weights,
     energy: profiles.energyTags,
@@ -1015,15 +1029,25 @@ export function generateShowSketch(
   // compositing switch) is left out rather than emitted unreachable.
   // An empty sequence holds the current pattern instead of dwelling.
   const rotates = info.order === 'Sequence' ? sequenceActive : renderers.count > 1
-  const transitions = sequenceActive
-    ? info.steps.some((step) => step.transitionSec > 0)
-    : rotates && info.transitionSec > 0
-  // A pool of one is a constant style, with nothing to draw from.
-  const pooled = transitions && info.transitionIds.length > 1
   // Root displays and their control chains live outside collected patterns.
   // Resolve them against the controller template rather than the pattern walk.
   const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId, groups)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
+  // A wired Transition can open a fade the property set to a cut.
+  const transitions = sequenceActive
+    ? info.steps.some((step) => step.transitionSec > 0)
+    : rotates && info.transitionsEnabled && (info.transitionSec > 0 || !!controls.timingInputs.transitionSec)
+  // A pool of one is a constant style, with nothing to draw from.
+  const pooled = transitions && info.transitionIds.length > 1
+  // Beat and energy timing read the slideshow's own Audio wire, as the preview
+  // does, whatever Audio Reactive says.
+  const timingAudio = slideshowAudioConnected && !!audio
+  const beatGated = rotates && info.beatTransitions
+  // Sequence holds count beats; Sequential and Random draw a hold between Min
+  // and Max Time, paced as the Music Player paces it.
+  const countBeats = sequenceActive && info.beatTransitions
+  const holdTiming = rotates && !sequenceActive
+  const pacingOptions = { energyPacing: info.energyPacing && timingAudio, dwellsAndBursts: info.dwellsAndBursts }
   // Frame nodes between the slideshow and its LEDs, run on the finished canvas.
   const postFrame = controls.post
     ? buildPostFrame(controls.post.chain, controls.post.nodes, controls.post.edges, {}, controls.post.args, !!audio, !!audio)
@@ -1345,8 +1369,23 @@ export function generateShowSketch(
   // Controller: hold a pattern for the interval, then transition into the next
   // one over transitionSec. Which one is "next" is the order the node states.
   // Mirrors evalPatternShow.
-  const dwellMs = Math.round(info.intervalSec * 1000)
+  // A fixed hold stays one constant; anything that can vary it goes through
+  // the Music Player's pacing helper.
+  const pacing = holdTiming && (info.minTime !== info.maxTime || pacingOptions.energyPacing || pacingOptions.dwellsAndBursts
+    || !!controls.timingInputs.minTime || !!controls.timingInputs.maxTime)
+    // Only a cursor step mid-transition restarts a hold.
+    ? patternPacingCpp(pacingOptions, 'now', transitions && selection.used)
+    : null
+  const dwellMs = Math.round(info.minTime * 1000)
   const transMs = Math.round(info.transitionSec * 1000)
+  const timingExpr = (port: 'minTime' | 'maxTime' | 'transitionSec', value: number) =>
+    controls.timingInputs[port] ?? `${value.toFixed(4)}f`
+  // Read every pass, so a wired Min, Max or Transition moves the show live.
+  const transDur = controls.timingInputs.transitionSec ? 'transitionMs' : String(transMs)
+  const holdDue = pacing ? 'paceHoldMs()' : String(dwellMs)
+  const beatDue = beatGated ? ' && beatEdge' : ''
+  const paceNext = pacing ? ` ${pacing.next}` : ''
+  const paceReset = pacing ? ' paceReset();' : ''
   // Sequential starts at the top of the collection, because a slideshow whose
   // order was chosen deliberately should begin where the list does.
   const sequential = info.order === 'Sequential'
@@ -1363,7 +1402,7 @@ export function generateShowSketch(
     L.push('')
   }
   if (sequenceActive) {
-    L.push(sequenceTableCpp(info.steps))
+    L.push(sequenceTableCpp(info.steps, countBeats))
     L.push('')
   }
   const weightedNext = pick.needsTable ? 'patternPick(cur, 1, 0, 0)' : nextPattern
@@ -1384,6 +1423,22 @@ export function generateShowSketch(
   L.push(...customDisplays.enable)
   for (const [id, variable] of controls.outputs) L.push(...ledOutputLatchCpp({ id: safeId(id), controls: variable }))
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
+  if (beatGated) {
+    // Without a live beat to wait for, the current pattern keeps playing,
+    // as it does in the preview and on the Music Player.
+    L.push(`  const bool beatNow = ${timingAudio ? '_audioBeat' : 'false'};`)
+    L.push('  static bool lastBeat = beatNow;')
+    L.push('  bool beatEdge = beatNow && !lastBeat;')
+    L.push('  lastBeat = beatNow;')
+  }
+  if (holdTiming && (pacing || controls.timingInputs.transitionSec)) {
+    L.push(`  const float minHold = max(${SLIDESHOW_MIN_INTERVAL_SEC.toFixed(1)}f, constrain(${timingExpr('minTime', info.minTime)}, 0.0f, 86400.0f));`)
+    L.push(`  const float maxHold = max(minHold, constrain(${timingExpr('maxTime', info.maxTime)}, 0.0f, 86400.0f));`)
+    if (transitions || pacingOptions.dwellsAndBursts) {
+      L.push(`  const uint32_t transitionMs = (uint32_t)(constrain(${transitions ? timingExpr('transitionSec', info.transitionSec) : '0.0f'}, 0.0f, 86400.0f) * 1000.0f);`)
+    }
+    if (pacing) L.push(...pacing.declarations.split('\n').map((line) => line.replace(/^ {2}/, '')))
+  }
   if (transitions) {
     L.push(`  static uint8_t  cur = ${sequenceActive ? '0' : weightedFirst}, nxt = 0${pooled || (sequenceActive && transitions) ? ', transType = 0' : ''};`)
     L.push('  static bool     transitioning = false;')
@@ -1404,7 +1459,7 @@ export function generateShowSketch(
       if (pooled) L.push('    transType = TRANS_POOL[random8(TRANS_POOL_N)];')
       L.push('    transitioning = true; phaseStart = now;')
       L.push('  } else if (transitioning && selTarget != nxt) {')
-      L.push('    cur = selTarget; transitioning = false; phaseStart = now;')
+      L.push(`    cur = selTarget; transitioning = false; phaseStart = now;${paceReset}`)
       L.push('  }')
     }
   }
@@ -1439,6 +1494,7 @@ export function generateShowSketch(
       `${target} = (chosen >= 0 && chosen < PATTERN_COUNT) ? (uint8_t)chosen : ${tagPick(opening)};`
     L.push('  static uint16_t seqStep = 0;')
     L.push('  static uint32_t seqAt = 0;')
+    if (countBeats) L.push('  static uint16_t seqBeats = 0;')
     L.push('  static bool seqInit = false;')
     L.push('  if (!seqInit) {')
     L.push('    seqInit = true; seqAt = now; seqStep = 0;')
@@ -1453,14 +1509,19 @@ export function generateShowSketch(
     }))
     L.push(...syncAdopt(boardSyncFollowerAdoptSequenceCpp()))
     L.push(`  int16_t seqDelta = (int16_t)(${stepExpr});`)
-    L.push(`  bool seqDue = ${locked('!transitioning && (seqDelta != 0 || now - seqAt >= pgm_read_dword(&seqHoldMs[seqStep]))')};`)
+    // A beat-counted hold counts beats while it holds and ignores the clock.
+    const seqHoldDue = countBeats
+      ? 'beatEdge && (uint32_t)seqBeats + 1 >= pgm_read_dword(&seqHoldMs[seqStep])'
+      : 'now - seqAt >= pgm_read_dword(&seqHoldMs[seqStep])'
+    L.push(`  bool seqDue = ${locked(`!transitioning && (seqDelta != 0 || ${seqHoldDue})`)};`)
+    if (countBeats) L.push('  if (!seqDue && !transitioning && beatEdge) seqBeats++;')
     L.push('  if (seqDue) {')
     L.push('    if (seqDelta != 0) {')
     L.push('      int nextStep = (int)seqStep + seqDelta;')
     L.push('      while (nextStep < 0) nextStep += SEQ_COUNT;')
     L.push('      seqStep = (uint16_t)(nextStep % SEQ_COUNT);')
     L.push('    } else seqStep = (uint16_t)((seqStep + 1) % SEQ_COUNT);')
-    L.push('    seqAt = now;')
+    L.push(`    seqAt = now;${countBeats ? ' seqBeats = 0;' : ''}`)
     L.push('    int16_t chosen = (int16_t)pgm_read_word(&seqIndex[seqStep]);')
     L.push('    uint8_t bandBit = pgm_read_byte(&seqBand[seqStep]);')
     L.push('    uint8_t sectionBit = pgm_read_byte(&seqSection[seqStep]);')
@@ -1505,7 +1566,7 @@ export function generateShowSketch(
     }
     L.push(...syncService({ cur: 'cur', nxt: '0', transType: '0', transitioning: 'false', phaseStart: 'phaseStart' }))
     L.push(...syncAdopt(boardSyncFollowerAdoptCpp({ transitions: false, transType: null, cursor: syncCursor })))
-    L.push(`  if (${locked(`now - phaseStart >= ${dwellMs}`)}) { cur = ${weightedNext}; phaseStart = now; }`)
+    L.push(`  if (${locked(`now - phaseStart >= ${holdDue}${beatDue}`)}) { cur = ${weightedNext}; phaseStart = now;${paceNext} }`)
     L.push(`  ${renderCall('cur', 0, true)};`)
     if (displays.helpers.length > 0 || selection.used) L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
   } else {
@@ -1516,18 +1577,18 @@ export function generateShowSketch(
     L.push(...syncAdopt(boardSyncFollowerAdoptCpp({ transitions: true, transType: pooled ? 'transType' : null, cursor: syncCursor })))
     L.push('  if (!transitioning) {')
     L.push(`    ${renderCall('cur', 0, true)};`)
-    L.push(`    if (${locked(`now - phaseStart >= ${dwellMs}`)}) {`)
+    L.push(`    if (${locked(`now - phaseStart >= ${holdDue}${beatDue}`)}) {`)
     L.push(`      nxt = ${weightedNext};`)
     if (pooled) L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
     L.push('      transitioning = true; phaseStart = now;')
     L.push('    }')
     L.push('  } else {')
-    L.push(`    float p = ${transMs} > 0 ? (float)(now - phaseStart) / ${transMs} : 1.0f;`)
+    L.push(`    float p = ${transDur} > 0 ? (float)(now - phaseStart) / ${transDur} : 1.0f;`)
     L.push('    if (p >= 1.0f) p = 1.0f;')
     L.push(`    ${renderCall('cur', 0, false)}; ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing`)
     L.push(`    ${renderCall('nxt', 1, true)}; ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming`)
     L.push(`    compositeTransition(${pooled ? 'transType' : info.transitionIds[0]}, leds, showA, showB, p);`)
-    L.push(`    if (p >= 1.0f) { ${entryOn ? 'commitEntrySlot(); ' : ''}cur = nxt; transitioning = false; phaseStart = now; }`)
+    L.push(`    if (p >= 1.0f) { ${entryOn ? 'commitEntrySlot(); ' : ''}cur = nxt; transitioning = false; phaseStart = now;${paceNext} }`)
     L.push('  }')
     L.push('')
     if (displays.helpers.length > 0 || selection.used) {

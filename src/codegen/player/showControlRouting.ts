@@ -17,6 +17,10 @@ export { controlBundleVariable, showControlOutputIds, showControlTargets } from 
  */
 export const SHOW_SELECTION_STEM = 'show'
 
+/** Slideshow timing sockets the controller reads live. */
+const SHOW_TIMING_PORTS = ['minTime', 'maxTime', 'transitionSec'] as const
+export type ShowTimingPort = (typeof SHOW_TIMING_PORTS)[number]
+
 /** The show's running pattern index, readable from anywhere in the sketch. */
 export const SHOW_PATTERN_INDEX = 'showPatternIndex'
 
@@ -69,6 +73,10 @@ export function showControlRouting(
     scalarOutputIds: targets.outputIds,
     scalarInputs: [
       ...(speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' as const }] : []),
+      // The slideshow's timing sockets, read live as the Music Player's are.
+      ...(targets.engineId
+        ? SHOW_TIMING_PORTS.map((port) => ({ nodeId: targets.engineId!, port, type: 'float' as const }))
+        : []),
       ...(postChain?.inputs ?? []),
     ],
     sourceExpressions: SHOW_SOURCE_EXPRESSIONS,
@@ -90,6 +98,10 @@ export function showControlRouting(
     patternCommands: (targets.engineId && routing.bundles.get(targets.engineId)) || null,
     /** Live bounded-control routes feeding Master Speed, if wired. */
     masterSpeedInputExpr: speedNode ? routing.scalarInputs.get(`${speedNode.id}:speed`) ?? null : null,
+    /** Wired slideshow timing, by port; absent ports use the property. */
+    timingInputs: Object.fromEntries(SHOW_TIMING_PORTS.map((port) =>
+      [port, targets.engineId ? routing.scalarInputs.get(`${targets.engineId}:${port}`) : undefined])) as
+      Partial<Record<ShowTimingPort, string>>,
   }
 }
 

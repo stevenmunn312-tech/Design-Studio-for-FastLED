@@ -19,7 +19,7 @@ export function asSlideshowOrder(value: unknown): PatternSlideshowOrder {
     : 'Random'
 }
 
-/** Shortest interval worth offering: below this a slideshow is a strobe. */
+/** Shortest hold worth offering: below this a slideshow is a strobe. */
 export const SLIDESHOW_MIN_INTERVAL_SEC = 1
 
 /** Average bass/mids/treble level at or below which the room is silent. */
@@ -47,44 +47,57 @@ export function advanceSlideshowSilenceFade(
 
 export interface SlideshowSettings {
   order: PatternSlideshowOrder
-  /** Seconds one pattern holds. One number, not a range: see the design note. */
-  intervalSec: number
+  /** Shortest and longest hold in seconds, the Music Player's pair. */
+  minTime: number
+  maxTime: number
   /**
    * Seconds to cross into the next pattern. Zero when transitions are off,
    * which both sides already render as a cut, so "off" needs no second path.
    */
   transitionSec: number
+  /** Wait for a fresh beat once the hold ends; a Sequence hold counts beats. */
+  beatTransitions: boolean
+  /** Hold pacing, as on the Music Player (patternPacing.ts). */
+  energyPacing: boolean
+  dwellsAndBursts: boolean
   /** Whether wired audio reaches the collected patterns at all. */
   audioReactive: boolean
   seed: number
 }
 
-function positive(value: unknown, fallback: number): number {
-  const n = Number(value)
-  return Number.isFinite(n) && n > 0 ? n : fallback
+/** Wired timing inputs, which take over from the matching properties. */
+export interface SlideshowWiredTiming {
+  minTime?: number | null
+  maxTime?: number | null
+  transitionSec?: number | null
 }
 
-function nonNegative(value: unknown, fallback: number): number {
-  const n = Number(value)
-  return Number.isFinite(n) && n >= 0 ? n : fallback
+/** The longest hold the firmware's unsigned millisecond clock can count. */
+const MAX_HOLD_SEC = 86400
+
+function seconds(wired: number | null | undefined, value: unknown, fallback: number): number {
+  const n = wired != null ? wired : Number(value ?? fallback)
+  return Number.isFinite(n) ? Math.max(0, Math.min(MAX_HOLD_SEC, n)) : fallback
 }
 
-/** Resolve a slideshow node's properties, with a wired interval taking over. */
+/** Resolve a slideshow node's properties, with wired timing taking over. */
 export function slideshowSettings(
   props: Record<string, unknown>,
-  wiredInterval?: number | null,
+  wired: SlideshowWiredTiming = {},
 ): SlideshowSettings {
   const transitionsOn = props.transitionsEnabled !== false
-  const interval = wiredInterval != null && Number.isFinite(wiredInterval) && wiredInterval > 0
-    ? wiredInterval
-    : positive(props.interval, 20)
+  const minTime = Math.max(SLIDESHOW_MIN_INTERVAL_SEC, seconds(wired.minTime, props.minTime, 20))
   const seed = Math.round(Number(props.seed ?? 0))
   return {
     order: asSlideshowOrder(props.order),
-    intervalSec: Math.max(SLIDESHOW_MIN_INTERVAL_SEC, interval),
+    minTime,
+    maxTime: Math.max(minTime, seconds(wired.maxTime, props.maxTime, 20)),
     // A fade of zero with transitions on is a cut the user asked for, so it is
     // left alone rather than floored up to a minimum they did not.
-    transitionSec: transitionsOn ? nonNegative(props.transitionSec, 1.5) : 0,
+    transitionSec: transitionsOn ? seconds(wired.transitionSec, props.transitionSec, 1.5) : 0,
+    beatTransitions: props.beatTransitions === true,
+    energyPacing: props.energyPacing === true,
+    dwellsAndBursts: props.dwellsAndBursts === true,
     audioReactive: props.audioReactive === true,
     seed: Number.isFinite(seed) ? Math.max(0, seed) : 0,
   }

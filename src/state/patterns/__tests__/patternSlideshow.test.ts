@@ -1,10 +1,11 @@
 // The music-free pattern player.
 //
-// What is worth testing here is only what differs from the Music Player: the
-// show engine itself is `evalPatternShow`, covered by patternShowSelection.ts
-// and the show generator's own tests. So: one interval rather than a range, a
-// stated order, reactivity as a switch, and a pattern change that lands
-// immediately because there is no browse/confirm split to show.
+// What is worth testing here is what the slideshow resolves itself and what
+// differs from the Music Player: the show engine is `evalPatternShow`, covered
+// by patternShowSelection.ts and the show generator's own tests. So: the
+// player's timing read through the slideshow's resolver, a stated order,
+// reactivity as a switch, beat timing that reads the wire anyway, and a pattern
+// change that lands immediately because there is no browse/confirm split.
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { evaluateGraph, getPatternShowSelection, resetEvaluatorState, type AudioSignal } from '../../graphEvaluator'
@@ -74,17 +75,28 @@ function runSlideshow(props: Record<string, unknown>, seconds: number, extra: {
 const playingIndex = () => getPatternShowSelection('show')!.currentIndex
 
 describe('slideshowSettings', () => {
-  it('reads one interval, not a range', () => {
-    expect(slideshowSettings({ interval: 45 }).intervalSec).toBe(45)
+  it('reads the Music Player\'s min and max hold', () => {
+    expect(slideshowSettings({ minTime: 10, maxTime: 45 })).toMatchObject({ minTime: 10, maxTime: 45 })
     // Below a second a slideshow is a strobe, so the floor is the resolver's
     // rather than something each of the two readers applies its own way.
-    expect(slideshowSettings({ interval: 0.1 }).intervalSec).toBe(1)
-    expect(slideshowSettings({}).intervalSec).toBe(20)
+    expect(slideshowSettings({ minTime: 0.1, maxTime: 0.1 })).toMatchObject({ minTime: 1, maxTime: 1 })
+    // A max below the min is the min, as on the player.
+    expect(slideshowSettings({ minTime: 30, maxTime: 5 }).maxTime).toBe(30)
+    expect(slideshowSettings({})).toMatchObject({ minTime: 20, maxTime: 20 })
   })
 
-  it('lets a wired interval take over from the property', () => {
-    expect(slideshowSettings({ interval: 20 }, 5).intervalSec).toBe(5)
-    expect(slideshowSettings({ interval: 20 }, null).intervalSec).toBe(20)
+  it('lets wired timing take over from the properties', () => {
+    expect(slideshowSettings({ minTime: 20, maxTime: 40, transitionSec: 1 }, { minTime: 5, maxTime: 8, transitionSec: 3 }))
+      .toMatchObject({ minTime: 5, maxTime: 8, transitionSec: 3 })
+    expect(slideshowSettings({ minTime: 20, maxTime: 40 }, { minTime: null })).toMatchObject({ minTime: 20, maxTime: 40 })
+    // Transitions off is a cut whatever the wire says.
+    expect(slideshowSettings({ transitionsEnabled: false }, { transitionSec: 3 }).transitionSec).toBe(0)
+  })
+
+  it('reads the player\'s timing switches, all off by default', () => {
+    expect(slideshowSettings({})).toMatchObject({ beatTransitions: false, energyPacing: false, dwellsAndBursts: false })
+    expect(slideshowSettings({ beatTransitions: true, energyPacing: true, dwellsAndBursts: true }))
+      .toMatchObject({ beatTransitions: true, energyPacing: true, dwellsAndBursts: true })
   })
 
   it('reports transitions off as a zero-length fade', () => {
@@ -117,7 +129,7 @@ describe('a running Pattern Slideshow', () => {
   beforeEach(() => resetEvaluatorState())
 
   it('starts at the top of the collection and walks it in order', () => {
-    const props = { order: 'Sequential', interval: 1, transitionsEnabled: false }
+    const props = { order: 'Sequential', minTime: 1, maxTime: 1, transitionsEnabled: false }
     runSlideshow(props, 0)
     expect(playingIndex()).toBe(0)
     // Past one interval with no transition, so the advance is a cut and the
@@ -130,16 +142,53 @@ describe('a running Pattern Slideshow', () => {
     expect(playingIndex()).toBe(2)
   })
 
-  it('holds a pattern for the interval it was given', () => {
-    const props = { order: 'Sequential', interval: 10, transitionsEnabled: false }
+  it('holds a pattern for the hold it was given', () => {
+    const props = { order: 'Sequential', minTime: 10, maxTime: 10, transitionsEnabled: false }
     runSlideshow(props, 0)
     runSlideshow(props, 9.5)
     expect(playingIndex()).toBe(0)
   })
 
+  it('draws each hold between Min Time and Max Time', () => {
+    const props = { order: 'Sequential', minTime: 2, maxTime: 4, transitionsEnabled: false, seed: 7 }
+    // The hold is measured frame by frame, so every frame of the range runs.
+    let changedAt: number | null = null
+    for (let frame = 0; frame <= 5 * 60 && changedAt === null; frame++) {
+      runSlideshow(props, frame / 60)
+      if (playingIndex() !== 0) changedAt = frame / 60
+    }
+    expect(changedAt).not.toBeNull()
+    expect(changedAt!).toBeGreaterThanOrEqual(2)
+    expect(changedAt!).toBeLessThanOrEqual(4 + 1 / 30)
+  })
+
+  it('waits for a beat after the hold when Beat Transitions is on, even with Audio Reactive off', () => {
+    const provider = node('mic-provider', 'MicInput')
+    const audioNode = node('audio', 'Audio', { sourceId: 'mic-provider' })
+    const sound = (beat: boolean): AudioSignal => ({
+      active: true, micActive: true, beat,
+      micBass: 0.5, micMids: 0.5, micTreble: 0.5,
+      spectrum: [], detectorSpectrum: [],
+    })
+    const extra = (beat: boolean) => ({
+      nodes: [provider, audioNode],
+      edges: [edge('ea', 'audio', 'audio', 'show', 'audio')],
+      audioOverride: sound(beat),
+    })
+    const props = { order: 'Sequential', minTime: 1, maxTime: 1, transitionsEnabled: false, beatTransitions: true }
+    runSlideshow(props, 0, extra(false))
+    runSlideshow(props, 2, extra(false))
+    runSlideshow(props, 2.1, extra(false))
+    // Well past the hold, and still no beat.
+    expect(playingIndex()).toBe(0)
+    runSlideshow(props, 2.2, extra(true))
+    runSlideshow(props, 2.3, extra(true))
+    expect(playingIndex()).toBe(1)
+  })
+
   it('moves the running pattern the moment a control steps, with no confirm', () => {
     // Without transitions a step is a cut, so the LEDs change on this frame.
-    const props = { order: 'Sequential', interval: 9999, transitionsEnabled: false }
+    const props = { order: 'Sequential', minTime: 9999, maxTime: 9999, transitionsEnabled: false }
     const extra = {
       nodes: [node('ctl', 'ControlMap', {}), node('knob', 'PotInput', { pin: 34 })],
       edges: [
@@ -177,7 +226,7 @@ describe('a running Pattern Slideshow', () => {
       edges: [edge('ea', 'audio', 'audio', 'show', 'audio')],
       audioOverride: silent,
     }
-    const props = { audioReactive: true, order: 'Sequential', interval: 9999, transitionsEnabled: false }
+    const props = { audioReactive: true, order: 'Sequential', minTime: 9999, maxTime: 9999, transitionsEnabled: false }
 
     const lit = runSlideshow(props, 0, extra)!
     const halfway = runSlideshow(props, 0.25, extra)!
@@ -238,6 +287,18 @@ describe('what the graph refuses', () => {
     expect(deaf.errors.join(' ')).toContain('Audio-reactive Pattern Slideshow has no audio')
     const still = validateGraph([collection, node('show', 'PatternSlideshow', { audioReactive: false }), out], wiring)
     expect(still.errors.join(' ')).not.toContain('has no audio')
+  })
+
+  it('warns that Beat Transitions with no audio never changes pattern', () => {
+    const wiring = [
+      edge('e1', 'coll', 'patternset', 'show', 'patternset'),
+      edge('e2', 'show', 'frame', 'out', 'frame'),
+    ]
+    const deaf = validateGraph([collection, node('show', 'PatternSlideshow', { beatTransitions: true }), out], wiring)
+    expect(deaf.warnings.join(' ')).toContain('waits for beats it cannot hear')
+    expect(deaf.errors.join(' ')).not.toContain('beats')
+    const timed = validateGraph([collection, node('show', 'PatternSlideshow', {}), out], wiring)
+    expect(timed.warnings.join(' ')).not.toContain('beats it cannot hear')
   })
 
   it('accepts a live source', () => {

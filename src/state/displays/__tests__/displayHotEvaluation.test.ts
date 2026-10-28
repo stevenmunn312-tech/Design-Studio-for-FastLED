@@ -37,7 +37,7 @@ const graph = () => ({
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
     node('coll', 'PatternCollection', { patternIds: ['grp-a', 'grp-b'] }),
     node('w', 'PatternSlideshow', {
-      order: 'Sequential', interval: 1, transitionsEnabled: false,
+      order: 'Sequential', minTime: 1, maxTime: 1, transitionsEnabled: false,
     }),
     node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64' }),
     node('seg', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19 }),

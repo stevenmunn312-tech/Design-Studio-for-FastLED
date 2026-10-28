@@ -620,11 +620,12 @@ drifts — a list beside one generator says nothing about the other two.
   exclusions explicitly. Never offer a control that only works in preview.
   → `src/state/player/runtimeControlScope.ts` is the list. Live fields that already
   have a verified property input: Music Player `volume` / `minTime` /
-  `maxTime` / `transitionSec`; Slideshow `interval`; Player Particles
+  `maxTime` / `transitionSec`; Slideshow `minTime` / `maxTime` /
+  `transitionSec`; Player Particles
   `enabled` / `intensity` / `randomStyle` / `randomColor`; LED output
   `enabled` / `outputBrightness`; every display's `enabled`. Bake-time
   authoring knobs stay off that list on purpose (Music Player `seed`,
-  Slideshow order/transitions/audio-reactive/seed, every Performance
+  Slideshow order, timing switches, transitions, audio-reactive and seed, every Performance
   Generator generate-time field including `useGroupInputs`, Sequencer
   interval/fade, Transition style knobs) so a socket cannot work in
   preview and compile to the value frozen at Generate.
