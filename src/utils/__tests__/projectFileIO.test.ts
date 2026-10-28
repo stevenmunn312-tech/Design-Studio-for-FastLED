@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { parseProjectFile, serializeProject } from '../projectFileIO'
+import { describe, it, expect, afterEach } from 'vitest'
+import { openProjectWithNativePicker, parseProjectFile, serializeProject } from '../projectFileIO'
 import { DEFAULT_DISPLAY_THEME, type DisplayDocument } from '../../state/displays/displayDocument'
 
 // todo.md's P0 trust-boundary item: a project file must never be able to
@@ -146,5 +146,25 @@ describe('parseProjectFile — upload targets', () => {
     const { project } = parseProjectFile(file({ uploadTargets: { 'board-root': primary, 'board-2': second } }), 'fallback')
     const again = parseProjectFile(serializeProject(project), 'fallback').project
     expect(again.uploadTargets).toEqual({ 'board-root': primary, 'board-2': second })
+  })
+})
+
+// Chrome rejects the whole picker call when an accept extension has a second
+// dot or anything but letters and digits after its one dot, so Open Project
+// File reported that the browser could not open its picker.
+describe('native project picker', () => {
+  const pickerWindow = window as unknown as { showOpenFilePicker?: unknown }
+  afterEach(() => { delete pickerWindow.showOpenFilePicker })
+
+  it('filters on extensions Chrome accepts', async () => {
+    let options: { types?: { accept: Record<string, string[]> }[] } | undefined
+    pickerWindow.showOpenFilePicker = async (given: typeof options) => {
+      options = given
+      return [{ getFile: async () => new File(['{}'], 'a.fastled-project.json') }]
+    }
+    await openProjectWithNativePicker()
+    const extensions = (options?.types ?? []).flatMap((type) => Object.values(type.accept).flat())
+    expect(extensions.length).toBeGreaterThan(0)
+    for (const extension of extensions) expect(extension).toMatch(/^\.[A-Za-z0-9]{1,16}$/)
   })
 })

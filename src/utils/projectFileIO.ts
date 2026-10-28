@@ -39,9 +39,13 @@ interface NativeFilePickerWindow extends Window {
 }
 
 const PROJECT_FILE_SUFFIX = '.fastled-project.json'
+// The picker filters on `.json`, not the full suffix: Chrome refuses an
+// extension with a second dot ("contains invalid characters") and rejects the
+// whole call, so Open and Save never showed a dialog. Saves still get the
+// full suffix from `suggestedName`.
 const PROJECT_SAVE_FILE_TYPES: FilePickerAcceptType[] = [{
   description: 'Design Studio for FastLED Project',
-  accept: { 'application/json': [PROJECT_FILE_SUFFIX] },
+  accept: { 'application/json': ['.json'] },
 }]
 // Without the helper a browser picker cannot be pointed at the Projects
 // folder; a shared id makes Open start wherever projects were last saved.
