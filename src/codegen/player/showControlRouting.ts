@@ -18,7 +18,7 @@ export { controlBundleVariable, showControlOutputIds, showControlTargets } from 
 export const SHOW_SELECTION_STEM = 'show'
 
 /** Slideshow timing sockets the controller reads live. */
-const SHOW_TIMING_PORTS = ['minTime', 'maxTime', 'transitionSec'] as const
+const SHOW_TIMING_PORTS = ['interval', 'minTime', 'maxTime', 'transitionSec'] as const
 export type ShowTimingPort = (typeof SHOW_TIMING_PORTS)[number]
 
 /** The show's running pattern index, readable from anywhere in the sketch. */

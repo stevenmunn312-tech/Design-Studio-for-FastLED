@@ -194,7 +194,7 @@ describe('show scratch-buffer pool', () => {
   function showSketch(groups: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }>) {
     const nodes = [
       node('pc', 'PatternCollection', { patternIds: Object.keys(groups) }),
-      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
       node('o', 'MatrixOutput', { width: 8, height: 8 }),
     ]
     const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'o', 'frame')]

@@ -209,7 +209,7 @@ describe('templates', () => {
   } as unknown as GroupRegistry
   const show = [
     node('pc', 'PatternCollection', { patternIds: ['g0'] }),
-    node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
+    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
     node('out', 'MatrixOutput', { width: 8, height: 8 }),
   ]
   const showEdges = [edge('pc', 'patternset', 'pm', 'patternset'), edge('pm', 'frame', 'out', 'frame')]

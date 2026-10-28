@@ -1569,9 +1569,10 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // `evalPatternShow`, one selection contract, the player's timing. What
     // differs is only audio the patterns ignore unless asked.
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
-    const wired = (port: 'minTime' | 'maxTime' | 'transitionSec', fallback: number) =>
+    const wired = (port: 'interval' | 'minTime' | 'maxTime' | 'transitionSec', fallback: number) =>
       incoming.has(`${id}:${port}`) ? num(id, port, props, port, fallback) : null
     const settings = slideshowSettings(props, {
+      interval: wired('interval', 20),
       minTime: wired('minTime', 20),
       maxTime: wired('maxTime', 20),
       transitionSec: wired('transitionSec', 1.5),
@@ -1581,9 +1582,10 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // a microphone attached holds still until it is asked to react, because
     // the mode exists for patterns that should not twitch at room noise.
     const audio = settings.audioReactive && isAudioSignal(audioSignal) ? audioSignal : null
-    // Beat Transitions and Energy Pacing are switches of their own, so they
-    // read the wire whatever Audio Reactive says. A source that is not live
-    // reads as no audio, as it does for the Music Player.
+    // Beat Transitions and Energy Pacing read the same wire, and only with
+    // Audio Reactive on (slideshowSettings turns them off without it). A
+    // source that is not live reads as no audio, as it does for the Music
+    // Player.
     const timingAudio = isAudioSignal(audioSignal) && audioSignal.active ? audioSignal : null
     // Energy Pacing with nothing to measure stays off, as the firmware leaves
     // it out where there is no audio host.

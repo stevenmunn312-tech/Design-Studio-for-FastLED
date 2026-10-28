@@ -205,13 +205,12 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
      * `isPatternShow` keys on it, so the three generators are told apart by
      * which node is present rather than by which hardware is absent.
      *
-     * Timing is the player's: the same Min/Max hold, fade, Beat Transitions,
-     * Energy Pacing and Dwells & Bursts, read by the same resolver. What
-     * differs is what a slideshow actually needs: transitions that default to
-     * a fade without requiring a TransitionSet, and reactivity off unless
-     * asked for — the point of the mode is slow patterns that do not twitch at
-     * room noise. Beat and energy timing read wired audio either way, because
-     * each is its own explicit switch.
+     * Timing is a fixed Interval until Audio Reactive is on, and then it is
+     * the player's: the same Min/Max hold, Beat Transitions, Energy Pacing and
+     * Dwells & Bursts, read by the same resolver. What differs is what a
+     * slideshow actually needs: transitions that default to a fade without
+     * requiring a TransitionSet, and reactivity off unless asked for — the
+     * point of the mode is slow patterns that do not twitch at room noise.
      * See docs/design/generative-pattern-show.md#pattern-slideshow.
      */
     type: 'PatternSlideshow',
@@ -225,12 +224,13 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       { id: 'controls',    label: 'Controls',    dataType: 'playercontrols' },
       { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
+      { id: 'interval',    label: 'Interval',    dataType: 'float' },
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
       ...playerControlActionPortsFor('engine'),
     ],
-    propertyInputs: { minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
+    propertyInputs: { interval: 'interval', minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
     actionInputs: playerControlActionPortsFor('engine').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
@@ -239,14 +239,17 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     ],
     defaultProperties: {
       order: 'Random',
+      audioReactive: false,
+      // Timing rows draw in this order: Interval, the transitions and fade
+      // that always apply, then the timing Audio Reactive turns on.
+      interval: 20,
+      transitionsEnabled: true,
+      transitionSec: 1.5,
       beatTransitions: false,
       minTime: 20,
       maxTime: 20,
-      transitionsEnabled: true,
-      transitionSec: 1.5,
       energyPacing: false,
       dwellsAndBursts: false,
-      audioReactive: false,
       seed: 0,
     },
   },

@@ -76,7 +76,7 @@ describe('vuNormalizedLevelCpp', () => {
 describe('firmware capture paths share one meter scale', () => {
   const baseNodes = [
     node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
-    node('master', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
+    node('master', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4, chipset: 'WS2812B', colorOrder: 'GRB' }),
     node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
   ]

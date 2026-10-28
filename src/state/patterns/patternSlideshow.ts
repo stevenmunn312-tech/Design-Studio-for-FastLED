@@ -47,7 +47,10 @@ export function advanceSlideshowSilenceFade(
 
 export interface SlideshowSettings {
   order: PatternSlideshowOrder
-  /** Shortest and longest hold in seconds, the Music Player's pair. */
+  /**
+   * Shortest and longest hold in seconds, the Music Player's pair. Without
+   * Audio Reactive both are the fixed Interval.
+   */
   minTime: number
   maxTime: number
   /**
@@ -55,18 +58,22 @@ export interface SlideshowSettings {
    * which both sides already render as a cut, so "off" needs no second path.
    */
   transitionSec: number
-  /** Wait for a fresh beat once the hold ends; a Sequence hold counts beats. */
+  /**
+   * Wait for a fresh beat once the hold ends; a Sequence hold counts beats.
+   * This and the pacing switches are Audio Reactive's, and off without it.
+   */
   beatTransitions: boolean
   /** Hold pacing, as on the Music Player (patternPacing.ts). */
   energyPacing: boolean
   dwellsAndBursts: boolean
-  /** Whether wired audio reaches the collected patterns at all. */
+  /** Whether wired audio reaches the slideshow at all: patterns and timing. */
   audioReactive: boolean
   seed: number
 }
 
 /** Wired timing inputs, which take over from the matching properties. */
 export interface SlideshowWiredTiming {
+  interval?: number | null
   minTime?: number | null
   maxTime?: number | null
   transitionSec?: number | null
@@ -86,19 +93,25 @@ export function slideshowSettings(
   wired: SlideshowWiredTiming = {},
 ): SlideshowSettings {
   const transitionsOn = props.transitionsEnabled !== false
-  const minTime = Math.max(SLIDESHOW_MIN_INTERVAL_SEC, seconds(wired.minTime, props.minTime, 20))
+  const audioReactive = props.audioReactive === true
+  // Without Audio Reactive the hold is one Interval, and the timing that
+  // varies it is switched off with the sound it would vary it by.
+  const interval = Math.max(SLIDESHOW_MIN_INTERVAL_SEC, seconds(wired.interval, props.interval, 20))
+  const minTime = audioReactive
+    ? Math.max(SLIDESHOW_MIN_INTERVAL_SEC, seconds(wired.minTime, props.minTime, 20))
+    : interval
   const seed = Math.round(Number(props.seed ?? 0))
   return {
     order: asSlideshowOrder(props.order),
     minTime,
-    maxTime: Math.max(minTime, seconds(wired.maxTime, props.maxTime, 20)),
+    maxTime: audioReactive ? Math.max(minTime, seconds(wired.maxTime, props.maxTime, 20)) : interval,
     // A fade of zero with transitions on is a cut the user asked for, so it is
     // left alone rather than floored up to a minimum they did not.
     transitionSec: transitionsOn ? seconds(wired.transitionSec, props.transitionSec, 1.5) : 0,
-    beatTransitions: props.beatTransitions === true,
-    energyPacing: props.energyPacing === true,
-    dwellsAndBursts: props.dwellsAndBursts === true,
-    audioReactive: props.audioReactive === true,
+    beatTransitions: audioReactive && props.beatTransitions === true,
+    energyPacing: audioReactive && props.energyPacing === true,
+    dwellsAndBursts: audioReactive && props.dwellsAndBursts === true,
+    audioReactive,
     seed: Number.isFinite(seed) ? Math.max(0, seed) : 0,
   }
 }

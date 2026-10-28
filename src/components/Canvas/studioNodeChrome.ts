@@ -8,7 +8,7 @@
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../build/pins/pinRetarget'
 import { isHardwareNodeType } from '../../build/hardware'
 import { isHardwarePartField } from '../../build/parts/partFields'
-import { isGpioPinProperty, isInternalProperty, isPropertyEnabled } from '../../state/nodeLibrary'
+import { isGpioPinProperty, isInternalProperty, isPropertyEnabled, showsDisabledProperties } from '../../state/nodeLibrary'
 
 export const CATEGORY_TAG: Record<string, string> = {
   input: 'IN',
@@ -191,7 +191,8 @@ export function editableProperties(
       // greyed rows stop being context and start being the thing you have to
       // read past, so every node hides them and its groups drop out when
       // emptied. A row whose socket is exposed or wired stays, disabled, so
-      // the wire keeps its handle.
-      && (exposedKeys.has(k) || isPropertyEnabled(nodeType, k, props))
+      // the wire keeps its handle. A node with a few gated rows can opt to
+      // keep them all, disabled (showsDisabledProperties).
+      && (exposedKeys.has(k) || showsDisabledProperties(nodeType) || isPropertyEnabled(nodeType, k, props))
   )
 }

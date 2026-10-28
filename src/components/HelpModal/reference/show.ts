@@ -268,7 +268,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       title: 'The smallest show there is',
       nodes: {
         patterns: ['PatternCollection'],
-        slideshow: ['PatternSlideshow', { order: 'Sequential', minTime: 8, maxTime: 8 }],
+        slideshow: ['PatternSlideshow', { order: 'Sequential', interval: 8 }],
       },
       wires: ['patterns.patternset > slideshow.patternset'],
       explanation: 'Pattern Collection holds the patterns; Pattern Slideshow plays them eight seconds each, in order, blending between them. Swap the slideshow for a Music Player to make the same collection dance to music.',
@@ -303,14 +303,14 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
 
   PatternSlideshow: {
     overview: [
-      'Pattern Slideshow plays a Pattern Collection on a timer — the show without the music. Each pattern holds for a random time between Min Time and Max Time, then blends into the next. Set the two equal for a fixed hold.',
+      'Pattern Slideshow plays a Pattern Collection on a timer — the show without the music. Each pattern holds for Interval seconds, then blends into the next.',
       'Sequential walks the collection in order and skips a weight of 0. Random never repeats the pattern just shown, and a higher weight is chosen more often. Sequence loops the steps you edit with Add step and Edit sequence: a pattern or a tag, a hold, and a transition, and a step can ramp speed, brightness, energy or a named input. An empty sequence holds the current pattern. Previous and Next move between those steps. The slideshow does not read energy tags unless a step asks for a band. Display feeds a panel that shows which pattern is playing.',
       'Turn on Audio Reactive to let audio patterns in the collection listen to a wired Audio source; in silence they fade to black.',
-      'The timing switches are the Music Player’s. Beat Transitions waits for a beat after each hold, and a Sequence hold counts beats. Energy Pacing shortens holds while the sound is intense. Dwells & Bursts now and then holds one pattern longer or changes several in quick succession. Beat Transitions and Energy Pacing read the wired Audio even with Audio Reactive off.',
+      'Audio Reactive also swaps Interval for the Music Player’s timing. Each hold is a random time between Min Time and Max Time. Beat Transitions waits for a beat after each hold, and a Sequence hold counts beats. Energy Pacing shortens holds while the sound is intense. Dwells & Bursts now and then holds one pattern longer or changes several in quick succession.',
     ],
-    propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Min Time, Max Time, and Transition inputs override their matching fields.',
+    propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Interval, Min Time, Max Time, and Transition inputs override their matching fields.',
     inputs: {
-      audio: 'Sound for audio patterns in the collection when Audio Reactive is on, and for Beat Transitions and Energy Pacing.',
+      audio: 'Sound for audio patterns in the collection, Beat Transitions and Energy Pacing, when Audio Reactive is on.',
       controls: 'A Controls bundle for stepping through the patterns.',
       patternset: 'The patterns to play, from a Pattern Collection.',
       transitions: 'A Transition Pool to choose blend styles from.',
@@ -326,7 +326,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       nodes: {
         patterns: ['PatternCollection'],
         skip: ['ButtonInput'],
-        slideshow: ['PatternSlideshow', { order: 'Random', minTime: 20, maxTime: 20, transitionSec: 1.5 }],
+        slideshow: ['PatternSlideshow', { order: 'Random', interval: 20, transitionSec: 1.5 }],
       },
       wires: ['patterns.patternset > slideshow.patternset', 'skip.pressed > slideshow.patternNext'],
       explanation: 'Pattern Slideshow shows a random pattern from the collection every twenty seconds, blending over a second and a half. A Button on Next Pattern lets anyone skip ahead.',

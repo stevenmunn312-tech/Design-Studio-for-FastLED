@@ -249,7 +249,7 @@ describe('captureSequence', () => {
     const nodes = [
       node('collection', 'PatternCollection', 'show', { patternIds: ['a', 'b'] }),
       node('show', 'PatternSlideshow', 'show', {
-        order: 'Sequential', minTime: 1, maxTime: 1, transitionsEnabled: false,
+        order: 'Sequential', interval: 1, transitionsEnabled: false,
       }),
       node('speed', 'MasterSpeed', 'output', { speed: 0 }),
       node('out', 'MatrixOutput', 'output', { width: 2, height: 2 }),

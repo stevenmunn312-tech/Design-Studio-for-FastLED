@@ -244,16 +244,15 @@ music-free case. Nobody would find that, so nobody did.
 
 **What is different from Music Player**, and why:
 
-- **The Music Player's timing.** Min/Max Time, the fade, Beat Transitions,
-  Energy Pacing and Dwells & Bursts mean what they mean on the player, read
-  through `slideshowSettings` by the preview and `showGenerator.ts`. The
-  slideshow started with one interval, on the reasoning that it has no beat
-  to feel metronomic against; once a microphone could drive it, that stopped
-  being true, so it took the player's set (2026-10-28). Min equal to Max is
-  the old fixed hold and still compiles to one constant. Beat Transitions and
-  Energy Pacing read the wired Audio whatever Audio Reactive says, because
-  each is its own switch; with nothing wired, validation warns that a
-  beat-gated slideshow never changes pattern.
+- **One interval, or the Music Player's timing.** Without Audio Reactive a
+  pattern holds for a fixed Interval, because a slideshow with nothing to
+  listen to has no beat to feel metronomic against. Audio Reactive swaps the
+  Interval for the player's set: Min/Max Time, Beat Transitions, Energy
+  Pacing and Dwells & Bursts mean what they mean on the player. The fade and
+  the Transitions switch apply either way. The preview and `showGenerator.ts`
+  both read this through `slideshowSettings`, which resolves the Interval to
+  Min equal to Max, so a fixed hold still compiles to one constant. The
+  inline editor disables whichever half does not apply.
 - **Transitions are optional, with a fade built in.** Off means a cut. On with
   nothing wired means a fade, rather than requiring a `TransitionSet` to get the
   one transition everybody wants first.

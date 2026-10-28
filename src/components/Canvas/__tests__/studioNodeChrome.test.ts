@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { editableProperties, NODE_WIDTH_OVERRIDES } from '../studioNodeChrome'
-import { libraryDefaults } from '../../../state/nodeLibrary'
+import { isPropertyEnabled, libraryDefaults } from '../../../state/nodeLibrary'
 
 describe('editableProperties', () => {
   it('hides a row the current mode does not use, and its empty group with it', () => {
@@ -30,6 +30,16 @@ describe('editableProperties', () => {
     }).map(([key]) => key)
     expect(keys).not.toContain('color')
     expect(keys).not.toContain('style')
+  })
+
+  it('keeps every Pattern Slideshow timing row, with Audio Reactive deciding which are live', () => {
+    const timing = ['interval', 'beatTransitions', 'minTime', 'maxTime', 'energyPacing', 'dwellsAndBursts']
+    for (const audioReactive of [false, true]) {
+      const props = { ...libraryDefaults('PatternSlideshow'), audioReactive }
+      expect(editableProperties('PatternSlideshow', props).map(([key]) => key)).toEqual(expect.arrayContaining(timing))
+      expect(isPropertyEnabled('PatternSlideshow', 'interval', props)).toBe(!audioReactive)
+      for (const key of timing.slice(1)) expect(isPropertyEnabled('PatternSlideshow', key, props)).toBe(audioReactive)
+    }
   })
 })
 

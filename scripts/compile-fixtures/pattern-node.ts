@@ -739,7 +739,7 @@ const phase11Markers = ['#define RING_LEDS 60', 'CRGB ledsOut[RING_LEDS];', '_ri
 const phase11ShowRing = (() => {
   const nodes = [
     node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-    node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
+    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
     node('out', 'MatrixOutput', { form: 'ring', ledCount: 60, dataPin: 5 }),
   ]
   const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]

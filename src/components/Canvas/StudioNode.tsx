@@ -736,7 +736,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         return (
           <div
             key={key}
-            className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}${connectionHint ? ` ${connectionHintClass(connectionHint)}` : ''}`}
+            className={`${styles.propRow}${gated ? ` ${styles.gated}` : disabled ? ` ${styles.wired}` : ''}${connectionHint ? ` ${connectionHintClass(connectionHint)}` : ''}`}
             title={hintedTitle}
             /* A noodle dropped on the row exposes this socket and lands on it,
                so a hidden property is still a drop target. The canvas reads

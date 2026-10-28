@@ -1040,7 +1040,7 @@ export function generateShowSketch(
   // A pool of one is a constant style, with nothing to draw from.
   const pooled = transitions && info.transitionIds.length > 1
   // Beat and energy timing read the slideshow's own Audio wire, as the preview
-  // does, whatever Audio Reactive says.
+  // does. Both are off unless Audio Reactive is on (slideshowSettings).
   const timingAudio = slideshowAudioConnected && !!audio
   const beatGated = rotates && info.beatTransitions
   // Sequence holds count beats; Sequential and Random draw a hold between Min
@@ -1371,16 +1371,20 @@ export function generateShowSketch(
   // Mirrors evalPatternShow.
   // A fixed hold stays one constant; anything that can vary it goes through
   // the Music Player's pacing helper.
+  // Without Audio Reactive both ends of the hold are the Interval, wired or not.
+  const holdInputs = info.audioReactive
+    ? { minTime: controls.timingInputs.minTime, maxTime: controls.timingInputs.maxTime }
+    : { minTime: controls.timingInputs.interval, maxTime: controls.timingInputs.interval }
   const pacing = holdTiming && (info.minTime !== info.maxTime || pacingOptions.energyPacing || pacingOptions.dwellsAndBursts
-    || !!controls.timingInputs.minTime || !!controls.timingInputs.maxTime)
+    || !!holdInputs.minTime || !!holdInputs.maxTime)
     // Only a cursor step mid-transition restarts a hold.
     ? patternPacingCpp(pacingOptions, 'now', transitions && selection.used)
     : null
   const dwellMs = Math.round(info.minTime * 1000)
   const transMs = Math.round(info.transitionSec * 1000)
   const timingExpr = (port: 'minTime' | 'maxTime' | 'transitionSec', value: number) =>
-    controls.timingInputs[port] ?? `${value.toFixed(4)}f`
-  // Read every pass, so a wired Min, Max or Transition moves the show live.
+    (port === 'transitionSec' ? controls.timingInputs.transitionSec : holdInputs[port]) ?? `${value.toFixed(4)}f`
+  // Read every pass, so a wired Interval, Min, Max or Transition moves the show live.
   const transDur = controls.timingInputs.transitionSec ? 'transitionMs' : String(transMs)
   const holdDue = pacing ? 'paceHoldMs()' : String(dwellMs)
   const beatDue = beatGated ? ' && beatEdge' : ''

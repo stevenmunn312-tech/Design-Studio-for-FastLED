@@ -638,6 +638,13 @@ span.connectionBlocked {
   opacity: 0.7;
 }
 
+/* A property the node's current mode ignores: dimmer than a wired one,
+   which is still live, so the rows that apply stand out beside it. */
+.propRow.gated .propKey,
+.propRow.gated .propVal {
+  opacity: 0.4;
+}
+
 .propRow :disabled {
   opacity: 0.45;
   cursor: not-allowed;
