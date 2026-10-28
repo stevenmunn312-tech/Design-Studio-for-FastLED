@@ -1145,6 +1145,7 @@ export function generateShowSketch(
     : hw
   for (const d of overclockDefineCpp(sharedHw)) L.push(d)
   if (audio) L.push(...audio.preInclude)
+  const fastLedIncludeAt = L.length
   L.push('#include <FastLED.h>')
   if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))
   if (audio) L.push(audio.include)
@@ -1682,16 +1683,26 @@ export function generateShowSketch(
 
   // The show draws from FastLED's random8, which randomSeed() does not touch;
   // a collected pattern may call Arduino's random(), which only it seeds. Each
-  // generator is seeded only when something calls it. Spliced before the
+  // generator is seeded only when something calls it. ESP32 seeds from its
+  // hardware RNG: A0 is a real GPIO there (GPIO 1 on the S3, the default LED
+  // data pin), so reading it samples the pin's own output. Spliced before the
   // palettes, whose marker sits above this one.
   const body = L.join('\n')
   const usesFastLedRandom = /\brandom(?:8|16)\(/.test(body)
+  const seedLines = (call: string) => [
+    '#if defined(ESP32)',
+    `  ${call}(esp_random());`,
+    '#else',
+    `  ${call}(analogRead(A0));`,
+    '#endif',
+  ]
+  const entropySeeds = info.seed ? [] : [
+    ...(usesFastLedRandom ? seedLines('random16_add_entropy') : []),
+    ...(/\brandom\(/.test(body) ? seedLines('randomSeed') : []),
+  ]
   L.splice(seedMarker, 1, ...(info.seed
     ? usesFastLedRandom ? [`  random16_set_seed(${info.seed}u);`] : []
-    : [
-        ...(usesFastLedRandom ? ['  random16_add_entropy(analogRead(A0));'] : []),
-        ...(/\brandom\(/.test(body) ? ['  randomSeed(analogRead(A0));'] : []),
-      ]))
+    : entropySeeds))
 
   // Splice in only the palettes something else in the sketch actually names.
   const paletteDecls = customPaletteDeclarationsCpp()
@@ -1700,6 +1711,9 @@ export function generateShowSketch(
     const symbol = /^CRGBPalette16 (paldef_[A-Za-z0-9_]+)\(/.exec(decl)?.[1]
     return symbol ? new RegExp(`\\b${symbol}\\b`).test(withoutPalettes) : true
   }))
+  // Neither Arduino.h nor FastLED.h declares esp_random() on core 3.x. Last,
+  // because every marker above sits below the include.
+  if (entropySeeds.length) L.splice(fastLedIncludeAt, 0, '#if defined(ESP32)', '#include <esp_random.h>', '#endif')
 
   return withLedDriver(
     withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes)))),

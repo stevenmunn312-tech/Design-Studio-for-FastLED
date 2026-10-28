@@ -267,6 +267,23 @@ describe('showGenerator', () => {
     expect(cpp).not.toContain('randomSeed(analogRead(A0));')
   })
 
+  it('seeds an ESP32 show from the hardware RNG, never the A0 pin', () => {
+    const show = (profileId: string) => generateShowSketch([
+      node('board', 'Board', { profileId }),
+      node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, order: 'Random' }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 1, chipset: 'WS2812B', colorOrder: 'GRB' }),
+    ], edges, groups)
+    // A0 is GPIO 1 on the S3, here the LED data pin.
+    const esp = show('generic-esp32-s3-n16r8-44pin-dual-usbc')
+    expect(esp).toContain('#include <esp_random.h>\n#include <FastLED.h>')
+    expect(esp).toContain('random16_add_entropy(esp_random());')
+    expect(esp).not.toContain('analogRead(A0)')
+    const samd = show('adafruit-feather-m4-express')
+    expect(samd).toContain('random16_add_entropy(analogRead(A0));')
+    expect(samd).not.toContain('esp_random')
+  })
+
   it('applies Board policy and LED output hardware settings to the controller sketch', () => {
     const board = node('board', 'Board', { brightness: 64, overclock: 1.2 })
     const out = node('out', 'MatrixOutput', {
