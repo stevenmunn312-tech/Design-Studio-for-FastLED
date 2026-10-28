@@ -775,7 +775,9 @@ describe('MenuBar file menu', () => {
       suggestedName: 'alpha Copy.fastled-project.json',
       types: [{
         description: 'Design Studio for FastLED Project',
-        accept: { 'application/json': ['.fastled-project.json'] },
+        // Chrome refuses an accept extension with a second dot; the full
+        // suffix comes from suggestedName.
+        accept: { 'application/json': ['.json'] },
       }],
     }))
     expect(JSON.parse(written)).toMatchObject({
