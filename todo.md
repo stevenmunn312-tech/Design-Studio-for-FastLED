@@ -386,6 +386,11 @@ chooses the supported combinations from whatever is on record at release.
     [#1672](https://github.com/FastLED/fbuild/issues/1672)) and Windows long
     paths ([#1673](https://github.com/FastLED/fbuild/issues/1673)). Drop each
     workaround as its fix lands.
+  - Arduino Nano ESP32 ([#1760](https://github.com/FastLED/fbuild/issues/1760)):
+    fixed on fbuild `main` by #1764 (merged 2026-10-27 19:29 UTC, after
+    v2.5.47). When a release contains `40868957`, move the pin to it and
+    rebuild `nano-esp32/nano-esp32@nano-esp32` with the `Compile matrix`
+    workflow (`-f engine=fbuild -f only=nano-esp32/nano-esp32@nano-esp32`).
   - Recompile the RP2040 IR fbuild leg on that release (#1719 fixed on
     `main` by #1721).
   - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
