@@ -61,6 +61,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Decoder-fed Beat Detect nodes can supply SD control pulses; other unsupported
   audio/control sources must fail validation rather than silently use the decoder.
   Authored Performance Generator event schedules do not use this option.
+- **Music Source is where the music comes from, not a second player.**
+  `musicSource` is `SD Card` or `Bluetooth`; `musicPlayerSource` and
+  `musicPlayerHasMusic` in `src/state/upload/buildMode.ts` are the one answer
+  the build mode, the decoder capability, validation and RMT network accounting
+  all read. A Bluetooth player builds the same generic player sketch with
+  `opts.bluetooth`: `codegen/player/bluetoothSinkCpp.ts` gives the A2DP sink the
+  shape of ESP32-audioI2S's `Audio` (`BluetoothAudio audio`), so transport,
+  panels and song accessors keep calling `audio.*`, and only the card, track
+  walk and serial file transfer drop out. Its clock is the time the phone's
+  track has streamed, rewound on an AVRCP track change. The tap reads the raw
+  stream before the sink's volume, so `_decoderVolumeComp` stays 1. AVRCP
+  metadata arrives on the Bluetooth task and reaches the song fields only
+  through `songPoll()` in the loop. Classic ESP32 only (Bluetooth Classic),
+  I2S stage only, arduino-cli only (fbuild compiles every cached `lib/`
+  directory into every board). Preview plays local tracks either way.
 - Music Player's `order` property uses the same Random/Sequential choices and
   `asSlideshowOrder` resolver as Pattern Slideshow. Preview passes the choice
   into `evalPatternShow`; `buildShowPlayer` passes the selected engine's choice

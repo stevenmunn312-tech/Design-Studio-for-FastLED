@@ -89,7 +89,7 @@ describe('property groups', () => {
   })
 
   it('leads with the master controls rather than trailing them ungrouped', () => {
-    expect(PROPERTY_GROUPS.PatternMaster[0]).toEqual({ key: 'playback', label: 'Playback', keys: ['volume', 'order', 'sequence'] })
+    expect(PROPERTY_GROUPS.PatternMaster[0]).toEqual({ key: 'playback', label: 'Playback', keys: ['musicSource', 'bluetoothName', 'volume', 'order', 'sequence'] })
     expect(PROPERTY_GROUPS.MatrixOutput[0]).toEqual({ key: 'output', label: 'Output', keys: ['enabled', 'outputBrightness'] })
     expect(PROPERTY_GROUPS.ColorTrails[0].keys).toEqual(['bass', 'mids', 'treble'])
   })

@@ -25,10 +25,19 @@ export const SONG_FIELD_BYTES = 64
  * kind of wrong: everything on the panel looks right except the one line
  * nobody thinks to doubt.
  */
-export const PLAYER_SONG_INFO_CPP = `// ── Song information ────────────────────────────────────────────────────────
+const SONG_INFO_INTRO = {
+  'SD Card': `// ── Song information ────────────────────────────────────────────────────────
 // Scraped from the file's own tags. A card the app has never seen is the normal
 // case, so whatever the file carries is what the display can show.
-#define SONG_FIELD_BYTES ${SONG_FIELD_BYTES}
+`,
+  // AVRCP sends the phone's own track details; a phone that sends none leaves
+  // every field blank, which reads as no track rather than a stale one.
+  Bluetooth: `// ── Song information ────────────────────────────────────────────────────────
+// What the phone reports over AVRCP for the track it is streaming.
+`,
+} as const
+
+const SONG_INFO_FIELDS_CPP = `#define SONG_FIELD_BYTES ${SONG_FIELD_BYTES}
 
 static char songTitle[SONG_FIELD_BYTES]  = "";
 static char songArtist[SONG_FIELD_BYTES] = "";
@@ -54,7 +63,10 @@ static void songReset(const char *fallbackTitle) {
   if (fallbackTitle && fallbackTitle[0]) _songSet(songTitle, fallbackTitle);
 }
 
-// "Title: x", "Artist: x", ... one line per call, arriving after playback
+`
+
+/** Tag and bitrate callbacks from ESP32-audioI2S, and the filename fallback. */
+const SONG_INFO_FILE_TAGS_CPP = `// "Title: x", "Artist: x", ... one line per call, arriving after playback
 // starts rather than at open.
 void audio_id3data(const char *info) {
   const char *sep = strchr(info, ':');
@@ -91,7 +103,9 @@ static void songResetFromFile(const char *fileName) {
   songReset(base);
 }
 
-static float songElapsedSec() { return (float)audio.getAudioCurrentTime(); }
+`
+
+const SONG_INFO_ACCESSORS_CPP = `static float songElapsedSec() { return (float)audio.getAudioCurrentTime(); }
 static float songDurationSec() { return (float)audio.getAudioFileDuration(); }
 
 static float songRemainingSec() {
@@ -117,6 +131,19 @@ static const char *songStatus() {
   return songElapsedSec() > 0.0f ? "PAUSED" : "STOPPED";
 }
 `
+
+/**
+ * The song block for the player's music source. The SD player fills the
+ * fields from the file's tags; the Bluetooth player from what the phone
+ * reports, copied in by songPoll() (bluetoothSinkCpp.ts).
+ */
+export function playerSongInfoCpp(source: 'SD Card' | 'Bluetooth' = 'SD Card'): string {
+  return SONG_INFO_INTRO[source] + SONG_INFO_FIELDS_CPP
+    + (source === 'SD Card' ? SONG_INFO_FILE_TAGS_CPP : '')
+    + SONG_INFO_ACCESSORS_CPP
+}
+
+export const PLAYER_SONG_INFO_CPP = playerSongInfoCpp()
 
 /**
  * The player-side expression behind each Music Player output port.

@@ -42,7 +42,8 @@ import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { boardSupportsTelemetry } from '../codegen/deviceTelemetryCpp'
 import { wiredPatternCollection, wiredTransitionStyles } from '../state/patterns/patternCollectionWiring'
 import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/player/showFreshness'
-import { resolveBuildMode } from '../state/upload/buildMode'
+import { musicPlayerSource, resolveBuildMode } from '../state/upload/buildMode'
+import { bluetoothDeviceName } from '../state/player/bluetoothSink'
 import { asSlideshowOrder } from '../state/patterns/patternSlideshow'
 import { asPatternSteps } from '../state/patterns/patternSequence'
 
@@ -234,6 +235,9 @@ export function buildShowPlayer(
     stereoVuMeters,
     bootLabel: opts.projectName,
     deviceLabel: selectedPhysicalBoardProfile(nodes)?.label,
+    bluetooth: opts.genericPlayer && selectedEngine && musicPlayerSource(selectedEngine) === 'Bluetooth'
+      ? { name: bluetoothDeviceName(pgProps.bluetoothName) }
+      : undefined,
   })
 }
 
@@ -365,7 +369,9 @@ export function buildShowPayload(
   const files: ShowUploadFile[] = []
   const playerCode = cppCode(player)
   const roleCommands = new Set(['SET_PALETTE', 'SET_SPEED', 'SET_ENERGY'])
-  for (const e of done) {
+  // A Bluetooth player's music is on the phone: flash it, and write no card.
+  const bluetooth = genericPlayer && !!build.engine && musicPlayerSource(build.engine) === 'Bluetooth'
+  for (const e of bluetooth ? [] : done) {
     const title = safeTitle(e.show!.songTitle)
     files.push({ path: `/music/${title}.mp3`, data: e.file })
     // A music player never opens a show file.

@@ -257,6 +257,18 @@ _FBUILD_AUDIO_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-audioI2S"
 _ARDUINO_AUDIO_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "ESP32-audioI2S"
 _PLAYER_AUDIO_VERSION = "3.0.12"
 _arduino_audio_lock = threading.Lock()
+# A Music Player whose source is Bluetooth is an A2DP speaker instead
+# (bluetoothSinkCpp.ts). ESP32-A2DP receives the phone's stream and writes it
+# through arduino-audio-tools' I2S output, the only output it has on IDF 5.
+# Both pinned for the same reason as ESP32-audioI2S, and fetched only when a
+# sketch includes the sink. Arduino CLI only: fbuild compiles every directory
+# under its project lib/, so a cached copy would reach every other board.
+_BLUETOOTH_A2DP_INCLUDE = '#include "BluetoothA2DPSink.h"'
+_BLUETOOTH_A2DP_VERSION = "v1.8.9"
+_BLUETOOTH_AUDIO_TOOLS_VERSION = "v1.2.6"
+_ARDUINO_A2DP_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "ESP32-A2DP"
+_ARDUINO_AUDIO_TOOLS_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "arduino-audio-tools"
+_arduino_bluetooth_lock = threading.Lock()
 _FBUILD_ESP_DMX_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "esp_dmx"
 # HUB75 scan-panel output (docs/design/hub75-output.md) — FastLED
 # has no native HUB75 driver, so a HUB75 MatrixOutput route needs this DMA
@@ -1236,6 +1248,51 @@ def _ensure_arduino_audio_lib():
             yield "[error] failed to prepare the pinned Arduino player audio library\n"
             return rc or -1
         marker.write_text(_PLAYER_AUDIO_VERSION, encoding="utf-8")
+        return 0
+
+
+def _clone_pinned_library(label, url, tag, library_dir, sparse_dir=None):
+    """Clone one pinned tag into `library_dir`, replacing any older checkout.
+
+    `sparse_dir` checks out only that directory (plus the root files Arduino
+    reads, such as library.properties). arduino-audio-tools carries hundreds of
+    examples whose paths pass Windows' 260-character limit, and the library
+    itself is all under src/.
+    """
+    library_dir.parent.mkdir(parents=True, exist_ok=True)
+    if library_dir.exists():
+        _remove_build_cache_tree(library_dir)
+    clone = ["git", "-c", "advice.detachedHead=false", "clone", "--progress", "--branch", tag, "--depth", "1"]
+    if sparse_dir:
+        clone += ["--filter=blob:none", "--sparse"]
+    rc = yield from _run_phase(f"vendor {label}", [*clone, url, str(library_dir)])
+    if rc != 0 or not sparse_dir:
+        return rc
+    return (yield from _run_phase(
+        f"vendor {label} sources",
+        ["git", "-C", str(library_dir), "sparse-checkout", "set", sparse_dir],
+    ))
+
+
+def _ensure_arduino_bluetooth_libs():
+    """Vendor the pinned ESP32-A2DP and arduino-audio-tools for a Bluetooth player build."""
+    pins = (
+        ("ESP32-A2DP", "https://github.com/pschatzmann/ESP32-A2DP.git", _BLUETOOTH_A2DP_VERSION,
+         _ARDUINO_A2DP_LIB_DIR, None, "src/BluetoothA2DPSink.h"),
+        ("arduino-audio-tools", "https://github.com/pschatzmann/arduino-audio-tools.git", _BLUETOOTH_AUDIO_TOOLS_VERSION,
+         _ARDUINO_AUDIO_TOOLS_LIB_DIR, "src", "src/AudioTools.h"),
+    )
+    with _arduino_bluetooth_lock:
+        for label, url, tag, library_dir, sparse_dir, header in pins:
+            marker = library_dir / ".fls-version"
+            if (library_dir / header).is_file() and marker.is_file() and marker.read_text(encoding="utf-8") == tag:
+                continue
+            yield f"\n=== vendoring {label} {tag} for Arduino (first Bluetooth player build only) ===\n"
+            rc = yield from _clone_pinned_library(label, url, tag, library_dir, sparse_dir)
+            if rc != 0 or not (library_dir / header).is_file():
+                yield f"[error] failed to prepare the pinned {label} {tag} for the Bluetooth player\n"
+                return rc or -1
+            marker.write_text(tag, encoding="utf-8")
         return 0
 
 

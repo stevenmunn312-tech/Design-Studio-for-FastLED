@@ -110,3 +110,21 @@ describe('audio capability sources', () => {
     expect(resolveAudioCapabilitySource([first, second], 'mic-2')?.id).toBe('mic-2')
   })
 })
+
+describe('Music Player decoder source', () => {
+  it('is the SD card with a card, and the player itself on Bluetooth', () => {
+    const amp = hardware('amp', 'Amplifier')
+    const card = hardware('card', 'SDCard')
+    const sdPlayer = hardware('player', 'PatternMaster', { musicSource: 'SD Card' })
+    expect(audioCapabilitySources([amp, card, sdPlayer])).toMatchObject([
+      { id: 'decoder:card', kind: 'decoder', label: 'Music Player' },
+    ])
+    expect(audioCapabilitySources([amp, sdPlayer])).toEqual([])
+
+    const btPlayer = hardware('player', 'PatternMaster', { musicSource: 'Bluetooth' })
+    expect(audioCapabilitySources([amp, btPlayer])).toMatchObject([
+      { id: 'decoder:player', kind: 'decoder', label: 'Music Player (Bluetooth)' },
+    ])
+    expect(resolveAudioCapabilitySource([amp, btPlayer], audioCapabilityIntent('decoder'))?.id).toBe('decoder:player')
+  })
+})

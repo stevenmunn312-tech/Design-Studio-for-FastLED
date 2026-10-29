@@ -56,7 +56,10 @@ import {
   STRUCTURE_FLAG_BUILDING, STRUCTURE_FLAG_DOWNBEAT, STRUCTURE_FLAG_DROP, STRUCTURE_FLAG_TEMPO_STABLE, STRUCTURE_RECORD_BYTES,
   VIBE_FLAG_BASS_SPIKE, VIBE_FLAG_MID_SPIKE, VIBE_FLAG_TREBLE_SPIKE, VIBE_LEVEL_SCALE, VIBE_RECORD_BYTES,
 } from '../audio/detectorTrack'
-import { PLAYER_SONG_EXPRESSIONS, PLAYER_SONG_INFO_CPP } from './player/playerSongInfoCpp'
+import { PLAYER_SONG_EXPRESSIONS, playerSongInfoCpp } from './player/playerSongInfoCpp'
+import {
+  BLUETOOTH_INCLUDES_CPP, BLUETOOTH_SONG_POLL_CPP, BLUETOOTH_TAP_CPP, bluetoothSinkGlobalsCpp,
+} from './player/bluetoothSinkCpp'
 import type { PlayerDisplays } from './player/playerDisplays'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import {
@@ -485,6 +488,12 @@ export function generatePlayerSketch(
     controlGraph?: PlayerControlGraph; customDisplayAssets?: CustomDisplayAssets
     /** Bench telemetry, decided by the caller who can see the Board. */
     telemetry?: boolean
+    /**
+     * A Music Player whose Music Source is Bluetooth: the board is an A2DP
+     * speaker under this name, and plays the phone's stream instead of the
+     * card's MP3s. Ignored for a show-file player, which needs its card.
+     */
+    bluetooth?: { name: string }
   } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
@@ -536,6 +545,8 @@ export function generatePlayerSketch(
   // collection as well.
   const genericPlayer = opts.genericPlayer === true
   const genericCollection = genericPlayer && collection
+  // The phone is the music source: no card, no track list, no file transfer.
+  const bluetooth = genericPlayer ? opts.bluetooth ?? null : null
   // Ramps and named inputs change the loader. A sketch that was not asked for
   // them keeps the historical parameter check, character for character.
   const rampPlayer = opts.ramps === true && !genericPlayer
@@ -683,7 +694,11 @@ export function generatePlayerSketch(
   // the baked envelope carries levels alone.
   const audioFeatures = audioFeaturesInCode(decoderTap && renderers ? [...renderers.helpers, ...renderers.functions] : [])
   const lines = (block: string[]) => (block.length ? `${block.join('\n')}\n` : '')
-  const internalDac = c.audioOutput === 'internalDac'
+  // The Bluetooth player writes I2S through audio-tools; validation refuses it without an I2S stage.
+  const internalDac = !bluetooth && c.audioOutput === 'internalDac'
+  // The Bluetooth tap reads the stream before the sink's volume; only the
+  // SD decoder's gain needs undoing.
+  const compensateDecoderVolume = decoderTap && needsStereoLevels && !bluetooth
   // A stale saved toggle must never put ESP32-only allocation calls into a
   // sketch for a board with no PSRAM option. Capability and intent are both
   // required.
@@ -1029,14 +1044,14 @@ float playerBrightness = 1.0f;
 float showBrightness = 1.0f;
 bool ledsEnabled = true;
 bool playerPaused = false;
-
+${bluetooth ? '' : `
 bool startPlayback();
-
+`}
 void applyPlayerVolume() {
   uint8_t step = (uint8_t)lroundf(playerVolume * PLAYER_MAX_VOLUME);
   if (step > 21) step = 21;
   audio.setVolume(step);
-${decoderTap && needsStereoLevels ? `  uint8_t attenuated = DECODER_VOLUME_TABLE[step];
+${compensateDecoderVolume ? `  uint8_t attenuated = DECODER_VOLUME_TABLE[step];
   _decoderVolumeComp = attenuated ? 64.0f / (float)attenuated : 1.0f;
 ` : ''}}
 
@@ -1046,14 +1061,17 @@ void applyPlayerBrightness() {
   ${isHub75 ? `dma_display->setBrightness8(value);${hasStereoVu ? ' FastLED.setBrightness(value);' : ''}` : 'FastLED.setBrightness(value);'}
 }
 
+${bluetooth ? `// The phone holds the playlist; the board only asks it to skip.
 void changePlayerTrack(int8_t direction) {
+  if (direction > 0) _a2dp.next(); else _a2dp.previous();
+}` : `void changePlayerTrack(int8_t direction) {
   uint16_t count = playerTrackCount();
   if (!count) return;
   genericTrackIndex = (uint16_t)((genericTrackIndex + count + direction) % count);
   audio.stopSong();
   playerPaused = false;
   playbackReady = startPlayback();
-}
+}`}
 
 ${graphRouting ? '' : `void servicePlayerControls() {
   uint32_t now = millis();
@@ -1305,7 +1323,8 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     ...(customDisplays?.helpers ?? []),
     hasStereoVu ? STEREO_VU_CPP_HELPERS : '',
     hasStereoVu ? stereoVuMeters.map(stereoVuGlobalCpp).join('\n') : '',
-    hasDisplays ? PLAYER_SONG_INFO_CPP : '',
+    hasDisplays ? playerSongInfoCpp(bluetooth ? 'Bluetooth' : 'SD Card') : '',
+    hasDisplays && bluetooth ? BLUETOOTH_SONG_POLL_CPP : '',
     hasInfoDisplays ? infoDisplayHelpersCpp() : '',
     hasInfoDisplays ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
     hasPatternSelection
@@ -1475,14 +1494,24 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
     )
   }
 
-  return finish(`// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}
-// Generated by Design Studio for FastLED. Requires:
+  const requiresCpp = bluetooth
+    ? `// Generated by Design Studio for FastLED. Requires:
+//   - ESP32-A2DP          (pschatzmann/ESP32-A2DP on GitHub)
+//   - arduino-audio-tools (pschatzmann/arduino-audio-tools on GitHub)
+//   - FastLED
+// Hardware: a classic ESP32 (Bluetooth Classic), audio out via an I2S DAC
+// (MAX98357A or PCM5102) on pins below. Pair a phone with ${JSON.stringify(bluetooth.name)} and play.`
+    : `// Generated by Design Studio for FastLED. Requires:
 //   - ESP32-audioI2S  (schreibfaul1/ESP32-audioI2S on GitHub)
 //   - FastLED
 //   - SD (built-in Arduino)
-// Hardware: SD card on SPI, audio out via ${internalDac ? "the ESP32's internal DAC (fixed GPIO25/26 — classic ESP32 only, no ESP32-S3/S2/C3 support)" : 'an I2S DAC (MAX98357A or PCM5102) on pins below'}.
-
-${overclockDefines}${compiledGraph?.includes.length ? `${compiledGraph.includes.join('\n')}\n` : ''}${linkFirmware ? `${linkFirmware.include}\n` : ''}// Arduino-IRremote must be parsed before Audio.h. ESP32-audioI2S puts
+// Hardware: SD card on SPI, audio out via ${internalDac ? "the ESP32's internal DAC (fixed GPIO25/26 — classic ESP32 only, no ESP32-S3/S2/C3 support)" : 'an I2S DAC (MAX98357A or PCM5102) on pins below'}.`
+  const audioIncludesCpp = bluetooth
+    ? `// The Bluetooth headers come before <FastLED.h>, as the SD player's Audio.h does.
+${BLUETOOTH_INCLUDES_CPP}
+#include <FastLED.h>
+${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SPI.h>${i2cIncludeCpp}`
+    : `// Arduino-IRremote must be parsed before Audio.h. ESP32-audioI2S puts
 // "using namespace std" in its public header; IRremote 4.7.1 then sees both its
 // global void_t alias and std::void_t, and its has_ull_print specialization
 // is ambiguous. Include order keeps those independent upstream libraries
@@ -1504,22 +1533,9 @@ ${overclockDefines}${compiledGraph?.includes.length ? `${compiledGraph.includes.
 #include <Audio.h>       // ESP32-audioI2S
 #include <FastLED.h>
 ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
-#include <SPI.h>${i2cIncludeCpp}
-${customDisplays?.includes.filter((include) => include !== '#include <SPI.h>').join('\n') ?? ''}
-// Explicit FastLED-typed declarations keep the Arduino preprocessor from
-// inventing its own before <FastLED.h>, which breaks CRGB names. The
-// display structs are forward-declared here for the same reason: the
-// preprocessor hoists helper prototypes above the point those types are
-// defined, so a helper taking one by reference fails on a line nothing
-// in this generator wrote.
-${[...fastLedDecls].join('\n')}
-${renderers?.helpers.includes(LATTICE_HELPER_CPP) ? LATTICE_CPP_FORWARD + '\n' : ''}
-${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}${environmentSensorForward}${rtcStructForward}${customDisplays?.forwards.join('\n') ?? ''}
-// ── Pin config ────────────────────────────────────────────────────────────────
-${c.hasPrimaryLedOutput && !isHub75 ? `#define LED_DATA_PIN  ${c.ledDataPin}\n` : ''}${clockPinDefine}#define WIDTH         ${c.ledWidth}
-#define HEIGHT        ${c.ledHeight}
-#define NUM_LEDS      ${numLeds}
-${shape ? shapeCountDefineCpp(shape) + '\n' : ''}#define SD_CS         ${c.sdCsPin}
+#include <SPI.h>${i2cIncludeCpp}`
+  // The card's pins and its serial file transfer. A Bluetooth player has neither.
+  const storageDefinesCpp = bluetooth ? '' : `#define SD_CS         ${c.sdCsPin}
 #define SD_SCK        ${c.sdSckPin}
 #define SD_MISO       ${c.sdMisoPin}
 #define SD_MOSI       ${c.sdMosiPin}
@@ -1536,7 +1552,27 @@ ${shape ? shapeCountDefineCpp(shape) + '\n' : ''}#define SD_CS         ${c.sdCsP
 // Safe title (no extension) of the track this sketch was built for. Empty when
 // the payload had none, in which case the loader falls back to scanning.
 static const char* PREFERRED_TRACK = ${JSON.stringify(opts.preferredTrack ?? '')};
+`
 
+  return finish(`// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}
+${requiresCpp}
+
+${overclockDefines}${compiledGraph?.includes.length ? `${compiledGraph.includes.join('\n')}\n` : ''}${linkFirmware ? `${linkFirmware.include}\n` : ''}${audioIncludesCpp}
+${customDisplays?.includes.filter((include) => include !== '#include <SPI.h>').join('\n') ?? ''}
+// Explicit FastLED-typed declarations keep the Arduino preprocessor from
+// inventing its own before <FastLED.h>, which breaks CRGB names. The
+// display structs are forward-declared here for the same reason: the
+// preprocessor hoists helper prototypes above the point those types are
+// defined, so a helper taking one by reference fails on a line nothing
+// in this generator wrote.
+${[...fastLedDecls].join('\n')}
+${renderers?.helpers.includes(LATTICE_HELPER_CPP) ? LATTICE_CPP_FORWARD + '\n' : ''}
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}${environmentSensorForward}${rtcStructForward}${customDisplays?.forwards.join('\n') ?? ''}
+// ── Pin config ────────────────────────────────────────────────────────────────
+${c.hasPrimaryLedOutput && !isHub75 ? `#define LED_DATA_PIN  ${c.ledDataPin}\n` : ''}${clockPinDefine}#define WIDTH         ${c.ledWidth}
+#define HEIGHT        ${c.ledHeight}
+#define NUM_LEDS      ${numLeds}
+${shape ? shapeCountDefineCpp(shape) + '\n' : ''}${storageDefinesCpp}
 ${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       ${c.i2sLrc}\n#define I2S_DOUT      ${c.i2sDout}\n`}
 
 // ── Show file binary format ───────────────────────────────────────────────────
@@ -1572,7 +1608,16 @@ struct ShowEvent {
 CRGB leds[NUM_LEDS];
 ${physicalGlobals.map((line) => line + '\n').join('')}${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}${transitions && drawsFrame ? playerBufferDecl('CRGB showA[NUM_LEDS];             // outgoing pattern during a transition') : ''}
 ${transitions && drawsFrame ? playerBufferDecl('CRGB showB[NUM_LEDS];            // incoming pattern during a transition') : ''}
-Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
+${bluetooth ? `// The player's volume step at full volume: 0-1 volume is set and read
+// against this one scale, so a panel showing it reads back what it sets.
+static const uint8_t PLAYER_MAX_VOLUME = ${c.maxVolume};
+uint32_t audioPosMs = 0;      // how long the phone's current track has streamed
+${bluetoothSinkGlobalsCpp({ name: bluetooth.name, tap: decoderTap, songInfo: hasDisplays, transport: hasControls })}
+
+// The shared SPI helper is a function. Arduino inserts every prototype above
+// the first function body, so it has to follow ShowEvent: beside the pin
+// defines it produced "ShowEvent does not name a type" on applyEvent.
+${SPI_BUS_CPP}` : `Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
 // The library's volume step at full volume: 0-1 volume is set and read
 // against this one scale, so a panel showing it reads back what it sets.
 static const uint8_t PLAYER_MAX_VOLUME = ${c.maxVolume};
@@ -1597,7 +1642,7 @@ void audio_info(const char* info) {
 void audio_eof_mp3(const char* info) {
   audioEnded = true;
   Serial.printf("[audio] EOF %s\\n", info);
-}
+}`}
 
 ${displayHelpersCpp}
 
@@ -1933,7 +1978,7 @@ ${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
   _decoderLevelFrames = validSamples;
   portEXIT_CRITICAL(&_decoderTapMux);
 ` : ''}}
-
+${bluetooth ? `\n${BLUETOOTH_TAP_CPP}\n` : ''}
 void setupDecoderTap() {
   _audioProcessor = fl::make_shared<fl::audio::Processor>();
   if (!_audioProcessor) return;
@@ -2045,7 +2090,7 @@ ${outgoingRoles.map((role) => `      ${prevRole(role).padEnd(13)} = ${role};\n`)
 }
 
 ` : ''}// ── Setup ─────────────────────────────────────────────────────────────────────
-/*
+${bluetooth ? '' : `/*
  * Pick a track and start it. Extracted from setup() so the serial receiver can
  * call it again after new files land — otherwise a card that arrived empty
  * would keep reporting "no playable track" until the board was power-cycled.
@@ -2486,13 +2531,13 @@ void provServiceSerial() {
   }
 }
 
-void setup() {
-  // Large enough to absorb a whole transfer block while the SD write of the
+`}void setup() {
+${bluetooth ? '' : `  // Large enough to absorb a whole transfer block while the SD write of the
   // previous one finishes. Must precede begin() — the ESP32 driver sizes its
   // buffer at init — and the 256-byte default overruns the moment the host
   // raises the link.
   Serial.setRxBufferSize(PROV_RX_BUFFER);
-  Serial.begin(115200);
+`}  Serial.begin(115200);
 
 ${psramAllocs.join('\n')}
 
@@ -2507,7 +2552,10 @@ ${playerServicesStageCpp ? playerServicesStageCpp + '\n' : ''}
 ${genericCollection && !sequentialPatterns && !sequenceActive ? `${patternCount > 1 ? `  patternId = (uint8_t)random(${patternCount});
   prevPatternId = patternId;
 ` : ''}${hasPatternSelection ? `  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, patternId);\n` : ''}` : ''}
-
+${bluetooth ? `
+${decoderTap ? '  setupDecoderTap();   // the phone\'s stream → FastLED audio analysis\n' : ''}  // Advertise as a speaker. A phone that paired before reconnects on its own.
+  audio.begin();
+` : `
   // The protocol's own wording, not a human sentence: the host reads this
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
   // Said once here rather than on every retry, so it stays a greeting the host
@@ -2520,16 +2568,16 @@ ${genericCollection && !sequentialPatterns && !sequenceActive ? `${patternCount 
 ${decoderTap ? '  setupDecoderTap();   // decoded PCM → FastLED audio analysis\n' : ''}
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(PLAYER_MAX_VOLUME);
-${decoderTap && needsStereoLevels ? `  _decoderVolumeComp = ${decoderVolumeComp};   // undo the library gain the tap would otherwise measure
+${compensateDecoderVolume ? `  _decoderVolumeComp = ${decoderVolumeComp};   // undo the library gain the tap would otherwise measure
 ` : ''}
 
   if (sdMounted) playbackReady = startPlayback();
-${playerContentStageCpp ? playerContentStageCpp + '\n' : ''}
+`}${playerContentStageCpp ? playerContentStageCpp + '\n' : ''}
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
 ${pickPrelude}${sequenceActive ? `${sequenceTableCpp(sequenceSteps, patternTiming.beatTransitions)}\n` : ''}void loop() {
-  // Accepting new show files is checked before anything else, so a board that
+${bluetooth ? '' : `  // Accepting new show files is checked before anything else, so a board that
   // found nothing playable still answers the host instead of sitting mute.
   provServiceSerial();
 
@@ -2540,14 +2588,25 @@ ${pickPrelude}${sequenceActive ? `${sequenceTableCpp(sequenceSteps, patternTimin
   if (provTransferring) return;
 
   sdRetryMount();
-${graphRouting ? graphLoopCpp : `${hasControls ? '  servicePlayerControls();\n' : ''}${displayLoopCpp ? displayLoopCpp + '\n' : ''}`}
+`}${graphRouting ? graphLoopCpp : `${hasControls ? '  servicePlayerControls();\n' : ''}${displayLoopCpp ? displayLoopCpp + '\n' : ''}`}
 
   // Heartbeat so a serial monitor can tell "still running, just quiet" apart
   // from "hung" — printed before audio.loop() so it keeps ticking even if
   // that call itself stalls. audioPos not advancing points at playback;
   // pattern/event not advancing with audioPos moving points at show sync.
   static uint32_t _dbgLast = 0;
-  if (!provTransferring && millis() - _dbgLast >= 2000) {
+${bluetooth ? `  if (millis() - _dbgLast >= 2000) {
+    _dbgLast = millis();
+    // bt= says whether a phone is connected: uptime climbing with audioPos at
+    // 0 is otherwise a healthy board nobody has paired with.
+    Serial.printf("[status] uptime=%lus bt=%s audioPos=%lu pattern=%u\\n",
+                  millis() / 1000, _a2dp.is_connected() ? (audio.isRunning() ? "playing" : "connected") : "waiting",
+                  (unsigned long)audioPosMs, patternId);
+  }
+
+  audio.loop();
+${hasDisplays ? '  songPoll();\n' : ''}${decoderTap ? '  updateDecoderAudio();  // drain the phone\'s PCM\n' : ''}
+` : `  if (!provTransferring && millis() - _dbgLast >= 2000) {
     _dbgLast = millis();
     // sd= is here rather than only in the boot greeting because a serial
     // monitor is almost always opened *after* the board has booted, and would
@@ -2560,8 +2619,8 @@ ${graphRouting ? graphLoopCpp : `${hasControls ? '  servicePlayerControls();\n' 
 
   audio.loop();
 ${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has fed I2S/DAC\n' : ''}
-
-${genericPlayer ? `  // A file the library gave up on stops it without an EOF, and nothing would
+`}
+${genericPlayer && !bluetooth ? `  // A file the library gave up on stops it without an EOF, and nothing would
   // ever start the next track: the board sat silent until someone pressed
   // Next. Pausing is the only other way the decoder stops.
   if (playbackReady && !provTransferring && !audioEnded && !audio.isRunning()${hasControls ? ' && !playerPaused' : ''}) {

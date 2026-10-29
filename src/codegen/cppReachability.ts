@@ -53,7 +53,7 @@ const LEXEMES = /R"([^ ()\\\t\r\n]{0,16})\([\s\S]*?\)\1"|"(?:\\[\s\S]|[^"\\])*"|
 const callbacks = new Set(['setup', 'loop', 'serialEvent', 'app_main',
   'audio_info', 'audio_eof_mp3', 'audio_id3data', 'audio_showstreamtitle',
   'audio_bitrate', 'audio_eof_stream', 'audio_showstation', 'audio_process_i2s', 'audio_process_extern'])
-const libraryMacro = /^(?:FASTLED_|FL_|LV_|DECODE_|NO_LED_RECEIVE_FEEDBACK_CODE$|RAW_BUFFER_LENGTH$|FLS_IR_RECEIVER$)/
+const libraryMacro = /^(?:FASTLED_|FL_|LV_|DECODE_|NO_LED_RECEIVE_FEEDBACK_CODE$|RAW_BUFFER_LENGTH$|FLS_IR_RECEIVER$|USE_AUDIOTOOLS_NS$)/
 // `=` outside parentheses: an initializer, not a default argument.
 const assigns = (head: string) => {
   let depth = 0

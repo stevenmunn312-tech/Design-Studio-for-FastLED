@@ -41,6 +41,7 @@ import {
 } from '../build/ledDrivers'
 import { selectedLedDriver } from '../build/ledDriverSelection'
 import { networkSourceIn } from '../codegen/peripherals/networkCpp'
+import { musicPlayerSource } from '../state/upload/buildMode'
 import { IR_RMT_RX_FAMILIES, IR_RMT_RX_SYMBOLS } from '../codegen/peripherals/irRmtReceiverCpp'
 import type { GraphDiagnostic, GraphDiagnosticFix } from './validateGraph'
 import { splitAcrossPinsForGraph } from '../build/pins/splitAcrossPins'
@@ -160,9 +161,14 @@ export function wireOutputs(nodes: StudioNode[], edges: readonly StudioEdge[]): 
   return outputs
 }
 
-/** Whether the sketch brings up Wi-Fi or Ethernet: the same test the generators use. */
+/**
+ * Whether the sketch brings up Wi-Fi, Ethernet or Bluetooth: the same test the
+ * generators use. FastLED's RMT driver asks for its network block count when
+ * any of the three is up, and a Bluetooth Music Player keeps its radio up.
+ */
 export function sketchUsesNetwork(nodes: readonly StudioNode[]): boolean {
   return networkSourceIn(nodes) !== null
+    || nodes.some((node) => node.data.nodeType === 'PatternMaster' && musicPlayerSource(node) === 'Bluetooth')
 }
 
 /**

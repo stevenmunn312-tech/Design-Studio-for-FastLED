@@ -27,6 +27,26 @@ export function hasAudioOutputStage(nodes: readonly { data: { nodeType: string }
   return nodes.some((node) => AUDIO_OUTPUT_STAGE_NODE_TYPES.has(node.data.nodeType))
 }
 
+/**
+ * Where a Music Player's music comes from: MP3s on its SD card, or a phone
+ * streaming to the board over Bluetooth A2DP. Either way the board plays it
+ * through the amplifier and taps it for analysis; only the card needs a part.
+ */
+export const MUSIC_PLAYER_SOURCES = ['SD Card', 'Bluetooth'] as const
+export type MusicPlayerSource = typeof MUSIC_PLAYER_SOURCES[number]
+
+export function musicPlayerSource(player: { data: { properties: Record<string, unknown> } }): MusicPlayerSource {
+  return player.data.properties.musicSource === 'Bluetooth' ? 'Bluetooth' : 'SD Card'
+}
+
+/** True when this player has somewhere to get music from on this bench. */
+export function musicPlayerHasMusic(
+  player: { data: { properties: Record<string, unknown> } },
+  nodes: readonly { data: { nodeType: string } }[],
+): boolean {
+  return musicPlayerSource(player) === 'Bluetooth' || nodes.some((node) => node.data.nodeType === 'SDCard')
+}
+
 export interface BuildModeEdge {
   source: string
   target: string
@@ -87,6 +107,14 @@ export interface BuildModePresentation {
 export function describeBuildMode(
   build: BuildModeResolution,
 ): BuildModePresentation {
+  if (build.engineKind === 'music-player' && build.engine && musicPlayerSource(build.engine) === 'Bluetooth') {
+    return {
+      label: 'Bluetooth music player',
+      reason: build.reachedOutputs.length > 0
+        ? 'A Music Player set to Bluetooth plays a phone’s music through the amplifier and drives an LED output.'
+        : 'A Music Player set to Bluetooth plays a phone’s music through the amplifier and drives a standalone Stereo VU Meter.',
+    }
+  }
   if (build.engineKind === 'music-player') {
     return build.reachedOutputs.length > 0
       ? {
@@ -245,7 +273,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
   const musicPlayers = nodes.filter((node) => node.data.nodeType === 'PatternMaster')
   const connectedMusicPlayer = musicPlayers.find((node) => engineFrameOutputs(node, nodes, edges).length > 0)
   const musicPlayer = connectedMusicPlayer ?? (hasStandaloneVu ? musicPlayers[0] : undefined)
-  if (hasCard && hasAmplifier && musicPlayer) {
+  if (musicPlayer && hasAmplifier && musicPlayerHasMusic(musicPlayer, nodes)) {
     const reached = engineFrameOutputs(musicPlayer, nodes, edges)
     return resolution('player', 'music-player', musicPlayer, reached,
       hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink)

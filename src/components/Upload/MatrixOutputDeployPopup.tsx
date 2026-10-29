@@ -40,7 +40,7 @@ import { boardLinkUploadNotes } from '../../state/upload/boardLinkFlash'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
-import { resolveBuildMode } from '../../state/upload/buildMode'
+import { musicPlayerSource, resolveBuildMode } from '../../state/upload/buildMode'
 import { describePort } from '../../utils/portStatus'
 import { graphDrivesOutput, readinessLayers } from '../../utils/readinessLayers'
 import { outputForm } from '../../state/output/ledOutputForm'
@@ -125,6 +125,8 @@ export default function MatrixOutputDeployPopup({
   // player build. SD selection wins over a simultaneous slideshow path.
   const hasSdShow = build.mode === 'player'
   const hasMusicPlayer = build.engineKind === 'music-player'
+  // The phone holds the music, so there are no songs to send and no card to write.
+  const bluetoothPlayer = hasMusicPlayer && !!build.engine && musicPlayerSource(build.engine) === 'Bluetooth'
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
@@ -342,6 +344,14 @@ export default function MatrixOutputDeployPopup({
               actionLabel: 'Fix engine',
               action: openCliPopup,
             }
+          : usingFbuild && bluetoothPlayer
+            ? {
+                label: 'Engine',
+                state: 'missing' as ReadinessState,
+                detail: 'The Bluetooth Music Player builds with arduino-cli only.',
+                actionLabel: 'Fix engine',
+                action: openCliPopup,
+              }
           : usingFbuild
             ? { label: 'Engine', state: 'ready' as ReadinessState, detail: `Using fbuild${helper.fbuildVersion ? ` ${helper.fbuildVersion}` : ''}` }
             : { label: 'Engine', state: 'ready' as ReadinessState, detail: `Using arduino-cli${helper.version ? ` ${helper.version}` : ''}` }
@@ -425,6 +435,7 @@ export default function MatrixOutputDeployPopup({
     helper,
     activeEngineReady,
     usingFbuild,
+    bluetoothPlayer,
     board,
     coreReady,
     port,
@@ -627,6 +638,8 @@ export default function MatrixOutputDeployPopup({
         ? 'Add a Music Player pattern collection, or analyse at least one song first'
         : blockingErrors.length > 0 ? blockingErrors.join('\n')
         : readinessIssues.length > 0 ? readinessIssues.join('\n')
+        : bluetoothPlayer
+          ? 'Flash the Bluetooth player, then pair your phone with the board'
         : cardReader
           ? `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to a card in your reader, then flash the player`
           : `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to the SD card over serial, then flash the player`
@@ -798,7 +811,7 @@ export default function MatrixOutputDeployPopup({
         {/* Only on the show path: it changes how the songs reach the card,
             and a normal sketch upload never touches one. Persisted, because it
             describes the user's desk rather than this particular upload. */}
-        {isShowUpload && (
+        {isShowUpload && !bluetoothPlayer && (
           <label className={styles.cardReaderRow} title={cardReaderTip}>
             <input
               type="checkbox"

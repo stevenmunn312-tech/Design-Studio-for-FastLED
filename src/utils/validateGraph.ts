@@ -17,7 +17,7 @@ import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../no
 import { paletteBankBlend, paletteBankEntries } from '../state/palettes/paletteBank'
 import type { SignalRangeMismatch } from '../nodes/shared/signalRange'
 import { playerControlFunction } from '../state/player/playerControlAssignments'
-import { audioOutputMissing, hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource, powerAmplifierStage } from '../state/audio/audioOutput'
+import { audioOutputMissing, hasAudioOutputStage, i2sAudioStage, isClassicEsp32Fqbn, powerAmplifierFeed, powerAmplifierSource, powerAmplifierStage } from '../state/audio/audioOutput'
 import { boardHasDacOutput } from '../build/boards/boardDacOutput'
 import { dfPlayerUartPort } from '../state/peripherals/dfPlayer'
 import { resolveShowTarget } from '../state/player/showTarget'
@@ -61,7 +61,7 @@ import {
   normalSketchSourceExpressions, resolveBoundWidgets, unresolvedBindingIssue, PROBE_CLOCK_EXPR, linkedDisplayFieldsOf,
   PROBE_LED_STATUS,
 } from '../codegen/displays/displaySourceExpressions'
-import { engineFrameOutputs, resolveBuildMode } from '../state/upload/buildMode'
+import { engineFrameOutputs, musicPlayerHasMusic, musicPlayerSource, resolveBuildMode } from '../state/upload/buildMode'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
@@ -97,7 +97,8 @@ import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
-import { usesNetwork } from '../codegen/peripherals/networkCpp'
+import { networkSourceIn, usesNetwork } from '../codegen/peripherals/networkCpp'
+import { bluetoothNameProblem } from '../state/player/bluetoothSink'
 import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType } from '../build/boardLinks'
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
@@ -1834,6 +1835,7 @@ export function findDeployBlockingErrors(
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
     ...findDfPlayerErrors(nodes, selectedFqbn),
+    ...findBluetoothPlayerErrors(nodes, edges, selectedFqbn),
     ...findBuzzerErrors(nodes, selectedFqbn),
     ...findEthernetErrors(nodes, selectedFqbn),
     ...findWebRemoteErrors(nodes, selectedFqbn),
@@ -2495,6 +2497,67 @@ export function findDfPlayerErrors(nodes: StudioNode[], selectedFqbn = ''): stri
   return dfPlayerValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
 }
 
+/**
+ * A Music Player set to Bluetooth is an A2DP speaker. That needs Bluetooth
+ * Classic, which only the classic ESP32 has: the S2 has no Bluetooth at all,
+ * and the S3, C3, C6 and H2 have Bluetooth Low Energy only, which a phone
+ * cannot stream music over.
+ */
+function bluetoothPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn: string): GraphDiagnostic[] {
+  const player = relevantMusicPlayer(nodes, edges)
+  if (!player || musicPlayerSource(player) !== 'Bluetooth') return []
+  const issues: GraphDiagnostic[] = []
+  const label = nodeLabel(player)
+  if (selectedFqbn && !isClassicEsp32Fqbn(selectedFqbn)) {
+    issues.push({
+      id: `${player.id}-bluetooth-board`, severity: 'error', category: 'board',
+      title: 'Bluetooth music needs a classic ESP32',
+      message: 'A phone streams music over Bluetooth Classic (A2DP). Only the classic ESP32 has it: '
+        + 'the ESP32-S3, C3, C6 and H2 have Bluetooth Low Energy only, and the S2 has no Bluetooth.',
+      fix: 'Choose a classic ESP32 board, or set Music Source to SD Card.',
+      nodeIds: [player.id], nodeLabel: label,
+    })
+  }
+  if (hasAudioOutputStage(nodes) && !i2sAudioStage(nodes)) {
+    issues.push({
+      id: `${player.id}-bluetooth-i2s`, severity: 'error', category: 'show',
+      title: 'Bluetooth music needs an I2S amplifier or DAC',
+      message: 'The Bluetooth player sends the phone’s music out over I2S. A power amplifier alone '
+        + 'would need the internal DAC, which the Bluetooth player does not drive.',
+      fix: 'Add a MAX98357A, or a PCM5102A or UDA1334A DAC to feed the power amplifier, on the Hardware tab.',
+      action: 'open-audio-outputs',
+      nodeIds: [player.id], nodeLabel: label,
+    })
+  }
+  const nameProblem = bluetoothNameProblem((player.data.properties as Record<string, unknown>).bluetoothName)
+  if (nameProblem) {
+    issues.push({
+      id: `${player.id}-bluetooth-name`, severity: 'error', category: 'show',
+      title: 'The Bluetooth name cannot be used',
+      message: nameProblem,
+      fix: 'Set Bluetooth Name on the Music Player to a short name such as Design Studio.',
+      nodeIds: [player.id], nodeLabel: label,
+    })
+  }
+  if (networkSourceIn(nodes)) {
+    issues.push({
+      id: `${player.id}-bluetooth-radio`, severity: 'warning', category: 'board',
+      title: 'Wi-Fi and Bluetooth music share one radio',
+      message: 'The ESP32 has one 2.4 GHz radio. While the sketch also uses Wi-Fi or Ethernet networking, '
+        + 'it takes turns with the Bluetooth stream, which can make the music stutter.',
+      fix: 'Remove the network feature from this board if the music drops out.',
+      nodeIds: [player.id], nodeLabel: label,
+    })
+  }
+  return issues
+}
+
+export function findBluetoothPlayerErrors(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = ''): string[] {
+  return bluetoothPlayerValidationIssues(nodes, edges, selectedFqbn)
+    .filter((issue) => issue.severity === 'error')
+    .map(validationIssueMessage)
+}
+
 export function findStepValueErrors(nodes: StudioNode[]): string[] {
   return stepValueValidationIssues(nodes).map(validationIssueMessage)
 }
@@ -2542,20 +2605,23 @@ function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineI
 
   for (const master of nodes.filter((node) => node.data.nodeType === 'PatternMaster')) {
     if (!reachesOutput(master)) continue
-    const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
+    const hasMusic = musicPlayerHasMusic(master, nodes)
     const hasAmplifier = hasAudioOutputStage(nodes)
-    if (hasCard && hasAmplifier) continue
-    const missing = !hasCard && !hasAmplifier
+    if (hasMusic && hasAmplifier) continue
+    const missing = !hasMusic && !hasAmplifier
       ? 'an SD card and an amplifier'
-      : !hasCard ? 'an SD card' : 'an amplifier'
+      : !hasMusic ? 'an SD card' : 'an amplifier'
     issues.push({
       id: `${master.id}-player-hardware`,
       severity: 'error',
       title: `Music Player has no music to play — this build is missing ${missing}`,
-      message: 'A Music Player decodes audio from a card and drives an amplifier. Without both, '
-        + 'the build has no decoder, and the sketch renders this node as a black fill.',
-      fix: 'Add the missing part on the Hardware tab, or swap the Music Player for a '
-        + 'Pattern Slideshow, which runs the same collection on a timer and needs neither.',
+      message: 'A Music Player plays music from a card, or from a phone over Bluetooth, and drives an amplifier. '
+        + 'Without both a source and an amplifier, the build has no decoder, and the sketch renders this node as a black fill.',
+      fix: hasMusic
+        ? 'Add an amplifier on the Hardware tab, or swap the Music Player for a Pattern Slideshow, '
+          + 'which runs the same collection on a timer and needs neither.'
+        : 'Add the missing part on the Hardware tab, set Music Source to Bluetooth to play from a phone, '
+          + 'or swap the Music Player for a Pattern Slideshow, which runs the same collection on a timer and needs neither.',
       nodeIds: [master.id],
       nodeLabel: nodeLabel(master),
     })
@@ -3827,6 +3893,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...dfPlayerValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...bluetoothPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...webRemoteValidationIssues(nodes, options.selectedFqbn ?? ''))

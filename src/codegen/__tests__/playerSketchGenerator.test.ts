@@ -840,3 +840,59 @@ describe('playerSketchGenerator', () => {
     })
   })
 })
+
+describe('Bluetooth Music Player sketch', () => {
+  const renderers = {
+    buffers: [], helpers: [], count: 2, params: [], audioReactive: [true, true],
+    functions: ['void render_p0(uint32_t ms) { (void)ms; }', 'void render_p1(uint32_t ms) { (void)ms; }'],
+  }
+  const controls = {
+    debounceMs: 30, volumeStep: 0.1, brightnessStep: 0.1, repeatDelayMs: 400, repeatIntervalMs: 100,
+    bindings: {
+      playPause: { kind: 'button' as const, pin: 2, pullup: true },
+      next: { kind: 'button' as const, pin: 4, pullup: true },
+      volume: { kind: 'pot' as const, pin: 34 },
+    },
+  }
+  const sketch = (opts: Record<string, unknown> = {}) => generatePlayerSketch({}, renderers, {
+    genericPlayer: true, decoderTap: true, bluetooth: { name: 'Party Lights' }, ...opts,
+  })
+
+  it('advertises an A2DP speaker and plays it through the I2S pins', () => {
+    const code = sketch()
+    expect(code).toContain('#define USE_AUDIOTOOLS_NS false')
+    expect(code.indexOf('#include "BluetoothA2DPSink.h"')).toBeLessThan(code.indexOf('#include <FastLED.h>'))
+    expect(code).toContain('#define BT_DEVICE_NAME "Party Lights"')
+    expect(code).toContain('config.pin_bck = I2S_BCLK;')
+    expect(code).toContain('audio.begin();')
+    // No card, no track list, no serial file transfer.
+    expect(code).not.toMatch(/#include <Audio\.h>|#include <SD\.h>|\bSD\.|startPlayback|provServiceSerial|PROV_RX_BUFFER/)
+  })
+
+  // The raw reader runs before the sink's volume, so the meter needs no
+  // compensation and the SD decoder's gain table never ships.
+  it('feeds the phone stream into the decoder tap before its volume', () => {
+    const code = sketch({ stereoVuMeters: [] })
+    expect(code).toContain('_a2dp.set_raw_stream_reader(_btTap);')
+    expect(code).toContain('audio_process_i2s((int16_t *)data, (uint16_t)(length / 4), 16, 2, &cont);')
+    expect(code).not.toContain('DECODER_VOLUME_TABLE[step]')
+  })
+
+  it('sends transport to the phone and compiles transport only with controls', () => {
+    expect(sketch()).not.toMatch(/pauseResume|_a2dp\.next/)
+    const code = sketch({ controls })
+    // Only Next is bound, so folding leaves the one direction it can take.
+    expect(code).toContain('_a2dp.next();')
+    expect(code).not.toContain('_a2dp.previous()')
+    expect(code).toContain('if (audio.pauseResume()) playerPaused = !playerPaused;')
+    expect(code).not.toContain('playerTrackCount')
+  })
+
+  it('reports the phone track details from AVRCP, not file tags', async () => {
+    const { playerSongInfoCpp } = await import('../player/playerSongInfoCpp')
+    const song = playerSongInfoCpp('Bluetooth')
+    expect(song).toContain('static char songTitle[SONG_FIELD_BYTES]')
+    expect(song).not.toMatch(/audio_id3data|audio_bitrate|songResetFromFile/)
+    expect(playerSongInfoCpp('SD Card')).toContain('void audio_id3data(')
+  })
+})

@@ -2504,3 +2504,48 @@ describe('a sketch holds at most 255 patterns', () => {
     expect(findPatternCountErrors(idle.nodes, edges)).toEqual([])
   })
 })
+
+describe('Bluetooth Music Player', () => {
+  const graph = (playerProps: Record<string, unknown>, extra: StudioNode[] = []) => ({
+    nodes: [
+      node('out', 'MatrixOutput'), node('amp', 'Amplifier'),
+      node('player', 'PatternMaster', { musicSource: 'Bluetooth', bluetoothName: 'Party Lights', ...playerProps }),
+      ...extra,
+    ],
+    edges: [edge('e1', 'player', 'out', 'frame')],
+  })
+  const ids = (nodes: StudioNode[], edges: StudioEdge[], selectedFqbn: string) =>
+    buildGraphDiagnostics(nodes, edges, { selectedFqbn }).map((issue) => issue.id)
+
+  it('builds on a classic ESP32 without an SD card', () => {
+    const { nodes, edges } = graph({})
+    expect(ids(nodes, edges, 'esp32:esp32:esp32').filter((id) => /bluetooth|hardware/.test(id))).toEqual([])
+    expect(findDeployBlockingErrors(nodes, edges, 'esp32:esp32:esp32').join('\n')).not.toMatch(/Bluetooth|SD card/)
+  })
+
+  // The S3 has Bluetooth Low Energy only, which cannot carry A2DP music.
+  it('refuses a board without Bluetooth Classic', () => {
+    const { nodes, edges } = graph({})
+    expect(ids(nodes, edges, 'esp32:esp32:esp32s3')).toContain('player-bluetooth-board')
+    expect(findDeployBlockingErrors(nodes, edges, 'esp32:esp32:esp32s3').join('\n')).toMatch(/needs a classic ESP32/)
+  })
+
+  it('refuses a power amplifier with no I2S stage', () => {
+    const nodes = [node('out', 'MatrixOutput'), node('power', 'PowerAmplifier'),
+      node('player', 'PatternMaster', { musicSource: 'Bluetooth', bluetoothName: 'Party Lights' })]
+    expect(ids(nodes, [edge('e1', 'player', 'out', 'frame')], 'esp32:esp32:esp32')).toContain('player-bluetooth-i2s')
+  })
+
+  it('refuses a name that cannot be advertised', () => {
+    for (const bluetoothName of ['', 'x'.repeat(33), 'Lights"; evil();']) {
+      const { nodes, edges } = graph({ bluetoothName })
+      expect(ids(nodes, edges, 'esp32:esp32:esp32')).toContain('player-bluetooth-name')
+    }
+  })
+
+  it('says the music is missing when an SD Card source has no card', () => {
+    const { nodes, edges } = graph({ musicSource: 'SD Card' })
+    const issue = buildGraphDiagnostics(nodes, edges, {}).find((entry) => entry.id === 'player-player-hardware')
+    expect(issue?.fix).toMatch(/Music Source to Bluetooth/)
+  })
+})

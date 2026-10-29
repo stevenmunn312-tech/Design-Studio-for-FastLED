@@ -41,6 +41,15 @@ describe('editableProperties', () => {
       for (const key of timing.slice(1)) expect(isPropertyEnabled('PatternSlideshow', key, props)).toBe(audioReactive)
     }
   })
+
+  it('shows the Music Player its Bluetooth name only when Bluetooth is the source', () => {
+    const sd = libraryDefaults('PatternMaster')
+    expect(sd).toMatchObject({ musicSource: 'SD Card', bluetoothName: 'Design Studio' })
+    expect(editableProperties('PatternMaster', sd).map(([key]) => key)).toContain('musicSource')
+    expect(editableProperties('PatternMaster', sd).map(([key]) => key)).not.toContain('bluetoothName')
+    const bluetooth = { ...sd, musicSource: 'Bluetooth' }
+    expect(editableProperties('PatternMaster', bluetooth).map(([key]) => key)).toContain('bluetoothName')
+  })
 })
 
 describe('NODE_WIDTH_OVERRIDES', () => {

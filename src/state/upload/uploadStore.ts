@@ -914,9 +914,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       // player with nothing to transfer. It is offered rather than chosen for
       // the user because only they know whether a reader is on the desk — and
       // a wrong guess here is minutes of serial transfer, or a dialog asking
-      // for hardware that isn't there.
+      // for hardware that isn't there. With nothing to write (a Bluetooth
+      // player) there is no card to ask for.
       let viaReader = false
-      if (cardReader) {
+      if (cardReader && payload.files.length > 0) {
         // Compile the player before asking for the card.
         //
         // On the serial path the build already happens first, so a player that

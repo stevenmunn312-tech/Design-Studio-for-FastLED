@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BUILD_MODE_LINK_OUT_TYPE, resolveBuildMode, type BuildModeEdge, type BuildModeNode } from '../buildMode'
+import { BUILD_MODE_LINK_OUT_TYPE, describeBuildMode, resolveBuildMode, type BuildModeEdge, type BuildModeNode } from '../buildMode'
 import { BOARD_LINK_OUT_NODE_TYPE } from '../../../build/boardLinks'
 
 const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}): BuildModeNode => ({
@@ -150,5 +150,33 @@ describe('build mode resolution', () => {
 
   it('names the link-out type the partition uses', () => {
     expect(BUILD_MODE_LINK_OUT_TYPE).toBe(BOARD_LINK_OUT_NODE_TYPE)
+  })
+})
+
+describe('Bluetooth music source', () => {
+  const graph = (properties: Record<string, unknown>, extra: BuildModeNode[] = []) => ({
+    nodes: [node('out', 'MatrixOutput'), node('amp', 'Amplifier'), node('music', 'PatternMaster', properties), ...extra],
+    edges: [edge('music', 'out')],
+  })
+
+  // The phone is the music source, so a player with no card still builds.
+  it('builds a Bluetooth Music Player with an amplifier and no card', () => {
+    const { nodes, edges } = graph({ musicSource: 'Bluetooth' })
+    const build = resolveBuildMode(nodes, edges)
+    expect(build).toMatchObject({ mode: 'player', engineKind: 'music-player', engine: { id: 'music' } })
+    expect(describeBuildMode(build).label).toBe('Bluetooth music player')
+  })
+
+  it('still needs the amplifier', () => {
+    const nodes = [node('out', 'MatrixOutput'), node('music', 'PatternMaster', { musicSource: 'Bluetooth' })]
+    expect(resolveBuildMode(nodes, [edge('music', 'out')]).mode).toBe('sketch')
+  })
+
+  it('keeps an SD Card source on the card', () => {
+    expect(resolveBuildMode(graph({ musicSource: 'SD Card' }).nodes, graph({}).edges).mode).toBe('sketch')
+    const withCard = graph({ musicSource: 'SD Card' }, [node('card', 'SDCard')])
+    const build = resolveBuildMode(withCard.nodes, withCard.edges)
+    expect(build.mode).toBe('player')
+    expect(describeBuildMode(build).label).toBe('SD music player')
   })
 })

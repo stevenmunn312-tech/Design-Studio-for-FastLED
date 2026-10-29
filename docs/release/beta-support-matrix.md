@@ -419,6 +419,18 @@ Unless a future row says otherwise, treat the following as experimental:
   that the classic I2S driver may be unreliable on ESP-IDF 5. Graduating each
   driver needs a dated row driving several outputs under Wi-Fi load.
 
+- **Bluetooth music on the Music Player** (Music Source = Bluetooth): the
+  board is an A2DP speaker a phone pairs with, playing the stream through an
+  I2S amplifier or DAC, feeding it to the decoder tap and taking track details
+  and play, pause, skip and volume over AVRCP
+  ([player patterns](../development/patterns/player-shows-and-controls.md#music-player)).
+  Classic ESP32 only, since the S3, C3, C6 and H2 have Bluetooth Low Energy
+  alone; arduino-cli only, with ESP32-A2DP v1.8.9 and arduino-audio-tools
+  v1.2.6 pinned. The sketch is generated and unit-tested; it has not yet been
+  compiled, and nothing has run on a board. Graduating it needs a dated row
+  that pairs a phone, plays through a track change, and checks beat response,
+  panel track details and the classic ESP32's RAM headroom with LEDs running.
+
 - **Several boards in one project** (root todo, D-03): a second controller
   on the bench, its own parts and sketch, and the clock-sync protocol that
   keeps boards on one animation clock and one show pattern over UDP

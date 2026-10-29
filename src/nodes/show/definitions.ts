@@ -6,6 +6,7 @@ import {
   PLAYER_CONTROL_FUNCTIONS, PLAYER_CONTROLS_DEFAULT_EXPOSED, PLAYER_CONTROLS_INPUTS, playerControlActionPortsFor,
 } from '../../state/player/playerControlAssignments'
 import { SONG_INFO_PORTS } from '../../state/player/songInfo'
+import { DEFAULT_BLUETOOTH_NAME } from '../../state/player/bluetoothSink'
 
 export const SHOW_DEFINITIONS: NodeDefinition[] = [
   // ── Show pipeline source ───────────────────────────────────────────────
@@ -126,6 +127,9 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       volume: 1, order: 'Random', beatTransitions: false, minTime: 4, maxTime: 12, transitionSec: 1,
       energyPacing: false, dwellsAndBursts: false,
+      // Bluetooth makes the board an A2DP speaker a phone pairs with, under
+      // bluetoothName; only the classic ESP32 has Bluetooth Classic.
+      musicSource: 'SD Card', bluetoothName: DEFAULT_BLUETOOTH_NAME,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Controls and particle FX are supplied by their dedicated bundle nodes.
       seed: 0,

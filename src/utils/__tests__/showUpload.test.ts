@@ -377,6 +377,23 @@ describe('the performance player without a collection', () => {
     expect(payload.player).toContain('Playing (generic)')
     expect(payload.player).not.toContain('loadShowFile')
   })
+
+  // The phone holds the music: flash the player, and send nothing to a card.
+  it('flashes a Bluetooth Music Player with no card files', () => {
+    const player = {
+      nodes: [
+        node('player', 'PatternMaster', { musicSource: 'Bluetooth', bluetoothName: 'Party Lights' }),
+        ...graph.nodes.slice(1).filter((entry) => entry.data.nodeType !== 'SDCard'),
+      ],
+      edges: [{ id: 'led', source: 'player', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as Edge[],
+    }
+    const entry = { id: 'song', file: new File([''], 'track.mp3'), status: 'done', analysis: {}, show } as unknown as MusicEntry
+    const payload = buildShowPayload(player.nodes, player.edges, [entry], {})!
+    expect(payload.files).toEqual([])
+    expect(payload.player).toContain('#include "BluetoothA2DPSink.h"')
+    expect(payload.player).toContain('#define BT_DEVICE_NAME "Party Lights"')
+    expect(payload.player).not.toMatch(/\bSD\.|#include <Audio\.h>|provServiceSerial/)
+  })
 })
 
 describe('packaging a drifted show', () => {

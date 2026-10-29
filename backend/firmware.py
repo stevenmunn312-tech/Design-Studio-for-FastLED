@@ -102,6 +102,10 @@ def _sketch_workspace(name: str, ino: str, files: dict[str, str] | None = None):
         ino = f"// FLS-VL53L0X: {toolchain._VL53L0X_VERSION}\n{ino}"
     if toolchain._VL53L1X_INCLUDE in ino:
         ino = f"// FLS-VL53L1X: {toolchain._VL53L1X_VERSION}\n{ino}"
+    if toolchain._BLUETOOTH_A2DP_INCLUDE in ino:
+        # Same reason: a pin bump must change the sketch bytes arduino-cli hashes.
+        ino = (f"// FLS-BLUETOOTH-AUDIO: {toolchain._BLUETOOTH_A2DP_VERSION} "
+               f"{toolchain._BLUETOOTH_AUDIO_TOOLS_VERSION}\n{ino}")
     lock = _sketch_dir_lock(name)
     if lock.acquire(blocking=False):
         try:
@@ -291,6 +295,15 @@ def _compile_upload(
             rc = yield from toolchain._ensure_arduino_vl53l1x_lib()
             if rc != 0:
                 return rc, "compile"
+        uses_bluetooth = any(toolchain._BLUETOOTH_A2DP_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+        if uses_bluetooth:
+            rc = yield from toolchain._ensure_arduino_bluetooth_libs()
+            if rc != 0:
+                return rc, "compile"
+            compile_args += [
+                "--library", str(toolchain._ARDUINO_A2DP_LIB_DIR),
+                "--library", str(toolchain._ARDUINO_AUDIO_TOOLS_LIB_DIR),
+            ]
         uses_audio = any("#include <Audio.h>" in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
         if uses_audio:
             rc = yield from toolchain._ensure_arduino_audio_lib()
@@ -670,6 +683,12 @@ def _compile_upload_fbuild(
             label, "fbuild",
             "Install it with `pip install fbuild`, or switch the engine to arduino-cli.",
         ))
+    # fbuild compiles every cached directory under lib/, so the Bluetooth
+    # libraries are vendored for arduino-cli alone (toolchain.py).
+    if toolchain._BLUETOOTH_A2DP_INCLUDE in ino:
+        yield (f"\n=== ✗ {label}: the Bluetooth Music Player builds with arduino-cli only. "
+               "Switch the build engine to arduino-cli in Board & Port. ===\n")
+        return -1, "compile"
     # Take the wait in slices instead of one blocking `acquire`, and narrate it.
     # The UI derives its status from this stream, so a build queued behind
     # another one used to produce no output at all for up to

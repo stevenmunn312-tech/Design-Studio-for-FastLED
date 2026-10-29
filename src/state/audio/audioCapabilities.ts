@@ -1,6 +1,7 @@
 import type { StudioNode } from '../graphStore'
 import { resolvePartIdentity } from '../../build/parts/partOptions'
 import { hasAudioOutputStage } from './audioOutput'
+import { musicPlayerHasMusic, musicPlayerSource } from '../upload/buildMode'
 
 /** A board-attached source that can provide PCM or analysed audio to the signal
  * graph. The decoder tap is software hosted by the SD-player workflow. */
@@ -56,19 +57,23 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
     }))
 
   // The software decoder is a real on-device source only in the Music Player
-  // workflow. Storage and an output device are both required: the card tells
-  // us where the music comes from and the amplifier tells us that this build
-  // is an audio player. Performance Generator remains a separate pre-baked
-  // show workflow and does not expose a live decoder source.
+  // workflow. A music source and an output device are both required: the card
+  // or the Bluetooth link tells us where the music comes from, and the
+  // amplifier tells us that this build is an audio player. Performance
+  // Generator remains a separate pre-baked show workflow and does not expose a
+  // live decoder source.
   const sdCard = nodes.find((node) => node.data.nodeType === 'SDCard')
   const hasAmplifier = hasAudioOutputStage(nodes)
-  const hasPlayer = nodes.some((node) => node.data.nodeType === 'PatternMaster')
-  const decoder: AudioCapabilitySource[] = sdCard && hasAmplifier && hasPlayer
+  const player = nodes.find((node) => node.data.nodeType === 'PatternMaster'
+    && musicPlayerHasMusic(node, nodes))
+  const bluetooth = player && musicPlayerSource(player) === 'Bluetooth'
+  const provider = bluetooth ? player : sdCard
+  const decoder: AudioCapabilitySource[] = provider && hasAmplifier && player
     ? [{
-        id: `decoder:${sdCard.id}`,
-        label: 'Music Player',
+        id: `decoder:${provider.id}`,
+        label: bluetooth ? 'Music Player (Bluetooth)' : 'Music Player',
         kind: 'decoder',
-        node: sdCard,
+        node: provider,
       }]
     : []
 
@@ -162,7 +167,7 @@ export function audioCapabilityOptions(nodes: readonly StudioNode[]): AudioCapab
       value: audioCapabilityIntent('decoder'),
       label: 'Audio Decoder',
       source: source('decoder'),
-      unavailableHint: 'Add an SD card and amplifier in Hardware, then configure the Music Player to enable.',
+      unavailableHint: 'Add an amplifier in Hardware and a Music Player with an SD card or Bluetooth as its Music Source to enable.',
     },
   ]
 }

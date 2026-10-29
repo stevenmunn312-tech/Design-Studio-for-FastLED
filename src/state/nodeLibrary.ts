@@ -30,6 +30,7 @@ import { CUSTOM_DESIGN_LAYOUT, TRANSPORT_DISPLAY_LAYOUTS } from './displays/tran
 import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './displays/segmentDisplay'
 import { partById, partPinLabelForProperty } from '../build/parts/partCatalogue'
 import { PATTERN_SLIDESHOW_ORDERS } from './patterns/patternSlideshow'
+import { MUSIC_PLAYER_SOURCES } from './upload/buildMode'
 import { OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, oledControllerFor, oledTransportFor, type OledController, type OledTransport } from './displays/oledSurface'
 import {
   tftControllerFor, tftTransportFor, TFT_TRANSPORT_PINS, PARALLEL_TOUCH_ANALOG_PIN_KEYS,
@@ -1451,6 +1452,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PatternMaster: {
     volume: N01,
+    musicSource: { control: 'select', options: MUSIC_PLAYER_SOURCES },
     order: { control: 'select', options: PATTERN_SLIDESHOW_ORDERS },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
@@ -1774,6 +1776,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     energyPacing: 'Lean each hold toward Min Time while the music is intense and toward Max Time while it is calm. Intensity is measured against the track’s own recent loudest and quietest passages. Needs Audio.',
     dwellsAndBursts: 'Now and then hold one pattern for twice Max Time, and now and then change eight patterns in quick succession, each change just after its transition. Beat Transitions still makes every change wait for a beat.',
     volume: 'Playback volume from 0 (muted) to 1 (full volume). This controls the music, not LED brightness or microphone gain. A wired Volume input takes priority over this field.',
+    musicSource: 'Where the board gets its music. SD Card plays the MP3s on the card. Bluetooth makes the board a speaker your phone pairs with: the phone chooses the music, and the board plays it through the amplifier and reacts to it. Bluetooth needs a classic ESP32 and an I2S amplifier or DAC. Preview plays your local tracks either way.',
+    bluetoothName: 'The name your phone lists when it looks for Bluetooth speakers. Letters, digits, spaces and - _ . only, up to 32 characters.',
     seed: 'Controls random pattern, hold-time, transition, and particle choices in preview. Zero runs freely; a nonzero value makes the random sequence repeatable for the same inputs. The SD player uses its own random sequence.',
   },
   PdTriggerSource: {
@@ -3294,6 +3298,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     patternEntry: 'Entry',
   },
   PatternMaster: {
+    musicSource: 'Music Source',
+    bluetoothName: 'Bluetooth Name',
     order: 'Pattern Order',
     sequence: 'Sequence',
     beatTransitions: 'Beat Transitions',
@@ -4209,7 +4215,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'patterns', label: 'Patterns', keys: ['patternIds', 'patternSections', 'patternWeights', 'patternEnergy', 'patternEntry'] },
   ],
   PatternMaster: [
-    { key: 'playback', label: 'Playback', keys: ['volume', 'order', 'sequence'] },
+    { key: 'playback', label: 'Playback', keys: ['musicSource', 'bluetoothName', 'volume', 'order', 'sequence'] },
     { key: 'timing', label: 'Timing', keys: ['beatTransitions', 'minTime', 'maxTime', 'transitionSec', 'energyPacing', 'dwellsAndBursts'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
@@ -4967,6 +4973,7 @@ export function showsDisabledProperties(nodeType: string): boolean {
 }
 
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
+  if (nodeType === 'PatternMaster' && key === 'bluetoothName') return properties.musicSource === 'Bluetooth'
   // A channel the selected board does not have has no pin to wire and no load to dim.
   if (nodeType === 'PowerSwitchOutput') return powerSwitchChannelPropertyEnabled(key, properties.partId)
   if (nodeType === 'RelayOutput') return relayChannelPropertyEnabled(key, properties.partId)
