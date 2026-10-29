@@ -141,7 +141,12 @@ async def sd_copy(
 
     Streams progress as text, like the upload endpoints.
     """
-    info = json.loads(meta)
+    try:
+        info = json.loads(meta)
+        if not isinstance(info, dict):
+            raise ValueError("expected a JSON object")
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": f"meta is not valid JSON: {exc}"}, status_code=400)
     drive = (info.get("drive") or "").strip()
     paths = info.get("paths") or []
 

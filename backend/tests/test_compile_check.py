@@ -222,3 +222,36 @@ def test_compile_check_measures_the_player_in_the_player_workspace(client, monke
     client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3"})
     client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3", "sketch": "../x"})
     assert seen == [firmware.PLAYER_SKETCH, toolchain.SKETCH, toolchain.SKETCH]
+
+
+def test_compile_check_reads_fbuilds_size_cache_on_a_no_op_rebuild(client, monkeypatch, tmp_path):
+    # Nothing changed since the last compile: fbuild relinks nothing and
+    # prints no "Flash:"/"RAM:" line, but it keeps the sizes of the image it
+    # measured last time in `.firmware_size_cache.json`. Without that fallback
+    # a successful check reported no sizes and the capacity meter went blank.
+    import json
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_FBUILD_PROJECT_DIR", tmp_path)
+    env = toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32", None, False)
+    release = tmp_path / ".fbuild" / "build" / env / "release"
+    release.mkdir(parents=True)
+    (release / ".firmware_size_cache.json").write_text(json.dumps({
+        "version": 2,
+        "elf_stamp": {"len": 1, "modified_secs": 1, "modified_nanos": 0},
+        "size_info": {"text": 1, "data": 1, "bss": 1,
+                      "total_flash": 481164, "total_ram": 32880,
+                      "max_flash": 3145728, "max_ram": 327680},
+    }))
+
+    def fake_compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False):
+        yield "Nothing to do: build is up to date\n"
+        return 0, "compile"
+
+    monkeypatch.setattr(firmware, "_compile_upload_fbuild", fake_compile_upload_fbuild)
+
+    r = client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32"})
+    data = r.json()
+    assert data["ok"] is True
+    assert data["flash"] == {"usedBytes": 481164, "limitBytes": 3145728, "percent": 15}
+    assert data["ram"] == {"usedBytes": 32880, "limitBytes": 327680, "percent": 10}

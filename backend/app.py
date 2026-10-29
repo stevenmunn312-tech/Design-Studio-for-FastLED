@@ -56,25 +56,33 @@ _LOCAL_HOST = (
 )
 _LOCAL_HOST_RE = re.compile(rf"(?i)^{_LOCAL_HOST}$")
 _LOCAL_ORIGIN_RE = re.compile(rf"(?i)^https?://{_LOCAL_HOST}$")
-_ORIGIN_CHECKED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_ORIGIN_CHECKED_METHODS = {"POST", "PUT", "PATCH", "DELETE", "GET"}
 _SAME_SITE_FETCH = {"same-origin", "none"}
+# The liveness probe answers any origin: it runs nothing a foreign page could
+# use, and CORS still keeps that page from reading the reply.
+_OPEN_GET_PATHS = {"/api/health"}
 
 
 def _local_request_allowed(request: Request) -> bool:
     """True when this request is from the machine running the helper.
 
-    `Host` must always be local. State-changing methods, and the serial
-    monitor (a GET an `<img>` can fire), also need a local `Origin` when the
-    browser sent one. With no `Origin`, only a missing, same-origin, or `none`
-    `Sec-Fetch-Site` is accepted — that is a non-browser client or a
-    same-document call, not another website.
+    `Host` must always be local. Every API method, GET included, also needs
+    a local `Origin` when the browser sent one: a GET is not read-only here
+    (`/api/serial/ports` runs `arduino-cli board list`, which opens every COM
+    port, and the serial monitor holds one), and a cross-site `fetch` or
+    `<img>` fires it whether or not CORS lets the page read the reply. With no
+    `Origin`, only a missing, same-origin, or `none` `Sec-Fetch-Site` is
+    accepted — that is a non-browser client, a same-document call, or a
+    direct navigation, not another website. The UI's own calls are
+    cross-origin fetches from a `*.localhost` or loopback page, so they carry
+    a local `Origin` and pass as before.
     """
     host = request.headers.get("host")
     if host is None or _LOCAL_HOST_RE.fullmatch(host.strip()) is None:
         return False
     needs_origin = (
         request.method in _ORIGIN_CHECKED_METHODS
-        or (request.method == "GET" and request.url.path == "/api/serial/monitor")
+        and not (request.method == "GET" and request.url.path in _OPEN_GET_PATHS)
     )
     if not needs_origin:
         return True

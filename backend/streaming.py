@@ -33,6 +33,23 @@ def _stream_active() -> bool:
     return _stream_serial is not None
 
 
+def _int_field(payload: dict, key: str, default: int) -> int:
+    """An integer body field, `default` when absent or empty.
+
+    Raises ValueError for anything `int()` cannot read, so the route answers
+    400 with the field's name instead of a 500 from the bare conversion.
+    """
+    value = payload.get(key)
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        raise ValueError(f"{key} must be an integer")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{key} must be an integer") from exc
+
+
 @router.post("/api/stream/start")
 def stream_start(payload: dict = Body(...)):
     """Open (or reuse) a serial port for a live-streaming session.
@@ -41,7 +58,10 @@ def stream_start(payload: dict = Body(...)):
     """
     global _stream_serial, _stream_port, _stream_baud
     port = (payload.get("port") or "").strip()
-    baud = int(payload.get("baud") or 115200)
+    try:
+        baud = _int_field(payload, "baud", 115200)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     if not port:
         return JSONResponse({"ok": False, "error": "a serial port is required"}, status_code=400)
     try:
@@ -316,13 +336,16 @@ def _artnet_listener_loop(sock: socket.socket, stop_event: threading.Event) -> N
 @router.post("/api/artnet/start")
 def artnet_start(payload: dict = Body(...)):
     global _artnet_socket, _artnet_thread, _artnet_stop_event, _artnet_port, _artnet_multicast_group, _artnet_error
-    port = int(payload.get("port") or 6454)
+    try:
+        port = _int_field(payload, "port", 6454)
+        universe = _int_field(payload, "universe", 0)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     if port < 1 or port > 65535:
         return JSONResponse({"ok": False, "error": "UDP port must be between 1 and 65535"}, status_code=400)
     # sACN senders usually multicast to the universe's group; joining it is
     # what makes those packets arrive. Unicast and Art-Net need no join.
     protocol = str(payload.get("protocol") or "Art-Net")
-    universe = int(payload.get("universe") or 0)
     multicast_group = sacn_multicast_group(universe) if protocol == "sACN" else None
     with _artnet_lock:
         if _artnet_listening_locked() and _artnet_port == port and _artnet_multicast_group == multicast_group:
@@ -496,7 +519,10 @@ def _ddp_stop_listener() -> None:
 @router.post("/api/ddp/start")
 def ddp_start(payload: dict = Body(...)):
     global _ddp_socket, _ddp_thread, _ddp_stop_event, _ddp_port, _ddp_error
-    port = int(payload.get("port") or 4048)
+    try:
+        port = _int_field(payload, "port", 4048)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     if port < 1 or port > 65535:
         return JSONResponse({"ok": False, "error": "UDP port must be between 1 and 65535"}, status_code=400)
     with _ddp_lock:

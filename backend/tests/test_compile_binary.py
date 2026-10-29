@@ -149,3 +149,34 @@ def test_says_so_when_the_compile_fails(client, monkeypatch, tmp_path):
 def test_refuses_an_artifact_id_that_is_not_one(client):
     assert client.get("/api/compile-binary/../../etc").status_code in (404, 400)
     assert client.get("/api/compile-binary/not-an-id").status_code == 404
+
+
+def test_a_concurrent_prune_leaves_the_export_still_compiling(client, monkeypatch, tmp_path):
+    # Two exports can overlap. The second's prune sorted every directory by
+    # mtime and removed the oldest, which during a minutes-long build was the
+    # first export's half-written output directory.
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "arduino-cli")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    monkeypatch.setattr(firmware, "_EXPORT_DIR", tmp_path / "exports")
+
+    def fake_compile_upload(
+        label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False,
+        flash_mb=None,
+    ):
+        yield "compiling...\n"
+        # Another export starts while this one is still building.
+        firmware._prune_exports(keep=0)
+        assert output_dir.is_dir(), "the running export's directory was pruned"
+        (output_dir / "fastled_pattern.ino.merged.bin").write_bytes(b"firmware")
+        return 0, "compile"
+
+    monkeypatch.setattr(firmware, "_compile_upload", fake_compile_upload)
+
+    r = client.post("/api/compile-binary", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3"})
+    marker = _marker(r.text)
+    assert "bytes=8" in marker, r.text
+    artifact_id = marker.split("id=")[1].split(" ")[0]
+    assert client.get(f"/api/compile-binary/{artifact_id}").content == b"firmware"
+    # Finished exports are ordinary candidates for the next prune again.
+    assert firmware._active_exports == set()

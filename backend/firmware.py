@@ -458,6 +458,42 @@ def _fbuild_size_bytes_report(lines):
     return result
 
 
+_FBUILD_SIZE_CACHE = ".firmware_size_cache.json"
+
+
+def _fbuild_cached_sizes(fqbn: str, flash_mb, usb_cdc: bool) -> dict:
+    """The sizes fbuild persisted for this env's last successful link.
+
+    fbuild writes `.firmware_size_cache.json` beside the image it measured
+    (`size_info` with `total_flash`/`max_flash` and `total_ram`/`max_ram`,
+    keyed to the .elf's stamp) and prints no "Flash:"/"RAM:" line when a
+    rebuild changes nothing. Read only after a successful build, so the
+    numbers describe the image that is there. Same shape as
+    `_fbuild_size_bytes_report`; `None` entries when there is no cache.
+    """
+    empty: dict = {"flash": None, "ram": None}
+    env = toolchain._fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
+    if not env:
+        return empty
+    cache = toolchain._FBUILD_PROJECT_DIR / ".fbuild" / "build" / env / "release" / _FBUILD_SIZE_CACHE
+    try:
+        info = json.loads(cache.read_text(encoding="utf-8")).get("size_info") or {}
+    except (OSError, ValueError, AttributeError):
+        return empty
+    if not isinstance(info, dict):
+        return empty
+
+    def entry(used_key: str, limit_key: str):
+        used, limit = info.get(used_key), info.get(limit_key)
+        if isinstance(used, bool) or isinstance(limit, bool):
+            return None
+        if not isinstance(used, int) or not isinstance(limit, int) or limit <= 0 or used < 0:
+            return None
+        return {"usedBytes": used, "limitBytes": limit, "percent": round(used * 100 / limit)}
+
+    return {"flash": entry("total_flash", "max_flash"), "ram": entry("total_ram", "max_ram")}
+
+
 # A genuine flash/RAM overflow is usually a *hard linker failure* — ld refuses
 # to produce an .elf at all, so fbuild never reaches the step that prints its
 # own "Flash:"/"RAM:" summary. There's still real data in that failure,
@@ -1311,6 +1347,14 @@ def serial_monitor(port: str, baud: int = 115200):
         except GeneratorExit:
             return
         except Exception as e:
+            # Real pyserial raises from `read` the moment another thread's
+            # `_release_monitor` closes the handle (PortNotOpenError, or a
+            # Windows ClearCommError failure), so the `is_open` check above
+            # never sees the release; a closed port here is that deliberate
+            # reclaim, not a fault to report.
+            if ser is not None and not ser.is_open:
+                yield b"\n[serial] port released for upload\n"
+                return
             yield f"[error] {e}\n".encode(errors="replace")
         finally:
             with _monitor_lock:
@@ -1484,6 +1528,8 @@ def compile_check(payload: dict = Body(...)):
         # skips fbuild's own "Flash:"/"RAM:" line entirely — fall back to its
         # persisted size-cache file rather than reporting an empty result for
         # a build that actually succeeded.
+        if rc == 0 and sizes.get("flash") is None and sizes.get("ram") is None:
+            sizes = _fbuild_cached_sizes(fqbn, flash_mb, usb_cdc)
         # A genuine overflow is usually a hard linker failure with no size
         # summary at all (see `_fbuild_overflow_estimate`) — derive the actual
         # over-100% percentage from the linker's own error instead of leaving
@@ -1573,11 +1619,20 @@ _EXPORT_PREFERENCE = (
 )
 
 
+# Export directories whose build is still running. A second export's prune
+# must never remove one of these: a long compile's mtime can age past newer,
+# already-finished exports while it is still writing its image.
+_active_exports: set[Path] = set()
+_active_exports_lock = threading.Lock()
+
+
 def _prune_exports(keep=_EXPORT_KEEP):
-    """Drop all but the newest `keep` exported artifacts."""
+    """Drop all but the newest `keep` finished exports; in-progress ones stay."""
+    with _active_exports_lock:
+        active = set(_active_exports)
     try:
         kept = sorted(
-            (path for path in _EXPORT_DIR.iterdir() if path.is_dir()),
+            (path for path in _EXPORT_DIR.iterdir() if path.is_dir() and path not in active),
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
@@ -1639,9 +1694,13 @@ def compile_binary(payload: dict = Body(...)):
 
     def stream():
         _EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-        _prune_exports(_EXPORT_KEEP - 1)
         out_dir = _EXPORT_DIR / uuid.uuid4().hex
         out_dir.mkdir()
+        # Register this build before pruning, so a concurrent export's prune
+        # (and this one's) leaves every directory still being written to.
+        with _active_exports_lock:
+            _active_exports.add(out_dir)
+        _prune_exports(_EXPORT_KEEP - 1)
         try:
             if engine == "fbuild":
                 rc, _phase = yield from _compile_upload_fbuild(
@@ -1685,6 +1744,9 @@ def compile_binary(payload: dict = Body(...)):
         except Exception as exc:  # the stream is the only channel back
             yield f"\n*** export failed: {exc} ***\n"
             yield f"{_EXPORT_MARKER} failed\n"
+        finally:
+            with _active_exports_lock:
+                _active_exports.discard(out_dir)
 
     return StreamingResponse(stream(), media_type="text/plain")
 
@@ -1730,7 +1792,12 @@ async def upload_show(
         return JSONResponse({"ok": False, "error": "fbuild not found"}, status_code=400)
     if engine == "arduino-cli" and not toolchain._ARDUINO_CLI:
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
-    info = json.loads(meta)
+    try:
+        info = json.loads(meta)
+        if not isinstance(info, dict):
+            raise ValueError("expected a JSON object")
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": f"meta is not valid JSON: {exc}"}, status_code=400)
     fqbn = (info.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
     port = (info.get("port") or "").strip()
     flash_mb = toolchain._flash_mb_from(info)

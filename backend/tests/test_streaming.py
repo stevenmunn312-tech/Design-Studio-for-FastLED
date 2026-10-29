@@ -241,3 +241,44 @@ def test_flash_guard_nests_for_the_three_phase_show_upload():
             assert firmware._flash_in_progress() is True
         assert firmware._flash_in_progress() is True, "inner exit must not release the outer guard"
     assert firmware._flash_in_progress() is False
+
+
+def test_a_release_mid_read_ends_the_monitor_cleanly(fake_serial):
+    # Real pyserial does not return an empty read from a handle another
+    # thread just closed: it raises (PortNotOpenError, or a ClearCommError
+    # failure on Windows). The monitor used to report that as "[error] ..."
+    # instead of the clean "released for upload" end the Upload tab expects.
+    import asyncio
+    import serial
+
+    class RaisesOnceClosed(fake_serial):
+        def read(self, _n=1):
+            if self.closed:
+                raise serial.PortNotOpenError()
+            return b""
+
+    serial.Serial = RaisesOnceClosed
+    response = firmware.serial_monitor("COM7", 115200)
+
+    async def exercise():
+        body = response.body_iterator
+        await body.__anext__()          # "[serial] connected…"
+        assert firmware._release_monitor("COM7") is True
+        chunks = []
+        while True:
+            try:
+                chunks.append(await body.__anext__())
+            except StopAsyncIteration:
+                break
+        return b"".join(chunks)
+
+    tail = asyncio.run(exercise())
+    assert b"released for upload" in tail
+    assert b"[error]" not in tail
+
+
+def test_stream_start_refuses_a_baud_that_is_not_a_number(client, fake_serial):
+    r = client.post("/api/stream/start", json={"port": "COM7", "baud": "fast"})
+    assert r.status_code == 400
+    assert "baud" in r.json()["error"]
+    assert fake_serial.instances == []

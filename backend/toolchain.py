@@ -1982,15 +1982,27 @@ def set_engine(payload: dict = Body(...)):
 
 
 # ── arduino-cli management ────────────────────────────────────────────────────
+# The only basenames `/api/arduino-cli/locate` will run.
+_ARDUINO_CLI_NAMES = {"arduino-cli", "arduino-cli.exe"}
+
+
 @router.post("/api/arduino-cli/locate")
 def locate_cli(payload: dict = Body(...)):
     """Point the helper at a user-supplied arduino-cli binary and persist it.
 
     Body: {"path": "C:/tools/arduino-cli.exe"}. Validated by running `version`.
+    Only a file actually named `arduino-cli` (or `arduino-cli.exe`) is run:
+    the helper trusts every localhost origin, so this must never become a
+    way to execute an arbitrary program with a `version` argument.
     """
     path = (payload.get("path") or "").strip().strip('"')
-    if not path or not Path(path).exists():
+    if not path or not Path(path).is_file():
         return JSONResponse({"ok": False, "error": "no file at that path"}, status_code=400)
+    if Path(path).name.lower() not in _ARDUINO_CLI_NAMES:
+        return JSONResponse(
+            {"ok": False, "error": "expected an arduino-cli or arduino-cli.exe binary"},
+            status_code=400,
+        )
     try:
         proc = subprocess.run([path, "version"], capture_output=True, text=True, timeout=20)
         if proc.returncode != 0:
@@ -2206,9 +2218,11 @@ def core_upgrade(payload: dict = Body(default={})):
                 _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
             )
         yield from _run_phase("update index", _ARDUINO_BASE + ["core", "update-index"])
-        if not cores:
-            cores = [cid for cid, _installed, _latest in _installed_cores()]
-        for core in cores:
+        # A new name, not a rebinding of `cores`: assigning to the enclosing
+        # function's variable inside the generator makes it local to the
+        # generator, and the read above it raises UnboundLocalError.
+        selected = cores or [cid for cid, _installed, _latest in _installed_cores()]
+        for core in selected:
             if core in _PINNED_CORES:
                 yield from _run_phase(f"install {_core_spec(core)}", _ARDUINO_BASE + ["core", "install", _core_spec(core)])
             else:

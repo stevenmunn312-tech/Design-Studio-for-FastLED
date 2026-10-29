@@ -5,8 +5,19 @@
   An older `updatedAt` cannot overwrite a newer saved workspace. Write to a
   unique non-JSON temporary file and replace only after the whole JSON is ready,
   preserving the prior save if writing fails. Pattern saves and the Save As
-  dialog write through the same `_write_json_atomically` helper; a pattern save
-  writes its new file before removing a stale copy under an older name.
+  dialog write through the same `_write_json_atomically` helper, which flushes
+  and fsyncs the temporary file before the replace; a pattern save writes its
+  new file before removing a stale copy under an older name, and pattern saves,
+  listing and deletion hold `_pattern_file_lock` the same way, so two
+  overlapping renames cannot delete both files. Listing coerces a missing or
+  non-numeric timestamp to 0 rather than failing the whole picker; a save with
+  a present but non-numeric `updatedAt` is refused with 400 so it can never
+  defeat the stale guard.
+- Every route checks for a local `Origin`, GETs included: a cross-site page
+  must not be able to run `arduino-cli board list` through `/api/serial/ports`.
+  A GET with no `Origin` passes only when `Sec-Fetch-Site` is absent,
+  `same-origin` or `none` (direct navigation, the launcher's probe, curl).
+  `/api/health` stays open as the liveness probe.
 - `projectStore.refreshFromDisk` compares a pending browser save with the disk
   revision before retrying it. A stale localStorage snapshot (quota exceeded)
   must never overwrite a newer helper save just because its pending journal

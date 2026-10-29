@@ -134,3 +134,38 @@ def _request(method, path, host, origin=None, sec_fetch_site=None):
     if sec_fetch_site is not None:
         headers["sec-fetch-site"] = sec_fetch_site
     return _Request(method, path, _Headers(headers))
+
+
+def test_cross_site_get_cannot_scan_the_serial_ports(client, monkeypatch):
+    # A GET is not read-only here: the full `/api/serial/ports` runs
+    # `arduino-cli board list`, which opens every COM port. A foreign page's
+    # `fetch(..., {mode: "no-cors"})` carries its own Origin; an `<img>` has
+    # none but says Sec-Fetch-Site: cross-site. Neither may run it.
+    scanned: list[str] = []
+
+    def no_scan(*args, **kwargs):
+        scanned.append("board list")
+        raise AssertionError("arduino-cli must not run for a foreign page")
+
+    monkeypatch.setattr("firmware.subprocess.run", no_scan)
+    response = client.get("/api/serial/ports", headers={"Origin": "http://evil.example"})
+    assert response.status_code == 403
+    response = client.get("/api/serial/ports", headers={"Sec-Fetch-Site": "cross-site"})
+    assert response.status_code == 403
+    assert scanned == []
+
+
+def test_the_studios_own_get_calls_still_pass(client):
+    # The UI fetches cross-origin from the Vite page, so a local Origin rides
+    # along; a typed address bar sends Sec-Fetch-Site: none; curl sends
+    # neither. All three are the machine's own user.
+    for headers in (
+        {"Origin": "http://localhost:5173"},
+        {"Origin": "http://design-studio-for-fastled.localhost:5173"},
+        {"Sec-Fetch-Site": "none"},
+        {"Sec-Fetch-Site": "same-origin"},
+        {},
+    ):
+        response = client.get("/api/serial/ports", params={"quick": "1"}, headers=headers)
+        assert response.status_code == 200, headers
+        assert response.json()["ok"] is True

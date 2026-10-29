@@ -72,3 +72,30 @@ def test_upload_show_reports_missing_engine(client, monkeypatch):
         data={"meta": "{}", "provisioner": "x", "player": "y"},
     )
     assert r.status_code == 400
+
+
+def test_upload_show_rejects_meta_that_is_not_json(client):
+    r = client.post(
+        "/api/upload-show",
+        data={"meta": "{not json", "player": "void setup(){}"},
+    )
+    assert r.status_code == 400
+    assert "meta" in r.json()["error"]
+    r = client.post("/api/upload-show", data={"meta": "[1, 2]", "player": "void setup(){}"})
+    assert r.status_code == 400
+
+
+def test_sd_copy_rejects_meta_that_is_not_json(client):
+    r = client.post("/api/sd-copy", data={"meta": "drive=E:"})
+    assert r.status_code == 400
+    assert "meta" in r.json()["error"]
+
+
+def test_listener_starts_reject_a_port_that_is_not_a_number(client):
+    r = client.post("/api/artnet/start", json={"port": "six"})
+    assert r.status_code == 400
+    assert "port" in r.json()["error"]
+    r = client.post("/api/artnet/start", json={"universe": "one"})
+    assert r.status_code == 400
+    r = client.post("/api/ddp/start", json={"port": [4048]})
+    assert r.status_code == 400

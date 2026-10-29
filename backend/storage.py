@@ -38,13 +38,21 @@ _PROJECTS_DIR = Path(os.environ.get("FLS_PROJECTS_DIR") or (_CONTENT_DIR / "Proj
 # moved to the per-user data folder; startup moves those files across once.
 _LEGACY_PATTERNS_DIR = Path(__file__).parent.parent / "My Patterns"
 _project_file_lock = threading.RLock()
+# Pattern saves write the new file before removing a stale copy under an
+# older name. Two overlapping saves of one pattern would each delete the
+# other's file; the lock serialises save, list and delete the way
+# `_project_file_lock` does for projects.
+_pattern_file_lock = threading.RLock()
+_TIMESTAMP_FIELDS = ("updatedAt", "createdAt")
 
 
 def _write_json_atomically(path: Path, payload: dict) -> None:
     """Write JSON so the last complete file survives a crash mid-write.
 
     A unique non-JSON temp file beside the target is invisible to the
-    listings, then replaces the target in one rename.
+    listings, then replaces the target in one rename. The temp file is
+    flushed and fsynced first: a rename is durable on its own, but without
+    the fsync a power cut can leave the renamed file empty or truncated.
     """
     temporary_path: Path | None = None
     try:
@@ -52,10 +60,41 @@ def _write_json_atomically(path: Path, payload: dict) -> None:
                                          suffix=".tmp", delete=False) as temporary:
             temporary_path = Path(temporary.name)
             temporary.write(json.dumps(payload, indent=2))
+            temporary.flush()
+            os.fsync(temporary.fileno())
         temporary_path.replace(path)
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
+
+
+def _timestamp(value) -> float:
+    """A sortable number for a saved file's `updatedAt`/`createdAt`.
+
+    Hand-edited or older files can carry `null` or a string there; treating
+    those as 0 keeps the listing sortable instead of raising a TypeError that
+    turns the whole picker into "helper offline".
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    if value != value:  # NaN compares unequal to itself
+        return 0
+    return value
+
+
+def _timestamp_error(payload: dict) -> str | None:
+    """Why a save's timestamps are unusable, or None when they are numbers.
+
+    `null`/absent is tolerated (it reads as 0), but a string or object would
+    defeat the stale-save guard and the listing sort, so it is refused.
+    """
+    for field in _TIMESTAMP_FIELDS:
+        value = payload.get(field)
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value != value:
+            return f"{field} must be a number"
+    return None
 
 
 # ── Saved patterns ("My Patterns") ────────────────────────────────────────────
@@ -339,16 +378,17 @@ def _show_project_open_dialog() -> Path | None:
 @router.get("/api/patterns")
 def list_patterns():
     """Every saved pattern on disk, newest first. `[]` when the folder is empty."""
-    out = []
-    for f in _iter_pattern_files():
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and data.get("id") and data.get("name"):
-                out.append(data)
-        except Exception:
-            continue  # skip an unreadable/hand-broken file rather than 500
-    out.sort(key=lambda p: p.get("createdAt", 0), reverse=True)
-    return {"ok": True, "dir": str(_PATTERNS_DIR), "patterns": out}
+    with _pattern_file_lock:
+        out = []
+        for f in _iter_pattern_files():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("id") and data.get("name"):
+                    out.append(data)
+            except Exception:
+                continue  # skip an unreadable/hand-broken file rather than 500
+        out.sort(key=lambda p: _timestamp(p.get("createdAt")), reverse=True)
+        return {"ok": True, "dir": str(_PATTERNS_DIR), "patterns": out}
 
 
 @router.post("/api/patterns")
@@ -359,24 +399,29 @@ def save_pattern(pattern: dict = Body(...)):
     name = str(pattern.get("name") or "").strip()
     if not pid or not name or "subgraph" not in pattern:
         return JSONResponse({"ok": False, "error": "pattern needs id, name and subgraph"}, status_code=400)
-    path = _unique_path(_sanitize_filename(name), pid)
-    # Defence in depth: never write outside the patterns folder.
-    if _patterns_dir().resolve() not in path.resolve().parents:
-        return JSONResponse({"ok": False, "error": "invalid pattern name"}, status_code=400)
-    try:
-        # Write first, then drop any stale copy under an older filename, so a
-        # failed write never leaves the pattern with no file at all.
-        _write_json_atomically(path, pattern)
-        _remove_files_for_id(pid, keep=path)
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-    return {"ok": True, "file": path.name}
+    timestamp_error = _timestamp_error(pattern)
+    if timestamp_error:
+        return JSONResponse({"ok": False, "error": timestamp_error}, status_code=400)
+    with _pattern_file_lock:
+        path = _unique_path(_sanitize_filename(name), pid)
+        # Defence in depth: never write outside the patterns folder.
+        if _patterns_dir().resolve() not in path.resolve().parents:
+            return JSONResponse({"ok": False, "error": "invalid pattern name"}, status_code=400)
+        try:
+            # Write first, then drop any stale copy under an older filename, so a
+            # failed write never leaves the pattern with no file at all.
+            _write_json_atomically(path, pattern)
+            _remove_files_for_id(pid, keep=path)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        return {"ok": True, "file": path.name}
 
 
 @router.delete("/api/patterns/{pattern_id}")
 def delete_pattern(pattern_id: str):
     """Delete the file(s) holding this pattern id."""
-    _remove_files_for_id(pattern_id)
+    with _pattern_file_lock:
+        _remove_files_for_id(pattern_id)
     return {"ok": True}
 
 
@@ -522,8 +567,14 @@ def list_projects():
                     out.append(data)
             except Exception:
                 continue
-        out.sort(key=lambda project: project.get("updatedAt", project.get("createdAt", 0)), reverse=True)
+        out.sort(key=_project_sort_key, reverse=True)
         return {"ok": True, "dir": str(_PROJECTS_DIR), "projects": out}
+
+
+def _project_sort_key(project: dict) -> float:
+    """`updatedAt`, falling back to `createdAt` when it is absent or null."""
+    updated = project.get("updatedAt")
+    return _timestamp(updated if updated is not None else project.get("createdAt"))
 
 
 @router.post("/api/projects")
@@ -535,14 +586,20 @@ def save_project(project: dict = Body(...)):
     if (not pid or not name or not isinstance(workspace, dict)
             or not isinstance(workspace.get("nodes"), list) or not isinstance(workspace.get("edges"), list)):
         return JSONResponse({"ok": False, "error": "project needs id, name and workspace"}, status_code=400)
+    timestamp_error = _timestamp_error(project)
+    if timestamp_error:
+        return JSONResponse({"ok": False, "error": timestamp_error}, status_code=400)
     with _project_file_lock:
         # Autosave, explicit Save and pagehide can arrive out of order. Never
         # let an older snapshot replace the newer workspace already on disk.
+        # Both sides go through `_timestamp` so a hand-edited file with a
+        # null or string `updatedAt` compares as 0 instead of raising a
+        # TypeError that used to be swallowed and let the older save through.
         for existing_path in _iter_project_files():
             try:
                 existing = json.loads(existing_path.read_text(encoding="utf-8"))
                 if (existing.get("id") == pid
-                        and existing.get("updatedAt", 0) > project.get("updatedAt", 0)):
+                        and _timestamp(existing.get("updatedAt")) > _timestamp(project.get("updatedAt"))):
                     return {"ok": True, "file": existing_path.name}
             except (OSError, ValueError, TypeError):
                 continue
@@ -579,6 +636,9 @@ def save_project_dialog(project: dict = Body(...)):
     if (not pid or not name or not isinstance(workspace, dict)
             or not isinstance(workspace.get("nodes"), list) or not isinstance(workspace.get("edges"), list)):
         return JSONResponse({"ok": False, "error": "project needs id, name and workspace"}, status_code=400)
+    timestamp_error = _timestamp_error(project)
+    if timestamp_error:
+        return JSONResponse({"ok": False, "error": timestamp_error}, status_code=400)
 
     initial_file = f"{_sanitize_filename(name)}{_PROJECT_FILE_SUFFIX}"
     path = _show_project_save_dialog(initial_file)
