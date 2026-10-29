@@ -6,7 +6,7 @@ import { specializeCpp, specializeSwitch } from './cppSpecialize'
 function reactivePatterns(renderers?: PatternRenderers): boolean {
   return renderers?.audioReactive?.some(Boolean) ?? !!renderers
 }
-import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
+import { MUSIC_PLAYER_MIN_HOLD_SEC, musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import { patternPacingCpp } from './player/patternPacingCpp'
 import { energyBandBitExpr, energyBandTrackerCpp, patternPickCpp } from './player/patternPickCpp'
 import { sequenceTableCpp } from './player/patternSequenceCpp'
@@ -2640,7 +2640,7 @@ ${sequenceWalker}${rotates ? `  // Unknown tracks have no pre-baked event timeli
   // means a step sticks, keeps a full dwell of its own, and decides what
   // comes after it.
   {
-    const float minHold = constrain(${timingExpression('minTime')}, 0.0f, 86400.0f);
+    const float minHold = max(${MUSIC_PLAYER_MIN_HOLD_SEC.toFixed(1)}f, constrain(${timingExpression('minTime')}, 0.0f, 86400.0f));
     const float maxHold = max(minHold, constrain(${timingExpression('maxTime')}, 0.0f, 86400.0f));
     const uint32_t transitionMs = (uint32_t)(constrain(${timingExpression('transitionSec')}, 0.0f, 86400.0f) * 1000.0f);
 ${pacing ? `${pacing.declarations}

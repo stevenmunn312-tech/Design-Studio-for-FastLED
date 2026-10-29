@@ -38,7 +38,12 @@ export class MidiEngine {
   private noteVelocity = new Map<number, number>()
   private ccValues = new Map<number, number>()
   private active = false
+  // True once Web MIDI access was granted and the inputs are attached. A
+  // request that is still pending is tracked separately so two subscribers
+  // in the same tick share one permission prompt, while a denied request
+  // leaves both clear and the next subscriber asks again.
   private started = false
+  private starting = false
 
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn)
@@ -57,21 +62,39 @@ export class MidiEngine {
   }
 
   private ensureStarted() {
-    if (this.started) return
-    this.started = true
+    if (this.started || this.starting) return
     const nav = typeof navigator !== 'undefined' ? navigator : null
     if (!nav?.requestMIDIAccess) return
+    this.starting = true
     nav.requestMIDIAccess()
       .then((access) => {
+        this.started = true
         const attach = (input: MIDIInput) => {
           input.onmidimessage = (e) => this.handleMessage(e.data)
         }
         access.inputs.forEach(attach)
-        access.onstatechange = () => access.inputs.forEach(attach)
+        access.onstatechange = (event) => {
+          access.inputs.forEach(attach)
+          // A device unplugged mid-note never sends its note-off, so every
+          // note it was holding would stay at its velocity until the device
+          // came back and released it.
+          if (event.port?.state === 'disconnected') this.releaseHeldNotes()
+        }
         this.active = true
         this.emit()
       })
       .catch(() => { /* denied or unsupported — nodes stay at their idle default */ })
+      .finally(() => { this.starting = false })
+  }
+
+  private releaseHeldNotes() {
+    let released = false
+    for (const [note, velocity] of this.noteVelocity) {
+      if (velocity === 0) continue
+      this.noteVelocity.set(note, 0)
+      released = true
+    }
+    if (released) this.emit()
   }
 
   /** Public so it can be driven directly in tests (and by the

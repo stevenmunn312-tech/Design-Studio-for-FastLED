@@ -21,6 +21,7 @@ import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './preview
 import { graphConsumesAudio } from './previewAudioUsage'
 import { graphAudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
+import { consumeLiveBeats } from '../../state/audio/liveAudioSignal'
 import PreviewSpectrum from './PreviewSpectrum'
 import {
   nextSpectrumVisualizerMode,
@@ -660,6 +661,9 @@ export default function LEDPreview() {
           }
           if (pass === selectedPass || outputs.size === 0) { outputs = result.outputs; terminalFrame = result.frame }
         }
+        // Every pass this frame has read the live beats; release them so the
+        // next engine frame starts clean (see state/audio/beatLatch.ts).
+        consumeLiveBeats()
         /*
          * Master Speed, applied by sliding the animation clock's origin rather
          * than by multiplying the elapsed time. `t * speed` would double every

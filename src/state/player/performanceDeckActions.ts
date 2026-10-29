@@ -6,7 +6,7 @@
 
 import { useGraphStore } from '../graphStore'
 import { usePerformanceDeckSession } from './performanceDeckSessionStore'
-import { scaleMidiValueToPin, type DeckActionId } from './performanceDeck'
+import { interpolateScene, scaleMidiValueToPin, type DeckActionId } from './performanceDeck'
 
 export function dispatchDeckAction(action: DeckActionId) {
   const { performanceDeck, updateNodeProperty, recallScene, panic, restorePanic, panicActive, nodes } = useGraphStore.getState()
@@ -22,6 +22,36 @@ export function dispatchDeckAction(action: DeckActionId) {
     const current = Number(node?.data.properties[pin.propertyKey] ?? 0)
     updateNodeProperty(pin.nodeId, pin.propertyKey, current + action.delta)
   }
+}
+
+/** Push the morph crossfader's position into the graph: every pin both
+ *  scenes hold takes the value interpolated between them. This is the one
+ *  owner of that step — the deck panel only displays the crossfader, so a
+ *  MIDI fader bound to the morph keeps moving the graph with the panel
+ *  closed, which is why the session store's setters are reached through
+ *  `setMorphProgress`/`setMorphScenes` below rather than called directly. */
+export function applySceneMorph() {
+  const { morphSceneA, morphSceneB, morphProgress } = usePerformanceDeckSession.getState()
+  if (!morphSceneA || !morphSceneB) return
+  const { performanceDeck, updateNodeProperty } = useGraphStore.getState()
+  const a = performanceDeck.scenes.find((sc) => sc.id === morphSceneA)
+  const b = performanceDeck.scenes.find((sc) => sc.id === morphSceneB)
+  if (!a || !b) return
+  const values = interpolateScene(a, b, morphProgress, performanceDeck.pins)
+  for (const [pinId, value] of Object.entries(values)) {
+    const pin = performanceDeck.pins.find((p) => p.id === pinId)
+    if (pin) updateNodeProperty(pin.nodeId, pin.propertyKey, value)
+  }
+}
+
+export function setMorphProgress(t: number) {
+  usePerformanceDeckSession.getState().setMorphProgress(t)
+  applySceneMorph()
+}
+
+export function setMorphScenes(a: string | null, b: string | null) {
+  usePerformanceDeckSession.getState().setMorphScenes(a, b)
+  applySceneMorph()
 }
 
 /** Apply an incoming raw MIDI event to whatever it's bound to — a pin's
@@ -40,7 +70,7 @@ export function applyMidiEventToBindings(event: { kind: 'cc' | 'note'; channel: 
     const pin = performanceDeck.pins.find((p) => p.id === target.pinId)
     if (pin) updateNodeProperty(pin.nodeId, pin.propertyKey, scaleMidiValueToPin(pin, event.value))
   } else if (target.kind === 'morph') {
-    usePerformanceDeckSession.getState().setMorphProgress(event.value)
+    setMorphProgress(event.value)
   } else if (target.kind === 'action') {
     dispatchDeckAction(target.action)
   }

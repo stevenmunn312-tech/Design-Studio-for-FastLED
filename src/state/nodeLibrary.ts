@@ -43,6 +43,7 @@ import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
+import { MUSIC_PLAYER_MIN_HOLD_SEC } from './player/musicPlayerTiming'
 import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/playerDynamics'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
@@ -535,9 +536,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   deltaHue: { control: 'slider', min: 0, max: 32, step: 1 },
   gamma:    { control: 'slider', min: 1, max: 3.5, step: 0.1 },
   milliamps:{ control: 'slider', min: 100, max: 20000, step: 100 },
-  // Show Engine timing.
-  minTime:       { control: 'slider', min: 0, max: 30, step: 0.5 },
-  maxTime:       { control: 'slider', min: 0, max: 60, step: 0.5 },
+  // Show Engine timing. A 0 s hold would chain transitions back to back, so
+  // the sliders share the floor `musicPlayerTiming` applies to wired values.
+  minTime:       { control: 'slider', min: MUSIC_PLAYER_MIN_HOLD_SEC, max: 30, step: 0.5 },
+  maxTime:       { control: 'slider', min: MUSIC_PLAYER_MIN_HOLD_SEC, max: 60, step: 0.5 },
   transitionSec: { control: 'slider', min: 0.1, max: 5, step: 0.1 },
 
   // Normalised 0–1 control values that were previously free-entry numbers

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { usePerformanceDeckSession } from '../../state/player/performanceDeckSessionStore'
-import { interpolateScene, RESERVED_COMBOS, serializeKeyCombo } from '../../state/player/performanceDeck'
+import { setMorphProgress, setMorphScenes } from '../../state/player/performanceDeckActions'
+import { RESERVED_COMBOS, serializeKeyCombo } from '../../state/player/performanceDeck'
 import { useUiStore } from '../../state/uiStore'
 import { MidiEngine } from '../../midi/midiEngine'
 import DeckKnob from './DeckKnob'
@@ -35,9 +36,10 @@ export default function PerformanceDeck() {
   const cancelKeyLearn = usePerformanceDeckSession((s) => s.cancelKeyLearn)
   const morphSceneA = usePerformanceDeckSession((s) => s.morphSceneA)
   const morphSceneB = usePerformanceDeckSession((s) => s.morphSceneB)
+  // The crossfader's position and A/B pair are read here for display only;
+  // moving them goes through performanceDeckActions, which also applies the
+  // interpolation, so a bound MIDI fader works with this panel closed.
   const morphProgress = usePerformanceDeckSession((s) => s.morphProgress)
-  const setMorphScenes = usePerformanceDeckSession((s) => s.setMorphScenes)
-  const setMorphProgress = usePerformanceDeckSession((s) => s.setMorphProgress)
 
   const [sceneName, setSceneName] = useState('')
 
@@ -90,20 +92,6 @@ export default function PerformanceDeck() {
     window.addEventListener('keydown', handler, { capture: true })
     return () => window.removeEventListener('keydown', handler, { capture: true })
   }, [keyLearnAction, deck.keyBindings, addKeyBinding, cancelKeyLearn, setStatus])
-
-  // ── Scene morph: interpolate on any change to progress or the A/B pair ──
-  useEffect(() => {
-    if (!morphSceneA || !morphSceneB) return
-    const a = deck.scenes.find((sc) => sc.id === morphSceneA)
-    const b = deck.scenes.find((sc) => sc.id === morphSceneB)
-    if (!a || !b) return
-    const values = interpolateScene(a, b, morphProgress, deck.pins)
-    for (const [pinId, value] of Object.entries(values)) {
-      const pin = deck.pins.find((p) => p.id === pinId)
-      if (pin) updateNodeProperty(pin.nodeId, pin.propertyKey, value)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [morphSceneA, morphSceneB, morphProgress])
 
   return (
     <section className={styles.deck} aria-label="Control Deck">

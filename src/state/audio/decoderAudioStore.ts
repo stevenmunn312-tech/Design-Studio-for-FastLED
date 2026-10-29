@@ -2,18 +2,21 @@ import { create } from 'zustand'
 import { DecoderAudioEngine } from '../../audio/decoderAudioEngine'
 import type { AudioData } from '../../audio/audioEngine'
 import { NUM_SPECTRUM_BARS } from '../../audio/audioEngine'
+import { latchBeat } from './beatLatch'
 
 interface DecoderAudioState extends AudioData {
   attachPlayer: (element: HTMLMediaElement) => void
   detachPlayer: (element?: HTMLMediaElement) => void
   resumePlayer: () => void
+  /** Clear the latched beat once an evaluation pass has read it. */
+  consumeBeat: () => void
 }
 
 const silentSpectrum = () => Array(NUM_SPECTRUM_BARS).fill(0)
 
 export const useDecoderAudioStore = create<DecoderAudioState>()((set) => {
   const engine = DecoderAudioEngine.instance
-  engine.subscribe((data) => set(data))
+  engine.subscribe((data) => set((s) => ({ ...data, beat: latchBeat(s.beat, data) })))
 
   return {
     active: false,
@@ -39,5 +42,6 @@ export const useDecoderAudioStore = create<DecoderAudioState>()((set) => {
     attachPlayer: (element) => engine.attach(element),
     detachPlayer: (element) => engine.detach(element),
     resumePlayer: () => engine.resume(),
+    consumeBeat: () => set((s) => (s.beat ? { beat: false } : s)),
   }
 })

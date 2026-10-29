@@ -45,7 +45,7 @@ describe('buildShowPlayer', () => {
     for (const sketch of [uploaded, measured]) {
       expect(sketch.includes('const bool beatNow = _audioBeat;')).toBe(true)
       expect(sketch.includes('posMs - rotatedAtMs >= rotateMs && beatEdge')).toBe(true)
-      expect(sketch.includes('const float minHold = constrain(3.0000f')).toBe(true)
+      expect(sketch.includes('const float minHold = max(1.0f, constrain(3.0000f')).toBe(true)
       expect(sketch.includes('const float maxHold = max(minHold, constrain(7.0000f')).toBe(true)
       expect(sketch.includes('constrain(0.5000f, 0.0f, 86400.0f) * 1000.0f')).toBe(true)
       expect(sketch.includes('rotateMs = transitionMs + pickHoldMs();')).toBe(true)
@@ -81,7 +81,7 @@ describe('buildShowPlayer', () => {
       patternSet: ['a', 'b'], bakedAudio: false, preferredTrack: '', genericPlayer: true,
     })
     expect(sketch.includes(`const bool beatNow = n_pulse_${sourceType === 'Compare' ? 'result' : 'beat'};`)).toBe(true)
-    expect(sketch.includes('const float minHold = constrain(n_hold_result')).toBe(true)
+    expect(sketch.includes('const float minHold = max(1.0f, constrain(n_hold_result')).toBe(true)
     if (sourceType === 'BeatDetect') {
       expect(sketch).toContain('const float n_pulse_beat_thr = 0.4f;')
       expect(sketch).toContain('bool n_pulse_beat = _audioBeat && _audioBeatConfidence >= n_pulse_beat_thr')

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { AudioEngine, NUM_SPECTRUM_BARS } from '../../audio/audioEngine'
 import type { PitchSignal, SongStructureSignal, VibeSignal } from '../evaluator/types'
+import { latchBeat } from './beatLatch'
 
 interface AudioState {
   active: boolean
@@ -29,19 +30,21 @@ interface AudioState {
   samples?: readonly number[]
   startAudio: () => Promise<void>
   stopAudio: () => void
+  /** Clear the latched beat once an evaluation pass has read it. */
+  consumeBeat: () => void
 }
 
 export const useAudioStore = create<AudioState>()((set) => {
   const engine = AudioEngine.instance
 
   engine.subscribe((data) => {
-    set({
+    set((s) => ({
       active: data.active,
       nativeFastLed: data.nativeFastLed,
       bass: data.bass,
       mids: data.mids,
       treble: data.treble,
-      beat: data.beat,
+      beat: latchBeat(s.beat, data),
       beatConfidence: data.beatConfidence,
       bpm: data.bpm,
       spectrum: data.spectrum,
@@ -60,7 +63,7 @@ export const useAudioStore = create<AudioState>()((set) => {
       structure: data.structure,
       pitch: data.pitch,
       samples: data.samples,
-    })
+    }))
   })
 
   return {
@@ -122,5 +125,7 @@ export const useAudioStore = create<AudioState>()((set) => {
         samples: undefined,
       })
     },
+
+    consumeBeat: () => set((s) => (s.beat ? { beat: false } : s)),
   }
 })

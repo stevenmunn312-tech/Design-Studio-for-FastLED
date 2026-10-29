@@ -1442,6 +1442,9 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       maxTime: num(id, 'maxTime', props, 'maxTime', 12),
       transitionSec: num(id, 'transitionSec', props, 'transitionSec', 1),
     })
+    // Resolved once per frame: the pick table and the energy-band switch
+    // below both read it.
+    const profiles = wiredProfiles(nodes, edges, id, ids)
     const o = {
       ...timing,
       transSec: timing.transitionSec,
@@ -1467,10 +1470,10 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
           : 0
         : null,
       audioReactive: (gid: string) => isAudioReactiveSubgraph(groups[gid]?.nodes ?? []),
-      profiles: wiredProfiles(nodes, edges, id, ids),
+      profiles,
       sequence: asPatternSteps(props.sequence, ids),
       countBeats: timing.beatTransitions === true,
-      applyEnergyBands: wiredProfiles(nodes, edges, id, ids).energyTags.some((tags) => tags.length > 0),
+      applyEnergyBands: profiles.energyTags.some((tags) => tags.length > 0),
       stepDelta: 0,
       clockTick: patternTick,
       clockElapsed: elapsedTick,

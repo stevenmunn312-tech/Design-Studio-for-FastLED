@@ -9,3 +9,11 @@ import { useDecoderAudioStore } from './decoderAudioStore'
 export function liveAudioSignal(kind: 'microphone' | 'line-in' | 'decoder'): AudioSignal {
   return kind === 'decoder' ? useDecoderAudioStore.getState() : useAudioStore.getState()
 }
+
+/** Release the beats an evaluation pass has just read. Each store holds a
+ *  beat raised until this runs (see beatLatch.ts), so the preview loop calls
+ *  it once after every pass it evaluates. */
+export function consumeLiveBeats(): void {
+  useAudioStore.getState().consumeBeat()
+  useDecoderAudioStore.getState().consumeBeat()
+}

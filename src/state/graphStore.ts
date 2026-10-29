@@ -1949,11 +1949,7 @@ export const useGraphStore = create<GraphState>()(
         const id = `scene-${Date.now()}`
         set((s) => {
           const now = Date.now()
-          const values: Record<string, unknown> = {}
-          for (const pin of s.performanceDeck.pins) {
-            const node = s.nodes.find((n) => n.id === pin.nodeId)
-            if (node) values[pin.id] = node.data.properties[pin.propertyKey]
-          }
+          const values = pinnedValues(s)
           const scene: ParameterScene = { id, name: name.trim() || 'Untitled scene', values, createdAt: now, updatedAt: now }
           return { performanceDeck: { ...s.performanceDeck, scenes: [...s.performanceDeck.scenes, scene] } }
         })
@@ -1963,11 +1959,7 @@ export const useGraphStore = create<GraphState>()(
       updateScene: (sceneId) =>
         set((s) => {
           const now = Date.now()
-          const values: Record<string, unknown> = {}
-          for (const pin of s.performanceDeck.pins) {
-            const node = s.nodes.find((n) => n.id === pin.nodeId)
-            if (node) values[pin.id] = node.data.properties[pin.propertyKey]
-          }
+          const values = pinnedValues(s)
           return {
             performanceDeck: {
               ...s.performanceDeck,
@@ -1991,7 +1983,7 @@ export const useGraphStore = create<GraphState>()(
           const scene = s.performanceDeck.scenes.find((sc) => sc.id === sceneId)
           if (!scene) return s
           const pinsById = new Map(s.performanceDeck.pins.map((p) => [p.id, p]))
-          const nodes = s.nodes.map((n) => {
+          return editDeckNodes(s, (nodes) => nodes.map((n) => {
             let changed: Record<string, unknown> | null = null
             for (const [pinId, value] of Object.entries(scene.values)) {
               const pin = pinsById.get(pinId)
@@ -2000,8 +1992,7 @@ export const useGraphStore = create<GraphState>()(
               changed[pin.propertyKey] = value
             }
             return changed ? { ...n, data: { ...n.data, properties: changed } } : n
-          })
-          return { nodes }
+          }))
         })
         queueMicrotask(() => temporalApi.resume())
       },
@@ -2017,8 +2008,9 @@ export const useGraphStore = create<GraphState>()(
             if (!targets.has(nodeId)) targets.set(nodeId, new Set())
             targets.get(nodeId)!.add(propertyKey)
           }
+          const reachable = deckNodes(s)
           for (const pin of s.performanceDeck.pins) {
-            const node = s.nodes.find((n) => n.id === pin.nodeId)
+            const node = reachable.find((n) => n.id === pin.nodeId)
             if (!node) continue
             const value = node.data.properties[pin.propertyKey]
             if (typeof value !== 'number' && typeof value !== 'boolean') continue
@@ -2026,24 +2018,27 @@ export const useGraphStore = create<GraphState>()(
           }
           // Master brightness always goes dark on panic, whether or not the
           // user pinned it — otherwise "blackout" could do nothing visible.
-          const controller = s.nodes.find((n) => n.data.nodeType === 'Board')
-            ?? s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+          // The Board is hardware, so it is read from the root graph even
+          // while a group is open on the canvas.
+          const hardware = rootGraphNodes(s)
+          const controller = hardware.find((n) => n.data.nodeType === 'Board')
+            ?? hardware.find((n) => n.data.nodeType === 'MatrixOutput')
           if (controller) addTarget(controller.id, 'brightness')
 
           for (const [nodeId, keys] of targets) {
-            const node = s.nodes.find((n) => n.id === nodeId)
+            const node = reachable.find((n) => n.id === nodeId)
             if (!node) continue
             for (const key of keys) restore.push({ nodeId, propertyKey: key, value: node.data.properties[key] })
           }
 
-          const nodes = s.nodes.map((n) => {
+          const edited = editDeckNodes(s, (nodes) => nodes.map((n) => {
             const keys = targets.get(n.id)
             if (!keys) return n
             const properties = { ...n.data.properties }
             for (const key of keys) properties[key] = typeof properties[key] === 'boolean' ? false : 0
             return { ...n, data: { ...n.data, properties } }
-          })
-          return { nodes, panicActive: true, panicRestoreValues: restore }
+          }))
+          return { ...edited, panicActive: true, panicRestoreValues: restore }
         })
         queueMicrotask(() => temporalApi.resume())
       },
@@ -2058,14 +2053,14 @@ export const useGraphStore = create<GraphState>()(
             if (!byNode.has(entry.nodeId)) byNode.set(entry.nodeId, [])
             byNode.get(entry.nodeId)!.push(entry)
           }
-          const nodes = s.nodes.map((n) => {
+          const edited = editDeckNodes(s, (nodes) => nodes.map((n) => {
             const entries = byNode.get(n.id)
             if (!entries) return n
             const properties = { ...n.data.properties }
             for (const e of entries) properties[e.propertyKey] = e.value
             return { ...n, data: { ...n.data, properties } }
-          })
-          return { nodes, panicActive: false, panicRestoreValues: null }
+          }))
+          return { ...edited, panicActive: false, panicRestoreValues: null }
         })
         queueMicrotask(() => temporalApi.resume())
       },
@@ -4975,6 +4970,37 @@ function withRootContent(
   if (s.activeGraphId === ROOT_GRAPH_ID) return content
   const root = s.graphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] }
   return { graphData: { ...s.graphData, [ROOT_GRAPH_ID]: { ...root, ...content } } }
+}
+
+/**
+ * Every node a performance-deck pin can name: the open graph and, from inside
+ * a group, the root graph beneath it. A pin records a node id, and that node
+ * lives in exactly one of the two, so a scene recall or a panic made inside a
+ * group still reaches the Board it means to dim.
+ */
+function deckNodes(s: GraphScope): StudioNode[] {
+  const root = rootGraphNodes(s)
+  return root === s.nodes ? s.nodes : [...s.nodes, ...root]
+}
+
+/** The current value of every deck pin, read from whichever graph holds
+ *  the pinned node, so a scene saved from inside a group keeps its root pins. */
+function pinnedValues(s: GraphScope & Pick<GraphState, 'performanceDeck'>): Record<string, unknown> {
+  const nodes = deckNodes(s)
+  const values: Record<string, unknown> = {}
+  for (const pin of s.performanceDeck.pins) {
+    const node = nodes.find((n) => n.id === pin.nodeId)
+    if (node) values[pin.id] = node.data.properties[pin.propertyKey]
+  }
+  return values
+}
+
+/** Map `edit` over both node sets `deckNodes` reads, writing each back to
+ *  the graph it came from. */
+function editDeckNodes(s: GraphScope, edit: (nodes: StudioNode[]) => StudioNode[]): Partial<GraphState> {
+  const root = rootGraphNodes(s)
+  if (root === s.nodes) return { nodes: edit(s.nodes) }
+  return { nodes: edit(s.nodes), ...withRootNodes(s, edit(root)) }
 }
 
 /**
