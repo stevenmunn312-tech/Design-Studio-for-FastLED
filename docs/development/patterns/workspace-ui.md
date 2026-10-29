@@ -203,7 +203,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   in-range (so live readouts stay responsive), and clamping once on blur; Escape
   abandons the edit instead of clamping it in. Escape also blurs the field, and
   that blur's commit still sees the old draft, so an `abandoning` ref skips it;
-  without it, Escape clamped the abandoned text into the store. `BoardNodeBody.tsx`'s power-cap
+  without it, Escape clamped the abandoned text into the store. Enter only
+  blurs; the single blur commits, and a `sent` ref skips that commit when the
+  settled value is what the keystrokes already sent, so one edit is one
+  `onCommit` call (a show lane's undo stack holds one snapshot per edit, not
+  three). A `step` snaps the committed value to the nearest step from `min`
+  before clamping, and a keystroke whose settled value differs from the typed
+  text is held in the field rather than live-committed, so a universe or port
+  field never holds 1.5 even transiently. `BoardNodeBody.tsx`'s power-cap
   Volts/Milliamps fields use it. Reach for this component rather than a raw
   `type="number"` input for any new numeric field with a non-zero minimum.
 

@@ -333,6 +333,8 @@ function SliderProperty({
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit()
             if (e.key === 'Escape') {
+              // The editor answers this Escape; the layer beneath stays open.
+              e.preventDefault()
               setEditing(false)
               setInvalid(false)
             }

@@ -1,5 +1,6 @@
 import { useGroupRegistry } from '../../hooks/useGroupRegistry'
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
@@ -63,8 +64,15 @@ function GuideStrip() {
   const edges = useRootEdges()
   const groups = useGroupRegistry()
   const displayDocuments = useGraphStore((s) => s.displayDocuments)
-  const { listOpen, skipped, baseline, uploaded, hide, setListOpen, skip, unskip, restart, setStripHeight } = useFirstProjectGuide()
-  const { helper, ports, portsScanned, selectedPort, selectedFqbn } = useUploadStore()
+  const { listOpen, skipped, baseline, uploaded, hide, setListOpen, skip, unskip, restart, setStripHeight } = useFirstProjectGuide(useShallow((s) => ({
+    listOpen: s.listOpen, skipped: s.skipped, baseline: s.baseline, uploaded: s.uploaded,
+    hide: s.hide, setListOpen: s.setListOpen, skip: s.skip, unskip: s.unskip, restart: s.restart, setStripHeight: s.setStripHeight,
+  })))
+  // Only the port fields: the compile log and status change many times a
+  // second during an upload and must not re-run the steps and validators.
+  const { helper, ports, portsScanned, selectedPort, selectedFqbn } = useUploadStore(useShallow((s) => ({
+    helper: s.helper, ports: s.ports, portsScanned: s.portsScanned, selectedPort: s.selectedPort, selectedFqbn: s.selectedFqbn,
+  })))
   const capacityStatus = useCapacityStore((s) => s.status)
   const capacityResult = useCapacityStore((s) => s.result)
   const capacitySubject = useCapacityStore((s) => s.subject)

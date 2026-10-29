@@ -844,7 +844,9 @@ function focusableElements(root: HTMLElement | null): HTMLElement[] {
 }
 
 export default function HelpModal() {
-  const { closeHelp, helpTab, setHelpTab } = useUiStore()
+  const closeHelp = useUiStore((s) => s.closeHelp)
+  const helpTab = useUiStore((s) => s.helpTab)
+  const setHelpTab = useUiStore((s) => s.setHelpTab)
   const modalRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef(new Map<HelpTab, HTMLButtonElement>())
   const restoreFocusRef = useRef<HTMLElement | null>(null)

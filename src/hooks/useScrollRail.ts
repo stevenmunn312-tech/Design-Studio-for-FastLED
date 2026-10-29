@@ -22,8 +22,20 @@ export function useScrollOverflow(ref: RefObject<HTMLElement | null>) {
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
     observer?.observe(rail)
     for (const child of Array.from(rail.children)) observer?.observe(child)
+    // Chips come and go with the project (Audio live, Show graph, Stage View),
+    // so a rail's width changes without any observed element resizing. Watch
+    // the child list and measure each chip from the moment it appears.
+    const children = typeof MutationObserver === 'undefined' ? null : new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of Array.from(record.removedNodes)) if (node instanceof Element) observer?.unobserve(node)
+        for (const node of Array.from(record.addedNodes)) if (node instanceof Element) observer?.observe(node)
+      }
+      measure()
+    })
+    children?.observe(rail, { childList: true })
     return () => {
       rail.removeEventListener('scroll', measure)
+      children?.disconnect()
       observer?.disconnect()
     }
   }, [ref])

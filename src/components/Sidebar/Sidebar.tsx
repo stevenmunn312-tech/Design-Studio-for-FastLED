@@ -1167,7 +1167,11 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
                   onBlur={commitRename}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') commitRename()
-                    else if (event.key === 'Escape') cancelRename()
+                    else if (event.key === 'Escape') {
+                      // The field answers this Escape; the layer beneath stays open.
+                      event.preventDefault()
+                      cancelRename()
+                    }
                   }}
                 />
               ) : (
@@ -1479,6 +1483,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') commitPatternCategory()
                       else if (event.key === 'Escape') {
+                        event.preventDefault()
                         setCreatingPatternCategory(false)
                         setPatternCategoryDraft('')
                       }

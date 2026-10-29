@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import styles from './MatrixSizePopup.module.css'
 
@@ -26,6 +26,13 @@ export default function MatrixSizePopup({ width, height, onApply, onClose }: Pro
     onClose()
   }
 
+  // Escape in a field answers here, so the escape-layer stack (this popup's
+  // own entry included) leaves it alone: one keystroke, one close.
+  const closeFromField = (e: KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    onClose()
+  }
+
   return (
     <div
       className={`nodrag nowheel ${styles.overlay}`}
@@ -50,7 +57,7 @@ export default function MatrixSizePopup({ width, height, onApply, onClose }: Pro
               onFocus={(e) => e.currentTarget.select()}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') apply()
-                if (e.key === 'Escape') onClose()
+                if (e.key === 'Escape') closeFromField(e)
               }}
             />
           </label>
@@ -65,7 +72,7 @@ export default function MatrixSizePopup({ width, height, onApply, onClose }: Pro
               onChange={(e) => setH(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') apply()
-                if (e.key === 'Escape') onClose()
+                if (e.key === 'Escape') closeFromField(e)
               }}
             />
           </label>

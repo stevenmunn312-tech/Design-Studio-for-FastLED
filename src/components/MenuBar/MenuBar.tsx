@@ -192,7 +192,9 @@ export default function MenuBar() {
   const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)
   const toggleDeck = usePerformanceDeckSession((s) => s.toggleDeck)
 
-  const { undo, redo, pastStates, futureStates } = useTemporalStore((s) => s)
+  const { undo, redo, pastStates, futureStates } = useTemporalStore(useShallow((s) => ({
+    undo: s.undo, redo: s.redo, pastStates: s.pastStates, futureStates: s.futureStates,
+  })))
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const projects = useProjectStore((s) => s.projects)
   const recentProjectIds = useProjectStore((s) => s.recentProjectIds)

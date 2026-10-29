@@ -31,4 +31,69 @@ describe('ClampedNumberInput', () => {
     fireEvent.keyDown(field, { key: 'Escape' })
     expect(onEscape).toHaveBeenCalledTimes(1)
   })
+
+  // ShowLaneEditor snapshots history on every commit, so a value committed
+  // again on Enter and again on the blur Enter causes made one edit cost
+  // three Ctrl+Z presses.
+  it('commits an in-range edit once when Enter confirms it', () => {
+    const onCommit = vi.fn()
+    render(<ClampedNumberInput value={5} min={1} max={24} ariaLabel="Volts" onCommit={onCommit} />)
+    const field = screen.getByLabelText('Volts') as HTMLInputElement
+    field.focus()
+    fireEvent.change(field, { target: { value: '7' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    expect(onCommit).toHaveBeenLastCalledWith(7)
+    expect(field.value).toBe('5')
+  })
+
+  it('commits an out-of-range edit once, clamped, when it is confirmed', () => {
+    const onCommit = vi.fn()
+    render(<ClampedNumberInput value={5} min={1} max={24} ariaLabel="Volts" onCommit={onCommit} />)
+    const field = screen.getByLabelText('Volts') as HTMLInputElement
+    field.focus()
+    fireEvent.change(field, { target: { value: '40' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    expect(onCommit).toHaveBeenLastCalledWith(24)
+  })
+
+  it('snaps a committed value to the step without rejecting the digits typed on the way', () => {
+    const onCommit = vi.fn()
+    render(<ClampedNumberInput value={500} min={100} max={100000} step={100} ariaLabel="Milliamps" onCommit={onCommit} />)
+    const field = screen.getByLabelText('Milliamps') as HTMLInputElement
+    field.focus()
+    fireEvent.change(field, { target: { value: '1' } })
+    fireEvent.change(field, { target: { value: '15' } })
+    fireEvent.change(field, { target: { value: '150' } })
+    expect(field.value).toBe('150')
+    expect(onCommit).not.toHaveBeenCalledWith(150)
+    fireEvent.change(field, { target: { value: '1500' } })
+    expect(onCommit).toHaveBeenLastCalledWith(1500)
+    fireEvent.change(field, { target: { value: '150' } })
+    fireEvent.blur(field)
+    expect(onCommit).toHaveBeenLastCalledWith(200)
+    expect(onCommit).not.toHaveBeenCalledWith(150)
+  })
+
+  it('never commits a fraction into a whole-number field', () => {
+    const onCommit = vi.fn()
+    render(<ClampedNumberInput value={1} min={0} max={16} step={1} ariaLabel="Universe" onCommit={onCommit} />)
+    const field = screen.getByLabelText('Universe') as HTMLInputElement
+    field.focus()
+    fireEvent.change(field, { target: { value: '1.5' } })
+    fireEvent.blur(field)
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    expect(onCommit).toHaveBeenLastCalledWith(2)
+  })
+
+  it('keeps a decimal step exact', () => {
+    const onCommit = vi.fn()
+    render(<ClampedNumberInput value={0} min={0} max={1} step={0.1} ariaLabel="Ratio" onCommit={onCommit} />)
+    const field = screen.getByLabelText('Ratio') as HTMLInputElement
+    field.focus()
+    fireEvent.change(field, { target: { value: '0.34' } })
+    fireEvent.blur(field)
+    expect(onCommit).toHaveBeenLastCalledWith(0.3)
+  })
 })

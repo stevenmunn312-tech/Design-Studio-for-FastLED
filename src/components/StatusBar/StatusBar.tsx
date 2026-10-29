@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audio/audioStore'
@@ -17,7 +18,9 @@ const LEVEL_COLOR: Record<StatusLevel, string> = {
 }
 
 export default function StatusBar() {
-  const { statusText, statusLevel, fps, performanceMode, stageMode } = useUiStore()
+  const { statusText, statusLevel, fps, performanceMode, stageMode } = useUiStore(useShallow((s) => ({
+    statusText: s.statusText, statusLevel: s.statusLevel, fps: s.fps, performanceMode: s.performanceMode, stageMode: s.stageMode,
+  })))
   const railRef = useRef<HTMLDivElement>(null)
   const railOverflow = useScrollOverflow(railRef)
   const nodeCount = useGraphStore((s) => s.nodes.length)
