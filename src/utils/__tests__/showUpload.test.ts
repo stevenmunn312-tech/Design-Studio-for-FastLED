@@ -394,6 +394,31 @@ describe('the performance player without a collection', () => {
     expect(payload.player).toContain('#define BT_DEVICE_NAME "Party Lights"')
     expect(payload.player).not.toMatch(/\bSD\.|#include <Audio\.h>|provServiceSerial/)
   })
+
+  // The stations are on the air: flash the player with its station list,
+  // stream over the player's own Wi-Fi, and send nothing to a card.
+  it('flashes an Internet Radio Music Player with its stations and no card files', () => {
+    const player = {
+      nodes: [
+        node('player', 'PatternMaster', {
+          musicSource: 'Internet Radio', wifiHostname: 'den-radio', stationPage: true,
+          stations: [{ name: 'Jazz', url: 'http://jazz.example.com/live' }, { name: 'Bad', url: 'http://x.example.com/a b' }],
+        }),
+        ...graph.nodes.slice(1).filter((entry) => entry.data.nodeType !== 'SDCard'),
+      ],
+      edges: [{ id: 'led', source: 'player', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as Edge[],
+    }
+    const entry = { id: 'song', file: new File([''], 'track.mp3'), status: 'done', analysis: {}, show } as unknown as MusicEntry
+    const payload = buildShowPayload(player.nodes, player.edges, [entry], {})!
+    expect(payload.files).toEqual([])
+    expect(payload.player).toContain('{ "Jazz", "http://jazz.example.com/live" },')
+    expect(payload.player).not.toContain('x.example.com')
+    expect(payload.player).toContain('WiFi.setHostname("den-radio");')
+    // No access code in this browser, so the page can choose but not edit.
+    expect(payload.player).toContain('MDNS.begin("den-radio")')
+    expect(payload.player).not.toContain('RADIO_ACCESS_CODE')
+    expect(payload.player).not.toMatch(/\bSD\.|provServiceSerial|connecttoFS/)
+  })
 })
 
 describe('packaging a drifted show', () => {

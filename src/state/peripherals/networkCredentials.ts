@@ -10,6 +10,12 @@ import { create } from 'zustand'
 export interface NetworkCredentials {
   ssid: string
   password: string
+  /**
+   * An internet radio Music Player's station-page access code: what lets a
+   * phone add or remove stations. A secret like the password, so it is kept
+   * here rather than in the project.
+   */
+  accessCode?: string
 }
 
 // Shared reference so a selector falling back to "no credentials yet" (e.g.
@@ -45,6 +51,7 @@ function loadFromStorage(): Record<string, NetworkCredentials> {
     out[nodeId] = {
       ssid: typeof v.ssid === 'string' ? v.ssid : '',
       password: typeof v.password === 'string' ? v.password : '',
+      ...(typeof v.accessCode === 'string' && v.accessCode ? { accessCode: v.accessCode } : {}),
     }
   }
   return out

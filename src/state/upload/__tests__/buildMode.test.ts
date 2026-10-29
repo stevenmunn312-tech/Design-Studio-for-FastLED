@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BUILD_MODE_LINK_OUT_TYPE, describeBuildMode, resolveBuildMode, type BuildModeEdge, type BuildModeNode } from '../buildMode'
+import { BUILD_MODE_LINK_OUT_TYPE, describeBuildMode, musicPlayerSource, resolveBuildMode, type BuildModeEdge, type BuildModeNode } from '../buildMode'
 import { BOARD_LINK_OUT_NODE_TYPE } from '../../../build/boardLinks'
 
 const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}): BuildModeNode => ({
@@ -178,5 +178,17 @@ describe('Bluetooth music source', () => {
     const build = resolveBuildMode(withCard.nodes, withCard.edges)
     expect(build.mode).toBe('player')
     expect(describeBuildMode(build).label).toBe('SD music player')
+  })
+})
+
+describe('Internet Radio music source', () => {
+  // The stations are on the air, so a player with no card still builds.
+  it('builds an Internet Radio Music Player with an amplifier and no card', () => {
+    const nodes = [node('out', 'MatrixOutput'), node('amp', 'Amplifier'), node('music', 'PatternMaster', { musicSource: 'Internet Radio' })]
+    const build = resolveBuildMode(nodes, [edge('music', 'out')])
+    expect(build).toMatchObject({ mode: 'player', engineKind: 'music-player', engine: { id: 'music' } })
+    expect(describeBuildMode(build).label).toBe('Internet radio player')
+    expect(musicPlayerSource(nodes[2])).toBe('Internet Radio')
+    expect(musicPlayerSource(node('x', 'PatternMaster', { musicSource: 'Cassette' }))).toBe('SD Card')
   })
 })

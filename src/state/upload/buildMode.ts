@@ -28,15 +28,17 @@ export function hasAudioOutputStage(nodes: readonly { data: { nodeType: string }
 }
 
 /**
- * Where a Music Player's music comes from: MP3s on its SD card, or a phone
- * streaming to the board over Bluetooth A2DP. Either way the board plays it
- * through the amplifier and taps it for analysis; only the card needs a part.
+ * Where a Music Player's music comes from: MP3s on its SD card, a phone
+ * streaming to the board over Bluetooth A2DP, or internet radio stations the
+ * board streams over Wi-Fi. Either way the board plays it through the
+ * amplifier and taps it for analysis; only the card needs a part.
  */
-export const MUSIC_PLAYER_SOURCES = ['SD Card', 'Bluetooth'] as const
+export const MUSIC_PLAYER_SOURCES = ['SD Card', 'Bluetooth', 'Internet Radio'] as const
 export type MusicPlayerSource = typeof MUSIC_PLAYER_SOURCES[number]
 
 export function musicPlayerSource(player: { data: { properties: Record<string, unknown> } }): MusicPlayerSource {
-  return player.data.properties.musicSource === 'Bluetooth' ? 'Bluetooth' : 'SD Card'
+  const source = player.data.properties.musicSource
+  return source === 'Bluetooth' || source === 'Internet Radio' ? source : 'SD Card'
 }
 
 /** True when this player has somewhere to get music from on this bench. */
@@ -44,7 +46,7 @@ export function musicPlayerHasMusic(
   player: { data: { properties: Record<string, unknown> } },
   nodes: readonly { data: { nodeType: string } }[],
 ): boolean {
-  return musicPlayerSource(player) === 'Bluetooth' || nodes.some((node) => node.data.nodeType === 'SDCard')
+  return musicPlayerSource(player) !== 'SD Card' || nodes.some((node) => node.data.nodeType === 'SDCard')
 }
 
 export interface BuildModeEdge {
@@ -113,6 +115,14 @@ export function describeBuildMode(
       reason: build.reachedOutputs.length > 0
         ? 'A Music Player set to Bluetooth plays a phone’s music through the amplifier and drives an LED output.'
         : 'A Music Player set to Bluetooth plays a phone’s music through the amplifier and drives a standalone Stereo VU Meter.',
+    }
+  }
+  if (build.engineKind === 'music-player' && build.engine && musicPlayerSource(build.engine) === 'Internet Radio') {
+    return {
+      label: 'Internet radio player',
+      reason: build.reachedOutputs.length > 0
+        ? 'A Music Player set to Internet Radio streams stations over Wi-Fi through the amplifier and drives an LED output.'
+        : 'A Music Player set to Internet Radio streams stations over Wi-Fi through the amplifier and drives a standalone Stereo VU Meter.',
     }
   }
   if (build.engineKind === 'music-player') {

@@ -44,6 +44,10 @@ import { wiredPatternCollection, wiredTransitionStyles } from '../state/patterns
 import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/player/showFreshness'
 import { musicPlayerSource, resolveBuildMode } from '../state/upload/buildMode'
 import { bluetoothDeviceName } from '../state/player/bluetoothSink'
+import { normalizeRadioStations, radioAccessCodeProblem, radioStationPagePort } from '../state/player/radioStations'
+import { networkSketchCpp, networkSourceIn } from '../codegen/peripherals/networkCpp'
+import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
+import { webRemoteMdnsName } from '../state/peripherals/webRemote'
 import { asSlideshowOrder } from '../state/patterns/patternSlideshow'
 import { asPatternSteps } from '../state/patterns/patternSequence'
 
@@ -238,7 +242,35 @@ export function buildShowPlayer(
     bluetooth: opts.genericPlayer && selectedEngine && musicPlayerSource(selectedEngine) === 'Bluetooth'
       ? { name: bluetoothDeviceName(pgProps.bluetoothName) }
       : undefined,
+    radio: opts.genericPlayer && selectedEngine && musicPlayerSource(selectedEngine) === 'Internet Radio'
+      ? internetRadioFromGraph(nodes, selectedEngine)
+      : undefined,
   })
+}
+
+/**
+ * An Internet Radio player's stations, card playlist and phone page, and the
+ * shared network it streams over. The access code, like the Wi-Fi password,
+ * comes from this browser's credential store, never from the project.
+ */
+function internetRadioFromGraph(nodes: StudioNode[], player: StudioNode) {
+  const props = player.data.properties as Record<string, unknown>
+  const source = networkSourceIn(nodes) ?? player
+  const hasWebRemote = nodes.some((node) => nodeType(node) === 'WebRemoteInput')
+  const code = getNetworkCredentials(player.id).accessCode ?? ''
+  return {
+    stations: normalizeRadioStations(props.stations),
+    card: nodes.some((node) => nodeType(node) === 'SDCard'),
+    page: props.stationPage === true
+      ? {
+          port: radioStationPagePort(hasWebRemote),
+          // A Web Remote announces the board already; a second MDNS.begin would fight it.
+          mdnsName: hasWebRemote ? null : webRemoteMdnsName((source.data.properties as Record<string, unknown>).wifiHostname),
+          accessCode: radioAccessCodeProblem(code) === null ? code : '',
+        }
+      : null,
+    network: networkSketchCpp(nodes, source),
+  }
 }
 
 /**
@@ -369,9 +401,10 @@ export function buildShowPayload(
   const files: ShowUploadFile[] = []
   const playerCode = cppCode(player)
   const roleCommands = new Set(['SET_PALETTE', 'SET_SPEED', 'SET_ENERGY'])
-  // A Bluetooth player's music is on the phone: flash it, and write no card.
-  const bluetooth = genericPlayer && !!build.engine && musicPlayerSource(build.engine) === 'Bluetooth'
-  for (const e of bluetooth ? [] : done) {
+  // A Bluetooth player's music is on the phone and a radio's on the air:
+  // flash them, and write no card.
+  const streamed = genericPlayer && !!build.engine && musicPlayerSource(build.engine) !== 'SD Card'
+  for (const e of streamed ? [] : done) {
     const title = safeTitle(e.show!.songTitle)
     files.push({ path: `/music/${title}.mp3`, data: e.file })
     // A music player never opens a show file.

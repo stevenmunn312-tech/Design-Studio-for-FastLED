@@ -130,6 +130,10 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       // Bluetooth makes the board an A2DP speaker a phone pairs with, under
       // bluetoothName; only the classic ESP32 has Bluetooth Classic.
       musicSource: 'SD Card', bluetoothName: DEFAULT_BLUETOOTH_NAME,
+      // Internet Radio streams `stations` over Wi-Fi (edited in the node
+      // body, credentials stored browser-local like every network user), and
+      // can serve a phone page for picking and adding stations.
+      stations: [], wifiHostname: 'fastled-radio', stationPage: false,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Controls and particle FX are supplied by their dedicated bundle nodes.
       seed: 0,

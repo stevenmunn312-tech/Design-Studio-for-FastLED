@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, findDeployBlockingErrors, findPatternCountErrors, MAX_FIRMWARE_PATTERNS, estimatePowerLoad, estimateFirmwareRam, findFirmwareRamBudgetIssue, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { BOARD_PROFILES } from '../../build/boards/boardProfiles'
 import { rtcI2cPinsForProfile } from '../../build/pins/rtcPins'
@@ -9,6 +9,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { createDisplayDocument } from '../../state/displays/displayEditor'
 import { applyDisplayTemplate } from '../../state/displays/displayTemplates'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
 import type { GroupRegistry } from '../../state/evaluator/types'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -2547,5 +2548,64 @@ describe('Bluetooth Music Player', () => {
     const { nodes, edges } = graph({ musicSource: 'SD Card' })
     const issue = buildGraphDiagnostics(nodes, edges, {}).find((entry) => entry.id === 'player-player-hardware')
     expect(issue?.fix).toMatch(/Music Source to Bluetooth/)
+  })
+})
+
+describe('Internet Radio Music Player', () => {
+  const jazz = [{ name: 'Jazz', url: 'http://jazz.example.com/live' }]
+  const graph = (playerProps: Record<string, unknown>, extra: StudioNode[] = []) => ({
+    nodes: [
+      node('out', 'MatrixOutput'), node('amp', 'Amplifier'),
+      node('player', 'PatternMaster', { musicSource: 'Internet Radio', stations: jazz, ...playerProps }),
+      ...extra,
+    ],
+    edges: [edge('e1', 'player', 'out', 'frame')],
+  })
+  const ids = (nodes: StudioNode[], edges: StudioEdge[], selectedFqbn: string) =>
+    buildGraphDiagnostics(nodes, edges, { selectedFqbn }).map((issue) => issue.id)
+  afterEach(() => useNetworkCredentialsStore.getState().removeCredentials('player'))
+
+  it('builds on an ESP32-S3 with stations and no card', () => {
+    const { nodes, edges } = graph({})
+    expect(ids(nodes, edges, 'esp32:esp32:esp32s3').filter((id) => /radio|hardware|board-network/.test(id))).toEqual([])
+    expect(findDeployBlockingErrors(nodes, edges, 'esp32:esp32:esp32s3').join('\n')).not.toMatch(/radio|SD card|Art-Net/)
+  })
+
+  // It names its own board problem, not the Art-Net and NTP one.
+  it('refuses a board that cannot stream', () => {
+    const { nodes, edges } = graph({})
+    expect(ids(nodes, edges, 'arduino:avr:uno')).toContain('player-radio-board')
+    expect(ids(nodes, edges, 'arduino:avr:uno')).not.toContain('player-board-network')
+    expect(findDeployBlockingErrors(nodes, edges, 'arduino:avr:uno').join('\n')).toMatch(/ESP32 with Wi-Fi/)
+    expect(findDeployBlockingErrors(nodes, edges, 'arduino:avr:uno').join('\n')).not.toMatch(/Art-Net/)
+  })
+
+  it('refuses a power amplifier with no I2S stage', () => {
+    const nodes = [node('out', 'MatrixOutput'), node('power', 'PowerAmplifier'),
+      node('player', 'PatternMaster', { musicSource: 'Internet Radio', stations: jazz })]
+    expect(ids(nodes, [edge('e1', 'player', 'out', 'frame')], 'esp32:esp32:esp32s3')).toContain('player-radio-i2s')
+  })
+
+  it('needs somewhere for its stations to come from', () => {
+    const empty = graph({ stations: [] })
+    const blocking = findDeployBlockingErrors(empty.nodes, empty.edges, 'esp32:esp32:esp32s3').join('\n')
+    expect(blocking).toMatch(/no stations/)
+    // A card playlist can supply them, so an empty list is only a warning.
+    const carded = graph({ stations: [] }, [node('card', 'SDCard')])
+    const issue = buildGraphDiagnostics(carded.nodes, carded.edges, {}).find((entry) => entry.id === 'player-radio-stations')
+    expect(issue).toMatchObject({ severity: 'warning', message: expect.stringContaining('/stations.m3u') })
+  })
+
+  it('names stations a hand-edited save would lose, and a bad access code', () => {
+    const { nodes, edges } = graph({ stationPage: true, stations: [...jazz, { name: 'Bad', url: 'http://x.example.com/a b' }] })
+    useNetworkCredentialsStore.getState().setCredentials('player', { accessCode: 'abc' })
+    const found = ids(nodes, edges, 'esp32:esp32:esp32s3')
+    expect(found).toContain('player-radio-invalid')
+    expect(found).toContain('player-radio-access-code')
+  })
+
+  it('warns when the Wi-Fi name is missing, as for every network user', () => {
+    const { nodes, edges } = graph({})
+    expect(buildGraphDiagnostics(nodes, edges, {}).map((issue) => issue.message)).toContainEqual(expect.stringMatching(/missing its Wi-Fi SSID/))
   })
 })

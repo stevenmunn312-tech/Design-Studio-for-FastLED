@@ -62,7 +62,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   audio/control sources must fail validation rather than silently use the decoder.
   Authored Performance Generator event schedules do not use this option.
 - **Music Source is where the music comes from, not a second player.**
-  `musicSource` is `SD Card` or `Bluetooth`; `musicPlayerSource` and
+  `musicSource` is `SD Card`, `Bluetooth` or `Internet Radio`; `musicPlayerSource` and
   `musicPlayerHasMusic` in `src/state/upload/buildMode.ts` are the one answer
   the build mode, the decoder capability, validation and RMT network accounting
   all read. A Bluetooth player builds the same generic player sketch with
@@ -76,6 +76,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   through `songPoll()` in the loop. Classic ESP32 only (Bluetooth Classic),
   I2S stage only, arduino-cli only (fbuild compiles every cached `lib/`
   directory into every board). Preview plays local tracks either way.
+  `Internet Radio` builds the same template with `opts.radio`: the real
+  `Audio` object with `connecttohost`, so only the source changes, and
+  `sdPlayer` (neither Bluetooth nor radio) is the one flag for the card's
+  track walk, retry mount and serial file transfer. The radio's functions go
+  after the controls (they read `playerPaused`); its state and a
+  `radioSelect` forward go with the audio globals, ahead of the song helpers
+  and `changePlayerTrack`. The player is a `usesNetwork` user, so its Wi-Fi
+  credentials, hostname and the RMT network accounting are the shared
+  network's; a Web Remote in the control graph already brings
+  `_netEnsureConnected`, and the radio then emits none of its own. A panel's
+  fault card is per source (`mediaFault`): the card player's names
+  `sdMounted`/`playbackReady`, which a streamed source never declares. See
+  [internet radio](../../design/internet-radio.md) for station sources,
+  dead-station skipping and the phone page's security.
 - Music Player's `order` property uses the same Random/Sequential choices and
   `asSlideshowOrder` resolver as Pattern Slideshow. Preview passes the choice
   into `evalPatternShow`; `buildShowPlayer` passes the selected engine's choice

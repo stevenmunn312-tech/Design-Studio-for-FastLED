@@ -50,6 +50,18 @@ describe('editableProperties', () => {
     const bluetooth = { ...sd, musicSource: 'Bluetooth' }
     expect(editableProperties('PatternMaster', bluetooth).map(([key]) => key)).toContain('bluetoothName')
   })
+
+  // The body edits the station list; the hostname and page rows only matter on the radio.
+  it('shows the Music Player its radio settings only when Internet Radio is the source', () => {
+    const sd = libraryDefaults('PatternMaster')
+    expect(sd).toMatchObject({ stations: [], wifiHostname: 'fastled-radio', stationPage: false })
+    const keys = (props: Record<string, unknown>) => editableProperties('PatternMaster', props).map(([key]) => key)
+    expect(keys(sd)).not.toContain('stations')
+    expect(keys(sd)).not.toEqual(expect.arrayContaining(['wifiHostname']))
+    const radio = { ...sd, musicSource: 'Internet Radio' }
+    expect(keys(radio)).toEqual(expect.arrayContaining(['wifiHostname', 'stationPage']))
+    expect(keys(radio)).not.toContain('stations')
+  })
 })
 
 describe('NODE_WIDTH_OVERRIDES', () => {

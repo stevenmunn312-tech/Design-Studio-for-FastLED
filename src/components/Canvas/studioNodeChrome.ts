@@ -152,6 +152,8 @@ export function editableProperties(
       // The Palette Bank body edits its palette list; as a text row the array
       // read `ocean,lava`, and typing into it emptied the bank.
       && !(nodeType === 'PaletteBank' && k === 'palettes')
+      // The Music Player body edits its station list.
+      && !(nodeType === 'PatternMaster' && k === 'stations')
       // The Transition body's picker cards are its type control.
       && !(nodeType === 'Transition' && k === 'transitionType')
       // Comment's `text` gets its own multi-line editor in the body, not the

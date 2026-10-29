@@ -21,6 +21,7 @@ import { partById } from '../../build/parts/partCatalogue'
 import { cppStringLiteral } from '../cppLiterals'
 import { sanitizePin } from '../hardwarePins'
 import { boardSyncsClock } from './boardSyncCpp'
+import { musicPlayerSource } from '../../state/upload/buildMode'
 import {
   ETHERNET_INCLUDES_CPP, ONBOARD_ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp, onboardEthernetBootstrapCpp,
 } from './ethernetCpp'
@@ -40,14 +41,15 @@ export interface NetworkSketchEmit {
 
 /**
  * Art-Net or sACN receive, DDP, a network Frame Stream, NTP time sync, the
- * Web Remote's page and a Board whose clock sync is on are the users of the
- * network.
+ * Web Remote's page, a Music Player streaming internet radio and a Board
+ * whose clock sync is on are the users of the network.
  */
 export function usesNetwork(node: Pick<StudioNode, 'data'>): boolean {
   const props = node.data.properties as Record<string, unknown>
   return (node.data.nodeType === 'DMXInput' && dmxUsesNetwork(props))
     || node.data.nodeType === 'WebRemoteInput'
     || node.data.nodeType === 'DdpInput'
+    || (node.data.nodeType === 'PatternMaster' && musicPlayerSource(node) === 'Internet Radio')
     || (node.data.nodeType === 'StreamOutput' && streamUsesNetwork(props))
     || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
     || boardSyncsClock(node)

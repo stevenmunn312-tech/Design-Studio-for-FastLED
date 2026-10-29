@@ -126,5 +126,11 @@ describe('Music Player decoder source', () => {
       { id: 'decoder:player', kind: 'decoder', label: 'Music Player (Bluetooth)' },
     ])
     expect(resolveAudioCapabilitySource([amp, btPlayer], audioCapabilityIntent('decoder'))?.id).toBe('decoder:player')
+
+    // A card beside a radio holds only its station list; the stream is the player's.
+    const radioPlayer = hardware('player', 'PatternMaster', { musicSource: 'Internet Radio' })
+    expect(audioCapabilitySources([amp, card, radioPlayer])).toMatchObject([
+      { id: 'decoder:player', kind: 'decoder', label: 'Music Player (Internet Radio)' },
+    ])
   })
 })

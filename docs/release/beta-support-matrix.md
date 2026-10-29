@@ -435,6 +435,24 @@ Unless a future row says otherwise, treat the following as experimental:
   that pairs a phone, plays through a track change, and checks beat response,
   panel track details and the classic ESP32's RAM headroom with LEDs running.
 
+- **Internet radio on the Music Player** (Music Source = Internet Radio):
+  stations listed on the node (by URL or from radio-browser.info), a card's
+  `stations.m3u` or the phone station page, streamed with ESP32-audioI2S
+  3.0.12 over the shared network through an I2S amplifier or DAC, with a
+  watchdog that skips a station that does not start within 12 s or keeps
+  dropping ([internet radio](../design/internet-radio.md)). Any ESP32 with
+  Wi-Fi (or a cable); arduino-cli builds it, fbuild untested.
+  On 2026-10-30 a 16x16 player with two audio patterns, four controls, an
+  SH1106 OLED, a card playlist and the editing station page compiled for the
+  classic ESP32 through the helper's arduino-cli path (core 3.3.12,
+  `huge_app`): 1,559,335 bytes of flash (49 %) and 70,656 bytes of static RAM
+  (21 %). The decoder's stream buffer and TLS take heap at runtime, which that
+  figure does not count.
+  Nothing has run on a board yet. Graduating it needs a dated row that plays
+  a station through a station change, skips a dead one, loads a card
+  playlist, adds a station from the phone page, and checks beat response and
+  RAM headroom with LEDs running.
+
 - **Several boards in one project** (root todo, D-03): a second controller
   on the bench, its own parts and sketch, and the clock-sync protocol that
   keeps boards on one animation clock and one show pattern over UDP

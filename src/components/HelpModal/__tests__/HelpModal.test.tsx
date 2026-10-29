@@ -61,15 +61,16 @@ describe('HelpModal session state', () => {
     })
     const view = render(<HelpModal />)
     expect(view.getByRole('heading', { name: 'Music Player' })).toBeTruthy()
-    expect(view.getByText(/6 inputs · 14 optional · 2 outputs · 12 properties/)).toBeTruthy()
+    expect(view.getByText(/6 inputs · 14 optional · 2 outputs · 15 properties/)).toBeTruthy()
     expect(view.getByText(/12 seconds is not a forced change deadline/)).toBeTruthy()
     expect(view.getByText(/Playback volume from 0/)).toBeTruthy()
     expect(view.getByText(/Controls random pattern, hold-time/)).toBeTruthy()
     expect(view.getByText(/Duration of the change between patterns/)).toBeTruthy()
     expect(view.getByText(/Bluetooth makes the board a speaker your phone pairs with/)).toBeTruthy()
+    expect(view.getAllByText(/radio-browser.info directory/).length).toBeGreaterThan(0)
     expect(view.getByText(/^Optional inputs/)).toBeTruthy()
     const article = view.container.querySelector('article')!
-    expect(article.querySelectorAll('dt').length).toBe(12)
+    expect(article.querySelectorAll('dt').length).toBe(15)
     expect(view.getAllByText(/Add step and Edit sequence/).length).toBeGreaterThan(0)
   })
 

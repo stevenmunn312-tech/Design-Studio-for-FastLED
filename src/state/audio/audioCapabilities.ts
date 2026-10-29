@@ -58,7 +58,7 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
 
   // The software decoder is a real on-device source only in the Music Player
   // workflow. A music source and an output device are both required: the card
-  // or the Bluetooth link tells us where the music comes from, and the
+  // or the Bluetooth or radio stream tells us where the music comes from, and the
   // amplifier tells us that this build is an audio player. Performance
   // Generator remains a separate pre-baked show workflow and does not expose a
   // live decoder source.
@@ -66,12 +66,14 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
   const hasAmplifier = hasAudioOutputStage(nodes)
   const player = nodes.find((node) => node.data.nodeType === 'PatternMaster'
     && musicPlayerHasMusic(node, nodes))
-  const bluetooth = player && musicPlayerSource(player) === 'Bluetooth'
-  const provider = bluetooth ? player : sdCard
+  // A streamed source (Bluetooth, Internet Radio) is the player's own; a card
+  // in the graph alongside a radio only holds its station list.
+  const source = player ? musicPlayerSource(player) : 'SD Card'
+  const provider = source === 'SD Card' ? sdCard : player
   const decoder: AudioCapabilitySource[] = provider && hasAmplifier && player
     ? [{
         id: `decoder:${provider.id}`,
-        label: bluetooth ? 'Music Player (Bluetooth)' : 'Music Player',
+        label: source === 'SD Card' ? 'Music Player' : `Music Player (${source})`,
         kind: 'decoder',
         node: provider,
       }]
@@ -167,7 +169,7 @@ export function audioCapabilityOptions(nodes: readonly StudioNode[]): AudioCapab
       value: audioCapabilityIntent('decoder'),
       label: 'Audio Decoder',
       source: source('decoder'),
-      unavailableHint: 'Add an amplifier in Hardware and a Music Player with an SD card or Bluetooth as its Music Source to enable.',
+      unavailableHint: 'Add an amplifier in Hardware and a Music Player with an SD card, Bluetooth or Internet Radio as its Music Source to enable.',
     },
   ]
 }

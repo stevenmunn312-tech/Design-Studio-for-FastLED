@@ -60,6 +60,8 @@ import { PLAYER_SONG_EXPRESSIONS, playerSongInfoCpp } from './player/playerSongI
 import {
   BLUETOOTH_INCLUDES_CPP, BLUETOOTH_SONG_POLL_CPP, BLUETOOTH_TAP_CPP, bluetoothSinkGlobalsCpp,
 } from './player/bluetoothSinkCpp'
+import { internetRadioFirmware, type InternetRadioOptions } from './player/internetRadioCpp'
+import type { NetworkSketchEmit } from './peripherals/networkCpp'
 import type { PlayerDisplays } from './player/playerDisplays'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import {
@@ -494,6 +496,12 @@ export function generatePlayerSketch(
      * card's MP3s. Ignored for a show-file player, which needs its card.
      */
     bluetooth?: { name: string }
+    /**
+     * A Music Player whose Music Source is Internet Radio: the stations, the
+     * card playlist and phone page choices, and the shared network to stream
+     * over. Ignored for a show-file player and for a Bluetooth one.
+     */
+    radio?: Omit<InternetRadioOptions, 'songInfo' | 'transport'> & { network: NetworkSketchEmit | null }
   } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
@@ -547,6 +555,10 @@ export function generatePlayerSketch(
   const genericCollection = genericPlayer && collection
   // The phone is the music source: no card, no track list, no file transfer.
   const bluetooth = genericPlayer ? opts.bluetooth ?? null : null
+  // Stations over Wi-Fi through the same decoder: no track walk, no file transfer.
+  const radio = genericPlayer && !bluetooth ? opts.radio ?? null : null
+  // Only the card player walks /music, mounts on demand and takes new shows over serial.
+  const sdPlayer = !bluetooth && !radio
   // Ramps and named inputs change the loader. A sketch that was not asked for
   // them keeps the historical parameter check, character for character.
   const rampPlayer = opts.ramps === true && !genericPlayer
@@ -695,7 +707,7 @@ export function generatePlayerSketch(
   const audioFeatures = audioFeaturesInCode(decoderTap && renderers ? [...renderers.helpers, ...renderers.functions] : [])
   const lines = (block: string[]) => (block.length ? `${block.join('\n')}\n` : '')
   // The Bluetooth player writes I2S through audio-tools; validation refuses it without an I2S stage.
-  const internalDac = !bluetooth && c.audioOutput === 'internalDac'
+  const internalDac = sdPlayer && c.audioOutput === 'internalDac'
   // The Bluetooth tap reads the stream before the sink's volume; only the
   // SD decoder's gain needs undoing.
   const compensateDecoderVolume = decoderTap && needsStereoLevels && !bluetooth
@@ -1044,9 +1056,9 @@ float playerBrightness = 1.0f;
 float showBrightness = 1.0f;
 bool ledsEnabled = true;
 bool playerPaused = false;
-${bluetooth ? '' : `
+${sdPlayer ? `
 bool startPlayback();
-`}
+` : ''}
 void applyPlayerVolume() {
   uint8_t step = (uint8_t)lroundf(playerVolume * PLAYER_MAX_VOLUME);
   if (step > 21) step = 21;
@@ -1064,6 +1076,10 @@ void applyPlayerBrightness() {
 ${bluetooth ? `// The phone holds the playlist; the board only asks it to skip.
 void changePlayerTrack(int8_t direction) {
   if (direction > 0) _a2dp.next(); else _a2dp.previous();
+}` : radio ? `// Next and Previous change station.
+void changePlayerTrack(int8_t direction) {
+  if (!_radioCount) return;
+  radioSelect((uint16_t)((radioIndex + _radioCount + direction) % _radioCount));
 }` : `void changePlayerTrack(int8_t direction) {
   uint16_t count = playerTrackCount();
   if (!count) return;
@@ -1101,6 +1117,26 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // A track field sent over a board link reads the same song accessors a panel does.
   const hasDisplays = hasInfoDisplays || hasSegmentDisplays || hasTftDisplays || !!graphRouting?.hasSongSources || !!customDisplays?.includes.length
     || (link?.fields.size ?? 0) > 0
+  const radioFirmware = radio ? internetRadioFirmware({ ...radio, songInfo: hasDisplays, transport: hasControls }) : null
+  // A Web Remote in the control graph already brings the shared network with it.
+  const graphJoinsNetwork = (compiledGraph?.helpers ?? []).some((block) => block.includes('void _netEnsureConnected()'))
+  const radioNetwork = radio && !graphJoinsNetwork ? radio.network : null
+  // What a panel's fault card says while the music has not started. The card
+  // player knows its card and its tracks; a radio its Wi-Fi and its stations.
+  // A Bluetooth speaker has nothing to report until a phone connects.
+  const mediaFault = sdPlayer
+    ? {
+        text: '!sdMounted ? "NO SD CARD" : (!playbackReady ? "NO PLAYABLE TRACK" : nullptr)',
+        hint: '!sdMounted ? "CHECK CARD/WIRING" : "CHECK /MUSIC FILES"',
+        code: '!sdMounted ? SEG_FAULT_SD_CARD : (!playbackReady ? SEG_FAULT_NO_TRACK : SEG_FAULT_NONE)',
+      }
+    : radio
+      ? {
+          text: '!_netConnected() ? "NO WI-FI" : (!_radioCount ? "NO STATIONS" : nullptr)',
+          hint: '!_netConnected() ? "CHECK WI-FI SETTINGS" : "ADD STATIONS"',
+          code: '(!_netConnected() || !_radioCount) ? SEG_FAULT_NO_TRACK : SEG_FAULT_NONE',
+        }
+      : null
 
   const browserEmits = displays.info
     .filter((display) => display.layout === 'Pattern Browser')
@@ -1231,8 +1267,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       // The player already knows these states and retries both paths. The
       // fault card therefore clears itself when a card is inserted or a later
       // transfer supplies a playable track.
-      faultExpr: '!sdMounted ? "NO SD CARD" : (!playbackReady ? "NO PLAYABLE TRACK" : nullptr)',
-      faultHintExpr: '!sdMounted ? "CHECK CARD/WIRING" : "CHECK /MUSIC FILES"',
+      ...(mediaFault ? { faultExpr: mediaFault.text, faultHintExpr: mediaFault.hint } : {}),
     },
     indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
     ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
@@ -1267,7 +1302,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
-    faultCodeExpr: '!sdMounted ? SEG_FAULT_SD_CARD : (!playbackReady ? SEG_FAULT_NO_TRACK : SEG_FAULT_NONE)',
+    faultCodeExpr: mediaFault?.code ?? null,
   }))
 
   // The player sketch is a fixed template, so a colour panel's ports come from
@@ -1323,7 +1358,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     ...(customDisplays?.helpers ?? []),
     hasStereoVu ? STEREO_VU_CPP_HELPERS : '',
     hasStereoVu ? stereoVuMeters.map(stereoVuGlobalCpp).join('\n') : '',
-    hasDisplays ? playerSongInfoCpp(bluetooth ? 'Bluetooth' : 'SD Card') : '',
+    hasDisplays ? playerSongInfoCpp(bluetooth ? 'Bluetooth' : radio ? 'Internet Radio' : 'SD Card') : '',
     hasDisplays && bluetooth ? BLUETOOTH_SONG_POLL_CPP : '',
     hasInfoDisplays ? infoDisplayHelpersCpp() : '',
     hasInfoDisplays ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
@@ -1395,7 +1430,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   const playerServicesStageCpp = infoDisplayStartupStageBatchCpp(infoEmits, 5, 'CHECKING').join('\n')
   const contentStageLines = infoDisplayStartupStageBatchCpp(infoEmits, 6)
   const playerContentStageCpp = contentStageLines.length > 0
-    ? ['  if (playbackReady) {', ...contentStageLines, '  }'].join('\n')
+    ? (sdPlayer ? ['  if (playbackReady) {', ...contentStageLines, '  }'] : contentStageLines).join('\n')
     : ''
 
   const displayLoopCpp = [
@@ -1501,6 +1536,11 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
 //   - FastLED
 // Hardware: a classic ESP32 (Bluetooth Classic), audio out via an I2S DAC
 // (MAX98357A or PCM5102) on pins below. Pair a phone with ${JSON.stringify(bluetooth.name)} and play.`
+    : radio ? `// Generated by Design Studio for FastLED. Requires:
+//   - ESP32-audioI2S  (schreibfaul1/ESP32-audioI2S on GitHub)
+//   - FastLED
+// Hardware: an ESP32 on Wi-Fi, audio out via an I2S DAC (MAX98357A or PCM5102)
+// on pins below.${radio.card ? ' An SD card may hold /stations.m3u to replace the built-in stations.' : ''}`
     : `// Generated by Design Studio for FastLED. Requires:
 //   - ESP32-audioI2S  (schreibfaul1/ESP32-audioI2S on GitHub)
 //   - FastLED
@@ -1511,6 +1551,12 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
 ${BLUETOOTH_INCLUDES_CPP}
 #include <FastLED.h>
 ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SPI.h>${i2cIncludeCpp}`
+    : radio ? `${radioNetwork ? `${radioNetwork.include}\n` : ''}// The audio header MUST come before <FastLED.h>: see the SD player's note on
+// FastLED's src/platforms/audio.h capturing it on a case-insensitive filesystem.
+#include <Audio.h>       // ESP32-audioI2S
+#include <FastLED.h>
+${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}${radio.card ? '#include <SD.h>\n' : ''}#include <SPI.h>
+${radioFirmware!.includes}${i2cIncludeCpp}`
     : `// Arduino-IRremote must be parsed before Audio.h. ESP32-audioI2S puts
 // "using namespace std" in its public header; IRremote 4.7.1 then sees both its
 // global void_t alias and std::void_t, and its has_ull_print specialization
@@ -1535,7 +1581,13 @@ ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SPI.h>${
 ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 #include <SPI.h>${i2cIncludeCpp}`
   // The card's pins and its serial file transfer. A Bluetooth player has neither.
-  const storageDefinesCpp = bluetooth ? '' : `#define SD_CS         ${c.sdCsPin}
+  const sdPinDefinesCpp = `#define SD_CS         ${c.sdCsPin}
+#define SD_SCK        ${c.sdSckPin}
+#define SD_MISO       ${c.sdMisoPin}
+#define SD_MOSI       ${c.sdMosiPin}
+`
+  // A radio reads its card once, for the station playlist, and takes no files over serial.
+  const storageDefinesCpp = bluetooth ? '' : radio ? (radio.card ? sdPinDefinesCpp : '') : `#define SD_CS         ${c.sdCsPin}
 #define SD_SCK        ${c.sdSckPin}
 #define SD_MISO       ${c.sdMisoPin}
 #define SD_MOSI       ${c.sdMosiPin}
@@ -1617,7 +1669,21 @@ ${bluetoothSinkGlobalsCpp({ name: bluetooth.name, tap: decoderTap, songInfo: has
 // The shared SPI helper is a function. Arduino inserts every prototype above
 // the first function body, so it has to follow ShowEvent: beside the pin
 // defines it produced "ShowEvent does not name a type" on applyEvent.
-${SPI_BUS_CPP}` : `Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
+${SPI_BUS_CPP}` : radio ? `Audio audio;  // streams the stations through the external I2S stage
+// The library's volume step at full volume: 0-1 volume is set and read
+// against this one scale, so a panel showing it reads back what it sets.
+static const uint8_t PLAYER_MAX_VOLUME = ${c.maxVolume};
+uint32_t audioPosMs = 0;      // how long the current station has played
+${radio.card ? 'bool sdMounted = false;      // read once at boot, for /stations.m3u\n' : ''}${radioNetwork ? `${radioNetwork.bootstrap}\n` : ''}${radioFirmware!.globals}
+// The shared SPI helper is a function. Arduino inserts every prototype above
+// the first function body, so it has to follow ShowEvent: beside the pin
+// defines it produced "ShowEvent does not name a type" on applyEvent.
+${SPI_BUS_CPP}
+// ESP32-audioI2S reports connection, codec and stream failures only through
+// weak callbacks; keep them visible on serial.
+void audio_info(const char* info) {
+  Serial.printf("[audio] %s\\n", info);
+}` : `Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
 // The library's volume step at full volume: 0-1 volume is set and read
 // against this one scale, so a panel showing it reads back what it sets.
 static const uint8_t PLAYER_MAX_VOLUME = ${c.maxVolume};
@@ -2090,7 +2156,7 @@ ${outgoingRoles.map((role) => `      ${prevRole(role).padEnd(13)} = ${role};\n`)
 }
 
 ` : ''}// ── Setup ─────────────────────────────────────────────────────────────────────
-${bluetooth ? '' : `/*
+${radioFirmware ? radioFirmware.functions : bluetooth ? '' : `/*
  * Pick a track and start it. Extracted from setup() so the serial receiver can
  * call it again after new files land — otherwise a card that arrived empty
  * would keep reporting "no playable track" until the board was power-cycled.
@@ -2532,7 +2598,7 @@ void provServiceSerial() {
 }
 
 `}void setup() {
-${bluetooth ? '' : `  // Large enough to absorb a whole transfer block while the SD write of the
+${!sdPlayer ? '' : `  // Large enough to absorb a whole transfer block while the SD write of the
   // previous one finishes. Must precede begin() — the ESP32 driver sizes its
   // buffer at init — and the 256-byte default overruns the moment the host
   // raises the link.
@@ -2555,6 +2621,16 @@ ${genericCollection && !sequentialPatterns && !sequenceActive ? `${patternCount 
 ${bluetooth ? `
 ${decoderTap ? '  setupDecoderTap();   // the phone\'s stream → FastLED audio analysis\n' : ''}  // Advertise as a speaker. A phone that paired before reconnects on its own.
   audio.begin();
+` : radio ? `
+${radio.card ? `  // The card is read once, for /stations.m3u; a radio does not need one to play.
+  _spiBusBegin(SD_SCK, SD_MISO, SD_MOSI);
+  sdMounted = SD.begin(SD_CS, SPI, 20000000);
+  if (!sdMounted) { SD.end(); sdMounted = SD.begin(SD_CS, SPI, 4000000); }
+  if (!sdMounted) Serial.println("[radio] no SD card: playing the stations built in");
+` : ''}${decoderTap ? '  setupDecoderTap();   // the stream\'s decoded PCM → FastLED audio analysis\n' : ''}  audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
+  audio.setVolume(PLAYER_MAX_VOLUME);
+${compensateDecoderVolume ? `  _decoderVolumeComp = ${decoderVolumeComp};   // undo the library gain the tap would otherwise measure
+` : ''}${radioNetwork ? lines(radioNetwork.setup) : ''}${lines(radioFirmware!.setup)}  // Wi-Fi comes up from the loop; the first station connects once it has.
 ` : `
   // The protocol's own wording, not a human sentence: the host reads this
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
@@ -2577,7 +2653,7 @@ ${compensateDecoderVolume ? `  _decoderVolumeComp = ${decoderVolumeComp};   // u
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
 ${pickPrelude}${sequenceActive ? `${sequenceTableCpp(sequenceSteps, patternTiming.beatTransitions)}\n` : ''}void loop() {
-${bluetooth ? '' : `  // Accepting new show files is checked before anything else, so a board that
+${!sdPlayer ? '' : `  // Accepting new show files is checked before anything else, so a board that
   // found nothing playable still answers the host instead of sitting mute.
   provServiceSerial();
 
@@ -2606,6 +2682,18 @@ ${bluetooth ? `  if (millis() - _dbgLast >= 2000) {
 
   audio.loop();
 ${hasDisplays ? '  songPoll();\n' : ''}${decoderTap ? '  updateDecoderAudio();  // drain the phone\'s PCM\n' : ''}
+` : radio ? `  if (millis() - _dbgLast >= 2000) {
+    _dbgLast = millis();
+    // radio= says where the station stands: a board waiting for Wi-Fi, or one
+    // resting after every station failed, otherwise looks idle.
+    Serial.printf("[status] uptime=%lus radio=%s station=%u/%u audioPos=%lu pattern=%u\\n",
+                  millis() / 1000, radioStateName(), radioIndex + 1, _radioCount,
+                  (unsigned long)audioPosMs, patternId);
+  }
+
+  _netEnsureConnected();   // never blocks; retries every few seconds until joined
+  audio.loop();
+${lines(radioFirmware!.loop)}${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has fed I2S\n' : ''}
 ` : `  if (!provTransferring && millis() - _dbgLast >= 2000) {
     _dbgLast = millis();
     // sd= is here rather than only in the boot greeting because a serial
@@ -2620,7 +2708,7 @@ ${hasDisplays ? '  songPoll();\n' : ''}${decoderTap ? '  updateDecoderAudio();  
   audio.loop();
 ${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has fed I2S/DAC\n' : ''}
 `}
-${genericPlayer && !bluetooth ? `  // A file the library gave up on stops it without an EOF, and nothing would
+${genericPlayer && sdPlayer ? `  // A file the library gave up on stops it without an EOF, and nothing would
   // ever start the next track: the board sat silent until someone pressed
   // Next. Pausing is the only other way the decoder stops.
   if (playbackReady && !provTransferring && !audioEnded && !audio.isRunning()${hasControls ? ' && !playerPaused' : ''}) {
@@ -2644,7 +2732,7 @@ ${publishDisplaysCpp}
   // The library resets its clock to zero inside the EOF callback. Preserve the
   // show-file duration for one final boundary so events at the tail are not
   // silently skipped, then hold the completed frame.
-  uint32_t posMs = ${genericPlayer ? 'audio.getAudioCurrentTime() * 1000' : 'audioEnded ? showDurationMs : audio.getAudioCurrentTime() * 1000'};
+  uint32_t posMs = ${radio ? 'radioClockMs()' : genericPlayer ? 'audio.getAudioCurrentTime() * 1000' : 'audioEnded ? showDurationMs : audio.getAudioCurrentTime() * 1000'};
   audioPosMs = posMs;
 
 ${!genericPlayer ? `  // Dispatch all events whose timestamp has passed

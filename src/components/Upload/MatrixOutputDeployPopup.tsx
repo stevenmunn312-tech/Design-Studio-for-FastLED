@@ -127,6 +127,8 @@ export default function MatrixOutputDeployPopup({
   const hasMusicPlayer = build.engineKind === 'music-player'
   // The phone holds the music, so there are no songs to send and no card to write.
   const bluetoothPlayer = hasMusicPlayer && !!build.engine && musicPlayerSource(build.engine) === 'Bluetooth'
+  // A radio streams its stations, so it has no songs to send either.
+  const radioPlayer = hasMusicPlayer && !!build.engine && musicPlayerSource(build.engine) === 'Internet Radio'
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
@@ -640,6 +642,8 @@ export default function MatrixOutputDeployPopup({
         : readinessIssues.length > 0 ? readinessIssues.join('\n')
         : bluetoothPlayer
           ? 'Flash the Bluetooth player, then pair your phone with the board'
+        : radioPlayer
+          ? 'Flash the internet radio player; it joins Wi-Fi and plays the first station'
         : cardReader
           ? `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to a card in your reader, then flash the player`
           : `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to the SD card over serial, then flash the player`
@@ -811,7 +815,7 @@ export default function MatrixOutputDeployPopup({
         {/* Only on the show path: it changes how the songs reach the card,
             and a normal sketch upload never touches one. Persisted, because it
             describes the user's desk rather than this particular upload. */}
-        {isShowUpload && !bluetoothPlayer && (
+        {isShowUpload && !bluetoothPlayer && !radioPlayer && (
           <label className={styles.cardReaderRow} title={cardReaderTip}>
             <input
               type="checkbox"

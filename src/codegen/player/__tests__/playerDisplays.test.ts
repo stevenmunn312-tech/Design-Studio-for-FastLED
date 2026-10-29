@@ -87,6 +87,28 @@ describe('displays in the player sketch', () => {
     expect(sketch.indexOf('bool playbackReady = false;')).toBeLessThan(sketch.indexOf('const char *_oledFault_oled'))
   })
 
+  // A streamed source has no card and no track walk, so the card player's
+  // fault card would name variables its sketch never declares.
+  it('reports what a streamed source can actually fail at', () => {
+    const displays = playerDisplaysFromGraph(nodes, edges)
+    const bluetooth = generatePlayerSketch({}, undefined, { displays, genericPlayer: true, bluetooth: { name: 'Lights' } })
+    expect(bluetooth).not.toMatch(/sdMounted|playbackReady/)
+    expect(bluetooth).not.toContain('_oledFault_oled')
+    const radio = generatePlayerSketch({}, undefined, {
+      displays, genericPlayer: true,
+      radio: {
+        stations: [{ name: 'Jazz', url: 'http://jazz.example.com/live' }], card: false, page: null,
+        network: { include: '', bootstrap: 'void _netEnsureConnected() {}\nbool _netConnected() { return true; }', setup: [] },
+      },
+    })
+    expect(radio).not.toMatch(/sdMounted|playbackReady/)
+    expect(radio).toContain('!_netConnected() ? "NO WI-FI" : (!_radioCount ? "NO STATIONS" : nullptr)')
+    expect(radio.indexOf('static uint16_t _radioCount')).toBeLessThan(radio.indexOf('const char *_oledFault_oled'))
+    // The station is the album a panel shows, and its stream title the track.
+    expect(radio).toContain('_songSet(songAlbum, station.name);')
+    expect(radio).toContain('_songSet(songTitle, dash + 3);')
+  })
+
   /*
    * The player sketch draws displays too, and it had no I2C bus at all — so a
    * 4-pin panel here would have emitted a call to a Wire nothing included and

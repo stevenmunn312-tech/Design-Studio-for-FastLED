@@ -9,6 +9,16 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Internet radio on the Music Player.** Set Music Source to Internet Radio
+  and list stations on the node, by stream URL or from a search of the
+  radio-browser.info directory. The board streams them over Wi-Fi through
+  the I2S amplifier and reacts to them as to a card; Next and Previous change
+  station, and a panel shows the station and what is on air. A station that
+  does not start within 12 seconds, or keeps dropping, is skipped. A
+  `stations.m3u` on the SD card replaces the list without a new build, and
+  the optional Phone Station Page picks stations from a phone, and with an
+  access code adds and removes them. Any ESP32 with Wi-Fi. Experimental.
+
 - **Bluetooth music on the Music Player.** Set Music Source to Bluetooth and
   the board becomes a speaker a phone pairs with under Bluetooth Name: it
   plays the phone's music through the I2S amplifier, reacts to it as it does
@@ -541,6 +551,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A Bluetooth Music Player with an OLED or segment display no longer fails to
+  compile: the display's fault card named the SD player's card and track
+  state, which a Bluetooth sketch does not have. Its panel now shows no fault
+  card; an internet radio's names missing Wi-Fi or stations.
 - A Performance Generator show no longer renders a pattern twice a frame when
   a transition leads into the pattern already playing, which made its trails
   fade and its simulations run at double speed for the transition, in the

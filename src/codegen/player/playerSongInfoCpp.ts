@@ -13,6 +13,7 @@
 // previous track.
 
 import { SONG_TAG_FIELDS } from '../../state/player/songInfo'
+import type { MusicPlayerSource } from '../../state/upload/buildMode'
 
 /** Bytes each tag field is stored in. A display row holds far less than this. */
 export const SONG_FIELD_BYTES = 64
@@ -34,6 +35,11 @@ const SONG_INFO_INTRO = {
   // every field blank, which reads as no track rather than a stale one.
   Bluetooth: `// ── Song information ────────────────────────────────────────────────────────
 // What the phone reports over AVRCP for the track it is streaming.
+`,
+  // The station's own stream title fills Title and Artist; the station name
+  // is the Album (internetRadioCpp.ts).
+  'Internet Radio': `// ── Song information ────────────────────────────────────────────────────────
+// The station's name, and the title its stream sends for what is on air.
 `,
 } as const
 
@@ -105,6 +111,13 @@ static void songResetFromFile(const char *fileName) {
 
 `
 
+/** A stream reports its bitrate the way a file does. */
+const SONG_INFO_STREAM_BITRATE_CPP = `void audio_bitrate(const char *info) {
+  songBitrateKbps = (uint32_t)(atol(info) / 1000);
+}
+
+`
+
 const SONG_INFO_ACCESSORS_CPP = `static float songElapsedSec() { return (float)audio.getAudioCurrentTime(); }
 static float songDurationSec() { return (float)audio.getAudioFileDuration(); }
 
@@ -137,9 +150,9 @@ static const char *songStatus() {
  * fields from the file's tags; the Bluetooth player from what the phone
  * reports, copied in by songPoll() (bluetoothSinkCpp.ts).
  */
-export function playerSongInfoCpp(source: 'SD Card' | 'Bluetooth' = 'SD Card'): string {
+export function playerSongInfoCpp(source: MusicPlayerSource = 'SD Card'): string {
   return SONG_INFO_INTRO[source] + SONG_INFO_FIELDS_CPP
-    + (source === 'SD Card' ? SONG_INFO_FILE_TAGS_CPP : '')
+    + (source === 'SD Card' ? SONG_INFO_FILE_TAGS_CPP : source === 'Internet Radio' ? SONG_INFO_STREAM_BITRATE_CPP : '')
     + SONG_INFO_ACCESSORS_CPP
 }
 

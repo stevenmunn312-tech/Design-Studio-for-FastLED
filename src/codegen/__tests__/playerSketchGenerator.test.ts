@@ -896,3 +896,87 @@ describe('Bluetooth Music Player sketch', () => {
     expect(playerSongInfoCpp('SD Card')).toContain('void audio_id3data(')
   })
 })
+
+describe('Internet Radio Music Player sketch', () => {
+  const renderers = {
+    buffers: [], helpers: [], count: 2, params: [], audioReactive: [true, true],
+    functions: ['void render_p0(uint32_t ms) { (void)ms; }', 'void render_p1(uint32_t ms) { (void)ms; }'],
+  }
+  const controls = {
+    debounceMs: 30, volumeStep: 0.1, brightnessStep: 0.1, repeatDelayMs: 400, repeatIntervalMs: 100,
+    bindings: {
+      playPause: { kind: 'button' as const, pin: 2, pullup: true },
+      next: { kind: 'button' as const, pin: 4, pullup: true },
+    },
+  }
+  const network = { include: '#include <WiFi.h>\n#define FLS_NET_SUPPORTED 1', bootstrap: 'void _netEnsureConnected() {}\nbool _netConnected() { return true; }', setup: [] }
+  const radio = (overrides: Record<string, unknown> = {}) => ({
+    stations: [{ name: 'Jazz "FM"', url: 'http://jazz.example.com/live' }],
+    card: false, page: null, network, ...overrides,
+  })
+  const sketch = (opts: Record<string, unknown> = {}, radioOpts: Record<string, unknown> = {}) =>
+    generatePlayerSketch({}, renderers, { genericPlayer: true, decoderTap: true, radio: radio(radioOpts), ...opts })
+
+  it('streams the compiled stations through the same decoder, with no card or file transfer', () => {
+    const code = sketch()
+    expect(code.indexOf('#include <Audio.h>')).toBeLessThan(code.indexOf('#include <FastLED.h>'))
+    expect(code).toContain('{ "Jazz \\"FM\\"", "http://jazz.example.com/live" },')
+    expect(code).toContain('audio.connecttohost(station.url)')
+    expect(code).toContain('audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);')
+    expect(code).toContain('_netEnsureConnected();')
+    expect(code).toContain('uint32_t posMs = radioClockMs();')
+    expect(code).not.toMatch(/#include <SD\.h>|\bSD\.|startPlayback|provServiceSerial|PROV_RX_BUFFER|connecttoFS|sdMounted/)
+  })
+
+  // The library reconnects a silent station forever by itself; the sketch is
+  // what gives up on it, as the card player gives up on a file that never starts.
+  it('skips a station that never plays or keeps dropping, and rests when all have failed', () => {
+    const code = sketch()
+    expect(code).toContain('#define RADIO_START_TIMEOUT_MS 12000u')
+    expect(code).toContain('_radioSkip("no audio in time");')
+    expect(code).toContain('_radioSkip("the stream keeps dropping");')
+    expect(code).toContain('_radioState = RADIO_BACKOFF;')
+    expect(code).toContain('audio.setConnectionTimeout(1500, 4000);')
+  })
+
+  it('changes station with Next and Previous, and judges no paused stream', () => {
+    expect(sketch()).not.toMatch(/radioSelect|playerPaused/)
+    const code = sketch({ controls })
+    expect(code).toContain('radioSelect((uint16_t)((radioIndex + _radioCount + direction) % _radioCount));')
+    expect(code).toContain('if (playerPaused) { _radioStateMs = now; _radioProgressMs = now; return; }')
+    expect(code).not.toContain('playerTrackCount')
+  })
+
+  it('reads a card playlist only when there is a card', () => {
+    const code = sketch({}, { card: true })
+    expect(code).toContain('#include <SD.h>')
+    expect(code).toContain('File file = SD.open("/stations.m3u");')
+    expect(code).toContain('if (sdMounted) radioLoadCard();')
+    expect(code).not.toMatch(/provServiceSerial|_musicWalk/)
+  })
+
+  it('serves a station page that refuses cross-site posts, and edits only with a code', () => {
+    const choose = sketch({}, { page: { port: 80, mdnsName: 'fastled-radio', accessCode: '' } })
+    expect(choose).toContain('WebServer _radioServer(80);')
+    expect(choose).toContain('if (_radioServer.hasHeader("X-Radio")) return true;')
+    expect(choose).toContain('MDNS.begin("fastled-radio")')
+    expect(choose).not.toMatch(/RADIO_ACCESS_CODE|\/radio\/add|Preferences prefs;\s+if \(!prefs\.begin\("flsradio", false\)\) return;\s+uint8_t n/)
+    const edit = sketch({}, { page: { port: 8080, mdnsName: null, accessCode: 'secret-123' } })
+    expect(edit).toContain('static const char RADIO_ACCESS_CODE[] = "secret-123";')
+    expect(edit).toContain('_radioServer.on("/radio/add", HTTP_POST, _radioHandleAdd);')
+    expect(edit).toContain('WebServer _radioServer(8080);')
+    expect(edit).not.toContain('MDNS.begin(')
+  })
+
+  it('leaves the network to a Web Remote that already brings it', () => {
+    const code = sketch()
+    expect(code.match(/void _netEnsureConnected\(\)/g)).toHaveLength(1)
+  })
+
+  it('reports the station and its stream title as the song', async () => {
+    const { playerSongInfoCpp } = await import('../player/playerSongInfoCpp')
+    const song = playerSongInfoCpp('Internet Radio')
+    expect(song).toContain('void audio_bitrate(')
+    expect(song).not.toMatch(/audio_id3data|songResetFromFile/)
+  })
+})

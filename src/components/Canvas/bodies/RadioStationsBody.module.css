@@ -1,0 +1,133 @@
+/* The Music Player's station list, search and Wi-Fi fields. Field and note
+   styles come from DmxInputBody.module.css so every network body reads alike. */
+.body {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--divider);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  letter-spacing: 0.03em;
+}
+
+.count {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.list,
+.results {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.results {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.station {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stationText {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.stationName,
+.stationHost {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stationName {
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+}
+
+.stationHost {
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: 9px;
+}
+
+.section {
+  display: grid;
+  gap: 4px;
+}
+
+.row {
+  display: flex;
+  gap: 4px;
+}
+
+.button,
+.mini {
+  flex: none;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.button { padding: 2px 6px; }
+
+/* The playlist picker is its label; the native control stays reachable to
+   assistive technology and the keyboard, just not drawn. */
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+label.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.mini { width: 18px; padding: 1px 0; }
+
+.button:hover:not(:disabled),
+.mini:hover:not(:disabled),
+.button:focus-visible,
+.mini:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--accent-composite);
+}
+
+.button:disabled,
+.mini:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.error {
+  color: var(--error);
+  font-size: 0.72rem;
+}
+
+.address {
+  font-family: var(--font-code);
+  user-select: all;
+}

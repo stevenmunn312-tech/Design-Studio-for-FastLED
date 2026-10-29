@@ -99,6 +99,10 @@ import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { networkSourceIn, usesNetwork } from '../codegen/peripherals/networkCpp'
 import { bluetoothNameProblem } from '../state/player/bluetoothSink'
+import {
+  invalidRadioStations, normalizeRadioStations, radioAccessCodeProblem,
+  RADIO_ACCESS_CODE_MAX, RADIO_ACCESS_CODE_MIN, RADIO_CARD_PLAYLIST,
+} from '../state/player/radioStations'
 import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType } from '../build/boardLinks'
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
@@ -1701,10 +1705,11 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   ) && !selectedFqbn.startsWith('esp32:')) {
     errors.push('DMX512 firmware input requires an ESP32-family board because the generated sketch uses esp_dmx')
   }
-  // The Web Remote names its board in its own finding (webRemoteValidationIssues).
+  // The Web Remote and an internet radio Music Player name their board in
+  // their own findings (webRemoteValidationIssues, radioPlayerValidationIssues).
   // A cable, from the bench's module or the board's own port, stands in for
   // the radio; `wiredNetworkIn` is the one resolver that knows both.
-  if (selectedFqbn && nodes.some((node) => usesNetwork(node) && node.data.nodeType !== WEB_REMOTE_NODE_TYPE)
+  if (selectedFqbn && nodes.some((node) => usesNetwork(node) && node.data.nodeType !== WEB_REMOTE_NODE_TYPE && node.data.nodeType !== 'PatternMaster')
     && !wiredNetworkIn(nodes) && !fqbnHasWifi(selectedFqbn)) {
     errors.push('Art-Net, sACN, DDP and NTP time sync require a Wi-Fi-capable ESP32-family board, ESP8266 or Arduino UNO R4 WiFi')
   }
@@ -1836,6 +1841,7 @@ export function findDeployBlockingErrors(
     ...findPresenceSensorErrors(nodes, selectedFqbn),
     ...findDfPlayerErrors(nodes, selectedFqbn),
     ...findBluetoothPlayerErrors(nodes, edges, selectedFqbn),
+    ...findRadioPlayerErrors(nodes, edges, selectedFqbn),
     ...findBuzzerErrors(nodes, selectedFqbn),
     ...findEthernetErrors(nodes, selectedFqbn),
     ...findWebRemoteErrors(nodes, selectedFqbn),
@@ -2550,6 +2556,86 @@ function bluetoothPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[
     })
   }
   return issues
+}
+
+/**
+ * A Music Player set to Internet Radio streams over the shared network with
+ * ESP32-audioI2S, so it needs an ESP32 with Wi-Fi (or a cable), an I2S stage
+ * to play through, and at least one place its stations can come from. The
+ * Wi-Fi name and disagreeing network settings are the shared network warnings.
+ */
+function radioPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn: string): GraphDiagnostic[] {
+  const player = relevantMusicPlayer(nodes, edges)
+  if (!player || musicPlayerSource(player) !== 'Internet Radio') return []
+  const issues: GraphDiagnostic[] = []
+  const label = nodeLabel(player)
+  const props = player.data.properties as Record<string, unknown>
+  if (selectedFqbn && (!selectedFqbn.startsWith('esp32:') || (!fqbnHasWifi(selectedFqbn) && !wiredNetworkIn(nodes)))) {
+    issues.push({
+      id: `${player.id}-radio-board`, severity: 'error', category: 'board',
+      title: 'Internet radio needs an ESP32 with Wi-Fi',
+      message: 'The radio streams stations with the ESP32 audio decoder over Wi-Fi. The selected board is not an ESP32 with a network.',
+      fix: 'Choose an ESP32, ESP32-S3, C3 or C6 board, or set Music Source to SD Card.',
+      nodeIds: [player.id], nodeLabel: label, action: 'choose-board',
+    })
+  }
+  if (hasAudioOutputStage(nodes) && !i2sAudioStage(nodes)) {
+    issues.push({
+      id: `${player.id}-radio-i2s`, severity: 'error', category: 'show',
+      title: 'Internet radio needs an I2S amplifier or DAC',
+      message: 'The radio sends its stations out over I2S. A power amplifier alone would need the internal DAC, which the radio does not drive.',
+      fix: 'Add a MAX98357A, or a PCM5102A or UDA1334A DAC to feed the power amplifier, on the Hardware tab.',
+      action: 'open-audio-outputs',
+      nodeIds: [player.id], nodeLabel: label,
+    })
+  }
+  const stations = normalizeRadioStations(props.stations)
+  const card = nodes.some((node) => node.data.nodeType === 'SDCard')
+  const pageAdds = props.stationPage === true && !!getNetworkCredentials(player.id).accessCode
+  if (stations.length === 0) {
+    issues.push(card || pageAdds
+      ? {
+          id: `${player.id}-radio-stations`, severity: 'warning', category: 'show',
+          title: 'No stations are built in',
+          message: `The board will play only what ${card ? `${RADIO_CARD_PLAYLIST} on the card` : ''}${card && pageAdds ? ' or ' : ''}${pageAdds ? 'the phone page adds' : ''} holds.`,
+          fix: 'Add a station on the Music Player, by URL or from the station search.',
+          nodeIds: [player.id], nodeLabel: label,
+        }
+      : {
+          id: `${player.id}-radio-stations`, severity: 'error', category: 'show',
+          title: 'The radio has no stations',
+          message: 'Internet Radio plays the stations listed on the Music Player, and the list is empty.',
+          fix: 'Add a station on the Music Player, by URL or from the station search.',
+          nodeIds: [player.id], nodeLabel: label,
+        })
+  }
+  const invalid = invalidRadioStations(props.stations)
+  if (invalid.length > 0) {
+    issues.push({
+      id: `${player.id}-radio-invalid`, severity: 'warning', category: 'show',
+      title: `${invalid.length} station${invalid.length === 1 ? ' is' : 's are'} left out`,
+      message: `Station ${invalid[0].index + 1}: ${invalid[0].problem} The board is built without ${invalid.length === 1 ? 'it' : 'them'}.`,
+      fix: 'Remove the station and add it again with its stream URL.',
+      nodeIds: [player.id], nodeLabel: label,
+    })
+  }
+  const codeProblem = props.stationPage === true ? radioAccessCodeProblem(getNetworkCredentials(player.id).accessCode) : null
+  if (codeProblem) {
+    issues.push({
+      id: `${player.id}-radio-access-code`, severity: 'error', category: 'show',
+      title: 'The station page access code cannot be used',
+      message: codeProblem,
+      fix: `Set an access code of ${RADIO_ACCESS_CODE_MIN} to ${RADIO_ACCESS_CODE_MAX} characters on the Music Player, or clear it to allow choosing stations only.`,
+      nodeIds: [player.id], nodeLabel: label,
+    })
+  }
+  return issues
+}
+
+export function findRadioPlayerErrors(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = ''): string[] {
+  return radioPlayerValidationIssues(nodes, edges, selectedFqbn)
+    .filter((issue) => issue.severity === 'error')
+    .map(validationIssueMessage)
 }
 
 export function findBluetoothPlayerErrors(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = ''): string[] {
@@ -3894,6 +3980,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...dfPlayerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...bluetoothPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
+  diagnostics.push(...radioPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...webRemoteValidationIssues(nodes, options.selectedFqbn ?? ''))
@@ -4447,7 +4534,7 @@ export function buildGraphDiagnostics(
   }
 
   if (options.selectedFqbn && !wiredNetworkIn(nodes) && !fqbnHasWifi(options.selectedFqbn)) {
-    for (const node of nodes.filter((entry) => usesNetwork(entry) && entry.data.nodeType !== WEB_REMOTE_NODE_TYPE)) {
+    for (const node of nodes.filter((entry) => usesNetwork(entry) && entry.data.nodeType !== WEB_REMOTE_NODE_TYPE && entry.data.nodeType !== 'PatternMaster')) {
       diagnostics.push({
         id: `${node.id}-board-network`, severity: 'error', category: 'board',
         title: 'Network sync is incompatible with the selected board',
