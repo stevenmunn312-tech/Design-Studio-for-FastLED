@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   BUILT_IN_PATTERN_CATEGORIES,
-  importPatternFile,
   reconcilePatternsFromDisk,
   usePatternLibrary,
 } from '../patternLibrary'
@@ -154,7 +153,7 @@ describe('patternLibrary', () => {
     expect(s.graphData[groupId].nodes).not.toBe(saved.subgraph.nodes)
   })
 
-  it('dedupes repeated imports of the same saved pattern file', () => {
+  it('dedupes repeated puts of the same saved pattern', () => {
     const pattern = {
       id: 'pat-import',
       name: 'Glow',
@@ -164,8 +163,8 @@ describe('patternLibrary', () => {
       subgraph: { nodes: [node('sc', 'SolidColor')], edges: [] as StudioEdge[] },
     }
 
-    expect(importPatternFile(pattern)).toBe('Glow')
-    expect(importPatternFile(pattern)).toBe('Glow')
+    usePatternLibrary.getState().putPattern(pattern)
+    usePatternLibrary.getState().putPattern(pattern)
 
     const saved = usePatternLibrary.getState().patterns
     expect(saved).toHaveLength(1)

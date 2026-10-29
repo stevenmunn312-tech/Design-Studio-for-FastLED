@@ -21,9 +21,22 @@ export const EMPTY_CREDENTIALS: NetworkCredentials = { ssid: '', password: '' }
 const KEY = 'design-studio-for-fastled.network-credentials.v1'
 
 function loadFromStorage(): Record<string, NetworkCredentials> {
-  const raw = localStorage.getItem(KEY)
+  // Storage can be blocked (private browsing, disabled site data) or hold a
+  // damaged value; either way the store starts empty rather than failing to
+  // load at all.
+  let raw: string | null = null
+  try {
+    raw = localStorage.getItem(KEY)
+  } catch {
+    return {}
+  }
   if (!raw) return {}
-  const parsed = JSON.parse(raw) as unknown
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw) as unknown
+  } catch {
+    return {}
+  }
   if (!parsed || typeof parsed !== 'object') return {}
   const out: Record<string, NetworkCredentials> = {}
   for (const [nodeId, value] of Object.entries(parsed as Record<string, unknown>)) {
@@ -35,6 +48,15 @@ function loadFromStorage(): Record<string, NetworkCredentials> {
     }
   }
   return out
+}
+
+function persist(byNodeId: Record<string, NetworkCredentials>) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(byNodeId))
+  } catch {
+    // Private mode or a full quota: the in-memory credentials still apply
+    // for this session, they just will not be remembered.
+  }
 }
 
 interface NetworkCredentialsState {
@@ -51,7 +73,7 @@ export const useNetworkCredentialsStore = create<NetworkCredentialsState>()((set
         ...state.byNodeId,
         [nodeId]: { ...EMPTY_CREDENTIALS, ...state.byNodeId[nodeId], ...patch },
       }
-      localStorage.setItem(KEY, JSON.stringify(byNodeId))
+      persist(byNodeId)
       return { byNodeId }
     }),
   removeCredentials: (nodeId) =>
@@ -59,7 +81,7 @@ export const useNetworkCredentialsStore = create<NetworkCredentialsState>()((set
       if (!(nodeId in state.byNodeId)) return state
       const byNodeId = { ...state.byNodeId }
       delete byNodeId[nodeId]
-      localStorage.setItem(KEY, JSON.stringify(byNodeId))
+      persist(byNodeId)
       return { byNodeId }
     }),
 }))

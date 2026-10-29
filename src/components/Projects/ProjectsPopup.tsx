@@ -92,7 +92,12 @@ export default function ProjectsPopup() {
     // accept each other's frames.
     const fresh = withFreshBoardLink(workspace)
     if (fresh) useBoardLinkKeyStore.getState().createKey(fresh.linkId)
-    const project = createProject(name, fresh?.workspace ?? workspace, { uploadTarget: currentProject.uploadTarget })
+    // A multi-board project keeps one upload target per board; the copy takes
+    // all of them, not only the primary's.
+    const project = createProject(name, fresh?.workspace ?? workspace, {
+      uploadTarget: currentProject.uploadTarget,
+      uploadTargets: currentProject.uploadTargets,
+    })
     useGraphStore.getState().loadGraph(project.workspace.nodes, project.workspace.edges, project.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(`Duplicated into "${project.name}"`, 'success')

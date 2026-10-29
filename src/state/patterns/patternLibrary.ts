@@ -364,10 +364,16 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
 
   refreshFromDisk: async () => {
     if (!DISK_SYNC) return
+    // Read afresh at each step below rather than captured once: patterns keep
+    // arriving while the awaits run.
+    const localPatterns = () => get().patterns.filter((pattern) => !pattern.bundled)
+    // The ids on hand when the snapshot was requested. A local pattern not
+    // among them was saved while the request was in flight, so the snapshot
+    // cannot list it even once its own write has landed and left the journal.
+    const knownIds = new Set(localPatterns().map((pattern) => pattern.id))
     const disk = await listPatterns()
     if (!disk) return  // helper offline — keep the localStorage copy as-is
 
-    const local = get().patterns.filter((pattern) => !pattern.bundled)
     const initialJournal = loadSyncJournal()
     const deleteIds = new Set(initialJournal.pendingDeletes)
 
@@ -381,7 +387,7 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
     // Retry only explicit local writes. Plain browser-only entries are stale
     // cache when the corresponding disk file was removed by the user.
     for (const id of loadSyncJournal().pendingUpserts) {
-      const pattern = local.find((entry) => entry.id === id)
+      const pattern = localPatterns().find((entry) => entry.id === id)
       if (!pattern) {
         clearPendingUpsert(id)
         continue
@@ -393,10 +399,14 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
     }
 
     const journal = loadSyncJournal()
+    const local = localPatterns()
+    const savedDuringRefresh = local
+      .filter((pattern) => !knownIds.has(pattern.id) && !nextDisk.some((entry) => entry.id === pattern.id))
+      .map((pattern) => pattern.id)
     const patterns = reconcilePatternsFromDisk(
       nextDisk,
       local,
-      journal.pendingUpserts,
+      [...journal.pendingUpserts, ...savedDuringRefresh],
       journal.pendingDeletes,
     )
     persist(patterns)
@@ -633,25 +643,4 @@ export function withRegisteredGroups(saved: SavedPattern): SavedPattern {
     trusted: s.trusted && isContentKnown([], groups),
   })
   return { ...saved, subgraph: remapGroupRefs(saved.subgraph, idMap) }
-}
-
-/** Import a pattern from a dropped/uploaded `.json` file's parsed contents
- *  (the same shape `savePatternToDisk` writes, so any file from a "My
- *  Patterns" folder round-trips). Rejects anything that isn't recognisably a
- *  saved pattern rather than polluting the library with garbage. Returns the
- *  imported name, or null if `data` doesn't look like a saved pattern. */
-export function importPatternFile(data: unknown): string | null {
-  if (!data || typeof data !== 'object') return null
-  const p = data as Partial<SavedPattern>
-  if (typeof p.name !== 'string' || !p.name.trim()) return null
-  if (!p.subgraph || !Array.isArray(p.subgraph.nodes) || !Array.isArray(p.subgraph.edges)) return null
-  usePatternLibrary.getState().putPattern({
-    id: typeof p.id === 'string' && p.id.trim() ? p.id : `pat-${Date.now()}`,
-    name: p.name.trim(),
-    createdAt: typeof p.createdAt === 'number' ? p.createdAt : Date.now(),
-    inputs: Array.isArray(p.inputs) ? p.inputs : [],
-    outputs: Array.isArray(p.outputs) ? p.outputs : [],
-    subgraph: { nodes: p.subgraph.nodes, edges: p.subgraph.edges },
-  })
-  return p.name
 }

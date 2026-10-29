@@ -205,9 +205,9 @@ export default function App() {
   // reload would overwrite the real workspace with an empty music manifest.
   const workspaceHydrated = useRef(false)
 
-  // A share link takes priority over the autosaved workspace — loading one
-  // is an explicit act (someone sent you a link), so it wins over whatever
-  // was left in this browser from before.
+  // A share link is opened instead of the autosaved workspace — loading one
+  // is an explicit act (someone sent you a link) — but into a project of its
+  // own, so the project that was open keeps its saved workspace.
   useEffect(() => {
     let cancelled = false
     const init = async () => {
@@ -229,12 +229,16 @@ export default function App() {
           })
           await waitForMusicLibraryRestore()
           if (cancelled) return
-          useProjectStore.getState().saveCurrentWorkspace({
-            ...workspace,
-            trusted: false,
-            // loadGraph has already normalized this external declarative data.
-            displayDocuments: useGraphStore.getState().displayDocuments,
-          })
+          const projectStore = useProjectStore.getState()
+          projectStore.createProject(
+            nextDefaultProjectName(projectStore.projects.map((project) => project.name)),
+            {
+              ...workspace,
+              trusted: false,
+              // loadGraph has already normalized this external declarative data.
+              displayDocuments: useGraphStore.getState().displayDocuments,
+            },
+          )
           workspaceHydrated.current = true
           useGraphStore.temporal.getState().clear()
           clearShareHash()
@@ -635,6 +639,13 @@ export default function App() {
       }
       if (e.key === 's') {
         e.preventDefault()
+        // Until the bootstrap has installed the saved project, the graph store
+        // holds its module defaults: saving now would replace the project with
+        // an empty graph stamped newer than the real file.
+        if (!workspaceHydrated.current) {
+          setStatus('Still loading the saved workspace — nothing saved yet', 'info')
+          return
+        }
         const { projects, currentProjectId } = useProjectStore.getState()
         if (projects.some((project) => project.id === currentProjectId)) {
           useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
