@@ -1124,7 +1124,6 @@ def test_flash_size_is_read_off_the_request_or_ignored():
 def test_cancelling_with_nothing_running_is_not_an_error():
     # The UI offers Cancel whenever an upload is busy, and a build that finished
     # a moment earlier is not a failure worth reporting.
-    toolchain._register_build(None)
     assert toolchain._cancel_active_build() is False
 
 
@@ -1135,13 +1134,11 @@ def test_a_cancelled_build_is_not_reported_as_a_failed_one(monkeypatch):
     sending someone to hunt for a compile error in a graph they never doubted is
     the worst possible answer.
     """
-    monkeypatch.setattr(toolchain, "_build_cancelled", True)
-    lines = "".join(firmware._upload_result_lines(130, "compile", "COM7"))
+    lines = "".join(firmware._upload_result_lines(toolchain._BUILD_CANCELLED, "compile", "COM7"))
     assert "BUILD FAILED" not in lines
 
 
 def test_a_real_failure_still_says_so(monkeypatch):
-    monkeypatch.setattr(toolchain, "_build_cancelled", False)
     lines = "".join(firmware._upload_result_lines(1, "compile", "COM7"))
     assert "BUILD FAILED" in lines
 
