@@ -462,3 +462,47 @@ describe('hardwareManifest', () => {
     expect(manifest.unsupportedItems.map((item) => item.facts.chipset)).toEqual(['APA102', 'HUB75'])
   })
 })
+
+describe('the internal DAC claim and the I2C bus pair', () => {
+  const card = node('sd', 'SDCard', { sdCsPin: 5, sdSckPin: 18, sdMosiPin: 23, sdMisoPin: 19 })
+  const dacPins = (nodes: StudioNode[], fqbn?: string) =>
+    collectPinUses(nodes, fqbn).filter((use) => use.propertyKey.startsWith('internalDac')).map((use) => use.pin)
+
+  it('claims GPIO25/26 for a card with no audio stage only on the classic ESP32', () => {
+    // The player falls back to the internal DAC on that board alone
+    // (`audioOutputMode`); a Pico W has no DAC, and holding GPIO26 there kept
+    // a potentiometer off a pin the sketch never touches.
+    expect(dacPins([card], 'esp32:esp32:esp32')).toEqual([25, 26])
+    expect(dacPins([card], 'esp32:esp32:esp32doit-devkit-v1')).toEqual([25, 26])
+    expect(dacPins([card], 'rp2040:rp2040:rpipicow')).toEqual([])
+    expect(dacPins([card], 'esp32:esp32:esp32s3')).toEqual([])
+    expect(dacPins([card])).toEqual([])
+    // With no FQBN from the caller, the Board node's profile decides.
+    expect(dacPins([node('board', 'Board', { profileId: 'quinled-dig-uno' }), card])).toEqual([25, 26])
+    expect(dacPins([node('board', 'Board', { profileId: 'seeed-xiao-esp32s3' }), card])).toEqual([])
+    // An I2S stage on the bench is the output, so the DAC is never claimed.
+    expect(dacPins([card, node('amp', 'Amplifier', { i2sBclk: 27, i2sLrc: 14, i2sDout: 22 })], 'esp32:esp32:esp32')).toEqual([])
+  })
+
+  it('reads a cleared pin field as unset, not GPIO 0', () => {
+    // Number('') is 0, so an emptied SDA field claimed GPIO 0, and so did an
+    // emptied CS field on the card.
+    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: '', sclPin: '' })
+    expect(collectPinUses([rtc]).map((use) => [use.propertyKey, use.pin])).toEqual([['sdaPin', 21], ['sclPin', 22]])
+    const cleared = node('sd', 'SDCard', { sdCsPin: '', sdSckPin: 18, sdMosiPin: 23, sdMisoPin: 19 })
+    expect(collectPinUses([cleared]).map((use) => use.propertyKey)).toEqual(['sdSckPin', 'sdMosiPin', 'sdMisoPin'])
+    // A number typed into the field still counts.
+    const typed = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: '33', sclPin: 32 })
+    expect(collectPinUses([typed]).map((use) => use.pin)).toEqual([33, 32])
+  })
+
+  it('states that SDA and SCL need output-capable pins', () => {
+    // The board check skips a use with no requirement, which let a DS3231 sit
+    // on the classic ESP32's input-only GPIO34/35 unchallenged.
+    const uses = collectPinUses([node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 34, sclPin: 35 })])
+    expect(uses.map((use) => use.requirement)).toEqual([
+      { capability: 'digitalOutput', pullup: false },
+      { capability: 'digitalOutput', pullup: false },
+    ])
+  })
+})

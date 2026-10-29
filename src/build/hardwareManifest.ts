@@ -31,7 +31,7 @@ import { PART_FIELDS } from './parts/partFields'
 import type { BusAssignment } from './pins/busTopology'
 import { sdSpiPinsForBoard } from './pins/sdPinDefaults'
 import { resolvePartIdentity } from './parts/partOptions'
-import { hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '../state/audio/audioOutput'
+import { boardHasInternalDac, hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '../state/audio/audioOutput'
 import { micModuleFor } from '../state/peripherals/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
 import { LANE_PIN_KEY_PREFIX, claimedLanePins, dataLanePlan } from '../state/output/dataLanes'
@@ -244,6 +244,31 @@ function nominalVoltageForChipset(chipset: string): number | null {
   return chipset === HUB75_CHIPSET ? 5 : 5
 }
 
+/**
+ * SDA and SCL are driven low and released by the controller, so each needs an
+ * output-capable pin: an input-only GPIO (34–39 on the classic ESP32) can
+ * listen on the bus but never answer, and the board check must refuse it the
+ * way it refuses an LED data pin there. `gpioRequirementForProperty` answers
+ * null for the pair because a bus line is not an ordinary pin assignment; the
+ * electrical requirement is stated here, where the pair is claimed.
+ */
+const I2C_LINE_REQUIREMENT: GpioPropertyRequirement = { capability: 'digitalOutput', pullup: false }
+
+/**
+ * A pin field's value as a GPIO number, or undefined when it is unset.
+ *
+ * `Number('')` is 0, so a cleared field read through `Number(value ?? fallback)`
+ * claimed GPIO 0 instead of falling back to the board's default pad.
+ */
+function configuredPin(value: unknown): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  return undefined
+}
+
 export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): HardwarePinUse[] {
   const uses: HardwarePinUse[] = []
   const rtcPins = rtcI2cPinsForProfile(selectedPhysicalBoardProfile(nodes))
@@ -282,25 +307,30 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
     })
   }
   const pushI2c = (node: StudioNode, baseLabel: string, props: Record<string, unknown>) => {
-    const sdaPin = Number(props.sdaPin ?? rtcPins?.sda.arduinoPin ?? 21)
-    const sclPin = Number(props.sclPin ?? rtcPins?.scl.arduinoPin ?? 22)
+    const sdaPin = configuredPin(props.sdaPin) ?? rtcPins?.sda.arduinoPin ?? 21
+    const sclPin = configuredPin(props.sclPin) ?? rtcPins?.scl.arduinoPin ?? 22
     const sdaIsDefault = !!rtcPins && sdaPin === rtcPins.sda.arduinoPin
     const sclIsDefault = !!rtcPins && sclPin === rtcPins.scl.arduinoPin
     uses.push({
       label: `${baseLabel} SDA`, nodeId: node.id, nodeType: node.data.nodeType,
-      propertyKey: 'sdaPin', pin: sdaPin, requirement: null,
+      propertyKey: 'sdaPin', pin: sdaPin, requirement: I2C_LINE_REQUIREMENT,
       boardPinId: sdaIsDefault ? rtcPins.sda.boardPin?.id : undefined,
       boardDefault: sdaIsDefault,
       boardPinLabel: sdaIsDefault ? rtcPins.sda.displayLabel : undefined,
     })
     uses.push({
       label: `${baseLabel} SCL`, nodeId: node.id, nodeType: node.data.nodeType,
-      propertyKey: 'sclPin', pin: sclPin, requirement: null,
+      propertyKey: 'sclPin', pin: sclPin, requirement: I2C_LINE_REQUIREMENT,
       boardPinId: sclIsDefault ? rtcPins.scl.boardPin?.id : undefined,
       boardDefault: sclIsDefault,
       boardPinLabel: sclIsDefault ? rtcPins.scl.displayLabel : undefined,
     })
   }
+  // The internal DAC is a pin claim only where the sketch would drive it: the
+  // classic ESP32, chosen by FQBN or by the Board node's profile when the
+  // caller passed none. Claiming GPIO25/26 everywhere held a Pico W's pot off
+  // GPIO26 for a DAC that board does not have.
+  const dacFqbn = selectedFqbn || selectedPhysicalBoardProfile(nodes)?.compatibleFqbns[0] || ''
   for (const node of nodes) {
     const props = node.data.properties as Record<string, unknown>
     const baseLabel = node.data.nodeType === 'MatrixOutput'
@@ -551,8 +581,8 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
           ['sdMosiPin', `${baseLabel} MOSI`, sdSpiPins?.mosi],
           ['sdMisoPin', `${baseLabel} MISO`, sdSpiPins?.miso],
         ] as const) {
-          const pin = Number(props[propertyKey] ?? fallback)
-          if (!Number.isFinite(pin)) continue
+          const pin = configuredPin(props[propertyKey]) ?? fallback
+          if (pin === undefined) continue
           uses.push({
             label,
             nodeId: node.id,
@@ -567,14 +597,15 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
          * The internal DAC has no part of its own — it *is* the output stage,
          * on two pins the library fixes for us, so they are claimed here.
          *
-         * A card with no audio stage means either the internal DAC or no
-         * output at all, and this walk has no board to tell them apart.
-         * Claiming the pins in both cases is the safe way to be wrong: the
-         * no-output case is already an error, and holding 25/26 stops
-         * something else taking pins the DAC would need on the board where it
-         * does work. A power amplifier on the bench claims them itself.
+         * A card with no audio stage falls back to the internal DAC only on
+         * the classic ESP32 (`boardHasInternalDac`, the same rule
+         * `audioOutputMode` builds the player with); every other board has
+         * no DAC to fall back on, and the show's missing amplifier is already
+         * an error there. Claiming 25/26 on those boards held a Pico W's
+         * GPIO26 against a pot for a stage that could never exist. A power
+         * amplifier on the bench claims them itself.
          */
-        if (!hasAudioOutputStage(nodes)) {
+        if (!hasAudioOutputStage(nodes) && boardHasInternalDac(dacFqbn)) {
           push(node, `${baseLabel} internal DAC L (GPIO25)`, 'internalDacLeft', 25)
           push(node, `${baseLabel} internal DAC R (GPIO26)`, 'internalDacRight', 26)
         }

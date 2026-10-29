@@ -63,6 +63,23 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (Storage capability, the VU meter's data pins, its chipset), which would have
   blocked Upload with nothing in the drawer to explain it — the inverse of the
   HUB75 fault.
+- A Pattern Collection wired into any engine's `patternset` holds at most
+  `MAX_FIRMWARE_PATTERNS` (255): the show and SD-player sketches keep their
+  pattern cursors in `uint8_t` and draw with `random8(PATTERN_COUNT)`, so a
+  256th pattern wraps the cursor. `findPatternCountErrors` is in the gate and
+  `<collectionId>-too-many-patterns` is its Graph Health error; an unwired
+  collection is not compiled and is left alone. Widen the cursors before
+  raising the limit, never the other way round.
+- `estimatePowerLoad` sizes `requiredSupplyMa` from `worstCaseMa` (uncapped
+  full white), never from the firmware cap; `configuredMa` is information
+  only. The electrical plan has followed that rule since 2026-09-27
+  ([build diagram](../../architecture/build-diagram.md)), and the Board
+  node's supply figure once disagreed with it, recommending a 3 A supply for
+  an 18 A strip.
+- A cable is read through `wiredNetworkIn` (the board's own Ethernet port or
+  the bench's module) wherever it stands in for a radio — the Art-Net/NTP
+  board gate, the NTP SSID check, the Web Remote and the sync gate alike —
+  never `ethernetModuleIn`, which a board with onboard Ethernet does not have.
 - Several boards: the root graph is validated one board at a time, never as a
   whole. `src/utils/multiBoardValidation.ts` runs `validateGraph` /
   `buildGraphDiagnostics` on each board's partition
@@ -89,8 +106,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   with `clockSync` on, `board-sync-network-<boardId>` (error: no Wi-Fi and no
   wired link — the Board is a network user while sync is on, so this is the
   Art-Net/NTP board gate said of it), `board-sync-credentials-<boardId>`
-  (error: no wired link and `getNetworkCredentials(boardId).ssid` empty; not
-  raised alongside the network error) and `board-sync-collection-<boardId>`
+  (error: no wired link and the SSID empty on the partition's network owner,
+  `networkSourceIn(partition.nodes) ?? board` — the same node the sketch
+  reads, so credentials on an Art-Net or NTP node count and the card names
+  that node when it is not the Board; not raised alongside the network error) and `board-sync-collection-<boardId>`
   (warning: a follower's first Pattern Collection in a different `patternIds`
   order from the leader's). Because `usesNetwork` counts a syncing Board, the
   one-board validators already refuse it a radio-less board and ask it for an

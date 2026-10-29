@@ -1,4 +1,24 @@
 import { pwmDriverAddress } from '../../state/peripherals/pwmDriver'
+import { powerMonitorAddress } from '../../state/peripherals/powerMonitor'
+import { touchPadAddress } from '../../state/peripherals/touchPad'
+import { motionVectorAddress } from '../../state/peripherals/motionVector'
+import { environmentAddress } from '../../state/peripherals/environmentSensor'
+import { lightSensorAddress } from '../../state/peripherals/lightSensor'
+import { distanceSensorAddress } from '../../state/peripherals/distanceSensor'
+
+/**
+ * Each I2C part that owns its address parsing. One table, so a part added
+ * with a resolver cannot be left answering through the generic branch below.
+ */
+const PART_ADDRESS_RESOLVERS: Readonly<Record<string, (props: Record<string, unknown>) => number | null>> = {
+  PwmDriverOutput: pwmDriverAddress,
+  PowerMonitorInput: powerMonitorAddress,
+  TouchPadInput: touchPadAddress,
+  MotionVectorInput: motionVectorAddress,
+  EnvironmentInput: environmentAddress,
+  LightInput: lightSensorAddress,
+  DistanceInput: distanceSensorAddress,
+}
 
 // What a claimed GPIO actually *is*, so validation can tell a shared bus from a
 // collision.
@@ -174,7 +194,12 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
  * contributes neither.
  */
 export function i2cAddressFor(nodeType: string, props: Record<string, unknown>): number | null {
-  if (nodeType === 'PwmDriverOutput') return pwmDriverAddress(props)
+  // A part with its own address resolver answers through it, so the collision
+  // walk reads exactly what the firmware and the part's own validation read.
+  // `Number('5A')` is NaN: an unprefixed hex pick, which the part resolvers
+  // parse, was invisible here and two touch pads on one address went unseen.
+  const resolver = PART_ADDRESS_RESOLVERS[nodeType]
+  if (resolver) return resolver(props)
   // A strappable part carries its own setting; the fixed-address parts below
   // ignore it because nothing the user does changes what they answer to.
   const configured = Number(props.i2cAddress)

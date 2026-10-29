@@ -96,7 +96,7 @@ import {
 import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
-import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
+import { ETHERNET_NODE_TYPE, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { usesNetwork } from '../codegen/peripherals/networkCpp'
 import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType } from '../build/boardLinks'
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
@@ -461,10 +461,11 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
   }, vuLedCount * MA_PER_LED_WORST_CASE)
   const configuredMa = controller.powerLimit ? controller.milliamps : null
   const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
-  const supplySizingMa = configuredMa != null && configuredMa > 0
-    ? Math.min(worstCaseMa, configuredMa)
-    : worstCaseMa
-  const requiredSupplyMa = recommendedSupplyCurrentMa(supplySizingMa)
+  // The supply is sized for the uncapped full-white load, never from the
+  // firmware cap: a cap that is changed, cleared or never flashed must not
+  // overload a supply that was bought for it. The cap is information only,
+  // the same rule the Build Diagram's electrical plan already follows.
+  const requiredSupplyMa = recommendedSupplyCurrentMa(worstCaseMa)
   return {
     ledCount,
     worstCaseMa,
@@ -1029,8 +1030,11 @@ export function findFirmwareRamBudgetIssue(
  *
  * LED outputs wired in parallel share a data pin deliberately — that is what
  * makes them one controller driving two panels — so the mirror's data pin is
- * dropped and the GPIO reads as the single assignment it is. Every other pin on
- * those nodes still collides normally.
+ * dropped and the GPIO reads as the single assignment it is. A clocked chipset
+ * (APA102, WS2801, HD108) carries its clock down the same cable, so a mirror
+ * on the leader's clock pin is the same single assignment and is dropped too;
+ * a mirror naming a different clock pin keeps its claim, since that pin is
+ * not the shared one. Every other pin on those nodes still collides normally.
  *
  * Shared by both pin-collision walks (`findPinConflicts` for deploy validation,
  * `buildGraphDiagnostics` for the Graph Health drawer). They are separate
@@ -1040,9 +1044,19 @@ export function findFirmwareRamBudgetIssue(
 export function deliberatelySharedPinUses(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
   const routes = outputRoutes(nodes)
   const leaders = outputMirrorLeaders(routes, edges)
-  return new Set(
-    routes.filter((route) => leaders.get(route.id) !== route.id).map((route) => `${route.id}:dataPin`),
-  )
+  const byId = new Map(routes.map((route) => [route.id, route]))
+  const shared = new Set<string>()
+  for (const route of routes) {
+    const leader = byId.get(leaders.get(route.id) ?? route.id)
+    if (!leader || leader.id === route.id) continue
+    shared.add(`${route.id}:dataPin`)
+    const props = route.node.data.properties as Record<string, unknown>
+    const leaderProps = leader.node.data.properties as Record<string, unknown>
+    if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B')) && props.clockPin === leaderProps.clockPin) {
+      shared.add(`${route.id}:clockPin`)
+    }
+  }
+  return shared
 }
 
 /**
@@ -1244,6 +1258,11 @@ export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: str
   for (const use of collectPinUses(nodes)) {
     if (!isValidPinNumber(use.pin) || !use.requirement) continue
     if (isOwnFittedPin(use.nodeId, use.propertyKey, use.pin)) continue
+    // A part left on the board's audited SDA/SCL pair (`boardI2cDefaults.ts`)
+    // is on pads the board itself documents for I2C; that record wins over the
+    // chip table the way it wins over imported pin data. A pair the user moved
+    // is checked like any other output line.
+    if (use.boardDefault && busAssignmentFor(use.nodeType, use.propertyKey).kind === 'i2c') continue
     const unavailable = gpio.caution.find((pin) => pin.pin === use.pin)
     if (unavailable) {
       errors.push(`${use.label} uses pin ${use.pin}, which is unavailable on the selected board: ${unavailable.note}`)
@@ -1440,6 +1459,38 @@ export function findPixelDataExtenderErrors(nodes: StudioNode[]): string[] {
  * Reported per missing piece rather than as one "show is incomplete", because
  * each one is a different thing to go and do.
  */
+/**
+ * The most patterns one sketch can hold. The show and SD-player generators
+ * keep their pattern cursors in `uint8_t` and draw with `random8(PATTERN_COUNT)`,
+ * whose limit is a byte, so a 256th pattern wraps the cursor to 0 and the
+ * collection past that point is never reached. Refused here, before the gate,
+ * rather than widened in firmware, since a show that long is not a build
+ * anyone has made and the cursors are shared by every pattern engine.
+ */
+export const MAX_FIRMWARE_PATTERNS = 255
+
+/** Collections a pattern engine would compile, with more patterns than its cursors address. */
+function oversizedPatternCollections(nodes: StudioNode[], edges: StudioEdge[]): { collection: StudioNode; count: number }[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const seen = new Set<string>()
+  const found: { collection: StudioNode; count: number }[] = []
+  for (const edge of edges) {
+    if (String(edge.targetHandle ?? '') !== 'patternset' || seen.has(String(edge.source))) continue
+    const collection = byId.get(String(edge.source))
+    if (!collection || collection.data.nodeType !== 'PatternCollection') continue
+    seen.add(collection.id)
+    const ids = (collection.data.properties as Record<string, unknown>).patternIds
+    const count = Array.isArray(ids) ? ids.length : 0
+    if (count > MAX_FIRMWARE_PATTERNS) found.push({ collection, count })
+  }
+  return found
+}
+
+export function findPatternCountErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return oversizedPatternCollections(nodes, edges).map(({ collection, count }) =>
+    `${nodeLabel(collection)} holds ${count} patterns, but a sketch can play at most ${MAX_FIRMWARE_PATTERNS} — remove ${count - MAX_FIRMWARE_PATTERNS} or split the show across collections`)
+}
+
 export function findShowRequirementErrors(
   nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '',
 ): string[] {
@@ -1650,8 +1701,10 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
     errors.push('DMX512 firmware input requires an ESP32-family board because the generated sketch uses esp_dmx')
   }
   // The Web Remote names its board in its own finding (webRemoteValidationIssues).
+  // A cable, from the bench's module or the board's own port, stands in for
+  // the radio; `wiredNetworkIn` is the one resolver that knows both.
   if (selectedFqbn && nodes.some((node) => usesNetwork(node) && node.data.nodeType !== WEB_REMOTE_NODE_TYPE)
-    && !ethernetModuleIn(nodes) && !fqbnHasWifi(selectedFqbn)) {
+    && !wiredNetworkIn(nodes) && !fqbnHasWifi(selectedFqbn)) {
     errors.push('Art-Net, sACN, DDP and NTP time sync require a Wi-Fi-capable ESP32-family board, ESP8266 or Arduino UNO R4 WiFi')
   }
   // Show audio requirements live in findShowRequirementErrors. The separate
@@ -1774,6 +1827,7 @@ export function findDeployBlockingErrors(
     ...findDataLaneErrors(nodes, edges),
     ...findSdVideoErrors(nodes, edges, selectedFqbn, groups),
     ...findShowRequirementErrors(nodes, edges, selectedFqbn),
+    ...findPatternCountErrors(nodes, edges),
     ...findAudioCapabilityErrors(nodes, edges),
     ...findStorageCapabilityErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
@@ -4325,7 +4379,7 @@ export function buildGraphDiagnostics(
     }
   }
 
-  if (options.selectedFqbn && !ethernetModuleIn(nodes) && !fqbnHasWifi(options.selectedFqbn)) {
+  if (options.selectedFqbn && !wiredNetworkIn(nodes) && !fqbnHasWifi(options.selectedFqbn)) {
     for (const node of nodes.filter((entry) => usesNetwork(entry) && entry.data.nodeType !== WEB_REMOTE_NODE_TYPE)) {
       diagnostics.push({
         id: `${node.id}-board-network`, severity: 'error', category: 'board',
@@ -4693,6 +4747,18 @@ export function buildGraphDiagnostics(
         nodeIds: [collection.id], nodeLabel: nodeLabel(collection),
       })
     }
+  }
+
+  // Said of every wired collection, whichever engine plays it: the byte-wide
+  // pattern cursors are shared by the show and the SD player alike.
+  for (const { collection, count } of oversizedPatternCollections(nodes, edges)) {
+    diagnostics.push({
+      id: `${collection.id}-too-many-patterns`, severity: 'error', category: 'show',
+      title: `Pattern Collection holds more than ${MAX_FIRMWARE_PATTERNS} patterns`,
+      message: `${nodeLabel(collection)} lists ${count} patterns, but the sketch's pattern cursor counts to ${MAX_FIRMWARE_PATTERNS}, so the ones past it would never play.`,
+      fix: `Remove ${count - MAX_FIRMWARE_PATTERNS} patterns from ${nodeLabel(collection)}, or split the show across collections.`,
+      nodeIds: [collection.id], nodeLabel: nodeLabel(collection),
+    })
   }
 
   // A hardware part chosen as the source of an Audio or Storage capability node

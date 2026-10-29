@@ -20,6 +20,31 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Existing conflicting selections stay visible, and the custom GPIO entry
   keeps its warning as the advanced wiring escape hatch.
 
+- A mirrored LED output shares its leader's data pin on purpose, and a
+  mirrored clocked chipset (`SPI_CHIPSETS`) shares the clock pin the same
+  way: `deliberatelySharedPinUses` exempts the mirror's `clockPin` only when
+  it equals the leader's, so a mirror naming a different clock pin keeps a
+  real claim. Exempting the data pin alone refused every mirrored APA102 pair.
+
+- `collectPinUses` states the I2C pair's electrical requirement itself
+  (`I2C_LINE_REQUIREMENT`, digital output), because
+  `gpioRequirementForProperty` answers null for a bus pair and
+  `findBoardPinCompatibility` skips a use with no requirement — a DS3231 on
+  the classic ESP32's input-only GPIO34/35 once passed. A part left on the
+  board's audited default pair (`boardDefault`) is exempt from the chip table
+  there, since `boardI2cDefaults.ts` outranks it; the NRF52840 chip table
+  lists QSPI port numbers (P0.17–P0.23) as Arduino pins, so the Feather
+  nRF52840's SDA/SCL (pins 22/23) read as flash lines until that table is
+  corrected. Pin fields are read through `configuredPin`: `Number('')` is 0,
+  so a cleared SDA, SCL or card pin field claimed GPIO 0 instead of falling
+  back to the board's default pad.
+
+- The card's internal-DAC claim on GPIO25/26 follows `boardHasInternalDac`
+  (the classic ESP32 by FQBN, or by the Board profile's first compatible FQBN
+  when the caller passed none), the rule `audioOutputMode` builds the player
+  with. Claiming them on every board held a Pico W's GPIO26 against a pot for
+  a DAC that board does not have.
+
 - Hardware shelf availability and creation both use `assignHardwarePartPins`.
   It reads the configured transport through `collectPinUses`: I2C inputs and
   fixtures share the selected board's SDA/SCL pair, while exclusive signals
@@ -571,10 +596,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   so it now refuses any two I2C parts on different SDA/SCL pairs, not only when
   a display is among them. See [hardware nodes](../../architecture/hardware-model.md).
 - An I2C part with its own address resolver must use it in `i2cAddressFor` as
-  well as firmware and validation. The PWM driver's unprefixed hex and missing
-  address defaults once resolved differently in bus collision detection, hiding
-  two devices answering on the same address. Reject partial address parses;
-  `parseInt` alone accepts trailing text that the configuration did not offer.
+  well as firmware and validation: register it in `PART_ADDRESS_RESOLVERS`
+  (`busTopology.ts`), one table for every such part, rather than a per-type
+  branch. The PWM driver's unprefixed hex and missing address defaults once
+  resolved differently in bus collision detection, hiding two devices
+  answering on the same address; the touch pad's unprefixed `5A` was then
+  invisible to the walk the same way (`Number('5A')` is NaN) until the table
+  covered every resolver. Reject partial address parses; `parseInt` alone
+  accepts trailing text that the configuration did not offer.
 - **Power converters (hardware-only):** `src/state/peripherals/powerConverter.ts` resolves
   ratings from the catalogue's `powerConverter` block (never restated);
   `sourceVoltageIssue`'s minimum is `max(inputMinV, outputSetV + minHeadroomV)`.

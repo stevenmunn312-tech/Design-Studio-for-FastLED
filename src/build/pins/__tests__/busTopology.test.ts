@@ -256,3 +256,26 @@ describe('repair-oriented messages', () => {
     expect(message).not.toContain('Clock 0 SDA')
   })
 })
+
+describe('parts that parse their own I2C address', () => {
+  it('reads an unprefixed hex pick through the part resolver', () => {
+    // Number('5A') is NaN, so the generic branch lost the MPR121's address
+    // and two pads strapped to 0x5A never collided.
+    expect(i2cAddressFor('TouchPadInput', { i2cAddress: '5A' })).toBe(0x5a)
+    expect(i2cAddressFor('TouchPadInput', {})).toBe(0x5a)
+    expect(i2cAddressFor('MotionVectorInput', { i2cAddress: '69' })).toBe(0x69)
+    expect(i2cAddressFor('PowerMonitorInput', { i2cAddress: '0x41' })).toBe(0x41)
+    // An address the part cannot be strapped to is no address at all.
+    expect(i2cAddressFor('TouchPadInput', { i2cAddress: '3C' })).toBeNull()
+  })
+
+  it('sees two touch pads answering on the same unprefixed address', () => {
+    const pad = (nodeId: string) => ({
+      nodeId, nodeType: 'TouchPadInput', props: { i2cAddress: '5A' },
+      uses: [pinUse(nodeId, 'TouchPadInput', 'sdaPin', 21), pinUse(nodeId, 'TouchPadInput', 'sclPin', 22)],
+    })
+    const collisions = findI2cAddressCollisions([pad('pad-a'), pad('pad-b')])
+    expect(collisions).toHaveLength(1)
+    expect(collisions[0]).toMatchObject({ address: 0x5a, sda: 21, scl: 22 })
+  })
+})

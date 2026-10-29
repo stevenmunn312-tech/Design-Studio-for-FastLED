@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, findFirmwareRamBudgetIssue, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, findDeployBlockingErrors, findPatternCountErrors, MAX_FIRMWARE_PATTERNS, estimatePowerLoad, estimateFirmwareRam, findFirmwareRamBudgetIssue, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { BOARD_PROFILES } from '../../build/boards/boardProfiles'
+import { rtcI2cPinsForProfile } from '../../build/pins/rtcPins'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/displays/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/displays/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/displays/tftDisplayCpp'
@@ -990,17 +992,18 @@ describe('validateGraph', () => {
     })
 
     it('checks the fixed GPIO25/26 internal-DAC pins instead of the I2S pins', () => {
+      // The classic ESP32 is the board whose player falls back to its DAC.
       const clean = [
         node('out', 'MatrixOutput', { dataPin: 5, chipset: 'WS2812B' }),
-        node('sd', 'SDCard', { sdCsPin: 10, audioOutput: 'internalDac' }),
+        node('sd', 'SDCard', { sdCsPin: 10 }),
       ]
-      expect(findPinConflicts(clean)).toHaveLength(0)
+      expect(findPinConflicts(clean, [], 'esp32:esp32:esp32')).toHaveLength(0)
 
       const conflicting = [
         node('out', 'MatrixOutput', { dataPin: 25, chipset: 'WS2812B' }),
-        node('sd', 'SDCard', { sdCsPin: 10, audioOutput: 'internalDac' }),
+        node('sd', 'SDCard', { sdCsPin: 10 }),
       ]
-      const conflicts = findPinConflicts(conflicting)
+      const conflicts = findPinConflicts(conflicting, [], 'esp32:esp32:esp32')
       expect(conflicts).toHaveLength(1)
       expect(conflicts[0]).toContain('GPIO 25')
       expect(conflicts[0]).toContain('data pin')
@@ -1189,12 +1192,16 @@ describe('validateGraph', () => {
 
     it('still claims the internal DAC pins, which have no Amplifier node', () => {
       // internalDac *is* the output stage, on two pins the library fixes, so
-      // SDCard keeps claiming them for conflict detection.
+      // SDCard keeps claiming them for conflict detection — on the classic
+      // ESP32, the one board whose player falls back to that DAC. A Pico W
+      // has no DAC: holding 25/26 there kept a pot off GPIO26 for nothing.
       const nodes = [
-        node('sd', 'SDCard', { sdCsPin: 5, audioOutput: 'internalDac' }),
+        node('sd', 'SDCard', { sdCsPin: 5 }),
         node('out', 'MatrixOutput', { dataPin: 25 }),
       ]
-      expect(findPinConflicts(nodes).some((c) => c.includes('25'))).toBe(true)
+      expect(findPinConflicts(nodes, [], 'esp32:esp32:esp32').some((c) => c.includes('25'))).toBe(true)
+      expect(findPinConflicts(nodes, [], 'rp2040:rp2040:rpipicow')).toEqual([])
+      expect(findPinConflicts([...nodes, node('pot', 'PotInput', { pin: 26 })], [], 'rp2040:rp2040:rpipicow')).toEqual([])
     })
 
     it('surfaces out-of-range pins as warnings (not errors) from validateGraph', () => {
@@ -1366,9 +1373,27 @@ describe('validateGraph', () => {
       const power = estimatePowerLoad(nodes)!
       expect(power.configuredMa).toBe(2000)
       expect(power.worstCaseMa).toBe(15360)
-      expect(power.requiredSupplyMa).toBe(3000)
-      expect(power.requiredSupplyWattage).toBe(15)
+      // The cap is information only: the supply is sized for full white.
+      expect(power.requiredSupplyMa).toBe(20000)
+      expect(power.requiredSupplyWattage).toBe(100)
       expect(power.exceedsConfigured).toBe(true)
+    })
+
+    it('sizes the supply from full white, never from the firmware cap', () => {
+      // 300 LEDs draw 18 A at full white. A 3 A cap once shrank the
+      // recommendation to a 3 A supply — a cap that is raised, cleared or
+      // never flashed would then overload it. docs/architecture/build-diagram.md
+      // states the rule the electrical plan already follows.
+      const nodes = [
+        node('board', 'Board', { powerLimit: true, milliamps: 3000 }),
+        node('out', 'MatrixOutput', { form: 'strip', ledCount: 300 }),
+      ]
+      const capped = estimatePowerLoad(nodes)!
+      expect(capped.worstCaseMa).toBe(18000)
+      expect(capped.configuredMa).toBe(3000)
+      const uncapped = estimatePowerLoad([node('out', 'MatrixOutput', { form: 'strip', ledCount: 300 })])!
+      expect(capped.requiredSupplyMa).toBe(uncapped.requiredSupplyMa)
+      expect(capped.requiredSupplyMa).toBeGreaterThanOrEqual(18000)
     })
 
     it('does not flag when the configured cap covers worst-case draw', () => {
@@ -2350,5 +2375,132 @@ describe('disconnected-node diagnostic and capability providers', () => {
     expect(unused?.nodeIds).toEqual([])
     expect(disconnected([mic, node('audio', 'Audio', { sourceId: 'kind:microphone' })])).not.toContain('mic')
     expect(disconnected([mic, node('audio', 'Audio', { sourceId: 'mic' })])).not.toContain('mic')
+  })
+})
+
+describe('I2C pins go through the board pin check', () => {
+  const rtc = (props: Record<string, unknown> = {}) => node('rtc', 'RTCInput', { timeSource: 'DS3231', ...props })
+
+  it('refuses SDA or SCL on an input-only pin', () => {
+    // The pair carried no requirement, so the chip-table walk skipped it and
+    // a DS3231 on the classic ESP32's input-only GPIO34/35 passed.
+    const result = findBoardPinCompatibility([rtc({ sdaPin: 34, sclPin: 35 })], 'esp32:esp32:esp32')
+    expect(result.errors).toEqual([
+      expect.stringMatching(/RTCInput SCL uses pin 35, which doesn't support digital output/),
+      expect.stringMatching(/RTCInput SDA uses pin 34, which doesn't support digital output/),
+    ])
+    expect(findBoardPinCompatibility([rtc({ sdaPin: 21, sclPin: 22 })], 'esp32:esp32:esp32').errors).toEqual([])
+  })
+
+  it('accepts every board\'s own default SDA/SCL pair', () => {
+    // The requirement must not turn a reviewed default bus into an error on
+    // any shipped board: an RTC left on the board's own pair is the common case.
+    for (const profile of BOARD_PROFILES) {
+      const fqbn = profile.compatibleFqbns[0]
+      if (!fqbn || !rtcI2cPinsForProfile(profile)) continue
+      const result = findBoardPinCompatibility([node('board', 'Board', { profileId: profile.id }), rtc()], fqbn)
+      expect(result.errors, profile.id).toEqual([])
+    }
+  })
+})
+
+describe('mirrored clocked outputs share the clock pin on purpose', () => {
+  function out(id: string, props: Record<string, unknown>): StudioNode {
+    return {
+      id, type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: `Output ${id}`, nodeType: 'MatrixOutput', category: 'output',
+        properties: props, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+  }
+  const feed = (id: string, target: string) => (
+    { id, source: 'sc', sourceHandle: 'frame', target, targetHandle: 'frame' } as unknown as StudioEdge
+  )
+  const apa = (id: string, clockPin: number) => out(id, { form: 'matrix', width: 16, height: 16, chipset: 'APA102', dataPin: 18, clockPin })
+
+  it('does not call the shared clock a collision', () => {
+    // An APA102 mirror is soldered to the leader's data *and* clock lines.
+    // Only the data pin was exempt, so every mirrored clocked chipset was
+    // refused over the clock the pair shares by design.
+    const nodes = [node('sc', 'SolidColor'), apa('a', 5), apa('b', 5)]
+    const edges = [feed('e1', 'a'), feed('e2', 'b')]
+    expect(findPinConflicts(nodes, edges)).toEqual([])
+    expect(buildGraphDiagnostics(nodes, edges).filter((d) => d.category === 'pins')).toEqual([])
+    // Unwired from the shared frame they are two controllers on one clock.
+    expect(findPinConflicts(nodes, [feed('e1', 'a')])).toEqual([
+      expect.stringContaining('GPIO 18'), expect.stringContaining('GPIO 5'),
+    ])
+  })
+
+  it('keeps a mirror\'s own clock pin as a real claim', () => {
+    // A mirror naming a different clock pin is not sharing the leader's, so
+    // that pin still collides with the button on it.
+    const nodes = [node('sc', 'SolidColor'), apa('a', 5), apa('b', 19), node('btn', 'ButtonInput', { pin: 19 })]
+    const edges = [feed('e1', 'a'), feed('e2', 'b')]
+    expect(findPinConflicts(nodes, edges)).toEqual([expect.stringContaining('GPIO 19')])
+  })
+})
+
+describe('a wired network stands in for the radio', () => {
+  it('reads the board\'s own Ethernet port, not only a module on the bench', () => {
+    // No shipped board is wired-only yet, so the profile and FQBN disagree on
+    // purpose: the WT32-ETH01 profile puts the port on the board, the UNO FQBN
+    // has no radio. Both the gate and Graph Health must ask `wiredNetworkIn`,
+    // which knows the board's port, rather than `ethernetModuleIn`.
+    const nodes = [
+      node('board', 'Board', { profileId: 'wt32-eth01' }),
+      node('rtc', 'RTCInput', { timeSource: 'NTP', ntpServer: 'pool.ntp.org' }),
+    ]
+    const radioError = (errors: string[]) => errors.some((error) => error.includes('require a Wi-Fi-capable'))
+    expect(radioError(findBoardCompatibilityErrors(nodes, 'arduino:avr:uno'))).toBe(false)
+    expect(radioError(findBoardCompatibilityErrors(nodes.slice(1), 'arduino:avr:uno'))).toBe(true)
+    const card = (graph: StudioNode[]) => buildGraphDiagnostics(graph, [], { selectedFqbn: 'arduino:avr:uno' })
+      .some((d) => d.id === 'rtc-board-network')
+    expect(card(nodes)).toBe(false)
+    expect(card(nodes.slice(1))).toBe(true)
+  })
+})
+
+describe('a sketch holds at most 255 patterns', () => {
+  const ids = (count: number) => Array.from({ length: count }, (_, index) => `p${index}`)
+  const show = (count: number) => {
+    const nodes = [
+      node('lib', 'MusicLibrary'),
+      node('pg', 'PerformanceGenerator'),
+      node('coll', 'PatternCollection', { patternIds: ids(count) }),
+      node('sd', 'SDCard'),
+      node('amp', 'Amplifier'),
+      node('out', 'MatrixOutput'),
+    ]
+    const edges = [
+      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' },
+      { id: 'e2', source: 'coll', target: 'pg', sourceHandle: 'patternset', targetHandle: 'patternset' },
+      { id: 'e3', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
+    ] as unknown as StudioEdge[]
+    return { nodes, edges }
+  }
+
+  it('refuses a wired collection the byte-wide pattern cursor cannot count', () => {
+    // The show and SD-player sketches keep `cur` in a uint8_t and draw with
+    // random8(PATTERN_COUNT), so a 256th pattern wraps the cursor and the rest
+    // of the collection never plays.
+    const fits = show(MAX_FIRMWARE_PATTERNS)
+    expect(findDeployBlockingErrors(fits.nodes, fits.edges, 'esp32:esp32:esp32')).toEqual([])
+
+    const over = show(MAX_FIRMWARE_PATTERNS + 1)
+    const errors = findDeployBlockingErrors(over.nodes, over.edges, 'esp32:esp32:esp32')
+    expect(errors).toEqual([expect.stringMatching(/PatternCollection holds 256 patterns, but a sketch can play at most 255/)])
+    expect(validateGraph(over.nodes, over.edges, 'esp32:esp32:esp32').errors).toEqual(errors)
+    const card = buildGraphDiagnostics(over.nodes, over.edges, { selectedFqbn: 'esp32:esp32:esp32' })
+      .find((d) => d.id === 'coll-too-many-patterns')
+    expect(card).toMatchObject({ severity: 'error', category: 'show', nodeIds: ['coll'] })
+    expect(card?.fix).toContain('Remove 1 pattern')
+  })
+
+  it('leaves an unwired collection alone, since nothing compiles it', () => {
+    const idle = show(MAX_FIRMWARE_PATTERNS + 1)
+    const edges = idle.edges.filter((edge) => edge.id !== 'e2')
+    expect(findPatternCountErrors(idle.nodes, edges)).toEqual([])
   })
 })

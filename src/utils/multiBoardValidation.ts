@@ -36,7 +36,7 @@ import { fqbnHasWifi } from '../state/peripherals/networkCapability'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
 import { WEB_REMOTE_NODE_TYPE } from '../state/peripherals/webRemote'
-import { usesNetwork } from '../codegen/peripherals/networkCpp'
+import { networkSourceIn, usesNetwork } from '../codegen/peripherals/networkCpp'
 import {
   buildGraphDiagnostics,
   findDeployBlockingErrors,
@@ -362,14 +362,23 @@ function multiBoardFindings(
         fix: 'Choose a Wi-Fi-capable board or add a wired link.',
         nodeIds: [run.board.id], nodeLabel: boardName,
       })
-    } else if (!wired && !getNetworkCredentials(run.board.id).ssid) {
-      issues.push({
-        id: `board-sync-credentials-${run.board.id}`, severity: 'error', category: 'board',
-        title: `${boardName} has no Wi-Fi credentials for clock sync`,
-        message: `Clock sync joins the network over Wi-Fi, and ${boardName} has no network name to join.`,
-        fix: "Enter the Wi-Fi name and password in the Hardware tab's board options, or add a wired link.",
-        nodeIds: [run.board.id], nodeLabel: boardName,
-      })
+    } else if (!wired) {
+      // The sketch joins Wi-Fi with the credentials of the partition's
+      // network source (`networkSourceIn`: the Art-Net or NTP node when there
+      // is one, the syncing Board otherwise), so the gate reads that same
+      // owner rather than the Board alone.
+      const owner = networkSourceIn(run.partition.nodes) ?? run.board
+      if (!getNetworkCredentials(owner.id).ssid) {
+        issues.push({
+          id: `board-sync-credentials-${run.board.id}`, severity: 'error', category: 'board',
+          title: `${boardName} has no Wi-Fi credentials for clock sync`,
+          message: `Clock sync joins the network over Wi-Fi, and ${boardName} has no network name to join.`,
+          fix: owner === run.board
+            ? "Enter the Wi-Fi name and password in the Hardware tab's board options, or add a wired link."
+            : `Enter the Wi-Fi name and password on ${nodeLabel(owner)}, which owns ${boardName}'s connection, or add a wired link.`,
+          nodeIds: owner === run.board ? [run.board.id] : [run.board.id, owner.id], nodeLabel: boardName,
+        })
+      }
     }
 
     if (run === leader || clockSyncOf(run.board) !== 'follower' || !leaderCollection) continue

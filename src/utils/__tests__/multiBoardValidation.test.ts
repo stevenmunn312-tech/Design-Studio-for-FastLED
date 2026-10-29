@@ -337,3 +337,34 @@ describe('multiBoardValidation — several boards', () => {
     expect(buildBoardDiagnostics(unsynced.nodes, unsynced.edges, { targets }).some((issue) => issue.id === 'board-sync-collection-board-2')).toBe(false)
   })
 })
+
+describe('clock-sync credentials follow the sketch\'s network owner', () => {
+  afterEach(() => {
+    for (const id of ['board-root', 'board-2', 'dmx']) useNetworkCredentialsStore.getState().removeCredentials(id)
+  })
+
+  it('accepts credentials held by the Art-Net node that owns the connection', () => {
+    // The sketch joins Wi-Fi with the credentials of networkSourceIn(partition):
+    // the Art-Net node when there is one, the syncing Board otherwise. Reading
+    // the Board alone refused a project whose credentials sat on that node.
+    const { nodes, edges } = twoBoards({
+      nodes: [node('dmx', 'DMXInput', { inputMode: 'Art-Net', universe: 0 })],
+      edges: [edge('dmx', 'out1', 'frame', 'dmx')],
+    })
+    nodes[0] = board('board-root', 'leader')
+    nodes[1] = board('board-2', 'follower')
+    const targets = { 'board-root': S3, 'board-2': ESP32 }
+    useNetworkCredentialsStore.getState().setCredentials('dmx', { ssid: 'bench', password: 'x' })
+    useNetworkCredentialsStore.getState().setCredentials('board-2', { ssid: 'bench', password: 'x' })
+    expect(buildBoardDiagnostics(nodes, edges, { targets }).some((issue) => issue.id === 'board-sync-credentials-board-root')).toBe(false)
+    expect(findDeployBlockingErrorsForBoard(nodes, edges, 'board-root', S3).some((error) => error.includes('no Wi-Fi credentials'))).toBe(false)
+
+    // Credentials on the Board never reach a sketch whose owner is the
+    // Art-Net node, so the card names that node and selects both.
+    useNetworkCredentialsStore.getState().removeCredentials('dmx')
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'bench', password: 'x' })
+    const missing = buildBoardDiagnostics(nodes, edges, { targets }).find((issue) => issue.id === 'board-sync-credentials-board-root')
+    expect(missing?.fix).toContain('DMXInput')
+    expect(missing?.nodeIds).toEqual(['board-root', 'dmx'])
+  })
+})
