@@ -14,8 +14,8 @@ versioning (`0.y.z`) until the first stable release.
   plays the phone's music through the I2S amplifier, reacts to it as it does
   to a card, sends Play / Pause, Previous and Next back to the phone, and
   shows the phone's title and artist on a panel. No SD card needed. Classic
-  ESP32 and arduino-cli only. Experimental: generated, not yet compiled on
-  hardware.
+  ESP32 and arduino-cli only. Experimental: compiles for the classic ESP32,
+  not yet run on a board.
 - **Vibe, Song Structure and Pitch Detect read a show's song.** Song analysis
   bakes each detector's per-frame output beside the envelope, the show
   preview and pattern card play it back, and the SD player reads it from a

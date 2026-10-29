@@ -426,8 +426,12 @@ Unless a future row says otherwise, treat the following as experimental:
   ([player patterns](../development/patterns/player-shows-and-controls.md#music-player)).
   Classic ESP32 only, since the S3, C3, C6 and H2 have Bluetooth Low Energy
   alone; arduino-cli only, with ESP32-A2DP v1.8.9 and arduino-audio-tools
-  v1.2.6 pinned. The sketch is generated and unit-tested; it has not yet been
-  compiled, and nothing has run on a board. Graduating it needs a dated row
+  v1.2.6 pinned. On 2026-10-30 a 16x16 player with two audio patterns, beat
+  transitions, Energy Pacing and four controls compiled for the classic ESP32
+  through the helper's arduino-cli path (core 3.3.12, `huge_app`), with no
+  warnings: 1,232,743 bytes of flash (39 %) and 54,368 bytes of static RAM
+  (16 %). The Bluetooth stack takes its heap at runtime, which that figure does
+  not count. Nothing has run on a board yet. Graduating it needs a dated row
   that pairs a phone, plays through a track change, and checks beat response,
   panel track details and the classic ESP32's RAM headroom with LEDs running.
 
