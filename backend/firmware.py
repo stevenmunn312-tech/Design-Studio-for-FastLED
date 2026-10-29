@@ -808,7 +808,7 @@ def _upload_result_lines(rc, phase, port):
         # didn't compile" sends the user to inspect a graph that is fine.
         yield ("\n*** DID NOT RUN *** Another build was already using the build "
                "directory. Nothing was compiled or sent to the board.\n")
-    elif toolchain._build_was_cancelled():
+    elif rc == toolchain._BUILD_CANCELLED:
         pass  # already said so, in _run_phase, before the exit code
     elif rc != 0 and phase == "compile":
         yield (f"\n*** BUILD FAILED (exit code {rc}) *** The sketch didn't compile, so "
@@ -1446,6 +1446,7 @@ def cancel_build():
 
 
 @router.post("/api/compile-check")
+@toolchain._background_build
 def compile_check(payload: dict = Body(...)):
     """Compile-only capacity check for the live controller-capacity meter: runs
     the same compile a real Upload would (no port, so nothing is flashed) and
