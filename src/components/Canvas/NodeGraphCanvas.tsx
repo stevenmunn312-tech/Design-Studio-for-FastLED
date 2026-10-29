@@ -1156,9 +1156,10 @@ function NodeGraphCanvasInner() {
         setStatus(`Spliced ${def.label} into the connection`, 'success')
       } else {
         addNode(newNode)
-        if (autoConnectPlacedNode(newNode.id)) {
+        const wires = autoConnectPlacedNode(newNode.id)
+        if (wires > 0) {
           playNoodleConnectSfx()
-          setStatus(`Connected ${def.label} to the only input that takes it`, 'success')
+          setStatus(`Connected ${def.label} (${wires} ${wires === 1 ? 'wire' : 'wires'})`, 'success')
         }
       }
     },

@@ -21,7 +21,7 @@ import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patterns/patternLibrary'
 import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patterns/patternTrust'
 import { withoutPatternProfiles } from './patterns/patternPick'
-import { soleDropConnection } from './dropAutoConnect'
+import { dropConnections } from './dropAutoConnect'
 import { useNetworkCredentialsStore } from './peripherals/networkCredentials'
 import { boardLinkSettings, newBoardLinkId, useBoardLinkKeyStore } from './peripherals/boardLinkKey'
 import { retargetedMicPins } from '../build/pins/micPinDefaults'
@@ -4869,20 +4869,22 @@ export function disconnectTouchControls(touchId: string): boolean {
 }
 
 /**
- * Wire a just-placed source to the one open input that can take it (see
- * `soleDropConnection`). Looks in whichever graph the node landed in, since a
- * hardware source dropped inside a pattern group lands on the root bench.
+ * Wire a just-placed node to the partners only it could mean (see
+ * `dropConnections`), returning how many wires it drew. Looks in whichever
+ * graph the node landed in, since a hardware source dropped inside a pattern
+ * group lands on the root bench.
  */
-export function autoConnectPlacedNode(nodeId: string): boolean {
+export function autoConnectPlacedNode(nodeId: string): number {
   const state = useGraphStore.getState()
-  if (state.nodes.some((node) => node.id === nodeId)) {
-    const connection = soleDropConnection(nodeId, state.nodes, state.edges)
-    if (connection) state.onConnect(connection)
-    return connection !== null
+  const inActive = state.nodes.some((node) => node.id === nodeId)
+  const connections = inActive
+    ? dropConnections(nodeId, state.nodes, state.edges)
+    : dropConnections(nodeId, rootGraphNodes(state), rootGraphEdges(state))
+  for (const connection of connections) {
+    if (inActive) useGraphStore.getState().onConnect(connection)
+    else useGraphStore.getState().connectRoot(connection)
   }
-  const connection = soleDropConnection(nodeId, rootGraphNodes(state), rootGraphEdges(state))
-  if (connection) state.connectRoot(connection)
-  return connection !== null
+  return connections.length
 }
 
 /** Wire a show engine's Show output into an LED output — the repair for a

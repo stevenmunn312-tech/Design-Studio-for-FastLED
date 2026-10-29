@@ -328,8 +328,8 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
         onPlaced?.(id, input.id, flowPosition)
       }
     } else {
-      // Placed from a bare right-click: a source with one open input to feed
-      // wires itself, the same as a sidebar drop.
+      // Placed from a bare right-click: a node with only one partner it could
+      // mean wires itself, the same as a sidebar drop.
       autoConnectPlacedNode(id)
     }
     onClose()
