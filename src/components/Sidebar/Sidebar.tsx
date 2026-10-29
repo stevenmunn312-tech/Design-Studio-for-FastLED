@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
-import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegistry } from '../../state/graphStore'
+import { autoConnectPlacedNode, canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { usePatternLibrary, withRegisteredGroups, type SavedPattern } from '../../state/patterns/patternLibrary'
@@ -894,8 +894,9 @@ function Sidebar() {
     // Pass `centreOnDrop` so the node settles vertically centred on the drop
     // point once React Flow measures its (variable) height, rather than hanging
     // below it — i.e. it ends up half its height above where the top-left lands.
+    const id = `${type}-${Date.now()}`
     addNode({
-      id: `${type}-${Date.now()}`,
+      id,
       type: 'studioNode',
       position: dropPos(),
       data: {
@@ -907,6 +908,7 @@ function Sidebar() {
         outputs: def.outputs,
       },
     }, true)
+    autoConnectPlacedNode(id)
     rememberRecent(type)
   }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
-import { canAddNodeType, useGraphStore } from '../../state/graphStore'
+import { autoConnectPlacedNode, canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY, CATEGORIES, NODE_DESCRIPTIONS, portsCompatible } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { saveGroupToLibrary, usePatternLibrary } from '../../state/patterns/patternLibrary'
@@ -327,6 +327,10 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
         })
         onPlaced?.(id, input.id, flowPosition)
       }
+    } else {
+      // Placed from a bare right-click: a source with one open input to feed
+      // wires itself, the same as a sidebar drop.
+      autoConnectPlacedNode(id)
     }
     onClose()
   }

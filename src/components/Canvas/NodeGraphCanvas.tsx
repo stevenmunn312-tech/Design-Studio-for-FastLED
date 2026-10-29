@@ -28,7 +28,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { MINIMAP_WIDTH, minimapFitsField } from './minimapFit'
 import { useShallow } from 'zustand/react/shallow'
-import { connectWireFirstControl, ROOT_GRAPH_ID, useGraphStore } from '../../state/graphStore'
+import { autoConnectPlacedNode, connectWireFirstControl, ROOT_GRAPH_ID, useGraphStore } from '../../state/graphStore'
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displays/displayRegistry'
 import { touchControlDisplayId } from '../../state/player/wireFirstControls'
 import type { StudioEdge, StudioNode as StudioGraphNode } from '../../state/graphStore'
@@ -1156,6 +1156,10 @@ function NodeGraphCanvasInner() {
         setStatus(`Spliced ${def.label} into the connection`, 'success')
       } else {
         addNode(newNode)
+        if (autoConnectPlacedNode(newNode.id)) {
+          playNoodleConnectSfx()
+          setStatus(`Connected ${def.label} to the only input that takes it`, 'success')
+        }
       }
     },
     [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, addPatternToCollection, getNode, setStatus, findSpliceTarget, setDraggingNodeType]

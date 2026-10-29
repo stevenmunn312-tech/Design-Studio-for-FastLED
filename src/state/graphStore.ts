@@ -21,6 +21,7 @@ import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patterns/patternLibrary'
 import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patterns/patternTrust'
 import { withoutPatternProfiles } from './patterns/patternPick'
+import { soleDropConnection } from './dropAutoConnect'
 import { useNetworkCredentialsStore } from './peripherals/networkCredentials'
 import { boardLinkSettings, newBoardLinkId, useBoardLinkKeyStore } from './peripherals/boardLinkKey'
 import { retargetedMicPins } from '../build/pins/micPinDefaults'
@@ -4865,6 +4866,23 @@ export function disconnectTouchControls(touchId: string): boolean {
   const gone = new Set(wires.map((edge) => edge.id))
   useGraphStore.setState((s) => ({ edges: s.edges.filter((edge) => !gone.has(edge.id)) }))
   return true
+}
+
+/**
+ * Wire a just-placed source to the one open input that can take it (see
+ * `soleDropConnection`). Looks in whichever graph the node landed in, since a
+ * hardware source dropped inside a pattern group lands on the root bench.
+ */
+export function autoConnectPlacedNode(nodeId: string): boolean {
+  const state = useGraphStore.getState()
+  if (state.nodes.some((node) => node.id === nodeId)) {
+    const connection = soleDropConnection(nodeId, state.nodes, state.edges)
+    if (connection) state.onConnect(connection)
+    return connection !== null
+  }
+  const connection = soleDropConnection(nodeId, rootGraphNodes(state), rootGraphEdges(state))
+  if (connection) state.connectRoot(connection)
+  return connection !== null
 }
 
 /** Wire a show engine's Show output into an LED output — the repair for a

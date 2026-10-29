@@ -19,6 +19,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 - Node behavior is registry-driven through `NODE_LIBRARY`, with corresponding
   evaluator, codegen, description/help, and tests.
+- A placed source with one obvious destination wires itself: sidebar add,
+  canvas drop and bare right-click add call `autoConnectPlacedNode`, which uses
+  `soleDropConnection` (`src/state/dropAutoConnect.ts`). It covers audio,
+  `transitionset`, `patternset`, `playerparticles` and `music` outputs, and only
+  fires when exactly one unwired input of that type exists; it never replaces a
+  wire. Add a data type there rather than special-casing a node.
 - Zustand stores expose React hooks plus imperative `getState()` access for
   animation and hardware paths.
 - Stateful evaluation is namespaced by graph/group instance so reused groups do
