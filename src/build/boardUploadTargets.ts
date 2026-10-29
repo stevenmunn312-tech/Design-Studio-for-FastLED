@@ -44,4 +44,3 @@ export function boardFqbnTargets(
   if (selectedFqbn) targets[active] = selectedFqbn
   return targets
 }
-
