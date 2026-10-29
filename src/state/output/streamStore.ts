@@ -105,6 +105,7 @@ const SEND_INTERVAL_MS = 1000 / 30
 
 interface StreamState {
   streaming: boolean
+  starting: boolean
   fps: number
   error: string | null
   layout: StreamLayout | null
@@ -113,19 +114,34 @@ interface StreamState {
 }
 
 let sendTimer: ReturnType<typeof setInterval> | null = null
-let inFlight = false
+let streamGeneration = 0
 let sentCount = 0
 let lastFpsTick = 0
 
 export const useStreamStore = create<StreamState>((set, get) => ({
   streaming: false,
+  starting: false,
   fps: 0,
   error: null,
   layout: null,
 
   start: async (port, layout) => {
-    if (get().streaming) return
-    const res = await startStream(port, layout.baud)
+    if (get().streaming || get().starting) return
+    const generation = ++streamGeneration
+    set({ starting: true, error: null })
+    let res: Awaited<ReturnType<typeof startStream>>
+    try {
+      res = await startStream(port, layout.baud)
+      if (generation !== streamGeneration) {
+        if (res.ok) await stopStream()
+        return
+      }
+    } catch (error) {
+      if (generation === streamGeneration) set({ error: error instanceof Error ? error.message : 'Failed to open the stream port' })
+      return
+    } finally {
+      set({ starting: false })
+    }
     if (!res.ok) {
       set({ error: res.error ?? 'Failed to open the stream port' })
       return
@@ -133,8 +149,10 @@ export const useStreamStore = create<StreamState>((set, get) => ({
     set({ streaming: true, error: null, layout, fps: 0 })
     sentCount = 0
     lastFpsTick = performance.now()
+    if (sendTimer) clearInterval(sendTimer)
+    let inFlight = false
     sendTimer = setInterval(() => {
-      if (inFlight) return
+      if (inFlight || generation !== streamGeneration) return
       const published = layout.outputId
         ? latestOutputFrames.get(layout.outputId)
         : latestRgb
@@ -154,8 +172,8 @@ export const useStreamStore = create<StreamState>((set, get) => ({
       if (get().error) set({ error: null })
       inFlight = true
       const packet = buildAdalightPacketFromRgb(published.bytes, layout)
-      void sendStreamFrame(packet).then((ok) => {
-        inFlight = false
+      void sendStreamFrame(packet).catch(() => false).then((ok) => {
+        if (generation !== streamGeneration) return
         if (!ok) {
           get().stop()
           set({ error: 'Lost connection to the board — stream stopped' })
@@ -168,13 +186,13 @@ export const useStreamStore = create<StreamState>((set, get) => ({
           sentCount = 0
           lastFpsTick = now
         }
-      })
+      }).finally(() => { inFlight = false })
     }, SEND_INTERVAL_MS)
   },
 
   stop: async () => {
+    ++streamGeneration
     if (sendTimer) { clearInterval(sendTimer); sendTimer = null }
-    inFlight = false
     const wasStreaming = get().streaming
     set({ streaming: false, fps: 0 })
     if (wasStreaming) await stopStream()

@@ -18,15 +18,15 @@
 import type { StudioEdge, StudioNode } from '../state/graphStore'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import type { GroupRegistry } from '../state/evaluator/types'
-import type { ProjectUploadTargets } from '../state/uploadTargets'
 import { PRIMARY_UPLOAD_TARGET_KEY } from '../state/uploadTargets'
+import { boardFqbn, type BoardFqbnTargets } from '../build/boardUploadTargets'
+export { boardFqbn, boardFqbnTargets, type BoardFqbnTargets } from '../build/boardUploadTargets'
 import {
   boardNodesIn,
   boardPartition,
   findCrossBoardIssues,
   isBoardAttachedNodeType,
   isSinkNodeType,
-  primaryBoardId,
   type BoardPartition,
   type CrossBoardIssue,
 } from '../build/boardPartition'
@@ -43,11 +43,9 @@ import {
   validateGraph,
   type GraphDiagnostic,
   type GraphDiagnosticOptions,
+  type GraphRepair,
   type ValidationResult,
 } from './validateGraph'
-
-/** Board node id → the FQBN that board builds for. */
-export type BoardFqbnTargets = Record<string, string>
 
 export interface BoardDiagnosticOptions extends GraphDiagnosticOptions {
   targets: BoardFqbnTargets
@@ -88,46 +86,6 @@ function clockSyncOf(board: StudioNode): BoardClockSync {
 export function boardLabel(nodes: readonly StudioNode[], boardId: string): string {
   const index = boardNodesIn(nodes).findIndex((board) => board.id === boardId)
   return `Board ${(index < 0 ? 0 : index) + 1}`
-}
-
-/**
- * The FQBN a board validates against: its own target, else the primary's
- * (which the project keeps under `PRIMARY_UPLOAD_TARGET_KEY` whatever the
- * primary Board node is called), else the caller's default.
- */
-export function boardFqbn(
-  nodes: readonly StudioNode[],
-  targets: BoardFqbnTargets,
-  boardId: string,
-  defaultFqbn = '',
-): string {
-  return targets[boardId]
-    || targets[primaryBoardId(nodes)]
-    || targets[PRIMARY_UPLOAD_TARGET_KEY]
-    || defaultFqbn
-    || ''
-}
-
-/**
- * The per-board FQBNs a project stores, with the active board's replaced by
- * the live selection: `uploadStore.selectedFqbn` describes the active board
- * and is what the one-board readers validate against today, so the merged
- * result of a one-board project stays exactly theirs.
- */
-export function boardFqbnTargets(
-  nodes: readonly StudioNode[],
-  uploadTargets: ProjectUploadTargets | undefined,
-  activeBoardId: string,
-  selectedFqbn: string,
-): BoardFqbnTargets {
-  const targets: BoardFqbnTargets = {}
-  for (const [boardId, target] of Object.entries(uploadTargets ?? {})) {
-    if (target.selectedFqbn) targets[boardId] = target.selectedFqbn
-  }
-  const boards = boardNodesIn(nodes)
-  const active = boards.some((board) => board.id === activeBoardId) ? activeBoardId : primaryBoardId(nodes)
-  if (selectedFqbn) targets[active] = selectedFqbn
-  return targets
 }
 
 interface BoardRun {
@@ -252,7 +210,15 @@ export function buildBoardDiagnostics(
     const issues = buildGraphDiagnostics(run.partition.nodes, run.partition.edges, {
       ...rest, selectedFqbn: run.fqbn, capabilityNodes: run.partition.nodes,
     })
-    for (const issue of issues) {
+    for (const original of issues) {
+      const scopeRepair = (repair: GraphRepair | undefined) => repair &&
+        ['set-frame-rate', 'set-led-driver', 'move-i2c-pins'].includes(repair.kind)
+        ? { ...repair, boardId: run.board!.id } : repair
+      const repair = scopeRepair(original.repair)
+      const moreFixes = original.moreFixes?.map((fix) => ({ ...fix, repair: scopeRepair(fix.repair) }))
+      // Board repairs must remain separate even when both boards report the same issue.
+      const scoped = repair !== original.repair || moreFixes?.some((fix, i) => fix.repair !== original.moreFixes![i].repair)
+      const issue = { ...original, repair, moreFixes, id: scoped ? `${original.id}-${run.board!.id}` : original.id }
       // The empty-project card is the primary's to show, only while the whole
       // project is empty; a board with no LED output while another has one
       // drives nothing (a warning below) rather than missing its terminal.

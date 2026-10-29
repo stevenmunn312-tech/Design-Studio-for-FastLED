@@ -13,6 +13,7 @@ import {
   rootGraphNodes,
   ROOT_GRAPH_ID,
   setBoardFrameRate,
+  setBoardLedDriver,
   setOutputDataRate,
   splitOutputAcrossPins,
   useGraphStore,
@@ -22,6 +23,9 @@ import {
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
 import { useUploadStore } from '../upload/uploadStore'
 import { buildGraphDiagnostics } from '../../utils/validateGraph'
+import { buildBoardDiagnostics } from '../../utils/multiBoardValidation'
+import { boardPartition } from '../../build/boardPartition'
+import { collectPinUses } from '../../build/hardwareManifest'
 import { createDisplayDocument } from '../displays/displayEditor'
 import { applyDisplayTemplate } from '../displays/displayTemplates'
 
@@ -292,5 +296,73 @@ describe('split across pins repair', () => {
     const props = rootGraphNodes(useGraphStore.getState()).find((n) => n.id === 'out')?.data.properties
     expect(props).toMatchObject({ dataLanes: 2, lanePins })
     expect(splitOutputAcrossPins('out', 3, [5, 6]).ok).toBe(false)
+  })
+})
+
+describe('repairs on secondary boards', () => {
+  const boards = () => [
+    node('board-root', 'Board', { profileId: 'espressif-esp32-devkit-v1', frameRate: 60 }),
+    node('board-2', 'Board', { profileId: 'seeed-xiao-esp32s3', frameRate: 60 }),
+  ]
+  const props = (id: string) => rootGraphNodes(useGraphStore.getState()).find((entry) => entry.id === id)!.data.properties
+
+  it('keeps each board frame-rate repair separate and changes only its target', () => {
+    const nodes = [...boards(), node('pattern', 'SolidColor'),
+      node('out1', 'MatrixOutput', { width: 32, height: 32 }),
+      node('out2', 'MatrixOutput', { width: 32, height: 32, boardId: 'board-2' })]
+    const edges = [edge('e1', 'pattern', 'frame', 'out1', 'frame'), edge('e2', 'pattern', 'frame', 'out2', 'frame')]
+    useGraphStore.getState().loadGraph(nodes, edges)
+    const cards = buildBoardDiagnostics(nodes, edges, { targets: {} }).filter((issue) => issue.repair?.kind === 'set-frame-rate')
+    expect(cards).toHaveLength(2)
+    expect(new Set(cards.map((card) => card.id)).size).toBe(2)
+    const repair = cards.find((card) => card.repair?.kind === 'set-frame-rate' && card.repair.boardId === 'board-2')!.repair!
+    if (repair.kind !== 'set-frame-rate') throw new Error('Expected a frame-rate repair')
+    useGraphStore.setState({ activeGraphId: 'open-group', nodes: [], edges: [], graphData: { [ROOT_GRAPH_ID]: { nodes, edges } } })
+    expect(setBoardFrameRate(repair.frameRate, repair.boardId).ok).toBe(true)
+    expect(props('board-root').frameRate).toBe(60)
+    expect(props('board-2').frameRate).toBe(repair.frameRate)
+    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(setBoardLedDriver('LCD_CLOCKLESS', 'board-2').ok).toBe(true)
+    expect(props('board-root').ledDriver).not.toBe('LCD_CLOCKLESS')
+    expect(props('board-2').ledDriver).toBe('LCD_CLOCKLESS')
+    expect(setBoardFrameRate(10, 'removed-board').ok).toBe(false)
+    expect(setBoardLedDriver('auto', 'removed-board').ok).toBe(false)
+    expect(props('board-root').frameRate).toBe(60)
+  })
+
+  it('moves only the secondary board I2C parts using its own bus pins', () => {
+    useGraphStore.getState().loadGraph([...boards(),
+      node('rtc1', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 }),
+      node('rtc2', 'RTCInput', { timeSource: 'DS3231', sdaPin: 3, sclPin: 4, boardId: 'board-2' }),
+      node('button', 'ButtonInput', { pin: 5 }),
+    ], [])
+    expect(moveI2cPartsToBoardPins('board-2')).toEqual({ ok: true, pins: { sdaPin: 5, sclPin: 6 } })
+    expect(props('rtc1')).toMatchObject({ sdaPin: 21, sclPin: 22 })
+    expect(props('rtc2')).toMatchObject({ sdaPin: 5, sclPin: 6 })
+  })
+
+  it('allocates a secondary part pin from that board profile and claims', () => {
+    useGraphStore.getState().loadGraph([...boards(),
+      node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41, boardId: 'board-2' }),
+    ], [])
+    const result = movePartPinToFree('mic', 'i2sWs')
+    expect(result.ok).toBe(true)
+    const state = useGraphStore.getState()
+    const partition = boardPartition(state.nodes, state.edges, 'board-2')
+    expect(buildGraphDiagnostics(partition.nodes, partition.edges, {}).some((issue) =>
+      issue.repair?.kind === 'move-pin' && issue.repair.nodeId === 'mic' && issue.repair.propertyKey === 'i2sWs')).toBe(false)
+    expect(collectPinUses(partition.nodes).some((use) => use.nodeId === 'mic' && use.propertyKey === 'i2sWs' && result.ok && use.pin === result.pin)).toBe(true)
+  })
+
+  it('allows lane pins already used by another board but refuses local claims', () => {
+    useGraphStore.getState().loadGraph([...boards(),
+      node('out1', 'MatrixOutput', { width: 32, height: 32, dataPin: 5 }),
+      node('out2', 'MatrixOutput', { width: 32, height: 32, dataPin: 4, boardId: 'board-2' }),
+      node('button', 'ButtonInput', { pin: 6, boardId: 'board-2' }),
+    ], [])
+    expect(splitOutputAcrossPins('out2', 2, [6]).ok).toBe(false)
+    expect(splitOutputAcrossPins('out2', 2, [5]).ok).toBe(true)
+    expect(props('out1').dataLanes).not.toBe(2)
+    expect(props('out2')).toMatchObject({ dataLanes: 2, lanePins: [5] })
   })
 })

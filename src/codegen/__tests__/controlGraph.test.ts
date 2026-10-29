@@ -124,7 +124,7 @@ describe('typed control graph', () => {
     for (const id of ['multiply', 'divide', 'map', 'lerp']) graph.resolve(id, 'result', 'float')
     const cpp = controlGraphCpp(graph)
     expect(cpp.loop.join('\n')).toContain('float n_multiply_result = (1) * (1);')
-    expect(cpp.loop.join('\n')).toContain('((0) == 0.0f ? 0.0f : (1) / (0))')
+    expect(cpp.loop.join('\n')).toContain('((0) == 0.0f ? 0.0f : (float)(1) / (0))')
     expect(cpp.helpers.join('\n')).toContain('if (inMax == inMin) return outMin;')
     const lerp = graph.instructions.find((instruction) => instruction.nodeId === 'lerp')!
     expect(lerp.kind === 'scalar' && lerp.inputs.t).toEqual({ kind: 'literal', value: 0.5 })

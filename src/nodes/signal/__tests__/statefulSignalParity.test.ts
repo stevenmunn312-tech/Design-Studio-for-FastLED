@@ -40,7 +40,9 @@ function frames(count: number, inputsAt: (ms: number, i: number) => Record<strin
 function preview(handler: NodeEvaluator, props: Record<string, unknown>, port: string, run: Frame[]): Value[] {
   return run.map(({ ms, inputs = {} }) => {
     const ctx = {
-      t: ms / 1000,
+      // Freeze animation time while the hardware timers keep running.
+      t: handler === SIGNAL_EVALUATORS.Wave || handler === SIGNAL_EVALUATORS.TimeNode ? ms / 1000 : 0,
+      elapsedT: ms / 1000,
       stateKey: (id: string) => `parity:${id}`,
       input: (_id: string, key: string, fallback: unknown) => (key in inputs ? inputs[key] : fallback),
       num: (_id: string, key: string, p: Record<string, unknown>, prop: string, fallback: number) =>

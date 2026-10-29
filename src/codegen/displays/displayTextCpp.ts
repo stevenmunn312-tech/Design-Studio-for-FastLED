@@ -42,7 +42,13 @@ export interface DisplayTextHelperProfile {
  * masks: an invalid clock reads as a clock with no time, never as midnight.
  */
 export function displayTextCppHelpers(profile: DisplayTextHelperProfile): string {
-  if (!profile.number && !profile.dateTime && !profile.copy) return ''
+  const blocks = displayTextCppHelperBlocks(profile)
+  return blocks.length ? `${blocks.join('\n\n')}\n` : ''
+}
+
+/** Individual blocks let show and player hosts deduplicate each operation. */
+export function displayTextCppHelperBlocks(profile: DisplayTextHelperProfile): string[] {
+  if (!profile.number && !profile.dateTime && !profile.copy) return []
   const parts = [`// ── Display text ────────────────────────────────────────────────────────────
 // Mirrors src/state/displays/displayText.ts so preview and firmware format identically.
 #define DS_TEXT_BYTES ${DISPLAY_TEXT_BUFFER_BYTES}`]
@@ -134,7 +140,7 @@ static void _dsFormatDateTime(char *dst, int mode, bool valid, int hour, int min
     default: snprintf(dst, DS_TEXT_BYTES, "%02d:%02d", hh, mm); return;
   }
 }`)
-  return `${parts.join('\n\n')}\n`
+  return parts
 }
 
 /** Full bundle retained for callers and tests that deliberately need all operations. */

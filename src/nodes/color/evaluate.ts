@@ -148,7 +148,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { color: samplePalette(palette, position) }
   },
-  PaletteBank({ inputSourceType, input, t, stateKey, incoming, nodeMap }, id, props) {
+  PaletteBank({ inputSourceType, input, elapsedT: t, stateKey, incoming, nodeMap }, id, props) {
     const entries = paletteBankEntries(props)
     const key = stateKey(id)
     const nowMs = t * 1000

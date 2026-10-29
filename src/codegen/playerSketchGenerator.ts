@@ -25,7 +25,7 @@ import { playerControlApplyCpp } from './player/playerControlGraph'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './displays/customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp } from './player/playerControlsCpp'
 import { controlBundleVariable } from './displays/templateControlRouting'
-import { displayTextCppHelpers } from './displays/displayTextCpp'
+import { displayTextCppHelperBlocks } from './displays/displayTextCpp'
 // Generates the ESP32-S3 player sketch that:
 //   - plays MP3 from SD card via I2S
 //   - reads the companion .show file
@@ -659,7 +659,7 @@ export function generatePlayerSketch(
     : null
   const graphShared = new Set([...(compiledGraph?.helpers ?? []), ...(customDisplays?.shared ?? []),
     ...(graphRouting?.hasSongSources
-      ? [displayTextCppHelpers({ number: false, dateTime: false, copy: true })]
+      ? displayTextCppHelperBlocks({ number: false, dateTime: false, copy: true })
       : [])])
   const controls = (graphRouting ? undefined : opts.controls) ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
   const particleFx = opts.particleFx?.enabled ? opts.particleFx : null

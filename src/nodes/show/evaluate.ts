@@ -1324,7 +1324,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       }),
     }
   },
-  ControlMap({ inputSourceType, input, t, stateKey, incoming, nodeMap }, id, props) {
+  ControlMap({ inputSourceType, input, elapsedT: t, stateKey, incoming, nodeMap }, id, props) {
     const key = stateKey(id)
     const nowMs = t * 1000
     let state = playerControlsState.get(key)
@@ -1415,15 +1415,19 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       } satisfies PlayerParticles,
     }
   },
-  PatternMaster({ inputSourceType, input, num, t, tick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph, nodes, edges }, id, props) {
+  PatternMaster({ inputSourceType, input, num, elapsedT, tick, elapsedTick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph, nodes, edges }, id, props) {
+    const player = usePlayerTransport.getState()
+    const track = player.transport ?? player.localTrack
+    const showTime = track ? player.posMs / 1000 : elapsedT
+    const patternTick = track ? showTime * 60 : tick
     let out: Record<string, PortValue> = {}
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
     const audioSignal = input(id, 'audio', null)
     const audio = isAudioSignal(audioSignal) ? audioSignal : null
     const beat = input(id, 'beat', Boolean(audio?.active && audio.beat)) as boolean
     const render = (gid: string): Frame => renderCollectedPattern(gid, {
-      groups, groupStack, instancePrefix, nodeId: id, tick, W, H,
-      elapsedTick: tick,
+      groups, groupStack, instancePrefix, nodeId: id, tick: patternTick, W, H,
+      elapsedTick,
       trusted, capabilityNodes, audioOverride, audio, evaluateGraph,
     })
     // Transitions come from a wired TransitionSet (the same node type feeds
@@ -1468,8 +1472,8 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       countBeats: timing.beatTransitions === true,
       applyEnergyBands: wiredProfiles(nodes, edges, id, ids).energyTags.some((tags) => tags.length > 0),
       stepDelta: 0,
-      clockTick: tick,
-      clockElapsed: tick,
+      clockTick: patternTick,
+      clockElapsed: elapsedTick,
       keepAlive: (gid: string) => touchInstanceStatePrefix(`${instancePrefix}${id}/${gid}/`),
     }
     const key = stateKey(id)
@@ -1481,7 +1485,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       bundleControls,
       directPlayerActionControls(
         id, stateKey(`${id}/direct-actions`), playerControlActionPortsFor('player'),
-        t, incoming, input, nodeMap, inputSourceType,
+        elapsedT, incoming, input, nodeMap, inputSourceType,
       ),
     )
     if (incoming.has(`${id}:volume`)) {
@@ -1501,17 +1505,15 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     if (sequencing) o.stepDelta = controls.patternSteps
     updatePatternSelection(selection, { ids, step: sequencing ? 0 : controls.patternSteps })
 
-    const frame = evalPatternShow(key, ids, render, beat, o, t, W, H, selection)
+    const frame = evalPatternShow(key, ids, render, beat, o, showTime, W, H, selection)
     /*
      * What the browser honestly knows about the track. Tag fields stay
      * empty: the library has a filename and an analysis, not an ID3 frame,
      * and the case this feature exists for is a card of files the app has
      * never seen. Those are read by the player on the device.
      */
-    const player = usePlayerTransport.getState()
     // A show owns the player when one is selected; otherwise the preview
     // is playing its own playlist, and the file it has open is the track.
-    const track = player.transport ?? player.localTrack
     // Tags come only with a local file; a show transport carries none.
     const tags = player.transport ? null : player.localTrack
     const songInfo = resolveSongInfo({
@@ -1721,7 +1723,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
   MusicLibrary() {
     return { music: true }
   },
-  PerformanceGenerator({ inputSourceType, input, t, W, H, stateKey, incoming, nodeMap }, id) {
+  PerformanceGenerator({ inputSourceType, input, elapsedT: t, W, H, stateKey, incoming, nodeMap }, id) {
     // The `frame` edge names the show's destination; it does not carry it.
     // Playback lives in the node body (PerformanceGeneratorBody) and, opt-in
     // via `showInMainPreview`, reaches the main LED preview through

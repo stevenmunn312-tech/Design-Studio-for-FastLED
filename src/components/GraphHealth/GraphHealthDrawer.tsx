@@ -181,12 +181,12 @@ export default function GraphHealthDrawer() {
   // Takes the card's lead fix or one of its `moreFixes` alike.
   const runAction = (issue: Partial<GraphDiagnosticFix>) => {
     if (issue.repair?.kind === 'set-frame-rate') {
-      const result = setBoardFrameRate(issue.repair.frameRate)
+      const result = setBoardFrameRate(issue.repair.frameRate, issue.repair.boardId)
       setStatus(result.ok ? `Board frame rate lowered to ${result.frameRate} fps` : result.reason, result.ok ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'set-led-driver') {
-      const result = setBoardLedDriver(issue.repair.ledDriver)
+      const result = setBoardLedDriver(issue.repair.ledDriver, issue.repair.boardId)
       setStatus(result.ok
         ? result.ledDriver === 'auto' ? 'Board back on FastLED’s own LED driver' : `Board LED driver set to ${result.ledDriver}`
         : result.reason, result.ok ? 'success' : 'info')
@@ -209,7 +209,7 @@ export default function GraphHealthDrawer() {
       return
     }
     if (issue.repair?.kind === 'move-i2c-pins') {
-      const result = moveI2cPartsToBoardPins()
+      const result = moveI2cPartsToBoardPins(issue.repair.boardId)
       setStatus(result.ok ? `I2C hardware moved to SDA ${result.pins.sdaPin} and SCL ${result.pins.sclPin}` : result.reason,
         result.ok ? 'success' : 'info')
       return

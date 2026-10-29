@@ -100,7 +100,7 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
   },
   // Smooth random: fBm of the simplex noise, sampled along time. Firmware reads
   // inoise16 instead (the documented approximation gap shared with Field Noise).
-  NoiseSignal({ num, t, stateKey }, id, props) {
+  NoiseSignal({ num, elapsedT: t, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.NoiseSignal)
     const lo = num(id, 'min', props, 'min', 0)
     const hi = num(id, 'max', props, 'max', 1)
@@ -118,7 +118,7 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
   },
   // Trigger envelope — optional linear attack to 1 on a rising edge, then
   // linear decay to 0 (wire through Ease for a shaped curve).
-  Envelope({ input, num, t, stateKey }, id, props) {
+  Envelope({ input, num, elapsedT: t, stateKey }, id, props) {
     const trig = Boolean(input(id, 'trigger', false))
     const attackProp = num(id, 'attack', props, 'attack', 0)
     const decayProp = num(id, 'decay', props, 'decay', 0.5)
@@ -199,7 +199,7 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
   // Free-running BPM clock/transport — see ClockState above and the
   // matching `Clock` case in cppGenerator.ts (millis()-based, same edge
   // semantics so preview and firmware timing match).
-  Clock({ input, num, t, stateKey }, id, props) {
+  Clock({ input, num, elapsedT: t, stateKey }, id, props) {
     const key = stateKey(id)
     const prevSt = clockState.get(key)
     // Clock reset (t jumped backward) — start clean, same convention as
@@ -263,7 +263,7 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
   // Metronome — fires a boolean pulse once every `interval` seconds. Stateful
   // (module-level intervalLast), keyed per group instance like other stateful
   // nodes. Mirrors the millis()-based timer the C++ generator emits.
-  Interval({ num, t, stateKey }, id, props) {
+  Interval({ num, elapsedT: t, stateKey }, id, props) {
     const interval = Math.max(0.05, num(id, 'interval', props, 'interval', 0.5))
     const key = stateKey(id)
     const last = intervalLast.get(key)

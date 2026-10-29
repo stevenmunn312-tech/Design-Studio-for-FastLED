@@ -499,7 +499,7 @@ function evalPaletteGradient(key: string, angle: number, repeat: number, speed: 
 const gaugePeakState = instanceState('gaugePeakState', new Map<string, GaugePeak>())
 
 export const SHAPES_EVALUATORS: NodeEvaluators = {
-  Gauge({ input, num, pal, t, W, H, stateKey }, id, props) {
+  Gauge({ input, num, pal, elapsedT: t, W, H, stateKey }, id, props) {
     const style = gaugeStyle(props.gaugeStyle)
     const value = clamp01(num(id, 'value', props, 'value', 0.6))
     const palette = pal(id, 'paletteIn', props, 'palette', 'heat')
@@ -575,7 +575,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const scroll = num(id, 'scroll', props, 'scroll', 0)
     return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing) }
   },
-  ClockDisplay({ input, num, t, W, H, stateKey }, id, props) {
+  ClockDisplay({ input, num, elapsedT: t, W, H, stateKey }, id, props) {
     const mode = String(props.displayMode ?? 'Digital HH:MM')
     const colorIn = input(id, 'color', null) as RGB | null
     const color = colorIn ?? {
@@ -866,7 +866,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const frame = polarFrame(W, H, angleOffset, spinPhase, scrollPhase, repeat, radialMix)
     return { frame: buildFrame(W, H, (x, y) => samplePalette(palette, polarPixel(x, y, W, H, frame) / 256)) }
   },
-  Image({ num, t, W, H }, id, props) {
+  Image({ num, elapsedT: t, W, H }, id, props) {
     // A loaded animation takes precedence over a still; a node has one or
     // the other (ImageNodeBody clears whichever it isn't).
     const animation = asAnimatedImage(props.animation)

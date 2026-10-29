@@ -37,6 +37,8 @@ import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
 import { HSV_HELPER_CPP } from './helpers/hsvHelperCpp'
 import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
 import { POLINE_HELPER_CPP } from './helpers/polineHelperCpp'
+import { displayTextCppHelperBlocks } from './displays/displayTextCpp'
+import { fontCppHelper } from '../nodes/shared/fontCpp'
 import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { cppComment } from './cppLiterals'
@@ -263,6 +265,9 @@ function cppPrototype(definition: string): string | null {
  * does not compile; showGenerator.test.ts sweeps the library for that.
  */
 const SHARED_HELPER_BLOCKS: Record<string, string> = {
+  ...Object.fromEntries(displayTextCppHelperBlocks({ number: true, dateTime: true, copy: true })
+    .map((block, index) => [`displayText:${index}`, block])),
+  font: fontCppHelper(),
   phi: PHI_DEFINE_CPP,
   sdf: SDF_HELPER_CPP,
   latticeQ: LATTICE_Q12_CPP,
@@ -352,7 +357,7 @@ function buildPattern(
   // by the other pattern mid-transition (and a persistent-buffer node such as
   // Trails would lose its accumulated frame entirely).
   const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, nativeFastLedAudio, groupInputExprs, aliasTerminalBuffer: false, deferPruning: true })
-  const lines = sketch.split('\n')
+  let lines = sketch.split('\n')
   // FrameFeedback history and baked image palettes are per-node globals too.
   // Prefix them alongside buf_/field_ so two collected patterns cloned from
   // the same starter cannot collide on the same generated symbol. Other
@@ -402,9 +407,16 @@ function buildPattern(
     mapFloat: /^float mapFloat\(/, kelvinToRGB: /^CRGB kelvinToRGB\(/,
     _worleyHash: /^float _worleyHash\(/, XY: /^uint16_t XY\(/,
   }
+  let remaining = sketch
   for (const [name, block] of Object.entries(SHARED_HELPER_BLOCKS)) {
-    if (sketch.includes(block)) helpers.set(name, block)
+    if (remaining.includes(block)) {
+      helpers.set(name, block)
+      remaining = remaining.split(block).join('')
+    }
   }
+  // Shared blocks can sit between Code-node globals and setup. Remove them
+  // before that capture so they cannot also be emitted as per-pattern globals.
+  lines = remaining.split('\n')
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]

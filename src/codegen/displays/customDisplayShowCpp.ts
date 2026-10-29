@@ -13,7 +13,7 @@ import {
   customDisplayPanelEnableCpp, customDisplayPanelHelpersCpp, customDisplayPanelSetupCpp,
 } from './customDisplayPanelCpp'
 import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
-import { displayTextCppHelpers } from './displayTextCpp'
+import { displayTextCppHelperBlocks } from './displayTextCpp'
 import { displayWidgetFormatsNumber } from '../../state/displays/displayRegistry'
 import { TFT_TOUCH_CPP_HELPERS } from './tftTouchCpp'
 
@@ -38,7 +38,7 @@ export function customDisplayShowCpp(
     includes.push(CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_PANEL_CPP_INCLUDES)
     forwards.push(CUSTOM_DISPLAY_LVGL_FORWARD)
     if (displays.some((display) => display.emit.document.widgets.some((widget) => displayWidgetFormatsNumber(widget.type)))) {
-      shared.push(displayTextCppHelpers({ number: true, dateTime: false, copy: false }))
+      shared.push(...displayTextCppHelperBlocks({ number: true, dateTime: false, copy: false }))
     }
     helpers.push(CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (displays.some((display) => customDisplayNeedsNavigation(display.emit.document))) helpers.push(CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP)

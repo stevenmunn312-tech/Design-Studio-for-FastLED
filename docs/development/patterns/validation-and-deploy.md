@@ -22,6 +22,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   a `Fix` button. `moveI2cPartsToBoardPins` rechecks the live root hardware,
   assigns the board's SDA/SCL pair atomically, and refuses unrelated pin
   claims. It leaves inactive RTCs, SPI displays and device addresses alone.
+  On multi-board projects, board-wide repairs carry `boardId` in both the
+  primary repair and alternative fixes. Keep their diagnostic ids distinct
+  per board so merging cannot discard the second board's repair. Repairs
+  allocate pins and check collisions only within the owning board's partition,
+  then write those changes to the root graph. A deleted target board must
+  refuse a stale repair instead of falling back to the primary board.
+  Shared upload-target lookup lives in `src/build/boardUploadTargets.ts`.
+  Keep this lookup independent of validation and code generation: importing
+  those modules from the graph store can initialize the evaluator recursively.
 
 - The RAM budget (`estimateFirmwareRam`, `findFirmwareRamBudgetIssue`) prices
   a show's collected patterns only when it is given the group registry. Pass
@@ -234,6 +243,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   or `Name.Widget:`; keep that prefix on any new message those walks emit, or
   its card falls back to framing every output or display.
 - SDVideo clip bytes live in IndexedDB (`sdVideoStore`), not the project; the node keeps only `properties.clip`. A moved project loses the bytes, so re-import. `findSdVideoErrors` blocks mixing SDVideo with the music player or show builds, which mount the card themselves. Design: [sd-video](../../design/sd-video.md).
+  Pass the group registry: the same gate follows expanded groups and reachable
+  collected patterns. An unused collection does not block a normal sketch.
 - Wire time is one estimate, `estimateWireTime(rootNodes, rootEdges)` in
   `src/utils/wireTime.ts`, read by Graph Health and the readiness strip's
   **Frame** chip; every figure comes from `src/build/ledDrivers.ts`

@@ -9,6 +9,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## C++ emission hazards
 
+- Collected text patterns must lift the display-text blocks and wired-font
+  tables along with their render body. Display-text helpers expose individual
+  blocks so the show, player, post-chain, and control graph deduplicate each
+  operation rather than overlapping bundles. Remove shared blocks before
+  capturing Code-node globals, which can contain those same blocks.
+- Unwired numeric properties can emit integer literals. Cast a division
+  operand to `float` or use a floating-point coefficient before dividing;
+  assigning the integer division result to a float does not restore fractions.
+  Preserve that promotion through constant specialization.
+
 - Never emit an output's `addLeds` outside `fastledSetupCpp`: data lanes
   (`LedHardware.lanePins`) and the clocked data rate are added there, and a
   generator that builds its own call drops both. A lane count is a template

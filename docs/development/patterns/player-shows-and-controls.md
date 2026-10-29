@@ -9,6 +9,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Music Player
 
+- Preview holds, transitions and pattern animation use the loaded transport's
+  `posMs`, matching the SD player. Pausing holds that clock; a backward seek
+  starts a new hold. Without a loaded track, preview scheduling uses unscaled
+  elapsed time. Timers inside patterns and button debounce still use elapsed
+  time independently of the track position.
+
 - `beatTransitions` is the Music Player's opt-in Beat Transitions checkbox.
   Preview and the generic SD player choose a random cooldown from `minTime`
   through `maxTime`, then wait for a fresh rising beat edge. Cooldown starts
@@ -166,6 +172,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Controls and LED output runtime
 
+- Live Stream reserves `starting` before opening a port, so overlapping starts
+  cannot install multiple send intervals. Stop invalidates the session; late
+  sends cannot stop or change a newer session, and a late successful open is
+  closed. Keep sends local to their session and clear their in-flight state
+  on both success and rejection.
+
 - Time and Wave in a template share one `_controlTime` snapshot. The slideshow
   emits its animation clock before the control graph, then resolves a wired
   Master Speed for the next pass; pattern rendering reads the same `animNow`,
@@ -190,7 +202,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   locals keyed by node id, and do not request `_controlTime`, so Master Speed
   does not scale them and the track clock stays put. Clock's firmware reset is
   the reset wire's rising edge. The evaluator also resets a Clock when
-  animation time jumps backward; leave that in the preview. The 0–1 ramp and
+  elapsed time jumps backward; leave that in the preview. The 0–1 ramp and
   beatsin are Wave (a unipolar sawtooth, a unipolar sine at a BPM), which reads
   the control graph's clock like Time does. Schedule Trigger's unwired Enable uses the property and defaults
   on. Other unwired bools are false. Smooth, Random and DMX Channel stay

@@ -79,7 +79,7 @@ export function scalarControlCpp(
       switch (props.mathOp) {
         case 'subtract': expression = `(${f.a}) - (${f.b})`; break
         case 'multiply': expression = `(${f.a}) * (${f.b})`; break
-        case 'divide': expression = `((${f.b}) == 0.0f ? 0.0f : (${f.a}) / (${f.b}))`; break
+        case 'divide': expression = `((${f.b}) == 0.0f ? 0.0f : (float)(${f.a}) / (${f.b}))`; break
         case 'modulo': expression = `((${f.b}) == 0.0f ? 0.0f : fmodf(fmodf(${f.a}, ${f.b}) + (${f.b}), ${f.b}))`; break
         case 'average': expression = `((${f.a}) + (${f.b})) * 0.5f`; break
         case 'min': expression = `min((float)(${f.a}), (float)(${f.b}))`; break

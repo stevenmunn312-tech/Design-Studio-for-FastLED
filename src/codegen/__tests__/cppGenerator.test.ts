@@ -906,6 +906,12 @@ describe('generateCpp', () => {
     expect(cpp).toContain('mapFloat(n_value_result, 0, 1, n_lo_result, n_hi_result)')
   })
 
+  it('keeps division floating-point when both unwired operands are integers', () => {
+    const cpp = generateCpp([node('quarter', 'Math', 'math', { mathOp: 'divide', a: 1, b: 4 })], [])
+    // Check the final specialized sketch: constant folding must not remove the cast.
+    expect(cpp).toContain('(float)(1) / (4)')
+  })
+
   it('emits Math result variable for the selected operation', () => {
     const add = node('a', 'Math', 'math', { mathOp: 'add', a: 1, b: 2 })
     const cpp = generateCpp([add], [])

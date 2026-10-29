@@ -1355,20 +1355,37 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
  * is the ESP32 core's. A music-sync or show build carries its own SD mount on
  * the same bus, so the two cannot share it.
  */
-export function findSdVideoErrors(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = ''): string[] {
-  const videos = nodes.filter((node) => node.data.nodeType === 'SDVideo')
-  if (videos.length === 0) return []
-  const upstream = new Map<string, string[]>()
-  for (const edge of edges) upstream.set(edge.target, [...(upstream.get(edge.target) ?? []), edge.source])
-  const live = new Set<string>()
-  const stack = nodes.filter((node) => node.data.nodeType === 'MatrixOutput').map((node) => node.id)
-  while (stack.length) {
-    const id = stack.pop()!
-    if (live.has(id)) continue
-    live.add(id)
-    stack.push(...(upstream.get(id) ?? []))
+export function findSdVideoErrors(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '', groups: GroupRegistry = {}): string[] {
+  const hasVideo = (graphNodes: StudioNode[]) => graphNodes.some((node) => node.data.nodeType === 'SDVideo')
+  if (!hasVideo(nodes) && (!nodes.some((node) => ['Group', 'PatternCollection'].includes(node.data.nodeType))
+    || !Object.values(groups).some((group) => hasVideo(group.nodes)))) return []
+  const used: StudioNode[] = []
+  const visited = new Set<string>()
+  const visit = (graphNodes: StudioNode[], graphEdges: StudioEdge[], sinkType: string) => {
+    const flat = expandGroups(graphNodes, graphEdges, groups)
+    const upstream = new Map<string, string[]>()
+    for (const edge of flat.edges) upstream.set(edge.target, [...(upstream.get(edge.target) ?? []), edge.source])
+    const live = new Set<string>()
+    const stack = flat.nodes.filter((node) => node.data.nodeType === sinkType).map((node) => node.id)
+    while (stack.length) {
+      const id = stack.pop()!
+      if (live.has(id)) continue
+      live.add(id)
+      stack.push(...(upstream.get(id) ?? []))
+    }
+    for (const node of flat.nodes.filter((entry) => live.has(entry.id))) {
+      if (node.data.nodeType === 'SDVideo') used.push(node)
+      if (node.data.nodeType !== 'PatternCollection') continue
+      const ids = node.data.properties.patternIds
+      if (!Array.isArray(ids)) continue
+      for (const id of ids) {
+        if (typeof id !== 'string' || visited.has(id) || !groups[id]) continue
+        visited.add(id)
+        visit(groups[id].nodes, groups[id].edges, 'GroupOutput')
+      }
+    }
   }
-  const used = videos.filter((node) => live.has(node.id))
+  visit(nodes, edges, 'MatrixOutput')
   if (used.length === 0) return []
   const name = (node: StudioNode) => String(node.data.label ?? 'SD Video')
   const errors: string[] = []
@@ -1755,7 +1772,7 @@ export function findDeployBlockingErrors(
     ...findMatrixLayoutErrors(nodes),
     ...findPixelDataExtenderErrors(nodes),
     ...findDataLaneErrors(nodes, edges),
-    ...findSdVideoErrors(nodes, edges, selectedFqbn),
+    ...findSdVideoErrors(nodes, edges, selectedFqbn, groups),
     ...findShowRequirementErrors(nodes, edges, selectedFqbn),
     ...findAudioCapabilityErrors(nodes, edges),
     ...findStorageCapabilityErrors(nodes, edges),
@@ -1841,7 +1858,7 @@ export type GraphRepair =
   | { kind: 'connect-template-controls'; panelId: string }
   /** A part's pin to move to a free, safe pin on the chosen board. */
   | { kind: 'move-pin'; nodeId: string; propertyKey: string }
-  | { kind: 'move-i2c-pins' }
+  | { kind: 'move-i2c-pins'; boardId?: string }
   /** The show engine to wire into the only LED output there is. */
   | { kind: 'connect-show-output'; engineId: string; outputId: string }
   /** The Music Player to give a new, wired Pattern Collection. */
@@ -1853,13 +1870,13 @@ export type GraphRepair =
    *  design has no template-placed controls left to put on it. */
   | { kind: 'disconnect-touch-controls'; touchId: string }
   /** The Board frame rate the wire can keep up with. */
-  | { kind: 'set-frame-rate'; frameRate: number }
+  | { kind: 'set-frame-rate'; frameRate: number; boardId?: string }
   /** A clocked LED output's faster supported clock (`dataRateMhz`). */
   | { kind: 'set-data-rate'; nodeId: string; dataRateMhz: number }
   /** An LED output's chain split into lanes, with free pins for lanes 2..N. */
   | { kind: 'split-across-pins'; nodeId: string; dataLanes: number; lanePins: number[] }
   /** The Board LED driver to choose: a parallel one, or 'auto' to give a peripheral back. */
-  | { kind: 'set-led-driver'; ledDriver: LedDriverChoice }
+  | { kind: 'set-led-driver'; ledDriver: LedDriverChoice; boardId?: string }
   /** A board link with no key on this machine: make the project a new link
    *  key (and a link id, when it has none), which every linked board must
    *  then be flashed with. */
@@ -3646,6 +3663,14 @@ export function buildGraphDiagnostics(
   options: GraphDiagnosticOptions = {},
 ): GraphDiagnostic[] {
   const diagnostics: GraphDiagnostic[] = []
+  for (const [index, message] of findSdVideoErrors(nodes, edges, options.selectedFqbn, options.groups).entries()) {
+    diagnostics.push({
+      id: `sd-video-${index}`, severity: 'error', category: 'show',
+      title: 'SD Video setup needs attention', message,
+      fix: 'Import a clip, add an SD Card part, and use an ESP32 normal sketch. Keep SD Video out of collected show patterns.',
+      nodeIds: nodes.filter((node) => ['SDVideo', 'Group', 'PatternCollection'].includes(node.data.nodeType)).map((node) => node.id),
+    })
+  }
   const target = options.target ?? 'matrix'
   const terminalType = target === 'group' ? 'GroupOutput' : 'MatrixOutput'
   const terminalName = target === 'group' ? 'Group Output' : 'LED output'

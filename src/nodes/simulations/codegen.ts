@@ -71,7 +71,7 @@ function fire2012Cpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }: Emit
   ln(`    static uint8_t ${HB}[${P}][${S}] = {};`)
   if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
   ln(`    for(int _p=0;_p<${P};_p++) for(int _s=0;_s<${S};_s++)`)
-  ln(`      ${HB}[_p][_s]=qsub8(${HB}[_p][_s],(uint8_t)(${rnd01}*((${cooling}*10/(${P}))+2)));`)
+  ln(`      ${HB}[_p][_s]=qsub8(${HB}[_p][_s],(uint8_t)(${rnd01}*((${cooling}*10.0f/(${P}))+2)));`)
   // Classic two-row lookahead: row _p from the single row _p-1 (closer to
   // the base) plus a turbulence-wide sideways window at _p-2 (spread=1
   // reproduces the original fixed 4-sample kernel). Mirrors evalFire2012.

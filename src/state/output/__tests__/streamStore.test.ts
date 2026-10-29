@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const startStream = vi.fn(async () => ({ ok: true }))
 const sendStreamFrame = vi.fn<(packet: Uint8Array) => Promise<boolean>>(async () => true)
@@ -24,6 +24,79 @@ describe('streamStore', () => {
     startStream.mockClear()
     sendStreamFrame.mockClear()
     stopStream.mockClear()
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
+  })
+
+  it('opens once on overlapping starts and stops every send loop', async () => {
+    const { useStreamStore, publishStreamFrame } = await freshStore()
+    let opened!: (result: { ok: boolean }) => void
+    startStream.mockImplementationOnce(() => new Promise((resolve) => { opened = resolve }))
+    const first = useStreamStore.getState().start('COM3', LAYOUT)
+    await useStreamStore.getState().start('COM3', LAYOUT)
+    expect(useStreamStore.getState().starting).toBe(true)
+    expect(startStream).toHaveBeenCalledTimes(1)
+    opened({ ok: true })
+    await first
+    publishStreamFrame(frame(16, 16), 16, 16)
+    await vi.advanceTimersByTimeAsync(200)
+    expect(sendStreamFrame).toHaveBeenCalled()
+    await useStreamStore.getState().stop()
+    const sent = sendStreamFrame.mock.calls.length
+    await vi.advanceTimersByTimeAsync(200)
+    expect(sendStreamFrame).toHaveBeenCalledTimes(sent)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('closes a port that opens after Stop without starting a send loop', async () => {
+    const { useStreamStore } = await freshStore()
+    let opened!: (result: { ok: boolean }) => void
+    startStream.mockImplementationOnce(() => new Promise((resolve) => { opened = resolve }))
+    const pending = useStreamStore.getState().start('COM3', LAYOUT)
+    await useStreamStore.getState().stop()
+    opened({ ok: true })
+    await pending
+    expect(stopStream).toHaveBeenCalledTimes(1)
+    expect(useStreamStore.getState()).toMatchObject({ starting: false, streaming: false })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('ignores a failed send from a stopped session after restarting', async () => {
+    const { useStreamStore, publishStreamFrame } = await freshStore()
+    let sent!: (ok: boolean) => void
+    sendStreamFrame.mockImplementationOnce(() => new Promise((resolve) => { sent = resolve }))
+    await useStreamStore.getState().start('COM3', LAYOUT)
+    publishStreamFrame(frame(16, 16), 16, 16)
+    await vi.advanceTimersByTimeAsync(40)
+    await useStreamStore.getState().stop()
+    await useStreamStore.getState().start('COM3', LAYOUT)
+    sent(false)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(useStreamStore.getState()).toMatchObject({ streaming: true, error: null })
+  })
+
+  it('clears a rejected opening so a later start can retry', async () => {
+    const { useStreamStore } = await freshStore()
+    startStream.mockRejectedValueOnce(new Error('Port busy'))
+    await useStreamStore.getState().start('COM3', LAYOUT)
+    expect(useStreamStore.getState()).toMatchObject({ starting: false, streaming: false, error: 'Port busy' })
+    await useStreamStore.getState().start('COM3', LAYOUT)
+    expect(useStreamStore.getState()).toMatchObject({ streaming: true, error: null })
+  })
+
+  it('stops cleanly on a rejected send and allows restarting', async () => {
+    const { useStreamStore, publishStreamFrame } = await freshStore()
+    sendStreamFrame.mockRejectedValueOnce(new Error('Disconnected'))
+    await useStreamStore.getState().start('COM3', LAYOUT)
+    publishStreamFrame(frame(16, 16), 16, 16)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(useStreamStore.getState()).toMatchObject({ streaming: false, error: expect.stringContaining('Lost connection') })
+    await useStreamStore.getState().start('COM3', LAYOUT)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(useStreamStore.getState()).toMatchObject({ streaming: true, error: null })
   })
 
   it('explains a matrix/receiver size mismatch instead of silently dropping frames', async () => {

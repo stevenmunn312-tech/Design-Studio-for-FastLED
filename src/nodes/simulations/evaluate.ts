@@ -1189,7 +1189,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed))
   },
-  GameOfLife({ num, pal, tick, W, H, stateKey }, id, props) {
+  GameOfLife({ num, pal, elapsedTick: tick, W, H, stateKey }, id, props) {
     const palette = pal(id, 'paletteIn', props, 'palette', 'mojito')
     const speed = num(id, 'speed', props, 'speed', 8)
     const fade = num(id, 'fade', props, 'fade', 0.75)

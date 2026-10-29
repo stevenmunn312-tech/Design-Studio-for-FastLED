@@ -823,7 +823,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = sample(x, y)
     return { field: out }
   },
-  Automaton({ input, num, tick, W, H, stateKey }, id, props) {
+  Automaton({ input, num, elapsedTick: tick, W, H, stateKey }, id, props) {
     const type = automatonType(props.automatonType)
     return {
       field: evalAutomaton(

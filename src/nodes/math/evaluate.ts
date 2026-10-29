@@ -130,7 +130,7 @@ export const MATH_EVALUATORS: NodeEvaluators = {
   // (seconds to ~63% of a step; ≤0.01 = passthrough). dt comes from the
   // wall-clock t so smoothing speed is framerate-independent, mirroring the
   // millis()-based version the C++ generator emits.
-  Smooth({ num, t, stateKey }, id, props) {
+  Smooth({ num, elapsedT: t, stateKey }, id, props) {
     const value = num(id, 'value', props, 'value', 0)
     const response = Math.max(0, num(id, 'response', props, 'response', 0.25))
     const key = stateKey(id)
@@ -165,7 +165,7 @@ export const MATH_EVALUATORS: NodeEvaluators = {
   // Bundled trigger/edge utilities — `triggerOp` selects the variant. All
   // share the same bool-in/bool-out signature. See PROPERTY_META.triggerOp
   // and the matching `Trigger` case in cppGenerator.
-  Trigger({ input, num, t, stateKey }, id, props) {
+  Trigger({ input, num, elapsedT: t, stateKey }, id, props) {
     const opType = String(props.triggerOp ?? 'debounce')
     const trig = Boolean(input(id, 'trigger', false))
     const key = stateKey(id)

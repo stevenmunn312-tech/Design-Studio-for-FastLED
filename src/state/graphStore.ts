@@ -26,6 +26,8 @@ import { boardLinkSettings, newBoardLinkId, useBoardLinkKeyStore } from './perip
 import { retargetedMicPins } from '../build/pins/micPinDefaults'
 import { retargetDefaultI2c, retargetHardwarePins as retargetHardwarePinsFor } from '../build/pins/pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
+import { useProjectStore } from './projectStore'
+import { boardFqbn, boardFqbnTargets } from '../build/boardUploadTargets'
 import { useUiStore, visibleLiveTouchScreen } from './uiStore'
 import { validateMatrixLayout } from './output/xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './output/ledOutputForm'
@@ -4580,6 +4582,31 @@ export function insertMapRangeOnEdge(edgeId: string, outMin: number, outMax: num
   return true
 }
 
+/** Resolve live hardware claims and board selection for a root-scoped repair. */
+function repairBoardScope(boardId?: string): BoardPartition & { fqbn: string } {
+  const state = useGraphStore.getState()
+  const rootNodes = rootGraphNodes(state)
+  const id = boardId ?? primaryBoardId(rootNodes)
+  // A stale repair must never fall back onto another board.
+  if (boardId && !boardNodesIn(rootNodes).some((board) => board.id === id)) {
+    return { board: null, nodes: [], edges: [], fqbn: '' }
+  }
+  const partition = boardPartition(rootNodes, rootGraphEdges(state), id)
+  const projectState = useProjectStore.getState()
+  const project = projectState.projects.find((entry) => entry.id === projectState.currentProjectId)
+  const selectedFqbn = useUploadStore.getState().selectedFqbn
+  const targets = boardFqbnTargets(rootNodes, project?.uploadTargets, useUiStore.getState().activeBoardId, selectedFqbn)
+  const fqbn = boardFqbn(rootNodes, targets, id, selectedFqbn)
+  return { ...partition, fqbn }
+}
+
+function repairPartScope(nodeId: string): ReturnType<typeof repairBoardScope> {
+  const nodes = rootGraphNodes(useGraphStore.getState())
+  const node = nodes.find((entry) => entry.id === nodeId)
+  const boards = new Set(boardNodesIn(nodes).map((board) => board.id))
+  return repairBoardScope(node ? boardIdOf(node, primaryBoardId(nodes), boards) : undefined)
+}
+
 /**
  * Lower the Board's frame rate to one the LED wire can keep up with.
  *
@@ -4588,8 +4615,8 @@ export function insertMapRangeOnEdge(edgeId: string, outMin: number, outMax: num
  * step. It only ever lowers: when the Board is gone or already at or below
  * the rate, it changes nothing and says so.
  */
-export function setBoardFrameRate(frameRate: number): { ok: true; frameRate: number } | { ok: false; reason: string } {
-  const nodes = rootGraphNodes(useGraphStore.getState())
+export function setBoardFrameRate(frameRate: number, boardId?: string): { ok: true; frameRate: number } | { ok: false; reason: string } {
+  const { nodes } = repairBoardScope(boardId)
   const board = nodes.find((node) => node.data.nodeType === 'Board')
   const target = Math.max(FRAME_RATE.min, Math.min(FRAME_RATE.max, Math.round(frameRate)))
   if (!board) return { ok: false, reason: 'There is no Board to set a frame rate on.' }
@@ -4650,7 +4677,7 @@ export function splitOutputAcrossPins(
   dataLanes: number,
   lanePins: number[],
 ): { ok: true; dataLanes: number; lanePins: number[] } | { ok: false; reason: string } {
-  const nodes = rootGraphNodes(useGraphStore.getState())
+  const { nodes } = repairPartScope(nodeId)
   const output = nodes.find((node) => node.id === nodeId && node.data.nodeType === 'MatrixOutput')
   const props = (output?.data.properties ?? {}) as Record<string, unknown>
   const stale = { ok: false as const, reason: 'That output or its pins have already changed since this was reported.' }
@@ -4670,8 +4697,8 @@ export function splitOutputAcrossPins(
  * `auto`), on the root graph's Board, in one undo step; says so and changes
  * nothing when the Board already has it or no longer offers it.
  */
-export function setBoardLedDriver(ledDriver: LedDriverChoice): { ok: true; ledDriver: LedDriverChoice } | { ok: false; reason: string } {
-  const board = rootGraphNodes(useGraphStore.getState()).find((node) => node.data.nodeType === 'Board')
+export function setBoardLedDriver(ledDriver: LedDriverChoice, boardId?: string): { ok: true; ledDriver: LedDriverChoice } | { ok: false; reason: string } {
+  const board = repairBoardScope(boardId).nodes.find((node) => node.data.nodeType === 'Board')
   if (!board) return { ok: false, reason: 'There is no Board to choose an LED driver on.' }
   const props = board.data.properties as Record<string, unknown>
   const offered = ledDriver === LED_DRIVER_AUTO || ledDriverOptionsForBoard(props).some((driver) => driver.bus === ledDriver)
@@ -4685,10 +4712,8 @@ export function setBoardLedDriver(ledDriver: LedDriverChoice): { ok: true; ledDr
 }
 
 /** Move every active I2C part onto the board bus in one root-scoped undo step. */
-export function moveI2cPartsToBoardPins(): { ok: true; pins: Record<string, number> } | { ok: false; reason: string } {
-  const state = useGraphStore.getState()
-  const nodes = rootGraphNodes(state)
-  const fqbn = useUploadStore.getState().selectedFqbn
+export function moveI2cPartsToBoardPins(boardId?: string): { ok: true; pins: Record<string, number> } | { ok: false; reason: string } {
+  const { nodes, fqbn } = repairBoardScope(boardId)
   const uses = i2cPinUses(nodes, fqbn)
   const assigned = assignBoardI2cPins(selectedPhysicalBoardProfile(nodes), fqbn, nodes, true)
   if (!assigned.ok) return assigned
@@ -4715,8 +4740,7 @@ export function movePartPinToFree(
   nodeId: string,
   propertyKey: string,
 ): { ok: true; pin: number } | { ok: false; reason: string } {
-  const state = useGraphStore.getState()
-  const nodes = rootGraphNodes(state)
+  const { nodes, fqbn } = repairPartScope(nodeId)
   const node = nodes.find((entry) => entry.id === nodeId)
   if (!node || typeof (node.data.properties as Record<string, unknown>)[propertyKey] !== 'number') {
     return { ok: false, reason: 'That pin has already changed since this was reported.' }
@@ -4725,7 +4749,7 @@ export function movePartPinToFree(
   const capability = requirement?.pullup ? 'pullup' : requirement?.capability
   const assigned = assignPartPins(
     selectedPhysicalBoardProfile(nodes),
-    useUploadStore.getState().selectedFqbn,
+    fqbn,
     nodes,
     [{ key: propertyKey, ...(capability ? { capability } : {}) }],
   )

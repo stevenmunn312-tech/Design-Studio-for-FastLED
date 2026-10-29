@@ -111,7 +111,7 @@ export default function MatrixOutputDeployPopup({
     cardReader, setCardReader,
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
-  const { streaming, fps: streamFps, error: streamError, start: startStreaming, stop: stopStreaming } = useStreamStore()
+  const { streaming, starting: streamStarting, fps: streamFps, error: streamError, start: startStreaming, stop: stopStreaming } = useStreamStore()
   const dialogRef = useModalFocus<HTMLDivElement>(closeDeployPopup)
 
   const outputNode = nodes.find((n) => n.id === activeOutputNodeId && n.data.nodeType === 'MatrixOutput')
@@ -1009,7 +1009,7 @@ export default function MatrixOutputDeployPopup({
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn} ${streaming ? styles.streamBtnActive : ''}`}
-            disabled={!outputNode || !canBuild || busy || !helperReady || !portDetected}
+            disabled={!outputNode || !canBuild || busy || streamStarting || !helperReady || !portDetected}
             onClick={handleToggleStream}
             title={
               !outputNode
@@ -1023,7 +1023,7 @@ export default function MatrixOutputDeployPopup({
                     : 'Push live preview frames to a board already running the Stream Receiver sketch'
             }
           >
-            {streaming ? `⏹ Streaming — ${streamFps} fps` : '📡 Live Stream'}
+            {streamStarting ? 'Opening stream…' : streaming ? `⏹ Streaming — ${streamFps} fps` : '📡 Live Stream'}
           </button>
           </div>
           {liveStreamNotes.length > 0 && (

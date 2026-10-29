@@ -76,7 +76,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   inside its group reacts exactly as the instance on the root canvas does.
   Non-audio GroupInputs stay unbound and their consumers fall back to their
   properties.
-- Master Speed scales the one shared time value `t` that every animated node
+- Hardware timers use `elapsedT` / `elapsedTick`, matching firmware `millis()`.
+  This includes Interval, Envelope, Clock, Noise LFO, Smooth, Trigger timing,
+  Palette Bank buttons/blending, Game of Life, Automaton, image playback,
+  Gauge peak hold, and Clock Display stopwatch/timer. Button debounce and
+  repeat also use elapsed time, including direct player actions. Animation
+  time can freeze without freezing a button or changing a timer's duration.
+- Master Speed scales the one shared time value `t` that animated nodes
   reads, rather than rewriting each node's own rate, so a graph's relative
   speeds hold exactly and a node added later needs no teaching.
   `src/state/player/masterSpeed.ts` accumulates (`t += dt*speed`), never multiplies

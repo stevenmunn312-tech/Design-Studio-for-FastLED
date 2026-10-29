@@ -7,7 +7,7 @@ import { compositionDims } from '../state/output/outputRouting'
 import { controlInputCpp, SERIAL_DEBUG_INPUT_TYPES, type ControlInputEmission } from './controlInputCpp'
 import { i2cDistanceBusPeers } from '../state/peripherals/distanceSensor'
 import { irRemoteProjectEmission, type IrRemoteProjectNode } from './peripherals/irRemoteCpp'
-import { displayTextCppHelpers } from './displays/displayTextCpp'
+import { displayTextCppHelperBlocks } from './displays/displayTextCpp'
 import { TIME_CONTROL_OUTPUTS, timeNodeCpp } from './signalTimeCpp'
 import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
 import { COLOR_CONTROL_NODES, colorControlCpp } from './colorControlCpp'
@@ -318,7 +318,9 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>, ti
     loop.push(...emitted.loop)
     needsTime ||= emitted.needsTime
     if (emitted.needsMapFloat) helpers.add(MAP_FLOAT_CPP)
-    if (emitted.needsDisplayText) helpers.add(displayTextCppHelpers({ number: true, dateTime: false, copy: false }))
+    if (emitted.needsDisplayText) {
+      for (const block of displayTextCppHelperBlocks({ number: true, dateTime: false, copy: false })) helpers.add(block)
+    }
   }
   // Ahead of every other producer: a key bool has to exist before the scalar
   // that reads it, and the decode has to be the input half's sample rather
