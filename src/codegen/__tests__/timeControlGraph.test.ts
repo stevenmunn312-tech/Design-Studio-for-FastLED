@@ -24,7 +24,7 @@ describe('Time and Wave controls', () => {
     expect(loop).toContain('n_controls_controls.brightness = constrain(n_level_result, 0.0f, 1.0f);')
     if (mode === 'normal') {
       expect(loop).toContain('float n_time_time = t;')
-      expect(loop.indexOf('float t = _tAnim;')).toBeLessThan(loop.indexOf('float n_time_time'))
+      expect(loop.indexOf('float t = _tAnimMs / 1000.0f;')).toBeLessThan(loop.indexOf('float n_time_time'))
       expect(loop.indexOf('_tSpeed = constrain(n_level_result')).toBeGreaterThan(loop.indexOf('float n_level_result'))
     } else if (mode === 'show') {
       expect(loop).toContain('float _controlTime = animNow / 1000.0f;')

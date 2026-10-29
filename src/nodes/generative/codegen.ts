@@ -347,9 +347,12 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`    float _spd=${speed}, _den=${density}, _fd=${fade};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
-    ln(`    int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));`)
+    // `_spd` is already the denormalised rate (rateCpp), so the spawn and hue
+    // drift coefficients are the preview's own: 0.3 per unit of speed, and a
+    // hue drift of 0.08 turns per phase unit, which is 20.4 palette steps.
+    ln(`    int _spawns=(int)roundf(_den * (0.08f + _spd * 0.3f) * sqrtf((float)NUM_LEDS));`)
     ln(`    if(_spawns<1 && _den * _spd > 0.08f) _spawns=1;`)
-    ln(`    uint8_t _drift=(uint8_t)(${ph} * 14.5714f);`)
+    ln(`    uint8_t _drift=(uint8_t)(${ph} * 20.4f);`)
     ln(`    for(int _s=0; _s<_spawns; _s++){`)
     ln(`      int _i=${rnd16}%NUM_LEDS;`)
     ln(`      ${ob}[_i] += ColorFromPalette(${pal}, ${rnd8} + _drift);`)

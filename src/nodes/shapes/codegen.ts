@@ -762,9 +762,13 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    int _rot=(((int)roundf(${f('rotation', 'rotation', Number(p.rotation ?? 0))}/90.0f))%4+4)%4, _rw=(_rot&1)?_ih:_iw, _rh=(_rot&1)?_iw:_ih;`)
     if (animation) {
       const total = Math.max(1, Math.round(animation.durations.reduce((sum, duration) => sum + duration, 0)))
-      ln(`    uint32_t _it=(uint32_t)(millis()*max(0.25f,min(4.0f,${f('playbackRate', 'playbackRate', 1)})));`)
-      if (p.loop !== false) ln(`    _it%=${total}UL;`)
-      else ln(`    _it=min(_it,${total - 1}UL);`)
+      // Scaled elapsed milliseconds in 64-bit fixed point (a 16.16 rate), reduced
+      // before narrowing: millis() as a float loses its millisecond after 4.6
+      // hours, and the product passes uint32 at playback 4 in 12 days, which a
+      // float-to-integer cast is not defined for.
+      ln(`    uint64_t _it64=((uint64_t)millis()*(uint32_t)(max(0.25f,min(4.0f,${f('playbackRate', 'playbackRate', 1)}))*65536.0f+0.5f))>>16;`)
+      if (p.loop !== false) ln(`    uint32_t _it=(uint32_t)(_it64%${total}ULL);`)
+      else ln(`    uint32_t _it=_it64<${total - 1}ULL?(uint32_t)_it64:${total - 1}U;`)
       ln(`    int _ifr=0; uint32_t _iacc=0; for(int _i=0;_i<${animation.frames.length};_i++){ _iacc+=pgm_read_dword(&_imgd_${id}[_i]); if(_it<_iacc){_ifr=_i;break;} }`)
       ln(`    const int _ibase=_ifr*_iw*_ih;`)
     } else {

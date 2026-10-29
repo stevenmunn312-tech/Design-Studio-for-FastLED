@@ -213,8 +213,9 @@ export function clockCpp(id: string, v: Value, expr: Expr): string[] {
   const pulse = tap || sync
   return [
     `  float ${bpmProp} = fmaxf(1.0f,${expr.bpm});`,
-    `  int ${beatsPerBar} = (int)fmaxf(1.0f,${expr.beatsPerBar});`,
-    `  int ${subdivision} = (int)fmaxf(1.0f,${expr.subdivision});`,
+    // Rounded, not truncated, as the preview's Math.round: a wired 3.6 is 4 beats.
+    `  int ${beatsPerBar} = (int)fmaxf(1.0f,roundf(${expr.beatsPerBar}));`,
+    `  int ${subdivision} = (int)fmaxf(1.0f,roundf(${expr.subdivision}));`,
     `  static uint32_t _clkOrigin_${id} = 0; static bool _clkInit_${id} = false;`,
     ...(pulse ? [`  static uint32_t _clkLastPulse_${id} = 0; static bool _clkHasPulse_${id} = false;`,
       `  static float _clkTapBpm_${id} = 0; static bool _clkHasTap_${id} = false;`] : []),

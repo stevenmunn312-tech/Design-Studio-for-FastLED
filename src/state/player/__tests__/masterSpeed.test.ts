@@ -127,8 +127,10 @@ describe('the emitted sketch', () => {
   it('accumulates rather than scaling millis', () => {
     const knob = node('spd', 'MasterSpeed', { speed: 0.5 })
     const src = generateCpp([plasma, output, knob], [frameEdge])
-    expect(src).toContain('_tAnim += ((_tNowMs - _tLastMs) / 1000.0f) * _tSpeed;')
-    expect(src).toContain('float t = _tAnim;')
+    // Exact scaled milliseconds plus a sub-millisecond remainder: float seconds
+    // stop taking a 16 ms frame once the clock passes about three days.
+    expect(src).toContain('if (_tLastMs) { float _step = (_tNowMs - _tLastMs) * _tSpeed + _tAnimFrac; uint32_t _whole = (uint32_t)_step; _tAnimMs += _whole; _tAnimFrac = _step - _whole; }')
+    expect(src).toContain('float t = _tAnimMs / 1000.0f;')
     expect(src).not.toContain('millis() / 1000.0f * ')
   })
 
@@ -153,7 +155,7 @@ describe('the emitted sketch', () => {
     const src = generateCpp([plasma, output, knob, pot], [frameEdge, edge('es', 'p', 'value', 'spd', 'speed')])
     expect(src).toContain('static float _tSpeed = 1.0000f;')
     expect(src).toContain('for the next pass')
-    expect(src.indexOf('float t = _tAnim;')).toBeLessThan(src.indexOf('for the next pass'))
+    expect(src.indexOf('float t = _tAnimMs / 1000.0f;')).toBeLessThan(src.indexOf('for the next pass'))
   })
 
   it('clamps the wired speed to the knob\'s own travel', () => {

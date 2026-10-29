@@ -1056,8 +1056,9 @@ describe('generateCpp', () => {
     const cpp = generateCpp([clk], [])
     expect(cpp).toContain('_clkOrigin_clk')
     expect(cpp).toContain('float _clkBpmP_clk = fmaxf(1.0f,128);')
-    expect(cpp).toContain('int _clkBar_clk = (int)fmaxf(1.0f,4);')
-    expect(cpp).toContain('int _clkSub_clk = (int)fmaxf(1.0f,2);')
+    // Rounded like the preview's Math.round, never truncated: a wired 3.6 is 4.
+    expect(cpp).toContain('int _clkBar_clk = (int)fmaxf(1.0f,roundf(4));')
+    expect(cpp).toContain('int _clkSub_clk = (int)fmaxf(1.0f,roundf(2));')
     expect(cpp).toContain('% (uint32_t)_clkBar_clk == 0u')
     expect(cpp).toContain('float n_clk_bpm')
     expect(cpp).toContain('float n_clk_phase')
@@ -2136,8 +2137,17 @@ describe('generateCpp', () => {
     expect(cpp).toContain('const int _count=max(8,min(400,(int)floorf(50)))')
     expect(cpp).toContain('static float _fpx_ff[400], _fpy_ff[400], _ftr_ff[NUM_LEDS]')
     expect(cpp).toContain('inoise8(')
+    // The noise z axis wraps at its integer width before the cast; `t*100`
+    // passes 65535 eleven minutes in, and a float past a type's range is
+    // undefined to convert.
+    expect(cpp).toContain('uint16_t _z=(uint16_t)fmodf(t*100.0f,65536.0f);')
+    expect(cpp).not.toContain('(uint16_t)(t*100)')
     expect(cpp).toContain('_ftr_ff[_i]*=constrain(0.9,0.0f,1.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
+
+    const curl = generateCpp([node('ff', 'FlowField', 'pattern', { flowMode: 'curl' }), outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
+    expect(curl).toContain('_cz=(uint32_t)fmodf(t*0.1f*65536.0f,4294967296.0f);')
+    expect(curl).not.toContain('_cz=(uint32_t)(t*0.1f*65536.0f)')
   })
 
   it('emits a stateful Starfield with star buffers and projection', () => {
@@ -2486,9 +2496,17 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_img_anim[] PROGMEM = {255,0,0,0,0,255}')
     expect(cpp).toContain('_imga_anim[] PROGMEM = {255,128}')
     expect(cpp).toContain('_imgd_anim[] PROGMEM = {100,200}')
-    expect(cpp).toContain('millis()*max(0.25f,min(4.0f,2))')
-    expect(cpp).toContain('_it%=300UL')
+    // 64-bit fixed-point elapsed time, reduced before it narrows: a float
+    // millis() drops its millisecond after 4.6 h, and the product leaves uint32
+    // at playback 4 in 12 days.
+    expect(cpp).toContain('uint64_t _it64=((uint64_t)millis()*(uint32_t)(max(0.25f,min(4.0f,2))*65536.0f+0.5f))>>16;')
+    expect(cpp).toContain('uint32_t _it=(uint32_t)(_it64%300ULL);')
+    expect(cpp).not.toContain('(uint32_t)(millis()*')
     expect(cpp).toContain('_ibase=_ifr*_iw*_ih')
+
+    const once = node('once', 'Image', 'pattern', { animation, playbackRate: 1, loop: false })
+    const onceCpp = generateCpp([once, outputNode], [edge('e', 'once', 'out', 'frame', 'frame')])
+    expect(onceCpp).toContain('uint32_t _it=_it64<299ULL?(uint32_t)_it64:299U;')
   })
 
   it('emits fractal noise via summed simplex octaves', () => {
@@ -5339,7 +5357,11 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
-    expect(cpp).toContain('int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));')
+    // The preview's own coefficients on the already-denormalised rate: a spawn
+    // term of 0.3 per unit of speed and a hue drift of 0.08 turns (20.4 of 255),
+    // rounded as Math.round is. Pre-dividing by SPEED_MAX here halved both.
+    expect(cpp).toContain('int _spawns=(int)roundf(_den * (0.08f + _spd * 0.3f) * sqrtf((float)NUM_LEDS));')
+    expect(cpp).toContain('uint8_t _drift=(uint8_t)(_phase_cf * 20.4f);')
     expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(paldef_party, random8() + _drift);')
   })
 

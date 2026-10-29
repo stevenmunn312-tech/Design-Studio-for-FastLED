@@ -154,8 +154,13 @@ describe('showGenerator', () => {
     )
 
     expect(cpp).toContain('const float _showAnimSpeed = 0.5000f;')
-    expect(cpp).toContain('_showAnimSec += ((now - _showAnimLastMs) / 1000.0f) * _showAnimSpeed;')
-    expect(cpp).toContain('uint32_t animNow = (uint32_t)(_showAnimSec * 1000.0f);')
+    // Exact scaled milliseconds plus a remainder, never float seconds, which
+    // stop advancing by a 16 ms frame after about three days of uptime.
+    expect(cpp).toContain('static uint32_t _showAnimMs = 0;')
+    expect(cpp).toContain('static float _showAnimFrac = 0.0f;')
+    expect(cpp).toContain('if (_showAnimLastMs) { float _step = (now - _showAnimLastMs) * _showAnimSpeed + _showAnimFrac; uint32_t _whole = (uint32_t)_step; _showAnimMs += _whole; _showAnimFrac = _step - _whole; }')
+    expect(cpp).toContain('uint32_t animNow = _showAnimMs;')
+    expect(cpp).not.toContain('_showAnimSec')
     expect(cpp).toContain('renderPattern(cur, animNow);')
     expect(cpp).toContain('renderPattern(nxt, animNow);')
     // Dwell and transition progress remain real elapsed durations.
@@ -176,13 +181,13 @@ describe('showGenerator', () => {
     expect(cpp).toContain('float n_pot_value = analogRead(4) / 4095.0f;')
     expect(cpp).toContain('static float _showAnimSpeed = 0.5000f;')
     expect(cpp).toContain('_showAnimSpeed = constrain(n_pot_value, 0.0f, 4.0f);  // for the next pass')
-    expect(cpp.indexOf('_showAnimSec +=')).toBeLessThan(cpp.indexOf('_showAnimSpeed = constrain'))
+    expect(cpp.indexOf('_showAnimMs += _whole;')).toBeLessThan(cpp.indexOf('_showAnimSpeed = constrain'))
   })
 
   it('keeps the original direct millis clock when there is no Master Speed node', () => {
     const cpp = generateShowSketch(nodes, edges, groups)
     expect(cpp).toContain('renderPattern(cur, now);')
-    expect(cpp).not.toContain('_showAnimSec')
+    expect(cpp).not.toContain('_showAnimMs')
     expect(cpp).not.toContain('animNow')
   })
 

@@ -358,7 +358,11 @@ Both are **accumulated, never multiplied**. `t * speed` looks equivalent and is
 not: moving the knob from 1 to 2 would double `t` on the spot and every
 animation in the build would leap. Time advances by `dt * speed` instead — the
 browser slides its clock's origin, which is the mechanism the pause already
-uses; the firmware keeps a `_tAnim` accumulator in place of `millis() / 1000`.
+uses; the firmware keeps a `_tAnimMs` accumulator in place of `millis()`. It
+holds scaled milliseconds as `uint32_t` plus a float sub-millisecond remainder,
+because a float-seconds accumulator stops advancing after about three days of
+uptime (a 16 ms frame at half speed rounds to nothing past 2^18 s); `t` is
+derived from it each frame.
 
 Both read the speed the **previous** frame resolved. That is a requirement, not
 a shortcut: a control computed from scaled time could not be turned back up out
@@ -371,7 +375,7 @@ would slide the LEDs off the music; that refusal is correct behaviour.
 
 The Pattern Slideshow generator has two clocks instead. `now = millis()` remains
 the real elapsed clock for interval expiry, transition progress and
-`phaseStart`. When Master Speed is present, `_showAnimSec` accumulates only
+`phaseStart`. When Master Speed is present, `_showAnimMs` accumulates only
 `dt * speed`, and the resulting `animNow` is the timestamp passed to every
 `renderPattern` call. At speed zero the current pattern's motion freezes, but
 the slideshow still reaches its next interval, crosses the transition in its

@@ -155,7 +155,7 @@ describe('board clock sync', () => {
   it('keeps _syncNowMs() as the Master Speed accumulator clock', () => {
     const cpp = normalSketch('follower', [node('speed', 'MasterSpeed', { speed: 1 })])
     expect(cpp).toContain('uint32_t _tNowMs = _syncNowMs();')
-    expect(cpp).toContain('float t = _tAnim;')
+    expect(cpp).toContain('float t = _tAnimMs / 1000.0f;')
   })
 
   it('broadcasts from the leader twice a second and receives on the follower', () => {

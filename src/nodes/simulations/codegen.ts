@@ -500,13 +500,15 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`    const int _count=max(${flowMin},min(${flowMax},(int)floorf(${f('count', 'count', 80)}))); static float ${px}[${flowMax}], ${py}[${flowMax}], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
     if (seed) ln(`    static bool _fs_${id}=false; if(!_fs_${id}){ random16_set_seed(${seed}u); _fs_${id}=true; }`)
     ln(`    if(!_fi_${id}){ for(int _i=0;_i<${flowMax};_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
-    ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*100);`)
+    // Noise axes wrap at their integer width before the cast: a float past the
+    // type's range is undefined to convert, and `t*100` passes 65535 in 11 minutes.
+    ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)fmodf(t*100.0f,65536.0f);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=constrain(${fadeL},0.0f,1.0f);`)
     ln(`    for(int _i=0;_i<_count;_i++){`)
     if (p.flowMode === 'curl') {
       // Central differences of inoise16 a CURL_EPS apart (in cells), turned a quarter turn.
       const eps = Math.round(CURL_EPS * 65536)
-      ln(`      uint32_t _cx=(uint32_t)(${px}[_i]*_sc*65536.0f),_cy=(uint32_t)(${py}[_i]*_sc*65536.0f),_cz=(uint32_t)(t*0.1f*65536.0f);`)
+      ln(`      uint32_t _cx=(uint32_t)(${px}[_i]*_sc*65536.0f),_cy=(uint32_t)(${py}[_i]*_sc*65536.0f),_cz=(uint32_t)fmodf(t*0.1f*65536.0f,4294967296.0f);`)
       ln(`      float _gx=((float)inoise16(_cx+${eps}u,_cy,_cz)-(float)inoise16(_cx-${eps}u,_cy,_cz))/(65535.0f*${2 * CURL_EPS}f);`)
       ln(`      float _gy=((float)inoise16(_cx,_cy+${eps}u,_cz)-(float)inoise16(_cx,_cy-${eps}u,_cz))/(65535.0f*${2 * CURL_EPS}f);`)
       ln(`      float _dx=_gy*${CURL_GAIN}f,_dy=-_gx*${CURL_GAIN}f;`)

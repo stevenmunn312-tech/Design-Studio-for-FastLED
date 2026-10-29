@@ -296,8 +296,12 @@ export function evaluateScalar(
   tick: number,
   gridW = DEFAULT_W,
   gridH = DEFAULT_H,
+  // Whether gated nodes (Expression, Custom Formula, Code) may run their
+  // preview logic; a probe over an untrusted workspace must read them as 0,
+  // exactly as the live render does.
+  trusted = true,
 ): number {
-  return evaluateScalarSeries(nodes, edges, nodeId, portId, [tick], gridW, gridH)[0]
+  return evaluateScalarSeries(nodes, edges, nodeId, portId, [tick], gridW, gridH, trusted)[0]
 }
 
 /**
@@ -313,11 +317,12 @@ export function evaluateScalarSeries(
   ticks: readonly number[],
   gridW = DEFAULT_W,
   gridH = DEFAULT_H,
+  trusted = true,
 ): number[] {
   if (nodes.length === 0) return ticks.map(() => 0)
   const shared = buildEvalMaps(nodes, edges)
   return ticks.map((tick) => {
-    const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, {}, '__scope__/', new Set(), {}, null, shared)
+    const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, {}, '__scope__/', new Set(), {}, null, shared, trusted)
     const v = evalNode(nodeId)?.[portId]
     return typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : 0
   })

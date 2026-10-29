@@ -61,7 +61,7 @@ vi.mock('../codeSandboxRuntime', async (importOriginal) => {
   }
 })
 
-import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphFullImpl, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
+import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphFullImpl, evaluateScalar, evaluateScalarSeries, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample } from '../../nodes/signal/wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -1099,6 +1099,18 @@ describe('evaluateGraph', () => {
     const untrustedFrame = evaluateGraph([cd, out], edges, 0, W, H, {}, '', new Set(), {}, null, false)
     expect(untrustedFrame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
     expect(codeSandbox.calls).toBe(0)
+  })
+
+  // The scalar probes build their own evaluator, so they take the flag too:
+  // a scope sampling an untrusted workspace reads a gated node as 0, as the
+  // live render does, rather than quietly running its formula.
+  it('evaluateScalar and evaluateScalarSeries honour the trusted flag', () => {
+    const ex = node('ex', 'Expression', 'math', { formula: '2 + 3' })
+    expect(evaluateScalar([ex], [], 'ex', 'result', 0)).toBe(5)
+    expect(evaluateScalar([ex], [], 'ex', 'result', 0, W, H, true)).toBe(5)
+    expect(evaluateScalar([ex], [], 'ex', 'result', 0, W, H, false)).toBe(0)
+    expect(evaluateScalarSeries([ex], [], 'ex', 'result', [0, 6], W, H, false)).toEqual([0, 0])
+    expect(evaluateScalarSeries([ex], [], 'ex', 'result', [0, 6], W, H, true)).toEqual([5, 5])
   })
 
   // The two recursion sites (the `Group` case and PatternMaster's per-pattern
@@ -5951,12 +5963,13 @@ describe('resetEvaluatorState', () => {
     resetEvaluatorState()
     const stats = getEvaluatorMemoryStats()
     expect(stats.trackedKeys).toBe(0)
-    // formulaCache/fieldFormulaCache are pure parse caches keyed by source
-    // text, and fourierTerms a coefficient cache keyed by outline, not
-    // per-instance state, so they are deliberately left alone.
+    // formulaCache/fieldFormulaCache/scalarFormulaCache are pure parse caches
+    // keyed by source text, and fourierTerms a coefficient cache keyed by
+    // outline, not per-instance state, so they are deliberately left alone.
     const perInstance = { ...stats.stateMaps }
     delete (perInstance as Record<string, number>).formulaCache
     delete (perInstance as Record<string, number>).fieldFormulaCache
+    delete (perInstance as Record<string, number>).scalarFormulaCache
     delete (perInstance as Record<string, number>).fourierTerms
     for (const [name, size] of Object.entries(perInstance)) {
       expect(`${name}=${size}`).toBe(`${name}=0`)

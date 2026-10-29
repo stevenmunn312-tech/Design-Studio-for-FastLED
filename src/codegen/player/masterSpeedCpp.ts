@@ -44,7 +44,7 @@ export function masterClockLoopCpp(emit: MasterSpeedEmit, synced = false): strin
   const lines = [
     '  // Master Speed: accumulate, never multiply — scaling millis() directly',
     '  // would jump every animation the instant the knob moved.',
-    '  static float _tAnim = 0.0f;',
+    ...scaledClockStaticsCpp('_tAnim'),
     '  static uint32_t _tLastMs = 0;',
   ]
   // A slider with nothing wired to it is a constant, so it needs no static and
@@ -55,11 +55,35 @@ export function masterClockLoopCpp(emit: MasterSpeedEmit, synced = false): strin
   lines.push(
     `  uint32_t _tNowMs = ${clock};`,
     // Zero on the first pass: there is no previous frame to have taken time.
-    '  if (_tLastMs) _tAnim += ((_tNowMs - _tLastMs) / 1000.0f) * _tSpeed;',
+    `  if (_tLastMs) ${scaledClockStepCpp('_tAnim', '_tNowMs - _tLastMs', '_tSpeed')}`,
     '  _tLastMs = _tNowMs;',
-    '  float t = _tAnim;',
+    '  float t = _tAnimMs / 1000.0f;',
   )
   return lines
+}
+
+/**
+ * The scaled clock's state: whole milliseconds as an exact integer, plus the
+ * fraction of a millisecond the last step left over.
+ *
+ * Accumulating `float` seconds looks simpler and fails on an installed
+ * fixture: a float has 24 bits, so once the clock passes about three days
+ * (2^18 seconds) a 16 ms frame is below half its resolution and rounds to
+ * nothing — at speed 0.5 the animation freezes outright, at 1 it alternates
+ * between skipping and double-stepping. Integer milliseconds are exact for
+ * the whole 49.7-day `millis()` range, and the remainder keeps a fractional
+ * speed exact over any number of frames.
+ */
+function scaledClockStaticsCpp(name: string): string[] {
+  return [
+    `  static uint32_t ${name}Ms = 0;      // scaled milliseconds, exact`,
+    `  static float ${name}Frac = 0.0f;    // sub-millisecond remainder of the last step`,
+  ]
+}
+
+/** One step of the scaled clock: `dtMsExpr` real milliseconds at `speedExpr`. Speed is never negative. */
+function scaledClockStepCpp(name: string, dtMsExpr: string, speedExpr: string): string {
+  return `{ float _step = (${dtMsExpr}) * ${speedExpr} + ${name}Frac; uint32_t _whole = (uint32_t)_step; ${name}Ms += _whole; ${name}Frac = _step - _whole; }`
 }
 
 /**
@@ -91,15 +115,15 @@ export function masterShowClockLoopCpp(emit: MasterSpeedEmit, wallMsExpr = 'now'
   const lines = [
     '  // Master Speed scales animation and Time/Wave controls. Slideshow timing keeps',
     '  // using the real millis() clock in now.',
-    '  static float _showAnimSec = 0.0f;',
+    ...scaledClockStaticsCpp('_showAnim'),
     '  static uint32_t _showAnimLastMs = 0;',
   ]
   if (emit.speedExpr) lines.push(`  static float _showAnimSpeed = ${emit.initial.toFixed(4)}f;`)
   else lines.push(`  const float _showAnimSpeed = ${emit.initial.toFixed(4)}f;`)
   lines.push(
-    `  if (_showAnimLastMs) _showAnimSec += ((${wallMsExpr} - _showAnimLastMs) / 1000.0f) * _showAnimSpeed;`,
+    `  if (_showAnimLastMs) ${scaledClockStepCpp('_showAnim', `${wallMsExpr} - _showAnimLastMs`, '_showAnimSpeed')}`,
     `  _showAnimLastMs = ${wallMsExpr};`,
-    '  uint32_t animNow = (uint32_t)(_showAnimSec * 1000.0f);',
+    '  uint32_t animNow = _showAnimMs;',
   )
   return lines
 }
