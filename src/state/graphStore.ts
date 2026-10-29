@@ -64,6 +64,7 @@ import {
   deriveControlShape,
 } from './player/performanceDeck'
 import { restoreMusicLibrary, type PersistedMusicEntry } from './player/musicLibraryPersistence'
+import { captureWorkspace, type PersistedWorkspace } from './workspacePersistence'
 import {
   isPlacedWidget,
   normalizeDisplayDocument,
@@ -456,6 +457,9 @@ interface GraphState {
  * undo instead of leaving it for the orphan sweep.
  */
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges' | 'graphData' | 'displayDocuments'>
+  // Ordinary steps carry graph content and trust. Recovery checkpoints also
+  // carry all workspace extras; musicLibrary (including []) identifies them.
+  & Partial<WorkspaceExtras>
 
 // Scene-level sources that are not bench parts but still stay in the parent
 // graph when a selection is encapsulated: each is one resource the whole scene
@@ -1218,6 +1222,7 @@ function restoreStashedHistory(graphId: string): void {
   const scope = { nodes, edges, graphData, activeGraphId }
   const currentRoot = { nodes: rootGraphNodes(scope), edges: rootGraphEdges(scope) }
   const rebase = (snapshots: Partial<HistorySlice>[]) => snapshots.map((snapshot) => {
+    if (snapshot.musicLibrary !== undefined) return snapshot
     if (graphId !== ROOT_GRAPH_ID) return { ...snapshot, graphData, displayDocuments }
     const historicRoot = {
       nodes: snapshot.nodes ?? currentRoot.nodes,
@@ -1548,6 +1553,7 @@ function restoreStashedDisplayHistory(displayId: string): void {
   stashedDisplayHistory.delete(displayId)
   const { nodes, edges, graphData, displayDocuments } = useGraphStore.getState()
   const rebase = (snapshots: Partial<HistorySlice>[]) => snapshots.map((snapshot) => {
+    if (snapshot.musicLibrary !== undefined) return snapshot
     const target = snapshot.displayDocuments?.[displayId]
     const rebasedDocuments = { ...displayDocuments }
     if (target) rebasedDocuments[displayId] = target
@@ -1656,6 +1662,7 @@ function scheduleOrphanGraphPrune(): void {
 // from the first call in a burst, and only push a snapshot once the burst has
 // gone quiet, using the most recent currentState/deltaState by then.
 let flushHistoryDebounce = (): void => {}
+let applyingHistory = false
 
 function debounceHandleSet<Fn extends (pastState: never, replace: never, currentState: never, deltaState?: never) => void>(
   fn: Fn,
@@ -2785,72 +2792,82 @@ export const useGraphStore = create<GraphState>()(
       },
 
       loadGraph: (nodes, edges, workspace) => {
+        flushHistoryDebounce()
+        preDragHistoryState = undefined
+        const temporalApi = useGraphStore.temporal.getState()
+        const wasTracking = temporalApi.isTracking
+        temporalApi.pause()
         // Replacing the workspace invalidates every graph's history, stashed
         // stacks included — otherwise entering a group whose id happens to
         // recur in the newly loaded workspace would restore the old project's
-        // undo steps. Callers clear the live stacks themselves right after.
+        // undo steps. The live stacks are cleared below as part of the load.
         clearStashedGraphHistory()
         // A load is not an edit: the board link's identity is never assigned
         // to a project as it opens (see the board link subscription below).
-        whileLoadingWorkspace(() => set(() => {
-          // Restore the active graph plus every stashed pattern-group subgraph.
-          const active = normalizeLoadedGraph(nodes, edges)
-          const graphData: Record<string, GraphContent> = {}
-          for (const [id, content] of Object.entries(workspace?.graphData ?? {})) {
-            graphData[id] = normalizeLoadedGraph(content.nodes ?? [], content.edges ?? [])
-          }
-          const graphs: Record<string, GraphMeta> = {
-            [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
-            ...(workspace?.graphs ?? {}),
-          }
-          const activeGraphId = workspace?.activeGraphId ?? ROOT_GRAPH_ID
-          // Sweep out subgraphs a previous session orphaned — undo history
-          // doesn't survive a load, so reachability from the loaded content
-          // alone decides what stays.
-          const pruned = pruneOrphanGraphData(
-            { nodes: active.nodes, graphData, graphs, activeGraphId },
-            [],
-          )
-          const loadedGraphData = pruned?.graphData ?? graphData
-          const buildProfile = normalizeBuildProfile(workspace?.buildProfile)
-          let displayDocuments = normalizeDisplayDocuments(workspace?.displayDocuments)
-          const rootContent = syncDisplayNodesInContent(
-            activeGraphId === ROOT_GRAPH_ID
-              ? { nodes: active.nodes, edges: active.edges }
-              : loadedGraphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] },
-            displayDocuments,
-          )
-          displayDocuments = pruneOrphanDisplayDocuments(displayDocuments, rootContent.nodes)
-          if (activeGraphId !== ROOT_GRAPH_ID) loadedGraphData[ROOT_GRAPH_ID] = rootContent
-          const rootNodes = activeGraphId === ROOT_GRAPH_ID
-            ? ensureRootBoardNode(rootContent.nodes)
-            : active.nodes
-          return {
-            ...active,
-            nodes: rootNodes,
-            ...(activeGraphId === ROOT_GRAPH_ID ? { edges: rootContent.edges } : {}),
-            graphData: loadedGraphData,
-            graphs: pruned?.graphs ?? graphs,
-            activeGraphId,
-            buildProfile,
-            selectedNodeId: null,
-            // Missing/undefined = trusted: this predates the trust field, so
-            // it's the user's own prior local work, not imported content.
-            trusted: workspace?.trusted ?? true,
-            // Missing/malformed = an empty deck — pre-existing saves, share
-            // links, and JSON imports created before this field all fall
-            // back safely rather than throwing.
-            performanceDeck: normalizeDeckConfig(workspace?.performanceDeck),
-            displayDocuments,
-            panicActive: false,
-            panicRestoreValues: null,
-          }
-        }))
-        noteLoadedBoardLink()
-        restoreMusicLibrary(workspace?.musicLibrary)
-        // The active board is a session choice about the project that was
-        // open; the one that just loaded starts on its primary.
-        useUiStore.getState().setActiveBoardId(primaryBoardId(rootGraphNodes(useGraphStore.getState())))
+        try {
+          whileLoadingWorkspace(() => set(() => {
+            // Restore the active graph plus every stashed pattern-group subgraph.
+            const active = normalizeLoadedGraph(nodes, edges)
+            const graphData: Record<string, GraphContent> = {}
+            for (const [id, content] of Object.entries(workspace?.graphData ?? {})) {
+              graphData[id] = normalizeLoadedGraph(content.nodes ?? [], content.edges ?? [])
+            }
+            const graphs: Record<string, GraphMeta> = {
+              [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+              ...(workspace?.graphs ?? {}),
+            }
+            const activeGraphId = workspace?.activeGraphId ?? ROOT_GRAPH_ID
+            // Sweep out subgraphs a previous session orphaned — undo history
+            // doesn't survive a load, so reachability from the loaded content
+            // alone decides what stays.
+            const pruned = pruneOrphanGraphData(
+              { nodes: active.nodes, graphData, graphs, activeGraphId },
+              [],
+            )
+            const loadedGraphData = pruned?.graphData ?? graphData
+            const buildProfile = normalizeBuildProfile(workspace?.buildProfile)
+            let displayDocuments = normalizeDisplayDocuments(workspace?.displayDocuments)
+            const rootContent = syncDisplayNodesInContent(
+              activeGraphId === ROOT_GRAPH_ID
+                ? { nodes: active.nodes, edges: active.edges }
+                : loadedGraphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] },
+              displayDocuments,
+            )
+            displayDocuments = pruneOrphanDisplayDocuments(displayDocuments, rootContent.nodes)
+            if (activeGraphId !== ROOT_GRAPH_ID) loadedGraphData[ROOT_GRAPH_ID] = rootContent
+            const rootNodes = activeGraphId === ROOT_GRAPH_ID
+              ? ensureRootBoardNode(rootContent.nodes)
+              : active.nodes
+            return {
+              ...active,
+              nodes: rootNodes,
+              ...(activeGraphId === ROOT_GRAPH_ID ? { edges: rootContent.edges } : {}),
+              graphData: loadedGraphData,
+              graphs: pruned?.graphs ?? graphs,
+              activeGraphId,
+              buildProfile,
+              selectedNodeId: null,
+              // Missing/undefined = trusted: this predates the trust field, so
+              // it's the user's own prior local work, not imported content.
+              trusted: workspace?.trusted ?? true,
+              // Missing/malformed = an empty deck — pre-existing saves, share
+              // links, and JSON imports created before this field all fall
+              // back safely rather than throwing.
+              performanceDeck: normalizeDeckConfig(workspace?.performanceDeck),
+              displayDocuments,
+              panicActive: false,
+              panicRestoreValues: null,
+            }
+          }))
+          noteLoadedBoardLink()
+          restoreMusicLibrary(workspace?.musicLibrary)
+          // The active board is a session choice about the project that was
+          // open; the one that just loaded starts on its primary.
+          useUiStore.getState().setActiveBoardId(primaryBoardId(rootGraphNodes(useGraphStore.getState())))
+          temporalApi.clear()
+        } finally {
+          if (wasTracking) temporalApi.resume()
+        }
       },
 
       duplicateNode: (id) =>
@@ -3059,7 +3076,8 @@ export const useGraphStore = create<GraphState>()(
         return active ? { edges: kept } : withRootContent(s, { edges: kept })
       }),
 
-      enterGraph: (id) =>
+      enterGraph: (id) => {
+        flushHistoryDebounce()
         set((s) => {
           if (id === s.activeGraphId || !s.graphs[id]) return s
           // Stash the current graph, load the target. Graph navigation is not
@@ -3089,7 +3107,8 @@ export const useGraphStore = create<GraphState>()(
             activeGraphId: id,
             selectedNodeId: null,
           }
-        }),
+        })
+      },
 
       createGroup: (name, nodeIds, options) => {
         // Every id this action mints (the Group node, its GroupOutput/GroupInput
@@ -3714,6 +3733,7 @@ export const useGraphStore = create<GraphState>()(
         edges: s.edges,
         graphData: s.graphData,
         displayDocuments: s.displayDocuments,
+        trusted: s.trusted,
       }),
       // Treat states as equal (don't snapshot) while any node is mid-drag —
       // but remember the state from just before the drag started, since the
@@ -3768,19 +3788,53 @@ useGraphStore.subscribe(() => {
   if (orphanPruneTimer) scheduleOrphanGraphPrune()
 })
 
-/*
- * A project's trust follows what it holds (see patternTrust.ts).
- *
- * While it is trusted, everything in it is work made on this machine, so it
- * is remembered as it is made: a formula typed here, or a pattern saved from
- * here, is known the next time it appears anywhere. While it is untrusted,
- * it becomes trusted again the moment nothing unknown is left in it - which
- * is also how a loaded file or share link made only of known content opens
- * trusted, since load paths start everything from elsewhere untrusted and
- * this decides. Paths that bring unknown content in (a pattern drop, a paste
- * from an untrusted project) set `trusted: false` in the same update, so
- * that content is never remembered on the way in.
- */
+// History may bring back content that was removed before it was trusted.
+// Only explicit trust and local edits may add new known fingerprints.
+const rawUndo = useGraphStore.temporal.getState().undo
+const rawRedo = useGraphStore.temporal.getState().redo
+const rawClear = useGraphStore.temporal.getState().clear
+function applyHistory(direction: 'undo' | 'redo', steps = 1): void {
+  flushHistoryDebounce()
+  for (let step = 0; step < steps; step++) {
+    const history = useGraphStore.temporal.getState()
+    const target = (direction === 'undo' ? history.pastStates : history.futureStates).at(-1)
+    if (!target) break
+    const inverse = target.musicLibrary !== undefined ? captureWorkspace(useGraphStore.getState()) : undefined
+    applyingHistory = true
+    try {
+      if (direction === 'undo') rawUndo()
+      else rawRedo()
+    } finally {
+      applyingHistory = false
+    }
+    if (inverse) {
+      restoreMusicLibrary(target.musicLibrary)
+      clearStashedGraphHistory()
+      noteLoadedBoardLink()
+      useUiStore.getState().setActiveBoardId(primaryBoardId(rootGraphNodes(useGraphStore.getState())))
+      const key = direction === 'undo' ? 'futureStates' : 'pastStates'
+      const stack = useGraphStore.temporal.getState()[key]
+      useGraphStore.temporal.setState({ [key]: [...stack.slice(0, -1), inverse] })
+    }
+  }
+}
+useGraphStore.temporal.setState({
+  undo: (steps) => applyHistory('undo', steps),
+  redo: (steps) => applyHistory('redo', steps),
+  clear: () => {
+    flushHistoryDebounce()
+    preDragHistoryState = undefined
+    rawClear()
+  },
+})
+
+/** Recovery replaces a workspace, but retains one explicit, complete undo step. */
+export function restoreWorkspaceSnapshot(workspace: PersistedWorkspace): void {
+  const previous = captureWorkspace(useGraphStore.getState())
+  useGraphStore.getState().loadGraph(workspace.nodes, workspace.edges, workspace)
+  useGraphStore.temporal.setState({ pastStates: [previous], futureStates: [] })
+}
+
 /*
  * A template's controls connect themselves once there is something to control.
  *
@@ -3812,10 +3866,25 @@ useGraphStore.subscribe((state, previous) => {
   }
 })
 
+/*
+ * A project's trust follows what it holds (see patternTrust.ts).
+ *
+ * While it is trusted, everything in it is work made on this machine, so it
+ * is remembered as it is made: a formula typed here, or a pattern saved from
+ * here, is known the next time it appears anywhere. While it is untrusted,
+ * it becomes trusted again the moment nothing unknown is left in it - which
+ * is also how a loaded file or share link made only of known content opens
+ * trusted, since load paths start everything from elsewhere untrusted and
+ * this decides. Paths that bring unknown content in (a pattern drop, a paste
+ * from an untrusted project) set `trusted: false` in the same update, so
+ * that content is never remembered on the way in.
+ */
 useGraphStore.subscribe((state, previous) => {
   if (state.nodes === previous.nodes && state.graphData === previous.graphData
     && state.trusted === previous.trusted) return
-  if (state.trusted) {
+  if (applyingHistory && !isContentKnown(state.nodes, state.graphData)) {
+    if (state.trusted) useGraphStore.setState({ trusted: false })
+  } else if (state.trusted) {
     rememberContent(state.nodes, state.graphData)
   } else if (isContentKnown(state.nodes, state.graphData)) {
     useGraphStore.setState({ trusted: true })

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
-import { useGraphStore } from '../../state/graphStore'
+import { restoreWorkspaceSnapshot } from '../../state/graphStore'
 import { loadSnapshots } from '../../state/snapshotHistory'
 import styles from './RecoverPopup.module.css'
 
@@ -36,8 +36,7 @@ export default function RecoverPopup() {
       tone: 'danger',
     })
     if (!ok) return
-    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck } = snap.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, performanceDeck })
+    restoreWorkspaceSnapshot(snap.workspace)
     setStatus(`Restored recovery snapshot from ${relativeTime(snap.timestamp)}`, 'success')
     closeRecover()
   }

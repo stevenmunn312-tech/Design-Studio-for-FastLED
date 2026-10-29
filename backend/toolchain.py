@@ -1701,27 +1701,42 @@ _TOOLCHAIN_ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 # Killing the process makes `_run_phase` return normally, so the generator
 # unwinds through its own `finally`: lock released, stashed libraries restored.
 _active_build_lock = threading.Lock()
-_active_build_proc: subprocess.Popen | None = None
-_build_cancelled = False
+_BUILD_CANCELLED = -130
+_build_context = threading.local()
+_active_builds: list[_BuildRun] = []
 
 
-def _register_build(proc: subprocess.Popen | None) -> None:
-    global _active_build_proc
-    with _active_build_lock:
-        _active_build_proc = proc
+class _BuildRun:
+    def __init__(self, cancellable=True):
+        self.cancellable = cancellable
+        self.cancelled = False
+        self.proc = None
 
 
 def _build_was_cancelled() -> bool:
-    with _active_build_lock:
-        return _build_cancelled
+    run = getattr(_build_context, "run", None)
+    return bool(run and run.cancelled)
 
 
-def _begin_build_run() -> None:
-    """Clear the cancelled flag as a new run starts, so one cancellation cannot
-    label the next build."""
-    global _build_cancelled
-    with _active_build_lock:
-        _build_cancelled = False
+def _background_build(function):
+    """Capacity checks share the engines but never own the user's Cancel button."""
+    @functools.wraps(function)
+    def wrapped(*args, **kwargs):
+        previous = getattr(_build_context, "cancellable", True)
+        _build_context.cancellable = False
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _build_context.cancellable = previous
+    return wrapped
+
+
+def _stop_build_process(proc) -> None:
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                       capture_output=True, check=False)
+    else:
+        proc.terminate()
 
 
 def _cancel_active_build() -> bool:
@@ -1731,18 +1746,16 @@ def _cancel_active_build() -> bool:
     long-lived `fbuild-daemon` child, so terminating the parent alone leaves the
     work running and the log silent.
     """
-    global _build_cancelled
     with _active_build_lock:
-        proc = _active_build_proc
-        if proc is None or proc.poll() is not None:
+        run = next((run for run in reversed(_active_builds)
+                    if run.cancellable and not run.cancelled), None)
+        if run is None:
             return False
-        _build_cancelled = True
+        run.cancelled = True
+        proc = run.proc
     try:
-        if sys.platform == "win32":
-            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
-                           capture_output=True, check=False)
-        else:
-            proc.terminate()
+        if proc is not None and proc.poll() is None:
+            _stop_build_process(proc)
     except Exception:
         return False
     return True
@@ -1801,6 +1814,39 @@ def _format_duration(seconds: float) -> str:
     return f"{hours}h {minutes:02d}m {secs:02d}s"
 
 
+def _with_build_run(function):
+    """Keep one cancellation token across phases and streaming worker changes."""
+    @functools.wraps(function)
+    def wrapped(*args, **kwargs):
+        if getattr(_build_context, "run", None) is not None:
+            return (yield from function(*args, **kwargs))
+        run = _BuildRun(getattr(_build_context, "cancellable", True))
+        generator = function(*args, **kwargs)
+        with _active_build_lock:
+            _active_builds.append(run)
+        try:
+            while True:
+                previous = getattr(_build_context, "run", None)
+                _build_context.run = run
+                try:
+                    line = next(generator)
+                except StopIteration as result:
+                    return result.value
+                finally:
+                    _build_context.run = previous
+                yield line
+        finally:
+            previous = getattr(_build_context, "run", None)
+            _build_context.run = run
+            try:
+                generator.close()
+            finally:
+                _build_context.run = previous
+                with _active_build_lock:
+                    _active_builds.remove(run)
+    return wrapped
+
+
 def _reports_total_time(compile_upload):
     """Wrap a compile/upload generator so every run ends with one
     `[time] total ...` line, whichever engine ran it.
@@ -1818,9 +1864,12 @@ def _reports_total_time(compile_upload):
     it never compiled or flashed anything, and a duration printed beside
     "DID NOT RUN" would read as a build that took that long."""
     @functools.wraps(compile_upload)
+    @_with_build_run
     def timed(*args, **kwargs):
         started = time.monotonic()
         rc, phase = yield from compile_upload(*args, **kwargs)
+        if _build_was_cancelled():
+            rc = _BUILD_CANCELLED
         if phase != "busy":
             yield f"  [time] total {_format_duration(time.monotonic() - started)}\n"
         return rc, phase
@@ -1849,12 +1898,16 @@ def _missing_engine(label, engine, hint):
     return -1, "compile"
 
 
+@_with_build_run
 def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
     """Run one build-tool phase (arduino-cli or fbuild), yielding its output
     lines; returns the exit code. If `sink` (a list) is given, each output line
     is also appended to it so the caller can inspect the phase output (e.g. to
     parse the flash/RAM size report)."""
-    _begin_build_run()
+    run = _build_context.run
+    if run.cancelled:
+        yield "\n*** CANCELLED *** Stopped at your request.\n"
+        return _BUILD_CANCELLED
     # A None here means an engine binary went unresolved upstream. Report it as
     # a launch failure rather than raising out of the generator mid-stream: the
     # caller is streaming this to a log or the Output console, and a TypeError
@@ -1863,6 +1916,9 @@ def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
         yield f"[error] {label}: no build tool to run — the engine binary was not found\n"
         return -1
     yield f"\n=== {label} ===\n$ {' '.join(str(arg) for arg in args)}\n"
+    if run.cancelled:
+        yield "\n*** CANCELLED *** Stopped at your request.\n"
+        return _BUILD_CANCELLED
     started = time.monotonic()
     try:
         proc = subprocess.Popen(
@@ -1874,26 +1930,36 @@ def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
     except Exception as e:
         yield f"[error] failed to launch {args[0]}: {e}\n"
         return -1
-    _register_build(proc)
-    for line in _iter_stream_lines(proc.stdout):
-        if sink is not None:
-            sink.append(line)
-        # Evidence that this build is alive. Only a running holder reaches here,
-        # so a generator abandoned mid-stream stops stamping and eventually
-        # becomes reclaimable — see `_FbuildBuildLock`. A no-op for the
-        # arduino-cli path, which shares this helper but holds no lock.
-        _fbuild_build_lock.touch()
-        yield line
-    proc.wait()
+    with _active_build_lock:
+        run.proc = proc
+        cancelled = run.cancelled
+    if cancelled:
+        _stop_build_process(proc)
+    try:
+        for line in _iter_stream_lines(proc.stdout):
+            if sink is not None:
+                sink.append(line)
+            # Evidence that this build is alive. Only a running holder reaches here,
+            # so a generator abandoned mid-stream stops stamping and eventually
+            # becomes reclaimable — see `_FbuildBuildLock`. A no-op for the
+            # arduino-cli path, which shares this helper but holds no lock.
+            _fbuild_build_lock.touch()
+            yield line
+        proc.wait()
+    finally:
+        with _active_build_lock:
+            run.proc = None
+        if proc.poll() is None:
+            _stop_build_process(proc)
+            proc.wait()
     elapsed = time.monotonic() - started
-    _register_build(None)
-    if _build_was_cancelled():
+    if run.cancelled:
         # Said before the exit code, and in a form `parseStatus` checks first:
         # a killed process exits non-zero, and reporting that as a build failure
         # would send the user looking for a fault in a graph they simply changed
         # their mind about.
-        yield "\n*** CANCELLED *** Stopped at your request — nothing was sent to the board.\n"
-        return proc.returncode
+        yield "\n*** CANCELLED *** Stopped at your request.\n"
+        return _BUILD_CANCELLED
     yield f"[{label} exit code: {proc.returncode} · {_format_duration(elapsed)}]\n"
     return proc.returncode
 

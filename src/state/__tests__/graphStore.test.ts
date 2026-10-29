@@ -546,6 +546,7 @@ describe('graphStore — grouping', () => {
     reset([node('sc', 'SolidColor', { r: 0, g: 0, b: 255 })], [])
     const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
     const rootBefore = useGraphStore.getState().nodes
+    useGraphStore.temporal.getState().clear()
     useGraphStore.temporal.setState({ pastStates: [{ nodes: rootBefore, edges: [] }], futureStates: [] })
 
     useGraphStore.getState().enterGraph(gid)

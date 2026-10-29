@@ -347,12 +347,13 @@ export default function App() {
   const lastSnapshotRef = useRef<string>('')
   useEffect(() => {
     const timer = setInterval(() => {
-      const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck, displayDocuments } = useGraphStore.getState()
-      if (nodes.length === 0) return
-      const serialized = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck, displayDocuments })
+      if (!workspaceHydrated.current || isMusicLibraryRestoring()) return
+      const workspace = captureWorkspace(useGraphStore.getState())
+      if (workspace.nodes.length === 0) return
+      const serialized = JSON.stringify(workspace)
       if (serialized === lastSnapshotRef.current) return
       lastSnapshotRef.current = serialized
-      pushSnapshot({ nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck, displayDocuments })
+      pushSnapshot(workspace)
     }, SNAPSHOT_INTERVAL)
     return () => clearInterval(timer)
   }, [])
