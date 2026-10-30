@@ -939,6 +939,18 @@ describe('Internet Radio Music Player sketch', () => {
     expect(code).toContain('audio.setConnectionTimeout(1500, 4000);')
   })
 
+  // On a phone hotspot every station failed with the library's bare "Request
+  // failed!"; the log has to say whether the name lookup or the server failed.
+  it('says whether the name lookup or the server failed', () => {
+    const code = sketch()
+    expect(code).toContain('if (!WiFi.hostByName(host, ip)) {')
+    expect(code).toContain('_radioWhy = "name lookup failed";')
+    expect(code).toContain('_radioWhy = "the server did not answer";')
+    expect(code).toContain('if (_radioState == RADIO_IDLE) _radioSkip(_radioWhy);')
+    // Every printf format ends in an escape, never a raw line break.
+    expect(code).not.toMatch(/Serial\.printf\("[^"\n]*\n/)
+  })
+
   it('changes station with Next and Previous, and judges no paused stream', () => {
     expect(sketch()).not.toMatch(/radioSelect|playerPaused/)
     const code = sketch({ controls })

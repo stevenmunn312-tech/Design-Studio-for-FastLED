@@ -505,13 +505,38 @@ ${page ? '  strlcpy(_radioTitle, info, sizeof(_radioTitle));\n' : ''}${songInfo 
 ` : ''}  Serial.printf("[radio] now playing: %s\\n", info);
 }
 
+// Why the last connect failed, for the skip line.
+static const char *_radioWhy = "no connection";
+
 static void _radioConnect() {
   const RadioStation &station = _radioList[radioIndex];
 ${songInfo ? '  songReset(nullptr);\n  _songSet(songAlbum, station.name);   // the station is the album a panel shows\n' : ''}${page ? '  _radioTitle[0] = 0;\n' : ''}  Serial.printf("[radio] %u/%u %s  %s\\n", radioIndex + 1, _radioCount, station.name, station.url);
   _radioClockMs = 0;
   _radioStateMs = millis();
   _radioState = RADIO_CONNECTING;
-  if (!audio.connecttohost(station.url)) _radioState = RADIO_IDLE;
+  // The name is looked up first so a failure says which step failed. Both
+  // read "Request failed!" from the library, and they need different fixes:
+  // a lookup that fails is the network's DNS, a server that does not answer
+  // is the station. The library's own lookup then hits lwIP's cache.
+  char host[RADIO_URL_BYTES];
+  const char *start = strstr(station.url, "://") + 3;
+  size_t n = strcspn(start, "/:?");
+  memcpy(host, start, n);
+  host[n] = 0;
+  IPAddress ip;
+  uint32_t lookupMs = millis();
+  if (!WiFi.hostByName(host, ip)) {
+    Serial.printf("[radio] could not look up %s (%lums, DNS server %s)\\n",
+                  host, (unsigned long)(millis() - lookupMs), WiFi.dnsIP().toString().c_str());
+    _radioWhy = "name lookup failed";
+    _radioState = RADIO_IDLE;
+    return;
+  }
+  if (!audio.connecttohost(station.url)) {
+    Serial.printf("[radio] %s (%s) did not answer\\n", host, ip.toString().c_str());
+    _radioWhy = "the server did not answer";
+    _radioState = RADIO_IDLE;
+  }
 }
 
 // The station did not play: move on, and rest once every station has failed.
@@ -558,7 +583,7 @@ static void radioService() {
     case RADIO_IDLE:
     case RADIO_OFFLINE:
       _radioConnect();
-      if (_radioState == RADIO_IDLE) _radioSkip("no connection");
+      if (_radioState == RADIO_IDLE) _radioSkip(_radioWhy);
       break;
     case RADIO_CONNECTING:
       if (audio.getBitRate() != 0) {
@@ -583,7 +608,7 @@ static void radioService() {
         Serial.println("[radio] stream dropped, reconnecting");
         audio.stopSong();
         _radioConnect();
-        if (_radioState == RADIO_IDLE) _radioSkip("no connection");
+        if (_radioState == RADIO_IDLE) _radioSkip(_radioWhy);
       } else {
         _radioSkip("the stream keeps dropping");
       }
