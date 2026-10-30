@@ -939,6 +939,24 @@ describe('Internet Radio Music Player sketch', () => {
     expect(code).toContain('audio.setConnectionTimeout(1500, 4000);')
   })
 
+  // A station change froze the LEDs 0.4-1.2 s: the name lookup, connect,
+  // redirects and decoder start all ran in the LED loop.
+  it('talks to the stream only from the radio task, never the LED loop', () => {
+    const code = sketch({ controls })
+    const task = code.slice(code.indexOf('static void _radioTaskLoop(void *) {'), code.indexOf('static void radioStartTask()'))
+    expect(task).toContain('audio.loop();')
+    expect(task).toContain('radioService();')
+    expect(task).toContain('vTaskDelay(1);')
+    expect(code).toContain('xTaskCreatePinnedToCore(_radioTaskLoop, "radio", 8192, nullptr, 2, nullptr, 0);')
+    expect(code).toMatch(/radioSetup\(\);\n[\s\S]*radioStartTask\(\);/)
+    const loop = code.slice(code.indexOf('void loop() {')).replace(/\/\/.*$/gm, '')
+    expect(loop).not.toMatch(/audio\.loop\(\)|radioService\(\)|audio\.stopSong\(\)|audio\.connecttohost/)
+    // Next and Previous only ask; the task switches.
+    expect(code).toContain('static void radioSelect(uint16_t index) {\n  _radioRequest = index;\n}')
+    const service = code.slice(code.indexOf('static void radioService()'), code.indexOf('static uint32_t radioClockMs()'))
+    expect(service).toContain('_radioApplyRequest();')
+  })
+
   // ESP32-audioI2S 3.0.12 never advances getAudioCurrentTime() for a web
   // stream, so judging a stall by it reconnected every station every 10 s.
   it('judges a stalled stream by its data, not the decoded clock', () => {

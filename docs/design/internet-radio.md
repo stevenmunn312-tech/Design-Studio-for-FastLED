@@ -67,8 +67,16 @@ gets the same answer, a watchdog around the library:
 - Without Wi-Fi nothing is attempted; a paused stream is judged from the
   moment it resumes.
 
-`connecttohost` waits for the TCP connection, so a dead host freezes the LED
-loop for up to the connect timeout; the sketch sets 1.5 s (4 s for TLS). The
+Everything that talks to the stream runs on a radio task pinned to core 0
+(`_radioTaskLoop`, priority 2): `audio.loop()`, which parses headers, follows
+redirects and opens the decoder, the station state machine above, and the
+phone page. Run in the LED loop these froze the LEDs for 0.4-1.2 s on every
+station change. Next, Previous and the page only post a request
+(`radioSelect`) that the task applies; song text reaches a panel through
+`songPoll()`, which copies the task's staged fields under a lock.
+
+`connecttohost` waits for the TCP connection, so a dead host holds the radio
+task for up to the connect timeout; the sketch sets 1.5 s (4 s for TLS). The
 sketch looks the host up first, so the log says whether the name lookup or
 the server failed (the library prints only "Request failed!" for both). A
 lookup can stall far longer than the connect timeout on a flaky DNS server

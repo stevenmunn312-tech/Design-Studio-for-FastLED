@@ -2734,7 +2734,7 @@ ${hasDisplays ? '  songPoll();\n' : ''}${decoderTap ? '  updateDecoderAudio();  
   }
 
   _netEnsureConnected();   // never blocks; retries every few seconds until joined
-  audio.loop();
+  // audio.loop() and the stations run on the radio task (radioStartTask).
 ${lines(radioFirmware!.loop)}${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has fed I2S\n' : ''}
 ` : `  if (!provTransferring && millis() - _dbgLast >= 2000) {
     _dbgLast = millis();

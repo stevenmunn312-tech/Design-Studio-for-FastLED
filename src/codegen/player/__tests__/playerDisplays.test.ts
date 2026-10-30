@@ -105,8 +105,11 @@ describe('displays in the player sketch', () => {
     expect(radio).toContain('!_netConnected() ? "NO WI-FI" : (!_radioCount ? "NO STATIONS" : nullptr)')
     expect(radio.indexOf('static uint16_t _radioCount')).toBeLessThan(radio.indexOf('const char *_oledFault_oled'))
     // The station is the album a panel shows, and its stream title the track.
-    expect(radio).toContain('_songSet(songAlbum, station.name);')
-    expect(radio).toContain('_songSet(songTitle, dash + 3);')
+    // The radio task stages them; the loop copies them in, under one lock.
+    expect(radio).toContain('strlcpy(_radioSongAlbum, station.name, sizeof(_radioSongAlbum));')
+    expect(radio).toContain('strlcpy(title, dash + 3, sizeof(title));')
+    expect(radio).toContain('_songSet(songAlbum, _radioSongAlbum);')
+    expect(radio).toMatch(/void loop\(\) \{[\s\S]*songPoll\(\);/)
   })
 
   /*

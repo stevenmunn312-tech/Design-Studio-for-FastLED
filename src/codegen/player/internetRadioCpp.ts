@@ -71,7 +71,7 @@ export interface InternetRadioFirmware {
   functions: string
   /** `setup()` lines, after the audio pins and volume are set. */
   setup: string[]
-  /** `loop()` lines, after `audio.loop()`. */
+  /** `loop()` lines: what the loop still does for the radio task. */
   loop: string[]
 }
 
@@ -475,8 +475,8 @@ ${editable ? `    uint8_t phone = prefs.getUChar("pc", 0);
   }
   if (_radioSavedIndex >= 0 && _radioSavedIndex < _radioCount) radioIndex = (uint16_t)_radioSavedIndex;
   if (_radioCount == 0) Serial.println("[radio] no stations: add some on the node${options.card ? `, in ${RADIO_CARD_PLAYLIST} on the card` : ''}${editable ? ' or from the phone page' : ''}");
-  // The library's own connect timeouts, in ms: a dead host costs this much of
-  // a frozen LED loop, since connecttohost waits for the connection.
+  // The library's own connect timeouts, in ms: connecttohost waits for the
+  // connection, so a dead host holds the radio task this long.
   audio.setConnectionTimeout(1500, 4000);
 }
 
@@ -491,20 +491,44 @@ static void _radioRemember() {
 }
 
 // ── Internet radio: playing ──────────────────────────────────────────────────
-// "Artist - Title" by convention; a station that sends one string keeps it
-// as the title. Arrives from audio.loop(), so on the loop's own task.
+${songInfo ? `// The radio task fills these and songPoll() copies them into the song fields
+// in the loop, so a panel never draws a title the task is halfway through.
+static portMUX_TYPE _radioSongMux = portMUX_INITIALIZER_UNLOCKED;
+static char _radioSongTitle[SONG_FIELD_BYTES] = "";
+static char _radioSongArtist[SONG_FIELD_BYTES] = "";
+static char _radioSongAlbum[SONG_FIELD_BYTES] = "";
+static bool _radioSongDirty = false;
+
+static void songPoll() {
+  portENTER_CRITICAL(&_radioSongMux);
+  if (_radioSongDirty) {
+    _songSet(songTitle, _radioSongTitle);
+    _songSet(songArtist, _radioSongArtist);
+    _songSet(songAlbum, _radioSongAlbum);
+    _radioSongDirty = false;
+  }
+  portEXIT_CRITICAL(&_radioSongMux);
+}
+
+` : ''}// "Artist - Title" by convention; a station that sends one string keeps it
+// as the title. Arrives from audio.loop(), so on the radio task.
 void audio_showstreamtitle(const char *info) {
-${page ? '  strlcpy(_radioTitle, info, sizeof(_radioTitle));\n' : ''}${songInfo ? `  const char *dash = strstr(info, " - ");
+${page ? '  strlcpy(_radioTitle, info, sizeof(_radioTitle));\n' : ''}${songInfo ? `  char artist[SONG_FIELD_BYTES] = "", title[SONG_FIELD_BYTES];
+  const char *dash = strstr(info, " - ");
   if (dash) {
     size_t n = (size_t)(dash - info);
     if (n > SONG_FIELD_BYTES - 1) n = SONG_FIELD_BYTES - 1;
-    memcpy(songArtist, info, n);
-    songArtist[n] = 0;
-    _songSet(songTitle, dash + 3);
+    memcpy(artist, info, n);
+    artist[n] = 0;
+    strlcpy(title, dash + 3, sizeof(title));
   } else {
-    songArtist[0] = 0;
-    _songSet(songTitle, info);
+    strlcpy(title, info, sizeof(title));
   }
+  portENTER_CRITICAL(&_radioSongMux);
+  memcpy(_radioSongArtist, artist, sizeof(artist));
+  memcpy(_radioSongTitle, title, sizeof(title));
+  _radioSongDirty = true;
+  portEXIT_CRITICAL(&_radioSongMux);
 ` : ''}  Serial.printf("[radio] now playing: %s\\n", info);
 }
 
@@ -513,7 +537,14 @@ static const char *_radioWhy = "no connection";
 
 static void _radioConnect() {
   const RadioStation &station = _radioList[radioIndex];
-${songInfo ? '  songReset(nullptr);\n  _songSet(songAlbum, station.name);   // the station is the album a panel shows\n' : ''}${page ? '  _radioTitle[0] = 0;\n' : ''}  Serial.printf("[radio] %u/%u %s  %s\\n", radioIndex + 1, _radioCount, station.name, station.url);
+${songInfo ? `  portENTER_CRITICAL(&_radioSongMux);
+  _radioSongTitle[0] = 0;
+  _radioSongArtist[0] = 0;
+  strlcpy(_radioSongAlbum, station.name, sizeof(_radioSongAlbum));   // the station is the album a panel shows
+  _radioSongDirty = true;
+  portEXIT_CRITICAL(&_radioSongMux);
+  songBitrateKbps = 0;
+` : ''}${page ? '  _radioTitle[0] = 0;\n' : ''}  Serial.printf("[radio] %u/%u %s  %s\\n", radioIndex + 1, _radioCount, station.name, station.url);
   _radioClockMs = 0;
   _radioStateMs = millis();
   _radioState = RADIO_CONNECTING;
@@ -560,9 +591,18 @@ static void _radioSkip(const char *why) {
   }
 }
 
+// Next, Previous and the phone page only ask for a station; the radio task
+// makes the switch, so nothing in the LED loop waits on stopSong().
+static volatile int32_t _radioRequest = -1;
+
 static void radioSelect(uint16_t index) {
-  if (index >= _radioCount) return;
-  radioIndex = index;
+  _radioRequest = index;
+}
+
+static void _radioApplyRequest() {
+  int32_t index = __atomic_exchange_n(&_radioRequest, -1, __ATOMIC_ACQ_REL);
+  if (index < 0 || index >= _radioCount) return;
+  radioIndex = (uint16_t)index;
   audio.stopSong();
 ${transport ? '  playerPaused = false;\n' : ''}  _radioFailStreak = 0;
   _radioRetries = 0;
@@ -573,6 +613,7 @@ static void radioService() {
   uint32_t now = millis();
   if (_radioState == RADIO_PLAYING && !${paused}) _radioClockMs += now - _radioTickMs;
   _radioTickMs = now;
+  _radioApplyRequest();
   if (_radioCount == 0) return;
   if (!_netConnected()) {
     if (_radioState != RADIO_OFFLINE) {
@@ -638,13 +679,27 @@ static const char *radioStateName() {
     default: return _radioCount ? "starting" : "no-stations";
   }
 }
-${page ? pageFunctionsCpp(page) : ''}`
+${page ? pageFunctionsCpp(page) : ''}
+// Everything that talks to the stream runs here, on core 0, never in the LED
+// loop: audio.loop() (which parses headers, follows redirects and opens the
+// decoder), the station state machine (name lookup, connect, stop)${page ? ' and the\n// phone page' : ''}. A station change used to freeze the LEDs for 0.4-1.2 s.
+static void _radioTaskLoop(void *) {
+  for (;;) {
+    audio.loop();
+    radioService();
+${page ? '    radioPageService();\n' : ''}    vTaskDelay(1);
+  }
+}
+
+static void radioStartTask() {
+  xTaskCreatePinnedToCore(_radioTaskLoop, "radio", 8192, nullptr, 2, nullptr, 0);
+}`
 
   return {
     includes,
     globals,
     functions,
-    setup: ['  radioSetup();', ...(page ? ['  radioPageSetup();'] : [])],
-    loop: ['  radioService();', ...(page ? ['  radioPageService();'] : [])],
+    setup: ['  radioSetup();', ...(page ? ['  radioPageSetup();'] : []), '  radioStartTask();'],
+    loop: songInfo ? ['  songPoll();'] : [],
   }
 }
