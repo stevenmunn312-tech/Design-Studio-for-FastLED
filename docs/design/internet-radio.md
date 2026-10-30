@@ -80,7 +80,10 @@ announces.
 
 `stationPage` serves a page for choosing a station from a phone on the same
 network, on port 80, or 8080 when a Web Remote already serves port 80. It
-announces the board over mDNS unless a Web Remote already does.
+announces the board over mDNS unless a Web Remote already does. Its address
+by IP is in the serial log when Wi-Fi comes up and in every 2-second status
+line (`page=`), since a `.local` name does not resolve everywhere: Chrome on
+Windows answers `DNS_PROBE_FINISHED_NXDOMAIN` for a board that is up.
 
 ### Security
 

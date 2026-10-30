@@ -18,8 +18,8 @@ versioning (`0.y.z`) until the first stable release.
   `stations.m3u` on the SD card replaces the list without a new build, and
   the optional Phone Station Page picks stations from a phone, and with an
   access code adds and removes them. The preview plays the stations too,
-  through the upload helper, and its patterns react to them. Any ESP32 with
-  Wi-Fi. Experimental.
+  through the upload helper, and its patterns react to them. The board prints
+  the station page's address on serial. Any ESP32 with Wi-Fi. Experimental.
 
 - **Bluetooth music on the Music Player.** Set Music Source to Bluetooth and
   the board becomes a speaker a phone pairs with under Bluetooth Name: it
@@ -553,6 +553,8 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Two Performance Deck scenes saved in the same millisecond no longer share
+  an id, which left a morph between them standing still.
 - A Music Player's patterns in the preview animate at the preview's frame
   rate while a track or station plays. Their clock is the track position,
   which the preview took from the audio element's progress events, about four

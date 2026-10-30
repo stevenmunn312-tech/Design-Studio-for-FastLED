@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../graphStore'
 import { usePerformanceDeckSession } from '../performanceDeckSessionStore'
 import { applyMidiEventToBindings, setMorphScenes } from '../performanceDeckActions'
@@ -43,6 +43,18 @@ describe('performance deck MIDI bindings with the panel closed', () => {
 
     applyMidiEventToBindings({ kind: 'cc', channel: 0, number: 1, value: 1 })
     expect(red()).toBe(100)
+  })
+
+  // Ids were `scene-${Date.now()}`: two saves in one millisecond (as above,
+  // on a fast CI runner) shared one, and the morph went nowhere.
+  it('gives scenes saved in the same millisecond their own ids', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000)
+    try {
+      const store = useGraphStore.getState()
+      expect(store.saveScene('A')).not.toBe(store.saveScene('B'))
+    } finally {
+      now.mockRestore()
+    }
   })
 
   it('an unpaired crossfader leaves the graph alone', () => {

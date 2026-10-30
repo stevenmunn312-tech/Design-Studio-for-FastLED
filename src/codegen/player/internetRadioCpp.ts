@@ -44,6 +44,10 @@ export interface InternetRadioPage {
   port: number
   /** The mDNS name to announce, or null when a Web Remote already announces the board. */
   mdnsName: string | null
+  /** The name the board answers to on the network, for the serial log. */
+  hostName: string
+  /** The board reaches the network by cable (ETH), not Wi-Fi. */
+  wired: boolean
   /** Lets the page add and remove stations; empty means choose only. */
   accessCode: string
 }
@@ -318,13 +322,23 @@ ${editable ? `  _radioServer.on("/radio/add", HTTP_POST, _radioHandleAdd);
 ` : ''}  _radioServer.onNotFound([]() { _radioServer.send(404, "text/plain", "Not found"); });
 }
 
+// Where a phone finds the page, by address: a .local name does not resolve
+// everywhere (Chrome on Windows), so the serial log names the IP as well.
+// Read each time, so a new DHCP lease after a reconnect is what it says.
+static const char *radioPageAddress() {
+  static char address[40];
+  snprintf(address, sizeof address, "http://%s${page.port === 80 ? '' : `:${page.port}`}/",
+           ${page.wired ? 'ETH' : 'WiFi'}.localIP().toString().c_str());
+  return address;
+}
+
 // Serves at most one waiting request per pass, never waits for one.
 static void radioPageService() {
   if (!_netConnected()) return;
   if (!_radioServerStarted) {
     _radioServer.begin();
 ${page.mdnsName ? `    if (MDNS.begin(${cppStringLiteral(page.mdnsName)})) MDNS.addService("http", "tcp", ${page.port});\n` : ''}    _radioServerStarted = true;
-    Serial.println("[radio] station page started on port ${page.port}");
+    Serial.printf("[radio] station page: %s (%s)\\n", radioPageAddress(), ${cppStringLiteral(`http://${page.hostName}.local${page.port === 80 ? '' : `:${page.port}`}/`)});
   }
   _radioServer.handleClient();
 }

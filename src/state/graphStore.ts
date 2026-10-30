@@ -1947,7 +1947,9 @@ export const useGraphStore = create<GraphState>()(
         })),
 
       saveScene: (name) => {
-        const id = `scene-${Date.now()}`
+        // Suffixed like a pin's id: two scenes saved in the same millisecond
+        // shared an id, and a morph between them interpolated one with itself.
+        const id = `scene-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
         set((s) => {
           const now = Date.now()
           const values = pinnedValues(s)

@@ -2686,9 +2686,9 @@ ${hasDisplays ? '  songPoll();\n' : ''}${decoderTap ? '  updateDecoderAudio();  
     _dbgLast = millis();
     // radio= says where the station stands: a board waiting for Wi-Fi, or one
     // resting after every station failed, otherwise looks idle.
-    Serial.printf("[status] uptime=%lus radio=%s station=%u/%u audioPos=%lu pattern=%u\\n",
+    Serial.printf("[status] uptime=%lus radio=%s station=%u/%u audioPos=%lu pattern=%u${radio.page ? ' page=%s' : ''}\\n",
                   millis() / 1000, radioStateName(), radioIndex + 1, _radioCount,
-                  (unsigned long)audioPosMs, patternId);
+                  (unsigned long)audioPosMs, patternId${radio.page ? ', _netConnected() ? radioPageAddress() : "offline"' : ''});
   }
 
   _netEnsureConnected();   // never blocks; retries every few seconds until joined

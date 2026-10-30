@@ -47,6 +47,7 @@ import { bluetoothDeviceName } from '../state/player/bluetoothSink'
 import { normalizeRadioStations, radioAccessCodeProblem, radioStationPagePort } from '../state/player/radioStations'
 import { networkSketchCpp, networkSourceIn } from '../codegen/peripherals/networkCpp'
 import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
+import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { webRemoteMdnsName } from '../state/peripherals/webRemote'
 import { asSlideshowOrder } from '../state/patterns/patternSlideshow'
 import { asPatternSteps } from '../state/patterns/patternSequence'
@@ -266,6 +267,8 @@ function internetRadioFromGraph(nodes: StudioNode[], player: StudioNode) {
           port: radioStationPagePort(hasWebRemote),
           // A Web Remote announces the board already; a second MDNS.begin would fight it.
           mdnsName: hasWebRemote ? null : webRemoteMdnsName((source.data.properties as Record<string, unknown>).wifiHostname),
+          hostName: webRemoteMdnsName((source.data.properties as Record<string, unknown>).wifiHostname),
+          wired: wiredNetworkIn(nodes) !== null,
           accessCode: radioAccessCodeProblem(code) === null ? code : '',
         }
       : null,

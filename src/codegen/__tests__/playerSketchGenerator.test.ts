@@ -956,16 +956,23 @@ describe('Internet Radio Music Player sketch', () => {
   })
 
   it('serves a station page that refuses cross-site posts, and edits only with a code', () => {
-    const choose = sketch({}, { page: { port: 80, mdnsName: 'fastled-radio', accessCode: '' } })
+    const choose = sketch({}, { page: { port: 80, mdnsName: 'fastled-radio', hostName: 'fastled-radio', wired: false, accessCode: '' } })
     expect(choose).toContain('WebServer _radioServer(80);')
     expect(choose).toContain('if (_radioServer.hasHeader("X-Radio")) return true;')
     expect(choose).toContain('MDNS.begin("fastled-radio")')
+    // The address by IP too, at start and in every status line: a .local
+    // name does not resolve in Chrome on Windows.
+    expect(choose).toContain('WiFi.localIP().toString().c_str()')
+    expect(choose).toContain('Serial.printf("[radio] station page: %s (%s)\\n", radioPageAddress(), "http://fastled-radio.local/");')
+    expect(choose).toContain(' page=%s\\n"')
     expect(choose).not.toMatch(/RADIO_ACCESS_CODE|\/radio\/add|Preferences prefs;\s+if \(!prefs\.begin\("flsradio", false\)\) return;\s+uint8_t n/)
-    const edit = sketch({}, { page: { port: 8080, mdnsName: null, accessCode: 'secret-123' } })
+    const edit = sketch({}, { page: { port: 8080, mdnsName: null, hostName: 'fastled-remote', wired: true, accessCode: 'secret-123' } })
     expect(edit).toContain('static const char RADIO_ACCESS_CODE[] = "secret-123";')
     expect(edit).toContain('_radioServer.on("/radio/add", HTTP_POST, _radioHandleAdd);')
     expect(edit).toContain('WebServer _radioServer(8080);')
     expect(edit).not.toContain('MDNS.begin(')
+    expect(edit).toContain('snprintf(address, sizeof address, "http://%s:8080/",')
+    expect(edit).toContain('ETH.localIP()')
   })
 
   it('leaves the network to a Web Remote that already brings it', () => {
