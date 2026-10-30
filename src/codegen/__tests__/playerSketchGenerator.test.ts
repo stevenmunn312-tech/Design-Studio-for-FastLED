@@ -939,6 +939,15 @@ describe('Internet Radio Music Player sketch', () => {
     expect(code).toContain('audio.setConnectionTimeout(1500, 4000);')
   })
 
+  // ESP32-audioI2S 3.0.12 never advances getAudioCurrentTime() for a web
+  // stream, so judging a stall by it reconnected every station every 10 s.
+  it('judges a stalled stream by its data, not the decoded clock', () => {
+    const code = sketch()
+    const service = code.slice(code.indexOf('static void radioService()'), code.indexOf('static uint32_t radioClockMs()'))
+    expect(service).toContain('uint32_t fill = audio.inBufferFilled();')
+    expect(service).not.toContain('getAudioCurrentTime')
+  })
+
   // On a phone hotspot every station failed with the library's bare "Request
   // failed!"; the log has to say whether the name lookup or the server failed.
   it('says whether the name lookup or the server failed', () => {

@@ -12,7 +12,7 @@
 //   That is the same trap as the card player's header timeout (a file that
 //   opens and never plays), so it gets the same answer: watch for the first
 //   frame, and skip the station when it does not come.
-// - A playing station whose decoded time stops moving for RADIO_STALL_MS, or
+// - A playing station whose stream data stops moving for RADIO_STALL_MS, or
 //   whose stream ends, is reconnected once and then skipped.
 // - When every station has failed in a row the player waits RADIO_BACKOFF_MS
 //   before going round again, rather than hammering dead hosts at loop speed.
@@ -376,8 +376,11 @@ uint16_t radioIndex = 0;
 enum : uint8_t { RADIO_IDLE, RADIO_OFFLINE, RADIO_CONNECTING, RADIO_PLAYING, RADIO_BACKOFF };
 static uint8_t  _radioState = RADIO_IDLE;
 static uint32_t _radioStateMs = 0;      // when the current state began
-static uint32_t _radioProgressMs = 0;   // when decoded time last moved
-static uint32_t _radioLastSec = 0;
+static uint32_t _radioProgressMs = 0;   // when stream data last moved
+// The input buffer's fill, which moves whenever bytes arrive or are decoded.
+// Not getAudioCurrentTime(): the library never advances that for a web
+// stream, so a station that played fine was reconnected every 10 s.
+static uint32_t _radioLastFill = 0;
 static uint16_t _radioFailStreak = 0;   // stations failed in a row
 static uint8_t  _radioRetries = 0;      // reconnects to the playing station
 static uint32_t _radioClockMs = 0;      // the show clock: time this station has played
@@ -591,7 +594,7 @@ static void radioService() {
         _radioFailStreak = 0;
         _radioRetries = 0;
         _radioProgressMs = now;
-        _radioLastSec = audio.getAudioCurrentTime();
+        _radioLastFill = audio.inBufferFilled();
         _radioRemember();
       } else if (!audio.isRunning()) {
         _radioSkip("the stream closed");
@@ -600,8 +603,8 @@ static void radioService() {
       }
       break;
     case RADIO_PLAYING: {
-      uint32_t sec = audio.getAudioCurrentTime();
-      if (sec != _radioLastSec) { _radioLastSec = sec; _radioProgressMs = now; }
+      uint32_t fill = audio.inBufferFilled();
+      if (fill != _radioLastFill) { _radioLastFill = fill; _radioProgressMs = now; }
       if (audio.isRunning() && now - _radioProgressMs <= RADIO_STALL_MS) break;
       if (_radioRetries == 0) {
         _radioRetries = 1;
