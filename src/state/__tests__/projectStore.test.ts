@@ -361,6 +361,7 @@ describe('projectStore', () => {
     const stateAlpha = {
       ...diskAlpha,
       updatedAt: 500,
+      diskBase: 200,
       workspace: workspace(['new']),
     }
 
@@ -385,6 +386,19 @@ describe('projectStore', () => {
     expect(keptCopies[0]).toMatchObject({ name: 'Alpha (browser copy)', updatedAt: 900, workspace: workspace(['blank']) })
     expect(keptCopies[0].id).not.toBe('alpha')
     expect(projectsToSave).toEqual(keptCopies)
+  })
+
+  // 2026-10-30, Music Player 3: the copy was too old to carry any base.
+  it('keeps a newer copy with no base beside the file, never over it', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const disk = { id: 'alpha', name: 'Alpha', createdAt: 100, updatedAt: 500, workspace: workspace(['full']) }
+    const unknown = { ...disk, updatedAt: 900, workspace: workspace(['blank']) }
+
+    const { projects, keptCopies } = reconcileProjectsFromDisk([disk], [unknown])
+
+    expect(projects.find((project) => project.id === 'alpha')?.workspace).toEqual(workspace(['full']))
+    expect(keptCopies).toHaveLength(1)
+    expect(keptCopies[0]).toMatchObject({ name: 'Alpha (browser copy)', workspace: workspace(['blank']) })
   })
 
   it('still saves a copy edited from the save the file holds', async () => {

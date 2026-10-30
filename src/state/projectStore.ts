@@ -159,14 +159,15 @@ function forDisk(project: SavedProject): SavedProject {
 }
 
 /**
- * True when `local` is newer than the disk file but descends from an older
- * disk version: saving it would throw away a save made elsewhere. A copy with
- * no recorded base predates the stamp and keeps the old newest-wins rule.
+ * True when `local` is newer than the disk file but cannot show it descends
+ * from that file: its base is older, or it has none. Saving it would throw
+ * away a save made elsewhere. A copy with no base is one localStorage could
+ * not hold the stamp for (storage full), so its clock proves nothing; that is
+ * how an old 17 KB copy replaced the 1.7 MB Music Player 3 on 2026-10-30.
  */
 export function editedFromStaleBase(local: SavedProject, disk: SavedProject): boolean {
   return local.updatedAt > disk.updatedAt
-    && typeof local.diskBase === 'number'
-    && local.diskBase < disk.updatedAt
+    && (typeof local.diskBase !== 'number' || local.diskBase < disk.updatedAt)
 }
 
 /**

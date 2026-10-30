@@ -38,6 +38,18 @@ def test_save_edited_from_an_older_base_is_refused_not_written(tmp_path, monkeyp
     assert json.loads(files[0].read_text()) == full
 
 
+def test_save_naming_no_base_cannot_replace_an_existing_file(tmp_path, monkeypatch):
+    # 2026-10-30, Music Player 3: a browser copy too old to carry a base was
+    # stamped newer by an automatic edit and replaced the 1.7 MB project.
+    monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path)
+    full = project(23, 500)
+    assert storage.save_project(full)["ok"]
+    result = storage.save_project(project(0, 900))
+    assert result == {"ok": False, "conflict": True, "file": result["file"]}
+    files = list(tmp_path.glob("*.json"))
+    assert json.loads(files[0].read_text()) == full
+
+
 def test_save_edited_from_the_current_base_is_written_without_the_base(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path)
     assert storage.save_project(project(3, 500))["ok"]
@@ -48,12 +60,14 @@ def test_save_edited_from_the_current_base_is_written_without_the_base(tmp_path,
 
 def test_overlapping_saves_leave_one_complete_newest_project(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path)
-    snapshots = [project(count, count, f"Collection {count}") for count in range(3, 24)]
+    # Each names the one before as its base, as a tab's overlapping autosaves do.
+    snapshots = [{**project(count, count, f"Collection {count}"), "baseUpdatedAt": count - 1}
+                 for count in range(3, 24)]
     with ThreadPoolExecutor(max_workers=8) as executor:
         assert all(result["ok"] for result in executor.map(storage.save_project, snapshots))
     files = list(tmp_path.iterdir())
     assert len(files) == 1
-    assert json.loads(files[0].read_text()) == snapshots[-1]
+    assert json.loads(files[0].read_text()) == project(23, 23, "Collection 23")
 
 
 def test_failed_replacement_keeps_previous_save(tmp_path, monkeypatch):
@@ -65,7 +79,7 @@ def test_failed_replacement_keeps_previous_save(tmp_path, monkeypatch):
         raise OSError("disk full")
 
     monkeypatch.setattr(Path, "replace", fail_replace)
-    result = storage.save_project(project(23, 200))
+    result = storage.save_project({**project(23, 200), "baseUpdatedAt": 100})
     assert result.status_code == 500
     files = list(tmp_path.iterdir())
     assert len(files) == 1

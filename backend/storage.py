@@ -608,8 +608,13 @@ def save_project(project: dict = Body(...)):
                 # file now holds: another tab saved since, or the sender's copy
                 # fell behind while the helper was away. Writing it would
                 # throw that save away, so refuse and let the browser keep both.
-                if (existing.get("id") == pid and isinstance(base, (int, float))
-                        and _timestamp(existing.get("updatedAt")) > base):
+                # A save naming no base is refused too: its copy never came
+                # from this file, so its clock proves nothing. That was the
+                # 2026-10-30 Music Player 3 loss, a browser copy too old to
+                # carry a base, stamped newer by an automatic edit.
+                if (existing.get("id") == pid
+                        and (not isinstance(base, (int, float))
+                             or _timestamp(existing.get("updatedAt")) > base)):
                     return {"ok": False, "conflict": True, "file": existing_path.name}
             except (OSError, ValueError, TypeError):
                 continue

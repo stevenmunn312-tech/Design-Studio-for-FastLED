@@ -22,7 +22,12 @@
   copy beside the file as "(browser copy)" instead of over it. On 2026-10-30 a
   blank copy, stale because the 1.7 MB project no longer fit in localStorage
   while the helper was deaf, was stamped newer by an automatic edit and
-  replaced the whole project when the helper came back. When a save reaches
+  replaced the whole project when the helper came back. A copy with **no** base
+  counts as stale too, on both sides: localStorage could not hold its stamp, so
+  its clock proves nothing. `save_project` refuses a base-less save over an
+  existing file, and `editedFromStaleBase` keeps such a copy as "(browser
+  copy)". Later that day `Music Player 3` (1.7 MB) was replaced by a 17 KB
+  base-less copy after a helper restart reloaded the tab. When a save reaches
   neither the helper nor the browser, the status bar says so.
 - **The dev server restarts a deaf helper.** `vite-plugin-upload-helper.ts`
   probes 8008 every 15 s and starts a helper after three failed probes, but

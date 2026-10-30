@@ -59,10 +59,21 @@ describe('project pending-save replay', () => {
   })
 
   it('still retries a genuinely newer browser workspace', async () => {
-    const local = project(23, 200)
+    const local = { ...project(23, 200), diskBase: 100 }
     const { backend, saved } = await loadPending(local, project(3, 100))
-    expect(backend.saveProjectToDisk).toHaveBeenCalledExactlyOnceWith(local, { baseUpdatedAt: undefined })
+    expect(backend.saveProjectToDisk).toHaveBeenCalledExactlyOnceWith(project(23, 200), { baseUpdatedAt: 100 })
     expect(saved).toEqual({ ...local, diskBase: 200 })
+  })
+
+  // 2026-10-30, Music Player 3: a copy with no base, newer only by its clock.
+  it('never retries a newer copy that cannot name its base over the file', async () => {
+    const disk = project(23, 100)
+    const { backend } = await loadPending(project(0, 200), disk)
+    expect(backend.saveProjectToDisk).not.toHaveBeenCalledWith(expect.objectContaining({ id: disk.id }), expect.anything())
+    const { useProjectStore } = await import('../projectStore')
+    const projects = useProjectStore.getState().projects
+    expect(projects.find((entry) => entry.id === disk.id)?.workspace).toEqual(disk.workspace)
+    expect(projects.some((entry) => entry.name === 'Collection (browser copy)')).toBe(true)
   })
 
   it('says so when a save reaches neither the helper nor the browser', async () => {
