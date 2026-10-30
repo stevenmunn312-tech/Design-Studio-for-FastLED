@@ -75,7 +75,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   metadata arrives on the Bluetooth task and reaches the song fields only
   through `songPoll()` in the loop. Classic ESP32 only (Bluetooth Classic),
   I2S stage only, arduino-cli only (fbuild compiles every cached `lib/`
-  directory into every board). Preview plays local tracks either way.
+  directory into every board). The preview plays local tracks for SD Card and
+  Bluetooth, and for Internet Radio the stations, through the helper's relay
+  (`state/player/radioPreview.ts`, `backend/radio.py`).
   `Internet Radio` builds the same template with `opts.radio`: the real
   `Audio` object with `connecttohost`, so only the source changes, and
   `sdPlayer` (neither Bluetooth nor radio) is the one flag for the card's

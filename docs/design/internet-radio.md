@@ -121,6 +121,31 @@ announces the board over mDNS unless a Web Remote already does.
 - The missing Wi-Fi name and disagreeing network settings are the shared
   network warnings: the radio player is a `usesNetwork` user.
 
+## Preview
+
+With Music Source on Internet Radio, the preview's player plays the stations
+in place of local tracks: Play, Next and Previous walk them as on the board,
+and Song Info shows the station as the album and its stream title as title and
+artist (`state/player/radioPreview.ts`).
+
+Stations play through the helper's relay, `GET /api/radio/stream?url=`
+(`backend/radio.py`), never straight from their servers. The preview analyses
+what it plays through Web Audio, which reads only audio shared across origins
+(CORS), and most station servers do not share it: played directly, those
+stations would drive the patterns with silence. The relay answers with the
+helper's CORS headers, asks the station for ICY metadata, strips the metadata
+blocks from the audio, and keeps the last `StreamTitle`, which the preview
+polls from `GET /api/radio/now?url=` every 4 s. It follows one `.m3u` or
+`.pls` playlist, refuses a URL that fails the station rules before fetching
+it, and like every helper route answers only local pages. HTTPS stations are
+verified here, unlike on the board.
+
+The preview skips a station as the board does: the relay failing, the stream
+ending, or no audio within 12 s moves to the next one, and once every station
+has failed in a row it stops and says so (naming the helper when it is
+offline). A station opens no connection until it is played. Without the
+helper the stations cannot play in the preview; the board does not need it.
+
 ## Not done
 
 - The phone page cannot reorder stations or edit the compiled ones.

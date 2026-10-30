@@ -11,6 +11,12 @@ import { localTrackTitle, usePlayerTransport } from '../../state/player/playerTr
 import { readAudioFileTags, type AudioTags } from '../../audio/id3Tags'
 import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useMusicStore } from '../../state/player/musicStore'
+import { useUploadStore } from '../../state/upload/uploadStore'
+import { normalizeRadioStations } from '../../state/player/radioStations'
+import {
+  fetchRadioTitle, radioPreviewTracks, splitStreamTitle,
+  RADIO_PREVIEW_START_TIMEOUT_MS, RADIO_PREVIEW_TITLE_POLL_MS,
+} from '../../state/player/radioPreview'
 import { showAudioSpectrum } from '../../state/player/showAudio'
 import { WebGLLEDRenderer } from './webglRenderer'
 import { renderPreviewFrame, renderShapeFrame } from './frameCanvas'
@@ -464,6 +470,30 @@ export default function LEDPreview() {
   const pendingPlayRef = useRef(false)
   const tracksRef = useRef<LocalTrack[]>([])
   useEffect(() => { tracksRef.current = tracks }, [tracks])
+
+  // A Music Player set to Internet Radio plays its stations here in place of
+  // the local playlist, through the helper's relay (state/player/radioPreview).
+  // A string, so the selector's answer is stable between renders.
+  const radioStationsKey = useGraphStore((s) => {
+    const player = rootGraphNodes(s).find((node) => node.data.nodeType === 'PatternMaster'
+      && (node.data.properties as Record<string, unknown>).musicSource === 'Internet Radio')
+    return player ? JSON.stringify(normalizeRadioStations((player.data.properties as Record<string, unknown>).stations)) : ''
+  })
+  const radioTracks = useMemo(
+    () => (radioStationsKey ? radioPreviewTracks(JSON.parse(radioStationsKey)) : null),
+    [radioStationsKey],
+  )
+  const [radioIndex, setRadioIndex] = useState(0)
+  const [streamTitle, setStreamTitle] = useState('')
+  // Set while a station has been asked to play and has not started; the
+  // board's start timeout then skips it, here as there.
+  const [radioWaiting, setRadioWaiting] = useState(false)
+  // Stations failed in a row, so a dead list (or no helper) stops instead of
+  // cycling forever.
+  const radioFailuresRef = useRef(0)
+  const playlist: LocalTrack[] = radioTracks ?? tracks
+  const playlistIndex = radioTracks ? Math.min(radioIndex, Math.max(0, radioTracks.length - 1)) : trackIndex
+  const setPlaylistIndex = radioTracks ? setRadioIndex : setTrackIndex
 
   // When a PerformanceGenerator has a show selected, its transport takes over
   // this player; otherwise the local playlist plays.
@@ -943,7 +973,8 @@ export default function LEDPreview() {
     }
   }, [])
 
-  const currentTrack = tracks[trackIndex] ?? null
+  const currentTrack = playlist[playlistIndex] ?? null
+  const currentStation = radioTracks ? radioTracks[playlistIndex] ?? null : null
 
   // The show transport owns the audio focus — silence the local playlist the
   // moment a show preview becomes active.
@@ -1015,9 +1046,11 @@ export default function LEDPreview() {
   }
 
   const selectTrack = (index: number, autoplay: boolean) => {
-    if (index < 0 || index >= tracks.length) return
+    if (index < 0 || index >= playlist.length) return
     pendingPlayRef.current = autoplay
-    setTrackIndex(index)
+    setPlaylistIndex(index)
+    setStreamTitle('')
+    setRadioWaiting(autoplay && radioTracks !== null)
     setMusicReady(false)
     setMusicPlaying(false)
     setMusicCurrentTime(0)
@@ -1046,12 +1079,44 @@ export default function LEDPreview() {
     }
     setMusicError(null)
     useDecoderAudioStore.getState().resumePlayer()
+    if (radioTracks) {
+      radioFailuresRef.current = 0
+      setRadioWaiting(true)
+    }
     player.play().catch(() => setMusicError('This audio file could not be played in the browser.'))
+  }
+
+  // Stations wrap, as Next and Previous do on the board.
+  const stepStation = (direction: 1 | -1, autoplay: boolean) => {
+    if (!radioTracks?.length) return
+    selectTrack((playlistIndex + direction + radioTracks.length) % radioTracks.length, autoplay)
+  }
+
+  // The station did not play: move on, and stop once every one has failed.
+  const skipStation = (why: string) => {
+    if (!radioTracks?.length) return
+    radioFailuresRef.current += 1
+    if (radioFailuresRef.current >= radioTracks.length) {
+      radioFailuresRef.current = 0
+      setRadioWaiting(false)
+      pendingPlayRef.current = false
+      setMusicPlaying(false)
+      setMusicError(useUploadStore.getState().helper
+        ? 'No station answered.'
+        : 'Internet radio plays in the preview through the upload helper, which is offline.')
+      return
+    }
+    setMusicError(`${currentTrack?.name ?? 'Station'}: ${why}, skipping it.`)
+    stepStation(1, true)
   }
 
   // Prev restarts the current track when it's more than a moment in (or is the
   // first track); otherwise it steps back through the playlist.
   const prevTrack = () => {
+    if (radioTracks) {
+      stepStation(-1, musicPlaying)
+      return
+    }
     const player = playerRef.current
     if ((player && player.currentTime > 3) || trackIndex === 0) {
       if (player) player.currentTime = 0
@@ -1061,9 +1126,14 @@ export default function LEDPreview() {
     selectTrack(trackIndex - 1, musicPlaying)
   }
 
-  const nextTrack = () => selectTrack(trackIndex + 1, musicPlaying)
+  const nextTrack = () => (radioTracks ? stepStation(1, musicPlaying) : selectTrack(trackIndex + 1, musicPlaying))
 
   const onTrackEnded = () => {
+    // A stream that ends has dropped; the next station plays, as on the board.
+    if (radioTracks) {
+      skipStation('the stream ended')
+      return
+    }
     if (trackIndex < tracks.length - 1) {
       selectTrack(trackIndex + 1, true)
       return
@@ -1095,17 +1165,22 @@ export default function LEDPreview() {
     showMode,
     audioVisualizerLive,
     hasVu: combinedVuId !== '',
-    hasPlaylist: tracks.length > 0,
+    hasPlaylist: playlist.length > 0,
     hasAudioError: musicError !== null,
   })
   const durationMs = showMode ? transport.durationMs : musicDuration * 1000
   const positionMs = showMode ? Math.min(showPosMs, durationMs) : Math.min(musicCurrentTime, musicDuration) * 1000
   const isPlaying = showMode ? showPlaying : musicPlaying
-  const canTransport = showMode || musicReady
-  const canPrev = showMode ? true : tracks.length > 0
-  const canNext = showMode ? transport.hasNext : trackIndex < tracks.length - 1
+  // A station opens nothing until played, so it is never "ready" beforehand.
+  const canTransport = showMode || musicReady || (radioTracks !== null && radioTracks.length > 0)
+  const canPrev = showMode ? true : playlist.length > 0
+  const canNext = showMode ? transport.hasNext : radioTracks ? radioTracks.length > 1 : trackIndex < tracks.length - 1
   const trackLabel = showMode
     ? `♪ ${transport.title}`
+    : currentStation
+      ? `${currentStation.name}${streamTitle ? ` · ${streamTitle}` : ''}${radioTracks!.length > 1 ? ` · ${playlistIndex + 1}/${radioTracks!.length}` : ''}`
+    : radioTracks
+      ? 'Add a station on the Music Player'
     : currentTrack
       ? `${currentTrack.name}${tracks.length > 1 ? ` · ${trackIndex + 1}/${tracks.length}` : ''}`
       : 'Add local tracks, or preview a generated show'
@@ -1121,6 +1196,13 @@ export default function LEDPreview() {
   // a show owns the player: the evaluator prefers the show, and clearing this
   // when one takes over would only have to be undone when it lets go.
   useEffect(() => {
+    if (currentStation) {
+      // As the board reports it: the station is the album, what is on air the
+      // title and artist (internetRadioCpp.ts).
+      const onAir = streamTitle ? splitStreamTitle(streamTitle) : { title: currentStation.name }
+      usePlayerTransport.getState().setLocalTrack({ title: onAir.title, artist: onAir.artist, album: currentStation.name, durationMs: 0 })
+      return
+    }
     usePlayerTransport.getState().setLocalTrack(currentTrack
       ? {
         // An ID3 title replaces the filename, as it does on the device.
@@ -1130,7 +1212,52 @@ export default function LEDPreview() {
         album: currentTrack.tags?.album,
       }
       : null)
-  }, [currentTrack, musicDuration])
+  }, [currentTrack, currentStation, streamTitle, musicDuration])
+
+  // What is on air, asked of the relay while a station plays.
+  const stationUrl = currentStation?.stationUrl ?? ''
+  useEffect(() => {
+    if (!stationUrl || !musicPlaying) return
+    const controller = new AbortController()
+    const poll = () => {
+      void fetchRadioTitle(stationUrl, controller.signal).then((title) => {
+        if (!controller.signal.aborted && title) setStreamTitle(title)
+      })
+    }
+    poll()
+    const timer = window.setInterval(poll, RADIO_PREVIEW_TITLE_POLL_MS)
+    return () => {
+      controller.abort()
+      window.clearInterval(timer)
+    }
+  }, [stationUrl, musicPlaying])
+
+  // A station loads nothing until it is played (preload none: no stream is
+  // opened just because the source was switched), so a station chosen while
+  // one was playing is started here rather than from its metadata.
+  const currentUrl = currentTrack?.url ?? ''
+  useEffect(() => {
+    if (!radioTracks || !currentUrl || !pendingPlayRef.current) return
+    pendingPlayRef.current = false
+    useDecoderAudioStore.getState().resumePlayer()
+    playerRef.current?.play().catch((error: unknown) => {
+      // Pressing Next again before this one started aborts it; that is not a dead station.
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      skipStation('the station could not be played')
+    })
+  // Keyed on the station; skipStation reads this render's.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUrl])
+
+  // A station that has not started within the board's start timeout is
+  // skipped. A relay that cannot reach it errors sooner (onError).
+  useEffect(() => {
+    if (!radioWaiting) return
+    const timer = window.setTimeout(() => skipStation('no audio in time'), RADIO_PREVIEW_START_TIMEOUT_MS)
+    return () => window.clearTimeout(timer)
+  // skipStation reads this render's station; the wait restarts per station.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radioWaiting, stationUrl])
   useEffect(() => () => usePlayerTransport.getState().setLocalTrack(null), [])
 
   const onTogglePlay = () => (showMode ? transport.toggle() : toggleMusicPlayback())
@@ -1544,13 +1671,24 @@ export default function LEDPreview() {
       <audio
         ref={playerRef}
         src={currentTrack?.url ?? undefined}
-        preload="metadata"
+        // The relay answers with CORS, which Web Audio needs to analyse a
+        // station; a local track is a same-origin blob either way.
+        crossOrigin={radioTracks ? 'anonymous' : undefined}
+        preload={radioTracks ? 'none' : 'metadata'}
         onLoadedMetadata={onLoadedMetadata}
         onTimeUpdate={() => setMusicCurrentTime(playerRef.current?.currentTime ?? 0)}
         onPlay={() => setMusicPlaying(true)}
+        onPlaying={() => {
+          if (!radioTracks) return
+          radioFailuresRef.current = 0
+          setRadioWaiting(false)
+          setMusicError(null)
+        }}
         onPause={() => setMusicPlaying(false)}
         onEnded={onTrackEnded}
-        onError={() => setMusicError('This audio file could not be decoded in the browser.')}
+        onError={() => (radioTracks
+          ? skipStation('the station did not answer')
+          : setMusicError('This audio file could not be decoded in the browser.'))}
       />
     </div>
   )

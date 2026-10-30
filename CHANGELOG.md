@@ -17,7 +17,9 @@ versioning (`0.y.z`) until the first stable release.
   does not start within 12 seconds, or keeps dropping, is skipped. A
   `stations.m3u` on the SD card replaces the list without a new build, and
   the optional Phone Station Page picks stations from a phone, and with an
-  access code adds and removes them. Any ESP32 with Wi-Fi. Experimental.
+  access code adds and removes them. The preview plays the stations too,
+  through the upload helper, and its patterns react to them. Any ESP32 with
+  Wi-Fi. Experimental.
 
 - **Bluetooth music on the Music Player.** Set Music Source to Bluetooth and
   the board becomes a speaker a phone pairs with under Bluetooth Name: it

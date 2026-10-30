@@ -34,6 +34,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import firmware
+import radio
 import sd_card
 import storage
 import streaming
@@ -151,3 +152,4 @@ app.include_router(streaming.router)
 app.include_router(firmware.router)
 app.include_router(sd_card.router)
 app.include_router(storage.router)
+app.include_router(radio.router)
