@@ -89,7 +89,8 @@ const INTENT_TAGS: Record<string, string[]> = {
   Blend: ['composite', 'layer'],
   Transition: ['composite', 'scene'],
   PatternCollection: ['show', 'playlist'],
-  PatternMaster: ['show', 'performance'],
+  // Music Source lives on this node, so the sources are how people look for it.
+  PatternMaster: ['show', 'music', 'mp3', 'internet radio', 'radio stations', 'bluetooth', 'stream', 'performance'],
   PatternSlideshow: ['show', 'playlist', 'ambient', 'no music'],
   PerformanceGenerator: ['show', 'music-sync'],
   SDCard: ['show', 'offline'],

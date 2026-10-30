@@ -114,6 +114,16 @@ describe('Sidebar equipment rack', () => {
     expect(getByLabelText('Add MIDI')).toBeTruthy()
   })
 
+  // Internet Radio and Bluetooth are Music Sources on the Music Player, not
+  // nodes of their own, so searching for them has to land on it.
+  it('finds the Music Player by the music sources it offers', () => {
+    const { getByPlaceholderText, getByLabelText } = render(<Sidebar />)
+    for (const query of ['internet radio', 'radio', 'bluetooth', 'mp3']) {
+      fireEvent.change(getByPlaceholderText('Search nodes…'), { target: { value: query } })
+      expect(getByLabelText('Add Music Player'), query).toBeTruthy()
+    }
+  })
+
   it('defaults to the full node library when no scope preference is saved', () => {
     localStorage.removeItem('design-studio-for-fastled-sidebar-view')
     const { getByRole } = render(<Sidebar />)
