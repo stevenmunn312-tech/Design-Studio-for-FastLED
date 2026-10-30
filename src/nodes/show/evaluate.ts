@@ -38,7 +38,7 @@ import {
 } from '../../state/patterns/patternSelection'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { type Frame, type RGB, hsv } from '../../state/palettes/ledColor'
-import { usePlayerTransport } from '../../state/player/playerTransport'
+import { playerPositionMs, usePlayerTransport } from '../../state/player/playerTransport'
 import { playerControlActionRepeats, playerControlActionPortsFor } from '../../state/player/playerControlAssignments'
 import { clamp01, DEFAULT_W, DEFAULT_H, buildFrame, blankFrame, cloneFrame, sampleFrameScaled } from '../../state/evaluator/frames'
 import { seededRandom, seededRngState, normalizedSeed } from '../../state/evaluator/random'
@@ -1418,7 +1418,8 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
   PatternMaster({ inputSourceType, input, num, elapsedT, tick, elapsedTick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph, nodes, edges }, id, props) {
     const player = usePlayerTransport.getState()
     const track = player.transport ?? player.localTrack
-    const showTime = track ? player.posMs / 1000 : elapsedT
+    const posMs = playerPositionMs(player)
+    const showTime = track ? posMs / 1000 : elapsedT
     const patternTick = track ? showTime * 60 : tick
     let out: Record<string, PortValue> = {}
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
@@ -1523,7 +1524,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       title: track?.title ?? '',
       artist: tags?.artist ?? '',
       album: tags?.album ?? '',
-      posMs: player.posMs,
+      posMs,
       durationMs: track?.durationMs ?? 0,
       playing: player.playing,
       loaded: track !== null,

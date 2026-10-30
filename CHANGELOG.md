@@ -553,6 +553,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A Music Player's patterns in the preview animate at the preview's frame
+  rate while a track or station plays. Their clock is the track position,
+  which the preview took from the audio element's progress events, about four
+  a second, so the patterns stepped four times a second whatever the FPS read.
 - A project can no longer be replaced by an older browser copy. When the
   upload helper stopped answering and a large project no longer fit in the
   browser's storage, a reload showed an old or blank copy, and the next save

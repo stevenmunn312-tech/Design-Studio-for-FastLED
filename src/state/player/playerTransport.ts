@@ -45,6 +45,15 @@ interface PlayerTransportState {
    * blank title and a zero duration.
    */
   localTrack: LocalTrackInfo | null
+  /**
+   * The local playlist's live position in ms, read from the `<audio>` element
+   * itself. `posMs` follows the element's `timeupdate` events, about four a
+   * second, which is plenty for a progress bar but made a Music Player's
+   * patterns, whose clock is the track position, step four times a second at
+   * any frame rate. Registered once by the preview's player, so reading it
+   * costs no store update per frame.
+   */
+  localClock: (() => number) | null
   volume: number
   /** Monotonic command envelope published by a graph-level Player Controls
    * bundle. The preview player consumes each serial exactly once. */
@@ -56,6 +65,7 @@ interface PlayerTransportState {
   setPos: (posMs: number, playing: boolean, patternIndex?: number) => void
   setVolume: (v: number) => void
   setLocalTrack: (track: LocalTrackInfo | null) => void
+  setLocalClock: (clock: (() => number) | null) => void
   dispatchControls: (command: PreviewPlayerCommand) => void
 }
 
@@ -78,6 +88,16 @@ export interface LocalTrackInfo {
 export function localTrackTitle(fileName: string): string {
   const dot = fileName.lastIndexOf('.')
   return dot > 0 ? fileName.slice(0, dot) : fileName
+}
+
+/**
+ * Where the player is, in ms: a show's own position while one owns the
+ * player, otherwise the local playlist's live position, read this frame.
+ */
+export function playerPositionMs(state: Pick<PlayerTransportState, 'transport' | 'posMs' | 'localClock'>): number {
+  if (state.transport || !state.localClock) return state.posMs
+  const live = state.localClock()
+  return Number.isFinite(live) ? live : state.posMs
 }
 
 export interface PreviewPlayerCommand {
@@ -109,6 +129,7 @@ export const usePlayerTransport = create<PlayerTransportState>()((set) => ({
   playing: false,
   patternIndex: -1,
   localTrack: null,
+  localClock: null,
   volume: savedVolume(),
   controlSerial: 0,
   controlCommand: null,
@@ -135,6 +156,7 @@ export const usePlayerTransport = create<PlayerTransportState>()((set) => ({
       ? state
       : { localTrack }
   )),
+  setLocalClock: (localClock) => set({ localClock }),
   dispatchControls: (controlCommand) => set((state) => ({
     controlCommand,
     controlSerial: state.controlSerial + 1,

@@ -1259,6 +1259,11 @@ export default function LEDPreview() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radioWaiting, stationUrl])
   useEffect(() => () => usePlayerTransport.getState().setLocalTrack(null), [])
+  // The live position, read by the evaluator each frame (playerPositionMs).
+  useEffect(() => {
+    usePlayerTransport.getState().setLocalClock(() => (playerRef.current?.currentTime ?? 0) * 1000)
+    return () => usePlayerTransport.getState().setLocalClock(null)
+  }, [])
 
   const onTogglePlay = () => (showMode ? transport.toggle() : toggleMusicPlayback())
   const onPrev = () => (showMode ? transport.prev() : prevTrack())
