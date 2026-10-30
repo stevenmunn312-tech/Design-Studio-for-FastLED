@@ -917,7 +917,16 @@ const LivePropertyControls = memo(function LivePropertyControls({
           <>
             {propGroups.map((group) => {
               const rows = editable.filter(([key]) => group.keys.includes(key))
-              if (rows.length === 0) return null
+              // A group whose rows a body draws. Always shown, its controls
+              // disabled while the mode does not use them.
+              const groupBody = nodeType === 'PatternMaster' && group.key === 'radio'
+                ? (
+                    <Suspense fallback={null}>
+                      <RadioStationsBody nodeId={nodeId} disabled={props.musicSource !== 'Internet Radio' || locked} />
+                    </Suspense>
+                  )
+                : null
+              if (rows.length === 0 && !groupBody) return null
               const open = Boolean(openGroups[group.key])
               // A grid's size, so only for the forms that have one — a string
               // and a ring are a length, edited as `ledCount` in the Output
@@ -981,6 +990,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                             </>
                           )
                         : renderedRows}
+                      {groupBody}
                     </div>
                   )}
                   {!open && exposedRows.map((row) => renderPropRow(row))}
@@ -1928,7 +1938,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {(d.nodeType === 'PatternSlideshow' || d.nodeType === 'PatternMaster') && <SequenceBody nodeId={id} />}
-          {d.nodeType === 'PatternMaster' && props.musicSource === 'Internet Radio' && <RadioStationsBody nodeId={id} />}
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
           {d.nodeType === 'PaletteBank' && <PaletteBankBody nodeId={id} />}

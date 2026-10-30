@@ -7,12 +7,14 @@ and transport as the SD player. Only where the music comes from changes:
 
 Code: `src/state/player/radioStations.ts` (rules, shared by the body,
 validation and the generator), `src/state/player/radioBrowser.ts` (directory
-search), `src/components/Canvas/bodies/RadioStationsBody.tsx` (the node body),
+search), `src/components/Canvas/bodies/RadioStationsBody.tsx` (the Music Player's
+Internet Radio group: always shown, disabled unless that is the Music Source,
+explanations in tooltips),
 `src/codegen/player/internetRadioCpp.ts` (firmware).
 
 ## Where stations come from
 
-1. **The node.** The body lists stations, each a name and a stream URL, in the
+1. **The node.** The Internet Radio group lists stations, each a name and a stream URL, in the
    order Next walks them. A station is added by URL, or from a search of the
    [radio-browser.info](https://www.radio-browser.info/) directory. The list is
    compiled into flash; stations cost no RAM.
@@ -69,6 +71,12 @@ The show clock is the time the current station has played, held while paused
 and rewound by a station change, as a new track rewinds the card player's.
 
 ## Phone station page
+
+The group shows the board's own name and Wi-Fi fields only when the Music
+Player holds the board's one network connection (`networkSourceIn`). When a
+Web Remote or another network node comes first, it shows `network: via <node>`
+and the page address uses that node's name, because that is what the board
+announces.
 
 `stationPage` serves a page for choosing a station from a phone on the same
 network, on port 80, or 8080 when a Web Remote already serves port 80. It

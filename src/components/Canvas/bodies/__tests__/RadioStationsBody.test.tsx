@@ -58,7 +58,7 @@ describe('RadioStationsBody', () => {
     fireEvent.change(view.getByLabelText('Import a playlist'), { target: { files: [file] } })
     await waitFor(() => expect(stationsNow()).toHaveLength(2))
     expect(stationsNow()[1]).toEqual({ name: 'Rock', url: 'http://rock.example.com/live' })
-    expect(view.getByRole('button', { name: 'Save stations.m3u' })).toBeTruthy()
+    expect(view.getByRole('button', { name: 'save stations.m3u' })).toBeTruthy()
   })
 
   it('reorders and removes stations', () => {
@@ -80,19 +80,44 @@ describe('RadioStationsBody', () => {
     fireEvent.click(view.getByRole('button', { name: 'Search' }))
     const add = await waitFor(() => view.getByRole('button', { name: 'Add <b>Smooth</b> Jazz' }))
     expect(view.container.querySelector('b')).toBeNull()
-    expect(view.getByText('MP3 · 128 kbps · US')).toBeTruthy()
+    expect(add.getAttribute('title')).toBe('Add (MP3 · 128 kbps · US)')
     fireEvent.click(add)
     expect(stationsNow()).toContainEqual({ name: '<b>Smooth</b> Jazz', url: 'http://smooth.example.com/live' })
+  })
+
+  it('is disabled until Music Source is Internet Radio', () => {
+    const view = render(<RadioStationsBody nodeId="player" disabled />)
+    // Through the group's fieldset, so every control in it, rows and list alike.
+    expect(view.getByLabelText('New station stream URL').matches(':disabled')).toBe(true)
+    expect(view.getByRole('button', { name: 'Remove Jazz' }).matches(':disabled')).toBe(true)
+  })
+
+  // The board has one connection; a Web Remote placed first holds its name and
+  // Wi-Fi, so the radio shows that instead of fields the board would ignore.
+  it('names the node that holds the board network instead of its own fields', () => {
+    const state = useGraphStore.getState()
+    useGraphStore.setState({
+      nodes: [{
+        id: 'remote', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Web Remote', nodeType: 'WebRemoteInput', category: 'input', properties: { wifiHostname: 'fastled-remote' }, inputs: [], outputs: [] },
+      } as never, ...state.nodes],
+    })
+    const view = render(<RadioStationsBody nodeId="player" />)
+    expect(view.getByText('via Web Remote')).toBeTruthy()
+    expect(view.queryByLabelText('Wi-Fi SSID')).toBeNull()
+    expect(view.queryByLabelText('Hostname')).toBeNull()
+    expect(view.getByLabelText('Phone station page').closest('[title]')?.getAttribute('title')).toContain('http://fastled-remote.local:8080')
   })
 
   it('keeps the Wi-Fi details and access code in this browser, not the project', () => {
     installPlayer({ stationPage: true, stations: [] })
     const view = render(<RadioStationsBody nodeId="player" />)
     fireEvent.change(view.getByLabelText('Wi-Fi SSID'), { target: { value: 'home' } })
-    fireEvent.change(view.getByLabelText('Access code (to add or remove stations)'), { target: { value: 'abc' } })
+    fireEvent.change(view.getByLabelText('access code'), { target: { value: 'abc' } })
     expect(useNetworkCredentialsStore.getState().byNodeId.player).toMatchObject({ ssid: 'home', accessCode: 'abc' })
     expect(view.getByRole('alert').textContent).toMatch(/shorter than 6/)
-    expect(view.getByText('http://fastled-radio.local')).toBeTruthy()
+    // The page's address is in the tooltip, at this player's own name.
+    expect(view.getByLabelText('Phone station page').closest('[title]')?.getAttribute('title')).toContain('http://fastled-radio.local')
     const props = useGraphStore.getState().nodes[0].data.properties as Record<string, unknown>
     expect(JSON.stringify(props)).not.toMatch(/home|abc/)
   })

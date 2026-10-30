@@ -8,7 +8,7 @@
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../build/pins/pinRetarget'
 import { isHardwareNodeType } from '../../build/hardware'
 import { isHardwarePartField } from '../../build/parts/partFields'
-import { isGpioPinProperty, isInternalProperty, isPropertyEnabled, showsDisabledProperties } from '../../state/nodeLibrary'
+import { isGpioPinProperty, isInternalProperty, isPropertyEnabled, RADIO_GROUP_KEYS, showsDisabledProperties } from '../../state/nodeLibrary'
 
 export const CATEGORY_TAG: Record<string, string> = {
   input: 'IN',
@@ -152,8 +152,8 @@ export function editableProperties(
       // The Palette Bank body edits its palette list; as a text row the array
       // read `ocean,lava`, and typing into it emptied the bank.
       && !(nodeType === 'PaletteBank' && k === 'palettes')
-      // The Music Player body edits its station list.
-      && !(nodeType === 'PatternMaster' && k === 'stations')
+      // The Music Player's Internet Radio group is drawn by its body.
+      && !(nodeType === 'PatternMaster' && RADIO_GROUP_KEYS.has(k))
       // The Transition body's picker cards are its type control.
       && !(nodeType === 'Transition' && k === 'transitionType')
       // Comment's `text` gets its own multi-line editor in the body, not the

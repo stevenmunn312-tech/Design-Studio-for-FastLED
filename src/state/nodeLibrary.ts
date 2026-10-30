@@ -1779,8 +1779,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     musicSource: 'Where the board gets its music. SD Card plays the MP3s on the card. Bluetooth makes the board a speaker your phone pairs with: the phone chooses the music, and the board plays it through the amplifier and reacts to it. Internet Radio streams the stations listed on the node over Wi-Fi; Next and Previous change station. Bluetooth needs a classic ESP32, Internet Radio any ESP32 with Wi-Fi, and both an I2S amplifier or DAC. Preview plays your local tracks either way.',
     bluetoothName: 'The name your phone lists when it looks for Bluetooth speakers. Letters, digits, spaces and - _ . only, up to 32 characters.',
     stations: 'The internet radio stations the board plays, in order, each a name and a stream URL. Add them by URL or by searching the radio-browser.info directory. A stations.m3u on the SD card, when there is one, replaces this list at start-up.',
-    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens. The station page is also at this name followed by .local.',
-    stationPage: 'Serve a small web page on the board for choosing a station from a phone on the same Wi-Fi. With an access code set on the node, the page can also add and remove stations, which the board keeps through restarts.',
+    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens, when the Music Player holds the board’s Wi-Fi settings. When another network node (a Web Remote, Art-Net or NTP) comes first, the board uses that node’s name and Wi-Fi instead.',
+    stationPage: 'Serve a small web page on the board for choosing a station from a phone on the same Wi-Fi, at the board’s name followed by .local. With an access code set, the page can also add and remove stations, which the board keeps through restarts.',
     seed: 'Controls random pattern, hold-time, transition, and particle choices in preview. Zero runs freely; a nonzero value makes the random sequence repeatable for the same inputs. The SD player uses its own random sequence.',
   },
   PdTriggerSource: {
@@ -4220,7 +4220,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'patterns', label: 'Patterns', keys: ['patternIds', 'patternSections', 'patternWeights', 'patternEnergy', 'patternEntry'] },
   ],
   PatternMaster: [
-    { key: 'playback', label: 'Playback', keys: ['musicSource', 'bluetoothName', 'wifiHostname', 'stationPage', 'volume', 'order', 'sequence'] },
+    { key: 'playback', label: 'Playback', keys: ['musicSource', 'bluetoothName', 'volume', 'order', 'sequence'] },
+    // Drawn by RadioStationsBody, always present and disabled unless Music
+    // Source is Internet Radio, so the stations sit where the source is chosen.
+    { key: 'radio', label: 'Internet Radio', keys: ['stations', 'wifiHostname', 'stationPage'] },
     { key: 'timing', label: 'Timing', keys: ['beatTransitions', 'minTime', 'maxTime', 'transitionSec', 'energyPacing', 'dwellsAndBursts'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
@@ -4973,13 +4976,16 @@ const SLIDESHOW_REACTIVE_TIMING = new Set(['beatTransitions', 'minTime', 'maxTim
  */
 const SHOWS_DISABLED_PROPERTIES = new Set(['PatternSlideshow'])
 
+/** The Music Player's Internet Radio group, which its body draws. */
+export const RADIO_GROUP_KEYS: ReadonlySet<string> = new Set(['stations', 'wifiHostname', 'stationPage'])
+
 export function showsDisabledProperties(nodeType: string): boolean {
   return SHOWS_DISABLED_PROPERTIES.has(nodeType)
 }
 
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   if (nodeType === 'PatternMaster' && key === 'bluetoothName') return properties.musicSource === 'Bluetooth'
-  if (nodeType === 'PatternMaster' && (key === 'wifiHostname' || key === 'stationPage')) return properties.musicSource === 'Internet Radio'
+  if (nodeType === 'PatternMaster' && RADIO_GROUP_KEYS.has(key)) return properties.musicSource === 'Internet Radio'
   // A channel the selected board does not have has no pin to wire and no load to dim.
   if (nodeType === 'PowerSwitchOutput') return powerSwitchChannelPropertyEnabled(key, properties.partId)
   if (nodeType === 'RelayOutput') return relayChannelPropertyEnabled(key, properties.partId)
