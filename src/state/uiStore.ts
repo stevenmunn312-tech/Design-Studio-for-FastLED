@@ -275,6 +275,8 @@ interface UiState {
   stageMode: boolean
   /** Browser Fullscreen API state for the current Stage session. */
   stageFullscreenStatus: StagePresentationStatus
+  /** Whether this Stage session has been fullscreen, so double-click steps back out. */
+  stageFullscreenVisited: boolean
   /** Screen Wake Lock API state for the current Stage session. */
   stageWakeLockStatus: StagePresentationStatus
   /**
@@ -566,6 +568,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   evaluationRunning: true,
   stageMode: false,
   stageFullscreenStatus: 'idle',
+  stageFullscreenVisited: false,
   stageWakeLockStatus: 'idle',
   stageIdle: false,
   // Perform is a presentation state for the current session, like Stage. A
@@ -726,9 +729,12 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ graphHealthOpen: next })
   },
   toggleEvaluation: () => set((s) => ({ evaluationRunning: !s.evaluationRunning })),
-  toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode })),
-  setStageMode: (stageMode) => set({ stageMode }),
-  setStageFullscreenStatus: (stageFullscreenStatus) => set({ stageFullscreenStatus }),
+  toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode, stageFullscreenVisited: false })),
+  setStageMode: (stageMode) => set({ stageMode, stageFullscreenVisited: false }),
+  setStageFullscreenStatus: (stageFullscreenStatus) => set((s) => ({
+    stageFullscreenStatus,
+    stageFullscreenVisited: s.stageFullscreenVisited || stageFullscreenStatus === 'active',
+  })),
   setStageWakeLockStatus: (stageWakeLockStatus) => set({ stageWakeLockStatus }),
   setStageIdle: (stageIdle) => set({ stageIdle }),
   setHardwarePaneTab: (hardwarePaneTab) => {

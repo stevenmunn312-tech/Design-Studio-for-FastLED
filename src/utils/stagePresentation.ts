@@ -66,6 +66,20 @@ export async function toggleStageFullscreen(): Promise<void> {
   }
 }
 
+/** Double-click step: preview, Stage, fullscreen, back to Stage, then preview.
+ *
+ * Once a Stage session has been fullscreen, or fullscreen proved unavailable,
+ * the next step from windowed Stage leaves Stage instead of retrying it.
+ */
+export async function advanceStagePresentation(): Promise<void> {
+  const { stageMode, stageFullscreenStatus, stageFullscreenVisited } = useUiStore.getState()
+  if (!stageMode) return enterStagePresentation()
+  if (stageFullscreenStatus === 'requesting') return
+  if (stageFullscreenStatus === 'active') return toggleStageFullscreen()
+  if (stageFullscreenVisited || stageFullscreenStatus === 'unavailable') return exitStagePresentation()
+  return toggleStageFullscreen()
+}
+
 export async function exitStagePresentation(): Promise<void> {
   const ui = useUiStore.getState()
   ui.setStageMode(false)

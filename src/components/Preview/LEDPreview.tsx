@@ -51,7 +51,7 @@ import { idleFrame } from './idleFrame'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/output/streamStore'
 import { outputRoutes, previewRenderPasses, routeFrame } from '../../state/output/outputRouting'
 import type { LedOutputForm } from '../../state/output/ledOutputForm'
-import { enterStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
+import { advanceStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../build/controllerSettings'
 import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/player/masterSpeed'
 import type { StereoVuFrame } from '../../state/audio/stereoVuMeter'
@@ -300,6 +300,14 @@ export default function LEDPreview() {
   // Fullscreen has a dedicated matrix-only layout; this idle flag remains for
   // any transient Stage chrome added there later.
   const stageQuiet = useUiStore((s) => stageFullscreen && s.stageIdle)
+  const stageFullscreenVisited = useUiStore((s) => s.stageFullscreenVisited)
+  const stageDoubleClickHint = !stageMode
+    ? 'Double-click to enter Stage'
+    : stageFullscreen
+      ? 'Double-click to exit fullscreen'
+      : stageFullscreenVisited || stageFullscreenStatus === 'unavailable'
+        ? 'Double-click to exit Stage'
+        : 'Double-click to go fullscreen'
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const evaluationRunning = useUiStore((s) => s.evaluationRunning)
   // Stage-mode pattern name, derived inside a selector that returns a plain
@@ -1399,11 +1407,8 @@ export default function LEDPreview() {
       <div
         ref={canvasWrapRef}
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
-        onDoubleClick={() => {
-          if (stageMode) void exitStagePresentation()
-          else void enterStagePresentation()
-        }}
-        title={stageMode ? 'Double-click to exit Stage' : 'Double-click to enter Stage'}
+        onDoubleClick={() => void advanceStagePresentation()}
+        title={stageDoubleClickHint}
       >
         {import.meta.env.DEV && !stageFullscreen && <DevPerformanceHud />}
         <div className={`${styles.canvasBay} ${combinedVuId ? styles.canvasBayWithVu : ''} ${standaloneVu ? styles.canvasBayVuOnly : ''}`}>

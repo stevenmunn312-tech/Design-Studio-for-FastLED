@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { enterStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../stagePresentation'
+import {
+  advanceStagePresentation,
+  enterStagePresentation,
+  exitStagePresentation,
+  toggleStageFullscreen,
+} from '../stagePresentation'
 import { useUiStore } from '../../state/uiStore'
 
 describe('stage presentation', () => {
@@ -11,6 +16,7 @@ describe('stage presentation', () => {
     useUiStore.setState({
       stageMode: false,
       stageFullscreenStatus: 'idle',
+      stageFullscreenVisited: false,
       stageWakeLockStatus: 'idle',
     })
     Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null })
@@ -118,5 +124,41 @@ describe('stage presentation', () => {
     expect(useUiStore.getState().stageMode).toBe(false)
     expect(useUiStore.getState().stageFullscreenStatus).toBe('idle')
     expect(useUiStore.getState().stageWakeLockStatus).toBe('idle')
+  })
+  it('double-click cycles preview, Stage, fullscreen, Stage, then preview', async () => {
+    const setFullscreen = (value: Element | null) => {
+      Object.defineProperty(document, 'fullscreenElement', { configurable: true, value })
+    }
+    const requestFullscreen = vi.fn(async () => setFullscreen(document.documentElement))
+    const exitFullscreen = vi.fn(async () => setFullscreen(null))
+    Object.defineProperty(document.documentElement, 'requestFullscreen', {
+      configurable: true,
+      value: requestFullscreen,
+    })
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: exitFullscreen })
+    const step = async () => {
+      await advanceStagePresentation()
+      const { stageMode, stageFullscreenStatus } = useUiStore.getState()
+      return stageMode ? stageFullscreenStatus : 'preview'
+    }
+
+    expect(await step()).toBe('idle')
+    expect(await step()).toBe('active')
+    expect(await step()).toBe('idle')
+    expect(await step()).toBe('preview')
+    expect(requestFullscreen).toHaveBeenCalledOnce()
+    expect(exitFullscreen).toHaveBeenCalledOnce()
+
+    // A fresh Stage session goes fullscreen again rather than straight out.
+    expect(await step()).toBe('idle')
+    expect(await step()).toBe('active')
+  })
+
+  it('double-click leaves Stage when fullscreen is unavailable', async () => {
+    useUiStore.setState({ stageMode: true, stageFullscreenStatus: 'unavailable' })
+
+    await advanceStagePresentation()
+
+    expect(useUiStore.getState().stageMode).toBe(false)
   })
 })
