@@ -4,7 +4,9 @@ const compileCheck = vi.fn(async () => ({
   ok: true, overflow: false, target: 'esp32:esp32:esp32', flash: null, ram: null,
 }))
 
-vi.mock('../../../utils/backendClient', () => ({ compileCheck }))
+const cancelCompileCheck = vi.fn(async () => true)
+
+vi.mock('../../../utils/backendClient', () => ({ compileCheck, cancelCompileCheck }))
 
 async function freshStore() {
   vi.resetModules()
@@ -49,6 +51,33 @@ describe('capacityStore', () => {
     expect(compileCheck).toHaveBeenCalledTimes(1)
     expect(useCapacityStore.getState().status).toBe('measured')
     expect(useCapacityStore.getState().result?.ok).toBe(true)
+  })
+
+  it('cancel stops the helper and restores the previous reading', async () => {
+    const { useCapacityStore } = await freshStore()
+    const { setTarget, check } = useCapacityStore.getState()
+
+    setTarget(TARGET)
+    check()
+    await vi.advanceTimersByTimeAsync(0)
+    const measured = useCapacityStore.getState().result
+
+    let finish: (value: unknown) => void = () => {}
+    compileCheck.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }) as never)
+    cancelCompileCheck.mockClear()
+    check()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(useCapacityStore.getState().status).toBe('checking')
+
+    useCapacityStore.getState().cancel()
+    expect(cancelCompileCheck).toHaveBeenCalledTimes(1)
+    expect(useCapacityStore.getState().status).toBe('measured')
+    expect(useCapacityStore.getState().checkPhase).toBeNull()
+
+    // The cancelled run's late answer must not land.
+    finish({ ok: false, overflow: false, cancelled: true, target: 'esp32:esp32:esp32', flash: null, ram: null, error: 'Capacity check cancelled' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(useCapacityStore.getState().result).toBe(measured)
   })
 
   it('measures an SD player where its upload builds it, so the upload reuses the build', async () => {

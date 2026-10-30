@@ -115,6 +115,23 @@ def test_capacity_check_alone_cannot_be_cancelled(processes):
         check.close()
 
 
+def test_capacity_cancel_stops_only_the_check(tmp_path, processes):
+    upload = toolchain._run_phase("Upload", ["compiler"])
+    check = toolchain._run_phase("Capacity check", ["compiler"])
+    try:
+        start(upload)
+        toolchain._background_build(lambda: start(check))()
+        assert toolchain._cancel_active_build(background=True) is True
+        assert processes[1].stopped is True
+        assert processes[0].stopped is False
+        assert drain(check)[1] == toolchain._BUILD_CANCELLED
+        assert drain(upload)[1] == 0
+        assert toolchain._cancel_active_build(background=True) is False
+    finally:
+        upload.close()
+        check.close()
+
+
 def test_closing_abandoned_stream_stops_process_and_unregisters_run(processes):
     build = toolchain._run_phase("Upload", ["compiler"])
     start(build)

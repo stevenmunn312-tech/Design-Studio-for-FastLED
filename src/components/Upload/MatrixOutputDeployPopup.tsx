@@ -269,14 +269,19 @@ export default function MatrixOutputDeployPopup({
   // never blocked just because a check hasn't completed yet.
   const {
     status: capacityStatus, result: capacityResult, subject: capacitySubject,
-    target: capacityTarget, check: runCapacityCheck, checkStartedAt: capacityCheckStartedAt,
+    target: capacityTarget, check: runCapacityCheck, cancel: cancelCapacityCheck,
+    checkStartedAt: capacityCheckStartedAt,
   } = useCapacityStore()
   const capacitySummary = useMemo(
     () => summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError),
     [board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError],
   )
   const canCheckCapacity = !!capacityTarget?.generate && capacityTarget.toolchainReady && capacityStatus !== 'checking'
-  const checkElapsed = useElapsedSeconds(capacityCheckStartedAt, capacityStatus === 'checking')
+  const checkingCapacity = capacityStatus === 'checking'
+  const checkElapsed = useElapsedSeconds(capacityCheckStartedAt, checkingCapacity)
+  // A capacity check holds the helper's build for minutes, so everything that
+  // flashes the board or opens its port waits for it, or for its Cancel.
+  const flashLocked = busy || checkingCapacity
   const capacityCheckLabel = capacityStatus === 'checking' ? `Checking · ${formatElapsed(checkElapsed)}`
     : capacityStatus === 'measured' ? 'Recheck'
     : 'Check capacity'
@@ -608,10 +613,10 @@ export default function MatrixOutputDeployPopup({
     ? canShowUpload && (readySongs > 0 || hasMusicPlayer)
     : canBuild
 
-  const uploadDisabled = !canUploadNow || !uploadReady || busy
+  const uploadDisabled = !canUploadNow || !uploadReady || flashLocked
   // The first thing in the way, and the button that clears it — said once,
   // beside the button it explains (see utils/uploadBlockReason.ts).
-  const blockReason = uploadDisabled
+  const blockReason = uploadDisabled && !checkingCapacity
     ? uploadBlockReason({
       busy,
       hasBuildOutput,
@@ -635,6 +640,7 @@ export default function MatrixOutputDeployPopup({
 
   const uploadTitle =
     busy ? status.message
+    : checkingCapacity ? 'A capacity check is running. Cancel it, or wait for it to finish.'
     : isShowUpload
       ? readySongs === 0 && !hasMusicPlayer
         ? 'Add a Music Player pattern collection, or analyse at least one song first'
@@ -653,7 +659,8 @@ export default function MatrixOutputDeployPopup({
         : 'Compile & upload to the board'
 
   const uploadLabel =
-    status.phase === 'idle' ? (isShowUpload ? (hasMusicPlayer ? '♪ Flash Music Player' : `♪ Upload show (${readySongs})`) : '↑ Upload')
+    checkingCapacity && !busy ? `Checking capacity · ${formatElapsed(checkElapsed)}`
+    : status.phase === 'idle' ? (isShowUpload ? (hasMusicPlayer ? '♪ Flash Music Player' : `♪ Upload show (${readySongs})`) : '↑ Upload')
     : status.phase === 'done' ? '✓ Done'
     : status.phase === 'error' ? '✗ Error'
     : status.message
@@ -746,7 +753,7 @@ export default function MatrixOutputDeployPopup({
             {(canCheckCapacity || capacityStatus === 'checking') && (
               <button
                 type="button"
-                className={styles.capacityCheckBtn}
+                className={styles.inlineActionBtn}
                 onClick={runCapacityCheck}
                 disabled={!canCheckCapacity}
                 title="Compile this design against the selected board to measure flash/SRAM. Nothing is flashed. Progress shows in Output."
@@ -834,17 +841,17 @@ export default function MatrixOutputDeployPopup({
           <button
             className={`${styles.wizardButtonBase} ${styles.uploadBtn} ${phaseClass}`}
             disabled={uploadDisabled}
-            aria-busy={busy}
+            aria-busy={flashLocked}
             aria-describedby={blockReason ? 'upload-block-reason' : undefined}
             onClick={isShowUpload ? handleShowUpload : handleUpload}
             title={uploadTitle}
           >
-            <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
+            <span className={flashLocked ? styles.busyText : undefined}>{uploadLabel}</span>
           </button>
 
           {/* Only while something is running. A board compile is minutes long,
             * and the commonest reason to want out is noticing the wrong board. */}
-          {busy && (
+          {busy ? (
             <button
               className={`${styles.wizardButtonBase} ${styles.cancelBuildBtn}`}
               onClick={() => { void cancelUpload() }}
@@ -852,6 +859,14 @@ export default function MatrixOutputDeployPopup({
               title="Stop the running build. Nothing is sent to the board."
             >
               {status.phase === 'cancelled' ? 'Cancelling…' : '✕ Cancel'}
+            </button>
+          ) : checkingCapacity && (
+            <button
+              className={`${styles.wizardButtonBase} ${styles.cancelBuildBtn}`}
+              onClick={cancelCapacityCheck}
+              title="Stop the capacity check. Nothing was flashed, and the last reading stays as it was."
+            >
+              ✕ Cancel capacity check
             </button>
           )}
         </div>
@@ -862,7 +877,7 @@ export default function MatrixOutputDeployPopup({
             {blockReason.action && (
               <button
                 type="button"
-                className={styles.wizardButtonBase}
+                className={styles.inlineActionBtn}
                 onClick={() => runBlockAction(blockReason.action!)}
                 disabled={busy}
               >
@@ -879,7 +894,7 @@ export default function MatrixOutputDeployPopup({
         {!projectTrusted && blockReason?.action?.kind !== 'trust' && (
           <div className={styles.trustRow}>
             <span>Part of this project was made on another computer. Trust it to prepare and upload it.</span>
-            <button type="button" className={styles.wizardButtonBase} onClick={trustCurrentProject}>
+            <button type="button" className={styles.inlineActionBtn} onClick={trustCurrentProject}>
               Trust it
             </button>
           </div>
@@ -909,7 +924,7 @@ export default function MatrixOutputDeployPopup({
           <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={busy || !hasLastSketch}
+            disabled={flashLocked || !hasLastSketch}
             onClick={handleLastUpload}
             title={hasLastSketch ? 'Re-send the most recently uploaded sketch for this project without regenerating it' : 'Upload once to cache a quick re-upload target for this project'}
           >
@@ -959,7 +974,7 @@ export default function MatrixOutputDeployPopup({
           <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={!outputNode || !uploadReady || blockingErrors.length > 0 || busy}
+            disabled={!outputNode || !uploadReady || blockingErrors.length > 0 || flashLocked}
             onClick={handleFlashWiringTest}
             title={
               !outputNode
@@ -977,7 +992,7 @@ export default function MatrixOutputDeployPopup({
           {isHub75 && (
             <button
               className={`${styles.wizardButtonBase} ${styles.exportBtn} ${styles.topologyBtn}`}
-              disabled={!uploadReady || busy || streaming || blockingErrors.length > 0 || hub75TopologyErrors.length > 0}
+              disabled={!uploadReady || flashLocked || streaming || blockingErrors.length > 0 || hub75TopologyErrors.length > 0}
               onClick={handleFlashHub75Topology}
               title={
                 hub75TopologyErrors.length > 0
@@ -1013,7 +1028,7 @@ export default function MatrixOutputDeployPopup({
           <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={!outputNode || !canBuild || !uploadReady || busy || streaming}
+            disabled={!outputNode || !canBuild || !uploadReady || flashLocked || streaming}
             onClick={handleFlashReceiver}
             title={!outputNode
               ? 'Add an LED output to use live frame streaming'
@@ -1026,7 +1041,7 @@ export default function MatrixOutputDeployPopup({
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn} ${streaming ? styles.streamBtnActive : ''}`}
-            disabled={!outputNode || !canBuild || busy || streamStarting || !helperReady || !portDetected}
+            disabled={!outputNode || !canBuild || busy || (checkingCapacity && !streaming) || streamStarting || !helperReady || !portDetected}
             onClick={handleToggleStream}
             title={
               !outputNode

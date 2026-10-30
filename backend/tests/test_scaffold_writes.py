@@ -34,6 +34,17 @@ def test_write_if_changed_creates_a_missing_file(tmp_path):
     assert target.read_text(encoding="utf-8") == "fresh\n"
 
 
+def test_write_if_changed_writes_form_crlf_as_lf(tmp_path):
+    # A FormData field arrives with CRLF. Written in text mode on Windows it
+    # became CR CR LF, which shifts GCC's line numbers and misleads
+    # arduino-cli's library detection.
+    target = tmp_path / "player.ino"
+
+    assert toolchain._write_if_changed(target, "// a\r\n#include <WiFi.h>\r\n") is True
+    assert target.read_bytes() == b"// a\n#include <WiFi.h>\n"
+    assert toolchain._write_if_changed(target, "// a\r\n#include <WiFi.h>\r\n") is False
+
+
 def test_re_writing_the_same_sketch_does_not_touch_main_ino(tmp_path, monkeypatch):
     src = tmp_path / "src"
     src.mkdir()

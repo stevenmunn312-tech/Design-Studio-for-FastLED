@@ -621,6 +621,24 @@ describe('MatrixOutputDeployPopup', () => {
       expect((getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(false)
     })
 
+    it('holds every flash behind a running check, with its own Cancel', () => {
+      readyToUploadAFrame()
+      const cancel = vi.fn()
+      useCapacityStore.setState({ status: 'checking', checkStartedAt: Date.now(), cancel })
+
+      const view = render(<MatrixOutputDeployPopup />)
+      expect((view.getByRole('button', { name: /^Checking capacity · / }) as HTMLButtonElement).disabled).toBe(true)
+      expect((view.getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+      expect((view.getByRole('button', { name: /Flash Stream Receiver/ }) as HTMLButtonElement).disabled).toBe(true)
+
+      view.getByRole('button', { name: /Cancel capacity check/ }).click()
+      expect(cancel).toHaveBeenCalledTimes(1)
+
+      act(() => { useCapacityStore.setState({ status: 'idle' }) })
+      expect((view.getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(false)
+      expect(view.queryByRole('button', { name: /Cancel capacity check/ })).toBeNull()
+    })
+
     it('leads the meter with what the reading establishes', () => {
       // A current overflow is a verdict; the same figures from an older graph
       // are only the last check, and a design never measured has no verdict.

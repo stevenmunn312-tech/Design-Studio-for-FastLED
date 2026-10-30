@@ -160,7 +160,9 @@
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-.capacityCheckBtn {
+/* A small accent button beside a line of text: Check capacity, and the fix
+   named beside a disabled Upload (Refresh ports, Trust it, Show me). */
+.inlineActionBtn {
   flex: 0 0 auto;
   appearance: none;
   padding: 3px 10px;
@@ -176,12 +178,12 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.capacityCheckBtn:not(:disabled):hover {
+.inlineActionBtn:not(:disabled):hover {
   background: color-mix(in srgb, var(--accent-output) 30%, transparent);
   color: white;
 }
-.capacityCheckBtn:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 1px; }
-.capacityCheckBtn:disabled { cursor: default; opacity: 0.8; }
+.inlineActionBtn:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 1px; }
+.inlineActionBtn:disabled { cursor: default; opacity: 0.8; }
 
 .capacityOk { color: var(--text-secondary); }
 .capacityWarn { color: #ffcc66; }
@@ -255,7 +257,7 @@
 }
 
 .layerAction {
-  composes: capacityCheckBtn;
+  composes: inlineActionBtn;
   margin: 0 4px 6px;
 }
 
@@ -1619,8 +1621,10 @@
   width: 100%;
   margin-top: 4px;
   border-color: color-mix(in srgb, var(--error) 45%, transparent);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
   color: var(--error);
 }
+.cancelBuildBtn:not(:disabled):hover { background: color-mix(in srgb, var(--error) 22%, transparent); }
 
 .cancelBuildBtn:disabled { opacity: 0.6; cursor: default; }
 

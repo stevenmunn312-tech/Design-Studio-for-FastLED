@@ -907,13 +907,22 @@ def _write_if_changed(path: Path, text: str) -> bool:
 
     Reading the file back to compare is far cheaper than the compile a
     needless touch triggers; an unreadable or missing file just falls through
-    to the write."""
+    to the write.
+
+    Line endings are normalised to LF and written as LF. Text from a
+    multipart form arrives with CRLF (the browser converts every line break
+    in a FormData string), and Windows text mode then turned each one into
+    CR CR LF. GCC counts that lone CR as a line, so its diagnostics named the
+    wrong line, and arduino-cli, which reads the missing header's name from
+    the quoted source line, kept resolving SPI.h while WiFi.h stayed missing
+    (observed on the Music Player flash, 2026-10-30)."""
+    text = text.replace("\r\n", "\n")
     try:
         if path.read_text(encoding="utf-8") == text:
             return False
     except (OSError, UnicodeDecodeError):
         pass
-    path.write_text(text, encoding="utf-8")
+    path.write_text(text, encoding="utf-8", newline="\n")
     return True
 
 
@@ -1764,8 +1773,8 @@ _active_builds: list[_BuildRun] = []
 
 
 class _BuildRun:
-    def __init__(self, cancellable=True):
-        self.cancellable = cancellable
+    def __init__(self, background=False):
+        self.background = background
         self.cancelled = False
         self.proc = None
 
@@ -1776,15 +1785,16 @@ def _build_was_cancelled() -> bool:
 
 
 def _background_build(function):
-    """Capacity checks share the engines but never own the user's Cancel button."""
+    """Capacity checks share the engines but never own the upload's Cancel
+    button; they have their own (`_cancel_active_build(background=True)`)."""
     @functools.wraps(function)
     def wrapped(*args, **kwargs):
-        previous = getattr(_build_context, "cancellable", True)
-        _build_context.cancellable = False
+        previous = getattr(_build_context, "background", False)
+        _build_context.background = True
         try:
             return function(*args, **kwargs)
         finally:
-            _build_context.cancellable = previous
+            _build_context.background = previous
     return wrapped
 
 
@@ -1796,8 +1806,12 @@ def _stop_build_process(proc) -> None:
         proc.terminate()
 
 
-def _cancel_active_build() -> bool:
+def _cancel_active_build(background: bool = False) -> bool:
     """Stop the running build. True if there was one to stop.
+
+    `background` picks which kind: the upload's Cancel stops a foreground
+    build and never a capacity check running beside it, and the check's own
+    Cancel stops only the check.
 
     The whole tree, not just the front-end: fbuild delegates the compile to a
     long-lived `fbuild-daemon` child, so terminating the parent alone leaves the
@@ -1805,7 +1819,7 @@ def _cancel_active_build() -> bool:
     """
     with _active_build_lock:
         run = next((run for run in reversed(_active_builds)
-                    if run.cancellable and not run.cancelled), None)
+                    if run.background == background and not run.cancelled), None)
         if run is None:
             return False
         run.cancelled = True
@@ -1877,7 +1891,7 @@ def _with_build_run(function):
     def wrapped(*args, **kwargs):
         if getattr(_build_context, "run", None) is not None:
             return (yield from function(*args, **kwargs))
-        run = _BuildRun(getattr(_build_context, "cancellable", True))
+        run = _BuildRun(getattr(_build_context, "background", False))
         generator = function(*args, **kwargs)
         with _active_build_lock:
             _active_builds.append(run)

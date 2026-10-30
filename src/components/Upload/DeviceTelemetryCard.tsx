@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useUploadStore } from '../../state/upload/uploadStore'
+import { useCapacityStore } from '../../state/upload/capacityStore'
 import { useDeviceTelemetryStore } from '../../state/upload/deviceTelemetryStore'
 import {
   TELEMETRY_INTERVAL_MS,
@@ -28,6 +29,7 @@ import styles from './DeviceTelemetryCard.module.css'
  */
 export default function DeviceTelemetryCard() {
   const { selectedPort, serialConnected, serialError, busy, startSerial, stopSerial } = useUploadStore()
+  const capacityChecking = useCapacityStore((s) => s.status === 'checking')
   const run = useDeviceTelemetryStore((s) => s.run)
   const otherLines = useDeviceTelemetryStore((s) => s.otherLines)
   const reset = useDeviceTelemetryStore((s) => s.reset)
@@ -125,7 +127,7 @@ export default function DeviceTelemetryCard() {
           type="button"
           className={styles.button}
           onClick={() => (serialConnected ? stopSerial() : void startSerial())}
-          disabled={!selectedPort || busy}
+          disabled={!selectedPort || busy || (!serialConnected && capacityChecking)}
           title={selectedPort ? undefined : 'Choose the board’s port first'}
         >
           {serialConnected ? 'Stop listening' : 'Listen'}

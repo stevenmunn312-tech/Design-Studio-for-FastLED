@@ -179,7 +179,9 @@ export default function OutputConsole({ embedded = false }: { embedded?: boolean
           <select className={styles.serialBaud} value={serialBaud} onChange={(e) => setSerialBaud(Number(e.target.value))} disabled={serialConnected} aria-label="Baud rate">
             {[9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600].map((baud) => <option key={baud} value={baud}>{baud} baud</option>)}
           </select>
-          <button className={styles.consoleBtn} onClick={serialConnected ? stopSerial : startSerial} disabled={!selectedPort || busy}>
+          {/* Connecting waits out a capacity check, as flashing does; an open
+              monitor can still be closed. */}
+          <button className={styles.consoleBtn} onClick={serialConnected ? stopSerial : startSerial} disabled={!selectedPort || busy || (!serialConnected && capacityChecking)}>
             {serialConnected ? 'Disconnect' : 'Connect'}
           </button>
           <span className={serialError ? styles.stError : serialConnected ? styles.stDone : styles.serialIdle}>

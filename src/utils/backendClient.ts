@@ -470,6 +470,18 @@ export async function cancelBuild(): Promise<boolean> {
   }
 }
 
+/** Stop a running capacity check on the helper. Separate from `cancelBuild`,
+ *  which stops an upload and never the check beside it. */
+export async function cancelCompileCheck(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/compile-check/cancel`, { method: 'POST' })
+    const data = await res.json()
+    return !!data.cancelled
+  } catch {
+    return false
+  }
+}
+
 export interface CompileCheckSize { usedBytes: number; limitBytes: number; percent: number }
 
 export interface CompileCheckResult {
@@ -480,6 +492,8 @@ export interface CompileCheckResult {
    *  measured and nothing is wrong with the design — the meter retries instead
    *  of reporting a verdict it doesn't have. */
   busy?: boolean
+  /** The check was stopped from its Cancel button. Nothing was measured. */
+  cancelled?: boolean
   engine?: 'fbuild' | 'arduino-cli'
   target: string
   flash: CompileCheckSize | null

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { compileCheck, type CompileCheckResult } from '../../utils/backendClient'
+import { cancelCompileCheck, compileCheck, type CompileCheckResult } from '../../utils/backendClient'
 
 // Controller-capacity meter: a compile-only build against the helper, so a
 // PatternCollection -> PatternMaster -> MatrixOutput show on a small board
@@ -134,6 +134,10 @@ interface CapacityState {
   /** Run a check against the current target. The only thing in this store that
    *  compiles anything, and only ever reached from an explicit user action. */
   check: () => void
+
+  /** Stop the running check, here and on the helper. The meter goes back to
+   *  whatever it showed before the press; nothing new was measured. */
+  cancel: () => void
 
   clear: () => void
 }
@@ -342,6 +346,19 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     }
 
     run()
+  },
+
+  cancel: () => {
+    if (get().status !== 'checking') return
+    // Aborting only stops us listening; the helper's compile needs its own stop.
+    cancelInFlight()
+    void cancelCompileCheck()
+    set((s) => ({
+      status: !s.result || measuredKey === null
+        ? 'idle'
+        : measuredKey === s.target?.key ? 'measured' : 'stale',
+      checkPhase: null,
+    }))
   },
 
   clear: () => {

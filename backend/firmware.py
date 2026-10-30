@@ -123,10 +123,10 @@ def _sketch_workspace(name: str, ino: str, files: dict[str, str] | None = None):
     try:
         sketch_dir = work / name
         sketch_dir.mkdir()
-        (sketch_dir / f"{name}.ino").write_text(ino, encoding="utf-8")
+        toolchain._write_if_changed(sketch_dir / f"{name}.ino", ino)
         toolchain._write_sketch_files(sketch_dir, files or {})
         if toolchain._LVGL_INCLUDE_MARKER in ino:
-            (sketch_dir / "lv_conf.h").write_text(toolchain._lv_conf_for_sketch(ino), encoding="utf-8")
+            toolchain._write_if_changed(sketch_dir / "lv_conf.h", toolchain._lv_conf_for_sketch(ino))
         yield sketch_dir
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -1508,6 +1508,13 @@ def cancel_build():
     return JSONResponse({"ok": True, "cancelled": toolchain._cancel_active_build()})
 
 
+@router.post("/api/compile-check/cancel")
+def cancel_compile_check():
+    """Stop the capacity check in progress, if there is one. The check's
+    request then answers with `cancelled`; an upload is never touched."""
+    return JSONResponse({"ok": True, "cancelled": toolchain._cancel_active_build(background=True)})
+
+
 @router.post("/api/compile-check")
 @toolchain._background_build
 def compile_check(payload: dict = Body(...)):
@@ -1574,15 +1581,18 @@ def compile_check(payload: dict = Body(...)):
     # been built at all, next to an Upload that then succeeded. It is a
     # not-measured state, so the frontend retries rather than showing a verdict.
     busy = not ok and phase == "busy"
+    cancelled = rc == toolchain._BUILD_CANCELLED
     # Either kind of evidence: the linker refusing to produce an image, or a
     # build that succeeded while measuring over its own board limits (see
     # `_over_capacity`) -- the second prints no linker marker at all.
     measured_over = any(
         (sizes.get(kind) or {}).get("percent", 0) > 100 for kind in ("flash", "ram")
     )
-    overflow = not ok and not busy and (_looks_like_overflow(lines) or measured_over)
+    overflow = not ok and not busy and not cancelled and (_looks_like_overflow(lines) or measured_over)
     if ok:
         error = None
+    elif cancelled:
+        error = "Capacity check cancelled"
     elif busy:
         error = "Another build is running — not measured"
     elif overflow:
@@ -1593,6 +1603,7 @@ def compile_check(payload: dict = Body(...)):
         "ok": ok,
         "overflow": overflow,
         "busy": busy,
+        "cancelled": cancelled,
         "engine": engine,
         "target": fqbn,
         "flash": sizes.get("flash"),
@@ -1870,11 +1881,17 @@ async def upload_show(
         # It also means a failed transfer is now cheap to retry — the board
         # is already running the receiver, so nothing needs rebuilding.
         rc, phase = yield from _build_flash("Player", player)
+        if rc == toolchain._BUILD_CANCELLED or phase == "busy":
+            # Cancel already said so; busy compiled nothing.
+            yield from _upload_result_lines(rc, phase, port)
+            return
         if rc != 0:
+            # A design too big for the board gets its own explanation from the
+            # compile (`_overflow_message`). Any other failure is not about size,
+            # so advising fewer patterns would send the user to cut a design
+            # that fits.
             yield (f"\n*** Player build failed (exit {rc}) — nothing was flashed "
-                   "and the card was not touched ***\n"
-                   "  Remove patterns from the collection or reduce the matrix size,\n"
-                   "  then try again.\n"
+                   "and the card was not touched. See the errors above. ***\n"
                    if phase == "compile" else
                    f"\n*** Player flash failed (exit {rc}) — if it couldn't connect, put "
                    "the board in download mode (hold BOOT, tap RST) and retry ***\n")
