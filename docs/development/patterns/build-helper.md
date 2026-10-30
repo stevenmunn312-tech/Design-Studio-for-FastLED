@@ -13,6 +13,28 @@
   non-numeric timestamp to 0 rather than failing the whole picker; a save with
   a present but non-numeric `updatedAt` is refused with 400 so it can never
   defeat the stale guard.
+- **Newest is not enough: a save also names its base.** Each browser copy
+  carries `diskBase`, the `updatedAt` of the disk version it descends from
+  (stamped by `reconcileProjectsFromDisk` and on every acknowledged save,
+  never written to the file). A save sends it as `baseUpdatedAt`, counting the
+  tab's own unacknowledged saves (`sentByThisTab`), and `save_project` refuses
+  with `conflict` when the file is newer than that base. Reconcile keeps such a
+  copy beside the file as "(browser copy)" instead of over it. On 2026-10-30 a
+  blank copy, stale because the 1.7 MB project no longer fit in localStorage
+  while the helper was deaf, was stamped newer by an automatic edit and
+  replaced the whole project when the helper came back. When a save reaches
+  neither the helper nor the browser, the status bar says so.
+- **The dev server restarts a deaf helper.** `vite-plugin-upload-helper.ts`
+  probes 8008 every 15 s and starts a helper after three failed probes, but
+  only once the port has answered before (a broken install is reported once,
+  not respawned). It kills only a helper it started; a deaf `npm run helper`
+  has freed the port anyway. It watches even when a helper was already
+  listening at start, because a config change restarts the dev server, which
+  kills its helper, and the new plugin instance can probe before the old
+  helper exits and spawn nothing (seen 2026-10-30; respawn took 39 s).
+  The probe is a TCP connect, which the kernel answers while the socket
+  listens, so a long compile cannot trigger it. The helper has been seen
+  alive with no listening socket (2026-10-28, 2026-10-30), cause unconfirmed.
 - Every route checks for a local `Origin`, GETs included: a cross-site page
   must not be able to run `arduino-cli board list` through `/api/serial/ports`.
   A GET with no `Origin` passes only when `Sec-Fetch-Site` is absent,

@@ -551,6 +551,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A project can no longer be replaced by an older browser copy. When the
+  upload helper stopped answering and a large project no longer fit in the
+  browser's storage, a reload showed an old or blank copy, and the next save
+  after the helper returned wrote it over the project on disk. A save now
+  names the version it was edited from, the helper refuses one edited from an
+  older save than the file holds, and such a copy is kept beside the project
+  as "(browser copy)". The status bar says when a save reached neither the
+  helper nor the browser, and the dev server restarts a helper that has
+  stopped answering.
 - A Bluetooth Music Player with an OLED or segment display no longer fails to
   compile: the display's fault card named the SD player's card and track
   state, which a Bluetooth sketch does not have. Its panel now shows no fault

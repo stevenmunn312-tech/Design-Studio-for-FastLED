@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { listProjects, saveProjectToDisk, deleteProjectFromDisk } from '../utils/backendClient'
 import type { PersistedWorkspace } from './workspacePersistence'
 import { blankWorkspace, cloneWorkspace } from './workspacePersistence'
+import { useUiStore } from './uiStore'
 import {
   normalizeProjectUploadTargets,
   normalizeUploadTarget,
@@ -23,6 +24,16 @@ export interface SavedProject {
   uploadTarget?: ProjectUploadTarget
   /** One target per Board node id; see docs/design/multi-board.md. */
   uploadTargets?: ProjectUploadTargets
+  /**
+   * Browser-only bookkeeping, never written to disk: the `updatedAt` of the
+   * disk version this copy descends from, stamped when a copy is taken from
+   * disk and when the helper acknowledges a save. A copy that is newer than
+   * the disk file but descends from an *older* disk version was edited from a
+   * stale base (another tab saved since, or the browser copy fell behind
+   * because storage was full while the helper was offline), and must not
+   * replace the file: see `reconcileProjectsFromDisk`.
+   */
+  diskBase?: number
 }
 
 interface PersistedState {
@@ -39,6 +50,7 @@ interface PersistedCurrentWorkspace {
   workspace: PersistedWorkspace
   uploadTarget?: ProjectUploadTarget
   uploadTargets?: ProjectUploadTargets
+  diskBase?: number
 }
 
 interface ProjectState {
@@ -58,7 +70,8 @@ interface ProjectState {
   /** Record the board and port one Board node (`boardId`) uploads to. The
    *  primary's is keyed by `PRIMARY_UPLOAD_TARGET_KEY` whatever its node id. */
   setProjectUploadTarget: (boardId: string, uploadTarget: ProjectUploadTarget, id?: string) => void
-  refreshFromDisk: () => Promise<void>
+  /** Resolves to the names of browser copies kept beside a newer disk save. */
+  refreshFromDisk: () => Promise<string[]>
 }
 
 const KEY = 'design-studio-for-fastled.projects.v1'
@@ -138,12 +151,65 @@ function clearPendingDelete(id: string) {
   }))
 }
 
+/** The project as its file holds it: `diskBase` is this browser's bookkeeping. */
+function forDisk(project: SavedProject): SavedProject {
+  const file = { ...project }
+  delete file.diskBase
+  return file
+}
+
+/**
+ * True when `local` is newer than the disk file but descends from an older
+ * disk version: saving it would throw away a save made elsewhere. A copy with
+ * no recorded base predates the stamp and keeps the old newest-wins rule.
+ */
+export function editedFromStaleBase(local: SavedProject, disk: SavedProject): boolean {
+  return local.updatedAt > disk.updatedAt
+    && typeof local.diskBase === 'number'
+    && local.diskBase < disk.updatedAt
+}
+
+/**
+ * The newest version of each project this tab has sent. Autosaves overlap, so
+ * the second can leave before the first is acknowledged: its base is the first
+ * one, which this tab wrote, not something another writer put there.
+ */
+const sentByThisTab = new Map<string, number>()
+
+/** The disk version a save descends from, or undefined when unknown. */
+function saveBase(project: SavedProject): number | undefined {
+  const sent = sentByThisTab.get(project.id)
+  if (project.diskBase === undefined) return sent
+  return sent === undefined ? project.diskBase : Math.max(project.diskBase, sent)
+}
+
 /** Write a project to disk, journalling it until the helper acknowledges. */
 function queueProjectUpsert(project: SavedProject) {
   if (!DISK_SYNC) return
   markPendingUpsert(project.id)
-  void saveProjectToDisk(project).then((saved) => {
-    if (saved) clearPendingUpsert(project.id)
+  const baseUpdatedAt = saveBase(project)
+  sentByThisTab.set(project.id, Math.max(sentByThisTab.get(project.id) ?? -Infinity, project.updatedAt))
+  void saveProjectToDisk(forDisk(project), {
+    baseUpdatedAt,
+    // Kept journalled: the next load's reconcile keeps both versions.
+    onConflict: () => useUiStore.getState().setStatus(
+      `Not saved: ${project.name} on disk is newer than the save this tab started from. Reload to keep both versions.`,
+      'error',
+    ),
+  }).then((saved) => {
+    if (!saved) {
+      if (project.id === useProjectStore.getState().currentProjectId) warnIfSavedNowhere()
+      return
+    }
+    clearPendingUpsert(project.id)
+    // The file now holds this version, so later edits descend from it. Kept
+    // in memory; the next persist carries it to storage.
+    useProjectStore.setState((state) => ({
+      projects: state.projects.map((entry) => entry.id === project.id
+        && (entry.diskBase ?? -Infinity) < project.updatedAt
+        ? { ...entry, diskBase: project.updatedAt }
+        : entry),
+    }))
   })
 }
 
@@ -208,6 +274,7 @@ function loadCurrentWorkspaceSnapshot(): SavedProject | null {
       updatedAt: parsed.updatedAt,
       workspace: cloneWorkspace(workspace),
       ...normalizeProjectUploadTargets(parsed),
+      ...(typeof parsed.diskBase === 'number' ? { diskBase: parsed.diskBase } : {}),
     }
   } catch {
     return null
@@ -234,10 +301,32 @@ function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): voi
       workspace: project.workspace,
       uploadTarget: project.uploadTarget,
       uploadTargets: project.uploadTargets,
+      diskBase: project.diskBase,
     }))
+    browserCopySaved = true
   } catch {
-    // Keep running when storage is unavailable or full.
+    // Keep running when storage is unavailable or full, but remember it: with
+    // the helper also offline, this save landed nowhere.
+    browserCopySaved = false
   }
+}
+
+/** Whether the open project's last save reached this browser's storage. */
+let browserCopySaved = true
+let lastUnsavedWarningMs = 0
+
+/**
+ * A save that reached neither the helper nor the browser is lost when the tab
+ * closes or reloads, and the next load shows an older copy (or a blank one)
+ * as if it were current. Say so while the tab still holds the work.
+ */
+function warnIfSavedNowhere() {
+  if (browserCopySaved || Date.now() - lastUnsavedWarningMs < 30_000) return
+  lastUnsavedWarningMs = Date.now()
+  useUiStore.getState().setStatus(
+    'Not saved: the upload helper is offline and this browser’s storage is full. Keep this tab open and restart the helper (npm run helper).',
+    'error',
+  )
 }
 
 function makeProject(
@@ -264,6 +353,7 @@ function normalizeProject(project: SavedProject): SavedProject {
     updatedAt: project.updatedAt,
     workspace: cloneWorkspace(project.workspace),
     ...normalizeProjectUploadTargets(project),
+    ...(typeof project.diskBase === 'number' ? { diskBase: project.diskBase } : {}),
   }
 }
 
@@ -336,14 +426,16 @@ export function reconcileProjectsFromDisk(
   stateProjects: SavedProject[],
   pendingUpserts: Iterable<string> = [],
   pendingDeletes: Iterable<string> = [],
-): { projects: SavedProject[]; projectsToSave: SavedProject[] } {
+): { projects: SavedProject[]; projectsToSave: SavedProject[]; keptCopies: SavedProject[] } {
   const upsertIds = new Set(pendingUpserts)
   const deletedIds = new Set(pendingDeletes)
   const merged = new Map<string, SavedProject>()
   const projectsToSave: SavedProject[] = []
+  const keptCopies: SavedProject[] = []
   for (const project of diskProjects) {
     if (deletedIds.has(project.id)) continue
-    merged.set(project.id, project)
+    // A copy taken from disk descends from exactly this version.
+    merged.set(project.id, { ...forDisk(project), diskBase: project.updatedAt })
   }
   for (const project of stateProjects) {
     if (deletedIds.has(project.id)) continue
@@ -356,12 +448,27 @@ export function reconcileProjectsFromDisk(
       }
       continue
     }
+    if (editedFromStaleBase(project, existing)) {
+      // Both are someone's work. The file keeps its place; the browser's
+      // version is kept beside it under its own id and name, never over it.
+      const now = Date.now()
+      const copy: SavedProject = {
+        ...forDisk(project),
+        id: `proj-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        name: uniqueProjectName([...merged.values(), ...keptCopies], `${project.name} (browser copy)`),
+        createdAt: now,
+      }
+      keptCopies.push(copy)
+      projectsToSave.push(copy)
+      continue
+    }
     if (project.updatedAt > existing.updatedAt) {
       merged.set(project.id, project)
       projectsToSave.push(project)
     }
   }
-  return { projects: sortProjects([...merged.values()]), projectsToSave }
+  for (const copy of keptCopies) merged.set(copy.id, copy)
+  return { projects: sortProjects([...merged.values()]), projectsToSave, keptCopies }
 }
 
 function normalizeState(parsed: Partial<PersistedState> | null | undefined): PersistedState {
@@ -574,9 +681,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   refreshFromDisk: async () => {
-    if (!DISK_SYNC) return
+    if (!DISK_SYNC) return []
     const disk = await listProjects()
-    if (!disk) return  // helper offline — keep the localStorage copy as-is
+    if (!disk) return []  // helper offline — keep the localStorage copy as-is
 
     // Replay unacknowledged deletions first, and filter the already-fetched
     // snapshot regardless of whether the retry succeeded, so a slow or failing
@@ -606,7 +713,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         clearPendingUpsert(id)
         continue
       }
-      if (await saveProjectToDisk(project)) {
+      // Newer, but edited from an older save than the file holds: reconcile
+      // keeps both rather than this retry writing over the file.
+      if (existing && editedFromStaleBase(project, existing)) {
+        clearPendingUpsert(id)
+        continue
+      }
+      if (await saveProjectToDisk(forDisk(project), { baseUpdatedAt: project.diskBase })) {
         clearPendingUpsert(id)
         nextDisk = [...nextDisk.filter((entry) => entry.id !== id), project]
       }
@@ -615,7 +728,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     // Re-read: an autosave may have landed while the retries were in flight.
     const state = get()
     const journal = loadSyncJournal()
-    const { projects, projectsToSave } = reconcileProjectsFromDisk(
+    const { projects, projectsToSave, keptCopies } = reconcileProjectsFromDisk(
       nextDisk,
       state.projects,
       journal.pendingUpserts,
@@ -629,5 +742,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     persist(next)
     set(next)
     for (const project of projectsToSave) queueProjectUpsert(project)
+    return keptCopies.map((copy) => copy.name)
   },
 }))

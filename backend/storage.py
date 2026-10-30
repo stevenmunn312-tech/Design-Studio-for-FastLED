@@ -589,6 +589,9 @@ def save_project(project: dict = Body(...)):
     timestamp_error = _timestamp_error(project)
     if timestamp_error:
         return JSONResponse({"ok": False, "error": timestamp_error}, status_code=400)
+    # The disk version the sender's copy was edited from (the browser's
+    # `diskBase`). Bookkeeping for this check only, never written to the file.
+    base = project.pop("baseUpdatedAt", None)
     with _project_file_lock:
         # Autosave, explicit Save and pagehide can arrive out of order. Never
         # let an older snapshot replace the newer workspace already on disk.
@@ -601,6 +604,13 @@ def save_project(project: dict = Body(...)):
                 if (existing.get("id") == pid
                         and _timestamp(existing.get("updatedAt")) > _timestamp(project.get("updatedAt"))):
                     return {"ok": True, "file": existing_path.name}
+                # Newer by its clock, but edited from an older save than the
+                # file now holds: another tab saved since, or the sender's copy
+                # fell behind while the helper was away. Writing it would
+                # throw that save away, so refuse and let the browser keep both.
+                if (existing.get("id") == pid and isinstance(base, (int, float))
+                        and _timestamp(existing.get("updatedAt")) > base):
+                    return {"ok": False, "conflict": True, "file": existing_path.name}
             except (OSError, ValueError, TypeError):
                 continue
         path = _unique_project_path(_sanitize_filename(name), pid)

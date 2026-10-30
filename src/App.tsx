@@ -254,8 +254,14 @@ export default function App() {
           useUiStore.getState().setStatus('Share link could not be opened', 'error')
         }
       }
-      await useProjectStore.getState().refreshFromDisk()
+      const keptCopies = await useProjectStore.getState().refreshFromDisk()
       if (cancelled) return
+      if (keptCopies.length > 0) {
+        useUiStore.getState().setStatus(
+          `Kept ${keptCopies.join(', ')}: this browser's version was edited from an older save than the one on disk`,
+          'info',
+        )
+      }
       const state = useProjectStore.getState()
       // Nothing saved on this machine at all, here or in the helper's project
       // folder: someone's very first visit. Greet it with the Start Gallery,

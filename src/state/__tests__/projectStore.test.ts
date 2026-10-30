@@ -370,6 +370,41 @@ describe('projectStore', () => {
     expect(projectsToSave).toEqual([stateAlpha])
   })
 
+  // 2026-10-30: a blank browser copy, stale because storage was full while the
+  // helper was down, was stamped newer by an automatic edit and replaced a
+  // 1.7 MB project on disk when the helper came back.
+  it('never lets a copy edited from an older save replace the file, and keeps both', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const disk = { id: 'alpha', name: 'Alpha', createdAt: 100, updatedAt: 500, workspace: workspace(['full']) }
+    const stale = { ...disk, updatedAt: 900, diskBase: 200, workspace: workspace(['blank']) }
+
+    const { projects, projectsToSave, keptCopies } = reconcileProjectsFromDisk([disk], [stale])
+
+    expect(projects.find((project) => project.id === 'alpha')?.workspace).toEqual(workspace(['full']))
+    expect(keptCopies).toHaveLength(1)
+    expect(keptCopies[0]).toMatchObject({ name: 'Alpha (browser copy)', updatedAt: 900, workspace: workspace(['blank']) })
+    expect(keptCopies[0].id).not.toBe('alpha')
+    expect(projectsToSave).toEqual(keptCopies)
+  })
+
+  it('still saves a copy edited from the save the file holds', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const disk = { id: 'alpha', name: 'Alpha', createdAt: 100, updatedAt: 500, workspace: workspace(['old']) }
+    const edited = { ...disk, updatedAt: 900, diskBase: 500, workspace: workspace(['new']) }
+
+    const { projects, projectsToSave, keptCopies } = reconcileProjectsFromDisk([disk], [edited])
+
+    expect(projects).toEqual([edited])
+    expect(projectsToSave).toEqual([edited])
+    expect(keptCopies).toEqual([])
+  })
+
+  it('stamps a copy taken from disk with the version it came from', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const disk = { id: 'alpha', name: 'Alpha', createdAt: 100, updatedAt: 500, workspace: workspace(['alpha']) }
+    expect(reconcileProjectsFromDisk([disk], []).projects[0].diskBase).toBe(500)
+  })
+
   it('keeps projects whose write the helper never acknowledged, even against an empty folder', async () => {
     const { reconcileProjectsFromDisk } = await freshStore()
     const local = [

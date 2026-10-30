@@ -659,15 +659,23 @@ export async function listProjects(): Promise<SavedProject[] | null> {
   }
 }
 
-/** Write one project to its own file. Returns false when the helper is absent. */
-export async function saveProjectToDisk(project: SavedProject): Promise<boolean> {
+/**
+ * Write one project to its own file. Returns false when the helper is absent,
+ * and when it refuses the save because `baseUpdatedAt` (the disk version this
+ * copy was edited from) is older than the file: then `onConflict` runs too.
+ */
+export async function saveProjectToDisk(
+  project: SavedProject,
+  options: { baseUpdatedAt?: number; onConflict?: () => void } = {},
+): Promise<boolean> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/projects`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(project),
+      body: JSON.stringify(options.baseUpdatedAt === undefined ? project : { ...project, baseUpdatedAt: options.baseUpdatedAt }),
     })
     const data = await res.json()
+    if (data.conflict) options.onConflict?.()
     return !!data.ok
   } catch {
     return false

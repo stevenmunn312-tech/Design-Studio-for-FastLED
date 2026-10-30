@@ -25,6 +25,27 @@ def test_older_save_cannot_replace_23_patterns_with_three(tmp_path, monkeypatch)
     assert json.loads(files[0].read_text()) == newest
 
 
+def test_save_edited_from_an_older_base_is_refused_not_written(tmp_path, monkeypatch):
+    # 2026-10-30: a blank browser copy, newer by its clock but edited from a
+    # save older than the file, replaced a whole project.
+    monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path)
+    full = project(23, 500)
+    assert storage.save_project(full)["ok"]
+    result = storage.save_project({**project(0, 900), "baseUpdatedAt": 200})
+    assert result == {"ok": False, "conflict": True, "file": result["file"]}
+    files = list(tmp_path.glob("*.json"))
+    assert len(files) == 1
+    assert json.loads(files[0].read_text()) == full
+
+
+def test_save_edited_from_the_current_base_is_written_without_the_base(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path)
+    assert storage.save_project(project(3, 500))["ok"]
+    assert storage.save_project({**project(23, 900), "baseUpdatedAt": 500})["ok"]
+    files = list(tmp_path.glob("*.json"))
+    assert json.loads(files[0].read_text()) == project(23, 900)
+
+
 def test_overlapping_saves_leave_one_complete_newest_project(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path)
     snapshots = [project(count, count, f"Collection {count}") for count in range(3, 24)]
