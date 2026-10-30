@@ -83,6 +83,13 @@ lookup can stall far longer than the connect timeout on a flaky DNS server
 (16 s seen on a phone hotspot) and then report success with `0.0.0.0`, which
 counts as a failed lookup.
 
+A router that announces IPv6 can name an IPv6 DNS server in its adverts
+(RDNSS, two slots in core 3.3.12's lwIP), and lwIP puts it in place of the
+DHCP server at any time. The board has no IPv6 address, so every lookup then
+times out (7 s each, all stations skipped, minutes after they played). Before
+each lookup the sketch puts the last IPv4 server it saw back
+(`_radioKeepIpv4Dns`), or the gateway when it has seen none.
+
 The show clock is the time the current station has played, held while paused
 and rewound by a station change, as a new track rewinds the card player's.
 

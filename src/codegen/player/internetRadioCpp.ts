@@ -351,6 +351,7 @@ export function internetRadioFirmware(options: InternetRadioOptions): InternetRa
   const paused = transport ? 'playerPaused' : 'false'
   const includes = [
     '#include <Preferences.h>',
+    '#include <esp_netif.h>',
     ...(page ? ['#include <WebServer.h>', '#include <ESPmDNS.h>'] : []),
   ].join('\n')
 
@@ -535,6 +536,34 @@ ${page ? '  strlcpy(_radioTitle, info, sizeof(_radioTitle));\n' : ''}${songInfo 
 // Why the last connect failed, for the skip line.
 static const char *_radioWhy = "no connection";
 
+// A router that announces IPv6 can name an IPv6 DNS server in its adverts
+// (RDNSS), and lwIP puts that in place of the DHCP one at any time. The sketch
+// never gives the board an IPv6 address, so every lookup through that server
+// times out: three stations skipped as "name lookup failed" minutes after
+// they played. Before a lookup, put the last IPv4 server seen back, or the
+// gateway when none has been seen, which answers DNS on home routers and
+// phone hotspots alike.
+static void _radioKeepIpv4Dns() {
+  static uint32_t lastV4 = 0;
+  esp_netif_t *netif = esp_netif_get_default_netif();
+  esp_netif_dns_info_t dns;
+  if (!netif || esp_netif_get_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns) != ESP_OK) return;
+  if (dns.ip.type == ESP_IPADDR_TYPE_V4 && dns.ip.u_addr.ip4.addr != 0) {
+    lastV4 = dns.ip.u_addr.ip4.addr;
+    return;
+  }
+  if (lastV4 == 0) {
+    esp_netif_ip_info_t info;
+    if (esp_netif_get_ip_info(netif, &info) != ESP_OK || info.gw.addr == 0) return;
+    lastV4 = info.gw.addr;
+  }
+  dns.ip.type = ESP_IPADDR_TYPE_V4;
+  dns.ip.u_addr.ip4.addr = lastV4;
+  if (esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns) == ESP_OK) {
+    Serial.printf("[radio] DNS server was IPv6, back to %s\\n", IPAddress(lastV4).toString().c_str());
+  }
+}
+
 static void _radioConnect() {
   const RadioStation &station = _radioList[radioIndex];
 ${songInfo ? `  portENTER_CRITICAL(&_radioSongMux);
@@ -557,6 +586,7 @@ ${songInfo ? `  portENTER_CRITICAL(&_radioSongMux);
   size_t n = strcspn(start, "/:?");
   memcpy(host, start, n);
   host[n] = 0;
+  _radioKeepIpv4Dns();
   IPAddress ip;
   uint32_t lookupMs = millis();
   // A lookup that times out can still report success with 0.0.0.0 (seen on a

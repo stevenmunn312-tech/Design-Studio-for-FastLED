@@ -978,6 +978,16 @@ describe('Internet Radio Music Player sketch', () => {
     expect(code).not.toMatch(/Serial\.printf\("[^"\n]*\n/)
   })
 
+  // A router's IPv6 adverts swapped the DHCP DNS server for an IPv6 one the
+  // board cannot reach, and every station then failed its lookup.
+  it('puts an IPv4 DNS server back before looking a station up', () => {
+    const code = sketch()
+    const connect = code.slice(code.indexOf('static void _radioConnect()'), code.indexOf('static void _radioSkip('))
+    expect(connect.indexOf('_radioKeepIpv4Dns();')).toBeGreaterThan(-1)
+    expect(connect.indexOf('_radioKeepIpv4Dns();')).toBeLessThan(connect.indexOf('WiFi.hostByName'))
+    expect(code).toContain('esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns)')
+  })
+
   it('changes station with Next and Previous, and judges no paused stream', () => {
     expect(sketch()).not.toMatch(/radioSelect|playerPaused/)
     const code = sketch({ controls })
