@@ -48,7 +48,7 @@ import { ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
 import { vuNormalizedLevelCpp } from './audio/stereoLevelCpp'
 import {
   audioFeatureGlobalsCpp, audioFeatureHelpersCpp, audioFeatureResetCpp, audioFeatureSetupCpp,
-  audioFeatureUpdateCpp, audioFeaturesInCode,
+  audioFeatureEdgesCpp, audioFeatureReadCpp, audioFeaturesInCode,
 } from './audio/audioEngineCpp'
 import {
   DETECTOR_TRAILER_FLAG_PITCH, DETECTOR_TRAILER_FLAG_STRUCTURE, DETECTOR_TRAILER_FLAG_VIBE, DETECTOR_TRAILER_VERSION,
@@ -1753,14 +1753,15 @@ uint32_t  audioDetLast = 0xFFFFFFFF;   // last frame served, so one-frame events
 ${decoderTap ? `
 // ESP32-audioI2S calls audio_process_i2s() after decode/gain and immediately
 // before the samples are written to I2S. Queue complete mono blocks there,
-// then run FastLED's Processor in the Arduino loop so FFT work cannot delay
-// the write that keeps playback fed.
+// then run FastLED's Processor in its own task so FFT work delays neither the
+// write that keeps playback fed nor the LED loop.
 //
-// The two ends run in different tasks: 3.0.12 decodes in its own task, every
-// 7 ms at priority 4, on either core. The ring's indexes and count are shared
-// between them, so every change to them is made under _decoderTapMux. Unlocked,
-// a lost update once left the count at 255 and the loop analysed 255 stale
-// blocks back to back, freezing the LEDs and the board link for 9 seconds.
+// The ends run in different tasks: 3.0.12 decodes in its own task, every
+// 7 ms at priority 4, on either core, and the analysis task takes the blocks.
+// The ring's indexes and count are shared between them, so every change to
+// them is made under _decoderTapMux. Unlocked, a lost update once left the
+// count at 255 and 255 stale blocks were analysed back to back, freezing the
+// LEDs and the board link for 9 seconds.
 #define DECODER_TAP_BLOCK_SAMPLES 512
 #define DECODER_TAP_BLOCKS 4
 #define DECODER_TAP_INTERNAL_DAC ${internalDac ? 1 : 0}
@@ -1768,8 +1769,9 @@ static int16_t _decoderTapBlocks[DECODER_TAP_BLOCKS][DECODER_TAP_BLOCK_SAMPLES];
 static portMUX_TYPE _decoderTapMux = portMUX_INITIALIZER_UNLOCKED;
 static uint16_t _decoderTapFill = 0;  // the decode task's own
 static uint8_t _decoderTapWrite = 0, _decoderTapRead = 0, _decoderTapQueued = 0;
-static uint32_t _decoderTapLastMs = 0;
+static volatile uint32_t _decoderTapLastMs = 0;  // when the analysis task last finished a block
 static bool _decoderTapLive = false;
+static TaskHandle_t _decoderAnalysisTask = nullptr;
 // ESP32-audioI2S attenuates decoded PCM in Gain() before it calls
 // audio_process_i2s(), by volumetable[vol] / 64 from its own 22-entry table.
 // The tap therefore measures output level, not program level: the rails shrank
@@ -1788,7 +1790,27 @@ static volatile uint32_t _decoderLevelFrames = 0;
 static fl::shared_ptr<fl::audio::Processor> _audioProcessor;
 static volatile uint32_t _audioBeatCount = 0;
 static uint32_t _audioBeatSeen = 0;
-${lines([...audioFeatureGlobalsCpp(audioFeatures), ...audioFeatureHelpersCpp(audioFeatures)])}` : ''}
+${lines(audioFeatureGlobalsCpp(audioFeatures))}${audioFeatures.pitch || audioFeatures.waveform ? `
+// Pitch and Waveform step in the loop, but the processor belongs to the
+// analysis task, so they read a copy of the newest analysed block instead of
+// getSample(), which that task replaces mid-read.
+static int16_t _decoderTapLatest[DECODER_TAP_BLOCK_SAMPLES];
+static uint32_t _decoderTapLatestStamp = 0;  // under _decoderTapMux
+static const fl::audio::Sample& _decoderTapSample() {
+  static int16_t pcm[DECODER_TAP_BLOCK_SAMPLES];
+  static fl::audio::Sample copy;
+  static uint32_t copied = 0;
+  portENTER_CRITICAL(&_decoderTapMux);
+  uint32_t stamp = _decoderTapLatestStamp;
+  if (stamp != copied) memcpy(pcm, _decoderTapLatest, sizeof(pcm));
+  portEXIT_CRITICAL(&_decoderTapMux);
+  if (stamp != copied) {
+    copied = stamp;
+    copy = fl::audio::Sample(fl::span<const fl::i16>(pcm, DECODER_TAP_BLOCK_SAMPLES), stamp);
+  }
+  return copy;
+}
+${lines(audioFeatureHelpersCpp(audioFeatures, '_decoderTapSample()'))}` : ''}` : ''}
 
 ${usePsram ? `${PSRAM_ALLOC_CPP}\n` : ''}
 
@@ -2034,6 +2056,7 @@ ${needsStereoLevels ? `    leftSquares += (uint64_t)((int64_t)stereo[0] * stereo
       _decoderTapWrite = (_decoderTapWrite + 1) % DECODER_TAP_BLOCKS;
       _decoderTapQueued++;
       portEXIT_CRITICAL(&_decoderTapMux);
+      if (_decoderAnalysisTask) xTaskNotifyGive(_decoderAnalysisTask);
     }
   }
   // Publish one short-window RMS accumulator. sqrtf stays in the main loop so
@@ -2045,6 +2068,48 @@ ${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
   portEXIT_CRITICAL(&_decoderTapMux);
 ` : ''}}
 ${bluetooth ? `\n${BLUETOOTH_TAP_CPP}\n` : ''}
+// FastLED's Processor, with every detector the patterns read, costs about
+// 10 ms a block on an ESP32-S3. In the LED loop that took 38 ms of every frame
+// on a 256 kbps station (16 fps, observed 2026-10-30) while core 0 sat 60%
+// idle. It runs here, on core 0 below the decoder's priority, and once setup
+// is done nothing else touches _audioProcessor: this task publishes plain
+// values, and the loop turns the callbacks' counters into one-frame events.
+// When analysis falls behind playback the producer drops the oldest block.
+static void _decoderAnalysisLoop(void *) {
+  static int16_t block[DECODER_TAP_BLOCK_SAMPLES];
+  for (;;) {
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
+    for (;;) {
+      portENTER_CRITICAL(&_decoderTapMux);
+      bool have = _decoderTapQueued > 0;
+      if (have) {
+        memcpy(block, _decoderTapBlocks[_decoderTapRead], sizeof(block));
+        _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
+        _decoderTapQueued--;
+      }
+      portEXIT_CRITICAL(&_decoderTapMux);
+      if (!have) break;
+      uint32_t now = millis();
+      _audioProcessor->update(fl::audio::Sample(fl::span<const fl::i16>(block, DECODER_TAP_BLOCK_SAMPLES), now));
+${audioFeatures.pitch || audioFeatures.waveform ? `      portENTER_CRITICAL(&_decoderTapMux);
+      memcpy(_decoderTapLatest, block, sizeof(block));
+      _decoderTapLatestStamp = now;
+      portEXIT_CRITICAL(&_decoderTapMux);
+` : ''}      _audioBass = _audioProcessor->getBassLevel();
+      _audioMids = _audioProcessor->getMidLevel();
+      _audioTreble = _audioProcessor->getTrebleLevel();
+      _audioBpm = _audioProcessor->getBPM();
+      _audioBeatConfidence = _audioProcessor->getBeatConfidence();
+${lines(audioFeatureReadCpp(audioFeatures).map((line) => '    ' + line))}${needsSpectrum ? `      // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
+      // established 32-slot spectrum contract, matching the microphone engine.
+      for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);
+` : ''}      _decoderTapLastMs = now;
+      // Never back to back: the idle task on this core feeds the watchdog.
+      vTaskDelay(1);
+    }
+  }
+}
+
 void setupDecoderTap() {
   _audioProcessor = fl::make_shared<fl::audio::Processor>();
   if (!_audioProcessor) return;
@@ -2056,7 +2121,8 @@ void setupDecoderTap() {
   (void)_audioProcessor->getTrebleLevel();
   (void)_audioProcessor->getBPM();
 ${needsSpectrum ? '  (void)_audioProcessor->getEqBin(0);\n' : ''}
-${lines(audioFeatureSetupCpp(audioFeatures))}}
+${lines(audioFeatureSetupCpp(audioFeatures))}  xTaskCreatePinnedToCore(_decoderAnalysisLoop, "audioAnalysis", 8192, nullptr, 1, &_decoderAnalysisTask, 0);
+}
 
 ${vuNormalizedLevelCpp({ rmsScaleExpr: '_decoderVolumeComp' }).join('\n')}
 
@@ -2069,26 +2135,10 @@ void updateDecoderAudio() {
     return;
   }
 
-  // At most a full ring per pass, each block copied out under the lock and
-  // analysed outside it. The decoder keeps queueing while the Processor runs,
-  // so draining until empty never ends once analysis is slower than playback.
-  static int16_t block[DECODER_TAP_BLOCK_SAMPLES];
-  bool processed = false;
-  for (uint8_t taken = 0; taken < DECODER_TAP_BLOCKS; taken++) {
-    portENTER_CRITICAL(&_decoderTapMux);
-    bool have = _decoderTapQueued > 0;
-    if (have) {
-      memcpy(block, _decoderTapBlocks[_decoderTapRead], sizeof(block));
-      _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
-      _decoderTapQueued--;
-    }
-    portEXIT_CRITICAL(&_decoderTapMux);
-    if (!have) break;
-    _audioProcessor->update(fl::audio::Sample(fl::span<const fl::i16>(block, DECODER_TAP_BLOCK_SAMPLES), millis()));
-    processed = true;
-  }
-  if (processed) _decoderTapLastMs = millis();
-  _decoderTapLive = _decoderTapLastMs != 0 && millis() - _decoderTapLastMs < 250;
+  // The analysis task has published the values. Read its stamp before
+  // millis() so the difference cannot wrap.
+  uint32_t lastMs = _decoderTapLastMs;
+  _decoderTapLive = lastMs != 0 && millis() - lastMs < 250;
 
 ${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
   uint32_t levelFrames = _decoderLevelFrames;
@@ -2105,18 +2155,10 @@ ${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
 ${needsStereoLevels ? '    _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}
 ${lines(audioFeatureResetCpp(audioFeatures))}${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in this loop.\n' : '    _audioBass = _audioMids = _audioTreble = 0.0f;\n    _audioBpm = 120.0f;\n' + (needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0.0f;\n' : '')}    return;
   }
-  _audioBass = _audioProcessor->getBassLevel();
-  _audioMids = _audioProcessor->getMidLevel();
-  _audioTreble = _audioProcessor->getTrebleLevel();
-  _audioBpm = _audioProcessor->getBPM();
   uint32_t beatCount = _audioBeatCount;
   _audioBeat = beatCount != _audioBeatSeen;
   _audioBeatSeen = beatCount;
-  _audioBeatConfidence = _audioProcessor->getBeatConfidence();
-${lines(audioFeatureUpdateCpp(audioFeatures))}  // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
-  // established 32-slot spectrum contract, matching the microphone engine.
-${needsSpectrum ? '  for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);\n' : ''}
-}
+${lines(audioFeatureEdgesCpp(audioFeatures))}}
 
 void resetDecoderTapLevels() {
 ${needsStereoLevels ? '  portENTER_CRITICAL(&_decoderTapMux);\n  _decoderLeftSquares = _decoderRightSquares = 0;\n  _decoderLevelFrames = 0;\n  portEXIT_CRITICAL(&_decoderTapMux);\n  _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}

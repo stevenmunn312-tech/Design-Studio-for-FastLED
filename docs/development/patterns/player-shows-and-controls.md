@@ -645,6 +645,17 @@ that are easy to split across preview and firmware:
   with the knob. The mono FFT feed is deliberately left uncompensated: it rides
   FastLED's own adaptive normalization and has no absolute scale to preserve,
   unlike a meter.
+- **The decoder tap's analysis runs in its own task on core 0, never in the
+  LED loop.** FastLED's `Processor` with every detector a collection reads
+  costs about 10 ms per 512-sample block on an ESP32-S3; in the loop that was
+  38 ms of every frame on a 256 kbps station (16 fps, 2026-10-30) while core 0
+  sat 60% idle. `_decoderAnalysisLoop` is woken by the producer, updates the
+  processor, publishes the plain values (`audioFeatureReadCpp`), and yields a
+  tick per block so core 0's idle task feeds the watchdog. After setup nothing
+  else may call `_audioProcessor->`: the loop keeps only the one-frame events
+  (`audioFeatureEdgesCpp`, from the callbacks' counters), and Pitch and
+  Waveform read a copy of the newest block (`_decoderTapSample()`), because
+  `getSample()` is replaced mid-read.
 - A renderer with a planned cross-language twin is frozen with golden-vector
   tests, not eyeballed: `src/state/audio/__tests__/stereoVuGoldenVectors.ts` holds the
   fixed input fixture (`STEREO_VU_GOLDEN_STEPS`, `STEREO_VU_GOLDEN_PROPERTIES`)

@@ -501,11 +501,21 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('void audio_process_i2s(int16_t* outBuff, uint16_t validSamples')
     expect(ino).toContain('if (continueI2S) *continueI2S = true;')
     expect(ino).toContain('fl::make_shared<fl::audio::Processor>()')
-    expect(ino).toContain('_audioProcessor->update(fl::audio::Sample(fl::span<const fl::i16>(block, DECODER_TAP_BLOCK_SAMPLES), millis()));')
+    // Analysis runs in its own task on core 0, woken by the producer, and
+    // yields after every block so core 0's idle task still feeds the watchdog.
+    // On the LED loop it cost 38 ms a frame on a 256 kbps station.
+    const task = ino.slice(ino.indexOf('static void _decoderAnalysisLoop(void *) {'), ino.indexOf('void setupDecoderTap() {'))
+    expect(task).toContain('_audioProcessor->update(fl::audio::Sample(fl::span<const fl::i16>(block, DECODER_TAP_BLOCK_SAMPLES), now));')
+    expect(task).toContain('_audioBass = _audioProcessor->getBassLevel();')
+    expect(task).toContain('vTaskDelay(1);')
+    expect(ino).toContain('xTaskCreatePinnedToCore(_decoderAnalysisLoop, "audioAnalysis", 8192, nullptr, 1, &_decoderAnalysisTask, 0);')
+    expect(ino).toContain('if (_decoderAnalysisTask) xTaskNotifyGive(_decoderAnalysisTask);')
+    const loopSide = ino.slice(ino.indexOf('void updateDecoderAudio() {'), ino.indexOf('void resetDecoderTapLevels() {'))
+    expect(loopSide).not.toContain('_audioProcessor->')
+    expect(loopSide).toContain('_audioBeat = beatCount != _audioBeatSeen;')
     // The decoder fills the ring from its own task, so the shared count only
-    // moves under the lock, and a pass takes at most one ring's worth.
+    // moves under the lock.
     expect(ino).toContain('static portMUX_TYPE _decoderTapMux = portMUX_INITIALIZER_UNLOCKED;')
-    expect(ino).toContain('for (uint8_t taken = 0; taken < DECODER_TAP_BLOCKS; taken++) {')
     expect(ino).not.toContain('while (_decoderTapQueued > 0)')
     const changes = [...ino.matchAll(/^ +_decoderTapQueued(?:\+\+|--| = 0);/gm)]
     expect(changes.length).toBe(4)

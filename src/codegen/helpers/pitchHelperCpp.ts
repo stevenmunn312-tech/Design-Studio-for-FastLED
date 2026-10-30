@@ -35,7 +35,9 @@ export function pitchGlobalsCpp(): string[] {
   ]
 }
 
-export function pitchHelperCpp(): string[] {
+/** `sample` is the expression that yields the chunk to analyse: the
+ *  processor's own, or a copy when another task owns the processor. */
+export function pitchHelperCpp(sample = '_audioProcessor->getSample()'): string[] {
   return [
     `#define STUDIO_PITCH_MIN_LAG ${PITCH_MIN_LAG}`,
     `#define STUDIO_PITCH_MAX_LAG ${PITCH_MAX_LAG}`,
@@ -114,7 +116,7 @@ export function pitchHelperCpp(): string[] {
     '// One step per new chunk: FastLED Pitch, then the Note state machine.',
     'static void _audioPitchStep() {',
     '  _audioPitchNoteOn = false;',
-    '  const fl::audio::Sample& sample = _audioProcessor->getSample();',
+    `  const fl::audio::Sample& sample = ${sample};`,
     '  if (!sample.isValid() || sample.timestamp() == _pitchStamp) return;',
     '  _pitchStamp = sample.timestamp();',
     '  float conf = 0.0f;',

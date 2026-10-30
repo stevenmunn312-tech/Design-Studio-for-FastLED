@@ -29,12 +29,12 @@ export const graphUsesVibe = (nodes: readonly StudioNode[], groups: GroupRegistr
   graphUsesNodeType('Vibe', nodes, groups)
 /** Peak-preserving decimation of the current chunk into `_audioWave`, the
  *  firmware twin of `decimateWave` in state/evaluator/waveform.ts. */
-function waveformHelperCpp(): string[] {
+function waveformHelperCpp(sample: string): string[] {
   return [
     '// Waveform: the current chunk peak-decimated to ' + WAVE_SAMPLES + ' samples in -1..1.',
     'static uint32_t _waveStamp = 0;',
     'static void _audioWaveStep() {',
-    '  const fl::audio::Sample& sample = _audioProcessor->getSample();',
+    `  const fl::audio::Sample& sample = ${sample};`,
     '  if (!sample.isValid() || sample.timestamp() == _waveStamp) return;',
     '  _waveStamp = sample.timestamp();',
     '  const auto& pcm = sample.pcm();',
@@ -122,11 +122,12 @@ export function audioFeatureGlobalsCpp(f: AudioFeatures): string[] {
   ]
 }
 
-/** Feature step functions; emit after `_audioProcessor` is declared. */
-export function audioFeatureHelpersCpp(f: AudioFeatures): string[] {
+/** Feature step functions; emit after `_audioProcessor` is declared.
+ *  `sample` yields the chunk Pitch and Waveform read (see pitchHelperCpp). */
+export function audioFeatureHelpersCpp(f: AudioFeatures, sample = '_audioProcessor->getSample()'): string[] {
   return [
-    ...(f.pitch ? ['', ...pitchHelperCpp()] : []),
-    ...(f.waveform ? ['', ...waveformHelperCpp()] : []),
+    ...(f.pitch ? ['', ...pitchHelperCpp(sample)] : []),
+    ...(f.waveform ? ['', ...waveformHelperCpp(sample)] : []),
   ]
 }
 
@@ -171,6 +172,12 @@ export function audioFeatureResetCpp(f: AudioFeatures, indent = '    '): string[
 
 /** Poll every feature from the processor, after it has consumed this loop's audio. */
 export function audioFeatureUpdateCpp(f: AudioFeatures): string[] {
+  return [...audioFeatureReadCpp(f), ...audioFeatureEdgesCpp(f)]
+}
+
+/** The feature values read straight off the processor. A host whose processor
+ *  runs in another task calls these there, right after each update. */
+export function audioFeatureReadCpp(f: AudioFeatures): string[] {
   return [
     ...(f.vibe ? [
       ...VIBE_LEVELS.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
@@ -183,6 +190,16 @@ export function audioFeatureUpdateCpp(f: AudioFeatures): string[] {
       '  _audioDropImpact = _audioProcessor->getDropImpact();',
       '  _audioValence = _audioProcessor->getMoodValence();',
       '  _audioArousal = _audioProcessor->getMoodArousal();',
+    ] : []),
+  ]
+}
+
+/** The once-a-frame events: the callbacks' counters become one-frame flags,
+ *  and Pitch and Waveform step on the newest chunk. Always in the loop, so a
+ *  frame sees every event exactly once. */
+export function audioFeatureEdgesCpp(f: AudioFeatures): string[] {
+  return [
+    ...(f.structure ? [
       '  uint32_t downbeatCount = _audioDownbeatCount, dropCount = _audioDropCount;',
       '  _audioDownbeat = downbeatCount != _audioDownbeatSeen;',
       '  _audioDrop = dropCount != _audioDropSeen;',

@@ -952,7 +952,7 @@ describe('Internet Radio Music Player sketch', () => {
   // failed!"; the log has to say whether the name lookup or the server failed.
   it('says whether the name lookup or the server failed', () => {
     const code = sketch()
-    expect(code).toContain('if (!WiFi.hostByName(host, ip)) {')
+    expect(code).toContain('if (!WiFi.hostByName(host, ip) || ip == IPAddress((uint32_t)0)) {')
     expect(code).toContain('_radioWhy = "name lookup failed";')
     expect(code).toContain('_radioWhy = "the server did not answer";')
     expect(code).toContain('if (_radioState == RADIO_IDLE) _radioSkip(_radioWhy);')

@@ -528,7 +528,9 @@ ${songInfo ? '  songReset(nullptr);\n  _songSet(songAlbum, station.name);   // t
   host[n] = 0;
   IPAddress ip;
   uint32_t lookupMs = millis();
-  if (!WiFi.hostByName(host, ip)) {
+  // A lookup that times out can still report success with 0.0.0.0 (seen on a
+  // phone hotspot after a 16 s stall), so that address counts as a failure.
+  if (!WiFi.hostByName(host, ip) || ip == IPAddress((uint32_t)0)) {
     Serial.printf("[radio] could not look up %s (%lums, DNS server %s)\\n",
                   host, (unsigned long)(millis() - lookupMs), WiFi.dnsIP().toString().c_str());
     _radioWhy = "name lookup failed";

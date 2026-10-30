@@ -57,15 +57,23 @@ gets the same answer, a watchdog around the library:
 - From connect to the first decoded frame (`getBitRate() != 0`) a station has
   `RADIO_START_TIMEOUT_MS` (12 s). A refused connection or a closed stream
   fails at once.
-- A playing station whose decoded time stops moving for `RADIO_STALL_MS`
-  (10 s), or whose stream ends, is reconnected once, then skipped.
+- A playing station whose stream data stops moving for `RADIO_STALL_MS`
+  (10 s), or whose stream ends, is reconnected once, then skipped. Progress is
+  the input buffer's fill (`inBufferFilled()`), never `getAudioCurrentTime()`:
+  3.0.12 computes that only for files, so on a stream it stays 0 and every
+  station was reconnected every 10 s.
 - When every station has failed in a row the player rests `RADIO_BACKOFF_MS`
   (30 s) before going round again.
 - Without Wi-Fi nothing is attempted; a paused stream is judged from the
   moment it resumes.
 
 `connecttohost` waits for the TCP connection, so a dead host freezes the LED
-loop for up to the connect timeout; the sketch sets 1.5 s (4 s for TLS).
+loop for up to the connect timeout; the sketch sets 1.5 s (4 s for TLS). The
+sketch looks the host up first, so the log says whether the name lookup or
+the server failed (the library prints only "Request failed!" for both). A
+lookup can stall far longer than the connect timeout on a flaky DNS server
+(16 s seen on a phone hotspot) and then report success with `0.0.0.0`, which
+counts as a failed lookup.
 
 The show clock is the time the current station has played, held while paused
 and rewound by a station change, as a new track rewinds the card player's.
