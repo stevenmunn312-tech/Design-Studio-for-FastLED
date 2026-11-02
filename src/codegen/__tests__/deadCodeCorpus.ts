@@ -117,16 +117,21 @@ function performance(names: PatternName[], properties: Record<string, unknown> =
   return buildShowPlayer(nodes, edges, registry(names), { patternSet: names, bakedAudio: false, preferredTrack: '', genericPlayer: false })
 }
 
-function slideshow(names: PatternName[], properties: Record<string, unknown> = {}, transitions?: string[]) {
+function slideshow(
+  names: PatternName[], properties: Record<string, unknown> = {}, transitions?: string[],
+  extra: { nodes?: StudioNode[]; edges?: StudioEdge[] } = {},
+) {
   const nodes = [
     node('collection', 'PatternCollection', { patternIds: names }),
     node('show', 'PatternSlideshow', { interval: 8, transitionSec: 1, ...properties }),
     node('out', 'MatrixOutput', { width: 16, height: 16, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ...(transitions ? [node('pool', 'TransitionSet', { transitions })] : []),
+    ...(extra.nodes ?? []),
   ]
   const edges = [
     edge('set', 'collection', 'patternset', 'show', 'patternset'), edge('frame', 'show', 'frame', 'out', 'frame'),
     ...(transitions ? [edge('pool', 'pool', 'transitions', 'show', 'transitions')] : []),
+    ...(extra.edges ?? []),
   ]
   return generateShowSketch(nodes, edges, registry(names))
 }
@@ -172,6 +177,23 @@ function showSketches(): Record<string, string> {
     'slideshow-sequential': slideshow(['solid', 'noise'], { order: 'Sequential' }),
     'slideshow-mixed': slideshow(['warp', 'symmetry', 'shape'], {}, ['wipe', 'iris']),
     'slideshow-3d-pool': slideshow(['solid', 'noise'], {}, ['cube', 'dolly']),
+    // Sparks on a microphone beat, one fixed style and one rolled per burst.
+    'slideshow-particles': slideshow(['solid', 'noise'], {}, undefined, {
+      nodes: [
+        node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+        node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }), node('audio', 'Audio', { sourceId: 'mic' }),
+        node('particles', 'PlayerParticles', { style: 3, energyGate: 0.3 }),
+      ],
+      edges: [edge('audio', 'audio', 'audio', 'show', 'audio'), edge('fx', 'particles', 'particleFx', 'show', 'particleFx')],
+    }),
+    'slideshow-random-particles': slideshow(['solid', 'noise'], {}, undefined, {
+      nodes: [
+        node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
+        node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }), node('audio', 'Audio', { sourceId: 'mic' }),
+        node('particles', 'PlayerParticles', { randomStyle: true, randomColor: true }),
+      ],
+      edges: [edge('audio', 'audio', 'audio', 'show', 'audio'), edge('fx', 'particles', 'particleFx', 'show', 'particleFx')],
+    }),
     // Telemetry on: the timed send and the render/send report in each generator.
     'telemetry-normal': generateCpp([telemetryBoard(), matrix(4), node('fill', 'Plasma')], [edge('f', 'fill', 'frame', 'out', 'frame')]),
     'telemetry-slideshow': generateShowSketch(

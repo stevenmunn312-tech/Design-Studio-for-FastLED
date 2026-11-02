@@ -21,7 +21,8 @@ import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, led
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { transitionStyleIds } from './performanceGenerator'
 import { isAudioReactiveSubgraph } from '../state/patterns/audioReactiveSubgraph'
-import { TRANSITION_3D_HELPERS_CPP, transitionHelperCpp, transitionSupportCpp } from './helpers/transitionHelperCpp'
+import { PARTICLE_HASH_CPP, PARTICLE_OVERLAY_CPP, TRANSITION_3D_HELPERS_CPP, transitionHelperCpp, transitionSupportCpp } from './helpers/transitionHelperCpp'
+import { playerParticlesWiredTo, type PlayerParticlesConfig } from './player/playerParticlesConfig'
 import { SDF_HELPER_CPP } from './helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import { TRUCHET_HELPER_CPP } from './helpers/truchetHelperCpp'
@@ -127,7 +128,7 @@ import { engineFrameOutputs, resolveBuildMode } from '../state/upload/buildMode'
 import { audioFeaturesInCode } from './audio/audioEngineCpp'
 import { cppCode } from './cppReachability'
 import { finishCpp } from './cppCleanup'
-import { boardCppFacts, specializeCpp } from './cppSpecialize'
+import { boardCppFacts, specializeCpp, specializeSwitch } from './cppSpecialize'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -168,15 +169,16 @@ interface ShowInfo {
   steps: PatternStep[]
   /** Whether silence should fade the rendered collection to black. */
   audioReactive: boolean
+  /** The Player Particles bundle wired into Particle FX, if any. */
+  particleFx: PlayerParticlesConfig | null
   seed: number
 }
 
 // Resolve the Pattern Slideshow + the collection feeding its patternset input.
 //
-// The particle overlay is not read here and is not emitted below: a slideshow
-// is the mode for patterns that should hold still, and the overlay belongs to
-// the Music Player, whose own sketch keeps it. Beat Transitions is read,
-// because it is a timing switch the user turns on.
+// Beat Transitions and the particle overlay are both read: one is a timing
+// switch the user turns on, the other a bundle the user wires in. Each bursts
+// or waits on the Audio wire's beat, as it does on the Music Player.
 function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): ShowInfo | null {
   // Straight to an output, or through the frame nodes it runs as its post-chain.
   const master = nodes.find((n) => nodeType(n) === 'PatternSlideshow'
@@ -213,6 +215,7 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): 
     entry: profiles.entry,
     steps,
     audioReactive: settings.audioReactive,
+    particleFx: playerParticlesWiredTo(nodes, edges, master.id),
     seed: settings.seed >>> 0,
   }
 }
@@ -1060,6 +1063,10 @@ export function generateShowSketch(
   const countBeats = sequenceActive && info.beatTransitions
   const holdTiming = rotates && !sequenceActive
   const pacingOptions = { energyPacing: info.energyPacing && timingAudio, dwellsAndBursts: info.dwellsAndBursts }
+  // Player Particles bursts on the same live beat, with Audio Reactive on or
+  // off: wiring an enabled bundle is itself the ask. The preview reads the
+  // same wire the same way.
+  const particleFx = timingAudio && info.particleFx?.enabled ? info.particleFx : null
   // Frame nodes between the slideshow and its LEDs, run on the finished canvas.
   const postFrame = controls.post
     ? buildPostFrame(controls.post.chain, controls.post.nodes, controls.post.edges, {}, controls.post.args, !!audio, !!audio)
@@ -1253,6 +1260,21 @@ export function generateShowSketch(
   if (clockSync) { L.push(boardSyncGlobalsCpp(clockSync, rotates, pooled && !sequenceActive)); L.push('') }
   if (linkFirmware) L.push(linkFirmware.globals)
   if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
+  if (particleFx) {
+    // The same sparks the Music Player throws (playerSketchGenerator.ts), as
+    // one function over `leds`. A fixed style keeps only its arm.
+    L.push('// Particle-burst overlay: keep PARTICLE_LIFE_MS/PARTICLE_COUNT in sync with')
+    L.push('// renderParticleBurst in the preview. The volley-then-rest cadence is Player')
+    L.push("// Particles' Bursts in a Row and Rest, normalised by playerDynamics.ts.")
+    L.push(`#define PARTICLE_VOLLEY_BURSTS ${particleFx.volleyBursts}`)
+    L.push(`#define PARTICLE_REST_MS   ${particleFx.restMs}`)
+    L.push('uint32_t burstStart = 0;        // ms the current particle burst began')
+    L.push('float    burstIntensity = 0.0f; // 0–1 spark brightness (0 = no burst)')
+    L.push(`CRGB     burstColor = CRGB(${particleFx.color.r}, ${particleFx.color.g}, ${particleFx.color.b});`)
+    L.push(`uint8_t  burstStyle = ${particleFx.style};        // particle motion style`)
+    L.push(PARTICLE_HASH_CPP)
+    L.push(particleFx.randomStyle ? PARTICLE_OVERLAY_CPP : specializeSwitch(PARTICLE_OVERLAY_CPP, 'burstStyle', particleFx.style))
+  }
 
   if (multiOutput) {
     for (const route of routes) {
@@ -1440,6 +1462,31 @@ export function generateShowSketch(
   L.push(...customDisplays.enable)
   for (const [id, variable] of controls.outputs) L.push(...ledOutputLatchCpp({ id: safeId(id), controls: variable }))
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
+  if (particleFx) {
+    // _audioBeat is a one-pass pulse (audioEngineCpp), so it needs no edge.
+    // The same moves as the preview's particleVolleyFire and the player.
+    L.push('  // Player Particles turns the live beat into a configured burst in volleys:')
+    L.push('  // PARTICLE_VOLLEY_BURSTS beats in a row each burst, then the sparks rest')
+    L.push('  // PARTICLE_REST_MS.')
+    if (particleFx.energyGate > 0) {
+      L.push(`  // Min Energy: a beat quieter than ${particleFx.energyGate.toFixed(2)} mean band energy spends no burst.`)
+    }
+    L.push('  static uint8_t burstVolleyLeft = 0;')
+    L.push(`  if (_audioBeat${particleFx.energyGate > 0
+      ? ` && (_audioBass + _audioMids + _audioTreble) / 3.0f >= ${particleFx.energyGate.toFixed(3)}f`
+      : ''}) {`)
+    L.push('    if (burstVolleyLeft == 0 && (burstStart == 0 || now - burstStart >= PARTICLE_REST_MS)) {')
+    L.push('      burstVolleyLeft = PARTICLE_VOLLEY_BURSTS;')
+    L.push('    }')
+    L.push('    if (burstVolleyLeft > 0) {')
+    L.push('      burstVolleyLeft--;')
+    L.push('      burstStart = now;')
+    L.push(`      burstIntensity = ${particleFx.intensity.toFixed(3)}f;`)
+    if (particleFx.randomStyle) L.push('      burstStyle = random8(17);')
+    if (particleFx.randomColor) L.push('      burstColor = CHSV(random8(), 255, 255);')
+    L.push('    }')
+    L.push('  }')
+  }
   if (beatGated) {
     // Without a live beat to wait for, the current pattern keeps playing,
     // as it does in the preview and on the Music Player.
@@ -1615,6 +1662,12 @@ export function generateShowSketch(
       L.push(`  ${SHOW_PATTERN_INDEX} = transitioning ? nxt : cur;`)
       L.push('')
     }
+  }
+  // Sparks go on before the silence fade, so they fade with the pattern as
+  // the preview's do.
+  if (particleFx) {
+    L.push('  particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);')
+    L.push('')
   }
   // Audio Reactive with nothing to hear is a graph error, so the fade is
   // emitted only where there is audio to measure.

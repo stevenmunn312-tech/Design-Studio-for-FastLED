@@ -663,23 +663,51 @@ describe('showGenerator', () => {
     expect(cpp).not.toContain('transitioning')
   })
 
-  it('has no beat advance and no particle overlay to emit', () => {
-    // Both ride an audio beat, and both moved to the Music Player with the
-    // music. A slideshow has no beat input to wire, and wiring Player
-    // Particles at it changes nothing in the sketch.
+  it('overlays Player Particles bursts on the Audio wire\'s beat', () => {
+    // The player's sparks, on the slideshow's own live audio. Wiring an
+    // enabled bundle is the ask, so Audio Reactive stays off here and the
+    // patterns hold still under the sparks.
     const particleFx = node('pfx', 'PlayerParticles', {
-      enabled: true, style: 3, color: '#3366cc', intensity: 0.9,
+      enabled: true, style: 3, color: '#3366cc', intensity: 0.9, volleyBursts: 2, restSec: 5, energyGate: 0.4,
     })
     const withMic = [...nodes, particleFx, micBoard,
       ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
-    const wire = [...edges, edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx')]
+    const wire = [...edges,
+      edge('ea', 'mic', 'audio', 'pm', 'audio'),
+      edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx')]
     const cpp = generateShowSketch(withMic, wire, groups)
 
-    expect(cpp).not.toContain('void particleOverlay(')
-    expect(cpp).not.toContain('_audioBeat &&')
-    // The audio engine itself stays: patterns inside the collection still read
-    // the microphone when the slideshow is reactive.
+    expect(cpp).toContain('void particleOverlay(')
+    expect(cpp).toContain('#define PARTICLE_VOLLEY_BURSTS 2')
+    expect(cpp).toContain('#define PARTICLE_REST_MS   5000')
+    expect(cpp).toContain('CRGB     burstColor = CRGB(51, 102, 204);')
+    expect(cpp).toContain('if (_audioBeat && (_audioBass + _audioMids + _audioTreble) / 3.0f >= 0.400f) {')
+    expect(cpp).toContain('burstIntensity = 0.900f;')
+    expect(cpp).toContain('particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);')
+    // A fixed style keeps only its arm; the pattern advance stays on the clock.
+    expect(cpp).not.toContain('switch (burstStyle)')
+    expect(cpp).toContain('// fireworks')
+    expect(cpp).not.toContain('// rain')
+    expect(cpp).not.toContain('random8(17)')
+    expect(cpp).not.toContain('beatEdge')
     expect(cpp).toContain('void updateAudio()')
+
+    // Random style and colour roll on each burst, as the preview rolls them.
+    const random = generateShowSketch(withMic.map((n) => n.id === 'pfx'
+      ? node('pfx', 'PlayerParticles', { enabled: true, randomStyle: true, randomColor: true })
+      : n), wire, groups)
+    expect(random).toContain('switch (burstStyle)')
+    expect(random).toContain('burstStyle = random8(17);')
+    expect(random).toContain('burstColor = CHSV(random8(), 255, 255);')
+    expect(random).not.toContain('_audioBass + _audioMids')
+
+    // Off, or with no live audio to beat, the overlay ships nothing.
+    const off = generateShowSketch(withMic.map((n) => n.id === 'pfx'
+      ? node('pfx', 'PlayerParticles', { enabled: false, style: 3 })
+      : n), wire, groups)
+    expect(off).not.toContain('particleOverlay')
+    const unwiredAudio = generateShowSketch(withMic, [...edges, edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx')], groups)
+    expect(unwiredAudio).not.toContain('particleOverlay')
   })
 
   describe('buildPatternRenderers — group-input roles', () => {

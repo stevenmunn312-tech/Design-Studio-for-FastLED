@@ -16,7 +16,7 @@ import { sampleRampCpp } from '../state/player/showRamp'
 import type { PatternStep } from '../state/patterns/patternSequence'
 import type { EnergyBand } from '../state/patterns/patternPick'
 import {
-  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, particleEnergyGate, particleRestMs, particleVolleyBursts,
+  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS,
   SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_ENERGY_RANGE, SILENCE_RELEASE_RATE,
 } from '../state/player/playerDynamics'
 import { withDeviceTelemetry } from './deviceTelemetryCpp'
@@ -81,6 +81,8 @@ import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
 import { boardLinkFirmware } from './peripherals/espNowLinkCpp'
 import { getBoardLinkKey } from '../state/peripherals/boardLinkKey'
 import { PARTICLE_HASH_CPP, transitionHelperCpp, transitionSupportCpp } from './helpers/transitionHelperCpp'
+import { playerParticlesWiredTo, type PlayerParticlesConfig } from './player/playerParticlesConfig'
+export type { PlayerParticlesConfig } from './player/playerParticlesConfig'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/patternSelectionCpp'
 import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './displays/tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
@@ -104,7 +106,6 @@ import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS, FRAME_RATE } from '../
 import { loopPacingCpp, withLoopPacing } from './loopPacing'
 import { resolveBoardSelection } from '../build/boards/boardProfiles'
 import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
-import { hexToRgb } from '../state/palettes/polinePalette'
 import { buttonBankEntryForHandle } from '../state/player/buttonBank'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuGlobalCpp,
@@ -307,18 +308,6 @@ export interface PlayerControlsConfig {
   repeatIntervalMs: number
 }
 
-export interface PlayerParticlesConfig {
-  enabled: boolean
-  style: number
-  color: { r: number; g: number; b: number }
-  intensity: number
-  randomColor: boolean
-  randomStyle: boolean
-  volleyBursts: number
-  restMs: number
-  energyGate: number
-}
-
 const DEFAULT_CONTROL_SETTINGS: Omit<PlayerControlsConfig, 'bindings'> = {
   debounceMs: 30,
   volumeStep: 0.05,
@@ -414,27 +403,7 @@ export function playerParticlesFromGraph(
 ): PlayerParticlesConfig | null {
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster'
     && (!engineId || node.id === engineId))
-  const link = master && edges.find((edge) =>
-    edge.target === master.id && edge.targetHandle === 'particleFx')
-  const node = link && nodes.find((candidate) =>
-    candidate.id === link.source && candidate.data.nodeType === 'PlayerParticles')
-  if (!node) return null
-  const props = node.data.properties
-  const clamp = (value: unknown, fallback: number, min: number, max: number) => {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback
-  }
-  return {
-    enabled: props.enabled !== false,
-    style: Math.round(clamp(props.style, 0, 0, 16)),
-    color: hexToRgb(String(props.color ?? '#ff8000')),
-    intensity: clamp(props.intensity, 0.8, 0, 1),
-    randomColor: props.randomColor === true,
-    randomStyle: props.randomStyle === true,
-    volleyBursts: particleVolleyBursts(props.volleyBursts),
-    restMs: particleRestMs(props.restSec),
-    energyGate: particleEnergyGate(props.energyGate),
-  }
+  return master ? playerParticlesWiredTo(nodes, edges, master.id) : null
 }
 
 // Palette declarations are non-const 48-byte globals, so an unused one costs

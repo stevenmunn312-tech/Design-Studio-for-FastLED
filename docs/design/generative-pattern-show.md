@@ -212,10 +212,14 @@ Music Player does not need separate physical-button and touch-screen APIs.
 
 `PlayerParticles` owns the beat-particle overlay's enabled state, colour,
 random-colour and random-style choices, style, and intensity. Its `Particle FX`
-output wires to Music Player's `particleFx` input. The existing beat input on
-Music Player remains the trigger, so users do not have to duplicate the beat
-wire. This is an overlay configuration bundle, distinct from the standalone
-Particles frame generator.
+output wires to the `particleFx` input of a Music Player or a Pattern
+Slideshow. The existing beat input on Music Player remains the trigger, so
+users do not have to duplicate the beat wire; a slideshow bursts on its Audio
+wire's beat. This is an overlay configuration bundle, distinct from the
+standalone Particles frame generator. `playerParticlesWiredTo` in
+`src/codegen/player/playerParticlesConfig.ts` is the one resolver both
+generators freeze it with, and `PARTICLE_OVERLAY_CPP` the one function the
+slideshow sketch draws it with.
 
 ### Audio
 
@@ -260,6 +264,13 @@ music-free case. Nobody would find that, so nobody did.
   to tap, so its `audio` accepts a microphone or a line input and nothing else.
   Reactivity is an explicit switch because the whole point of the mode is slow
   relaxing patterns, which should not twitch at room noise unless asked.
+- **Player Particles is the same overlay, on the same wire.** `Particle FX`
+  takes the player's bundle and bursts on the Audio wire's beat, with Audio
+  Reactive on or off: wiring an enabled bundle is itself the ask, and the
+  sparks never move the patterns. The preview and `showGenerator.ts` gate it
+  the same way, on a live source, and the firmware draws it with the one
+  `particleOverlay` function before the silence fade, so sparks fade with the
+  pattern.
 - **Pattern changes follow the same step rules.** The Slideshow owns a
   `PatternSelectionState` for the same reasons the player does — a reorder must
   not change what is playing, and a deletion hands its slot to the new

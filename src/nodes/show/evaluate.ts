@@ -1603,6 +1603,12 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     })
     const wiredPool = input(id, 'transitions', null) as string[] | null
     const pool = wiredPool && wiredPool.length ? wiredPool : ['crossfade']
+    // Player Particles bursts on the Audio wire's beat whether or not Audio
+    // Reactive is on: wiring an enabled overlay is itself the ask. The beat
+    // needs a live source, as the Music Player's does.
+    const particleValue = input(id, 'particleFx', null)
+    const particleFx = isPlayerParticles(particleValue) ? particleValue : null
+    const particles = particleFx?.enabled === true && timingAudio !== null
     const key = stateKey(id)
 
     let selection = patternSelectionState.get(key)
@@ -1632,20 +1638,23 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       energyPacing,
       dwellsAndBursts: settings.dwellsAndBursts,
       countBeats: settings.beatTransitions,
-      particles: false,
-      particleStyle: 0,
-      particleColor: { r: 0, g: 0, b: 0 },
-      particleIntensity: 0,
-      randomStyle: false,
-      randomColor: false,
-      particleSpacing: { volleyBursts: PARTICLE_VOLLEY_BURSTS, restMs: PARTICLE_REST_MS },
-      particleEnergyGate: 0,
+      particles,
+      particleStyle: particleFx?.style ?? 0,
+      particleColor: particleFx?.color ?? { r: 255, g: 128, b: 0 },
+      particleIntensity: particleFx?.intensity ?? 0.8,
+      randomStyle: particleFx?.randomStyle ?? false,
+      randomColor: particleFx?.randomColor ?? false,
+      particleSpacing: {
+        volleyBursts: particleFx?.volleyBursts ?? PARTICLE_VOLLEY_BURSTS,
+        restMs: particleFx?.restMs ?? PARTICLE_REST_MS,
+      },
+      particleEnergyGate: particleFx?.energyGate ?? 0,
       seed: settings.seed,
       order: settings.order,
       // Silence is the slideshow's own envelope below, so nothing fades here,
       // and energy tags do not narrow its picks. The energy is passed only
-      // for Energy Pacing to read.
-      audioEnergy: energyPacing && timingAudio
+      // for Energy Pacing and the particles' Min Energy to read.
+      audioEnergy: (energyPacing || particles) && timingAudio
         ? clamp01((timingAudio.micBass + timingAudio.micMids + timingAudio.micTreble) / 3)
         : null,
       audioReactive: () => false,

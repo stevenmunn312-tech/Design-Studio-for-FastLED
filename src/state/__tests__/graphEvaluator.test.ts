@@ -2999,6 +2999,43 @@ describe('evaluateGraph', () => {
     expect(litPixels(evaluateGraphFull(nodes, edges, 1, 16, 16, groups).frame)).toBeGreaterThan(0)
   })
 
+  it('Pattern Slideshow bursts Player Particles on its Audio wire\'s beat', () => {
+    resetEvaluatorState()
+    mockAudio.active = true
+    mockAudio.beat = false
+    const collection = node('sfx_collection', 'PatternCollection', 'show', { patternIds: ['sfx_group'] })
+    const mic = node('sfx_mic', 'MicInput', 'input', {})
+    const particles = node('sfx_bundle', 'PlayerParticles', 'show', {
+      enabled: true, style: 2, color: '#ff0000', intensity: 1,
+    })
+    // Audio Reactive stays off: wiring an enabled bundle is the ask.
+    const slideshow = node('sfx_show', 'PatternSlideshow', 'show', { interval: 999, transitionSec: 1 })
+    const output = node('sfx_output', 'MatrixOutput', 'output', {})
+    const black = node('sfx_black', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const groupOut = node('sfx_group_out', 'GroupOutput', 'output', {})
+    const groups = { sfx_group: { nodes: [black, groupOut], edges: [edge('sfx_ge', black.id, 'frame', groupOut.id, 'frame')] } }
+    const nodes = [collection, mic, particles, slideshow, output]
+    const edges = [
+      edge('sfx_e1', collection.id, 'patternset', slideshow.id, 'patternset'),
+      edge('sfx_e2', mic.id, 'audio', slideshow.id, 'audio'),
+      edge('sfx_e3', particles.id, 'particleFx', slideshow.id, 'particleFx'),
+      edge('sfx_e4', slideshow.id, 'frame', output.id, 'frame'),
+    ]
+    expect(litPixels(evaluateGraphFull(nodes, edges, 0, 16, 16, groups).frame)).toBe(0)
+    mockAudio.beat = true
+    expect(litPixels(evaluateGraphFull(nodes, edges, 1, 16, 16, groups).frame)).toBeGreaterThan(0)
+
+    // Switched off, the same beat throws nothing.
+    resetEvaluatorState()
+    mockAudio.beat = false
+    ;(particles.data.properties as Record<string, unknown>).enabled = false
+    evaluateGraphFull(nodes, edges, 0, 16, 16, groups)
+    mockAudio.beat = true
+    expect(litPixels(evaluateGraphFull(nodes, edges, 1, 16, 16, groups).frame)).toBe(0)
+    mockAudio.active = false
+    mockAudio.beat = false
+  })
+
   it('Music Player consumes control brightness and LED toggle in preview', () => {
     resetEvaluatorState()
     const collection = node('ctl_collection', 'PatternCollection', 'show', { patternIds: ['ctl_group'] })

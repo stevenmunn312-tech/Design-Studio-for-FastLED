@@ -232,6 +232,9 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       { id: 'controls',    label: 'Controls',    dataType: 'playercontrols' },
       { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
+      // The player's spark overlay, fired by the Audio wire's beat. Wiring
+      // an enabled bundle is the ask, so it bursts with Audio Reactive off.
+      { id: 'particleFx',  label: 'Particle FX', dataType: 'playerparticles' },
       { id: 'interval',    label: 'Interval',    dataType: 'float' },
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
@@ -365,7 +368,7 @@ export const SHOW_DESCRIPTIONS: Record<string, string> = {
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   Transition: 'Transitions A→B — 21 styles: wipe, iris, push, spiral, dolly, cube + more.',
   ControlMap: 'Gathers player buttons and knobs onto one Controls wire.',
-  PlayerParticles: 'Configures the Music Player\'s beat-triggered particle overlay.',
+  PlayerParticles: 'Configures the beat-triggered particle overlay of a player or slideshow.',
   PatternMaster: 'Plays SD, Bluetooth or radio music and changes patterns on a timer or its beats.',
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',
   Sequencer: 'Crossfades through its inputs on a timer.',

@@ -93,14 +93,14 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
 
   PlayerParticles: {
     overview: [
-      'Player Particles configures the burst of sparks a Music Player can throw over its patterns on each beat. It starts switched on: pick one of seventeen spark styles, set the colour and intensity, or let each burst choose a random style or colour.',
+      'Player Particles configures the burst of sparks a Music Player or a Pattern Slideshow can throw over its patterns on each beat. It starts switched on: pick one of seventeen spark styles, set the colour and intensity, or let each burst choose a random style or colour.',
       'The bursts are independent of pattern changes: they follow the beat whether or not Beat Transitions is on. Under Frequency, Bursts in a Row sets how many beats in a row each throw a burst, and Rest sets the pause before the next run; a Rest of 0 bursts on every beat. Min Energy skips beats while the track is quieter than its level, so sparks keep to the loud passages. Wire buttons, knobs or colours into its inputs to change the effect live.',
     ],
     inputs: {
       color: 'Spark colour while Random Color is off.',
     },
     outputs: {
-      particleFx: 'The overlay settings, for the Music Player’s Particle FX input.',
+      particleFx: 'The overlay settings, for the Particle FX input of a Music Player or a Pattern Slideshow.',
     },
     outcome: SHOW_OUTCOME + ' With Enabled on, sparks burst over them in runs of beats with a rest between.',
     example: example({
@@ -308,17 +308,19 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       'Pattern Slideshow plays a Pattern Collection on a timer — the show without the music. Each pattern holds for Interval seconds, then blends into the next.',
       'Sequential walks the collection in order and skips a weight of 0. Random never repeats the pattern just shown, and a higher weight is chosen more often. Sequence loops the steps you edit with Add step and Edit sequence: a pattern or a tag, a hold, and a transition, and a step can ramp speed, brightness, energy or a named input. An empty sequence holds the current pattern. Previous and Next move between those steps. The slideshow does not read energy tags unless a step asks for a band. Display feeds a panel that shows which pattern is playing.',
       'Turn on Audio Reactive to let audio patterns in the collection listen to a wired Audio source; in silence they fade to black.',
+      'Wire Player Particles into Particle FX to throw sparks over the patterns on each beat of the Audio source. The sparks need no Audio Reactive: wiring an enabled bundle is the ask.',
       'Audio Reactive also swaps Interval for the Music Player’s timing. Each hold is a random time between Min Time and Max Time. Beat Transitions waits for a beat after each hold, and a Sequence hold counts beats. Energy Pacing shortens holds while the sound is intense. Dwells & Bursts now and then holds one pattern longer or changes several in quick succession.',
     ],
     propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Interval, Min Time, Max Time, and Transition inputs override their matching fields.',
     inputs: {
-      audio: 'Sound for audio patterns in the collection, Beat Transitions and Energy Pacing, when Audio Reactive is on.',
+      audio: 'Sound for audio patterns in the collection, Beat Transitions and Energy Pacing, when Audio Reactive is on, and the beat Player Particles bursts on.',
       controls: 'A Controls bundle for stepping through the patterns.',
       patternset: 'The patterns to play, from a Pattern Collection.',
       transitions: 'A Transition Pool to choose blend styles from.',
+      particleFx: 'Connect Player Particles for beat-triggered sparks over the patterns, with or without Audio Reactive. Unwired means no overlay.',
     },
     outputs: {
-      frame: 'The current pattern, including any blend.',
+      frame: 'The current pattern, including any blend and particle overlay.',
       display: 'Which pattern is playing, for a display.',
     },
     outcome: SHOW_OUTCOME + ' The Button then skips to the next one.',

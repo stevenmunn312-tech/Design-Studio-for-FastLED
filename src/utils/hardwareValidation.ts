@@ -288,6 +288,7 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
   const features: string[] = []
   const output = nodes.find((node) => nodeType(node) === 'MatrixOutput')
   const master = nodes.find((node) => nodeType(node) === 'PatternMaster')
+    ?? nodes.find((node) => nodeType(node) === 'PatternSlideshow')
   const performance = nodes.find((node) => nodeType(node) === 'PerformanceGenerator')
   const layout = String(matrixProps.layout ?? 'matrix')
   const form = outputForm(matrixProps)
@@ -546,6 +547,7 @@ export function buildHardwareValidationProfile(options: {
   const sdProps = props(sd)
   const sdDefaults = sdSpiPinsForBoard(selectedPhysicalBoardProfile(nodes), selectedFqbn)
   const master = nodes.find((node) => nodeType(node) === 'PatternMaster')
+    ?? nodes.find((node) => nodeType(node) === 'PatternSlideshow')
   const playerParticles = activePlayerParticles(nodes, edges, master)
   const performance = nodes.find((node) => nodeType(node) === 'PerformanceGenerator')
   const collection = nodes.find((node) => nodeType(node) === 'PatternCollection')
