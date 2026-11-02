@@ -4123,6 +4123,10 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('_audioLeftLevel = _audioRightLevel')
     expect(cpp).toContain('void setupAudio()')
     expect(cpp).toContain('void updateAudio()')
+    // FastLED 3.10.7+ reads the microphone from a scheduler task that only
+    // fl::task::run pumps; without it the processor never sees a sample.
+    expect(cpp).toContain('  fl::task::run(0);')
+    expect(cpp.indexOf('fl::task::run(0);')).toBeGreaterThan(cpp.indexOf('void updateAudio()'))
     // wired into the lifecycle
     expect(cpp).toContain('setupAudio();')
     expect(cpp).toContain('updateAudio();')

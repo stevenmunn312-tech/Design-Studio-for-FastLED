@@ -343,6 +343,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   nothing. Keep the rates whole MHz: on software-SPI platforms the macro is
   `CPU MHz / n` in integer arithmetic, a divider rather than a frequency.
 
+- **A FastLED audio processor is only fed while something pumps the task
+  scheduler.** `FastLED.add(config)` and `FastLED.add(input)` read the capture
+  device from a 1 ms `fl::task::every_ms` task. Up to FastLED 3.10.5 the RMT
+  driver's wait loop ran the scheduler as a side effect; 3.10.7 replaced that
+  with `fl::task::yield_system()` and `FASTLED_LOOP_RUNS_ASYNC` is off by
+  default, so a sketch that only calls `FastLED.show()` never runs the task.
+  The processor exists, `getBassLevel()` returns 0, the conditioner reports
+  `dc=0 spikes=0`, and the microphone looks dead although raw I2S reads work.
+  `audioEngineCpp.ts`'s `updateAudio()` therefore calls `fl::task::run(0)`
+  before reading the levels; keep it there for every capture backend. The SD
+  player's decoder tap is unaffected because it calls `Processor::update`
+  itself. Found on an ESP32-S3 + INMP441 with core 3.3.12 and FastLED 3.10.8
+  on 2026-11-03.
+
 ## Integer pattern kernels
 
 Every node that cost 10 ms or more a 256-pixel frame on an ESP8266 draws its
