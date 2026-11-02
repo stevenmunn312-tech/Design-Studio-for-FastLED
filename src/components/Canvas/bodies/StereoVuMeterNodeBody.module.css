@@ -11,7 +11,7 @@
   gap: 8px;
   min-height: 64px;
   padding: 7px 12px;
-  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--border-subtle));
+  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--divider));
   border-radius: 7px;
   background: color-mix(in srgb, var(--bg-panel) 84%, #020507);
 }
@@ -44,7 +44,7 @@
 .rails small {
   display: block;
   margin-top: 4px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 8px;
   letter-spacing: 0.08em;
 }
@@ -60,9 +60,9 @@
 
 .targetRow select {
   min-width: 0;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--divider);
   border-radius: 5px;
-  background: var(--bg-input);
+  background: var(--bg-primary);
   color: var(--text-primary);
   font: inherit;
 }

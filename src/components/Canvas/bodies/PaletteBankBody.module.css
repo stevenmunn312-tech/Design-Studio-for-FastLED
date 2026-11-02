@@ -43,7 +43,7 @@
 
 .sectionCount {
   margin-left: auto;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 9px;
   letter-spacing: 0;
   text-transform: none;
@@ -85,7 +85,7 @@
 /* What the bank costs, stated where the ticking happens: each palette is a
    48-byte CRGBPalette16 global in the generated sketch. */
 .cost {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: var(--font-code);
   font-size: 9px;
 }
@@ -203,7 +203,7 @@
 
 .bankOrder {
   min-width: 9px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-align: right;
 }
 
@@ -224,7 +224,7 @@
   border: 0;
   border-radius: 3px;
   background: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 8px;
   line-height: 1;
   padding: 1px 2px;

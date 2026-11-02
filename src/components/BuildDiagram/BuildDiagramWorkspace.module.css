@@ -442,7 +442,7 @@
 }
 
 .smallButtonDone {
-  background: color-mix(in srgb, var(--accent-success) 24%, var(--bg-panel));
+  background: color-mix(in srgb, var(--success) 24%, var(--bg-panel));
 }
 
 .staleNotice,

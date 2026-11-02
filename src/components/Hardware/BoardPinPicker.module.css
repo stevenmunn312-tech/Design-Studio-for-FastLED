@@ -37,7 +37,7 @@
 
 .knownButton {
   padding: 5px 8px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--divider);
   border-radius: 5px;
   background: color-mix(in srgb, var(--bg-panel) 88%, var(--accent-output) 8%);
   color: var(--text-secondary);

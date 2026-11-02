@@ -50,7 +50,7 @@
 
 .sectionLabel {
   padding: 5px 12px 3px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: var(--font-body);
   font-size: 10px;
   text-transform: uppercase;

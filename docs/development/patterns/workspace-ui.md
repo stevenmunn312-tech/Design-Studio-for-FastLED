@@ -224,6 +224,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   draws the same three columns (`PROP_CONTROL_W`, `PROP_PIN_W`,
   `PROP_COL_GAP`). `src/components/Canvas/__tests__/propertyRowGrid.test.ts`
   asserts the grid from the stylesheet text.
+- **Read only tokens that exist.** A `var(--name)` with no fallback for a
+  property nobody declares makes the whole declaration invalid, so the browser
+  drops it: a background goes transparent and a `color-mix` built on it
+  vanishes. `--bg-secondary`, `--bg-app`, `--bg-input`, `--border-subtle`,
+  `--text-muted`, `--accent-success` and `--warning` were all read this way.
+  Surfaces are `--bg-primary`, `--bg-panel` and `--bg-node`; status colours are
+  `--success`, `--warning` and `--error`. jsdom draws nothing, so
+  `src/themes/__tests__/definedTokens.test.ts` checks that every name read
+  without a fallback is declared somewhere.
+- A `<button>` does not inherit `color`, so `currentColor` inside one is the
+  browser's button text colour, not its parent's. Set `color: inherit` on a
+  button that fills itself with its lane or node colour.
 - **Scrollable lists inside nodes need `nowheel` and a max-height.** React Flow
   turns the wheel into canvas zoom, so an overflowing list inside a node either
   zooms the canvas or, uncapped, grows the node taller than the canvas. Give the

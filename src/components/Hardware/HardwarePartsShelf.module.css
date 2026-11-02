@@ -240,7 +240,7 @@
   background:
     linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    color-mix(in srgb, var(--bg-app) 88%, black);
+    color-mix(in srgb, var(--bg-primary) 88%, black);
   background-size: 8px 8px;
 }
 

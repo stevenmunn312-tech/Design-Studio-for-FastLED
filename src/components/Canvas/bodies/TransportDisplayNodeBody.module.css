@@ -15,7 +15,7 @@
   border: 1px solid color-mix(in srgb, var(--node-accent) 52%, transparent);
   border-radius: 6px;
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-secondary));
+  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-panel));
   font-size: 11px;
   cursor: pointer;
 }
@@ -39,7 +39,7 @@
   border: 1px solid color-mix(in srgb, var(--node-accent) 52%, transparent);
   border-radius: 6px;
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-secondary));
+  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-panel));
   font-size: 11px;
 }
 

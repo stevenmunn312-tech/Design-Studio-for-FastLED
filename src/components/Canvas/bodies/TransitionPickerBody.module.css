@@ -46,7 +46,7 @@
 
 .sectionCount {
   margin-left: auto;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 9px;
   letter-spacing: 0;
   text-transform: none;

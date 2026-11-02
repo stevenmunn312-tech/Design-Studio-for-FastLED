@@ -160,6 +160,7 @@
 
   /* Status */
   --success: #00ff99;
+  --warning: #ffd24a;
   --error: #ff3366;
 
   /* Typography */
@@ -231,6 +232,7 @@
   --chrome-shadow: rgba(30, 36, 52, 0.14);
   --active-shadow: rgba(30, 36, 52, 0.22);
   --success: #00aa66;
+  --warning: #b07d00;
   --error: #cc2244;
 }
 

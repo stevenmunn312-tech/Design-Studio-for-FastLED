@@ -5,7 +5,7 @@
   border: 1px solid color-mix(in srgb, var(--node-accent) 58%, var(--divider));
   border-radius: 6px;
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--node-accent) 14%, var(--bg-secondary));
+  background: color-mix(in srgb, var(--node-accent) 14%, var(--bg-panel));
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -82,7 +82,7 @@
   padding: 9px 10px;
   border: 1px solid var(--divider);
   border-radius: 7px;
-  background: var(--bg-secondary);
+  background: var(--bg-panel);
 }
 
 .connectionDot {
@@ -90,8 +90,8 @@
   height: 9px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: var(--text-muted);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-muted) 16%, transparent);
+  background: var(--text-secondary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-secondary) 16%, transparent);
 }
 
 .connectionDot.connected {
@@ -136,7 +136,7 @@
 .glassLabel {
   position: absolute;
   inset: 50% auto auto 50%;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 11px;
   transform: translate(-50%, -50%);
 }
@@ -147,7 +147,7 @@
   place-items: center;
   width: 34px;
   height: 34px;
-  border: 1px solid var(--text-muted);
+  border: 1px solid var(--text-secondary);
   border-radius: 50%;
   color: var(--text-secondary);
   background: var(--bg-panel);
@@ -223,7 +223,7 @@
   border: 1px solid var(--divider);
   border-radius: 6px;
   color: var(--text-primary);
-  background: var(--bg-secondary);
+  background: var(--bg-panel);
   font-family: var(--font-code);
   font-size: 12px;
 }
@@ -242,7 +242,7 @@
   padding: 8px 9px;
   border: 1px solid var(--divider);
   border-radius: 6px;
-  background: var(--bg-secondary);
+  background: var(--bg-panel);
 }
 
 .bounds dt {
