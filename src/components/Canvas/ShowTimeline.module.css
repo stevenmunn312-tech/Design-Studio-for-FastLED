@@ -149,41 +149,6 @@
   background: var(--bg-primary);
 }
 
-.field {
-  display: grid;
-  grid-template-columns: 64px 1fr 46px;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-caption);
-  font-family: var(--font-body);
-  color: var(--text-secondary);
-}
-
-.field > span:first-child {
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.field input[type='range'] { accent-color: var(--accent-show); min-width: 0; }
-
-.field select {
-  grid-column: 2 / 4;
-  padding: 2px 4px;
-  font-size: var(--fs-caption);
-  font-family: var(--font-body);
-  border: 1px solid var(--border-glow);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.val {
-  text-align: right;
-  font-family: var(--font-code);
-  color: var(--text-primary);
-}
-
 .btn:focus-visible,
 .row:focus-visible,
 .rowOn:focus-visible,

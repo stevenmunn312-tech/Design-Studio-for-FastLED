@@ -493,6 +493,10 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
               beats={entry.analysis?.beats.timestamps ?? []}
               energy={entry.analysis?.energy ?? []}
               locks={show.locks ?? []}
+              positionMs={posMs}
+              playing={playing}
+              onSeek={seek}
+              onTogglePlay={togglePlay}
               onClose={() => setLanesOpen(false)}
               onCommit={(next, nextLocks) => useMusicStore.getState().updateShow(entry.id, next, nextLocks)}
             />

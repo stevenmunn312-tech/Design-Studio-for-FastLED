@@ -74,15 +74,36 @@ second entry. A same-pattern transition still renders once and is not a new entr
 
 `ShowTimeline` stays the overview strip on the Performance Generator. Edit lanes
 opens a full-size dialog (`ShowLaneEditor`) named "Show lanes". It closes on
-Escape through `useEscapeLayer`. Lanes are pattern, transition, palette, speed,
-brightness, energy, flash, particles, and one lane per named input. Under them
-sit the section bands, the beat grid and the energy envelope.
+Escape through `useEscapeLayer`. A time ruler heads the lanes; under it sit the
+section bands, the beat grid (every fourth beat drawn as a bar line) and the
+energy envelope, then the pattern clips and the event lanes: transition,
+palette, speed, brightness, energy, beat flash, particles, and one lane per
+named input. There is no anonymous param lane: a `SET_PARAM` without a name has
+nothing to drive.
 
-A pattern clip runs from one `SET_PATTERN` to the next. The transition is the
-overlap at the boundary; dragging it changes `duration`. Zoom and scroll, drag
-to retime with snap to beat, section or nothing, box and shift selection, copy,
-paste, delete, keyboard nudges, and undo/redo. Only events in the visible time
-window are drawn.
+A pattern clip runs from one `SET_PATTERN` to the next and is labelled with the
+pattern's name; a returning pattern keeps its colour. The transition is the
+overlap at the boundary; dragging it changes `duration`. A palette also runs to
+the next palette and is drawn as its own gradient. Speed, brightness, energy
+and named inputs are drawn as the line the players follow (`channelPath` in
+`showLanes.ts`, the `showRamp.ts` rule): a dot where each event starts on the
+line, and a diamond where its ramp ends.
+
+Selecting one event opens the inspector under the lanes, which edits its time,
+ramp and params through `ShowEventFields`, the same fields the overview strip
+uses (`showEventMeta.ts` holds the shared names, colours and defaults). A
+slider drag on one event is one undo step. Double-clicking an empty stretch of
+a lane adds an event there that starts on the value already in force
+(`newLaneEvent`), so adding a point changes nothing until it is edited. Zoom
+with the buttons or Ctrl+wheel around the pointer, scroll with the wheel or the
+slider, drag to retime with snap to beat, section or nothing (only snaps that
+have marks are offered), box and shift selection, copy, paste, delete, keyboard
+nudges, and undo/redo. Only events in the visible time window are drawn.
+
+The Performance Generator hands the editor its song position and transport: a
+playhead runs across every lane, the ruler seeks, Space plays and pauses, and a
+zoomed view turns the page when the playhead leaves it. A locked span is
+hatched across every lane, so it is clear which edits regeneration keeps.
 
 ## Ramps and named inputs
 
@@ -150,6 +171,9 @@ The opening step resolves without a draw, in the preview and both sketches: a
 named pattern, else the first eligible one.
 
 The lane editor edits the sequence on an axis that is the sum of the holds.
+Steps are numbered on their clips, flash and particle lanes are left out, and a
+value event snaps to the nearest step start, since `showToSequence` reads
+values only where a step begins. A beat-counted sequence snaps to its beats.
 With Beat Transitions on, a Music Player hold counts beats from the player's
 beat source. Energy Pacing and Dwells & Bursts do not apply. Next and Previous
 move between steps and do not also walk the collection index.

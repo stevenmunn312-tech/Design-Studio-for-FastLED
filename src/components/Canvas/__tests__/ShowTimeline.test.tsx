@@ -65,7 +65,7 @@ describe('ShowTimeline — collection-aware SET_PATTERN', () => {
     }
 
     const { container } = renderTimeline(denseShow)
-    expect(container.querySelectorAll('[aria-label^="Flash at"]')).toHaveLength(240)
+    expect(container.querySelectorAll('[aria-label^="Beat flash at"]')).toHaveLength(240)
     expect(container.querySelectorAll('button[aria-pressed]')).toHaveLength(12)
   })
 })

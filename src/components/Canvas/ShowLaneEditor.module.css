@@ -10,22 +10,27 @@
 }
 
 .dialog {
-  width: min(960px, 100%);
-  max-height: min(720px, 100%);
+  --lane-label: 104px;
+  --lane-gap: 8px;
+  width: min(1600px, 100%);
+  max-height: min(940px, 100%);
   overflow: auto;
   background: var(--bg-primary);
   color: var(--text-primary);
   border: 1px solid var(--border-glow);
   border-radius: 10px;
-  padding: 12px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  font-family: var(--font-body);
 }
 
-.bar, .scroll, .ramp {
+/* ── Header ── */
+.bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -35,107 +40,471 @@
   flex: 1;
 }
 
-.lanes {
+.bar button,
+.bar select,
+.inspector button {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+}
+
+.bar button:hover:not(:disabled),
+.inspector button:hover:not(:disabled) {
+  border-color: var(--accent-show);
+}
+
+.bar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bar button:focus-visible,
+.bar select:focus-visible,
+.inspector button:focus-visible {
+  outline: 2px solid var(--accent-show);
+  outline-offset: 1px;
+}
+
+.group {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.group button:first-child { border-radius: 6px 0 0 6px; }
+.group button:last-child { border-radius: 0 6px 6px 0; }
+
+.play {
+  min-width: 34px;
+  color: var(--accent-show) !important;
+}
+
+.clock {
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  min-width: 108px;
+}
+
+.snap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
+.scroll {
+  display: grid;
+  grid-template-columns: var(--lane-label) 1fr;
+  align-items: center;
+  gap: var(--lane-gap);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.scroll input { accent-color: var(--accent-show); }
+
+/* ── Lanes ── */
+.lanesWrap {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+}
+
+.lanes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .lane {
   display: grid;
-  grid-template-columns: 88px 1fr;
+  grid-template-columns: var(--lane-label) 1fr;
   align-items: center;
-  gap: 6px;
+  gap: var(--lane-gap);
 }
 
 .laneName {
-  font-size: 10px;
-  color: var(--text-secondary);
-  text-transform: lowercase;
-}
-
-.track {
-  position: relative;
-  height: 22px;
-  background: var(--bg-secondary);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.clip, .clipOn, .section, .locked {
-  position: absolute;
-  top: 2px;
-  height: 18px;
-  border: 0;
-  border-radius: 3px;
-  padding: 0;
-  font-size: 9px;
-  cursor: pointer;
-}
-
-.clip { background: var(--accent-composite); }
-.clipOn { background: var(--text-primary); }
-.section, .locked {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
   overflow: hidden;
-  padding: 0 2px;
 }
-.section { background: color-mix(in srgb, var(--accent-library) 70%, transparent); color: var(--bg-primary); }
-.locked { background: var(--error); color: white; }
-.section button, .locked button, .section select, .locked select {
-  position: static;
-  height: 16px;
-  border: 0;
-  background: transparent;
-  color: inherit;
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.range {
+  margin-left: auto;
+  font-family: var(--font-code);
   font-size: 9px;
-  padding: 0;
+  opacity: 0.7;
 }
-.beat {
+
+.track,
+.ruler,
+.beatTrack {
+  position: relative;
+  height: 26px;
+  background: var(--bg-panel);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ruler {
+  height: 20px;
+  background: transparent;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 0;
+}
+
+.seekable { cursor: col-resize; }
+
+.tick {
   position: absolute;
   top: 0;
-  width: 1px;
   height: 100%;
+  padding-left: 4px;
+  border-left: 1px solid var(--border-glow);
+  font-family: var(--font-code);
+  font-size: 9px;
+  line-height: 18px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.beatTrack { height: 14px; }
+
+.beatTick,
+.barTick {
+  position: absolute;
+  top: 4px;
+  width: 1px;
+  height: 10px;
   background: var(--border-glow);
 }
+
+.barTick {
+  top: 0;
+  height: 100%;
+  width: 2px;
+  background: var(--text-secondary);
+}
+
+.patternTrack { height: 40px; }
+
+.valueTrack { height: 44px; }
+
+/* Every event shares one shape language: a coloured body, a ring when chosen. */
+.clip,
+.palette,
+.marker,
+.point,
+.handle {
+  position: absolute;
+  border: 0;
+  padding: 0;
+  cursor: grab;
+}
+
+.clip {
+  top: 3px;
+  height: 34px;
+  border-radius: 5px;
+  overflow: hidden;
+  text-align: left;
+  box-shadow: inset 1px 0 0 color-mix(in srgb, black 45%, transparent);
+}
+
+.clipLabel,
+.paletteLabel {
+  display: block;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bg-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.clipLabel {
+  line-height: 22px;
+}
+
+.palette {
+  top: 3px;
+  height: 20px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.paletteLabel {
+  display: inline-block;
+  max-width: calc(100% - 8px);
+  margin: 3px 4px;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
+}
+
+.marker {
+  top: 3px;
+  width: 8px;
+  height: 20px;
+  border-radius: 3px;
+}
+
+/* Buttons do not inherit colour; the lane's colour is the point's fill. */
+.point,
+.handle {
+  color: inherit;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+
+.handle {
+  border-radius: 2px;
+  transform: rotate(45deg) scale(0.8);
+  background: var(--text-primary);
+  cursor: ew-resize;
+}
+
+.on {
+  z-index: 2;
+  box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--text-primary), 0 0 12px color-mix(in srgb, var(--text-primary) 60%, transparent);
+}
+
+.clip:focus-visible,
+.palette:focus-visible,
+.marker:focus-visible,
+.point:focus-visible,
+.handle:focus-visible,
+.overlap:focus-visible,
+.lockButton:focus-visible {
+  outline: 2px solid var(--accent-show);
+  outline-offset: 1px;
+}
+
+.overlap {
+  position: absolute;
+  bottom: 3px;
+  height: 12px;
+  border: 0;
+  border-radius: 0 3px 3px 0;
+  padding: 0 4px;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bg-primary) 75%, transparent) 0 4px, color-mix(in srgb, var(--bg-primary) 50%, transparent) 4px 8px);
+  border-right: 3px solid var(--text-primary);
+  cursor: ew-resize;
+  overflow: hidden;
+  text-align: left;
+}
+
+.overlap span {
+  font-size: 9px;
+  line-height: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.valueLine {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.valueLine polygon {
+  fill: currentColor;
+  opacity: 0.14;
+}
+
+.valueLine polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+}
+
 .envelope {
   width: 100%;
-  height: 28px;
-  background: var(--bg-secondary);
+  height: 30px;
+  background: var(--bg-panel);
   border-radius: 4px;
 }
+
+.envelope polygon {
+  fill: var(--accent-library);
+  opacity: 0.18;
+}
+
 .envelope polyline {
   fill: none;
   stroke: var(--accent-library);
   stroke-width: 1.5;
 }
-.overlap {
+
+/* ── Sections and locks ── */
+.section {
   position: absolute;
-  top: 14px;
-  height: 8px;
-  border: 0;
-  border-radius: 2px;
-  padding: 0;
-  background: var(--text-secondary);
-  cursor: ew-resize;
+  top: 3px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent-library) 70%, transparent);
+  box-shadow: inset 1px 0 0 var(--bg-primary);
+  color: var(--bg-primary);
+  cursor: grab;
 }
-.slope {
+
+.sectionLocked {
+  background: var(--accent-favourites);
+}
+
+.section select {
+  height: 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.lockButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  border: 0;
+  border-radius: 3px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.lockButton[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--bg-primary) 25%, transparent);
+}
+
+.overlay {
   position: absolute;
-  top: 4px;
-  height: 14px;
-  background: linear-gradient(to top right, transparent 48%, var(--text-primary) 50%, transparent 52%);
+  top: 0;
+  bottom: 0;
+  left: calc(var(--lane-label) + var(--lane-gap));
+  right: 0;
   pointer-events: none;
+  overflow: hidden;
 }
-.handle {
+
+.lockSpan {
   position: absolute;
-  top: 4px;
-  width: 8px;
-  height: 8px;
-  border: 0;
-  border-radius: 50%;
-  padding: 0;
-  background: var(--text-primary);
-  cursor: ew-resize;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed var(--accent-favourites);
+  border-right: 1px dashed var(--accent-favourites);
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent-favourites) 10%, transparent) 0 6px, transparent 6px 12px);
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent-show);
+  box-shadow: 0 0 6px var(--accent-show);
+}
+
+/* ── Inspector and key hints ── */
+.inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--bg-panel);
+}
+
+.inspectorHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: var(--fs-caption);
+}
+
+.inspectorHead label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.inspectorHead input {
+  width: 76px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--border-glow);
+  border-radius: 5px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px 16px;
+}
+
+.danger {
+  margin-left: auto;
+  color: var(--error) !important;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
+.keys {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }

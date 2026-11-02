@@ -17,6 +17,7 @@ import type { StudioNode, StudioEdge } from '../graphStore'
 import type { ShowFile, ShowEvent, SongSection } from '../../types/showFile'
 import { BUILTIN_SHOW_PATTERNS, builtinShowPatternGroupId } from './builtinShowPatterns'
 import { applyRamp, blankRampChannel, channelAt, type RampChannel } from './showRamp'
+import { SHOW_DEFAULTS } from './showEventMeta'
 import { clearInstanceStateByPrefix, touchInstanceStatePrefix } from '../evaluator/memory'
 import type { PatternEntryPolicy } from '../patterns/patternPick'
 
@@ -32,9 +33,7 @@ export interface ShowState {
   params: Record<string, number>
 }
 
-const DEFAULT_SHOW_STATE: ShowState = {
-  pattern: 'NoiseField', patternIndex: -1, palette: 'rainbow', speed: 1, energy: 0, brightness: 200, params: {},
-}
+const DEFAULT_SHOW_STATE: ShowState = { ...SHOW_DEFAULTS, patternIndex: -1, params: {} }
 
 // ── Event index ────────────────────────────────────────────────────────────────
 // showStateAt/beatFlashAt/activeTransitionAt/particleOverlayAt are each called

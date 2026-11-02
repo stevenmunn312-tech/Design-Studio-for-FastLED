@@ -111,6 +111,12 @@ export function getPaletteStops(name: string): PaletteRgb[] | null {
   return RGB_STOPS[name] ? RGB_STOPS[name].map((stop) => ({ ...stop })) : null
 }
 
+/** A left-to-right CSS gradient through a palette's stops, or null for an unknown name. */
+export function paletteCssGradient(name: string): string | null {
+  const palette = PALETTE_MAP.get(name)
+  return palette ? `linear-gradient(to right, ${palette.stops.join(', ')})` : null
+}
+
 export function sampleNamedPalette(name: string, t: number): PaletteRgb | null {
   const stops = RGB_STOPS[name]
   return stops ? sampleStops(stops, t) : null

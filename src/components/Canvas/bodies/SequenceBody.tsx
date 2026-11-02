@@ -20,7 +20,10 @@ export default function SequenceBody({ nodeId }: { nodeId: string }) {
   const ids = JSON.parse(idsKey) as string[]
   const steps = asPatternSteps(properties.sequence, ids)
   const countBeats = properties.beatTransitions === true
-  const show = sequenceToShow(steps, 500, countBeats)
+  // The collection ids name each step's pattern on its clip.
+  const show = { ...sequenceToShow(steps, 500, countBeats), patternSet: ids }
+  // Beat-counted holds sit on a 500 ms beat axis, so snapping to it keeps whole beats.
+  const beats = countBeats ? Array.from({ length: Math.floor(show.durationMs / 500) + 1 }, (_, i) => i * 500) : []
 
   function save(next: PatternStep[]) {
     updateNodeProperties(nodeId, { sequence: storedPatternSteps(next, ids) })
@@ -39,8 +42,9 @@ export default function SequenceBody({ nodeId }: { nodeId: string }) {
           show={show}
           title="Sequence"
           sections={[]}
-          beats={[]}
+          beats={beats}
           locks={[]}
+          kind="sequence"
           onClose={() => setOpen(false)}
           onCommit={(next) => save(showToSequence(next, steps, 500, countBeats))}
         />

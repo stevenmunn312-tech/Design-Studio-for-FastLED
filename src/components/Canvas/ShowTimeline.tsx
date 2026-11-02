@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  sortShowEvents,
-  SHOW_COMMANDS,
-  SHOW_PATTERNS,
-  SHOW_PALETTES,
-  SHOW_TRANSITIONS,
-  PARTICLE_STYLES,
-} from '../../codegen/performanceGenerator'
+import { sortShowEvents, SHOW_COMMANDS } from '../../codegen/performanceGenerator'
 import type { ShowCommand, ShowEvent, ShowFile } from '../../types/showFile'
 import { useGraphStore } from '../../state/graphStore'
+import {
+  SHOW_EVENT_META as CMD_META, defaultShowParams as defaultParams, formatShowTime as fmt, showEventSummary,
+} from '../../state/player/showEventMeta'
 import { stopWheelWhileFocused } from './wheelBehavior'
+import ShowEventFields from './ShowEventFields'
+import fieldStyles from './ShowEventFields.module.css'
 import styles from './ShowTimeline.module.css'
 
 // Hand-tweak editor for a generated .show. Renders the event stream as a
@@ -19,64 +17,10 @@ import styles from './ShowTimeline.module.css'
 // persists it (marking the song hand-edited so generator options stop clobbering
 // the work). The preview canvas above reflects edits live via showStateAt.
 
-const CMD_META: Record<ShowCommand, { label: string; color: string }> = {
-  SET_PATTERN:    { label: 'Pattern',    color: 'var(--accent-pattern)' },
-  SET_PALETTE:    { label: 'Palette',    color: 'var(--accent-color)' },
-  SET_SPEED:      { label: 'Speed',      color: 'var(--accent-math)' },
-  SET_BRIGHTNESS: { label: 'Brightness', color: 'var(--accent-output)' },
-  SET_ENERGY:     { label: 'Energy',     color: 'var(--accent-show)' },
-  SET_PARAM:      { label: 'Param',      color: 'var(--accent-math)' },
-  BEAT_FLASH:     { label: 'Flash',      color: 'var(--accent-audio)' },
-  PARTICLE_BURST: { label: 'Particles',  color: 'var(--accent-pattern)' },
-  TRANSITION:     { label: 'Transition', color: 'var(--accent-composite)' },
-}
-
 const MAX_MARKERS = 240
 const LIST_HEIGHT = 132
 const ROW_HEIGHT = 24
 const ROW_OVERSCAN = 3
-
-// Default params when an event is created or its command changes.
-function defaultParams(cmd: ShowCommand): ShowEvent['params'] {
-  switch (cmd) {
-    case 'SET_PATTERN':    return { name: 'Plasma' }
-    case 'SET_PALETTE':    return { name: 'rainbow' }
-    case 'SET_SPEED':      return { value: 1 }
-    case 'SET_BRIGHTNESS': return { value: 200 }
-    case 'SET_ENERGY':     return { value: 0.5 }
-    case 'SET_PARAM':      return { index: 0, value: 0 }
-    case 'BEAT_FLASH':     return { intensity: 200, decay: 200 }
-    case 'PARTICLE_BURST': return { intensity: 200, hue: 0, style: 0 }
-    case 'TRANSITION':     return { type: 'crossfade', duration: 0.5 }
-  }
-}
-
-function fmt(ms: number): string {
-  const s = Math.max(0, ms / 1000)
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}.${String(Math.floor((ms % 1000) / 100))}`
-}
-
-/** One-line human summary of an event's params for the list rows. */
-function summary(ev: ShowEvent, patternLabels?: string[]): string {
-  if (ev.cmd === 'SET_PATTERN' && ev.params.index !== undefined) {
-    const i = Number(ev.params.index)
-    return patternLabels?.[i] ?? `#${i + 1}`
-  }
-  switch (ev.cmd) {
-    case 'SET_PATTERN':    return ev.params.name !== undefined ? String(ev.params.name) : `#${Number(ev.params.index) + 1}`
-    case 'SET_PALETTE':    return String(ev.params.name)
-    case 'SET_SPEED':      return `×${Number(ev.params.value).toFixed(2)}`
-    case 'SET_BRIGHTNESS': return String(Math.round(Number(ev.params.value)))
-    case 'SET_ENERGY':     return Number(ev.params.value).toFixed(2)
-    case 'SET_PARAM': {
-      const name = ev.params.name !== undefined ? String(ev.params.name) : `#${Number(ev.params.index ?? 0)}`
-      return `${name} ${Number(ev.params.value).toFixed(2)}`
-    }
-    case 'BEAT_FLASH':     return `i${Math.round(Number(ev.params.intensity))} d${Math.round(Number(ev.params.decay))}`
-    case 'PARTICLE_BURST': return `${PARTICLE_STYLES[Number(ev.params.style ?? 0)] ?? 'rise'} i${Math.round(Number(ev.params.intensity))}`
-    case 'TRANSITION':     return `${ev.params.type} ${Number(ev.params.duration).toFixed(1)}s`
-  }
-}
 
 export interface ShowTimelineProps {
   show: ShowFile
@@ -197,7 +141,7 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
             className={`nodrag ${styles.marker} ${i === selected ? styles.markerOn : ''}`}
             style={{ left: `${left}%`, background: CMD_META[cmd].color }}
             onClick={(e) => { e.stopPropagation(); selectAndSeek(i) }}
-            title={`${fmt(events[i].t)} · ${CMD_META[cmd].label} · ${summary(events[i], patternLabels)}`}
+            title={`${fmt(events[i].t)} · ${CMD_META[cmd].label} · ${showEventSummary(events[i], patternLabels, show.params)}`}
             aria-label={`${CMD_META[cmd].label} at ${fmt(events[i].t)}`}
           />
         ))}
@@ -249,7 +193,7 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
                 <span className={styles.dot} style={{ background: CMD_META[ev.cmd].color }} aria-hidden="true" />
                 <span className={styles.rowTime}>{fmt(ev.t)}</span>
                 <span className={styles.rowCmd}>{CMD_META[ev.cmd].label}</span>
-                <span className={styles.rowSum}>{summary(ev, patternLabels)}</span>
+                <span className={styles.rowSum}>{showEventSummary(ev, patternLabels, show.params)}</span>
               </button>
             )
           })}
@@ -259,7 +203,7 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
       {/* ── Selected-event editor ── */}
       {sel && selected !== null && (
         <div className={styles.fields}>
-          <label className={styles.field}>
+          <label className={fieldStyles.field}>
             <span>Time</span>
             <input
               className="nodrag"
@@ -270,10 +214,10 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
               value={sel.t}
               onChange={(e) => commit(selected, (x) => ({ ...x, t: Number(e.target.value) }))}
             />
-            <span className={styles.val}>{fmt(sel.t)}</span>
+            <span className={fieldStyles.val}>{fmt(sel.t)}</span>
           </label>
 
-          <label className={styles.field}>
+          <label className={fieldStyles.field}>
             <span>Command</span>
             <select
               className="nodrag"
@@ -288,101 +232,14 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
             </select>
           </label>
 
-          {sel.cmd === 'SET_PATTERN' && (
-            patternLabels ? (
-              <IndexSelect label="Pattern" options={patternLabels} value={Number(sel.params.index ?? 0)}
-                onChange={(i) => commit(selected, (x) => ({ ...x, params: { index: i } }))} />
-            ) : (
-              <ParamSelect label="Pattern" options={SHOW_PATTERNS} value={String(sel.params.name)}
-                onChange={(v) => commit(selected, (x) => ({ ...x, params: { name: v } }))} />
-            )
-          )}
-          {sel.cmd === 'SET_PALETTE' && (
-            <ParamSelect label="Palette" options={[...SHOW_PALETTES]} value={String(sel.params.name)}
-              onChange={(v) => commit(selected, (x) => ({ ...x, params: { name: v } }))} />
-          )}
-          {sel.cmd === 'SET_SPEED' && (
-            <ParamSlider label="Speed" min={0} max={3} step={0.05} value={Number(sel.params.value)} fmtVal={(v) => `×${v.toFixed(2)}`}
-              onChange={(v) => commit(selected, (x) => ({ ...x, params: { value: v } }))} />
-          )}
-          {sel.cmd === 'SET_BRIGHTNESS' && (
-            <ParamSlider label="Brightness" min={0} max={255} step={1} value={Number(sel.params.value)} fmtVal={(v) => String(Math.round(v))}
-              onChange={(v) => commit(selected, (x) => ({ ...x, params: { value: Math.round(v) } }))} />
-          )}
-          {sel.cmd === 'SET_ENERGY' && (
-            <ParamSlider label="Energy" min={0} max={1} step={0.01} value={Number(sel.params.value)} fmtVal={(v) => v.toFixed(2)}
-              onChange={(v) => commit(selected, (x) => ({ ...x, params: { value: v } }))} />
-          )}
-          {sel.cmd === 'BEAT_FLASH' && (
-            <>
-              <ParamSlider label="Intensity" min={0} max={255} step={1} value={Number(sel.params.intensity)} fmtVal={(v) => String(Math.round(v))}
-                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, intensity: Math.round(v) } }))} />
-              <ParamSlider label="Decay" min={0} max={255} step={1} value={Number(sel.params.decay)} fmtVal={(v) => String(Math.round(v))}
-                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, decay: Math.round(v) } }))} />
-            </>
-          )}
-          {sel.cmd === 'PARTICLE_BURST' && (
-            <>
-              <ParamSelect label="Style" options={PARTICLE_STYLES as unknown as string[]} value={PARTICLE_STYLES[Number(sel.params.style ?? 0)] ?? 'rise'}
-                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, style: Math.max(0, PARTICLE_STYLES.indexOf(v as typeof PARTICLE_STYLES[number])) } }))} />
-              <ParamSlider label="Intensity" min={0} max={255} step={1} value={Number(sel.params.intensity)} fmtVal={(v) => String(Math.round(v))}
-                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, intensity: Math.round(v) } }))} />
-              <ParamSlider label="Hue" min={0} max={255} step={1} value={Number(sel.params.hue)} fmtVal={(v) => String(Math.round(v))}
-                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, hue: Math.round(v) } }))} />
-            </>
-          )}
-          {sel.cmd === 'TRANSITION' && (
-            <>
-              <ParamSelect label="Style" options={SHOW_TRANSITIONS} value={String(sel.params.type)}
-                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, type: v } }))} />
-              <ParamSlider label="Duration" min={0.1} max={3} step={0.1} value={Number(sel.params.duration)} fmtVal={(v) => `${v.toFixed(1)}s`}
-                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, duration: v } }))} />
-            </>
-          )}
+          <ShowEventFields
+            event={sel}
+            patternLabels={patternLabels}
+            paramNames={show.params}
+            onChange={(params) => commit(selected, (x) => ({ ...x, params }))}
+          />
         </div>
       )}
     </div>
-  )
-}
-
-function ParamSelect({ label, options, value, onChange }: {
-  label: string; options: string[]; value: string; onChange: (v: string) => void
-}) {
-  return (
-    <label className={styles.field}>
-      <span>{label}</span>
-      <select className="nodrag" value={value} onWheelCapture={stopWheelWhileFocused} onChange={(e) => onChange(e.target.value)}>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </label>
-  )
-}
-
-// Like ParamSelect but the option value is an index (for collection SET_PATTERN,
-// which stores a numeric index into the show's patternSet, not a name).
-function IndexSelect({ label, options, value, onChange }: {
-  label: string; options: string[]; value: number; onChange: (i: number) => void
-}) {
-  return (
-    <label className={styles.field}>
-      <span>{label}</span>
-      <select className="nodrag" value={value} onWheelCapture={stopWheelWhileFocused} onChange={(e) => onChange(Number(e.target.value))}>
-        {options.map((o, i) => <option key={i} value={i}>{o}</option>)}
-      </select>
-    </label>
-  )
-}
-
-function ParamSlider({ label, min, max, step, value, fmtVal, onChange }: {
-  label: string; min: number; max: number; step: number; value: number
-  fmtVal: (v: number) => string; onChange: (v: number) => void
-}) {
-  return (
-    <label className={styles.field}>
-      <span>{label}</span>
-      <input className="nodrag" type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(Number(e.target.value))} />
-      <span className={styles.val}>{fmtVal(value)}</span>
-    </label>
   )
 }
