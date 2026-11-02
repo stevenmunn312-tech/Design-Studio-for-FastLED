@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import ClampedNumberInput from './ClampedNumberInput'
@@ -26,6 +26,8 @@ interface ShowLaneEditorProps {
 const SECTION_TYPES: SongSection['type'][] = ['intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro']
 
 const LANE_H = 28
+/** Track width before the first measure, and in a DOM without layout. */
+const FALLBACK_WIDTH = 720
 
 /** Full-size lane editor. The node timeline stays the overview. */
 export default function ShowLaneEditor({ show, title, sections, beats, energy = [], locks, onClose, onCommit }: ShowLaneEditorProps) {
@@ -41,7 +43,21 @@ export default function ShowLaneEditor({ show, title, sections, beats, energy = 
   const [redo, setRedo] = useState<{ events: ShowEvent[]; sections: SongSection[] }[]>([])
   const clipboard = useRef<ShowEvent[]>([])
   const dragged = useRef(false)
-  const width = 720
+  // Every track shares the grid's flexible column, so the pattern track's
+  // width places clips, ramps and the energy envelope on one time axis.
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(FALLBACK_WIDTH)
+  useLayoutEffect(() => {
+    const track = trackRef.current
+    if (!track) return
+    const measure = () => {
+      if (track.clientWidth > 0) setWidth(track.clientWidth)
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(track)
+    return () => observer?.disconnect()
+  }, [])
   const windowMs = Math.max(1, show.durationMs / zoom)
   const startMs = Math.max(0, Math.min(Math.max(0, show.durationMs - windowMs), scroll))
   const endMs = startMs + windowMs
@@ -316,7 +332,7 @@ export default function ShowLaneEditor({ show, title, sections, beats, energy = 
           )}
           <div className={styles.lane} style={{ height: 36 }}>
             <span className={styles.laneName}>pattern</span>
-            <div className={styles.track} onPointerDown={(event) => boxSelect('SET_PATTERN', event)}>
+            <div ref={trackRef} className={styles.track} onPointerDown={(event) => boxSelect('SET_PATTERN', event)}>
               {clips.filter((clip) => clip.end >= startMs && clip.start <= endMs).map((clip) => (
                 <span key={clip.eventIndex}>
                   <button
