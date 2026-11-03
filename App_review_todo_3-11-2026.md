@@ -631,7 +631,7 @@ menu choices, Upload guidance and the Checks drawer.
   tracks, or preview a generated show" until the user acts, so the first
   thing a visitor sees is nothing lit. Open examples with a generated show
   playing, or bundle a short royalty-free track.
-  Done: the Music Player starter names three bundled patterns (`collectionPatterns`) that `startTemplate` copies into its Pattern Collection on load, so the output plays on the wall clock from the first frame; `startFlow.test.ts` covers it.
+  Done: the Music Player starter and its Try-it-live example name the audio-reactive shelf (`collectionShelf`) that `seedCollection` copies into their Pattern Collection on open, so the output plays on the wall clock from the first frame; `startFlow.test.ts` covers both.
 
 ## Keep as is
 

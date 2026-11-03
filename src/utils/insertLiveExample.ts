@@ -29,6 +29,10 @@ export interface LiveExampleSpec {
   title: string
   nodes: LiveExampleNodeSpec[]
   edges: LiveExampleEdgeSpec[]
+  /** A bundled shelf (`categoryId` in bundledPatterns.ts) copied into the
+   *  example's Pattern Collection when it opens as a project, so a show
+   *  example is lit from its first frame. */
+  collectionShelf?: string
 }
 
 export interface LiveExampleResult {

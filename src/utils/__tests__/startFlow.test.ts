@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AUDIO_BUNDLED_PATTERNS } from '../../state/patterns/bundledPatterns'
 import {
   landOnStartingWorkspace,
   openBlankProject,
@@ -94,13 +95,12 @@ describe('startFlow', () => {
     expect(useUiStore.getState().previewPanelOpen).toBe(true)
   })
 
-  it('opens the Music Player starter with bundled patterns in its collection', () => {
+  it('opens the Music Player starter with the audio-reactive shelf in its collection', () => {
     startTemplateById('generative-show')
     const graph = useGraphStore.getState()
     const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')!
     const patternIds = (collection.data.properties as { patternIds: string[] }).patternIds
-    expect(patternIds).toHaveLength(3)
-    expect(patternIds.map((id) => graph.graphs[id]?.name)).toEqual(['Azure Tideglass', 'Aurora Veil', 'Opaline Plasma'])
+    expect(patternIds.map((id) => graph.graphs[id]?.name)).toEqual(AUDIO_BUNDLED_PATTERNS.map((pattern) => pattern.name))
     for (const id of patternIds) expect(graph.graphData[id]?.nodes.length).toBeGreaterThan(0)
   })
 
@@ -289,6 +289,9 @@ describe('opening a start choice as its own project', () => {
       expect(result?.nodeIds.length).toBeGreaterThan(0)
       expect(types()).not.toContain('Noise')
       expect(types()).toContain('PatternMaster')
+      // Lit from the first frame: the collection holds the audio-reactive shelf.
+      const collection = useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'PatternCollection')!
+      expect((collection.data.properties as { patternIds: string[] }).patternIds).toHaveLength(AUDIO_BUNDLED_PATTERNS.length)
       // The bench parts the player needs come with it, on the project's board,
       // hidden on the canvas as the hardware view's parts always are.
       expect(types()).toContain('SDCard')

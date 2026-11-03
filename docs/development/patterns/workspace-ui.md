@@ -358,6 +358,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - The empty canvas is a ghost patch: a 40 % Juggle → LED Output pair that is
   the "Start with Juggle" button, one line of copy, and text links for the
   other starts. No card, no hero copy.
-- A show starter names `collectionPatterns` (bundled pattern names) and
-  `startTemplate` copies them into its Pattern Collection, so the output is
-  lit on open; Pattern Master runs on the wall clock until a track plays.
+- A show starter or live example names `collectionShelf` (a bundled
+  `categoryId`) and `seedCollection` in `startFlow.ts` copies that shelf into
+  its Pattern Collection, so the output is lit on open; the Music Player
+  starter and example take the audio-reactive shelf. Pattern Master runs on
+  the wall clock until a track plays.

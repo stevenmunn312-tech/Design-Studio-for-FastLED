@@ -1,4 +1,5 @@
 import { example, MATRIX } from './example'
+import { AUDIO_REACTIVE_CATEGORY_ID } from '../../../state/patterns/bundledPatterns'
 import type { NodeReferenceMap } from './types'
 
 const SHOW_OUTCOME = 'Add saved patterns to the Pattern Collection to see the show play.'
@@ -170,6 +171,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         card: ['SDCard'],
         amp: ['Amplifier'],
       },
+      collectionShelf: AUDIO_REACTIVE_CATEGORY_ID,
       wires: [
         'patterns.patternset > target.patternset',
         'mic.audio > target.audio',
@@ -179,8 +181,8 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         'controls.controls > target.controls',
         'particles.particleFx > target.particleFx',
       ],
-      explanation: 'Add at least two saved patterns to Pattern Collection. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transition Pool chooses the preview transition styles, Player Controls carries transport and lighting commands, and Player Particles configures independent beat bursts. The SD Card and the Amplifier go on the bench: the player needs both to play music on the board.',
-      preview: 'The collection starts empty, so the {output} is black until you add patterns. With Beat Transitions off, patterns change on the random timer. With it on, early beats are ignored and the next beat after the cooldown starts the change.',
+      explanation: 'Pattern Collection opens holding the built-in audio-reactive patterns; add your own beside them. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transition Pool chooses the preview transition styles, Player Controls carries transport and lighting commands, and Player Particles configures independent beat bursts. The SD Card and the Amplifier go on the bench: the player needs both to play music on the board.',
+      preview: 'The collection opens with the built-in audio-reactive patterns, so the {output} is lit at once. With Beat Transitions off, patterns change on the random timer. With it on, early beats are ignored and the next beat after the cooldown starts the change.',
       workflow: true,
     }),
   },

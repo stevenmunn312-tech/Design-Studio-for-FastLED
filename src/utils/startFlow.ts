@@ -2,7 +2,6 @@ import { rootGraphNodes, useGraphStore } from '../state/graphStore'
 import { useAudioStore } from '../state/audio/audioStore'
 import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from '../state/patterns/starterTemplates'
 import { BUNDLED_PATTERNS } from '../state/patterns/bundledPatterns'
-import type { SavedPattern } from '../state/patterns/patternLibrary'
 import { useUiStore, BLANK_BENCH_SHELF_CATEGORY } from '../state/uiStore'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { micSupportedForBoardProfile } from '../build/pins/micPinDefaults'
@@ -88,21 +87,17 @@ export function landOnStartingWorkspace() {
 }
 
 /**
- * A show starter's Pattern Collection opens holding the bundled patterns it
- * names. Pattern Master runs on the wall clock until a track plays, so this
- * is what the LED output shows the moment the starter lands; an empty
+ * A show starter's or example's Pattern Collection opens holding a bundled
+ * shelf. Pattern Master runs on the wall clock until a track plays, so this
+ * is what the LED output shows the moment the project lands; an empty
  * collection opened black.
  */
-function seedCollection(template: StarterTemplate) {
-  const names = template.collectionPatterns ?? []
-  if (names.length === 0) return
+function seedCollection(shelf: string | undefined) {
+  if (!shelf) return
   const graph = useGraphStore.getState()
   const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')
   if (!collection) return
-  const patterns = names
-    .map((name) => BUNDLED_PATTERNS.find((pattern) => pattern.name === name))
-    .filter((pattern): pattern is SavedPattern => pattern !== undefined)
-  graph.addPatternsToCollection(collection.id, patterns)
+  graph.addPatternsToCollection(collection.id, BUNDLED_PATTERNS.filter((pattern) => pattern.categoryId === shelf))
 }
 
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
@@ -114,7 +109,7 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
     useUploadStore.getState().selectedFqbn,
   )
   useGraphStore.getState().loadGraph(nodes, edges)
-  seedCollection(template)
+  seedCollection(template.collectionShelf)
   finishStartFlow(
     template.id,
     `Loaded "${template.name}" starter`,
@@ -232,6 +227,7 @@ export async function openExampleProject(example: LiveExampleSpec, projectName: 
   const graph = useGraphStore.getState()
   graph.loadGraph([], [])
   const result = insertLiveExample(example, { x: 0, y: 0 })
+  seedCollection(example.collectionShelf)
   // As a starter is: every part, the LED output included, takes the board's
   // pins. Through the store action the wired LED output would count as a
   // fixture and keep its library default, which an SD Card's chip select then
