@@ -924,8 +924,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         // will not fit costs one compile to discover. Here the flash comes
         // last — after two card swaps — so without this the user does the
         // whole dance and *then* learns the design overflows DRAM. The live
-        // capacity meter is no help: it measures the normal sketch, not the
-        // player, so a show whose player will not link reads as comfortable.
+        // capacity meter measures this same player sketch
+        // (`buildShowPlayerForMeasurement`) and the Upload button is disabled
+        // on its overflow, but a meter not yet run or gone stale says nothing,
+        // so the check is repeated here as the last word before the swap.
         //
         // It is close to free on the success path — the real build that
         // follows compiles identical source and hits the engine's cache.

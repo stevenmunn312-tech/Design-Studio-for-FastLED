@@ -39,20 +39,41 @@ describe('WorkspaceTabs', () => {
     expect(useUiStore.getState().hardwarePaneTab).toBe('upload')
   })
 
-  it('announces the graph when a part added elsewhere puts a node in it', () => {
+  const updated = () => screen.getAllByRole('tab')
+    .filter((tab) => tab.textContent?.includes('updated'))
+    .map((tab) => tab.textContent?.replace(/ — updated$/, ''))
+
+  it('announces every workspace a part added elsewhere changes', () => {
     useUiStore.setState({ workspaceMode: 'hardware' })
     render(<WorkspaceTabs />)
     expect(screen.queryByText(/updated/)).toBeNull()
 
-    // Adding hardware creates a node on a workspace nobody is looking at.
+    // Adding hardware puts a node on the Graph, a module on the wiring sheet
+    // and a peripheral in the sketch — none of which is on screen.
     act(() => { useGraphStore.setState({ nodes: [node('btn', 'ButtonInput')] } as never) })
-    expect(screen.getByRole('tab', { name: /Graph/ }).textContent).toContain('updated')
+    expect(updated()).toEqual(['Graph', 'Upload', 'Build Diagram'])
+  })
+
+  it('announces only the graph for a pattern node, which changes nothing on the bench', () => {
+    useUiStore.setState({ workspaceMode: 'upload' })
+    render(<WorkspaceTabs />)
+    act(() => { useGraphStore.setState({ nodes: [node('fire', 'Fire')] } as never) })
+    expect(updated()).toEqual(['Graph'])
   })
 
   it('stays quiet about the workspace already being looked at', () => {
     render(<WorkspaceTabs />)
-    act(() => { useGraphStore.setState({ nodes: [node('btn', 'ButtonInput')] } as never) })
+    act(() => { useGraphStore.setState({ nodes: [node('fire', 'Fire')] } as never) })
     // Editing the graph while looking at it is not news.
     expect(screen.queryByText(/updated/)).toBeNull()
+  })
+
+  it('counts parts on the root graph while a pattern group is open', () => {
+    useUiStore.setState({ workspaceMode: 'graph' })
+    useGraphStore.setState({ activeGraphId: 'group-1', nodes: [], graphData: { root: { nodes: [], edges: [] } } } as never)
+    render(<WorkspaceTabs />)
+    // A part added from the bench lands on the root graph, not the open group.
+    act(() => { useGraphStore.setState({ graphData: { root: { nodes: [node('btn', 'ButtonInput')], edges: [] } } } as never) })
+    expect(updated()).toEqual(['Hardware', 'Upload', 'Build Diagram'])
   })
 })

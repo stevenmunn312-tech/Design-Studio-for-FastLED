@@ -1,0 +1,22 @@
+.row {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  font-size: var(--fs-caption);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* The strip itself: one colour end to end, lit the way a diffused channel reads. */
+.strip {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border-glow);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.35);
+}

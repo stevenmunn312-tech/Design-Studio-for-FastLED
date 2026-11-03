@@ -874,16 +874,9 @@ export function calculateElectricalPlan(
   const outputPlans: OutputElectricalPlan[] = []
 
   for (const item of outputItems) {
+    // Always 5 V: the manifest refuses any chipset outside its 5 V one-wire
+    // set before an item reaches this loop.
     const nominalVoltage = Number(item.facts.nominalVoltage ?? 5) || 5
-    if (nominalVoltage !== 5) {
-      warnings.push({
-        id: `${item.id}:voltage`,
-        severity: 'warning',
-        title: item.title,
-        detail: `${nominalVoltage} V output generation is not supported yet; this route is omitted rather than drawn incorrectly.`,
-      })
-      continue
-    }
 
     const pixelCount = Math.max(1, Number(item.facts.pixelCount ?? 0))
     const densityPerMeter = DEFAULT_LED_DENSITY_PER_METER

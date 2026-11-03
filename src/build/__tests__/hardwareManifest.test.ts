@@ -461,6 +461,21 @@ describe('hardwareManifest', () => {
     expect(manifest.primaryItems).toEqual([])
     expect(manifest.unsupportedItems.map((item) => item.facts.chipset)).toEqual(['APA102', 'HUB75'])
   })
+
+  // The strip is a library node, not a bench part, but its three GPIOs drive
+  // MOSFET gates the build has to wire; it used to fall out of the diagram
+  // entirely while its help said to wire each pin to a gate.
+  it('draws an Analog RGB Strip as a three-channel MOSFET item on its three pins', () => {
+    const manifest = buildHardwareManifest([
+      node('strip', 'AnalogStripOutput', { rPin: 25, gPin: 26, bPin: 27, pwmHz: 2000, commonAnode: true }),
+    ], [], 'esp32:esp32:esp32s3')
+
+    const [item] = manifest.primaryItems
+    expect(item.kind).toBe('analog-strip-output')
+    expect(item.supported).toBe(true)
+    expect(item.pins.map((pin) => pin.propertyKey)).toEqual(['rPin', 'gPin', 'bPin'])
+    expect(item.facts).toMatchObject({ channels: 3, drive: 'PWM 2000 Hz', polarity: 'common anode (inverted PWM)' })
+  })
 })
 
 describe('the internal DAC claim and the I2C bus pair', () => {

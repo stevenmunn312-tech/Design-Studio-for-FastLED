@@ -246,6 +246,14 @@ export default function BuildDiagramWorkspace() {
   // stays on the Board node, so switching the target back restores it.
   const exactBoard = benchBoard && boardProfileMatchesFqbn(benchBoard, selectedFqbn) ? benchBoard : undefined
   const selectedTarget = boardByFqbn(selectedFqbn)
+  // Why there is no exact board, said where the exports go dark. `App.tsx`
+  // snaps the Upload target to the Board node's profile, so the only way to
+  // have none is a bench with no board chosen; the old copy about drafts and
+  // references never said so. The mismatch guard above stays for the render
+  // between a board change and that snap.
+  const noExactBoardReason = benchBoard
+    ? `Exports need the Board node and the Upload board to agree: Board is ${benchBoard.label}, Upload is ${selectedTarget?.label ?? selectedFqbn}.`
+    : 'Choose a board on the Hardware tab to unlock controller-aware wiring and exports.'
   const [selectedItemId, setSelectedItemId] = useState<string>(() => exactBoard ? 'controller' : '')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
   // The information panel is drawn in the shared workspace sidebar, which
@@ -1192,6 +1200,9 @@ export default function BuildDiagramWorkspace() {
             <p className={styles.copyMuted}>
               {exportDraftReason}
             </p>
+            {!exactBoard && (
+              <p className={styles.copyMuted} data-testid="export-board-reason">{noExactBoardReason}</p>
+            )}
             <div className={styles.exportActionGrid}>
               <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportDiagramSvg}>Export SVG</button>
               <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={printBuildSheets}>Print / PDF</button>
@@ -1212,7 +1223,7 @@ export default function BuildDiagramWorkspace() {
             <h2 className={styles.panelTitle}>Wiring Diagram</h2>
             <p className={styles.panelSubtitle}>
               {!exactBoard
-                ? 'Select an exact board profile to unlock controller-aware wiring details.'
+                ? noExactBoardReason
                 : !canRenderControllerPins
                   ? `${exactBoard.label} selected. This profile still needs a reviewed physical pin map before controller-side wiring can be drawn.`
                   : activeSection.id === 'all'

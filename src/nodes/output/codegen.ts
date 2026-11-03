@@ -86,7 +86,7 @@ import {
 } from '../../state/peripherals/coolingFan'
 import { dfPlayerGlobalCpp, dfPlayerLoopCpp, dfPlayerSetupCpp, DFPLAYER_HELPER_CPP } from '../../codegen/peripherals/dfPlayerCpp'
 import { parseIpv4Literal } from '../../codegen/peripherals/networkCpp'
-import { ANALOG_PWM_HZ, DDP_CHUNK_PIXELS, DDP_DATA_TYPE_RGB8, DDP_PORT, adalightBaud, streamProtocol } from './frameStream'
+import { DDP_CHUNK_PIXELS, DDP_DATA_TYPE_RGB8, DDP_PORT, adalightBaud, analogStripPwmHz, streamProtocol } from './frameStream'
 import {
   DFPLAYER_BUSY_PIN_FALLBACK,
   DFPLAYER_RX_PIN_FALLBACK,
@@ -113,11 +113,6 @@ function dimmedPowerSwitchChannels(
   })
 }
 
-/** An Analog Strip's PWM frequency, bounded as its slider is. */
-function analogStripHz(p: Record<string, unknown>): number {
-  return Math.max(ANALOG_PWM_HZ.min, Math.min(ANALOG_PWM_HZ.max, Math.round(Number(p.pwmHz) || ANALOG_PWM_HZ.default)))
-}
-
 const ANALOG_STRIP_CHANNELS = ['r', 'g', 'b'] as const
 
 /** Every ESP32 core-2 LEDC user, allocated together to avoid channel clashes. */
@@ -133,7 +128,7 @@ function esp32PwmChannels(
       hz: coolingFanSpec(props(candidate).partId).pwmHz,
     })),
     ...nodes.filter((candidate) => candidate.data.nodeType === 'AnalogStripOutput').flatMap((candidate) =>
-      ANALOG_STRIP_CHANNELS.map((channel) => ({ key: `${candidate.id}:${channel}`, hz: analogStripHz(props(candidate)) }))),
+      ANALOG_STRIP_CHANNELS.map((channel) => ({ key: `${candidate.id}:${channel}`, hz: analogStripPwmHz(props(candidate)) }))),
   ]
 }
 
@@ -1001,7 +996,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
   // plan, so two strips, a Power Switch and a Cooling Fan never share one.
   AnalogStripOutput({ node, p, ln, f, channelColor, pinSetupLines, setupLines, nodes, incoming, props }) {
     const rPin = sanitizePin(p.rPin, 25), gPin = sanitizePin(p.gPin, 26), bPin = sanitizePin(p.bPin, 27)
-    const hz = analogStripHz(p)
+    const hz = analogStripPwmHz(p)
     const plan = powerSwitchPwmPlan(esp32PwmChannels(nodes, incoming, props))
     const [rCh, gCh, bCh] = ANALOG_STRIP_CHANNELS.map((channel) => plan.ledcChannels.get(`${node.id}:${channel}`) ?? 0)
     const invert = Boolean(p.commonAnode)

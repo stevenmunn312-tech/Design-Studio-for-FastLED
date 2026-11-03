@@ -810,6 +810,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Build Diagram
 
+- A library node can be a diagram item. `buildHardwareManifest` draws what
+  `isHardwareNodeType` owns plus the graph-side nodes that claim GPIO
+  (`DMXInput`, `MidiInput`, `AnalogStripOutput`), each named in the
+  `hardwareNodes` filter. A new one needs that filter, the
+  `BUILD_DIAGRAM_SUPPORTED_NODE_TYPES` set, a `kind`, a section in
+  `diagramSections.ts`, pads in `UNCATALOGUED_PADS` / `SIGNAL_PAD_NAMES` when it
+  has no catalogued part, and a `peripheralPowerPadIndex` rule when the
+  controller feeds it nothing (MOSFET gates, like the ULN2803A). The Analog RGB
+  Strip is the worked example: three gate pins, a ground, no supply.
+- The planner's LED-output voltage is the constant `ONE_WIRE_NOMINAL_VOLTAGE`,
+  not a per-chipset lookup: every chipset the manifest lets through is in
+  `BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS`, so a 12 V strip is refused by name
+  there. A WS2815 route means adding the chipset to the planner, not reviving
+  a voltage branch the planner can never reach.
 - Power-zone headers own three rows: zone name, electrical rating, then main
   fuse and trunk. Part artwork, fuse-block captions and shared-net symbols
   start below those rows. Four-terminal converters keep catalogue order
@@ -817,6 +831,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   negative, and each terminal gets a visible pad label when the render does not
   show usable screw-terminal markings.
 
+- Exports go dark only for a missing exact board, and the sheet says so
+  beside the buttons (`noExactBoardReason` in `BuildDiagramWorkspace.tsx`).
+  Since `App.tsx` snaps the Upload target to the Board node's profile, the
+  reachable reason is a bench with no board chosen; the Board-versus-Upload
+  mismatch wording covers only the render between a board change and that
+  snap, so it needs no action of its own. The draft / reference copy above
+  the buttons is about signal and power review and never names the board.
 - A peripheral title is centred on its picture and has to stay inside the
   column slot (`PERIPHERAL_RENDER_W` + `PERIPHERAL_GAP`). Catalogue labels run
   past that on one line, so `fitPartTitle` wraps them to two lines at the

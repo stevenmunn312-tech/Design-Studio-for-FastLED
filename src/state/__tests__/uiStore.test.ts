@@ -4,7 +4,7 @@ import { useUiStore, visibleLiveTouchScreen } from '../uiStore'
 describe('uiStore.setStatus auto-clear', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    useUiStore.getState().clearStatus()
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle' })
   })
   afterEach(() => {
     vi.runOnlyPendingTimers()
@@ -180,7 +180,7 @@ describe('uiStore.setStatus auto-clear', () => {
 
   it('enters and exits stage mode without persisting it across sessions', () => {
     useUiStore.getState().setStageMode(false)
-    useUiStore.getState().toggleStageMode()
+    useUiStore.getState().setStageMode(true)
     expect(useUiStore.getState().stageMode).toBe(true)
     useUiStore.getState().setStageMode(false)
     expect(useUiStore.getState().stageMode).toBe(false)
@@ -400,7 +400,6 @@ describe('leaving the display editor', () => {
   })
 
   it.each([
-    ['openBuildDiagram', () => useUiStore.getState().openBuildDiagram()],
     ['closeBuildDiagram', () => useUiStore.getState().closeBuildDiagram()],
     ['toggleBuildDiagram', () => useUiStore.getState().toggleBuildDiagram()],
   ])('is dismissed by %s, which sets the mode directly', (_label, act) => {

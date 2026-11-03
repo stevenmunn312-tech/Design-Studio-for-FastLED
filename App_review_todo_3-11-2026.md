@@ -100,7 +100,14 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
 
 ## 2. Half-finished features
 
-- [ ] **Analog RGB Strip is half a node.**
+- [x] **Analog RGB Strip is half a node.**
+  Outcome (3 Nov): `AnalogStripOutput` evaluator publishes the dimmed colour
+  and a node body paints it; the manifest draws it as a three-pin
+  `analog-strip-output` MOSFET item (gate pads R/G/B, ground, no controller
+  supply) in the Controls section; `resolveBuildMode` counts an analog strip
+  (`analogOutput`) and a fed Frame Stream (`streamOutput`) as buildable, and
+  `validateGraph` reads the same capabilities. Frame Stream keeps no preview
+  by design (its help says so).
   Problem: definition and emitter exist (`src/nodes/output/definitions.ts:679-692`,
   `codegen.ts:1002`) but there is no evaluator, so the preview draws nothing;
   it is in neither `BUILD_DIAGRAM_SUPPORTED_NODE_TYPES`
@@ -114,7 +121,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   sink, or give a dedicated diagnostic instead of the generic missing-output
   error.
 
-- [ ] **Dead 12 V voltage branch.**
+- [x] **Dead 12 V voltage branch.**
+  Outcome (3 Nov): both deleted. The manifest emits the constant
+  `ONE_WIRE_NOMINAL_VOLTAGE`; the planner's unreachable 12 V warning is gone.
+  WS2815 stays refused by name in `BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS`.
   Problem: `src/build/hardwareManifest.ts:244` returns
   `chipset === HUB75_CHIPSET ? 5 : 5`, so the warning at
   `src/build/power/electricalPlan.ts:878-884` ("12 V output generation is not
@@ -122,21 +132,32 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: return the real nominal voltage per chipset and let the planner refuse
   with that warning, or delete both.
 
-- [ ] **Theme and preview style can only be cycled.**
+- [x] **Theme and preview style can only be cycled.**
+  Outcome (3 Nov): the View menu lists three themes and six preview styles as
+  `menuitemradio` items through `setTheme` / `setPreviewStyle`; the toolbar
+  style button still cycles. `cycleTheme`, `toggleStageMode`, `clearStatus`
+  and `openBuildDiagram` deleted with their dead tests.
   Problem: `MB:868-875` is one button cycling three themes; `MB:1083-1088`
   cycles six preview styles. `setTheme`, `setPreviewStyle`, `toggleStageMode`,
   `clearStatus` and `openBuildDiagram` in `uiStore.ts` have no callers.
   Fix: radio lists in the View menu using the existing setters; delete or wire
   the dead actions.
 
-- [ ] **Radio Stations group is mounted disabled on every Music Player.**
+- [x] **Radio Stations group is mounted disabled on every Music Player.**
+  Outcome (3 Nov): the group is mounted only while Music Source is Internet
+  Radio, like its property rows; the source field's help already names it.
   Problem: `src/components/Canvas/StudioNode.tsx:924-930` mounts
   `RadioStationsBody` with `disabled` unless the source is Internet Radio; an
   SD or Bluetooth player carries a greyed station list with no explanation.
   Fix: hide the group unless the source is Internet Radio, or add one line
   "Set Music Source to Internet Radio to use these".
 
-- [ ] **Build Diagram exports go dark without saying why.**
+- [x] **Build Diagram exports go dark without saying why.**
+  Outcome (3 Nov): one sentence beside the export buttons and in the sheet
+  header. Section 1 made `App.tsx` snap the Upload target to the Board node's
+  profile, so the reachable reason is now "no board chosen"; the mismatch
+  wording covers only the render before that snap, so no "Use board's
+  profile" action was added.
   Problem: `src/components/BuildDiagram/BuildDiagramWorkspace.tsx:1196-1199,
   1239-1242` disable Export SVG, Print, Connections CSV and BOM CSV when
   `exactBoard` is undefined, which happens whenever the Board node's profile
@@ -146,14 +167,24 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Upload board to agree: Board is X, Upload is Y") with a "Use board's
   profile" action.
 
-- [ ] **"Changed elsewhere" tab flash is hard-wired to the Graph tab.**
+- [x] **"Changed elsewhere" tab flash is hard-wired to the Graph tab.**
+  Outcome (3 Nov): per-tab signals in `useChangedElsewhere`: the active
+  graph's node count flashes Graph; the root graph's part count flashes
+  Hardware, Build Diagram and Upload. Upload has no deploy-property signal:
+  every graph edit changes the sketch, so that flash would never stop.
   Problem: `src/components/Layout/WorkspaceTabs.tsx:37-52` keys on root node
   count only and always flashes Graph; adding a part on Hardware never flashes
   Build Diagram or Upload.
   Fix: per-tab change signals (parts count to Hardware and Build Diagram,
   deploy-relevant props to Upload), or drop the flash.
 
-- [ ] **Ratings, Studio Score and tags look like playback inputs but nothing plays by them.**
+- [x] **Ratings, Studio Score and tags look like playback inputs but nothing plays by them.**
+  Outcome (3 Nov): relabelled. Insights' kicker is "Library sorting" and its
+  header says score, stars and Best displayed on sort the library and the
+  collection picker and that no show plays by them. Stars stay: the picker's
+  "Mine" sort and the sidebar badges read them. An engine-side "Prefer
+  higher-rated" would need the pick rule and its C++ twin to read a
+  per-machine store; not done.
   Problem: `src/components/PatternRatings/PatternRatingsPopup.tsx:147-171`
   shows stars, score, intent and "Best displayed on"; the only consumers are
   the collection picker sort and sidebar badges; no import under
@@ -163,7 +194,13 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   higher-rated" toggle) or relabel Insights as a library sorting tool and drop
   the stars from the critic.
 
-- [ ] **Some upload gates surface only after pressing Upload.**
+- [x] **Some upload gates surface only after pressing Upload.**
+  Outcome (3 Nov): a drifted SD show is a `blockingErrors` entry, so Upload is
+  disabled with the reason in its title before a press; the handler check
+  stays as a backstop. The capacity meter already measured the player
+  (`buildShowPlayerForMeasurement`) — the stale comment in `uploadStore.ts`
+  said otherwise and is corrected; the pre-flash fit check remains for a
+  meter not yet run. Copy is now "Connect a pattern to the LED output".
   Problem: `DP:530-533` sends a stale SD-show packaging error to the status
   bar; `src/state/upload/uploadStore.ts:920-958` reports "The player will not
   fit on this board" only in the console mid-upload, and the capacity meter
@@ -173,7 +210,14 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   (`ReadinessLayers.tsx:44`) before Upload is enabled; say "Connect a pattern
   to the LED output".
 
-- [ ] **In-app support claims are stale.**
+- [x] **In-app support claims are stale.**
+  Outcome (3 Nov): Help derives the paragraph from the matrix
+  (`src/utils/supportMatrix.ts` parses the two Supported tables from a `?raw`
+  chunk; a test reads the real file). "(experimental)" on the Bluetooth and
+  Internet Radio music sources and a chip on the several-boards sync toggle,
+  from `src/utils/experimentalFeatures.ts`. No per-part chips: the matrix has
+  no per-part rows, so a part is experimental by default and a chip on every
+  part would say nothing.
   Problem: `src/components/HelpModal/HelpModal.tsx:823` enumerates validated
   hardware that `docs/release/beta-support-matrix.md:21-58` has since
   extended; "experimental" badges exist only on about eight board labels
@@ -184,7 +228,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   "Experimental" chip to the Music Source options, the fleet sync toggle and
   any part whose matrix row is experimental.
 
-- [ ] **Docs drift.**
+- [x] **Docs drift.**
+  Outcome (3 Nov): Segment networks ticked; the mixed-wiring question moved
+  to Resolved with the warning named; the HUB75 chain-order caveat is in the
+  LED output's help `propertyNote`.
   Problem: `docs/plans/pattern-node-expansion.md:505` leaves Segment networks
   unchecked while `todo.md` lists D-06 as shipped;
   `docs/design/collection-driven-performance.md:341` still calls an

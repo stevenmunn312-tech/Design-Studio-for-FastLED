@@ -298,9 +298,12 @@ export default function PatternRatingsPopup() {
       <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-labelledby="pattern-insights-title" tabIndex={-1}>
         <header className={styles.header}>
           <div>
-            <div className={styles.kicker}>Pattern critic</div>
+            <div className={styles.kicker}>Library sorting</div>
             <h2 id="pattern-insights-title">Pattern Insights</h2>
-            <p>Studio judges execution against each pattern’s intent. Your stars remain entirely your own.</p>
+            <p>
+              Studio judges execution against each pattern’s intent; your stars remain entirely your own.
+              Score, stars and Best displayed on sort the pattern library and the collection picker — no show or slideshow plays by them.
+            </p>
           </div>
           <button className={styles.closeBtn} onClick={handleClose} aria-label="Close Pattern Insights">×</button>
         </header>

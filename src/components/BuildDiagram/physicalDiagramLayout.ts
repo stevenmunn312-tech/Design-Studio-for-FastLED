@@ -594,6 +594,10 @@ const UNCATALOGUED_PADS: Record<string, string[]> = {
   'ir-input': ['OUT', 'GND', 'VCC'],
   'pot-input': ['VCC', 'SIG', 'GND'],
   'encoder-input': ['VCC', 'A', 'B', 'SW', 'GND'],
+  // A generic three-channel MOSFET board's logic header: a ground and one
+  // gate input per colour. The strip and its 12 V land on its load side,
+  // which is not controller wiring.
+  'analog-strip-output': ['GND', 'R', 'G', 'B'],
 }
 
 function peripheralPads(item: HardwareManifestItem): string[] {
@@ -713,6 +717,8 @@ export function peripheralPowerPadIndex(item: HardwareManifestItem): number | nu
   if (item.kind === 'buzzer-output') return null
   // The ULN2803A has no controller supply: its COM pin is the load supply's clamp return.
   if (item.kind === 'darlington-driver-output') return null
+  // MOSFET gates are driven by the GPIOs themselves; the strip has its own 12 V.
+  if (item.kind === 'analog-strip-output') return null
   // A bare encoder is three switch contacts and no electronics: no supply pad.
   // The module it shares a kind with prints VCC, so only a part without one is
   // left unpowered.
@@ -848,6 +854,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'cooling-fan-output': [['PWM'], ['RPM', 'TACH', 'TACHO']],
   'pwm-driver-output': [['SDA'], ['SCL']],
   'darlington-driver-output': ['1B', '2B', '3B', '4B', '5B', '6B', '7B', '8B'].map((name) => [name]),
+  'analog-strip-output': [['R'], ['G'], ['B']],
   'power-monitor-input': [['SDA'], ['SCL']],
   'environment-input': [['SDI'], ['SCK']],
   'temperature-input': [['DATA']],

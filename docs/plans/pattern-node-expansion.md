@@ -502,9 +502,9 @@ through step 11 of the
       [`sd-video.md`](../design/sd-video.md). The 400 KB/s bandwidth warning is an
       estimate, not a bench measurement, and no per-board figures are recorded
       yet. Compile record: [Phase 11](../reports/compile/pattern-node-compile-checks.md).
-- [ ] **Segment networks.** A layout where strings are edges of a graph and a
+- [x] **Segment networks.** A layout where strings are edges of a graph and a
       `Ripple` pattern travels node to node with turning rules, the Chromancer
-      model. In v1 (root todo D-06); the model, editor, pattern and the
+      model. Shipped as root todo D-06; the model, editor, pattern and the
       millimetre positions the Build Diagram needs are designed in
       [segment networks](../design/segment-networks.md).
 - [x] Add step 11 to the hardware roadmap pointing here.

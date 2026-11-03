@@ -205,6 +205,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Upload stays disabled. The serial monitor's own state reads Monitoring /
   Monitor off, never Connected/Disconnected, which beside "COM6 · connected"
   would read as the board being unplugged.
+- What makes a graph buildable is `resolveBuildMode`'s `capabilities`
+  (`src/state/upload/buildMode.ts`), and `validateGraph`'s "LED output is
+  missing" reads the same object: a frame into an LED output, a standalone
+  Stereo VU Meter, a wired display, a board-link send, an Analog RGB Strip
+  (`analogOutput`, always coloured by its fields) or a Frame Stream with a
+  frame wired (`streamOutput`). A new sink joins the capabilities, never a
+  second node-type list in a validator.
+- A gate the upload handler would refuse on is said before the button is
+  pressed: a drifted SD show (`showPackagingIssues`) is a `blockingErrors`
+  entry in `MatrixOutputDeployPopup.tsx`, so Upload is disabled with the
+  reason in its title and the handler's own check is only a backstop. The
+  status bar is not where a refusal is first learned.
 - Readiness is separate steps, not one "ready": `src/utils/readinessLayers.ts`'s
   `readinessLayers` builds Preview, Graph, Capacity and Connection rows for the
   Upload controls' **Getting to your board** list (`ReadinessLayers.tsx`, one

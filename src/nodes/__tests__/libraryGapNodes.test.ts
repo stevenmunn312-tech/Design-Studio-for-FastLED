@@ -258,6 +258,17 @@ describe('Frame Stream, Analog RGB Strip and DIN MIDI', () => {
     expect(generateCpp([node('u', 'StreamOutput')], [])).toContain('// Frame Stream: nothing wired in')
   })
 
+  // The preview draws no frame for the strip, so the evaluator publishes the
+  // one colour the firmware writes, for the node body to paint: a wired Color
+  // replaces the fields, and Brightness scales it.
+  it('previews an Analog RGB Strip as its one dimmed colour', () => {
+    const fields = node('p', 'AnalogStripOutput', { r: 200, g: 100, b: 0, brightness: 0.5 })
+    expect(outputsOf([fields], []).get('p')?.color).toEqual({ r: 100, g: 50, b: 0 })
+
+    const wired = [node('c', 'Color', { color: '#0000ff' }), node('p', 'AnalogStripOutput', { r: 200, brightness: 1 })]
+    expect(outputsOf(wired, [edge('c', 'color', 'p', 'color')]).get('p')?.color).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
   it('drives three PWM pins for one colour, inverted for a common-anode strip', () => {
     const strip = node('p', 'AnalogStripOutput', { rPin: 12, gPin: 13, bPin: 14, pwmHz: 2000, commonAnode: true })
     const cpp = generateCpp([strip], [])

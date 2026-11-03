@@ -21,8 +21,8 @@ const PLAYLIST_FILE = RADIO_CARD_PLAYLIST.slice(1)
  * The Music Player's Internet Radio group: the ordered stations Next and
  * Previous walk, a station added by URL or from the radio-browser.info
  * directory, the Wi-Fi the board streams over and the phone station page.
- * Drawn as property rows inside the group, disabled unless Music Source is
- * Internet Radio; anything longer than a label is a tooltip.
+ * Drawn as property rows inside the group, which the node shows only while
+ * Music Source is Internet Radio; anything longer than a label is a tooltip.
  *
  * Every station goes through `normalizeRadioStations` on its way in, the same
  * rules the generator applies. Directory results are untrusted text and are
@@ -129,8 +129,7 @@ export default function RadioStationsBody({ nodeId, disabled = false }: { nodeId
 
   const input = `nodrag ${nodeStyles.propInput}`
   return (
-    <fieldset className={styles.group} disabled={disabled} aria-label="Internet radio stations"
-      title={disabled ? 'Set Music Source to Internet Radio to use these' : undefined}>
+    <fieldset className={styles.group} disabled={disabled} aria-label="Internet radio stations">
       <ol className={styles.list}>
         {stations.map((station, index) => (
           <li className={styles.station} key={station.url}>

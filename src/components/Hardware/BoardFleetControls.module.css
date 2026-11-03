@@ -62,6 +62,19 @@
   line-height: 1.35;
 }
 
+/* The matrix's word for a feature no bench row has graduated yet. */
+.experimental {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--warning) 60%, transparent);
+  border-radius: 8px;
+  color: var(--warning);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 .field {
   display: flex;
   flex-direction: column;

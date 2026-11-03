@@ -44,11 +44,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `hardware`/`upload`, and `setHardwarePaneTab` mirrors back into
   `workspaceMode`, because `HardwarePane.tsx` still reads it; treat it as a
   persisted alias of those two modes, not dead state to delete. The "something
-  changed elsewhere" tab flash (`useChangedElsewhere`) is keyed only on
-  `useGraphStore` node count and hardcoded to flash the Graph tab — it does not
-  generalize to Hardware/Build Diagram/Upload announcing their own changes;
-  extending it needs a distinct change-signal per tab, not just widening the
-  flash target. The left panel holds whichever palette the current tab works
+  changed elsewhere" tab flash (`useChangedElsewhere`) has one change signal
+  per tab, not one flash target: the active graph's node count flashes Graph,
+  and the root graph's part count (`isHardwareNodeType`, Board excluded)
+  flashes Hardware, Build Diagram and Upload, since a part is a module on the
+  wiring sheet and a peripheral in the sketch. A new tab announcing its own
+  changes adds a count to `changedTabs`, never a `setFlash('graph')`; the
+  active tab is always filtered out. The left panel holds whichever palette the current tab works
   from — parts shelf, node library, or, on Upload, the **deploy controls**
   (`UPLOAD_CONTROLS_HOST_ID`, portaled out of `MatrixOutputDeployPopup` the way
   the shelf is), which is why that popup's two overlay dialogs are held outside
@@ -108,6 +110,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   inset for fit frame, minimap and zoom controls. **All steps** opens the
   complete list above the strip. On a machine with no saved project and no prior
   start choice, `App.tsx` opens the Start Gallery automatically.
+
+## View menu, experimental chips and Help
+
+- Theme and preview style are radio lists in the View menu (`role="menuitemradio"`,
+  `THEMES` and `PREVIEW_STYLE_OPTIONS`, through `setTheme` / `setPreviewStyle`),
+  not a button that cycles; the toolbar's style button still cycles as a quick
+  step. `uiStore` actions with no caller are deleted, not kept for later:
+  `cycleTheme`, `toggleStageMode`, `clearStatus` and `openBuildDiagram` went
+  that way, and a test that only exercised a dead action goes with it.
+- What the app calls experimental lives in `src/utils/experimentalFeatures.ts`
+  (`isExperimentalPropertyOption` for select options, `EXPERIMENTAL_LABEL` for
+  chips), read from the matrix's "Experimental until validated" list rather
+  than decided per surface. Help derives its validated-hardware paragraph from
+  the matrix itself (`src/utils/supportMatrix.ts`, a `?raw` chunk fetched when
+  Help opens), so a new support row never needs a copy change.
 
 ## Layout and input traps
 

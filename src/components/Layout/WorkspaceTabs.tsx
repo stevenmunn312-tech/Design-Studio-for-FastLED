@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { useShallow } from 'zustand/react/shallow'
+import { isHardwareNodeType } from '../../build/hardware'
+import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useUiStore, type WorkspaceMode } from '../../state/uiStore'
 import styles from './WorkspaceTabs.module.css'
 
@@ -21,33 +23,61 @@ const TABS: { mode: WorkspaceMode; label: string }[] = [
 ]
 
 /**
- * Announce a workspace whose contents just changed under you.
+ * The count each tab announces on. A part added or removed on the bench
+ * changes what Hardware, Build Diagram and Upload show — the bench, the wiring
+ * sheet and the sketch — and puts a node on Graph; a node added or removed on
+ * the canvas changes Graph alone. Counted on the root graph, where every part
+ * lives, so the signal survives a pattern group being open on the canvas.
+ */
+interface ChangeSignals {
+  parts: number
+  nodes: number
+}
+
+const PART_TABS: readonly WorkspaceMode[] = ['hardware', 'build', 'upload']
+
+function changedTabs(before: ChangeSignals, after: ChangeSignals): WorkspaceMode[] {
+  const tabs: WorkspaceMode[] = []
+  if (before.nodes !== after.nodes) tabs.push('graph')
+  if (before.parts !== after.parts) tabs.push(...PART_TABS)
+  return tabs
+}
+
+/**
+ * Announce the workspaces whose contents just changed under you.
  *
- * Adding a part on the Hardware tab puts a node on the Graph tab. With both
- * panes on screen you watched that happen; with one workspace at a time it
- * happens out of sight, so the tab says so.
+ * Adding a part on the Hardware tab puts a node on the Graph tab and a module
+ * on the wiring sheet. With both panes on screen you watched that happen; with
+ * one workspace at a time it happens out of sight, so the tabs say so.
  *
  * Deliberately keyed on *an action elsewhere changing this workspace*, not on
  * the workspace changing: a tab that flashed whenever its content moved would
  * flash constantly during ordinary graph editing and teach everyone to ignore
- * it. Hence the node count rather than the nodes — adding and removing parts is
- * what happens from another workspace, while editing a node you are looking at
- * is not.
+ * it. Hence counts rather than the nodes — adding and removing parts is what
+ * happens from another workspace, while editing a node you are looking at is
+ * not. Each tab has its own count (see `changedTabs`), so Build Diagram and
+ * Upload flash for a new part while a new pattern node flashes Graph alone.
  */
-function useChangedElsewhere(active: WorkspaceMode): WorkspaceMode | null {
-  const nodeCount = useGraphStore((state) => state.nodes.length)
-  const [flash, setFlash] = useState<WorkspaceMode | null>(null)
-  const seen = useRef(nodeCount)
+function useChangedElsewhere(active: WorkspaceMode): ReadonlySet<WorkspaceMode> {
+  const signals = useGraphStore(useShallow((state): ChangeSignals => {
+    const root = rootGraphNodes(state)
+    return {
+      parts: root.filter((node) => node.data.nodeType !== 'Board' && isHardwareNodeType(node.data.nodeType)).length,
+      nodes: state.nodes.length,
+    }
+  }))
+  const [flash, setFlash] = useState<ReadonlySet<WorkspaceMode>>(() => new Set())
+  const seen = useRef(signals)
 
   useEffect(() => {
-    const changed = seen.current !== nodeCount
-    seen.current = nodeCount
     // Nothing to announce about the workspace already being looked at.
-    if (!changed || active === 'graph') return
-    setFlash('graph')
-    const timer = setTimeout(() => setFlash(null), 1800)
+    const tabs = changedTabs(seen.current, signals).filter((tab) => tab !== active)
+    seen.current = signals
+    if (tabs.length === 0) return
+    setFlash(new Set(tabs))
+    const timer = setTimeout(() => setFlash(new Set()), 1800)
     return () => clearTimeout(timer)
-  }, [nodeCount, active])
+  }, [signals, active])
 
   return flash
 }
@@ -68,11 +98,11 @@ export default function WorkspaceTabs() {
               type="button"
               role="tab"
               aria-selected={active}
-              className={`${styles.tab} ${active ? styles.tabActive : ''} ${flash === mode ? styles.tabFlash : ''}`}
+              className={`${styles.tab} ${active ? styles.tabActive : ''} ${flash.has(mode) ? styles.tabFlash : ''}`}
               onClick={() => setWorkspaceMode(mode)}
             >
               {label}
-              {flash === mode && <span className={styles.srOnly}> — updated</span>}
+              {flash.has(mode) && <span className={styles.srOnly}> — updated</span>}
             </button>
           )
         })}

@@ -62,6 +62,10 @@ export type BuildEngineKind = 'graph' | 'pattern-slideshow' | 'music-player' | '
 export interface BuildCapabilities {
   /** At least one real MatrixOutput has a frame producer. */
   frameOutput: boolean
+  /** An Analog RGB Strip: one colour on three PWM pins, no frame. */
+  analogOutput: boolean
+  /** A Frame Stream with a frame wired: the picture leaves the board by DDP or Adalight. */
+  streamOutput: boolean
   /** A free-standing stereo VU pair is itself a physical light output. */
   standaloneVuOutput: boolean
   /** A wired auxiliary screen is useful physical output without any LEDs. */
@@ -233,6 +237,7 @@ function resolution<T extends BuildModeNode>(
   standaloneVu: boolean,
   standaloneDisplay: boolean,
   linkSend: boolean,
+  sinks: { analogOutput: boolean; streamOutput: boolean },
 ): BuildModeResolution<T> {
   // Every fixed template that has a graph node publishing a Display envelope
   // names it here. A performance show joined the list when Performance
@@ -249,10 +254,12 @@ function resolution<T extends BuildModeNode>(
     templateDisplaySourceIds,
     capabilities: {
       frameOutput,
+      analogOutput: sinks.analogOutput,
+      streamOutput: sinks.streamOutput,
       standaloneVuOutput: standaloneVu,
       standaloneDisplayOutput: standaloneDisplay,
       linkSend,
-      buildable: frameOutput || standaloneVu || standaloneDisplay || linkSend,
+      buildable: frameOutput || standaloneVu || standaloneDisplay || linkSend || sinks.analogOutput || sinks.streamOutput,
       fixedTransportControls: engineKind === 'music-player',
     },
   }
@@ -279,6 +286,13 @@ export function resolveBuildMode<T extends BuildModeNode>(
   const hasStandaloneVu = standaloneVuOutput(nodes)
   const hasStandaloneDisplay = standaloneDisplayOutput(nodes, edges)
   const sendsOverLink = nodes.some((node) => node.data.nodeType === BUILD_MODE_LINK_OUT_TYPE)
+  // The two graph-side sinks that make a sketch worth building on their own:
+  // an analog strip always has a colour (its fields), a stream only its frame.
+  const streams = new Set(nodes.filter((node) => node.data.nodeType === 'StreamOutput').map((node) => node.id))
+  const sinks = {
+    analogOutput: nodes.some((node) => node.data.nodeType === 'AnalogStripOutput'),
+    streamOutput: edges.some((edge) => (edge.targetHandle ?? '') === 'frame' && streams.has(edge.target)),
+  }
 
   const musicPlayers = nodes.filter((node) => node.data.nodeType === 'PatternMaster')
   const connectedMusicPlayer = musicPlayers.find((node) => engineFrameOutputs(node, nodes, edges).length > 0)
@@ -286,7 +300,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
   if (musicPlayer && hasAmplifier && musicPlayerHasMusic(musicPlayer, nodes)) {
     const reached = engineFrameOutputs(musicPlayer, nodes, edges)
     return resolution('player', 'music-player', musicPlayer, reached,
-      hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink)
+      hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink, sinks)
   }
 
   const performance = nodes
@@ -294,7 +308,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
     .find((node) => engineFrameOutputs(node, nodes, edges).length > 0)
   if (hasCard && performance) {
     return resolution('player', 'performance-show', performance,
-      engineFrameOutputs(performance, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink)
+      engineFrameOutputs(performance, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink, sinks)
   }
 
   const slideshow = nodes
@@ -303,8 +317,8 @@ export function resolveBuildMode<T extends BuildModeNode>(
       && hasPatternCollection(node, nodes, edges))
   if (slideshow) {
     return resolution('show', 'pattern-slideshow', slideshow,
-      engineFrameOutputs(slideshow, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink)
+      engineFrameOutputs(slideshow, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay, sendsOverLink, sinks)
   }
 
-  return resolution('sketch', 'graph', null, [], hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink)
+  return resolution('sketch', 'graph', null, [], hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay, sendsOverLink, sinks)
 }

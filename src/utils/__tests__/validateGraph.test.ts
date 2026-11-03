@@ -237,6 +237,14 @@ describe('validateGraph', () => {
     }))
   })
 
+  it('accepts an Analog RGB Strip, or a Frame Stream with a frame, as the output', () => {
+    expect(validateGraph([node('strip', 'AnalogStripOutput')], []).errors).not.toContain('LED output is missing')
+
+    const stream = [node('fire', 'Fire'), node('send', 'StreamOutput')]
+    expect(validateGraph(stream, [edge('fire-send', 'fire', 'send', 'frame')]).errors).not.toContain('LED output is missing')
+    expect(validateGraph(stream, []).errors).toContain('LED output is missing')
+  })
+
   it('does not count a disabled standalone Stereo VU Meter as an active output', () => {
     const meter = node('vu', 'StereoVuMeter', {
       targetOutputId: '', enabled: false, leftDataPin: 5, rightDataPin: 6,

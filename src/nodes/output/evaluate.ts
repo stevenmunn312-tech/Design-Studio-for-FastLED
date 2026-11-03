@@ -63,11 +63,11 @@ import { relayEnergisedKey, relayInputs } from '../../state/peripherals/relayMod
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { oledControllerForProps, tftControllerForProps, nodeDisplayLabel } from '../../state/nodeLibrary'
-import type { Frame } from '../../state/palettes/ledColor'
+import type { Frame, RGB } from '../../state/palettes/ledColor'
 import { resolveStereoLevels } from '../../audio/stereoLevels'
 import { type StereoVuState, stereoVuSettings, renderStereoVu } from '../../state/audio/stereoVuMeter'
 import type { NodeEvaluators, NodeEvaluator, PortValue } from '../../state/evaluator/types'
-import { clamp01 } from '../../state/evaluator/frames'
+import { byte, clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, isPlayerControls, playerControlsState, toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
 import { coolingFanPreviewRpm } from '../../state/peripherals/coolingFan'
@@ -573,6 +573,22 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   PwmDriverOutput: physicalSink,
   // A physical sink too: the browser switches no load, but the booleans are still evaluated.
   DarlingtonDriverOutput: physicalSink,
+  // One colour for the whole strip, as the firmware writes it to the three
+  // PWM pins: a wired Color replaces the R, G and B fields, and Brightness
+  // scales it. Published for the node body to paint, the way the Power
+  // Switch publishes its load — there is no frame, so nothing else reads it.
+  AnalogStripOutput({ input, num }, id, props) {
+    const colorIn = input(id, 'color', null) as RGB | null
+    const color = colorIn ?? {
+      r: byte(num(id, 'r', props, 'r', 255) / 255),
+      g: byte(num(id, 'g', props, 'g', 96) / 255),
+      b: byte(num(id, 'b', props, 'b', 0) / 255),
+    }
+    const brightness = clamp01(num(id, 'brightness', props, 'brightness', 1))
+    return {
+      color: { r: byte(color.r / 255 * brightness), g: byte(color.g / 255 * brightness), b: byte(color.b / 255 * brightness) },
+    }
+  },
   MatrixOutput({ inputSourceType, input, t, stateKey, incoming, nodeMap }, id, props, node, type) {
     // Blackout and dimming, applied here rather than at the preview so the
     // main matrix, every per-output preview, an offline recording and the

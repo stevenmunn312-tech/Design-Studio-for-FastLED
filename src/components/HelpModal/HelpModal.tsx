@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HelpModal.module.css'
 import NodeReference from './NodeReference'
+import { loadSupportMatrixSummary, type SupportMatrixSummary } from '../../utils/supportMatrix'
 import type { HelpTab } from '../../state/uiStore'
 
 const FIRST_PATCH_IMAGE = '/node-cards/graphs/juggle.svg'
@@ -820,9 +821,30 @@ function UploadTab() {
           A catalogue entry means Studio knows how to target the board; it does not mean every feature and LED configuration has been tested on it. Entries marked <em>experimental</em> in the list are the least proven.
         </div>
         <div className={styles.text}>
-          Recorded public-beta validation includes <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> across normal Upload, Wiring Test, Live Stream, generative show, and INMP441 audio; <strong>ESP8266 + 10×1 WS2812B strip</strong> across Upload, Wiring Test, and Live Stream; classic ESP32 matrix upload; and a classic ESP-32D DevKit v1 with DS3231 clock display. Treat every unrecorded combination as experimental and check the <a className={styles.link} href={`${REPO_URL}/blob/Hardware/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a> for the exact scope.
+          <SupportedHardwareSummary />
+          {' '}Treat every other combination as experimental and check the <a className={styles.link} href={`${REPO_URL}/blob/Hardware/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a> for the exact scope.
         </div>
       </div>
+    </>
+  )
+}
+
+/**
+ * The validated hardware, counted from the beta support matrix itself rather
+ * than retyped here, where the list went stale as rows were added. The matrix
+ * is a chunk of its own, fetched the first time this renders.
+ */
+function SupportedHardwareSummary() {
+  const [summary, setSummary] = useState<SupportMatrixSummary | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    void loadSupportMatrixSummary().then((loaded) => { if (!cancelled) setSummary(loaded) })
+    return () => { cancelled = true }
+  }, [])
+  if (!summary) return <>Recorded public-beta validation is listed, row by row, in the beta support matrix.</>
+  return (
+    <>
+      Recorded public-beta validation covers <strong>{summary.ledRows} LED-output</strong> and <strong>{summary.displayRows} auxiliary-display</strong> combinations, on {summary.boards.join(', ')}.
     </>
   )
 }

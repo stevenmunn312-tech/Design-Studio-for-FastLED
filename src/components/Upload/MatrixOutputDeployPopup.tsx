@@ -297,8 +297,17 @@ export default function MatrixOutputDeployPopup({
   // control-routing error blocks an asset bake (so the hook reports it, itself
   // deduped for the same reason) and is also an output-runtime error in the
   // deploy gate. The list is rendered one line per entry, keyed by the message.
+  // A show whose `.show` files no longer match the wired collection is refused
+  // at upload, so it is said here, where the button is, rather than as a status
+  // bar message after it is pressed. The handler keeps its own check for the
+  // moment between this render and the click.
+  const stalePackaging = useMemo(
+    () => hasSdShow ? showPackagingIssues(nodes, edges, entries, customAssets.groups).map((issue) => issue.message) : [],
+    [hasSdShow, nodes, edges, entries, customAssets.groups],
+  )
   const blockingErrors = [...new Set([
     ...customAssets.errors,
+    ...stalePackaging,
     ...(customAssets.pending ? ['Preparing display images…'] : []),
     ...graphBlockers,
     ...(ramBudgetIssue ? [ramBudgetIssue.message] : []),
@@ -653,7 +662,7 @@ export default function MatrixOutputDeployPopup({
         : cardReader
           ? `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to a card in your reader, then flash the player`
           : `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to the SD card over serial, then flash the player`
-      : !hasBuildOutput ? 'Connect a frame to enable upload'
+      : !hasBuildOutput ? 'Connect a pattern to the LED output to enable upload'
         : blockingErrors.length > 0 ? blockingErrors.join('\n')
         : readinessIssues.length > 0 ? readinessIssues.join('\n')
         : 'Compile & upload to the board'
@@ -935,7 +944,7 @@ export default function MatrixOutputDeployPopup({
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
             disabled={!hasBuildOutput || blockingErrors.length > 0}
             onClick={handleExportIno}
-            title={!hasBuildOutput ? 'Connect a frame to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
+            title={!hasBuildOutput ? 'Connect a pattern to the LED output to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
           >
             ↓ Export .ino
           </button>
@@ -945,7 +954,7 @@ export default function MatrixOutputDeployPopup({
             disabled={busy || !hasBuildOutput || blockingErrors.length > 0 || !activeEngineReady}
             onClick={handleExportBinary}
             title={
-              !hasBuildOutput ? 'Connect a frame to enable export'
+              !hasBuildOutput ? 'Connect a pattern to the LED output to enable export'
               : blockingErrors.length > 0 ? blockingErrors.join('\n')
               : !activeEngineReady ? 'Start the local helper to compile a firmware image'
               : busy ? status.message
@@ -959,7 +968,7 @@ export default function MatrixOutputDeployPopup({
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
             disabled={!hasBuildOutput || customAssets.pending || customAssets.errors.length > 0}
             onClick={openCodeView}
-            title={hasBuildOutput ? 'View the generated .ino sketch' : 'Connect a frame to view the generated .ino sketch'}
+            title={hasBuildOutput ? 'View the generated .ino sketch' : 'Connect a pattern to the LED output to view the generated .ino sketch'}
           >
             {'</>'} View Code
           </button>
@@ -1082,7 +1091,7 @@ export default function MatrixOutputDeployPopup({
           uploadDisabled={!canBuild || !uploadReady || busy}
           uploadTitle={
             busy ? status.message
-            : !hasBuildOutput ? 'Connect a frame to enable upload'
+            : !hasBuildOutput ? 'Connect a pattern to the LED output to enable upload'
             : blockingErrors.length > 0 ? blockingErrors.join('\n')
             : readinessIssues.length > 0 ? readinessIssues.join('\n')
             : 'Compile & upload to the board'

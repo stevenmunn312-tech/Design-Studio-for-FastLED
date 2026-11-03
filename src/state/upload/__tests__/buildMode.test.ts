@@ -135,6 +135,19 @@ describe('build mode resolution', () => {
     })
   })
 
+  // Two graph-side sinks that build on their own: a 12 V strip on PWM pins
+  // always has a colour, and a Frame Stream only its wired frame. Both used
+  // to be refused with the generic missing-output error.
+  it('builds an Analog RGB Strip or a fed Frame Stream with no LED output', () => {
+    const strip = resolveBuildMode([node('strip', 'AnalogStripOutput')], [])
+    expect(strip.capabilities).toMatchObject({ frameOutput: false, analogOutput: true, buildable: true })
+
+    const stream = [node('fire', 'Fire'), node('send', 'StreamOutput')]
+    expect(resolveBuildMode(stream, [edge('fire', 'send')]).capabilities)
+      .toMatchObject({ frameOutput: false, streamOutput: true, buildable: true })
+    expect(resolveBuildMode(stream, []).capabilities).toMatchObject({ streamOutput: false, buildable: false })
+  })
+
   // A board whose only job is another board's LEDs: an ESP8266 serving a Web
   // Remote. Its partition holds the remote and the link-out, no LED output.
   it('builds a board that only sends over a board link', () => {

@@ -6,6 +6,7 @@ import { BOARD_LINK_CHANNEL_MAX, BOARD_LINK_CHANNEL_MIN, boardLinkSettings } fro
 import WifiPasswordInput from '../Canvas/WifiPasswordInput'
 import ClampedNumberInput from '../Canvas/ClampedNumberInput'
 import { boardOrdinalLabel, defaultBoardHostname, useBoardNodes } from './boardSelection'
+import { EXPERIMENTAL_LABEL, EXPERIMENTAL_NOTE } from '../../utils/experimentalFeatures'
 import styles from './BoardFleetControls.module.css'
 
 /**
@@ -101,6 +102,8 @@ export default function BoardFleetControls({ boardNodeId, onClose }: { boardNode
             <span>Keep boards in time</span>
           </label>
           <div className={styles.note}>
+            <span className={styles.experimental} title={EXPERIMENTAL_NOTE}>{EXPERIMENTAL_LABEL}</span>
+            {' '}
             {clockSync
               ? 'Board 1 leads over the network; every other board follows its clock and show.'
               : 'Each board runs its own clock. Turn this on to sync animations and shows over Wi-Fi.'}

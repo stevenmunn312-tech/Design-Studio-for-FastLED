@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { useUiStore } from '../../state/uiStore'
+import { THEMES, useUiStore, type AppTheme } from '../../state/uiStore'
 import type { LayoutPresetId } from '../../state/layoutPresets'
 import { rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
 import { withFreshBoardLink } from '../../state/peripherals/boardLinkCopy'
@@ -48,7 +48,7 @@ import { promptTrustIfNeeded } from '../../utils/trustPrompt'
 import { enterStagePresentation, exitStagePresentation } from '../../utils/stagePresentation'
 import { IconPause, IconPlay } from '../Preview/PlayerIcons'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
-import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
+import { PREVIEW_STYLE_OPTIONS, isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { scrollRailOnWheel, useScrollOverflow } from '../../hooks/useScrollRail'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
@@ -80,7 +80,7 @@ export default function MenuBar() {
   const {
     setStatus,
     theme,
-    cycleTheme,
+    setTheme,
     reducedMotion,
     toggleReducedMotion,
     highContrast,
@@ -98,6 +98,7 @@ export default function MenuBar() {
     preview3d,
     togglePreview3d,
     previewStyle,
+    setPreviewStyle,
     cyclePreviewStyle,
     layoutPreset,
     applyLayoutPreset,
@@ -115,7 +116,7 @@ export default function MenuBar() {
   } = useUiStore(useShallow((s) => ({
     setStatus: s.setStatus,
     theme: s.theme,
-    cycleTheme: s.cycleTheme,
+    setTheme: s.setTheme,
     reducedMotion: s.reducedMotion,
     toggleReducedMotion: s.toggleReducedMotion,
     highContrast: s.highContrast,
@@ -133,6 +134,7 @@ export default function MenuBar() {
     preview3d: s.preview3d,
     togglePreview3d: s.togglePreview3d,
     previewStyle: s.previewStyle,
+    setPreviewStyle: s.setPreviewStyle,
     cyclePreviewStyle: s.cyclePreviewStyle,
     layoutPreset: s.layoutPreset,
     applyLayoutPreset: s.applyLayoutPreset,
@@ -149,8 +151,8 @@ export default function MenuBar() {
     lastStartChoice: s.lastStartChoice,
   })))
 
-  const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
-  const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
+  const THEME_ICON: Record<AppTheme, string> = { dark: '☾', solarized: '✦', light: '☀' }
+  const THEME_LABEL: Record<AppTheme, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
   const LAYOUT_PRESET_LABEL: Record<LayoutPresetId, string> = { build: 'Build', tune: 'Tune', preview: 'Preview' }
   const importInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
@@ -863,15 +865,38 @@ export default function MenuBar() {
                 the panel should stay open while the pointer is over it so the
                 user can flip through several settings in one visit. */}
             <div className={styles.menu} role="menu" aria-label="View" onKeyDown={(e) => handleMenuKeyDown(e, viewButtonRef)}>
+              {/* Radio lists, not cycle buttons: three themes and six preview
+                  styles are a choice to see, not a sequence to step through. */}
+              <div className={styles.menuLabel}>Theme</div>
+              {THEMES.map((option) => (
+                <button
+                  key={option}
+                  className={styles.menuItem}
+                  role="menuitemradio"
+                  aria-checked={theme === option}
+                  onClick={() => { closeMenus(); setTheme(option) }}
+                  title={`${THEME_LABEL[option]} theme`}
+                >
+                  {theme === option ? '✓' : '○'} {THEME_ICON[option]} {THEME_LABEL[option]}
+                </button>
+              ))}
+              <div className={styles.menuDivider} />
+              <div className={styles.menuLabel}>Preview style</div>
+              {PREVIEW_STYLE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  className={styles.menuItem}
+                  role="menuitemradio"
+                  aria-checked={effectivePreviewStyle === option.value}
+                  onClick={() => { closeMenus(); setPreviewStyle(option.value) }}
+                  title={uiEffectsEnabled ? `${option.label} preview style` : 'Forced to Standard while UI FX are off'}
+                  disabled={!uiEffectsEnabled}
+                >
+                  {effectivePreviewStyle === option.value ? '✓' : '○'} {option.label}
+                </button>
+              ))}
+              <div className={styles.menuDivider} />
               <div className={styles.menuLabel}>Appearance</div>
-              <button
-                className={styles.menuItem}
-                role="menuitem"
-                onClick={() => { closeMenus(); cycleTheme() }}
-                title="Cycle theme"
-              >
-                {THEME_ICON[theme]} Theme: {THEME_LABEL[theme]}
-              </button>
               <button
                 className={styles.menuItem}
                 role="menuitemcheckbox"

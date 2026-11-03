@@ -361,7 +361,6 @@ interface UiState {
   lastStartChoice: StartChoice
   appDialog: AppDialogState | null
   setStatus: (text: string, level?: StatusLevel) => void
-  clearStatus: () => void
   setWorkspaceMode: (mode: WorkspaceMode) => void
   /** The Graph workspace with its preview panel open: where a freshly loaded
    *  starter or example lands, so the first thing seen is it running. */
@@ -384,7 +383,6 @@ interface UiState {
   dismissControllerHint: () => void
   restoreControllerHint: () => void
   toggleBuildDiagram: () => void
-  openBuildDiagram: () => void
   closeBuildDiagram: () => void
   openDisplayWorkspace: (displayId: string) => void
   closeDisplayWorkspace: () => void
@@ -405,7 +403,6 @@ interface UiState {
   applyLayoutPreset: (preset: LayoutPresetId) => void
   toggleGraphHealth: () => void
   toggleEvaluation: () => void
-  toggleStageMode: () => void
   setStageMode: (active: boolean) => void
   setStageFullscreenStatus: (status: StagePresentationStatus) => void
   setStageWakeLockStatus: (status: StagePresentationStatus) => void
@@ -442,7 +439,6 @@ interface UiState {
   /** Ask a node to announce itself once the view has moved to it. */
   flashNode: (nodeId: string) => void
   setTheme: (theme: AppTheme) => void
-  cycleTheme: () => void
   toggleReducedMotion: () => void
   toggleHighContrast: () => void
   setHelpTab: (tab: HelpTab) => void
@@ -466,7 +462,8 @@ interface UiState {
   resolveNewProjectDecision: (decision: NewProjectDecision) => void
 }
 
-const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
+/** Every theme, in the order the View menu lists them. */
+export const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
 
 // Tracks the pending status auto-clear so a newer message cancels the older
 // timer instead of being wiped when a stale one fires.
@@ -627,10 +624,6 @@ export const useUiStore = create<UiState>((set, get) => ({
     }
   },
 
-  clearStatus: () => {
-    if (statusTimer) clearTimeout(statusTimer)
-    set({ statusText: 'Ready', statusLevel: 'idle' })
-  },
   // Hardware and Upload share one pane, so choosing either has to tell it
   // which half to show.
   /*
@@ -681,7 +674,6 @@ export const useUiStore = create<UiState>((set, get) => ({
     ...activateWorkspace(s, s.workspaceMode === 'build' ? 'graph' : 'build'),
     ...leavingDisplayEditor(s),
   })),
-  openBuildDiagram: () => set((s) => ({ ...activateWorkspace(s, 'build'), ...leavingDisplayEditor(s) })),
   closeBuildDiagram: () => set((s) => ({ ...activateWorkspace(s, 'graph'), ...leavingDisplayEditor(s) })),
   openDisplayWorkspace: (displayId) => set((state) => ({
     ...activateWorkspace(state, 'graph'),
@@ -736,7 +728,6 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ graphHealthOpen: next })
   },
   toggleEvaluation: () => set((s) => ({ evaluationRunning: !s.evaluationRunning })),
-  toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode, stageFullscreenVisited: false })),
   setStageMode: (stageMode) => set({ stageMode, stageFullscreenVisited: false }),
   setStageFullscreenStatus: (stageFullscreenStatus) => set((s) => ({
     stageFullscreenStatus,
@@ -833,13 +824,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   setTheme: (theme) => {
     save(THEME_KEY, theme)
     set({ theme })
-  },
-
-  cycleTheme: () => {
-    const { theme } = get()
-    const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]
-    save(THEME_KEY, next)
-    set({ theme: next })
   },
 
   toggleReducedMotion: () => {

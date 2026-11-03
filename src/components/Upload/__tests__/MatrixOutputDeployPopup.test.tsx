@@ -898,11 +898,11 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
     ))
   })
 
-  it('says why a drifted show is not uploaded, instead of doing nothing', async () => {
+  it('says why a drifted show is not uploaded, before the button is pressed', async () => {
     // `buildShowPayload` refuses a drifted set by returning null, which on its
-    // own looks like a dead button. The popup asks first so the reason reaches
-    // the user, and asks before the trust prompt because this is not a
-    // decision — a stale show plays the wrong patterns in time with the music.
+    // own looks like a dead button. The reason used to reach the status bar
+    // only after a press; it is a blocker now, said beside the disabled button
+    // like every other gate, and the handler's own check stays as a backstop.
     const showUpload = await import('../../../utils/showUpload')
     vi.mocked(showUpload.readySongCount).mockReturnValue(1)
     vi.mocked(showUpload.buildShowPayload).mockClear()
@@ -911,11 +911,10 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
     }])
     try {
       const { getByRole } = render(<MatrixOutputDeployPopup />)
-      fireEvent.click(getByRole('button', { name: /Upload show/ }))
-
-      await waitFor(() => expect(useUiStore.getState().statusText)
-        .toBe('Track was generated from a different set of patterns.'))
-      expect(useUiStore.getState().statusLevel).toBe('error')
+      const btn = getByRole('button', { name: /Upload show/ }) as HTMLButtonElement
+      expect(btn.disabled).toBe(true)
+      expect(btn.title).toContain('Track was generated from a different set of patterns.')
+      fireEvent.click(btn)
       expect(showUpload.buildShowPayload).not.toHaveBeenCalled()
     } finally {
       vi.mocked(showUpload.showPackagingIssues).mockReturnValue([])

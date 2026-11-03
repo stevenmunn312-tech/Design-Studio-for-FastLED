@@ -338,11 +338,12 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
   self-contained; the preview reads the live graph. See
   [show sequencing](show-sequencing.md#locked-ranges).
 
-## Open questions
+## Resolved questions
 
 - **Mixed wiring.** Both `songs` and `patternset` wired is the target. `songs` only
-  → legacy enum mode. `patternset` only (no song) → undefined; likely disable
-  export and warn via `validateGraph`.
+  → legacy enum mode. `patternset` only (no song) is a `validateGraph` warning
+  ("Performance Generator has no music source", `src/utils/validateGraph.ts`),
+  and the show upload stays on the collection it has.
 
 ## The generator as a player
 

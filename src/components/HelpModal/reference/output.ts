@@ -47,7 +47,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     outputs: {
       display: 'This output’s name, on/blackout state and level, for a Segment Display, Info Display or Display Panel.',
     },
-    propertyNote: 'Only the fields for the chosen form and layout are used. Correction, white point and dithering change the LEDs, not the preview.',
+    propertyNote: 'Only the fields for the chosen form and layout are used. Correction, white point and dithering change the LEDs, not the preview. A HUB75 chain of two or more panels is assumed to start top-left and run down each column (zig-zag when Serpentine is on); that order comes from the driver library’s documentation and has not been checked on real multi-panel hardware, so confirm it against the first frame.',
     example: example({
       featured: 'MatrixOutput',
       title: 'A finished build with a dimmer and a blackout button',

@@ -6,6 +6,7 @@ import { orderPorts } from '../../utils/portOrder'
 import { compositionDims } from '../../state/output/outputRouting'
 import type { StudioEdge, StudioNode as StudioNodeT, StudioNodeData } from '../../state/graphStore'
 import { useUiStore, type ConnectionDragHint } from '../../state/uiStore'
+import { EXPERIMENTAL_LABEL, isExperimentalPropertyOption } from '../../utils/experimentalFeatures'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyOptions, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/player/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/upload/uploadStore'
@@ -112,6 +113,7 @@ const TransportDisplayNodeBody = lazy(() => import('./bodies/TransportDisplayNod
 const InfoDisplayNodeBody = lazy(() => import('./bodies/InfoDisplayNodeBody'))
 const SegmentDisplayNodeBody = lazy(() => import('./bodies/SegmentDisplayNodeBody'))
 const PowerSwitchNodeBody = lazy(() => import('./bodies/PowerSwitchNodeBody'))
+const AnalogStripNodeBody = lazy(() => import('./bodies/AnalogStripNodeBody'))
 const StereoVuMeterNodeBody = lazy(() => import('./bodies/StereoVuMeterNodeBody'))
 const TouchCalibrationBody = lazy(() => import('./bodies/TouchCalibrationBody'))
 
@@ -776,7 +778,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 onChange={(e) => writeValue(meta.numeric ? Number(e.target.value) : e.target.value)}
               >
                 {selectOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt}>{opt}{isExperimentalPropertyOption(nodeType, key, opt) ? ` (${EXPERIMENTAL_LABEL})` : ''}</option>
                 ))}
               </select>
             ) : isGpioPin && meta?.control === 'slider' && typeof val === 'number' ? (
@@ -920,12 +922,15 @@ const LivePropertyControls = memo(function LivePropertyControls({
           <>
             {propGroups.map((group) => {
               const rows = editable.filter(([key]) => group.keys.includes(key))
-              // A group whose rows a body draws. Always shown, its controls
-              // disabled while the mode does not use them.
-              const groupBody = nodeType === 'PatternMaster' && group.key === 'radio'
+              // A group whose rows a body draws. The Internet Radio group is
+              // only for a player whose source is Internet Radio: an SD or
+              // Bluetooth player used to carry it greyed out, a station list
+              // nothing explained. The source field's own help says what turns
+              // it on, so the group follows `propertyVisible` like its rows.
+              const groupBody = nodeType === 'PatternMaster' && group.key === 'radio' && props.musicSource === 'Internet Radio'
                 ? (
                     <Suspense fallback={null}>
-                      <RadioStationsBody nodeId={nodeId} disabled={props.musicSource !== 'Internet Radio' || locked} />
+                      <RadioStationsBody nodeId={nodeId} disabled={locked} />
                     </Suspense>
                   )
                 : null
@@ -1936,6 +1941,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'InfoDisplay' && <InfoDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'SegmentDisplay' && <SegmentDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'PowerSwitchOutput' && <PowerSwitchNodeBody nodeId={id} partId={rawProps.partId} />}
+          {d.nodeType === 'AnalogStripOutput' && <AnalogStripNodeBody nodeId={id} />}
           {d.nodeType === 'StereoVuMeter' && <StereoVuMeterNodeBody nodeId={id} />}
           {d.nodeType === 'TouchInput' && <TouchCalibrationBody nodeId={id} />}
 

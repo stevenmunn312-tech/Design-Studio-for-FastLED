@@ -353,7 +353,7 @@ export default function MatrixOutputSetupWizard() {
               <div className={styles.wizardSummaryRow}><span>LED output</span><strong>{LED_OUTPUT_FORM_LABELS[form]} · {outputSizeLabel(props)}{linear ? '' : ` · ${layout}`}</strong></div>
               <div className={styles.wizardSummaryRow}><span>LED path</span><strong>{chipset} · {String(props.colorOrder ?? 'GRB')}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Controller</span><strong>{controller.brightness} brightness · {controller.powerLimit ? `${controller.volts} V / ${controller.milliamps} mA cap` : 'power cap off'}</strong></div>
-              <div className={styles.wizardSummaryRow}><span>Graph ready</span><strong>{hasFrameInput ? 'Frame connected' : 'Connect a frame before upload'}</strong></div>
+              <div className={styles.wizardSummaryRow}><span>Graph ready</span><strong>{hasFrameInput ? 'Frame connected' : 'Connect a pattern to the LED output'}</strong></div>
             </div>
 
             <button
