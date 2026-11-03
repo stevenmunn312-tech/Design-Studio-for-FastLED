@@ -1179,7 +1179,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   useEffect(() => () => {
     if (flashTimer.current) window.clearTimeout(flashTimer.current)
   }, [])
-  const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const connectionDrag = useUiStore((s) => s.connectionDrag)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
@@ -1597,7 +1596,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   return (
     <div
       ref={nodeRef}
-      className={`${styles.node} ${minimized ? styles.nodeMinimized : ''} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${flashing ? styles.nodeFlash : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''} ${onOtherBoard ? styles.nodeOtherBoard : ''}`}
+      className={`${styles.node} ${minimized ? styles.nodeMinimized : ''} ${categoryClass} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${flashing ? styles.nodeFlash : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''} ${onOtherBoard ? styles.nodeOtherBoard : ''}`}
       data-other-board={onOtherBoard || undefined}
       style={{
         width: NODE_WIDTH_OVERRIDES[d.nodeType],

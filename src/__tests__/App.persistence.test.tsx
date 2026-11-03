@@ -71,19 +71,13 @@ describe('App project persistence', () => {
     useUiStore.setState({ setStatus: uiSetStatus })
   })
 
-  it('switches between Focus and Stage through keyboard shortcuts without overlapping views', () => {
-    useUiStore.setState({ performanceMode: false, stageMode: false })
+  it('toggles Stage through its keyboard shortcut', () => {
+    useUiStore.setState({ stageMode: false })
     render(<App />)
-    fireEvent.keyDown(window, { key: 'F9' })
-    expect(useUiStore.getState().performanceMode).toBe(true)
     fireEvent.keyDown(window, { key: 'F10' })
     expect(useUiStore.getState().stageMode).toBe(true)
-    expect(useUiStore.getState().performanceMode).toBe(false)
-    fireEvent.keyDown(window, { key: 'F9' })
+    fireEvent.keyDown(window, { key: 'F10' })
     expect(useUiStore.getState().stageMode).toBe(false)
-    expect(useUiStore.getState().performanceMode).toBe(true)
-    fireEvent.keyDown(window, { key: 'Escape' })
-    expect(useUiStore.getState().performanceMode).toBe(false)
   })
 
   it('opens a share link into a new project and leaves the open project untouched', async () => {

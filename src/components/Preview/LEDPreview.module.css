@@ -10,10 +10,6 @@
   overflow-y: auto;
 }
 
-.panelPerformance {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, black), color-mix(in srgb, var(--bg-panel) 88%, black));
-}
-
 .panelStage {
   --text-primary: var(--preview-instrument-text);
   --text-secondary: var(--preview-instrument-muted);
@@ -394,17 +390,6 @@
   box-shadow: 0 0 6px rgba(255, 92, 92, 0.8);
 }
 
-.canvasHudChip {
-  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.75);
-  white-space: nowrap;
-  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
-  border-radius: var(--radius-control);
-  background: var(--bg-node);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-size: var(--fs-ui);
-}
-
 .ambilight {
   position: absolute;
   z-index: 0;
@@ -767,16 +752,6 @@
 .idleAddTrack:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent-output) 74%, white);
   outline-offset: 2px;
-}
-
-.visualizerGlow {
-  position: absolute;
-  inset: auto 8% -18px;
-  height: 36px;
-  border-radius: var(--radius-control);
-  background: var(--accent-ui);
-  filter: blur(16px);
-  pointer-events: none;
 }
 
 .visualizerGrid {

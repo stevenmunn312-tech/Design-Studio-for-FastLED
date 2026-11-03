@@ -13,7 +13,6 @@ describe('StatusBar accessibility', () => {
       statusText: 'Ready',
       statusLevel: 'idle',
       fps: 0,
-      performanceMode: false,
       stageMode: false,
     })
     useGraphStore.setState({
@@ -67,7 +66,7 @@ describe('StatusBar accessibility', () => {
 
 describe('StatusBar hardware readiness', () => {
   beforeEach(() => {
-    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, stageMode: false })
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: '', ports: [] })
     useCapacityStore.getState().clear()
     useGraphStore.setState({
@@ -114,7 +113,7 @@ describe('StatusBar size chip', () => {
   })
 
   beforeEach(() => {
-    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, stageMode: false })
     useUploadStore.setState({ selectedFqbn: '', selectedPort: '', ports: [] })
     useCapacityStore.getState().clear()
   })
@@ -178,7 +177,7 @@ describe('StatusBar size chip', () => {
 
 describe('StatusBar port chip', () => {
   beforeEach(() => {
-    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, stageMode: false })
     useGraphStore.setState({ nodes: [], edges: [], graphData: {}, graphs: { root: { id: 'root', name: 'Main' } }, activeGraphId: 'root' })
   })
 
@@ -202,7 +201,7 @@ describe('StatusBar port chip', () => {
 
 describe('StatusBar audio chip', () => {
   beforeEach(() => {
-    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, stageMode: false })
     useUploadStore.setState({ selectedFqbn: '', selectedPort: '', ports: [] })
     useGraphStore.setState({
       nodes: [{

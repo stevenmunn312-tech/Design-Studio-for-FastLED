@@ -265,7 +265,6 @@ function NodeGraphCanvasInner() {
     sidebarWidth,
     previewPanelOpen,
     previewWidth,
-    performanceMode,
     reducedMotion,
     fitViewRequest,
     uiEffectsEnabled,
@@ -283,7 +282,6 @@ function NodeGraphCanvasInner() {
     sidebarWidth: s.sidebarWidth,
     previewPanelOpen: s.previewPanelOpen,
     previewWidth: s.previewWidth,
-    performanceMode: s.performanceMode,
     reducedMotion: s.reducedMotion,
     fitViewRequest: s.fitViewRequest,
     uiEffectsEnabled: s.uiEffectsEnabled,
@@ -1280,7 +1278,7 @@ function NodeGraphCanvasInner() {
   return (
     <div
       ref={wrapperRef}
-      className={`${styles.canvas} ${selectedNodeId ? styles.canvasFocused : ''} ${nodes.length === 0 ? styles.canvasIdle : ''} ${hasAudioGraph ? styles.canvasAudioLive : ''} ${hasShowGraph ? styles.canvasShowLive : ''} ${hasPatternGraph ? styles.canvasPatternLive : ''} ${performanceMode ? styles.canvasPerformance : ''}`}
+      className={`${styles.canvas} ${selectedNodeId ? styles.canvasFocused : ''} ${nodes.length === 0 ? styles.canvasIdle : ''} ${hasAudioGraph ? styles.canvasAudioLive : ''} ${hasShowGraph ? styles.canvasShowLive : ''} ${hasPatternGraph ? styles.canvasPatternLive : ''}`}
       style={{
         '--canvas-left-inset': `${leftInset}px`,
         '--canvas-right-inset': `${rightInset}px`,

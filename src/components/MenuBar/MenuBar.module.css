@@ -346,8 +346,8 @@
 }
 
 .evaluationRunning {
-  border-color: color-mix(in srgb, var(--accent-output) 46%, var(--line));
-  color: var(--accent-output);
+  border-color: var(--line);
+  color: var(--text-primary);
 }
 
 .evaluationPaused {

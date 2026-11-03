@@ -285,12 +285,10 @@ interface UiState {
   /**
    * Whether Stage has gone quiet: nobody has moved the pointer for a couple of
    * seconds, so the cursor and every piece of chrome step out and leave the
-   * lights on their own. Session-only and always false outside Stage, like
-   * `performanceMode` — it is a moment, not a preference.
+   * lights on their own. Session-only and always false outside Stage: it is a
+   * moment, not a preference.
    */
   stageIdle: boolean
-  /** Canvas-focused presentation mode that hushes chrome and emphasizes signal flow. */
-  performanceMode: boolean
   uiEffectsEnabled: boolean
   /** When on, selecting a node dims everything outside its signal path. */
   signalPathDimEnabled: boolean
@@ -412,8 +410,6 @@ interface UiState {
   setHardwarePaneTab: (tab: HardwarePaneTab) => void
   setHardwareInspectorNodeId: (nodeId: string | null) => void
   setActiveBoardId: (boardId: string) => void
-  togglePerformanceMode: () => void
-  setPerformanceMode: (active: boolean) => void
   toggleUiEffects: () => void
   toggleSignalPathDim: () => void
   togglePreview3d: () => void
@@ -576,7 +572,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   // Perform is a presentation state for the current session, like Stage. A
   // previous session must not reopen with the editing chrome unexpectedly
   // hushed, so it always starts off and is intentionally not persisted.
-  performanceMode: false,
   uiEffectsEnabled: load<boolean>(UI_EFFECTS_KEY, true),
   signalPathDimEnabled: load<boolean>(SIGNAL_PATH_DIM_KEY, false),
   preview3d: false,
@@ -739,8 +734,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   setHardwareInspectorNodeId: (hardwareInspectorNodeId) => set({ hardwareInspectorNodeId }),
   setActiveBoardId: (activeBoardId) => set((state) => (state.activeBoardId === activeBoardId ? state : { activeBoardId })),
-  togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),
-  setPerformanceMode: (performanceMode) => set({ performanceMode }),
   toggleUiEffects: () => {
     const next = !get().uiEffectsEnabled
     save(UI_EFFECTS_KEY, next)

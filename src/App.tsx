@@ -78,7 +78,6 @@ export default function App() {
   const designWorkspaceView = useUiStore((s) => s.designWorkspaceView)
   const stageMode = useUiStore((s) => s.stageMode)
   const stageFullscreenStatus = useUiStore((s) => s.stageFullscreenStatus)
-  const performanceMode = useUiStore((s) => s.performanceMode)
   const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const setStatus = useUiStore((s) => s.setStatus)
@@ -583,10 +582,6 @@ export default function App() {
           useUiStore.getState().closeLiveTouchScreen()
           return
         }
-        if (useUiStore.getState().performanceMode) {
-          useUiStore.getState().setPerformanceMode(false)
-          return
-        }
         useGraphStore.getState().clearSelection()
         return
       }
@@ -595,13 +590,6 @@ export default function App() {
         e.preventDefault()
         if (useUiStore.getState().stageMode) void exitStagePresentation()
         else void enterStagePresentation()
-        return
-      }
-
-      if (e.key === 'F9' && !isTyping) {
-        e.preventDefault()
-        if (useUiStore.getState().stageMode) void exitStagePresentation()
-        useUiStore.getState().togglePerformanceMode()
         return
       }
 
@@ -710,11 +698,11 @@ export default function App() {
   }, [setStatus])
 
   return (
-    <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''} ${performanceMode ? styles.appPerformance : ''}`}>
+    <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
       {!stageMode && <TrustBanner />}
       <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''} ${workspaceMode === 'build' ? styles.workspaceBuild : ''}`}>
-        {!stageMode && !performanceMode && <WorkspaceTabs />}
+        {!stageMode && <WorkspaceTabs />}
         <div className={styles.workspaceCanvas}>
           <div className={`${styles.mainRegion} ${workspaceMode === 'build' && previewPanelOpen ? styles.mainRegionBuildPreviewOpen : ''}`}>
             {workspaceSidebarVisible && (

@@ -130,7 +130,6 @@
   animation: musicLibraryAuraPulse 1s ease-in-out infinite;
 }
 
-.nodePerformance { background: var(--bg-node); }
 
 .node:hover::after {
   background: color-mix(in srgb, var(--bg-node-hover) 32%, transparent);

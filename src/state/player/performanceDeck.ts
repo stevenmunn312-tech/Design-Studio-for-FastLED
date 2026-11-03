@@ -359,7 +359,6 @@ export const RESERVED_COMBOS = new Set([
   'Escape',
   'F1',
   '?',
-  'F9',
   'F10',
   'F8',
   'Ctrl+Z',

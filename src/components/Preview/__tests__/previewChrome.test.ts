@@ -3,7 +3,6 @@ import { shouldExpandPreviewAudioTools, type PreviewAudioChromeContext } from '.
 
 const idle: PreviewAudioChromeContext = {
   stageMode: false,
-  performanceMode: false,
   showMode: false,
   audioVisualizerLive: false,
   hasVu: false,
@@ -12,13 +11,12 @@ const idle: PreviewAudioChromeContext = {
 }
 
 describe('preview audio chrome', () => {
-  it('stays compact when no audio or performance task is active', () => {
+  it('stays compact when no audio or show task is active', () => {
     expect(shouldExpandPreviewAudioTools(idle)).toBe(false)
   })
 
   it.each([
     'stageMode',
-    'performanceMode',
     'showMode',
     'audioVisualizerLive',
     'hasVu',

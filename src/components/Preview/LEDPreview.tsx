@@ -23,7 +23,7 @@ import { renderPreviewFrame, renderShapeFrame } from './frameCanvas'
 import { shapeLayoutFor, type ShapeLayout } from '../Hardware/ledPreviewGeometry'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import RecordPopup from './RecordPopup'
-import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
+import { isDiffusedStyle, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
 import { graphAudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
@@ -322,7 +322,6 @@ export default function LEDPreview() {
       liveStagePatternGroupId,
     )
   })
-  const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const fps = useUiStore((s) => s.fps)
   const memoryMb = useUiStore((s) => s.memoryMb)
@@ -1154,7 +1153,6 @@ export default function LEDPreview() {
   // context makes those controls useful.
   const expandedAudioTools = shouldExpandPreviewAudioTools({
     stageMode,
-    performanceMode,
     showMode,
     audioVisualizerLive,
     hasVu: combinedVuId !== '',
@@ -1290,7 +1288,7 @@ export default function LEDPreview() {
   }
 
   return (
-    <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''} ${stageFullscreen ? styles.panelStageFullscreen : ''} ${stageMatrixFullscreen ? styles.panelStageMatrixFullscreen : ''} ${performanceMode ? styles.panelPerformance : ''}`}>
+    <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''} ${stageFullscreen ? styles.panelStageFullscreen : ''} ${stageMatrixFullscreen ? styles.panelStageMatrixFullscreen : ''}`}>
       <div
         className={`${styles.header} ${stageMode ? styles.headerStage : ''} ${stageQuiet ? styles.stageChromeQuiet : ''}`}
         inert={stageQuiet}
@@ -1371,19 +1369,6 @@ export default function LEDPreview() {
               >
                 <i aria-hidden="true" /> Record
               </button>
-              <span className={styles.canvasHudChip}>{previewStyleLabel(effectivePreviewStyle)}</span>
-              {/* Named as the browser's, so a lit matrix is not read as a
-                  compiled build or a board that has been tested. */}
-              <span
-                className={styles.canvasHudChip}
-                title="This is the browser's simulation of the graph. It does not compile the firmware or show it running on a board — see Upload for those."
-              >
-                {hasFrameSignal || combinedVuId ? 'Browser preview' : 'Preview idle'}
-              </span>
-              <span className={styles.canvasHudChip}>
-                {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
-              </span>
-              {performanceMode && <span className={styles.canvasHudChip}>Focus</span>}
             </>
           )}
         </div>
@@ -1467,7 +1452,6 @@ export default function LEDPreview() {
       >
         {expandedAudioTools ? (
           <>
-          {uiEffectsEnabled && <div className={styles.visualizerGlow} />}
           {uiEffectsEnabled && <div className={styles.visualizerGrid} />}
           <div className={styles.visualizerSection}>
             <span className={styles.visualizerKicker}>Spectrum</span>

@@ -21,8 +21,8 @@ const LEVEL_COLOR: Record<StatusLevel, string> = {
 }
 
 export default function StatusBar() {
-  const { statusText, statusLevel, fps, performanceMode, setPerformanceMode } = useUiStore(useShallow((s) => ({
-    statusText: s.statusText, statusLevel: s.statusLevel, fps: s.fps, performanceMode: s.performanceMode, setPerformanceMode: s.setPerformanceMode,
+  const { statusText, statusLevel, fps } = useUiStore(useShallow((s) => ({
+    statusText: s.statusText, statusLevel: s.statusLevel, fps: s.fps,
   })))
   const railRef = useRef<HTMLDivElement>(null)
   const railOverflow = useScrollOverflow(railRef)
@@ -109,19 +109,6 @@ export default function StatusBar() {
         <HardwareReadiness compact />
         <span className={`${styles.chip} ${styles.chipStrong}`}>{nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}</span>
         <span className={styles.chip}>{edgeCount} {edgeCount === 1 ? 'wire' : 'wires'}</span>
-        {/* Focus hides the tab strip and panels, so the way out is said here,
-            where the chrome that remains is. Stage hides this bar as well and
-            says its exit on the preview itself. */}
-        {performanceMode && (
-          <button
-            type="button"
-            className={`${styles.chip} ${styles.chipAccent} ${styles.chipButton}`}
-            onClick={() => setPerformanceMode(false)}
-            title="Leave Focus view and show the editing chrome again (Esc)"
-          >
-            Focus view · Esc to exit
-          </button>
-        )}
         {hasAudio && (
           <span
             className={styles.chip}

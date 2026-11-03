@@ -89,7 +89,6 @@ describe('MenuBar file menu', () => {
       templatesOpen: false,
       projectsOpen: false,
       workspaceMode: 'graph',
-      performanceMode: false,
       evaluationRunning: true,
       stageMode: false,
       uiEffectsEnabled: true,
@@ -187,38 +186,34 @@ describe('MenuBar file menu', () => {
 
     const { getByRole } = render(<MenuBar />)
 
-    expect(getByRole('radio', { name: 'Stage' }).getAttribute('aria-checked')).toBe('true')
+    expect(getByRole('button', { name: 'Stage' }).getAttribute('aria-pressed')).toBe('true')
     expect(getByRole('button', { name: 'Toggle 3D preview' })).toBeTruthy()
     expect(getByRole('button', { name: 'Add a microphone on the Hardware tab to enable' }).textContent).toBe('Mic Off')
   })
 
-  it('offers Edit, Focus and Stage as one View radio group, with the Deck beside it', () => {
+  it('offers Edit, Deck and Stage as one View housing', () => {
     const { getByRole } = render(<MenuBar />)
-    const view = within(getByRole('radiogroup', { name: 'View' }))
-    const edit = view.getByRole('radio', { name: 'Edit' })
-    const focus = view.getByRole('radio', { name: 'Focus' })
-    const stage = view.getByRole('radio', { name: 'Stage' })
-    const deck = getByRole('button', { name: 'Toggle Control Deck' })
+    const view = within(getByRole('group', { name: 'View' }))
+    const edit = view.getByRole('button', { name: 'Edit' })
+    const deck = view.getByRole('button', { name: 'Toggle Control Deck' })
+    const stage = view.getByRole('button', { name: 'Stage' })
 
-    expect(edit.getAttribute('aria-checked')).toBe('true')
-    expect(focus.getAttribute('title')).toContain('hide editing chrome')
+    expect(edit.getAttribute('aria-pressed')).toBe('true')
     expect(stage.getAttribute('title')).toContain('preview-first operator view')
     expect(deck.textContent).toBe('Deck')
     expect(deck.getAttribute('title')).toContain('pinned controls')
+    // Deck sits between Edit and Stage.
+    expect(edit.compareDocumentPosition(deck) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(deck.compareDocumentPosition(stage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
-    fireEvent.click(focus)
-    expect(useUiStore.getState().performanceMode).toBe(true)
-    expect(focus.getAttribute('aria-checked')).toBe('true')
-    expect(edit.getAttribute('aria-checked')).toBe('false')
     fireEvent.click(deck)
     expect(usePerformanceDeckSession.getState().deckOpen).toBe(true)
     fireEvent.click(stage)
     expect(useUiStore.getState().stageMode).toBe(true)
-    // Stage and Focus are one choice: entering Stage leaves Focus behind.
-    expect(useUiStore.getState().performanceMode).toBe(false)
+    expect(stage.getAttribute('aria-pressed')).toBe('true')
+    expect(edit.getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(edit)
     expect(useUiStore.getState().stageMode).toBe(false)
-    expect(useUiStore.getState().performanceMode).toBe(false)
 
     if (import.meta.env.DEV) {
       expect(getByRole('button', { name: 'Toggle Developer Metrics' }).textContent).toBe('Metrics')
@@ -227,7 +222,7 @@ describe('MenuBar file menu', () => {
 
   it('marks which edges of the nav rail have buttons beyond them, and scrolls it with the wheel', () => {
     const { getByRole } = render(<MenuBar />)
-    const nav = getByRole('radiogroup', { name: 'View' }).parentElement as HTMLElement
+    const nav = getByRole('group', { name: 'View' }).parentElement as HTMLElement
     Object.defineProperty(nav, 'clientWidth', { configurable: true, value: 500 })
     Object.defineProperty(nav, 'scrollWidth', { configurable: true, value: 650 })
 

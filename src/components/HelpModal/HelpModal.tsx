@@ -405,8 +405,6 @@ function ShortcutsTab() {
           <div className={styles.shortcutDesc}>Open the node search picker at the view centre</div>
           <div className={styles.kbd}><span className={styles.key}>F8</span></div>
           <div className={styles.shortcutDesc}>Toggle the Control Deck (pinned controls, scenes, MIDI/keyboard bindings, and panic).</div>
-          <div className={styles.kbd}><span className={styles.key}>F9</span></div>
-          <div className={styles.shortcutDesc}>Toggle Focus view (hides editing chrome and emphasizes live signal flow); the status bar keeps an exit chip</div>
           <div className={styles.kbd}><span className={styles.key}>F10</span></div>
           <div className={styles.shortcutDesc}>Toggle Stage view (preview-first operator view; fullscreen is available inside Stage)</div>
         </div>

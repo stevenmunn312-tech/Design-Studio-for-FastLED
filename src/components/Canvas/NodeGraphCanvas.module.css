@@ -27,10 +27,6 @@
 
 .canvasIdle {}
 
-.canvasPerformance {
-  --field-energy: calc(var(--field-energy) + 0.05);
-}
-
 .atmosphere {
   position: absolute;
   z-index: 0;

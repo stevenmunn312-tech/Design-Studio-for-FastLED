@@ -2,8 +2,7 @@
 // panel is open, what (if anything) MIDI-learn / keyboard-bind capture is
 // currently armed for, and live scene-morph crossfade position.
 //
-// Deliberately never persisted — mirrors uiStore's `performanceMode`/
-// `stageMode` rule ("a previous session must not reopen with the editing
+// Deliberately never persisted — mirrors uiStore's `stageMode` rule ("a previous session must not reopen with the editing
 // chrome unexpectedly hushed"; here, must not reopen mid-MIDI-learn or
 // mid-morph). Kept as its own small store rather than folded into uiStore or
 // graphStore: morph progress and drag position change at high frequency, and

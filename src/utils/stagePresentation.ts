@@ -3,7 +3,6 @@ import { useUiStore } from '../state/uiStore'
 /** Enter the windowed Stage layout. Fullscreen is a separate, explicit action. */
 export async function enterStagePresentation(): Promise<void> {
   const ui = useUiStore.getState()
-  ui.setPerformanceMode(false)
   ui.setStageMode(true)
   ui.setStageFullscreenStatus(
     typeof document !== 'undefined' && document.fullscreenElement ? 'active' : 'idle',

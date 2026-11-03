@@ -6,10 +6,6 @@
   overflow: hidden;
 }
 
-.appPerformance {
-  background: var(--paint-040608);
-}
-
 .workspace {
   position: relative;
   display: flex;
@@ -124,21 +120,6 @@
   /* The hardware stage clips its own world. This boundary stays visible so
      the two pane tabs can project into the graph without restoring a header. */
   overflow: visible;
-}
-
-.appPerformance .sidebarPanel,
-.appPerformance .previewPanel {
-  background: color-mix(in srgb, var(--bg-panel) 90%, black);
-}
-
-.appPerformance .sidebarHandle,
-.appPerformance .previewHandle {
-  opacity: 0.3;
-}
-
-.appPerformance .sidebarHandle:hover,
-.appPerformance .previewHandle:hover {
-  opacity: 0.8;
 }
 
 .sidebarDock {

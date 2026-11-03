@@ -186,17 +186,6 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(useUiStore.getState().stageMode).toBe(false)
   })
 
-  it('treats Perform as session-only state and does not persist the toggle', () => {
-    localStorage.removeItem('design-studio-for-fastled-performance-mode')
-    useUiStore.getState().setPerformanceMode(false)
-    useUiStore.getState().togglePerformanceMode()
-
-    expect(useUiStore.getState().performanceMode).toBe(true)
-    expect(localStorage.getItem('design-studio-for-fastled-performance-mode')).toBeNull()
-
-    useUiStore.getState().setPerformanceMode(false)
-  })
-
   it('persists an explicit Signal dimming preference', () => {
     localStorage.removeItem('design-studio-for-fastled-signal-path-dim-enabled')
     useUiStore.setState({ signalPathDimEnabled: false })

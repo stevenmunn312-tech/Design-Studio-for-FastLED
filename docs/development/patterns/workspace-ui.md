@@ -113,11 +113,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## View menu, experimental chips and Help
 
-- Edit, Focus and Stage are mutually exclusive views. Enter Stage through
-  `enterStagePresentation`, which clears Focus; F9 leaves Stage through
-  `exitStagePresentation` before toggling Focus so browser fullscreen is also
-  unwound. The Control Deck remains independent. Focus's status-bar exit and
-  Stage's preview exit stay visible. The View menu lists all four workspace
+- Edit and Stage are the two views; the View housing is Edit | Deck | Stage.
+  Enter Stage through `enterStagePresentation` and leave through
+  `exitStagePresentation` so browser fullscreen is also unwound. The Control
+  Deck is a panel over either view. Stage's preview exit stays visible. The View menu lists all four workspace
   tabs as radio items and calls the `build` panel layout Balanced.
 - The Checks drawer opens once on each arrival at Upload with blockers,
   including its initial mount after Build Diagram, where it is unmounted.

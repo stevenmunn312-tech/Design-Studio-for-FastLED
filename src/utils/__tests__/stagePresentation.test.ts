@@ -45,12 +45,10 @@ describe('stage presentation', () => {
       value: requestFullscreen,
     })
 
-    useUiStore.getState().setPerformanceMode(true)
     await enterStagePresentation()
 
     expect(requestFullscreen).not.toHaveBeenCalled()
     expect(useUiStore.getState().stageMode).toBe(true)
-    expect(useUiStore.getState().performanceMode).toBe(false)
     expect(useUiStore.getState().stageFullscreenStatus).toBe('idle')
   })
 

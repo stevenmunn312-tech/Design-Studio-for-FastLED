@@ -86,8 +86,6 @@ export default function MenuBar() {
     toggleReducedMotion,
     highContrast,
     toggleHighContrast,
-    performanceMode,
-    setPerformanceMode,
     evaluationRunning,
     toggleEvaluation,
     uiEffectsEnabled,
@@ -122,8 +120,6 @@ export default function MenuBar() {
     toggleReducedMotion: s.toggleReducedMotion,
     highContrast: s.highContrast,
     toggleHighContrast: s.toggleHighContrast,
-    performanceMode: s.performanceMode,
-    setPerformanceMode: s.setPerformanceMode,
     evaluationRunning: s.evaluationRunning,
     toggleEvaluation: s.toggleEvaluation,
     uiEffectsEnabled: s.uiEffectsEnabled,
@@ -1049,58 +1045,36 @@ export default function MenuBar() {
           onChange={handleLibraryFileChange}
         />
         <div className={styles.sep} />
-        {/* One View control. Edit, Focus and Stage are the three ways the
-            workspace can be shown, so they are one radio group rather than
-            two independent toggles whose off states both meant "editing".
-            The Deck is a panel that opens over any of them, so it stays a
-            toggle beside the group. */}
-        <div className={styles.liveTools} role="radiogroup" aria-label="View">
+        {/* One View control. Edit and Stage are the two ways the workspace can
+            be shown; the Deck is a panel that opens over either, and sits
+            between them so the three live tools read as one housing. */}
+        <div className={styles.liveTools} role="group" aria-label="View">
           <button
-            className={`${styles.liveTool} ${!performanceMode && !stageMode ? styles.liveToolActive : ''}`}
-            onClick={() => {
-              setPerformanceMode(false)
-              if (stageMode) void exitStagePresentation()
-            }}
-            role="radio"
-            aria-checked={!performanceMode && !stageMode}
+            className={`${styles.liveTool} ${!stageMode ? styles.liveToolActive : ''}`}
+            onClick={() => { if (stageMode) void exitStagePresentation() }}
+            aria-pressed={!stageMode}
             title="Edit: the full workspace with its tabs, panels and status bar"
           >
             Edit
           </button>
           <button
-            className={`${styles.liveTool} ${performanceMode ? styles.liveToolActive : ''}`}
-            onClick={() => {
-              if (stageMode) void exitStagePresentation()
-              setPerformanceMode(true)
-            }}
-            role="radio"
-            aria-checked={performanceMode}
-            title="Focus: hide editing chrome and emphasize live signal flow (F9). Esc returns to Edit."
+            className={`${styles.liveTool} ${styles.deckTool} ${deckOpen ? styles.liveToolActive : ''}`}
+            onClick={toggleDeck}
+            aria-label="Toggle Control Deck"
+            aria-pressed={deckOpen}
+            title="Control Deck: pinned controls, scenes, MIDI and keyboard bindings, and panic (F8)"
           >
-            Focus
+            Deck
           </button>
           <button
             className={`${styles.liveTool} ${styles.stageTool} ${stageMode ? styles.stageToolActive : ''}`}
-            onClick={() => {
-              setPerformanceMode(false)
-              if (!stageMode) void enterStagePresentation()
-            }}
-            role="radio"
-            aria-checked={stageMode}
+            onClick={() => { if (!stageMode) void enterStagePresentation() }}
+            aria-pressed={stageMode}
             title="Stage: preview-first operator view; fullscreen is available inside Stage (F10). Esc returns to Edit."
           >
             Stage
           </button>
         </div>
-        <button
-          className={`${styles.liveTool} ${styles.deckTool} ${deckOpen ? styles.liveToolActive : ''}`}
-          onClick={toggleDeck}
-          aria-label="Toggle Control Deck"
-          aria-pressed={deckOpen}
-          title="Control Deck: pinned controls, scenes, MIDI and keyboard bindings, and panic (F8)"
-        >
-          Deck
-        </button>
         {import.meta.env.DEV && <DevPerformanceHudToggle />}
         <div className={styles.sep} />
         <button

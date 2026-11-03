@@ -11,7 +11,7 @@ import { useCapacityStore } from '../../../state/upload/capacityStore'
 // every chip on each memory sample and view move.
 describe('StatusBar subscriptions', () => {
   beforeEach(() => {
-    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false, memoryMb: null })
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, stageMode: false, memoryMb: null })
     useGraphStore.setState({ nodes: [], edges: [], graphData: {}, graphs: { root: { id: 'root', name: 'Main' } }, activeGraphId: 'root' })
     useUploadStore.setState({ selectedFqbn: '', selectedPort: '', ports: [] })
     useCapacityStore.getState().clear()

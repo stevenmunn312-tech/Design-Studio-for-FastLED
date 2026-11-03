@@ -12,7 +12,7 @@ describe('MenuBar subscriptions', () => {
   beforeEach(() => {
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
-    useUiStore.setState({ stageMode: false, performanceMode: false })
+    useUiStore.setState({ stageMode: false })
   })
 
   it('does not re-render when history tracking pauses and resumes', () => {

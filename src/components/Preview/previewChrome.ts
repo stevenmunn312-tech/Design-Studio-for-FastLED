@@ -1,6 +1,5 @@
 export interface PreviewAudioChromeContext {
   stageMode: boolean
-  performanceMode: boolean
   showMode: boolean
   audioVisualizerLive: boolean
   hasVu: boolean
@@ -8,11 +7,10 @@ export interface PreviewAudioChromeContext {
   hasAudioError: boolean
 }
 
-/** Keep the idle preview quiet until audio or performance controls have work
+/** Keep the idle preview quiet until audio or show controls have work
  * to do. A single Add Track action remains available in the compact state. */
 export function shouldExpandPreviewAudioTools(context: PreviewAudioChromeContext): boolean {
   return context.stageMode
-    || context.performanceMode
     || context.showMode
     || context.audioVisualizerLive
     || context.hasVu
