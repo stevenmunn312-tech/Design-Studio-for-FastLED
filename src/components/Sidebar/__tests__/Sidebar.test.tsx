@@ -61,7 +61,7 @@ describe('Sidebar equipment rack', () => {
     // The graph is empty in this test, which opens only the first category
     // — open Audio explicitly rather than relying on it already being
     // expanded.
-    fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
+    fireEvent.click(getByRole('button', { name: /^Audio▾/ }))
     const fft = getByLabelText('Add FFT Analyzer')
     expect(fft.querySelector('[data-output-type="float"]')).toBeTruthy()
     expect(fft.textContent).toContain('float')
@@ -69,7 +69,7 @@ describe('Sidebar equipment rack', () => {
 
   it('adds clicked modules to the graph and surfaces them in the recent rack', () => {
     const { getByRole, getByLabelText, getByText } = render(<Sidebar />)
-    fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
+    fireEvent.click(getByRole('button', { name: /^Audio▾/ }))
     fireEvent.click(getByLabelText('Add FFT Analyzer'))
 
     expect(getByText('Recent')).toBeTruthy()
@@ -135,7 +135,7 @@ describe('Sidebar equipment rack', () => {
   it('can favourite a module and keep it in the favourites rack', () => {
     const { getByRole, getByLabelText, getByText } = render(<Sidebar />)
 
-    fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
+    fireEvent.click(getByRole('button', { name: /^Audio▾/ }))
     fireEvent.click(getByLabelText('Add FFT Analyzer to favourites'))
     fireEvent.click(getByText('Favourites'))
 
@@ -270,7 +270,7 @@ describe('Sidebar remembered section', () => {
     const headers = getAllByRole('button').filter((button) => button.hasAttribute('aria-expanded'))
     expect(headers.length).toBeGreaterThan(1)
     expect(headers.filter((header) => header.getAttribute('aria-expanded') === 'true')).toHaveLength(1)
-    expect(getByRole('button', { name: /^Inputs\d/ }).getAttribute('aria-expanded')).toBe('true')
+    expect(getByRole('button', { name: /^Inputs▾/ }).getAttribute('aria-expanded')).toBe('true')
   })
 
   it('does not let that reset overwrite the section the user chose', () => {
@@ -289,7 +289,7 @@ describe('Sidebar remembered section', () => {
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     const { getByRole } = render(<Sidebar />)
 
-    fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
+    fireEvent.click(getByRole('button', { name: /^Audio▾/ }))
 
     expect(JSON.parse(localStorage.getItem(KEY) ?? 'null')).toBe('audio')
   })

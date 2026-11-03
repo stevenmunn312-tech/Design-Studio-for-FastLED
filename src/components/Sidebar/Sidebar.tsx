@@ -1071,7 +1071,6 @@ function Sidebar() {
           <span className={styles.drawerLabel}>
             <span className={styles.drawerLight} aria-hidden="true" />
             {label}
-            <span className={styles.drawerCount}>{defs.length}</span>
           </span>
           <span
             className={styles.chevron}
@@ -1326,7 +1325,6 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
               <span className={styles.drawerLabel}>
                 <span className={styles.drawerLight} aria-hidden="true" />
                 Quick recipes
-                <span className={styles.drawerCount}>{visibleRecipes.length}</span>
               </span>
               <span
                 className={styles.chevron}
