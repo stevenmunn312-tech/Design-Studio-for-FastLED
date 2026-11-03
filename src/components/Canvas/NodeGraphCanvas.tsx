@@ -378,17 +378,11 @@ function NodeGraphCanvasInner() {
   const rippleTimer = useRef<number | undefined>(undefined)
   const sparkDelayTimer = useRef<number | undefined>(undefined)
   const sparkClearTimer = useRef<number | undefined>(undefined)
-  const beatNow = usePreviewStore((s) => {
-    for (const output of s.outputs.values()) if (output.beat === true) return true
-    return false
-  })
   const selectedNodeLabel = useMemo(() => {
     if (!selectedNodeId) return null
     const node = nodes.find((entry) => entry.id === selectedNodeId)
     return node ? String((node.data as { label?: string }).label ?? 'signal path') : null
   }, [nodes, selectedNodeId])
-  const lastBeat = useRef(false)
-  const [beatRippleKey, setBeatRippleKey] = useState(0)
   const hasTerminalFrame = useMemo(() => {
     const terminalIds = new Set(nodes
       .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String((node.data as { nodeType?: string }).nodeType)))
@@ -401,12 +395,6 @@ function NodeGraphCanvasInner() {
   }), [nodes])
   const hasShowGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'show'), [nodes])
   const hasPatternGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'pattern'), [nodes])
-
-  useEffect(() => {
-    if (!uiEffectsEnabled) return
-    if (beatNow && !lastBeat.current) setBeatRippleKey((key) => key + 1)
-    lastBeat.current = beatNow
-  }, [beatNow, uiEffectsEnabled])
 
   useEffect(() => () => {
     if (pulseTimer.current) window.clearTimeout(pulseTimer.current)
@@ -1350,13 +1338,6 @@ function NodeGraphCanvasInner() {
           } as React.CSSProperties}
           aria-hidden="true"
         >
-          <span />
-          <span />
-        </div>
-      )}
-      {uiEffectsEnabled && beatRippleKey > 0 && (
-        <div key={beatRippleKey} className={styles.beatRipple} aria-hidden="true">
-          <span />
           <span />
           <span />
         </div>
