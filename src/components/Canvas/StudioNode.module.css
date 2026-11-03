@@ -551,9 +551,10 @@ span.connectionBlocked {
   grid-template-columns: minmax(0, 1fr) auto 16px;
 }
 
+/* Short controls sit at the right edge beside the pin, like the slider values. */
 .propRow > input[type='checkbox'],
 .propRow > .colorInput {
-  justify-self: start;
+  justify-self: end;
 }
 
 /* Match portRow's -8px socket offset; grouped fields add 2px indentation. */

@@ -347,7 +347,6 @@
 
 .evaluationRunning {
   border-color: var(--line);
-  color: var(--text-primary);
 }
 
 .evaluationPaused {
