@@ -2,6 +2,9 @@
   /* The field palette itself lives in tokens.css, shared with the bench. */
   --field-energy: 0.12;
   --field-focus-energy: 0;
+  --field-x: 50%;
+  --field-y: 50%;
+  --field-hover: 0;
   flex: 1;
   height: 100%;
   overflow: hidden;
@@ -23,6 +26,32 @@
 .canvasFocused {}
 
 .canvasIdle {}
+
+.atmosphere {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cursorWake {
+  opacity: var(--field-hover);
+  background:
+    radial-gradient(circle 210px at var(--field-x) var(--field-y), color-mix(in srgb, var(--field-color) 18%, transparent), transparent 68%),
+    radial-gradient(circle 110px at var(--field-x) var(--field-y), color-mix(in srgb, var(--text-primary) 3.5%, transparent), transparent 72%);
+  transition: opacity 180ms ease-out;
+}
+
+.cursorWake::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--field-color) 40%, transparent) 0 1px, transparent 1.25px);
+  background-size: 20px 20px;
+  -webkit-mask-image: radial-gradient(circle 150px at var(--field-x) var(--field-y), black, transparent 76%);
+  mask-image: radial-gradient(circle 150px at var(--field-x) var(--field-y), black, transparent 76%);
+}
 
 .connectionRipple {
   position: absolute;

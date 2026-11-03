@@ -491,6 +491,20 @@ function NodeGraphCanvasInner() {
     }
   }, [flowToScreenPosition, getNode, setSparkPort, uiEffectsEnabled])
 
+  const updateCursorField = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!uiEffectsEnabled) return
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const rect = wrapper.getBoundingClientRect()
+    wrapper.style.setProperty('--field-x', `${event.clientX - rect.left}px`)
+    wrapper.style.setProperty('--field-y', `${event.clientY - rect.top}px`)
+    wrapper.style.setProperty('--field-hover', '0.38')
+  }, [uiEffectsEnabled])
+
+  const quietCursorField = useCallback(() => {
+    wrapperRef.current?.style.setProperty('--field-hover', '0')
+  }, [])
+
   // Publish the click-to-add drop point (in flow coords) so sidebar clicks land
   // on screen wherever the user has panned. Biased to the left third — vertically
   // centred but offset from the left edge — so new nodes have room to wire right.
@@ -1262,6 +1276,8 @@ function NodeGraphCanvasInner() {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      onPointerMove={updateCursorField}
+      onPointerLeave={quietCursorField}
       onDoubleClick={onPaneDoubleClick}
     >
       <GroupControls />
@@ -1410,6 +1426,11 @@ function NodeGraphCanvasInner() {
         proOptions={{ hideAttribution: true }}
         aria-label="Node graph editor"
       >
+        {uiEffectsEnabled && (
+          <div className={styles.atmosphere} aria-hidden="true">
+            <div className={styles.cursorWake} />
+          </div>
+        )}
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
