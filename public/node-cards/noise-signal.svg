@@ -12,11 +12,9 @@
 <rect x="0" y="0" width="240" height="212" rx="8" fill="url(#tint-signal)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33ff33"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
-<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Noise…</text>
-<rect x="78.80000000000001" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="92.00000000000001" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">SIG</text>
-<rect x="111.20000000000002" y="8" width="50.8" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="136.60000000000002" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">NOI-414</text>
+<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Noise LFO</text>
+<rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="148.79999999999998" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">SIG</text>
 <circle cx="172" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
 <circle cx="179" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.12"/>
 <circle cx="186" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.08"/>

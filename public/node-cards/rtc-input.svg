@@ -12,11 +12,9 @@
 <rect x="0" y="0" width="240" height="690.8" rx="8" fill="url(#tint-input)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d6ff33"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
-<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">RTC Cl…</text>
-<rect x="85" y="8" width="20.2" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="95.1" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">IN</text>
-<rect x="111.2" y="8" width="50.8" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="136.6" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">RTC-813</text>
+<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">RTC Clock</text>
+<rect x="141.8" y="8" width="20.2" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="151.9" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">IN</text>
 <circle cx="172" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
 <circle cx="179" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.12"/>
 <circle cx="186" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.08"/>

@@ -12,11 +12,9 @@
 <rect x="0" y="0" width="300" height="649" rx="8" fill="url(#tint-show)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L292,0 Q300,0 300,8 L300,32 Z" fill="#8533ff"/>
 <rect x="1" y="32" width="298" height="12" fill="url(#headerGlow)" opacity="0.18"/>
-<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Performance …</text>
-<rect x="138.8" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="152" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">SHW</text>
-<rect x="171.20000000000002" y="8" width="50.8" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="196.60000000000002" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">PER-183</text>
+<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Performance Genera…</text>
+<rect x="195.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="208.79999999999998" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">SHW</text>
 <circle cx="232" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
 <circle cx="239" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.12"/>
 <circle cx="246" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.08"/>
