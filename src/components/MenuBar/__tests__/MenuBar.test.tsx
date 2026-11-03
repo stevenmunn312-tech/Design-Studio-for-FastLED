@@ -191,19 +191,17 @@ describe('MenuBar file menu', () => {
     expect(getByRole('button', { name: 'Add a microphone on the Hardware tab to enable' }).textContent).toBe('Mic Off')
   })
 
-  it('offers Edit, Deck and Stage as one View housing', () => {
+  it('offers Deck and Stage as toggles in one View housing', () => {
     const { getByRole } = render(<MenuBar />)
     const view = within(getByRole('group', { name: 'View' }))
-    const edit = view.getByRole('button', { name: 'Edit' })
     const deck = view.getByRole('button', { name: 'Toggle Control Deck' })
     const stage = view.getByRole('button', { name: 'Stage' })
 
-    expect(edit.getAttribute('aria-pressed')).toBe('true')
+    expect(view.queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(stage.getAttribute('aria-pressed')).toBe('false')
     expect(stage.getAttribute('title')).toContain('preview-first operator view')
     expect(deck.textContent).toBe('Deck')
     expect(deck.getAttribute('title')).toContain('pinned controls')
-    // Deck sits between Edit and Stage.
-    expect(edit.compareDocumentPosition(deck) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(deck.compareDocumentPosition(stage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     fireEvent.click(deck)
@@ -211,8 +209,8 @@ describe('MenuBar file menu', () => {
     fireEvent.click(stage)
     expect(useUiStore.getState().stageMode).toBe(true)
     expect(stage.getAttribute('aria-pressed')).toBe('true')
-    expect(edit.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(edit)
+    // A second click leaves Stage: the full workspace is the unpressed state.
+    fireEvent.click(stage)
     expect(useUiStore.getState().stageMode).toBe(false)
 
     if (import.meta.env.DEV) {

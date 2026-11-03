@@ -1045,18 +1045,10 @@ export default function MenuBar() {
           onChange={handleLibraryFileChange}
         />
         <div className={styles.sep} />
-        {/* One View control. Edit and Stage are the two ways the workspace can
-            be shown; the Deck is a panel that opens over either, and sits
-            between them so the three live tools read as one housing. */}
+        {/* The live tools: the Deck is a panel over the workspace, Stage is the
+            operator view. Both are toggles; the full editing workspace is
+            what you have when neither is pressed. */}
         <div className={styles.liveTools} role="group" aria-label="View">
-          <button
-            className={`${styles.liveTool} ${!stageMode ? styles.liveToolActive : ''}`}
-            onClick={() => { if (stageMode) void exitStagePresentation() }}
-            aria-pressed={!stageMode}
-            title="Edit: the full workspace with its tabs, panels and status bar"
-          >
-            Edit
-          </button>
           <button
             className={`${styles.liveTool} ${styles.deckTool} ${deckOpen ? styles.liveToolActive : ''}`}
             onClick={toggleDeck}
@@ -1068,9 +1060,9 @@ export default function MenuBar() {
           </button>
           <button
             className={`${styles.liveTool} ${styles.stageTool} ${stageMode ? styles.stageToolActive : ''}`}
-            onClick={() => { if (!stageMode) void enterStagePresentation() }}
+            onClick={() => { void (stageMode ? exitStagePresentation() : enterStagePresentation()) }}
             aria-pressed={stageMode}
-            title="Stage: preview-first operator view; fullscreen is available inside Stage (F10). Esc returns to Edit."
+            title="Stage: preview-first operator view; fullscreen is available inside Stage (F10). Click again or press Esc to leave."
           >
             Stage
           </button>
