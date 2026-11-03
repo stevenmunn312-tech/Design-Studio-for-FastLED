@@ -463,7 +463,7 @@ menu choices, Upload guidance and the Checks drawer.
   Fix: delete orbits, frame, scan, beacon, dormantSignal, flicker and
   brandShine. Keep a plain dot grid, the cursor wake if cheap, and the
   data-driven `.signalAura` on nodes.
-  Done: orbits, ghost frame, scan, beacon, dormant signal, CRT flicker and brand shine are gone; the dot grid, cursor wake and data-driven `.signalAura` stay. The bench keeps its one-shot controller hint ring, which leaves on the first click.
+  Done: orbits, ghost frame, scan, beacon, dormant signal, CRT flicker and brand shine are gone, and the cursor wake ring followed on 3 November; the dot grid and data-driven `.signalAura` stay. The bench keeps its one-shot controller hint ring, which leaves on the first click.
 
 - [x] **Glassmorphism.**
   Problem: `backdrop-filter` 15 times: empty-state card
