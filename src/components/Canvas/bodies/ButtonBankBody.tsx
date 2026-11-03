@@ -10,7 +10,7 @@ import {
 } from '../../../state/player/buttonBank'
 import { portColor } from '../../../state/nodeLibrary'
 import styles from './ButtonBankBody.module.css'
-import { NODE_HANDLE_STYLE } from '../nodeHandleStyle'
+import { portHandleStyle } from '../nodeHandleStyle'
 
 const BOOL_COLOR = portColor('bool')
 
@@ -76,7 +76,7 @@ export default function ButtonBankBody({ nodeId }: { nodeId: string }) {
               tabIndex={0}
               aria-label={`Connect from Button Bank ${entry.label} output, bool. Press Enter or Space to choose a destination port.`}
               onKeyDown={activateHandleFromKeyboard}
-              style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: BOOL_COLOR, boxShadow: `0 0 6px ${BOOL_COLOR}` }}
+              style={{ ...portHandleStyle('bool', BOOL_COLOR), top: '50%', right: -8 }}
             />
           </div>
         )
@@ -94,7 +94,7 @@ export default function ButtonBankBody({ nodeId }: { nodeId: string }) {
             tabIndex={0}
             aria-label="Connect from Button Bank empty output to create a named button."
             onKeyDown={activateHandleFromKeyboard}
-            style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: BOOL_COLOR, boxShadow: `0 0 7px color-mix(in srgb, ${BOOL_COLOR} 45%, transparent)` }}
+            style={{ ...portHandleStyle('bool', BOOL_COLOR), top: '50%', right: -8 }}
           />
         </div>
       )}

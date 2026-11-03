@@ -588,7 +588,6 @@
   background: color-mix(in srgb, var(--bg-panel) 84%, var(--accent-output) 10%);
   border-color: color-mix(in srgb, var(--accent-output) 42%, var(--divider));
   color: var(--text-primary);
-  box-shadow: 0 -5px 14px color-mix(in srgb, var(--accent-output) 10%, transparent);
 }
 
 .lazyPanelStatus {
@@ -667,9 +666,7 @@
   width: min(328px, calc(100vw - 32px));
   border: 1px solid color-mix(in srgb, var(--accent-output) 42%, var(--line));
   border-radius: 12px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent-output) 7%, transparent), transparent 54px),
-    color-mix(in srgb, var(--bg-panel) 98%, var(--paint-05090d));
+  background: var(--bg-panel);
   box-shadow: -14px 0 34px rgba(0, 0, 0, 0.34);
   user-select: text;
 }

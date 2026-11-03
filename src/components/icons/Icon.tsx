@@ -1,5 +1,5 @@
 import type { ReactNode, SVGProps } from 'react'
-import { PORT_ICON_NAMES } from './portIconNames'
+import { PORT_SYMBOL_DETAIL, PORT_SYMBOL_FILLED, PORT_SYMBOL_PATH, portSymbol, type PortSymbol } from './portSymbols'
 
 export type IconName =
   | 'pin' | 'eye' | 'flask' | 'compass' | 'bolt' | 'broadcast'
@@ -7,10 +7,20 @@ export type IconName =
   | 'music' | 'info' | 'edit' | 'star' | 'link'
   | 'power' | 'close' | 'external' | 'refresh' | 'download' | 'upload'
   | 'warning' | 'check' | 'grid' | 'ring' | 'strip' | 'bars'
-  | 'arrow-up' | 'arrow-down' | 'swap' | 'chevron-up' | 'chevron-down'
+  | 'arrow-up' | 'arrow-down' | 'swap' | 'chevron-up' | 'chevron-down' | 'wave'
   | 'frame' | 'field' | 'float' | 'bool' | 'audio' | 'palette' | 'color'
 
 type Props = Omit<SVGProps<SVGSVGElement>, 'name'> & { name: IconName; size?: number }
+
+function symbolShape(symbol: PortSymbol): ReactNode {
+  const detail = PORT_SYMBOL_DETAIL[symbol]
+  return (
+    <>
+      <path d={PORT_SYMBOL_PATH[symbol]} fill={PORT_SYMBOL_FILLED.has(symbol) ? 'currentColor' : 'none'} stroke={PORT_SYMBOL_FILLED.has(symbol) ? 'none' : undefined} />
+      {detail && <path d={detail} />}
+    </>
+  )
+}
 
 export function Icon({ name, size = 16, ...props }: Props) {
   const paths: Record<IconName, ReactNode> = {
@@ -48,17 +58,19 @@ export function Icon({ name, size = 16, ...props }: Props) {
     swap: <path d="M3 7h11l-3-3M17 13H6l3 3" />,
     'chevron-up': <path d="m5 12 5-5 5 5" />,
     'chevron-down': <path d="m5 8 5 5 5-5" />,
-    frame: <><rect x="3" y="3" width="14" height="14" rx="1" /><path d="M10 3v14M3 10h14" /></>,
-    field: <path d="m10 2 8 8-8 8-8-8 8-8Z" />,
-    float: <circle cx="10" cy="10" r="6" />,
-    bool: <rect x="6" y="6" width="8" height="8" rx="1" />,
-    audio: <path d="M2 10h3l2-5 3 10 3-9 2 4h3" />,
-    palette: <><rect x="2" y="6" width="16" height="8" rx="4" /><path d="M6 6v8m4-8v8m4-8v8" /></>,
-    color: <circle cx="10" cy="10" r="4" fill="currentColor" stroke="none" />,
+    frame: symbolShape('square'),
+    field: symbolShape('diamond'),
+    float: symbolShape('circle'),
+    bool: symbolShape('smallSquare'),
+    audio: symbolShape('hexagon'),
+    palette: symbolShape('pill'),
+    color: symbolShape('dot'),
+    wave: <path d="M2 10h3l2-5 3 10 3-9 2 4h3" />,
   }
   return <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{ verticalAlign: '-0.2em', flex: 'none' }} {...props}>{paths[name]}</svg>
 }
 
+/** A port's symbol (see `portSymbols.ts`), the same outline the handle is cut to. */
 export function PortIcon({ dataType, size = 16 }: { dataType: string; size?: number }) {
-  return <Icon name={PORT_ICON_NAMES[dataType] ?? 'float'} size={size} />
+  return <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{ verticalAlign: '-0.2em', flex: 'none' }}>{symbolShape(portSymbol(dataType))}</svg>
 }

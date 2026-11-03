@@ -23,6 +23,10 @@ export interface StarterTemplate {
   guide: StarterGuide
   /** Whether loading this starter should request the live microphone. */
   activateMicrophone?: boolean
+  /** Bundled pattern names copied into the starter's Pattern Collection on
+   *  load, so a show starter opens with something lit rather than an empty
+   *  collection and a black output. */
+  collectionPatterns?: string[]
   preview: {
     nodes: Array<{ id: string; label: string; category: string; col: number; row: number }>
     edges: Array<{ source: string; sourceHandle: string; target: string; targetHandle: string; color: string }>
@@ -100,7 +104,7 @@ function tutorialNote(
 }
 
 function template(
-  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone'> & {
+  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'collectionPatterns'> & {
     nodeSpecs: NodeSpec[]
     edgeSpecs: EdgeSpec[]
     level: StarterLevel
@@ -114,6 +118,7 @@ function template(
     description: options.description,
     completionSteps: options.completionSteps,
     ...(options.recommended ? { recommended: true } : {}),
+    ...(options.collectionPatterns ? { collectionPatterns: options.collectionPatterns } : {}),
     guide: {
       level: options.level,
       preview: options.preview,
@@ -408,6 +413,9 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     before: ['MP3 files to play, copied to a microSD card for the board'],
     name: 'Music Player',
     description: 'Build a live, audio-reactive show from reusable pattern groups, then configure its controls and hardware.',
+    // Three bundled patterns so the output is lit the moment the starter
+    // opens; the collection is the user's to grow or replace.
+    collectionPatterns: ['Azure Tideglass', 'Aurora Veil', 'Opaline Plasma'],
     completionSteps: [
       'Specify your board, audio source, and music player hardware on the Hardware tab.',
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',

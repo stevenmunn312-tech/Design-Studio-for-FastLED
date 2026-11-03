@@ -345,6 +345,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Overlays compose `sharedOverlay`, `sharedSurface` and `sharedClose` from
   `src/components/AppDialog/AppDialogHost.module.css`; a popup supplies
   content only.
-- Icons are the 16 px stroke set in `src/components/icons/Icon.tsx`; port-type
-  symbols map through `portIconNames.ts`. No emoji in UI code. Typographic
-  marks (radio ticks, chevrons, star ratings) may stay as text.
+- Icons are the 16 px stroke set in `src/components/icons/Icon.tsx`. No emoji
+  in UI code. Typographic marks (radio ticks, chevrons, star ratings) may stay
+  as text.
+- Ports speak one vocabulary, `src/components/icons/portSymbols.ts`: a shape
+  per data type (frame square, field diamond, float circle, bool small square,
+  audio hexagon, palette striped pill, colour dot) carried as an SVG path and
+  as the CSS that cuts a handle to it. `portHandleStyle` draws the socket,
+  `PortIcon` the sidebar and help glyph, and `GlowEdge` fills the wire's
+  terminal with the same path. Sockets are matte; the wire's packets carry the
+  light.
+- The empty canvas is a ghost patch: a 40 % Juggle → LED Output pair that is
+  the "Start with Juggle" button, one line of copy, and text links for the
+  other starts. No card, no hero copy.
+- A show starter names `collectionPatterns` (bundled pattern names) and
+  `startTemplate` copies them into its Pattern Collection, so the output is
+  lit on open; Pattern Master runs on the wall clock until a track plays.

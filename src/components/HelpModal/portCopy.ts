@@ -14,7 +14,7 @@
  */
 
 /**
- * The fallback description for a port, keyed the same way as PORT_ICON_NAMES. A
+ * The fallback description for a port, keyed the same way as PORT_SYMBOL_FOR_TYPE. A
  * node's reference entry describes its own ports; this covers the rest.
  */
 export const PORT_DESCRIPTIONS: Record<string, string> = {

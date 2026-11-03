@@ -90,9 +90,9 @@
 .cancelBtn:hover { color: var(--text-primary); }
 
 .applyBtn {
-  background: var(--accent-output);
-  border: 1px solid var(--accent-output);
-  color: var(--bg-primary);
+  background: var(--accent-ui);
+  border: 1px solid var(--accent-ui);
+  color: var(--accent-ui-text);
   font-weight: 600;
 }
 .applyBtn:hover { filter: brightness(1.1); }

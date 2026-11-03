@@ -40,7 +40,7 @@ import { displayWidgetDefinition, isDisplayRgb, TOUCH_CONTROL_ADD_DATA_TYPE, TOU
 import type { DisplayWidgetProperty } from '../../../state/displays/displayDocument'
 import { portColor } from '../../../state/nodeLibrary'
 import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
-import { NODE_HANDLE_STYLE } from '../nodeHandleStyle'
+import { portHandleStyle } from '../nodeHandleStyle'
 import styles from './WebRemoteBody.module.css'
 import WifiPasswordInput from '../WifiPasswordInput'
 
@@ -437,7 +437,7 @@ export default function WebRemoteBody({ nodeId }: { nodeId: string }) {
               tabIndex={0}
               aria-label={`Connect from Web Remote ${control.label} output, ${webRemoteControlDataType(control.type)}. Press Enter or Space to choose a destination port.`}
               onKeyDown={activateHandleFromKeyboard}
-              style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: color, boxShadow: `0 0 6px ${color}` }}
+              style={{ ...portHandleStyle(webRemoteControlDataType(control.type), color), top: '50%', right: -8 }}
             />
           </div>
         )
@@ -467,7 +467,7 @@ export default function WebRemoteBody({ nodeId }: { nodeId: string }) {
             tabIndex={0}
             aria-label="Connect from Web Remote Add control to make a control for a property."
             onKeyDown={activateHandleFromKeyboard}
-            style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: NEW_CONTROL_COLOR, boxShadow: `0 0 7px color-mix(in srgb, ${NEW_CONTROL_COLOR} 45%, transparent)` }}
+            style={{ ...portHandleStyle(TOUCH_CONTROL_ADD_DATA_TYPE, NEW_CONTROL_COLOR), top: '50%', right: -8 }}
           />
         </div>
       )}

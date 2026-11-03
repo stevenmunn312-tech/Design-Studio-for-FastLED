@@ -1303,28 +1303,38 @@ function NodeGraphCanvasInner() {
       )}
       {nodes.length === 0 && (
         <div className={styles.emptyField} role="region" aria-label="Start screen">
-          <div className={styles.emptyPanel}>
-            <strong>No nodes yet</strong>
-            <span className={styles.emptySummary}>Drag a node from the library, or press Start.</span>
-            <div className={styles.emptyActions}>
-              <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartJuggle}>
-                Start with Juggle
-              </button>
-              <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartAudioDemo}>
-                Audio-reactive demo
-              </button>
-              <button type="button" className={styles.startAction} onClick={handleBrowseStarters}>
-                Open the Start Gallery
-              </button>
+          <div className={styles.emptyStack}>
+            {/* A ghost of the smallest working patch, at 40 %: click it and
+                the real Juggle → LED Output pair materialises in its place. */}
+            <button
+              type="button"
+              className={styles.ghostPatch}
+              aria-label="Start with Juggle"
+              title="Start with Juggle: a pattern wired to the LED output"
+              onClick={handleStartJuggle}
+            >
+              <span className={`${styles.ghostNode} ${styles.ghostNodePattern}`}>
+                <span className={styles.ghostHeader}>Juggle</span>
+                <span className={styles.ghostBody} />
+              </span>
+              <span className={styles.ghostWire} aria-hidden="true" />
+              <span className={`${styles.ghostNode} ${styles.ghostNodeOutput}`}>
+                <span className={styles.ghostHeader}>LED Output</span>
+                <span className={styles.ghostBody} />
+              </span>
+            </button>
+            <p className={styles.emptyLine}>Drag a node from the library, or press Start.</p>
+            <p className={styles.emptyLine}>
+              <button type="button" className={styles.emptyLink} onClick={handleStartAudioDemo}>Audio-reactive demo</button>
+              {' · '}
+              <button type="button" className={styles.emptyLink} onClick={handleBrowseStarters}>Open the Start Gallery</button>
               {!guideVisible && (
-                <button type="button" className={styles.startAction} onClick={() => useFirstProjectGuide.getState().start()}>
-                  Guide me, step by step
-                </button>
+                <>
+                  {' · '}
+                  <button type="button" className={styles.emptyLink} onClick={() => useFirstProjectGuide.getState().start()}>Guide me, step by step</button>
+                </>
               )}
-            </div>
-            {/* The three ways to add a node that nothing else on an empty
-                canvas names: the node search and the library. */}
-            <div className={styles.emptyMeta}>Double-click or press Ctrl+K to add a node · drag one in from the library</div>
+            </p>
           </div>
         </div>
       )}

@@ -20,7 +20,7 @@
 }
 
 .workspaceBuild {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 92%, var(--paint-09131b)), var(--bg-primary));
+  background: var(--bg-primary);
 }
 
 .workspaceCanvas {
@@ -128,8 +128,7 @@
 
 .appPerformance .sidebarPanel,
 .appPerformance .previewPanel {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, black), color-mix(in srgb, var(--bg-panel) 86%, black));
+  background: color-mix(in srgb, var(--bg-panel) 90%, black);
 }
 
 .appPerformance .sidebarHandle,

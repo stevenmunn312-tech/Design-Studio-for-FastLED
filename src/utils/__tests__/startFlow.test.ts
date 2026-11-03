@@ -94,6 +94,16 @@ describe('startFlow', () => {
     expect(useUiStore.getState().previewPanelOpen).toBe(true)
   })
 
+  it('opens the Music Player starter with bundled patterns in its collection', () => {
+    startTemplateById('generative-show')
+    const graph = useGraphStore.getState()
+    const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')!
+    const patternIds = (collection.data.properties as { patternIds: string[] }).patternIds
+    expect(patternIds).toHaveLength(3)
+    expect(patternIds.map((id) => graph.graphs[id]?.name)).toEqual(['Azure Tideglass', 'Aurora Veil', 'Opaline Plasma'])
+    for (const id of patternIds) expect(graph.graphData[id]?.nodes.length).toBeGreaterThan(0)
+  })
+
   it('leaves the shelf as the user had it when a starter is loaded', () => {
     // A starter arrives with parts on the bench, so the section they were
     // last in is still a reasonable guess at where they are working.

@@ -672,11 +672,12 @@ describe('StudioNode', () => {
     const trailing = container.querySelector('[data-handle="source:add-button"]') as HTMLElement
     expect(button).toBeTruthy()
     expect(trailing).toBeTruthy()
-    expect(button.style.width).toBe('12px')
-    expect(button.style.height).toBe('12px')
-    expect(trailing.style.width).toBe('12px')
-    expect(trailing.style.height).toBe('12px')
-    expect(trailing.style.background).toBe(button.style.background)
+    // Both are bool sockets: the vocabulary's small square (portSymbols.ts).
+    expect(button.style.width).toBe('10px')
+    expect(button.style.height).toBe('10px')
+    expect(trailing.style.width).toBe('10px')
+    expect(trailing.style.height).toBe('10px')
+    expect(trailing.style.backgroundColor).toBe(button.style.backgroundColor)
   })
 
   it('draws the transport rows and keeps the rest behind Expose input', () => {
@@ -695,7 +696,10 @@ describe('StudioNode', () => {
 
     expect(button.title).toBe('Play / Pause · bool')
     expect(potentiometer.title).toBe('Volume · float')
-    expect(button.style.background).not.toBe(potentiometer.style.background)
+    // Colour and shape both differ: bool is a small square, float a circle.
+    expect(button.style.backgroundColor).not.toBe(potentiometer.style.backgroundColor)
+    expect(button.style.borderRadius).toBe('1px')
+    expect(potentiometer.style.borderRadius).toBe('50%')
   })
 
   it('shows an honest empty state when Audio has no attached source', () => {

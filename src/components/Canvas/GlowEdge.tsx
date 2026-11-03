@@ -1,6 +1,7 @@
 import { memo, useState } from 'react'
 import { getBezierPath, useReactFlow } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
+import { PORT_SYMBOL_PATH, portSymbol } from '../icons/portSymbols'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { useGraphStore } from '../../state/graphStore'
 import { wiredPropertyIsInert } from '../../state/propertyInputs'
@@ -80,6 +81,9 @@ function GlowEdge({
   )
   const [hovered, setHovered] = useState(false)
   const showsValueReadout = sourceType === 'float' || sourceType === 'bool'
+  // The wire ends in the socket's own symbol, filled: the terminal is the
+  // one place the wire and the port vocabulary meet.
+  const terminalPath = PORT_SYMBOL_PATH[portSymbol(sourceType)]
   const rawValue = usePreviewStore((state) =>
     showsValueReadout && sourceHandleId ? state.outputs.get(source)?.[sourceHandleId] : undefined
   )
@@ -200,7 +204,7 @@ function GlowEdge({
           strokeDasharray={boardLink ? LINK_DASH : undefined}
           strokeOpacity={0.58 + activity * 0.28}
         />
-        <circle cx={targetX} cy={targetY} r={3.2} fill={color} opacity={0.82} />
+        <path d={terminalPath} transform={`translate(${targetX - 5} ${targetY - 5}) scale(0.5)`} fill={color} opacity={0.82} />
         {linkMark}
         {valueReadout}
       </g>
@@ -316,7 +320,7 @@ function GlowEdge({
         />
       ))}
       {/* Bright dot at the target port */}
-      <circle cx={targetX} cy={targetY} r={4} fill={color} opacity={0.85} />
+      <path d={terminalPath} transform={`translate(${targetX - 6} ${targetY - 6}) scale(0.6)`} fill={color} opacity={0.85} />
       {linkMark}
       {valueReadout}
     </g>

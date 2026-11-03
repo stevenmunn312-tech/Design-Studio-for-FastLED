@@ -17,7 +17,7 @@ import {
 } from '../../../state/peripherals/irRemote'
 import { portColor } from '../../../state/nodeLibrary'
 import styles from './IRRemoteBody.module.css'
-import { NODE_HANDLE_STYLE } from '../nodeHandleStyle'
+import { portHandleStyle } from '../nodeHandleStyle'
 
 const BOOL_COLOR = portColor('bool')
 
@@ -140,7 +140,7 @@ function KeyRow({ nodeId, button, wired }: { nodeId: string; button: IrRemoteBut
         tabIndex={0}
         aria-label={`Connect from IR Remote ${button.label} output, bool. Press Enter or Space to choose a destination port.`}
         onKeyDown={activateHandleFromKeyboard}
-        style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: BOOL_COLOR, boxShadow: `0 0 6px ${BOOL_COLOR}` }}
+        style={{ ...portHandleStyle('bool', BOOL_COLOR), top: '50%', right: -8 }}
       />
     </div>
   )
@@ -203,7 +203,7 @@ export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
             tabIndex={0}
             aria-label="Connect from IR Remote pending mapped button output, bool."
             onKeyDown={activateHandleFromKeyboard}
-            style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: BOOL_COLOR, boxShadow: `0 0 6px ${BOOL_COLOR}` }}
+            style={{ ...portHandleStyle('bool', BOOL_COLOR), top: '50%', right: -8 }}
           />
         </div>
       )}

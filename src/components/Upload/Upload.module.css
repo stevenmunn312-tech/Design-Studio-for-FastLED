@@ -1325,14 +1325,14 @@
   width: 100%;
   height: 36px;
   border-radius: var(--radius-control);
-  border: 1px solid var(--accent-output);
+  border: 1px solid var(--accent-ui);
   background: none;
-  color: var(--accent-output);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-ui);
   cursor: pointer;
 }
-.installBtn:hover:not(:disabled) { background: var(--accent-output); color: black; }
+.installBtn:hover:not(:disabled) { background: var(--accent-ui); color: var(--accent-ui-text); }
 .installBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Output console (slide-over) ──────────────────────────────────────────── */

@@ -1,6 +1,8 @@
 import { rootGraphNodes, useGraphStore } from '../state/graphStore'
 import { useAudioStore } from '../state/audio/audioStore'
 import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from '../state/patterns/starterTemplates'
+import { BUNDLED_PATTERNS } from '../state/patterns/bundledPatterns'
+import type { SavedPattern } from '../state/patterns/patternLibrary'
 import { useUiStore, BLANK_BENCH_SHELF_CATEGORY } from '../state/uiStore'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { micSupportedForBoardProfile } from '../build/pins/micPinDefaults'
@@ -85,6 +87,24 @@ export function landOnStartingWorkspace() {
   useUiStore.setState({ sidebarOpen: true })
 }
 
+/**
+ * A show starter's Pattern Collection opens holding the bundled patterns it
+ * names. Pattern Master runs on the wall clock until a track plays, so this
+ * is what the LED output shows the moment the starter lands; an empty
+ * collection opened black.
+ */
+function seedCollection(template: StarterTemplate) {
+  const names = template.collectionPatterns ?? []
+  if (names.length === 0) return
+  const graph = useGraphStore.getState()
+  const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')
+  if (!collection) return
+  const patterns = names
+    .map((name) => BUNDLED_PATTERNS.find((pattern) => pattern.name === name))
+    .filter((pattern): pattern is SavedPattern => pattern !== undefined)
+  graph.addPatternsToCollection(collection.id, patterns)
+}
+
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
   const generation = ++startFlowGeneration
   const graph = useGraphStore.getState()
@@ -94,6 +114,7 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
     useUploadStore.getState().selectedFqbn,
   )
   useGraphStore.getState().loadGraph(nodes, edges)
+  seedCollection(template)
   finishStartFlow(
     template.id,
     `Loaded "${template.name}" starter`,

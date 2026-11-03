@@ -589,14 +589,15 @@ menu choices, Upload guidance and the Checks drawer.
 
 ## 5. Identity work (larger)
 
-- [ ] **"Only light emits light."**
+- [x] **"Only light emits light."**
   Make the LED preview, wire packets and hardware spill the sole sources of
   glow; chrome goes matte. Keep `.signalAura` (`StudioNode.module.css:76-91`),
   GlowEdge packets, `.ambilight` (`LEDPreview.module.css:429`) and
   HardwareLedSpill. Mostly deletions across tokens, App, MenuBar, StatusBar,
   Sidebar, NodeGraphCanvas, HardwarePane and LEDPreview. Effort M.
+  Done: sockets are matte (`portHandleStyle` sets no halo), the sidebar, canvas badges, controls, bench tabs and inspector carry no coloured shadow or tint gradient; `.signalAura`, GlowEdge packets, `.ambilight` and the bench spill keep theirs.
 
-- [ ] **A real socket vocabulary.**
+- [x] **A real socket vocabulary.**
   Port `dataType` already drives a glyph map and coloured 12 px circle
   handles (`nodeHandleStyle.ts`, `StudioNode.tsx:1902, 1921`). Make one
   `portSymbols.tsx`: frame = square, field = diamond, float = circle,
@@ -605,8 +606,9 @@ menu choices, Upload guidance and the Checks drawer.
   the help reference (`NodeReference.module.css:131`), the minimap and the
   wire terminal (`GlowEdge.tsx:203`). Replaces the two glyph maps plus
   `moduleGlyph` and `indexGlyph`. Effort M.
+  Done: `src/components/icons/portSymbols.ts` is the one table (shape per data type, SVG path plus handle CSS); `portHandleStyle` cuts every handle to it, `PortIcon` draws the sidebar and help glyph from it, and `GlowEdge` fills the wire terminal with the same path. `portIconNames.ts` and the glyph maps are gone; the minimap draws nodes only and has no port to mark.
 
-- [ ] **Let the photographic hardware set the material.**
+- [x] **Let the photographic hardware set the material.**
   The bench renders real boards at true millimetre scale
   (`HardwarePane.module.css:224-257`); surround it with flat instrument-panel
   chrome: single `--bg-panel`, hairline `--line`, no gradients on bars
@@ -614,19 +616,22 @@ menu choices, Upload guidance and the Checks drawer.
   `Sidebar.module.css:340-343, 360-362`, `NodeGraphCanvas.module.css:686, 695`),
   no texture on node bodies. Keep the grid-paper part thumbnails
   (`HardwarePartsShelf.module.css:232-245`). Effort S.
+  Done: sidebar, category and shelf headers, recipe cards, context menu, canvas badges and controls, bench tab and inspector, build and performance backgrounds are flat `--bg-panel`/`--bg-primary` with `--line` hairlines; node bodies flat; grid-paper thumbnails kept.
 
-- [ ] **Empty canvas as a ghost patch, not a hero.**
+- [x] **Empty canvas as a ghost patch, not a hero.**
   Replace `.emptyPanel`, `.emptyBeacon`, `.dormantSignal` and
   `.emptyFieldFrame` (`NodeGraphCanvas.module.css:224-518`, `.tsx:1310-1340`)
   with a dim dot grid and a translucent Juggle → LED Output pair at 40 %
   opacity that materialises on click, plus one 12 px line "Drag a node from
   the library, or press Start." Effort S–M.
+  Done: the card is a 40 % ghost Juggle → LED Output pair (the "Start with Juggle" button) over the dot grid, one line "Drag a node from the library, or press Start.", and text links for the audio demo, Start Gallery and guide.
 
-- [ ] **Example projects should not open black.**
+- [x] **Example projects should not open black.**
   The bundled Music Player example shows a black output matrix and "Add local
   tracks, or preview a generated show" until the user acts, so the first
   thing a visitor sees is nothing lit. Open examples with a generated show
   playing, or bundle a short royalty-free track.
+  Done: the Music Player starter names three bundled patterns (`collectionPatterns`) that `startTemplate` copies into its Pattern Collection on load, so the output plays on the wall clock from the first frame; `startFlow.test.ts` covers it.
 
 ## Keep as is
 

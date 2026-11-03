@@ -56,8 +56,8 @@
 
 .primaryBtn {
   border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
-  background: var(--accent-audio);
-  color: var(--paint-111);
+  background: var(--accent-ui);
+  color: var(--accent-ui-text);
   font-weight: 700;
 }
 

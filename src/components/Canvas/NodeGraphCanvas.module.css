@@ -133,110 +133,109 @@
   pointer-events: none;
 }
 
-.emptyPanel {
-  position: relative;
+.emptyStack {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  width: min(440px, calc(100% - 32px));
-  padding: var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  background:
-    var(--bg-panel);
-  box-shadow:
-    0 16px 40px var(--chrome-shadow);
-  color: var(--text-secondary);
-  text-align: center;
   pointer-events: auto;
-  overflow: hidden;
 }
 
-.emptyField strong {
+/* The ghost patch: two node outlines and a dashed wire, dim until hovered. */
+.ghostPatch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2);
+  border: 0;
+  background: transparent;
+  opacity: 0.4;
+  cursor: pointer;
+  transition: opacity var(--anim-hover);
+}
+
+.ghostPatch:hover,
+.ghostPatch:focus-visible {
+  opacity: 0.85;
+  outline: none;
+}
+
+.ghostNode {
+  display: flex;
+  flex-direction: column;
+  width: 150px;
+  border: 1px dashed var(--line);
+  border-radius: var(--node-radius);
+  background: var(--bg-node);
   color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: 18px;
-  letter-spacing: 0.04em;
-  text-transform: none;
+  text-align: left;
 }
 
-.emptySummary {
-  max-width: 420px;
+.ghostHeader {
+  height: 28px;
+  padding: 0 var(--space-1);
+  display: flex;
+  align-items: center;
+  border-left: 3px solid var(--ghost-accent);
+  border-bottom: 1px solid var(--line);
   font-family: var(--font-body);
   font-size: var(--fs-caption);
-  line-height: 1.6;
-  opacity: 0.78;
+  font-weight: 600;
 }
 
-.emptyActions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: calc(var(--space-0) * 3);
-  width: 100%;
-  max-width: 400px;
-  margin-top: var(--space-0);
+.ghostBody {
+  height: 56px;
 }
 
-@container (max-width: 420px) {
-  .emptyPanel {
-    padding: calc(var(--space-0) * 5.5) calc(var(--space-0) * 3.5) calc(var(--space-0) * 4.5);
-    background: var(--bg-panel);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-card);
-    box-shadow: 0 16px 40px var(--chrome-shadow);
-  }
+.ghostNodePattern { --ghost-accent: var(--accent-pattern); }
+.ghostNodeOutput { --ghost-accent: var(--accent-output); }
 
-  .emptyActions {
-    grid-template-columns: 1fr;
-    gap: var(--space-1);
-  }
+.ghostWire {
+  width: 56px;
+  border-top: 2px dashed var(--accent-pattern);
 }
 
-/* An odd last button (the guide's, once it is showing, is left out) spans
-   the row rather than leaving a hole beside it. */
-.emptyActions > :last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-}
-
-.startAction {
-  min-height: 38px;
-  padding: calc(var(--space-0) * 3) calc(var(--space-0) * 3.5);
-  border: 1px solid rgba(169, 214, 255, 0.12);
-  border-radius: var(--radius-control);
-  background:
-    var(--bg-node);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: var(--fs-ui);
-  text-transform: none;
-  cursor: pointer;
-  transition:
-    transform 120ms ease-out,
-    border-color 120ms ease-out,
-    box-shadow 120ms ease-out,
-    background 120ms ease-out;
-}
-
-.startAction:hover {
-  border-color: rgba(90, 209, 255, 0.32);
-}
-
-.startAction:focus-visible {
-  outline: none;
-  border-color: rgba(90, 209, 255, 0.48);
-}
-
-.startActionPrimary {
-  background:
-    var(--accent-ui);
-  color: var(--accent-ui-text);
-}
-
-.emptyMeta {
+.emptyLine {
+  margin: 0;
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-size: var(--fs-caption);
+  text-align: center;
+}
+
+.emptyLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-ui);
+  font: inherit;
+  cursor: pointer;
+}
+
+.emptyLink:hover,
+.emptyLink:focus-visible {
+  outline: none;
+  text-decoration: underline;
+}
+
+/* A strip of canvas between two open panels: the pair stacks, the wire
+   turns vertical, the copy wraps. */
+@container (max-width: 460px) {
+  .ghostPatch {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .ghostWire {
+    width: 0;
+    height: 40px;
+    border-top: 0;
+    border-left: 2px dashed var(--accent-pattern);
+  }
+
+  .emptyLine {
+    padding: 0 var(--space-2);
+  }
 }
 
 .unpatchedFlag {
@@ -248,9 +247,9 @@
   align-items: center;
   gap: calc(var(--space-0) * 1.75);
   padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 2.5);
-  border: 1px solid rgba(90, 209, 255, 0.2);
+  border: 1px solid var(--line);
   border-radius: var(--radius-control);
-  background: linear-gradient(180deg, rgba(13, 19, 27, 0.92), rgba(8, 12, 17, 0.74));
+  background: var(--bg-panel);
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-size: var(--fs-label);
@@ -264,7 +263,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--accent-output);
+  background: var(--accent-ui);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -344,9 +343,9 @@
   align-items: center;
   gap: var(--space-1);
   padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 3) calc(var(--space-0) * 1.75) calc(var(--space-0) * 2.5);
-  border: 1px solid rgba(169, 214, 255, 0.12);
+  border: 1px solid var(--line);
   border-radius: var(--radius-control);
-  background: linear-gradient(180deg, rgba(11, 18, 25, 0.92), rgba(7, 10, 15, 0.74));
+  background: var(--bg-panel);
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: var(--fs-label);
@@ -403,17 +402,14 @@
   overflow: hidden;
   border-right: none !important;
   border-radius: 8px 0 0 0;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 4%, var(--bg-panel)), var(--bg-panel)) !important;
-  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.22);
+  background: var(--bg-panel) !important;
 }
 
 .minimap:global(.react-flow__minimap) {
   border-left: 1px solid var(--line) !important;
   border-radius: 0 8px 0 0;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 4%, var(--bg-panel)), var(--bg-panel)) !important;
+  background: var(--bg-panel) !important;
   box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.22);
 }
 

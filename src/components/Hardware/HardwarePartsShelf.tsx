@@ -34,7 +34,7 @@ interface HardwarePartsShelfProps {
 function visualIcon(visual: string | undefined): IconName {
   if (visual === 'matrix' || visual === 'hub75') return 'grid'
   if (visual === 'ring') return 'ring'
-  if (visual === 'corkscrew') return 'audio'
+  if (visual === 'corkscrew') return 'wave'
   if (visual === 'strip') return 'strip'
   if (visual === 'stereo-vu') return 'bars'
   if (visual === 'custom-display') return 'frame'

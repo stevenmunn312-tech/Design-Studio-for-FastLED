@@ -84,7 +84,7 @@ import {
   CATEGORY_TAG, HARDWARE_INPUT_WIDGET_TYPES, NODE_WIDTH_OVERRIDES, PREVIEW_NOTES,
   editableProperties, hasRgbProperties,
 } from './studioNodeChrome'
-import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
+import { portHandleStyle } from './nodeHandleStyle'
 import {
   controllableInputsFor, exposableInputsFor, exposedNodeInputs, labelledForPart, propertyInputsFor,
 } from '../../state/propertyInputs'
@@ -765,8 +765,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 tabIndex={locked ? -1 : 0} isConnectable={!locked} aria-disabled={locked}
                 aria-label={`Connect to ${nodeLabel} ${exposedInput.label} input, ${exposedInput.dataType}${connectionHint ? `. ${connectionHint.aria}` : ''}. Press Enter or Space to choose a source port.`}
                 onKeyDown={activateHandleFromKeyboard} className={`${styles.propertyHandle}${connectionHint ? ` ${connectionHintClass(connectionHint)}` : ''}`}
-                style={{ ...NODE_HANDLE_STYLE, top: '50%', background: portColor(exposedInput.dataType),
-                  boxShadow: `0 0 6px ${portColor(exposedInput.dataType)}` }} />
+                style={{ ...portHandleStyle(exposedInput.dataType, portColor(exposedInput.dataType)), top: '50%' }} />
             )}
             <span className={styles.propKey} title={key}>{displayLabel}</span>
             {meta?.control === 'select' ? (
@@ -1625,11 +1624,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               onKeyDown={activateHandleFromKeyboard}
               className={connectionHintClass(connectionHint)}
               style={{
-                ...NODE_HANDLE_STYLE,
+                ...portHandleStyle(input.dataType, inputColor),
                 top: `${((index + 1) / (compactInputs.length + 1)) * 100}%`,
                 left: -8,
-                background: inputColor,
-                boxShadow: `0 0 6px ${inputColor}`,
               }}
             />
           )
@@ -1650,11 +1647,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}
               onKeyDown={activateHandleFromKeyboard}
               style={{
-                ...NODE_HANDLE_STYLE,
+                ...portHandleStyle(output.dataType, outputColor),
                 top: `${((index + 1) / (outputs.length + 1)) * 100}%`,
                 right: -8,
-                background: outputColor,
-                boxShadow: `0 0 6px ${outputColor}`,
               }}
             />
           )
@@ -1913,7 +1908,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}${inputHint ? `. ${inputHint.aria}` : ''}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
                     onKeyDown={activateHandleFromKeyboard}
                     className={connectionHintClass(inputHint)}
-                    style={{ ...NODE_HANDLE_STYLE, top: '50%', left: -8, background: inputColor, boxShadow: `0 0 6px ${inputColor}` }}
+                    style={{ ...portHandleStyle(input.dataType, inputColor), top: '50%', left: -8 }}
                   />
                   {sparkPortId === input.id && <span className={styles.spark} />}
                 </>
@@ -1932,7 +1927,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   aria-disabled={micUnavailable}
                   aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}
                   onKeyDown={activateHandleFromKeyboard}
-                  style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: outputColor, boxShadow: `0 0 6px ${outputColor}` }}
+                  style={{ ...portHandleStyle(output.dataType, outputColor), top: '50%', right: -8 }}
                 />
               )}
             </div>

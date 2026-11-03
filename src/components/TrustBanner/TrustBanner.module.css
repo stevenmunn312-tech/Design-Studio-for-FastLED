@@ -30,6 +30,6 @@
 }
 
 .trustButton:hover {
-  background: var(--accent-output);
-  color: var(--bg-primary, var(--paint-0b0d12));
+  background: var(--accent-ui);
+  color: var(--accent-ui-text);
 }

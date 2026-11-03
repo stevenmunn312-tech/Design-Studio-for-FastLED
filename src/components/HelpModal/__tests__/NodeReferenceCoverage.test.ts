@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { PORT_DESCRIPTIONS } from '../portCopy'
-import { PORT_ICON_NAMES } from '../../icons/portIconNames'
+import { PORT_SYMBOL_FOR_TYPE } from '../../icons/portSymbols'
 import { NODE_REFERENCE } from '../reference'
 import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../../utils/nodeReferenceAssets'
 import { DISPLAY_NODE_TYPES } from '../../../utils/validateGraph'
@@ -28,7 +28,7 @@ const LIVE_PORT_TYPES = (() => {
 })()
 
 const MAPS: Array<[string, Record<string, string>]> = [
-  ['PORT_ICON_NAMES', PORT_ICON_NAMES],
+  ['PORT_SYMBOL_FOR_TYPE', PORT_SYMBOL_FOR_TYPE],
   ['PORT_DESCRIPTIONS', PORT_DESCRIPTIONS],
 ]
 
@@ -57,7 +57,7 @@ describe('Node Reference port-type coverage', () => {
   it('covers the same set of dataTypes in every map', () => {
     const [, first] = MAPS[0]
     for (const [name, map] of MAPS.slice(1)) {
-      expect(Object.keys(map).sort(), `${name} disagrees with PORT_ICON_NAMES`)
+      expect(Object.keys(map).sort(), `${name} disagrees with PORT_SYMBOL_FOR_TYPE`)
         .toEqual(Object.keys(first).sort())
     }
   })
