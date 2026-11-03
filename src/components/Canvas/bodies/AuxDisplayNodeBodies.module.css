@@ -1,7 +1,7 @@
 .wrap {
   display: flex;
   justify-content: center;
-  margin: 8px 10px 4px;
+  margin: var(--space-1) calc(var(--space-0) * 2.5) var(--space-0);
 }
 
 .screen {
@@ -11,23 +11,21 @@
 }
 
 .oled {
-  background: #00050c;
-  border: 3px solid #222933;
+  background: var(--paint-00050c);
+  border: 3px solid var(--paint-222933);
   border-radius: 5px;
-  box-shadow: inset 0 0 10px rgb(45 173 255 / 12%), 0 4px 12px rgb(0 0 0 / 35%);
 }
 
 .segmentScreen {
   display: flex;
-  gap: 4px;
+  gap: var(--space-0);
   width: min(174px, 100%);
-  padding: 8px;
+  padding: var(--space-1);
   overflow: hidden;
-  background: #130202;
-  border: 3px solid #292323;
+  background: var(--paint-130202);
+  border: 3px solid var(--paint-292323);
   border-radius: 5px;
   box-sizing: border-box;
-  box-shadow: inset 0 0 12px rgb(255 20 20 / 10%), 0 4px 12px rgb(0 0 0 / 35%);
 }
 
 .segmentDark { opacity: 0.62; }
@@ -44,26 +42,25 @@
 .colon {
   position: absolute;
   display: block;
-  background: #3b0808;
+  background: var(--paint-3b0808);
   transition: background-color 80ms linear, box-shadow 80ms linear;
 }
 
 .segment[data-on='true'],
 .dp[data-on='true'],
 .colon[data-on='true'] {
-  background: #ff3030;
-  box-shadow: 0 0 5px #ff1e1e;
+  background: var(--paint-ff3030);
 }
 
-.a, .d, .g { left: 18%; width: 64%; height: 8%; border-radius: 999px; }
+.a, .d, .g { left: 18%; width: 64%; height: 8%; border-radius: var(--radius-control); }
 .a { top: 2%; }
 .g { top: 46%; }
 .d { bottom: 2%; }
-.b, .c, .e, .f { width: 10%; height: 38%; border-radius: 999px; }
+.b, .c, .e, .f { width: 10%; height: 38%; border-radius: var(--radius-control); }
 .b { right: 7%; top: 8%; }
 .c { right: 7%; bottom: 8%; }
 .f { left: 7%; top: 8%; }
 .e { left: 7%; bottom: 8%; }
 .dp { right: -2px; bottom: 2%; width: 5px; height: 5px; border-radius: 50%; }
-.colon { right: -5px; top: 31%; width: 5px; height: 5px; border-radius: 50%; box-shadow: 0 13px 0 #3b0808; }
-.colon[data-on='true'] { box-shadow: 0 0 5px #ff1e1e, 0 13px 0 #ff3030, 0 13px 5px #ff1e1e; }
+.colon { right: -5px; top: 31%; width: 5px; height: 5px; border-radius: 50%; box-shadow: 0 13px 0 var(--paint-3b0808); }
+.colon[data-on='true'] { }

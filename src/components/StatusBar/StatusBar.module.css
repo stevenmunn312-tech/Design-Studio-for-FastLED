@@ -1,14 +1,13 @@
 .statusbar {
   height: var(--statusbar-height);
-  background:
-    linear-gradient(180deg, rgba(16, 20, 25, 0.96), rgba(10, 12, 16, 0.98));
-  border-top: 1px solid var(--border-glow);
+  background: var(--bg-panel);
+  border-top: 1px solid var(--line);
   padding: 0 var(--space-2);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   font-size: var(--fs-caption);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
@@ -21,7 +20,7 @@
 .leftRail {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   min-width: 0;
   max-width: 45%;
   flex: 0 0 auto;
@@ -33,17 +32,6 @@
   border-radius: 50%;
   flex-shrink: 0;
   transition: background 300ms ease;
-  box-shadow: 0 0 8px currentColor;
-}
-
-.modeTag {
-  padding: 2px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .message {
@@ -57,7 +45,7 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -70,37 +58,38 @@
 /* The scrollbar is hidden, so an edge with more chips beyond it fades out,
    as the top nav's does. */
 .right[data-overflow-end] {
-  mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(90deg, black calc(100% - 36px), transparent);
 }
 
 .right[data-overflow-start] {
-  mask-image: linear-gradient(90deg, transparent, #000 36px);
+  mask-image: linear-gradient(90deg, transparent, black 36px);
 }
 
 .right[data-overflow-start][data-overflow-end] {
-  mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(90deg, transparent, black 36px, black calc(100% - 36px), transparent);
 }
 
 .chip {
-  padding: 2px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 999px;
+  padding: 0;
+  border: 0;
   color: var(--text-secondary);
-  font-size: 11px;
-  font-family: var(--font-code);
-  opacity: 0.78;
+  font-size: var(--fs-ui);
+  font-family: var(--font-body);
   white-space: nowrap;
+}
+
+.chip::before {
+  content: '·';
+  color: var(--text-secondary);
+  margin-right: var(--space-1);
 }
 
 .chipStrong {
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .chipAccent {
-  color: var(--accent-output);
-  border-color: color-mix(in srgb, var(--accent-output) 28%, transparent);
-  box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent-output) 8%, transparent);
+  color: var(--accent-ui);
 }
 
 .chipButton {
@@ -111,5 +100,5 @@
 
 .chipButton:hover,
 .chipButton:focus-visible {
-  border-color: var(--accent-output);
+  color: var(--text-primary);
 }

@@ -7,6 +7,7 @@ import { estimateFirmwareRam } from '../../utils/validateGraph'
 import { describePort } from '../../utils/portStatus'
 import { buildToolsOfflineHint } from '../../utils/buildTools'
 import styles from './Upload.module.css'
+import { Icon } from '../icons/Icon'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
@@ -283,7 +284,7 @@ export default function BoardPopup() {
               </option>
             ))}
           </select>
-          <button className={styles.refreshBtn} onClick={refreshPorts} disabled={!ready} title="Refresh ports">↻</button>
+          <button className={styles.refreshBtn} onClick={refreshPorts} disabled={!ready} title="Refresh ports"><Icon name="refresh" /></button>
         </div>
 
         <div className={styles.targetBig} title={port.detail}>{target}</div>

@@ -1,21 +1,21 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-  padding-top: 6px;
+  gap: calc(var(--space-0) * 1.5);
+  margin-top: var(--space-0);
+  padding-top: calc(var(--space-0) * 1.5);
   border-top: 1px solid var(--divider);
 }
 
 /* ── Drop zone ── */
 .dropZone {
-  border: 2px dashed var(--border-glow);
+  border: 2px dashed var(--line);
   border-radius: 8px;
-  padding: 12px 8px;
+  padding: calc(var(--space-0) * 3) var(--space-1);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   cursor: pointer;
   color: var(--text-secondary);
   font-size: var(--fs-caption);
@@ -39,7 +39,7 @@
 .songList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-0);
   max-height: 180px;
   overflow-y: auto;
 }
@@ -47,18 +47,18 @@
 .songRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: var(--space-1);
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
   border-radius: 6px;
   background: var(--bg-primary);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
 }
 
 .songInfo {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   min-width: 0;
 }
 
@@ -71,30 +71,29 @@
 }
 
 .songMeta {
-  font-size: 10px;
+  font-size: var(--fs-label);
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
 }
 
 .songError {
-  font-size: 10px;
+  font-size: var(--fs-label);
   color: var(--error);
 }
 
 .songActions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   flex-shrink: 0;
 }
 
 /* ── Status badges ── */
 .badge {
-  font-size: 9px;
+  font-size: var(--fs-label);
   font-weight: 600;
-  padding: 2px 6px;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.5);
   border-radius: 10px;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
@@ -123,9 +122,9 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px 5px;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.25);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: var(--fs-ui);
   color: var(--text-secondary);
 }
 
@@ -139,28 +138,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .footerRight {
   display: flex;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .secondaryBtn,
 .primaryBtn,
 .exportBtn {
-  padding: 5px 10px;
+  padding: calc(var(--space-0) * 1.25) calc(var(--space-0) * 2.5);
   border-radius: 6px;
   cursor: pointer;
-  font-size: var(--fs-caption);
+  font-size: var(--fs-ui);
   font-weight: 600;
   border: none;
 }
 
 .secondaryBtn {
   background: none;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   color: var(--text-secondary);
   font-weight: 400;
 }
@@ -172,12 +171,12 @@
 
 .primaryBtn {
   background: var(--accent-math);
-  color: #000;
+  color: black;
 }
 
 .exportBtn {
   background: var(--accent-show);
-  color: #000;
+  color: black;
 }
 
 .primaryBtn:hover:not(:disabled),
@@ -196,15 +195,15 @@
 .legend {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   flex-wrap: wrap;
-  padding-top: 4px;
+  padding-top: var(--space-0);
   border-top: 1px solid var(--divider);
 }
 
 .legendChip {
-  font-size: 9px;
-  padding: 1px 6px;
+  font-size: var(--fs-ui);
+  padding: calc(var(--space-0) * 0.25) calc(var(--space-0) * 1.5);
   border-radius: 8px;
   text-transform: capitalize;
 }
@@ -212,10 +211,10 @@
 /* Song-section chip colours are their own fixed legend (blue intro, orange
    buildup, magenta drop…), deliberately NOT tied to the node-category accent
    vars — those sweep the hue wheel and would drift these chips around. */
-.section_intro   { background: rgba(0, 191, 255, 0.2);   color: #00bfff; }
-.section_verse   { background: rgba(168, 255, 0, 0.15);  color: #a8ff00; }
-.section_buildup { background: rgba(255, 165, 0, 0.2);   color: #ffa500; }
-.section_drop    { background: rgba(255, 0, 255, 0.2);   color: #ff00ff; }
-.section_chorus  { background: rgba(255, 0, 255, 0.15);  color: #ff00ff; }
-.section_bridge  { background: rgba(0, 255, 255, 0.15);  color: #00ffff; }
+.section_intro   { background: rgba(0, 191, 255, 0.2);   color: var(--paint-00bfff); }
+.section_verse   { background: rgba(168, 255, 0, 0.15);  color: var(--paint-a8ff00); }
+.section_buildup { background: rgba(255, 165, 0, 0.2);   color: var(--paint-ffa500); }
+.section_drop    { background: rgba(255, 0, 255, 0.2);   color: var(--paint-ff00ff); }
+.section_chorus  { background: rgba(255, 0, 255, 0.15);  color: var(--paint-ff00ff); }
+.section_bridge  { background: rgba(0, 255, 255, 0.15);  color: var(--paint-00ffff); }
 .section_outro   { background: rgba(120, 120, 120, 0.2); color: var(--text-secondary); }

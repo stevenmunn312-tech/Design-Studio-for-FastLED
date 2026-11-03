@@ -6,10 +6,10 @@
 .strip {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1, 8px) var(--space-2, 16px);
+  gap: var(--space-1, var(--space-1)) var(--space-2, var(--space-2));
   align-items: baseline;
-  padding: var(--space-1, 8px) var(--space-2, 16px);
-  border-top: 1px solid color-mix(in srgb, var(--border-glow) 70%, transparent);
+  padding: var(--space-1, var(--space-1)) var(--space-2, var(--space-2));
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   font-size: 11px;
   letter-spacing: 0.02em;
 }
@@ -21,21 +21,21 @@
 .compact {
   flex: 0 0 auto;
   flex-wrap: nowrap;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   padding: 0;
   border-top: 0;
-  font-size: 10px;
+  font-size: var(--fs-label);
 }
 
 .compact .item {
-  gap: 4px;
-  padding: 2px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 999px;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.75);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 7.000000000000001%, transparent);
+  border-radius: var(--radius-control);
 }
 
 .compact .label {
-  font-size: 9px;
+  font-size: var(--fs-label);
 }
 
 .compact .note {
@@ -45,14 +45,13 @@
 .item {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   min-width: 0;
 }
 
 .label {
   font-style: normal;
-  text-transform: uppercase;
-  font-size: 9px;
+  font-size: var(--fs-label);
   letter-spacing: 0.12em;
   opacity: 0.75;
 }
@@ -90,12 +89,12 @@
 }
 
 /* Quiet by default; a figure earns colour only when it needs a decision. */
-.item[data-level='ok'] strong { color: var(--text-primary, #e8ecf1); }
-.item[data-level='warn'] strong { color: #ffb74d; }
-.item[data-level='bad'] strong { color: #ff6b6b; }
+.item[data-level='ok'] strong { color: var(--text-primary, var(--paint-e8ecf1)); }
+.item[data-level='warn'] strong { color: var(--paint-ffb74d); }
+.item[data-level='bad'] strong { color: var(--paint-ff6b6b); }
 /* No verdict yet (not checked, no toolchain, stale): readable, but visibly
  * not an answer. */
-.item[data-level='pending'] strong { color: var(--text-secondary, #a9b3c1); font-weight: 500; }
+.item[data-level='pending'] strong { color: var(--text-secondary, var(--paint-a9b3c1)); font-weight: 500; }
 
 /* The Fits chip becomes a button only when the check failed and there is an
  * output log worth opening — otherwise the strip stays a quiet readout. */
@@ -106,7 +105,6 @@
   padding: 0;
   margin: 0;
   font: inherit;
-  letter-spacing: inherit;
   color: inherit;
   cursor: pointer;
   text-align: left;
@@ -119,15 +117,13 @@
  * rather than a dim note: a reading nobody can see how to refresh was being
  * missed, and this is the one control in the strip. */
 .action {
-  padding: 0 6px;
+  padding: 0 calc(var(--space-0) * 1.5);
   border: 1px solid color-mix(in srgb, var(--accent-output) 55%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--accent-output) 14%, transparent);
   color: color-mix(in srgb, var(--accent-output) 78%, white);
   font-weight: 600;
-  text-transform: uppercase;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-ui);
   white-space: nowrap;
 }
 

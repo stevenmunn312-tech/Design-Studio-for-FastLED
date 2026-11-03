@@ -414,7 +414,7 @@ menu choices, Upload guidance and the Checks drawer.
 
 ## 4. Visual cleanup (mechanical, large payoff)
 
-- [ ] **Ten theme tokens are used but never defined.**
+- [x] **Ten theme tokens are used but never defined.**
   Problem: `--danger`, `--surface-recessed`, `--good`, `--warn`, `--bad`,
   `--bg-deep`, `--bg-canvas`, `--status-error`, `--text-muted` are used with
   hard-coded dark fallbacks across `StudioNode.module.css`, several node
@@ -423,8 +423,9 @@ menu choices, Upload guidance and the Checks drawer.
   `tokens.css` defines `--error`, `--success`, `--warning` instead.
   Fix: alias the stray names in `src/themes/tokens.css` or rename at the use
   sites; add a test that every `var(--x)` in `src/**/*.css` is defined.
+  Done: the stray names are aliases in `tokens.css`; `src/themes/__tests__/definedTokens.test.ts` fails on any `var(--x)` nobody declares.
 
-- [ ] **Colour bypasses tokens; Light and Solarized themes cannot work.**
+- [x] **Colour bypasses tokens; Light and Solarized themes cannot work.**
   Problem: 240 distinct hex literals in module CSS, `rgba(255,255,255,…)`
   377 times, `rgba(0,191,255)` 50 times, `#9ce8ff` 17, `#ff5e9d` 12; zero
   `[data-theme]` overrides in any module file while the menubar, status bar,
@@ -435,8 +436,9 @@ menu choices, Upload guidance and the Checks drawer.
   add one chrome accent (`--accent-ui`, suggest the brand cyan `#5ad1ff`,
   already the most-used literal) and `--accent-ui-text`; forbid raw hex in
   modules with stylelint.
+  Done: no hex in any module file (stylelint `color-no-hex`, `npm run lint:styles`, in CI); fixed illustrative colours live in the `--paint-*` palette in `tokens.css`; chrome uses `--accent-ui`/`--accent-ui-text`. Light and Solarized stay, overriding structural tokens only.
 
-- [ ] **Glow as the default.**
+- [x] **Glow as the default.**
   Problem: 119 `box-shadow: 0 0 Npx` halos and a token literally named
   `--border-glow`: menu dropdown bloom (`MenuBar.module.css:169`), logo
   drop-shadow (`:50`), hover glow on plain buttons (`:241`), popups
@@ -446,8 +448,9 @@ menu choices, Upload guidance and the Checks drawer.
   (`StudioNode.module.css:128-131`).
   Fix: glow only on things that emit light: LED preview, wire packets,
   ambilight, record dot, VU. Rename `--border-glow` to `--line`.
+  Done: `--border-glow` is `--line`; the remaining `box-shadow: 0 0` halos sit on the live dot, record dot, standby blink, DMX and transport indicators.
 
-- [ ] **Ambient decoration loops.**
+- [x] **Ambient decoration loops.**
   Problem: 79 `radial-gradient` and 14 infinite idle keyframes. The canvas
   stacks signalField, fieldLattice, fieldOrbits, cursorWake, fieldScan and
   focusVeil (`NodeGraphCanvas.module.css:53-159`), a 28 px ghost frame
@@ -460,8 +463,9 @@ menu choices, Upload guidance and the Checks drawer.
   Fix: delete orbits, frame, scan, beacon, dormantSignal, flicker and
   brandShine. Keep a plain dot grid, the cursor wake if cheap, and the
   data-driven `.signalAura` on nodes.
+  Done: orbits, ghost frame, scan, beacon, dormant signal, CRT flicker and brand shine are gone; the dot grid, cursor wake and data-driven `.signalAura` stay. The bench keeps its one-shot controller hint ring, which leaves on the first click.
 
-- [ ] **Glassmorphism.**
+- [x] **Glassmorphism.**
   Problem: `backdrop-filter` 15 times: empty-state card
   (`NodeGraphCanvas.module.css:272`), HUD chips (`LEDPreview.module.css:401,
   426, 578`), stage header (`:127`), sidebar and preview handles
@@ -469,8 +473,9 @@ menu choices, Upload guidance and the Checks drawer.
   (`StudioNode.module.css:151`), `GroupControls.module.css:22`,
   `BoardPinoutPicker.module.css:9`.
   Fix: opaque `--bg-panel`; keep blur for the fullscreen stage overlay only.
+  Done: no `backdrop-filter` left; panels are opaque `--bg-panel`.
 
-- [ ] **Gradient active buttons and the rainbow.**
+- [x] **Gradient active buttons and the rainbow.**
   Problem: `MenuBar.module.css:307, 318, 373, 384` use a 135° accent gradient
   plus glow for active states; `:395` `.btnStyleActive` is
   `linear-gradient(135deg, #8a4dff, #ff5e9d 58%, #00f0ff)` with a pink glow;
@@ -479,8 +484,9 @@ menu choices, Upload guidance and the Checks drawer.
   (`StudioNode.module.css:293-350`) that read as noise at canvas zoom.
   Fix: active = flat accent fill with dark text; delete the `.btnStyleActive`
   gradient; node body = flat `--bg-node`.
+  Done: active states and the Upload, Deck and transport buttons are flat fills; `.btnStyleActive` and the glow bar gradients are gone; node bodies are flat `--bg-node`.
 
-- [ ] **Pill radius on everything.**
+- [x] **Pill radius on everything.**
   Problem: `border-radius: 999px` 93 times across 24 files, 30 distinct radii
   overall: every toolbar button (`MenuBar.module.css:225`), the live-tools
   housing (`:294`), the search input (`Sidebar.module.css:109`), chips
@@ -488,21 +494,24 @@ menu choices, Upload guidance and the Checks drawer.
   node header tag (`StudioNode.module.css:272`), `Upload.module.css` 17 times.
   Fix: three radius tokens (3 px inputs, buttons, tags; 6 px nodes, cards;
   10 px dialogs). Round only LED and status dots. Toolbar buttons rectangular.
+  Done: `--radius-control` 3 px, `--radius-card` 6 px, `--radius-dialog` 10 px; no `999px`; `50%` only on dots and round controls.
 
-- [ ] **Hover lift.**
+- [x] **Hover lift.**
   Problem: `translateY(-1px/-2px)` in `AppDialogHost.module.css:131`,
   `NodeGraphCanvas.module.css:367`, `Sidebar.module.css:659`,
   `TemplatesPopup.module.css:170`, `NewProjectPrompt.module.css:99`,
   `NodeReference.module.css:283`; `BeatDetectBody.module.css:84` scales 1.04.
   Fix: hover = border or text colour only.
+  Done: no `translateY` or `scale` on hover; hover changes border or text colour.
 
-- [ ] **No spacing scale in practice.**
+- [x] **No spacing scale in practice.**
   Problem: `--space-*` used 62 times against about 1400 literal px paddings
   and gaps; 20 distinct `gap` values.
   Fix: 4 px base tokens; stylelint disallows literal px on padding, gap and
   margin.
+  Done: `--space-0..5` on a 4 px base; stylelint rejects literal px on `padding`, `gap` and `margin`.
 
-- [ ] **Micro tracked-caps mono everywhere.**
+- [x] **Micro tracked-caps mono everywhere.**
   Problem: 141 declarations at 8 px or 9 px, 161 `text-transform: uppercase`,
   220 `letter-spacing`; `--font-code` used 245 times against `--font-body`
   37. Menu items are 11 px uppercase mono (`MenuBar.module.css:180-184`),
@@ -513,16 +522,18 @@ menu choices, Upload guidance and the Checks drawer.
   code with `font-variant-numeric: tabular-nums`; Audiowide only for the
   wordmark and the four workspace tabs; add `--fs-label: 11px` and
   `--fs-ui: 13px`.
+  Done: nothing below `--fs-label` 11 px except SVG pin labels; `--fs-ui` 13 px for menus and buttons in Inter; mono kept for values, pins and code; uppercase only on section kickers.
 
-- [ ] **Node header is a full-saturation sticker.**
+- [x] **Node header is a full-saturation sticker.**
   Problem: inline `background: accent` with `color: #000`
   (`StudioNode.tsx:1595`), Audiowide 14 px with ellipsis and a coloured drop
   shadow (`StudioNode.module.css:158-169`).
   Fix: dark header with a 3 px left rule (or 2 px top bar) in the category
   colour; title Inter 600 12 px `--text-primary`. Category stays obvious from
   the rule, the wire colour and the sidebar.
+  Done: dark header with a 3 px left rule in the category colour, title Inter 600 12 px.
 
-- [ ] **Fifteen accents, none of them the UI's.**
+- [x] **Fifteen accents, none of them the UI's.**
   Problem: a hue wheel at 24° steps, all `hsl(h,100%,60%)`
   (`tokens.css:132-148`); signal `#33ff33`, math `#33ff85` and audio
   `#85ff33` are indistinguishable on wires; chrome borrows category colours at
@@ -535,8 +546,9 @@ menu choices, Upload guidance and the Checks drawer.
   Fix: at most eight category hues at about 80 % saturation, spaced for
   discrimination, set once in `nodeLibrary.ts CATEGORIES` and tokens; one UI
   accent for every interactive-chrome state.
+  Done: eight category hues at about 80 % saturation in `CATEGORIES` and `tokens.css`; focus rings, primary buttons, tabs and guides use `--accent-ui`.
 
-- [ ] **Dialog family cloned with drift.**
+- [x] **Dialog family cloned with drift.**
   Problem: `fadeIn` defined nine times and `slideUp` seven (AppDialogHost,
   HelpModal, NewProjectPrompt, PatternRatings, Projects, Recover, Templates,
   Upload, RecordPopup); the overlay cyan spotlight repeated
@@ -545,8 +557,9 @@ menu choices, Upload guidance and the Checks drawer.
   close-button styles.
   Fix: `src/components/AppDialog/` becomes the only overlay primitive; popups
   supply content only.
+  Done: every popup composes `sharedOverlay`, `sharedSurface` and `sharedClose` from `AppDialogHost.module.css`; one fade and one slide keyframe.
 
-- [ ] **Chip and badge inflation; hero copy inside a tool.**
+- [x] **Chip and badge inflation; hero copy inside a tool.**
   Problem: 144 badge, chip, tag and pill class definitions; the sidebar
   header shows three count pills (`Sidebar.module.css:48-58`); each library
   row carries a synthetic SKU from `moduleCode()` (`Sidebar.tsx:215-221`, for
@@ -559,8 +572,9 @@ menu choices, Upload guidance and the Checks drawer.
   with "·" separators ("Ready · 15.4 A · pins ok · 8 modules · ESP32"); no
   minimap caption; subtitles gone or plain ("Node Library"); empty canvas
   reads "No nodes yet — drag one from the library, or press Start."
+  Done: `moduleCode` deleted; sidebar counts and the status bar are plain text with · separators; the minimap caption, subtitles, "Signal lab idle" and "Last start" are gone; the empty canvas reads "No nodes yet".
 
-- [ ] **Emoji and Unicode glyphs as the icon system.**
+- [x] **Emoji and Unicode glyphs as the icon system.**
   Problem: no icon library; 73 emoji lines in 29 files and about 290
   arrow/shape glyph lines in 93 files: 📌 (`StudioNode.tsx:906`,
   `BoardNodeBody.tsx:289`, de-coloured with `filter: grayscale(1)`), 👁
@@ -571,6 +585,7 @@ menu choices, Upload guidance and the Checks drawer.
   are `Preview/PlayerIcons.tsx` and `PatternTags/PatternFormIcons.tsx`.
   Fix: one in-repo 16 px stroke SVG set under `src/components/icons/`,
   including the port-type symbols.
+  Done: `src/components/icons/Icon.tsx` is a 16 px stroke set including the port symbols (`portIconNames.ts`); icon-only buttons and the emoji use it. Typographic marks stay as text: ✓ radio ticks, ▾ chevrons, ★ ratings and the "↑ Upload"-style label prefixes.
 
 ## 5. Identity work (larger)
 

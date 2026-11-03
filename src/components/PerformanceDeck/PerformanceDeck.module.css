@@ -5,7 +5,7 @@
   flex-direction: column;
   width: clamp(280px, 26vw, 400px);
   height: 100%;
-  border-left: 1px solid var(--border-glow);
+  border-left: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg-panel) 96%, black);
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
   overflow: hidden;
@@ -24,7 +24,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--fs-body);
   color: var(--text-primary);
 }
@@ -36,7 +36,7 @@
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.5);
 }
 .closeBtn:hover { color: var(--text-primary); }
 
@@ -48,15 +48,14 @@
 
 .panicBtn {
   width: 100%;
-  padding: 12px;
+  padding: calc(var(--space-0) * 3);
   border: 2px solid var(--error);
   border-radius: 8px;
   background: color-mix(in srgb, var(--error) 14%, transparent);
   color: var(--error);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--fs-body);
   font-weight: 700;
-  letter-spacing: 0.06em;
   cursor: pointer;
 }
 .panicBtn:hover { background: color-mix(in srgb, var(--error) 24%, transparent); }
@@ -70,7 +69,7 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: var(--space-1);
-  font-size: var(--fs-caption);
+  font-size: var(--fs-ui);
   color: var(--text-secondary);
 }
 .brightnessRow input[type='range'] { width: 100%; }
@@ -104,9 +103,9 @@
 .knob {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   padding: var(--space-1);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg-node);
 }
@@ -115,7 +114,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .knobLabel {
@@ -133,7 +132,7 @@
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
-  padding: 0 4px;
+  padding: 0 var(--space-0);
 }
 .knobUnpin:hover { color: var(--error); }
 
@@ -150,12 +149,13 @@
   font-family: var(--font-code);
   font-size: var(--fs-caption);
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .knobToggle, .knobSelect {
   width: 100%;
-  padding: 8px;
-  border: 1px solid var(--border-glow);
+  padding: var(--space-1);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node-hover);
   color: var(--text-primary);
@@ -170,8 +170,8 @@
 
 .knobLearn {
   width: 100%;
-  padding: 4px;
-  border: 1px solid var(--border-glow);
+  padding: var(--space-0);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
@@ -189,8 +189,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px;
-  border: 1px dashed var(--border-glow);
+  padding: var(--space-1);
+  border: 1px dashed var(--line);
   border-radius: 6px;
   color: var(--text-secondary);
   font-size: var(--fs-caption);
@@ -210,29 +210,27 @@
 
 .scenesSection h3, .morphSection h3 {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .sceneSave {
   display: flex;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 .sceneSave input {
   flex: 1;
   min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node);
   color: var(--text-primary);
 }
 .sceneSave button {
-  padding: 6px 10px;
-  border: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 2.5);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node-hover);
   color: var(--text-primary);
@@ -246,45 +244,45 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .sceneRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-glow);
+  gap: var(--space-1);
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node);
-  font-size: var(--fs-caption);
+  font-size: var(--fs-ui);
   color: var(--text-primary);
 }
 
 .sceneActions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-0);
 }
 .sceneActions button {
   border: 0;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 11px;
-  padding: 2px 4px;
+  font-size: var(--fs-ui);
+  padding: calc(var(--space-0) * 0.5) var(--space-0);
 }
 .sceneActions button:hover { color: var(--text-primary); }
 
 .morphPickers {
   display: flex;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 .morphPickers select {
   flex: 1;
   min-width: 0;
-  padding: 6px;
-  border: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.5);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node);
   color: var(--text-primary);
@@ -292,17 +290,17 @@
 
 .panicBindSection {
   flex-direction: row;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 .panicBindSection button {
   flex: 1;
-  padding: 6px;
-  border: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.5);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node-hover);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-ui);
 }
 
 @keyframes pulse {

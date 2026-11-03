@@ -2,7 +2,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px var(--space-2);
+  padding: calc(var(--space-0) * 1.5) var(--space-2);
   /* Information, not an alarm: trusting is one ordinary click. */
   background: color-mix(in srgb, var(--accent-output) 10%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--accent-output) 35%, transparent);
@@ -18,12 +18,12 @@
 
 .trustButton {
   flex-shrink: 0;
-  padding: 4px 10px;
+  padding: var(--space-0) calc(var(--space-0) * 2.5);
   border-radius: 4px;
   border: 1px solid var(--accent-output);
   background: transparent;
   color: var(--accent-output);
-  font-size: var(--fs-caption);
+  font-size: var(--fs-ui);
   font-family: inherit;
   cursor: pointer;
   transition: background 150ms ease, color 150ms ease;
@@ -31,5 +31,5 @@
 
 .trustButton:hover {
   background: var(--accent-output);
-  color: var(--bg-primary, #0b0d12);
+  color: var(--bg-primary, var(--paint-0b0d12));
 }

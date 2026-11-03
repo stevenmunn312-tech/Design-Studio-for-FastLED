@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "color-no-hex": true,
+    "declaration-property-value-disallowed-list": {
+      "/^(?:padding|margin)(?:-[a-z]+)?$|^(?:row-|column-)?gap$/": ["/-?\\d+(?:\\.\\d+)?px\\b/"]
+    }
+  }
+}

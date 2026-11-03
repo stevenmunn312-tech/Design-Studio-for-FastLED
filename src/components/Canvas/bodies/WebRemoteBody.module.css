@@ -1,15 +1,15 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 1px;
+  gap: var(--space-0);
+  padding-top: calc(var(--space-0) * 0.25);
 }
 
 .toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   color: var(--text-secondary);
   font: var(--fs-caption) var(--font-code);
 }
@@ -22,12 +22,12 @@
 }
 
 .toolButton {
-  padding: 2px 7px;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.75);
   border: 1px solid color-mix(in srgb, var(--accent-input) 40%, var(--divider));
   border-radius: 4px;
   background: transparent;
   color: var(--text-primary);
-  font: 600 10px var(--font-code);
+  font: 600 var(--fs-label) var(--font-code);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -43,16 +43,15 @@
   grid-template-columns: minmax(64px, 0.9fr) minmax(96px, 1.1fr);
   align-items: center;
   min-height: 29px;
-  gap: 7px;
-  padding: 3px 12px 3px 6px;
+  gap: calc(var(--space-0) * 1.75);
+  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 3) calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.5);
   border-radius: 5px;
-  background: color-mix(in srgb, var(--surface-recessed, #111820) 76%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--divider) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-recessed, var(--paint-111820)) 76%, transparent);
 }
 
 .editRow {
   grid-template-columns: 1fr;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .label {
@@ -67,7 +66,7 @@
 .control {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   min-width: 0;
 }
 
@@ -90,26 +89,25 @@
   width: 14px;
   height: 14px;
   border-radius: 3px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
 .value {
   flex: 0 0 auto;
   min-width: 30px;
   color: var(--text-secondary);
-  font: 10px var(--font-code);
+  font: var(--fs-label) var(--font-code);
   text-align: right;
 }
 
 .mini {
   min-width: 22px;
   height: 22px;
-  padding: 0 6px;
+  padding: 0 calc(var(--space-0) * 1.5);
   border: 1px solid color-mix(in srgb, var(--accent-input) 40%, var(--divider));
   border-radius: 4px;
   background: color-mix(in srgb, var(--bg-node) 82%, black);
   color: var(--text-primary);
-  font: 600 10px var(--font-code);
+  font: 600 var(--fs-label) var(--font-code);
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -130,7 +128,7 @@
 .choices {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .choices .mini {
@@ -141,25 +139,25 @@
 .editFields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .field {
   display: grid;
-  gap: 1px;
+  gap: calc(var(--space-0) * 0.25);
   min-width: 0;
   color: var(--text-secondary);
-  font: 9px var(--font-code);
+  font: var(--fs-label) var(--font-code);
 }
 
 .fieldInput {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding: 2px 4px;
+  padding: calc(var(--space-0) * 0.5) var(--space-0);
   border: 1px solid var(--divider);
   border-radius: 3px;
-  background: var(--surface-recessed, #111820);
+  background: var(--surface-recessed, var(--paint-111820));
   color: var(--text-primary);
   font: 11px var(--font-code);
 }
@@ -167,7 +165,7 @@
 .editHead {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .editHead .fieldInput {
@@ -176,7 +174,7 @@
 
 .typeTag {
   color: var(--text-secondary);
-  font: 9px var(--font-code);
+  font: var(--fs-label) var(--font-code);
   white-space: nowrap;
 }
 
@@ -195,17 +193,17 @@
 
 .addSelect {
   max-width: 120px;
-  padding: 1px 2px;
+  padding: calc(var(--space-0) * 0.25) calc(var(--space-0) * 0.5);
   border: 1px solid var(--divider);
   border-radius: 3px;
-  background: var(--surface-recessed, #111820);
+  background: var(--surface-recessed, var(--paint-111820));
   color: var(--text-primary);
-  font: 10px var(--font-code);
+  font: var(--fs-label) var(--font-code);
 }
 
 .note {
   color: var(--text-secondary);
-  font: 10px/1.35 var(--font-code);
+  font: var(--fs-label)/1.35 var(--font-code);
 }
 
 .overlay {
@@ -214,19 +212,19 @@
   z-index: 40;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: var(--space-2);
   background: color-mix(in srgb, black 55%, transparent);
 }
 
 .dialog {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   width: min(420px, 100%);
   max-height: calc(100vh - 32px);
-  padding: 14px;
+  padding: calc(var(--space-0) * 3.5);
   border-radius: 10px;
-  background: var(--bg-node, #16181d);
+  background: var(--bg-node, var(--paint-16181d));
   color: var(--text-primary);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
@@ -235,7 +233,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .dialogHead h2 {
@@ -254,5 +252,5 @@
   height: min(640px, calc(100vh - 160px));
   border: 1px solid var(--divider);
   border-radius: 18px;
-  background: #0d1117;
+  background: var(--paint-0d1117);
 }

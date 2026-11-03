@@ -201,23 +201,20 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
 // pipeline: live inputs → audio analysis → control signals → value transforms
 // → color → frame generators → fields → frame effects → the show pipeline →
 // output. (`composite` keeps its historical id but displays as "Effects".)
-// Accent hues sweep the wheel across all 15 sidebar section headers — Quick
-// recipes, Favourites, Recent rack, these 11 CATEGORIES entries (Notes
-// included), then Pattern Library — at 360/15 = 24° per header, all
-// hsl(h, 100%, 60%). The 4 non-category headers (see tokens.css) own the
-// wheel's first three slots and the last one; `note` is last of these 11.
+// Eight category hues identify nodes and wires. Nonadjacent categories can
+// share a hue; interactive chrome has its own accent in tokens.css.
 export const CATEGORIES = [
-  { id: 'input',     label: 'Inputs',       accentVar: '--accent-input',     color: '#d6ff33' },
-  { id: 'audio',     label: 'Audio',        accentVar: '--accent-audio',     color: '#85ff33' },
-  { id: 'signal',    label: 'Signals',      accentVar: '--accent-signal',    color: '#33ff33' },
-  { id: 'math',      label: 'Math & Logic', accentVar: '--accent-math',      color: '#33ff85' },
-  { id: 'color',     label: 'Color',        accentVar: '--accent-color',     color: '#33ffd6' },
-  { id: 'pattern',   label: 'Patterns',     accentVar: '--accent-pattern',   color: '#33d6ff' },
-  { id: 'field',     label: 'Fields',       accentVar: '--accent-field',     color: '#3385ff' },
-  { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#3333ff' },
-  { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#8533ff' },
-  { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#d633ff' },
-  { id: 'note',      label: 'Notes',        accentVar: '--accent-note',      color: '#ff33d6' },
+  { id: 'input',     label: 'Inputs',       accentVar: '--accent-input',     color: '#d9a53f' },
+  { id: 'audio',     label: 'Audio',        accentVar: '--accent-audio',     color: '#96cc4a' },
+  { id: 'signal',    label: 'Signals',      accentVar: '--accent-signal',    color: '#43c982' },
+  { id: 'math',      label: 'Math & Logic', accentVar: '--accent-math',      color: '#35b7ad' },
+  { id: 'color',     label: 'Color',        accentVar: '--accent-color',     color: '#5ad1ff' },
+  { id: 'pattern',   label: 'Patterns',     accentVar: '--accent-pattern',   color: '#5b9eef' },
+  { id: 'field',     label: 'Fields',       accentVar: '--accent-field',     color: '#817ee8' },
+  { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#ab72d8' },
+  { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#d9a53f' },
+  { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#e070a5' },
+  { id: 'note',      label: 'Notes',        accentVar: '--accent-note',      color: '#a8b4c4' },
 ] as const
 
 // Ordered sub-headings shown inside a category's sidebar section. A category

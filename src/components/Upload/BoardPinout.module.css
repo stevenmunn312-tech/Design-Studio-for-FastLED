@@ -19,7 +19,7 @@
   background:
     linear-gradient(180deg, rgba(18, 22, 27, 0.98), rgba(9, 12, 16, 0.96)),
     var(--bg-panel);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   border-radius: 16px;
   padding: var(--space-2);
   display: flex;
@@ -48,7 +48,7 @@
 
 .closeBtn {
   background: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   color: var(--text-secondary);
   width: 32px;
   height: 32px;
@@ -61,7 +61,7 @@
 
 .closeBtn:hover {
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: color-mix(in srgb, var(--text-primary) 20%, transparent);
 }
 
 /* Render centred with a pin rail either side, the way the board reads when
@@ -93,7 +93,7 @@
   text-align: center;
   color: var(--text-secondary);
   font-size: var(--fs-caption);
-  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border: 1px dashed color-mix(in srgb, var(--text-primary) 14.000000000000002%, transparent);
   border-radius: 8px;
 }
 
@@ -103,7 +103,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   min-width: 0;
 }
 
@@ -114,12 +114,13 @@
 .pin {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
   font-size: var(--fs-caption);
   font-family: var(--font-code);
   color: var(--text-primary);
   white-space: nowrap;
   min-width: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .pinRight {
@@ -145,21 +146,21 @@
   display: inline-block;
 }
 
-.safe { background: var(--success, #46d17d); }
-.caution { background: var(--warning, #f5c542); }
+.safe { background: var(--success, var(--paint-46d17d)); }
+.caution { background: var(--warning, var(--paint-f5c542)); }
 .reserved { background: var(--error); }
 /* Deliberately dim rather than green: "no board data" must not read as approval. */
-.unknown { background: rgba(255, 255, 255, 0.22); }
+.unknown { background: color-mix(in srgb, var(--text-primary) 22%, transparent); }
 
 .otherRail {
   border-top: 1px solid var(--divider);
-  padding-top: 6px;
+  padding-top: calc(var(--space-0) * 1.5);
 }
 
 .otherTitle {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-0);
 }
 
 .otherPins {
@@ -168,16 +169,16 @@
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
+  gap: var(--space-0) calc(var(--space-0) * 3.5);
 }
 
 .legend {
   list-style: none;
   margin: 0;
-  padding: 6px 0 0;
+  padding: calc(var(--space-0) * 1.5) 0 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
+  gap: var(--space-0) calc(var(--space-0) * 3.5);
   border-top: 1px solid var(--divider);
   font-size: var(--fs-caption);
   color: var(--text-secondary);
@@ -186,7 +187,7 @@
 .legend li {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
 }
 
 .notes {
@@ -199,11 +200,11 @@
 }
 
 .notes ul {
-  margin: 4px 0 0;
-  padding-left: 18px;
+  margin: var(--space-0) 0 0;
+  padding-left: calc(var(--space-0) * 4.5);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .caveat {

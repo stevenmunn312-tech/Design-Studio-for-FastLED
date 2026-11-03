@@ -1,39 +1,17 @@
 .overlay {
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(circle at 50% 20%, rgba(0, 191, 255, 0.08), transparent 24%),
-    rgba(0, 0, 0, 0.68);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  composes: sharedOverlay from '../AppDialog/AppDialogHost.module.css';
   z-index: 120;
-  animation: fadeIn 0.15s ease-out;
 }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .popup {
+  composes: sharedSurface from '../AppDialog/AppDialogHost.module.css';
   width: min(440px, 92vw);
   max-height: 80vh;
   overflow-y: auto;
-  background:
-    linear-gradient(180deg, rgba(18, 22, 27, 0.98), rgba(9, 12, 16, 0.96)),
-    var(--bg-panel);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
   padding: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  box-shadow:
-    0 22px 60px rgba(0, 0, 0, 0.46),
-    0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 0 40px rgba(0, 191, 255, 0.06);
-  animation: slideUp 0.18s ease-out;
-}
-@keyframes slideUp {
-  from { transform: translateY(16px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
 }
 
 .header {
@@ -43,39 +21,32 @@
   font-size: var(--fs-body);
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-0);
   letter-spacing: 0.03em;
 }
 
 .closeBtn {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary);
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
+  composes: sharedClose from '../AppDialog/AppDialogHost.module.css';
   font-size: 18px;
-  cursor: pointer;
   line-height: 1;
-  padding: 0;
 }
 .closeBtn:hover {
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: color-mix(in srgb, var(--text-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .hint {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
   line-height: 1.5;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-0);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .empty {
@@ -90,36 +61,36 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-1);
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--text-primary) 2%, transparent);
 }
 
 .rowInfo {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .rowTime {
-  font-size: var(--fs-caption);
+  font-size: var(--fs-ui);
   color: var(--text-primary);
   font-weight: 600;
 }
 
 .rowMeta {
-  font-size: 11px;
+  font-size: var(--fs-ui);
   color: var(--text-secondary);
 }
 
 .restoreBtn {
   background: none;
   border: 1px solid rgba(0, 191, 255, 0.3);
-  color: #9ce8ff;
+  color: var(--accent-ui);
   border-radius: 8px;
-  padding: 6px 12px;
-  font-size: var(--fs-caption);
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3);
+  font-size: var(--fs-ui);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;

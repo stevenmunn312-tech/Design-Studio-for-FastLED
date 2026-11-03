@@ -120,29 +120,33 @@
   --bg-panel: #161a1f;
   --bg-node: #1f242b;
   --bg-node-hover: #252a31;
+  --bg-deep: #090c10;
+  --bg-canvas: #0d1117;
+  --surface-recessed: #11161c;
 
-  /* Accent colors for every sidebar section header — keep in sync with
-     CATEGORIES in src/state/nodeLibrary.ts (which carries the literal hex
-     for canvas/SVG). The hue wheel sweeps evenly across all 15 headers in
-     sidebar top-to-bottom order — Quick recipes, Favourites, Recent rack,
-     the 11 CATEGORIES entries (including Notes), then Pattern Library — at
-     360/15 = 24° per header, all hsl(h, 100%, 60%) so every accent reads
-     equally on the dark UI. Favourites/Recent rack always render (with an
-     empty-state message) so their slot is never actually skipped. */
-  --accent-recipes: #ff3333;
-  --accent-favourites: #ff8533;
-  --accent-recent: #ffd633;
-  --accent-input: #d6ff33;
-  --accent-audio: #85ff33;
-  --accent-signal: #33ff33;
-  --accent-math: #33ff85;
-  --accent-color: #33ffd6;
-  --accent-pattern: #33d6ff;
-  --accent-field: #3385ff;
-  --accent-composite: #3333ff;
-  --accent-show: #8533ff;
-  --accent-output: #d633ff;
-  --accent-note: #ff33d6;
+  /* Category colours match CATEGORIES in nodeLibrary.ts. Chrome uses only
+     accent-ui; category colour identifies nodes and wires. */
+  --accent-ui: #5ad1ff;
+  --accent-ui-text: #07131a;
+  --preview-instrument-text: #e0e7ed;
+  --preview-instrument-muted: #9fb0be;
+  --preview-instrument-accent: #72cde8;
+  --stage-bg-panel: #161a1f;
+  --stage-bg-node: #1f242b;
+  --accent-recipes: #d9a53f;
+  --accent-favourites: #e070a5;
+  --accent-recent: #817ee8;
+  --accent-input: #d9a53f;
+  --accent-audio: #96cc4a;
+  --accent-signal: #43c982;
+  --accent-math: #35b7ad;
+  --accent-color: #5ad1ff;
+  --accent-pattern: #5b9eef;
+  --accent-field: #817ee8;
+  --accent-composite: #ab72d8;
+  --accent-show: #d9a53f;
+  --accent-output: #e070a5;
+  --accent-note: #a8b4c4;
   /* Not a sidebar header: the bench-only power and network parts. */
   --accent-hardware: #a8b4c4;
   --accent-library: #ff3385;
@@ -150,9 +154,10 @@
   /* Text */
   --text-primary: #e0e0e0;
   --text-secondary: #a0a0a0;
+  --text-muted: var(--text-secondary);
 
   /* Borders & dividers */
-  --border-glow: rgba(255, 255, 255, 0.1);
+  --line: rgba(255, 255, 255, 0.1);
   --divider: rgba(255, 255, 255, 0.05);
   --chrome-border: rgba(255, 255, 255, 0.07);
   --chrome-shadow: rgba(0, 0, 0, 0.24);
@@ -162,33 +167,285 @@
   --success: #00ff99;
   --warning: #ffd24a;
   --error: #ff3366;
+  --danger: var(--error);
+  --good: var(--success);
+  --warn: var(--warning);
+  --bad: var(--error);
+  --status-error: var(--error);
+
+  /* Shared paint palette for fixed illustrative colours in CSS modules. */
+  --paint-00050c: #00050c;
+  --paint-00b9ff: #00b9ff;
+  --paint-00bfff: #00bfff;
+  --paint-00d9ff: #00d9ff;
+  --paint-00e0a4: #00e0a4;
+  --paint-00f0ff: #00f0ff;
+  --paint-00fff0: #00fff0;
+  --paint-00ffff: #00ffff;
+  --paint-010203: #010203;
+  --paint-020405: #020405;
+  --paint-020507: #020507;
+  --paint-030408: #030408;
+  --paint-030507: #030507;
+  --paint-040608: #040608;
+  --paint-04110c: #04110c;
+  --paint-041317: #041317;
+  --paint-05040a: #05040a;
+  --paint-050708: #050708;
+  --paint-05070a: #05070a;
+  --paint-05090d: #05090d;
+  --paint-06110e: #06110e;
+  --paint-06170f: #06170f;
+  --paint-071017: #071017;
+  --paint-071018: #071018;
+  --paint-08090b: #08090b;
+  --paint-080a0e: #080a0e;
+  --paint-080b0f: #080b0f;
+  --paint-080b11: #080b11;
+  --paint-090909: #090909;
+  --paint-090c11: #090c11;
+  --paint-091017: #091017;
+  --paint-09131b: #09131b;
+  --paint-0b0d10: #0b0d10;
+  --paint-0b0d12: #0b0d12;
+  --paint-0b0e14: #0b0e14;
+  --paint-0b0f14: #0b0f14;
+  --paint-0b1017: #0b1017;
+  --paint-0d1117: #0d1117;
+  --paint-101419: #101419;
+  --paint-10161a: #10161a;
+  --paint-10161f: #10161f;
+  --paint-102314: #102314;
+  --paint-102316: #102316;
+  --paint-111: #111;
+  --paint-11151d: #11151d;
+  --paint-111719: #111719;
+  --paint-111820: #111820;
+  --paint-12171d: #12171d;
+  --paint-121823: #121823;
+  --paint-130202: #130202;
+  --paint-151a1d: #151a1d;
+  --paint-152321: #152321;
+  --paint-160708: #160708;
+  --paint-16181d: #16181d;
+  --paint-16191a: #16191a;
+  --paint-171717: #171717;
+  --paint-171b1d: #171b1d;
+  --paint-171c1f: #171c1f;
+  --paint-171d2a: #171d2a;
+  --paint-181818: #181818;
+  --paint-1a1e24: #1a1e24;
+  --paint-1b2023: #1b2023;
+  --paint-1f2629: #1f2629;
+  --paint-1fa5ad: #1fa5ad;
+  --paint-202425: #202425;
+  --paint-202628: #202628;
+  --paint-202629: #202629;
+  --paint-20282c: #20282c;
+  --paint-221102: #221102;
+  --paint-222933: #222933;
+  --paint-242424: #242424;
+  --paint-242933: #242933;
+  --paint-243033: #243033;
+  --paint-24963e: #24963e;
+  --paint-263034: #263034;
+  --paint-27343b: #27343b;
+  --paint-291c08: #291c08;
+  --paint-292323: #292323;
+  --paint-293136: #293136;
+  --paint-293237: #293237;
+  --paint-293d3b: #293d3b;
+  --paint-2a2f31: #2a2f31;
+  --paint-2b3031: #2b3031;
+  --paint-32383b: #32383b;
+  --paint-33230c: #33230c;
+  --paint-33d6ff: #33d6ff;
+  --paint-347544: #347544;
+  --paint-353535: #353535;
+  --paint-353d40: #353d40;
+  --paint-35d07f: #35d07f;
+  --paint-36c8ff: #36c8ff;
+  --paint-394145: #394145;
+  --paint-3b0808: #3b0808;
+  --paint-3b4347: #3b4347;
+  --paint-3c4448: #3c4448;
+  --paint-3dab5b: #3dab5b;
+  --paint-3f4a4f: #3f4a4f;
+  --paint-4358dc: #4358dc;
+  --paint-46545a: #46545a;
+  --paint-46d17d: #46d17d;
+  --paint-4a5051: #4a5051;
+  --paint-4a63df: #4a63df;
+  --paint-4ade80: #4ade80;
+  --paint-4caf7d: #4caf7d;
+  --paint-50585a: #50585a;
+  --paint-506067: #506067;
+  --paint-51595d: #51595d;
+  --paint-526067: #526067;
+  --paint-52d273: #52d273;
+  --paint-535353: #535353;
+  --paint-55b8b0: #55b8b0;
+  --paint-56f39a: #56f39a;
+  --paint-57bd4d: #57bd4d;
+  --paint-586165: #586165;
+  --paint-596164: #596164;
+  --paint-59676c: #59676c;
+  --paint-5b3510: #5b3510;
+  --paint-5c696e: #5c696e;
+  --paint-5d6669: #5d6669;
+  --paint-65c956: #65c956;
+  --paint-676f70: #676f70;
+  --paint-6e7788: #6e7788;
+  --paint-6e787b: #6e787b;
+  --paint-72dfd0: #72dfd0;
+  --paint-777: #777;
+  --paint-778287: #778287;
+  --paint-7ff5d3: #7ff5d3;
+  --paint-829195: #829195;
+  --paint-8533ff: #8533ff;
+  --paint-88652b: #88652b;
+  --paint-8a2be2: #8a2be2;
+  --paint-8a4dff: #8a4dff;
+  --paint-8adfff: #8adfff;
+  --paint-8b3f16: #8b3f16;
+  --paint-8b8b85: #8b8b85;
+  --paint-8b97a5: #8b97a5;
+  --paint-8c9695: #8c9695;
+  --paint-8d9493: #8d9493;
+  --paint-8ea7ff: #8ea7ff;
+  --paint-8f9b9e: #8f9b9e;
+  --paint-9aa0a6: #9aa0a6;
+  --paint-9ce8ff: #9ce8ff;
+  --paint-9da7aa: #9da7aa;
+  --paint-9eaaad: #9eaaad;
+  --paint-9fffc2: #9fffc2;
+  --paint-a6ebff: #a6ebff;
+  --paint-a87900: #a87900;
+  --paint-a8ff00: #a8ff00;
+  --paint-a9b3c1: #a9b3c1;
+  --paint-aeb4b2: #aeb4b2;
+  --paint-aeb7b9: #aeb7b9;
+  --paint-b73a2f: #b73a2f;
+  --paint-b8b8b3: #b8b8b3;
+  --paint-b8ffdf: #b8ffdf;
+  --paint-b9b6ad: #b9b6ad;
+  --paint-b9bebd: #b9bebd;
+  --paint-bff5b7: #bff5b7;
+  --paint-c1c6c4: #c1c6c4;
+  --paint-c5c8c5: #c5c8c5;
+  --paint-c7cac7: #c7cac7;
+  --paint-c9d1d9: #c9d1d9;
+  --paint-d31f3c: #d31f3c;
+  --paint-d49a39: #d49a39;
+  --paint-d58b28: #d58b28;
+  --paint-d5d9d8: #d5d9d8;
+  --paint-d62f42: #d62f42;
+  --paint-d7ddda: #d7ddda;
+  --paint-d84938: #d84938;
+  --paint-d8d8d2: #d8d8d2;
+  --paint-d8deff: #d8deff;
+  --paint-d8f7ff: #d8f7ff;
+  --paint-d92828: #d92828;
+  --paint-d9631f: #d9631f;
+  --paint-d9dcdd: #d9dcdd;
+  --paint-d9f0dc: #d9f0dc;
+  --paint-dfe4e1: #dfe4e1;
+  --paint-e2aa43: #e2aa43;
+  --paint-e2e4e1: #e2e4e1;
+  --paint-e49aff: #e49aff;
+  --paint-e5e6e3: #e5e6e3;
+  --paint-e8eae5: #e8eae5;
+  --paint-e8ecf1: #e8ecf1;
+  --paint-e8eef5: #e8eef5;
+  --paint-e9eeee: #e9eeee;
+  --paint-ecfffd: #ecfffd;
+  --paint-edf0ee: #edf0ee;
+  --paint-eef0eb: #eef0eb;
+  --paint-eef2ef: #eef2ef;
+  --paint-f0eee6: #f0eee6;
+  --paint-f1f5f3: #f1f5f3;
+  --paint-f2c766: #f2c766;
+  --paint-f2f5f1: #f2f5f1;
+  --paint-f3f2ea: #f3f2ea;
+  --paint-f3f5f1: #f3f5f1;
+  --paint-f3f6f2: #f3f6f2;
+  --paint-f3f8fb: #f3f8fb;
+  --paint-f4b942: #f4b942;
+  --paint-f4c430: #f4c430;
+  --paint-f4f4f1: #f4f4f1;
+  --paint-f4f5f2: #f4f5f2;
+  --paint-f4f6f2: #f4f6f2;
+  --paint-f4f7ff: #f4f7ff;
+  --paint-f5c542: #f5c542;
+  --paint-f87171: #f87171;
+  --paint-f8a4a4: #f8a4a4;
+  --paint-fbbf24: #fbbf24;
+  --paint-ff00ff: #ff00ff;
+  --paint-ff1e1e: #ff1e1e;
+  --paint-ff3030: #ff3030;
+  --paint-ff3385: #ff3385;
+  --paint-ff4d8d: #ff4d8d;
+  --paint-ff5a6f: #ff5a6f;
+  --paint-ff5c5c: #ff5c5c;
+  --paint-ff5e9d: #ff5e9d;
+  --paint-ff5f56: #ff5f56;
+  --paint-ff6b6b: #ff6b6b;
+  --paint-ff9a5c: #ff9a5c;
+  --paint-ff9e46: #ff9e46;
+  --paint-ff9f9f: #ff9f9f;
+  --paint-ffa500: #ffa500;
+  --paint-ffb3b3: #ffb3b3;
+  --paint-ffb74d: #ffb74d;
+  --paint-ffb84d: #ffb84d;
+  --paint-ffca78: #ffca78;
+  --paint-ffca7a: #ffca7a;
+  --paint-ffcc00: #ffcc00;
+  --paint-ffcc66: #ffcc66;
+  --paint-ffcf8f: #ffcf8f;
+  --paint-ffd1d7: #ffd1d7;
+  --paint-ffd25e: #ffd25e;
+  --paint-ffd7d7: #ffd7d7;
+  --paint-ffd8e8: #ffd8e8;
+  --paint-ffe29d: #ffe29d;
 
   /* Typography */
   --font-display: 'Audiowide', 'Inter', sans-serif;
   --font-body: 'Inter', sans-serif;
+  --font-ui: var(--font-body);
   --font-code: 'JetBrains Mono', monospace;
   --fs-display: 20px;
   --fs-body: 14px;
   --fs-code: 13px;
   --fs-caption: 12px;
+  --fs-label: 11px;
+  --fs-small: var(--fs-label);
+  --fs-ui: 13px;
+
+  /* Three structural radii. LED and status dots remain round. */
+  --radius-control: 3px;
+  --radius-card: 6px;
+  --radius-dialog: 10px;
 
   /* Spacing */
+  --space-0: 4px;
   --space-1: 8px;
   --space-2: 16px;
   --space-3: 24px;
   --space-4: 32px;
+  --space-5: 40px;
 
   /* Layout */
   --sidebar-width: 280px;
   --statusbar-height: 40px;
   --menubar-height: 48px;
   --inspector-width: 280px;
+  --hardware-pane-height: 0px;
   --right-panel-width: calc(16 * 28px + var(--space-3) * 2); /* 496px — fits 16×28px LED canvas + padding */
 
   /* Nodes */
   --node-width: 240px;
   --node-height: 80px;
-  --node-radius: 8px;
+  --node-radius: var(--radius-card);
 
   /* Animations */
   --anim-hover: 150ms ease-out;
@@ -203,48 +460,198 @@
   --field-color-3: rgb(0 224 164);
 }
 
-/* ── Solarized Dark ────────────────────────────────────────────────────────── */
+/* Studio themes share structural tokens. Fixed LED, media, and diagram colours
+   remain in the paint palette above. */
 [data-theme="solarized"] {
   --bg-primary: #002b36;
   --bg-panel: #073642;
   --bg-node: #0d4050;
   --bg-node-hover: #145060;
+  --bg-deep: #00232c;
+  --bg-canvas: #002b36;
+  --surface-recessed: #00313d;
+  --accent-ui: #4bb8c5;
+  --accent-ui-text: #002b36;
   --text-primary: #eee8d5;
-  --text-secondary: #93a1a1;
-  --border-glow: rgba(131, 148, 150, 0.3);
-  --divider: rgba(131, 148, 150, 0.1);
-  --chrome-border: rgba(131, 148, 150, 0.16);
+  --text-secondary: #aab8b2;
+  --line: rgba(131, 148, 150, 0.3);
+  --divider: rgba(131, 148, 150, 0.15);
+  --chrome-border: rgba(131, 148, 150, 0.2);
   --chrome-shadow: rgba(0, 20, 26, 0.26);
   --active-shadow: rgba(0, 20, 26, 0.38);
 }
 
-/* ── Studio Light ──────────────────────────────────────────────────────────── */
 [data-theme="light"] {
   --bg-primary: #eef0f4;
   --bg-panel: #ffffff;
   --bg-node: #f4f5f8;
   --bg-node-hover: #e8eaef;
+  --bg-deep: #e5e8ef;
+  --bg-canvas: #eef0f4;
+  --surface-recessed: #e8ebf0;
+  --accent-ui: #087ea4;
+  --accent-ui-text: #ffffff;
   --text-primary: #1a1c2e;
   --text-secondary: #5a5c72;
-  --border-glow: rgba(0, 0, 0, 0.12);
-  --divider: rgba(0, 0, 0, 0.06);
-  --chrome-border: rgba(0, 0, 0, 0.08);
+  --line: rgba(0, 0, 0, 0.16);
+  --divider: rgba(0, 0, 0, 0.09);
+  --chrome-border: rgba(0, 0, 0, 0.12);
   --chrome-shadow: rgba(30, 36, 52, 0.14);
   --active-shadow: rgba(30, 36, 52, 0.22);
-  --success: #00aa66;
-  --warning: #b07d00;
-  --error: #cc2244;
+  --paint-00050c: var(--surface-recessed);
+  --paint-010203: var(--surface-recessed);
+  --paint-020405: var(--surface-recessed);
+  --paint-020507: var(--surface-recessed);
+  --paint-030408: var(--surface-recessed);
+  --paint-030507: var(--surface-recessed);
+  --paint-040608: var(--surface-recessed);
+  --paint-04110c: var(--surface-recessed);
+  --paint-041317: var(--surface-recessed);
+  --paint-05040a: var(--surface-recessed);
+  --paint-050708: var(--surface-recessed);
+  --paint-05070a: var(--surface-recessed);
+  --paint-05090d: var(--surface-recessed);
+  --paint-06110e: var(--surface-recessed);
+  --paint-06170f: var(--surface-recessed);
+  --paint-071017: var(--surface-recessed);
+  --paint-071018: var(--surface-recessed);
+  --paint-08090b: var(--surface-recessed);
+  --paint-080a0e: var(--surface-recessed);
+  --paint-080b0f: var(--surface-recessed);
+  --paint-080b11: var(--surface-recessed);
+  --paint-090909: var(--surface-recessed);
+  --paint-090c11: var(--surface-recessed);
+  --paint-091017: var(--surface-recessed);
+  --paint-09131b: var(--surface-recessed);
+  --paint-0b0d10: var(--surface-recessed);
+  --paint-0b0d12: var(--surface-recessed);
+  --paint-0b0e14: var(--surface-recessed);
+  --paint-0b0f14: var(--surface-recessed);
+  --paint-0b1017: var(--surface-recessed);
+  --paint-0d1117: var(--surface-recessed);
+  --paint-101419: var(--surface-recessed);
+  --paint-10161a: var(--surface-recessed);
+  --paint-10161f: var(--surface-recessed);
+  --paint-102314: var(--surface-recessed);
+  --paint-102316: var(--surface-recessed);
+  --paint-11151d: var(--surface-recessed);
+  --paint-111719: var(--surface-recessed);
+  --paint-111820: var(--surface-recessed);
+  --paint-12171d: var(--surface-recessed);
+  --paint-121823: var(--surface-recessed);
+  --paint-130202: var(--surface-recessed);
+  --paint-151a1d: var(--surface-recessed);
+  --paint-152321: var(--surface-recessed);
+  --paint-160708: var(--surface-recessed);
+  --paint-16181d: var(--surface-recessed);
+  --paint-16191a: var(--surface-recessed);
+  --paint-171717: var(--surface-recessed);
+  --paint-171b1d: var(--surface-recessed);
+  --paint-171c1f: var(--surface-recessed);
+  --paint-171d2a: var(--surface-recessed);
+  --paint-181818: var(--surface-recessed);
+  --paint-1a1e24: var(--surface-recessed);
+  --paint-1b2023: var(--surface-recessed);
+  --paint-1f2629: var(--surface-recessed);
+  --paint-202425: var(--surface-recessed);
+  --paint-202628: var(--surface-recessed);
+  --paint-202629: var(--surface-recessed);
+  --paint-20282c: var(--surface-recessed);
+  --paint-222933: var(--surface-recessed);
+  --paint-242424: var(--surface-recessed);
+  --paint-242933: var(--surface-recessed);
+  --paint-243033: var(--surface-recessed);
+  --paint-263034: var(--surface-recessed);
+  --paint-27343b: var(--surface-recessed);
+  --paint-292323: var(--surface-recessed);
+  --paint-293136: var(--surface-recessed);
+  --paint-293237: var(--surface-recessed);
+  --paint-293d3b: var(--surface-recessed);
+  --paint-2a2f31: var(--surface-recessed);
+  --paint-2b3031: var(--surface-recessed);
+  --paint-32383b: var(--surface-recessed);
+  --paint-353535: var(--surface-recessed);
+  --paint-353d40: var(--surface-recessed);
+  --paint-394145: var(--surface-recessed);
+  --paint-3b4347: var(--surface-recessed);
+  --paint-3c4448: var(--surface-recessed);
+  --paint-3f4a4f: var(--surface-recessed);
+  --paint-46545a: var(--surface-recessed);
+  --paint-4a5051: var(--surface-recessed);
+  --paint-50585a: var(--surface-recessed);
+  --paint-506067: var(--surface-recessed);
+  --paint-51595d: var(--surface-recessed);
+  --paint-526067: var(--surface-recessed);
+  --paint-535353: var(--surface-recessed);
+  --paint-586165: var(--surface-recessed);
+  --paint-596164: var(--surface-recessed);
+  --paint-59676c: var(--surface-recessed);
+  --paint-5c696e: var(--surface-recessed);
+  --paint-5d6669: var(--surface-recessed);
+  --paint-676f70: var(--surface-recessed);
+  --paint-6e7788: var(--text-secondary);
+  --paint-6e787b: var(--text-secondary);
+  --paint-778287: var(--text-secondary);
+  --paint-829195: var(--text-secondary);
+  --paint-8b8b85: var(--text-secondary);
+  --paint-8b97a5: var(--text-secondary);
+  --paint-8c9695: var(--text-secondary);
+  --paint-8d9493: var(--text-secondary);
+  --paint-8f9b9e: var(--text-secondary);
+  --paint-9aa0a6: var(--text-secondary);
+  --paint-9da7aa: var(--text-secondary);
+  --paint-9eaaad: var(--text-secondary);
+  --paint-a9b3c1: var(--text-secondary);
+  --paint-aeb4b2: var(--text-secondary);
+  --paint-aeb7b9: var(--text-secondary);
+  --paint-b8b8b3: var(--text-secondary);
+  --paint-b9b6ad: var(--text-secondary);
+  --paint-b9bebd: var(--text-secondary);
+  --paint-c1c6c4: var(--text-secondary);
+  --paint-c5c8c5: var(--text-secondary);
+  --paint-c7cac7: var(--text-secondary);
+  --paint-c9d1d9: var(--text-secondary);
+  --paint-d5d9d8: var(--text-secondary);
+  --paint-d7ddda: var(--text-secondary);
+  --paint-d8d8d2: var(--text-secondary);
+  --paint-d9dcdd: var(--text-secondary);
+  --paint-d9f0dc: var(--text-secondary);
+  --paint-dfe4e1: var(--text-secondary);
+  --paint-e2e4e1: var(--text-secondary);
+  --paint-e5e6e3: var(--text-secondary);
+  --paint-e8eae5: var(--text-secondary);
+  --paint-e8ecf1: var(--text-secondary);
+  --paint-e8eef5: var(--text-secondary);
+  --paint-e9eeee: var(--text-secondary);
+  --paint-ecfffd: var(--text-secondary);
+  --paint-edf0ee: var(--text-secondary);
+  --paint-eef0eb: var(--text-secondary);
+  --paint-eef2ef: var(--text-secondary);
+  --paint-f0eee6: var(--text-secondary);
+  --paint-f1f5f3: var(--text-secondary);
+  --paint-f2f5f1: var(--text-secondary);
+  --paint-f3f2ea: var(--text-secondary);
+  --paint-f3f5f1: var(--text-secondary);
+  --paint-f3f6f2: var(--text-secondary);
+  --paint-f3f8fb: var(--text-secondary);
+  --paint-f4f4f1: var(--text-secondary);
+  --paint-f4f5f2: var(--text-secondary);
+  --paint-f4f6f2: var(--text-secondary);
+  --paint-f4f7ff: var(--text-secondary);
+  --success: #008a56;
+  --warning: #956900;
+  --error: #bd2444;
 }
 
 /* ── High Contrast overlay (applies on top of any theme) ──────────────────── */
 [data-high-contrast] {
   --text-secondary: var(--text-primary);
-  --border-glow: rgba(255, 255, 255, 0.45);
+  --line: rgba(255, 255, 255, 0.45);
   --divider: rgba(255, 255, 255, 0.2);
 }
 
 [data-theme="light"][data-high-contrast] {
-  --border-glow: rgba(0, 0, 0, 0.5);
+  --line: rgba(0, 0, 0, 0.5);
   --divider: rgba(0, 0, 0, 0.3);
   --text-secondary: #111120;
 }
@@ -268,7 +675,7 @@
    (`:focus-visible` only fires for keyboard navigation). Accent-tinted so it
    reads against any theme. */
 :focus-visible {
-  outline: 2px solid var(--accent-output);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 2px;
 }
 

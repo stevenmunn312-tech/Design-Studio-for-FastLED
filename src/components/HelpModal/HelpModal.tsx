@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboard
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HelpModal.module.css'
+import { Icon } from '../icons/Icon'
 import NodeReference from './NodeReference'
 import { loadSupportMatrixSummary, type SupportMatrixSummary } from '../../utils/supportMatrix'
 import type { HelpTab } from '../../state/uiStore'
@@ -45,7 +46,7 @@ function AboutTab() {
         <div className={styles.sectionTitle}>Credits</div>
         <div className={styles.tipList}>
           <div className={styles.tip}>
-            <div className={styles.tipIcon}>✦</div>
+            <div className={styles.tipIcon}><Icon name="sparkle" /></div>
             <div className={styles.tipText}>
               <strong>Stefan Petrick</strong> — creator of{' '}
               <a className={styles.link} href="https://github.com/StefanPetrick/animartrix" target="_blank" rel="noopener noreferrer">AnimARTrix</a>.
@@ -53,7 +54,7 @@ function AboutTab() {
             </div>
           </div>
           <div className={styles.tip}>
-            <div className={styles.tipIcon}>✦</div>
+            <div className={styles.tipIcon}><Icon name="sparkle" /></div>
             <div className={styles.tipText}>
               <strong>FastLED</strong> — the{' '}
               <a className={styles.link} href="https://github.com/FastLED/FastLED" target="_blank" rel="noopener noreferrer">FastLED library</a>{' '}
@@ -61,7 +62,7 @@ function AboutTab() {
             </div>
           </div>
           <div className={styles.tip}>
-            <div className={styles.tipIcon}>✦</div>
+            <div className={styles.tipIcon}><Icon name="sparkle" /></div>
             <div className={styles.tipText}>
               <strong>Open source</strong> — built with React, @xyflow/react, Zustand, zundo, Poline, gifuct-js, and lz-string. The bundled fonts are Audiowide by Astigmatic, Inter by The Inter Project, and JetBrains Mono by JetBrains, each under the SIL Open Font License 1.1. Full details in the{' '}
               <a className={styles.link} href={`${REPO_URL}/blob/main/THIRD_PARTY_NOTICES.md`} target="_blank" rel="noopener noreferrer">third-party notices</a>.
@@ -661,7 +662,7 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>3</div>
             <div className={styles.stepText}>
-              On new or changed hardware, run <strong>🧪 Flash Wiring Test</strong>. Confirm red, green, blue, brightness, orientation, panel labels, and the logical/physical pixel chases before flashing the design. For a folded HUB75 grid, use <strong>🧭 Flash HUB75 Topology</strong> and verify every panel’s X/Y label, four corner colours, rotation, chain number, and yellow direction arrow.
+              On new or changed hardware, run <strong><Icon name="flask" /> Flash Wiring Test</strong>. Confirm red, green, blue, brightness, orientation, panel labels, and the logical/physical pixel chases before flashing the design. For a folded HUB75 grid, use <strong><Icon name="compass" /> Flash HUB75 Topology</strong> and verify every panel’s X/Y label, four corner colours, rotation, chain number, and yellow direction arrow.
             </div>
           </div>
           <div className={styles.step}>

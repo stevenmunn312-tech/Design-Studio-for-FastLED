@@ -11,20 +11,19 @@
 }
 
 .panelPerformance {
-  background:
-    radial-gradient(circle at 50% 8%, rgba(0, 191, 255, 0.04), transparent 20%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, black), color-mix(in srgb, var(--bg-panel) 88%, black));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, black), color-mix(in srgb, var(--bg-panel) 88%, black));
 }
 
 .panelStage {
+  --text-primary: var(--preview-instrument-text);
+  --text-secondary: var(--preview-instrument-muted);
+  --bg-panel: var(--stage-bg-panel);
+  --bg-node: var(--stage-bg-node);
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.72fr);
   grid-template-rows: 64px minmax(0, 1fr);
   overflow: hidden;
-  background:
-    radial-gradient(circle at 36% 48%, rgba(0, 191, 255, 0.055), transparent 34%),
-    radial-gradient(circle at 48% 62%, rgba(255, 38, 155, 0.045), transparent 38%),
-    #05070a;
+  background: var(--paint-05070a);
 }
 
 .panelStage .header {
@@ -36,20 +35,20 @@
   grid-column: 1;
   grid-row: 2;
   min-height: 0;
-  padding: clamp(24px, 4vw, 64px);
+  padding: clamp(var(--space-3), 4vw, calc(var(--space-0) * 16));
 }
 
 .panelStage .visualizer {
   grid-column: 2;
   grid-row: 2;
   border-top: none;
-  border-left: 1px solid var(--border-glow);
-  padding: clamp(18px, 2.4vw, 36px);
+  border-left: 1px solid var(--line);
+  padding: clamp(calc(var(--space-0) * 4.5), 2.4vw, calc(var(--space-0) * 9));
 }
 
 .panelStage .spectrumCanvas {
   min-height: 150px;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-3);
 }
 
 .header {
@@ -62,18 +61,18 @@
   font-weight: 600;
   border-bottom: 1px solid var(--chrome-border);
   flex-shrink: 0;
-  background: linear-gradient(180deg, rgba(18, 22, 27, 0.92), rgba(11, 14, 18, 0.86));
+  background: var(--bg-panel);
 }
 
 .previewIdentity {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: calc(var(--space-0) * 0.25);
 }
 
 .previewTitle {
   color: var(--text-primary);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 400;
   letter-spacing: 0;
@@ -81,10 +80,9 @@
 
 .previewMeta {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 8px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
 .headerRight {
@@ -92,19 +90,17 @@
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .outputRoutePicker {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .outputRoutePicker select {
@@ -121,10 +117,9 @@
 
 .headerStage {
   height: 64px;
-  padding: 0 clamp(18px, 2.4vw, 36px);
+  padding: 0 clamp(calc(var(--space-0) * 4.5), 2.4vw, calc(var(--space-0) * 9));
   background: rgba(7, 10, 15, 0.86);
-  border-bottom-color: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
+  border-bottom-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
 }
 
 /* Fullscreen may quiet transient chrome after pointer inactivity. Windowed
@@ -153,7 +148,7 @@
 .stageIdentity {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   min-width: 0;
 }
 
@@ -161,40 +156,35 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #ff4d8d;
-  box-shadow: 0 0 6px #ff4d8d, 0 0 16px rgba(255, 77, 141, 0.62);
+  background: var(--paint-ff4d8d);
+  box-shadow: 0 0 6px var(--paint-ff4d8d), 0 0 16px rgba(255, 77, 141, 0.62);
   animation: liveBreath 1.8s ease-in-out infinite;
 }
 
 .stageTitle {
   color: var(--text-primary);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 400;
-  letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .stageMeta {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
 }
 
 .stageStatusChip {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
-  padding: 0 9px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.035);
+  padding: 0 calc(var(--space-0) * 2.25);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 3.5%, transparent);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   white-space: nowrap;
 }
 
@@ -202,7 +192,7 @@
   content: '';
   width: 5px;
   height: 5px;
-  margin-right: 6px;
+  margin-right: calc(var(--space-0) * 1.5);
   border-radius: 50%;
   background: var(--success);
   box-shadow: 0 0 9px color-mix(in srgb, var(--success) 68%, transparent);
@@ -212,31 +202,27 @@
 .exitStageBtn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   min-height: 30px;
-  padding: 0 10px 0 12px;
-  border: 1px solid color-mix(in srgb, #ff5e9d 42%, var(--border-glow));
-  border-radius: 7px;
-  background: rgba(255, 94, 157, 0.08);
+  padding: 0 calc(var(--space-0) * 2.5) 0 calc(var(--space-0) * 3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg-node);
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   cursor: pointer;
 }
 
 .fullscreenStageBtn {
-  border-color: color-mix(in srgb, var(--accent) 44%, var(--border-glow));
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-color: var(--accent-ui);
 }
 
 .fullscreenStageBtn:hover,
 .fullscreenStageBtn:focus-visible {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 17%, transparent);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: var(--accent-ui);
+  background: var(--bg-node-hover);
 }
 
 .fullscreenStageBtn:disabled {
@@ -246,19 +232,18 @@
 
 .exitStageBtn:hover,
 .exitStageBtn:focus-visible {
-  border-color: #ff5e9d;
-  background: rgba(255, 94, 157, 0.16);
-  box-shadow: 0 0 18px rgba(255, 94, 157, 0.18);
+  border-color: var(--accent-ui);
+  background: var(--bg-node-hover);
 }
 
 .exitStageBtn kbd {
-  padding: 2px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.25);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.28);
   color: var(--text-secondary);
   font: inherit;
-  font-size: 8px;
+  font-size: var(--fs-ui);
 }
 
 @keyframes liveBreath {
@@ -269,16 +254,14 @@
 .toggleBtn {
   min-width: 72px;
   height: 30px;
-  padding: 0 10px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 0 calc(var(--space-0) * 2.5);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
   border: 1px solid var(--chrome-border);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 11px;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   cursor: pointer;
   line-height: 1;
   transition:
@@ -289,7 +272,7 @@
 }
 
 .toggleBtn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
   color: var(--text-primary);
 }
 
@@ -299,45 +282,41 @@
 }
 
 .previewToggle {
-  border-color: color-mix(in srgb, var(--accent-output) 38%, var(--border-glow));
+  border-color: var(--line);
 }
 
 .micToggle {
-  border-color: color-mix(in srgb, var(--accent-audio) 38%, var(--border-glow));
+  border-color: var(--line);
 }
 
 .toggleActive {
-  color: #041317;
+  color: var(--accent-ui-text);
   border-color: transparent;
 }
 
 .previewToggle.toggleActive {
-  background: linear-gradient(135deg, var(--accent-output), color-mix(in srgb, var(--accent-output) 62%, white));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px color-mix(in srgb, var(--accent-output) 45%, transparent);
+  background: var(--accent-ui);
 }
 
 .micToggle.toggleActive {
-  background: linear-gradient(135deg, var(--accent-audio), color-mix(in srgb, var(--accent-audio) 55%, white));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px color-mix(in srgb, var(--accent-audio) 45%, transparent);
+  background: var(--accent-ui);
 }
 
 .styleBtn {
   min-width: 104px;
-  border-color: color-mix(in srgb, #ff5e9d 38%, var(--border-glow));
+  border-color: var(--line);
 }
 
 .styleBtn.toggleActive {
-  background: linear-gradient(135deg, #8a4dff, #ff5e9d 58%, #00f0ff);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 16px rgba(255, 94, 157, 0.28);
+  background: var(--accent-ui);
 }
 
 .stageToggle {
-  border-color: color-mix(in srgb, #ff5e9d 38%, var(--border-glow));
+  border-color: var(--line);
 }
 
 .stageToggle.toggleActive {
-  background: linear-gradient(135deg, #ff5e9d, color-mix(in srgb, #ff5e9d 55%, white));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px rgba(255, 94, 157, 0.45);
+  background: var(--accent-ui);
 }
 
 .fps {
@@ -346,6 +325,7 @@
   font-size: var(--fs-caption);
   color: var(--text-secondary);
   font-family: var(--font-code);
+  font-variant-numeric: tabular-nums;
 }
 
 .canvasWrap {
@@ -356,7 +336,7 @@
      this wrap clips. The canvas is sized to the padded box, so a height-limited
      matrix puts the frame flush with the padding and the heading needs at least
      its own offset of room above it. */
-  padding-top: 32px;
+  padding-top: var(--space-4);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -387,43 +367,37 @@
 .recordBtn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
+  gap: calc(var(--space-0) * 1.25);
+  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 2.25);
   border: 1px solid rgba(255, 92, 92, 0.34);
-  border-radius: 999px;
-  background: rgba(24, 6, 10, 0.72);
+  border-radius: var(--radius-control);
+  background: var(--bg-node);
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   cursor: pointer;
-  backdrop-filter: blur(8px);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .recordBtn:hover {
   border-color: rgba(255, 92, 92, 0.7);
-  background: rgba(44, 10, 16, 0.85);
+  background: var(--bg-node-hover);
 }
 .recordBtn i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #ff5c5c;
+  background: var(--paint-ff5c5c);
   box-shadow: 0 0 6px rgba(255, 92, 92, 0.8);
 }
 
 .canvasHudChip {
-  padding: 3px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(4, 8, 14, 0.72);
+  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.75);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--bg-node);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  backdrop-filter: blur(8px);
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
 }
 
 .ambilight {
@@ -471,11 +445,11 @@
 }
 
 .canvasBayWithVu {
-  gap: 22px;
+  gap: calc(var(--space-0) * 5.5);
 }
 
 .canvasBayVuOnly {
-  gap: 38px;
+  gap: calc(var(--space-0) * 9.5);
 }
 
 .vuRail {
@@ -484,12 +458,10 @@
   display: block;
   flex: 0 0 auto;
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 700;
-  letter-spacing: 0.08em;
   line-height: 1;
-  text-transform: uppercase;
 }
 
 .vuRail > span {
@@ -504,15 +476,15 @@
   display: block;
   max-height: 100%;
   border-radius: 3px;
-  background: #020405;
+  background: var(--paint-020405);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 8%, transparent),
     0 0 18px rgba(0, 240, 255, 0.08);
   image-rendering: pixelated;
 }
 
 .panelStage .vuRail {
-  font-size: 11px;
+  font-size: var(--fs-ui);
 }
 
 .panelStage .vuRail > span {
@@ -534,12 +506,10 @@
   border: 1px solid rgba(90, 209, 255, 0.16);
   border-radius: 14px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at 14% 16%, rgba(0, 191, 255, 0.08), transparent 26%),
-    radial-gradient(circle at 86% 84%, rgba(255, 77, 141, 0.08), transparent 28%);
+    linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 1.8%, transparent), rgba(255, 255, 255, 0));
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
-    0 0 0 1px rgba(255, 255, 255, 0.025),
+    inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 2.5%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 2.5%, transparent),
     0 12px 34px var(--chrome-shadow);
   pointer-events: none;
 }
@@ -549,7 +519,7 @@
   position: absolute;
   inset: -7px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 4%, transparent);
   pointer-events: none;
 }
 
@@ -564,18 +534,15 @@
   bottom: 9px;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 5px 8px;
+  gap: calc(var(--space-0) * 2.25);
+  padding: calc(var(--space-0) * 1.25) var(--space-1);
   border: 1px solid rgba(90, 209, 255, 0.18);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: rgba(3, 6, 10, 0.72);
-  color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  color: var(--preview-instrument-muted);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   transform: translateX(-50%);
-  backdrop-filter: blur(7px);
   pointer-events: none;
   white-space: nowrap;
 }
@@ -583,21 +550,21 @@
 .standbyHud span {
   display: flex;
   align-items: center;
-  gap: 5px;
-  color: #9ce8ff;
+  gap: calc(var(--space-0) * 1.25);
+  color: var(--preview-instrument-accent);
 }
 
 .standbyHud i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #5ad1ff;
-  box-shadow: 0 0 7px #5ad1ff;
+  background: var(--accent-ui);
+  box-shadow: 0 0 7px var(--accent-ui);
   animation: standbyBlink 1.8s steps(2, end) infinite;
 }
 
 .standbyHud small {
-  font-size: 8px;
+  font-size: var(--fs-label);
   opacity: 0.64;
 }
 
@@ -624,7 +591,7 @@
   position: relative;
   z-index: 1;
   display: block;
-  background: #020405;
+  background: var(--paint-020405);
   border-radius: 4px;
   image-rendering: pixelated;
 }
@@ -653,20 +620,20 @@
      the WebGL shader (webglRenderer.ts), not a CSS filter. box-shadow is static
      and safe. */
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 3.5%, transparent),
     0 14px 34px rgba(0, 0, 0, 0.58),
     0 0 42px rgba(30, 116, 255, 0.12),
     0 0 72px rgba(255, 35, 151, 0.08);
 }
 
 .canvasDiffusion {
-  background: #05040a;
+  background: var(--paint-05040a);
   image-rendering: auto;
   /* No `filter` — see .canvasStandard: a CSS filter on the per-frame canvas
      leaks GPU memory. The diffusion look comes from the renderer's own
      LINEAR-sampled glow pass, not this grade. */
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 4%, transparent),
     0 0 42px rgba(255, 52, 181, 0.15),
     0 0 88px rgba(126, 74, 255, 0.2),
     0 0 142px rgba(0, 240, 255, 0.15);
@@ -675,7 +642,7 @@
 .canvasDiffusion3d {
   filter: none;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 3%, transparent),
     0 18px 44px rgba(0, 0, 0, 0.56),
     0 0 52px rgba(255, 52, 181, 0.12),
     0 0 102px rgba(126, 74, 255, 0.16),
@@ -684,7 +651,7 @@
 
 .canvasCrt {
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 4%, transparent),
     0 0 22px rgba(255, 110, 210, 0.08),
     0 0 60px rgba(0, 240, 255, 0.08);
 }
@@ -702,6 +669,12 @@
 }
 
 .visualizer {
+  --text-primary: var(--preview-instrument-text);
+  --text-secondary: var(--preview-instrument-muted);
+  --bg-primary: var(--stage-bg-panel);
+  --bg-panel: var(--stage-bg-panel);
+  --bg-node: var(--stage-bg-node);
+  --line: color-mix(in srgb, var(--preview-instrument-text) 18%, transparent);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -709,18 +682,16 @@
      here (spectrum + wordmark) rather than as dead space around the canvas. */
   flex: 6 1 auto;
   min-height: 0;
-  padding: 6px var(--space-2) 12px;
-  border-top: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.5) var(--space-2) calc(var(--space-0) * 3);
+  border-top: 1px solid var(--line);
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 110%, rgba(255, 0, 170, 0.22), transparent 38%),
-    linear-gradient(180deg, rgba(6, 10, 18, 0.9), rgba(4, 6, 10, 0.98));
+  background: linear-gradient(180deg, rgba(6, 10, 18, 0.9), rgba(4, 6, 10, 0.98));
 }
 
 .visualizerIdle {
   flex: 0 0 auto;
   min-height: 0;
-  padding: 8px 10px;
+  padding: var(--space-1) calc(var(--space-0) * 2.5);
   overflow: hidden;
   background: linear-gradient(180deg, rgba(8, 12, 18, 0.9), rgba(5, 8, 12, 0.98));
 }
@@ -737,28 +708,27 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
 }
 
 .idleAudioCopy {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .idleAudioCopy span {
   color: var(--text-primary);
-  font-family: var(--font-display);
-  font-size: 10px;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .idleAudioCopy small {
   overflow: hidden;
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -766,16 +736,16 @@
 .idleAddTrack {
   flex: 0 0 auto;
   min-height: 30px;
-  padding: 0 10px;
+  padding: 0 calc(var(--space-0) * 2.5);
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  border: 1px solid color-mix(in srgb, var(--accent-output) 34%, var(--border-glow));
+  gap: calc(var(--space-0) * 1.75);
+  border: 1px solid color-mix(in srgb, var(--accent-output) 34%, var(--line));
   border-radius: 7px;
   background: color-mix(in srgb, var(--accent-output) 8%, var(--bg-panel));
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 
@@ -785,7 +755,7 @@
 }
 
 .idleAddTrack:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 62%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 62%, var(--line));
   background: color-mix(in srgb, var(--accent-output) 14%, var(--bg-panel));
 }
 
@@ -798,8 +768,8 @@
   position: absolute;
   inset: auto 8% -18px;
   height: 36px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(0, 229, 255, 0.16), rgba(136, 92, 255, 0.14), rgba(255, 0, 153, 0.16));
+  border-radius: var(--radius-control);
+  background: var(--accent-ui);
   filter: blur(16px);
   pointer-events: none;
 }
@@ -808,52 +778,10 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 100% 12px,
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px) 0 0 / calc(100% / 14) 100%;
+    linear-gradient(color-mix(in srgb, var(--text-primary) 4.5%, transparent) 1px, transparent 1px) 0 0 / 100% 12px,
+    linear-gradient(90deg, color-mix(in srgb, var(--text-primary) 3%, transparent) 1px, transparent 1px) 0 0 / calc(100% / 14) 100%;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.3), black 24%, black);
   pointer-events: none;
-}
-
-.visualizer::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -20%;
-  height: 18px;
-  background:
-    linear-gradient(180deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.06) 22%,
-      rgba(0, 255, 255, 0.2) 50%,
-      rgba(255, 0, 170, 0.12) 78%,
-      transparent 100%);
-  filter: blur(4px);
-  mix-blend-mode: screen;
-  opacity: 0.82;
-  pointer-events: none;
-  animation:
-    visualizerScan 3.4s cubic-bezier(0.32, 0.02, 0.2, 1) infinite,
-    visualizerFlicker 160ms steps(2, end) infinite;
-}
-
-.visualizer::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0) 32%),
-    repeating-linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.028) 0,
-      rgba(255, 255, 255, 0.028) 1px,
-      transparent 1px,
-      transparent 3px
-    );
-  opacity: 0.42;
-  mix-blend-mode: screen;
-  pointer-events: none;
-  animation: visualizerFlicker 220ms steps(3, end) infinite;
 }
 
 .visualizerSection,
@@ -863,25 +791,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   min-width: 0;
 }
 
 .visualizerKicker {
-  color: #9ce8ff;
-  font-family: var(--font-display);
-  font-size: 10px;
+  color: var(--preview-instrument-accent);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 400;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .visualizerMeta {
-  color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: var(--preview-instrument-muted);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   opacity: 0.72;
 }
 
@@ -889,24 +815,24 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .visualizerToggle {
   min-width: 126px;
   height: 28px;
-  padding: 0 8px 0 10px;
+  padding: 0 var(--space-1) 0 calc(var(--space-0) * 2.5);
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--border-glow));
+  gap: calc(var(--space-0) * 2.5);
+  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--line));
   border-radius: 7px;
   background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   letter-spacing: 0.02em;
   cursor: pointer;
 }
@@ -921,7 +847,7 @@
 }
 
 .visualizerToggle:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 58%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 58%, var(--line));
   background: color-mix(in srgb, var(--accent-output) 7%, var(--bg-primary));
 }
 
@@ -945,7 +871,7 @@
   height: 100%;
   min-height: 80px;
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: calc(var(--space-0) * 3);
 }
 
 .musicControls {
@@ -957,16 +883,16 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   min-width: 0;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--transport-accent) 18%, var(--border-glow));
+  padding: calc(var(--space-0) * 3);
+  border: 1px solid color-mix(in srgb, var(--transport-accent) 18%, var(--line));
   border-radius: 16px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--transport-accent) 10%, transparent), transparent 36%),
     linear-gradient(180deg, var(--transport-surface-top), var(--transport-surface-bottom));
   box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 1px color-mix(in srgb, var(--text-primary) 4%, transparent),
     inset 0 0 18px color-mix(in srgb, var(--transport-accent) 6%, transparent);
 }
 
@@ -974,26 +900,24 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .transportChip {
-  padding: 3px 7px;
-  border: 1px solid color-mix(in srgb, var(--transport-accent) 24%, var(--border-glow));
-  border-radius: 999px;
+  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.75);
+  border: 1px solid color-mix(in srgb, var(--transport-accent) 24%, var(--line));
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   box-shadow: inset 0 0 8px color-mix(in srgb, var(--transport-accent) 6%, transparent);
 }
 
 .musicTop {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -1012,7 +936,7 @@
   text-align: right;
   color: color-mix(in srgb, var(--transport-accent) 42%, var(--text-secondary));
   font-size: 12px;
-  font-family: var(--font-code);
+  font-family: var(--font-body);
 }
 
 /* ── Progress slider: gradient fill up to --pp, glowing thumb ── */
@@ -1021,15 +945,15 @@
   appearance: none;
   width: 100%;
   height: 7px;
-  margin: 4px 0;
-  border-radius: 999px;
+  margin: var(--space-0) 0;
+  border-radius: var(--radius-control);
   background:
     linear-gradient(90deg,
       var(--transport-accent) 0%,
       var(--transport-accent-strong) var(--pp, 0%),
       color-mix(in srgb, var(--bg-panel) 56%, var(--divider)) var(--pp, 0%));
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--transport-accent) 14%, var(--border-glow)),
+    inset 0 0 0 1px color-mix(in srgb, var(--transport-accent) 14%, var(--line)),
     inset 0 0 10px color-mix(in srgb, var(--transport-accent) 8%, transparent);
   outline: none;
   cursor: pointer;
@@ -1042,7 +966,7 @@
   height: 16px;
   border: none;
   border-radius: 50%;
-  background: #fff;
+  background: white;
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--transport-accent) 30%, transparent),
     0 0 10px color-mix(in srgb, var(--transport-accent) 65%, transparent);
@@ -1053,7 +977,7 @@
   height: 16px;
   border: none;
   border-radius: 50%;
-  background: #fff;
+  background: white;
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--transport-accent) 30%, transparent),
     0 0 10px color-mix(in srgb, var(--transport-accent) 65%, transparent);
@@ -1085,7 +1009,7 @@
 .controlsRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -1097,7 +1021,7 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   min-width: max-content;
 }
 
@@ -1105,7 +1029,7 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .volWrap {
@@ -1121,12 +1045,12 @@
   place-items: center;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--transport-accent) 28%, var(--border-glow));
+  border: 1px solid color-mix(in srgb, var(--transport-accent) 28%, var(--line));
   background: color-mix(in srgb, var(--bg-panel) 72%, transparent);
   color: var(--text-primary);
   cursor: pointer;
   flex: 0 0 auto;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 2%, transparent);
   transition:
     background var(--anim-hover),
     border-color var(--anim-hover),
@@ -1136,7 +1060,7 @@
 
 .iconBtn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--transport-accent) 12%, var(--bg-panel));
-  border-color: color-mix(in srgb, var(--transport-accent) 56%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--transport-accent) 56%, var(--line));
   box-shadow:
     inset 0 0 12px color-mix(in srgb, var(--transport-accent) 8%, transparent),
     0 0 10px color-mix(in srgb, var(--transport-accent) 22%, transparent);
@@ -1155,12 +1079,12 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--transport-accent), color-mix(in srgb, var(--transport-accent) 58%, white));
-  color: #041317;
+  background: var(--transport-accent);
+  color: var(--paint-041317);
   cursor: pointer;
   flex: 0 0 auto;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 8%, transparent),
     0 0 14px color-mix(in srgb, var(--transport-accent) 42%, transparent);
   transition: box-shadow var(--anim-hover), filter var(--anim-hover);
 }
@@ -1168,7 +1092,7 @@
 .playIconBtn:hover:not(:disabled) {
   filter: brightness(1.1);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 12%, transparent),
     0 0 20px color-mix(in srgb, var(--transport-accent) 56%, transparent);
 }
 
@@ -1192,7 +1116,7 @@
      narrow transport row without sacrificing a usable drag target. */
   width: 52px;
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background:
     linear-gradient(90deg,
       var(--transport-accent) var(--pp, 100%),
@@ -1201,7 +1125,7 @@
   cursor: pointer;
   flex: 0 0 auto;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--transport-accent) 12%, var(--border-glow)),
+    inset 0 0 0 1px color-mix(in srgb, var(--transport-accent) 12%, var(--line)),
     inset 0 0 8px color-mix(in srgb, var(--transport-accent) 7%, transparent);
 }
 
@@ -1212,7 +1136,7 @@
   height: 12px;
   border: none;
   border-radius: 50%;
-  background: #fff;
+  background: white;
   box-shadow: 0 0 6px color-mix(in srgb, var(--transport-accent) 60%, transparent);
 }
 
@@ -1221,7 +1145,7 @@
   height: 12px;
   border: none;
   border-radius: 50%;
-  background: #fff;
+  background: white;
   box-shadow: 0 0 6px color-mix(in srgb, var(--transport-accent) 60%, transparent);
 }
 
@@ -1244,176 +1168,29 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  margin-top: 14px;
+  gap: var(--space-0);
+  margin-top: calc(var(--space-0) * 3.5);
   text-align: center;
 }
 
 .stagePatternKicker {
-  color: #8adfff;
-  font-family: var(--font-code);
-  font-size: 10px;
+  color: var(--paint-8adfff);
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .stagePatternName {
   max-width: min(92%, 320px);
   color: var(--text-primary);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 400;
-  letter-spacing: 0;
   text-wrap: balance;
-}
-
-.brandWrap {
-  position: relative;
-  z-index: 0;
-  /* A small in-flow signature below active controls. Branding should identify
-     the instrument, not compete with its matrix, spectrum or transport. */
-  flex: 0 0 38px;
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 6px;
-  overflow: hidden;
-}
-
-
-.brandLockup {
-  position: relative;
-  /* The generated concept has generous vertical presentation space; the fixed
-     footer crops that space around a compact centred lockup. */
-  width: min(68%, 220px);
-  flex: 0 0 auto;
-  pointer-events: none;
-}
-
-.panelStage .brandLockup {
-  opacity: 0.42;
-}
-
-.brandLogo {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-width: none;
-  opacity: 0.42;
-}
-
-/* Per-LED twinkle: each <i> is one glint spot (position/hue/timing set via
-   inline CSS vars in LEDPreview.tsx). The layer is masked by the logo art
-   itself, so a glint only ever lights the lockup's own pixels — like a single
-   LED in the wordmark catching the light. */
-.brandTwinkles {
-  position: absolute;
-  inset: 0;
-  -webkit-mask-image: url('/brand-concepts/concept-1-pixel.png');
-  mask-image: url('/brand-concepts/concept-1-pixel.png');
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-}
-
-.brandTwinkles i {
-  position: absolute;
-  left: var(--tx);
-  top: var(--ty);
-  width: 26px;
-  height: 26px;
-  margin: -13px 0 0 -13px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #fff 0%, var(--tc) 32%, transparent 68%);
-  opacity: 0;
-  transform: scale(0.3);
-  animation: brandTwinkle var(--tt) linear var(--td) infinite;
-}
-
-/* A short pop early in the cycle, then dark for the rest of it. */
-@keyframes brandTwinkle {
-  0%, 7%, 100% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  3.5% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Occasional glow ripple: a light band sweeps across the wordmark, masked by
-   the logo art itself so only the LED pixels catch the light. Mostly idle —
-   the sweep occupies a short slice of a long cycle. */
-.brandShine {
-  position: absolute;
-  inset: 0;
-  -webkit-mask-image: url('/brand-concepts/concept-1-pixel.png');
-  mask-image: url('/brand-concepts/concept-1-pixel.png');
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  background:
-    linear-gradient(
-      115deg,
-      transparent 30%,
-      rgba(90, 209, 255, 0.55) 40%,
-      rgba(180, 240, 255, 1) 47%,
-      rgba(255, 255, 255, 1) 51%,
-      rgba(255, 170, 255, 1) 55%,
-      rgba(255, 92, 240, 0.55) 62%,
-      transparent 72%
-    )
-    no-repeat;
-  background-size: 320% 100%;
-  background-position: 100% 0;
-  animation: brandShineSweep 14s ease-in-out infinite;
-}
-
-@keyframes brandShineSweep {
-  0% {
-    background-position: 100% 0;
-  }
-  16% {
-    background-position: 0% 0;
-  }
-  100% {
-    background-position: 0% 0;
-  }
 }
 
 .fileInput {
   display: none;
-}
-
-@keyframes visualizerScan {
-  0% {
-    transform: translateY(0) scaleY(0.92);
-  }
-  55% {
-    transform: translateY(44px) scaleY(1.04);
-  }
-  100% {
-    transform: translateY(84px) scaleY(0.94);
-  }
-}
-
-@keyframes visualizerFlicker {
-  0% {
-    opacity: 0.34;
-  }
-  25% {
-    opacity: 0.46;
-  }
-  50% {
-    opacity: 0.28;
-  }
-  75% {
-    opacity: 0.42;
-  }
-  100% {
-    opacity: 0.36;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1429,19 +1206,6 @@
     animation: none;
   }
 
-  .bar,
-  .peak,
-  .visualizer::before,
-  .visualizer::after {
-    transition: none;
-    animation: none;
-  }
-
-  .brandTwinkles,
-  .brandShine {
-    display: none;
-  }
-
 }
 
 :global([data-reduced-motion]) .liveDot {
@@ -1450,11 +1214,6 @@
 
 :global([data-reduced-motion]) .standbyHud i {
   animation: none;
-}
-
-:global([data-reduced-motion]) .brandTwinkles,
-:global([data-reduced-motion]) .brandShine {
-  display: none;
 }
 
 @media (max-width: 900px) {
@@ -1474,29 +1233,26 @@
   .panelStage .canvasWrap {
     flex: 1 1 58%;
     min-height: 220px;
-    padding: 20px;
+    padding: calc(var(--space-0) * 5);
   }
 
   .panelStage .visualizer {
     flex: 1 1 42%;
     min-height: 180px;
     border-left: none;
-    border-top: 1px solid var(--border-glow);
-    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    padding: calc(var(--space-0) * 3) calc(var(--space-0) * 4.5);
   }
 
   .panelStage .spectrumCanvas {
     min-height: 52px;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-1);
   }
 
   .panelStage .visualizerMeta {
     display: none;
   }
 
-  .panelStage .brandWrap {
-    display: none;
-  }
 
   .panelStage .toggleBtn:not(.stageToggle) {
     display: none;
@@ -1524,7 +1280,7 @@
     flex: 3 1 auto;
     min-height: 220px;
     padding: var(--space-2);
-    padding-top: 30px;
+    padding-top: calc(var(--space-0) * 7.5);
   }
 
   .visualizer {
@@ -1535,25 +1291,22 @@
        is not subject to that exception. The panel scrolls when the canvas
        floor and this one can't both fit. */
     min-height: min-content;
-    padding-bottom: 8px;
+    padding-bottom: var(--space-1);
   }
 
   .spectrumCanvas {
     min-height: 48px;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-1);
   }
 
   .musicControls {
-    gap: 6px;
+    gap: calc(var(--space-0) * 1.5);
   }
 
   .transportChips {
-    gap: 4px;
+    gap: var(--space-0);
   }
 
-  .brandWrap {
-    display: none;
-  }
 }
 
 /* Explicit browser fullscreen is the audience view: remove the operator
@@ -1576,7 +1329,7 @@
   grid-column: 1;
   grid-row: 1;
   min-height: 0;
-  padding: clamp(18px, 2.5vmin, 32px);
+  padding: clamp(calc(var(--space-0) * 4.5), 2.5vmin, var(--space-4));
 }
 
 .panelStageFullscreen .canvasFrameHeader {

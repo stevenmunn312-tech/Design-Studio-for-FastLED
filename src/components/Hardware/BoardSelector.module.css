@@ -3,18 +3,18 @@
 .selector {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 0 0 8px;
+  gap: calc(var(--space-0) * 1.5);
+  margin: 0 0 var(--space-1);
 }
 
 .tab {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   min-width: 0;
-  padding: 6px 12px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 85%, transparent);
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
   color: var(--text-secondary);
@@ -38,7 +38,7 @@
 }
 
 .tab:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
 }
 
 .tab:focus-visible {
@@ -47,7 +47,7 @@
 }
 
 .tabActive {
-  border-color: color-mix(in srgb, var(--accent-output) 70%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 70%, var(--line));
   background: color-mix(in srgb, var(--bg-panel) 78%, var(--accent-output) 14%);
   color: var(--text-primary);
 }

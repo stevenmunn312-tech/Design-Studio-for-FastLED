@@ -2,26 +2,24 @@
   display: grid;
   grid-template-columns: 64px 1fr 46px;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   font-size: var(--fs-caption);
   font-family: var(--font-body);
   color: var(--text-secondary);
 }
 
 .field > span:first-child {
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: var(--fs-label);
 }
 
 .field input[type='range'] { accent-color: var(--accent-show); min-width: 0; }
 
 .field select {
   grid-column: 2 / 4;
-  padding: 2px 4px;
+  padding: calc(var(--space-0) * 0.5) var(--space-0);
   font-size: var(--fs-caption);
   font-family: var(--font-body);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -29,7 +27,7 @@
 
 .val {
   text-align: right;
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   color: var(--text-primary);
 }
 

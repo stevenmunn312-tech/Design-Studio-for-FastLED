@@ -1,9 +1,9 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-  padding-top: 6px;
+  gap: calc(var(--space-0) * 1.5);
+  margin-top: var(--space-0);
+  padding-top: calc(var(--space-0) * 1.5);
   border-top: 1px solid var(--divider);
 }
 
@@ -18,12 +18,12 @@
 .bakeRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .bakeBtn {
-  padding: 4px 10px;
-  font-size: var(--fs-caption);
+  padding: var(--space-0) calc(var(--space-0) * 2.5);
+  font-size: var(--fs-ui);
   font-family: var(--font-body);
   border: 1px solid var(--accent-show);
   border-radius: 6px;
@@ -34,7 +34,6 @@
 
 .bakeBtn:hover:not(:disabled) {
   border-color: var(--accent-show);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-show) 35%, transparent);
 }
 
 .bakeBtn:disabled,
@@ -48,10 +47,8 @@
 }
 
 .bakeBadge {
-  padding: 2px 7px;
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.75);
+  font-size: var(--fs-label);
   border-radius: 9px;
   background: color-mix(in srgb, var(--accent-show) 22%, var(--bg-primary));
   color: var(--accent-show);
@@ -61,8 +58,8 @@
 .progressWrap {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
   border: 1px solid var(--divider);
   border-radius: 6px;
   background: color-mix(in srgb, var(--accent-show) 6%, var(--bg-primary));
@@ -72,7 +69,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-1);
   font-size: var(--fs-caption);
   font-family: var(--font-body);
   color: var(--text-primary);
@@ -81,7 +78,7 @@
 .progressTrack {
   height: 8px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: var(--bg-primary);
   border: 1px solid var(--divider);
 }
@@ -89,7 +86,7 @@
 .progressFill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-show) 60%, #fff), var(--accent-show));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-show) 60%, white), var(--accent-show));
 }
 
 .progressNote {
@@ -103,7 +100,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-0);
   max-height: 110px;
   overflow-y: auto;
 }
@@ -111,10 +108,10 @@
 .song,
 .songOn {
   text-align: left;
-  padding: 4px 8px;
+  padding: var(--space-0) var(--space-1);
   font-size: var(--fs-caption);
   font-family: var(--font-body);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
@@ -145,7 +142,7 @@
 .player {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .canvas {
@@ -153,15 +150,15 @@
   height: auto;
   image-rendering: pixelated;
   border-radius: 6px;
-  background: #000;
+  background: black;
   border: 1px solid var(--divider);
 }
 
 .mainPreviewToggle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 4px;
+  gap: calc(var(--space-0) * 1.5);
+  padding: calc(var(--space-0) * 0.5) var(--space-0);
   font-size: var(--fs-caption);
   font-family: var(--font-body);
   color: var(--text-secondary);
@@ -173,7 +170,7 @@
 }
 
 .mainNote {
-  padding: 10px 8px;
+  padding: calc(var(--space-0) * 2.5) var(--space-1);
   text-align: center;
   font-size: var(--fs-caption);
   font-family: var(--font-body);
@@ -184,7 +181,7 @@
 }
 
 .transportNote {
-  padding: 3px 8px;
+  padding: calc(var(--space-0) * 0.75) var(--space-1);
   font-size: var(--fs-caption);
   font-family: var(--font-body);
   color: var(--text-secondary);
@@ -196,16 +193,16 @@
 .statusRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .chip {
   display: inline-flex;
   align-items: baseline;
-  gap: 5px;
-  padding: 2px 7px;
-  font-size: var(--fs-caption);
-  font-family: var(--font-code);
+  gap: calc(var(--space-0) * 1.25);
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.75);
+  font-size: var(--fs-ui);
+  font-family: var(--font-body);
   border-radius: 10px;
   background: var(--bg-primary);
   color: var(--text-secondary);
@@ -214,23 +211,21 @@
 
 .chip b {
   color: var(--text-primary);
-  font-size: 8px;
+  font-size: var(--fs-ui);
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .section {
   background: var(--accent-show);
-  color: #000;
+  color: black;
   border-color: var(--accent-show);
 }
 
-.section b { color: #000; }
+.section b { color: black; }
 
 .error {
   margin: 0;
-  padding: 5px 7px;
+  padding: calc(var(--space-0) * 1.25) calc(var(--space-0) * 1.75);
   border: 1px solid var(--error);
   border-radius: 5px;
   background: color-mix(in srgb, var(--error) 10%, transparent);
@@ -244,15 +239,15 @@
 .editRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .tab,
 .tabOn {
-  padding: 3px 9px;
+  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 2.25);
   font-size: var(--fs-caption);
   font-family: var(--font-body);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -270,10 +265,8 @@
 
 .editedBadge {
   margin-left: auto;
-  padding: 2px 7px;
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.75);
+  font-size: var(--fs-label);
   border-radius: 9px;
   background: color-mix(in srgb, var(--accent-show) 22%, var(--bg-primary));
   color: var(--accent-show);
@@ -281,10 +274,10 @@
 }
 
 .revert {
-  padding: 3px 8px;
+  padding: calc(var(--space-0) * 0.75) var(--space-1);
   font-size: var(--fs-caption);
   font-family: var(--font-body);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-secondary);
@@ -295,7 +288,7 @@
 
 .editedDot {
   color: var(--accent-show);
-  font-size: 10px;
+  font-size: var(--fs-label);
 }
 
 .tab:focus-visible,

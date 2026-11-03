@@ -339,8 +339,8 @@ describe('MenuBar file menu', () => {
 
     expect(getByRole('menu', { name: 'View' })).toBeTruthy()
     // Theme and preview style are radio lists; the current one is ticked.
-    expect(getByRole('menuitemradio', { name: '✓ ☾ Dark' }).getAttribute('aria-checked')).toBe('true')
-    expect(getByRole('menuitemradio', { name: '○ ✦ Solarized' }).getAttribute('aria-checked')).toBe('false')
+    expect(getByRole('menuitemradio', { name: 'Dark ✓' }).getAttribute('aria-checked')).toBe('true')
+    expect(getByRole('menuitemradio', { name: 'Solarized' }).getAttribute('aria-checked')).toBe('false')
     expect(getByRole('menuitemradio', { name: '✓ Standard' }).getAttribute('aria-checked')).toBe('true')
     expect(getByText('○ Motion: Full')).toBeTruthy()
     expect(getByText('○ Contrast: Standard')).toBeTruthy()

@@ -3,15 +3,13 @@
   width: auto;
   min-width: 0;
   height: 30px;
-  padding: 0 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid color-mix(in srgb, #ffd25e 34%, var(--border-glow));
-  border-radius: 999px;
+  padding: 0 calc(var(--space-0) * 2.5);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--paint-ffd25e) 34%, var(--line));
+  border-radius: var(--radius-control);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-ui);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   cursor: pointer;
   transition:
     background var(--anim-hover),
@@ -21,15 +19,14 @@
 }
 
 .toggleBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
   color: var(--text-primary);
 }
 
 .toggleActive {
-  color: #221102;
-  background: linear-gradient(135deg, #ffd25e, #ff9e46);
+  color: var(--accent-ui-text);
+  background: var(--warning);
   border-color: transparent;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px rgba(255, 190, 78, 0.32);
 }
 
 .hud {
@@ -38,16 +35,15 @@
   top: 14px;
   left: 14px;
   width: min(360px, calc(100% - 28px));
-  padding: 12px;
+  padding: calc(var(--space-0) * 3);
   border: 1px solid rgba(255, 210, 94, 0.22);
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(17, 14, 10, 0.94), rgba(8, 9, 12, 0.94)),
     rgba(6, 8, 12, 0.92);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(16px);
   color: var(--text-primary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
@@ -55,59 +51,56 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
 }
 
 .title {
   font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .actions {
   display: flex;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .actionBtn {
   height: 24px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 0 var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 10px;
+  font-size: var(--fs-ui);
   cursor: pointer;
 }
 
 .actionBtn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.09);
+  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
 }
 
 .summaryGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--space-1);
+  margin-top: calc(var(--space-0) * 2.5);
 }
 
 .metricCard {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: var(--space-0);
+  padding: var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
 }
 
 .metricLabel {
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--fs-label);
   letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .metricCard strong {
@@ -120,8 +113,8 @@
 }
 
 .table {
-  margin-top: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: calc(var(--space-0) * 2.5);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -130,19 +123,18 @@
 .phaseRow {
   display: grid;
   grid-template-columns: 1.5fr repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  padding: 6px 8px;
+  gap: var(--space-1);
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
 }
 
 .phaseHeader {
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.05);
-  text-transform: uppercase;
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
   letter-spacing: 0.04em;
 }
 
 .phaseRow:nth-child(even) {
-  background: rgba(255, 255, 255, 0.025);
+  background: color-mix(in srgb, var(--text-primary) 2.5%, transparent);
 }
 
 .phaseLabel {
@@ -152,15 +144,15 @@
 .contextGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 10px;
-  margin-top: 10px;
+  gap: calc(var(--space-0) * 1.5) calc(var(--space-0) * 2.5);
+  margin-top: calc(var(--space-0) * 2.5);
   color: var(--text-secondary);
   line-height: 1.35;
 }
 
 .note {
-  margin: 10px 0 0;
-  color: #ffe29d;
+  margin: calc(var(--space-0) * 2.5) 0 0;
+  color: var(--paint-ffe29d);
   line-height: 1.45;
 }
 
@@ -179,7 +171,7 @@
   .phaseHeader,
   .phaseRow {
     grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr));
-    gap: 6px;
-    font-size: 10px;
+    gap: calc(var(--space-0) * 1.5);
+    font-size: var(--fs-ui);
   }
 }

@@ -79,6 +79,7 @@ import { CUSTOM_DESIGN_LAYOUT,
   transportLayoutForKind,
 } from '../../state/displays/transportDisplay'
 import styles from './StudioNode.module.css'
+import { Icon } from '../icons/Icon'
 import {
   CATEGORY_TAG, HARDWARE_INPUT_WIDGET_TYPES, NODE_WIDTH_OVERRIDES, PREVIEW_NOTES,
   editableProperties, hasRgbProperties,
@@ -141,7 +142,7 @@ function CodeError({ nodeId }: { nodeId: string }) {
     })
   }, [nodeId])
   if (!err) return null
-  return <div className={styles.codeErr} title={err}>⚠ {err}</div>
+  return <div className={styles.codeErr} title={err}><Icon name="warning" size={12} /> {err}</div>
 }
 
 // MatrixOutput's size dropdown offers these square presets, plus "Custom"
@@ -891,7 +892,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 aria-label="Edit network"
                 onClick={() => setNetworkEditorOpen(true)}
               >
-                ✎
+                <Icon name="edit" />
               </button>
             )}
             {!wired && isPinnableProperty(nodeType, key, val) && (() => {
@@ -905,7 +906,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   aria-pressed={Boolean(pinId)}
                   onClick={() => (pinId ? unpinProperty(pinId) : pinProperty(nodeId, key))}
                 >
-                  📌
+                  <Icon name="pin" />
                 </button>
               )
             })()}
@@ -1605,7 +1606,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       } as React.CSSProperties}
     >
       <span ref={signalAuraRef} className={styles.signalAura} aria-hidden="true" />
-      <div className={styles.header} style={{ background: accent }} title={headerTooltip}>
+      <div className={styles.header} title={headerTooltip}>
         {minimized && compactInputs.map((input, index) => {
           const inputColor = portColor(input.dataType)
           const connectionHint = connectionTargetHint(d.nodeType, input, connectionDrag)
@@ -2004,7 +2005,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => updateNodeProperty(id, 'formula', e.target.value)}
             />
-            {formulaError && <div className={styles.codeErr} title={formulaError}>⚠ {formulaError}</div>}
+            {formulaError && <div className={styles.codeErr} title={formulaError}><Icon name="warning" size={12} /> {formulaError}</div>}
           </>
         )}
 

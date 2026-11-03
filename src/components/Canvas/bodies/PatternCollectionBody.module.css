@@ -1,16 +1,16 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
-  padding-top: 6px;
+  gap: var(--space-0);
+  margin-top: var(--space-0);
+  padding-top: calc(var(--space-0) * 1.5);
   border-top: 1px solid var(--divider);
 }
 
 .empty {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
-  padding: 4px 0;
+  padding: var(--space-0) 0;
   text-align: center;
 }
 
@@ -19,8 +19,8 @@
 .actions {
   display: flex;
   align-items: stretch;
-  gap: 5px;
-  margin-top: 2px;
+  gap: calc(var(--space-0) * 1.25);
+  margin-top: calc(var(--space-0) * 0.5);
 }
 
 .addPatterns {
@@ -30,16 +30,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  border: 1px dashed color-mix(in srgb, var(--accent-library) 34%, rgba(255, 255, 255, 0.08));
+  gap: calc(var(--space-0) * 1.25);
+  border: 1px dashed color-mix(in srgb, var(--accent-library) 34%, color-mix(in srgb, var(--text-primary) 8%, transparent));
   border-radius: 6px;
   background: color-mix(in srgb, var(--accent-library) 6%, transparent);
   color: color-mix(in srgb, var(--accent-library) 68%, white);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   cursor: pointer;
 }
 
@@ -51,16 +49,14 @@
 .clearAll {
   flex: 0 0 auto;
   min-height: 28px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 0 var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 9%, transparent);
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.22);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -69,13 +65,13 @@
   flex: 1;
   min-width: 0;
   min-height: 24px;
-  padding: 0 6px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 0 calc(var(--space-0) * 1.5);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 9%, transparent);
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.22);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
@@ -100,14 +96,14 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .row {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 3px 4px;
+  gap: calc(var(--space-0) * 0.75);
+  padding: calc(var(--space-0) * 0.75) var(--space-0);
   border-radius: 4px;
   background: var(--bg-primary);
 }
@@ -116,26 +112,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .sections {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .meta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .weight {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 9px;
+  gap: calc(var(--space-0) * 1.5);
+  font-size: var(--fs-label);
   color: var(--text-secondary);
 }
 
@@ -144,13 +140,13 @@
 }
 
 .chip {
-  font-size: 9px;
-  font-family: var(--font-code);
+  font-size: var(--fs-ui);
+  font-family: var(--font-body);
   color: var(--text-secondary);
   background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 0 5px;
+  padding: 0 calc(var(--space-0) * 1.25);
   line-height: 1.6;
   cursor: pointer;
 }
@@ -172,13 +168,13 @@
 
 .libraryBadge {
   flex-shrink: 0;
-  font-family: var(--font-code);
-  font-size: 8px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   letter-spacing: 0.04em;
   color: var(--text-secondary);
   border: 1px solid var(--divider);
-  border-radius: 999px;
-  padding: 0 5px;
+  border-radius: var(--radius-control);
+  padding: 0 calc(var(--space-0) * 1.25);
   line-height: 14px;
   white-space: nowrap;
   background: none;
@@ -200,7 +196,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 11px;
-  padding: 0 2px;
+  padding: 0 calc(var(--space-0) * 0.5);
   line-height: 1;
   flex-shrink: 0;
 }

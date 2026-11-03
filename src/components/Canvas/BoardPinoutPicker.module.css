@@ -3,20 +3,19 @@
   z-index: 1000;
   inset: 0;
   display: grid;
-  padding: 44px;
+  padding: calc(var(--space-0) * 11);
   place-items: center;
   background: rgba(5, 8, 10, 0.78);
-  backdrop-filter: blur(8px);
 }
 
 .dialog {
   width: min(1180px, 100%);
   max-height: min(820px, calc(100vh - 88px));
-  padding: 18px;
+  padding: calc(var(--space-0) * 4.5);
   overflow: hidden;
-  border: 1px solid #46545a;
+  border: 1px solid var(--paint-46545a);
   border-radius: 14px;
-  background: linear-gradient(180deg, #20282c, #151a1d);
+  background: linear-gradient(180deg, var(--paint-20282c), var(--paint-151a1d));
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
 }
 
@@ -24,60 +23,59 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 14px;
+  gap: calc(var(--space-0) * 4.5);
+  margin-bottom: calc(var(--space-0) * 3.5);
 }
 
 .title {
   margin: 0;
-  color: #f3f6f2;
+  color: var(--paint-f3f6f2);
   font-size: 20px;
 }
 
 .header p {
-  margin: 4px 0 0;
-  color: #9eaaad;
+  margin: var(--space-0) 0 0;
+  color: var(--paint-9eaaad);
   font-size: 12px;
 }
 
 .close {
-  padding: 8px 12px;
-  border: 1px solid #526067;
+  padding: var(--space-1) calc(var(--space-0) * 3);
+  border: 1px solid var(--paint-526067);
   border-radius: 7px;
-  background: #293237;
-  color: #eef2ef;
+  background: var(--paint-293237);
+  color: var(--paint-eef2ef);
   cursor: pointer;
 }
 
 .scroller {
   display: flex;
-  gap: 16px;
-  padding: 2px 2px 14px;
+  gap: var(--space-2);
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 0.5) calc(var(--space-0) * 3.5);
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scroll-snap-type: x mandatory;
-  scrollbar-color: #59676c transparent;
+  scrollbar-color: var(--paint-59676c) transparent;
 }
 
 .card {
   display: flex;
   flex: 0 0 min(520px, calc(100vw - 110px));
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: calc(var(--space-0) * 2.5);
+  padding: calc(var(--space-0) * 3.5);
   scroll-snap-align: start;
-  border: 1px solid #3f4a4f;
+  border: 1px solid var(--paint-3f4a4f);
   border-radius: 10px;
-  background: #111719;
-  color: #f2f5f1;
+  background: var(--paint-111719);
+  color: var(--paint-f2f5f1);
   text-align: left;
   cursor: pointer;
 }
 
 .card:hover,
 .cardActive {
-  border-color: #55b8b0;
-  box-shadow: inset 0 0 0 1px rgba(85, 184, 176, 0.35);
+  border-color: var(--paint-55b8b0);
 }
 
 .card strong {
@@ -89,101 +87,103 @@
   width: 100%;
   height: auto;
   border-radius: 7px;
-  background: #edf0ee;
+  background: var(--paint-edf0ee);
 }
 
 .pinoutBoardBody {
-  fill: #293d3b;
-  stroke: #152321;
+  fill: var(--paint-293d3b);
+  stroke: var(--paint-152321);
   stroke-width: 3;
 }
 
 .pinoutUsb {
-  fill: #d9dcdd;
-  stroke: #6e787b;
+  fill: var(--paint-d9dcdd);
+  stroke: var(--paint-6e787b);
   stroke-width: 2;
 }
 
 .pinoutModule {
-  fill: #f3f2ea;
-  stroke: #8c9695;
+  fill: var(--paint-f3f2ea);
+  stroke: var(--paint-8c9695);
 }
 
 .pinoutDevKitBody {
-  fill: #353535;
-  stroke: #171717;
+  fill: var(--paint-353535);
+  stroke: var(--paint-171717);
 }
 
 .pinoutDevKitModule {
-  fill: #242424;
-  stroke: #111;
+  fill: var(--paint-242424);
+  stroke: var(--paint-111);
   stroke-width: 2;
 }
 
 .pinoutDevKitAntenna {
-  fill: #171717;
-  stroke: #535353;
+  fill: var(--paint-171717);
+  stroke: var(--paint-535353);
   stroke-width: 3;
 }
 
 .pinoutDevKitShield {
-  fill: #b8b8b3;
-  stroke: #777;
+  fill: var(--paint-b8b8b3);
+  stroke: var(--paint-777);
   stroke-width: 2;
 }
 
 .pinoutDevKitLed {
-  fill: #f0eee6;
-  stroke: #b9b6ad;
+  fill: var(--paint-f0eee6);
+  stroke: var(--paint-b9b6ad);
   stroke-width: 3;
 }
 
 .pinoutDevKitChip {
-  fill: #181818;
-  stroke: #8b8b85;
+  fill: var(--paint-181818);
+  stroke: var(--paint-8b8b85);
   stroke-width: 2;
 }
 
 .pinoutDevKitButton {
-  fill: #090909;
-  stroke: #b8b8b3;
+  fill: var(--paint-090909);
+  stroke: var(--paint-b8b8b3);
   stroke-width: 3;
 }
 
 .pinoutDeviceText {
-  fill: #d8d8d2;
+  fill: var(--paint-d8d8d2);
   font-family: var(--font-code);
   font-size: 7px;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .pinoutBoardName {
-  fill: #243033;
+  fill: var(--paint-243033);
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: var(--fs-label);
   font-weight: 800;
 }
 
 .pinoutPinText,
 .pinoutBottomText {
-  fill: #fff;
+  fill: white;
   font-family: var(--font-code);
-  font-size: 9px;
+  font-size: var(--fs-label);
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .pinoutBottomText {
-  fill: #243033;
-  font-size: 8px;
+  fill: var(--paint-243033);
+  font-size: var(--fs-label);
 }
 
 .pinoutLead {
-  stroke: #8f9b9e;
+  stroke: var(--paint-8f9b9e);
   stroke-width: 2;
 }
 
 .pinoutPad {
-  fill: #f4c430;
-  stroke: #a87900;
+  fill: var(--paint-f4c430);
+  stroke: var(--paint-a87900);
   stroke-width: 1.5;
 }

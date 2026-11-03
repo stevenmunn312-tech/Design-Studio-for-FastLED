@@ -434,10 +434,10 @@ describe('MatrixOutputDeployPopup', () => {
     expect(getByText('Deploy to hardware')).toBeTruthy()
     expect(getByRole('button', { name: '↑ Upload' })).toBeTruthy()
     expect(getByText('Firmware')).toBeTruthy()
-    expect((getByRole('button', { name: '✦ Setup…' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((getByRole('button', { name: '⚡ Flash Stream Receiver' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((getByRole('button', { name: '📡 Live Stream' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: 'Setup…' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: 'Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: 'Flash Stream Receiver' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: 'Live Stream' }) as HTMLButtonElement).disabled).toBe(true)
     expect(getByText('Diagnostics')).toBeTruthy()
     expect(getByText('Live control')).toBeTruthy()
   })
@@ -548,7 +548,7 @@ describe('MatrixOutputDeployPopup', () => {
     const { getByRole } = render(<MatrixOutputDeployPopup />)
 
     const uploadButton = getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement
-    const wiringButton = getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement
+    const wiringButton = getByRole('button', { name: 'Flash Wiring Test' }) as HTMLButtonElement
 
     expect(uploadButton.disabled).toBe(true)
     expect(wiringButton.disabled).toBe(false)
@@ -683,7 +683,7 @@ describe('MatrixOutputDeployPopup', () => {
 
       const view = render(<MatrixOutputDeployPopup />)
       expect((view.getByRole('button', { name: /^Checking capacity · / }) as HTMLButtonElement).disabled).toBe(true)
-      expect((view.getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+      expect((view.getByRole('button', { name: 'Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
       expect((view.getByRole('button', { name: /Flash Stream Receiver/ }) as HTMLButtonElement).disabled).toBe(true)
 
       view.getByRole('button', { name: /Cancel capacity check/ }).click()
@@ -731,7 +731,7 @@ describe('MatrixOutputDeployPopup', () => {
 
     const { getByRole } = render(<MatrixOutputDeployPopup />)
 
-    const wiringButton = getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement
+    const wiringButton = getByRole('button', { name: 'Flash Wiring Test' }) as HTMLButtonElement
     expect(wiringButton.disabled).toBe(true)
   })
 
@@ -758,7 +758,7 @@ describe('MatrixOutputDeployPopup', () => {
     // count that opens it, and never repeated as its own line.
     expect(queryAllByText(shared)).toHaveLength(0)
     expect(getByText(/to have something to upload/)).toBeTruthy()
-    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: 'Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('names the first thing in the way beside a quietly disabled Upload, with the button that clears it', () => {
@@ -793,7 +793,7 @@ describe('MatrixOutputDeployPopup', () => {
     const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
 
     expect((getByRole('button', { name: '↓ Export .ino' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: 'Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
     expect(getByText(/to have something to upload/)).toBeTruthy()
   })
 
@@ -815,7 +815,7 @@ describe('MatrixOutputDeployPopup', () => {
     const { getByRole } = render(<MatrixOutputDeployPopup />)
 
     expect((getByRole('button', { name: '↓ Export .ino' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: 'Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('offers a dedicated HUB75 topology flash for a valid folded grid', () => {
@@ -831,7 +831,7 @@ describe('MatrixOutputDeployPopup', () => {
     })
 
     const { getByRole } = render(<MatrixOutputDeployPopup />)
-    const topologyButton = getByRole('button', { name: '🧭 Flash HUB75 Topology' }) as HTMLButtonElement
+    const topologyButton = getByRole('button', { name: 'Flash HUB75 Topology' }) as HTMLButtonElement
     expect(topologyButton.disabled).toBe(false)
 
     fireEvent.click(topologyButton)
@@ -847,7 +847,7 @@ describe('MatrixOutputDeployPopup', () => {
     setHub75Grid()
     vi.mocked(findHub75TopologyDiagnosticErrors).mockReturnValue(['Set Panels Y to at least 2.'])
     const { getByRole } = render(<MatrixOutputDeployPopup />)
-    expect((getByRole('button', { name: '🧭 Flash HUB75 Topology' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: 'Flash HUB75 Topology' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('invites a report after a successful upload of an untested setup, without opening a form', async () => {
@@ -864,7 +864,7 @@ describe('MatrixOutputDeployPopup', () => {
     })
 
     const { getByRole, queryByRole } = render(<MatrixOutputDeployPopup />)
-    fireEvent.click(getByRole('button', { name: '🧪 Flash Wiring Test' }))
+    fireEvent.click(getByRole('button', { name: 'Flash Wiring Test' }))
 
     await waitFor(() => expect(useUiStore.getState().statusText).toMatch(/Share a report/))
     expect(queryByRole('dialog', { name: 'Hardware validation report' })).toBeNull()

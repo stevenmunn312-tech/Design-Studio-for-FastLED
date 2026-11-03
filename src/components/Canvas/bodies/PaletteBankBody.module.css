@@ -3,23 +3,23 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-  padding-top: 6px;
+  gap: calc(var(--space-0) * 1.5);
+  margin-top: var(--space-0);
+  padding-top: calc(var(--space-0) * 1.5);
   border-top: 1px solid var(--divider);
 }
 
 .sectionToggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   width: 100%;
   margin: 0;
-  padding: 2px 0;
+  padding: calc(var(--space-0) * 0.5) 0;
   border: 0;
   background: none;
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   letter-spacing: 0.03em;
   text-align: left;
@@ -44,7 +44,7 @@
 .sectionCount {
   margin-left: auto;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: var(--fs-label);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -52,14 +52,14 @@
 .addToggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   margin: 0;
-  padding: 2px 0;
+  padding: calc(var(--space-0) * 0.5) 0;
   border: 0;
   background: none;
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   text-align: left;
   cursor: pointer;
 }
@@ -71,14 +71,14 @@
 .sectionContent {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-left: 2px;
+  gap: calc(var(--space-0) * 1.5);
+  padding-left: calc(var(--space-0) * 0.5);
 }
 
 .setActions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   justify-content: space-between;
 }
 
@@ -86,18 +86,18 @@
    48-byte CRGBPalette16 global in the generated sketch. */
 .cost {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .allBtn {
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-secondary);
   font: inherit;
-  font-size: 9px;
-  padding: 1px 6px;
+  font-size: var(--fs-ui);
+  padding: calc(var(--space-0) * 0.25) calc(var(--space-0) * 1.5);
   cursor: pointer;
 }
 
@@ -108,7 +108,7 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  gap: var(--space-0);
   max-height: 132px;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -118,14 +118,14 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--border-glow);
+  gap: calc(var(--space-0) * 0.75);
+  padding: calc(var(--space-0) * 0.75);
+  border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--bg-primary);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   text-align: left;
   cursor: pointer;
 }
@@ -155,11 +155,11 @@
   top: 2px;
   right: 3px;
   min-width: 10px;
-  padding: 0 2px;
+  padding: 0 calc(var(--space-0) * 0.5);
   border-radius: 3px;
   background: var(--accent-composite);
   color: var(--bg-primary);
-  font-size: 8px;
+  font-size: var(--fs-label);
   font-weight: 700;
   text-align: center;
 }
@@ -170,7 +170,7 @@
 .bank {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -182,14 +182,14 @@
 .bankRow {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 3px;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 0.75);
   border: 1px solid transparent;
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   cursor: grab;
 }
 
@@ -217,7 +217,7 @@
 .bankMoves {
   margin-left: auto;
   display: flex;
-  gap: 1px;
+  gap: calc(var(--space-0) * 0.25);
 }
 
 .moveBtn {
@@ -225,9 +225,9 @@
   border-radius: 3px;
   background: none;
   color: var(--text-secondary);
-  font-size: 8px;
+  font-size: var(--fs-ui);
   line-height: 1;
-  padding: 1px 2px;
+  padding: calc(var(--space-0) * 0.25) calc(var(--space-0) * 0.5);
   cursor: pointer;
 }
 

@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--space-3);
 }
 
 .dialog {
@@ -17,12 +17,12 @@
   overflow: auto;
   background: var(--bg-primary);
   color: var(--text-primary);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: calc(var(--space-0) * 3) calc(var(--space-0) * 3.5);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-1);
   font-family: var(--font-body);
 }
 
@@ -31,7 +31,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .bar h2 {
@@ -44,13 +44,13 @@
 .bar select,
 .inspector button {
   height: 26px;
-  padding: 0 10px;
-  border: 1px solid var(--border-glow);
+  padding: 0 calc(var(--space-0) * 2.5);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-panel);
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: var(--fs-caption);
+  font-size: var(--fs-ui);
   cursor: pointer;
 }
 
@@ -73,7 +73,7 @@
 
 .group {
   display: inline-flex;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .group button:first-child { border-radius: 6px 0 0 6px; }
@@ -85,7 +85,7 @@
 }
 
 .clock {
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   color: var(--text-secondary);
   min-width: 108px;
@@ -94,7 +94,7 @@
 .snap {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   font-size: var(--fs-caption);
   color: var(--text-secondary);
 }
@@ -104,7 +104,7 @@
   grid-template-columns: var(--lane-label) 1fr;
   align-items: center;
   gap: var(--lane-gap);
-  font-size: 10px;
+  font-size: var(--fs-label);
   color: var(--text-secondary);
 }
 
@@ -115,14 +115,14 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .lanes {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .lane {
@@ -135,7 +135,7 @@
 .laneName {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   font-size: 11px;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -151,8 +151,8 @@
 
 .range {
   margin-left: auto;
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   opacity: 0.7;
 }
 
@@ -179,10 +179,10 @@
   position: absolute;
   top: 0;
   height: 100%;
-  padding-left: 4px;
-  border-left: 1px solid var(--border-glow);
-  font-family: var(--font-code);
-  font-size: 9px;
+  padding-left: var(--space-0);
+  border-left: 1px solid var(--line);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   line-height: 18px;
   color: var(--text-secondary);
   pointer-events: none;
@@ -197,7 +197,7 @@
   top: 4px;
   width: 1px;
   height: 10px;
-  background: var(--border-glow);
+  background: var(--line);
 }
 
 .barTick {
@@ -235,7 +235,7 @@
 .clipLabel,
 .paletteLabel {
   display: block;
-  padding: 0 8px;
+  padding: 0 var(--space-1);
   font-size: 11px;
   font-weight: 600;
   color: var(--bg-primary);
@@ -259,10 +259,10 @@
 .paletteLabel {
   display: inline-block;
   max-width: calc(100% - 8px);
-  margin: 3px 4px;
-  padding: 0 6px;
+  margin: calc(var(--space-0) * 0.75) var(--space-0);
+  padding: 0 calc(var(--space-0) * 1.5);
   border-radius: 3px;
-  font-size: 10px;
+  font-size: var(--fs-label);
   line-height: 14px;
   color: var(--text-primary);
   background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
@@ -283,7 +283,6 @@
   height: 12px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 2px var(--bg-panel);
 }
 
 .handle {
@@ -295,7 +294,6 @@
 
 .on {
   z-index: 2;
-  box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--text-primary), 0 0 12px color-mix(in srgb, var(--text-primary) 60%, transparent);
 }
 
 .clip:focus-visible,
@@ -315,7 +313,7 @@
   height: 12px;
   border: 0;
   border-radius: 0 3px 3px 0;
-  padding: 0 4px;
+  padding: 0 var(--space-0);
   background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bg-primary) 75%, transparent) 0 4px, color-mix(in srgb, var(--bg-primary) 50%, transparent) 4px 8px);
   border-right: 3px solid var(--text-primary);
   cursor: ew-resize;
@@ -324,7 +322,7 @@
 }
 
 .overlap span {
-  font-size: 9px;
+  font-size: var(--fs-label);
   line-height: 12px;
   color: var(--text-primary);
   white-space: nowrap;
@@ -376,9 +374,9 @@
   height: 20px;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   overflow: hidden;
-  padding: 0 4px;
+  padding: 0 var(--space-0);
   border-radius: 4px;
   background: color-mix(in srgb, var(--accent-library) 70%, transparent);
   box-shadow: inset 1px 0 0 var(--bg-primary);
@@ -395,7 +393,7 @@
   border: 0;
   background: transparent;
   color: inherit;
-  font-size: 10px;
+  font-size: var(--fs-label);
   font-weight: 600;
   padding: 0;
 }
@@ -442,18 +440,17 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  margin-left: -1px;
+  margin-left: calc(var(--space-0) * -0.25);
   background: var(--accent-show);
-  box-shadow: 0 0 6px var(--accent-show);
 }
 
 /* ── Inspector and key hints ── */
 .inspector {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   min-height: 34px;
-  padding: 8px 10px;
+  padding: var(--space-1) calc(var(--space-0) * 2.5);
   border: 1px solid var(--divider);
   border-radius: 8px;
   background: var(--bg-panel);
@@ -463,33 +460,33 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
   font-size: var(--fs-caption);
 }
 
 .inspectorHead label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   color: var(--text-secondary);
 }
 
 .inspectorHead input {
   width: 76px;
   height: 24px;
-  padding: 0 6px;
-  border: 1px solid var(--border-glow);
+  padding: 0 calc(var(--space-0) * 1.5);
+  border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
 }
 
 .fields {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 6px 16px;
+  gap: calc(var(--space-0) * 1.5) var(--space-2);
 }
 
 .danger {
@@ -504,7 +501,7 @@
 }
 
 .keys {
-  font-size: 10px;
+  font-size: var(--fs-label);
   color: var(--text-secondary);
   opacity: 0.8;
 }

@@ -53,6 +53,7 @@ import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { scrollRailOnWheel, useScrollOverflow } from '../../hooks/useScrollRail'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import styles from './MenuBar.module.css'
+import { Icon } from '../icons/Icon'
 
 const MIC_BLOCKED_MESSAGE = 'Microphone is disabled while a performance is playing music. Stop the player to enable the microphone.'
 const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemcheckbox"]'
@@ -151,7 +152,6 @@ export default function MenuBar() {
     lastStartChoice: s.lastStartChoice,
   })))
 
-  const THEME_ICON: Record<AppTheme, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<AppTheme, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
   // "Balanced", not "Build": Build Diagram is a workspace tab, and a layout
   // preset sharing its name read as a second way to open it.
@@ -865,8 +865,6 @@ export default function MenuBar() {
                 the panel should stay open while the pointer is over it so the
                 user can flip through several settings in one visit. */}
             <div className={styles.menu} role="menu" aria-label="View" onKeyDown={(e) => handleMenuKeyDown(e, viewButtonRef)}>
-              {/* Radio lists, not cycle buttons: three themes and six preview
-                  styles are a choice to see, not a sequence to step through. */}
               <div className={styles.menuLabel}>Theme</div>
               {THEMES.map((option) => (
                 <button
@@ -877,7 +875,7 @@ export default function MenuBar() {
                   onClick={() => { closeMenus(); setTheme(option) }}
                   title={`${THEME_LABEL[option]} theme`}
                 >
-                  {theme === option ? '✓' : '○'} {THEME_ICON[option]} {THEME_LABEL[option]}
+                  <Icon name={option === 'dark' ? 'moon' : option === 'light' ? 'sun' : 'sparkle'} /> {THEME_LABEL[option]}{theme === option ? ' ✓' : ''}
                 </button>
               ))}
               <div className={styles.menuDivider} />
@@ -993,7 +991,7 @@ export default function MenuBar() {
           aria-label={`Undo, ${pastStates.length} step${pastStates.length !== 1 ? 's' : ''} available`}
           title={`Undo (Ctrl+Z) — ${pastStates.length} step${pastStates.length !== 1 ? 's' : ''}`}
         >
-          <span aria-hidden="true">↩</span>{pastStates.length > 0 ? ` ${pastStates.length}` : ''}
+          <Icon name="undo" />{pastStates.length > 0 ? ` ${pastStates.length}` : ''}
         </button>
         <button
           className={`${styles.btn} ${styles.iconBtn}`}
@@ -1002,7 +1000,7 @@ export default function MenuBar() {
           aria-label={`Redo, ${futureStates.length} step${futureStates.length !== 1 ? 's' : ''} available`}
           title={`Redo (Ctrl+Y) — ${futureStates.length} step${futureStates.length !== 1 ? 's' : ''}`}
         >
-          <span aria-hidden="true">↪</span>{futureStates.length > 0 ? ` ${futureStates.length}` : ''}
+          <Icon name="redo" />{futureStates.length > 0 ? ` ${futureStates.length}` : ''}
         </button>
         <button
           className={styles.btn}
@@ -1010,7 +1008,7 @@ export default function MenuBar() {
           aria-label="Open Start Gallery"
           title={startTitle}
         >
-          ✦ Start Gallery
+          <Icon name="sparkle" /> Start Gallery
         </button>
         <button
           className={`${styles.btn} ${styles.evaluationBtn} ${evaluationRunning ? styles.evaluationRunning : styles.evaluationPaused}`}

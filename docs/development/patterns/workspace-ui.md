@@ -322,3 +322,29 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   stack and `App.tsx` then leave the event alone. `PropertyInputMenu` (capture phase) and the Performance deck's key
   learning are deliberate exceptions that take the keystroke before anything
   else.
+
+## Visual system
+
+- Colour comes from `src/themes/tokens.css` only. Module CSS carries no hex
+  (stylelint `color-no-hex`, run by `npm run lint:styles` and CI). A fixed
+  illustrative colour that is not a theme token goes in the `--paint-<hex>`
+  palette there; chrome states use `--accent-ui` and `--accent-ui-text`, never
+  a category accent. `src/themes/__tests__/definedTokens.test.ts` fails the
+  build when a `var(--x)` is read that nothing declares.
+- Category hues live in `CATEGORIES` (`src/state/nodeLibrary.ts`) and the
+  matching `--accent-<category>` tokens; change both together.
+- Spacing is `--space-0` (4 px) to `--space-5`; stylelint rejects literal px on
+  `padding`, `gap` and `margin`. Radii are `--radius-control` (3 px),
+  `--radius-card` (6 px) and `--radius-dialog` (10 px); `50%` is for dots.
+- Type floors at `--fs-label` (11 px); `--fs-ui` (13 px) is the menu and button
+  size. `--font-code` is for values, pins and code; `--font-display` for the
+  wordmark and workspace tabs only.
+- Glow (`box-shadow: 0 0 ...`) and infinite keyframes belong to things that
+  emit light or report liveness: LED preview, wire packets, ambilight, the
+  record and live dots. Hover changes border or text colour, never position.
+- Overlays compose `sharedOverlay`, `sharedSurface` and `sharedClose` from
+  `src/components/AppDialog/AppDialogHost.module.css`; a popup supplies
+  content only.
+- Icons are the 16 px stroke set in `src/components/icons/Icon.tsx`; port-type
+  symbols map through `portIconNames.ts`. No emoji in UI code. Typographic
+  marks (radio ticks, chevrons, star ratings) may stay as text.

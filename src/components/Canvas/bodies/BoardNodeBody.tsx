@@ -20,6 +20,7 @@ import {
 } from '../../../build/boards/boardProfiles'
 import { CUSTOM_BOARD_PROFILE_ID } from '../../../build/boards/customBoard'
 import styles from './BoardNodeBody.module.css'
+import { Icon } from '../../icons/Icon'
 
 // The Board node picks a *profile*, not an FQBN. `esp32:esp32:esp32` names the
 // silicon and leaves the header layout ambiguous — two different DevKit
@@ -176,7 +177,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
             title={profile ? `View the ${profile.label} pinout` : 'Repair the custom board first'}
             aria-label="View board pinout"
           >
-            👁
+            <Icon name="eye" />
           </button>
         </div>
       ) : (
@@ -216,7 +217,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
           title={profile ? `View the ${profile.label} pinout` : 'Choose a board first'}
           aria-label="View board pinout"
         >
-          👁
+          <Icon name="eye" />
         </button>
       </div>
       )}
@@ -286,7 +287,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
                 aria-label={brightnessPin ? 'Unpin master brightness from Control Deck' : 'Pin master brightness to Control Deck'}
                 title={brightnessPin ? 'Unpin from Control Deck' : 'Pin to Control Deck'}
                 onClick={() => brightnessPin ? unpinProperty(brightnessPin.id) : pinProperty(nodeId, 'brightness')}>
-                📌
+                <Icon name="pin" />
               </button>
             </span>
           </span>

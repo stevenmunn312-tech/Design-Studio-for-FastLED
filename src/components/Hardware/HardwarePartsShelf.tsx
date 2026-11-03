@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HardwarePartsShelf.module.css'
+import { Icon, type IconName } from '../icons/Icon'
 
 export { HARDWARE_SHELF_HOST_ID } from './hardwareShelfHost'
 
@@ -30,14 +31,14 @@ interface HardwarePartsShelfProps {
   onTargetHandled: () => void
 }
 
-function visualGlyph(visual: string | undefined): string {
-  if (visual === 'matrix' || visual === 'hub75') return '▦'
-  if (visual === 'ring') return '◯'
-  if (visual === 'corkscrew') return '∿'
-  if (visual === 'strip') return '•••'
-  if (visual === 'stereo-vu') return '▥'
-  if (visual === 'custom-display') return '▣'
-  return '◇'
+function visualIcon(visual: string | undefined): IconName {
+  if (visual === 'matrix' || visual === 'hub75') return 'grid'
+  if (visual === 'ring') return 'ring'
+  if (visual === 'corkscrew') return 'audio'
+  if (visual === 'strip') return 'strip'
+  if (visual === 'stereo-vu') return 'bars'
+  if (visual === 'custom-display') return 'frame'
+  return 'field'
 }
 
 export default function HardwarePartsShelf({
@@ -169,7 +170,7 @@ export default function HardwarePartsShelf({
                         <span className={styles.render} aria-hidden="true">
                           {item.renderSrc
                             ? <img src={item.renderSrc} alt="" draggable={false} />
-                            : <span className={styles.fallback} data-visual={item.visual}>{visualGlyph(item.visual)}</span>}
+                            : <span className={styles.fallback} data-visual={item.visual}><Icon name={visualIcon(item.visual)} size={22} /></span>}
                         </span>
                         <span className={styles.itemCopy}>
                           <strong>{item.label}</strong>

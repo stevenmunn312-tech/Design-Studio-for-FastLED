@@ -88,7 +88,6 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
 function BlankPreview() {
   return (
     <div className={`${styles.preview} ${styles.previewBlank}`} aria-hidden="true">
-      <div className={styles.blankGlow} />
       <div className={styles.blankGrid} />
       <div className={styles.blankPrompt}>Blank canvas</div>
     </div>

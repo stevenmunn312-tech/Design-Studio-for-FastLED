@@ -1,7 +1,7 @@
 .bar {
   display: flex;
   flex: 0 0 auto;
-  padding: 5px 10px;
+  padding: calc(var(--space-0) * 1.25) calc(var(--space-0) * 2.5);
   border-bottom: 1px solid var(--divider);
   background: var(--bg-panel);
 }
@@ -12,19 +12,16 @@
  */
 .tabs {
   display: flex;
-  gap: 4px;
-  padding: 3px;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 0.75);
   border: 1px solid var(--chrome-border);
   border-radius: 14px;
   background: var(--bg-primary);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--border-glow) 45%, transparent),
-    inset 0 1px 3px var(--chrome-shadow);
 }
 
 .tab {
   position: relative;
-  padding: 5px 16px 8px;
+  padding: calc(var(--space-0) * 1.25) var(--space-2) var(--space-1);
   border: none;
   border-radius: 10px;
   background: transparent;
@@ -32,7 +29,6 @@
   font-family: inherit;
   font-size: var(--fs-caption);
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   cursor: pointer;
   transition: background var(--anim-hover), color var(--anim-hover);
 }
@@ -43,7 +39,7 @@
 }
 
 .tab:focus-visible {
-  outline: 2px solid var(--accent-color);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 1px;
 }
 
@@ -63,8 +59,7 @@
   width: 26px;
   height: 3px;
   border-radius: 2px;
-  background: var(--accent-color);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--accent-color) 60%, transparent);
+  background: var(--accent-ui);
   transform: translateX(-50%);
 }
 

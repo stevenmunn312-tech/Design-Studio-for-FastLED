@@ -14,7 +14,7 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  gap: var(--widget-caption-gap, 2px);
+  gap: var(--widget-caption-gap, calc(var(--space-0) * 0.5));
 }
 
 .caption {
@@ -72,7 +72,7 @@
   width: 100%;
   height: var(--widget-track-thickness, 8px);
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: var(--widget-state-track, color-mix(in srgb, currentColor 18%, transparent));
 }
 
@@ -82,7 +82,7 @@
   inset: 0 auto 0 0;
   width: var(--widget-fill);
   border-radius: inherit;
-  background: var(--widget-state-indicator, var(--display-accent, #36c8ff));
+  background: var(--widget-state-indicator, var(--display-accent, var(--paint-36c8ff)));
 }
 
 .vertical {
@@ -100,7 +100,7 @@
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   font-size: 0.8em;
 }
 
@@ -108,11 +108,10 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--widget-state-indicator, var(--display-inactive, #6e7788));
+  background: var(--widget-state-indicator, var(--display-inactive, var(--paint-6e7788)));
 }
 
 .status.active > span {
-  box-shadow: 0 0 8px color-mix(in srgb, var(--widget-state-indicator, var(--display-success, #35d07f)) 65%, transparent);
 }
 
 .swatch {
@@ -122,7 +121,7 @@
   place-items: center;
   border-radius: inherit;
   color: white;
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 0.72em;
   text-shadow: 0 1px 3px black;
 }
@@ -131,7 +130,7 @@
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .patternArt {
@@ -141,7 +140,7 @@
   flex: 0 0 36px;
   place-items: center;
   border-radius: 5px;
-  background: conic-gradient(from 40deg, #33d6ff, #8533ff, #ff3385, #33d6ff);
+  background: conic-gradient(from 40deg, var(--paint-33d6ff), var(--paint-8533ff), var(--paint-ff3385), var(--paint-33d6ff));
   color: white;
 }
 
@@ -154,8 +153,8 @@
 }
 
 .pattern small {
-  margin-top: 2px;
-  color: var(--display-inactive, #6e7788);
+  margin-top: calc(var(--space-0) * 0.5);
+  color: var(--display-inactive, var(--paint-6e7788));
   font-size: 0.7em;
 }
 
@@ -166,7 +165,7 @@
   place-items: center;
   border: 1px dashed currentColor;
   border-radius: inherit;
-  color: var(--display-inactive, #6e7788);
+  color: var(--display-inactive, var(--paint-6e7788));
   font-size: 0.72em;
 }
 
@@ -204,9 +203,9 @@
   width: 100%;
   height: 100%;
   place-items: center;
-  border: 1px solid var(--widget-state-border, color-mix(in srgb, var(--display-accent, #36c8ff) 60%, transparent));
+  border: 1px solid var(--widget-state-border, color-mix(in srgb, var(--display-accent, var(--paint-36c8ff)) 60%, transparent));
   border-radius: inherit;
-  background: var(--widget-state-surface, var(--display-surface, #171d2a));
+  background: var(--widget-state-surface, var(--display-surface, var(--paint-171d2a)));
   font-weight: 700;
 }
 
@@ -242,8 +241,8 @@
   position: relative;
   width: 26px;
   height: 14px;
-  border-radius: 999px;
-  background: var(--widget-state-indicator, var(--display-inactive, #6e7788));
+  border-radius: var(--radius-control);
+  background: var(--widget-state-indicator, var(--display-inactive, var(--paint-6e7788)));
 }
 
 .toggle > span::after {
@@ -258,7 +257,7 @@
 }
 
 .toggle.active > span {
-  background: var(--widget-state-indicator, var(--display-accent, #36c8ff));
+  background: var(--widget-state-indicator, var(--display-accent, var(--paint-36c8ff)));
 }
 
 .toggle.active > span::after {
@@ -299,9 +298,9 @@
   display: block;
   width: min(100%, 42px);
   aspect-ratio: 1;
-  border: 4px solid var(--widget-state-border, color-mix(in srgb, var(--display-accent, #36c8ff) 70%, var(--display-surface, #171d2a)));
+  border: 4px solid var(--widget-state-border, color-mix(in srgb, var(--display-accent, var(--paint-36c8ff)) 70%, var(--display-surface, var(--paint-171d2a))));
   border-radius: 50%;
-  background: var(--widget-state-surface, var(--display-surface, #171d2a));
+  background: var(--widget-state-surface, var(--display-surface, var(--paint-171d2a)));
 }
 
 .dial > span {
@@ -404,7 +403,7 @@
 }
 
 .gaugeFill {
-  stroke: var(--widget-state-indicator, var(--display-accent, #36c8ff));
+  stroke: var(--widget-state-indicator, var(--display-accent, var(--paint-36c8ff)));
 }
 
 .gaugeValue {
@@ -424,7 +423,7 @@
 .entry {
   display: block;
   width: 100%;
-  padding: 0 6px;
+  padding: 0 calc(var(--space-0) * 1.5);
   overflow: hidden;
   font-family: var(--widget-text-font, inherit);
   font-size: var(--widget-text-size, inherit);
@@ -444,7 +443,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  padding: 4px;
+  padding: var(--space-0);
   overflow: visible;
 }
 

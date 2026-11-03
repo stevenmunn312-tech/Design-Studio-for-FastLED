@@ -1,35 +1,15 @@
 .overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.62);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  composes: sharedOverlay from '../AppDialog/AppDialogHost.module.css';
   z-index: 140;
-  animation: fadeIn 0.15s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .modal {
+  composes: sharedSurface from '../AppDialog/AppDialogHost.module.css';
   width: min(460px, calc(100vw - 24px));
-  background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px 18px 16px;
-  animation: slideUp 0.18s ease-out;
-}
-
-@keyframes slideUp {
-  from { transform: translateY(14px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  gap: calc(var(--space-0) * 3.5);
+  padding: calc(var(--space-0) * 4.5) calc(var(--space-0) * 4.5) var(--space-2);
 }
 
 .header {
@@ -47,7 +27,7 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .text {
@@ -60,7 +40,7 @@
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .primaryBtn,
@@ -68,22 +48,22 @@
 .ghostBtn {
   min-width: 88px;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: var(--space-1) calc(var(--space-0) * 3.5);
   font: inherit;
   cursor: pointer;
   transition: transform var(--anim-hover), border-color var(--anim-hover), background var(--anim-hover), color var(--anim-hover);
 }
 
 .primaryBtn {
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
   background: var(--accent-audio);
-  color: #111;
+  color: var(--paint-111);
   font-weight: 700;
 }
 
 .secondaryBtn {
-  border: 1px solid var(--border-glow);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
   color: var(--text-primary);
 }
 
@@ -96,5 +76,4 @@
 .primaryBtn:hover,
 .secondaryBtn:hover,
 .ghostBtn:hover {
-  transform: translateY(-1px);
 }

@@ -1,13 +1,11 @@
 .button {
-  margin-top: 4px;
-  padding: 6px 8px;
+  margin-top: var(--space-0);
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
   border-radius: 6px;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   background: none;
   color: var(--text-secondary);
-  font-size: var(--fs-caption);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: var(--fs-ui);
   cursor: pointer;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
@@ -20,20 +18,20 @@
 .buttonPressed {
   background: var(--accent-input);
   border-color: var(--accent-input);
-  color: #000;
+  color: black;
 }
 
 .keypad {
-  margin-top: 4px;
+  margin-top: var(--space-0);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .keypadKey {
-  padding: 4px 0;
+  padding: var(--space-0) 0;
   border-radius: 5px;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   background: none;
   color: var(--text-secondary);
   font-size: var(--fs-caption);
@@ -48,10 +46,10 @@
 
 .potRow,
 .encoderRow {
-  margin-top: 4px;
+  margin-top: var(--space-0);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .potTrack {
@@ -59,8 +57,8 @@
   flex: 1;
   height: 14px;
   border-radius: 7px;
-  background: var(--surface-recessed, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--border-glow);
+  background: var(--surface-recessed, color-mix(in srgb, var(--text-primary) 6%, transparent));
+  border: 1px solid var(--line);
   cursor: pointer;
 }
 
@@ -82,12 +80,11 @@
   background: var(--accent-input);
   transform: translate(-50%, -50%);
   pointer-events: none;
-  box-shadow: 0 0 4px var(--accent-input);
 }
 
 .potReadout {
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   color: var(--text-secondary);
   min-width: 26px;
   text-align: right;
@@ -98,8 +95,8 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid var(--border-glow);
-  background: var(--surface-recessed, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--line);
+  background: var(--surface-recessed, color-mix(in srgb, var(--text-primary) 6%, transparent));
   cursor: ns-resize;
   flex-shrink: 0;
 }
@@ -115,7 +112,7 @@
   left: 50%;
   width: 2px;
   height: 8px;
-  margin-left: -1px;
+  margin-left: calc(var(--space-0) * -0.25);
   border-radius: 1px;
   background: var(--accent-input);
   transform-origin: 1px 11px;

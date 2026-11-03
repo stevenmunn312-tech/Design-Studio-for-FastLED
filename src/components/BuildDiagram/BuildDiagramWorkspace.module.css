@@ -7,7 +7,7 @@
   grid-template-columns:
     minmax(280px, 340px)
     minmax(0, 1fr);
-  gap: 16px;
+  gap: var(--space-2);
   /*
    * The workspace tab host is a block, not a flex container, so `flex: 1` says
    * nothing and the grid sized to its own tallest column instead of the pane.
@@ -19,7 +19,7 @@
   height: 100%;
   flex: 1;
   min-height: 0;
-  padding: 16px;
+  padding: var(--space-2);
   overflow: hidden;
 }
 
@@ -38,7 +38,7 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
   /* Fills the host so the panel scrolls inside the sidebar, not past it. */
   height: 100%;
   overflow: auto;
@@ -47,7 +47,7 @@
 .diagramPane {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
   min-width: 0;
 }
 
@@ -55,21 +55,21 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .sectionTabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 5px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 70%, transparent);
+  gap: calc(var(--space-0) * 1.5);
+  padding: calc(var(--space-0) * 1.25);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--bg-panel) 72%, rgba(255, 255, 255, 0.03));
+  background: color-mix(in srgb, var(--bg-panel) 72%, color-mix(in srgb, var(--text-primary) 3%, transparent));
 }
 
 .sectionTab {
-  padding: 7px 14px;
+  padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 3.5);
   border: 1px solid transparent;
   border-radius: 9px;
   background: transparent;
@@ -85,7 +85,7 @@
 }
 
 .sectionTabActive {
-  border-color: color-mix(in srgb, var(--accent-output) 62%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 62%, var(--line));
   background: color-mix(in srgb, var(--accent-output) 18%, var(--bg-panel));
   color: var(--text-primary);
 }
@@ -96,7 +96,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
 }
 
 .panelTitle {
@@ -109,7 +109,7 @@
 .panelSubtitle,
 .copy,
 .copyMuted {
-  margin: 4px 0 0;
+  margin: var(--space-0) 0 0;
   line-height: 1.45;
 }
 
@@ -119,11 +119,11 @@
 }
 
 .card {
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 82%, transparent);
+  padding: calc(var(--space-0) * 3.5);
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
   border-radius: 18px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, rgba(255, 255, 255, 0.02)), var(--bg-panel));
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, color-mix(in srgb, var(--text-primary) 2%, transparent)), var(--bg-panel));
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.16);
 }
 
@@ -138,8 +138,8 @@
 .hardwareList {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
+  gap: calc(var(--space-0) * 2.5);
+  margin-top: calc(var(--space-0) * 2.5);
 }
 
 .optionCard,
@@ -148,8 +148,8 @@
 .diagramCard,
 .resetButton,
 .smallButton {
-  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
-  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, color-mix(in srgb, var(--text-primary) 3%, transparent));
   color: var(--text-primary);
 }
 
@@ -164,25 +164,24 @@
 .optionCard {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 3);
   border-radius: 14px;
 }
 
 .optionPreviewWrap {
   width: 100%;
   min-height: 92px;
-  padding: 6px 8px 2px;
+  padding: calc(var(--space-0) * 1.5) var(--space-1) calc(var(--space-0) * 0.5);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--bg-panel) 72%, rgba(255, 255, 255, 0.04));
+  background: color-mix(in srgb, var(--bg-panel) 72%, color-mix(in srgb, var(--text-primary) 4%, transparent));
 }
 
 .optionCardActive,
 .diagramCardActive,
 .hardwareRowActive .hardwareMain,
 .connectionRowActive {
-  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--border-glow));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 28%, transparent);
+  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--line));
 }
 
 .optionTitle,
@@ -208,20 +207,20 @@
 .confidenceBadge {
   display: inline-flex;
   align-self: flex-start;
-  padding: 5px 9px;
-  border-radius: 999px;
+  padding: calc(var(--space-0) * 1.25) calc(var(--space-0) * 2.25);
+  border-radius: var(--radius-control);
   font-size: 0.76rem;
   font-weight: 700;
 }
 
 .confidenceBadgeCaution {
   background: rgba(255, 202, 122, 0.14);
-  color: #ffcf8f;
+  color: var(--paint-ffcf8f);
 }
 
 .progressPill {
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 2.5);
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--accent-output) 18%, transparent);
   color: var(--text-primary);
   font-size: 0.85rem;
@@ -229,9 +228,9 @@
 
 .zoomPill {
   align-self: center;
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--border-glow) 24%, transparent);
+  padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 2.5);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--line) 24%, transparent);
   color: var(--text-secondary);
   font-size: 0.82rem;
 }
@@ -239,33 +238,33 @@
 .hardwareRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   align-items: stretch;
 }
 
 .hardwareMain {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 3);
   border-radius: 14px;
 }
 
 .hardwareActions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .iconButton {
   display: grid;
   width: 38px;
   height: 38px;
-  padding: 8px;
+  padding: var(--space-1);
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  background: color-mix(in srgb, var(--bg-panel) 82%, color-mix(in srgb, var(--text-primary) 3%, transparent));
   color: var(--text-secondary);
 }
 
@@ -287,8 +286,8 @@
 }
 
 .iconButtonDone {
-  border-color: #65c956;
-  color: #bff5b7;
+  border-color: var(--paint-65c956);
+  color: var(--paint-bff5b7);
   background: rgba(101, 201, 86, 0.14);
 }
 
@@ -299,9 +298,9 @@
 
 .generatedSteps {
   display: grid;
-  gap: 8px;
-  margin: 12px 0 0;
-  padding-left: 22px;
+  gap: var(--space-1);
+  margin: calc(var(--space-0) * 3) 0 0;
+  padding-left: calc(var(--space-0) * 5.5);
   color: var(--text-primary);
   line-height: 1.4;
 }
@@ -309,37 +308,37 @@
 .outputFactList {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
+  gap: calc(var(--space-0) * 3);
+  margin-top: calc(var(--space-0) * 3);
 }
 
 .assumptionPanel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
+  gap: calc(var(--space-0) * 3);
+  margin-top: calc(var(--space-0) * 3);
 }
 
 .outputFactCard {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: calc(var(--space-0) * 2.5);
+  padding: calc(var(--space-0) * 3);
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
-  background: color-mix(in srgb, var(--bg-panel) 80%, rgba(255, 255, 255, 0.025));
+  border: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 80%, color-mix(in srgb, var(--text-primary) 2.5%, transparent));
 }
 
 .knownFactRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .knownFactChip {
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--border-glow) 20%, transparent);
+  padding: calc(var(--space-0) * 1.25) calc(var(--space-0) * 2.25);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--line) 20%, transparent);
   color: var(--text-secondary);
   font-size: 0.8rem;
 }
@@ -347,13 +346,13 @@
 .formGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .fieldBlock {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .fieldLabel {
@@ -365,10 +364,10 @@
 .noteInput {
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 12px;
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
-  background: color-mix(in srgb, var(--bg-panel) 86%, rgba(255, 255, 255, 0.03));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 86%, color-mix(in srgb, var(--text-primary) 3%, transparent));
   color: var(--text-primary);
   font: inherit;
 }
@@ -380,46 +379,46 @@
 .filterRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--space-1);
+  margin-top: calc(var(--space-0) * 2.5);
 }
 
 .smallButton,
 .resetButton {
-  padding: 9px 12px;
+  padding: calc(var(--space-0) * 2.25) calc(var(--space-0) * 3);
   border-radius: 12px;
   font: inherit;
   cursor: pointer;
 }
 
 .compactHardwareCard .hardwareList {
-  gap: 4px;
-  margin-top: 8px;
+  gap: var(--space-0);
+  margin-top: var(--space-1);
 }
 
 .compactHardwareCard .hardwareRow {
   min-height: 38px;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .compactHardwareCard .hardwareMain {
   min-height: 34px;
   justify-content: center;
-  padding: 6px 8px;
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
   border-color: transparent;
   background: transparent;
 }
 
 .compactHardwareCard .hardwareActions {
   flex-direction: row;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .compactHardwareCard .iconButton {
   width: 30px;
   height: 30px;
-  padding: 6px;
+  padding: calc(var(--space-0) * 1.5);
   border-radius: 6px;
 }
 
@@ -430,13 +429,13 @@
 
 .compactHardwareCard .staleNotice {
   margin: 0;
-  font-size: 9px;
+  font-size: var(--fs-label);
 }
 
 .detailIdle {
   max-width: 250px;
-  margin: 8px 0 0;
-  color: #778287;
+  margin: var(--space-1) 0 0;
+  color: var(--paint-778287);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -447,13 +446,13 @@
 
 .staleNotice,
 .warningText {
-  margin-top: 6px;
-  color: #ffca7a;
+  margin-top: calc(var(--space-0) * 1.5);
+  color: var(--paint-ffca7a);
   font-size: 0.88rem;
 }
 
 .confidenceCallout {
-  margin-top: 10px;
+  margin-top: calc(var(--space-0) * 2.5);
 }
 
 .diagramViewport {
@@ -461,11 +460,11 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
   border-radius: 22px;
   background:
     radial-gradient(circle at 28% 14%, rgba(122, 162, 255, 0.18), transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 86%, #071017), color-mix(in srgb, var(--bg-panel) 96%, black));
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 86%, var(--paint-071017)), color-mix(in srgb, var(--bg-panel) 96%, black));
   /* Dark hands with a white rim, not the system ones: the system hand is
      white with a hairline outline and disappears on the diagram's white
      paper. The keywords stay as fallbacks. */
@@ -481,7 +480,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  padding: 18px;
+  padding: calc(var(--space-0) * 4.5);
   box-sizing: border-box;
 }
 
@@ -507,11 +506,10 @@
 
 .wirePathActive {
   stroke: color-mix(in srgb, var(--accent-output) 78%, white 10%);
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent-output) 36%, transparent));
 }
 
 .wirePathDim {
-  stroke: color-mix(in srgb, var(--border-glow) 56%, transparent);
+  stroke: color-mix(in srgb, var(--line) 56%, transparent);
   opacity: 0.52;
 }
 
@@ -520,8 +518,8 @@
   position: absolute;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
+  gap: calc(var(--space-0) * 2.5);
+  padding: var(--space-2);
   border-radius: 18px;
   box-sizing: border-box;
   overflow: hidden;
@@ -530,7 +528,7 @@
 .controllerHeader {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
   align-items: baseline;
 }
 
@@ -542,7 +540,7 @@
 
 .boardPreview {
   width: min(70%, 220px);
-  margin: 26px auto 0;
+  margin: calc(var(--space-0) * 6.5) auto 0;
 }
 
 .optionPreviewWrap .boardPreview {
@@ -558,10 +556,10 @@
 
 .controllerPin {
   position: absolute;
-  padding: 4px 7px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 72%, transparent);
-  background: color-mix(in srgb, var(--bg-panel) 92%, rgba(255, 255, 255, 0.02));
+  padding: var(--space-0) calc(var(--space-0) * 1.75);
+  border-radius: var(--radius-control);
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 92%, color-mix(in srgb, var(--text-primary) 2%, transparent));
   color: var(--text-secondary);
   font-size: 0.76rem;
   line-height: 1;
@@ -597,20 +595,19 @@
   border-color: color-mix(in srgb, var(--accent-output) 70%, transparent);
   color: var(--text-primary);
   font-weight: 700;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 24%, transparent);
 }
 
 .devicePinList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 2px;
+  gap: var(--space-1);
+  margin-top: calc(var(--space-0) * 0.5);
 }
 
 .devicePinRow {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
   align-items: center;
   font-size: 0.84rem;
   color: var(--text-secondary);
@@ -623,14 +620,14 @@
 
 .factList {
   display: grid;
-  gap: 8px;
-  margin: 12px 0 0;
+  gap: var(--space-1);
+  margin: calc(var(--space-0) * 3) 0 0;
 }
 
 .factRow {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) minmax(0, 1.4fr);
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .factRow dt {
@@ -644,8 +641,8 @@
 }
 
 .flatList {
-  margin: 10px 0 0;
-  padding-left: 18px;
+  margin: calc(var(--space-0) * 2.5) 0 0;
+  padding-left: calc(var(--space-0) * 4.5);
   color: var(--text-primary);
   line-height: 1.5;
 }
@@ -655,7 +652,7 @@
 }
 
 .subTitle {
-  margin: 14px 0 0;
+  margin: calc(var(--space-0) * 3.5) 0 0;
   font-size: 0.88rem;
   color: var(--text-primary);
 }
@@ -668,48 +665,47 @@
 .connectionList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--space-1);
+  margin-top: calc(var(--space-0) * 2.5);
 }
 
 .exportModeRow {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--space-1);
+  margin-top: calc(var(--space-0) * 2.5);
 }
 
 .exportModeButton {
   flex: 1;
-  padding: 10px 12px;
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
-  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, color-mix(in srgb, var(--text-primary) 3%, transparent));
   color: var(--text-secondary);
   font: inherit;
   cursor: pointer;
 }
 
 .exportModeButtonActive {
-  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--line));
   color: var(--text-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 24%, transparent);
 }
 
 .exportActionGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--space-1);
+  margin-top: calc(var(--space-0) * 2.5);
 }
 
 .connectionRow {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
-  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, color-mix(in srgb, var(--text-primary) 3%, transparent));
   text-align: left;
   font: inherit;
   color: var(--text-primary);
@@ -725,14 +721,14 @@
   display: grid;
   place-items: center;
   min-height: 280px;
-  padding: 24px;
-  border: 1px dashed color-mix(in srgb, var(--border-glow) 74%, transparent);
+  padding: var(--space-3);
+  border: 1px dashed color-mix(in srgb, var(--line) 74%, transparent);
   border-radius: 22px;
-  background: color-mix(in srgb, var(--bg-panel) 92%, rgba(255, 255, 255, 0.01));
+  background: color-mix(in srgb, var(--bg-panel) 92%, color-mix(in srgb, var(--text-primary) 1%, transparent));
 }
 
 .emptyTitle {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-1);
   color: var(--text-primary);
 }
 
@@ -777,7 +773,7 @@
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  margin: calc(var(--space-0) * -0.25);
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -787,24 +783,24 @@
 .workspace {
   gap: 0;
   padding: 0;
-  background: #1b2023;
+  background: var(--paint-1b2023);
 }
 
 .sidebar {
-  gap: 10px;
-  padding: 14px;
-  scrollbar-color: #51595d transparent;
+  gap: calc(var(--space-0) * 2.5);
+  padding: calc(var(--space-0) * 3.5);
+  scrollbar-color: var(--paint-51595d) transparent;
   scrollbar-width: thin;
 }
 
 .sidebar {
-  border-right: 1px solid #32383b;
-  background: linear-gradient(180deg, #202629, #171c1f);
+  border-right: 1px solid var(--paint-32383b);
+  background: linear-gradient(180deg, var(--paint-202629), var(--paint-171c1f));
 }
 
 .diagramPane {
   gap: 0;
-  background: #e5e6e3;
+  background: var(--paint-e5e6e3);
 }
 
 .diagramHeader {
@@ -815,28 +811,28 @@
      the panel's edge while open, at the workspace's own edge while hidden —
      so the left edge clears it too, or the heading's first letters sit
      under the arrow. */
-  padding: 11px calc(14px + 22px);
-  border-bottom: 1px solid #c7cac7;
-  background: #f4f5f2;
+  padding: calc(var(--space-0) * 2.75) calc(calc(var(--space-0) * 3.5) + calc(var(--space-0) * 5.5));
+  border-bottom: 1px solid var(--paint-c7cac7);
+  background: var(--paint-f4f5f2);
 }
 
 .diagramHeader .panelTitle {
-  color: #1f2629;
+  color: var(--paint-1f2629);
 }
 
 .diagramHeader .panelSubtitle {
-  color: #5d6669;
+  color: var(--paint-5d6669);
 }
 
 .diagramToolbar {
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .card {
-  padding: 12px;
-  border: 1px solid #3b4347;
+  padding: calc(var(--space-0) * 3);
+  border: 1px solid var(--paint-3b4347);
   border-radius: 9px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(0, 0, 0, 0.05));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 3.5000000000000004%, transparent), rgba(0, 0, 0, 0.05));
   box-shadow: none;
 }
 
@@ -850,7 +846,7 @@
 
 .optionCard,
 .hardwareMain {
-  padding: 9px;
+  padding: calc(var(--space-0) * 2.25);
 }
 
 .optionPreviewWrap {
@@ -860,14 +856,14 @@
 
 .fieldInput,
 .noteInput {
-  padding: 8px 10px;
+  padding: var(--space-1) calc(var(--space-0) * 2.5);
   border-radius: 6px;
 }
 
 .smallButton,
 .resetButton {
   min-height: 32px;
-  padding: 6px 10px;
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 2.5);
   border-radius: 6px;
 }
 
@@ -875,15 +871,15 @@
 .resetButton:hover,
 .exportModeButton:hover,
 .connectionRow:hover {
-  border-color: #5c696e;
-  background: #293136;
+  border-color: var(--paint-5c696e);
+  background: var(--paint-293136);
 }
 
 .diagramViewport {
-  margin: 12px;
-  border: 1px solid #c5c8c5;
+  margin: calc(var(--space-0) * 3);
+  border: 1px solid var(--paint-c5c8c5);
   border-radius: 9px;
-  background: #f4f4f1;
+  background: var(--paint-f4f4f1);
   box-shadow: 0 12px 30px rgba(28, 34, 36, 0.15);
 }
 
@@ -892,21 +888,21 @@
 }
 
 .zoomPill {
-  color: #586165;
-  background: #e2e4e1;
+  color: var(--paint-586165);
+  background: var(--paint-e2e4e1);
 }
 
 .diagramHeader .smallButton,
 .diagramHeader .resetButton {
-  border-color: #c1c6c4;
-  background: #fff;
-  color: #263034;
+  border-color: var(--paint-c1c6c4);
+  background: white;
+  color: var(--paint-263034);
 }
 
 .diagramHeader .smallButton:hover,
 .diagramHeader .resetButton:hover {
-  border-color: #829195;
-  background: #e9eeee;
+  border-color: var(--paint-829195);
+  background: var(--paint-e9eeee);
 }
 
 .physicalDiagram {
@@ -932,11 +928,9 @@
 
 .physicalClickable:focus-visible {
   outline: none;
-  filter: drop-shadow(0 0 6px rgba(31, 165, 173, 0.72));
 }
 
 .physicalSelected {
-  filter: url(#component-shadow) drop-shadow(0 0 8px rgba(31, 165, 173, 0.48));
 }
 
 .physicalBoardRender {
@@ -949,36 +943,36 @@
 }
 
 .controllerSignalTerminal {
-  fill: #24963e;
+  fill: var(--paint-24963e);
   stroke: none;
 }
 
 .controllerUnmappedTerminal {
-  fill: #f4b942;
-  stroke: #5b3510;
+  fill: var(--paint-f4b942);
+  stroke: var(--paint-5b3510);
   stroke-dasharray: 2 2;
 }
 
 .controllerUnmappedLabel {
-  fill: #8b3f16;
-  font-family: var(--font-code);
-  font-size: 10px;
+  fill: var(--paint-8b3f16);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 800;
 }
 
 .controllerPowerTerminal {
-  fill: #d62f42;
+  fill: var(--paint-d62f42);
   stroke: none;
 }
 
 .controllerGroundTerminal {
-  fill: #171b1d;
+  fill: var(--paint-171b1d);
   stroke: none;
 }
 
 .controllerUsbTerminal {
-  fill: #4a63df;
-  stroke: #d8deff;
+  fill: var(--paint-4a63df);
+  stroke: var(--paint-d8deff);
 }
 
 .physicalWires path {
@@ -989,13 +983,13 @@
 
 .powerWire {
   fill: none;
-  stroke: #d92828;
+  stroke: var(--paint-d92828);
   stroke-width: 5;
 }
 
 .groundWire {
   fill: none;
-  stroke: #171b1d;
+  stroke: var(--paint-171b1d);
   stroke-width: 5;
 }
 
@@ -1008,16 +1002,16 @@
 }
 
 .mainPowerWire {
-  stroke: #d92828;
+  stroke: var(--paint-d92828);
 }
 
 .mainGroundWire {
-  stroke: #171b1d;
+  stroke: var(--paint-171b1d);
 }
 
 .batterySenseWire {
   fill: none;
-  stroke: #d58b28;
+  stroke: var(--paint-d58b28);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -1025,32 +1019,32 @@
 
 .signalWire {
   fill: none;
-  stroke: #24963e;
+  stroke: var(--paint-24963e);
   stroke-width: 4;
 }
 
 .auxWire {
   fill: none;
-  stroke: #4358dc;
+  stroke: var(--paint-4358dc);
   stroke-width: 4;
 }
 
 .logicPowerWire {
   fill: none;
-  stroke: #4a63df;
+  stroke: var(--paint-4a63df);
   stroke-width: 4;
 }
 
 .physicalWireLabel {
-  fill: #596164;
-  font-family: var(--font-code);
+  fill: var(--paint-596164);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;
 }
 
 .dimWire {
   fill: none;
-  stroke: #aeb4b2;
+  stroke: var(--paint-aeb4b2);
   stroke-width: 3;
   opacity: 0.36;
 }
@@ -1072,39 +1066,39 @@
 /* Shared-rail net stubs: short lead + net symbol in place of a drawn run. */
 .groundStubLead {
   fill: none;
-  stroke: #171b1d;
+  stroke: var(--paint-171b1d);
   stroke-width: 5;
 }
 
 .groundStubSymbol {
   fill: none;
-  stroke: #171b1d;
+  stroke: var(--paint-171b1d);
   stroke-width: 3.5;
   stroke-linecap: round;
 }
 
 .railStubLead5v {
   fill: none;
-  stroke: #d92828;
+  stroke: var(--paint-d92828);
   stroke-width: 5;
 }
 
 .railStubSymbol5v {
   fill: none;
-  stroke: #d92828;
+  stroke: var(--paint-d92828);
   stroke-width: 4;
   stroke-linecap: round;
 }
 
 .railStubLead3v3 {
   fill: none;
-  stroke: #d9631f;
+  stroke: var(--paint-d9631f);
   stroke-width: 4;
 }
 
 .railStubSymbol3v3 {
   fill: none;
-  stroke: #d9631f;
+  stroke: var(--paint-d9631f);
   stroke-width: 4;
   stroke-linecap: round;
 }
@@ -1113,46 +1107,46 @@
    as the +5V it sits beside. */
 .railStubLead12v {
   fill: none;
-  stroke: #8a2be2;
+  stroke: var(--paint-8a2be2);
   stroke-width: 5;
 }
 
 .railStubSymbol12v {
   fill: none;
-  stroke: #8a2be2;
+  stroke: var(--paint-8a2be2);
   stroke-width: 4;
   stroke-linecap: round;
 }
 
 .batteryStubLead {
   fill: none;
-  stroke: #b73a2f;
+  stroke: var(--paint-b73a2f);
   stroke-width: 5;
 }
 
 .batteryStubSymbol {
   fill: none;
-  stroke: #b73a2f;
+  stroke: var(--paint-b73a2f);
   stroke-width: 4;
   stroke-linecap: round;
 }
 
 /* Control-module pads: matched to the gold pad rings in the renders. */
 .peripheralPowerTerminal {
-  fill: #d84938;
-  stroke: #ffd1d7;
+  fill: var(--paint-d84938);
+  stroke: var(--paint-ffd1d7);
   stroke-width: 2;
 }
 
 .peripheralSignalTerminal {
-  fill: #3dab5b;
-  stroke: #d9f0dc;
+  fill: var(--paint-3dab5b);
+  stroke: var(--paint-d9f0dc);
   stroke-width: 2;
 }
 
 .peripheralGroundTerminal {
-  fill: #202425;
-  stroke: #f2c766;
+  fill: var(--paint-202425);
+  stroke: var(--paint-f2c766);
   stroke-width: 2;
 }
 
@@ -1163,9 +1157,9 @@
 }
 
 .netStubLabel {
-  fill: #2a2f31;
-  font-family: var(--font-code);
-  font-size: 8px;
+  fill: var(--paint-2a2f31);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 700;
   pointer-events: none;
 }
@@ -1181,58 +1175,58 @@
 }
 
 .physicalBoardSilk {
-  fill: #50585a;
-  font-family: var(--font-code);
+  fill: var(--paint-50585a);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
 .physicalBoardSubSilk {
-  fill: #676f70;
-  font-family: var(--font-code);
+  fill: var(--paint-676f70);
+  font-family: var(--font-body);
   font-size: 7px;
   font-weight: 700;
 }
 
 .physicalPinLabel {
-  fill: #e8eae5;
+  fill: var(--paint-e8eae5);
   font-family: var(--font-code);
   font-size: 7px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .physicalComponentLabel {
-  fill: #202628;
+  fill: var(--paint-202628);
   font-size: 16px;
   font-weight: 750;
 }
 
 .physicalMetaLabel,
 .physicalLegendMeta {
-  fill: #596164;
-  font-family: var(--font-code);
+  fill: var(--paint-596164);
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
 .physicalLegendTitle {
-  fill: #202628;
-  font-family: var(--font-code);
+  fill: var(--paint-202628);
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.08em;
 }
 
 .physicalPowerLabel,
 .physicalPowerValue {
-  fill: #202628;
+  fill: var(--paint-202628);
   font-family: var(--font-code);
   font-weight: 850;
+  font-variant-numeric: tabular-nums;
 }
 
 .physicalPowerLabel {
   font-size: 14px;
-  letter-spacing: 0.06em;
 }
 
 .physicalPowerValue {
@@ -1240,11 +1234,10 @@
 }
 
 .physicalCurrentCapLabel {
-  fill: #72dfd0;
-  font-family: var(--font-code);
-  font-size: 9px;
+  fill: var(--paint-72dfd0);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 900;
-  letter-spacing: 0.05em;
 }
 
 
@@ -1255,26 +1248,26 @@
  * them readable over both.
  */
 .physicalChipLabel {
-  fill: #f4f6f2;
-  font-family: var(--font-code);
-  font-size: 10px;
+  fill: var(--paint-f4f6f2);
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   font-weight: 700;
   paint-order: stroke fill;
-  stroke: #10161a;
+  stroke: var(--paint-10161a);
   stroke-width: 3px;
   stroke-linejoin: round;
 }
 
 .physicalFuseText,
 .physicalSupplyText {
-  fill: #eef0eb;
-  font-family: var(--font-code);
+  fill: var(--paint-eef0eb);
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 800;
 }
 
 .physicalPolarity {
-  fill: #202628;
+  fill: var(--paint-202628);
   font-size: 18px;
   font-weight: 800;
 }
@@ -1282,37 +1275,38 @@
 .powerSummaryCard {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .powerSummaryValue {
-  margin-top: 8px;
-  color: #f3f5f1;
+  margin-top: var(--space-1);
+  color: var(--paint-f3f5f1);
   font-family: var(--font-code);
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .powerSummaryMeta {
-  color: #aeb7b9;
+  color: var(--paint-aeb7b9);
   font-size: 12px;
 }
 
 .powerSummaryLimit {
-  margin-top: 8px;
-  color: #72dfd0;
-  font-family: var(--font-code);
+  margin-top: var(--space-1);
+  color: var(--paint-72dfd0);
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
 
 .powerSummaryBudget {
-  margin-top: 9px;
-  padding-top: 9px;
-  border-top: 1px solid #394145;
-  color: #d7ddda;
-  font-family: var(--font-code);
+  margin-top: calc(var(--space-0) * 2.25);
+  padding-top: calc(var(--space-0) * 2.25);
+  border-top: 1px solid var(--paint-394145);
+  color: var(--paint-d7ddda);
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
@@ -1321,16 +1315,16 @@
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .readinessCardReady {
-  border-color: #347544;
+  border-color: var(--paint-347544);
   background: linear-gradient(135deg, rgba(28, 109, 50, 0.38), rgba(13, 56, 25, 0.42));
 }
 
 .readinessCardPending {
-  border-color: #88652b;
+  border-color: var(--paint-88652b);
   background: linear-gradient(135deg, rgba(117, 78, 18, 0.3), rgba(63, 42, 12, 0.36));
 }
 
@@ -1340,51 +1334,51 @@
   height: 36px;
   place-items: center;
   border-radius: 50%;
-  background: #65c956;
-  color: #102316;
-  font-family: var(--font-code);
+  background: var(--paint-65c956);
+  color: var(--paint-102316);
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 900;
 }
 
 .readinessCardPending .readinessMark {
-  background: #e2aa43;
-  color: #33230c;
+  background: var(--paint-e2aa43);
+  color: var(--paint-33230c);
 }
 
 .partsTable {
-  margin-top: 10px;
+  margin-top: calc(var(--space-0) * 2.5);
   overflow: hidden;
-  border: 1px solid #3c4448;
+  border: 1px solid var(--paint-3c4448);
   border-radius: 7px;
 }
 
 .branchKitCallout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   align-items: center;
-  padding: 10px;
-  border: 1px solid #506067;
+  padding: calc(var(--space-0) * 2.5);
+  border: 1px solid var(--paint-506067);
   border-radius: 7px;
   background: rgba(36, 51, 57, 0.62);
 }
 
 .branchKitCallout strong {
-  color: #eef2ef;
+  color: var(--paint-eef2ef);
   font-size: 12px;
 }
 
 .partsRow {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 28px;
-  gap: 8px;
+  gap: var(--space-1);
   align-items: center;
   min-height: 35px;
-  padding: 5px 8px;
-  border-bottom: 1px solid #353d40;
-  color: #dfe4e1;
-  font-size: 12px;
+  padding: calc(var(--space-0) * 1.25) var(--space-1);
+  border-bottom: 1px solid var(--paint-353d40);
+  color: var(--paint-dfe4e1);
+  font-size: var(--fs-ui);
 }
 
 .partsRow:last-child {
@@ -1392,8 +1386,8 @@
 }
 
 .partsQuantity {
-  color: #9da7aa;
-  font-family: var(--font-code);
+  color: var(--paint-9da7aa);
+  font-family: var(--font-body);
 }
 
 .partReady,
@@ -1403,19 +1397,19 @@
   height: 23px;
   place-items: center;
   border-radius: 50%;
-  font-family: var(--font-code);
-  font-size: 8px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 900;
 }
 
 .partReady {
-  background: #57bd4d;
-  color: #102314;
+  background: var(--paint-57bd4d);
+  color: var(--paint-102314);
 }
 
 .partPending {
-  background: #d49a39;
-  color: #291c08;
+  background: var(--paint-d49a39);
+  color: var(--paint-291c08);
 }
 
 @media (max-width: 1280px) {
@@ -1437,8 +1431,8 @@
 .printPage {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  color: #16191a;
+  gap: calc(var(--space-0) * 1.5);
+  color: var(--paint-16191a);
   background: white;
   font-family: var(--font-ui, system-ui, sans-serif);
 }
@@ -1447,15 +1441,15 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #b9bebd;
+  gap: var(--space-2);
+  padding-bottom: var(--space-0);
+  border-bottom: 1px solid var(--paint-b9bebd);
   font-size: 11pt;
 }
 
 .printPageHeader span {
   font-size: 8.5pt;
-  color: #4a5051;
+  color: var(--paint-4a5051);
 }
 
 .printPageBody {
@@ -1463,14 +1457,14 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .printPageFooter {
-  padding-top: 3px;
-  border-top: 1px solid #d5d9d8;
+  padding-top: calc(var(--space-0) * 0.75);
+  border-top: 1px solid var(--paint-d5d9d8);
   font-size: 7.5pt;
-  color: #4a5051;
+  color: var(--paint-4a5051);
 }
 
 /* Letterboxes the sheet inside whatever the page leaves, so a drawing is never
@@ -1494,27 +1488,25 @@
 .printSummary {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: calc(var(--space-0) * 5);
   font-size: 9pt;
 }
 
 .printTitle {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-1);
   font-size: 17pt;
 }
 
 .printHeading {
-  margin: 14px 0 4px;
+  margin: calc(var(--space-0) * 3.5) 0 var(--space-0);
   font-size: 10.5pt;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .printFacts {
   margin: 0;
   display: grid;
   grid-template-columns: minmax(90px, auto) 1fr;
-  gap: 2px 12px;
+  gap: calc(var(--space-0) * 0.5) calc(var(--space-0) * 3);
 }
 
 .printFacts > div {
@@ -1522,7 +1514,7 @@
 }
 
 .printFacts dt {
-  color: #4a5051;
+  color: var(--paint-4a5051);
 }
 
 .printFacts dd {
@@ -1531,31 +1523,31 @@
 
 .printContents {
   margin: 0;
-  padding-left: 18px;
+  padding-left: calc(var(--space-0) * 4.5);
 }
 
 .printNote {
-  margin: 10px 0 0;
-  color: #4a5051;
+  margin: calc(var(--space-0) * 2.5) 0 0;
+  color: var(--paint-4a5051);
 }
 
 .printLegend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 14px;
+  gap: var(--space-0) calc(var(--space-0) * 3.5);
   font-size: 8pt;
-  color: #2b3031;
+  color: var(--paint-2b3031);
 }
 
 .printLegend span {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .printLegendNote {
-  color: #4a5051;
+  color: var(--paint-4a5051);
 }
 
 .printSwatch {
@@ -1572,22 +1564,21 @@
 
 .printTable th,
 .printTable td {
-  padding: 2px 5px;
-  border-bottom: 1px solid #d5d9d8;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.25);
+  border-bottom: 1px solid var(--paint-d5d9d8);
   text-align: left;
   vertical-align: top;
 }
 
 .printTable th {
-  border-bottom: 1.5px solid #8d9493;
-  text-transform: uppercase;
+  border-bottom: 1.5px solid var(--paint-8d9493);
   letter-spacing: 0.04em;
   font-size: 7.5pt;
 }
 
 .printTick {
   width: 16px;
-  border-left: 1px solid #d5d9d8;
+  border-left: 1px solid var(--paint-d5d9d8);
 }
 
 @media print {

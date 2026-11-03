@@ -1,29 +1,17 @@
 .overlay {
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(circle at 50% 20%, rgba(255, 92, 92, 0.06), transparent 24%),
-    rgba(0, 0, 0, 0.68);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  composes: sharedOverlay from '../AppDialog/AppDialogHost.module.css';
   z-index: 120;
-  animation: fadeIn 0.15s ease-out;
 }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .popup {
+  composes: sharedSurface from '../AppDialog/AppDialogHost.module.css';
   width: min(440px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);
   overflow-y: auto;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
-  border-radius: 10px;
-  padding: 16px;
+  padding: var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .header {
@@ -37,12 +25,8 @@
 }
 
 .closeBtn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
+  composes: sharedClose from '../AppDialog/AppDialogHost.module.css';
   font-size: 18px;
-  cursor: pointer;
-  padding: 0 4px;
   line-height: 1;
 }
 .closeBtn:hover { color: var(--text-primary); }
@@ -50,26 +34,24 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .label {
   flex: 0 0 76px;
   font-size: var(--fs-small, 11px);
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .segmented {
   display: flex;
-  gap: 4px;
+  gap: var(--space-0);
   flex-wrap: wrap;
 }
 
 .segment {
-  padding: 5px 10px;
-  border: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.25) calc(var(--space-0) * 2.5);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node);
   color: var(--text-secondary);
@@ -89,7 +71,7 @@
   background: var(--bg-node-hover);
 }
 
-.slider { flex: 1; min-width: 0; accent-color: #ff5c5c; }
+.slider { flex: 1; min-width: 0; accent-color: var(--paint-ff5c5c); }
 
 .value {
   flex: 0 0 auto;
@@ -98,61 +80,62 @@
   font-family: var(--font-code);
   font-size: var(--fs-small, 11px);
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .checkRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   font-size: var(--fs-small, 12px);
   color: var(--text-primary);
   cursor: pointer;
 }
-.checkRow input { accent-color: #ff5c5c; }
+.checkRow input { accent-color: var(--paint-ff5c5c); }
 
 .hint { color: var(--text-secondary); font-size: 11px; }
 
 .meta {
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.5;
 }
 
-.progressWrap { display: flex; flex-direction: column; gap: 4px; }
+.progressWrap { display: flex; flex-direction: column; gap: var(--space-0); }
 
 .progressBar {
   height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
   overflow: hidden;
 }
 .progressBar i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #ff5c5c, #ff9a5c);
+  background: linear-gradient(90deg, var(--paint-ff5c5c), var(--paint-ff9a5c));
   border-radius: inherit;
   transition: width 0.15s ease;
 }
 
 .progressLabel {
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
   color: var(--text-secondary);
 }
 
-.success { font-size: var(--fs-small, 12px); color: #4caf7d; }
-.error { font-size: var(--fs-small, 12px); color: #ff6b6b; }
+.success { font-size: var(--fs-small, 12px); color: var(--paint-4caf7d); }
+.error { font-size: var(--fs-small, 12px); color: var(--paint-ff6b6b); }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--space-1);
+  margin-top: var(--space-0);
 }
 
 .primaryBtn {
-  padding: 7px 16px;
+  padding: calc(var(--space-0) * 1.75) var(--space-2);
   border: 1px solid rgba(255, 92, 92, 0.6);
   border-radius: 6px;
   background: rgba(255, 92, 92, 0.16);
@@ -165,8 +148,8 @@
 .primaryBtn:disabled { opacity: 0.5; cursor: default; }
 
 .secondaryBtn {
-  padding: 7px 14px;
-  border: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 3.5);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node);
   color: var(--text-secondary);

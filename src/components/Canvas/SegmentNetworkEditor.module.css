@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--space-3);
 }
 
 .dialog {
@@ -15,18 +15,18 @@
   overflow: auto;
   background: var(--bg-primary);
   color: var(--text-primary);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 12px;
+  padding: calc(var(--space-0) * 3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .bar h2 {
@@ -44,7 +44,7 @@
 .body {
   display: grid;
   grid-template-columns: 1fr 180px;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
   min-height: 0;
 }
 
@@ -52,7 +52,7 @@
   width: 100%;
   aspect-ratio: 16 / 10;
   background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 6px;
   touch-action: none;
   cursor: crosshair;
@@ -66,7 +66,7 @@
 }
 
 .edgeSelected {
-  stroke: var(--accent, #1fa5ad);
+  stroke: var(--accent, var(--paint-1fa5ad));
 }
 
 .edgeLabel {
@@ -84,16 +84,16 @@
 }
 
 .nodeSelected {
-  fill: var(--accent, #1fa5ad);
+  fill: var(--accent, var(--paint-1fa5ad));
 }
 
 .nodeArmed {
-  fill: #f2c766;
+  fill: var(--paint-f2c766);
 }
 
 .edgeList {
   margin: 0;
-  padding: 0 0 0 20px;
+  padding: 0 0 0 calc(var(--space-0) * 5);
   max-height: 360px;
   overflow: auto;
   font-size: var(--fs-caption);
@@ -102,12 +102,12 @@
 .edgeRow, .edgeRowSelected {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 0;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 0.25) 0;
 }
 
 .edgeRowSelected .edgeName {
-  color: var(--accent, #1fa5ad);
+  color: var(--accent, var(--paint-1fa5ad));
 }
 
 .edgeName {

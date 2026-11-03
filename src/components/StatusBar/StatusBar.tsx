@@ -82,7 +82,6 @@ export default function StatusBar() {
           className={styles.indicator}
           style={{ background: LEVEL_COLOR[statusLevel], color: LEVEL_COLOR[statusLevel] }}
         />
-        <span className={styles.modeTag}>Console</span>
         <span
           className={styles.message}
           style={{ color: LEVEL_COLOR[statusLevel] }}

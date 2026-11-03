@@ -1,45 +1,24 @@
 .overlay {
-  position: fixed;
-  inset: 0;
+  composes: sharedOverlay from '../AppDialog/AppDialogHost.module.css';
   box-sizing: border-box;
-  background:
-    radial-gradient(circle at 50% 14%, rgba(0, 191, 255, 0.1), transparent 24%),
-    rgba(0, 0, 0, 0.72);
-  display: flex;
   align-items: flex-start;
-  justify-content: center;
-  padding: calc(var(--menubar-height) + 24px) 14px 24px;
+  padding: calc(var(--menubar-height) + var(--space-3)) calc(var(--space-0) * 3.5) var(--space-3);
   z-index: 120;
-  animation: fadeIn 0.15s ease-out;
   overflow: hidden;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 .popup {
+  composes: sharedSurface from '../AppDialog/AppDialogHost.module.css';
   width: min(1180px, 100%);
   max-height: calc(100dvh - var(--menubar-height) - 48px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-color: rgba(156, 232, 255, 0.42) rgba(255, 255, 255, 0.04);
+  scrollbar-color: rgba(156, 232, 255, 0.42) color-mix(in srgb, var(--text-primary) 4%, transparent);
   scrollbar-width: thin;
-  background:
-    linear-gradient(180deg, rgba(18, 22, 27, 0.98), rgba(9, 12, 16, 0.98)),
-    var(--bg-panel);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 18px;
+  padding: calc(var(--space-0) * 4.5);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 0 40px rgba(0, 191, 255, 0.08);
-  animation: slideUp 0.18s ease-out;
+  gap: calc(var(--space-0) * 3);
 }
 
 .popup::-webkit-scrollbar {
@@ -47,66 +26,54 @@
 }
 
 .popup::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  border-radius: var(--radius-control);
 }
 
 .popup::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: rgba(156, 232, 255, 0.42);
   background-clip: content-box;
-}
-
-@keyframes slideUp {
-  from { transform: translateY(16px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
 }
 
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-2);
   color: var(--text-primary);
   font-size: var(--fs-body);
   font-weight: 700;
 }
 
 .kicker {
-  margin-bottom: 4px;
-  color: #8adfff;
-  font-family: var(--font-code);
-  font-size: 10px;
+  margin-bottom: var(--space-0);
+  color: var(--paint-8adfff);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
 .closeBtn {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary);
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
+  composes: sharedClose from '../AppDialog/AppDialogHost.module.css';
   font-size: 18px;
-  cursor: pointer;
   line-height: 1;
-  padding: 0;
   flex-shrink: 0;
 }
 
 .closeBtn:hover {
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: color-mix(in srgb, var(--text-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .hint {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   color: var(--text-secondary);
   font-size: var(--fs-caption);
   line-height: 1.5;
@@ -129,29 +96,27 @@
 }
 
 .lastStart {
-  padding: 4px 10px;
+  padding: var(--space-0) calc(var(--space-0) * 2.5);
   border: 1px solid rgba(0, 191, 255, 0.18);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: rgba(0, 191, 255, 0.08);
-  color: #a6ebff;
-  font-family: var(--font-code);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: var(--paint-a6ebff);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
 }
 
 .card {
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   border-radius: 16px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+    linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 3%, transparent), color-mix(in srgb, var(--text-primary) 1.5%, transparent)),
     rgba(6, 9, 12, 0.9);
   color: inherit;
   text-align: left;
@@ -167,16 +132,11 @@
 }
 
 .card:hover {
-  transform: translateY(-2px);
   border-color: rgba(0, 191, 255, 0.28);
-  box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(0, 191, 255, 0.12);
 }
 
 .cardRemembered {
   border-color: rgba(0, 191, 255, 0.34);
-  box-shadow: 0 0 0 1px rgba(0, 191, 255, 0.14);
 }
 
 /* The recommended first patch: twice the width, first in reading order, and
@@ -184,7 +144,6 @@
 .featuredCard {
   grid-column: span 2;
   border-color: rgba(0, 191, 255, 0.34);
-  box-shadow: 0 0 0 1px rgba(0, 191, 255, 0.14), 0 0 28px rgba(0, 191, 255, 0.08);
 }
 
 .featuredCard:focus-visible,
@@ -194,19 +153,17 @@
 }
 
 .startHereBadge {
-  padding: 2px 8px;
-  border-radius: 999px;
+  padding: calc(var(--space-0) * 0.5) var(--space-1);
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--accent-pattern) 18%, transparent);
   color: var(--accent-pattern);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .featuredAction {
-  margin: auto 14px 14px;
-  padding: 8px 12px;
+  margin: auto calc(var(--space-0) * 3.5) calc(var(--space-0) * 3.5);
+  padding: var(--space-1) calc(var(--space-0) * 3);
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent-pattern) 20%, transparent);
   color: var(--text-primary);
@@ -214,22 +171,20 @@
 }
 
 .levelChip {
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.75);
+  border-radius: var(--radius-control);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 14.000000000000002%, transparent);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   white-space: nowrap;
 }
 
 /* Requirements, before loading: what runs now, and what a board needs. */
 .guide {
   display: grid;
-  gap: 4px;
-  margin: 8px 0 0;
+  gap: var(--space-0);
+  margin: var(--space-1) 0 0;
   font-size: 11px;
   line-height: 1.4;
 }
@@ -237,16 +192,14 @@
 .guide div {
   display: grid;
   grid-template-columns: 7.2em 1fr;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .guide dt {
-  color: #a6ebff;
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding-top: 2px;
+  color: var(--paint-a6ebff);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
+  padding-top: calc(var(--space-0) * 0.5);
 }
 
 .guide dd {
@@ -256,10 +209,10 @@
 
 .sectionHeading {
   grid-column: 1 / -1;
-  margin: 6px 0 -2px;
-  color: #a6ebff;
-  font-family: var(--font-code);
-  font-size: 10px;
+  margin: calc(var(--space-0) * 1.5) 0 calc(var(--space-0) * -0.5);
+  color: var(--paint-a6ebff);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -267,17 +220,16 @@
 
 .blankCard {
   background:
-    radial-gradient(circle at 50% 26%, rgba(0, 191, 255, 0.1), transparent 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.012)),
+    linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 2.5%, transparent), color-mix(in srgb, var(--text-primary) 1.2%, transparent)),
     rgba(6, 9, 12, 0.92);
 }
 
 .preview {
   position: relative;
   height: 126px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   background:
-    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.06), transparent 44%),
+    radial-gradient(circle at 50% 12%, color-mix(in srgb, var(--text-primary) 6%, transparent), transparent 44%),
     linear-gradient(180deg, rgba(4, 8, 11, 0.8), rgba(10, 14, 18, 0.96));
   overflow: hidden;
 }
@@ -292,14 +244,14 @@
 
 .previewNode rect {
   fill: color-mix(in srgb, var(--preview-accent) 12%, rgba(18, 24, 31, 0.98));
-  stroke: color-mix(in srgb, var(--preview-accent) 38%, rgba(255, 255, 255, 0.08));
+  stroke: color-mix(in srgb, var(--preview-accent) 38%, color-mix(in srgb, var(--text-primary) 8%, transparent));
   stroke-width: 1;
   filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.32));
 }
 
 .previewNode text {
-  fill: #f3f8fb;
-  font-size: 8px;
+  fill: var(--paint-f3f8fb);
+  font-size: var(--fs-label);
   font-weight: 700;
   paint-order: stroke;
   stroke: rgba(4, 7, 10, 0.7);
@@ -307,24 +259,16 @@
 }
 
 .previewBlank {
-  background:
-    radial-gradient(circle at 50% 20%, rgba(0, 191, 255, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(4, 8, 11, 0.9), rgba(10, 14, 18, 0.98));
+  background: linear-gradient(180deg, rgba(4, 8, 11, 0.9), rgba(10, 14, 18, 0.98));
 }
 
-.blankGlow {
-  position: absolute;
-  inset: 18px;
-  border-radius: 16px;
-  background: radial-gradient(circle at 50% 50%, rgba(0, 191, 255, 0.08), transparent 62%);
-}
 
 .blankGrid {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--text-primary) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--text-primary) 5%, transparent) 1px, transparent 1px);
   background-size: 28px 28px;
   opacity: 0.35;
 }
@@ -334,28 +278,26 @@
   left: 22px;
   right: 22px;
   bottom: 18px;
-  padding: 9px 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
+  padding: calc(var(--space-0) * 2.25) calc(var(--space-0) * 3);
+  border: 1px dashed color-mix(in srgb, var(--text-primary) 18%, transparent);
   border-radius: 12px;
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   text-align: center;
 }
 
 .cardBody {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 12px 14px 10px;
+  gap: calc(var(--space-0) * 1.75);
+  padding: calc(var(--space-0) * 3) calc(var(--space-0) * 3.5) calc(var(--space-0) * 2.5);
 }
 
 .cardHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   flex-wrap: wrap;
 }
 
@@ -369,14 +311,12 @@
 }
 
 .lastBadge {
-  padding: 3px 8px;
-  border-radius: 999px;
+  padding: calc(var(--space-0) * 0.75) var(--space-1);
+  border-radius: var(--radius-control);
   background: rgba(0, 191, 255, 0.12);
-  color: #9ce8ff;
-  font-family: var(--font-code);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: var(--accent-ui);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .cardDesc {
@@ -387,25 +327,23 @@
 
 .steps {
   margin: 0;
-  padding-left: 16px;
+  padding-left: var(--space-2);
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--fs-label);
   line-height: 1.32;
 }
 
 .steps li + li {
-  margin-top: 3px;
+  margin-top: calc(var(--space-0) * 0.75);
 }
 
 .cardAction {
   margin-top: auto;
-  padding: 0 14px 12px;
-  color: #9ce8ff;
-  font-family: var(--font-code);
-  font-size: 11px;
+  padding: 0 calc(var(--space-0) * 3.5) calc(var(--space-0) * 3);
+  color: var(--accent-ui);
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 @media (max-width: 1120px) {
@@ -416,13 +354,13 @@
 
 @media (max-width: 720px) {
   .overlay {
-    padding: 12px 8px;
+    padding: calc(var(--space-0) * 3) var(--space-1);
   }
 
   .popup {
     width: 100%;
     max-height: calc(100dvh - 24px);
-    padding: 16px;
+    padding: var(--space-2);
   }
 
   .featuredCard { grid-column: auto; }

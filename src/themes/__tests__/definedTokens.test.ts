@@ -22,6 +22,24 @@ function sources(dir: string): string[] {
 }
 
 describe('theme tokens', () => {
+  it('declares every custom property used by CSS, including reads with fallbacks', () => {
+    const declared = new Set<string>()
+    const read = new Map<string, Set<string>>()
+    for (const path of sources(root)) {
+      const text = readFileSync(path, 'utf8')
+      for (const match of text.matchAll(/(--[\w-]+)\s*:/g)) declared.add(match[1])
+      for (const match of text.matchAll(/['"`](--[\w-]+)['"`]/g)) declared.add(match[1])
+      if (!path.endsWith('.css')) continue
+      for (const match of text.matchAll(/var\(\s*(--[\w-]+)/g)) {
+        const files = read.get(match[1]) ?? new Set<string>()
+        files.add(relative(root, path).replace(/\\/g, '/'))
+        read.set(match[1], files)
+      }
+    }
+    const undeclared = [...read].filter(([name]) => !declared.has(name)).map(([name, files]) => `${name} in ${[...files].join(', ')}`)
+    expect(undeclared).toEqual([])
+  })
+
   it('declares every custom property read without a fallback', () => {
     const declared = new Set<string>()
     const read = new Map<string, Set<string>>()

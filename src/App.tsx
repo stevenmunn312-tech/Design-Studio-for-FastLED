@@ -172,7 +172,7 @@ export default function App() {
   // Probe the upload helper once on mount (the Vite plugin should have spawned it).
   useEffect(() => { refreshHelper() }, [refreshHelper])
 
-  // Apply theme + accessibility attributes to the root element
+  // Apply theme and accessibility attributes to the root element.
   useEffect(() => {
     const root = document.documentElement
     if (theme === 'dark') delete root.dataset.theme

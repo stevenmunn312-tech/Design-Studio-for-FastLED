@@ -1,11 +1,11 @@
 .target {
-  margin-top: 2px;
-  padding: 3px 6px;
+  margin-top: calc(var(--space-0) * 0.5);
+  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.5);
   border-radius: 4px;
-  font-size: 10px;
+  font-size: var(--fs-label);
   line-height: 1.35;
-  color: var(--text-primary, #e8eef5);
-  background: color-mix(in srgb, var(--surface-recessed, #111820) 62%, transparent);
+  color: var(--text-primary, var(--paint-e8eef5));
+  background: color-mix(in srgb, var(--surface-recessed, var(--paint-111820)) 62%, transparent);
   overflow-wrap: anywhere;
 }
 
@@ -14,5 +14,5 @@
 }
 
 .idle {
-  color: var(--text-muted, #8b97a5);
+  color: var(--text-muted, var(--paint-8b97a5));
 }

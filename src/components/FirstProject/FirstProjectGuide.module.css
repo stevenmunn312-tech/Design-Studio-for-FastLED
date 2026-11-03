@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   pointer-events: none;
   font-family: var(--font-body);
   color: var(--text-primary);
@@ -20,7 +20,7 @@
 .list {
   pointer-events: auto;
   background: color-mix(in srgb, var(--bg-panel) 95%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-pattern) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 30%, transparent);
   border-radius: 12px;
   box-shadow: 0 8px 26px var(--active-shadow);
 }
@@ -29,25 +29,25 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 14px;
-  padding: 8px 10px 8px 14px;
+  gap: var(--space-1) calc(var(--space-0) * 3.5);
+  padding: var(--space-1) calc(var(--space-0) * 2.5) var(--space-1) calc(var(--space-0) * 3.5);
 }
 
 .dock button:focus-visible {
-  outline: 2px solid var(--accent-pattern);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 2px;
 }
 
 .progressBlock {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: calc(var(--space-0) * 0.25);
   flex: 0 0 auto;
 }
 
 .kicker {
-  color: var(--accent-pattern);
-  font-family: var(--font-code);
+  color: var(--accent-ui);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -66,7 +66,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   font-size: 13px;
   line-height: 1.4;
 }
@@ -87,13 +87,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   margin-left: auto;
 }
 
 .primaryBtn,
 .secondaryBtn {
-  padding: 5px 11px;
+  padding: calc(var(--space-0) * 1.25) calc(var(--space-0) * 2.75);
   border-radius: 7px;
   font-size: 12.5px;
   font-weight: 600;
@@ -102,8 +102,8 @@
 }
 
 .primaryBtn {
-  border: 1px solid color-mix(in srgb, var(--accent-pattern) 60%, transparent);
-  background: color-mix(in srgb, var(--accent-pattern) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 60%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 20%, transparent);
   color: var(--text-primary);
 }
 
@@ -115,15 +115,15 @@
 
 .primaryBtn:hover,
 .secondaryBtn:hover {
-  border-color: var(--accent-pattern);
+  border-color: var(--accent-ui);
 }
 
 .linkBtn {
-  padding: 2px 0;
+  padding: calc(var(--space-0) * 0.5) 0;
   border: none;
   background: none;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-ui);
   white-space: nowrap;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -148,29 +148,29 @@
 
 .iconBtn:hover {
   color: var(--text-primary);
-  border-color: var(--border-glow);
+  border-color: var(--line);
 }
 
 /* The whole list, opened above the strip on request. */
 .list {
   align-self: flex-end;
   width: min(300px, 100%);
-  padding: 10px 12px;
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
 }
 
 .steps {
   list-style: none;
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-0);
   padding: 0;
   display: grid;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .step {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
+  gap: var(--space-1);
+  padding: var(--space-0) calc(var(--space-0) * 0.5);
   font-size: 13px;
 }
 
@@ -201,8 +201,8 @@
 }
 
 .current .mark {
-  border-color: var(--accent-pattern);
-  color: var(--accent-pattern);
+  border-color: var(--accent-ui);
+  color: var(--accent-ui);
 }
 
 .current .stepTitle {

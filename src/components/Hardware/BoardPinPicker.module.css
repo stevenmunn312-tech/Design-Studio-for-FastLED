@@ -1,6 +1,6 @@
 .field {
   display: grid;
-  gap: 4px;
+  gap: var(--space-0);
   min-width: 0;
 }
 
@@ -8,14 +8,14 @@
 .input {
   width: 100%;
   min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--border-glow));
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--line));
   border-radius: 5px;
   background: var(--bg-primary);
   color: var(--text-primary);
   font: inherit;
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .select:focus-visible,
@@ -32,23 +32,23 @@
 .customRow {
   display: grid;
   grid-template-columns: minmax(70px, 1fr) auto;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .knownButton {
-  padding: 5px 8px;
+  padding: calc(var(--space-0) * 1.25) var(--space-1);
   border: 1px solid var(--divider);
   border-radius: 5px;
   background: color-mix(in srgb, var(--bg-panel) 88%, var(--accent-output) 8%);
   color: var(--text-secondary);
   font: inherit;
-  font-size: 9px;
+  font-size: var(--fs-ui);
   cursor: pointer;
 }
 
 .note,
 .warning {
-  font-size: 9px;
+  font-size: var(--fs-label);
   line-height: 1.35;
 }
 

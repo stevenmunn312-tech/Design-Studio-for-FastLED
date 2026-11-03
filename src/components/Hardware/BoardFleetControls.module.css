@@ -3,16 +3,16 @@
 .fleet {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-  padding-top: 8px;
+  gap: calc(var(--space-0) * 1.5);
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
   border-top: 1px solid var(--divider);
 }
 
 .header {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .header span {
@@ -24,33 +24,33 @@
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .button {
-  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--border-glow));
+  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--line));
   background: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-output) 10%);
   color: var(--text-primary);
-  border-radius: 999px;
-  padding: 6px 12px;
+  border-radius: var(--radius-control);
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3);
   font: inherit;
-  font-size: var(--fs-caption);
+  font-size: var(--fs-ui);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .button:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 65%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 65%, var(--line));
 }
 
 .danger {
-  border-color: color-mix(in srgb, var(--error) 45%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--error) 45%, var(--line));
 }
 
 .toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   color: var(--text-primary);
   font-size: var(--fs-caption);
   cursor: pointer;
@@ -65,20 +65,18 @@
 /* The matrix's word for a feature no bench row has graduated yet. */
 .experimental {
   display: inline-block;
-  padding: 0 5px;
+  padding: 0 calc(var(--space-0) * 1.25);
   border: 1px solid color-mix(in srgb, var(--warning) 60%, transparent);
   border-radius: 8px;
   color: var(--warning);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--fs-label);
   vertical-align: middle;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .fieldLabel {
@@ -88,9 +86,9 @@
 }
 
 .fieldInput {
-  padding: 4px 6px;
+  padding: var(--space-0) calc(var(--space-0) * 1.5);
   border-radius: 6px;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: var(--fs-caption);

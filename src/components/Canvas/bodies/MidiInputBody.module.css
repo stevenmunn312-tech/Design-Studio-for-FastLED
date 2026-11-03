@@ -1,18 +1,17 @@
 .body {
-  margin-top: 4px;
+  margin-top: var(--space-0);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-0);
   font-size: var(--fs-caption);
 }
 
 .status {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   color: var(--text-secondary);
   letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .status span {
@@ -27,7 +26,6 @@
 }
 
 .status[data-active='true'] span {
-  box-shadow: 0 0 6px var(--accent-input);
 }
 
 .readout {

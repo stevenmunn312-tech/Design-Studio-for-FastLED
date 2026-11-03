@@ -1,21 +1,21 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-  padding-top: 6px;
+  gap: calc(var(--space-0) * 1.5);
+  margin-top: var(--space-0);
+  padding-top: calc(var(--space-0) * 1.5);
   border-top: 1px solid var(--divider);
 }
 
 /* ── Drop zone ── */
 .dropZone {
-  border: 2px dashed var(--border-glow);
+  border: 2px dashed var(--line);
   border-radius: 8px;
-  padding: 12px 8px;
+  padding: calc(var(--space-0) * 3) var(--space-1);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   cursor: pointer;
   color: var(--text-secondary);
   font-size: var(--fs-caption);
@@ -33,30 +33,30 @@
   font-size: 20px;
   line-height: 1;
   color: var(--accent-pattern);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
 }
 
 /* ── Loaded state (controls only — the frame NodePreview above is the image) ── */
 .meta {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .dims {
-  font-size: 10px;
-  font-family: var(--font-code);
+  font-size: var(--fs-label);
+  font-family: var(--font-body);
   color: var(--text-secondary);
   margin-right: auto;
 }
 
 .replaceBtn {
   background: none;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   cursor: pointer;
-  padding: 2px 8px;
+  padding: calc(var(--space-0) * 0.5) var(--space-1);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: var(--fs-ui);
   color: var(--text-secondary);
   transition: border-color 0.15s, color 0.15s;
 }
@@ -70,9 +70,9 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px 5px;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.25);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: var(--fs-ui);
   color: var(--text-secondary);
 }
 

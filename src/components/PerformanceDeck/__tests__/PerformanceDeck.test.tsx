@@ -60,11 +60,11 @@ describe('PerformanceDeck', () => {
 
   it('the panic button zeros pinned values, and toggles to Restore', () => {
     const { getByText } = render(<PerformanceDeck />)
-    fireEvent.click(getByText('⏻ PANIC'))
+    fireEvent.click(getByText('PANIC'))
     expect(useGraphStore.getState().nodes.find((n) => n.id === 'sc')!.data.properties.r).toBe(0)
     expect(useGraphStore.getState().panicActive).toBe(true)
 
-    fireEvent.click(getByText('● Restore'))
+    fireEvent.click(getByText('Restore'))
     expect(useGraphStore.getState().nodes.find((n) => n.id === 'sc')!.data.properties.r).toBe(10)
   })
 

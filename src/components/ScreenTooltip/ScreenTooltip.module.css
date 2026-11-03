@@ -4,13 +4,13 @@
   box-sizing: border-box;
   width: max-content;
   max-width: min(360px, calc(100vw - 24px));
-  padding: 6px 10px;
-  border: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 2.5);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-panel);
   box-shadow: 0 6px 18px var(--active-shadow);
   color: var(--text-primary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   pointer-events: none;
   white-space: normal;

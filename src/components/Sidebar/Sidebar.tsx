@@ -16,6 +16,7 @@ import {
 import { copyLibraryLink, downloadLibraryFile, libraryFileName } from '../../utils/libraryShare'
 import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
 import PatternFormIcons from '../PatternTags/PatternFormIcons'
+import { Icon, PortIcon } from '../icons/Icon'
 
 function tagNames(tags: PatternFormTag[]): string {
   return tags.map((tag) => PATTERN_FORM_TAGS.find((entry) => entry.id === tag)?.label ?? tag).join(', ')
@@ -206,27 +207,8 @@ const RECIPE_CARDS: RecipeCard[] = [
   },
 ]
 
-const TYPE_GLYPH: Record<string, string> = {
-  frame: '▦', palette: '≋', color: '●', audio: '⌁', dmx: '◫', datetime: '◷', float: '∿', bool: '◆',
-  field: '⌖', music: '♫', shows: '▶', sdcard: '▣', patternset: '◫', transitionset: '⇄',
-  string: '≡',
-}
-
 function moduleType(def: NodeDefinition) {
   return def.outputs[0]?.dataType ?? def.inputs[0]?.dataType ?? 'control'
-}
-
-function moduleGlyph(def: NodeDefinition) {
-  return TYPE_GLYPH[moduleType(def)] ?? '·'
-}
-
-function moduleCode(def: NodeDefinition) {
-  return def.type
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .split(/[^a-z0-9]+/i)
-    .filter(Boolean)
-    .map((part) => part.slice(0, 3).toUpperCase())
-    .join('-')
 }
 
 function loadExpanded(): string | null {
@@ -418,9 +400,6 @@ function Sidebar() {
     const ghost = document.createElement('div')
     ghost.className = styles.dragGhost
     ghost.style.setProperty('--accent', CATEGORY_ACCENT_VAR[def.category])
-    const glyph = document.createElement('span')
-    glyph.className = styles.dragGhostGlyph
-    glyph.textContent = moduleGlyph(def)
     const copy = document.createElement('span')
     copy.className = styles.dragGhostCopy
     const name = document.createElement('strong')
@@ -428,7 +407,7 @@ function Sidebar() {
     const typeLabel = document.createElement('small')
     typeLabel.textContent = `${moduleType(def)} node`
     copy.append(name, typeLabel)
-    ghost.append(glyph, copy)
+    ghost.append(copy)
     document.body.appendChild(ghost)
     e.dataTransfer.setDragImage(ghost, 22, 24)
     window.setTimeout(() => ghost.remove(), 0)
@@ -1038,11 +1017,10 @@ function Sidebar() {
           ? `${NODE_DESCRIPTIONS[n.type] ?? n.label}\nClick to add · drag to place`
           : `${n.label} already exists on this canvas`}
       >
-        <span className={styles.moduleGlyph} data-output-type={outputType} aria-hidden="true">{moduleGlyph(n)}</span>
+        <span className={styles.moduleGlyph} data-output-type={outputType} aria-hidden="true"><PortIcon dataType={outputType} /></span>
         <span className={styles.moduleCopy}>
           <span className={styles.moduleTopline}>
             <span className={styles.moduleName}>{n.label}</span>
-            <span className={styles.moduleCode}>{moduleCode(n)}</span>
           </span>
           <span className={styles.moduleType}>
             {outputType} {n.subcategory ? `· ${n.subcategory}` : ''}
@@ -1065,7 +1043,7 @@ function Sidebar() {
               toggleFavourite(n.type)
             }}
           >
-            ★
+            <Icon name="star" />
           </button>
           <span className={styles.moduleGrip} aria-hidden="true">⠿</span>
         </span>
@@ -1231,7 +1209,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
                           startRename(pattern)
                         }}
                       >
-                        ✎
+                        <Icon name="edit" size={12} />
                       </button>
                       <button
                         className={styles.patternBtn}
@@ -1242,7 +1220,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
                           void handleSharePattern(pattern)
                         }}
                       >
-                        ↗
+                        <Icon name="external" size={12} />
                       </button>
                       <button
                         className={styles.patternBtn}
@@ -1262,7 +1240,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
                           })()
                         }}
                       >
-                        ✕
+                        <Icon name="close" size={12} />
                       </button>
                     </span>
                   )}
@@ -1378,7 +1356,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
         )}
 
         {renderSection('favourites', 'Favourites', 'var(--accent-favourites)', favouriteDefs, query === '' ? {
-          emptyMessage: 'No favourites yet — click the ★ on a node to pin it here.',
+          emptyMessage: 'No favourites yet — click the star on a node to pin it here.',
         } : undefined)}
         {renderSection('recent', 'Recent', 'var(--accent-recent)', recentDefs, query === '' ? {
           emptyMessage: 'No recently used nodes yet.',
@@ -1449,7 +1427,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
               onClick={openRatings}
               disabled={patterns.length === 0}
             >
-              ★
+              <Icon name="star" />
             </button>
             <button
               className={styles.revealBtn}
@@ -1689,7 +1667,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
           title="Copy a link that imports the selection into another Studio's Pattern Library"
           onClick={() => void copyPatternLink(selectedPatterns)}
         >
-          <span aria-hidden="true">⛓</span>
+          <Icon name="link" />
           Copy share link
         </button>
         <div className={styles.patternContextDivider} />

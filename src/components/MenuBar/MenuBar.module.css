@@ -1,23 +1,21 @@
 .menubar {
   position: relative;
   height: var(--menubar-height);
-  background:
-    linear-gradient(180deg, rgba(18, 22, 27, 0.98), rgba(11, 14, 18, 0.98));
-  border-bottom: 1px solid var(--border-glow);
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   padding: 0 var(--space-2);
   gap: var(--space-2);
   flex-shrink: 0;
   z-index: 20;
-  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.02);
 }
 
 .previewControls {
   --preview-control-width: 112px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   flex-shrink: 0;
 }
 
@@ -31,14 +29,14 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   margin-right: var(--space-2);
 }
 
 .brandCopy {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: calc(var(--space-0) * 0.25);
 }
 
 .logo {
@@ -47,7 +45,6 @@
   flex: 0 0 auto;
   display: block;
   border-radius: 6px;
-  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.36));
 }
 
 .title {
@@ -60,10 +57,8 @@
 
 .subtitle {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 /* The subtitle slot now carries the open project's name and doubles as the
@@ -88,7 +83,7 @@
 }
 
 .projectChip:focus-visible {
-  outline: 1px solid var(--accent-output);
+  outline: 1px solid var(--accent-ui);
   outline-offset: 2px;
 }
 
@@ -101,7 +96,7 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   flex: 1;
   /* min-width:0 lets the row shrink below its content width so it can scroll
      horizontally when the window is too narrow, rather than squishing buttons
@@ -114,15 +109,15 @@
 /* The scrollbar is hidden, so an edge with more buttons beyond it fades out
    instead; the fade is the cue that the rail scrolls. */
 .nav[data-overflow-end] {
-  mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(90deg, black calc(100% - 36px), transparent);
 }
 
 .nav[data-overflow-start] {
-  mask-image: linear-gradient(90deg, transparent, #000 36px);
+  mask-image: linear-gradient(90deg, transparent, black 36px);
 }
 
 .nav[data-overflow-start][data-overflow-end] {
-  mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(90deg, transparent, black 36px, black calc(100% - 36px), transparent);
 }
 
 .nav::-webkit-scrollbar {
@@ -152,41 +147,34 @@
   left: 0;
   min-width: 240px;
   max-height: min(60vh, calc(100vh - var(--menubar-height) - 24px));
-  padding: 8px;
+  padding: var(--space-1);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background:
-    linear-gradient(180deg, rgba(20, 24, 30, 0.98), rgba(10, 13, 17, 0.98)),
-    var(--bg-panel);
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.42),
-    0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 0 32px rgba(0, 191, 255, 0.08);
+  border-radius: var(--radius-dialog);
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  box-shadow: 0 18px 40px var(--chrome-shadow);
   z-index: 30;
 }
 
 .menuItem {
   min-height: 34px;
-  padding: 0 12px;
+  padding: 0 calc(var(--space-0) * 3);
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   text-align: left;
   cursor: pointer;
 }
 
 .menuItem:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-node-hover);
 }
 
 .menuItem:disabled {
@@ -196,23 +184,22 @@
 
 .menuDivider {
   height: 1px;
-  margin: 6px 4px;
-  background: rgba(255, 255, 255, 0.08);
+  margin: calc(var(--space-0) * 1.5) var(--space-0);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
 }
 
 .menuLabel {
-  padding: 4px 12px 2px;
+  padding: var(--space-0) calc(var(--space-0) * 3) calc(var(--space-0) * 0.5);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .menuEmpty {
-  padding: 8px 12px;
+  padding: var(--space-1) calc(var(--space-0) * 3);
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
   letter-spacing: 0.04em;
 }
@@ -220,25 +207,25 @@
 .btn {
   height: 30px;
   padding: 0 var(--space-1);
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
+  background: var(--bg-node);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0; /* keep labels intact; the nav scrolls instead of squishing */
-  transition: color var(--anim-hover), border-color var(--anim-hover), background var(--anim-hover), box-shadow var(--anim-hover);
+  transition: color var(--anim-hover), border-color var(--anim-hover), background var(--anim-hover);
 }
+
+.btn svg,
+.menuItem svg { vertical-align: middle; }
 
 .btn:hover:not(:disabled) {
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+  border-color: var(--accent-ui);
+  background: var(--bg-node-hover);
 }
 
 .btn:disabled {
@@ -248,36 +235,35 @@
 
 .btnAccent {
   composes: btn;
-  border-color: var(--accent-output);
-  color: var(--accent-output);
+  border-color: var(--accent-ui);
+  color: var(--accent-ui);
 }
 
 .btnAccent:hover {
-  background: var(--accent-output);
-  color: #000;
+  background: var(--accent-ui);
+  color: var(--accent-ui-text);
 }
 
 /* Undo, Redo and Tidy are read by their glyphs; their names live in the
    title and aria-label so the nav rail fits the live tools at 1440 wide. */
 .iconBtn {
   min-width: 30px;
-  padding: 0 8px;
+  padding: 0 var(--space-1);
   font-size: 13px;
-  letter-spacing: 0;
 }
 
 .sep {
   width: 1px;
   height: 20px;
-  background: var(--border-glow);
-  margin: 0 4px;
+  background: var(--line);
+  margin: 0 var(--space-0);
 }
 
 .btnActive {
   composes: btn;
-  border-color: var(--accent-audio);
-  color: var(--accent-audio);
-  box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent-audio) 10%, transparent);
+  border-color: var(--accent-ui);
+  background: var(--accent-ui);
+  color: var(--accent-ui-text);
 }
 
 /* One instrument cluster for the four things used while operating a live
@@ -286,12 +272,12 @@
 .liveTools {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   flex: 0 0 auto;
-  padding: 2px;
-  border: 1px solid color-mix(in srgb, var(--accent-audio) 24%, var(--border-glow));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-audio) 4%, rgba(255, 255, 255, 0.02));
+  padding: calc(var(--space-0) * 0.5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg-node);
 }
 
 .liveTool {
@@ -302,21 +288,19 @@
 }
 
 .liveToolActive {
-  color: #041317;
+  color: var(--accent-ui-text);
   border-color: transparent;
-  background: linear-gradient(135deg, var(--accent-audio), color-mix(in srgb, var(--accent-audio) 55%, white));
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-audio) 32%, transparent);
+  background: var(--accent-ui);
 }
 
 .stageTool {
-  color: color-mix(in srgb, #ff5e9d 76%, var(--text-secondary));
+  color: var(--text-secondary);
 }
 
 .stageToolActive {
-  color: #041317;
+  color: var(--accent-ui-text);
   border-color: transparent;
-  background: linear-gradient(135deg, #ff5e9d, color-mix(in srgb, #ff5e9d 55%, white));
-  box-shadow: 0 0 12px rgba(255, 94, 157, 0.38);
+  background: var(--accent-ui);
 }
 
 .liveTools > * {
@@ -331,15 +315,15 @@
   flex: 0 0 auto;
   width: auto;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--accent-audio) 24%, var(--border-glow));
-  border-radius: 999px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
 }
 
 .evaluationBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   width: auto;
   min-width: max-content;
   /* This is a transport indicator, not an animated signal. Keep its thin
@@ -362,47 +346,43 @@
 }
 
 .evaluationRunning {
-  border-color: color-mix(in srgb, var(--accent-output) 46%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 46%, var(--line));
   color: var(--accent-output);
 }
 
 .evaluationPaused {
-  border-color: color-mix(in srgb, #ffb84d 62%, var(--border-glow));
-  color: #ffca78;
-  background: color-mix(in srgb, #ffb84d 9%, transparent);
-  box-shadow: inset 0 0 10px rgba(255, 184, 77, 0.08);
+  border-color: color-mix(in srgb, var(--paint-ffb84d) 62%, var(--line));
+  color: var(--paint-ffca78);
+  background: color-mix(in srgb, var(--paint-ffb84d) 9%, transparent);
 }
 
 .previewBtn {
-  border-color: color-mix(in srgb, var(--accent-output) 38%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 38%, var(--line));
 }
 
 .btnPreviewActive {
-  color: #041317;
+  color: var(--accent-ui-text);
   border-color: transparent;
-  background: linear-gradient(135deg, var(--accent-output), color-mix(in srgb, var(--accent-output) 62%, white));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px color-mix(in srgb, var(--accent-output) 45%, transparent);
+  background: var(--accent-ui);
 }
 
 .micBtn {
-  border-color: color-mix(in srgb, var(--accent-audio) 38%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-audio) 38%, var(--line));
 }
 
 .btnMicActive {
-  color: #041317;
+  color: var(--accent-ui-text);
   border-color: transparent;
-  background: linear-gradient(135deg, var(--accent-audio), color-mix(in srgb, var(--accent-audio) 55%, white));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px color-mix(in srgb, var(--accent-audio) 45%, transparent);
+  background: var(--accent-ui);
 }
 
 .styleBtn {
-  border-color: color-mix(in srgb, #ff5e9d 38%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--paint-ff5e9d) 38%, var(--line));
 }
 
 .btnStyleActive {
-  color: #041317;
+  color: var(--accent-ui-text);
   border-color: transparent;
-  background: linear-gradient(135deg, #8a4dff, #ff5e9d 58%, #00f0ff);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 16px rgba(255, 94, 157, 0.28);
+  background: var(--accent-ui);
 }
 

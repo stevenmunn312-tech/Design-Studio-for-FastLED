@@ -1,8 +1,8 @@
 .menu {
   z-index: 1100;
   min-width: 190px;
-  padding: 4px;
-  border: 1px solid var(--border-glow);
+  padding: var(--space-0);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg-node);
   box-shadow: 0 8px 24px var(--chrome-shadow);
@@ -11,9 +11,9 @@
 .item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   width: 100%;
-  padding: 8px;
+  padding: var(--space-1);
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -26,7 +26,7 @@
 
 .item:hover, .item:focus-visible {
   background: var(--bg-panel);
-  outline: 1px solid var(--border-glow);
+  outline: 1px solid var(--line);
 }
 
 .item:disabled {
@@ -36,7 +36,7 @@
 
 .item small {
   display: block;
-  margin-top: 3px;
+  margin-top: calc(var(--space-0) * 0.75);
   color: var(--text-secondary);
 }
 

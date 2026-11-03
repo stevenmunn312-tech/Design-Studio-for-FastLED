@@ -8,7 +8,8 @@ import { openExampleProject } from '../../utils/startFlow'
 import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../utils/nodeReferenceAssets'
 import { exampleUsesMicrophone, liveExampleForNode } from './liveExamples'
 import { nodeReferenceEntry } from './reference'
-import { PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
+import { PORT_DESCRIPTIONS } from './portCopy'
+import { Icon, PortIcon } from '../icons/Icon'
 import styles from './NodeReference.module.css'
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
@@ -149,10 +150,6 @@ function categoryLabel(category: NodeCategory): string {
 // carries either type and an entry for them described wiring that cannot exist.
 function nodeDataType(node: NodeDefinition): string {
   return node.outputs[0]?.dataType ?? node.inputs[0]?.dataType ?? 'control'
-}
-
-function nodeGlyph(node: NodeDefinition): string {
-  return TYPE_GLYPH[nodeDataType(node)] ?? '·'
 }
 
 function nodeCode(node: NodeDefinition): string {
@@ -419,7 +416,7 @@ function NodeArticle({ node }: { node: NodeDefinition }) {
           <div className={styles.exampleHeadingActions}>
             <span>{example.path}</span>
             <button className={styles.tryLiveButton} type="button" onClick={() => { void openLiveExample(node) }}>
-              <span aria-hidden="true">▶</span> Try it live
+              <Icon name="play" /> Try it live
             </button>
           </div>
         </div>
@@ -493,11 +490,11 @@ function UsingNodesArticle() {
         <h2>Read a node</h2>
         <div className={styles.guideGrid}>
           <div className={styles.guideCard}>
-            <h3><span>●</span> Inputs and outputs</h3>
+            <h3><span><Icon name="color" /></span> Inputs and outputs</h3>
             <p>Inputs are on the left; outputs are on the right. Port colour identifies the data type, so matching colours are a useful first check. Drag from an output to a compatible input to create a connection, called a noodle.</p>
           </div>
           <div className={styles.guideCard}>
-            <h3><span>◫</span> Controls and preview</h3>
+            <h3><span><Icon name="grid" /></span> Controls and preview</h3>
             <p>Edit sliders, switches, and menus directly on the node. A connected input overrides its local editor, which becomes unavailable until you unplug that input. Collapse frame, colour, and palette previews when you need more canvas space.</p>
           </div>
         </div>
@@ -510,7 +507,7 @@ function UsingNodesArticle() {
           <li><b>Search at the canvas:</b> press <Key>Ctrl/Cmd</Key>+<Key>K</Key> to search at the view centre, double-click empty canvas to search at the pointer, or right-click and choose <b>Add Node</b>.</li>
           <li><b>Continue from an output:</b> drag a noodle from an output to empty canvas. Search is filtered to compatible next nodes and connects your choice automatically. When needed, it can offer a short conversion chain.</li>
           <li><b>Insert into a connection:</b> drop a compatible library node—or drag a loose, unconnected node—onto a noodle. Studio splices it between the two connected nodes.</li>
-          <li><b>Start with a complete example:</b> use Quick recipes in the sidebar or <b>✦ Start</b> when you would rather modify a working patch.</li>
+          <li><b>Start with a complete example:</b> use Quick recipes in the sidebar or <b><Icon name="sparkle" /> Start</b> when you would rather modify a working patch.</li>
         </ol>
       </section>
 
@@ -570,7 +567,7 @@ function UsingNodesArticle() {
         <div className={styles.guideGrid}>
           <div className={styles.guideCard}>
             <h3>Tidy the graph</h3>
-            <p>Use <b>▦</b> (Tidy) in the canvas controls, beside the minimap, or <b>Tidy Graph</b> in the canvas menu. When two or more nodes are selected, only that selection is arranged; otherwise the whole graph is tidied.</p>
+            <p>Use <b><Icon name="grid" /></b> (Tidy) in the canvas controls, beside the minimap, or <b>Tidy Graph</b> in the canvas menu. When two or more nodes are selected, only that selection is arranged; otherwise the whole graph is tidied.</p>
           </div>
           <div className={styles.guideCard}>
             <h3>Make a reusable group</h3>
@@ -657,7 +654,7 @@ export default function NodeReference() {
             className={`${styles.introIndexItem} ${showingIntroduction ? styles.introIndexItemActive : ''}`}
             onClick={() => setHelpNodeReference({ selectedType: NODE_INTRO_TYPE })}
           >
-            <span className={styles.introIndexGlyph}>◎</span>
+            <span className={styles.introIndexGlyph}><Icon name="compass" /></span>
             <span className={styles.indexCopy}>
               <span className={styles.indexTopline}><b>Using Nodes</b><code>START</code></span>
               <small>Introduction</small>
@@ -677,7 +674,7 @@ export default function NodeReference() {
                   onClick={() => setHelpNodeReference({ expandedCategory: open ? null : group })}
                 >
                   <span><i />{categoryLabel(group)} <b>{categoryCounts[group]}</b></span>
-                  <span className={styles.indexChevron}>{open ? '▴' : '▾'}</span>
+                  <span className={styles.indexChevron}><Icon name={open ? 'chevron-up' : 'chevron-down'} size={12} /></span>
                 </button>
                 {open && (
                   <div className={styles.indexModules}>
@@ -693,7 +690,7 @@ export default function NodeReference() {
                           })
                         }}
                       >
-                        <span className={styles.indexGlyph}>{nodeGlyph(node)}</span>
+                        <span className={styles.indexGlyph}><PortIcon dataType={nodeDataType(node)} /></span>
                         <span className={styles.indexCopy}>
                           <span className={styles.indexTopline}><b>{node.label}</b><code>{nodeCode(node)}</code></span>
                           <small>{nodeDataType(node)}{node.subcategory ? ` · ${node.subcategory}` : ''}</small>

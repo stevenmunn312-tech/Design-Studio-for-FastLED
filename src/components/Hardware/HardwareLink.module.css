@@ -12,9 +12,6 @@
 }
 
 .carrier {
-  filter:
-    drop-shadow(0 0 1px rgb(255 255 255 / 0.28))
-    drop-shadow(0 0 3px rgb(255 255 255 / 0.12));
 }
 
 @keyframes packetTravel {

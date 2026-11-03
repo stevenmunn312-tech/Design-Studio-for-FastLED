@@ -2,23 +2,23 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .chip {
   min-height: 24px;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 999px;
+  padding: 0 calc(var(--space-0) * 2.5);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 11%, transparent);
+  border-radius: var(--radius-control);
   background: rgba(0, 0, 0, 0.22);
   color: var(--text-secondary);
-  font: 10px var(--font-body);
+  font: var(--fs-label) var(--font-body);
   white-space: nowrap;
   cursor: pointer;
 }
 
 .chip:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.24);
+  border-color: color-mix(in srgb, var(--text-primary) 24%, transparent);
   color: var(--text-primary);
 }
 
@@ -35,14 +35,13 @@
 
 .note {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.05em;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   opacity: 0.72;
 }
 
 .compact .chip {
   min-height: 20px;
-  padding: 0 8px;
-  font-size: 9px;
+  padding: 0 var(--space-1);
+  font-size: var(--fs-ui);
 }

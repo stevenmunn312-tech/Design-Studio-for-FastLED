@@ -7,9 +7,7 @@
 }
 
 .appPerformance {
-  background:
-    radial-gradient(circle at 50% 16%, rgba(10, 18, 27, 0.66), transparent 32%),
-    #040608;
+  background: var(--paint-040608);
 }
 
 .workspace {
@@ -22,9 +20,7 @@
 }
 
 .workspaceBuild {
-  background:
-    radial-gradient(circle at top, rgba(57, 96, 127, 0.18), transparent 34%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 92%, #09131b), var(--bg-primary));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 92%, var(--paint-09131b)), var(--bg-primary));
 }
 
 .workspaceCanvas {
@@ -41,7 +37,7 @@
 }
 
 .appStage {
-  background: #05070a;
+  background: var(--paint-05070a);
 }
 
 .appStage .statusShell {
@@ -184,15 +180,12 @@
   padding: 0;
   border-style: solid;
   border-width: 0 1px 1px 0;
-  border-color: var(--border-glow);
+  border-color: var(--line);
   border-radius: 0 10px 10px 0;
-  background:
-    radial-gradient(circle at 32% 50%, rgba(255, 255, 255, 0.08), transparent 56%),
-    color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
   color: var(--text-primary);
   opacity: 0.7;
   box-shadow: 0 6px 14px var(--chrome-shadow);
-  backdrop-filter: blur(6px);
   cursor: pointer;
   transition:
     left 380ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -206,14 +199,9 @@
 .sidebarHandle:hover,
 .sidebarHandle:focus-visible {
   opacity: 0.96;
-  color: var(--accent-output);
-  border-color: color-mix(in srgb, var(--accent-output) 35%, var(--border-glow));
-  background:
-    radial-gradient(circle at 32% 50%, color-mix(in srgb, var(--accent-output) 28%, transparent), transparent 58%),
-    color-mix(in srgb, var(--bg-panel) 94%, var(--accent-output) 6%);
-  box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.24),
-    0 0 0 1px color-mix(in srgb, var(--accent-output) 22%, transparent);
+  color: var(--accent-ui);
+  border-color: color-mix(in srgb, var(--accent-ui) 35%, var(--line));
+  background: color-mix(in srgb, var(--bg-panel) 94%, var(--accent-ui) 6%);
 }
 
 .sidebarHandleOpen {
@@ -246,7 +234,7 @@
   height: 100%;
   pointer-events: auto;
   background: var(--bg-panel);
-  border-left: 1px solid var(--border-glow);
+  border-left: 1px solid var(--line);
   overflow: hidden;
   transition:
     transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -272,15 +260,12 @@
   padding: 0;
   border-style: solid;
   border-width: 0 0 1px 1px;
-  border-color: var(--border-glow);
+  border-color: var(--line);
   border-radius: 10px 0 0 10px;
-  background:
-    radial-gradient(circle at 68% 50%, rgba(255, 255, 255, 0.08), transparent 56%),
-    color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
   color: var(--text-primary);
   opacity: 0.7;
   box-shadow: 0 6px 14px var(--chrome-shadow);
-  backdrop-filter: blur(6px);
   cursor: pointer;
   transition:
     right 380ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -294,14 +279,9 @@
 .previewHandle:hover,
 .previewHandle:focus-visible {
   opacity: 0.96;
-  color: var(--accent-output);
-  border-color: color-mix(in srgb, var(--accent-output) 35%, var(--border-glow));
-  background:
-    radial-gradient(circle at 68% 50%, color-mix(in srgb, var(--accent-output) 28%, transparent), transparent 58%),
-    color-mix(in srgb, var(--bg-panel) 94%, var(--accent-output) 6%);
-  box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.24),
-    0 0 0 1px color-mix(in srgb, var(--accent-output) 22%, transparent);
+  color: var(--accent-ui);
+  border-color: color-mix(in srgb, var(--accent-ui) 35%, var(--line));
+  background: color-mix(in srgb, var(--bg-panel) 94%, var(--accent-ui) 6%);
 }
 
 .previewHandleOpen {

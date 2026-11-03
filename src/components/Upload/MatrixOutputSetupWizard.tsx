@@ -9,6 +9,7 @@ import { useModalFocus } from '../../hooks/useModalFocus'
 import { describePort } from '../../utils/portStatus'
 import { buildToolsOfflineHint } from '../../utils/buildTools'
 import styles from './Upload.module.css'
+import { Icon } from '../icons/Icon'
 import { controllerSettings } from '../../build/controllerSettings'
 import { useUiStore } from '../../state/uiStore'
 import {
@@ -211,7 +212,7 @@ export default function MatrixOutputSetupWizard() {
                     </option>
                   ))}
                 </select>
-                <button className={styles.refreshBtn} onClick={refreshPorts} disabled={!activeEngineReady} title="Refresh ports">↻</button>
+                <button className={styles.refreshBtn} onClick={refreshPorts} disabled={!activeEngineReady} title="Refresh ports"><Icon name="refresh" /></button>
               </div>
             </label>
 
@@ -366,7 +367,7 @@ export default function MatrixOutputSetupWizard() {
               onClick={handleFlashWiringTest}
               title={!uploadReady ? 'Finish board and port setup first' : layoutErrors.join('\n') || 'Flash a wiring test to confirm the LED output before uploading a creative sketch'}
             >
-              🧪 Flash wiring test
+              <Icon name="flask" /> Flash wiring test
             </button>
 
             {form === 'hub75' && (
@@ -376,7 +377,7 @@ export default function MatrixOutputSetupWizard() {
                 onClick={handleFlashHub75Topology}
                 title={hub75TopologyErrors.join('\n') || 'Hold per-panel coordinates, orientation corners, rotation labels, and chain arrows for this folded HUB75 grid'}
               >
-                🧭 Flash HUB75 topology
+                <Icon name="compass" /> Flash HUB75 topology
               </button>
             )}
 
@@ -385,7 +386,7 @@ export default function MatrixOutputSetupWizard() {
               onClick={handleOpenUpload}
               title="Close the wizard and open the upload, export, diagnostics, and streaming tools"
             >
-              ↑ Open upload tools
+              <Icon name="upload" /> Open upload tools
             </button>
           </div>
         )}

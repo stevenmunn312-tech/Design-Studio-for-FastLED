@@ -20,8 +20,8 @@ import {
   type LayoutPresetId,
 } from './layoutPresets'
 
-export type AppTheme = 'dark' | 'solarized' | 'light'
 export type StagePresentationStatus = 'idle' | 'requesting' | 'active' | 'unavailable'
+export type AppTheme = 'dark' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
@@ -108,7 +108,7 @@ export type AppDialogState =
   | ({ kind: 'confirm'; nonce: number } & Required<Pick<AppConfirmOptions, 'title' | 'message'>> & Omit<AppConfirmOptions, 'title' | 'message'>)
   | ({ kind: 'prompt'; nonce: number } & Required<Pick<AppPromptOptions, 'title' | 'message'>> & Omit<AppPromptOptions, 'title' | 'message'>)
 
-const THEME_KEY  = 'design-studio-for-fastled-theme'
+const THEME_KEY = 'design-studio-for-fastled-theme'
 const MOTION_KEY = 'design-studio-for-fastled-reduced-motion'
 const CONTRAST_KEY = 'design-studio-for-fastled-high-contrast'
 const PREVIEW_STYLE_KEY = 'design-studio-for-fastled-preview-style'
@@ -464,7 +464,7 @@ interface UiState {
   resolveNewProjectDecision: (decision: NewProjectDecision) => void
 }
 
-/** Every theme, in the order the View menu lists them. */
+
 export const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
 
 // Tracks the pending status auto-clear so a newer message cancels the older

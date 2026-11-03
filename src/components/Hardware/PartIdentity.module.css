@@ -1,7 +1,7 @@
 .identity {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
   min-width: 200px;
   max-width: 260px;
 }
@@ -10,8 +10,8 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
-  font-size: var(--fs-caption);
+  gap: calc(var(--space-0) * 2.5);
+  font-size: var(--fs-ui);
 }
 
 .key {
@@ -28,7 +28,7 @@
 .pins {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 /*
@@ -38,36 +38,37 @@
 .pinList {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .pinList li {
-  padding: 1px 5px;
+  padding: calc(var(--space-0) * 0.25) calc(var(--space-0) * 1.25);
   border: 1px solid var(--divider);
   border-radius: 3px;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-code);
-  font-size: 10px;
+  font-size: var(--fs-label);
   line-height: 1.5;
+  font-variant-numeric: tabular-nums;
 }
 
 .notes {
-  margin: 2px 0 0;
-  padding-left: 14px;
+  margin: calc(var(--space-0) * 0.5) 0 0;
+  padding-left: calc(var(--space-0) * 3.5);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
   color: var(--text-secondary);
   font-size: var(--fs-caption);
   line-height: 1.4;
 }
 
 .unmodelled {
-  margin: 2px 0 0;
+  margin: calc(var(--space-0) * 0.5) 0 0;
   color: var(--accent-favourites);
   font-size: var(--fs-caption);
   line-height: 1.4;
@@ -86,5 +87,5 @@
 }
 
 .moreNotes[open] > summary {
-  margin-bottom: 2px;
+  margin-bottom: calc(var(--space-0) * 0.5);
 }

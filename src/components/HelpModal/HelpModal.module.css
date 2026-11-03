@@ -1,36 +1,22 @@
 .overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  composes: sharedOverlay from '../AppDialog/AppDialogHost.module.css';
   z-index: 120;
-  animation: fadeIn 0.15s ease-out;
 }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal {
+  composes: sharedSurface from '../AppDialog/AppDialogHost.module.css';
   width: min(1120px, 96vw);
   max-height: 88vh;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
-  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.18s ease-out;
   overflow: hidden;
-}
-@keyframes slideUp {
-  from { transform: translateY(16px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px 0;
+  padding: calc(var(--space-0) * 3.5) calc(var(--space-0) * 5) 0;
   flex-shrink: 0;
 }
 
@@ -41,22 +27,17 @@
 }
 
 .closeBtn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
+  composes: sharedClose from '../AppDialog/AppDialogHost.module.css';
   font-size: 22px;
-  cursor: pointer;
   line-height: 1;
-  padding: 2px 6px;
-  border-radius: 4px;
 }
 .closeBtn:hover { color: var(--text-primary); }
 
 .tabs {
   display: flex;
-  gap: 2px;
-  padding: 10px 20px 0;
-  border-bottom: 1px solid var(--border-glow);
+  gap: calc(var(--space-0) * 0.5);
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 5) 0;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
   overflow-x: auto;
 }
@@ -69,25 +50,25 @@
   font-family: var(--font-body);
   font-size: var(--fs-caption);
   font-weight: 600;
-  padding: 6px 12px 8px;
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3) var(--space-1);
   cursor: pointer;
   white-space: nowrap;
   transition: color var(--anim-hover), border-color var(--anim-hover);
 }
 .tab:hover { color: var(--text-primary); }
 .tabActive {
-  color: var(--accent-audio);
-  border-bottom-color: var(--accent-audio);
+  color: var(--accent-ui);
+  border-bottom-color: var(--accent-ui);
 }
 
 .body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px;
+  padding: calc(var(--space-0) * 5);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: calc(var(--space-0) * 5);
 }
 
 .bodyNodeReference {
@@ -100,16 +81,14 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .sectionTitle {
   font-size: var(--fs-caption);
   font-weight: 700;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  margin-bottom: 2px;
+  margin-bottom: calc(var(--space-0) * 0.5);
 }
 
 .text {
@@ -125,18 +104,18 @@
 
 .lede {
   max-width: 860px;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-0);
   color: var(--text-primary);
   font-size: var(--fs-body);
   line-height: 1.55;
 }
 
 .lede strong {
-  color: var(--accent-audio);
+  color: var(--accent-ui);
 }
 
 .link {
-  color: var(--accent-audio);
+  color: var(--accent-ui);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -150,12 +129,12 @@
 .steps {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .step {
   display: flex;
-  gap: 12px;
+  gap: calc(var(--space-0) * 3);
   align-items: flex-start;
 }
 
@@ -164,14 +143,14 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--accent-audio);
-  color: #000;
+  background: var(--accent-ui);
+  color: black;
   font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 1px;
+  margin-top: calc(var(--space-0) * 0.25);
 }
 
 .stepText {
@@ -184,27 +163,28 @@
   font-family: var(--font-code);
   font-size: 11px;
   background: var(--bg-primary);
-  padding: 0 4px;
+  padding: 0 var(--space-0);
   border-radius: 3px;
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .helpFigure {
-  margin: 10px 0 0;
+  margin: calc(var(--space-0) * 2.5) 0 0;
 }
 
 .helpImage {
   display: block;
   width: 100%;
   height: auto;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg-primary);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
 }
 
 .helpFigure figcaption {
-  margin-top: 8px;
+  margin-top: var(--space-1);
   color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.55;
@@ -213,18 +193,18 @@
 .choiceGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .choiceCard {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 13px 14px;
-  border: 1px solid var(--border-glow);
-  border-left: 3px solid color-mix(in srgb, var(--accent-audio) 70%, transparent);
+  gap: calc(var(--space-0) * 1.25);
+  padding: calc(var(--space-0) * 3.25) calc(var(--space-0) * 3.5);
+  border: 1px solid var(--line);
+  border-left: 3px solid color-mix(in srgb, var(--accent-ui) 70%, transparent);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--accent-audio) 4%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent-ui) 4%, var(--bg-primary));
 }
 
 .choiceCard strong {
@@ -240,20 +220,20 @@
 
 .inlineKey {
   display: inline-block;
-  padding: 0 5px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0 calc(var(--space-0) * 1.25);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
   border-bottom-width: 2px;
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font: 10px/1.5 var(--font-code);
+  font: var(--fs-label)/1.5 var(--font-code);
   white-space: nowrap;
 }
 
 .definitionGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -261,13 +241,13 @@
 .definitionGrid > div {
   display: grid;
   grid-template-columns: 116px minmax(0, 1fr);
-  gap: 10px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-glow);
+  gap: calc(var(--space-0) * 2.5);
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
+  border-bottom: 1px solid var(--line);
 }
 
 .definitionGrid > div:nth-child(odd) {
-  border-right: 1px solid var(--border-glow);
+  border-right: 1px solid var(--line);
 }
 
 .definitionGrid > div:nth-last-child(-n + 2) {
@@ -291,24 +271,24 @@
 .expressionBox {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
+  gap: calc(var(--space-0) * 0.25);
   overflow: hidden;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--border-glow);
+  background: var(--line);
 }
 
 .expressionBox > div {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: calc(var(--space-0) * 1.5);
+  padding: calc(var(--space-0) * 3) calc(var(--space-0) * 3.5);
   background: var(--bg-primary);
 }
 
 .expressionBox code,
 .note code {
-  padding: 0 3px;
+  padding: 0 calc(var(--space-0) * 0.75);
   border-radius: 3px;
   background: color-mix(in srgb, var(--text-primary) 7%, transparent);
   color: var(--text-primary);
@@ -316,10 +296,10 @@
 }
 
 .note {
-  padding: 11px 13px;
-  border-left: 3px solid var(--accent-audio);
+  padding: calc(var(--space-0) * 2.75) calc(var(--space-0) * 3.25);
+  border-left: 3px solid var(--accent-ui);
   border-radius: 0 5px 5px 0;
-  background: color-mix(in srgb, var(--accent-audio) 5%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent-ui) 5%, var(--bg-primary));
   color: var(--text-secondary);
   font-size: var(--fs-caption);
   line-height: 1.55;
@@ -330,25 +310,25 @@
 .shortcutGrid {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 6px 16px;
+  gap: calc(var(--space-0) * 1.5) var(--space-2);
   align-items: center;
 }
 
 .kbd {
   display: inline-flex;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
   white-space: nowrap;
 }
 
 .key {
   background: var(--bg-primary);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
   border-bottom-width: 2px;
   border-radius: 4px;
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
   color: var(--text-primary);
-  padding: 1px 6px;
+  padding: calc(var(--space-0) * 0.25) calc(var(--space-0) * 1.5);
   line-height: 1.5;
 }
 
@@ -363,13 +343,13 @@
 .catGrid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .catRow {
   display: grid;
   grid-template-columns: 10px 90px 1fr;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   align-items: baseline;
 }
 
@@ -378,7 +358,7 @@
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
-  margin-top: 3px;
+  margin-top: calc(var(--space-0) * 0.75);
 }
 
 .catName {
@@ -399,12 +379,12 @@
 .tipList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .tip {
   display: flex;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
   align-items: flex-start;
 }
 
@@ -424,14 +404,15 @@
   font-family: var(--font-code);
   font-size: 11px;
   background: var(--bg-primary);
-  padding: 0 4px;
+  padding: 0 var(--space-0);
   border-radius: 3px;
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .divider {
   height: 1px;
-  background: var(--border-glow);
+  background: var(--line);
 }
 
 @media (max-width: 720px) {
@@ -445,7 +426,7 @@
   .definitionGrid > div:nth-child(odd),
   .definitionGrid > div:nth-last-child(-n + 2) {
     border-right: 0;
-    border-bottom: 1px solid var(--border-glow);
+    border-bottom: 1px solid var(--line);
   }
 
   .definitionGrid > div:last-child {
@@ -454,10 +435,10 @@
 
   .shortcutGrid {
     grid-template-columns: 1fr;
-    gap: 4px;
+    gap: var(--space-0);
   }
 
   .shortcutDesc {
-    margin-bottom: 6px;
+    margin-bottom: calc(var(--space-0) * 1.5);
   }
 }

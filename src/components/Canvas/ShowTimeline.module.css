@@ -1,9 +1,9 @@
 .editor {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-  padding-top: 6px;
+  gap: calc(var(--space-0) * 1.5);
+  margin-top: var(--space-0);
+  padding-top: calc(var(--space-0) * 1.5);
   border-top: 1px solid var(--divider);
 }
 
@@ -23,7 +23,7 @@
   top: 2px;
   bottom: 2px;
   width: 3px;
-  margin-left: -1px;
+  margin-left: calc(var(--space-0) * -0.25);
   padding: 0;
   border: none;
   border-radius: 2px;
@@ -38,7 +38,6 @@
   top: 0;
   bottom: 0;
   width: 4px;
-  box-shadow: 0 0 0 1px var(--bg-primary), 0 0 5px currentColor;
 }
 
 .playhead {
@@ -54,14 +53,14 @@
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
 }
 
 .btn {
-  padding: 3px 8px;
-  font-size: var(--fs-caption);
+  padding: calc(var(--space-0) * 0.75) var(--space-1);
+  font-size: var(--fs-ui);
   font-family: var(--font-body);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -75,7 +74,7 @@
 .count {
   margin-left: auto;
   font-size: var(--fs-caption);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   color: var(--text-secondary);
 }
 
@@ -107,11 +106,11 @@
   display: grid;
   grid-template-columns: 10px 54px 64px 1fr;
   align-items: center;
-  gap: 5px;
-  padding: 3px 6px;
+  gap: calc(var(--space-0) * 1.25);
+  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.5);
   text-align: left;
-  font-size: var(--fs-caption);
-  font-family: var(--font-code);
+  font-size: var(--fs-ui);
+  font-family: var(--font-body);
   border: 1px solid transparent;
   border-radius: 4px;
   background: var(--bg-primary);
@@ -119,7 +118,7 @@
   cursor: pointer;
 }
 
-.row:hover { border-color: var(--border-glow); }
+.row:hover { border-color: var(--line); }
 
 .rowOn {
   border-color: var(--accent-show);
@@ -142,8 +141,8 @@
 .fields {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 6px;
+  gap: calc(var(--space-0) * 1.25);
+  padding: calc(var(--space-0) * 1.5);
   border: 1px solid var(--divider);
   border-radius: 6px;
   background: var(--bg-primary);

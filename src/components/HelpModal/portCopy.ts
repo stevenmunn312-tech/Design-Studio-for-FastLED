@@ -13,15 +13,8 @@
  * to generic text, which is what `dmx` and `image` were doing.
  */
 
-export const TYPE_GLYPH: Record<string, string> = {
-  frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
-  field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', transitionset: '⇄', storage: '▤',
-  playercontrols: '⌘', playerparticles: '✦', display: '▭',
-  string: '≡', newcontrol: '+',
-}
-
 /**
- * The fallback description for a port, keyed the same way as TYPE_GLYPH. A
+ * The fallback description for a port, keyed the same way as PORT_ICON_NAMES. A
  * node's reference entry describes its own ports; this covers the rest.
  */
 export const PORT_DESCRIPTIONS: Record<string, string> = {

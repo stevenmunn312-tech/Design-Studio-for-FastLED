@@ -6,26 +6,25 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border-glow) 88%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
   background:
-    radial-gradient(circle at 50% 10%, color-mix(in srgb, var(--accent-output) 10%, transparent), transparent 38%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 92%, #071018), color-mix(in srgb, var(--bg-panel) 98%, #03070b));
+    var(--bg-canvas);
   overflow: visible;
 }
 
 .itemMenuButton {
-  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--border-glow));
+  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--line));
   background: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-output) 10%);
   color: var(--text-primary);
-  border-radius: 999px;
-  padding: 8px 14px;
+  border-radius: var(--radius-control);
+  padding: var(--space-1) calc(var(--space-0) * 3.5);
   font: inherit;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .itemMenuButton:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 65%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 65%, var(--line));
 }
 
 /* The board strip sits above the stage in flow, so the bench shrinks under it
@@ -38,7 +37,7 @@
 }
 
 .boardSelectorBar:has(.boardSelector) {
-  padding-top: 10px;
+  padding-top: calc(var(--space-0) * 2.5);
 }
 
 .boardSelector {
@@ -72,66 +71,11 @@
  *
  * Purely decorative, so it is `aria-hidden` and never takes a pointer event.
  */
-.atmosphere {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.benchField,
-.benchLattice,
-.benchOrbits,
-.benchScan {
-  position: absolute;
-  inset: 0;
-}
-
-.benchField {
-  opacity: 0.1;
-  background:
-    radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--field-color) 24%, transparent), transparent 34%),
-    radial-gradient(circle at 12% 80%, color-mix(in srgb, var(--field-color-2) 15%, transparent), transparent 28%),
-    radial-gradient(circle at 88% 20%, color-mix(in srgb, var(--field-color-3) 17%, transparent), transparent 30%);
-}
-
-.benchLattice {
-  opacity: 0.1;
-  background-image:
-    linear-gradient(rgba(190, 216, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(190, 216, 255, 0.035) 1px, transparent 1px);
-  background-size: 20px 20px, 20px 20px;
-  -webkit-mask-image: radial-gradient(circle at 50% 46%, black 30%, transparent 92%);
-  mask-image: radial-gradient(circle at 50% 46%, black 30%, transparent 92%);
-}
-
-.benchOrbits {
-  opacity: 0.1;
-  background:
-    radial-gradient(circle at 50% 46%, transparent 0 18%, rgba(255, 255, 255, 0.028) 18.2% 18.45%, transparent 18.7%),
-    radial-gradient(circle at 50% 46%, transparent 0 32%, color-mix(in srgb, var(--field-color) 14%, transparent) 32.2% 32.45%, transparent 32.8%),
-    radial-gradient(circle at 50% 46%, transparent 0 46%, color-mix(in srgb, var(--field-color-2) 11%, transparent) 46.2% 46.45%, transparent 46.8%),
-    radial-gradient(circle at 50% 46%, transparent 0 62%, color-mix(in srgb, var(--field-color-3) 10%, transparent) 62.2% 62.45%, transparent 62.8%);
-}
 
 /* The graph canvas's scan band, sweeping the bench top to bottom. No
    `filter: blur()` here: this animates forever, and a CSS filter on an
    endlessly-animated element leaks GPU compositor memory unbounded in Chromium
    (see GlowEdge.module.css). The gradient is already soft without one. */
-.benchScan {
-  top: -22%;
-  height: 18%;
-  opacity: 0.12;
-  background:
-    linear-gradient(180deg, transparent, color-mix(in srgb, var(--field-color) 18%, transparent), transparent),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06) 50%, transparent);
-  animation: benchScan 14s linear infinite;
-}
-
-@keyframes benchScan {
-  to { transform: translateY(680%); }
-}
 
 /*
  * "Here is the thing to click." Rings contract onto the controller while the
@@ -166,7 +110,6 @@
   height: 0;
   border: 1px solid color-mix(in srgb, var(--field-color) 42%, transparent);
   border-radius: 50%;
-  box-shadow: 0 0 22px color-mix(in srgb, var(--field-color) 12%, transparent);
   /* Slow, and the delays are exact thirds of it so the three stay evenly
      spaced — a ring should drift inward at the edge of notice rather than
      pulse. Change the duration and the two delays together. */
@@ -177,16 +120,16 @@
 .attention span:nth-child(3) { animation-delay: 6s; }
 
 @keyframes benchAttention {
-  0% { margin: -560px; width: 1120px; height: 1120px; opacity: 0; }
+  0% { margin: calc(var(--space-0) * -140); width: 1120px; height: 1120px; opacity: 0; }
   22% { opacity: 0.5; }
-  100% { margin: -110px; width: 220px; height: 220px; opacity: 0; }
+  100% { margin: calc(var(--space-0) * -27.5); width: 220px; height: 220px; opacity: 0; }
 }
 
 /* A hint that pulses forever is exactly what motion sensitivity means; the
    rings hold at their closest size so the controller is still ringed. */
 @media (prefers-reduced-motion: reduce) {
   .attention span {
-    margin: -110px;
+    margin: calc(var(--space-0) * -27.5);
     width: 220px;
     height: 220px;
     opacity: 0.22;
@@ -353,12 +296,12 @@
   z-index: 3;
   left: 50%;
   transform: translateX(-50%);
-  padding: 1px 3px;
+  padding: calc(var(--space-0) * 0.25) calc(var(--space-0) * 0.75);
   border-radius: 3px;
   background: rgba(3, 7, 11, 0.82);
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 8px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   line-height: 1.2;
   pointer-events: none;
 }
@@ -399,10 +342,7 @@
  */
 .matrix {
   border-radius: 3px;
-  background-color: #0b0d10;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 10px 20px rgba(0, 0, 0, 0.35);
+  background-color: var(--paint-0b0d10);
 }
 
 /*
@@ -465,14 +405,11 @@
  */
 .ring {
   border-radius: 50%;
-  background-color: #0b0d10;
+  background-color: var(--paint-0b0d10);
   /* `closest-side` pins the gradient to the half-width, so the band's inner
      edge is a plain fraction of the radius rather than of the diagonal —
      the LEDs sit at 89% of it and must clear the cutout comfortably. */
-  mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 70%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 10px 20px rgba(0, 0, 0, 0.35);
+  mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, black 70%);
 }
 
 /* A corkscrew is an arrangement of tape around open space, so it has no
@@ -491,7 +428,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   width: max-content;
   max-width: 180px;
   transform: translateX(-50%) scale(var(--hardware-caption-scale));
@@ -532,7 +469,7 @@
   bottom: 12px;
   z-index: 3;
   display: flex;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .viewControls button {
@@ -540,7 +477,7 @@
   height: 26px;
   display: grid;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
   color: var(--text-secondary);
@@ -551,15 +488,14 @@
 
 .viewControls .fitViewButton {
   width: auto;
-  padding-inline: 9px;
-  font-size: 11px;
+  padding-inline: calc(var(--space-0) * 2.25);
+  font-size: var(--fs-ui);
   font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
 .viewControls button:hover:not(:disabled) {
   color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
 }
 
 .viewControls button:disabled {
@@ -574,8 +510,8 @@
   transform: translateX(-50%);
   max-width: 320px;
   margin: 0;
-  padding: 10px 14px;
-  border: 1px dashed color-mix(in srgb, var(--border-glow) 80%, transparent);
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3.5);
+  border: 1px dashed color-mix(in srgb, var(--line) 80%, transparent);
   border-radius: 14px;
   color: var(--text-secondary);
   background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
@@ -587,9 +523,9 @@
   position: absolute;
   bottom: 16px;
   width: auto;
-  padding: 6px 12px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 80%, transparent);
-  border-radius: 999px;
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: var(--radius-control);
   color: var(--text-primary);
   background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
   font-size: 11px;
@@ -603,9 +539,9 @@
 .boardMenu {
   position: fixed;
   z-index: 1000;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 92%, transparent);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--bg-panel) 96%, #05090d);
+  background: color-mix(in srgb, var(--bg-panel) 96%, var(--paint-05090d));
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
 }
 
@@ -615,7 +551,7 @@
 
 .boardMenu {
   width: min(360px, calc(100vw - 24px));
-  padding: 12px;
+  padding: calc(var(--space-0) * 3);
 }
 
 /* A part with no render yet — the MAX98357A is still on the outstanding list
@@ -628,21 +564,19 @@
   position: absolute;
   top: -31px;
   display: flex;
-  gap: 4px;
+  gap: var(--space-0);
   pointer-events: auto;
 }
 
 .paneTab {
-  padding: 7px 14px 8px;
+  padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 3.5) var(--space-1);
   border: 1px solid var(--divider);
   border-bottom: 0;
   border-radius: 8px 8px 0 0;
-  background: color-mix(in srgb, var(--bg-panel) 94%, #080b11);
+  background: color-mix(in srgb, var(--bg-panel) 94%, var(--paint-080b11));
   color: var(--text-secondary);
   font: inherit;
   font-size: var(--fs-caption);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   cursor: pointer;
 }
 
@@ -658,19 +592,16 @@
 }
 
 .lazyPanelStatus {
-  padding: 18px;
+  padding: calc(var(--space-0) * 4.5);
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   text-align: center;
 }
 
 .partPlaceholder {
   border-radius: 3px;
-  background-color: #12171d;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 10px 20px rgba(0, 0, 0, 0.35);
+  background-color: var(--paint-12171d);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -678,18 +609,16 @@
 
 .placeholderLabel {
   color: var(--text-secondary);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--fs-label);
   text-align: center;
-  padding: 0 4px;
+  padding: 0 var(--space-0);
 }
 
 /* The settings a hardware-only part carries, shown in its part menu because it
    has no node body to live in. */
 .itemMenuSettings {
   min-width: 190px;
-  padding: 6px 8px 2px;
+  padding: calc(var(--space-0) * 1.5) var(--space-1) calc(var(--space-0) * 0.5);
 }
 
 /*
@@ -708,20 +637,20 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  margin: 4px -8px -8px;
-  padding: 4px 8px 8px;
+  margin: var(--space-0) calc(var(--space-0) * -2) calc(var(--space-0) * -2);
+  padding: var(--space-0) var(--space-1) var(--space-1);
   border-top: 1px solid var(--divider);
-  background: color-mix(in srgb, var(--bg-panel) 96%, #05090d);
+  background: color-mix(in srgb, var(--bg-panel) 96%, var(--paint-05090d));
 }
 
 .itemMenu {
   position: fixed;
   z-index: 1000;
   min-width: 140px;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--border-glow) 92%, transparent);
+  padding: var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--line) 92%, transparent);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--bg-panel) 96%, #05090d);
+  background: color-mix(in srgb, var(--bg-panel) 96%, var(--paint-05090d));
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
 }
 
@@ -736,11 +665,11 @@
   position: fixed;
   z-index: 1000;
   width: min(328px, calc(100vw - 32px));
-  border: 1px solid color-mix(in srgb, var(--accent-output) 42%, var(--border-glow));
+  border: 1px solid color-mix(in srgb, var(--accent-output) 42%, var(--line));
   border-radius: 12px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent-output) 7%, transparent), transparent 54px),
-    color-mix(in srgb, var(--bg-panel) 98%, #05090d);
+    color-mix(in srgb, var(--bg-panel) 98%, var(--paint-05090d));
   box-shadow: -14px 0 34px rgba(0, 0, 0, 0.34);
   user-select: text;
 }
@@ -749,22 +678,21 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 11px 12px 9px;
+  gap: calc(var(--space-0) * 3);
+  padding: calc(var(--space-0) * 2.75) calc(var(--space-0) * 3) calc(var(--space-0) * 2.25);
   border-bottom: 1px solid color-mix(in srgb, var(--accent-output) 24%, var(--divider));
 }
 
 .inspectorHeader > div {
   display: grid;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .inspectorHeader span {
   color: var(--accent-output);
-  font-family: var(--font-code);
-  font-size: 8px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .inspectorHeader strong {
@@ -791,14 +719,14 @@
 .inspectorClose:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 2px; }
 
 .inspectorBody {
-  padding: 8px 10px 12px;
+  padding: var(--space-1) calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
 }
 
 .boardMenuHeader {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 4px 10px;
+  gap: var(--space-0);
+  padding: 0 var(--space-0) calc(var(--space-0) * 2.5);
 }
 
 
@@ -861,8 +789,8 @@
   background-position: 0 0;
   background-image: radial-gradient(
     circle at 50% 42%,
-    rgba(255, 255, 255, 0.20) 0%,
-    rgba(255, 255, 255, 0.07) 18%,
+    color-mix(in srgb, var(--text-primary) 20%, transparent) 0%,
+    color-mix(in srgb, var(--text-primary) 7%, transparent) 18%,
     rgba(255, 255, 255, 0) 34%,
     rgba(0, 0, 0, 0.18) 52%,
     rgba(0, 0, 0, 0.46) 74%,

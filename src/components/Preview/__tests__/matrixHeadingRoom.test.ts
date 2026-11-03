@@ -11,8 +11,13 @@ import { describe, expect, it } from 'vitest'
  * is asserted against the stylesheet: every top padding the wrap can take
  * against every offset the heading can take, across media queries.
  */
+const tokens = readFileSync(resolve(process.cwd(), 'src/themes/tokens.css'), 'utf8')
+const spacing = new Map([...tokens.matchAll(/(--space-\d+):\s*(\d+)px/g)].map(([, name, px]) => [name, px]))
+// Padding is written in spacing tokens; resolve them to px so the comparison
+// below stays in one unit.
 const css = readFileSync(resolve(process.cwd(), 'src/components/Preview/LEDPreview.module.css'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/var\((--space-\d+)\)/g, (match, name: string) => spacing.has(name) ? `${spacing.get(name)}px` : match)
 
 function declarations(rule: string, property: string): number[] {
   // Only the bare rule and its media-query copies; Stage variants

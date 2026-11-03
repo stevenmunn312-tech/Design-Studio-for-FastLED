@@ -1,14 +1,14 @@
 .body {
   display: grid;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .source {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: calc(var(--space-0) * 2.5);
+  padding: var(--space-1) calc(var(--space-0) * 2.5);
   border: 1px solid color-mix(in srgb, var(--node-accent) 32%, transparent);
   border-radius: 7px;
   background: color-mix(in srgb, var(--node-accent) 7%, transparent);
@@ -18,8 +18,8 @@
 
 .microphone {
   display: grid;
-  gap: 7px;
-  padding: 8px 10px 9px;
+  gap: calc(var(--space-0) * 1.75);
+  padding: var(--space-1) calc(var(--space-0) * 2.5) calc(var(--space-0) * 2.25);
   border: 1px solid color-mix(in srgb, var(--node-accent) 24%, var(--divider));
   border-radius: 7px;
   background: color-mix(in srgb, var(--node-accent) 4%, var(--bg-panel));
@@ -35,8 +35,8 @@
 
 .sectionLabel {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -45,7 +45,7 @@
   display: grid;
   grid-template-columns: minmax(74px, auto) minmax(0, 1fr) 30px;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   min-height: 24px;
   color: var(--text-secondary);
   font-size: 11px;
@@ -65,18 +65,18 @@
 
 .control output {
   color: var(--text-primary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   text-align: right;
 }
 
 .unavailable {
-  padding: 7px 8px;
-  border: 1px solid color-mix(in srgb, var(--danger, #ff5a6f) 55%, var(--divider));
+  padding: calc(var(--space-0) * 1.75) var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--danger, var(--paint-ff5a6f)) 55%, var(--divider));
   border-radius: 5px;
-  background: color-mix(in srgb, var(--danger, #ff5a6f) 10%, transparent);
+  background: color-mix(in srgb, var(--danger, var(--paint-ff5a6f)) 10%, transparent);
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   line-height: 1.35;
 }
 
@@ -85,32 +85,32 @@
   border: 1px solid var(--divider);
   border-radius: 5px;
   color-scheme: dark;
-  background: #101419;
-  color: #f1f5f3;
-  padding: 4px 6px;
+  background: var(--paint-101419);
+  color: var(--paint-f1f5f3);
+  padding: var(--space-0) calc(var(--space-0) * 1.5);
   font: inherit;
 }
 
 .source select option {
-  background-color: #101419;
-  color: #f1f5f3;
+  background-color: var(--paint-101419);
+  color: var(--paint-f1f5f3);
 }
 
 .sourceRoute {
   display: grid;
-  gap: 4px;
-  padding: 7px 10px;
+  gap: var(--space-0);
+  padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 2.5);
   border: 1px solid var(--divider);
   border-radius: 7px;
   background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--fs-label);
 }
 
 .sourceRoute span {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
-  gap: 7px;
+  gap: calc(var(--space-0) * 1.75);
 }
 
 .sourceRoute b {
@@ -121,8 +121,8 @@
 .empty,
 .disabledState {
   display: grid;
-  gap: 3px;
-  padding: 9px 10px;
+  gap: calc(var(--space-0) * 0.75);
+  padding: calc(var(--space-0) * 2.25) calc(var(--space-0) * 2.5);
   border: 1px dashed color-mix(in srgb, var(--node-accent) 45%, transparent);
   border-radius: 7px;
   background: color-mix(in srgb, var(--node-accent) 7%, transparent);
@@ -139,9 +139,9 @@
 
 .disabledState ul {
   display: grid;
-  gap: 5px;
-  margin: 5px 0 0;
-  padding: 6px 0 0;
+  gap: calc(var(--space-0) * 1.25);
+  margin: calc(var(--space-0) * 1.25) 0 0;
+  padding: calc(var(--space-0) * 1.5) 0 0;
   border-top: 1px solid var(--divider);
   list-style: none;
 }
@@ -149,7 +149,7 @@
 .disabledState li {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
-  gap: 7px;
+  gap: calc(var(--space-0) * 1.75);
 }
 
 .disabledState li b {

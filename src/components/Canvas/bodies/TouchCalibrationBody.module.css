@@ -1,12 +1,12 @@
 .calibrateButton {
   width: calc(100% - 20px);
   min-height: 28px;
-  margin: 4px 10px 2px;
+  margin: var(--space-0) calc(var(--space-0) * 2.5) calc(var(--space-0) * 0.5);
   border: 1px solid color-mix(in srgb, var(--node-accent) 58%, var(--divider));
   border-radius: 6px;
   color: var(--text-primary);
   background: color-mix(in srgb, var(--node-accent) 14%, var(--bg-panel));
-  font-size: 11px;
+  font-size: var(--fs-ui);
   font-weight: 600;
   cursor: pointer;
 }
@@ -23,7 +23,7 @@
   z-index: 150;
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: calc(var(--space-0) * 5);
   background: rgb(0 0 0 / 68%);
 }
 
@@ -31,7 +31,7 @@
   width: min(620px, 96vw);
   max-height: min(680px, 94vh);
   overflow: auto;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 12px;
   color: var(--text-primary);
   background: var(--bg-panel);
@@ -42,8 +42,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  padding: 18px 20px 14px;
+  gap: calc(var(--space-0) * 5);
+  padding: calc(var(--space-0) * 4.5) calc(var(--space-0) * 5) calc(var(--space-0) * 3.5);
   border-bottom: 1px solid var(--divider);
 }
 
@@ -53,14 +53,14 @@
 }
 
 .subtitle {
-  margin-top: 3px;
+  margin-top: calc(var(--space-0) * 0.75);
   color: var(--text-secondary);
   font-size: 12px;
 }
 
 .closeButton {
   border: 0;
-  padding: 0 4px;
+  padding: 0 var(--space-0);
   color: var(--text-secondary);
   background: transparent;
   font-size: 20px;
@@ -77,9 +77,9 @@
 .connectionRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 14px 20px 0;
-  padding: 9px 10px;
+  gap: calc(var(--space-0) * 2.5);
+  margin: calc(var(--space-0) * 3.5) calc(var(--space-0) * 5) 0;
+  padding: calc(var(--space-0) * 2.25) calc(var(--space-0) * 2.5);
   border: 1px solid var(--divider);
   border-radius: 7px;
   background: var(--bg-panel);
@@ -91,12 +91,10 @@
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--text-secondary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-secondary) 16%, transparent);
 }
 
 .connectionDot.connected {
-  background: var(--success, #52d273);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success, #52d273) 18%, transparent);
+  background: var(--success, var(--paint-52d273));
 }
 
 .connectionText {
@@ -117,20 +115,19 @@
 .captureLayout {
   display: grid;
   grid-template-columns: minmax(210px, 0.9fr) minmax(250px, 1.1fr);
-  gap: 20px;
-  padding: 20px;
+  gap: calc(var(--space-0) * 5);
+  padding: calc(var(--space-0) * 5);
 }
 
 .cornerMap {
   position: relative;
   min-height: 250px;
-  border: 7px solid #242933;
+  border: 7px solid var(--paint-242933);
   border-radius: 7px;
   background:
     linear-gradient(90deg, transparent 49.7%, rgb(255 255 255 / 5%) 50%, transparent 50.3%),
     linear-gradient(transparent 49.7%, rgb(255 255 255 / 5%) 50%, transparent 50.3%),
-    #080a0e;
-  box-shadow: inset 0 0 0 1px #000, 0 8px 20px rgb(0 0 0 / 30%);
+    var(--paint-080a0e);
 }
 
 .glassLabel {
@@ -164,12 +161,11 @@
 .cornerTarget.cornerActive {
   border-color: var(--accent-input);
   color: var(--accent-input);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-input) 18%, transparent);
 }
 
 .cornerTarget.cornerDone {
-  border-color: var(--success, #52d273);
-  color: var(--success, #52d273);
+  border-color: var(--success, var(--paint-52d273));
+  color: var(--success, var(--paint-52d273));
   box-shadow: none;
 }
 
@@ -187,13 +183,13 @@
 }
 
 .capturePanel h3 {
-  margin: 7px 0 5px;
+  margin: calc(var(--space-0) * 1.75) 0 calc(var(--space-0) * 1.25);
   font-size: 17px;
 }
 
 .capturePanel p {
   max-width: 34em;
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-2);
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.5;
@@ -202,8 +198,8 @@
 .sampleMeter {
   display: flex;
   width: 100%;
-  gap: 5px;
-  margin: 4px 0 12px;
+  gap: calc(var(--space-0) * 1.25);
+  margin: var(--space-0) 0 calc(var(--space-0) * 3);
 }
 
 .sampleMeter span {
@@ -219,12 +215,12 @@
 
 .rawReadout {
   width: 100%;
-  padding: 9px 10px;
+  padding: calc(var(--space-0) * 2.25) calc(var(--space-0) * 2.5);
   border: 1px solid var(--divider);
   border-radius: 6px;
   color: var(--text-primary);
   background: var(--bg-panel);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 12px;
 }
 
@@ -232,14 +228,14 @@
   display: grid;
   width: 100%;
   grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  margin: 0 0 16px;
+  gap: calc(var(--space-0) * 1.5);
+  margin: 0 0 var(--space-2);
 }
 
 .bounds div {
   display: flex;
   justify-content: space-between;
-  padding: 8px 9px;
+  padding: var(--space-1) calc(var(--space-0) * 2.25);
   border: 1px solid var(--divider);
   border-radius: 6px;
   background: var(--bg-panel);
@@ -252,7 +248,7 @@
 
 .bounds dd {
   margin: 0;
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 12px;
 }
 
@@ -260,8 +256,8 @@
   display: flex;
   width: 100%;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 14px;
+  gap: var(--space-1);
+  margin-top: calc(var(--space-0) * 3.5);
 }
 
 .primaryButton,
@@ -269,8 +265,8 @@
 .cancelButton {
   min-height: 30px;
   border-radius: 6px;
-  padding: 0 12px;
-  font-size: 12px;
+  padding: 0 calc(var(--space-0) * 3);
+  font-size: var(--fs-ui);
   cursor: pointer;
 }
 
@@ -283,7 +279,7 @@
 
 .secondaryButton,
 .cancelButton {
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   color: var(--text-primary);
   background: transparent;
 }
@@ -302,25 +298,25 @@
 }
 
 .error {
-  margin: 12px 20px 0;
-  padding: 9px 10px;
-  border: 1px solid color-mix(in srgb, var(--danger, #ff5a6f) 55%, var(--divider));
+  margin: calc(var(--space-0) * 3) calc(var(--space-0) * 5) 0;
+  padding: calc(var(--space-0) * 2.25) calc(var(--space-0) * 2.5);
+  border: 1px solid color-mix(in srgb, var(--danger, var(--paint-ff5a6f)) 55%, var(--divider));
   border-radius: 6px;
-  color: var(--danger, #ff5a6f);
-  background: color-mix(in srgb, var(--danger, #ff5a6f) 8%, transparent);
+  color: var(--danger, var(--paint-ff5a6f));
+  background: color-mix(in srgb, var(--danger, var(--paint-ff5a6f)) 8%, transparent);
   font-size: 12px;
 }
 
 .capturePanel .error {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-0);
 }
 
 .footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 20px;
+  gap: var(--space-2);
+  padding: calc(var(--space-0) * 3) calc(var(--space-0) * 5);
   border-top: 1px solid var(--divider);
   color: var(--text-secondary);
   font-size: 11px;
@@ -337,7 +333,7 @@
 /* A measured fact about the hardware, not a warning: the run succeeded. */
 .axisNote {
   margin: 0;
-  padding: 8px 10px;
+  padding: var(--space-1) calc(var(--space-0) * 2.5);
   border-radius: 6px;
   background: color-mix(in srgb, var(--accent-output) 10%, transparent);
   color: var(--text-secondary);

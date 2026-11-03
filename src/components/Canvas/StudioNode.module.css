@@ -7,15 +7,9 @@
 
 @keyframes musicLibraryNodePulse {
   0%, 100% {
-    box-shadow:
-      inset 0 0 0 1px var(--border-glow),
-      0 0 0 rgba(168, 255, 0, 0);
     background-color: transparent;
   }
   50% {
-    box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, var(--accent-show) 24%, var(--border-glow)),
-      0 0 20px rgba(168, 255, 0, 0.12);
     background-color: color-mix(in srgb, var(--accent-show) 4%, transparent);
   }
 }
@@ -56,9 +50,6 @@
   min-height: var(--node-height);
   background: var(--bg-node);
   border-radius: var(--node-radius);
-  box-shadow:
-    inset 0 0 0 1px var(--border-glow),
-    0 10px 22px var(--chrome-shadow);
   /* Live signal values arrive every 125 ms. Animating multi-layer shadows on
      that cadence keeps Chrome repainting the full node bounds continuously
      and can make 1 px edges appear to jitter. The ::before aura below carries
@@ -109,10 +100,6 @@
 .nodePath {
   opacity: 1;
   filter: saturate(1.06) brightness(1.02);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--node-accent) 28%, var(--border-glow)),
-    0 0 18px color-mix(in srgb, var(--node-accent) 22%, transparent),
-    0 18px 40px var(--active-shadow);
 }
 
 .nodeDim {
@@ -125,10 +112,6 @@
 }
 
 .nodeSelected {
-  box-shadow:
-    inset 0 0 0 2px var(--node-accent),
-    0 0 16px var(--node-accent),
-    0 22px 46px var(--active-shadow);
 }
 
 .nodeFrameSource .signalAura {
@@ -147,9 +130,7 @@
   animation: musicLibraryAuraPulse 1s ease-in-out infinite;
 }
 
-.nodePerformance {
-  backdrop-filter: blur(10px);
-}
+.nodePerformance { background: var(--bg-node); }
 
 .node:hover::after {
   background: color-mix(in srgb, var(--bg-node-hover) 32%, transparent);
@@ -158,14 +139,16 @@
 .header {
   height: 32px;
   padding: 0 var(--space-1);
-  font-size: var(--fs-body);
+  font-size: 12px;
   font-weight: 600;
-  color: #000;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   border-radius: var(--node-radius) var(--node-radius) 0 0;
-  font-family: var(--font-display);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--node-accent) 18%, transparent);
+  border-left: 3px solid var(--node-accent);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-node);
+  font-family: var(--font-body);
 }
 
 .headerTitle {
@@ -179,18 +162,17 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding-left: 8px;
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  gap: calc(var(--space-0) * 1.5);
+  padding-left: var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .headerActions {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  margin-left: 6px;
+  gap: calc(var(--space-0) * 0.5);
+  margin-left: calc(var(--space-0) * 1.5);
 }
 
 .headerAction {
@@ -202,9 +184,9 @@
   justify-content: center;
   border: 0;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.14);
-  color: rgba(0, 0, 0, 0.82);
-  font-family: var(--font-code);
+  background: var(--surface-recessed);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 700;
   line-height: 1;
@@ -213,19 +195,18 @@
 
 .headerAction:hover,
 .headerAction:focus-visible {
-  background: rgba(0, 0, 0, 0.28);
-  color: #000;
+  background: var(--bg-node-hover);
+  color: var(--text-primary);
   outline: none;
 }
 
 .headerAction:focus-visible {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 .headerDelete:hover,
 .headerDelete:focus-visible {
-  background: color-mix(in srgb, var(--danger, #d31f3c) 78%, transparent);
-  color: #fff;
+  background: color-mix(in srgb, var(--danger, var(--paint-d31f3c)) 78%, transparent);
+  color: white;
 }
 
 .headerAction:disabled {
@@ -238,8 +219,8 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 2px;
-  padding: 4px 8px;
+  gap: calc(var(--space-0) * 0.5);
+  padding: var(--space-0) var(--space-1);
   border-top: 1px solid color-mix(in srgb, var(--node-accent) 24%, var(--divider));
   border-radius: 0 0 var(--node-radius) var(--node-radius);
   background: color-mix(in srgb, var(--bg-node) 90%, var(--node-accent) 10%);
@@ -247,18 +228,16 @@
 
 .minimizedType {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   line-height: 1.2;
-  text-transform: uppercase;
 }
 
 .minimizedDescription {
   display: -webkit-box;
   overflow: hidden;
   color: color-mix(in srgb, var(--text-secondary) 92%, white 8%);
-  font-size: 10px;
+  font-size: var(--fs-label);
   line-height: 1.25;
   opacity: 0.82;
   -webkit-box-orient: vertical;
@@ -268,96 +247,65 @@
 /* "BOARD 2": the controller a part is wired to, in a project with several. */
 .headerBoard,
 .headerTag {
-  padding: 2px 4px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  padding: calc(var(--space-0) * 0.5) var(--space-0);
+  border-radius: var(--radius-control);
+  background: var(--surface-recessed);
+  box-shadow: none;
   white-space: nowrap;
 }
 
 .headerMeter {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding-left: 2px;
+  gap: calc(var(--space-0) * 0.75);
+  padding-left: calc(var(--space-0) * 0.5);
 }
 
 .headerMeter span {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  background: color-mix(in srgb, var(--text-primary) 96%, transparent);
 }
 
-.categoryInput {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 92%, var(--node-accent) 8%), var(--bg-node));
+.categoryInput { background: var(--bg-node);
 }
 
-.categoryAudio {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 88%, var(--node-accent) 12%), var(--bg-node)),
-    repeating-linear-gradient(90deg, transparent 0 10px, rgba(255, 255, 255, 0.02) 10px 11px);
+.categoryAudio { background: var(--bg-node);
 }
 
-.categorySignal {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 90%, var(--node-accent) 10%), var(--bg-node)),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.016), transparent 22%, rgba(255, 255, 255, 0.016) 78%, transparent);
+.categorySignal { background: var(--bg-node);
 }
 
-.categoryMath {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 92%, var(--node-accent) 8%), var(--bg-node)),
-    repeating-linear-gradient(0deg, transparent 0 8px, rgba(255, 255, 255, 0.018) 8px 9px);
+.categoryMath { background: var(--bg-node);
 }
 
-.categoryColor {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 84%, var(--node-accent) 16%), var(--bg-node)),
-    radial-gradient(circle at 20% 12%, rgba(255, 255, 255, 0.08), transparent 26%);
+.categoryColor { background: var(--bg-node);
 }
 
-.categoryPattern {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 84%, var(--node-accent) 16%), var(--bg-node)),
-    radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--node-accent) 14%, transparent), transparent 54%);
+.categoryPattern { background: var(--bg-node);
 }
 
-.categoryField {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 86%, var(--node-accent) 14%), var(--bg-node)),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.018), transparent 34%, rgba(255, 255, 255, 0.012) 68%, transparent);
+.categoryField { background: var(--bg-node);
 }
 
-.categoryComposite {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 88%, var(--node-accent) 12%), var(--bg-node)),
-    repeating-linear-gradient(135deg, transparent 0 8px, rgba(255, 255, 255, 0.018) 8px 10px);
+.categoryComposite { background: var(--bg-node);
 }
 
-.categoryShow {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 82%, var(--node-accent) 18%), var(--bg-node)),
-    radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.08), transparent 22%);
+.categoryShow { background: var(--bg-node);
 }
 
-.categoryOutput {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 86%, var(--node-accent) 14%), var(--bg-node)),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.022) 50%, transparent);
+.categoryOutput { background: var(--bg-node);
 }
 
-.categoryNote {
-  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-node));
+.categoryNote { background: var(--bg-node);
 }
 
 .body {
   padding: var(--space-1) var(--space-1);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .nodeDisabled {
@@ -375,12 +323,12 @@
 }
 
 .hardwareUnsupported {
-  padding: 7px 8px;
-  border: 1px solid color-mix(in srgb, var(--danger, #ff5a6f) 55%, var(--divider));
+  padding: calc(var(--space-0) * 1.75) var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--danger, var(--paint-ff5a6f)) 55%, var(--divider));
   border-radius: 5px;
-  background: color-mix(in srgb, var(--danger, #ff5a6f) 10%, transparent);
+  background: color-mix(in srgb, var(--danger, var(--paint-ff5a6f)) 10%, transparent);
   color: var(--text-primary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   line-height: 1.35;
 }
@@ -418,8 +366,8 @@
  * the habit is worth keeping (src/dev/animationFilterGuard.ts).
  */
 @keyframes nodeFlashPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.65), 0 0 22px 6px var(--accent-favourites); }
-  55%  { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0), 0 0 26px 10px var(--accent-favourites); }
+  0%   { }
+  55%  { }
   100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0), 0 0 0 0 rgba(255, 255, 255, 0); }
 }
 
@@ -433,7 +381,6 @@
 @media (prefers-reduced-motion: reduce) {
   .nodeFlash {
     animation: none;
-    box-shadow: 0 0 0 3px var(--accent-favourites);
   }
 }
 
@@ -451,8 +398,7 @@
   position: relative;
   margin: 0 auto;
   border-radius: 3px;
-  background-color: #0b0d10;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background-color: var(--paint-0b0d10);
 }
 
 /* A ring's board is an annulus; masking the disc out of the middle is what
@@ -460,7 +406,7 @@
    radius, clear of the cutout. */
 .outputShapeRing {
   border-radius: 50%;
-  mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 70%);
+  mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, black 70%);
 }
 
 /* A corkscrew is a strip arranged in space, not LEDs mounted on a rectangular
@@ -494,7 +440,7 @@
   border: none;
   border-radius: 3px;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: var(--fs-label);
   line-height: 1;
   cursor: pointer;
 }
@@ -509,11 +455,11 @@
   height: 16px;
   padding: 0;
   background: none;
-  border: 1px dashed var(--border-glow);
+  border: 1px dashed var(--line);
   border-radius: 4px;
   color: var(--text-secondary);
   font-size: var(--fs-caption);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   cursor: pointer;
   text-align: center;
 }
@@ -534,17 +480,17 @@
 .portLabel {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   white-space: nowrap;
-  padding-left: 10px;
+  padding-left: calc(var(--space-0) * 2.5);
 }
 
 .portLabelRight {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   white-space: nowrap;
-  padding-right: 10px;
+  padding-right: calc(var(--space-0) * 2.5);
 }
 
 .connectionCompatible,
@@ -555,12 +501,12 @@
 
 .portRow.connectionCompatible,
 .propRow.connectionCompatible {
-  background: color-mix(in srgb, var(--success, #56f39a) 8%, transparent);
+  background: color-mix(in srgb, var(--success, var(--paint-56f39a)) 8%, transparent);
 }
 
 .portRow.connectionNeedsAdapter,
 .propRow.connectionNeedsAdapter {
-  background: color-mix(in srgb, var(--warning, #ffd24a) 10%, transparent);
+  background: color-mix(in srgb, var(--warning, var(--warning)) 10%, transparent);
 }
 
 .portRow.connectionBlocked,
@@ -569,29 +515,22 @@
 }
 
 span.connectionCompatible {
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--success, #56f39a) 42%, transparent),
-    0 0 10px color-mix(in srgb, var(--success, #56f39a) 48%, transparent) !important;
 }
 
 span.connectionNeedsAdapter {
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--warning, #ffd24a) 46%, transparent),
-    0 0 10px color-mix(in srgb, var(--warning, #ffd24a) 50%, transparent) !important;
 }
 
 span.connectionBlocked {
   opacity: 0.38;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger, #ff5a6f) 38%, transparent) !important;
 }
 
 /* Inline property editors on the node body */
 .props {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin-top: 4px;
-  padding-top: 6px;
+  gap: calc(var(--space-0) * 0.75);
+  margin-top: var(--space-0);
+  padding-top: calc(var(--space-0) * 1.5);
   border-top: 1px solid var(--divider);
   user-select: none;
 }
@@ -604,7 +543,7 @@ span.connectionBlocked {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 112px 16px;
   align-items: center;
-  column-gap: 6px;
+  column-gap: calc(var(--space-0) * 1.5);
 }
 
 .propRow > input[type='checkbox'],
@@ -625,17 +564,17 @@ span.connectionBlocked {
   align-self: flex-start;
   border: 0;
   border-radius: 3px;
-  padding: 3px 0;
+  padding: calc(var(--space-0) * 0.75) 0;
   background: transparent;
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   cursor: pointer;
 }
 
 .exposeInputs:hover, .exposeInputs:focus-visible {
   color: var(--text-primary);
-  outline: 1px solid var(--border-glow);
+  outline: 1px solid var(--line);
 }
 
 /* A property whose port is wired: a pot or audio band makes the editor
@@ -659,7 +598,7 @@ span.connectionBlocked {
 .propKey {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -669,8 +608,8 @@ span.connectionBlocked {
   grid-column: 3;
   border: 0;
   background: transparent;
-  padding: 0 2px;
-  font-size: 11px;
+  padding: 0 calc(var(--space-0) * 0.5);
+  font-size: var(--fs-ui);
   line-height: 1;
   cursor: pointer;
   opacity: 0.6;
@@ -689,12 +628,13 @@ span.connectionBlocked {
   width: 100%;
   min-width: 0;
   background: var(--bg-primary);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--text-primary);
   font-size: var(--fs-caption);
   font-family: var(--font-code);
-  padding: 1px 4px;
+  padding: calc(var(--space-0) * 0.25) var(--space-0);
+  font-variant-numeric: tabular-nums;
 }
 
 .propInput:focus {
@@ -703,14 +643,14 @@ span.connectionBlocked {
 }
 
 .propInput[aria-invalid='true'] {
-  border-color: var(--danger, #ff5a6f);
+  border-color: var(--danger, var(--paint-ff5a6f));
 }
 
 /* Muted caption flagging an intentional preview fallback (hardware-input
    stubs, export-only outputs) — see PREVIEW_NOTES in StudioNode.tsx. */
 .previewNote {
   margin-top: var(--space-1);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   font-style: italic;
   line-height: 1.3;
@@ -725,6 +665,7 @@ span.connectionBlocked {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
   letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 .codeEditor {
@@ -733,15 +674,16 @@ span.connectionBlocked {
   resize: vertical;
   margin-top: var(--space-1);
   background: var(--bg-primary);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--text-primary);
   font-family: var(--font-code);
   font-size: var(--fs-caption);
   line-height: 1.45;
-  padding: 6px 8px;
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
   white-space: pre;
   tab-size: 2;
+  font-variant-numeric: tabular-nums;
 }
 
 .codeEditor:focus {
@@ -755,13 +697,13 @@ span.connectionBlocked {
   min-height: 92px;
   resize: vertical;
   background: transparent;
-  border: 1px dashed var(--border-glow);
+  border: 1px dashed var(--line);
   border-radius: 4px;
   color: var(--text-primary);
   font-family: var(--font-body, var(--font-display));
   font-size: var(--fs-body);
   line-height: 1.4;
-  padding: 6px 8px;
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
 }
 
 .commentEditor:focus {
@@ -771,8 +713,8 @@ span.connectionBlocked {
 }
 
 .codeErr {
-  margin-top: 4px;
-  padding: 4px 6px;
+  margin-top: var(--space-0);
+  padding: var(--space-0) calc(var(--space-0) * 1.5);
   background: rgba(255, 51, 102, 0.12);
   border: 1px solid var(--error);
   border-radius: 4px;
@@ -784,13 +726,14 @@ span.connectionBlocked {
   word-break: break-word;
   max-height: 64px;
   overflow-y: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .colorInput {
   width: 28px;
   height: 18px;
   padding: 0;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: none;
   cursor: pointer;
@@ -800,12 +743,12 @@ span.connectionBlocked {
   width: 100%;
   min-width: 0;
   background: var(--bg-primary);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--text-primary);
   font-size: var(--fs-caption);
-  font-family: var(--font-code);
-  padding: 1px 2px;
+  font-family: var(--font-body);
+  padding: calc(var(--space-0) * 0.25) calc(var(--space-0) * 0.5);
   cursor: pointer;
 }
 
@@ -821,15 +764,15 @@ span.connectionBlocked {
 .gpioPickerWrap {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .gpioBackBtn {
   flex: 0 0 auto;
   border: 0;
   background: transparent;
-  padding: 0 2px;
-  font-size: 11px;
+  padding: 0 calc(var(--space-0) * 0.5);
+  font-size: var(--fs-ui);
   line-height: 1;
   cursor: pointer;
   opacity: 0.6;
@@ -845,23 +788,22 @@ span.connectionBlocked {
 .propGroup {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .propGroupHeader {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
   width: 100%;
   background: none;
   border: none;
-  padding: 2px 0;
+  padding: calc(var(--space-0) * 0.5) 0;
   margin: 0;
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   letter-spacing: 0.03em;
-  text-transform: uppercase;
   cursor: pointer;
 }
 
@@ -882,14 +824,14 @@ span.connectionBlocked {
 .propGroupRows {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-left: 2px;
+  gap: calc(var(--space-0) * 0.75);
+  padding-left: calc(var(--space-0) * 0.5);
 }
 
 .sliderWrap {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   min-width: 0;
 }
 
@@ -904,7 +846,7 @@ span.connectionBlocked {
   width: 34px;
   text-align: right;
   font-size: var(--fs-caption);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   color: var(--text-primary);
   white-space: nowrap;
 }
@@ -917,19 +859,17 @@ span.connectionBlocked {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: var(--fs-caption);
-  font-family: var(--font-code);
-  padding: 2px 4px;
+  font-family: var(--font-body);
+  padding: calc(var(--space-0) * 0.5) var(--space-0);
   text-align: right;
 }
 
 .sliderInput:focus {
   outline: none;
-  box-shadow: 0 0 0 1px var(--accent-output);
 }
 
 .sliderInput.invalid {
   border-color: var(--error);
-  box-shadow: 0 0 0 1px var(--error);
 }
 
 @media (prefers-reduced-motion: reduce) {

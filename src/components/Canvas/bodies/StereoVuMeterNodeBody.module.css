@@ -1,19 +1,19 @@
 .body {
   display: grid;
-  gap: 7px;
-  margin-top: 4px;
+  gap: calc(var(--space-0) * 1.75);
+  margin-top: var(--space-0);
 }
 
 .rails {
   display: grid;
   grid-template-columns: 12px 1fr 12px;
   align-items: end;
-  gap: 8px;
+  gap: var(--space-1);
   min-height: 64px;
-  padding: 7px 12px;
+  padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 3);
   border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--divider));
   border-radius: 7px;
-  background: color-mix(in srgb, var(--bg-panel) 84%, #020507);
+  background: color-mix(in srgb, var(--bg-panel) 84%, var(--paint-020507));
 }
 
 .rail {
@@ -23,19 +23,18 @@
   height: 50px;
   overflow: hidden;
   border-radius: 3px;
-  background: #050708;
+  background: var(--paint-050708);
 }
 
 .rail i {
   min-height: 0;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 5%);
 }
 
 .rails strong {
   align-self: center;
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 600;
   line-height: 1.25;
   text-align: center;
@@ -43,19 +42,18 @@
 
 .rails small {
   display: block;
-  margin-top: 4px;
+  margin-top: var(--space-0);
   color: var(--text-secondary);
-  font-size: 8px;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-label);
 }
 
 .targetRow {
   display: grid;
   grid-template-columns: 56px 1fr;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--fs-ui);
 }
 
 .targetRow select {

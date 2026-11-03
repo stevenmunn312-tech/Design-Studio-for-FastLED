@@ -14,6 +14,7 @@ import { searchRadioBrowser, type RadioBrowserResult } from '../../../state/play
 import WifiPasswordInput from '../WifiPasswordInput'
 import nodeStyles from '../StudioNode.module.css'
 import styles from './RadioStationsBody.module.css'
+import { Icon } from '../../icons/Icon'
 
 const PLAYLIST_FILE = RADIO_CARD_PLAYLIST.slice(1)
 
@@ -134,9 +135,9 @@ export default function RadioStationsBody({ nodeId, disabled = false }: { nodeId
         {stations.map((station, index) => (
           <li className={styles.station} key={station.url}>
             <span className={styles.stationName} title={`${station.name}\n${station.url}`}>{station.name}</span>
-            <button type="button" className={`nodrag ${styles.mini}`} aria-label={`Move ${station.name} up`} title="Move up" disabled={index === 0} onClick={() => move(index, index - 1)}>↑</button>
-            <button type="button" className={`nodrag ${styles.mini}`} aria-label={`Move ${station.name} down`} title="Move down" disabled={index === stations.length - 1} onClick={() => move(index, index + 1)}>↓</button>
-            <button type="button" className={`nodrag ${styles.mini}`} aria-label={`Remove ${station.name}`} title="Remove" onClick={() => save(stations.filter((_, i) => i !== index))}>×</button>
+            <button type="button" className={`nodrag ${styles.mini}`} aria-label={`Move ${station.name} up`} title="Move up" disabled={index === 0} onClick={() => move(index, index - 1)}><Icon name="arrow-up" /></button>
+            <button type="button" className={`nodrag ${styles.mini}`} aria-label={`Move ${station.name} down`} title="Move down" disabled={index === stations.length - 1} onClick={() => move(index, index + 1)}><Icon name="arrow-down" /></button>
+            <button type="button" className={`nodrag ${styles.mini}`} aria-label={`Remove ${station.name}`} title="Remove" onClick={() => save(stations.filter((_, i) => i !== index))}><Icon name="close" /></button>
           </li>
         ))}
       </ol>

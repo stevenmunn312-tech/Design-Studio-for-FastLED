@@ -1,4 +1,47 @@
+.sharedOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.68);
+  z-index: 120;
+  animation: dialogFadeIn 0.15s ease-out;
+}
+
+.sharedSurface {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-dialog);
+  box-shadow: 0 20px 40px var(--chrome-shadow);
+  animation: dialogSlideUp 0.18s ease-out;
+}
+
+.sharedClose {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg-node);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.sharedClose:hover { color: var(--text-primary); border-color: var(--accent-ui); }
+
+@keyframes dialogFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialogSlideUp {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 .overlay {
+  composes: sharedOverlay;
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.62);
@@ -8,30 +51,19 @@
   /* Every popup yields Escape to this dialog, so it must also be the one on
      top: above the floating menus (1000-1100) and the board pinout (1050). */
   z-index: 1200;
-  animation: fadeIn 0.15s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .modal {
+  composes: sharedSurface;
   width: min(480px, calc(100vw - 24px));
   background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-dialog);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px 18px 16px;
-  animation: slideUp 0.18s ease-out;
-}
-
-@keyframes slideUp {
-  from { transform: translateY(14px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  gap: calc(var(--space-0) * 3.5);
+  padding: calc(var(--space-0) * 4.5) calc(var(--space-0) * 4.5) var(--space-2);
 }
 
 .header {
@@ -50,7 +82,7 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .message {
@@ -64,23 +96,22 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
 }
 
 .fieldLabel {
   color: var(--text-secondary);
   font-size: 12px;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .input {
   width: 100%;
   border-radius: 8px;
-  border: 1px solid var(--border-glow);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
   color: var(--text-primary);
-  padding: 10px 12px;
+  padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
   font: inherit;
 }
 
@@ -91,7 +122,7 @@
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: calc(var(--space-0) * 2.5);
 }
 
 .primaryBtn,
@@ -99,36 +130,35 @@
 .dangerBtn {
   min-width: 88px;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: var(--space-1) calc(var(--space-0) * 3.5);
   font: inherit;
   cursor: pointer;
   transition: transform var(--anim-hover), border-color var(--anim-hover), background var(--anim-hover), color var(--anim-hover);
 }
 
 .primaryBtn {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: var(--accent-audio);
-  color: #111;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
+  background: var(--accent-ui);
+  color: var(--paint-111);
   font-weight: 700;
 }
 
 .secondaryBtn {
-  border: 1px solid var(--border-glow);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
   color: var(--text-primary);
 }
 
 .dangerBtn {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: color-mix(in srgb, var(--status-error, #ff5f56) 88%, white 12%);
-  color: #160708;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
+  background: color-mix(in srgb, var(--status-error, var(--paint-ff5f56)) 88%, white 12%);
+  color: var(--paint-160708);
   font-weight: 700;
 }
 
 .primaryBtn:hover,
 .secondaryBtn:hover,
 .dangerBtn:hover {
-  transform: translateY(-1px);
 }
 
 .primaryBtn:disabled,

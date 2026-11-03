@@ -37,6 +37,8 @@ jobs:
 
       - run: npm run lint
 
+      - run: npm run lint:styles
+
       - run: npm test
 
       - run: npm run build

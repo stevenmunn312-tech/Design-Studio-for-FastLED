@@ -13,6 +13,7 @@ import { bakedFrameAt, chooseBakeFps, packFrame, usePerformanceBakeStore } from 
 import ShowTimeline from '../ShowTimeline'
 import ShowLaneEditor from '../ShowLaneEditor'
 import styles from './PerformanceGeneratorBody.module.css'
+import { Icon } from '../../icons/Icon'
 
 // Plays a scanned song and renders its generated .show in sync — the browser
 // mirror of the on-device player, so you can preview the timed performance
@@ -413,8 +414,8 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
             title={`${e.analysis?.beats.bpm ?? '?'} BPM · ${e.show?.events.length ?? 0} events`}
             aria-pressed={e.id === previewId}
           >
-            <span aria-hidden="true">♪</span> {e.analysis?.title ?? e.file.name}
-            {e.edited && <span className={styles.editedDot} title="Hand-edited" aria-label="hand-edited"> ✎</span>}
+            <Icon name="music" /> {e.analysis?.title ?? e.file.name}
+            {e.edited && <span className={styles.editedDot} title="Hand-edited" aria-label="hand-edited"> <Icon name="edit" size={12} /></span>}
           </button>
         ))}
       </div>
@@ -430,7 +431,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
             Show in main LED preview
           </label>
           {showInMainPreview ? (
-            <div className={styles.mainNote}>▶ Playing in the main LED preview</div>
+            <div className={styles.mainNote}><Icon name="play" /> Playing in the main LED preview</div>
           ) : (
             <canvas
               ref={canvasRef}
@@ -459,7 +460,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
               aria-pressed={editing}
               disabled={bakeLocked}
             >
-              ✎ Edit timeline
+              <Icon name="edit" /> Edit timeline
             </button>
             <button
               type="button"

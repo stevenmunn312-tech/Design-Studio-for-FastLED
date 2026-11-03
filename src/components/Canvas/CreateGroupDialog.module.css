@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: calc(var(--space-0) * 5);
   z-index: 120;
 }
 
@@ -13,7 +13,7 @@
   width: min(340px, 92vw);
   max-height: min(80vh, 640px);
   background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: var(--space-2);
   display: flex;
@@ -28,7 +28,7 @@
   justify-content: space-between;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-0);
 }
 
 .closeBtn {
@@ -38,14 +38,14 @@
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: calc(var(--space-0) * 0.5) var(--space-0);
 }
 .closeBtn:hover { color: var(--text-primary); }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .fieldLabel {
@@ -55,9 +55,9 @@
 
 .textInput {
   background: var(--bg-node-hover);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
   color: var(--text-primary);
   font-size: 13px;
 }
@@ -66,8 +66,8 @@
 .checkboxRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: var(--space-1);
+  font-size: var(--fs-ui);
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -75,9 +75,9 @@
 .paletteSection {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-top: 4px;
-  border-top: 1px solid var(--border-glow);
+  gap: calc(var(--space-0) * 1.5);
+  padding-top: var(--space-0);
+  border-top: 1px solid var(--line);
 }
 
 .sectionTitle {
@@ -88,21 +88,21 @@
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--space-1);
+  margin-top: var(--space-0);
 }
 
 .cancelBtn,
 .createBtn {
   border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3);
+  font-size: var(--fs-ui);
   cursor: pointer;
 }
 
 .cancelBtn {
   background: transparent;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   color: var(--text-secondary);
 }
 .cancelBtn:hover { color: var(--text-primary); }

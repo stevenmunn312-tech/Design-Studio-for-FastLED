@@ -45,7 +45,6 @@ import CanvasContextMenu from './CanvasContextMenu'
 import GroupControls from './GroupControls'
 import { anchorPosition } from '../../utils/anchorNode'
 import { signalPathFor } from '../../utils/signalPath'
-import { STARTER_TEMPLATES } from '../../state/patterns/starterTemplates'
 import { openStarterProject } from '../../utils/startFlow'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { runTidy } from '../../utils/tidyGraph'
@@ -56,6 +55,7 @@ import { BUTTON_BANK_ADD_HANDLE } from '../../state/player/buttonBank'
 import { outputSignalRange } from '../../nodes/shared/signalRange'
 import { boardLinkWireLabels, NO_BOARD_LINK_LABELS } from './boardLinkWireLabels'
 import styles from './NodeGraphCanvas.module.css'
+import { Icon } from '../icons/Icon'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeTypes: NodeTypes = { studioNode: StudioNode as any }
@@ -270,7 +270,6 @@ function NodeGraphCanvasInner() {
     fitViewRequest,
     uiEffectsEnabled,
     openTemplates,
-    lastStartChoice,
     locatedEdgeIds,
     clearLocatedEdges,
   } = useUiStore(useShallow((s) => ({
@@ -289,7 +288,6 @@ function NodeGraphCanvasInner() {
     fitViewRequest: s.fitViewRequest,
     uiEffectsEnabled: s.uiEffectsEnabled,
     openTemplates: s.openTemplates,
-    lastStartChoice: s.lastStartChoice,
     locatedEdgeIds: s.locatedEdgeIds,
     clearLocatedEdges: s.clearLocatedEdges,
   })))
@@ -405,11 +403,6 @@ function NodeGraphCanvasInner() {
   }), [nodes])
   const hasShowGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'show'), [nodes])
   const hasPatternGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'pattern'), [nodes])
-  const lastStartLabel = useMemo(() => (
-    lastStartChoice === 'blank'
-      ? 'Blank canvas'
-      : STARTER_TEMPLATES.find((template) => template.id === lastStartChoice)?.name ?? null
-  ), [lastStartChoice])
 
   useEffect(() => {
     if (!uiEffectsEnabled) return
@@ -1310,15 +1303,9 @@ function NodeGraphCanvasInner() {
       )}
       {nodes.length === 0 && (
         <div className={styles.emptyField} role="region" aria-label="Start screen">
-          {uiEffectsEnabled && <div className={styles.emptyFieldFrame} aria-hidden="true" />}
           <div className={styles.emptyPanel}>
-            <span className={styles.emptyEyebrow}>Signal lab idle</span>
-            {uiEffectsEnabled && <div className={styles.dormantSignal} aria-hidden="true"><span /></div>}
-            {uiEffectsEnabled && <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>}
-            <strong>Start your first project</strong>
-            <span className={styles.emptySummary}>
-              Load a starter with an editable tutorial note, open the Start Gallery, or stay blank and build from scratch.
-            </span>
+            <strong>No nodes yet</strong>
+            <span className={styles.emptySummary}>Drag a node from the library, or press Start.</span>
             <div className={styles.emptyActions}>
               <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartJuggle}>
                 Start with Juggle
@@ -1338,7 +1325,6 @@ function NodeGraphCanvasInner() {
             {/* The three ways to add a node that nothing else on an empty
                 canvas names: the node search and the library. */}
             <div className={styles.emptyMeta}>Double-click or press Ctrl+K to add a node · drag one in from the library</div>
-            {lastStartLabel && <div className={styles.emptyMeta}>Last start: {lastStartLabel}</div>}
           </div>
         </div>
       )}
@@ -1453,12 +1439,7 @@ function NodeGraphCanvasInner() {
       >
         {uiEffectsEnabled && (
           <div className={styles.atmosphere} aria-hidden="true">
-            <div className={styles.signalField} />
-            <div className={styles.fieldLattice} />
-            <div className={styles.fieldOrbits} />
             <div className={styles.cursorWake} />
-            <div className={styles.fieldScan} />
-            <div className={styles.focusVeil} />
           </div>
         )}
         <Background
@@ -1469,7 +1450,7 @@ function NodeGraphCanvasInner() {
         />
         <Controls
           className={styles.controls}
-          style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+          style={{ background: 'var(--bg-panel)', border: '1px solid var(--line)' }}
           showFitView={false}
           fitViewOptions={fitViewOptions}
         >
@@ -1489,7 +1470,7 @@ function NodeGraphCanvasInner() {
             title="Tidy: auto-arrange nodes into tidy columns (select 2+ nodes to tidy just those)"
             aria-label="Tidy graph layout"
           >
-            <span aria-hidden="true">▦</span>
+            <Icon name="grid" />
           </ControlButton>
         </Controls>
         {showMinimap && (
@@ -1497,7 +1478,7 @@ function NodeGraphCanvasInner() {
             nodeColor={minimapNodeColor}
             nodeStrokeWidth={0}
             maskColor="rgba(0,0,0,0.55)"
-            style={{ width: MINIMAP_WIDTH, height: 150, background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+            style={{ width: MINIMAP_WIDTH, height: 150, background: 'var(--bg-panel)', border: '1px solid var(--line)' }}
             className={styles.minimap}
             onClick={onMiniMapClick}
           />

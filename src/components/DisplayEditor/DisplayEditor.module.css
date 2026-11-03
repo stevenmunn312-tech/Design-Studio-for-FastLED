@@ -4,7 +4,7 @@
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  background: #090c11;
+  background: var(--paint-090c11);
   color: var(--text-primary);
 }
 
@@ -14,8 +14,8 @@
   min-height: 46px;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 7px 12px;
+  gap: var(--space-2);
+  padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 3);
   border-bottom: 1px solid var(--chrome-border);
   background: color-mix(in srgb, var(--bg-panel) 94%, black);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
@@ -25,13 +25,13 @@
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .orientationSwitch {
   display: flex;
-  gap: 2px;
-  padding: 2px;
+  gap: calc(var(--space-0) * 0.5);
+  padding: calc(var(--space-0) * 0.5);
   border: 1px solid var(--chrome-border);
   border-radius: 6px;
   background: var(--bg-primary);
@@ -43,14 +43,14 @@
 }
 
 .orientationSwitch button[aria-pressed='true'] {
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
   background: color-mix(in srgb, var(--accent-output) 13%, var(--bg-node));
   color: var(--accent-output);
 }
 
 .breadcrumb button,
 .toolbar button {
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--bg-node);
   color: var(--text-primary);
@@ -58,7 +58,7 @@
 }
 
 .breadcrumb button {
-  padding: 6px 10px;
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 2.5);
 }
 
 .breadcrumb button:hover,
@@ -78,22 +78,22 @@
 }
 
 .resolution {
-  margin-left: 4px;
+  margin-left: var(--space-0);
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
 .toolbar button {
   min-width: 30px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 var(--space-1);
 }
 
 .toolbar output {
   min-width: 44px;
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
   text-align: center;
 }
@@ -102,8 +102,8 @@
 .screenTabs {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: var(--space-1);
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3);
   overflow-x: auto;
   border-bottom: 1px solid var(--chrome-border);
   background: color-mix(in srgb, var(--bg-panel) 88%, black);
@@ -111,7 +111,7 @@
 
 .screenTabs [role='tablist'] {
   display: flex;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .screenTabs button {
@@ -119,9 +119,9 @@
   height: 28px;
   flex-shrink: 0;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  border: 1px solid var(--border-glow);
+  gap: calc(var(--space-0) * 1.5);
+  padding: 0 calc(var(--space-0) * 2.5);
+  border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--bg-node);
   color: var(--text-primary);
@@ -134,7 +134,7 @@
 }
 
 .screenTabs button[aria-selected='true'] {
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
   background: color-mix(in srgb, var(--accent-output) 13%, var(--bg-node));
   color: var(--accent-output);
 }
@@ -146,8 +146,7 @@
 
 .screenTabs small {
   color: var(--text-secondary);
-  font-size: 10px;
-  text-transform: uppercase;
+  font-size: var(--fs-label);
 }
 
 .body {
@@ -161,7 +160,7 @@
 .palette,
 .inspector {
   min-height: 0;
-  padding: 14px 12px;
+  padding: calc(var(--space-0) * 3.5) calc(var(--space-0) * 3);
   overflow: auto;
   background: color-mix(in srgb, var(--bg-panel) 96%, black);
 }
@@ -176,15 +175,15 @@
 
 .palette h2,
 .inspector h2 {
-  margin-bottom: 4px;
-  font-family: var(--font-display);
+  margin-bottom: var(--space-0);
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 400;
 }
 
 .palette > p,
 .inspector > p {
-  margin-bottom: 12px;
+  margin-bottom: calc(var(--space-0) * 3);
   color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.45;
@@ -195,9 +194,9 @@
    so it has to be said here. */
 .hint {
   display: block;
-  margin-top: 3px;
+  margin-top: calc(var(--space-0) * 0.75);
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--fs-label);
   line-height: 1.4;
   text-transform: none;
   letter-spacing: normal;
@@ -206,13 +205,11 @@
 /* The group heading above each half of the template shelf: the layouts the
    panel's wired source can fill, then everything else. */
 .paletteGroup {
-  margin: 10px 0 4px;
+  margin: calc(var(--space-0) * 2.5) 0 var(--space-0);
   color: var(--text-secondary);
-  font-family: var(--font-display);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 400;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .paletteGroup:first-of-type {
@@ -221,7 +218,7 @@
 
 .paletteList {
   display: grid;
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
 }
 
 .paletteList button {
@@ -229,9 +226,9 @@
   min-height: 34px;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-glow);
+  gap: calc(var(--space-0) * 1.5);
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
+  border: 1px solid var(--line);
   border-left: 3px solid var(--accent-output);
   border-radius: 4px;
   background: var(--bg-node);
@@ -263,9 +260,9 @@
  */
 .templateConnect {
   width: 100%;
-  margin-bottom: 8px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-glow);
+  margin-bottom: var(--space-1);
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--bg-node);
   color: inherit;
@@ -275,7 +272,7 @@
 
 .templateConnect:hover {
   background: var(--bg-node-hover);
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
 }
 
 .templateButton {
@@ -288,23 +285,23 @@
   width: 64px;
   height: 48px;
   border-radius: 3px;
-  background: var(--bg-canvas, #0b0e14);
+  background: var(--bg-canvas, var(--paint-0b0e14));
   object-fit: contain;
 }
 
 .paletteList button:hover {
   background: var(--bg-node-hover);
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
 }
 
 .paletteList small {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .controlIcons {
-  margin: 16px 0;
+  margin: var(--space-2) 0;
 }
 
 .controlIcons h2 {
@@ -313,8 +310,8 @@
 
 .controlIcons > label {
   display: grid;
-  gap: 4px;
-  margin: 8px 0;
+  gap: var(--space-0);
+  margin: var(--space-1) 0;
   color: var(--text-secondary);
   font-size: 11px;
 }
@@ -325,30 +322,30 @@
 }
 
 .controlIcons > p {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-1);
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--fs-label);
   line-height: 1.4;
 }
 
 .controlIconGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
 }
 
 .controlIconButton {
   display: grid;
   min-height: 70px;
   place-items: center;
-  gap: 3px;
-  padding: 5px;
-  border: 1px solid var(--border-glow);
+  gap: calc(var(--space-0) * 0.75);
+  padding: calc(var(--space-0) * 1.25);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--bg-node);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 9px;
+  font-size: var(--fs-ui);
   line-height: 1.15;
   text-align: center;
 }
@@ -360,7 +357,7 @@
 }
 
 .controlIconButton:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
   background: var(--bg-node-hover);
   color: var(--text-primary);
 }
@@ -370,16 +367,16 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  background-color: #0b1017;
+  background-color: var(--paint-0b1017);
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--text-primary) 1.7999999999999998%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--text-primary) 1.7999999999999998%, transparent) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
 .screenSizer {
   position: relative;
-  margin: 48px auto;
+  margin: calc(var(--space-0) * 12) auto;
 }
 
 .screen {
@@ -390,10 +387,6 @@
   color: var(--display-text);
   font-family: var(--font-body);
   font-size: var(--display-font-size);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 22px 60px rgba(0, 0, 0, 0.58),
-    0 0 42px color-mix(in srgb, var(--accent-output) 8%, transparent);
   transform-origin: top left;
 }
 
@@ -420,7 +413,7 @@
   box-sizing: border-box;
   min-width: 0;
   place-items: center;
-  padding: 4px;
+  padding: var(--space-0);
   border: var(--display-border) solid var(--widget-state-border);
   border-radius: var(--display-radius);
   background: var(--widget-state-surface);
@@ -446,7 +439,7 @@
    Its content area must be the same height as that track, otherwise the
    inherited widget padding visually biases the bar toward one edge. */
 .widget[data-widget-type='Progress'] {
-  padding-block: 3px;
+  padding-block: calc(var(--space-0) * 0.75);
 }
 
 /* A Choice Strip or Step Control lays its keys edge to edge inside the
@@ -499,7 +492,6 @@
    lifting the selection would hide a container's children behind it. */
 .widget.selected {
   border-color: var(--accent-output);
-  box-shadow: 0 0 0 1px var(--accent-output), 0 0 14px color-mix(in srgb, var(--accent-output) 40%, transparent);
 }
 
 .widget.collision {
@@ -513,7 +505,7 @@
   bottom: -5px;
   width: 11px;
   height: 11px;
-  border: 2px solid #091017;
+  border: 2px solid var(--paint-091017);
   border-radius: 2px;
   background: var(--accent-output);
   cursor: nwse-resize;
@@ -521,8 +513,8 @@
 
 .inspector label {
   display: grid;
-  gap: 4px;
-  margin-top: 10px;
+  gap: var(--space-0);
+  margin-top: calc(var(--space-0) * 2.5);
   color: var(--text-secondary);
   font-size: 11px;
   text-transform: capitalize;
@@ -533,31 +525,31 @@
   width: 100%;
   min-width: 0;
   height: 30px;
-  padding: 4px 7px;
-  border: 1px solid var(--border-glow);
+  padding: var(--space-0) calc(var(--space-0) * 1.75);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
 .bounds {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 8px;
+  gap: 0 var(--space-1);
 }
 
 .properties {
-  margin-top: 12px;
-  padding-top: 2px;
+  margin-top: calc(var(--space-0) * 3);
+  padding-top: calc(var(--space-0) * 0.5);
   border-top: 1px solid var(--divider);
 }
 
 .inspector .check {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-1);
   text-transform: none;
 }
 
@@ -569,30 +561,28 @@
 /* A widget's settings are split by what they change: Appearance (how it looks)
    and Connection (what it reads from or sends to the graph). */
 .inspectorSection {
-  margin-top: 14px;
-  padding-top: 10px;
+  margin-top: calc(var(--space-0) * 3.5);
+  padding-top: calc(var(--space-0) * 2.5);
   border-top: 1px solid var(--divider);
 }
 
 .inspectorSection h3 {
-  margin: 0 0 2px;
+  margin: 0 0 calc(var(--space-0) * 0.5);
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 400;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .sectionHint {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-0);
   color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.4;
 }
 
 .wires {
-  margin: 10px 0 0;
+  margin: calc(var(--space-0) * 2.5) 0 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--divider);
@@ -600,8 +590,8 @@
 
 .wires li {
   display: grid;
-  gap: 2px;
-  padding: 7px 0;
+  gap: calc(var(--space-0) * 0.5);
+  padding: calc(var(--space-0) * 1.75) 0;
   border-bottom: 1px solid var(--divider);
   font-size: 11px;
 }
@@ -620,9 +610,9 @@
 
 .showWiring {
   width: 100%;
-  margin-top: 10px;
-  padding: 7px;
-  border: 1px solid color-mix(in srgb, var(--accent-output) 45%, var(--border-glow));
+  margin-top: calc(var(--space-0) * 2.5);
+  padding: calc(var(--space-0) * 1.75);
+  border: 1px solid color-mix(in srgb, var(--accent-output) 45%, var(--line));
   border-radius: 4px;
   background: transparent;
   color: var(--text-primary);
@@ -636,8 +626,8 @@
 
 .delete {
   width: 100%;
-  margin-top: 14px;
-  padding: 7px;
+  margin-top: calc(var(--space-0) * 3.5);
+  padding: calc(var(--space-0) * 1.75);
   border: 1px solid color-mix(in srgb, var(--error) 45%, transparent);
   border-radius: 4px;
   background: transparent;
@@ -648,19 +638,19 @@
 .selectionActions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  margin-top: 12px;
+  gap: calc(var(--space-0) * 1.5);
+  margin-top: calc(var(--space-0) * 3);
 }
 
 .selectionActions button {
   min-height: 30px;
-  padding: 5px 6px;
-  border: 1px solid var(--border-glow);
+  padding: calc(var(--space-0) * 1.25) calc(var(--space-0) * 1.5);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--bg-node);
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--fs-ui);
 }
 
 .selectionActions button:hover:not(:disabled) {
@@ -669,11 +659,11 @@
 }
 
 .issues {
-  margin-top: 14px;
-  padding: 9px;
+  margin-top: calc(var(--space-0) * 3.5);
+  padding: calc(var(--space-0) * 2.25);
   border-left: 3px solid var(--error);
   background: color-mix(in srgb, var(--error) 8%, transparent);
-  font-size: 10px;
+  font-size: var(--fs-label);
 }
 
 .issues strong {
@@ -681,7 +671,7 @@
 }
 
 .issues p {
-  margin-top: 5px;
+  margin-top: calc(var(--space-0) * 1.25);
   color: var(--text-secondary);
   line-height: 1.35;
 }
@@ -711,14 +701,14 @@
  * output one, because these arrived from the graph rather than from this list.
  */
 .connected {
-  margin-bottom: 14px;
-  padding-bottom: 12px;
+  margin-bottom: calc(var(--space-0) * 3.5);
+  padding-bottom: calc(var(--space-0) * 3);
   border-bottom: 1px solid var(--chrome-border);
 }
 
 .connectedList {
   display: grid;
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
 }
 
 /* The row is the place button plus a delete, so the two never share a hit
@@ -726,16 +716,16 @@
 .connectedEntry {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .connectedPlace {
   display: flex;
   min-height: 38px;
   align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border: 1px solid var(--border-glow);
+  gap: calc(var(--space-0) * 1.5);
+  padding: calc(var(--space-0) * 1.25) var(--space-1);
+  border: 1px solid var(--line);
   border-left: 3px solid var(--accent-input);
   border-radius: 4px;
   background: var(--bg-node);
@@ -746,14 +736,14 @@
 
 .connectedPlace:hover {
   background: var(--bg-node-hover);
-  border-color: color-mix(in srgb, var(--accent-input) 55%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--accent-input) 55%, var(--line));
 }
 
 .connectedPlace > span {
   display: grid;
   flex: 1;
   min-width: 0;
-  gap: 1px;
+  gap: calc(var(--space-0) * 0.25);
 }
 
 /* The destination, on its own line: three sliders in this group are told
@@ -761,15 +751,15 @@
 .connectedPlace small {
   overflow: hidden;
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .connectedRemove {
   width: 24px;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--bg-node);
   color: var(--text-secondary);
@@ -779,7 +769,7 @@
 }
 
 .connectedRemove:hover {
-  border-color: color-mix(in srgb, var(--error) 60%, var(--border-glow));
+  border-color: color-mix(in srgb, var(--error) 60%, var(--line));
   color: var(--text-primary);
 }
 
@@ -824,8 +814,8 @@
   max-height: calc(100% - 48px);
   overflow: auto;
   transform: translateX(-50%);
-  padding: 16px 18px;
-  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--border-glow));
+  padding: var(--space-2) calc(var(--space-0) * 4.5);
+  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--line));
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
@@ -833,38 +823,36 @@
 }
 
 .startCard h2 {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-0);
   font-size: 15px;
 }
 
 .startCard p {
-  margin: 0 0 12px;
+  margin: 0 0 calc(var(--space-0) * 3);
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.45;
 }
 
 .startCard h3 {
-  margin: 12px 0 6px;
+  margin: calc(var(--space-0) * 3) 0 calc(var(--space-0) * 1.5);
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
 }
 
 .startTemplates {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .startTemplate {
   display: grid;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   justify-items: center;
-  padding: 8px;
-  border: 1px solid var(--border-glow);
+  padding: var(--space-1);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg-node);
   color: var(--text-primary);
@@ -884,7 +872,7 @@
   width: 96px;
   height: 72px;
   border-radius: 3px;
-  background: var(--bg-canvas, #0b0e14);
+  background: var(--bg-canvas, var(--paint-0b0e14));
   object-fit: contain;
 }
 
@@ -893,21 +881,21 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-glow);
+  gap: var(--space-1);
+  margin-top: calc(var(--space-0) * 3.5);
+  padding-top: calc(var(--space-0) * 3);
+  border-top: 1px solid var(--line);
   color: var(--text-secondary);
   font-size: 12px;
 }
 
 .startAlternative button {
-  padding: 6px 12px;
-  border: 1px solid var(--border-glow);
-  border-radius: 999px;
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--fs-ui);
   cursor: pointer;
 }
 
@@ -919,7 +907,7 @@
 /* A template without a preview render still takes a tile's full height, so
    the grid reads as one set of choices rather than a ragged list. */
 .startTemplateBlank {
-  border: 1px dashed var(--border-glow);
+  border: 1px dashed var(--line);
 }
 
 /* A Text Entry being typed into on the live screen: the field over its own box. */
@@ -928,11 +916,11 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  padding: 0 6px;
+  padding: 0 calc(var(--space-0) * 1.5);
   border: 2px solid var(--display-accent, currentColor);
   border-radius: var(--display-radius, 4px);
-  background: var(--display-surface, #171d2a);
-  color: var(--display-text, #f4f7ff);
+  background: var(--display-surface, var(--paint-171d2a));
+  color: var(--display-text, var(--paint-f4f7ff));
   font: inherit;
   font-size: var(--widget-text-size, inherit);
 }

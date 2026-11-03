@@ -1,22 +1,22 @@
 .body {
   display: grid;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: calc(var(--space-0) * 1.5);
+  padding: var(--space-1) calc(var(--space-0) * 2.5);
   border-radius: 12px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--node-accent) 18%, #121823), #10161f);
-  border: 1px solid color-mix(in srgb, var(--node-accent) 34%, rgba(255, 255, 255, 0.08));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--node-accent) 18%, var(--paint-121823)), var(--paint-10161f));
+  border: 1px solid color-mix(in srgb, var(--node-accent) 34%, color-mix(in srgb, var(--text-primary) 8%, transparent));
 }
 
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--space-0) * 1.5);
   width: fit-content;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 10px;
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: color-mix(in srgb, var(--text-primary) 92%, transparent);
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: 0.12em;
 }
@@ -25,57 +25,52 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--node-accent) 72%, #b8ffdf);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--node-accent) 55%, rgba(184, 255, 223, 0.7));
+  background: color-mix(in srgb, var(--node-accent) 72%, var(--paint-b8ffdf));
 }
 
 .statusBad {
   background: rgba(255, 96, 96, 0.16);
-  color: #ffd7d7;
+  color: var(--paint-ffd7d7);
 }
 
 .statusBad span {
-  background: #ff6b6b;
-  box-shadow: 0 0 10px rgba(255, 107, 107, 0.6);
+  background: var(--paint-ff6b6b);
 }
 
 .readout {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
-  color: rgba(255, 255, 255, 0.88);
+  gap: calc(var(--space-0) * 2.5);
+  color: color-mix(in srgb, var(--text-primary) 88%, transparent);
   font-size: 12px;
 }
 
 .readout span:last-child {
-  color: rgba(255, 255, 255, 0.62);
+  color: color-mix(in srgb, var(--text-primary) 62%, transparent);
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .field {
   display: grid;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .fieldLabel {
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.62);
+  font-size: var(--fs-label);
+  color: color-mix(in srgb, var(--text-primary) 62%, transparent);
 }
 
 .fieldInput {
   width: 100%;
   box-sizing: border-box;
   background: rgba(10, 14, 20, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
   border-radius: 4px;
-  color: rgba(255, 255, 255, 0.92);
+  color: color-mix(in srgb, var(--text-primary) 92%, transparent);
   font-size: 12px;
   font-family: var(--font-code, monospace);
-  padding: 3px 6px;
+  padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.5);
 }
 
 .fieldInput:focus {
@@ -86,24 +81,23 @@
 .note {
   font-size: 11px;
   line-height: 1.35;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--text-primary) 55.00000000000001%, transparent);
 }
 
 .rtcAction {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
+  gap: calc(var(--space-0) * 1.75);
 }
 
 .setButton {
-  border: 1px solid color-mix(in srgb, var(--node-accent) 58%, rgba(255, 255, 255, 0.18));
+  border: 1px solid color-mix(in srgb, var(--node-accent) 58%, color-mix(in srgb, var(--text-primary) 18%, transparent));
   border-radius: 4px;
   background: color-mix(in srgb, var(--node-accent) 20%, rgba(8, 12, 18, 0.88));
-  color: rgba(255, 255, 255, 0.92);
-  padding: 4px 7px;
-  font: 700 10px/1.2 var(--font-code, monospace);
-  letter-spacing: 0.03em;
+  color: color-mix(in srgb, var(--text-primary) 92%, transparent);
+  padding: var(--space-0) calc(var(--space-0) * 1.75);
+  font: 700 var(--fs-label)/1.2 var(--font-code, monospace);
   cursor: pointer;
 }
 
@@ -121,12 +115,12 @@
 .rtcAction span {
   min-width: 0;
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 9px;
+  color: color-mix(in srgb, var(--text-primary) 50%, transparent);
+  font-size: var(--fs-ui);
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rtcAction .actionDone { color: #9fffc2; }
-.rtcAction .actionError { color: #ff9f9f; white-space: normal; }
+.rtcAction .actionDone { color: var(--paint-9fffc2); }
+.rtcAction .actionError { color: var(--paint-ff9f9f); white-space: normal; }

@@ -39,6 +39,7 @@ import DeviceTelemetryCard from './DeviceTelemetryCard'
 import { useDeviceTelemetryStore } from '../../state/upload/deviceTelemetryStore'
 import { boardLinkUploadNotes } from '../../state/upload/boardLinkFlash'
 import styles from './Upload.module.css'
+import { Icon } from '../icons/Icon'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { musicPlayerSource, resolveBuildMode } from '../../state/upload/buildMode'
@@ -715,7 +716,7 @@ export default function MatrixOutputDeployPopup({
               ? 'Open the guided LED-output setup wizard'
               : 'Add an LED output to use its setup wizard'}
           >
-            ✦ Setup…
+            <Icon name="sparkle" /> Setup…
           </button>
         </div>
         {hasBuildOutput && (
@@ -996,7 +997,7 @@ export default function MatrixOutputDeployPopup({
                   : 'Flash a standalone wiring diagnostic sketch using the current Board controller settings plus this output’s pins, color order, and layout'
             }
           >
-            🧪 Flash Wiring Test
+            <Icon name="flask" /> Flash Wiring Test
           </button>
 
           {isHub75 && (
@@ -1014,7 +1015,7 @@ export default function MatrixOutputDeployPopup({
                     : 'Hold a dedicated per-panel HUB75 topology pattern using the current panel grid, serpentine chain, and tile-rotation settings'
               }
             >
-              🧭 Flash HUB75 Topology
+              <Icon name="compass" /> Flash HUB75 Topology
             </button>
           )}
           </div>
@@ -1046,7 +1047,7 @@ export default function MatrixOutputDeployPopup({
                 ? readinessIssues.join('\n')
                 : 'Flash a tiny generic receiver sketch once — after that, Live Stream pushes preview frames straight to the board without recompiling'}
           >
-            ⚡ Flash Stream Receiver
+            <Icon name="bolt" /> Flash Stream Receiver
           </button>
 
           <button
@@ -1065,7 +1066,7 @@ export default function MatrixOutputDeployPopup({
                     : 'Push live preview frames to a board already running the Stream Receiver sketch'
             }
           >
-            {streamStarting ? 'Opening stream…' : streaming ? `⏹ Streaming — ${streamFps} fps` : '📡 Live Stream'}
+            <Icon name="broadcast" /> {streamStarting ? 'Opening stream…' : streaming ? `Streaming — ${streamFps} fps` : 'Live Stream'}
           </button>
           </div>
           {liveStreamNotes.length > 0 && (

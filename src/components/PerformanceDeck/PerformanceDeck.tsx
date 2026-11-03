@@ -7,6 +7,7 @@ import { useUiStore } from '../../state/uiStore'
 import { MidiEngine } from '../../midi/midiEngine'
 import DeckKnob from './DeckKnob'
 import styles from './PerformanceDeck.module.css'
+import { Icon } from '../icons/Icon'
 
 /** The Performance Control Deck panel: pinned knobs/faders, parameter
  *  scenes, scene morph, and MIDI/keyboard binding capture. Dockable rather
@@ -106,7 +107,7 @@ export default function PerformanceDeck() {
             className={`${styles.panicBtn} ${panicActive ? styles.panicActive : ''}`}
             onClick={panicActive ? restorePanic : panic}
           >
-            {panicActive ? '● Restore' : '⏻ PANIC'}
+            {panicActive ? <><Icon name="refresh" /> Restore</> : <><Icon name="power" /> PANIC</>}
           </button>
           {controller && (
             <div className={styles.brightnessRow}>
@@ -130,7 +131,7 @@ export default function PerformanceDeck() {
       <div className={styles.body}>
         <div className={styles.grid}>
           {deck.pins.length === 0 && (
-            <p className={styles.empty}>No pinned controls yet — click the 📌 next to a property on any node to add it here.</p>
+            <p className={styles.empty}>No pinned controls yet — click the <Icon name="pin" /> next to a property on any node to add it here.</p>
           )}
           {deck.pins.map((pin) => {
             const node = nodeById.get(pin.nodeId)

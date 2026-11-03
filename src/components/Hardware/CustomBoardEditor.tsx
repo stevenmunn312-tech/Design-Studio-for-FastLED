@@ -23,6 +23,7 @@ import { useUploadStore } from '../../state/upload/uploadStore'
 import ClampedNumberInput from '../Canvas/ClampedNumberInput'
 import { CustomBoardGraphic } from './CustomBoardGraphic'
 import styles from './CustomBoardEditor.module.css'
+import { Icon } from '../icons/Icon'
 
 /*
  * The custom board's own editor.
@@ -350,10 +351,10 @@ export default function CustomBoardEditor({ boardNodeId, saved, onClose }: Props
                             updateSlot(key, index, next)
                           }} />
                         <span className={styles.rowTools}>
-                          <button type="button" aria-label={`Move ${row} up`} disabled={index === 0} onClick={() => moveSlot(key, index, -1)}>↑</button>
-                          <button type="button" aria-label={`Move ${row} down`} disabled={index === draft[key].length - 1} onClick={() => moveSlot(key, index, 1)}>↓</button>
-                          <button type="button" aria-label={`Move ${row} to the other header`} onClick={() => switchSide(key, index)}>⇄</button>
-                          <button type="button" aria-label={`Remove ${row}`} onClick={() => updateSide(key, draft[key].filter((_, position) => position !== index))}>✕</button>
+                          <button type="button" aria-label={`Move ${row} up`} disabled={index === 0} onClick={() => moveSlot(key, index, -1)}><Icon name="arrow-up" /></button>
+                          <button type="button" aria-label={`Move ${row} down`} disabled={index === draft[key].length - 1} onClick={() => moveSlot(key, index, 1)}><Icon name="arrow-down" /></button>
+                          <button type="button" aria-label={`Move ${row} to the other header`} onClick={() => switchSide(key, index)}><Icon name="swap" /></button>
+                          <button type="button" aria-label={`Remove ${row}`} onClick={() => updateSide(key, draft[key].filter((_, position) => position !== index))}><Icon name="close" /></button>
                         </span>
                         {messages.length > 0 && <p className={styles.rowIssue}>{messages.join(' ')}</p>}
                       </li>

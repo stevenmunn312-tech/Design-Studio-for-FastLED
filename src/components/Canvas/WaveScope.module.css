@@ -4,12 +4,12 @@
   box-sizing: border-box;
   display: block;
   background: var(--bg-primary);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
 }
 
 .trace {
-  stroke: var(--accent-math, #a8ff00);
+  stroke: var(--accent-math, var(--paint-a8ff00));
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }

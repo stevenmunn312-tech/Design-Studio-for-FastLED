@@ -140,7 +140,7 @@ describe('MatrixOutputSetupWizard', () => {
     const { getByRole } = render(<MatrixOutputSetupWizard />)
 
     fireEvent.click(getByRole('button', { name: /Upload/ }))
-    fireEvent.click(getByRole('button', { name: '🧪 Flash wiring test' }))
+    fireEvent.click(getByRole('button', { name: 'Flash wiring test' }))
 
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
   })
@@ -184,7 +184,7 @@ describe('MatrixOutputSetupWizard', () => {
 
     const { getByRole } = render(<MatrixOutputSetupWizard />)
     fireEvent.click(getByRole('button', { name: /Upload/ }))
-    fireEvent.click(getByRole('button', { name: '🧭 Flash HUB75 topology' }))
+    fireEvent.click(getByRole('button', { name: 'Flash HUB75 topology' }))
 
     expect(generateWiringDiagnosticSketch).toHaveBeenCalledWith(
       expect.any(Array),
@@ -202,7 +202,7 @@ describe('MatrixOutputSetupWizard', () => {
     const { getByRole } = render(<MatrixOutputSetupWizard />)
 
     fireEvent.click(getByRole('button', { name: /Upload/ }))
-    fireEvent.click(getByRole('button', { name: '↑ Open upload tools' }))
+    fireEvent.click(getByRole('button', { name: 'Open upload tools' }))
 
     expect(closeSetupWizard).toHaveBeenCalled()
     expect(openDeployPopup).toHaveBeenCalledWith('matrix')

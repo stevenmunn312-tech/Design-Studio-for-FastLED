@@ -1,18 +1,18 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  margin-top: 4px;
-  padding-top: 6px;
+  gap: calc(var(--space-0) * 1.75);
+  margin-top: var(--space-0);
+  padding-top: calc(var(--space-0) * 1.5);
   border-top: 1px solid var(--divider);
 }
 
 .wrapTop {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding-bottom: 6px;
-  margin-bottom: 2px;
+  gap: calc(var(--space-0) * 1.75);
+  padding-bottom: calc(var(--space-0) * 1.5);
+  margin-bottom: calc(var(--space-0) * 0.5);
   border-bottom: 1px solid var(--divider);
 }
 
@@ -20,32 +20,32 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-1);
   color: var(--text-secondary);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
 }
 
 .headerTools {
   display: inline-flex;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .miniBtn,
 .preset,
 .stopTools button {
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-secondary);
   cursor: pointer;
-  font-family: var(--font-code);
+  font-family: var(--font-body);
 }
 
 .miniBtn {
-  font-size: var(--fs-caption);
+  font-size: var(--fs-ui);
   line-height: 1.3;
-  padding: 0 5px;
+  padding: 0 calc(var(--space-0) * 1.25);
 }
 
 .miniBtn:disabled,
@@ -58,10 +58,9 @@
 .anchorRail {
   position: relative;
   height: 34px;
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--line);
   border-radius: 5px;
   box-sizing: border-box;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
   touch-action: none;
 }
 
@@ -71,7 +70,7 @@
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: calc(var(--space-0) * 0.75);
 }
 
 .stopColor,
@@ -82,9 +81,6 @@
   border: 2px solid var(--bg-primary);
   border-radius: 50%;
   background: var(--stop-color);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--stop-color) 70%, var(--border-glow)),
-    0 0 10px color-mix(in srgb, var(--stop-color) 42%, transparent);
   cursor: pointer;
 }
 
@@ -96,8 +92,8 @@
 
 .stopTools {
   display: none;
-  gap: 2px;
-  padding: 2px;
+  gap: calc(var(--space-0) * 0.5);
+  padding: calc(var(--space-0) * 0.5);
   border-radius: 4px;
   background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
 }
@@ -112,7 +108,7 @@
   height: 16px;
   padding: 0;
   line-height: 1;
-  font-size: 11px;
+  font-size: var(--fs-ui);
 }
 
 .anchor {
@@ -121,15 +117,15 @@
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   color: var(--bg-primary);
-  font-family: var(--font-code);
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
   font-weight: 700;
 }
 
 .anchor span {
-  padding: 0 3px;
+  padding: 0 calc(var(--space-0) * 0.75);
   border-radius: 3px;
   background: color-mix(in srgb, var(--stop-color) 82%, var(--text-primary));
 }
@@ -137,7 +133,7 @@
 .presetRow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
+  gap: calc(var(--space-0) * 1.25);
 }
 
 .preset {
