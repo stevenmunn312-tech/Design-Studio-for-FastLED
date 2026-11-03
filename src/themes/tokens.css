@@ -124,8 +124,11 @@
   --bg-canvas: #0d1117;
   --surface-recessed: #11161c;
 
-  /* Category colours match CATEGORIES in nodeLibrary.ts. Chrome uses only
-     accent-ui; category colour identifies nodes and wires. */
+  /* Sidebar section accents sweep the hue wheel top to bottom at 24° per
+     header — Quick recipes, Favourites, Recent, the 11 CATEGORIES, then the
+     Pattern Library — all hsl(h, 80%, 60%). The category entries match
+     CATEGORIES in nodeLibrary.ts, which carries the hex for canvas and SVG.
+     Chrome uses only accent-ui; category colour identifies nodes and wires. */
   --accent-ui: #5ad1ff;
   --accent-ui-text: #07131a;
   --preview-instrument-text: #e0e7ed;
@@ -133,23 +136,23 @@
   --preview-instrument-accent: #72cde8;
   --stage-bg-panel: #161a1f;
   --stage-bg-node: #1f242b;
-  --accent-recipes: #d9a53f;
-  --accent-favourites: #e070a5;
-  --accent-recent: #817ee8;
-  --accent-input: #d9a53f;
-  --accent-audio: #96cc4a;
-  --accent-signal: #43c982;
-  --accent-math: #35b7ad;
-  --accent-color: #5ad1ff;
-  --accent-pattern: #5b9eef;
-  --accent-field: #817ee8;
-  --accent-composite: #ab72d8;
-  --accent-show: #d9a53f;
-  --accent-output: #e070a5;
-  --accent-note: #a8b4c4;
+  --accent-recipes: #ea4747;
+  --accent-favourites: #ea8847;
+  --accent-recent: #eac947;
+  --accent-input: #c9ea47;
+  --accent-audio: #88ea47;
+  --accent-signal: #47ea47;
+  --accent-math: #47ea88;
+  --accent-color: #47eac9;
+  --accent-pattern: #47c9ea;
+  --accent-field: #4788ea;
+  --accent-composite: #4747ea;
+  --accent-show: #8847ea;
+  --accent-output: #c947ea;
+  --accent-note: #ea47c9;
   /* Not a sidebar header: the bench-only power and network parts. */
   --accent-hardware: #a8b4c4;
-  --accent-library: #ff3385;
+  --accent-library: #ea4788;
 
   /* Text */
   --text-primary: #e0e0e0;

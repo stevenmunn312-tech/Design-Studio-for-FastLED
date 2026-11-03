@@ -546,7 +546,7 @@ menu choices, Upload guidance and the Checks drawer.
   Fix: at most eight category hues at about 80 % saturation, spaced for
   discrimination, set once in `nodeLibrary.ts CATEGORIES` and tokens; one UI
   accent for every interactive-chrome state.
-  Done: eight category hues at about 80 % saturation in `CATEGORIES` and `tokens.css`; focus rings, primary buttons, tabs and guides use `--accent-ui`.
+  Done: category hues sweep the wheel in sidebar order at 80 % saturation (the sweep was kept at Steve's request on 4 November) in `CATEGORIES` and `tokens.css`; focus rings, primary buttons, tabs and guides use `--accent-ui`.
 
 - [x] **Dialog family cloned with drift.**
   Problem: `fadeIn` defined nine times and `slideUp` seven (AppDialogHost,
