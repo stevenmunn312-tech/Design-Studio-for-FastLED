@@ -97,6 +97,42 @@ describe('a placed consumer', () => {
     const nodes = [node('noise', 'Noise'), node('blur', 'Blur2D')]
     expect(dropConnections('blur', nodes, [])).toEqual([])
   })
+
+  it('looks past the hidden hardware part an Audio node resolves to', () => {
+    const mic = { ...node('mic', 'MicInput'), hidden: true }
+    const nodes = [mic, node('audio', 'Audio'), node('player', 'PatternSlideshow')]
+    expect(dropConnections('player', nodes, [])).toEqual([
+      { source: 'audio', sourceHandle: 'audio', target: 'player', targetHandle: 'audio' },
+    ])
+  })
+})
+
+describe('a show engine and the LED output', () => {
+  it.each(['PatternMaster', 'PatternSlideshow', 'PerformanceGenerator'])('wires a placed %s into the only LED output', (engineType) => {
+    const nodes = [node('output', 'MatrixOutput'), node('engine', engineType)]
+    expect(dropConnections('engine', nodes, [])).toEqual([
+      { source: 'engine', sourceHandle: 'frame', target: 'output', targetHandle: 'frame' },
+    ])
+  })
+
+  it('wires a placed LED output back to the only show engine', () => {
+    const nodes = [node('engine', 'PatternSlideshow'), node('output', 'MatrixOutput')]
+    expect(dropConnections('output', nodes, [])).toEqual([
+      { source: 'engine', sourceHandle: 'frame', target: 'output', targetHandle: 'frame' },
+    ])
+  })
+
+  it('leaves an LED output a pattern already feeds alone', () => {
+    const nodes = [node('noise', 'Noise'), node('output', 'MatrixOutput'), node('engine', 'PatternSlideshow')]
+    const wired = [edge('e1', 'noise', 'frame', 'output', 'frame')]
+    expect(dropConnections('engine', nodes, wired)).toEqual([])
+  })
+
+  it('never wires a pattern or effect by its frame', () => {
+    expect(dropConnections('noise', [node('output', 'MatrixOutput'), node('noise', 'Noise')], [])).toEqual([])
+    expect(dropConnections('blur', [node('engine', 'PatternSlideshow'), node('blur', 'Blur2D')], [])).toEqual([])
+    expect(dropConnections('output', [node('noise', 'Noise'), node('output', 'MatrixOutput')], [])).toEqual([])
+  })
 })
 
 describe('autoConnectPlacedNode', () => {

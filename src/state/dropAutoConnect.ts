@@ -14,8 +14,24 @@ const AUTO_CONNECT_DATA_TYPES: ReadonlySet<string> = new Set([
   'datetime', 'dmx', 'image',
 ])
 
+/**
+ * Frames are everywhere, so a frame only counts between a show engine and an
+ * LED output: the Music Player, Pattern Slideshow and Performance Generator
+ * each produce the one show a project runs, and the LED output is where it
+ * goes. A pattern or effect dropped beside an output is still the user's
+ * call.
+ */
+const SHOW_ENGINE_NODE_TYPES: ReadonlySet<string> = new Set(['PatternMaster', 'PatternSlideshow', 'PerformanceGenerator'])
+
+const carriesShowFrame = (node: StudioNode, side: 'inputs' | 'outputs') =>
+  side === 'outputs' ? SHOW_ENGINE_NODE_TYPES.has(node.data.nodeType) : node.data.nodeType === 'MatrixOutput'
+
+const counts = (node: StudioNode, side: 'inputs' | 'outputs', port: Port) =>
+  AUTO_CONNECT_DATA_TYPES.has(port.dataType)
+  || (port.dataType === 'frame' && carriesShowFrame(node, side))
+
 const portsOf = (node: StudioNode, side: 'inputs' | 'outputs') =>
-  ((node.data[side] as Port[] | undefined) ?? []).filter((port) => AUTO_CONNECT_DATA_TYPES.has(port.dataType))
+  ((node.data[side] as Port[] | undefined) ?? []).filter((port) => counts(node, side, port))
 
 /**
  * The connections a freshly placed node should make on its own.
@@ -25,6 +41,9 @@ const portsOf = (node: StudioNode, side: 'inputs' | 'outputs') =>
  * drop never takes one away. Each of its inputs wires to the one source of
  * that type, if there is exactly one: a source may feed many inputs, so it
  * need not be idle. Anything with two candidates is a choice left to the user.
+ *
+ * Hidden nodes are hardware bookkeeping (the Board, the microphone an Audio
+ * node resolves to) and never a partner: their ports are not on the canvas.
  */
 export function dropConnections(
   nodeId: string,
@@ -33,7 +52,7 @@ export function dropConnections(
 ): Connection[] {
   const node = nodes.find((entry) => entry.id === nodeId)
   if (!node) return []
-  const others = nodes.filter((entry) => entry.id !== nodeId)
+  const others = nodes.filter((entry) => entry.id !== nodeId && !entry.hidden)
   const wired = new Set(edges.map((edge) => `${edge.target}\u0000${edge.targetHandle ?? ''}`))
   const connections: Connection[] = []
 

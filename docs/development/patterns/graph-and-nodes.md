@@ -23,10 +23,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   drop and bare right-click add call `autoConnectPlacedNode`, which uses
   `dropConnections` (`src/state/dropAutoConnect.ts`). It covers `audio`,
   `transitionset`, `patternset`, `playerparticles`, `music`, `datetime`, `dmx`
-  and `image` ports. An output wires to the only unwired input of its type and
-  never replaces a wire; an input wires to the only source of its type, which
-  may already feed others. Add a data type there rather than special-casing a
-  node.
+  and `image` ports, plus `frame` only between a show engine (Music Player,
+  Pattern Slideshow, Performance Generator) and the LED output. An output wires
+  to the only unwired input of its type and never replaces a wire; an input
+  wires to the only source of its type, which may already feed others. Hidden
+  hardware parts (the Board, the microphone an Audio node resolves to) are
+  never partners, or their ports would double-count the visible node's. Add a
+  data type there rather than special-casing a node.
 - Zustand stores expose React hooks plus imperative `getState()` access for
   animation and hardware paths.
 - Stateful evaluation is namespaced by graph/group instance so reused groups do
