@@ -2,10 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   landOnStartingWorkspace,
   openBlankProject,
+  openExampleProject,
   openStarterProject,
   startBlankCanvas,
   startTemplateById,
 } from '../startFlow'
+import { liveExampleForNode } from '../../components/HelpModal/liveExamples'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { useGraphStore, type StudioNode } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
@@ -180,5 +183,59 @@ describe('opening a start choice as its own project', () => {
 
     expect(confirm).toHaveBeenCalledOnce()
     expect(useProjectStore.getState().projects).toEqual([])
+  })
+
+  /*
+   * A help example used to drop beside whatever was open, tangling itself
+   * into a finished project. It is a start choice now: the open project is
+   * offered a save and the example opens alone, as its own project.
+   */
+  describe('a node-reference example', () => {
+    const musicPlayer = NODE_LIBRARY.find((node) => node.type === 'PatternMaster')!
+    const types = () => useGraphStore.getState().nodes.map((node) => node.data.nodeType)
+
+    it('offers the open project a save, then opens alone under the node\'s name', async () => {
+      const decide = vi.fn().mockResolvedValue('yes')
+      useUiStore.setState({ requestNewProjectDecision: decide, lastStartChoice: 'juggle' })
+
+      const result = await openExampleProject(liveExampleForNode(musicPlayer), 'Music Player example')
+
+      expect(decide).toHaveBeenCalledWith('My Lamp', 'starting a new project', 'new project "Music Player example"')
+      expect(authoredIds(project('My Lamp')?.workspace)).toEqual(['mine'])
+      expect(currentName()).toBe('Music Player example')
+      expect(result?.nodeIds.length).toBeGreaterThan(0)
+      expect(types()).not.toContain('Noise')
+      expect(types()).toContain('PatternMaster')
+      // The bench parts the player needs come with it, on the project's board.
+      expect(types()).toContain('SDCard')
+      expect(types()).toContain('Amplifier')
+      expect(types()).toContain('Board')
+      // The LED output takes a board pin too, instead of keeping the library
+      // default the SD card's chip select also lands on.
+      const pin = (type: string, key: string) =>
+        useGraphStore.getState().nodes.find((node) => node.data.nodeType === type)?.data.properties[key]
+      expect(pin('MatrixOutput', 'dataPin')).not.toBe(pin('SDCard', 'sdCsPin'))
+      // Not a Start Gallery pick, so "Last start" still names the starter.
+      expect(useUiStore.getState().lastStartChoice).toBe('juggle')
+      expect(useGraphStore.temporal.getState().pastStates).toEqual([])
+    })
+
+    it('changes nothing when cancelled', async () => {
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('cancel') })
+
+      await expect(openExampleProject(liveExampleForNode(musicPlayer), 'Music Player example')).resolves.toBeNull()
+
+      expect(currentName()).toBe('My Lamp')
+      expect(types()).toContain('Noise')
+    })
+
+    it('numbers a second copy of the same example', async () => {
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+      await openExampleProject(liveExampleForNode(musicPlayer), 'Music Player example')
+      await openExampleProject(liveExampleForNode(musicPlayer), 'Music Player example')
+
+      expect(currentName()).toBe('Music Player example 2')
+      expect(project('Music Player example')).toBeTruthy()
+    })
   })
 })

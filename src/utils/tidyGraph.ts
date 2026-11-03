@@ -11,7 +11,7 @@ import { useGraphStore } from '../state/graphStore'
 import { exposableInputsFor } from '../state/propertyInputs'
 import { useUiStore } from '../state/uiStore'
 import { untanglePortOrders, type OrderedPort } from './portOrder'
-import { tidyLayout } from './tidyLayout'
+import { portFraction, tidyLayout } from './tidyLayout'
 
 const FALLBACK_W = 240
 const FALLBACK_H = 100
@@ -19,14 +19,6 @@ const TIDY_ANIM_MS = 200
 const HISTORY_LIMIT = 100 // graphStore's zundo `limit`
 
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
-
-/** 0 at the top of the node, 1 at the bottom, at the middle of this port's row. */
-function portFraction(ports: readonly OrderedPort[], handle: string | null | undefined): number | undefined {
-  if (!handle || ports.length === 0) return undefined
-  const index = ports.findIndex((port) => port.id === handle)
-  if (index < 0) return undefined
-  return (index + 0.5) / ports.length
-}
 
 function asPorts(value: unknown): OrderedPort[] {
   if (!Array.isArray(value)) return []
@@ -36,6 +28,8 @@ function asPorts(value: unknown): OrderedPort[] {
 interface RunTidyOptions {
   /** Ignore a multi-selection and arrange the complete active graph. */
   scope?: 'auto' | 'all'
+  /** Leave the status bar alone: the tidy is part of a load the status already names. */
+  quiet?: boolean
 }
 
 /** Tidy the graph and report via the status bar. Returns how many nodes moved. */
@@ -91,7 +85,7 @@ export function runTidy(options: RunTidyOptions = {}): number {
   const setStatus = useUiStore.getState().setStatus
   if (start.size === 0 && reordered.size === 0) {
     if (fitNodeIds.length > 0) requestFitView(fitNodeIds)
-    setStatus('Layout already tidy', 'info')
+    if (!options.quiet) setStatus('Layout already tidy', 'info')
     return 0
   }
 
@@ -151,7 +145,7 @@ export function runTidy(options: RunTidyOptions = {}): number {
     setTimeout(finish, TIDY_ANIM_MS + 100)
   }
 
-  setStatus(
+  if (!options.quiet) setStatus(
     scoped
       ? `Tidied ${start.size} selected node${start.size === 1 ? '' : 's'}`
       : `Tidied ${start.size} node${start.size === 1 ? '' : 's'}`,

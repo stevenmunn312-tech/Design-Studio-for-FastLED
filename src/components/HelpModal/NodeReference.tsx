@@ -4,7 +4,7 @@ import { CATEGORIES, CATEGORY_COLOR, HARDWARE_CATEGORY, isInternalProperty, NODE
 import { exposableInputsFor } from '../../state/propertyInputs'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
-import { insertLiveExample } from '../../utils/insertLiveExample'
+import { openExampleProject } from '../../utils/startFlow'
 import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../utils/nodeReferenceAssets'
 import { exampleUsesMicrophone, liveExampleForNode } from './liveExamples'
 import { nodeReferenceEntry } from './reference'
@@ -323,11 +323,13 @@ function OptionalInputsPanel({ node, written }: { node: NodeDefinition; written?
   )
 }
 
-function openLiveExample(node: NodeDefinition) {
+/** Open the example as its own project, as a starter does; Help stays open when the person cancels. */
+async function openLiveExample(node: NodeDefinition) {
   const example = liveExampleForNode(node)
-  const ui = useUiStore.getState()
   const usesMicrophone = exampleUsesMicrophone(example)
-  const result = insertLiveExample(example, ui.viewCenter)
+  const opened = await openExampleProject(example, `${node.label} example`)
+  if (!opened) return
+  const ui = useUiStore.getState()
   useUiStore.setState({
     helpOpen: false,
     previewPanelOpen: true,
@@ -335,15 +337,7 @@ function openLiveExample(node: NodeDefinition) {
     // user previously left the global FFT demo signal enabled.
     ...(usesMicrophone ? { testSignal: false } : {}),
   })
-  window.setTimeout(() => {
-    useUiStore.getState().requestFitView(result.nodeIds)
-  }, 80)
-  const outputKeys = new Set(example.nodes.filter((entry) => entry.type === 'MatrixOutput').map((entry) => entry.key))
-  const outputInputOccupied = result.skippedConnections.some((edge) =>
-    outputKeys.has(edge.target) && edge.targetHandle === 'frame')
-  ui.setStatus(outputInputOccupied
-    ? `${node.label} example added — the LED output is already in use; connect the final frame when ready`
-    : `${node.label} example added${usesMicrophone ? ' — microphone starting' : ''}`, 'success')
+  ui.setStatus(`${node.label} example opened as its own project${usesMicrophone ? ' — microphone starting' : ''}`, 'success')
   if (usesMicrophone) {
     void useAudioStore.getState().startAudio().catch(() => {
       ui.setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
@@ -424,7 +418,7 @@ function NodeArticle({ node }: { node: NodeDefinition }) {
           </div>
           <div className={styles.exampleHeadingActions}>
             <span>{example.path}</span>
-            <button className={styles.tryLiveButton} type="button" onClick={() => openLiveExample(node)}>
+            <button className={styles.tryLiveButton} type="button" onClick={() => { void openLiveExample(node) }}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
           </div>

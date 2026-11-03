@@ -3,6 +3,7 @@ import { libraryDefaults, NODE_LIBRARY, portsCompatible, propertyMeta } from '..
 import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/peripherals/irRemote'
 import { BUTTON_BANK_ADD_HANDLE, buttonBankOutputs } from '../../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
+import { exposableInputsFor } from '../../../state/propertyInputs'
 import {
   exampleUsesMicrophone,
   liveExampleForNode,
@@ -102,6 +103,31 @@ describe('node-reference live examples', () => {
       for (const planned of example.nodes) {
         expect(Math.abs(planned.dx % 20), `${node.type}/${planned.key} x`).toBe(0)
         expect(Math.abs(planned.dy % 20), `${node.type}/${planned.key} y`).toBe(0)
+      }
+    }
+  })
+
+  it('stacks a node\'s feeds in the order of the sockets they land on', () => {
+    // Two feeds in one column that cross on the way to their node read as a
+    // tangle. Compared only where it is decidable: sources in the same
+    // column, each feeding this one node and nothing else.
+    for (const featured of NODE_LIBRARY) {
+      const example = liveExampleForNode(featured)
+      const byKey = new Map(example.nodes.map((node) => [node.key, node]))
+      const outDegree = (key: string) => example.edges.filter((edge) => edge.source === key).length
+      for (const target of example.nodes) {
+        const definition = NODE_LIBRARY.find((node) => node.type === target.type)!
+        const hidden = new Set(exposableInputsFor(target.type).map((port) => port.id))
+        const inputs = definition.inputs.filter((port) => !hidden.has(port.id)).map((port) => port.id)
+        const feeds = example.edges
+          .filter((edge) => edge.target === target.key && outDegree(edge.source) === 1 && inputs.includes(edge.targetHandle))
+          .map((edge) => ({ source: byKey.get(edge.source)!, slot: inputs.indexOf(edge.targetHandle) }))
+        const columns = new Map<number, typeof feeds>()
+        for (const feed of feeds) columns.set(feed.source.dx, [...(columns.get(feed.source.dx) ?? []), feed])
+        for (const column of columns.values()) {
+          const byRow = [...column].sort((a, b) => a.source.dy - b.source.dy).map((feed) => feed.slot)
+          expect(byRow, `${featured.type}: feeds of ${target.key} cross`).toEqual([...byRow].sort((a, b) => a - b))
+        }
       }
     }
   })

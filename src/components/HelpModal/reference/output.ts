@@ -344,6 +344,8 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
         patterns: ['PatternCollection'],
         player: ['PatternMaster'],
         panel: ['TransportDisplay', { tftLayout: 'Now Playing' }],
+        card: ['SDCard'],
+        amp: ['Amplifier'],
       },
       wires: ['patterns.patternset > player.patternset', 'player.display > panel.display'],
       explanation: 'The Music Player’s Display output carries its whole report — title, artist, elapsed time, the pattern playing — and the Display Panel draws it as the Now Playing screen.',

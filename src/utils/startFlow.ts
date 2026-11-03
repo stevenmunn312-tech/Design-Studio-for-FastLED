@@ -4,12 +4,14 @@ import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from 
 import { useUiStore } from '../state/uiStore'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { micSupportedForBoardProfile } from '../build/pins/micPinDefaults'
+import { retargetHardwarePins } from '../build/pins/pinRetarget'
 import { useUploadStore } from '../state/upload/uploadStore'
 import { useFirstProjectGuide } from '../state/firstProjectGuideStore'
 import { useProjectStore } from '../state/projectStore'
 import { blankWorkspace, captureWorkspace, hasAuthoredWorkspaceContent } from '../state/workspacePersistence'
 import { nextDefaultProjectName } from './projectFileIO'
 import { runTidy } from './tidyGraph'
+import { insertLiveExample, type LiveExampleResult, type LiveExampleSpec } from './insertLiveExample'
 
 interface StartFlowOptions {
   closeTemplates?: boolean
@@ -23,7 +25,7 @@ function tidyLoadedTemplate(generation: number) {
     requestAnimationFrame(() => {
       // A newer starter or blank canvas supersedes this pending layout.
       if (generation !== startFlowGeneration) return
-      runTidy()
+      runTidy({ quiet: true })
       // Loading a starter, including its automatic layout, begins a fresh
       // workspace and should not create an Undo step.
       useGraphStore.temporal.getState().clear()
@@ -31,13 +33,14 @@ function tidyLoadedTemplate(generation: number) {
   })
 }
 
-function finishStartFlow(choice: string | 'blank', statusText: string, nodeIds?: string[], options?: StartFlowOptions) {
+/** `choice` is a Start Gallery pick; a help example is not one, so it leaves "Last start" alone. */
+function finishStartFlow(choice: string | 'blank' | null, statusText: string, nodeIds?: string[], options?: StartFlowOptions) {
   const ui = useUiStore.getState()
   useGraphStore.temporal.getState().clear()
   // A new project for the first-project guide: what "Make it yours" compares
   // against, and no upload of it yet.
   useFirstProjectGuide.getState().noteFreshStart()
-  ui.setLastStartChoice(choice)
+  if (choice !== null) ui.setLastStartChoice(choice)
   ui.requestFitView(nodeIds)
   ui.setStatus(statusText, 'success')
   if (options?.closeTemplates) ui.closeTemplates()
@@ -156,6 +159,37 @@ export async function openStarterProject(template: StarterTemplate | string, opt
   if (!await beginStartProject(starter.name, { carryUploadTarget: true })) return false
   startTemplate(starter, options)
   return true
+}
+
+/**
+ * Open a node-reference example as a new project named after its node.
+ *
+ * It used to drop beside whatever was open, so a reader who clicked Try it
+ * live on a finished project got the example tangled into their work. Now it
+ * is a start choice like a starter: the open project is offered a save, the
+ * example lands alone on a fresh canvas with the project's board, its bench
+ * parts take that board's pins, and the canvas tidies itself once React Flow
+ * has measured the nodes. Resolves to null when the person cancels.
+ */
+export async function openExampleProject(example: LiveExampleSpec, projectName: string): Promise<LiveExampleResult | null> {
+  if (!await beginStartProject(projectName, { carryUploadTarget: true })) return null
+  const generation = ++startFlowGeneration
+  const graph = useGraphStore.getState()
+  graph.loadGraph([], [])
+  const result = insertLiveExample(example, { x: 0, y: 0 })
+  // As a starter is: every part, the LED output included, takes the board's
+  // pins. Through the store action the wired LED output would count as a
+  // fixture and keep its library default, which an SD Card's chip select then
+  // lands on too.
+  const nodes = rootGraphNodes(useGraphStore.getState())
+  const profile = selectedPhysicalBoardProfile(nodes)
+  useGraphStore.setState({
+    nodes: retargetHardwarePins(nodes, profile, profile?.compatibleFqbns[0] ?? useUploadStore.getState().selectedFqbn).nodes,
+  })
+  const { name } = useProjectStore.getState().projects.find((project) => project.id === useProjectStore.getState().currentProjectId) ?? { name: projectName }
+  finishStartFlow(null, `Opened "${name}"`, result.nodeIds)
+  tidyLoadedTemplate(generation)
+  return result
 }
 
 /** Open a blank canvas as a new, default-named project. */

@@ -59,6 +59,19 @@ export interface TidyOptions {
 
 const snap = (v: number, g: number) => Math.round(v / g) * g
 
+/**
+ * Where a port sits on its node: 0 at the top, 1 at the bottom, at the
+ * middle of that port's row with the rows spread evenly over the height.
+ * Undefined when the handle is not one of `ports`, which the layout reads as
+ * the node's centre.
+ */
+export function portFraction(ports: readonly { id: string }[], handle: string | null | undefined): number | undefined {
+  if (!handle || ports.length === 0) return undefined
+  const index = ports.findIndex((port) => port.id === handle)
+  if (index < 0) return undefined
+  return (index + 0.5) / ports.length
+}
+
 export function tidyLayout(
   items: TidyItem[],
   edges: TidyEdge[],
@@ -138,8 +151,13 @@ export function tidyLayout(
   // only ever pushes down, and without the correction a fan-out column drifts
   // a little further down every run, so tidying would never reach a fixed
   // point (clicking Tidy twice would keep shuffling nodes).
+  // A tie in desired centre keeps the order the previous sweep settled on,
+  // not store order: two feeds of one node that the left sweep had just put
+  // into socket order would otherwise swap back when the right sweep finds
+  // they share a source.
   const placeColumn = (nodes: TidyItem[], desired: Map<string, number>) => {
-    const order = [...nodes].sort((a, b) => desired.get(a.id)! - desired.get(b.id)!)
+    const order = [...nodes].sort((a, b) =>
+      desired.get(a.id)! - desired.get(b.id)! || cy.get(a.id)! - cy.get(b.id)!)
     let cursor = -Infinity
     for (const n of order) {
       const topY = Math.max(desired.get(n.id)! - n.height / 2, cursor)
@@ -179,7 +197,17 @@ export function tidyLayout(
     sweepRight()
     sweepLeft()
   }
-  sweepRight() // end following inputs, so terminals settle onto their feeds
+  // End on both sides at once: a terminal settles onto its feeds, a source
+  // keeps the socket order the left sweep gave it, and a node in the middle
+  // sits between what feeds it and what it feeds. Ending on inputs alone
+  // dragged a Beat Detect up to its microphone and out of the socket order of
+  // the player it feeds.
+  for (const c of columns) {
+    placeColumn(c, new Map(c.map((n) => [
+      n.id,
+      desiredCentre(n, [...(incoming.get(n.id) ?? []), ...(outgoing.get(n.id) ?? [])]),
+    ])))
+  }
 
   // ── 3. Anchor to the scope's original top edge and snap ─────────────────
   const minTop = Math.min(...connected.map((n) => cy.get(n.id)! - n.height / 2))

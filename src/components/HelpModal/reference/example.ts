@@ -8,7 +8,8 @@
  */
 import type { LiveExampleSpec, LiveExampleNodeSpec } from '../../../utils/insertLiveExample'
 import { libraryDefaults, NODE_LIBRARY, nodeDisplayLabel } from '../../../state/nodeLibrary'
-import { tidyLayout } from '../../../utils/tidyLayout'
+import { portFraction, tidyLayout } from '../../../utils/tidyLayout'
+import { exposableInputsFor } from '../../../state/propertyInputs'
 import type { NodeDefinition } from '../../../types'
 import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../../state/output/ledOutputForm'
 import { irRemoteOutputs } from '../../../state/peripherals/irRemote'
@@ -51,20 +52,45 @@ export function canvasLabel(type: string, properties: Record<string, unknown> | 
   return nodeDisplayLabel(type, { ...libraryDefaults(type), ...properties }, definition(type).label)
 }
 
+/** A part with no sockets sits on the bench, not in the signal path. */
+function isBenchPart(type: string): boolean {
+  const node = definition(type)
+  return node.inputs.length === 0 && node.outputs.length === 0
+}
+
 function graphPath(nodes: LiveExampleNodeSpec[]): string {
   const columns = new Map<number, string[]>()
+  const bench: string[] = []
   for (const node of [...nodes].sort((a, b) => a.dx - b.dx || a.dy - b.dy)) {
     const label = canvasLabel(node.type, node.properties)
+    if (isBenchPart(node.type)) {
+      bench.push(label)
+      continue
+    }
     columns.set(node.dx, [...(columns.get(node.dx) ?? []), label])
   }
-  return [...columns.entries()]
+  const path = [...columns.entries()]
     .sort(([a], [b]) => a - b)
     .map(([, labels]) => labels.join(' + '))
     .join(' → ')
+  return bench.length ? `${path} · bench: ${bench.join(', ')}` : path
+}
+
+/**
+ * The sockets a node shows on the canvas, in order: every output, and the
+ * inputs that are not hidden property inputs — the same list the canvas Tidy
+ * reads, so an example's feeds stack in the order of the sockets they land on.
+ */
+function canvasPorts(type: string, side: 'inputs' | 'outputs'): readonly { id: string }[] {
+  const node = definition(type)
+  if (side === 'outputs') return node.outputs
+  const hidden = new Set(exposableInputsFor(type).map((port) => port.id))
+  return node.inputs.filter((port) => !hidden.has(port.id))
 }
 
 /** Apply the app's Tidy Graph layout and centre the example on the insertion origin. */
 function tidy(nodes: LiveExampleNodeSpec[], edges: LiveExampleSpec['edges']): LiveExampleNodeSpec[] {
+  const typeByKey = new Map(nodes.map((node) => [node.key, node.type]))
   const initial = nodes.map((node, order) => ({
     id: node.key,
     x: 0,
@@ -74,7 +100,12 @@ function tidy(nodes: LiveExampleNodeSpec[], edges: LiveExampleSpec['edges']): Li
   }))
   const positions = tidyLayout(
     initial,
-    edges.map((edge) => ({ source: edge.source, target: edge.target })),
+    edges.map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      sourcePort: portFraction(canvasPorts(typeByKey.get(edge.source)!, 'outputs'), edge.sourceHandle),
+      targetPort: portFraction(canvasPorts(typeByKey.get(edge.target)!, 'inputs'), edge.targetHandle),
+    })),
     { gapX: 100, gapY: 60, grid: 20 },
   )
   const placed = nodes.map((node, order) => ({

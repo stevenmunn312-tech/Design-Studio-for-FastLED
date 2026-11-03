@@ -4,6 +4,7 @@ import HelpModal from '../HelpModal'
 import { useUiStore } from '../../../state/uiStore'
 import { useGraphStore } from '../../../state/graphStore'
 import { useAudioStore } from '../../../state/audio/audioStore'
+import { useProjectStore } from '../../../state/projectStore'
 
 const realStartAudio = useAudioStore.getState().startAudio
 const startAudio = vi.fn(async () => {})
@@ -310,7 +311,7 @@ describe('HelpModal session state', () => {
     expect(settings.some((s) => s.startsWith('Form'))).toBe(false)
   })
 
-  it.each(['BeatDetect', 'SpectrumVisualizer'])('forces real audio for the %s live example', (selectedType) => {
+  it.each(['BeatDetect', 'SpectrumVisualizer'])('forces real audio for the %s live example', async (selectedType) => {
     useUiStore.setState({
       helpTab: 'nodes',
       helpNodeReference: {
@@ -324,8 +325,24 @@ describe('HelpModal session state', () => {
 
     fireEvent.click(view.getByRole('button', { name: /Try it live/ }))
 
+    await waitFor(() => expect(useUiStore.getState().statusText).toMatch(/microphone starting/i))
     expect(useUiStore.getState().testSignal).toBe(false)
-    expect(useUiStore.getState().statusText).toMatch(/microphone starting/i)
     expect(startAudio).toHaveBeenCalledOnce()
+  })
+
+  it('opens a live example as its own project and closes Help', async () => {
+    useUiStore.setState({
+      helpTab: 'nodes',
+      helpNodeReference: { search: '', expandedCategory: 'show', selectedType: 'PatternMaster' },
+    })
+    const view = render(<HelpModal />)
+
+    fireEvent.click(view.getByRole('button', { name: /Try it live/ }))
+
+    await waitFor(() => expect(useUiStore.getState().helpOpen).toBe(false))
+    const { projects, currentProjectId } = useProjectStore.getState()
+    expect(projects.find((project) => project.id === currentProjectId)?.name).toBe('Music Player example')
+    expect(useGraphStore.getState().nodes.some((node) => node.data.nodeType === 'PatternMaster')).toBe(true)
+    expect(useUiStore.getState().statusText).toMatch(/opened as its own project/i)
   })
 })

@@ -52,7 +52,9 @@ The help modal keeps a fixed node-library directory on the left and a scrollable
 
 ## Try it live
 
-`src/utils/insertLiveExample.ts` inserts an example beside the current work without replacing the graph. It reuses singleton nodes, never replaces an occupied input, adds the graph in one undo step, closes Help, reveals the preview, starts the microphone for audio examples, frames the new nodes, and reports the result in the status bar.
+Try it live is a start choice, like a starter: `openExampleProject` in `src/utils/startFlow.ts` offers the open project a save, creates a project named `<Node label> example` (numbered when it already exists), keeps the project's board, and inserts the example alone on the fresh canvas through `src/utils/insertLiveExample.ts`. Bench parts in the example (an SD Card and an Amplifier for every Music Player example) take the board's pins, and the canvas tidies itself quietly once React Flow has measured the nodes, so the estimated layout in the spec never has to be exact. Help closes, the preview opens, the microphone starts for audio examples, and a cancel leaves Help open and the project untouched.
+
+Example layouts come from `tidyLayout` with each wire anchored to its socket, in the help image, in the spec and on the canvas alike, so a node's feeds stack in the order of its input sockets (`liveExamples.test.ts` checks this for every example). Bench parts carry no sockets, so the path beside the button lists them after the signal path as `bench: …`.
 
 ## Tests
 

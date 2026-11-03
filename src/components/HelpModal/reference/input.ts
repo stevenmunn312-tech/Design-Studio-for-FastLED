@@ -203,6 +203,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
         player: ['PatternMaster', { order: 'Sequential' }],
         panel: ['TransportDisplay', { tftLayout: 'Fixed Transport' }],
         touch: ['TouchInput'],
+        card: ['SDCard'],
+        amp: ['Amplifier'],
       },
       wires: ['patterns.patternset > player.patternset', 'player.display > panel.display', 'touch.controls > player.controls'],
       explanation: 'The Music Player reports its state to the Display Panel, which draws the Fixed Transport screen. Touch Screen turns presses on that glass into Controls, and the player obeys them: previous, play or pause, next, and a volume strip.',

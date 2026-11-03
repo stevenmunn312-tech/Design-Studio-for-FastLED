@@ -1491,6 +1491,27 @@ function exampleGraphSvg(spec: LiveExampleSpec, outputFrame: Frame | null): stri
   // Run the exact Tidy Graph algorithm with the SVG node measurements. The
   // live spec was already tidied with estimated canvas sizes; this second pass
   // is the render-time equivalent of React Flow reporting its measured boxes.
+  // Wires carry the height of the socket they use, as the canvas Tidy does, so
+  // a node's feeds stack in the order of its input sockets.
+  // A bench part has no wire, so Tidy leaves it where it is unless it sits on
+  // the graph. The spec parked it under a layout of estimated heights, which
+  // is lower than the measured one here, so start it on the graph's corner
+  // and let Tidy park it tight beneath the measured layout.
+  const wiredKeys = new Set(spec.edges.flatMap((edge) => [edge.source, edge.target]))
+  const wiredItems = raw.filter((item) => wiredKeys.has(item.key))
+  const corner = {
+    x: Math.min(...wiredItems.map((item) => item.x)),
+    y: Math.min(...wiredItems.map((item) => item.y)),
+  }
+  for (const item of raw) {
+    if (!wiredKeys.has(item.key)) Object.assign(item, corner)
+  }
+  const rawByKey = new Map(raw.map((item) => [item.key, item]))
+  const socketFraction = (key: string, handle: string) => {
+    const item = rawByKey.get(key)
+    const y = item?.inner.portY.get(handle)
+    return item && y != null ? y / item.inner.h : undefined
+  }
   const tidy = tidyLayout(
     raw.map((item) => ({
       id: item.key,
@@ -1499,7 +1520,12 @@ function exampleGraphSvg(spec: LiveExampleSpec, outputFrame: Frame | null): stri
       width: item.inner.w,
       height: item.inner.h,
     })),
-    spec.edges.map((edge) => ({ source: edge.source, target: edge.target })),
+    spec.edges.map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      sourcePort: socketFraction(edge.source, edge.sourceHandle),
+      targetPort: socketFraction(edge.target, edge.targetHandle),
+    })),
     { gapX: 100, gapY: 60, grid: 20 },
   )
   const items = raw.map((item) => ({ ...item, ...(tidy.get(item.key) ?? {}) }))
