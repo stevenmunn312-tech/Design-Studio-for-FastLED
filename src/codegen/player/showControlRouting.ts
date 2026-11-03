@@ -5,6 +5,10 @@ import { templateControlRouting, showControlTargets } from '../displays/template
 import { expandGroups } from '../../state/expandGroups'
 import { enginePostChain, routePostChain } from '../enginePostChain'
 import { selectionSourceExpressions } from '../displays/displaySourceExpressions'
+import { beatDetectThreshold } from '../../audio/beatDetection'
+import { nativeBeatGateCpp } from '../audio/nativeBeatGateCpp'
+import { controlReferenceCpp, type ControlReference } from '../controlGraph'
+import { floatLit } from '../cppLiterals'
 export { controlBundleVariable, showControlOutputIds, showControlTargets } from '../displays/templateControlRouting'
 
 /**
@@ -19,7 +23,7 @@ export const SHOW_SELECTION_STEM = 'show'
 
 /** Slideshow timing sockets the controller reads live. */
 const SHOW_TIMING_PORTS = ['interval', 'minTime', 'maxTime', 'transitionSec'] as const
-export type ShowTimingPort = (typeof SHOW_TIMING_PORTS)[number]
+export type ShowTimingPort = (typeof SHOW_TIMING_PORTS)[number] | 'beat'
 
 /** The show's running pattern index, readable from anywhere in the sketch. */
 export const SHOW_PATTERN_INDEX = 'showPatternIndex'
@@ -64,6 +68,15 @@ export function showControlRouting(
   // walks, so their number inputs are read with the show's other controls.
   const expanded = expandGroups(nodes, edges, groups)
   const postChain = enginePostChain(expanded.nodes, expanded.edges, targets.engineId)
+  // A Beat Detect fed by an Audio node reads the controller's one hosted
+  // engine, so it is sampled from the engine's beat with the node's own
+  // Threshold — the same forwarding the SD player does for its decoder, and
+  // the same gate the node applies inside a collected pattern.
+  const liveBeats = nodes.filter((node) => node.data.nodeType === 'BeatDetect'
+    && edges.some((edge) => edge.target === node.id && edge.targetHandle === 'audio'
+      && edge.sourceHandle === 'audio'
+      && nodes.some((source) => source.id === edge.source && source.data.nodeType === 'Audio')))
+  const liveBeatIds = new Set(liveBeats.map((node) => node.id))
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'a generated show controller', widgetLabel: 'the show',
     destinationIds: new Set([
@@ -71,17 +84,38 @@ export function showControlRouting(
       ...(targets.engineId ? [targets.engineId] : []),
     ]),
     scalarOutputIds: targets.outputIds,
+    sampledSources: liveBeats.map((node): ControlReference => ({ nodeId: node.id, port: 'beat', type: 'bool' })),
     scalarInputs: [
       ...(speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' as const }] : []),
       // The slideshow's timing sockets, read live as the Music Player's are.
+      // Beat is read whenever it is wired: Beat Transitions and the particle
+      // overlay both burst on it.
       ...(targets.engineId
-        ? SHOW_TIMING_PORTS.map((port) => ({ nodeId: targets.engineId!, port, type: 'float' as const }))
+        ? [
+          ...SHOW_TIMING_PORTS.map((port) => ({ nodeId: targets.engineId!, port, type: 'float' as const })),
+          { nodeId: targets.engineId, port: 'beat', type: 'bool' as const },
+        ]
         : []),
       ...(postChain?.inputs ?? []),
     ],
     sourceExpressions: SHOW_SOURCE_EXPRESSIONS,
     ledStatus: { drivenIds: targets.outputIds, latch: true },
   }, groups)
+  // Sampled before the control graph runs, as the player samples its decoder
+  // beat. Threshold is read from the node: a wire into it has nothing to
+  // resolve against yet.
+  const sample: string[] = []
+  for (const source of [...routing.graph.usedSamples.values()].filter((entry) => liveBeatIds.has(entry.nodeId))) {
+    const node = nodes.find((entry) => entry.id === source.nodeId)
+    if (edges.some((edge) => edge.target === source.nodeId && edge.targetHandle === 'threshold')) {
+      routing.errors.push(`${node?.data.label || source.nodeId}: a generated show controller reads Beat Detect's Threshold from the node. Unwire Threshold and set it on the node.`)
+    }
+    const beat = controlReferenceCpp(source)
+    sample.push(...nativeBeatGateCpp(
+      { beat, threshold: `${beat}_thr`, cooldownMs: `${beat}_cool`, state: beat },
+      floatLit(beatDetectThreshold(node?.data.properties.threshold)),
+    ))
+  }
   const post = routePostChain(postChain, expanded.nodes, expanded.edges, routing.scalarInputs, routing.errors)
   // The chain runs on the one canvas every output is cut from, so it would
   // reach outputs it is not wired to.
@@ -92,6 +126,8 @@ export function showControlRouting(
   return {
     ...routing,
     post,
+    /** Loop lines that sample a forwarded Beat Detect, before the control graph. */
+    sample,
     /** LED outputs with a bundle, keyed by output id. */
     outputs: new Map([...routing.bundles].filter(([id]) => targets.outputIds.has(id))),
     /** The bundle carrying pattern intent into the show's cursor, if wired. */
@@ -99,7 +135,7 @@ export function showControlRouting(
     /** Live bounded-control routes feeding Master Speed, if wired. */
     masterSpeedInputExpr: speedNode ? routing.scalarInputs.get(`${speedNode.id}:speed`) ?? null : null,
     /** Wired slideshow timing, by port; absent ports use the property. */
-    timingInputs: Object.fromEntries(SHOW_TIMING_PORTS.map((port) =>
+    timingInputs: Object.fromEntries([...SHOW_TIMING_PORTS, 'beat'].map((port) =>
       [port, targets.engineId ? routing.scalarInputs.get(`${targets.engineId}:${port}`) : undefined])) as
       Partial<Record<ShowTimingPort, string>>,
   }

@@ -585,6 +585,61 @@ describe('showGenerator', () => {
     expect(cpp).not.toContain('beatEdge')
   })
 
+  it('takes a wired Beat over the Audio wire\'s beat, as the Music Player does', () => {
+    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const show = withSlideshow(
+      { audioReactive: true, minTime: 5, maxTime: 30, beatTransitions: true },
+      [micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }), button],
+      [edge('ea', 'mic', 'audio', 'pm', 'audio'), edge('eb', 'btn', 'pressed', 'pm', 'beat')],
+    )
+    const cpp = generateShowSketch(show.nodes, show.edges, groups)
+    const beatNow = cpp.match(/const bool beatNow = (.+);/)
+    expect(beatNow).not.toBeNull()
+    expect(beatNow![1]).not.toBe('_audioBeat')
+    expect(beatNow![1]).not.toBe('false')
+    expect(cpp).toContain('if (now - phaseStart >= paceHoldMs() && beatEdge) {')
+  })
+
+  it('waits on a wired Beat with no audio host, and lets Player Particles burst on it', () => {
+    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const fx = node('fx', 'PlayerParticles', { enabled: true, intensity: 0.8, energyGate: 0.4 })
+    const show = withSlideshow(
+      { audioReactive: true, minTime: 5, maxTime: 30, beatTransitions: true },
+      [micBoard, button, fx],
+      [edge('eb', 'btn', 'pressed', 'pm', 'beat'), edge('ef', 'fx', 'particleFx', 'pm', 'particleFx')],
+    )
+    const cpp = generateShowSketch(show.nodes, show.edges, groups)
+    expect(cpp).not.toContain('_audioBeat')
+    expect(cpp).toMatch(/const bool beatNow = (?!false;)/)
+    expect(cpp).toContain('burstVolleyLeft = PARTICLE_VOLLEY_BURSTS;')
+    // Min Energy has no band levels to read without audio, so it is left out
+    // rather than referencing globals the sketch never declares.
+    expect(cpp).not.toContain('_audioBass')
+  })
+
+  it('forwards a Beat Detect fed by the show\'s Audio from the hosted engine, with the node\'s Threshold', () => {
+    const detector = node('bd', 'BeatDetect', { threshold: 0.6 })
+    const show = withSlideshow(
+      { audioReactive: true, minTime: 5, maxTime: 30, beatTransitions: true },
+      [micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }), detector],
+      [edge('ea', 'mic', 'audio', 'pm', 'audio'), edge('ed', 'mic', 'audio', 'bd', 'audio'), edge('eb', 'bd', 'beat', 'pm', 'beat')],
+    )
+    const cpp = generateShowSketch(show.nodes, show.edges, groups)
+    expect(cpp).toContain('_audioBeat && _audioBeatConfidence >= ')
+    expect(cpp).toContain('const float n_bd_beat_thr = 0.6f;')
+    expect(cpp).toContain('const bool beatNow = n_bd_beat;')
+    expect(cpp).not.toContain('const bool beatNow = _audioBeat;')
+  })
+
+  it('runs Beat Transitions as a timer when nothing that can beat is wired', () => {
+    // The node draws the row disabled; the firmware agrees rather than
+    // waiting for a beat that never comes.
+    const show = withSlideshow({ audioReactive: true, minTime: 5, maxTime: 30, beatTransitions: true })
+    const cpp = generateShowSketch(show.nodes, show.edges, groups)
+    expect(cpp).not.toContain('beatEdge')
+    expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
+  })
+
   it('reads a wired Interval live, and Min and Max Time only with Audio Reactive', () => {
     const pot = node('pot', 'PotInput', { pin: 4 })
     const timed = withSlideshow({}, [pot], [

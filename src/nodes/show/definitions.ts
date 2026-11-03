@@ -235,6 +235,9 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       // The player's spark overlay, fired by the Audio wire's beat. Wiring
       // an enabled bundle is the ask, so it bursts with Audio Reactive off.
       { id: 'particleFx',  label: 'Particle FX', dataType: 'playerparticles' },
+      // The player's explicit trigger, in the player's place: wired, it
+      // overrides the Audio wire's beat for Beat Transitions and the sparks.
+      { id: 'beat',        label: 'Beat',        dataType: 'bool' },
       { id: 'interval',    label: 'Interval',    dataType: 'float' },
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
@@ -251,14 +254,16 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       order: 'Random',
       audioReactive: false,
-      // Timing rows draw in this order: Interval, the transitions and fade
-      // that always apply, then the timing Audio Reactive turns on.
+      // Timing rows draw in the Music Player's order, so the two nodes read
+      // alike: Interval, then Beat Transitions and the hold it gates, the
+      // transitions switch and fade, then the pacing. Audio Reactive decides
+      // which half is live.
       interval: 20,
-      transitionsEnabled: true,
-      transitionSec: 1.5,
       beatTransitions: false,
       minTime: 20,
       maxTime: 20,
+      transitionsEnabled: true,
+      transitionSec: 1.5,
       energyPacing: false,
       dwellsAndBursts: false,
       seed: 0,

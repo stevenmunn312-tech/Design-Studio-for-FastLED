@@ -42,6 +42,33 @@ describe('editableProperties', () => {
     }
   })
 
+  it('greys Beat Transitions and Energy Pacing until the wire that feeds them is plugged in', () => {
+    const reactive = { ...libraryDefaults('PatternSlideshow'), audioReactive: true }
+    const wired = (...ports: string[]) => new Set(ports)
+    // Beat Transitions waits on a beat: the Beat wire, or the Audio wire's detector.
+    expect(isPropertyEnabled('PatternSlideshow', 'beatTransitions', reactive, wired())).toBe(false)
+    expect(isPropertyEnabled('PatternSlideshow', 'beatTransitions', reactive, wired('beat'))).toBe(true)
+    expect(isPropertyEnabled('PatternSlideshow', 'beatTransitions', reactive, wired('audio'))).toBe(true)
+    // Energy Pacing measures a level only Audio carries.
+    expect(isPropertyEnabled('PatternSlideshow', 'energyPacing', reactive, wired('beat'))).toBe(false)
+    expect(isPropertyEnabled('PatternSlideshow', 'energyPacing', reactive, wired('audio'))).toBe(true)
+    // The hold rows need nothing wired; Audio Reactive alone turns them on.
+    expect(isPropertyEnabled('PatternSlideshow', 'minTime', reactive, wired())).toBe(true)
+    expect(isPropertyEnabled('PatternSlideshow', 'dwellsAndBursts', reactive, wired())).toBe(true)
+    // Without Audio Reactive no wire turns them on.
+    const timed = { ...reactive, audioReactive: false }
+    expect(isPropertyEnabled('PatternSlideshow', 'beatTransitions', timed, wired('beat', 'audio'))).toBe(false)
+  })
+
+  it('draws the slideshow\'s shared timing rows in the Music Player\'s order', () => {
+    const order = (nodeType: string) => editableProperties(nodeType, libraryDefaults(nodeType)).map(([key]) => key)
+    const shared = ['beatTransitions', 'minTime', 'maxTime', 'transitionSec', 'energyPacing', 'dwellsAndBursts']
+    const player = order('PatternMaster').filter((key) => shared.includes(key))
+    const slideshow = order('PatternSlideshow').filter((key) => shared.includes(key))
+    expect(player).toEqual(shared)
+    expect(slideshow).toEqual(shared)
+  })
+
   it('shows the Music Player its Bluetooth name only when Bluetooth is the source', () => {
     const sd = libraryDefaults('PatternMaster')
     expect(sd).toMatchObject({ musicSource: 'SD Card', bluetoothName: 'Design Studio' })

@@ -77,6 +77,14 @@ export interface SlideshowWiredTiming {
   minTime?: number | null
   maxTime?: number | null
   transitionSec?: number | null
+  /**
+   * Whether anything that can beat is wired: the Beat input, or the Audio
+   * input whose detector it stands in for. Beat Transitions with nothing
+   * wired would wait for a beat that never comes, and the node draws the row
+   * disabled, so the resolver treats the switch as off and the show runs on
+   * its timer. Omitted means the property alone decides.
+   */
+  beatSource?: boolean
 }
 
 /** The longest hold the firmware's unsigned millisecond clock can count. */
@@ -108,7 +116,7 @@ export function slideshowSettings(
     // A fade of zero with transitions on is a cut the user asked for, so it is
     // left alone rather than floored up to a minimum they did not.
     transitionSec: transitionsOn ? seconds(wired.transitionSec, props.transitionSec, 1.5) : 0,
-    beatTransitions: audioReactive && props.beatTransitions === true,
+    beatTransitions: audioReactive && props.beatTransitions === true && wired.beatSource !== false,
     energyPacing: audioReactive && props.energyPacing === true,
     dwellsAndBursts: audioReactive && props.dwellsAndBursts === true,
     audioReactive,

@@ -192,7 +192,12 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): 
   const steps = asPatternSteps(props(master).sequence, patternIds)
   // The evaluator reads the same resolver, so a preview that fades for a second
   // and a device that cuts cannot be built from one graph.
-  const settings = slideshowSettings(props(master))
+  const settings = slideshowSettings(props(master), {
+    // Beat Transitions needs a Beat wire or the Audio wire's detector; with
+    // neither the node shows the row disabled, and the show runs on its timer.
+    beatSource: edges.some((edge) => edge.target === master.id
+      && (edge.targetHandle === 'beat' || edge.targetHandle === 'audio')),
+  })
   const sequencing = settings.order === 'Sequence' && steps.length > 0
   const pooledStyles = sequencing
     ? steps.map((step) => step.transition)
@@ -1057,16 +1062,20 @@ export function generateShowSketch(
   // Beat and energy timing read the slideshow's own Audio wire, as the preview
   // does. Both are off unless Audio Reactive is on (slideshowSettings).
   const timingAudio = slideshowAudioConnected && !!audio
+  // A wired Beat overrides the Audio wire's detector, as on the Music Player.
+  // Without either there is no beat: Beat Transitions resolved off above, and
+  // the overlay below has nothing to burst on.
+  const beatExpr = controls.timingInputs.beat ?? (timingAudio ? '_audioBeat' : null)
   const beatGated = rotates && info.beatTransitions
   // Sequence holds count beats; Sequential and Random draw a hold between Min
   // and Max Time, paced as the Music Player paces it.
   const countBeats = sequenceActive && info.beatTransitions
   const holdTiming = rotates && !sequenceActive
   const pacingOptions = { energyPacing: info.energyPacing && timingAudio, dwellsAndBursts: info.dwellsAndBursts }
-  // Player Particles bursts on the same live beat, with Audio Reactive on or
-  // off: wiring an enabled bundle is itself the ask. The preview reads the
-  // same wire the same way.
-  const particleFx = timingAudio && info.particleFx?.enabled ? info.particleFx : null
+  // Player Particles bursts on the same beat, with Audio Reactive on or off:
+  // wiring an enabled bundle is itself the ask. The preview reads the same
+  // wires the same way.
+  const particleFx = beatExpr && info.particleFx?.enabled ? info.particleFx : null
   // Frame nodes between the slideshow and its LEDs, run on the finished canvas.
   const postFrame = controls.post
     ? buildPostFrame(controls.post.chain, controls.post.nodes, controls.post.edges, {}, controls.post.args, !!audio, !!audio)
@@ -1456,6 +1465,7 @@ export function generateShowSketch(
   if (linkFirmware) L.push(...linkFirmware.receive)
   L.push(...displays.sample)
   L.push(...customDisplays.sample)
+  L.push(...controls.sample)
   L.push(...controlGraph.loop)
   for (const control of controls.controls) L.push(...playerControlsServiceCpp(control))
   // After the control graph, which is where a wired Enabled acquires a value.
@@ -1468,11 +1478,14 @@ export function generateShowSketch(
     L.push('  // Player Particles turns the live beat into a configured burst in volleys:')
     L.push('  // PARTICLE_VOLLEY_BURSTS beats in a row each burst, then the sparks rest')
     L.push('  // PARTICLE_REST_MS.')
-    if (particleFx.energyGate > 0) {
+    // Min Energy needs band levels to measure; a Beat wire with no audio
+    // host has none, so every beat spends a burst, as the preview's does.
+    const energyGated = particleFx.energyGate > 0 && timingAudio
+    if (energyGated) {
       L.push(`  // Min Energy: a beat quieter than ${particleFx.energyGate.toFixed(2)} mean band energy spends no burst.`)
     }
     L.push('  static uint8_t burstVolleyLeft = 0;')
-    L.push(`  if (_audioBeat${particleFx.energyGate > 0
+    L.push(`  if (${beatExpr}${energyGated
       ? ` && (_audioBass + _audioMids + _audioTreble) / 3.0f >= ${particleFx.energyGate.toFixed(3)}f`
       : ''}) {`)
     L.push('    if (burstVolleyLeft == 0 && (burstStart == 0 || now - burstStart >= PARTICLE_REST_MS)) {')
@@ -1490,7 +1503,7 @@ export function generateShowSketch(
   if (beatGated) {
     // Without a live beat to wait for, the current pattern keeps playing,
     // as it does in the preview and on the Music Player.
-    L.push(`  const bool beatNow = ${timingAudio ? '_audioBeat' : 'false'};`)
+    L.push(`  const bool beatNow = ${beatExpr ?? 'false'};`)
     L.push('  static bool lastBeat = beatNow;')
     L.push('  bool beatEdge = beatNow && !lastBeat;')
     L.push('  lastBeat = beatNow;')

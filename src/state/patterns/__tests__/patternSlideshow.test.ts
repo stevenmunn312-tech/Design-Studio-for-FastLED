@@ -111,6 +111,16 @@ describe('slideshowSettings', () => {
     expect(slideshowSettings(switches)).toMatchObject({ beatTransitions: false, energyPacing: false, dwellsAndBursts: false })
   })
 
+  it('runs Beat Transitions as a timer when nothing that can beat is wired', () => {
+    // The node draws the row disabled with neither Beat nor Audio wired, so
+    // the switch must not leave the show waiting for a beat that never comes.
+    const props = { ...reactive, beatTransitions: true }
+    expect(slideshowSettings(props, { beatSource: false }).beatTransitions).toBe(false)
+    expect(slideshowSettings(props, { beatSource: true }).beatTransitions).toBe(true)
+    // Omitted, the property alone decides, as every other reader expects.
+    expect(slideshowSettings(props).beatTransitions).toBe(true)
+  })
+
   it('reports transitions off as a zero-length fade', () => {
     // Both the evaluator and the generator already render a zero-length
     // transition as a cut, so "off" needs no second code path in either.
@@ -195,6 +205,60 @@ describe('a running Pattern Slideshow', () => {
     expect(playingIndex()).toBe(0)
     runSlideshow(props, 2.2, extra(true))
     runSlideshow(props, 2.3, extra(true))
+    expect(playingIndex()).toBe(1)
+  })
+
+  it('takes a wired Beat over the Audio wire\'s detector, as the Music Player does', () => {
+    const provider = node('mic-provider', 'MicInput')
+    const audioNode = node('audio', 'Audio', { sourceId: 'mic-provider' })
+    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const beating: AudioSignal = {
+      active: true, micActive: true, beat: true,
+      micBass: 0.5, micMids: 0.5, micTreble: 0.5,
+      spectrum: [], detectorSpectrum: [],
+    }
+    const extra = {
+      nodes: [provider, audioNode, button],
+      edges: [
+        edge('ea', 'audio', 'audio', 'show', 'audio'),
+        edge('eb', 'btn', 'pressed', 'show', 'beat'),
+      ],
+      audioOverride: beating,
+    }
+    const props = { order: 'Sequential', audioReactive: true, minTime: 1, maxTime: 1, transitionsEnabled: false, beatTransitions: true }
+    useHardwareInputStore.getState().setButton('btn', false)
+    runSlideshow(props, 0, extra)
+    runSlideshow(props, 2, extra)
+    runSlideshow(props, 2.1, extra)
+    // The Audio wire beats on every frame, and the show ignores it: the
+    // wired Beat is the beat, and the button is up.
+    expect(playingIndex()).toBe(0)
+    useHardwareInputStore.getState().setButton('btn', true)
+    runSlideshow(props, 2.2, extra)
+    runSlideshow(props, 2.3, extra)
+    expect(playingIndex()).toBe(1)
+  })
+
+  it('waits on a wired Beat with no Audio at all', () => {
+    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const extra = { nodes: [button], edges: [edge('eb', 'btn', 'pressed', 'show', 'beat')] }
+    const props = { order: 'Sequential', audioReactive: true, minTime: 1, maxTime: 1, transitionsEnabled: false, beatTransitions: true }
+    useHardwareInputStore.getState().setButton('btn', false)
+    runSlideshow(props, 0, extra)
+    runSlideshow(props, 2, extra)
+    expect(playingIndex()).toBe(0)
+    useHardwareInputStore.getState().setButton('btn', true)
+    runSlideshow(props, 2.1, extra)
+    runSlideshow(props, 2.2, extra)
+    expect(playingIndex()).toBe(1)
+  })
+
+  it('changes on the timer when Beat Transitions has nothing wired to beat', () => {
+    // The disabled row means what it says: no Beat, no Audio, no waiting.
+    const props = { order: 'Sequential', audioReactive: true, minTime: 1, maxTime: 1, transitionsEnabled: false, beatTransitions: true }
+    runSlideshow(props, 0)
+    runSlideshow(props, 2, {})
+    runSlideshow(props, 2.1, {})
     expect(playingIndex()).toBe(1)
   })
 

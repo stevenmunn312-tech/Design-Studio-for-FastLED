@@ -309,7 +309,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       'Sequential walks the collection in order and skips a weight of 0. Random never repeats the pattern just shown, and a higher weight is chosen more often. Sequence loops the steps you edit with Add step and Edit sequence: a pattern or a tag, a hold, and a transition, and a step can ramp speed, brightness, energy or a named input. An empty sequence holds the current pattern. Previous and Next move between those steps. The slideshow does not read energy tags unless a step asks for a band. Display feeds a panel that shows which pattern is playing.',
       'Turn on Audio Reactive to let audio patterns in the collection listen to a wired Audio source; in silence they fade to black.',
       'Wire Player Particles into Particle FX to throw sparks over the patterns on each beat of the Audio source. The sparks need no Audio Reactive: wiring an enabled bundle is the ask.',
-      'Audio Reactive also swaps Interval for the Music Player’s timing. Each hold is a random time between Min Time and Max Time. Beat Transitions waits for a beat after each hold, and a Sequence hold counts beats. Energy Pacing shortens holds while the sound is intense. Dwells & Bursts now and then holds one pattern longer or changes several in quick succession.',
+      'Audio Reactive also swaps Interval for the Music Player’s timing. Each hold is a random time between Min Time and Max Time. Beat Transitions waits for a beat after each hold, and a Sequence hold counts beats; the beat comes from the Audio source, or from a Beat wire when one is connected. Energy Pacing shortens holds while the sound is intense. Dwells & Bursts now and then holds one pattern longer or changes several in quick succession. Beat Transitions and Energy Pacing stay greyed until the wire that feeds them is connected.',
     ],
     propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Interval, Min Time, Max Time, and Transition inputs override their matching fields.',
     inputs: {
@@ -318,6 +318,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       patternset: 'The patterns to play, from a Pattern Collection.',
       transitions: 'A Transition Pool to choose blend styles from.',
       particleFx: 'Connect Player Particles for beat-triggered sparks over the patterns, with or without Audio Reactive. Unwired means no overlay.',
+      beat: 'An optional trigger that overrides the Audio source’s beat, for Beat Transitions and Player Particles alike. A false-to-true edge counts as one beat; a held true value cannot trigger repeatedly. Wire a button, a Trigger, or a Beat Detect fed by the same Audio node.',
     },
     outputs: {
       frame: 'The current pattern, including any blend and particle overlay.',

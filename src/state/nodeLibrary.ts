@@ -1450,10 +1450,16 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: { control: 'slider', min: 1, max: REACTION_DIFFUSION_MAX_STEPS, step: 1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
+  // The Music Player and the Pattern Slideshow share their timing controls
+  // outright, so a hand that knows one knows the other. A hold of 0 s would
+  // chain transitions back to back; both resolvers floor it at 1 s.
   PatternMaster: {
     volume: N01,
     musicSource: { control: 'select', options: MUSIC_PLAYER_SOURCES },
     order: { control: 'select', options: PATTERN_SLIDESHOW_ORDERS },
+    minTime: { control: 'slider', min: 1, max: 300, step: 1 },
+    maxTime: { control: 'slider', min: 1, max: 300, step: 1 },
+    transitionSec: { control: 'slider', min: 0, max: 10, step: 0.1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   PatternSlideshow: {
@@ -3048,12 +3054,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     order: 'Sequential walks the collection top to bottom, skips a weight of 0, and wraps. Random never repeats the pattern just shown, and a higher weight is chosen more often. Sequence plays the steps edited on the node. With Beat Transitions on, a Sequence hold counts beats, and Energy Pacing and Dwells & Bursts stay off.',
     sequence: 'The steps Sequence order plays, edited with Add step and Edit sequence. Each step names a pattern or a tag, a hold, and a transition, and can ramp speed, brightness, energy or a named input. With Beat Transitions on, the hold counts beats. None holds the current pattern. Previous and Next move between steps. Interval, or Min and Max Time, apply to Sequential and Random.',
     interval: 'Seconds each pattern holds before the slideshow moves on. Audio Reactive replaces it with Min and Max Time.',
-    beatTransitions: 'Wait for a fresh beat after a random hold between Min Time and Max Time. Without beats, the current pattern keeps playing. Off uses timed changes. Needs Audio Reactive.',
+    beatTransitions: 'Wait for a fresh beat after a random hold between Min Time and Max Time. The Beat input overrides the Audio input. Without beats, the current pattern keeps playing. Off uses timed changes. Needs Audio Reactive and a wired Beat or Audio.',
     minTime: 'Shortest time in seconds a pattern holds before the slideshow moves on. With Beat Transitions on, this is the shortest wait after a transition finishes. Needs Audio Reactive; without it, Interval sets the hold.',
     maxTime: 'Longest random hold in seconds. With Beat Transitions on, the slideshow still waits for the next beat after the hold ends. Needs Audio Reactive.',
     transitionsEnabled: 'Blend between patterns when changing. Off switches instantly.',
     transitionSec: 'Seconds the blend between two patterns takes. 0 is a hard cut. The next hold starts when this transition finishes.',
-    energyPacing: 'Lean each hold toward Min Time while the sound is intense and toward Max Time while it is calm, measured against its own recent loudest and quietest moments. Needs Audio Reactive.',
+    energyPacing: 'Lean each hold toward Min Time while the sound is intense and toward Max Time while it is calm, measured against its own recent loudest and quietest moments. Needs Audio Reactive and a wired Audio.',
     dwellsAndBursts: 'Now and then hold one pattern for twice Max Time, and now and then change eight patterns in quick succession, each change just after its transition. Beat Transitions still makes every change wait for a beat. Needs Audio Reactive.',
     audioReactive: 'Let patterns that listen to audio react, fade to black in silence, and time the show with Min and Max Time, Beat Transitions, Energy Pacing and Dwells & Bursts in place of Interval. Off ignores any wired audio.',
     seed: 'Fixes the random order and timing so the same slideshow replays identically. 0 varies every run.',
@@ -3315,6 +3321,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     transitionSec: 'fade (s)',
   },
   PatternSlideshow: {
+    order: 'Pattern Order',
     sequence: 'Sequence',
     interval: 'interval (s)',
     beatTransitions: 'Beat Transitions',
@@ -3322,9 +3329,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     dwellsAndBursts: 'Dwells & Bursts',
     minTime: 'min hold (s)',
     maxTime: 'max hold (s)',
-    transitionsEnabled: 'transitions',
+    transitionsEnabled: 'Transitions',
     transitionSec: 'fade (s)',
-    audioReactive: 'audio reactive',
+    audioReactive: 'Audio Reactive',
   },
   PerformanceGenerator: {
     beatIntensity: 'beat intensity',
@@ -4228,10 +4235,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   // Audio Reactive sits with playback because it decides which timing rows
-  // apply: Interval without it, the rest of Timing with it.
+  // apply: Interval without it, the rest of Timing with it. The shared rows
+  // keep the Music Player's order, with the slideshow's own switch and
+  // Interval slotted in, so the two nodes read alike.
   PatternSlideshow: [
     { key: 'playback', label: 'Playback', keys: ['order', 'sequence', 'audioReactive'] },
-    { key: 'timing', label: 'Timing', keys: ['interval', 'transitionsEnabled', 'transitionSec', 'beatTransitions', 'minTime', 'maxTime', 'energyPacing', 'dwellsAndBursts'] },
+    { key: 'timing', label: 'Timing', keys: ['interval', 'beatTransitions', 'minTime', 'maxTime', 'transitionsEnabled', 'transitionSec', 'energyPacing', 'dwellsAndBursts'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   ControlMap: [
@@ -4983,7 +4992,16 @@ export function showsDisabledProperties(nodeType: string): boolean {
   return SHOWS_DISABLED_PROPERTIES.has(nodeType)
 }
 
-export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
+/**
+ * Whether a row applies under the node's current settings.
+ *
+ * `wiredInputs` names the input ports with a wire, for the few rows whose
+ * meaning depends on what is plugged in rather than on another property;
+ * omitted, those rows are judged on the properties alone.
+ */
+export function isPropertyEnabled(
+  nodeType: string, key: string, properties: Record<string, unknown>, wiredInputs?: ReadonlySet<string>,
+): boolean {
   if (nodeType === 'PatternMaster' && key === 'bluetoothName') return properties.musicSource === 'Bluetooth'
   if (nodeType === 'PatternMaster' && RADIO_GROUP_KEYS.has(key)) return properties.musicSource === 'Internet Radio'
   // A channel the selected board does not have has no pin to wire and no load to dim.
@@ -5259,6 +5277,12 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'PatternSlideshow') {
     const reactive = properties.audioReactive === true
     if (key === 'interval') return !reactive
+    // Beat Transitions waits on a beat and Energy Pacing measures a level, so
+    // each row is live only once the wire that feeds it is plugged in: Beat
+    // or Audio for the one, Audio for the other. The resolver and both
+    // engines treat an unfed switch the same way (slideshowSettings).
+    if (key === 'beatTransitions') return reactive && (!wiredInputs || wiredInputs.has('beat') || wiredInputs.has('audio'))
+    if (key === 'energyPacing') return reactive && (!wiredInputs || wiredInputs.has('audio'))
     if (SLIDESHOW_REACTIVE_TIMING.has(key)) return reactive
   }
   if (nodeType === 'Transition') {

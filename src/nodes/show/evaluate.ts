@@ -1577,11 +1577,16 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
     const wired = (port: 'interval' | 'minTime' | 'maxTime' | 'transitionSec', fallback: number) =>
       incoming.has(`${id}:${port}`) ? num(id, port, props, port, fallback) : null
+    const beatWired = incoming.has(`${id}:beat`)
     const settings = slideshowSettings(props, {
       interval: wired('interval', 20),
       minTime: wired('minTime', 20),
       maxTime: wired('maxTime', 20),
       transitionSec: wired('transitionSec', 1.5),
+      // Beat Transitions has something to wait for: the Beat wire, or the
+      // Audio wire's own detector. With neither it is off, as the node's
+      // disabled row says, and the slideshow runs on its timer.
+      beatSource: beatWired || incoming.has(`${id}:audio`),
     })
     const audioSignal = input(id, 'audio', null)
     // Reactivity is a switch, not a consequence of wiring: a slideshow with
@@ -1593,6 +1598,9 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // source that is not live reads as no audio, as it does for the Music
     // Player.
     const timingAudio = isAudioSignal(audioSignal) && audioSignal.active ? audioSignal : null
+    // A wired Beat overrides the Audio wire's detector, as it does on the
+    // Music Player; unwired, the live source's beat is the beat.
+    const beat = beatWired ? Boolean(input(id, 'beat', false)) : Boolean(timingAudio?.beat)
     // Energy Pacing with nothing to measure stays off, as the firmware leaves
     // it out where there is no audio host.
     const energyPacing = settings.energyPacing && timingAudio !== null
@@ -1603,12 +1611,12 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     })
     const wiredPool = input(id, 'transitions', null) as string[] | null
     const pool = wiredPool && wiredPool.length ? wiredPool : ['crossfade']
-    // Player Particles bursts on the Audio wire's beat whether or not Audio
-    // Reactive is on: wiring an enabled overlay is itself the ask. The beat
-    // needs a live source, as the Music Player's does.
+    // Player Particles bursts on the beat whether or not Audio Reactive is
+    // on: wiring an enabled overlay is itself the ask. The beat needs a
+    // source — a Beat wire or a live Audio — as the Music Player's does.
     const particleValue = input(id, 'particleFx', null)
     const particleFx = isPlayerParticles(particleValue) ? particleValue : null
-    const particles = particleFx?.enabled === true && timingAudio !== null
+    const particles = particleFx?.enabled === true && (beatWired || timingAudio !== null)
     const key = stateKey(id)
 
     let selection = patternSelectionState.get(key)
@@ -1628,12 +1636,12 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     const sequencing = settings.order === 'Sequence'
     updatePatternSelection(selection, { ids, step: sequencing ? 0 : steps })
 
-    let frame = evalPatternShow(key, ids, render, Boolean(timingAudio?.beat), {
+    let frame = evalPatternShow(key, ids, render, beat, {
       minTime: settings.minTime,
       maxTime: settings.maxTime,
       transSec: settings.transitionSec,
       pool,
-      beatEnabled: timingAudio !== null,
+      beatEnabled: beatWired || timingAudio !== null,
       beatTransitions: settings.beatTransitions,
       energyPacing,
       dwellsAndBursts: settings.dwellsAndBursts,

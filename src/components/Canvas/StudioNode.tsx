@@ -465,6 +465,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
   const portFor = (propKey: string) => propertyInputs.find((port) => port.propertyKey === propKey)?.id
     ?? (propKey === 'palette' ? 'paletteIn' : propKey)
   const drivenBy = (propKey: string) => sourceMap.has(portFor(propKey))
+  // Every input with a wire, for rows whose meaning depends on what is
+  // plugged in (a slideshow's Beat Transitions waits on a Beat or Audio wire).
+  const wiredInputIds = useMemo(() => new Set(sourceMap.keys()), [sourceMap])
 
   // Live upstream values for this node's wired inputs, pulled from the shared
   // evaluation pass (previewStore). Serialised so the props section only
@@ -664,7 +667,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const drivenByTouchWidget = Boolean(touchSource && isControlDriverPort(touchSource.srcPort))
         // A property may be inapplicable to the current variant (e.g. a
         // Transition's `direction` outside wipe): shown but disabled.
-        const gated = !isPropertyEnabled(nodeType, key, props)
+        const gated = !isPropertyEnabled(nodeType, key, props, wiredInputIds)
         const disabled = (wired && !drivenByTouchWidget) || gated || locked
         const live = wired ? liveFor(key) : undefined
         const writeValue = (value: unknown) => {

@@ -264,6 +264,19 @@ music-free case. Nobody would find that, so nobody did.
   to tap, so its `audio` accepts a microphone or a line input and nothing else.
   Reactivity is an explicit switch because the whole point of the mode is slow
   relaxing patterns, which should not twitch at room noise unless asked.
+- **The ports and rows are the player's.** The slideshow declares the player's
+  `beat` input in the player's place, and its Timing rows draw in the player's
+  order with Interval and the Transitions switch slotted in, so a hand that
+  knows one node knows the other. A wired Beat overrides the Audio wire's
+  detector for Beat Transitions and the particle overlay, in preview and in
+  `showGenerator.ts`, where `showControlRouting` reads it as a bool control and
+  forwards a Beat Detect fed by the show's Audio node from the hosted engine's
+  beat with the node's own Threshold, as the SD player forwards its decoder
+  beat. Beat Transitions is live only with a Beat or Audio wire, and Energy
+  Pacing only with an Audio wire: `isPropertyEnabled` greys the row from the
+  node's wired inputs, and `slideshowSettings` takes the same `beatSource` so
+  the preview and the firmware run an unfed switch as a timer rather than
+  waiting for a beat that never comes.
 - **Player Particles is the same overlay, on the same wire.** `Particle FX`
   takes the player's bundle and bursts on the Audio wire's beat, with Audio
   Reactive on or off: wiring an enabled bundle is itself the ask, and the
