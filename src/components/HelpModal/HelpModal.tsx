@@ -144,7 +144,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Fix an incomplete graph</strong>
-            <span>Open Graph Health for node-specific repair steps. A design needs a complete frame path into the LED output before it can export or upload.</span>
+            <span>Open the Checks drawer under the canvas for node-specific repair steps. A design needs a complete frame path into the LED output before it can export or upload.</span>
           </div>
         </div>
       </div>
@@ -163,7 +163,7 @@ function QuickStartTab() {
           <div><strong>Pattern Library</strong><span>Reusable groups saved independently so they can be dropped into other projects and shows.</span></div>
         </div>
         <div className={styles.note}>
-          <strong>Offline authoring:</strong> after the first successful load, Studio can be installed and reopened offline for editing and preview. Board discovery, upload, live stream, and helper-backed file operations still need the local helper.
+          <strong>Offline authoring:</strong> after the first successful load, Studio can be installed and reopened offline for editing and preview. Board discovery, upload, live stream, and the project and pattern folders still need the local build tools.
         </div>
       </div>
 
@@ -172,7 +172,7 @@ function QuickStartTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Opening a project from someone else</div>
         <div className={styles.text}>
-          Everything that ships with Studio, and everything you make on this computer, is trusted. Only a share link, file or pattern made on another computer can hold something Studio hasn&apos;t run here before — Formula and Code nodes, or an Art-Net listener — and only those parts wait until you choose <strong>Trust it</strong> in the banner. Studio remembers what you trust, on this computer, for every project, so the same code is never asked about twice.
+          Everything that ships with Studio, and everything you make on this computer, is trusted. Only a share link, file or pattern made on another computer can hold something Studio hasn&apos;t run here before — Formula and Code nodes, or an Art-Net listener — and only those parts wait until you answer <strong>Run it</strong> on the bar above the canvas. That is the only place the question is asked: Upload points at it while anything waits. Studio remembers your answer, on this computer, for every project, so the same code is never asked about twice.
         </div>
         <div className={styles.definitionGrid}>
           <div><strong>Formula and Code nodes</strong><span>Render blank in the preview. Everything else — patterns, effects, fields, audio — runs normally, so most shared patches look completely finished.</span></div>
@@ -180,7 +180,7 @@ function QuickStartTab() {
           <div><strong>Export and upload</strong><span>Allowed, but Studio asks first. Generated firmware runs directly on your board with no sandbox around it.</span></div>
         </div>
         <div className={styles.note}>
-          You will only be asked when the file actually contains one of those things; most shared patches are ordinary patterns and open without a word. Trusting is remembered per project. Before trusting something you did not write, it is worth reading its Formula and Code nodes — and <strong>‹/› View Code</strong> shows the exact sketch any upload would flash.
+          You will only be asked when the file contains one of those things; most shared patterns open without a question. Studio remembers the code you allow on this computer across projects. Read Formula and Code nodes you did not write before choosing Run it. <strong>‹/› View Code</strong> shows the exact firmware an upload would flash.
         </div>
       </div>
 
@@ -232,7 +232,7 @@ function QuickStartTab() {
           </div>
         </div>
         <div className={styles.note}>
-          <strong>Rearranging the workspace:</strong> <strong>View → Layout</strong> resizes the panels for what you are doing — <strong>Build</strong> gives the node library the most room, <strong>Tune</strong> narrows it in favour of the preview, and <strong>Preview</strong> hides the library altogether for the largest LED preview short of Stage View. The same menu holds the appearance toggles: theme, motion, contrast, UI effects, and signal dimming.
+          <strong>Rearranging the workspace:</strong> <strong>View → Panel layout</strong> resizes the panels for what you are doing — <strong>Balanced</strong> gives the node library the most room, <strong>Tune</strong> narrows it in favour of the preview, and <strong>Preview</strong> hides the library altogether for the largest LED preview short of Stage. The <strong>View</strong> control in the toolbar switches between Edit, Focus and Stage. The same menu holds the appearance toggles: theme, motion, contrast, UI effects, and signal dimming.
         </div>
       </div>
 
@@ -323,7 +323,7 @@ function HardwareTab() {
         <div className={styles.definitionGrid}>
           <div><strong>Each part has a board</strong><span>Add another controller from the board menu on the Hardware tab. A part belongs to the board that was active when you added it; the Web Remote, Art-Net, DDP and Frame Stream nodes choose theirs with <strong>Runs on</strong>.</span></div>
           <div><strong>Link wires</strong><span>Wire across boards as usual. A number, switch, button press, colour, text, time, panel field or a Touch Screen&apos;s Controls travels over ESP-NOW and is drawn dashed with a radio mark; hover it to see which boards it joins. There is nothing to place or configure.</span></div>
-          <div><strong>What cannot cross</strong><span>LED frames, audio and other structures stay on one board. Graph Health says what to move, such as putting the microphone on the board that runs the music.</span></div>
+          <div><strong>What cannot cross</strong><span>LED frames, audio and other structures stay on one board. Checks says what to move, such as putting the microphone on the board that runs the music.</span></div>
           <div><strong>Upload each board</strong><span>Both sides of a link are built from the same table. When a link changes, the Upload tab asks you to upload the other board as well; until then it ignores the out-of-date board&apos;s frames.</span></div>
         </div>
         <div className={styles.note}>
@@ -363,7 +363,7 @@ function HardwareTab() {
           The Hardware tab answers <em>what is connected to this board?</em> Its links are automatic and are not a wiring plan. The <strong>Build Diagram</strong> tab answers <em>how should I assemble it?</em> with pin-level connections, power distribution, fuses, parts and connection lists, SVG export, and printable sheets.
         </div>
         <div className={styles.note}>
-          Profiled and catalogued hardware is still not a support promise. Graph Health reports compatibility issues, while the beta support matrix records the exact board, peripheral, LED, operating-system, browser, engine, and workflow combinations tested on real hardware.
+          Profiled and catalogued hardware is still not a support promise. The Checks drawer reports compatibility issues, while the beta support matrix records the exact board, peripheral, LED, operating-system, browser, engine, and workflow combinations tested on real hardware.
         </div>
       </div>
     </>
@@ -397,7 +397,7 @@ function ShortcutsTab() {
           <div className={styles.kbd}><span className={styles.key}>Del</span><span className={styles.key}>Backspace</span></div>
           <div className={styles.shortcutDesc}>Delete selected node(s)</div>
           <div className={styles.kbd}><span className={styles.key}>Esc</span></div>
-          <div className={styles.shortcutDesc}>Closes one layer at a time, in this order: this dialog or an open menu, the Control Deck, Stage fullscreen, Stage View, the Build Diagram, Live Focus, and finally the canvas selection</div>
+          <div className={styles.shortcutDesc}>Closes one layer at a time, in this order: this dialog or an open menu, the Control Deck, Stage fullscreen, Stage, the Build Diagram, the screen design editor, Focus, and finally the canvas selection</div>
           <div className={styles.kbd}><span className={styles.key}>?</span></div>
           <div className={styles.shortcutDesc}>Open this Help dialog (F1 also works)</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>K</span></div>
@@ -405,9 +405,9 @@ function ShortcutsTab() {
           <div className={styles.kbd}><span className={styles.key}>F8</span></div>
           <div className={styles.shortcutDesc}>Toggle the Control Deck (pinned controls, scenes, MIDI/keyboard bindings, and panic).</div>
           <div className={styles.kbd}><span className={styles.key}>F9</span></div>
-          <div className={styles.shortcutDesc}>Toggle Live Focus (hides editing chrome and emphasizes live signal flow)</div>
+          <div className={styles.shortcutDesc}>Toggle Focus view (hides editing chrome and emphasizes live signal flow); the status bar keeps an exit chip</div>
           <div className={styles.kbd}><span className={styles.key}>F10</span></div>
-          <div className={styles.shortcutDesc}>Toggle Stage View (preview-first operator view; fullscreen is available inside Stage)</div>
+          <div className={styles.shortcutDesc}>Toggle Stage view (preview-first operator view; fullscreen is available inside Stage)</div>
         </div>
       </div>
 
@@ -614,7 +614,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>1</div>
             <div className={styles.tipText}>
-              <strong>Start the local helper.</strong> The portable desktop build starts it automatically. For a source checkout, use the platform launcher or run <code>npm run helper</code>.
+              <strong>Start the build tools.</strong> The portable desktop build starts them with Studio. For a source checkout, use the platform launcher or run <code>npm run helper</code>.
             </div>
           </div>
           <div className={styles.tip}>
@@ -626,18 +626,18 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>3</div>
             <div className={styles.tipText}>
-              <strong>Let the build engine prepare.</strong> Studio recommends <strong>arduino-cli</strong> for ESP32 targets while fbuild's confirmed no-op delay remains unresolved.
+              <strong>Let the compiler prepare.</strong> Studio recommends <strong>arduino-cli</strong> for ESP32 targets while fbuild's confirmed no-op delay remains unresolved.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>4</div>
             <div className={styles.tipText}>
-              <strong>For arduino-cli,</strong> install the board core and FastLED library. The helper can locate or download <code>arduino-cli</code>, but its libraries and cores are managed separately. <strong>fbuild</strong> remains available in Board &amp; Port as an explicit experimental choice and manages its own toolchains.
+              <strong>For arduino-cli,</strong> install the board support package and FastLED library. The build tools can locate or download <code>arduino-cli</code>, but its libraries and board support are managed separately. <strong>fbuild</strong> remains available under Build tools &amp; port ▸ Advanced as an explicit experimental choice and downloads its own board support.
             </div>
           </div>
         </div>
         <div className={styles.note}>
-          Open the <strong>Upload</strong> tab. <strong>Getting to your board</strong> lists the steps from your patch to the board — Preview, Graph, Capacity and Connection — and each opens to say what comes next. Expand <strong>Build tools &amp; port</strong> for the helper, engine, toolchain and port, with a repair action where one is available.
+          Open the <strong>Upload</strong> tab. <strong>Getting to your board</strong> lists the steps from your patch to the board — Preview, Graph, Capacity and Connection — and each opens to say what comes next. Expand <strong>Build tools &amp; port</strong> for the build tools, compiler, board support and port, with a repair action where one is available.
         </div>
       </div>
 
@@ -693,7 +693,7 @@ function UploadTab() {
           Click <strong>View Code</strong> in the LED output node to inspect the exact sketch that would be uploaded, or <strong>Export .ino</strong> to download it. Open it in the Arduino IDE or compile with <code>arduino-cli compile --fqbn &lt;board&gt; sketch.ino</code>.
         </div>
         <div className={styles.text}>
-          The generated sketch targets FastLED and does not need Studio or the helper at runtime. Compatibility still depends on the selected board, chipset, libraries, pins, memory, and any node-specific hardware support; check Graph Health and the beta support matrix rather than assuming every combination is validated.
+          The generated firmware targets FastLED and does not need Studio or the build tools at runtime. Compatibility still depends on the selected board, chipset, libraries, pins, memory, and any node-specific hardware support; check the Checks drawer and the beta support matrix rather than assuming every combination is validated.
         </div>
       </div>
 
@@ -763,13 +763,13 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              <strong>Preview receives Art-Net only</strong>, in both modes, through the local helper's UDP listener — so a DMX512 node previews blank unless an Art-Net source happens to be sending. Preview holds one live universe at a time. One sketch shares a single Wi-Fi connection across every Art-Net input and NTP clock, so configure them identically; Graph Health flags unsupported boards, pin conflicts, and missing or conflicting Wi-Fi settings before upload.
+              <strong>Preview receives Art-Net only</strong>, in both modes, through the build tools' UDP listener — so a DMX512 node previews blank unless an Art-Net source happens to be sending. Preview holds one live universe at a time. One sketch shares a single Wi-Fi connection across every Art-Net input and NTP clock, so configure them identically; Checks flags unsupported boards, pin conflicts, and missing or conflicting Wi-Fi settings before upload.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              <strong>In an untrusted project the listener stays closed.</strong> The port to listen on is stored in the node, so a shared graph could otherwise open a network socket on your machine before you had looked at it. The node says <em>listener held</em> until you choose <strong>Trust it</strong>.
+              <strong>In an untrusted project the listener stays closed.</strong> The port to listen on is stored in the node, so a shared graph could otherwise open a network socket on your machine before you had looked at it. The node says <em>listener held</em> until you choose <strong>Run it</strong> on the bar above the canvas.
             </div>
           </div>
         </div>
@@ -804,7 +804,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              NTP credentials follow the same rules as Art-Net: stored only in this browser's local storage, never in the project, share links, or synced project files, but embedded in plain text in the generated sketch. One sketch shares a single Wi-Fi connection across every Art-Net input and NTP clock — Graph Health flags it when they disagree, and warns when a Clock Display has no time source wired at all (it will show <code>--:--</code> on real hardware).
+              NTP credentials follow the same rules as Art-Net: stored only in this browser's local storage, never in the project, share links, or synced project files, but embedded in plain text in the generated sketch. One sketch shares a single Wi-Fi connection across every Art-Net input and NTP clock — Checks flags it when they disagree, and warns when a Clock Display has no time source wired at all (it will show <code>--:--</code> on real hardware).
             </div>
           </div>
         </div>

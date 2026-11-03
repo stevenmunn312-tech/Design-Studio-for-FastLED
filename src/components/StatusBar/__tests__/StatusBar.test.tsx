@@ -27,19 +27,19 @@ describe('StatusBar accessibility', () => {
     useCapacityStore.getState().clear()
   })
 
-  it('counts one module and one patch in the singular', () => {
+  it('counts one node and one wire in the singular', () => {
     useGraphStore.setState({
       nodes: [{ id: 'a', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'A', nodeType: 'SolidColor', category: 'pattern', properties: {}, inputs: [], outputs: [] } }] as never[],
       edges: [{ id: 'e', source: 'a', target: 'a' }] as never[],
     })
     const { getByText, rerender } = render(<StatusBar />)
-    expect(getByText('1 module')).toBeTruthy()
-    expect(getByText('1 patch')).toBeTruthy()
+    expect(getByText('1 node')).toBeTruthy()
+    expect(getByText('1 wire')).toBeTruthy()
 
     useGraphStore.setState({ nodes: [], edges: [] })
     rerender(<StatusBar />)
-    expect(getByText('0 modules')).toBeTruthy()
-    expect(getByText('0 patches')).toBeTruthy()
+    expect(getByText('0 nodes')).toBeTruthy()
+    expect(getByText('0 wires')).toBeTruthy()
   })
 
   it('announces normal status updates politely', () => {
@@ -150,6 +150,29 @@ describe('StatusBar size chip', () => {
     useUiStore.setState({ activeBoardId: 'board-1' })
     view.rerender(<StatusBar />)
     expect(view.getByText('Size: 16 × 16')).toBeTruthy()
+  })
+
+  it('counts the active board partition and names the board when there are several', () => {
+    useGraphStore.setState({
+      nodes: [
+        board('board-1'), output('first', { form: 'matrix', width: 16, height: 16, chipset: 'WS2812B' }, 'board-1'),
+        { id: 'plasma', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'Plasma', nodeType: 'Plasma', category: 'pattern', properties: {}, inputs: [], outputs: [] } },
+        board('board-2'), output('second', { form: 'ring', ledCount: 24, chipset: 'SK6812' }, 'board-2'),
+      ] as never[],
+      edges: [{ id: 'e', source: 'plasma', sourceHandle: 'frame', target: 'first', targetHandle: 'frame' }] as never[],
+      graphData: {}, graphs: { root: { id: 'root', name: 'Main' } }, activeGraphId: 'root',
+    })
+    useUiStore.setState({ activeBoardId: 'board-1' })
+    const view = render(<StatusBar />)
+    expect(view.getByText('3 nodes')).toBeTruthy()
+    expect(view.getByText('1 wire')).toBeTruthy()
+    expect(view.getByText(/^Board 1:/)).toBeTruthy()
+
+    useUiStore.setState({ activeBoardId: 'board-2' })
+    view.rerender(<StatusBar />)
+    expect(view.getByText('2 nodes')).toBeTruthy()
+    expect(view.getByText('0 wires')).toBeTruthy()
+    expect(view.getByText(/^Board 2:/)).toBeTruthy()
   })
 })
 

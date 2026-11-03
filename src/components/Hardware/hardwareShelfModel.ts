@@ -169,6 +169,39 @@ export function hardwareShelfCategories({
   })
 
   const shelfCategories: HardwareShelfCategory[] = [
+    // First, and open on a blank bench: what the patterns light up is the
+    // first part a bench needs after its board, so it is not eighth of eight.
+    {
+      id: 'led-outputs',
+      label: 'LED outputs',
+      hint: 'What the patterns light up',
+      items: [
+        ...(stereoVuFixture ? [{
+          key: stereoVuFixture.partId,
+          nodeType: stereoVuFixture.nodeType,
+          label: stereoVuFixture.label,
+          hint: stereoVuFixture.hint,
+          visual: 'stereo-vu',
+          disabled: stereoVuBlocker !== null,
+          disabledReason: stereoVuBlocker,
+          onSelect: () => addFixturePart(stereoVuFixture),
+        }] : []),
+        ...LED_OUTPUT_ENTRIES.map((entry) => {
+        const needsDataPin = entry.form !== 'hub75'
+        const blocked = needsDataPin && nextLedPin === null
+        return {
+          key: entry.form,
+          nodeType: LED_OUTPUT_NODE_TYPE,
+          label: LED_OUTPUT_FORM_LABELS[entry.form],
+          hint: needsDataPin ? `${entry.hint} on pin ${nextLedPin}` : entry.hint,
+          visual: entry.form,
+          disabled: blocked,
+          disabledReason: blocked ? ledPinBlocker : null,
+          onSelect: () => addLedOutput(entry),
+        }
+        }),
+      ],
+    },
     {
       id: 'inputs',
       label: 'Inputs',
@@ -232,37 +265,6 @@ export function hardwareShelfCategories({
       label: 'Cooling',
       hint: 'Fans that cool an enclosure and report speed',
       items: moduleItems('CoolingFanOutput', coolingFanFixture),
-    },
-    {
-      id: 'led-outputs',
-      label: 'LED outputs',
-      hint: 'What the patterns light up',
-      items: [
-        ...(stereoVuFixture ? [{
-          key: stereoVuFixture.partId,
-          nodeType: stereoVuFixture.nodeType,
-          label: stereoVuFixture.label,
-          hint: stereoVuFixture.hint,
-          visual: 'stereo-vu',
-          disabled: stereoVuBlocker !== null,
-          disabledReason: stereoVuBlocker,
-          onSelect: () => addFixturePart(stereoVuFixture),
-        }] : []),
-        ...LED_OUTPUT_ENTRIES.map((entry) => {
-        const needsDataPin = entry.form !== 'hub75'
-        const blocked = needsDataPin && nextLedPin === null
-        return {
-          key: entry.form,
-          nodeType: LED_OUTPUT_NODE_TYPE,
-          label: LED_OUTPUT_FORM_LABELS[entry.form],
-          hint: needsDataPin ? `${entry.hint} on pin ${nextLedPin}` : entry.hint,
-          visual: entry.form,
-          disabled: blocked,
-          disabledReason: blocked ? ledPinBlocker : null,
-          onSelect: () => addLedOutput(entry),
-        }
-        }),
-      ],
     },
   ].filter((category) => category.items.length > 0)
 

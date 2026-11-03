@@ -79,7 +79,7 @@ describe('HelpModal session state', () => {
     const first = render(<HelpModal />)
 
     fireEvent.click(first.getByRole('tab', { name: 'Node Reference' }))
-    fireEvent.change(first.getByLabelText('Find module'), { target: { value: 'led matrix' } })
+    fireEvent.change(first.getByLabelText('Find a node'), { target: { value: 'led matrix' } })
 
     let matrixOutputButton: HTMLElement | undefined
     await waitFor(() => {
@@ -96,7 +96,7 @@ describe('HelpModal session state', () => {
     const second = render(<HelpModal />)
 
     expect(second.getByRole('tab', { name: 'Node Reference' }).getAttribute('aria-selected')).toBe('true')
-    expect((second.getByLabelText('Find module') as HTMLInputElement).value).toBe('led matrix')
+    expect((second.getByLabelText('Find a node') as HTMLInputElement).value).toBe('led matrix')
     expect(second.getByRole('heading', { name: 'LED Matrix' })).toBeTruthy()
   })
 
@@ -220,7 +220,7 @@ describe('HelpModal session state', () => {
     expect(view.getByText('Record the preview')).toBeTruthy()
     expect(view.getByText('Review saved patterns')).toBeTruthy()
     expect(view.getByText('Drive several outputs')).toBeTruthy()
-    expect(view.getAllByText(/View → Layout/).length).toBeGreaterThan(0)
+    expect(view.getAllByText(/View → Panel layout/).length).toBeGreaterThan(0)
   })
 
   it('documents the Hardware-branch workbench and its ownership rules', () => {

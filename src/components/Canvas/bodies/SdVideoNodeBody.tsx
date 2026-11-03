@@ -86,7 +86,7 @@ export default function SdVideoNodeBody({ nodeId }: { nodeId: string }) {
       setStatus(failed ? log.trim().split('\n').pop() ?? 'Could not write the card' : `Wrote ${sdvPath(clip.name)} to ${drive}`,
         failed ? 'error' : 'success')
     } catch {
-      setStatus('The helper is not running, so the card could not be written', 'error')
+      setStatus('The build tools are not running, so the card could not be written', 'error')
     } finally {
       setBusy(null)
     }

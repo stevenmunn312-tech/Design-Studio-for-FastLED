@@ -102,3 +102,14 @@
   border-color: color-mix(in srgb, var(--accent-output) 28%, transparent);
   box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent-output) 8%, transparent);
 }
+
+.chipButton {
+  cursor: pointer;
+  background: transparent;
+  opacity: 1;
+}
+
+.chipButton:hover,
+.chipButton:focus-visible {
+  border-color: var(--accent-output);
+}

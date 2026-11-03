@@ -2,54 +2,28 @@ import { useGraphStore } from '../state/graphStore'
 import { useUiStore } from '../state/uiStore'
 import { useProjectStore } from '../state/projectStore'
 import { captureWorkspace } from '../state/workspacePersistence'
-import { isPatternContentTrusted, trustPatternContent, workspaceTrustHolds } from '../state/patterns/patternTrust'
+import { isPatternContentTrusted, trustPatternContent } from '../state/patterns/patternTrust'
 import type { SavedPattern } from '../state/patterns/patternLibrary'
 
+export const WORKSPACE_CODE_QUESTION_ID = 'workspace-code-question'
+
+/** Direct build consumers to the workspace's single code permission button. */
+export function showWorkspaceCodeQuestion(): void {
+  document.getElementById(WORKSPACE_CODE_QUESTION_ID)?.focus()
+}
+
 /**
- * Ask the user to trust a just-loaded graph before its CustomFormula/
- * FieldFormula/Code nodes are allowed to evaluate — see todo.md's P0
- * trust-boundary item. Call this right after any load path that pulled
- * content from outside this browser and set `trusted: false` on it (a share
- * link, an imported Graph JSON, or an opened project file); it's a no-op if
- * the graph is already trusted. Deliberately not called from pattern-drop
- * actions (instantiatePattern/createCollectionFromPatterns/
- * addPatternToCollection) — those are frequent, additive workflow actions,
- * so a blocking modal on every drop would be disruptive; the persistent
- * `TrustBanner` is the affordance for that case instead.
- *
- * Also a no-op when the graph holds nothing the flag actually blocks — the
- * same test `TrustBanner` applies, for the same reason (todo.md, 2026-08-14):
- * a modal about Formula and Code logic that isn't in the file is the fastest
- * way to teach someone to dismiss this dialog without reading it. The graph
- * still stays untrusted, so the moment such a node is added the banner
- * appears and export/upload keeps confirming separately.
+ * Trust the open project: remembered on this machine for good (see
+ * patternTrust.ts), and saved so the project reopens trusted. The one action
+ * behind the one decision point, the "Run it" bar above the canvas
+ * (`TrustBanner`). There is deliberately no modal on load and no second
+ * confirm on Upload: the bar says what waits, Upload points at the bar while
+ * anything does (`uploadBlockReason`'s `waitingForTrust`), and both are
+ * answered by this.
  */
-/** Trust the open project: remembered on this machine for good (see
- *  patternTrust.ts), and saved so the project reopens trusted. The one action
- *  behind every Trust button. */
 export function trustCurrentProject(): void {
   useGraphStore.getState().setTrusted(true)
   useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-}
-
-export async function promptTrustIfNeeded(): Promise<void> {
-  const state = useGraphStore.getState()
-  if (state.trusted) return
-  const holds = workspaceTrustHolds(state.nodes, state.graphData)
-  if (!holds.formulaOrCode && !holds.artnet) return
-  const blocked = holds.formulaOrCode && holds.artnet
-    ? 'Its Formula and Code nodes will run, and its network listener will open, once you trust it.'
-    : holds.artnet
-      ? 'Its network listener will open once you trust it.'
-      : 'Its Formula and Code nodes will run once you trust it.'
-  const trust = await useUiStore.getState().requestConfirm({
-    title: 'Trust this project?',
-    message: `Part of this project was made on another computer, so Studio hasn’t run it here before. ${blocked} If you know where it came from, trust it — Studio will remember, and won’t ask about this code again in any project.`,
-    confirmLabel: 'Trust it',
-    cancelLabel: 'Not now',
-  })
-  if (!trust) return
-  trustCurrentProject()
 }
 
 // Pattern Insights scans a batch, so concurrent requests for the same content
@@ -58,7 +32,7 @@ const pendingPatternTrust = new Map<string, Promise<boolean>>()
 
 /**
  * Ask whether a saved Pattern Library pattern may run its Formula/Code node
- * logic. Unlike `promptTrustIfNeeded` this is per-pattern rather than
+ * logic. Unlike the workspace bar this is per-pattern rather than
  * per-workspace: the critic renders each saved pattern's subgraph on its own,
  * outside any workspace, so there is no workspace trust flag to consult.
  *
@@ -77,9 +51,9 @@ export async function promptPatternTrust(saved: SavedPattern): Promise<boolean> 
 
   const ask = (async () => {
     const trust = await useUiStore.getState().requestConfirm({
-      title: 'Trust this pattern?',
+      title: 'Run code from this pattern?',
       message: `“${saved.name}” contains Formula or Code nodes, and you haven’t run this version before. Judging it means running that logic in your browser. Skip it if you didn’t make this pattern and don’t know where it came from.`,
-      confirmLabel: 'Trust and judge',
+      confirmLabel: 'Run and judge',
       cancelLabel: 'Skip this pattern',
       tone: 'danger',
     })

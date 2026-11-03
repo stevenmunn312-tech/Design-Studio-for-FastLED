@@ -113,6 +113,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## View menu, experimental chips and Help
 
+- Edit, Focus and Stage are mutually exclusive views. Enter Stage through
+  `enterStagePresentation`, which clears Focus; F9 leaves Stage through
+  `exitStagePresentation` before toggling Focus so browser fullscreen is also
+  unwound. The Control Deck remains independent. Focus's status-bar exit and
+  Stage's preview exit stay visible. The View menu lists all four workspace
+  tabs as radio items and calls the `build` panel layout Balanced.
+- The Checks drawer opens once on each arrival at Upload with blockers,
+  including its initial mount after Build Diagram, where it is unmounted.
+  A session-only auto-open must not overwrite the saved collapsed preference.
+- Node context menus open Help at the node's reference selection. Check
+  coverage through `NODE_LIBRARY`, not an eager import of `NODE_REFERENCE`:
+  reference content and examples belong to the lazy Help chunk.
+  Clear the previous reference search and expand the selected category so an
+  unrelated remembered filter cannot send the shortcut to another article.
 - Theme and preview style are radio lists in the View menu (`role="menuitemradio"`,
   `THEMES` and `PREVIEW_STYLE_OPTIONS`, through `setTheme` / `setPreviewStyle`),
   not a button that cycles; the toolbar's style button still cycles as a quick

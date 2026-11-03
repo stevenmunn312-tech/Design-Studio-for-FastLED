@@ -77,7 +77,7 @@ describe('firstProjectSteps', () => {
     const base = { nodes, edges: [wire], baseline: 'before' }
     const blocked = firstProjectSteps(input({ ...base, graphBlockerCount: 2 }))
     expect(blocked[3]).toMatchObject({ state: 'current' })
-    expect(blocked[3].detail).toMatch(/^2 things to fix first/)
+    expect(blocked[3].detail).toMatch(/^2 things block upload. Checks/)
     expect(firstProjectSteps(input({ ...base, capacityVerdict: 'unknown' }))[3].detail).toMatch(/Check capacity/)
     expect(firstProjectSteps(input({ ...base, capacityVerdict: 'tight' }))[3].state).toBe('done')
     expect(firstProjectSteps(input({ ...base, capacityVerdict: 'overflow' }))[3].state).toBe('current')

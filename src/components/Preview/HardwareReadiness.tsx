@@ -173,7 +173,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
           `Sending ${wire.ledCount} LEDs on ${wire.controllerCount} ${wire.controllerCount === 1 ? 'output' : 'outputs'} takes about ${wireMs.toFixed(1)} ms on the ${wire.facts.chip}`
           + ` (${wire.concurrency <= 1 || wire.controllerCount === 1 ? 'one at a time' : `${Math.min(wire.concurrency, wire.controllerCount)} at once`}${wire.networkActive && wire.rmt ? ', with the network up' : ''}).`
           + (wire.wireBound
-            ? ` That allows about ${wire.reachableFps} fps of the Board's ${wire.frameRate}; Graph Health offers the fix.`
+            ? ` That allows about ${wire.reachableFps} fps of the Board's ${wire.frameRate}; Checks offers the fix.`
             : ` The Board's ${wire.frameRate} fps fits; rendering and audio work come on top.`)
         }>
           <em className={styles.label}>Frame</em>

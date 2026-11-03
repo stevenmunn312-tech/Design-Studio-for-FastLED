@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import MatrixOutputDeployPopup from '../MatrixOutputDeployPopup'
 import CapacityWatcher from '../CapacityWatcher'
+import TrustBanner from '../../TrustBanner/TrustBanner'
+import { clearPatternContentTrustForTests } from '../../../state/patterns/patternTrust'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/upload/uploadStore'
@@ -175,6 +177,59 @@ describe('MatrixOutputDeployPopup', () => {
     vi.mocked(findFirmwareRamBudgetIssue).mockReturnValue(null)
   })
 
+  it.each([false, true])('waits for the banner decision, including an open pattern (%s)', (openPattern) => {
+    clearPatternContentTrustForTests()
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        id: 'foreign-code', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Code', nodeType: 'Code', category: 'pattern',
+          properties: { code: 'return foreignUploadRevision()' }, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [{ id: 'frame', source: 'foreign-code', sourceHandle: 'frame', target: 'matrix', targetHandle: 'frame' }],
+      trusted: false,
+    })
+    if (openPattern) {
+      const [matrix, code] = useGraphStore.getState().nodes
+      const group = {
+        ...code, id: 'pattern-instance',
+        data: { ...code.data, nodeType: 'Group', properties: { groupId: 'foreign-pattern' } },
+      }
+      useGraphStore.setState({
+        nodes: [code, {
+          ...code, id: 'group-output',
+          data: { ...code.data, nodeType: 'GroupOutput', properties: {},
+            inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }], outputs: [] },
+        }],
+        edges: [{ id: 'inside', source: code.id, sourceHandle: 'frame', target: 'group-output', targetHandle: 'frame' }],
+        activeGraphId: 'foreign-pattern',
+        graphs: { root: { id: 'root', name: 'Main' }, 'foreign-pattern': { id: 'foreign-pattern', name: 'Foreign' } },
+        graphData: { root: { nodes: [matrix, group], edges: [
+          { id: 'frame', source: group.id, sourceHandle: 'frame', target: 'matrix', targetHandle: 'frame' },
+        ] } },
+      })
+    }
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
+      selectedPort: 'COM7', portsScanned: true,
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [] }],
+    })
+    const view = render(<><TrustBanner /><MatrixOutputDeployPopup /></>)
+    const upload = view.getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement
+    expect(upload.disabled).toBe(true)
+    expect(view.getAllByRole('button', { name: 'Run it' })).toHaveLength(1)
+    fireEvent.click(view.getByRole('button', { name: 'Review question' }))
+    expect(document.activeElement).toBe(view.getByRole('button', { name: 'Run it' }))
+    expect(useGraphStore.getState().trusted).toBe(false)
+    expect(useUploadStore.getState().runUpload).not.toHaveBeenCalled()
+    fireEvent.click(view.getByRole('button', { name: 'Run it' }))
+    expect(useGraphStore.getState().trusted).toBe(true)
+    expect(view.queryByRole('button', { name: 'Review question' })).toBeNull()
+    // This fixture has no saved project target, so saving the permission
+    // clears its session-only port. Restore that separate readiness input.
+    act(() => useUploadStore.setState({ selectedPort: 'COM7' }))
+    expect(upload.disabled, upload.title).toBe(false)
+  })
+
   it.each([false, true])('shares artwork with capacity and waits before upload/export (retry: %s)', async (failFirst) => {
     const document = createDisplayDocument('document')
     document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
@@ -259,9 +314,10 @@ describe('MatrixOutputDeployPopup', () => {
   it('keeps readiness collapsed behind the action-needed gate', () => {
     const { getByRole, queryByText } = render(<MatrixOutputDeployPopup />)
 
-    expect(queryByText('Browser uploads need the local helper running on this machine.')).toBeNull()
+    expect(queryByText(/^Build tools are not running\./)).toBeNull()
     fireEvent.click(getByRole('button', { name: /Build tools & port/i }))
-    expect(queryByText('Browser uploads need the local helper running on this machine.')).toBeTruthy()
+    // A source checkout: the page is not served by the build tools themselves.
+    expect(queryByText(/^Build tools are not running\. In a source checkout, run npm run helper/)).toBeTruthy()
   })
 
   it('shows the board-derived RAM verdict as a pre-build blocker', () => {
@@ -386,19 +442,18 @@ describe('MatrixOutputDeployPopup', () => {
     expect(getByText('Live control')).toBeTruthy()
   })
 
-  it('keeps setup left of an inline upload-engine selector', () => {
+  it('keeps the compiler picker under Build tools & port as an advanced choice', () => {
     const setEngine = vi.fn()
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: true },
       setEngine,
     })
 
-    const { getByRole } = render(<MatrixOutputDeployPopup inline />)
-    const enginePicker = getByRole('group', { name: 'Upload engine' })
-    const setupButton = getByRole('button', { name: '✦ Setup…' })
+    const { getByRole, queryByRole } = render(<MatrixOutputDeployPopup inline />)
+    expect(queryByRole('group', { name: 'Compiler' })).toBeNull()
+    fireEvent.click(getByRole('button', { name: /Build tools & port/i }))
+    const enginePicker = getByRole('group', { name: 'Compiler' })
     const engineButtons = Array.from(enginePicker.querySelectorAll('button'))
-
-    expect(setupButton.parentElement).toBe(enginePicker.parentElement)
     expect(engineButtons.map((button) => button.textContent)).toEqual(['fbuild', 'arduino-cli'])
 
     fireEvent.click(getByRole('button', { name: 'arduino-cli' }))
@@ -421,8 +476,8 @@ describe('MatrixOutputDeployPopup', () => {
     const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
     fireEvent.click(getByRole('button', { name: /Build tools & port/i }))
 
-    expect(getByText('ESP32-S3 needs the esp32:esp32 core installed.')).toBeTruthy()
-    fireEvent.click(getByRole('button', { name: 'Install core: Toolchain' }))
+    expect(getByText('ESP32-S3 needs its board support package (esp32:esp32) installed.')).toBeTruthy()
+    fireEvent.click(getByRole('button', { name: 'Install board support: Board support' }))
     expect(installCore).toHaveBeenCalledWith('esp32:esp32')
 
     fireEvent.click(getByRole('button', { name: 'Choose port: Connection' }))

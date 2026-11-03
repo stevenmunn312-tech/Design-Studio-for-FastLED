@@ -233,19 +233,27 @@ describe('TransportDisplayNodeBody', () => {
    * there, disabled, with the one step that enables it beside it — and a
    * design set aside keeps its document for when Custom design returns.
    */
-  it('disables the design button on a fixed layout and says how to enable it', () => {
+  it('sets Layout to Custom design itself when a kept design is edited from a fixed layout', () => {
     act(() => {
       useGraphStore.setState({
         nodes: [display({ partId: 'st7789-tft-240x240', tftRotation: '0', tftLayout: 'Now Playing', displayId: 'panel' })],
         edges: [],
         displayDocuments: { panel: createDisplayDocument('panel', 240, 240) },
       })
+      useUiStore.setState({ designWorkspaceView: { kind: 'graph' } })
     })
     const view = render(<TransportDisplayNodeBody nodeId="tft" />)
-    expect((view.getByRole('button', { name: 'Edit screen design' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(view.getByText('Set Layout to Custom design to edit.')).toBeTruthy()
+    const edit = view.getByRole('button', { name: 'Edit screen design' }) as HTMLButtonElement
+    expect(edit.disabled).toBe(false)
+    expect(view.getByText('Sets Layout to Custom design.')).toBeTruthy()
     expect(view.queryByRole('button', { name: 'Create screen design' })).toBeNull()
+
+    act(() => { fireEvent.click(edit) })
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'tft')!.data.properties.tftLayout).toBe('Custom design')
+    // The kept design is the one that opens; nothing new was minted.
     expect(useGraphStore.getState().displayDocuments.panel).toBeDefined()
+    expect(Object.keys(useGraphStore.getState().displayDocuments)).toEqual(['panel'])
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'tft' })
   })
 
   it('offers the design it already has for editing instead of a second one', () => {

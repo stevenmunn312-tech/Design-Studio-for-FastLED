@@ -3,6 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { THEMES, useUiStore, type AppTheme } from '../../state/uiStore'
 import type { LayoutPresetId } from '../../state/layoutPresets'
+import { WORKSPACE_TABS } from '../../state/workspaceTabs'
 import { rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
 import { withFreshBoardLink } from '../../state/peripherals/boardLinkCopy'
 import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
@@ -44,7 +45,6 @@ import { downloadLibraryFile, libraryFileName } from '../../utils/libraryShare'
 import { isWorkspacePayload, sanitizeWorkspacePayload, workspaceLoadStatus } from '../../utils/workspacePayload'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
 import { captureSharePreview } from '../../utils/sharePreviewCapture'
-import { promptTrustIfNeeded } from '../../utils/trustPrompt'
 import { enterStagePresentation, exitStagePresentation } from '../../utils/stagePresentation'
 import { IconPause, IconPlay } from '../Preview/PlayerIcons'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
@@ -86,7 +86,7 @@ export default function MenuBar() {
     highContrast,
     toggleHighContrast,
     performanceMode,
-    togglePerformanceMode,
+    setPerformanceMode,
     evaluationRunning,
     toggleEvaluation,
     uiEffectsEnabled,
@@ -102,7 +102,7 @@ export default function MenuBar() {
     cyclePreviewStyle,
     layoutPreset,
     applyLayoutPreset,
-    toggleBuildDiagram,
+    setWorkspaceMode,
     openHelp,
     setHelpTab,
     openRecover,
@@ -122,7 +122,7 @@ export default function MenuBar() {
     highContrast: s.highContrast,
     toggleHighContrast: s.toggleHighContrast,
     performanceMode: s.performanceMode,
-    togglePerformanceMode: s.togglePerformanceMode,
+    setPerformanceMode: s.setPerformanceMode,
     evaluationRunning: s.evaluationRunning,
     toggleEvaluation: s.toggleEvaluation,
     uiEffectsEnabled: s.uiEffectsEnabled,
@@ -138,7 +138,7 @@ export default function MenuBar() {
     cyclePreviewStyle: s.cyclePreviewStyle,
     layoutPreset: s.layoutPreset,
     applyLayoutPreset: s.applyLayoutPreset,
-    toggleBuildDiagram: s.toggleBuildDiagram,
+    setWorkspaceMode: s.setWorkspaceMode,
     openHelp: s.openHelp,
     setHelpTab: s.setHelpTab,
     openRecover: s.openRecover,
@@ -153,7 +153,9 @@ export default function MenuBar() {
 
   const THEME_ICON: Record<AppTheme, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<AppTheme, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
-  const LAYOUT_PRESET_LABEL: Record<LayoutPresetId, string> = { build: 'Build', tune: 'Tune', preview: 'Preview' }
+  // "Balanced", not "Build": Build Diagram is a workspace tab, and a layout
+  // preset sharing its name read as a second way to open it.
+  const LAYOUT_PRESET_LABEL: Record<LayoutPresetId, string> = { build: 'Balanced', tune: 'Tune', preview: 'Preview' }
   const importInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
@@ -210,8 +212,8 @@ export default function MenuBar() {
   const effectivePreview3d = uiEffectsEnabled && preview3d
   const effectivePreviewStyle = uiEffectsEnabled ? previewStyle : 'standard'
   const startTitle = lastStartChoice === 'blank'
-    ? 'Open the start gallery — blank canvas was your last choice'
-    : 'Open the start gallery with starter patches and blank canvas'
+    ? 'Open the Start Gallery — blank canvas was your last choice'
+    : 'Open the Start Gallery: starters and a blank canvas'
   const closeMenus = () => {
     setFileMenuOpen(false)
     setViewMenuOpen(false)
@@ -544,7 +546,6 @@ export default function MenuBar() {
     useGraphStore.getState().loadGraph(opened.workspace.nodes, opened.workspace.edges, opened.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(workspaceLoadStatus(`Opened project "${opened.name}"`, dropped), dropped > 0 ? 'info' : 'success')
-    void promptTrustIfNeeded()
     return true
   }
 
@@ -639,7 +640,7 @@ export default function MenuBar() {
         return  // canceled
       }
       if (!picked) {
-        setStatus('The helper could not open its file dialog — choose Open Project File again', 'error')
+        setStatus('The build tools could not open their file dialog — choose Open Project File again', 'error')
         void useUploadStore.getState().refreshHelper()
         return
       }
@@ -705,7 +706,6 @@ export default function MenuBar() {
           })
           useGraphStore.temporal.getState().clear()
           setStatus(workspaceLoadStatus('Graph JSON imported', sanitized.dropped), sanitized.dropped > 0 ? 'info' : 'success')
-          void promptTrustIfNeeded()
         } catch {
           setStatus('Failed to import Graph JSON — invalid file', 'error')
         }
@@ -819,7 +819,7 @@ export default function MenuBar() {
                 Export Library…
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); openTemplates() }}>
-                Starter Templates…
+                Start Gallery…
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); useFirstProjectGuide.getState().start() }}>
                 First Project Guide
@@ -937,18 +937,23 @@ export default function MenuBar() {
                 {signalPathDimEnabled ? '✓' : '○'} Signal dimming: {signalPathDimEnabled ? 'On' : 'Off'}
               </button>
               <div className={styles.menuDivider} />
+              {/* All four tabs, as the tab strip has them: one of them alone
+                  here made "Build" mean two things beside the layout list. */}
               <div className={styles.menuLabel}>Workspace</div>
-              <button
-                className={styles.menuItem}
-                role="menuitemcheckbox"
-                aria-checked={workspaceMode === 'build'}
-                onClick={() => { closeMenus(); toggleBuildDiagram() }}
-                title="Switch between the logical design canvas and the physical build workspace"
-              >
-                {workspaceMode === 'build' ? '✓' : '○'} Build Diagram
-              </button>
+              {WORKSPACE_TABS.map(({ mode, label }) => (
+                <button
+                  key={mode}
+                  className={styles.menuItem}
+                  role="menuitemradio"
+                  aria-checked={workspaceMode === mode}
+                  onClick={() => { closeMenus(); setWorkspaceMode(mode) }}
+                  title={`Open the ${label} tab`}
+                >
+                  {workspaceMode === mode ? '✓' : '○'} {label}
+                </button>
+              ))}
               <div className={styles.menuDivider} />
-              <div className={styles.menuLabel}>Layout</div>
+              <div className={styles.menuLabel}>Panel layout</div>
               {(['build', 'tune', 'preview'] as const).map((preset) => (
                 <button
                   key={preset}
@@ -1002,23 +1007,25 @@ export default function MenuBar() {
         <button
           className={styles.btn}
           onClick={openTemplates}
-          aria-label="Open start gallery"
+          aria-label="Open Start Gallery"
           title={startTitle}
         >
-          ✦ Start
+          ✦ Start Gallery
         </button>
         <button
           className={`${styles.btn} ${styles.evaluationBtn} ${evaluationRunning ? styles.evaluationRunning : styles.evaluationPaused}`}
           onClick={() => {
             toggleEvaluation()
-            setStatus(evaluationRunning ? 'Graph evaluation paused' : 'Graph evaluation resumed')
+            setStatus(evaluationRunning ? 'Preview frozen' : 'Preview running')
           }}
-          aria-label={evaluationRunning ? 'Pause graph evaluation' : 'Resume graph evaluation'}
+          aria-label={evaluationRunning ? 'Freeze the preview' : 'Unfreeze the preview'}
           aria-pressed={!evaluationRunning}
-          title={evaluationRunning ? 'Pause graph evaluation and freeze previews' : 'Resume graph evaluation'}
+          title={evaluationRunning
+            ? 'Freeze the preview: stop evaluating the graph, so every node and the LED preview hold their last frame. The show players keep their own play buttons.'
+            : 'Unfreeze the preview and evaluate the graph again'}
         >
           {evaluationRunning ? <IconPause size={12} /> : <IconPlay size={12} />}
-          <span className={styles.evaluationLabel}>{evaluationRunning ? 'Pause Eval' : 'Play Eval'}</span>
+          <span className={styles.evaluationLabel}>{evaluationRunning ? 'Freeze preview' : 'Unfreeze'}</span>
         </button>
         <input
           ref={projectInputRef}
@@ -1044,41 +1051,59 @@ export default function MenuBar() {
           onChange={handleLibraryFileChange}
         />
         <div className={styles.sep} />
-        <div className={styles.liveTools} role="group" aria-label="Live performance tools">
+        {/* One View control. Edit, Focus and Stage are the three ways the
+            workspace can be shown, so they are one radio group rather than
+            two independent toggles whose off states both meant "editing".
+            The Deck is a panel that opens over any of them, so it stays a
+            toggle beside the group. */}
+        <div className={styles.liveTools} role="radiogroup" aria-label="View">
+          <button
+            className={`${styles.liveTool} ${!performanceMode && !stageMode ? styles.liveToolActive : ''}`}
+            onClick={() => {
+              setPerformanceMode(false)
+              if (stageMode) void exitStagePresentation()
+            }}
+            role="radio"
+            aria-checked={!performanceMode && !stageMode}
+            title="Edit: the full workspace with its tabs, panels and status bar"
+          >
+            Edit
+          </button>
           <button
             className={`${styles.liveTool} ${performanceMode ? styles.liveToolActive : ''}`}
-            onClick={togglePerformanceMode}
-            aria-label="Toggle Live Focus"
-            aria-pressed={performanceMode}
-            title="Live Focus: hide editing chrome and emphasize live signal flow (F9)"
+            onClick={() => {
+              if (stageMode) void exitStagePresentation()
+              setPerformanceMode(true)
+            }}
+            role="radio"
+            aria-checked={performanceMode}
+            title="Focus: hide editing chrome and emphasize live signal flow (F9). Esc returns to Edit."
           >
             Focus
           </button>
           <button
-            className={`${styles.liveTool} ${deckOpen ? styles.liveToolActive : ''}`}
-            onClick={toggleDeck}
-            aria-label="Toggle Control Deck"
-            aria-pressed={deckOpen}
-            title="Control Deck: pinned controls, scenes, MIDI and keyboard bindings, and panic (F8)"
-          >
-            Deck
-          </button>
-          <button
             className={`${styles.liveTool} ${styles.stageTool} ${stageMode ? styles.stageToolActive : ''}`}
             onClick={() => {
-              if (stageMode) void exitStagePresentation()
-              else void enterStagePresentation()
+              setPerformanceMode(false)
+              if (!stageMode) void enterStagePresentation()
             }}
-            aria-label="Toggle Stage View"
-            aria-pressed={stageMode}
-            title={stageMode
-              ? 'Exit Stage View (Esc or F10)'
-              : 'Stage View: preview-first operator view; fullscreen is available inside Stage (F10)'}
+            role="radio"
+            aria-checked={stageMode}
+            title="Stage: preview-first operator view; fullscreen is available inside Stage (F10). Esc returns to Edit."
           >
             Stage
           </button>
-          {import.meta.env.DEV && <DevPerformanceHudToggle />}
         </div>
+        <button
+          className={`${styles.liveTool} ${styles.deckTool} ${deckOpen ? styles.liveToolActive : ''}`}
+          onClick={toggleDeck}
+          aria-label="Toggle Control Deck"
+          aria-pressed={deckOpen}
+          title="Control Deck: pinned controls, scenes, MIDI and keyboard bindings, and panic (F8)"
+        >
+          Deck
+        </button>
+        {import.meta.env.DEV && <DevPerformanceHudToggle />}
         <div className={styles.sep} />
         <button
           className={styles.btn}

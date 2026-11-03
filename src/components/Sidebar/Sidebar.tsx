@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
-import { autoConnectPlacedNode, canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegistry } from '../../state/graphStore'
+import { autoConnectPlacedNode, canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegistry, playCollectionWith, type CollectionPlayerType } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { usePatternLibrary, withRegisteredGroups, type SavedPattern } from '../../state/patterns/patternLibrary'
@@ -35,6 +35,14 @@ import styles from './Sidebar.module.css'
 // Bumped to v2 so existing sessions (whose stored value predates Quick
 // recipes becoming collapsible) fall through to the new 'recipes' default
 // once, instead of staying stuck on whatever category they had open before.
+/** The players "New collection, played by" offers, in the order a first show
+ *  tends to grow: timed, then to music, then planned from it. */
+const COLLECTION_PLAYERS: { type: CollectionPlayerType; label: string; title: string }[] = [
+  { type: 'PatternSlideshow', label: 'Slideshow', title: 'Plays the collection on a timer, in order or at random' },
+  { type: 'PatternMaster', label: 'Music Player', title: 'Picks patterns to match the music as it plays' },
+  { type: 'PerformanceGenerator', label: 'Generator', title: 'Plans a timed show from an analysed song' },
+]
+
 const EXPANDED_KEY = 'design-studio-for-fastled-sidebar-expanded-v2'
 const FAVOURITES_KEY = 'design-studio-for-fastled-sidebar-favourites'
 const RECENT_KEY = 'design-studio-for-fastled-sidebar-recent'
@@ -113,7 +121,7 @@ const RECIPE_CARDS: RecipeCard[] = [
     title: 'Live spectrum',
     kicker: 'Continuous response',
     description: 'See how continuous microphone energy becomes pixels, then add memory with Trails.',
-    actionLabel: 'Add guided patch',
+    actionLabel: 'Add this recipe',
     nodes: [
       { key: 'mic-hardware', type: 'MicInput', dx: -340, dy: -80 },
       { key: 'mic', type: 'Audio', dx: -340, dy: -80, props: { sourceId: '$mic-hardware' } },
@@ -139,7 +147,7 @@ const RECIPE_CARDS: RecipeCard[] = [
     title: 'Beat colour jump',
     kicker: 'Discrete events',
     description: 'Learn event-driven wiring: each detected beat captures and holds one new palette colour.',
-    actionLabel: 'Add guided patch',
+    actionLabel: 'Add this recipe',
     nodes: [
       { key: 'mic-hardware', type: 'MicInput', dx: -440, dy: -140 },
       { key: 'mic', type: 'Audio', dx: -440, dy: -140, props: { sourceId: '$mic-hardware' } },
@@ -171,7 +179,7 @@ const RECIPE_CARDS: RecipeCard[] = [
     title: 'Percussion trails',
     kicker: 'Separated transients',
     description: 'Split kick, snare, and hi-hat into separate controls, then turn their shockwaves into trails.',
-    actionLabel: 'Add guided patch',
+    actionLabel: 'Add this recipe',
     nodes: [
       { key: 'mic-hardware', type: 'MicInput', dx: -420, dy: -80 },
       { key: 'mic', type: 'Audio', dx: -420, dy: -80, props: { sourceId: '$mic-hardware' } },
@@ -418,7 +426,7 @@ function Sidebar() {
     const name = document.createElement('strong')
     name.textContent = def.label
     const typeLabel = document.createElement('small')
-    typeLabel.textContent = `${moduleType(def)} module`
+    typeLabel.textContent = `${moduleType(def)} node`
     copy.append(name, typeLabel)
     ghost.append(glyph, copy)
     document.body.appendChild(ghost)
@@ -548,7 +556,7 @@ function Sidebar() {
 
   const handleRevealFolder = async () => {
     const ok = await revealPatternsFolder()
-    if (!ok) setStatus('Upload helper offline — can’t open the saved-pattern folder', 'error')
+    if (!ok) setStatus('Build tools are not running — can’t open the saved-pattern folder', 'error')
   }
 
   const togglePatternCategory = (id: string) => {
@@ -612,7 +620,10 @@ function Sidebar() {
   // carries before the store clones its subgraph; a pattern made here is
   // returned untouched.
   const handleAddPattern = (p: SavedPattern) => instantiatePattern(withRegisteredGroups(p), dropPos(), true)
-  const handleCreateCollection = () => {
+  // A collection on its own is a list nobody plays. Offered with a player it
+  // is a show: the player lands beside it, wired to it and on to the LED
+  // output, so the three steps the help promised are one.
+  const handleCreateCollection = (playWith?: CollectionPlayerType) => {
     const chosen = selectedPatternIds.size > 0
       ? patterns.filter((pattern) => selectedPatternIds.has(pattern.id))
       : patterns
@@ -625,13 +636,19 @@ function Sidebar() {
       setStatus('Pattern Collection node is unavailable', 'error')
       return
     }
+    const before = new Set(useGraphStore.getState().nodes.map((node) => node.id))
     createCollectionFromPatterns(
       chosen.map(withRegisteredGroups),
       dropPos(),
       resolveDefaultProperties(def.type, def.defaultProperties),
       true,
     )
-    setStatus(`Created collection with ${chosen.length} pattern${chosen.length === 1 ? '' : 's'}`, 'success')
+    const collection = useGraphStore.getState().nodes.find((node) => !before.has(node.id) && node.data.nodeType === 'PatternCollection')
+    const player = playWith && collection ? playCollectionWith(collection.id, playWith) : null
+    const played = player
+      ? `, played by ${NODE_LIBRARY.find((n) => n.type === playWith)?.label ?? playWith}`
+      : ''
+    setStatus(`Created collection with ${chosen.length} pattern${chosen.length === 1 ? '' : 's'}${played}`, 'success')
   }
 
   const startRename = (p: SavedPattern) => {
@@ -833,9 +850,9 @@ function Sidebar() {
     setPatternContextMenu(null)
   }
 
-  const createCollectionFromSelection = () => {
+  const createCollectionFromSelection = (playWith?: CollectionPlayerType) => {
     if (selectedPatterns.length === 0) return
-    handleCreateCollection()
+    handleCreateCollection(playWith)
     setPatternContextMenu(null)
   }
 
@@ -876,17 +893,18 @@ function Sidebar() {
     setExpandedId(visibleSectionIds[0] ?? null)
   }, [expandedId, query, visibleSectionIds])
 
-  // Landing on an empty graph (fresh load, cleared canvas, new project) resets
-  // the rack to fully collapsed — every category *and* Quick recipes — so a
-  // blank canvas comes with a blank sidebar rather than whatever section was
-  // last open. The remembered section is untouched (see saveExpanded), so the
-  // next load of a real graph still comes back to it.
+  // Landing on an empty graph (fresh load, cleared canvas, new project) opens
+  // the first category and nothing else: a blank canvas with every section
+  // shut named none of the ways to add a node, and an open category is the
+  // library saying "drag one of these". The remembered section is untouched
+  // (see saveExpanded), so the next load of a real graph still comes back to
+  // it.
   useEffect(() => {
-    if (isEmptyGraph) setExpandedId(null)
+    if (isEmptyGraph) setExpandedId(CATEGORIES[0].id)
   }, [isEmptyGraph])
 
   const searchStatus = query === ''
-    ? `${viewMode === 'all' ? SIDEBAR_NODE_LIBRARY.length : BEGINNER_NODE_TYPES.size} modules`
+    ? `${viewMode === 'all' ? SIDEBAR_NODE_LIBRARY.length : BEGINNER_NODE_TYPES.size} nodes`
     : `${CATEGORIES.reduce((count, category) => count + filteredByView(categoryNodes(category.id)).length, 0) + visiblePatterns.length + visibleRecipes.length + hardwareMatches.length} matches`
 
   const handleAddNode = (type: string) => {
@@ -1192,7 +1210,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
                   {rating && (
                     <span
                       className={`${styles.patternRating} ${styles[`patternRating_${scoreTier}`]}`}
-                      title={rating.failed ? 'Studio could not assess this pattern' : rating.skipped ? 'Trust is required before Studio can judge this pattern' : `${rating.verdictLabel} · Studio Score ${rating.overall}`}
+                      title={rating.failed ? 'Studio could not assess this pattern' : rating.skipped ? 'Allow this pattern’s code to run before Studio can judge it' : `${rating.verdictLabel} · Studio Score ${rating.overall}`}
                     >
                       {rating.failed || rating.skipped ? '—' : rating.overall}
                     </span>
@@ -1263,16 +1281,16 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
       <div className={styles.header}>
         <div className={styles.headerTop}>
           <span className={styles.headerTitle}>Node Library</span>
-          <span className={styles.headerMeta}>Patch rack</span>
+          <span className={styles.headerMeta}>Click or drag to add</span>
         </div>
         <div className={styles.headerStats} aria-label="Library status">
           <span className={styles.headerChip}>{searchStatus}</span>
           <span className={styles.headerChip}>{patterns.length} saved</span>
-          <span className={styles.headerChip}>{CATEGORIES.length} banks</span>
+          <span className={styles.headerChip}>{CATEGORIES.length} categories</span>
         </div>
       </div>
       <div className={styles.searchWrap}>
-        <div className={styles.searchLabel}>Find module</div>
+        <div className={styles.searchLabel}>Find a node</div>
         <div className={styles.viewToggle} role="tablist" aria-label="Library scope">
           <button
             type="button"
@@ -1360,10 +1378,10 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
         )}
 
         {renderSection('favourites', 'Favourites', 'var(--accent-favourites)', favouriteDefs, query === '' ? {
-          emptyMessage: 'No favourites yet — click the ★ on a module to pin it here.',
+          emptyMessage: 'No favourites yet — click the ★ on a node to pin it here.',
         } : undefined)}
-        {renderSection('recent', 'Recent rack', 'var(--accent-recent)', recentDefs, query === '' ? {
-          emptyMessage: 'No recently used modules yet.',
+        {renderSection('recent', 'Recent', 'var(--accent-recent)', recentDefs, query === '' ? {
+          emptyMessage: 'No recently used nodes yet.',
         } : undefined)}
 
         {CATEGORIES.map(({ id, label }) => {
@@ -1412,7 +1430,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
               title={selectedPatternIds.size > 0
                 ? `Create a Pattern Collection containing the ${selectedPatternIds.size} selected patterns`
                 : 'Create a Pattern Collection containing all saved patterns'}
-              onClick={handleCreateCollection}
+              onClick={() => handleCreateCollection()}
               disabled={patterns.length === 0}
             >
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1638,10 +1656,23 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
             Pattern Collection {index + 1}
           </button>
         ))}
-        <button type="button" role="menuitem" onClick={createCollectionFromSelection}>
+        <button type="button" role="menuitem" onClick={() => createCollectionFromSelection()}>
           <span aria-hidden="true">◇</span>
           New collection
         </button>
+        <div className={styles.patternContextLabel}>New collection, played by</div>
+        {COLLECTION_PLAYERS.map((player) => (
+          <button
+            key={player.type}
+            type="button"
+            role="menuitem"
+            title={player.title}
+            onClick={() => createCollectionFromSelection(player.type)}
+          >
+            <span aria-hidden="true">▶</span>
+            {player.label}
+          </button>
+        ))}
         <div className={styles.patternContextDivider} />
         <button
           type="button"

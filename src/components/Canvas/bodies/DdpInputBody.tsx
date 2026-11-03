@@ -63,7 +63,7 @@ export default function DdpInputBody({ nodeId }: { nodeId: string }) {
       {error && <div className={styles.note}>{error}</div>}
       {!trusted && (
         <div className={styles.note}>
-          This listener came with a project made on another computer, so it stays closed until you trust it. Choose <strong>Trust it</strong> in the banner to start receiving DDP.
+          This listener came with a project made on another computer, so it stays closed until you say so. Choose <strong>Run it</strong> in the bar above the canvas to start receiving DDP.
         </div>
       )}
       {wired && (

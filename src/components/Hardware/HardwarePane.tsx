@@ -826,7 +826,8 @@ export default function HardwarePane() {
               ))}
             </svg>
           ))}
-          {renderCaption(BOARD_PART_ID, boardProfile.label, 'Click for board options')}
+          {/* The rings say "here"; while they show, the caption says why. */}
+          {renderCaption(BOARD_PART_ID, boardProfile.label, benchIsEmpty && controllerHintMounted ? 'Click the board to choose it' : 'Click for board options')}
 
           {arrangement?.parts.filter((part) => /-speaker-[LR]$/.test(part.id)).map((part) => (
             <Fragment key={part.id}>
@@ -1071,10 +1072,20 @@ export default function HardwarePane() {
           ))}
         </div>
 
-        {benchIsEmpty && (
+        {benchIsEmpty ? (
           <p className={styles.emptyHint}>
             Add hardware here to keep the board and the graph in sync.
           </p>
+        ) : (
+          <button
+            type="button"
+            className={styles.diagramLink}
+            style={{ left: leftInset + 16 }}
+            onClick={() => useUiStore.getState().setWorkspaceMode('build')}
+            title="Open the Build Diagram tab: the wiring sheet, parts list and power plan for this bench"
+          >
+            See wiring diagram →
+          </button>
         )}
 
         <div

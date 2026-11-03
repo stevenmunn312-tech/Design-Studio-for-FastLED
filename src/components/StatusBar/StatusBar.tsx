@@ -1,7 +1,9 @@
 import { useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
-import { boardPartitionOf, useGraphStore } from '../../state/graphStore'
+import { boardPartitionOf, ROOT_GRAPH_ID, rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { boardNodesIn } from '../../build/boardPartition'
+import { boardOrdinalLabel } from '../Hardware/boardSelection'
 import { outputSizeLabel } from '../../state/output/ledOutputForm'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { useUploadStore, boardByFqbn } from '../../state/upload/uploadStore'
@@ -19,13 +21,24 @@ const LEVEL_COLOR: Record<StatusLevel, string> = {
 }
 
 export default function StatusBar() {
-  const { statusText, statusLevel, fps, performanceMode, stageMode } = useUiStore(useShallow((s) => ({
-    statusText: s.statusText, statusLevel: s.statusLevel, fps: s.fps, performanceMode: s.performanceMode, stageMode: s.stageMode,
+  const { statusText, statusLevel, fps, performanceMode, setPerformanceMode } = useUiStore(useShallow((s) => ({
+    statusText: s.statusText, statusLevel: s.statusLevel, fps: s.fps, performanceMode: s.performanceMode, setPerformanceMode: s.setPerformanceMode,
   })))
   const railRef = useRef<HTMLDivElement>(null)
   const railOverflow = useScrollOverflow(railRef)
-  const nodeCount = useGraphStore((s) => s.nodes.length)
-  const edgeCount = useGraphStore((s) => s.edges.length)
+  // Inside a group the counts are the group's; on the root graph of a
+  // several-board project they are the active board's partition, the same
+  // slice the bench, Build Diagram and Upload show.
+  const activeBoardId = useUiStore((s) => s.activeBoardId)
+  // Scalars only: a selector returning a fresh array re-renders the bar on
+  // every store update (StatusBarRenders.test.tsx).
+  const severalBoards = useGraphStore((s) => boardNodesIn(rootGraphNodes(s)).length > 1)
+  const nodeCount = useGraphStore((s) => (severalBoards && s.activeGraphId === ROOT_GRAPH_ID
+    ? boardPartitionOf(s, activeBoardId).nodes.length
+    : s.nodes.length))
+  const edgeCount = useGraphStore((s) => (severalBoards && s.activeGraphId === ROOT_GRAPH_ID
+    ? boardPartitionOf(s, activeBoardId).edges.length
+    : s.edges.length))
   // "Audio" = the graph has analysis nodes; "live" = the browser input is actually
   // running. Reporting the first as the second told users a silent graph was
   // live, so the chip now distinguishes the two.
@@ -50,7 +63,6 @@ export default function StatusBar() {
   // being worked on rather than whichever output comes first in the root
   // array, and its size in the form's own terms: a 60-LED string is not
   // "16 x 16".
-  const activeBoardId = useUiStore((s) => s.activeBoardId)
   const outputNode = useGraphStore((s) =>
     boardPartitionOf(s, activeBoardId).nodes.find((n) => n.data.nodeType === 'MatrixOutput'),
   )
@@ -58,6 +70,8 @@ export default function StatusBar() {
   const chipset = props?.chipset as string | undefined
   const sizeLabel = props ? outputSizeLabel(props) : 'No LED output'
   const boardLabel = boardByFqbn(selectedFqbn)?.label
+  // "Board 2: ESP32-S3" when there are several, so the chips say whose they are.
+  const boardChip = useGraphStore((s) => (severalBoards ? boardOrdinalLabel(boardNodesIn(rootGraphNodes(s)), activeBoardId) : 'Board'))
   const port = describePort({ helper, selectedPort, ports, portsScanned })
   const displayFps = hasFrameSignal ? fps : 0
 
@@ -94,10 +108,21 @@ export default function StatusBar() {
         onWheel={scrollRailOnWheel}
       >
         <HardwareReadiness compact />
-        <span className={`${styles.chip} ${styles.chipStrong}`}>{nodeCount} {nodeCount === 1 ? 'module' : 'modules'}</span>
-        <span className={styles.chip}>{edgeCount} {edgeCount === 1 ? 'patch' : 'patches'}</span>
-        {performanceMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Live Focus</span>}
-        {stageMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Stage View</span>}
+        <span className={`${styles.chip} ${styles.chipStrong}`}>{nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}</span>
+        <span className={styles.chip}>{edgeCount} {edgeCount === 1 ? 'wire' : 'wires'}</span>
+        {/* Focus hides the tab strip and panels, so the way out is said here,
+            where the chrome that remains is. Stage hides this bar as well and
+            says its exit on the preview itself. */}
+        {performanceMode && (
+          <button
+            type="button"
+            className={`${styles.chip} ${styles.chipAccent} ${styles.chipButton}`}
+            onClick={() => setPerformanceMode(false)}
+            title="Leave Focus view and show the editing chrome again (Esc)"
+          >
+            Focus view · Esc to exit
+          </button>
+        )}
         {hasAudio && (
           <span
             className={styles.chip}
@@ -110,7 +135,7 @@ export default function StatusBar() {
         )}
         {hasShow && <span className={styles.chip}>Show graph</span>}
         <span className={styles.chip}>FPS: {displayFps}</span>
-        <span className={styles.chip}>Board: {boardLabel ?? 'Not selected'}</span>
+        <span className={styles.chip}>{boardChip}: {boardLabel ?? 'Not selected'}</span>
         <span className={styles.chip} data-port-state={port.state} title={port.detail}>Port: {port.text}</span>
         <span className={styles.chip}>Chip: {chipset ?? 'Not selected'}</span>
         <span className={styles.chip}>Size: {sizeLabel}</span>

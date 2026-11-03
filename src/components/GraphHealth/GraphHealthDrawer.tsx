@@ -1,5 +1,5 @@
 import { useGroupRegistry } from '../../hooks/useGroupRegistry'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   addPatternCollectionTo,
   connectShowOutput,
@@ -71,7 +71,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (action === 'add-pattern-collection') return 'Add a collection'
   if (action === 'route-controls-to-engine') return 'Move the wire'
   if (action === 'disconnect-touch-controls') return 'Disconnect Controls'
-  if (action === 'open-start-gallery') return 'Browse starters'
+  if (action === 'open-start-gallery') return 'Open the Start Gallery'
   if (action === 'open-led-outputs') return 'Show LED outputs'
   if (action === 'open-audio-outputs') return 'Choose a DAC'
   if (action === 'add-audio-node') return 'Add Audio node'
@@ -79,6 +79,12 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   return 'Open library'
 }
 
+/**
+ * The Checks drawer. "Graph health" was its first name, and the code keeps
+ * it; the title changed because the checks cover the bench and the board as
+ * much as the graph (GPIO, Board, Power), and because the drawer never said
+ * that its red group is what holds Upload back. Now the group is called that.
+ */
 export default function GraphHealthDrawer() {
   const nodes = useGraphStore((state) => state.nodes)
   const capabilityNodes = useRootNodes()
@@ -92,6 +98,7 @@ export default function GraphHealthDrawer() {
   const openBoardPopup = useUploadStore((state) => state.openBoardPopup)
   const open = useUiStore((state) => state.graphHealthOpen)
   const toggle = useUiStore((state) => state.toggleGraphHealth)
+  const workspaceMode = useUiStore((state) => state.workspaceMode)
   const revealGraphNodes = useUiStore((state) => state.revealGraphNodes)
   const setStatus = useUiStore((state) => state.setStatus)
   const activeBoardId = useUiStore((state) => state.activeBoardId)
@@ -122,6 +129,19 @@ export default function GraphHealthDrawer() {
       })), [activeGraphId, activeBoardId, uploadTargets, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups, networkCredentials])
   const errors = diagnostics.filter((issue) => issue.severity === 'error').length
   const warnings = diagnostics.length - errors
+
+  // Arriving on Upload with something blocking it opens the drawer, once per
+  // arrival, so the reason the button is disabled is on screen without a
+  // hunt. Session-only (not `toggle`, which persists): closing it again is
+  // respected until the next trip to Upload.
+  const lastWorkspace = useRef<typeof workspaceMode | null>(null)
+  useEffect(() => {
+    const arrived = workspaceMode === 'upload' && lastWorkspace.current !== 'upload'
+    lastWorkspace.current = workspaceMode
+    if (arrived && errors > 0 && !useUiStore.getState().graphHealthOpen) {
+      useUiStore.setState({ graphHealthOpen: true })
+    }
+  }, [workspaceMode, errors])
   const visible = filter === 'all' ? diagnostics : diagnostics.filter((issue) => issue.severity === filter)
   const health = errors > 0 ? 'error' : warnings > 0 ? 'warning' : 'clear'
   // Validators are grouped by subsystem rather than globally sorted. The
@@ -331,7 +351,7 @@ export default function GraphHealthDrawer() {
   }
 
   return (
-    <section className={`${styles.drawer} ${open ? styles.drawerOpen : ''}`} aria-label="Graph health inspector">
+    <section className={`${styles.drawer} ${open ? styles.drawerOpen : ''}`} aria-label="Checks">
       <div className={styles.rail}>
         <button
           className={styles.summary}
@@ -344,7 +364,7 @@ export default function GraphHealthDrawer() {
             <i /><i /><i /><i />
           </span>
           <span className={styles.identity}>
-            <span className={styles.title}>Graph health</span>
+            <span className={styles.title}>Checks</span>
             <span className={styles.scope}>{graphName}{open ? ' · live diagnostics' : ''}</span>
             {!open && (
               <span
@@ -357,11 +377,11 @@ export default function GraphHealthDrawer() {
           </span>
         </button>
         <div className={styles.telemetry} aria-live="polite">
-          {errors > 0 && <span className={`${styles.count} ${styles.errorCount}`}>{errors} to fix</span>}
+          {errors > 0 && <span className={`${styles.count} ${styles.errorCount}`}>{errors === 1 ? '1 blocks upload' : `${errors} block upload`}</span>}
           {warnings > 0 && <span className={`${styles.count} ${styles.warningCount}`}>{warnings} suggestion{warnings === 1 ? '' : 's'}</span>}
           {diagnostics.length === 0 && <span className={`${styles.count} ${styles.clearCount}`}>All good</span>}
           <span className={styles.board}>{boardLabel}</span>
-          <button className={styles.chevron} type="button" onClick={toggle} aria-label={open ? 'Collapse graph health' : 'Expand graph health'}>
+          <button className={styles.chevron} type="button" onClick={toggle} aria-label={open ? 'Collapse checks' : 'Expand checks'}>
             {open ? '⌄' : '⌃'}
           </button>
         </div>
@@ -381,7 +401,7 @@ export default function GraphHealthDrawer() {
                   onClick={() => setFilter(value)}
                   aria-pressed={filter === value}
                 >
-                  {value === 'all' ? 'Everything' : value === 'error' ? 'To fix' : 'Suggestions'}
+                  {value === 'all' ? 'Everything' : value === 'error' ? 'Blocks upload' : 'Suggestions'}
                   <span>{count}</span>
                 </button>
               )
@@ -433,7 +453,7 @@ export default function GraphHealthDrawer() {
             {visible.length === 0 && (
               <div className={styles.emptyState}>
                 <span className={styles.emptyPulse} aria-hidden="true" />
-                <strong>{diagnostics.length === 0 ? 'Signal path is healthy' : filter === 'error' ? 'Nothing to fix' : 'No suggestions'}</strong>
+                <strong>{diagnostics.length === 0 ? 'Every check passes' : filter === 'error' ? 'Nothing blocks upload' : 'No suggestions'}</strong>
                 <span>{diagnostics.length === 0 ? 'Connections, expressions, hardware, and resource checks all pass.' : 'Choose Everything to see the rest.'}</span>
               </div>
             )}

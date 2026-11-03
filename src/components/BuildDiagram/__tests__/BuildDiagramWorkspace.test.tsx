@@ -248,7 +248,7 @@ describe('BuildDiagramWorkspace', () => {
   it('starts with graph hardware, power summary, and idle details in the one panel', () => {
     const { getByText, queryByLabelText, queryByText, queryByRole } = render(<BuildDiagramWorkspace />)
 
-    expect(getByText('Exact board required')).toBeTruthy()
+    expect(getByText('Choose the specific board model')).toBeTruthy()
     // The board is chosen on the Hardware tab; this view only reports it.
     expect(queryByRole('button', { name: 'Choose your board' })).toBeNull()
     expect(getByText('Graph hardware')).toBeTruthy()
@@ -268,7 +268,7 @@ describe('BuildDiagramWorkspace', () => {
     const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Build reference: ready', { selector: 'li' })).toBeTruthy()
-    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Board model: confirmed', { selector: 'li' })).toBeTruthy()
     expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Wiring plan: generated from graph with build-rules-') === true)).toBeTruthy()
     expect(getByText('Power feeds: 3 individually fused feeds from the assigned PSU distribution zone')).toBeTruthy()
     expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent === 'PSU 1: 5 V, at least 20 A / 100 W continuous for LED Matrix (20% headroom)')).toBeTruthy()
@@ -283,8 +283,8 @@ describe('BuildDiagramWorkspace', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
     const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
 
-    expect(queryByText('Exact board required')).toBeNull()
-    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+    expect(queryByText('Choose the specific board model')).toBeNull()
+    expect(getByText('Board model: confirmed', { selector: 'li' })).toBeTruthy()
   })
 
   it('keeps describing the bench while a pattern group is open', () => {
@@ -305,8 +305,8 @@ describe('BuildDiagramWorkspace', () => {
     })
     const { getAllByText, getByText, queryByText } = render(<BuildDiagramWorkspace />)
 
-    expect(queryByText('Exact board required')).toBeNull()
-    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+    expect(queryByText('Choose the specific board model')).toBeNull()
+    expect(getByText('Board model: confirmed', { selector: 'li' })).toBeTruthy()
     // The graph's own hardware is still listed, not an empty bench.
     expect(getAllByText('LED Matrix').length).toBeGreaterThan(0)
   })
@@ -314,19 +314,19 @@ describe('BuildDiagramWorkspace', () => {
   it('stops using a saved exact board once the upload target no longer matches', () => {
     selectDevKit()
     const { getByText, queryByText, rerender } = render(<BuildDiagramWorkspace />)
-    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Board model: confirmed', { selector: 'li' })).toBeTruthy()
 
     // Switching to a target the saved profile isn't for must not keep showing
     // that board's render and pin map as if it were the selected hardware.
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32doit-devkit-v1' })
     rerender(<BuildDiagramWorkspace />)
-    expect(queryByText('Exact board: confirmed', { selector: 'li' })).toBeNull()
-    expect(getByText('Exact board required')).toBeTruthy()
+    expect(queryByText('Board model: confirmed', { selector: 'li' })).toBeNull()
+    expect(getByText('Choose the specific board model')).toBeTruthy()
 
     // The id is kept, so switching the target back restores the board.
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     rerender(<BuildDiagramWorkspace />)
-    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Board model: confirmed', { selector: 'li' })).toBeTruthy()
   })
 
   it('sizes boards against each other by their real dimensions', () => {
@@ -979,7 +979,7 @@ describe('BuildDiagramWorkspace', () => {
     const { container, queryByText } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
-    expect(queryByText('Exact board required')).toBeNull()
+    expect(queryByText('Choose the specific board model')).toBeNull()
     expect(diagram, 'the sheet itself must still render').toBeTruthy()
     expect(diagram?.querySelector('[data-output-card]'), 'a thrown sheet would also drop the controller').toBeFalsy()
     expect(

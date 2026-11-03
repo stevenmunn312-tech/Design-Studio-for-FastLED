@@ -48,7 +48,7 @@ export default function HardwarePartsShelf({
   const [query, setQuery] = useState('')
   // Which category is open outlives this component: the shelf unmounts on
   // every trip to another workspace, and re-finding your category each time
-  // is a tax that adds up. A blank sketch resets it to all-closed.
+  // is a tax that adds up. A blank sketch opens the LED outputs alone.
   const expandedId = useUiStore((state) => state.hardwareShelfCategory)
   const setExpandedId = useUiStore((state) => state.setHardwareShelfCategory)
   const itemRefs = useRef(new Map<string, HTMLButtonElement>())

@@ -190,7 +190,7 @@ export default function TemplatesPopup() {
           <button type="button" className={styles.closeBtn} onClick={closeTemplates} title="Close" aria-label="Close start gallery">×</button>
         </div>
         <div className={styles.hint}>
-          New here? Start with {recommended?.name ?? 'a starter'} — it walks you through your first patch. Or begin with a blank canvas.
+          New here? Start with {recommended?.name ?? 'a starter'} — it walks you through your first project. Or begin with a blank canvas.
           {!guideVisible && (
             <button type="button" className={styles.guideLink} onClick={startGuide}>
               Guide me from here to my board
@@ -204,7 +204,7 @@ export default function TemplatesPopup() {
               type="button"
               className={`${styles.card} ${styles.featuredCard} ${lastStartChoice === recommended.id ? styles.cardRemembered : ''}`}
               onClick={() => { void loadTemplate(recommended) }}
-              aria-label={`Start with ${recommended.name} — recommended first patch`}
+              aria-label={`Start with ${recommended.name} — recommended first project`}
               ref={featuredRef}
             >
               <TemplatePreview template={recommended} />

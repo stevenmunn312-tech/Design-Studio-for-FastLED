@@ -431,6 +431,11 @@ interface GraphState {
   /** Add several saved patterns in one collection edit so the picker produces
    *  one coherent graph update instead of a run of per-pattern mutations. */
   addPatternsToCollection: (collectionNodeId: string, saved: SavedPattern[]) => void
+  /** Replace a collected pattern's copied subgraph with the library's current
+   *  one. A collection holds copies (see `addPatternToCollection`), so a
+   *  pattern edited in the library afterwards drifts from the show until this
+   *  is asked for; its weight, sections and energy chips are kept. */
+  updateCollectionPatternFromLibrary: (collectionNodeId: string, groupId: string, saved: SavedPattern) => void
   /** Remove a pattern (group id) from a PatternCollection, dropping its subgraph. */
   removeFromCollection: (collectionNodeId: string, groupId: string) => void
   /** Empty a collection in one edit. Not a loop over `removeFromCollection`:
@@ -3623,6 +3628,20 @@ export const useGraphStore = create<GraphState>()(
           }
         }),
 
+      updateCollectionPatternFromLibrary: (collectionNodeId, groupId, saved) =>
+        set((s) => {
+          const collection = s.nodes.find((n) => n.id === collectionNodeId)
+          const ids = ((collection?.data.properties as { patternIds?: string[] } | undefined)?.patternIds) ?? []
+          if (!ids.includes(groupId) || !s.graphs[groupId]) return s
+          const sub = structuredClone(saved.subgraph)
+          return {
+            graphs: { ...s.graphs, [groupId]: { ...s.graphs[groupId], name: saved.name, sourcePatternId: saved.id } },
+            graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
+            // See instantiatePattern's comment above.
+            trusted: savedPatternUntrustsWorkspace(saved.subgraph) ? false : s.trusted,
+          }
+        }),
+
       removeFromCollection: (collectionNodeId, groupId) =>
         set((s) => {
           const nodes = s.nodes.map((n) => {
@@ -4898,6 +4917,42 @@ export function connectShowOutput(engineId: string, outputId: string): boolean {
   state.onConnect({ source: engineId, sourceHandle: 'frame', target: outputId, targetHandle: 'frame' })
   return useGraphStore.getState().edges.some((edge) =>
     edge.source === engineId && edge.target === outputId && edge.targetHandle === 'frame')
+}
+
+/** The three show players a Pattern Collection can feed. */
+export type CollectionPlayerType = 'PatternSlideshow' | 'PatternMaster' | 'PerformanceGenerator'
+
+/**
+ * Give a Pattern Collection something to play it: a new player placed to its
+ * right, wired to its Patterns output, and the player's Frame wired on into
+ * the LED output when exactly one is waiting for a frame. The three steps a
+ * show used to take by hand (find the player under "show", wire it twice)
+ * are one step, so one undo takes it back. Returns the player's id.
+ */
+export function playCollectionWith(collectionId: string, playerType: CollectionPlayerType): string | null {
+  const state = useGraphStore.getState()
+  const collection = state.nodes.find((node) => node.id === collectionId && node.data.nodeType === 'PatternCollection')
+  const definition = LIBRARY_DEF.get(playerType)
+  if (!collection || !definition) return null
+  const playerId = uniqueId(`${playerType}-${Date.now()}`, new Set(state.nodes.map((node) => node.id)))
+  state.addNode({
+    id: playerId,
+    type: 'studioNode',
+    position: { x: collection.position.x + 360, y: collection.position.y },
+    data: {
+      label: definition.label,
+      nodeType: definition.type,
+      category: definition.category,
+      properties: { ...libraryDefaults(playerType) },
+      inputs: definition.inputs,
+      outputs: definition.outputs,
+    },
+  } as StudioNode)
+  useGraphStore.getState().onConnect({ source: collectionId, sourceHandle: 'patternset', target: playerId, targetHandle: 'patternset' })
+  // The Frame output, and whatever else only this player could mean (an
+  // Audio node for a Music Player): the same wiring a drop would draw.
+  autoConnectPlacedNode(playerId)
+  return playerId
 }
 
 /**

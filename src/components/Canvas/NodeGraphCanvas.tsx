@@ -1315,9 +1315,9 @@ function NodeGraphCanvasInner() {
             <span className={styles.emptyEyebrow}>Signal lab idle</span>
             {uiEffectsEnabled && <div className={styles.dormantSignal} aria-hidden="true"><span /></div>}
             {uiEffectsEnabled && <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>}
-            <strong>Wake the studio with a first patch</strong>
+            <strong>Start your first project</strong>
             <span className={styles.emptySummary}>
-              Load a guided patch with an editable tutorial note, browse the full starter gallery, or stay blank and build from scratch.
+              Load a starter with an editable tutorial note, open the Start Gallery, or stay blank and build from scratch.
             </span>
             <div className={styles.emptyActions}>
               <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartJuggle}>
@@ -1327,7 +1327,7 @@ function NodeGraphCanvasInner() {
                 Audio-reactive demo
               </button>
               <button type="button" className={styles.startAction} onClick={handleBrowseStarters}>
-                Browse starter patches
+                Open the Start Gallery
               </button>
               {!guideVisible && (
                 <button type="button" className={styles.startAction} onClick={() => useFirstProjectGuide.getState().start()}>
@@ -1335,6 +1335,9 @@ function NodeGraphCanvasInner() {
                 </button>
               )}
             </div>
+            {/* The three ways to add a node that nothing else on an empty
+                canvas names: the node search and the library. */}
+            <div className={styles.emptyMeta}>Double-click or press Ctrl+K to add a node · drag one in from the library</div>
             {lastStartLabel && <div className={styles.emptyMeta}>Last start: {lastStartLabel}</div>}
           </div>
         </div>

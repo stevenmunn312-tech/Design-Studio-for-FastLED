@@ -25,7 +25,6 @@ import { pushSnapshot } from './state/snapshotHistory'
 import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
 import { nextDefaultProjectName } from './utils/projectFileIO'
 import { landOnStartingWorkspace } from './utils/startFlow'
-import { promptTrustIfNeeded } from './utils/trustPrompt'
 import TrustBanner from './components/TrustBanner/TrustBanner'
 import GraphHealthDrawer from './components/GraphHealth/GraphHealthDrawer'
 import PerformanceDeckMidiBridge from './components/PerformanceDeck/PerformanceDeckMidiBridge'
@@ -246,7 +245,6 @@ export default function App() {
             workspaceLoadStatus('Share link opened', shared.dropped),
             shared.dropped > 0 ? 'info' : 'success',
           )
-          void promptTrustIfNeeded()
           return
         } catch {
           if (cancelled) return
@@ -602,6 +600,7 @@ export default function App() {
 
       if (e.key === 'F9' && !isTyping) {
         e.preventDefault()
+        if (useUiStore.getState().stageMode) void exitStagePresentation()
         useUiStore.getState().togglePerformanceMode()
         return
       }

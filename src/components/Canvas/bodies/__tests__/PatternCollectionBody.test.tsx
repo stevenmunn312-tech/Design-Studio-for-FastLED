@@ -3,7 +3,7 @@ import { createEvent, fireEvent, render, waitFor } from '@testing-library/react'
 import PatternCollectionBody from '../PatternCollectionBody'
 import { useGraphStore } from '../../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../../state/nodeLibrary'
-import { usePatternLibrary, type SavedPattern } from '../../../../state/patterns/patternLibrary'
+import { usePatternLibrary, withRegisteredGroups, type SavedPattern } from '../../../../state/patterns/patternLibrary'
 import { useUiStore } from '../../../../state/uiStore'
 
 function nodeData(type: string, properties: Record<string, unknown>) {
@@ -89,6 +89,70 @@ describe('PatternCollectionBody', () => {
       'saved-0',
       'saved-1',
     ])
+  })
+
+  it('marks library copies and offers the library version once they drift apart', () => {
+    const aurora: SavedPattern = {
+      id: 'lib-aurora', name: 'Pulse', createdAt: 1, inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [], edges: [] },
+    }
+    usePatternLibrary.setState({ patterns: [aurora] })
+    useGraphStore.setState({
+      graphs: {
+        root: { id: 'root', name: 'Main' },
+        'group-1': { id: 'group-1', name: 'Pulse', sourcePatternId: 'lib-aurora' },
+        'group-2': { id: 'group-2', name: 'Spark' },
+      },
+      graphData: { 'group-1': { nodes: [], edges: [] }, 'group-2': { nodes: [], edges: [] } },
+    })
+
+    const view = render(<PatternCollectionBody nodeId="collection" />)
+    // Pulse came from the library and matches it; Spark was made here.
+    expect(view.getAllByText('copied from library')).toHaveLength(1)
+    expect(view.queryByRole('button', { name: 'Update from library' })).toBeNull()
+
+    usePatternLibrary.setState({ patterns: [{ ...aurora, name: 'Pulse (brighter)' }] })
+    view.rerender(<PatternCollectionBody nodeId="collection" />)
+    fireEvent.click(view.getByRole('button', { name: 'Update from library' }))
+    expect(useGraphStore.getState().graphs['group-1'].name).toBe('Pulse (brighter)')
+    expect(view.queryByRole('button', { name: 'Update from library' })).toBeNull()
+  })
+
+  it('compares and updates nested library content after group ids are remapped', () => {
+    const group = {
+      id: 'nested-node', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'Nested', nodeType: 'Group', category: 'composite', properties: { groupId: 'nested' }, inputs: [], outputs: [] },
+    }
+    const color = {
+      id: 'color', type: 'studioNode', position: { x: 0, y: 0 },
+      data: nodeData('SolidColor', { color: '#ff0000' }),
+    }
+    const saved: SavedPattern = {
+      id: 'nested-library', name: 'Nested pattern', createdAt: 1, inputs: [], outputs: [],
+      subgraph: { nodes: [group] as never, edges: [] },
+      groups: { nested: { nodes: [color] as never, edges: [] } },
+    }
+    usePatternLibrary.setState({ patterns: [saved] })
+    // A pre-existing group forces registration to choose another id.
+    useGraphStore.setState({ graphData: { nested: { nodes: [], edges: [] } } })
+    useGraphStore.getState().addPatternToCollection('collection', withRegisteredGroups(saved))
+    const view = render(<PatternCollectionBody nodeId="collection" />)
+    expect(view.getAllByText('copied from library')).toHaveLength(1)
+    expect(view.queryByRole('button', { name: 'Update from library' })).toBeNull()
+
+    const edited = structuredClone(saved)
+    edited.groups!.nested.nodes[0].data.properties.color = '#00ff00'
+    usePatternLibrary.setState({ patterns: [edited] })
+    view.rerender(<PatternCollectionBody nodeId="collection" />)
+    fireEvent.click(view.getByRole('button', { name: 'Update from library' }))
+
+    expect(view.queryByRole('button', { name: 'Update from library' })).toBeNull()
+    const state = useGraphStore.getState()
+    const copyId = Object.keys(state.graphs).find((id) => state.graphs[id].sourcePatternId === saved.id)!
+    const nestedId = state.graphData[copyId].nodes[0].data.properties.groupId as string
+    expect(state.graphData[nestedId].nodes[0].data.properties.color).toBe('#00ff00')
+    expect(state.graphData.nested.nodes).toEqual([])
   })
 
   it('empties the collection in one confirmed edit, discarding its subgraphs', async () => {

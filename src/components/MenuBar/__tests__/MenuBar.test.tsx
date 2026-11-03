@@ -165,18 +165,20 @@ describe('MenuBar file menu', () => {
 
   it('offers a persistent Start button outside the File menu', () => {
     const { getByRole } = render(<MenuBar />)
-    fireEvent.click(getByRole('button', { name: 'Open start gallery' }))
+    fireEvent.click(getByRole('button', { name: 'Open Start Gallery' }))
     expect(useUiStore.getState().templatesOpen).toBe(true)
   })
 
-  it('pauses and resumes graph evaluation from the main workflow controls', () => {
+  it('freezes and unfreezes the preview from the main workflow controls', () => {
     const { getByRole } = render(<MenuBar />)
 
-    fireEvent.click(getByRole('button', { name: 'Pause graph evaluation' }))
+    const freeze = getByRole('button', { name: 'Freeze the preview' })
+    expect(freeze.textContent).toBe('Freeze preview')
+    fireEvent.click(freeze)
     expect(useUiStore.getState().evaluationRunning).toBe(false)
-    expect(getByRole('button', { name: 'Resume graph evaluation' }).getAttribute('aria-pressed')).toBe('true')
+    expect(getByRole('button', { name: 'Unfreeze the preview' }).getAttribute('aria-pressed')).toBe('true')
 
-    fireEvent.click(getByRole('button', { name: 'Resume graph evaluation' }))
+    fireEvent.click(getByRole('button', { name: 'Unfreeze the preview' }))
     expect(useUiStore.getState().evaluationRunning).toBe(true)
   })
 
@@ -185,40 +187,47 @@ describe('MenuBar file menu', () => {
 
     const { getByRole } = render(<MenuBar />)
 
-    expect(getByRole('button', { name: 'Toggle Stage View' }).getAttribute('aria-pressed')).toBe('true')
+    expect(getByRole('radio', { name: 'Stage' }).getAttribute('aria-checked')).toBe('true')
     expect(getByRole('button', { name: 'Toggle 3D preview' })).toBeTruthy()
     expect(getByRole('button', { name: 'Add a microphone on the Hardware tab to enable' }).textContent).toBe('Mic Off')
   })
 
-  it('groups live tools under short labels whose names and tooltips state each purpose', () => {
+  it('offers Edit, Focus and Stage as one View radio group, with the Deck beside it', () => {
     const { getByRole } = render(<MenuBar />)
-    const live = within(getByRole('group', { name: 'Live performance tools' }))
-    const focus = live.getByRole('button', { name: 'Toggle Live Focus' })
-    const deck = live.getByRole('button', { name: 'Toggle Control Deck' })
-    const stage = live.getByRole('button', { name: 'Toggle Stage View' })
+    const view = within(getByRole('radiogroup', { name: 'View' }))
+    const edit = view.getByRole('radio', { name: 'Edit' })
+    const focus = view.getByRole('radio', { name: 'Focus' })
+    const stage = view.getByRole('radio', { name: 'Stage' })
+    const deck = getByRole('button', { name: 'Toggle Control Deck' })
 
-    expect(focus.textContent).toBe('Focus')
+    expect(edit.getAttribute('aria-checked')).toBe('true')
     expect(focus.getAttribute('title')).toContain('hide editing chrome')
+    expect(stage.getAttribute('title')).toContain('preview-first operator view')
     expect(deck.textContent).toBe('Deck')
     expect(deck.getAttribute('title')).toContain('pinned controls')
-    expect(stage.textContent).toBe('Stage')
-    expect(stage.getAttribute('title')).toContain('preview-first operator view')
 
     fireEvent.click(focus)
     expect(useUiStore.getState().performanceMode).toBe(true)
+    expect(focus.getAttribute('aria-checked')).toBe('true')
+    expect(edit.getAttribute('aria-checked')).toBe('false')
     fireEvent.click(deck)
     expect(usePerformanceDeckSession.getState().deckOpen).toBe(true)
     fireEvent.click(stage)
     expect(useUiStore.getState().stageMode).toBe(true)
+    // Stage and Focus are one choice: entering Stage leaves Focus behind.
+    expect(useUiStore.getState().performanceMode).toBe(false)
+    fireEvent.click(edit)
+    expect(useUiStore.getState().stageMode).toBe(false)
+    expect(useUiStore.getState().performanceMode).toBe(false)
 
     if (import.meta.env.DEV) {
-      expect(live.getByRole('button', { name: 'Toggle Developer Metrics' }).textContent).toBe('Metrics')
+      expect(getByRole('button', { name: 'Toggle Developer Metrics' }).textContent).toBe('Metrics')
     }
   })
 
   it('marks which edges of the nav rail have buttons beyond them, and scrolls it with the wheel', () => {
     const { getByRole } = render(<MenuBar />)
-    const nav = getByRole('group', { name: 'Live performance tools' }).parentElement as HTMLElement
+    const nav = getByRole('radiogroup', { name: 'View' }).parentElement as HTMLElement
     Object.defineProperty(nav, 'clientWidth', { configurable: true, value: 500 })
     Object.defineProperty(nav, 'scrollWidth', { configurable: true, value: 650 })
 
@@ -337,14 +346,17 @@ describe('MenuBar file menu', () => {
     expect(getByText('○ Contrast: Standard')).toBeTruthy()
     expect(getByText('✓ UI FX: On')).toBeTruthy()
     expect(getByText('○ Signal dimming: Off')).toBeTruthy()
-    expect(getByText('○ Build Diagram')).toBeTruthy()
+    // The four workspace tabs are radio items; a layout preset is not a tab.
+    expect(getByRole('menuitemradio', { name: '✓ Graph' }).getAttribute('aria-checked')).toBe('true')
+    expect(getByRole('menuitemradio', { name: '○ Build Diagram' }).getAttribute('aria-checked')).toBe('false')
+    expect(getByText('○ Balanced')).toBeTruthy()
   })
 
-  it('toggles Build Diagram from the View menu', () => {
+  it('opens a workspace tab from the View menu', () => {
     const { getByRole } = render(<MenuBar />)
 
     fireEvent.click(getByRole('button', { name: 'View menu' }))
-    fireEvent.click(getByRole('menuitemcheckbox', { name: '○ Build Diagram' }))
+    fireEvent.click(getByRole('menuitemradio', { name: '○ Build Diagram' }))
 
     expect(useUiStore.getState().workspaceMode).toBe('build')
   })

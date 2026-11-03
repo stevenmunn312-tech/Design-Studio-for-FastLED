@@ -714,7 +714,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'DMX / Art-Net brings a lighting desk into the graph. It receives one universe of 512 channels over the network as Art-Net or sACN, or from a wired DMX512 line through an RS-485 transceiver.',
       'The node outputs the whole universe on one wire; DMX Channel picks out a single channel as a 0–1 value. Use several DMX Channel nodes to patch the build as a fixture with dimmer, colour and effect channels.',
-      'In the preview, the local helper listens on the same UDP port and forwards what it hears. On the board, network modes join Wi-Fi (or wired Ethernet when that part is on the bench) and DMX512 reads a UART.',
+      'In the preview, the local build tools listen on the same UDP port and forward what they hear. On the board, network modes join Wi-Fi (or wired Ethernet when that part is on the bench) and DMX512 reads a UART.',
     ],
     steps: [
       'Choose Art-Net, sACN or DMX512 as the firmware source and set the universe your desk sends.',
@@ -867,7 +867,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'DDP Input receives a whole frame over the network using DDP, the protocol xLights, LedFx and WLED send. The sender does the drawing; this node puts the pixels into the graph, where you can still process them.',
       'Pixels arrive in row order, the way xLights addresses a matrix by default. Bytes not yet received read black.',
-      'In the preview, the local helper listens on the same UDP port; point your sender at this computer. On the board, the sketch joins Wi-Fi and listens on that port.',
+      'In the preview, the local build tools listen on the same UDP port; point your sender at this computer. On the board, the sketch joins Wi-Fi and listens on that port.',
     ],
     steps: [
       'Set the network: hostname, and DHCP or a fixed address.',

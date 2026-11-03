@@ -291,7 +291,7 @@ describe('NodeGraphCanvas start screen', () => {
 
     expect(queryByRole('button', { name: 'Blank canvas' })).toBeNull()
 
-    fireEvent.click(getByRole('button', { name: 'Browse starter patches' }))
+    fireEvent.click(getByRole('button', { name: 'Open the Start Gallery' }))
     expect(useUiStore.getState().templatesOpen).toBe(true)
   })
 

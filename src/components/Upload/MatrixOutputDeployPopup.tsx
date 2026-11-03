@@ -5,7 +5,8 @@ import { findDeployBlockingErrorsForBoard } from '../../utils/multiBoardValidati
 import { useUiStore } from '../../state/uiStore'
 import BoardSelector from '../Hardware/BoardSelector'
 import { boardOrdinalLabel, useBoardNodes } from '../Hardware/boardSelection'
-import { trustCurrentProject } from '../../utils/trustPrompt'
+import { showWorkspaceCodeQuestion } from '../../utils/trustPrompt'
+import { workspaceTrustHolds } from '../../state/patterns/patternTrust'
 import { uploadBlockReason, type UploadBlockAction } from '../../utils/uploadBlockReason'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/upload/uploadStore'
 import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
@@ -42,6 +43,7 @@ import { controllerSettings } from '../../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { musicPlayerSource, resolveBuildMode } from '../../state/upload/buildMode'
 import { describePort } from '../../utils/portStatus'
+import { buildToolsOfflineHint } from '../../utils/buildTools'
 import { graphDrivesOutput, readinessLayers } from '../../utils/readinessLayers'
 import { outputForm } from '../../state/output/ledOutputForm'
 import ReadinessLayers from './ReadinessLayers'
@@ -95,6 +97,8 @@ export default function MatrixOutputDeployPopup({
   const rootEdges = useRootEdges()
   const boards = useBoardNodes()
   const projectTrusted = useGraphStore((state) => state.trusted)
+  const workspaceNodes = useGraphStore((state) => state.nodes)
+  const graphData = useGraphStore((state) => state.graphData)
   const telemetryRun = useDeviceTelemetryStore((state) => state.run)
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
@@ -314,87 +318,100 @@ export default function MatrixOutputDeployPopup({
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ])]
   // Blockers in words, minus the two that have a home of their own: graph
-  // problems live in Graph Health, and waiting on trust is a Trust button.
+  // problems live in Checks, and waiting on trust is the bar above the canvas.
   const trustMessages = new Set(projectTrusted ? [] : customAssets.errors)
+  // The same test the bar makes: an untrusted project holds something only
+  // while it carries Formula or Code nodes or a network listener. A shared
+  // "Plasma → LED output" graph holds nothing and uploads without a question.
+  const trustHolds = useMemo(
+    () => (projectTrusted ? false : (() => {
+      const holds = workspaceTrustHolds(workspaceNodes, graphData)
+      return holds.formulaOrCode || holds.artnet
+    })()),
+    [projectTrusted, workspaceNodes, graphData],
+  )
   const measuredBlockers = blockingErrors.filter((message) =>
     !graphBlockers.includes(message) && !trustMessages.has(message)
     && message !== 'Preparing display images…')
   const showGraphHealth = () => {
     if (!useUiStore.getState().graphHealthOpen) useUiStore.getState().toggleGraphHealth()
   }
-  const canBuild = hasBuildOutput && blockingErrors.length === 0
-  const canShowUpload = hasSdShow && blockingErrors.length === 0
+  const canBuild = hasBuildOutput && blockingErrors.length === 0 && !trustHolds
+  const canShowUpload = hasSdShow && blockingErrors.length === 0 && !trustHolds
   const suggestedAction = useMemo(() => suggestedValidationAction(nodes, edges), [nodes, edges])
   const readiness = useMemo(() => {
+    // "Build tools", "compiler" and "board support": the words someone
+    // flashing a board has, not the toolchain's own. The compiler row keeps
+    // the engines' real names because they are what the picker below shows.
     const helperRow = helper === undefined
-      ? { label: 'Helper', state: 'checking' as ReadinessState, detail: 'Checking for the local upload helper…' }
+      ? { label: 'Build tools', state: 'checking' as ReadinessState, detail: 'Checking for the build tools…' }
       : !helper
         ? {
-            label: 'Helper',
+            label: 'Build tools',
             state: 'missing' as ReadinessState,
-            detail: 'Browser uploads need the local helper running on this machine.',
-            actionLabel: 'Retry helper',
+            detail: buildToolsOfflineHint(),
+            actionLabel: 'Retry',
             action: () => { void refreshHelper() },
           }
         : {
-            label: 'Helper',
+            label: 'Build tools',
             state: 'ready' as ReadinessState,
-            detail: `Online${helper.engine ? ` · ${helper.engine}` : ''}`,
+            detail: 'Running on this machine.',
           }
 
     const engineRow = helper === undefined
-      ? { label: 'Engine', state: 'checking' as ReadinessState, detail: 'Waiting for helper status…' }
+      ? { label: 'Compiler', state: 'checking' as ReadinessState, detail: 'Waiting for the build tools…' }
       : !helper
         ? {
-            label: 'Engine',
+            label: 'Compiler',
             state: 'missing' as ReadinessState,
-            detail: 'Start the helper first so Studio can discover a usable build engine.',
-            actionLabel: 'Retry helper',
+            detail: 'The build tools choose the compiler once they are running.',
+            actionLabel: 'Retry',
             action: () => { void refreshHelper() },
           }
         : !activeEngineReady
           ? {
-              label: 'Engine',
+              label: 'Compiler',
               state: 'missing' as ReadinessState,
-              detail: 'No usable build engine is configured yet.',
-              actionLabel: 'Fix engine',
+              detail: 'No compiler is set up yet.',
+              actionLabel: 'Set up compiler',
               action: openCliPopup,
             }
           : usingFbuild && bluetoothPlayer
             ? {
-                label: 'Engine',
+                label: 'Compiler',
                 state: 'missing' as ReadinessState,
-                detail: 'The Bluetooth Music Player builds with arduino-cli only.',
-                actionLabel: 'Fix engine',
+                detail: 'The Bluetooth Music Player builds with arduino-cli only. Choose it under Advanced below.',
+                actionLabel: 'Set up compiler',
                 action: openCliPopup,
               }
           : usingFbuild
-            ? { label: 'Engine', state: 'ready' as ReadinessState, detail: `Using fbuild${helper.fbuildVersion ? ` ${helper.fbuildVersion}` : ''}` }
-            : { label: 'Engine', state: 'ready' as ReadinessState, detail: `Using arduino-cli${helper.version ? ` ${helper.version}` : ''}` }
+            ? { label: 'Compiler', state: 'ready' as ReadinessState, detail: `Using fbuild${helper.fbuildVersion ? ` ${helper.fbuildVersion}` : ''}` }
+            : { label: 'Compiler', state: 'ready' as ReadinessState, detail: `Using arduino-cli${helper.version ? ` ${helper.version}` : ''}` }
 
     const coreRow = helper === undefined
-      ? { label: 'Toolchain', state: 'checking' as ReadinessState, detail: 'Checking board toolchain…' }
+      ? { label: 'Board support', state: 'checking' as ReadinessState, detail: 'Checking the board support package…' }
       : !helper
         ? {
-            label: 'Toolchain',
+            label: 'Board support',
             state: 'missing' as ReadinessState,
-            detail: 'The helper must be online before Studio can verify board toolchains.',
-            actionLabel: 'Retry helper',
+            detail: 'The build tools check the board support package once they are running.',
+            actionLabel: 'Retry',
             action: () => { void refreshHelper() },
           }
         : !activeEngineReady
           ? {
-              label: 'Toolchain',
+              label: 'Board support',
               state: 'missing' as ReadinessState,
-              detail: 'Choose a working engine before toolchain checks can pass.',
-              actionLabel: 'Fix engine',
+              detail: 'Set up the compiler first; it installs the board support package.',
+              actionLabel: 'Set up compiler',
               action: openCliPopup,
             }
           : usingFbuild
-            ? { label: 'Toolchain', state: 'ready' as ReadinessState, detail: `${board?.label ?? 'Selected board'} toolchain downloads on first fbuild compile.` }
+            ? { label: 'Board support', state: 'ready' as ReadinessState, detail: `fbuild downloads the ${board?.label ?? 'selected board'} support package on the first compile.` }
             : !board
               ? {
-                  label: 'Toolchain',
+                  label: 'Board support',
                   state: 'missing' as ReadinessState,
                   detail: 'Choose a board first.',
                   actionLabel: 'Choose board',
@@ -402,13 +419,13 @@ export default function MatrixOutputDeployPopup({
                 }
               : !coreReady
                 ? {
-                    label: 'Toolchain',
+                    label: 'Board support',
                     state: 'missing' as ReadinessState,
-                    detail: `${board.label} needs the ${board.core} core installed.`,
-                    actionLabel: 'Install core',
+                    detail: `${board.label} needs its board support package (${board.core}) installed.`,
+                    actionLabel: 'Install board support',
                     action: () => { void installCore(board.core) },
                   }
-                : { label: 'Toolchain', state: 'ready' as ReadinessState, detail: `${board.label} core is installed.` }
+                : { label: 'Board support', state: 'ready' as ReadinessState, detail: `${board.label} board support package is installed.` }
 
     // The row's detail is the shared port sentence, so the heading, this row
     // and the footer cannot describe one port two ways.
@@ -419,7 +436,7 @@ export default function MatrixOutputDeployPopup({
             label: 'Connection',
             state: 'missing' as ReadinessState,
             detail: port.detail,
-            actionLabel: 'Retry helper',
+            actionLabel: 'Retry build tools',
             action: () => { void refreshHelper() },
           }
         : port.state === 'none'
@@ -532,20 +549,16 @@ export default function MatrixOutputDeployPopup({
     : 'Songs go to the card over serial — reliable everywhere, but minutes per song.'
 
   function handleShowUpload() {
+    if (trustHolds) return
     void (async () => {
-      // Said before the trust prompt, because it is not a decision to make —
-      // a drifted show plays the wrong patterns in time with the music, which
+      // A drifted show plays the wrong patterns in time with the music, which
       // looks like a broken feature rather than a file that needs rebuilding.
       const stale = showPackagingIssues(nodes, edges, entries, getGroupRegistry())
       if (stale.length > 0) {
         useUiStore.getState().setStatus(stale[0].message, 'error')
         return
       }
-      if (!(await confirmUploadIfUntrusted())) return
-      // A trust dialog can outlive the document/asset snapshot it opened with.
-      if (customAssets.pending || customAssets.errors.length > 0
-        || customAssets.documents !== useGraphStore.getState().displayDocuments
-        || customAssets.trusted !== useGraphStore.getState().trusted) return
+      if (customAssets.pending || customAssets.errors.length > 0) return
       const payload = buildShowPayload(nodes, edges, entries, getGroupRegistry(), {
         fqbn: selectedFqbn,
         psramAllowed: !!psramOptions,
@@ -558,23 +571,16 @@ export default function MatrixOutputDeployPopup({
     })()
   }
 
-  function confirmUploadIfUntrusted(): Promise<boolean> {
-    if (useGraphStore.getState().trusted) return Promise.resolve(true)
-    return useUiStore.getState().requestConfirm({
-      title: 'Upload code made on another computer?',
-      message: 'Part of this project was made elsewhere and hasn’t been trusted on this computer yet. If you don’t know where it came from, have a look at it first with ‹/› View Code.',
-      confirmLabel: 'Upload anyway',
-      cancelLabel: 'Cancel',
-      tone: 'danger',
-    })
-  }
+  // No "upload anyway?" confirm here: the trust decision is made once, on the
+  // bar above the canvas, and while something waits on it Upload is held with
+  // a link to that question beside the button (`waitingForTrust` below).
   function handleUpload() {
+    if (trustHolds) return
     void (async () => {
-      if (!(await confirmUploadIfUntrusted())) return
       // Generate again at the irreversible boundary. The memo above keeps View
       // Code cheap while nodes are dragged, but it can retain a pre-HMR sketch
       // in a local development session. Upload must always compile what the
-      // current generator says now; only "Re-upload last sketch" intentionally
+      // current generator says now; only "Re-upload last firmware" intentionally
       // sends an older cached source unchanged.
       const uploadCode = generateCurrentCode()
       if (!uploadCode) return
@@ -586,20 +592,15 @@ export default function MatrixOutputDeployPopup({
     void offerValidationAfter(suggestedAction, runLastUpload())
   }
   function handleExportIno() {
-    void (async () => {
-      if (!(await confirmUploadIfUntrusted())) return
-      const exportCode = generateCurrentCode()
-      if (exportCode) exportIno(exportCode)
-    })()
+    const exportCode = generateCurrentCode()
+    if (exportCode) exportIno(exportCode)
   }
 
   /* The same compile an upload runs, stopping at the image instead of the
-     board — so it asks the same trust question and generates the sketch at
-     the same point Upload does, rather than exporting whatever View Code
-     happens to be memoizing. */
+     board — so it generates the sketch at the same point Upload does, rather
+     than exporting whatever View Code happens to be memoizing. */
   function handleExportBinary() {
     void (async () => {
-      if (!(await confirmUploadIfUntrusted())) return
       const exportCode = generateCurrentCode()
       if (!exportCode) return
       await exportBinary(exportCode, usePsram ? psramChoice?.opt : undefined)
@@ -631,7 +632,7 @@ export default function MatrixOutputDeployPopup({
       hasBuildOutput,
       isShowUpload,
       showHasContent: readySongs > 0 || hasMusicPlayer,
-      waitingForTrust: trustMessages.size > 0,
+      waitingForTrust: trustMessages.size > 0 || trustHolds,
       graphBlockerCount: graphBlockers.length,
       preparing: customAssets.pending,
       otherBlockers: measuredBlockers,
@@ -639,7 +640,7 @@ export default function MatrixOutputDeployPopup({
     })
     : null
   const runBlockAction = (action: UploadBlockAction) => {
-    if (action.kind === 'trust') trustCurrentProject()
+    if (action.kind === 'show-code-question') showWorkspaceCodeQuestion()
     else if (action.kind === 'show-graph-health') showGraphHealth()
     else if (action.kind === 'open-graph') useUiStore.getState().setWorkspaceMode('graph')
     else readiness.find((row) => row.label === action.label)?.action?.()
@@ -716,34 +717,6 @@ export default function MatrixOutputDeployPopup({
           >
             ✦ Setup…
           </button>
-
-          <div className={styles.uploadEnginePicker} role="group" aria-label="Upload engine">
-            <span className={styles.uploadEngineLabel}>Engine</span>
-            <div className={styles.consoleTabs}>
-              <button
-                type="button"
-                className={usingFbuild ? styles.consoleTabActive : styles.consoleTab}
-                disabled={busy || !helper?.fbuild}
-                onClick={() => { void setEngine('fbuild') }}
-                title={helper?.fbuild
-                  ? 'Use fbuild for compiling and uploading'
-                  : 'fbuild is not available on this machine'}
-              >
-                fbuild
-              </button>
-              <button
-                type="button"
-                className={!usingFbuild && helper ? styles.consoleTabActive : styles.consoleTab}
-                disabled={busy || !helper?.arduinoCli}
-                onClick={() => { void setEngine('arduino-cli') }}
-                title={helper?.arduinoCli
-                  ? 'Use arduino-cli for compiling and uploading'
-                  : 'arduino-cli is not available on this machine'}
-              >
-                arduino-cli
-              </button>
-            </div>
-          </div>
         </div>
         {hasBuildOutput && (
           /* The check compiles the whole design against the board, so it runs
@@ -825,6 +798,42 @@ export default function MatrixOutputDeployPopup({
                 )}
               </div>
             ))}
+            {/* The compiler choice is an advanced one: the build tools pick a
+                working compiler themselves, and the two names mean nothing
+                until something goes wrong. So it lives at the bottom of this
+                panel, not beside Setup on the main row. */}
+            {helper && (
+              <details className={styles.readinessAdvanced}>
+                <summary>Advanced: compiler</summary>
+                <div className={styles.uploadEnginePicker} role="group" aria-label="Compiler">
+                  <span className={styles.uploadEngineLabel}>Compile with</span>
+                  <div className={styles.consoleTabs}>
+                    <button
+                      type="button"
+                      className={usingFbuild ? styles.consoleTabActive : styles.consoleTab}
+                      disabled={busy || !helper.fbuild}
+                      onClick={() => { void setEngine('fbuild') }}
+                      title={helper.fbuild
+                        ? 'Compile and upload with fbuild, which downloads its own board support'
+                        : 'fbuild is not installed on this machine'}
+                    >
+                      fbuild
+                    </button>
+                    <button
+                      type="button"
+                      className={!usingFbuild ? styles.consoleTabActive : styles.consoleTab}
+                      disabled={busy || !helper.arduinoCli}
+                      onClick={() => { void setEngine('arduino-cli') }}
+                      title={helper.arduinoCli
+                        ? 'Compile and upload with arduino-cli, the recommended compiler'
+                        : 'arduino-cli is not installed on this machine'}
+                    >
+                      arduino-cli
+                    </button>
+                  </div>
+                </div>
+              </details>
+            )}
           </div>
         )}
 
@@ -900,14 +909,6 @@ export default function MatrixOutputDeployPopup({
             {listedBlockers.map((c) => <div key={c}>{c}</div>)}
           </div>
         )}
-        {!projectTrusted && blockReason?.action?.kind !== 'trust' && (
-          <div className={styles.trustRow}>
-            <span>Part of this project was made on another computer. Trust it to prepare and upload it.</span>
-            <button type="button" className={styles.inlineActionBtn} onClick={trustCurrentProject}>
-              Trust it
-            </button>
-          </div>
-        )}
         {customAssets.errors.length > 0 && customAssets.trusted && (
           <button className={styles.wizardButtonBase} onClick={customAssets.retry}>
             Retry display images
@@ -928,16 +929,16 @@ export default function MatrixOutputDeployPopup({
         <section className={styles.actionGroup} aria-labelledby="firmware-actions-title">
           <div className={styles.actionGroupHeader}>
             <strong id="firmware-actions-title">Firmware</strong>
-            <span>Reuse, inspect, or export the generated sketch</span>
+            <span>Reuse, inspect, or export the generated firmware</span>
           </div>
           <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
             disabled={flashLocked || !hasLastSketch}
             onClick={handleLastUpload}
-            title={hasLastSketch ? 'Re-send the most recently uploaded sketch for this project without regenerating it' : 'Upload once to cache a quick re-upload target for this project'}
+            title={hasLastSketch ? 'Send the firmware this project last uploaded again, without regenerating it' : 'Upload once to keep a quick re-upload of that firmware for this project'}
           >
-            ↻ Re-upload last sketch
+            ↻ Re-upload last firmware
           </button>
 
           <button
@@ -956,7 +957,7 @@ export default function MatrixOutputDeployPopup({
             title={
               !hasBuildOutput ? 'Connect a pattern to the LED output to enable export'
               : blockingErrors.length > 0 ? blockingErrors.join('\n')
-              : !activeEngineReady ? 'Start the local helper to compile a firmware image'
+              : !activeEngineReady ? 'Start the build tools to compile a firmware image'
               : busy ? status.message
               : 'Compile this design and download the firmware image (nothing is sent to the board)'
             }
@@ -1058,7 +1059,7 @@ export default function MatrixOutputDeployPopup({
                 : streaming
                 ? 'Stop pushing live preview frames to the board'
                 : !helperReady
-                  ? 'Start the local helper to enable live streaming'
+                  ? 'Start the build tools to enable live streaming'
                   : !portDetected
                     ? port.detail
                     : 'Push live preview frames to a board already running the Stream Receiver sketch'

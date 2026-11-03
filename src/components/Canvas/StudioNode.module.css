@@ -364,6 +364,12 @@
   filter: saturate(0.35);
 }
 
+/* Not the active board's: opacity alone, since a filter on a node whose aura
+   animates leaks compositor memory (see GlowEdge.module.css). */
+.nodeOtherBoard {
+  opacity: 0.45;
+}
+
 .nodeDisabled .header {
   opacity: 0.62;
 }

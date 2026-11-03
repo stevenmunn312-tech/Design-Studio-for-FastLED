@@ -6,7 +6,7 @@
 // Pattern Master) read the same store.
 
 import { create } from 'zustand'
-import { isGroupExcludedNodeType, useGraphStore } from '../graphStore'
+import { isGroupExcludedNodeType, reachableGroupRegistry, useGraphStore } from '../graphStore'
 import type { GraphContent, StudioNode, StudioEdge } from '../graphStore'
 import type { GroupRegistry } from '../graphEvaluator'
 import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../../utils/backendClient'
@@ -591,6 +591,26 @@ function remapGroupRefs(content: GraphContent, idMap: Map<string, string>): Grap
     }),
     edges: content.edges,
   }
+}
+
+/** Compare a collected copy with its library content, including nested groups.
+ * Registration can rename group ids, so compare references in traversal order
+ * rather than treating a newly registered copy as a different pattern. */
+export function collectionPatternMatchesLibrary(
+  copy: GraphContent,
+  saved: SavedPattern,
+  graphData: Record<string, GraphContent>,
+): boolean {
+  const fingerprint = (content: GraphContent, registry: Record<string, GraphContent>) => {
+    const nested = reachableGroupRegistry(content.nodes, registry)
+    const ids = Object.keys(nested)
+    const idMap = new Map(ids.map((id, index) => [id, `nested-${index}`]))
+    return JSON.stringify(canonicalize({
+      content: remapGroupRefs(content, idMap),
+      groups: ids.map((id) => remapGroupRefs(nested[id], idMap)),
+    }))
+  }
+  return fingerprint(copy, graphData) === fingerprint(saved.subgraph, { ...graphData, ...saved.groups })
 }
 
 /**

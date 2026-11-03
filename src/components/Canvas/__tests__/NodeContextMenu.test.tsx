@@ -5,6 +5,7 @@ import { useGraphStore } from '../../../state/graphStore'
 import { useNodePresets } from '../../../state/nodePresets'
 import { usePatternLibrary } from '../../../state/patterns/patternLibrary'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { useUiStore } from '../../../state/uiStore'
 
 const runTidyMock = vi.hoisted(() => vi.fn())
 vi.mock('../../../utils/tidyGraph', () => ({ runTidy: runTidyMock }))
@@ -73,6 +74,19 @@ describe('NodeContextMenu', () => {
     expect(getByText('Minimize All')).toBeTruthy()
     expect(getByText('Group 2 Nodes…')).toBeTruthy()
     expect(getByText('Delete')).toBeTruthy()
+  })
+
+  it('opens the selected node reference from its context menu', () => {
+    useUiStore.setState({ helpOpen: false, helpNodeReference: { selectedType: 'Plasma', search: 'Plasma', expandedCategory: 'pattern' } })
+    const close = vi.fn()
+    const view = render(<NodeContextMenu nodeId="solid" x={120} y={140} onClose={close} />)
+    fireEvent.click(view.getByRole('button', { name: 'Help for this node' }))
+    expect(useUiStore.getState().helpOpen).toBe(true)
+    expect(useUiStore.getState().helpTab).toBe('nodes')
+    expect(useUiStore.getState().helpNodeReference.selectedType).toBe('SolidColor')
+    expect(useUiStore.getState().helpNodeReference.search).toBe('')
+    expect(useUiStore.getState().helpNodeReference.expandedCategory).toBe('pattern')
+    expect(close).toHaveBeenCalledOnce()
   })
 
   it('minimizes and maximizes every node, tidying the whole graph after each resize', async () => {

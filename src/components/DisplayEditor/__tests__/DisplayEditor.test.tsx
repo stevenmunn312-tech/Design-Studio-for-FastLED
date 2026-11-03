@@ -251,7 +251,7 @@ describe('DisplayEditor', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
     const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Insert Pattern Deck template' }))
-    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(view.getByRole('button', { name: 'Try it live' }))
 
     expect(useUiStore.getState()).toMatchObject({
       designWorkspaceView: { kind: 'graph' },
@@ -598,7 +598,7 @@ describe('DisplayEditor', () => {
     fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
     const before = structuredClone(useGraphStore.getState().displayDocuments.panel)
 
-    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(view.getByRole('button', { name: 'Try it live' }))
 
     expect(useUiStore.getState()).toMatchObject({
       designWorkspaceView: { kind: 'graph' },
@@ -652,7 +652,7 @@ describe('DisplayEditor', () => {
   it('closes the live touch overlay without wiping finger values', () => {
     const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
-    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(view.getByRole('button', { name: 'Try it live' }))
     fireEvent.click(screen.getByRole('switch', { name: 'Toggle run preview' }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Close touch screen' }))
@@ -666,7 +666,7 @@ describe('DisplayEditor', () => {
   it('lets touch own a synchronized control until release, then shows the wired value', () => {
     const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
-    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(view.getByRole('button', { name: 'Try it live' }))
     const toggle = screen.getByRole('switch', { name: 'Toggle run preview' })
     const runtime = useDisplayRuntimeStore.getState()
     runtime.publishDisplayRoleValue('panel', 'toggle', 'set', false)
@@ -685,7 +685,7 @@ describe('DisplayEditor', () => {
   it('repaints a passive readout when the graph publishes its value role', () => {
     const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Numeric Readout widget' }))
-    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(view.getByRole('button', { name: 'Try it live' }))
 
     expect(screen.getByText('42.0')).toBeTruthy()
     act(() => useDisplayRuntimeStore.getState()
@@ -728,7 +728,7 @@ describe('DisplayEditor', () => {
         ? { ...widget, properties: { ...widget.properties, goTo: document.screens[1].id } }
         : widget),
     })
-    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(view.getByRole('button', { name: 'Try it live' }))
     expect(screen.queryByRole('slider', { name: 'Slider run preview' })).toBeNull()
     const button = screen.getByRole('button', { name: 'Button run preview' })
     fireEvent.pointerDown(button, { button: 0, pointerId: 1 })
@@ -740,7 +740,7 @@ describe('DisplayEditor', () => {
   it('types into a Text Entry on the live screen and confirms with Enter', () => {
     const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Text Entry widget' }))
-    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(view.getByRole('button', { name: 'Try it live' }))
     fireEvent.click(screen.getByRole('textbox', { name: 'Text Entry run preview' }))
     const field = screen.getByRole('textbox', { name: 'Text Entry text' })
     fireEvent.change(field, { target: { value: 'Porch' } })

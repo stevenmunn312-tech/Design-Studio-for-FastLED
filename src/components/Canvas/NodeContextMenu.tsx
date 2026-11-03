@@ -11,6 +11,7 @@ import {
 } from '../../state/nodePresets'
 import { saveGroupToLibrary, usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useUiStore } from '../../state/uiStore'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
 import { runTidy } from '../../utils/tidyGraph'
 import styles from './NodeContextMenu.module.css'
@@ -27,6 +28,16 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const requestPrompt = useUiStore((s) => s.requestPrompt)
   const setStatus = useUiStore((s) => s.setStatus)
+  // The Node Reference opened at this node: the one path from a node on the
+  // canvas to its help page, which used to be reachable only from inside Help.
+  const openNodeHelp = () => {
+    const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
+    if (!definition) return
+    const ui = useUiStore.getState()
+    ui.setHelpNodeReference({ selectedType: nodeType, search: '', expandedCategory: definition.category })
+    ui.setHelpTab('nodes')
+    ui.openHelp()
+  }
   const patterns = usePatternLibrary((s) => s.patterns)
   const nodePresets = useNodePresets((s) => s.presets)
   const savePreset = useNodePresets((s) => s.savePreset)
@@ -207,6 +218,11 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
       <button className={styles.item} onClick={() => act(handleToggleAllNodes)}>
         {allNodesMinimized ? 'Maximize All' : 'Minimize All'}
       </button>
+      {NODE_LIBRARY.some((definition) => definition.type === nodeType) && (
+        <button className={styles.item} onClick={() => act(openNodeHelp)}>
+          Help for this node
+        </button>
+      )}
       {isMultiSelected && (
         <button className={styles.item} onClick={() => setShowGroupDialog(true)}>
           Group {selectedIds.length} Nodes…

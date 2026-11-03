@@ -185,7 +185,7 @@ describe('GraphHealthDrawer', () => {
     useGraphStore.getState().updateNodeProperty('random', 'max', 1)
 
     await waitFor(() => expect(queryByText('Random has an invalid expression')).toBeNull())
-    expect(getByText('Signal path is healthy')).toBeTruthy()
+    expect(getByText('Every check passes')).toBeTruthy()
   })
 
   it('shows the highest-priority issue in the compact summary and expands on demand', () => {
@@ -194,12 +194,37 @@ describe('GraphHealthDrawer', () => {
 
     expect(getByText('Random has an invalid expression')).toBeTruthy()
     expect(queryByLabelText('Diagnostic filters')).toBeNull()
-    expect(getByRole('button', { name: 'Expand graph health' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Expand checks' })).toBeTruthy()
+    expect(getByText('1 blocks upload')).toBeTruthy()
 
-    fireEvent.click(getByRole('button', { name: 'Expand graph health' }))
+    fireEvent.click(getByRole('button', { name: 'Expand checks' }))
 
-    expect(getByRole('button', { name: 'Collapse graph health' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Collapse checks' })).toBeTruthy()
     expect(getByRole('button', { name: /Everything\s*1/ })).toBeTruthy()
+    expect(getByRole('button', { name: /Blocks upload\s*1/ })).toBeTruthy()
+  })
+
+  it('opens when mounted on Upload with a blocker, including arrival from Build Diagram', () => {
+    useUiStore.setState({ graphHealthOpen: false, workspaceMode: 'upload' })
+    const { getByLabelText } = render(<GraphHealthDrawer />)
+    expect(getByLabelText('Diagnostic filters')).toBeTruthy()
+  })
+
+  it('opens itself on arrival at the Upload tab while something blocks upload', () => {
+    useUiStore.setState({ graphHealthOpen: false, workspaceMode: 'graph' })
+    const { getByRole, queryByLabelText } = render(<GraphHealthDrawer />)
+    expect(queryByLabelText('Diagnostic filters')).toBeNull()
+
+    act(() => useUiStore.setState({ workspaceMode: 'upload' }))
+    expect(queryByLabelText('Diagnostic filters')).not.toBeNull()
+
+    // Closing it is respected until the next arrival.
+    fireEvent.click(getByRole('button', { name: 'Collapse checks' }))
+    expect(queryByLabelText('Diagnostic filters')).toBeNull()
+    act(() => useUiStore.setState({ workspaceMode: 'graph' }))
+    expect(queryByLabelText('Diagnostic filters')).toBeNull()
+    act(() => useUiStore.setState({ workspaceMode: 'upload' }))
+    expect(queryByLabelText('Diagnostic filters')).not.toBeNull()
   })
 
   it('offers the board picker for an incompatible microphone', () => {

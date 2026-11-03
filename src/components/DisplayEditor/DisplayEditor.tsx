@@ -244,6 +244,15 @@ export default function DisplayEditor() {
   const mountedPanel = useGraphStore((state) => (displayId
     ? panelsShowingDocument(displayId, rootGraphNodes(state))[0]
     : undefined))
+  // The panel's Enabled state, said in the header: the property is on the
+  // node, and a design edited for a panel that is switched off, or wired to a
+  // control, should say so where the design is.
+  const panelEnabled = useGraphStore((state) => {
+    if (!mountedPanel) return null
+    const wired = rootGraphEdges(state).some((edge) => edge.target === mountedPanel.id && edge.targetHandle === 'enabled')
+    if (wired) return 'wired'
+    return mountedPanel.data.properties.enabled === false ? 'off' : 'on'
+  })
   /*
    * What the panel this design sits on is showing.
    *
@@ -1050,14 +1059,26 @@ export default function DisplayEditor() {
           )}
           <strong>Screen design</strong>
           <span className={styles.resolution}>{document.designSize.width} × {document.designSize.height}</span>
+          {panelEnabled && (
+            <span
+              className={styles.resolution}
+              title={panelEnabled === 'wired'
+                ? 'The panel’s Enabled input is wired to a control on the graph'
+                : panelEnabled === 'off'
+                  ? 'The panel is switched off on its node, so this design does not show until it is enabled'
+                  : 'The panel is enabled on its node'}
+            >
+              Enabled: {panelEnabled}
+            </span>
+          )}
         </div>
         <div className={styles.toolbar} aria-label="Display canvas controls">
           <button
             type="button"
             onClick={() => { if (displayId) openLiveTouchScreen(displayId) }}
-            title="Open a live touch screen on the graph"
+            title="Try the screen live on the graph, touch and all, in a floating window"
           >
-            Run
+            Try it live
           </button>
           <div className={styles.orientationSwitch} role="group" aria-label="Display orientation">
             <button type="button" aria-pressed={document.designSize.height >= document.designSize.width} onClick={() => setDisplayOrientation('0')}>Portrait</button>

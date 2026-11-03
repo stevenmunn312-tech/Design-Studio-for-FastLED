@@ -220,9 +220,9 @@ async function beginLearn(nodeId: string) {
   const ui = useUiStore.getState()
   if (!useGraphStore.getState().trusted) {
     const trust = await ui.requestConfirm({
-      title: 'Trust this workspace?',
-      message: 'Learning flashes a diagnostic sketch and reads the serial port. Trust this workspace before talking to the board.',
-      confirmLabel: 'Trust and learn',
+      title: 'Run code from this file?',
+      message: 'Learning flashes a diagnostic sketch and reads the serial port. Part of this project was made on another computer; let it run before talking to the board.',
+      confirmLabel: 'Run and learn',
       tone: 'danger',
     })
     if (!trust) return

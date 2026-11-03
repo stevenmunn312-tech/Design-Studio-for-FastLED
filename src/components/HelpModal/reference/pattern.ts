@@ -1430,7 +1430,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Custom Formula colours every pixel from a formula you write. It knows x and y (0 to 1), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, the usual maths, and FastLED’s helpers such as sin8 and beatsin8.',
       'The formula’s result, 0 to 1 and wrapping, is looked up in the palette. One line can make ripples, spirals, interference patterns and checkerboards.',
-      'Formulas run only in a trusted workspace; an untrusted project shows black until you trust it.',
+      'Formulas run only once you have answered Run it on the bar above the canvas; until then a project from another computer shows black.',
     ],
     example: example({
       featured: 'CustomFormula',
@@ -1447,7 +1447,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Code runs raw FastLED C++ that writes into leds[], exactly as in a hand-written sketch. Paste a loop body and it is compiled into the firmware verbatim.',
       'The preview translates the code to approximate it in the browser, so most FastLED idioms — beatsin16, CHSV, fadeToBlackBy, |=, EVERY_N_MILLISECONDS, ColorFromPalette with your own DEFINE_GRADIENT_PALETTE or fill_gradient palettes, a custom XY() map, static locals and typed arrays — show live, and a pasted sketch header with its #includes and #defines compiles. Global Code holds variables and helpers that persist between frames. Wire a frame into Frame to start from it instead of the previous output.',
-      'Code runs only in a trusted workspace; an untrusted project shows black until you trust it.',
+      'Code runs only once you have answered Run it on the bar above the canvas; until then a project from another computer shows black.',
     ],
     inputs: {
       frame: 'An optional frame to start leds[] from each frame.',

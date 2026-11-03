@@ -42,7 +42,7 @@ describe('TemplatesPopup', () => {
       const { getAllByRole } = render(<TemplatesPopup />)
       const cards = getAllByRole('button').filter((button) => button.closest('[role="dialog"]')
         && button.textContent !== '×' && button.textContent !== 'Guide me from here to my board')
-      expect(cards[0].getAttribute('aria-label')).toBe('Start with Juggle — recommended first patch')
+      expect(cards[0].getAttribute('aria-label')).toBe('Start with Juggle — recommended first project')
       expect(cards[0].textContent).toContain('Start here')
       // The teaching sequence the starter exists for, kept intact.
       expect(cards[0].textContent).toMatch(/Set Count to 5[\s\S]*Trails[\s\S]*Mirror/)

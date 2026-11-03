@@ -130,7 +130,7 @@ export function firstProjectSteps(input: FirstProjectInput): FirstProjectStep[] 
       title: 'Check it’s ready',
       done: ready,
       detail: input.graphBlockerCount > 0
-          ? `${input.graphBlockerCount} ${input.graphBlockerCount === 1 ? 'thing' : 'things'} to fix first. Graph Health shows each one, most with a button that fixes it.`
+          ? `${input.graphBlockerCount} ${input.graphBlockerCount === 1 ? 'thing' : 'things'} block upload. Checks, under the canvas, shows each one, most with a button that fixes it.`
           : 'On the Upload tab, Check capacity builds it for your board without uploading, to show it fits.',
       actions: [{ action: 'open-upload', label: 'Open Upload' }],
     },

@@ -38,7 +38,7 @@ describe('describePort', () => {
   it('does not claim either way while the helper is offline', () => {
     const status = port({ selectedPort: 'COM6', helper: null, ports: [com6] })
     expect(status.state).toBe('offline')
-    expect(status.text).toBe('COM6 selected · helper offline')
+    expect(status.text).toBe('COM6 selected · build tools off')
     expect(status.text).not.toMatch(/\bconnected\b/)
   })
 

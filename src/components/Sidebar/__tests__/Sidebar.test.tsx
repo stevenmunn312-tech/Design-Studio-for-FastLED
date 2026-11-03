@@ -58,9 +58,9 @@ describe('Sidebar equipment rack', () => {
 
   it('labels modules with their primary output type', () => {
     const { getByRole, getByLabelText } = render(<Sidebar />)
-    // The graph is empty in this test, which collapses every section (see the
-    // "blank canvas collapses the rack" behavior) — open Audio explicitly
-    // rather than relying on it already being expanded.
+    // The graph is empty in this test, which opens only the first category
+    // — open Audio explicitly rather than relying on it already being
+    // expanded.
     fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
     const fft = getByLabelText('Add FFT Analyzer')
     expect(fft.querySelector('[data-output-type="float"]')).toBeTruthy()
@@ -72,7 +72,7 @@ describe('Sidebar equipment rack', () => {
     fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
     fireEvent.click(getByLabelText('Add FFT Analyzer'))
 
-    expect(getByText('Recent rack')).toBeTruthy()
+    expect(getByText('Recent')).toBeTruthy()
     expect(useGraphStore.getState().nodes[0].data.nodeType).toBe('FFTAnalyzer')
   })
 
@@ -261,15 +261,16 @@ describe('Sidebar remembered section', () => {
     useUiStore.setState({ viewCenter: { x: 0, y: 0 }, draggingNodeType: null, testSignal: false })
   })
 
-  it('collapses every section — Quick recipes included — on an empty graph', () => {
+  it('opens the first category alone — Quick recipes shut — on an empty graph', () => {
     localStorage.setItem(KEY, JSON.stringify('audio'))
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
 
-    const { getAllByRole } = render(<Sidebar />)
+    const { getAllByRole, getByRole } = render(<Sidebar />)
 
     const headers = getAllByRole('button').filter((button) => button.hasAttribute('aria-expanded'))
     expect(headers.length).toBeGreaterThan(1)
-    expect(headers.map((header) => header.getAttribute('aria-expanded'))).not.toContain('true')
+    expect(headers.filter((header) => header.getAttribute('aria-expanded') === 'true')).toHaveLength(1)
+    expect(getByRole('button', { name: /^Inputs\d/ }).getAttribute('aria-expanded')).toBe('true')
   })
 
   it('does not let that reset overwrite the section the user chose', () => {
@@ -288,7 +289,7 @@ describe('Sidebar remembered section', () => {
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     const { getByRole } = render(<Sidebar />)
 
-    fireEvent.click(getByRole('button', { name: /Audio/i }))
+    fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
 
     expect(JSON.parse(localStorage.getItem(KEY) ?? 'null')).toBe('audio')
   })

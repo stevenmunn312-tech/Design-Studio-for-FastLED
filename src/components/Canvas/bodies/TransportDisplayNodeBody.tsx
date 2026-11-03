@@ -39,6 +39,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   const documents = useGraphStore((state) => state.displayDocuments)
   const rootNodes = useGraphStore(rootGraphNodes)
   const createScreenDesignForPanel = useGraphStore((state) => state.createScreenDesignForPanel)
+  const updateNodeProperty = useGraphStore((state) => state.updateNodeProperty)
   const adoptScreenDesign = useGraphStore((state) => state.adoptScreenDesign)
   const detachScreenDesign = useGraphStore((state) => state.detachScreenDesign)
   const openDisplayWorkspace = useUiStore((state) => state.openDisplayWorkspace)
@@ -115,18 +116,28 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   }, [detachScreenDesign, nodeId, setStatus])
 
   /*
-   * The Layout dropdown decides; this button only follows it. A fixed layout
-   * shows the button disabled with the reason beside it, so the design is
-   * always one choice away rather than something that, once opened, took the
-   * fixed layouts with it.
+   * The button sets Layout to Custom design itself. It used to sit disabled
+   * under a fixed layout with "Set Layout to Custom design to edit" beside
+   * it, which is one more thing to find before the thing you came for; the
+   * dropdown still shows the choice, and choosing a fixed layout again sets
+   * the design aside without losing it (see `shownDesignId`).
    */
+  const keptDesign = namedId !== '' && documents[namedId] !== undefined
   const designAction = !customSelected
     ? (
         <>
-          <button type="button" className={`nodrag ${styles.designAction}`} disabled>
-            Edit screen design
+          <button
+            type="button"
+            className={`nodrag ${styles.designAction}`}
+            onClick={() => {
+              updateNodeProperty(nodeId, 'tftLayout', CUSTOM_DESIGN_LAYOUT)
+              if (keptDesign) openDisplayWorkspace(nodeId)
+              else createScreenDesign()
+            }}
+          >
+            {keptDesign ? 'Edit screen design' : 'Create screen design'}
           </button>
-          <span className={styles.designNote}>Set Layout to {CUSTOM_DESIGN_LAYOUT} to edit.</span>
+          <span className={styles.designNote}>Sets Layout to {CUSTOM_DESIGN_LAYOUT}.</span>
         </>
       )
     : customDisplayWired

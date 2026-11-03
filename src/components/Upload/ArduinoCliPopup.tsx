@@ -20,14 +20,14 @@ export default function ArduinoCliPopup() {
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeCliPopup() }}>
-      <div className={styles.popup} role="dialog" aria-label="arduino-cli not found">
+      <div className={styles.popup} role="dialog" aria-label="Compiler not found">
         <div className={styles.popupHeader}>
-          <span>arduino-cli not found</span>
+          <span>Compiler not found</span>
           <button className={styles.closeBtn} onClick={closeCliPopup} title="Close">×</button>
         </div>
 
         <div className={styles.note}>
-          The helper couldn't find <code>arduino-cli</code>. Point it at an existing binary, or install one.
+          The build tools couldn't find the <code>arduino-cli</code> compiler. Point them at a copy you already have, or install one.
         </div>
 
         <div className={styles.sectionTitle}>Specify its location</div>
@@ -50,7 +50,7 @@ export default function ArduinoCliPopup() {
           {busy ? 'Installing…' : '⤓ Download & install arduino-cli'}
         </button>
         <div className={styles.note}>
-          Downloads the official binary. You'll still need to install your board's core (from the Board popup) before the first upload.
+          Downloads the official binary. Your board's support package installs from Build tools &amp; port before the first upload.
         </div>
       </div>
     </div>

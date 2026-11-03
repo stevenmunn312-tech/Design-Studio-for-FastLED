@@ -23,7 +23,6 @@ vi.mock('../components/Layout/WorkspaceTabs', blank)
 vi.mock('../components/DisplayEditor/LiveTouchScreen', blank)
 vi.mock('../components/FirstProject/FirstProjectGuide', blank)
 vi.mock('../components/Layout/PanelResizeHandle', () => ({ PanelResizeHandle: () => null }))
-vi.mock('../utils/trustPrompt', () => ({ promptTrustIfNeeded: vi.fn(async () => {}) }))
 vi.mock('../state/player/musicLibraryPersistence', async (importOriginal) => ({
   ...await importOriginal<typeof import('../state/player/musicLibraryPersistence')>(),
   waitForMusicLibraryRestore: vi.fn(async () => {}),
@@ -70,6 +69,21 @@ describe('App project persistence', () => {
     clearShareHash()
     useProjectStore.setState(projectActions)
     useUiStore.setState({ setStatus: uiSetStatus })
+  })
+
+  it('switches between Focus and Stage through keyboard shortcuts without overlapping views', () => {
+    useUiStore.setState({ performanceMode: false, stageMode: false })
+    render(<App />)
+    fireEvent.keyDown(window, { key: 'F9' })
+    expect(useUiStore.getState().performanceMode).toBe(true)
+    fireEvent.keyDown(window, { key: 'F10' })
+    expect(useUiStore.getState().stageMode).toBe(true)
+    expect(useUiStore.getState().performanceMode).toBe(false)
+    fireEvent.keyDown(window, { key: 'F9' })
+    expect(useUiStore.getState().stageMode).toBe(false)
+    expect(useUiStore.getState().performanceMode).toBe(true)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(useUiStore.getState().performanceMode).toBe(false)
   })
 
   it('opens a share link into a new project and leaves the open project untouched', async () => {

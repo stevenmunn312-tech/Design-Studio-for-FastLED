@@ -170,6 +170,30 @@
   white-space: nowrap;
 }
 
+.libraryBadge {
+  flex-shrink: 0;
+  font-family: var(--font-code);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  padding: 0 5px;
+  line-height: 14px;
+  white-space: nowrap;
+  background: none;
+}
+
+.libraryBadgeStale {
+  cursor: pointer;
+  color: var(--accent-library);
+  border-color: color-mix(in srgb, var(--accent-library) 45%, transparent);
+}
+
+.libraryBadgeStale:hover {
+  background: color-mix(in srgb, var(--accent-library) 12%, transparent);
+}
+
 .remove {
   background: none;
   border: none;

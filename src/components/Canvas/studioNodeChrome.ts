@@ -68,7 +68,7 @@ export const HARDWARE_INPUT_WIDGET_TYPES: ReadonlySet<string> = new Set([
 // get a live widget (HardwareInputBody) instead of a note.
 export const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
   DMXInput: {
-    text: 'preview listens for helper-backed Art-Net; firmware uses the selected DMX source',
+    text: 'preview listens for Art-Net through the build tools; firmware uses the selected DMX source',
     title: 'The browser preview reads Art-Net packets through the local helper. Generated firmware uses this node’s selected DMX source instead: Art-Net over Wi-Fi or DMX512 over an ESP32 transceiver.',
   },
   PowerMonitorInput: {

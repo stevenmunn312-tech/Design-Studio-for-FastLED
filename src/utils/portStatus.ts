@@ -46,8 +46,8 @@ export function describePort({ helper, selectedPort, ports, portsScanned }: Port
   // on a scan that is never coming.
   if (helper === null || helper?.ok === false) {
     return address
-      ? { state: 'offline', address, text: `${address} selected · helper offline`, detail: `${address} is selected, but the helper is not running, so Studio cannot tell whether a board is connected to it.` }
-      : { state: 'offline', address, text: 'No port · helper offline', detail: 'Start the helper before Studio can list ports.' }
+      ? { state: 'offline', address, text: `${address} selected · build tools off`, detail: `${address} is selected, but the build tools are not running, so Studio cannot tell whether a board is connected to it.` }
+      : { state: 'offline', address, text: 'No port · build tools off', detail: 'Start the build tools before Studio can list ports.' }
   }
   if (helper === undefined || !portsScanned) {
     return address

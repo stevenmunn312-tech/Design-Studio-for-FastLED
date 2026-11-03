@@ -3898,8 +3898,8 @@ export function buildGraphDiagnostics(
       title: target === 'group' ? 'This group is empty' : 'Nothing here yet',
       message: target === 'group'
         ? 'There is no signal path inside this group.'
-        : 'Start from a starter patch, or drag a pattern in from the node library.',
-      fix: target === 'group' ? 'Return to the main graph and recreate this group.' : 'Juggle is a good first patch: it walks you through the basics.',
+        : 'Pick a starter in the Start Gallery, or drag a pattern in from the node library.',
+      fix: target === 'group' ? 'Return to the main graph and recreate this group.' : 'Juggle is a good first starter: it walks you through the basics.',
       nodeIds: [],
       action: target === 'group' ? 'open-node-library' : 'open-start-gallery',
     })

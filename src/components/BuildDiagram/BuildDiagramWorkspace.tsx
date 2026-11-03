@@ -253,7 +253,7 @@ export default function BuildDiagramWorkspace() {
   // between a board change and that snap.
   const noExactBoardReason = benchBoard
     ? `Exports need the Board node and the Upload board to agree: Board is ${benchBoard.label}, Upload is ${selectedTarget?.label ?? selectedFqbn}.`
-    : 'Choose a board on the Hardware tab to unlock controller-aware wiring and exports.'
+    : 'Choose the specific board model (e.g. ESP32 DevKit V1) on the Hardware tab to unlock controller-aware wiring and exports.'
   const [selectedItemId, setSelectedItemId] = useState<string>(() => exactBoard ? 'controller' : '')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
   // The information panel is drawn in the shared workspace sidebar, which
@@ -613,7 +613,7 @@ export default function BuildDiagramWorkspace() {
           deviceX: layout.x,
           deviceY,
           unresolvedReason: !canRenderControllerPins
-            ? 'This exact board profile does not yet have a reviewed physical pin map.'
+            ? 'This board model does not yet have a reviewed physical pin map.'
             : unavailableReason
               ? unavailableReason
             : boardPin
@@ -651,9 +651,9 @@ export default function BuildDiagramWorkspace() {
     && canRenderControllerPins
     && unresolvedSignalMappingCount === 0
   const readinessText = !exactBoard
-    ? 'blocked by exact-board selection'
+    ? 'blocked until the specific board model is chosen'
     : !canRenderControllerPins
-      ? 'blocked because this exact board profile is still missing a reviewed physical pin map'
+      ? 'blocked because this board model is still missing a reviewed physical pin map'
       : unresolvedSignalMappingCount > 0
         ? `needs review: ${unresolvedSignalMappingCount} controller pin mapping${unresolvedSignalMappingCount === 1 ? '' : 's'} unresolved`
         : 'all graph hardware maps cleanly; required signal conditioning is included automatically'
@@ -955,7 +955,7 @@ export default function BuildDiagramWorkspace() {
               </>
             )}
             {selectedItemId !== 'controller' && !exactBoard && (
-              <p className={styles.warningText}>Select an exact board profile before pin definitions or controller-side connections appear here.</p>
+              <p className={styles.warningText}>Choose the specific board model (e.g. ESP32 DevKit V1) before pin definitions or controller-side connections appear here.</p>
             )}
             {selectedConnections.length > 0 && canRenderControllerPins && (
               <>
@@ -997,7 +997,7 @@ export default function BuildDiagramWorkspace() {
             <h3 className={styles.cardTitle}>Readiness</h3>
             <ul className={styles.flatList}>
               <li>Graph hardware: captured automatically</li>
-              <li>Exact board: {exactBoard ? 'confirmed' : 'select one board profile'}</li>
+              <li>Board model: {exactBoard ? 'confirmed' : 'choose the specific model'}</li>
               <li>Wiring plan: {requirementsCalculatedText}</li>
               <li>Signal plan: {readinessText}</li>
               <li>Power plan: {electricalPlan.powerReadyText}</li>
@@ -1008,7 +1008,7 @@ export default function BuildDiagramWorkspace() {
           <section className={styles.card}>
             <h3 className={styles.cardTitle}>Connections</h3>
             {connectionRows.length === 0 ? (
-              <p className={styles.copyMuted}>Controller-side connections appear here after an exact board with a reviewed pin map is selected.</p>
+              <p className={styles.copyMuted}>Controller-side connections appear here once a specific board model with a reviewed pin map is chosen.</p>
             ) : (
               <div className={styles.connectionList}>
                 {connectionRows.map((row) => (
@@ -1227,7 +1227,7 @@ export default function BuildDiagramWorkspace() {
                 : !canRenderControllerPins
                   ? `${exactBoard.label} selected. This profile still needs a reviewed physical pin map before controller-side wiring can be drawn.`
                   : activeSection.id === 'all'
-                    ? `${exactBoard.label} selected. Connections now resolve against that exact board's pin map.`
+                    ? `${exactBoard.label} chosen. Connections now resolve against that board's pin map.`
                     : activeSection.summary}
             </p>
           </div>
@@ -1279,9 +1279,9 @@ export default function BuildDiagramWorkspace() {
 
         {!exactBoard ? (
           <div className={styles.emptyState}>
-            <h3 className={styles.emptyTitle}>Exact board required</h3>
+            <h3 className={styles.emptyTitle}>Choose the specific board model</h3>
             <p className={styles.copy}>
-              The graph already defines logical GPIO numbers and hardware roles. Build Diagram now needs the exact physical controller board before it can show trustworthy physical references. Choose it on the Hardware tab.
+              The graph already defines logical GPIO numbers and hardware roles. The wiring diagram needs the specific board model (e.g. ESP32 DevKit V1) before it can draw trustworthy physical pins. Choose it on the Hardware tab.
             </p>
           </div>
         ) : (
@@ -1368,7 +1368,7 @@ export default function BuildDiagramWorkspace() {
             : `Current view — ${activeSection.label} section, visible hardware only`}
           status={exportDraftStatus}
           readiness={[
-            { label: 'Exact board', value: exactBoard.label },
+            { label: 'Board model', value: exactBoard.label },
             { label: 'Wiring plan', value: requirementsCalculatedText },
             { label: 'Signal plan', value: readinessText },
             { label: 'Power plan', value: electricalPlan.powerReadyText },

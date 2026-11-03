@@ -43,18 +43,18 @@ describe('uploadBlockReason', () => {
       order.push(reason.actionLabel ?? reason.text)
       // Clear whatever was named, and ask again.
       if (reason.action?.kind === 'open-graph') current = { ...current, hasBuildOutput: true }
-      else if (reason.action?.kind === 'trust') current = { ...current, waitingForTrust: false }
+      else if (reason.action?.kind === 'show-code-question') current = { ...current, waitingForTrust: false }
       else if (reason.action?.kind === 'show-graph-health') current = { ...current, graphBlockerCount: 0 }
       else if (reason.text.startsWith('Preparing')) current = { ...current, preparing: false }
       else if (reason.text === 'Too big') current = { ...current, otherBlockers: [] }
       else current = { ...current, tools: ready }
     }
-    expect(order).toEqual(['Go to Graph', 'Trust it', 'Show me', 'Preparing display images…', 'Too big', 'Refresh ports'])
+    expect(order).toEqual(['Go to Graph', 'Review question', 'Show me', 'Preparing display images…', 'Too big', 'Refresh ports'])
   })
 
   it('counts graph problems and sends them to Graph Health', () => {
     expect(uploadBlockReason(input({ graphBlockerCount: 1 }))).toEqual({
-      text: '1 thing to fix first. Graph Health shows what, and fixes some for you.',
+      text: '1 thing to fix first. Checks shows what, and fixes some for you.',
       actionLabel: 'Show me', action: { kind: 'show-graph-health' },
     })
     expect(uploadBlockReason(input({ graphBlockerCount: 3 }))?.text).toMatch(/^3 things to fix first/)
@@ -71,8 +71,8 @@ describe('uploadBlockReason', () => {
   })
 
   it('waits quietly while the helper is still being checked', () => {
-    const reason = uploadBlockReason(input({ tools: [{ label: 'Helper', state: 'checking', detail: 'Checking for the local upload helper…' }] }))
-    expect(reason).toEqual({ text: 'Checking for the local upload helper…' })
+    const reason = uploadBlockReason(input({ tools: [{ label: 'Build tools', state: 'checking', detail: 'Checking for the build tools…' }] }))
+    expect(reason).toEqual({ text: 'Checking for the build tools…' })
   })
 
   it('asks the SD show path for something to play rather than a frame', () => {

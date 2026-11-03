@@ -31,7 +31,7 @@ describe('startFlow', () => {
    */
   it('closes every hardware shelf category for a blank sketch', () => {
     startBlankCanvas()
-    expect(useUiStore.getState().hardwareShelfCategory).toBeNull()
+    expect(useUiStore.getState().hardwareShelfCategory).toBe('led-outputs')
     // The Board survives a blank canvas; it describes the bench, not the patch.
     expect(useGraphStore.getState().nodes.filter((node) => node.data.nodeType !== 'Board')).toEqual([])
   })
@@ -49,7 +49,7 @@ describe('startFlow', () => {
     // The shelf is what the tab is for, so it is open; nothing is on the bench
     // yet, so no section of it is the one being worked in.
     expect(useUiStore.getState().sidebarOpen).toBe(true)
-    expect(useUiStore.getState().hardwareShelfCategory).toBeNull()
+    expect(useUiStore.getState().hardwareShelfCategory).toBe('led-outputs')
   })
 
   it('owes the controller nudge again on a new blank project', () => {

@@ -1,7 +1,7 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
-import { hasDerivedDisplayPorts, ROOT_GRAPH_ID, rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { boardPartitionOf, hasDerivedDisplayPorts, ROOT_GRAPH_ID, rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { orderPorts } from '../../utils/portOrder'
 import { compositionDims } from '../../state/output/outputRouting'
 import type { StudioEdge, StudioNode as StudioNodeT, StudioNodeData } from '../../state/graphStore'
@@ -1550,6 +1550,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const boardSuffix = boards.length > 1 && (isBoardAttachedNodeType(d.nodeType) || runsOnBoard)
     ? boardOrdinalLabel(boards, boardIdOf({ data: d } as StudioNodeT, boards[0].id, new Set(boards.map((board) => board.id))))
     : null
+  // With several boards the canvas shows every board's nodes, while the
+  // bench, Build Diagram and Upload show the active board's alone. A node the
+  // active board does not compile is dimmed, so switching boards changes the
+  // canvas too instead of leaving it the one view that did not notice.
+  const activeBoardId = useUiStore((s) => s.activeBoardId)
+  const onOtherBoard = useGraphStore((s) => boards.length > 1 && s.activeGraphId === ROOT_GRAPH_ID
+    && !boardPartitionOf(s, activeBoardId).nodes.some((node) => node.id === id))
   const minimizedType = (outputs[0]?.dataType ?? inputs[0]?.dataType ?? 'control').toUpperCase()
   const minimizedTypeLine = def?.subcategory
     ? `${minimizedType} · ${def.subcategory.toUpperCase()}`
@@ -1563,9 +1570,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
    * title, which until now said nothing. The name is given in full because the
    * header is exactly where it gets truncated.
    */
-  const headerTooltip = NODE_DESCRIPTIONS[d.nodeType]
+  const headerTooltip = (NODE_DESCRIPTIONS[d.nodeType]
     ? `${displayName} — ${NODE_DESCRIPTIONS[d.nodeType]}`
-    : displayName
+    : displayName) + ' · Right-click for Help for this node'
   const showLiveNodeVisuals = uiEffectsEnabled
 
   useEffect(() => {
@@ -1590,7 +1597,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   return (
     <div
       ref={nodeRef}
-      className={`${styles.node} ${minimized ? styles.nodeMinimized : ''} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${flashing ? styles.nodeFlash : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''}`}
+      className={`${styles.node} ${minimized ? styles.nodeMinimized : ''} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${flashing ? styles.nodeFlash : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''} ${onOtherBoard ? styles.nodeOtherBoard : ''}`}
+      data-other-board={onOtherBoard || undefined}
       style={{
         width: NODE_WIDTH_OVERRIDES[d.nodeType],
         '--node-accent': accent,

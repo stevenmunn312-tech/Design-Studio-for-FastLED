@@ -119,6 +119,9 @@ const SIGNAL_PATH_DIM_KEY = 'design-studio-for-fastled-signal-path-dim-enabled'
 const HARDWARE_TAB_KEY = 'design-studio-for-fastled-hardware-pane-tab'
 const START_CHOICE_KEY = 'design-studio-for-fastled-last-start-choice'
 const GRAPH_HEALTH_KEY = 'design-studio-for-fastled-graph-health-open'
+/** The parts-shelf category a blank bench opens on: the LED outputs, since a
+ *  board with nothing to light is the first thing a new bench lacks. */
+export const BLANK_BENCH_SHELF_CATEGORY = 'led-outputs'
 const SIDEBAR_WIDTH_KEY = 'design-studio-for-fastled-sidebar-width'
 const PREVIEW_WIDTH_KEY = 'design-studio-for-fastled-preview-width'
 const LAYOUT_PRESET_KEY = 'design-studio-for-fastled-layout-preset'
@@ -382,7 +385,6 @@ interface UiState {
   clearHardwareShelfTarget: () => void
   dismissControllerHint: () => void
   restoreControllerHint: () => void
-  toggleBuildDiagram: () => void
   closeBuildDiagram: () => void
   openDisplayWorkspace: (displayId: string) => void
   closeDisplayWorkspace: () => void
@@ -649,7 +651,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     ...activateWorkspace(state, 'graph', { previewPanelOpen: true }),
     ...leavingDisplayEditor(state),
   })),
-  hardwareShelfCategory: load<string | null>(HARDWARE_SHELF_CATEGORY_KEY, null),
+  hardwareShelfCategory: load<string | null>(HARDWARE_SHELF_CATEGORY_KEY, BLANK_BENCH_SHELF_CATEGORY),
   setHardwareShelfCategory: (hardwareShelfCategory) => {
     save(HARDWARE_SHELF_CATEGORY_KEY, hardwareShelfCategory)
     set({ hardwareShelfCategory })
@@ -668,12 +670,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   clearHardwareBoardMenuRequest: () => set({ hardwareBoardMenuRequested: false }),
   dismissControllerHint: () => set({ controllerHintDismissed: true }),
   restoreControllerHint: () => set({ controllerHintDismissed: false }),
-  // These three set `workspaceMode` directly rather than through
+  // These set `workspaceMode` directly rather than through
   // `setWorkspaceMode`, so they each have to leave the editor too.
-  toggleBuildDiagram: () => set((s) => ({
-    ...activateWorkspace(s, s.workspaceMode === 'build' ? 'graph' : 'build'),
-    ...leavingDisplayEditor(s),
-  })),
   closeBuildDiagram: () => set((s) => ({ ...activateWorkspace(s, 'graph'), ...leavingDisplayEditor(s) })),
   openDisplayWorkspace: (displayId) => set((state) => ({
     ...activateWorkspace(state, 'graph'),

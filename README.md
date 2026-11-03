@@ -22,20 +22,20 @@ What makes the Studio useful:
 - **A deep creative toolbox.** Choose from 235 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
-- **A real performance workflow.** Live Focus, the Control Deck, Stage View, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
+- **A real performance workflow.** Focus and Stage views, the Control Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
 - **A hardware workbench, not a hidden settings popup.** Choose the exact board, add the parts you actually own, inspect board-aware pin assignments, and see the rig at a shared physical scale on its own **Hardware** tab, beside the **Graph** where its signals flow.
-- **Hardware-aware guardrails.** Graph Health, filtered GPIO pickers, wiring diagnostics, board compatibility checks, power warnings, and measured flash/RAM capacity catch problems before upload.
+- **Hardware-aware guardrails.** The Checks drawer, filtered GPIO pickers, wiring diagnostics, board compatibility checks, power warnings, and measured flash/RAM capacity catch problems before upload.
 - **A plan for the physical build.** The Build Diagram turns the graph into wiring: a scale controller with its real pin map, power distribution and fuses, exportable parts and connection lists, and printable assembly sheets.
 - **Shareable results.** Record the preview as a PNG, GIF, or WebM clip straight from the workspace.
 - **Your work stays portable.** Use named projects, Project Files, Graph JSON, share links, recovery snapshots, and standalone `.ino` exports.
 
 ## Start with a spark, not an empty canvas
 
-The Start Gallery includes guided patches for Juggle, Fire, scrolling text, live audio, field warping, generative shows, music-synced SD playback, pattern slideshows, and two where the physical controls are already wired — a knob and button dimming an LED output, and an encoder stepping through a slideshow. Each starter arrives with an editable Comment node explaining what to try next.
+The Start Gallery includes guided starters for Juggle, Fire, scrolling text, live audio, field warping, generative shows, music-synced SD playback, pattern slideshows, and two where the physical controls are already wired — a knob and button dimming an LED output, and an encoder stepping through a slideshow. Each starter arrives with an editable Comment node explaining what to try next.
 
 ![The full-screen Start Gallery with beginner, audio, field, and show templates](docs/images/readme/design-studio-start-gallery.webp)
 
-Most starter patches are deliberately simple: a pattern flows into an LED output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately. The control starters add one more idea — that a button or knob on the bench reaches the fixture along an ordinary visible cable.
+Most starters are deliberately simple: a pattern flows into an LED output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately. The control starters add one more idea — that a button or knob on the bench reaches the fixture along an ordinary visible cable.
 
 | Build and preview a patch | Browse and collect reusable patterns |
 | --- | --- |
@@ -132,9 +132,9 @@ Open the **Upload** tab for readiness, capacity, firmware actions, diagnostics, 
 - **View Code / Export `.ino`** — inspect, modify, or build the generated sketch yourself.
 - **Upload show to SD** — provision the separate music-synced playback workflow.
 
-Graph Health continuously explains incomplete wiring, pin conflicts, output power, controller compatibility, show structure, and memory pressure. **Check capacity** performs a real compile-only check against the selected board and reports measured flash/RAM use when the toolchain can provide it.
+The Checks drawer under the canvas continuously explains incomplete wiring, pin conflicts, output power, controller compatibility, show structure, and memory pressure. **Check capacity** performs a real compile-only check against the selected board and reports measured flash/RAM use when the toolchain can provide it.
 
-Projects with an IR receiver pin Arduino-IRremote 4.7.1. The local helper installs or vendors that exact version only when an IR sketch is built; IR-free sketches do not acquire the dependency. An exported `.ino` includes the matching `arduino-cli lib install IRremote@4.7.1` instruction. Graph Health blocks unsupported selected boards and invalid learned-key or Step Value mappings before upload or export.
+Projects with an IR receiver pin Arduino-IRremote 4.7.1. The local helper installs or vendors that exact version only when an IR sketch is built; IR-free sketches do not acquire the dependency. An exported `.ino` includes the matching `arduino-cli lib install IRremote@4.7.1` instruction. Checks blocks unsupported selected boards and invalid learned-key or Step Value mappings before upload or export.
 
 When it is time to build the rig rather than the patch, switch to the **Build Diagram** tab for a physical wiring workspace derived from the same graph: the selected controller drawn to scale with its real pin map, power distribution and fuse blocks, a parts list and connection list you can export as CSV, and printable assembly sheets.
 

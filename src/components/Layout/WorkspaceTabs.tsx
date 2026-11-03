@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { isHardwareNodeType } from '../../build/hardware'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useUiStore, type WorkspaceMode } from '../../state/uiStore'
+import { WORKSPACE_TABS } from '../../state/workspaceTabs'
 import styles from './WorkspaceTabs.module.css'
 
 /**
@@ -15,13 +16,6 @@ import styles from './WorkspaceTabs.module.css'
  * that is where the hours go; a blank one lands on Hardware, where choosing a
  * board is the only work available.
  */
-const TABS: { mode: WorkspaceMode; label: string }[] = [
-  { mode: 'hardware', label: 'Hardware' },
-  { mode: 'graph', label: 'Graph' },
-  { mode: 'upload', label: 'Upload' },
-  { mode: 'build', label: 'Build Diagram' },
-]
-
 /**
  * The count each tab announces on. A part added or removed on the bench
  * changes what Hardware, Build Diagram and Upload show — the bench, the wiring
@@ -90,7 +84,7 @@ export default function WorkspaceTabs() {
   return (
     <div className={styles.bar}>
       <div className={styles.tabs} role="tablist" aria-label="Workspace">
-        {TABS.map(({ mode, label }) => {
+        {WORKSPACE_TABS.map(({ mode, label }) => {
           const active = workspaceMode === mode
           return (
             <button

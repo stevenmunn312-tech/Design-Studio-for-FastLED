@@ -12,7 +12,7 @@
 export type UploadBlockAction =
   | { kind: 'open-graph' }
   | { kind: 'show-graph-health' }
-  | { kind: 'trust' }
+  | { kind: 'show-code-question' }
   /** One of the Build tools & port rows; the tab runs that row's own action. */
   | { kind: 'tool'; label: string }
 
@@ -36,10 +36,12 @@ export interface UploadBlockInput {
   /** The SD-show path, and whether it has songs or a player collection. */
   isShowUpload: boolean
   showHasContent: boolean
-  /** Something the build needs (display images) is waiting for trust. An
-   *  untrusted project on its own does not block Upload — it asks first. */
+  /** The project holds code this computer has not run yet (Formula or Code
+   *  nodes, a network listener, display images waiting on them), so the bar
+   *  above the canvas is asking "Run code from this file?". Upload waits for
+   *  that one answer rather than asking again. */
   waitingForTrust: boolean
-  /** Graph rules that stop a build, which Graph Health explains and repairs. */
+  /** Graph rules that stop a build, which Checks explains and repairs. */
   graphBlockerCount: number
   /** Display images still being prepared. */
   preparing: boolean
@@ -64,13 +66,13 @@ export function uploadBlockReason(input: UploadBlockInput): UploadBlockReason | 
   }
   if (input.waitingForTrust) {
     return {
-      text: 'Part of this project was made on another computer. Trust it to build it.',
-      actionLabel: 'Trust it', action: { kind: 'trust' },
+      text: 'Review “Run code from this file?” above the canvas before building unfamiliar code.',
+      actionLabel: 'Review question', action: { kind: 'show-code-question' },
     }
   }
   if (input.graphBlockerCount > 0) {
     return {
-      text: `${things(input.graphBlockerCount)} to fix first. Graph Health shows what, and fixes some for you.`,
+      text: `${things(input.graphBlockerCount)} to fix first. Checks shows what, and fixes some for you.`,
       actionLabel: 'Show me', action: { kind: 'show-graph-health' },
     }
   }

@@ -1,7 +1,7 @@
 import { rootGraphNodes, useGraphStore } from '../state/graphStore'
 import { useAudioStore } from '../state/audio/audioStore'
 import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from '../state/patterns/starterTemplates'
-import { useUiStore } from '../state/uiStore'
+import { useUiStore, BLANK_BENCH_SHELF_CATEGORY } from '../state/uiStore'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { micSupportedForBoardProfile } from '../build/pins/micPinDefaults'
 import { retargetHardwarePins } from '../build/pins/pinRetarget'
@@ -74,11 +74,11 @@ export function landOnStartingWorkspace() {
   // is dismissed with it — see the `leavingDisplayEditor` rule in uiStore.
   const ui = useUiStore.getState()
   ui.setWorkspaceMode('hardware')
-  // The shelf is open — it is what the tab is for — but every category is
-  // collapsed: nothing is on the bench yet, so no section of it is the one
-  // being worked in, and a wall of open categories buries the controller the
-  // first decision is actually about.
-  ui.setHardwareShelfCategory(null)
+  // The shelf is open — it is what the tab is for — with the LED outputs
+  // alone unfolded: nothing is on the bench yet, so no other section is the
+  // one being worked in, and a wall of open categories would bury the
+  // controller the first decision is actually about.
+  ui.setHardwareShelfCategory(BLANK_BENCH_SHELF_CATEGORY)
   // A new blank project is a new bench, so the controller nudge is owed again
   // even to someone who answered it on the last one.
   ui.restoreControllerHint()
@@ -241,9 +241,8 @@ export function startBlankCanvas(options?: StartFlowOptions) {
   startFlowGeneration += 1
   useGraphStore.getState().loadGraph([], [])
   // Nothing on the bench yet, so nothing in the shelf is the category you
-  // were last working in. Everything else about the shelf is left as the user
-  // had it — this is the one moment where that state means nothing.
-  useUiStore.getState().setHardwareShelfCategory(null)
+  // were last working in; the LED outputs are the first thing it will need.
+  useUiStore.getState().setHardwareShelfCategory(BLANK_BENCH_SHELF_CATEGORY)
   finishStartFlow('blank', 'Started with a blank canvas', undefined, options)
   landOnStartingWorkspace()
 }

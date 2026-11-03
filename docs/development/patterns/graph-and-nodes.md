@@ -53,11 +53,22 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   that same update when any of them is unknown, so every drop site must pass
   a library pattern through it before the store action. A library import
   never calls `rememberContent`; see
-  [library sharing](../../design/library-sharing.md). Every Trust button calls
-  `trustCurrentProject` (`src/utils/trustPrompt.ts`). A test that needs an
+  [library sharing](../../design/library-sharing.md). The workspace's one
+  permission button is Run it in `TrustBanner`, which calls
+  `trustCurrentProject` (`src/utils/trustPrompt.ts`). Upload waits and focuses
+  that button instead of granting permission itself. Test all workspace nodes
+  plus stored graph data; root nodes alone omit an open nested pattern.
+  A test that needs an
   untrusted project must give it unknown gated content and call
   `clearPatternContentTrustForTests`; `trusted: false` on its own is corrected
   straight back to true.
+- Library collections hold copies. `playCollectionWith` connects a new show
+  player through the ordinary drop-connection rules without replacing an
+  occupied LED input. Updating a collection row keeps its group id and show
+  profile while replacing its content and applying the normal import trust
+  rule. Imported nested groups must first pass through `withRegisteredGroups`;
+  `collectionPatternMatchesLibrary` compares reachable nested content with
+  normalized group references so freshly registered ids do not look stale.
 - Hardware belongs to the root graph and must be queried through root-graph
   selectors, not the currently open pattern group.
 - Persisted project and pattern formats are compatibility-sensitive on the

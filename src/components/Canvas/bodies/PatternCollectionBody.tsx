@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useGraphStore } from '../../../state/graphStore'
+import { collectionPatternMatchesLibrary, usePatternLibrary, withRegisteredGroups } from '../../../state/patterns/patternLibrary'
 import { useUiStore } from '../../../state/uiStore'
 import { SECTION_TYPES } from '../../../codegen/performanceGenerator'
 import { useCapacityStore } from '../../../state/upload/capacityStore'
@@ -52,7 +53,27 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   )
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const graphs = useGraphStore((s) => s.graphs)
+  const graphData = useGraphStore((s) => s.graphData)
+  const libraryPatterns = usePatternLibrary((s) => s.patterns)
   const removeFromCollection = useGraphStore((s) => s.removeFromCollection)
+  const updateCollectionPatternFromLibrary = useGraphStore((s) => s.updateCollectionPatternFromLibrary)
+  // A collection holds copies of its library patterns, so a later library
+  // edit does not follow. Each row says where its copy came from, and offers
+  // the current library version when the two have drifted apart.
+  const libraryState = useMemo(() => {
+    const byId = new Map(libraryPatterns.map((pattern) => [pattern.id, pattern]))
+    const result = new Map<string, { saved: typeof libraryPatterns[number]; stale: boolean }>()
+    for (const id of patternIds) {
+      const sourceId = graphs[id]?.sourcePatternId
+      const saved = sourceId ? byId.get(sourceId) : undefined
+      const copy = graphData[id]
+      if (!saved || !copy) continue
+      const stale = graphs[id]?.name !== saved.name
+        || !collectionPatternMatchesLibrary(copy, saved, graphData)
+      result.set(id, { saved, stale })
+    }
+    return result
+  }, [graphData, graphs, libraryPatterns, patternIds])
   const clearCollection = useGraphStore((s) => s.clearCollection)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const requestPrompt = useUiStore((s) => s.requestPrompt)
@@ -160,10 +181,27 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
           {patternIds.map((id) => {
             const tags = patternSections[id] ?? EMPTY
             const patternName = graphs[id]?.name ?? id
+            const library = libraryState.get(id)
             return (
               <li key={id} className={styles.row}>
                 <div className={styles.head}>
                   <span className={styles.name}>{patternName}</span>
+                  {library && (
+                    library.stale
+                      ? (
+                          <button
+                            className={`${styles.libraryBadge} ${styles.libraryBadgeStale}`}
+                            title="The library’s copy of this pattern has changed since it was collected. Replace this copy with the library’s current one; weight, sections and energy chips stay."
+                            onClick={() => {
+                              updateCollectionPatternFromLibrary(nodeId, id, withRegisteredGroups(library.saved))
+                              setStatus(`Updated “${library.saved.name}” from the library`, 'success')
+                            }}
+                          >
+                            Update from library
+                          </button>
+                        )
+                      : <span className={styles.libraryBadge} title="A copy of this library pattern; editing the library later does not change the show until you update it">copied from library</span>
+                  )}
                   <button
                     className={styles.remove}
                     title="Remove from collection"

@@ -399,12 +399,9 @@ describe('leaving the display editor', () => {
     expect(useUiStore.getState().fitViewRequest.nonce).toBe(before + 1)
   })
 
-  it.each([
-    ['closeBuildDiagram', () => useUiStore.getState().closeBuildDiagram()],
-    ['toggleBuildDiagram', () => useUiStore.getState().toggleBuildDiagram()],
-  ])('is dismissed by %s, which sets the mode directly', (_label, act) => {
+  it('is dismissed by closeBuildDiagram, which sets the mode directly', () => {
     openEditor()
-    act()
+    useUiStore.getState().closeBuildDiagram()
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
   })
 

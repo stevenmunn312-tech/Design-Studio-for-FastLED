@@ -7,6 +7,7 @@ import { generateWiringDiagnosticSketch } from '../../codegen/sketches/wiringDia
 import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import { describePort } from '../../utils/portStatus'
+import { buildToolsOfflineHint } from '../../utils/buildTools'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../build/controllerSettings'
 import { useUiStore } from '../../state/uiStore'
@@ -216,36 +217,39 @@ export default function MatrixOutputSetupWizard() {
 
             <div className={styles.wizardChecklist}>
               <div className={styles.wizardChecklistRow}>
-                <span className={styles.wizardChecklistLabel}>Helper</span>
-                <span className={helper ? styles.readyBadge : styles.missingBadge}>{helper ? 'Ready' : 'Missing'}</span>
+                <span className={styles.wizardChecklistLabel}>Build tools</span>
+                <span className={helper ? styles.readyBadge : styles.missingBadge}>{helper ? 'Ready' : 'Not running'}</span>
               </div>
               {!helper && (
-                <button className={`${styles.wizardButtonBase} ${styles.readinessAction}`} onClick={() => { void refreshHelper() }}>
-                  Retry helper
-                </button>
+                <>
+                  <div className={styles.note}>{buildToolsOfflineHint()}</div>
+                  <button className={`${styles.wizardButtonBase} ${styles.readinessAction}`} onClick={() => { void refreshHelper() }}>
+                    Retry
+                  </button>
+                </>
               )}
 
               <div className={styles.wizardChecklistRow}>
-                <span className={styles.wizardChecklistLabel}>Build engine</span>
+                <span className={styles.wizardChecklistLabel}>Compiler</span>
                 <span className={activeEngineReady ? styles.readyBadge : styles.missingBadge}>
-                  {activeEngineReady ? (usingFbuild ? 'fbuild' : 'arduino-cli') : 'Fix needed'}
+                  {activeEngineReady ? (usingFbuild ? 'fbuild' : 'arduino-cli') : 'Not set up'}
                 </span>
               </div>
               {!activeEngineReady && helper && (
                 <button className={`${styles.wizardButtonBase} ${styles.readinessAction}`} onClick={openCliPopup}>
-                  Fix engine
+                  Set up compiler
                 </button>
               )}
 
               <div className={styles.wizardChecklistRow}>
-                <span className={styles.wizardChecklistLabel}>Toolchain</span>
+                <span className={styles.wizardChecklistLabel}>Board support</span>
                 <span className={coreReady ? styles.readyBadge : styles.missingBadge}>
-                  {coreReady ? 'Ready' : usingFbuild ? 'Downloads on first build' : 'Install core'}
+                  {coreReady ? 'Ready' : usingFbuild ? 'Downloads on first build' : 'Not installed'}
                 </span>
               </div>
               {!usingFbuild && helper && board && !coreReady && (
                 <button className={`${styles.wizardButtonBase} ${styles.readinessAction}`} onClick={() => { void installCore(board.core) }} disabled={busy}>
-                  Install {board.label} core
+                  Install {board.label} board support
                 </button>
               )}
             </div>

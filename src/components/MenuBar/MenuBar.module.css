@@ -325,13 +325,23 @@
   min-width: 0;
 }
 
+/* The Deck is a panel over any view, so it sits beside the View group in the
+   same housing style rather than inside it as a fourth "view". */
+.deckTool {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--accent-audio) 24%, var(--border-glow));
+  border-radius: 999px;
+}
+
 .evaluationBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 108px;
-  min-width: 108px;
+  width: auto;
+  min-width: max-content;
   /* This is a transport indicator, not an animated signal. Keep its thin
      border and glyph on a stable paint surface while the graph is active. */
   isolation: isolate;

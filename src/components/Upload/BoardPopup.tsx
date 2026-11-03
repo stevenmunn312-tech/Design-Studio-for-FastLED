@@ -5,6 +5,7 @@ import { useUiStore } from '../../state/uiStore'
 import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
 import { describePort } from '../../utils/portStatus'
+import { buildToolsOfflineHint } from '../../utils/buildTools'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
@@ -116,12 +117,12 @@ export default function BoardPopup() {
           <button className={styles.closeBtn} onClick={closeBoardPopup} title="Close">×</button>
         </div>
 
-        {/* Build engine switcher. arduino-cli is the ESP32 default while the
+        {/* Compiler switcher. arduino-cli is the ESP32 default while the
             measured fbuild no-op delay remains unresolved; fbuild stays
             available as a persisted, explicit experimental choice. */}
         {helper && (
           <>
-            <div className={styles.sectionTitle}>Build engine</div>
+            <div className={styles.sectionTitle}>Compiler (advanced)</div>
             <div className={styles.consoleTabs}>
               <button
                 className={usingFbuild ? styles.consoleTabActive : styles.consoleTab}
@@ -129,7 +130,7 @@ export default function BoardPopup() {
                 onClick={() => setEngine('fbuild')}
                 title={helper.fbuild
                   ? (esp32Target ? 'Experimental for ESP32 — manages its own toolchain, but unchanged builds can still take about three minutes' : 'fbuild — manages its own per-board toolchains automatically')
-                  : 'fbuild not found on this machine'}
+                  : 'fbuild is not installed on this machine'}
               >
                 fbuild{esp32Target ? ' (experimental)' : ''}
               </button>
@@ -139,7 +140,7 @@ export default function BoardPopup() {
                 onClick={() => setEngine('arduino-cli')}
                 title={helper.arduinoCli
                   ? (esp32Target ? 'Recommended for ESP32 while fbuild\'s no-op delay remains unresolved' : 'arduino-cli — supports custom boards by URL and core update checks')
-                  : 'arduino-cli not found — see "Fix…" below'}
+                  : 'arduino-cli is not installed — see "Set it up…" below'}
               >
                 arduino-cli{esp32Target ? ' (recommended)' : ''}
               </button>
@@ -149,12 +150,12 @@ export default function BoardPopup() {
 
         {/* Engine status / not-found bridge. */}
         {helper === undefined ? (
-          <div className={styles.note}>Checking for the upload helper…</div>
+          <div className={styles.note}>Checking for the build tools…</div>
         ) : !helper ? (
-          <div className={styles.note}>Upload helper not running — start the dev server, or run <code>npm run helper</code>.</div>
+          <div className={styles.note}>{buildToolsOfflineHint()}</div>
         ) : !ready && !usingFbuild ? (
           <div className={`${styles.note} ${styles.noteWarn}`}>
-            arduino-cli not found. <button className={styles.linkBtn} onClick={openCliPopup}>Fix…</button>
+            The arduino-cli compiler was not found. <button className={styles.linkBtn} onClick={openCliPopup}>Set it up…</button>
           </div>
         ) : usingFbuild && esp32Target ? (
           <div className={`${styles.note} ${styles.noteWarn}`}>
@@ -162,7 +163,7 @@ export default function BoardPopup() {
           </div>
         ) : usingFbuild ? (
           <div className={styles.note}>
-            Using fbuild — the first build for a new board downloads its toolchain (a few minutes); after that, builds are fast.
+            Using fbuild — the first build for a new board downloads its board support package (a few minutes); after that, builds are fast.
           </div>
         ) : esp32Target ? (
           <div className={styles.note}>
@@ -174,8 +175,8 @@ export default function BoardPopup() {
         <div className={styles.sectionTitle}>Custom boards &amp; updates</div>
         {usingFbuild ? (
           <div className={styles.note}>
-            Adding a custom board and checking for core updates need the arduino-cli engine — fbuild manages its own
-            per-board toolchains from a fixed list and can't build for an ad-hoc board yet.
+            Adding a custom board and checking for board support updates need the arduino-cli compiler — fbuild manages its own
+            board support packages from a fixed list and can't build for an ad-hoc board yet.
           </div>
         ) : (
           <>

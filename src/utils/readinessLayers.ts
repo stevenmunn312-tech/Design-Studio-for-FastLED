@@ -67,13 +67,13 @@ function graphLayer(errors: number, warnings: number): ReadinessLayer {
   if (errors > 0) {
     return {
       kind: 'graph', label: 'Graph', status: `${plural(errors, 'thing')} to fix`, tone: 'blocked',
-      detail: 'Graph Health shows what to change, with a button for the ones Studio can fix for you.',
+      detail: 'Checks shows what to change, with a button for the ones Studio can fix for you.',
     }
   }
   if (warnings > 0) {
     return {
       kind: 'graph', label: 'Graph', status: `Ready · ${plural(warnings, 'suggestion')}`, tone: 'ok',
-      detail: 'Nothing stops the build. Graph Health has a few suggestions when you have a moment.',
+      detail: 'Nothing stops the build. Checks has a few suggestions when you have a moment.',
     }
   }
   return { kind: 'graph', label: 'Graph', status: 'Ready', tone: 'ok', detail: 'Nothing stops the build.' }

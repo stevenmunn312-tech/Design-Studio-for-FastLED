@@ -40,7 +40,7 @@ describe('TrustBanner', () => {
   it('warns when the workspace holds a formula node', () => {
     setWorkspace([node('cf', 'CustomFormula'), node('o', 'MatrixOutput')])
     const { getByRole } = render(<TrustBanner />)
-    expect(getByRole('status').textContent).toMatch(/Formula and Code nodes will run once you trust it/)
+    expect(getByRole('status').textContent).toMatch(/Run code from this file\?.*Formula and Code nodes will run once you say so/)
   })
 
   it('warns about a formula buried in a group subgraph', () => {
@@ -53,7 +53,7 @@ describe('TrustBanner', () => {
   it('names the Art-Net listener when that is the only thing held', () => {
     setWorkspace([node('d', 'DMXInput', { inputMode: 'Art-Net' })])
     const text = render(<TrustBanner />).getByRole('status').textContent ?? ''
-    expect(text).toMatch(/network listener will open once you trust it/)
+    expect(text).toMatch(/network listener will open once you say so/)
     expect(text).not.toMatch(/Formula and Code/)
   })
 
@@ -81,7 +81,7 @@ describe('TrustBanner', () => {
   it('trusts the workspace when the button is used', () => {
     setWorkspace([node('cf', 'CustomFormula')])
     const { getByRole } = render(<TrustBanner />)
-    fireEvent.click(getByRole('button', { name: 'Trust it' }))
+    fireEvent.click(getByRole('button', { name: 'Run it' }))
     expect(useGraphStore.getState().trusted).toBe(true)
   })
 })

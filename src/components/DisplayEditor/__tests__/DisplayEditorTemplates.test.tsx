@@ -199,7 +199,7 @@ describe('DisplayEditor portrait templates', () => {
         expect(element.querySelector('img')?.getAttribute('src')).toBe(displayAssetUrl(asset!))
       }
 
-      fireEvent.click(view.getByRole('button', { name: 'Run' }))
+      fireEvent.click(view.getByRole('button', { name: 'Try it live' }))
       const runScreen = screen.getByTestId('live-touch-screen')
       const runWidgets = [...runScreen.querySelectorAll<HTMLElement>('[data-widget-type]')]
       for (const [index, element] of runWidgets.entries()) {

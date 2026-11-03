@@ -636,12 +636,12 @@ export default function NodeReference() {
             <div className={styles.referenceText}>Patch manual</div>
           </div>
           <div className={styles.directoryStats}>
-            <span>{NODE_LIBRARY.length} modules</span>
+            <span>{NODE_LIBRARY.length} nodes</span>
             <span>{CATEGORY_ORDER.length} banks</span>
           </div>
         </div>
         <div className={styles.searchWrap}>
-          <label htmlFor="node-reference-search">Find module</label>
+          <label htmlFor="node-reference-search">Find a node</label>
           <input
             id="node-reference-search"
             value={search}

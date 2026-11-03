@@ -243,7 +243,12 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
 
 ## 3. Workflow and copy
 
-- [ ] **Five overlapping view modes with different exits.**
+- [x] **Five overlapping view modes with different exits.**
+  Outcome (3 Nov): Edit, Focus and Stage share one View radio group; the Deck
+  stays independent. Keyboard shortcuts also keep Focus and Stage exclusive.
+  Focus has a status-bar exit; Stage keeps its existing visible exit. All four
+  workspaces appear as radio items, Build layout is Balanced, and Pause Eval
+  is Freeze preview, with enough width for its label.
   Problem: four workspace tabs, plus Focus (F9, hides the tabs,
   `App.tsx:718`), Deck (F8) and Stage (F10, Esc, double-click cycle,
   `LEDPreview.tsx:304-310`), plus View > Layout presets Build/Tune/Preview
@@ -257,7 +262,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   radio items; rename the "Build" layout preset; rename Pause Eval to "Freeze
   preview".
 
-- [ ] **Helper offline says that, never how.**
+- [x] **Helper offline says that, never how.**
+  Outcome (3 Nov): shared build-tools guidance distinguishes a page served by
+  the desktop build tools from a source checkout. Upload and Board & Port
+  explain launcher restart or the source command, with a retry action.
   Problem: `DP:320-329` shows only "Browser uploads need the local helper
   running on this machine" and Retry; `src/components/Upload/BoardPopup.tsx:185`
   tells every user to "start the dev server, or run npm run helper", which
@@ -267,7 +275,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   versus source checkout; call it "build tools" everywhere, as the guide strip
   does (`firstProjectSteps.ts:89`).
 
-- [ ] **Toolchain jargon on the Upload tab.**
+- [x] **Toolchain jargon on the Upload tab.**
+  Outcome (3 Nov): the compiler picker is under Build tools & port > Advanced;
+  readiness says compiler and board support package, and cached uploads say
+  firmware. FQBN remains in the custom-board form.
   Problem: engine buttons read "fbuild" and "arduino-cli" (`DP:711-736`);
   copy says "needs the … core installed" (`DP:398`), "FQBN"
   (`BoardPopup.tsx:241`), "Re-upload last sketch" (`DP:922-1037`),
@@ -275,7 +286,13 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: engine picker under "Build tools ▸ Advanced"; say "board support
   package" and "firmware"; show FQBN only in the custom-board form.
 
-- [ ] **"Trust" is surfaced four times for one decision.**
+- [x] **"Trust" is surfaced four times for one decision.**
+  Outcome (3 Nov): the banner asks “Run code from this file?” once. Load and
+  Upload no longer open another confirmation; Upload waits for unfamiliar
+  code and its Review question button focuses the banner without granting
+  permission. The same gate includes an open nested pattern. Safe shared
+  content needs no decision, and the pattern critic keeps its separate
+  per-pattern decision because it runs outside the workspace.
   Problem: confirm dialog (`src/utils/trustPrompt.ts:45-50`), banner
   (`TrustBanner.tsx:300-305`), a second confirm on Upload (`DP:552-561`,
   "Upload code made on another computer?"), an inline row (`DP:894-900`) and
@@ -283,7 +300,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: one decision point (the banner) that also satisfies upload; copy "Run
   code from this file?" instead of "trust".
 
-- [ ] **Graph Health never says it blocks upload and opens only from Upload.**
+- [x] **Graph Health never says it blocks upload and opens only from Upload.**
+  Outcome (3 Nov): the drawer is Checks, its error filter says Blocks upload,
+  and arriving on Upload with blockers opens it, including a remount after
+  Build Diagram. Closing it is respected until the next arrival.
   Problem: `GraphHealthDrawer.tsx:384` filters "Everything / To fix /
   Suggestions"; the drawer is closed by default and persisted
   (`uiStore.ts:567`); auto-open only from `DP:313-315`; categories such as
@@ -291,7 +311,13 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: rename to "Readiness" or "Checks"; label the first group "Blocks upload
   (N)"; auto-open on the Upload tab when blockers exist.
 
-- [ ] **Pattern → Collection → Slideshow is three unsignposted steps.**
+- [x] **Pattern → Collection → Slideshow is three unsignposted steps.**
+  Outcome (3 Nov): the library selection menu offers New collection, played
+  by Slideshow, Music Player or Generator, and wires the player to the
+  collection and an unambiguous free LED output. Collected rows identify
+  library copies and offer Update from library when content changes; nested
+  groups compare correctly after registration renames their ids. Updates
+  preserve show weights and tags and hold unfamiliar executable content.
   Problem: creating a collection adds only the collection node
   (`src/state/graphStore.ts:3506-3542`); the slideshow must be found under
   "show" and wired twice; help promises fewer steps
@@ -302,7 +328,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Generator" and auto-wires to the LED output; add a "copied from library"
   badge with "Update from library".
 
-- [ ] **Hidden ways to add nodes; the empty canvas names none of them.**
+- [x] **Hidden ways to add nodes; the empty canvas names none of them.**
+  Outcome (3 Nov): the empty canvas names double-click, Ctrl+K and library
+  dragging, and the first library category opens on an empty graph without
+  replacing the remembered category preference.
   Problem: double-click (`NGC:885-894`), Ctrl/Cmd+K (`NGC:898-912`),
   drag-wire-to-empty (`NGC:709-745`) and right-click "Add Node" exist; the
   empty-canvas screen (`NGC:1311-1340`) offers only starters; every library
@@ -310,14 +339,20 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: empty canvas line "Double-click or press Ctrl+K to add a node · drag
   from the library"; expand the first category by default.
 
-- [ ] **No path from a node to its help entry.**
+- [x] **No path from a node to its help entry.**
+  Outcome (3 Nov): Help for this node opens its Node Reference entry from
+  the context menu. Header tooltips mention the action. The menu checks the
+  node registry, keeping the help reference data lazy-loaded.
   Problem: `StudioNode.tsx:1561-1563, 1595` give a header tooltip only;
   `NodeContextMenu.tsx:198-255` has no Help item; the reference can only be
   opened to a node from inside itself (`NodeReference.tsx:690`).
   Fix: "Help for this node" in the node menu, or a "?" in the header that
   opens Node Reference at that node.
 
-- [ ] **Shelf hides the controller and LED outputs last, collapsed.**
+- [x] **Shelf hides the controller and LED outputs last, collapsed.**
+  Outcome (3 Nov): the shelf begins with Controller and LED outputs, opens
+  LED outputs by default, and the empty-bench board caption explains the
+  controller hint: “Click the board to choose it”.
   Problem: `src/components/Hardware/hardwareShelfModel.ts:171-239` orders LED
   outputs eighth of eight; all categories collapsed on a blank project
   (`HardwarePartsShelf.tsx:49-53`); the only cue on the bench is a pulsing
@@ -325,7 +360,9 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: "Controller" and "LED outputs" first and open on a blank bench; label
   the rings ("Click the board to choose it").
 
-- [ ] **Build Diagram is unreachable by signpost.**
+- [x] **Build Diagram is unreachable by signpost.**
+  Outcome (3 Nov): a populated bench links to See wiring diagram; diagram
+  gates describe the specific board model rather than an exact profile.
   Problem: no "Build Diagram" string under `src/components/Hardware` or
   `src/components/Upload`; `BuildDiagramWorkspace.tsx:1214-1215, 1269-1275`
   gate on "an exact board profile".
@@ -333,14 +370,20 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   "the specific board model (e.g. ESP32 DevKit V1)" instead of "exact board
   profile".
 
-- [ ] **Switching the active board changes the bench and Upload but not the canvas or status chips.**
+- [x] **Switching the active board changes the bench and Upload but not the canvas or status chips.**
+  Outcome (3 Nov): nodes outside the active board's partition dim on the root
+  canvas. Status counts follow that partition and the board chip names its
+  ordinal; counts inside an open pattern still describe that pattern.
   Problem: `HP:93-102` applies the partition to bench, Build Diagram and
   Upload only; the canvas shows all boards; status chips read the first
   output (`StatusBar.tsx:48-54, 110-111`).
   Fix: dim non-active-board nodes on the canvas and make the chips follow the
   active board, or label them "Board 1".
 
-- [ ] **Display editor Run / Enabled / Custom design gate.**
+- [x] **Display editor Run / Enabled / Custom design gate.**
+  Outcome (3 Nov): Create screen design selects Custom design itself; a
+  retained design can be reopened directly. The editor says Try it live
+  and shows whether the mounted panel is enabled, off or controlled by a wire.
   Problem: `TransportDisplayNodeBody.tsx:123-147` says "Set Layout to Custom
   design to edit"; `DisplayEditor.tsx:1055-1061` "Run" leaves the editor and
   floats a window; the "Enabled" input (`output/definitions.ts:486-500`) is
@@ -349,7 +392,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: "Create screen design" sets Layout to Custom itself; rename Run to "Try
   it live"; show the Enabled state in the editor header.
 
-- [ ] **Vocabulary drift.**
+- [x] **Vocabulary drift.**
+  Outcome (3 Nov): the library and status bar use nodes and wires, collection
+  and help copy name saved patterns, and the toolbar, menu, gallery, empty
+  canvas, Checks and README consistently point to the Start Gallery.
   Problem: group / pattern / patch / module / rack used interchangeably
   (`GroupControls.tsx:85`, `NGC:606`, `StatusBar.tsx:92-93` "N modules / N
   patches" for nodes and edges, `SB:1265-1275` "Patch rack", "Find module");
@@ -359,6 +405,12 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: nodes are nodes, wires are wires, a Group becomes a "saved pattern"
   when saved; one name, "Start Gallery", in the toolbar, File menu, Graph
   Health, docs and empty canvas.
+
+Section 3 validation (3 Nov): production build and lint pass. The full suite
+passes 8,989 tests, with 136 skipped, across 555 passing test files. All 414
+tests in changed test files also pass; the final remembered-search regression
+passes separately. Browser checks cover view shortcuts and exits, workspace
+menu choices, Upload guidance and the Checks drawer.
 
 ## 4. Visual cleanup (mechanical, large payoff)
 
