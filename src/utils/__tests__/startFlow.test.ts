@@ -74,6 +74,26 @@ describe('startFlow', () => {
     expect(useUiStore.getState().workspaceMode).toBe('hardware')
   })
 
+  /*
+   * A starter is work to look at, so it lands on Graph with the preview
+   * running it. It used to stay on Hardware, where "Start with Juggle" showed
+   * an empty bench and the only cue was the Graph tab's flash.
+   */
+  it('lands a starter on Graph with the preview open', () => {
+    useUiStore.setState({ workspaceMode: 'hardware' })
+    startTemplateById('juggle')
+    expect(useUiStore.getState().workspaceMode).toBe('graph')
+    expect(useUiStore.getState().previewPanelOpen).toBe(true)
+  })
+
+  it('reopens a preview the user had closed on Graph for a starter', () => {
+    useUiStore.setState({ workspaceMode: 'graph' })
+    if (useUiStore.getState().previewPanelOpen) useUiStore.getState().togglePreviewPanel()
+    expect(useUiStore.getState().previewPanelOpen).toBe(false)
+    startTemplateById('juggle')
+    expect(useUiStore.getState().previewPanelOpen).toBe(true)
+  })
+
   it('leaves the shelf as the user had it when a starter is loaded', () => {
     // A starter arrives with parts on the bench, so the section they were
     // last in is still a reasonable guess at where they are working.
@@ -163,6 +183,59 @@ describe('opening a start choice as its own project', () => {
 
     expect(currentName()).toBe('Juggle 2')
     expect(project('Juggle')).toBeTruthy()
+  })
+
+  /*
+   * A first visit (and File > New Project) leaves a blank "New Project" open.
+   * A start choice takes it over instead of opening a second project beside
+   * it, which left an empty entry in Recent Projects every first run.
+   */
+  describe('a blank default-named project', () => {
+    beforeEach(() => {
+      useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+      useProjectStore.getState().createProject('New Project', blankWorkspace())
+      useGraphStore.getState().loadGraph([], [])
+    })
+
+    it('becomes the starter instead of leaving an empty project behind', async () => {
+      const decide = vi.fn()
+      useUiStore.setState({ requestNewProjectDecision: decide })
+
+      await expect(openStarterProject('juggle')).resolves.toBe(true)
+
+      expect(decide).not.toHaveBeenCalled()
+      expect(useProjectStore.getState().projects.map((entry) => entry.name)).toEqual(['Juggle'])
+      expect(currentName()).toBe('Juggle')
+    })
+
+    it('takes a free name when the starter already exists', async () => {
+      useProjectStore.getState().createProject('Juggle', blankWorkspace())
+      useProjectStore.getState().createProject('New Project(1)', blankWorkspace())
+      useGraphStore.getState().loadGraph([], [])
+
+      await expect(openStarterProject('juggle')).resolves.toBe(true)
+
+      expect(currentName()).toBe('Juggle 2')
+      expect(useProjectStore.getState().projects).toHaveLength(3)
+    })
+
+    it('keeps its own name for a blank canvas', async () => {
+      await expect(openBlankProject()).resolves.toBe(true)
+      expect(useProjectStore.getState().projects.map((entry) => entry.name)).toEqual(['New Project'])
+    })
+
+    it('is left alone once it holds work, or carries a name of its own', async () => {
+      useGraphStore.getState().loadGraph([noise], [])
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+      await expect(openStarterProject('juggle')).resolves.toBe(true)
+      expect(useProjectStore.getState().projects.map((entry) => entry.name).sort()).toEqual(['Juggle', 'New Project'])
+
+      useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+      useProjectStore.getState().createProject('Lamp ideas', blankWorkspace())
+      useGraphStore.getState().loadGraph([], [])
+      await expect(openStarterProject('juggle')).resolves.toBe(true)
+      expect(useProjectStore.getState().projects.map((entry) => entry.name).sort()).toEqual(['Juggle', 'Lamp ideas'])
+    })
   })
 
   it('opens a blank canvas as a new default-named project', async () => {

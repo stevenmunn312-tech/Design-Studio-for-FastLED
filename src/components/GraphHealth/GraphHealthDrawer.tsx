@@ -423,7 +423,7 @@ export default function GraphHealthDrawer() {
                       Open screen design
                     </button>
                   )}
-                  {issue.action && <button type="button" title={issue.action === 'move-i2c-pins' ? 'Move I2c items onto SDA and SCL pins.' : undefined} onClick={() => runAction(issue)}>{actionLabel(issue.action, issue)}</button>}
+                  {issue.action && <button type="button" title={issue.action === 'move-i2c-pins' ? 'Move I2C items onto SDA and SCL pins.' : undefined} onClick={() => runAction(issue)}>{actionLabel(issue.action, issue)}</button>}
                   {issue.moreFixes?.map((fix, index) => (
                     <button key={`${fix.action}-${index}`} type="button" onClick={() => runAction(fix)}>{actionLabel(fix.action, fix)}</button>
                   ))}

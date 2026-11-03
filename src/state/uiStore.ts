@@ -363,6 +363,9 @@ interface UiState {
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   setWorkspaceMode: (mode: WorkspaceMode) => void
+  /** The Graph workspace with its preview panel open: where a freshly loaded
+   *  starter or example lands, so the first thing seen is it running. */
+  showGraphWithPreview: () => void
   /**
    * Which hardware shelf category is open, or null for all closed.
    *
@@ -647,6 +650,10 @@ export const useUiStore = create<UiState>((set, get) => ({
     ...(workspaceMode === 'hardware' || workspaceMode === 'upload'
       ? { hardwarePaneTab: workspaceMode }
       : {}),
+    ...leavingDisplayEditor(state),
+  })),
+  showGraphWithPreview: () => set((state) => ({
+    ...activateWorkspace(state, 'graph', { previewPanelOpen: true }),
     ...leavingDisplayEditor(state),
   })),
   hardwareShelfCategory: load<string | null>(HARDWARE_SHELF_CATEGORY_KEY, null),

@@ -71,7 +71,7 @@ describe('GraphHealthDrawer', () => {
       expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 0 })
     }
     const fix = within(card).getByRole('button', { name: 'Fix' })
-    expect(fix.title).toBe('Move I2c items onto SDA and SCL pins.')
+    expect(fix.title).toBe('Move I2C items onto SDA and SCL pins.')
     fireEvent.click(fix)
     expect(queryByText('I2C parts are on more than one bus')).toBeNull()
     expect(useGraphStore.getState().nodes.find((part) => part.id === 'oled')?.data.properties)

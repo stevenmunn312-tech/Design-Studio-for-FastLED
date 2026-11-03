@@ -100,8 +100,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   that cannot cross, "Audio cannot cross boards", with a fix naming what to
   move where, and `edgeIds` for the wire),
   `board-drives-nothing-<boardId>` (warning, `board`; no LED output and no
-  attached sink — the per-board `missing-MatrixOutput` card and "Missing
-  MatrixOutput node" message are dropped in its favour while any other board
+  attached sink — the per-board `missing-MatrixOutput` card and "LED output
+  is missing" message are dropped in its favour while any other board
   has an output; an empty project keeps the primary's "Nothing here yet"), and
   with `clockSync` on, `board-sync-network-<boardId>` (error: no Wi-Fi and no
   wired link — the Board is a network user while sync is on, so this is the

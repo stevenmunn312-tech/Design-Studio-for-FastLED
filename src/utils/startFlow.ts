@@ -7,7 +7,7 @@ import { micSupportedForBoardProfile } from '../build/pins/micPinDefaults'
 import { retargetHardwarePins } from '../build/pins/pinRetarget'
 import { useUploadStore } from '../state/upload/uploadStore'
 import { useFirstProjectGuide } from '../state/firstProjectGuideStore'
-import { useProjectStore } from '../state/projectStore'
+import { uniqueProjectName, useProjectStore, type SavedProject } from '../state/projectStore'
 import { blankWorkspace, captureWorkspace, hasAuthoredWorkspaceContent } from '../state/workspacePersistence'
 import { nextDefaultProjectName } from './projectFileIO'
 import { runTidy } from './tidyGraph'
@@ -41,7 +41,16 @@ function finishStartFlow(choice: string | 'blank' | null, statusText: string, no
   // against, and no upload of it yet.
   useFirstProjectGuide.getState().noteFreshStart()
   if (choice !== null) ui.setLastStartChoice(choice)
-  ui.requestFitView(nodeIds)
+  if (choice === 'blank') {
+    ui.requestFitView(nodeIds)
+  } else {
+    // A starter or example is work to look at, so it opens on Graph with the
+    // preview running it. Landing it on Hardware showed an empty bench whose
+    // only cue was the Graph tab's 1.8 s flash. Blank Canvas alone lands on
+    // Hardware (`landOnStartingWorkspace`), where naming a board is the work.
+    ui.showGraphWithPreview()
+    ui.revealGraphNodes(nodeIds)
+  }
   ui.setStatus(statusText, 'success')
   if (options?.closeTemplates) ui.closeTemplates()
 }
@@ -116,6 +125,23 @@ export function startTemplateById(id: string, options?: StartFlowOptions) {
   startTemplate(findTemplate(id), options)
 }
 
+const DEFAULT_PROJECT_NAME = /^new project(\(\d+\))?$/i
+
+/**
+ * The blank, default-named project a first visit or File > New Project leaves
+ * open. Nothing in it is anyone's work, so a start choice takes it over
+ * instead of opening a second project beside it; otherwise every first visit
+ * left an empty "New Project" in Recent Projects. Null when the open project
+ * is named, or has anything in it.
+ */
+function reusableBlankProject(): SavedProject | null {
+  const { projects, currentProjectId } = useProjectStore.getState()
+  const current = projects.find((project) => project.id === currentProjectId)
+  if (!current || !DEFAULT_PROJECT_NAME.test(current.name.trim())) return null
+  if (hasAuthoredWorkspaceContent(useGraphStore.getState()) || hasAuthoredWorkspaceContent(current.workspace)) return null
+  return current
+}
+
 /**
  * Make a new project the one autosave writes to, before a start choice loads.
  *
@@ -125,6 +151,14 @@ export function startTemplateById(id: string, options?: StartFlowOptions) {
  * person cancels.
  */
 async function beginStartProject(name: string, options?: { carryUploadTarget?: boolean }): Promise<boolean> {
+  const reusable = reusableBlankProject()
+  if (reusable) {
+    if (reusable.name !== name) {
+      const others = useProjectStore.getState().projects.filter((project) => project.id !== reusable.id)
+      useProjectStore.getState().renameProject(reusable.id, uniqueProjectName(others, name))
+    }
+    return true
+  }
   const { projects, currentProjectId } = useProjectStore.getState()
   const current = projects.find((project) => project.id === currentProjectId)
   const ui = useUiStore.getState()
@@ -194,7 +228,10 @@ export async function openExampleProject(example: LiveExampleSpec, projectName: 
 
 /** Open a blank canvas as a new, default-named project. */
 export async function openBlankProject(options?: StartFlowOptions): Promise<boolean> {
-  const name = nextDefaultProjectName(useProjectStore.getState().projects.map((project) => project.name))
+  // An open blank default project is kept under its own name, not renamed to
+  // the next free default.
+  const name = reusableBlankProject()?.name
+    ?? nextDefaultProjectName(useProjectStore.getState().projects.map((project) => project.name))
   if (!await beginStartProject(name)) return false
   startBlankCanvas(options)
   return true

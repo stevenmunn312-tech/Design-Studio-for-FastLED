@@ -97,6 +97,62 @@ describe('StatusBar hardware readiness', () => {
   })
 })
 
+/*
+ * The size chip speaks the output's own language — a string is a length, a
+ * grid is width × height — and follows the active board, not whichever output
+ * comes first in the root array. It used to print "16 x 16" for a 60-LED
+ * string and ignore `activeBoardId` altogether.
+ */
+describe('StatusBar size chip', () => {
+  const output = (id: string, properties: Record<string, unknown>, boardId?: string) => ({
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: 'LED output', nodeType: 'MatrixOutput', category: 'output', properties: { ...properties, ...(boardId ? { boardId } : {}) }, inputs: [], outputs: [] },
+  })
+  const board = (id: string) => ({
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: 'Board', nodeType: 'Board', category: 'output', properties: { profileId: 'esp32-generic-devkit-38pin' }, inputs: [], outputs: [] },
+  })
+
+  beforeEach(() => {
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })
+    useUploadStore.setState({ selectedFqbn: '', selectedPort: '', ports: [] })
+    useCapacityStore.getState().clear()
+  })
+
+  const graph = (nodes: unknown[]) => useGraphStore.setState({
+    nodes: nodes as never[], edges: [] as never[], graphData: {}, graphs: { root: { id: 'root', name: 'Main' } }, activeGraphId: 'root',
+  })
+
+  it('counts a string in LEDs and a grid in width × height', () => {
+    graph([output('string', { form: 'strip', ledCount: 60, chipset: 'WS2812B' })])
+    const view = render(<StatusBar />)
+    expect(view.getByText('Size: 60 LEDs')).toBeTruthy()
+
+    graph([output('grid', { form: 'matrix', width: 32, height: 8, chipset: 'WS2812B' })])
+    view.rerender(<StatusBar />)
+    expect(view.getByText('Size: 32 × 8')).toBeTruthy()
+  })
+
+  it('says when there is no LED output rather than inventing a 16 × 16', () => {
+    graph([])
+    expect(render(<StatusBar />).getByText('Size: No LED output')).toBeTruthy()
+  })
+
+  it('describes the active board\'s output', () => {
+    graph([
+      board('board-1'), output('first', { form: 'matrix', width: 16, height: 16, chipset: 'WS2812B' }, 'board-1'),
+      board('board-2'), output('second', { form: 'ring', ledCount: 24, chipset: 'SK6812' }, 'board-2'),
+    ])
+    useUiStore.setState({ activeBoardId: 'board-2' })
+    const view = render(<StatusBar />)
+    expect(view.getByText('Size: 24 LEDs')).toBeTruthy()
+    expect(view.getByText('Chip: SK6812')).toBeTruthy()
+    useUiStore.setState({ activeBoardId: 'board-1' })
+    view.rerender(<StatusBar />)
+    expect(view.getByText('Size: 16 × 16')).toBeTruthy()
+  })
+})
+
 describe('StatusBar port chip', () => {
   beforeEach(() => {
     useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })

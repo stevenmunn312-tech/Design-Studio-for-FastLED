@@ -254,6 +254,27 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   or the fallback column doubles it. The host id lives in its own tiny module
   (`hardwareShelfHost.ts`, `uploadControlsHost.ts`, `buildDiagramShelfHost.ts`)
   because `App.tsx` renders the host but loads the workspace lazily.
+- **One editor per fact; every other surface is a read-only link to it.** The
+  Board node (its menu on the Hardware bench) is the only place a board is
+  chosen: `App.tsx` mirrors that node's profile into `uploadStore.selectedFqbn`
+  and snaps any other FQBN choice straight back, so a select anywhere else
+  only appears to work. The Board & Port popup and the LED-output setup
+  wizard therefore show the board and offer "Change board in Hardware"
+  (`openHardwareBoardMenu`). Likewise an LED output's count, form, chipset
+  and colour order are edited on its node and nowhere else: the wizard's
+  Geometry and LEDs steps and the Hardware wiring inspector print them and
+  offer "Edit on the Graph" (`focusNode` + `revealGraphNodes`), while the
+  inspector keeps pins and data lanes. Size is spelled once, by
+  `outputSizeLabel` ("60 LEDs" for a chain, "16 × 16" for a grid), in the
+  status bar, the preview header and the wizard; the status bar reads the
+  active board's partition, not the first output in the root array.
+- **Where a start choice lands.** A starter or help example calls
+  `showGraphWithPreview` and `revealGraphNodes` (`finishStartFlow`): Graph,
+  preview open even if the user had closed it. Only Blank Canvas lands on
+  Hardware (`landOnStartingWorkspace`). A start choice made while a blank,
+  default-named project is open (a first visit, or File > New Project) takes
+  that project over (`reusableBlankProject`) instead of opening a second one
+  beside it.
 - **One Escape closes one layer.** Every popup, menu and dialog that closes on
   Escape registers with `useEscapeLayer(onEscape, open)`
   (`src/hooks/useEscapeLayer.ts`), which gives the keystroke to the most

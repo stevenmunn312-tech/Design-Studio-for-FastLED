@@ -55,7 +55,7 @@ export interface BoardDiagnosticOptions extends GraphDiagnosticOptions {
 
 type BoardClockSync = 'off' | 'leader' | 'follower'
 
-const MISSING_OUTPUT_MESSAGE = 'Missing MatrixOutput node'
+const MISSING_OUTPUT_MESSAGE = 'LED output is missing'
 /** The one-board network gate's message (`findBoardCompatibilityErrors`). */
 const NETWORK_GATE_PREFIX = 'Art-Net, sACN, DDP and NTP time sync require'
 const BOARD_PREFIX = /^Board \d+: /

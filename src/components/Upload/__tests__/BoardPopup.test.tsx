@@ -40,6 +40,20 @@ describe('BoardPopup build-engine guidance', () => {
     expect(useUploadStore.getState().setEngine).toHaveBeenCalledWith('fbuild')
   })
 
+  // The Board node is the one place a board is chosen: `App.tsx` mirrors its
+  // profile into `selectedFqbn`, so a select here only ever appeared to work.
+  it('reports the board and sends a change to the Hardware bench instead of offering its own select', () => {
+    useUiStore.setState({ workspaceMode: 'upload', hardwareBoardMenuRequested: false })
+    const { getByRole, queryByRole, getByText } = render(<BoardPopup />)
+
+    expect(queryByRole('combobox', { name: 'Board' })).toBeNull()
+    expect(getByText('ESP32-S3')).toBeTruthy()
+    fireEvent.click(getByRole('button', { name: 'Change board in Hardware' }))
+    expect(useUploadStore.getState().closeBoardPopup).toHaveBeenCalled()
+    expect(useUiStore.getState().workspaceMode).toBe('hardware')
+    expect(useUiStore.getState().hardwareBoardMenuRequested).toBe(true)
+  })
+
   it('explains the measured latency when fbuild is explicitly selected for ESP32', () => {
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: true },

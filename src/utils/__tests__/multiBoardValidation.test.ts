@@ -216,7 +216,7 @@ describe('multiBoardValidation — several boards', () => {
     expect(diagnostics.some((issue) => issue.id === 'graph-empty')).toBe(false)
 
     const result = validateBoards(nodes, edges, targets)
-    expect(result.errors.some((error) => error.includes('Missing MatrixOutput node'))).toBe(false)
+    expect(result.errors.some((error) => error.includes('LED output is missing'))).toBe(false)
     expect(result.warnings.some((warning) => warning.startsWith('Board 2 drives nothing'))).toBe(true)
 
     // A board with an output part of its own drives something.
@@ -233,14 +233,14 @@ describe('multiBoardValidation — several boards', () => {
     const primaryDiagnostics = buildBoardDiagnostics(primaryEmpty, [edge('p2', 'out2')], { targets })
     expect(titles(primaryDiagnostics)).toContain('Board 1 drives nothing')
     expect(primaryDiagnostics.some((issue) => issue.id === 'missing-MatrixOutput' || issue.id === 'graph-empty')).toBe(false)
-    expect(validateBoards(primaryEmpty, [edge('p2', 'out2')], targets).errors).not.toContain('Missing MatrixOutput node')
+    expect(validateBoards(primaryEmpty, [edge('p2', 'out2')], targets).errors).not.toContain('LED output is missing')
 
     // An empty project is where everyone starts: the primary's card, no warnings.
     const empty = [board('board-root'), board('board-2')]
     const emptyDiagnostics = buildBoardDiagnostics(empty, [], { targets })
     expect(emptyDiagnostics.map((issue) => issue.id)).toEqual(['graph-empty'])
     expect(emptyDiagnostics[0].title).toBe('Nothing here yet')
-    expect(validateBoards(empty, [], targets)).toEqual({ errors: ['Missing MatrixOutput node'], warnings: [] })
+    expect(validateBoards(empty, [], targets)).toEqual({ errors: ['LED output is missing'], warnings: [] })
   })
 
   it('needs every synced board on the network, with credentials', () => {

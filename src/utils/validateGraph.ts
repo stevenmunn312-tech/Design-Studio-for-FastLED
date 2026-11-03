@@ -4968,7 +4968,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   const hasOutput = outputs.length > 0
     || capabilities.standaloneVuOutput
     || capabilities.standaloneDisplayOutput
-  if (!hasOutput) errors.push('Missing MatrixOutput node')
+  if (!hasOutput) errors.push('LED output is missing')
 
   const incoming = new Set(edges.filter(e => e.target && e.targetHandle).map(e => `${e.target}:${e.targetHandle}`))
   if (outputs.length > 0) {

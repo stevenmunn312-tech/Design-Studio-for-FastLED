@@ -78,6 +78,22 @@ export function outputLedTotal(props: Record<string, unknown>): number {
 }
 
 /**
+ * The size as a person says it: "60 LEDs" for a chain, "16 × 16" for a grid.
+ * `width`/`height` are the output's own grid (`outputGridDims`), so a chain
+ * arrives as N × 1. One spelling for the status bar, the preview header and
+ * the setup wizard, "×" included.
+ */
+export function outputSizeLabelFor(form: LedOutputForm, width: number, height: number): string {
+  return isLinearForm(form) ? `${width} LEDs` : `${width} × ${height}`
+}
+
+/** `outputSizeLabelFor` read off an output node's properties. */
+export function outputSizeLabel(props: Record<string, unknown>): string {
+  const { width, height } = outputGridDims(props)
+  return outputSizeLabelFor(outputForm(props), width, height)
+}
+
+/**
  * The output's own pixel grid: the shape frames are routed *into*, and the
  * shape the physical chain is addressed through.
  *

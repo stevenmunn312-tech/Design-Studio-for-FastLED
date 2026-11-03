@@ -217,7 +217,7 @@ describe('validateGraph', () => {
     })
     const audioWire = edge('audio-vu', 'audio-source', meter.id, 'audio')
 
-    expect(validateGraph([meter], [audioWire]).errors).not.toContain('Missing MatrixOutput node')
+    expect(validateGraph([meter], [audioWire]).errors).not.toContain('LED output is missing')
     expect(buildGraphDiagnostics([meter], [audioWire])).not.toContainEqual(expect.objectContaining({
       id: 'missing-MatrixOutput',
     }))
@@ -231,7 +231,7 @@ describe('validateGraph', () => {
       target: panel.id, targetHandle: 'display',
     } as StudioEdge
 
-    expect(validateGraph([rtc, panel], [displayWire]).errors).not.toContain('Missing MatrixOutput node')
+    expect(validateGraph([rtc, panel], [displayWire]).errors).not.toContain('LED output is missing')
     expect(buildGraphDiagnostics([rtc, panel], [displayWire])).not.toContainEqual(expect.objectContaining({
       id: 'missing-MatrixOutput',
     }))
@@ -242,7 +242,7 @@ describe('validateGraph', () => {
       targetOutputId: '', enabled: false, leftDataPin: 5, rightDataPin: 6,
     })
 
-    expect(validateGraph([meter], []).errors).toContain('Missing MatrixOutput node')
+    expect(validateGraph([meter], []).errors).toContain('LED output is missing')
     expect(buildGraphDiagnostics([meter], [])).toContainEqual(expect.objectContaining({
       id: 'missing-MatrixOutput',
     }))
@@ -732,7 +732,7 @@ describe('validateGraph', () => {
 
   it('errors when MatrixOutput is missing', () => {
     const { errors } = validateGraph([node('sc', 'SolidColor')], [])
-    expect(errors).toContain('Missing MatrixOutput node')
+    expect(errors).toContain('LED output is missing')
   })
 
   it('errors when an LED output has no frame connected', () => {

@@ -1,4 +1,6 @@
 import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state/graphStore'
+import { useUiStore } from '../../../state/uiStore'
+import { outputSizeLabel } from '../../../state/output/ledOutputForm'
 import { PART_FIELDS } from '../../../build/parts/partFields'
 import {
   isGpioPinProperty,
@@ -175,7 +177,26 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
       )}
 
       {nodeType === 'MatrixOutput' && (
-        <DataLanesSection nodeId={nodeId} nodeLabel={nodeLabel} properties={props} />
+        <>
+          <DataLanesSection nodeId={nodeId} nodeLabel={nodeLabel} properties={props} />
+          {/* What the output *is* has one editor, the node on the Graph; this
+              inspector owns how it is wired. A second set of fields here gave
+              "where do I set my LED count?" two answers. */}
+          <div className={styles.row} title="LED count, chipset and colour order are set on the LED output node">
+            <span className={styles.key}>LEDs</span>
+            <span className={styles.value}>{outputSizeLabel(props)} · {String(props.chipset ?? '')} · {String(props.colorOrder ?? '')}</span>
+          </div>
+          <button
+            type="button"
+            className={`nodrag ${styles.eyeBtn}`}
+            onClick={() => {
+              useGraphStore.getState().focusNode(nodeId)
+              useUiStore.getState().revealGraphNodes([nodeId])
+            }}
+          >
+            Edit on the Graph
+          </button>
+        </>
       )}
 
       {volumeStageLabel && (

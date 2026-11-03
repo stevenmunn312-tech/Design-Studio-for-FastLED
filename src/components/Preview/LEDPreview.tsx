@@ -50,7 +50,7 @@ import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/output/streamStore'
 import { outputRoutes, previewRenderPasses, routeFrame } from '../../state/output/outputRouting'
-import type { LedOutputForm } from '../../state/output/ledOutputForm'
+import { LED_OUTPUT_FORM_LABELS, outputSizeLabelFor, type LedOutputForm } from '../../state/output/ledOutputForm'
 import { advanceStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../build/controllerSettings'
 import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/player/masterSpeed'
@@ -1426,7 +1426,13 @@ export default function LEDPreview() {
             )}
             <div className={styles.canvasFrameHeader}>
               <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>
-                {previewRoutes.length > 1 ? `Output route ${previewRoutes.findIndex((route) => route.id === activeOutputId) + 1}` : 'Output matrix'}
+                {selectedRouteSummary
+                  ? [
+                      ...(previewRoutes.length > 1 ? [`Route ${previewRoutes.findIndex((route) => route.id === activeOutputId) + 1}`] : []),
+                      LED_OUTPUT_FORM_LABELS[selectedRouteSummary.form],
+                      outputSizeLabelFor(selectedRouteSummary.form, selectedRouteSummary.width, selectedRouteSummary.height),
+                    ].join(' · ')
+                  : 'LED output'}
               </span>
             </div>
             <div

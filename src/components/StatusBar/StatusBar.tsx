@@ -1,7 +1,8 @@
 import { useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
-import { useGraphStore } from '../../state/graphStore'
+import { boardPartitionOf, useGraphStore } from '../../state/graphStore'
+import { outputSizeLabel } from '../../state/output/ledOutputForm'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { useUploadStore, boardByFqbn } from '../../state/upload/uploadStore'
 import type { StatusLevel } from '../../types'
@@ -45,13 +46,17 @@ export default function StatusBar() {
   const portsScanned = useUploadStore((s) => s.portsScanned)
   const helper = useUploadStore((s) => s.helper)
 
+  // The active board's first LED output, so the chips describe the board
+  // being worked on rather than whichever output comes first in the root
+  // array, and its size in the form's own terms: a 60-LED string is not
+  // "16 x 16".
+  const activeBoardId = useUiStore((s) => s.activeBoardId)
   const outputNode = useGraphStore((s) =>
-    s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+    boardPartitionOf(s, activeBoardId).nodes.find((n) => n.data.nodeType === 'MatrixOutput'),
   )
   const props = outputNode?.data.properties as Record<string, unknown> | undefined
   const chipset = props?.chipset as string | undefined
-  const matrixWidth = Number(props?.width ?? 16)
-  const matrixHeight = Number(props?.height ?? 16)
+  const sizeLabel = props ? outputSizeLabel(props) : 'No LED output'
   const boardLabel = boardByFqbn(selectedFqbn)?.label
   const port = describePort({ helper, selectedPort, ports, portsScanned })
   const displayFps = hasFrameSignal ? fps : 0
@@ -108,7 +113,7 @@ export default function StatusBar() {
         <span className={styles.chip}>Board: {boardLabel ?? 'Not selected'}</span>
         <span className={styles.chip} data-port-state={port.state} title={port.detail}>Port: {port.text}</span>
         <span className={styles.chip}>Chip: {chipset ?? 'Not selected'}</span>
-        <span className={styles.chip}>Size: {matrixWidth} x {matrixHeight}</span>
+        <span className={styles.chip}>Size: {sizeLabel}</span>
       </div>
     </footer>
   )

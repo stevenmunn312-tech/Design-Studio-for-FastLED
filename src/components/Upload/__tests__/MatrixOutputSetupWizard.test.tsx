@@ -74,21 +74,41 @@ describe('MatrixOutputSetupWizard', () => {
     })
   })
 
-  it('updates board selection and matrix size through the guided steps', () => {
-    const { getByLabelText, getByRole } = render(<MatrixOutputSetupWizard />)
+  /*
+   * The wizard reviews; it does not edit. Its own Board select used to lose
+   * silently (`App.tsx` mirrors the Board node's profile back into
+   * `selectedFqbn`), and its copies of the LED fields gave "where do I set my
+   * LED count?" three answers. Each step now links to the one editor.
+   */
+  it('reports the board and sends a change to the Hardware bench', () => {
+    useUiStore.setState({ workspaceMode: 'upload', hardwareBoardMenuRequested: false })
+    const { getByRole, queryByLabelText, getAllByText } = render(<MatrixOutputSetupWizard />)
 
-    fireEvent.change(getByLabelText('Board'), { target: { value: 'arduino:avr:uno' } })
-    expect(useUploadStore.getState().selectedFqbn).toBe('arduino:avr:uno')
+    expect(queryByLabelText('Board')).toBeNull()
+    expect(getAllByText('ESP32-S3').length).toBeGreaterThan(0)
 
-    fireEvent.click(getByRole('button', { name: 'Next' }))
-    fireEvent.click(getByRole('button', { name: '32 × 8' }))
-
-    const matrix = useGraphStore.getState().nodes[0]
-    expect(matrix.data.properties.width).toBe(32)
-    expect(matrix.data.properties.height).toBe(8)
+    fireEvent.click(getByRole('button', { name: 'Change board in Hardware' }))
+    expect(useUploadStore.getState().closeSetupWizard).toHaveBeenCalled()
+    expect(useUiStore.getState().workspaceMode).toBe('hardware')
+    expect(useUiStore.getState().hardwareBoardMenuRequested).toBe(true)
   })
 
-  it('edits dedicated corkscrew geometry without exposing matrix dimensions', () => {
+  it('shows the geometry read-only and sends an edit to the output node on the Graph', () => {
+    useUiStore.setState({ workspaceMode: 'upload' })
+    const { getByRole, getByText, queryByRole } = render(<MatrixOutputSetupWizard />)
+
+    fireEvent.click(getByRole('button', { name: /Geometry/ }))
+    expect(getByText('16 × 16')).toBeTruthy()
+    expect(queryByRole('button', { name: '32 × 8' })).toBeNull()
+
+    fireEvent.click(getByRole('button', { name: 'Edit on the Graph' }))
+    expect(useUploadStore.getState().closeSetupWizard).toHaveBeenCalled()
+    expect(useUiStore.getState().workspaceMode).toBe('graph')
+    expect(useUiStore.getState().fitViewRequest.nodeIds).toEqual(['matrix'])
+    expect(useGraphStore.getState().selectedNodeId).toBe('matrix')
+  })
+
+  it('describes a corkscrew in its own terms without matrix dimensions', () => {
     useGraphStore.setState({
       nodes: useGraphStore.getState().nodes.map((output) => ({
         ...output,
@@ -105,17 +125,12 @@ describe('MatrixOutputSetupWizard', () => {
         },
       })) as never[],
     })
-    const { getByLabelText, getByRole, queryByLabelText } = render(<MatrixOutputSetupWizard />)
+    const { getByRole, getByText, queryByText } = render(<MatrixOutputSetupWizard />)
 
     fireEvent.click(getByRole('button', { name: /Geometry/ }))
-    expect(queryByLabelText('Width')).toBeNull()
-    expect(queryByLabelText('Height')).toBeNull()
-    fireEvent.change(getByLabelText('Turns'), { target: { value: '8.5' } })
-    fireEvent.change(getByLabelText('Diameter (mm)'), { target: { value: '180' } })
-
-    const output = useGraphStore.getState().nodes[0]
-    expect(output.data.properties.corkscrewTurns).toBe(8.5)
-    expect(output.data.properties.corkscrewDiameterMm).toBe(180)
+    expect(getByText('120 LEDs')).toBeTruthy()
+    expect(getByText('6 turns · 100 mm across · 300 mm tall')).toBeTruthy()
+    expect(queryByText(/16 × 16/)).toBeNull()
   })
 
   it('can flash the wiring diagnostic from the final step', () => {

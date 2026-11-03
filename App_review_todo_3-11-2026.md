@@ -14,7 +14,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
 
 ## 1. First run and single sources of truth
 
-- [ ] **Starters land on the Hardware tab with the preview closed.**
+- [x] **Starters land on the Hardware tab with the preview closed.**
+  Outcome (3 Nov): `finishStartFlow` now calls `showGraphWithPreview` and
+  `revealGraphNodes` for every starter and help example; Blank Canvas alone
+  still lands on Hardware.
   Problem: `src/utils/startFlow.ts:67` sets the workspace to `hardware` and
   `startTemplate` (`startFlow.ts:79-94`) only calls `requestFitView`, never
   `setWorkspaceMode('graph')`; `uiStore.ts:179-184` keeps the preview panel
@@ -23,14 +26,22 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: a starter or example load switches to Graph and opens the preview.
   Hardware-first only for Blank Canvas.
 
-- [ ] **First visit leaves an empty "New Project" behind.**
+- [x] **First visit leaves an empty "New Project" behind.**
+  Outcome (3 Nov): `beginStartProject` reuses a blank, default-named open
+  project (renamed to the starter, uniquely) instead of creating a second
+  one; a blank canvas keeps the project's own name.
   Problem: `App.tsx:271-276` creates a default project before the gallery
   opens; `startFlow.ts:131-148` then creates a second project for the starter.
   The empty one stays in File > Recent Projects.
   Fix: open the gallery before creating any project, or reuse the empty
   current project for the starter.
 
-- [ ] **LED output is configured in three places.**
+- [x] **LED output is configured in three places.**
+  Outcome (3 Nov): the node is the one editor of count, form, chipset and
+  colour order. The wizard's Geometry and LEDs steps are read-only with "Edit
+  on the Graph"; the bench inspector prints the same line with the same link
+  and keeps pins and lanes. The wizard still opens from Upload and the guide
+  strip; a Setup entry on the bench part was not added.
   Problem: the node body, the Setup wizard (`WZ:269-276, 433-443`: count,
   chipset, colour order) and the bench inspector (`HP:1117-1135`: pins and
   lanes) all edit the same output; the wizard's pin is read-only with
@@ -40,7 +51,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: one LED-output editor reachable from the bench part, the node and
   Upload; the other two become read-only links to it.
 
-- [ ] **Board choice exists in three editors and two silently revert.**
+- [x] **Board choice exists in three editors and two silently revert.**
+  Outcome (3 Nov): the Board & Port popup and the wizard lost their board
+  selects (and the popup its Platform select); both print the Board node's
+  profile and offer "Change board in Hardware", which opens the Board menu.
   Problem: the Board node sets profile and FQBN
   (`src/components/Canvas/bodies/BoardNodeBody.tsx:95-102`); the Board & Port
   popup sets only FQBN (`src/components/Upload/BoardPopup.tsx:293-306`); the
@@ -50,7 +64,10 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: the Board node is the single source; the popup and wizard open the
   Board menu instead of their own selects.
 
-- [ ] **Status bar shows the wrong size and ignores the active board.**
+- [x] **Status bar shows the wrong size and ignores the active board.**
+  Outcome (3 Nov): Size and Chip read the active board's partition
+  (`boardPartitionOf`); size comes from the shared `outputSizeLabel`
+  ("60 LEDs" / "16 × 16"); "No LED output" when there is none.
   Problem: `src/components/StatusBar/StatusBar.tsx:48-54, 111` prints
   `width x height` of the first `MatrixOutput`, so a 60-LED string reads
   "16 x 16"; `activeBoardId` is never read, so a multi-board project describes
@@ -59,14 +76,21 @@ MB = `src/components/MenuBar/MenuBar.tsx`, WZ = `src/components/Upload/MatrixOut
   Fix: derive the size through `shapeLayoutFor` for the active board's
   output, print "60 LEDs" for chains, use "×".
 
-- [ ] **Preview header says "Output matrix" for every form.**
+- [x] **Preview header says "Output matrix" for every form.**
+  Outcome (3 Nov): the header prints "LED String · 60 LEDs", "LED Matrix ·
+  16 × 16", prefixed "Route N · " with several outputs. `MatrixSizePopup`'s
+  "Custom matrix size" is left: it opens only for grid forms. The library
+  label "LED Matrix" is the default form's title, so it stays.
   Problem: `src/components/Preview/LEDPreview.tsx:1429` is a constant;
   `MatrixSizePopup.tsx:41` says "Custom matrix size"; the node is labelled
   "LED Matrix" (`src/nodes/output/definitions.ts:87`) while 56 copy sites say
   "LED output".
   Fix: print the form label, for example "Output string · 60 LEDs".
 
-- [ ] **Code identifier leaks into user copy.**
+- [x] **Code identifier leaks into user copy.**
+  Outcome (3 Nov): `validateGraph` and `multiBoardValidation` say "LED output
+  is missing"; the `missing-MatrixOutput` id is unchanged; Graph Health says
+  "I2C".
   Problem: `src/utils/validateGraph.ts:4971` pushes "Missing MatrixOutput
   node"; `src/utils/multiBoardValidation.ts:58, 62, 225` likewise. These reach
   the Upload blocker list (`DP:301-303`). CLAUDE.md says "LED output".

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
-import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
-import { CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, SPI_CHIPSETS } from '../../state/nodeLibrary'
+import { boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
+import { SPI_CHIPSETS } from '../../state/nodeLibrary'
 import { validateMatrixLayout } from '../../state/output/xyLayout'
 import { generateWiringDiagnosticSketch } from '../../codegen/sketches/wiringDiagnosticGenerator'
 import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
@@ -13,52 +13,41 @@ import { useUiStore } from '../../state/uiStore'
 import {
   isLinearForm,
   LED_OUTPUT_FORM_LABELS,
-  MAX_LED_RUN,
   outputForm,
-  outputGridDims,
+  outputSizeLabel,
 } from '../../state/output/ledOutputForm'
+import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
+// A guided *review* of one LED output on its way to a board. Every value it
+// shows has exactly one editor elsewhere — the board on the Hardware bench,
+// the output's count, form, chipset and colour order on its node, its pins in
+// the Hardware wiring inspector — and each step links there. The wizard used
+// to carry editors of its own for the board and the LED fields, and the
+// board one silently lost: `App.tsx` mirrors the Board node's profile into
+// `selectedFqbn` and snapped the wizard's pick straight back.
 const STEPS = [
-  { key: 'controller', title: 'Controller', blurb: 'Pick the board, port, and build path.' },
-  { key: 'geometry', title: 'Geometry', blurb: 'Set the physical form and authoring geometry of the LEDs you want to drive.' },
-  { key: 'leds', title: 'LEDs', blurb: 'Match the strip type, color order, and wiring pins.' },
+  { key: 'controller', title: 'Controller', blurb: 'Check the board, port, and build path.' },
+  { key: 'geometry', title: 'Geometry', blurb: 'Check the physical form and size of the LEDs you want to drive.' },
+  { key: 'leds', title: 'LEDs', blurb: 'Check the strip type, color order, and wiring pins.' },
   { key: 'upload', title: 'Upload', blurb: 'Review the setup, then run a wiring test or open the upload tools.' },
 ] as const
-
-const SIZE_PRESETS = [
-  { label: '8 × 8', width: 8, height: 8 },
-  { label: '16 × 16', width: 16, height: 16 },
-  { label: '16 × 32', width: 16, height: 32 },
-  { label: '32 × 8', width: 32, height: 8 },
-  { label: '32 × 32', width: 32, height: 32 },
-] as const
-
-function clampInt(value: string, fallback: number, min = 1, max = 999) {
-  const parsed = Math.round(Number(value))
-  if (!Number.isFinite(parsed)) return fallback
-  return Math.max(min, Math.min(max, parsed))
-}
 
 export default function MatrixOutputSetupWizard() {
   const [step, setStep] = useState(0)
   const nodes = useRootNodes()
   const edges = useRootEdges()
-  const { updateNodeProperty, updateNodeProperties } = useGraphStore()
   const {
     helper,
     ports,
     portsScanned,
     installedCores,
-    myBoards,
     selectedFqbn,
     selectedPort,
     busy,
     refreshPorts,
     refreshHelper,
     installCore,
-    setSelectedFqbn,
     setSelectedPort,
-    setMyBoards,
     openBoardPopup,
     openCliPopup,
     closeSetupWizard,
@@ -75,7 +64,6 @@ export default function MatrixOutputSetupWizard() {
 
   const form = outputForm(props)
   const linear = isLinearForm(form)
-  const grid = outputGridDims(props)
   const width = Number(props.width ?? 16)
   const height = Number(props.height ?? 16)
   const layout = String(props.layout ?? 'matrix')
@@ -89,13 +77,13 @@ export default function MatrixOutputSetupWizard() {
   const clockPin = Number(props.clockPin ?? 6)
   const spi = SPI_CHIPSETS.has(chipset)
   const board = boardByFqbn(selectedFqbn)
+  const boardLabel = selectedPhysicalBoardProfile(nodes)?.label ?? board?.label ?? 'No board chosen'
   const usingFbuild = helper?.engine === 'fbuild'
   const activeEngineReady = engineReady(helper)
   const port = describePort({ helper, selectedPort, ports, portsScanned })
   const portDetected = port.state === 'connected'
   const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
   const uploadReady = !!helper && activeEngineReady && coreReady && portDetected
-  const ledCount = grid.width * grid.height
   const layoutErrors = useMemo(
     () => linear ? [] : validateMatrixLayout(width, height, { layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap }),
     [linear, width, height, layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap],
@@ -117,13 +105,17 @@ export default function MatrixOutputSetupWizard() {
     closeSetupWizard()
   }
 
-  function chooseBoard(fqbn: string) {
-    if (!myBoards.includes(fqbn)) setMyBoards([...myBoards, fqbn])
-    setSelectedFqbn(fqbn)
+  /** The board is chosen on the Hardware bench; the wizard only reports it. */
+  function changeBoard() {
+    closeSetupWizard()
+    useUiStore.getState().openHardwareBoardMenu()
   }
 
-  function applySize(nextWidth: number, nextHeight: number) {
-    updateNodeProperties(matrixNodeId, { width: nextWidth, height: nextHeight })
+  /** The output's node is the one editor of what it is; frame it on the Graph. */
+  function openOutputNode() {
+    closeSetupWizard()
+    useGraphStore.getState().focusNode(matrixNodeId)
+    useUiStore.getState().revealGraphNodes([matrixNodeId])
   }
 
   function handleFlashWiringTest() {
@@ -185,19 +177,27 @@ export default function MatrixOutputSetupWizard() {
         {step === 0 && (
           <div className={styles.wizardSection}>
             <div className={styles.targetRow}>
-              <span className={styles.targetChip}>{board?.label ?? 'No board selected'}</span>
+              <span className={styles.targetChip}>{boardLabel}</span>
               <span className={styles.targetChip}>{port.text}</span>
               <span className={`${styles.targetChip} ${uploadReady ? styles.readyBadge : styles.missingBadge}`}>
                 {uploadReady ? 'Ready' : 'Needs setup'}
               </span>
             </div>
 
-            <label className={styles.fieldBlock}>
-              <span className={styles.fieldLabel}>Board</span>
-              <select className={styles.select} value={selectedFqbn} onChange={(e) => chooseBoard(e.target.value)}>
-                {BOARDS.map((item) => <option key={item.fqbn} value={item.fqbn}>{item.label}</option>)}
-              </select>
-            </label>
+            <div className={styles.wizardChecklistRow}>
+              <div>
+                <div className={styles.fieldLabel}>Board</div>
+                <div className={styles.note}>{boardLabel}</div>
+              </div>
+              <button
+                type="button"
+                className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
+                onClick={changeBoard}
+                title="Choose the board on the Hardware bench"
+              >
+                Change board in Hardware
+              </button>
+            </div>
 
             <label className={styles.fieldBlock}>
               <span className={styles.fieldLabel}>Port</span>
@@ -258,166 +258,27 @@ export default function MatrixOutputSetupWizard() {
 
         {step === 1 && (
           <div className={styles.wizardSection}>
+            {/* Read-only on purpose: the LED output node on the Graph is the one
+                editor of what the output *is*. The wizard used to carry its own
+                copies of these fields, which made "where do I set my LED count?"
+                a question with three answers. */}
             <div className={styles.wizardSummary}>
               <div className={styles.wizardSummaryRow}><span>Physical form</span><strong>{LED_OUTPUT_FORM_LABELS[form]}</strong></div>
-              <div className={styles.wizardSummaryRow}><span>Render route</span><strong>{grid.width} × {grid.height}</strong></div>
-              <div className={styles.wizardSummaryRow}><span>Total LEDs</span><strong>{ledCount}</strong></div>
+              <div className={styles.wizardSummaryRow}><span>Size</span><strong>{outputSizeLabel(props)}</strong></div>
+              {!linear && (
+                <div className={styles.wizardSummaryRow}><span>Layout</span><strong>{layout}{props.serpentine === true ? ' · serpentine' : ''}{layout === 'panels' ? ` · ${tilesX} × ${tilesY} panels` : ''}</strong></div>
+              )}
+              {form === 'ring' && (
+                <div className={styles.wizardSummaryRow}><span>LED 0</span><strong>{Number(props.ringStartAngle ?? 0)}° · {props.ringDirection === 'ccw' ? 'counter-clockwise' : 'clockwise'}</strong></div>
+              )}
+              {form === 'corkscrew' && (
+                <div className={styles.wizardSummaryRow}><span>Winding</span><strong>{Number(props.corkscrewTurns ?? 6)} turns · {Number(props.corkscrewDiameterMm ?? 100)} mm across · {Number(props.corkscrewHeightMm ?? 300)} mm tall</strong></div>
+              )}
             </div>
 
-            {linear ? (
-              <label className={styles.fieldBlock}>
-                <span className={styles.fieldLabel}>LED count</span>
-                <input
-                  className={styles.textInput}
-                  type="number"
-                  min={1}
-                  max={MAX_LED_RUN}
-                  value={ledCount}
-                  onChange={(e) => updateNodeProperty(matrixNodeId, 'ledCount', clampInt(e.target.value, ledCount, 1, MAX_LED_RUN))}
-                />
-              </label>
-            ) : (
-              <>
-                <div className={styles.presetGrid}>
-                  {SIZE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      className={`${styles.wizardButtonBase} ${styles.presetBtn} ${preset.width === width && preset.height === height ? styles.presetBtnActive : ''}`}
-                      onClick={() => applySize(preset.width, preset.height)}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className={styles.dualFieldRow}>
-                  <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Width</span>
-                    <input
-                      className={styles.textInput}
-                      type="number"
-                      min={1}
-                      max={64}
-                      value={width}
-                      onChange={(e) => updateNodeProperty(matrixNodeId, 'width', clampInt(e.target.value, width, 1, 64))}
-                    />
-                  </label>
-                  <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Height</span>
-                    <input
-                      className={styles.textInput}
-                      type="number"
-                      min={1}
-                      max={64}
-                      value={height}
-                      onChange={(e) => updateNodeProperty(matrixNodeId, 'height', clampInt(e.target.value, height, 1, 64))}
-                    />
-                  </label>
-                </div>
-
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>Layout</span>
-                  <select className={styles.select} value={layout} onChange={(e) => updateNodeProperty(matrixNodeId, 'layout', e.target.value)}>
-                    <option value="matrix">Matrix</option>
-                    <option value="panels">Panels</option>
-                    <option value="custom">Custom map</option>
-                  </select>
-                </label>
-
-                <label className={styles.checkField}>
-                  <input
-                    type="checkbox"
-                    checked={props.serpentine === true}
-                    onChange={(e) => updateNodeProperty(matrixNodeId, 'serpentine', e.target.checked)}
-                  />
-                  <span>Pixels snake back and forth</span>
-                </label>
-              </>
-            )}
-
-            {form === 'ring' && (
-              <div className={styles.dualFieldRow}>
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>LED 0 angle</span>
-                  <input className={styles.textInput} type="number" min={0} max={359} value={Number(props.ringStartAngle ?? 0)} onChange={(e) => updateNodeProperty(matrixNodeId, 'ringStartAngle', clampInt(e.target.value, 0, 0, 359))} />
-                </label>
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>Direction</span>
-                  <select className={styles.select} value={String(props.ringDirection ?? 'cw')} onChange={(e) => updateNodeProperty(matrixNodeId, 'ringDirection', e.target.value)}>
-                    <option value="cw">Clockwise</option>
-                    <option value="ccw">Counter-clockwise</option>
-                  </select>
-                </label>
-              </div>
-            )}
-
-            {form === 'corkscrew' && (
-              <>
-                <div className={styles.dualFieldRow}>
-                  <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Turns</span>
-                    <input className={styles.textInput} type="number" min={0.5} max={32} step={0.5} value={Number(props.corkscrewTurns ?? 6)} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewTurns', Math.max(0.5, Math.min(32, Number(e.target.value) || 6)))} />
-                  </label>
-                  <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>LED 0 angle</span>
-                    <input className={styles.textInput} type="number" min={0} max={359} value={Number(props.corkscrewStartAngle ?? 0)} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewStartAngle', clampInt(e.target.value, 0, 0, 359))} />
-                  </label>
-                </div>
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>Winding direction</span>
-                  <select className={styles.select} value={String(props.corkscrewDirection ?? 'cw')} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewDirection', e.target.value)}>
-                    <option value="cw">Clockwise</option>
-                    <option value="ccw">Counter-clockwise</option>
-                  </select>
-                </label>
-                <div className={styles.dualFieldRow}>
-                  <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Diameter (mm)</span>
-                    <input className={styles.textInput} type="number" min={10} max={2000} value={Number(props.corkscrewDiameterMm ?? 100)} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewDiameterMm', clampInt(e.target.value, 100, 10, 2000))} />
-                  </label>
-                  <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Height (mm)</span>
-                    <input className={styles.textInput} type="number" min={10} max={4000} value={Number(props.corkscrewHeightMm ?? 300)} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewHeightMm', clampInt(e.target.value, 300, 10, 4000))} />
-                  </label>
-                </div>
-              </>
-            )}
-
-            {!linear && layout === 'panels' && (
-              <>
-                <div className={styles.dualFieldRow}>
-                  <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Tiles X</span>
-                    <input className={styles.textInput} type="number" min={1} max={8} value={tilesX} onChange={(e) => updateNodeProperty(matrixNodeId, 'tilesX', clampInt(e.target.value, tilesX, 1, 8))} />
-                  </label>
-                  <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Tiles Y</span>
-                    <input className={styles.textInput} type="number" min={1} max={8} value={tilesY} onChange={(e) => updateNodeProperty(matrixNodeId, 'tilesY', clampInt(e.target.value, tilesY, 1, 8))} />
-                  </label>
-                </div>
-                <label className={styles.checkField}>
-                  <input type="checkbox" checked={tileSerpentine} onChange={(e) => updateNodeProperty(matrixNodeId, 'tileSerpentine', e.target.checked)} />
-                  <span>Panels snake as a chain</span>
-                </label>
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>Panel rotations</span>
-                  <input className={styles.textInput} value={tileRotations} placeholder="0,90,180,270" onChange={(e) => updateNodeProperty(matrixNodeId, 'tileRotations', e.target.value)} />
-                </label>
-              </>
-            )}
-
-            {!linear && layout === 'custom' && (
-              <label className={styles.fieldBlock}>
-                <span className={styles.fieldLabel}>Custom XY map</span>
-                <textarea
-                  className={styles.textArea}
-                  rows={4}
-                  value={customXYMap}
-                  placeholder="[0,1,2,3]"
-                  onChange={(e) => updateNodeProperty(matrixNodeId, 'customXYMap', e.target.value)}
-                />
-              </label>
-            )}
+            <button type="button" className={`${styles.wizardButtonBase} ${styles.exportBtn}`} onClick={openOutputNode}>
+              Edit on the Graph
+            </button>
 
             {layoutErrors.length > 0 && (
               <div className={styles.streamError}>
@@ -429,19 +290,20 @@ export default function MatrixOutputSetupWizard() {
 
         {step === 2 && (
           <div className={styles.wizardSection}>
-            <label className={styles.fieldBlock}>
-              <span className={styles.fieldLabel}>Chipset</span>
-              <select className={styles.select} value={chipset} onChange={(e) => updateNodeProperty(matrixNodeId, 'chipset', e.target.value)}>
-                {CHIPSET_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
-
-            <label className={styles.fieldBlock}>
-              <span className={styles.fieldLabel}>Color order</span>
-              <select className={styles.select} value={String(props.colorOrder ?? 'GRB')} onChange={(e) => updateNodeProperty(matrixNodeId, 'colorOrder', e.target.value)}>
-                {COLOR_ORDER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
+            <div className={styles.wizardChecklistRow}>
+              <div>
+                <div className={styles.fieldLabel}>LED path</div>
+                <div className={styles.note}>{chipset} · {String(props.colorOrder ?? 'GRB')}</div>
+              </div>
+              <button
+                type="button"
+                className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
+                onClick={openOutputNode}
+                title="Chipset and colour order are set on the LED output node"
+              >
+                Edit on the Graph
+              </button>
+            </div>
 
             <div className={styles.wizardChecklistRow}>
               <div>
@@ -488,7 +350,7 @@ export default function MatrixOutputSetupWizard() {
           <div className={styles.wizardSection}>
             <div className={styles.wizardSummary}>
               <div className={styles.wizardSummaryRow}><span>Target</span><strong>{board?.label ?? 'No board'} · {port.text}</strong></div>
-              <div className={styles.wizardSummaryRow}><span>LED output</span><strong>{LED_OUTPUT_FORM_LABELS[form]} · {grid.width} × {grid.height}{linear ? '' : ` · ${layout}`}</strong></div>
+              <div className={styles.wizardSummaryRow}><span>LED output</span><strong>{LED_OUTPUT_FORM_LABELS[form]} · {outputSizeLabel(props)}{linear ? '' : ` · ${layout}`}</strong></div>
               <div className={styles.wizardSummaryRow}><span>LED path</span><strong>{chipset} · {String(props.colorOrder ?? 'GRB')}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Controller</span><strong>{controller.brightness} brightness · {controller.powerLimit ? `${controller.volts} V / ${controller.milliamps} mA cap` : 'power cap off'}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Graph ready</span><strong>{hasFrameInput ? 'Frame connected' : 'Connect a frame before upload'}</strong></div>

@@ -11,33 +11,17 @@ import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
 const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
 
-// Human-readable platform names for the known built-in cores; a custom board's
-// core string (e.g. "esp8266:esp8266") is shown as-is when it isn't one of these.
-const PLATFORM_LABELS: Record<string, string> = {
-  'esp32:esp32': 'ESP32',
-  'esp8266:esp8266': 'ESP8266',
-  'arduino:avr': 'Arduino AVR',
-  'arduino:megaavr': 'Arduino MegaAVR',
-  'teensy:avr': 'Teensy',
-  'rp2040:rp2040': 'RP2040',
-  'arduino:samd': 'Arduino SAMD',
-  'arduino:sam': 'Arduino SAM',
-  'adafruit:samd': 'Adafruit SAMD',
-  'STMicroelectronics:stm32': 'STM32',
-  'arduino:renesas_uno': 'Renesas RA (UNO R4)',
-  'adafruit:nrf52': 'Nordic nRF52',
-}
-const platformLabel = (core: string) => PLATFORM_LABELS[core] ?? core
-
-// Popup launched from the MatrixOutput "Board" button. Top: custom boards
-// (add by URL, remove, check for core updates). Then a Platform dropdown, a
-// Board dropdown scoped to that platform, a Port dropdown, and the resolved
+// The Upload tab's "Board & Port" popup. Top: the build engine and custom
+// boards (add by URL, remove, check for core updates). Then the board, read
+// from the Board node — the one place a board is chosen, since `App.tsx`
+// mirrors that node's profile into `selectedFqbn` and would snap any choice
+// made here straight back — a Port dropdown, and the resolved
 // "<board> · <port>" label.
 export default function BoardPopup() {
   const {
-    helper, ports, portsScanned, installedCores, customBoards, selectedFqbn, selectedPort, busy,
+    helper, ports, portsScanned, customBoards, selectedFqbn, selectedPort, busy,
     checkingUpdates, availableUpdates, updatesPopupOpen,
-    setSelectedFqbn, setSelectedPort, refreshPorts, setEngine,
+    setSelectedPort, refreshPorts, setEngine,
     closeBoardPopup, openCliPopup,
     addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
@@ -56,26 +40,11 @@ export default function BoardPopup() {
   const ready = engineReady(helper)
   const boards = allBoards()
   const board = boardByFqbn(selectedFqbn)
-  // A platform (arduino-cli core) is "installed" when fbuild is the active
-  // engine (it downloads its own per-board toolchain on first build, so
-  // nothing needs a separate install step) or, on arduino-cli, when its core
-  // has actually been installed. Only installed platforms are offered, in
-  // first-seen catalogue order; the Board dropdown then lists every board
-  // that shares the chosen platform's core.
-  const readyBoards = useMemo(
-    () => boards.filter((b) => ready && (usingFbuild || installedCores.includes(b.core))),
-    [boards, ready, usingFbuild, installedCores],
-  )
-  const platformKeys = useMemo(() => {
-    const seen: string[] = []
-    for (const b of readyBoards) if (!seen.includes(b.core)) seen.push(b.core)
-    return seen
-  }, [readyBoards])
-  const currentPlatform = board && platformKeys.includes(board.core) ? board.core : (platformKeys[0] ?? '')
-  const boardsInPlatform = readyBoards.filter((b) => b.core === currentPlatform)
-  const handlePlatformChange = (core: string) => {
-    const first = readyBoards.find((b) => b.core === core)
-    if (first) setSelectedFqbn(first.fqbn)
+  const boardProfile = selectedPhysicalBoardProfile(nodes)
+  const boardLabel = boardProfile?.label ?? board?.label ?? 'No board chosen'
+  const changeBoard = () => {
+    closeBoardPopup()
+    useUiStore.getState().openHardwareBoardMenu()
   }
   const port = describePort({ helper, selectedPort, ports, portsScanned })
   const target = `${board?.label ?? 'No board'} · ${port.text}`
@@ -288,24 +257,14 @@ export default function BoardPopup() {
           </>
         )}
 
-        {/* Platform selection — narrows the Board dropdown below to just the
-            boards that share that platform's core. */}
-        <div className={styles.sectionTitle}>Platform</div>
-        <select
-          className={styles.select}
-          value={currentPlatform}
-          onChange={(e) => handlePlatformChange(e.target.value)}
-        >
-          {platformKeys.length === 0 && <option value="">No boards selected</option>}
-          {platformKeys.map((core) => <option key={core} value={core}>{platformLabel(core)}</option>)}
-        </select>
-
-        {/* Board selection */}
+        {/* The board is the Board node's choice; this popup only reports it. */}
         <div className={styles.sectionTitle}>Board</div>
-        <select className={styles.select} value={selectedFqbn} onChange={(e) => setSelectedFqbn(e.target.value)}>
-          {boardsInPlatform.length === 0 && <option value="">No boards selected</option>}
-          {boardsInPlatform.map((b) => <option key={b.fqbn} value={b.fqbn}>{b.label}</option>)}
-        </select>
+        <div className={styles.wizardChecklistRow}>
+          <span>{boardLabel}</span>
+          <button className={styles.linkBtn} onClick={changeBoard} title="Choose the board on the Hardware bench">
+            Change board in Hardware
+          </button>
+        </div>
 
         {/* Port selection */}
         <div className={styles.sectionTitle}>Port</div>

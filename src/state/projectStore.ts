@@ -231,7 +231,7 @@ function sortProjects(projects: SavedProject[]): SavedProject[] {
   return [...projects].sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt)
 }
 
-function uniqueProjectName(existing: SavedProject[], preferred: string): string {
+export function uniqueProjectName(existing: SavedProject[], preferred: string): string {
   const base = trimName(preferred) || 'Untitled Project'
   const used = new Set(existing.map((project) => project.name.toLocaleLowerCase()))
   if (!used.has(base.toLocaleLowerCase())) return base
