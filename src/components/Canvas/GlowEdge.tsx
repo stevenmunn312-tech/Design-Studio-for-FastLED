@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { getBezierPath, useReactFlow } from '@xyflow/react'
+import { Position, getBezierPath, useReactFlow } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import { PORT_SYMBOL_PATH, portSymbol } from '../icons/portSymbols'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
@@ -84,6 +84,14 @@ function GlowEdge({
   // The wire ends in the socket's own symbol, filled: the terminal is the
   // one place the wire and the port vocabulary meet.
   const terminalPath = PORT_SYMBOL_PATH[portSymbol(sourceType)]
+  // React Flow ends the edge at the socket's outer edge, so the symbol is
+  // moved half a socket inward and drawn small enough (6 px) to sit inside
+  // the 12 px handle: it shows only where there is no handle to cover it.
+  const terminalCentre = targetPosition === Position.Left ? [targetX + 6, targetY]
+    : targetPosition === Position.Right ? [targetX - 6, targetY]
+    : targetPosition === Position.Top ? [targetX, targetY + 6]
+    : [targetX, targetY - 6]
+  const terminalTransform = `translate(${terminalCentre[0] - 3} ${terminalCentre[1] - 3}) scale(0.3)`
   const rawValue = usePreviewStore((state) =>
     showsValueReadout && sourceHandleId ? state.outputs.get(source)?.[sourceHandleId] : undefined
   )
@@ -204,7 +212,7 @@ function GlowEdge({
           strokeDasharray={boardLink ? LINK_DASH : undefined}
           strokeOpacity={0.58 + activity * 0.28}
         />
-        <path d={terminalPath} transform={`translate(${targetX - 5} ${targetY - 5}) scale(0.5)`} fill={color} opacity={0.82} />
+        <path d={terminalPath} transform={terminalTransform} fill={color} opacity={0.82} />
         {linkMark}
         {valueReadout}
       </g>
@@ -320,7 +328,7 @@ function GlowEdge({
         />
       ))}
       {/* Bright dot at the target port */}
-      <path d={terminalPath} transform={`translate(${targetX - 6} ${targetY - 6}) scale(0.6)`} fill={color} opacity={0.85} />
+      <path d={terminalPath} transform={terminalTransform} fill={color} opacity={0.85} />
       {linkMark}
       {valueReadout}
     </g>

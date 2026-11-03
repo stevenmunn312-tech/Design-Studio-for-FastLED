@@ -52,11 +52,14 @@
 }
 
 .header {
-  padding: 0 var(--space-2);
-  height: var(--menubar-height);
+  /* The chips on the right wrap onto a second row in a narrow pane, so the
+     header grows with them instead of spilling over the matrix. */
+  padding: var(--space-0) var(--space-2);
+  min-height: var(--menubar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-1);
   font-size: var(--fs-body);
   font-weight: 600;
   border-bottom: 1px solid var(--chrome-border);
@@ -76,6 +79,7 @@
   font-size: 13px;
   font-weight: 400;
   letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .previewMeta {
@@ -392,6 +396,7 @@
 
 .canvasHudChip {
   padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.75);
+  white-space: nowrap;
   border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   border-radius: var(--radius-control);
   background: var(--bg-node);
