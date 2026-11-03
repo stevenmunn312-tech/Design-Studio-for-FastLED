@@ -47,20 +47,8 @@ const COLLECTION_PLAYERS: { type: CollectionPlayerType; label: string; title: st
 const EXPANDED_KEY = 'design-studio-for-fastled-sidebar-expanded-v2'
 const FAVOURITES_KEY = 'design-studio-for-fastled-sidebar-favourites'
 const RECENT_KEY = 'design-studio-for-fastled-sidebar-recent'
-const VIEW_KEY = 'design-studio-for-fastled-sidebar-view'
 const RECENT_LIMIT = 8
 const SIDEBAR_NODE_LIBRARY = NODE_LIBRARY.filter((definition) => !isHardwareLibraryHiddenNodeType(definition.type))
-
-const BEGINNER_NODE_TYPES = new Set([
-  'Audio', 'Storage', 'FFTAnalyzer', 'BeatDetect',
-  'DMXInput', 'DMXChannel', 'RTCInput', 'ScheduleTrigger',
-  'Wave', 'Random', 'SampleHold',
-  'Constant', 'Color', 'HueCycle', 'HSVToRGB', 'PaletteSelector',
-  'SolidColor', 'Text', 'GradientFrame', 'Noise', 'Rainbow', 'Fire', 'SpectrumVisualizer', 'ColorTrails', 'Animartrix',
-  'Brightness', 'HueShift', 'Trails', 'Blend', 'Transition',
-  'PatternCollection', 'PatternMaster', 'PatternSlideshow', 'PerformanceGenerator', 'SDCard',
-  'MatrixOutput',
-])
 
 const INTENT_TAGS: Record<string, string[]> = {
   Audio: ['audio', 'source', 'hardware'],
@@ -246,14 +234,6 @@ function loadStringArray(key: string): string[] {
   }
 }
 
-function loadView(): 'beginner' | 'all' {
-  try {
-    return JSON.parse(localStorage.getItem(VIEW_KEY) ?? '"all"') === 'beginner' ? 'beginner' : 'all'
-  } catch {
-    return 'all'
-  }
-}
-
 function Sidebar() {
   const addNode = useGraphStore((s) => s.addNode)
   const onConnect = useGraphStore((s) => s.onConnect)
@@ -299,7 +279,6 @@ function Sidebar() {
   const [expandedId, setExpandedId] = useState<string | null>(() => (
     isEmptyGraph ? null : loadExpanded() ?? 'recipes'
   ))
-  const [viewMode, setViewMode] = useState<'beginner' | 'all'>(() => loadView())
   const [favourites, setFavourites] = useState<string[]>(() => loadStringArray(FAVOURITES_KEY))
   const [recent, setRecent] = useState<string[]>(() => loadStringArray(RECENT_KEY))
   const [openPatternCategories, setOpenPatternCategories] = useState<Set<string>>(
@@ -315,9 +294,6 @@ function Sidebar() {
   // `expandedId` is persisted from `toggle` (the user's own click) rather than
   // by an effect on every change — see saveExpanded.
   useEffect(() => {
-    try { localStorage.setItem(VIEW_KEY, JSON.stringify(viewMode)) } catch { /* ignore */ }
-  }, [viewMode])
-  useEffect(() => {
     try { localStorage.setItem(FAVOURITES_KEY, JSON.stringify(favourites)) } catch { /* ignore */ }
   }, [favourites])
   useEffect(() => {
@@ -329,10 +305,6 @@ function Sidebar() {
   const [draftName, setDraftName] = useState('')
   const query = search.trim().toLowerCase()
 
-  const isVisibleInView = useCallback(
-    (def: NodeDefinition) => viewMode === 'all' || BEGINNER_NODE_TYPES.has(def.type),
-    [viewMode],
-  )
   const nodeMatchesQuery = useCallback((def: NodeDefinition) => {
     if (query === '') return true
     const haystack = [
@@ -345,8 +317,8 @@ function Sidebar() {
     return haystack.includes(query)
   }, [query])
   const filteredByView = useCallback(
-    (defs: NodeDefinition[]) => defs.filter((def) => !isHardwareLibraryHiddenNodeType(def.type) && isVisibleInView(def) && nodeMatchesQuery(def)),
-    [isVisibleInView, nodeMatchesQuery],
+    (defs: NodeDefinition[]) => defs.filter((def) => !isHardwareLibraryHiddenNodeType(def.type) && nodeMatchesQuery(def)),
+    [nodeMatchesQuery],
   )
   const favouriteDefs = favourites
     .map((type) => SIDEBAR_NODE_LIBRARY.find((def) => def.type === type))
@@ -882,10 +854,6 @@ function Sidebar() {
     if (isEmptyGraph) setExpandedId(CATEGORIES[0].id)
   }, [isEmptyGraph])
 
-  const searchStatus = query === ''
-    ? `${viewMode === 'all' ? SIDEBAR_NODE_LIBRARY.length : BEGINNER_NODE_TYPES.size} nodes`
-    : `${CATEGORIES.reduce((count, category) => count + filteredByView(categoryNodes(category.id)).length, 0) + visiblePatterns.length + visibleRecipes.length + hardwareMatches.length} matches`
-
   const handleAddNode = (type: string) => {
     const def = SIDEBAR_NODE_LIBRARY.find((n) => n.type === type)
     if (!def) return
@@ -1260,34 +1228,9 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
           <span className={styles.headerTitle}>Node Library</span>
           <span className={styles.headerMeta}>Click or drag to add</span>
         </div>
-        <div className={styles.headerStats} aria-label="Library status">
-          <span className={styles.headerChip}>{searchStatus}</span>
-          <span className={styles.headerChip}>{patterns.length} saved</span>
-          <span className={styles.headerChip}>{CATEGORIES.length} categories</span>
-        </div>
       </div>
       <div className={styles.searchWrap}>
         <div className={styles.searchLabel}>Find a node</div>
-        <div className={styles.viewToggle} role="tablist" aria-label="Library scope">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === 'beginner'}
-            className={`${styles.scopeBtn} ${viewMode === 'beginner' ? styles.scopeBtnActive : ''}`}
-            onClick={() => setViewMode('beginner')}
-          >
-            Beginner
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === 'all'}
-            className={`${styles.scopeBtn} ${viewMode === 'all' ? styles.scopeBtnActive : ''}`}
-            onClick={() => setViewMode('all')}
-          >
-            All
-          </button>
-        </div>
         <input
           className={styles.searchInput}
           type="search"

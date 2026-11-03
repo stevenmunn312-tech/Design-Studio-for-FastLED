@@ -545,6 +545,12 @@ span.connectionBlocked {
   column-gap: calc(var(--space-0) * 1.5);
 }
 
+/* A checkbox needs none of the slider column, so the label keeps the width
+   and the box sits at the right edge beside the pin. */
+.propRow:has(> input[type="checkbox"]) {
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+}
+
 .propRow > input[type='checkbox'],
 .propRow > .colorInput {
   justify-self: start;

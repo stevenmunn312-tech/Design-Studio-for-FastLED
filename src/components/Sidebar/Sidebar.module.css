@@ -38,26 +38,6 @@
   letter-spacing: 0.16em;
 }
 
-.headerStats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(var(--space-0) * 1.5);
-}
-
-.headerChip {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-size: var(--fs-ui);
-}
-
-.headerChip + .headerChip::before {
-  content: '·';
-  margin-right: var(--space-1);
-}
-
 .searchWrap {
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--line);
@@ -70,31 +50,6 @@
   font-family: var(--font-body);
   font-size: var(--fs-label);
   letter-spacing: 0.16em;
-}
-
-.viewToggle {
-  display: inline-flex;
-  gap: calc(var(--space-0) * 1.5);
-  margin-bottom: var(--space-1);
-}
-
-.scopeBtn {
-  min-width: 72px;
-  height: 24px;
-  padding: 0 calc(var(--space-0) * 2.5);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--bg-primary) 94%, black);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-size: var(--fs-ui);
-  cursor: pointer;
-}
-
-.scopeBtnActive {
-  border-color: color-mix(in srgb, var(--accent-pattern) 55%, transparent);
-  background: color-mix(in srgb, var(--accent-pattern) 20%, var(--bg-primary));
-  color: var(--text-primary);
 }
 
 .searchInput {

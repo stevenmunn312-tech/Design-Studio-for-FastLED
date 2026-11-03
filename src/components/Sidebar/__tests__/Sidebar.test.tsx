@@ -102,18 +102,6 @@ describe('Sidebar equipment rack', () => {
     expect(getByLabelText('Add Wave')).toBeTruthy()
   })
 
-  it('supports beginner vs all views', () => {
-    const { getByRole, getByPlaceholderText, queryByLabelText, getByLabelText } = render(<Sidebar />)
-
-    fireEvent.change(getByPlaceholderText('Search nodes…'), { target: { value: 'midi' } })
-
-    expect(queryByLabelText('Add MIDI')).toBeNull()
-
-    fireEvent.click(getByRole('tab', { name: 'All' }))
-
-    expect(getByLabelText('Add MIDI')).toBeTruthy()
-  })
-
   // Internet Radio and Bluetooth are Music Sources on the Music Player, not
   // nodes of their own, so searching for them has to land on it.
   it('finds the Music Player by the music sources it offers', () => {
@@ -122,14 +110,6 @@ describe('Sidebar equipment rack', () => {
       fireEvent.change(getByPlaceholderText('Search nodes…'), { target: { value: query } })
       expect(getByLabelText('Add Music Player'), query).toBeTruthy()
     }
-  })
-
-  it('defaults to the full node library when no scope preference is saved', () => {
-    localStorage.removeItem('design-studio-for-fastled-sidebar-view')
-    const { getByRole } = render(<Sidebar />)
-
-    expect(getByRole('tab', { name: 'All' }).getAttribute('aria-selected')).toBe('true')
-    expect(getByRole('tab', { name: 'Beginner' }).getAttribute('aria-selected')).toBe('false')
   })
 
   it('can favourite a module and keep it in the favourites rack', () => {
