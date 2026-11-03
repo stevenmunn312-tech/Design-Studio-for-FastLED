@@ -1,3 +1,4 @@
+import { isHardwareOnlyNodeType } from '../build/hardware'
 import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore } from '../state/graphStore'
 import type { StudioEdge, StudioNode } from '../state/graphStore'
 import { NODE_LIBRARY, portColor } from '../state/nodeLibrary'
@@ -120,10 +121,17 @@ export function insertLiveExample(
 
     const id = `help-${stamp}-${spec.key}`
     nodeIdByKey.set(spec.key, id)
+    // A bench part (an SD Card, an Amplifier) lives in the graph for its
+    // settings and the generators, but the hardware view owns it: nothing
+    // draws it on the canvas, as a load hides it in normalizeLoadedGraph.
+    const bench = isHardwareOnlyNodeType(spec.type)
+      ? { hidden: true, selectable: false, draggable: false }
+      : {}
     addedNodes.push({
       id,
       type: 'studioNode',
       position: { x: origin.x + spec.dx, y: origin.y + spec.dy },
+      ...bench,
       data: {
         label: definition.label,
         nodeType: definition.type,

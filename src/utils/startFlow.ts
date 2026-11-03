@@ -187,7 +187,7 @@ export async function openExampleProject(example: LiveExampleSpec, projectName: 
     nodes: retargetHardwarePins(nodes, profile, profile?.compatibleFqbns[0] ?? useUploadStore.getState().selectedFqbn).nodes,
   })
   const { name } = useProjectStore.getState().projects.find((project) => project.id === useProjectStore.getState().currentProjectId) ?? { name: projectName }
-  finishStartFlow(null, `Opened "${name}"`, result.nodeIds)
+  finishStartFlow(null, `Opened "${name}"`, result.addedNodeIds)
   tidyLoadedTemplate(generation)
   return result
 }

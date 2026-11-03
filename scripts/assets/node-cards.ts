@@ -68,6 +68,7 @@ import { touchPadElectrodeCount } from '../../src/state/peripherals/touchPad'
 import { MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewReading } from '../../src/state/peripherals/motionVector'
 import { distancePreviewDefault, distancePreviewReading } from '../../src/state/peripherals/distanceSensor'
 import { tidyLayout } from '../../src/utils/tidyLayout'
+import { isHardwareOnlyNodeType } from '../../src/build/hardware'
 import { nodeReferenceSlug as kebab } from '../../src/utils/nodeReferenceAssets'
 import { dancePreviewTick } from '../../src/nodes/audioReactive/danceFlash'
 import type { LiveExampleSpec } from '../../src/utils/insertLiveExample'
@@ -1459,7 +1460,7 @@ function mainPreviewSvg(frame: Frame | null, label: string, properties: Record<s
 // Renders a LiveExampleSpec — the same data the article's "Try it live"
 // button inserts — at the spec's own canvas positions, with GlowEdge-style
 // noodles (colour from the source node's category, like the canvas).
-function exampleGraphSvg(spec: LiveExampleSpec, outputFrame: Frame | null): string {
+function exampleGraphSvg(spec: LiveExampleSpec, outputFrame: Frame | null, featured: string): string {
   // A wired property input is revealed on the card the same way the canvas
   // reveals it, so an example graph's noodle always has a socket to land on.
   const wired = new Map<string, Set<string>>()
@@ -1476,7 +1477,10 @@ function exampleGraphSvg(spec: LiveExampleSpec, outputFrame: Frame | null): stri
       wiredOut.set(edge.source, ports)
     }
   }
-  const raw = spec.nodes.flatMap((n) => {
+  // A bench part is hidden on the canvas, so the image leaves it out too and
+  // the path beside the button names it. The featured node is the page's
+  // subject, so a bench part's own page still draws it.
+  const raw = spec.nodes.filter((n) => n.type === featured || !isHardwareOnlyNodeType(n.type)).flatMap((n) => {
     const def = NODE_LIBRARY.find((d) => d.type === n.type)
     return def
       ? [{
@@ -1493,10 +1497,10 @@ function exampleGraphSvg(spec: LiveExampleSpec, outputFrame: Frame | null): stri
   // is the render-time equivalent of React Flow reporting its measured boxes.
   // Wires carry the height of the socket they use, as the canvas Tidy does, so
   // a node's feeds stack in the order of its input sockets.
-  // A bench part has no wire, so Tidy leaves it where it is unless it sits on
-  // the graph. The spec parked it under a layout of estimated heights, which
-  // is lower than the measured one here, so start it on the graph's corner
-  // and let Tidy park it tight beneath the measured layout.
+  // A featured bench part has no wire, so Tidy leaves it where it is unless it
+  // sits on the graph. The spec parked it under a layout of estimated heights,
+  // which is lower than the measured one here, so start it on the graph's
+  // corner and let Tidy park it tight beneath the measured layout.
   const wiredKeys = new Set(spec.edges.flatMap((edge) => [edge.source, edge.target]))
   const wiredItems = raw.filter((item) => wiredKeys.has(item.key))
   const corner = {
@@ -1614,7 +1618,7 @@ for (const def of definitions) {
   const spec = liveExampleForNode(def)
   const frame = evalSpecFrame(spec, k)
   writeFileSync(join(OUT_DIR, `${k}.svg`), nodeCardSvg(def))
-  writeFileSync(join(OUT_DIR, 'graphs', `${k}.svg`), exampleGraphSvg(spec, frame))
+  writeFileSync(join(OUT_DIR, 'graphs', `${k}.svg`), exampleGraphSvg(spec, frame, def.type))
   writeFileSync(
     join(OUT_DIR, 'previews', `${k}.svg`),
     mainPreviewSvg(frame, `Evaluated output from the ${def.label} example graph`, exampleOutputProperties(spec)),

@@ -52,9 +52,9 @@ The help modal keeps a fixed node-library directory on the left and a scrollable
 
 ## Try it live
 
-Try it live is a start choice, like a starter: `openExampleProject` in `src/utils/startFlow.ts` offers the open project a save, creates a project named `<Node label> example` (numbered when it already exists), keeps the project's board, and inserts the example alone on the fresh canvas through `src/utils/insertLiveExample.ts`. Bench parts in the example (an SD Card and an Amplifier for every Music Player example) take the board's pins, and the canvas tidies itself quietly once React Flow has measured the nodes, so the estimated layout in the spec never has to be exact. Help closes, the preview opens, the microphone starts for audio examples, and a cancel leaves Help open and the project untouched.
+Try it live is a start choice, like a starter: `openExampleProject` in `src/utils/startFlow.ts` offers the open project a save, creates a project named `<Node label> example` (numbered when it already exists), keeps the project's board, and inserts the example alone on the fresh canvas through `src/utils/insertLiveExample.ts`. Bench parts in the example (an SD Card and an Amplifier for every Music Player example) take the board's pins and are hidden on the canvas, as every hardware-only part is, and the canvas tidies itself quietly once React Flow has measured the nodes, so the estimated layout in the spec never has to be exact. Help closes, the preview opens, the microphone starts for audio examples, and a cancel leaves Help open and the project untouched.
 
-Example layouts come from `tidyLayout` with each wire anchored to its socket, in the help image, in the spec and on the canvas alike, so a node's feeds stack in the order of its input sockets (`liveExamples.test.ts` checks this for every example). Bench parts carry no sockets, so the path beside the button lists them after the signal path as `bench: …`.
+Example layouts come from `tidyLayout` with each wire anchored to its socket, in the help image, in the spec and on the canvas alike, so a node's feeds stack in the order of its input sockets (`liveExamples.test.ts` checks this for every example). Bench parts carry no sockets and are not drawn in the image, so the path beside the button lists them after the signal path as `bench: …`.
 
 ## Tests
 

@@ -206,10 +206,14 @@ describe('opening a start choice as its own project', () => {
       expect(result?.nodeIds.length).toBeGreaterThan(0)
       expect(types()).not.toContain('Noise')
       expect(types()).toContain('PatternMaster')
-      // The bench parts the player needs come with it, on the project's board.
+      // The bench parts the player needs come with it, on the project's board,
+      // hidden on the canvas as the hardware view's parts always are.
       expect(types()).toContain('SDCard')
       expect(types()).toContain('Amplifier')
       expect(types()).toContain('Board')
+      const bench = useGraphStore.getState().nodes.filter((node) => ['SDCard', 'Amplifier'].includes(node.data.nodeType))
+      expect(bench.map((node) => node.hidden)).toEqual([true, true])
+      expect(result?.addedNodeIds).not.toContain(bench[0].id)
       // The LED output takes a board pin too, instead of keeping the library
       // default the SD card's chip select also lands on.
       const pin = (type: string, key: string) =>
