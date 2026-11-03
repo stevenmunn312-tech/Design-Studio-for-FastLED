@@ -401,9 +401,10 @@ function buildPropRows(
       if (groupEntries.length === 0) continue
       // Groups start collapsed. The player's timing controls are opened on its
       // reference card so its beat switch and cooldown range can be compared
-      // with the property notes; a collapsed group still shows the rows whose
-      // socket is exposed, exactly as the canvas does.
-      const open = def.type === 'PatternMaster'
+      // with the property notes, and the slideshow's with them, since the two
+      // cards are meant to be read side by side; a collapsed group still
+      // shows the rows whose socket is exposed, exactly as the canvas does.
+      const open = def.type === 'PatternMaster' || def.type === 'PatternSlideshow'
       const shown = open ? groupEntries : groupEntries.filter(([k]) => exposedKeys.has(k))
       rows.push({ kind: 'group', label: g.label, open, rows: shown.map(entryRow) })
     }
