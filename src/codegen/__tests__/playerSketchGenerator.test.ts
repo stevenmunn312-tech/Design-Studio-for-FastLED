@@ -173,6 +173,23 @@ describe('playerSketchGenerator', () => {
     expect(sketch).not.toContain('_audioPitch')
   })
 
+  // The tap runs before the output's I2S DMA queue, which i2s write keeps full,
+  // so an analysed beat is still 16 x 512 frames from the speaker on
+  // ESP32-audioI2S 3.0.12. Blocks wait that long in the ring before analysis.
+  it('holds tapped blocks for the output DMA depth before analysing them', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { float v = _audioBass; Serial.println(v); (void)ms; }'],
+      count: 1, params: [],
+    }
+    const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true, decoderTap: true })
+    expect(sketch).toContain('#define DECODER_TAP_OUTPUT_FRAMES 8192')
+    expect(sketch).toContain('#define DECODER_TAP_DELAY_BLOCKS ((DECODER_TAP_OUTPUT_FRAMES + DECODER_TAP_BLOCK_SAMPLES / 2) / DECODER_TAP_BLOCK_SAMPLES)')
+    expect(sketch).toContain('#define DECODER_TAP_BLOCKS (DECODER_TAP_DELAY_BLOCKS + 4)')
+    expect(sketch).toContain('bool have = _decoderTapQueued > DECODER_TAP_DELAY_BLOCKS;')
+    expect(sketch).not.toContain('bool have = _decoderTapQueued > 0;')
+  })
+
   it('fades only the patterns that listen, crossing the factor through a transition', () => {
     const renderers = {
       buffers: [], helpers: [],
@@ -876,6 +893,9 @@ describe('Bluetooth Music Player sketch', () => {
     expect(code).toContain('_a2dp.set_raw_stream_reader(_btTap);')
     expect(code).toContain('audio_process_i2s((int16_t *)data, (uint16_t)(length / 4), 16, 2, &cont);')
     expect(code).not.toContain('DECODER_VOLUME_TABLE[step]')
+    // arduino-audio-tools' I2SStream queues 6 x 512 bytes of 16-bit stereo, not
+    // ESP32-audioI2S's 16 x 512 frames, so the tap waits two blocks, not sixteen.
+    expect(code).toContain('#define DECODER_TAP_OUTPUT_FRAMES 768')
   })
 
   it('sends transport to the phone and compiles transport only with controls', () => {

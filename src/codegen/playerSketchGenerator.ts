@@ -1732,7 +1732,16 @@ ${decoderTap ? `
 // count at 255 and 255 stale blocks were analysed back to back, freezing the
 // LEDs and the board link for 9 seconds.
 #define DECODER_TAP_BLOCK_SAMPLES 512
-#define DECODER_TAP_BLOCKS 4
+// The tap hears a sample before the listener does: the output's I2S DMA queue
+// sits between them and i2s write blocks until it has room, so in play it stays
+// full. ESP32-audioI2S 3.0.12 pins it at 16 descriptors x 512 frames (186 ms at
+// 44.1 kHz); arduino-audio-tools' I2SStream uses 6 x 512 bytes of 16-bit
+// stereo. A block therefore waits that many frames' worth of newer blocks in
+// the ring before analysis, which lands the beat on the speaker, not ahead of
+// it. Measured in blocks, the wait is the same at every sample rate.
+#define DECODER_TAP_OUTPUT_FRAMES ${bluetooth ? 768 : 8192}
+#define DECODER_TAP_DELAY_BLOCKS ((DECODER_TAP_OUTPUT_FRAMES + DECODER_TAP_BLOCK_SAMPLES / 2) / DECODER_TAP_BLOCK_SAMPLES)
+#define DECODER_TAP_BLOCKS (DECODER_TAP_DELAY_BLOCKS + 4)
 #define DECODER_TAP_INTERNAL_DAC ${internalDac ? 1 : 0}
 static int16_t _decoderTapBlocks[DECODER_TAP_BLOCKS][DECODER_TAP_BLOCK_SAMPLES];
 static portMUX_TYPE _decoderTapMux = portMUX_INITIALIZER_UNLOCKED;
@@ -2044,13 +2053,18 @@ ${bluetooth ? `\n${BLUETOOTH_TAP_CPP}\n` : ''}
 // is done nothing else touches _audioProcessor: this task publishes plain
 // values, and the loop turns the callbacks' counters into one-frame events.
 // When analysis falls behind playback the producer drops the oldest block.
+// Blocks are analysed only once the output has played them (see
+// DECODER_TAP_DELAY_BLOCKS), so the values published here describe what the
+// listener hears now.
 static void _decoderAnalysisLoop(void *) {
   static int16_t block[DECODER_TAP_BLOCK_SAMPLES];
   for (;;) {
     ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
     for (;;) {
       portENTER_CRITICAL(&_decoderTapMux);
-      bool have = _decoderTapQueued > 0;
+      // The newest DECODER_TAP_DELAY_BLOCKS stay queued: they are still in the
+      // output's DMA, unheard.
+      bool have = _decoderTapQueued > DECODER_TAP_DELAY_BLOCKS;
       if (have) {
         memcpy(block, _decoderTapBlocks[_decoderTapRead], sizeof(block));
         _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;

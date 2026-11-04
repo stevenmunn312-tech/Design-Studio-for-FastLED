@@ -666,6 +666,23 @@ that are easy to split across preview and firmware:
   (`audioFeatureEdgesCpp`, from the callbacks' counters), and Pitch and
   Waveform read a copy of the newest block (`_decoderTapSample()`), because
   `getSample()` is replaced mid-read.
+- **The decoder tap analyses a block only once the speaker has played it.**
+  `audio_process_i2s` runs just before `i2s_channel_write`, and that write
+  blocks until the DMA queue has room, so in play the queue stays full and
+  every tapped sample is still `dma_desc_num * dma_frame_num` frames from
+  the listener: 16 x 512 in ESP32-audioI2S 3.0.12 (186 ms at 44.1 kHz), 6 x
+  512 bytes of 16-bit stereo (768 frames) in arduino-audio-tools' `I2SStream`
+  behind the Bluetooth sink. Without a hold the LEDs led the music by that
+  much. `DECODER_TAP_OUTPUT_FRAMES` states the queue for the sink the sketch
+  uses, `DECODER_TAP_DELAY_BLOCKS` rounds it to 512-sample blocks (16 or 2,
+  the same at every sample rate because both sides count frames), and the
+  analysis task takes a block only while more than that many newer blocks
+  are queued; the ring is that depth plus the four blocks of slack it always
+  had (20 KB of static RAM on the SD and radio players). The browser twin is
+  `AnalysisDelay` in `src/audio/analysisDelay.ts`, which holds frames for
+  `AudioContext` output latency instead. The held blocks are never analysed
+  after a pause and drain ahead of the next track's first blocks, which is
+  186 ms of audio that did play just before the pause.
 - A renderer with a planned cross-language twin is frozen with golden-vector
   tests, not eyeballed: `src/state/audio/__tests__/stereoVuGoldenVectors.ts` holds the
   fixed input fixture (`STEREO_VU_GOLDEN_STEPS`, `STEREO_VU_GOLDEN_PROPERTIES`)
