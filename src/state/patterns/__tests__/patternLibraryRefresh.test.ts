@@ -54,4 +54,23 @@ describe('pattern library refresh from disk', () => {
       .map((pattern) => pattern.name)
     expect(names).toEqual(['Saved mid-refresh'])
   })
+
+  it('shows promoted saved patterns once and keeps their disk originals', async () => {
+    const backend = await import('../../../utils/backendClient')
+    await import('../../graphStore')
+    const { SAVED_AUDIO_SEEDS } = await import('../bundledSavedAudioPatterns')
+    const { usePatternLibrary } = await import('../patternLibrary')
+    vi.mocked(backend.listPatterns).mockResolvedValue(SAVED_AUDIO_SEEDS.map((seed, index) => ({
+      ...seed, id: `original-${index}`, createdAt: 1, categoryId: 'audio-reactive',
+    })))
+    await usePatternLibrary.getState().refreshFromDisk()
+
+    for (const seed of SAVED_AUDIO_SEEDS) {
+      const matches = usePatternLibrary.getState().patterns.filter((pattern) => pattern.name === seed.name)
+      expect(matches).toHaveLength(1)
+      expect(matches[0].bundled).toBe(true)
+    }
+    expect(backend.deletePatternFromDisk).not.toHaveBeenCalled()
+    expect(backend.savePatternToDisk).not.toHaveBeenCalled()
+  })
 })

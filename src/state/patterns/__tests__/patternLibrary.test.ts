@@ -205,8 +205,8 @@ describe('patternLibrary', () => {
 
   it('ships immutable bundled patterns for both built-in shelves', async () => {
     expect(STANDARD_BUNDLED_PATTERNS).toHaveLength(42)
-    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(72)
-    expect(BUNDLED_PATTERNS).toHaveLength(114)
+    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(100)
+    expect(BUNDLED_PATTERNS).toHaveLength(142)
     expect(STANDARD_BUNDLED_PATTERNS.every((pattern) => (
       pattern.bundled && pattern.categoryId === STANDARD_CATEGORY_ID
     ))).toBe(true)
@@ -274,8 +274,10 @@ describe('patternLibrary', () => {
     }
   })
 
-  it('keeps built-in audio patterns on the settled response baseline', () => {
-    for (const pattern of AUDIO_BUNDLED_PATTERNS) {
+  it('keeps the original audio shelves on their settled response baseline', () => {
+    // Promoted user graphs retain their authored settings. Release candidates
+    // use independent envelope and energy-response tests, including brief accents.
+    for (const pattern of AUDIO_BUNDLED_PATTERNS.slice(0, 72)) {
       for (const node of pattern.subgraph.nodes) {
         const type = String(node.data.nodeType)
         const props = node.data.properties as Record<string, unknown>

@@ -52,6 +52,9 @@ import vocalGravityVeil from '../../assets/bundled-patterns/Vocal Gravity Veil.j
 import wireframeBassCage from '../../assets/bundled-patterns/Wireframe Bass Cage.json'
 import { AUDIO_SHELF_THREE_SEEDS, PATTERN_EXPANSION_AUDIO_SEEDS } from './bundledAudioShelf3'
 import { AUDIO_STRING_SEEDS, STANDARD_STRING_SEEDS } from './bundledStringPatterns'
+import { SAVED_AUDIO_SEEDS } from './bundledSavedAudioPatterns'
+import { RELEASE_AUDIO_A_SEEDS } from './bundledAudioReleaseA'
+import { RELEASE_AUDIO_B_SEEDS } from './bundledAudioReleaseB'
 
 export const AUDIO_REACTIVE_CATEGORY_ID = 'audio-reactive'
 export const STANDARD_CATEGORY_ID = 'standard'
@@ -968,9 +971,10 @@ export const STANDARD_BUNDLED_PATTERNS = materializeBundledPatterns(
   Date.UTC(2026, 6, 29, 0, 0, 0),
 )
 
-/** Curated beta patterns are immutable audio-reactive examples. */
+/** Release candidates remain bundled until the final fifty are selected. */
 export const AUDIO_BUNDLED_PATTERNS = materializeBundledPatterns(
-  [...AUDIO_PATTERN_SEEDS, ...AUDIO_STRING_SEEDS, ...AUDIO_LATE_SEEDS],
+  [...AUDIO_PATTERN_SEEDS, ...AUDIO_STRING_SEEDS, ...AUDIO_LATE_SEEDS,
+    ...SAVED_AUDIO_SEEDS, ...RELEASE_AUDIO_A_SEEDS, ...RELEASE_AUDIO_B_SEEDS],
   'audio',
   AUDIO_REACTIVE_CATEGORY_ID,
   Date.UTC(2026, 6, 29, 12, 0, 0),

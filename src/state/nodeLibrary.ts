@@ -1146,6 +1146,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   // Negative turns counter-clockwise, shrinks, or slides the other way.
   Transform:         { rate:  { control: 'slider', min: -360, max: 360, step: 1 } },
+  Blend: {
+    blendMode: { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'] },
+  },
   Array: {
     count:     { control: 'slider', min: 1, max: 24,  step: 1 },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
@@ -2967,7 +2970,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     offsetY: 'Slide down by this many LEDs (negative slides up). Pixels wrap round to the other edge.',
   },
   Blend: {
-    blendMode: 'How B is laid over A: normal replaces, multiply darkens, screen and add lighten, difference shows change.',
+    blendMode: 'How B blends over A: normal replaces, multiply darkens, screen and add brighten, overlay adds contrast, difference shows change, lighten keeps the brighter channel.',
     amount: 'Opacity of B over A. 0 shows only A, 1 the full blend. Wire a signal to crossfade.',
     mask: 'Optional frame whose brightness scales the opacity per pixel, so B shows only inside a shape or gradient.',
   },
@@ -4673,7 +4676,7 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   },
   Blend: {
     prop: 'blendMode',
-    labels: { normal: 'Blend', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', add: 'Add', difference: 'Difference' },
+    labels: { normal: 'Blend', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', add: 'Add', difference: 'Difference', lighten: 'Lighten' },
   },
   Mirror: {
     prop: 'mirrorMode',

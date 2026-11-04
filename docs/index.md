@@ -15,6 +15,7 @@ for the distinction. [README](../README.md) introduces the product and
 
 - [Hardware workbench guide](user/hardware-workbench.md)
 - [Stereo VU Meter](user/stereo-vu-meter.md)
+- [Audio pattern release candidates](user/audio-pattern-candidates.md)
 
 ## Architecture and decisions
 

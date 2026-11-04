@@ -9,6 +9,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## C++ emission hazards
 
+- Put mutable static declarations on their own emitted lines, before their
+  updates and before the block's closing brace. Collection Restart inserts a
+  reset after each declaration; combining declaration, update, and closing
+  brace puts that reset outside the variable's scope and after its first use.
+
 - Collected text patterns must lift the display-text blocks and wired-font
   tables along with their render body. Display-text helpers expose individual
   blocks so the show, player, post-chain, and control graph deduplicate each

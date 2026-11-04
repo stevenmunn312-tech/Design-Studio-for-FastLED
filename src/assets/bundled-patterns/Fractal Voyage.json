@@ -1,0 +1,1936 @@
+{
+  "name": "Fractal Voyage",
+  "inputs": [
+    {
+      "id": "param0",
+      "label": "Audio",
+      "dataType": "audio"
+    },
+    {
+      "id": "param1",
+      "label": "Audio",
+      "dataType": "audio"
+    },
+    {
+      "id": "param2",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "FractalField-1790679567402",
+        "type": "studioNode",
+        "position": {
+          "x": -7220,
+          "y": 380
+        },
+        "data": {
+          "label": "Fractal",
+          "nodeType": "FractalField",
+          "category": "field",
+          "properties": {
+            "fractalType": "julia",
+            "cRe": -1.152,
+            "cIm": 0.071,
+            "zoom": 1,
+            "centerX": 0,
+            "centerY": 0,
+            "spin": -156,
+            "iterations": 24,
+            "smooth": false
+          },
+          "inputs": [
+            {
+              "id": "cRe",
+              "label": "C Real",
+              "dataType": "float"
+            },
+            {
+              "id": "cIm",
+              "label": "C Imag",
+              "dataType": "float"
+            },
+            {
+              "id": "zoom",
+              "label": "Zoom",
+              "dataType": "float"
+            },
+            {
+              "id": "centerX",
+              "label": "Center X",
+              "dataType": "float"
+            },
+            {
+              "id": "centerY",
+              "label": "Center Y",
+              "dataType": "float"
+            },
+            {
+              "id": "spin",
+              "label": "Spin",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "field",
+              "label": "Field",
+              "dataType": "field"
+            }
+          ],
+          "exposedInputs": [
+            "cRe",
+            "cIm",
+            "zoom",
+            "centerX",
+            "centerY",
+            "spin"
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 286
+        },
+        "dragging": false
+      },
+      {
+        "id": "FieldToFrame-1790679639186",
+        "type": "studioNode",
+        "position": {
+          "x": -6900,
+          "y": 320
+        },
+        "data": {
+          "label": "Field \u2192 Frame",
+          "nodeType": "FieldToFrame",
+          "category": "field",
+          "properties": {
+            "palette": "ocean",
+            "brightness": 1
+          },
+          "inputs": [
+            {
+              "id": "field",
+              "label": "Field",
+              "dataType": "field"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "brightness",
+              "label": "Brightness",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 431
+        }
+      },
+      {
+        "id": "Vibe-1790679919773",
+        "type": "studioNode",
+        "position": {
+          "x": -8500,
+          "y": 660
+        },
+        "data": {
+          "label": "Vibe",
+          "nodeType": "Vibe",
+          "category": "audio",
+          "properties": {
+            "gain": 1
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            },
+            {
+              "id": "gain",
+              "label": "Gain",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mid",
+              "label": "Mid",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "volume",
+              "label": "Volume",
+              "dataType": "float"
+            },
+            {
+              "id": "bassAtt",
+              "label": "Bass smoothed",
+              "dataType": "float"
+            },
+            {
+              "id": "midAtt",
+              "label": "Mid smoothed",
+              "dataType": "float"
+            },
+            {
+              "id": "trebleAtt",
+              "label": "Treble smoothed",
+              "dataType": "float"
+            },
+            {
+              "id": "bassSpike",
+              "label": "Bass spike",
+              "dataType": "bool"
+            },
+            {
+              "id": "midSpike",
+              "label": "Mid spike",
+              "dataType": "bool"
+            },
+            {
+              "id": "trebleSpike",
+              "label": "Treble spike",
+              "dataType": "bool"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 380
+        },
+        "dragging": false
+      },
+      {
+        "id": "PaletteBank-1790680625821",
+        "type": "studioNode",
+        "position": {
+          "x": -7860,
+          "y": 540
+        },
+        "data": {
+          "label": "Palette Bank",
+          "nodeType": "PaletteBank",
+          "category": "color",
+          "properties": {
+            "palettes": [
+              "rainbow",
+              "heat",
+              "ocean",
+              "lava",
+              "forest",
+              "party",
+              "fire",
+              "ice",
+              "purple",
+              "sunset",
+              "aurora",
+              "synthwave",
+              "cottoncandy",
+              "emberglow",
+              "deepsea",
+              "mojito",
+              "rosegold",
+              "arctic",
+              "citrus",
+              "amethyst",
+              "peacock",
+              "volcano",
+              "meadow",
+              "noir",
+              "coralreef",
+              "ultraviolet",
+              "honeycomb",
+              "laguna",
+              "opal"
+            ],
+            "blend": 17
+          },
+          "inputs": [
+            {
+              "id": "next",
+              "label": "Next",
+              "dataType": "bool"
+            },
+            {
+              "id": "previous",
+              "label": "Previous",
+              "dataType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "name",
+              "label": "Name",
+              "dataType": "string"
+            },
+            {
+              "id": "index",
+              "label": "Index",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 1448
+        },
+        "dragging": false
+      },
+      {
+        "id": "Fade-1790680875948",
+        "type": "studioNode",
+        "position": {
+          "x": -5620,
+          "y": 800
+        },
+        "data": {
+          "label": "Brightness",
+          "nodeType": "BrightnessMod",
+          "category": "composite",
+          "properties": {
+            "brightness": 1.0
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "brightness",
+              "label": "Brightness",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "exposedInputs": [
+            "brightness"
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 375
+        },
+        "dragging": false
+      },
+      {
+        "id": "BeatDetect-1790682406632",
+        "type": "studioNode",
+        "position": {
+          "x": -8500,
+          "y": 1080
+        },
+        "data": {
+          "label": "Beat Detect",
+          "nodeType": "BeatDetect",
+          "category": "audio",
+          "properties": {
+            "threshold": 0.2,
+            "attack": 0.55,
+            "decay": 0.25
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            },
+            {
+              "id": "threshold",
+              "label": "Threshold",
+              "dataType": "float"
+            },
+            {
+              "id": "attack",
+              "label": "Attack",
+              "dataType": "float"
+            },
+            {
+              "id": "decay",
+              "label": "Decay",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "bpm",
+              "label": "BPM",
+              "dataType": "float"
+            },
+            {
+              "id": "flux",
+              "label": "Flux",
+              "dataType": "float"
+            },
+            {
+              "id": "onset",
+              "label": "Onset",
+              "dataType": "float"
+            },
+            {
+              "id": "contrast",
+              "label": "Contrast",
+              "dataType": "float"
+            },
+            {
+              "id": "threshold",
+              "label": "Threshold",
+              "dataType": "float"
+            },
+            {
+              "id": "cooldownMs",
+              "label": "Cooldown (ms)",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 398
+        },
+        "dragging": false
+      },
+      {
+        "id": "Trigger-1790684609739",
+        "type": "studioNode",
+        "position": {
+          "x": -8180,
+          "y": 1120
+        },
+        "data": {
+          "label": "Trigger",
+          "nodeType": "Trigger",
+          "category": "math",
+          "properties": {
+            "triggerOp": "pulseDivider",
+            "initialState": false,
+            "stableTime": 0.05,
+            "holdTime": 0.1,
+            "divideBy": 8,
+            "delayTime": 0.5
+          },
+          "inputs": [
+            {
+              "id": "trigger",
+              "label": "Trigger",
+              "dataType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Out",
+              "dataType": "bool"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 204
+        },
+        "dragging": false
+      },
+      {
+        "id": "Math-1790685070008",
+        "type": "studioNode",
+        "position": {
+          "x": -8180,
+          "y": 680
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "min",
+            "b": 1,
+            "a": 1
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 183
+        },
+        "dragging": false
+      },
+      {
+        "id": "MapRange-1790685491754",
+        "type": "studioNode",
+        "position": {
+          "x": -8180,
+          "y": 320
+        },
+        "data": {
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "inMin": 0,
+            "inMax": 1,
+            "outMin": -0.2,
+            "outMax": 0.2
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "inMin",
+              "label": "In Min",
+              "dataType": "float"
+            },
+            {
+              "id": "inMax",
+              "label": "In Max",
+              "dataType": "float"
+            },
+            {
+              "id": "outMin",
+              "label": "Out Min",
+              "dataType": "float"
+            },
+            {
+              "id": "outMax",
+              "label": "Out Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 311
+        },
+        "dragging": false
+      },
+      {
+        "id": "Math-1790685884675",
+        "type": "studioNode",
+        "position": {
+          "x": -8180,
+          "y": 900
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "divide",
+            "b": 3
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 183
+        },
+        "dragging": false
+      },
+      {
+        "id": "Smooth-1790686039193",
+        "type": "studioNode",
+        "position": {
+          "x": -7860,
+          "y": 360
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "response": 1.45
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "response",
+              "label": "Response",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 151
+        },
+        "dragging": false
+      },
+      {
+        "id": "Math-1790686187452",
+        "type": "studioNode",
+        "position": {
+          "x": -7540,
+          "y": 340
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "b": 6,
+            "a": 1
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 183
+        },
+        "dragging": false
+      },
+      {
+        "id": "BeatKaleidoscope-1790686567440",
+        "type": "studioNode",
+        "position": {
+          "x": -6580,
+          "y": 600
+        },
+        "data": {
+          "label": "Beat Kaleidoscope",
+          "nodeType": "BeatKaleidoscope",
+          "category": "pattern",
+          "properties": {
+            "hue": 0,
+            "energy": 0.7,
+            "speed": 1,
+            "palette": "ultraviolet"
+          },
+          "inputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "hue",
+              "label": "Hue",
+              "dataType": "float"
+            },
+            {
+              "id": "energy",
+              "label": "Energy",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "exposedInputs": [
+            "energy",
+            "paletteIn"
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 419
+        },
+        "dragging": false
+      },
+      {
+        "id": "Blend-1790687061743",
+        "type": "studioNode",
+        "position": {
+          "x": -6260,
+          "y": 460
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "screen",
+            "amount": 1
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 428
+        },
+        "dragging": false
+      },
+      {
+        "id": "HarmonyPalette-1790687760146",
+        "type": "studioNode",
+        "position": {
+          "x": -6900,
+          "y": 780
+        },
+        "data": {
+          "label": "Harmony Palette",
+          "nodeType": "HarmonyPalette",
+          "category": "color",
+          "properties": {
+            "hue": 200,
+            "harmony": "complementary",
+            "saturation": 1,
+            "value": 1,
+            "spread": 1
+          },
+          "inputs": [
+            {
+              "id": "hue",
+              "label": "Hue",
+              "dataType": "float"
+            },
+            {
+              "id": "saturation",
+              "label": "Saturation",
+              "dataType": "float"
+            },
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "spread",
+              "label": "Spread",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "exposedInputs": [
+            "hue",
+            "saturation",
+            "value"
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 254
+        },
+        "dragging": false
+      },
+      {
+        "id": "PaletteSampler-1790687836727",
+        "type": "studioNode",
+        "position": {
+          "x": -7540,
+          "y": 680
+        },
+        "data": {
+          "label": "Palette Sampler",
+          "nodeType": "PaletteSampler",
+          "category": "color",
+          "properties": {
+            "palette": "rainbow",
+            "t": 0
+          },
+          "inputs": [
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "t",
+              "label": "T (0\u20131)",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 219
+        },
+        "dragging": false
+      },
+      {
+        "id": "RGBToHSV-1790687931641",
+        "type": "studioNode",
+        "position": {
+          "x": -7220,
+          "y": 700
+        },
+        "data": {
+          "label": "RGB \u2192 HSV",
+          "nodeType": "RGBToHSV",
+          "category": "color",
+          "properties": {
+            "r": 0,
+            "g": 0,
+            "b": 0
+          },
+          "inputs": [
+            {
+              "id": "rgb",
+              "label": "Color",
+              "dataType": "color"
+            },
+            {
+              "id": "r",
+              "label": "R",
+              "dataType": "float"
+            },
+            {
+              "id": "g",
+              "label": "G",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "h",
+              "label": "H (0\u2013360)",
+              "dataType": "float"
+            },
+            {
+              "id": "s",
+              "label": "S (0\u20131)",
+              "dataType": "float"
+            },
+            {
+              "id": "v",
+              "label": "V (0\u20131)",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 186
+        },
+        "dragging": false
+      },
+      {
+        "id": "SongStructure-1790688420661",
+        "type": "studioNode",
+        "position": {
+          "x": -8500,
+          "y": 300
+        },
+        "data": {
+          "label": "Song Structure",
+          "nodeType": "SongStructure",
+          "category": "audio",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "downbeat",
+              "label": "Downbeat",
+              "dataType": "bool"
+            },
+            {
+              "id": "beatNumber",
+              "label": "Beat number",
+              "dataType": "float"
+            },
+            {
+              "id": "measurePhase",
+              "label": "Measure phase",
+              "dataType": "float"
+            },
+            {
+              "id": "building",
+              "label": "Building",
+              "dataType": "bool"
+            },
+            {
+              "id": "buildupProgress",
+              "label": "Buildup progress",
+              "dataType": "float"
+            },
+            {
+              "id": "drop",
+              "label": "Drop",
+              "dataType": "bool"
+            },
+            {
+              "id": "dropImpact",
+              "label": "Drop impact",
+              "dataType": "float"
+            },
+            {
+              "id": "tempoStable",
+              "label": "Tempo stable",
+              "dataType": "bool"
+            },
+            {
+              "id": "valence",
+              "label": "Valence",
+              "dataType": "float"
+            },
+            {
+              "id": "arousal",
+              "label": "Arousal",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 324
+        },
+        "dragging": false
+      },
+      {
+        "id": "FourierEpicycles-1790690071331",
+        "type": "studioNode",
+        "position": {
+          "x": -5940,
+          "y": 880
+        },
+        "data": {
+          "label": "Fourier Epicycles",
+          "nodeType": "FourierEpicycles",
+          "category": "pattern",
+          "properties": {
+            "outline": "rose",
+            "customPoints": "",
+            "maxHarmonics": 32,
+            "harmonics": 32,
+            "speed": 0.12,
+            "scale": 1,
+            "thickness": 4,
+            "persistence": 0.645,
+            "showCircles": false,
+            "showPen": false,
+            "r": 255,
+            "g": 220,
+            "b": 80
+          },
+          "inputs": [
+            {
+              "id": "base",
+              "label": "Base",
+              "dataType": "frame"
+            },
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            },
+            {
+              "id": "harmonics",
+              "label": "Harmonics",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale",
+              "dataType": "float"
+            },
+            {
+              "id": "thickness",
+              "label": "Thickness",
+              "dataType": "float"
+            },
+            {
+              "id": "persistence",
+              "label": "Persistence",
+              "dataType": "float"
+            },
+            {
+              "id": "r",
+              "label": "R",
+              "dataType": "float"
+            },
+            {
+              "id": "g",
+              "label": "G",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "exposedInputs": [
+            "scale",
+            "thickness"
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 674
+        },
+        "dragging": false
+      },
+      {
+        "id": "BeatSin-1790690376419",
+        "type": "studioNode",
+        "position": {
+          "x": -8820,
+          "y": 1220
+        },
+        "data": {
+          "label": "Wave",
+          "nodeType": "Wave",
+          "category": "signal",
+          "properties": {
+            "amplitude": 1,
+            "frequency": 1,
+            "rateUnit": "BPM",
+            "bpm": 1,
+            "phase": 0,
+            "offset": 0,
+            "unipolar": true,
+            "waveform": "sine"
+          },
+          "inputs": [
+            {
+              "id": "amplitude",
+              "label": "Amplitude",
+              "dataType": "float"
+            },
+            {
+              "id": "frequency",
+              "label": "Frequency",
+              "dataType": "float"
+            },
+            {
+              "id": "bpm",
+              "label": "BPM",
+              "dataType": "float"
+            },
+            {
+              "id": "phase",
+              "label": "Phase",
+              "dataType": "float"
+            },
+            {
+              "id": "offset",
+              "label": "Offset",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 174
+        },
+        "dragging": false
+      },
+      {
+        "id": "MapRange-1790690471791",
+        "type": "studioNode",
+        "position": {
+          "x": -8500,
+          "y": 1520
+        },
+        "data": {
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "inMin": 0,
+            "inMax": 1,
+            "outMin": 0,
+            "outMax": 4
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "inMin",
+              "label": "In Min",
+              "dataType": "float"
+            },
+            {
+              "id": "inMax",
+              "label": "In Max",
+              "dataType": "float"
+            },
+            {
+              "id": "outMin",
+              "label": "Out Min",
+              "dataType": "float"
+            },
+            {
+              "id": "outMax",
+              "label": "Out Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 311
+        },
+        "dragging": false
+      },
+      {
+        "id": "groupin-group-1790690923358-0",
+        "type": "studioNode",
+        "position": {
+          "x": 40,
+          "y": 80
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param0"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupin-group-1790690923358-1",
+        "type": "studioNode",
+        "position": {
+          "x": 40,
+          "y": 160
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param1"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupin-group-1790690923358-2",
+        "type": "studioNode",
+        "position": {
+          "x": 40,
+          "y": 240
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param2"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupin-group-1790690923358-speed",
+        "type": "studioNode",
+        "position": {
+          "x": -180,
+          "y": 40
+        },
+        "data": {
+          "label": "Speed",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "speed"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "speed",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupmul-group-1790690923358-speed-0",
+        "type": "studioNode",
+        "position": {
+          "x": -60,
+          "y": 600
+        },
+        "data": {
+          "label": "Speed \u00d7",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 1,
+            "b": 1
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupmul-group-1790690923358-speed-1",
+        "type": "studioNode",
+        "position": {
+          "x": -60,
+          "y": 880
+        },
+        "data": {
+          "label": "Speed \u00d7",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 0.12,
+            "b": 1
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupout-group-1790690923358",
+        "type": "studioNode",
+        "position": {
+          "x": 360,
+          "y": 160
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "FractalField-1790679567402",
+        "sourceHandle": "field",
+        "target": "FieldToFrame-1790679639186",
+        "targetHandle": "field",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#f5c542"
+        },
+        "id": "xy-edge__FractalField-1790679567402field-FieldToFrame-1790679639186field"
+      },
+      {
+        "type": "glowEdge",
+        "source": "PaletteBank-1790680625821",
+        "sourceHandle": "palette",
+        "target": "FieldToFrame-1790679639186",
+        "targetHandle": "paletteIn",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        },
+        "id": "xy-edge__PaletteBank-1790680625821palette-FieldToFrame-1790679639186paletteIn",
+        "selected": false
+      },
+      {
+        "type": "glowEdge",
+        "source": "BeatDetect-1790682406632",
+        "sourceHandle": "beat",
+        "target": "Trigger-1790684609739",
+        "targetHandle": "trigger",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#c6ff32"
+        },
+        "id": "xy-edge__BeatDetect-1790682406632beat-Trigger-1790684609739trigger",
+        "selected": false
+      },
+      {
+        "type": "glowEdge",
+        "source": "Trigger-1790684609739",
+        "sourceHandle": "out",
+        "target": "PaletteBank-1790680625821",
+        "targetHandle": "next",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#c6ff32"
+        },
+        "id": "xy-edge__Trigger-1790684609739out-PaletteBank-1790680625821next",
+        "selected": false
+      },
+      {
+        "type": "glowEdge",
+        "source": "Math-1790685070008",
+        "sourceHandle": "result",
+        "target": "Fade-1790680875948",
+        "targetHandle": "brightness",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__Math-1790685070008result-Fade-1790680875948fade"
+      },
+      {
+        "type": "glowEdge",
+        "source": "Vibe-1790679919773",
+        "sourceHandle": "volume",
+        "target": "Math-1790685070008",
+        "targetHandle": "b",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "ariaLabel": "Connection from Vibe Volume output to Subtract A input.",
+        "data": {
+          "spliceArmed": false,
+          "splicePreview": false
+        },
+        "id": "xy-edge__Vibe-1790679919773volume-Math-1790685070008b"
+      },
+      {
+        "type": "glowEdge",
+        "source": "Vibe-1790679919773",
+        "sourceHandle": "bass",
+        "target": "MapRange-1790685491754",
+        "targetHandle": "value",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__Vibe-1790679919773bass-MapRange-1790685491754value"
+      },
+      {
+        "id": "e-Math-1790685884675-in",
+        "source": "Vibe-1790679919773",
+        "sourceHandle": "midAtt",
+        "target": "Math-1790685884675",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-Math-1790685884675-out",
+        "source": "Math-1790685884675",
+        "sourceHandle": "result",
+        "target": "FractalField-1790679567402",
+        "targetHandle": "spin",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-Smooth-1790686039193-in",
+        "source": "MapRange-1790685491754",
+        "sourceHandle": "result",
+        "target": "Smooth-1790686039193",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-Smooth-1790686039193-out",
+        "source": "Smooth-1790686039193",
+        "sourceHandle": "result",
+        "target": "FractalField-1790679567402",
+        "targetHandle": "cIm",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "type": "glowEdge",
+        "source": "Smooth-1790686039193",
+        "sourceHandle": "result",
+        "target": "FractalField-1790679567402",
+        "targetHandle": "cRe",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__Smooth-1790686039193result-FractalField-1790679567402cRe"
+      },
+      {
+        "type": "glowEdge",
+        "source": "Smooth-1790686039193",
+        "sourceHandle": "result",
+        "target": "FractalField-1790679567402",
+        "targetHandle": "centerX",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__Smooth-1790686039193result-FractalField-1790679567402centerX"
+      },
+      {
+        "source": "Smooth-1790686039193",
+        "sourceHandle": "result",
+        "target": "FractalField-1790679567402",
+        "targetHandle": "centerY",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__Smooth-1790686039193result-FractalField-1790679567402centerY"
+      },
+      {
+        "type": "glowEdge",
+        "source": "Smooth-1790686039193",
+        "sourceHandle": "result",
+        "target": "Math-1790686187452",
+        "targetHandle": "a",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__Smooth-1790686039193result-Math-1790686187452a"
+      },
+      {
+        "type": "glowEdge",
+        "source": "Math-1790686187452",
+        "sourceHandle": "result",
+        "target": "FractalField-1790679567402",
+        "targetHandle": "zoom",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__Math-1790686187452result-FractalField-1790679567402zoom"
+      },
+      {
+        "source": "Vibe-1790679919773",
+        "sourceHandle": "trebleAtt",
+        "target": "BeatKaleidoscope-1790686567440",
+        "targetHandle": "beat",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__Vibe-1790679919773trebleAtt-BeatKaleidoscope-1790686567440beat"
+      },
+      {
+        "type": "glowEdge",
+        "source": "PaletteBank-1790680625821",
+        "sourceHandle": "palette",
+        "target": "PaletteSampler-1790687836727",
+        "targetHandle": "paletteIn",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        },
+        "id": "xy-edge__PaletteBank-1790680625821palette-PaletteSampler-1790687836727paletteIn"
+      },
+      {
+        "source": "PaletteSampler-1790687836727",
+        "sourceHandle": "color",
+        "target": "RGBToHSV-1790687931641",
+        "targetHandle": "rgb",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ffd24a"
+        },
+        "id": "xy-edge__PaletteSampler-1790687836727color-RGBToHSV-1790687931641rgb"
+      },
+      {
+        "source": "RGBToHSV-1790687931641",
+        "sourceHandle": "h",
+        "target": "HarmonyPalette-1790687760146",
+        "targetHandle": "hue",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__RGBToHSV-1790687931641h-HarmonyPalette-1790687760146hue",
+        "selected": false
+      },
+      {
+        "source": "RGBToHSV-1790687931641",
+        "sourceHandle": "s",
+        "target": "HarmonyPalette-1790687760146",
+        "targetHandle": "saturation",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__RGBToHSV-1790687931641s-HarmonyPalette-1790687760146saturation",
+        "selected": false
+      },
+      {
+        "source": "RGBToHSV-1790687931641",
+        "sourceHandle": "v",
+        "target": "HarmonyPalette-1790687760146",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__RGBToHSV-1790687931641v-HarmonyPalette-1790687760146value"
+      },
+      {
+        "type": "glowEdge",
+        "source": "HarmonyPalette-1790687760146",
+        "sourceHandle": "palette",
+        "target": "BeatKaleidoscope-1790686567440",
+        "targetHandle": "paletteIn",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        },
+        "id": "xy-edge__HarmonyPalette-1790687760146palette-BeatKaleidoscope-1790686567440paletteIn"
+      },
+      {
+        "type": "glowEdge",
+        "source": "FieldToFrame-1790679639186",
+        "sourceHandle": "frame",
+        "target": "Blend-1790687061743",
+        "targetHandle": "a",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#5ad1ff"
+        },
+        "ariaLabel": "Connection from Field \u2192 Frame Frame output to Overlay B input.",
+        "zIndex": 1000,
+        "data": {
+          "spliceArmed": false,
+          "splicePreview": false,
+          "focusState": "active"
+        },
+        "id": "xy-edge__FieldToFrame-1790679639186frame-Blend-1790687061743a"
+      },
+      {
+        "type": "glowEdge",
+        "source": "BeatKaleidoscope-1790686567440",
+        "sourceHandle": "frame",
+        "target": "Blend-1790687061743",
+        "targetHandle": "b",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#5ad1ff"
+        },
+        "id": "xy-edge__BeatKaleidoscope-1790686567440frame-Blend-1790687061743b"
+      },
+      {
+        "type": "glowEdge",
+        "source": "SongStructure-1790688420661",
+        "sourceHandle": "valence",
+        "target": "BeatKaleidoscope-1790686567440",
+        "targetHandle": "energy",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__SongStructure-1790688420661valence-BeatKaleidoscope-1790686567440energy"
+      },
+      {
+        "id": "e-FourierEpicycles-1790690071331-in",
+        "source": "Blend-1790687061743",
+        "sourceHandle": "frame",
+        "target": "FourierEpicycles-1790690071331",
+        "targetHandle": "base",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#5ad1ff"
+        }
+      },
+      {
+        "id": "e-FourierEpicycles-1790690071331-out",
+        "source": "FourierEpicycles-1790690071331",
+        "sourceHandle": "frame",
+        "target": "Fade-1790680875948",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#5ad1ff"
+        }
+      },
+      {
+        "source": "BeatSin-1790690376419",
+        "sourceHandle": "result",
+        "target": "FourierEpicycles-1790690071331",
+        "targetHandle": "scale",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__BeatSin-1790690376419value-FourierEpicycles-1790690071331scale"
+      },
+      {
+        "type": "glowEdge",
+        "source": "BeatSin-1790690376419",
+        "sourceHandle": "result",
+        "target": "MapRange-1790690471791",
+        "targetHandle": "value",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__BeatSin-1790690376419value-MapRange-1790690471791value"
+      },
+      {
+        "type": "glowEdge",
+        "source": "MapRange-1790690471791",
+        "sourceHandle": "result",
+        "target": "FourierEpicycles-1790690071331",
+        "targetHandle": "thickness",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__MapRange-1790690471791result-FourierEpicycles-1790690071331thickness"
+      },
+      {
+        "id": "e-group-1790690923358-in0",
+        "source": "groupin-group-1790690923358-0",
+        "sourceHandle": "out",
+        "target": "Vibe-1790679919773",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e-group-1790690923358-in1",
+        "source": "groupin-group-1790690923358-1",
+        "sourceHandle": "out",
+        "target": "BeatDetect-1790682406632",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e-group-1790690923358-in2",
+        "source": "groupin-group-1790690923358-2",
+        "sourceHandle": "out",
+        "target": "SongStructure-1790688420661",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e-groupmul-group-1790690923358-speed-0-b",
+        "source": "groupin-group-1790690923358-speed",
+        "sourceHandle": "out",
+        "target": "groupmul-group-1790690923358-speed-0",
+        "targetHandle": "b"
+      },
+      {
+        "id": "e-groupmul-group-1790690923358-speed-0-out",
+        "source": "groupmul-group-1790690923358-speed-0",
+        "sourceHandle": "result",
+        "target": "BeatKaleidoscope-1790686567440",
+        "targetHandle": "speed"
+      },
+      {
+        "id": "e-groupmul-group-1790690923358-speed-1-b",
+        "source": "groupin-group-1790690923358-speed",
+        "sourceHandle": "out",
+        "target": "groupmul-group-1790690923358-speed-1",
+        "targetHandle": "b"
+      },
+      {
+        "id": "e-groupmul-group-1790690923358-speed-1-out",
+        "source": "groupmul-group-1790690923358-speed-1",
+        "sourceHandle": "result",
+        "target": "FourierEpicycles-1790690071331",
+        "targetHandle": "speed"
+      },
+      {
+        "id": "e-group-1790690923358-out",
+        "source": "Fade-1790680875948",
+        "sourceHandle": "frame",
+        "target": "groupout-group-1790690923358",
+        "targetHandle": "frame"
+      }
+    ]
+  },
+  "bestOn": [
+    "matrix"
+  ]
+}

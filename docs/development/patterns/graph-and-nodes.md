@@ -14,6 +14,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   LED string recipes live in `bundledStringPatterns.ts`, carry `bestOn: ['string']`,
   and use one-dimensional engines with bounded audio modulation. Seed-level
   display tags take precedence over the legacy name-based curation table.
+  Release audition scenes use `audioReleaseBuilder.ts`: its range helper
+  clamps before Map Range (which otherwise extrapolates), prunes unused
+  detectors, and lays out the saved graph by dependency. Keep new shelf
+  seeds after both the original shelves and promoted user graphs. Test
+  musical gestures with explicit `AudioSignal.structure` payloads: the
+  rating tool's ordinary pulse scenario never emits buildups or drops.
   Shared `PatternFormIcons` shows those preferences in the sidebar and collection
   picker; untagged patterns retain their unrestricted-display meaning.
 

@@ -267,7 +267,8 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`    float _sum=0.0f; int _n=0; for(int _i=0;_i<${SPECTRUM_SLOTS};_i++){ float _c=_fbC_${id}[_i>>1]; if(_c>=_lo&&_c<=_hi){ _sum+=${slot('_i')}; _n++; } }`)
     ln(`    if(_n==0){ float _mid=sqrtf(_lo*_hi); int _near=0; float _best=1e9f; for(int _i=0;_i<${SPECTRUM_SLOTS};_i+=2){ float _d=fabsf(logf(_fbC_${id}[_i>>1]/_mid)); if(_d<_best){ _best=_d; _near=_i; } } _sum=${slot('_near')}+${slot('_near+1')}; _n=2; }`)
     ln(`    float _g=constrain(${f('gain', 'gain', 1)},0.25f,4.0f),_sm=constrain(${f('smoothing', 'smoothing', 0.6)},0.0f,0.95f),_tg=fminf(1.0f,(_sum/_n)*_g);`)
-    ln(`    static float _fbS_${id}=-1.0f; _fbS_${id}=_fbS_${id}<0.0f?_tg:_fbS_${id}*_sm+_tg*(1.0f-_sm); ${v('level')}=_fbS_${id}; }`)
+    ln(`    static float _fbS_${id}=-1.0f;`)
+    ln(`    _fbS_${id}=_fbS_${id}<0.0f?_tg:_fbS_${id}*_sm+_tg*(1.0f-_sm); ${v('level')}=_fbS_${id}; }`)
   },
   StereoLevels({ node, ln, v, hasExplicitAudioInput }) {
     const connected = hasExplicitAudioInput(node.id)
