@@ -1,4 +1,5 @@
 import type { AudioData } from './audioEngine'
+import { AnalysisDelay, outputLatencyMs } from './analysisDelay'
 import { FastLedAudioAnalyzer } from './fastledReactive'
 import {
   MIC_FFT_SIZE,
@@ -64,8 +65,10 @@ export class DecoderAudioEngine {
   private analyzer: FastLedAudioAnalyzer | null = null
   private listeners = new Set<(data: AudioData) => void>()
   private animationFrame = 0
-  private spectrumBuffers: [number[], number[]] = [[], []]
-  private spectrumFlip = 0
+  // Frames wait here until the device has played the sound they describe;
+  // see analysisDelay.ts. Each frame owns its spectrum array because a held
+  // frame must not watch the next frame overwrite it.
+  private delay = new AnalysisDelay()
 
   subscribe(listener: (data: AudioData) => void): () => void {
     this.listeners.add(listener)
@@ -169,6 +172,7 @@ export class DecoderAudioEngine {
   private stopSampling = (): void => {
     if (this.animationFrame) cancelAnimationFrame(this.animationFrame)
     this.animationFrame = 0
+    this.delay.clear()
     this.emit(silentDecoderAudio())
   }
 
@@ -185,18 +189,17 @@ export class DecoderAudioEngine {
     this.analyser.getFloatTimeDomainData(this.timeSamples)
     this.leftAnalyser.getFloatTimeDomainData(this.leftSamples)
     this.rightAnalyser.getFloatTimeDomainData(this.rightSamples)
-    this.spectrumFlip = 1 - this.spectrumFlip
-    const spectrum = this.spectrumBuffers[this.spectrumFlip]
-    spectrum.length = MIC_SPECTRUM_BARS
+    const now = performance.now()
+    const spectrum: number[] = new Array(MIC_SPECTRUM_BARS).fill(0)
     const result = this.analyzer.process(
       this.timeSamples,
       this.context?.sampleRate ?? MIC_SAMPLE_RATE,
-      performance.now(),
+      now,
       1,
       spectrum,
     )
     const levels = levelsFromSampleChannels(this.leftSamples, this.rightSamples, 2, 1)
-    this.emit({
+    this.delay.push(now, {
       active: true,
       nativeFastLed: true,
       bass: result.bass,
@@ -224,6 +227,8 @@ export class DecoderAudioEngine {
       pitch: result.pitch,
       samples: result.samples,
     })
+    const due = this.delay.takeDue(now, outputLatencyMs(this.context))
+    if (due) this.emit(due)
     this.animationFrame = requestAnimationFrame(this.sample)
   }
 

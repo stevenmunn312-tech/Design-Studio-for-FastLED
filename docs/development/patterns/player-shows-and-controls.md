@@ -593,6 +593,16 @@ that are easy to split across preview and firmware:
   recorded before it existed) counts every beat as certain. Attack, Decay and
   the flux/onset/contrast outputs belong to the spectral-flux detector that
   only audio not analysed by FastLED reaches — a baked show envelope.
+- **Decoder analysis waits for the speaker.** The in-app player's analysis
+  taps the media element before the samples reach the output device, so a
+  frame published at once runs ahead of what the listener hears by
+  `baseLatency + outputLatency` (tens of ms wired, far more on some devices).
+  `DecoderAudioEngine` holds every frame in an `AnalysisDelay`
+  (`src/audio/analysisDelay.ts`) and publishes the newest frame whose sound
+  has played, folding any beat from a dropped older frame into it. Each frame
+  owns its spectrum array for that reason. Microphone and line-in capture get
+  no hold: the mic hears the same sound the listener hears, and their lag is
+  capture latency, which the browser does not report.
 - **A baked show's spectrum is FastLED's equalizer, run offline.** Song
   analysis feeds every hop through the same `EqualizerSpectrum` the live
   analyzer uses and stores its 16 bins at 50 Hz (`src/audio/spectrumTrack.ts`).
