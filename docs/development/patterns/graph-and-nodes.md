@@ -20,6 +20,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   seeds after both the original shelves and promoted user graphs. Test
   musical gestures with explicit `AudioSignal.structure` payloads: the
   rating tool's ordinary pulse scenario never emits buildups or drops.
+  Every bundled audio pattern except the promoted user graphs ends with
+  the shared energy stage from `energyDynamics.ts` (subdued at rest, colour
+  then sparkle then full brightness as Audio Features' smoothed energy
+  rises). `bundledPatterns.ts` applies it to the JSON and string seeds, the
+  release builder applies it in `finish()`, and the promoted graphs stay
+  byte for byte so the library still deduplicates them against the user's
+  saved copies. Retune the stage in its table, not in eighty graphs; a
+  pattern that already dims itself gets a higher rest brightness in
+  `AUDIO_LIGHT_FLOORS`. The stage reads energy only, never a beat.
   Shared `PatternFormIcons` shows those preferences in the sidebar and collection
   picker; untagged patterns retain their unrestricted-display meaning.
 

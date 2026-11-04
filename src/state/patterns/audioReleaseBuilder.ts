@@ -2,6 +2,7 @@ import type { StudioEdge, StudioNode } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { SavedPattern } from './patternLibrary'
 import type { PatternFormTag } from './patternTags'
+import { withEnergyDynamics } from './energyDynamics'
 
 export type AudioReleaseSeed = Omit<SavedPattern, 'id' | 'createdAt' | 'categoryId' | 'bundled'>
 
@@ -143,8 +144,10 @@ export class AudioReleaseBuilder {
       node.position = { x: column * 320, y: row * 420 }
       rows.set(column, row + 1)
     }
-    return { name: this.name, bestOn: this.bestOn,
+    // The shared colour and sparkle lift sits after the scene's own exposure,
+    // which already rests low and fades to black in silence.
+    return withEnergyDynamics({ name: this.name, bestOn: this.bestOn,
       inputs: audioPorts.map((port) => ({ ...port })), outputs: framePorts.map((port) => ({ ...port })),
-      subgraph: { nodes, edges } }
+      subgraph: { nodes, edges } }, { lightFloor: 1 })
   }
 }

@@ -175,6 +175,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- **Audio patterns follow the energy of the music.** Every bundled audio
+  pattern except the fourteen promoted saved patterns now rests subdued
+  while the music is quiet and, as it energises, gains colour, then a light
+  sparkle, then full brightness. The response follows a smoothed energy
+  level, never single beats, and sits at the end of each pattern as
+  ordinary nodes. Harmonic Shard Array's polygon no longer leaves the panel
+  on loud bass.
+
 - **Previous Pattern**, **Next Pattern** and an encoder now change the pattern
   on the LEDs straight away, with nothing to confirm. A single step while a
   pattern is holding gets the show's usual transition; a step during a
