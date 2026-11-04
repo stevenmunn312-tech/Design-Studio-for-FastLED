@@ -136,6 +136,13 @@
 }
 .knobUnpin:hover { color: var(--error); }
 
+.knobControl {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-0) * 1.5);
+  min-width: 0;
+}
+
 .knobRange {
   width: 100%;
   writing-mode: vertical-lr;

@@ -59,7 +59,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
-      peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
+      peakHold: 0.4, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
       energy: 0.7, speed: 0.6, mirror: true,
     },
   },
@@ -572,7 +572,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
       ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
       displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
-      persistence: 0.99922, palette: 'rainbow', seed: 42,
+      persistence: 0.9992, palette: 'rainbow', seed: 42,
     },
   },
   {

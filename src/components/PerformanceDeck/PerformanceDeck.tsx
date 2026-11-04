@@ -8,6 +8,7 @@ import { MidiEngine } from '../../midi/midiEngine'
 import DeckKnob from './DeckKnob'
 import styles from './PerformanceDeck.module.css'
 import { Icon } from '../icons/Icon'
+import EditableRange from '../EditableRange/EditableRange'
 
 /** The Performance Control Deck panel: pinned knobs/faders, parameter
  *  scenes, scene morph, and MIDI/keyboard binding capture. Dockable rather
@@ -112,14 +113,14 @@ export default function PerformanceDeck() {
           {controller && (
             <div className={styles.brightnessRow}>
               <span>Master Brightness</span>
-              <input
+              <EditableRange
                 className="nodrag"
-                type="range"
                 min={0}
                 max={255}
                 step={1}
                 value={Number(controller.data.properties.brightness ?? 200)}
-                onChange={(e) => updateNodeProperty(controller.id, 'brightness', Number(e.target.value))}
+                ariaLabel="Master brightness"
+                onChange={(value) => updateNodeProperty(controller.id, 'brightness', value)}
               />
               <span>{String(controller.data.properties.brightness ?? 200)}</span>
               {!brightnessPin && <span className={styles.hint}>(pin this in Controller Settings to save/morph it)</span>}
@@ -210,15 +211,15 @@ export default function PerformanceDeck() {
                 {deck.scenes.map((sc) => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
               </select>
             </div>
-            <input
+            <EditableRange
               className="nodrag"
-              type="range"
               min={0}
               max={1}
               step={0.01}
               value={morphProgress}
               disabled={!morphSceneA || !morphSceneB}
-              onChange={(e) => setMorphProgress(Number(e.target.value))}
+              ariaLabel="Scene morph"
+              onChange={setMorphProgress}
             />
             <button
               type="button"

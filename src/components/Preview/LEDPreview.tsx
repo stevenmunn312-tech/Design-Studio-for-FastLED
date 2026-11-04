@@ -66,6 +66,7 @@ import {
   libraryLookup,
 } from './stagePatternName'
 import { shouldExpandPreviewAudioTools } from './previewChrome'
+import EditableRange from '../EditableRange/EditableRange'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -1574,16 +1575,15 @@ export default function LEDPreview() {
                 >
                   {volume === 0 ? <IconVolumeMuted /> : <IconVolume />}
                 </button>
-                <input
+                <EditableRange
                   className={styles.vol}
-                  type="range"
                   min={0}
                   max={1}
                   step={0.01}
                   value={volume}
-                  onChange={(e) => setVolume(Number(e.target.value))}
+                  onChange={setVolume}
                   style={{ '--pp': `${volume * 100}%` } as CSSProperties}
-                  aria-label="Volume"
+                  ariaLabel="Volume"
                 />
               </div>
             </div>

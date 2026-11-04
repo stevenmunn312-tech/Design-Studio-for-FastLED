@@ -69,6 +69,7 @@ import { getCodeError } from '../../state/graphEvaluator'
 import { useMusicStore } from '../../state/player/musicStore'
 import { signalPathFor } from '../../utils/signalPath'
 import { stopWheelWhileFocused } from './wheelBehavior'
+import EditableRange from '../EditableRange/EditableRange'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, rgbToHex } from '../../state/palettes/customPalette'
 import { polinePalette, hexToRgb as polineHexToRgb } from '../../state/palettes/polinePalette'
 import type { Palette } from '../../state/palettes/ledColor'
@@ -167,17 +168,6 @@ function isRGB(v: unknown): v is RGB {
 // Trim a live float to a readable precision for display in a disabled editor.
 function showNum(n: number) {
   return Math.round(n * 1000) / 1000
-}
-
-function validSliderValue(value: string, min: number, max: number, step: number) {
-  if (value.trim() === '') return false
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return false
-
-  // Allow for floating-point noise while still enforcing the same increments
-  // as the range input (for example 0.1, 0.2, ...).
-  const stepsFromMin = (parsed - min) / step
-  return Math.abs(stepsFromMin - Math.round(stepsFromMin)) < 1e-8
 }
 
 function applyNodeSignal(
@@ -287,87 +277,20 @@ function SliderProperty({
   disabled: boolean
   onChange: (value: number) => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [invalid, setInvalid] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (editing) inputRef.current?.select()
-  }, [editing])
-
-  const beginEditing = () => {
-    if (disabled) return
-    setDraft(String(value))
-    setInvalid(false)
-    setEditing(true)
-  }
-
-  const commit = () => {
-    if (!validSliderValue(draft, min, max, step)) {
-      setInvalid(true)
-      return false
-    }
-    onChange(Number(draft))
-    setEditing(false)
-    setInvalid(false)
-    return true
-  }
-
-  if (editing) {
-    return (
-      <span className={styles.sliderWrap}>
-        <input
-          ref={inputRef}
-          className={`nodrag ${styles.sliderInput}${invalid ? ` ${styles.invalid}` : ''}`}
-          type="text"
-          inputMode="decimal"
-          aria-label={`${label} value`}
-          aria-invalid={invalid}
-          title={invalid ? `Enter a value from ${min} to ${max} in steps of ${step}` : undefined}
-          value={draft}
-          onWheelCapture={stopWheelWhileFocused}
-          onChange={(e) => {
-            setDraft(e.target.value)
-            setInvalid(false)
-          }}
-          onBlur={() => {
-            if (!commit()) setEditing(false)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commit()
-            if (e.key === 'Escape') {
-              // The editor answers this Escape; the layer beneath stays open.
-              e.preventDefault()
-              setEditing(false)
-              setInvalid(false)
-            }
-          }}
-          onDoubleClick={(e) => e.stopPropagation()}
-        />
-      </span>
-    )
-  }
-
   return (
-    <span className={styles.sliderWrap}>
-      <input
-        className={`nodrag nowheel ${styles.propRange}`}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        disabled={disabled}
-        value={value}
-        aria-label={`${label} value`}
-        onChange={(e) => onChange(Number(e.target.value))}
-        onDoubleClick={(e) => {
-          e.stopPropagation()
-          beginEditing()
-        }}
-      />
-      <span className={styles.propVal} onDoubleClick={beginEditing}>{showNum(value)}</span>
-    </span>
+    <EditableRange
+      className={`nodrag nowheel ${styles.propRange}`}
+      wrapClassName={styles.sliderWrap}
+      valueClassName={styles.propVal}
+      renderValue={showNum}
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
+      ariaLabel={`${label} value`}
+      onChange={onChange}
+    />
   )
 }
 
@@ -762,7 +685,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             {exposedInput && (
               <Handle type="target" position={Position.Left} id={exposedInput.id}
                 title={`${exposedInput.label} · ${exposedInput.dataType}${connectionHint ? ` — ${connectionHint.title}` : ''}`} role="button"
-                tabIndex={locked ? -1 : 0} isConnectable={!locked} aria-disabled={locked}
+                tabIndex={-1} isConnectable={!locked} aria-disabled={locked}
                 aria-label={`Connect to ${nodeLabel} ${exposedInput.label} input, ${exposedInput.dataType}${connectionHint ? `. ${connectionHint.aria}` : ''}. Press Enter or Space to choose a source port.`}
                 onKeyDown={activateHandleFromKeyboard} className={`${styles.propertyHandle}${connectionHint ? ` ${connectionHintClass(connectionHint)}` : ''}`}
                 style={{ ...portHandleStyle(exposedInput.dataType, portColor(exposedInput.dataType)), top: '50%' }} />
@@ -899,6 +822,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
               return (
                 <button
                   type="button"
+                  tabIndex={-1}
                   className={`nodrag ${styles.pinBtn}${pinId ? ` ${styles.pinBtnActive}` : ''}`}
                   title={pinId ? 'Unpin from Control Deck' : 'Pin to Control Deck'}
                   aria-label={pinId ? `Unpin ${key} from Control Deck` : `Pin ${key} to Control Deck`}
@@ -1616,7 +1540,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               id={input.id}
               title={`${input.label} · ${input.dataType}${connectionHint ? ` — ${connectionHint.title}` : ''}`}
               role="button"
-              tabIndex={micUnavailable ? -1 : 0}
+              tabIndex={-1}
               isConnectable={!micUnavailable}
               aria-disabled={micUnavailable}
               aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}${connectionHint ? `. ${connectionHint.aria}` : ''}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
@@ -1640,7 +1564,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               id={output.id}
               title={`${output.label} · ${output.dataType}`}
               role="button"
-              tabIndex={micUnavailable ? -1 : 0}
+              tabIndex={-1}
               isConnectable={!micUnavailable}
               aria-disabled={micUnavailable}
               aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}
@@ -1901,7 +1825,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     id={input.id}
                     title={`${input.label} · ${input.dataType}${inputHint ? ` — ${inputHint.title}` : ''}`}
                     role="button"
-                    tabIndex={micUnavailable ? -1 : 0}
+                    tabIndex={-1}
                     isConnectable={!micUnavailable}
                     aria-disabled={micUnavailable}
                     aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}${inputHint ? `. ${inputHint.aria}` : ''}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
@@ -1921,7 +1845,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   id={output.id}
                   title={`${output.label} · ${output.dataType}`}
                   role="button"
-                  tabIndex={micUnavailable ? -1 : 0}
+                  tabIndex={-1}
                   isConnectable={!micUnavailable}
                   aria-disabled={micUnavailable}
                   aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}

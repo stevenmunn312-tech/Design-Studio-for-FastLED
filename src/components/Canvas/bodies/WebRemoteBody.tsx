@@ -43,6 +43,7 @@ import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
 import { portHandleStyle } from '../nodeHandleStyle'
 import styles from './WebRemoteBody.module.css'
 import WifiPasswordInput from '../WifiPasswordInput'
+import EditableRange from '../../EditableRange/EditableRange'
 
 function activateHandleFromKeyboard(event: React.KeyboardEvent<HTMLDivElement>) {
   if (event.key !== 'Enter' && event.key !== ' ') return
@@ -138,15 +139,14 @@ function MiniControl({ nodeId, control }: { nodeId: string; control: WebRemoteCo
       }
       return (
         <div className={styles.control}>
-          <input
+          <EditableRange
             className="nodrag"
-            type="range"
             min={range.min}
             max={range.max}
             step={range.step}
             value={number}
-            aria-label={control.label}
-            onChange={(event) => write(Number(event.target.value))}
+            ariaLabel={control.label}
+            onChange={write}
           />
           <span className={styles.value}>{formatValue(control, number)}</span>
         </div>
@@ -157,16 +157,15 @@ function MiniControl({ nodeId, control }: { nodeId: string; control: WebRemoteCo
       const swatch = isDisplayRgb(color) ? `rgb(${color.r}, ${color.g}, ${color.b})` : 'transparent'
       return (
         <div className={styles.control}>
-          <input
+          <EditableRange
             className={`nodrag ${styles.hue}`}
-            type="range"
             min={0}
             max={360}
             step={1}
             value={number}
-            aria-label={`${control.label} hue`}
+            ariaLabel={`${control.label} hue`}
             style={{ background: `linear-gradient(90deg, ${webRemoteHueStops(control).join(', ')})` }}
-            onChange={(event) => write(Number(event.target.value))}
+            onChange={write}
           />
           <span className={styles.swatch} style={{ background: swatch }} aria-hidden="true" />
         </div>

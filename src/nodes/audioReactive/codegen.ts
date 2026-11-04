@@ -131,7 +131,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _svGain=constrain(${f('gain', 'gain', 1.25)},0.25f,4.0f);`)
     ln(`    float _svSmooth=constrain(${f('smoothing', 'smoothing', 0.58)},0.0f,0.95f);`)
     ln(`    float _svTilt=constrain(${f('tilt', 'tilt', 0.2)},0.0f,1.0f)*1.8f;`)
-    ln(`    uint32_t _svHoldMs=(uint32_t)constrain((${f('peakHold', 'peakHold', 0.42)})*1000.0f,0.0f,2000.0f);`)
+    ln(`    uint32_t _svHoldMs=(uint32_t)constrain((${f('peakHold', 'peakHold', 0.4)})*1000.0f,0.0f,2000.0f);`)
     ln(`    float _svGrav=constrain(${f('peakGravity', 'peakGravity', 1.8)},0.2f,6.0f);`)
     ln(`    float _svBands[${bands}]={0};`)
     ln(`    for(int _b=0;_b<${bands};_b++){ int _lo=(_b*32)/${bands},_hi=max(_lo+1,((_b+1)*32+${bands - 1})/${bands}); float _sum=0.0f; for(int _i=_lo;_i<_hi;_i++) _sum+=${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; _svBands[_b]=_sum/(_hi-_lo); }`)
@@ -844,7 +844,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const displacement = f('displacement', 'displacement', 1.8)
     const endpointSpeed = f('endpointSpeed', 'endpointSpeed', 0.35)
     const colorSpeed = f('colorSpeed', 'colorSpeed', 0.1)
-    const persistence = f('persistence', 'persistence', 0.99922)
+    const persistence = f('persistence', 'persistence', 0.9992)
     const seed = seedProp({ seed: p.seed ?? 42 })
     const injectionMode = String(p.injectionMode ?? 'Moving Line')
     const injectLine = injectionMode !== 'Rainbow Border'

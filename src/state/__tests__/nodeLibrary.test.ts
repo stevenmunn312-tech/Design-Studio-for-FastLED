@@ -413,7 +413,7 @@ describe('nodeLibrary', () => {
       xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
       ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
       displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
-      persistence: 0.99922, palette: 'rainbow', seed: 42,
+      persistence: 0.9992, palette: 'rainbow', seed: 42,
     })
     expect(propertyMeta('ColorTrails', 'xSpeed')).toMatchObject({ control: 'slider', min: -2, max: 2 })
     expect(propertyMeta('ColorTrails', 'injectionMode')).toMatchObject({ control: 'select', options: ['Moving Line', 'Rainbow Border', 'Both'] })
@@ -486,7 +486,7 @@ describe('nodeLibrary', () => {
     expect(visualizer?.propertyInputs).not.toHaveProperty('bands')
     expect(visualizer?.defaultProperties).toMatchObject({
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
-      peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
+      peakHold: 0.4, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
     })
     expect(propertyMeta('SpectrumVisualizer', 'style')).toMatchObject({
       control: 'select', options: ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall', 'Three Band'],

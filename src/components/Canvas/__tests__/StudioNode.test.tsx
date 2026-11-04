@@ -902,6 +902,26 @@ describe('StudioNode', () => {
     expect(container.querySelector('input[type="range"]')).toBeTruthy()
   })
 
+  it('opens the slider editor from the keyboard with Enter', () => {
+    const { container, getByLabelText } = renderNode(makeNode('Noise', { speed: 0.5, scale: 1, palette: 'rainbow' }))
+    openAllGroups(container)
+    fireEvent.keyDown(getByLabelText('speed value'), { key: 'Enter' })
+    const editor = getByLabelText('speed value') as HTMLInputElement
+    expect(editor.type).toBe('text')
+    fireEvent.change(editor, { target: { value: '0.25' } })
+    fireEvent.blur(editor)
+    expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(0.25)
+    expect(container.querySelector('input[type="range"]')).toBeTruthy()
+  })
+
+  it('keeps Control Deck pin buttons out of the Tab order', () => {
+    const { container } = renderNode(makeNode('Noise', { speed: 0.5, scale: 1, palette: 'rainbow' }))
+    openAllGroups(container)
+    const pins = container.querySelectorAll('button[aria-label$="to Control Deck"]')
+    expect(pins.length).toBeGreaterThan(0)
+    for (const pin of pins) expect(pin.getAttribute('tabindex')).toBe('-1')
+  })
+
   it('rejects invalid, out-of-range, and off-step slider keyboard input', () => {
     const { container, getByLabelText } = renderNode(makeNode('Noise', { speed: 0.5, scale: 1, palette: 'rainbow' }))
     openAllGroups(container)
@@ -1016,13 +1036,15 @@ describe('StudioNode', () => {
     expect(bass.style.right).toBe('-8px')
   })
 
-  it('makes connection handles named and keyboard operable', () => {
+  it('names connection handles and keeps them out of the Tab order', () => {
     const { container, getByRole } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 }))
     const input = getByRole('button', { name: /Connect to FFT Analyzer Audio input/ })
     const output = getByRole('button', { name: /Connect from FFT Analyzer Bass output/ })
 
-    expect(input.getAttribute('tabindex')).toBe('0')
-    expect(output.getAttribute('tabindex')).toBe('0')
+    // Tab walks the properties; a pin is reached by clicking it (which still
+    // focuses it, so Enter or Space then opens the port chooser).
+    expect(input.getAttribute('tabindex')).toBe('-1')
+    expect(output.getAttribute('tabindex')).toBe('-1')
 
     const click = vi.spyOn(output as HTMLElement, 'click')
     fireEvent.keyDown(output, { key: 'Enter' })

@@ -1,4 +1,5 @@
 import type { PinnedControl } from '../../state/player/performanceDeck'
+import EditableRange from '../EditableRange/EditableRange'
 import styles from './PerformanceDeck.module.css'
 
 interface DeckKnobProps {
@@ -49,19 +50,18 @@ export default function DeckKnob({ pin, value, onChange, onLearnMidi, onUnpin, l
           ))}
         </select>
       ) : (
-        <>
-          <input
-            className={`nodrag ${styles.knobRange}`}
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={typeof value === 'number' ? value : min}
-            onChange={(e) => onChange(Number(e.target.value))}
-            aria-label={pin.label}
-          />
-          <span className={styles.knobValue}>{typeof value === 'number' ? value.toFixed(2) : String(value ?? '—')}</span>
-        </>
+        <EditableRange
+          className={`nodrag ${styles.knobRange}`}
+          wrapClassName={styles.knobControl}
+          valueClassName={styles.knobValue}
+          renderValue={(v) => v.toFixed(2)}
+          min={min}
+          max={max}
+          step={step}
+          value={typeof value === 'number' ? value : min}
+          onChange={onChange}
+          ariaLabel={pin.label}
+        />
       )}
 
       <button

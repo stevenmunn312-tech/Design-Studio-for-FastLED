@@ -1176,7 +1176,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       gain: num(id, 'gain', props, 'gain', 1.25),
       smoothing: num(id, 'smoothing', props, 'smoothing', 0.58),
       tilt: num(id, 'tilt', props, 'tilt', 0.2),
-      peakHold: num(id, 'peakHold', props, 'peakHold', 0.42),
+      peakHold: num(id, 'peakHold', props, 'peakHold', 0.4),
       peakGravity: num(id, 'peakGravity', props, 'peakGravity', 1.8),
       waterfallSpeed: num(id, 'waterfallSpeed', props, 'waterfallSpeed', 10),
     }, t, palette, W, H) }
@@ -1433,7 +1433,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       displacement: num(id, 'displacement', props, 'displacement', 1.8),
       endpointSpeed: num(id, 'endpointSpeed', props, 'endpointSpeed', 0.35),
       colorSpeed: num(id, 'colorSpeed', props, 'colorSpeed', 0.1),
-      persistence: num(id, 'persistence', props, 'persistence', 0.99922),
+      persistence: num(id, 'persistence', props, 'persistence', 0.9992),
       seed: normalizedSeed(props.seed ?? 42),
     }, t, palette, W, H) }
   },

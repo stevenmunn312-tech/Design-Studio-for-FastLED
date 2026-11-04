@@ -572,6 +572,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Spawn-origin jitter (0 = a shared fixed point, 1 = fully random across the
   // matrix) shared by KickShock/PercussionBlobs/RainRipples's pool spawners.
   spawnSpread: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // 0 runs free; any other value replays the same result (PROPERTY_DESCRIPTIONS).
+  seed:       { control: 'slider', min: 0, max: 9999, step: 1 },
 }
 
 // A normalised 0–1 slider, the standard for `speed`/`scale` and most reactive
@@ -1149,6 +1151,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Blend: {
     blendMode: { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'] },
   },
+  // Blinds, checkerboard and spiral divisions across the frame, not the
+  // shared 1-200 particle count: past a few dozen they are a pixel wide.
+  Transition: {
+    count: { control: 'slider', min: 1, max: 32, step: 1 },
+  },
   Array: {
     count:     { control: 'slider', min: 1, max: 24,  step: 1 },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
@@ -1168,6 +1175,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     i2sSd:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   LineInput: {
+    // A stereo ADC (audioEngineCpp's pcm1802 adapter) can sum both channels.
+    channel:   { control: 'select', options: ['Left', 'Right', 'Both'] },
     gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
     noiseGate: { control: 'slider', min: 0, max: MIC_MAX_NOISE_GATE, step: 50 },
     i2sMclk:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1647,12 +1656,18 @@ export function isInternalProperty(key: string): boolean {
   return INTERNAL_PROPERTY_KEYS.has(key)
 }
 
+const GPIO_PIN_CONTROL: PropertyControl = { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 }
+
 export function propertyMeta(nodeType: string, key: string): PropertyControl | undefined {
   // A hand-written override still wins: the derived colour-channel range is a
   // default for the shape, not a claim about a node that states its own.
+  // A GPIO pin falls back to the pin range so the canvas offers the board's
+  // pin picker rather than a bare number field: the TFT panel's and the
+  // amplifier's pins listed none of their own.
   return PROPERTY_META_OVERRIDES[nodeType]?.[key]
     ?? DERIVED_COLOR_CHANNEL_META[nodeType]?.[key]
     ?? PROPERTY_META[key]
+    ?? (isGpioPinProperty(nodeType, key) ? GPIO_PIN_CONTROL : undefined)
 }
 
 /** Select choices that depend on another property of the same node. */

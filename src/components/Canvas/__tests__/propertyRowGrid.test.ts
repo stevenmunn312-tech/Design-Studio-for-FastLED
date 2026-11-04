@@ -28,7 +28,7 @@ describe('property row grid', () => {
   })
 
   it('fills the control column instead of fixing a width per control', () => {
-    for (const rule of ['propSelect', 'propInput', 'sliderInput']) {
+    for (const rule of ['propSelect', 'propInput']) {
       expect(ruleBody(rule), rule).toMatch(/width:\s*100%/)
     }
     expect(ruleBody('sliderWrap')).not.toMatch(/(^|[^-])width:/)

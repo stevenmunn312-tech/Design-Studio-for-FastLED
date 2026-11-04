@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { MAX_PIN_NUMBER } from '../../build/boards/boardGpio'
 import {
+  isGpioPinProperty,
   isPaletteBuilderNodeType,
   NODE_LIBRARY,
   PALETTE_BUILDER_NODE_TYPES,
@@ -149,5 +151,73 @@ describe('colour channels', () => {
           .not.toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
       }
     }
+  })
+})
+
+/*
+ * A node's defaults have to be values its own controls can produce: a slider
+ * default off its step cannot be typed back in once it is nudged, and a select
+ * default outside its options shows as whatever the browser picks instead.
+ */
+describe('default values', () => {
+  it('sit inside every slider range, on its step', () => {
+    for (const def of NODE_LIBRARY) {
+      for (const [key, value] of Object.entries(def.defaultProperties ?? {})) {
+        if (typeof value !== 'number') continue
+        const meta = propertyMeta(def.type, key)
+        if (meta?.control !== 'slider') continue
+        const label = `${def.type}.${key} = ${value}`
+        expect(value, label).toBeGreaterThanOrEqual(meta.min)
+        expect(value, label).toBeLessThanOrEqual(meta.max)
+        const steps = (value - meta.min) / meta.step
+        expect(Math.abs(steps - Math.round(steps)), `${label} is off the ${meta.step} step`).toBeLessThan(1e-6)
+      }
+    }
+  })
+
+  it('name an option of every select', () => {
+    for (const def of NODE_LIBRARY) {
+      for (const [key, value] of Object.entries(def.defaultProperties ?? {})) {
+        const meta = propertyMeta(def.type, key)
+        if (meta?.control !== 'select') continue
+        // 0 asks the LED output for the chipset's own default data rate; the
+        // canvas resolves it to the listed rate before it reaches the select.
+        if (def.type === 'MatrixOutput' && key === 'dataRateMhz') continue
+        expect(meta.options, `${def.type}.${key} = ${String(value)}`).toContain(String(value))
+      }
+    }
+  })
+
+  it('gives a Line In the Both channel its stereo ADC captures', () => {
+    expect(propertyMeta('LineInput', 'channel')).toEqual({ control: 'select', options: ['Left', 'Right', 'Both'] })
+    expect(propertyMeta('MicInput', 'channel')).toEqual({ control: 'select', options: ['Left', 'Right'] })
+  })
+
+  it('bounds a Transition by its divisions, not the particle count', () => {
+    expect(propertyMeta('Transition', 'count')).toEqual({ control: 'slider', min: 1, max: 32, step: 1 })
+  })
+})
+
+/*
+ * Every GPIO pin offers the board's pin picker. The picker is keyed off the
+ * pin range, so a pin without one fell back to a bare number field: the TFT
+ * panel's and the amplifier's pins did, while every other pin got the picker.
+ */
+describe('GPIO pin ranges', () => {
+  it('reach every pin the hardware map names', () => {
+    for (const def of NODE_LIBRARY) {
+      for (const key of Object.keys(def.defaultProperties ?? {})) {
+        if (!isGpioPinProperty(def.type, key)) continue
+        expect(propertyMeta(def.type, key), `${def.type}.${key}`)
+          .toMatchObject({ control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 })
+      }
+    }
+    expect(propertyMeta('TransportDisplay', 'backlightPin')).toMatchObject({ control: 'slider', max: MAX_PIN_NUMBER })
+    expect(propertyMeta('Amplifier', 'i2sBclk')).toMatchObject({ control: 'slider', max: MAX_PIN_NUMBER })
+  })
+
+  it('never reach a number that is not a pin', () => {
+    expect(propertyMeta('Wave', 'amplitude')).toBeUndefined()
+    expect(propertyMeta('MatrixOutput', 'width')).toBeUndefined()
   })
 })

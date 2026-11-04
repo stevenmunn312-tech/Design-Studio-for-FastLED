@@ -3,6 +3,7 @@ import { paletteCssGradient } from '../../state/palettes/paletteCatalog'
 import { SHOW_VALUE_RANGES } from '../../state/player/showEventMeta'
 import type { ShowEvent } from '../../types/showFile'
 import { stopWheelWhileFocused } from './wheelBehavior'
+import EditableRange from '../EditableRange/EditableRange'
 import styles from './ShowEventFields.module.css'
 
 /**
@@ -121,8 +122,8 @@ function ParamSlider({ label, min, max, step, value, fmtVal, onChange }: {
   return (
     <label className={styles.field}>
       <span>{label}</span>
-      <input className="nodrag" type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(Number(e.target.value))} />
+      <EditableRange className="nodrag" min={min} max={max} step={step} value={value}
+        ariaLabel={label} onChange={onChange} />
       <span className={styles.val}>{fmtVal(value)}</span>
     </label>
   )

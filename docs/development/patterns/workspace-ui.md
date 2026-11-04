@@ -244,6 +244,22 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   field never holds 1.5 even transiently. `BoardNodeBody.tsx`'s power-cap
   Volts/Milliamps fields use it. Reach for this component rather than a raw
   `type="number"` input for any new numeric field with a non-zero minimum.
+- Every value slider is `src/components/EditableRange/EditableRange.tsx`, not
+  a raw `type="range"`: node property rows, the Board node's brightness and
+  overclock, the audio input's gain and gate, Web Remote faders, the Control
+  Deck's knobs and master brightness, show-event parameters, the preview's
+  volume and the record popup's duration and scale. Double-click (or Enter on
+  the focused slider) turns it into a text field holding the value; Enter
+  commits, Escape abandons (answered with `preventDefault`, so the layer
+  around it stays open), and leaving the field commits a valid value. A value
+  is valid only inside `[min, max]` and on the slider's step, so typing cannot
+  set what dragging could not. Transport scrubbers (timeline position,
+  thumbnail scrub) stay raw ranges: there is no value to type. With no
+  `renderValue`/`wrapClassName` it renders the bare input, so a grid row that
+  counts its children keeps its columns.
+- Tab walks a node's property controls only. Port handles and the Control Deck
+  pin buttons carry `tabIndex={-1}`: a click still focuses a handle, and Enter
+  or Space then opens its port chooser.
 
 - Inline property rows (`.propRow` in `StudioNode.module.css`) are a
   `minmax(0, 1fr) 112px 16px` grid: label, one shared control column, and a

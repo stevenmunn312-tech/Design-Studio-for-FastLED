@@ -21,6 +21,7 @@ import {
 import { CUSTOM_BOARD_PROFILE_ID } from '../../../build/boards/customBoard'
 import styles from './BoardNodeBody.module.css'
 import { Icon } from '../../icons/Icon'
+import EditableRange from '../../EditableRange/EditableRange'
 
 // The Board node picks a *profile*, not an FQBN. `esp32:esp32:esp32` names the
 // silicon and leaves the header layout ambiguous — two different DevKit
@@ -283,7 +284,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
             Master brightness
             <span className={styles.settingValue}>
               <b>{settings.brightness}</b>
-              <button type="button" className={styles.pinButton}
+              <button type="button" className={styles.pinButton} tabIndex={-1}
                 aria-label={brightnessPin ? 'Unpin master brightness from Control Deck' : 'Pin master brightness to Control Deck'}
                 title={brightnessPin ? 'Unpin from Control Deck' : 'Pin to Control Deck'}
                 onClick={() => brightnessPin ? unpinProperty(brightnessPin.id) : pinProperty(nodeId, 'brightness')}>
@@ -291,16 +292,16 @@ export default function BoardNodeBody({ nodeId }: Props) {
               </button>
             </span>
           </span>
-          <input type="range" min={0} max={255} step={1} value={settings.brightness}
-            aria-label="Master brightness"
-            onChange={(event) => updateNodeProperty(nodeId, 'brightness', Number(event.target.value))} />
+          <EditableRange min={0} max={255} step={1} value={settings.brightness}
+            ariaLabel="Master brightness"
+            onChange={(value) => updateNodeProperty(nodeId, 'brightness', value)} />
         </label>
 
         <label className={styles.settingField} title="Global FastLED clockless-chipset timing multiplier">
           <span>LED overclock <b>{settings.overclock.toFixed(2)}×</b></span>
-          <input type="range" min={1} max={2} step={0.05} value={settings.overclock}
-            aria-label="LED overclock"
-            onChange={(event) => updateNodeProperty(nodeId, 'overclock', Number(event.target.value))} />
+          <EditableRange min={1} max={2} step={0.05} value={settings.overclock}
+            ariaLabel="LED overclock"
+            onChange={(value) => updateNodeProperty(nodeId, 'overclock', value)} />
         </label>
 
         <label className={styles.checkField}>

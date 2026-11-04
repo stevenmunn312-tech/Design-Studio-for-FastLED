@@ -13,6 +13,7 @@ import { captureSequence, gifScaleLimit, loopBlendFrames } from './recordCapture
 import { liveAudioAvailable, recordAudioTimeline, type RecordedAudioFrame } from './recordAudio'
 import { graphConsumesAudio } from './previewAudioUsage'
 import styles from './RecordPopup.module.css'
+import EditableRange from '../EditableRange/EditableRange'
 
 // Record & export dialog for the LED preview: PNG snapshot of the live frame,
 // or an offline-rendered GIF/WebM clip with duration, FPS, scale, and
@@ -377,16 +378,15 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
           <>
             <div className={styles.row}>
               <span className={styles.label}>Duration</span>
-              <input
+              <EditableRange
                 className={styles.slider}
-                type="range"
                 min={1}
                 max={MAX_DURATION_SEC}
                 step={1}
                 value={durationSec}
-                onChange={(e) => setDurationSec(Number(e.target.value))}
+                onChange={setDurationSec}
                 disabled={busy}
-                aria-label="Capture duration in seconds"
+                ariaLabel="Capture duration in seconds"
               />
               <span className={styles.value}>{durationSec}s</span>
             </div>
@@ -412,16 +412,15 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
 
         <div className={styles.row}>
           <span className={styles.label}>Scale</span>
-          <input
+          <EditableRange
             className={styles.slider}
-            type="range"
             min={2}
             max={maxScale}
             step={1}
             value={effScale}
-            onChange={(e) => setScale(Number(e.target.value))}
+            onChange={setScale}
             disabled={busy}
-            aria-label="Output scale in pixels per LED"
+            ariaLabel="Output scale in pixels per LED"
           />
           <span className={styles.value}>{effScale} px/LED</span>
         </div>

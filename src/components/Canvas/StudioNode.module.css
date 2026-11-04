@@ -857,27 +857,6 @@ span.connectionBlocked {
   white-space: nowrap;
 }
 
-.sliderInput {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--accent-output);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: var(--fs-caption);
-  font-family: var(--font-body);
-  padding: calc(var(--space-0) * 0.5) var(--space-0);
-  text-align: right;
-}
-
-.sliderInput:focus {
-  outline: none;
-}
-
-.sliderInput.invalid {
-  border-color: var(--error);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .nodeMusicAnalyzing,
   .nodeMusicAnalyzing .signalAura {

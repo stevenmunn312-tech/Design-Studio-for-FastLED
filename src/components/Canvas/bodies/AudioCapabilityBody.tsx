@@ -16,6 +16,7 @@ import {
   micUnsupportedMessage,
 } from '../../../build/pins/micPinDefaults'
 import styles from './AudioCapabilityBody.module.css'
+import EditableRange from '../../EditableRange/EditableRange'
 
 interface Props {
   nodeId: string
@@ -126,16 +127,15 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
           <div className={styles.sectionLabel}>{inputName} levels</div>
           <label className={styles.control}>
             <span>Gain</span>
-            <input
+            <EditableRange
               className="nodrag"
-              type="range"
               min={0}
               max={MIC_MAX_GAIN}
               step={0.1}
               disabled={micUnavailable}
               value={gain}
-              aria-label={`${inputName} gain`}
-              onChange={(event) => updateNodeProperty(selectedInput.id, 'gain', Number(event.target.value))}
+              ariaLabel={`${inputName} gain`}
+              onChange={(value) => updateNodeProperty(selectedInput.id, 'gain', value)}
             />
             <output>{Number(gain.toFixed(1))}</output>
           </label>
@@ -144,16 +144,15 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
             title="Sample level (of 32767) a sound must reach before analysis hears it. Raise it if room hiss moves the LEDs; 0 turns the gate off."
           >
             <span>Noise gate</span>
-            <input
+            <EditableRange
               className="nodrag"
-              type="range"
               min={0}
               max={MIC_MAX_NOISE_GATE}
               step={50}
               disabled={micUnavailable}
               value={noiseGate}
-              aria-label={`${inputName} noise gate`}
-              onChange={(event) => updateNodeProperty(selectedInput.id, 'noiseGate', Number(event.target.value))}
+              ariaLabel={`${inputName} noise gate`}
+              onChange={(value) => updateNodeProperty(selectedInput.id, 'noiseGate', value)}
             />
             <output>{noiseGate}</output>
           </label>
