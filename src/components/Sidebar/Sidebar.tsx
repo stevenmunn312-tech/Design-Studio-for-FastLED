@@ -348,7 +348,13 @@ function Sidebar() {
     query === '' || `${recipe.title} ${recipe.kicker} ${recipe.description}`.toLowerCase().includes(query)
   ))
 
+  // True while the empty-graph steer (below) owns the open section: the user
+  // has not clicked a header or taken a node since it ran. Lets the steer tell
+  // the page's own async project load apart from the user's work.
+  const steerOwnsSection = useRef(false)
+
   const toggle = (id: string) => {
+    steerOwnsSection.current = false
     const next = expandedId === id ? null : id
     saveExpanded(next)
     setExpandedId(next)
@@ -363,6 +369,7 @@ function Sidebar() {
   }
 
   const handleDragStart = (e: React.DragEvent, type: string) => {
+    steerOwnsSection.current = false
     e.dataTransfer.setData('application/studio-node', type)
     e.dataTransfer.effectAllowed = 'copy'
     setDraggingNodeType(type)
@@ -850,11 +857,25 @@ function Sidebar() {
   // library saying "drag one of these". The remembered section is untouched
   // (see saveExpanded), so the next load of a real graph still comes back to
   // it.
+  //
+  // On page load the graph store is empty until the async project bootstrap
+  // installs the saved workspace, so the steer fires first and the real graph
+  // lands under it. When nodes appear and the user has not touched the
+  // library since the steer, that is the load, not their work: come back to
+  // the remembered section. A node they dragged in clears the flag, so the
+  // section they are working from stays put.
   useEffect(() => {
-    if (isEmptyGraph) setExpandedId(CATEGORIES[0].id)
+    if (isEmptyGraph) {
+      steerOwnsSection.current = true
+      setExpandedId(CATEGORIES[0].id)
+    } else if (steerOwnsSection.current) {
+      steerOwnsSection.current = false
+      setExpandedId(loadExpanded() ?? 'recipes')
+    }
   }, [isEmptyGraph])
 
   const handleAddNode = (type: string) => {
+    steerOwnsSection.current = false
     const def = SIDEBAR_NODE_LIBRARY.find((n) => n.type === type)
     if (!def) return
     // Pass `centreOnDrop` so the node settles vertically centred on the drop

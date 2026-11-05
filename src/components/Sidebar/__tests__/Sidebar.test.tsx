@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import Sidebar from '../Sidebar'
 import { useGraphStore } from '../../../state/graphStore'
 import { usePatternLibrary, type SavedPattern } from '../../../state/patterns/patternLibrary'
@@ -272,6 +272,41 @@ describe('Sidebar remembered section', () => {
     fireEvent.click(getByRole('button', { name: /^Audio▾/ }))
 
     expect(JSON.parse(localStorage.getItem(KEY) ?? 'null')).toBe('audio')
+  })
+
+  it('comes back to the remembered section once the saved project loads', () => {
+    // The page mounts before the async bootstrap has installed the project,
+    // so the empty-graph steer opens Inputs first. The load itself must not
+    // leave Inputs open over the section the user left open last time.
+    localStorage.setItem(KEY, JSON.stringify('audio'))
+    useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
+    const { getByRole } = render(<Sidebar />)
+    expect(getByRole('button', { name: /^Inputs▾/ }).getAttribute('aria-expanded')).toBe('true')
+
+    act(() => {
+      useGraphStore.setState({
+        nodes: [{
+          id: 'loaded-from-disk',
+          type: 'studioNode',
+          position: { x: 0, y: 0 },
+          data: { label: 'Comment', nodeType: 'Comment', category: 'note', properties: {}, inputs: [], outputs: [] },
+        }],
+      })
+    })
+
+    expect(getByRole('button', { name: /^Audio▾/ }).getAttribute('aria-expanded')).toBe('true')
+    expect(getByRole('button', { name: /^Inputs▾/ }).getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('keeps the section the user is adding from when their node fills the empty graph', () => {
+    localStorage.setItem(KEY, JSON.stringify('audio'))
+    useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
+    const { getByRole, getByLabelText } = render(<Sidebar />)
+
+    fireEvent.click(getByLabelText('Add Web Remote'))
+
+    expect(useGraphStore.getState().nodes).toHaveLength(1)
+    expect(getByRole('button', { name: /^Inputs▾/ }).getAttribute('aria-expanded')).toBe('true')
   })
 })
 
