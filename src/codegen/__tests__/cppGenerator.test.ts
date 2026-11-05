@@ -4610,9 +4610,13 @@ describe('generateCpp — INMP441 audio engine', () => {
     const cpp = generateCpp([micBoard, mic, feat, out], [
       edge('e1', 'mic', 'af', 'audio', 'audio'),
       edge('e2', 'af', 'out', 'frame', 'frame'),
+      edge('e3', 'af', 'out', 'loudness', 'brightness'),
     ])
     expect(cpp).toContain('static float n_af_feat_prevSpectrum[32];')
     expect(cpp).toContain('float n_af_vocals = 0.0f, n_af_energy = 0.0f;')
+    // Loudness is the host's absolute meter, published only when something reads it.
+    expect(cpp).toContain('float n_af_loudness = constrain(_audioLoudness, 0.0f, 1.0f);')
+    expect(cpp).toContain('_chunk.rms() / 32768.0f')
     // Nothing reads Silence, so its comparison is not emitted.
     expect(cpp).not.toContain('n_af_silence')
     expect(cpp).toContain('_presenceFlux')

@@ -1,7 +1,8 @@
 // The live audio engine a sketch hosts when a physical capture source feeds an
 // output: capture adapters for each microphone family and the shared globals.
-import type { StudioNode } from '../../state/graphStore'
+import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { vuNormalizedLevelCpp } from './stereoLevelCpp'
+import { VU_RMS_NOISE_GATE, VU_RMS_REFERENCE } from '../../audio/stereoLevels'
 import { MIC_DEFAULTS, MIC_MAX_GAIN, MIC_MAX_NOISE_GATE, noiseGateCloseThreshold } from '../../audio/micAnalysis'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import {
@@ -27,6 +28,18 @@ function graphUsesNodeType(type: string, nodes: readonly StudioNode[], groups: G
 
 export const graphUsesVibe = (nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean =>
   graphUsesNodeType('Vibe', nodes, groups)
+
+/** Whether any Audio Features node has its Loudness output wired. Loudness
+ *  costs the host an RMS per frame, so it is published only when read. */
+export function graphUsesLoudness(
+  nodes: readonly StudioNode[], edges: readonly StudioEdge[], groups: GroupRegistry = {},
+): boolean {
+  const reads = (graphNodes: readonly StudioNode[], graphEdges: readonly StudioEdge[]) => {
+    const features = new Set(graphNodes.filter((node) => node.data.nodeType === 'AudioFeatures').map((node) => node.id))
+    return graphEdges.some((edge) => edge.sourceHandle === 'loudness' && features.has(edge.source))
+  }
+  return reads(nodes, edges) || Object.values(groups).some((group) => reads(group.nodes, group.edges))
+}
 /** Peak-preserving decimation of the current chunk into `_audioWave`, the
  *  firmware twin of `decimateWave` in state/evaluator/waveform.ts. */
 function waveformHelperCpp(sample: string): string[] {
@@ -78,6 +91,11 @@ export interface AudioFeatures {
   structure: boolean
   pitch: boolean
   waveform: boolean
+  /** Audio Features' absolute Loudness (`_audioLoudness`). Each host publishes
+   *  it itself, from whatever absolute meter its source has, so the shared
+   *  emitters below leave it alone. Optional: hosts that only replay baked
+   *  detectors never read it. */
+  loudness?: boolean
 }
 
 const AUDIO_FEATURE_GLOBALS: Record<keyof AudioFeatures, RegExp> = {
@@ -85,6 +103,7 @@ const AUDIO_FEATURE_GLOBALS: Record<keyof AudioFeatures, RegExp> = {
   structure: /\b_audio(?:Downbeat|Building|Drop|DropImpact|TempoStable|MeasurePhase|BuildupProgress|Valence|Arousal|BeatNumber)\b/,
   pitch: /\b_audio(?:Pitch|Key)[A-Z]\w*\b/,
   waveform: /\b_audioWave\b/,
+  loudness: /\b_audioLoudness\b/,
 }
 
 /** Which optional detectors already-emitted code reads, for hosts that see
@@ -96,6 +115,7 @@ export function audioFeaturesInCode(blocks: readonly string[]): AudioFeatures {
     structure: reads(AUDIO_FEATURE_GLOBALS.structure),
     pitch: reads(AUDIO_FEATURE_GLOBALS.pitch),
     waveform: reads(AUDIO_FEATURE_GLOBALS.waveform),
+    loudness: reads(AUDIO_FEATURE_GLOBALS.loudness),
   }
 }
 
@@ -235,6 +255,7 @@ function audioEngineCpp(
   structure = false,
   pitch = false,
   waveform = false,
+  loudness = false,
 ): string[] {
   const audioChannel = channel === 'Right'
     ? 'fl::audio::AudioChannel::Right'
@@ -264,7 +285,7 @@ function audioEngineCpp(
   // choosing a different module changes the wiring picture and the name and
   // nothing in the signal — said here rather than left to be discovered by
   // comparing two sketches.
-  const features: AudioFeatures = { vibe, structure, pitch, waveform }
+  const features: AudioFeatures = { vibe, structure, pitch, waveform, loudness }
   const profileApplies = (backend === 'fastled-esp32' || backend === 'fastled-teensy') && !sph0645
   return [
     `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : micModule.label} audio reactivity ─────────────────────────────────`,
@@ -281,6 +302,11 @@ function audioEngineCpp(
     ...captureAdapter,
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'float _audioLeftLevel = 0, _audioRightLevel = 0;',
+    ...(features.loudness ? [
+      '// Audio Features\' Loudness: the conditioned chunk\'s RMS on the VU meter scale',
+      '// (audio/stereoLevels.ts), unlike the peak-normalised bands and spectrum.',
+      'float _audioLoudness = 0.0f;',
+    ] : []),
     'bool  _audioBeat = false;',
     '// Confidence of FastLED\'s latest beat (0-1); Beat Detect gates on it.',
     'float _audioBeatConfidence = 0.0f;',
@@ -321,6 +347,7 @@ function audioEngineCpp(
     '  if (!_audioProcessor) {',
     '    _audioBass = _audioMids = _audioTreble = 0.0f;',
     '    _audioLeftLevel = _audioRightLevel = 0.0f;',
+    ...(features.loudness ? ['    _audioLoudness = 0.0f;'] : []),
     '    _audioBeat = false;',
     '    _audioBeatConfidence = 0.0f;',
     ...audioFeatureResetCpp(features),
@@ -338,9 +365,20 @@ function audioEngineCpp(
     ...(source === 'line-in' ? [
       '  _audioLeftLevel = _lineInput ? _lineInput->leftLevel() : 0.0f;',
       '  _audioRightLevel = _lineInput ? _lineInput->rightLevel() : 0.0f;',
+      ...(features.loudness ? ['  _audioLoudness = max(_audioLeftLevel, _audioRightLevel);'] : []),
     ] : [
       '  // A one-channel microphone intentionally drives both VU channels.',
       '  _audioLeftLevel = _audioRightLevel = max(_audioBass, max(_audioMids, _audioTreble));',
+      ...(features.loudness ? [
+        '  {',
+        '    // The VU bands above adapt to their recent peak; Loudness is the',
+        '    // gained chunk\'s RMS against the fixed meter reference instead.',
+        '    const fl::audio::Sample& _chunk = _audioProcessor->getSample();',
+        '    float _rms = _chunk.isValid() ? _chunk.rms() / 32768.0f : 0.0f;',
+        `    float _level = (_rms - ${VU_RMS_NOISE_GATE}f) / (${VU_RMS_REFERENCE}f - ${VU_RMS_NOISE_GATE}f);`,
+        '    _audioLoudness = _level <= 0.0f ? 0.0f : (_level >= 1.0f ? 1.0f : _level);',
+        '  }',
+      ] : []),
     ]),
     '  _audioBpm = _audioProcessor->getBPM();',
     ...audioFeatureUpdateCpp(features),
@@ -796,6 +834,7 @@ export function audioEngineForGraph(
   nodes: StudioNode[],
   capabilityNodes: StudioNode[] = nodes,
   groups: GroupRegistry = {},
+  edges: readonly StudioEdge[] = [],
 ): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: MicFirmwareBackend } | null {
   const capabilitySource = nodes
     .filter((node) => node.data.nodeType === 'Audio')
@@ -885,6 +924,7 @@ export function audioEngineForGraph(
       graphUsesSongStructure(nodes, groups),
       graphUsesPitch(nodes, groups),
       graphUsesWaveform(nodes, groups),
+      graphUsesLoudness(nodes, edges, groups),
     ),
     fqbn,
     backend,

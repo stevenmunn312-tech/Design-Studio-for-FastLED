@@ -208,9 +208,12 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`    ${prefix}_ready = true;`)
       ln(`  }`)
       ln(`  bool ${v('silence')} = ${v('energy')} < ${silenceThreshold};`)
+      // The host's absolute channel meter (audioEngineCpp / the player sketch),
+      // mirroring audioLoudness() in audio/stereoLevels.ts.
+      ln(`  float ${v('loudness')} = constrain(_audioLoudness, 0.0f, 1.0f);`)
     } else {
       ln(`  // AudioFeatures — connect an Audio source for on-device audio feature extraction`)
-      ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f; bool ${v('silence')} = true;`)
+      ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f, ${v('loudness')} = 0.0f; bool ${v('silence')} = true;`)
     }
   },
   Vibe({ node, id, ln, v, f, nativeFastLedAudio, hasExplicitAudioInput }) {

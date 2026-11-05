@@ -626,7 +626,10 @@ export function generatePlayerSketch(
     ...(postFrame ? [...postFrame.helpers, postFrame.fn] : []),
     ...(compiledGraph?.helpers ?? []), ...(compiledGraph?.loop ?? []),
   ].join('\n'))
-  const needsStereoLevels = hasStereoVu || /\b_audio(?:Left|Right)Level\b/.test(consumerCode)
+  // Audio Features' Loudness is the louder channel meter here (the tap and the
+  // baked envelope both measure absolute RMS), so reading it needs the meters.
+  const needsLoudness = /\b_audioLoudness\b/.test(consumerCode)
+  const needsStereoLevels = hasStereoVu || needsLoudness || /\b_audio(?:Left|Right)Level\b/.test(consumerCode)
   const needsSpectrum = /\b_audioSpectrum\b/.test(consumerCode)
   // The detectors a baked show replays for its patterns from the ADET trailer
   // (audio/detectorTrack). Waveform is not baked: it stays silent without the
@@ -1705,7 +1708,7 @@ ${hasEnergy ? 'float      prevEnergy;\n' : ''}${hasSpeed ? 'float      prevSpeed
 // Shared audio contract consumed by compiled FFT/beat/percussion/features nodes.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;
 float     _audioLeftLevel = 0, _audioRightLevel = 0;
-bool      _audioBeat = false;
+${needsLoudness ? 'float     _audioLoudness = 0;   // Audio Features\' Loudness: the louder channel meter\n' : ''}bool      _audioBeat = false;
 float     _audioBeatConfidence = 0.0f;  // FastLED's confidence for the latest beat
 float     _audioSpectrum[32];
 ` : ''}${bakedAudio ? `
@@ -1925,7 +1928,7 @@ void updateShowAudio(uint32_t ms) {
   if (!audioEnv || audioEnvFrames == 0) {
     _audioBass = _audioMids = _audioTreble = 0;
     _audioLeftLevel = _audioRightLevel = 0;
-${needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;\n' : ''}${bakedDet ? `${lines(audioFeatureResetCpp({ vibe: detVibe, structure: detStructure, pitch: false, waveform: false }))}${detPitch ? '    _audioPitchHz = _audioPitchConf = _audioPitchVelocity = 0.0f;\n    _audioPitchNote = 0; _audioPitchNoteOn = false;\n    _audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f;\n' : ''}` : ''}
+${needsLoudness ? '    _audioLoudness = 0;\n' : ''}${needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;\n' : ''}${bakedDet ? `${lines(audioFeatureResetCpp({ vibe: detVibe, structure: detStructure, pitch: false, waveform: false }))}${detPitch ? '    _audioPitchHz = _audioPitchConf = _audioPitchVelocity = 0.0f;\n    _audioPitchNote = 0; _audioPitchNoteOn = false;\n    _audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f;\n' : ''}` : ''}
     return;
   }
   float fpos = ms * (audioEnvRate / 1000.0f);
@@ -1940,7 +1943,7 @@ ${needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;\n' : 
   _audioLeftLevel = (audioEnv[ib+3] + (audioEnv[jb+3] - audioEnv[ib+3]) * frac) / 255.0f;
   _audioRightLevel = (audioEnv[ib+4] + (audioEnv[jb+4] - audioEnv[ib+4]) * frac) / 255.0f;
   if (audioEnvChannels != 2) _audioRightLevel = _audioLeftLevel;
-${needsSpectrum ? `  // The song's equalizer bins, each filling two slots as getEqBin(b >> 1) does
+${needsLoudness ? '  _audioLoudness = max(_audioLeftLevel, _audioRightLevel);\n' : ''}${needsSpectrum ? `  // The song's equalizer bins, each filling two slots as getEqBin(b >> 1) does
   // live. Without them, a coarse bass/mids/treble fill keeps the detectors alive.
   if (audioEnvSpectrum) {
     uint32_t is = i * 16, js = j * 16;
@@ -2131,11 +2134,11 @@ ${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
   if (levelFrames > 0) {
     _audioLeftLevel = _vuNormalizedLevel(leftSquares, levelFrames);
     _audioRightLevel = _vuNormalizedLevel(rightSquares, levelFrames);
-  }
+${needsLoudness ? '    _audioLoudness = max(_audioLeftLevel, _audioRightLevel);\n' : ''}  }
 
 ` : ''}  _audioBeat = false;
   if (!_decoderTapLive) {
-${needsStereoLevels ? '    _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}
+${needsStereoLevels ? '    _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}${needsLoudness ? '    _audioLoudness = 0.0f;\n' : ''}
 ${lines(audioFeatureResetCpp(audioFeatures))}${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in this loop.\n' : '    _audioBass = _audioMids = _audioTreble = 0.0f;\n    _audioBpm = 120.0f;\n' + (needsSpectrum ? '    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0.0f;\n' : '')}    return;
   }
   uint32_t beatCount = _audioBeatCount;
@@ -2144,7 +2147,7 @@ ${lines(audioFeatureResetCpp(audioFeatures))}${bakedAudio ? '    // updateShowAu
 ${lines(audioFeatureEdgesCpp(audioFeatures))}}
 
 void resetDecoderTapLevels() {
-${needsStereoLevels ? '  portENTER_CRITICAL(&_decoderTapMux);\n  _decoderLeftSquares = _decoderRightSquares = 0;\n  _decoderLevelFrames = 0;\n  portEXIT_CRITICAL(&_decoderTapMux);\n  _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}
+${needsStereoLevels ? '  portENTER_CRITICAL(&_decoderTapMux);\n  _decoderLeftSquares = _decoderRightSquares = 0;\n  _decoderLevelFrames = 0;\n  portEXIT_CRITICAL(&_decoderTapMux);\n  _audioLeftLevel = _audioRightLevel = 0.0f;\n' : ''}${needsLoudness ? '  _audioLoudness = 0.0f;\n' : ''}
   _decoderTapLastMs = 0;
   _decoderTapLive = false;
 }

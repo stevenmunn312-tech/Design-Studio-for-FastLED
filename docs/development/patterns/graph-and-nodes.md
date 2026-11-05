@@ -22,16 +22,23 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rating tool's ordinary pulse scenario never emits buildups or drops.
   Every bundled audio pattern except the promoted user graphs ends with
   the shared energy stage from `energyDynamics.ts` (subdued at rest, colour
-  then sparkle then full brightness as Audio Features' smoothed energy
-  rises). `bundledPatterns.ts` applies it to the JSON and string seeds, the
-  release builder applies it in `finish()`, and the promoted graphs stay
-  byte for byte so the library still deduplicates them against the user's
-  saved copies. Retune the stage in its table, not in eighty graphs. Keep
-  its response short: the added Audio Features node smooths per frame and
-  the Smooth node in seconds, and stacking two slow smoothers once put the
-  brightness swell about 0.6 s behind the music heard through the mic; a
-  pattern that already dims itself gets a higher rest brightness in
-  `AUDIO_LIGHT_FLOORS`. The stage reads energy only, never a beat.
+  then sparkle then full brightness as Audio Features' Loudness rises).
+  `bundledPatterns.ts` applies it to the JSON and string seeds, the release
+  builder applies it in `finish()`, and the promoted graphs stay byte for
+  byte so the library still deduplicates them against the user's saved
+  copies. Retune the stage in its table, not in eighty graphs. The stage
+  reads Loudness, never Energy and never a beat: Energy comes from the
+  spectrum, which FastLED normalises to each band's peak of the last few
+  seconds, so it read a quiet intro as loud and a steady chorus as middling
+  and the stage dimmed the loud parts. Loudness is the input's absolute RMS
+  on the VU scale (`audioLoudness` in `audio/stereoLevels.ts`, firmware
+  `_audioLoudness`), so the Audio node's gain sets how loud "loud" is. Keep
+  the response one short Smooth node: a per-frame smoother stacked on it
+  once put the swell about 0.6 s behind the music. A pattern that already
+  dims itself gets a higher rest brightness in `AUDIO_LIGHT_FLOORS`.
+  `energyStageLoudness.test.ts` runs synthesised verse/chorus audio through
+  the real analyser; the rating fixtures feed synthetic energy and cannot
+  see any of this.
   Shared `PatternFormIcons` shows those preferences in the sidebar and collection
   picker; untagged patterns retain their unrestricted-display meaning.
 

@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Audio Features gains a Loudness output.** Energy and the spectrum adapt
+  to the loudest moment of the last few seconds, so a quiet verse after a
+  loud chorus reads nearly as energetic as the chorus. Loudness is how loud
+  the sound actually is, 0 to 1 on the same scale as the Stereo VU Meter,
+  from the microphone, line input, Music Player or a recording; the Audio
+  node's gain sets how loud counts as full. Firmware reads it the same way
+  on the board.
+
 - **Internet radio on the Music Player.** Set Music Source to Internet Radio
   and list stations on the node, by stream URL or from a search of the
   radio-browser.info directory. The board streams them over Wi-Fi through
@@ -180,8 +188,9 @@ versioning (`0.y.z`) until the first stable release.
   while the music is quiet and, as it energises, gains colour, then a light
   sparkle, then full brightness. The response follows a smoothed energy
   level, never single beats, and sits at the end of each pattern as
-  ordinary nodes. The level follows the music within about a fifth of a
-  second, so the swell lands with the sound rather than behind it.
+  ordinary nodes. The stage follows Audio Features' new Loudness, so a
+  quiet verse rests and a loud chorus lights however loud the song was a
+  moment ago, and it lands within about a tenth of a second of the sound.
   Harmonic Shard Array's polygon no longer leaves the panel on loud bass.
 
 - **Previous Pattern**, **Next Pattern** and an encoder now change the pattern

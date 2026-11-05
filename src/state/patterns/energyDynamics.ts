@@ -4,10 +4,14 @@
 // shelves, the string recipes and the release builder shape loudness alike,
 // and so a retune is one table rather than eighty-six graphs.
 //
-// Everything reads the smoothed `energy` of the pattern's own Audio Features
-// node (added when a pattern has none), never a beat, so the response swells
-// and settles instead of flashing. See the restrained-beat rule in
-// docs/development/patterns/graph-and-nodes.md.
+// Everything reads the `loudness` of the pattern's own Audio Features node
+// (added when a pattern has none), never a beat, so the response swells and
+// settles instead of flashing. Loudness, not Energy: Energy comes from a
+// spectrum FastLED normalises to each band's peak of the last few seconds, so
+// it reads a quiet intro as loud and a steady chorus as middling, and this
+// stage then dimmed the loud parts. Loudness is the input's absolute RMS on
+// the VU scale, so the Audio node's gain sets how loud "loud" is. See the
+// restrained-beat rule in docs/development/patterns/graph-and-nodes.md.
 import type { StudioEdge, StudioNode } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { SavedPattern } from './patternLibrary'
@@ -21,16 +25,15 @@ export interface EnergyDynamicsOptions {
   lightFloor?: number
 }
 
-/** The response shared by every pattern. `energy` is Audio Features' 0–1
- *  output, which real music drives to roughly 0.05 at rest and 0.7 at full
- *  tilt; the ranges below are in those units. */
+/** The response shared by every pattern. `loudness` is Audio Features' 0–1
+ *  RMS meter (0.25 RMS is full scale, see audio/stereoLevels.ts): a quiet
+ *  verse through a microphone at gain 1 sits near 0.1, a chorus near 0.6 and
+ *  kicks reach 1; the ranges below are in those units. */
 export const ENERGY_DYNAMICS = {
-  /** Per-frame smoothing of the Audio Features node the stage adds when a
-   *  pattern has none. Low, because the Smooth node below owns the response
-   *  in wall-clock seconds and two slow smoothers stacked made the brightness
-   *  swell about 0.6 s behind the music. */
-  featureSmoothing: 0.6,
-  /** Seconds the energy takes to follow a change (about 63% of a step). */
+  /** Seconds the loudness takes to follow a change (about 63% of a step).
+   *  Short enough to land with the music; the Smooth node is the only
+   *  smoother on this path, since a per-frame smoother stacked on it once
+   *  put the swell about 0.6 s behind the sound. */
   smoothing: 0.15,
   lightIn: [0.06, 0.65] as const,
   lightFloor: 0.35,
@@ -108,14 +111,23 @@ export function withEnergyDynamics(seed: EnergyDynamicsSeed, options: EnergyDyna
     return id
   }
 
-  let features = nodes.find((node) => nodeType(node) === 'AudioFeatures'
-    && edges.some((edge) => audioIns.has(edge.source) && edge.target === node.id))?.id
+  const own = nodes.find((node) => nodeType(node) === 'AudioFeatures'
+    && edges.some((edge) => audioIns.has(edge.source) && edge.target === node.id))
+  let features = own?.id
+  if (own) {
+    // A seed saved before Loudness existed carries the node's old port list.
+    const ports = definitions.get('AudioFeatures')!.outputs
+    const saved = (own.data as { outputs?: { id: string }[] }).outputs ?? []
+    if (!saved.some((port) => port.id === 'loudness')) {
+      own.data = { ...own.data, outputs: ports.map((port) => ({ ...port })) }
+    }
+  }
   if (!features) {
-    features = add('dynFeatures', 'AudioFeatures', 0, 1, { sensitivity: 0.55, gate: 0.1, smoothing: ENERGY_DYNAMICS.featureSmoothing })
+    features = add('dynFeatures', 'AudioFeatures', 0, 1, { sensitivity: 0.55, gate: 0.1 })
     wire(audioIn.id, audioHandle, features, 'audio')
   }
   add('dynEnergy', 'Smooth', 1, 1, { response: ENERGY_DYNAMICS.smoothing })
-  wire(features, 'energy', 'dynEnergy', 'value')
+  wire(features, 'loudness', 'dynEnergy', 'value')
 
   let tail = outEdge.source
   let tailHandle = outEdge.sourceHandle ?? 'frame'

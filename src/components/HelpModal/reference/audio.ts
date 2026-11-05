@@ -113,8 +113,8 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
 
   AudioFeatures: {
     overview: [
-      'Audio Features listens for the shape of the music rather than individual hits. Vocals estimates how much voice-like midrange there is, Energy tracks overall loudness, and Silence goes true when the sound drops below the gate.',
-      'Energy is a good master intensity for a whole patch. Vocals can bring in a melodic layer when the singer comes in. Silence is the switch for between songs: dim, pause, or swap to a calm idle look.',
+      'Audio Features listens for the shape of the music rather than individual hits. Vocals estimates how much voice-like midrange there is, Energy tracks how busy the sound is against the last few seconds, Loudness is how loud it actually is, and Silence goes true when the sound drops below the gate.',
+      'Loudness is the master intensity for a whole patch: it rests low in a quiet verse and climbs through the chorus, and the gain on the Audio node sets how loud counts as full. Energy adapts to the recent peak, so it stays lively through a quiet passage; use it for movement rather than brightness. Vocals can bring in a melodic layer when the singer comes in. Silence is the switch for between songs: dim, pause, or swap to a calm idle look.',
       'Sensitivity scales Energy and Vocals, Silence Gate sets how quiet counts as silence, and Smoothing keeps the outputs from twitching.',
     ],
     inputs: {
@@ -122,7 +122,8 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     },
     outputs: {
       vocals: 'How voice-like the midrange is, 0 to 1. A heuristic, not a singer detector.',
-      energy: 'Overall loudness, 0 to 1, smoothed.',
+      energy: 'How busy the sound is relative to the last few seconds, 0 to 1, smoothed.',
+      loudness: 'How loud the sound is, 0 to 1, from its level rather than its shape. Not smoothed; add a Smooth node to ease it.',
       silence: 'True while the energy is below the Silence Gate.',
     },
     propertyNote: 'Raise Silence Gate if room noise keeps the patch awake between songs.',

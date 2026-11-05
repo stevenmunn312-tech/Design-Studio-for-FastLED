@@ -58,6 +58,19 @@ export interface StereoLevels {
   channelCount: 1 | 2
 }
 
+/**
+ * Absolute loudness for Audio Features: the louder raw channel meter, 0..1 on
+ * the VU scale above. It deliberately skips `resolveStereoLevels`, whose
+ * microphone branch substitutes FastLED's peak-normalised bands, because a
+ * loudness that adapts to the last few seconds' peak reads a quiet verse as
+ * loud and a steady chorus as middling. A payload without channel meters
+ * (legacy recordings) is 0. Firmware twin: `_audioLoudness` from
+ * `src/codegen/audio/audioEngineCpp.ts` and the player sketch.
+ */
+export function audioLoudness(source: StereoLevelSource): number {
+  return Math.max(finiteLevel(source.leftLevel) ?? 0, finiteLevel(source.rightLevel) ?? 0)
+}
+
 /** Resolve browser channel buffers without ever presenting a mono source as
  * false stereo. The right buffer is ignored when the capture reports mono. */
 export function levelsFromSampleChannels(

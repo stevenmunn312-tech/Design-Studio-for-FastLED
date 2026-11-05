@@ -507,7 +507,7 @@ export function generateCpp(
   // A second laser sensor that does not feed an output still has to hold its
   // shutdown pin, or the one that does feed an output boots into a peer awake at 0x29.
   for (const peer of i2cDistanceBusPeers(nodes, live)) live.push(peer)
-  const audio = audioEngineForGraph(live, capabilityNodes, groups)
+  const audio = audioEngineForGraph(live, capabilityNodes, groups, edges)
   const emitEngine = !!audio
   const useAudioGlobals = emitEngine || !!opts.externalAudio
   const nativeFastLedAudio = emitEngine || !!opts.nativeFastLedAudio

@@ -338,10 +338,10 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('PercussionDetect', 'separation')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('AudioFeatures exposes vocals, energy, and silence controls in Audio', () => {
+  it('AudioFeatures exposes vocals, energy, loudness and silence controls in Audio', () => {
     const af = NODE_LIBRARY.find((n) => n.type === 'AudioFeatures')
     expect(af?.category).toBe('audio')
-    expect(af?.outputs.map((p) => p.id)).toEqual(['vocals', 'energy', 'silence'])
+    expect(af?.outputs.map((p) => p.id)).toEqual(['vocals', 'energy', 'loudness', 'silence'])
     expect(af?.defaultProperties).toMatchObject({ sensitivity: 0.5, gate: 0.12, smoothing: 0.8 })
     expect(propertyMeta('AudioFeatures', 'gate')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('AudioFeatures', 'smoothing')).toMatchObject({ control: 'slider', min: 0, max: 0.95 })

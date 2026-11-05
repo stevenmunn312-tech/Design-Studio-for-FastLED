@@ -12,7 +12,7 @@ import { clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, resampleSpectrumBins } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
 import { bandLevel, clampBandHz } from '../../audio/frequencyBand'
-import { resolveStereoLevels } from '../../audio/stereoLevels'
+import { audioLoudness, resolveStereoLevels } from '../../audio/stereoLevels'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
 
 const fftLevels   = instanceState('fftLevels', new Map<string, { bass: number; mids: number; treble: number }>())
@@ -289,6 +289,9 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     const smoothing = Math.max(0, Math.min(0.95, num(id, 'smoothing', props, 'smoothing', 0.8)))
     const audioValue = input(id, 'audio', null)
     const audio = isAudioSignal(audioValue) ? audioValue : null
+    // The raw channel meters, never resolveStereoLevels: on the microphone that
+    // helper substitutes FastLED's peak-normalised bands for the VU fixture.
+    const loudness = audio?.active || audio?.micActive ? audioLoudness(audio) : 0
     if (audio?.active) {
       const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
       const prev = audioFeatureLevels.get(key) ?? {
@@ -313,11 +316,11 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       const silence = energy < silenceThreshold
       const next = { ...prev, prevSpectrum: spectrum, vocals, energy, silence }
       audioFeatureLevels.set(key, next)
-      out = { vocals, energy, silence }
+      out = { vocals, energy, loudness, silence }
     } else if (useUiStore.getState().testSignal) {
       audioFeatureLevels.delete(key)
       const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
-      out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, silence: energy < 0.2 }
+      out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, loudness: energy, silence: energy < 0.2 }
     } else {
       // Audio just dropped out — decay through the node's own `smoothing`
       // curve instead of snapping straight to zero, so a momentary mic
@@ -328,13 +331,13 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
         const energy = prev.energy * smoothing
         if (vocals < 0.002 && energy < 0.002) {
           audioFeatureLevels.delete(key)
-          out = { vocals: 0, energy: 0, silence: true }
+          out = { vocals: 0, energy: 0, loudness: 0, silence: true }
         } else {
           audioFeatureLevels.set(key, { ...prev, vocals, energy, silence: true })
-          out = { vocals, energy, silence: true }
+          out = { vocals, energy, loudness, silence: true }
         }
       } else {
-        out = { vocals: 0, energy: 0, silence: true }
+        out = { vocals: 0, energy: 0, loudness, silence: true }
       }
     }
     return out

@@ -6,7 +6,7 @@ The existing 72 bundled audio pattern ids are unchanged. Fourteen saved library 
 
 ## Energy response
 
-Every candidate except the fourteen promoted saved patterns ends with a shared energy stage. While the music is quiet the pattern rests subdued; as the energy rises it gains colour, then a light sparkle, then full brightness, and the response follows a smoothed energy level rather than individual beats. Patterns that already dim themselves in quiet passages rest brighter in that stage so the two do not multiply into black. The stage is ordinary editable nodes (`dynEnergy`, `dynColor`, `dynGlitter`, `dynBrightness`) at the right of each graph when it is instantiated as a copy.
+Every candidate except the fourteen promoted saved patterns ends with a shared energy stage. While the music is quiet the pattern rests subdued; as the music gets louder it gains colour, then a light sparkle, then full brightness, and the response follows the smoothed loudness of the sound rather than individual beats or the peak-relative Energy output. Patterns that already dim themselves in quiet passages rest brighter in that stage so the two do not multiply into black. The stage is ordinary editable nodes (`dynEnergy`, `dynColor`, `dynGlitter`, `dynBrightness`) at the right of each graph when it is instantiated as a copy.
 
 ## Promoted saved patterns
 
@@ -117,7 +117,7 @@ Confident musical key colours a restrained moving tide. Bar phase scrolls its pa
 
 ## Audio behavior and fallbacks
 
-- Audio Features supplies absolute energy and vocals. Smooth nodes prevent instant changes in music energy from jerking continuous motion.
+- Audio Features supplies energy (relative to the recent peak), absolute loudness and vocals. Smooth nodes prevent instant changes in music energy from jerking continuous motion.
 - Song Structure supplies buildup progress, downbeats, mood and drop events where used. Drop events drive an attack-and-decay envelope, so one-frame detections produce readable gestures. The detected drop impact is held for the gesture: stronger drops produce a stronger response.
 - Vibe supplies relative band levels and spikes in selected scenes. Relative levels are explicitly clamped and mapped; they are not assumed to fit 0–1.
 - Pitch and key controls use confidence checks and musical defaults or held notes. Unpitched percussion does not force arbitrary pitch changes.
