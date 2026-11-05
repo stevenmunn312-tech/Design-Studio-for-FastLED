@@ -20,7 +20,10 @@ export function releaseAudio(frame: number, scenario: ReleaseScenario, dropImpac
   return {
     active: true, micActive: true, nativeFastLed: true,
     beat, bpm: 120, bass, mids, treble, micBass: bass, micMids: mids, micTreble: treble,
-    spectrum, detectorSpectrum: spectrum, leftLevel: energy * 0.8, rightLevel: energy * 0.45, channelCount: 2,
+    // Channel meters on the Stereo VU scale as a microphone at gain 1 hears
+    // music in the room (energyDynamics.ts): a quiet verse near 0.05, an
+    // energetic chorus near 0.27.
+    spectrum, detectorSpectrum: spectrum, leftLevel: energy * 0.35, rightLevel: energy * 0.2, channelCount: 2,
     vibe: { bass: energy * 1.8, mid: energy * 1.4, treble: energy * 1.6, volume: energy * 1.7,
       bassAtt: energy * 1.5, midAtt: energy * 1.25, trebleAtt: energy * 1.3,
       bassSpike: beat, midSpike: beat && frame % 30 === 0, trebleSpike: beat && frame % 45 === 0 },

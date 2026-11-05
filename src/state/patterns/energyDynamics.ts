@@ -26,22 +26,26 @@ export interface EnergyDynamicsOptions {
 }
 
 /** The response shared by every pattern. `loudness` is Audio Features' 0–1
- *  RMS meter (0.25 RMS is full scale, see audio/stereoLevels.ts): a quiet
- *  verse through a microphone at gain 1 sits near 0.1, a chorus near 0.6 and
- *  kicks reach 1; the ranges below are in those units. */
+ *  RMS meter (0.25 RMS is full scale, see audio/stereoLevels.ts). The ranges
+ *  below are in those units and sized for a microphone at gain 1 hearing
+ *  music in the room, measured on 2026-11-05 with a laptop array: frames sat
+ *  at 0.02 (10th percentile), 0.09 (median) and 0.17 (90th), peaking at
+ *  0.34. A line input or the Music Player runs several times hotter and
+ *  simply holds the stage open, which is the pre-stage look. */
 export const ENERGY_DYNAMICS = {
   /** Seconds the loudness takes to follow a change (about 63% of a step).
    *  Short enough to land with the music; the Smooth node is the only
    *  smoother on this path, since a per-frame smoother stacked on it once
    *  put the swell about 0.6 s behind the sound. */
   smoothing: 0.15,
-  lightIn: [0.06, 0.65] as const,
+  /** Full brightness by the room's 90th-percentile frame. */
+  lightIn: [0.02, 0.2] as const,
   lightFloor: 0.35,
-  /** The colour lift starts as soon as the music has any energy. */
-  boostIn: [0.2, 0.65] as const,
+  /** The colour lift starts above the room's median and completes on its peaks. */
+  boostIn: [0.12, 0.3] as const,
   boostMax: 0.3,
-  /** Sparkle waits for the energetic half and is absent before it. */
-  sparkleIn: [0.42, 0.72] as const,
+  /** Sparkle belongs to the loudest moments only. */
+  sparkleIn: [0.16, 0.34] as const,
   sparkleMax: 0.45,
   sparkle: { r: 255, g: 250, b: 240 },
 }

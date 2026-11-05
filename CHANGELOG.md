@@ -191,6 +191,9 @@ versioning (`0.y.z`) until the first stable release.
   ordinary nodes. The stage follows Audio Features' new Loudness, so a
   quiet verse rests and a loud chorus lights however loud the song was a
   moment ago, and it lands within about a tenth of a second of the sound.
+  Its ranges are sized to a microphone at gain 1 hearing music in the room,
+  so the brightness, colour and sparkle actually move on a laptop mic;
+  louder sources simply hold the stage open.
   Harmonic Shard Array's polygon no longer leaves the panel on loud bass.
 
 - **Previous Pattern**, **Next Pattern** and an encoder now change the pattern

@@ -32,7 +32,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   seconds, so it read a quiet intro as loud and a steady chorus as middling
   and the stage dimmed the loud parts. Loudness is the input's absolute RMS
   on the VU scale (`audioLoudness` in `audio/stereoLevels.ts`, firmware
-  `_audioLoudness`), so the Audio node's gain sets how loud "loud" is. Keep
+  `_audioLoudness`), so the Audio node's gain sets how loud "loud" is; the
+  stage's ranges are sized to a laptop microphone at gain 1 hearing music in
+  the room (median frame near 0.09, peaks near 0.34), which is far below the
+  meter's line-level full scale, so a line input or the player just holds
+  the stage open. Keep
   the response one short Smooth node: a per-frame smoother stacked on it
   once put the swell about 0.6 s behind the music. A pattern that already
   dims itself gets a higher rest brightness in `AUDIO_LIGHT_FLOORS`.
