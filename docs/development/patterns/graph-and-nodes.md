@@ -22,7 +22,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rating tool's ordinary pulse scenario never emits buildups or drops.
   Every bundled audio pattern except the promoted user graphs ends with
   the shared energy stage from `energyDynamics.ts` (subdued at rest, colour
-  then sparkle then full brightness as Audio Features' Loudness rises).
+  then full brightness as Audio Features' Loudness rises; no sparkle, which
+  Steve had removed after hearing it live).
   `bundledPatterns.ts` applies it to the JSON and string seeds, the release
   builder applies it in `finish()`, and the promoted graphs stay byte for
   byte so the library still deduplicates them against the user's saved

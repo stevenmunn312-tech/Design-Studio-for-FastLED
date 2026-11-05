@@ -185,16 +185,15 @@ versioning (`0.y.z`) until the first stable release.
 
 - **Audio patterns follow the energy of the music.** Every bundled audio
   pattern except the fourteen promoted saved patterns now rests subdued
-  while the music is quiet and, as it energises, gains colour, then a light
-  sparkle, then full brightness. The response follows a smoothed energy
+  while the music is quiet and, as it gets louder, gains colour, then full
+  brightness. The response follows a smoothed loudness
   level, never single beats, and sits at the end of each pattern as
   ordinary nodes. The stage follows Audio Features' new Loudness, so a
   quiet verse rests and a loud chorus lights however loud the song was a
   moment ago, and it lands within about a tenth of a second of the sound.
   Its ranges are sized to a microphone at gain 1 hearing music in the room,
-  so the brightness, colour and sparkle actually move on a laptop mic;
-  louder sources simply hold the stage open. The sparkle is light and
-  saved for the loudest moments.
+  so the brightness and colour actually move on a laptop mic; louder
+  sources simply hold the stage open.
   Harmonic Shard Array's polygon no longer leaves the panel on loud bass.
 
 - **Previous Pattern**, **Next Pattern** and an encoder now change the pattern

@@ -28,10 +28,10 @@ describe('shared energy dynamics', () => {
     for (const pattern of shaped) {
       const ids = new Set(pattern.subgraph.nodes.map((entry) => entry.id))
       expect(ids.has('dynColor'), pattern.name).toBe(true)
-      expect(ids.has('dynGlitter'), pattern.name).toBe(true)
+      expect(ids.has('dynGlitter'), pattern.name).toBe(false)
       const out = pattern.subgraph.nodes.find((entry) => entry.data.nodeType === 'GroupOutput')!
       const last = pattern.subgraph.edges.find((edge) => edge.target === out.id && edge.targetHandle === 'frame')!
-      expect(['dynBrightness', 'dynGlitter'], pattern.name).toContain(last.source)
+      expect(['dynBrightness', 'dynColor'], pattern.name).toContain(last.source)
       // The stage reuses the pattern's own Audio Features and adds one only when there is none.
       const features = pattern.subgraph.nodes.filter((entry) => entry.data.nodeType === 'AudioFeatures')
       if (features.some((entry) => entry.id === 'dynFeatures')) expect(features, pattern.name).toHaveLength(1)
@@ -45,13 +45,13 @@ describe('shared energy dynamics', () => {
     for (const [index, pattern] of promoted.entries()) {
       expect(pattern.subgraph).toEqual(SAVED_AUDIO_SEEDS[index].subgraph)
     }
-    // Release scenes shape their own exposure, so they take only colour and sparkle.
+    // Release scenes shape their own exposure, so they take only the colour lift.
     for (const pattern of AUDIO_BUNDLED_PATTERNS.slice(86)) {
       expect(pattern.subgraph.nodes.some((entry) => entry.id === 'dynBrightness'), pattern.name).toBe(false)
     }
   })
 
-  it('rests subdued, then lifts brightness, colour and sparkle with the energy', () => {
+  it('rests subdued, then lifts brightness and colour with the loudness', () => {
     for (const name of ['Chromasonic Vortex', 'String Bass Tide', 'Snare Rain']) {
       const pattern = byName(name)
       const string = pattern.bestOn?.includes('string') && !pattern.bestOn.includes('matrix')
@@ -59,10 +59,8 @@ describe('shared energy dynamics', () => {
       const height = string ? 1 : 16
       const quiet = renderReleaseScenario(pattern, 'quiet', width, height)
       const loud = renderReleaseScenario(pattern, 'energetic', width, height)
-      expect(Number(quiet.outputs.get('dynSparkle')?.result), name).toBe(0)
       expect(Number(quiet.outputs.get('dynBoost')?.result), name).toBe(0)
       expect(Number(quiet.outputs.get('dynLight')?.result), name).toBeLessThan(0.75)
-      expect(Number(loud.outputs.get('dynSparkle')?.result), name).toBeGreaterThan(0.05)
       expect(Number(loud.outputs.get('dynBoost')?.result), name).toBeGreaterThan(0.2)
       expect(Number(loud.outputs.get('dynLight')?.result), name).toBeGreaterThan(0.9)
       expect(mean(releasePixels(loud.frames)), name).toBeGreaterThan(mean(releasePixels(quiet.frames)) * 1.3)
@@ -85,7 +83,7 @@ describe('shared energy dynamics', () => {
       const cpp = generateCpp(nodes, edges, { recipe: pattern.subgraph })
       expect(cpp, name).not.toMatch(/\b(?:undefined|NaN)\b/)
       expect(cpp, name).toContain('n_pattern__dynLight_result')
-      expect(cpp, name).toContain('n_pattern__dynSparkle_result')
+      expect(cpp, name).toContain('n_pattern__dynBoost_result')
     }
   })
 

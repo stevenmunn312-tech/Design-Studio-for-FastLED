@@ -6,7 +6,7 @@ The existing 72 bundled audio pattern ids are unchanged. Fourteen saved library 
 
 ## Energy response
 
-Every candidate except the fourteen promoted saved patterns ends with a shared energy stage. While the music is quiet the pattern rests subdued; as the music gets louder it gains colour, then a light sparkle, then full brightness, and the response follows the smoothed loudness of the sound rather than individual beats or the peak-relative Energy output. Patterns that already dim themselves in quiet passages rest brighter in that stage so the two do not multiply into black. The stage is ordinary editable nodes (`dynEnergy`, `dynColor`, `dynGlitter`, `dynBrightness`) at the right of each graph when it is instantiated as a copy.
+Every candidate except the fourteen promoted saved patterns ends with a shared energy stage. While the music is quiet the pattern rests subdued; as the music gets louder it gains colour, then full brightness, and the response follows the smoothed loudness of the sound rather than individual beats or the peak-relative Energy output. Patterns that already dim themselves in quiet passages rest brighter in that stage so the two do not multiply into black. The stage is ordinary editable nodes (`dynEnergy`, `dynColor`, `dynGlitter`, `dynBrightness`) at the right of each graph when it is instantiated as a copy.
 
 ## Promoted saved patterns
 
@@ -29,7 +29,7 @@ These patterns retain their original names, ports, graphs and settings, includin
 
 ## New musical scenes
 
-Each new scene has a smoothed energy response, a scene-specific buildup gesture, a visible drop gesture with a decaying envelope, and a short fade into silence. The shared brightness stage leaves headroom for accents. The shared energy stage adds only its colour and sparkle to these scenes, because their own exposure already rests low. Graphs remain ordinary editable nodes when instantiated as copies.
+Each new scene has a smoothed energy response, a scene-specific buildup gesture, a visible drop gesture with a decaying envelope, and a short fade into silence. The shared brightness stage leaves headroom for accents. The shared energy stage adds only its colour lift to these scenes, because their own exposure already rests low. Graphs remain ordinary editable nodes when instantiated as copies.
 
 ### Noctilucent Origami
 

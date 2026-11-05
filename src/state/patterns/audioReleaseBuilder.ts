@@ -144,7 +144,7 @@ export class AudioReleaseBuilder {
       node.position = { x: column * 320, y: row * 420 }
       rows.set(column, row + 1)
     }
-    // The shared colour and sparkle lift sits after the scene's own exposure,
+    // The shared colour lift sits after the scene's own exposure,
     // which already rests low and fades to black in silence.
     return withEnergyDynamics({ name: this.name, bestOn: this.bestOn,
       inputs: audioPorts.map((port) => ({ ...port })), outputs: framePorts.map((port) => ({ ...port })),

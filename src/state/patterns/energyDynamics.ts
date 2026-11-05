@@ -1,6 +1,8 @@
 // The shared loudness stage every bundled audio pattern ends with: the frame
-// sits subdued while the music is quiet, and as the energy rises it gains
-// colour, then sparkle, then full brightness. One pure helper so the JSON
+// sits subdued while the music is quiet, and as the music gets louder it
+// gains colour, then full brightness. No sparkle: a white glitter the stage
+// once added read as too much even at a light density on the loudest peaks.
+// One pure helper so the JSON
 // shelves, the string recipes and the release builder shape loudness alike,
 // and so a retune is one table rather than eighty-six graphs.
 //
@@ -19,9 +21,9 @@ import type { SavedPattern } from './patternLibrary'
 export type EnergyDynamicsSeed = Omit<SavedPattern, 'id' | 'createdAt' | 'categoryId' | 'bundled'>
 
 export interface EnergyDynamicsOptions {
-  /** Brightness at rest, 0–1. The stage ramps it to 1 as the energy rises;
-   *  1 means the pattern already shapes its own brightness and gets only the
-   *  colour and sparkle. */
+  /** Brightness at rest, 0–1. The stage ramps it to 1 as the music gets
+   *  louder; 1 means the pattern already shapes its own brightness and gets
+   *  only the colour lift. */
   lightFloor?: number
 }
 
@@ -44,11 +46,6 @@ export const ENERGY_DYNAMICS = {
   /** The colour lift starts above the room's median and completes on its peaks. */
   boostIn: [0.12, 0.3] as const,
   boostMax: 0.3,
-  /** Sparkle belongs to the loudest moments only, and stays light even
-   *  there: 0.45 density on a 90th-percentile frame read as too much. */
-  sparkleIn: [0.2, 0.34] as const,
-  sparkleMax: 0.18,
-  sparkle: { r: 255, g: 250, b: 240 },
 }
 
 const definitions = new Map(NODE_LIBRARY.map((definition) => [definition.type, definition]))
@@ -147,16 +144,12 @@ export function withEnergyDynamics(seed: EnergyDynamicsSeed, options: EnergyDyna
   shaped('dynColor', 'ColorBoost', 4, { boost: 0 })
   wire('dynBoost', 'result', 'dynColor', 'boost')
 
-  ramp('dynSparkle', 2, 2, ENERGY_DYNAMICS.sparkleIn, 0, ENERGY_DYNAMICS.sparkleMax)
-  shaped('dynGlitter', 'Glitter', 5, { density: 0, glitterMode: 'add', ...ENERGY_DYNAMICS.sparkle, seed: 7 })
-  wire('dynSparkle', 'result', 'dynGlitter', 'density')
-
-  let columns = 6
+  let columns = 5
   if (lightFloor < 1) {
-    ramp('dynLight', 2, 3, ENERGY_DYNAMICS.lightIn, lightFloor, 1)
-    shaped('dynBrightness', 'BrightnessMod', 6, { brightness: 1 })
+    ramp('dynLight', 2, 2, ENERGY_DYNAMICS.lightIn, lightFloor, 1)
+    shaped('dynBrightness', 'BrightnessMod', 5, { brightness: 1 })
     wire('dynLight', 'result', 'dynBrightness', 'brightness')
-    columns = 7
+    columns = 6
   }
 
   out.position = { x: out.position.x + columns * COLUMN, y: out.position.y }
