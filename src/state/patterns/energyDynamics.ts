@@ -44,9 +44,10 @@ export const ENERGY_DYNAMICS = {
   /** The colour lift starts above the room's median and completes on its peaks. */
   boostIn: [0.12, 0.3] as const,
   boostMax: 0.3,
-  /** Sparkle belongs to the loudest moments only. */
-  sparkleIn: [0.16, 0.34] as const,
-  sparkleMax: 0.45,
+  /** Sparkle belongs to the loudest moments only, and stays light even
+   *  there: 0.45 density on a 90th-percentile frame read as too much. */
+  sparkleIn: [0.2, 0.34] as const,
+  sparkleMax: 0.18,
   sparkle: { r: 255, g: 250, b: 240 },
 }
 

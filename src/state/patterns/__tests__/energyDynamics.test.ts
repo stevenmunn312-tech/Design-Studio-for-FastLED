@@ -62,7 +62,7 @@ describe('shared energy dynamics', () => {
       expect(Number(quiet.outputs.get('dynSparkle')?.result), name).toBe(0)
       expect(Number(quiet.outputs.get('dynBoost')?.result), name).toBe(0)
       expect(Number(quiet.outputs.get('dynLight')?.result), name).toBeLessThan(0.75)
-      expect(Number(loud.outputs.get('dynSparkle')?.result), name).toBeGreaterThan(0.2)
+      expect(Number(loud.outputs.get('dynSparkle')?.result), name).toBeGreaterThan(0.05)
       expect(Number(loud.outputs.get('dynBoost')?.result), name).toBeGreaterThan(0.2)
       expect(Number(loud.outputs.get('dynLight')?.result), name).toBeGreaterThan(0.9)
       expect(mean(releasePixels(loud.frames)), name).toBeGreaterThan(mean(releasePixels(quiet.frames)) * 1.3)

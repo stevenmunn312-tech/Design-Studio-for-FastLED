@@ -193,7 +193,8 @@ versioning (`0.y.z`) until the first stable release.
   moment ago, and it lands within about a tenth of a second of the sound.
   Its ranges are sized to a microphone at gain 1 hearing music in the room,
   so the brightness, colour and sparkle actually move on a laptop mic;
-  louder sources simply hold the stage open.
+  louder sources simply hold the stage open. The sparkle is light and
+  saved for the loudest moments.
   Harmonic Shard Array's polygon no longer leaves the panel on loud bass.
 
 - **Previous Pattern**, **Next Pattern** and an encoder now change the pattern
