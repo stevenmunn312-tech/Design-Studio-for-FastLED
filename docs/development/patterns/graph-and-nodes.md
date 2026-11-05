@@ -26,7 +26,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rises). `bundledPatterns.ts` applies it to the JSON and string seeds, the
   release builder applies it in `finish()`, and the promoted graphs stay
   byte for byte so the library still deduplicates them against the user's
-  saved copies. Retune the stage in its table, not in eighty graphs; a
+  saved copies. Retune the stage in its table, not in eighty graphs. Keep
+  its response short: the added Audio Features node smooths per frame and
+  the Smooth node in seconds, and stacking two slow smoothers once put the
+  brightness swell about 0.6 s behind the music heard through the mic; a
   pattern that already dims itself gets a higher rest brightness in
   `AUDIO_LIGHT_FLOORS`. The stage reads energy only, never a beat.
   Shared `PatternFormIcons` shows those preferences in the sidebar and collection

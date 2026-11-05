@@ -180,8 +180,9 @@ versioning (`0.y.z`) until the first stable release.
   while the music is quiet and, as it energises, gains colour, then a light
   sparkle, then full brightness. The response follows a smoothed energy
   level, never single beats, and sits at the end of each pattern as
-  ordinary nodes. Harmonic Shard Array's polygon no longer leaves the panel
-  on loud bass.
+  ordinary nodes. The level follows the music within about a fifth of a
+  second, so the swell lands with the sound rather than behind it.
+  Harmonic Shard Array's polygon no longer leaves the panel on loud bass.
 
 - **Previous Pattern**, **Next Pattern** and an encoder now change the pattern
   on the LEDs straight away, with nothing to confirm. A single step while a

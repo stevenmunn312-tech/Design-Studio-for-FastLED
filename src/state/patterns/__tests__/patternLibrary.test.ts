@@ -279,6 +279,9 @@ describe('patternLibrary', () => {
     // use independent envelope and energy-response tests, including brief accents.
     for (const pattern of AUDIO_BUNDLED_PATTERNS.slice(0, 72)) {
       for (const node of pattern.subgraph.nodes) {
+        // The shared energy stage (dyn* nodes) is tuned in energyDynamics.ts
+        // for a tight loudness response, not this shelf baseline.
+        if (node.id.startsWith('dyn')) continue
         const type = String(node.data.nodeType)
         const props = node.data.properties as Record<string, unknown>
         const label = `${pattern.name} / ${type}`

@@ -25,8 +25,13 @@ export interface EnergyDynamicsOptions {
  *  output, which real music drives to roughly 0.05 at rest and 0.7 at full
  *  tilt; the ranges below are in those units. */
 export const ENERGY_DYNAMICS = {
+  /** Per-frame smoothing of the Audio Features node the stage adds when a
+   *  pattern has none. Low, because the Smooth node below owns the response
+   *  in wall-clock seconds and two slow smoothers stacked made the brightness
+   *  swell about 0.6 s behind the music. */
+  featureSmoothing: 0.6,
   /** Seconds the energy takes to follow a change (about 63% of a step). */
-  smoothing: 0.45,
+  smoothing: 0.15,
   lightIn: [0.06, 0.65] as const,
   lightFloor: 0.35,
   /** The colour lift starts as soon as the music has any energy. */
@@ -106,7 +111,7 @@ export function withEnergyDynamics(seed: EnergyDynamicsSeed, options: EnergyDyna
   let features = nodes.find((node) => nodeType(node) === 'AudioFeatures'
     && edges.some((edge) => audioIns.has(edge.source) && edge.target === node.id))?.id
   if (!features) {
-    features = add('dynFeatures', 'AudioFeatures', 0, 1, { sensitivity: 0.55, gate: 0.1, smoothing: 0.82 })
+    features = add('dynFeatures', 'AudioFeatures', 0, 1, { sensitivity: 0.55, gate: 0.1, smoothing: ENERGY_DYNAMICS.featureSmoothing })
     wire(audioIn.id, audioHandle, features, 'audio')
   }
   add('dynEnergy', 'Smooth', 1, 1, { response: ENERGY_DYNAMICS.smoothing })
