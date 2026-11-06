@@ -41,7 +41,7 @@ export const PATTERN_INTENTS: { id: PatternIntent; label: string; description: s
   { id: 'showpiece', label: 'Showpiece', description: 'Bold, structured, and designed to command attention.' },
   { id: 'accent', label: 'Accent / Sparkle', description: 'Sparse, burst-like, or deliberately punctuated.' },
   { id: 'audio-reactive', label: 'Audio-reactive', description: 'Judged on controlled, visible response to music.' },
-  { id: 'static-utility', label: 'Static / Utility', description: 'Text, clocks, indicators, fills, and functional output.' },
+  { id: 'static-utility', label: 'Utility', description: 'Text, clocks, indicators, fills, and functional output.' },
 ]
 
 export interface RatingThumbnail {

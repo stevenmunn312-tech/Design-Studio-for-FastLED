@@ -100,6 +100,54 @@ describe('PatternCollectionPicker', () => {
     expect(within(screen.getByRole('button', { name: /Audio Reactive/ })).getByText('1')).toBeTruthy()
   })
 
+  it('splits audio into Standard and Audio Reactive, both pressed meaning all', () => {
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /Standard/ }))
+    expect(rowNames()).toEqual(['Scanner', 'Juggle'])
+    fireEvent.click(screen.getByRole('button', { name: /Audio Reactive/ }))
+    expect(rowNames()).toEqual(['Scanner', 'Juggle', 'Spectrum Bars'])
+  })
+
+  it('keeps the audio-reactive intent out of the Intent row — it has its own', () => {
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
+    const intentRow = screen.getByRole('group', { name: 'Filter by intent' })
+    expect(within(intentRow).getAllByRole('button').map((chip) => chip.textContent?.replace(/\d+$/, '')))
+      .toEqual(['Ambient', 'Showpiece', 'Accent / Sparkle', 'Utility'])
+  })
+
+  it('treats Rating as a choice between All and Strong only', () => {
+    usePatternRatingStore.setState({
+      ratingsByPatternId: {
+        'pat-juggle': { patternId: 'pat-juggle', intent: 'ambient', overall: 80, failed: false, skipped: false },
+        'pat-scanner': { patternId: 'pat-scanner', intent: 'ambient', overall: 40, failed: false, skipped: false },
+      } as never,
+    })
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
+    const all = screen.getByRole('button', { name: /^All/ })
+    const strong = screen.getByRole('button', { name: /Strong only/ })
+    expect(all.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(strong)
+    expect(rowNames()).toEqual(['Juggle'])
+    expect(screen.getByRole('button', { name: /^All/ }).getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: /^All/ }))
+    expect(rowNames()).toContain('Scanner')
+  })
+
+  it('labels a row with its intent, never its shelf', () => {
+    usePatternLibrary.setState({
+      patterns: [{ ...LIBRARY[0], categoryId: 'shelf-a' }],
+      categories: [{ id: 'shelf-a', name: 'Audio Reactive' }],
+    } as never)
+    usePatternRatingStore.setState({
+      ratingsByPatternId: {
+        'pat-juggle': { patternId: 'pat-juggle', intent: 'ambient', overall: 80, failed: false, skipped: false },
+      } as never,
+    })
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
+    const row = screen.getByRole('checkbox', { name: 'Select Juggle' }).closest('label')!
+    expect(row.querySelector('small')?.textContent).toBe('Ambient')
+  })
+
   it('turns the output facet off entirely when no chip is pressed', () => {
     render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: /LED String/ }))

@@ -326,7 +326,12 @@ Audio Reactive" narrows the way it reads. Sort stays a `<select>`, because
 ordering genuinely is one-of-four. Every chip carries a count computed with its
 own facet excluded; a chip that read zero while you filtered on it would make a
 narrowed list look like a thin library, which is the failure mode that makes
-faceted search feel broken.
+faceted search feel broken. The facets are one axis each — Output, Audio
+(Standard / Audio Reactive, read from the pattern's graph), Intent (the scored
+intents minus audio-reactive, which the Audio row already owns) and Rating (All
+/ Strong only, a choice rather than a toggle). The shelf sorts and searches but
+does not filter or label a row: a shelf named "Audio Reactive" beside an
+audio-reactive intent read as the same word printed twice.
 
 ### Where a pattern looks best is authored, not measured
 

@@ -32,15 +32,25 @@ interface Props {
  *  nowhere to filter on them are chips now. */
 type SortMode = 'name' | 'studio' | 'mine' | 'shelf'
 const EMPTY_PATTERN_IDS: string[] = []
-const UNSORTED_SHELF = ''
+
+/** Whether a pattern reads the audio input. Decided by the pattern itself, not
+ *  by the shelf it sits on or the intent it was scored under. */
+type AudioKind = 'standard' | 'reactive'
+const AUDIO_KINDS: { id: AudioKind; label: string; title: string }[] = [
+  { id: 'standard', label: 'Standard', title: 'Runs on its own clock — no audio input in the pattern.' },
+  { id: 'reactive', label: 'Audio Reactive', title: 'Reads the audio input — derived from the pattern itself, not from the shelf it sits on.' },
+]
+
+/** The intents a pattern is scored under. Audio-reactivity has its own row
+ *  because it is a property of the graph, not a judgement about it. */
+const INTENT_CHIPS = PATTERN_INTENTS.filter((intent) => intent.id !== 'audio-reactive')
 
 interface Row {
   pattern: SavedPattern
   rating: PatternRating | undefined
   userRating: number
-  shelfId: string
   shelf: string
-  audio: boolean
+  audio: AudioKind
 }
 
 type FitRow = Row & { fit: PatternFit }
@@ -76,8 +86,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('name')
   const [intents, setIntents] = useState<Set<PatternIntent>>(new Set())
-  const [shelves, setShelves] = useState<Set<string>>(new Set())
-  const [audioOnly, setAudioOnly] = useState(false)
+  const [audioKinds, setAudioKinds] = useState<Set<AudioKind>>(new Set())
   const [strongOnly, setStrongOnly] = useState(false)
   const [showPoor, setShowPoor] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -113,18 +122,16 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     pattern,
     rating: ratingsByPatternId[pattern.id],
     userRating: userRatingsByPatternId[pattern.id] ?? 0,
-    shelfId: pattern.categoryId ?? UNSORTED_SHELF,
+    // The shelf still sorts and searches; it no longer filters or labels the
+    // row, where it collided with the audio chip and the intent.
     shelf: pattern.categoryId ? categoryNames.get(pattern.categoryId) ?? 'Unknown shelf' : 'New & Unsorted',
     // Derived from the pattern, not from the shelf it happens to sit on, so a
     // saved pattern answers this chip without ever having been scanned.
-    audio: isAudioReactiveSubgraph(pattern.subgraph.nodes),
+    audio: isAudioReactiveSubgraph(pattern.subgraph.nodes) ? 'reactive' : 'standard',
   })), [categoryNames, patterns, ratingsByPatternId, userRatingsByPatternId])
 
-  const shelfOptions = useMemo(() => {
-    const seen = new Map<string, string>()
-    for (const row of allRows) if (!seen.has(row.shelfId)) seen.set(row.shelfId, row.shelf)
-    return [...seen].map(([id, name]) => ({ id, name }))
-  }, [allRows])
+  const isStrong = (rating: PatternRating | undefined): boolean =>
+    !!rating && !rating.failed && !rating.skipped && rating.overall >= 75
 
   /**
    * OR within a facet, AND across facets — so "LED String + Audio Reactive"
@@ -135,18 +142,14 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
    * facet reads zero except the pressed one, and the list looks empty when it
    * is merely narrowed.
    */
-  const matches = useMemo(() => (row: Row, skip?: 'intent' | 'shelf' | 'audio' | 'strong') => {
+  const matches = useMemo(() => (row: Row, skip?: 'intent' | 'audio' | 'strong') => {
     const needle = query.trim().toLocaleLowerCase()
     if (needle && !`${row.pattern.name} ${row.shelf}`.toLocaleLowerCase().includes(needle)) return false
     if (skip !== 'intent' && intents.size > 0 && (!row.rating || !intents.has(row.rating.intent))) return false
-    if (skip !== 'shelf' && shelves.size > 0 && !shelves.has(row.shelfId)) return false
-    if (skip !== 'audio' && audioOnly && !row.audio) return false
-    if (skip !== 'strong' && strongOnly) {
-      const { rating } = row
-      if (!rating || rating.failed || rating.skipped || rating.overall < 75) return false
-    }
+    if (skip !== 'audio' && audioKinds.size > 0 && !audioKinds.has(row.audio)) return false
+    if (skip !== 'strong' && strongOnly && !isStrong(row.rating)) return false
     return true
-  }, [audioOnly, intents, query, shelves, strongOnly])
+  }, [audioKinds, intents, query, strongOnly])
 
   /**
    * How a pattern suits the selected outputs: best if it is best on any of
@@ -221,10 +224,14 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     onClose()
   }
 
-  const renderRow = ({ pattern, rating, userRating, shelf, fit }: FitRow) => {
+  const renderRow = ({ pattern, rating, userRating, fit }: FitRow) => {
     const added = existingSourceIds.has(pattern.id)
     const checked = selected.has(pattern.id)
     const tier = rating && !rating.failed ? ratingTier(rating.overall) : 'bad'
+    const subtitle = [
+      rating ? PATTERN_INTENTS.find((intent) => intent.id === rating.intent)?.label ?? rating.intent : null,
+      pattern.bundled ? 'bundled' : null,
+    ].filter(Boolean).join(' · ')
     return (
       <label
         key={pattern.id}
@@ -239,7 +246,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
         />
         <span className={styles.rowCopy}>
           <strong>{pattern.name}</strong>
-          <small>{shelf}{rating ? ` · ${PATTERN_INTENTS.find((intent) => intent.id === rating.intent)?.label ?? rating.intent}` : ''}{pattern.bundled ? ' · bundled' : ''}</small>
+          {subtitle && <small>{subtitle}</small>}
         </span>
         <PatternFormIcons bestOn={pattern.bestOn} />
         {added ? (
@@ -314,16 +321,23 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
             ))}
           </div>
 
-          <div className={styles.facet} role="group" aria-label="Filter by intent and quality">
-            <span className={styles.facetLabel}>Suits</span>
-            <Chip
-              label="Audio Reactive"
-              title="Reads the audio input — derived from the pattern itself, not from the shelf it sits on."
-              on={audioOnly}
-              count={allRows.filter((row) => matches(row, 'audio') && row.audio).length}
-              onClick={() => setAudioOnly((value) => !value)}
-            />
-            {PATTERN_INTENTS.map((intent) => (
+          <div className={styles.facet} role="group" aria-label="Filter by audio input">
+            <span className={styles.facetLabel}>Audio</span>
+            {AUDIO_KINDS.map((kind) => (
+              <Chip
+                key={kind.id}
+                label={kind.label}
+                title={kind.title}
+                on={audioKinds.has(kind.id)}
+                count={allRows.filter((row) => matches(row, 'audio') && row.audio === kind.id).length}
+                onClick={() => toggleSetValue(audioKinds, setAudioKinds, kind.id)}
+              />
+            ))}
+          </div>
+
+          <div className={styles.facet} role="group" aria-label="Filter by intent">
+            <span className={styles.facetLabel}>Intent</span>
+            {INTENT_CHIPS.map((intent) => (
               <Chip
                 key={intent.id}
                 label={intent.label}
@@ -333,32 +347,25 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
                 onClick={() => toggleSetValue(intents, setIntents, intent.id)}
               />
             ))}
+          </div>
+
+          <div className={styles.facet} role="group" aria-label="Filter by Studio Score">
+            <span className={styles.facetLabel}>Rating</span>
+            <Chip
+              label="All"
+              title="Every pattern, scored or not."
+              on={!strongOnly}
+              count={allRows.filter((row) => matches(row, 'strong')).length}
+              onClick={() => setStrongOnly(false)}
+            />
             <Chip
               label="Strong only"
               title="Studio Score of 75 or better."
               on={strongOnly}
-              count={allRows.filter((row) => (
-                matches(row, 'strong')
-                && !!row.rating && !row.rating.failed && !row.rating.skipped && row.rating.overall >= 75
-              )).length}
-              onClick={() => setStrongOnly((value) => !value)}
+              count={allRows.filter((row) => matches(row, 'strong') && isStrong(row.rating)).length}
+              onClick={() => setStrongOnly(true)}
             />
           </div>
-
-          {shelfOptions.length > 1 && (
-            <div className={styles.facet} role="group" aria-label="Filter by shelf">
-              <span className={styles.facetLabel}>Shelf</span>
-              {shelfOptions.map((shelf) => (
-                <Chip
-                  key={shelf.id}
-                  label={shelf.name}
-                  on={shelves.has(shelf.id)}
-                  count={allRows.filter((row) => matches(row, 'shelf') && row.shelfId === shelf.id).length}
-                  onClick={() => toggleSetValue(shelves, setShelves, shelf.id)}
-                />
-              ))}
-            </div>
-          )}
         </div>
 
         <div className={styles.columnHead}>
