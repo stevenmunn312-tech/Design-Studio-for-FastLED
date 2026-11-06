@@ -6,3 +6,9 @@
   color: color-mix(in srgb, var(--accent-library) 74%, white);
   vertical-align: middle;
 }
+
+/* An empty column keeps the next symbol in its place. */
+.slot {
+  width: 16px;
+  height: 16px;
+}

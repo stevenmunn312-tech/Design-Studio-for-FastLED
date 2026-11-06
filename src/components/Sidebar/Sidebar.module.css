@@ -235,28 +235,42 @@
 }
 
 /* Saved-pattern rows: name on the left, rename/delete on the right (on hover). */
+/* Saved-pattern rows: the name takes the free space, then fixed-width columns
+   (display symbols, your stars, Studio Score) packed against the right edge. */
 .patternItem {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: calc(var(--space-0) * 1.5);
 }
 .patternItem[draggable='true']:hover::after { content: ''; display: none; }
 
 .patternName {
+  flex: 1 1 0;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Rename/share/delete float over the score columns on hover, so they take
+   no width and every row's score sits at the same right edge. */
 .patternActions {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--space-0) * 1.75);
+  transform: translateY(-50%);
   display: flex;
   gap: calc(var(--space-0) * 0.5);
-  flex-shrink: 0;
+  padding: calc(var(--space-0) * 0.5) 0 calc(var(--space-0) * 0.5) var(--space-0);
+  border-radius: 4px;
+  background: var(--bg-panel);
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--anim-hover);
 }
-.patternItem:hover .patternActions { opacity: 1; }
+.patternItem:hover .patternActions,
+.patternItem:focus-within .patternActions { opacity: 1; pointer-events: auto; }
 
 .patternBtn {
   background: none;
@@ -738,6 +752,8 @@
 
 .patternUserRating {
   flex-shrink: 0;
+  width: 2.4em;
+  text-align: right;
   color: var(--warning);
   font-family: var(--font-body);
   font-size: var(--fs-label);

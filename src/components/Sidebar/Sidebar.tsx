@@ -1173,19 +1173,16 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
                     </span>
                   )}
                   <PatternFormIcons bestOn={pattern.bestOn} />
-                  {rating && (
-                    <span
-                      className={`${styles.patternRating} ${styles[`patternRating_${scoreTier}`]}`}
-                      title={rating.failed ? 'Studio could not assess this pattern' : rating.skipped ? 'Allow this pattern’s code to run before Studio can judge it' : `${rating.verdictLabel} · Studio Score ${rating.overall}`}
-                    >
-                      {rating.failed || rating.skipped ? '—' : rating.overall}
-                    </span>
-                  )}
-                  {userRating && (
-                    <span className={styles.patternUserRating} title={`Your rating: ${userRating} of 5 stars`}>
-                      ★{userRating}
-                    </span>
-                  )}
+                  {/* Fixed-width columns, always present, so symbols and scores line up down the list. */}
+                  <span className={styles.patternUserRating} title={userRating ? `Your rating: ${userRating} of 5 stars` : undefined}>
+                    {userRating ? `★${userRating}` : null}
+                  </span>
+                  <span
+                    className={rating ? `${styles.patternRating} ${styles[`patternRating_${scoreTier}`]}` : styles.patternRating}
+                    title={!rating ? undefined : rating.failed ? 'Studio could not assess this pattern' : rating.skipped ? 'Allow this pattern’s code to run before Studio can judge it' : `${rating.verdictLabel} · Studio Score ${rating.overall}`}
+                  >
+                    {!rating ? null : rating.failed || rating.skipped ? '—' : rating.overall}
+                  </span>
                   {!pattern.bundled && (
                     <span className={styles.patternActions}>
                       <button
