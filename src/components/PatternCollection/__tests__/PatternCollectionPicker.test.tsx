@@ -127,7 +127,8 @@ describe('PatternCollectionPicker', () => {
     const pressed = (name: RegExp) => screen.getByRole('button', { name }).getAttribute('aria-pressed')
     expect(pressed(/^All/)).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: /^Strong/ }))
-    expect(rowNames().sort()).toEqual(['Juggle', 'Spectrum Bars'])
+    // Strong is the 75–89 band; the 95 belongs to Exceptional alone.
+    expect(rowNames()).toEqual(['Juggle'])
     expect(pressed(/^All/)).toBe('false')
     fireEvent.click(screen.getByRole('button', { name: /^Exceptional/ }))
     expect(rowNames()).toEqual(['Spectrum Bars'])

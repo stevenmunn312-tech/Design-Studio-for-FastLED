@@ -329,7 +329,7 @@ narrowed list look like a thin library, which is the failure mode that makes
 faceted search feel broken. The facets are one axis each — Output, Audio
 (Standard / Audio Reactive, read from the pattern's graph), Intent (the scored
 intents minus audio-reactive, which the Audio row already owns) and Rating (All
-/ Strong 75+ / Exceptional 90+, one choice of score floor rather than a
+/ Strong 75–89 / Exceptional 90+, one choice of verdict band rather than a
 toggle). The shelf sorts and searches but
 does not filter or label a row: a shelf named "Audio Reactive" beside an
 audio-reactive intent read as the same word printed twice.

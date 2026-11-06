@@ -19,6 +19,7 @@ import {
   verdictForScore,
   type PatternIntent,
   type PatternRating,
+  type PatternVerdict,
 } from '../../state/patterns/patternRating'
 import { useUiStore } from '../../state/uiStore'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -46,9 +47,12 @@ const AUDIO_KINDS: { id: AudioKind; label: string; title: string }[] = [
  *  because it is a property of the graph, not a judgement about it. */
 const INTENT_CHIPS = PATTERN_INTENTS.filter((intent) => intent.id !== 'audio-reactive')
 
-/** Rating is one choice of score floor; each chip is named by the verdict its
- *  floor starts, so Strong (75+) still includes the Exceptional (90+) ones. */
-const RATING_CHIPS = [75, 90].map((floor) => ({ floor, label: verdictForScore(floor).label }))
+/** Rating is one choice of verdict band, so Strong (75–89) and Exceptional
+ *  (90+) never overlap. Names and bands both come from verdictForScore. */
+const RATING_CHIPS: { verdict: PatternVerdict; label: string; title: string }[] = [
+  { verdict: 'strong', label: verdictForScore(75).label, title: 'Studio Score of 75 to 89.' },
+  { verdict: 'exceptional', label: verdictForScore(90).label, title: 'Studio Score of 90 or better.' },
+]
 
 interface Row {
   pattern: SavedPattern
@@ -92,7 +96,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const [sort, setSort] = useState<SortMode>('name')
   const [intents, setIntents] = useState<Set<PatternIntent>>(new Set())
   const [audioKinds, setAudioKinds] = useState<Set<AudioKind>>(new Set())
-  const [minScore, setMinScore] = useState(0)
+  const [verdict, setVerdict] = useState<PatternVerdict | null>(null)
   const [showPoor, setShowPoor] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const dialogRef = useModalFocus<HTMLDivElement>(onClose)
@@ -135,8 +139,8 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     audio: isAudioReactiveSubgraph(pattern.subgraph.nodes) ? 'reactive' : 'standard',
   })), [categoryNames, patterns, ratingsByPatternId, userRatingsByPatternId])
 
-  const scoresAtLeast = (rating: PatternRating | undefined, floor: number): boolean =>
-    !!rating && !rating.failed && !rating.skipped && rating.overall >= floor
+  const hasVerdict = (rating: PatternRating | undefined, wanted: PatternVerdict): boolean =>
+    !!rating && !rating.failed && !rating.skipped && verdictForScore(rating.overall).id === wanted
 
   /**
    * OR within a facet, AND across facets — so "LED String + Audio Reactive"
@@ -152,9 +156,9 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     if (needle && !`${row.pattern.name} ${row.shelf}`.toLocaleLowerCase().includes(needle)) return false
     if (skip !== 'intent' && intents.size > 0 && (!row.rating || !intents.has(row.rating.intent))) return false
     if (skip !== 'audio' && audioKinds.size > 0 && !audioKinds.has(row.audio)) return false
-    if (skip !== 'score' && minScore > 0 && !scoresAtLeast(row.rating, minScore)) return false
+    if (skip !== 'score' && verdict && !hasVerdict(row.rating, verdict)) return false
     return true
-  }, [audioKinds, intents, query, minScore])
+  }, [audioKinds, intents, query, verdict])
 
   /**
    * How a pattern suits the selected outputs: best if it is best on any of
@@ -359,18 +363,18 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
             <Chip
               label="All"
               title="Every pattern, scored or not."
-              on={minScore === 0}
+              on={verdict === null}
               count={allRows.filter((row) => matches(row, 'score')).length}
-              onClick={() => setMinScore(0)}
+              onClick={() => setVerdict(null)}
             />
             {RATING_CHIPS.map((chip) => (
               <Chip
-                key={chip.floor}
+                key={chip.verdict}
                 label={chip.label}
-                title={`Studio Score of ${chip.floor} or better.`}
-                on={minScore === chip.floor}
-                count={allRows.filter((row) => matches(row, 'score') && scoresAtLeast(row.rating, chip.floor)).length}
-                onClick={() => setMinScore(chip.floor)}
+                title={chip.title}
+                on={verdict === chip.verdict}
+                count={allRows.filter((row) => matches(row, 'score') && hasVerdict(row.rating, chip.verdict)).length}
+                onClick={() => setVerdict(chip.verdict)}
               />
             ))}
           </div>
