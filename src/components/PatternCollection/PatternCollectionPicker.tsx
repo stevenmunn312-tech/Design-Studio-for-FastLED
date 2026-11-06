@@ -16,6 +16,7 @@ import {
   isAudioReactiveSubgraph,
   ratingTier,
   usePatternRatingStore,
+  verdictForScore,
   type PatternIntent,
   type PatternRating,
 } from '../../state/patterns/patternRating'
@@ -44,6 +45,10 @@ const AUDIO_KINDS: { id: AudioKind; label: string; title: string }[] = [
 /** The intents a pattern is scored under. Audio-reactivity has its own row
  *  because it is a property of the graph, not a judgement about it. */
 const INTENT_CHIPS = PATTERN_INTENTS.filter((intent) => intent.id !== 'audio-reactive')
+
+/** Rating is one choice of score floor; each chip is named by the verdict its
+ *  floor starts, so Strong (75+) still includes the Exceptional (90+) ones. */
+const RATING_CHIPS = [75, 90].map((floor) => ({ floor, label: verdictForScore(floor).label }))
 
 interface Row {
   pattern: SavedPattern
@@ -87,7 +92,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const [sort, setSort] = useState<SortMode>('name')
   const [intents, setIntents] = useState<Set<PatternIntent>>(new Set())
   const [audioKinds, setAudioKinds] = useState<Set<AudioKind>>(new Set())
-  const [strongOnly, setStrongOnly] = useState(false)
+  const [minScore, setMinScore] = useState(0)
   const [showPoor, setShowPoor] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const dialogRef = useModalFocus<HTMLDivElement>(onClose)
@@ -130,8 +135,8 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     audio: isAudioReactiveSubgraph(pattern.subgraph.nodes) ? 'reactive' : 'standard',
   })), [categoryNames, patterns, ratingsByPatternId, userRatingsByPatternId])
 
-  const isStrong = (rating: PatternRating | undefined): boolean =>
-    !!rating && !rating.failed && !rating.skipped && rating.overall >= 75
+  const scoresAtLeast = (rating: PatternRating | undefined, floor: number): boolean =>
+    !!rating && !rating.failed && !rating.skipped && rating.overall >= floor
 
   /**
    * OR within a facet, AND across facets — so "LED String + Audio Reactive"
@@ -142,14 +147,14 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
    * facet reads zero except the pressed one, and the list looks empty when it
    * is merely narrowed.
    */
-  const matches = useMemo(() => (row: Row, skip?: 'intent' | 'audio' | 'strong') => {
+  const matches = useMemo(() => (row: Row, skip?: 'intent' | 'audio' | 'score') => {
     const needle = query.trim().toLocaleLowerCase()
     if (needle && !`${row.pattern.name} ${row.shelf}`.toLocaleLowerCase().includes(needle)) return false
     if (skip !== 'intent' && intents.size > 0 && (!row.rating || !intents.has(row.rating.intent))) return false
     if (skip !== 'audio' && audioKinds.size > 0 && !audioKinds.has(row.audio)) return false
-    if (skip !== 'strong' && strongOnly && !isStrong(row.rating)) return false
+    if (skip !== 'score' && minScore > 0 && !scoresAtLeast(row.rating, minScore)) return false
     return true
-  }, [audioKinds, intents, query, strongOnly])
+  }, [audioKinds, intents, query, minScore])
 
   /**
    * How a pattern suits the selected outputs: best if it is best on any of
@@ -354,17 +359,20 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
             <Chip
               label="All"
               title="Every pattern, scored or not."
-              on={!strongOnly}
-              count={allRows.filter((row) => matches(row, 'strong')).length}
-              onClick={() => setStrongOnly(false)}
+              on={minScore === 0}
+              count={allRows.filter((row) => matches(row, 'score')).length}
+              onClick={() => setMinScore(0)}
             />
-            <Chip
-              label="Strong only"
-              title="Studio Score of 75 or better."
-              on={strongOnly}
-              count={allRows.filter((row) => matches(row, 'strong') && isStrong(row.rating)).length}
-              onClick={() => setStrongOnly(true)}
-            />
+            {RATING_CHIPS.map((chip) => (
+              <Chip
+                key={chip.floor}
+                label={chip.label}
+                title={`Studio Score of ${chip.floor} or better.`}
+                on={minScore === chip.floor}
+                count={allRows.filter((row) => matches(row, 'score') && scoresAtLeast(row.rating, chip.floor)).length}
+                onClick={() => setMinScore(chip.floor)}
+              />
+            ))}
           </div>
         </div>
 

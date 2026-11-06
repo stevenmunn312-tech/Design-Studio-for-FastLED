@@ -115,20 +115,23 @@ describe('PatternCollectionPicker', () => {
       .toEqual(['Ambient', 'Showpiece', 'Accent / Sparkle', 'Utility'])
   })
 
-  it('treats Rating as a choice between All and Strong only', () => {
+  it('treats Rating as one choice between All, Strong and Exceptional', () => {
     usePatternRatingStore.setState({
       ratingsByPatternId: {
         'pat-juggle': { patternId: 'pat-juggle', intent: 'ambient', overall: 80, failed: false, skipped: false },
         'pat-scanner': { patternId: 'pat-scanner', intent: 'ambient', overall: 40, failed: false, skipped: false },
+        'pat-bars': { patternId: 'pat-bars', intent: 'audio-reactive', overall: 95, failed: false, skipped: false },
       } as never,
     })
     render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
-    const all = screen.getByRole('button', { name: /^All/ })
-    const strong = screen.getByRole('button', { name: /Strong only/ })
-    expect(all.getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(strong)
-    expect(rowNames()).toEqual(['Juggle'])
-    expect(screen.getByRole('button', { name: /^All/ }).getAttribute('aria-pressed')).toBe('false')
+    const pressed = (name: RegExp) => screen.getByRole('button', { name }).getAttribute('aria-pressed')
+    expect(pressed(/^All/)).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: /^Strong/ }))
+    expect(rowNames().sort()).toEqual(['Juggle', 'Spectrum Bars'])
+    expect(pressed(/^All/)).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: /^Exceptional/ }))
+    expect(rowNames()).toEqual(['Spectrum Bars'])
+    expect(pressed(/^Strong/)).toBe('false')
     fireEvent.click(screen.getByRole('button', { name: /^All/ }))
     expect(rowNames()).toContain('Scanner')
   })
