@@ -109,7 +109,7 @@ describe('PatternCollectionBody', () => {
 
     const view = render(<PatternCollectionBody nodeId="collection" />)
     // Pulse came from the library and matches it; Spark was made here.
-    expect(view.getAllByText('copied from library')).toHaveLength(1)
+    expect(view.getByText('Pulse')).toBeTruthy()
     expect(view.queryByRole('button', { name: 'Update from library' })).toBeNull()
 
     usePatternLibrary.setState({ patterns: [{ ...aurora, name: 'Pulse (brighter)' }] })
@@ -138,7 +138,6 @@ describe('PatternCollectionBody', () => {
     useGraphStore.setState({ graphData: { nested: { nodes: [], edges: [] } } })
     useGraphStore.getState().addPatternToCollection('collection', withRegisteredGroups(saved))
     const view = render(<PatternCollectionBody nodeId="collection" />)
-    expect(view.getAllByText('copied from library')).toHaveLength(1)
     expect(view.queryByRole('button', { name: 'Update from library' })).toBeNull()
 
     const edited = structuredClone(saved)

@@ -186,21 +186,17 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
               <li key={id} className={styles.row}>
                 <div className={styles.head}>
                   <span className={styles.name}>{patternName}</span>
-                  {library && (
-                    library.stale
-                      ? (
-                          <button
-                            className={`${styles.libraryBadge} ${styles.libraryBadgeStale}`}
-                            title="The library’s copy of this pattern has changed since it was collected. Replace this copy with the library’s current one; weight, sections and energy chips stay."
-                            onClick={() => {
-                              updateCollectionPatternFromLibrary(nodeId, id, withRegisteredGroups(library.saved))
-                              setStatus(`Updated “${library.saved.name}” from the library`, 'success')
-                            }}
-                          >
-                            Update from library
-                          </button>
-                        )
-                      : <span className={styles.libraryBadge} title="A copy of this library pattern; editing the library later does not change the show until you update it">copied from library</span>
+                  {library?.stale && (
+                    <button
+                      className={`${styles.libraryBadge} ${styles.libraryBadgeStale}`}
+                      title="The library’s copy of this pattern has changed since it was collected. Replace this copy with the library’s current one; weight, sections and energy chips stay."
+                      onClick={() => {
+                        updateCollectionPatternFromLibrary(nodeId, id, withRegisteredGroups(library.saved))
+                        setStatus(`Updated “${library.saved.name}” from the library`, 'success')
+                      }}
+                    >
+                      Update from library
+                    </button>
                   )}
                   <button
                     className={styles.remove}
