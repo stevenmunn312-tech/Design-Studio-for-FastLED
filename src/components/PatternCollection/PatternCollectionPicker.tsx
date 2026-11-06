@@ -384,7 +384,8 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
           <button type="button" className={styles.selectAll} onClick={toggleAllVisible} disabled={selectableRows.length === 0}>
             {allVisibleSelected ? 'Clear visible' : 'Select visible'}
           </button>
-          <span>{patterns.filter((pattern) => !existingSourceIds.has(pattern.id)).length} available</span>
+          {/* Listed counts the same rows as the total: not yet in this collection. */}
+          <span>{selectableRows.length} / {patterns.filter((pattern) => !existingSourceIds.has(pattern.id)).length} available</span>
         </div>
 
         <div className={styles.list}>

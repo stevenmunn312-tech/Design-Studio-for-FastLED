@@ -132,6 +132,7 @@ describe('PatternCollectionPicker', () => {
     expect(pressed(/^All/)).toBe('false')
     fireEvent.click(screen.getByRole('button', { name: /^Exceptional/ }))
     expect(rowNames()).toEqual(['Spectrum Bars'])
+    expect(screen.getByText(`1 / ${LIBRARY.length} available`)).toBeTruthy()
     expect(pressed(/^Strong/)).toBe('false')
     fireEvent.click(screen.getByRole('button', { name: /^All/ }))
     expect(rowNames()).toContain('Scanner')
