@@ -118,15 +118,34 @@ jobs:
           fbuild --version
 
       - name: Build and launch-smoke desktop package
+        if: ${{ matrix.target != 'windows-x86_64' }}
         run: npm run package:desktop
 
-      - name: Write archive checksum
+      # Windows also packs the MSIX for the Microsoft Store. The identity comes
+      # from Partner Center through repository variables (public values, shown
+      # in the Store listing); unset, the build uses local test values, which a
+      # Store upload rejects. See docs/release/microsoft-store.md.
+      - name: Build, launch-smoke and MSIX-pack Windows package
+        if: ${{ matrix.target == 'windows-x86_64' }}
+        shell: bash
+        env:
+          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.MSIX_PUBLISHER_DISPLAY_NAME }}
+        run: |
+          args=(--msix)
+          if [ -n "$MSIX_IDENTITY_NAME" ]; then args+=(--msix-identity-name "$MSIX_IDENTITY_NAME"); fi
+          if [ -n "$MSIX_PUBLISHER" ]; then args+=(--msix-publisher "$MSIX_PUBLISHER"); fi
+          if [ -n "$MSIX_PUBLISHER_DISPLAY_NAME" ]; then args+=(--msix-publisher-display-name "$MSIX_PUBLISHER_DISPLAY_NAME"); fi
+          npm run package:desktop -- "${args[@]}"
+
+      - name: Write package checksums
         run: >-
           python -c "from pathlib import Path; import hashlib;
-          files = [p for p in Path('release/desktop').glob('DesignStudioForFastLED-*') if p.is_file() and not p.name.endswith('.sha256')];
-          assert len(files) == 1, f'expected one archive, found: {files}';
-          p = files[0];
-          p.with_name(p.name + '.sha256').write_text(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n', encoding='utf-8')"
+          files = sorted(p for p in Path('release/desktop').glob('DesignStudioForFastLED-*') if p.is_file() and not p.name.endswith('.sha256'));
+          archives = [p for p in files if p.suffix != '.msix'];
+          assert len(archives) == 1, f'expected one archive, found: {archives}';
+          [p.with_name(p.name + '.sha256').write_text(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n', encoding='utf-8') for p in files]"
 
       - name: Upload desktop archive
         uses: actions/upload-artifact@v6
@@ -134,8 +153,24 @@ jobs:
           name: design-studio-for-fastled-${{ matrix.target }}
           path: |
             release/desktop/DesignStudioForFastLED-*
+            !release/desktop/*.msix
+            !release/desktop/*.msix.sha256
           if-no-files-found: error
           retention-days: 7
+
+      # Kept out of the design-studio-for-fastled-* artifacts so the draft
+      # release never carries it: an unsigned MSIX does not install, and the
+      # Store signs the one it accepts.
+      - name: Upload MSIX for Partner Center
+        if: ${{ matrix.target == 'windows-x86_64' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: msix-store-upload-${{ matrix.target }}
+          path: |
+            release/desktop/*.msix
+            release/desktop/*.msix.sha256
+          if-no-files-found: error
+          retention-days: 30
 
   draft-release:
     name: Assemble draft pre-release

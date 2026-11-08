@@ -192,6 +192,25 @@ def check_tool(tool: Path, version_args: tuple[str, ...] = ("--version",)) -> No
         raise SystemExit(f"Bundled tool failed: {tool}\n{result.stdout}\n{result.stderr}")
 
 
+def smoke_failures(status: dict, page: str, headers: dict, health: dict, expected_version: str) -> list[str]:
+    """What the running frozen launcher gets wrong; empty when it is ready.
+
+    The bundled fbuild must be found. Which engine the helper then prefers is
+    not checked: it picks arduino-cli whenever the host has one installed, so
+    that says something about the packaging machine, not the bundle.
+    """
+    header = {name.lower(): value for name, value in headers.items()}
+    checks = {
+        "desktop status endpoint": status.get("desktop") is True,
+        f"version {expected_version} (got {status.get('version')!r})": status.get("version") == expected_version,
+        "app shell page": "Design Studio for FastLED" in page,
+        "Cross-Origin-Opener-Policy: same-origin": header.get("cross-origin-opener-policy") == "same-origin",
+        "Cross-Origin-Embedder-Policy: credentialless": header.get("cross-origin-embedder-policy") == "credentialless",
+        "bundled fbuild found": health.get("fbuild") is True and bool(health.get("fbuildVersion")),
+    }
+    return [name for name, ok in checks.items() if not ok]
+
+
 def smoke_test(app_dir: Path) -> None:
     launcher = app_dir / executable_name(APP_NAME)
     tools = app_dir / "tools"
@@ -216,6 +235,7 @@ def smoke_test(app_dir: Path) -> None:
         )
         try:
             deadline = time.monotonic() + 30
+            failures = ["never answered"]
             while time.monotonic() < deadline:
                 if process.poll() is not None:
                     output = process.stdout.read() if process.stdout else ""
@@ -227,23 +247,20 @@ def smoke_test(app_dir: Path) -> None:
                         status = json.loads(response.read().decode("utf-8"))
                     with urllib.request.urlopen(f"http://localhost:{port}/", timeout=0.5) as response:
                         page = response.read().decode("utf-8")
-                        coop = response.headers.get("Cross-Origin-Opener-Policy")
-                        coep = response.headers.get("Cross-Origin-Embedder-Policy")
+                        headers = dict(response.headers)
                     with urllib.request.urlopen(f"http://localhost:{port}/api/health", timeout=0.5) as response:
                         health = json.loads(response.read().decode("utf-8"))
-                    if (
-                        status.get("desktop") is True
-                        and status.get("version") == expected_version
-                        and "Design Studio for FastLED" in page
-                        and coop == "same-origin"
-                        and coep == "credentialless"
-                        and health.get("fbuild") is True
-                        and health.get("engine") == "fbuild"
-                    ):
+                except (OSError, ValueError) as exc:
+                    failures = [f"not answering yet: {exc}"]
+                else:
+                    failures = smoke_failures(status, page, headers, health, expected_version)
+                    if not failures:
                         return
-                except (OSError, ValueError):
-                    time.sleep(0.2)
-            raise SystemExit("Packaged launcher did not become ready within 30 seconds")
+                time.sleep(0.2)
+            raise SystemExit(
+                "Packaged launcher did not pass its smoke checks within 30 seconds:\n- "
+                + "\n- ".join(failures)
+            )
         finally:
             process.terminate()
             try:

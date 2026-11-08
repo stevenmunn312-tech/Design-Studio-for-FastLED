@@ -166,7 +166,14 @@ signs it; see [Microsoft Store](microsoft-store.md).
 Windows, Linux, macOS Apple Silicon, and macOS Intel. It records a SHA-256 file
 beside each archive and retains the outputs as Actions artifacts. Manual runs
 default to artifact-only validation; tag runs, or an explicit manual opt-in,
-assemble the passing artifacts into a draft pre-release.
+assemble the passing artifacts into a draft pre-release. The Windows job also
+packs the [Microsoft Store](microsoft-store.md) MSIX into its own artifact,
+which never goes into the release.
+
+The launch smoke checks that the bundled fbuild is found, not which engine the
+helper prefers: it picks arduino-cli whenever the host has one installed, so
+the engine reflects the packaging machine rather than the bundle. A failed
+smoke lists each check that did not pass.
 
 The original `fbuild 2.5.4` packaging investigation found unusable macOS
 executables (the ARM binary was rejected by `dyld`, while the Intel host

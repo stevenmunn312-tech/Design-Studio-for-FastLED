@@ -34,6 +34,14 @@ packaging environment from [desktop distribution](desktop-distribution.md#build)
 npm run package:desktop -- --msix --msix-identity-name <Package/Identity/Name> --msix-publisher "<Package/Identity/Publisher>" --msix-publisher-display-name "<Publisher display name>"
 ```
 
+The **Desktop Packages** workflow (`.github/workflows/desktop-packages.yml`)
+does this on its Windows runner and uploads the package as the
+`msix-store-upload-windows-x86_64` artifact, kept 30 days. That artifact is
+separate from the archives, so a draft release never carries an unsigned
+MSIX. Set the repository variables `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER` and
+`MSIX_PUBLISHER_DISPLAY_NAME` to the Partner Center values to make it
+Store-ready; they are public (the Store shows them), so variables, not secrets.
+
 Partner Center lists the three identity values under the reserved app's
 **Product identity** page. Without them the build uses local test values,
 which install locally but are rejected by a Store upload. The package is

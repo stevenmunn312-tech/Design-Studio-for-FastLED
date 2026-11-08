@@ -78,3 +78,27 @@ def test_appx_manifest_is_valid_xml_naming_files_that_exist():
              visuals.get("Square44x44Logo"), visuals.find("uap:DefaultTile", ns).get("Wide310x150Logo")]
     for logo in logos:
         assert (build.ASSETS / "msix" / Path(logo.replace("\\", "/")).name).is_file(), logo
+
+
+GOOD_STATUS = {"ok": True, "desktop": True, "version": "0.7.0"}
+GOOD_HEADERS = {"Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "credentialless"}
+PAGE = "<title>Design Studio for FastLED</title>"
+
+
+def test_smoke_passes_whichever_engine_the_host_prefers():
+    for engine in ("fbuild", "arduino-cli"):
+        health = {"fbuild": True, "fbuildVersion": "fbuild 2.5.45", "engine": engine}
+        assert build.smoke_failures(GOOD_STATUS, PAGE, GOOD_HEADERS, health, "0.7.0") == []
+
+
+def test_smoke_names_each_failed_check():
+    failures = build.smoke_failures(
+        {**GOOD_STATUS, "version": "0.6.0"}, PAGE, {}, {"fbuild": False}, "0.7.0",
+    )
+
+    assert failures == [
+        "version 0.7.0 (got '0.6.0')",
+        "Cross-Origin-Opener-Policy: same-origin",
+        "Cross-Origin-Embedder-Policy: credentialless",
+        "bundled fbuild found",
+    ]
