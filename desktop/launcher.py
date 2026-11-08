@@ -90,30 +90,35 @@ def _source_backend_on_path() -> None:
         sys.path.insert(0, backend)
 
 
+def add_desktop_routes(app) -> None:
+    """The endpoints only the desktop launcher serves: status and window focus."""
+    if not hasattr(app.state, "desktop_focus"):
+        # Set by the launcher once a native window exists; a second launch
+        # asks this instance to bring that window forward.
+        app.state.desktop_focus = None
+    if any(getattr(route, "name", None) == "desktop-status" for route in app.routes):
+        return
+
+    @app.get("/api/desktop/status", include_in_schema=False, name="desktop-status")
+    def desktop_status() -> dict[str, object]:
+        return {"ok": True, "desktop": True, "version": app_version()}
+
+    @app.post("/api/desktop/focus", include_in_schema=False, name="desktop-focus")
+    def desktop_focus() -> dict[str, object]:
+        focus = app.state.desktop_focus
+        if focus is None:
+            return {"ok": True, "focused": False}
+        focus()
+        return {"ok": True, "focused": True}
+
+
 def create_app():
     """Attach the packaged frontend to the tested upload-helper application."""
     _source_backend_on_path()
     from fastapi.staticfiles import StaticFiles
     from app import app
 
-    if not hasattr(app.state, "desktop_focus"):
-        # Set by the launcher once a native window exists; a second launch
-        # asks this instance to bring that window forward.
-        app.state.desktop_focus = None
-
-    if not any(getattr(route, "name", None) == "desktop-status" for route in app.routes):
-        @app.get("/api/desktop/status", include_in_schema=False, name="desktop-status")
-        def desktop_status() -> dict[str, object]:
-            return {"ok": True, "desktop": True, "version": app_version()}
-
-        @app.post("/api/desktop/focus", include_in_schema=False, name="desktop-focus")
-        def desktop_focus() -> dict[str, object]:
-            focus = app.state.desktop_focus
-            if focus is None:
-                return {"ok": True, "focused": False}
-            focus()
-            return {"ok": True, "focused": True}
-
+    add_desktop_routes(app)
     if not any(getattr(route, "name", None) == "desktop-static" for route in app.routes):
         # Added after every /api route, so StaticFiles is the final SPA/static
         # fallback and can never shadow the helper endpoints.
@@ -223,9 +228,9 @@ def opens_in_browser(uri: str, origin: str) -> bool:
     return not is_app_url(uri, origin)
 
 
-def native_window_available() -> bool:
+def native_window_available(platform: str = sys.platform) -> bool:
     """True when pywebview can drive the Edge WebView2 runtime on this machine."""
-    if sys.platform != "win32":
+    if platform != "win32":
         return False
     try:
         from webview.platforms import winforms

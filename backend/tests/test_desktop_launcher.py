@@ -63,28 +63,28 @@ def test_external_links_open_in_the_browser_but_app_and_blank_popups_stay():
     assert not launcher.opens_in_browser("http://localhost:8008/help", ORIGIN)
 
 
-def test_native_window_is_windows_only(monkeypatch):
-    monkeypatch.setattr(launcher.sys, "platform", "darwin")
-
-    assert launcher.native_window_available() is False
+def test_native_window_is_windows_only():
+    assert launcher.native_window_available("darwin") is False
+    assert launcher.native_window_available("linux") is False
 
 
 def test_focus_endpoint_raises_the_native_window_when_one_exists():
+    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    app = launcher.create_app()
-    client = TestClient(app, base_url="http://localhost:8008")
+    # A fresh app: create_app() also mounts the built frontend (dist/), which
+    # the backend CI job never builds, onto the helper app every test shares.
+    app = FastAPI()
+    launcher.add_desktop_routes(app)
+    client = TestClient(app)
     raised: list[bool] = []
-    previous = app.state.desktop_focus
-    try:
-        app.state.desktop_focus = None
-        assert client.post("/api/desktop/focus").json() == {"ok": True, "focused": False}
 
-        app.state.desktop_focus = lambda: raised.append(True)
-        assert client.post("/api/desktop/focus").json() == {"ok": True, "focused": True}
-        assert raised == [True]
-    finally:
-        app.state.desktop_focus = previous
+    assert client.post("/api/desktop/focus").json() == {"ok": True, "focused": False}
+
+    app.state.desktop_focus = lambda: raised.append(True)
+    assert client.post("/api/desktop/focus").json() == {"ok": True, "focused": True}
+    assert raised == [True]
+    assert client.get("/api/desktop/status").json()["desktop"] is True
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="pywebview's WebView2 host is Windows-only")

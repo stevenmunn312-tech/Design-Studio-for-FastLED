@@ -64,10 +64,10 @@ def build_frontend(skip: bool) -> None:
 ASSETS = ROOT / "desktop" / "assets"
 
 
-def launcher_platform_args() -> list[str]:
+def launcher_platform_args(os_name: str = os.name) -> list[str]:
     """Windows gets a console-less launcher (the Studio opens in its own
     WebView2 window) carrying the app icon, which the window reuses."""
-    if os.name == "nt":
+    if os_name == "nt":
         return ["--windowed", "--icon", str(ASSETS / "app.ico")]
     return ["--console"]
 

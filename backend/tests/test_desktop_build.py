@@ -39,14 +39,14 @@ def test_build_frontend_uses_resolved_npm_command(monkeypatch, tmp_path):
     assert commands == [[r"C:\Tools\npm.cmd", "run", "build"]]
 
 
-def test_windows_launcher_is_built_without_a_console_and_with_the_icon(monkeypatch):
-    monkeypatch.setattr(build.os, "name", "nt")
-    args = build.launcher_platform_args()
+def test_windows_launcher_is_built_without_a_console_and_with_the_icon():
+    # The OS is passed in, not patched onto os.name: on Linux a patched
+    # os.name makes pathlib build WindowsPath objects and pytest itself dies.
+    args = build.launcher_platform_args("nt")
     assert args[0] == "--windowed"
     assert Path(args[args.index("--icon") + 1]).is_file()
 
-    monkeypatch.setattr(build.os, "name", "posix")
-    assert build.launcher_platform_args() == ["--console"]
+    assert build.launcher_platform_args("posix") == ["--console"]
 
 
 def test_msix_version_has_four_parts_and_a_zero_store_revision():
