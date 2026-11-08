@@ -167,7 +167,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       }),
       studioNode('rate', 'Math', -880, 80, { mathOp: 'add', b: 0.22 }),
       studioNode('confetti', 'Confetti', -520, -40, {
-        speed: 0.5, density: 0.62, fade: 0.22, palette: 'party', seed: 41,
+        speed: 0.5, density: 0.62, fade: 0.61, palette: 'party', seed: 41,
       }),
       studioNode('sparks', 'TrebleSparks', -520, 220, { density: 0.7, palette: 'citrus' }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'screen', amount: 0.48 }),

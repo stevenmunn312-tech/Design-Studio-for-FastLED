@@ -542,7 +542,7 @@ describe('nodeLibrary', () => {
   it('Confetti exposes normalized speed, palette input, and fading speckle defaults', () => {
     const cf = NODE_LIBRARY.find((n) => n.type === 'Confetti')
     expect(cf?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'density', 'fade'])
-    expect(cf?.defaultProperties).toMatchObject({ speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' })
+    expect(cf?.defaultProperties).toMatchObject({ speed: 0.45, density: 0.45, fade: 0.65, palette: 'party' })
     expect(propertyMeta('Confetti', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 

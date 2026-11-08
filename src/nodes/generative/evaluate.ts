@@ -158,14 +158,7 @@ function evalConfetti(
   }
 
   const frame = state.frame
-  const retention = Math.max(0, Math.min(1, 1 - fade))
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const px = frame[y][x]
-      const faded = scaleRgb(px, retention)
-      px.r = faded.r; px.g = faded.g; px.b = faded.b
-    }
-  }
+  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, fade))
 
   const area = W * H
   const amount = clamp01(density)
@@ -595,7 +588,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   Confetti({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Confetti)
     const density = num(id, 'density', props, 'density', 0.45)
-    const fade = num(id, 'fade', props, 'fade', 0.28)
+    const fade = num(id, 'fade', props, 'fade', 0.65)
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
     return { frame: evalConfetti(stateKey(id), speed, density, fade, t, palette, normalizedSeed(props.seed), W, H) }
   },

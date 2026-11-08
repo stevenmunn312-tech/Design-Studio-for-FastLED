@@ -346,7 +346,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       nodes: {
         clock: ['RTCInput', { timeSource: 'DS3231' }],
         mood: ['Switch', { a: 0.2, b: 0.85 }],
-        confetti: ['Confetti', { palette: 'citrus', fade: 0.3 }],
+        confetti: ['Confetti', { palette: 'citrus', fade: 0.67 }],
       },
       wires: ['clock.weekend > mood.sel', 'mood.result > confetti.speed'],
       output: STRIP(60),

@@ -92,7 +92,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       title: 'A birthday banner',
       nodes: {
         banner: ['Text', { text: 'HAPPY BIRTHDAY SAM!', scroll: 9, wrap: true, r: 255, g: 120, b: 210, letterSpacing: 1 }],
-        confetti: ['Confetti', { palette: 'party', speed: 0.3, fade: 0.35 }],
+        confetti: ['Confetti', { palette: 'party', speed: 0.3, fade: 0.7 }],
         layer: ['Blend', { blendMode: 'screen', amount: 0.6 }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },
@@ -518,7 +518,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Confetti',
       title: 'Confetti in a mirror',
       nodes: {
-        speckles: ['Confetti', { palette: 'cottoncandy', speed: 0.5, density: 0.5, fade: 0.25 }],
+        speckles: ['Confetti', { palette: 'cottoncandy', speed: 0.5, density: 0.5, fade: 0.63 }],
         mirror: ['Mirror', { mirrorMode: 'quad' }],
       },
       wires: ['speckles.frame > mirror.frame'],

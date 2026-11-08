@@ -5361,10 +5361,12 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   })
 
   it('Confetti emits persistent fade-and-sprinkle palette logic', () => {
-    const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' })
+    const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, fade: 0.65, palette: 'party' })
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];   // keeps its pixels between frames')
-    expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
+    expect(cpp).toContain('_fd=0.65;')
+    expect(cpp).toContain('static float _trail_cfT = -1.0f, _trail_cfOwed = 0.0f;')
+    expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, _by);')
     // The preview's own coefficients on the already-denormalised rate: a spawn
     // term of 0.3 per unit of speed and a hue drift of 0.08 turns (20.4 of 255),
     // rounded as Math.round is. Pre-dividing by SPEED_MAX here halved both.

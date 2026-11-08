@@ -289,7 +289,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   is the time since that node's previous pass (0 on its first), measured on
   both sides, where it was a fixed 1/60.
 - A trail fade is a half-life on a log scale, applied by the time that has
-  passed, not a share taken off each frame. Juggle's `1 - fade` per frame put
+  passed, not a share taken off each frame. Juggle and Confetti use it. Their
+  old `1 - fade` per frame put
   every visible difference below 0.1 (at 60 fps, 0.1 already halved a trail in
   a tenth of a second), and the trail length moved with the frame rate.
   `trailFadeAmount` and `fadeFrameToBlackBy` (`src/nodes/shared/trailFade.ts`)
@@ -301,7 +302,6 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   per frame, a 2 s trail lost a quarter of its length and dim tails died in a
   few frames. Moving a node onto it changes the meaning of its saved values,
   so convert bundled and help values to the same half-life at 60 fps.
-  Confetti still fades per frame.
 - Two node-authoring facts are derived rather than listed, and were each written
   down twice before. A **palette producer** is a *builder* (emits its own
   `pal_<id>` CRGBPalette16) or a *selector* (resolves to a shared

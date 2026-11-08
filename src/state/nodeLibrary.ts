@@ -2848,7 +2848,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Confetti: {
     speed: 'How many speckles appear per frame, 0 none to 1 most.',
     density: 'Extra speckles per frame; multiplies Speed.',
-    fade: 'How quickly old speckles dim each frame, 0 never to 1 instantly.',
+    fade: 'How quickly old speckles go: 0 halves them in about 2 s, 1 clears them at once, and each step along the slider shortens them by the same ratio.',
     palette: 'Colours the speckles are drawn from, drifting with time.',
   },
   Candle: {

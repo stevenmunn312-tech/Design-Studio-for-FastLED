@@ -197,7 +197,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { density: 'density', fade: 'fade', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party', seed: 0 },
+    defaultProperties: { speed: 0.45, density: 0.45, fade: 0.65, palette: 'party', seed: 0 },
   },
   {
     // Candle — warm flame flicker on one shared value or on every pixel.

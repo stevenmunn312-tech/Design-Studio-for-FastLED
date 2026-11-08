@@ -338,16 +338,15 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const ob = ownBuf({ persists: true })
     const speed = rateCpp(f('speed', 'speed', 0.45), SPEED_MAX.Confetti)
     const density = `constrain((${f('density', 'density', 0.45)}),0.0f,1.0f)`
-    const fade = `constrain((${f('fade', 'fade', 0.28)}),0.0f,1.0f)`
     const seed = seedProp(p)
     const rnd8 = seed ? `_rnd8_${id}()` : 'random8()'
     const rnd16 = seed ? `(((uint16_t)_rnd8_${id}()<<8)|_rnd8_${id}())` : 'random16()'
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     if (seed) ln(`    static uint32_t _rng_${id}=${seed}u; auto _rnd8_${id}=[&](){ _rng_${id}=_rng_${id}*1664525u+1013904223u; return (uint8_t)(_rng_${id}>>24); };`)
-    ln(`    float _spd=${speed}, _den=${density}, _fd=${fade};`)
+    ln(`    float _spd=${speed}, _den=${density}, _fd=${f('fade', 'fade', 0.65)};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
+    trailFadeCpp(ln, phaseTag(id), '_fd', ob)
     // `_spd` is already the denormalised rate (rateCpp), so the spawn and hue
     // drift coefficients are the preview's own: 0.3 per unit of speed, and a
     // hue drift of 0.08 turns per phase unit, which is 20.4 palette steps.
