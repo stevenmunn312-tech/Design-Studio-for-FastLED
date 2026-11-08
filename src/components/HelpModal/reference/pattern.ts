@@ -644,7 +644,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Juggle',
       title: 'Sinelon: one dot gliding along a string',
       nodes: {
-        sinelon: ['Juggle', { count: 1, fade: 0.12, speed: 0.6, palette: 'ultraviolet' }],
+        sinelon: ['Juggle', { count: 1, fade: 0.5, speed: 0.6, palette: 'ultraviolet' }],
       },
       output: STRIP(60),
       explanation: 'Juggle with a single dot is the classic Sinelon. It glides back and forth along the string, slowing at each end like a pendulum, and its colour drifts through the ultraviolet palette.',

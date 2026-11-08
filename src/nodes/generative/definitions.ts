@@ -304,7 +304,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { speed: 'speed', count: 'count', fade: 'fade', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, fade: 0.22, palette: 'rainbow', seed: 0 },
+    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, fade: 0.61, palette: 'rainbow', seed: 0 },
   },
 
   // ── More pattern nodes ─────────────────────────────────────────────────

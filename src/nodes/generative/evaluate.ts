@@ -5,6 +5,7 @@ import {
 } from './classics1d'
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
+import { fadeFrameToBlackBy, trailFadeAmount } from '../shared/trailFade'
 import {
   burstFrame, burstPixel, pacificaFrame, sineFieldFrame, sineFieldSum, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
 } from '../shared/integerPatterns'
@@ -198,14 +199,7 @@ function evalJuggle(
   }
 
   const frame = state.frame
-  const retention = Math.max(0, Math.min(1, 1 - fade))
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const px = frame[y][x]
-      const faded = scaleRgb(px, retention)
-      px.r = faded.r; px.g = faded.g; px.b = faded.b
-    }
-  }
+  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, fade))
 
   const dots = juggleDotCount(count)
   const laneY = (i: number) =>
@@ -608,7 +602,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   Juggle({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Juggle)
     const count = num(id, 'count', props, 'count', JUGGLE_COUNT.default)
-    const fade = num(id, 'fade', props, 'fade', 0.22)
+    const fade = num(id, 'fade', props, 'fade', 0.61)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalJuggle(stateKey(id), speed, count, fade, t, palette, normalizedSeed(props.seed), W, H) }
   },

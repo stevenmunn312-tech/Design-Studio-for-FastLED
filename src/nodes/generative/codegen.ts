@@ -3,6 +3,7 @@ import { SPIRAL_ARMS } from './limits'
 import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { trailFadeCpp } from '../shared/trailFadeCpp'
 import {
   BURST_PIXEL_CPP, PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, SPIRAL_PIXEL_CPP, TWINKLE_PIXEL_CPP,
   SINE_FIELD_VALUE_CPP, burstFrameCpp, pacificaFrameCpp, sineFieldFrameCpp, spiralFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
@@ -364,11 +365,10 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const ob = ownBuf({ persists: true })
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Juggle)
     const dots = juggleDotCount(Number(p.count ?? JUGGLE_COUNT.default))
-    const fade = `constrain((${f('fade', 'fade', 0.22)}),0.0f,1.0f)`
     const seed = seedProp(p)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
-    ln(`    float _spd=${speed}, _fd=${fade};`)
+    ln(`    float _spd=${speed}, _fd=${f('fade', 'fade', 0.61)};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     if (incoming.has(`${node.id}:count`)) {
       ln(`    const float _count=${f('count', 'count', JUGGLE_COUNT.default)};`)
@@ -376,7 +376,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     } else {
       ln(`    const int _dots=${dots};`)
     }
-    ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
+    trailFadeCpp(ln, phaseTag(id), '_fd', ob)
     // The preview's per-dot phase, seedOffset(seed, d), reduced a turn at a
     // time: it only feeds sines, and float holds the remainder exactly enough.
     if (seed) {

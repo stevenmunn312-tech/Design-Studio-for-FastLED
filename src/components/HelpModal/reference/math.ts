@@ -129,7 +129,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       nodes: {
         clock: ['Clock', { bpm: 100, beatsPerBar: 4 }],
         jugglers: ['StepValue', { initial: 1, minimum: 1, maximum: 8, step: 1, wrap: true }],
-        juggle: ['Juggle', { palette: 'party', fade: 0.2, speed: 0.55 }],
+        juggle: ['Juggle', { palette: 'party', fade: 0.59, speed: 0.55 }],
       },
       wires: ['clock.bar > jugglers.increase', 'jugglers.value > juggle.count'],
       explanation: 'Clock pulses Bar every four beats, and each pulse adds one to Step Value. Juggle gets that many dots — one, two, up to eight — and with Wrap on the count starts again at one after the eighth bar.',
