@@ -91,3 +91,17 @@ patterns here, not in `CLAUDE.md`.
   at 396 seconds and failures in files that pass on a quiet rerun. A failure
   from a loaded run proves nothing until the file is rerun alone, and then
   the suite is rerun on a quiet machine.
+
+## Backend tests on Linux CI
+
+- **Never monkeypatch `os.name` or `sys.platform`.** The backend job runs on
+  Ubuntu. With `os.name` patched to `"nt"`, pathlib builds `WindowsPath`
+  objects and pytest itself dies with "cannot instantiate 'WindowsPath' on
+  your system", taking the rest of the run with it. Give the function an OS
+  parameter that defaults to the real value (`launcher_platform_args("nt")`)
+  and pass the platform in the test.
+- **The backend job builds no frontend.** Anything that needs `dist/` (the
+  desktop launcher's `create_app()`) is out of reach there; test the piece
+  that does not, on a fresh `FastAPI()` rather than the shared helper app.
+- **A Windows-only pass is not a CI pass.** Check the CI run after pushing
+  backend or desktop changes made on Windows.
