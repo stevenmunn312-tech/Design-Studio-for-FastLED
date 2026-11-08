@@ -61,9 +61,15 @@ def build_frontend(skip: bool) -> None:
         raise SystemExit("dist/index.html is missing; run npm run build first")
 
 
-def launcher_window_mode() -> str:
-    """Windows gets a console-less launcher: the Studio opens in its own WebView2 window."""
-    return "--windowed" if os.name == "nt" else "--console"
+ASSETS = ROOT / "desktop" / "assets"
+
+
+def launcher_platform_args() -> list[str]:
+    """Windows gets a console-less launcher (the Studio opens in its own
+    WebView2 window) carrying the app icon, which the window reuses."""
+    if os.name == "nt":
+        return ["--windowed", "--icon", str(ASSETS / "app.ico")]
+    return ["--console"]
 
 
 def build_launcher() -> Path:
@@ -71,7 +77,7 @@ def build_launcher() -> Path:
     run([
         *pyinstaller_base(),
         "--onedir",
-        launcher_window_mode(),
+        *launcher_platform_args(),
         "--name", APP_NAME,
         "--distpath", str(RELEASE_ROOT),
         "--workpath", str(BUILD_ROOT / "launcher-work"),
@@ -246,6 +252,60 @@ def smoke_test(app_dir: Path) -> None:
                 process.kill()
 
 
+def msix_version(version: str) -> str:
+    """package.json's x.y.z as the four-part version MSIX requires; the Store
+    reserves the fourth part, so it stays 0."""
+    parts = version.split("-", 1)[0].split(".")
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        raise SystemExit(f"Cannot turn version {version!r} into an MSIX version")
+    return ".".join(parts) + ".0"
+
+
+def render_appx_manifest(identity_name: str, publisher: str, publisher_display_name: str, version: str) -> str:
+    from xml.sax.saxutils import escape
+
+    template = (ASSETS / "AppxManifest.xml").read_text(encoding="utf-8")
+    return template.format(
+        identity_name=escape(identity_name),
+        publisher=escape(publisher, {'"': "&quot;"}),
+        publisher_display_name=escape(publisher_display_name),
+        version=msix_version(version),
+    )
+
+
+def locate_makeappx() -> Path:
+    found = shutil.which("makeappx.exe")
+    if found:
+        return Path(found)
+    kits = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Windows Kits" / "10" / "bin"
+    candidates = sorted(kits.glob("10.*/x64/makeappx.exe"), key=lambda p: [int(n) for n in p.parent.parent.name.split(".")])
+    if not candidates:
+        raise SystemExit("makeappx.exe is missing; install the Windows 10/11 SDK")
+    return candidates[-1]
+
+
+def build_msix(app_dir: Path, args: argparse.Namespace) -> Path:
+    """Lay the bundle out as an MSIX package and pack it (unsigned).
+
+    The Store signs packages it accepts; a local install registers the layout
+    folder instead (see docs/release/microsoft-store.md).
+    """
+    version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+    layout = BUILD_ROOT / "msix-layout"
+    if layout.exists():
+        shutil.rmtree(layout)
+    shutil.copytree(app_dir, layout)
+    shutil.copytree(ASSETS / "msix", layout / "Assets")
+    (layout / "AppxManifest.xml").write_text(
+        render_appx_manifest(args.msix_identity_name, args.msix_publisher, args.msix_publisher_display_name, version),
+        encoding="utf-8",
+    )
+    package = RELEASE_ROOT / f"DesignStudioForFastLED-{version}-windows-x86_64.msix"
+    run([str(locate_makeappx()), "pack", "/o", "/d", str(layout), "/p", str(package)])
+    print(f"Created {package}")
+    return package
+
+
 def archive_bundle(app_dir: Path) -> Path:
     version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     system = {"Windows": "windows", "Darwin": "macos", "Linux": "linux"}.get(platform.system(), platform.system().lower())
@@ -262,7 +322,17 @@ def main() -> int:
     parser.add_argument("--skip-frontend", action="store_true", help="reuse the existing dist/ build")
     parser.add_argument("--skip-smoke", action="store_true", help="do not launch-test the frozen bundle")
     parser.add_argument("--no-archive", action="store_true", help="leave the bundle as a folder only")
+    msix = parser.add_argument_group("MSIX (Windows only)")
+    msix.add_argument("--msix", action="store_true", help="also pack the bundle as an MSIX package")
+    msix.add_argument("--msix-identity-name", default="DesignStudioForFastLED.Local",
+                      help="Package/Identity/Name from Partner Center")
+    msix.add_argument("--msix-publisher", default="CN=Design Studio for FastLED Local Build",
+                      help="Package/Identity/Publisher from Partner Center (CN=...)")
+    msix.add_argument("--msix-publisher-display-name", default="Design Studio for FastLED",
+                      help="Package/Properties/PublisherDisplayName from Partner Center")
     args = parser.parse_args()
+    if args.msix and os.name != "nt":
+        raise SystemExit("--msix packages the Windows bundle; run it on Windows")
 
     require_packager()
     build_frontend(args.skip_frontend)
@@ -275,6 +345,8 @@ def main() -> int:
         smoke_test(app_dir)
     if not args.no_archive:
         archive_bundle(app_dir)
+    if args.msix:
+        build_msix(app_dir, args)
     return 0
 
 

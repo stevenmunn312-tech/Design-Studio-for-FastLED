@@ -157,6 +157,9 @@ needs:
 Do not describe an unsigned or unvalidated platform package as supported in the
 beta support matrix.
 
+The Windows bundle can also be packed as an MSIX for the Microsoft Store, which
+signs it; see [Microsoft Store](microsoft-store.md).
+
 ## GitHub package workflow
 
 `.github/workflows/desktop-packages.yml` runs the host-specific packager on

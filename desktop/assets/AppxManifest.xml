@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX manifest for the Windows desktop bundle. desktop/build.py fills the
+  braced fields: the identity values come from Partner Center for a Store
+  upload (see docs/release/microsoft-store.md); local builds use test values.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="{identity_name}"
+    Publisher="{publisher}"
+    Version="{version}"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Design Studio for FastLED</DisplayName>
+    <PublisherDisplayName>{publisher_display_name}</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Node-graph LED effects designer for FastLED microcontrollers.</Description>
+  </Properties>
+
+  <Dependencies>
+    <!-- 1809: the oldest Windows 10 release with the WebView2 runtime available. -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="DesignStudio"
+      Executable="Design Studio for FastLED.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Design Studio for FastLED"
+        Description="Node-graph LED effects designer for FastLED microcontrollers."
+        BackgroundColor="#0d0f12"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- A desktop (Win32) app: the local helper, serial ports, compilers. -->
+    <rescap:Capability Name="runFullTrust" />
+    <!-- Live audio input for audio-reactive patterns. -->
+    <DeviceCapability Name="microphone" />
+  </Capabilities>
+</Package>

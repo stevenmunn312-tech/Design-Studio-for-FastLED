@@ -192,6 +192,12 @@ versioning (`0.y.z`) until the first stable release.
   Without WebView2 the app falls back to your browser. macOS and Linux still
   open in the browser.
 
+- **The Windows bundle can be packed for the Microsoft Store.** `npm run
+  package:desktop -- --msix` also writes an MSIX package with the app's icon
+  and Store logos; the launcher executable now carries the app icon too. See
+  `docs/release/microsoft-store.md` for building, local testing and
+  submission.
+
 - **Projects and My Patterns move to Documents.** Saved projects and patterns
   now live in `Documents/Design Studio for FastLED`, where you would look for
   them and where uninstalling the app cannot remove them. The first start

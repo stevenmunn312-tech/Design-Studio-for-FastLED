@@ -212,6 +212,7 @@ gates are separate documents.
 - [Beta Hardware Validation](release/beta-hardware-validation.md)
 - [Beta Support Matrix](release/beta-support-matrix.md)
 - [Desktop Distribution](release/desktop-distribution.md)
+- [Microsoft Store](release/microsoft-store.md)
 - [Supported Platform Policy](release/supported-platform-policy.md)
 - [Versioning and Releases](release/versioning-and-releases.md)
 
