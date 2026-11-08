@@ -13,9 +13,11 @@ Studio; press Ctrl+C in it to stop the local application.
 
 Node.js and Python are included and do not need to be installed separately.
 The first firmware compile may still download board toolchains and can take
-several minutes. Project files, saved patterns, helper configuration, downloaded
-toolchains, and build caches are stored in your user application-data folder,
-not beside the executable.
+several minutes. Project files and saved patterns are stored in
+Documents\Design Studio for FastLED (Documents/Design Studio for FastLED on
+macOS and Linux). Helper configuration, downloaded toolchains and build caches
+are stored in your user application-data folder. Nothing is kept beside the
+executable.
 
 Custom Display firmware downloads the pinned LVGL 9.5.0 runtime on its first
 build. LVGL is MIT-licensed; a cached checkout keeps its upstream license file.

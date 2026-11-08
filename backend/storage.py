@@ -20,13 +20,16 @@ from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 
 from subprocess_flags import NO_CONSOLE_WINDOW
-from user_data import default_data_dir
+from user_data import default_content_dir, default_data_dir
 
 router = APIRouter()
 
 # Saved projects and patterns are the user's own work, so every mode keeps them
-# in the per-user data folder, never inside a checkout or an installed bundle.
-_CONTENT_DIR = Path(os.environ.get("FLS_DATA_DIR") or default_data_dir())
+# in Documents (see user_data.py), never inside a checkout or an installed
+# bundle. FLS_CONTENT_DIR moves the whole folder; FLS_PATTERNS_DIR and
+# FLS_PROJECTS_DIR move one part of it.
+_CONTENT_OVERRIDES = ("FLS_CONTENT_DIR", "FLS_PATTERNS_DIR", "FLS_PROJECTS_DIR")
+_CONTENT_DIR = Path(os.environ.get("FLS_CONTENT_DIR") or default_content_dir())
 
 # Saved node-graph patterns ("My Patterns") live as one JSON file each in this
 # folder, so users can share a pattern by simply sending the file. The browser
@@ -38,6 +41,15 @@ _PROJECTS_DIR = Path(os.environ.get("FLS_PROJECTS_DIR") or (_CONTENT_DIR / "Proj
 # Source checkouts kept "My Patterns" at the repository root until the library
 # moved to the per-user data folder; startup moves those files across once.
 _LEGACY_PATTERNS_DIR = Path(__file__).parent.parent / "My Patterns"
+# Until 2026-11 the content folder was the per-user app-data folder; startup
+# moves Projects and My Patterns from there into Documents. An overridden
+# location is someone's deliberate choice (or an isolated test run), so it is
+# never filled from the real app-data folder.
+def _legacy_content_dir(environ=os.environ) -> Path | None:
+    return None if any(environ.get(name) for name in _CONTENT_OVERRIDES) else default_data_dir()
+
+
+_LEGACY_CONTENT_DIR = _legacy_content_dir()
 _project_file_lock = threading.RLock()
 # Pattern saves write the new file before removing a stale copy under an
 # older name. Two overlapping saves of one pattern would each delete the
@@ -130,10 +142,12 @@ def _patterns_dir() -> Path:
     return _PATTERNS_DIR
 
 
-def _migrate_legacy_patterns(legacy: Path, target: Path) -> int:
-    """Move every pattern file from `legacy` into `target`, then remove `legacy`
-    once it is empty. A name already taken by a different file gets a suffix,
-    so no pattern is overwritten or left behind. Returns the files moved."""
+def _merge_legacy_folder(legacy: Path, target: Path) -> int:
+    """Move every JSON file from `legacy` into `target`, then remove `legacy`
+    once it is empty. Each file is copied before its original is removed, so a
+    failure part-way leaves every file in one place or the other. A name
+    already taken by a different file gets a suffix, so nothing is overwritten
+    or left behind. Returns the files moved."""
     if not legacy.is_dir() or (target.exists() and legacy.resolve() == target.resolve()):
         return 0
     target.mkdir(parents=True, exist_ok=True)
@@ -144,11 +158,28 @@ def _migrate_legacy_patterns(legacy: Path, target: Path) -> int:
             if dest.read_bytes() == src.read_bytes():
                 src.unlink()
                 continue
-            dest = target / f"{src.stem}-{uuid.uuid4().hex[:8]}.json"
+            dest = target / _suffixed_name(src.name, uuid.uuid4().hex[:8])
         shutil.move(str(src), str(dest))
         moved += 1
     with contextlib.suppress(OSError):
         legacy.rmdir()
+    return moved
+
+
+def _suffixed_name(name: str, suffix: str) -> str:
+    """`Ember.json` -> `Ember-<suffix>.json`, keeping a project's double extension."""
+    for extension in (_PROJECT_FILE_SUFFIX, ".json"):
+        if name.lower().endswith(extension.lower()):
+            return f"{name[:-len(extension)]}-{suffix}{name[-len(extension):]}"
+    return f"{name}-{suffix}"
+
+
+def migrate_legacy_content() -> int:
+    """Startup: bring patterns and projects from their older locations."""
+    moved = _merge_legacy_folder(_LEGACY_PATTERNS_DIR, _PATTERNS_DIR)
+    if _LEGACY_CONTENT_DIR is not None:
+        moved += _merge_legacy_folder(_LEGACY_CONTENT_DIR / "My Patterns", _PATTERNS_DIR)
+        moved += _merge_legacy_folder(_LEGACY_CONTENT_DIR / "Projects", _PROJECTS_DIR)
     return moved
 
 

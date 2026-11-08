@@ -88,17 +88,31 @@ upgrade (`backend/tests/test_desktop_launcher.py` asserts they still exist).
 
 ## Runtime layout
 
-The application directory is read-only in normal use. Mutable content is kept
-under the operating system's per-user data location:
+The application directory is read-only in normal use. Writable files go to two
+per-user roots (`backend/user_data.py`):
 
-| Platform | Data root |
-| --- | --- |
-| Windows | `%LOCALAPPDATA%\\Design Studio for FastLED` |
-| macOS | `~/Library/Application Support/Design Studio for FastLED` |
-| Linux | `$XDG_DATA_HOME/design-studio-for-fastled` or `~/.local/share/design-studio-for-fastled` |
+| Platform | Content root (Projects, My Patterns) | Data root (everything rebuildable) |
+| --- | --- | --- |
+| Windows | `Documents\\Design Studio for FastLED` | `%LOCALAPPDATA%\\Design Studio for FastLED` |
+| macOS | `~/Documents/Design Studio for FastLED` | `~/Library/Application Support/Design Studio for FastLED` |
+| Linux | `~/Documents/Design Studio for FastLED` | `$XDG_DATA_HOME/design-studio-for-fastled` or `~/.local/share/design-studio-for-fastled` |
 
-That root contains Projects, My Patterns, helper configuration, downloaded
-Arduino CLI binaries, fbuild's project/toolchain cache, and compile output.
+The data root holds helper configuration, downloaded Arduino CLI binaries,
+fbuild's project/toolchain cache, compile output, the WebView2 profile and
+`desktop.log`. Projects and patterns are kept apart in Documents because they
+are the person's own work: an MSIX (Store) install redirects AppData into the
+package and deletes it on uninstall, and Documents is where people look.
+Windows resolves Documents through the shell, so a redirected (OneDrive)
+Documents folder is followed.
+
+Projects and patterns saved before 2026-11 sit in the data root. Helper startup
+moves them into the content root file by file (copy, then remove the original),
+gives a different file already holding a name a suffixed name instead of
+overwriting it, and removes each old folder once empty. Setting
+`FLS_CONTENT_DIR`, `FLS_PROJECTS_DIR` or `FLS_PATTERNS_DIR` moves content
+elsewhere and turns this migration off. `FLS_DATA_DIR` moves only the data
+root, so an isolated run (the packaging smoke test) sets both it and
+`FLS_CONTENT_DIR`.
 
 The launcher binds only to `127.0.0.1`. Port 8008 remains the application/API
 contract; a second launch reopens an existing desktop instance, while an

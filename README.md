@@ -147,7 +147,7 @@ The Pattern Library turns good experiments into a personal visual vocabulary:
 - **Scan patterns** adds a Studio Score judged against what each pattern is for, alongside your own 1–5 star rating. Sort or filter a collection by either.
 - Create your own shelves, drag patterns between them, and remove a shelf without deleting its contents.
 - Click or drag a pattern onto the canvas, or drop it directly into a Pattern Collection.
-- With the local helper running, personal patterns are mirrored as shareable JSON files in the per-user `My Patterns` data folder.
+- With the local helper running, personal patterns are mirrored as shareable JSON files in `Documents/Design Studio for FastLED/My Patterns`.
 
 Built-in patterns are immutable examples. Your own patterns remain yours to rename, organize, share, remix, and delete.
 

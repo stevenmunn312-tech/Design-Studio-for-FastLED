@@ -43,7 +43,7 @@ import toolchain
 
 @contextlib.asynccontextmanager
 async def _lifespan(_app: FastAPI):
-    storage._migrate_legacy_patterns(storage._LEGACY_PATTERNS_DIR, storage._PATTERNS_DIR)
+    storage.migrate_legacy_content()
     yield
 
 

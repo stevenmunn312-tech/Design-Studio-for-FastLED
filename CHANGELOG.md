@@ -192,6 +192,13 @@ versioning (`0.y.z`) until the first stable release.
   Without WebView2 the app falls back to your browser. macOS and Linux still
   open in the browser.
 
+- **Projects and My Patterns move to Documents.** Saved projects and patterns
+  now live in `Documents/Design Studio for FastLED`, where you would look for
+  them and where uninstalling the app cannot remove them. The first start
+  after updating moves them from the app-data folder, one file at a time,
+  without overwriting anything; downloaded toolchains and build caches stay
+  in app data.
+
 - **Audio patterns follow the energy of the music.** Every bundled audio
   pattern except the fourteen promoted saved patterns now rests subdued
   while the music is quiet and, as it gets louder, gains colour, then full

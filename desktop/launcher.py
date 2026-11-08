@@ -45,7 +45,11 @@ def resource_dir() -> Path:
 
 
 def configure_environment(data_dir: Path | None = None) -> Path:
-    """Point every mutable helper path outside the installed application."""
+    """Point every mutable helper path outside the installed application.
+
+    The data root takes caches, toolchains and the window profile. Projects
+    and patterns are the helper storage's own choice (Documents), not set here.
+    """
     _source_backend_on_path()
     from user_data import default_data_dir
 
@@ -54,8 +58,6 @@ def configure_environment(data_dir: Path | None = None) -> Path:
     data = (data_dir or Path(os.environ.get("FLS_DATA_DIR") or default_data_dir())).resolve()
     data.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("FLS_DATA_DIR", str(data))
-    os.environ.setdefault("FLS_PATTERNS_DIR", str(data / "My Patterns"))
-    os.environ.setdefault("FLS_PROJECTS_DIR", str(data / "Projects"))
 
     tools = install_dir() / "tools"
     if tools.is_dir():

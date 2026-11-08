@@ -1,8 +1,13 @@
-"""Per-user data locations shared by the upload helper and the desktop launcher.
+"""Per-user locations shared by the upload helper and the desktop launcher.
 
-Saved projects and patterns belong to the person, not to a checkout or an
-installed bundle, so both a source checkout and the desktop app keep them under
-the operating system's per-user application-data folder.
+Two roots, both outside any checkout or installed bundle:
+
+- The content folder holds the person's own work (Projects, My Patterns). It
+  sits in their Documents folder, where people look for their files and where
+  uninstalling the app cannot take it: an MSIX (Microsoft Store) package's
+  AppData is redirected into the package and deleted with it.
+- The data folder holds what the app can rebuild: helper configuration,
+  downloaded toolchains, build caches and the desktop window's profile.
 """
 from __future__ import annotations
 
@@ -21,3 +26,26 @@ def default_data_dir(system: str | None = None) -> Path:
         return Path.home() / "Library" / "Application Support" / "Design Studio for FastLED"
     base = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share"))
     return base / "design-studio-for-fastled"
+
+
+APP_FOLDER_NAME = "Design Studio for FastLED"
+
+
+def default_content_dir(system: str | None = None) -> Path:
+    """Return the folder for saved projects and patterns, inside Documents."""
+    return documents_dir(system or platform.system()) / APP_FOLDER_NAME
+
+
+def documents_dir(system: str) -> Path:
+    """The user's Documents folder, following a Windows folder redirection."""
+    if system == "Windows":
+        try:
+            import ctypes
+
+            CSIDL_PERSONAL, MAX_PATH = 5, 260
+            buffer = ctypes.create_unicode_buffer(MAX_PATH)
+            if ctypes.windll.shell32.SHGetFolderPathW(None, CSIDL_PERSONAL, None, 0, buffer) == 0 and buffer.value:
+                return Path(buffer.value)
+        except (AttributeError, OSError):
+            pass  # not on Windows (tests pass a system name), or no shell
+    return Path.home() / "Documents"

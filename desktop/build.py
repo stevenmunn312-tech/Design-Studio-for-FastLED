@@ -200,6 +200,9 @@ def smoke_test(app_dir: Path) -> None:
             "FLS_DESKTOP_PORT": str(port),
             "FLS_NO_BROWSER": "1",
             "FLS_DATA_DIR": data_dir,
+            # Isolate projects and patterns too, or startup would move the
+            # packager's own files into Documents.
+            "FLS_CONTENT_DIR": str(Path(data_dir) / "content"),
         }
         process = subprocess.Popen(
             [str(launcher)], cwd=app_dir, env=env,

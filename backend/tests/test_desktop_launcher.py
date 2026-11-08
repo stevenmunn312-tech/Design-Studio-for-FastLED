@@ -29,8 +29,9 @@ def test_configure_environment_keeps_mutable_state_outside_bundle(monkeypatch, t
 
     assert launcher.configure_environment(data) == data.resolve()
     assert os.environ["FLS_DATA_DIR"] == str(data.resolve())
-    assert os.environ["FLS_PATTERNS_DIR"] == str(data.resolve() / "My Patterns")
-    assert os.environ["FLS_PROJECTS_DIR"] == str(data.resolve() / "Projects")
+    # Projects and patterns stay in Documents: the launcher leaves them to storage.
+    assert "FLS_PATTERNS_DIR" not in os.environ
+    assert "FLS_PROJECTS_DIR" not in os.environ
     assert os.environ["FBUILD_BIN"] == str(fbuild)
     assert os.environ["PATH"].split(os.pathsep, 1) == [str(tools), old_path]
 
@@ -98,8 +99,5 @@ def test_configure_environment_honours_the_data_dir_override(monkeypatch, tmp_pa
     override = tmp_path / "isolated"
     monkeypatch.setattr(launcher, "install_dir", lambda: tmp_path / "installed")
     monkeypatch.setenv("FLS_DATA_DIR", str(override))
-    for key in ("FLS_PATTERNS_DIR", "FLS_PROJECTS_DIR"):
-        monkeypatch.delenv(key, raising=False)
 
     assert launcher.configure_environment() == override.resolve()
-    assert os.environ["FLS_PROJECTS_DIR"] == str(override.resolve() / "Projects")

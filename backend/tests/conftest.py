@@ -17,10 +17,16 @@ def client():
 
 
 @pytest.fixture(autouse=True)
-def _no_real_legacy_patterns(monkeypatch, tmp_path):
-    """Startup moves a checkout's old root "My Patterns" folder into the patterns
-    folder. A test that starts the app must never move the developer's files."""
+def _isolated_content(monkeypatch, tmp_path):
+    """Startup moves older pattern and project folders into the content folder,
+    and the storage endpoints write there. A test that starts the app must
+    never move or write the developer's own files, so every test gets empty
+    stand-ins; a test that sets its own folder wins, as its monkeypatch runs
+    after this one."""
     monkeypatch.setattr(storage, "_LEGACY_PATTERNS_DIR", tmp_path / "legacy-patterns")
+    monkeypatch.setattr(storage, "_LEGACY_CONTENT_DIR", tmp_path / "legacy-content")
+    monkeypatch.setattr(storage, "_PATTERNS_DIR", tmp_path / "content" / "My Patterns")
+    monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path / "content" / "Projects")
 
 
 @pytest.fixture(autouse=True)
