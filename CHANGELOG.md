@@ -574,6 +574,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The production build no longer opens to a blank page. Two of its code
+  chunks imported each other, so one read the other's values before they
+  existed. The chunks are merged, and the build now fails on any such cycle.
 - Two Performance Deck scenes saved in the same millisecond no longer share
   an id, which left a morph between them standing still.
 - A Music Player's patterns in the preview animate at the preview's frame

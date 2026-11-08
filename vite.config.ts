@@ -57,6 +57,13 @@ export default defineConfig(() => {
       target: 'es2022',
       chunkSizeWarningLimit: APP_CHUNK_WARNING_KIB,
       rollupOptions: {
+        onwarn(warning, warn) {
+          // Chunks that import each other evaluate in an order where one reads
+          // the other's exports before they exist: a TDZ crash that blanks the
+          // production app while dev and tests stay green. Fix the chunk rules.
+          if (warning.code === 'CIRCULAR_CHUNK') throw new Error(warning.message)
+          warn(warning)
+        },
         output: {
           manualChunks(id) {
             const moduleId = id.replaceAll('\\', '/')
@@ -67,18 +74,23 @@ export default defineConfig(() => {
             // UI-only releases.
             if (moduleId.includes('/src/build/generated/')) return 'hardware-catalog'
             // The shipped pattern library is data that changes on its own
-            // cadence, so a code release does not re-download it.
-            if (moduleId.includes('/src/assets/bundled-patterns/')
-              || /\/src\/state\/patterns\/(bundled[A-Za-z0-9]*|audioReleaseBuilder)\.ts$/.test(moduleId)) return 'pattern-library'
-            // The evaluator and every node's preview (src/nodes/*/evaluate.ts).
+            // cadence, so a code release does not re-download it. Only the JSON
+            // goes here: the bundledPatterns/audio builder modules read
+            // NODE_LIBRARY while loading, and graph-runtime imports them, so
+            // in a chunk of their own they would form a cycle and run first.
+            if (moduleId.includes('/src/assets/bundled-patterns/')) return 'pattern-library'
+            // The evaluator, every node's preview (src/nodes/*/evaluate.ts), and
+            // the node registry with each category's definitions. They stay in
+            // one chunk because they import each other: split apart, the two
+            // chunks form an import cycle and whichever loads second reads the
+            // other's bindings before they exist (a production-only TDZ crash).
             // Each node's firmware (codegen.ts beside it) stays with the lazy
             // generator.
             if (moduleId.includes('/src/state/graphEvaluator.ts')
               || moduleId.includes('/src/state/evaluator/')
-              || /\/src\/nodes\/[^/]+\/evaluate\.ts$/.test(moduleId)) return 'graph-runtime'
-            // The node registry and every category's definitions beside it.
-            if (moduleId.includes('/src/state/nodeLibrary.ts')
-              || /\/src\/nodes\/[^/]+\/definitions\.ts$/.test(moduleId)) return 'node-catalog'
+              || /\/src\/nodes\/[^/]+\/evaluate\.ts$/.test(moduleId)
+              || moduleId.includes('/src/state/nodeLibrary.ts')
+              || /\/src\/nodes\/[^/]+\/definitions\.ts$/.test(moduleId)) return 'graph-runtime'
             if (!id.includes('node_modules')) return
             if (id.includes('@xyflow/react')) return 'xyflow'
             if (id.includes('react') || id.includes('zustand') || id.includes('zundo')) return 'react-vendor'
