@@ -5,7 +5,10 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.68);
-  z-index: 120;
+  /* No z-index here: each composer sets its own. A composed class only ties
+     the composer on specificity, and this file can load after the composer's,
+     so a base value here silently beat the save prompt's 140 and left it
+     under the Start Gallery. */
   animation: dialogFadeIn 0.15s ease-out;
 }
 

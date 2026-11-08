@@ -347,6 +347,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   palette there; chrome states use `--accent-ui` and `--accent-ui-text`, never
   a category accent. `src/themes/__tests__/definedTokens.test.ts` fails the
   build when a `var(--x)` is read that nothing declares.
+- A CSS Modules `composes:` base must not set anything a composer overrides,
+  `z-index` above all. The composed class ties the composer on specificity and
+  its file can load later, so the base value wins. `sharedOverlay` in
+  `AppDialogHost.module.css` once held the save prompt (140) under the Start
+  Gallery (120) this way; each overlay now sets its own `z-index`.
 - Category hues live in `CATEGORIES` (`src/state/nodeLibrary.ts`) and the
   matching `--accent-<category>` tokens; change both together.
 - Spacing is `--space-0` (4 px) to `--space-5`; stylelint rejects literal px on
