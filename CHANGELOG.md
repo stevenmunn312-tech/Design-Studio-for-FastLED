@@ -183,6 +183,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- **The Windows desktop app opens in its own window.** It no longer opens a
+  browser tab and a console window. The Studio appears in a native window
+  drawn by the Microsoft Edge WebView2 Runtime that is part of Windows, and
+  closing it stops the app. External links still open in your browser, exports
+  ask where to save, and launching the app again brings the open window
+  forward. Compiles, uploads and file dialogs no longer flash console windows.
+  Without WebView2 the app falls back to your browser. macOS and Linux still
+  open in the browser.
+
 - **Audio patterns follow the energy of the music.** Every bundled audio
   pattern except the fourteen promoted saved patterns now rests subdued
   while the music is quiet and, as it gets louder, gains colour, then full

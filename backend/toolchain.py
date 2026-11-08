@@ -28,6 +28,8 @@ from pathlib import Path
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from subprocess_flags import NO_CONSOLE_WINDOW
+
 router = APIRouter()
 
 # ── arduino-cli resolution ────────────────────────────────────────────────────
@@ -1525,6 +1527,7 @@ def _arduino_user_libraries_dir() -> Path | None:
         proc = subprocess.run(
             _ARDUINO_BASE + ["config", "dump", "--format", "json"],
             capture_output=True, text=True, timeout=10,
+            creationflags=NO_CONSOLE_WINDOW,
         )
         if proc.returncode != 0:
             return None
@@ -1801,7 +1804,7 @@ def _background_build(function):
 def _stop_build_process(proc) -> None:
     if sys.platform == "win32":
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
-                       capture_output=True, check=False)
+                       capture_output=True, check=False, creationflags=NO_CONSOLE_WINDOW)
     else:
         proc.terminate()
 
@@ -1997,6 +2000,7 @@ def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
             bufsize=0,
             env=tool_env if tool_env is not None else _TOOLCHAIN_ENV,
             cwd=cwd,
+            creationflags=NO_CONSOLE_WINDOW,
         )
     except Exception as e:
         yield f"[error] failed to launch {args[0]}: {e}\n"
@@ -2075,7 +2079,7 @@ def locate_cli(payload: dict = Body(...)):
             status_code=400,
         )
     try:
-        proc = subprocess.run([path, "version"], capture_output=True, text=True, timeout=20)
+        proc = subprocess.run([path, "version"], capture_output=True, text=True, timeout=20, creationflags=NO_CONSOLE_WINDOW)
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.strip() or "non-zero exit")
     except Exception as e:
@@ -2161,7 +2165,7 @@ def install_cli():
         _refresh_cli()
         # Initialise a config so cores/libs can be installed afterwards.
         try:
-            subprocess.run(_ARDUINO_BASE + ["config", "init"], capture_output=True, text=True, timeout=30)
+            subprocess.run(_ARDUINO_BASE + ["config", "init"], capture_output=True, text=True, timeout=30, creationflags=NO_CONSOLE_WINDOW)
         except Exception:
             pass
         yield f"arduino-cli installed at {dest}\n"
@@ -2178,6 +2182,7 @@ def cores():
         proc = subprocess.run(
             _ARDUINO_BASE + ["core", "list", "--format", "json"],
             capture_output=True, text=True, timeout=30,
+            creationflags=NO_CONSOLE_WINDOW,
         )
         data = json.loads(proc.stdout or "[]")
     except Exception as e:
@@ -2237,6 +2242,7 @@ def core_updates(payload: dict = Body(default={})):
             subprocess.run(
                 _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
                 capture_output=True, text=True, timeout=15, env=_TOOLCHAIN_ENV,
+                creationflags=NO_CONSOLE_WINDOW,
             )
         except Exception:
             pass
@@ -2244,6 +2250,7 @@ def core_updates(payload: dict = Body(default={})):
         subprocess.run(
             _ARDUINO_BASE + ["core", "update-index"],
             capture_output=True, text=True, timeout=60, env=_TOOLCHAIN_ENV,
+            creationflags=NO_CONSOLE_WINDOW,
         )
     except Exception:
         pass
@@ -2261,6 +2268,7 @@ def _installed_cores() -> list[tuple[str, str, str]]:
     proc = subprocess.run(
         _ARDUINO_BASE + ["core", "list", "--format", "json"],
         capture_output=True, text=True, timeout=30, env=_TOOLCHAIN_ENV,
+        creationflags=NO_CONSOLE_WINDOW,
     )
     data = json.loads(proc.stdout or "[]")
     items = data.get("platforms", data) if isinstance(data, dict) else data

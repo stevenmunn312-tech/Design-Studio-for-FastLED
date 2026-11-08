@@ -37,3 +37,11 @@ def test_build_frontend_uses_resolved_npm_command(monkeypatch, tmp_path):
     build.build_frontend(skip=False)
 
     assert commands == [[r"C:\Tools\npm.cmd", "run", "build"]]
+
+
+def test_windows_launcher_is_built_without_a_console(monkeypatch):
+    monkeypatch.setattr(build.os, "name", "nt")
+    assert build.launcher_window_mode() == "--windowed"
+
+    monkeypatch.setattr(build.os, "name", "posix")
+    assert build.launcher_window_mode() == "--console"

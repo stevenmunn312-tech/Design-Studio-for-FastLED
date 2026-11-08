@@ -1,10 +1,15 @@
 Design Studio for FastLED portable desktop bundle
 ==================================================
 
-Launch "Design Studio for FastLED" ("Design Studio for FastLED.exe" on
-Windows). Your normal web browser opens automatically. Keep the launcher
-window open while using the Studio; press Ctrl+C in it to stop the local
-application.
+On Windows, launch "Design Studio for FastLED.exe". The Studio opens in its
+own window; close that window to stop it. The window is drawn by the Microsoft
+Edge WebView2 Runtime that ships with Windows. If WebView2 is missing, the
+Studio opens in your web browser instead and shows a message you keep open
+while you work.
+
+On macOS and Linux, launch "Design Studio for FastLED". Your normal web
+browser opens automatically. Keep the launcher window open while using the
+Studio; press Ctrl+C in it to stop the local application.
 
 Node.js and Python are included and do not need to be installed separately.
 The first firmware compile may still download board toolchains and can take

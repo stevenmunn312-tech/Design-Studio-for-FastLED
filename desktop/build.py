@@ -61,12 +61,17 @@ def build_frontend(skip: bool) -> None:
         raise SystemExit("dist/index.html is missing; run npm run build first")
 
 
+def launcher_window_mode() -> str:
+    """Windows gets a console-less launcher: the Studio opens in its own WebView2 window."""
+    return "--windowed" if os.name == "nt" else "--console"
+
+
 def build_launcher() -> Path:
     app_dir = RELEASE_ROOT / APP_NAME
     run([
         *pyinstaller_base(),
         "--onedir",
-        "--console",
+        launcher_window_mode(),
         "--name", APP_NAME,
         "--distpath", str(RELEASE_ROOT),
         "--workpath", str(BUILD_ROOT / "launcher-work"),
@@ -136,6 +141,14 @@ def install_dependency_notices(app_dir: Path) -> None:
         "esptool": ("GPL-2.0-or-later", "https://github.com/espressif/esptool"),
         "pyinstaller": ("GPL-2.0-or-later with bootloader exception", "https://pyinstaller.org"),
     }
+    if os.name == "nt":
+        packages.update({
+            "pywebview": ("BSD-3-Clause", "https://github.com/r0x0r/pywebview"),
+            "pythonnet": ("MIT", "https://github.com/pythonnet/pythonnet"),
+            "clr_loader": ("MIT", "https://github.com/pythonnet/clr-loader"),
+            "bottle": ("MIT", "https://github.com/bottlepy/bottle"),
+            "proxy_tools": ("MIT", "https://github.com/jtushman/proxy_tools"),
+        })
     manifest = ["Runtime dependency licenses", "===========================", ""]
     for package, (license_name, source_url) in packages.items():
         dist = importlib.metadata.distribution(package)
@@ -155,6 +168,15 @@ def install_dependency_notices(app_dir: Path) -> None:
         "standalone license file; its upstream license declaration is linked above.",
         "The pyserial BSD notice is recorded in the repository's THIRD_PARTY_NOTICES.md.",
     ])
+    if os.name == "nt":
+        manifest.extend([
+            "proxy_tools ships no license file; it declares MIT in its package metadata.",
+            "pywebview bundles Microsoft's WebView2 SDK assemblies",
+            "(Microsoft.Web.WebView2.Core.dll, Microsoft.Web.WebView2.WinForms.dll and",
+            "WebView2Loader.dll), redistributable under the WebView2 SDK license:",
+            "https://www.nuget.org/packages/Microsoft.Web.WebView2/ . The WebView2",
+            "Runtime itself is part of Windows and is not bundled.",
+        ])
     (notice_dir / "README.txt").write_text("\n".join(manifest) + "\n", encoding="utf-8")
 
 

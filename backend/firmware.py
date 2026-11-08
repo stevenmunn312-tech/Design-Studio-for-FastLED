@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 import streaming
 import toolchain
+from subprocess_flags import NO_CONSOLE_WINDOW
 
 router = APIRouter()
 
@@ -1115,14 +1116,14 @@ def health():
     version = None
     if toolchain._ARDUINO_CLI:
         try:
-            proc = subprocess.run([toolchain._ARDUINO_CLI, "version"], capture_output=True, text=True, timeout=15)
+            proc = subprocess.run([toolchain._ARDUINO_CLI, "version"], capture_output=True, text=True, timeout=15, creationflags=NO_CONSOLE_WINDOW)
             version = (proc.stdout or "").strip() or None
         except Exception:
             version = None
     fbuild_version = None
     if toolchain._FBUILD_BIN:
         try:
-            proc = subprocess.run([toolchain._FBUILD_BIN, "--version"], capture_output=True, text=True, timeout=15)
+            proc = subprocess.run([toolchain._FBUILD_BIN, "--version"], capture_output=True, text=True, timeout=15, creationflags=NO_CONSOLE_WINDOW)
             fbuild_version = (proc.stdout or "").strip() or None
         except Exception:
             fbuild_version = None
@@ -1172,6 +1173,7 @@ def serial_ports(quick: bool = False):
             proc = subprocess.run(
                 toolchain._ARDUINO_BASE + ["board", "list", "--format", "json"],
                 capture_output=True, text=True, timeout=30,
+                creationflags=NO_CONSOLE_WINDOW,
             )
             data = json.loads(proc.stdout or "{}")
             # arduino-cli 1.x: {"detected_ports": [{"port": {...}, "matching_boards": [...]}]}

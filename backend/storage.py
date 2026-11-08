@@ -19,6 +19,7 @@ from pathlib import Path
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 
+from subprocess_flags import NO_CONSOLE_WINDOW
 from user_data import default_data_dir
 
 router = APIRouter()
@@ -269,6 +270,7 @@ def _show_windows_save_dialog(initial_dir: Path, initial_file: str) -> str | Non
         text=True,
         env=env,
         check=False,
+        creationflags=NO_CONSOLE_WINDOW,
     )
     return (res.stdout or "").strip() or None
 
@@ -292,6 +294,7 @@ def _show_windows_open_dialog(initial_dir: Path) -> str | None:
         text=True,
         env=env,
         check=False,
+        creationflags=NO_CONSOLE_WINDOW,
     )
     return (res.stdout or "").strip() or None
 

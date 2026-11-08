@@ -140,6 +140,11 @@ Each license is shipped next to its files.
   (BSD-3-Clause), fbuild (BSD-3-Clause), and esptool (GPL-2.0-or-later).
   The packager copies available upstream license files into
   `third-party-licenses/` and emits a version/license/source manifest there.
+- The Windows bundle also includes pywebview (BSD-3-Clause), pythonnet (MIT),
+  clr-loader (MIT), Bottle (MIT) and proxy_tools (MIT) for its native window,
+  plus the Microsoft WebView2 SDK assemblies that pywebview ships, which are
+  redistributable under the WebView2 SDK license. The WebView2 Runtime that
+  draws the window is part of Windows and is not bundled.
 - PyInstaller is the build tool. Its GPLv2-or-later bootloader exception permits
   distributing generated bundles under the application's license; the build
   also includes PyInstaller's supplied license file for transparency.

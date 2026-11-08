@@ -2,16 +2,20 @@
 
 Design Studio for FastLED can be shipped as a portable desktop bundle that requires no
 separate Node.js or Python installation. The package deliberately keeps the
-tested browser UI: one native launcher contains the Python runtime and upload
-helper, serves the production Vite assets on localhost, and opens the user's
-default browser.
+tested web UI: one native launcher contains the Python runtime and upload
+helper and serves the production Vite assets on localhost. On Windows it shows
+them in a native window drawn by the system WebView2 runtime; on macOS and
+Linux it opens the user's default browser.
 
 ## Why this shape
 
 - It reuses the existing FastAPI upload, serial-streaming, and SD-provisioning
   code rather than maintaining a second Electron/Tauri backend.
-- It avoids bundling a second browser engine; the installed default browser is
-  the same environment already covered by Studio's browser policy.
+- It avoids bundling a second browser engine. Windows draws the window with
+  the Edge WebView2 runtime that is part of the operating system, which is the
+  same Chromium engine the browser policy already covers. macOS and Linux keep
+  the default browser, because their system web views (WKWebView, WebKitGTK)
+  lack Web MIDI and the File System Access pickers.
 - PyInstaller's one-folder mode is inspectable and easier to diagnose than a
   one-file executable. It also keeps the native `fbuild`, `fbuild-daemon`, and
   frozen `esptool` tools beside the launcher.
@@ -45,6 +49,42 @@ The command:
 
 Useful development flags are `--skip-frontend`, `--skip-smoke`, and
 `--no-archive`, passed after `npm run package:desktop --`.
+
+## Windows window
+
+`desktop/launcher.py` builds a console-less (`--windowed`) launcher on Windows.
+It starts the helper on a background thread, waits for it to answer, and opens
+a pywebview window on the WebView2 runtime. Closing the window stops the
+helper. Behaviour that differs from the pywebview defaults, all set in the
+launcher:
+
+- **Profile:** a persistent WebView2 profile under `<data root>\WebView2`
+  keeps localStorage and granted microphone/MIDI permissions between launches.
+  It is separate from any browser profile, so browser-held localStorage does
+  not carry over; projects and patterns on disk do.
+- **Links and popups:** external links and `window.open` targets go to the
+  default browser. Blank and same-origin popups stay in WebView2, because the
+  community share flow opens an empty named window and later posts a form
+  into it. The main window never navigates away from the app.
+- **Downloads** are allowed (firmware and file exports) and ask where to save.
+- **Browser behaviour kept:** text selection, Ctrl+wheel/pinch zoom, native
+  drag, and the default context menu.
+- **Second launch** asks the running instance to raise its window
+  (`POST /api/desktop/focus`) instead of opening a browser tab.
+- **No console:** output goes to `<data root>\desktop.log`. Every helper
+  subprocess passes `NO_CONSOLE_WINDOW` from `backend/subprocess_flags.py`;
+  without it each arduino-cli, fbuild, esptool or PowerShell call would open a
+  console window. Add the flag to any new spawn site.
+- **Missing WebView2:** pywebview would fall back to the retired MSHTML
+  engine, so the launcher checks the renderer and instead opens the default
+  browser, showing a message box whose OK button stops the helper.
+- `FLS_DESKTOP_DEBUG=1` enables DevTools. Setting
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` exposes
+  the page to a CDP client for automated checks.
+
+The pywebview overrides replace three of its WebView2 event handlers, so
+`backend/constraints.txt` pins pywebview exactly; re-check them on every
+upgrade (`backend/tests/test_desktop_launcher.py` asserts they still exist).
 
 ## Runtime layout
 

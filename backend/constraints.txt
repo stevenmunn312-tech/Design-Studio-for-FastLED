@@ -4,9 +4,11 @@ altgraph==0.17.5
 anyio==4.14.2
 bitarray==3.9.2
 bitstring==4.4.0
+bottle==0.13.4; sys_platform == "win32"
 certifi==2026.7.22
 cffi==2.1.0
 click==8.4.2
+clr_loader==0.3.1; sys_platform == "win32"
 colorama==0.4.6
 cryptography==48.0.0; platform_system == "Darwin" and platform_machine == "x86_64"
 cryptography==49.0.0; platform_system != "Darwin" or platform_machine != "x86_64"
@@ -25,6 +27,7 @@ mdurl==0.1.2
 packaging==26.2
 pefile==2024.8.26
 pluggy==1.6.0
+proxy_tools==0.1.0; sys_platform == "win32"
 pycparser==3.0
 pydantic==2.13.4
 pydantic_core==2.46.4
@@ -36,6 +39,8 @@ pywin32-ctypes==0.2.3
 pytest==9.1.1
 python-dotenv==1.2.2
 python-multipart==0.0.32
+pythonnet==3.2.1; sys_platform == "win32"
+pywebview==6.2.1; sys_platform == "win32"
 PyYAML==6.0.3
 reedsolo==1.7.0
 rich==15.0.0

@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -38,3 +40,66 @@ def test_app_version_reads_package_metadata():
 
     expected = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     assert launcher.app_version() == expected
+
+
+ORIGIN = "http://localhost:8008/"
+
+
+def test_is_app_url_matches_scheme_host_and_port():
+    assert launcher.is_app_url("http://localhost:8008/projects?id=1", ORIGIN)
+    assert not launcher.is_app_url("http://localhost:8009/", ORIGIN)
+    assert not launcher.is_app_url("https://localhost:8008/", ORIGIN)
+    assert not launcher.is_app_url("http://127.0.0.1:8008/", ORIGIN)
+
+
+def test_external_links_open_in_the_browser_but_app_and_blank_popups_stay():
+    assert launcher.opens_in_browser("https://github.com/owner/repo/issues/new", ORIGIN)
+    assert launcher.opens_in_browser("http://localhost:3000/", ORIGIN)
+    # The community share flow opens an empty named window, then posts a form into it.
+    assert not launcher.opens_in_browser("about:blank", ORIGIN)
+    assert not launcher.opens_in_browser("", ORIGIN)
+    assert not launcher.opens_in_browser("data:text/html,hi", ORIGIN)
+    assert not launcher.opens_in_browser("http://localhost:8008/help", ORIGIN)
+
+
+def test_native_window_is_windows_only(monkeypatch):
+    monkeypatch.setattr(launcher.sys, "platform", "darwin")
+
+    assert launcher.native_window_available() is False
+
+
+def test_focus_endpoint_raises_the_native_window_when_one_exists():
+    from fastapi.testclient import TestClient
+
+    app = launcher.create_app()
+    client = TestClient(app, base_url="http://localhost:8008")
+    raised: list[bool] = []
+    previous = app.state.desktop_focus
+    try:
+        app.state.desktop_focus = None
+        assert client.post("/api/desktop/focus").json() == {"ok": True, "focused": False}
+
+        app.state.desktop_focus = lambda: raised.append(True)
+        assert client.post("/api/desktop/focus").json() == {"ok": True, "focused": True}
+        assert raised == [True]
+    finally:
+        app.state.desktop_focus = previous
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="pywebview's WebView2 host is Windows-only")
+def test_pinned_pywebview_still_has_the_handlers_the_launcher_replaces():
+    edgechromium = pytest.importorskip("webview.platforms.edgechromium")
+
+    for name in ("on_new_window_request", "on_navigation_start", "on_webview_ready"):
+        assert callable(getattr(edgechromium.EdgeChrome, name)), name
+
+
+def test_configure_environment_honours_the_data_dir_override(monkeypatch, tmp_path):
+    override = tmp_path / "isolated"
+    monkeypatch.setattr(launcher, "install_dir", lambda: tmp_path / "installed")
+    monkeypatch.setenv("FLS_DATA_DIR", str(override))
+    for key in ("FLS_PATTERNS_DIR", "FLS_PROJECTS_DIR"):
+        monkeypatch.delenv(key, raising=False)
+
+    assert launcher.configure_environment() == override.resolve()
+    assert os.environ["FLS_PROJECTS_DIR"] == str(override.resolve() / "Projects")

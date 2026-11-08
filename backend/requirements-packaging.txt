@@ -3,3 +3,5 @@
 -r requirements.txt
 pyinstaller==6.21.0
 pyinstaller-hooks-contrib==2026.6
+# Windows desktop window: WebView2 through pywebview (pythonnet + WinForms).
+pywebview==6.2.1; sys_platform == "win32"
