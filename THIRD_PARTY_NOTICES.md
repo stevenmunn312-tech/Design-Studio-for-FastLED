@@ -103,6 +103,16 @@ Each license is shipped next to its files.
   bass/mids/treble/kick/snare/hi-hat/beat mappings. Generated firmware carries
   Stefan's name, the upstream URL, and the license identifier.
 
+## Demo music
+
+- `public/demo-music/Ethereal Pulse.mp3` was generated with ACE-Step v1.5
+  (`acestep-v15-xl-turbo`) on acemusic.ai, operated by TimeDomain Inc. Its
+  terms allow ACE-Step v1.5 output to be used for personal and commercial
+  purposes on any plan, with attribution appreciated but not required. The
+  ACE-Step project (MIT) asks that AI involvement be disclosed: this track is
+  AI-generated. The file was re-encoded to a tag-free 160 kbps MP3 with 1.5 dB
+  of headroom.
+
 ## Generated and packaged artifacts
 
 - Generated `.ino` sketches are project/user output and do not embed FastLED's

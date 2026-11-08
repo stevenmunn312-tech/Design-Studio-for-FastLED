@@ -13,6 +13,7 @@ import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useMusicStore } from '../../state/player/musicStore'
 import { useUploadStore } from '../../state/upload/uploadStore'
 import { normalizeRadioStations } from '../../state/player/radioStations'
+import { DEMO_TRACK_FILE, demoTrackUrl } from '../../state/player/demoTrack'
 import {
   fetchRadioTitle, radioPreviewTracks, splitStreamTitle,
   RADIO_PREVIEW_START_TIMEOUT_MS, RADIO_PREVIEW_TITLE_POLL_MS,
@@ -114,9 +115,13 @@ interface LocalTrack {
   url: string
   /** The file's ID3 tags, once read; empty until then or when it has none. */
   tags?: AudioTags
+  /** The bundled demo track rather than a file the user opened. */
+  demo?: boolean
 }
 
 let nextTrackId = 0
+
+const DEMO_LOCAL_TRACK: LocalTrack = { id: 'demo-track', name: DEMO_TRACK_FILE, url: demoTrackUrl(), demo: true }
 
 // Mirror the firmware's FastLED.setBrightness master dim: scale the terminal
 // frame by the Board node's `brightness` (0–255, default 200 matching
@@ -484,6 +489,17 @@ export default function LEDPreview() {
   // Stations failed in a row, so a dead list (or no helper) stops instead of
   // cycling forever.
   const radioFailuresRef = useRef(0)
+  // A Music Player playing local music opens with the bundled demo track
+  // queued (not playing: the user presses Play), so its patterns have a song
+  // to answer before the user has found one. Clearing the playlist dismisses
+  // it for the rest of the session, and the user's own files replace it.
+  const hasLocalMusicPlayer = useGraphStore((s) => rootGraphNodes(s).some((node) => node.data.nodeType === 'PatternMaster'
+    && (node.data.properties as Record<string, unknown>).musicSource !== 'Internet Radio'))
+  const demoDismissedRef = useRef(false)
+  useEffect(() => {
+    if (!hasLocalMusicPlayer || demoDismissedRef.current) return
+    setTracks((current) => (current.length ? current : [DEMO_LOCAL_TRACK]))
+  }, [hasLocalMusicPlayer])
   const playlist: LocalTrack[] = radioTracks ?? tracks
   const playlistIndex = radioTracks ? Math.min(radioIndex, Math.max(0, radioTracks.length - 1)) : trackIndex
   const setPlaylistIndex = radioTracks ? setRadioIndex : setTrackIndex
@@ -962,7 +978,7 @@ export default function LEDPreview() {
   // Revoke every playlist object URL on unmount.
   useEffect(() => {
     return () => {
-      for (const track of tracksRef.current) URL.revokeObjectURL(track.url)
+      for (const track of tracksRef.current) if (!track.demo) URL.revokeObjectURL(track.url)
     }
   }, [])
 
@@ -994,7 +1010,8 @@ export default function LEDPreview() {
       player.removeAttribute('src')
       player.load()
     }
-    for (const track of tracks) URL.revokeObjectURL(track.url)
+    for (const track of tracks) if (!track.demo) URL.revokeObjectURL(track.url)
+    demoDismissedRef.current = true
     pendingPlayRef.current = false
     setTracks([])
     setTrackIndex(0)
@@ -1027,8 +1044,11 @@ export default function LEDPreview() {
     // Opening files is an explicit playback gesture: select the first newly
     // added track and let onLoadedMetadata start it as soon as it is ready.
     pendingPlayRef.current = true
-    setTracks([...tracks, ...added])
-    setTrackIndex(tracks.length)
+    // The user's own songs replace the demo track rather than queue behind it.
+    const kept = tracks.filter((track) => !track.demo)
+    demoDismissedRef.current = true
+    setTracks([...kept, ...added])
+    setTrackIndex(kept.length)
     setMusicReady(false)
     setMusicPlaying(false)
     setMusicCurrentTime(0)

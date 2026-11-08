@@ -410,7 +410,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'generative-show',
     level: 'Intermediate',
-    preview: 'Plays music files from your computer in the browser.',
+    preview: 'Opens with a demo track ready to play, or add music files from your computer.',
     before: ['MP3 files to play, copied to a microSD card for the board'],
     name: 'Music Player',
     description: 'Build a live, audio-reactive show from reusable pattern groups, then configure its controls and hardware.',
