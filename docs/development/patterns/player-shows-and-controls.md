@@ -92,6 +92,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `sdMounted`/`playbackReady`, which a streamed source never declares. See
   [internet radio](../../design/internet-radio.md) for station sources,
   dead-station skipping and the phone page's security.
+- **The bundled demo track fills an empty SD player, on both sides.**
+  `state/player/demoTrack.ts` names `public/demo-music/Ethereal Pulse.mp3`.
+  The preview queues it (never autoplays) while a non-radio Music Player is on
+  the root graph; the user's own files replace it and Clear dismisses it.
+  `musicPlayerUsesDemoTrack` in `utils/showUpload.ts` is the one rule for the
+  card: an `SD Card` Music Player with no analysed Music Library song. Then
+  the deploy popup fetches the file and `buildShowPayload` writes it to
+  `DEMO_TRACK_SD_PATH`. Card writes are additive, so it joins any songs the
+  user copied there. Keep the file tag-free: an ID3 header can hit the
+  decoder's start timeout.
 - Music Player's `order` property uses the same Random/Sequential choices and
   `asSlideshowOrder` resolver as Pattern Slideshow. Preview passes the choice
   into `evalPatternShow`; `buildShowPlayer` passes the selected engine's choice

@@ -13,6 +13,13 @@ export const DEMO_TRACK_FILE = 'Ethereal Pulse.mp3'
 
 export const DEMO_TRACK_CREDIT = 'Ethereal Pulse · generated with ACE-Step v1.5'
 
+/** The demo track's bytes, for writing to a Music Player's SD card. */
+export async function fetchDemoTrack(): Promise<Blob> {
+  const response = await fetch(demoTrackUrl())
+  if (!response.ok) throw new Error(`The demo track could not be loaded (HTTP ${response.status}).`)
+  return response.blob()
+}
+
 /** Same-origin URL of the bundled demo track, honouring Vite's base path. */
 export function demoTrackUrl(base: string = import.meta.env.BASE_URL): string {
   const root = base.endsWith('/') ? base : `${base}/`

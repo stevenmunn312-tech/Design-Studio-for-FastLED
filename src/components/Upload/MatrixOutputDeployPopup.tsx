@@ -20,7 +20,10 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/sketches/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/sketches/wiringDiagnosticGenerator'
-import { analysedShows, readySongCount, buildShowPayload, buildShowPlayerForMeasurement, showPackagingIssues } from '../../utils/showUpload'
+import {
+  analysedShows, readySongCount, buildShowPayload, buildShowPlayerForMeasurement, musicPlayerUsesDemoTrack, showPackagingIssues,
+} from '../../utils/showUpload'
+import { fetchDemoTrack } from '../../state/player/demoTrack'
 import { buildGraphDiagnostics, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { formatElapsed, summarizeCapacity } from '../../utils/capacityFormat'
 import { useElapsedSeconds } from '../../hooks/useElapsedSeconds'
@@ -545,6 +548,7 @@ export default function MatrixOutputDeployPopup({
   }
 
   const readySongs = readySongCount(entries)
+  const usesDemoTrack = musicPlayerUsesDemoTrack(nodes, edges, entries)
   const cardReaderTip = cardReader
     ? 'The studio will pause and ask you to move the card to a reader, write the files, then ask for it back before flashing.'
     : 'Songs go to the card over serial — reliable everywhere, but minutes per song.'
@@ -560,7 +564,19 @@ export default function MatrixOutputDeployPopup({
         return
       }
       if (customAssets.pending || customAssets.errors.length > 0) return
+      // A Music Player with no song of its own gets the demo track the
+      // preview played, so the flashed board is not silent.
+      let demoTrack: Blob | undefined
+      if (musicPlayerUsesDemoTrack(nodes, edges, entries)) {
+        try {
+          demoTrack = await fetchDemoTrack()
+        } catch (error) {
+          useUiStore.getState().setStatus(error instanceof Error ? error.message : String(error), 'error')
+          return
+        }
+      }
       const payload = buildShowPayload(nodes, edges, entries, getGroupRegistry(), {
+        demoTrack,
         fqbn: selectedFqbn,
         psramAllowed: !!psramOptions,
         fqbnOpt: usePsram ? psramChoice?.opt : undefined,
@@ -661,6 +677,8 @@ export default function MatrixOutputDeployPopup({
           ? 'Flash the Bluetooth player, then pair your phone with the board'
         : radioPlayer
           ? 'Flash the internet radio player; it joins Wi-Fi and plays the first station'
+        : usesDemoTrack
+          ? `Write the demo track to ${cardReader ? 'a card in your reader' : 'the SD card over serial'} alongside any songs already there, then flash the player`
         : cardReader
           ? `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to a card in your reader, then flash the player`
           : `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to the SD card over serial, then flash the player`

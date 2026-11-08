@@ -44,6 +44,7 @@ import { wiredPatternCollection, wiredTransitionStyles } from '../state/patterns
 import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/player/showFreshness'
 import { musicPlayerSource, resolveBuildMode } from '../state/upload/buildMode'
 import { bluetoothDeviceName } from '../state/player/bluetoothSink'
+import { DEMO_TRACK_FILE } from '../state/player/demoTrack'
 import { normalizeRadioStations, radioAccessCodeProblem, radioStationPagePort } from '../state/player/radioStations'
 import { networkSketchCpp, networkSourceIn } from '../codegen/peripherals/networkCpp'
 import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
@@ -353,6 +354,23 @@ export function showPackagingIssues(
   )
 }
 
+/** Where the bundled demo track lands on the card. */
+export const DEMO_TRACK_SD_PATH = `/music/${safeTitle(DEMO_TRACK_FILE.replace(/\.mp3$/i, ''))}.mp3`
+
+/**
+ * True when an upload would leave an SD-card Music Player with no song of its
+ * own to play: no analysed song in the Music Library. The demo track goes onto
+ * the card then, so a board flashed from the starter plays the same music the
+ * preview did instead of sitting silent. Songs the user copied onto the card
+ * themselves are invisible from here; the demo only joins them.
+ */
+export function musicPlayerUsesDemoTrack(nodes: StudioNode[], edges: Edge[], entries: MusicEntry[]): boolean {
+  const build = resolveBuildMode(nodes, edges)
+  return build.engineKind === 'music-player' && !!build.engine
+    && musicPlayerSource(build.engine) === 'SD Card'
+    && !entries.some((entry) => entry.status === 'done' && entry.show)
+}
+
 /**
  * Build the player sketch and the SD file list. Returns null when there are no
  * analysed songs to upload, or when the shows no longer match the collection
@@ -366,7 +384,11 @@ export function buildShowPayload(
   edges: Edge[],
   entries: MusicEntry[],
   groups: GroupRegistry = {},
-  opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string; projectName?: string } & PlayerDisplayBuildOptions = {},
+  opts: {
+    fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string; projectName?: string
+    /** The bundled demo track's bytes, written when `musicPlayerUsesDemoTrack`. */
+    demoTrack?: Blob
+  } & PlayerDisplayBuildOptions = {},
 ): { player: string; files: ShowUploadFile[]; fqbnOpt?: string } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
   const build = resolveBuildMode(nodes, edges)
@@ -420,6 +442,9 @@ export function buildShowPayload(
       }
       files.push({ path: `/shows/${title}.show`, data: new Blob([showFileToBinary(show, builtinSlots)]) })
     }
+  }
+  if (opts.demoTrack && musicPlayerUsesDemoTrack(nodes, edges, entries)) {
+    files.push({ path: DEMO_TRACK_SD_PATH, data: opts.demoTrack })
   }
   return { player, files, fqbnOpt: opts.fqbnOpt }
 }

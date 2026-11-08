@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { Edge } from '@xyflow/react'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioNode } from '../../state/graphStore'
-import { buildShowPayload, buildShowPlayer, buildShowPlayerForMeasurement, showPackagingIssues } from '../showUpload'
+import {
+  DEMO_TRACK_SD_PATH, buildShowPayload, buildShowPlayer, buildShowPlayerForMeasurement, musicPlayerUsesDemoTrack, showPackagingIssues,
+} from '../showUpload'
 import type { MusicEntry } from '../../state/player/musicStore'
 import type { ShowFile } from '../../types/showFile'
 
@@ -376,6 +378,32 @@ describe('the performance player without a collection', () => {
     // A Music Player with no patterns still plays the card's MP3s.
     expect(payload.player).toContain('Playing (generic)')
     expect(payload.player).not.toContain('loadShowFile')
+  })
+
+  // The starter's board plays the music its preview did, instead of silence.
+  it('writes the demo track for an SD Music Player with no analysed song', () => {
+    const player = {
+      nodes: [node('player', 'PatternMaster', {}), ...graph.nodes.slice(1)],
+      edges: [{ id: 'led', source: 'player', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as Edge[],
+    }
+    const demoTrack = new Blob(['demo'])
+    expect(musicPlayerUsesDemoTrack(player.nodes, player.edges, [])).toBe(true)
+    const payload = buildShowPayload(player.nodes, player.edges, [], {}, { demoTrack })!
+    expect(DEMO_TRACK_SD_PATH).toBe('/music/Ethereal Pulse.mp3')
+    expect(payload.files).toEqual([{ path: DEMO_TRACK_SD_PATH, data: demoTrack }])
+
+    // The user's own analysed song replaces it.
+    const entry = { id: 'song', file: new File([''], 'track.mp3'), status: 'done', analysis: {}, show } as unknown as MusicEntry
+    expect(musicPlayerUsesDemoTrack(player.nodes, player.edges, [entry])).toBe(false)
+    expect(buildShowPayload(player.nodes, player.edges, [entry], {}, { demoTrack })!.files.map((file) => file.path))
+      .toEqual(['/music/Track.mp3'])
+  })
+
+  it('sends no demo track to a streaming Music Player or a show', () => {
+    const bluetooth = [node('player', 'PatternMaster', { musicSource: 'Bluetooth' }), ...graph.nodes.slice(1)]
+    const edges = [{ id: 'led', source: 'player', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as Edge[]
+    expect(musicPlayerUsesDemoTrack(bluetooth, edges, [])).toBe(false)
+    expect(musicPlayerUsesDemoTrack(graph.nodes, graph.edges, [])).toBe(false)
   })
 
   // The phone holds the music: flash the player, and send nothing to a card.
