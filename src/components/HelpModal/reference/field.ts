@@ -393,8 +393,9 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
 
   ShapeField: {
     overview: [
-      'Shape Field draws an ellipse (a circle at Aspect 1), rectangle or polygon as a field, the same shapes as Shape. Fill gives 1 inside and 0 outside with a soft edge; Distance peaks on the outline and falls away either side; Falloff is 0 on the shape and rises to 1 at Range.',
-      'A tiny circle in Falloff mode is the distance from a point — the building block of spotlights, glows and ripples.',
+      'Shape Field draws an ellipse (a circle at Aspect 1), rectangle or polygon as a field, the same shapes as Shape, or a rose or Gielis’s superformula. Fill gives 1 inside and 0 outside with a soft edge; Distance peaks on the outline and falls away either side; Falloff is 0 on the shape and rises to 1 at Range.',
+      'Petals sets the rose’s petals. The superformula makes stars, flowers, rounded squares and organic blobs from its lobes and three exponents; at A and B of 1 a lobe reaches Size. Both measure their distance along the radius from the centre, so in Distance and Falloff their glow is thinner beside a petal than beyond its tip.',
+      'Rotation turns any shape and Spin keeps it turning. A tiny circle in Falloff mode is the distance from a point — the building block of spotlights, glows and ripples.',
     ],
     outputs: { field: FIELD_OUT },
     example: example({

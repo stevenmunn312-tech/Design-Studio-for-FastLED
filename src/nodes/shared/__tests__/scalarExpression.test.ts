@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateScalarExpression } from '../scalarExpression'
-import { libraryDefaults, NODE_LIBRARY, resolveNodeNumericProperties, supportsScalarExpression } from '../../../state/nodeLibrary'
+import { NODE_LIBRARY, resolveNodeNumericProperties, supportsScalarExpression } from '../../../state/nodeLibrary'
 
 describe('scalar numeric expressions', () => {
   it('exposes matrix geometry and mathematical constants', () => {
@@ -37,13 +37,13 @@ describe('scalar numeric expressions', () => {
       .toEqual({ min: 8, max: 10 })
   })
 
-  it('draws a fresh Line corner to corner on any matrix', () => {
+  it('takes a Line end as an expression, for Pixels units', () => {
     expect(supportsScalarExpression('Line', 'x2')).toBe(true)
-    expect(resolveNodeNumericProperties('Line', libraryDefaults('Line'), 20, 10))
-      .toMatchObject({ x1: 0, y1: 0, x2: 19, y2: 9 })
-    // An invalid end point falls back to the default expression, resolved.
+    expect(resolveNodeNumericProperties('Line', { units: 'pixels', x2: 'max_x', y2: 'center_y' }, 20, 10))
+      .toEqual({ units: 'pixels', x2: 19, y2: 4.5 })
+    // An invalid end point falls back to the library default, 1.
     expect(resolveNodeNumericProperties('Line', { x2: 'w +', y2: Number.NaN }, 32, 8))
-      .toEqual({ x2: 31, y2: 7 })
+      .toEqual({ x2: 1, y2: 1 })
   })
 
   it('reads no text or option default as a numeric expression by accident', () => {
@@ -52,7 +52,7 @@ describe('scalar numeric expressions', () => {
     const expressionDefaults = NODE_LIBRARY.flatMap((node) => Object.entries(node.defaultProperties ?? {})
       .filter(([key, value]) => typeof value === 'string' && supportsScalarExpression(node.type, key))
       .map(([key]) => `${node.type}.${key}`))
-    expect(expressionDefaults).toEqual(['Line.x2', 'Line.y2'])
+    expect(expressionDefaults).toEqual([])
   })
 
   it('falls back to the library default while invalid source is being edited', () => {

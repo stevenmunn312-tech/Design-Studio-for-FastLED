@@ -27,7 +27,7 @@ import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import {
   NODE_LIBRARY, CATEGORIES, HARDWARE_CATEGORY, CATEGORY_COLOR, categoryNodes, portColor,
-  propertyMeta, propertyLabel, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
+  propertyMetaFor, propertyLabel, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
   bypassPort, nodeDisplayLabel, libraryDefaults, supportsScalarExpression, isGpioPinProperty,
 } from '../../src/state/nodeLibrary'
 import {
@@ -372,7 +372,8 @@ function buildPropRows(
     const isWired = wired.has(key)
     const gated = !isPropertyEnabled(def.type, key, props)
     const disabled = isWired || gated
-    const meta = propertyMeta(def.type, key)
+    // The control the canvas draws for these properties (StudioNode.tsx).
+    const meta = propertyMetaFor(def.type, key, props)
     const label = propertyLabel(def.type, key, props)
     const pin = !isWired && isPinnableProperty(def.type, key, val)
     if (meta?.control === 'select') {

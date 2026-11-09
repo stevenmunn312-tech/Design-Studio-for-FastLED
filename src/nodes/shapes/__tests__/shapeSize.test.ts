@@ -41,9 +41,9 @@ describe('Shape size', () => {
     expect(cpp({ scaleWithMatrix: false })).toContain('float _size=max(0.5f,6),')
   })
 
-  it('shares one list of shape names with Shape Field', () => {
+  it('shares its shape names with Shape Field, which adds the rose and superformula', () => {
     expect((propertyMeta('Shape', 'shape') as { options?: string[] }).options).toEqual([...SHAPE_KINDS])
-    expect((propertyMeta('ShapeField', 'shape') as { options?: string[] }).options).toEqual([...SHAPE_KINDS])
+    expect((propertyMeta('ShapeField', 'shape') as { options?: string[] }).options).toEqual([...SHAPE_KINDS, 'rose', 'superformula'])
     expect(libraryDefaults('ShapeField').shape).toBe('ellipse')
   })
 })

@@ -18,7 +18,9 @@ import {
   SAND_SPAWN_RATE, automatonStepDue, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
   sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand, type AutomatonType,
 } from '../../state/evaluator/automaton'
-import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
+import {
+  ellipseSd, morphPolygonSd, rectSd, roseSd, superformulaKnobs, superformulaSd, type Superformula,
+} from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
 import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { TRUCHET_MOTIFS, truchetLattice, truchetMotif, truchetOrientationCount } from '../../state/evaluator/truchet'
@@ -504,29 +506,34 @@ function smoothCoverage(sd: number, softness: number): number {
   return t * t * (3 - 2 * t)
 }
 
-function evalShapeField(
-  shape: string,
-  fieldMode: string,
-  cx: number,
-  cy: number,
-  size: number,
-  rotation: number,
-  sides: number,
-  aspect: number,
-  softness: number,
-  range: number,
-  W = DEFAULT_W,
-  H = DEFAULT_H,
-): Field {
+/** Shape Field's knobs, read wire-then-property. `rotation` includes the spin. */
+export interface ShapeFieldParams {
+  shape: string
+  fieldMode: string
+  cx: number
+  cy: number
+  size: number
+  rotation: number
+  sides: number
+  aspect: number
+  petals: number
+  superformula: Superformula
+  softness: number
+  range: number
+}
+
+export function evalShapeField(p: ShapeFieldParams, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const { shape, fieldMode } = p
   const out = allocField(W * H)
   const shortSide = Math.max(1, Math.min(W, H))
-  const radius = Math.max(1e-4, size * shortSide)
-  const stretch = Math.max(0.01, aspect)
-  const softPx = Math.max(0, softness) * shortSide
-  const rangePx = Math.max(1e-4, range * shortSide)
-  const centerX = clamp01(cx) * Math.max(0, W - 1) + 0.5
-  const centerY = clamp01(cy) * Math.max(0, H - 1) + 0.5
-  const radians = (-rotation * Math.PI) / 180
+  const radius = Math.max(1e-4, p.size * shortSide)
+  const stretch = Math.max(0.01, p.aspect)
+  const petals = Math.max(1, p.petals)
+  const softPx = Math.max(0, p.softness) * shortSide
+  const rangePx = Math.max(1e-4, p.range * shortSide)
+  const centerX = clamp01(p.cx) * Math.max(0, W - 1) + 0.5
+  const centerY = clamp01(p.cy) * Math.max(0, H - 1) + 0.5
+  const radians = (-p.rotation * Math.PI) / 180
   const cosR = Math.cos(radians)
   const sinR = Math.sin(radians)
 
@@ -539,8 +546,12 @@ function evalShapeField(
       const sd = shape === 'rect'
         ? rectSd(lx, ly, radius * stretch, radius)
         : shape === 'polygon'
-          ? morphPolygonSd(lx, ly, sides, radius)
-          : ellipseSd(lx, ly, radius * stretch, radius)
+          ? morphPolygonSd(lx, ly, p.sides, radius)
+          : shape === 'rose'
+            ? roseSd(lx, ly, petals, radius)
+            : shape === 'superformula'
+              ? superformulaSd(lx, ly, p.superformula, radius)
+              : ellipseSd(lx, ly, radius * stretch, radius)
       // Falloff is the distance out from the shape: 0 on and inside it,
       // 1 at Range beyond its outline. A tiny circle makes it the distance
       // from a point.
@@ -960,20 +971,30 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     }
     return { field: out }
   },
-  ShapeField({ num, W, H }, id, props) {
-    return { field: evalShapeField(
-      String(props.shape ?? 'ellipse'),
-      String(props.fieldMode ?? 'fill'),
-      num(id, 'cx', props, 'cx', 0.5),
-      num(id, 'cy', props, 'cy', 0.5),
-      num(id, 'size', props, 'size', 0.3),
-      num(id, 'rotation', props, 'rotation', 0),
-      num(id, 'sides', props, 'sides', 5),
-      num(id, 'aspect', props, 'aspect', 1),
-      Number(props.softness ?? 0.1),
-      Number(props.range ?? 0.5),
-      W, H,
-    ) }
+  // Keep in lockstep with the `ShapeField` emitter. Only the chosen kind's
+  // knobs are read, so a wire into another kind's knob is inert.
+  ShapeField({ num, t, W, H, stateKey }, id, props) {
+    const shape = String(props.shape ?? 'ellipse')
+    return { field: evalShapeField({
+      shape,
+      fieldMode: String(props.fieldMode ?? 'fill'),
+      cx: num(id, 'cx', props, 'cx', 0.5),
+      cy: num(id, 'cy', props, 'cy', 0.5),
+      size: num(id, 'size', props, 'size', 0.3),
+      rotation: num(id, 'rotation', props, 'rotation', 0) + speedPhase(stateKey(id), t, num(id, 'spin', props, 'spin', 0)),
+      sides: shape === 'polygon' ? num(id, 'sides', props, 'sides', 5) : 5,
+      aspect: shape === 'rect' || shape === 'ellipse' ? num(id, 'aspect', props, 'aspect', 1) : 1,
+      petals: shape === 'rose' ? num(id, 'petals', props, 'petals', 5) : 5,
+      superformula: shape === 'superformula'
+        ? superformulaKnobs(
+          num(id, 'symmetry', props, 'symmetry', 6),
+          num(id, 'n1', props, 'n1', 0.3), num(id, 'n2', props, 'n2', 0.3), num(id, 'n3', props, 'n3', 0.3),
+          num(id, 'a', props, 'a', 1), num(id, 'b', props, 'b', 1),
+        )
+        : superformulaKnobs(6, 0.3, 0.3, 0.3, 1, 1),
+      softness: Number(props.softness ?? 0.1),
+      range: Number(props.range ?? 0.5),
+    }, W, H) }
   },
   FieldWarp({ input, num, W, H }, id, props) {
     const fv = input(id, 'field', null)

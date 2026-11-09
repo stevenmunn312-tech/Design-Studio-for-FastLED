@@ -47,42 +47,6 @@ function withMatrixScale(radiusExpr: string, p: Record<string, unknown>): string
 // shared bitmap font when the sketch is generated.
 const CLOCK_GLYPH_CHARS = '0123456789:.-AMP'
 
-// Mirrors graphEvaluator's textAlignedStart/normalizedCenterAxis for the Text
-// node's C++ codegen: 'center' keeps the existing centred formula (an object
-// of half-extent `lengthExpr/2` sliding so its centre tracks `valueExpr`);
-// 'start'/'end' instead anchor a zero-extent edge to `valueExpr`, matching
-// the JS float-then-floor order exactly — floor happens before subtracting
-// the (integer) length for 'end', not inside it, since hAlign/vAlign/wrap are
-// static node properties (never wired), so the branch is resolved here at
-// generation time rather than emitted as C++ conditionals.
-//
-// A value above 1 is a pixel position, as normalizedCenterAxis reads it (and
-// as Shape and the analog clock already do in firmware). A literal resolves
-// here; a wired value carries the test into the sketch.
-function textAxisStartExpr(valueExpr: string, sizeVar: string, lengthExpr: string, align: 'start' | 'center' | 'end', wrap: boolean): string {
-  const fraction = textAxisFractionExpr(valueExpr, sizeVar, lengthExpr, align, wrap)
-  const pixel = align === 'center'
-    ? `floorf((${valueExpr}) - (${lengthExpr}) * 0.5f)`
-    : align === 'end' ? `(floorf(${valueExpr})) - (${lengthExpr})` : `floorf(${valueExpr})`
-  const literal = Number(valueExpr.replace(/f$/, ''))
-  if (valueExpr.trim() !== '' && Number.isFinite(literal)) return literal > 1 ? pixel : fraction
-  return `((${valueExpr}) > 1.0f ? ${pixel} : ${fraction})`
-}
-
-function textAxisFractionExpr(valueExpr: string, sizeVar: string, lengthExpr: string, align: 'start' | 'center' | 'end', wrap: boolean): string {
-  if (align === 'center') {
-    const half = `(${lengthExpr}) * 0.5f`
-    if (wrap) {
-      return `floorf((${sizeVar} * 0.5f - ${sizeVar}) + (${valueExpr}) * (${sizeVar} * 2.0f) - (${half}))`
-    }
-    return `floorf((0.5f - ((${half}) + 1.0f)) + (${valueExpr}) * ((${sizeVar} - 1.0f) + 2.0f * ((${half}) + 1.0f)) - (${half}))`
-  }
-  const edge = wrap
-    ? `floorf((${sizeVar} * 0.5f - ${sizeVar}) + (${valueExpr}) * (${sizeVar} * 2.0f))`
-    : `floorf((0.5f - 1.0f) + (${valueExpr}) * ((${sizeVar} - 1.0f) + 2.0f))`
-  return align === 'end' ? `(${edge}) - (${lengthExpr})` : edge
-}
-
 import { GAUGE_PEAK_FALL, GAUGE_Q_LIFT, gaugeDirection, gaugeSegments, gaugeStyle } from '../../state/evaluator/gauge'
 import { ringTrackLeds } from '../../state/evaluator/stringTrack'
 
@@ -91,6 +55,7 @@ import { sanitizePin } from '../../codegen/hardwarePins'
 import { SPI_BUS_CPP } from '../../codegen/helpers/spiBusCpp'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 import { FONT_CPP_MARKER, WIRED_TEXT_MAX, fontCppHelper } from '../shared/fontCpp'
+import { centerAxisCpp, clockCenterAxisCpp, lineAxisCpp, positionUnits, textAxisStartCpp } from './positionUnits'
 
 export const SHAPES_EMITTERS: NodeEmitters = {
   SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
@@ -212,11 +177,13 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const color = channelColor('color', 255, 0, 128)
     ln(`  fill_solid(${ob}, NUM_LEDS, ${color});`)
   },
-  Line({ ln, f, channelColor, ownBuf, seedFrom }) {
+  Line({ p, ln, f, channelColor, ownBuf, seedFrom }) {
     const ob = ownBuf()
     const colorE = channelColor('color', 0, 200, 255)
-    const x1 = f('x1', 'x1', 0), y1 = f('y1', 'y1', 0)
-    const x2 = f('x2', 'x2', 0), y2 = f('y2', 'y2', 0)
+    // Pixel centres either way: at 0–1, 0 is the first pixel and 1 the last.
+    const units = positionUnits(p.units)
+    const x1 = lineAxisCpp(f('x1', 'x1', 0), units, 'WIDTH'), y1 = lineAxisCpp(f('y1', 'y1', 0), units, 'HEIGHT')
+    const x2 = lineAxisCpp(f('x2', 'x2', 1), units, 'WIDTH'), y2 = lineAxisCpp(f('y2', 'y2', 1), units, 'HEIGHT')
     // drawLineSegment's sum: each pixel once, by its distance to the segment.
     ln(`  { ${seedFrom('base')}`)
     ln(`    float _x0 = ${x1}, _y0 = ${y1}, _x1 = ${x2}, _y1 = ${y2}, _hw = fmaxf(0.5f, ${f('thickness', 'thickness', 1)}) * 0.5f;`)
@@ -245,6 +212,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const filled = (p.filled ?? true) !== false
     const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgbCpp(p.fill, 0xff3080)
     const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgbCpp(p.edge, 0x00e0ff)
+    const units = positionUnits(p.units)
     const emitShapePass = (cxExpr: string, cyExpr: string, indent: string) => {
       ln(`${indent}for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
       ln(`${indent}  float _dx=(_x+0.5f)-${cxExpr},_dy=(_y+0.5f)-${cyExpr},_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr,_sd;`)
@@ -265,16 +233,18 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    float _size=${withMatrixScale(`max(0.5f,${f('size', 'size', size)})`, p)},_aspect=max(0.01f,${f('aspect', 'aspect', aspect)}),_ra=-(${f('rotation', 'rotation', rot)})*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
     ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
     ln(`    float _th=max(0.0f,${f('thickness', 'thickness', thick)});`)
-    if (shape === 'polygon') {
+    // The extent only sets the off-edge margin of an unwrapped 0–1 position.
+    const margined = units === 'normalized' && !p.wrap
+    if (margined && shape === 'polygon') {
       ln(`    float _extentX=_size+_th*0.5f,_extentY=_size+_th*0.5f;`)
-    } else {
+    } else if (margined) {
       ln(`    float _ax=max(0.01f,_size*_aspect),_ay=max(0.01f,_size);`)
       ln(`    float _extentX=_ax*fabsf(_cr)+_ay*fabsf(_sr)+_th*0.5f,_extentY=_ax*fabsf(_sr)+_ay*fabsf(_cr)+_th*0.5f;`)
     }
     if (shape === 'polygon') ln(`    float _sides=max(3.0f,(float)(${f('sides', 'sides', 5)}));`)
     ln(`    float _cxv=${f('cx', 'cx', cx)},_cyv=${f('cy', 'cy', cy)};`)
     if (p.wrap) {
-      ln(`    float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);`)
+      ln(`    float _cx=${centerAxisCpp('_cxv', units, 'WIDTH', '', true)},_cy=${centerAxisCpp('_cyv', units, 'HEIGHT', '', true)};`)
       ln(`    float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};`)
       ln(`    float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};`)
       ln(`    for(int _wy=0;_wy<3;_wy++) for(int _wx=0;_wx<3;_wx++){`)
@@ -282,8 +252,8 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       emitShapePass('_wcx', '_wcy', '      ')
       ln(`    }`)
     } else {
-      ln(`    float _mx=_extentX+1.0f,_my=_extentY+1.0f;`)
-      ln(`    float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);`)
+      if (margined) ln(`    float _mx=_extentX+1.0f,_my=_extentY+1.0f;`)
+      ln(`    float _cx=${centerAxisCpp('_cxv', units, 'WIDTH', '_mx', false)},_cy=${centerAxisCpp('_cyv', units, 'HEIGHT', '_my', false)};`)
       emitShapePass('_cx', '_cy', '    ')
     }
     ln(`  }`)
@@ -444,6 +414,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const vAlign = textAlignMode(p.vAlign ?? 'middle', 'top', 'bottom')
     const scrollAxis: 'horizontal' | 'vertical' = p.scrollAxis === 'vertical' ? 'vertical' : 'horizontal'
     const wrap = Boolean(p.wrap)
+    const units = positionUnits(p.units)
     const textUp = incoming.get(`${node.id}:text`)
     if (textUp) {
       // A wired string is drawn at run time from the built-in font's glyph
@@ -467,8 +438,8 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       } else {
         ln(`    int _offX = 0, _offY = 0;`)
       }
-      ln(`    int _sy = (int)${textAxisStartExpr(f('y', 'y', 0.5), 'HEIGHT', `${FONT_H}`, vAlign, wrap)};`)
-      ln(`    int _sx = (int)${textAxisStartExpr(f('x', 'x', 0.5), 'WIDTH', '_tn', hAlign, wrap)};`)
+      ln(`    int _sy = (int)${textAxisStartCpp(f('y', 'y', 0.5), units, 'HEIGHT', `${FONT_H}`, vAlign, wrap)};`)
+      ln(`    int _sx = (int)${textAxisStartCpp(f('x', 'x', 0.5), units, 'WIDTH', '_tn', hAlign, wrap)};`)
       const draw = (sx: string, sy: string, indent: string) => {
         ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (${sx}) + _offX; if (_ci < 0 || _ci >= _tn) continue; int _gc = _ci % ${stride}; if (_gc >= ${FONT_W}) continue; uint8_t _col = _fontCol(_ts[_ci / ${stride}], _gc);`)
         ln(`${indent}  for (int _r = 0; _r < ${FONT_H}; _r++) if (_col & (1 << _r)) { int _yy = (${sy}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
@@ -511,10 +482,10 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     } else {
       ln(`    int _offX = 0, _offY = 0;`)
     }
-    const syExpr = textAxisStartExpr(f('y', 'y', 0.5), 'HEIGHT', `${layout.height}`, vAlign, wrap)
+    const syExpr = textAxisStartCpp(f('y', 'y', 0.5), units, 'HEIGHT', `${layout.height}`, vAlign, wrap)
     ln(`    int _sy = (int)${syExpr};`)
     for (const line of renderableLines) {
-      const sxExpr = textAxisStartExpr(f('x', 'x', 0.5), 'WIDTH', `_tn_${id}_${line.index}`, hAlign, wrap)
+      const sxExpr = textAxisStartCpp(f('x', 'x', 0.5), units, 'WIDTH', `_tn_${id}_${line.index}`, hAlign, wrap)
       ln(`    int _sx_${line.index} = (int)${sxExpr};`)
     }
     if (wrap) {
@@ -546,6 +517,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const colorE = channelColor('color', 255, 220, 90)
     const xExpr = f('x', 'x', 0.5)
     const yExpr = f('y', 'y', 0.5)
+    const units = positionUnits(p.units)
     const dateTimeUp = incoming.get(`${node.id}:dateTime`)
     const dateTimeExpr = dateTimeUp
       ? `n_${safeId(dateTimeUp.srcId)}_${safeId(dateTimeUp.srcPort)}`
@@ -611,9 +583,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const twoLineHeight = `${FONT_H * 2 + TEXT_LINE_GAP}`
     const subLineOffset = FONT_H + TEXT_LINE_GAP
     if (transport) {
-      const syExpr = textAxisStartExpr(yExpr, 'HEIGHT', twoLineHeight, vAlign, false)
-      const sxMainExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(5), hAlign, false)
-      const sxSubExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(2), hAlign, false)
+      const syExpr = textAxisStartCpp(yExpr, units, 'HEIGHT', twoLineHeight, vAlign, false)
+      const sxMainExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(5), hAlign, false)
+      const sxSubExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(2), hAlign, false)
       ln(`    static float _clkElapsed_${id} = 0.0f, _clkRemaining_${id} = 0.0f, _clkLastDuration_${id} = -1.0f;`)
       ln(`    static uint32_t _clkLastMs_${id} = 0; static bool _clkPrevReset_${id} = false;`)
       ln(`    uint32_t _clkNow_${id} = millis(); float _clkDuration_${id} = ${durationExpr}; bool _clkRun_${id} = ${runExpr}; bool _clkReset_${id} = ${resetExpr};`)
@@ -641,8 +613,8 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       const radiusExpr = `max(2.0f, ${withMatrixScale(f('radius', 'radius', 6), p)})`
       ln(`    float _clkRad_${id} = ${radiusExpr};`)
       ln(`    float _clkXv_${id} = ${xExpr}, _clkYv_${id} = ${yExpr};`)
-      ln(`    float _clkCx_${id} = _clkXv_${id} > 1.0f ? _clkXv_${id} : (0.5f - (_clkRad_${id} + 1.0f)) + _clkXv_${id} * ((WIDTH - 1.0f) + 2.0f * (_clkRad_${id} + 1.0f));`)
-      ln(`    float _clkCy_${id} = _clkYv_${id} > 1.0f ? _clkYv_${id} : (0.5f - (_clkRad_${id} + 1.0f)) + _clkYv_${id} * ((HEIGHT - 1.0f) + 2.0f * (_clkRad_${id} + 1.0f));`)
+      ln(`    float _clkCx_${id} = ${clockCenterAxisCpp(`_clkXv_${id}`, units, 'WIDTH', `_clkRad_${id}`)};`)
+      ln(`    float _clkCy_${id} = ${clockCenterAxisCpp(`_clkYv_${id}`, units, 'HEIGHT', `_clkRad_${id}`)};`)
       ln(`    float _clkSec_${id} = ${validExpr} ? ${secondsExpr} : 0.0f;`)
       ln(`    while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)
       ln(`    ${v('seconds')} = ${validExpr} ? _clkSec_${id} : 0.0f;`)
@@ -661,7 +633,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    _clkLine(_clkCx_${id}, _clkCy_${id}, _clkCx_${id} + cosf(_clkSecondA_${id}) * max(3.0f, _clkRad_${id} * 0.92f), _clkCy_${id} + sinf(_clkSecondA_${id}) * max(3.0f, _clkRad_${id} * 0.92f), _clkSecondCol_${id});`)
       ln(`    _clkPx((int)roundf(_clkCx_${id}), (int)roundf(_clkCy_${id}), ${colorE});`)
       if (mode === 'Analog + Date') {
-        const dateXExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(5), 'center', false)
+        const dateXExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(5), 'center', false)
         ln(`    char _clkDate_${id}[6];`)
         ln(`    if (${validExpr}) snprintf(_clkDate_${id}, sizeof(_clkDate_${id}), "%02d.%02d", (int)(${dayExpr}), (int)(${monthExpr}));`)
         ln(`    else memcpy(_clkDate_${id}, "--.--", 6);`)
@@ -670,9 +642,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       }
     } else {
       const twoLine = mode !== 'Digital HH:MM'
-      const syExpr = textAxisStartExpr(yExpr, 'HEIGHT', twoLine ? twoLineHeight : `${FONT_H}`, vAlign, false)
-      const sxMainExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(5), hAlign, false)
-      const sxSubExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(mode === 'Digital + Date' ? 5 : 2), hAlign, false)
+      const syExpr = textAxisStartCpp(yExpr, units, 'HEIGHT', twoLine ? twoLineHeight : `${FONT_H}`, vAlign, false)
+      const sxMainExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(5), hAlign, false)
+      const sxSubExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(mode === 'Digital + Date' ? 5 : 2), hAlign, false)
       ln(`    float _clkSec_${id} = ${secondsExpr}; while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)
       ln(`    ${v('seconds')} = ${validExpr} ? _clkSec_${id} : 0.0f;`)
       ln(`    int _clkHour_${id} = (int)floorf(_clkSec_${id} / 3600.0f), _clkMinute_${id} = ((int)floorf(_clkSec_${id} / 60.0f)) % 60, _clkSecond_${id} = ((int)floorf(_clkSec_${id})) % 60;`)

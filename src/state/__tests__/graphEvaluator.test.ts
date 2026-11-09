@@ -1508,14 +1508,30 @@ describe('evaluateGraph', () => {
     expect(frame[1][1].b).toBeGreaterThan(0)              // shape painted blue near its centre
   })
 
-  it('Shape still accepts legacy pixel-space center coordinates', () => {
+  it('Shape centres on a pixel when Units is Pixels', () => {
     const shape = node('sh', 'Shape', 'pattern', {
-      shape: 'rect', cx: 4, cy: 4, size: 1, aspect: 1, rotation: 0,
+      shape: 'rect', units: 'pixels', cx: 4, cy: 4, size: 1, aspect: 1, rotation: 0,
       thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
     })
     const { nodes, edges } = withOutput(shape)
     const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
-    expect(frame[4][4].b).toBeGreaterThan(0)
+    expect(frame[4][4].b).toBe(255)
+    // Pixel 4's centre, as Line and the center_x expression count: the two
+    // neighbours are covered alike.
+    expect(frame[4][3].b).toBeGreaterThan(0)
+    expect(frame[4][3]).toEqual(frame[4][5])
+    expect(frame[3][4]).toEqual(frame[5][4])
+  })
+
+  it('Shape at 0–1 reads a value just past 1 as just past the edge, not as a pixel', () => {
+    // A wired LFO overshooting to 1.05 used to jump to pixel 1.
+    const shape = node('sh', 'Shape', 'pattern', {
+      shape: 'rect', cx: 1.05, cy: 0.5, size: 1, aspect: 1, rotation: 0,
+      thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
+    })
+    const { nodes, edges } = withOutput(shape)
+    const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+    expect(frame.every((row) => row.every((p) => p.b === 0))).toBe(true)
   })
 
   it('Shape normalization includes its extent so cx=0 moves it fully offscreen', () => {
@@ -1540,8 +1556,8 @@ describe('evaluateGraph', () => {
   })
 
   // Shape (ellipse) absorbed the old Circle node: `size` is the radius in
-  // pixels, `thickness` the outline width, and cx/cy are normalised 0–1 with
-  // values > 1 read as pixel coordinates.
+  // pixels, `thickness` the outline width, and cx/cy are 0–1, or pixels when
+  // Units is Pixels.
   const ellipse = (extra: Record<string, unknown>) => node('c', 'Shape', 'pattern', {
     shape: 'ellipse', cx: 0.5, cy: 0.5, size: 3, aspect: 1, thickness: 1, filled: true,
     edge: '#ff0000', fill: '#00ff00', ...extra,
@@ -1556,8 +1572,8 @@ describe('evaluateGraph', () => {
     expect(frame![16][13].r).toBeGreaterThan(0)            // edge color stays visible on the outline
   })
 
-  it('Shape ellipse still accepts legacy pixel-space center coordinates', () => {
-    const c = ellipse({ cx: 8, cy: 8 })
+  it('Shape ellipse takes pixel coordinates when Units is Pixels', () => {
+    const c = ellipse({ units: 'pixels', cx: 8, cy: 8 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![8][8].g).toBeGreaterThan(0)
@@ -1599,7 +1615,7 @@ describe('evaluateGraph', () => {
   })
 
   it('Line draws a diagonal between its endpoints', () => {
-    const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 3, y2: 3, r: 0, g: 255, b: 0 })
+    const l = node('l', 'Line', 'pattern', { units: 'pixels', x1: 0, y1: 0, x2: 3, y2: 3, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 4, 4)
     expect(frame![0][0].g).toBeGreaterThan(0)
@@ -1608,13 +1624,13 @@ describe('evaluateGraph', () => {
   })
 
   it('Line lights each pixel on it once, at its own colour', () => {
-    const l = node('l', 'Line', 'pattern', { x1: 0, y1: 2, x2: 7, y2: 2, r: 0, g: 100, b: 128 })
+    const l = node('l', 'Line', 'pattern', { units: 'pixels', x1: 0, y1: 2, x2: 7, y2: 2, r: 0, g: 100, b: 128 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 8, 5)!
     // Splatted discs used to sum to about twice the colour on the line.
     expect(frame[2].every((p) => p.g === 100 && p.b === 128)).toBe(true)
     expect(frame[1].every((p) => p.g === 0)).toBe(true)
-    const thick = node('t', 'Line', 'pattern', { x1: 0, y1: 2, x2: 7, y2: 2, thickness: 3, r: 0, g: 100, b: 128 })
+    const thick = node('t', 'Line', 'pattern', { units: 'pixels', x1: 0, y1: 2, x2: 7, y2: 2, thickness: 3, r: 0, g: 100, b: 128 })
     const wide = evaluateGraph([thick, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 5)!
     expect(wide[1][3].g).toBe(100)
     expect(wide[3][3].g).toBe(100)
@@ -1623,12 +1639,23 @@ describe('evaluateGraph', () => {
 
   it('Line splats fractional coverage across adjacent pixels', () => {
     // Coordinates are pixel centres, so x = 0.5 lies between columns 0 and 1.
-    const l = node('l', 'Line', 'pattern', { x1: 0.5, y1: 0, x2: 0.5, y2: 3, r: 0, g: 255, b: 0 })
+    const l = node('l', 'Line', 'pattern', { units: 'pixels', x1: 0.5, y1: 0, x2: 0.5, y2: 3, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 4, 4)
     expect(frame![1][0].g).toBeGreaterThan(0)
     expect(frame![1][1].g).toBeGreaterThan(0)
     expect(frame![1][2]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('Line at 0–1 runs from the first pixel at 0 to the last at 1', () => {
+    const across = (W: number, H: number) => evaluateGraph([
+      node('l', 'Line', 'pattern', { x1: 0, y1: 0.5, x2: 1, y2: 0.5, r: 0, g: 255, b: 0 }),
+      node('out', 'MatrixOutput', 'output', {}),
+    ], [edge('e', 'l', 'frame', 'out', 'frame')], 0, W, H)!
+    // y 0.5 on 5 rows is row 2; x 0 and 1 are the first and last columns.
+    expect(across(8, 5)[2].every((p) => p.g === 255)).toBe(true)
+    expect(across(8, 5)[1].every((p) => p.g === 0)).toBe(true)
+    expect(across(12, 5)[2].every((p) => p.g === 255)).toBe(true)
   })
 
   it('Path traces a smooth moving point around its selected curve', () => {

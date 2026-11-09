@@ -80,7 +80,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Text: {
     overview: [
       'Text draws words in a bitmap font, still or scrolling. Type the text on the node, or wire text in from Text Value, Format Number or Format Date/Time.',
-      'X and Y place it, with the alignment choosing which part of the text sits there. Scroll moves it in pixels per second along either axis, and Wrap repeats it across the opposite edge so a scrolling line never leaves a gap.',
+      'X and Y place it, with the alignment choosing which part of the text sits there. Units reads them as 0 to 1, from just off one edge to just off the other, or as pixels, 0 the first and max_x the last. Scroll moves it in pixels per second along either axis, and Wrap repeats it across the opposite edge so a scrolling line never leaves a gap.',
       'A new line in the typed text starts a second row. Wired text is drawn at run time in the built-in font. Base draws the text over another frame; unwired, the background is black.',
     ],
     inputs: {
@@ -106,7 +106,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Clock Display draws the time on the LEDs: digital in several formats, an analogue face, or either with the date. It also has a Stopwatch and a countdown Timer that need no clock at all.',
       'Wire RTC Clock’s DateTime into it for the clock modes. It shows dashes until the clock is valid, synced and not stale, so a build never shows a believable wrong time.',
-      'Run, Reset and Duration control the stopwatch and timer, and Done pulses when the timer reaches zero. Base draws the clock over another frame.',
+      'X and Y place it, 0 to 1 across the matrix or, with Units set to Pixels, on a pixel. Run, Reset and Duration control the stopwatch and timer, and Done pulses when the timer reaches zero. Base draws the clock over another frame.',
     ],
     inputs: {
       dateTime: 'The time from RTC Clock’s DateTime output.',
@@ -134,7 +134,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Line: {
     overview: [
-      'Line draws a straight anti-aliased line between two points. Coordinates are pixels from the top left, 0 the first pixel and max_x the last, and accept expressions such as center_x or max_x so a line can follow the matrix size. Thickness sets its width in pixels.',
+      'Line draws a straight anti-aliased line between two points, measured from the top left. At 0–1 Units, 0 is the first pixel and 1 the last, so a line keeps its place on any matrix. With Units set to Pixels, 0 is the first pixel and max_x the last, and the ends accept expressions such as center_x or max_x. Thickness sets its width in pixels.',
       'Wire signals into the ends to move it: sines for a sweeping arm, sensors for a pointer.',
     ],
     inputs: {
@@ -145,9 +145,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Line',
       title: 'A radar sweep',
       nodes: {
-        armX: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5, unipolar: false }],
-        armY: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5, phase: 0.25, unipolar: false }],
-        arm: ['Line', { x1: 'center_x', y1: 'center_y', r: 60, g: 255, b: 90 }],
+        armX: ['Wave', { frequency: 0.3, amplitude: 0.5, offset: 0.5, unipolar: false }],
+        armY: ['Wave', { frequency: 0.3, amplitude: 0.5, offset: 0.5, phase: 0.25, unipolar: false }],
+        arm: ['Line', { x1: 0.5, y1: 0.5, r: 60, g: 255, b: 90 }],
         afterglow: ['Trails', { decay: 0.3 }],
       },
       wires: ['armX.result > arm.x2', 'armY.result > arm.y2', 'arm.frame > afterglow.frame'],
@@ -160,7 +160,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Shape draws a rectangle, an ellipse or a regular polygon, filled or as an outline, with separate fill and edge colours.',
       'Sides accepts fractions and morphs smoothly between counts, so a triangle can grow into an octagon. Size, aspect, rotation and position can all be wired, and Wrap tiles a shape that crosses an edge.',
-      'Position values from 0 to 1 are fractions of the matrix; values above 1 are pixels. Size is in pixels, and with Scale with matrix on (the default) it is pixels on a 16-pixel matrix, so a shape keeps its proportion on a small or a large panel.',
+      'Center X and Y run from 0 to 1, just off one edge to just off the other; with Units set to Pixels they name a pixel instead, 0 the first and max_x the last. Size is in pixels, and with Scale with matrix on (the default) it is pixels on a 16-pixel matrix, so a shape keeps its proportion on a small or a large panel.',
     ],
     inputs: {
       base: BASE_INPUT,
