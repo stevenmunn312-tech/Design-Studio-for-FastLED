@@ -50,6 +50,7 @@ import RtcInputBody from './bodies/RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../state/peripherals/webRemote'
+import { midiChannel } from '../../state/peripherals/midiSource'
 import { partDerivedInputs } from '../../build/parts/partPorts'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -1660,7 +1661,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'DdpInput' && <DdpInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
-        {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
+        {d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} channel={midiChannel(props.channel)} />}
         {(d.nodeType === 'CustomPalette' || d.nodeType === 'Poline') && (
           <Suspense fallback={null}>
             {d.nodeType === 'CustomPalette' && <CustomPaletteEditorBody nodeId={id} topPlacement />}

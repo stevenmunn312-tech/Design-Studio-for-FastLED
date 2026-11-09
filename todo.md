@@ -189,20 +189,6 @@ freeze, or drop them.
 - [ ] **RTC Clock: Fold its 14 outputs (Med, M).** Show DateTime, Display,
   Hour, Minute and Valid by default and reveal the rest on demand, using the
   output folding in Category.
-- [ ] **MIDI: Apply the Channel filter in preview (Med, S).** Firmware
-  filters by Channel but the preview ignores it, because
-  `MidiEngine.handleMessage` drops the channel and the evaluator reads by
-  note number only. Two MIDI nodes on different channels behave differently
-  on the board. Evidence `src/midi/midiEngine.ts:103`, `src/nodes/input/evaluate.ts:550`.
-- [ ] **MIDI: Check the DIN UART for clashes (Med, S).** Default `midiUart: 1`
-  is the Presence Sensor's fixed UART1, but UART validation covers only
-  Presence against DMX512 and DFPlayer. Add MIDI to that check, or allocate
-  the UART automatically (see Category). Evidence `src/nodes/input/definitions.ts:544`,
-  `src/utils/validateGraph.ts:2277`.
-- [ ] **MIDI: Add an on-node play-note pad and CC slider (Low, S).** It is the
-  only input with no stand-in; the body is a read-only readout. Add a small
-  note pad and CC slider so users can design without a controller. Evidence
-  `src/components/Canvas/bodies/MidiInputBody.tsx:19`.
 - [ ] **Ethernet: Update the "Art-Net and NTP" copy (Low, S).** The network
   layer serves Art-Net, sACN, DDP, Web Remote, Stream Output, internet radio
   and clock sync, but the description, shelf hint, part note, Help text,

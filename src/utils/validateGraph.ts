@@ -106,7 +106,7 @@ import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType } from '../build/boardLin
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
 import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
-import { midiUsesUart } from '../state/peripherals/midiSource'
+import { midiUartPort, midiUsesUart } from '../state/peripherals/midiSource'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/peripherals/lightSensor'
@@ -1823,6 +1823,7 @@ export function findDeployBlockingErrors(
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
     ...findDfPlayerErrors(nodes, selectedFqbn),
+    ...findMidiUartErrors(nodes, selectedFqbn),
     ...findBluetoothPlayerErrors(nodes, edges, selectedFqbn),
     ...findRadioPlayerErrors(nodes, edges, selectedFqbn),
     ...findBuzzerErrors(nodes, selectedFqbn),
@@ -2484,6 +2485,47 @@ function dfPlayerValidationIssues(nodes: StudioNode[], selectedFqbn: string): Gr
 
 export function findDfPlayerErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
   return dfPlayerValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
+}
+
+/**
+ * A DIN MIDI jack reads a whole UART, so it shares its port with nothing: not
+ * the presence sensor's fixed UART1, not DMX512 or the DFPlayer on the same
+ * port, and not a second DIN MIDI node, which would split the bytes between
+ * two readers. The default UART1 is the presence sensor's, so this is the
+ * clash a new MIDI node meets first.
+ */
+function midiUartValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+  const props = (node: StudioNode) => node.data.properties as Record<string, unknown>
+  const midi = nodes.filter((node) => node.data.nodeType === 'MidiInput' && midiUsesUart(props(node)))
+  const dfPort = dfPlayerUartPort(selectedFqbn)
+  const issues: GraphDiagnostic[] = []
+  for (const port of [1, 2] as const) {
+    const readers = midi.filter((node) => midiUartPort(props(node)) === port)
+    if (readers.length === 0) continue
+    const rivals = nodes.filter((node) =>
+      (node.data.nodeType === 'PresenceInput' && port === PRESENCE_UART_PORT)
+      || (node.data.nodeType === 'DFPlayerOutput' && port === dfPort)
+      || (node.data.nodeType === 'DMXInput' && String(props(node).inputMode ?? 'Art-Net') === 'DMX512'
+        && Math.round(Number(props(node).dmxPort ?? 1)) === port))
+    if (rivals.length === 0 && readers.length < 2) continue
+    const other = port === 1 ? 2 : 1
+    issues.push({
+      id: `midi-uart${port}`, severity: 'error', category: 'pins',
+      title: `DIN MIDI shares UART${port}`,
+      message: rivals.length > 0
+        ? `${readers.map(nodeLabel).join(', ')} and ${rivals.map(nodeLabel).join(', ')} cannot read from the same UART peripheral.`
+        : `${readers.map(nodeLabel).join(', ')} all read UART${port}, so each would get only some of the jack's bytes.`,
+      fix: `Set the MIDI node's UART to ${other} on a board that provides it, or remove one of the devices.`,
+      nodeIds: [...readers, ...rivals].map((node) => node.id),
+      nodeLabel: `UART${port}`,
+      propertyKey: 'midiUart',
+    })
+  }
+  return issues
+}
+
+export function findMidiUartErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return midiUartValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
 }
 
 /**
@@ -3944,6 +3986,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...dfPlayerValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...midiUartValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...bluetoothPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...radioPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))

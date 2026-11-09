@@ -33,3 +33,39 @@
   justify-content: space-between;
   color: var(--text-secondary);
 }
+
+/* Stand-in controller: a momentary note pad and the watched CC. */
+.standIn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-0);
+}
+
+.pad {
+  padding: calc(var(--space-0) * 1.5) var(--space-1);
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.pad:hover {
+  border-color: var(--accent-input);
+  color: var(--text-primary);
+}
+
+.padDown {
+  background: var(--accent-input);
+  border-color: var(--accent-input);
+  color: black;
+}
+
+.ccSlider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent-input);
+}

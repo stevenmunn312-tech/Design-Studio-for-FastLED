@@ -517,10 +517,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Web MIDI input — no embedded-hardware equivalent, so this is
-    // preview-only (VJ-style control while designing). `note`/`cc` are the
-    // MIDI numbers this node listens for; `note` output is note-on velocity
-    // (0 once released), `gate` is held state, `cc` is the last CC value.
+    // MIDI input: Web MIDI in the preview, and a DIN jack on a UART in
+    // firmware. `note`/`cc` are the MIDI numbers this node listens for and
+    // `channel` the one it hears (0 = all), on both sides; `note` output is
+    // note-on velocity (0 once released), `gate` is held state, `cc` is the
+    // last CC value.
     type: 'MidiInput',
     label: 'MIDI',
     category: 'input',

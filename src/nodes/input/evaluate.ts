@@ -33,6 +33,8 @@ import {
   parseDisplayWidgetPortId, displayControlOutput, displayControlStartValue, displayPickerStartHue, displayTextEntryStart,
 } from '../../state/displays/displayRegistry'
 import { useMidiStore } from '../../state/midiStore'
+import { midiReading } from '../../midi/midiEngine'
+import { midiChannel } from '../../state/peripherals/midiSource'
 import { blankDmxSnapshot } from '../../state/peripherals/dmx'
 import { dmxListenUniverse } from '../../state/peripherals/dmxTransceiver'
 import {
@@ -550,11 +552,14 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
       weekend: rtc.weekend,
     }
   },
+  // The Channel filter is the sketch's: 0 hears every channel, 1–16 one.
   MidiInput(_c, _id, props) {
-    const midi = useMidiStore.getState()
-    const noteNum = Math.round(Number(props.note ?? 60))
-    const ccNum = Math.round(Number(props.cc ?? 1))
-    const vel = midi.noteVelocity.get(noteNum) ?? 0
-    return { note: vel, gate: vel > 0, cc: midi.ccValues.get(ccNum) ?? 0 }
+    const reading = midiReading(
+      useMidiStore.getState(),
+      midiChannel(props.channel),
+      Math.round(Number(props.note ?? 60)),
+      Math.round(Number(props.cc ?? 1)),
+    )
+    return { note: reading.velocity, gate: reading.velocity > 0, cc: reading.cc }
   },
 }

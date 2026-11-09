@@ -16,7 +16,7 @@ import { rtcInputLoopCpp } from '../../codegen/peripherals/rtcInputCpp'
 import { webRemoteFirmware } from '../../codegen/peripherals/webRemoteCpp'
 import { networkSourceIn } from '../../codegen/peripherals/networkCpp'
 import { dmxListenPort, dmxListenUniverse, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
-import { MIDI_BAUD, midiChannel, midiUsesUart } from '../../state/peripherals/midiSource'
+import { MIDI_BAUD, midiChannel, midiUartPort, midiUsesUart } from '../../state/peripherals/midiSource'
 
 const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines, edges }) => {
   const ports = new Set(edges.filter((edge) => edge.source === node.id).map((edge) => edge.sourceHandle ?? ''))
@@ -276,7 +276,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
       ln(`  float ${v('note')} = 0.0f; bool ${v('gate')} = false; float ${v('cc')} = 0.0f;  // Web MIDI is preview-only`)
       return
     }
-    const uart = intProp(p.midiUart, 1, 1, 2)
+    const uart = midiUartPort(p)
     const rxPin = sanitizePin(p.midiRxPin, 16)
     const note = intProp(p.note, 60, 0, 127)
     const cc = intProp(p.cc, 1, 0, 127)

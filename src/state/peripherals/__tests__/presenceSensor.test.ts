@@ -6,7 +6,7 @@ import {
   peripheralGroundPadIndex, peripheralPowerNet, peripheralPowerPadIndex,
   peripheralSignalPadIndex,
 } from '../../../components/BuildDiagram/physicalDiagramLayout'
-import { findDeployBlockingErrors, findPresenceSensorErrors } from '../../../utils/validateGraph'
+import { findDeployBlockingErrors, findMidiUartErrors, findPresenceSensorErrors } from '../../../utils/validateGraph'
 import type { StudioEdge, StudioNode } from '../../graphStore'
 import { evaluateGraphFull } from '../../graphEvaluator'
 import { useHardwareInputStore } from '../hardwareInputStore'
@@ -127,6 +127,24 @@ describe('validation and wiring', () => {
       .toContain('both use UART1')
     const dmx2 = node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 2 })
     expect(findPresenceSensorErrors([sensor, dmx2], 'esp32:esp32:esp32')).toEqual([])
+  })
+
+  // A DIN MIDI node defaults to UART1, which is the radar's fixed port.
+  it('keeps DIN MIDI off a UART another reader owns', () => {
+    const sensor = node('radar', 'PresenceInput')
+    const din = node('midi', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 1 })
+    expect(findMidiUartErrors([sensor, din], 'esp32:esp32:esp32').join('\n')).toContain('DIN MIDI shares UART1')
+    expect(findDeployBlockingErrors([sensor, din], [], 'esp32:esp32:esp32').join('\n')).toContain('DIN MIDI shares UART1')
+    const din2 = node('midi', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 2 })
+    expect(findMidiUartErrors([sensor, din2], 'esp32:esp32:esp32')).toEqual([])
+    // Web MIDI reads no UART at all.
+    expect(findMidiUartErrors([sensor, node('web', 'MidiInput', { midiUart: 1 })], 'esp32:esp32:esp32')).toEqual([])
+    // DMX512 on the same port, the DFPlayer's port on this chip, and a second jack all clash.
+    const dmx2 = node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 2 })
+    expect(findMidiUartErrors([din2, dmx2], 'esp32:esp32:esp32').join('\n')).toContain('cannot read from the same UART')
+    expect(findMidiUartErrors([din2, node('mp3', 'DFPlayerOutput')], 'esp32:esp32:esp32').join('\n')).toContain('UART2')
+    expect(findMidiUartErrors([din2, node('midi-b', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 2 })], 'esp32:esp32:esp32').join('\n'))
+      .toContain('only some of the jack')
   })
 
   it('claims one RX pin and draws 5 V, ground, and the sensor TX pad', () => {

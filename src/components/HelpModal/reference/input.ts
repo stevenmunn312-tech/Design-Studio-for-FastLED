@@ -805,10 +805,11 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'MIDI listens to one note and one controller. Velocity is how hard that note was struck, from 0 to 1, Gate is true while it is held, and CC is the controller’s last value, also 0 to 1.',
       'In the browser it reads any controller the Web MIDI API can see. Set Source to DIN (UART) and the uploaded sketch reads a MIDI jack wired to the board as well, so a keyboard can play the finished build.',
-      'Channel 0 listens to every channel. Use several MIDI nodes to map several keys or knobs.',
+      'Channel 0 listens to every channel; 1 to 16 hears only that channel, in the preview as on the board. Use several MIDI nodes to map several keys or knobs.',
+      'With no controller to hand, the node’s Play note pad and CC slider send the same messages a keyboard would, on the node’s channel.',
     ],
     steps: [
-      'For the preview, plug a MIDI controller into your computer and allow MIDI access.',
+      'For the preview, plug a MIDI controller into your computer and allow MIDI access, or play the node’s own pad and slider.',
       'For the board, set Source to DIN (UART) and wire a MIDI FeatherWing or opto-isolated input to the RX pin shown.',
     ],
     outputs: {
@@ -816,7 +817,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       gate: 'True while the watched note is held.',
       cc: 'The watched controller’s last value, 0 to 1.',
     },
-    propertyNote: 'Note and CC choose what to listen for. The UART fields apply only to DIN.',
+    propertyNote: 'Note and CC choose what to listen for. The UART fields apply only to DIN, and the UART must be one nothing else reads: UART1 is the Presence Sensor’s.',
     example: example({
       featured: 'MidiInput',
       title: 'Play a storm at sea from a keyboard',

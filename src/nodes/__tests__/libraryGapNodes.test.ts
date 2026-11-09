@@ -22,6 +22,7 @@ import { blankDmxSnapshot } from '../../state/peripherals/dmx'
 import { workspaceTrustHolds } from '../../state/patterns/patternTrust'
 import { usesNetwork } from '../../codegen/peripherals/networkCpp'
 import { midiUsesUart } from '../../state/peripherals/midiSource'
+import { MidiEngine } from '../../midi/midiEngine'
 import { findPreviewOnlyWarnings } from '../../utils/validateGraph'
 import type { Frame } from '../../state/palettes/ledColor'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
@@ -334,6 +335,23 @@ describe('Frame Stream, Analog RGB Strip and DIN MIDI', () => {
     const channels = [...cpp.matchAll(/ledcAttachPin\((\d+), (\d+)\)/g)].map((m) => Number(m[2]))
     expect(channels).toHaveLength(7)
     expect(new Set(channels).size).toBe(7)
+  })
+
+  it('applies the Channel filter in the preview as the sketch does', () => {
+    const engine = MidiEngine.instance
+    const onTwo = node('a', 'MidiInput', { note: 63, cc: 9, channel: 2 })
+    const onThree = node('b', 'MidiInput', { note: 63, cc: 9, channel: 3 })
+    const omni = node('c', 'MidiInput', { note: 63, cc: 9, channel: 0 })
+    engine.handleMessage(new Uint8Array([0x92, 63, 127])) // note on, channel 3
+    engine.handleMessage(new Uint8Array([0xb1, 9, 127]))  // CC on channel 2
+    const outputs = outputsOf([onTwo, onThree, omni], [])
+    expect(outputs.get('a')).toMatchObject({ note: 0, gate: false, cc: 1 })
+    expect(outputs.get('b')).toMatchObject({ note: 1, gate: true, cc: 0 })
+    expect(outputs.get('c')).toMatchObject({ note: 1, gate: true, cc: 1 })
+    engine.handleMessage(new Uint8Array([0x82, 63, 0]))
+    engine.handleMessage(new Uint8Array([0xb1, 9, 0]))
+    // The sketch filters the same way.
+    expect(generateCpp([node('d', 'MidiInput', { midiSource: 'DIN (UART)', channel: 3 })], [])).toContain('if (3 != 0 && _ch != 3) continue;')
   })
 
   it('reads a DIN jack on a UART in firmware, and stays preview-only on Web MIDI', () => {
