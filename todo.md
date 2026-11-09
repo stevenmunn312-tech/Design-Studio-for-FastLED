@@ -281,12 +281,6 @@ freeze, or drop them.
   to 1.0 on a 0–1 slider, leaving no room to go faster. Remap so the
   current look is 0.5 (internal rate = 2 × slider) and update saved values
   and bundled patterns. Evidence `src/state/nodeLibrary.ts:583`.
-- [ ] **Category: Add a "which level to use" table to the help (Med, S).**
-  Audio Features Energy is peak-relative, Loudness is absolute RMS, Vibe
-  Volume is song-average-relative, and Stereo Levels is absolute on
-  line-in but peak-normalised on a microphone. Add a one-line table to the
-  Audio Features, Vibe and Stereo Levels help recommending Loudness for
-  brightness. Evidence `src/audio/stereoLevels.ts:106`.
 - [ ] **Category: Add an optional Audio input to the band patterns (Med,
   M).** Every band pattern needs Mic → FFT Analyzer → pattern. Spectrum
   Visualizer's Three Band style already falls back to the spectrum thirds
@@ -334,14 +328,6 @@ freeze, or drop them.
   `pitchClass` (0–11) or `noteHue` (0–360); the help example needs an
   Expression node to get there. Evidence
   `src/components/HelpModal/reference/audio.ts:267`.
-- [ ] **Audio → Hue: Add a Balance mode as the default (High, S).** The
-  help promises the balance of bass, mids and treble, but the node computes
-  a weighted sum × 360, so hue tracks overall loudness and both silence and
-  full volume give red. Add a Balance mode, the spectral centroid
-  `(0.5·m + t)/(b+m+t)` over a Hue Start and Span, holding the last hue
-  near silence. Make it the default for new nodes and keep Weighted Sum for
-  the 12 bundled patterns using it. Evidence
-  `src/nodes/audio/evaluate.ts:450`.
 - [ ] **Frequency Band: Add band presets and narrow the Hz sliders (Med,
   M).** The sliders are linear from 20 to 8000 Hz, so the bass range sits
   in the first 3% of travel, and anything below 90 Hz or above 5.12 kHz
@@ -360,11 +346,6 @@ freeze, or drop them.
   between flashes is hard-coded. Add a Gap select (for example 30 s, 1–2
   min, 2–5 min); keep the first flash at 2.5–6 s. Evidence
   `src/nodes/audioReactive/danceFlash.ts:14`.
-- [ ] **Vocal Aurora: Stop wiring Energy into Reactivity in the help
-  example (Med, S).** The example uses Audio Features Energy, so curtains
-  stay fully reactive through a quiet verse. Wire Loudness (or nothing) and
-  update the text. Evidence
-  `src/components/HelpModal/reference/pattern.ts:1179`.
 - [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
   the only band pattern with no palette; a Color port overrides three R/G/B
   float ports. Swap the R/G/B ports for a palette and keep the optional

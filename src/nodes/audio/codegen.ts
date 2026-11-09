@@ -3,7 +3,7 @@ import { nativeBeatGateCpp } from '../../codegen/audio/nativeBeatGateCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
-import { AUDIO_SILENCE, audioHueWeight } from './evaluate'
+import { AUDIO_HUE, AUDIO_SILENCE, audioHueMode, audioHueSpan, audioHueStart, audioHueWeight } from './evaluate'
 import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
 import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS } from '../../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, BEAT_PHASE_SYNC, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
@@ -355,8 +355,16 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     const beat = incoming.has(`${node.id}:beat`) ? boolExpr(node.id, 'beat') : null
     for (const line of beatPhaseLines(id, bpm, beat, bar, { phase: v('phase'), bar: v('bar'), count: v('count') })) ln(line)
   },
-  AudioHue({ node, p, ln, v, f, incoming }) {
+  // Keep in lockstep with the `AudioHue` evaluator (audioHueBalance).
+  AudioHue({ node, id, p, ln, v, f, incoming }) {
     const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
+    if (audioHueMode(p.mode) === 'balance') {
+      const start = floatLit(audioHueStart(p.hueStart)), span = floatLit(audioHueSpan(p.hueSpan))
+      ln(`  float ${v('hue')};`)
+      ln(`  { static float _ahC_${id}=${floatLit(AUDIO_HUE.restBalance)}; float _b=fmaxf(0.0f,${bass}),_m=fmaxf(0.0f,${mids}),_t=fmaxf(0.0f,${treble}),_s=_b+_m+_t;`)
+      ln(`    if(_s>=${floatLit(AUDIO_HUE.holdBelow)}) _ahC_${id}=(0.5f*_m+_t)/_s; ${v('hue')}=${start}+${span}*_ahC_${id}; }`)
+      return
+    }
     // The weights carry wires now, so each is bounded in the emitted text
     // the same way `audioHueWeight` bounds it for the preview — a missing
     // property still falls back to the original 0.5/0.3/0.2 mix there, and

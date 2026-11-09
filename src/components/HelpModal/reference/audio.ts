@@ -1,6 +1,9 @@
 import { example, RING } from './example'
 import type { NodeReferenceMap } from './types'
 
+// Four nodes report how loud the sound is, against four different references.
+const WHICH_LEVEL = 'Which level to use: Audio Features Loudness is absolute, so a quiet verse stays quiet; use it for brightness. Audio Features Energy is relative to the last few seconds’ peak; use it for motion. Vibe Volume is relative to the song’s own average. Stereo Levels are absolute on a line input but follow the recent peak on a microphone.'
+
 const LIVE_ONLY = 'It reads FastLED’s own detector, so it needs live sound from a microphone, line input or the decoder. With no live source, or a recording made before the detector existed, every output reads zero or false.'
 
 export const AUDIO_REFERENCE: NodeReferenceMap = {
@@ -116,6 +119,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       'Audio Features listens for the shape of the music rather than individual hits. Vocals estimates how much voice-like midrange there is, Energy tracks how busy the sound is against the last few seconds, Loudness is how loud it actually is, and Silence goes true when the sound drops below the gate.',
       'Loudness is the master intensity for a whole patch: it rests low in a quiet verse and climbs through the chorus, and the gain on the Audio node sets how loud counts as full. Energy adapts to the recent peak, so it stays lively through a quiet passage; use it for movement rather than brightness. Vocals can bring in a melodic layer when the singer comes in. Silence is the switch for between songs: dim, pause, or swap to a calm idle look.',
       'Sensitivity scales Energy and Vocals, Silence Gate sets how quiet counts as silence, and Smoothing keeps the outputs from twitching.',
+      WHICH_LEVEL,
     ],
     inputs: {
       audio: 'The sound to listen to, from an Audio node.',
@@ -154,6 +158,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       'Vibe is the MilkDrop music model, ported from FastLED. Each band is divided by its own slow running average, so a level of 1.0 means “average for this song” and 2.0 means twice as loud as usual. A quiet track and a loud one drive a patch the same way.',
       'The levels are not limited to 0–1, so send them through Map Range before a 0–1 input. Each band also has a smoothed copy, and a Spike output that is true while the immediate level is above the smoothed one — a hit in progress.',
       LIVE_ONLY,
+      WHICH_LEVEL,
     ],
     inputs: {
       audio: 'The sound to listen to, from an Audio node.',
@@ -281,9 +286,9 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
 
   AudioHue: {
     overview: [
-      'Audio → Hue turns the balance of bass, mids and treble into one hue from 0 to 360 degrees. A bass-heavy passage leans one way round the colour wheel; bright, cymbal-heavy passages lean the other.',
+      'Audio → Hue turns the balance of bass, mids and treble into one hue from 0 to 360 degrees. A bass-heavy passage sits at Hue Start; bright, cymbal-heavy passages move round the wheel by up to Hue Span. Loudness does not move it, so a quiet verse and a loud chorus with the same mix share a colour, and near silence it holds the last hue.',
       'It is a shortcut for “colour follows the mix” without building the maths yourself. Wire FFT Analyzer’s three bands in and send Hue to HSV → RGB, a Beat Kaleidoscope’s Hue, or anything else that takes degrees.',
-      'The three weights decide how much each band moves the hue. Their weighted sum is scaled to 0–360 and wraps past a full turn.',
+      'Mode Weighted Sum is the older mix: each band times its weight, added up and scaled to 0–360, wrapping past a full turn. It follows loudness as well as balance, so silence and full volume both read red; patterns built on it keep it.',
     ],
     inputs: {
       bass: 'Bass level, 0 to 1, usually from FFT Analyzer.',
@@ -291,7 +296,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       treble: 'Treble level, 0 to 1.',
     },
     outputs: {
-      hue: 'A hue in degrees, 0 to 360, wrapping past a full turn.',
+      hue: 'A hue in degrees: Hue Start to Hue Start plus Span on Balance; 0 to 360, wrapping, on Weighted Sum.',
     },
     propertyNote: 'The Bass, Mids and Treble fields are used only while their inputs are unwired.',
     example: example({
@@ -300,7 +305,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.75 }],
-        hue: ['AudioHue', { bassWeight: 0.6, midsWeight: 0.3, trebleWeight: 0.4 }],
+        hue: ['AudioHue', { mode: 'balance', hueStart: 10, hueSpan: 220 }],
         colour: ['HSVToRGB', { s: 0.85, v: 1 }],
         flock: ['Boids', { colorMode: 'solid', count: 28, speed: 0.55 }],
       },
@@ -312,7 +317,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
         'hue.hue > colour.h',
         'colour.color > flock.color',
       ],
-      explanation: 'FFT Analyzer feeds all three bands to Audio → Hue, which turns their balance into a hue. HSV → RGB makes it a colour, and Boids paints its whole flock with it, so the swarm shifts colour as the music moves between bass and treble.',
+      explanation: 'FFT Analyzer feeds all three bands to Audio → Hue, which turns their balance into a hue: orange-red when the bass leads, through green, to blue when the cymbals do. HSV → RGB makes it a colour, and Boids paints its whole flock with it, so the swarm shifts colour as the music moves between bass and treble.',
       preview: 'Play music near the microphone. The {output} shows a flock wheeling across the matrix, its colour drifting round the wheel as the mix changes.',
     }),
   },
@@ -348,6 +353,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       'Stereo Levels reports the left and right channels separately, plus their Balance: 0 is all left, 1 is all right, and 0.5 is centred.',
       'Stereo needs a stereo source, such as the Line In part or the decoder. A microphone is mono, so both sides move together and Balance sits at 0.5.',
       'Use the levels to light the two ends of a build separately, or Balance to show where a sound sits in the mix.',
+      WHICH_LEVEL,
     ],
     inputs: {
       audio: 'The sound to listen to, from an Audio node with a stereo source.',

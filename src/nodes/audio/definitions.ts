@@ -195,10 +195,12 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'hue', label: 'Hue (0–360)', dataType: 'float' }],
     // bass/mids/treble match the evaluator's own hardcoded fallback
     // (graphEvaluator.ts) so an unwired node still renders sliders instead of
-    // nothing at all. The three weights default to the mix that used to be
-    // hardcoded in both the evaluator and the C++ generator, so an existing
-    // patch keeps its exact hue.
+    // nothing at all. A new node starts on Balance (where the sound sits
+    // between bass and treble, over Hue Start and Span); Weighted Sum keeps
+    // the original mix, and a node saved without a `mode` reads as Weighted
+    // Sum (AUDIO_HUE in evaluate.ts). The three weights default to that mix.
     defaultProperties: {
+      mode: 'balance', hueStart: 0, hueSpan: 240,
       bass: 0.5, mids: 0.5, treble: 0.5,
       bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2,
     },
@@ -271,5 +273,5 @@ export const AUDIO_DESCRIPTIONS: Record<string, string> = {
   Vibe: 'MilkDrop-style bass/mid/treble relative to the song average (1.0), plus spikes.',
   SongStructure: 'Downbeats, beat number, buildups, drops, tempo stability and mood from audio.',
   PitchDetect: 'Pitch in Hz, MIDI note, note-on pulse and musical key from audio.',
-  AudioHue: 'Maps bass/mids/treble to a hue value.',
+  AudioHue: 'Turns the balance of bass, mids and treble into a hue.',
 }

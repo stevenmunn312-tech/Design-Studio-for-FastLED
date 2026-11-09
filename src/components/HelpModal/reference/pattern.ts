@@ -1164,7 +1164,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   VocalAurora: {
     overview: [
       'Vocal Aurora hangs curtains of light like the northern lights, which brighten and move faster with the vocals and fade to black in silence.',
-      'Wire Audio Features: Vocals shapes the curtains, Energy drives Reactivity, and Silence dims the frame.',
+      'Wire Audio Features: Vocals shapes the curtains and Silence dims the frame. Reactivity sets how strongly the vocals move them; leave it on its setting, or wire Loudness if a quiet verse should calm the curtains. Energy adapts to the recent peak, so it would keep them fully reactive through a quiet verse.',
     ],
     inputs: {
       silence: 'True dims the frame to black, usually from Audio Features.',
@@ -1177,9 +1177,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         features: ['AudioFeatures', { sensitivity: 0.65, smoothing: 0.75 }],
         aurora: ['VocalAurora', { palette: 'aurora' }],
       },
-      wires: ['mic.audio > features.audio', 'features.vocals > aurora.vocals', 'features.energy > aurora.energy', 'features.silence > aurora.silence'],
+      wires: ['mic.audio > features.audio', 'features.vocals > aurora.vocals', 'features.silence > aurora.silence'],
       output: MATRIX(24, 16),
-      explanation: 'Audio Features gives Vocal Aurora all three of its signals: Vocals shapes the curtains, Energy sets how strongly they respond, and Silence fades them out between songs.',
+      explanation: 'Audio Features gives Vocal Aurora both of its signals: Vocals shapes the curtains and Silence fades them out between songs. Reactivity stays on its own setting, so the curtains answer the singer rather than the overall level.',
       preview: 'Play a song with vocals. The {output} shows green and violet curtains rippling, brightening when the singer comes in.',
     }),
   },

@@ -355,6 +355,7 @@ describe('nodeLibrary', () => {
   it('AudioHue has default properties so it renders without being wired', () => {
     const audioHue = NODE_LIBRARY.find((n) => n.type === 'AudioHue')
     expect(audioHue?.defaultProperties).toEqual({
+      mode: 'balance', hueStart: 0, hueSpan: 240,
       bass: 0.5, mids: 0.5, treble: 0.5,
       bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2,
     })
@@ -363,7 +364,7 @@ describe('nodeLibrary', () => {
   it('AudioHue exposes its band mix as bounded, labelled weights', () => {
     for (const key of ['bassWeight', 'midsWeight', 'trebleWeight']) {
       expect(propertyMeta('AudioHue', key)).toEqual({ control: 'slider', min: 0, max: 1, step: 0.01 })
-      expect(propertyDescription('AudioHue', key)).toMatch(/contributes to the hue/i)
+      expect(propertyDescription('AudioHue', key)).toMatch(/Weighted Sum: how much \w+ contributes/)
     }
     expect(propertyLabel('AudioHue', 'bassWeight')).toBe('bass weight')
     expect(propertyLabel('AudioHue', 'midsWeight')).toBe('mids weight')

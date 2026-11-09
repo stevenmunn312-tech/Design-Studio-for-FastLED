@@ -410,7 +410,9 @@
           "label": "Audio → Hue",
           "nodeType": "AudioHue",
           "category": "audio",
-          "properties": {},
+          "properties": {
+            "mode": "weighted"
+          },
           "inputs": [
             {
               "id": "bass",

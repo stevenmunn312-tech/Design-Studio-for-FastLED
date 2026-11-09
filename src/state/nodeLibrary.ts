@@ -878,6 +878,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     bassWeight:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     midsWeight:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     trebleWeight: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    mode:     { control: 'select', options: ['balance', 'weighted'] },
+    hueStart: { control: 'slider', min: 0, max: 360, step: 1 },
+    hueSpan:  { control: 'slider', min: 0, max: 360, step: 1 },
   },
   AudioFlow: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -2124,12 +2127,15 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     gain: 'Scales the three relative levels and their smoothed copies. Spikes compare the two, so gain never changes them.',
   },
   AudioHue: {
-    bass: 'Bass level used when the Bass input is unwired. Scaled by the bass weight below.',
-    mids: 'Mids level used when the Mids input is unwired. Scaled by the mids weight below.',
-    treble: 'Treble level used when the Treble input is unwired. Scaled by the treble weight below.',
-    bassWeight: 'How much bass contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
-    midsWeight: 'How much mids contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
-    trebleWeight: 'How much treble contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
+    mode: 'Balance: where the sound sits between bass and treble, whatever its loudness. Weighted Sum: the weighted bands added up and scaled to 0–360°, which follows loudness too.',
+    hueStart: 'Balance: the hue for all-bass sound, in degrees.',
+    hueSpan: 'Balance: how far round the wheel all-treble sound sits from Hue Start, in degrees.',
+    bass: 'Bass level used when the Bass input is unwired.',
+    mids: 'Mids level used when the Mids input is unwired.',
+    treble: 'Treble level used when the Treble input is unwired.',
+    bassWeight: 'Weighted Sum: how much bass contributes. The weighted bands are summed and scaled to 0–360°; the hue wraps past 360.',
+    midsWeight: 'Weighted Sum: how much mids contributes. The weighted bands are summed and scaled to 0–360°; the hue wraps past 360.',
+    trebleWeight: 'Weighted Sum: how much treble contributes. The weighted bands are summed and scaled to 0–360°; the hue wraps past 360.',
   },
   Function: {
     fn: 'Which function of X to output. Sin and cos take X in whole cycles (1 = 360°); sqrt of a negative gives 0.',
@@ -3880,6 +3886,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     gate: 'Silence Gate',
   },
   AudioHue: {
+    hueStart: 'hue start',
+    hueSpan: 'hue span',
     bassWeight: 'bass weight',
     midsWeight: 'mids weight',
     trebleWeight: 'treble weight',
@@ -5309,6 +5317,12 @@ export function isPropertyEnabled(
       case 'count':     return tt === 'blinds'
       case 'turns':     return tt === 'spiral'
     }
+  }
+  // Audio → Hue reads Hue Start and Span on Balance, the weights on Weighted Sum.
+  if (nodeType === 'AudioHue') {
+    const weighted = properties.mode !== 'balance'
+    if (key === 'bassWeight' || key === 'midsWeight' || key === 'trebleWeight') return weighted
+    if (key === 'hueStart' || key === 'hueSpan') return !weighted
   }
   // Beat Flash reads its R, G, B or its palette, as Color chooses.
   if (nodeType === 'BeatFlash') {

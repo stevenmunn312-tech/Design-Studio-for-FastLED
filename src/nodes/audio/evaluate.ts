@@ -79,6 +79,37 @@ function followLevel(prev: number, target: number, decay: number): number {
   return prev * decay + target * (1 - decay)
 }
 
+/**
+ * Audio → Hue's Balance mode: where the sound sits between bass and treble,
+ * the spectral centroid `(0.5·mids + treble) / (bass + mids + treble)`, so 0
+ * is all bass and 1 all treble, mapped from Hue Start over Hue Span. Loudness
+ * cancels out, so a quiet bass line and a loud one give the same hue, and
+ * below `holdBelow` (near silence) the last balance holds rather than
+ * jumping. Weighted Sum is the original mix, which tracks loudness: silence
+ * and full volume both read red. A node saved before the modes existed has no
+ * `mode` and keeps Weighted Sum, as the bundled patterns built on it do; a new
+ * node starts on Balance. Shared with the C++ generator.
+ */
+export const AUDIO_HUE = { holdBelow: 0.02, restBalance: 0.5, start: 0, span: 240 } as const
+export type AudioHueMode = 'balance' | 'weighted'
+export function audioHueMode(value: unknown): AudioHueMode {
+  return value === 'balance' ? 'balance' : 'weighted'
+}
+export function audioHueBalance(bass: number, mids: number, treble: number, held: number): number {
+  const b = Math.max(0, bass), m = Math.max(0, mids), t = Math.max(0, treble)
+  const sum = b + m + t
+  return sum < AUDIO_HUE.holdBelow ? held : (0.5 * m + t) / sum
+}
+export function audioHueStart(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.max(0, Math.min(360, n)) : AUDIO_HUE.start
+}
+export function audioHueSpan(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.max(0, Math.min(360, n)) : AUDIO_HUE.span
+}
+const audioHueBalances = instanceState('audioHueBalances', new Map<string, number>())
+
 /** One AudioHue band weight, clamped to the slider's 0–1 range. `fallback` is
  *  the mix that used to be hardcoded (bass 0.5 / mids 0.3 / treble 0.2), so a
  *  save made before the weights existed resolves to the identical hue. Shared
@@ -466,10 +497,17 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     const { phase, count } = next
     return { phase, bar: ((count % beatsPerBar) + phase) / beatsPerBar, count }
   },
-  AudioHue({ num }, id, props) {
+  // Keep in lockstep with the `AudioHue` emitter (audioHueBalance above).
+  AudioHue({ num, stateKey }, id, props) {
     const bass   = num(id, 'bass',   props, 'bass',   0.5)
     const mids   = num(id, 'mids',   props, 'mids',   0.5)
     const treble = num(id, 'treble', props, 'treble', 0.5)
+    if (audioHueMode(props.mode) === 'balance') {
+      const key = stateKey(id)
+      const balance = audioHueBalance(bass, mids, treble, audioHueBalances.get(key) ?? AUDIO_HUE.restBalance)
+      audioHueBalances.set(key, balance)
+      return { hue: audioHueStart(props.hueStart) + audioHueSpan(props.hueSpan) * balance }
+    }
     // The 0.5/0.3/0.2 mix is the default of three editable weights.
     // `num` reads the stored property straight, and `??` does not catch a
     // non-numeric one — so the sanitising half of `audioHueWeight` is
