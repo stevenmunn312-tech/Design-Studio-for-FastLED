@@ -25,6 +25,7 @@ import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boa
 import { CLOCKED_DATA_RATES_MHZ, dataRateOptionsMhz } from '../build/ledDrivers'
 import { EASE_PICKER_TYPES, SWEEP_EASE_TYPES } from '../nodes/math/easing'
 import { PALETTE_ENDS, SWEEP_MOTIONS } from '../nodes/color/paletteMotion'
+import { COLOR_TEMPERATURE_K } from '../nodes/color/colorTemperature'
 import { STEP_VALUE_ABS_LIMIT } from '../nodes/shared/stepValue'
 import { COMPARE_LABELS, COMPARE_OPS } from '../nodes/math/compare'
 import { WAVE_RATE_UNITS } from '../nodes/signal/wave'
@@ -719,6 +720,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PaletteFromImage: {
     count: { control: 'slider', min: 2, max: 8, step: 1 },
+  },
+  Temperature: {
+    kelvin: { control: 'slider', min: COLOR_TEMPERATURE_K.min, max: COLOR_TEMPERATURE_K.max, step: 50 },
   },
   HueCycle: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
@@ -2774,7 +2778,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     v: 'Brightness, 0 (off) to 1 (full).',
   },
   Temperature: {
-    warmth: 'Warmth of the white, 0 (candle, 1000 K) to 1 (blue sky, 12000 K). 0.27 is about 4000 K.',
+    kelvin: 'Colour temperature of the white in kelvin, as LEDs are sold: lower is warmer. 1800 K is candlelight, 2700 K a warm-white bulb, 4000 K neutral, 6500 K daylight and 9000 K blue sky. A wired value is held to the same range.',
   },
   HeatColor: {
     heat: 'Temperature of the glow, 0 (black) through red and yellow to 1 (white).',
@@ -3604,6 +3608,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     ...COLOR_PAIR_LABELS,
     mixMode: 'mix',
   },
+  Temperature: { kelvin: 'temperature (K)' },
   PaletteGradient: {
     speed: 'scroll',
   },

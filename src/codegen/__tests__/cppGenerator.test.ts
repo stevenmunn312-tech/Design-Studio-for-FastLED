@@ -2586,14 +2586,15 @@ describe('generateCpp', () => {
   })
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
-    const t = node('t', 'Temperature', 'color', { warmth: (3000 - 1000) / 11000 })
+    const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
     const sp = node('sp', 'Shape', 'pattern', { shape: 'ellipse', cx: 2, cy: 2, size: 2 })
     const cpp = generateCpp([t, sp, outputNode], [
       edge('e1', 't', 'sp', 'color', 'edge'),
       edge('e2', 'sp', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB kelvinToRGB(float kelvin)')
-    expect(cpp).toContain('n_t_color = kelvinToRGB(mapFloat(constrain(0.18181818181818182, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f))')
+    // Kelvin straight through, held to the slider's range as the preview holds it.
+    expect(cpp).toContain('n_t_color = kelvinToRGB(constrain(3000, 1800.0f, 9000.0f))')
   })
 
   it('emits an ellipse Shape SDF coverage loop with thickness', () => {

@@ -482,14 +482,6 @@ freeze, or drop them.
   Cycle and Harmony Palette, and `H (0–360)`/`S`/`V` on RGB to HSV. Pick one
   pattern, e.g. "Hue (°)", "Saturation (0–1)", "Brightness (0–1)"; "Value" is
   jargon. Evidence `src/nodes/color/definitions.ts`.
-- [ ] **Color Temperature: Fix the inverted Warmth property (Med, S).** 0 is
-  candle (warmest) and 1 is blue sky, so raising Warmth cools the light.
-  Rename it "Coolness" or, better, flip the mapping so 1 = warm. Evidence
-  `src/nodes/color/evaluate.ts:45`, `src/state/nodeLibrary.ts:2689`.
-- [ ] **Color Temperature: Offer a Kelvin control (Low, S).** The linear
-  1000–12000 K map puts the useful whites (2700–6500 K) in only 0.15–0.5 of
-  the slider. Use roughly 1800–9000 K in Kelvin. Evidence
-  `src/nodes/color/evaluate.ts:45`.
 - [ ] **Custom Palette: Correct the stale "four colours" text (Med, S).**
   Description, definition comment and Help say "up to four colours, spaced
   evenly", but the body supports 2–8 draggable, positioned stops with presets

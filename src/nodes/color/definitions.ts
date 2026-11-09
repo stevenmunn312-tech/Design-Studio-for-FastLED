@@ -129,16 +129,17 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { r: 0, g: 0, b: 0 },
   },
   {
-    // Black-body white point from a normalized warm→cool temperature control.
+    // Black-body white point from a colour temperature in Kelvin, 1800–9000
+    // (COLOR_TEMPERATURE_K): lower is warmer, as on a bulb's box.
     type: 'Temperature',
     label: 'Color Temperature',
     category: 'color',
     subcategory: 'Colors',
-    inputs: [{ id: 'warmth', label: 'Warmth', dataType: 'float' }],
+    inputs: [{ id: 'kelvin', label: 'Kelvin (K)', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    propertyInputs: { warmth: 'warmth' },
-    defaultExposedInputs: ['warmth'],
-    defaultProperties: { warmth: 0.27 },
+    propertyInputs: { kelvin: 'kelvin' },
+    defaultExposedInputs: ['kelvin'],
+    defaultProperties: { kelvin: 4000 },
   },
   {
     // FastLED HeatColor — a 0–1 heat value → black-body ramp (black→red→yellow→white).
@@ -299,7 +300,7 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
   HSVToRGB: 'Converts hue/sat/val to an RGB color; hue in degrees or 0–255 steps.',
   RGBToHSV: 'Converts an RGB color to hue/sat/val.',
-  Temperature: 'White point from a 0–1 warmth control: candle at 0, blue sky at 1.',
+  Temperature: 'White point from a colour temperature: 1800 K candle to 9000 K sky.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',

@@ -27,6 +27,7 @@ import type { NodeEvaluators } from '../../state/evaluator/types'
 import { speedPhase } from '../shared/speedClock'
 import { applyEase } from '../math/easing'
 import { paletteEnds, sweepLeg, sweepMotion } from './paletteMotion'
+import { clampColorTemperature } from './colorTemperature'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
@@ -40,14 +41,6 @@ const paletteBankState = instanceState('paletteBankState', new Map<string, {
   current?: Uint8Array
   blendMs?: number
 }>())
-
-const TEMPERATURE_MIN_K = 1000
-const TEMPERATURE_MAX_K = 12000
-
-function normalizedTemperatureToKelvin(value: number): number {
-  const t = Math.max(0, Math.min(1, value))
-  return TEMPERATURE_MIN_K + t * (TEMPERATURE_MAX_K - TEMPERATURE_MIN_K)
-}
 
 // Approximate black-body white point for a colour temperature in Kelvin
 // (Tanner Helland's approximation): ~1900K candle → ~6500K daylight → blue.
@@ -99,7 +92,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     return { h: (h + 360) % 360, s, v: max }
   },
   Temperature({ num }, id, props) {
-    return { color: kelvinToRgb(normalizedTemperatureToKelvin(num(id, 'warmth', props, 'warmth', 0.27))) }
+    return { color: kelvinToRgb(clampColorTemperature(num(id, 'kelvin', props, 'kelvin', 4000))) }
   },
   HeatColor({ num }, id, props) {
     // heatColor() takes a 0–255 temperature (shared with Fire2012); the node

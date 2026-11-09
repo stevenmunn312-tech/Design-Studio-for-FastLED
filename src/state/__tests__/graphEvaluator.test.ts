@@ -2518,8 +2518,8 @@ describe('evaluateGraph', () => {
   })
 
   it('Temperature yields warm vs cool white points', () => {
-    const colorAt = (temperature: number) => {
-      const t = node('t', 'Temperature', 'color', { warmth: temperature })
+    const colorAt = (kelvin: number) => {
+      const t = node('t', 'Temperature', 'color', { kelvin })
       const sc = node('sc', 'SolidColor', 'pattern', {})
       const out = node('out', 'MatrixOutput', 'output', {})
       const f = evaluateGraph([t, sc, out], [
@@ -2528,11 +2528,15 @@ describe('evaluateGraph', () => {
       ], 0, 2, 2)!
       return f[0][0]
     }
-    const warm = colorAt((2000 - 1000) / 11000)
-    const cool = colorAt((10000 - 1000) / 11000)
+    const warm = colorAt(2000)
+    const cool = colorAt(9000)
     expect(warm.r).toBeGreaterThan(warm.b)        // warm → red-leaning
     expect(cool.b).toBeGreaterThan(cool.r)        // cool → blue-leaning
-    expect(colorAt((6600 - 1000) / 11000).r).toBeGreaterThan(240)  // near-neutral white
+    expect(colorAt(6600).r).toBeGreaterThan(240)  // near-neutral white
+    // Lower is warmer, and a value past either end holds there, as on the board.
+    expect(colorAt(2700).b).toBeLessThan(colorAt(5000).b)
+    expect(colorAt(500)).toEqual(colorAt(1800))
+    expect(colorAt(20000)).toEqual(colorAt(9000))
   })
 
   it('a CustomPalette drives a pattern node differently than a preset', () => {

@@ -8,6 +8,7 @@
 
 import { gradientMixMode, hueUnits } from '../state/palettes/hueMix'
 import { hexToRgb } from '../state/palettes/polinePalette'
+import { colorTemperatureCpp } from '../nodes/color/colorTemperature'
 
 /** HSV → RGB's Hue in degrees for `_hsv`, which wraps it, from the node's units. */
 export function hsvDegreesCpp(units: unknown, hue: string): string {
@@ -48,7 +49,7 @@ export interface ColorControlSpec {
 export const COLOR_CONTROL_NODES: Readonly<Record<string, ColorControlSpec>> = {
   Color: { outputs: { color: 'color' }, floats: {}, colors: [] },
   HSVToRGB: { outputs: { color: 'color' }, floats: { h: 0, s: 1, v: 1 }, colors: [] },
-  Temperature: { outputs: { color: 'color' }, floats: { warmth: 0.27 }, colors: [] },
+  Temperature: { outputs: { color: 'color' }, floats: { kelvin: 4000 }, colors: [] },
   HeatColor: { outputs: { color: 'color' }, floats: { heat: 0.5 }, colors: [] },
   HueCycle: { outputs: { color: 'color' }, floats: { rate: 0.1, s: 1, v: 1 }, colors: [], needsTime: true },
   GradientSampler: {
@@ -83,7 +84,8 @@ export function colorControlCpp(
   const colorPort = Object.entries(spec.outputs).find(([, kind]) => kind === 'color')?.[0]
   const color = colorPort ? `n_${id}_${colorPort}` : ''
   let loop: string[] = []
-  let needsMapFloat = false
+  // No colour node here calls mapFloat since Color Temperature takes kelvin.
+  const needsMapFloat = false
   let needsKelvin = false
   let needsHueMix = false
   let needsHsv = false
@@ -97,8 +99,7 @@ export function colorControlCpp(
       break
     case 'Temperature':
       needsKelvin = true
-      needsMapFloat = true
-      loop = [`  CRGB ${color} = kelvinToRGB(mapFloat(constrain(${floats.warmth}, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));`]
+      loop = [`  CRGB ${color} = ${colorTemperatureCpp(floats.kelvin)};`]
       break
     case 'HeatColor':
       loop = [`  CRGB ${color} = HeatColor((uint8_t)(constrain(${floats.heat}, 0.0f, 1.0f) * 255));`]

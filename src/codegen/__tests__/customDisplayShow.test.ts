@@ -229,7 +229,7 @@ describe('custom displays in generative shows', () => {
     // The browser reads the selection inside the panel's Display wire; it has no socket.
     expect(displayWidgetSources(doc)[browser]).toEqual({ field: 'selection', roles: ['value'] })
     const cpp = generate(nodes, edges, { screen: doc })
-    expect(cpp).toContain('CRGB n_temp_color = kelvinToRGB(mapFloat(constrain(0.27, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));')
+    expect(cpp).toContain('CRGB n_temp_color = kelvinToRGB(constrain(4000, 1800.0f, 9000.0f));')
     expect(cpp).toContain('_cdSetColor(')
     expect(cpp).toContain('((uint32_t)(n_temp_color).r << 16)')
     expect(cpp).toContain('_cdSetText(')

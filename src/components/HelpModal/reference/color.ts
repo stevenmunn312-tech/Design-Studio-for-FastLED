@@ -205,27 +205,29 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   Temperature: {
     overview: [
-      'Color Temperature gives a white from a single Warmth control: 0 is candlelight at about 1000 K, 1 is clear blue sky at about 12000 K, and the default 0.27 is about 4000 K.',
+      'Color Temperature gives a white from a colour temperature in kelvin, the number LED strips and bulbs are sold by. Lower is warmer: 1800 K is candlelight, 2700 K a warm-white bulb, 4000 K (the default) neutral, 6500 K daylight and 9000 K clear blue sky.',
       'It is the natural way to make tunable white — warm for evenings, cool for working — or to tint a scene toward firelight or daylight.',
+      'A wired value is in kelvin too. To drive it from a 0–1 level, put a Map Range in front with Out Min and Out Max set to the two whites you want.',
     ],
     inputs: {
-      warmth: 'From 0 (candle) to 1 (blue sky).',
+      kelvin: 'Colour temperature in kelvin, 1800 (candle) to 9000 (blue sky).',
     },
     outputs: {
-      color: 'The white for that warmth.',
+      color: 'The white for that temperature.',
     },
     example: example({
       featured: 'Temperature',
       title: 'A knob from candlelight to daylight',
       nodes: {
         knob: ['PotInput'],
+        range: ['MapRange', { inMin: 0, inMax: 1, outMin: 1800, outMax: 6500, clampOutput: true }],
         white: ['Temperature'],
         lamp: ['SolidColor'],
         output: ['MatrixOutput', STRIP(60)],
       },
-      wires: ['knob.value > white.warmth', 'white.color > lamp.color'],
-      explanation: 'The Potentiometer’s 0–1 is exactly what Warmth expects, so the knob sets Color Temperature directly and Solid Color fills the string with that white: candle-orange at one end of the knob, cool daylight at the other.',
-      preview: 'The {output} glows a neutral white. Drag the Potentiometer slider down for warm candlelight or up for cool blue daylight.',
+      wires: ['knob.value > range.value', 'range.result > white.kelvin', 'white.color > lamp.color'],
+      explanation: 'Map Range turns the Potentiometer’s 0–1 into 1800 to 6500 K, so the knob sets Color Temperature and Solid Color fills the string with that white: candle-orange at one end of the knob, cool daylight at the other.',
+      preview: 'The {output} glows a warm white. Drag the Potentiometer slider down for candlelight or up for cool daylight.',
     }),
   },
 

@@ -17,6 +17,7 @@ import { hexCrgbCpp, hsvColorCpp } from '../../codegen/colorControlCpp'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { easeByteCpp } from '../math/easing'
 import { paletteEnds, sweepMotion } from './paletteMotion'
+import { colorTemperatureCpp } from './colorTemperature'
 
 export const COLOR_EMITTERS: NodeEmitters = {
   HueCycle({ id, ln, v, f, needsT, needsHsv }) {
@@ -44,10 +45,9 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  float ${v('s')} = _rgbSat(_hsv_${id});`)
     ln(`  float ${v('v')} = _rgbVal(_hsv_${id});`)
   },
-  Temperature({ ln, v, f, needsMapFloat, needsKelvin }) {
+  Temperature({ ln, v, f, needsKelvin }) {
     needsKelvin.v = true
-    needsMapFloat[0] = true
-    ln(`  CRGB ${v('color')} = kelvinToRGB(mapFloat(constrain(${f('warmth', 'warmth', 0.27)}, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));`)
+    ln(`  CRGB ${v('color')} = ${colorTemperatureCpp(f('kelvin', 'kelvin', 4000))};`)
   },
   HeatColor({ ln, v, f }) {
     ln(`  CRGB ${v('color')} = HeatColor((uint8_t)(constrain(${f('heat', 'heat', 0.5)}, 0.0f, 1.0f) * 255));`)
