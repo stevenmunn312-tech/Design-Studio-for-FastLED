@@ -1242,10 +1242,6 @@ freeze, or drop them.
   2.8-inch + touch and the XC4630 2.8-inch shield. List all four, or say
   "choose the module on the Hardware shelf". Evidence `src/components/HelpModal/reference/output.ts:328`,
   `src/build/parts/partOptions.ts:572`.
-- [ ] **Master Speed: Reconcile help and validation (Med, S).** Help says the
-  Music Player ignores it, but validation blocks a player build. Make it a
-  warning with a one-click "Remove Master Speed" fix, or change the help to say
-  it is an error. Evidence `src/components/HelpModal/reference/output.ts:360`, `src/utils/validateGraph.ts:3120`.
 - [ ] **Amplifier: Use one label for max volume (Low, S).** `maxVolume` is the
   ceiling that player volume 1.0 maps to, but the tooltip, the bench field and
   help each describe it differently. Use "Max volume (0-21)" with "the level at

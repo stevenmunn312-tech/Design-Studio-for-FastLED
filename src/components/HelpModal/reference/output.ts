@@ -357,7 +357,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   MasterSpeed: {
     overview: [
       'Master Speed scales time for the whole graph: 1 is normal, 2 twice as fast, 0 frozen. Every animated node keeps its own speed, and they all stay in proportion.',
-      'It is a terminal like the LED output: nothing reads it. Wire a knob in for one speed control on the finished build. The Music Player ignores it, because the track’s position is its clock.',
+      'It is a terminal like the LED output: nothing reads it. Wire a knob in for one speed control on the finished build. A Pattern Slideshow honours it too. A music-player build (a Music Player or a Performance Generator show) refuses to upload with it, because the track’s position is its clock and scaling it would slide the LEDs off the music: remove Master Speed first.',
     ],
     example: example({
       featured: 'MasterSpeed',
