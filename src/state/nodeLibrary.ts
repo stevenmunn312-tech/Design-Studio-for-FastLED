@@ -1986,7 +1986,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     speed: 'Requested fan speed from 0 to 1. This exact fan stops at 0 and reaches about 5000 rpm at 1.',
   },
   DFPlayerOutput: {
-    play: 'Plays the chosen /mp3 file while true and pauses when it falls. With nothing wired, the Play setting is used.',
+    play: 'Plays the chosen /mp3 file while true and pauses when it falls, so a button held only for a press stops it on release; put a One Shot Trigger in front to play a short sound through. With nothing wired, the Play setting is used.',
     uartRxPin: 'Controller RX wired to the module TX pad.',
     uartTxPin: 'Controller TX wired to the module RX pad. Add a 1 kΩ series resistor if UART noise reaches the audio output.',
     busyPin: 'Reads the active-low BUSY pad. Playing is true while BUSY is low.',

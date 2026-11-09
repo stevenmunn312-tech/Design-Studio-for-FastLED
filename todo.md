@@ -1231,12 +1231,6 @@ freeze, or drop them.
   30 properties include a nine-row Response group (gain through beat accent)
   few people touch. Start it collapsed, or offer 3-4 presets (Hi-fi, Punchy,
   Smooth).
-- [ ] **DFPlayer Mini: Make Play a one-shot option or fix the help example
-  (Med, S).** Firmware pauses as soon as Play falls, and a Button's Pressed is
-  true only while held, so the doorbell example stops on release. Add a "Play
-  mode: Hold / One-shot" choice (rising edge plays to the end using BUSY), or
-  insert a Toggle Trigger in the example. Evidence `src/components/HelpModal/reference/output.ts:280`,
-  `src/codegen/peripherals/dfPlayerCpp.ts:82`.
 - [ ] **Display Panel: List all four modules in help (Low, S).** Help names the
   1.54-inch and 2.4-inch modules, but the catalogue also has the ILI9341
   2.8-inch + touch and the XC4630 2.8-inch shield. List all four, or say

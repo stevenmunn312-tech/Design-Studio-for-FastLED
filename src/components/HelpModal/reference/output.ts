@@ -260,6 +260,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   DFPlayerOutput: {
     overview: [
       'DFPlayer Mini plays numbered MP3 files from its own microSD card: 0001.mp3 upward in the /mp3 folder. Play, Next, Previous, Track and Volume control it, and Playing follows the module’s BUSY pin.',
+      'Play is a level, not a press: the file plays while Play is true and pauses when it falls. To play a short sound from a button, put a One Shot Trigger in front so Play stays true for the length of the sound.',
       'It is a simple way to add sound effects and announcements without an I2S amplifier: Speaker mode drives a small speaker directly, Line Out feeds a power amplifier.',
       'Power it from 5 V and put a 1 kΩ resistor between the controller’s TX and the module’s RX.',
     ],
@@ -280,12 +281,13 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       title: 'A doorbell that chimes and flashes',
       nodes: {
         bell: ['ButtonInput'],
+        ring: ['Trigger', { triggerOp: 'oneShot', holdTime: 3 }],
         chime: ['DFPlayerOutput', { uartRxPin: 16, uartTxPin: 17, busyPin: 27, track: 1, volume: 0.8, audioOutput: 'Speaker' }],
         flash: ['BeatFlash', { decay: 0.9, intensity: 1, palette: 'sunset' }],
         hall: ['Breathe', { palette: 'amethyst', bpm: 8 }],
       },
-      wires: ['bell.pressed > chime.play', 'bell.pressed > flash.beat', 'hall.frame > flash.frame'],
-      explanation: 'Pressing the Button plays file 0001 on the DFPlayer Mini and fires Beat Flash on the LEDs at the same moment, so the doorbell is seen as well as heard.',
+      wires: ['bell.pressed > ring.trigger', 'ring.out > chime.play', 'bell.pressed > flash.beat', 'hall.frame > flash.frame'],
+      explanation: 'A One Shot Trigger turns each press of the Button into three seconds of Play, so file 0001 plays through on the DFPlayer Mini after the button is let go; wired straight to Play, the chime would stop on release. The same press fires Beat Flash on the LEDs, so the doorbell is seen as well as heard.',
       preview: 'The {output} breathes softly in violet. Press the Button node to flash it gold. The browser is silent; on the board the chime plays.',
     }),
   },
