@@ -766,6 +766,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // Envelope's decay is a duration in seconds, not the shared 0–1 rate.
   Wave: {
     rateUnit: { control: 'select', options: [...WAVE_RATE_UNITS] },
+    // Hundredths, not the shared tenth: a slow breath is 0.15 Hz or 0.07 Hz,
+    // and a typed value off the step is refused.
+    frequency: { control: 'slider', min: 0, max: 4, step: 0.01 },
     bpm: { control: 'slider', min: 1, max: 220, step: 1 },
   },
   Envelope: {
@@ -2568,13 +2571,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     audioAmount: 'How much the six audio inputs bend the geometry (0–2); 0 runs the effect unmodulated.',
   },
   Wave: {
-    amplitude: 'Peak height of the wave: the output swings −amplitude to +amplitude, or 0 to amplitude when unipolar. Accepts a matrix expression such as w / 2.',
-    frequency: 'Cycles per second. 1 = one full wave every second; 0.1 = one every ten seconds.',
+    amplitude: 'Height of the wave: the output swings 0 to amplitude while unipolar, or −amplitude to +amplitude. Accepts a matrix expression such as w / 2.',
+    frequency: 'Cycles per second. 1 = one full wave every second; 0.1 = one every ten seconds, 0.05 one every twenty.',
     bpm: 'Beats per minute, one full wave per beat, as FastLED beatsin does.',
     rateUnit: 'Give the rate as Frequency in Hz or as a tempo in BPM.',
     phase: 'Shifts where the wave starts, in whole cycles (0.25 = a quarter turn ahead).',
     offset: 'Added to the output: moves the whole wave up or down. A unipolar wave runs from Offset to Offset + Amplitude. Accepts a matrix expression such as h / 2.',
-    unipolar: 'Swing 0 to amplitude instead of −amplitude to +amplitude. A unipolar sawtooth is a 0–1 ramp.',
+    unipolar: 'On (the default), swing 0 to amplitude, which suits a 0–1 target; off, swing −amplitude to +amplitude. A unipolar sawtooth is a 0–1 ramp.',
     waveform: 'Shape of the cycle: smooth sine, pointed triangle, hard square, or rising sawtooth.',
   },
   Interval: {

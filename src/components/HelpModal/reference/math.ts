@@ -71,7 +71,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       featured: 'Clamp',
       title: 'A puck that pauses against the walls',
       nodes: {
-        swing: ['Wave', { frequency: 0.4, amplitude: 0.7, offset: 0.5 }],
+        swing: ['Wave', { frequency: 0.4, amplitude: 0.7, offset: 0.5, unipolar: false }],
         walls: ['Clamp', { min: 0.12, max: 0.88 }],
         puck: ['Shape', { shape: 'rect', size: 3, aspect: 0.5, filled: true, fill: '#40ffd0', edge: '#ffffff', thickness: 0.5 }],
         trails: ['Trails', { decay: 0.45 }],
@@ -98,7 +98,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       featured: 'MapRange',
       title: 'Turn a swinging wave into more and fewer rings',
       nodes: {
-        swing: ['Wave', { frequency: 0.12 }],
+        swing: ['Wave', { frequency: 0.12, unipolar: false }],
         rings: ['MapRange', { inMin: -1, inMax: 1, outMin: 2, outMax: 14 }],
         burst: ['RadialBurst', { palette: 'opal', speed: 0.45 }],
       },
@@ -206,7 +206,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       featured: 'Function',
       title: 'A ball that bounces on the floor',
       nodes: {
-        swing: ['Wave', { frequency: 0.5 }],
+        swing: ['Wave', { frequency: 0.5, unipolar: false }],
         bounce: ['Function', { fn: 'abs' }],
         height: ['MapRange', { inMin: 0, inMax: 1, outMin: 0.85, outMax: 0.15 }],
         ball: ['Shape', { shape: 'ellipse', size: 2.2, filled: true, fill: '#ff7a1a', edge: '#ffe0a0', thickness: 0.6 }],

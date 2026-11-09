@@ -24,7 +24,9 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     propertyInputs: { amplitude: 'amplitude', frequency: 'frequency', bpm: 'bpm', phase: 'phase', offset: 'offset' },
     defaultExposedInputs: ['amplitude', 'frequency', 'phase'],
-    defaultProperties: { amplitude: 1, frequency: 1, rateUnit: 'Hz', bpm: 60, phase: 0, offset: 0, unipolar: false, waveform: 'sine' },
+    // Unipolar by default: most targets read 0 to 1, so a fresh Wave dropped
+    // onto Blur, Saturation or Brightness works straight away.
+    defaultProperties: { amplitude: 1, frequency: 1, rateUnit: 'Hz', bpm: 60, phase: 0, offset: 0, unipolar: true, waveform: 'sine' },
   },
   {
     // Metronome — emits a boolean pulse once every `interval` seconds (a non-audio

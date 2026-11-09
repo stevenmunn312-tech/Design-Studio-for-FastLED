@@ -719,16 +719,6 @@ freeze, or drop them.
 - [ ] **Zones: Fix the "named rectangle" wording (Low, S).** Zones cannot be
   named. Drop "named" or add a label field. Evidence
   `src/nodes/composite/definitions.ts:416`.
-- [ ] **Wave: Allow slow frequencies (Med, S).** Frequency uses the shared
-  0-4 Hz, step 0.1 slider and `EditableRange` rejects off-step typed
-  values, so the slowest LFO is 10 s and the help's own 0.15, 0.12 and 0.07
-  Hz cannot be entered. Add a Wave override with step 0.01, or a
-  "Period (s)" rate unit. Evidence `src/state/nodeLibrary.ts:519`,
-  `src/components/EditableRange/validRangeValue.ts:7`.
-- [ ] **Wave: Default to Unipolar (Med, S).** The default swings -1 to +1
-  while most targets read 0-1, and three of four composite help examples
-  turn Unipolar on. Default `unipolar: true` before v1. Evidence
-  `src/nodes/signal/definitions.ts:26`.
 - [ ] **Random: Add a trigger input (Med, S).** It draws a new value every
   frame, and its own help sends users to Sample & Hold for "new value per
   beat". Add an optional `trigger` bool input that draws only on a rising

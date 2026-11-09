@@ -416,7 +416,8 @@
             "amplitude": 180,
             "frequency": 0.05,
             "phase": 0,
-            "waveform": "sine"
+            "waveform": "sine",
+            "unipolar": false
           },
           "inputs": [
             {

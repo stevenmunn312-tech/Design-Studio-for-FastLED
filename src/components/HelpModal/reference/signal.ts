@@ -5,7 +5,8 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
   Wave: {
     overview: [
       'Wave is an oscillator: a value that swings smoothly and endlessly. Choose sine, triangle, square or sawtooth, and give its rate in hertz or in beats per minute.',
-      'By default it swings from −Amplitude to +Amplitude around Offset. Turn on Unipolar to swing from Offset up to Offset + Amplitude instead — a unipolar sawtooth is a 0-to-1 ramp, and a unipolar sine at a BPM is FastLED’s beatsin.',
+      'By default it is unipolar, swinging from Offset up to Offset + Amplitude, so a fresh Wave runs 0 to 1 and drives most settings straight away. A unipolar sawtooth is a 0-to-1 ramp, and a unipolar sine at a BPM is FastLED’s beatsin. Turn Unipolar off to swing from −Amplitude to +Amplitude around Offset.',
+      'Frequency goes down to hundredths of a hertz, so a slow breath every eight seconds is about 0.12.',
       'Two waves at slightly different rates drifting against each other are a classic way to make motion that never quite repeats.',
     ],
     outputs: {
@@ -16,8 +17,8 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       featured: 'Wave',
       title: 'Draw a Lissajous figure with two waves',
       nodes: {
-        across: ['Wave', { frequency: 0.6, amplitude: 0.38, offset: 0.5, waveform: 'sine' }],
-        down: ['Wave', { frequency: 0.9, amplitude: 0.38, offset: 0.5, phase: 0.25, waveform: 'sine' }],
+        across: ['Wave', { frequency: 0.6, amplitude: 0.76, offset: 0.12, waveform: 'sine' }],
+        down: ['Wave', { frequency: 0.9, amplitude: 0.76, offset: 0.12, phase: 0.25, waveform: 'sine' }],
         pen: ['Shape', { shape: 'ellipse', size: 1.2, filled: true, fill: '#ffe08a', edge: '#ff8a00', thickness: 0.5 }],
         trails: ['Trails', { decay: 0.35 }],
       },

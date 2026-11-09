@@ -145,8 +145,8 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Line',
       title: 'A radar sweep',
       nodes: {
-        armX: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5 }],
-        armY: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5, phase: 0.25 }],
+        armX: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5, unipolar: false }],
+        armY: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5, phase: 0.25, unipolar: false }],
         arm: ['Line', { x1: 'W/2', y1: 'H/2', r: 60, g: 255, b: 90 }],
         afterglow: ['Trails', { decay: 0.3 }],
       },
@@ -170,7 +170,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       title: 'A triangle that grows into an octagon',
       nodes: {
         corners: ['Wave', { frequency: 0.15, amplitude: 5, offset: 3, unipolar: true, waveform: 'triangle' }],
-        turn: ['Wave', { frequency: 0.05, amplitude: 180 }],
+        turn: ['Wave', { frequency: 0.05, amplitude: 180, unipolar: false }],
         form: ['Shape', { shape: 'polygon', size: 6.5, filled: true, fill: '#14306e', edge: '#7cf3ff', thickness: 1.5 }],
       },
       wires: ['corners.result > form.sides', 'turn.result > form.rotation'],
@@ -321,7 +321,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       title: 'A slow zoom across a picture',
       nodes: {
         drift: ['Wave', { frequency: 0.08, amplitude: 0.6, offset: 1, unipolar: true, phase: 0.75 }],
-        pan: ['Wave', { frequency: 0.05, amplitude: 0.3, offset: 0.5 }],
+        pan: ['Wave', { frequency: 0.05, amplitude: 0.3, offset: 0.5, unipolar: false }],
         photo: ['Image', { image: SAMPLE_IMAGE, fit: 'contain', sampling: 'smooth', saturation: 1.2 }],
       },
       wires: ['drift.result > photo.zoom', 'pan.result > photo.cropX'],
