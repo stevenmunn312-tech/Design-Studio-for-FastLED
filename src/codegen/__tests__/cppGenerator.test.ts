@@ -829,6 +829,22 @@ describe('generateCpp', () => {
     expect(cpp).toContain('* 2.000f)')
   })
 
+  it('scales Plasma by its Scale knob and scrolls its colours on the phase', () => {
+    const plasma = node('p', 'Plasma', 'pattern', { scale: 0.25 })
+    const cpp = generateCpp([plasma, outputNode], [edge('e1', 'p', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_sc = (constrain((0.25), 0.0f, 1.0f) * 2.000f);')
+    expect(cpp).toContain('int32_t _pk3=(int32_t)(3477.0f*(_sc)),_pk5=(int32_t)(2086.0f*(_sc)),_pkr=(int32_t)(27814.0f*(_sc));')
+    // The palette scroll follows the integrated phase, so speed 0 holds still.
+    expect(cpp).toContain('uint8_t _pt8=(uint8_t)(int32_t)fmodf(_phase_p*20.0f,256.0f);')
+    expect(cpp).not.toContain('fmodf(t*20.0f')
+  })
+
+  it('draws fBm by default from Noise', () => {
+    const cpp = generateCpp([node('n', 'Noise', 'pattern', {}), outputNode], [edge('e1', 'n', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('// Fractal noise (fBm of simplex octaves)')
+    expect(cpp).not.toContain('SINE_FIELD')
+  })
+
   it('emits a Boids flocking block with count-sized state and the wired colour', () => {
     const boids = node('bd', 'Boids', 'pattern', { count: 200, speed: 1, r: 10, g: 20, b: 30 })
     const cpp = generateCpp([boids, outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])

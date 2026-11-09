@@ -34,7 +34,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const ln = (line: string) => { block.push(line) }
     const ob = ownBuf()
     const of = ownField()
-    const noiseType = String(p.noiseType ?? 'field')
+    const noiseType = String(p.noiseType ?? 'fbm')
     const wMode = worleyMode(p.worleyMode)
     const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
@@ -125,7 +125,20 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
         break
       }
-      case 'fbm': {
+      case 'field': {
+        ln(`  {`)
+        ln(`    float _spd = ${speed}, _scl = ${scale};`)
+        const tp = phase()
+        // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+        for (const line of sineFieldFrameCpp('_scl', tp)) ln(`    ${line}`)
+        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+        ln(`      ${of}[_y * WIDTH + _x] = ${SINE_FIELD_VALUE_CPP};`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+      case 'fbm':
+      default: {
         ln(`  { // Fractal noise (fBm of simplex octaves)`)
         ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
@@ -155,19 +168,6 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`      ${of}[_y*WIDTH+_x]=constrain(_v*0.5f+0.5f,0.0f,1.0f);}}`)
         break
       }
-      case 'field':
-      default: {
-        ln(`  {`)
-        ln(`    float _spd = ${speed}, _scl = ${scale};`)
-        const tp = phase()
-        // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
-        for (const line of sineFieldFrameCpp('_scl', tp)) ln(`    ${line}`)
-        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-        ln(`      ${of}[_y * WIDTH + _x] = ${SINE_FIELD_VALUE_CPP};`)
-        ln(`    }`)
-        ln(`  }`)
-        break
-      }
     }
     if (p.wrapX === true) {
       needsWrapX.v = true
@@ -185,12 +185,13 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Plasma)
+    const scale = rateCpp(f('scale', 'scale', 0.5), SCALE_MAX.Plasma)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
-    ln(`    float _spd = ${speed};`)
+    ln(`    float _spd = ${speed}, _sc = ${scale};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
-    for (const line of plasmaFrameCpp(ph)) ln(`    ${line}`)
+    for (const line of plasmaFrameCpp(ph, '_sc')) ln(`    ${line}`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
     for (const line of PLASMA_PIXEL_CPP) ln(`      ${line}`)
     ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, _idx);`)

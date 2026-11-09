@@ -1010,8 +1010,13 @@ freeze, or drop them.
   gabor and plasma-fractal in Noise; make simplex and noise3d fbm presets; fold
   `field` and `sine` into Plasma, which gains `scale`. Each type also has its
   own speed and scale range, so nine types means nine slider calibrations.
-  Evidence `src/nodes/generative/evaluate.ts:299`,
-  `src/nodes/shared/speedRange.ts:52`.
+  Done so far: Noise defaults to fbm, `field` reads "Sine Grid", and Plasma
+  has `scale` (0.5 is the classic size). Left: the merge itself, which moves
+  saved `field`/`sine`/`simplex`/`noise3d` graphs onto other nodes or presets
+  and needs a choice of preset values by eye. While there, simplex, noise3d,
+  noise4d and plasma-fractal still wrap their value (`wrap01`), cutting seams
+  through non-cyclic palettes such as lava; fbm clamps. Evidence
+  `src/nodes/generative/evaluate.ts:299`, `src/nodes/shared/speedRange.ts:52`.
 - [ ] **Category: Default Ripple and String Particles to the LED output's
   network (Med, M).** Ripple needs the output's network preset, JSON and LEDs
   per edge, and String Particles needs the ring LED count, all copied by hand
@@ -1025,22 +1030,6 @@ freeze, or drop them.
   `count` is unwired (Low, S).** Both always declare the maximum pool (300 x
   12 B = 3.6 KB; 400 x 8 B = 3.2 KB) because `count` is wireable. Evidence
   `src/nodes/simulations/codegen.ts:674`, `:500`.
-- [ ] **Noise: Default `noiseType` to `fbm` (Med, S).** The default `field` is
-  `sin16(x)+sin16(y)`, a moving plaid labelled "Noise Field". Default to
-  `fbm`, and rename `field` to "Sine Grid" if it stays. Simplex, noise3d,
-  noise4d and plasma also wrap their value, cutting hard seams through
-  non-cyclic palettes such as lava and heat; fbm clamps instead. Evidence
-  `src/nodes/generative/definitions.ts:35`, `src/nodes/generative/evaluate.ts:319`.
-- [ ] **Noise: Fix stale help text (Low, S).** `src/state/nodeLibrary.ts:1874` says "Noise
-  4D and fbm use FastLED inoise on the controller", but both emit the
-  `_snoise2` twin. Reword it. Evidence `src/nodes/generative/codegen.ts:76`.
-- [ ] **Plasma: Add a `scale` property (Med, S).** Spatial frequencies are
-  fixed per pixel, so a 64x64 panel shows many small cells and an 8x8 panel
-  one blob. Noise and Pacifica already expose scale. Evidence
-  `src/nodes/shared/integerPatterns.ts:72`.
-- [ ] **Plasma: Make speed 0 actually still (Low, S).** The palette scrolls on
-  bare `t`, but the tooltip says "0 frozen". Scale the scroll by speed or
-  reword the tooltip. Evidence `src/nodes/shared/integerPatterns.ts:49`, `src/state/nodeLibrary.ts:2801`.
 - [ ] **Confetti: Rename Speed to "Colour drift" (Med, S).** Speed and Density
   both set spawn count (`density*(0.08+speed*0.3)*sqrt(area)`), and the
   Density tooltip admits it multiplies Speed. Keep Density for amount and

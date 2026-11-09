@@ -32,7 +32,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
     defaultProperties: {
-      noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false, noiseShape: 'plain', worleyMode: 'f1',
+      noiseType: 'fbm', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false, noiseShape: 'plain', worleyMode: 'f1',
       octaves: 4, frequency: 1.2, orientation: 45,
     },
   },
@@ -43,11 +43,12 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, palette: 'rainbow' },
+    defaultProperties: { speed: 0.5, scale: 0.5, palette: 'rainbow' },
   },
   {
     // FastLED fill_rainbow — a scrolling hue sweep; `deltaHue` sets the spread
@@ -346,7 +347,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
-  Noise: 'Noise from smooth fields to fBm clouds and Gabor bands, as frame and field.',
+  Noise: 'Noise from fBm clouds to Worley cells and Gabor bands, as frame and field.',
   Plasma: 'Animated plasma interference pattern through a palette.',
   Rainbow: 'FastLED fill_rainbow — a scrolling hue sweep across the matrix.',
   Pride2015: 'Shifting rainbow with a breathing brightness wave.',

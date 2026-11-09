@@ -441,7 +441,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
-  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine', 'fbm', 'gabor'] },
+  noiseType:      { control: 'select', options: ['fbm', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine', 'field', 'gabor'] },
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'average', 'min', 'max'] },
   fn:             { control: 'select', options: [...FUNCTION_OPS] },
   logicOp:        { control: 'select', options: [...LOGIC_OPS] },
@@ -1006,7 +1006,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     noiseShape: { control: 'select', options: [...NOISE_SHAPES] },
     worleyMode: { control: 'select', options: [...WORLEY_MODES] },
   },
-  Plasma:          { speed: N01 },
+  Plasma:          { speed: N01, scale: N01 },
   Rainbow:         { speed: N01, axis: { control: 'select', options: [...RAINBOW_AXES] } },
   RadialBurst:     { speed: N01, rings: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01, arms: { control: 'slider', min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max, step: 1 } },
@@ -1874,7 +1874,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
     worleyMode: 'What Worley draws: the distance to the nearest point (f1), the gap to the second nearest (f2f1), or thin bright lines on the cell borders (edges).',
     wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
-    noiseType: 'Which noise algorithm draws the field. fbm sums octaves into clouds; gabor draws oriented bands. Noise 4D and fbm use FastLED inoise on the controller.',
+    noiseType: 'Which noise algorithm draws the field. fbm, the default, sums octaves into clouds; field is a grid of two crossed sine waves; gabor draws oriented bands. The controller draws the same noise as the preview.',
     octaves: 'Noise layers summed by fbm, 1 smooth to 6 detailed. More costs CPU on the controller.',
     frequency: 'Gabor only: stripes per cell inside each kernel; higher gives finer bands.',
     orientation: 'Gabor only: direction of the bands in degrees, 0 horizontal to 360.',
@@ -2800,7 +2800,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     loop: 'Start the animation again after its last frame. Off holds the last frame.',
   },
   Plasma: {
-    speed: 'How fast the interference bands move, 0 frozen to 1 fastest.',
+    speed: 'How fast the interference bands move and the colours scroll, 0 frozen to 1 fastest.',
+    scale: 'Size of the bands: low gives broad slow swirls, high fine ripples. 0.5 is the classic plasma.',
     palette: 'Colour sweep applied to the plasma; rainbow gives the classic look.',
   },
   Rainbow: {
@@ -4646,7 +4647,7 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   },
   Noise: {
     prop: 'noiseType',
-    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D', fbm: 'Fractal Noise', gabor: 'Gabor Noise' },
+    labels: { field: 'Sine Grid', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D', fbm: 'Fractal Noise', gabor: 'Gabor Noise' },
   },
   Path: {
     prop: 'pathShape',
@@ -5121,7 +5122,7 @@ export function isPropertyEnabled(
     return properties.noiseType === 'worley'
   }
   if (nodeType === 'Noise' && key === 'octaves') {
-    return properties.noiseType === 'fbm'
+    return (properties.noiseType ?? 'fbm') === 'fbm'
   }
   if (nodeType === 'Noise' && (key === 'frequency' || key === 'orientation')) {
     return properties.noiseType === 'gabor'

@@ -332,7 +332,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Noise: {
     overview: [
-      'Noise draws natural-looking texture from many noise algorithms: smooth fields, simplex, 3D and 4D noise, Worley cells, plasma fractals, fractal clouds (fBm) and Gabor bands.',
+      'Noise draws natural-looking texture from many noise algorithms: fractal clouds (fBm, the default), simplex, 3D and 4D noise, Worley cells, plasma fractals, Gabor bands, and a Sine Grid of two crossed waves.',
       'Shape folds the noise for sharp ridges or soft billows. Worley can draw distance, cell gaps or cell edges, and Gabor draws oriented bands. Wrap X joins the edges seamlessly for a ring or a corkscrew.',
       'Noise also outputs a Field, so the same texture can feed field nodes. On the canvas it takes the name of the algorithm chosen.',
     ],
@@ -354,7 +354,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Plasma: {
     overview: [
       'Plasma is the classic demo-scene effect: several sine waves interfere to make flowing, organic bands of colour.',
-      'It is calm, endlessly varied and cheap to compute, which makes it a favourite base for other effects. Speed sets how fast the bands move.',
+      'It is calm, endlessly varied and cheap to compute, which makes it a favourite base for other effects. Speed sets how fast the bands move and Scale how large they are, so a big panel can show a few broad swirls rather than many small cells.',
     ],
     example: example({
       featured: 'Plasma',

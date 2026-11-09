@@ -65,6 +65,7 @@ import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphF
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample } from '../../nodes/signal/wave'
 import { blobSpan } from '../../nodes/generative/evaluate'
+import { plasmaFrame } from '../../nodes/shared/integerPatterns'
 import { boidPalettePosition } from '../../nodes/simulations/evaluate'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
@@ -2194,6 +2195,31 @@ describe('evaluateGraph', () => {
     }
     expect(at('pride-none', { palette: 'none' })).not.toBe(at('pride-lava', { palette: 'lava' }))
     expect(at('pride-lava-a', { palette: 'lava' })).not.toBe(at('pride-ocean', { palette: 'ocean' }))
+  })
+
+  it('Plasma holds still at speed 0 and changes its band size with Scale', () => {
+    const run = (id: string, props: Record<string, unknown>, ticks: number[]) => {
+      const { nodes, edges } = withOutput(node(id, 'Plasma', 'pattern', props))
+      return ticks.map((tick) => JSON.stringify(evaluateGraph(nodes, edges, tick, 16, 16)))
+    }
+    const [early, late] = run('plasma-still', { speed: 0 }, [0, 120])
+    expect(late).toBe(early)
+    const [moving0, moving1] = run('plasma-moving', { speed: 0.5 }, [0, 120])
+    expect(moving1).not.toBe(moving0)
+    const [classic] = run('plasma-classic', { speed: 0, scale: 0.5 }, [0])
+    const [broad] = run('plasma-broad', { speed: 0, scale: 0.15 }, [0])
+    expect(broad).not.toBe(classic)
+    // At the default scale the kernel's steps are exactly the classic ones.
+    expect(plasmaFrame(0, 1)).toMatchObject({ k3: 3477, k5: 2086, kr: 27814 })
+  })
+
+  it('Noise draws fBm by default', () => {
+    const frameOf = (id: string, props: Record<string, unknown>) => {
+      const { nodes, edges } = withOutput(node(id, 'Noise', 'pattern', props))
+      return JSON.stringify(evaluateGraph(nodes, edges, 30, 16, 16))
+    }
+    expect(frameOf('noise-default', {})).toBe(frameOf('noise-fbm', { noiseType: 'fbm' }))
+    expect(frameOf('noise-default-2', {})).not.toBe(frameOf('noise-grid', { noiseType: 'field' }))
   })
 
   it('Blobs sizes by the length of a string, so a strip is not left near black', () => {

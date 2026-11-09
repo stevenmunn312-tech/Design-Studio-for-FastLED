@@ -59,10 +59,10 @@ export function evalRainbow(phase: number, deltaHue: number, axis: RainbowAxis, 
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
-function evalPlasma(key: string, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalPlasma(key: string, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   // The sketch's integer kernel (shared/integerPatterns.ts): four summed
-  // sin16 waves to a palette index v*45 + t*20, wrapping as a uint8_t does.
-  const frame = plasmaFrame(speedPhase(key, t, speed), t)
+  // sin16 waves to a palette index v*45 + phase*20, wrapping as a uint8_t does.
+  const frame = plasmaFrame(speedPhase(key, t, speed), scale)
   return buildFrame(W, H, (x, y) => samplePalette(palette, plasmaIndex(x, y, W, H, frame) / 256))
 }
 
@@ -308,7 +308,6 @@ function evalNoiseFieldByType(key: string, noiseType: string, speed: number, sca
 function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, opts: NoiseVariantOpts): Field {
   const ts = t + seedOffset(seed, 0)
   switch (noiseType) {
-    case 'fbm':     return evalFbmField(key, speed, scale, opts.octaves, ts, W, H, xo)
     // Gabor's seed reshuffles its cells rather than shifting time.
     case 'gabor':   return evalGaborField(key, speed, scale, opts.frequency, opts.orientation, t, W, H, seed, xo)
     case 'simplex': return evalSimplex2DField(key, speed, scale, ts, W, H, xo)
@@ -317,8 +316,9 @@ function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, sc
     case 'worley':  return evalWorleyField(key, speed, scale, ts, W, H, xo, opts.worley)
     case 'plasma':  return evalPlasmaFractalField(key, speed, scale, ts, W, H, xo)
     case 'sine':    return evalSineField(key, speed, scale, ts, W, H, xo)
-    case 'field':
-    default:        return evalNoiseFieldRaw(key, speed, scale, ts, W, H, xo)
+    case 'field':   return evalNoiseFieldRaw(key, speed, scale, ts, W, H, xo)
+    case 'fbm':
+    default:        return evalFbmField(key, speed, scale, opts.octaves, ts, W, H, xo)
   }
 }
 
@@ -526,7 +526,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   // to its normal `frame` output. Keep in sync with PROPERTY_META.noiseType
   // and the `Noise` case in cppGenerator.ts.
   Noise({ num, pal, t, W, H, stateKey }, id, props) {
-    const noiseType = String(props.noiseType ?? 'field')
+    const noiseType = String(props.noiseType ?? 'fbm')
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
@@ -542,8 +542,9 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   },
   Plasma({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Plasma)
+    const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), SCALE_MAX.Plasma)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalPlasma(stateKey(id), speed, t, palette, W, H) }
+    return { frame: evalPlasma(stateKey(id), speed, scale, t, palette, W, H) }
   },
   Rainbow({ num, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Rainbow)
