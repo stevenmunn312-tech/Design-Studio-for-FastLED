@@ -1359,6 +1359,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edgeMode: { control: 'select', options: ['clamp', 'wrap', 'black'] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
+  FieldWarp: {
+    sampling: { control: 'select', options: ['bilinear', 'nearest'] },
+  },
   FieldSymmetry: {
     group: { control: 'select', options: [...WALLPAPER_GROUPS] },
     cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
@@ -2981,6 +2984,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FieldWarp: {
     strength: 'How far the dX and dY fields can push each pixel, in pixels. A field value of 0.5 is no push.',
+    sampling: 'Bilinear blends the pixels between, so a warp flows smoothly; nearest keeps hard steps, for a field that must stay crisp.',
   },
   FieldRotate: {
     angle: 'Fixed turn of the field about the centre, in degrees. Pixels wrap round at the edges.',

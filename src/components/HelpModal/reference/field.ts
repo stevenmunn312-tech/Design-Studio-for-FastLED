@@ -415,7 +415,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   FieldWarp: {
     overview: [
       'Field Warp moves each pixel of a field by two other fields: dX pushes sideways, dY up and down, with 0.5 meaning no push. Strength sets how far, in pixels.',
-      'Warping by smooth noise makes anything look liquid — stripes ripple like a flag, rings wobble like jelly.',
+      'Warping by smooth noise makes anything look liquid — stripes ripple like a flag, rings wobble like jelly. Sampling blends between pixels by default so the motion is smooth; Nearest keeps hard steps.',
     ],
     inputs: {
       field: FIELD_IN,

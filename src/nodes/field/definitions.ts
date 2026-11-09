@@ -397,7 +397,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     propertyInputs: { strength: 'strength' },
     defaultExposedInputs: ['strength'],
-    defaultProperties: { strength: 1 },
+    defaultProperties: { strength: 2, sampling: 'bilinear' },
   },
   // Phase 3 coordinate-space transforms (resample a field at remapped coords).
   {

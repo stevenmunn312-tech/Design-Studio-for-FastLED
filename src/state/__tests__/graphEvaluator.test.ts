@@ -4059,6 +4059,21 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
     // At x=0 the warped value samples x=1 of the source (one column to the right).
     expect(warped[0]).toBeCloseTo(ref[1])
   })
+
+  it('FieldWarp blends between pixels by default and steps with nearest sampling', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
+    const dx = node('dx', 'FieldFormula', 'pattern', { formula: '0.75' })  // → +strength/2
+    const render = (props: Record<string, unknown>) => {
+      const fw = node('fw', 'FieldWarp', 'composite', { strength: 1, ...props })
+      const g = withFieldTail('fw', [src, dx, fw], [edge('e1', 'src', 'field', 'fw', 'field'), edge('e2', 'dx', 'field', 'fw', 'dx')])
+      return { warped: fieldOut('fw', g.nodes, g.edges), ref: fieldOut('src', g.nodes, g.edges) }
+    }
+    // Half a pixel to the right: bilinear lands halfway between columns 0 and 1.
+    const smooth = render({})
+    expect(smooth.warped[0]).toBeCloseTo((smooth.ref[0] + smooth.ref[1]) / 2, 6)
+    const stepped = render({ sampling: 'nearest' })
+    expect(stepped.warped[0]).toBeCloseTo(stepped.ref[1], 6)
+  })
 })
 
 describe('Pattern node expansion — Phase 2 Frame Warp', () => {

@@ -848,12 +848,6 @@ freeze, or drop them.
   somewhere in the field a 1 takes the colour of a 0 and the jump moves with
   the offset. Low/High now exist on the node; an offset would apply after
   them.
-- [ ] **Field Warp: Raise default strength and add bilinear sampling (Med,
-  S).** Default strength 1 is only +-1 px, barely visible (its Help example
-  uses 3, Frame Warp defaults to 2), and nearest-only sampling steps visibly.
-  Raise the default and add bilinear sampling. If merged into the transform
-  node, apply there. `src/nodes/field/definitions.ts:399`,
-  `src/nodes/field/evaluate.ts:555`.
 - [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
   32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
   shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.

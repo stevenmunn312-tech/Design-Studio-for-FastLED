@@ -555,16 +555,37 @@ function evalShapeField(
   return out
 }
 
+/**
+ * A field read between pixels, edges clamped: the four neighbours blended by
+ * how close the point is to each. The Field Warp emitter writes the same sum
+ * in the same order.
+ */
+export function sampleFieldBilinear(field: Field, sx: number, sy: number, W: number, H: number): number {
+  const fx = Math.max(0, Math.min(W - 1, sx)), fy = Math.max(0, Math.min(H - 1, sy))
+  const x0 = Math.floor(fx), y0 = Math.floor(fy)
+  const x1 = Math.min(x0 + 1, W - 1), y1 = Math.min(y0 + 1, H - 1)
+  const ax = fx - x0, ay = fy - y0
+  const top = field[y0 * W + x0] * (1 - ax) + field[y0 * W + x1] * ax
+  const bottom = field[y1 * W + x0] * (1 - ax) + field[y1 * W + x1] * ax
+  return top * (1 - ay) + bottom * ay
+}
+
 // Sample `field` at coordinates pushed by the dx/dy offset fields. Offsets map
-// 0–1 → −strength…+strength pixels (an unwired offset field = no push). Sample
-// is nearest-neighbour, clamped to the matrix edges.
-function evalFieldWarp(field: Field | null, dx: Field | null, dy: Field | null, strength: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+// 0–1 → −strength…+strength pixels (an unwired offset field = no push), and
+// the sample is bilinear or nearest, clamped to the matrix edges.
+function evalFieldWarp(
+  field: Field | null, dx: Field | null, dy: Field | null, strength: number, bilinear: boolean, W = DEFAULT_W, H = DEFAULT_H,
+): Field {
   const out = allocField(W * H)
   if (!field) return out
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const ox = dx ? (2 * dx[y * W + x] - 1) * strength : 0
       const oy = dy ? (2 * dy[y * W + x] - 1) * strength : 0
+      if (bilinear) {
+        out[y * W + x] = sampleFieldBilinear(field, x + ox, y + oy, W, H)
+        continue
+      }
       const sx = Math.max(0, Math.min(W - 1, Math.round(x + ox)))
       const sy = Math.max(0, Math.min(H - 1, Math.round(y + oy)))
       out[y * W + x] = field[sy * W + sx]
@@ -959,12 +980,12 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const fv = input(id, 'field', null)
     const dxv = input(id, 'dx', null)
     const dyv = input(id, 'dy', null)
-    const strength = num(id, 'strength', props, 'strength', 1)
+    const strength = num(id, 'strength', props, 'strength', 2)
     return { field: evalFieldWarp(
       fv instanceof Float32Array ? fv : null,
       dxv instanceof Float32Array ? dxv : null,
       dyv instanceof Float32Array ? dyv : null,
-      strength, W, H,
+      strength, props.sampling !== 'nearest', W, H,
     ) }
   },
   FieldRotate({ input, num, t, W, H, stateKey }, id, props) {

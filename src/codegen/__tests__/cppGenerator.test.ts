@@ -3146,8 +3146,16 @@ describe('Float Field — Phase 2 codegen', () => {
     ])
     expect(cpp).toContain('/* FieldWarp */')
     expect(cpp).toContain('(2.0f*field_dx[_y*WIDTH+_x]-1.0f)*_st')
-    expect(cpp).toContain('field_fw[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
-    expect(cpp).toContain('if(_sx>WIDTH-1)_sx=WIDTH-1')
+    expect(cpp).toContain('float _fx=constrain(_x+_ox,0.0f,(float)(WIDTH-1))')
+    expect(cpp).toContain('field_fw[_y*WIDTH+_x]=_top*(1.0f-_ay)+_bot*_ay;')
+    const nearest = generateCpp([src, dx, { ...fw, data: { ...fw.data, properties: { strength: 2, sampling: 'nearest' } } }, ...t.nodes], [
+      edge('e1', 'src', 'fw', 'field', 'field'),
+      edge('e2', 'dx', 'fw', 'field', 'dx'),
+      ...t.edges,
+    ])
+    expect(nearest).toContain('/* FieldWarp: nearest */')
+    expect(nearest).toContain('field_fw[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
+    expect(nearest).toContain('if(_sx>WIDTH-1)_sx=WIDTH-1')
   })
 })
 

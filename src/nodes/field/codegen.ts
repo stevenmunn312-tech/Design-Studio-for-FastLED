@@ -556,18 +556,28 @@ export const FIELD_EMITTERS: NodeEmitters = {
       ln(`      ${of}[_y*WIDTH+_x]=_v*_v*(3.0f-2.0f*_v); } }`)
     }
   },
-  FieldWarp({ ln, f, ownField, srcField }) {
+  FieldWarp({ p, ln, f, ownField, srcField }) {
     const of = ownField()
-    const st = f('strength', 'strength', 1)
+    const st = f('strength', 'strength', 2)
     const src = srcField('field'), sdx = srcField('dx'), sdy = srcField('dy')
+    if (!src) { ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f; // FieldWarp: no input`); return }
     const oxE = sdx ? `(2.0f*${sdx}[_y*WIDTH+_x]-1.0f)*_st` : '0.0f'
     const oyE = sdy ? `(2.0f*${sdy}[_y*WIDTH+_x]-1.0f)*_st` : '0.0f'
-    ln(`  { /* FieldWarp */ float _st=${st};`)
+    const bilinear = p.sampling !== 'nearest'
+    ln(`  { /* FieldWarp${bilinear ? '' : ': nearest'} */ float _st=${st};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _ox=${oxE},_oy=${oyE};`)
-    ln(`      int _sx=(int)roundf(_x+_ox); if(_sx<0)_sx=0; if(_sx>WIDTH-1)_sx=WIDTH-1;`)
-    ln(`      int _sy=(int)roundf(_y+_oy); if(_sy<0)_sy=0; if(_sy>HEIGHT-1)_sy=HEIGHT-1;`)
-    ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
+    if (bilinear) {
+      // sampleFieldBilinear's sum, edges clamped.
+      ln(`      float _fx=constrain(_x+_ox,0.0f,(float)(WIDTH-1)),_fy=constrain(_y+_oy,0.0f,(float)(HEIGHT-1));`)
+      ln(`      int _x0=(int)_fx,_y0=(int)_fy,_x1=min(_x0+1,WIDTH-1),_y1=min(_y0+1,HEIGHT-1); float _ax=_fx-_x0,_ay=_fy-_y0;`)
+      ln(`      float _top=${src}[_y0*WIDTH+_x0]*(1.0f-_ax)+${src}[_y0*WIDTH+_x1]*_ax,_bot=${src}[_y1*WIDTH+_x0]*(1.0f-_ax)+${src}[_y1*WIDTH+_x1]*_ax;`)
+      ln(`      ${of}[_y*WIDTH+_x]=_top*(1.0f-_ay)+_bot*_ay;}}`)
+    } else {
+      ln(`      int _sx=(int)roundf(_x+_ox); if(_sx<0)_sx=0; if(_sx>WIDTH-1)_sx=WIDTH-1;`)
+      ln(`      int _sy=(int)roundf(_y+_oy); if(_sy<0)_sy=0; if(_sy>HEIGHT-1)_sy=HEIGHT-1;`)
+      ln(`      ${of}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
+    }
   },
   FieldRotate({ id, ln, f, ownField, srcField, needsT }) {
     needsT.v = true
