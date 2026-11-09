@@ -652,15 +652,6 @@ freeze, or drop them.
 - [ ] **Category: Add a scope to Noise LFO and Envelope (Low, M).** Only
   Wave has an on-node scope, but these two are the nodes whose shape is the
   whole point. Evidence `src/components/Canvas/StudioNode.tsx:1315`.
-- [ ] **Blend: List Lighten in the mode lists (Low, S).** The node
-  description and help overview name six modes and omit Lighten, and the
-  global `blendMode` meta lacks it too, which invites drift. Add it to all
-  three. Evidence `src/nodes/composite/definitions.ts:397`.
-- [ ] **Blend: Route Normal mode through the byte kernel (Low, S).**
-  Preview Normal uses float maths while firmware uses FastLED `nblend`;
-  every other mode shares `blendMix8`. Use the kernel for Normal to remove
-  the last off-by-one gap. Evidence `src/nodes/composite/evaluate.ts:243`,
-  `src/nodes/composite/codegen.ts:308`.
 - [ ] **Brightness: Match preview and firmware rounding (Low, S).** Preview
   rounds, firmware truncates `(uint8_t)fminf(...)`, so at 0.5 a level-1
   pixel stays 1 in preview but is 0 on the board. Add `+0.5f` in firmware

@@ -223,7 +223,7 @@ describe('show scratch-buffer pool', () => {
     expect(decls.filter((d) => d!.persists).map((d) => d!.name)).toEqual(['p1_buf_b_1'])
     expect(cpp).not.toMatch(/\bp[02]_buf_/)
     expect(cpp).toContain('fadeToBlackBy(p1_buf_b_1, NUM_LEDS, _by);')
-    expect(cpp).toMatch(/nblend\(_pool_buf_0, _pool_buf_1,/)
+    expect(cpp).toContain('CRGB _a=_pool_buf_0[_i], _b=_pool_buf_1[_i];')
   })
 
   it('keeps every stateful pattern\'s state its own across a transition', () => {

@@ -28,7 +28,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   Blend: {
     overview: [
-      'Blend lays frame B over frame A. Normal replaces, Multiply darkens, Screen and Add lighten, Overlay adds contrast, and Difference shows where the two differ. Opacity sets how much of B shows.',
+      'Blend lays frame B over frame A. Normal replaces, Multiply darkens, Screen and Add lighten, Overlay adds contrast, Difference shows where the two differ, and Lighten keeps the brighter of each channel. Opacity sets how much of B shows.',
       'An optional Mask frame decides where B appears: bright areas show B, dark areas keep A. On the canvas the node takes the name of its mode.',
       'Screen is the go-to for layering light effects — flashes, sparkles, lightning — over a background.',
     ],

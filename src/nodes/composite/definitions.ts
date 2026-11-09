@@ -406,7 +406,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
 export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   // composite
   Blur2D: 'Box-blurs the frame.',
-  Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
+  Blend: 'Blends B over A — normal, multiply, screen, overlay, add, difference or lighten.',
   Mask: 'Masks a frame by another frame’s brightness.',
   Glitter: 'Sprinkles random sparkles of one colour over a frame each frame.',
   FrameTransform: 'Rotates a frame by quarter turns, flips it, and slides it by whole pixels.',

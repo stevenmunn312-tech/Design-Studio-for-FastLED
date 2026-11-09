@@ -25,6 +25,7 @@ import { evalKaleidoscope } from './kaleidoscope'
 import { gammaVideoTable } from './gamma'
 import { transformZoom } from './transformZoom'
 import { ARRAY_COPIES } from './limits'
+import { FEEDBACK_BLEND_MODES } from './blendModes'
 import {
   arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
   wallpaperSourceQ8,
@@ -35,32 +36,6 @@ import { scale8 } from '../shared/lib8tion'
 const trailState = instanceState('trailState', new Map<string, Frame>())
 interface FrameFeedbackState { frames: Frame[]; index: number; w: number; h: number; capacity: number }
 const frameFeedbackState = instanceState('frameFeedbackState', new Map<string, FrameFeedbackState>())
-
-// Per-channel blend-mode math for the Blend node. `a`/`b` are 0–255 base/blend
-// channel values; returns the blended channel (0–255) before opacity is mixed.
-function blendChannel(mode: string, a: number, b: number): number {
-  const an = a / 255, bn = b / 255
-  let r: number
-  switch (mode) {
-    case 'multiply':   r = an * bn; break
-    case 'screen':     r = 1 - (1 - an) * (1 - bn); break
-    case 'overlay':    r = an < 0.5 ? 2 * an * bn : 1 - 2 * (1 - an) * (1 - bn); break
-    case 'add':        r = Math.min(1, an + bn); break
-    case 'difference': r = Math.abs(an - bn); break
-    case 'lighten':    r = Math.max(an, bn); break
-    case 'normal':
-    default:           r = bn; break
-  }
-  return r * 255
-}
-
-// Composite frame `b` over `a` with `mode` at `opacity` (0–1): the blended
-// colour is cross-faded against the base by opacity, so 0 = base, 1 = full mode.
-function blendPixel(mode: string, a: RGB, b: RGB, opacity: number): RGB {
-  const mix = (av: number, bv: number) =>
-    Math.round(av * (1 - opacity) + blendChannel(mode, av, bv) * opacity)
-  return { r: mix(a.r, b.r), g: mix(a.g, b.g), b: mix(a.b, b.b) }
-}
 
 // Animated geometric transform of a frame, resampled nearest-neighbour about
 // the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
@@ -116,14 +91,14 @@ function evalFrameFeedback(
   }
 
   // The sketch's integer kernel (shared/integerPatterns.ts): the delayed
-  // frame read through the transform, faded and blended in bytes. Modes the
-  // sketch has no case for blend as screen, as it does.
+  // frame read through the transform, faded and blended in bytes, normal
+  // included. Modes the sketch has no case for blend as screen, as it does.
   const delayed = state.frames[(state.index - delay + capacity) % capacity]
   const frame = feedbackFrame(offsetX, offsetY, angle, scale)
   const mode = ['translate', 'rotate', 'scale'].includes(transformMode) ? transformMode : 'none'
   const retain8 = Math.trunc((1 - clamp01(fade)) * 255)
-  const opacity = clamp01(amount), op8 = Math.trunc(opacity * 255)
-  const integerMode = ['multiply', 'screen', 'add', 'difference', 'lighten'].includes(blendMode) ? blendMode : 'screen'
+  const op8 = Math.trunc(clamp01(amount) * 255)
+  const integerMode = FEEDBACK_BLEND_MODES.includes(blendMode) ? blendMode : 'screen'
   const out = state.frames[state.index]
   for (let y = 0; y < H; y++) {
     const outRow = out[y], srcRow = src[y]
@@ -132,14 +107,9 @@ function evalFrameFeedback(
       const d = at < 0 ? { r: 0, g: 0, b: 0 } : delayed[Math.trunc(at / W)][at % W]
       const fb = { r: scale8(d.r, retain8), g: scale8(d.g, retain8), b: scale8(d.b, retain8) }
       const a = srcRow[x], dst = outRow[x]
-      if (blendMode === 'normal') {
-        const px = blendPixel('normal', a, fb, opacity)
-        dst.r = px.r; dst.g = px.g; dst.b = px.b
-      } else {
-        dst.r = blendMix8(integerMode, a.r, fb.r, op8)
-        dst.g = blendMix8(integerMode, a.g, fb.g, op8)
-        dst.b = blendMix8(integerMode, a.b, fb.b, op8)
-      }
+      dst.r = blendMix8(integerMode, a.r, fb.r, op8)
+      dst.g = blendMix8(integerMode, a.g, fb.g, op8)
+      dst.b = blendMix8(integerMode, a.b, fb.b, op8)
     }
   }
   state.index = (state.index + 1) % capacity
@@ -234,20 +204,14 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     // A mask frame scales the opacity per pixel by its brightness (the
     // average of r, g, b, as Mask reads it); unwired, every pixel is 1.
     const mask = input(id, 'mask', null) as Frame | null
-    if (mode !== 'normal') {
-      // The sketch's integer blend (shared/integerPatterns.ts): opacity in a byte.
-      const op = Math.trunc(opacity * 255)
-      return { frame: a.map((row, y) => row.map((px, x) => {
-        const m = mask?.[y]?.[x]
-        const op8 = m ? div255(op * Math.trunc((m.r + m.g + m.b) / 3)) : op
-        const q = b[y][x]
-        return { r: blendMix8(mode, px.r, q.r, op8), g: blendMix8(mode, px.g, q.g, op8), b: blendMix8(mode, px.b, q.b, op8) }
-      })) }
-    }
+    // The sketch's integer blend (shared/integerPatterns.ts) for every mode,
+    // normal included: opacity in a byte, each /255 an exact floor.
+    const op = Math.trunc(opacity * 255)
     return { frame: a.map((row, y) => row.map((px, x) => {
       const m = mask?.[y]?.[x]
-      const o = m ? opacity * ((m.r + m.g + m.b) / 3 / 255) : opacity
-      return blendPixel(mode, px, b[y][x], o)
+      const op8 = m ? div255(op * Math.trunc((m.r + m.g + m.b) / 3)) : op
+      const q = b[y][x]
+      return { r: blendMix8(mode, px.r, q.r, op8), g: blendMix8(mode, px.g, q.g, op8), b: blendMix8(mode, px.b, q.b, op8) }
     })) }
   },
   BrightnessMod({ input, num }, id, props) {

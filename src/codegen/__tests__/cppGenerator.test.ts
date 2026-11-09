@@ -2782,7 +2782,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('buf_mk[_i].nscale8((buf_m[_i].r + buf_m[_i].g + buf_m[_i].b) / 3)')
   })
 
-  it('Blend normal mode composites with nblend and copies the result to leds', () => {
+  it('Blend normal mode cross-fades in the byte kernel and copies the result to leds', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
     const lb = node('lb', 'Blend', 'composite', { blendMode: 'normal', amount: 0.5 })
@@ -2792,7 +2792,11 @@ describe('generateCpp', () => {
       edge('e3', 'lb', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB buf_b[NUM_LEDS];')
-    expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)(constrain(0.5,0.0f,1.0f) * 255))')
+    // The same integer kernel as every other mode, not FastLED's nblend.
+    expect(cpp).toContain('uint8_t _opAll=(uint8_t)(constrain(0.5,0.0f,1.0f)*255.0f);')
+    expect(cpp).toContain('CRGB _a=buf_lb[_i], _b=buf_b[_i];')
+    expect(cpp).toContain('(uint32_t)(_b.r)*_op8')
+    expect(cpp).not.toContain('nblend(')
     // The terminal node renders into `leds` directly — no second buffer to
     // copy — and blends onto A in place, so A renders there too.
     expect(cpp).toContain('CRGB* const buf_lb = leds;')

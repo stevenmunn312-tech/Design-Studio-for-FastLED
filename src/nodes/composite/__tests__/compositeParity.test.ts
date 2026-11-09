@@ -121,6 +121,38 @@ describe('Saturation', () => {
   })
 })
 
+describe('Blend', () => {
+  const pixels = (...values: number[][]) => values.map(([r, g, b]) => ({ r, g, b }))
+  const A = pixels([0, 255, 17], [255, 128, 3], [90, 90, 90], [1, 2, 254])
+  const B = pixels([255, 0, 200], [0, 127, 250], [91, 10, 0], [254, 253, 1])
+
+  // Every mode, normal included, crosses on the same bytes on both sides.
+  it.each(['normal', 'multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'])('runs %s through the shared kernel', (blendMode) => {
+    for (const amount of [0, 0.25, 0.5, 0.999, 1]) {
+      const properties = { blendMode, amount }
+      const cpp = generateCpp([node('a', 'Code', 'code'), node('b', 'Code', 'code'), node('bl', 'Blend', 'composite', properties),
+        node('out', 'MatrixOutput', 'output', { width: A.length, height: 1 })], [
+        edge('e1', 'a', 'bl', 'frame', 'a'), edge('e2', 'b', 'bl', 'frame', 'b'), edge('e3', 'bl', 'out', 'frame', 'frame'),
+      ])
+      const lines = cpp.split('\n')
+      const start = lines.findIndex((line) => line.includes('uint8_t _opAll='))
+      const end = lines.findIndex((line, i) => i > start && line.trim().endsWith('} }'))
+      const pair = lines.slice(start, end + 1).join('\n').match(/CRGB _a=(\w+)\[_i\], _b=(\w+)\[_i\];/)!
+      const block = lines.slice(start, end + 1).map((line) => line.replace('CRGB _a=', 'let _a=').replace(/\} \}$/, '}'))
+      const leds = A.map((px) => ({ ...px }))
+      compileCppSnippet(block, ['NUM_LEDS', pair[1], pair[2], 'CRGB'], [])(0, {
+        NUM_LEDS: leds.length, [pair[1]]: leds as never, [pair[2]]: B as never,
+        CRGB: ((r: number, g: number, b: number) => ({ r, g, b })) as never,
+      })
+      const preview = COMPOSITE_EVALUATORS.Blend!({
+        input: (_id: string, port: string) => (port === 'a' ? [A] : port === 'b' ? [B] : null),
+        num: () => amount, W: A.length, H: 1,
+      } as unknown as EvalContext, 'bl', properties, studio, 'Blend').frame as RGB[][]
+      expect(leds, `${blendMode} at ${amount}`).toEqual(preview[0])
+    }
+  })
+})
+
 describe('Zones and Blend', () => {
   it('rounds zone edges as the preview does', () => {
     const cpp = generateCpp([
@@ -136,6 +168,6 @@ describe('Zones and Blend', () => {
       node('bl', 'Blend', 'composite', { blendMode: 'normal', amount: 1.5 }), node('a', 'Code', 'code'), node('b', 'Code', 'code'),
       node('out', 'MatrixOutput', 'output', { width: 4, height: 4 }),
     ], [edge('e1', 'a', 'bl', 'frame', 'a'), edge('e2', 'b', 'bl', 'frame', 'b'), edge('e3', 'bl', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('(uint8_t)(constrain(1.5,0.0f,1.0f) * 255)')
+    expect(cpp).toContain('(uint8_t)(constrain(1.5,0.0f,1.0f)*255.0f)')
   })
 })

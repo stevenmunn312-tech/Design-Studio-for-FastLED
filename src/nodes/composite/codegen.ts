@@ -13,6 +13,7 @@ import {
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
 import { transformZoomCpp } from './transformZoom'
 import { ARRAY_COPIES } from './limits'
+import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from './blendModes'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
   BrightnessMod({ ln, f, ownBuf, seedFrom }) {
@@ -147,13 +148,9 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      CRGB _fb=_fbSrc<0?CRGB(CRGB::Black):${hist}[_fb_read_${id}][_fbSrc];`)
     ln(`      _fb.nscale8(_fbF8);`)
     ln(`      CRGB _a=${src}[_y*WIDTH+_x];`)
-    if (mode === 'normal') {
-      ln(`      CRGB _r=_a; nblend(_r,_fb,_fbA8); ${ob}[_y*WIDTH+_x]=_r;`)
-    } else {
-      const blendMode = ['multiply', 'screen', 'add', 'difference', 'lighten'].includes(mode) ? mode : 'screen'
-      const mix = (c: string) => blendMix8Cpp(blendMode, `_a.${c}`, `_fb.${c}`, '_fbA8')
-      ln(`      ${ob}[_y*WIDTH+_x]=CRGB(${mix('r')},${mix('g')},${mix('b')});`)
-    }
+    const blendMode = FEEDBACK_BLEND_MODES.includes(mode) ? mode : 'screen'
+    const mix = (c: string) => blendMix8Cpp(blendMode, `_a.${c}`, `_fb.${c}`, '_fbA8')
+    ln(`      ${ob}[_y*WIDTH+_x]=CRGB(${mix('r')},${mix('g')},${mix('b')});`)
     ln(`    }`)
     ln(`    ::memmove(${hist}[_fb_idx_${id}], ${ob}, sizeof(CRGB) * NUM_LEDS);`)
     ln(`    _fb_idx_${id}=(_fb_idx_${id}+1)%_fb_cap_${id};`)
@@ -295,38 +292,31 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      } } }`)
   },
   // Frame blend with real blend modes — `blendMode` picks the operator,
-  // `amount` is opacity (0–255). Keep in sync with the `Blend` case in
-  // graphEvaluator.ts. `normal` uses FastLED's nblend; other modes blend
-  // per channel then cross-fade against the base by opacity.
+  // `amount` is opacity (0–255). Keep in sync with the `Blend` evaluator.
+  // Every mode, normal included, blends per channel in the integer kernel
+  // and cross-fades against the base by the opacity byte.
   Blend({ p, ln, f, ownBuf, srcBuf }) {
     const ob = ownBuf()
-    // `amount` is opacity 0–1; FastLED's nblend / cross-fade want 0–255.
+    // `amount` is opacity 0–1; the kernel wants a byte.
     const a = srcBuf('a'), b = srcBuf('b'), amt = f('amount', 'amount', 0.5)
-    const mode = String(p.blendMode ?? 'normal')
+    const mode = BLEND_NODE_MODES.includes(String(p.blendMode)) ? String(p.blendMode) : 'normal'
     // A wired mask scales the opacity per pixel by its brightness, as the
-    // evaluator does; unwired, `_m` is the opacity itself.
+    // evaluator does.
     const mask = srcBuf('mask')
-    const perPixel = mask
-      ? `(uint8_t)(constrain(${amt},0.0f,1.0f)*255.0f*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3.0f/255.0f))`
-      : null
     ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
     // Nothing on B yet (a fresh splice): A passes through in every mode.
     if (!b) {
       ln(`  }`)
-    } else if (mode === 'normal' && perPixel) {
-      ln(`    for(int _i=0;_i<NUM_LEDS;_i++) nblend(${ob}[_i], ${b}[_i], ${perPixel}); }`)
-    } else if (mode === 'normal') {
-      ln(`    nblend(${ob}, ${b}, NUM_LEDS, (uint8_t)(constrain(${amt},0.0f,1.0f) * 255)); }`)
-    } else {
-      // Integer blend (shared/integerPatterns.ts): the opacity is a byte, a
-      // mask's brightness scales it per pixel.
-      const mix = (c: string) => blendMix8Cpp(mode, `_a.${c}`, `_b.${c}`, '_op8')
-      ln(`    uint8_t _opAll=(uint8_t)(constrain(${amt},0.0f,1.0f)*255.0f); for(int _i=0;_i<NUM_LEDS;_i++){`)
-      if (mask) ln(`      uint8_t _op8=(uint8_t)((((uint32_t)_opAll*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3))+1)*257>>16);`)
-      else ln(`      uint8_t _op8=_opAll;`)
-      ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
-      ln(`      ${ob}[_i]=CRGB(${mix('r')},${mix('g')},${mix('b')}); } }`)
+      return
     }
+    // Integer blend (shared/integerPatterns.ts): the opacity is a byte, a
+    // mask's brightness scales it per pixel.
+    const mix = (c: string) => blendMix8Cpp(mode, `_a.${c}`, `_b.${c}`, '_op8')
+    ln(`    uint8_t _opAll=(uint8_t)(constrain(${amt},0.0f,1.0f)*255.0f); for(int _i=0;_i<NUM_LEDS;_i++){`)
+    if (mask) ln(`      uint8_t _op8=(uint8_t)((((uint32_t)_opAll*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3))+1)*257>>16);`)
+    else ln(`      uint8_t _op8=_opAll;`)
+    ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
+    ln(`      ${ob}[_i]=CRGB(${mix('r')},${mix('g')},${mix('b')}); } }`)
   },
   Invert({ ln, ownBuf, seedFrom }) {
     const ob = ownBuf()

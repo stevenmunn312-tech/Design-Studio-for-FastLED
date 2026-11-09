@@ -40,6 +40,7 @@ import { JUGGLE_COUNT } from '../nodes/generative/juggle'
 import { SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
 import { ARRAY_COPIES } from '../nodes/composite/limits'
+import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from '../nodes/composite/blendModes'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
@@ -455,7 +456,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
     'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
     'scanlines', 'zoom', 'dolly', 'flip', 'cube', 'door', 'tilt',
   ] },
-  blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
+  // Blend's modes, derived from the byte kernel so a mode cannot be offered
+  // that the preview and sketch do not run (nodes with fewer override it).
+  blendMode:      { control: 'select', options: BLEND_NODE_MODES },
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: [...EASE_TYPES] },
@@ -1156,9 +1159,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // Fine steps, because translate wants fractions of a pixel a second; the
   // row's label names the unit the mode reads (propertyLabel).
   Transform:         { rate:  { control: 'slider', min: -360, max: 360, step: 0.1 } },
-  Blend: {
-    blendMode: { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'] },
-  },
   // Blinds, checkerboard and spiral divisions across the frame, not the
   // shared 1-200 particle count: past a few dozen they are a pixel wide.
   Transition: {
@@ -1351,7 +1351,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // Turned again every frame the echo comes round, so a few degrees is a
     // slow swirl and anything past ~10° smears into a blur.
     angle:     { control: 'slider', min: -45, max: 45, step: 0.5 },
-    blendMode: { control: 'select', options: ['normal', 'screen', 'add', 'multiply', 'difference', 'lighten'] },
+    blendMode: { control: 'select', options: FEEDBACK_BLEND_MODES },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     offsetY:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     scale:     { control: 'slider', min: 0.25, max: 4, step: 0.05 },
