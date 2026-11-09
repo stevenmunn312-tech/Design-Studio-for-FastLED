@@ -47,17 +47,25 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
       enable: incoming.has(`${node.id}:enable`) ? boolExpr(node.id, 'enable') : p.enable !== false ? 'true' : 'false',
     }, p).forEach(ln)
   },
-  Random({ id, p, ln, v }) {
-    const lo = Number(p.min ?? 0), hi = Number(p.max ?? 1)
+  // A draw every frame, or held from one rising Trigger edge to the next, as
+  // the evaluator does. Unwired Min and Max fold into the literals.
+  Random({ node, id, p, ln, v, f, incoming, boolExpr }) {
     const seed = seedProp(p)
-    const loLit = floatLit(lo)
-    const spanLit = floatLit(hi - lo)
-    if (seed) {
-      ln(`  static uint32_t _rng_${id} = ${seed}u; _rng_${id} = _rng_${id} * 1664525u + 1013904223u;`)
-      ln(`  float ${v('value')} = ${loLit} + (((_rng_${id} >> 16) & 0xFFFFu) / 65535.0f) * ${spanLit};`)
-    } else {
-      ln(`  float ${v('value')} = ${loLit} + (random16() / 65535.0f) * ${spanLit};`)
+    const minWired = incoming.has(`${node.id}:min`), maxWired = incoming.has(`${node.id}:max`)
+    const lo = minWired ? `_rndLo_${id}` : floatLit(Number(p.min ?? 0))
+    const span = minWired || maxWired ? `(${f('max', 'max', 1)} - ${lo})` : floatLit(Number(p.max ?? 1) - Number(p.min ?? 0))
+    if (minWired) ln(`  float ${lo} = ${f('min', 'min', 0)};`)
+    if (seed) ln(`  static uint32_t _rng_${id} = ${seed}u;`)
+    const step = seed ? `_rng_${id} = _rng_${id} * 1664525u + 1013904223u; ` : ''
+    const draw = seed ? `((_rng_${id} >> 16) & 0xFFFFu) / 65535.0f` : 'random16() / 65535.0f'
+    if (incoming.has(`${node.id}:trigger`)) {
+      ln(`  static float _rnd_${id} = 0.0f; static bool _rndInit_${id} = false, _rndPrev_${id} = false;`)
+      ln(`  { bool _t = (${boolExpr(node.id, 'trigger')}); if (!_rndInit_${id} || (_t && !_rndPrev_${id})) { ${step}_rnd_${id} = ${draw}; _rndInit_${id} = true; } _rndPrev_${id} = _t; }`)
+      ln(`  float ${v('value')} = ${lo} + _rnd_${id} * ${span};`)
+      return
     }
+    if (step) ln(`  ${step.trim()}`)
+    ln(`  float ${v('value')} = ${lo} + (${draw}) * ${span};`)
   },
   // Mirrors the evaluator's fBm over time with inoise16 (period 256 cells, so
   // fmodf wraps without a jump). Octaves clamp at 3, as in the evaluator.

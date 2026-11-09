@@ -16,6 +16,8 @@ const intervalLast = instanceState('intervalLast', new Map<string, number>())
 // Envelope node — trigger fire time (seconds) + previous trigger level.
 const envState = instanceState('envState', new Map<string, { fire: number; prev: boolean }>())
 const dmxChannelState = instanceState('dmxChannelState', new Map<string, { last: number; seen: boolean }>())
+// Random with a trigger — the held 0–1 draw and the trigger's previous level.
+const randomHold = instanceState('randomHold', new Map<string, { draw: number; prev: boolean }>())
 
 interface ScheduleState {
   prevActive: boolean
@@ -74,10 +76,19 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     const level     = { unipolar: props.unipolar === true, offset: num(id, 'offset', props, 'offset', 0) }
     return { result: waveAt(waveform, amplitude, speedPhase(stateKey(id), t, hz), phase, level) }
   },
-  Random({ stateKey }, id, props) {
-    const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)
+  // A draw every frame; with Trigger wired, one on the first pass and then
+  // one per rising edge, held between. The sketch keeps the same draw count,
+  // so a seeded sequence matches.
+  Random({ input, num, incoming, stateKey }, id, props) {
+    const lo = num(id, 'min', props, 'min', 0), hi = num(id, 'max', props, 'max', 1)
     const seed = normalizedSeed(props.seed)
-    return { value: lo + seededRandom(stateKey(id), seed) * (hi - lo) }
+    const key = stateKey(id)
+    if (!incoming.has(`${id}:trigger`)) return { value: lo + seededRandom(key, seed) * (hi - lo) }
+    const fire = Boolean(input(id, 'trigger', false))
+    const prev = randomHold.get(key)
+    const draw = !prev || (fire && !prev.prev) ? seededRandom(key, seed) : prev.draw
+    randomHold.set(key, { draw, prev: fire })
+    return { value: lo + draw * (hi - lo) }
   },
   // Smooth random: fBm of the simplex noise, sampled along time. Firmware reads
   // inoise16 instead (the documented approximation gap shared with Field Noise).

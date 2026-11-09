@@ -106,11 +106,14 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
   Random: {
     overview: [
       'Random draws a new number between Min and Max every frame. On its own that is fast flicker — static, sparks, a guttering light.',
-      'For a value that changes less often, pair it with Sample & Hold and a trigger. For a value that wanders smoothly, use Noise LFO instead.',
+      'For a value that changes less often, wire a beat, a button or an Interval into Trigger: it then draws once on each rising edge and holds the number until the next. For a value that wanders smoothly, use Noise LFO instead.',
       'Seed 0 runs freely. Any other seed repeats exactly the same sequence every run, in the preview and on the board.',
     ],
+    inputs: {
+      trigger: 'Optional. When wired, a new number is drawn only as this turns on, and held in between.',
+    },
     outputs: {
-      value: 'A fresh random number between Min and Max, every frame.',
+      value: 'A random number between Min and Max: a fresh one every frame, or on each Trigger.',
     },
     example: example({
       featured: 'Random',

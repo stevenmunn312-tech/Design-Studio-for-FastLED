@@ -2588,7 +2588,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     decay: 'Seconds to fall back from 1 to 0 after the rise. Longer keeps the effect lit longer.',
   },
   Random: {
-    min: 'Lowest value that can be drawn. A fresh value is drawn every frame.',
+    min: 'Lowest value that can be drawn. A fresh value is drawn every frame, or on each Trigger when one is wired.',
     max: 'Highest value that can be drawn.',
   },
   NoiseSignal: {

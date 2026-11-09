@@ -719,11 +719,6 @@ freeze, or drop them.
 - [ ] **Zones: Fix the "named rectangle" wording (Low, S).** Zones cannot be
   named. Drop "named" or add a label field. Evidence
   `src/nodes/composite/definitions.ts:416`.
-- [ ] **Random: Add a trigger input (Med, S).** It draws a new value every
-  frame, and its own help sends users to Sample & Hold for "new value per
-  beat". Add an optional `trigger` bool input that draws only on a rising
-  edge, and make Min and Max wireable property inputs. Evidence
-  `src/nodes/signal/definitions.ts:74`.
 - [ ] **Clock: Rename to avoid RTC Clock and Clock Display (Med, S).**
   Searching for time of day finds a BPM metronome. Rename it "Tempo Clock"
   or "BPM Clock". Evidence `src/nodes/input/definitions.ts:487`,

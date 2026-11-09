@@ -72,10 +72,18 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // A fresh draw between Min and Max every frame, or, with Trigger wired,
+    // one held from each rising edge to the next (Sample & Hold built in).
+    // Min and Max scale the held draw, so a wire into them still moves it.
     type: 'Random',
     label: 'Random',
     category: 'signal',
-    inputs: [],
+    inputs: [
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'min', label: 'Min', dataType: 'float' },
+      { id: 'max', label: 'Max', dataType: 'float' },
+    ],
+    propertyInputs: { min: 'min', max: 'max' },
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     defaultProperties: { min: 0, max: 1, seed: 0 },
   },
@@ -189,7 +197,7 @@ export const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   Interval: 'Metronome — pulses true every N seconds (EVERY_N_MILLISECONDS).',
   Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
-  Random: 'Random value in a range.',
+  Random: 'Random value in a range, drawn every frame or on each trigger.',
   NoiseSignal: 'Smooth random value drifting between min and max: a noise-driven LFO.',
   ScheduleTrigger: 'Time-of-day window or trigger driven by an RTC Clock’s DateTime.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
