@@ -710,8 +710,8 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Particles: {
     overview: [
-      'Particles runs one of twenty particle displays: fountains, fireworks, snow, rain, embers, bubbles, comets, fireflies, a tornado, a waterfall and more.',
-      'Rate is how often new particles appear in the spawning displays; fixed-count displays such as orbit and fireflies use Count instead, and comet and meteor lay a dot every frame. The preview holds as many particles as the controller’s pool, 120 (240 for luminova), so trails match on hardware. Gravity, Bounce and Spread shape the displays that fall and fly. Colour comes from the palette by age.',
+      'Particles runs one of eighteen particle displays: fountains, fireworks, snow, rain, embers, bubbles, comets, fireflies, a tornado, a waterfall and more.',
+      'Rate is how often new particles appear in the spawning displays; fixed-count displays such as bounce and fireflies use Count instead, and comet and meteor lay a dot every frame. The preview holds as many particles as the controller’s pool, 120 (240 for luminova), so trails match on hardware. Gravity, Bounce and Spread shape the displays that fall and fly. Colour comes from the palette by age.',
       'Its displays rise, fall and spread in two dimensions, so on a one-row string most of them have nowhere to go. String Particles is made for strings and rings.',
       'On the canvas the node takes the name of the display chosen.',
     ],

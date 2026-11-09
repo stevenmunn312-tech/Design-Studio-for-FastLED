@@ -92,7 +92,7 @@ import {
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { SDV_MAX_SPEED } from './evaluator/sdVideo'
 import { FIRE_STYLES } from './evaluator/fireSmoke'
-import { PARTICLE_MODES, particleModeUsesDecay, particleModeUsesRate } from '../nodes/simulations/particleModes'
+import { PARTICLE_MODES, particleMode, particleModeUsesDecay, particleModeUsesRate } from '../nodes/simulations/particleModes'
 import { FUNCTION_OPS } from '../nodes/math/mathIdentity'
 import { LOGIC_OPS } from '../nodes/math/logic'
 import { WALLPAPER_GROUP_LABELS, WALLPAPER_GROUPS } from './evaluator/symmetry'
@@ -4926,8 +4926,8 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
     labels: {
       fountain: 'Fountain', drops: 'Drops', fireworks: 'Fireworks', sparkle: 'Sparkle Rain',
       comet: 'Comet', snow: 'Snow', rain: 'Rain', embers: 'Embers',
-      bubbles: 'Bubbles', vortex: 'Vortex', orbit: 'Orbit', confetti: 'Confetti',
-      fireflies: 'Fireflies', meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
+      bubbles: 'Bubbles', vortex: 'Vortex', fireflies: 'Fireflies',
+      meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
       bounce: 'Bounce', chase: 'Chase', waterfall: 'Waterfall', luminova: 'Luminova',
     },
   },
@@ -4978,8 +4978,8 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
 // controls (isPropertyEnabled below) — keep in sync with the matching mode
 // bodies in graphEvaluator.ts's evalParticles and cppGenerator.ts's `Particles`
 // case, which are the ones that actually read each property.
-const PARTICLE_COUNT_MODES = new Set(['orbit', 'bounce', 'fireflies', 'luminova'])
-const PARTICLE_SPREAD_MODES = new Set(['fountain', 'drops', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
+const PARTICLE_COUNT_MODES = new Set(['bounce', 'fireflies', 'luminova'])
+const PARTICLE_SPREAD_MODES = new Set(['fountain', 'drops', 'sparkle', 'rain', 'snow', 'waterfall'])
 const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'drops', 'fireworks', 'waterfall'])
 const PARTICLE_BOUNCE_MODES = new Set(['drops', 'waterfall'])
 
@@ -5571,7 +5571,8 @@ export function isPropertyEnabled(
     }
   }
   if (nodeType === 'Particles') {
-    const pt = String(properties.particleType ?? 'fountain')
+    // A removed mode (orbit, confetti) runs as fountain, so it gates as one.
+    const pt = particleMode(properties.particleType)
     switch (key) {
       // Fixed-population modes size their pool directly from `count`,
       // decoupled from spawn `rate`.

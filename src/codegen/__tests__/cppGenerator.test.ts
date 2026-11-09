@@ -3975,7 +3975,7 @@ describe('generateCpp — Particles modes', () => {
 
   for (const m of [
     'fountain', 'drops', 'fireworks', 'sparkle', 'comet', 'snow',
-    'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
+    'rain', 'embers', 'bubbles', 'vortex', 'fireflies',
     'meteor', 'tornado', 'pinwheel', 'bounce', 'chase', 'waterfall',
   ]) {
     it(`emits a real fixed-pool engine for "${m}"`, () => {
@@ -3994,10 +3994,10 @@ describe('generateCpp — Particles modes', () => {
     })
   }
 
-  // A save from before `swarm` was removed must still build: only a known
-  // mode's branch closes the update loop.
-  it('runs an unknown mode as fountain with balanced braces', () => {
-    const cpp = gen('swarm')
+  // A save from before `swarm`, `orbit` or `confetti` was removed must still
+  // build: only a known mode's branch closes the update loop.
+  it.each(['swarm', 'orbit', 'confetti'])('runs the removed mode %s as fountain with balanced braces', (mode) => {
+    const cpp = gen(mode)
     expect(cpp).toContain('// Particles: fountain')
     expect(cpp.split('{').length).toBe(cpp.split('}').length)
   })
@@ -4026,8 +4026,7 @@ describe('generateCpp — Particles modes', () => {
     }
   })
 
-  it('count sets the fixed-population pool size for orbit/fireflies/bounce too', () => {
-    expect(gen('orbit', { count: 10 })).toContain('_target=10')
+  it('count sets the fixed-population pool size for fireflies and bounce', () => {
     expect(gen('fireflies', { count: 15 })).toContain('_target=15')
     expect(gen('bounce', { count: 7 })).toContain('_target=7')
   })

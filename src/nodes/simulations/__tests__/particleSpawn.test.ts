@@ -13,7 +13,6 @@ describe('Particles spawn counts', () => {
   // whenever the fraction passed a half (11 rather than 12 sparkles, say).
   it.each([
     ['sparkle', '_rate*WIDTH*0.8f'],
-    ['confetti', '_rate*4'],
     ['waterfall', '_rate*3'],
   ])('%s rounds its spawn count as the preview does', (particleType, product) => {
     const cpp = generateCpp([node('p', 'Particles', 'pattern', { particleType }), node('out', 'MatrixOutput', 'output', { width: 16, height: 16 })], [wire])

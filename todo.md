@@ -408,14 +408,6 @@ Music Player seed.
   preview does inside a group or pattern where no LED output is reachable,
   and how a "match" value is saved so a later output change follows it.
   Evidence `src/state/nodeLibrary.ts:2244`, `:2261`.
-- [ ] **Particles: Prune overlapping modes (Med, M).** `confetti` duplicates
-  the Confetti node; `rain` and `sparkle` overlap Digital Rain; `orbit` and
-  `vortex` are both rotation about the centre. The clashing names are fixed
-  (`attractor` is now `chase`, `gravity` is now `drops`). Which modes to drop
-  is a product call: each removal moves saved graphs (Mainstage Confetti
-  Singularity uses `fireworks`, Help uses `snow` and `luminova`) and drops a
-  look someone may use, so decide the list before cutting. Evidence
-  `src/nodes/simulations/particleModes.ts:5`.
 
 #### Outputs and shows
 

@@ -4,9 +4,13 @@
 // closed only by a known mode's branch, so an unknown one cannot reach it.
 // `drops` was `gravity`, a name it shared with the Gravity knob; `chase` was
 // `attractor`, a name it shared with Formula Points' de Jong attractor.
+// `confetti` is gone because the Confetti node is that look. `orbit` is gone
+// rather than folded into `vortex`: it was a fixed Count population turning
+// rigidly with no decay, and vortex is a Rate-spawned, decaying population
+// pulled inward at a constant tangential speed, so no one knob covers it.
 export const PARTICLE_MODES = [
   'fountain', 'drops', 'fireworks', 'sparkle', 'comet', 'snow',
-  'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
+  'rain', 'embers', 'bubbles', 'vortex', 'fireflies',
   'meteor', 'tornado', 'pinwheel', 'bounce', 'chase', 'waterfall', 'luminova',
 ] as const
 export type ParticleMode = typeof PARTICLE_MODES[number]
@@ -24,9 +28,9 @@ export function particlePoolSize(mode: string): number {
 }
 
 /** Modes that hold a fixed population from Count and never read Rate. */
-const FIXED_COUNT_MODES = new Set(['orbit', 'bounce', 'fireflies', 'luminova'])
+const FIXED_COUNT_MODES = new Set(['bounce', 'fireflies', 'luminova'])
 /** Modes whose particles keep a set brightness or live until they leave, so never read Decay. */
-const UNDECAYING_MODES = new Set(['snow', 'bubbles', 'orbit', 'fireflies', 'bounce'])
+const UNDECAYING_MODES = new Set(['snow', 'bubbles', 'fireflies', 'bounce'])
 
 /** Whether a mode reads Rate: comet and meteor lay one trail dot a frame, the fixed-count ones spawn none. */
 export function particleModeUsesRate(mode: string): boolean {

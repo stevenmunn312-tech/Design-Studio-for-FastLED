@@ -43,7 +43,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     // (age) through the palette. See PROPERTY_META.particleType.
     // Five extra controls are gated to the variants they actually affect (see
     // isPropertyEnabled): `count` sets the pool size directly for the
-    // fixed-population modes (orbit/bounce/fireflies/luminova, decoupled from
+    // fixed-population modes (bounce/fireflies/luminova, decoupled from
     // `rate`); `spread` widens/narrows the spawn area for width-spawning modes;
     // `gravity`/`bounce` scale the built-in accel/restitution constants for
     // modes with a falling or floor-bouncing motion. `size` scales the
@@ -289,7 +289,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
 
 export const SIMULATIONS_DESCRIPTIONS: Record<string, string> = {
   Fire: 'Rising fire: the classic flame, a smoky one, or FastLED Fire2012.',
-  Particles: 'Twenty particle displays: weather, fireworks, trails, orbits, and more.',
+  Particles: 'Eighteen particle displays: weather, fireworks, trails, swirls, and more.',
   FormulaPoints: 'Points by formula: phyllotaxis, Lissajous/rose, logistic map, de Jong attractor.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   StringParticles: 'Particles on one line: a string, a column or an LED ring.',

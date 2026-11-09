@@ -280,18 +280,6 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       particles = particles.filter(p => p.life > 0.05)
       break
     }
-    case 'orbit': {
-      // A stable constellation of dots circles the matrix centre.
-      const N = Math.max(2, Math.min(80, Math.round(count)))
-      while (particles.length < N) add({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, seed: rnd() * 0.08 + 0.025 })
-      if (particles.length > N) particles = particles.slice(0, N)
-      const cx = (W - 1) / 2, cy = (H - 1) / 2
-      for (const p of particles) {
-        const dx = p.x - cx, dy = p.y - cy, a = p.seed ?? 0.04
-        p.x = cx + dx * Math.cos(a) - dy * Math.sin(a); p.y = cy + dx * Math.sin(a) + dy * Math.cos(a); p.life = 1
-      }
-      break
-    }
     case 'luminova': {
       // Noise-steered emitters spiral over the matrix, each dropping a trail dot every frame.
       const N = luminovaEmitters(count)
@@ -314,14 +302,6 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       })
       for (const q of particles) if (!q.emitter) q.life *= decay * LUMINOVA_TRAIL_DECAY
       particles = particles.filter((q) => q.emitter || q.life > 0.05)
-      break
-    }
-    case 'confetti': {
-      // Short-lived flecks appear throughout the matrix and drift downward.
-      const spawn = Math.max(1, Math.round(rate * 4))
-      for (let i = 0; i < spawn; i++) if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H, vx: (rnd() - 0.5) * 0.16, vy: rnd() * 0.08 + 0.02, life: 1 })
-      for (const p of particles) { p.x += p.vx; p.y += p.vy; p.life *= decay * 0.94 }
-      particles = particles.filter(p => p.life > 0.05 && p.y < H)
       break
     }
     case 'fireflies': {
