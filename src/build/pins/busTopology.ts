@@ -67,7 +67,7 @@ export interface BusAssignment {
  * here; nothing else in this module needs to change.
  */
 const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
-  RTCInput: {
+  RtcModule: {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },
   },
@@ -204,7 +204,7 @@ export function i2cAddressFor(nodeType: string, props: Record<string, unknown>):
   // ignore it because nothing the user does changes what they answer to.
   const configured = Number(props.i2cAddress)
   if (Number.isInteger(configured) && configured >= 0x08 && configured <= 0x77) return configured
-  if (nodeType === 'RTCInput') return 0x68
+  if (nodeType === 'RtcModule') return 0x68
   return null
 }
 

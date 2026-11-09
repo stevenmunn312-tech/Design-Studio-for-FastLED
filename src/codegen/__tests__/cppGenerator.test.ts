@@ -5845,11 +5845,16 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).toContain('Wire.begin(5, 6);  // I2C pins from the parts on the bus')
   })
 
-  it('uses editable RTC pin properties on Espressif targets', () => {
+  it('starts Wire on the DS3231 module\'s pins for a Clock set to DS3231', () => {
     const board = node('board', 'Board', 'input', { profileId: 'seeed-xiao-esp32s3' })
-    const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231', sdaPin: 7, sclPin: 8 })
-    const cpp = generateCpp([board, rtc], [])
+    const module = node('ds3231', 'RtcModule', 'hardware', { sdaPin: 7, sclPin: 8 })
+    const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
+    const cpp = generateCpp([board, module, rtc], [])
     expect(cpp).toContain('Wire.begin(7, 8);  // I2C pins from the parts on the bus')
+    expect(cpp).toContain('_rtcReadDs3231')
+    // A module no Clock reads starts nothing: the sketch carries no I2C for it.
+    const idle = generateCpp([board, module, node('rtc', 'RTCInput', 'input', { timeSource: 'NTP' })], [])
+    expect(idle).not.toContain('Wire.begin(')
   })
 })
 

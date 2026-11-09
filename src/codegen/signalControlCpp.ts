@@ -12,7 +12,7 @@ import { seedOffset } from '../state/evaluator/random'
 import type { ControlDataType } from './scalarControlCpp'
 
 export interface TimedControlInput {
-  /** `datetime` is an RTC Clock's `_RtcDateTimeValue`, passed by name. */
+  /** `datetime` is a Clock's `_RtcDateTimeValue`, passed by name. */
   type: 'float' | 'bool' | 'datetime'
   /** Property fallback. Bool ports ignore it and read false, except Enable. */
   fallback: number
@@ -106,7 +106,7 @@ export function noiseSignalCpp(id: string, v: Value, expr: Expr, props: Record<s
 }
 
 /**
- * Schedule Trigger on an RTC Clock's `_RtcDateTimeValue`. `expr.dateTime` is
+ * Schedule Trigger on a Clock's `_RtcDateTimeValue`. `expr.dateTime` is
  * the struct's name, or empty when nothing is wired: then the clock is never
  * valid, so the outputs are constants and nothing else is emitted. Each field
  * is read only by the rule that needs it (Synced by Require Synced Time, the

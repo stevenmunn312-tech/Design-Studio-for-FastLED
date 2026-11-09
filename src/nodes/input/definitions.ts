@@ -475,12 +475,14 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Real-time clock fields. Preview uses the browser clock; generated
-    // firmware keeps a software clock seeded from compile time, a manual start
-    // date/time, or network/NTP sync when Wi-Fi is configured; it can also read
-    // a battery-backed DS3231 directly over the board's default I2C bus.
+    // The time of day, as a library node with a time-source choice, like
+    // Audio: generated firmware keeps a software clock seeded from compile
+    // time, a manual start date/time, or NTP over the Board's network; with
+    // DS3231 it reads the battery-backed module on the bench, which is the
+    // provider and carries no outputs of its own (state/peripherals/rtcModule.ts).
+    // Preview uses the browser clock. The type id predates the rename.
     type: 'RTCInput',
-    label: 'RTC Clock',
+    label: 'Clock',
     category: 'input',
     inputs: [],
     outputs: [
@@ -504,8 +506,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     defaultExposedOutputs: ['display', 'dateTime', 'valid', 'hour', 'minute'],
     defaultProperties: {
       timeSource: 'Compile Time',
-      sdaPin: 21,
-      sclPin: 22,
       ntpServer: 'pool.ntp.org',
       timezoneOffsetMinutes: 0,
       startYear: 2026,
@@ -583,6 +583,6 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX from Art-Net or sACN over the network, or wired DMX512 on an ESP32.',
   PowerMonitorInput: 'Measures volts, amps and watts over I2C and reports them to displays.',
-  RTCInput: 'Clock for preview/firmware via build stamp, manual seed, NTP, or DS3231.',
+  RTCInput: 'Time of day from the build stamp, a typed start, NTP, or a DS3231 module.',
   MidiInput: 'Note velocity, gate and a CC from Web MIDI, or a DIN jack on a UART in firmware.',
 }

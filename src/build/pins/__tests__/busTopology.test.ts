@@ -20,12 +20,12 @@ function pinUse(nodeId: string, nodeType: string, propertyKey: string, pin: numb
 // Stand-ins for the display parts the next slice adds. They are declared here
 // rather than in busTopology so this file proves the *rules*, not a particular
 // part list — an OLED and a TFT are just an I2C client and an SPI client.
-const OLED = 'RTCInput'       // I2C: sdaPin / sclPin
+const OLED = 'RtcModule'       // I2C: sdaPin / sclPin
 const CARD = 'SDCard'         // SPI: sdSckPin / sdMosiPin / sdMisoPin / sdCsPin
 
 describe('bus assignment', () => {
   it('knows the shared lines from the exclusive ones', () => {
-    expect(busAssignmentFor('RTCInput', 'sdaPin')).toEqual({ kind: 'i2c', role: 'sda' })
+    expect(busAssignmentFor('RtcModule', 'sdaPin')).toEqual({ kind: 'i2c', role: 'sda' })
     expect(busAssignmentFor('SDCard', 'sdSckPin')).toEqual({ kind: 'spi', role: 'sck' })
     expect(busAssignmentFor('SDCard', 'sdCsPin')).toEqual({ kind: 'spi', role: 'cs' })
     expect(isShareableRole('sck')).toBe(true)
@@ -62,7 +62,7 @@ describe('findPinCollisions', () => {
 
   it('accepts the actual SSD1306 OLED and DS3231 sharing their I2C bus', () => {
     const uses = [
-      pinUse('rtc', 'RTCInput', 'sdaPin', 21), pinUse('rtc', 'RTCInput', 'sclPin', 22),
+      pinUse('rtc', 'RtcModule', 'sdaPin', 21), pinUse('rtc', 'RtcModule', 'sclPin', 22),
       pinUse('oled', 'InfoDisplay', 'sdaPin', 21), pinUse('oled', 'InfoDisplay', 'sclPin', 22),
     ]
     expect(findPinCollisions(uses)).toEqual([])
@@ -180,7 +180,7 @@ describe('findI2cAddressCollisions', () => {
   })
 
   it('knows the fixed address of a part that has one', () => {
-    expect(i2cAddressFor('RTCInput', {})).toBe(0x68)
+    expect(i2cAddressFor('RtcModule', {})).toBe(0x68)
     expect(i2cAddressFor('ButtonInput', {})).toBeNull()
   })
 

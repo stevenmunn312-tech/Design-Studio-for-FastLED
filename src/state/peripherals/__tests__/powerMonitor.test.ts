@@ -151,14 +151,14 @@ describe('firmware', () => {
 describe('bus and wiring', () => {
   it('claims SDA and SCL as I2C bus lines shared with the RTC', () => {
     const monitor = node('mon', 'PowerMonitorInput', { sdaPin: 21, sclPin: 22 })
-    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 })
+    const rtc = node('rtc', 'RtcModule', { sdaPin: 21, sclPin: 22 })
     expect(collectPinUses([monitor]).map((use) => [use.propertyKey, use.pin])).toEqual([['sdaPin', 21], ['sclPin', 22]])
     expect(findDeployBlockingErrors([monitor, rtc], [], 'esp32:esp32:esp32')).toEqual([])
   })
 
   it('refuses a monitor and an RTC on two different pairs, with no display involved', () => {
     const monitor = node('mon', 'PowerMonitorInput', { sdaPin: 21, sclPin: 22 })
-    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 16, sclPin: 17 })
+    const rtc = node('rtc', 'RtcModule', { sdaPin: 16, sclPin: 17 })
     const errors = findI2cBusErrors([monitor, rtc])
     expect(errors.join('\n')).toContain('one I2C bus')
     expect(findDeployBlockingErrors([monitor, rtc], [], 'esp32:esp32:esp32').join('\n')).toContain('one I2C bus')

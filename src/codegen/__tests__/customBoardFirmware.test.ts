@@ -40,8 +40,9 @@ describe('firmware for a custom board', () => {
   })
 
   it('keeps an explicit device pair over the board default', () => {
-    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 16, sclPin: 9 })
-    expect(generateCpp([board, rtc], [])).toContain('Wire.begin(16, 9);')
+    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231' })
+    const ds3231 = node('ds3231', 'RtcModule', { sdaPin: 16, sclPin: 9 })
+    expect(generateCpp([board, ds3231, rtc], [])).toContain('Wire.begin(16, 9);')
   })
 
   it('resolves player SD defaults through the custom board, not its profile ID', () => {

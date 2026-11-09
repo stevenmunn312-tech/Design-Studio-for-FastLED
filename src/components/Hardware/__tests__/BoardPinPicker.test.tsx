@@ -104,7 +104,7 @@ describe('occupied GPIOs in the pin picker', () => {
   })
 
   it('allows matching I2C lines and rejects clock/data crossovers', () => {
-    const rtc = node('rtc', 'RTCInput', { sdaPin: 8, sclPin: 9 })
+    const rtc = node('rtc', 'RtcModule', { sdaPin: 8, sclPin: 9 })
     const sensor = node('sensor', 'DistanceInput', { partId: VL53L0X_PART_ID, sdaPin: 8, sclPin: 9, xshutPin: NO_PIN })
     showPicker(rtc, 'sdaPin', [sensor])
     expect(option(8).disabled).toBe(false)

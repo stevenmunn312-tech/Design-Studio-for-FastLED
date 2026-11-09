@@ -146,6 +146,7 @@ import { STEREO_VU_RAIL_COUNT_KEYS, syncAutomaticStereoVuLedCounts, VU_LED_COUNT
 const isStereoVuRailCountKey = (key: string): boolean =>
   (STEREO_VU_RAIL_COUNT_KEYS as readonly string[]).includes(key)
 import { audioCapabilityIntent, type AudioCapabilityKind } from './audio/audioCapabilities'
+import type { RtcTimeSource } from './peripherals/rtc'
 import {
   INTEGRATED_BOARD_PROFILE_KEY,
   integratedTouchDisplayForBoard,
@@ -543,8 +544,9 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const properties = { ...data.properties }
     // A network node's own copy of the network settings, from before the
     // Board held the one identity every network user shares
-    // (peripherals/boardNetwork.ts). Nothing reads them, so they are dropped
-    // rather than drawn as rows that do nothing; pre-1.0, not migrated.
+    // (peripherals/boardNetwork.ts), and a Clock's DS3231 wiring, from before
+    // the module was a part of its own. Nothing reads them, so they are
+    // dropped rather than drawn as rows that do nothing; pre-1.0, not migrated.
     const retired = RETIRED_NETWORK_PROPERTY_KEYS[nodeType]
     if (retired) for (const key of retired) delete properties[key]
     // An IR receiver mints one output per learned key, so a damaged or
@@ -598,11 +600,17 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
 
 /** The network settings each network node carried before they moved to the Board. */
 const NODE_NETWORK_KEYS = ['wifiSsid', 'wifiPassword', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns']
+/**
+ * What a Clock carried while it was also the DS3231 on the bench: the module's
+ * identity, I2C pins and the board it was attached to. They are the RtcModule
+ * part's now (peripherals/rtcModule.ts).
+ */
+const RETIRED_CLOCK_PART_KEYS = ['partId', 'sdaPin', 'sclPin', 'boardId', 'assignedPins', 'assignedPinsBoard', 'userPinsByBoard']
 const RETIRED_NETWORK_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>> = {
   DMXInput: NODE_NETWORK_KEYS,
   DdpInput: NODE_NETWORK_KEYS,
   WebRemoteInput: NODE_NETWORK_KEYS,
-  RTCInput: NODE_NETWORK_KEYS,
+  RTCInput: [...NODE_NETWORK_KEYS, ...RETIRED_CLOCK_PART_KEYS],
   StreamOutput: NODE_NETWORK_KEYS,
   PatternMaster: ['wifiHostname'],
 }
@@ -5047,6 +5055,46 @@ export function ensureRootAudioNode(kind: AudioCapabilityKind = 'microphone'): s
       },
     } as StudioNode
     return withRootNodes(s, [...nodes, audio])
+  })
+  return addedId
+}
+
+/**
+ * Give a DS3231 on the bench its way into the graph: a Clock reading
+ * `timeSource`, unless the root graph already has a Clock (whose source is
+ * the user's to choose). The Audio node's rule for a microphone, said of the
+ * time of day. Returns the new node's id, or null when one was already there.
+ */
+export function ensureRootClockNode(timeSource: RtcTimeSource = 'DS3231'): string | null {
+  const definition = LIBRARY_DEF.get('RTCInput')
+  if (!definition) return null
+  let addedId: string | null = null
+  useGraphStore.setState((s) => {
+    const nodes = rootGraphNodes(s)
+    if (nodes.some((node) => node.data.nodeType === 'RTCInput')) return s
+    // Left of whatever the root graph already shows, so it does not land on top of it.
+    const visible = nodes.filter((node) => !node.hidden)
+    const position = visible.length
+      ? {
+          x: Math.min(...visible.map((node) => node.position.x)) - 320,
+          y: Math.min(...visible.map((node) => node.position.y)),
+        }
+      : { x: 0, y: 0 }
+    addedId = uniqueId(`RTCInput-${Date.now()}`, new Set(nodes.map((node) => node.id)))
+    const clock = {
+      id: addedId,
+      type: 'studioNode',
+      position,
+      data: {
+        label: definition.label,
+        nodeType: definition.type,
+        category: definition.category,
+        properties: { ...libraryDefaults('RTCInput'), timeSource },
+        inputs: definition.inputs,
+        outputs: definition.outputs,
+      },
+    } as StudioNode
+    return withRootNodes(s, [...nodes, clock])
   })
   return addedId
 }

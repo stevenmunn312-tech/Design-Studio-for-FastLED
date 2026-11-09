@@ -71,7 +71,7 @@ describe('DisplayEditor portrait templates', () => {
     })
     const view = renderEditor()
     const shelf = within(view.getByRole('complementary', { name: 'Widget palette' }))
-    expect(shelf.getByRole('heading', { name: 'Mapped to RTC Clock' })).toBeTruthy()
+    expect(shelf.getByRole('heading', { name: 'Mapped to Clock' })).toBeTruthy()
     expect(shelf.getByRole('heading', { name: 'Other layouts' })).toBeTruthy()
     // Reachable either way — the grouping promotes, it does not filter.
     for (const template of DISPLAY_TEMPLATES) {
@@ -96,7 +96,7 @@ describe('DisplayEditor portrait templates', () => {
     const view = renderEditor()
     const card = within(view.getByRole('region', { name: 'Start with a template' }))
     const headings = card.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
-    expect(headings).toEqual(['Suits RTC Clock', 'Other layouts'])
+    expect(headings).toEqual(['Suits Clock', 'Other layouts'])
 
     const starts = card.getAllByRole('button', { name: /^Start with the / })
     expect(starts).toHaveLength(DISPLAY_TEMPLATES.length)

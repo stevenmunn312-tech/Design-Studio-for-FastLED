@@ -25,7 +25,7 @@ const SHELF_SUBCATEGORIES: Record<string, readonly { label: string; nodeTypes: r
     { label: 'Motion & distance', nodeTypes: ['MotionInput', 'PresenceInput', 'DistanceInput', 'MotionVectorInput'] },
     { label: 'Light & environment', nodeTypes: ['LightInput', 'EnvironmentInput', 'TemperatureInput'] },
     { label: 'Power monitoring', nodeTypes: ['PowerMonitorInput'] },
-    { label: 'Clocks', nodeTypes: ['RTCInput'] },
+    { label: 'Clocks', nodeTypes: ['RtcModule'] },
   ],
   audio: [
     { label: 'Audio Inputs', nodeTypes: [...AUDIO_INPUT_TYPES] },

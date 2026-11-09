@@ -788,12 +788,12 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
 
   RTCInput: {
     overview: [
-      'RTC Clock is the graph’s sense of time of day. It can seed itself from the moment the sketch was built, from the date and time you type, from an NTP server over Wi-Fi, or from a battery-backed DS3231 module.',
+      'Clock is the graph’s sense of time of day. It can seed itself from the moment the sketch was built, from the date and time you type, from an NTP server over the board’s network, or from a battery-backed DS3231 module on the bench. Only the DS3231 needs a part; the other three work on any board.',
       'Its outputs cover every way a graph uses time: separate hour, minute and day fields, a seconds-of-day count, a weekend flag, one DateTime wire for clocks and formatters, and one Display wire for a panel. Valid, Synced and Stale say how far to trust the reading.',
       'The preview runs the clock the chosen source will produce on the board, so a Manual time starts ticking from the moment you enter it.',
     ],
     steps: [
-      'Choose a time source. For NTP, set the network and UTC offset. For a DS3231, add the module from the Hardware tab and wire it to the I2C pins.',
+      'Choose a time source. For NTP, set the UTC offset here and the Wi-Fi in the Board’s Network settings. For a DS3231, add the module from the Hardware tab’s Clocks shelf, or with Add DS3231 on the node, and wire it to the I2C pins the Build Diagram shows.',
       'Wire DateTime to Clock Display, Format Date/Time or a Schedule Trigger, and Display to a panel.',
     ],
     outputs: {
@@ -812,7 +812,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       secondsOfDay: 'Seconds since midnight, 0 to 86399. Handy for smooth daily cycles.',
       weekend: 'True on Saturday and Sunday.',
     },
-    propertyNote: 'Only the fields for the chosen source are used: network settings for NTP, the pins for a DS3231, and the start fields for Manual.',
+    propertyNote: 'Only the fields for the chosen source are used: the server and UTC offset for NTP and the start fields for Manual. A DS3231’s pins are the module’s, on the Hardware tab.',
     example: example({
       featured: 'RTCInput',
       title: 'White light that follows the sun',
@@ -823,7 +823,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
         fill: ['SolidColor'],
       },
       wires: ['rtc.secondsOfDay > daylight.a', 'daylight.result > white.kelvin', 'white.color > fill.color'],
-      explanation: 'RTC Clock counts seconds since midnight. Expression turns the day into a smooth curve — 1800 K at midnight, 6500 K at noon — and Color Temperature makes that white, so the light is candle-warm at night and daylight-cool at midday.',
+      explanation: 'Clock counts seconds since midnight. Expression turns the day into a smooth curve — 1800 K at midnight, 6500 K at noon — and Color Temperature makes that white, so the light is candle-warm at night and daylight-cool at midday.',
       preview: 'The {output} is filled with the white for the current time: warm in the evening, cool around noon. Set a Manual time on the clock to jump through the day.',
     }),
   },

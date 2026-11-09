@@ -1681,7 +1681,7 @@ describe('StudioNode', () => {
   })
 
   // Fourteen outputs fold to the common five; a wire keeps a folded one drawn.
-  it('folds the RTC Clock to its common outputs until all are asked for', () => {
+  it('folds the Clock to its common outputs until all are asked for', () => {
     const node = { ...makeNode('RTCInput', {}), id: 'rtc-fold' }
     const view = renderNode(node)
     const sockets = () => [...view.container.querySelectorAll('[data-handle^="source:"]')]
@@ -1716,12 +1716,21 @@ describe('StudioNode', () => {
   })
 
   it('labels the DS3231 preview as simulated hardware time', () => {
-    const rtc = renderNode(makeNode('RTCInput', { timeSource: 'DS3231', sdaPin: 5, sclPin: 6 }))
+    const rtc = renderNode(makeNode('RTCInput', { timeSource: 'DS3231' }))
+    // The module is the bench's: the Clock carries no pins, and offers to add one.
     expect(rtc.getByText('DS3231 / I2C')).toBeTruthy()
+    expect(rtc.getByText(/No DS3231 on the bench yet/)).toBeTruthy()
+    expect(rtc.queryByLabelText('SDA pin value')).toBeNull()
+    // The module joins the board's I2C bus, so the bench needs a board.
+    act(() => useGraphStore.setState((state) => ({
+      nodes: [...state.nodes, { ...makeNode('Board', { profileId: 'esp32-generic-devkit-38pin' }), id: 'board' }],
+    })))
+    act(() => { fireEvent.click(rtc.getByRole('button', { name: 'Add DS3231' })) })
+    const module = useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'RtcModule')
+    expect(module?.hidden).toBe(true)
     expect(rtc.getByText(/Preview simulates a healthy module/)).toBeTruthy()
     expect(rtc.queryByText(/default SDA\/SCL pins/i)).toBeNull()
     expect(rtc.queryByTitle('Pin assignments are owned by the hardware view')).toBeNull()
-    expect(rtc.queryByLabelText('SDA pin value')).toBeNull()
     expect(rtc.getByRole('button', { name: 'Set from computer' })).toBeTruthy()
   })
 

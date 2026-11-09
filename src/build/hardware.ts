@@ -7,7 +7,7 @@ export const ROOT_BOARD_NODE_ID = 'board-root'
 // disconnects it — the part itself goes when it is removed in the hardware
 // view, which is the half of the two-view model that says what is on the bench.
 const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
-  'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
+  'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PowerMonitorInput', 'PresenceInput',
   'RelayOutput', 'PowerSwitchOutput', 'BuzzerOutput', 'CoolingFanOutput', 'PwmDriverOutput', 'DarlingtonDriverOutput',
@@ -25,7 +25,7 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
 // exist only by adding the part in the hardware view, so a graph can never
 // carry an output the bench does not.
 const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
-  'Board', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
+  'Board', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PowerMonitorInput', 'PresenceInput',
   'RelayOutput', 'PowerSwitchOutput', 'BuzzerOutput', 'CoolingFanOutput', 'PwmDriverOutput', 'DarlingtonDriverOutput',
@@ -34,7 +34,7 @@ const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   // Carry no signal, so they have no business on the signal canvas at all —
   // they live as hidden nodes purely so their settings persist with the
   // workspace and the player generator can keep scanning for them.
-  'Amplifier', 'PowerAmplifier', 'SDCard', 'EthernetModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
+  'Amplifier', 'PowerAmplifier', 'SDCard', 'EthernetModule', 'RtcModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
 ])
 
 export function isHardwareManagedSignalNodeType(nodeType: string): boolean {

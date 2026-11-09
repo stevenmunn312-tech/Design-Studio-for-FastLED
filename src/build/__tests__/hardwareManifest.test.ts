@@ -240,7 +240,7 @@ describe('hardwareManifest', () => {
   it('maps a DS3231 to the exact board default SDA/SCL pads', () => {
     const manifest = buildHardwareManifest([
       node('board', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' }),
-      node('rtc', 'RTCInput', { timeSource: 'DS3231', partId: 'jaycar-xc9044-rtc-module' }),
+      node('rtc', 'RtcModule', { partId: 'jaycar-xc9044-rtc-module' }),
     ], [], 'esp32:esp32:esp32doit-devkit-v1')
 
     expect(manifest.primaryItems).toHaveLength(1)
@@ -256,7 +256,7 @@ describe('hardwareManifest', () => {
 
   it('keeps RTC property wiring when no exact physical board is selected', () => {
     const manifest = buildHardwareManifest([
-      node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 4, sclPin: 5 }),
+      node('rtc', 'RtcModule', { sdaPin: 4, sclPin: 5 }),
     ], [], 'esp32:esp32:esp32doit-devkit-v1')
 
     expect(manifest.unsupportedItems).toEqual([])
@@ -514,19 +514,19 @@ describe('the internal DAC claim and the I2C bus pair', () => {
   it('reads a cleared pin field as unset, not GPIO 0', () => {
     // Number('') is 0, so an emptied SDA field claimed GPIO 0, and so did an
     // emptied CS field on the card.
-    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: '', sclPin: '' })
+    const rtc = node('rtc', 'RtcModule', { sdaPin: '', sclPin: '' })
     expect(collectPinUses([rtc]).map((use) => [use.propertyKey, use.pin])).toEqual([['sdaPin', 21], ['sclPin', 22]])
     const cleared = node('sd', 'SDCard', { sdCsPin: '', sdSckPin: 18, sdMosiPin: 23, sdMisoPin: 19 })
     expect(collectPinUses([cleared]).map((use) => use.propertyKey)).toEqual(['sdSckPin', 'sdMosiPin', 'sdMisoPin'])
     // A number typed into the field still counts.
-    const typed = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: '33', sclPin: 32 })
+    const typed = node('rtc', 'RtcModule', { sdaPin: '33', sclPin: 32 })
     expect(collectPinUses([typed]).map((use) => use.pin)).toEqual([33, 32])
   })
 
   it('states that SDA and SCL need output-capable pins', () => {
     // The board check skips a use with no requirement, which let a DS3231 sit
     // on the classic ESP32's input-only GPIO34/35 unchallenged.
-    const uses = collectPinUses([node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 34, sclPin: 35 })])
+    const uses = collectPinUses([node('rtc', 'RtcModule', { sdaPin: 34, sclPin: 35 })])
     expect(uses.map((use) => use.requirement)).toEqual([
       { capability: 'digitalOutput', pullup: false },
       { capability: 'digitalOutput', pullup: false },

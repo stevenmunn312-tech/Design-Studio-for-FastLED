@@ -100,6 +100,7 @@ import { networkUsedIn, usesNetwork } from '../codegen/peripherals/networkCpp'
 import {
   boardHostnameProblem, boardNetworkCredentialsIn, boardNetworkIdentity, networkBoardIn,
 } from '../state/peripherals/boardNetwork'
+import { ds3231Clocks, rtcModuleIn } from '../state/peripherals/rtcModule'
 import { bluetoothNameProblem } from '../state/player/bluetoothSink'
 import {
   invalidRadioStations, normalizeRadioStations, radioAccessCodeProblem,
@@ -330,8 +331,8 @@ function findScheduleIssues(
     if (!incoming.has(`${node.id}:dateTime`)) {
       issues.push({
         nodeId: node.id,
-        message: `${label} should be wired to an RTC Clock's DateTime`,
-        fix: 'Wire an RTC Clock node’s DateTime output into this schedule.',
+        message: `${label} should be wired to a Clock's DateTime`,
+        fix: 'Wire a Clock node’s DateTime output into this schedule.',
       })
     }
     const props = node.data.properties as Record<string, unknown>
@@ -1816,6 +1817,7 @@ export function findDeployBlockingErrors(
     ...findShowRequirementErrors(nodes, edges),
     ...findPatternCountErrors(nodes, edges),
     ...findAudioCapabilityErrors(nodes, edges),
+    ...findRtcModuleErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
@@ -1883,6 +1885,7 @@ export type GraphDiagnosticAction =
   | 'set-led-driver'
   | 'renew-board-link-key'
   | 'set-panel-layout'
+  | 'add-rtc-module'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1927,6 +1930,8 @@ export type GraphRepair =
   | { kind: 'renew-board-link-key' }
   /** A Display Panel's fixed layout to switch to. */
   | { kind: 'set-panel-layout'; panelId: string; layout: string }
+  /** A DS3231 to put on the board's bench, for the Clocks that read one. */
+  | { kind: 'add-rtc-module'; boardId?: string }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {
@@ -2188,7 +2193,7 @@ function ethernetValidationIssues(nodes: StudioNode[], selectedFqbn: string): Gr
       id: `${module.id}-ethernet-unused`, severity: 'warning', category: 'board',
       title: 'Nothing uses the Ethernet module',
       message: 'The Ethernet module carries the board\'s network: Art-Net and sACN, DDP, the Web Remote, NTP clock sync, Frame Stream and internet radio. With none of them in the graph, the sketch does not start it.',
-      fix: 'Add a network node, such as DMX / Art-Net in a network mode, DDP Input, Web Remote or an RTC Clock synced by NTP, or remove the Ethernet module.',
+      fix: 'Add a network node, such as DMX / Art-Net in a network mode, DDP Input, Web Remote or a Clock synced by NTP, or remove the Ethernet module.',
       nodeIds: [module.id], nodeLabel: nodeLabel(module),
     })
     return issues
@@ -2230,6 +2235,50 @@ export function findEthernetErrors(nodes: StudioNode[], selectedFqbn = ''): stri
 function findEthernetWarnings(nodes: StudioNode[], selectedFqbn = ''): string[] {
   return ethernetValidationIssues(nodes, selectedFqbn)
     .filter((issue) => issue.severity === 'warning')
+    .map(validationIssueMessage)
+}
+
+/**
+ * A Clock set to DS3231 and the module it reads, judged as one walk for the
+ * deploy gate and Graph Health, as Audio is judged against its Microphone.
+ *
+ * A wired Clock reading a DS3231 with none on the bench is an error whose
+ * repair adds the module: the sketch would read an I2C address nothing
+ * answers. A module that no Clock reads is a warning, like an Ethernet
+ * module nothing uses: the build is right, the part does nothing.
+ */
+function rtcModuleValidationIssues(nodes: StudioNode[], edges: StudioEdge[]): GraphDiagnostic[] {
+  const module = rtcModuleIn(nodes)
+  const readers = ds3231Clocks(nodes)
+  const issues: GraphDiagnostic[] = []
+  if (!module) {
+    // The partition's Board, so the repair adds the module to this board.
+    const boardId = nodes.find((node) => node.data.nodeType === 'Board')?.id
+    for (const clock of readers.filter((node) => edges.some((edge) => edge.source === node.id))) {
+      issues.push({
+        id: `${clock.id}-rtc-module`, severity: 'error', category: 'connection',
+        title: `${nodeLabel(clock)} has no DS3231 to read`,
+        message: 'Its time source is DS3231, and there is no DS3231 module on the bench.',
+        fix: 'Add a DS3231 module, or choose Compile Time, Manual or NTP as the time source.',
+        nodeIds: [clock.id], nodeLabel: nodeLabel(clock), propertyKey: 'timeSource',
+        action: 'add-rtc-module', repair: { kind: 'add-rtc-module', ...(boardId ? { boardId } : {}) },
+      })
+    }
+  } else if (readers.length === 0) {
+    issues.push({
+      id: `${module.id}-rtc-module-unused`, severity: 'warning', category: 'board',
+      title: 'Nothing reads the DS3231',
+      message: 'The DS3231 module is on the bench, but no Clock has DS3231 as its time source, so the sketch never reads it.',
+      fix: 'Set a Clock’s time source to DS3231, or remove the module from the Hardware tab.',
+      nodeIds: [module.id], nodeLabel: nodeLabel(module),
+    })
+  }
+  return issues
+}
+
+export function findRtcModuleErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return rtcModuleValidationIssues(nodes, edges)
+    .filter((issue) => issue.severity === 'error')
     .map(validationIssueMessage)
 }
 
@@ -4006,6 +4055,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...radioPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...rtcModuleValidationIssues(nodes, edges))
   diagnostics.push(...webRemoteValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
@@ -4365,7 +4415,7 @@ export function buildGraphDiagnostics(
       category: 'preview',
       title: `${nodeLabel(node)} has an invalid manual clock start`,
       message: 'The generated firmware clock will stay invalid until the manual year, month, day, hour, minute, and second form a real calendar time.',
-      fix: 'Enter a real local date/time, or switch the RTC Clock node back to Compile Time.',
+      fix: 'Enter a real local date/time, or switch the Clock node back to Compile Time.',
       nodeIds: [node.id],
       nodeLabel: nodeLabel(node),
     })
@@ -4384,7 +4434,7 @@ export function buildGraphDiagnostics(
       category: 'connection',
       title: `${nodeLabel(node)} has no clock wired`,
       message: 'No DateTime source is connected, so preview and generated firmware display “--:--”.',
-      fix: 'Wire an RTC Clock node’s DateTime output into this node, or switch it to Stopwatch/Timer.',
+      fix: 'Wire a Clock node’s DateTime output into this node, or switch it to Stopwatch/Timer.',
       nodeIds: [node.id],
       nodeLabel: nodeLabel(node),
     })
@@ -5009,6 +5059,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findCustomBoardIssues(nodes).warnings)
   warnings.push(...findNetworkConfigWarnings(nodes))
   warnings.push(...findEthernetWarnings(nodes, selectedFqbn))
+  warnings.push(...rtcModuleValidationIssues(nodes, edges)
+    .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...webRemoteValidationIssues(nodes, selectedFqbn)
     .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...findBuzzerWarnings(nodes, selectedFqbn))

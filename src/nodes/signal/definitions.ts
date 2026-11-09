@@ -199,7 +199,7 @@ export const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Random: 'Random value in a range, drawn every frame or on each trigger.',
   NoiseSignal: 'Smooth random value drifting between min and max: a noise-driven LFO.',
-  ScheduleTrigger: 'Time-of-day window or trigger driven by an RTC Clock’s DateTime.',
+  ScheduleTrigger: 'Time-of-day window or trigger driven by a Clock’s DateTime.',
   Clock: 'BPM metronome — phase/beat/bar/subdivision pulses; tap tempo, sync and reset.',
   DMXChannel: 'Reads one channel from a raw DMX/Art-Net universe buffer.',
 }

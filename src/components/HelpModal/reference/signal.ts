@@ -153,12 +153,12 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
 
   ScheduleTrigger: {
     overview: [
-      'Schedule Trigger watches an RTC Clock and switches on a timetable. In Window mode Active stays true between the start and end times; in Trigger mode Start pulses once a day at the start time.',
+      'Schedule Trigger watches a Clock and switches on a timetable. In Window mode Active stays true between the start and end times; in Trigger mode Start pulses once a day at the start time.',
       'Start and End pulse on the edges of a window too, and Progress runs from 0 to 1 across it — enough to fade in at opening time or run a slow sunset across an evening. Times are 24-hour, seconds optional, and an end before the start wraps past midnight.',
       'Days limits it to weekdays, weekends, or the days you tick. Require Synced Time keeps it off until the clock has a real NTP sync, so a board that lost power never runs the schedule at the wrong hour.',
     ],
     steps: [
-      'Add an RTC Clock and choose a reliable time source: NTP or a DS3231.',
+      'Add a Clock and choose a reliable time source: NTP or a DS3231.',
       'Wire the clock’s DateTime output into the schedule’s DateTime input.',
       'Set the times and days, then wire Active, Start or Progress to what should follow the schedule.',
     ],
@@ -176,6 +176,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       featured: 'ScheduleTrigger',
       title: 'A shop sign that keeps opening hours',
       nodes: {
+        ds3231: ['RtcModule'],
         clock: ['RTCInput', { timeSource: 'DS3231' }],
         hours: ['ScheduleTrigger', { scheduleMode: 'Window', dayMode: 'Weekdays', start: '09:00', end: '17:30' }],
         sign: ['TheaterChase', { palette: 'citrus', spacing: 3, speed: 0.4 }],
@@ -186,14 +187,14 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
         'hours.active > output.enabled',
         'sign.frame > output.frame',
       ],
-      explanation: 'RTC Clock reads a battery-backed DS3231, and Schedule Trigger compares its time with a weekday window from 9:00 to 17:30. Active switches the LED output’s Enabled input, so the citrus marquee chases only while the shop is open.',
+      explanation: 'Clock reads a battery-backed DS3231, and Schedule Trigger compares its time with a weekday window from 9:00 to 17:30. Active switches the LED output’s Enabled input, so the citrus marquee chases only while the shop is open.',
       preview: 'The reference time is a Friday morning, so the {output} shows the marquee running. Move the window to the evening and it goes dark.',
     }),
   },
 
   Clock: {
     overview: [
-      'Tempo Clock is a musical metronome. For the time of day use RTC Clock. It runs at a BPM and pulses Beat on every beat, Bar on the first beat of each bar, and Subdivision on finer steps within the beat. Phase rises 0 to 1 across each beat.',
+      'Tempo Clock is a musical metronome. For the time of day use Clock. It runs at a BPM and pulses Beat on every beat, Bar on the first beat of each bar, and Subdivision on finer steps within the beat. Phase rises 0 to 1 across each beat.',
       'Tap Tempo sets the BPM from your own taps; Sync locks it to an incoming beat such as Beat Detect’s; Reset restarts the bar. With nothing wired it simply keeps the tempo you set.',
       'It suits shows that run to a known tempo without a microphone — a DJ set at 128 BPM, a dance class, a light show synced by hand.',
     ],

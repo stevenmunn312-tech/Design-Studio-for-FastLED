@@ -105,11 +105,11 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   ClockDisplay: {
     overview: [
       'Clock Display draws the time on the LEDs: digital in several formats, an analogue face, or either with the date. It also has a Stopwatch and a countdown Timer that need no clock at all.',
-      'Wire RTC Clock’s DateTime into it for the clock modes. It shows dashes until the clock is valid, synced and not stale, so a build never shows a believable wrong time.',
+      'Wire Clock’s DateTime into it for the clock modes. It shows dashes until the clock is valid, synced and not stale, so a build never shows a believable wrong time.',
       'Run, Reset and Duration control the stopwatch and timer, and Done pulses when the timer reaches zero. Base draws the clock over another frame.',
     ],
     inputs: {
-      dateTime: 'The time from RTC Clock’s DateTime output.',
+      dateTime: 'The time from Clock’s DateTime output.',
       base: BASE_INPUT,
       color: 'Digit or hand colour. Replaces the R, G and B fields.',
     },
@@ -122,12 +122,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'ClockDisplay',
       title: 'An analogue wall clock',
       nodes: {
+        ds3231: ['RtcModule'],
         rtc: ['RTCInput', { timeSource: 'DS3231' }],
         face: ['ClockDisplay', { displayMode: 'Analog', radius: 7, r: 255, g: 230, b: 170 }],
         backdrop: ['Breathe', { palette: 'deepsea', bpm: 6, minLevel: 0.3 }],
       },
       wires: ['rtc.dateTime > face.dateTime', 'backdrop.frame > face.base'],
-      explanation: 'RTC Clock reads a battery-backed DS3231. Clock Display draws an analogue face from it, with hour and minute hands, over a slow deep-sea Breathe.',
+      explanation: 'Clock reads a battery-backed DS3231. Clock Display draws an analogue face from it, with hour and minute hands, over a slow deep-sea Breathe.',
       preview: 'The {output} shows a round clock face reading about four minutes past ten, glowing over a slowly breathing blue.',
     }),
   },

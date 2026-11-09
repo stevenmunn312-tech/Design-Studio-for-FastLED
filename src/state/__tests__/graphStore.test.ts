@@ -488,7 +488,7 @@ describe('graphStore — grouping', () => {
     // MicInput, LineInput and Board only, so grouping a selection containing
     // any other part sealed it inside a pattern group — the one place the
     // root-graph-only invariant says hardware can never live.
-    const parts = ['PotInput', 'EncoderInput', 'ButtonInput', 'ButtonBank', 'RTCInput',
+    const parts = ['PotInput', 'EncoderInput', 'ButtonInput', 'ButtonBank', 'RtcModule',
       'MotionInput', 'LightInput', 'SegmentDisplay', 'InfoDisplay']
     reset([node('sc', 'SolidColor'), ...parts.map((type) => node(type.toLowerCase(), type))])
 

@@ -43,11 +43,11 @@ describe('part options', () => {
   })
 
   it('offers the RTC clock module choices', () => {
-    expect(partOptionsFor('RTCInput').map((option) => option.id)).toEqual([
+    expect(partOptionsFor('RtcModule').map((option) => option.id)).toEqual([
       'ds3231-rtc-module',
       'jaycar-xc9044-rtc-module',
     ])
-    expect(resolvePartIdentity('RTCInput', {})!.hasChoice).toBe(true)
+    expect(resolvePartIdentity('RtcModule', {})!.hasChoice).toBe(true)
   })
 
   it('offers the amplifier a real choice', () => {
@@ -58,7 +58,7 @@ describe('part options', () => {
   it('defaults to the module the app was built around', () => {
     expect(resolvePartIdentity('Amplifier', {})!.option.id).toBe('max98357a-i2s-amplifier')
     expect(resolvePartIdentity('MicInput', {})!.option.id).toBe('inmp441-i2s-microphone')
-    expect(resolvePartIdentity('RTCInput', {})!.option.id).toBe('ds3231-rtc-module')
+    expect(resolvePartIdentity('RtcModule', {})!.option.id).toBe('ds3231-rtc-module')
   })
 
   it('still resolves a value it does not recognise', () => {

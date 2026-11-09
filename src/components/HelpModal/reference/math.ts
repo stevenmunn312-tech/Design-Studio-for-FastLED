@@ -483,12 +483,12 @@ export const MATH_REFERENCE: NodeReferenceMap = {
 
   FormatDateTime: {
     overview: [
-      'Format Date/Time turns an RTC Clock reading into text: HH:MM, HH:MM:SS, a date, a weekday, or a weekday with the time.',
+      'Format Date/Time turns a Clock reading into text: HH:MM, HH:MM:SS, a date, a weekday, or a weekday with the time.',
       'It reads the clock’s DateTime wire. With nothing wired, or a clock that is not yet valid, it shows dashes rather than a believable wrong time.',
       'For a ready-made clock face on the LEDs use Clock Display; this node is for putting the time inside your own text.',
     ],
     inputs: {
-      dateTime: 'A clock reading from RTC Clock’s DateTime output.',
+      dateTime: 'A clock reading from Clock’s DateTime output.',
     },
     outputs: {
       text: 'The time or date as text.',
@@ -497,13 +497,14 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       featured: 'FormatDateTime',
       title: 'The day and time on a ticker',
       nodes: {
+        ds3231: ['RtcModule'],
         clock: ['RTCInput', { timeSource: 'DS3231' }],
         when: ['FormatDateTime', { dateTimeFormat: 'Weekday HH:MM' }],
         ticker: ['Text', { scroll: 8, wrap: true, r: 90, g: 220, b: 255 }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },
       wires: ['clock.dateTime > when.dateTime', 'when.text > ticker.text'],
-      explanation: 'RTC Clock reads a battery-backed DS3231. Format Date/Time turns it into the weekday and the hour and minute, and Text scrolls that across the matrix.',
+      explanation: 'Clock reads a battery-backed DS3231. Format Date/Time turns it into the weekday and the hour and minute, and Text scrolls that across the matrix.',
       preview: 'The {output} scrolls the weekday and time, such as FRI 10:04, in ice blue.',
     }),
   },

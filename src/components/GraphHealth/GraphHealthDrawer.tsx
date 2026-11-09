@@ -34,6 +34,7 @@ import {
 } from '../../utils/validateGraph'
 import { boardFqbnTargets, buildBoardDiagnostics } from '../../utils/multiBoardValidation'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
+import { addRtcModuleToBoard } from '../Hardware/hardwarePartActions'
 import { boardIdOf, boardNodesIn } from '../../build/boardPartition'
 import { boardLinkSettings, getBoardLinkKey } from '../../state/peripherals/boardLinkKey'
 import styles from './GraphHealthDrawer.module.css'
@@ -76,6 +77,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (action === 'open-audio-outputs') return 'Choose a DAC'
   if (action === 'add-audio-node') return 'Add Audio node'
   if (action === 'renew-board-link-key') return 'Make a new key'
+  if (action === 'add-rtc-module') return 'Add a DS3231'
   return 'Open library'
 }
 
@@ -211,6 +213,14 @@ export default function GraphHealthDrawer() {
       const result = setBoardLedDriver(issue.repair.ledDriver, issue.repair.boardId)
       setStatus(result.ok
         ? result.ledDriver === 'auto' ? 'Board back on FastLED’s own LED driver' : `Board LED driver set to ${result.ledDriver}`
+        : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'add-rtc-module') {
+      // The module, not another Clock: the Clock is already there and set to it.
+      const result = addRtcModuleToBoard(issue.repair.boardId)
+      setStatus(result.ok
+        ? `Added ${result.label}${result.pins.length ? ` on the I2C pins ${result.pins.join(' and ')}` : ''} — the Clock reads it now`
         : result.reason, result.ok ? 'success' : 'info')
       return
     }

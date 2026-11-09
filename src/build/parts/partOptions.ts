@@ -190,7 +190,7 @@ export const PART_OPTIONS: Record<string, {
       },
     ],
   },
-  RTCInput: {
+  RtcModule: {
     property: 'partId',
     options: [
       {

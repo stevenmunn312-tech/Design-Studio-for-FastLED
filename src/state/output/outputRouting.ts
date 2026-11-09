@@ -329,7 +329,7 @@ export function outputRenderPasses(
 /**
  * Evaluation passes for the live workbench preview.
  *
- * A graph made only from auxiliary hardware (for example RTC Clock wired to a
+ * A graph made only from auxiliary hardware (for example Clock wired to a
  * Display Panel) has no LED output route, but its terminal nodes still need an
  * evaluator pass so their node previews can paint. Firmware generation keeps
  * using `outputRenderPasses` directly because a screen-only build has no LED

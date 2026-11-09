@@ -717,8 +717,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   RTCInput: {
     timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
-    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     timezoneOffsetMinutes: { control: 'slider', min: -720, max: 840, step: 15 },
     startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
     startDay: { control: 'slider', min: 1, max: 31, step: 1 },
@@ -1848,7 +1846,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   energy: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
   timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
-  requireSync: 'Keeps the schedule inactive until the upstream RTC Clock reports a real NTP sync.',
+  requireSync: 'Keeps the schedule inactive until the upstream Clock reports a real NTP sync.',
   dateTimeFormat: 'Which part of the clock reading the text shows. An invalid clock shows dashes, never a plausible time.',
   decimals: 'Digits after the point. Rounding is half away from zero, matching the generated firmware exactly.',
   padWidth: 'Minimum integer digits, zero-padded on the left, so a changing value does not shift on the display.',
@@ -2185,9 +2183,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sclPin: 'I2C clock pin wired to the breakout SCK pad and shared with every other I2C part.',
   },
   RTCInput: {
-    timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over Wi-Fi; DS3231 reads a battery-backed clock using the SDA/SCL properties initialized from the selected board.',
-    sdaPin: 'DS3231 I2C data pin. Studio fills this from the selected physical board’s Arduino Wire default.',
-    sclPin: 'DS3231 I2C clock pin. Studio fills this from the selected physical board’s Arduino Wire default.',
+    timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over the Board’s network; DS3231 reads the battery-backed DS3231 module on the bench, which the Hardware tab adds.',
     startYear: 'Manual clock start year. Only used when Time source is Manual.',
     startMonth: 'Manual clock start month (1-12). Only used when Time source is Manual.',
     startDay: 'Manual clock start day of month. Only used when Time source is Manual.',
@@ -3247,6 +3243,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     staticSubnet: 'Network mask, almost always 255.255.255.0.',
     staticDns: 'Name server address; leave empty to use the gateway.',
   },
+  RtcModule: {
+    partId: 'Which DS3231 breakout this is. Both answer at I2C address 0x68.',
+    sdaPin: 'I2C data pin wired to the module’s SDA pad, shared with every other I2C part. Studio fills it from the selected board’s Wire default.',
+    sclPin: 'I2C clock pin wired to the module’s SCL pad, shared with every other I2C part. Studio fills it from the selected board’s Wire default.',
+  },
   MatrixOutput: {
     enabled: 'Blackout for this output. Off shows nothing; a wired Enabled input overrides it.',
     outputBrightness: 'This output\'s own dimmer, 0 to 1, on top of the Board\'s master level. A wired Brightness input overrides it.',
@@ -3825,6 +3826,10 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     colorMode: 'color mode',
   },
   Animartrix: { audioAmount: 'audio amount' },
+  RtcModule: {
+    sdaPin: 'SDA pin',
+    sclPin: 'SCL pin',
+  },
   Board: {
     powerLimit: 'power cap',
     frameRate: 'frame rate',
@@ -3958,8 +3963,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   RTCInput: {
     timeSource: 'time source',
-    sdaPin: 'SDA pin',
-    sclPin: 'SCL pin',
     ntpServer: 'NTP server',
     timezoneOffsetMinutes: 'UTC offset (min)',
     startYear: 'year',
@@ -4099,7 +4102,7 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput', 'WebRemoteInput',
-  'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
+  'MidiInput', 'SDCard', 'EthernetModule', 'RtcModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
 ])
 
 /**
@@ -4234,7 +4237,6 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
-    { key: 'wiring', label: 'DS3231 Wiring', keys: ['sdaPin', 'sclPin'] },
     { key: 'network', label: 'NTP', keys: ['ntpServer', 'timezoneOffsetMinutes'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
@@ -4609,7 +4611,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   DFPlayerOutput: new Set(['uartRxPin', 'uartTxPin', 'busyPin']),
   PwmDriverOutput: new Set(['sdaPin', 'sclPin']),
   DarlingtonDriverOutput: new Set(darlingtonPinKeys()),
-  RTCInput: new Set(['sdaPin', 'sclPin']),
+  RtcModule: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
   // The panel node owns every pin; `Display` (the document) has none.
@@ -4650,7 +4652,7 @@ export function gpioRequirementForProperty(
   // below, which returns no GPIO capability for every other distance pin.
   if (nodeType === 'DistanceInput' && key === 'xshutPin') return { capability: 'digitalOutput', pullup: false }
   // An I2C bus pair is not an ordinary digital-output assignment.
-  if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
+  if (nodeType === 'RtcModule' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
     || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
     || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')
     || (nodeType === 'DistanceInput' && distanceSensorTransport(props.partId) === 'i2c')) return null
@@ -5236,7 +5238,6 @@ export function isPropertyEnabled(
     }
   }
   if (nodeType === 'RTCInput') {
-    if (key === 'sdaPin' || key === 'sclPin') return String(properties.timeSource ?? 'Compile Time') === 'DS3231'
     if (key === 'ntpServer' || key === 'timezoneOffsetMinutes') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
   }

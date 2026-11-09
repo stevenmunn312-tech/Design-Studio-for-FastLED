@@ -30,7 +30,7 @@ ESP32-S3 does not establish support for every board or display combination.
 
 ## 7-Segment Display
 
-Connect one **Display** wire from RTC Clock, Music Player, Pattern Slideshow,
+Connect one **Display** wire from Clock, Music Player, Pattern Slideshow,
 or an LED output. It shows the time, elapsed playback position, pattern
 number, or whole percent of effective fixture brightness respectively.
 Unwired digits show dashes. A raw float or a Format Number string does not
@@ -64,7 +64,7 @@ and use the same SDA/SCL pair as the other I²C parts in the sketch.
 
 ## TFT Display
 
-Connect **Display** from RTC Clock, Music Player, Pattern Slideshow or
+Connect **Display** from Clock, Music Player, Pattern Slideshow or
 an LED output for Clock, Now Playing/Fixed Transport, Show Status or
 LED Status respectively. The source chooses content; presentation only
 chooses among that source's treatments. Unwired panels say Waiting.
@@ -92,7 +92,7 @@ Blackout through a Not) without overriding a connection you already
 made.
 
 The normal generator can render a clock. Show and player templates do the same
-for a wired RTC Clock of any source. An NTP clock starts the sketch's network
+for a wired Clock of any source. An NTP clock starts the sketch's network
 in those builds too, over Wi-Fi or the wired link.
 
 ### Diagnostics and touch bounds
@@ -415,7 +415,7 @@ elapsed time and remain separate from the track-position clock used to render
 patterns. Time's Delta Time output retains its nominal 1/60-second value.
 Tempo Clock, Envelope, Noise LFO and Schedule Trigger share the
 normal emitters and keep wall-clock milliseconds, so Master Speed does not
-scale them. A wired RTC Clock of any source can feed a Schedule Trigger and a
+scale them. A wired Clock of any source can feed a Schedule Trigger and a
 Clock layout; an NTP clock brings the network bootstrap into the build.
 
 Supported scalar nodes keep that behaviour inside groups, including a contact

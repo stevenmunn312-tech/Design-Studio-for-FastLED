@@ -161,9 +161,11 @@ describe('board link validation', () => {
   })
 
   it('refuses a clock reading into a board whose sketch is a slideshow', () => {
+    // A Clock reading the DS3231 on Board 1 runs there, so Board 2 receives it.
     const { nodes, edges } = linked({
       nodes: [
-        node('rtc', 'RTCInput', {}, [{ id: 'display', dataType: 'display' }]),
+        node('ds3231', 'RtcModule'),
+        node('rtc', 'RTCInput', { timeSource: 'DS3231' }, [{ id: 'display', dataType: 'display' }]),
         node('show', 'PatternSlideshow'),
         node('out2', 'MatrixOutput', { width: 8, height: 8, dataPin: 6, ...on2 }),
         node('oled', 'InfoDisplay', on2),
@@ -177,7 +179,11 @@ describe('board link validation', () => {
       .some((error) => error.includes('cannot show a screen reading'))).toBe(true)
     // A normal sketch on Board 2 draws it.
     const normal = linked({
-      nodes: [node('rtc', 'RTCInput', {}, [{ id: 'display', dataType: 'display' }]), node('oled', 'InfoDisplay', on2)],
+      nodes: [
+        node('ds3231', 'RtcModule'),
+        node('rtc', 'RTCInput', { timeSource: 'DS3231' }, [{ id: 'display', dataType: 'display' }]),
+        node('oled', 'InfoDisplay', on2),
+      ],
       edges: [edge('rtc', 'display', 'oled', 'display')],
     })
     expect(ids(buildBoardDiagnostics(normal.nodes, normal.edges, { targets }))

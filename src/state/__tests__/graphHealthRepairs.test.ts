@@ -57,7 +57,7 @@ describe('Move I2C hardware to board pins', () => {
   afterEach(() => vi.useRealTimers())
   const parts = () => [
     node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
-    node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 8, sclPin: 9 }),
+    node('rtc', 'RtcModule', { sdaPin: 8, sclPin: 9 }),
     node('oled', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 7, sclPin: 10 }),
   ]
 
@@ -88,14 +88,15 @@ describe('Move I2C hardware to board pins', () => {
     expect(rootGraphNodes(useGraphStore.getState())).toBe(before)
   })
 
-  it('leaves inactive RTC and SPI displays alone and reports an already repaired bus', () => {
+  it('leaves a Clock and SPI displays alone and reports an already repaired bus', () => {
     useGraphStore.getState().loadGraph([
       ...parts(), node('clock', 'RTCInput', { timeSource: 'NTP', sdaPin: 3, sclPin: 4 }),
       node('spi', 'InfoDisplay', { partId: 'sh1106-oled-128x64', sdaPin: 5, sclPin: 6 }),
     ], [])
     expect(moveI2cPartsToBoardPins().ok).toBe(true)
+    // A Clock has no pins of its own: the old DS3231 wiring is dropped on load.
     expect(rootGraphNodes(useGraphStore.getState()).find((part) => part.id === 'clock')?.data.properties)
-      .toMatchObject({ sdaPin: 3, sclPin: 4 })
+      .not.toHaveProperty('sdaPin')
     expect(rootGraphNodes(useGraphStore.getState()).find((part) => part.id === 'spi')?.data.properties)
       .toMatchObject({ sdaPin: 5, sclPin: 6 })
     expect(moveI2cPartsToBoardPins()).toMatchObject({ ok: false, reason: expect.stringContaining('already') })
@@ -332,8 +333,8 @@ describe('repairs on secondary boards', () => {
 
   it('moves only the secondary board I2C parts using its own bus pins', () => {
     useGraphStore.getState().loadGraph([...boards(),
-      node('rtc1', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 }),
-      node('rtc2', 'RTCInput', { timeSource: 'DS3231', sdaPin: 3, sclPin: 4, boardId: 'board-2' }),
+      node('rtc1', 'RtcModule', { sdaPin: 21, sclPin: 22 }),
+      node('rtc2', 'RtcModule', { sdaPin: 3, sclPin: 4, boardId: 'board-2' }),
       node('button', 'ButtonInput', { pin: 5 }),
     ], [])
     expect(moveI2cPartsToBoardPins('board-2')).toEqual({ ok: true, pins: { sdaPin: 5, sclPin: 6 } })

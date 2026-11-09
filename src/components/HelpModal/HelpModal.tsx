@@ -472,7 +472,7 @@ function DisplaysTab() {
           Displays are output devices. They show what something else tells them to show, the same way an LED output renders the frame it is given.
         </div>
         <div className={styles.text}>
-          <strong>Information displays</strong> are the small ones — 7-segment digits and the 128x64 OLED family. They take one Display wire from a source (RTC Clock, Music Player, Pattern Slideshow, or an LED output) and draw the reading that source publishes. A 4-digit module can show a clock, a number, or an LED output as whole percent of effective brightness; an OLED has room for a line of text beside it. What the module can physically do decides what it is offered, so you cannot ask a segment display for artwork.
+          <strong>Information displays</strong> are the small ones — 7-segment digits and the 128x64 OLED family. They take one Display wire from a source (Clock, Music Player, Pattern Slideshow, or an LED output) and draw the reading that source publishes. A 4-digit module can show a clock, a number, or an LED output as whole percent of effective brightness; an OLED has room for a line of text beside it. What the module can physically do decides what it is offered, so you cannot ask a segment display for artwork.
         </div>
         <div className={styles.text}>
           <strong>Colour panels</strong> (ST7789 and friends) take the same single Display wire and draw a fuller version of the same reading — a clock face, a now-playing screen with artwork, a show status, or LED Status for a fixture. The presentation is a property on the panel; the content is whatever is wired in.
@@ -493,7 +493,7 @@ function DisplaysTab() {
           Place readouts for things the panel is being told — text, numbers, a timecode, a progress bar, a meter — and controls for things a finger can change. Design shows you the layout; Run leaves the designer and floats a live touch screen on the graph, so you can drive wired properties and watch the LED preview before any hardware exists.
         </div>
         <div className={styles.text}>
-          Each readout has a <strong>Reads</strong> row in the inspector, listing what the panel&rsquo;s own source publishes — Title, Artist, Elapsed and so on for a Music Player; Time and Date for an RTC Clock. Pick one and the widget takes that reading straight off the wire already feeding the panel, with no cable of its own. Choose <strong>A wire from the graph</strong> instead and the widget gets its own socket on the panel, for you to connect anything else to.
+          Each readout has a <strong>Reads</strong> row in the inspector, listing what the panel&rsquo;s own source publishes — Title, Artist, Elapsed and so on for a Music Player; Time and Date for a Clock. Pick one and the widget takes that reading straight off the wire already feeding the panel, with no cable of its own. Choose <strong>A wire from the graph</strong> instead and the widget gets its own socket on the panel, for you to connect anything else to.
         </div>
         <div className={styles.text}>
           The <strong>Templates</strong> shelf is ordered the same way: the layouts your panel&rsquo;s source can fill are listed first. Place <strong>Now Playing</strong> on a panel wired to a Music Player and it is already showing the track — the readings arrive connected. When the destination is unambiguous, <strong>Connect template controls</strong> draws the button and slider wires as ordinary graph edges (Volume straight to the player, Play/Pause through a Changed Trigger, Blackout through a Not) without overriding a connection you already made.
@@ -779,13 +779,13 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>RTC clock and scheduling hardware setup</div>
         <div className={styles.text}>
-          An <strong>RTC Clock</strong> node publishes calendar fields and a <code>valid</code>/<code>synced</code>/<code>stale</code> status; <strong>Schedule Trigger</strong> and <strong>Clock Display</strong> read it through ordinary ports. <strong>Experimental</strong> — the software clock, NTP sync, and DS3231 path still need recorded hardware passes.
+          A <strong>Clock</strong> node publishes calendar fields and a <code>valid</code>/<code>synced</code>/<code>stale</code> status; <strong>Schedule Trigger</strong> and <strong>Clock Display</strong> read it through ordinary ports. <strong>Experimental</strong> — the software clock, NTP sync, and DS3231 path still need recorded hardware passes.
         </div>
         <div className={styles.tipList}>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              Pick a <strong>time source</strong> on the RTC Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network, but are marked unsynced/stale because they cannot retain trustworthy time across power cycles. Manual remains useful for rehearsing schedules. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266), an NTP server, and the Wi-Fi name and password in the Board&apos;s Network settings. <strong>DS3231</strong> reads a battery-backed module at I²C address <code>0x68</code> through the board&apos;s default SDA/SCL pins and needs no extra Arduino library.
+              Pick a <strong>time source</strong> on the Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network, but are marked unsynced/stale because they cannot retain trustworthy time across power cycles. Manual remains useful for rehearsing schedules. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266), an NTP server, and the Wi-Fi name and password in the Board&apos;s Network settings. <strong>DS3231</strong> reads the battery-backed DS3231 module on the bench at I²C address <code>0x68</code> and needs no extra Arduino library: add it from the Hardware tab<strong>DS3231</strong> reads a battery-backed module at I²C address <code>0x68</code> through the board&apos;s default SDA/SCL pins and needs no extra Arduino library.apos;s Clocks shelf, which brings a Clock with it, or use <strong>Add DS3231</strong> on the Clock.
             </div>
           </div>
           <div className={styles.tip}>
@@ -797,7 +797,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              For a DS3231, connect <strong>3V3</strong>, <strong>GND</strong>, <strong>SDA</strong>, and <strong>SCL</strong> to the board&apos;s labelled default I²C pins; the RTC node and Build Diagram show the exact reviewed pads for the selected board. After uploading the current sketch, <strong>Set from computer</strong> writes the computer&apos;s local date and time through the selected USB port. Studio never changes it automatically. The browser simulates a healthy module; on firmware, <code>valid</code> confirms a readable calendar value, <code>synced</code> means the DS3231 oscillator-stop flag is clear, and <code>stale</code> warns that the module lost time or a previously working I²C read failed. Avoid assigning those SDA/SCL pins to a non-I²C peripheral.
+              For a DS3231, connect <strong>3V3</strong>, <strong>GND</strong>, <strong>SDA</strong>, and <strong>SCL</strong> to the board&apos;s labelled default I²C pins; the Hardware tab and Build Diagram show the exact reviewed pads for the selected board. After uploading the current sketch, <strong>Set from computer</strong> writes the computer&apos;s local date and time through the selected USB port. Studio never changes it automatically. The browser simulates a healthy module; on firmware, <code>valid</code> confirms a readable calendar value, <code>synced</code> means the DS3231 oscillator-stop flag is clear, and <code>stale</code> warns that the module lost time or a previously working I²C read failed. Avoid assigning those SDA/SCL pins to a non-I²C peripheral.
             </div>
           </div>
           <div className={styles.tip}>

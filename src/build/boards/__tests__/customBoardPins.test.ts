@@ -84,7 +84,7 @@ describe('custom board pin allocation', () => {
   it('does not move parts onto chip defaults the header lacks', () => {
     const profile = customProfile(definition())
     const sd = node('sd', 'SDCard', { sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11 })
-    const rtc = node('rtc', 'RTCInput', { sdaPin: 8, sclPin: 9 })
+    const rtc = node('rtc', 'RtcModule', { sdaPin: 8, sclPin: 9 })
     const result = retargetHardwarePins([sd, rtc], profile, CLASSIC_FQBN, 'previous-board')
     const props = (id: string) => result.nodes.find((entry) => entry.id === id)!.data.properties
     // The classic SD defaults (5/18/19/23) are not on this header.
@@ -96,7 +96,7 @@ describe('custom board pin allocation', () => {
     const before = customProfile(definition())
     const after = customProfile(definition({ defaultI2c: { mode: 'custom', sda: 16, scl: 17 } }))
     expect(after.id).toBe(before.id)
-    const appPlaced = node('rtc', 'RTCInput', withAssignedPins({}, { sdaPin: 21, sclPin: 22 }, before.id))
+    const appPlaced = node('rtc', 'RtcModule', withAssignedPins({}, { sdaPin: 21, sclPin: 22 }, before.id))
     const chosen = node('env', 'EnvironmentInput', {
       ...withAssignedPins({}, { sdaPin: 21, sclPin: 22 }, before.id), sdaPin: 32, sclPin: 22,
     })
@@ -202,7 +202,7 @@ describe('applyCustomBoard', () => {
     useGraphStore.getState().applyCustomBoard(ROOT_BOARD_NODE_ID, first)
     const id = selectedPhysicalBoardProfile(useGraphStore.getState().nodes)!.id
     useGraphStore.setState((state) => ({
-      nodes: [...state.nodes, node('rtc', 'RTCInput', withAssignedPins({}, { sdaPin: 21, sclPin: 22 }, id))],
+      nodes: [...state.nodes, node('rtc', 'RtcModule', withAssignedPins({}, { sdaPin: 21, sclPin: 22 }, id))],
     }))
     vi.advanceTimersByTime(400)
     useGraphStore.temporal.getState().clear()

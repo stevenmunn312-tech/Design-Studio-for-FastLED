@@ -61,13 +61,13 @@ describe('GraphHealthDrawer', () => {
   it('opens each affected hardware inspector and repairs a split I2C bus', () => {
     useGraphStore.getState().loadGraph([
       node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
-      node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 8, sclPin: 9 }),
+      node('rtc', 'RtcModule', { sdaPin: 8, sclPin: 9 }),
       node('oled', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 7, sclPin: 10 }),
     ], [])
     const { getByText, queryByText } = render(<GraphHealthDrawer />)
     const card = getByText('I2C parts are on more than one bus').closest('article')!
     expect(within(card).queryByRole('button', { name: /Locate.*node/ })).toBeNull()
-    for (const [id, label] of [['rtc', 'RTC Clock'], ['oled', 'OLED Display']]) {
+    for (const [id, label] of [['rtc', 'DS3231 RTC'], ['oled', 'OLED Display']]) {
       fireEvent.click(within(card).getByRole('button', { name: `Show ${label} hardware` }))
       expect(useUiStore.getState().workspaceMode).toBe('hardware')
       expect(useUiStore.getState().hardwareInspectorNodeId).toBe(id)
@@ -86,13 +86,13 @@ describe('GraphHealthDrawer', () => {
     useGraphStore.getState().loadGraph([
       node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
       node('board-2', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
-      node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22, boardId: 'board-2' }),
+      node('rtc', 'RtcModule', { sdaPin: 21, sclPin: 22, boardId: 'board-2' }),
       node('oled', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 25, sclPin: 26, boardId: 'board-2' }),
     ], [])
     useUiStore.setState({ activeBoardId: 'board-root' })
     const { getByText } = render(<GraphHealthDrawer />)
     const card = getByText(/I2C parts are on more than one bus/).closest('article')!
-    fireEvent.click(within(card).getByRole('button', { name: 'Show RTC Clock hardware' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Show DS3231 RTC hardware' }))
     expect(useUiStore.getState().activeBoardId).toBe('board-2')
     expect(useUiStore.getState().hardwareInspectorNodeId).toBe('rtc')
   })

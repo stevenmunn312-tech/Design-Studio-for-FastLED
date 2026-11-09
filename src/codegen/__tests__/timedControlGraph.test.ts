@@ -94,12 +94,12 @@ describe('time-dependent control sources', () => {
     expect(loop).toContain('_scheduleWeekday_sched = constrain((int)roundf(n_rtc_dateTime.weekday), 0, 6);')
   })
 
-  it('refuses a schedule clock that is not an RTC Clock', () => {
+  it('refuses a schedule clock that is not a Clock', () => {
     const math = node('math', 'Math')
     const sched = node('sched', 'ScheduleTrigger')
     const graph = createControlGraph([math, sched], [edge('math', 'result', 'sched', 'dateTime')])
     expect(graph.resolve('sched', 'active', 'bool')).toBeNull()
-    expect([...graph.errors].join('\n')).toContain("reads a clock only from an RTC Clock's DateTime")
+    expect([...graph.errors].join('\n')).toContain("reads a clock only from a Clock's DateTime")
   })
 
   it('carries the Wi-Fi bootstrap with an NTP clock, once for two clocks', () => {

@@ -3,8 +3,12 @@ import {
   formatRtcDate, formatRtcTime, rtcPreviewSnapshot, rtcTimeSource,
   type RtcPreview,
 } from '../../../state/peripherals/rtc'
-import { useGraphStore } from '../../../state/graphStore'
+import { boardPartitionOf, useGraphStore } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
+import { useUiStore } from '../../../state/uiStore'
+import { rtcModuleIn } from '../../../state/peripherals/rtcModule'
+import { useNodeBoardId } from '../../Hardware/boardSelection'
+import { addRtcModuleToBoard } from '../../Hardware/hardwarePartActions'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useStreamStore } from '../../../state/output/streamStore'
 import { setRtcDateTime } from '../../../utils/backendClient'
@@ -59,6 +63,13 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
   const stopSerial = useUploadStore((s) => s.stopSerial)
   const [setStatus, setSetStatus] = useState<'idle' | 'setting' | 'done' | 'error'>('idle')
   const [setMessage, setSetMessage] = useState('')
+  // The DS3231 this clock reads is the one on its own board's bench.
+  const boardId = useNodeBoardId(nodeId)
+  const hasModule = useGraphStore((s) => rtcModuleIn(boardPartitionOf(s, boardId).nodes) !== null)
+  const addModule = () => {
+    const result = addRtcModuleToBoard(boardId)
+    useUiStore.getState().setStatus(result.ok ? `Added ${result.label} on the board's I2C pins` : result.reason, result.ok ? 'success' : 'info')
+  }
 
   const setFromComputer = async () => {
     if (!selectedPort || !helperReady || uploadBusy || setStatus === 'setting') return
@@ -112,7 +123,20 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
           never starts and every output stays at zero. Fix the Manual Start fields below.
         </div>
       )}
-      {timeSource === 'DS3231' && (
+      {timeSource === 'DS3231' && !hasModule && (
+        <div className={styles.rtcAction}>
+          <button
+            type="button"
+            className={`nodrag ${styles.setButton}`}
+            onClick={addModule}
+            title="Put a DS3231 module on this board's bench, on its I2C pins"
+          >
+            Add DS3231
+          </button>
+          <span>No DS3231 on the bench yet; the preview stands in for one.</span>
+        </div>
+      )}
+      {timeSource === 'DS3231' && hasModule && (
         <>
           <div className={styles.rtcAction}>
             <button
@@ -129,9 +153,9 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
             </span>
           </div>
           <div className={styles.note}>
-            Preview simulates a healthy module with the browser clock. Firmware reads address
-            0x68 over the configured SDA/SCL pins. Set from computer writes the physical module
-            through the selected USB port; it never runs automatically.
+            Preview simulates a healthy module with the browser clock. Firmware reads the DS3231
+            on the bench at address 0x68 over its SDA/SCL pins. Set from computer writes the
+            physical module through the selected USB port; it never runs automatically.
           </div>
         </>
       )}

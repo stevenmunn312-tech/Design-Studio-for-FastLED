@@ -410,7 +410,7 @@ describe('validateGraph', () => {
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ], true],
     ['two I2C clients sharing SDA and SCL', [
-      node('rtc-a', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 }),
+      node('rtc-a', 'RtcModule', { sdaPin: 21, sclPin: 22 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ], false],
     ['clean wiring', [
@@ -429,8 +429,8 @@ describe('validateGraph', () => {
 
   it('reports two I2C devices at one address rather than blaming their shared pins', () => {
     const nodes = [
-      node('rtc-a', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 }),
-      node('rtc-b', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 }),
+      node('rtc-a', 'RtcModule', { sdaPin: 21, sclPin: 22 }),
+      node('rtc-b', 'RtcModule', { sdaPin: 21, sclPin: 22 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ]
     const conflicts = findPinConflicts(nodes, [])
@@ -1979,7 +1979,7 @@ describe('validateGraph', () => {
     it('warns about a schedule with no clock or an unreadable time', () => {
       const nodes = [node('sched', 'ScheduleTrigger', { scheduleMode: 'Window', start: '18:00', end: '25:00' })]
       const { warnings } = validateGraph(nodes, [])
-      expect(warnings.some((w) => w.includes("should be wired to an RTC Clock's DateTime"))).toBe(true)
+      expect(warnings.some((w) => w.includes("should be wired to a Clock's DateTime"))).toBe(true)
       expect(warnings.some((w) => w.includes('invalid schedule time'))).toBe(true)
       // Trigger mode has no end, so an unreadable one is not reported.
       const trigger = validateGraph([node('sched', 'ScheduleTrigger', { scheduleMode: 'Trigger', start: '7:15', end: '' })], [])
@@ -2410,15 +2410,15 @@ describe('disconnected-node diagnostic and capability providers', () => {
 })
 
 describe('I2C pins go through the board pin check', () => {
-  const rtc = (props: Record<string, unknown> = {}) => node('rtc', 'RTCInput', { timeSource: 'DS3231', ...props })
+  const rtc = (props: Record<string, unknown> = {}) => node('rtc', 'RtcModule', props)
 
   it('refuses SDA or SCL on an input-only pin', () => {
     // The pair carried no requirement, so the chip-table walk skipped it and
     // a DS3231 on the classic ESP32's input-only GPIO34/35 passed.
     const result = findBoardPinCompatibility([rtc({ sdaPin: 34, sclPin: 35 })], 'esp32:esp32:esp32')
     expect(result.errors).toEqual([
-      expect.stringMatching(/RTCInput SCL uses pin 35, which doesn't support digital output/),
-      expect.stringMatching(/RTCInput SDA uses pin 34, which doesn't support digital output/),
+      expect.stringMatching(/RtcModule SCL uses pin 35, which doesn't support digital output/),
+      expect.stringMatching(/RtcModule SDA uses pin 34, which doesn't support digital output/),
     ])
     expect(findBoardPinCompatibility([rtc({ sdaPin: 21, sclPin: 22 })], 'esp32:esp32:esp32').errors).toEqual([])
   })

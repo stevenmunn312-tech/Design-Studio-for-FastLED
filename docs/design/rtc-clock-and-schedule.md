@@ -35,9 +35,32 @@ the time (see "Preview mirrors the configured source").
 
 Consequence to keep in mind: `RTCInput` is **not** a singleton. Two software
 sources are two independent clocks, while two DS3231 sources read the same
-board-default I²C bus. The per-node model is intentional (two schedules on
-different timezone offsets is a real installation shape), but it means "the
-current time" is per-node, not per-scene.
+module. The per-node model is intentional (two schedules on different timezone
+offsets is a real installation shape), but it means "the current time" is
+per-node, not per-scene.
+
+### A library Clock, and the DS3231 as its provider
+
+Since 2026-11-10 the node (type id still `RTCInput`) is a library node
+labelled **Clock**, the way **Audio** is the library node for a microphone
+(`state/audio/audioCapabilities.ts`). Compile Time, Manual and NTP need no
+part, so an NTP clock no longer asks for a module the user does not own. The
+DS3231 is its own bench part, `RtcModule` (hardware-only, no ports, hidden on
+the canvas, `state/peripherals/rtcModule.ts`): it holds the breakout's
+`partId` and its I2C pins, and a Clock set to DS3231 reads the one on its
+board (`rtcModuleIn` of the partition). The module has no time outputs of its
+own, so time is read in one place. With one module in a multi-board project,
+`boardPartition` anchors every DS3231 Clock to that module's board, so the
+reading is taken there and crosses a board link as a `datetime`; with a module
+on several boards the Clock stays unanchored and each board reads its own.
+
+Adding a DS3231 from the Clocks shelf adds a Clock set to DS3231 when the
+graph has none (`ensureRootClockNode`). A wired Clock set to DS3231 with no
+module on its board is a deploy-gate error whose repair, **Add a DS3231**,
+puts the module on that board's I2C bus (`addRtcModuleToBoard`, also the
+node's own button); a module no Clock reads is a warning. Saves from before
+drop the Clock's old `partId`, `sdaPin`, `sclPin` and `boardId` on load,
+without migration, so an old DS3231 clock asks for its module once.
 
 ### Time sources: software clock, optional NTP, or a DS3231
 
@@ -85,13 +108,14 @@ output at zero with `valid: false`, in both runtimes. Downstream nodes gate on
 `DS3231` is the battery-backed path for an offline installation that must
 survive a power cut. Generated firmware uses Arduino's built-in `Wire` API and
 decodes the DS3231 registers directly, so it adds no RTClib dependency. It reads
-the fixed address `0x68` on the target board's default SDA/SCL pins. A valid BCD
+the fixed address `0x68` on the module's SDA/SCL pins, which start as the target
+board's default pair. A valid BCD
 calendar is published immediately. Status register bit 7 (OSF, oscillator stop)
 maps to `stale`; `synced` is true only when OSF is clear. If a module that was
 reading successfully later disappears from the bus, firmware keeps the last
 good sample visible but marks it stale. A module absent from boot remains
 invalid. Firmware never writes the module automatically. A deliberate **Set
-from computer** action on the RTC node sends one validated local timestamp over
+from computer** action on the Clock node sends one validated local timestamp over
 the selected USB serial port, writes the DS3231 calendar, and clears OSF after a
 successful write. This avoids a normal board reboot silently overwriting
 battery-backed time while keeping first-time setup inside Studio.

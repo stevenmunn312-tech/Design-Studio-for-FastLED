@@ -13,6 +13,7 @@ import {
   segmentDisplayGlobalCpp,
 } from './displays/segmentDisplayCpp'
 import { networkSketchCpp, networkUsedIn } from './peripherals/networkCpp'
+import { ds3231Clocks, rtcModuleIn } from '../state/peripherals/rtcModule'
 import { boardSyncGlobalsCpp, boardSyncServiceCallCpp, clockSyncRoleIn } from './peripherals/boardSyncCpp'
 import { boardLinkFirmware, boardLinkPlan, boardLinkSends } from './peripherals/espNowLinkCpp'
 import { boardLinkControlsSendExpr } from './peripherals/boardLinkControlsCpp'
@@ -598,7 +599,7 @@ export function generateCpp(
   // RTC writes, with the same calendar helpers.
   const emitRtcHelpers = sorted.some((n) => n.data.nodeType === 'RTCInput' || (n.data.nodeType === BOARD_LINK_IN_NODE_TYPE
     && (boardLinkPropertiesOf(n)?.dataType === 'datetime' || boardLinkPropertiesOf(n)?.displayKind === 'clock')))
-  const needsDs3231 = sorted.some((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'DS3231')
+  const needsDs3231 = ds3231Clocks(sorted).length > 0
   // Everything sharing the board's one `Wire` bus. A 4-pin OLED joins the
   // DS3231 on it, which is why `Wire.begin` is started once below rather than
   // by whichever part happens to be set up first.
@@ -805,8 +806,9 @@ export function generateCpp(
      */
     const i2cBoard = selectedPhysicalBoardProfile(nodes)
     const boardPins = rtcI2cPinsForProfile(i2cBoard)
-    const busNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
-      && String(props(node).timeSource ?? 'Compile Time') === 'DS3231')
+    // The DS3231 is the bench's module, found in the whole graph: it has no
+    // ports to be sorted by, and a Clock set to DS3231 is what reads it.
+    const busNode = (needsDs3231 ? rtcModuleIn(nodes) : null)
       ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0] ?? environmentSensors[0] ?? motionVectors[0] ?? touchPads[0] ?? pwmDrivers[0] ?? i2cDistanceSensors[0]
     const busProps = busNode ? props(busNode) : {}
     const sdaPin = sanitizePin(busProps.sdaPin, boardPins?.sda.arduinoPin ?? 21)

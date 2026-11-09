@@ -6,6 +6,7 @@ import { boardLinkSettings } from '../state/peripherals/boardLinkKey'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { networkUsedIn } from '../codegen/peripherals/networkCpp'
 import { boardNetworkCredentialsKey } from '../state/peripherals/boardNetwork'
+import { RTC_MODULE_NODE_TYPE, ds3231Clocks } from '../state/peripherals/rtcModule'
 import { displayKindOfSource, displaySlotFields, receiverDisplayFields } from './boardLinkDisplay'
 import { isLinkedControlsSource, touchControlsFields } from './boardLinkControls'
 import {
@@ -231,6 +232,15 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
     if (isBoardAttachedNodeType(type) || isNetworkEndpointNodeType(type)) {
       anchor(node.id, boardIdOf(node, primaryId, boardIds))
     }
+  }
+  // A Clock reading a DS3231 runs on the board that has the module, and a
+  // reading another board shows crosses the link as a datetime. With a module
+  // on several boards each board reads its own, so the Clock stays unanchored.
+  const ds3231Boards = new Set(nodes.filter((node) => nodeTypeOf(node) === RTC_MODULE_NODE_TYPE)
+    .map((node) => boardIdOf(node, primaryId, boardIds)))
+  if (ds3231Boards.size === 1) {
+    const [moduleBoard] = ds3231Boards
+    for (const clock of ds3231Clocks(nodes)) anchor(clock.id, moduleBoard)
   }
   for (const node of nodes) {
     if (!isGeneratorOwnerNodeType(nodeTypeOf(node))) continue

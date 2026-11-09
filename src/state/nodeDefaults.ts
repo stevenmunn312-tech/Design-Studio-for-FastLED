@@ -159,7 +159,7 @@ export function resolveDefaultProperties(
   const override = nodeType === 'MicInput'
     ? state.micOverridesByFqbn[fqbn]
     : state.overrides[nodeType]
-  const rtcPins = nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
+  const rtcPins = nodeType === 'RtcModule' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
     || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
     ? profileI2cDefault(boardProfile)
     : undefined

@@ -180,7 +180,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
           if (!edge) { inputs[inputPort] = ''; continue }
           if (byId.get(edge.source)?.data.nodeType !== 'RTCInput') {
             visiting.delete(nodeId)
-            return fail(`${label(nodeId)}.${inputPort}: control graph reads a clock only from an RTC Clock's DateTime.`)
+            return fail(`${label(nodeId)}.${inputPort}: control graph reads a clock only from a Clock's DateTime.`)
           }
           if (!resolve(edge.source, 'valid', 'bool')) { visiting.delete(nodeId); return null }
           inputs[inputPort] = rtcDateTimeSymbol(safeId(edge.source))

@@ -82,7 +82,7 @@ through the scalar control graph, which is what `controlSources` carries.
 
 | Content connection | Panel content |
 | --- | --- |
-| RTC Clock Display → Display | Clock (Compile Time, Manual, DS3231 and NTP in every generator) |
+| Clock → Display | Clock (Compile Time, Manual, DS3231 and NTP in every generator) |
 | Music Player Display → Display | Now Playing or Fixed Transport |
 | Pattern Slideshow Display → Display | Show Status |
 | A screen design on the panel itself (`displayId`) | Authored LVGL screen |
@@ -96,7 +96,7 @@ feeds it from that source.
 `tftLayout` is a presentation choice within the connected source's treatments;
 it cannot choose another source's content. `transportLayoutForKind` resolves it.
 The TFT Clock treatment was implemented in `fecbc2bb`; it is no longer deferred.
-Show and player templates read a wired RTC Clock whatever its source. An NTP
+Show and player templates read a wired Clock whatever its source. An NTP
 clock brings the sketch's network bootstrap with it (`networkCpp.ts`), over
 Wi-Fi or the wired link the normal sketch would use.
 
@@ -179,7 +179,7 @@ author tags take: a template binding nothing reads every value off the graph and
 is correct on any panel, so the four that do stay reachable, and a panel with no
 source yet gets one ungrouped list rather than a guess. Clock exists partly for
 this: an RTC is the one source ordinary firmware answers for, and without it
-"Mapped to RTC Clock" would have been an empty group.
+"Mapped to Clock" would have been an empty group.
 
 `normalizeDisplaySource` is the import boundary, and deliberately cannot ask
 which source is wired in: a document has no panel in hand, and a design saved
@@ -335,7 +335,7 @@ in independently compiled slices:
    clock. Random and DMX Channel still fail explicitly. The ramp and beatsin
    oscillators are Wave, which follows the control graph's own clock.
 
-   The RTC is the wired RTC Clock node, not a scene-wide clock. Show and player
+   The RTC is the wired Clock node, not a scene-wide clock. Show and player
    graphs emit Compile Time, Manual and DS3231 through the normal sketch's RTC
    loop. Scalar ports are ordinary control outputs, so Schedule Trigger and Math
    can read them. `dateTime` is the value that loop writes; a display reads it
@@ -347,7 +347,7 @@ in independently compiled slices:
    `src/codegen/peripherals/networkCpp.ts` the normal sketch uses (D-03). Two
    NTP clocks emit identical blocks, so the caller's dedupe leaves one.
 
-   DS3231 starts Wire from the node's pins, then the board profile, and the
+   DS3231 starts Wire from the module's pins, then the board profile, and the
    first emitted chip calls `_rtcHandleSerialSet()` once per loop. The templates
    already start Serial, so this path adds no second `Serial.begin`. When a
    power monitor and a DS3231 both ask to start Wire, the control graph keeps
