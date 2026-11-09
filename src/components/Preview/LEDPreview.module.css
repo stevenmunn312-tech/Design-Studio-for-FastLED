@@ -351,6 +351,29 @@
   overflow: hidden;
 }
 
+/* Brief double-click step hint (see flashStageHint in LEDPreview.tsx). */
+.stageHint {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: var(--space-3);
+  transform: translateX(-50%);
+  padding: 4px var(--space-2);
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius-control);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: var(--fs-ui);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.stageHintVisible {
+  opacity: 0.92;
+}
+
 .canvasFrameHeader {
   position: absolute;
   z-index: 2;

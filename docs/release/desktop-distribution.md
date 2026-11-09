@@ -69,6 +69,10 @@ launcher:
 - **Downloads** are allowed (firmware and file exports) and ask where to save.
 - **Browser behaviour kept:** text selection, Ctrl+wheel/pinch zoom, native
   drag, and the default context menu.
+- **Fullscreen:** WebView2 only fills its own control when the page requests
+  fullscreen, so the launcher follows `ContainsFullScreenElementChanged` and
+  takes the whole window borderless over the screen, then restores it
+  (maximized if it was) when the page leaves fullscreen or Esc is pressed.
 - **Second launch** asks the running instance to raise its window
   (`POST /api/desktop/focus`) instead of opening a browser tab.
 - **No console:** output goes to `<data root>\desktop.log`. Every helper

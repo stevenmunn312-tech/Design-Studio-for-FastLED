@@ -248,7 +248,8 @@ def _install_webview_overrides(origin: str) -> None:
     pywebview 6.2.1 hard-wires three choices that break the Studio: every popup
     goes to the default browser (breaking the community share handoff), the
     main window may navigate away from the app, and text-field context menus
-    are disabled. These hooks are pywebview's own event handlers, replaced
+    are disabled. It also ignores the page's Fullscreen API requests, which
+    only fill the web view inside the framed window. These hooks are pywebview's own event handlers, replaced
     before any window exists; ``constraints.txt`` pins the version they were
     written against.
     """
@@ -272,13 +273,27 @@ def _install_webview_overrides(origin: str) -> None:
             return
         original_navigation(self, sender, args)
 
+    def on_fullscreen_element_changed(self, sender, _args):
+        # WebView2 only fills its own control when the page requests element
+        # fullscreen; the host window has to follow, as a browser tab's does.
+        form = self.form
+        wanted = bool(sender.ContainsFullScreenElement)
+        if wanted == getattr(form, "is_fullscreen", False):
+            return
+        form.toggle_fullscreen()
+        if not wanted and getattr(form, "old_state", None) is not None:
+            # pywebview leaves the form Normal; return a maximized window to maximized.
+            form.WindowState = form.old_state
+
     def on_webview_ready(self, sender, args):
         original_ready(self, sender, args)
         if args.IsSuccess:
             sender.CoreWebView2.Settings.AreDefaultContextMenusEnabled = True
+            sender.CoreWebView2.ContainsFullScreenElementChanged += self.on_fullscreen_element_changed
 
     EdgeChrome.on_new_window_request = on_new_window_request
     EdgeChrome.on_navigation_start = on_navigation_start
+    EdgeChrome.on_fullscreen_element_changed = on_fullscreen_element_changed
     EdgeChrome.on_webview_ready = on_webview_ready
 
 

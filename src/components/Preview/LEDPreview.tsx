@@ -77,6 +77,8 @@ const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
 const VU_RAIL_WIDTH = 28
 const STAGE_VU_RAIL_WIDTH = 56
+/** How long the double-click step hint stays up after hover or a step. */
+const STAGE_HINT_MS = 2500
 const VU_COMPOSITION_GUTTER = 22
 const BYTES_PER_MIB = 1024 * 1024
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000
@@ -299,6 +301,16 @@ export default function LEDPreview() {
       : stageFullscreenVisited || stageFullscreenStatus === 'unavailable'
         ? 'Double-click to exit Stage'
         : 'Double-click to go fullscreen'
+  // A native title tooltip stays up while the pointer rests, and fullscreen
+  // hides the cursor so it never moves; this hint shows briefly instead.
+  const [stageHintVisible, setStageHintVisible] = useState(false)
+  const stageHintTimer = useRef<number | undefined>(undefined)
+  const flashStageHint = () => {
+    setStageHintVisible(true)
+    window.clearTimeout(stageHintTimer.current)
+    stageHintTimer.current = window.setTimeout(() => setStageHintVisible(false), STAGE_HINT_MS)
+  }
+  useEffect(() => () => window.clearTimeout(stageHintTimer.current), [])
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const evaluationRunning = useUiStore((s) => s.evaluationRunning)
   // Stage-mode pattern name, derived inside a selector that returns a plain
@@ -1397,9 +1409,18 @@ export default function LEDPreview() {
       <div
         ref={canvasWrapRef}
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
-        onDoubleClick={() => void advanceStagePresentation()}
-        title={stageDoubleClickHint}
+        onDoubleClick={() => {
+          void advanceStagePresentation()
+          flashStageHint()
+        }}
+        onPointerEnter={flashStageHint}
       >
+        <div
+          className={`${styles.stageHint} ${stageHintVisible ? styles.stageHintVisible : ''}`}
+          aria-hidden="true"
+        >
+          {stageDoubleClickHint}
+        </div>
         {import.meta.env.DEV && !stageFullscreen && <DevPerformanceHud />}
         <div className={`${styles.canvasBay} ${combinedVuId ? styles.canvasBayWithVu : ''} ${standaloneVu ? styles.canvasBayVuOnly : ''}`}>
           {combinedVuId && (

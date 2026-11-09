@@ -95,6 +95,45 @@ def test_pinned_pywebview_still_has_the_handlers_the_launcher_replaces():
         assert callable(getattr(edgechromium.EdgeChrome, name)), name
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="pywebview's WebView2 host is Windows-only")
+def test_page_fullscreen_takes_the_whole_window_and_restores_maximized(monkeypatch):
+    edgechromium = pytest.importorskip("webview.platforms.edgechromium")
+    winforms = pytest.importorskip("webview.platforms.winforms")
+    # The launcher drives pywebview's own window toggle.
+    assert callable(winforms.BrowserView.BrowserForm.toggle_fullscreen)
+    for name in ("on_new_window_request", "on_navigation_start", "on_webview_ready"):
+        monkeypatch.setattr(edgechromium.EdgeChrome, name, getattr(edgechromium.EdgeChrome, name))
+    monkeypatch.setattr(edgechromium.EdgeChrome, "on_fullscreen_element_changed", None, raising=False)
+    launcher._install_webview_overrides("http://localhost:8008")
+
+    class Form:
+        is_fullscreen = False
+        old_state = None
+        WindowState = "Maximized"
+
+        def toggle_fullscreen(self):
+            if not self.is_fullscreen:
+                self.old_state = self.WindowState
+            self.WindowState = "Normal"
+            self.is_fullscreen = not self.is_fullscreen
+
+    class Core:
+        ContainsFullScreenElement = True
+
+    host = type("Host", (), {"form": Form()})()
+    changed = edgechromium.EdgeChrome.on_fullscreen_element_changed
+
+    changed(host, Core(), None)
+    assert host.form.is_fullscreen
+    changed(host, Core(), None)  # a repeated event must not toggle back
+    assert host.form.is_fullscreen
+
+    Core.ContainsFullScreenElement = False
+    changed(host, Core(), None)
+    assert not host.form.is_fullscreen
+    assert host.form.WindowState == "Maximized"
+
+
 def test_configure_environment_honours_the_data_dir_override(monkeypatch, tmp_path):
     override = tmp_path / "isolated"
     monkeypatch.setattr(launcher, "install_dir", lambda: tmp_path / "installed")

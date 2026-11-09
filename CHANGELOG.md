@@ -602,6 +602,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Fullscreen Stage in the Windows desktop app fills the screen again. The
+  WebView2 window kept its title bar and the taskbar, because the page's
+  fullscreen only filled the web view; the window now goes borderless over
+  the screen and comes back maximized on Esc or double-click.
+- The preview's "Double-click to …" hint shows for a few seconds on hover or
+  after a step, then fades. It was a native tooltip, which stayed up while
+  the pointer rested, and fullscreen hides the cursor so it never moved.
 - The production build no longer opens to a blank page. Two of its code
   chunks imported each other, so one read the other's values before they
   existed. The chunks are merged, and the build now fails on any such cycle.
