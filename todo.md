@@ -91,13 +91,22 @@ freeze, or drop them.
   bench Network shelf) and drop the fields from every network node, which
   also removes the "nodes disagree" warning. Evidence
   `src/codegen/peripherals/networkCpp.ts:67`, `src/utils/validateGraph.ts:325`.
+  Still open after the 2026-11-10 pass: it touches six node types and their
+  bodies, `networkCredentials.ts` (keyed by node id), `networkSourceIn`,
+  `multiBoardValidation.ts`'s SSID check, the Board's clock-sync fields and
+  every bundled project with a network node, and needs the product call of
+  Board versus a bench Wi-Fi entry. The copy now says "network nodes"
+  rather than "DMX / RTC nodes".
 - [ ] **Category: Move DMX512 and DIN MIDI hardware to bench parts (Med, M).**
   Every other physical input is a bench part with auto-assigned pins, but
   DMX512 and DIN MIDI keep raw pin sliders and a user-picked UART on library
   nodes. Mirror the Audio to Microphone model: bench parts for the RS-485
   transceiver and MIDI wing, UART allocated automatically, and drop
   `dmxPort`/`midiUart`. Evidence `src/nodes/input/definitions.ts:451`,
-  `src/build/hardwareManifest.ts:1502`.
+  `src/build/hardwareManifest.ts:1502`. Still open: it needs bench entries
+  (and verified renders) for the MAX485 board and the MIDI FeatherWing, and a
+  UART allocator. Meanwhile `midiUartValidationIssues` refuses a DIN UART the
+  radar, DMX512, the DFPlayer or a second jack already reads.
 - [ ] **Category: Optionally merge TouchButton and Motion into Button
   (Low, M).** ButtonInput, TouchButtonInput and MotionInput are all one
   digital line, and TouchButton already derives active level from `partId`.
@@ -108,7 +117,11 @@ freeze, or drop them.
   `digitalRead` code). Make Button a bank that starts with one row and offers
   "Add button", so one node and one shelf entry cover both and a single
   button grows without rewiring. Evidence `src/state/player/buttonBank.ts:7`,
-  `src/codegen/controlInputCpp.ts:56`.
+  `src/codegen/controlInputCpp.ts:56`. Still open: retiring `ButtonInput`
+  reaches about 36 source files (player and show firmware bindings, pin
+  retargeting, board links, templates, the deck) and 59 test files. The bench
+  now adds a Button Bank with its first row on a pin
+  (`firstButtonBankRow`), which the merged Button would reuse.
 - [ ] **RTC Clock: Allow a Clock node without a DS3231 (High, M).** RTCInput
   is hidden from the library and the only shelf entries are two DS3231
   modules, yet Compile Time, Manual and NTP need no part (and the Help
@@ -116,11 +129,22 @@ freeze, or drop them.
   they don't own. Apply the Audio pattern: a library "Clock" capability node
   with the time-source choice, where a DS3231 on the bench is one provider.
   Evidence `src/build/hardware.ts:28`, `src/components/Hardware/hardwarePartCatalog.ts:533`.
+  Still open: it is a new capability node (definition, resolver, evaluator
+  and emitter shared with RTCInput, Help, card) plus decisions the item does
+  not settle, such as whether the DS3231 part keeps its own outputs once a
+  Clock node reads it. A bench entry for a module-less clock would need a
+  part render that does not exist.
 - [ ] **RTC Clock: Handle daylight saving time (Med, M).** NTP time is UTC
   plus a fixed minute offset, so clocks and Schedule Triggers are an hour off
   for half the year in DST regions. Offer a region/time-zone picker that
   emits a POSIX TZ string (`configTzTime` on ESP32). Evidence
   `src/state/peripherals/rtc.ts`, `src/codegen/peripherals/rtcInputCpp.ts`.
+  Still open. The shape: a curated zone list mapping labels to POSIX strings;
+  a pure POSIX-rule evaluator for the preview (`Mm.w.d/time` rules) held to
+  `Intl` in tests; `configTzTime` on ESP32 and `configTime(tz, server)` on
+  ESP8266 in the `FLS_NET_SNTP` branch; and a generated rule function for the
+  UNO R4 WiFi branch, which runs its own SNTP and applies the offset itself.
+
 #### Audio and audio-reactive
 
 - [ ] **Category: Expose band and drum sockets on audio patterns (High, S).**
