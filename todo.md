@@ -475,7 +475,15 @@ freeze, or drop them.
 - [ ] **Palette Bank: Accept wired palettes (Low, L).** Only catalogue presets
   can join a bank; Custom, Poline, Image and Harmony palettes cannot. Add
   wired palette slots to make it the general palette switcher. Evidence
-  `src/nodes/color/codegen.ts:181`.
+  `src/nodes/color/codegen.ts:181`. Needs a decision on the port shape first:
+  the node has no variable-count ports, so slots mean either a fixed set
+  (say Palette 1–4) or a new dynamic-port mechanism. A builder's `pal_<id>`
+  is a `loop()` local, so the sketch cannot keep `&pal_<id>` in the static
+  `_pbPal_<id>[]` table; it would copy the selected slot into the working
+  palette each frame, and the preview's entries become `Palette` values
+  (name or 16 stops) rather than names. The bank body, `paletteBankLabel`
+  and the Name output also assume catalogue names. The Index input (now
+  added) already lets any number source pick a slot.
 
 #### Effects and signals
 
