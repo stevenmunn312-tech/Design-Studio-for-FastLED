@@ -523,11 +523,11 @@ describe('StudioNode', () => {
 
   it('runs the HSV → RGB Hue slider to 255 on the 0–255 wheel', () => {
     const degrees = renderNode(makeNode('HSVToRGB', { hueUnits: 'degrees', h: 200 }))
-    expect((degrees.getByLabelText('h value') as HTMLInputElement).max).toBe('360')
+    expect((degrees.getByLabelText('hue value') as HTMLInputElement).max).toBe('360')
     degrees.unmount()
     const bytes = renderNode(makeNode('HSVToRGB', { hueUnits: 'bytes', h: 200 }))
-    expect((bytes.getByLabelText('h value') as HTMLInputElement).max).toBe('255')
-    expect((bytes.getByLabelText('hueUnits value') as HTMLSelectElement).selectedOptions[0].textContent).toBe('0–255 wheel')
+    expect((bytes.getByLabelText('hue value') as HTMLInputElement).max).toBe('255')
+    expect((bytes.getByLabelText('hue units value') as HTMLSelectElement).selectedOptions[0].textContent).toBe('0–255 wheel')
   })
 
   it('keeps the Palette Bank palette list off the generic property rows', () => {

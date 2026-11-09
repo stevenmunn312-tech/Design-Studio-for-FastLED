@@ -1,7 +1,7 @@
 import { asAnimatedImage, asImage } from '../shared/image'
 import { imagePaletteStops16 } from '../../state/palettes/imagePalette'
 import { gradientMixMode } from '../../state/palettes/hueMix'
-import { HARMONY_OFFSETS, harmonyKind } from '../../state/palettes/harmonyPalette'
+import { HARMONY_OFFSETS, harmonyKind, harmonyStopPlace } from '../../state/palettes/harmonyPalette'
 import { hexToRgb, polineStops16 } from '../../state/palettes/polinePalette'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
@@ -164,22 +164,29 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  CRGBPalette16 pal_${id};`)
     ln(`  _polineStops16(pal_${id}, ${anchor('colorA', a)}, ${anchor('colorB', b)}, ${anchor('colorC', c)}, ${Math.floor(Number.isFinite(points) ? points : 4)}, ${polinePositionId(position)});`)
   },
-  // Runs harmonyStopHue's loop on the device so a wired hue keeps the palette
-  // live. CHSV goes through hsv2rgb_spectrum, the plain HSV wheel the
-  // preview's `hsv` draws, so both sides agree to a count or two.
-  HarmonyPalette({ id, p, ln, f }) {
+  // Runs harmonyStops16 on the device so a wired hue keeps the palette live.
+  // Each harmony hue is a band drawn through `_hsv`, the preview's own wheel;
+  // where each stop sits between bands depends only on the harmony, so it is
+  // baked as two tables (harmonyStopPlace). Shade's dip is emitted only while
+  // it can be above 0.
+  HarmonyPalette({ node, id, p, ln, f, incoming, needsHsv }) {
+    needsHsv.v = true
     const offsets = HARMONY_OFFSETS[harmonyKind(p.harmony)]
-    const last = offsets.length - 1
+    const places = Array.from({ length: 16 }, (_, i) => harmonyStopPlace(offsets.length, i))
+    const usesShade = incoming.has(`${node.id}:shade`) || Number(p.shade ?? 0) > 0
+    const float = (x: number) => `${Number.isInteger(x) ? x.toFixed(1) : String(Number(x.toPrecision(7)))}f`
     ln(`  CRGBPalette16 pal_${id};`)
-    ln(`  { static const float _off[${offsets.length}] = {${offsets.map((o) => `${o}.0f`).join(', ')}};`)
+    ln(`  { static const float _off[${offsets.length}] = {${offsets.map(float).join(', ')}};`)
+    ln(`    static const uint8_t _hb[16] = {${places.map((place) => place.band).join(', ')}};`)
+    ln(`    static const float _hm[16] = {${places.map((place) => float(place.mix)).join(', ')}};`)
     ln(`    float _hue = ${f('hue', 'hue', 200)}, _spread = constrain(${f('spread', 'spread', 1)}, 0.0f, 1.0f);`)
-    ln(`    uint8_t _sat = (uint8_t)(constrain(${f('saturation', 'saturation', 1)}, 0.0f, 1.0f) * 255.0f + 0.5f);`)
-    ln(`    uint8_t _val = (uint8_t)(constrain(${f('value', 'value', 1)}, 0.0f, 1.0f) * 255.0f + 0.5f);`)
+    ln(`    float _sat = constrain(${f('saturation', 'saturation', 1)}, 0.0f, 1.0f), _val = constrain(${f('value', 'value', 1)}, 0.0f, 1.0f);`)
+    if (usesShade) ln(`    float _shade = constrain(${f('shade', 'shade', 0)}, 0.0f, 1.0f);`)
+    ln(`    CRGB _band[${offsets.length}];`)
+    ln(`    for (int _j = 0; _j < ${offsets.length}; _j++) _band[_j] = _hsv(_hue + _off[_j] * _spread, _sat, _val);`)
     ln(`    for (int _i = 0; _i < 16; _i++) {`)
-    ln(`      float _pos = _i / 15.0f * ${last}.0f; int _j = min((int)_pos, ${last - 1});`)
-    ln(`      float _h = fmodf(_hue + (_off[_j] + (_off[_j + 1] - _off[_j]) * (_pos - _j)) * _spread, 360.0f);`)
-    ln(`      if (_h < 0.0f) _h += 360.0f;`)
-    ln(`      CRGB _c; hsv2rgb_spectrum(CHSV((uint8_t)(_h * 255.0f / 360.0f + 0.5f), _sat, _val), _c); pal_${id}[_i] = _c; } }`)
+    ln(`      CRGB _a = _band[_hb[_i]], _b = _band[_hb[_i] + 1]; float _m = _hm[_i], _d = ${usesShade ? '1.0f - _shade * (1.0f - fabsf(2.0f * _m - 1.0f))' : '1.0f'};`)
+    ln(`      pal_${id}[_i] = CRGB((uint8_t)floorf((_a.r + (_b.r - _a.r) * _m) * _d + 0.5f), (uint8_t)floorf((_a.g + (_b.g - _a.g) * _m) * _d + 0.5f), (uint8_t)floorf((_a.b + (_b.b - _a.b) * _m) * _d + 0.5f)); } }`)
   },
   PaletteBank({ node, id, p, ln, v, boolExpr, fastledPalette, incoming, nodeMap }) {
     // Only the presets the author ticked are named here, so `usedPalettes`

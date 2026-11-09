@@ -1070,6 +1070,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     saturation: N01,
     value: N01,
     spread: N01,
+    shade: N01,
   },
   PolarGradient: {
     angleOffset: { control: 'slider', min: 0, max: 360, step: 1 },
@@ -2798,10 +2799,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   HarmonyPalette: {
     hue: 'Base hue in degrees; the harmony is built around it.',
-    harmony: 'Which colour-wheel rule picks the other hues: complementary, analogous, triadic and so on.',
+    harmony: 'Which colour-wheel rule picks the other hues: complementary, analogous, triadic and so on. Each hue is held as a band, blended briefly into the next.',
     saturation: 'Colour strength of every stop, 0 (grey) to 1 (pure).',
     value: 'Brightness of every stop, 0 (off) to 1 (full).',
     spread: 'How far the other hues sit from the base: 0 is one hue, 1 is the full harmony.',
+    shade: 'How far the blends between the hue bands dip toward black: 0 keeps every stop at full Brightness, 1 puts a black trough between the hues, which gives a pattern that fills the frame its contrast.',
   },
   PaletteBlend: {
     paletteA: 'First palette. A wired Palette A input replaces it.',
@@ -3614,6 +3616,11 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     mixMode: 'mix',
   },
   Temperature: { kelvin: 'temperature (K)' },
+  // Hue, saturation and brightness read the same on every HSV node; "value"
+  // and single letters are jargon.
+  HSVToRGB: { hueUnits: 'hue units', h: 'hue', s: 'saturation', v: 'brightness' },
+  HueCycle: { s: 'saturation', v: 'brightness' },
+  HarmonyPalette: { hue: 'hue (°)', value: 'brightness' },
   PaletteTransform: { paletteIn: 'palette', blackPoint: 'black point' },
   PaletteGradient: {
     speed: 'scroll',

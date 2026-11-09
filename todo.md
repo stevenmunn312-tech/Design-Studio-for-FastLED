@@ -477,21 +477,6 @@ freeze, or drop them.
   help example is that chain). Add a colour node with hue offset, saturation
   scale and brightness scale, built on the existing `_rgbHue`/`_hsv` helpers.
   Evidence `src/components/HelpModal/reference/color.ts`.
-- [ ] **Category: Unify HSV port naming (Low, S).** Ports read `Hue`/`Sat
-  (0–1)`/`Val (0–1)` on HSV to RGB, `Saturation`/`Value` with no range on Hue
-  Cycle and Harmony Palette, and `H (0–360)`/`S`/`V` on RGB to HSV. Pick one
-  pattern, e.g. "Hue (°)", "Saturation (0–1)", "Brightness (0–1)"; "Value" is
-  jargon. Evidence `src/nodes/color/definitions.ts`.
-- [ ] **Harmony Palette: Make harmonies hold their hues (High, M).** Hue is
-  interpolated linearly between anchor offsets, so complementary sweeps red,
-  orange, yellow, green, cyan and the other kinds are 210–270° rainbow
-  segments; "never clash" is false. Hold each harmony hue as a band with short
-  blends between, in the preview helper and the C++ loop. Evidence
-  `src/state/palettes/harmonyPalette.ts:26`, `src/nodes/color/codegen.ts:161`.
-- [ ] **Harmony Palette: Add a Shade control for a black point (Med, S).**
-  Every stop has the same Value, so full-frame patterns wash out. Add a
-  0–1 "Shade" that dips Value between the hue bands. Evidence
-  `src/state/palettes/harmonyPalette.ts:33`.
 - [ ] **Palette Bank: Seed default palettes (Med, S).** A fresh node has
   `palettes: []`, outputs the fallback and raises a validation warning. Seed
   3–4 contrasting presets so the first Next does something visible. Evidence

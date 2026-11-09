@@ -357,7 +357,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   nearest index, so the board posterised (four-entry plateaus at `points: 1`)
   what the preview blended. `polineStops16` and `_polineStops16` now blend
   the two neighbours of each sample point, found by integer arithmetic so
-  both pick the same pair and weight.
+  both pick the same pair and weight. Harmony Palette holds each harmony
+  hue as a band with a short RGB blend into the next, never interpolating the
+  hue (which turned complementary into a rainbow segment); where each stop
+  sits depends only on the harmony, so the sketch bakes `harmonyStopPlace`
+  as two tables and computes only the band colours, through `_hsv`, at run
+  time.
 - A Palette Bank change blends through a working palette: the sketch keeps a
   static `CRGBPalette16` and calls FastLED's `nblendPaletteTowardPalette`
   with `blend` as `maxChanges`, once per 10 ms of `millis()`, at most 32 steps

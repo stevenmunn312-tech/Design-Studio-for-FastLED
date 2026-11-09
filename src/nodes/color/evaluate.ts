@@ -214,6 +214,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
       num(id, 'saturation', props, 'saturation', 1),
       num(id, 'value', props, 'value', 1),
       num(id, 'spread', props, 'spread', 1),
+      num(id, 'shade', props, 'shade', 0),
     ) }
   },
   // Keep in lockstep with the `PaletteTransform` emitter: entry by entry

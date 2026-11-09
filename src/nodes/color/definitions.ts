@@ -79,8 +79,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Colors',
     inputs: [
       { id: 'rate', label: 'Rate (cycles/s)', dataType: 'float' },
-      { id: 's', label: 'Saturation', dataType: 'float' },
-      { id: 'v', label: 'Value', dataType: 'float' },
+      { id: 's', label: 'Saturation (0–1)', dataType: 'float' },
+      { id: 'v', label: 'Brightness (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { rate: 'rate', s: 's', v: 'v' },
@@ -95,10 +95,12 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     // `hueUnits` reads Hue as degrees (0–360) or as the same plain HSV wheel
     // in 0–255 steps (`bytes`, 85 green, 170 blue), the range CHSV took before
     // it folded in here; it is not CHSV's rainbow wheel. Sat and Val are 0–1.
+    // Ports read Hue / Saturation (0–1) / Brightness (0–1) on every HSV
+    // node; Hue carries no unit here because Hue Units chooses it.
     inputs: [
       { id: 'h', label: 'Hue', dataType: 'float' },
-      { id: 's', label: 'Sat (0–1)', dataType: 'float' },
-      { id: 'v', label: 'Val (0–1)', dataType: 'float' },
+      { id: 's', label: 'Saturation (0–1)', dataType: 'float' },
+      { id: 'v', label: 'Brightness (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { h: 'h', s: 's', v: 'v' },
@@ -122,9 +124,9 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       r: 'r', g: 'g', b: 'b',
     },
     outputs: [
-      { id: 'h', label: 'H (0–360)', dataType: 'float' },
-      { id: 's', label: 'S (0–1)', dataType: 'float' },
-      { id: 'v', label: 'V (0–1)', dataType: 'float' },
+      { id: 'h', label: 'Hue (°)', dataType: 'float' },
+      { id: 's', label: 'Saturation (0–1)', dataType: 'float' },
+      { id: 'v', label: 'Brightness (0–1)', dataType: 'float' },
     ],
     defaultProperties: { r: 0, g: 0, b: 0 },
   },
@@ -207,21 +209,25 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { anchorA: '#1020ff', anchorB: '#ff20a0', anchorC: '#20ffd0', points: 4, position: 'sinusoidal' },
   },
   {
-    // A palette built from a colour-wheel harmony around a base hue. A builder,
-    // like Poline: it names no preset, so it carries no `palette` property.
+    // A palette built from a colour-wheel harmony around a base hue: each
+    // harmony hue held as a band, with short RGB blends between that never
+    // pass through the hues in between, and Shade dipping the blends toward
+    // black (harmonyPalette.ts). A builder, like Poline: it names no preset,
+    // so it carries no `palette` property.
     type: 'HarmonyPalette',
     label: 'Harmony Palette',
     category: 'color',
     subcategory: 'Palettes',
     inputs: [
-      { id: 'hue', label: 'Hue', dataType: 'float' },
-      { id: 'saturation', label: 'Saturation', dataType: 'float' },
-      { id: 'value', label: 'Value', dataType: 'float' },
-      { id: 'spread', label: 'Spread', dataType: 'float' },
+      { id: 'hue', label: 'Hue (°)', dataType: 'float' },
+      { id: 'saturation', label: 'Saturation (0–1)', dataType: 'float' },
+      { id: 'value', label: 'Brightness (0–1)', dataType: 'float' },
+      { id: 'spread', label: 'Spread (0–1)', dataType: 'float' },
+      { id: 'shade', label: 'Shade (0–1)', dataType: 'float' },
     ],
-    propertyInputs: { hue: 'hue', saturation: 'saturation', value: 'value', spread: 'spread' },
+    propertyInputs: { hue: 'hue', saturation: 'saturation', value: 'value', spread: 'spread', shade: 'shade' },
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
-    defaultProperties: { hue: 200, harmony: 'triadic', saturation: 1, value: 1, spread: 1 },
+    defaultProperties: { hue: 200, harmony: 'triadic', saturation: 1, value: 1, spread: 1, shade: 0 },
   },
   {
     type: 'PaletteBlend',
@@ -305,8 +311,8 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   // color
   Color: 'A picked colour as a wireable Color output.',
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
-  HSVToRGB: 'Converts hue/sat/val to an RGB color; hue in degrees or 0–255 steps.',
-  RGBToHSV: 'Converts an RGB color to hue/sat/val.',
+  HSVToRGB: 'Builds a colour from hue, saturation and brightness; hue in ° or 0–255.',
+  RGBToHSV: 'Splits a colour into hue, saturation and brightness.',
   Temperature: 'White point from a colour temperature: 1800 K candle to 9000 K sky.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',

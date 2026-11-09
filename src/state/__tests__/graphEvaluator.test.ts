@@ -2319,6 +2319,40 @@ describe('evaluateGraph', () => {
       expect(harmony({ hue: 90 })).not.toEqual(harmony({ hue: 0 }))
       expect(harmony({ harmony: 'nonsense' })).toEqual(harmony({ harmony: 'triadic' }))
     })
+
+    it('holds each harmony hue as a band instead of sweeping the hues between', () => {
+      const hueOf = ({ r, g, b }: { r: number; g: number; b: number }) => {
+        const max = Math.max(r, g, b), d = max - Math.min(r, g, b)
+        if (d === 0) return null
+        const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+        return h * 60
+      }
+      // Complementary red and cyan once swept orange, yellow and green between.
+      const stops = harmony({ hue: 0, harmony: 'complementary', saturation: 1, value: 1, spread: 1 })
+      for (const stop of stops) {
+        const h = hueOf(stop)
+        if (h !== null) expect(h === 0 || h === 180, JSON.stringify(stop)).toBe(true)
+      }
+      // Each hue is a band: the first and last stops of each end are exact.
+      expect(stops.slice(0, 4).every((c) => c.r === 255 && c.g === 0 && c.b === 0)).toBe(true)
+      expect(stops.slice(12).every((c) => c.r === 0 && c.g === 255 && c.b === 255)).toBe(true)
+      // Triadic holds three bands, the middle one at +120°.
+      const triad = harmony({ hue: 0, harmony: 'triadic', saturation: 1, value: 1, spread: 1 })
+      expect(triad.filter((c) => c.r === 0 && c.g === 255 && c.b === 0).length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('dips the blends between bands toward black with Shade, and leaves the bands alone', () => {
+      const flat = harmony({ hue: 0, harmony: 'complementary', shade: 0 })
+      const shaded = harmony({ hue: 0, harmony: 'complementary', shade: 1 })
+      const sum = (c: { r: number; g: number; b: number }) => c.r + c.g + c.b
+      expect(shaded[0]).toEqual(flat[0])
+      expect(shaded[15]).toEqual(flat[15])
+      // Shade 1 reaches black half way between the bands; the stops nearest
+      // that point keep under a fifth of their light.
+      const darkest = shaded.reduce((best, c, i) => (sum(c) < sum(shaded[best]) ? i : best), 0)
+      expect(sum(shaded[darkest])).toBeLessThan(sum(flat[darkest]) / 5)
+      expect(shaded.every((c, i) => sum(c) <= sum(flat[i]))).toBe(true)
+    })
   })
 
   it('Image samples an uploaded picture to the matrix', () => {

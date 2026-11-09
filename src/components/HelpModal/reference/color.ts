@@ -111,11 +111,11 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
   HueCycle: {
     overview: [
       'Hue Cycle travels round the colour wheel by itself. Rate is how many full turns it makes each second: 0.1 takes ten seconds for a rainbow.',
-      'Saturation and Value set how strong and how bright the colours are; turn Saturation down for pastels.',
+      'Saturation and Brightness set how strong and how bright the colours are; turn Saturation down for pastels.',
     ],
     inputs: {
       rate: 'Turns per second.',
-      s: 'Colour strength, 0 (white) to 1 (pure).',
+      s: 'Saturation: colour strength, 0 (white) to 1 (pure).',
       v: 'Brightness, 0 to 1.',
     },
     outputs: {
@@ -137,7 +137,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   HSVToRGB: {
     overview: [
-      'HSV → RGB builds a colour from hue, saturation and value. Hue is the colour’s place on the wheel; saturation how pure it is; value how bright.',
+      'HSV → RGB builds a colour from hue, saturation and brightness (the V of HSV). Hue is the colour’s place on the wheel; saturation how pure it is; brightness how bright.',
       'Hue can be read in degrees (0 red, 120 green, 240 blue) or as the same wheel in 0–255 steps (0 red, 85 green, 170 blue, 255 back to red). Values past the end wrap round the wheel, so a rising number keeps cycling.',
       'The wheel is the plain HSV one, with its three primaries evenly spaced. FastLED’s CHSV uses its rainbow wheel, which widens yellow, so a CHSV hue ported here lands close to, but not exactly on, the same colour.',
       'It is the usual way to turn a number — an audio hue, a counter, a sensor — into a colour.',
@@ -145,7 +145,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
     inputs: {
       h: 'Hue, in degrees or 0–255 steps depending on Hue Units.',
       s: 'Saturation, 0 (white) to 1 (pure).',
-      v: 'Value, 0 (off) to 1 (full).',
+      v: 'Brightness, 0 (off) to 1 (full).',
     },
     outputs: {
       color: 'The colour.',
@@ -168,8 +168,8 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   RGBToHSV: {
     overview: [
-      'RGB → HSV takes a colour apart into hue (0 to 360), saturation (0 to 1) and value (0 to 1).',
-      'Once a colour is in parts you can change one without the others: rotate the hue to find a complement, lower saturation for a pastel, scale value to dim it, then rebuild it with HSV → RGB.',
+      'RGB → HSV takes a colour apart into hue (0 to 360), saturation (0 to 1) and brightness (0 to 1, the V of HSV).',
+      'Once a colour is in parts you can change one without the others: rotate the hue to find a complement, lower saturation for a pastel, scale brightness to dim it, then rebuild it with HSV → RGB.',
     ],
     inputs: {
       rgb: 'The colour to take apart. Replaces the R, G and B fields.',
@@ -177,7 +177,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
     outputs: {
       h: 'Hue in degrees, 0 to 360.',
       s: 'Saturation, 0 to 1.',
-      v: 'Value (brightness), 0 to 1.',
+      v: 'Brightness, 0 to 1.',
     },
     example: example({
       featured: 'RGBToHSV',
@@ -198,7 +198,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
         'base.color > fade.colorA',
         'rebuild.color > fade.colorB',
       ],
-      explanation: 'RGB → HSV splits the pink into hue, saturation and value. Math adds 180° to the hue only, and HSV → RGB rebuilds the colour with the original saturation and value — its exact complement. Gradient Frame fades from one to the other.',
+      explanation: 'RGB → HSV splits the pink into hue, saturation and brightness. Math adds 180° to the hue only, and HSV → RGB rebuilds the colour with the original saturation and brightness — its exact complement. Gradient Frame fades from one to the other.',
       preview: 'The {output} shows a gradient from hot pink on the left to its complementary green on the right.',
     }),
   },
@@ -364,14 +364,16 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   HarmonyPalette: {
     overview: [
-      'Harmony Palette builds a palette from colour-wheel rules around one base hue: complementary, analogous, triadic, split-complementary or tetradic.',
+      'Harmony Palette builds a palette from colour-wheel rules around one base hue: complementary, analogous, triadic, split-complementary or tetradic. Each hue the rule picks is held as a band, with a short blend into the next that never passes through the hues in between.',
       'Change the base hue and the whole palette moves with it while staying in harmony, which makes it ideal for colours that drift without ever clashing. Spread pulls the extra hues in toward the base.',
+      'Every band has the same brightness, so a pattern that fills the frame can look flat. Shade dips the blends between the bands toward black, giving dark troughs between the hues.',
     ],
     inputs: {
       hue: 'Base hue in degrees.',
       saturation: 'Colour strength of every colour.',
       value: 'Brightness of every colour.',
       spread: 'How far the other hues sit from the base, 0 to 1.',
+      shade: 'How far the blends between the hues dip toward black, 0 to 1.',
     },
     outputs: {
       palette: PALETTE_OUT,
@@ -381,7 +383,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       title: 'Colours that drift but never clash',
       nodes: {
         wander: ['NoiseSignal', { speed: 0.15, min: 0, max: 360 }],
-        harmony: ['HarmonyPalette', { harmony: 'splitComplementary', saturation: 0.9 }],
+        harmony: ['HarmonyPalette', { harmony: 'splitComplementary', saturation: 0.9, shade: 0.5 }],
         lava: ['Blobs', { count: 4, speed: 0.3 }],
       },
       wires: ['wander.value > harmony.hue', 'harmony.palette > lava.paletteIn'],

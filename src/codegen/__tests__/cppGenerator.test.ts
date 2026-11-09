@@ -11,6 +11,7 @@ import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
 import { fourierTable, fourierTableQ } from '../../nodes/shapes/fourierOutline'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
+import { harmonyStopPlace } from '../../state/palettes/harmonyPalette'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1922,7 +1923,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(paldef_ocean,_pgIdx)')
   })
 
-  it('emits Harmony Palette as a runtime CHSV loop over the harmony offsets', () => {
+  it('emits Harmony Palette as runtime hue bands with baked band tables', () => {
     const hp = node('hp', 'HarmonyPalette', 'color', { hue: 40, harmony: 'analogous' })
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
     const cpp = generateCpp([hp, sx, outputNode], [
@@ -1931,8 +1932,21 @@ describe('generateCpp', () => {
     ])
     expect(cpp).toContain('CRGBPalette16 pal_hp;')
     expect(cpp).toContain('static const float _off[3] = {-30.0f, 0.0f, 30.0f};')
-    expect(cpp).toContain('hsv2rgb_spectrum(CHSV(')
+    // Where each stop sits depends only on the harmony, so it is baked.
+    const places = Array.from({ length: 16 }, (_, i) => harmonyStopPlace(3, i))
+    expect(cpp).toContain(`static const uint8_t _hb[16] = {${places.map((place) => place.band).join(', ')}};`)
+    // The bands are the preview's own wheel, not CHSV's.
+    expect(cpp).toContain('_band[_j] = _hsv(_hue + _off[_j] * _spread, _sat, _val);')
+    expect(cpp).not.toContain('hsv2rgb_spectrum')
     expect(cpp).toContain('ColorFromPalette(pal_hp,')
+    // No Shade: no dip emitted.
+    expect(cpp).not.toContain('_shade')
+    const shaded = generateCpp([node('hp', 'HarmonyPalette', 'color', { shade: 0.6 }), sx, outputNode], [
+      edge('e1', 'hp', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(shaded).toContain('float _shade = constrain(0.6, 0.0f, 1.0f);')
+    expect(shaded).toContain('_d = 1.0f - _shade * (1.0f - fabsf(2.0f * _m - 1.0f));')
   })
 
   it('clamps a wired blend amount the way the evaluator does', () => {
