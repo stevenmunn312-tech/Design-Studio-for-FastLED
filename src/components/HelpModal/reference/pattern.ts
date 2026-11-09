@@ -197,7 +197,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         ink: ['Trails', { decay: 0.22 }],
       },
       wires: ['clock.phase > pen.t', 'pen.frame > ink.frame'],
-      explanation: 'Clock’s Phase rises from 0 to 1 once per beat at 40 BPM, so Path sends its point once round the rose every second and a half. Trails keeps the curve drawn behind it.',
+      explanation: 'Tempo Clock’s Phase rises from 0 to 1 once per beat at 40 BPM, so Path sends its point once round the rose every second and a half. Trails keeps the curve drawn behind it.',
       preview: 'The {output} shows a pink rose of petals being drawn and redrawn by a bright moving point.',
     }),
   },

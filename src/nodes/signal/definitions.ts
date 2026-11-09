@@ -149,7 +149,7 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     // BPM from the pulse interval — the same mechanism `tap` uses for manual
     // tap-tempo. `reset` re-zeros phase/bar/subdivision counters.
     type: 'Clock',
-    label: 'Clock',
+    label: 'Tempo Clock',
     category: 'signal',
     inputs: [
       { id: 'tap', label: 'Tap Tempo', dataType: 'bool' },
@@ -200,6 +200,6 @@ export const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   Random: 'Random value in a range, drawn every frame or on each trigger.',
   NoiseSignal: 'Smooth random value drifting between min and max: a noise-driven LFO.',
   ScheduleTrigger: 'Time-of-day window or trigger driven by an RTC Clock’s DateTime.',
-  Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
+  Clock: 'BPM metronome — phase/beat/bar/subdivision pulses; tap tempo, sync and reset.',
   DMXChannel: 'Reads one channel from a raw DMX/Art-Net universe buffer.',
 }

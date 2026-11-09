@@ -413,7 +413,7 @@ scales that clock and a wired speed applies on the next pass; dwell and
 transitions keep elapsed time. In an SD player, root Time/Wave controls use
 elapsed time and remain separate from the track-position clock used to render
 patterns. Time's Delta Time output retains its nominal 1/60-second value.
-Clock, Envelope, Noise LFO and Schedule Trigger share the
+Tempo Clock, Envelope, Noise LFO and Schedule Trigger share the
 normal emitters and keep wall-clock milliseconds, so Master Speed does not
 scale them. A wired RTC Clock of any source can feed a Schedule Trigger and a
 Clock layout; an NTP clock brings the network bootstrap into the build.

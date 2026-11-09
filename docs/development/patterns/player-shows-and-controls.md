@@ -243,7 +243,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   physical contact forwarded through a group input still debounces. Do not add
   a second flattener in a generator. The boundary rules are in
   [graph and nodes](graph-and-nodes.md).
-- Clock, Envelope, Noise LFO and Schedule Trigger share
+- Tempo Clock, Envelope, Noise LFO and Schedule Trigger share
   `signalControlCpp.ts` with normal sketches. They read `millis()`, keep static
   locals keyed by node id, and do not request `_controlTime`, so Master Speed
   does not scale them and the track clock stays put. Clock's firmware reset is

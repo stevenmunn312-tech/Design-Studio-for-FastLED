@@ -129,7 +129,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Non-audio GroupInputs stay unbound and their consumers fall back to their
   properties.
 - Hardware timers use `elapsedT` / `elapsedTick`, matching firmware `millis()`.
-  This includes Interval, Envelope, Clock, Noise LFO, Smooth, Trigger timing,
+  This includes Interval, Envelope, Tempo Clock, Noise LFO, Smooth, Trigger timing,
   Palette Bank buttons/blending, Game of Life, Automaton, image playback,
   Gauge peak hold, and Clock Display stopwatch/timer. Button debounce and
   repeat also use elapsed time, including direct player actions. Animation

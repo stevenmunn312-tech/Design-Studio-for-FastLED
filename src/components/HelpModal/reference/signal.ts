@@ -32,7 +32,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
     overview: [
       'Interval is a metronome. Every Interval seconds its Pulse output is true for exactly one frame — FastLED’s EVERY_N_MILLISECONDS as a node.',
       'Use it wherever something should happen regularly without music: spawn a particle, step a sequence, sample a new random value, advance a palette.',
-      'For musical timing with beats and bars use Clock instead; for a pulse that follows the song use Beat Detect.',
+      'For musical timing with beats and bars use Tempo Clock instead; for a pulse that follows the song use Beat Detect.',
     ],
     outputs: {
       pulse: 'True for one frame every Interval seconds.',
@@ -193,7 +193,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
 
   Clock: {
     overview: [
-      'Clock is a musical metronome. It runs at a BPM and pulses Beat on every beat, Bar on the first beat of each bar, and Subdivision on finer steps within the beat. Phase rises 0 to 1 across each beat.',
+      'Tempo Clock is a musical metronome. For the time of day use RTC Clock. It runs at a BPM and pulses Beat on every beat, Bar on the first beat of each bar, and Subdivision on finer steps within the beat. Phase rises 0 to 1 across each beat.',
       'Tap Tempo sets the BPM from your own taps; Sync locks it to an incoming beat such as Beat Detect’s; Reset restarts the bar. With nothing wired it simply keeps the tempo you set.',
       'It suits shows that run to a known tempo without a microphone — a DJ set at 128 BPM, a dance class, a light show synced by hand.',
     ],
@@ -218,7 +218,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
         strobe: ['BeatFlash', { intensity: 0.8, decay: 0.75, palette: 'party' }],
       },
       wires: ['clock.beat > strobe.beat', 'party.frame > strobe.frame'],
-      explanation: 'Clock ticks at 128 BPM, the tempo of most house music, and every beat fires Beat Flash over a bed of Confetti. The flash sweeps through the party palette as it fades, so each beat lands in a different colour.',
+      explanation: 'Tempo Clock ticks at 128 BPM, the tempo of most house music, and every beat fires Beat Flash over a bed of Confetti. The flash sweeps through the party palette as it fades, so each beat lands in a different colour.',
       preview: 'The {output} shows confetti speckles, flashing brightly a little over twice a second.',
     }),
   },

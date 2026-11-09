@@ -223,7 +223,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
         base: ['RadialBurst', { palette: 'deepsea', speed: 0.3 }],
       },
       wires: ['clock.beat > click.trigger', 'click.out > buzzer.on', 'clock.beat > tempo.beat', 'base.frame > tempo.frame'],
-      explanation: 'Clock beats at 90 BPM. A One Shot Trigger stretches each beat to a 50 ms pulse, which clicks the Buzzer, and the same beat flashes the LED matrix — a metronome you can both hear and see.',
+      explanation: 'Tempo Clock beats at 90 BPM. A One Shot Trigger stretches each beat to a 50 ms pulse, which clicks the Buzzer, and the same beat flashes the LED matrix — a metronome you can both hear and see.',
       preview: 'The {output} flashes warm white on each beat over dark blue rings. The browser is silent; the board clicks in time.',
     }),
   },
