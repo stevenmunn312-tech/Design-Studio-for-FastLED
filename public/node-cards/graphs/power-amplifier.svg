@@ -2617,19 +2617,19 @@
 <g id="lamp-8.81x8.81"><rect x="-3.53" y="-1.94" width="15.86" height="12.69" rx="6.34" fill-opacity="0.34"/><rect width="8.81" height="8.81" rx="1.94"/></g>
 <g id="lamp-8.25x8.25"><rect x="-3.30" y="-1.81" width="14.85" height="11.88" rx="5.94" fill-opacity="0.34"/><rect width="8.25" height="8.25" rx="1.81"/></g>
 </defs>
-<path d="M344,356 C389,356 399,384 444,384" fill="none" stroke="#8533ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M344,356 C389,356 399,384 444,384" fill="none" stroke="#8533ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M344,356 C389,356 399,384 444,384" fill="none" stroke="#8533ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="444" cy="384" r="3" fill="#8533ff"/>
-<path d="M744,384 C789,384 799,444 844,444" fill="none" stroke="#8533ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M744,384 C789,384 799,444 844,444" fill="none" stroke="#8533ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M744,384 C789,384 799,444 844,444" fill="none" stroke="#8533ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="844" cy="444" r="3" fill="#8533ff"/>
+<path d="M344,356 C389,356 399,384 444,384" fill="none" stroke="#8847ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M344,356 C389,356 399,384 444,384" fill="none" stroke="#8847ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M344,356 C389,356 399,384 444,384" fill="none" stroke="#8847ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="444" cy="384" r="3" fill="#8847ea"/>
+<path d="M744,384 C789,384 799,444 844,444" fill="none" stroke="#8847ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M744,384 C789,384 799,444 844,444" fill="none" stroke="#8847ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M744,384 C789,384 799,444 844,444" fill="none" stroke="#8847ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="844" cy="444" r="3" fill="#8847ea"/>
 <g transform="translate(44,304)">
-<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#312751"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#322a4d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="300" height="222" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="300" height="222" rx="8" fill="url(#tint-show)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L292,0 Q300,0 300,8 L300,32 Z" fill="#8533ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L292,0 Q300,0 300,8 L300,32 Z" fill="#8847ea"/>
 <rect x="1" y="32" width="298" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Music Library</text>
 <rect x="195.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -2649,10 +2649,10 @@
 <rect x="0.5" y="0.5" width="299" height="221" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(444,44)">
-<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#312751"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#322a4d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="300" height="649" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="300" height="649" rx="8" fill="url(#tint-show)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L292,0 Q300,0 300,8 L300,32 Z" fill="#8533ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L292,0 Q300,0 300,8 L300,32 Z" fill="#8847ea"/>
 <rect x="1" y="32" width="298" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Performance Genera…</text>
 <rect x="195.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -2952,10 +2952,10 @@
 <rect x="0.5" y="0.5" width="299" height="648" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(44,764)">
-<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#372946"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="100" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="100" rx="8" fill="url(#tint-output)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d633ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#c947ea"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Power Amplif…</text>
 <rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -2973,10 +2973,10 @@
 <rect x="0.5" y="0.5" width="239" height="99" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(844,124)">
-<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#372946"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="280" height="539" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="280" height="539" rx="8" fill="url(#tint-output)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L272,0 Q280,0 280,8 L280,32 Z" fill="#d633ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L272,0 Q280,0 280,8 L280,32 Z" fill="#c947ea"/>
 <rect x="1" y="32" width="278" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">LED Matrix</text>
 <rect x="175.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
