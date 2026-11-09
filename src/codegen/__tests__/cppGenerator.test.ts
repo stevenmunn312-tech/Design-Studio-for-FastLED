@@ -1759,6 +1759,8 @@ describe('generateCpp', () => {
     const am = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'Automaton', 'field', props), node('f', 'FieldToFrame', 'pattern', {}), outputNode], [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame')])
     const elem = am()
     expect(elem).toContain('static uint8_t _am_nc[NUM_LEDS]')
+    expect(elem).toContain('_am_now+=_sp*(float)(_now-_am_nt)*0.001f; _am_nt=_now;')
+    expect(elem).toContain('if(_am_now>=0.999999f){ _am_now=fminf(1.0f,_am_now-1.0f); _am_nk++;')
     expect(elem).toContain('_am_nc[WIDTH/2]=1;')
     expect(elem).toContain('_row[_x]=(_rule>>(')
     expect(elem).not.toContain('_dy')

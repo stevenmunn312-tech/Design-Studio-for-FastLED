@@ -837,10 +837,6 @@ freeze, or drop them.
   1x to 2x is about 1.6% of the travel, so flying into the Mandelbrot is
   impractical. Expose zoom as an exponent (zoom = 2^z, z 0-6) or add a log
   slider kind; `PropertyControl` has none. `src/state/nodeLibrary.ts:1506`, `:410`.
-- [ ] **Automaton: Accumulate fractional steps in preview (Low, S).** Preview
-  quantises speed to whole 60-tick intervals (31-40 all run 30 steps/s) while
-  firmware uses `1000/speed` ms. Accumulate fractional steps on the clock.
-  `src/state/evaluator/automaton.ts:31`, `src/nodes/field/codegen.ts:392`.
 - [ ] **Field -> Frame: Add a wireable palette offset (Low, S).** Colour
   cycling today needs a Palette plus Palette Transform into `paletteIn`.
   Needs a decision first: Field -> Frame reads a field as an amount (1 is the

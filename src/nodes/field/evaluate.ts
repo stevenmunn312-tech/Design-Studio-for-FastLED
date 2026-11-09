@@ -15,7 +15,7 @@ import {
 import { fractalSampler, fractalType } from '../../state/evaluator/fractal'
 import { normalizedSeed, seededRandom, seededRngState, seedOffset } from '../../state/evaluator/random'
 import {
-  SAND_SPAWN_RATE, automatonInterval, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
+  SAND_SPAWN_RATE, automatonStepDue, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
   sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand, type AutomatonType,
 } from '../../state/evaluator/automaton'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
@@ -407,14 +407,14 @@ function evalWaveSim(
 // One byte per cell; the steps live in state/evaluator/automaton.ts.
 interface AutomatonState {
   cells: Uint8Array; next: Uint8Array; w: number; h: number; type: string; seed: number
-  lastStep: number; prevReset: boolean; stepCount: number
+  clock: { owed: number; last: number }; prevReset: boolean; stepCount: number
 }
 const fluidState = instanceState('fluidState', new Map<string, FluidState>())
 const automatonState = instanceState('automatonState', new Map<string, AutomatonState>())
 
 function evalAutomaton(
   nodeId: string, type: AutomatonType, rule: number, states: number, threshold: number, spawn: number, speed: number,
-  reset: boolean, tick: number, seed: number, W = DEFAULT_W, H = DEFAULT_H,
+  reset: boolean, now: number, seed: number, W = DEFAULT_W, H = DEFAULT_H,
 ): Field {
   const N = W * H
   const key = `${nodeId}:auto`
@@ -429,14 +429,13 @@ function evalAutomaton(
   let s = automatonState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.type !== type || s.seed !== seed) {
     seededRngState.delete(key)
-    s = { cells: new Uint8Array(N), next: new Uint8Array(N), w: W, h: H, type, seed, lastStep: -1e9, prevReset: reset, stepCount: 0 }
+    s = { cells: new Uint8Array(N), next: new Uint8Array(N), w: W, h: H, type, seed, clock: { owed: 1, last: now }, prevReset: reset, stepCount: 0 }
     fill(s)
     automatonState.set(nodeId, s)
   } else if (reset && !s.prevReset) fill(s)
   s.prevReset = reset
 
-  if (tick - s.lastStep >= automatonInterval(speed)) {
-    s.lastStep = tick
+  if (automatonStepDue(s.clock, speed, now)) {
     s.stepCount++
     if (type === 'elementary') stepElementary(s.cells, W, H, rule)
     else if (type === 'cyclic') { stepCyclic(s.cells, s.next, W, H, states, threshold); [s.cells, s.next] = [s.next, s.cells] }
@@ -856,12 +855,12 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = sample(x, y)
     return { field: out }
   },
-  Automaton({ input, num, elapsedTick: tick, W, H, stateKey }, id, props) {
+  Automaton({ input, num, elapsedTick, W, H, stateKey }, id, props) {
     const type = automatonType(props.automatonType)
     return {
       field: evalAutomaton(
         stateKey(id), type, elementaryRule(num(id, 'rule', props, 'rule', 90)), cyclicStates(props.states), cyclicThreshold(props.threshold),
-        num(id, 'spawn', props, 'spawn', 0.5), num(id, 'speed', props, 'speed', 8), Boolean(input(id, 'reset', false)), tick,
+        num(id, 'spawn', props, 'spawn', 0.5), num(id, 'speed', props, 'speed', 8), Boolean(input(id, 'reset', false)), elapsedTick / 60,
         normalizedSeed(props.seed), W, H,
       ),
     }

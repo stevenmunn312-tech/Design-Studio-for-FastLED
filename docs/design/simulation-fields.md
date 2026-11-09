@@ -77,8 +77,10 @@ keeps two buffers (`Automaton: 2`).
 | `brianBrain` | Off becomes on with exactly two on neighbours, on becomes dying, dying becomes off. Encoded 0, 1, 2 for off, dying, on. |
 | `sand` | Grains fall, slide down a diagonal chosen by the parity of `x + y + step`, and pile. Half a full top row clears it. |
 
-The output is `state / (states − 1)`. It steps at `speed` a second. The preview
-counts frames and the sketch counts `millis()`, the way Game of Life does. A
+The output is `state / (states − 1)`. It steps at `speed` a second: the steps
+owed accumulate on the clock (`automatonStepDue`, frames in the preview,
+`millis()` in the sketch) and a frame takes at most one, so 35 a second is 35
+rather than the 30 that whole-frame intervals gave. A
 rising `reset` restarts it, and so does a change of canvas size.
 
 ## Digital Rain, Gauge and the classics (pattern)

@@ -17,7 +17,7 @@ import { BLUR_RADIUS, GRADIENT_REPEAT, gradientRepeat, gradientType, gradientWra
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
 import {
-  AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
+  AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_STEP_DUE, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
 } from '../../state/evaluator/automaton'
 import {
   FLUID_BUOYANCY_GAIN, FLUID_FORCE_GAIN, FLUID_INJECT_VY, FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN, FLUID_PUFF_SPEED, FLUID_VEL_OUT,
@@ -388,7 +388,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     // Neighbour count of state `want` on the torus, for cyclic and Brian's Brain.
     const count = (want: string) => `int _nb=0; for(int _dy=-1;_dy<=1;_dy++) for(int _dx=-1;_dx<=1;_dx++){ if(!_dx&&!_dy) continue; if(${A}c[((_y+_dy+HEIGHT)%HEIGHT)*WIDTH+((_x+_dx+WIDTH)%WIDTH)]==${want}) _nb++; }`
     ln(`  { // Automaton (${type})`)
-    ln(`    static uint8_t ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}init=false, ${A}pr=false; static uint32_t ${A}t=0, ${A}k=0;`)
+    ln(`    static uint8_t ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}init=false, ${A}pr=false; static uint32_t ${A}t=0, ${A}k=0; static float ${A}ow=1.0f;`)
     if (seed) ln(`    static bool ${A}sd=false; if(!${A}sd){ random16_set_seed(${seed}u); ${A}sd=true; }`)
     ln(`    auto _fill=[&](){ memset(${A}c,0,sizeof(${A}c)); ${A}k=0;`)
     if (type === 'elementary') ln(seed ? `      for(int _x=0;_x<WIDTH;_x++) ${A}c[_x]=random8()<128?1:0;` : `      ${A}c[WIDTH/2]=1;`)
@@ -396,10 +396,12 @@ export const FIELD_EMITTERS: NodeEmitters = {
     else if (type === 'brianBrain') ln(`      for(int _i=0;_i<NUM_LEDS;_i++) ${A}c[_i]=random8()<38?2:0;`)
     ln(`    };`)
     ln(`    bool _rs=(${boolExpr(node.id, 'reset')});`)
-    ln(`    if(!${A}init){ _fill(); ${A}init=true; } else if(_rs&&!${A}pr) _fill();`)
+    ln(`    if(!${A}init){ _fill(); ${A}init=true; ${A}t=millis(); } else if(_rs&&!${A}pr) _fill();`)
     ln(`    ${A}pr=_rs;`)
+    // automatonStepDue: steps owed accumulate on the clock, one a frame at most.
     ln(`    float _sp=constrain(${f('speed', 'speed', 8)},${floatLit(AUTOMATON_SPEED_MIN)},${floatLit(AUTOMATON_SPEED_MAX)});`)
-    ln(`    if(millis()-${A}t>=(uint32_t)(1000.0f/_sp)){ ${A}t=millis(); ${A}k++;`)
+    ln(`    uint32_t _now=millis(); ${A}ow+=_sp*(float)(_now-${A}t)*0.001f; ${A}t=_now;`)
+    ln(`    if(${A}ow>=${floatLit(AUTOMATON_STEP_DUE, 6)}){ ${A}ow=fminf(1.0f,${A}ow-1.0f); ${A}k++;`)
     if (type === 'elementary') {
       ln(`      uint8_t _rule=(uint8_t)constrain((int)floorf(${f('rule', 'rule', 90)}),0,255), _row[WIDTH];`)
       ln(`      for(int _x=0;_x<WIDTH;_x++) _row[_x]=(_rule>>(${A}c[(_x-1+WIDTH)%WIDTH]*4+${A}c[_x]*2+${A}c[(_x+1)%WIDTH]))&1;`)
