@@ -51,8 +51,8 @@ export const BAKE_TIME_PROPERTIES: Record<string, readonly string[]> = {
   PerformanceGenerator: [
     'beatIntensity',
     'energySensitivity',
-    'transitionDuration',
-    'patternHold',
+    'transitionSec',
+    'minTime',
     'paletteMode',
     'fixedPalette',
     'useGroupInputs',

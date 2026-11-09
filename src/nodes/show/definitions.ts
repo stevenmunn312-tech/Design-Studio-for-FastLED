@@ -332,8 +332,10 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       beatIntensity:      0.8,
       energySensitivity:  0.7,
-      transitionDuration: 0.5,
-      patternHold:        10,
+      // The Music Player's names: the shortest hold is Min Time, the change
+      // is Transition, on all three show engines.
+      transitionSec:      0.5,
+      minTime:            10,
       paletteMode:        'mood',
       fixedPalette:       'rainbow',
       useGroupInputs:     true,

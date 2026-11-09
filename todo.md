@@ -1193,15 +1193,6 @@ freeze, or drop them.
 
 #### Outputs and shows
 
-- [ ] **Category: Unify show-engine timing names and labels (Med, S).** Music
-  Player and Pattern Slideshow use `minTime`/`maxTime`/`transitionSec` with
-  ports "Min Time"/"Max Time"/"Transition", but the fields read "min hold
-  (s)"/"max hold (s)"/"fade (s)", and "fade" is wrong when a Transition Pool
-  picks iris or cube. Performance Generator uses `patternHold`/
-  `transitionDuration`, and Sequencer and Slideshow use `interval`/`fade`.
-  Before v1.0.0 settle on one name per concept and one label style (Music
-  Player also mixes Title Case with lower case). Evidence
-  `src/state/nodeLibrary.ts:3335`, `src/nodes/show/definitions.ts:331`.
 - [ ] **Category: Test that every live player/show input reaches firmware
   (Med, M).** `LIVE_PLAYER_SHOW_PROPERTIES` declares ports as verified live
   inputs, but nothing checks the generated sketch. Add a test that walks the

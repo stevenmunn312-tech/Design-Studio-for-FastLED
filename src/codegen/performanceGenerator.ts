@@ -328,11 +328,11 @@ function detectSilences(
 
 export interface PerformanceOptions {
   beatIntensity:      number   // 0-1, how aggressive beat flashes are
-  transitionDuration: number   // seconds
+  transitionSec:      number   // seconds a pattern change takes
   paletteMode:        'mood' | 'fixed' | 'cycle'
   fixedPalette?:      string
   energySensitivity:  number   // 0-1
-  patternHold:        number   // minimum seconds to hold a pattern before a beat-aligned switch
+  minTime:            number   // minimum seconds to hold a pattern before a beat-aligned switch
 }
 
 // ── Beat-aligned switch scheduling ────────────────────────────────────────────
@@ -409,19 +409,19 @@ export function performanceOptionsFromProperties(properties: Record<string, unkn
   return {
     beatIntensity: clamp(properties.beatIntensity, 0.8, 0, 1),
     energySensitivity: clamp(properties.energySensitivity, 0.7, 0, 1),
-    transitionDuration: clamp(properties.transitionDuration, 0.5, 0.1, 3),
+    transitionSec: clamp(properties.transitionSec, 0.5, 0.1, 3),
     paletteMode,
     fixedPalette,
-    patternHold: clamp(properties.patternHold, 10, 1, 30),
+    minTime: clamp(properties.minTime, 10, 1, 30),
   }
 }
 
 const DEFAULT_OPTIONS: PerformanceOptions = {
   beatIntensity:      0.8,
-  transitionDuration: 0.5,
+  transitionSec:      0.5,
   paletteMode:        'mood',
   energySensitivity:  0.7,
-  patternHold:        10,
+  minTime:            10,
 }
 
 // A full-frame white blend reads much brighter than a coloured particle accent
@@ -527,7 +527,7 @@ export function generateShow(
 
   // ── 1. Section-level events ───────────────────────────────────────────────
   const beats = analysis.beats.timestamps
-  const minHoldMs = opts.patternHold * 1000
+  const minHoldMs = opts.minTime * 1000
   // Higher energy sensitivity → lower surge threshold → more mid-section switches.
   const surgeThreshold = 0.35 - opts.energySensitivity * 0.15
   const surges = detectEnergySurges(analysis.energy, surgeThreshold)
@@ -546,7 +546,7 @@ export function generateShow(
       ? choosePalette(section.energy, analysis.mood.valence)
       : basePalette
 
-    // Pattern switches: hold each pattern at least `patternHold` seconds, then
+    // Pattern switches: hold each pattern at least `minTime` seconds, then
     // switch on the next beat (holding a little longer to sync with the music),
     // plus an extra switch on any significant energy surge within the section.
     // Section boundaries always switch (drops/choruses are their own sections).
@@ -564,12 +564,12 @@ export function generateShow(
       if (!firstSwitch && (useCollection ? index === prevIdx : name === prevName)) continue
       // The TRANSITION and the incoming SET_PATTERN share the instant `st`: the
       // transition (ordered first) marks the crossfade's *start*, over which the
-      // new pattern blends in across `transitionDuration`.
+      // new pattern blends in across `transitionSec`.
       if (!firstSwitch) {
         const from = k === 0 ? (prevSectionType ?? section.type) : section.type
         push(st, 'TRANSITION', {
           type: chooseTransition(from, section.type, extraTransitions),
-          duration: opts.transitionDuration,
+          duration: opts.transitionSec,
         })
       }
       push(st, 'SET_PATTERN', useCollection ? { index: index! } : { name: name! })

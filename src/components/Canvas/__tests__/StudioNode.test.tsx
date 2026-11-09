@@ -1426,7 +1426,7 @@ describe('StudioNode', () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,
       energySensitivity: 0.7,
-      transitionDuration: 0.5,
+      transitionSec: 0.5,
       paletteMode: 'mood',
       fixedPalette: 'rainbow',
     })
@@ -1460,7 +1460,7 @@ describe('StudioNode', () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,
       energySensitivity: 0.7,
-      transitionDuration: 0.5,
+      transitionSec: 0.5,
       paletteMode: 'mood',
       fixedPalette: 'rainbow',
     })

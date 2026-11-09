@@ -381,7 +381,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         music: ['MusicLibrary'],
         patterns: ['PatternCollection'],
         transitions: ['TransitionSet'],
-        generator: ['PerformanceGenerator', { paletteMode: 'mood', patternHold: 8 }],
+        generator: ['PerformanceGenerator', { paletteMode: 'mood', minTime: 8 }],
       },
       wires: ['music.music > generator.music', 'patterns.patternset > generator.patternset', 'transitions.transitions > generator.transitions'],
       explanation: 'Performance Generator plans a show for every song in the Music Library, choosing among your collected patterns for each section, holding each for at least eight seconds, and moving between them with styles from the Transition Pool.',

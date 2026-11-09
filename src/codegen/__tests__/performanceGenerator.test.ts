@@ -63,16 +63,16 @@ describe('performanceOptionsFromProperties', () => {
     expect(performanceOptionsFromProperties({
       beatIntensity: 2,
       energySensitivity: -1,
-      transitionDuration: 9,
+      transitionSec: 9,
       paletteMode: 'fixed',
       fixedPalette: 'ice',
     })).toEqual({
       beatIntensity: 1,
       energySensitivity: 0,
-      transitionDuration: 3,
+      transitionSec: 3,
       paletteMode: 'fixed',
       fixedPalette: 'ice',
-      patternHold: 10,
+      minTime: 10,
     })
   })
 
@@ -183,7 +183,7 @@ describe('generateShow — collection vs enum patterns', () => {
     // gives real variety. (No beats past 2s in this fixture, so switches fall
     // back to plain time-based, which is what makes the count deterministic.)
     const ids = ['g0', 'g1', 'g2']
-    const show = generateShow(longAnalysis, { patternHold: 5 }, ids)
+    const show = generateShow(longAnalysis, { minTime: 5 }, ids)
     const setPatterns = show.events.filter((e) => e.cmd === 'SET_PATTERN')
     expect(setPatterns).toHaveLength(4)
     // No two consecutive slots repeat the same pattern.
@@ -195,7 +195,7 @@ describe('generateShow — collection vs enum patterns', () => {
   })
 
   it('cycles enum patterns too, avoiding immediate repeats', () => {
-    const setPatterns = generateShow(longAnalysis, { patternHold: 5 }).events.filter((e) => e.cmd === 'SET_PATTERN')
+    const setPatterns = generateShow(longAnalysis, { minTime: 5 }).events.filter((e) => e.cmd === 'SET_PATTERN')
     expect(setPatterns.length).toBeGreaterThan(1)
     for (let i = 1; i < setPatterns.length; i++) {
       expect(setPatterns[i].params.name).not.toBe(setPatterns[i - 1].params.name)
@@ -249,7 +249,7 @@ describe('generateShow — collection vs enum patterns', () => {
 
   it('does not cycle when only one pattern is available for the section', () => {
     // One pattern in the collection → nothing to switch to, even in a long section.
-    const setPatterns = generateShow(longAnalysis, { patternHold: 5 }, ['solo']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    const setPatterns = generateShow(longAnalysis, { minTime: 5 }, ['solo']).events.filter((e) => e.cmd === 'SET_PATTERN')
     expect(setPatterns).toHaveLength(1)
     expect(setPatterns[0].params.index).toBe(0)
   })
@@ -264,7 +264,7 @@ describe('generateShow — collection vs enum patterns', () => {
       beats: { timestamps: beatsArr, bpm: 120, confidence: 0.9 },
       sections: [{ startMs: 0, endMs: 30000, type: 'drop', energy: 0.9 }],
     }
-    const setPatterns = generateShow(beatSong, { patternHold: 5 }, ['x', 'y']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    const setPatterns = generateShow(beatSong, { minTime: 5 }, ['x', 'y']).events.filter((e) => e.cmd === 'SET_PATTERN')
     expect(setPatterns[0].t).toBe(0)                      // first is a plain cut-in
     for (let i = 1; i < setPatterns.length; i++) {
       expect(beatsArr).toContain(setPatterns[i].t)        // lands on a beat
@@ -285,8 +285,8 @@ describe('generateShow — collection vs enum patterns', () => {
       energy,
       sections: [{ startMs: 0, endMs: 30000, type: 'chorus', energy: 0.7 }],
     }
-    const withSurge = generateShow(surgeSong, { patternHold: 10 }, ['x', 'y', 'z']).events.filter((e) => e.cmd === 'SET_PATTERN')
-    const noSurge = generateShow({ ...surgeSong, energy: [] }, { patternHold: 10 }, ['x', 'y', 'z']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    const withSurge = generateShow(surgeSong, { minTime: 10 }, ['x', 'y', 'z']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    const noSurge = generateShow({ ...surgeSong, energy: [] }, { minTime: 10 }, ['x', 'y', 'z']).events.filter((e) => e.cmd === 'SET_PATTERN')
     expect(withSurge.length).toBeGreaterThan(noSurge.length)
     expect(withSurge.some((e) => e.t === 15000)).toBe(true)
   })

@@ -47,7 +47,7 @@ the pipeline it merges with.
 
 - `PerformanceGenerator` node ([nodeLibrary.ts](../../src/state/nodeLibrary.ts)):
   `inputs: [songs]`, `outputs: [shows]`; properties `beatIntensity`,
-  `energySensitivity`, `transitionDuration`, `paletteMode`, `fixedPalette`.
+  `energySensitivity`, `transitionSec`, `paletteMode`, `fixedPalette`.
 - `generateShow(analysis, options)` ([performanceGenerator.ts](../../src/codegen/performanceGenerator.ts))
   emits a sorted `ShowEvent[]`: `SET_PATTERN` / `SET_PALETTE` / `SET_SPEED` /
   `SET_BRIGHTNESS` / `BEAT_FLASH` / `TRANSITION`. Pattern names come from
