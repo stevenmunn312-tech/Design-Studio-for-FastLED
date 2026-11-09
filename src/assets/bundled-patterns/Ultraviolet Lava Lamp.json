@@ -346,7 +346,7 @@
      "category": "pattern",
      "properties": {
       "speed": 0.45,
-      "scale": 0.6,
+      "size": 0.6,
       "count": 4,
       "palette": "ultraviolet"
      },
@@ -357,7 +357,7 @@
        "dataType": "float"
       },
       {
-       "id": "scale",
+       "id": "size",
        "label": "Size",
        "dataType": "float"
       },
@@ -665,7 +665,7 @@
     "source": "swell",
     "sourceHandle": "result",
     "target": "lava",
-    "targetHandle": "scale",
+    "targetHandle": "size",
     "type": "glowEdge",
     "reconnectable": "target"
    },

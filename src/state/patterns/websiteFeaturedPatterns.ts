@@ -432,7 +432,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
       studioNode('react', 'ReactionDiffusion', -460, 40, {
         feed: 0.05,
         kill: 0.061,
-        speed: 4,
+        steps: 4,
         seed: 111,
       }),
       studioNode('blur', 'Blur2D', -140, 40, { amount: 0.06 }),

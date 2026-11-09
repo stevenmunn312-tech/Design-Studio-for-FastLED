@@ -416,7 +416,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.RadialBurst)
-    const rings = f('arms', 'arms', 8)
+    const rings = f('rings', 'rings', 8)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { float _spd=${speed},_rings=max(1.0f,min(32.0f,${rings}));`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
@@ -443,7 +443,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   Blobs({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
-    const speed = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Blobs), scale = rateCpp(f('scale', 'scale', 0.44), SCALE_MAX.Blobs)
+    const speed = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Blobs), scale = rateCpp(f('size', 'size', 0.44), SCALE_MAX.Blobs)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // Blobs (metaballs)`)
     // blobSpan: the shorter side, or the length of a string.

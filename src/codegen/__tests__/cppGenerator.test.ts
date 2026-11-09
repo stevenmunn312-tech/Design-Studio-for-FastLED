@@ -2169,7 +2169,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a Gray-Scott reaction-diffusion simulation', () => {
-    const rd = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
+    const rd = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, steps: 8, palette: 'ocean' })
     const cpp = generateCpp([rd, outputNode], [edge('e', 'rd', 'out', 'frame', 'frame')])
     expect(cpp).toContain('static float _u_rd[NUM_LEDS]')
     expect(cpp).toContain('::memcpy(_u_rd,_un_rd,sizeof(_u_rd))')
@@ -2177,7 +2177,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a Blobs metaball field', () => {
-    const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.22, count: 3, palette: 'lava' })
+    const b = node('b', 'Blobs', 'pattern', { speed: 0.6, size: 0.22, count: 3, palette: 'lava' })
     const cpp = generateCpp([b, outputNode], [edge('e', 'b', 'out', 'frame', 'frame')])
     // Sized by the shorter side, or by the length of a string (blobSpan).
     expect(cpp).toContain('_r=(constrain((0.22), 0.0f, 1.0f) * 0.500f)*(min(WIDTH,HEIGHT)>2?min(WIDTH,HEIGHT):max(WIDTH,HEIGHT))')
@@ -3759,11 +3759,11 @@ describe('Formula Field codegen', () => {
 })
 
 describe('generateCpp — RadialBurst', () => {
-  it('uses the compatible arms port as live ring density', () => {
+  it('uses the Rings port as live ring density', () => {
     const density = node('density', 'Random', 'signal', { min: 2, max: 12 })
     const radial = node('radial', 'RadialBurst', 'pattern', {})
     const cpp = generateCpp([density, radial, outputNode], [
-      edge('densityEdge', 'density', 'radial', 'value', 'arms'),
+      edge('densityEdge', 'density', 'radial', 'value', 'rings'),
       edge('outEdge', 'radial', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('_rings=max(1.0f,min(32.0f,n_density_value))')

@@ -206,7 +206,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Warp starfield — stars streak outward from the centre.
+    // Warp starfield — single-pixel stars fly outward from the centre.
     type: 'Starfield',
     label: 'Starfield',
     category: 'pattern',
@@ -261,15 +261,15 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'feed', label: 'Feed', dataType: 'float' },
       { id: 'kill', label: 'Kill', dataType: 'float' },
-      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'steps', label: 'Steps', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { feed: 'feed', kill: 'kill', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { feed: 'feed', kill: 'kill', steps: 'steps', palette: 'paletteIn' },
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
-    defaultProperties: { rdPreset: 'custom', ...REACTION_DIFFUSION_RATES.coral, speed: 8, palette: 'ocean', seed: 0 },
+    defaultProperties: { rdPreset: 'custom', ...REACTION_DIFFUSION_RATES.coral, steps: 8, palette: 'ocean', seed: 0 },
   },
   {
     // Conway's Game of Life with fading trails; reseeds when it stagnates.
@@ -291,11 +291,11 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
 export const SIMULATIONS_DESCRIPTIONS: Record<string, string> = {
   Fire: 'Rising fire: the classic flame, a smoky one, or FastLED Fire2012.',
   Particles: 'Twenty particle displays: weather, fireworks, trails, orbits, and more.',
-  FormulaPoints: 'Curated point generator: phyllotaxis, Lissajous/rose, logistic map, attractor.',
+  FormulaPoints: 'Points by formula: phyllotaxis, Lissajous/rose, logistic map, de Jong attractor.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   StringParticles: 'Particles on one line: a string, a column or an LED ring.',
   Ripple: 'Ripples that travel the edges of a segment network, turning at each node.',
-  Starfield: 'Warp starfield — stars streak outward from the centre.',
+  Starfield: 'Warp starfield — stars fly outward from the centre, brightening as they near.',
   Boids: 'Flocking swarm — agents steer by separation, alignment and cohesion.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes, with named presets.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',

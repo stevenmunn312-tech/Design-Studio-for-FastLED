@@ -645,7 +645,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'RadialBurst',
       title: 'Ripples spreading on a still pond',
       nodes: {
-        ripples: ['RadialBurst', { palette: 'ocean', arms: 5, speed: 0.35 }],
+        ripples: ['RadialBurst', { palette: 'ocean', rings: 5, speed: 0.35 }],
       },
       explanation: 'Radial Burst alone, with five rings in the ocean palette moving slowly: ripples spreading from a stone dropped in the middle of a pond.',
       preview: 'The {output} shows blue rings expanding steadily from the centre.',
@@ -677,7 +677,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Blobs',
       title: 'A lava lamp',
       nodes: {
-        lamp: ['Blobs', { count: 5, scale: 0.4, speed: 0.25, palette: 'lava' }],
+        lamp: ['Blobs', { count: 5, size: 0.4, speed: 0.25, palette: 'lava' }],
       },
       output: MATRIX(12, 20),
       explanation: 'Blobs with five metaballs in the lava palette, on a tall matrix shaped like a lamp: blobs drift, merge and separate slowly.',
@@ -724,7 +724,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   FormulaPoints: {
     overview: [
-      'Formula Points places dots with a mathematical formula: phyllotaxis (the sunflower spiral), Lissajous and rose paths, the logistic map, or a de Jong strange attractor.',
+      'Formula Points places dots with a mathematical formula: phyllotaxis (the sunflower spiral), Lissajous and rose paths, the logistic map, or a de Jong strange attractor (its Attractor formula, a different thing from the Particles display).',
       'Only the knobs the chosen formula uses are enabled. Trail sets how long the paths and the attractor linger, and colour comes from the palette by dot or by position.',
     ],
     example: example({
@@ -799,7 +799,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Starfield: {
     overview: [
-      'Starfield flies through space: stars stream outward from the centre, faster and brighter as they come close. Speed sets the warp, Count the number of stars.',
+      'Starfield flies through space: single-pixel stars fly outward from the centre, faster and brighter as they come close. Speed sets the warp, Count the number of stars. For streaks, follow it with Trails.',
       'Colour comes from the palette by depth: distant stars take its start, near stars its end.',
     ],
     example: example({
@@ -810,7 +810,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       },
       output: MATRIX(24, 16),
       explanation: 'Starfield at warp speed with 140 stars in the arctic palette, on a wide panel like a cockpit window.',
-      preview: 'The {output} shows white-blue stars streaking outward from the centre.',
+      preview: 'The {output} shows white-blue stars flying outward from the centre.',
     }),
   },
 
@@ -838,7 +838,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   ReactionDiffusion: {
     overview: [
       'Reaction Diffusion simulates two chemicals reacting and spreading — the Gray-Scott model — growing organic spots, stripes, worms, coral and dividing cells.',
-      'The presets set the feed and kill rates that produce each look; Custom uses the Feed and Kill knobs, where tiny changes give very different patterns. Speed runs more steps per frame.',
+      'The presets set the feed and kill rates that produce each look; Custom uses the Feed and Kill knobs, where tiny changes give very different patterns. Steps runs more simulation steps per frame.',
       'Its Field output carries the chemical concentration for field nodes.',
     ],
     outputs: {
@@ -849,7 +849,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'ReactionDiffusion',
       title: 'Coral growing across the reef',
       nodes: {
-        coral: ['ReactionDiffusion', { rdPreset: 'coral', speed: 10, palette: 'coralreef' }],
+        coral: ['ReactionDiffusion', { rdPreset: 'coral', steps: 10, palette: 'coralreef' }],
       },
       output: MATRIX(24, 24),
       explanation: 'Reaction Diffusion with the coral preset grows branching structures that spread and settle, coloured by the coral-reef palette.',

@@ -300,7 +300,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       featured: 'Mirror',
       title: 'A living Rorschach inkblot',
       nodes: {
-        ink: ['Blobs', { palette: 'noir', count: 4, scale: 0.38, speed: 0.25 }],
+        ink: ['Blobs', { palette: 'noir', count: 4, size: 0.38, speed: 0.25 }],
         fold: ['Mirror', { mirrorMode: 'horizontal' }],
       },
       wires: ['ink.frame > fold.frame'],

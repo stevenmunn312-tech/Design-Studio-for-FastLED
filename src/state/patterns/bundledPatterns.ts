@@ -447,7 +447,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
       }),
       studioNode('blobs', 'Blobs', -460, 40, {
         speed: 0.16,
-        scale: 0.58,
+        size: 0.58,
         count: 4,
       }),
       studioNode('mirror', 'Mirror', -140, 40, {

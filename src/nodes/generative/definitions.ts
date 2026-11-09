@@ -305,14 +305,12 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      // Keep the persisted `arms` port id for saved-graph compatibility; the
-      // pattern is radial rings, so the user-facing name describes its effect.
-      { id: 'arms', label: 'Rings', dataType: 'float' },
+      { id: 'rings', label: 'Rings', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', arms: 'arms', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', rings: 'rings', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, arms: 8, palette: 'ocean' },
+    defaultProperties: { speed: 0.5, rings: 8, palette: 'ocean' },
   },
   {
     type: 'Spiral',
@@ -337,13 +335,13 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Size', dataType: 'float' },
+      { id: 'size', label: 'Size', dataType: 'float' },
       { id: 'count', label: 'Count', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', scale: 'scale', count: 'count', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', size: 'size', count: 'count', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.3, scale: 0.44, count: 3, palette: 'lava' },
+    defaultProperties: { speed: 0.3, size: 0.44, count: 3, palette: 'lava' },
   },
 ]
 

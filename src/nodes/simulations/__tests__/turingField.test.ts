@@ -87,6 +87,6 @@ describe('Reaction Diffusion presets', () => {
     expect(isPropertyEnabled('ReactionDiffusion', 'kill', {})).toBe(true)
     expect(isPropertyEnabled('ReactionDiffusion', 'feed', { rdPreset: 'coral' })).toBe(false)
     expect(isPropertyEnabled('ReactionDiffusion', 'kill', { rdPreset: 'worms' })).toBe(false)
-    expect(isPropertyEnabled('ReactionDiffusion', 'speed', { rdPreset: 'worms' })).toBe(true)
+    expect(isPropertyEnabled('ReactionDiffusion', 'steps', { rdPreset: 'worms' })).toBe(true)
   })
 })

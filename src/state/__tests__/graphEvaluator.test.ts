@@ -2176,7 +2176,7 @@ describe('evaluateGraph', () => {
 
   it('Blobs produces a varied field that moves over time', () => {
     const at = (tick: number) => {
-      const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.25, count: 3, palette: 'lava' })
+      const b = node('b', 'Blobs', 'pattern', { speed: 0.6, size: 0.25, count: 3, palette: 'lava' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([b, out], [edge('e', 'b', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -2201,7 +2201,7 @@ describe('evaluateGraph', () => {
     expect(blobSpan(32, 8)).toBe(8)
     expect(blobSpan(60, 1)).toBe(60)
     expect(blobSpan(60, 2)).toBe(60)
-    const b = node('b-strip', 'Blobs', 'pattern', { speed: 0.3, scale: 0.44, count: 3, palette: 'lava' })
+    const b = node('b-strip', 'Blobs', 'pattern', { speed: 0.3, size: 0.44, count: 3, palette: 'lava' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([b, out], [edge('e', 'b-strip', 'frame', 'out', 'frame')], 30, 60, 1)!
     const mean = frame[0].reduce((a, px) => a + px.r + px.g + px.b, 0) / 60
@@ -2557,7 +2557,7 @@ describe('evaluateGraph', () => {
   })
 
   it('ReactionDiffusion seeds a non-uniform field that evolves over frames', () => {
-    const rd  = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
+    const rd  = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, steps: 8, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e', 'rd', 'frame', 'out', 'frame')]
     const first = evaluateGraph([rd, out], edges, 0, 16, 16)!
@@ -4264,7 +4264,7 @@ describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion',
   })
 
   function reactionDiffusion(id: string, properties: Record<string, unknown>, frames: number, wires: { feed?: number } = {}) {
-    const rd = node(id, 'ReactionDiffusion', 'pattern', { speed: 8, palette: 'ocean', ...properties })
+    const rd = node(id, 'ReactionDiffusion', 'pattern', { steps: 8, palette: 'ocean', ...properties })
     const out = node(`${id}-out`, 'MatrixOutput', 'output', {})
     const nodes = [rd, out]
     const edges = [edge(`${id}-frame`, rd.id, 'frame', out.id, 'frame')]
@@ -6382,8 +6382,8 @@ describe('KickShock', () => {
 
 describe('RadialBurst', () => {
   it('ring density changes the generated frame', () => {
-    const sparse = withOutput(node('rbSparse', 'RadialBurst', 'pattern', { speed: 0, arms: 2 }))
-    const dense = withOutput(node('rbDense', 'RadialBurst', 'pattern', { speed: 0, arms: 16 }))
+    const sparse = withOutput(node('rbSparse', 'RadialBurst', 'pattern', { speed: 0, rings: 2 }))
+    const dense = withOutput(node('rbDense', 'RadialBurst', 'pattern', { speed: 0, rings: 16 }))
     expect(evaluateGraph(sparse.nodes, sparse.edges, 0, 8, 8))
       .not.toEqual(evaluateGraph(dense.nodes, dense.edges, 0, 8, 8))
   })

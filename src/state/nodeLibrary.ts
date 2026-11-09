@@ -1008,7 +1008,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   Plasma:          { speed: N01 },
   Rainbow:         { speed: N01, axis: { control: 'select', options: [...RAINBOW_AXES] } },
-  RadialBurst:     { speed: N01, arms: { control: 'slider', min: 1, max: 32, step: 1 } },
+  RadialBurst:     { speed: N01, rings: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01, arms: { control: 'slider', min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max, step: 1 } },
   Kaleidoscope:    { segments: { control: 'slider', min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max, step: 1 } },
   Starfield:       {
@@ -1062,7 +1062,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     radialMix: N01,
     radialScroll: { control: 'slider', min: -1, max: 1, step: 0.01 },
   },
-  Blobs:           { speed: N01, scale: N01, count: { control: 'slider', min: 1, max: 6, step: 1 } },
+  Blobs:           { speed: N01, size: N01, count: { control: 'slider', min: 1, max: 6, step: 1 } },
   FlowField: {
     speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     flowMode: { control: 'select', options: ['angle', 'curl'] },
@@ -1460,7 +1460,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   ReactionDiffusion: {
     rdPreset: { control: 'select', options: [...REACTION_DIFFUSION_PRESETS] },
-    speed: { control: 'slider', min: 1, max: REACTION_DIFFUSION_MAX_STEPS, step: 1 },
+    steps: { control: 'slider', min: 1, max: REACTION_DIFFUSION_MAX_STEPS, step: 1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   // The Music Player and the Pattern Slideshow share their timing controls
@@ -2213,7 +2213,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rdPreset: 'A named feed/kill pair. Custom uses the Feed and Kill knobs; any other preset ignores them and their wires.',
     feed: 'Rate chemical U is replenished. Used only by the Custom preset.',
     kill: 'Rate chemical V is removed. Used only by the Custom preset.',
-    speed: 'Simulation steps per frame, 1 to 20. Higher evolves faster but costs CPU on big panels.',
+    steps: 'Simulation steps per frame, 1 to 20. More evolves faster but costs CPU on big panels.',
     palette: 'Colour by chemical V: empty cells take the palette start, full cells its end.',
   },
   PaletteBank: {
@@ -2869,7 +2869,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   RadialBurst: {
     speed: 'How fast the rings expand from the centre, 0 still to 1 fastest.',
-    arms: 'Number of rings across the radius, 1 to 32.',
+    rings: 'Number of rings across the radius, 1 to 32.',
     palette: 'Colour by distance from the centre.',
   },
   Spiral: {
@@ -2882,13 +2882,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Blobs: {
     speed: 'How fast the blobs wander, 0 still to 1 fastest.',
-    scale: 'Blob size as a share of the shorter side, or of the length on a string; larger blobs merge sooner.',
+    size: 'Blob size as a share of the shorter side, or of the length on a string; larger blobs merge sooner.',
     count: 'Number of blobs, 1 to 6.',
     palette: 'Colour by field strength: palette start outside, palette end inside a blob.',
   },
   Particles: {
     particleType: 'Which particle display to run. Fixed-count displays ignore Rate. These move in two dimensions; on a one-row string, String Particles fits better.',
-    rate: 'Chance of a new particle each frame, 0 none to 1 constant. Ignored by fixed-count displays.',
+    rate: 'Chance of a new particle each frame, 0 none to 1 every frame. Only the spawning displays read it.',
     decay: 'Life kept each frame, 0 vanishes at once to 1 never fades.',
     palette: 'Colour by age: new particles take the palette end, fading ones its start.',
     size: 'Dot size multiplier, 0.25 to 3. Dots also grow with the panel.',
@@ -2898,7 +2898,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bounce: 'Energy kept when hitting the floor, 0 dead stop to 1.5 bouncing higher.',
   },
   FormulaPoints: {
-    formulaType: 'Which formula places the dots. Only the knobs that formula uses are enabled.',
+    formulaType: 'Which formula places the dots; attractor is the de Jong strange attractor. Only the knobs that formula uses are enabled.',
     speed: 'Rotation or path speed, 0 still to 1 fastest.',
     dotSize: 'Dot size multiplier, 0.25 to 3.',
     palette: 'Colour by dot index or by position along the path.',
@@ -2912,7 +2912,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Starfield: {
     speed: 'Warp speed toward the viewer, 0 still to 1 fastest.',
-    count: 'Stars in flight, 8 to 300.',
+    count: 'Stars in flight, 8 to 300. Each is a single pixel.',
     palette: 'Colour by depth: far stars take the palette start, near stars its end.',
   },
   Boids: {
@@ -3552,8 +3552,14 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   Particles: {
     particleType: 'type',
-    rate: 'spawn',
+    rate: 'spawn/frame',
     size: 'dot size',
+  },
+  Lightning: {
+    rate: 'strikes/min',
+  },
+  GameOfLife: {
+    speed: 'generations/s',
   },
   FormulaPoints: {
     formulaType: 'formula',
@@ -3675,6 +3681,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     ledsPerEdge: 'LEDs per edge',
     startNode: 'start node',
     lifetime: 'lifetime (s)',
+    rate: 'ripples/s',
   },
   StringParticles: {
     ringLeds: 'ring LEDs',
@@ -4728,7 +4735,7 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
       lissajousPath: 'Formula · Lissajous Path',
       rosePath: 'Formula · Rose Path',
       logisticMap: 'Formula · Logistic Map',
-      attractor: 'Formula · Attractor',
+      attractor: 'Formula · de Jong Attractor',
     },
   },
   Ease: {
@@ -5154,6 +5161,10 @@ export function isPropertyEnabled(
     const palette = BOID_PALETTE_MODES.has(String(properties.colorMode ?? 'solid'))
     if (key === 'palette' || key === 'paletteIn') return palette
     if (key === 'color' || key === 'r' || key === 'g' || key === 'b') return !palette
+  }
+  // As on the LED output, the network JSON is read only by the custom preset.
+  if (nodeType === 'Ripple' && key === 'network') {
+    return properties.networkPreset === 'custom'
   }
   if (nodeType === 'Path' && key === 'customPoints') {
     return properties.pathShape === 'custom'

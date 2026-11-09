@@ -771,7 +771,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      for (int _y = HEIGHT/2-2; _y <= HEIGHT/2+1; _y++) for (int _x = WIDTH/2-2; _x <= WIDTH/2+1; _x++)`)
     ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=0.25f+_worleyHash(_x,_y,${seed}u)*0.5f; } _rd_${id}=true; }`)
     ln(`    float _f=${feed}, _k=${kill};`)
-    ln(`    for (int _it=0, _iters=max(1,min(${REACTION_DIFFUSION_MAX_STEPS},(int)floorf(${f('speed', 'speed', 8)}))); _it<_iters; _it++) {`)
+    ln(`    for (int _it=0, _iters=max(1,min(${REACTION_DIFFUSION_MAX_STEPS},(int)floorf(${f('steps', 'steps', 8)}))); _it<_iters; _it++) {`)
     ln(`      for (int _y=0; _y<HEIGHT; _y++) { int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
     ln(`        for (int _x=0; _x<WIDTH; _x++) { int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
     ln(`          float _lu=(${u}[_ym+_x]+${u}[_yp+_x]+${u}[_yr+_xm]+${u}[_yr+_xp])*0.2f+(${u}[_ym+_xm]+${u}[_ym+_xp]+${u}[_yp+_xm]+${u}[_yp+_xp])*0.05f-${u}[_i];`)

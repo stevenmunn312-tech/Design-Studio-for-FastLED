@@ -1021,15 +1021,6 @@ freeze, or drop them.
   Help example uses 4. For String Particles, a ring form gives the ring track
   and LED count and a strip form gives row. Evidence `src/state/nodeLibrary.ts:2244`,
   `:2261`.
-- [ ] **Category: Make `speed` mean one thing (Low, S).** `speed` is a 0-1 rate
-  almost everywhere, but steps per frame on Reaction Diffusion and
-  generations per second on Game of Life. Rename Reaction Diffusion `speed`
-  to `steps` (`src/state/nodeLibrary.ts:1460`) and put the unit in Game of Life's row
-  label.
-- [ ] **Category: Put units in `rate` row labels (Low, S).** `rate` is strikes
-  per minute (Lightning), chance per frame (Particles) and ripples per second
-  (Ripple). Label each with its unit, as Ripple's `lifetime (s)` already does.
-  Evidence `src/state/nodeLibrary.ts:2891`.
 - [ ] **Category: Size Starfield and Flow Field pools to the property when
   `count` is unwired (Low, S).** Both always declare the maximum pool (300 x
   12 B = 3.6 KB; 400 x 8 B = 3.2 KB) because `count` is wireable. Evidence
@@ -1060,14 +1051,6 @@ freeze, or drop them.
   Progress fed from a schedule through several nodes. A rising edge on
   `trigger` would let ScheduleTrigger or RTC wire in directly. Evidence
   `src/state/nodeLibrary.ts:2228`.
-- [ ] **Radial Burst: Rename the `arms` key and port to `rings` (Low, S).** The
-  row reads "arms" while the port says "Rings" and the tooltip says "Number of
-  rings", with no PROPERTY_LABELS entry. Pre-v1, rename rather than keep the
-  old key for saved-graph compatibility. Evidence
-  `src/nodes/generative/definitions.ts:320`.
-- [ ] **Blobs: Rename the `scale` key to `size` (Low, S).** The row shows
-  "scale" while the port reads "Size". Evidence
-  `src/nodes/generative/definitions.ts:350`.
 - [ ] **Fire: Make Turbulence a three-option select (Low, S).** The 0-2 slider
   has step 0.1, but both preview and firmware round it to 0, 1 or 2. Use a
   select (narrow, normal, wide) or an integer slider. Evidence
@@ -1099,9 +1082,6 @@ freeze, or drop them.
   code in firmware" rule. Remove it, or use it as a per-burst palette offset
   so fireworks bursts differ in colour. Evidence
   `src/nodes/simulations/codegen.ts:206`, `:352`.
-- [ ] **Formula Points: Label the `attractor` variant "de Jong attractor"
-  (Low, S).** It shares a name with Particles' `attractor`, which is a
-  different effect. Evidence `src/nodes/simulations/evaluate.ts:461`.
 - [ ] **Flow Field: Make preview and firmware draw the same flow (Med, S).** The
   preview steers by `_snoise2(...)*4π` (angle ±4π, field translating in x);
   firmware uses `inoise8(...,t*100)/255*4π` (angle 0..4π, field evolving in z).
@@ -1115,13 +1095,6 @@ freeze, or drop them.
   segment network and draws hexagons, while Radial Burst's Help example is
   already titled "Ripples spreading on a still pond", and RainRipples and the
   "Ripple Wipe" transition exist. Evidence `src/components/HelpModal/reference/pattern.ts:662`.
-- [ ] **Ripple: Gate the `network` JSON row to `networkPreset === 'custom'`
-  (Low, S).** MatrixOutput gates it, but `isPropertyEnabled` has no Ripple
-  clause. Evidence `src/state/nodeLibrary.ts:5251`.
-- [ ] **Starfield: Fix the "streak outward" description or add a warp trail
-  (Low, S).** Each star is a single pixel with no streak. Add an optional
-  trail through `trailFade`, or reword. Evidence
-  `src/nodes/simulations/definitions.ts:295`, `src/nodes/simulations/evaluate.ts:830`.
 - [ ] **Game of Life: Reseed when only period-2 oscillators remain (Med, S).**
   Stale detection counts only an empty or unchanged board, so a 16x16 torus
   ending in blocks plus blinkers loops forever, against the reseed promise.

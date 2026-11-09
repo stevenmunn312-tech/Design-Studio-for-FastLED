@@ -636,7 +636,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   },
   RadialBurst({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)
-    const rings = num(id, 'arms', props, 'arms', 8)
+    const rings = num(id, 'rings', props, 'rings', 8)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return { frame: evalRadialBurst(stateKey(id), speed, rings, palette, t, W, H) }
   },
@@ -648,7 +648,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   },
   Blobs({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Blobs)
-    const scale = denormRate(num(id, 'scale', props, 'scale', 0.44), SCALE_MAX.Blobs)
+    const scale = denormRate(num(id, 'size', props, 'size', 0.44), SCALE_MAX.Blobs)
     const count = num(id, 'count', props, 'count', 3)
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
     return { frame: evalBlobs(stateKey(id), speed, scale, count, t, palette, W, H) }

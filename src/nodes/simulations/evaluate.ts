@@ -1176,7 +1176,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const rates = reactionDiffusionRates(props.rdPreset)
     const feed  = rates?.feed ?? num(id, 'feed', props, 'feed', REACTION_DIFFUSION_RATES.coral.feed)
     const kill  = rates?.kill ?? num(id, 'kill', props, 'kill', REACTION_DIFFUSION_RATES.coral.kill)
-    const iters = Math.max(1, Math.min(REACTION_DIFFUSION_MAX_STEPS, Math.floor(num(id, 'speed', props, 'speed', 8))))
+    const iters = Math.max(1, Math.min(REACTION_DIFFUSION_MAX_STEPS, Math.floor(num(id, 'steps', props, 'steps', 8))))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed))
   },

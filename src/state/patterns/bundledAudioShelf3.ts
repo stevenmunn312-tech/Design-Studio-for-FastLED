@@ -329,7 +329,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
         anchorA: '#1a0708', anchorB: '#ff3b1f', anchorC: '#ffd27a', points: 6,
       }),
       studioNode('rings', 'MapRange', -880, 80, { inMin: 0.05, inMax: 0.95, outMin: 5, outMax: 16 }),
-      studioNode('burst', 'RadialBurst', -520, -40, { speed: 0.7, arms: 8, palette: 'volcano' }),
+      studioNode('burst', 'RadialBurst', -520, -40, { speed: 0.7, rings: 8, palette: 'volcano' }),
       studioNode('shock', 'KickShock', -520, 220, {
         energy: 0.92, speed: 0.9, tiles: 1, palette: 'volcano',
         count: 9, decay: 0.86, thickness: 1.2, spawnSpread: 0.2, blendMode: 'add',
@@ -342,7 +342,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       ...listen.filter((item) => item.id !== 'in-beat'),
       edge('e-pal', 'pal', 'palette', 'burst', 'paletteIn'),
       edge('e-bs', 'fft', 'bass', 'rings', 'value'),
-      edge('e-rg', 'rings', 'result', 'burst', 'arms'),
+      edge('e-rg', 'rings', 'result', 'burst', 'rings'),
       edge('e-sp', 'feat', 'energy', 'burst', 'speed'),
       edge('e-k', 'perc', 'kick', 'shock', 'kick'),
       edge('e-s', 'perc', 'snare', 'shock', 'snare'),

@@ -156,9 +156,9 @@ describe('nodeLibrary', () => {
   it('makes RadialBurst ring density and KickShock tiling functional controls', () => {
     const radial = NODE_LIBRARY.find((n) => n.type === 'RadialBurst')
     const shock = NODE_LIBRARY.find((n) => n.type === 'KickShock')
-    expect(radial?.inputs.find((port) => port.id === 'arms')?.label).toBe('Rings')
-    expect(radial?.defaultProperties).toMatchObject({ arms: 8 })
-    expect(propertyMeta('RadialBurst', 'arms')).toMatchObject({ control: 'slider', min: 1, max: 32 })
+    expect(radial?.inputs.find((port) => port.id === 'rings')?.label).toBe('Rings')
+    expect(radial?.defaultProperties).toMatchObject({ rings: 8 })
+    expect(propertyMeta('RadialBurst', 'rings')).toMatchObject({ control: 'slider', min: 1, max: 32 })
     expect(shock?.defaultProperties).toMatchObject({ tiles: 1 })
     expect(propertyMeta('KickShock', 'tiles')).toMatchObject({ control: 'slider', min: 1, max: 8 })
   })
@@ -255,7 +255,7 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('Kaleidoscope', 'segments')).toMatchObject({ min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max })
     expect(propertyMeta('FlowField', 'count')).toMatchObject({ min: FLOW_FIELD_COUNT.min, max: FLOW_FIELD_COUNT.max })
     expect(propertyMeta('Starfield', 'count')).toMatchObject({ min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max })
-    expect(propertyMeta('ReactionDiffusion', 'speed')).toMatchObject({ min: 1, max: REACTION_DIFFUSION_MAX_STEPS })
+    expect(propertyMeta('ReactionDiffusion', 'steps')).toMatchObject({ min: 1, max: REACTION_DIFFUSION_MAX_STEPS })
     expect(propertyMeta('ClockDisplay', 'durationSec')).toMatchObject({ min: 0, max: CLOCK_TIMER_MAX_SEC })
     // xyLayout.ts divides a panel layout into at most 16 tiles each way.
     expect(propertyMeta('MatrixOutput', 'tilesX')).toMatchObject({ min: 1, max: 16 })
