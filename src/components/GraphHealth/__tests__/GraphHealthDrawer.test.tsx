@@ -252,9 +252,9 @@ describe('GraphHealthDrawer', () => {
     expect(useUiStore.getState().workspaceMode).toBe('hardware')
     expect(useUiStore.getState().hardwareShelfTarget).toBe('Amplifier')
 
+    // A classic ESP32's own DAC is no way out: the pinned audio library cannot
+    // drive it, so the card stays on every board.
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
-    await waitFor(() => expect(queryByText('This power amplifier needs a DAC')).toBeNull())
-    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     await waitFor(() => expect(queryByText('This power amplifier needs a DAC')).not.toBeNull())
   })
 })

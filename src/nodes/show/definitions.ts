@@ -361,10 +361,11 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       sdMisoPin:   13,
       sdMosiPin:   11,
       // Audio output is no longer asked here. Adding an Amplifier part *is* the
-      // statement that this build uses I2S, and a classic ESP32 with no amp
-      // falls back to its built-in DAC — see state/audio/audioOutput.ts. Volume moved
-      // to the amplifier with it: where the music is stored and how loudly it
-      // comes out are different questions about different parts.
+      // statement that this build uses I2S, and a player with no audio stage
+      // on the bench is refused rather than guessed — see
+      // state/audio/audioOutput.ts. Volume moved to the amplifier with it:
+      // where the music is stored and how loudly it comes out are different
+      // questions about different parts.
     },
   },
 ]
@@ -381,5 +382,5 @@ export const SHOW_DESCRIPTIONS: Record<string, string> = {
   TransitionSet: 'A pool of transition styles for the Music Player / Performance Generator.',
   PatternSlideshow: 'Plays a collection on a timer, in order, at random, or from a sequence.',
   PerformanceGenerator: 'Plans a timed show from music. Edit it in lanes, with ramps and locked sections.',
-  SDCard: 'SD card and audio pins for the music-sync player; a bench part, not wired.',
+  SDCard: 'SD card on SPI that the music player and shows read; a bench part, not wired.',
 }

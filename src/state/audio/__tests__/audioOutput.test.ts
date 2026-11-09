@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { audioOutputMode, audioOutputMissing, audioVolumeStage, boardHasInternalDac, powerAmplifierFeed } from '../audioOutput'
+import { audioOutputMode, audioVolumeStage, boardHasInternalDac, powerAmplifierFeed } from '../audioOutput'
 import type { StudioNode } from '../../graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -42,9 +42,9 @@ describe('audioOutputMode', () => {
   })
 
   it('still reports the internal DAC for an unfed power amp on a board without one', () => {
-    // The mode is what the part needs; whether the board can supply it is
-    // audioOutputMissing's question, and answering 'i2s' here would quietly
-    // generate a sketch the part cannot use.
+    // The mode is what the part needs; validation refuses the build, since
+    // no board's own DAC plays under the pinned audio library, and answering
+    // 'i2s' here would quietly generate a sketch the part cannot use.
     expect(audioOutputMode([power()], S3)).toBe('internalDac')
   })
 
@@ -64,37 +64,6 @@ describe('audioOutputMode', () => {
 
   it('keeps I2S on a board with no DAC and no amplifier', () => {
     expect(audioOutputMode([sdCard()], S3)).toBe('i2s')
-  })
-})
-
-describe('audioOutputMissing', () => {
-  it('says nothing before a board is chosen', () => {
-    expect(audioOutputMissing([sdCard()], '')).toBe(false)
-  })
-
-  it('says nothing without an SD card, since there is no show to play', () => {
-    expect(audioOutputMissing([], S3)).toBe(false)
-  })
-
-  it('flags an SD show on a DAC-less board with no amplifier', () => {
-    expect(audioOutputMissing([sdCard()], S3)).toBe(true)
-    expect(audioOutputMissing([sdCard()], CLASSIC)).toBe(false)
-  })
-
-  it('flags a power amplifier with no DAC on a board that cannot feed it', () => {
-    const nodes = [sdCard(), power('pam8403-3w-stereo-amplifier')]
-    expect(audioOutputMissing(nodes, S3)).toBe(true)
-    expect(audioOutputMissing(nodes, CLASSIC)).toBe(false)
-  })
-
-  it('accepts a DAC feeding a power amplifier on a board with no DAC', () => {
-    expect(audioOutputMissing([sdCard(), amp('pcm5102a-i2s-dac'), power()], S3)).toBe(false)
-  })
-
-  it('accepts an I2S amplifier on any board', () => {
-    const nodes = [sdCard(), amp('max98357a-i2s-amplifier')]
-    expect(audioOutputMissing(nodes, S3)).toBe(false)
-    expect(audioOutputMissing(nodes, CLASSIC)).toBe(false)
   })
 })
 

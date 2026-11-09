@@ -69,8 +69,10 @@ row rather than a repeat of this argument.
 
 Option B is not free, and the cost is worth stating plainly:
 
-- `audioOutputMode` and `audioOutputMissing` must resolve a *role*, not the
-  first `Amplifier` node. A DAC plus a power amplifier is one output stage.
+- `audioOutputMode` must resolve a *role*, not the first `Amplifier` node. A
+  DAC plus a power amplifier is one output stage. (The internal-DAC feed it
+  can still name is refused by validation: the pinned audio library does not
+  drive the DAC under IDF 5.)
 - `hardwareManifest.ts`'s `case 'Amplifier'` claims GPIO25/26 for an analog
   part. A power amplifier downstream of a DAC claims **no GPIO at all** — it
   is the first bench part with no board connection. `collectPinUses` pushes

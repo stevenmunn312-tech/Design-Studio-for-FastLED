@@ -1246,21 +1246,11 @@ freeze, or drop them.
   Music Player ignores it, but validation blocks a player build. Make it a
   warning with a one-click "Remove Master Speed" fix, or change the help to say
   it is an error. Evidence `src/components/HelpModal/reference/output.ts:360`, `src/utils/validateGraph.ts:3120`.
-- [ ] **Amplifier: Fix stale help about built-in pin defaults (Med, S).** Help
-  says a player without an Amplifier uses its pin defaults, but a Music Player
-  or show without an audio-output stage is now an error. Say the player needs
-  one. Evidence `src/components/HelpModal/reference/output.ts:409`, `src/utils/validateGraph.ts:2692`.
 - [ ] **Amplifier: Use one label for max volume (Low, S).** `maxVolume` is the
   ceiling that player volume 1.0 maps to, but the tooltip, the bench field and
   help each describe it differently. Use "Max volume (0-21)" with "the level at
   full player volume". Evidence `src/state/nodeLibrary.ts:3210`,
   `src/build/parts/partFields.ts:73`.
-- [ ] **Power Amplifier: Error on the internal-DAC path (High, S).** On a
-  classic ESP32 with no DAC on the bench it is accepted and emits
-  `Audio audio(true)`, but ESP32-audioI2S 3.0.12 is silent there under IDF 5.
-  Make "power amplifier with no DAC" an error on every board with the existing
-  "Add a PCM5102A" fix, and remove the built-in-DAC paragraph from help.
-  Evidence `src/utils/validateGraph.ts:1529`, `src/codegen/playerSketchGenerator.ts:1658`.
 - [ ] **Analog RGB Strip: Resolve overlap with Power Switch (Med, M).** The
   YYNMOS-4 and Mosfetti boards Power Switch catalogues are the usual way to
   drive an analog strip, yet the strip leaves the driver as "whatever the bench
@@ -1324,11 +1314,6 @@ freeze, or drop them.
   and SD Card is portless. Replace with the normal "connect a Frame" fix and
   remove the dead checks. Evidence `src/utils/validateGraph.ts:3931`,
   `src/utils/hardwareValidation.ts:321`.
-- [ ] **SD Card: Update stale description and comment (Low, S).** The sidebar
-  description "SD card and audio pins for the music-sync player" is out of
-  date (audio moved to the Amplifier), and so is the comment about a classic
-  ESP32 falling back to its built-in DAC. Evidence
-  `src/nodes/show/definitions.ts:384`, `src/nodes/show/definitions.ts:363`.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

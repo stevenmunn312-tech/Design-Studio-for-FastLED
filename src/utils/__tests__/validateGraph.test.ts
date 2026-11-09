@@ -536,9 +536,10 @@ describe('validateGraph', () => {
       .toHaveLength(0)
   })
 
-  it('refuses a power amplifier on a board with no DAC to feed it', () => {
+  it('refuses a power amplifier with no DAC to feed it, on every board', () => {
     // The part is present and still cannot make a sound: it takes line level,
-    // and with no DAC on the bench only the classic ESP32 can produce any.
+    // and the board's own DAC is silent under the pinned audio library, the
+    // classic ESP32's included.
     const show = [
       node('pg', 'PerformanceGenerator'),
       node('sd', 'SDCard'),
@@ -548,9 +549,10 @@ describe('validateGraph', () => {
     const edges = [
       { id: 'e', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
     ]
-    expect(validateGraph(show, edges, 'esp32:esp32:esp32s3').errors
-      .some((e) => e.includes('power amplifier has nothing to feed it'))).toBe(true)
-    expect(validateGraph(show, edges, 'esp32:esp32:esp32').errors).toHaveLength(0)
+    for (const fqbn of ['esp32:esp32:esp32s3', 'esp32:esp32:esp32', '']) {
+      expect(validateGraph(show, edges, fqbn).errors
+        .some((e) => e.includes('This power amplifier needs a DAC')), fqbn).toBe(true)
+    }
     // A DAC in the chain is the fix the message names, and it works on the S3.
     const chained = [...show, node('dac', 'Amplifier', { model: 'pcm5102a-i2s-dac' })]
     expect(validateGraph(chained, edges, 'esp32:esp32:esp32s3').errors).toHaveLength(0)

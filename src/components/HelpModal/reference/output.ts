@@ -406,7 +406,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   Amplifier: {
     overview: [
       'Amplifier names the I2S amplifier or DAC that the music player feeds, and owns its three I2S pins: BCLK, LRC and DIN. The MAX98357A drives a speaker directly; DACs such as the PCM5102A give line level for a separate power amplifier.',
-      'It carries no wires. Without an Amplifier on the bench the player uses its built-in pin defaults. Max Volume is the volume the player starts at.',
+      'It carries no wires. A Music Player or a music show needs one: without an audio stage on the bench the build is refused rather than guessed. Max Volume is the level at full player volume.',
     ],
     steps: [
       'Add the amplifier from the Hardware tab and choose its exact board.',
@@ -431,14 +431,14 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
 
   PowerAmplifier: {
     overview: [
-      'Power Amplifier is the analogue amplifier at the end of the audio chain, driving the speakers. A DAC such as the PCM5102A or UDA1334A gives it line level; it needs no GPIO of its own.',
-      'With no DAC on the bench, it takes line level from the classic ESP32’s built-in DAC on GPIO 25 and 26 instead, which no other board has. A 12 V amplifier is drawn on its own supply, never on the controller’s 5 V rail.',
+      'Power Amplifier is the analogue amplifier at the end of the audio chain, driving the speakers. It takes line level from a DAC such as the PCM5102A or UDA1334A, or from a DFPlayer Mini set to Line Out, and needs no GPIO of its own. Add the DAC too: the board cannot feed it on its own.',
+      'A 12 V amplifier is drawn on its own supply, never on the controller’s 5 V rail.',
     ],
     steps: [
       'Add the power amplifier from the Hardware tab.',
       'Wire its line input from the DAC, its supply, and the speakers, as the Build Diagram shows.',
     ],
-    outcome: 'Power Amplifier changes the wiring plan and the player’s audio output mode, not the LED preview.',
+    outcome: 'Power Amplifier changes the wiring plan, not the LED preview.',
     example: example({
       featured: 'PowerAmplifier',
       title: 'Put a power amplifier after the DAC',
