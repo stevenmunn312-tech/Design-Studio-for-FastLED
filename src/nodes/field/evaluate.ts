@@ -846,7 +846,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const sample = fractalSampler({
       type: fractalType(props.fractalType),
       cRe: num(id, 'cRe', props, 'cRe', -0.8), cIm: num(id, 'cIm', props, 'cIm', 0.156),
-      zoom: num(id, 'zoom', props, 'zoom', 1),
+      depth: num(id, 'depth', props, 'depth', 0),
       centerX: num(id, 'centerX', props, 'centerX', 0), centerY: num(id, 'centerY', props, 'centerY', 0),
       rotation: num(id, 'rotation', props, 'rotation', 0),
       iterations: num(id, 'iterations', props, 'iterations', 32), smooth: props.smooth !== false,

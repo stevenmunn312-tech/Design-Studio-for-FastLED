@@ -59,7 +59,7 @@ which root the pixel settled on.
   the range and faster convergence is brighter within it.
 - Zoom 1 spans 1.5 units from the centre to the edge of the shorter side. Each
   set has its own origin (`FRACTAL_ORIGIN`) so 0, 0 shows the interesting part.
-- `cRe`, `cIm`, `zoom`, `centerX`, `centerY` and `rotation` are property inputs, so
+- `cRe`, `cIm`, `depth`, `centerX`, `centerY` and `rotation` are property inputs, so
   an LFO can morph a Julia set. Iterations are clamped to 8 to 64.
 
 The capacity verdict prices RAM only. There is no per-frame time model, so it

@@ -177,7 +177,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   FractalField: {
     overview: [
       'Fractal Field draws a Julia set, the Mandelbrot set, a Newton fractal or the Burning Ship as a field.',
-      'For a Julia set, C sets the shape: small changes to C morph it dramatically, so a slow LFO on C Real or C Imag makes a living fractal. Zoom, centre and rotation move the view; Iterations trades detail for speed.',
+      'For a Julia set, C sets the shape: small changes to C morph it dramatically, so a slow LFO on C Real or C Imag makes a living fractal. Depth zooms in by doublings (each step looks the same, so a steady ramp flies in evenly), and centre and rotation move the view; Iterations trades detail for speed.',
     ],
     outputs: { field: FIELD_OUT },
     example: example({
@@ -185,7 +185,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       title: 'A Julia set that breathes',
       nodes: {
         morph: ['NoiseSignal', { speed: 0.12, min: -0.85, max: -0.7 }],
-        julia: ['FractalField', { fractalType: 'julia', cIm: 0.156, zoom: 1.1, iterations: 32, smooth: true }],
+        julia: ['FractalField', { fractalType: 'julia', cIm: 0.156, depth: 0.14, iterations: 32, smooth: true }],
         paint: ['FieldToFrame', { palette: 'ultraviolet' }],
       },
       wires: ['morph.value > julia.cRe', 'julia.field > paint.field'],

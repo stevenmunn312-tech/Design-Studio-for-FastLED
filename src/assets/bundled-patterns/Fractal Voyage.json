@@ -41,7 +41,7 @@
             "fractalType": "julia",
             "cRe": -1.152,
             "cIm": 0.071,
-            "zoom": 1,
+            "depth": 0,
             "centerX": 0,
             "centerY": 0,
             "rotation": -156,
@@ -60,8 +60,8 @@
               "dataType": "float"
             },
             {
-              "id": "zoom",
-              "label": "Zoom",
+              "id": "depth",
+              "label": "Depth",
               "dataType": "float"
             },
             {
@@ -90,7 +90,7 @@
           "exposedInputs": [
             "cRe",
             "cIm",
-            "zoom",
+            "depth",
             "centerX",
             "centerY",
             "rotation"
@@ -685,7 +685,7 @@
           "category": "math",
           "properties": {
             "mathOp": "multiply",
-            "b": 6,
+            "b": 2.585,
             "a": 1
           },
           "inputs": [
@@ -1676,7 +1676,7 @@
         "source": "Math-1790686187452",
         "sourceHandle": "result",
         "target": "FractalField-1790679567402",
-        "targetHandle": "zoom",
+        "targetHandle": "depth",
         "reconnectable": "target",
         "style": {
           "stroke": "#9aa0a6"

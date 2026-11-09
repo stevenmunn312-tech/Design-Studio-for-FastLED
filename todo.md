@@ -833,10 +833,6 @@ freeze, or drop them.
   Formula/Field Formula and the gradient patterns repeat likewise. Add
   `noiseType` to Field Noise and a Conway `life` type to Automaton so field
   chains are not stuck with the subset.
-- [ ] **Fractal Field: Make zoom exponential (Med, M).** Linear 0.25-64 means
-  1x to 2x is about 1.6% of the travel, so flying into the Mandelbrot is
-  impractical. Expose zoom as an exponent (zoom = 2^z, z 0-6) or add a log
-  slider kind; `PropertyControl` has none. `src/state/nodeLibrary.ts:1506`, `:410`.
 - [ ] **Field -> Frame: Add a wireable palette offset (Low, S).** Colour
   cycling today needs a Palette plus Palette Transform into `paletteIn`.
   Needs a decision first: Field -> Frame reads a field as an amount (1 is the

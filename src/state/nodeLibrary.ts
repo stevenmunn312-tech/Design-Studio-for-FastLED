@@ -76,7 +76,7 @@ import { FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN } from './evaluator/fluid'
 import { FRAME_TO_FIELD_CONVERSIONS } from './evaluator/frames'
 import { SHAPE_KINDS } from './evaluator/sdf'
 import {
-  FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
+  FRACTAL_DEPTH_MAX, FRACTAL_DEPTH_MIN, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES,
 } from './evaluator/fractal'
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { SDV_MAX_SPEED } from './evaluator/sdVideo'
@@ -1521,7 +1521,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     fractalType: { control: 'select', options: [...FRACTAL_TYPES] },
     cRe: { control: 'slider', min: -2, max: 2, step: 0.001 },
     cIm: { control: 'slider', min: -2, max: 2, step: 0.001 },
-    zoom: { control: 'slider', min: FRACTAL_ZOOM_MIN, max: FRACTAL_ZOOM_MAX, step: 0.01 },
+    depth: { control: 'slider', min: FRACTAL_DEPTH_MIN, max: FRACTAL_DEPTH_MAX, step: 0.01 },
     centerX: { control: 'slider', min: -2, max: 2, step: 0.001 },
     centerY: { control: 'slider', min: -2, max: 2, step: 0.001 },
     rotation: { control: 'slider', min: -180, max: 180, step: 1 },
@@ -1847,7 +1847,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     fractalType: 'Julia: one fixed c, every pixel a starting point. Mandelbrot: every pixel is its own c. Newton: which cube root of 1 the pixel settles on. Burning Ship: Mandelbrot with the parts folded positive.',
     cRe: 'Real part of the Julia constant. Wire an LFO here to morph the set.',
     cIm: 'Imaginary part of the Julia constant.',
-    zoom: 'Magnification. 1 shows the whole set.',
+    depth: 'How far in, in doublings: 0 shows the whole set, each 1 more is twice as close, 6 is 64 times. Wire a steady ramp here to fly in at an even pace.',
     centerX: 'Slide the view left or right, in units of the complex plane.',
     centerY: 'Slide the view up or down.',
     rotation: 'Turns the view, in degrees. Wire a ramp here to keep it turning.',
@@ -4415,7 +4415,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   FractalField: [
     { key: 'set', label: 'Set', keys: ['fractalType', 'cRe', 'cIm', 'iterations', 'smooth'] },
-    { key: 'view', label: 'View', keys: ['zoom', 'centerX', 'centerY', 'rotation'] },
+    { key: 'view', label: 'View', keys: ['depth', 'centerX', 'centerY', 'rotation'] },
   ],
   Automaton: [
     { key: 'rule', label: 'Rule', keys: ['automatonType', 'rule', 'states', 'threshold', 'spawn'] },

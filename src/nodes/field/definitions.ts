@@ -215,7 +215,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { inject: 0.6, injectX: 0.5, injectY: 0.85, viscosity: 0, diffusion: 0, dissipation: 0.02, quality: 8, buoyancy: 0.5 },
   },
   {
-    // Escape-time and Newton fractals as a field. c, zoom, centre and rotation are
+    // Escape-time and Newton fractals as a field. c, depth, centre and rotation are
     // ports, so an LFO can morph a Julia set or fly into a Mandelbrot one.
     type: 'FractalField',
     label: 'Fractal Field',
@@ -223,14 +223,14 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'cRe', label: 'C Real', dataType: 'float' },
       { id: 'cIm', label: 'C Imag', dataType: 'float' },
-      { id: 'zoom', label: 'Zoom', dataType: 'float' },
+      { id: 'depth', label: 'Depth', dataType: 'float' },
       { id: 'centerX', label: 'Center X', dataType: 'float' },
       { id: 'centerY', label: 'Center Y', dataType: 'float' },
       { id: 'rotation', label: 'Rotation', dataType: 'float' },
     ],
-    propertyInputs: { cRe: 'cRe', cIm: 'cIm', zoom: 'zoom', centerX: 'centerX', centerY: 'centerY', rotation: 'rotation' },
+    propertyInputs: { cRe: 'cRe', cIm: 'cIm', depth: 'depth', centerX: 'centerX', centerY: 'centerY', rotation: 'rotation' },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { fractalType: 'julia', cRe: -0.8, cIm: 0.156, zoom: 1, centerX: 0, centerY: 0, rotation: 0, iterations: 32, smooth: true },
+    defaultProperties: { fractalType: 'julia', cRe: -0.8, cIm: 0.156, depth: 0, centerX: 0, centerY: 0, rotation: 0, iterations: 32, smooth: true },
   },
   {
     // Cellular automata as a field: scrolling elementary rows, cyclic spirals,

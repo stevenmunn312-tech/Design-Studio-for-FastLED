@@ -23,7 +23,7 @@ import {
   FLUID_BUOYANCY_GAIN, FLUID_FORCE_GAIN, FLUID_INJECT_VY, FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN, FLUID_PUFF_SPEED, FLUID_VEL_OUT,
 } from '../../state/evaluator/fluid'
 import {
-  FRACTAL_BAILOUT2, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_ORIGIN, FRACTAL_VIEW, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
+  FRACTAL_BAILOUT2, FRACTAL_DEPTH_MAX, FRACTAL_DEPTH_MIN, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_ORIGIN, FRACTAL_VIEW,
   NEWTON_ROOT_Y, NEWTON_TOLERANCE2, fractalType,
 } from '../../state/evaluator/fractal'
 import { TURING_ITERATIONS_MAX, TURING_STEP_MAX, TURING_STEP_MIN, turingRadii } from '../../state/evaluator/turing'
@@ -350,7 +350,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const smooth = p.smooth !== false
     ln(`  { // Fractal (${type})`)
     ln(`    int _it=constrain((int)floorf(${f('iterations', 'iterations', 32)}),${FRACTAL_ITERATIONS_MIN},${FRACTAL_ITERATIONS_MAX});`)
-    ln(`    float _zm=constrain(${f('zoom', 'zoom', 1)},${floatLit(FRACTAL_ZOOM_MIN)},${floatLit(FRACTAL_ZOOM_MAX)}),_sc=${floatLit(FRACTAL_VIEW)}/_zm/(fminf((float)WIDTH,(float)HEIGHT)*0.5f);`)
+    ln(`    float _zm=exp2f(constrain(${f('depth', 'depth', 0)},${floatLit(FRACTAL_DEPTH_MIN)},${floatLit(FRACTAL_DEPTH_MAX)})),_sc=${floatLit(FRACTAL_VIEW)}/_zm/(fminf((float)WIDTH,(float)HEIGHT)*0.5f);`)
     ln(`    float _a=${f('rotation', 'rotation', 0)}*0.017453293f,_co=cosf(_a),_si=sinf(_a);`)
     ln(`    float _cx=${floatLit(ox)}+${f('centerX', 'centerX', 0)},_cy=${floatLit(oy)}+${f('centerY', 'centerY', 0)};`)
     if (type === 'julia') ln(`    float _jr=${f('cRe', 'cRe', -0.8)},_ji=${f('cIm', 'cIm', 0.156)};`)
