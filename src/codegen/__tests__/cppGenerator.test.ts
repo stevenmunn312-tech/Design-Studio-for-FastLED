@@ -742,7 +742,7 @@ describe('generateCpp', () => {
     )
 
     expect(cpp).toContain('float _br = fmaxf(0.0f, 2.5)')
-    expect(cpp).toContain('fminf(255.0f, buf_bm[_i].r * _br)')
+    expect(cpp).toContain('(uint8_t)(fminf(255.0f, buf_bm[_i].r * _br) + 0.5f)')
     expect(cpp).not.toContain('constrain(2.5, 0, 1)')
     expect(cpp).not.toContain('nscale8(_br)')
   })
@@ -1211,7 +1211,7 @@ describe('generateCpp', () => {
     expect(mk('rotate')).toContain('_co=cos(_a)')
     expect(mk('rotate')).toContain('buf_sc[')               // gathers from the source buffer
     expect(mk('translate')).toContain('%WIDTH+WIDTH)%WIDTH') // toroidal wrap
-    expect(mk('scale')).toContain('constrain(_s,0.05f,20.0f)')
+    expect(mk('scale')).toContain('float _s=powf(2.0f,_w<1.0f?_w:2.0f-_w);')
   })
 
   it('emits a blank Transform when its frame input is unconnected', () => {
@@ -1238,6 +1238,11 @@ describe('generateCpp', () => {
     expect(add).toContain('qadd8(_o.r,_r)')                  // add = saturating add
     expect(mk({ blendMode: 'lighten' })).toContain('max(_o.r,_r)')
     expect(mk({ blendMode: 'over' })).toContain('uint8_t _cov=max(_r,max(_g,_b));')
+    // Lighten is the default, and what an unknown mode falls back to, as in the preview.
+    expect(mk({})).toContain('_o.r=max(_o.r,_r);')
+    expect(mk({ blendMode: 'screen' })).not.toContain('qadd8(_o.r,_r)')
+    // The slider's bound holds a saved count past it, as the preview does.
+    expect(mk({ count: 40 })).toContain('// Array x24')
   })
 
   it('emits a blank Array when its frame input is unconnected', () => {
@@ -1257,8 +1262,8 @@ describe('generateCpp', () => {
       edge('e3', 'ang', 'arr', 'time', 'angle'),
       edge('e4', 'arr', 'out', 'frame', 'frame'),
     ])
-    // Wired count → runtime bound clamped to [1,32]; wired angle → expression.
-    expect(cpp).toContain('_cnt=_cnt<1?1:(_cnt>32?32:_cnt)')
+    // Wired count → runtime bound clamped to the slider's [1,24]; wired angle → expression.
+    expect(cpp).toContain('_cnt=_cnt<1?1:(_cnt>24?24:_cnt)')
     expect(cpp).toContain('for(int _i=_cnt-1;_i>=0;_i--)')
     expect(cpp).toContain('float _aa=(n_ang_time)*_i*0.01745329f;')
     expect(cpp).not.toContain('// Array x')                  // count is dynamic now
@@ -2915,7 +2920,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('buf_mk[_i].nscale8((buf_m[_i].r + buf_m[_i].g + buf_m[_i].b) / 3)')
   })
 
-  it('Blend normal mode composites with nblend and copies the result to leds', () => {
+  it('Blend normal mode cross-fades in the byte kernel and copies the result to leds', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
     const lb = node('lb', 'Blend', 'composite', { blendMode: 'normal', amount: 0.5 })
@@ -2925,7 +2930,11 @@ describe('generateCpp', () => {
       edge('e3', 'lb', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB buf_b[NUM_LEDS];')
-    expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)(constrain(0.5,0.0f,1.0f) * 255))')
+    // The same integer kernel as every other mode, not FastLED's nblend.
+    expect(cpp).toContain('uint8_t _opAll=(uint8_t)(constrain(0.5,0.0f,1.0f)*255.0f);')
+    expect(cpp).toContain('CRGB _a=buf_lb[_i], _b=buf_b[_i];')
+    expect(cpp).toContain('(uint32_t)(_b.r)*_op8')
+    expect(cpp).not.toContain('nblend(')
     // The terminal node renders into `leds` directly — no second buffer to
     // copy — and blends onto A in place, so A renders there too.
     expect(cpp).toContain('CRGB* const buf_lb = leds;')
@@ -5392,8 +5401,23 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
       edge('e2', 'fb', 'fs', 'frame', 'b'),
       edge('e3', 'fs', 'out', 'frame', 'frame'),
     ])
-    // Nothing selects B, so the copy is A's.
-    expect(cpp).toContain('::memmove(buf_fs, buf_fa, sizeof(CRGB) * NUM_LEDS);')
+    // Nothing selects B, so the copy is A's, and A renders straight into
+    // the output, which the switch then shares.
+    expect(cpp).toContain('CRGB* const buf_fa = leds;')
+    expect(cpp).not.toContain('? buf_fb : buf_fa')
+  })
+
+  it('FrameSwitch picks the side its Select switch names when nothing is wired', () => {
+    const a = node('fa', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b = node('fb', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const fs = node('fs', 'FrameSwitch', 'composite', { select: true })
+    const cpp = generateCpp([a, b, fs, outputNode], [
+      edge('e1', 'fa', 'fs', 'frame', 'a'),
+      edge('e2', 'fb', 'fs', 'frame', 'b'),
+      edge('e3', 'fs', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB* const buf_fb = leds;')
+    expect(cpp).not.toContain('? buf_fb : buf_fa')
   })
 
   it('FrameSwitch with one wired side copies it regardless of sel', () => {
@@ -5482,7 +5506,10 @@ describe('FrameFeedback (bounded delay feedback)', () => {
     ])
     expect(cpp).toContain('CRGB _fb_fb[3][NUM_LEDS];')
     expect(cpp).toContain('uint8_t _fb_read_fb=(_fb_idx_fb+_fb_cap_fb-2)%_fb_cap_fb;')
-    expect(cpp).toContain('float _fb_fade_fb=1.0f-constrain(0.1,0.0f,1.0f);')
+    // The fade is spent by elapsed time, carried per ring slot.
+    expect(cpp).toContain('static float _fbOwed_fb[3]={0},_fbT_fb=-1.0f;')
+    expect(cpp).toContain('float _fbKeep=powf(1.0f-constrain(0.1,0.0f,1.0f),_fbDt*60.0f);')
+    expect(cpp).toContain('uint8_t _fbF8=255-_fbBy,')
     expect(cpp).toContain('CRGB _fb=_fbSrc<0?CRGB(CRGB::Black):_fb_fb[_fb_read_fb][_fbSrc];')
     expect(cpp).toContain('::memmove(_fb_fb[_fb_idx_fb], buf_fb, sizeof(CRGB) * NUM_LEDS);')
   })
@@ -5637,16 +5664,17 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     expect(cpp).toContain('float _sm = 0; for (int _i = 0; _i < NUM_LEDS; _i++) buf_satn[_i] = _hsvAdjust(buf_satn[_i], 0.0f, _sm);')
   })
 
-  it('ColorBoost emits luminance-preserving channel scaling', () => {
+  it('Saturation keeping brightness emits luminance-preserving, rounded channel scaling', () => {
     const sc = node('scb', 'SolidColor', 'pattern', { r: 170, g: 140, b: 120 })
-    const cb = node('cb', 'ColorBoost', 'composite', { boost: 1 })
+    const cb = node('cb', 'Saturation', 'composite', { amount: 2.5, keepBrightness: true })
     const cpp = generateCpp(
       [sc, cb, outputNode],
       [edge('e1', 'scb', 'cb', 'frame', 'frame'), edge('e2', 'cb', 'out', 'frame', 'frame')],
     )
-    expect(cpp).toContain('float _cb = constrain(1, 0.0f, 1.0f);')
+    expect(cpp).toContain('float _sm = fmaxf(0.0f, 2.5);')
     expect(cpp).toContain('float _l = buf_cb[_i].r * 0.2126f + buf_cb[_i].g * 0.7152f + buf_cb[_i].b * 0.0722f;')
-    expect(cpp).toContain('buf_cb[_i].r = (uint8_t)constrain(_l + (buf_cb[_i].r - _l) * _cs, 0.0f, 255.0f);')
+    expect(cpp).toContain('buf_cb[_i].r = (uint8_t)(constrain(_l + (buf_cb[_i].r - _l) * _sm, 0.0f, 255.0f) + 0.5f);')
+    expect(cpp).not.toContain('_hsvAdjust')
   })
 
   it('GradientSampler emits editable fallback swatches when color inputs are unwired', () => {
@@ -5825,59 +5853,61 @@ describe('RTCInput (codegen)', () => {
 })
 
 describe('ScheduleTrigger (codegen)', () => {
+  const clocked = (props: Record<string, unknown>) => generateCpp(
+    [node('rtc', 'RTCInput', 'input', {}), node('sch', 'ScheduleTrigger', 'signal', props)],
+    [edge('dt', 'rtc', 'sch', 'dateTime', 'dateTime')],
+  )
+
   // The firmware trigger has to fire on the crossing, not while inside a
   // one-second band, or a coarse clock or slow frame drops the day's pulse.
   it('fires a trigger on the crossing and remembers the previous sample', () => {
-    const rtc = node('rtc', 'RTCInput', 'input', {})
-    const sched = node('sch', 'ScheduleTrigger', 'signal', {
-      scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0,
-    })
-    const cpp = generateCpp([rtc, sched], [
-      edge('e1', 'rtc', 'sch', 'valid', 'valid'),
-      edge('e2', 'rtc', 'sch', 'secondsOfDay', 'secondsOfDay'),
-    ])
+    const cpp = clocked({ scheduleMode: 'Trigger', start: '18:00' })
     expect(cpp).toContain('static float _schedulePrevSeconds_sch = -1.0f;')
     expect(cpp).toContain('static int32_t _schedulePrevDay_sch = -1;')
+    expect(cpp).toContain('float _scheduleSeconds_sch = constrain(n_rtc_dateTime.secondsOfDay, 0.0f, 86399.999f);')
     expect(cpp).toContain('_scheduleSince_sch < 64800.0f && _scheduleSeconds_sch >= 64800.0f')
     expect(cpp).toContain('_schedulePrevSeconds_sch = _scheduleTimeReady_sch ? _scheduleSeconds_sch : -1.0f;')
+    // Both sides clamp the calendar date, so the one-pulse-per-day key matches.
+    expect(cpp).toContain('constrain((int)roundf(n_rtc_dateTime.day), 1, 31)')
+    // Active never rises in Trigger mode, so there are no window edges to track.
+    expect(cpp).not.toContain('_schedulePrevActive_sch')
   })
 
-  it('emits window progress with the span baked in', () => {
-    const sched = node('sch', 'ScheduleTrigger', 'signal', {
-      scheduleMode: 'Window', startHour: 18, endHour: 20,
-    })
-    const cpp = generateCpp([sched], [])
+  it('emits window progress with the span baked in, and no trigger state', () => {
+    const cpp = clocked({ scheduleMode: 'Window', start: '18:00', end: '20:00' })
     expect(cpp).toContain('float n_sch_progress = 0.0f;')
     // 18:00 → 20:00 is a 7200 s span starting at 64800 s.
     expect(cpp).toContain('n_sch_progress = constrain(_scheduleElapsed_sch / 7200.0f, 0.0f, 1.0f);')
+    expect(cpp).toContain('bool _scheduleTimeReady_sch = n_rtc_dateTime.valid;')
+    expect(cpp).not.toContain('_scheduleDayKey_sch')
+    expect(cpp).not.toContain('_scheduleWeekday_sch')
   })
 
   it('measures a midnight-wrapping window across the wrap', () => {
-    const sched = node('sch', 'ScheduleTrigger', 'signal', {
-      scheduleMode: 'Window', startHour: 22, endHour: 2,
-    })
-    const cpp = generateCpp([sched], [])
+    const cpp = clocked({ scheduleMode: 'Window', start: '22:00', end: '02:00' })
     // 22:00 → 02:00 is four hours, and the pre-midnight part is 7200 s long.
     expect(cpp).toContain('n_sch_progress = constrain(_scheduleElapsed_sch / 14400.0f, 0.0f, 1.0f);')
     expect(cpp).toContain('? _scheduleSeconds_sch - 79200.0f : 7200.0f + _scheduleSeconds_sch;')
   })
 
-  // Both sides clamp the calendar day, so the one-pulse-per-day key matches.
-  it('clamps the day of month the same way the evaluator does', () => {
-    const sched = node('sch', 'ScheduleTrigger', 'signal', { scheduleMode: 'Trigger' })
-    expect(generateCpp([sched], [])).toContain(
-      'int _scheduleDay_sch = constrain((int)roundf(1), 1, 31);',
-    )
+  it('reads Synced and the weekday only when a rule needs them', () => {
+    const cpp = clocked({ scheduleMode: 'Window', start: '09:00:30', end: '17:30', requireSync: true, dayMode: 'Custom', saturday: false, sunday: false })
+    expect(cpp).toContain('bool _scheduleTimeReady_sch = n_rtc_dateTime.valid && n_rtc_dateTime.synced;')
+    expect(cpp).toContain('int _scheduleWeekday_sch = constrain((int)roundf(n_rtc_dateTime.weekday), 0, 6);')
+    // Monday to Friday: bits 1-5.
+    expect(cpp).toContain('bool _scheduleDayAllowed_sch = (62u >> _scheduleWeekday_sch) & 1u;')
+    expect(cpp).toContain('_scheduleSeconds_sch >= 32430.0f')
   })
 
-  // Summing before clamping mapped an out-of-range saved hour to a different
-  // instant than the evaluator reached.
-  it('clamps each time field before summing', () => {
-    const sched = node('sch', 'ScheduleTrigger', 'signal', {
-      scheduleMode: 'Window', startHour: 30, startMinute: 0, startSecond: 0, endHour: 23, endMinute: 59, endSecond: 59,
-    })
-    // Hour clamps to 23, not a total clamped to 86399.
-    expect(generateCpp([sched], [])).toContain('_scheduleSeconds_sch >= 82800.0f')
+  it('emits only low outputs when no clock is wired', () => {
+    const cpp = generateCpp([node('sch', 'ScheduleTrigger', 'signal', { scheduleMode: 'Window' })], [])
+    expect(cpp).toContain('bool n_sch_active = false;')
+    expect(cpp).not.toContain('_schedule')
+  })
+
+  // An unreadable time falls back to the field's default on both sides.
+  it('falls back to the default time for an unreadable field', () => {
+    expect(clocked({ scheduleMode: 'Window', start: '25:00', end: '23:00' })).toContain('_scheduleSeconds_sch >= 64800.0f')
   })
 })
 

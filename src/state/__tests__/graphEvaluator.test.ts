@@ -70,7 +70,7 @@ import { blobSpan } from '../../nodes/generative/evaluate'
 import { plasmaFrame } from '../../nodes/shared/integerPatterns'
 import { particlePoolSize } from '../../nodes/simulations/particleModes'
 import { boidPalettePosition, golStep } from '../../nodes/simulations/evaluate'
-import { NODE_LIBRARY, isPropertyEnabled } from '../nodeLibrary'
+import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useHardwareInputStore } from '../peripherals/hardwareInputStore'
@@ -2640,6 +2640,16 @@ describe('evaluateGraph', () => {
     expect(f[0][6]).toEqual({ r: 0, g: 0, b: 0 })   // only 3 copies, not more
   })
 
+  it('Array lightens by default, so a full frame does not wash out', () => {
+    // Added, five copies at falloff 0.7 came to about 2.8x and clipped white.
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 100, g: 60, b: 20 })
+    const arr = node('arr', 'Array', 'composite', libraryDefaults('Array'))
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e1', 'sc', 'frame', 'arr', 'frame'), edge('e2', 'arr', 'frame', 'out', 'frame')]
+    const f = evaluateGraph([sc, arr, out], edges, 0, 8, 8)!
+    expect(f[4][4]).toEqual({ r: 100, g: 60, b: 20 })
+  })
+
   it('Array dims successive copies by falloff', () => {
     const rect = dot('rect', '#c80000')   // 200 = 0xc8
     const arr = node('arr', 'Array', 'composite', { count: 2, offsetX: 2, offsetY: 0, angle: 0, scale: 1, falloff: 0.5, blendMode: 'add' })
@@ -5065,6 +5075,19 @@ describe('signal utility nodes', () => {
     expect(evaluateGraph(b.nodes, b.edges, 0, W, H)![0][0]).toEqual({ r: 0, g: 0, b: 255 })
   })
 
+  it('FrameSwitch follows its Select switch while Select is unwired', () => {
+    const red = node('fsa3', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const blue = node('fsb3', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const build = (select: boolean) => withOutput(node('fs3', 'FrameSwitch', 'composite', { select }), [red, blue], [
+      edge('ea', 'fsa3', 'frame', 'fs3', 'a'),
+      edge('eb', 'fsb3', 'frame', 'fs3', 'b'),
+    ])
+    const a = build(false)
+    expect(evaluateGraph(a.nodes, a.edges, 0, W, H)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+    const b = build(true)
+    expect(evaluateGraph(b.nodes, b.edges, 0, W, H)![0][0]).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
   it('FrameSwitch falls back to the wired side when the selected one is empty', () => {
     const red = node('fsa2', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const fs = node('fs2', 'FrameSwitch', 'composite', {})
@@ -5077,7 +5100,7 @@ describe('signal utility nodes', () => {
   })
 })
 
-// ── Zones (named rectangular regions) ────────────────────────────────────────
+// ── Zones (rectangular regions) ────────────────────────────────────────────
 
 describe('Zones', () => {
   it('routes a wired zone frame into its rectangle, leaving base outside it', () => {
@@ -5665,17 +5688,17 @@ describe('Saturation and RGBToHSV', () => {
     expect(outputs.get('satnu')!.frame).toBeNull()
   })
 
-  it('ColorBoost boost=0 leaves the frame unchanged', () => {
+  it('Saturation keeping brightness leaves the frame unchanged at 1', () => {
     const sc = node('cbsrc0', 'SolidColor', 'pattern', { r: 180, g: 140, b: 120 })
-    const cb = node('cb0', 'ColorBoost', 'composite', { boost: 0 })
+    const cb = node('cb0', 'Saturation', 'composite', { amount: 1, keepBrightness: true })
     const { nodes, edges } = withOutput(cb, [sc], [edge('e1', 'cbsrc0', 'frame', 'cb0', 'frame')])
     const frame = evaluateGraph(nodes, edges, 0, W, H)!
     expect(frame[0][0]).toEqual({ r: 180, g: 140, b: 120 })
   })
 
-  it('ColorBoost increases channel separation while roughly preserving luminance', () => {
+  it('Saturation keeping brightness increases channel separation while roughly preserving luminance', () => {
     const sc = node('cbsrc1', 'SolidColor', 'pattern', { r: 170, g: 140, b: 120 })
-    const cb = node('cb1', 'ColorBoost', 'composite', { boost: 1 })
+    const cb = node('cb1', 'Saturation', 'composite', { amount: 2.5, keepBrightness: true })
     const { nodes, edges } = withOutput(cb, [sc], [edge('e1', 'cbsrc1', 'frame', 'cb1', 'frame')])
     const px = evaluateGraph(nodes, edges, 0, W, H)![0][0]
     const inSpread = Math.max(170, 140, 120) - Math.min(170, 140, 120)
@@ -5686,8 +5709,8 @@ describe('Saturation and RGBToHSV', () => {
     expect(Math.abs(outLuma - inLuma)).toBeLessThan(2)
   })
 
-  it('ColorBoost outputs null when unwired', () => {
-    const cb = node('cbu', 'ColorBoost', 'composite', {})
+  it('Saturation outputs null when unwired', () => {
+    const cb = node('cbu', 'Saturation', 'composite', { keepBrightness: true })
     const { outputs } = evaluateGraphFull([cb], [], 0, W, H)
     expect(outputs.get('cbu')!.frame).toBeNull()
   })
@@ -5974,10 +5997,8 @@ describe('ScheduleTrigger', () => {
   ) {
     const rtc = node(ids.rtc, 'RTCInput', 'input', { timeSource: 'Manual', ...seed })
     const sched = node(ids.sched, 'ScheduleTrigger', 'signal', scheduleProps)
-    const wires = ['valid', 'synced', 'secondsOfDay', 'weekday', 'day', 'month', 'year'].map(
-      (port, i) => edge(`e${i}`, ids.rtc, port, ids.sched, port),
-    )
-    return { nodes: [rtc, sched], edges: wires }
+    // One wire carries the whole reading.
+    return { nodes: [rtc, sched], edges: [edge('e-clock', ids.rtc, 'dateTime', ids.sched, 'dateTime')] }
   }
 
   // Monday 2026-01-05.
@@ -5987,7 +6008,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-win', sched: 'sched-win' },
       { ...MONDAY, startHour: 18, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', startHour: 18, endHour: 20, endMinute: 0, endSecond: 0 },
+      { scheduleMode: 'Window', start: '18:00', end: '20:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-win')
 
@@ -6004,7 +6025,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-wrap', sched: 'sched-wrap' },
       { ...MONDAY, startHour: 23, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', startHour: 22, endHour: 2, endMinute: 0, endSecond: 0 },
+      { scheduleMode: 'Window', start: '22:00', end: '02:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-wrap')
     // 23:00 is one hour into a four-hour 22:00→02:00 window.
@@ -6018,7 +6039,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-cross', sched: 'sched-cross' },
       { ...MONDAY, startHour: 17, startMinute: 59, startSecond: 59 },
-      { scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0 },
+      { scheduleMode: 'Trigger', start: '18:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-cross')
 
@@ -6036,7 +6057,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-jump', sched: 'sched-jump' },
       { ...MONDAY, startHour: 17, startMinute: 59, startSecond: 0 },
-      { scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0 },
+      { scheduleMode: 'Trigger', start: '18:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-jump')
     expect(at(0)).toMatchObject({ start: false })
@@ -6048,7 +6069,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-late', sched: 'sched-late' },
       { ...MONDAY, startHour: 20, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0 },
+      { scheduleMode: 'Trigger', start: '18:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-late')
     expect(at(0)).toMatchObject({ start: false })
@@ -6061,7 +6082,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-day', sched: 'sched-day' },
       { startYear: 2026, startMonth: 1, startDay: 4, startHour: 19, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', dayMode: 'Weekdays', startHour: 18, endHour: 20 },
+      { scheduleMode: 'Window', dayMode: 'Weekdays', start: '18:00', end: '20:00' },
     )
     expect(evaluateGraphFull(nodes, edges, 0, W, H).outputs.get('sched-day')).toMatchObject({
       active: false, progress: 0,
@@ -6070,7 +6091,7 @@ describe('ScheduleTrigger', () => {
     const off = scheduleGraph(
       { rtc: 'rtc-off', sched: 'sched-off' },
       { ...MONDAY, startHour: 19, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', startHour: 18, endHour: 20, enable: false },
+      { scheduleMode: 'Window', start: '18:00', end: '20:00', enable: false },
     )
     expect(evaluateGraphFull(off.nodes, off.edges, 0, W, H).outputs.get('sched-off')).toMatchObject({
       active: false,
@@ -6078,26 +6099,37 @@ describe('ScheduleTrigger', () => {
   })
 
   it('stays shut until the clock reports a real sync when requireSync is on', () => {
-    // NTP firmware runs the build-stamp clock (valid, but not synced) before it
-    // reaches the network; requireSync is how a schedule opts out of trusting
-    // that. Same graph either way — only the `synced` wire differs.
-    const props = { scheduleMode: 'Window', startHour: 18, endHour: 20, requireSync: true }
-    const seed = { ...MONDAY, startHour: 19, startMinute: 0, startSecond: 0 }
-
-    const unsynced = scheduleGraph({ rtc: 'rtc-ns', sched: 'sched-ns' }, seed, props)
-    unsynced.edges = unsynced.edges.filter((e) => e.targetHandle !== 'synced')
+    // A Manual seed is valid but never synced; NTP is synced. requireSync is
+    // how a schedule opts out of trusting a clock nothing has corrected.
+    const props = { scheduleMode: 'Window', start: '18:00', end: '20:00', requireSync: true }
+    const unsynced = scheduleGraph({ rtc: 'rtc-ns', sched: 'sched-ns' }, { ...MONDAY, startHour: 19, startMinute: 0, startSecond: 0 }, props)
     expect(evaluateGraphFull(unsynced.nodes, unsynced.edges, 0, W, H).outputs.get('sched-ns')).toMatchObject({
       active: false,
     })
 
-    const synced = scheduleGraph({ rtc: 'rtc-sy', sched: 'sched-sy' }, seed, props)
-    const trueNode = node('sync-true', 'Not', 'math', {})
-    synced.nodes.push(trueNode)
-    synced.edges = synced.edges.filter((e) => e.targetHandle !== 'synced')
-    synced.edges.push(edge('sync-edge', 'sync-true', 'result', 'sched-sy', 'synced'))
-    expect(evaluateGraphFull(synced.nodes, synced.edges, 0, W, H).outputs.get('sched-sy')).toMatchObject({
-      active: true,
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(Date.UTC(2026, 0, 5, 19, 0, 0)))
+    try {
+      const synced = scheduleGraph({ rtc: 'rtc-sy', sched: 'sched-sy' }, { timeSource: 'NTP', timezoneOffsetMinutes: 0 }, props)
+      expect(evaluateGraphFull(synced.nodes, synced.edges, 0, W, H).outputs.get('sched-sy')).toMatchObject({
+        active: true,
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stays low with no clock wired, and reads a one-digit hour', () => {
+    const lone = node('sched-lone', 'ScheduleTrigger', 'signal', { scheduleMode: 'Window', start: '0:00', end: '23:59:59' })
+    expect(evaluateGraphFull([lone], [], 0, W, H).outputs.get('sched-lone')).toMatchObject({
+      active: false, start: false, end: false, progress: 0,
     })
+    const { nodes, edges } = scheduleGraph(
+      { rtc: 'rtc-digit', sched: 'sched-digit' },
+      { ...MONDAY, startHour: 9, startMinute: 30, startSecond: 0 },
+      { scheduleMode: 'Window', start: '9:00', end: '10:00' },
+    )
+    expect(evaluateGraphFull(nodes, edges, 0, W, H).outputs.get('sched-digit')?.progress).toBeCloseTo(0.5, 5)
   })
 })
 

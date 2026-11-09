@@ -5,7 +5,8 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
   Wave: {
     overview: [
       'Wave is an oscillator: a value that swings smoothly and endlessly. Choose sine, triangle, square or sawtooth, and give its rate in hertz or in beats per minute.',
-      'By default it swings from −Amplitude to +Amplitude around Offset. Turn on Unipolar to swing from Offset up to Offset + Amplitude instead — a unipolar sawtooth is a 0-to-1 ramp, and a unipolar sine at a BPM is FastLED’s beatsin.',
+      'By default it is unipolar, swinging from Offset up to Offset + Amplitude, so a fresh Wave runs 0 to 1 and drives most settings straight away. A unipolar sawtooth is a 0-to-1 ramp, and a unipolar sine at a BPM is FastLED’s beatsin. Turn Unipolar off to swing from −Amplitude to +Amplitude around Offset.',
+      'Frequency goes down to hundredths of a hertz, so a slow breath every eight seconds is about 0.12.',
       'Two waves at slightly different rates drifting against each other are a classic way to make motion that never quite repeats.',
     ],
     outputs: {
@@ -16,8 +17,8 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       featured: 'Wave',
       title: 'Draw a Lissajous figure with two waves',
       nodes: {
-        across: ['Wave', { frequency: 0.6, amplitude: 0.38, offset: 0.5, waveform: 'sine' }],
-        down: ['Wave', { frequency: 0.9, amplitude: 0.38, offset: 0.5, phase: 0.25, waveform: 'sine' }],
+        across: ['Wave', { frequency: 0.6, amplitude: 0.76, offset: 0.12, waveform: 'sine' }],
+        down: ['Wave', { frequency: 0.9, amplitude: 0.76, offset: 0.12, phase: 0.25, waveform: 'sine' }],
         pen: ['Shape', { shape: 'ellipse', size: 1.2, filled: true, fill: '#ffe08a', edge: '#ff8a00', thickness: 0.5 }],
         trails: ['Trails', { decay: 0.35 }],
       },
@@ -31,7 +32,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
     overview: [
       'Interval is a metronome. Every Interval seconds its Pulse output is true for exactly one frame — FastLED’s EVERY_N_MILLISECONDS as a node.',
       'Use it wherever something should happen regularly without music: spawn a particle, step a sequence, sample a new random value, advance a palette.',
-      'For musical timing with beats and bars use Clock instead; for a pulse that follows the song use Beat Detect.',
+      'For musical timing with beats and bars use Tempo Clock instead; for a pulse that follows the song use Beat Detect.',
     ],
     outputs: {
       pulse: 'True for one frame every Interval seconds.',
@@ -105,11 +106,14 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
   Random: {
     overview: [
       'Random draws a new number between Min and Max every frame. On its own that is fast flicker — static, sparks, a guttering light.',
-      'For a value that changes less often, pair it with Sample & Hold and a trigger. For a value that wanders smoothly, use Noise LFO instead.',
+      'For a value that changes less often, wire a beat, a button or an Interval into Trigger: it then draws once on each rising edge and holds the number until the next. For a value that wanders smoothly, use Noise LFO instead.',
       'Seed 0 runs freely. Any other seed repeats exactly the same sequence every run, in the preview and on the board.',
     ],
+    inputs: {
+      trigger: 'Optional. When wired, a new number is drawn only as this turns on, and held in between.',
+    },
     outputs: {
-      value: 'A fresh random number between Min and Max, every frame.',
+      value: 'A random number between Min and Max: a fresh one every frame, or on each Trigger.',
     },
     example: example({
       featured: 'Random',
@@ -149,23 +153,18 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
 
   ScheduleTrigger: {
     overview: [
-      'Schedule Trigger watches an RTC Clock and switches on a timetable. In Window mode Active stays true between the start and end times; in Trigger mode Start pulses once at the start time.',
-      'Start and End pulse on the edges of a window too, and Progress runs from 0 to 1 across it — enough to fade in at opening time or run a slow sunset across an evening. An end before the start wraps past midnight.',
+      'Schedule Trigger watches an RTC Clock and switches on a timetable. In Window mode Active stays true between the start and end times; in Trigger mode Start pulses once a day at the start time.',
+      'Start and End pulse on the edges of a window too, and Progress runs from 0 to 1 across it — enough to fade in at opening time or run a slow sunset across an evening. Times are 24-hour, seconds optional, and an end before the start wraps past midnight.',
       'Days limits it to weekdays, weekends, or the days you tick. Require Synced Time keeps it off until the clock has a real NTP sync, so a board that lost power never runs the schedule at the wrong hour.',
     ],
     steps: [
       'Add an RTC Clock and choose a reliable time source: NTP or a DS3231.',
-      'Wire the clock’s Valid, Synced, Seconds Today and Weekday outputs into the matching inputs.',
-      'Set the window and days, then wire Active, Start or Progress to what should follow the schedule.',
+      'Wire the clock’s DateTime output into the schedule’s DateTime input.',
+      'Set the times and days, then wire Active, Start or Progress to what should follow the schedule.',
     ],
     inputs: {
-      valid: 'The clock’s Valid output. Nothing fires until the time is real.',
-      synced: 'The clock’s Synced output, used by Require Synced Time.',
-      secondsOfDay: 'The clock’s Seconds Today output: the time of day the schedule is compared with.',
-      weekday: 'The clock’s Weekday output, for the day rules.',
-      day: 'Day of the month, from the clock. With Month and Year it lets Trigger mode fire once per calendar day.',
-      month: 'Month, from the clock.',
-      year: 'Year, from the clock.',
+      dateTime: 'The clock’s DateTime output: the time of day, weekday and date the schedule follows. Nothing fires until the time is real.',
+      enable: 'Off holds every output low. Wire a switch here to pause the schedule.',
     },
     outputs: {
       active: 'True while inside the window on an allowed day.',
@@ -178,15 +177,12 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       title: 'A shop sign that keeps opening hours',
       nodes: {
         clock: ['RTCInput', { timeSource: 'DS3231' }],
-        hours: ['ScheduleTrigger', { scheduleMode: 'Window', dayMode: 'Weekdays', startHour: 9, startMinute: 0, endHour: 17, endMinute: 30 }],
+        hours: ['ScheduleTrigger', { scheduleMode: 'Window', dayMode: 'Weekdays', start: '09:00', end: '17:30' }],
         sign: ['TheaterChase', { palette: 'citrus', spacing: 3, speed: 0.4 }],
         output: ['MatrixOutput', STRIP(60)],
       },
       wires: [
-        'clock.valid > hours.valid',
-        'clock.synced > hours.synced',
-        'clock.secondsOfDay > hours.secondsOfDay',
-        'clock.weekday > hours.weekday',
+        'clock.dateTime > hours.dateTime',
         'hours.active > output.enabled',
         'sign.frame > output.frame',
       ],
@@ -197,7 +193,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
 
   Clock: {
     overview: [
-      'Clock is a musical metronome. It runs at a BPM and pulses Beat on every beat, Bar on the first beat of each bar, and Subdivision on finer steps within the beat. Phase rises 0 to 1 across each beat.',
+      'Tempo Clock is a musical metronome. For the time of day use RTC Clock. It runs at a BPM and pulses Beat on every beat, Bar on the first beat of each bar, and Subdivision on finer steps within the beat. Phase rises 0 to 1 across each beat.',
       'Tap Tempo sets the BPM from your own taps; Sync locks it to an incoming beat such as Beat Detect’s; Reset restarts the bar. With nothing wired it simply keeps the tempo you set.',
       'It suits shows that run to a known tempo without a microphone — a DJ set at 128 BPM, a dance class, a light show synced by hand.',
     ],
@@ -222,7 +218,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
         strobe: ['BeatFlash', { intensity: 0.8, decay: 0.75, colorSource: 'palette', palette: 'party' }],
       },
       wires: ['clock.beat > strobe.beat', 'party.frame > strobe.frame'],
-      explanation: 'Clock ticks at 128 BPM, the tempo of most house music, and every beat fires Beat Flash over a bed of Confetti. The flash sweeps through the party palette as it fades, so each beat lands in a different colour.',
+      explanation: 'Tempo Clock ticks at 128 BPM, the tempo of most house music, and every beat fires Beat Flash over a bed of Confetti. The flash sweeps through the party palette as it fades, so each beat lands in a different colour.',
       preview: 'The {output} shows confetti speckles, flashing brightly a little over twice a second.',
     }),
   },

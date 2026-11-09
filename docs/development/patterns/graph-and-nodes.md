@@ -133,7 +133,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Non-audio GroupInputs stay unbound and their consumers fall back to their
   properties.
 - Hardware timers use `elapsedT` / `elapsedTick`, matching firmware `millis()`.
-  This includes Interval, Envelope, Clock, Noise LFO, Smooth, Trigger timing,
+  This includes Interval, Envelope, Tempo Clock, Noise LFO, Smooth, Trigger timing,
   Palette Bank buttons/blending, Game of Life, Automaton, image playback,
   Gauge peak hold, and Clock Display stopwatch/timer. Button debounce and
   repeat also use elapsed time, including direct player actions. Animation
@@ -348,6 +348,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   spends its cubed `1 - decay³` per 60th of a second through `timedFadeAmount`
   and `timedFadeCpp`, the same clock and byte carry, so its saved values keep
   their look and still reach black (rounding per frame had stalled them).
+  Frame Feedback's ade works the same way, 1 - fade per 60th of a
+  second, but carries the unspent fade per ring slot rather than through the
+  shared clock: an echo chain is delayFrames passes long, and one carry spent
+  on alternate frames would fade one chain twice and leave the other lit.
 - Two node-authoring facts are derived rather than listed, and were each written
   down twice before. A **palette producer** is a *builder* (emits its own
   `pal_<id>` CRGBPalette16) or a *selector* (resolves to a shared

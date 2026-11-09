@@ -68,6 +68,28 @@ function renderNode(n: StudioNodeT, options?: { board?: boolean }) {
 }
 
 describe('StudioNode', () => {
+  it('edits a Schedule Trigger time with a time picker', () => {
+    const { container } = renderNode(makeNode('ScheduleTrigger', { ...libraryDefaults('ScheduleTrigger'), start: '7:05' }))
+    openAllGroups(container)
+    const start = container.querySelector('input[aria-label="start value"]') as HTMLInputElement
+    expect(start.type).toBe('time')
+    // A hand-edited one-digit hour still reaches the picker, which needs two.
+    expect(start.value).toBe('07:05')
+    fireEvent.change(start, { target: { value: '21:30:15' } })
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'n1')!.data.properties.start).toBe('21:30:15')
+  })
+
+  it('shows a symmetry group as words while storing its code', () => {
+    const { container } = renderNode(makeNode('Symmetry', { ...libraryDefaults('Symmetry') }))
+    openAllGroups(container)
+    const group = container.querySelector('select[aria-label="group value"]') as HTMLSelectElement
+    const options = Array.from(group.options)
+    expect(options.find((option) => option.value === 'p4m')?.textContent).toBe('p4m: square, mirrors + quarter turns')
+    expect(options.map((option) => option.value)).toContain('p6m')
+    fireEvent.change(group, { target: { value: 'p6' } })
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'n1')!.data.properties.group).toBe('p6')
+  })
+
   it('adds Beat Transitions to the timing controls of an existing Music Player', () => {
     const { container } = renderNode(makeNode('PatternMaster', { minTime: 4, maxTime: 12 }))
     const header = within(container).getByRole('button', { name: /timing/i })
@@ -1175,6 +1197,16 @@ describe('StudioNode', () => {
     expect(poly).toBeTruthy()
     // 64 sampled points → 64 "x,y" pairs.
     expect(poly.getAttribute('points')!.trim().split(/\s+/).length).toBe(64)
+  })
+
+  it('renders shape scopes for Noise LFO and Envelope too', () => {
+    for (const [type, props] of [['NoiseSignal', { speed: 0.4, min: 0, max: 1, octaves: 2, seed: 3 }], ['Envelope', { attack: 0.3, decay: 1 }]] as const) {
+      const { container, unmount } = renderNode(makeNode(type, props))
+      const poly = container.querySelector('svg polyline') as SVGPolylineElement
+      expect(poly, type).toBeTruthy()
+      expect(poly.getAttribute('points')!.trim().split(/\s+/).length, type).toBe(64)
+      unmount()
+    }
   })
 
   it('renders live band meters and bounded controls for an FFT Analyzer', () => {

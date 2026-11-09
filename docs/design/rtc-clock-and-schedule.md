@@ -19,18 +19,19 @@ contract as built.
 
 `RTCInput` is an ordinary node with ordinary outputs. Its primary `DateTime`
 output carries the complete reading and health state over one typed wire to
-`ClockDisplay`. The scalar outputs remain available for schedules, animation,
-diagnostics, and synthetic test clocks. `ScheduleTrigger` reads `valid` /
-`synced` / `secondsOfDay` / `weekday` / `day` / `month` / `year` through normal
-input ports.
+`ClockDisplay`, `FormatDateTime` and `ScheduleTrigger`. The scalar outputs
+remain available for animation and diagnostics. `ScheduleTrigger` used to take
+seven of them on separate ports, and left unwired they failed silently: no
+Day/Month/Year froze Trigger mode's once-a-day key, so it fired on the first
+day only, and no Weekday read Sunday, so a Weekdays schedule never ran.
 
 Rejected: a scene-wide singleton clock that schedule nodes read implicitly.
 An implicit global would have been less wiring, but it would also have been the
 only invisible data dependency in the app, invisible to the cycle guard, to
 Graph Health's node attribution, and to the group registry. Making it a port
-means a schedule inside a pattern group works with no new machinery, and a patch
-can feed a schedule a *synthetic* clock (a `Counter` through `MapRange`) to test
-it — which is how you exercise a 3 a.m. behaviour at 2 p.m.
+means a schedule inside a pattern group works with no new machinery. To exercise
+a 3 a.m. behaviour at 2 p.m., give the schedule a Manual RTC seeded just before
+the time (see "Preview mirrors the configured source").
 
 Consequence to keep in mind: `RTCInput` is **not** a singleton. Two software
 sources are two independent clocks, while two DS3231 sources read the same
@@ -141,7 +142,14 @@ schedule simulator: set the seed to 17:59:50, watch an 18:00 window open.
 
 Both are gated by `dayMode` (`Every day` / `Weekdays` / `Weekends` / `Custom`
 with per-day toggles) and by the `enable` input. `start` and `end` pulse on the
-transitions in Window mode.
+transitions in Window mode. The start and end times are 24-hour `HH:MM` text
+with optional seconds, edited with a time picker (the `time` property control);
+`src/nodes/signal/schedule.ts` parses them for every reader, and an unreadable
+field falls back to its default (18:00 or 23:00) with a Graph Health warning.
+Unwired, the schedule has no clock, so every output stays low; the sketch then
+emits only those constants. Each other field is read only by the rule that
+needs it: Synced by `requireSync`, the weekday by a day rule, the date by
+Trigger mode.
 
 Three edge-case rules that both runtimes implement identically, because getting
 them wrong produces a trigger that fires at boot or misses its day:
@@ -160,10 +168,9 @@ them wrong produces a trigger that fires at boot or misses its day:
 
 Preview and firmware must agree on:
 
-- **Per-field clamping before summing.** `scheduleTimeOfDay` clamps hour to
-  0–23, minute and second to 0–59 *individually*, then sums — matching the C++
-  generator's `intProp` bounds. Summing first and clamping the total would map
-  an out-of-range saved value to a different instant in each runtime.
+- **One parse of each time field.** `scheduleTimeSeconds` reads the text and
+  falls back to the default the same way for the evaluator and both emitters,
+  which bake the result.
 - Window wrap, `progress`'s span arithmetic, day gating, the `requireSync` gate,
   and all three edge rules above.
 - The date arithmetic itself: civil-days-from-date, date-from-civil-days, and

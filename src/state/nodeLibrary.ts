@@ -44,6 +44,10 @@ import {
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
 import { RAINBOW_AXES, SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
+import { ARRAY_COPIES } from '../nodes/composite/limits'
+import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from '../nodes/composite/blendModes'
+import { FEEDBACK_TRANSFORMS } from '../nodes/shared/integerPatterns'
+import { WARP_MOTIONS } from '../nodes/composite/frameWarpMotion'
 import { BOID_COLOR_MODES, BOID_PALETTE_MODES, BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { PATH_SHAPES } from '../nodes/shapes/customPath'
@@ -91,7 +95,7 @@ import { FIRE_STYLES } from './evaluator/fireSmoke'
 import { PARTICLE_MODES, particleModeUsesDecay, particleModeUsesRate } from '../nodes/simulations/particleModes'
 import { FUNCTION_OPS } from '../nodes/math/mathIdentity'
 import { LOGIC_OPS } from '../nodes/math/logic'
-import { WALLPAPER_GROUPS } from './evaluator/symmetry'
+import { WALLPAPER_GROUP_LABELS, WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
   TURING_BASE_RADIUS_MAX, TURING_BASE_RADIUS_MIN, TURING_ITERATIONS_MAX, TURING_SCALES_MAX,
@@ -235,6 +239,9 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
   math:    ['Math', 'Logic', 'Text'],
   color:   ['Colors', 'Palettes'],
   pattern: ['Shapes & Text', 'Media', 'Generative', 'Simulations', 'Audio-Reactive', 'Code'],
+  // Effects by what they change: how layers combine, colour, where pixels
+  // land, and what carries over from frame to frame (plus Blur 2D).
+  composite: ['Layer', 'Color', 'Geometry', 'Trails & Blur'],
 }
 
 // Explicit workflow ordering for categories where the pipeline sequence
@@ -417,8 +424,11 @@ export const WHITE_POINT_OPTIONS = [
  */
 export type PropertyControl =
   // `numeric` stores the chosen option as a number rather than its text.
-  | { control: 'select'; options: readonly string[]; numeric?: true }
+  // `labels` shows an option as words while the stored value stays its code.
+  | { control: 'select'; options: readonly string[]; numeric?: true; labels?: Readonly<Record<string, string>> }
   | { control: 'slider'; min: number; max: number; step: number; entry?: 'number' }
+  // A 24-hour time of day, stored as "HH:MM" or "HH:MM:SS" text.
+  | { control: 'time' }
 
 export const PROPERTY_META: Record<string, PropertyControl> = {
   // Enumerated options → dropdown
@@ -458,12 +468,14 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
     'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
     'scanlines', 'zoom', 'dolly', 'flip', 'cube', 'door', 'tilt',
   ] },
-  blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
+  // Blend's modes, derived from the byte kernel so a mode cannot be offered
+  // that the preview and sketch do not run (nodes with fewer override it).
+  blendMode:      { control: 'select', options: BLEND_NODE_MODES },
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: EASE_PICKER_TYPES },
   triggerOp:      { control: 'select', options: ['debounce', 'changed', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
-  feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
+  feedbackTransform: { control: 'select', options: FEEDBACK_TRANSFORMS, labels: { zoomTurn: 'zoom + turn' } },
   delayFrames:    { control: 'slider', min: 1, max: 32, step: 1 },
   stableTime:     { control: 'slider', min: 0.01, max: 1, step: 0.01 },
   holdTime:       { control: 'slider', min: 0.02, max: 3, step: 0.02 },
@@ -717,12 +729,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ScheduleTrigger: {
     scheduleMode: { control: 'select', options: ['Window', 'Trigger'] },
     dayMode: { control: 'select', options: ['Every day', 'Weekdays', 'Weekends', 'Custom'] },
-    startHour: { control: 'slider', min: 0, max: 23, step: 1 },
-    startMinute: { control: 'slider', min: 0, max: 59, step: 1 },
-    startSecond: { control: 'slider', min: 0, max: 59, step: 1 },
-    endHour: { control: 'slider', min: 0, max: 23, step: 1 },
-    endMinute: { control: 'slider', min: 0, max: 59, step: 1 },
-    endSecond: { control: 'slider', min: 0, max: 59, step: 1 },
+    start: { control: 'time' },
+    end: { control: 'time' },
   },
   PaletteFromImage: {
     count: { control: 'slider', min: 2, max: 8, step: 1 },
@@ -791,6 +799,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // Envelope's decay is a duration in seconds, not the shared 0–1 rate.
   Wave: {
     rateUnit: { control: 'select', options: [...WAVE_RATE_UNITS] },
+    // Hundredths, not the shared tenth: a slow breath is 0.15 Hz or 0.07 Hz,
+    // and a typed value off the step is refused.
+    frequency: { control: 'slider', min: 0, max: 4, step: 0.01 },
     bpm: { control: 'slider', min: 1, max: 220, step: 1 },
   },
   Envelope: {
@@ -1179,24 +1190,23 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // attractor
     preset: { control: 'select', options: ['classic', 'swirl', 'web'] },
   },
-  // Negative turns counter-clockwise, shrinks, or slides the other way.
-  Transform:         { rate:  { control: 'slider', min: -360, max: 360, step: 1 } },
-  Blend: {
-    blendMode: { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'] },
-  },
+  // Negative turns counter-clockwise, shrinks first, or slides the other way.
+  // Fine steps, because translate wants fractions of a pixel a second; the
+  // row's label names the unit the mode reads (propertyLabel).
+  Transform:         { rate:  { control: 'slider', min: -360, max: 360, step: 0.1 } },
   // Blinds, checkerboard and spiral divisions across the frame, not the
   // shared 1-200 particle count: past a few dozen they are a pixel wide.
   Transition: {
     count: { control: 'slider', min: 1, max: 32, step: 1 },
   },
   Array: {
-    count:     { control: 'slider', min: 1, max: 24,  step: 1 },
+    count:     { control: 'slider', min: ARRAY_COPIES.min, max: ARRAY_COPIES.max, step: 1 },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     offsetY:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     angle:     { control: 'slider', min: -180, max: 180, step: 1 },
     scale:     { control: 'slider', min: 0.25, max: 2, step: 0.05 },
     falloff:   { control: 'slider', min: 0, max: 1, step: 0.01 },
-    blendMode: { control: 'select', options: ['add', 'lighten', 'over'] },
+    blendMode: { control: 'select', options: ['lighten', 'add', 'over'] },
   },
   MicInput: {
     gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
@@ -1375,7 +1385,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // Turned again every frame the echo comes round, so a few degrees is a
     // slow swirl and anything past ~10° smears into a blur.
     angle:     { control: 'slider', min: -45, max: 45, step: 0.5 },
-    blendMode: { control: 'select', options: ['normal', 'screen', 'add', 'multiply', 'difference', 'lighten'] },
+    blendMode: { control: 'select', options: FEEDBACK_BLEND_MODES },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     offsetY:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     scale:     { control: 'slider', min: 0.25, max: 4, step: 0.05 },
@@ -1384,6 +1394,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     strength: { control: 'slider', min: 0, max: 8, step: 0.1 },
     zoom:     { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     rotate:   { control: 'slider', min: -180, max: 180, step: 1 },
+    motion:   { control: 'select', options: WARP_MOTIONS },
+    // Cycles a second; negative runs the motion backwards.
+    motionSpeed: { control: 'slider', min: -2, max: 2, step: 0.01 },
     edgeMode: { control: 'select', options: ['clamp', 'wrap', 'black'] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
@@ -1391,7 +1404,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
   FieldSymmetry: {
-    group: { control: 'select', options: [...WALLPAPER_GROUPS] },
+    group: { control: 'select', options: [...WALLPAPER_GROUPS], labels: WALLPAPER_GROUP_LABELS },
     cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
     rotation: { control: 'slider', min: -180, max: 180, step: 1 },
     spin: { control: 'slider', min: -360, max: 360, step: 5 },
@@ -1399,7 +1412,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     offsetY: { control: 'slider', min: -8, max: 8, step: 0.1 },
   },
   Symmetry: {
-    group: { control: 'select', options: [...WALLPAPER_GROUPS] },
+    group: { control: 'select', options: [...WALLPAPER_GROUPS], labels: WALLPAPER_GROUP_LABELS },
     cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
     rotation: { control: 'slider', min: -180, max: 180, step: 1 },
     spin: { control: 'slider', min: -360, max: 360, step: 5 },
@@ -1740,7 +1753,8 @@ export function propertyMetaFor(
  * What a select option reads as in its dropdown. A bundled node's variant
  * select takes the header that variant gives the node (`BUNDLED_TITLES`),
  * less a "Name · " prefix every variant shares; other camelCase or
- * abbreviated ids take a written label. Anything else reads as itself.
+ * abbreviated ids take a written label, from the select's own `labels` or
+ * the table below. Anything else reads as itself.
  */
 export function selectOptionLabel(nodeType: string, key: string, option: string): string {
   const bundled = BUNDLED_TITLES[nodeType]
@@ -1749,7 +1763,9 @@ export function selectOptionLabel(nodeType: string, key: string, option: string)
     const label = bundled.labels[option]
     return prefix && label.startsWith(prefix) ? label.slice(prefix.length) : label
   }
-  return SELECT_OPTION_LABELS[nodeType]?.[key]?.[option] ?? SELECT_OPTION_LABELS['*'][key]?.[option] ?? option
+  const meta = propertyMeta(nodeType, key)
+  const written = meta?.control === 'select' ? meta.labels?.[option] : undefined
+  return written ?? SELECT_OPTION_LABELS[nodeType]?.[key]?.[option] ?? SELECT_OPTION_LABELS['*'][key]?.[option] ?? option
 }
 
 /** The "Name · " every one of a bundled node's titles starts with, if any. */
@@ -2456,6 +2472,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FrameWarp: {
     strength: 'Maximum per-pixel displacement in source pixels. A field value of 0.5 is neutral.',
+    motion: 'Built-in movement used while neither Offset field is wired: a swirl about the centre, ripples travelling outward, or layered turbulence. None leaves the frame still.',
+    motionSpeed: 'Cycles a second of the built-in motion. Negative runs it backwards.',
     zoom: 'Centred source zoom. Values above 1 enlarge the frame; values below 1 reveal more of it.',
     rotate: 'Centred source rotation in degrees.',
     edgeMode: 'How source coordinates outside the frame resolve: hold the edge, wrap around, or fade to black.',
@@ -2693,13 +2711,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     audioAmount: 'How much the six audio inputs bend the geometry (0–2); 0 runs the effect unmodulated.',
   },
   Wave: {
-    amplitude: 'Peak height of the wave: the output swings −amplitude to +amplitude, or 0 to amplitude when unipolar. Accepts a matrix expression such as w / 2.',
-    frequency: 'Cycles per second. 1 = one full wave every second; 0.1 = one every ten seconds.',
+    amplitude: 'Height of the wave: the output swings 0 to amplitude while unipolar, or −amplitude to +amplitude. Accepts a matrix expression such as w / 2.',
+    frequency: 'Cycles per second. 1 = one full wave every second; 0.1 = one every ten seconds, 0.05 one every twenty.',
     bpm: 'Beats per minute, one full wave per beat, as FastLED beatsin does.',
     rateUnit: 'Give the rate as Frequency in Hz or as a tempo in BPM.',
     phase: 'Shifts where the wave starts, in whole cycles (0.25 = a quarter turn ahead).',
     offset: 'Added to the output: moves the whole wave up or down. A unipolar wave runs from Offset to Offset + Amplitude. Accepts a matrix expression such as h / 2.',
-    unipolar: 'Swing 0 to amplitude instead of −amplitude to +amplitude. A unipolar sawtooth is a 0–1 ramp.',
+    unipolar: 'On (the default), swing 0 to amplitude, which suits a 0–1 target; off, swing −amplitude to +amplitude. A unipolar sawtooth is a 0–1 ramp.',
     waveform: 'Shape of the cycle: smooth sine, pointed triangle, hard square, or rising sawtooth.',
   },
   Interval: {
@@ -2710,7 +2728,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     decay: 'Seconds to fall back from 1 to 0 after the rise. Longer keeps the effect lit longer.',
   },
   Random: {
-    min: 'Lowest value that can be drawn. A fresh value is drawn every frame.',
+    min: 'Lowest value that can be drawn. A fresh value is drawn every frame, or on each Trigger when one is wired.',
     max: 'Highest value that can be drawn.',
   },
   NoiseSignal: {
@@ -2722,12 +2740,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   ScheduleTrigger: {
     scheduleMode: 'Window keeps Active on between start and end. Trigger pulses Start once at the start time.',
     dayMode: 'Which days the schedule runs. Custom reveals a tick box per weekday.',
-    startHour: 'Hour (0–23) the window opens or the trigger fires.',
-    startMinute: 'Minute (0–59) of the start time.',
-    startSecond: 'Second (0–59) of the start time.',
-    endHour: 'Hour (0–23) the window closes. An end before the start wraps past midnight.',
-    endMinute: 'Minute (0–59) of the end time.',
-    endSecond: 'Second (0–59) of the end time.',
+    start: 'Time of day (24-hour) the window opens or the trigger fires. Seconds are optional.',
+    end: 'Time of day (24-hour) the window closes. An end before the start wraps past midnight.',
     monday: 'Run on Mondays (Custom days only).',
     tuesday: 'Run on Tuesdays (Custom days only).',
     wednesday: 'Run on Wednesdays (Custom days only).',
@@ -3145,13 +3159,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Saturation: {
     amount: 'Scales colour intensity. 0 is greyscale, 1 unchanged, 2 doubles it (clipped).',
-  },
-  ColorBoost: {
-    boost: 'Pushes colours away from grey without changing brightness. 0 is off.',
+    keepBrightness: 'Push colours away from grey without making the frame lighter or darker. Suits washed-out or pastel patterns.',
   },
   Transform: {
-    transform: 'What moves: rotate spins, scale zooms, translate slides along Angle.',
-    rate: 'How fast it moves: degrees, percent or pixels per second by mode. Negative turns counter-clockwise, shrinks, or slides backwards. Scale stops at 1/20× and 20×.',
+    transform: 'What moves: rotate spins, scale zooms in and out, translate slides along Angle.',
+    rate: 'How fast it moves: degrees a second to rotate, pixels a second to translate, and to scale, percent of a doubling a second as the zoom swings between double and half size. Negative turns counter-clockwise, shrinks first, or slides backwards.',
     angle: 'Direction of travel for translate, in degrees. Ignored by rotate and scale.',
   },
   Array: {
@@ -3161,10 +3173,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     angle: 'Extra turn each copy gets, in degrees. Pair with no offset for a ring.',
     scale: 'Size multiplier applied again for each copy. Below 1 shrinks toward the centre.',
     falloff: 'Brightness multiplier applied again for each copy. 1 keeps all copies full.',
-    blendMode: 'How copies stack: add sums light, lighten keeps the brighter, over paints the first on top.',
+    blendMode: 'How copies stack: lighten keeps the brighter, add sums light (a full frame soon turns white), over paints the first on top.',
   },
   Mirror: {
-    mirrorMode: 'Which half is copied where: left to right, top to bottom, both, or across the diagonal.',
+    mirrorMode: 'Which half is copied where: left to right, top to bottom, both, or across the diagonal from corner to corner, which follows a wide panel too.',
     glow: 'Blends the hidden half in as a bloom instead of discarding it.',
     glowAmount: 'How strongly the hidden half shows through. 0 is a clean mirror.',
     r: 'Red of the glow tint, 0 to 255. White (255,255,255) leaves the glow uncoloured.',
@@ -3176,14 +3188,17 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FrameFeedback: {
     delayFrames: 'How many frames back the echo comes from. More memory per frame on the board.',
-    fade: 'How much the echo dims each pass, 0 to 1. Small values keep it ringing.',
+    fade: 'How much the echo dims each 60th of a second, 0 to 1, so it rings as long at any frame rate. Small values keep it ringing.',
     blendMode: 'How the echo is laid over the live frame.',
     amount: 'Opacity of the echo over the live frame. 0 turns feedback off.',
-    feedbackTransform: 'What happens to the echo each pass: slide, turn, or zoom. None keeps it in place.',
+    feedbackTransform: 'What happens to the echo each pass: slide, turn, zoom, or zoom + turn for a turning tunnel. None keeps it in place.',
     offsetX: 'Horizontal slide per pass, in pixels (translate only).',
     offsetY: 'Vertical slide per pass, in pixels (translate only).',
-    angle: 'Turn per pass, in degrees (rotate only). Keep it small for a spiral.',
-    scale: 'Zoom per pass (scale only). Below 1 pulls the echo inward; above 1 pushes it out.',
+    angle: 'Turn per pass, in degrees (rotate and zoom + turn). Keep it small for a spiral.',
+    scale: 'Zoom per pass (scale and zoom + turn). Below 1 pulls the echo inward; above 1 pushes it out.',
+  },
+  FrameSwitch: {
+    select: 'On shows Frame B, off shows Frame A. A wire into Select overrides this.',
   },
   Zones: {
     aEnabled: 'Turns this zone off without unwiring it; its rectangle then shows Base.',
@@ -3191,21 +3206,25 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     aY: 'Top edge of the zone as a fraction of the matrix height.',
     aW: 'Width of the zone as a fraction of the matrix width.',
     aH: 'Height of the zone as a fraction of the matrix height.',
+    aFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
     bEnabled: 'Turns this zone off without unwiring it; its rectangle then shows Base.',
     bX: 'Left edge of the zone as a fraction of the matrix width.',
     bY: 'Top edge of the zone as a fraction of the matrix height.',
     bW: 'Width of the zone as a fraction of the matrix width.',
     bH: 'Height of the zone as a fraction of the matrix height.',
+    bFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
     cEnabled: 'Turns this zone off without unwiring it; its rectangle then shows Base.',
     cX: 'Left edge of the zone as a fraction of the matrix width.',
     cY: 'Top edge of the zone as a fraction of the matrix height.',
     cW: 'Width of the zone as a fraction of the matrix width.',
     cH: 'Height of the zone as a fraction of the matrix height.',
+    cFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
     dEnabled: 'Turns this zone off without unwiring it; its rectangle then shows Base.',
     dX: 'Left edge of the zone as a fraction of the matrix width.',
     dY: 'Top edge of the zone as a fraction of the matrix height.',
     dW: 'Width of the zone as a fraction of the matrix width.',
     dH: 'Height of the zone as a fraction of the matrix height.',
+    dFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
   },
   Sequencer: {
     interval: 'Seconds each connected input is held before moving to the next. Unconnected inputs are skipped.',
@@ -3607,6 +3626,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Transform: {
     transform: 'mode',
   },
+  Saturation: {
+    keepBrightness: 'keep brightness',
+  },
   Array: {
     blendMode: 'combine',
     offsetX: 'step X',
@@ -3618,6 +3640,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   FrameWarp: {
     edgeMode: 'edges',
+    motionSpeed: 'motion speed',
   },
   Symmetry: {
     offsetX: 'offset X',
@@ -3631,7 +3654,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   // The group header names the zone, so its rows carry the bare field.
   Zones: Object.fromEntries(['a', 'b', 'c', 'd'].flatMap((zone) => [
-    [`${zone}Enabled`, 'enabled'], [`${zone}X`, 'x'], [`${zone}Y`, 'y'], [`${zone}W`, 'width'], [`${zone}H`, 'height'],
+    [`${zone}Enabled`, 'enabled'], [`${zone}X`, 'x'], [`${zone}Y`, 'y'], [`${zone}W`, 'width'], [`${zone}H`, 'height'], [`${zone}Fit`, 'fit'],
   ])),
   Gauge: {
     gaugeStyle: 'style',
@@ -4016,12 +4039,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   ScheduleTrigger: {
     scheduleMode: 'mode',
     dayMode: 'days',
-    startHour: 'start hour',
-    startMinute: 'start minute',
-    startSecond: 'start second',
-    endHour: 'end hour',
-    endMinute: 'end minute',
-    endSecond: 'end second',
     requireSync: 'require synced time',
   },
   PaletteFromImage: {
@@ -4106,6 +4123,11 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = Object.fr
  */
 export function propertyLabel(nodeType: string, key: string, properties?: Record<string, unknown>): string {
   if (nodeType === 'Trigger' && key === 'initialState') return 'Start on'
+  // One Rate serves three units; the row names the one its mode reads.
+  if (nodeType === 'Transform' && key === 'rate' && properties) {
+    const mode = String(properties.transform ?? 'rotate')
+    return mode === 'scale' ? 'rate (%/s)' : mode === 'translate' ? 'rate (px/s)' : 'rate (°/s)'
+  }
   if (nodeType === 'PowerSwitchOutput' && properties) {
     const channelLabel = powerSwitchPropertyLabel(key, properties.partId)
     if (channelLabel) return channelLabel
@@ -4263,9 +4285,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'network', label: 'NTP Network', keys: ['ntpServer', 'timezoneOffsetMinutes', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
+  // Enable and Require Synced Time decide whether the schedule runs at all,
+  // so they lead the Timing group rather than sitting among the day rules.
   ScheduleTrigger: [
-    { key: 'timing', label: 'Timing', keys: ['scheduleMode', 'startHour', 'startMinute', 'startSecond', 'endHour', 'endMinute', 'endSecond'] },
-    { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'requireSync', 'enable'] },
+    { key: 'timing', label: 'Timing', keys: ['enable', 'scheduleMode', 'start', 'end', 'requireSync'] },
+    { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] },
   ],
   MatrixOutput: [
     { key: 'output', label: 'Output', keys: ['enabled', 'outputBrightness'] },
@@ -4447,6 +4471,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
     { key: 'repeat', label: 'Repeat', keys: ['count', 'falloff', 'blendMode'] },
   ],
+  FrameWarp: [
+    { key: 'push', label: 'Push', keys: ['motion', 'motionSpeed', 'strength'] },
+    { key: 'view', label: 'View', keys: ['zoom', 'rotate'] },
+    { key: 'sampling', label: 'Sampling', keys: ['edgeMode', 'sampling'] },
+  ],
   FrameFeedback: [
     { key: 'delay', label: 'Delay', keys: ['delayFrames', 'fade'] },
     { key: 'blend', label: 'Blend', keys: ['blendMode', 'amount'] },
@@ -4563,10 +4592,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'timing', label: 'Timing', keys: ['speed', 'seed'] },
   ],
   Zones: [
-    { key: 'zoneA', label: 'Zone A', keys: ['aEnabled', 'aX', 'aY', 'aW', 'aH'] },
-    { key: 'zoneB', label: 'Zone B', keys: ['bEnabled', 'bX', 'bY', 'bW', 'bH'] },
-    { key: 'zoneC', label: 'Zone C', keys: ['cEnabled', 'cX', 'cY', 'cW', 'cH'] },
-    { key: 'zoneD', label: 'Zone D', keys: ['dEnabled', 'dX', 'dY', 'dW', 'dH'] },
+    { key: 'zoneA', label: 'Zone A', keys: ['aEnabled', 'aX', 'aY', 'aW', 'aH', 'aFit'] },
+    { key: 'zoneB', label: 'Zone B', keys: ['bEnabled', 'bX', 'bY', 'bW', 'bH', 'bFit'] },
+    { key: 'zoneC', label: 'Zone C', keys: ['cEnabled', 'cX', 'cY', 'cW', 'cH', 'cFit'] },
+    { key: 'zoneD', label: 'Zone D', keys: ['dEnabled', 'dX', 'dY', 'dW', 'dH', 'dFit'] },
   ],
 }
 
@@ -5274,9 +5303,7 @@ export function isPropertyEnabled(
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
   }
   if (nodeType === 'ScheduleTrigger') {
-    if (key === 'endHour' || key === 'endMinute' || key === 'endSecond') {
-      return String(properties.scheduleMode ?? 'Window') === 'Window'
-    }
+    if (key === 'end') return String(properties.scheduleMode ?? 'Window') === 'Window'
     if (key === 'monday' || key === 'tuesday' || key === 'wednesday' || key === 'thursday' || key === 'friday' || key === 'saturday' || key === 'sunday') {
       return String(properties.dayMode ?? 'Every day') === 'Custom'
     }
@@ -5530,6 +5557,7 @@ export function isPropertyEnabled(
     if (key === 'tilt') return !threeBand
     if (key === 'energy' || key === 'speed' || key === 'mirror') return threeBand
   }
+  if (nodeType === 'FrameWarp' && key === 'motionSpeed') return String(properties.motion ?? 'swirl') !== 'none'
   if (nodeType === 'FrameFeedback') {
     const mode = String(properties.feedbackTransform ?? 'none')
     switch (key) {
@@ -5537,9 +5565,9 @@ export function isPropertyEnabled(
       case 'offsetY':
         return mode === 'translate'
       case 'angle':
-        return mode === 'rotate'
+        return mode === 'rotate' || mode === 'zoomTurn'
       case 'scale':
-        return mode === 'scale'
+        return mode === 'scale' || mode === 'zoomTurn'
     }
   }
   if (nodeType === 'Particles') {

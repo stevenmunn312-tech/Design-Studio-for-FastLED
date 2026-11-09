@@ -625,11 +625,12 @@
      "y": 0
     },
     "data": {
-     "label": "Color Boost",
-     "nodeType": "ColorBoost",
+     "label": "Saturation",
+     "nodeType": "Saturation",
      "category": "composite",
      "properties": {
-      "boost": 0.45
+      "amount": 1.675,
+      "keepBrightness": true
      },
      "inputs": [
       {
@@ -638,8 +639,8 @@
        "dataType": "frame"
       },
       {
-       "id": "boost",
-       "label": "Boost",
+       "id": "amount",
+       "label": "Amount",
        "dataType": "float"
       }
      ],

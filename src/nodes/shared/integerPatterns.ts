@@ -1334,7 +1334,11 @@ export const blendMix8Cpp = (mode: string, a: string, b: string, op: string) =>
 
 // ── FrameFeedback transforms ──────────────────────────────────────────────────
 // Where each pixel reads the delayed frame, in 1/16 pixel about the centre
-// ((W-1)/2, (H-1)/2): a wrapped shift, a rotation in Q15, or a zoom in 16.16.
+// ((W-1)/2, (H-1)/2): a wrapped shift, a rotation in Q15, a zoom in 16.16,
+// or `zoomTurn`, the rotation then the zoom.
+
+/** The transforms `feedbackSource` knows; anything else reads in place. */
+export const FEEDBACK_TRANSFORMS = ['none', 'translate', 'rotate', 'scale', 'zoomTurn'] as const
 
 export interface FeedbackFrame { dx: number; dy: number; cos: number; sin: number; inv: number }
 
@@ -1369,6 +1373,11 @@ export function feedbackSource(mode: string, x: number, y: number, W: number, H:
   } else if (mode === 'scale') {
     sx = ((W - 1) * 8 + Math.floor(px * f.inv / 65536) + 8) >> 4
     sy = ((H - 1) * 8 + Math.floor(py * f.inv / 65536) + 8) >> 4
+  } else if (mode === 'zoomTurn') {
+    // The rotation in Q15, then the zoom in 16.16: a turning tunnel.
+    const rx = (px * f.cos + py * f.sin) >> 15, ry = (py * f.cos - px * f.sin) >> 15
+    sx = ((W - 1) * 8 + Math.floor(rx * f.inv / 65536) + 8) >> 4
+    sy = ((H - 1) * 8 + Math.floor(ry * f.inv / 65536) + 8) >> 4
   } else return y * W + x
   return sx < 0 || sx >= W || sy < 0 || sy >= H ? -1 : sy * W + sx
 }
@@ -1385,6 +1394,14 @@ export function feedbackSourceCpp(mode: string): string[] {
   }
   if (mode === 'scale') {
     return [centred, `int32_t _fsx=((WIDTH-1)*8+(int32_t)(((int64_t)_fpx*_fbInv)>>16)+8)>>4,_fsy=((HEIGHT-1)*8+(int32_t)(((int64_t)_fpy*_fbInv)>>16)+8)>>4;`, inside]
+  }
+  if (mode === 'zoomTurn') {
+    return [
+      centred,
+      `int32_t _frx=(_fpx*_fbCo+_fpy*_fbSi)>>15,_fry=(_fpy*_fbCo-_fpx*_fbSi)>>15;`,
+      `int32_t _fsx=((WIDTH-1)*8+(int32_t)(((int64_t)_frx*_fbInv)>>16)+8)>>4,_fsy=((HEIGHT-1)*8+(int32_t)(((int64_t)_fry*_fbInv)>>16)+8)>>4;`,
+      inside,
+    ]
   }
   return [`int _fbSrc=_y*WIDTH+_x;`]
 }

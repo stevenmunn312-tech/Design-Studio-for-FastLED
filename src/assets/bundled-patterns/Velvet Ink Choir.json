@@ -325,7 +325,8 @@
       "amplitude": 1,
       "frequency": 0.1,
       "phase": 0,
-      "waveform": "sine"
+      "waveform": "sine",
+      "unipolar": false
      },
      "inputs": [
       {
@@ -368,7 +369,8 @@
       "amplitude": 1,
       "frequency": 0.1,
       "phase": 0.25,
-      "waveform": "sine"
+      "waveform": "sine",
+      "unipolar": false
      },
      "inputs": [
       {
@@ -1038,7 +1040,7 @@
      "y": -120
     },
     "data": {
-     "label": "Symmetry",
+     "label": "Tile Symmetry",
      "nodeType": "Symmetry",
      "category": "composite",
      "properties": {
@@ -1098,11 +1100,12 @@
      "y": -120
     },
     "data": {
-     "label": "Color Boost",
-     "nodeType": "ColorBoost",
+     "label": "Saturation",
+     "nodeType": "Saturation",
      "category": "composite",
      "properties": {
-      "boost": 0.35
+      "amount": 1.525,
+      "keepBrightness": true
      },
      "inputs": [
       {
@@ -1111,8 +1114,8 @@
        "dataType": "frame"
       },
       {
-       "id": "boost",
-       "label": "Boost",
+       "id": "amount",
+       "label": "Amount",
        "dataType": "float"
       }
      ],

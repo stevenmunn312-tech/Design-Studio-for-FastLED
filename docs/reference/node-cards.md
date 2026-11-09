@@ -1118,12 +1118,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Saturation example graph](../../public/node-cards/graphs/saturation.svg)
 
-### Color Boost
-
-![Color Boost node](../../public/node-cards/color-boost.svg)
-
-![Color Boost example graph](../../public/node-cards/graphs/color-boost.svg)
-
 ### Transform
 
 ![Transform node](../../public/node-cards/transform.svg)

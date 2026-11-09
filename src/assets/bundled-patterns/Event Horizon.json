@@ -368,7 +368,7 @@
             },
             {
               "id": "amount",
-              "label": "Amount",
+              "label": "Opacity",
               "dataType": "float"
             },
             {

@@ -19,49 +19,33 @@ import { glitterBudget, glitterMode } from './glitter'
 import { frameOffset, frameQuarterTurns } from './frameTransform'
 import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
-import { fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
+import { TRAIL_MIN_STEP, fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import { evalKaleidoscope } from './kaleidoscope'
+import { gammaVideoTable } from './gamma'
+import { transformZoom } from './transformZoom'
+import { ARRAY_COPIES } from './limits'
+import { FEEDBACK_BLEND_MODES } from './blendModes'
+import { diagonalFold } from './mirror'
+import { WARP_MOTIONS, warpPush } from './frameWarpMotion'
 import {
-  arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
+  FEEDBACK_TRANSFORMS, arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
   wallpaperSourceQ8,
 } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 
 // Trails node — the persisted, fading accumulator frame.
 const trailState = instanceState('trailState', new Map<string, Frame>())
-interface FrameFeedbackState { frames: Frame[]; index: number; w: number; h: number; capacity: number }
+/** The ring of past outputs, each slot's unspent fade, and the previous pass's time. */
+interface FrameFeedbackState {
+  frames: Frame[]; owed: number[]; index: number; w: number; h: number; capacity: number; lastT: number | null
+}
 const frameFeedbackState = instanceState('frameFeedbackState', new Map<string, FrameFeedbackState>())
-
-// Per-channel blend-mode math for the Blend node. `a`/`b` are 0–255 base/blend
-// channel values; returns the blended channel (0–255) before opacity is mixed.
-function blendChannel(mode: string, a: number, b: number): number {
-  const an = a / 255, bn = b / 255
-  let r: number
-  switch (mode) {
-    case 'multiply':   r = an * bn; break
-    case 'screen':     r = 1 - (1 - an) * (1 - bn); break
-    case 'overlay':    r = an < 0.5 ? 2 * an * bn : 1 - 2 * (1 - an) * (1 - bn); break
-    case 'add':        r = Math.min(1, an + bn); break
-    case 'difference': r = Math.abs(an - bn); break
-    case 'lighten':    r = Math.max(an, bn); break
-    case 'normal':
-    default:           r = bn; break
-  }
-  return r * 255
-}
-
-// Composite frame `b` over `a` with `mode` at `opacity` (0–1): the blended
-// colour is cross-faded against the base by opacity, so 0 = base, 1 = full mode.
-function blendPixel(mode: string, a: RGB, b: RGB, opacity: number): RGB {
-  const mix = (av: number, bv: number) =>
-    Math.round(av * (1 - opacity) + blendChannel(mode, av, bv) * opacity)
-  return { r: mix(a.r, b.r), g: mix(a.g, b.g), b: mix(a.b, b.b) }
-}
 
 // Animated geometric transform of a frame, resampled nearest-neighbour about
 // the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
-// (clamped), `translate` shifts by rate px/s along `angle°` (toroidal wrap).
+// between double and half size and back (./transformZoom.ts), `translate`
+// shifts by rate px/s along `angle°` (toroidal wrap).
 function evalTransform(key: string, src: Frame, mode: string, rate: number, angle: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = (W - 1) / 2, cy = (H - 1) / 2
   const phase = speedPhase(key, t, rate)
@@ -80,7 +64,7 @@ function evalTransform(key: string, src: Frame, mode: string, rate: number, angl
       })
   }
   if (mode === 'scale') {
-    const s = Math.max(0.05, Math.min(20, 1 + phase / 100))
+    const s = transformZoom(phase)
     return buildFrame(W, H, (x, y) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
   }
   // rotate: sample the source under the inverse rotation
@@ -93,7 +77,7 @@ function evalTransform(key: string, src: Frame, mode: string, rate: number, angl
 }
 
 function evalFrameFeedback(
-  key: string, src: Frame, delayFrames: number, fade: number, amount: number,
+  key: string, t: number, src: Frame, delayFrames: number, fade: number, amount: number,
   blendMode: string, transformMode: string, offsetX: number, offsetY: number,
   angle: number, scale: number, W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
@@ -103,23 +87,43 @@ function evalFrameFeedback(
   if (!state || state.w !== W || state.h !== H || state.capacity !== capacity) {
     state = {
       frames: Array.from({ length: capacity }, () => rawBlankFrame(W, H)),
+      owed: new Array<number>(capacity).fill(0),
       index: 0,
       w: W,
       h: H,
       capacity,
+      lastT: null,
     }
     frameFeedbackState.set(key, state)
   }
+  // 1 - fade survives each 60th of a second, spent by the time since the
+  // previous pass, as Trails spends its decay, so the echo dies at the same
+  // speed at any frame rate. Like the shared trail clock it saves a slow fade
+  // up into whole fadeToBlackBy bytes, TRAIL_MIN_STEP at a time, but per ring
+  // slot: an echo chain is `delay` passes long, and one shared carry spent on
+  // alternate frames would fade one chain twice and the other never.
+  const dt = state.lastT === null ? 0 : Math.max(0, t - state.lastT)
+  state.lastT = t
+  let keep = Math.pow(1 - clamp01(fade), dt * TRAILS_REFERENCE_FPS)
+  if (!(keep >= 0)) keep = 1
+  let owed = state.owed[(state.index - delay + capacity) % capacity] + (1 - keep) * 256
+  let fadeBy = 0
+  if (owed >= TRAIL_MIN_STEP) {
+    fadeBy = Math.min(255, Math.floor(owed))
+    owed = fadeBy === 255 ? 0 : owed - fadeBy
+  }
+  state.owed[state.index] = owed
 
   // The sketch's integer kernel (shared/integerPatterns.ts): the delayed
-  // frame read through the transform, faded and blended in bytes. Modes the
-  // sketch has no case for blend as screen, as it does.
+  // frame read through the transform, faded and blended in bytes, normal
+  // included. Modes the sketch has no case for blend as screen, as it does.
   const delayed = state.frames[(state.index - delay + capacity) % capacity]
   const frame = feedbackFrame(offsetX, offsetY, angle, scale)
-  const mode = ['translate', 'rotate', 'scale'].includes(transformMode) ? transformMode : 'none'
-  const retain8 = Math.trunc((1 - clamp01(fade)) * 255)
-  const opacity = clamp01(amount), op8 = Math.trunc(opacity * 255)
-  const integerMode = ['multiply', 'screen', 'add', 'difference', 'lighten'].includes(blendMode) ? blendMode : 'screen'
+  const mode = (FEEDBACK_TRANSFORMS as readonly string[]).includes(transformMode) ? transformMode : 'none'
+  // fadeToBlackBy(fadeBy) is scale8 by 255 - fadeBy.
+  const retain8 = 255 - fadeBy
+  const op8 = Math.trunc(clamp01(amount) * 255)
+  const integerMode = FEEDBACK_BLEND_MODES.includes(blendMode) ? blendMode : 'screen'
   const out = state.frames[state.index]
   for (let y = 0; y < H; y++) {
     const outRow = out[y], srcRow = src[y]
@@ -128,35 +132,28 @@ function evalFrameFeedback(
       const d = at < 0 ? { r: 0, g: 0, b: 0 } : delayed[Math.trunc(at / W)][at % W]
       const fb = { r: scale8(d.r, retain8), g: scale8(d.g, retain8), b: scale8(d.b, retain8) }
       const a = srcRow[x], dst = outRow[x]
-      if (blendMode === 'normal') {
-        const px = blendPixel('normal', a, fb, opacity)
-        dst.r = px.r; dst.g = px.g; dst.b = px.b
-      } else {
-        dst.r = blendMix8(integerMode, a.r, fb.r, op8)
-        dst.g = blendMix8(integerMode, a.g, fb.g, op8)
-        dst.b = blendMix8(integerMode, a.b, fb.b, op8)
-      }
+      dst.r = blendMix8(integerMode, a.r, fb.r, op8)
+      dst.g = blendMix8(integerMode, a.g, fb.g, op8)
+      dst.b = blendMix8(integerMode, a.b, fb.b, op8)
     }
   }
   state.index = (state.index + 1) % capacity
   return out
 }
 
-// Hard cap on Array copies (guards a garbage `count` from allocating a huge loop).
-const ARRAY_MAX_COPIES = 32
-
 // Blender-style array: composite `count` copies of `src`, copy i offset by
 // (offsetX·i, offsetY·i), rotated by angle·i and scaled by scale^i about the
 // matrix centre, dimmed by falloff^i. Copies paint high→low index so copy 0
 // (the identity) lands on top for the `over` mode; `add`/`lighten` are order-
-// independent. Kept in lockstep with the Array case in cppGenerator.ts.
+// independent. Any other mode lightens, the default. Kept in lockstep with the
+// Array emitter, which shares the ARRAY_COPIES bound.
 function evalArray(
   src: Frame, count: number, offsetX: number, offsetY: number,
   angleDeg: number, scale: number, falloff: number, mode: string,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const out = rawBlankFrame(W, H)
-  const n = Math.max(1, Math.min(ARRAY_MAX_COPIES, Math.round(count)))
+  const n = Math.max(ARRAY_COPIES.min, Math.min(ARRAY_COPIES.max, Math.round(count)))
   const sc0 = Math.max(0.05, scale)
   const fo = Math.max(0, Math.min(1, falloff))
   // The sketch's integer kernel (shared/integerPatterns.ts), one copy at a time.
@@ -170,13 +167,13 @@ function evalArray(
         const s = src[Math.trunc(at / W)][at % W]
         const r = arrayDim(s.r, copy.dim), g = arrayDim(s.g, copy.dim), b = arrayDim(s.b, copy.dim)
         const o = orow[x]
-        if (mode === 'lighten') {
-          o.r = Math.max(o.r, r); o.g = Math.max(o.g, g); o.b = Math.max(o.b, b)
+        if (mode === 'add') {
+          o.r = Math.min(255, o.r + r); o.g = Math.min(255, o.g + g); o.b = Math.min(255, o.b + b)
         } else if (mode === 'over') {
           const cov = Math.max(r, g, b)
           o.r = arrayOver(o.r, cov, r); o.g = arrayOver(o.g, cov, g); o.b = arrayOver(o.b, cov, b)
         } else {
-          o.r = Math.min(255, o.r + r); o.g = Math.min(255, o.g + g); o.b = Math.min(255, o.b + b)
+          o.r = Math.max(o.r, r); o.g = Math.max(o.g, g); o.b = Math.max(o.b, b)
         }
       }
     }
@@ -232,20 +229,14 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     // A mask frame scales the opacity per pixel by its brightness (the
     // average of r, g, b, as Mask reads it); unwired, every pixel is 1.
     const mask = input(id, 'mask', null) as Frame | null
-    if (mode !== 'normal') {
-      // The sketch's integer blend (shared/integerPatterns.ts): opacity in a byte.
-      const op = Math.trunc(opacity * 255)
-      return { frame: a.map((row, y) => row.map((px, x) => {
-        const m = mask?.[y]?.[x]
-        const op8 = m ? div255(op * Math.trunc((m.r + m.g + m.b) / 3)) : op
-        const q = b[y][x]
-        return { r: blendMix8(mode, px.r, q.r, op8), g: blendMix8(mode, px.g, q.g, op8), b: blendMix8(mode, px.b, q.b, op8) }
-      })) }
-    }
+    // The sketch's integer blend (shared/integerPatterns.ts) for every mode,
+    // normal included: opacity in a byte, each /255 an exact floor.
+    const op = Math.trunc(opacity * 255)
     return { frame: a.map((row, y) => row.map((px, x) => {
       const m = mask?.[y]?.[x]
-      const o = m ? opacity * ((m.r + m.g + m.b) / 3 / 255) : opacity
-      return blendPixel(mode, px, b[y][x], o)
+      const op8 = m ? div255(op * Math.trunc((m.r + m.g + m.b) / 3)) : op
+      const q = b[y][x]
+      return { r: blendMix8(mode, px.r, q.r, op8), g: blendMix8(mode, px.g, q.g, op8), b: blendMix8(mode, px.b, q.b, op8) }
     })) }
   },
   BrightnessMod({ input, num }, id, props) {
@@ -281,20 +272,21 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       num(id, 'angle', props, 'angle', 0),
       num(id, 'scale', props, 'scale', 1),
       num(id, 'falloff', props, 'falloff', 0.7),
-      String(props.blendMode ?? 'add'),
+      String(props.blendMode ?? 'lighten'),
       W, H,
     ) }
   },
   // Manual A/B frame selector; falls back to the wired side when the
   // selected one is empty. Both inputs are evaluated every frame so a
-  // stateful upstream pattern keeps advancing while hidden.
-  FrameSwitch({ input }, id) {
+  // stateful upstream pattern keeps advancing while hidden. An unwired
+  // Select reads the `select` switch.
+  FrameSwitch({ input }, id, props) {
     const a = input(id, 'a', null) as Frame | null
     const b = input(id, 'b', null) as Frame | null
-    const sel = Boolean(input(id, 'sel', false))
+    const sel = Boolean(input(id, 'sel', props.select === true))
     return { frame: (sel ? b : a) ?? (sel ? a : b) }
   },
-  // Named rectangular zones — each of A–D routes its own wired frame into
+  // Rectangular zones — each of A–D routes its own wired frame into
   // a normalized 0–1 rectangle of the matrix, later zones painting over
   // earlier ones where they overlap. An unwired or disabled zone is
   // skipped entirely, leaving whatever `base`/an earlier zone already put
@@ -313,12 +305,15 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       // Rounded edges, as the sketch rounds them (floorf(v+0.5f)).
       const x0 = Math.round(zx * W), x1 = Math.min(W, Math.round((zx + zw) * W))
       const y0 = Math.round(zy * H), y1 = Math.min(H, Math.round((zy + zh) * H))
+      // Fit samples the source under each zone pixel's centre, in integers
+      // as the sketch does; otherwise the zone shows the source in place.
+      const fit = props[`${key}Fit`] === true
       for (let y = y0; y < y1; y++) {
-        const srcRow = src[y]
+        const srcRow = src[fit ? Math.floor(((2 * (y - y0) + 1) * H) / (2 * (y1 - y0))) : y]
         const dstRow = result[y]
         if (!srcRow || !dstRow) continue
         for (let x = x0; x < x1; x++) {
-          const s = srcRow[x]
+          const s = srcRow[fit ? Math.floor(((2 * (x - x0) + 1) * W) / (2 * (x1 - x0))) : x]
           if (!s) continue
           const d = dstRow[x]
           d.r = s.r; d.g = s.g; d.b = s.b
@@ -365,7 +360,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   // Milkdrop-style per-pixel frame displacement. The transform is an inverse
   // read (zoom/rotate about the canvas centre), then dx/dy push that read in
   // source-pixel units. An absent offset field is neutral at 0.5.
-  FrameWarp({ input, num, W, H }, id, props) {
+  FrameWarp({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) return { frame: null }
     const dx = input(id, 'dx', null) as Field | null
@@ -377,11 +372,19 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const edgeMode: FrameEdgeMode = props.edgeMode === 'wrap' || props.edgeMode === 'black' ? props.edgeMode : 'clamp'
     const bilinear = props.sampling !== 'nearest'
+    // With neither field wired, the built-in motion pushes instead.
+    const motion = (WARP_MOTIONS as readonly unknown[]).includes(props.motion) ? String(props.motion) : 'none'
+    const builtIn = !dx && !dy && motion !== 'none'
+    const phase = builtIn ? speedPhase(stateKey(id), t, num(id, 'motionSpeed', props, 'motionSpeed', 0.25)) : 0
+    const reach = Math.max(cx, cy, 1)
     return { frame: buildFrame(W, H, (x, y) => {
       const px = (x - cx) / zoom, py = (y - cy) / zoom
       const i = y * W + x
-      const sx = cx + px * co + py * si + (2 * (dx?.[i] ?? 0.5) - 1) * strength
-      const sy = cy - px * si + py * co + (2 * (dy?.[i] ?? 0.5) - 1) * strength
+      const [pushX, pushY] = builtIn
+        ? warpPush(motion, (x - cx) / reach, (y - cy) / reach, phase)
+        : [2 * (dx?.[i] ?? 0.5) - 1, 2 * (dy?.[i] ?? 0.5) - 1]
+      const sx = cx + px * co + py * si + pushX * strength
+      const sy = cy - px * si + py * co + pushY * strength
       return sampleFrame(src, sx, sy, edgeMode, bilinear)
     }) }
   },
@@ -406,11 +409,12 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   // ring buffer, then composites a delayed, faded/transformed copy over the
   // current input on the next ticks. That gives video-synth feedback without
   // permitting graph cycles.
-  FrameFeedback({ input, num, W, H, stateKey }, id, props) {
+  FrameFeedback({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) { return { frame: null } }
     return { frame: evalFrameFeedback(
       stateKey(id),
+      t,
       src,
       Number(props.delayFrames ?? 2),
       num(id, 'fade', props, 'fade', 0.08),
@@ -506,11 +510,26 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       ),
     }
   },
-  // RGB→HSV→scale saturation→RGB; shares HueShift's inline extraction.
+  // RGB→HSV→scale saturation→RGB; shares HueShift's inline extraction. Keep
+  // brightness instead scales each channel's distance from the Rec. 709 luma,
+  // so colour grows without the frame getting lighter; rounded, as the sketch
+  // adds 0.5 before its byte cast.
   Saturation({ input, num }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     const amount = num(id, 'amount', props, 'amount', 1)
     if (!src) { return { frame: null } }
+    if (props.keepBrightness === true) {
+      const scale = Math.max(0, amount)
+      const channel = (v: number, luma: number) => Math.max(0, Math.min(255, Math.round(luma + (v - luma) * scale)))
+      return {
+        frame: src.map(row =>
+          row.map(px => {
+            const luma = px.r * 0.2126 + px.g * 0.7152 + px.b * 0.0722
+            return { r: channel(px.r, luma), g: channel(px.g, luma), b: channel(px.b, luma) }
+          })
+        ),
+      }
+    }
     return {
       frame: src.map(row =>
         row.map(px => {
@@ -530,31 +549,13 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       ),
     }
   },
-  ColorBoost({ input, num }, id, props) {
-    const src = input(id, 'frame', null) as Frame | null
-    const boost = Math.max(0, Math.min(1, num(id, 'boost', props, 'boost', 0.5)))
-    if (!src) { return { frame: null } }
-    const scale = 1 + boost * 1.5
-    const clamp255 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
-    return {
-      frame: src.map(row =>
-        row.map(px => {
-          const luma = px.r * 0.2126 + px.g * 0.7152 + px.b * 0.0722
-          return {
-            r: clamp255(luma + (px.r - luma) * scale),
-            g: clamp255(luma + (px.g - luma) * scale),
-            b: clamp255(luma + (px.b - luma) * scale),
-          }
-        })
-      ),
-    }
-  },
+  // FastLED's napplyGamma_video, ported byte for byte (./gamma.ts): fixed
+  // point, rounded, and a lit channel never drops to 0.
   Gamma({ input, num, W, H }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
-    const g = Math.max(0.1, num(id, 'gamma', props, 'gamma', 2.2))
+    const table = gammaVideoTable(Math.max(0.1, num(id, 'gamma', props, 'gamma', 2.2)))
     if (!src) { return { frame: null } }
-    const corr = (c: number) => Math.round(255 * Math.pow(c / 255, g))
-    return { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: corr(px.r), g: corr(px.g), b: corr(px.b) } }) }
+    return { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: table[px.r], g: table[px.g], b: table[px.b] } }) }
   },
   Invert({ input, W, H }, id) {
     const src = input(id, 'frame', null) as Frame | null
@@ -575,28 +576,25 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     // Additive bloom: the plain mirror (base) plus a `glowAmount` fraction of
     // the discarded partner, tinted per-channel by the `color` input (white =
     // neutral). 0 = clean mirror, 1 = full add. Both coords are symmetric under
-    // the reflection. Kept in lockstep with cppGenerator.
-    const glowAmt = Math.max(0, Math.min(1, num(id, 'glowAmount', props, 'glowAmount', 0.35)))
+    // the reflection. In bytes as the sketch runs it: two FastLED scale8
+    // calls and a saturating add, so every channel stays a whole level.
+    const glow8 = Math.trunc(Math.max(0, Math.min(1, num(id, 'glowAmount', props, 'glowAmount', 0.35))) * 255)
     const tint = (input(id, 'color', null) as RGB | null)
       ?? {
         r: byte(num(id, 'r', props, 'r', 255) / 255),
         g: byte(num(id, 'g', props, 'g', 255) / 255),
         b: byte(num(id, 'b', props, 'b', 255) / 255),
       }
-    const gCh = (base: number, add: number, tintCh: number) => Math.min(255, base + add * (tintCh / 255) * glowAmt)
+    const gCh = (base: number, add: number, tintCh: number) => Math.min(255, base + scale8(scale8(add, tintCh), glow8))
     return { frame: buildFrame(W, H, (x, y) => {
-      // base = the mirrored source pixel (min-side of the reflection)
-      let bx = x, by = y
-      if (mode === 'horizontal' || mode === 'quad') bx = Math.min(x, W - 1 - x)
-      if (mode === 'vertical' || mode === 'quad') by = Math.min(y, H - 1 - y)
-      if (mode === 'diagonal') { bx = Math.min(Math.min(x, y), W - 1); by = Math.min(Math.max(x, y), H - 1) }
+      // base = the mirrored source pixel (min-side of the reflection),
+      // add = the opposite (discarded) partner (max-side of the reflection)
+      let bx = x, by = y, ax = x, ay = y
+      if (mode === 'horizontal' || mode === 'quad') { bx = Math.min(x, W - 1 - x); ax = Math.max(x, W - 1 - x) }
+      if (mode === 'vertical' || mode === 'quad') { by = Math.min(y, H - 1 - y); ay = Math.max(y, H - 1 - y) }
+      if (mode === 'diagonal') ({ bx, by, ax, ay } = diagonalFold(x, y, W, H))
       const b = src[by][bx]
       if (!glow) return { r: b.r, g: b.g, b: b.b }
-      // add = the opposite (discarded) partner (max-side of the reflection)
-      let ax = x, ay = y
-      if (mode === 'horizontal' || mode === 'quad') ax = Math.max(x, W - 1 - x)
-      if (mode === 'vertical' || mode === 'quad') ay = Math.max(y, H - 1 - y)
-      if (mode === 'diagonal') { ax = Math.min(Math.max(x, y), W - 1); ay = Math.min(Math.min(x, y), H - 1) }
       const a = src[ay][ax]
       return { r: gCh(b.r, a.r, tint.r), g: gCh(b.g, a.g, tint.g), b: gCh(b.b, a.b, tint.b) }
     }) }

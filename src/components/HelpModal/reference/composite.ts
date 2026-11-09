@@ -28,7 +28,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   Blend: {
     overview: [
-      'Blend lays frame B over frame A. Normal replaces, Multiply darkens, Screen and Add lighten, Overlay adds contrast, and Difference shows where the two differ. Opacity sets how much of B shows.',
+      'Blend lays frame B over frame A. Normal replaces, Multiply darkens, Screen and Add lighten, Overlay adds contrast, Difference shows where the two differ, and Lighten keeps the brighter of each channel. Opacity sets how much of B shows.',
       'An optional Mask frame decides where B appears: bright areas show B, dark areas keep A. On the canvas the node takes the name of its mode.',
       'Screen is the go-to for layering light effects — flashes, sparkles, lightning — over a background.',
     ],
@@ -189,6 +189,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   Saturation: {
     overview: [
       'Saturation scales how colourful a frame is: 0 is greyscale, 1 unchanged, 2 doubles the colour, clipping where it runs out.',
+      'Keep Brightness pushes colours away from grey while holding each pixel’s brightness, so a boost does not also lighten the frame. It suits pastel or washed-out patterns that look milky on LEDs.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: FRAME_OUT },
@@ -206,29 +207,10 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  ColorBoost: {
-    overview: [
-      'Color Boost pushes colours away from grey while keeping their brightness about the same. Unlike Saturation it does not make things brighter, so it suits lifting pastel or washed-out patterns.',
-    ],
-    inputs: { frame: FRAME_IN },
-    outputs: { frame: FRAME_OUT },
-    example: example({
-      featured: 'ColorBoost',
-      title: 'Make pastel colours pop',
-      nodes: {
-        pastel: ['Blobs', { palette: 'cottoncandy', count: 4 }],
-        pop: ['ColorBoost', { boost: 0.85 }],
-      },
-      wires: ['pastel.frame > pop.frame'],
-      explanation: 'Blobs in the soft cotton-candy palette can look milky on LEDs. Color Boost at 0.85 pushes the pinks and blues to vivid without brightening them.',
-      preview: 'The {output} shows merging blobs in strong pinks and blues instead of pale pastels.',
-    }),
-  },
-
   Transform: {
     overview: [
       'Transform keeps a frame moving: Rotate spins it, Scale zooms it, and Translate slides it along an angle. Rate sets the speed in degrees, percent or pixels per second, and negative values reverse it.',
-      'Scale stops at one-twentieth and twenty times. For a fixed quarter turn or flip use Frame Transform.',
+      'Scale breathes: it zooms in to double size, back out through the original to half size, and round again, so it never stops. At a Rate of 100 it covers one doubling a second. For a fixed quarter turn or flip use Frame Transform.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: FRAME_OUT },
@@ -288,7 +270,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   Mirror: {
     overview: [
-      'Mirror copies one half of a frame onto the other: left to right, top to bottom, both at once, or across the diagonal.',
+      'Mirror copies one half of a frame onto the other: left to right, top to bottom, both at once, or across the diagonal from corner to corner, which on a wide panel is its own long diagonal.',
       'Glow blends the hidden half back in as a soft bloom, tinted by the Tint colour, instead of discarding it.',
     ],
     inputs: {
@@ -356,6 +338,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
     overview: [
       'Frame Warp moves every pixel of a frame by two fields: Offset X pushes sideways, Offset Y up and down, with a field value of 0.5 meaning no push. Strength sets how far, and Zoom and Rotate work about the centre.',
       'Smooth, slowly changing fields make a frame look liquid or heat-hazed. Edges decides what happens at the border: hold the edge, wrap round, or fade to black.',
+      'With neither field wired, Motion moves the frame on its own: a swirl about the centre, ripples travelling outward, or layered turbulence, at Motion Speed cycles a second. A Frame Warp on its own is already liquid.',
     ],
     inputs: {
       frame: FRAME_IN,
@@ -368,20 +351,18 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       title: 'Turn noise into a liquid feedback surface',
       nodes: {
         source: ['Noise', { noiseType: 'simplex', speed: 0.2, scale: 0.42, palette: 'synthwave' }],
-        dx: ['FieldFormula', { formula: '0.5 + 0.22*sin(angle*3+t)' }],
-        dy: ['FieldFormula', { formula: '0.5 + 0.22*cos(angle*2-t*0.7)' }],
-        warp: ['FrameWarp', { strength: 2.5, zoom: 1.02, rotate: 2, edgeMode: 'wrap', sampling: 'bilinear' }],
+        warp: ['FrameWarp', { strength: 2.5, zoom: 1.02, rotate: 2, motion: 'turbulence', motionSpeed: 0.2, edgeMode: 'wrap', sampling: 'bilinear' }],
         feedback: ['FrameFeedback', { delayFrames: 2, fade: 0.08, amount: 0.58, blendMode: 'screen' }],
       },
-      wires: ['source.frame > warp.frame', 'dx.field > warp.dx', 'dy.field > warp.dy', 'warp.frame > feedback.frame'],
-      explanation: 'Two Field Formula nodes describe a slowly changing swirl. Frame Warp reads the Noise frame at those displaced positions, then Frame Feedback keeps a faded copy of earlier warped frames, so the surface looks like liquid with glowing trails.',
+      wires: ['source.frame > warp.frame', 'warp.frame > feedback.frame'],
+      explanation: 'Frame Warp’s built-in turbulence pushes the Noise frame about in slow, crossing waves, then Frame Feedback keeps a faded copy of earlier warped frames, so the surface looks like liquid with glowing trails. Wire two fields into Offset X and Y to shape the push yourself.',
       preview: 'The {output} shows noise bending into a smooth, liquid swirl with luminous trails.',
     }),
   },
 
   Symmetry: {
     overview: [
-      'Symmetry repeats a frame through one of nine wallpaper groups: square groups with plain repeats, half turns, mirrors and quarter turns, and hexagonal groups with three- and six-fold turns.',
+      'Tile Symmetry repeats a frame through one of nine wallpaper groups: square groups with plain repeats, half turns, mirrors and quarter turns, and hexagonal groups with three- and six-fold turns.',
       'Cells sets how many repeats fit across, Rotation and Spin turn the lattice, and Offset scrolls it. Any pattern becomes a tiled design.',
     ],
     inputs: { frame: FRAME_IN },
@@ -395,15 +376,15 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       },
       wires: ['flames.frame > tiles.frame'],
       output: MATRIX(24, 24),
-      explanation: 'Symmetry repeats the Fire through the p6 group — six-fold rotation on a hexagonal lattice — and spins the lattice slowly, so the flames become a turning mosaic.',
+      explanation: 'Tile Symmetry repeats the Fire through the p6 group — six-fold rotation on a hexagonal lattice — and spins the lattice slowly, so the flames become a turning mosaic.',
       preview: 'The {output} shows flickering fire colours arranged in a six-fold, slowly turning pattern.',
     }),
   },
 
   FrameFeedback: {
     overview: [
-      'Frame Feedback lays a delayed, faded copy of its own output back over the live frame — a video-feedback loop. Each pass can slide, turn or zoom the echo.',
-      'Small turns make spirals; a zoom below 1 makes an endless tunnel; a slide makes motion streak. Fade sets how quickly echoes die and Opacity how strong they are. Delay uses more memory on the board for every frame of history.',
+      'Frame Feedback lays a delayed, faded copy of its own output back over the live frame — a video-feedback loop. Each pass can slide, turn or zoom the echo, or zoom and turn it at once.',
+      'Small turns make spirals; a zoom below 1 makes an endless tunnel, and Zoom + Turn twists it; a slide makes motion streak. Fade sets how quickly echoes die and Opacity how strong they are. Delay uses more memory on the board for every frame of history.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: 'The live frame with its echoes.' },
@@ -412,11 +393,10 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       title: 'An endless tunnel',
       nodes: {
         ring: ['Shape', { shape: 'polygon', sides: 4, size: 7.5, filled: false, edge: '#40e0ff', thickness: 1 }],
-        turn: ['Transform', { transform: 'rotate', rate: 40 }],
-        tunnel: ['FrameFeedback', { delayFrames: 2, fade: 0.06, amount: 0.85, blendMode: 'screen', feedbackTransform: 'scale', scale: 0.9 }],
+        tunnel: ['FrameFeedback', { delayFrames: 2, fade: 0.06, amount: 0.85, blendMode: 'screen', feedbackTransform: 'zoomTurn', scale: 0.9, angle: 6 }],
       },
-      wires: ['ring.frame > turn.frame', 'turn.frame > tunnel.frame'],
-      explanation: 'Shape draws a square outline and Transform turns it. Frame Feedback shrinks its echo by 10% each pass and lays it back on top, so every past position falls away toward the centre in a twisting tunnel.',
+      wires: ['ring.frame > tunnel.frame'],
+      explanation: 'Shape draws a square outline. Frame Feedback in Zoom + Turn shrinks its echo by 10% and turns it 6° each pass, then lays it back on top, so every echo falls away toward the centre in a twisting tunnel.',
       preview: 'The {output} shows nested, twisting squares receding into the centre like a tunnel.',
     }),
   },
@@ -424,6 +404,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   FrameSwitch: {
     overview: [
       'Frame Switch shows Frame A while Select is false and Frame B while it is true. It is a hard cut between two pictures.',
+      'Unwired, the Select switch on the node picks the frame, so it doubles as a manual A/B toggle or a control on a remote.',
       'For a smooth change between two frames use Transition; for a number rather than a frame use Switch.',
     ],
     inputs: {
@@ -451,6 +432,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   Zones: {
     overview: [
       'Zones places up to four frames in their own rectangles of the matrix, over a Base frame. Each zone has a position, a size and an on/off switch, all as fractions of the matrix.',
+      'A zone shows the part of its frame that falls inside its rectangle, which suits text or shapes already placed there. Turn on Fit to squeeze the whole frame into the zone instead, so a full-matrix pattern appears complete in its corner.',
       'Use it for a dashboard of different patterns, a status strip along one edge, or before-and-after comparisons.',
     ],
     inputs: {
@@ -469,10 +451,10 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
         summer: ['Fire', { fireStyle: 'classic', palette: 'fire' }],
         autumn: ['Confetti', { palette: 'emberglow', speed: 0.4, density: 0.22 }],
         winter: ['Particles', { particleType: 'snow', rate: 0.4, palette: 'arctic' }],
-        quarters: ['Zones'],
+        quarters: ['Zones', { aFit: true, bFit: true, cFit: true, dFit: true }],
       },
       wires: ['spring.frame > quarters.a', 'summer.frame > quarters.b', 'autumn.frame > quarters.c', 'winter.frame > quarters.d'],
-      explanation: 'Zones’ four default rectangles split the matrix into quarters: green blobs for spring, fire for summer, falling ember speckles for autumn, and snow for winter.',
+      explanation: 'Zones’ four default rectangles split the matrix into quarters, and Fit squeezes each whole pattern into its quarter: green blobs for spring, fire for summer, falling ember speckles for autumn, and snow for winter.',
       preview: 'The {output} shows four different patterns, one in each quarter of the matrix.',
     }),
   },

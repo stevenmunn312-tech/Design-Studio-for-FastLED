@@ -2,6 +2,7 @@
 // placement and Help descriptions. src/state/nodeLibrary.ts merges every
 // category's definitions into NODE_LIBRARY in sidebar order.
 import type { NodeDefinition } from '../../types'
+import { SCHEDULE_DEFAULT_END, SCHEDULE_DEFAULT_START } from './schedule'
 
 export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
   {
@@ -23,7 +24,9 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     propertyInputs: { amplitude: 'amplitude', frequency: 'frequency', bpm: 'bpm', phase: 'phase', offset: 'offset' },
     defaultExposedInputs: ['amplitude', 'frequency', 'phase'],
-    defaultProperties: { amplitude: 1, frequency: 1, rateUnit: 'Hz', bpm: 60, phase: 0, offset: 0, unipolar: false, waveform: 'sine' },
+    // Unipolar by default: most targets read 0 to 1, so a fresh Wave dropped
+    // onto Blur, Saturation or Brightness works straight away.
+    defaultProperties: { amplitude: 1, frequency: 1, rateUnit: 'Hz', bpm: 60, phase: 0, offset: 0, unipolar: true, waveform: 'sine' },
   },
   {
     // Metronome — emits a boolean pulse once every `interval` seconds (a non-audio
@@ -69,10 +72,18 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // A fresh draw between Min and Max every frame, or, with Trigger wired,
+    // one held from each rising edge to the next (Sample & Hold built in).
+    // Min and Max scale the held draw, so a wire into them still moves it.
     type: 'Random',
     label: 'Random',
     category: 'signal',
-    inputs: [],
+    inputs: [
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'min', label: 'Min', dataType: 'float' },
+      { id: 'max', label: 'Max', dataType: 'float' },
+    ],
+    propertyInputs: { min: 'min', max: 'max' },
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     defaultProperties: { min: 0, max: 1, seed: 0 },
   },
@@ -93,21 +104,16 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { speed: 0.25, min: 0, max: 1, octaves: 1, seed: 0 },
   },
   {
-    // Scheduled trigger/window logic driven by RTCInput's clock/date fields.
+    // Scheduled trigger/window logic driven by RTCInput's one DateTime wire.
     // `active` stays high while the schedule is in-range; `start`/`end` pulse
     // once on the transitions. Trigger mode collapses the window to a single
-    // moment-of-day pulse on matching days.
+    // moment-of-day pulse on matching days. `start` and `end` are 24-hour
+    // "HH:MM" (or "HH:MM:SS") times; see ./schedule.ts.
     type: 'ScheduleTrigger',
     label: 'Schedule Trigger',
     category: 'signal',
     inputs: [
-      { id: 'valid', label: 'Valid', dataType: 'bool' },
-      { id: 'synced', label: 'Synced', dataType: 'bool' },
-      { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
-      { id: 'weekday', label: 'Weekday', dataType: 'float' },
-      { id: 'day', label: 'Day', dataType: 'float' },
-      { id: 'month', label: 'Month', dataType: 'float' },
-      { id: 'year', label: 'Year', dataType: 'float' },
+      { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
       { id: 'enable', label: 'Enable', dataType: 'bool' },
     ],
     outputs: [
@@ -123,12 +129,8 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       scheduleMode: 'Window',
       dayMode: 'Every day',
-      startHour: 18,
-      startMinute: 0,
-      startSecond: 0,
-      endHour: 23,
-      endMinute: 0,
-      endSecond: 0,
+      start: SCHEDULE_DEFAULT_START,
+      end: SCHEDULE_DEFAULT_END,
       monday: true,
       tuesday: true,
       wednesday: true,
@@ -147,7 +149,7 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     // BPM from the pulse interval — the same mechanism `tap` uses for manual
     // tap-tempo. `reset` re-zeros phase/bar/subdivision counters.
     type: 'Clock',
-    label: 'Clock',
+    label: 'Tempo Clock',
     category: 'signal',
     inputs: [
       { id: 'tap', label: 'Tap Tempo', dataType: 'bool' },
@@ -195,9 +197,9 @@ export const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   Interval: 'Metronome — pulses true every N seconds (EVERY_N_MILLISECONDS).',
   Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
-  Random: 'Random value in a range.',
+  Random: 'Random value in a range, drawn every frame or on each trigger.',
   NoiseSignal: 'Smooth random value drifting between min and max: a noise-driven LFO.',
-  ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
-  Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
+  ScheduleTrigger: 'Time-of-day window or trigger driven by an RTC Clock’s DateTime.',
+  Clock: 'BPM metronome — phase/beat/bar/subdivision pulses; tap tempo, sync and reset.',
   DMXChannel: 'Reads one channel from a raw DMX/Art-Net universe buffer.',
 }

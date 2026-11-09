@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { COMPOSITE_EVALUATORS } from '../evaluate'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { compileCppSnippet } from '../../../test-utils/cppSnippet'
+import { feedbackFrame, feedbackSource } from '../../shared/integerPatterns'
 import type { RGB } from '../../../state/palettes/ledColor'
 import type { EvalContext } from '../../../state/evaluator/types'
 import type { StudioNode, StudioEdge } from '../../../state/graphStore'
@@ -81,6 +82,237 @@ describe('Trails', () => {
   })
 })
 
+/**
+ * Runs a colour node's per-pixel firmware loop on `pixels` and returns them.
+ * `head` names the line that opens the loop (its seed copy is dropped, the
+ * buffer is already the input); the body runs to the loop's closing line.
+ */
+function runPixelLoop(nodeType: string, properties: Record<string, unknown>, pixels: RGB[], head: RegExp): RGB[] {
+  const cpp = generateCpp([node('src', 'Code', 'code'), node('fx', nodeType, 'composite', properties),
+    node('out', 'MatrixOutput', 'output', { width: pixels.length, height: 1 })], [
+    edge('e1', 'src', 'fx', 'frame', 'frame'), edge('e2', 'fx', 'out', 'frame', 'frame'),
+  ])
+  const lines = cpp.split('\n')
+  const start = lines.findIndex((line) => head.test(line))
+  const end = lines.findIndex((line, i) => i > start && line.trim() === '} }')
+  const opening = lines[start].replace(/^.*?(float _\w+ = )/, '$1')
+  const block = [opening, ...lines.slice(start + 1, end), '}']
+  const leds = pixels.map((px) => ({ ...px }))
+  compileCppSnippet(block, ['NUM_LEDS', 'buf_fx'], [])(0, { NUM_LEDS: leds.length, buf_fx: leds as never })
+  return leds
+}
+
+describe('Frame Feedback', () => {
+  // One lit pixel for two frames, one on each echo chain of a two-frame delay,
+  // then black: the echo is all that remains.
+  const echo = (fps: number, seconds: number, delayFrames: number, fade: number, key: string) => {
+    let out: RGB[][] = []
+    for (let k = 0; k <= fps * seconds; k++) {
+      const lit = k < 2 ? 200 : 0
+      const frame: RGB[][] = [[{ r: lit, g: lit, b: lit }, { r: 0, g: 0, b: 0 }]]
+      out = COMPOSITE_EVALUATORS.FrameFeedback!({
+        input: () => frame, num: (_i: string, _p: string, p: Record<string, unknown>, k2: string, d: number) => Number(p[k2] ?? d),
+        t: k / fps, W: 2, H: 1, stateKey: () => key,
+      } as unknown as EvalContext, 'fb', { delayFrames, fade, amount: 1, blendMode: 'lighten', feedbackTransform: 'none' },
+      studio, 'FrameFeedback').frame as RGB[][]
+      out = out.map((row) => row.map((px) => ({ ...px })))
+    }
+    return out[0][0].r
+  }
+
+  it('fades its echo by time, so the frame rate does not change how long it rings', () => {
+    // Per frame, 0.05 a pass at 30 fps had the echo ring twice as long as at 60.
+    const at60 = echo(60, 0.5, 1, 0.05, 'fb-60')
+    const at30 = echo(30, 0.5, 1, 0.05, 'fb-30')
+    expect(at60).toBeGreaterThan(0)
+    // FastLED's flooring fadeToBlackBy takes about half a level per spend and
+    // 60 fps spends twice as often, so allow a quarter; per frame it was 92 to 43.
+    expect(Math.abs(at60 - at30)).toBeLessThanOrEqual(Math.max(8, at60 * 0.25))
+  })
+
+  it('turns and zooms the echo together in Zoom + Turn', () => {
+    // The kernel's source point is within a pixel of the exact turn-then-zoom.
+    const W = 16, H = 12, angle = 7, scale = 0.85
+    const frame = feedbackFrame(0, 0, angle, scale)
+    const a = angle * Math.PI / 180, cx = (W - 1) / 2, cy = (H - 1) / 2
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const at = feedbackSource('zoomTurn', x, y, W, H, frame)
+        const rx = (x - cx) * Math.cos(a) + (y - cy) * Math.sin(a), ry = (y - cy) * Math.cos(a) - (x - cx) * Math.sin(a)
+        const ex = cx + rx / scale, ey = cy + ry / scale
+        // Off the canvas only where the exact point is at or past an edge.
+        if (at < 0) { expect(ex < 0.5 || ex > W - 1.5 || ey < 0.5 || ey > H - 1.5, `,${y}`).toBe(true); continue }
+        expect(Math.abs(at % W - ex), `${x},${y}`).toBeLessThanOrEqual(1)
+        expect(Math.abs(Math.trunc(at / W) - ey), `${x},${y}`).toBeLessThanOrEqual(1)
+      }
+    }
+    const cpp = generateCpp([node('src', 'Code', 'code'), node('fb', 'FrameFeedback', 'composite', { feedbackTransform: 'zoomTurn', angle, scale }),
+      node('out', 'MatrixOutput', 'output', { width: W, height: H })], [edge('e1', 'src', 'fb', 'frame', 'frame'), edge('e2', 'fb', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('int32_t _frx=(_fpx*_fbCo+_fpy*_fbSi)>>15,_fry=(_fpy*_fbCo-_fpx*_fbSi)>>15;')
+  })
+
+  it('fades every echo chain when the delay is longer than one frame', () => {
+    // A slow fade saved up and spent on alternate frames would land on one
+    // chain only, and the other's echo would never fade.
+    expect(echo(60, 4, 2, 0.02, 'fb-chain')).toBeGreaterThan(0)
+    expect(echo(60, 12, 2, 0.02, 'fb-chain-late')).toBe(0)
+  })
+})
+
+describe('Mirror', () => {
+  const frameOf = (W: number, H: number) => Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => ({ r: (x * 37 + y * 11) % 256, g: (x * 5 + y * 71) % 256, b: (x * y * 13 + 7) % 256 })))
+  const board = (properties: Record<string, unknown>, src: RGB[][]): RGB[] => {
+    const W = src[0].length, H = src.length
+    const cpp = generateCpp([node('src', 'Code', 'code'), node('fx', 'Mirror', 'composite', properties),
+      node('out', 'MatrixOutput', 'output', { width: W, height: H })], [
+      edge('e1', 'src', 'fx', 'frame', 'frame'), edge('e2', 'fx', 'out', 'frame', 'frame'),
+    ])
+    const lines = cpp.split('\n')
+    const start = lines.findIndex((line) => line.startsWith('  { for(int _y=0;_y<HEIGHT;_y++)'))
+    const end = lines.findIndex((line, i) => i > start && line.trimEnd().endsWith(';}}'))
+    const block = lines.slice(start, end + 1).map((line) => line.replace('  { for(', '  for(').replace(/CRGB (_b|_x)=/, 'let $1=').replace(/;\}\}$/, ';}'))
+    const [, input] = block.join('\n').match(/=(\w+)\[_sy\*WIDTH\+_sx\]/)!
+    const [, output] = block.join('\n').match(/(\w+)\[_y\*WIDTH\+_x\]=/)!
+    const out: RGB[] = Array.from({ length: W * H }, () => ({ r: 0, g: 0, b: 0 }))
+    compileCppSnippet(block, ['WIDTH', 'HEIGHT', input, output, 'CRGB', 'scale8', 'qadd8'], [])(0, {
+      WIDTH: W, HEIGHT: H, [input]: src.flat() as never, [output]: out as never,
+      CRGB: ((r: number, g: number, b: number) => ({ r, g, b })) as never,
+      scale8: ((v: number, s: number) => (v * (s + 1)) >> 8) as never,
+      qadd8: ((a: number, b: number) => Math.min(255, a + b)) as never,
+    })
+    return out
+  }
+  const preview = (properties: Record<string, unknown>, src: RGB[][]) => COMPOSITE_EVALUATORS.Mirror!({
+    input: (_id: string, port: string) => (port === 'frame' ? src : null),
+    num: (_id: string, _port: string, p: Record<string, unknown>, key: string, def: number) => Number(p[key] ?? def),
+    W: src[0].length, H: src.length,
+  } as unknown as EvalContext, 'fx', properties, studio, 'Mirror').frame as RGB[][]
+
+  it.each([[4, 4], [8, 3], [3, 7]])('folds and glows in whole bytes the same way on a %ix%i matrix', (W, H) => {
+    const src = frameOf(W, H)
+    for (const mirrorMode of ['horizontal', 'vertical', 'quad', 'diagonal']) {
+      for (const glow of [false, true]) {
+        const properties = { mirrorMode, glow, glowAmount: 0.6, r: 255, g: 200, b: 90 }
+        expect(board(properties, src), `${mirrorMode} glow ${glow}`).toEqual(preview(properties, src).flat())
+      }
+    }
+  })
+
+  it('folds a wide panel across its own corner-to-corner diagonal', () => {
+    const src = frameOf(8, 3)
+    const out = preview({ mirrorMode: 'diagonal', glow: false }, src)
+    // The bottom row lies below the diagonal and keeps its own pixels;
+    // clamping min(x, y) had copied pixel (2, 2) across every column past 2.
+    expect(out[2]).toEqual(src[2])
+    // Above the diagonal, the top row mirrors the first column.
+    expect(out[0][7]).toEqual(src[2][0])
+    expect(out[0][0]).toEqual(src[0][0])
+  })
+})
+
+describe('Brightness', () => {
+  it('rounds on the board as the preview does', () => {
+    const pixels = [{ r: 1, g: 3, b: 5 }, { r: 255, g: 128, b: 77 }, { r: 0, g: 254, b: 9 }]
+    for (const brightness of [0.5, 0.3, 1, 1.7, 3]) {
+      const cpp = generateCpp([node('src', 'Code', 'code'), node('fx', 'BrightnessMod', 'composite', { brightness }),
+        node('out', 'MatrixOutput', 'output', { width: pixels.length, height: 1 })], [
+        edge('e1', 'src', 'fx', 'frame', 'frame'), edge('e2', 'fx', 'out', 'frame', 'frame'),
+      ])
+      const line = cpp.split('\n').find((l) => l.includes('float _br ='))!
+      const statement = line.slice(line.indexOf('float _br =')).replace(/ \}$/, '')
+      const buffer = statement.match(/(\w+)\[_i\] = CRGB/)![1]
+      const leds = pixels.map((px) => ({ ...px }))
+      compileCppSnippet([statement], ['NUM_LEDS', buffer, 'CRGB'], [])(0, {
+        NUM_LEDS: leds.length, [buffer]: leds as never, CRGB: ((r: number, g: number, b: number) => ({ r, g, b })) as never,
+      })
+      const preview = COMPOSITE_EVALUATORS.BrightnessMod!({
+        input: () => [pixels], num: () => brightness,
+      } as unknown as EvalContext, 'fx', {}, studio, 'BrightnessMod').frame as RGB[][]
+      expect(leds, `brightness ${brightness}`).toEqual(preview[0])
+    }
+  })
+})
+
+describe('Saturation', () => {
+  const preview = (properties: Record<string, unknown>, pixels: RGB[]) => COMPOSITE_EVALUATORS.Saturation!({
+    input: () => [pixels], num: (_id: string, _port: string, props: Record<string, unknown>) => Number(props.amount),
+  } as unknown as EvalContext, 'fx', properties, studio, 'Saturation').frame as RGB[][]
+
+  it('keeps brightness the same way on the board, rounding both sides', () => {
+    // Every channel lands somewhere off a whole level, so truncating on one
+    // side would show here.
+    const pixels = [
+      { r: 170, g: 140, b: 120 }, { r: 12, g: 200, b: 255 }, { r: 3, g: 2, b: 1 },
+      { r: 250, g: 128, b: 9 }, { r: 90, g: 90, b: 91 }, { r: 0, g: 0, b: 0 },
+    ]
+    for (const amount of [0, 0.4, 1.375, 1.825, 2]) {
+      const properties = { amount, keepBrightness: true }
+      expect(runPixelLoop('Saturation', properties, pixels, /float _sm = fmaxf/), `amount ${amount}`)
+        .toEqual(preview(properties, pixels)[0])
+    }
+  })
+})
+
+describe('Blend', () => {
+  const pixels = (...values: number[][]) => values.map(([r, g, b]) => ({ r, g, b }))
+  const A = pixels([0, 255, 17], [255, 128, 3], [90, 90, 90], [1, 2, 254])
+  const B = pixels([255, 0, 200], [0, 127, 250], [91, 10, 0], [254, 253, 1])
+
+  // Every mode, normal included, crosses on the same bytes on both sides.
+  it.each(['normal', 'multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'])('runs %s through the shared kernel', (blendMode) => {
+    for (const amount of [0, 0.25, 0.5, 0.999, 1]) {
+      const properties = { blendMode, amount }
+      const cpp = generateCpp([node('a', 'Code', 'code'), node('b', 'Code', 'code'), node('bl', 'Blend', 'composite', properties),
+        node('out', 'MatrixOutput', 'output', { width: A.length, height: 1 })], [
+        edge('e1', 'a', 'bl', 'frame', 'a'), edge('e2', 'b', 'bl', 'frame', 'b'), edge('e3', 'bl', 'out', 'frame', 'frame'),
+      ])
+      const lines = cpp.split('\n')
+      const start = lines.findIndex((line) => line.includes('uint8_t _opAll='))
+      const end = lines.findIndex((line, i) => i > start && line.trim().endsWith('} }'))
+      const pair = lines.slice(start, end + 1).join('\n').match(/CRGB _a=(\w+)\[_i\], _b=(\w+)\[_i\];/)!
+      const block = lines.slice(start, end + 1).map((line) => line.replace('CRGB _a=', 'let _a=').replace(/\} \}$/, '}'))
+      const leds = A.map((px) => ({ ...px }))
+      compileCppSnippet(block, ['NUM_LEDS', pair[1], pair[2], 'CRGB'], [])(0, {
+        NUM_LEDS: leds.length, [pair[1]]: leds as never, [pair[2]]: B as never,
+        CRGB: ((r: number, g: number, b: number) => ({ r, g, b })) as never,
+      })
+      const preview = COMPOSITE_EVALUATORS.Blend!({
+        input: (_id: string, port: string) => (port === 'a' ? [A] : port === 'b' ? [B] : null),
+        num: () => amount, W: A.length, H: 1,
+      } as unknown as EvalContext, 'bl', properties, studio, 'Blend').frame as RGB[][]
+      expect(leds, `${blendMode} at ${amount}`).toEqual(preview[0])
+    }
+  })
+})
+
+describe('Zones', () => {
+  const W = 9, H = 5
+  const source: RGB[][] = Array.from({ length: H }, (_, y) => Array.from({ length: W }, (_, x) => ({ r: x * 20, g: y * 40, b: 7 })))
+
+  it('fits a whole frame into a zone the same way on the board', () => {
+    const properties = { aX: 0.2, aY: 0.1, aW: 0.5, aH: 0.7, aFit: true, bEnabled: false, cEnabled: false, dEnabled: false }
+    const cpp = generateCpp([node('z', 'Zones', 'composite', properties), node('a', 'Code', 'code'),
+      node('out', 'MatrixOutput', 'output', { width: W, height: H })], [edge('e1', 'a', 'z', 'frame', 'a'), edge('e2', 'z', 'out', 'frame', 'frame')])
+    const lines = cpp.split('\n')
+    const start = lines.findIndex((line) => line.includes('int _zx0='))
+    const block = lines.slice(start, start + 4)
+    const [, out, zone] = block[3].match(/(\w+)\[_y\*WIDTH\+_x\] = (\w+)\[_sy\*WIDTH\+_sx\]/)!
+    const board: RGB[] = Array.from({ length: W * H }, () => ({ r: 0, g: 0, b: 0 }))
+    compileCppSnippet(block, ['WIDTH', 'HEIGHT', out, zone], [])(0, {
+      WIDTH: W, HEIGHT: H, [out]: board as never, [zone]: source.flat() as never,
+    })
+    const preview = COMPOSITE_EVALUATORS.Zones!({
+      input: (_id: string, port: string) => (port === 'a' ? source : null), W, H,
+    } as unknown as EvalContext, 'z', properties, studio, 'Zones').frame as RGB[][]
+    expect(board).toEqual(preview.flat())
+    // The zone is columns 2-5 and rows 1-3; each pixel reads the source under
+    // its centre, so its corners reach the source's first and last row.
+    expect(preview[1][2]).toEqual(source[0][1])
+    expect(preview[3][5]).toEqual(source[H - 1][7])
+  })
+})
+
 describe('Zones and Blend', () => {
   it('rounds zone edges as the preview does', () => {
     const cpp = generateCpp([
@@ -96,6 +328,6 @@ describe('Zones and Blend', () => {
       node('bl', 'Blend', 'composite', { blendMode: 'normal', amount: 1.5 }), node('a', 'Code', 'code'), node('b', 'Code', 'code'),
       node('out', 'MatrixOutput', 'output', { width: 4, height: 4 }),
     ], [edge('e1', 'a', 'bl', 'frame', 'a'), edge('e2', 'b', 'bl', 'frame', 'b'), edge('e3', 'bl', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('(uint8_t)(constrain(1.5,0.0f,1.0f) * 255)')
+    expect(cpp).toContain('(uint8_t)(constrain(1.5,0.0f,1.0f)*255.0f)')
   })
 })

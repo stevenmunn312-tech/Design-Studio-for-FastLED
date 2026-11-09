@@ -8,6 +8,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Blur2D',
     label: 'Blur 2D',
     category: 'composite',
+    subcategory: 'Trails & Blur',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'amount', label: 'Amount', dataType: 'float' },
@@ -24,6 +25,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Blend',
     label: 'Blend',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'a',      label: 'A',       dataType: 'frame' },
       { id: 'b',      label: 'B',       dataType: 'frame' },
@@ -45,6 +47,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Mask',
     label: 'Mask',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'mask',  label: 'Mask',  dataType: 'frame' },
@@ -60,6 +63,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Glitter',
     label: 'Glitter',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'density', label: 'Density', dataType: 'float' },
@@ -79,6 +83,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'FrameTransform',
     label: 'Frame Transform',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'offsetX', label: 'Offset X', dataType: 'float' },
@@ -89,11 +94,11 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { rotate: '0', flipX: false, flipY: false, offsetX: 0, offsetY: 0 },
   },
 
-  // ── Compositing ────────────────────────────────────────────────────────
   {
     type: 'BrightnessMod',
     label: 'Brightness',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
@@ -106,6 +111,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'HueShift',
     label: 'Hue Shift',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shift', label: 'Shift', dataType: 'float' },
@@ -120,6 +126,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Gamma',
     label: 'Gamma',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'gamma', label: 'Gamma', dataType: 'float' },
@@ -131,37 +138,27 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
   {
     // RGB→HSV→scale saturation→RGB; `amount` 1 = unchanged, 0 = greyscale,
     // >1 = boosted (clamped). Shares HueShift's inline RGB↔HSV extraction.
+    // `keepBrightness` scales distance from the Rec. 709 luma instead, so
+    // washed-out content gains colour without brightening (the old Color
+    // Boost, whose boost b is amount 1 + 1.5b here).
     type: 'Saturation',
     label: 'Saturation',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'amount', label: 'Amount', dataType: 'float' },
     ],
     propertyInputs: { amount: 'amount' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { amount: 1 },
-  },
-  {
-    // Luminance-preserving saturation enhancement — pushes channels away from
-    // their Rec. 709 luma so washed-out content gains colour without simply
-    // brightening the whole frame.
-    type: 'ColorBoost',
-    label: 'Color Boost',
-    category: 'composite',
-    inputs: [
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'boost', label: 'Boost', dataType: 'float' },
-    ],
-    propertyInputs: { boost: 'boost' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { boost: 0.5 },
+    defaultProperties: { amount: 1, keepBrightness: false },
   },
   {
     // Animated geometric transform of a frame (rotate / scale / translate).
     type: 'Transform',
     label: 'Transform',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'rate', label: 'Rate', dataType: 'float' },
@@ -180,6 +177,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Array',
     label: 'Array',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       // Wire a signal here to animate the array — e.g. a Counter/Sin into `angle`
@@ -203,13 +201,16 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       angle: 0,
       scale: 1,
       falloff: 0.7,
-      blendMode: 'add',
+      // Lighten, not add: five copies at falloff 0.7 add up to about 2.8x,
+      // which turns a full-frame source such as Plasma almost white.
+      blendMode: 'lighten',
     },
   },
   {
     type: 'Invert',
     label: 'Invert',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {},
@@ -226,6 +227,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Mirror',
     label: 'Mirror',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'color', label: 'Tint', dataType: 'color' },
@@ -240,10 +242,11 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Wedge mirror: folds each pixel's polar angle into one segment and
-    // samples the source there, beside Mirror's axes and Symmetry's lattices.
+    // samples the source there, beside Mirror's axes and Tile Symmetry's lattices.
     type: 'Kaleidoscope',
     label: 'Kaleidoscope',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'segments', label: 'Segments', dataType: 'float' },
@@ -260,6 +263,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Trails',
     label: 'Trails',
     category: 'composite',
+    subcategory: 'Trails & Blur',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'decay', label: 'Decay', dataType: 'float' },
@@ -272,9 +276,12 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     // Per-pixel frame displacement in the Milkdrop/projectM tradition. Two
     // fields push the source coordinate, while zoom and rotation apply about
     // the canvas centre before one shared nearest/bilinear frame sample.
+    // With neither field wired, `motion` pushes instead (./frameWarpMotion.ts),
+    // animated at `motionSpeed` cycles a second, so a lone node moves.
     type: 'FrameWarp',
     label: 'Frame Warp',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'dx', label: 'Offset X', dataType: 'field' },
@@ -282,13 +289,16 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       { id: 'strength', label: 'Strength', dataType: 'float' },
       { id: 'zoom', label: 'Zoom', dataType: 'float' },
       { id: 'rotate', label: 'Rotate', dataType: 'float' },
+      { id: 'motionSpeed', label: 'Motion Speed', dataType: 'float' },
     ],
-    propertyInputs: { strength: 'strength', zoom: 'zoom', rotate: 'rotate' },
+    propertyInputs: { strength: 'strength', zoom: 'zoom', rotate: 'rotate', motionSpeed: 'motionSpeed' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       strength: 2,
       zoom: 1,
       rotate: 0,
+      motion: 'swirl',
+      motionSpeed: 0.25,
       edgeMode: 'clamp',
       sampling: 'bilinear',
     },
@@ -297,8 +307,9 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     // Wallpaper-group repetition for a finished frame. Square and hexagonal
     // groups select their matching lattice automatically.
     type: 'Symmetry',
-    label: 'Symmetry',
+    label: 'Tile Symmetry',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'cells', label: 'Cells', dataType: 'float' },
@@ -323,9 +334,11 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'FrameFeedback',
     label: 'Frame Feedback',
     category: 'composite',
+    subcategory: 'Trails & Blur',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'amount', label: 'Amount', dataType: 'float' },
+      // Opacity, as Blend calls the same 0-1 mix (its row says opacity too).
+      { id: 'amount', label: 'Opacity', dataType: 'float' },
       { id: 'fade', label: 'Fade', dataType: 'float' },
       { id: 'offsetX', label: 'Offset X', dataType: 'float' },
       { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
@@ -352,28 +365,35 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
   {
     // Manual A/B frame selector — shows A when `sel` is false, B when true
     // (the bool-driven counterpart of the time-based Sequencer). Falls back to
-    // whichever side is wired when the other is empty.
+    // whichever side is wired when the other is empty. Unwired, the `select`
+    // switch picks the side, so it works as a manual or remote A/B toggle.
     type: 'FrameSwitch',
     label: 'Frame Switch',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'a', label: 'Frame A', dataType: 'frame' },
       { id: 'b', label: 'Frame B', dataType: 'frame' },
       { id: 'sel', label: 'Select', dataType: 'bool' },
     ],
+    propertyInputs: { select: 'sel' },
+    defaultExposedInputs: ['sel'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: {},
+    defaultProperties: { select: false },
   },
   {
-    // Named rectangular regions ("zones") for installations with multiple
+    // Rectangular regions ("zones") for installations with multiple
     // logical display areas — each zone routes its own wired frame into its
     // rectangle of the matrix (normalized 0–1 x/y/w/h), later zones painting
     // over earlier ones where they overlap. An unwired or disabled zone
     // leaves its rectangle showing whatever `base` (or an earlier zone)
     // already put there, so partially wiring the node is non-destructive.
+    // A zone shows the part of its frame that lies inside the rectangle;
+    // with Fit on it squeezes the whole frame into it (nearest neighbour).
     type: 'Zones',
     label: 'Zones',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'base', label: 'Base', dataType: 'frame' },
       { id: 'a', label: 'Zone A', dataType: 'frame' },
@@ -383,10 +403,10 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      aEnabled: true, aX: 0,   aY: 0,   aW: 0.5, aH: 0.5,
-      bEnabled: true, bX: 0.5, bY: 0,   bW: 0.5, bH: 0.5,
-      cEnabled: true, cX: 0,   cY: 0.5, cW: 0.5, cH: 0.5,
-      dEnabled: true, dX: 0.5, dY: 0.5, dW: 0.5, dH: 0.5,
+      aEnabled: true, aX: 0,   aY: 0,   aW: 0.5, aH: 0.5, aFit: false,
+      bEnabled: true, bX: 0.5, bY: 0,   bW: 0.5, bH: 0.5, bFit: false,
+      cEnabled: true, cX: 0,   cY: 0.5, cW: 0.5, cH: 0.5, cFit: false,
+      dEnabled: true, dX: 0.5, dY: 0.5, dW: 0.5, dH: 0.5, dFit: false,
     },
   },
 ]
@@ -394,15 +414,14 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
 export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   // composite
   Blur2D: 'Box-blurs the frame.',
-  Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
+  Blend: 'Blends B over A — normal, multiply, screen, overlay, add, difference or lighten.',
   Mask: 'Masks a frame by another frame’s brightness.',
   Glitter: 'Sprinkles random sparkles of one colour over a frame each frame.',
   FrameTransform: 'Rotates a frame by quarter turns, flips it, and slides it by whole pixels.',
   BrightnessMod: 'Dims or amplifies a frame with saturated 0–3× scaling.',
   HueShift: 'Rotates all hues.',
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
-  Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
-  ColorBoost: 'Boosts saturation while approximately preserving luminance.',
+  Saturation: 'Scales color saturation (0 = greyscale), optionally keeping brightness.',
   Transform: 'Animated rotate, scale or translate of a frame.',
   Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',
@@ -413,5 +432,5 @@ export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   Symmetry: 'Repeats a frame through a square or hexagonal wallpaper symmetry group.',
   FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
-  Zones: 'Routes up to four wired frames into their own named rectangle of the matrix.',
+  Zones: 'Routes up to four wired frames into their own rectangle of the matrix.',
 }

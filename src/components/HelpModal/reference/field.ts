@@ -164,7 +164,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       featured: 'FluidSim',
       title: 'A plume of smoke from a moving source',
       nodes: {
-        sway: ['Wave', { frequency: 0.12, amplitude: 0.3, offset: 0.5 }],
+        sway: ['Wave', { frequency: 0.12, amplitude: 0.3, offset: 0.5, unipolar: false }],
         smoke: ['FluidSim', { inject: 0.6, injectY: 0.9, buoyancy: 0.6, dissipation: 0.03 }],
         paint: ['FieldToFrame', { palette: 'emberglow' }],
       },
@@ -312,7 +312,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       featured: 'FieldMath',
       title: 'Where two rings cross',
       nodes: {
-        drift: ['Wave', { frequency: 0.15, amplitude: 0.25, offset: 0.5 }],
+        drift: ['Wave', { frequency: 0.15, amplitude: 0.25, offset: 0.5, unipolar: false }],
         still: ['ShapeField', { shape: 'ellipse', fieldMode: 'distance', size: 0.3, range: 0.25 }],
         moving: ['ShapeField', { shape: 'ellipse', fieldMode: 'distance', size: 0.3, range: 0.25 }],
         cross: ['FieldMath', { fieldOp: 'difference' }],
@@ -401,8 +401,8 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       featured: 'ShapeField',
       title: 'A spotlight roaming the stage',
       nodes: {
-        across: ['Wave', { frequency: 0.13, amplitude: 0.35, offset: 0.5 }],
-        down: ['Wave', { frequency: 0.21, amplitude: 0.3, offset: 0.5 }],
+        across: ['Wave', { frequency: 0.13, amplitude: 0.35, offset: 0.5, unipolar: false }],
+        down: ['Wave', { frequency: 0.21, amplitude: 0.3, offset: 0.5, unipolar: false }],
         spot: ['ShapeField', { shape: 'ellipse', fieldMode: 'fill', size: 0.2, softness: 0.25 }],
         paint: ['FieldToFrame', { palette: 'heat' }],
       },

@@ -1957,7 +1957,7 @@ describe('validateGraph', () => {
     // one in Graph Health could not select or fit the offending node.
     it('attributes schedule warnings to the node that owns them', () => {
       const nodes = [
-        node('sched', 'ScheduleTrigger', { scheduleMode: 'Window', startHour: 18, endHour: 20 }),
+        node('sched', 'ScheduleTrigger', { scheduleMode: 'Window', start: '18:00', end: '20:00' }),
         node('out', 'MatrixOutput', { width: 8, height: 8 }),
       ]
       const diagnostics = buildGraphDiagnostics(nodes, [edge('e1', 'sched', 'out', 'frame')], {})
@@ -1968,18 +1968,22 @@ describe('validateGraph', () => {
 
     it('warns when a schedule window starts and ends at the same time', () => {
       const nodes = [
-        node('sched', 'ScheduleTrigger', {
-          scheduleMode: 'Window',
-          startHour: 18, startMinute: 30, startSecond: 0,
-          endHour: 18, endMinute: 30, endSecond: 0,
-        }),
+        node('sched', 'ScheduleTrigger', { scheduleMode: 'Window', start: '18:30', end: '18:30:00' }),
         node('rtc', 'RTCInput'),
       ]
-      const { warnings } = validateGraph(nodes, [
-        edge('e1', 'rtc', 'sched', 'valid'),
-        edge('e2', 'rtc', 'sched', 'secondsOfDay'),
-      ])
+      const { warnings } = validateGraph(nodes, [edge('e1', 'rtc', 'sched', 'dateTime')])
       expect(warnings.some((w) => w.includes('starts and ends at the same time'))).toBe(true)
+      expect(warnings.some((w) => w.includes('should be wired'))).toBe(false)
+    })
+
+    it('warns about a schedule with no clock or an unreadable time', () => {
+      const nodes = [node('sched', 'ScheduleTrigger', { scheduleMode: 'Window', start: '18:00', end: '25:00' })]
+      const { warnings } = validateGraph(nodes, [])
+      expect(warnings.some((w) => w.includes("should be wired to an RTC Clock's DateTime"))).toBe(true)
+      expect(warnings.some((w) => w.includes('invalid schedule time'))).toBe(true)
+      // Trigger mode has no end, so an unreadable one is not reported.
+      const trigger = validateGraph([node('sched', 'ScheduleTrigger', { scheduleMode: 'Trigger', start: '7:15', end: '' })], [])
+      expect(trigger.warnings.some((w) => w.includes('invalid schedule time'))).toBe(false)
     })
 
     // Preview falls back to the browser clock, so a missing RTC wire is

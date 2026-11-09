@@ -5,29 +5,41 @@ import { GLITTER_PER_LED, glitterMode } from './glitter'
 import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { timedFadeCpp } from '../shared/trailFadeCpp'
+import { TRAIL_MIN_STEP } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import {
-  ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
+  ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, FEEDBACK_TRANSFORMS, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
   sampleFrameQ8Cpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
+import { transformZoomCpp } from './transformZoom'
+import { ARRAY_COPIES } from './limits'
+import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from './blendModes'
+import { diagonalFoldCpp } from './mirror'
+import { WARP_MOTIONS, warpPushCpp } from './frameWarpMotion'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
+  // Rounded (+0.5f) as the preview's Math.round: truncating turned a level-1
+  // pixel at half brightness to 0 on the board while the preview kept it.
   BrightnessMod({ ln, f, ownBuf, seedFrom }) {
     const ob = ownBuf()
     const br = f('brightness', 'brightness', 1)
-    ln(`  { ${seedFrom('frame')} float _br = fmaxf(0.0f, ${br}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CRGB((uint8_t)fminf(255.0f, ${ob}[_i].r * _br), (uint8_t)fminf(255.0f, ${ob}[_i].g * _br), (uint8_t)fminf(255.0f, ${ob}[_i].b * _br)); }`)
+    const ch = (c: string) => `(uint8_t)(fminf(255.0f, ${ob}[_i].${c} * _br) + 0.5f)`
+    ln(`  { ${seedFrom('frame')} float _br = fmaxf(0.0f, ${br}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CRGB(${ch('r')}, ${ch('g')}, ${ch('b')}); }`)
   },
   // Manual A/B frame selector; copies the wired side when the other is
-  // empty (matching the evaluator's fallback).
-  FrameSwitch({ node, ln, ownBuf, srcBuf, boolExpr }) {
+  // empty (matching the evaluator's fallback). An unwired Select is the
+  // `select` switch, so the side is chosen here rather than at runtime.
+  FrameSwitch({ node, p, ln, ownBuf, srcBuf, boolExpr, incoming }) {
     const ob = ownBuf()
-    const a = srcBuf('a'), b = srcBuf('b'), sel = boolExpr(node.id, 'sel')
-    if (a && b) ln(`  ::memmove(${ob}, (${sel}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
+    const a = srcBuf('a'), b = srcBuf('b')
+    const wired = incoming.has(`${node.id}:sel`)
+    if (a && b && wired) ln(`  ::memmove(${ob}, (${boolExpr(node.id, 'sel')}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
+    else if (a && b) ln(`  ::memmove(${ob}, ${p.select === true ? b : a}, sizeof(CRGB) * NUM_LEDS);`)
     else if (a || b) ln(`  ::memmove(${ob}, ${a ?? b}, sizeof(CRGB) * NUM_LEDS);`)
     else ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
   },
-  // Named rectangular zones — mirrors the evaluator's Zones case: seed
+  // Rectangular zones — mirrors the evaluator's Zones case: seed
   // from base (or black), then for each enabled+wired zone, copy its own
   // buffer into this node's buffer only within that zone's rectangle.
   Zones({ p, ln, ownBuf, srcBuf }) {
@@ -44,6 +56,15 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
       const zh = Math.max(0, Math.min(1, Number(p[`${key}H`] ?? 1)))
       // Edges round like the preview's Math.round; truncating moved a zone a column.
       const edge = (frac: number, dim: string) => `(int)floorf(${floatLit(frac, 6)}*${dim}+0.5f)`
+      if (p[`${key}Fit`] === true) {
+        // Fit: each zone pixel reads the source under its centre, scaled
+        // from the zone's size to the whole frame, in integers as the preview.
+        ln(`  { int _zx0=${edge(zx, 'WIDTH')},_zx1=min(${edge(zx + zw, 'WIDTH')},WIDTH),_zy0=${edge(zy, 'HEIGHT')},_zy1=min(${edge(zy + zh, 'HEIGHT')},HEIGHT);`)
+        ln(`    for (int _y=_zy0; _y<_zy1; _y++) for (int _x=_zx0; _x<_zx1; _x++) {`)
+        ln(`      int _sx=(int)((2*(int32_t)(_x-_zx0)+1)*WIDTH/(2*(int32_t)(_zx1-_zx0))),_sy=(int)((2*(int32_t)(_y-_zy0)+1)*HEIGHT/(2*(int32_t)(_zy1-_zy0)));`)
+        ln(`      ${ob}[_y*WIDTH+_x] = ${zbuf}[_sy*WIDTH+_sx]; } }`)
+        continue
+      }
       ln(`  for (int _y=${edge(zy, 'HEIGHT')}; _y<${edge(zy + zh, 'HEIGHT')} && _y<HEIGHT; _y++)`)
       ln(`    for (int _x=${edge(zx, 'WIDTH')}; _x<${edge(zx + zw, 'WIDTH')} && _x<WIDTH; _x++)`)
       ln(`      ${ob}[_y*WIDTH+_x] = ${zbuf}[_y*WIDTH+_x];`)
@@ -70,7 +91,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      if(${src}[_i].b>${ob}[_i].b)${ob}[_i].b=${src}[_i].b;}`)
     ln(`  }`)
   },
-  FrameWarp({ p, ln, f, ownBuf, srcBuf, srcField, needsFrameSample }) {
+  FrameWarp({ id, p, ln, f, ownBuf, srcBuf, srcField, needsFrameSample, needsT }) {
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // FrameWarp: no input`); return }
@@ -78,15 +99,30 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const dx = srcField('dx'), dy = srcField('dy')
     const edgeMode = p.edgeMode === 'wrap' ? 1 : p.edgeMode === 'black' ? 2 : 0
     const bilinear = p.sampling !== 'nearest'
-    ln(`  { /* FrameWarp: ${String(p.edgeMode ?? 'clamp')}, ${bilinear ? 'bilinear' : 'nearest'} */`)
+    // With neither field wired, the built-in motion (./frameWarpMotion.ts) pushes.
+    const motion = (WARP_MOTIONS as readonly unknown[]).includes(p.motion) ? String(p.motion) : 'none'
+    const builtIn = !dx && !dy && motion !== 'none'
+    ln(`  { /* FrameWarp: ${String(p.edgeMode ?? 'clamp')}, ${bilinear ? 'bilinear' : 'nearest'}${builtIn ? `, ${motion}` : ''} */`)
     ln(`    float _fw_st=constrain(${f('strength', 'strength', 2)},0.0f,8.0f);`)
     ln(`    float _fw_z=constrain(${f('zoom', 'zoom', 1)},0.25f,4.0f);`)
     ln(`    float _fw_a=constrain(${f('rotate', 'rotate', 0)},-180.0f,180.0f)*0.01745329252f;`)
     ln(`    float _fw_co=cosf(_fw_a),_fw_si=sinf(_fw_a),_fw_cx=(WIDTH-1)*0.5f,_fw_cy=(HEIGHT-1)*0.5f;`)
+    let ph = ''
+    if (builtIn) {
+      needsT.v = true
+      ln(`    float _fw_ms=${f('motionSpeed', 'motionSpeed', 0.25)};`)
+      ph = speedPhaseCpp(ln, phaseTag(id), '_fw_ms')
+      ln(`    float _fw_R=fmaxf(fmaxf(_fw_cx,_fw_cy),1.0f);`)
+    }
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ int _i=_y*WIDTH+_x;`)
     ln(`      float _px=(_x-_fw_cx)/_fw_z,_py=(_y-_fw_cy)/_fw_z;`)
-    ln(`      float _sx=_fw_cx+_px*_fw_co+_py*_fw_si+(2.0f*${dx ? `${dx}[_i]` : '0.5f'}-1.0f)*_fw_st;`)
-    ln(`      float _sy=_fw_cy-_px*_fw_si+_py*_fw_co+(2.0f*${dy ? `${dy}[_i]` : '0.5f'}-1.0f)*_fw_st;`)
+    if (builtIn) {
+      ln(`      float _fu=(_x-_fw_cx)/_fw_R,_fv=(_y-_fw_cy)/_fw_R;`)
+      for (const line of warpPushCpp(motion, ph)) ln(`      ${line}`)
+    }
+    const push = (field: string | null, built: string) => builtIn ? built : `(2.0f*${field ? `${field}[_i]` : '0.5f'}-1.0f)`
+    ln(`      float _sx=_fw_cx+_px*_fw_co+_py*_fw_si+${push(dx, '_pdx')}*_fw_st;`)
+    ln(`      float _sy=_fw_cy-_px*_fw_si+_py*_fw_co+${push(dy, '_pdy')}*_fw_st;`)
     ln(`      ${ob}[_i]=_sampleFrame(${src},_sx,_sy,${edgeMode},${bilinear ? 'true' : 'false'});`)
     ln(`    } }`)
   },
@@ -110,10 +146,11 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     for (const line of sampleFrameQ8Cpp(src)) ln(`      ${line}`)
     ln(`      ${ob}[_y*WIDTH+_x]=_wpC; } }`)
   },
-  FrameFeedback({ id, p, ln, f, ownBuf, srcBuf, feedbackHistoryBufs }) {
+  FrameFeedback({ id, p, ln, f, ownBuf, srcBuf, feedbackHistoryBufs, needsT }) {
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`); return }
+    needsT.v = true
     const delay = Math.max(1, Math.min(32, Math.round(Number(p.delayFrames ?? 2))))
     const capacity = delay + 1
     feedbackHistoryBufs.set(id, capacity)
@@ -125,15 +162,22 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const angle = f('angle', 'angle', 0)
     const scale = f('scale', 'scale', 1)
     const mode = String(p.blendMode ?? 'screen')
-    const transformMode = String(p.feedbackTransform ?? 'none')
+    const transformMode = (FEEDBACK_TRANSFORMS as readonly string[]).includes(String(p.feedbackTransform)) ? String(p.feedbackTransform) : 'none'
     ln(`  { // FrameFeedback: ${delay}-frame recursive ring buffer`)
     ln(`    static uint8_t _fb_idx_${id}=0;`)
     ln(`    const uint8_t _fb_cap_${id}=${capacity};`)
     ln(`    uint8_t _fb_read_${id}=(_fb_idx_${id}+_fb_cap_${id}-${delay})%_fb_cap_${id};`)
-    ln(`    float _fb_fade_${id}=1.0f-constrain(${fade},0.0f,1.0f);`)
+    // 1 - fade survives each 60th of a second, spent by elapsed time and
+    // saved up per ring slot into whole fadeToBlackBy bytes, as the preview does.
+    ln(`    static float _fbOwed_${id}[${capacity}]={0},_fbT_${id}=-1.0f;`)
+    ln(`    float _fbDt=_fbT_${id}<0.0f?0.0f:fmaxf(0.0f,t-_fbT_${id}); _fbT_${id}=t;`)
+    ln(`    float _fbKeep=powf(1.0f-constrain(${fade},0.0f,1.0f),_fbDt*${floatLit(TRAILS_REFERENCE_FPS)}); if(!(_fbKeep>=0.0f)) _fbKeep=1.0f;`)
+    ln(`    float _fbOwe=_fbOwed_${id}[_fb_read_${id}]+(1.0f-_fbKeep)*256.0f; uint8_t _fbBy=0;`)
+    ln(`    if(_fbOwe>=${floatLit(TRAIL_MIN_STEP)}){ _fbBy=_fbOwe>=255.0f?255:(uint8_t)_fbOwe; _fbOwe=_fbBy==255?0.0f:_fbOwe-_fbBy; }`)
+    ln(`    _fbOwed_${id}[_fb_idx_${id}]=_fbOwe;`)
     ln(`    float _fb_amt_${id}=constrain(${amount},0.0f,1.0f);`)
     // Integer kernel (shared/integerPatterns.ts): source lookup and blend in bytes.
-    ln(`    uint8_t _fbF8=(uint8_t)(_fb_fade_${id}*255.0f),_fbA8=(uint8_t)(_fb_amt_${id}*255.0f);`)
+    ln(`    uint8_t _fbF8=255-_fbBy,_fbA8=(uint8_t)(_fb_amt_${id}*255.0f);`)
     if (transformMode !== 'none') {
       for (const line of feedbackFrameCpp(id, offX, offY, angle, scale)) ln(`    ${line}`)
     }
@@ -142,13 +186,9 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      CRGB _fb=_fbSrc<0?CRGB(CRGB::Black):${hist}[_fb_read_${id}][_fbSrc];`)
     ln(`      _fb.nscale8(_fbF8);`)
     ln(`      CRGB _a=${src}[_y*WIDTH+_x];`)
-    if (mode === 'normal') {
-      ln(`      CRGB _r=_a; nblend(_r,_fb,_fbA8); ${ob}[_y*WIDTH+_x]=_r;`)
-    } else {
-      const blendMode = ['multiply', 'screen', 'add', 'difference', 'lighten'].includes(mode) ? mode : 'screen'
-      const mix = (c: string) => blendMix8Cpp(blendMode, `_a.${c}`, `_fb.${c}`, '_fbA8')
-      ln(`      ${ob}[_y*WIDTH+_x]=CRGB(${mix('r')},${mix('g')},${mix('b')});`)
-    }
+    const blendMode = FEEDBACK_BLEND_MODES.includes(mode) ? mode : 'screen'
+    const mix = (c: string) => blendMix8Cpp(blendMode, `_a.${c}`, `_fb.${c}`, '_fbA8')
+    ln(`      ${ob}[_y*WIDTH+_x]=CRGB(${mix('r')},${mix('g')},${mix('b')});`)
     ln(`    }`)
     ln(`    ::memmove(${hist}[_fb_idx_${id}], ${ob}, sizeof(CRGB) * NUM_LEDS);`)
     ln(`    _fb_idx_${id}=(_fb_idx_${id}+1)%_fb_cap_${id};`)
@@ -202,22 +242,21 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const shift = f('shift', 'shift', 0)
     ln(`  { ${seedFrom('frame')} float _dh = (${shift}) * 360.0f; for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], _dh, 1.0f); }`)
   },
-  // RGB→HSV→scale saturation→RGB, on the preview's wheel.
-  Saturation({ ln, f, ownBuf, seedFrom, needsHsv }) {
-    needsHsv.v = true
+  // RGB→HSV→scale saturation→RGB, on the preview's wheel. Keep brightness
+  // scales each channel's distance from the Rec. 709 luma instead, rounding
+  // (+0.5f) as the preview's Math.round does.
+  Saturation({ p, ln, f, ownBuf, seedFrom, needsHsv }) {
     const ob = ownBuf()
     const amount = f('amount', 'amount', 1)
+    if (p.keepBrightness === true) {
+      ln(`  { ${seedFrom('frame')} float _sm = fmaxf(0.0f, ${amount}); for (int _i = 0; _i < NUM_LEDS; _i++) {`)
+      ln(`      float _l = ${ob}[_i].r * 0.2126f + ${ob}[_i].g * 0.7152f + ${ob}[_i].b * 0.0722f;`)
+      for (const c of ['r', 'g', 'b']) ln(`      ${ob}[_i].${c} = (uint8_t)(constrain(_l + (${ob}[_i].${c} - _l) * _sm, 0.0f, 255.0f) + 0.5f);`)
+      ln(`    } }`)
+      return
+    }
+    needsHsv.v = true
     ln(`  { ${seedFrom('frame')} float _sm = ${amount}; for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], 0.0f, _sm); }`)
-  },
-  ColorBoost({ ln, f, ownBuf, seedFrom }) {
-    const ob = ownBuf()
-    const boost = f('boost', 'boost', 0.5)
-    ln(`  { ${seedFrom('frame')} float _cb = constrain(${boost}, 0.0f, 1.0f); float _cs = 1.0f + _cb * 1.5f; for (int _i = 0; _i < NUM_LEDS; _i++) {`)
-    ln(`      float _l = ${ob}[_i].r * 0.2126f + ${ob}[_i].g * 0.7152f + ${ob}[_i].b * 0.0722f;`)
-    ln(`      ${ob}[_i].r = (uint8_t)constrain(_l + (${ob}[_i].r - _l) * _cs, 0.0f, 255.0f);`)
-    ln(`      ${ob}[_i].g = (uint8_t)constrain(_l + (${ob}[_i].g - _l) * _cs, 0.0f, 255.0f);`)
-    ln(`      ${ob}[_i].b = (uint8_t)constrain(_l + (${ob}[_i].b - _l) * _cs, 0.0f, 255.0f);`)
-    ln(`    } }`)
   },
   Gamma({ ln, f, ownBuf, seedFrom }) {
     const ob = ownBuf()
@@ -240,7 +279,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
       ln(`      int _sx=(((int)floorf(_x-_dx+0.5f))%WIDTH+WIDTH)%WIDTH, _sy=(((int)floorf(_y-_dy+0.5f))%HEIGHT+HEIGHT)%HEIGHT;`)
       ln(`      ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
     } else if (mode === 'scale') {
-      ln(`    float _s=1.0f+${ph}/100.0f; _s=constrain(_s,0.05f,20.0f);`)
+      ln(`    ${transformZoomCpp(ph)}`)
       ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
       ln(`      int _sx=(int)floorf(_cx+(_x-_cx)/_s+0.5f), _sy=(int)floorf(_cy+(_y-_cy)/_s+0.5f);`)
       ln(`      ${ob}[_y*WIDTH+_x]=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${src}[_sy*WIDTH+_sx]:CRGB::Black;}}`)
@@ -264,13 +303,14 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     // animated signal can spin/grow the array; unwired they bake the slider.
     const ang = f('angle', 'angle', 0)
     const scl = `max(0.05f, ${f('scale', 'scale', 1)})`, fo = `constrain(${f('falloff', 'falloff', 0.7)},0.0f,1.0f)`
-    const mode = ['lighten', 'over'].includes(String(p.blendMode)) ? String(p.blendMode) : 'add'
+    const mode = ['add', 'over'].includes(String(p.blendMode)) ? String(p.blendMode) : 'lighten'
     const countWired = incoming.has(`${node.id}:count`)
-    const countLit = Math.max(1, Math.min(32, Math.round(Number(p.count ?? 5))))
+    const { min, max } = ARRAY_COPIES
+    const countLit = Math.max(min, Math.min(max, Math.round(Number(p.count ?? 5))))
     ln(`  { // Array${countWired ? '' : ` x${countLit}`}`)
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-    // A wired count is clamped to [1, 32] at runtime (the evaluator's cap).
-    if (countWired) ln(`    int _cnt=(int)(${f('count', 'count', 5)}+0.5f); _cnt=_cnt<1?1:(_cnt>32?32:_cnt);`)
+    // A wired count is held to the slider's ARRAY_COPIES at runtime, as the evaluator holds it.
+    if (countWired) ln(`    int _cnt=(int)(${f('count', 'count', 5)}+0.5f); _cnt=_cnt<${min}?${min}:(_cnt>${max}?${max}:_cnt);`)
     ln(`    for(int _i=${countWired ? '_cnt-1' : countLit - 1};_i>=0;_i--){`)
     // Integer kernel (shared/integerPatterns.ts): the floats run once a copy.
     for (const line of arrayCopyCpp('_i', `(${offX})`, `(${offY})`, `(${ang})`, scl, fo)) ln(`      ${line}`)
@@ -279,49 +319,42 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`        if(_aSrc<0) continue;`)
     ln(`        CRGB _s=${src}[_aSrc]; uint8_t _r=(uint8_t)((_s.r*_adim)>>16),_g=(uint8_t)((_s.g*_adim)>>16),_b=(uint8_t)((_s.b*_adim)>>16);`)
     ln(`        CRGB& _o=${ob}[_y*WIDTH+_x];`)
-    if (mode === 'lighten') {
-      ln(`        _o.r=max(_o.r,_r); _o.g=max(_o.g,_g); _o.b=max(_o.b,_b);`)
+    if (mode === 'add') {
+      ln(`        _o.r=qadd8(_o.r,_r); _o.g=qadd8(_o.g,_g); _o.b=qadd8(_o.b,_b);`)
     } else if (mode === 'over') {
       ln(`        uint8_t _cov=max(_r,max(_g,_b));`)
       ln(`        _o.r=${ARRAY_OVER_CPP('_o.r', '_cov', '_r')}; _o.g=${ARRAY_OVER_CPP('_o.g', '_cov', '_g')}; _o.b=${ARRAY_OVER_CPP('_o.b', '_cov', '_b')};`)
     } else {
-      ln(`        _o.r=qadd8(_o.r,_r); _o.g=qadd8(_o.g,_g); _o.b=qadd8(_o.b,_b);`)
+      ln(`        _o.r=max(_o.r,_r); _o.g=max(_o.g,_g); _o.b=max(_o.b,_b);`)
     }
     ln(`      } } }`)
   },
   // Frame blend with real blend modes — `blendMode` picks the operator,
-  // `amount` is opacity (0–255). Keep in sync with the `Blend` case in
-  // graphEvaluator.ts. `normal` uses FastLED's nblend; other modes blend
-  // per channel then cross-fade against the base by opacity.
+  // `amount` is opacity (0–255). Keep in sync with the `Blend` evaluator.
+  // Every mode, normal included, blends per channel in the integer kernel
+  // and cross-fades against the base by the opacity byte.
   Blend({ p, ln, f, ownBuf, srcBuf }) {
     const ob = ownBuf()
-    // `amount` is opacity 0–1; FastLED's nblend / cross-fade want 0–255.
+    // `amount` is opacity 0–1; the kernel wants a byte.
     const a = srcBuf('a'), b = srcBuf('b'), amt = f('amount', 'amount', 0.5)
-    const mode = String(p.blendMode ?? 'normal')
+    const mode = BLEND_NODE_MODES.includes(String(p.blendMode)) ? String(p.blendMode) : 'normal'
     // A wired mask scales the opacity per pixel by its brightness, as the
-    // evaluator does; unwired, `_m` is the opacity itself.
+    // evaluator does.
     const mask = srcBuf('mask')
-    const perPixel = mask
-      ? `(uint8_t)(constrain(${amt},0.0f,1.0f)*255.0f*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3.0f/255.0f))`
-      : null
     ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
     // Nothing on B yet (a fresh splice): A passes through in every mode.
     if (!b) {
       ln(`  }`)
-    } else if (mode === 'normal' && perPixel) {
-      ln(`    for(int _i=0;_i<NUM_LEDS;_i++) nblend(${ob}[_i], ${b}[_i], ${perPixel}); }`)
-    } else if (mode === 'normal') {
-      ln(`    nblend(${ob}, ${b}, NUM_LEDS, (uint8_t)(constrain(${amt},0.0f,1.0f) * 255)); }`)
-    } else {
-      // Integer blend (shared/integerPatterns.ts): the opacity is a byte, a
-      // mask's brightness scales it per pixel.
-      const mix = (c: string) => blendMix8Cpp(mode, `_a.${c}`, `_b.${c}`, '_op8')
-      ln(`    uint8_t _opAll=(uint8_t)(constrain(${amt},0.0f,1.0f)*255.0f); for(int _i=0;_i<NUM_LEDS;_i++){`)
-      if (mask) ln(`      uint8_t _op8=(uint8_t)((((uint32_t)_opAll*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3))+1)*257>>16);`)
-      else ln(`      uint8_t _op8=_opAll;`)
-      ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
-      ln(`      ${ob}[_i]=CRGB(${mix('r')},${mix('g')},${mix('b')}); } }`)
+      return
     }
+    // Integer blend (shared/integerPatterns.ts): the opacity is a byte, a
+    // mask's brightness scales it per pixel.
+    const mix = (c: string) => blendMix8Cpp(mode, `_a.${c}`, `_b.${c}`, '_op8')
+    ln(`    uint8_t _opAll=(uint8_t)(constrain(${amt},0.0f,1.0f)*255.0f); for(int _i=0;_i<NUM_LEDS;_i++){`)
+    if (mask) ln(`      uint8_t _op8=(uint8_t)((((uint32_t)_opAll*((${mask}[_i].r+${mask}[_i].g+${mask}[_i].b)/3))+1)*257>>16);`)
+    else ln(`      uint8_t _op8=_opAll;`)
+    ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
+    ln(`      ${ob}[_i]=CRGB(${mix('r')},${mix('g')},${mix('b')}); } }`)
   },
   Invert({ ln, ownBuf, seedFrom }) {
     const ob = ownBuf()
@@ -357,16 +390,17 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`    int _sx=_x,_sy=_y;`)
     if (mode === 'horizontal' || mode === 'quad') ln(`    _sx=min(_x,WIDTH-1-_x);`)
     if (mode === 'vertical' || mode === 'quad') ln(`    _sy=min(_y,HEIGHT-1-_y);`)
-    if (mode === 'diagonal') ln(`    _sx=min(min(_x,_y),WIDTH-1);_sy=min(max(_x,_y),HEIGHT-1);`)
+    // Diagonal folds across the corner-to-corner line (./mirror.ts), and
+    // declares the glow's partner itself.
+    if (mode === 'diagonal') for (const line of diagonalFoldCpp(glow)) ln(`    ${line}`)
     if (glow) {
       // additive bloom: base + glowAmount× the discarded partner, tinted
       // per-channel by the `color` input (white neutral). scale8 chain = g/255.
       const g = f('glowAmount', 'glowAmount', 0.35)
       const tintE = channelColor('color', 255, 255, 255)
-      ln(`    int _ax=_x,_ay=_y;`)
+      if (mode !== 'diagonal') ln(`    int _ax=_x,_ay=_y;`)
       if (mode === 'horizontal' || mode === 'quad') ln(`    _ax=max(_x,WIDTH-1-_x);`)
       if (mode === 'vertical' || mode === 'quad') ln(`    _ay=max(_y,HEIGHT-1-_y);`)
-      if (mode === 'diagonal') ln(`    _ax=min(max(_x,_y),WIDTH-1);_ay=min(min(_x,_y),HEIGHT-1);`)
       ln(`    CRGB _b=${src}[_sy*WIDTH+_sx], _a=${src}[_ay*WIDTH+_ax], _t=${tintE};`)
       ln(`    ${ob}[_y*WIDTH+_x]=CRGB(qadd8(_b.r,scale8(scale8(_a.r,_t.r),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))),qadd8(_b.g,scale8(scale8(_a.g,_t.g),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))),qadd8(_b.b,scale8(scale8(_a.b,_t.b),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))));}}`)
       return

@@ -394,7 +394,7 @@
       },
       {
        "id": "amount",
-       "label": "Amount",
+       "label": "Opacity",
        "dataType": "float"
       },
       {
@@ -440,11 +440,12 @@
      "y": -20
     },
     "data": {
-     "label": "Color Boost",
-     "nodeType": "ColorBoost",
+     "label": "Saturation",
+     "nodeType": "Saturation",
      "category": "composite",
      "properties": {
-      "boost": 0.3
+      "amount": 1.45,
+      "keepBrightness": true
      },
      "inputs": [
       {
@@ -453,8 +454,8 @@
        "dataType": "frame"
       },
       {
-       "id": "boost",
-       "label": "Boost",
+       "id": "amount",
+       "label": "Amount",
        "dataType": "float"
       }
      ],

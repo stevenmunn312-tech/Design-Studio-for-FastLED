@@ -393,7 +393,8 @@
             "amplitude": 18,
             "frequency": 0.04,
             "phase": 0,
-            "waveform": "sine"
+            "waveform": "sine",
+            "unipolar": false
           },
           "inputs": [
             {
@@ -439,7 +440,7 @@
             "angle": 0,
             "scale": 0.92,
             "falloff": 0.6,
-            "blendMode": "screen"
+            "blendMode": "add"
           },
           "inputs": [
             {

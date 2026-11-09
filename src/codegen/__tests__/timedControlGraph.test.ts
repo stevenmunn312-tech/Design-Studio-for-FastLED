@@ -77,16 +77,8 @@ describe('time-dependent control sources', () => {
 
   it('shares a schedule fed by a compile-time RTC', () => {
     const rtc = node('rtc', 'RTCInput', { timeSource: 'Compile Time' })
-    const sched = node('sched', 'ScheduleTrigger')
-    const edges = [
-      edge('rtc', 'valid', 'sched', 'valid'),
-      edge('rtc', 'synced', 'sched', 'synced'),
-      edge('rtc', 'secondsOfDay', 'sched', 'secondsOfDay'),
-      edge('rtc', 'weekday', 'sched', 'weekday'),
-      edge('rtc', 'day', 'sched', 'day'),
-      edge('rtc', 'month', 'sched', 'month'),
-      edge('rtc', 'year', 'sched', 'year'),
-    ]
+    const sched = node('sched', 'ScheduleTrigger', { dayMode: 'Weekdays' })
+    const edges = [edge('rtc', 'dateTime', 'sched', 'dateTime')]
     const graph = createControlGraph([rtc, sched], edges)
     expect(graph.resolve('sched', 'active', 'bool')).not.toBeNull()
     const compiled = controlGraphCpp(graph)
@@ -99,6 +91,15 @@ describe('time-dependent control sources', () => {
     const normal = generateCpp([rtc, sched], edges)
     for (const line of linesOf(loop, '_schedule')) expect(normal).toContain(line)
     for (const line of linesOf(loop, '_rtc')) expect(normal).toContain(line)
+    expect(loop).toContain('_scheduleWeekday_sched = constrain((int)roundf(n_rtc_dateTime.weekday), 0, 6);')
+  })
+
+  it('refuses a schedule clock that is not an RTC Clock', () => {
+    const math = node('math', 'Math')
+    const sched = node('sched', 'ScheduleTrigger')
+    const graph = createControlGraph([math, sched], [edge('math', 'result', 'sched', 'dateTime')])
+    expect(graph.resolve('sched', 'active', 'bool')).toBeNull()
+    expect([...graph.errors].join('\n')).toContain("reads a clock only from an RTC Clock's DateTime")
   })
 
   it('carries the Wi-Fi bootstrap with an NTP clock, once for two clocks', () => {

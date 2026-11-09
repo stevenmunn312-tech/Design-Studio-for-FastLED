@@ -1,10 +1,13 @@
 import { blankDmxSnapshot, type DmxSnapshot, clampDmxChannel, clampDmxByte } from '../../state/peripherals/dmx'
 import { waveAt, waveHz } from './wave'
 import type { NodeEvaluators } from '../../state/evaluator/types'
-import { normalizedSeed, seededRandom, seedOffset, _snoise2 } from '../../state/evaluator/random'
+import { normalizedSeed, seededRandom, seedOffset } from '../../state/evaluator/random'
+import { envelopeLevel, noiseLfoLevel, noiseLfoOctaves } from './scope'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import { instanceState } from '../../state/evaluator/memory'
+import type { RtcPreview } from '../../state/peripherals/rtc'
+import { SCHEDULE_DEFAULT_END, SCHEDULE_DEFAULT_START, scheduleTimeSeconds, scheduleWindowProgress } from './schedule'
 
 // Time node — the previous pass's `t`, for a measured `dt`.
 const timePrev = instanceState('timePrev', new Map<string, number>())
@@ -14,6 +17,8 @@ const intervalLast = instanceState('intervalLast', new Map<string, number>())
 // Envelope node — trigger fire time (seconds) + previous trigger level.
 const envState = instanceState('envState', new Map<string, { fire: number; prev: boolean }>())
 const dmxChannelState = instanceState('dmxChannelState', new Map<string, { last: number; seen: boolean }>())
+// Random with a trigger — the held 0–1 draw and the trigger's previous level.
+const randomHold = instanceState('randomHold', new Map<string, { draw: number; prev: boolean }>())
 
 interface ScheduleState {
   prevActive: boolean
@@ -56,27 +61,6 @@ function scheduleDayEnabled(
   return props[dayKeys[Math.max(0, Math.min(6, Math.round(weekday)))] ?? 'sunday'] !== false
 }
 
-/** A ScheduleTrigger hour/minute/second triple as seconds-of-day. Each field is
- *  clamped to its own range first (matching the C++ generator's `intProp`), so
- *  an out-of-range saved value resolves to the same instant in both. */
-export function scheduleTimeOfDay(hour: unknown, minute: unknown, second: unknown): number {
-  const part = (value: unknown, max: number) => {
-    const n = Math.round(Number(value ?? 0))
-    return Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : 0
-  }
-  return part(hour, 23) * 3600 + part(minute, 59) * 60 + part(second, 59)
-}
-
-/** How far through an active window `seconds` sits, 0→1. Windows that wrap past
- *  midnight (start > end) measure across the wrap. Shared shape with the C++
- *  generator, which bakes the constants at generation time. */
-export function scheduleWindowProgress(seconds: number, startSec: number, endSec: number): number {
-  const span = endSec >= startSec ? endSec - startSec : 86400 - startSec + endSec
-  if (span <= 0) return 0
-  const elapsed = seconds >= startSec ? seconds - startSec : 86400 - startSec + seconds
-  return Math.max(0, Math.min(1, elapsed / span))
-}
-
 export const SIGNAL_EVALUATORS: NodeEvaluators = {
   // `dt` is the time since this node's previous pass, 0 on its first.
   TimeNode({ t, stateKey }, id) {
@@ -93,10 +77,19 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     const level     = { unipolar: props.unipolar === true, offset: num(id, 'offset', props, 'offset', 0) }
     return { result: waveAt(waveform, amplitude, speedPhase(stateKey(id), t, hz), phase, level) }
   },
-  Random({ stateKey }, id, props) {
-    const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)
+  // A draw every frame; with Trigger wired, one on the first pass and then
+  // one per rising edge, held between. The sketch keeps the same draw count,
+  // so a seeded sequence matches.
+  Random({ input, num, incoming, stateKey }, id, props) {
+    const lo = num(id, 'min', props, 'min', 0), hi = num(id, 'max', props, 'max', 1)
     const seed = normalizedSeed(props.seed)
-    return { value: lo + seededRandom(stateKey(id), seed) * (hi - lo) }
+    const key = stateKey(id)
+    if (!incoming.has(`${id}:trigger`)) return { value: lo + seededRandom(key, seed) * (hi - lo) }
+    const fire = Boolean(input(id, 'trigger', false))
+    const prev = randomHold.get(key)
+    const draw = !prev || (fire && !prev.prev) ? seededRandom(key, seed) : prev.draw
+    randomHold.set(key, { draw, prev: fire })
+    return { value: lo + draw * (hi - lo) }
   },
   // Smooth random: fBm of the simplex noise, sampled along time. Firmware reads
   // inoise16 instead (the documented approximation gap shared with Field Noise).
@@ -104,16 +97,10 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.NoiseSignal)
     const lo = num(id, 'min', props, 'min', 0)
     const hi = num(id, 'max', props, 'max', 1)
-    const octaves = Math.max(1, Math.min(3, Math.floor(Number(props.octaves ?? 1)) || 1))
     const seed = normalizedSeed(props.seed)
     const z = speedPhase(stateKey(id), t, speed) + seedOffset(seed, 0)
-    const y = seedOffset(seed, 1)
-    let v = 0, amp = 0.5, freq = 1, norm = 0
-    for (let o = 0; o < octaves; o++) {
-      v += amp * _snoise2(z * freq, y + o * 17)
-      norm += amp; amp *= 0.5; freq *= 2
-    }
-    const n = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
+    // The fBm the on-node scope draws too (./scope.ts).
+    const n = noiseLfoLevel(z, seedOffset(seed, 1), noiseLfoOctaves(props.octaves))
     return { value: lo + n * (hi - lo) }
   },
   // Trigger envelope — optional linear attack to 1 on a rising edge, then
@@ -130,30 +117,27 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     let fire = prev && prev.fire <= t ? prev.fire : -Infinity
     if (trig && !prev?.prev) fire = t
     envState.set(key, { fire, prev: trig })
-    const age = t - fire
-    const value = age < attack && attack > 0
-      ? age / attack
-      : 1 - (age - attack) / decay
-    return { result: Math.max(0, Math.min(1, value)) }
+    return { result: Math.max(0, Math.min(1, envelopeLevel(t - fire, attack, decay))) }
   },
+  // One DateTime wire carries the whole reading: health, time of day, weekday
+  // and the calendar date Trigger mode keys its once-a-day pulse on. Unwired,
+  // the clock is not valid and every output stays low, as on the board.
   ScheduleTrigger({ input, stateKey }, id, props) {
     const key = stateKey(id)
     const mode = String(props.scheduleMode ?? 'Window')
     const dayMode = String(props.dayMode ?? 'Every day')
-    const valid = Boolean(input(id, 'valid', false))
-    const synced = Boolean(input(id, 'synced', false))
+    const clock = input(id, 'dateTime', null) as Partial<RtcPreview> | null
+    const valid = clock?.valid === true
+    const synced = clock?.synced === true
     const enabled = Boolean(input(id, 'enable', props.enable !== false))
-    const weekday = Math.max(0, Math.min(6, Math.round(Number(input(id, 'weekday', 0)))))
-    const secondsOfDay = Math.max(0, Math.min(86399.999, Number(input(id, 'secondsOfDay', 0))))
-    const day = Math.max(1, Math.min(31, Math.round(Number(input(id, 'day', 1)))))
-    const month = Math.max(1, Math.min(12, Math.round(Number(input(id, 'month', 1)))))
-    const year = Math.max(1970, Math.round(Number(input(id, 'year', 1970))))
+    const weekday = Math.max(0, Math.min(6, Math.round(Number(clock?.weekday ?? 0))))
+    const secondsOfDay = Math.max(0, Math.min(86399.999, Number(clock?.secondsOfDay ?? 0)))
+    const day = Math.max(1, Math.min(31, Math.round(Number(clock?.day ?? 1))))
+    const month = Math.max(1, Math.min(12, Math.round(Number(clock?.month ?? 1))))
+    const year = Math.max(1970, Math.round(Number(clock?.year ?? 1970)))
     const requireSync = props.requireSync === true
-    // Clamp each field to its own slider range before summing, exactly like
-    // the C++ generator's intProp — summing first and clamping the total
-    // maps an out-of-range saved value to a different time than firmware.
-    const startSec = scheduleTimeOfDay(props.startHour, props.startMinute, props.startSecond)
-    const endSec = scheduleTimeOfDay(props.endHour, props.endMinute, props.endSecond)
+    const startSec = scheduleTimeSeconds(props.start, SCHEDULE_DEFAULT_START)
+    const endSec = scheduleTimeSeconds(props.end, SCHEDULE_DEFAULT_END)
     const dayKey = year * 10_000 + month * 100 + day
     const prev = scheduleState.get(key)
       ?? { prevActive: false, lastPulseDay: -1, prevSeconds: null, prevDayKey: -1 }

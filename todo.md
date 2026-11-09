@@ -237,164 +237,47 @@ freeze, or drop them.
 
 #### Effects and signals
 
-- [ ] **Category: Split the flat Effects list into subcategories (Med, S).**
-  Effects has 21 nodes in one mixed list; `SUBCATEGORY_ORDER` has no
-  `composite` entry. Add one with Layer (Blend, Mask, Frame Switch, Zones,
-  Glitter), Colour (Brightness, Hue Shift, Saturation, Color Boost, Gamma,
-  Invert), Geometry (Frame Transform, Transform, Mirror, Kaleidoscope,
-  Symmetry, Array, Frame Warp) and Time (Trails, Frame Feedback, Blur 2D).
-  Evidence `src/state/nodeLibrary.ts:224`.
 - [ ] **Category: Merge the overlapping frame-transform nodes (Med, M).**
-  Frame Transform, Transform, Frame Warp, Array, Frame Feedback and Symmetry
-  each own part of offset/rotate/scale, "Rotate" means three different
-  things, and "Transform" vs "Frame Transform" are near-identical names for
-  opposite behaviours. Before v1, make one Frame Transform with any-angle
-  rotate, scale and offset, each with an optional per-second rate. Keep
-  Frame Warp for field-driven displacement only. Evidence
-  `src/nodes/composite/definitions.ts`.
-- [ ] **Category: Fold Kaleidoscope into Mirror, rename Symmetry (Med, M).**
-  Mirror, Kaleidoscope and Symmetry all fold a frame. Add a "Radial" axis
-  to Mirror with a Segments control shown only for that axis (Mirror
-  already hides glow controls by mode), share Symmetry's Rotation/Spin so
-  the radial fold can turn, and rename Symmetry "Tile Symmetry". Evidence
+  Frame Transform, Transform, Frame Warp, Array, Frame Feedback and Tile
+  Symmetry each own part of offset/rotate/scale, "Rotate" means three
+  different things, and "Transform" vs "Frame Transform" are near-identical
+  names for opposite behaviours. Before v1, make one Frame Transform with
+  any-angle rotate, scale and offset, each with an optional per-second rate.
+  Keep Frame Warp for field-driven displacement only. Needs a product call
+  before code: whether the merged node keeps Frame Transform's whole-pixel
+  wrap and quarter turns (exact, no resampling) beside a resampled any-angle
+  path, and whether Frame Warp's own zoom/rotate go. Transform's Scale now
+  breathes between half and double size (`transformZoom.ts`), the rule a
+  per-second zoom rate would reuse. Moves: Transform in 4 bundled JSON
+  patterns and 5 help examples; Frame Transform in the Blend and Frame
+  Transform help examples. Evidence `src/nodes/composite/definitions.ts`.
+- [ ] **Category: Fold Kaleidoscope into Mirror (Med, M).** Mirror,
+  Kaleidoscope and Tile Symmetry all fold a frame (Symmetry is now labelled
+  Tile Symmetry). Add a "Radial" axis to Mirror with a Segments control
+  shown only for that axis (Mirror already hides glow controls by mode, and
+  glow has no single partner radially, so gate it off), and share Tile
+  Symmetry's Rotation/Spin so the radial fold can turn. Left because it
+  reaches well beyond the Effects nodes: Kaleidoscope is a built-in show
+  pattern (`builtinShowPatterns.ts`, Performance Generator's chorus list,
+  `showUpload.test.ts`), sits in 6 bundled JSON patterns, 10 shelf and
+  featured seeds, `patternRating.ts`, `frameInvariance.ts` (twice) and the
+  Math and Inputs help examples; the turn needs a rotation term in
+  `KALEIDO_SOURCE_CPP`, which the native parity test covers. Evidence
   `src/state/nodeLibrary.ts:5253`.
-- [ ] **Category: Merge Color Boost into Saturation (Med, S).** Both scale
-  distance from grey. Saturation is HSV-based (0-2); Color Boost keeps
-  brightness, only boosts, and its 0-1 slider secretly means 1x-2.5x. Make
-  one Saturation node with a "Keep brightness" toggle that switches to the
-  luma formula. Evidence `src/nodes/composite/evaluate.ts:528`.
-- [ ] **Category: Add a scope to Noise LFO and Envelope (Low, M).** Only
-  Wave has an on-node scope, but these two are the nodes whose shape is the
-  whole point. Evidence `src/components/Canvas/StudioNode.tsx:1315`.
-- [ ] **Blend: List Lighten in the mode lists (Low, S).** The node
-  description and help overview name six modes and omit Lighten, and the
-  global `blendMode` meta lacks it too, which invites drift. Add it to all
-  three. Evidence `src/nodes/composite/definitions.ts:397`.
-- [ ] **Blend: Route Normal mode through the byte kernel (Low, S).**
-  Preview Normal uses float maths while firmware uses FastLED `nblend`;
-  every other mode shares `blendMix8`. Use the kernel for Normal to remove
-  the last off-by-one gap. Evidence `src/nodes/composite/evaluate.ts:243`,
-  `src/nodes/composite/codegen.ts:308`.
-- [ ] **Brightness: Match preview and firmware rounding (Low, S).** Preview
-  rounds, firmware truncates `(uint8_t)fminf(...)`, so at 0.5 a level-1
-  pixel stays 1 in preview but is 0 on the board. Add `+0.5f` in firmware
-  or use the byte kernel on both sides. Evidence
-  `src/nodes/composite/evaluate.ts:256`, `src/nodes/composite/codegen.ts:17`.
-- [ ] **Gamma: Make preview match FastLED on dim pixels (Med, S).** Preview
-  uses `Math.round(255*(c/255)^g)`; firmware `napplyGamma_video` truncates
-  and lifts every non-zero input to at least 1. At gamma 2.2, inputs up to
-  about 12 are black in preview but glow on the LEDs. Truncate, then raise
-  non-zero results to 1 in the preview, and add a gamma parity test.
-  Evidence `src/nodes/composite/evaluate.ts:551`,
-  `src/nodes/composite/codegen.ts:222`.
 - [ ] **Gamma: Offer a Gamma setting on the LED output (Low, M).** Help says
   to put Gamma last, just before the LED output; a setting on the output
-  would remove a node from most finished graphs. Evidence
+  would remove a node from most finished graphs. Left for the Outputs list:
+  it is an LED output property, applied in `ledOutputRuntimeCpp` beside
+  Enabled and Brightness so the normal sketch, show controller and SD player
+  agree, and in the preview's output routing. The preview can reuse
+  `gammaVideoTable` (`src/nodes/composite/gamma.ts`), now a byte-exact
+  port of FastLED's `napplyGamma_video`. Evidence
   `src/components/HelpModal/reference/composite.ts:171`.
-- [ ] **Color Boost: Match preview and firmware rounding (Low, S).** Preview
-  rounds, firmware truncates `(uint8_t)constrain(...)`. Use one rule on
-  both sides. Evidence `src/nodes/composite/evaluate.ts:533`,
-  `src/nodes/composite/codegen.ts:214`.
-- [ ] **Transform: Make Scale mode loop instead of freezing (Med, S).**
-  `s = 1 + phase/100` clamps to 0.05-20, so at the default rate 90 a zoom-in
-  freezes at 20x after about 21 s and a negative rate freezes after about
-  1 s. Use a ping-pong zoom or an exponential zoom that wraps within one
-  octave. Evidence `src/nodes/composite/evaluate.ts:81`,
-  `src/nodes/composite/codegen.ts:240`.
-- [ ] **Transform: Give Rate a per-mode range or label (Low, S).** One
-  -360..360 step-1 slider serves degrees/s, %/s and px/s, so 0.5 px/s is
-  impossible and 360 px/s is meaningless on a 16-wide matrix. Evidence
-  `src/state/nodeLibrary.ts:1150`.
-- [ ] **Array: Default blend to lighten (Med, S).** Default `add` stacks
-  five copies at falloff 0.7 (about 2.8x gain), so any full-frame source
-  such as Plasma turns almost white; the help example already picks
-  `lighten`. Evidence `src/nodes/composite/definitions.ts:206`.
-- [ ] **Array: Share one copy-limit constant (Low, S).** The limit is 24 in
-  the slider, 32 in the preview cap and a 32 literal in firmware. Use one
-  shared constant per the bounds rule. Evidence
-  `src/state/nodeLibrary.ts:1160`, `src/nodes/composite/codegen.ts:266`.
-- [ ] **Mirror: Handle Diagonal on non-square matrices (Low, S).** Diagonal
-  assumes square; on a wide panel `bx`/`by` clamping smears every column
-  past H into strips. Disable Diagonal when W differs from H, or say so in
-  its tooltip. Evidence `src/nodes/composite/evaluate.ts:587`.
-- [ ] **Mirror: Match glow rounding to firmware (Low, S).** Preview adds an
-  unrounded float (and passes non-integer channels downstream); firmware
-  chains two truncating `scale8` calls. Round the same way in the preview.
-  Evidence `src/nodes/composite/evaluate.ts:581`,
-  `src/nodes/composite/codegen.ts:368`.
-- [ ] **Frame Warp: Add a built-in displacement source (Med, M).** With
-  defaults it does nothing visible (zoom 1, rotate 0, unwired fields read
-  0.5, meaning no push); seeing an effect needs two hand-written Field
-  Formula nodes. Add a Swirl / Ripple / Turbulence select with a speed,
-  used when dx/dy are unwired. Evidence
-  `src/nodes/composite/evaluate.ts:378`.
-- [ ] **Symmetry: Add display labels to select options (Med, M).** The group
-  dropdown shows crystallographic codes (p1, pm, p4m, p6m...) and
-  `PropertyControl` selects cannot carry labels. Add optional option labels
-  (e.g. "p4m: square, mirrors + quarter turns"), also useful for
-  FieldSymmetry. Evidence `src/state/evaluator/symmetry.ts:1`,
-  `src/state/nodeLibrary.ts:410`.
-- [ ] **Frame Feedback: Allow rotate and zoom together (Med, M).**
-  Translate, Rotate and Scale are mutually exclusive, so the classic
-  turning tunnel needs a separate Transform in front. Add a combined "Zoom
-  + Turn", or apply all four values like Array; `feedbackFrame` already
-  computes cos/sin and inverse scale together. Evidence
-  `src/state/nodeLibrary.ts:5322`, `src/nodes/shared/integerPatterns.ts:1330`.
-- [ ] **Frame Feedback: Use a time-based fade like Trails (Low, S).** Its
-  `fade` is linear and per frame, so the look depends on frame rate. Move
-  it to the shared half-life fade and use the same semantics as Trails,
-  which it generalises. Evidence `src/state/nodeLibrary.ts:3482`.
-- [ ] **Frame Feedback: Unify "Amount" vs "opacity" naming (Low, S).** The
-  port is labelled Amount but its row says "opacity", and Blend's port says
-  Opacity. Pick one word across Blend and Frame Feedback. Evidence
-  `src/nodes/composite/definitions.ts:328`, `src/state/nodeLibrary.ts:3482`.
-- [ ] **Frame Switch: Add a Select property (Med, S).** There is no manual
-  toggle; unwired it always shows A, and checking B needs a wired button.
-  Add a `select` boolean property as the `sel` port's property input, as
-  Schedule Trigger's `enable` does. Math `Switch` has the same gap.
-  Evidence `src/nodes/composite/definitions.ts:365`.
-- [ ] **Zones: Add a per-zone Fit option (Med, M).** Zones crop rather than
-  place: each copies `src[y][x]` at the same coordinates, so in the "Four
-  seasons" help example Fire in zone B shows only a quarter of a
-  full-matrix fire. Add nearest-neighbour downscale into the rectangle.
-  Evidence `src/nodes/composite/evaluate.ts:314`,
-  `src/nodes/composite/codegen.ts:47`.
-- [ ] **Zones: Fix the "named rectangle" wording (Low, S).** Zones cannot be
-  named. Drop "named" or add a label field. Evidence
-  `src/nodes/composite/definitions.ts:416`.
-- [ ] **Wave: Allow slow frequencies (Med, S).** Frequency uses the shared
-  0-4 Hz, step 0.1 slider and `EditableRange` rejects off-step typed
-  values, so the slowest LFO is 10 s and the help's own 0.15, 0.12 and 0.07
-  Hz cannot be entered. Add a Wave override with step 0.01, or a
-  "Period (s)" rate unit. Evidence `src/state/nodeLibrary.ts:519`,
-  `src/components/EditableRange/validRangeValue.ts:7`.
-- [ ] **Wave: Default to Unipolar (Med, S).** The default swings -1 to +1
-  while most targets read 0-1, and three of four composite help examples
-  turn Unipolar on. Default `unipolar: true` before v1. Evidence
-  `src/nodes/signal/definitions.ts:26`.
-- [ ] **Random: Add a trigger input (Med, S).** It draws a new value every
-  frame, and its own help sends users to Sample & Hold for "new value per
-  beat". Add an optional `trigger` bool input that draws only on a rising
-  edge, and make Min and Max wireable property inputs. Evidence
-  `src/nodes/signal/definitions.ts:74`.
-- [ ] **Schedule Trigger: Replace seven clock inputs with one dateTime
-  (High, M).** Day/Month/Year left unwired freeze the day key, so Trigger
-  mode fires on the first day only, and unwired Weekday reads Sunday so
-  Weekdays mode never runs. Help asks for four wires and Graph Health
-  checks only two. Take one `dateTime` input from RTC Clock's DateTime
-  output (already used by Clock Display) and keep Enable as the only other
-  input. Evidence `src/nodes/signal/evaluate.ts:157`,
-  `src/nodes/signal/definitions.ts:104`.
-- [ ] **Schedule Trigger: Replace six time sliders with two time fields
-  (Med, M).** Start and end take hour/minute/second sliders. Use two HH:MM
-  fields with optional seconds. Evidence `src/state/nodeLibrary.ts:702`.
-- [ ] **Schedule Trigger: Move Enable out of "Day Rules" (Low, S).** It
-  belongs with Timing or on its own. Evidence
-  `src/state/nodeLibrary.ts:4092`.
-- [ ] **Clock: Rename to avoid RTC Clock and Clock Display (Med, S).**
-  Searching for time of day finds a BPM metronome. Rename it "Tempo Clock"
-  or "BPM Clock". Evidence `src/nodes/input/definitions.ts:487`,
-  `src/nodes/shapes/definitions.ts:95`.
+- [ ] **Math Switch: Add a Select property (Med, S).** Frame Switch gained a
+  `select` switch as its `sel` port's property input; Math `Switch` has the
+  same gap (unwired it always passes A). Left to the Colour and maths list's
+  owner, which is also folding Gate into Switch. Evidence
+  `src/nodes/composite/definitions.ts:365`.
 
 #### Fields and shapes
 
