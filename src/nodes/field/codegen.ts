@@ -51,7 +51,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    float a=${a}, b=${b}; (void)a;(void)b;`)
     ln(`    float W=WIDTH, H=HEIGHT; (void)W;(void)H;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float x=_x, y=_y; (void)x;(void)y;`)
+    ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1),px=_x,py=_y; (void)x;(void)y;(void)px;(void)py;`)
     ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
     ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
     ln(`      float fieldIn=${fin ? `${fin}[_y*WIDTH+_x]` : '0.0f'}; (void)fieldIn;`)
@@ -322,7 +322,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     if (fx) ln(`      ${A}u[_i]+=(${fx}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
     if (fy) ln(`      ${A}v[_i]+=(${fy}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
     ln(`      ${A}v[_i]-=${floatLit(buoy * FLUID_BUOYANCY_GAIN, 6)}*${A}d[_i]; }`)
-    ln(`    int _it=constrain((int)floorf(${f('speed', 'speed', 8)}),${FLUID_ITERATIONS_MIN},${FLUID_ITERATIONS_MAX});`)
+    ln(`    int _it=constrain((int)floorf(${f('quality', 'quality', 8)}),${FLUID_ITERATIONS_MIN},${FLUID_ITERATIONS_MAX});`)
     // Viscosity and diffusion are skipped outright when fixed at zero.
     const active = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port) || Number(p[port] ?? 0) > 0
     if (active('viscosity')) ln(`    _fluidViscosity(${A}u,${A}v,${A}u0,${A}v0,WIDTH,HEIGHT,_it,${f('viscosity', 'viscosity', 0)});`)

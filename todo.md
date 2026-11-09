@@ -796,13 +796,6 @@ freeze, or drop them.
 
 #### Fields and shapes
 
-- [ ] **Category: Make Field Formula x/y 0-1 like Custom Formula (High, S).**
-  Field Formula passes integer pixel `x, y`, but Custom Formula (same variable
-  list and tooltip) passes 0-1, and Field Formula's Help says "0 to 1". Moving
-  a formula between the two, or following the Help, gives the wrong picture.
-  Make `x, y` 0-1 and add `px, py` for pixels, then update the 3 bundled
-  patterns that use it. At minimum, correct the Help.
-  `src/nodes/field/evaluate.ts:172`, `src/components/HelpModal/reference/field.ts:10`.
 - [ ] **Category: Fix centred fields on a 1-row strip (Med, M).** Strips,
   rings and corkscrews are `height: 1`, where `centeredY(0, 1)` is -1, so
   every centred field samples only the bottom of its circle. Formula Shapes'
@@ -851,14 +844,6 @@ freeze, or drop them.
   Gradient (unlabelled), and a static angle on Fractal Field. Name the static
   ones `rotation` and put units in labels, as Wireframe3D's "spin X (deg/s)"
   does. `src/state/nodeLibrary.ts:1056`, `src/nodes/field/codegen.ts:344`.
-- [ ] **Category: Make port labels match row labels (Low, S).** Formula
-  Shapes' port reads "Symmetry" but its row "lobes"; Fluid's ports read
-  "Inject / Inject X / Inject Y" but its rows "dye / source X / source Y".
-  `src/nodes/field/definitions.ts:117`, `:190`.
-- [ ] **Field Formula: Add a/b sliders (Med, S).** `a` and `b` are bare ports
-  with no property, so tuning a constant needs a wired node. Declare
-  `propertyInputs: { a, b }` with default 0, as Custom Formula does.
-  `src/nodes/field/definitions.ts:16`, `src/nodes/code/definitions.ts:19`.
 - [ ] **Field Noise: Add contrast/normalise to fBm (Med, S).** fBm is a
   weighted average of octaves, so values cluster near 0.5 and the palette ends
   (including black) are rarely reached. Add a contrast or normalise option
@@ -871,11 +856,6 @@ freeze, or drop them.
   X wrap is a toggle, so with Wrap X off edges reflect left/right but wrap
   top/bottom. Let the toggle cover both, or rename it "Wrap edges".
   `src/nodes/field/evaluate.ts:337`.
-- [ ] **Fluid: Rename `speed` to `quality` (Med, S).** It is solver passes
-  (4-20) and raising it slows the flow ("More is smoother and slower"), the
-  opposite of what a Speed slider implies. Rename to `quality` or
-  `solverPasses`; pre-v1 drop the old name. `src/state/nodeLibrary.ts:1825`,
-  `src/state/evaluator/fluid.ts:24`.
 - [ ] **Fractal Field: Rename `spin` to `rotation` (Med, S).** `spin` is a
   fixed view angle in degrees, while everywhere else `spin` is a rate.
   Rename to `rotation`; optionally add a real `spin`.

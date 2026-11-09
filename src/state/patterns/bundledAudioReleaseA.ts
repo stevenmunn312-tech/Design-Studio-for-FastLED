@@ -82,7 +82,7 @@ function chromafluidCathedral(): AudioReleaseSeed {
   b.wire('dyeSum', 'result', 'dyeLimit', 'value')
   b.wire('dyeLimit', 'result', 'fluid', 'inject')
   b.wire('stereoSource', 'result', 'fluid', 'injectX')
-  b.wire('fluidMotion', 'result', 'fluid', 'speed')
+  b.wire('fluidMotion', 'result', 'fluid', 'quality')
   b.wire('forceX', 'field', 'fluid', 'forceX')
   b.wire('forceY', 'field', 'fluid', 'forceY')
   b.wire('song', 'drop', 'fluid', 'trigger')

@@ -7,14 +7,14 @@ const FIELD_IN = 'The field to work on.'
 export const FIELD_REFERENCE: NodeReferenceMap = {
   FieldFormula: {
     overview: [
-      'Field Formula computes a field from a formula, one value per pixel. It knows x and y (0 to 1), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, and FastLED helpers such as sin8 and beatsin8.',
+      'Field Formula computes a field from a formula, one value per pixel. It knows x and y (0 to 1, as in Custom Formula), px and py (the pixel’s column and row, from 0), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, and FastLED helpers such as sin8 and beatsin8.',
       'It can also read another field as fieldIn, so a formula can bend, threshold or combine an existing field. Fields are the ANIMartRIX way of working: shape numbers first, colour them last.',
       'prev is the value this node wrote at the same pixel last frame, 0 to begin with. Reading it keeps the field between frames, so max(prev*0.95, fieldIn) leaves a fading trail and prev + 0.01 fills slowly. The firmware keeps the same buffer, and a Restart entry in a show clears it.',
       'Formulas run only in a trusted workspace.',
     ],
     inputs: {
-      a: 'A number your formula can read as a.',
-      b: 'A number your formula can read as b.',
+      a: 'A number your formula can read as a. Unwired, it reads the A value set on the node.',
+      b: 'A number your formula can read as b. Unwired, it reads the B value set on the node.',
       fieldIn: 'A field your formula can read as fieldIn.',
     },
     outputs: { field: FIELD_OUT },

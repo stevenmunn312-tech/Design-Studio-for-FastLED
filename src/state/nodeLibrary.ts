@@ -1498,7 +1498,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   FluidSim: {
     inject: N01, injectX: N01, injectY: N01, viscosity: N01, diffusion: N01, buoyancy: N01,
     dissipation: { control: 'slider', min: 0, max: 0.2, step: 0.001 },
-    speed: { control: 'slider', min: FLUID_ITERATIONS_MIN, max: FLUID_ITERATIONS_MAX, step: 1 },
+    quality: { control: 'slider', min: FLUID_ITERATIONS_MIN, max: FLUID_ITERATIONS_MAX, step: 1 },
   },
   FractalField: {
     fractalType: { control: 'select', options: [...FRACTAL_TYPES] },
@@ -1823,7 +1823,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     viscosity: 'How much the flow resists changes, spreading motion sideways.',
     diffusion: 'How fast the dye spreads by itself.',
     dissipation: 'Share of the dye that fades each frame.',
-    speed: 'Solver passes each frame. More is smoother and slower.',
+    quality: 'Solver passes each frame, 4 to 20. More gives smoother, more even swirls and costs more time per frame; the flow itself moves a little slower.',
     buoyancy: 'How strongly dye rises. 0 lets it hang.',
   },
   FractalField: {
@@ -2158,7 +2158,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Palette the formula result (0–1, wrapping) is looked up in; a wired Palette overrides it.',
   },
   FieldFormula: {
-    formula: `${FORMULA_LANG_HELP} Field Formula also provides fieldIn and prev, its own value here last frame (0 at first). Reading prev keeps the field between frames.`,
+    formula: `${FORMULA_LANG_HELP} x and y run 0 to 1. Field Formula also provides px and py, the pixel's column and row from 0, fieldIn, and prev, its own value here last frame (0 at first). Reading prev keeps the field between frames.`,
+    a: 'Free number available in the formula as a; wire a control to animate it.',
+    b: 'Free number available in the formula as b.',
   },
   FieldLevels: {
     low: 'Input values at or below this point map to 0. When Low meets or exceeds High, this becomes the hard threshold.',
@@ -3432,6 +3434,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   FieldMath: {
     fieldOp: 'operation',
+    t: 'mix',
   },
   FieldTile: {
     tilesX: 'tiles X',
@@ -4376,7 +4379,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   FluidSim: [
     { key: 'source', label: 'Source', keys: ['inject', 'injectX', 'injectY'] },
     { key: 'flow', label: 'Flow', keys: ['viscosity', 'diffusion', 'dissipation', 'buoyancy'] },
-    { key: 'solver', label: 'Solver', keys: ['speed'] },
+    { key: 'solver', label: 'Solver', keys: ['quality'] },
   ],
   FractalField: [
     { key: 'set', label: 'Set', keys: ['fractalType', 'cRe', 'cIm', 'iterations', 'smooth'] },

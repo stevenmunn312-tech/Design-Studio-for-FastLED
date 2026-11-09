@@ -171,8 +171,8 @@ function evalFieldFormula(key: string, formula: string, a: number, b: number, fi
       // write-in-place is exact; the sketch does the same.
       const prev = persists ? out[i] : 0
       let v = 0
-      // FieldFormula uses integer pixel coords for x,y (ANIMartRIX convention).
-      try { v = fn(xi, yi, cx, cy, r, angle, t, W, H, a, b, fin, prev, ...sv) } catch { v = 0 }
+      // x,y are 0 to 1, as in Custom Formula; px,py are the pixel's column and row.
+      try { v = fn(xi / (W - 1 || 1), yi / (H - 1 || 1), cx, cy, r, angle, t, W, H, a, b, fin, prev, xi, yi, ...sv) } catch { v = 0 }
       out[i] = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0
     }
   }
@@ -803,7 +803,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     s.prevTrigger = trigger
     const fx = input(id, 'forceX', null), fy = input(id, 'forceY', null)
     fluidForces(s, fx instanceof Float32Array ? fx : null, fy instanceof Float32Array ? fy : null, Number(props.buoyancy ?? 0.5))
-    fluidStep(s, fluidIterations(num(id, 'speed', props, 'speed', 8)), num(id, 'viscosity', props, 'viscosity', 0), num(id, 'diffusion', props, 'diffusion', 0), num(id, 'dissipation', props, 'dissipation', 0.02))
+    fluidStep(s, fluidIterations(num(id, 'quality', props, 'quality', 8)), num(id, 'viscosity', props, 'viscosity', 0), num(id, 'diffusion', props, 'diffusion', 0), num(id, 'dissipation', props, 'dissipation', 0.02))
     const n = W * H, dye = allocField(n), vx = allocField(n), vy = allocField(n)
     for (let i = 0; i < n; i++) {
       dye[i] = Math.max(0, Math.min(1, s.d[i]))

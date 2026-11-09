@@ -57,7 +57,8 @@ optionally a `frame` when a palette is wired and `outputMode = 'frame'`).
 **Built-in vars:**
 | Name | Meaning |
 |------|---------|
-| `x`, `y` | Pixel column / row, integer (0-based) |
+| `x`, `y` | Position across and down, 0 to 1 (as in Custom Formula) |
+| `px`, `py` | Pixel column / row, integer (0-based) |
 | `cx`, `cy` | Centered, normalised: `cx = (x - W/2) / (W/2)`, range –1..1 |
 | `r` | Radius from center: `sqrt(cx² + cy²)`, 0 at center, ~1.41 at corner |
 | `angle` | Polar angle: `atan2(cy, cx)`, range –π..π |

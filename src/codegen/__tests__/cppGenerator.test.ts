@@ -3103,7 +3103,7 @@ describe('Float Field — Phase 2 codegen', () => {
   })
 
   it('FieldWarp samples the source field with a clamped offset', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
     const dx = node('dx', 'FieldFormula', 'pattern', { formula: '1' })
     const fw = node('fw', 'FieldWarp', 'composite', { strength: 2 })
     const t = tail('fw')
@@ -3132,7 +3132,7 @@ describe('Pattern node expansion — Phase 0 codegen', () => {
   }
 
   it('Field Levels emits runtime bounds, quantisation, and inversion', () => {
-    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'x' })
     const levels = node('levels', 'FieldLevels', 'field', { low: 0.2, high: 0.8, steps: 4, invert: true })
     const t = tail(levels.id)
     const cpp = generateCpp([src, levels, ...t.nodes], [
@@ -3232,7 +3232,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     ['pmm', 3, false, false], ['p4', 4, false, true], ['p4m', 5, false, true],
     ['p3', 6, true, true], ['p6', 7, true, true], ['p6m', 8, true, true],
   ])('bakes %s to its shared fold id', (group, groupId, hex, rotates) => {
-    const src = node('sym-field-source', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const src = node('sym-field-source', 'FieldFormula', 'field', { formula: 'px/(W-1)' })
     const symmetry = node('field-symmetry', 'FieldSymmetry', 'field', {
       group, cells: 2.5, rotation: 10, spin: 15, offsetX: 0.2, offsetY: -0.3,
     })
@@ -3244,10 +3244,10 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     ], {}, { deferPruning })
     const cpp = build(false)
     expect(cpp).toContain(`/* FieldSymmetry: ${group} */`)
-    // The formula reads W and x only: H, y and the per-pixel geometry go.
+    // The formula reads W and px only: H, x, y, py and the per-pixel geometry go.
     expect(cpp).toContain('float W=WIDTH;')
-    expect(cpp).not.toMatch(/\bH=HEIGHT|sqrtf\(cx|atan2f\(cy/)
-    expect(cpp).toContain('float _v=(x/(W-1.0f))')
+    expect(cpp).not.toMatch(/\bH=HEIGHT|sqrtf\(cx|atan2f\(cy|\bpy=_y|\by=\(float\)/)
+    expect(cpp).toContain('float _v=(px/(W-1.0f))')
     expect(build(true)).toContain(`_wallpaperSourceQ8(_x,_y,${groupId},_wpK,_wpCo,_wpSi,_wpOx,_wpOy,_sx,_sy)`)
     expect(cpp).toContain('field_field_symmetry[_y*WIDTH+_x]=field_sym_field_source[constrain((_sy+128)>>8,0,HEIGHT-1)*WIDTH+constrain((_sx+128)>>8,0,WIDTH-1)]')
     expect(cpp.match(/static void _wallpaperSourceQ8/g)).toHaveLength(1)
@@ -3584,7 +3584,7 @@ describe('Float Field — Phase 3 codegen', () => {
   }
 
   it('FieldRotate emits a time-driven rotation sampling the source field', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
     const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 45 })
     const t = tail('fr')
     const cpp = generateCpp([src, fr, ...t.nodes], [
@@ -3598,7 +3598,7 @@ describe('Float Field — Phase 3 codegen', () => {
   })
 
   it('FieldTile bakes the tile counts into the C++', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
     const ft = node('ft', 'FieldTile', 'composite', { tilesX: 3, tilesY: 2 })
     const t = tail('ft')
     const cpp = generateCpp([src, ft, ...t.nodes], [

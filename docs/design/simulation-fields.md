@@ -26,7 +26,7 @@ rings and cylinders. Each frame runs, in this order, on both sides:
 2. Velocity: optional diffusion by `viscosity`, project, advect, project.
 3. Dye: optional diffusion by `diffusion`, advect, then decay by `dissipation`.
 
-`speed` is the number of Gauss-Seidel passes per solve (4 to 20). Velocity is
+`quality` is the number of Gauss-Seidel passes per solve (4 to 20). Velocity is
 clamped to four cells a frame and dye to four, so a hard drive stays finite.
 The outputs are dye clamped to 0..1 and two velocity fields at
 `0.5 + v * 0.25`, so 0.5 is still air and Frame Warp can be steered by them.

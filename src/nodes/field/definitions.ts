@@ -18,8 +18,9 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'b', label: 'B', dataType: 'float' },
       { id: 'fieldIn', label: 'Field', dataType: 'field' },
     ],
+    propertyInputs: { a: 'a', b: 'b' },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { formula: 'sin8(r*200 + t*60)/255' },
+    defaultProperties: { formula: 'sin8(r*200 + t*60)/255', a: 0, b: 0 },
   },
   {
     // Organic fBm noise source (sum of Simplex octaves, same construction as
@@ -113,8 +114,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'petals', label: 'Petals', dataType: 'float' },
-      { id: 'offset', label: 'Offset', dataType: 'float' },
-      { id: 'symmetry', label: 'Symmetry', dataType: 'float' },
+      { id: 'offset', label: 'Angle Offset', dataType: 'float' },
+      { id: 'symmetry', label: 'Lobes', dataType: 'float' },
       { id: 'n1', label: 'N1', dataType: 'float' },
       { id: 'n2', label: 'N2', dataType: 'float' },
       { id: 'n3', label: 'N3', dataType: 'float' },
@@ -187,27 +188,27 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     label: 'Fluid',
     category: 'field',
     inputs: [
-      { id: 'inject', label: 'Inject', dataType: 'float' },
-      { id: 'injectX', label: 'Inject X', dataType: 'float' },
-      { id: 'injectY', label: 'Inject Y', dataType: 'float' },
+      { id: 'inject', label: 'Dye', dataType: 'float' },
+      { id: 'injectX', label: 'Source X', dataType: 'float' },
+      { id: 'injectY', label: 'Source Y', dataType: 'float' },
       { id: 'forceX', label: 'Force X', dataType: 'field' },
       { id: 'forceY', label: 'Force Y', dataType: 'field' },
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
       { id: 'viscosity', label: 'Viscosity', dataType: 'float' },
       { id: 'diffusion', label: 'Diffusion', dataType: 'float' },
       { id: 'dissipation', label: 'Dissipation', dataType: 'float' },
-      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'quality', label: 'Quality', dataType: 'float' },
     ],
     propertyInputs: {
       inject: 'inject', injectX: 'injectX', injectY: 'injectY', viscosity: 'viscosity',
-      diffusion: 'diffusion', dissipation: 'dissipation', speed: 'speed',
+      diffusion: 'diffusion', dissipation: 'dissipation', quality: 'quality',
     },
     outputs: [
       { id: 'field', label: 'Field', dataType: 'field' },
       { id: 'velocityX', label: 'Velocity X', dataType: 'field' },
       { id: 'velocityY', label: 'Velocity Y', dataType: 'field' },
     ],
-    defaultProperties: { inject: 0.6, injectX: 0.5, injectY: 0.85, viscosity: 0, diffusion: 0, dissipation: 0.02, speed: 8, buoyancy: 0.5 },
+    defaultProperties: { inject: 0.6, injectX: 0.5, injectY: 0.85, viscosity: 0, diffusion: 0, dissipation: 0.02, quality: 8, buoyancy: 0.5 },
   },
   {
     // Escape-time and Newton fractals as a field. c, zoom, centre and spin are

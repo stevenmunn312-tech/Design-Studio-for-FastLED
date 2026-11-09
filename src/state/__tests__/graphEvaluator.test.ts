@@ -3701,11 +3701,20 @@ describe('Float Field pipeline', () => {
     expect([...fieldOf('prev + 0.25', {}, 2)].every((v) => Math.abs(v - 0.25) < 1e-6)).toBe(true)
   })
 
-  it('FieldFormula exposes integer pixel x,y', () => {
-    // value = x/(W-1) → first column 0, last column 1
-    const fld = fieldOf('x/(W-1)')
-    expect(fld[0]).toBeCloseTo(0)          // x=0
-    expect(fld[W - 1]).toBeCloseTo(1)      // x=W-1
+  it('FieldFormula exposes x,y from 0 to 1, as Custom Formula does', () => {
+    const fld = fieldOf('x')
+    expect(fld[0]).toBeCloseTo(0)          // first column
+    expect(fld[W - 1]).toBeCloseTo(1)      // last column
+    const down = fieldOf('y')
+    expect(down[(H - 1) * W]).toBeCloseTo(1)
+  })
+
+  it('FieldFormula exposes integer pixel px,py', () => {
+    const fld = fieldOf('px/(W-1)')
+    expect(fld[0]).toBeCloseTo(0)
+    expect(fld[1]).toBeCloseTo(1 / (W - 1))
+    expect(fld[W - 1]).toBeCloseTo(1)
+    expect(fieldOf('py/(H-1)')[(H - 1) * W]).toBeCloseTo(1)
   })
 
   it('FieldFormula exposes FastLED shims (sin8)', () => {
