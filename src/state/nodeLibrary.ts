@@ -110,7 +110,7 @@ import { GLITTER_MODES } from '../nodes/composite/glitter'
 import { FRAME_OFFSET, FRAME_ROTATIONS } from '../nodes/composite/frameTransform'
 import { BLUR_RADIUS, GRADIENT_REPEAT, GRADIENT_TYPES } from '../nodes/field/gradientField'
 import { METER_ORIGINS, METER_PEAK_HOLD } from '../nodes/audioReactive/levelMeter'
-import { BAND_HZ } from '../audio/frequencyBand'
+import { BAND_HZ, BAND_PRESETS } from '../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
 import { FRAME_RATE } from '../build/controllerSettings'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
@@ -761,13 +761,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     durationSec: { control: 'slider', min: 0, max: CLOCK_TIMER_MAX_SEC, step: 1, entry: 'number' },
   },
   BeatFlash: {
-    // 'none' (default) uses the r/g/b color below; any other preset sweeps
-    // the flash through that palette as it decays.
-    palette:   { control: 'select', options: ['none', ...PALETTES] },
-    blendMode: { control: 'select', options: ['screen', 'add'] },
+    flashMode:   { control: 'select', options: ['lighten', 'add', 'replace'] },
+    colorSource: { control: 'select', options: ['solid', 'palette'] },
   },
   DanceFlash: {
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+    // DANCE_FLASH_GAPS in nodes/audioReactive/danceFlash.ts; a test holds the two equal.
+    gap: { control: 'select', options: ['30 s', '1–2 min', '2–5 min'] },
   },
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
@@ -901,6 +901,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     bassWeight:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     midsWeight:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     trebleWeight: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    mode:     { control: 'select', options: ['balance', 'weighted'] },
+    hueStart: { control: 'slider', min: 0, max: 360, step: 1 },
+    hueSpan:  { control: 'slider', min: 0, max: 360, step: 1 },
   },
   AudioFlow: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -934,6 +937,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     peakHold: { control: 'slider', min: METER_PEAK_HOLD.min, max: METER_PEAK_HOLD.max, step: 0.1 },
   },
   FrequencyBand: {
+    band: { control: 'select', options: Object.keys(BAND_PRESETS) },
     lowHz: { control: 'slider', min: BAND_HZ.min, max: BAND_HZ.max, step: 1, entry: 'number' },
     highHz: { control: 'slider', min: BAND_HZ.min, max: BAND_HZ.max, step: 1, entry: 'number' },
     gain: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
@@ -2207,9 +2211,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     energyGate: 'How loud the track must be (the mean of bass, mids and treble, 0–1) for a beat to burst. Quieter beats are skipped and spend no burst; 0 lets every beat through.',
   },
   FFTAnalyzer: {
-    bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
+    bands: 'How many columns the live meter on the node draws (8–32). Display only: the bass, mids and treble split is fixed.',
     gain: 'Multiplies all three bands before smoothing; above 1 lifts a quiet mic, each band still caps at 1.',
-    smoothing: 'How much of last frame is kept (0–0.95). Higher steadies jitter but lags fast hits.',
+    smoothing: 'Share of the level kept every 60th of a second (0–0.95), at any frame rate. Higher steadies jitter but lags fast hits.',
     tilt: 'Boosts mids a little and treble a lot (0–1) so quiet highs read as strongly as the bass.',
   },
   BeatDetect: {
@@ -2218,20 +2222,24 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     decay: 'Baseline relax speed for a baked show envelope (0–1). Live audio uses FastLED\'s own beat.',
   },
   AudioFeatures: {
-    gate: 'Silence-detection threshold — how much energy is required before `silence` flips false.',
+    gate: 'How loud the sound must be before Silence turns off, on the Loudness scale (0–1). Raise it if room noise keeps the patch awake between songs. It also trims weak vocal readings.',
     sensitivity: 'Scales the energy and vocal estimates (0–1). Raise it on quiet sources.',
-    smoothing: 'How much of last frame is kept (0–0.95). Higher gives calmer vocals/energy, slower response.',
+    smoothing: 'Share kept every 60th of a second (0–0.95), at any frame rate. Higher gives calmer vocals, energy and silence, slower response.',
   },
   Vibe: {
     gain: 'Scales the three relative levels and their smoothed copies. Spikes compare the two, so gain never changes them.',
+    unitRange: 'Halve the levels and clamp them to 0–1, so the song average reads 0.5 and twice it reads 1: ready for a 0–1 input without Map Range.',
   },
   AudioHue: {
-    bass: 'Bass level used when the Bass input is unwired. Scaled by the bass weight below.',
-    mids: 'Mids level used when the Mids input is unwired. Scaled by the mids weight below.',
-    treble: 'Treble level used when the Treble input is unwired. Scaled by the treble weight below.',
-    bassWeight: 'How much bass contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
-    midsWeight: 'How much mids contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
-    trebleWeight: 'How much treble contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
+    mode: 'Balance: where the sound sits between bass and treble, whatever its loudness. Weighted Sum: the weighted bands added up and scaled to 0–360°, which follows loudness too.',
+    hueStart: 'Balance: the hue for all-bass sound, in degrees.',
+    hueSpan: 'Balance: how far round the wheel all-treble sound sits from Hue Start, in degrees.',
+    bass: 'Bass level used when the Bass input is unwired.',
+    mids: 'Mids level used when the Mids input is unwired.',
+    treble: 'Treble level used when the Treble input is unwired.',
+    bassWeight: 'Weighted Sum: how much bass contributes. The weighted bands are summed and scaled to 0–360°; the hue wraps past 360.',
+    midsWeight: 'Weighted Sum: how much mids contributes. The weighted bands are summed and scaled to 0–360°; the hue wraps past 360.',
+    trebleWeight: 'Weighted Sum: how much treble contributes. The weighted bands are summed and scaled to 0–360°; the hue wraps past 360.',
   },
   Function: {
     fn: 'Which function of X to output. Sin and cos take X in whole cycles (1 = 360°); sqrt of a negative gives 0.',
@@ -2562,7 +2570,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PercussionDetect: {
     sensitivity: 'Lowers the hit threshold for all three lanes (0–1). Raise it on quiet sources.',
-    decay: 'How long each envelope rings after a hit, 0 to 1 of the level kept per frame.',
+    decay: 'How long each envelope rings after a hit, 0 to 1 of the level kept every 60th of a second.',
     separation: 'How hard kick, snare and hi-hat suppress each other (0–1) so one drum does not light all three.',
   },
   LevelMeter: {
@@ -2573,13 +2581,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Colour along the bar from its origin to full scale; the peak marker takes the palette end.',
   },
   FrequencyBand: {
-    lowHz: 'Bottom of the band in hertz. The spectrum spans about 90 Hz to 5 kHz in 16 log-spaced bins.',
-    highHz: 'Top of the band in hertz. A band narrower than one bin reads the nearest bin.',
+    band: 'A named range: Kick 90–130 Hz, Bass 90–250, Low mids 250–600, Vocals 300–3000, Snare snap 1.5–4 kHz, Top 3–5.1 kHz. Custom uses Low and High.',
+    lowHz: 'Custom: bottom of the band in hertz. The spectrum spans 90 Hz to 5.1 kHz in 16 log-spaced bins.',
+    highHz: 'Custom: top of the band in hertz. A band narrower than one bin reads the nearest bin.',
     gain: 'Multiplies the band level before it is clamped to 1.',
-    smoothing: 'How much of the previous frame carries over, 0 instant to 0.95 very slow.',
+    smoothing: 'Share of the level kept every 60th of a second, 0 instant to 0.95 very slow.',
   },
   BeatPhase: {
-    bpm: 'Tempo the phase free-runs at between beats, or always when nothing is wired into Beat.',
+    bpm: 'Tempo the phase runs at until two beats have arrived, or always when nothing is wired into Beat. After that it follows the measured beat.',
     beatsPerBar: 'Beats in one bar; the Bar output runs 0 to 1 over that many beats.',
   },
   SpectrumVisualizer: {
@@ -2588,7 +2597,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     mirror: 'Three Band only: draws the bars from the left edge and reflects them, so bass sits at both ends.',
     bands: 'How many frequency columns are drawn (4–32); fewer gives chunkier bars. Fixed at build time.',
     gain: 'Multiplies every band before drawing (0.25–4); above 1 lifts a quiet source. Three Band applies it to an unwired band.',
-    smoothing: 'How much of last frame each column keeps (0–0.95). Higher is steadier, slower.',
+    smoothing: 'Share each column keeps every 60th of a second (0–0.95); on Three Band, each unwired band. Higher is steadier, slower.',
     tilt: 'Boosts higher bands progressively (0–1) so treble columns reach as high as bass.',
     peakHold: 'Seconds a peak dot stays before it starts falling (0–2).',
     peakGravity: 'How fast a released peak dot accelerates downward (0.2–6); higher drops quicker.',
@@ -2602,11 +2611,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   BeatFlash: {
     attack: 'Rise time as a share of 1.5 s (0 = instant flash, 1 = 1.5 s ramp to full).',
-    decay: 'Share of the flash kept each frame (0–1). 0.85 fades in ~¼ s; 0.95 lingers; 1 never fades.',
-    intensity: 'Flash brightness multiplier (0–2); 1 is the normal flash, above 1 overdrives toward white.',
-    blendMode: 'Screen lifts the base toward the flash colour; Add sums them and clips sooner.',
-    preserveBase: 'On, the base pattern shows through the flash; off, the frame is replaced by the flash colour.',
-    palette: "'none' flashes the solid colour below; any palette sweeps through it as the flash fades.",
+    decay: 'Share of the flash kept every 60th of a second (0–1), at any frame rate. 0.85 fades in ~¼ s; 0.95 lingers; 1 never fades.',
+    intensity: 'How far the flash goes toward its colour (0–2). 0.45 is a restrained lift; 1 reaches the colour; above 1 overdrives toward white.',
+    flashMode: 'Lighten lifts the base toward the flash colour and never darkens it; Add sums them and clips sooner; Replace shows only the flash while it is lit.',
+    colorSource: 'Solid flashes the R, G, B colour; Palette sweeps through the palette as the flash fades. A wired palette always sweeps.',
+    palette: 'Palette the flash sweeps through as it fades, when Color is Palette.',
+  },
+  DanceFlash: {
+    gap: 'Quiet time between flashes: about 30 s (20–40 s), 1–2 min, or 2–5 min. The first flash comes a few seconds after start whichever you pick.',
   },
   KickShock: {
     speed: 'Ring travel rate (0–1); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
@@ -2654,7 +2666,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     endpointSpeed: 'How fast the line endpoints wander (0–2); mids speed them up.',
     colorSpeed: 'How fast the palette sweeps along the line (0–1); treble speeds it up.',
     persistence: 'Share of the trail kept per frame (0.9–0.9999); 0.999 fades in seconds, 0.9999 in minutes.',
-    seed: 'Picks the noise profiles. Any value is repeatable; 0 is a fixed seed here, not random.',
+    seed: 'Picks the noise profiles the trails follow. Every value, 0 included, gives the same flow on every run: it chooses a profile rather than seeding randomness.',
     bass: 'Bass level (0–1) when unwired; raises displacement up to 2.5×.',
     mids: 'Mids level (0–1) when unwired; speeds the endpoints up to 2.5×.',
     treble: 'Treble level (0–1) when unwired; speeds the colour sweep up to 3×.',
@@ -3686,8 +3698,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     flowMode: 'flow',
   },
   BeatFlash: {
-    blendMode: 'mode',
-    preserveBase: 'keep base',
+    flashMode: 'mode',
+    colorSource: 'color',
   },
   // On the pool patterns decay, thickness and size are multipliers of a
   // ring's or blob's lifetime, width and radius, not rates.
@@ -3725,6 +3737,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     yFrequency: 'Y frequency',
     endpointSpeed: 'endpoint speed',
     colorSpeed: 'color speed',
+    // Not a random seed: 0 is a profile like any other (see its tooltip).
+    seed: 'profile',
   },
   FormatNumber: {
     padWidth: 'pad to',
@@ -3997,7 +4011,12 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   AudioFeatures: {
     gate: 'Silence Gate',
   },
+  Vibe: {
+    unitRange: '0–1 output',
+  },
   AudioHue: {
+    hueStart: 'hue start',
+    hueSpan: 'hue span',
     bassWeight: 'bass weight',
     midsWeight: 'mids weight',
     trebleWeight: 'treble weight',
@@ -4444,10 +4463,16 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'particles', label: 'Particles', keys: ['count', 'fade'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
+  // Live audio fires on FastLED's beat, gated by Threshold alone, so Attack
+  // and Decay, which shape only a baked show's envelope, start folded away
+  // and Threshold renders on its own after them.
+  BeatDetect: [
+    { key: 'baked', label: 'Baked show', keys: ['attack', 'decay'] },
+  ],
   BeatFlash: [
     { key: 'envelope', label: 'Envelope', keys: ['attack', 'decay', 'intensity'] },
-    { key: 'blend', label: 'Blend', keys: ['blendMode', 'preserveBase'] },
-    { key: 'color', label: 'Color', keys: ['palette', 'r', 'g', 'b'] },
+    { key: 'blend', label: 'Blend', keys: ['flashMode'] },
+    { key: 'color', label: 'Color', keys: ['colorSource', 'palette', 'r', 'g', 'b'] },
   ],
   KickShock: [
     { key: 'drums', label: 'Drums', keys: ['kick', 'snare', 'hihat'] },
@@ -5419,12 +5444,29 @@ export function isPropertyEnabled(
       case 'turns':     return tt === 'spiral'
     }
   }
+  // Frequency Band reads Low and High only on its Custom band.
+  if (nodeType === 'FrequencyBand' && (key === 'lowHz' || key === 'highHz')) {
+    return properties.band === undefined || properties.band === 'Custom'
+  }
+  // Audio → Hue reads Hue Start and Span on Balance, the weights on Weighted Sum.
+  if (nodeType === 'AudioHue') {
+    const weighted = properties.mode !== 'balance'
+    if (key === 'bassWeight' || key === 'midsWeight' || key === 'trebleWeight') return weighted
+    if (key === 'hueStart' || key === 'hueSpan') return !weighted
+  }
+  // Beat Flash reads its R, G, B or its palette, as Color chooses.
+  if (nodeType === 'BeatFlash') {
+    const palette = properties.colorSource === 'palette'
+    if (key === 'palette') return palette
+    if (key === 'r' || key === 'g' || key === 'b') return !palette
+  }
   if (nodeType === 'SpectrumVisualizer') {
     const style = String(properties.style ?? 'Bars')
     const threeBand = style === 'Three Band'
     if (key === 'waterfallSpeed') return style === 'Waterfall'
     if (key === 'peakHold' || key === 'peakGravity') return style !== 'Waterfall' && !threeBand
-    if (key === 'smoothing' || key === 'tilt') return !threeBand
+    // Three Band eases its unwired bands with Smoothing; it has no Tilt.
+    if (key === 'tilt') return !threeBand
     if (key === 'energy' || key === 'speed' || key === 'mirror') return threeBand
   }
   if (nodeType === 'FrameFeedback') {

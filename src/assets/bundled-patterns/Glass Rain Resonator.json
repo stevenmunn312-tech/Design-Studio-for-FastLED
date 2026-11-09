@@ -101,7 +101,9 @@
           "label": "Audio → Hue",
           "nodeType": "AudioHue",
           "category": "audio",
-          "properties": {},
+          "properties": {
+            "mode": "weighted"
+          },
           "inputs": [
             {
               "id": "bass",
@@ -295,7 +297,7 @@
             "style": "Three Band",
             "bands": 16,
             "gain": 1.25,
-            "smoothing": 0.58,
+            "smoothing": 0.72,
             "tilt": 0.2,
             "peakHold": 0.42,
             "peakGravity": 1.8,

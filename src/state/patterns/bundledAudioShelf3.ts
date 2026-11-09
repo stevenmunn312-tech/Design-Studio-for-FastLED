@@ -131,7 +131,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('pal', 'Poline', -880, -200, {
         anchorA: '#140816', anchorB: '#ff5a1f', anchorC: '#ffd36a', points: 6,
       }),
-      studioNode('hue', 'AudioHue', -880, 40, { bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2 }),
+      studioNode('hue', 'AudioHue', -880, 40, { mode: 'weighted', bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2 }),
       studioNode('count', 'MapRange', -880, 220, { inMin: 0.05, inMax: 0.95, outMin: 3, outMax: 8 }),
       studioNode('shift', 'MapRange', -880, 380, { inMin: 0, inMax: 360, outMin: 0, outMax: 1 }),
       studioNode('juggle', 'Juggle', -520, 40, { speed: 0.55, fade: 0.57, palette: 'lava', seed: 19 }),
@@ -258,7 +258,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('pal', 'Poline', -880, -180, {
         anchorA: '#160820', anchorB: '#a14bff', anchorC: '#ffc6f2', points: 6,
       }),
-      studioNode('hue', 'AudioHue', -880, 160, { bassWeight: 0.2, midsWeight: 0.55, trebleWeight: 0.25 }),
+      studioNode('hue', 'AudioHue', -880, 160, { mode: 'weighted', bassWeight: 0.2, midsWeight: 0.55, trebleWeight: 0.25 }),
       studioNode('shift', 'MapRange', -880, 340, { inMin: 0, inMax: 360, outMin: 0, outMax: 1 }),
       studioNode('bloom', 'MidrangeBloom', -520, 40, { energy: 0.85, speed: 0.62, palette: 'amethyst' }),
       studioNode('kale', 'Kaleidoscope', -220, 40, { segments: 6 }),

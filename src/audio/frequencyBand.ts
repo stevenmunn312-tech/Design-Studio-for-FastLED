@@ -17,8 +17,30 @@ export const EQ_BIN_CENTRES_HZ: readonly number[] = Array.from(
   (_, i) => logBinToFreq(i, EQ_NUM_BINS, EQ_MIN_HZ, EQ_MAX_HZ),
 )
 
-/** The slider's reach: the equaliser's own range. */
-export const BAND_HZ = { min: 20, max: 8000 } as const
+/** The slider's reach: the equaliser's own range. A band set outside it
+ *  could only re-read the edge bins. */
+export const BAND_HZ = { min: EQ_MIN_HZ, max: EQ_MAX_HZ } as const
+
+/**
+ * Named bands a Band select fills in, each inside the equaliser's range. The
+ * Hz sliders cover the whole range linearly, so the bass sits in the first few
+ * percent of their travel; a preset is the quick way to it. Custom reads the
+ * Low and High sliders (or their wires).
+ */
+export const BAND_PRESETS: Readonly<Record<string, readonly [number, number] | null>> = {
+  Custom: null,
+  Kick: [90, 130],
+  Bass: [90, 250],
+  'Low mids': [250, 600],
+  Vocals: [300, 3000],
+  'Snare snap': [1500, 4000],
+  Top: [3000, EQ_MAX_HZ],
+}
+
+/** The Hz range a Band select names, or null for Custom (and anything unknown). */
+export function bandPresetRange(band: unknown): readonly [number, number] | null {
+  return typeof band === 'string' ? BAND_PRESETS[band] ?? null : null
+}
 
 export function clampBandHz(value: number, fallback: number): number {
   const n = Number.isFinite(value) ? value : fallback

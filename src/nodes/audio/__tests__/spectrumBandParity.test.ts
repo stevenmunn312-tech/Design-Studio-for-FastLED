@@ -33,14 +33,15 @@ function firmwareBands(cpp: string, spectrum: number[]): number[] {
 const spectrum = Array.from({ length: 32 }, (_, i) => ((i * 37) % 32) / 31)
 
 describe('32-bin spectrum resampling, preview against firmware', () => {
-  it.each([8, 12, 16, 20, 24, 31, 32])('FFT Analyzer at %i bands', (bands) => {
+  // FFT Analyzer always analyses at 24 bins; Bands sizes only its meter.
+  it.each([8, 16, 24, 32])('FFT Analyzer with Bands at %i', (bands) => {
     const cpp = generateCpp([node('fft', 'FFTAnalyzer', 'audio', { bands }), node('bp', 'BassPulse', 'pattern'), out], [
       edge('e1', 'fft', 'bp', 'bass', 'bass'),
       edge('e2', 'bp', 'out', 'frame', 'frame'),
     ])
     const fw = firmwareBands(cpp, spectrum)
-    expect(fw.length).toBe(bands)
-    resampleSpectrumBins(spectrum, bands).forEach((value, i) => expect(fw[i]).toBeCloseTo(value, 9))
+    expect(fw.length).toBe(24)
+    resampleSpectrumBins(spectrum, 24).forEach((value, i) => expect(fw[i]).toBeCloseTo(value, 9))
   })
 
   it.each([4, 7, 16, 24])('Spectrum Visualizer at %i bands', (bands) => {

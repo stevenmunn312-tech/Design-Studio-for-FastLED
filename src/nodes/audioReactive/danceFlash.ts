@@ -10,10 +10,21 @@ export const DANCE_SIZE = 16
 export const DANCE_FIGURE_COUNT = 4
 /** How long one silhouette stays lit. */
 export const DANCE_FLASH_HOLD_MS = 180
-/** Quiet time after a flash, before the next one may start: two minutes. */
-export const DANCE_FLASH_GAP_MIN_MS = 120000
-/** Added to the minimum gap as `rng % span`, so the gap is 2:00–4:59.999. */
-export const DANCE_FLASH_GAP_SPAN_MS = 180000
+/**
+ * Quiet time after a flash before the next may start, by the Gap select: the
+ * minimum, plus `rng % span` (2–5 min is 2:00–4:59.999). The first flash comes
+ * after a few seconds whatever the gap, so a new pattern shows the feature.
+ */
+export const DANCE_FLASH_GAPS: Readonly<Record<string, { minMs: number; spanMs: number }>> = {
+  '30 s': { minMs: 20000, spanMs: 20000 },
+  '1–2 min': { minMs: 60000, spanMs: 60000 },
+  '2–5 min': { minMs: 120000, spanMs: 180000 },
+}
+export const DANCE_FLASH_DEFAULT_GAP = '2–5 min'
+
+export function danceFlashGap(value: unknown): { minMs: number; spanMs: number } {
+  return DANCE_FLASH_GAPS[String(value)] ?? DANCE_FLASH_GAPS[DANCE_FLASH_DEFAULT_GAP]
+}
 /** First flash, so a new pattern shows the feature without waiting a full gap. */
 export const DANCE_FLASH_FIRST_MIN_MS = 2500
 export const DANCE_FLASH_FIRST_SPAN_MS = 3500
@@ -206,7 +217,9 @@ export function danceFlashAdvance(
   beat: boolean,
   beatWired: boolean,
   random01: () => number = Math.random,
+  gapName: unknown = DANCE_FLASH_DEFAULT_GAP,
 ): boolean {
+  const { minMs, spanMs } = danceFlashGap(gapName)
   const level = beatWired && beat
   const rising = level && !clock.prevBeat
   clock.prevBeat = level
@@ -217,7 +230,7 @@ export function danceFlashAdvance(
   if (clock.free) {
     clock.figure = Math.floor(random01() * DANCE_FIGURE_COUNT) % DANCE_FIGURE_COUNT
     clock.mirror = random01() < 0.5
-    const gap = DANCE_FLASH_GAP_MIN_MS + Math.floor(random01() * DANCE_FLASH_GAP_SPAN_MS)
+    const gap = minMs + Math.floor(random01() * spanMs)
     clock.until = t + DANCE_FLASH_HOLD_MS / 1000
     clock.nextAt = clock.until + gap / 1000
     return true
@@ -227,7 +240,7 @@ export function danceFlashAdvance(
   clock.rng = danceLcg(clock.rng)
   clock.mirror = (clock.rng & 1) === 1
   clock.rng = danceLcg(clock.rng)
-  const gap = DANCE_FLASH_GAP_MIN_MS + (clock.rng % DANCE_FLASH_GAP_SPAN_MS)
+  const gap = minMs + (clock.rng % spanMs)
   clock.until = t + DANCE_FLASH_HOLD_MS / 1000
   clock.nextAt = clock.until + gap / 1000
   return true

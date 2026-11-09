@@ -201,6 +201,7 @@
      "nodeType": "AudioHue",
      "category": "audio",
      "properties": {
+      "mode": "weighted",
       "bass": 0.5,
       "mids": 0.5,
       "treble": 0.5,

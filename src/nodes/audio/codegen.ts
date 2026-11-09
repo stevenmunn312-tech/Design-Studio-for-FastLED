@@ -3,12 +3,58 @@ import { nativeBeatGateCpp } from '../../codegen/audio/nativeBeatGateCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
-import { audioHueWeight } from './evaluate'
-import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS } from '../../audio/frequencyBand'
-import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
+import { AUDIO_HUE, AUDIO_SILENCE, FFT_ANALYSIS_BANDS, audioHueMode, audioHueSpan, audioHueStart, audioHueWeight } from './evaluate'
+import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
+import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS, bandPresetRange } from '../../audio/frequencyBand'
+import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, BEAT_PHASE_SYNC, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
+
+/**
+ * Beat Phase's block, the firmware twin of `beatPhaseStep`: the measured
+ * interval takes over from the BPM field after two beats, and Phase holds at
+ * 1 until the next beat while they keep coming (BEAT_PHASE_SYNC).
+ */
+export function beatPhaseLines(
+  id: string, bpm: string, beat: string | null, beatsPerBar: number,
+  out: { phase: string; bar: string; count: string },
+): string[] {
+  const s = (name: string) => `_bp${name}_${id}`
+  const { follow, holdBeats, shortest } = BEAT_PHASE_SYNC
+  const tail = [
+    `    ${out.phase}=_ph; ${out.bar}=((float)(_cnt%${beatsPerBar}u)+_ph)/${beatsPerBar}.0f; ${out.count}=(float)_cnt; }`,
+  ]
+  // With nothing on Beat it only free-runs at the BPM field.
+  if (beat === null) {
+    return [
+      `  { static float ${s('P')}=0.0f; static uint32_t ${s('C')}=0, ${s('T')}=0; static bool ${s('I')}=false;`,
+      `    float _bpm=${bpm}; uint32_t _now=millis();`,
+      `    float _dt=${s('I')}?(float)(_now-${s('T')})/1000.0f:0.0f; ${s('T')}=_now; ${s('I')}=true;`,
+      `    float _ph=${s('P')}+_dt*_bpm/60.0f; uint32_t _cnt=${s('C')}; if(_ph>=1.0f){ _cnt+=(uint32_t)floorf(_ph); _ph-=floorf(_ph); }`,
+      `    ${s('P')}=_ph; ${s('C')}=_cnt;`,
+      ...tail,
+    ]
+  }
+  return [
+    `  { static float ${s('P')}=0.0f, ${s('Iv')}=0.0f; static uint32_t ${s('C')}=0, ${s('T')}=0, ${s('L')}=0; static bool ${s('I')}=false, ${s('V')}=false, ${s('H')}=false;`,
+    `    float _bpm=${bpm}; uint32_t _now=millis(); bool _bt=(${beat});`,
+    `    float _dt=${s('I')}?(float)(_now-${s('T')})/1000.0f:0.0f; ${s('T')}=_now; ${s('I')}=true;`,
+    `    float _ph=${s('P')}; uint32_t _cnt=${s('C')};`,
+    `    if(_bt&&!${s('V')}){`,
+    `      if(${s('H')}){ float _gap=(float)(_now-${s('L')})/1000.0f;`,
+    `        if(${s('Iv')}>0.0f) _gap=_gap<${s('Iv')}*${floatLit(shortest)}?-1.0f:_gap/fmaxf(1.0f,roundf(_gap/${s('Iv')}));`,
+    `        if(_gap>=${floatLit(60 / BEAT_PHASE_BPM.max)}&&_gap<=${floatLit(60 / BEAT_PHASE_BPM.min)}) ${s('Iv')}=${s('Iv')}>0.0f?${s('Iv')}+(_gap-${s('Iv')})*${floatLit(follow)}:_gap; }`,
+    `      ${s('L')}=_now; ${s('H')}=true; _ph=0.0f; _cnt=${s('C')}+1;`,
+    `    } else {`,
+    `      _ph+=_dt*(${s('Iv')}>0.0f?1.0f/${s('Iv')}:_bpm/60.0f);`,
+    `      if(${s('Iv')}>0.0f&&(float)(_now-${s('L')})/1000.0f<${s('Iv')}*${floatLit(holdBeats)}) _ph=fminf(_ph,1.0f);`,
+    `      else if(_ph>=1.0f){ _cnt+=(uint32_t)floorf(_ph); _ph-=floorf(_ph); }`,
+    `    }`,
+    `    ${s('V')}=_bt; ${s('P')}=_ph; ${s('C')}=_cnt;`,
+    ...tail,
+  ]
+}
 
 export const AUDIO_EMITTERS: NodeEmitters = {
-  FFTAnalyzer({ node, id, p, ln, v, f, hasExplicitAudioInput }) {
+  FFTAnalyzer({ node, id, ln, v, f, hasExplicitAudioInput }) {
     const audioConnected = hasExplicitAudioInput(node.id)
     const gain = `_fftGain_${id}`
     const smoothing = `_fftSm_${id}`
@@ -20,13 +66,11 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       `    float ${smoothing}=constrain(${f('smoothing', 'smoothing', 0.72)},0.0f,0.95f);`,
       `    float ${tilt}=constrain(${f('tilt', 'tilt', 0)},0.0f,1.0f);`,
     ]
-    // `bands` genuinely drives analysis resolution here — mirrors
-    // graphEvaluator.ts's FFTAnalyzer case exactly: resample the raw
-    // 32-bin spectrum to `bands` bins (same technique as
-    // SpectrumVisualizer's `_svBands`), then average contiguous thirds
-    // into bass/mids/treble. `bands` is baked in at generation time, so
-    // the group boundaries are plain compile-time constants.
-    const bands = Math.max(8, Math.min(32, Math.round(Number(p.bands ?? 24))))
+    // Mirrors the FFTAnalyzer evaluator exactly: resample the raw 32-bin
+    // spectrum to FFT_ANALYSIS_BANDS bins (same technique as
+    // SpectrumVisualizer's `_svBands`), then average contiguous thirds into
+    // bass/mids/treble. Bands sizes only the editor's meter.
+    const bands = FFT_ANALYSIS_BANDS
     const [[bassFrom, bassTo], [midsFrom, midsTo], [trebleFrom, trebleTo]] = spectrumThirdBounds(bands)
     const bandsVar = `_fftBands_${id}`
     const groupExpr = (from: number, to: number) =>
@@ -47,6 +91,10 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`    ${rawTreble} = ${groupExpr(trebleFrom, trebleTo)};`)
     ln(`  }`)
     for (const line of fftKnobs) ln(line)
+    // Smoothing is the share kept per 60th of a second (envelopeClock.ts):
+    // the local becomes this pass's share.
+    for (const line of envelopeDtCpp(`_fft${id}`)) ln(`  ${line}`)
+    ln(`  ${smoothing}=${keepOverCpp(smoothing, `_fft${id}Dt`)};`)
     ln(`  float ${v('bass')}_target = constrain(${rawBass} * ${gain}, 0.0f, 1.0f), ${v('mids')}_target = constrain(${rawMids} * ${midsGain}, 0.0f, 1.0f), ${v('treble')}_target = constrain(${rawTreble} * ${trebleGain}, 0.0f, 1.0f);`)
     ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
     ln(`  ${v('bass')}_smooth = ${v('bass')}_smooth < 0 ? ${v('bass')}_target : ${v('bass')}_smooth * ${smoothing} + ${v('bass')}_target * (1.0f-${smoothing});`)
@@ -59,9 +107,10 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     if (audioConnected && nativeFastLedAudio) {
       // FastLED already found the beat; Threshold and the cooldown gate it.
       const threshold = `constrain(${f('threshold', 'threshold', BEAT_DETECT_DEFAULT_THRESHOLD)},0.0f,1.0f)`
-      nativeBeatGateCpp({ beat: v('beat'), threshold: v('threshold'), cooldownMs: v('cooldownMs'), state: v('gate') }, threshold).forEach(ln)
+      // The gate's threshold and cooldown are its own locals: Beat Detect's
+      // outputs are Beat and BPM, and the node's readout shows the rest.
+      nativeBeatGateCpp({ beat: v('beat'), threshold: `${v('gate')}_thr`, cooldownMs: `${v('gate')}_cool`, state: v('gate') }, threshold).forEach(ln)
       ln(`  float ${v('bpm')} = _audioBpm;`)
-      ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f;`)
     } else if (audioConnected) {
       /*
        * The three knobs are 0-1 on the node and map linearly onto their
@@ -86,8 +135,6 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       for (const line of beatKnobs) ln(line)
       ln(`  bool ${v('beat')} = false;`)
       ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f;`)
-      ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
-      ln(`  const float ${v('threshold')} = ${threshold};`)
       ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0, ${prefix}_lastMs = 0;`)
       ln(`  if (${prefix}_ready) {`)
       ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
@@ -114,13 +161,11 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`      ${v('bpm')} = ${v('bpm')} * 0.65f + _instant * 0.35f;`)
       ln(`    } } ${prefix}_lastBeat = _now; }`)
       ln(`    ${prefix}_prevFlux = _flux;`)
-      ln(`    ${v('flux')} = _flux; ${v('onset')} = _onset; ${v('contrast')} = _onset / _baseline; ${v('cooldownMs')} = _gap;`)
       ln(`  }`)
       ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)
     } else {
       ln(`  // BeatDetect — connect an Audio source for on-device beat detection`)
       ln(`  bool ${v('beat')} = false; float ${v('bpm')} = 120.0f;`)
-      ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
     }
   },
   PercussionDetect({ node, id, ln, v, f, hasExplicitAudioInput }) {
@@ -140,6 +185,9 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`  static float ${v('kick')} = 0.0f, ${v('snare')} = 0.0f, ${v('hihat')} = 0.0f;`)
       ln(`  {`)
       for (const line of pdKnobs) ln(line)
+      // Decay is the share kept per 60th of a second (envelopeClock.ts).
+      for (const line of envelopeDtCpp(`_pd${id}`)) ln(`    ${line}`)
+      ln(`    ${decay}=${keepOverCpp(decay, `_pd${id}Dt`)};`)
       ln(`    float _low = 0.0f, _lowMid = 0.0f, _mids = 0.0f, _highs = 0.0f, _lowFlux = 0.0f, _midFlux = 0.0f, _highFlux = 0.0f;`)
       ln(`    for (int _i = 0; _i < 32; _i++) {`)
       ln(`      float _cur = _audioSpectrum[_i];`)
@@ -169,7 +217,7 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`  float ${v('kick')} = 0.0f, ${v('snare')} = 0.0f, ${v('hihat')} = 0.0f;`)
     }
   },
-  AudioFeatures({ node, id, ln, v, f, hasExplicitAudioInput }) {
+  AudioFeatures({ node, id, ln, v, f, edges, hasExplicitAudioInput }) {
     const sensitivity = `_afSens_${id}`
     const gate = `_afGate_${id}`
     const smoothing = `_afSm_${id}`
@@ -183,12 +231,23 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     const audioConnected = hasExplicitAudioInput(node.id)
     if (audioConnected) {
       const prefix = v('feat')
-      const silenceThreshold = `(0.015f+${gate}*0.35f)`
+      const quiet = `${prefix}_quiet`
+      // Silence eases the loudness for itself, so the smoother runs only while
+      // something reads Silence: no dead state in the sketch.
+      const silenceRead = edges.some((edge) => edge.source === node.id && edge.sourceHandle === 'silence')
+      const silenceThreshold = `(${floatLit(AUDIO_SILENCE.floor)}+${gate}*${floatLit(AUDIO_SILENCE.span)})`
       ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
       ln(`  static float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f;`)
+      if (silenceRead) ln(`  static float ${quiet} = -1.0f;`)
+      // The host's absolute channel meter (audioEngineCpp / the player sketch),
+      // mirroring audioLoudness() in audio/stereoLevels.ts.
+      ln(`  float ${v('loudness')} = constrain(_audioLoudness, 0.0f, 1.0f);`)
       ln(afGateDecl)
       ln(`  {`)
       for (const line of afKnobs) ln(line)
+      // Smoothing is the share kept per 60th of a second (envelopeClock.ts).
+      for (const line of envelopeDtCpp(`_af${id}`)) ln(`    ${line}`)
+      ln(`    ${smoothing}=${keepOverCpp(smoothing, `_af${id}Dt`)};`)
       ln(`    float _low = 0.0f, _presence = 0.0f, _air = 0.0f, _presenceFlux = 0.0f, _total = 0.0f;`)
       ln(`    for (int _i = 0; _i < 32; _i++) {`)
       ln(`      float _cur = _audioSpectrum[_i];`)
@@ -205,18 +264,18 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`    float _vocalsTarget = constrain((_presence * 1.35f + _presenceFlux * 2.1f - _low * 0.3f - _air * 0.12f) * (0.75f+${sensitivity}*0.7f) - (${gate}*0.35f), 0.0f, 1.0f);`)
       ln(`    ${v('energy')} = ${v('energy')} * ${smoothing} + _energyTarget * (1.0f-${smoothing});`)
       ln(`    ${v('vocals')} = ${v('vocals')} * ${smoothing} + _vocalsTarget * (1.0f-${smoothing});`)
+      // Silence reads the absolute loudness, eased by Smoothing (AUDIO_SILENCE).
+      if (silenceRead) ln(`    ${quiet} = ${quiet} < 0.0f ? ${v('loudness')} : ${quiet} * ${smoothing} + ${v('loudness')} * (1.0f-${smoothing});`)
       ln(`    ${prefix}_ready = true;`)
       ln(`  }`)
-      ln(`  bool ${v('silence')} = ${v('energy')} < ${silenceThreshold};`)
-      // The host's absolute channel meter (audioEngineCpp / the player sketch),
-      // mirroring audioLoudness() in audio/stereoLevels.ts.
-      ln(`  float ${v('loudness')} = constrain(_audioLoudness, 0.0f, 1.0f);`)
+      if (silenceRead) ln(`  bool ${v('silence')} = ${quiet} < ${silenceThreshold};`)
     } else {
       ln(`  // AudioFeatures — connect an Audio source for on-device audio feature extraction`)
       ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f, ${v('loudness')} = 0.0f; bool ${v('silence')} = true;`)
     }
   },
-  Vibe({ node, id, ln, v, f, nativeFastLedAudio, hasExplicitAudioInput }) {
+  // Keep in lockstep with the `Vibe` evaluator (vibeLevel).
+  Vibe({ node, id, p, ln, v, f, nativeFastLedAudio, hasExplicitAudioInput }) {
     const levels = ['bass', 'mid', 'treble', 'volume', 'bassAtt', 'midAtt', 'trebleAtt']
     const spikes = ['bassSpike', 'midSpike', 'trebleSpike']
     // Only the live FastLED processor carries the detector; a baked show or an
@@ -233,7 +292,10 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       bass: '_audioVibeBass', mid: '_audioVibeMid', treble: '_audioVibeTreble', volume: '_audioVibeVolume',
       bassAtt: '_audioVibeBassAtt', midAtt: '_audioVibeMidAtt', trebleAtt: '_audioVibeTrebleAtt',
     }
-    ln(`  float ${levels.map((port) => `${v(port)} = ${source[port]} * ${gain}`).join(', ')};`)
+    const level = (port: string) => p.unitRange === true
+      ? `constrain(${source[port]} * ${gain} * 0.5f, 0.0f, 1.0f)`
+      : `${source[port]} * ${gain}`
+    ln(`  float ${levels.map((port) => `${v(port)} = ${level(port)}`).join(', ')};`)
     ln(`  bool ${v('bassSpike')} = _audioVibeBassSpike, ${v('midSpike')} = _audioVibeMidSpike, ${v('trebleSpike')} = _audioVibeTrebleSpike;`)
   },
   SongStructure({ node, ln, v, nativeFastLedAudio, hasExplicitAudioInput }) {
@@ -251,25 +313,34 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     if (!(hasExplicitAudioInput(node.id) && nativeFastLedAudio)) {
       ln(`  // Pitch Detect — connect a live Audio source for pitch, note and key`)
       ln(`  bool ${v('noteOn')} = false, ${v('keyMinor')} = false;`)
-      ln(`  float ${['hz', 'note', 'velocity', 'confidence', 'keyRoot', 'keyConfidence'].map((port) => `${v(port)} = 0.0f`).join(', ')};`)
+      ln(`  float ${['hz', 'note', 'pitchClass', 'velocity', 'confidence', 'keyRoot', 'keyConfidence'].map((port) => `${v(port)} = 0.0f`).join(', ')};`)
       return
     }
     ln(`  float ${v('hz')} = _audioPitchHz, ${v('note')} = (float)_audioPitchNote, ${v('velocity')} = _audioPitchVelocity, ${v('confidence')} = _audioPitchConf;`)
+    // pitchClassOf in evaluate.ts.
+    ln(`  float ${v('pitchClass')} = _audioPitchNote > 0 ? (float)(_audioPitchNote % 12) : 0.0f;`)
     ln(`  bool ${v('noteOn')} = _audioPitchNoteOn, ${v('keyMinor')} = _audioKeyConf > 0.0f && _audioKeyMinor;`)
     ln(`  float ${v('keyRoot')} = _audioKeyConf > 0.0f ? (float)_audioKeyRoot : 0.0f, ${v('keyConfidence')} = _audioKeyConf;`)
   },
   // Keep in lockstep with the `FrequencyBand` evaluator: the same slot rule
   // (src/audio/frequencyBand.ts) over the 32-slot spectrum, gain and smoothing.
-  FrequencyBand({ node, id, ln, v, f, hasExplicitAudioInput }) {
+  FrequencyBand({ node, id, p, ln, v, f, hasExplicitAudioInput }) {
     const spec = hasExplicitAudioInput(node.id) ? '_audioSpectrum' : null
     const slot = (i: string) => (spec ? `constrain(${spec}[${i}],0.0f,1.0f)` : '0.0f')
     if (!spec) ln(`  // FrequencyBand — connect an Audio source to drive this band`)
     ln(`  static const float _fbC_${id}[${EQ_BIN_CENTRES_HZ.length}]={${EQ_BIN_CENTRES_HZ.map((hz) => floatLit(hz, 2)).join(',')}};`)
     ln(`  float ${v('level')};`)
-    ln(`  { float _lo=constrain(${f('lowHz', 'lowHz', 60)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f),_hi=constrain(${f('highHz', 'highHz', 250)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f); if(_lo>_hi){ float _t=_lo; _lo=_hi; _hi=_t; }`)
+    // A Band preset names the range as literals; Custom reads Low and High.
+    const preset = bandPresetRange(p.band)
+    ln(preset
+      ? `  { float _lo=${floatLit(preset[0])},_hi=${floatLit(preset[1])};`
+      : `  { float _lo=constrain(${f('lowHz', 'lowHz', 90)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f),_hi=constrain(${f('highHz', 'highHz', 250)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f); if(_lo>_hi){ float _t=_lo; _lo=_hi; _hi=_t; }`)
     ln(`    float _sum=0.0f; int _n=0; for(int _i=0;_i<${SPECTRUM_SLOTS};_i++){ float _c=_fbC_${id}[_i>>1]; if(_c>=_lo&&_c<=_hi){ _sum+=${slot('_i')}; _n++; } }`)
     ln(`    if(_n==0){ float _mid=sqrtf(_lo*_hi); int _near=0; float _best=1e9f; for(int _i=0;_i<${SPECTRUM_SLOTS};_i+=2){ float _d=fabsf(logf(_fbC_${id}[_i>>1]/_mid)); if(_d<_best){ _best=_d; _near=_i; } } _sum=${slot('_near')}+${slot('_near+1')}; _n=2; }`)
     ln(`    float _g=constrain(${f('gain', 'gain', 1)},0.25f,4.0f),_sm=constrain(${f('smoothing', 'smoothing', 0.6)},0.0f,0.95f),_tg=fminf(1.0f,(_sum/_n)*_g);`)
+    // Smoothing is the share kept per 60th of a second (envelopeClock.ts).
+    for (const line of envelopeDtCpp(`_fb${id}`)) ln(`    ${line}`)
+    ln(`    _sm=${keepOverCpp('_sm', `_fb${id}Dt`)};`)
     ln(`    static float _fbS_${id}=-1.0f;`)
     ln(`    _fbS_${id}=_fbS_${id}<0.0f?_tg:_fbS_${id}*_sm+_tg*(1.0f-_sm); ${v('level')}=_fbS_${id}; }`)
   },
@@ -279,20 +350,26 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`  float ${v('left')}=${connected ? 'constrain(_audioLeftLevel,0.0f,1.0f)' : '0.0f'}, ${v('right')}=${connected ? 'constrain(_audioRightLevel,0.0f,1.0f)' : '0.0f'};`)
     ln(`  float ${v('balance')}=(${v('left')}+${v('right')})>0.0f?${v('right')}/(${v('left')}+${v('right')}):0.5f;`)
   },
-  // Keep in lockstep with the `BeatPhase` evaluator: a wall-clock saw at
-  // `bpm`, snapped to 0 by a rising Beat edge, with a bar saw and a count.
-  BeatPhase({ node, id, p, ln, v, f, boolExpr }) {
+  // Keep in lockstep with the `BeatPhase` evaluator (beatPhaseStep in
+  // audio/beatPhase.ts): a wall-clock saw snapped to 0 by a rising Beat edge
+  // that follows the measured beat, with a bar saw and a count.
+  BeatPhase({ node, id, p, ln, v, f, boolExpr, incoming }) {
     const bar = beatPhaseBeatsPerBar(Number(p.beatsPerBar ?? BEAT_PHASE_BAR.default))
     ln(`  float ${v('phase')}, ${v('bar')}, ${v('count')};`)
-    ln(`  { static float _bpP_${id}=0.0f; static uint32_t _bpC_${id}=0, _bpT_${id}=0; static bool _bpI_${id}=false, _bpV_${id}=false;`)
-    ln(`    float _bpm=constrain(${f('bpm', 'bpm', BEAT_PHASE_BPM.default)},${BEAT_PHASE_BPM.min}.0f,${BEAT_PHASE_BPM.max}.0f); uint32_t _now=millis(); bool _bt=(${boolExpr(node.id, 'beat')});`)
-    ln(`    float _dt=_bpI_${id}?(float)(_now-_bpT_${id})/1000.0f:0.0f; _bpT_${id}=_now; _bpI_${id}=true;`)
-    ln(`    float _ph=_bpP_${id}+_dt*_bpm/60.0f; uint32_t _cnt=_bpC_${id}; if(_ph>=1.0f){ _cnt+=(uint32_t)floorf(_ph); _ph-=floorf(_ph); }`)
-    ln(`    if(_bt&&!_bpV_${id}){ _ph=0.0f; _cnt=_bpC_${id}+1; } _bpV_${id}=_bt; _bpP_${id}=_ph; _bpC_${id}=_cnt;`)
-    ln(`    ${v('phase')}=_ph; ${v('bar')}=((float)(_cnt%${bar}u)+_ph)/${bar}.0f; ${v('count')}=(float)_cnt; }`)
+    const bpm = `constrain(${f('bpm', 'bpm', BEAT_PHASE_BPM.default)},${BEAT_PHASE_BPM.min}.0f,${BEAT_PHASE_BPM.max}.0f)`
+    const beat = incoming.has(`${node.id}:beat`) ? boolExpr(node.id, 'beat') : null
+    for (const line of beatPhaseLines(id, bpm, beat, bar, { phase: v('phase'), bar: v('bar'), count: v('count') })) ln(line)
   },
-  AudioHue({ node, p, ln, v, f, incoming }) {
+  // Keep in lockstep with the `AudioHue` evaluator (audioHueBalance).
+  AudioHue({ node, id, p, ln, v, f, incoming }) {
     const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
+    if (audioHueMode(p.mode) === 'balance') {
+      const start = floatLit(audioHueStart(p.hueStart)), span = floatLit(audioHueSpan(p.hueSpan))
+      ln(`  float ${v('hue')};`)
+      ln(`  { static float _ahC_${id}=${floatLit(AUDIO_HUE.restBalance)}; float _b=fmaxf(0.0f,${bass}),_m=fmaxf(0.0f,${mids}),_t=fmaxf(0.0f,${treble}),_s=_b+_m+_t;`)
+      ln(`    if(_s>=${floatLit(AUDIO_HUE.holdBelow)}) _ahC_${id}=(0.5f*_m+_t)/_s; ${v('hue')}=${start}+${span}*_ahC_${id}; }`)
+      return
+    }
     // The weights carry wires now, so each is bounded in the emitted text
     // the same way `audioHueWeight` bounds it for the preview — a missing
     // property still falls back to the original 0.5/0.3/0.2 mix there, and

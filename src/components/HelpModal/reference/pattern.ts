@@ -912,7 +912,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   SpectrumVisualizer: {
     overview: [
       'Spectrum Visualizer shows the whole spectrum: classic bars, centre-mirrored bars, a thin ribbon, a ring (Orbit), a scrolling Waterfall history, or Three Band, three stylised bass, mids and treble bars.',
-      'Wire Audio straight in. Gain lifts a quiet source, Smoothing steadies the columns, Tilt lifts the treble columns, and Peak Hold and Peak Gravity shape the falling peak dots.',
+      'Wire Audio straight in. Gain lifts a quiet source, Smoothing steadies the columns, Tilt lifts the treble columns, and Peak Hold and Peak Gravity shape the falling peak dots. Three Band reads each of its bars from a wire where there is one, or from a third of the spectrum, eased by Smoothing, where there is not.',
       'On the canvas it takes the name of the style chosen.',
     ],
     inputs: {
@@ -1094,9 +1094,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   BeatFlash: {
     overview: [
-      'Beat Flash flashes a frame toward a colour on each beat and lets it fade away. Attack sets how fast the flash rises, Decay how long it lingers, and Intensity how bright it gets.',
-      'Keep Base shows the pattern through the flash; turn it off and the frame is replaced by the flash colour. Give it a palette and the flash sweeps through the palette as it fades.',
-      'Any true/false pulse can fire it: a beat, a button, a clock.',
+      'Beat Flash flashes a frame toward a colour on each beat and lets it fade away. Attack sets how fast the flash rises, Decay how long it lingers, and Intensity how far toward the colour it goes.',
+      'Mode chooses how the flash meets the frame: Lighten lifts the pattern toward the flash colour and never darkens a brighter pixel, Add sums the two, and Replace shows only the flash while it is lit. Set Color to Palette, or wire a palette, and the flash sweeps through it as it fades.',
+      'Only a rising edge fires it, so a signal held true for a few frames is still one flash. Any true/false pulse works: a beat, a button, a clock.',
     ],
     inputs: {
       beat: 'Each rising edge fires a flash.',
@@ -1109,7 +1109,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         mic: ['MicInput'],
         beat: ['BeatDetect', { threshold: 0.45 }],
         life: ['GameOfLife', { palette: 'deepsea', speed: 8 }],
-        flash: ['BeatFlash', { palette: 'sunset', decay: 0.85, intensity: 0.9, blendMode: 'screen' }],
+        flash: ['BeatFlash', { colorSource: 'palette', palette: 'sunset', decay: 0.85, intensity: 0.6 }],
       },
       wires: ['mic.audio > beat.audio', 'beat.beat > flash.beat', 'life.frame > flash.frame'],
       explanation: 'Beat Detect fires Beat Flash on every beat. The flash lights the Game of Life colonies with a burst that sweeps through the sunset palette as it fades, keeping the cells visible underneath.',
@@ -1120,7 +1120,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   DanceFlash: {
     overview: [
       'Dance Flash briefly stamps a silhouette over the frame you give it: a DJ at the decks, a man dancing, a woman dancing, or the two of them together. The pictures are drawn at 16×16 and scaled to the largest square the matrix holds, centred, so a wide or tall panel shows the same pose without squashing it.',
-      'It stays quiet for two to five minutes, then flashes for a fraction of a second. Each flash picks one of the four poses and may mirror it left to right. Leave Beat unwired and the flashes keep their own time. Wire a beat and a due flash waits for the next one, so it lands in the music.',
+      'It stays quiet for the Gap, about 30 seconds, one to two minutes, or two to five minutes (the default), then flashes for a fraction of a second. Each flash picks one of the four poses and may mirror it left to right. Leave Beat unwired and the flashes keep their own time. Wire a beat and a due flash waits for the next one, so it lands in the music.',
     ],
     inputs: {
       frame: 'The picture the silhouette flashes over. Unwired, it flashes on black.',
@@ -1145,6 +1145,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Kick Shock fires expanding shockwave rings on drum hits: slow wide rings for the kick, fast thin ones for the snare, and fine grain from the hi-hat.',
       'Tiles repeats the shockwave in a grid of cells, Spread lets rings start anywhere, and Max blend keeps overlapping rings from blowing out.',
+      'With nothing wired into Kick, Snare or Hi-Hat it plays a slow demo beat, a kick and then a snare every two seconds, so the rings show as soon as it is dropped. The demo stops the moment a drum is wired.',
     ],
     example: example({
       featured: 'KickShock',
@@ -1163,7 +1164,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   VocalAurora: {
     overview: [
       'Vocal Aurora hangs curtains of light like the northern lights, which brighten and move faster with the vocals and fade to black in silence.',
-      'Wire Audio Features: Vocals shapes the curtains, Energy drives Reactivity, and Silence dims the frame.',
+      'Wire Audio Features: Vocals shapes the curtains and Silence dims the frame. Reactivity sets how strongly the vocals move them; leave it on its setting, or wire Loudness if a quiet verse should calm the curtains. Energy adapts to the recent peak, so it would keep them fully reactive through a quiet verse.',
     ],
     inputs: {
       silence: 'True dims the frame to black, usually from Audio Features.',
@@ -1176,9 +1177,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         features: ['AudioFeatures', { sensitivity: 0.65, smoothing: 0.75 }],
         aurora: ['VocalAurora', { palette: 'aurora' }],
       },
-      wires: ['mic.audio > features.audio', 'features.vocals > aurora.vocals', 'features.energy > aurora.energy', 'features.silence > aurora.silence'],
+      wires: ['mic.audio > features.audio', 'features.vocals > aurora.vocals', 'features.silence > aurora.silence'],
       output: MATRIX(24, 16),
-      explanation: 'Audio Features gives Vocal Aurora all three of its signals: Vocals shapes the curtains, Energy sets how strongly they respond, and Silence fades them out between songs.',
+      explanation: 'Audio Features gives Vocal Aurora both of its signals: Vocals shapes the curtains and Silence fades them out between songs. Reactivity stays on its own setting, so the curtains answer the singer rather than the overall level.',
       preview: 'Play a song with vocals. The {output} shows green and violet curtains rippling, brightening when the singer comes in.',
     }),
   },
@@ -1238,6 +1239,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Percussion Blobs spawns metaball blobs on drum hits: big ones for the kick, medium for the snare and tiny ones for the hi-hat. They merge into one field and fade.',
       'Spread chooses where blobs appear, Size scales them, and Max blend keeps them separate instead of merging.',
+      'With nothing wired into Kick, Snare or Hi-Hat it plays a slow demo beat, a kick and then a snare every two seconds, so blobs show as soon as it is dropped. The demo stops the moment a drum is wired.',
     ],
     example: example({
       featured: 'PercussionBlobs',
@@ -1340,7 +1342,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   PrismStorm: {
     overview: [
-      'Prism Storm draws noise shards with a direction, which snap to a new angle on every hi-hat hit. Mids speed the drift and treble sharpens the grain.',
+      'Hi-Hat Shards draws noise shards with a direction, which snap to a new angle on every hi-hat hit. Mids speed the drift and treble sharpens the grain.',
     ],
     example: example({
       featured: 'PrismStorm',
@@ -1352,14 +1354,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         storm: ['PrismStorm', { palette: 'amethyst' }],
       },
       wires: ['mic.audio > fft.audio', 'mic.audio > drums.audio', 'fft.mids > storm.mids', 'fft.treble > storm.treble', 'drums.hihat > storm.hihat'],
-      explanation: 'FFT Analyzer’s mids and treble set how fast and how fine Prism Storm’s shards are, and Percussion Detect’s hi-hat lane snaps them to a new angle on each tick.',
+      explanation: 'FFT Analyzer’s mids and treble set how fast and how fine the Hi-Hat Shards are, and Percussion Detect’s hi-hat lane snaps them to a new angle on each tick.',
       preview: 'Play music near the microphone. The {output} shows purple shards streaming one way, then snapping to a new angle on each hi-hat.',
     }),
   },
 
   AudioFlow: {
     overview: [
-      'Audio Flow scrolls a noise field sideways and lets the music move it: mids speed it up, bass and treble change its texture.',
+      'Audio Flow scrolls a noise field sideways and lets the music move it: mids set how fast it flows, bass how bright it glows, and treble shifts its colours and how far it bobs up and down.',
       'Scale sets how broad the shapes are.',
     ],
     example: example({

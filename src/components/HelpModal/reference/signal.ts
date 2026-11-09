@@ -219,7 +219,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       nodes: {
         clock: ['Clock', { bpm: 128, beatsPerBar: 4, subdivision: 2 }],
         party: ['Confetti', { palette: 'party', speed: 0.55, fade: 0.63 }],
-        strobe: ['BeatFlash', { intensity: 0.8, decay: 0.75, palette: 'party' }],
+        strobe: ['BeatFlash', { intensity: 0.8, decay: 0.75, colorSource: 'palette', palette: 'party' }],
       },
       wires: ['clock.beat > strobe.beat', 'party.frame > strobe.frame'],
       explanation: 'Clock ticks at 128 BPM, the tempo of most house music, and every beat fires Beat Flash over a bed of Confetti. The flash sweeps through the party palette as it fades, so each beat lands in a different colour.',

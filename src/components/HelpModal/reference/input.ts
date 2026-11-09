@@ -28,7 +28,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
         mic: ['MicInput'],
         spectrum: ['SpectrumVisualizer', { style: 'Centre Mirror', palette: 'synthwave' }],
         beat: ['BeatDetect', { threshold: 0.45 }],
-        flash: ['BeatFlash', { intensity: 0.7, decay: 0.8, palette: 'ultraviolet' }],
+        flash: ['BeatFlash', { intensity: 0.7, decay: 0.8, colorSource: 'palette', palette: 'ultraviolet' }],
       },
       wires: [
         'mic.audio > spectrum.audio',

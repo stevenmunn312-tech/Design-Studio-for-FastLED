@@ -14,6 +14,8 @@ const mockAudio = vi.hoisted(() => ({
   bpm: 120,
   spectrum: Array(32).fill(0),
   detectorSpectrum: Array(32).fill(0),
+  leftLevel: 0,
+  rightLevel: 0,
 }))
 
 const mockDecoderAudio = vi.hoisted(() => ({
@@ -64,7 +66,7 @@ vi.mock('../codeSandboxRuntime', async (importOriginal) => {
 import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphFullImpl, evaluateScalar, evaluateScalarSeries, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample } from '../../nodes/signal/wave'
-import { NODE_LIBRARY } from '../nodeLibrary'
+import { NODE_LIBRARY, isPropertyEnabled } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useHardwareInputStore } from '../peripherals/hardwareInputStore'
@@ -619,14 +621,29 @@ describe('evaluateGraph', () => {
     expect(out.silence).toBe(true)
 
     mockAudio.detectorSpectrum = [0.05, 0.06, 0.07, 0.08, 0.1, 0.12, 0.18, 0.26, 0.36, 0.48, 0.58, 0.64, 0.62, 0.54, 0.44, 0.34, 0.26, 0.2, 0.16, 0.14, 0.12, 0.1, 0.08, 0.06, 0.05, 0.04, 0.03, 0.03, 0.02, 0.02, 0.01, 0.01]
+    // A busy spectrum with no level on the meters is still silence: Silence
+    // reads the absolute loudness, not the peak-normalised Energy.
     out = evaluateGraphFull([mic, features], [edge('ef1', 'micaf', 'audio', 'af', 'audio')], 15, W, H).outputs.get('af')!
     expect(out.energy).toBeGreaterThan(0.15)
     expect(out.vocals).toBeGreaterThan(0.1)
+    expect(out.silence).toBe(true)
+
+    mockAudio.leftLevel = 0.09
+    mockAudio.rightLevel = 0.09
+    out = evaluateGraphFull([mic, features], [edge('ef1', 'micaf', 'audio', 'af', 'audio')], 16, W, H).outputs.get('af')!
+    expect(out.loudness).toBeCloseTo(0.09, 6)
     expect(out.silence).toBe(false)
 
     mockAudio.detectorSpectrum = Array(32).fill(0)
+    mockAudio.leftLevel = 0
+    mockAudio.rightLevel = 0
     out = evaluateGraphFull([mic, features], [edge('ef2', 'micaf', 'audio', 'af', 'audio')], 30, W, H).outputs.get('af')!
     expect(out.energy).toBeLessThan(0.2)
+    // Smoothing 0.2 eases the loudness for Silence; a few quiet frames close it.
+    for (let tick = 31; tick < 36; tick++) {
+      out = evaluateGraphFull([mic, features], [edge('ef2', 'micaf', 'audio', 'af', 'audio')], tick, W, H).outputs.get('af')!
+    }
+    expect(out.silence).toBe(true)
     mockAudio.active = false
   })
 
@@ -643,7 +660,7 @@ describe('evaluateGraph', () => {
     expect(connected.energy as number).toBeGreaterThan(0.15)
 
     mockAudio.active = false
-    const afterDisconnect = evaluateGraphFull([mic, features], edges, 30, W, H).outputs.get('af-decay')!
+    const afterDisconnect = evaluateGraphFull([mic, features], edges, 31, W, H).outputs.get('af-decay')!
     expect(afterDisconnect.energy as number).toBeGreaterThan(0)
     expect(afterDisconnect.energy as number).toBeLessThan(connected.energy as number)
 
@@ -874,13 +891,11 @@ describe('evaluateGraph', () => {
     mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
-  it("FFTAnalyzer's bands control genuinely changes analysis resolution", () => {
+  it("FFTAnalyzer splits at 24 bands whatever its meter's Bands says", () => {
     mockAudio.active = true
-    // A single hot raw bin (index 7) gets grouped into the resampled "bass"
-    // bucket differently depending on how many bins the raw 32-bin spectrum
-    // is resampled into first — proof `bands` isn't a no-op. (32 bands = no
-    // resampling, bass = raw bins [0,11) → 1/11; 24 bands resamples
-    // unevenly, landing bin 7 alone in resampled bin 5 of 8 → 0.5/8.)
+    // A single hot raw bin (index 7). The analysis always resamples the
+    // 32-bin spectrum to 24 bins and averages thirds of eight, landing bin 7
+    // alone in resampled bin 5 of 8 → 0.5/8; Bands sizes only the meter.
     mockAudio.detectorSpectrum = Array.from({ length: 32 }, (_, i) => (i === 7 ? 1 : 0))
     const mic = node('mic-bands', 'MicInput', 'input', {})
     const runWithBands = (bands: number) => {
@@ -892,8 +907,9 @@ describe('evaluateGraph', () => {
       )
       return outputs.get('fft-bands')!
     }
-    expect(runWithBands(32).bass as number).toBeCloseTo(1 / 11, 5)
     expect(runWithBands(24).bass as number).toBeCloseTo(0.0625, 5)
+    expect(runWithBands(32).bass as number).toBeCloseTo(0.0625, 5)
+    expect(runWithBands(8).bass as number).toBeCloseTo(0.0625, 5)
     mockAudio.active = false
     mockAudio.detectorSpectrum = Array(32).fill(0)
   })
@@ -6185,32 +6201,43 @@ describe('Clock / Transport', () => {
 describe('BeatFlash', () => {
   const boolSrc = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
   const px = (frame: Frame) => frame[0][0]
+  const flashGraph = (id: string, props: Record<string, unknown>, base: StudioNode, on: number) => withOutput(
+    node(id, 'BeatFlash', 'pattern', props), [base, boolSrc(`${id}-beat`, on)],
+    [edge('e1', `${id}-beat`, 'result', id, 'beat'), edge('e2', base.id, 'frame', id, 'frame')],
+  )
 
-  it('defaults to an instant white flash decaying over subsequent ticks (backward-compatible)', () => {
+  it('defaults to a restrained white lift that decays over the following ticks', () => {
     const base = node('base', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
-    const { nodes, edges } = withOutput(node('bf', 'BeatFlash', 'pattern', {}), [base, boolSrc('beaton', 1)], [
-      edge('e1', 'beaton', 'result', 'bf', 'beat'),
-      edge('e2', 'base', 'frame', 'bf', 'frame'),
-    ])
-    const lit = evaluateGraph(nodes, edges, 0, W, H)!
-    expect(px(lit)).toEqual({ r: 255, g: 255, b: 255 })
-
-    const { nodes: nodesOff, edges: edgesOff } = withOutput(node('bf', 'BeatFlash', 'pattern', {}), [base, boolSrc('beaton', 0)], [
-      edge('e1', 'beaton', 'result', 'bf', 'beat'),
-      edge('e2', 'base', 'frame', 'bf', 'frame'),
-    ])
-    const decayed = evaluateGraph(nodesOff, edgesOff, 1, W, H)!
-    // decay = 0.85 by default, so the second tick should be dimmer than full white.
-    expect(px(decayed).r).toBeLessThan(255)
+    const on = flashGraph('bf', {}, base, 1)
+    // Intensity 0.45 lifts black 45% of the way to white, in the sketch's bytes.
+    expect(px(evaluateGraph(on.nodes, on.edges, 0, W, H)!)).toEqual({ r: 114, g: 114, b: 114 })
+    const off = flashGraph('bf', {}, base, 0)
+    const decayed = evaluateGraph(off.nodes, off.edges, 1, W, H)!
+    // decay = 0.85 by default, so the second tick should be dimmer.
+    expect(px(decayed).r).toBeLessThan(114)
     expect(px(decayed).r).toBeGreaterThan(0)
+  })
+
+  it('fires once on a held beat, not on every frame it stays true', () => {
+    const base = node('base-held', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const held = flashGraph('bf-held', { intensity: 1 }, base, 1)
+    const reds = [0, 1, 2, 3].map((tick) => px(evaluateGraph(held.nodes, held.edges, tick, W, H)!).r)
+    expect(reds[0]).toBe(255)
+    for (let i = 1; i < reds.length; i++) expect(reds[i]).toBeLessThan(reds[i - 1])
+  })
+
+  it('decays by the clock, so a 30 fps board fades as fast as a 60 fps one', () => {
+    const base = node('base-fps', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const fire = flashGraph('bf-fps', { intensity: 1 }, base, 1)
+    evaluateGraph(fire.nodes, fire.edges, 0, W, H)
+    const off = flashGraph('bf-fps', { intensity: 1 }, base, 0)
+    // Two ticks later is 1/30 s: two 60 fps steps of decay in one pass.
+    expect(px(evaluateGraph(off.nodes, off.edges, 2, W, H)!).r).toBe(Math.trunc(255 * 0.85 * 0.85))
   })
 
   it('ramps up over `attack` instead of snapping to full brightness', () => {
     const base = node('base2', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
-    const { nodes, edges } = withOutput(node('bf2', 'BeatFlash', 'pattern', { attack: 1 }), [base, boolSrc('beaton2', 1)], [
-      edge('e1', 'beaton2', 'result', 'bf2', 'beat'),
-      edge('e2', 'base2', 'frame', 'bf2', 'frame'),
-    ])
+    const { nodes, edges } = flashGraph('bf2', { attack: 1, intensity: 1 }, base, 1)
     const firstTick = evaluateGraph(nodes, edges, 0, W, H)!
     // attack = 1 (normalized) ramps over BEAT_FLASH_ATTACK_MAX_SEC (1.5s) — one
     // tick in, it should be lit but nowhere near full white yet.
@@ -6218,28 +6245,27 @@ describe('BeatFlash', () => {
     expect(px(firstTick).r).toBeLessThan(255)
   })
 
-  it('preserveBase=false replaces pixels with the pure flash color instead of blending', () => {
-    const base = node('base3', 'SolidColor', 'pattern', { r: 40, g: 60, b: 80 })
-    const { nodes, edges } = withOutput(
-      node('bf3', 'BeatFlash', 'pattern', { preserveBase: false, r: 0, g: 255, b: 0 }),
-      [base, boolSrc('beaton3', 1)],
-      [edge('e1', 'beaton3', 'result', 'bf3', 'beat'), edge('e2', 'base3', 'frame', 'bf3', 'frame')],
-    )
-    const lit = evaluateGraph(nodes, edges, 0, W, H)!
-    expect(px(lit)).toEqual({ r: 0, g: 255, b: 0 })
+  it('Lighten lifts toward the flash colour and never darkens a brighter channel', () => {
+    const base = node('base-l', 'SolidColor', 'pattern', { r: 255, g: 40, b: 0 })
+    const { nodes, edges } = flashGraph('bf-l', { intensity: 0.5, r: 0, g: 0, b: 255 }, base, 1)
+    // Red is brighter than the flash's 0 and stays; blue rises halfway.
+    expect(px(evaluateGraph(nodes, edges, 0, W, H)!)).toEqual({ r: 255, g: 40, b: 127 })
   })
 
-  it('an unwired palette other than "none" overrides the r/g/b color', () => {
+  it('Replace shows the pure flash colour instead of blending', () => {
+    const base = node('base3', 'SolidColor', 'pattern', { r: 40, g: 60, b: 80 })
+    const { nodes, edges } = flashGraph('bf3', { flashMode: 'replace', intensity: 1, r: 0, g: 255, b: 0 }, base, 1)
+    expect(px(evaluateGraph(nodes, edges, 0, W, H)!)).toEqual({ r: 0, g: 255, b: 0 })
+  })
+
+  it('Color set to Palette sweeps the palette instead of the r/g/b colour', () => {
     const base = node('base4', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
-    const { nodes, edges } = withOutput(
-      node('bf4', 'BeatFlash', 'pattern', { palette: 'ocean', r: 255, g: 255, b: 255 }),
-      [base, boolSrc('beaton4', 1)],
-      [edge('e1', 'beaton4', 'result', 'bf4', 'beat'), edge('e2', 'base4', 'frame', 'bf4', 'frame')],
-    )
-    const lit = evaluateGraph(nodes, edges, 0, W, H)!
+    const { nodes, edges } = flashGraph('bf4', { colorSource: 'palette', palette: 'ocean', intensity: 1, r: 255, g: 255, b: 255 }, base, 1)
     // The ocean palette has no pure white stop, so the flash color diverges
-    // from the r/g/b fallback once a palette is selected.
-    expect(px(lit)).not.toEqual({ r: 255, g: 255, b: 255 })
+    // from the r/g/b colour once Color is Palette.
+    expect(px(evaluateGraph(nodes, edges, 0, W, H)!)).not.toEqual({ r: 255, g: 255, b: 255 })
+    expect(isPropertyEnabled('BeatFlash', 'r', { colorSource: 'palette' })).toBe(false)
+    expect(isPropertyEnabled('BeatFlash', 'palette', { colorSource: 'solid' })).toBe(false)
   })
 })
 

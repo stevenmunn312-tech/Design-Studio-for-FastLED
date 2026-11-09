@@ -733,15 +733,19 @@ function audioForFrame(i: number, scenario: AudioScenario): { override: AudioOve
   const treble = scenario === 'silent' ? 0 : scenario === 'steady' ? 0.34 : 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.7 * t + 2)
   const beat = scenario === 'pulse' && i % Math.max(1, Math.round(RATE_FPS * 0.5)) === 0
   const spectrum = bandsToSpectrum(bass, mids, treble)
+  const energy = (bass + mids + treble) / 3
   const override: AudioOverride = {
     active: true, micActive: true, beat, bpm: 120,
     bass, mids, treble, micBass: bass, micMids: mids, micTreble: treble,
+    // Channel meters on the VU scale, as the release fixtures carry them:
+    // Audio Features' Loudness and Silence read these, not the bands.
+    leftLevel: energy * 0.35, rightLevel: energy * 0.2, channelCount: 2,
     spectrum, detectorSpectrum: spectrum,
     ...syntheticDetectors(i, scenario, bass, mids, treble, beat),
   }
   const roles: Record<string, number | boolean> = {
     bass, mids, treble, kick: bass, snare: mids, hihat: treble, vocals: mids,
-    energy: (bass + mids + treble) / 3, beat, silence: scenario === 'silent',
+    energy, beat, silence: scenario === 'silent',
   }
   return { override, roles }
 }

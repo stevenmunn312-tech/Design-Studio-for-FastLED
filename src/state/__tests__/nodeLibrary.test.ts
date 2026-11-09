@@ -326,10 +326,10 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('BeatDetect', 'decay')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('BeatDetect exposes its internal tuning diagnostics as outputs', () => {
+  it('BeatDetect outputs only Beat and BPM; its readout shows the tuning diagnostics', () => {
     const bd = NODE_LIBRARY.find((n) => n.type === 'BeatDetect')
     expect(bd?.outputs.map((p) => p.id)).toEqual([
-      'beat', 'bpm', 'flux', 'onset', 'contrast', 'threshold', 'cooldownMs',
+      'beat', 'bpm',
     ])
   })
 
@@ -359,6 +359,7 @@ describe('nodeLibrary', () => {
   it('AudioHue has default properties so it renders without being wired', () => {
     const audioHue = NODE_LIBRARY.find((n) => n.type === 'AudioHue')
     expect(audioHue?.defaultProperties).toEqual({
+      mode: 'balance', hueStart: 0, hueSpan: 240,
       bass: 0.5, mids: 0.5, treble: 0.5,
       bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2,
     })
@@ -367,15 +368,16 @@ describe('nodeLibrary', () => {
   it('AudioHue exposes its band mix as bounded, labelled weights', () => {
     for (const key of ['bassWeight', 'midsWeight', 'trebleWeight']) {
       expect(propertyMeta('AudioHue', key)).toEqual({ control: 'slider', min: 0, max: 1, step: 0.01 })
-      expect(propertyDescription('AudioHue', key)).toMatch(/contributes to the hue/i)
+      expect(propertyDescription('AudioHue', key)).toMatch(/Weighted Sum: how much \w+ contributes/)
     }
     expect(propertyLabel('AudioHue', 'bassWeight')).toBe('bass weight')
     expect(propertyLabel('AudioHue', 'midsWeight')).toBe('mids weight')
     expect(propertyLabel('AudioHue', 'trebleWeight')).toBe('treble weight')
   })
 
-  it("FFTAnalyzer's bands tooltip explains its resample resolution", () => {
-    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/resample|resolution/i)
+  it("FFTAnalyzer's bands tooltip says it only sizes the meter", () => {
+    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/meter/i)
+    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/display only/i)
   })
 
   it('MicInput exposes FastLED processor gain without obsolete custom gate controls', () => {
@@ -472,7 +474,9 @@ describe('nodeLibrary', () => {
       expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Three Band' }), key).toBe(true)
       expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Bars' }), key).toBe(false)
     }
-    for (const key of ['smoothing', 'tilt', 'peakHold', 'peakGravity']) {
+    // Three Band eases its unwired bands with Smoothing.
+    expect(isPropertyEnabled('SpectrumVisualizer', 'smoothing', { style: 'Three Band' })).toBe(true)
+    for (const key of ['tilt', 'peakHold', 'peakGravity']) {
       expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Three Band' }), key).toBe(false)
     }
   })

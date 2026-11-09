@@ -267,208 +267,78 @@ freeze, or drop them.
 
 #### Audio and audio-reactive
 
-- [ ] **Category: Expose band and drum sockets on audio patterns (High, S).**
-  Only Audio → Hue and Level Meter declare `defaultExposedInputs`, so the
-  other 23 audio patterns draw no Bass, Mids, Treble, Kick or Vocals socket
-  until a wire lands on the row. Add `defaultExposedInputs` for the band and
-  drum ports on every audio pattern, as graph-and-nodes.md already advises
-  for nodes whose ports are their purpose. Evidence
-  `src/nodes/audioReactive/definitions.ts:118`,
-  `src/state/propertyInputs.ts:162`.
-- [ ] **Category: Use frame-rate-independent envelopes (Med, M).** FFT
-  Analyzer, Percussion Detect, Audio Features and Frequency Band smoothing,
-  Beat Flash decay/attack, Beat Kaleidoscope punch and Ember Pulse burst
-  count frames, while Spectrum Visualizer, Waveform, Color Trails and Beat
-  Detect scale by dt. Preview and device agree only at 60 fps, so a Board
-  frame rate other than 60 changes flash length and response time. Use
-  `pow(k, dt*60)` everywhere, as Spectrum Visualizer does. Evidence
-  `src/nodes/audioReactive/evaluate.ts:506`,
-  `src/nodes/audio/evaluate.ts:229`.
 - [ ] **Category: Rename the `energy` property and port to `reactivity`
   (Med, M).** Every audio pattern relabels `energy` as "reactivity"
   (`src/state/nodeLibrary.ts:3301`), so the stored id matches Audio
   Features' peak-relative Energy output and invites Energy → Reactivity
   wiring (about 20 bundled-pattern edges and the Vocal Aurora help example
   do this). Rename the id and port (pre-1.0, so no migration needed) so
-  choosing Energy or Loudness becomes a deliberate wire.
+  choosing Energy or Loudness becomes a deliberate wire. Left open: the
+  fourteen promoted saved graphs (`bundledSavedAudioPatterns.ts`) must stay
+  byte for byte, and several carry `energy` properties and edges, so a
+  rename needs a decision on how their copies are converted; the show
+  engines' `useGroupInputs` also feed a pattern's `energy` input by name.
 - [ ] **Category: Remap Speed so the current look sits mid-slider (Med, M).**
   BassRings, MidrangeWaves, MidrangeBloom, TreblePrism, AudioCascade,
   KickShock, VocalAurora, BeatKaleidoscope, SpectraMosaic, EmberPulse,
   TurbulentBloom, GravityWell, RainRipples and PrismStorm default `speed`
   to 1.0 on a 0–1 slider, leaving no room to go faster. Remap so the
   current look is 0.5 (internal rate = 2 × slider) and update saved values
-  and bundled patterns. Evidence `src/state/nodeLibrary.ts:583`.
-- [ ] **Category: Add a "which level to use" table to the help (Med, S).**
-  Audio Features Energy is peak-relative, Loudness is absolute RMS, Vibe
-  Volume is song-average-relative, and Stereo Levels is absolute on
-  line-in but peak-normalised on a microphone. Add a one-line table to the
-  Audio Features, Vibe and Stereo Levels help recommending Loudness for
-  brightness. Evidence `src/audio/stereoLevels.ts:106`.
+  and bundled patterns. Evidence `src/state/nodeLibrary.ts:583`. Left open:
+  many bundled patterns wire Map Range or audio levels into these speeds,
+  and the promoted graphs cannot be edited, so a remap changes tuned looks
+  unless every wired range is halved too; needs a by-ear check.
 - [ ] **Category: Add an optional Audio input to the band patterns (Med,
   M).** Every band pattern needs Mic → FFT Analyzer → pattern. Spectrum
   Visualizer's Three Band style already falls back to the spectrum thirds
   when its band ports are unwired. Give the band patterns an optional Audio
   input with the same fallback so a first patch is one wire; keep FFT
   Analyzer for gain, smoothing and tilt. Evidence
-  `src/nodes/audioReactive/evaluate.ts:1158`.
-- [ ] **Category: Edge-detect the beat input in every pattern (Low, S).**
-  Beat Flash, Beat Kaleidoscope and Ember Pulse re-trigger on every frame
-  the input is true, though their help says "each rising edge". A Kick
-  envelope or Vibe Spike that stays true for several frames pins the flash
-  at full. Detect the rising edge as Kick Shock, Percussion Blobs, Rain
-  Ripples, Prism Storm and Dance Flash already do. Evidence
-  `src/nodes/audioReactive/evaluate.ts:507`.
+  `src/nodes/audioReactive/evaluate.ts:1158`. Left open (size): about
+  fourteen evaluators and emitters. Three Band now eases its unwired thirds
+  (keepOver in `nodes/shared/envelopeClock.ts`) and FFT Analyzer analyses at
+  a fixed 24-bin split (`FFT_ANALYSIS_BANDS`); a shared helper doing both
+  with per-node state, the port declared last so splicing is unchanged, and
+  `dropConnections` auto-wiring it would make a first patch one wire.
 - [ ] **Category: Standardise colour inputs on Palette plus optional Color
   (Low, M).** Gravity Well uses a Color port plus R/G/B and no palette,
   Beat Flash uses a `'none'` palette sentinel plus R/G/B, Dance Flash is
   R/G/B only, and Ember Pulse is a fixed HeatColor ramp. Move all four to a
   Palette port plus an optional Color port. Evidence
-  `src/state/nodeLibrary.ts:740`.
-- [ ] **FFT Analyzer: Replace Bands with crossover controls (Med, S).** The
-  32 slots are 16 EQ bins duplicated, so Bands only nudges the crossover by
-  a slot, and at counts not divisible by 3 the thirds overlap
-  (`spectrumThirdBounds(8)` gives bass [0,3) and mids [2,6)). Replace it
-  with two crossover controls in Hz (about 300 and 1500), or make it a
-  meter-only display setting. Evidence `src/nodes/audio/evaluate.ts:101`.
-- [ ] **Beat Detect: Hide Attack and Decay behind a "Baked show" group (Med,
-  S).** Live audio uses FastLED's beat gated by Threshold only, so both
-  controls do nothing in the common case. Collapse them into a "Baked show"
-  group so Threshold is the one visible knob. Evidence
-  `src/nodes/audio/evaluate.ts:147`.
-- [ ] **Beat Detect: Tuck away the diagnostic outputs (Low, M).** Flux,
-  Onset and Contrast are always 0 on live audio and no bundled pattern
-  wires any of the five diagnostic outputs. Move them into the
-  BeatDetectBody readout or behind an advanced-outputs toggle. Evidence
-  `src/nodes/audio/evaluate.ts:162`.
-- [ ] **Audio Features: Derive Silence from Loudness (High, S).** Silence is
-  `energy < 0.015 + gate×0.35`, and Energy is peak-relative, so what counts
-  as quiet floats with the last few seconds' peak. Gate the absolute
-  Loudness instead and drop the Silence Gate workaround from the help.
-  Evidence `src/nodes/audio/evaluate.ts:315`.
+  `src/state/nodeLibrary.ts:740`. Beat Flash is done: a Color select
+  (Solid, Palette) replaced the `'none'` sentinel and gates R/G/B. Dance
+  Flash and Ember Pulse remain (the HeatColor ramp is a look choice), and
+  Gravity Well is blocked as below.
 - [ ] **Audio Features: Apply Sensitivity and smoothing to Loudness (Med,
   S).** Loudness is the raw meter and real music sits at 0.02–0.2 of its
   scale, so wired into a 0–1 input it barely moves and the help tells users
   to add a Smooth node. Apply Sensitivity as a gain plus about 0.15 s of
-  smoothing. Evidence `src/nodes/audio/evaluate.ts:294`.
-- [ ] **Vibe: Make the Spike outputs one-frame hits (Med, S).** A spike is
-  true whenever the instantaneous value exceeds the smoothed one, so it
-  stays true for several frames, and the help example wiring Bass Spike →
-  Beat Flash stacks flashes. Add a one-frame `bassHit` pulse (threshold on
-  imm/avg plus cooldown), or point the example at Beat Detect. Evidence
-  `src/audio/fastledReactive.ts:502`.
-- [ ] **Vibe: Add a 0–1 output toggle (Low, S).** Level / 2, clamped, would
-  remove the Map Range the help says every 0–1 use needs. Evidence
-  `src/components/HelpModal/reference/audio.ts:155`.
-- [ ] **Pitch Detect: Add a pitch-class or note-hue output (Low, S).** Add
-  `pitchClass` (0–11) or `noteHue` (0–360); the help example needs an
-  Expression node to get there. Evidence
-  `src/components/HelpModal/reference/audio.ts:267`.
-- [ ] **Audio → Hue: Add a Balance mode as the default (High, S).** The
-  help promises the balance of bass, mids and treble, but the node computes
-  a weighted sum × 360, so hue tracks overall loudness and both silence and
-  full volume give red. Add a Balance mode, the spectral centroid
-  `(0.5·m + t)/(b+m+t)` over a Hue Start and Span, holding the last hue
-  near silence. Make it the default for new nodes and keep Weighted Sum for
-  the 12 bundled patterns using it. Evidence
-  `src/nodes/audio/evaluate.ts:450`.
-- [ ] **Frequency Band: Add band presets and narrow the Hz sliders (Med,
-  M).** The sliders are linear from 20 to 8000 Hz, so the bass range sits
-  in the first 3% of travel, and anything below 90 Hz or above 5.12 kHz
-  only re-reads the edge bins. Add a preset select (Kick, Bass, Low mids,
-  Vocals, Snare snap, Top) that fills Low and High, and limit the sliders to
-  the EQ range. Evidence `src/state/nodeLibrary.ts:915`.
-- [ ] **Frequency Band: Fix the "hi-hat air band" wording (Low, S).** The
-  definition comment and help mention a hi-hat air band but the spectrum
-  stops at 5.1 kHz; say so. Evidence `src/nodes/audio/definitions.ts:208`.
-- [ ] **Beat Phase: Stop free-running at the BPM field once beats arrive
-  (High, S).** With Beat wired, the phase keeps running at the BPM field and
-  wraps (adding to Count) before the real beat resets it. If BPM is faster
-  than the song, Count and Bar double-step and Phase saws twice per beat; if
-  slower, Phase jumps from about 0.8 to 0. After two beats, run at the
-  measured interval or hold phase at 1 until the next beat, and wire Beat
-  Detect's BPM into the help example. Evidence
-  `src/nodes/audio/evaluate.ts:430`.
-- [ ] **Spectrum Visualizer: Show only the controls the style uses (Med,
-  S).** Waterfall Speed applies to Waterfall only; Peak Hold and Peak
-  Gravity don't apply to Waterfall or Three Band; Reactivity, Speed and
-  Mirror apply to Three Band only. Add a SpectrumVisualizer case to
-  `isPropertyEnabled` to gate them, as the Music Player's radio group does.
-  Evidence `src/state/nodeLibrary.ts:5018`.
-- [ ] **Spectrum Visualizer: Smooth Three Band or split it out (Med, S).**
-  Three Band ignores the Smoothing and Tilt rows it shows; unwired bands
-  are raw spectrum thirds × gain, so bars jitter next to every other style.
-  Apply the smoothing, or make Three Band its own node. Evidence
-  `src/nodes/audioReactive/evaluate.ts:1158`.
-- [ ] **Bass Pulse: Default bass to 0.5 (Med, S).** It defaults to
-  `bass: 0` so it drops black, while every sibling uses 0.5. Change the
-  default to 0.5. Evidence `src/nodes/audioReactive/definitions.ts:103`.
-- [ ] **Beat Flash: Make "Screen" match on preview and firmware (High, S).**
-  The preview lerps each channel toward the flash colour and can darken,
-  while the firmware only adds `max(0, colour − base)`. A base brighter
-  than the flash colour is pulled down in preview but untouched on the
-  device, and the sunset-over-Life help example shows different colours. Use
-  the firmware's "lighten toward" behaviour in both and rename the mode.
-  Evidence `src/nodes/audioReactive/evaluate.ts:546`.
-- [ ] **Beat Flash: Soften the default intensity (Med, S).** Defaults give
-  a full-white, full-intensity flash on every beat. Default Intensity to
-  about 0.4–0.5. Evidence `src/nodes/audioReactive/definitions.ts:252`.
-- [ ] **Beat Flash: Merge Keep Base and Blend into one Mode select (Low,
-  S).** Blend does nothing when Keep Base is off. Replace both with a Mode
-  select (Lighten / Add / Replace), and gate R/G/B off when a palette is
-  chosen via `isPropertyEnabled`, removing the `'none'` palette sentinel.
-  Evidence `src/state/nodeLibrary.ts:740`.
-- [ ] **Dance Flash: Add a Gap select (Med, S).** The 2–5 minute gap
-  between flashes is hard-coded. Add a Gap select (for example 30 s, 1–2
-  min, 2–5 min); keep the first flash at 2.5–6 s. Evidence
-  `src/nodes/audioReactive/danceFlash.ts:14`.
-- [ ] **Kick Shock: Default drums to nonzero and demo-fire when unwired
-  (Med, S).** Kick, Snare and Hi-Hat default to 0, so it drops near-black
-  (idle floor about 5/255). Default the drums to a visible value, or fire a
-  slow demo kick while the ports are unwired so the rings show. Evidence
-  `src/nodes/audioReactive/definitions.ts:308`.
-- [ ] **Vocal Aurora: Stop wiring Energy into Reactivity in the help
-  example (Med, S).** The example uses Audio Features Energy, so curtains
-  stay fully reactive through a quiet verse. Wire Loudness (or nothing) and
-  update the text. Evidence
-  `src/components/HelpModal/reference/pattern.ts:1179`.
-- [ ] **Percussion Blobs: Default drums to nonzero and demo-spawn when
-  unwired (Med, S).** Kick, Snare and Hi-Hat default to 0, so it drops
-  black. Use the same fix as Kick Shock: visible defaults, or spawn demo
-  blobs while the drum ports are unwired. Evidence
-  `src/nodes/audioReactive/definitions.ts:396`.
+  smoothing. Evidence `src/nodes/audio/evaluate.ts:294`. Left open: the
+  shared energy stage (`energyDynamics.ts`) reads each pattern's own Audio
+  Features Loudness, whose Sensitivity varies 0.5–0.65 across the bundled
+  patterns, through its own 0.15 s Smooth, with ranges set by ear for the
+  raw meter. A gain would retune 86 patterns and a second smoother would
+  stack lag (the 0.6 s delay Steve heard). Needs a decision: a separate
+  eased output, or moving the stage onto it and retuning by ear.
 - [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
   the only band pattern with no palette; a Color port overrides three R/G/B
   float ports. Swap the R/G/B ports for a palette and keep the optional
   Color port, or fold it into Bass Rings as a "lensing" style. Evidence
-  `src/nodes/audioReactive/definitions.ts:457`.
-- [ ] **Rain Ripples: Consider merging with Kick Shock (Low, M).** Rain
-  Ripples is Kick Shock's kick lane with a bool trigger, sharing count,
-  decay, thickness, spread and blend. Fold it in as a Trigger input plus a
-  preset, or leave as is. Evidence `src/state/nodeLibrary.ts:962`.
-- [ ] **Prism Storm: Rename to separate it from Treble Prism (Low, S).**
-  "Prism Storm" and "Treble Prism" sit in the same subcategory and read as
-  one effect. Rename one, for example "Hi-Hat Shards" for Prism Storm, since
-  the hi-hat snap is what sets it apart.
-- [ ] **Audio Flow: Share one noise kernel between preview and firmware
-  (Med, M).** The preview samples simplex `_snoise2`, the firmware samples
-  `inoise8` with a +8 y-offset, so texture and palette coverage differ on
-  the device. Move it to a shared integer kernel like its siblings.
-  Evidence `src/nodes/audioReactive/evaluate.ts:1107`.
-- [ ] **Audio Flow: Align palette fallback and description (Low, S).** The
-  preview falls back to `'party'` but the default property is `'rainbow'`,
-  and the description doesn't say mids drive the flow and bass drives the
-  brightness. Match the fallback to the default and fix the text. Evidence
-  `src/nodes/audioReactive/evaluate.ts:1415`.
+  `src/nodes/audioReactive/definitions.ts:457`. Left open: the promoted
+  Event Horizon graph (byte for byte) colours its well with unwired R/G/B
+  80/160/255, so dropping R/G/B recolours it; a Solid/Palette select like
+  Beat Flash's would keep it, but a saved node without the key would read
+  differently from a new one. Needs a decision on that graph.
 - [ ] **Color Trails: Cut the tuning knobs (Med, M).** Twelve knobs over 15
   inputs, with separate X and Y speed, amplitude and frequency, and a
   Persistence slider (0.9–0.9999, step 0.0001) the help explains in
   minutes. Link X and Y by default (one Flow speed, strength and scale plus
   an "independent axes" toggle), and replace Persistence with a Trail
-  length in seconds. Evidence `src/state/nodeLibrary.ts:899`.
-- [ ] **Color Trails: Reconcile the Seed 0 behaviour (Low, S).** Its Seed
-  says 0 is a fixed seed, against the global rule that 0 runs free. Align
-  it with the rule, or label it differently. Evidence
-  `src/state/nodeLibrary.ts:2555`.
+  length in seconds. Evidence `src/state/nodeLibrary.ts:899`. Left open:
+  all four bundled Color Trails tune X and Y differently (often opposite
+  signs), so each would need the independent toggle and a conversion of
+  Persistence (0.9988–0.99935 per frame) into seconds; the trail-length
+  curve wants a by-ear check.
 
 #### Colour and maths
 

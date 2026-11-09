@@ -1,6 +1,9 @@
 import { example, RING } from './example'
 import type { NodeReferenceMap } from './types'
 
+// Four nodes report how loud the sound is, against four different references.
+const WHICH_LEVEL = 'Which level to use: Audio Features Loudness is absolute, so a quiet verse stays quiet; use it for brightness. Audio Features Energy is relative to the last few seconds’ peak; use it for motion. Vibe Volume is relative to the song’s own average. Stereo Levels are absolute on a line input but follow the recent peak on a microphone.'
+
 const LIVE_ONLY = 'It reads FastLED’s own detector, so it needs live sound from a microphone, line input or the decoder. With no live source, or a recording made before the detector existed, every output reads zero or false.'
 
 export const AUDIO_REFERENCE: NodeReferenceMap = {
@@ -8,7 +11,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     overview: [
       'FFT Analyzer splits sound into three levels — bass, mids and treble — each from 0 to 1. It is the usual first step after an Audio node when a patch should move with the music.',
       'Give each band its own job: bass for size and weight, mids for body and colour, treble for sparkle and fine detail. Three separate wires make it easy to try a band on a different input.',
-      'Bands sets how finely the spectrum is cut before it is averaged into the three outputs. Gain lifts a quiet source, Smoothing steadies jitter at the cost of slower hits, and Tilt lifts the highs so cymbals register as strongly as the kick.',
+      'Bands sets how many columns the meter on the node draws; the split into bass, mids and treble is fixed. Gain lifts a quiet source, Smoothing steadies jitter at the cost of slower hits, and Tilt lifts the highs so cymbals register as strongly as the kick.',
     ],
     inputs: {
       audio: 'The sound to analyse, from an Audio node.',
@@ -45,7 +48,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     overview: [
       'Beat Detect listens for the beat. Beat is true for one frame on each hit, and BPM estimates the tempo — enough to flash, step, or change something exactly on the music.',
       'On live audio the beat comes from FastLED’s own detector. Threshold is how sure it must be before it fires: raise it if every snare counts, lower it if obvious kicks are missed. After a beat it waits a little over half a beat before it can fire again, so a flam fires once.',
-      'The other outputs are tuning diagnostics. On live audio Threshold and Cooldown report the gate FastLED’s beat passes through; Flux, Onset and Contrast come from the spectral-flux detector a baked show envelope runs, and read 0 on live audio. Attack and Decay shape only that baked envelope.',
+      'The readout on the node shows the tuning: on live audio the gate FastLED’s beat passes through and how long it holds off after a beat; on a baked show the spectral-flux detector’s flux, onset and contrast. Attack and Decay, folded under Baked show, shape only that baked envelope.',
     ],
     inputs: {
       audio: 'The sound to listen to, from an Audio node.',
@@ -53,13 +56,8 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     outputs: {
       beat: 'True for one frame on each detected beat.',
       bpm: 'Estimated tempo in beats per minute.',
-      flux: 'Spectral flux from a baked show’s detector: how fast the spectrum is changing. 0 on live audio.',
-      onset: 'Onset strength from a baked show’s detector. 0 on live audio.',
-      contrast: 'How far the onset stands above its baseline, from a baked show’s detector. 0 on live audio.',
-      threshold: 'The threshold the beat is currently gated by.',
-      cooldownMs: 'How long after a beat the next one is held off, in milliseconds.',
     },
-    propertyNote: 'Threshold is the setting to tune. Attack and Decay shape only a baked show envelope; live audio uses FastLED’s detector.',
+    propertyNote: 'Threshold is the setting to tune. Attack and Decay, folded under Baked show, shape only a baked show envelope; live audio uses FastLED’s detector.',
     example: example({
       featured: 'BeatDetect',
       title: 'A raindrop falls into the pond on every beat',
@@ -116,6 +114,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       'Audio Features listens for the shape of the music rather than individual hits. Vocals estimates how much voice-like midrange there is, Energy tracks how busy the sound is against the last few seconds, Loudness is how loud it actually is, and Silence goes true when the sound drops below the gate.',
       'Loudness is the master intensity for a whole patch: it rests low in a quiet verse and climbs through the chorus, and the gain on the Audio node sets how loud counts as full. Energy adapts to the recent peak, so it stays lively through a quiet passage; use it for movement rather than brightness. Vocals can bring in a melodic layer when the singer comes in. Silence is the switch for between songs: dim, pause, or swap to a calm idle look.',
       'Sensitivity scales Energy and Vocals, Silence Gate sets how quiet counts as silence, and Smoothing keeps the outputs from twitching.',
+      WHICH_LEVEL,
     ],
     inputs: {
       audio: 'The sound to listen to, from an Audio node.',
@@ -124,9 +123,9 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       vocals: 'How voice-like the midrange is, 0 to 1. A heuristic, not a singer detector.',
       energy: 'How busy the sound is relative to the last few seconds, 0 to 1, smoothed.',
       loudness: 'How loud the sound is, 0 to 1, from its level rather than its shape. Not smoothed; add a Smooth node to ease it.',
-      silence: 'True while the energy is below the Silence Gate.',
+      silence: 'True while the loudness, eased by Smoothing, is below the Silence Gate.',
     },
-    propertyNote: 'Raise Silence Gate if room noise keeps the patch awake between songs.',
+    propertyNote: 'Silence follows the same absolute loudness as the Loudness output, so a quiet verse never counts as silence just because the chorus before it was loud. The Audio node’s gain sets how loud the sound reads.',
     example: example({
       featured: 'AudioFeatures',
       title: 'Settle into a calm breath between songs',
@@ -152,8 +151,9 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
   Vibe: {
     overview: [
       'Vibe is the MilkDrop music model, ported from FastLED. Each band is divided by its own slow running average, so a level of 1.0 means “average for this song” and 2.0 means twice as loud as usual. A quiet track and a loud one drive a patch the same way.',
-      'The levels are not limited to 0–1, so send them through Map Range before a 0–1 input. Each band also has a smoothed copy, and a Spike output that is true while the immediate level is above the smoothed one — a hit in progress.',
+      'The levels are not limited to 0–1: turn on 0–1 Output to halve and clamp them, so 1.0 sits mid-range and twice the average fills the range, or send them through Map Range for a range of your own. Each band also has a smoothed copy, and a Spike output that is true while the immediate level is above the smoothed one — a hit in progress, often several frames long and often several times a beat. For one flash per beat use Beat Detect instead.',
       LIVE_ONLY,
+      WHICH_LEVEL,
     ],
     inputs: {
       audio: 'The sound to listen to, from an Audio node.',
@@ -166,11 +166,11 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       bassAtt: 'A smoothed copy of Bass.',
       midAtt: 'A smoothed copy of Mid.',
       trebleAtt: 'A smoothed copy of Treble.',
-      bassSpike: 'True while Bass is above its smoothed copy.',
+      bassSpike: 'True while Bass is above its smoothed copy: a level for gating, not a one-frame hit.',
       midSpike: 'True while Mid is above its smoothed copy.',
       trebleSpike: 'True while Treble is above its smoothed copy.',
     },
-    propertyNote: 'Gain scales the levels and their smoothed copies. Spikes compare the two, so Gain never changes them.',
+    propertyNote: 'Gain scales the levels and their smoothed copies, before 0–1 Output halves them. Spikes compare the two, so neither changes them.',
     example: example({
       featured: 'Vibe',
       title: 'Jump to warp speed on the cymbals',
@@ -179,6 +179,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
         vibe: ['Vibe', { gain: 1 }],
         warp: ['MapRange', { inMin: 0.5, inMax: 2, outMin: 0.1, outMax: 1 }],
         stars: ['Starfield', { palette: 'ice', count: 90 }],
+        beat: ['BeatDetect', { threshold: 0.45 }],
         kick: ['BeatFlash', { intensity: 0.6, decay: 0.8, r: 120, g: 160, b: 255 }],
       },
       wires: [
@@ -186,10 +187,11 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
         'vibe.treble > warp.value',
         'warp.result > stars.speed',
         'stars.frame > kick.frame',
-        'vibe.bassSpike > kick.beat',
+        'mic.audio > beat.audio',
+        'beat.beat > kick.beat',
       ],
-      explanation: 'Vibe’s Treble is about 1.0 at this song’s average, so Map Range turns half-average into a gentle drift and double into full warp. Bass Spike fires Beat Flash whenever the bass jumps above its own smoothed level, lighting the starfield blue on each hit.',
-      preview: 'Play music near the microphone. The {output} shows stars streaming outward, racing during bright passages and flashing on bass hits, at any volume.',
+      explanation: 'Vibe’s Treble is about 1.0 at this song’s average, so Map Range turns half-average into a gentle drift and double into full warp. Beat Detect fires Beat Flash once a beat, lighting the starfield blue on each kick; Bass Spike would fire on every bass bump and stack the flashes.',
+      preview: 'Play music near the microphone. The {output} shows stars streaming outward, racing during bright passages and flashing on the beat, at any volume.',
     }),
   },
 
@@ -251,6 +253,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     outputs: {
       hz: 'Frequency of the current note in hertz. 0 when nothing is pitched.',
       note: 'MIDI note number: 60 is middle C, 69 is A4.',
+      pitchClass: 'The note’s place in the octave, 0 (C) to 11 (B), the same for every octave. 0 when nothing is pitched.',
       noteOn: 'True for one frame when a note starts or moves by a semitone.',
       velocity: 'How strongly the note sounds while it is held, 0 to 1.',
       confidence: 'How clearly pitched the sound is, 0 to 1.',
@@ -264,26 +267,26 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         pitch: ['PitchDetect'],
-        wheel: ['Expression', { formula: '(a - 12*floor(a/12)) * 30' }],
+        wheel: ['Expression', { formula: 'a * 30' }],
         hue: ['HSVToRGB', { s: 0.9, v: 1 }],
         swatch: ['GradientFrame', { rB: 0, gB: 0, bB: 0, vertical: true }],
       },
       wires: [
         'mic.audio > pitch.audio',
-        'pitch.note > wheel.a',
+        'pitch.pitchClass > wheel.a',
         'wheel.result > hue.h',
         'hue.color > swatch.colorA',
       ],
-      explanation: 'Pitch Detect reports the MIDI note being sung. Expression keeps only the note’s place in the octave and multiplies it by 30°, so C is red, E is green, G# is blue, and every octave of the same note shares its colour. HSV → RGB makes the colour and Gradient Frame fades it to black down the matrix.',
+      explanation: 'Pitch Detect reports the note being sung as its place in the octave, and Expression multiplies it by 30°, so C is red, E is green, G# is blue, and every octave of the same note shares its colour. HSV → RGB makes the colour and Gradient Frame fades it to black down the matrix.',
       preview: 'Sing or whistle steady notes near the microphone. The {output} turns a new colour with each note of the scale and returns to red when you stop.',
     }),
   },
 
   AudioHue: {
     overview: [
-      'Audio → Hue turns the balance of bass, mids and treble into one hue from 0 to 360 degrees. A bass-heavy passage leans one way round the colour wheel; bright, cymbal-heavy passages lean the other.',
+      'Audio → Hue turns the balance of bass, mids and treble into one hue from 0 to 360 degrees. A bass-heavy passage sits at Hue Start; bright, cymbal-heavy passages move round the wheel by up to Hue Span. Loudness does not move it, so a quiet verse and a loud chorus with the same mix share a colour, and near silence it holds the last hue.',
       'It is a shortcut for “colour follows the mix” without building the maths yourself. Wire FFT Analyzer’s three bands in and send Hue to HSV → RGB, a Beat Kaleidoscope’s Hue, or anything else that takes degrees.',
-      'The three weights decide how much each band moves the hue. Their weighted sum is scaled to 0–360 and wraps past a full turn.',
+      'Mode Weighted Sum is the older mix: each band times its weight, added up and scaled to 0–360, wrapping past a full turn. It follows loudness as well as balance, so silence and full volume both read red; patterns built on it keep it.',
     ],
     inputs: {
       bass: 'Bass level, 0 to 1, usually from FFT Analyzer.',
@@ -291,7 +294,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       treble: 'Treble level, 0 to 1.',
     },
     outputs: {
-      hue: 'A hue in degrees, 0 to 360, wrapping past a full turn.',
+      hue: 'A hue in degrees: Hue Start to Hue Start plus Span on Balance; 0 to 360, wrapping, on Weighted Sum.',
     },
     propertyNote: 'The Bass, Mids and Treble fields are used only while their inputs are unwired.',
     example: example({
@@ -300,7 +303,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.75 }],
-        hue: ['AudioHue', { bassWeight: 0.6, midsWeight: 0.3, trebleWeight: 0.4 }],
+        hue: ['AudioHue', { mode: 'balance', hueStart: 10, hueSpan: 220 }],
         colour: ['HSVToRGB', { s: 0.85, v: 1 }],
         flock: ['Boids', { colorMode: 'solid', count: 28, speed: 0.55 }],
       },
@@ -312,15 +315,15 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
         'hue.hue > colour.h',
         'colour.color > flock.color',
       ],
-      explanation: 'FFT Analyzer feeds all three bands to Audio → Hue, which turns their balance into a hue. HSV → RGB makes it a colour, and Boids paints its whole flock with it, so the swarm shifts colour as the music moves between bass and treble.',
+      explanation: 'FFT Analyzer feeds all three bands to Audio → Hue, which turns their balance into a hue: orange-red when the bass leads, through green, to blue when the cymbals do. HSV → RGB makes it a colour, and Boids paints its whole flock with it, so the swarm shifts colour as the music moves between bass and treble.',
       preview: 'Play music near the microphone. The {output} shows a flock wheeling across the matrix, its colour drifting round the wheel as the mix changes.',
     }),
   },
 
   FrequencyBand: {
     overview: [
-      'Frequency Band gives one 0–1 level from a range of the spectrum you choose in hertz. Where FFT Analyzer splits sound into three fixed bands, this picks out exactly the part you care about: a kick at 60–120 Hz, a voice at 300–3000 Hz, a snare’s snap.',
-      'The spectrum covers about 90 Hz to 5 kHz in sixteen bins, spaced logarithmically. A range narrower than one bin reads the nearest bin.',
+      'Frequency Band gives one 0–1 level from a range of the spectrum you choose in hertz. Where FFT Analyzer splits sound into three fixed bands, this picks out exactly the part you care about: a kick at 90–130 Hz, a voice at 300–3000 Hz, a snare’s snap.',
+      'Band picks a named range: Kick, Bass, Low mids, Vocals, Snare snap or Top. Custom uses Low and High instead. The spectrum covers 90 Hz to about 5.1 kHz in sixteen bins, spaced logarithmically, so there is no hi-hat air band above it; Top is its highest part. A range narrower than one bin reads the nearest bin.',
       'Use several Frequency Band nodes on one Audio node to build your own set of bands.',
     ],
     inputs: {
@@ -334,7 +337,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       title: 'Twinkles that open up when the singer comes in',
       nodes: {
         mic: ['MicInput'],
-        voice: ['FrequencyBand', { lowHz: 300, highHz: 3000, gain: 1.6, smoothing: 0.75 }],
+        voice: ['FrequencyBand', { band: 'Vocals', gain: 1.6, smoothing: 0.75 }],
         stars: ['TwinkleFox', { palette: 'rosegold', speed: 0.45 }],
       },
       wires: ['mic.audio > voice.audio', 'voice.level > stars.density'],
@@ -348,6 +351,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       'Stereo Levels reports the left and right channels separately, plus their Balance: 0 is all left, 1 is all right, and 0.5 is centred.',
       'Stereo needs a stereo source, such as the Line In part or the decoder. A microphone is mono, so both sides move together and Balance sits at 0.5.',
       'Use the levels to light the two ends of a build separately, or Balance to show where a sound sits in the mix.',
+      WHICH_LEVEL,
     ],
     inputs: {
       audio: 'The sound to listen to, from an Audio node with a stereo source.',
@@ -381,7 +385,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
   BeatPhase: {
     overview: [
       'Beat Phase turns beats into smooth motion. Phase is a saw that rises from 0 to 1 across each beat and snaps back to 0 on the next one, so anything it drives moves in step with the music between hits.',
-      'Wire Beat Detect’s Beat into Beat to keep it in sync with the song; between beats, or with nothing wired, it runs at its own BPM. Bar rises 0 to 1 over a whole bar and Count numbers the beats.',
+      'Wire Beat Detect’s Beat into Beat to keep it in sync with the song. After two beats it runs at the tempo they set and waits at 1 for the next one, so Count steps once a beat whatever BPM says. Until then, or with nothing wired, it runs at its own BPM; if the beats stop it carries on at the last tempo. Bar rises 0 to 1 over a whole bar and Count numbers the beats.',
       'Phase is ideal for anything that should travel once per beat: a dot round a ring, a palette scroll, a sweep.',
     ],
     inputs: {
@@ -398,12 +402,12 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         beat: ['BeatDetect', { threshold: 0.45 }],
-        phase: ['BeatPhase', { bpm: 100, beatsPerBar: 4 }],
+        phase: ['BeatPhase', { beatsPerBar: 4 }],
         fill: ['Gauge', { gaugeStyle: 'ring', ringLeds: 24, arcStart: 0, palette: 'synthwave' }],
       },
-      wires: ['mic.audio > beat.audio', 'beat.beat > phase.beat', 'phase.bar > fill.value'],
+      wires: ['mic.audio > beat.audio', 'beat.beat > phase.beat', 'beat.bpm > phase.bpm', 'phase.bar > fill.value'],
       output: RING(24),
-      explanation: 'Beat Detect resyncs Beat Phase on every beat, and Bar rises from 0 to 1 over four of them. Gauge in ring style fills the LED ring with it, so the ring fills exactly once per bar and empties on the downbeat.',
+      explanation: 'Beat Detect resyncs Beat Phase on every beat and hands it its tempo estimate for the first two, and Bar rises from 0 to 1 over four beats. Gauge in ring style fills the LED ring with it, so the ring fills exactly once per bar and empties on the downbeat.',
       preview: 'Play music with a steady beat. The {output} fills clockwise from the top over each bar and starts again on the next.',
     }),
   },
