@@ -75,19 +75,32 @@ in section 4.
 From the 2026-11-09 review of every library node (235). The ten bugs it
 found that were confirmed in code are fixed (`aedaa095`), and on 2026-11-10
 the rest of its suggestions were checked against the code and most landed
-(see CHANGELOG). What follows is what was left: each item needs a product
+(see CHANGELOG). The decisions taken that day also landed: one network
+identity per Board, the Clock library node with the DS3231 as its provider,
+Frame Transform and Field Transform, Shape Field's rose and superformula,
+the position Units select, Power Switch's RGB strip load and the Particles
+prune. Three suggestions were dropped (merging TouchButton and Motion into
+Button, wired Palette Bank slots, a Field -> Frame palette offset) and three
+moved to section 6. What follows is what was left: each item needs a product
 decision, a bench part, a by-ear check or a larger rework, and most carry a
 note on what was found. Merges, renames and removed properties change saved
 shapes: land them before the HW-18 format freeze, or drop them.
 
-New firmware from that pass has not been compiled yet. Before the freeze,
-compile one fixture each for: DMX and DDP Live, Presence `connected` and mm,
-Keypad keys and Digit, Touch Pad pads, Accel Shake, the Code node's a/b
-block, Encoder clicks (`CtlDetent` with `lroundf`), demo drums, the envelope
-clock, Beat Phase, Schedule Trigger's DateTime, Saturation Keep Brightness,
-Frame Warp motion, the shared trail knob, Game of Life's period-2 reseed,
-Plasma Scale, Field Warp bilinear sampling, Path speed, Text Base, and the
-Music Player seed.
+New firmware from those passes has not been compiled yet. Before the
+freeze, compile one fixture each for: DMX and DDP Live, Presence `connected`
+and mm, Keypad keys and Digit, Touch Pad pads, Accel Shake, the Code node's
+a/b block, Encoder clicks (`CtlDetent` with `lroundf`), demo drums, the
+envelope clock, Beat Phase, Schedule Trigger's DateTime, Saturation Keep
+Brightness, Frame Warp motion, the shared trail knob, Game of Life's
+period-2 reseed, Plasma Scale, Path speed, Text Base, the Music Player seed,
+Frame Transform (a Smooth rotate such as Psydance, and an Exact rate such as
+Laser Monsoon Parade), Field Transform (Lissajous Lattice's wired tiles and
+spin, Golden Ratio Cathedral), Shape Field's rose with spin and
+superformula, Text and the analog clock in Pixels, a 0-1 Line, the Power
+Switch RGB strip (`yynmos4-rgb`, `mosfetti-rgb-avr`), the Board network
+identity (`ethernet` static, `control-graph` show-ntp, player-ntp and
+show-ethernet, the `board-links` runs) and a DS3231 Clock reading its
+module (no fixture yet).
 
 #### Inputs, hardware, graph and code
 
@@ -101,11 +114,6 @@ Music Player seed.
   (and verified renders) for the MAX485 board and the MIDI FeatherWing, and a
   UART allocator. Meanwhile `midiUartValidationIssues` refuses a DIN UART the
   radar, DMX512, the DFPlayer or a second jack already reads.
-- [ ] **Category: Optionally merge TouchButton and Motion into Button
-  (Low, M).** ButtonInput, TouchButtonInput and MotionInput are all one
-  digital line, and TouchButton already derives active level from `partId`.
-  Only worth doing together with the Button/ButtonBank merge; the distinct
-  port names read well otherwise. Evidence `src/codegen/controlInputCpp.ts:65`.
 - [ ] **Button: Make Button a one-row Button Bank (Med, M).** Button Bank is a
   strict superset (per-row name, pin, pull-up, identical `pinMode` and
   `digitalRead` code). Make Button a bank that starts with one row and offers
@@ -202,21 +210,6 @@ Music Player seed.
   Persistence (0.9988–0.99935 per frame) into seconds; the trail-length
   curve wants a by-ear check.
 
-#### Colour and maths
-
-- [ ] **Palette Bank: Accept wired palettes (Low, L).** Only catalogue presets
-  can join a bank; Custom, Poline, Image and Harmony palettes cannot. Add
-  wired palette slots to make it the general palette switcher. Evidence
-  `src/nodes/color/codegen.ts:181`. Needs a decision on the port shape first:
-  the node has no variable-count ports, so slots mean either a fixed set
-  (say Palette 1–4) or a new dynamic-port mechanism. A builder's `pal_<id>`
-  is a `loop()` local, so the sketch cannot keep `&pal_<id>` in the static
-  `_pbPal_<id>[]` table; it would copy the selected slot into the working
-  palette each frame, and the preview's entries become `Palette` values
-  (name or 16 stops) rather than names. The bank body, `paletteBankLabel`
-  and the Name output also assume catalogue names. The Index input (now
-  added) already lets any number source pick a slot.
-
 #### Effects and signals
 
 - [ ] **Category: Fold Kaleidoscope into Mirror (Med, M).** Mirror,
@@ -291,19 +284,6 @@ Music Player seed.
   Formula Shapes), and the id is in three bundled patterns, the node cards'
   file names and saved projects. Decided 2026-11-10: settled by removing the
   node, which waits on the open question in the Formula Shapes item above.
-- [ ] **Category: Grow field nodes so pattern/field twins are not subsets
-  (Low, M).** Noise has 9 algorithms vs Field Noise's fBm only; Game of Life
-  has no Automaton equivalent; Reaction Diffusion/Turing Field, Custom
-  Formula/Field Formula and the gradient patterns repeat likewise. Add
-  `noiseType` to Field Noise and a Conway `life` type to Automaton so field
-  chains are not stuck with the subset.
-- [ ] **Field -> Frame: Add a wireable palette offset (Low, S).** Colour
-  cycling today needs a Palette plus Palette Transform into `paletteIn`.
-  Needs a decision first: Field -> Frame reads a field as an amount (1 is the
-  last colour, `LINEARBLEND_NOWRAP`), while a cycling offset must wrap, so
-  somewhere in the field a 1 takes the colour of a 0 and the jump moves with
-  the offset. Low/High now exist on the node; an offset would apply after
-  them.
 - [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
   32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
   shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
@@ -311,14 +291,6 @@ Music Player seed.
   scroll totals in the preview, and both sketch paths (the baked column
   arrays and the wired `_fontCol` loop, each with wrap and scroll), plus
   Clock Display's `blitText` and its clock glyph table.
-- [ ] **Clock Display: Split Stopwatch/Timer into a signal node (Low, M).**
-  A transport lives inside a drawing node; anyone wanting only `done` still
-  draws digits. Consider a small Timer signal node with Clock Display drawing
-  a wired `seconds`.
-
-
-
-
 #### Generative and simulations
 
 - [ ] **Category: Move the rest of simulation motion onto the clock (Med, M).**
@@ -348,20 +320,6 @@ Music Player seed.
   noise4d and plasma-fractal still wrap their value (`wrap01`), cutting seams
   through non-cyclic palettes such as lava; fbm clamps. Evidence
   `src/nodes/generative/evaluate.ts:299`, `src/nodes/shared/speedRange.ts:52`.
-- [ ] **Category: Default Ripple and String Particles to the LED output's
-  network (Med, M).** Ripple needs the output's network preset, JSON and LEDs
-  per edge, and String Particles needs the ring LED count, all copied by hand
-  with nothing keeping them in sync. Default both to "match LED output" read
-  from the root graph's MatrixOutput, with the current fields as an override.
-  The Ripple default `ledsPerEdge: 14` rarely matches a real build and the
-  Help example uses 4. For String Particles, a ring form gives the ring track
-  and LED count and a strip form gives row. Open questions before building
-  it: which output to match when a board drives several (the multi-board
-  partition model feeds consumers the active board's partition), what the
-  preview does inside a group or pattern where no LED output is reachable,
-  and how a "match" value is saved so a later output change follows it.
-  Evidence `src/state/nodeLibrary.ts:2244`, `:2261`.
-
 #### Outputs and shows
 
 - [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews
@@ -753,6 +711,30 @@ and an Upload information shelf in
   SD-player generators is an open question, because a show already owns its
   LEDs: take the LEDs over while packets arrive, or act only as remote control.
   NTP in those generators shipped with D-03.
+
+- [ ] **Node review: Category: Grow field nodes so pattern/field twins are not subsets
+  (Low, M).** Noise has 9 algorithms vs Field Noise's fBm only; Game of Life
+  has no Automaton equivalent; Reaction Diffusion/Turing Field, Custom
+  Formula/Field Formula and the gradient patterns repeat likewise. Add
+  `noiseType` to Field Noise and a Conway `life` type to Automaton so field
+  chains are not stuck with the subset.
+- [ ] **Node review: Clock Display: Split Stopwatch/Timer into a signal node (Low, M).**
+  A transport lives inside a drawing node; anyone wanting only `done` still
+  draws digits. Consider a small Timer signal node with Clock Display drawing
+  a wired `seconds`.
+- [ ] **Node review: Category: Default Ripple and String Particles to the LED output's
+  network (Med, M).** Ripple needs the output's network preset, JSON and LEDs
+  per edge, and String Particles needs the ring LED count, all copied by hand
+  with nothing keeping them in sync. Default both to "match LED output" read
+  from the root graph's MatrixOutput, with the current fields as an override.
+  The Ripple default `ledsPerEdge: 14` rarely matches a real build and the
+  Help example uses 4. For String Particles, a ring form gives the ring track
+  and LED count and a strip form gives row. Open questions before building
+  it: which output to match when a board drives several (the multi-board
+  partition model feeds consumers the active board's partition), what the
+  preview does inside a group or pattern where no LED output is reachable,
+  and how a "match" value is saved so a later output change follows it.
+  Evidence `src/state/nodeLibrary.ts:2244`, `:2261`.
 
 ## Completed
 

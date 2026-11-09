@@ -9,6 +9,26 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- A Network group in the Board's settings: hostname, DHCP or a static address,
+  and Wi-Fi name and password. Every network feature on that board shares it,
+  and each board in a multi-board project has its own.
+- The DS3231 RTC as a bench part (Hardware → Clocks). A Clock set to DS3231
+  reads it, and Graph Health and the Clock offer Add a DS3231 when it is
+  missing.
+- Frame Transform has a Mode (Exact or Smooth) and a per-second rate for
+  Rotate, Scale and Offset X/Y. Smooth adds Edges and Sampling.
+- Field Transform has Angle, Spin, Zoom, Tiles X/Y and Edges (Clamp, Wrap or
+  Mirror).
+- Shape Field draws a rose (Petals) and Gielis's superformula (Lobes, N1-N3,
+  A, B), placed, sized and filled like its other shapes in Fill, Distance and
+  Falloff.
+- Shape Field's Spin keeps any of its shapes turning, in degrees a second.
+- Shape, Text, Clock Display and Line have a Units select, 0-1 (the default)
+  or Pixels.
+- Power Switch can drive a plain RGB strip. On a Mosfetti or YYNMOS-4, set
+  Load to RGB strip: channels 1-3 become red, green and blue, driven from one
+  Color with Brightness at the board's own PWM rate, and channel 4 stays a
+  separate load. The Build Diagram shows where each strip lead lands.
 - Audio previews with the computer's microphone or line input before the part
   is on the bench; deploy still asks for the part.
 - DMX / Art-Net and DDP Input have a Live output, for falling back to your own
@@ -242,6 +262,27 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- The RTC Clock is now Clock, a library node. Compile Time, Manual and NTP
+  need no part, and NTP uses the Board's network.
+- The Web Remote and radio station pages answer at the Board's hostname
+  (fastled-board.local by default).
+- Network checks ask the Board once (Wi-Fi name, hostname, static address) and
+  their cards open that board's settings.
+- Field Warp is now Field Transform, and its offset ports read "Offset X" and
+  "Offset Y".
+- Frame Warp keeps only its field and built-in displacement; turning and
+  zooming a whole frame is Frame Transform's job.
+- Shape, Text and Clock Display no longer read a position above 1 as a pixel,
+  so a wired value overshooting 1 slides just past the edge instead of jumping
+  to pixel 1. Set Units to Pixels for pixel positions.
+- Pixel positions count from pixel centres on Shape, Text, Clock Display and
+  Line alike (0 the first pixel, max_x the last).
+- Line defaults to 0-1 Units, where 0 is the first pixel and 1 the last; a
+  fresh Line still runs corner to corner. Lines saved with pixel ends need
+  Units set to Pixels.
+- Power Switch's Help example is now an RGB cove light that follows the
+  matrix. A Power Switch RGB strip with a wire that can light it makes a graph
+  buildable without an LED output.
 - Encoder Position counts clicks rather than quarter steps.
 - Presence Sensor Distance is in millimetres, like Distance Sensor.
 - `previewPort` is renamed `udpPort` ("UDP port") on DMX / Art-Net and DDP
@@ -760,6 +801,17 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Network settings on every network node after the first were ignored by the
+  firmware, and clock sync and board-link checks read the wrong node's Wi-Fi.
+- Frame Stream had no way to set Wi-Fi.
+- Turning a field no longer forces wrapping; it holds the edge by default, so
+  a ramp no longer pulls the far side into the corners.
+- Tiling a field averages the pixels each copy shrinks instead of skipping
+  them, so detail no longer drops out.
+- Shape Field's Aspect is shown for the ellipse again; only the rectangle had
+  it.
+- In the preview, the Analog + Date clock's date no longer jumps when the face
+  sits in the top rows; it stays on the row under the face, as on the LEDs.
 - SACN on the default universe 0 never received anything; it now listens to
   universe 1.
 - The MIDI Channel filter now applies in the preview as it does on the board.
@@ -1162,6 +1214,15 @@ versioning (`0.y.z`) until the first stable release.
 - Saved projects are not migrated for the node removals, renames and property
   changes below (pre-1.0); every bundled pattern, Help example and starter
   template was converted.
+- Per-node Wi-Fi, hostname and addressing fields on DMX / Art-Net, DDP Input,
+  Web Remote, Clock, Frame Stream and the Music Player radio, and the "network
+  nodes disagree" warning. Older saves drop these fields, and the Clock's
+  DS3231 pins, without migration.
+- The Transform, Field Rotate and Field Tile nodes, and Frame Warp's Zoom and
+  Rotate (bundled patterns and Help examples converted).
+- The Analog RGB Strip node (use Power Switch with Load set to RGB strip).
+- Particles' Confetti mode (use the Confetti node) and Orbit mode; saved uses
+  of either run as Fountain.
 - The Storage node, which nothing could read.
 - Beat Detect's Flux, Onset, Contrast, Threshold and Cooldown outputs; the
   node's readout shows them instead.
