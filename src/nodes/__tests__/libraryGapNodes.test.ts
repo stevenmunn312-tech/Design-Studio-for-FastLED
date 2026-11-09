@@ -411,3 +411,26 @@ describe('Text with a wired string and Palette Transform', () => {
     expect(cpp).toContain('int _k=15-_i;')
   })
 })
+
+describe('Code node A and B', () => {
+  it('declares a and b around the pasted loop, wired or from the fields', () => {
+    const code = node('c', 'Code', { code: 'leds[0] = CRGB(a, b, 0);', a: 0.5, b: 2 })
+    const out = node('out', 'MatrixOutput', { width: 8, height: 8 })
+    const shown = edge('c', 'frame', 'out', 'frame')
+    const cpp = generateCpp([code, out], [shown])
+    // The pasted body has a block of its own, so its own `a` shadows the input.
+    expect(cpp).toContain('float a=0.5, b=2; (void)a; (void)b;\n    {\n    leds[0] = CRGB(a, b, 0);\n    }')
+    const wired = generateCpp([node('k', 'Constant', { value: 3 }), code, out], [edge('k', 'value', 'c', 'a'), shown])
+    expect(wired).not.toContain('float a=0, b=2;')
+    expect(wired).toMatch(/float a=[^,]+, b=2;/)
+  })
+
+  it('leaves a Global variable named a to the pasted code', () => {
+    const cpp = generateCpp([
+      node('c', 'Code', { globalCode: 'uint8_t a = 1;', code: 'a++; leds[0] = CRGB(a, b, 0);' }),
+      node('out', 'MatrixOutput'),
+    ], [edge('c', 'frame', 'out', 'frame')])
+    expect(cpp).toContain('float b=0; (void)b;')
+    expect(cpp).not.toContain('float a=')
+  })
+})

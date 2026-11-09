@@ -37,9 +37,17 @@ export const CODE_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       // Optional: seed leds[] from an upstream frame (e.g. to fadeToBlackBy it).
       { id: 'frame', label: 'Frame', dataType: 'frame' },
+      // Two numbers the loop reads as `a` and `b`, so pasted code can follow a
+      // pot, a remote slider or an audio level without editing it.
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
     ],
+    propertyInputs: { a: 'a', b: 'b' },
+    defaultExposedInputs: ['a', 'b'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
+      a: 0,
+      b: 0,
       // File-scope: persistent vars, palettes, helper functions. Emitted above
       // setup()/loop() in the sketch; runs once per compile in the preview, so
       // its variables persist across frames as they do on the board.

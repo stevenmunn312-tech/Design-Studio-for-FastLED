@@ -3268,6 +3268,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     b: 'Blue of the colour to convert, 0 to 255, when neither the Color port nor B is wired.',
   },
   Code: {
+    a: 'A number the loop reads as a, in the preview and on the board. Wire a pot, a remote slider or an audio level to steer pasted code.',
+    b: 'A second number the loop reads as b.',
     globalCode: 'File-scope C++: persistent variables, palettes and helpers. Emitted above setup() and run once in the preview.',
     code: 'The loop body. Write into leds[] each frame as in a FastLED sketch; it runs in the preview sandbox and verbatim on the board.',
   },

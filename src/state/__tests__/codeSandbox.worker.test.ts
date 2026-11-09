@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { handleRunRequest, type RunRequest } from '../codeSandbox.worker'
 import { transpileSections } from '../codeSandboxRuntime'
+import { codeInputNames } from '../codeInputs'
 
 // handleRunRequest holds its compiled-fn/leds[] state at module scope — the
 // same way one real Worker instance IS one Code-node instance's persistent
@@ -16,7 +17,7 @@ function blackSeed(): Uint8ClampedArray {
   return new Uint8ClampedArray(W * H * 3)
 }
 
-function run(code: string, opts: { globalCode?: string; t?: number; seed?: Uint8ClampedArray | null } = {}) {
+function run(code: string, opts: { globalCode?: string; t?: number; seed?: Uint8ClampedArray | null; a?: number; b?: number } = {}) {
   const globalCode = opts.globalCode ?? ''
   const { globalBody, body } = transpileSections(globalCode, code)
   const cacheKey = globalCode + ' ' + code
@@ -27,6 +28,9 @@ function run(code: string, opts: { globalCode?: string; t?: number; seed?: Uint8
     body,
     t: opts.t ?? 0,
     W, H,
+    a: opts.a ?? 0,
+    b: opts.b ?? 0,
+    inputs: codeInputNames(globalCode),
     seed: 'seed' in opts ? opts.seed! : blackSeed(),
   }
   return handleRunRequest(req)
@@ -36,6 +40,27 @@ function pixelAt(pixels: Uint8ClampedArray, x: number, y: number) {
   const i = (y * W + x) * 3
   return { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] }
 }
+
+describe('the Code node A and B inputs', () => {
+  it('reads A and B as a and b in the loop', () => {
+    const res = run('leds[0] = CRGB(a, b, 0);', { a: 120, b: 30 })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 120, g: 30, b: 0 })
+  })
+
+  // Pasted code with its own a keeps it: a loop declaration shadows the input,
+  // and a Global variable named a is left unbound so `a++` still reaches it.
+  it('leaves a loop or Global variable named a to the pasted code', () => {
+    expect(run('uint8_t a = 9; leds[0] = CRGB(a, 0, 0);', { a: 200 }).error).toBeNull()
+    expect(pixelAt(run('uint8_t a = 9; leds[0] = CRGB(a, 0, 0);', { a: 200 }).pixels, 0, 0).r).toBe(9)
+    const global = 'uint8_t a = 40;'
+    expect(codeInputNames(global)).toEqual(['b'])
+    const res = run('leds[0] = CRGB(a, b, 0);', { globalCode: global, a: 200, b: 7 })
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 40, g: 7, b: 0 })
+    // A comment or a string mentioning a does not count.
+    expect(codeInputNames('// a palette\nconst char *s = "a b";')).toEqual(['a', 'b'])
+  })
+})
 
 describe('codeSandbox.worker — handleRunRequest', () => {
   it('setLed writes a pixel (CHSV)', () => {

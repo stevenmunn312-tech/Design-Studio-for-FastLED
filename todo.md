@@ -127,12 +127,6 @@ freeze, or drop them.
   Derive the source from the upstream battery or trigger when on the bench
   and show it read-only, which removes the PD-mismatch warning. Evidence
   `src/build/power/electricalPlan.ts:549`, `src/build/power/electricalPlan.ts:461`.
-- [ ] **Code: Add float A/B inputs (Med, M).** The only input is an optional
-  seed Frame, so a pasted FastLED effect can't follow a pot, Web Remote
-  slider or audio level without editing the code. Add Custom Formula's float
-  A/B inputs, available as `a`/`b` in both the shim and the sketch. Evidence
-  `src/nodes/code/definitions.ts:31`.
-
 #### Audio and audio-reactive
 
 - [ ] **Category: Expose band and drum sockets on audio patterns (High, S).**

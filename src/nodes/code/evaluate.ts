@@ -42,12 +42,15 @@ export const CODE_EVALUATORS: NodeEvaluators = {
     // fallback a compile failure already uses (todo.md's P0 trust item).
     return { frame: trusted ? evalCustomFormula(formula, a, b, palette, t, W, H) : blankFrame(W, H) }
   },
-  Code({ input, t, W, H, stateKey, trusted }, id, props) {
+  Code({ input, num, t, W, H, stateKey, trusted }, id, props) {
     const seed = input(id, 'frame', null) as Frame | null
     const code = String(props.code ?? '')
     const globalCode = String(props.globalCode ?? '')
+    // The loop reads A and B as `a` and `b`, as the sketch's block does.
+    const a = num(id, 'a', props, 'a', 0)
+    const b = num(id, 'b', props, 'b', 0)
     // Untrusted content doesn't get to run its code — same blank-frame
     // fallback a compile failure already uses (todo.md's P0 trust item).
-    return { frame: trusted ? evalCodeAsync(stateKey(id), globalCode, code, seed, t, W, H) : blankFrame(W, H) }
+    return { frame: trusted ? evalCodeAsync(stateKey(id), globalCode, code, seed, t, W, H, a, b) : blankFrame(W, H) }
   },
 }

@@ -1448,10 +1448,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Code runs raw FastLED C++ that writes into leds[], exactly as in a hand-written sketch. Paste a loop body and it is compiled into the firmware verbatim.',
       'The preview translates the code to approximate it in the browser, so most FastLED idioms — beatsin16, CHSV, fadeToBlackBy, |=, EVERY_N_MILLISECONDS, ColorFromPalette with your own DEFINE_GRADIENT_PALETTE or fill_gradient palettes, a custom XY() map, static locals and typed arrays — show live, and a pasted sketch header with its #includes and #defines compiles. Global Code holds variables and helpers that persist between frames. Wire a frame into Frame to start from it instead of the previous output.',
+      'A and B are two numbers the loop reads as a and b, on the board and in the preview, so a pot, a Web Remote slider or an audio level can steer pasted code without editing it. A loop that declares its own a or b keeps it, and so does Global Code that already uses one of those names.',
       'Code runs only once you have answered Run it on the bar above the canvas; until then a project from another computer shows black.',
     ],
     inputs: {
       frame: 'An optional frame to start leds[] from each frame.',
+      a: 'A number the loop reads as a.',
+      b: 'A number the loop reads as b.',
     },
     outcome: 'The live preview runs your code in a browser worker, which this page cannot show. Try it live to watch it run.',
     example: example({
