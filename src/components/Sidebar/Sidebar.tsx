@@ -1040,12 +1040,29 @@ function Sidebar() {
     )
   }
 
+  // LED outputs, displays and the other physical outputs are added from the
+  // bench, so the Output section here holds only the few graph-side ones. A
+  // permanent signpost saves a new user's first search for "LED".
+  const outputsOnHardwareRow = (
+    <div className={styles.hardwareMatches}>
+      <button
+        type="button"
+        className={styles.hardwareMatch}
+        onClick={() => openHardwareShelf('MatrixOutput')}
+        title="LED outputs, displays, relays and the other physical outputs are added from the Hardware tab"
+      >
+        <span className={styles.hardwareMatchName}>LED outputs are on the Hardware tab</span>
+        <span className={styles.hardwareMatchHint}>Open &rarr;</span>
+      </button>
+    </div>
+  )
+
   const renderSection = (
     id: string,
     label: string,
     accent: string,
     defs: NodeDefinition[],
-    opts?: { emptyMessage?: string },
+    opts?: { emptyMessage?: string; lead?: React.ReactNode },
   ) => {
     if (defs.length === 0 && !opts?.emptyMessage) return null
     const open = expandedId === id
@@ -1068,6 +1085,7 @@ function Sidebar() {
             ▾
           </span>
         </button>
+        {open && opts?.lead}
         {open && (
           defs.length === 0 ? (
             <div className={styles.patternDropHint}>{opts?.emptyMessage}</div>
@@ -1324,7 +1342,8 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${pattern.origin ? `Imported${pat
         {CATEGORIES.map(({ id, label }) => {
           const nodes = filteredByView(categoryNodes(id))
           if (nodes.length === 0) return null
-          return renderSection(id, label, CATEGORY_ACCENT_VAR[id], nodes)
+          return renderSection(id, label, CATEGORY_ACCENT_VAR[id], nodes,
+            id === 'output' ? { lead: outputsOnHardwareRow } : undefined)
         })}
 
         {/* Pattern Library — bundled examples plus persistent saved pattern groups. Always

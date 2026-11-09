@@ -93,6 +93,17 @@ describe('Sidebar equipment rack', () => {
     expect(useUiStore.getState().hardwareShelfTarget).toBe('ButtonInput')
   })
 
+  // Everything physical is added from the bench, so the Output section held
+  // only Master Speed, Frame Stream and Analog RGB Strip and a new user went
+  // looking for the LED output there.
+  it('points the Output section at the Hardware tab for LED outputs', () => {
+    const { getByRole, getByText } = render(<Sidebar />)
+    fireEvent.click(getByRole('button', { name: /^Output▾/ }))
+    fireEvent.click(getByText('LED outputs are on the Hardware tab'))
+    expect(useUiStore.getState().workspaceMode).toBe('hardware')
+    expect(useUiStore.getState().hardwareShelfTarget).toBe('MatrixOutput')
+  })
+
   it('keeps only one category open at a time', () => {
     const { getByRole, getByLabelText, queryByLabelText } = render(<Sidebar />)
 

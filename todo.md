@@ -1202,10 +1202,6 @@ freeze, or drop them.
   Display, Display Panel and Segment Display stay separate nodes. Relabel them
   with the parts people buy ("OLED Display", "TFT Display", "7-Segment
   Display").
-- [ ] **Category: Point the sidebar Output section at the Hardware tab (Low,
-  S).** It lists only Master Speed, Frame Stream and Analog RGB Strip because
-  everything else is added from the bench. Add a permanent "LED outputs are on
-  the Hardware tab" row. Evidence `src/build/hardware.ts:27`.
 - [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews
   (Med, M).** `MAX_LED_RUN` stops them at 300 while a matrix may reach 4096,
   though one 5 m reel at 144/m is 720. Raise the chain cap toward the matrix
