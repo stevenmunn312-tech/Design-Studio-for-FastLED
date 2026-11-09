@@ -60,7 +60,7 @@ Detailed contracts and traps live under `docs/development/patterns/`. Read the m
 
 - Use plain `git`.
 - `main` is the single active line. Work directly on `main` by default. Use a focused `codex/` branch only when the user explicitly requests one.
-- `Hardware` is retired: `main` was pointed at it on 2026-11-09. Do not commit to it, and do not delete it without explicit approval. The last public-beta state is the `beta-final` tag.
+- The old `Hardware` branch is gone: `main` was pointed at it on 2026-11-09 and it was deleted on 2026-11-10. The last public-beta state is the `beta-final` tag.
 - Routine pull, branch, stage, commit, push, and draft-PR operations are pre-approved.
 - A session hook fast-forwards the checked-out branch from its upstream at start and on each prompt, and reports instead when tracked files are modified or the branch has diverged; see [git sync](.claude/hooks/git-sync/README.md).
 - Do not force-push, rewrite shared history, delete branches, hard-reset, or discard user work without explicit approval.
