@@ -54,8 +54,8 @@ function silkAttractor(): AudioReleaseSeed {
   // The drop opens the woven attractor rather than replacing it with a white flash.
   const zoom = b.map('open', 'dropEnvelope', 'result', 1, 1.42)
   const tilt = b.map('tilt', 'stereo', 'balance', -8, 8)
-  b.node('opening', 'FrameWarp', { strength: 0, edgeMode: 'wrap', sampling: 'bilinear' })
-  b.wire('filaments', 'frame', 'opening', 'frame').wire(zoom, 'result', 'opening', 'zoom')
+  b.node('opening', 'FrameTransform', { mode: 'smooth', edgeMode: 'wrap', sampling: 'bilinear' })
+  b.wire('filaments', 'frame', 'opening', 'frame').wire(zoom, 'result', 'opening', 'scale')
   b.wire(tilt, 'result', 'opening', 'rotate')
   return b.finish('opening')
 }
@@ -74,8 +74,8 @@ function moonflowerRelease(): AudioReleaseSeed {
   b.wire('flower', 'field', 'texture', 'a').wire('radial', 'field', 'texture', 'b')
   const frame = shade(b, 'texture')
   const zoom = b.map('bloom', 'dropEnvelope', 'result', 1, 1.5)
-  b.node('blooming', 'FrameWarp', { strength: 0, edgeMode: 'clamp', sampling: 'bilinear' })
-  b.wire(frame, 'frame', 'blooming', 'frame').wire(zoom, 'result', 'blooming', 'zoom')
+  b.node('blooming', 'FrameTransform', { mode: 'smooth', edgeMode: 'clamp', sampling: 'bilinear' })
+  b.wire(frame, 'frame', 'blooming', 'frame').wire(zoom, 'result', 'blooming', 'scale')
   return b.finish('blooming')
 }
 

@@ -1016,15 +1016,15 @@ describe('evaluateGraph', () => {
     expect(evaluateScalar([wa, wb, cw], edges, 'cw', 'result', 40)).toBeCloseTo(expected, 6)
   })
 
-  it('Transform translates a frame and is identity at rate 0', () => {
-    // A blue top row, then a Transform. Grid 16×4.
-    const run = (transform: string, rate: number, angle: number, tick: number) => {
+  it('Frame Transform moves a frame by its rates and is the identity at rest', () => {
+    // A blue top row, then a Frame Transform. Grid 16×4.
+    const run = (properties: Record<string, unknown>, tick: number) => {
       // A crisp blue top row: a Shape rect covering exactly row 0 across the width.
       const sp = node('sp', 'Shape', 'pattern', {
         shape: 'rect', cx: 0.5, cy: 0.25, size: 0.5, aspect: 16,
         rotation: 0, thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
       })
-      const tr = node('tr', 'Transform', 'composite', { transform, rate, angle })
+      const tr = node('tr', 'FrameTransform', 'composite', properties)
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
         [sp, tr, out],
@@ -1032,24 +1032,25 @@ describe('evaluateGraph', () => {
         tick, 16, 4,
       )!
     }
-    // translate down by 2 rows (angle 90°, 2 px/s at t=1): row 0 → row 2.
-    const t = run('translate', 2, 90, 60)
+    // Slide down 2 rows a second: at t=1, row 0 → row 2.
+    const t = run({ offsetYRate: 2 }, 60)
     expect(t[2][5]).toEqual({ r: 0, g: 0, b: 255 })
     expect(t[0][5]).toEqual({ r: 0, g: 0, b: 0 })
-    // rate 0 is the identity transform for every mode.
-    expect(run('rotate', 0, 0, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
-    expect(run('scale', 0, 0, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
-    expect(run('rotate', 0, 0, 60)[2][5]).toEqual({ r: 0, g: 0, b: 0 })
-    // A negative rate runs the other way. Each case starts from a fresh phase,
-    // because the rate integrates per node. Translate up by one row wraps row
-    // 0 to row 3 of four; scale shrinks to half, so the one-pixel top row
-    // falls between samples and leaves the edge dark.
+    // Every rate at 0 is the identity in both modes. The rates integrate per
+    // node, so each case starts from a fresh phase.
     resetEvaluatorState()
-    const up = run('translate', -1, 90, 60)
+    expect(run({ mode: 'exact' }, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(run({ mode: 'smooth' }, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(run({ mode: 'smooth' }, 60)[2][5]).toEqual({ r: 0, g: 0, b: 0 })
+    // A negative rate runs the other way. Sliding up by one row wraps row 0
+    // to row 3 of four; the scale rate shrinks the frame, so the one-pixel
+    // top row falls between nearest samples and leaves the edge dark.
+    resetEvaluatorState()
+    const up = run({ offsetYRate: -1 }, 60)
     expect(up[3][5]).toEqual({ r: 0, g: 0, b: 255 })
     expect(up[0][5]).toEqual({ r: 0, g: 0, b: 0 })
     resetEvaluatorState()
-    const shrunk = run('scale', -50, 0, 60)
+    const shrunk = run({ mode: 'smooth', scaleRate: -50, sampling: 'nearest' }, 60)
     expect(shrunk[0][5]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
@@ -4318,8 +4319,8 @@ describe('Pattern node expansion — Phase 2 Frame Warp', () => {
     return evaluateGraph(nodes, edges, 0, W, H)!
   }
 
-  it('is an exact identity with neutral transform and no offset fields', () => {
-    const frame = render({ strength: 2, zoom: 1, rotate: 0, edgeMode: 'clamp', sampling: 'bilinear' })
+  it('is an exact identity with no offset fields and no built-in motion', () => {
+    const frame = render({ strength: 2, motion: 'none', edgeMode: 'clamp', sampling: 'bilinear' })
     expect(frame[0].map((px) => px.r)).toEqual([0, 85, 170, 255])
   })
 

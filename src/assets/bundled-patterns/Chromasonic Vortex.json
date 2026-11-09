@@ -649,13 +649,23 @@
           "y": -100
         },
         "data": {
-          "label": "Transform",
-          "nodeType": "Transform",
+          "label": "Frame Transform",
+          "nodeType": "FrameTransform",
           "category": "composite",
           "properties": {
-            "transform": "rotate",
-            "rate": 60,
-            "angle": 0
+            "mode": "smooth",
+            "rotate": 0,
+            "rotateRate": 60,
+            "scale": 1,
+            "scaleRate": 0,
+            "flipX": false,
+            "flipY": false,
+            "offsetX": 0,
+            "offsetY": 0,
+            "offsetXRate": 0,
+            "offsetYRate": 0,
+            "edgeMode": "black",
+            "sampling": "nearest"
           },
           "inputs": [
             {
@@ -664,8 +674,43 @@
               "dataType": "frame"
             },
             {
-              "id": "rate",
-              "label": "Rate",
+              "id": "rotate",
+              "label": "Rotate",
+              "dataType": "float"
+            },
+            {
+              "id": "rotateRate",
+              "label": "Rotate Rate",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale",
+              "dataType": "float"
+            },
+            {
+              "id": "scaleRate",
+              "label": "Scale Rate",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetX",
+              "label": "Offset X",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetY",
+              "label": "Offset Y",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetXRate",
+              "label": "Offset X Rate",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetYRate",
+              "label": "Offset Y Rate",
               "dataType": "float"
             }
           ],
@@ -1094,7 +1139,7 @@
         "source": "MapRange-1",
         "sourceHandle": "result",
         "target": "Transform-1",
-        "targetHandle": "rate",
+        "targetHandle": "rotateRate",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

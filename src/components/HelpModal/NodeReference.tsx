@@ -586,7 +586,7 @@ function UsingNodesArticle() {
 
       <section className={styles.manualSection}>
         <h2>A reliable first patch</h2>
-        <p className={styles.guideCallout}>Add <b>Juggle</b> and <b>LED Matrix</b>, then connect <b>Juggle.frame → LED Matrix.frame</b>. If the LED Preview animates, the graph is complete. Set Count to 5, raise Speed, splice in Trails, then splice in Transform. This two-node patch uses the same editing workflow as a full show.</p>
+        <p className={styles.guideCallout}>Add <b>Juggle</b> and <b>LED Matrix</b>, then connect <b>Juggle.frame → LED Matrix.frame</b>. If the LED Preview animates, the graph is complete. Set Count to 5, raise Speed, splice in Trails, then splice in Frame Transform and give it a Rotate rate. This two-node patch uses the same editing workflow as a full show.</p>
       </section>
     </article>
   )

@@ -16,7 +16,9 @@ import {
 import { instanceState } from '../../state/evaluator/memory'
 import { normalizedSeed, seededRandom } from '../../state/evaluator/random'
 import { glitterBudget, glitterMode } from './glitter'
-import { frameOffset, frameQuarterTurns } from './frameTransform'
+import {
+  exactSource, exactTransformFrame, frameScale, frameTransformEdge, frameTransformMode, smoothSource, smoothTransformFrame,
+} from './frameTransform'
 import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
 import { TRAIL_MIN_STEP, fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
@@ -42,38 +44,25 @@ interface FrameFeedbackState {
 }
 const frameFeedbackState = instanceState('frameFeedbackState', new Map<string, FrameFeedbackState>())
 
-// Animated geometric transform of a frame, resampled nearest-neighbour about
-// the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
-// between double and half size and back (./transformZoom.ts), `translate`
-// shifts by rate px/s along `angle°` (toroidal wrap).
-function evalTransform(key: string, src: Frame, mode: string, rate: number, angle: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const cx = (W - 1) / 2, cy = (H - 1) / 2
-  const phase = speedPhase(key, t, rate)
-  const sample = (sx: number, sy: number): RGB => {
-    const xi = Math.round(sx), yi = Math.round(sy)
-    if (xi < 0 || xi >= W || yi < 0 || yi >= H) return { r: 0, g: 0, b: 0 }
-    return { ...src[yi][xi] }
-  }
-  if (mode === 'translate') {
-    const a = (angle * Math.PI) / 180
-    const dx = Math.cos(a) * phase, dy = Math.sin(a) * phase
+// Frame Transform (./frameTransform.ts). Exact copies whole pixels; Smooth
+// samples at any angle, scale and fraction of a pixel.
+function evalFrameTransform(
+  src: Frame, smooth: boolean, turn: number, scale: number, flipX: boolean, flipY: boolean,
+  ox: number, oy: number, edgeMode: FrameEdgeMode, bilinear: boolean, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  if (!smooth) {
+    const frame = exactTransformFrame(turn, flipX, flipY, ox, oy, W, H)
     return buildFrame(W, H, (x, y) => {
-        const sx = ((Math.round(x - dx) % W) + W) % W
-        const sy = ((Math.round(y - dy) % H) + H) % H
-        return { ...src[sy][sx] }
-      })
-  }
-  if (mode === 'scale') {
-    const s = transformZoom(phase)
-    return buildFrame(W, H, (x, y) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
-  }
-  // rotate: sample the source under the inverse rotation
-  const a = (phase * Math.PI) / 180
-  const cosA = Math.cos(a), sinA = Math.sin(a)
-  return buildFrame(W, H, (x, y) => {
-      const rx = x - cx, ry = y - cy
-      return sample(cx + rx * cosA + ry * sinA, cy - rx * sinA + ry * cosA)
+      const at = exactSource(x, y, frame)
+      const s = src[Math.trunc(at / W)][at % W]
+      return { r: s.r, g: s.g, b: s.b }
     })
+  }
+  const frame = smoothTransformFrame(turn, scale, flipX, flipY, ox, oy, W, H)
+  return buildFrame(W, H, (x, y) => {
+    const [sx, sy] = smoothSource(x, y, frame)
+    return sampleFrame(src, sx, sy, edgeMode, bilinear)
+  })
 }
 
 function evalFrameFeedback(
@@ -253,14 +242,6 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       ),
     }
   },
-  Transform({ input, num, t, W, H, stateKey }, id, props) {
-    const src = input(id, 'frame', null) as Frame | null
-    if (!src) { return { frame: null } }
-    const mode = String(props.transform ?? 'rotate')
-    const rate = num(id, 'rate', props, 'rate', 90)
-    const angle = num(id, 'angle', props, 'angle', 0)
-    return { frame: evalTransform(stateKey(id), src, mode, rate, angle, t, W, H) }
-  },
   Array({ input, num, W, H }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) { return { frame: null } }
@@ -357,18 +338,14 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     trailState.set(key, buf)
     return { frame: buf }
   },
-  // Milkdrop-style per-pixel frame displacement. The transform is an inverse
-  // read (zoom/rotate about the canvas centre), then dx/dy push that read in
-  // source-pixel units. An absent offset field is neutral at 0.5.
+  // Milkdrop-style per-pixel frame displacement: dx/dy push each pixel's read
+  // in source-pixel units. An absent offset field is neutral at 0.5.
   FrameWarp({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) return { frame: null }
     const dx = input(id, 'dx', null) as Field | null
     const dy = input(id, 'dy', null) as Field | null
     const strength = Math.max(0, Math.min(8, num(id, 'strength', props, 'strength', 2)))
-    const zoom = Math.max(0.25, Math.min(4, num(id, 'zoom', props, 'zoom', 1)))
-    const angle = Math.max(-180, Math.min(180, num(id, 'rotate', props, 'rotate', 0))) * Math.PI / 180
-    const co = Math.cos(angle), si = Math.sin(angle)
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const edgeMode: FrameEdgeMode = props.edgeMode === 'wrap' || props.edgeMode === 'black' ? props.edgeMode : 'clamp'
     const bilinear = props.sampling !== 'nearest'
@@ -378,14 +355,11 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const phase = builtIn ? speedPhase(stateKey(id), t, num(id, 'motionSpeed', props, 'motionSpeed', 0.25)) : 0
     const reach = Math.max(cx, cy, 1)
     return { frame: buildFrame(W, H, (x, y) => {
-      const px = (x - cx) / zoom, py = (y - cy) / zoom
       const i = y * W + x
       const [pushX, pushY] = builtIn
         ? warpPush(motion, (x - cx) / reach, (y - cy) / reach, phase)
         : [2 * (dx?.[i] ?? 0.5) - 1, 2 * (dy?.[i] ?? 0.5) - 1]
-      const sx = cx + px * co + py * si + pushX * strength
-      const sy = cy - px * si + py * co + pushY * strength
-      return sampleFrame(src, sx, sy, edgeMode, bilinear)
+      return sampleFrame(src, x + pushX * strength, y + pushY * strength, edgeMode, bilinear)
     }) }
   },
   Symmetry({ input, num, t, W, H, stateKey }, id, props) {
@@ -453,26 +427,29 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     }
     return { frame }
   },
-  // Keep in lockstep with the `FrameTransform` emitter: a destination pixel
-  // undoes the slide, the flips and the rotation to find its source, on
-  // normalised coordinates so a quarter turn also fits a non-square matrix.
-  FrameTransform({ input, num, W, H }, id, props) {
+  // Keep in lockstep with the `FrameTransform` emitter (./frameTransform.ts):
+  // each of the turn, the scale and the slide is its value plus a rate
+  // integrated on the node's speed clock. The scale rate breathes between
+  // double and half size, and only Smooth reads the scale.
+  FrameTransform({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) return { frame: blankFrame(W, H) }
-    const turns = frameQuarterTurns(props.rotate)
-    const flipX = Boolean(props.flipX), flipY = Boolean(props.flipY)
-    const ox = frameOffset(num(id, 'offsetX', props, 'offsetX', 0))
-    const oy = frameOffset(num(id, 'offsetY', props, 'offsetY', 0))
-    return { frame: buildFrame(W, H, (x, y) => {
-      const px = (((x - ox) % W) + W) % W, py = (((y - oy) % H) + H) % H
-      let u = W > 1 ? px / (W - 1) : 0, v = H > 1 ? py / (H - 1) : 0
-      if (flipX) u = 1 - u
-      if (flipY) v = 1 - v
-      for (let k = 0; k < turns; k++) { const nu = v; v = 1 - u; u = nu }
-      const sx = Math.round(u * (W - 1)), sy = Math.round(v * (H - 1))
-      const s = src[sy][sx]
-      return { r: s.r, g: s.g, b: s.b }
-    }) }
+    const key = stateKey(id)
+    const smooth = frameTransformMode(props.mode) === 'smooth'
+    const turn = num(id, 'rotate', props, 'rotate', 0)
+      + speedPhase(key, t, num(id, 'rotateRate', props, 'rotateRate', 0), 'rotate')
+    const ox = num(id, 'offsetX', props, 'offsetX', 0)
+      + speedPhase(key, t, num(id, 'offsetXRate', props, 'offsetXRate', 0), 'x')
+    const oy = num(id, 'offsetY', props, 'offsetY', 0)
+      + speedPhase(key, t, num(id, 'offsetYRate', props, 'offsetYRate', 0), 'y')
+    const scale = smooth
+      ? frameScale(num(id, 'scale', props, 'scale', 1))
+        * transformZoom(speedPhase(key, t, num(id, 'scaleRate', props, 'scaleRate', 0), 'scale'))
+      : 1
+    return { frame: evalFrameTransform(
+      src, smooth, turn, scale, Boolean(props.flipX), Boolean(props.flipY), ox, oy,
+      frameTransformEdge(props.edgeMode), props.sampling !== 'nearest', W, H,
+    ) }
   },
   Mask({ input }, id) {
     const src = input(id, 'frame', null) as Frame | null

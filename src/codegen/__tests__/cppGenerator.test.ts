@@ -1199,25 +1199,27 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('::memmove(buf_cd, buf_sc,')
   })
 
-  it('emits a Transform that resamples from the source buffer per mode', () => {
-    const mk = (transform: string, extra: Record<string, unknown> = {}) => {
+  it('emits a Frame Transform that resamples from the source buffer per mode', () => {
+    const mk = (properties: Record<string, unknown>) => {
       const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-      const tr = node('tr', 'Transform', 'composite', { transform, rate: 90, angle: 45, ...extra })
+      const tr = node('tr', 'FrameTransform', 'composite', properties)
       return generateCpp([sc, tr, outputNode], [
         edge('e1', 'sc', 'tr', 'frame', 'frame'),
         edge('e2', 'tr', 'out', 'frame', 'frame'),
       ])
     }
-    expect(mk('rotate')).toContain('_co=cos(_a)')
-    expect(mk('rotate')).toContain('buf_sc[')               // gathers from the source buffer
-    expect(mk('translate')).toContain('%WIDTH+WIDTH)%WIDTH') // toroidal wrap
-    expect(mk('scale')).toContain('float _s=powf(2.0f,_w<1.0f?_w:2.0f-_w);')
+    const spin = mk({ mode: 'smooth', rotateRate: 90 })
+    expect(spin).toContain('// Frame Transform: smooth, black, bilinear')
+    expect(spin).toContain('_ftCo=cosf(_ftA)')
+    expect(spin).toMatch(/_sampleFrame\(buf_sc, ?_sx, ?_sy/) // gathers from the source buffer
+    expect(mk({ offsetXRate: 6 })).toContain('(_x-_ftOx+WIDTH)%WIDTH') // whole pixels, wrapped
+    expect(mk({ mode: 'smooth', scaleRate: 90 })).toContain('float _s=powf(2.0f,_w<1.0f?_w:2.0f-_w);')
   })
 
-  it('emits a blank Transform when its frame input is unconnected', () => {
-    const tr = node('tr', 'Transform', 'composite', { transform: 'rotate', rate: 90 })
+  it('emits a blank Frame Transform when its frame input is unconnected', () => {
+    const tr = node('tr', 'FrameTransform', 'composite', { mode: 'smooth', rotateRate: 90 })
     const cpp = generateCpp([tr, outputNode], [edge('e', 'tr', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('Transform: no input')
+    expect(cpp).toContain('Frame Transform: no input')
   })
 
   it('emits an Array loop that composites accumulating copies from the source', () => {
