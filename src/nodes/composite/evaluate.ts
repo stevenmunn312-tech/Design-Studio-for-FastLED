@@ -24,6 +24,7 @@ import { TRAILS_REFERENCE_FPS } from './trails'
 import { evalKaleidoscope } from './kaleidoscope'
 import { gammaVideoTable } from './gamma'
 import { transformZoom } from './transformZoom'
+import { ARRAY_COPIES } from './limits'
 import {
   arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
   wallpaperSourceQ8,
@@ -145,21 +146,19 @@ function evalFrameFeedback(
   return out
 }
 
-// Hard cap on Array copies (guards a garbage `count` from allocating a huge loop).
-const ARRAY_MAX_COPIES = 32
-
 // Blender-style array: composite `count` copies of `src`, copy i offset by
 // (offsetX·i, offsetY·i), rotated by angle·i and scaled by scale^i about the
 // matrix centre, dimmed by falloff^i. Copies paint high→low index so copy 0
 // (the identity) lands on top for the `over` mode; `add`/`lighten` are order-
-// independent. Kept in lockstep with the Array case in cppGenerator.ts.
+// independent. Any other mode lightens, the default. Kept in lockstep with the
+// Array emitter, which shares the ARRAY_COPIES bound.
 function evalArray(
   src: Frame, count: number, offsetX: number, offsetY: number,
   angleDeg: number, scale: number, falloff: number, mode: string,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const out = rawBlankFrame(W, H)
-  const n = Math.max(1, Math.min(ARRAY_MAX_COPIES, Math.round(count)))
+  const n = Math.max(ARRAY_COPIES.min, Math.min(ARRAY_COPIES.max, Math.round(count)))
   const sc0 = Math.max(0.05, scale)
   const fo = Math.max(0, Math.min(1, falloff))
   // The sketch's integer kernel (shared/integerPatterns.ts), one copy at a time.
@@ -173,13 +172,13 @@ function evalArray(
         const s = src[Math.trunc(at / W)][at % W]
         const r = arrayDim(s.r, copy.dim), g = arrayDim(s.g, copy.dim), b = arrayDim(s.b, copy.dim)
         const o = orow[x]
-        if (mode === 'lighten') {
-          o.r = Math.max(o.r, r); o.g = Math.max(o.g, g); o.b = Math.max(o.b, b)
+        if (mode === 'add') {
+          o.r = Math.min(255, o.r + r); o.g = Math.min(255, o.g + g); o.b = Math.min(255, o.b + b)
         } else if (mode === 'over') {
           const cov = Math.max(r, g, b)
           o.r = arrayOver(o.r, cov, r); o.g = arrayOver(o.g, cov, g); o.b = arrayOver(o.b, cov, b)
         } else {
-          o.r = Math.min(255, o.r + r); o.g = Math.min(255, o.g + g); o.b = Math.min(255, o.b + b)
+          o.r = Math.max(o.r, r); o.g = Math.max(o.g, g); o.b = Math.max(o.b, b)
         }
       }
     }
@@ -284,7 +283,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       num(id, 'angle', props, 'angle', 0),
       num(id, 'scale', props, 'scale', 1),
       num(id, 'falloff', props, 'falloff', 0.7),
-      String(props.blendMode ?? 'add'),
+      String(props.blendMode ?? 'lighten'),
       W, H,
     ) }
   },

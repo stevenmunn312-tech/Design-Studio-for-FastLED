@@ -12,6 +12,7 @@ import {
 } from '../shared/integerPatterns'
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
 import { transformZoomCpp } from './transformZoom'
+import { ARRAY_COPIES } from './limits'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
   BrightnessMod({ ln, f, ownBuf, seedFrom }) {
@@ -264,13 +265,14 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     // animated signal can spin/grow the array; unwired they bake the slider.
     const ang = f('angle', 'angle', 0)
     const scl = `max(0.05f, ${f('scale', 'scale', 1)})`, fo = `constrain(${f('falloff', 'falloff', 0.7)},0.0f,1.0f)`
-    const mode = ['lighten', 'over'].includes(String(p.blendMode)) ? String(p.blendMode) : 'add'
+    const mode = ['add', 'over'].includes(String(p.blendMode)) ? String(p.blendMode) : 'lighten'
     const countWired = incoming.has(`${node.id}:count`)
-    const countLit = Math.max(1, Math.min(32, Math.round(Number(p.count ?? 5))))
+    const { min, max } = ARRAY_COPIES
+    const countLit = Math.max(min, Math.min(max, Math.round(Number(p.count ?? 5))))
     ln(`  { // Array${countWired ? '' : ` x${countLit}`}`)
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-    // A wired count is clamped to [1, 32] at runtime (the evaluator's cap).
-    if (countWired) ln(`    int _cnt=(int)(${f('count', 'count', 5)}+0.5f); _cnt=_cnt<1?1:(_cnt>32?32:_cnt);`)
+    // A wired count is held to the slider's ARRAY_COPIES at runtime, as the evaluator holds it.
+    if (countWired) ln(`    int _cnt=(int)(${f('count', 'count', 5)}+0.5f); _cnt=_cnt<${min}?${min}:(_cnt>${max}?${max}:_cnt);`)
     ln(`    for(int _i=${countWired ? '_cnt-1' : countLit - 1};_i>=0;_i--){`)
     // Integer kernel (shared/integerPatterns.ts): the floats run once a copy.
     for (const line of arrayCopyCpp('_i', `(${offX})`, `(${offY})`, `(${ang})`, scl, fo)) ln(`      ${line}`)
@@ -279,13 +281,13 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`        if(_aSrc<0) continue;`)
     ln(`        CRGB _s=${src}[_aSrc]; uint8_t _r=(uint8_t)((_s.r*_adim)>>16),_g=(uint8_t)((_s.g*_adim)>>16),_b=(uint8_t)((_s.b*_adim)>>16);`)
     ln(`        CRGB& _o=${ob}[_y*WIDTH+_x];`)
-    if (mode === 'lighten') {
-      ln(`        _o.r=max(_o.r,_r); _o.g=max(_o.g,_g); _o.b=max(_o.b,_b);`)
+    if (mode === 'add') {
+      ln(`        _o.r=qadd8(_o.r,_r); _o.g=qadd8(_o.g,_g); _o.b=qadd8(_o.b,_b);`)
     } else if (mode === 'over') {
       ln(`        uint8_t _cov=max(_r,max(_g,_b));`)
       ln(`        _o.r=${ARRAY_OVER_CPP('_o.r', '_cov', '_r')}; _o.g=${ARRAY_OVER_CPP('_o.g', '_cov', '_g')}; _o.b=${ARRAY_OVER_CPP('_o.b', '_cov', '_b')};`)
     } else {
-      ln(`        _o.r=qadd8(_o.r,_r); _o.g=qadd8(_o.g,_g); _o.b=qadd8(_o.b,_b);`)
+      ln(`        _o.r=max(_o.r,_r); _o.g=max(_o.g,_g); _o.b=max(_o.b,_b);`)
     }
     ln(`      } } }`)
   },

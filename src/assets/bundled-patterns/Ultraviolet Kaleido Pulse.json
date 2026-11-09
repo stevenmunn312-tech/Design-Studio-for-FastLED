@@ -439,7 +439,7 @@
             "angle": 0,
             "scale": 0.92,
             "falloff": 0.6,
-            "blendMode": "screen"
+            "blendMode": "add"
           },
           "inputs": [
             {

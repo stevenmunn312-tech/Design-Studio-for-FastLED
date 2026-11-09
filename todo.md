@@ -670,14 +670,6 @@ freeze, or drop them.
   to put Gamma last, just before the LED output; a setting on the output
   would remove a node from most finished graphs. Evidence
   `src/components/HelpModal/reference/composite.ts:171`.
-- [ ] **Array: Default blend to lighten (Med, S).** Default `add` stacks
-  five copies at falloff 0.7 (about 2.8x gain), so any full-frame source
-  such as Plasma turns almost white; the help example already picks
-  `lighten`. Evidence `src/nodes/composite/definitions.ts:206`.
-- [ ] **Array: Share one copy-limit constant (Low, S).** The limit is 24 in
-  the slider, 32 in the preview cap and a 32 literal in firmware. Use one
-  shared constant per the bounds rule. Evidence
-  `src/state/nodeLibrary.ts:1160`, `src/nodes/composite/codegen.ts:266`.
 - [ ] **Mirror: Handle Diagonal on non-square matrices (Low, S).** Diagonal
   assumes square; on a wide panel `bx`/`by` clamping smears every column
   past H into strips. Disable Diagonal when W differs from H, or say so in

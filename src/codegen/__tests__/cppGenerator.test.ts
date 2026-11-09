@@ -1208,6 +1208,11 @@ describe('generateCpp', () => {
     expect(add).toContain('qadd8(_o.r,_r)')                  // add = saturating add
     expect(mk({ blendMode: 'lighten' })).toContain('max(_o.r,_r)')
     expect(mk({ blendMode: 'over' })).toContain('uint8_t _cov=max(_r,max(_g,_b));')
+    // Lighten is the default, and what an unknown mode falls back to, as in the preview.
+    expect(mk({})).toContain('_o.r=max(_o.r,_r);')
+    expect(mk({ blendMode: 'screen' })).not.toContain('qadd8(_o.r,_r)')
+    // The slider's bound holds a saved count past it, as the preview does.
+    expect(mk({ count: 40 })).toContain('// Array x24')
   })
 
   it('emits a blank Array when its frame input is unconnected', () => {
@@ -1227,8 +1232,8 @@ describe('generateCpp', () => {
       edge('e3', 'ang', 'arr', 'time', 'angle'),
       edge('e4', 'arr', 'out', 'frame', 'frame'),
     ])
-    // Wired count → runtime bound clamped to [1,32]; wired angle → expression.
-    expect(cpp).toContain('_cnt=_cnt<1?1:(_cnt>32?32:_cnt)')
+    // Wired count → runtime bound clamped to the slider's [1,24]; wired angle → expression.
+    expect(cpp).toContain('_cnt=_cnt<1?1:(_cnt>24?24:_cnt)')
     expect(cpp).toContain('for(int _i=_cnt-1;_i>=0;_i--)')
     expect(cpp).toContain('float _aa=(n_ang_time)*_i*0.01745329f;')
     expect(cpp).not.toContain('// Array x')                  // count is dynamic now

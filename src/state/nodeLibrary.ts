@@ -39,6 +39,7 @@ import {
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
 import { SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
+import { ARRAY_COPIES } from '../nodes/composite/limits'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
@@ -1161,13 +1162,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     count: { control: 'slider', min: 1, max: 32, step: 1 },
   },
   Array: {
-    count:     { control: 'slider', min: 1, max: 24,  step: 1 },
+    count:     { control: 'slider', min: ARRAY_COPIES.min, max: ARRAY_COPIES.max, step: 1 },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     offsetY:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     angle:     { control: 'slider', min: -180, max: 180, step: 1 },
     scale:     { control: 'slider', min: 0.25, max: 2, step: 0.05 },
     falloff:   { control: 'slider', min: 0, max: 1, step: 0.01 },
-    blendMode: { control: 'select', options: ['add', 'lighten', 'over'] },
+    blendMode: { control: 'select', options: ['lighten', 'add', 'over'] },
   },
   MicInput: {
     gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
@@ -3014,7 +3015,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     angle: 'Extra turn each copy gets, in degrees. Pair with no offset for a ring.',
     scale: 'Size multiplier applied again for each copy. Below 1 shrinks toward the centre.',
     falloff: 'Brightness multiplier applied again for each copy. 1 keeps all copies full.',
-    blendMode: 'How copies stack: add sums light, lighten keeps the brighter, over paints the first on top.',
+    blendMode: 'How copies stack: lighten keeps the brighter, add sums light (a full frame soon turns white), over paints the first on top.',
   },
   Mirror: {
     mirrorMode: 'Which half is copied where: left to right, top to bottom, both, or across the diagonal.',

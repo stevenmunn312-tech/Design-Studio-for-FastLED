@@ -201,7 +201,9 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       angle: 0,
       scale: 1,
       falloff: 0.7,
-      blendMode: 'add',
+      // Lighten, not add: five copies at falloff 0.7 add up to about 2.8x,
+      // which turns a full-frame source such as Plasma almost white.
+      blendMode: 'lighten',
     },
   },
   {

@@ -64,7 +64,7 @@ vi.mock('../codeSandboxRuntime', async (importOriginal) => {
 import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphFullImpl, evaluateScalar, evaluateScalarSeries, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample } from '../../nodes/signal/wave'
-import { NODE_LIBRARY } from '../nodeLibrary'
+import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useHardwareInputStore } from '../peripherals/hardwareInputStore'
@@ -2453,6 +2453,16 @@ describe('evaluateGraph', () => {
     expect(f[0][2]).toEqual({ r: 255, g: 0, b: 0 })
     expect(f[0][4]).toEqual({ r: 255, g: 0, b: 0 })
     expect(f[0][6]).toEqual({ r: 0, g: 0, b: 0 })   // only 3 copies, not more
+  })
+
+  it('Array lightens by default, so a full frame does not wash out', () => {
+    // Added, five copies at falloff 0.7 came to about 2.8x and clipped white.
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 100, g: 60, b: 20 })
+    const arr = node('arr', 'Array', 'composite', libraryDefaults('Array'))
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e1', 'sc', 'frame', 'arr', 'frame'), edge('e2', 'arr', 'frame', 'out', 'frame')]
+    const f = evaluateGraph([sc, arr, out], edges, 0, 8, 8)!
+    expect(f[4][4]).toEqual({ r: 100, g: 60, b: 20 })
   })
 
   it('Array dims successive copies by falloff', () => {
