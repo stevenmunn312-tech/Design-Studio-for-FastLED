@@ -85,7 +85,7 @@ import {
 } from './evaluator/automaton'
 import { FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN } from './evaluator/fluid'
 import { FRAME_TO_FIELD_CONVERSIONS } from './evaluator/frames'
-import { SHAPE_KINDS } from './evaluator/sdf'
+import { SHAPE_FIELD_KINDS, SHAPE_KINDS } from './evaluator/sdf'
 import {
   FRACTAL_DEPTH_MAX, FRACTAL_DEPTH_MIN, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES,
 } from './evaluator/fractal'
@@ -1453,14 +1453,22 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   FieldBlur: { radius: { control: 'slider', min: BLUR_RADIUS.min, max: BLUR_RADIUS.max, step: 1 } },
   ShapeField: {
-    shape: { control: 'select', options: [...SHAPE_KINDS] },
+    shape: { control: 'select', options: [...SHAPE_FIELD_KINDS] },
     fieldMode: { control: 'select', options: ['fill', 'distance', 'falloff'] },
     cx: N01,
     cy: N01,
     size: { control: 'slider', min: 0.01, max: 1, step: 0.01 },
     rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    spin: { control: 'slider', min: -360, max: 360, step: 5 },
     sides: { control: 'slider', min: 3, max: 10, step: 0.1 },
     aspect: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+    petals: { control: 'slider', min: 1, max: 12, step: 1 },
+    symmetry: { control: 'slider', min: 1, max: 20, step: 1 },
+    n1: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+    n2: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+    n3: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+    a: { control: 'slider', min: 0.2, max: 3, step: 0.05 },
+    b: { control: 'slider', min: 0.2, max: 3, step: 0.05 },
     softness: N01,
     range: { control: 'slider', min: 0.01, max: 2, step: 0.01 },
   },
@@ -2323,13 +2331,21 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
     softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
     range: 'As a fraction of the matrix’s shorter side. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
-    shape: 'Rectangle, ellipse (a circle at aspect 1) or polygon, the same choices as Shape. Polygon uses Sides; the others use Aspect.',
+    shape: 'Rectangle, ellipse (a circle at aspect 1) or polygon, as on Shape, or a rose or superformula. Polygon uses Sides, rectangle and ellipse use Aspect, rose uses Petals, and the superformula its lobes and exponents.',
     fieldMode: 'Fill is 1 inside and 0 outside with a soft edge; distance ramps across the outline; falloff is 0 on the shape and rises to 1 at Range beyond it, so a tiny circle gives the distance from a point.',
     cx: 'Centre of the shape, left to right (0 to 1).',
     cy: 'Centre of the shape, top to bottom (0 to 1).',
     rotation: 'Turns the shape about its centre, in degrees.',
+    spin: 'Keeps the shape turning, in degrees per second, on top of Rotation. 0 holds still.',
     sides: 'Number of polygon sides. Fractions morph smoothly between counts.',
     aspect: 'Width divided by height. 1 is round or square; 2 is twice as wide as tall.',
+    petals: 'Number of rose petals, each Size long and 180/Petals degrees wide, so gaps stay between them.',
+    symmetry: 'Number of lobes round the superformula outline.',
+    n1: 'Overall roundness exponent. Small values give spiky stars; large values give rounder blobs.',
+    n2: 'Shapes the cosine lobes. Raise it to pinch them.',
+    n3: 'Shapes the sine lobes. Raise it to pinch them.',
+    a: 'Stretches the superformula along one axis. 1 is unstretched; a lobe then reaches Size.',
+    b: 'Stretches the superformula along the other axis. 1 is unstretched.',
   },
   SliceTiling: {
     cells: 'Number of lattice polygons across the canvas width.',
@@ -3558,6 +3574,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     fieldMode: 'mode',
     cx: 'center X',
     cy: 'center Y',
+    spin: 'spin (°/s)',
+    symmetry: 'lobes',
   },
   FieldNoise: {
     wrapX: 'wrap X',
@@ -4340,8 +4358,8 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
   ],
   ShapeField: [
-    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation'] },
-    { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides'] },
+    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation', 'spin'] },
+    { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'petals', 'symmetry', 'n1', 'n2', 'n3', 'a', 'b'] },
     { key: 'output', label: 'Field', keys: ['fieldMode', 'softness', 'range'] },
   ],
   SliceTiling: [
@@ -5405,7 +5423,9 @@ export function isPropertyEnabled(
     const shape = String(properties.shape ?? 'ellipse')
     const mode = String(properties.fieldMode ?? 'fill')
     if (key === 'sides') return shape === 'polygon'
-    if (key === 'aspect') return shape === 'circle' || shape === 'rect'
+    if (key === 'aspect') return shape === 'ellipse' || shape === 'rect'
+    if (key === 'petals') return shape === 'rose'
+    if (['symmetry', 'n1', 'n2', 'n3', 'a', 'b'].includes(key)) return shape === 'superformula'
     if (key === 'softness') return mode === 'fill'
     if (key === 'range') return mode === 'distance' || mode === 'falloff'
   }

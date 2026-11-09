@@ -315,11 +315,27 @@ Music Player seed.
   `src/nodes/field/evaluate.ts:575`, `:590`. Field Warp already has
   strength 2 and bilinear sampling (`sampleFieldBilinear` and its emitted
   twin), which the merged node can reuse for rotate and tile.
-- [ ] **Category: Give Formula Shapes placement or fold it into Shape Field
-  (Med, M).** Rose and superformula are shape outlines but always centred at a
-  fixed scale, with no cx/cy/size and no fill/distance mode. Either add them
-  to Shape Field as shape types, or add cx/cy/size to Formula Shapes.
-  `src/nodes/field/evaluate.ts:229`.
+- [ ] **Category: Fold Formula Shapes into Shape Field (Med, M).** Decided
+  2026-11-10: rose and superformula become Shape Field kinds and the
+  FormulaField node goes. Done: Shape Field has `rose` (Petals) and
+  `superformula` (Lobes, N1-N3, A, B) with its position, size, fill, distance
+  and falloff, plus a Spin (°/s) for every kind; Rotation is the rose's old
+  Angle Offset. Shape keeps its three kinds (`SHAPE_FIELD_KINDS` in
+  `src/state/evaluator/sdf.ts` says why). **Blocked on a decision:** Formula
+  Shapes also draws `fibonacciSpiral`, `goldenTiling` and `lissajousField`,
+  which are not shapes, and those are what the three bundled patterns use
+  (Fibonacci Spiral Drive, Golden Ratio Cathedral, Lissajous Lattice), as does
+  the audio release set's `weave` (`bundledAudioReleaseB.ts`). Removing the
+  node needs a home for those three first (more Shape Field kinds, Gradient
+  Field types, or a smaller node of their own). Then convert the rest:
+  Help's superformula starfish and the release set's `flower` map to Shape
+  Field at cx/cy 0.5 and size 0.5 (a lobe reaches half the width in both, on
+  a square matrix), with Spin at minus speed × 1.5 rad/s in degrees (Formula
+  Shapes turns the other way, and sits half a pixel off centre). Formula
+  Shapes' `rose` is not an outline
+  but an angular glow over the whole matrix (cos of petals × angle, dimmed
+  with the radius), so a Shape Field rose in Distance mode is the nearest
+  look; no bundled pattern uses it.
 - [ ] **Category: Decide whether to drop "x/y above 1 means pixels" (Low, S).**
   Design question: `normalizedCenterAxis` reads any value above 1 as a pixel
   coordinate for Shape, Text and Clock Display, so a wired LFO overshooting to
@@ -331,7 +347,8 @@ Music Player seed.
   Pre-v1, rename the type cleanly if the node stays. Needs a decision: the
   node-review pass kept node type ids on renames (the label already reads
   Formula Shapes), and the id is in three bundled patterns, the node cards'
-  file names and saved projects.
+  file names and saved projects. Decided 2026-11-10: settled by removing the
+  node, which waits on the open question in the Formula Shapes item above.
 - [ ] **Category: Grow field nodes so pattern/field twins are not subsets
   (Low, M).** Noise has 9 algorithms vs Field Noise's fBm only; Game of Life
   has no Automaton equivalent; Reaction Diffusion/Turing Field, Custom

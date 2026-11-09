@@ -363,6 +363,9 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { radius: 1 },
   },
   {
+    // Shape's three kinds plus the rose and Gielis's superformula
+    // (`SHAPE_FIELD_KINDS`). Only the chosen kind's knobs are read, so a wire
+    // into another kind's knob is inert. Spin turns any kind on the clock.
     type: 'ShapeField',
     label: 'Shape Field',
     category: 'field',
@@ -371,16 +374,26 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'cy', label: 'Center Y', dataType: 'float' },
       { id: 'size', label: 'Size', dataType: 'float' },
       { id: 'rotation', label: 'Rotation', dataType: 'float' },
+      { id: 'spin', label: 'Spin (°/s)', dataType: 'float' },
       { id: 'sides', label: 'Sides', dataType: 'float' },
       { id: 'aspect', label: 'Aspect', dataType: 'float' },
+      { id: 'petals', label: 'Petals', dataType: 'float' },
+      { id: 'symmetry', label: 'Lobes', dataType: 'float' },
+      { id: 'n1', label: 'N1', dataType: 'float' },
+      { id: 'n2', label: 'N2', dataType: 'float' },
+      { id: 'n3', label: 'N3', dataType: 'float' },
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
     ],
     propertyInputs: {
-      cx: 'cx', cy: 'cy', size: 'size', rotation: 'rotation', sides: 'sides', aspect: 'aspect',
+      cx: 'cx', cy: 'cy', size: 'size', rotation: 'rotation', spin: 'spin', sides: 'sides', aspect: 'aspect',
+      petals: 'petals', symmetry: 'symmetry', n1: 'n1', n2: 'n2', n3: 'n3', a: 'a', b: 'b',
     },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: {
       shape: 'ellipse', fieldMode: 'fill',
-      cx: 0.5, cy: 0.5, size: 0.3, rotation: 0, sides: 5, aspect: 1,
+      cx: 0.5, cy: 0.5, size: 0.3, rotation: 0, spin: 0, sides: 5, aspect: 1,
+      petals: 5, symmetry: 6, n1: 0.3, n2: 0.3, n3: 0.3, a: 1, b: 1,
       softness: 0.1, range: 0.5,
     },
   },
@@ -471,7 +484,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   FieldLevels: 'Remaps, thresholds, quantises or inverts a scalar field.',
   GradientField: 'A linear, radial or angular ramp across the matrix, with offset and repeat.',
   FieldBlur: 'Box-blurs a field by a radius in pixels.',
-  ShapeField: 'Ellipse, rectangle or polygon as a fill, a distance field, or a falloff.',
+  ShapeField: 'Ellipse, rectangle, polygon, rose or superformula as a fill, glow or falloff.',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   FieldRotate: 'Rotates a field around its centre (angle + spin over time).',
   FieldTile: 'Tiles/repeats a field across the matrix.',

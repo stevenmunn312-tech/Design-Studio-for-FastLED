@@ -23,4 +23,14 @@ static inline float _sdfMorphPolygon(float x, float y, float sides, float size) 
   float a = _sdfPolygon(x, y, lower, size);
   if (amount <= 0.0f) return a;
   return a * (1.0f - amount) + _sdfPolygon(x, y, lower + 1.0f, size) * amount;
+}
+
+static inline float _sdfRose(float x, float y, float petals, float size) {
+  return sqrtf(x * x + y * y) - size * fmaxf(0.0f, cosf(petals * atan2f(y, x)));
+}
+
+static inline float _sdfSuperformula(float x, float y, float m, float n1, float n2, float n3, float a, float b, float size) {
+  float q = m * atan2f(y, x) * 0.25f;
+  float t1 = fabsf(cosf(q) / a), t2 = fabsf(sinf(q) / b);
+  return sqrtf(x * x + y * y) - size * powf(powf(t1, n2) + powf(t2, n3), -1.0f / n1);
 }`

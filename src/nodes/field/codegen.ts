@@ -27,6 +27,7 @@ import {
   NEWTON_ROOT_Y, NEWTON_TOLERANCE2, fractalType,
 } from '../../state/evaluator/fractal'
 import { TURING_ITERATIONS_MAX, TURING_STEP_MAX, TURING_STEP_MIN, turingRadii } from '../../state/evaluator/turing'
+import { SHAPE_FIELD_KINDS } from '../../state/evaluator/sdf'
 
 function byteArray8(bytes: Uint8Array): string {
   return Array.from({ length: 8 }, (_, i) => `0x${(bytes[i] ?? 0).toString(16).padStart(2, '0')}`).join(',')
@@ -525,20 +526,36 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _s=0.0f; for(int _k=-_r;_k<=_r;_k++){ int _sx=_x+_k; _sx=_sx<0?0:(_sx>=WIDTH?WIDTH-1:_sx); _s+=${src}[_y*WIDTH+_sx]; } _fbT_${id}[_y*WIDTH+_x]=_s/_span; }`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _s=0.0f; for(int _k=-_r;_k<=_r;_k++){ int _sy=_y+_k; _sy=_sy<0?0:(_sy>=HEIGHT?HEIGHT-1:_sy); _s+=_fbT_${id}[_sy*WIDTH+_x]; } ${of}[_y*WIDTH+_x]=_s/_span; } }`)
   },
-  ShapeField({ p, ln, f, ownField, needsSdf }) {
+  // Keep in lockstep with the `ShapeField` evaluator: each kind's knobs are
+  // locals only in its own block, and the spin's clock only when it can move.
+  ShapeField({ node, id, p, ln, f, ownField, edges, needsSdf, needsT }) {
     needsSdf.v = true
     const of = ownField()
-    const shape = ['rect', 'polygon'].includes(String(p.shape)) ? String(p.shape) : 'ellipse'
+    const shape = (SHAPE_FIELD_KINDS as readonly string[]).includes(String(p.shape)) ? String(p.shape) : 'ellipse'
     const mode = ['distance', 'falloff'].includes(String(p.fieldMode)) ? String(p.fieldMode) : 'fill'
     const distance = mode !== 'fill'
     const softness = floatLit(Math.max(0, Number(p.softness ?? 0.1)))
     const range = floatLit(Math.max(1e-4, Number(p.range ?? 0.5)))
+    const spins = edges.some((e) => e.target === node.id && e.targetHandle === 'spin') || Number(p.spin ?? 0) !== 0
     ln(`  { /* ShapeField: ${shape} ${mode} */`)
     ln(`    float _short=(float)min(WIDTH,HEIGHT),_size=fmaxf(1e-4f,${f('size', 'size', 0.3)}*_short);`)
     ln(`    float _cx=constrain(${f('cx', 'cx', 0.5)},0.0f,1.0f)*(WIDTH-1)+0.5f,_cy=constrain(${f('cy', 'cy', 0.5)},0.0f,1.0f)*(HEIGHT-1)+0.5f;`)
-    ln(`    float _ra=-(${f('rotation', 'rotation', 0)})*0.017453292519943f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+    if (spins) {
+      needsT.v = true
+      ln(`    float _spin=${f('spin', 'spin', 0)};`)
+      const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')
+      ln(`    float _ra=-(${f('rotation', 'rotation', 0)}+${ph})*0.017453292519943f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+    } else {
+      ln(`    float _ra=-(${f('rotation', 'rotation', 0)})*0.017453292519943f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+    }
     if (shape === 'polygon') {
       ln(`    float _sides=fmaxf(3.0f,${f('sides', 'sides', 5)});`)
+    } else if (shape === 'rose') {
+      ln(`    float _petals=fmaxf(1.0f,${f('petals', 'petals', 5)});`)
+    } else if (shape === 'superformula') {
+      ln(`    float _m=fmaxf(1.0f,${f('symmetry', 'symmetry', 6)}),_n1=fmaxf(0.05f,${f('n1', 'n1', 0.3)});`)
+      ln(`    float _n2=fmaxf(0.05f,${f('n2', 'n2', 0.3)}),_n3=fmaxf(0.05f,${f('n3', 'n3', 0.3)});`)
+      ln(`    float _sfA=fmaxf(0.05f,${f('a', 'a', 1)}),_sfB=fmaxf(0.05f,${f('b', 'b', 1)});`)
     } else {
       ln(`    float _aspect=fmaxf(0.01f,${f('aspect', 'aspect', 1)});`)
     }
@@ -548,6 +565,8 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      float _dx=_x+0.5f-_cx,_dy=_y+0.5f-_cy,_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr;`)
     if (shape === 'rect') ln(`      float _sd=_sdfRect(_lx,_ly,_size*_aspect,_size);`)
     else if (shape === 'polygon') ln(`      float _sd=_sdfMorphPolygon(_lx,_ly,_sides,_size);`)
+    else if (shape === 'rose') ln(`      float _sd=_sdfRose(_lx,_ly,_petals,_size);`)
+    else if (shape === 'superformula') ln(`      float _sd=_sdfSuperformula(_lx,_ly,_m,_n1,_n2,_n3,_sfA,_sfB,_size);`)
     else ln(`      float _sd=_sdfEllipse(_lx,_ly,_size*_aspect,_size);`)
     if (mode === 'falloff') {
       ln(`      ${of}[_y*WIDTH+_x]=constrain(fmaxf(0.0f,_sd)/_range,0.0f,1.0f); } }`)
