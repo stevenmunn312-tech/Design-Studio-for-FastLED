@@ -1032,23 +1032,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Field Blur example graph](../../public/node-cards/graphs/field-blur.svg)
 
-### Field Warp
+### Field Transform
 
-![Field Warp node](../../public/node-cards/field-warp.svg)
+![Field Transform node](../../public/node-cards/field-warp.svg)
 
-![Field Warp example graph](../../public/node-cards/graphs/field-warp.svg)
-
-### Field Rotate
-
-![Field Rotate node](../../public/node-cards/field-rotate.svg)
-
-![Field Rotate example graph](../../public/node-cards/graphs/field-rotate.svg)
-
-### Field Tile
-
-![Field Tile node](../../public/node-cards/field-tile.svg)
-
-![Field Tile example graph](../../public/node-cards/graphs/field-tile.svg)
+![Field Transform example graph](../../public/node-cards/graphs/field-warp.svg)
 
 ### Field Symmetry
 
@@ -1129,12 +1117,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Frame Transform node](../../public/node-cards/frame-transform.svg)
 
 ![Frame Transform example graph](../../public/node-cards/graphs/frame-transform.svg)
-
-### Transform
-
-![Transform node](../../public/node-cards/transform.svg)
-
-![Transform example graph](../../public/node-cards/graphs/transform.svg)
 
 ### Array
 
