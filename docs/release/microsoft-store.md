@@ -73,12 +73,17 @@ projects) and `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` (to block the page's
 calls to 8008), then starts the executable:
 `Invoke-CommandInDesktopPackage -PackageFamilyName <family> -AppId DesignStudio -Command cmd.exe -Args '/c "<launch.cmd>"' -PreventBreakaway`.
 
-Before each submission, run the Windows App Certification Kit on the `.msix`
-(from an elevated prompt):
+Before each submission, run the Windows App Certification Kit on the `.msix`.
+It needs an elevated prompt (Run as administrator), started in the repository
+root with only the package to test in `release\desktop`:
 
 ```powershell
-& "C:\Program Files (x86)\Windows Kits\10\App Certification Kit\appcert.exe" test -appxpackagepath <package.msix> -reportoutputpath wack-report.xml
+& "C:\Program Files (x86)\Windows Kits\10\App Certification Kit\appcert.exe" test -appxpackagepath (Resolve-Path release\desktop\*.msix).Path -reportoutputpath "$PWD\artifacts\wack-report.xml"
 ```
+
+The run takes several minutes and ends with a pass or fail line; the XML
+report lists each test. Delete an old report first, because the kit will not
+overwrite one.
 
 ## Submit
 
