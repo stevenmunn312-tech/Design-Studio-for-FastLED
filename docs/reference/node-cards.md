@@ -12,12 +12,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Audio example graph](../../public/node-cards/graphs/audio.svg)
 
-### Storage
-
-![Storage node](../../public/node-cards/storage.svg)
-
-![Storage example graph](../../public/node-cards/graphs/storage.svg)
-
 ### Microphone
 
 ![Microphone node](../../public/node-cards/mic-input.svg)

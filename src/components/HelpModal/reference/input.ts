@@ -41,30 +41,6 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Storage: {
-    overview: [
-      'Storage names where a build keeps its files: the SD card on the bench, the board’s own flash, or files sent over USB. The choices in its body come from the hardware you have added, so it lists only what exists.',
-      'With exactly one provider available Storage picks it for you; with several it waits for your choice and reports nothing until you make one.',
-      'No node takes a Storage input yet, so for now the node records the decision on the canvas. Song files for the music player are still placed by the SD Card part and the Performance Generator.',
-    ],
-    outputs: {
-      storage: 'The chosen provider: which card or flash, and what kind it is. Empty until a provider exists and is chosen.',
-    },
-    outcome: 'The node records which storage the build uses. It draws nothing on the LEDs.',
-    example: example({
-      featured: 'Storage',
-      title: 'Point the build at the SD card',
-      nodes: {
-        sd: ['SDCard'],
-        storage: ['Storage'],
-        pattern: ['Breathe', { palette: 'amethyst', bpm: 10 }],
-      },
-      explanation: 'The SD Card part on the bench becomes a storage provider, and Storage offers it in its body. Breathe keeps the LEDs alive beside it, because choosing storage changes no pixels.',
-      preview: 'The {output} breathes slowly in violet. Storage has no picture of its own; open its body to see the SD card listed.',
-      workflow: true,
-    }),
-  },
-
   MicInput: {
     overview: [
       'Microphone is the physical I2S MEMS microphone on the bench. It is a hardware part rather than a node you wire: an Audio node selects it, and the analysers read the Audio node.',

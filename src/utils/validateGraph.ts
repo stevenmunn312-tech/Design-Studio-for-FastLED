@@ -86,7 +86,6 @@ import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/displays/transport
 import { displayWidgetIsControl, normalizeDisplayControlRole, parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
 import { templateControlPlan } from '../state/displays/templateControlPlan'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audio/audioCapabilities'
-import { resolveStorageCapabilitySource } from '../build/storageCapabilities'
 import {
   duplicateIrRemoteMappings,
   irRemoteButtonIdFromHandle,
@@ -207,21 +206,6 @@ export function findAudioCapabilityErrors(
       !resolveAudioCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
     )
     .map((node) => `${nodeLabel(node)} has no attached source — add a microphone, line-in ADC, or SD music player, or choose an available source`)
-}
-
-/** A used Storage capability must resolve to one concrete provider. */
-export function findStorageCapabilityErrors(
-  nodes: StudioNode[],
-  edges: StudioEdge[],
-  capabilityNodes: readonly StudioNode[] = nodes,
-): string[] {
-  return nodes
-    .filter((node) =>
-      node.data.nodeType === 'Storage' &&
-      edges.some((edge) => edge.source === node.id) &&
-      !resolveStorageCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
-    )
-    .map((node) => `${nodeLabel(node)} has no attached storage provider — add a board or SD card, or choose an available provider`)
 }
 
 export function findStereoVuMeterErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
@@ -1835,7 +1819,6 @@ export function findDeployBlockingErrors(
     ...findShowRequirementErrors(nodes, edges, selectedFqbn),
     ...findPatternCountErrors(nodes, edges),
     ...findAudioCapabilityErrors(nodes, edges),
-    ...findStorageCapabilityErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
@@ -3955,24 +3938,6 @@ export function buildGraphDiagnostics(
     })
   }
 
-  for (const storageNode of nodes.filter((node) =>
-    node.data.nodeType === 'Storage' &&
-    edges.some((edge) => edge.source === node.id) &&
-    !resolveStorageCapabilitySource(options.capabilityNodes ?? nodes, String(node.data.properties.sourceId ?? ''))
-  )) {
-    diagnostics.push({
-      id: `${storageNode.id}-source`,
-      severity: 'error',
-      category: 'connection',
-      title: 'Storage has no attached provider',
-      message: 'This Storage signal is in use, but it does not resolve to attached storage hardware.',
-      fix: 'Add a board with storage or an SD card in Hardware, then choose it from the Storage source list.',
-      nodeIds: [storageNode.id],
-      nodeLabel: nodeLabel(storageNode),
-      propertyKey: 'sourceId',
-    })
-  }
-
   // The compact deploy errors and these rich drawer entries are projected
   // from the same structured findings. Keep this ahead of incidental pin and
   // disconnected-node warnings so the actual authored repair is prominent.
@@ -4915,14 +4880,12 @@ export function buildGraphDiagnostics(
     })
   }
 
-  // A hardware part chosen as the source of an Audio or Storage capability node
-  // is wired by that choice, not by a cable, so it is never "disconnected".
+  // A hardware part chosen as the source of an Audio capability node is wired
+  // by that choice, not by a cable, so it is never "disconnected".
   const capabilityProviderIds = new Set<string>()
   for (const node of nodes) {
     const sourceId = (node.data.properties as Record<string, unknown>).sourceId
-    const provider = node.data.nodeType === 'Audio' ? resolveAudioCapabilitySource(nodes, sourceId)
-      : node.data.nodeType === 'Storage' ? resolveStorageCapabilitySource(nodes, sourceId)
-        : null
+    const provider = node.data.nodeType === 'Audio' ? resolveAudioCapabilitySource(nodes, sourceId) : null
     if (provider) capabilityProviderIds.add(provider.node.id)
   }
 

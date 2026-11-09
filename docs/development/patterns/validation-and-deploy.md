@@ -51,7 +51,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   what the node says). Graph *shape* stays out on purpose, since which port must
   be wired depends on the action. The gate is now every graph error
   `validateGraph` reports, six formerly exempt classes included (unresolved
-  Audio and Storage capabilities, Stereo VU Meter configuration,
+  Audio capabilities, Stereo VU Meter configuration,
   display-generator and output-runtime issues, error-severity show-engine
   issues). The popup dedupes its assembled list, because a control-routing error
   legitimately arrives from two sources — the asset-bake hook and the gate's

@@ -61,7 +61,6 @@ import { useGraphStore } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { tftControllerForProps } from '../../state/nodeLibrary'
 import { previewAudioCapabilityKind } from '../../state/audio/audioCapabilities'
-import { resolveStorageCapabilitySource } from '../../build/storageCapabilities'
 import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
 import { normalizeWebRemoteControls, webRemoteControlOutput, webRemotePortId, webRemoteStartState } from '../../state/peripherals/webRemote'
 import { sampleWebRemoteControl } from '../../state/peripherals/webRemoteRuntime'
@@ -137,10 +136,6 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     // computer's input; deploy asks for the part.
     const kind = previewAudioCapabilityKind(capabilityNodes, props.sourceId)
     return { audio: kind ? (audioOverride ?? liveAudioSignal(kind)) : null }
-  },
-  Storage({ capabilityNodes }, _id, props) {
-    const source = resolveStorageCapabilitySource(capabilityNodes, props.sourceId)
-    return { storage: source ? { id: source.id, kind: source.kind, label: source.label } : null }
   },
   /*
      * The glass in front of a Display Panel.

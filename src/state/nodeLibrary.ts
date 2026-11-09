@@ -287,7 +287,6 @@ export const PORT_COLORS: Record<string, string> = {
   frame: '#5ad1ff',
   field: '#f5c542',
   audio: '#00e0a4',
-  storage: '#c78cff',
   dmx: '#6bf8ff',
   datetime: '#d8ff63',
   music: '#ffb74d',
@@ -3260,9 +3259,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Audio: {
     sourceId: 'Which audio provider this node reads, chosen in the body: microphone, line input or music player.',
-  },
-  Storage: {
-    sourceId: 'Which storage provider this node reads, chosen in the body from the root hardware. Empty until a card or board is attached.',
   },
   ButtonBank: {
     buttons: 'The buttons, each with a name and GPIO, edited in the body. Every entry becomes an output port.',

@@ -30,16 +30,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     // discoverable default and resolves as soon as its provider is added.
     defaultProperties: { sourceId: 'kind:microphone' },
   },
-  {
-    type: 'Storage',
-    label: 'Storage',
-    category: 'input',
-    inputs: [],
-    outputs: [{ id: 'storage', label: 'Storage', dataType: 'storage' }],
-    // The concrete provider is chosen from root hardware by
-    // StorageCapabilityBody. Empty is meaningful when no board or card is attached.
-    defaultProperties: { sourceId: '' },
-  },
   // ── Inputs ─────────────────────────────────────────────────────────────
   {
     type: 'MicInput',
@@ -569,7 +559,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
 export const INPUT_DESCRIPTIONS: Record<string, string> = {
   DdpInput: 'A frame streamed over the network by DDP (xLights, LedFx, WLED).',
   Audio: 'Selects Microphone, Line input, or Audio decoder for audio reactivity.',
-  Storage: 'Selects SD, onboard flash, or USB storage attached to the board.',
   MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
   LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   // hardware

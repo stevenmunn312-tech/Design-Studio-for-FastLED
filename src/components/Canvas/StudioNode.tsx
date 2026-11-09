@@ -37,7 +37,6 @@ import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './bodies/BeatDetectBody'
 import FFTAnalyzerBody from './bodies/FFTAnalyzerBody'
 import AudioCapabilityBody from './bodies/AudioCapabilityBody'
-import StorageCapabilityBody from './bodies/StorageCapabilityBody'
 import HardwareInputBody from './bodies/HardwareInputBody'
 import ButtonBankBody from './bodies/ButtonBankBody'
 import WebRemoteBody from './bodies/WebRemoteBody'
@@ -1650,7 +1649,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
         {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
         {d.nodeType === 'Audio' && <AudioCapabilityBody nodeId={id} sourceId={props.sourceId} />}
-        {d.nodeType === 'Storage' && <StorageCapabilityBody nodeId={id} sourceId={props.sourceId} />}
         {/* Hardware-input widgets are functional preview controls, not purely
             decorative FX, so keep them available even when UI FX are off. */}
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} partId={props.partId} maxLux={props.maxLux} deadzone={props.deadzone} />}

@@ -120,12 +120,6 @@ freeze, or drop them.
   digital line, and TouchButton already derives active level from `partId`.
   Only worth doing together with the Button/ButtonBank merge; the distinct
   port names read well otherwise. Evidence `src/codegen/controlInputCpp.ts:65`.
-- [ ] **Storage: Hide or remove the node until something reads it (Med, S).**
-  No node declares a `storage` input and Help admits none takes it, so the
-  node's output can never be consumed and its only diagnostic can never
-  fire. Hide it from the library (or remove before v1.0) until the SD player
-  or another node reads it. Evidence `src/nodes/input/definitions.ts:38`,
-  `src/utils/validateGraph.ts:3958`.
 - [ ] **Button: Make Button a one-row Button Bank (Med, M).** Button Bank is a
   strict superset (per-row name, pin, pull-up, identical `pinMode` and
   `digitalRead` code). Make Button a bank that starts with one row and offers

@@ -221,19 +221,6 @@ const CASES: GateCase[] = [
     diagnostic: 'audio-source',
   },
   {
-    name: 'a Storage capability with no attached provider',
-    nodes: [
-      node('storage', 'Storage', { sourceId: '' }),
-      node('sc', 'SolidColor'),
-      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
-    ],
-    edges: [edge('e1', 'storage', 'out', 'sdcard'), edge('e2', 'sc', 'out')],
-    fqbn: S3,
-    blocks: /has no attached storage provider/,
-    names: ['Storage', 'SD card'],
-    diagnostic: 'storage-source',
-  },
-  {
     name: 'a Stereo VU Meter rail on a pin that is not a GPIO',
     nodes: [
       node('vu', 'StereoVuMeter', { enabled: true, targetOutputId: '', leftDataPin: 5.5, rightDataPin: 6 }),
