@@ -472,12 +472,6 @@ freeze, or drop them.
 
 #### Colour and maths
 
-- [ ] **Category: Show friendly names in Select dropdowns (Med, S).** Dropdowns
-  render raw ids (`inOutApprox`, `oneShot`, `pulseDivider`, `hsvShort`,
-  `splitComplementary`, `smoothStep`, `bytes`). Route option text through the
-  `BUNDLED_TITLES` table and add a small label map for `mixMode`, `harmony`,
-  `position` and `hueUnits`. Evidence `src/components/Canvas/StudioNode.tsx:703`,
-  `src/state/nodeLibrary.ts:4625`.
 - [ ] **Category: Add an Adjust Color node (Med, M).** Dimming, hue-rotating or
   desaturating one colour takes RGB to HSV, Math, HSV to RGB (the RGB to HSV
   help example is that chain). Add a colour node with hue offset, saturation
@@ -517,15 +511,6 @@ freeze, or drop them.
   own list and `applySweepEase`; its "cubic" is `4t³` while Ease's in-out
   "cubic" is smoothstep, so one name gives two curves. Reuse `applyEase` and
   the `EASE_TYPES` subset. Evidence `src/nodes/color/evaluate.ts:66`.
-- [ ] **HSV → RGB: Fix the "FastLED byte" hue units (Med, S).** `bytes` is a
-  rescaled spectrum wheel (`h/255*360`), not FastLED's CHSV rainbow wheel, so
-  "96 green, 160 blue" is only approximate. Either make `bytes` the rainbow
-  wheel on both sides, or relabel it "0–255 wheel" and correct the anchors to
-  85/170. Evidence `src/nodes/color/evaluate.ts:94`, `src/codegen/colorControlCpp.ts:14`.
-- [ ] **HSV → RGB: Make the Hue slider max follow the units (Low, S).** The
-  slider stays 0–360 in bytes mode. Make its max depend on `hueUnits`, as
-  `propertyOptions` does for dependent selects. Evidence
-  `src/state/nodeLibrary.ts:720`.
 - [ ] **Color Temperature: Fix the inverted Warmth property (Med, S).** 0 is
   candle (warmest) and 1 is blue sky, so raising Warmth cools the light.
   Rename it "Coolness" or, better, flip the mapping so 1 = warm. Evidence

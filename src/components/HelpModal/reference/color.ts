@@ -138,11 +138,12 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
   HSVToRGB: {
     overview: [
       'HSV → RGB builds a colour from hue, saturation and value. Hue is the colour’s place on the wheel; saturation how pure it is; value how bright.',
-      'Hue can be read in degrees (0 red, 120 green, 240 blue) or as a FastLED byte (0 red, 96 green, 160 blue, 255 back to red). Values past the end wrap round the wheel, so a rising number keeps cycling.',
+      'Hue can be read in degrees (0 red, 120 green, 240 blue) or as the same wheel in 0–255 steps (0 red, 85 green, 170 blue, 255 back to red). Values past the end wrap round the wheel, so a rising number keeps cycling.',
+      'The wheel is the plain HSV one, with its three primaries evenly spaced. FastLED’s CHSV uses its rainbow wheel, which widens yellow, so a CHSV hue ported here lands close to, but not exactly on, the same colour.',
       'It is the usual way to turn a number — an audio hue, a counter, a sensor — into a colour.',
     ],
     inputs: {
-      h: 'Hue, in degrees or FastLED bytes depending on Hue Units.',
+      h: 'Hue, in degrees or 0–255 steps depending on Hue Units.',
       s: 'Saturation, 0 (white) to 1 (pure).',
       v: 'Value, 0 (off) to 1 (full).',
     },

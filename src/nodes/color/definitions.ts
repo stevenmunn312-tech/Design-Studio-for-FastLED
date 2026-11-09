@@ -93,8 +93,9 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     label: 'HSV → RGB',
     category: 'color',
     subcategory: 'Colors',
-    // `hueUnits` reads Hue as degrees (0–360) or as a FastLED byte (0–255),
-    // which is what CHSV took before it folded in here. Sat and Val are 0–1.
+    // `hueUnits` reads Hue as degrees (0–360) or as the same plain HSV wheel
+    // in 0–255 steps (`bytes`, 85 green, 170 blue), the range CHSV took before
+    // it folded in here; it is not CHSV's rainbow wheel. Sat and Val are 0–1.
     inputs: [
       { id: 'h', label: 'Hue', dataType: 'float' },
       { id: 's', label: 'Sat (0–1)', dataType: 'float' },
@@ -297,7 +298,7 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   // color
   Color: 'A picked colour as a wireable Color output.',
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
-  HSVToRGB: 'Converts hue/sat/val to an RGB color; hue in degrees or as a FastLED 0–255 byte.',
+  HSVToRGB: 'Converts hue/sat/val to an RGB color; hue in degrees or 0–255 steps.',
   RGBToHSV: 'Converts an RGB color to hue/sat/val.',
   Temperature: 'White point from a 0–1 warmth control: candle at 0, blue sky at 1.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',

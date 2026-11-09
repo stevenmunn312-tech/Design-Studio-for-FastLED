@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty, BUNDLED_TITLES } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty, BUNDLED_TITLES, selectOptionLabel, propertyMetaFor } from '../nodeLibrary'
 import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
 import { EASE_TYPES } from '../../nodes/math/easing'
@@ -966,6 +966,29 @@ describe('nodeLibrary', () => {
       expect(nodeDisplayLabel('Ease', { easeType }, 'Ease'), easeType).toMatch(/^Ease In\/Out · /)
     }
     expect(nodeDisplayLabel('Ease', { easeType: 'unknown' }, 'Ease')).toBe('Ease')
+  })
+
+  it('names select options in their dropdowns rather than showing raw ids', () => {
+    // A bundled variant select reads as the header it gives the node...
+    expect(selectOptionLabel('Trigger', 'triggerOp', 'pulseDivider')).toBe('Pulse Divider')
+    expect(selectOptionLabel('Ease', 'easeType', 'inQuad')).toBe('Ease In · Quad')
+    // ...less the "Name · " every one of its titles shares.
+    expect(selectOptionLabel('Path', 'pathShape', 'circle')).toBe('Circle')
+    expect(selectOptionLabel('SpectrumVisualizer', 'style', 'Centre Mirror')).toBe('Mirror')
+    // Written labels for ids that are not words, on every node that has them.
+    expect(selectOptionLabel('GradientSampler', 'mixMode', 'hsvShort')).toBe('Hue, short way')
+    expect(selectOptionLabel('GradientFrame', 'mixMode', 'hsvLong')).toBe('Hue, long way')
+    expect(selectOptionLabel('HarmonyPalette', 'harmony', 'splitComplementary')).toBe('Split complementary')
+    expect(selectOptionLabel('Poline', 'position', 'smoothStep')).toBe('Smooth step')
+    expect(selectOptionLabel('HSVToRGB', 'hueUnits', 'bytes')).toBe('0–255 wheel')
+    // Anything else reads as itself.
+    expect(selectOptionLabel('Noise', 'palette', 'ocean')).toBe('ocean')
+  })
+
+  it('narrows HSV → RGB Hue to 255 on the 0–255 wheel', () => {
+    expect(propertyMetaFor('HSVToRGB', 'h', { hueUnits: 'degrees' })).toMatchObject({ max: 360 })
+    expect(propertyMetaFor('HSVToRGB', 'h', { hueUnits: 'bytes' })).toMatchObject({ max: 255 })
+    expect(propertyMetaFor('HSVToRGB', 's', { hueUnits: 'bytes' })).toEqual(propertyMeta('HSVToRGB', 's'))
   })
 
   // Derived from the title table, so a variant added to a select without a

@@ -979,7 +979,7 @@ describe('generateCpp', () => {
     expect(emit('round')).toContain('float n_fn_result = floorf((0.25) + 0.5f);')
   })
 
-  it('emits an HSV To RGB node in FastLED byte hue units', () => {
+  it('emits an HSV To RGB node on the 0–255 hue wheel', () => {
     const hsv = node('c', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 128, s: 1, v: 0.8 })
     const cpp = generateCpp([hsv], [])
     // The 0–255 hue becomes degrees on the preview's wheel, which _hsv wraps.

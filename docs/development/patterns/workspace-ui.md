@@ -338,6 +338,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   stack and `App.tsx` then leave the event alone. `PropertyInputMenu` (capture phase) and the Performance deck's key
   learning are deliberate exceptions that take the keystroke before anything
   else.
+- **A select stores an id and shows a name.** Property rows (and the Help
+  property list) draw each option through `selectOptionLabel`
+  (`nodeLibrary.ts`): a bundled node's variant select reuses its
+  `BUNDLED_TITLES` header less any "Name · " prefix all its titles share, and
+  ids that are not words (`hsvShort`, `splitComplementary`, `bytes`) take a
+  label from `SELECT_OPTION_LABELS`. The stored value never changes, so a
+  label can be reworded freely. A slider whose range depends on another
+  property of the same node is narrowed by `propertyMetaFor`, as
+  `propertyOptions` narrows a select; HSV → RGB's Hue runs to 255 on the
+  0–255 wheel.
 
 ## Visual system
 

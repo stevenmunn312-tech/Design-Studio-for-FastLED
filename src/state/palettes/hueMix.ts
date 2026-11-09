@@ -3,7 +3,8 @@ import { type RGB, hsv } from './ledColor'
 /** How a two-colour gradient travels between its ends: straight through RGB,
  *  or round the hue wheel the short or the long way, FastLED's
  *  `SHORTEST_HUES` and `LONGEST_HUES`. `rgb` is the historical mix. */
-/** How HSV → RGB reads its Hue: degrees round the wheel, or a FastLED byte. */
+/** How HSV → RGB reads its Hue: degrees round the wheel, or the same plain
+ *  HSV wheel in 0–255 steps (`bytes`: 85 green, 170 blue). Not CHSV's rainbow wheel. */
 export const HUE_UNITS = ['degrees', 'bytes'] as const
 export type HueUnits = typeof HUE_UNITS[number]
 export const hueUnits = (value: unknown): HueUnits => (value === 'bytes' ? 'bytes' : 'degrees')

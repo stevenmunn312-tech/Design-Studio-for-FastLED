@@ -65,7 +65,7 @@ import { PCA9685_PART_ID, pwmDriverAddressOptions, pwmDriverSpec } from './perip
 import { DEFAULT_POWER_MONITOR_PART_ID, powerMonitorAddressOptions } from './peripherals/powerMonitor'
 import { SLICE_PRESET_NAMES } from '../nodes/field/sliceTiling'
 import { HARMONY_KINDS } from './palettes/harmonyPalette'
-import { GRADIENT_MIX_MODES, HUE_UNITS } from './palettes/hueMix'
+import { GRADIENT_MIX_MODES, HUE_UNITS, hueUnits } from './palettes/hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
@@ -1678,6 +1678,72 @@ export function propertyMeta(nodeType: string, key: string): PropertyControl | u
     ?? (isGpioPinProperty(nodeType, key) ? GPIO_PIN_CONTROL : undefined)
 }
 
+/**
+ * The control a property row draws on this particular node: `propertyMeta`,
+ * with a slider's range narrowed where another property of the same node
+ * changes what the number means (as `propertyOptions` narrows a select).
+ * HSV → RGB's Hue runs to 255 when it is read on the 0–255 wheel.
+ */
+export function propertyMetaFor(
+  nodeType: string,
+  key: string,
+  properties: Record<string, unknown>,
+): PropertyControl | undefined {
+  const meta = propertyMeta(nodeType, key)
+  if (nodeType === 'HSVToRGB' && key === 'h' && meta?.control === 'slider' && hueUnits(properties.hueUnits) === 'bytes') {
+    return { ...meta, max: 255 }
+  }
+  return meta
+}
+
+/**
+ * What a select option reads as in its dropdown. A bundled node's variant
+ * select takes the header that variant gives the node (`BUNDLED_TITLES`),
+ * less a "Name · " prefix every variant shares; other camelCase or
+ * abbreviated ids take a written label. Anything else reads as itself.
+ */
+export function selectOptionLabel(nodeType: string, key: string, option: string): string {
+  const bundled = BUNDLED_TITLES[nodeType]
+  if (bundled?.prop === key && bundled.labels[option]) {
+    const prefix = sharedTitlePrefix(nodeType)
+    const label = bundled.labels[option]
+    return prefix && label.startsWith(prefix) ? label.slice(prefix.length) : label
+  }
+  return SELECT_OPTION_LABELS[nodeType]?.[key]?.[option] ?? SELECT_OPTION_LABELS['*'][key]?.[option] ?? option
+}
+
+/** The "Name · " every one of a bundled node's titles starts with, if any. */
+function sharedTitlePrefix(nodeType: string): string {
+  const labels = Object.values(BUNDLED_TITLES[nodeType]?.labels ?? {})
+  const first = /^[^·]+ · /.exec(labels[0] ?? '')?.[0]
+  return first && labels.every((label) => label.startsWith(first)) ? first : ''
+}
+
+/**
+ * Written labels for select options whose ids are not words, by node type,
+ * with '*' for a key that reads the same on every node carrying it.
+ */
+const SELECT_OPTION_LABELS: Record<string, Record<string, Record<string, string>>> = {
+  '*': {
+    mixMode: { rgb: 'RGB', hsvShort: 'Hue, short way', hsvLong: 'Hue, long way' },
+  },
+  HarmonyPalette: {
+    harmony: {
+      complementary: 'Complementary', analogous: 'Analogous', triadic: 'Triadic',
+      splitComplementary: 'Split complementary', tetradic: 'Tetradic',
+    },
+  },
+  Poline: {
+    position: {
+      linear: 'Linear', sinusoidal: 'Sinusoidal', quadratic: 'Quadratic', cubic: 'Cubic',
+      arc: 'Arc', smoothStep: 'Smooth step', exponential: 'Exponential',
+    },
+  },
+  HSVToRGB: {
+    hueUnits: { degrees: 'Degrees (0–360)', bytes: '0–255 wheel' },
+  },
+}
+
 /** Select choices that depend on another property of the same node. */
 export function propertyOptions(
   nodeType: string,
@@ -2688,8 +2754,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     v: 'Brightness, 0 (off) to 1 (full).',
   },
   HSVToRGB: {
-    hueUnits: 'How Hue is read: degrees round the wheel (0 red, 120 green, 240 blue) or a FastLED byte (0 red, 96 green, 160 blue, 255 back to red).',
-    h: 'Hue when nothing is wired into Hue, in the units above. Values past the end wrap round the wheel.',
+    hueUnits: 'How Hue is read: degrees round the wheel (0 red, 120 green, 240 blue), or the same wheel in 0–255 steps (0 red, 85 green, 170 blue, 255 back to red). It is the plain HSV wheel, not FastLED’s CHSV rainbow wheel.',
+    h: 'Hue when nothing is wired into Hue, in the units above: 0–360, or 0–255 on the 0–255 wheel. Values past the end wrap round the wheel.',
     s: 'Colour strength, 0 (white) to 1 (pure hue).',
     v: 'Brightness, 0 (off) to 1 (full).',
   },
