@@ -5518,7 +5518,8 @@ describe('EncoderInput (codegen)', () => {
     expect(cpp).toContain('static int8_t _encLast_enc = 0; static float _encPos_enc = 0;')
     expect(cpp).toContain('digitalRead(32)')
     expect(cpp).toContain('digitalRead(33)')
-    expect(cpp).toContain('float n_enc_position = _encPos_enc;')
+    // Counted in quadrature steps, published in clicks.
+    expect(cpp).toContain('float n_enc_position = _encPos_enc / 4.0f;')
     expect(cpp).toContain('bool n_enc_pressed = digitalRead(25) == LOW;')
   })
 
@@ -5536,7 +5537,7 @@ describe('EncoderInput (codegen)', () => {
     expect(cpp).toContain('_encSwLast_enc = n_enc_pressed;')
     // The latch must run before `position` is read out, so the same frame a
     // press lands already reports the reset value.
-    expect(cpp.indexOf('_encPos_enc = 0;')).toBeLessThan(cpp.indexOf('float n_enc_position = _encPos_enc;'))
+    expect(cpp.indexOf('_encPos_enc = 0;')).toBeLessThan(cpp.indexOf('float n_enc_position = _encPos_enc / 4.0f;'))
   })
 })
 

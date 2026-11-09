@@ -407,8 +407,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
   {
     // Rotary encoder (e.g. KY-040) — polling quadrature decode (no interrupts,
     // matching ButtonInput/PotInput's plain digitalRead/analogRead approach).
-    // `position` is an unbounded running count; wire through MapRange/Mod to
-    // wrap it. `level` is the same turning held to 0-1 as it is counted
+    // `position` is an unbounded running count of clicks; wire through
+    // MapRange/Mod to wrap it. `level` is the same turning held to 0-1 as it is counted
     // (state/peripherals/encoder.ts), for a volume or a brightness.
     type: 'EncoderInput',
     label: 'Encoder',

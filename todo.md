@@ -152,12 +152,6 @@ freeze, or drop them.
   the 4x4 layout, so the key printed "0" is 13. Add a `label` string output,
   or a `digit` output reading 0-9 for number keys, so presets can be picked
   by number. Evidence `src/components/HelpModal/reference/input.ts:557`.
-- [ ] **Encoder: Count Position in clicks, not quarter steps (Med, S).**
-  Position counts four per detent, so every Map Range must divide by four,
-  and the Help example is wrong ("24 clicks one half turn" with +/-24 is 6
-  clicks). Count in clicks before v1.0 (Level already does), or at least fix
-  the example text. Evidence `src/state/peripherals/encoder.ts:40`,
-  `src/components/HelpModal/reference/input.ts:708`.
 - [ ] **RTC Clock: Allow a Clock node without a DS3231 (High, M).** RTCInput
   is hidden from the library and the only shelf entries are two DS3231
   modules, yet Compile Time, Manual and NTP need no part (and the Help

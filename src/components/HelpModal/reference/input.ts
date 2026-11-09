@@ -648,7 +648,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
 
   EncoderInput: {
     overview: [
-      'Encoder reads a rotary encoder: a knob with no end stops, plus the push switch most of them carry. Position counts up one way and down the other, as far as you keep turning; Pressed is true while the knob is pushed in.',
+      'Encoder reads a rotary encoder: a knob with no end stops, plus the push switch most of them carry. Position counts clicks, up one way and down the other, as far as you keep turning; Pressed is true while the knob is pushed in.',
       'Because it never runs out of travel, Position suits values that should wrap or keep going — rotation, hue, a menu position. Turn on Reset On Press to zero Position with each push.',
       'For a volume or a brightness, use Level instead: the same turning held between 0 and 1, starting at Level Start, with Clicks 0 To 1 setting how far a turn goes. It stops at each end, so the first click back always moves it — wire it straight in with no Map Range.',
       'In the preview, drag the dial on the node up or down to turn it and click it to press. On the board the sketch polls the A and B lines and reads the switch like a button.',
@@ -659,7 +659,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'For the bare SR1230, wire A, B and SW to the GPIOs shown, then C and the other switch leg each to ground. It has no supply pin, and its lines always use the board’s internal pull-ups.',
     ],
     outputs: {
-      position: 'Steps turned since start-up: up one way, down the other, without limit. Four steps a click.',
+      position: 'Clicks turned since start-up: up one way, down the other, without limit. It moves in quarters between detents and reads a whole number at each one.',
       level: 'The turning as a value from 0 to 1 that stops at each end, ready for a volume or a brightness.',
       pressed: 'True while the knob is pushed in.',
     },

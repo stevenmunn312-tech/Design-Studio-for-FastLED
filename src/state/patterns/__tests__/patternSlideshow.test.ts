@@ -13,7 +13,6 @@ import { NODE_LIBRARY } from '../../nodeLibrary'
 import { advanceSlideshowSilenceFade, slideshowSettings, asSlideshowOrder } from '../patternSlideshow'
 import { validateGraph } from '../../../utils/validateGraph'
 import { useHardwareInputStore } from '../../peripherals/hardwareInputStore'
-import { ENCODER_COUNTS_PER_STEP } from '../patternSelection'
 import type { StudioNode, StudioEdge } from '../../graphStore'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
@@ -278,8 +277,9 @@ describe('a running Pattern Slideshow', () => {
     runSlideshow(props, 0, extra)
     expect(playingIndex()).toBe(0)
 
-    // One detent — four quadrature counts — is one pattern, applied here.
-    useHardwareInputStore.getState().setPot('knob', ENCODER_COUNTS_PER_STEP)
+    // Pattern Select takes clicks, as an Encoder's Position reads: one click
+    // is one pattern, applied here.
+    useHardwareInputStore.getState().setPot('knob', 1)
     runSlideshow(props, 0.1, extra)
     expect(playingIndex()).toBe(1)
     expect(getPatternShowSelection('show')!.transitioning).toBe(false)

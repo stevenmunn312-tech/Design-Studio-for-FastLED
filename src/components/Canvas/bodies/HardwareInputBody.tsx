@@ -19,6 +19,7 @@ import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
 } from '../../../state/peripherals/motionVector'
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../../state/peripherals/distanceSensor'
+import { ENCODER_COUNTS_PER_STEP } from '../../../state/patterns/patternSelection'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
@@ -336,7 +337,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
       >
         <div className={styles.encoderNotch} style={{ transform: `rotate(${angle}deg)` }} />
       </div>
-      <span className={styles.potReadout}>{Math.round(position)}</span>
+      <span className={styles.potReadout}>{Math.round(position / ENCODER_COUNTS_PER_STEP)}</span>
     </div>
   )
 }

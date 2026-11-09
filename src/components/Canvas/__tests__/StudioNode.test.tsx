@@ -1562,7 +1562,8 @@ describe('StudioNode', () => {
   })
 
   it('resetOnPress zeros the encoder position on a tap (no drag)', () => {
-    useHardwareInputStore.setState({ encoder: new Map([['n1', { position: 5, pressed: false }]]) })
+    // The dial reads clicks: twenty quadrature steps are five.
+    useHardwareInputStore.setState({ encoder: new Map([['n1', { position: 20, pressed: false }]]) })
     const { getByTitle, getByText } = renderNode(
       makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true, resetOnPress: true })
     )

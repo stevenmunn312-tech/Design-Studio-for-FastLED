@@ -17,6 +17,7 @@ import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './periph
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorIncludes, distanceSensorLoopCpp, distanceSensorSetupCpp } from './peripherals/distanceSensorCpp'
 import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
 import { encoderCountScale, encoderLevelSpan, encoderLevelStartCount, encoderUsesPullup } from '../state/peripherals/encoder'
+import { ENCODER_COUNTS_PER_STEP } from '../state/patterns/patternSelection'
 import { ANALOG_FULL_SCALE_CPP, analogLevelCpp } from './helpers/analogReadCpp'
 
 export interface ControlInputEmission {
@@ -113,7 +114,8 @@ export function controlInputCpp(
         loop.push(`  if (${v('pressed')} && !_encSwLast_${id}) { _encPos_${id} = 0;${level ? ` _encLvl_${id} = ${start};` : ''} }`)
         loop.push(`  _encSwLast_${id} = ${v('pressed')};`)
       }
-      loop.push(`  float ${v('position')} = _encPos_${id};`)
+      // Counted in quadrature steps, published in clicks: whole at each detent.
+      loop.push(`  float ${v('position')} = _encPos_${id} / ${ENCODER_COUNTS_PER_STEP}.0f;`)
       outputs.position = 'float'
       if (level) {
         loop.push(`  float ${v('level')} = _encLvl_${id} / ${span}.0f;`)
@@ -123,7 +125,7 @@ export function controlInputCpp(
         // Every change of Level and every edge of the switch, raw: a bouncing
         // contact shows as several presses, which is what this is for.
         loop.push(`  static int16_t _encDbgLvl_${id} = -1; static bool _encDbgSw_${id} = false;`)
-        loop.push(`  if (_encLvl_${id} != _encDbgLvl_${id}) { _encDbgLvl_${id} = _encLvl_${id}; Serial.printf("[encoder] level=%.3f position=%.0f\\n", ${v('level')}, ${v('position')}); }`)
+        loop.push(`  if (_encLvl_${id} != _encDbgLvl_${id}) { _encDbgLvl_${id} = _encLvl_${id}; Serial.printf("[encoder] level=%.3f position=%.2f\\n", ${v('level')}, ${v('position')}); }`)
         loop.push(`  if (${v('pressed')} != _encDbgSw_${id}) { _encDbgSw_${id} = ${v('pressed')}; Serial.println(${v('pressed')} ? "[encoder] press" : "[encoder] release"); }`)
       }
       break

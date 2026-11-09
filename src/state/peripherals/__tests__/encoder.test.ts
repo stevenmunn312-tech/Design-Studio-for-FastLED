@@ -9,6 +9,8 @@ import { INPUT_PARTS } from '../../../components/Hardware/hardwarePartCatalog'
 import { partById } from '../../../build/parts/partCatalogue'
 import { PART_OPTIONS, resolvePartIdentity } from '../../../build/parts/partOptions'
 import type { StudioNode } from '../../graphStore'
+import { evaluateGraphFull, resetEvaluatorState } from '../../graphEvaluator'
+import { useHardwareInputStore } from '../hardwareInputStore'
 import { libraryDefaults, NODE_LIBRARY, gpioRequirementForProperty } from '../../nodeLibrary'
 import {
   encoderCountScale, encoderIsBare, encoderLevelClicks, encoderLevelCountStep, encoderLevelSpan, encoderLevelStart,
@@ -83,6 +85,18 @@ describe('counts per click', () => {
     const cpp = controlInputCpp('EncoderInput', 'enc', { ...libraryDefaults('EncoderInput'), ...SR1230 })!
     expect(cpp.loop.join('\n')).toContain('_encPos_enc+=_d * 2;')
   })
+
+  // Position reads in clicks on both sides, so a Map Range spans clicks with
+  // no divide by four.
+  it('publishes Position in clicks in the preview and the sketch', () => {
+    const cpp = controlInputCpp('EncoderInput', 'enc', libraryDefaults('EncoderInput'))!
+    expect(cpp.loop.join('\n')).toContain('float n_enc_position = _encPos_enc / 4.0f;')
+    useHardwareInputStore.setState({ encoder: new Map([['enc', { position: 12, pressed: false }]]) })
+    resetEvaluatorState()
+    const outputs = evaluateGraphFull([node('enc')], [], 0, 8, 8).outputs
+    expect(outputs.get('enc')?.position).toBe(3)
+    useHardwareInputStore.setState({ encoder: new Map() })
+  })
 })
 
 describe('Level', () => {
@@ -126,7 +140,7 @@ describe('Level', () => {
     // Debug counts Level even unread, and reports it and the switch's edges.
     const debug = controlInputCpp('EncoderInput', 'enc', { ...p, debug: true }, new Set(['pressed']))!
     expect(debug.serialDebug).toBe(true)
-    expect(debug.loop.join('\n')).toContain('Serial.printf("[encoder] level=%.3f position=%.0f\\n", n_enc_level, n_enc_position);')
+    expect(debug.loop.join('\n')).toContain('Serial.printf("[encoder] level=%.3f position=%.2f\\n", n_enc_level, n_enc_position);')
     expect(debug.loop.join('\n')).toContain('Serial.println(n_enc_pressed ? "[encoder] press" : "[encoder] release");')
     expect(unread.serialDebug).toBeUndefined()
     // The SR1230's two counts a transition step Level the same way.

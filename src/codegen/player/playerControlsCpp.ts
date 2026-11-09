@@ -212,7 +212,8 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
   if (patternNext) lines.push(`    if (${edge(patternNext)}) ${variable}.patternSteps += 1;`)
   if (patternPrevious) lines.push(`    if (${edge(patternPrevious)}) ${variable}.patternSteps -= 1;`)
   if (emit.patternPositionExpr) {
-    lines.push(`    ${variable}.patternSteps += _pcD_${id}.update((long)(${emit.patternPositionExpr}));`)
+    // A position in clicks, counted in steps (four a click) like the decoder's.
+    lines.push(`    ${variable}.patternSteps += _pcD_${id}.update(lroundf((${emit.patternPositionExpr}) * ${ENCODER_COUNTS_PER_STEP}.0f));`)
   }
 
   // Absolutes: wired here beats wired upstream, and unwired stays absent.

@@ -33,6 +33,7 @@ import {
   updatePatternSelection,
   reconcilePatternCursor,
   encoderSteps,
+  ENCODER_COUNTS_PER_STEP,
   type PatternSelectValue,
   blankPatternSelectValue,
 } from '../../state/patterns/patternSelection'
@@ -1362,7 +1363,9 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     let patternSteps = (button('patternNext', true) ? 1 : 0) - (button('patternPrevious', true) ? 1 : 0)
     if (incoming.has(`${id}:patternSelect`)) {
       if (!state.patternEncoder) state.patternEncoder = blankPatternSelection()
-      patternSteps += encoderSteps(state.patternEncoder, Number(input(id, 'patternSelect', 0)))
+      // Pattern Select takes a position in clicks (an Encoder's Position);
+      // the selection counts steps, four a click, for its carry and re-seat.
+      patternSteps += encoderSteps(state.patternEncoder, Number(input(id, 'patternSelect', 0)) * ENCODER_COUNTS_PER_STEP)
     }
 
     const controls: PlayerControls = {

@@ -4,6 +4,7 @@ import { useDdpStore } from '../../state/peripherals/ddpStore'
 import { buildFrame as buildDdpFrame } from '../../state/evaluator/frames'
 import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
 import { encoderLevelCountStep, encoderLevelSpan, encoderLevelStartCount } from '../../state/peripherals/encoder'
+import { ENCODER_COUNTS_PER_STEP } from '../../state/patterns/patternSelection'
 import {
   powerMonitorLimitAmps,
   powerMonitorPreviewDefaults,
@@ -481,7 +482,8 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     let count = prev && prev.start === start ? encoderLevelCountStep(prev.count, position - prev.position, props) : start
     if (props.resetOnPress === true && pressed && !prev?.pressed) count = start
     encoderLevelState.set(key, { count, position, pressed, start })
-    return { position, level: count / encoderLevelSpan(props), pressed }
+    // Position is counted in steps and published in clicks, as the sketch does.
+    return { position: position / ENCODER_COUNTS_PER_STEP, level: count / encoderLevelSpan(props), pressed }
   },
   // The helper's latest DDP bytes as a frame, pixel i at row-major i: a
   // sender that addresses the matrix the same way (xLights' default) lands
