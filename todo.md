@@ -1207,10 +1207,6 @@ freeze, or drop them.
   inputs, but nothing checks the generated sketch. Add a test that walks the
   list and confirms each port changes the generated sketch in the show and SD
   player generators. Evidence `src/state/player/runtimeControlScope.ts:34`.
-- [ ] **Category: Show master brightness as a percentage (Low, S).**
-  Brightness uses five scales: Board 0-255, LED output 0-1, Stereo VU 0-1,
-  Segment Display 0-7/0-15, Analog Strip 0-1. Show the Board level as a
-  percentage so the fixtures read alike (FastLED can still store 0-255).
 - [ ] **Category: Rename display nodes after the hardware (Low, S).** Info
   Display, Display Panel and Segment Display stay separate nodes. Relabel them
   with the parts people buy ("OLED Display", "TFT Display", "7-Segment
@@ -1223,15 +1219,6 @@ freeze, or drop them.
   S).** It lists only Master Speed, Frame Stream and Analog RGB Strip because
   everything else is added from the bench. Add a permanent "LED outputs are on
   the Hardware tab" row. Evidence `src/build/hardware.ts:27`.
-- [ ] **Board: Add a Frame Rate control (High, S).** `frameRate` is described
-  and the Board help says to set it, but `src/components/Canvas/bodies/BoardNodeBody.tsx` has no fps row;
-  the only writer is the Graph Health repair `setBoardFrameRate`, which can
-  only lower it. Add an fps row beside Master brightness. Evidence
-  `src/components/Canvas/bodies/BoardNodeBody.tsx:404`, `src/state/graphStore.ts:4704`.
-- [ ] **Board: Reword help step 2 on the power cap (Low, S).** It presents the
-  cap as the answer when the LEDs could draw more than the supply gives. Say to
-  size the supply from the "Required power supply" figure, and use the cap to
-  limit brightness or heat. Evidence `src/components/HelpModal/reference/output.ts:15`.
 - [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews
   (Med, M).** `MAX_LED_RUN` stops them at 300 while a matrix may reach 4096,
   though one 5 m reel at 144/m is 720. Raise the chain cap toward the matrix

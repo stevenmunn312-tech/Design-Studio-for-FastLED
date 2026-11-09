@@ -9,6 +9,7 @@ import DeckKnob from './DeckKnob'
 import styles from './PerformanceDeck.module.css'
 import { Icon } from '../icons/Icon'
 import EditableRange from '../EditableRange/EditableRange'
+import { controllerSettings, masterBrightnessLevel, masterBrightnessPercent } from '../../build/controllerSettings'
 
 /** The Performance Control Deck panel: pinned knobs/faders, parameter
  *  scenes, scene morph, and MIDI/keyboard binding capture. Dockable rather
@@ -47,6 +48,8 @@ export default function PerformanceDeck() {
 
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
   const controller = nodes.find((n) => n.data.nodeType === 'Board')
+  // A percentage, as on the Board; the node keeps FastLED's 0-255.
+  const masterPercent = masterBrightnessPercent(controllerSettings(controller ? [controller] : []).brightness)
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const brightnessPin = deck.pins.find((p) => p.nodeId === controller?.id && p.propertyKey === 'brightness')
 
@@ -116,13 +119,13 @@ export default function PerformanceDeck() {
               <EditableRange
                 className="nodrag"
                 min={0}
-                max={255}
+                max={100}
                 step={1}
-                value={Number(controller.data.properties.brightness ?? 200)}
+                value={masterPercent}
                 ariaLabel="Master brightness"
-                onChange={(value) => updateNodeProperty(controller.id, 'brightness', value)}
+                onChange={(value) => updateNodeProperty(controller.id, 'brightness', masterBrightnessLevel(value))}
               />
-              <span>{String(controller.data.properties.brightness ?? 200)}</span>
+              <span>{masterPercent}%</span>
               {!brightnessPin && <span className={styles.hint}>(pin this in Controller Settings to save/morph it)</span>}
             </div>
           )}

@@ -239,6 +239,35 @@ describe('BoardNodeBody', () => {
     expect(screen.getByText(/20% operating headroom/)).toBeTruthy()
   })
 
+  // The Board help says to set the frame rate, and the Graph Health repair can
+  // only lower it, so the body is the one place it can be raised again.
+  it('offers the frame rate and writes it to the Board node', () => {
+    const board = boardNode('b1')
+    board.data.properties = { ...board.data.properties, frameRate: 30 }
+    reset([board])
+    render(<BoardNodeBody nodeId="b1" />)
+
+    const slider = screen.getByLabelText('Frame rate') as HTMLInputElement
+    expect(slider.value).toBe('30')
+    expect(screen.getByText('30 fps')).toBeTruthy()
+    fireEvent.change(slider, { target: { value: '90' } })
+    expect(controllerSettings(useGraphStore.getState().nodes).frameRate).toBe(90)
+  })
+
+  // A percentage reads like every fixture's own dimmer; FastLED keeps 0-255.
+  it('shows master brightness as a percentage and stores 0-255', () => {
+    const board = boardNode('b1')
+    board.data.properties = { ...board.data.properties, brightness: 128 }
+    reset([board])
+    render(<BoardNodeBody nodeId="b1" />)
+
+    const slider = screen.getByLabelText('Master brightness') as HTMLInputElement
+    expect(slider.value).toBe('50')
+    expect(screen.getByText('50%')).toBeTruthy()
+    fireEvent.change(slider, { target: { value: '100' } })
+    expect(controllerSettings(useGraphStore.getState().nodes).brightness).toBe(255)
+  })
+
   it('accepts a current cap whose first digit falls below the minimum', () => {
     // Clamping a controlled number field on every keystroke rewrote "3" to the
     // 100 mA minimum before the next digit arrived, so 3000 could not be typed

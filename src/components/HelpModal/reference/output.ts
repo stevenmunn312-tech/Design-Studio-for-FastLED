@@ -12,7 +12,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     ],
     steps: [
       'Open the Hardware tab and choose your exact board from the shelf.',
-      'Set the master brightness and frame rate. Turn on the power cap and give it your supply’s current if the LEDs could draw more than it can give.',
+      'Set the master brightness and frame rate. Size the power supply from the Required power supply figure, which allows for every LED at full white; turn on the power cap only to limit brightness or heat, never to make a smaller supply do.',
     ],
     propertyNote: 'The power cap dims the LEDs on the board itself; the live preview is not dimmed. PSRAM and serial options are usually best left on Auto.',
     outcome: 'Board changes pin checks, the Build Diagram and the upload, not the pixels.',
