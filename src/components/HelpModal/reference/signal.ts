@@ -41,7 +41,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       title: 'Launch a meteor every two seconds',
       nodes: {
         every: ['Interval', { interval: 2 }],
-        sky: ['StringParticles', { track: 'row', mode: 'meteors', palette: 'emberglow', bed: 0.35, fade: 0.9 }],
+        sky: ['StringParticles', { track: 'row', mode: 'meteors', palette: 'emberglow', bed: 0.35, trail: 0.53 }],
       },
       wires: ['every.pulse > sky.trigger'],
       output: STRIP(60),
@@ -218,7 +218,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       title: 'Strobe the party at 128 BPM, no microphone needed',
       nodes: {
         clock: ['Clock', { bpm: 128, beatsPerBar: 4, subdivision: 2 }],
-        party: ['Confetti', { palette: 'party', speed: 0.55, fade: 0.63 }],
+        party: ['Confetti', { palette: 'party', speed: 0.55, trail: 0.37 }],
         strobe: ['BeatFlash', { intensity: 0.8, decay: 0.75, palette: 'party' }],
       },
       wires: ['clock.beat > strobe.beat', 'party.frame > strobe.frame'],

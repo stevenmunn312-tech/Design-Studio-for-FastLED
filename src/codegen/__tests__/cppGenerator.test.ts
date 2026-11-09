@@ -1709,7 +1709,8 @@ describe('generateCpp', () => {
     expect(sp({ track: 'row', mode: 'meteors' })).not.toContain('_sp_nprev')
     expect(meteors).toContain('inoise8((uint16_t)(_k*90)')
     expect(sp({ mode: 'meteors', bed: 0 })).not.toContain('inoise8((uint16_t)(_k*90)')
-    expect(row).toContain('scale8(_sp_ntr[_k].r,_fq)')
+    // The trail fades on the shared trail clock, over the track's own length.
+    expect(row).toContain('fadeToBlackBy(_sp_ntr, _len, _by);')
     expect(row).toContain('qadd8(')
   })
 
@@ -2104,16 +2105,18 @@ describe('generateCpp', () => {
   })
 
   it('emits a Game of Life simulation with millis-based stepping', () => {
-    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, palette: 'mojito' })
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, trail: 0.37, palette: 'mojito' })
     const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
     expect(cpp).toContain('static uint8_t _gc_g[NUM_LEDS], _gn_g[NUM_LEDS]')
     expect(cpp).toContain('millis() - _gt_g')
     expect(cpp).toContain('ColorFromPalette(paldef_mojito,(uint8_t)(_gb_g[_i]*255))')
-    expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*constrain(0.75,0.0f,1.0f)')
+    // Dead cells dim on the shared trail clock, as the preview's trailKeep does.
+    expect(cpp).toContain('static float _tkeep_gT = -1.0f;')
+    expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*_tkeep_g;')
   })
 
   it('reseeds Game of Life after four empty or frozen steps, as the preview does', () => {
-    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, palette: 'mojito' })
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, trail: 0.37, palette: 'mojito' })
     const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
     expect(cpp).toContain('if(_gn_g[_i]!=_gc_g[_i]) _chg=true;')
     expect(cpp).toContain('_gst_g=(_pop==0||!_chg)?_gst_g+1:0;')
@@ -2138,7 +2141,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a stateful FlowField with particle buffers', () => {
-    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.08, count: 50, fade: 0.9, palette: 'ocean' })
+    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.08, count: 50, trail: 0.53, palette: 'ocean' })
     const cpp = generateCpp([ff, outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
     expect(cpp).toContain('const int _count=max(8,min(400,(int)floorf(50)))')
     expect(cpp).toContain('static float _fpx_ff[400], _fpy_ff[400], _ftr_ff[NUM_LEDS]')
@@ -2148,7 +2151,7 @@ describe('generateCpp', () => {
     // undefined to convert.
     expect(cpp).toContain('uint16_t _z=(uint16_t)fmodf(t*100.0f,65536.0f);')
     expect(cpp).not.toContain('(uint16_t)(t*100)')
-    expect(cpp).toContain('_ftr_ff[_i]*=constrain(0.9,0.0f,1.0f)')
+    expect(cpp).toContain('_ftr_ff[_i]*=_tkeep_ff;')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
 
     const curl = generateCpp([node('ff', 'FlowField', 'pattern', { flowMode: 'curl' }), outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
@@ -3944,10 +3947,13 @@ describe('Formula Points codegen', () => {
     expect(web).toContain('sinf(-0.827f*_fp_fpay)-cosf(-1.637f*_fp_fpax)')
   })
 
-  it('attractor and the trail variants fade the persistent buffer by (1 - persistence)', () => {
-    const cpp = gen('attractor', { persistence: 0.9 })
-    expect(cpp).toContain('float _fp_fpP=constrain(0.9, 0.0f, 1.0f);')
-    expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, (uint8_t)((1.0f-_fp_fpP)*255.0f));')
+  it('attractor and the trail variants fade the persistent buffer on the trail clock', () => {
+    const cpp = gen('attractor', { trail: 0.53 })
+    expect(cpp).toContain('float _fp_fpT=0.53;')
+    expect(cpp).toContain('static float _trail_fpT = -1.0f, _trail_fpOwed = 0.0f;')
+    expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, _by);')
+    // The fade needs the clock even where nothing else in the variant does.
+    expect(cpp).toMatch(/float t = /)
   })
 
   it('lissajousPath reads both frequencies through their ports and cycles hue with phase', () => {
@@ -4001,7 +4007,7 @@ describe('Formula Points codegen', () => {
       ],
     )
     expect(wired('speed')).toContain('float _fp_fpS=constrain(n_w_value, 0.0f, 1.0f);')
-    expect(wired('persistence')).toContain('float _fp_fpP=constrain(n_w_value, 0.0f, 1.0f);')
+    expect(wired('trail')).toContain('float _fp_fpT=n_w_value;')
     expect(wired('freqA')).toContain('sinf(fmaxf(1.0f, n_w_value)*_phase)')
     expect(wired('dotSize')).toContain('fmaxf(0.1f, n_w_value)')
   })
@@ -5357,21 +5363,27 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).not.toMatch(/sinf|powf/)
   })
 
-  it('Scanner emits a ping-pong palette beam along the selected axis', () => {
-    const sc = node('sc', 'Scanner', 'pattern', { speed: 0.45, width: 2, fade: 0.6, axis: 'vertical', palette: 'lava' })
+  it('Scanner emits a ping-pong palette beam along the selected axis, with a tail behind it', () => {
+    const sc = node('sc', 'Scanner', 'pattern', { speed: 0.45, width: 2, trail: 0.55, axis: 'vertical', palette: 'lava' })
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB* const buf_sc = leds;')
+    // The tail is the buffer fading on the trail clock, so it persists.
+    expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];   // keeps its pixels between frames')
+    expect(cpp).toContain('static float _trail_scT = -1.0f, _trail_scOwed = 0.0f;')
+    expect(cpp).toContain('fadeToBlackBy(buf_sc, NUM_LEDS, _by);')
     expect(cpp).toContain('float _travel=_ph<=1.0f?_ph:2.0f-_ph;')
-    expect(cpp).toContain('ColorFromPalette(paldef_lava,(uint8_t)(_travel*255.0f))')
-    expect(cpp).toContain('float _coord=(float)_y;')
-    expect(cpp).toContain('_px.nscale8_video((uint8_t)(_v*255.0f));')
+    // The beam lights the whole span it crossed since the last frame.
+    expect(cpp).toContain('static float _scPrev_sc=-1.0f;')
+    // Read from the bright upper part of the palette, held at its end.
+    expect(cpp).toContain('ColorFromPalette(paldef_lava,(uint8_t)((0.3f+0.7f*_travel)*255.0f),255,LINEARBLEND_NOWRAP)')
+    expect(cpp).toContain('const int _span=HEIGHT, _across=WIDTH;')
+    expect(cpp).toContain('for(int _o=0;_o<_across;_o++) buf_sc[_c*WIDTH+_o]|=_px;')
   })
 
   it('Confetti emits persistent fade-and-sprinkle palette logic', () => {
-    const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, fade: 0.65, palette: 'party' })
+    const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, trail: 0.35, palette: 'party' })
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];   // keeps its pixels between frames')
-    expect(cpp).toContain('_fd=0.65;')
+    expect(cpp).toContain('_tr=0.35;')
     expect(cpp).toContain('static float _trail_cfT = -1.0f, _trail_cfOwed = 0.0f;')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, _by);')
     // The preview's own coefficients on the already-denormalised rate: a spawn
@@ -5383,11 +5395,11 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   })
 
   it('Juggle emits fading multi-dot palette motion and supports the Sinelon count=1 case', () => {
-    const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, fade: 0.61, palette: 'rainbow' })
+    const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, trail: 0.39, palette: 'rainbow' })
     const cpp = generateCpp([jg, outputNode], [edge('e1', 'jg', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('const int _dots=1;')
-    expect(cpp).toContain('_fd=0.61;')
+    expect(cpp).toContain('_tr=0.39;')
     expect(cpp).toContain('static float _trail_jgT = -1.0f, _trail_jgOwed = 0.0f;')
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, _by);')
     expect(cpp).toContain('float _phase=0.0f;')
@@ -5395,22 +5407,22 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
   })
 
-  it('Juggle reads live Count, Speed and Fade wires instead of baking their saved values', () => {
-    const jg = node('jg', 'Juggle', 'pattern', { speed: 0, count: 1, fade: 0 })
+  it('Juggle reads live Count, Speed and Trail wires instead of baking their saved values', () => {
+    const jg = node('jg', 'Juggle', 'pattern', { speed: 0, count: 1, trail: 1 })
     const count = node('count', 'Math', 'math', { a: 3.6, b: 0 })
     const speed = node('speed', 'Math', 'math', { a: 0.7, b: 0 })
-    const fade = node('fade', 'Math', 'math', { a: 0.9, b: 0 })
-    const cpp = generateCpp([jg, count, speed, fade, outputNode], [
+    const trail = node('trail', 'Math', 'math', { a: 0.1, b: 0 })
+    const cpp = generateCpp([jg, count, speed, trail, outputNode], [
       edge('frame', 'jg', 'out', 'frame', 'frame'),
       edge('count-wire', 'count', 'jg', 'result', 'count'),
       edge('speed-wire', 'speed', 'jg', 'result', 'speed'),
-      edge('fade-wire', 'fade', 'jg', 'result', 'fade'),
+      edge('trail-wire', 'trail', 'jg', 'result', 'trail'),
     ])
     expect(cpp).toContain('const float _count=n_count_result;')
     expect(cpp).toContain('isfinite(_count) ? (int)roundf(constrain(_count,1.0f,8.0f)) : 4')
     expect(cpp).toContain('n_speed_result')
-    expect(cpp).toContain('_fd=n_fade_result;')
-    expect(cpp).toContain('constrain((_fd), 0.0f, 1.0f)')
+    expect(cpp).toContain('_tr=n_trail_result;')
+    expect(cpp).toContain('constrain((_tr), 0.0f, 1.0f)')
     expect(cpp.indexOf('float n_count_result')).toBeLessThan(cpp.indexOf('const float _count='))
     expect(cpp).not.toContain('const int _dots=1;')
   })

@@ -2,6 +2,7 @@ import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../s
 import { particleMode } from './particleModes'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
+import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeAmount, trailKeep } from '../shared/trailFade'
 import { particleRadius } from './particleScale'
 import { curlFlow } from '../../state/evaluator/curl'
 import {
@@ -440,7 +441,7 @@ export interface FormulaPointsParams {
   dotSize: number
   palette: Palette
   count: number
-  persistence: number
+  trail: number
   freqA: number
   freqB: number
   petals: number
@@ -457,19 +458,6 @@ interface FormulaPointsState {
   attractorY?: number
 }
 const formulaPointsState = instanceState('formulaPointsState', new Map<string, FormulaPointsState>())
-
-function fadeFrameInPlace(frame: Frame, retain: number): void {
-  const r = clamp01(retain)
-  for (let y = 0; y < frame.length; y++) {
-    const row = frame[y]
-    for (let x = 0; x < row.length; x++) {
-      const px = row[x]
-      px.r = Math.round(px.r * r)
-      px.g = Math.round(px.g * r)
-      px.b = Math.round(px.b * r)
-    }
-  }
-}
 
 function formulaPointsTrailBuf(st: FormulaPointsState, W: number, H: number): Frame {
   return st.frame && st.frame.length === H && st.frame[0]?.length === W ? st.frame : rawBlankFrame(W, H)
@@ -510,7 +498,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
       const [a, b, c, d] = DE_JONG_PRESETS[p.preset] ?? DE_JONG_PRESETS.classic
       let ax = st.attractorX ?? 0.1, ay = st.attractorY ?? 0.1
       const buf = formulaPointsTrailBuf(st, W, H)
-      fadeFrameInPlace(buf, p.persistence)
+      fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
       for (let i = 0; i < count; i++) {
         const nx = Math.sin(a * ay) - Math.cos(b * ax)
         const ny = Math.sin(c * ax) - Math.cos(d * ay)
@@ -526,7 +514,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
 
     case 'lissajousPath': {
       const buf = formulaPointsTrailBuf(st, W, H)
-      fadeFrameInPlace(buf, p.persistence)
+      fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
       const phase = speedPhase(key, t, p.speed) * (FORMULA_POINTS_SPEED_MAX.lissajousPath ?? 1)
       const cx = Math.sin(Math.max(1, p.freqA) * phase)
       const cy = Math.sin(Math.max(1, p.freqB) * phase)
@@ -540,7 +528,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
 
     case 'rosePath': {
       const buf = formulaPointsTrailBuf(st, W, H)
-      fadeFrameInPlace(buf, p.persistence)
+      fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
       const phase = speedPhase(key, t, p.speed) * (FORMULA_POINTS_SPEED_MAX.rosePath ?? 1)
       const k = Math.max(1, p.petals)
       const rr = Math.cos(k * phase)
@@ -569,8 +557,8 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
 }
 
 // Flow field: particles drift along a simplex-noise direction field, depositing
-// fading trails that are coloured through a palette. Stateful.
-function evalFlowField(nodeId: string, speed: number, scale: number, count: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0, curl = false): Frame {
+// trails that fade by `trailLen` and are coloured through a palette. Stateful.
+function evalFlowField(nodeId: string, speed: number, scale: number, count: number, trailLen: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0, curl = false): Frame {
   const N = W * H
   const pc = Math.max(FLOW_FIELD_COUNT.min, Math.min(FLOW_FIELD_COUNT.max, Math.floor(count)))
   let s = flowState.get(nodeId)
@@ -583,8 +571,8 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
     flowState.set(nodeId, s)
   }
   const { px, py, trail } = s
-  const f = Math.max(0, Math.min(1, fade))
-  for (let i = 0; i < N; i++) trail[i] *= f
+  const keep = trailKeep(nodeId, t, trailLen)
+  for (let i = 0; i < N; i++) trail[i] *= keep
   const z = t * 0.1
   for (let i = 0; i < pc; i++) {
     let dx: number, dy: number
@@ -606,8 +594,9 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
 
 // String Particles: a 1-D particle pool drawn along a row, column or ring track.
 // Integer maths throughout (scale8, qadd8), a mirror of the C++ emitter: the
-// trail is bytes that `fade` scales down each frame, and every particle splats
-// additively across the two cells its sub-pixel position sits between.
+// trail is bytes that fade by `trailLen` as `fadeToBlackBy` does, and every
+// particle splats additively across the two cells its sub-pixel position sits
+// between.
 const scale8 = (a: number, s: number) => (a * (s + 1)) >> 8
 const qadd8 = (a: number, b: number) => Math.min(255, a + b)
 const clampByte = (v: number) => Math.max(0, Math.min(255, Math.floor(v)))
@@ -649,7 +638,7 @@ export function rippleStart(tables: RippleTables, node: number): { edge: number;
   return { edge, dir: tables.network.edges[edge][0] === node ? 1 : -1 }
 }
 
-function evalRipple(key: string, props: Record<string, unknown>, trigger: boolean, speed: number, rate: number, fade: number, t: number, palette: Palette, W: number, H: number, seed: number): Frame {
+function evalRipple(key: string, props: Record<string, unknown>, trigger: boolean, speed: number, rate: number, trail: number, t: number, palette: Palette, W: number, H: number, seed: number): Frame {
   const { shape, ledsPerEdge } = rippleShape(props)
   const shapeKey = `${W}x${H}|${ledsPerEdge}|${JSON.stringify(shape)}|${seed}`
   let state = rippleState.get(key)
@@ -697,13 +686,7 @@ function evalRipple(key: string, props: Record<string, unknown>, trigger: boolea
 
   // Fade the trail in place, then draw each head over `width` LEDs behind it.
   const frame = s.frame
-  for (let y = 0; y < H; y++) {
-    const row = frame[y]
-    for (let x = 0; x < W; x++) {
-      const px = row[x]
-      px.r = Math.round(px.r * fade); px.g = Math.round(px.g * fade); px.b = Math.round(px.b * fade)
-    }
-  }
+  fadeFrameToBlackBy(frame, trailFadeAmount(key, t, trail))
   for (const r of s.ripples) {
     const life = 1 - r.ageSec / lifetime
     const c = samplePalette(palette, r.hue)
@@ -720,7 +703,7 @@ function evalRipple(key: string, props: Record<string, unknown>, trigger: boolea
   return frame
 }
 
-function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: number, trigger: boolean, speed: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: number, trigger: boolean, speed: number, trailLen: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const idx = trackIndices(o.track, W, H, o.ringLeds)
   const len = idx.length
   const pc = Math.max(1, Math.min(MAX_STRING_PARTICLES, Math.floor(o.count)))
@@ -738,8 +721,7 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
   const { pos, vel, life, hue, kind, trail } = s
   const step = Math.max(0, speed) * 0.6
   const spawnP = clamp01(spawn)
-  const fadeQ = clampByte(clamp01(fade) * 255)
-  for (let i = 0; i < trail.length; i++) trail[i] = scale8(trail[i], fadeQ)
+  fadeBytesToBlackBy(trail, trailFadeAmount(nodeId, t, trailLen))
 
   const free = () => { for (let i = 0; i < pc; i++) if (life[i] <= 0) return i; return -1 }
   const place = (i: number, k: number, p: number, v: number, l: number, h: number) => {
@@ -965,9 +947,9 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
 }
 
 // Conway's Game of Life on a toroidal grid. Live cells glow at the palette's hot
-// end; dead cells fade out (trails), cooling toward the palette start. Steps at
-// `speed`/sec and reseeds when it stagnates.
-function evalGameOfLife(nodeId: string, palette: Palette, speed: number, fade: number, tick: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+// end; dead cells fade out by `trail`, cooling toward the palette start. Steps
+// at `speed`/sec and reseeds when it stagnates.
+function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: number, tick: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const N = W * H
   const reseed = (cells: Uint8Array) => {
     for (let i = 0; i < N; i++) cells[i] = seededRandom(`${nodeId}:gol`, seed) < 0.3 ? 1 : 0
@@ -999,8 +981,8 @@ function evalGameOfLife(nodeId: string, palette: Palette, speed: number, fade: n
     s.lastStep = tick
   }
   const { cells, bright } = s
-  const f = Math.max(0, Math.min(1, fade))
-  for (let i = 0; i < N; i++) bright[i] = cells[i] ? 1 : bright[i] * f
+  const keep = trailKeep(nodeId, t, trail)
+  for (let i = 0; i < N; i++) bright[i] = cells[i] ? 1 : bright[i] * keep
   return buildFrame(W, H, (x, y) => {
       const b = bright[y * W + x]
       return scaleRgb(samplePalette(palette, b), b)
@@ -1117,7 +1099,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
       dotSize: num(id, 'dotSize', props, 'dotSize', 1),
       palette: pal(id, 'paletteIn', props, 'palette', 'rainbow'),
       count: num(id, 'count', props, 'count', 60),
-      persistence: num(id, 'persistence', props, 'persistence', 0.85),
+      trail: num(id, 'trail', props, 'trail', 0.46),
       freqA: num(id, 'freqA', props, 'freqA', 3),
       freqB: num(id, 'freqB', props, 'freqB', 2),
       petals: num(id, 'petals', props, 'petals', 5),
@@ -1130,13 +1112,13 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.67), SPEED_MAX.FlowField)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.08), SCALE_MAX.FlowField)
     const count = num(id, 'count', props, 'count', 80)
-    const fade = num(id, 'fade', props, 'fade', 0.9)
+    const trail = num(id, 'trail', props, 'trail', 0.53)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H, normalizedSeed(props.seed), props.flowMode === 'curl') }
+    return { frame: evalFlowField(stateKey(id), speed, scale, count, trail, t, palette, W, H, normalizedSeed(props.seed), props.flowMode === 'curl') }
   },
   StringParticles({ input, num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.StringParticles)
-    const fade = num(id, 'fade', props, 'fade', 0.85)
+    const trail = num(id, 'trail', props, 'trail', 0.46)
     const spawn = num(id, 'spawn', props, 'spawn', 0.5)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     const opts: StringParticleOptions = {
@@ -1146,14 +1128,14 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
       count: Number(props.count ?? 12),
       bed: Number(props.bed ?? 0.3),
     }
-    return { frame: evalStringParticles(stateKey(id), opts, spawn, Boolean(input(id, 'trigger', false)), speed, fade, t, palette, W, H, normalizedSeed(props.seed)) }
+    return { frame: evalStringParticles(stateKey(id), opts, spawn, Boolean(input(id, 'trigger', false)), speed, trail, t, palette, W, H, normalizedSeed(props.seed)) }
   },
   Ripple({ input, num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Ripple)
     const rate = Math.max(0, num(id, 'rate', props, 'rate', 1))
-    const fade = clamp01(num(id, 'fade', props, 'fade', 0.85))
+    const trail = num(id, 'trail', props, 'trail', 0.46)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalRipple(stateKey(id), props, Boolean(input(id, 'trigger', false)), speed, rate, fade, t, palette, W, H, normalizedSeed(props.seed)) }
+    return { frame: evalRipple(stateKey(id), props, Boolean(input(id, 'trigger', false)), speed, rate, trail, t, palette, W, H, normalizedSeed(props.seed)) }
   },
   Starfield({ num, pal, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.Starfield)
@@ -1189,10 +1171,10 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed))
   },
-  GameOfLife({ num, pal, elapsedTick: tick, W, H, stateKey }, id, props) {
+  GameOfLife({ num, pal, elapsedTick: tick, t, W, H, stateKey }, id, props) {
     const palette = pal(id, 'paletteIn', props, 'palette', 'mojito')
     const speed = num(id, 'speed', props, 'speed', 8)
-    const fade = num(id, 'fade', props, 'fade', 0.75)
-    return { frame: evalGameOfLife(stateKey(id), palette, speed, fade, tick, W, H, normalizedSeed(props.seed)) }
+    const trail = num(id, 'trail', props, 'trail', 0.37)
+    return { frame: evalGameOfLife(stateKey(id), palette, speed, trail, tick, t, W, H, normalizedSeed(props.seed)) }
   },
 }

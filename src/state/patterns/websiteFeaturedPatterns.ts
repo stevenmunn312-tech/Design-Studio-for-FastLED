@@ -213,7 +213,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
       studioNode('scan', 'Scanner', -460, 40, {
         speed: 0.1,
         width: 3,
-        fade: 0.82,
+        trail: 0.83,
         axis: 'vertical',
       }),
       studioNode('array', 'Array', -120, 40, {
@@ -371,7 +371,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
         speed: 0.11,
         scale: 0.09,
         count: 30,
-        fade: 0.95,
+        trail: 0.65,
         seed: 244,
       }),
       studioNode('feedback', 'FrameFeedback', -140, 40, {

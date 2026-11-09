@@ -280,7 +280,7 @@
      "category": "pattern",
      "properties": {
       "speed": 8,
-      "fade": 0.4,
+      "trail": 0.18,
       "palette": "synthwave",
       "seed": 12
      },
@@ -296,8 +296,8 @@
        "dataType": "float"
       },
       {
-       "id": "fade",
-       "label": "Fade",
+       "id": "trail",
+       "label": "Trail",
        "dataType": "float"
       }
      ],

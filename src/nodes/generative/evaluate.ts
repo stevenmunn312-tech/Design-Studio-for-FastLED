@@ -1,5 +1,5 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { SPIRAL_ARMS } from './limits'
+import { SCANNER_PALETTE_FLOOR, SPIRAL_ARMS } from './limits'
 import {
   BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, breatheCurve, breatheEnvelope, chaseSpacing, wipePalettePosition, wipeReversed,
 } from './classics1d'
@@ -10,7 +10,7 @@ import {
   burstFrame, burstPixel, pacificaFrame, sineFieldFrame, sineFieldSum, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
 } from '../shared/integerPatterns'
 import { scale8, scale8Video } from '../shared/lib8tion'
-import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
+import { type Frame, hsv, type Palette, samplePalette, samplePaletteClamped, type RGB } from '../../state/palettes/ledColor'
 import {
   DEFAULT_W,
   DEFAULT_H,
@@ -120,35 +120,55 @@ function evalTwinkleFox(key: string, speed: number, density: number, t: number, 
   return out
 }
 
+interface ScannerState { frame: Frame; w: number; h: number; prev: number }
+const scannerState = instanceState('scannerState', new Map<string, ScannerState>())
+
+/*
+ * The beam is drawn into a persistent buffer that fades by `trail`, so its
+ * tail lies behind it along the way it travels, as on a Larson scanner. Each
+ * pass lights the whole span the beam crossed since the last, so a fast beam
+ * leaves no gaps, and keeps the brighter of the old and new light. Its colour
+ * comes from the bright part of the palette, `SCANNER_PALETTE_FLOOR` to the
+ * end, held at the ends: palettes such as lava start almost black.
+ */
 function evalScanner(
-  key: string, speed: number, width: number, fade: number, axis: string, t: number, palette: Palette,
+  key: string, speed: number, width: number, trail: number, axis: string, t: number, palette: Palette,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const horizontal = axis !== 'vertical'
   const span = Math.max(1, horizontal ? W : H)
+  let s = scannerState.get(key)
+  if (!s || s.w !== W || s.h !== H) {
+    s = { frame: rawBlankFrame(W, H), w: W, h: H, prev: -1 }
+    scannerState.set(key, s)
+  }
+  const frame = s.frame
+  fadeFrameToBlackBy(frame, trailFadeAmount(key, t, trail))
   const phase = (speedPhase(key, t, speed) % 2 + 2) % 2
   const travel = phase <= 1 ? phase : 2 - phase
   const pos = travel * Math.max(0, span - 1)
+  const from = s.prev < 0 ? pos : s.prev
+  s.prev = pos
+  const lo = Math.min(from, pos), hi = Math.max(from, pos)
   const core = Math.max(0.5, Number.isFinite(width) ? width * 0.5 : 1)
-  const tail = core + clamp01(fade) * Math.max(1, span * 0.35)
-  const tailDen = Math.max(1e-6, tail - core)
-  const base = samplePalette(palette, travel)
-
-  return buildFrame(W, H, (x, y) => {
-    const coord = horizontal ? x : y
-    const dist = Math.abs(coord - pos)
-    let v = dist <= core ? 1 : Math.max(0, 1 - (dist - core) / tailDen)
-    v *= v
-    return {
-      r: Math.round(base.r * v),
-      g: Math.round(base.g * v),
-      b: Math.round(base.b * v),
+  const base = samplePaletteClamped(palette, SCANNER_PALETTE_FLOOR + (1 - SCANNER_PALETTE_FLOOR) * travel)
+  const across = horizontal ? H : W
+  for (let c = 0; c < span; c++) {
+    const dist = c < lo ? lo - c : c > hi ? c - hi : 0
+    const v = Math.min(1, core + 0.5 - dist)
+    if (v <= 0) continue
+    const q = Math.floor(v * 255)
+    const r = scale8Video(base.r, q), g = scale8Video(base.g, q), b = scale8Video(base.b, q)
+    for (let o = 0; o < across; o++) {
+      const px = horizontal ? frame[o][c] : frame[c][o]
+      px.r = Math.max(px.r, r); px.g = Math.max(px.g, g); px.b = Math.max(px.b, b)
     }
-  })
+  }
+  return frame
 }
 
 function evalConfetti(
-  nodeId: string, speed: number, density: number, fade: number, t: number, palette: Palette, seed = 0,
+  nodeId: string, speed: number, density: number, trail: number, t: number, palette: Palette, seed = 0,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   let state = sparkState.get(nodeId)
@@ -158,7 +178,7 @@ function evalConfetti(
   }
 
   const frame = state.frame
-  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, fade))
+  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, trail))
 
   const area = W * H
   const amount = clamp01(density)
@@ -182,7 +202,7 @@ function evalConfetti(
 }
 
 function evalJuggle(
-  nodeId: string, speed: number, count: number, fade: number, t: number, palette: Palette, seed = 0,
+  nodeId: string, speed: number, count: number, trail: number, t: number, palette: Palette, seed = 0,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   let state = sparkState.get(nodeId)
@@ -192,7 +212,7 @@ function evalJuggle(
   }
 
   const frame = state.frame
-  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, fade))
+  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, trail))
 
   const dots = juggleDotCount(count)
   const laneY = (i: number) =>
@@ -538,10 +558,10 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   Scanner({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Scanner)
     const width = Math.max(1, num(id, 'width', props, 'width', 2))
-    const fade = num(id, 'fade', props, 'fade', 0.6)
+    const trail = num(id, 'trail', props, 'trail', 0.55)
     const axis = String(props.axis ?? 'horizontal')
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
-    return { frame: evalScanner(stateKey(id), speed, width, fade, axis, t, palette, W, H) }
+    return { frame: evalScanner(stateKey(id), speed, width, trail, axis, t, palette, W, H) }
   },
   TheaterChase({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.TheaterChase)
@@ -588,16 +608,16 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   Confetti({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Confetti)
     const density = num(id, 'density', props, 'density', 0.45)
-    const fade = num(id, 'fade', props, 'fade', 0.65)
+    const trail = num(id, 'trail', props, 'trail', 0.35)
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-    return { frame: evalConfetti(stateKey(id), speed, density, fade, t, palette, normalizedSeed(props.seed), W, H) }
+    return { frame: evalConfetti(stateKey(id), speed, density, trail, t, palette, normalizedSeed(props.seed), W, H) }
   },
   Juggle({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Juggle)
     const count = num(id, 'count', props, 'count', JUGGLE_COUNT.default)
-    const fade = num(id, 'fade', props, 'fade', 0.61)
+    const trail = num(id, 'trail', props, 'trail', 0.39)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalJuggle(stateKey(id), speed, count, fade, t, palette, normalizedSeed(props.seed), W, H) }
+    return { frame: evalJuggle(stateKey(id), speed, count, trail, t, palette, normalizedSeed(props.seed), W, H) }
   },
   RadialBurst({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)

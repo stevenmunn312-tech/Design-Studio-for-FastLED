@@ -288,20 +288,29 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `speedPhase`. Time's `dt`
   is the time since that node's previous pass (0 on its first), measured on
   both sides, where it was a fixed 1/60.
-- A trail fade is a half-life on a log scale, applied by the time that has
-  passed, not a share taken off each frame. Juggle and Confetti use it. Their
-  old `1 - fade` per frame put
-  every visible difference below 0.1 (at 60 fps, 0.1 already halved a trail in
-  a tenth of a second), and the trail length moved with the frame rate.
-  `trailFadeAmount` and `fadeFrameToBlackBy` (`src/nodes/shared/trailFade.ts`)
-  and their firmware twin `trailFadeCpp` map 0 to a 2 s half-life and 1 to
-  none, with each step along the slider shortening the trail by the same
-  ratio. They carry the unspent fade between frames and spend it at least
+- A trail is one knob, `trail`, with one meaning: 0 leaves none and 1 the
+  longest. It is a half-life on a log scale, applied by the time that has
+  passed, not a share taken off each frame. Confetti, Juggle, Scanner, Flow
+  Field, Ripple, String Particles, Game of Life and Formula Points read it;
+  before, the same slider was a half-life on two of them, a per-frame share
+  kept on five (1 never faded) and a glow length on Scanner, so a hand that
+  learned one node did the opposite on the next. A per-frame share put every
+  visible difference at one end (at 60 fps, keeping 0.9 already halved a
+  trail in a tenth of a second), and the trail length moved with the frame
+  rate. `trailFadeAmount` and `fadeFrameToBlackBy` (`src/nodes/shared/trailFade.ts`)
+  and their firmware twin `trailFadeCpp` map 1 to a 2 s half-life and 0 to
+  none at all, with each step along the slider lengthening the trail by the
+  same ratio. They carry the unspent fade between frames and spend it at least
   `TRAIL_MIN_STEP` bytes at a time, because FastLED's flooring
   `fadeToBlackBy` takes about half a level extra on every call: spent a byte
   per frame, a 2 s trail lost a quarter of its length and dim tails died in a
-  few frames. Moving a node onto it changes the meaning of its saved values,
-  so convert bundled and help values to the same half-life at 60 fps. A node
+  few frames. A trail held as floats (Flow Field, Game of Life) has nothing to
+  floor and multiplies by `trailKeep`/`trailKeepCpp` instead; a byte trail
+  shorter than the canvas (String Particles' track) passes its length as
+  `count`. Moving a node onto it changes the meaning of its saved values,
+  so convert bundled and help values to the same half-life at 60 fps
+  (`trailFromRetention` does it for a per-frame share). Particles `decay` is
+  still a per-frame share of each particle's life, not a trail. A node
   whose slider already meant a share per frame can keep it instead: Trails
   spends its cubed `1 - decay³` per 60th of a second through `timedFadeAmount`
   and `timedFadeCpp`, the same clock and byte carry, so its saved values keep

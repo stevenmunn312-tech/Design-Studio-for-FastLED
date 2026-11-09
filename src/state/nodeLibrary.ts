@@ -495,6 +495,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   speed:    { control: 'slider', min: 0, max: 5, step: 0.1 },
   scale:    { control: 'slider', min: 0, max: 2, step: 0.01 },
   fade:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // Trail length on the shared half-life scale (nodes/shared/trailFade.ts).
+  trail:    { control: 'slider', min: 0, max: 1, step: 0.01 },
   thickness:{ control: 'slider', min: 0.5, max: 4, step: 0.05 },
   // Opacity / mix amount, normalised 0–1 (scaled to FastLED's 0–255 in the
   // evaluator + codegen). Shared by Blend / Blur2D / PaletteBlend.
@@ -1014,7 +1016,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     count: { control: 'slider', min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max, step: 1 },
   },
   Ripple: {
-    speed: N01, fade: N01,
+    speed: N01, trail: N01,
     rate:      { control: 'slider', min: 0, max: 10, step: 0.1 },
     lifetime:  { control: 'slider', min: RIPPLE_LIFETIME_SEC.min, max: RIPPLE_LIFETIME_SEC.max, step: 0.1 },
     width:     { control: 'slider', min: RIPPLE_WIDTH.min, max: RIPPLE_WIDTH.max, step: 1 },
@@ -1025,7 +1027,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     ledsPerEdge: { control: 'slider', min: NETWORK_LEDS_PER_EDGE.min, max: NETWORK_LEDS_PER_EDGE.max, step: 1 },
   },
   StringParticles: {
-    speed: N01, spawn: N01, fade: N01, bed: N01,
+    speed: N01, spawn: N01, trail: N01, bed: N01,
     seed:     { control: 'slider', min: 0, max: 9999, step: 1 },
     count:    { control: 'slider', min: 1, max: MAX_STRING_PARTICLES, step: 1 },
     ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
@@ -1136,7 +1138,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // phyllotaxis / logisticMap / attractor
     count: { control: 'slider', min: 8, max: 300, step: 1 },
     // lissajousPath / rosePath / attractor
-    persistence: N01,
+    trail: N01,
     // lissajousPath
     freqA: { control: 'slider', min: 1, max: 8, step: 1 },
     freqB: { control: 'slider', min: 1, max: 8, step: 1 },
@@ -2251,7 +2253,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rate: 'Ripples started on their own each second. A rising Trigger starts one more.',
     lifetime: 'Seconds a ripple lives before it fades out.',
     width: 'LEDs lit behind each ripple\'s head.',
-    fade: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Each ripple takes the next colour along the palette.',
     seed: 'Seed for random start nodes and the Random behaviour. 0 varies every run.',
   },
@@ -2263,7 +2265,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bed: 'Brightness of the noise bed under the meteors.',
     spawn: 'How readily new particles appear: 0 none, 1 as soon as a slot is free.',
     speed: 'How fast drift particles move, 0 still to 1 fastest.',
-    fade: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Colour each particle is born with; it whitens as it dies.',
   },
   FlowField: {
@@ -2271,7 +2273,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     speed: 'How fast particles move along the flow, 0 still to 1 fastest.',
     scale: 'Size of the flow swirls; low is broad currents, high is tight eddies.',
     count: 'Particles leaving trails, 8 to 400.',
-    fade: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Colour by trail brightness, from the palette start to its end.',
   },
   Path: {
@@ -2823,9 +2825,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Scanner: {
     speed: 'Sweeps per second across the axis, 0 still to 1 fastest.',
     width: 'Width of the bright core in LEDs.',
-    fade: 'Length of the trailing glow, 0 none to 1 about a third of the span.',
+    trail: 'How long the tail behind the beam lasts: 0 none, 1 halving about every 2 s, each step lengthening it by the same ratio.',
     axis: 'Sweep left-right along rows or up-down along columns.',
-    palette: 'Colour of the beam, read from the palette at the beam position.',
+    palette: 'Colour of the beam, from the bright upper part of the palette at one end of the sweep to its end colour at the other.',
   },
   TheaterChase: {
     speed: 'Chase steps per second, 0 still to 1 twelve steps a second.',
@@ -2849,7 +2851,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Confetti: {
     speed: 'How many speckles appear per frame, 0 none to 1 most.',
     density: 'Extra speckles per frame; multiplies Speed.',
-    fade: 'How quickly old speckles go: 0 halves them in about 2 s, 1 clears them at once, and each step along the slider shortens them by the same ratio.',
+    trail: 'How long old speckles linger: 0 clears them at once, 1 halves them about every 2 s, and each step along the slider lengthens them by the same ratio.',
     palette: 'Colours the speckles are drawn from, drifting with time.',
   },
   Candle: {
@@ -2865,7 +2867,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Juggle: {
     speed: 'How fast the dots sweep back and forth, 0 still to 1 fastest.',
     count: 'Number of dots, 1 (Sinelon) to 8, each in its own row.',
-    fade: 'How short the trails are: 0 halves them in about 2 s, 1 leaves none, and each step along the slider shortens them by the same ratio.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Colours the dots cycle through as they move.',
   },
   RadialBurst: {
@@ -2904,7 +2906,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     dotSize: 'Dot size multiplier, 0.25 to 3.',
     palette: 'Colour by dot index or by position along the path.',
     count: 'Dots drawn each frame, 8 to 300.',
-    persistence: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     freqA: 'Horizontal oscillations per cycle, 1 to 8.',
     freqB: 'Vertical oscillations per cycle, 1 to 8.',
     petals: 'Petals on the rose curve, 1 to 12.',
@@ -2928,7 +2930,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   GameOfLife: {
     speed: 'Generations per second, 1 to 30.',
-    fade: 'How slowly dead cells dim, 0 instantly to 1 never.',
+    trail: 'How long dead cells glow as they cool: 0 they go out at once, 1 they halve about every 2 s.',
     palette: 'Live cells take the palette end; fading cells cool toward its start.',
   },
   FormulaField: {
@@ -4216,12 +4218,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   Ripple: [
     { key: 'network', label: 'Network', keys: ['networkPreset', 'network', 'ledsPerEdge'] },
-    { key: 'ripples', label: 'Ripples', keys: ['behaviour', 'startNode', 'speed', 'rate', 'lifetime', 'width', 'fade', 'seed'] },
+    { key: 'ripples', label: 'Ripples', keys: ['behaviour', 'startNode', 'speed', 'rate', 'lifetime', 'width', 'trail', 'seed'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   StringParticles: [
     { key: 'track', label: 'Track', keys: ['track', 'ringLeds'] },
-    { key: 'particles', label: 'Particles', keys: ['mode', 'count', 'spawn', 'speed', 'fade', 'bed'] },
+    { key: 'particles', label: 'Particles', keys: ['mode', 'count', 'spawn', 'speed', 'trail', 'bed'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Boids: [
@@ -4321,7 +4323,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   FormulaPoints: [
     { key: 'formula', label: 'Formula', keys: ['formulaType', 'preset', 'count', 'speed'] },
     { key: 'shape', label: 'Shape', keys: ['freqA', 'freqB', 'petals', 'chaos'] },
-    { key: 'trail', label: 'Trail', keys: ['persistence', 'dotSize'] },
+    { key: 'trail', label: 'Trail', keys: ['trail', 'dotSize'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   DigitalRain: [
@@ -4330,7 +4332,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   FlowField: [
     { key: 'flow', label: 'Flow', keys: ['flowMode', 'speed', 'scale'] },
-    { key: 'particles', label: 'Particles', keys: ['count', 'fade'] },
+    { key: 'particles', label: 'Particles', keys: ['count', 'trail'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   BeatFlash: [
@@ -5357,7 +5359,7 @@ export function isPropertyEnabled(
       case 'count':
         return ft === 'phyllotaxis' || ft === 'logisticMap' || ft === 'attractor'
       // Trail/accumulate variants (own a persistent, fading render buffer).
-      case 'persistence':
+      case 'trail':
         return ft === 'lissajousPath' || ft === 'rosePath' || ft === 'attractor'
       case 'freqA':
       case 'freqB':

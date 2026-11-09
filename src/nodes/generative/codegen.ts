@@ -1,5 +1,5 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { SPIRAL_ARMS } from './limits'
+import { SCANNER_PALETTE_FLOOR, SPIRAL_ARMS } from './limits'
 import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
@@ -261,28 +261,30 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`      _px.nscale8_video(_tb);`)
     ln(`      ${ob}[_y*WIDTH+_x]=_px; _i++; } }`)
   },
+  // The beam lights the span it crossed since last frame into a persistent
+  // buffer that fades by `trail`, so the tail lies behind it (evalScanner).
   Scanner({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
-    const ob = ownBuf()
+    const ob = ownBuf({ persists: true })
     const speed = rateCpp(f('speed', 'speed', 0.45), SPEED_MAX.Scanner)
     const width = `fmaxf(1.0f,${f('width', 'width', 2)})`
-    const fade = `constrain((${f('fade', 'fade', 0.6)}),0.0f,1.0f)`
     const horizontal = String(p.axis ?? 'horizontal') !== 'vertical'
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  { float _spd=${speed},_w=${width},_fd=${fade};`)
+    const floor = floatLit(SCANNER_PALETTE_FLOOR)
+    ln(`  { float _spd=${speed},_w=${width},_tr=${f('trail', 'trail', 0.55)};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    ln(`    float _span=${horizontal ? 'WIDTH' : 'HEIGHT'};`)
+    trailFadeCpp(ln, phaseTag(id), '_tr', ob)
+    ln(`    const int _span=${horizontal ? 'WIDTH' : 'HEIGHT'}, _across=${horizontal ? 'HEIGHT' : 'WIDTH'};`)
     ln(`    float _ph=fmodf(${ph},2.0f); if(_ph<0)_ph+=2.0f;`)
     ln(`    float _travel=_ph<=1.0f?_ph:2.0f-_ph;`)
     ln(`    float _pos=_travel*max(0.0f,_span-1.0f);`)
-    ln(`    float _core=max(0.5f,_w*0.5f),_tail=_core+_fd*max(1.0f,_span*0.35f),_den=max(0.001f,_tail-_core);`)
-    ln(`    CRGB _base=ColorFromPalette(${pal},(uint8_t)(_travel*255.0f));`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _coord=${horizontal ? '(float)_x' : '(float)_y'};`)
-    ln(`      float _dist=fabsf(_coord-_pos);`)
-    ln(`      float _v=_dist<=_core?1.0f:max(0.0f,1.0f-(_dist-_core)/_den);`)
-    ln(`      _v*=_v; CRGB _px=_base; _px.nscale8_video((uint8_t)(_v*255.0f));`)
-    ln(`      ${ob}[_y*WIDTH+_x]=_px; } }`)
+    ln(`    static float _scPrev_${id}=-1.0f; float _from=_scPrev_${id}<0.0f?_pos:_scPrev_${id}; _scPrev_${id}=_pos;`)
+    ln(`    float _lo=min(_from,_pos),_hi=max(_from,_pos),_core=max(0.5f,_w*0.5f);`)
+    ln(`    CRGB _base=ColorFromPalette(${pal},(uint8_t)((${floor}+${floatLit(1 - SCANNER_PALETTE_FLOOR)}*_travel)*255.0f),255,LINEARBLEND_NOWRAP);`)
+    ln(`    for(int _c=0;_c<_span;_c++){`)
+    ln(`      float _d=_c<_lo?_lo-_c:(_c>_hi?_c-_hi:0.0f), _v=min(1.0f,_core+0.5f-_d); if(_v<=0.0f) continue;`)
+    ln(`      CRGB _px=_base; _px.nscale8_video((uint8_t)(_v*255.0f));`)
+    ln(`      for(int _o=0;_o<_across;_o++) ${ob}[${horizontal ? '_o*WIDTH+_c' : '_c*WIDTH+_o'}]|=_px; } }`)
   },
   TheaterChase({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
@@ -344,9 +346,9 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     if (seed) ln(`    static uint32_t _rng_${id}=${seed}u; auto _rnd8_${id}=[&](){ _rng_${id}=_rng_${id}*1664525u+1013904223u; return (uint8_t)(_rng_${id}>>24); };`)
-    ln(`    float _spd=${speed}, _den=${density}, _fd=${f('fade', 'fade', 0.65)};`)
+    ln(`    float _spd=${speed}, _den=${density}, _tr=${f('trail', 'trail', 0.35)};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    trailFadeCpp(ln, phaseTag(id), '_fd', ob)
+    trailFadeCpp(ln, phaseTag(id), '_tr', ob)
     // `_spd` is already the denormalised rate (rateCpp), so the spawn and hue
     // drift coefficients are the preview's own: 0.3 per unit of speed, and a
     // hue drift of 0.08 turns per phase unit, which is 20.4 palette steps.
@@ -367,7 +369,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const seed = seedProp(p)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
-    ln(`    float _spd=${speed}, _fd=${f('fade', 'fade', 0.61)};`)
+    ln(`    float _spd=${speed}, _tr=${f('trail', 'trail', 0.39)};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     if (incoming.has(`${node.id}:count`)) {
       ln(`    const float _count=${f('count', 'count', JUGGLE_COUNT.default)};`)
@@ -375,7 +377,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     } else {
       ln(`    const int _dots=${dots};`)
     }
-    trailFadeCpp(ln, phaseTag(id), '_fd', ob)
+    trailFadeCpp(ln, phaseTag(id), '_tr', ob)
     // The preview's per-dot phase, seedOffset(seed, d), reduced a turn at a
     // time: it only feeds sines, and float holds the remainder exactly enough.
     if (seed) {

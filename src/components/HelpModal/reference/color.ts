@@ -322,7 +322,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       nodes: {
         photo: ['Image', { image: SAMPLE_IMAGE, fit: 'contain' }],
         borrow: ['PaletteFromImage', { count: 4 }],
-        flow: ['FlowField', { count: 200, speed: 0.6, fade: 0.95 }],
+        flow: ['FlowField', { count: 200, speed: 0.6, trail: 0.65 }],
       },
       wires: ['photo.image > borrow.image', 'borrow.palette > flow.paletteIn'],
       show: 'flow',

@@ -216,7 +216,7 @@ and the firmware's `CtlEdge`/`CtlDetent` structs.
 | LED output `ledToggle`/`brightnessUp`/`brightnessDown` | ✓ | ✓ | ✗ (use Player Controls) |
 | LED output `controls` bundle | ✓ | ✓ | ✓ |
 | Display panel `enabled` | ✓ | ✓ | ✓ |
-| Juggle `speed`/`count`/`fade`/`palette` | ✓ | ✓ | ✓ |
+| Juggle `speed`/`count`/`trail`/`palette` | ✓ | ✓ | ✓ |
 | Pattern player transport actions (Play/Pause etc.) | N/A | N/A | ✓ (direct or via Player Controls) |
 | Pattern slideshow actions (Next Pattern etc.) | N/A | ✓ (direct or via Player Controls) | N/A |
 | Pattern slideshow `interval` | ✓ | ✓ | N/A |
@@ -276,7 +276,7 @@ expose inputs together, undoable as one operation.
   through that port. The LED output's own pair resolves through
   `ledOutputManualRuntime`/`ledOutputManualExprs`, so preview, normal sketch and
   show controller take wire-then-field in one order.
-- [x] Prove the first cases: Juggle Speed, Count and Fade; LED output Brightness;
+- [x] Prove the first cases: Juggle Speed, Count and Trail; LED output Brightness;
   and display Enabled. Include correct ranges, integer handling, incompatible
   sources and two attempted sources for one target. Juggle's dot count is bounded
   then rounded once, in `src/nodes/generative/juggle.ts`, so 3.6 means the same number of

@@ -1836,7 +1836,7 @@ describe('evaluateGraph', () => {
 
     it('lissajousPath/rosePath/attractor accumulate a persistent trail (more lit pixels after many frames than after one)', () => {
       for (const formulaType of ['lissajousPath', 'rosePath', 'attractor']) {
-        const props = { formulaType, speed: 1, persistence: 0.9, count: 40 }
+        const props = { formulaType, speed: 1, trail: 0.53, count: 40 }
         // Independent node ids (independent stateKey/persistent buffers) so
         // the "after one frame" and "after many frames" measurements don't
         // contaminate each other.
@@ -1865,7 +1865,7 @@ describe('evaluateGraph', () => {
     it('attractor preset changes the resulting point cloud', () => {
       const mk = (preset: string) => {
         // Unique node id per preset so the two runs don't share persistent state.
-        const { nodes, edges } = withOutput(node(`fp_${preset}`, 'FormulaPoints', 'pattern', { formulaType: 'attractor', preset, count: 100, persistence: 0.8 }))
+        const { nodes, edges } = withOutput(node(`fp_${preset}`, 'FormulaPoints', 'pattern', { formulaType: 'attractor', preset, count: 100, trail: 0.41 }))
         let frame = null
         for (let f = 0; f <= 10; f++) frame = evaluateGraph(nodes, edges, f, W, H)
         return JSON.stringify(frame)
@@ -2466,7 +2466,7 @@ describe('evaluateGraph', () => {
   })
 
   it('FlowField deposits trails that build up over frames', () => {
-    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, fade: 0.9, palette: 'ocean' })
+    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, trail: 0.53, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e', 'ff', 'frame', 'out', 'frame')]
     let frame = evaluateGraph([ff, out], edges, 0, 10, 10)!
@@ -2489,15 +2489,15 @@ describe('evaluateGraph', () => {
   })
 
   it('GameOfLife produces a frame and steps without throwing', () => {
-    const gol = node('g', 'GameOfLife', 'pattern', { speed: 60, fade: 0, palette: 'mojito' })
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 60, trail: 0, palette: 'mojito' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e', 'g', 'frame', 'out', 'frame')]
-    // fade=0 → live cells all share the palette's hot colour, dead are pure black.
+    // trail=0 → live cells all share the palette's hot colour, dead are pure black.
     let frame = evaluateGraph([gol, out], edges, 0, 12, 12)!
     expect(frame.length).toBe(12)
     for (let i = 1; i <= 10; i++) frame = evaluateGraph([gol, out], edges, i, 12, 12)!
     const lit = frame.flat().filter((px) => px.r !== 0 || px.g !== 0 || px.b !== 0)
-    // every lit pixel is the same non-black live colour (fade 0, no trails)
+    // every lit pixel is the same non-black live colour (trail 0, no trails)
     const first = lit[0]
     const ok = lit.every((px) => px.r === first.r && px.g === first.g && px.b === first.b)
     expect(ok).toBe(true)
@@ -3626,7 +3626,7 @@ describe('Ripple', () => {
   const lit = (frame: Px[][]) => frame.flat().filter((p) => p.r + p.g + p.b > 0).length
 
   it('starts a ripple on a rising trigger and runs it along the network, leaving a trail', () => {
-    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, rate: 0, startNode: 0, speed: 0.5, width: 2, fade: 0.5, seed: 1 })
+    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, rate: 0, startNode: 0, speed: 0.5, width: 2, trail: 0.22, seed: 1 })
     const trig = node('tg', 'Constant', 'math', { value: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'tg', 'value', 'rp', 'trigger'), edge('e2', 'rp', 'frame', 'out', 'frame')]
@@ -5244,18 +5244,24 @@ describe('Pride2015 and Pacifica', () => {
     expect(dense).toBeGreaterThan(sparse)
   })
 
+  // Scanner keeps a persistent buffer, so each run gets its own node id and
+  // every frame is copied before the next pass mutates it.
+  const scannerRun = (id: string, props: Record<string, unknown>, ticks: number[], w = W, h = H) => {
+    const { nodes, edges } = withOutput(node(id, 'Scanner', 'pattern', props))
+    return ticks.map((tick) => structuredClone(evaluateGraph(nodes, edges, tick, w, h)!))
+  }
+
   it('Scanner sweeps over time and responds to the palette', () => {
-    const a = frameOf('Scanner', { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' }, 0)
-    const b = frameOf('Scanner', { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' }, 90)
+    const [a, b] = scannerRun('scan-time', { speed: 0.45, width: 2, trail: 0.55, axis: 'horizontal', palette: 'lava' }, [0, 90])
     expect(a).not.toEqual(b)
-    const lava = frameOf('Scanner', { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' }, 20)
-    const ocean = frameOf('Scanner', { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'ocean' }, 20)
+    const [lava] = scannerRun('scan-lava', { speed: 0.45, width: 2, trail: 0.55, axis: 'horizontal', palette: 'lava' }, [20])
+    const [ocean] = scannerRun('scan-ocean', { speed: 0.45, width: 2, trail: 0.55, axis: 'horizontal', palette: 'ocean' }, [20])
     expect(lava).not.toEqual(ocean)
   })
 
   it('Scanner axis changes whether the beam spans columns or rows', () => {
-    const horizontal = frameOf('Scanner', { speed: 0, width: 1, fade: 0, axis: 'horizontal', palette: 'lava' }, 0)
-    const vertical = frameOf('Scanner', { speed: 0, width: 1, fade: 0, axis: 'vertical', palette: 'lava' }, 0)
+    const [horizontal] = scannerRun('scan-h', { speed: 0, width: 1, trail: 0, axis: 'horizontal', palette: 'lava' }, [0])
+    const [vertical] = scannerRun('scan-v', { speed: 0, width: 1, trail: 0, axis: 'vertical', palette: 'lava' }, [0])
     expect(horizontal[0][0]).toEqual(horizontal[1][0])
     expect(horizontal[0][1]).toEqual(horizontal[1][1])
     expect(vertical[0][0]).toEqual(vertical[0][1])
@@ -5263,14 +5269,32 @@ describe('Pride2015 and Pacifica', () => {
     expect(horizontal).not.toEqual(vertical)
   })
 
-  it('Scanner width and fade widen the lit coverage', () => {
-    const litCount = (props: Record<string, unknown>) =>
-      frameOf('Scanner', props, 15)
+  it('Scanner width and trail widen the lit coverage', () => {
+    const litCount = (id: string, props: Record<string, unknown>) =>
+      scannerRun(id, props, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).at(-1)!
         .flat()
         .filter(px => px.r + px.g + px.b > 30).length
-    const tight = litCount({ speed: 0.45, width: 1, fade: 0, axis: 'horizontal', palette: 'lava' })
-    const wide = litCount({ speed: 0.45, width: 4, fade: 1, axis: 'horizontal', palette: 'lava' })
+    const tight = litCount('scan-tight', { speed: 0.45, width: 1, trail: 0, axis: 'horizontal', palette: 'lava' })
+    const wide = litCount('scan-wide', { speed: 0.45, width: 4, trail: 1, axis: 'horizontal', palette: 'lava' })
     expect(wide).toBeGreaterThan(tight)
+  })
+
+  it('Scanner leaves its tail behind the beam, not ahead of it', () => {
+    // At speed 0.45 the beam sets out from the left and runs right for over a second.
+    const frames = scannerRun('scan-tail', { speed: 0.45, width: 1, trail: 0.7, axis: 'horizontal', palette: 'rainbow' }, Array.from({ length: 21 }, (_, i) => i), 24, 2)
+    const row = frames.at(-1)![0].map((px) => px.r + px.g + px.b)
+    const head = row.indexOf(Math.max(...row))
+    expect(head).toBeGreaterThan(2)
+    expect(row.slice(head + 2).every((v) => v === 0)).toBe(true)
+    expect(row[head - 1]).toBeGreaterThan(0)
+    expect(row[head - 1]).toBeGreaterThanOrEqual(row[head - 2])
+  })
+
+  it('Scanner keeps the beam bright at the dark end of a palette', () => {
+    // lava starts almost black; the beam reads from its bright upper part.
+    const [start] = scannerRun('scan-floor', { speed: 0, width: 1, trail: 0, axis: 'horizontal', palette: 'lava' }, [0])
+    const px = start[0][0]
+    expect(Math.max(px.r, px.g, px.b)).toBeGreaterThan(90)
   })
 
   it('Confetti accumulates over time and responds to the palette', () => {
@@ -5279,15 +5303,15 @@ describe('Pride2015 and Pacifica', () => {
       const { nodes, edges } = withOutput(gen)
       return evaluateGraph(nodes, edges, tick, W, H)!
     }
-    const a = structuredClone(confettiFrame('confetti-a', { speed: 1, density: 1, fade: 0, palette: 'party' }, 0))
-    const b = confettiFrame('confetti-a', { speed: 1, density: 1, fade: 0, palette: 'party' }, 30)
+    const a = structuredClone(confettiFrame('confetti-a', { speed: 1, density: 1, trail: 1, palette: 'party' }, 0))
+    const b = confettiFrame('confetti-a', { speed: 1, density: 1, trail: 1, palette: 'party' }, 30)
     expect(a).not.toEqual(b)
-    const party = confettiFrame('confetti-party', { speed: 1, density: 1, fade: 0.1, palette: 'party' }, 10)
-    const fire = confettiFrame('confetti-fire', { speed: 1, density: 1, fade: 0.1, palette: 'fire' }, 10)
+    const party = confettiFrame('confetti-party', { speed: 1, density: 1, trail: 0.9, palette: 'party' }, 10)
+    const fire = confettiFrame('confetti-fire', { speed: 1, density: 1, trail: 0.9, palette: 'fire' }, 10)
     expect(party).not.toEqual(fire)
   })
 
-  it('Confetti fade clears the persistent buffer faster', () => {
+  it('Confetti with a short trail clears the persistent buffer faster', () => {
     const litCount = (id: string, props: Record<string, unknown>) => {
       const gen = node(id, 'Confetti', 'pattern', props)
       const { nodes, edges } = withOutput(gen)
@@ -5296,8 +5320,8 @@ describe('Pride2015 and Pacifica', () => {
         .flat()
         .filter(px => px.r + px.g + px.b > 30).length
     }
-    const lingering = litCount('confetti-lingering', { speed: 1, density: 1, fade: 0, palette: 'party' })
-    const fleeting = litCount('confetti-fleeting', { speed: 1, density: 1, fade: 0.9, palette: 'party' })
+    const lingering = litCount('confetti-lingering', { speed: 1, density: 1, trail: 1, palette: 'party' })
+    const fleeting = litCount('confetti-fleeting', { speed: 1, density: 1, trail: 0.1, palette: 'party' })
     expect(lingering).toBeGreaterThan(fleeting)
   })
 
@@ -5307,11 +5331,11 @@ describe('Pride2015 and Pacifica', () => {
       const { nodes, edges } = withOutput(gen)
       return evaluateGraph(nodes, edges, tick, W, H)!
     }
-    const a = structuredClone(juggleFrame('juggle-a', { speed: 1, count: 4, fade: 0.1, palette: 'rainbow' }, 0))
-    const b = juggleFrame('juggle-a', { speed: 1, count: 4, fade: 0.1, palette: 'rainbow' }, 30)
+    const a = structuredClone(juggleFrame('juggle-a', { speed: 1, count: 4, trail: 0.9, palette: 'rainbow' }, 0))
+    const b = juggleFrame('juggle-a', { speed: 1, count: 4, trail: 0.9, palette: 'rainbow' }, 30)
     expect(a).not.toEqual(b)
-    const rainbow = juggleFrame('juggle-rainbow', { speed: 1, count: 4, fade: 0.1, palette: 'rainbow' }, 20)
-    const lava = juggleFrame('juggle-lava', { speed: 1, count: 4, fade: 0.1, palette: 'lava' }, 20)
+    const rainbow = juggleFrame('juggle-rainbow', { speed: 1, count: 4, trail: 0.9, palette: 'rainbow' }, 20)
+    const lava = juggleFrame('juggle-lava', { speed: 1, count: 4, trail: 0.9, palette: 'lava' }, 20)
     expect(rainbow).not.toEqual(lava)
   })
 
@@ -5324,8 +5348,8 @@ describe('Pride2015 and Pacifica', () => {
         .flat()
         .filter(px => px.r + px.g + px.b > 30).length
     }
-    const sinelonish = litCount('juggle-one', { speed: 1, count: 1, fade: 0.12, palette: 'rainbow' })
-    const juggling = litCount('juggle-four', { speed: 1, count: 4, fade: 0.12, palette: 'rainbow' })
+    const sinelonish = litCount('juggle-one', { speed: 1, count: 1, trail: 0.88, palette: 'rainbow' })
+    const juggling = litCount('juggle-four', { speed: 1, count: 4, trail: 0.88, palette: 'rainbow' })
     expect(juggling).toBeGreaterThan(sinelonish)
   })
 
@@ -5333,8 +5357,8 @@ describe('Pride2015 and Pacifica', () => {
     [1, 1], [3.6, 4], [8, 8], [500, 8], [-10, 1],
   ])('Juggle wired count %s renders as %s dots and restores its manual count on disconnect', (value, expected) => {
     const source = node('juggle-count-source', 'Math', 'math', { a: value, b: 0, mathOp: 'add' })
-    const gen = node(`wired-juggle-${value}`, 'Juggle', 'pattern', { count: 2, fade: 1 })
-    const reference = node(`reference-juggle-${value}`, 'Juggle', 'pattern', { count: expected, fade: 1 })
+    const gen = node(`wired-juggle-${value}`, 'Juggle', 'pattern', { count: 2, trail: 0 })
+    const reference = node(`reference-juggle-${value}`, 'Juggle', 'pattern', { count: expected, trail: 0 })
     const wired = withOutput(gen)
     const manual = withOutput(reference)
     const control = edge('count-control', source.id, 'result', gen.id, 'count')
@@ -5346,16 +5370,16 @@ describe('Pride2015 and Pacifica', () => {
     expect(gen.data.properties.count).toBe(2)
   })
 
-  it('Juggle wires Speed and Fade through the same path as their manual values', () => {
-    const gen = node('juggle-wired-parameters', 'Juggle', 'pattern', { speed: 0, fade: 0, count: 4 })
-    const reference = node('juggle-manual-parameters', 'Juggle', 'pattern', { speed: 0.7, fade: 0.9, count: 4 })
+  it('Juggle wires Speed and Trail through the same path as their manual values', () => {
+    const gen = node('juggle-wired-parameters', 'Juggle', 'pattern', { speed: 0, trail: 1, count: 4 })
+    const reference = node('juggle-manual-parameters', 'Juggle', 'pattern', { speed: 0.7, trail: 0.1, count: 4 })
     const speed = node('juggle-speed-source', 'Math', 'math', { a: 0.7, b: 0 })
-    const fade = node('juggle-fade-source', 'Math', 'math', { a: 0.9, b: 0 })
+    const trail = node('juggle-trail-source', 'Math', 'math', { a: 0.1, b: 0 })
     const wired = withOutput(gen)
     const manual = withOutput(reference)
-    const controls = [edge('speed-control', speed.id, 'result', gen.id, 'speed'), edge('fade-control', fade.id, 'result', gen.id, 'fade')]
+    const controls = [edge('speed-control', speed.id, 'result', gen.id, 'speed'), edge('trail-control', trail.id, 'result', gen.id, 'trail')]
     for (const tick of [0, 10, 20]) {
-      expect(evaluateGraph([speed, fade, ...wired.nodes], [...wired.edges, ...controls], tick, W, H))
+      expect(evaluateGraph([speed, trail, ...wired.nodes], [...wired.edges, ...controls], tick, W, H))
         .toEqual(evaluateGraph(manual.nodes, manual.edges, tick, W, H))
     }
   })

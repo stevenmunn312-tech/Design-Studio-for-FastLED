@@ -1473,7 +1473,7 @@ describe('graphStore — custom display documents', () => {
     reset([
       node('screen', 'TransportDisplay', { displayId: 'panel' }),
       node('touch', 'TouchInput', { panelId: 'screen' }),
-      node('juggle', 'Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' }),
+      node('juggle', 'Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' }),
     ])
     useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('panel'), 'Slider'))
 
@@ -1522,7 +1522,7 @@ describe('graphStore — custom display documents', () => {
     reset([
       node('screen', 'TransportDisplay', { displayId: 'panel' }),
       node('touch', 'TouchInput', { panelId: 'screen' }),
-      node('juggle', 'Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' }),
+      node('juggle', 'Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' }),
     ])
     const document = updateDisplayWidget(
       addDisplayWidget(createDisplayDocument('panel'), 'Slider'),
@@ -1551,8 +1551,8 @@ describe('graphStore — custom display documents', () => {
     reset([
       node('screen', 'TransportDisplay', { displayId: 'panel' }),
       node('touch', 'TouchInput', { panelId: 'screen' }),
-      node('juggle-a', 'Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' }),
-      node('juggle-b', 'Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' }),
+      node('juggle-a', 'Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' }),
+      node('juggle-b', 'Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' }),
     ], [
       edge('existing', 'touch', 'widget:slider:out', 'juggle-a', 'speed'),
     ])

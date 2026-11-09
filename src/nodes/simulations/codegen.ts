@@ -1,6 +1,7 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { trailFadeCpp, trailKeepCpp } from '../shared/trailFadeCpp'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_DEPTH, FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, INOISE_UNIT, fireStyle,
@@ -380,21 +381,21 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const Rf = `${A}R`
     const count = `${A}N`
     const speedVar = `${A}S`
-    const persistVar = `${A}P`
+    const trailVar = `${A}T`
     // Only what this variant reads: an unused local is a warning per
     // sketch, and every knob here belongs to some variants and not others.
     const usesCount = formulaType === 'phyllotaxis' || formulaType === 'logisticMap'
       || formulaType === 'attractor' || !['lissajousPath', 'rosePath'].includes(formulaType)
     const usesSpeed = ['phyllotaxis', 'lissajousPath', 'rosePath'].includes(formulaType)
       || !['logisticMap', 'attractor'].includes(formulaType)
-    const usesPersist = ['attractor', 'lissajousPath', 'rosePath'].includes(formulaType)
-    // The persistence variants fade last frame's dots rather than clearing.
-    const ob = ownBuf({ persists: usesPersist })
+    const usesTrail = ['attractor', 'lissajousPath', 'rosePath'].includes(formulaType)
+    // The trail variants fade last frame's dots rather than clearing.
+    const ob = ownBuf({ persists: usesTrail })
     ln(`  int32_t ${Rf}=(int32_t)(fmaxf(0.5f, ${baseR}*fmaxf(0.1f, ${f('dotSize', 'dotSize', 1)}))*256.0f);`)
     if (usesCount) ln(`  int ${count}=(int)constrain(${f('count', 'count', 60)}, 1.0f, 300.0f);`)
     if (usesSpeed) ln(`  float ${speedVar}=constrain(${f('speed', 'speed', 0.3)}, 0.0f, 1.0f);`)
-    if (usesPersist) ln(`  float ${persistVar}=constrain(${f('persistence', 'persistence', 0.85)}, 0.0f, 1.0f);`)
-    if (formulaType === 'phyllotaxis' || formulaType === 'lissajousPath' || formulaType === 'rosePath') needsT.v = true
+    if (usesTrail) ln(`  float ${trailVar}=${f('trail', 'trail', 0.46)};`)
+    if (usesTrail || formulaType === 'phyllotaxis') needsT.v = true
 
     // Splats one soft disc of `colorExpr` at (xExpr, yExpr), float pixels,
     // into `buf`: the integer splat in shared/integerPatterns.ts. Its own
@@ -433,7 +434,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         const [pa, pb, pc, pd] = presets[presetName]
         ln(`  { // Formula Points: attractor (de Jong, ${presetName})`)
         ln(`    static float ${A}ax=0.1f, ${A}ay=0.1f;`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
+        trailFadeCpp(ln, phaseTag(id), trailVar, ob)
         ln(`    for(int _i=0;_i<${count};_i++){`)
         ln(`      float _nx=sinf(${floatLit(pa)}*${A}ay)-cosf(${floatLit(pb)}*${A}ax);`)
         ln(`      float _ny=sinf(${floatLit(pc)}*${A}ax)-cosf(${floatLit(pd)}*${A}ay);`)
@@ -448,7 +449,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         const freqA = `fmaxf(1.0f, ${f('freqA', 'freqA', 3)})`
         const freqB = `fmaxf(1.0f, ${f('freqB', 'freqB', 2)})`
         ln(`  { // Formula Points: lissajousPath`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
+        trailFadeCpp(ln, phaseTag(id), trailVar, ob)
         // FORMULA_POINTS_SPEED_MAX.lissajousPath
         ln(`    float _phase=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*2.0f;`)
         ln(`    float _cx=sinf(${freqA}*_phase), _cy=sinf(${freqB}*_phase);`)
@@ -460,7 +461,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
 
       case 'rosePath': {
         ln(`  { // Formula Points: rosePath`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
+        trailFadeCpp(ln, phaseTag(id), trailVar, ob)
         // FORMULA_POINTS_SPEED_MAX.rosePath
         ln(`    float _phase=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*2.0f;`)
         ln(`    float _rr=cosf(fmaxf(1.0f, ${f('petals', 'petals', 5)})*_phase);`)
@@ -491,7 +492,6 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.67), SPEED_MAX.FlowField), scale = rateCpp(f('scale', 'scale', 0.08), SCALE_MAX.FlowField)
-    const fadeL = f('fade', 'fade', 0.9)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const px = `_fpx_${id}`, py = `_fpy_${id}`, tr = `_ftr_${id}`
@@ -503,7 +503,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     // Noise axes wrap at their integer width before the cast: a float past the
     // type's range is undefined to convert, and `t*100` passes 65535 in 11 minutes.
     ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)fmodf(t*100.0f,65536.0f);`)
-    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=constrain(${fadeL},0.0f,1.0f);`)
+    const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.53))
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${keep};`)
     ln(`    for(int _i=0;_i<_count;_i++){`)
     if (p.flowMode === 'curl') {
       // Central differences of inoise16 a CURL_EPS apart (in cells), turned a quarter turn.
@@ -573,7 +574,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`        for(int _i=0;_i<${N};_i++){ float _u=(_i+0.5f)/${N}; int _x=constrain((int)lroundf(_ax+(_bx-_ax)*_u-0.5f),0,WIDTH-1),_y=constrain((int)lroundf(_ay+(_by-_ay)*_u-0.5f),0,HEIGHT-1); ${A}px[_ei*${N}+_i]=_y*WIDTH+_x; } }`)
     ln(`      for(int _i=0;_i<${M};_i++) ${A}l[_i]=false; fill_solid(${ob}, NUM_LEDS, CRGB::Black); ${A}t=t; ${A}prev=_tr; ${A}init=true; }`)
     ln(`    float _dt=constrain(t-${A}t,0.0f,0.25f); ${A}t=t;`)
-    ln(`    float _spd=${speed},_rate=max(0.0f,${f('rate', 'rate', 1)}),_life=${floatLit(lifetime)}; uint8_t _fq=(uint8_t)(constrain(${f('fade', 'fade', 0.85)},0.0f,1.0f)*255.0f);`)
+    ln(`    float _spd=${speed},_rate=max(0.0f,${f('rate', 'rate', 1)}),_life=${floatLit(lifetime)},_tl=${f('trail', 'trail', 0.46)};`)
     ln(`    ${A}acc+=_rate*_dt; int _sp=(int)floorf(${A}acc); ${A}acc-=_sp; if(_tr&&!${A}prev) _sp++; ${A}prev=_tr;`)
     ln(`    for(int _s=0;_s<_sp;_s++){ int _slot=-1; for(int _i=0;_i<${M};_i++) if(!${A}l[_i]){ _slot=_i; break; } if(_slot<0) break;`)
     ln(`      int _n=${startNode >= 0 && startNode < nodes ? String(startNode) : `random16(${nodes})`}; int _ei=-1; uint8_t _dd=1;`)
@@ -592,7 +593,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     }
     ln(`        _ei=_v>>1; _dd=_v&1; _of=_carry; }`)
     ln(`      ${A}e[_i]=_ei; ${A}d[_i]=_dd; ${A}o[_i]=_of; }`)
-    ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ ${ob}[_i].r=scale8(${ob}[_i].r,_fq); ${ob}[_i].g=scale8(${ob}[_i].g,_fq); ${ob}[_i].b=scale8(${ob}[_i].b,_fq); }`)
+    trailFadeCpp(ln, phaseTag(id), '_tl', ob)
     ln(`    for(int _i=0;_i<${M};_i++){ if(!${A}l[_i]) continue; float _lf=1.0f-${A}a[_i]/_life; CRGB _c=ColorFromPalette(${pal},(uint8_t)(${A}h[_i]*255.0f));`)
     ln(`      for(int _k=0;_k<${width};_k++){ float _of=${A}o[_i]-_k; if(_of<0) break; int _li=constrain((int)floorf(_of),0,${N}-1); if(!${A}d[_i]) _li=${N}-1-_li;`)
     ln(`        uint16_t _p=${A}px[${A}e[_i]*${N}+_li]; uint8_t _q=(uint8_t)(constrain(_lf*(1.0f-(float)_k/${width}),0.0f,1.0f)*255.0f);`)
@@ -604,7 +605,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const track = stringTrack(p.track), meteors = p.mode === 'meteors'
     const ringLeds = ringTrackLeds(p.ringLeds)
-    if (meteors) needsT.v = true
+    needsT.v = true
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.StringParticles)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
@@ -631,8 +632,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     }
     ln(`      ${A}init=true; }`)
     ln(`    float _step=max(0.0f,${speed})*0.6f,_sp=constrain(${f('spawn', 'spawn', 0.5)},0.0f,1.0f);`)
-    ln(`    uint8_t _fq=(uint8_t)(constrain(${f('fade', 'fade', 0.85)},0.0f,1.0f)*255.0f);`)
-    ln(`    for(int _k=0;_k<_len;_k++){ ${A}tr[_k].r=scale8(${A}tr[_k].r,_fq); ${A}tr[_k].g=scale8(${A}tr[_k].g,_fq); ${A}tr[_k].b=scale8(${A}tr[_k].b,_fq); }`)
+    ln(`    float _tl=${f('trail', 'trail', 0.46)};`)
+    trailFadeCpp(ln, phaseTag(id), '_tl', `${A}tr`, '    ', '_len')
     ln(`    auto _rnd=[]()->float{ return random16()/65535.0f; };`)
     ln(`    auto _dir=[&]()->float{ return _rnd()<0.5f?-1.0f:1.0f; };`)
     ln(`    auto _free=[&]()->int{ for(int _i=0;_i<_n;_i++) if(${A}l[_i]<=0) return _i; return -1; };`)
@@ -764,11 +765,11 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      ::memcpy(${u},${un},sizeof(${u})); ::memcpy(${v},${vn},NUM_LEDS*sizeof(float)); }`)
     ln(`    for (int _i=0; _i<NUM_LEDS; _i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${v}[_i]*255)); }`)
   },
-  GameOfLife({ node, id, p, ln, f, ownBuf, paletteExpr }) {
+  GameOfLife({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+    needsT.v = true
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const speed = f('speed', 'speed', 8)
-    const fadeL = `constrain(${f('fade', 'fade', 0.75)},0.0f,1.0f)`
     const seed = seedProp(p)
     const c = `_gc_${id}`, nx = `_gn_${id}`, br = `_gb_${id}`
     ln(`  { // Game of Life`)
@@ -787,6 +788,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      _gst_${id}=(_pop==0||!_chg)?_gst_${id}+1:0;`)
     ln(`      if (_gst_${id}>3) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; _gst_${id}=0; }`)
     ln(`      _gt_${id}=millis(); }`)
-    ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${fadeL}; ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${br}[_i]*255)); ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
+    const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.37))
+    ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${keep}; ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${br}[_i]*255)); ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
   },
 }

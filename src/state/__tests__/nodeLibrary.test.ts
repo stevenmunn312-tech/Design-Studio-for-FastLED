@@ -541,15 +541,15 @@ describe('nodeLibrary', () => {
 
   it('Confetti exposes normalized speed, palette input, and fading speckle defaults', () => {
     const cf = NODE_LIBRARY.find((n) => n.type === 'Confetti')
-    expect(cf?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'density', 'fade'])
-    expect(cf?.defaultProperties).toMatchObject({ speed: 0.45, density: 0.45, fade: 0.65, palette: 'party' })
+    expect(cf?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'density', 'trail'])
+    expect(cf?.defaultProperties).toMatchObject({ speed: 0.45, density: 0.45, trail: 0.35, palette: 'party' })
     expect(propertyMeta('Confetti', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
   it('Juggle exposes normalized speed, palette input, and a bounded dot count', () => {
     const jg = NODE_LIBRARY.find((n) => n.type === 'Juggle')
-    expect(jg?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'count', 'fade'])
-    expect(jg?.defaultProperties).toMatchObject({ speed: 0.5, count: 4, fade: 0.61, palette: 'rainbow' })
+    expect(jg?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'count', 'trail'])
+    expect(jg?.defaultProperties).toMatchObject({ speed: 0.5, count: 4, trail: 0.39, palette: 'rainbow' })
     expect(propertyMeta('Juggle', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('Juggle', 'count')).toMatchObject({ control: 'slider', min: 1, max: 8 })
   })

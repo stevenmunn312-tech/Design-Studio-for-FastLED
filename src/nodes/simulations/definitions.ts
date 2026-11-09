@@ -107,7 +107,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'dotSize', label: 'Dot Size', dataType: 'float' },
       { id: 'count', label: 'Count', dataType: 'float' },
-      { id: 'persistence', label: 'Persistence', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
       { id: 'freqA', label: 'Freq A', dataType: 'float' },
       { id: 'freqB', label: 'Freq B', dataType: 'float' },
       { id: 'petals', label: 'Petals', dataType: 'float' },
@@ -118,7 +118,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       speed: 'speed',
       dotSize: 'dotSize',
       count: 'count',
-      persistence: 'persistence',
+      trail: 'trail',
       freqA: 'freqA',
       freqB: 'freqB',
       petals: 'petals',
@@ -133,7 +133,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       // phyllotaxis / logisticMap / attractor
       count: 60,
       // lissajousPath / rosePath / attractor
-      persistence: 0.85,
+      trail: 0.46,
       // lissajousPath
       freqA: 3,
       freqB: 2,
@@ -155,15 +155,15 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'count', label: 'Count', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: {
       speed: 'speed', scale: 'scale', count: 'count',
-      fade: 'fade', palette: 'paletteIn',
+      trail: 'trail', palette: 'paletteIn',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean', seed: 0, flowMode: 'angle' },
+    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, trail: 0.53, palette: 'ocean', seed: 0, flowMode: 'angle' },
   },
   {
     // String Particles — a 1-D particle pool drawn along a row, column or ring track.
@@ -175,12 +175,12 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'spawn', label: 'Spawn', dataType: 'float' },
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { spawn: 'spawn', speed: 'speed', fade: 'fade', palette: 'paletteIn' },
+    propertyInputs: { spawn: 'spawn', speed: 'speed', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { track: 'row', mode: 'drift', count: 12, ringLeds: 60, bed: 0.3, spawn: 0.5, speed: 0.5, fade: 0.85, palette: 'rainbow', seed: 0 },
+    defaultProperties: { track: 'row', mode: 'drift', count: 12, ringLeds: 60, bed: 0.3, spawn: 0.5, speed: 0.5, trail: 0.46, palette: 'rainbow', seed: 0 },
   },
   {
     // Ripples travelling the edges of a segment network, choosing a turn at
@@ -195,14 +195,14 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'rate', label: 'Rate', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', rate: 'rate', fade: 'fade', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', rate: 'rate', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       networkPreset: 'hexagons', network: '', ledsPerEdge: 14, behaviour: 'straight', startNode: -1,
-      speed: 0.4, rate: 1, lifetime: 3, width: 3, fade: 0.85, palette: 'rainbow', seed: 0,
+      speed: 0.4, rate: 1, lifetime: 3, width: 3, trail: 0.46, palette: 'rainbow', seed: 0,
     },
   },
   {
@@ -280,11 +280,11 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', fade: 'fade', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 8, fade: 0.75, palette: 'mojito', seed: 0 },
+    defaultProperties: { speed: 8, trail: 0.37, palette: 'mojito', seed: 0 },
   },
 ]
 

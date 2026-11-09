@@ -118,7 +118,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Palette-driven Larson scanner / Cylon eye — a bar that sweeps back and
-    // forth across one axis, with a soft trail controlled by `fade`.
+    // forth across one axis, leaving a tail behind it whose length is `trail`.
     type: 'Scanner',
     label: 'Scanner',
     category: 'pattern',
@@ -127,11 +127,11 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'width', label: 'Width', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', palette: 'paletteIn', width: 'width', fade: 'fade' },
+    propertyInputs: { speed: 'speed', palette: 'paletteIn', width: 'width', trail: 'trail' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' },
+    defaultProperties: { speed: 0.45, width: 2, trail: 0.55, axis: 'horizontal', palette: 'lava' },
   },
   {
     // Theater chase / marquee — every `spacing`th LED lit along `axis`, the
@@ -193,11 +193,11 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'density', label: 'Density', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { density: 'density', fade: 'fade', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { density: 'density', trail: 'trail', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.45, density: 0.45, fade: 0.65, palette: 'party', seed: 0 },
+    defaultProperties: { speed: 0.45, density: 0.45, trail: 0.35, palette: 'party', seed: 0 },
   },
   {
     // Candle — warm flame flicker on one shared value or on every pixel.
@@ -300,11 +300,11 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'count', label: 'Count', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', count: 'count', fade: 'fade', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', count: 'count', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, fade: 0.61, palette: 'rainbow', seed: 0 },
+    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, trail: 0.39, palette: 'rainbow', seed: 0 },
   },
 
   // ── More pattern nodes ─────────────────────────────────────────────────
@@ -364,7 +364,7 @@ export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
   Pride2015: 'Shifting rainbow with a breathing brightness wave.',
   Pacifica: 'Layered ocean waves through a palette, with whitecap sparkle.',
   TwinkleFox: 'Palette-driven lights that twinkle on independent schedules.',
-  Scanner: 'Larson scanner / Cylon eye — a palette beam with adjustable width and fade.',
+  Scanner: 'Larson scanner / Cylon eye — a palette beam sweeping back and forth with a tail.',
   TheaterChase: 'Marquee chase — every Nth LED lit, stepping along the strip in palette colours.',
   ColorWipe: 'The next palette colour sweeps in from one end, wipe after wipe.',
   Breathe: 'One colour swelling and fading at a breaths-per-minute rate.',

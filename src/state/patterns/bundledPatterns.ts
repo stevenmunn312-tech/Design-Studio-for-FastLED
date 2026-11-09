@@ -422,7 +422,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
         speed: 0.18,
         scale: 0.12,
         count: 42,
-        fade: 0.94,
+        trail: 0.62,
         seed: 522,
       }),
       studioNode('blur', 'Blur2D', -140, 40, { amount: 0.08 }),
@@ -517,7 +517,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
       studioNode('scan', 'Scanner', -460, 40, {
         speed: 0.12,
         width: 3,
-        fade: 0.78,
+        trail: 0.79,
         axis: 'horizontal',
       }),
       studioNode('array', 'Array', -120, 40, {

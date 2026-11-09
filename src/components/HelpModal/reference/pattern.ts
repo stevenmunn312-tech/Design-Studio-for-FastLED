@@ -92,7 +92,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       title: 'A birthday banner',
       nodes: {
         banner: ['Text', { text: 'HAPPY BIRTHDAY SAM!', scroll: 9, wrap: true, r: 255, g: 120, b: 210, letterSpacing: 1 }],
-        confetti: ['Confetti', { palette: 'party', speed: 0.3, fade: 0.7 }],
+        confetti: ['Confetti', { palette: 'party', speed: 0.3, trail: 0.3 }],
         layer: ['Blend', { blendMode: 'screen', amount: 0.6 }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },
@@ -443,13 +443,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Scanner: {
     overview: [
       'Scanner is the Larson scanner — the Cylon eye, or KITT’s nose: a bright beam sweeping back and forth with a fading tail.',
-      'Width sets the bright core and Fade the length of the tail. On a matrix it can sweep along rows or columns.',
+      'Width sets the bright core and Trail how long the tail behind it lasts. On a matrix it can sweep along rows or columns.',
     ],
     example: example({
       featured: 'Scanner',
       title: 'KITT’s scanner',
       nodes: {
-        eye: ['Scanner', { palette: 'lava', width: 3, fade: 0.7, speed: 0.55 }],
+        eye: ['Scanner', { palette: 'lava', width: 3, trail: 0.53, speed: 0.55 }],
       },
       output: STRIP(30),
       explanation: 'Scanner on a short string, in the lava palette: a red beam sweeps from end to end with a glowing tail, just like the car.',
@@ -511,14 +511,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Confetti: {
     overview: [
-      'Confetti scatters random coloured speckles that fade away, from FastLED’s DemoReel100. Speed and Density set how many appear, Fade how quickly they go.',
+      'Confetti scatters random coloured speckles that fade away, from FastLED’s DemoReel100. Speed and Density set how many appear, Trail how long they linger.',
       'The colours drift through the palette over time, so a long-running confetti changes mood slowly.',
     ],
     example: example({
       featured: 'Confetti',
       title: 'Confetti in a mirror',
       nodes: {
-        speckles: ['Confetti', { palette: 'cottoncandy', speed: 0.5, density: 0.5, fade: 0.63 }],
+        speckles: ['Confetti', { palette: 'cottoncandy', speed: 0.5, density: 0.5, trail: 0.37 }],
         mirror: ['Mirror', { mirrorMode: 'quad' }],
       },
       wires: ['speckles.frame > mirror.frame'],
@@ -638,13 +638,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Juggle: {
     overview: [
       'Juggle sends dots swinging back and forth on sine waves, each with a fading trail. With Count at 1 it is FastLED’s Sinelon: one dot gliding along a string.',
-      'Each dot moves at a slightly different rate, so with several the pattern keeps changing. Fade sets how long the trails are.',
+      'Each dot moves at a slightly different rate, so with several the pattern keeps changing. Trail sets how long the trails are.',
     ],
     example: example({
       featured: 'Juggle',
       title: 'Sinelon: one dot gliding along a string',
       nodes: {
-        sinelon: ['Juggle', { count: 1, fade: 0.5, speed: 0.6, palette: 'ultraviolet' }],
+        sinelon: ['Juggle', { count: 1, trail: 0.5, speed: 0.6, palette: 'ultraviolet' }],
       },
       output: STRIP(60),
       explanation: 'Juggle with a single dot is the classic Sinelon. It glides back and forth along the string, slowing at each end like a pendulum, and its colour drifts through the ultraviolet palette.',
@@ -740,13 +740,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   FormulaPoints: {
     overview: [
       'Formula Points places dots with a mathematical formula: phyllotaxis (the sunflower spiral), Lissajous and rose paths, the logistic map, or a de Jong strange attractor.',
-      'Only the knobs the chosen formula uses are enabled. Persistence leaves trails, and colour comes from the palette by dot or by position.',
+      'Only the knobs the chosen formula uses are enabled. Trail sets how long the paths and the attractor linger, and colour comes from the palette by dot or by position.',
     ],
     example: example({
       featured: 'FormulaPoints',
       title: 'Seeds in a sunflower head',
       nodes: {
-        seeds: ['FormulaPoints', { formulaType: 'phyllotaxis', count: 120, speed: 0.15, persistence: 0.6, palette: 'honeycomb' }],
+        seeds: ['FormulaPoints', { formulaType: 'phyllotaxis', count: 120, speed: 0.15, palette: 'honeycomb' }],
       },
       output: MATRIX(24, 24),
       explanation: 'Formula Points in phyllotaxis mode places each dot 137.5° round from the last — the golden angle — the same rule sunflowers use to pack their seeds. The honeycomb palette colours them from the centre out.',
@@ -757,13 +757,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   FlowField: {
     overview: [
       'Flow Field releases particles that drift along invisible currents made by noise, leaving trails behind them.',
-      'In angle mode the noise sets each particle’s heading; curl mode follows the noise’s curl, which swirls without particles piling up. Scale sets the size of the currents and Fade the length of the trails.',
+      'In angle mode the noise sets each particle’s heading; curl mode follows the noise’s curl, which swirls without particles piling up. Scale sets the size of the currents and Trail the length of the trails.',
     ],
     example: example({
       featured: 'FlowField',
       title: 'Smoke curling through the air',
       nodes: {
-        smoke: ['FlowField', { flowMode: 'curl', count: 300, scale: 0.1, fade: 0.93, palette: 'opal', speed: 0.55 }],
+        smoke: ['FlowField', { flowMode: 'curl', count: 300, scale: 0.1, trail: 0.59, palette: 'opal', speed: 0.55 }],
       },
       explanation: 'Flow Field in curl mode keeps its 300 particles circulating in smooth eddies, and long trails turn their paths into wisps like smoke, tinted by the opal palette.',
       preview: 'The {output} shows pale teal wisps curling and swirling across the matrix.',
@@ -783,7 +783,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'StringParticles',
       title: 'Fireflies circling a ring',
       nodes: {
-        fireflies: ['StringParticles', { track: 'ring', ringLeds: 24, mode: 'drift', count: 6, palette: 'meadow', fade: 0.8, speed: 0.4 }],
+        fireflies: ['StringParticles', { track: 'ring', ringLeds: 24, mode: 'drift', count: 6, palette: 'meadow', trail: 0.41, speed: 0.4 }],
       },
       output: RING(24),
       explanation: 'String Particles on the ring track drifts six particles round the LED ring, each born green-gold and whitening as it fades, like fireflies on a summer night.',
@@ -795,7 +795,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Ripple sends points of light along the edges of a segment network, a string laid out as a small graph of hexagons or triangles. At every node a ripple decides where to go next: straight on, always left or right, the sharpest turn, down every edge at once, or at random.',
       'It is made for an LED output whose string layout is Network. Give the node the same network and LEDs per edge as the output, so each ripple lands on the LEDs that form the edge.',
-      'Ripples start on their own at the Rate, and one more on each rising Trigger. Width lights a short tail behind each head, Fade keeps a trail on the whole network, and Lifetime fades each ripple out.',
+      'Ripples start on their own at the Rate, and one more on each rising Trigger. Width lights a short tail behind each head, Trail keeps a trail on the whole network, and Lifetime fades each ripple out.',
     ],
     inputs: {
       trigger: 'Each rising edge starts one ripple at the start node.',
@@ -804,7 +804,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Ripple',
       title: 'Light racing round the honeycomb',
       nodes: {
-        ripples: ['Ripple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, fade: 0.8 }],
+        ripples: ['Ripple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, trail: 0.41 }],
       },
       output: { form: 'strip', stripLayout: 'network', networkPreset: 'hexagons', ledsPerEdge: 4, positionsWidth: 24, positionsHeight: 12 },
       explanation: 'Ripple starts a new point of light about every second, and each one runs along the honeycomb keeping as straight a line as the hexagons allow, so the lights weave through the cells and cross one another, each trailing its own colour.',
@@ -875,16 +875,16 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   GameOfLife: {
     overview: [
       'Game of Life is Conway’s cellular automaton: live cells with two or three neighbours survive, dead cells with exactly three are born, and everything else dies. Simple rules, endless behaviour.',
-      'Speed is generations per second, and Fade lets dead cells cool through the palette instead of vanishing.',
+      'Speed is generations per second, and Trail lets dead cells cool through the palette instead of vanishing.',
     ],
     example: example({
       featured: 'GameOfLife',
       title: 'Life, with ghosts',
       nodes: {
-        life: ['GameOfLife', { speed: 6, fade: 0.85, palette: 'mojito' }],
+        life: ['GameOfLife', { speed: 6, trail: 0.46, palette: 'mojito' }],
       },
       output: MATRIX(24, 24),
-      explanation: 'Game of Life at six generations a second. A high Fade leaves dying cells glowing as they cool through the mojito palette, so each colony trails ghosts of its previous shapes.',
+      explanation: 'Game of Life at six generations a second. A long Trail leaves dying cells glowing as they cool through the mojito palette, so each colony trails ghosts of its previous shapes.',
       preview: 'The {output} shows bright green colonies changing shape, each surrounded by dimmer fading cells.',
     }),
   },

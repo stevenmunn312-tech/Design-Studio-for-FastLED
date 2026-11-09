@@ -991,15 +991,6 @@ freeze, or drop them.
 
 #### Generative and simulations
 
-- [ ] **Category: Give `fade` one meaning on every node (High, M).** Confetti
-  and Juggle use the half-life scale (0 longest trail, 1 none); Flow Field,
-  Ripple, String Particles, Game of Life, Formula Points `persistence` and
-  Particles `decay` use per-frame retention (1 never fades); Scanner `fade` is
-  glow length (1 longest). A slider learned on one node does the opposite on
-  the next. Pre-v1, rename all of them to one key (for example `trail`: 0
-  none, 1 longest), route them through `trailFadeAmount`/`trailFadeCpp`, and
-  convert bundled and help values. Evidence `src/nodes/shared/trailFade.ts:26`,
-  `docs/development/patterns/graph-and-nodes.md:291`.
 - [ ] **Category: Make Fire, Digital Rain, Blobs and Particles work on a
   one-row strip (High, S).** Strips (60x1, 10x1, 65x1) are supported forms and
   these defaults break on them. Fire `direction: 'up'` gives a one-row heat
@@ -1011,13 +1002,17 @@ freeze, or drop them.
   side when one side is 1, and point Particles users to String Particles on a
   one-row canvas. Evidence `src/nodes/simulations/evaluate.ts:123`,
   `src/nodes/generative/evaluate.ts:458`.
-- [ ] **Category: Move simulation motion and trails onto the clock (Med, M).**
-  Most simulations advance per pass, against "never per pass" in
-  `docs/development/patterns/graph-and-nodes.md:285`: Flow Field, Ripple trails, String Particles, Game
-  of Life, Formula Points, Digital Rain, Starfield and every Particles mode
-  (`rate` is a per-frame chance). A heavy graph on an ESP8266 or C3 that
-  drops to 30 fps halves speeds and doubles trails. Do the trail part inside
-  the `fade` rework above, then move motion onto `dt` node by node. Evidence
+- [ ] **Category: Move simulation motion onto the clock (Med, M).** Trails
+  are done: every trail now fades by elapsed time through the shared `trail`
+  knob. Motion still advances per pass, against "never per pass" in
+  `docs/development/patterns/graph-and-nodes.md:285`: Flow Field particle
+  steps and deposits, String Particles moves and life, Formula Points' logistic
+  map and attractor iterations, Digital Rain heads, Starfield depth and every
+  Particles mode (`rate` is a per-frame chance, `decay` a per-frame share of
+  life). A heavy graph on an ESP8266 or C3 that drops to 30 fps halves these
+  speeds. Each node needs a measured `dt` on both sides (a per-node static
+  last `t` in firmware, as `timedFadeCpp` keeps) and its per-frame constants
+  rescaled to per-second ones, with bundled values checked by eye. Evidence
   `src/nodes/simulations/evaluate.ts:587`, `:824`.
 - [ ] **Category: Fix HSV wheel parity for Rainbow, Pride 2015 and Boids
   (Med, S).** FastLED `CHSV`/`fill_rainbow` is the rainbow wheel and the
@@ -1092,17 +1087,6 @@ freeze, or drop them.
   The colorwaves variant currently needs a separate Palette node wired in,
   because `propertyInputs` has no `palette`. Follow the pattern at
   `src/state/nodeLibrary.ts:743`. Evidence `src/nodes/generative/definitions.ts:80`.
-- [ ] **Scanner: Make the glow trail one-sided (Med, S).** The glow uses
-  `Math.abs(coord - pos)`, so it spreads equally ahead of and behind the beam,
-  while the tooltip and Help promise a tail. Make it one-sided along travel,
-  or reuse the trail-fade buffer Juggle uses. Evidence
-  `src/nodes/generative/evaluate.ts:139`, `src/nodes/generative/codegen.ts:282`.
-- [ ] **Scanner: Stop the beam vanishing at one end of the default palette
-  (Med, S).** Colour is sampled at beam position and default `lava` starts at
-  `#140000`, so the beam is nearly black at the left end; the Help example has
-  the same problem. Sample a bright range (for example `0.3 + 0.7*travel`) or
-  change the default palette. Evidence `src/nodes/generative/evaluate.ts:135`,
-  `src/state/palettes/paletteCatalog.ts:29`.
 - [ ] **Confetti: Rename Speed to "Colour drift" (Med, S).** Speed and Density
   both set spawn count (`density*(0.08+speed*0.3)*sqrt(area)`), and the
   Density tooltip admits it multiplies Speed. Keep Density for amount and
