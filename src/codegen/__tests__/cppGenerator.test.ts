@@ -5193,8 +5193,23 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
       edge('e2', 'fb', 'fs', 'frame', 'b'),
       edge('e3', 'fs', 'out', 'frame', 'frame'),
     ])
-    // Nothing selects B, so the copy is A's.
-    expect(cpp).toContain('::memmove(buf_fs, buf_fa, sizeof(CRGB) * NUM_LEDS);')
+    // Nothing selects B, so the copy is A's, and A renders straight into
+    // the output, which the switch then shares.
+    expect(cpp).toContain('CRGB* const buf_fa = leds;')
+    expect(cpp).not.toContain('? buf_fb : buf_fa')
+  })
+
+  it('FrameSwitch picks the side its Select switch names when nothing is wired', () => {
+    const a = node('fa', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b = node('fb', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const fs = node('fs', 'FrameSwitch', 'composite', { select: true })
+    const cpp = generateCpp([a, b, fs, outputNode], [
+      edge('e1', 'fa', 'fs', 'frame', 'a'),
+      edge('e2', 'fb', 'fs', 'frame', 'b'),
+      edge('e3', 'fs', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB* const buf_fb = leds;')
+    expect(cpp).not.toContain('? buf_fb : buf_fa')
   })
 
   it('FrameSwitch with one wired side copies it regardless of sel', () => {

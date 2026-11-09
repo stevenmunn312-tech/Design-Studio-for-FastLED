@@ -4821,6 +4821,19 @@ describe('signal utility nodes', () => {
     expect(evaluateGraph(b.nodes, b.edges, 0, W, H)![0][0]).toEqual({ r: 0, g: 0, b: 255 })
   })
 
+  it('FrameSwitch follows its Select switch while Select is unwired', () => {
+    const red = node('fsa3', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const blue = node('fsb3', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const build = (select: boolean) => withOutput(node('fs3', 'FrameSwitch', 'composite', { select }), [red, blue], [
+      edge('ea', 'fsa3', 'frame', 'fs3', 'a'),
+      edge('eb', 'fsb3', 'frame', 'fs3', 'b'),
+    ])
+    const a = build(false)
+    expect(evaluateGraph(a.nodes, a.edges, 0, W, H)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+    const b = build(true)
+    expect(evaluateGraph(b.nodes, b.edges, 0, W, H)![0][0]).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
   it('FrameSwitch falls back to the wired side when the selected one is empty', () => {
     const red = node('fsa2', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const fs = node('fs2', 'FrameSwitch', 'composite', {})

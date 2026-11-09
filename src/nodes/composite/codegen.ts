@@ -21,11 +21,14 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`  { ${seedFrom('frame')} float _br = fmaxf(0.0f, ${br}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CRGB((uint8_t)fminf(255.0f, ${ob}[_i].r * _br), (uint8_t)fminf(255.0f, ${ob}[_i].g * _br), (uint8_t)fminf(255.0f, ${ob}[_i].b * _br)); }`)
   },
   // Manual A/B frame selector; copies the wired side when the other is
-  // empty (matching the evaluator's fallback).
-  FrameSwitch({ node, ln, ownBuf, srcBuf, boolExpr }) {
+  // empty (matching the evaluator's fallback). An unwired Select is the
+  // `select` switch, so the side is chosen here rather than at runtime.
+  FrameSwitch({ node, p, ln, ownBuf, srcBuf, boolExpr, incoming }) {
     const ob = ownBuf()
-    const a = srcBuf('a'), b = srcBuf('b'), sel = boolExpr(node.id, 'sel')
-    if (a && b) ln(`  ::memmove(${ob}, (${sel}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
+    const a = srcBuf('a'), b = srcBuf('b')
+    const wired = incoming.has(`${node.id}:sel`)
+    if (a && b && wired) ln(`  ::memmove(${ob}, (${boolExpr(node.id, 'sel')}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
+    else if (a && b) ln(`  ::memmove(${ob}, ${p.select === true ? b : a}, sizeof(CRGB) * NUM_LEDS);`)
     else if (a || b) ln(`  ::memmove(${ob}, ${a ?? b}, sizeof(CRGB) * NUM_LEDS);`)
     else ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
   },

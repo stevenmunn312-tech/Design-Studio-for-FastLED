@@ -359,7 +359,8 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
   {
     // Manual A/B frame selector — shows A when `sel` is false, B when true
     // (the bool-driven counterpart of the time-based Sequencer). Falls back to
-    // whichever side is wired when the other is empty.
+    // whichever side is wired when the other is empty. Unwired, the `select`
+    // switch picks the side, so it works as a manual or remote A/B toggle.
     type: 'FrameSwitch',
     label: 'Frame Switch',
     category: 'composite',
@@ -369,8 +370,10 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       { id: 'b', label: 'Frame B', dataType: 'frame' },
       { id: 'sel', label: 'Select', dataType: 'bool' },
     ],
+    propertyInputs: { select: 'sel' },
+    defaultExposedInputs: ['sel'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: {},
+    defaultProperties: { select: false },
   },
   {
     // Named rectangular regions ("zones") for installations with multiple

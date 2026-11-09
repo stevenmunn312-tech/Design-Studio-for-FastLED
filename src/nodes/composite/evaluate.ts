@@ -289,11 +289,12 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   },
   // Manual A/B frame selector; falls back to the wired side when the
   // selected one is empty. Both inputs are evaluated every frame so a
-  // stateful upstream pattern keeps advancing while hidden.
-  FrameSwitch({ input }, id) {
+  // stateful upstream pattern keeps advancing while hidden. An unwired
+  // Select reads the `select` switch.
+  FrameSwitch({ input }, id, props) {
     const a = input(id, 'a', null) as Frame | null
     const b = input(id, 'b', null) as Frame | null
-    const sel = Boolean(input(id, 'sel', false))
+    const sel = Boolean(input(id, 'sel', props.select === true))
     return { frame: (sel ? b : a) ?? (sel ? a : b) }
   },
   // Named rectangular zones — each of A–D routes its own wired frame into

@@ -3039,6 +3039,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     angle: 'Turn per pass, in degrees (rotate only). Keep it small for a spiral.',
     scale: 'Zoom per pass (scale only). Below 1 pulls the echo inward; above 1 pushes it out.',
   },
+  FrameSwitch: {
+    select: 'On shows Frame B, off shows Frame A. A wire into Select overrides this.',
+  },
   Zones: {
     aEnabled: 'Turns this zone off without unwiring it; its rectangle then shows Base.',
     aX: 'Left edge of the zone as a fraction of the matrix width.',

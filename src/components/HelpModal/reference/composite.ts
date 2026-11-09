@@ -406,6 +406,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   FrameSwitch: {
     overview: [
       'Frame Switch shows Frame A while Select is false and Frame B while it is true. It is a hard cut between two pictures.',
+      'Unwired, the Select switch on the node picks the frame, so it doubles as a manual A/B toggle or a control on a remote.',
       'For a smooth change between two frames use Transition; for a number rather than a frame use Switch.',
     ],
     inputs: {

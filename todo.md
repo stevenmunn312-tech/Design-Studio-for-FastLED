@@ -705,11 +705,11 @@ freeze, or drop them.
   port is labelled Amount but its row says "opacity", and Blend's port says
   Opacity. Pick one word across Blend and Frame Feedback. Evidence
   `src/nodes/composite/definitions.ts:328`, `src/state/nodeLibrary.ts:3482`.
-- [ ] **Frame Switch: Add a Select property (Med, S).** There is no manual
-  toggle; unwired it always shows A, and checking B needs a wired button.
-  Add a `select` boolean property as the `sel` port's property input, as
-  Schedule Trigger's `enable` does. Math `Switch` has the same gap.
-  Evidence `src/nodes/composite/definitions.ts:365`.
+- [ ] **Math Switch: Add a Select property (Med, S).** Frame Switch gained a
+  `select` switch as its `sel` port's property input; Math `Switch` has the
+  same gap (unwired it always passes A). Left to the Colour and maths list's
+  owner, which is also folding Gate into Switch. Evidence
+  `src/nodes/composite/definitions.ts:365`.
 - [ ] **Zones: Add a per-zone Fit option (Med, M).** Zones crop rather than
   place: each copies `src[y][x]` at the same coordinates, so in the "Four
   seasons" help example Fire in zone B shows only a quarter of a
