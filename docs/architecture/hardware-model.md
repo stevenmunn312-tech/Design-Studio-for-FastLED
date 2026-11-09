@@ -218,6 +218,40 @@ emitter both follow, per channel:
   states each channel's drive as `on/off` or `PWM 500 Hz`, prefixed with its
   letter on a lettered board.
 
+A board with three dimmable channels or more (the Mosfetti and the YYNMOS-4)
+can carry a plain, non-addressable RGB strip. `loadType` is `channels` (each
+channel its own load) or `rgb` (RGB strip): a select rather than "Color is
+wired", because the colour field has to light the strip with nothing in
+Color, the three channels lose their own On and Level ports, and the Build
+Diagram has to know the load without reading the wiring. `powerSwitchRgb`
+reads `rgb` on a board that cannot carry a strip as `channels`, so swapping
+the part leaves a plain switch. On a strip:
+
+- Channels 1 to 3 (A to C on the Mosfetti) are red, green and blue. Their
+  ports become one `On`, `Color` and `Brightness` (`POWER_SWITCH_RGB_PORTS`),
+  derived by `partDerivedInputs` from the part and the node's properties;
+  channel 4 keeps its own `On 4` and `Level 4`. The pins keep their printed
+  names, followed by the colour (`PWM1 (R)`), and the three Levels are hidden.
+- The gate follows the channels' rule (`powerSwitchRgbGate`): a wire on On
+  decides, otherwise a wire on Color or Brightness runs the strip, and the
+  `color` field (default `#ff6000`) and `brightness` field never light it by
+  themselves.
+- Each channel's level is its colour byte over 255 times Brightness
+  (`powerSwitchRgbLevels`), written through the same `flsPwmDuty` shim at the
+  part's frequency and 8 bits, so the strip shows the colour's own bytes. No
+  gamma or colour correction: the addressable LEDs beside it take their bytes
+  as linear PWM, so one colour wired to both looks the same on each. The
+  three channels join `powerSwitchPwmPlan` like any dimmed channel.
+- The low-side boards switch each colour lead to ground, so the strip must
+  share its positive (common anode, nearly every strip sold); that lead goes
+  to the load supply's positive, not through a channel. The Build Diagram
+  captions the board with where each lead lands (`powerSwitchRgbLeads`:
+  `OUT1-` to `OUT3-`, or `A-` to `C-`) and lists the load in the item's facts.
+- The preview publishes the three duties as `load` to `load3` and the colour
+  they show as `stripColor`, which the node body draws as a swatch. A strip
+  with a wire that can light it makes a build worth uploading on its own
+  (`analogOutput` in `resolveBuildMode`).
+
 A four-channel LR7843-class board with the high-current channels is still
 wanted. None found so far has a reliable reference: seller listings disagree
 on layout, and the one documented four-channel opto board (FR1205) drives its

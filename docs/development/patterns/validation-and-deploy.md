@@ -209,9 +209,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - What makes a graph buildable is `resolveBuildMode`'s `capabilities`
   (`src/state/upload/buildMode.ts`), and `validateGraph`'s "LED output is
   missing" reads the same object: a frame into an LED output, a standalone
-  Stereo VU Meter, a wired display, a board-link send, an Analog RGB Strip
-  (`analogOutput`, always coloured by its fields) or a Frame Stream with a
-  frame wired (`streamOutput`). A new sink joins the capabilities, never a
+  Stereo VU Meter, a wired display, a board-link send, a Power Switch RGB
+  strip with a wire into On, Color or Brightness (`analogOutput`, the inputs
+  its gate reads) or a Frame Stream with a frame wired (`streamOutput`). A new sink joins the capabilities, never a
   second node-type list in a validator.
 - A gate the upload handler would refuse on is said before the button is
   pressed: a drifted SD show (`showPackagingIssues`) is a `blockingErrors`

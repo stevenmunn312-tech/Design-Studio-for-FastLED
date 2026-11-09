@@ -877,6 +877,18 @@ Unless a future row says otherwise, treat the following as experimental:
   needed), one channel dimmed smoothly from Level, the MOSFET temperature
   after ten minutes at 50% duty and the recorded current, and the gate
   voltage at the lowest supply used.
+- **RGB strip load on a four-channel power switch.** With Load set to RGB
+  strip, the Mosfetti or the YYNMOS-4 drives a plain common-anode RGB strip
+  on channels 1 to 3 from one colour, at the board's own PWM rate and 8 bits,
+  with channel 4 left as its own load. It is software coverage only: its
+  sketch has not been compiled or run. Graduating it needs a compile record
+  and a dated row naming the board/FQBN, the switch board, the three GPIOs,
+  the strip with its supply voltage and current, and the build engine. It
+  must show the strip held off through reset and setup, a wired colour
+  matching the LED output it is wired beside, Brightness dimming all three
+  channels together with no flicker visible to the eye, and the board's
+  current limits kept (2 A for the whole Mosfetti, 5 A a channel and 10 A in
+  total on the YYNMOS-4).
 - **Seeed Grove 2-channel solid-state relay.** The Grove 2-Channel Solid
   State Relay (`RelayOutput`, `seeed-grove-2ch-ssr`) is software and
   generated-firmware coverage only; no AC load has been switched. It is two

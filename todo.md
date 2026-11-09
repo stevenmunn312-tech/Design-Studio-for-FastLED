@@ -429,16 +429,6 @@ Music Player seed.
   `showGenerator.test.ts` before trusting it on hardware.
   `NETWORK_MAX_LEDS` and the positioned-string `MAX_LEDS` are separate 300
   caps.
-- [ ] **Analog RGB Strip: Resolve overlap with Power Switch (Med, M).** The
-  YYNMOS-4 and Mosfetti boards Power Switch catalogues are the usual way to
-  drive an analog strip, yet the strip leaves the driver as "whatever the bench
-  has" and lives in the sidebar, not on the bench. Either give it an optional
-  driver `partId` and make it a bench part, or add an "RGB strip" load mode
-  with a Color input to Power Switch. Evidence `src/build/hardwareManifest.ts:1253`,
-  `src/build/hardware.ts:27`. Needs a product decision between the two
-  shapes (one node that names its MOSFET board, or Power Switch growing a
-  colour load), and either way the Build Diagram wiring for an RGB load on a
-  four-channel board. Its default pins no longer clash with the Amplifier.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

@@ -538,8 +538,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   When a new field decides which firmware a node emits, a node saved before
   the field existed must read the default the evaluator and emitter fall back
   to: `powerSwitchDims` first read a missing Level as 0 and turned every
-  existing switch into PWM. See
-  [hardware nodes](../../architecture/hardware-model.md).
+  existing switch into PWM. A property that changes the ports (`loadType`'s
+  RGB strip trades channels 1 to 3 for On, Color and Brightness) needs the
+  node's properties at every `partDerivedInputs` call, not just its part, and
+  every per-channel reader goes through `powerSwitchSeparateChannels` and
+  `powerSwitchChannelDims` so a strip channel is never also emitted as a
+  switch. See [hardware nodes](../../architecture/hardware-model.md).
 - **Light sensor (experimental):** `LightInput` picks its module from
   `LIGHT_SENSOR_MODULES` (`src/state/peripherals/lightSensor.ts`), the same one-list shape
   as `MIC_MODULES`: an LDR on one ADC pin or the Adafruit BH1750 on the shared
@@ -812,13 +816,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 - A library node can be a diagram item. `buildHardwareManifest` draws what
   `isHardwareNodeType` owns plus the graph-side nodes that claim GPIO
-  (`DMXInput`, `MidiInput`, `AnalogStripOutput`), each named in the
-  `hardwareNodes` filter. A new one needs that filter, the
-  `BUILD_DIAGRAM_SUPPORTED_NODE_TYPES` set, a `kind`, a section in
-  `diagramSections.ts`, pads in `UNCATALOGUED_PADS` / `SIGNAL_PAD_NAMES` when it
-  has no catalogued part, and a `peripheralPowerPadIndex` rule when the
-  controller feeds it nothing (MOSFET gates, like the ULN2803A). The Analog RGB
-  Strip is the worked example: three gate pins, a ground, no supply.
+  (`DMXInput`, `MidiInput`), each named in the `hardwareNodes` filter. A new
+  one needs that filter, the `BUILD_DIAGRAM_SUPPORTED_NODE_TYPES` set, a
+  `kind`, a section in `diagramSections.ts`, pads in `UNCATALOGUED_PADS` /
+  `SIGNAL_PAD_NAMES` when it has no catalogued part, and a
+  `peripheralPowerPadIndex` rule when the controller feeds it nothing (MOSFET
+  gates, like the ULN2803A).
+- A load on a part's output side is not a diagram item: no controller wire
+  reaches it. Say where it lands as a caption over the part, budgeted in
+  `peripheralHasCaption`, and as item facts. A Power Switch carrying an RGB
+  strip is the worked example (`powerSwitchStripLeads`: `STRIP R → OUT1- ·
+  G → OUT2- · B → OUT3-`); the strip has no node and no render of its own.
 - The planner's LED-output voltage is the constant `ONE_WIRE_NOMINAL_VOLTAGE`,
   not a per-chipset lookup: every chipset the manifest lets through is in
   `BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS`, so a 12 V strip is refused by name

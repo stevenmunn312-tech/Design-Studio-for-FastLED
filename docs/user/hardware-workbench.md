@@ -340,6 +340,33 @@ wired, dims that channel with PWM at 500 Hz, the LR7843's rate. The listing
 rates the inputs from 3 V; a 3.3 V pin is at the bottom of that range, so if a
 channel does not switch, drive it from 5 V through a transistor or buffer.
 
+### Drive a plain RGB strip
+
+An ordinary 12 V or 24 V RGB strip, the kind with four wires and no data line,
+shows one colour along its whole length. Run it from a four-channel switch:
+add a **YYNMOS-4** or a **MonkMakes Mosfetti** and set the Power Switch node's
+**Load** to **RGB strip**. Channels 1 to 3 (A to C on the Mosfetti) become the
+strip's red, green and blue, and channel 4 stays a load of its own, such as a
+white strip or a fan.
+
+- Wire the strip's shared **+** lead to the load supply's positive, and its
+  **R**, **G** and **B** leads to the first three channels' switched outputs:
+  **OUT1-**, **OUT2-** and **OUT3-** on the YYNMOS-4, **A-**, **B-** and **C-**
+  on the Mosfetti. The Build Diagram prints the same over the board.
+- The boards switch each colour to ground, so the strip must share its
+  positive (common anode), as nearly every strip sold does. A strip with a
+  shared negative cannot be driven this way.
+- Keep to the board's limits for the whole strip at full white: 2 A for the
+  whole Mosfetti, or 5 A a channel and 10 A in total on the YYNMOS-4.
+
+The node's first three channels' ports become **On**, **Color** and
+**Brightness**. Wire a colour into **Color**, the same one that feeds your LED
+output if the two should match: the strip shows the colour's own values, as an
+addressable LED does, at the board's PWM rate. Without a Color wire it shows
+the node's **color** field. As with any channel, nothing wired keeps the strip
+off; a wire into Color or Brightness runs it, and a wired **On** switches it.
+The node shows the strip's colour as a swatch.
+
 ### Cool an enclosure and read fan speed
 
 Choose **Add Hardware → Cooling → Noctua NF-A4x10 5V PWM**. Connect the black
