@@ -178,13 +178,13 @@ describe('the direct-control workflow, end to end', () => {
   it('survives a save, a reload and an undo with its exposed sockets intact', () => {
     const { nodes, edges } = workflow()
     useGraphStore.getState().loadGraph(nodes, edges)
-    useGraphStore.getState().setNodeInputExposed('juggle', 'fade', true)
+    useGraphStore.getState().setNodeInputExposed('juggle', 'trail', true)
     vi.advanceTimersByTime(500)
 
     const saved = JSON.parse(JSON.stringify(captureWorkspace(useGraphStore.getState())))
     useGraphStore.getState().loadGraph(saved.nodes, saved.edges, saved)
     const reloaded = useGraphStore.getState()
-    expect(reloaded.nodes.find((entry) => entry.id === 'juggle')?.data.exposedInputs).toEqual(['fade'])
+    expect(reloaded.nodes.find((entry) => entry.id === 'juggle')?.data.exposedInputs).toEqual(['trail'])
     // The wired sockets are still wired, which is the half a visibility list
     // cannot be trusted to carry on its own.
     expect(reloaded.edges.map((entry) => entry.id).sort())
