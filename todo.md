@@ -1235,11 +1235,6 @@ freeze, or drop them.
   The name collides with the step editor on the Music Player and Slideshow,
   but this node is a four-slot timed crossfade. Rename it ("Crossfade Cycle" or
   "Look Rotator"). Evidence `src/nodes/show/codegen.ts:335`.
-- [ ] **Performance Generator: Show in the main preview by default (Low, S).**
-  `showInMainPreview` defaults off, so a generator wired to an LED output plays
-  only in its small body canvas while that output's main preview stays black.
-  Default it on. Evidence `src/nodes/show/evaluate.ts:1747`,
-  `src/components/Canvas/bodies/PerformanceGeneratorBody.tsx:425`.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

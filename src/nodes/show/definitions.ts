@@ -338,7 +338,10 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       paletteMode:        'mood',
       fixedPalette:       'rainbow',
       useGroupInputs:     true,
-      showInMainPreview:  false,
+      // On, so a generator wired to an LED output plays in that output's main
+      // preview rather than only in its small body canvas, leaving the output
+      // it names black.
+      showInMainPreview:  true,
     },
   },
   {

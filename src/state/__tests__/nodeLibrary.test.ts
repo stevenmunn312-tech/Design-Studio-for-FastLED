@@ -710,7 +710,8 @@ describe('nodeLibrary', () => {
     expect(generator?.actionInputs).toEqual(performanceActions)
     expect(generator?.defaultProperties).toMatchObject({
       useGroupInputs: true,
-      showInMainPreview: false,
+      // The show plays where the LEDs it names are drawn.
+      showInMainPreview: true,
     })
   })
 
