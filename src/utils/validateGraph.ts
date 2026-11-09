@@ -306,8 +306,8 @@ function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
   }))
   if (signatures.size > 1) {
     warnings.push(wired
-      ? 'Network-enabled DMX / RTC nodes disagree on network settings — generated firmware shares one Ethernet connection'
-      : 'Network-enabled DMX / RTC nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
+      ? 'Network nodes disagree on network settings — generated firmware shares one Ethernet connection'
+      : 'Network nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
   }
 
   for (const node of users) {
@@ -2189,8 +2189,8 @@ function ethernetValidationIssues(nodes: StudioNode[], selectedFqbn: string): Gr
     issues.push({
       id: `${module.id}-ethernet-unused`, severity: 'warning', category: 'board',
       title: 'Nothing uses the Ethernet module',
-      message: 'The Ethernet module carries Art-Net receive and NTP time sync. With neither in the graph, the sketch does not start it.',
-      fix: 'Add a DMX Input in Art-Net mode or an RTC Clock synced by NTP, or remove the Ethernet module.',
+      message: 'The Ethernet module carries the board\'s network: Art-Net and sACN, DDP, the Web Remote, NTP clock sync, Frame Stream and internet radio. With none of them in the graph, the sketch does not start it.',
+      fix: 'Add a network node, such as DMX / Art-Net in a network mode, DDP Input, Web Remote or an RTC Clock synced by NTP, or remove the Ethernet module.',
       nodeIds: [module.id], nodeLabel: nodeLabel(module),
     })
     return issues
@@ -4384,7 +4384,7 @@ export function buildGraphDiagnostics(
       category: 'board',
       title: 'Network configuration needs attention',
       message,
-      fix: 'Use one shared Wi-Fi setup across DMX / RTC nodes, and complete every required address field.',
+      fix: 'Use one shared Wi-Fi setup across the network nodes, and complete every required address field.',
       nodeIds: [],
     })
   })

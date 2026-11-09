@@ -30,7 +30,7 @@ export const ETHERNET_MODULES: readonly EthernetModuleOption[] = [
     partId: DEFAULT_ETHERNET_PART_ID,
     label: 'WIZnet WIZ850io',
     summary: 'W5500 wired Ethernet over SPI, 3.3 V',
-    note: 'Power it from 3.3 V only; it draws up to about 141 mA with a link up. Art-Net and NTP use this link instead of Wi-Fi.',
+    note: 'Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi.',
   },
 ]
 

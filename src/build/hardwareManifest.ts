@@ -1040,7 +1040,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             controller: spec.controller,
             link: spec.link,
             supplyVoltage: 3.3,
-            cable: 'RJ45 to the lighting network; carries Art-Net and NTP in place of Wi-Fi',
+            cable: 'RJ45 to the lighting network; carries the board\'s network in place of Wi-Fi',
           },
           reasons: wired ? undefined : ['This Ethernet module does not have its complete SPI and control pin set configured.'],
         }

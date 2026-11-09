@@ -217,7 +217,7 @@ export function hardwareShelfCategories({
     {
       id: 'network',
       label: 'Network',
-      hint: 'A wired link for Art-Net and NTP',
+      hint: 'A wired link for the board\'s network',
       items: moduleItems('EthernetModule', ethernetFixture),
     },
     {

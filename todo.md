@@ -130,13 +130,6 @@ freeze, or drop them.
   for half the year in DST regions. Offer a region/time-zone picker that
   emits a POSIX TZ string (`configTzTime` on ESP32). Evidence
   `src/state/peripherals/rtc.ts`, `src/codegen/peripherals/rtcInputCpp.ts`.
-- [ ] **Ethernet: Update the "Art-Net and NTP" copy (Low, S).** The network
-  layer serves Art-Net, sACN, DDP, Web Remote, Stream Output, internet radio
-  and clock sync, but the description, shelf hint, part note, Help text,
-  unused-module diagnostic and the DMX/RTC disagreement warning name only
-  Art-Net/NTP or DMX/RTC. Reword to "the board's network (Art-Net/sACN, DDP,
-  Web Remote, NTP...)". Evidence `src/nodes/hardware/definitions.ts:95`,
-  `src/utils/validateGraph.ts:2208`.
 - [ ] **DC-DC Converter: Derive Source V from upstream (Med, M).** Source V is
   typed even when decided elsewhere: a Battery Pack ignores it, and with a PD
   trigger the user enters the voltage twice and is warned if they differ.

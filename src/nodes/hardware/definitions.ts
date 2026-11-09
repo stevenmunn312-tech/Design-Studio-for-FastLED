@@ -92,7 +92,7 @@ export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const HARDWARE_DESCRIPTIONS: Record<string, string> = {
-  EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
+  EthernetModule: 'Wired Ethernet for the board\'s whole network (Art-Net, sACN, DDP, Web Remote, NTP...) in place of Wi-Fi; a bench part, not wired.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   BatteryPack: 'Defines a lithium pack from an exact cell and its series-parallel count.',
   BatteryModule: 'Adds pack protection, balancing, charging, or an integrated 5 V output.',

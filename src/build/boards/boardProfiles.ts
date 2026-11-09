@@ -1295,7 +1295,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     },
     previewSvg: boardSvg('WT32-ETH01', '#4fc3c8', 'RJ45', 'Manufacturer verified'),
     notes: [
-      'Ethernet is built in: Art-Net and NTP time sync use its RJ45 port and need no Wi-Fi credentials.',
+      'Ethernet is built in: every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses its RJ45 port and needs no Wi-Fi credentials.',
       'There is no USB. Power it through 5V, or 3V3 instead, never both. Flash it through a USB-to-serial adapter on TXD0, RXD0 and GND, holding IO0 to GND at reset.',
       'IO35, IO36 and IO39 are input-only. IO0 carries the Ethernet clock and is for flashing only.',
     ],

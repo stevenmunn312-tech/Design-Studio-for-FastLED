@@ -6,7 +6,7 @@ const NO_PIXELS = 'The LED preview is unchanged: this part changes the wiring pl
 export const HARDWARE_REFERENCE: NodeReferenceMap = {
   EthernetModule: {
     overview: [
-      'Ethernet adds a W5500 wired network module, so the board reaches the network over an RJ45 cable instead of Wi-Fi. Art-Net and NTP use it when it is on the bench.',
+      'Ethernet adds a W5500 wired network module, so the board reaches the network over an RJ45 cable instead of Wi-Fi. Every network node uses it when it is on the bench: Art-Net and sACN, DDP, the Web Remote, NTP clock sync, Frame Stream and internet radio.',
       'A cable is steadier than Wi-Fi for a lighting rig. The module talks to the board over SPI, using its own chip-select, interrupt and reset lines.',
     ],
     steps: [
