@@ -9,20 +9,21 @@ import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { seedOffset } from '../../state/evaluator/random'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
+import { fieldRangeCpp, frameToFieldConversion, pixelToFieldCpp } from '../../state/evaluator/frames'
 import { noiseShape, noiseShapeCpp } from '../../state/evaluator/noiseShape'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from './sliceTiling'
-import { BLUR_RADIUS, GRADIENT_REPEAT, RADIAL_REACH, gradientRepeat, gradientType, gradientWraps } from './gradientField'
+import { BLUR_RADIUS, GRADIENT_REPEAT, gradientRepeat, gradientType, gradientWraps } from './gradientField'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
 import {
-  AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
+  AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_STEP_DUE, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
 } from '../../state/evaluator/automaton'
 import {
   FLUID_BUOYANCY_GAIN, FLUID_FORCE_GAIN, FLUID_INJECT_VY, FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN, FLUID_PUFF_SPEED, FLUID_VEL_OUT,
 } from '../../state/evaluator/fluid'
 import {
-  FRACTAL_BAILOUT2, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_ORIGIN, FRACTAL_VIEW, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
+  FRACTAL_BAILOUT2, FRACTAL_DEPTH_MAX, FRACTAL_DEPTH_MIN, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_ORIGIN, FRACTAL_VIEW,
   NEWTON_ROOT_Y, NEWTON_TOLERANCE2, fractalType,
 } from '../../state/evaluator/fractal'
 import { TURING_ITERATIONS_MAX, TURING_STEP_MAX, TURING_STEP_MIN, turingRadii } from '../../state/evaluator/turing'
@@ -51,7 +52,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    float a=${a}, b=${b}; (void)a;(void)b;`)
     ln(`    float W=WIDTH, H=HEIGHT; (void)W;(void)H;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float x=_x, y=_y; (void)x;(void)y;`)
+    ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1),px=_x,py=_y; (void)x;(void)y;(void)px;(void)py;`)
     ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
     ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
     ln(`      float fieldIn=${fin ? `${fin}[_y*WIDTH+_x]` : '0.0f'}; (void)fieldIn;`)
@@ -278,28 +279,37 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    for(int _it=0;_it<_iters;_it++) _turingStep(${A}a,${A}p,WIDTH,HEIGHT,${A}r,${radii.length},_step);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain((${A}a[_i]+1.0f)*0.5f,0.0f,1.0f); }`)
   },
-  WaveSim({ node, id, p, ln, f, ownField, boolExpr }) {
-    const wrapX = p.wrapX !== false, halfDuplex = p.halfDuplex === true
+  WaveSim({ node, id, p, ln, f, ownField, boolExpr, edges, floatExpr }) {
+    const wrapEdges = p.wrapEdges !== false, halfDuplex = p.halfDuplex === true
     const of = ownField()
     const trig = boolExpr(node.id, 'trigger')
     const speed = `max(1,min(12,(int)floorf(${f('speed', 'speed', 4)})))`
     const dampL = `max(0.8f,min(0.999f,${f('damping', 'damping', 0.985)}))`
     const impulseL = `max(0.1f,min(1.0f,${f('impulse', 'impulse', 1)}))`
     const A = `_ws_${id}`
+    // A wired Splash X or Y places every splash on that axis; an unwired one
+    // keeps the five-point cycle, whose table and counter ship only while read.
+    const wired = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port)
+    const sx = wired('splashX'), sy = wired('splashY'), cycles = !sx || !sy
+    const at = (pulse: string) => `${sx ? '_wsSx' : `${A}px[${pulse}%5]`},${sy ? '_wsSy' : `${A}py[${pulse}%5]`}`
     ln(`  { // WaveSim`)
-    ln(`    static float ${A}p[NUM_LEDS], ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}prev=false, ${A}init=false; static uint8_t ${A}pulse=1;`)
-    ln(`    static const float ${A}px[5]={0.5f,0.26f,0.74f,0.34f,0.7f}, ${A}py[5]={0.5f,0.34f,0.4f,0.76f,0.7f};`)
-    ln(`    auto _wsInject_${id}=[&](uint8_t _pulse,float _amp){ float _cx=${A}px[_pulse%5]*(WIDTH-1),_cy=${A}py[_pulse%5]*(HEIGHT-1),_rad=max(1.5f,min(WIDTH,HEIGHT)*0.12f);`)
+    ln(`    static float ${A}p[NUM_LEDS], ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}prev=false, ${A}init=false;${cycles ? ` static uint8_t ${A}pulse=1;` : ''}`)
+    if (!sx) ln(`    static const float ${A}px[5]={0.5f,0.26f,0.74f,0.34f,0.7f};`)
+    if (!sy) ln(`    static const float ${A}py[5]={0.5f,0.34f,0.4f,0.76f,0.7f};`)
+    if (sx) ln(`    float _wsSx=constrain(${floatExpr(node.id, 'splashX', p, 'splashX', 0.5)},0.0f,1.0f);`)
+    if (sy) ln(`    float _wsSy=constrain(${floatExpr(node.id, 'splashY', p, 'splashY', 0.5)},0.0f,1.0f);`)
+    ln(`    auto _wsInject_${id}=[&](float _sx,float _sy,float _amp){ float _cx=_sx*(WIDTH-1),_cy=_sy*(HEIGHT-1),_rad=max(1.5f,min(WIDTH,HEIGHT)*0.12f);`)
     ln(`      int _x0=max(0,(int)floorf(_cx-_rad-1.0f)),_x1=min(WIDTH-1,(int)ceilf(_cx+_rad+1.0f)); int _y0=max(0,(int)floorf(_cy-_rad-1.0f)),_y1=min(HEIGHT-1,(int)ceilf(_cy+_rad+1.0f));`)
     ln(`      for(int _y=_y0;_y<=_y1;_y++) for(int _x=_x0;_x<=_x1;_x++){ float _d=sqrtf((_x-_cx)*(_x-_cx)+(_y-_cy)*(_y-_cy)); float _f=max(0.0f,1.0f-_d/_rad); if(_f<=0.0f) continue; int _i=_y*WIDTH+_x; ${A}c[_i]=constrain(${A}c[_i]+_amp*_f*_f,-1.0f,1.0f); } };`)
-    ln(`    if(!${A}init){ for(int _i=0;_i<NUM_LEDS;_i++){ ${A}p[_i]=0; ${A}c[_i]=0; ${A}n[_i]=0; } _wsInject_${id}(0,${impulseL}); ${A}init=true; }`)
-    ln(`    bool _tr=(${trig}); if(_tr&&!${A}prev){ _wsInject_${id}(${A}pulse,${impulseL}); ${A}pulse++; } ${A}prev=_tr;`)
+    const next = cycles ? ` ${A}pulse++;` : ''
+    ln(`    if(!${A}init){ for(int _i=0;_i<NUM_LEDS;_i++){ ${A}p[_i]=0; ${A}c[_i]=0; ${A}n[_i]=0; } _wsInject_${id}(${at('0')},${impulseL}); ${A}init=true; }`)
+    ln(`    bool _tr=(${trig}); if(_tr&&!${A}prev){ _wsInject_${id}(${at(`${A}pulse`)},${impulseL});${next} } ${A}prev=_tr;`)
     ln(`    for(int _it=0;_it<${speed};_it++){`)
-    ln(`      for(int _y=0;_y<HEIGHT;_y++){ int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
-    ln(`        for(int _x=0;_x<WIDTH;_x++){ int _xm=${wrapX ? '(_x-1+WIDTH)%WIDTH' : 'max(_x-1,0)'},_xp=${wrapX ? '(_x+1)%WIDTH' : 'min(_x+1,WIDTH-1)'},_i=_yr+_x; float _avg=(${A}c[_ym+_x]+${A}c[_yp+_x]+${A}c[_yr+_xm]+${A}c[_yr+_xp])*0.5f; ${A}n[_i]=constrain((_avg-${A}p[_i])*${dampL},-1.0f,1.0f); } }`)
+    ln(`      for(int _y=0;_y<HEIGHT;_y++){ int _ym=${wrapEdges ? '((_y-1+HEIGHT)%HEIGHT)' : 'max(_y-1,0)'}*WIDTH,_yp=${wrapEdges ? '((_y+1)%HEIGHT)' : 'min(_y+1,HEIGHT-1)'}*WIDTH,_yr=_y*WIDTH;`)
+    ln(`        for(int _x=0;_x<WIDTH;_x++){ int _xm=${wrapEdges ? '(_x-1+WIDTH)%WIDTH' : 'max(_x-1,0)'},_xp=${wrapEdges ? '(_x+1)%WIDTH' : 'min(_x+1,WIDTH-1)'},_i=_yr+_x; float _avg=(${A}c[_ym+_x]+${A}c[_yp+_x]+${A}c[_yr+_xm]+${A}c[_yr+_xp])*0.5f; ${A}n[_i]=constrain((_avg-${A}p[_i])*${dampL},-1.0f,1.0f); } }`)
     ln(`      ::memcpy(${A}p,${A}c,sizeof(${A}p)); ::memcpy(${A}c,${A}n,sizeof(${A}c)); }`)
     ln(`    float _peak=0.0f; for(int _i=0;_i<NUM_LEDS;_i++) _peak=max(_peak,fabsf(${A}c[_i]));`)
-    ln(`    if(_peak<0.002f){ _wsInject_${id}(${A}pulse,${impulseL}*0.6f); ${A}pulse++; }`)
+    ln(`    if(_peak<0.002f){ _wsInject_${id}(${at(`${A}pulse`)},${impulseL}*0.6f);${next} }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(${halfDuplex ? `${A}c[_i]` : `fabsf(${A}c[_i])`}*1.5f,0.0f,1.0f); }`)
   },
   FluidSim({ node, id, p, ln, f, ownField, srcField, boolExpr, edges, needsFluid }) {
@@ -322,7 +332,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     if (fx) ln(`      ${A}u[_i]+=(${fx}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
     if (fy) ln(`      ${A}v[_i]+=(${fy}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
     ln(`      ${A}v[_i]-=${floatLit(buoy * FLUID_BUOYANCY_GAIN, 6)}*${A}d[_i]; }`)
-    ln(`    int _it=constrain((int)floorf(${f('speed', 'speed', 8)}),${FLUID_ITERATIONS_MIN},${FLUID_ITERATIONS_MAX});`)
+    ln(`    int _it=constrain((int)floorf(${f('quality', 'quality', 8)}),${FLUID_ITERATIONS_MIN},${FLUID_ITERATIONS_MAX});`)
     // Viscosity and diffusion are skipped outright when fixed at zero.
     const active = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port) || Number(p[port] ?? 0) > 0
     if (active('viscosity')) ln(`    _fluidViscosity(${A}u,${A}v,${A}u0,${A}v0,WIDTH,HEIGHT,_it,${f('viscosity', 'viscosity', 0)});`)
@@ -340,8 +350,8 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const smooth = p.smooth !== false
     ln(`  { // Fractal (${type})`)
     ln(`    int _it=constrain((int)floorf(${f('iterations', 'iterations', 32)}),${FRACTAL_ITERATIONS_MIN},${FRACTAL_ITERATIONS_MAX});`)
-    ln(`    float _zm=constrain(${f('zoom', 'zoom', 1)},${floatLit(FRACTAL_ZOOM_MIN)},${floatLit(FRACTAL_ZOOM_MAX)}),_sc=${floatLit(FRACTAL_VIEW)}/_zm/(fminf((float)WIDTH,(float)HEIGHT)*0.5f);`)
-    ln(`    float _a=${f('spin', 'spin', 0)}*0.017453293f,_co=cosf(_a),_si=sinf(_a);`)
+    ln(`    float _zm=exp2f(constrain(${f('depth', 'depth', 0)},${floatLit(FRACTAL_DEPTH_MIN)},${floatLit(FRACTAL_DEPTH_MAX)})),_sc=${floatLit(FRACTAL_VIEW)}/_zm/(fminf((float)WIDTH,(float)HEIGHT)*0.5f);`)
+    ln(`    float _a=${f('rotation', 'rotation', 0)}*0.017453293f,_co=cosf(_a),_si=sinf(_a);`)
     ln(`    float _cx=${floatLit(ox)}+${f('centerX', 'centerX', 0)},_cy=${floatLit(oy)}+${f('centerY', 'centerY', 0)};`)
     if (type === 'julia') ln(`    float _jr=${f('cRe', 'cRe', -0.8)},_ji=${f('cIm', 'cIm', 0.156)};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -378,7 +388,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     // Neighbour count of state `want` on the torus, for cyclic and Brian's Brain.
     const count = (want: string) => `int _nb=0; for(int _dy=-1;_dy<=1;_dy++) for(int _dx=-1;_dx<=1;_dx++){ if(!_dx&&!_dy) continue; if(${A}c[((_y+_dy+HEIGHT)%HEIGHT)*WIDTH+((_x+_dx+WIDTH)%WIDTH)]==${want}) _nb++; }`
     ln(`  { // Automaton (${type})`)
-    ln(`    static uint8_t ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}init=false, ${A}pr=false; static uint32_t ${A}t=0, ${A}k=0;`)
+    ln(`    static uint8_t ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}init=false, ${A}pr=false; static uint32_t ${A}t=0, ${A}k=0; static float ${A}ow=1.0f;`)
     if (seed) ln(`    static bool ${A}sd=false; if(!${A}sd){ random16_set_seed(${seed}u); ${A}sd=true; }`)
     ln(`    auto _fill=[&](){ memset(${A}c,0,sizeof(${A}c)); ${A}k=0;`)
     if (type === 'elementary') ln(seed ? `      for(int _x=0;_x<WIDTH;_x++) ${A}c[_x]=random8()<128?1:0;` : `      ${A}c[WIDTH/2]=1;`)
@@ -386,10 +396,12 @@ export const FIELD_EMITTERS: NodeEmitters = {
     else if (type === 'brianBrain') ln(`      for(int _i=0;_i<NUM_LEDS;_i++) ${A}c[_i]=random8()<38?2:0;`)
     ln(`    };`)
     ln(`    bool _rs=(${boolExpr(node.id, 'reset')});`)
-    ln(`    if(!${A}init){ _fill(); ${A}init=true; } else if(_rs&&!${A}pr) _fill();`)
+    ln(`    if(!${A}init){ _fill(); ${A}init=true; ${A}t=millis(); } else if(_rs&&!${A}pr) _fill();`)
     ln(`    ${A}pr=_rs;`)
+    // automatonStepDue: steps owed accumulate on the clock, one a frame at most.
     ln(`    float _sp=constrain(${f('speed', 'speed', 8)},${floatLit(AUTOMATON_SPEED_MIN)},${floatLit(AUTOMATON_SPEED_MAX)});`)
-    ln(`    if(millis()-${A}t>=(uint32_t)(1000.0f/_sp)){ ${A}t=millis(); ${A}k++;`)
+    ln(`    uint32_t _now=millis(); ${A}ow+=_sp*(float)(_now-${A}t)*0.001f; ${A}t=_now;`)
+    ln(`    if(${A}ow>=${floatLit(AUTOMATON_STEP_DUE, 6)}){ ${A}ow=fminf(1.0f,${A}ow-1.0f); ${A}k++;`)
     if (type === 'elementary') {
       ln(`      uint8_t _rule=(uint8_t)constrain((int)floorf(${f('rule', 'rule', 90)}),0,255), _row[WIDTH];`)
       ln(`      for(int _x=0;_x<WIDTH;_x++) _row[_x]=(_rule>>(${A}c[(_x-1+WIDTH)%WIDTH]*4+${A}c[_x]*2+${A}c[(_x+1)%WIDTH]))&1;`)
@@ -414,7 +426,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     }
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${A}c[_i]/${floatLit(top)}; }`)
   },
-  FieldToFrame({ node, p, ln, f, ownBuf, srcField, paletteExpr }) {
+  FieldToFrame({ node, p, ln, f, ownBuf, srcField, paletteExpr, edges }) {
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const src = srcField('field')
@@ -422,29 +434,36 @@ export const FIELD_EMITTERS: NodeEmitters = {
     if (!src) {
       ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     } else {
+      // Low and High remap as Field Levels does; at 0 and 1, unwired, they
+      // are the identity and the sketch reads the field straight.
+      const wired = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port)
+      const ranged = wired('low') || wired('high') || Number(p.low ?? 0) !== 0 || Number(p.high ?? 1) !== 1
       // NOWRAP, as the evaluator clamps: a field of 1 is the palette's last
       // colour. LINEARBLEND blends indexes 241–255 back towards entry 0.
       ln(`  { float _br=constrain(${bright},0.0f,1.0f);`)
+      if (ranged) ln(`    float _lo=${f('low', 'low', 0)},_hi=${f('high', 'high', 1)};`)
+      const v = ranged ? fieldRangeCpp(`${src}[_i]`, '_lo', '_hi') : `${src}[_i]`
       ln(`    for(int _i=0;_i<NUM_LEDS;_i++)`)
-      ln(`      ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${src}[_i]*255),(uint8_t)(_br*255),LINEARBLEND_NOWRAP); }`)
+      ln(`      ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${v}*255),(uint8_t)(_br*255),LINEARBLEND_NOWRAP); }`)
     }
   },
   // The inverse of FieldToFrame: a 0–1 brightness field from a rendered
-  // frame (average of r,g,b, matching Mask's mask-opacity convention).
-  FrameToField({ ln, srcBuf, ownField }) {
+  // frame, by the conversion the evaluator uses (`pixelToField`).
+  FrameToField({ p, ln, srcBuf, ownField }) {
     const of = ownField()
     const src = srcBuf('frame')
     if (!src) {
       ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f;`)
     } else {
-      ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=(${src}[_i].r+${src}[_i].g+${src}[_i].b)/3.0f/255.0f;`)
+      ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${pixelToFieldCpp(`${src}[_i]`, frameToFieldConversion(p.conversion))};`)
     }
   },
   FieldMath({ p, ln, f, ownField, srcField }) {
     const of = ownField()
     const op = String(p.fieldOp ?? 'add')
     const sa = srcField('a'), sb = srcField('b')
-    const av = sa ? `${sa}[_i]` : '0.0f', bv = sb ? `${sb}[_i]` : '0.0f'
+    // An unwired B reads the B value, as the evaluator does.
+    const av = sa ? `${sa}[_i]` : '0.0f', bv = sb ? `${sb}[_i]` : '_bv'
     let expr: string
     switch (op) {
       case 'subtract':   expr = `_a - _b`; break
@@ -458,6 +477,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     }
     ln(`  { /* FieldMath: ${op} */`)
     if (op === 'mix') ln(`    float _t=constrain(${f('t', 't', 0.5)},0.0f,1.0f);`)
+    if (!sb) ln(`    float _bv=constrain(${f('value', 'value', 0)},0.0f,1.0f);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
     ln(`      float _a=${av}, _b=${bv};`)
     ln(`      ${of}[_i]=constrain(${expr},0.0f,1.0f);}}`)
@@ -470,7 +490,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`  { /* FieldLevels */`)
     ln(`    float _low=${f('low', 'low', 0)},_high=${f('high', 'high', 1)};`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ float _src=${src ? `${src}[_i]` : '0.0f'};`)
-    ln(`      float _v=_high<=_low?(_src>=_low?1.0f:0.0f):constrain((_src-_low)/fmaxf(1e-4f,_high-_low),0.0f,1.0f);`)
+    ln(`      float _v=${fieldRangeCpp('_src', '_low', '_high')};`)
     if (steps >= 2) ln(`      _v=roundf(_v*${steps - 1}.0f)/${steps - 1}.0f;`)
     ln(`      ${of}[_i]=${invert ? '1.0f-_v' : '_v'}; } }`)
   },
@@ -479,22 +499,21 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const type = gradientType(p.gradientType)
     const repeat = gradientRepeat(Number(p.repeat ?? GRADIENT_REPEAT.default))
     const wraps = gradientWraps(type, repeat)
+    // Pixels from the pivot, one unit on both axes (gradientField.ts).
     ln(`  { /* GradientField: ${type} */`)
-    ln(`    float _ga=(${f('angle', 'angle', 0)})*0.017453292519943f,_gca=cosf(_ga),_gsa=sinf(_ga);`)
-    ln(`    float _gcx=${f('cx', 'cx', 0.5)},_gcy=${f('cy', 'cy', 0.5)},_gof=${f('offset', 'offset', 0)},_grp=${floatLit(repeat)};`)
+    if (type !== 'radial') ln(`    float _ga=(${f('angle', 'angle', 0)})*0.017453292519943f;`)
+    if (type === 'linear') ln(`    float _gca=cosf(_ga),_gsa=sinf(_ga),_gsp=fmaxf(1e-6f,fabsf(_gca)*(WIDTH-1)+fabsf(_gsa)*(HEIGHT-1));`)
+    if (type === 'radial') ln(`    float _gsp=fmaxf(1e-6f,0.5f*sqrtf((float)((WIDTH-1)*(WIDTH-1)+(HEIGHT-1)*(HEIGHT-1))));`)
+    ln(`    float _gcx=${f('cx', 'cx', 0.5)}*(WIDTH-1),_gcy=${f('cy', 'cy', 0.5)}*(HEIGHT-1),_gof=${f('offset', 'offset', 0)},_grp=${floatLit(repeat)};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _nx=WIDTH>1?(float)_x/(WIDTH-1):0.0f,_ny=HEIGHT>1?(float)_y/(HEIGHT-1):0.0f,_dx=_nx-_gcx,_dy=_ny-_gcy;`)
-    if (type === 'radial') ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/${floatLit(RADIAL_REACH, 7)};`)
-    else if (type === 'angular') ln(`      float _d=atan2f(_dy,_dx)/6.283185307f+0.5f;`)
-    else ln(`      float _d=_dx*_gca+_dy*_gsa+0.5f;`)
+    ln(`      float _dx=_x-_gcx,_dy=_y-_gcy;`)
+    if (type === 'radial') ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/_gsp;`)
+    else if (type === 'angular') ln(`      float _d=(atan2f(_dy,_dx)-_ga)/6.283185307f+0.5f;`)
+    else ln(`      float _d=(_dx*_gca+_dy*_gsa)/_gsp+0.5f;`)
     ln(`      float _v=(_d+_gof)*_grp;`)
     ln(wraps
       ? `      _v=fmodf(_v,1.0f); if(_v<0.0f)_v+=1.0f; ${of}[_y*WIDTH+_x]=_v;}}`
       : `      ${of}[_y*WIDTH+_x]=constrain(_v,0.0f,1.0f);}}`)
-  },
-  FloatToField({ ln, f, ownField }) {
-    const of = ownField()
-    ln(`  { float _fv=constrain(${f('value', 'value', 0.5)},0.0f,1.0f); for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=_fv; }`)
   },
   FieldBlur({ id, ln, f, ownField, srcField }) {
     const of = ownField()
@@ -509,7 +528,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
   ShapeField({ p, ln, f, ownField, needsSdf }) {
     needsSdf.v = true
     const of = ownField()
-    const shape = ['rect', 'polygon'].includes(String(p.shape)) ? String(p.shape) : 'circle'
+    const shape = ['rect', 'polygon'].includes(String(p.shape)) ? String(p.shape) : 'ellipse'
     const mode = ['distance', 'falloff'].includes(String(p.fieldMode)) ? String(p.fieldMode) : 'fill'
     const distance = mode !== 'fill'
     const softness = floatLit(Math.max(0, Number(p.softness ?? 0.1)))
@@ -539,18 +558,28 @@ export const FIELD_EMITTERS: NodeEmitters = {
       ln(`      ${of}[_y*WIDTH+_x]=_v*_v*(3.0f-2.0f*_v); } }`)
     }
   },
-  FieldWarp({ ln, f, ownField, srcField }) {
+  FieldWarp({ p, ln, f, ownField, srcField }) {
     const of = ownField()
-    const st = f('strength', 'strength', 1)
+    const st = f('strength', 'strength', 2)
     const src = srcField('field'), sdx = srcField('dx'), sdy = srcField('dy')
+    if (!src) { ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f; // FieldWarp: no input`); return }
     const oxE = sdx ? `(2.0f*${sdx}[_y*WIDTH+_x]-1.0f)*_st` : '0.0f'
     const oyE = sdy ? `(2.0f*${sdy}[_y*WIDTH+_x]-1.0f)*_st` : '0.0f'
-    ln(`  { /* FieldWarp */ float _st=${st};`)
+    const bilinear = p.sampling !== 'nearest'
+    ln(`  { /* FieldWarp${bilinear ? '' : ': nearest'} */ float _st=${st};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _ox=${oxE},_oy=${oyE};`)
-    ln(`      int _sx=(int)roundf(_x+_ox); if(_sx<0)_sx=0; if(_sx>WIDTH-1)_sx=WIDTH-1;`)
-    ln(`      int _sy=(int)roundf(_y+_oy); if(_sy<0)_sy=0; if(_sy>HEIGHT-1)_sy=HEIGHT-1;`)
-    ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
+    if (bilinear) {
+      // sampleFieldBilinear's sum, edges clamped.
+      ln(`      float _fx=constrain(_x+_ox,0.0f,(float)(WIDTH-1)),_fy=constrain(_y+_oy,0.0f,(float)(HEIGHT-1));`)
+      ln(`      int _x0=(int)_fx,_y0=(int)_fy,_x1=min(_x0+1,WIDTH-1),_y1=min(_y0+1,HEIGHT-1); float _ax=_fx-_x0,_ay=_fy-_y0;`)
+      ln(`      float _top=${src}[_y0*WIDTH+_x0]*(1.0f-_ax)+${src}[_y0*WIDTH+_x1]*_ax,_bot=${src}[_y1*WIDTH+_x0]*(1.0f-_ax)+${src}[_y1*WIDTH+_x1]*_ax;`)
+      ln(`      ${of}[_y*WIDTH+_x]=_top*(1.0f-_ay)+_bot*_ay;}}`)
+    } else {
+      ln(`      int _sx=(int)roundf(_x+_ox); if(_sx<0)_sx=0; if(_sx>WIDTH-1)_sx=WIDTH-1;`)
+      ln(`      int _sy=(int)roundf(_y+_oy); if(_sy<0)_sy=0; if(_sy>HEIGHT-1)_sy=HEIGHT-1;`)
+      ln(`      ${of}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
+    }
   },
   FieldRotate({ id, ln, f, ownField, srcField, needsT }) {
     needsT.v = true

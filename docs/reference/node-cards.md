@@ -1014,12 +1014,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Frame → Field example graph](../../public/node-cards/graphs/frame-to-field.svg)
 
-### Float → Field
-
-![Float → Field node](../../public/node-cards/float-to-field.svg)
-
-![Float → Field example graph](../../public/node-cards/graphs/float-to-field.svg)
-
 ### Field Math
 
 ![Field Math node](../../public/node-cards/field-math.svg)

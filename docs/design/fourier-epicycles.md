@@ -25,17 +25,25 @@ the [pattern node expansion](../plans/pattern-node-expansion.md).
   (a non-number, an odd count, too few or too many points, or points with no
   length between them) draws the circle. The inspector shows the field only
   for the custom outline.
-- `maxHarmonics` (4–64) sizes the coefficient table baked into the sketch, so
-  it is a property, as Particles' `count` is.
+- `maxHarmonics` (4–64) sizes the coefficient table baked into the sketch
+  while `harmonics` is wired, so it is a property, as Particles' `count` is.
+  While `harmonics` is a fixed number the table is `ceil(harmonics)` terms
+  (`fourierTableSize`), so the whole 1–64 slider reaches and the row is
+  greyed out.
 - `harmonics` (1–64, fractional) is the number of circles in use, clamped to
   the table. A fraction draws the next circle at that fraction of its radius,
   so the morph is smooth.
 - `speed` is turns of the outline per second, −2 to 2.
 - `scale` (0.1–1) sizes the outline as a fraction of half the shorter canvas
   side. `thickness` (0.5–4 px) is the pen width.
-- `persistence` (0–1) is how much of the trail survives each frame; 1 never
-  fades. The default, 0.995, fades one byte per frame, so a trail lasts about
-  four seconds at 60 frames per second.
+- `persistence` (0–1) is the trail's half-life on a log scale, through the
+  shared `trailFadeAmount`/`trailFadeCpp` (see
+  [graph and nodes](../development/patterns/graph-and-nodes.md)): 1, the
+  default, halves the trail every 2 seconds and 0 leaves none, faded by the
+  time that has passed rather than per frame. It was a per-frame share whose
+  useful values sat in the top 5% of the slider and whose trail length moved
+  with the frame rate; bundled and Help values were converted to the same
+  half-life at 60 frames per second (0.99 became 0.91, 0.645 became 0.3).
 - `showCircles` draws the circles as dim guides; `showPen` draws a brighter
   dot at the pen.
 

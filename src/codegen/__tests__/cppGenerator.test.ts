@@ -1806,6 +1806,8 @@ describe('generateCpp', () => {
     const am = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'Automaton', 'field', props), node('f', 'FieldToFrame', 'pattern', {}), outputNode], [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame')])
     const elem = am()
     expect(elem).toContain('static uint8_t _am_nc[NUM_LEDS]')
+    expect(elem).toContain('_am_now+=_sp*(float)(_now-_am_nt)*0.001f; _am_nt=_now;')
+    expect(elem).toContain('if(_am_now>=0.999999f){ _am_now=fminf(1.0f,_am_now-1.0f); _am_nk++;')
     expect(elem).toContain('_am_nc[WIDTH/2]=1;')
     expect(elem).toContain('_row[_x]=(_rule>>(')
     expect(elem).not.toContain('_dy')
@@ -2581,6 +2583,8 @@ describe('generateCpp', () => {
     })
     const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
     expect(cpp).toContain('const float _ibr=max(0.0f,min(1.0f,0.5))')
+    // Brightness is the last colour step, after contrast and gamma.
+    expect(cpp.indexOf('_r*=_ibr; _g*=_ibr; _b*=_ibr;')).toBeGreaterThan(cpp.indexOf('float _gamma='))
     expect(cpp).toContain('_imgcolor({16.0f,32.0f,48.0f,1.0f},_x,_y); continue;')
     expect(cpp).toContain('floorf(_fx)')
     expect(cpp).toContain('_ImgPx _c00=_imgpx(')
@@ -2743,12 +2747,13 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
   })
 
-  it('emits a sampled subpixel loop for a Line', () => {
+  it('emits a Line as one distance-to-segment pass', () => {
     const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 7, y2: 7, r: 0, g: 200, b: 255 })
     const cpp = generateCpp([l, outputNode], [edge('e', 'l', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _len = sqrtf((_x1 - _x0) * (_x1 - _x0) + (_y1 - _y0) * (_y1 - _y0));')
-    expect(cpp).toContain('int _steps = max(1, (int)ceilf(_len * 2.0f));')
-    expect(cpp).toContain('float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);')
+    expect(cpp).toContain('_hw = fmaxf(0.5f, 1) * 0.5f;')
+    expect(cpp).toContain('float _u = _l2 > 0.0f ? constrain(((_x - _x0) * _vx + (_y - _y0) * _vy) / _l2, 0.0f, 1.0f) : 0.0f;')
+    expect(cpp).toContain('float _cov = constrain(_hw + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);')
+    expect(cpp).not.toContain('_steps')
     expect(cpp).toContain('CRGB(0, 200, 255)')
   })
 
@@ -2783,7 +2788,8 @@ describe('generateCpp', () => {
       edge('e1', 'tv', 'p', 'result', 't'),
       edge('e2', 'p', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('float _tt = constrain(n_tv_result, 0.0f, 1.0f);')
+    expect(cpp).toContain('float _tt = n_tv_result; _tt -= floorf(_tt);')
+    expect(cpp).not.toContain('_spd')
     expect(cpp).toContain('float _pr = cosf(_ang * 4.0f);')
   })
 
@@ -2829,11 +2835,17 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('millis()')   // static text → no time variable
   })
 
-  it('Text codegen uses a custom font height', () => {
-    const font = { w: 3, h: 7, glyphs: { A: [1, 1, 1, 1, 1, 1, 1] } }
-    const txt = node('t', 'Text', 'pattern', { text: 'A', x: 0.5, y: 0.5, scroll: 0, font })
-    const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('_r < 7;')
+  it('Text draws over a wired base frame, and on black without one', () => {
+    const solo = generateCpp([node('t', 'Text', 'pattern', { text: 'A' }), outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    expect(solo).toContain('fill_solid(buf_t, NUM_LEDS, CRGB::Black);')
+    const base = node('bg', 'SolidColor', 'pattern', {})
+    const over = generateCpp([base, node('t', 'Text', 'pattern', { text: 'A' }), outputNode],
+      [edge('b', 'bg', 't', 'frame', 'base'), edge('e', 't', 'out', 'frame', 'frame')])
+    // Text starts from the base (here the two share one buffer) and never
+    // clears it to black.
+    expect(over).not.toContain('fill_solid(buf_t, NUM_LEDS, CRGB::Black);')
+    expect(over.indexOf('fill_solid(buf_bg, NUM_LEDS,')).toBeGreaterThan(-1)
+    expect(over.indexOf('fill_solid(buf_bg, NUM_LEDS,')).toBeLessThan(over.indexOf('// Text "A"'))
   })
 
   it('emits one bitmap array per multiline Text row', () => {
@@ -3180,17 +3192,42 @@ describe('Wave Sim option codegen', () => {
     return generateCpp([ws, f2f, outputNode], [edge('e2', 'ws', 'f2f', 'field', 'field'), edge('e3', 'f2f', 'out', 'frame', 'frame')])
   }
 
-  it('wraps X and shows the magnitude by default', () => {
+  it('wraps both edges and shows the magnitude by default', () => {
     const cpp = emit({})
     expect(cpp).toContain('_xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH')
+    expect(cpp).toContain('_ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH')
     expect(cpp).toContain('constrain(fabsf(_ws_wsc[_i])*1.5f,0.0f,1.0f)')
   })
 
-  it('reflects at the edges when wrapX is off and drops the negative half for halfDuplex', () => {
-    const cpp = emit({ wrapX: false, halfDuplex: true })
+  it('reflects at every edge when wrapEdges is off and drops the negative half for halfDuplex', () => {
+    const cpp = emit({ wrapEdges: false, halfDuplex: true })
     expect(cpp).toContain('_xm=max(_x-1,0),_xp=min(_x+1,WIDTH-1)')
+    expect(cpp).toContain('_ym=max(_y-1,0)*WIDTH,_yp=min(_y+1,HEIGHT-1)*WIDTH')
     expect(cpp).toContain('constrain(_ws_wsc[_i]*1.5f,0.0f,1.0f)')
     expect(cpp).not.toContain('(_x-1+WIDTH)%WIDTH')
+    expect(cpp).not.toContain('%HEIGHT')
+  })
+
+  it('cycles splashes round five points until Splash X and Y are wired', () => {
+    const cycle = emit({})
+    expect(cycle).toContain('static uint8_t _ws_wspulse=1;')
+    expect(cycle).toContain('_ws_wspx[_ws_wspulse%5],_ws_wspy[_ws_wspulse%5]')
+    const placed = (ports: string[]) => {
+      const ws = node('ws', 'WaveSim', 'field', {})
+      const pos = node('pos', 'Math', 'math', { mathOp: 'add', a: 0.2, b: 0 })
+      const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+      return generateCpp([pos, ws, f2f, outputNode], [
+        ...ports.map((port) => edge(`p-${port}`, 'pos', 'ws', 'result', port)),
+        edge('e2', 'ws', 'f2f', 'field', 'field'), edge('e3', 'f2f', 'out', 'frame', 'frame'),
+      ])
+    }
+    const xOnly = placed(['splashX'])
+    expect(xOnly).toContain('float _wsSx=constrain(n_pos_result,0.0f,1.0f);')
+    expect(xOnly).toContain('_wsSx,_ws_wspy[_ws_wspulse%5]')
+    expect(xOnly).not.toContain('_ws_wspx[')
+    const both = placed(['splashX', 'splashY'])
+    expect(both).toContain('_wsInject_ws(_wsSx,_wsSy,')
+    expect(both).not.toContain('_ws_wspulse')
   })
 })
 
@@ -3205,11 +3242,11 @@ describe('Float Field — Phase 2 codegen', () => {
 
   it('ShapeField falloff writes a normalised distance into its field buffer', () => {
     // A tiny circle in falloff mode is the old DistanceField: distance from a point.
-    const df = node('df', 'ShapeField', 'pattern', { shape: 'circle', fieldMode: 'falloff', size: 0.01, cx: 0.5, cy: 0.5, range: 0.5 })
+    const df = node('df', 'ShapeField', 'pattern', { shape: 'ellipse', fieldMode: 'falloff', size: 0.01, cx: 0.5, cy: 0.5, range: 0.5 })
     const t = tail('df')
     const cpp = generateCpp([df, ...t.nodes], t.edges)
     expect(cpp).toContain('float field_df[NUM_LEDS];')
-    expect(cpp).toContain('/* ShapeField: circle falloff */')
+    expect(cpp).toContain('/* ShapeField: ellipse falloff */')
     expect(cpp).toContain('float _range=0.5f*_short;')
     expect(cpp).toContain('field_df[_y*WIDTH+_x]=constrain(fmaxf(0.0f,_sd)/_range,0.0f,1.0f);')
   })
@@ -3229,7 +3266,7 @@ describe('Float Field — Phase 2 codegen', () => {
   })
 
   it('FieldWarp samples the source field with a clamped offset', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
     const dx = node('dx', 'FieldFormula', 'pattern', { formula: '1' })
     const fw = node('fw', 'FieldWarp', 'composite', { strength: 2 })
     const t = tail('fw')
@@ -3240,8 +3277,16 @@ describe('Float Field — Phase 2 codegen', () => {
     ])
     expect(cpp).toContain('/* FieldWarp */')
     expect(cpp).toContain('(2.0f*field_dx[_y*WIDTH+_x]-1.0f)*_st')
-    expect(cpp).toContain('field_fw[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
-    expect(cpp).toContain('if(_sx>WIDTH-1)_sx=WIDTH-1')
+    expect(cpp).toContain('float _fx=constrain(_x+_ox,0.0f,(float)(WIDTH-1))')
+    expect(cpp).toContain('field_fw[_y*WIDTH+_x]=_top*(1.0f-_ay)+_bot*_ay;')
+    const nearest = generateCpp([src, dx, { ...fw, data: { ...fw.data, properties: { strength: 2, sampling: 'nearest' } } }, ...t.nodes], [
+      edge('e1', 'src', 'fw', 'field', 'field'),
+      edge('e2', 'dx', 'fw', 'field', 'dx'),
+      ...t.edges,
+    ])
+    expect(nearest).toContain('/* FieldWarp: nearest */')
+    expect(nearest).toContain('field_fw[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
+    expect(nearest).toContain('if(_sx>WIDTH-1)_sx=WIDTH-1')
   })
 })
 
@@ -3258,7 +3303,7 @@ describe('Pattern node expansion — Phase 0 codegen', () => {
   }
 
   it('Field Levels emits runtime bounds, quantisation, and inversion', () => {
-    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'x' })
     const levels = node('levels', 'FieldLevels', 'field', { low: 0.2, high: 0.8, steps: 4, invert: true })
     const t = tail(levels.id)
     const cpp = generateCpp([src, levels, ...t.nodes], [
@@ -3358,7 +3403,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     ['pmm', 3, false, false], ['p4', 4, false, true], ['p4m', 5, false, true],
     ['p3', 6, true, true], ['p6', 7, true, true], ['p6m', 8, true, true],
   ])('bakes %s to its shared fold id', (group, groupId, hex, rotates) => {
-    const src = node('sym-field-source', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const src = node('sym-field-source', 'FieldFormula', 'field', { formula: 'px/(W-1)' })
     const symmetry = node('field-symmetry', 'FieldSymmetry', 'field', {
       group, cells: 2.5, rotation: 10, spin: 15, offsetX: 0.2, offsetY: -0.3,
     })
@@ -3370,10 +3415,10 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     ], {}, { deferPruning })
     const cpp = build(false)
     expect(cpp).toContain(`/* FieldSymmetry: ${group} */`)
-    // The formula reads W and x only: H, y and the per-pixel geometry go.
+    // The formula reads W and px only: H, x, y, py and the per-pixel geometry go.
     expect(cpp).toContain('float W=WIDTH;')
-    expect(cpp).not.toMatch(/\bH=HEIGHT|sqrtf\(cx|atan2f\(cy/)
-    expect(cpp).toContain('float _v=(x/(W-1.0f))')
+    expect(cpp).not.toMatch(/\bH=HEIGHT|sqrtf\(cx|atan2f\(cy|\bpy=_y|\by=\(float\)/)
+    expect(cpp).toContain('float _v=(px/(W-1.0f))')
     expect(build(true)).toContain(`_wallpaperSourceQ8(_x,_y,${groupId},_wpK,_wpCo,_wpSi,_wpOx,_wpOy,_sx,_sy)`)
     expect(cpp).toContain('field_field_symmetry[_y*WIDTH+_x]=field_sym_field_source[constrain((_sy+128)>>8,0,HEIGHT-1)*WIDTH+constrain((_sx+128)>>8,0,WIDTH-1)]')
     expect(cpp.match(/static void _wallpaperSourceQ8/g)).toHaveLength(1)
@@ -3422,8 +3467,18 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
     return [...body![1].matchAll(/\{(\d+),(\d+),(\d+)\}/g)].map((row) => row.slice(1).map(Number))
   }
 
+  it('fades the trail by a half-life on the clock, before the pen draws', () => {
+    const cpp = generateEpicycles({ persistence: 0.4 })
+    expect(cpp).toContain('_trail_fe')
+    expect(cpp).toContain('constrain((1.0f-(0.4)), 0.0f, 1.0f)')
+    expect(cpp).toContain('fadeToBlackBy(_fe_fetrail, NUM_LEDS, _by);')
+    expect(cpp.indexOf('fadeToBlackBy(_fe_fetrail')).toBeLessThan(cpp.indexOf('_feTrail(_fe_fetrail,'))
+    expect(cpp).not.toMatch(/_feTrail\([^)]*0\.4/)
+  })
+
   it.each(['heart', 'star', 'square', 'infinity', 'lissajous', 'rose', 'circle'])('bakes the %s coefficients the preview uses', (outline) => {
-    const cpp = generateEpicycles({ outline, maxHarmonics: 24 })
+    // An unwired Harmonics sizes the table itself (fourierTableSize).
+    const cpp = generateEpicycles({ outline, harmonics: 24 })
     const terms = fourierTableQ(fourierTable(outline, '', 24))
     expect(cpp).toContain(`/* Fourier Epicycles: ${outline}, ${terms.length} terms */`)
     const table = bakedTable(cpp)
@@ -3710,7 +3765,7 @@ describe('Float Field — Phase 3 codegen', () => {
   }
 
   it('FieldRotate emits a time-driven rotation sampling the source field', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
     const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 45 })
     const t = tail('fr')
     const cpp = generateCpp([src, fr, ...t.nodes], [
@@ -3724,7 +3779,7 @@ describe('Float Field — Phase 3 codegen', () => {
   })
 
   it('FieldTile bakes the tile counts into the C++', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
     const ft = node('ft', 'FieldTile', 'composite', { tilesX: 3, tilesY: 2 })
     const t = tail('ft')
     const cpp = generateCpp([src, ft, ...t.nodes], [

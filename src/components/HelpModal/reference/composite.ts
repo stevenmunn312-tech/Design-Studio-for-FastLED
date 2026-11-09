@@ -176,7 +176,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       featured: 'Gamma',
       title: 'Before and after gamma, side by side',
       nodes: {
-        ramp: ['GradientFrame', { rA: 0, gA: 0, bA: 0, rB: 255, gB: 140, bB: 0, vertical: true }],
+        ramp: ['GradientFrame', { rA: 0, gA: 0, bA: 0, rB: 255, gB: 140, bB: 0, angle: 90 }],
         corrected: ['Gamma', { gamma: 2.4 }],
         compare: ['Zones', { aEnabled: true, aX: 0, aY: 0, aW: 0.5, aH: 1, bEnabled: true, bX: 0.5, bY: 0, bW: 0.5, bH: 1, cEnabled: false, dEnabled: false }],
       },

@@ -1,18 +1,19 @@
 import type { RtcPreview } from '../../state/peripherals/rtc'
-import { type BitmapFont, DEFAULT_FONT, textBlockLayout, TEXT_LINE_GAP, asFont, textAlignMode } from '../shared/font'
+import { type BitmapFont, DEFAULT_FONT, textBlockLayout, TEXT_LINE_GAP, textAlignMode } from '../shared/font'
 import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleImageToFrame } from '../shared/image'
 import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
+import { trailFadeAmount } from '../shared/trailFade'
 import { type Frame, type RGB, type Palette, samplePalette } from '../../state/palettes/ledColor'
 import { resolveWireframeMesh, projectWireframeVertices } from './wireframeModel'
 import { pathPoint } from './pathShapes'
-import { customPathTable, customPathPoint } from './customPath'
+import { customPathPoint, pathTable } from './customPath'
 import {
   FOURIER_RING_HALF_Q8, FOURIER_RING_LEVEL_8, FOURIER_RING_MIN_Q8, FOURIER_SCALE_MIN,
   FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN, FOURIER_TRAIL_JUMP_A16,
-  FOURIER_TRAIL_STEPS_MAX, fourierPenQ8, fourierTable, fourierTableQ,
+  FOURIER_TRAIL_STEPS_MAX, fourierPenQ8, fourierTable, fourierTableQ, fourierTableSize,
 } from './fourierOutline'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import {
@@ -22,6 +23,7 @@ import {
   mixRgb,
   blankFrame,
   scaleRgb,
+  addRgb,
   buildFrame,
   byte,
   solidFrame,
@@ -51,8 +53,8 @@ function normalizedCenterAxis(value: number, size: number, extent: number, wrap:
   return 0.5 - margin + value * (Math.max(0, size - 1) + 2 * margin)
 }
 
-// Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
-// counts against a 16x16 matrix (this module's own DEFAULT_W/DEFAULT_H).
+// Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel counts
+// against a 16x16 matrix (this module's own DEFAULT_W/DEFAULT_H).
 // scaleWithMatrix (opt-in per node, see nodeLibrary.ts) scales that radius
 // proportionally by the target matrix's shorter side, so the same slider
 // value reads as "the same relative size" on any matrix instead of shrinking
@@ -181,8 +183,11 @@ export function evalFourierEpicycles(
   // so a slow frame rate leaves the curve rather than dots or corner-cutting
   // chords. More than a quarter turn since last frame is a restart or a
   // seek, and draws only the new point.
-  const keep = 255 - Math.trunc((1 - Math.max(0, Math.min(1, p.persistence))) * 255)
-  for (let i = 0; i < N * 3; i++) trail[i] = scale8(trail[i], keep)
+  // Persistence is a half-life on a log scale (shared/trailFade.ts): 1 is the
+  // longest trail, 0 none, faded by the time that has passed, as the sketch's
+  // fadeToBlackBy does.
+  const by = trailFadeAmount(nodeId, t, Math.max(0, Math.min(1, p.persistence)))
+  if (by > 0) for (let i = 0; i < N * 3; i++) trail[i] = (trail[i] * (256 - by)) >> 8
   const delta = (((turn - st.turn) & 0xffff) << 16) >> 16
   if (!st.has || Math.abs(delta) > FOURIER_TRAIL_JUMP_A16) {
     fourierDisc(W, H, penX, penY, radius, p.color, lighten)
@@ -261,6 +266,30 @@ function evalWrappedShape(
   }
 }
 
+/**
+ * Line's stroke: every pixel near the segment once, covered by its distance to
+ * the segment against a `half`-pixel half-width, and added to the frame.
+ * Coordinates are pixel centres, so (0, 0) is the first pixel and W-1 the
+ * last column. Splatting discs along the segment instead summed about twice
+ * the coverage on the line. The Line emitter writes the same sum.
+ */
+function drawLineSegment(frame: Frame, x0: number, y0: number, x1: number, y1: number, half: number, color: RGB): void {
+  const H = frame.length, W = frame[0]?.length ?? 0
+  const vx = x1 - x0, vy = y1 - y0, len2 = vx * vx + vy * vy
+  const reach = half + 1
+  const xa = Math.max(0, Math.floor(Math.min(x0, x1) - reach)), xb = Math.min(W - 1, Math.ceil(Math.max(x0, x1) + reach))
+  const ya = Math.max(0, Math.floor(Math.min(y0, y1) - reach)), yb = Math.min(H - 1, Math.ceil(Math.max(y0, y1) + reach))
+  for (let y = ya; y <= yb; y++) {
+    for (let x = xa; x <= xb; x++) {
+      const u = len2 > 0 ? clamp01(((x - x0) * vx + (y - y0) * vy) / len2) : 0
+      const dx = x - (x0 + vx * u), dy = y - (y0 + vy * u)
+      const coverage = clamp01(half + 0.5 - Math.sqrt(dx * dx + dy * dy))
+      if (coverage <= 0) continue
+      frame[y][x] = addRgb(frame[y][x], scaleRgb(color, coverage))
+    }
+  }
+}
+
 function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number, startY: number, font: BitmapFont, W: number, H: number, offset: number): void {
   for (let x = 0; x < W; x++) {
     const ci = x - startX + offset
@@ -275,9 +304,9 @@ function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number
   }
 }
 
-// Render `text` onto a blank frame at (startX, startY), optionally scrolling
-// over time (scroll = cells/second) along either axis. Shares textColumns()
-// with codegen.
+// Render `text` over `base` (black when unwired) at (startX, startY),
+// optionally scrolling over time (scroll = cells/second) along either axis.
+// Shares textColumns() with codegen.
 function renderText(
   key: string,
   text: string,
@@ -292,8 +321,9 @@ function renderText(
   H = DEFAULT_H,
   wrap = false,
   letterSpacing = 1,
+  base: Frame | null = null,
 ): Frame {
-  const frame = blankFrame(W, H)
+  const frame = base ? cloneFrame(base) : blankFrame(W, H)
   const layout = textBlockLayout(text, font, letterSpacing)
   if (layout.lines.length === 0) return frame
   const vertical = scrollAxis === 'vertical'
@@ -476,8 +506,22 @@ function textAlignedStart(value: number, size: number, lengthPx: number, align: 
   return align === 'end' ? edge - lengthPx : edge
 }
 
-function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, mode: GradientMixMode, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => mixGradientColors(cA, cB, vertical ? y / (H - 1) : x / (W - 1), mode))
+// A pixel's place, 0–1, along a direction `angle` degrees across the matrix:
+// 0 at the first corner the direction reaches and 1 at the last. Shared by
+// Gradient Frame and Palette Gradient; the range never falls below 1e-6, so a
+// strip read across its one row is 0, not 0/0.
+function linearRamp(angle: number, W: number, H: number): (x: number, y: number) => number {
+  const a = (angle * Math.PI) / 180
+  const cosA = Math.cos(a), sinA = Math.sin(a)
+  const projMin = (cosA < 0 ? (W - 1) * cosA : 0) + (sinA < 0 ? (H - 1) * sinA : 0)
+  const projMax = (cosA > 0 ? (W - 1) * cosA : 0) + (sinA > 0 ? (H - 1) * sinA : 0)
+  const range = Math.max(1e-6, projMax - projMin)
+  return (x, y) => (x * cosA + y * sinA - projMin) / range
+}
+
+function evalGradientFrame(cA: RGB, cB: RGB, angle: number, mode: GradientMixMode, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const ramp = linearRamp(angle, W, H)
+  return buildFrame(W, H, (x, y) => mixGradientColors(cA, cB, ramp(x, y), mode))
 }
 
 // Angled palette gradient: project each pixel onto a direction set by `angle`,
@@ -485,15 +529,8 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, mode: GradientMi
 // cycles and an optional time-scrolling offset).
 function evalPaletteGradient(key: string, angle: number, repeat: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const phase = speedPhase(key, t, speed)
-  const a = (angle * Math.PI) / 180
-  const cosA = Math.cos(a), sinA = Math.sin(a)
-  const projMin = (cosA < 0 ? (W - 1) * cosA : 0) + (sinA < 0 ? (H - 1) * sinA : 0)
-  const projMax = (cosA > 0 ? (W - 1) * cosA : 0) + (sinA > 0 ? (H - 1) * sinA : 0)
-  const range = Math.max(1e-6, projMax - projMin)
-  return buildFrame(W, H, (x, y) => {
-      const tnorm = (x * cosA + y * sinA - projMin) / range
-      return samplePalette(palette, tnorm * repeat + phase)
-    })
+  const ramp = linearRamp(angle, W, H)
+  return buildFrame(W, H, (x, y) => samplePalette(palette, ramp(x, y) * repeat + phase))
 }
 
 const gaugePeakState = instanceState('gaugePeakState', new Map<string, GaugePeak>())
@@ -551,11 +588,11 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     return { frame: solidFrame(color, W, H) }
   },
   Text({ input, num, t, W, H, stateKey }, id, props) {
-    // A wired string replaces the typed text, in the built-in font: the
-    // sketch draws a wire's text at run time from that font's glyph table.
+    // A wired string replaces the typed text; both draw in the built-in font,
+    // which the sketch carries as a glyph table for a wire's text.
     const wired = input(id, 'text', null)
     const text = typeof wired === 'string' ? wired : String(props.text ?? 'HELLO')
-    const font = typeof wired === 'string' ? DEFAULT_FONT : asFont(props.font)
+    const font = DEFAULT_FONT
     const letterSpacing = Math.max(0, Math.round(Number(props.letterSpacing ?? 1)))
     const layout = textBlockLayout(text, font, letterSpacing)
     const wrap = Boolean(props.wrap)
@@ -573,7 +610,8 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const sx = layout.lines.map((line) => textAlignedStart(x, W, line.cols.length, hAlign, wrap))
     const sy = textAlignedStart(y, H, layout.height, vAlign, wrap)
     const scroll = num(id, 'scroll', props, 'scroll', 0)
-    return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing) }
+    const base = input(id, 'base', null) as Frame | null
+    return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing, base) }
   },
   ClockDisplay({ input, num, elapsedT: t, W, H, stateKey }, id, props) {
     const mode = String(props.displayMode ?? 'Digital HH:MM')
@@ -714,19 +752,15 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     }
     const x0 = num(id, 'x1', props, 'x1', 0), y0 = num(id, 'y1', props, 'y1', 0)
     const x1 = num(id, 'x2', props, 'x2', 0), y1 = num(id, 'y2', props, 'y2', 0)
-    const len = Math.hypot(x1 - x0, y1 - y0)
-    const steps = Math.max(1, Math.ceil(len * 2))
-    for (let i = 0; i <= steps; i++) {
-      const u = i / steps
-      splatDisc(frame, x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, 0.5, color)
-    }
+    const thickness = Math.max(0.5, num(id, 'thickness', props, 'thickness', 1))
+    drawLineSegment(frame, x0, y0, x1, y1, thickness * 0.5, color)
     return { frame }
   },
   Shape({ input, num, W, H }, id, props) {
     const baseIn = input(id, 'base', null) as Frame | null
     const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
     const shape = String(props.shape ?? 'polygon')
-    const size = Math.max(0.5, num(id, 'size', props, 'size', 6))
+    const size = Math.max(0.5, num(id, 'size', props, 'size', 6)) * (props.scaleWithMatrix ? matrixSizeScale(W, H) : 1)
     const aspect = Math.max(0.01, num(id, 'aspect', props, 'aspect', 1))
     const thickness = Math.max(0, num(id, 'thickness', props, 'thickness', 1.5))
     const wrap = Boolean(props.wrap)
@@ -749,7 +783,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     )
     return { frame }
   },
-  Path({ input, num, W, H }, id, props) {
+  Path({ input, num, t, W, H, stateKey }, id, props) {
     const baseIn = input(id, 'base', null) as Frame | null
     const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
     const colorIn = input(id, 'color', null) as RGB | null
@@ -758,12 +792,18 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 220)  / 255),
       b: byte(num(id, 'b', props, 'b', 80)   / 255),
     }
-    const tt = clamp01(num(id, 't', props, 't', 0))
+    // T is a turn fraction and wraps, so a steadily rising signal goes round
+    // and round. Unwired, Speed (turns a second) moves the point on from T.
+    const turn = input(id, 't', null) !== null
+      ? num(id, 't', props, 't', 0)
+      : num(id, 't', props, 't', 0) + speedPhase(stateKey(id), t, num(id, 'speed', props, 'speed', 0.25))
+    const tt = turn - Math.floor(turn)
     const scale = Math.max(0, num(id, 'scale', props, 'scale', 0.8))
     const thickness = Math.max(0.5, num(id, 'thickness', props, 'thickness', 1.25))
     const shape = String(props.pathShape ?? 'circle')
-    // Custom follows the author's points; text that is not a valid outline is the circle.
-    const table = shape === 'custom' ? customPathTable(props.customPoints) : null
+    // Custom follows the author's points (text that is not a valid outline is
+    // the circle); star, square and infinity walk Fourier Epicycles' outlines.
+    const table = pathTable(shape, props.customPoints)
     const p = table ? customPathPoint(table, tt) : pathPoint(shape, tt)
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const radius = thickness * 0.5
@@ -780,15 +820,16 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 220) / 255),
       b: byte(num(id, 'b', props, 'b', 80) / 255),
     }
+    const harmonics = num(id, 'harmonics', props, 'harmonics', 32)
     return { frame: evalFourierEpicycles(stateKey(id), input(id, 'base', null) as Frame | null, {
       outline: props.outline ?? 'heart',
       customPoints: props.customPoints ?? '',
-      maxHarmonics: props.maxHarmonics ?? 32,
-      harmonics: num(id, 'harmonics', props, 'harmonics', 32),
+      maxHarmonics: fourierTableSize(props.maxHarmonics ?? 32, harmonics, input(id, 'harmonics', null) !== null),
+      harmonics,
       speed: num(id, 'speed', props, 'speed', 0.2),
       scale: num(id, 'scale', props, 'scale', 0.8),
       thickness: num(id, 'thickness', props, 'thickness', 1.25),
-      persistence: num(id, 'persistence', props, 'persistence', 0.995),
+      persistence: num(id, 'persistence', props, 'persistence', 1),
       color,
       showCircles: props.showCircles !== false,
       showPen: props.showPen !== false,
@@ -843,7 +884,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'gB', props, 'gB', 0) / 255),
       b: byte(num(id, 'bB', props, 'bB', 255) / 255),
     }
-    return { frame: evalGradientFrame(cA, cB, Boolean(input(id, 'vertical', Boolean(props.vertical))), gradientMixMode(props.mixMode), W, H) }
+    return { frame: evalGradientFrame(cA, cB, num(id, 'angle', props, 'angle', 0), gradientMixMode(props.mixMode), W, H) }
   },
   PaletteGradient({ num, pal, t, W, H, stateKey }, id, props) {
     const angle   = num(id, 'angle', props, 'angle', 45)

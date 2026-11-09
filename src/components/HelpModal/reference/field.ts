@@ -7,14 +7,14 @@ const FIELD_IN = 'The field to work on.'
 export const FIELD_REFERENCE: NodeReferenceMap = {
   FieldFormula: {
     overview: [
-      'Field Formula computes a field from a formula, one value per pixel. It knows x and y (0 to 1), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, and FastLED helpers such as sin8 and beatsin8.',
+      'Field Formula computes a field from a formula, one value per pixel. It knows x and y (0 to 1, as in Custom Formula), px and py (the pixel’s column and row, from 0), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, and FastLED helpers such as sin8 and beatsin8.',
       'It can also read another field as fieldIn, so a formula can bend, threshold or combine an existing field. Fields are the ANIMartRIX way of working: shape numbers first, colour them last.',
       'prev is the value this node wrote at the same pixel last frame, 0 to begin with. Reading it keeps the field between frames, so max(prev*0.95, fieldIn) leaves a fading trail and prev + 0.01 fills slowly. The firmware keeps the same buffer, and a Restart entry in a show clears it.',
       'Formulas run only in a trusted workspace.',
     ],
     inputs: {
-      a: 'A number your formula can read as a.',
-      b: 'A number your formula can read as b.',
+      a: 'A number your formula can read as a. Unwired, it reads the A value set on the node.',
+      b: 'A number your formula can read as b. Unwired, it reads the B value set on the node.',
       fieldIn: 'A field your formula can read as fieldIn.',
     },
     outputs: { field: FIELD_OUT },
@@ -35,6 +35,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
     overview: [
       'Field Noise is fractal noise as a field: soft, organic, cloud-like values that drift over time. It is the field cousin of the Noise pattern’s fBm mode.',
       'Scale sets the size of the features, Octaves the amount of fine detail, and Speed the drift. Shape folds the noise into sharp ridges or rounded billows. Wrap X joins the left and right edges for a ring or corkscrew.',
+      'Layered noise averages towards the middle, so most of the field sits between about 0.4 and 0.65. Set Field → Frame’s Low and High round those values and the palette’s darkest and brightest colours come into play.',
     ],
     outputs: { field: FIELD_OUT },
     example: example({
@@ -121,10 +122,12 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   WaveSim: {
     overview: [
       'Wave Sim simulates the surface of water: each Trigger drops a splash, and ripples spread, reflect and interfere before they die away.',
-      'Damping sets how long the water keeps ringing and Speed how fast the ripples travel. Crests Only shows only the raised half of each wave. Wrap X lets waves leave one side and come back on the other.',
+      'Damping sets how long the water keeps ringing and Speed how fast the ripples travel. Crests Only shows only the raised half of each wave. Wrap Edges lets waves leave one edge and come back on the opposite one; off, every edge reflects them.',
     ],
     inputs: {
-      trigger: 'Each rising edge drops a splash. Successive splashes land in different places.',
+      trigger: 'Each rising edge drops a splash. Successive splashes land in different places, unless Splash X and Y place them.',
+      splashX: 'Where splashes land, left to right (0 to 1). Unwired, they cycle round five points.',
+      splashY: 'Where splashes land, top to bottom (0 to 1). Unwired, they cycle round five points.',
     },
     outputs: { field: FIELD_OUT },
     example: example({
@@ -174,7 +177,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   FractalField: {
     overview: [
       'Fractal Field draws a Julia set, the Mandelbrot set, a Newton fractal or the Burning Ship as a field.',
-      'For a Julia set, C sets the shape: small changes to C morph it dramatically, so a slow LFO on C Real or C Imag makes a living fractal. Zoom, centre and spin move the view; Iterations trades detail for speed.',
+      'For a Julia set, C sets the shape: small changes to C morph it dramatically, so a slow LFO on C Real or C Imag makes a living fractal. Depth zooms in by doublings (each step looks the same, so a steady ramp flies in evenly), and centre and rotation move the view; Iterations trades detail for speed.',
     ],
     outputs: { field: FIELD_OUT },
     example: example({
@@ -182,7 +185,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       title: 'A Julia set that breathes',
       nodes: {
         morph: ['NoiseSignal', { speed: 0.12, min: -0.85, max: -0.7 }],
-        julia: ['FractalField', { fractalType: 'julia', cIm: 0.156, zoom: 1.1, iterations: 32, smooth: true }],
+        julia: ['FractalField', { fractalType: 'julia', cIm: 0.156, depth: 0.14, iterations: 32, smooth: true }],
         paint: ['FieldToFrame', { palette: 'ultraviolet' }],
       },
       wires: ['morph.value > julia.cRe', 'julia.field > paint.field'],
@@ -242,10 +245,13 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
     overview: [
       'Field → Frame is where a field becomes light. Every pixel’s value, 0 to 1, is looked up in the palette: 0 takes the first colour, 1 the last.',
       'Brightness scales the result; wire a level into it to pulse the whole field. Almost every field chain ends here.',
+      'Low and High choose which part of the field spans the palette, as Field Levels does: Low takes the first colour and High the last. Many fields stay mid-range (noise sits round 0.5, a frame’s brightness rarely reaches 1), so bringing Low and High in reaches the palette’s black point and its brightest colour without a Field Levels node.',
     ],
     inputs: {
       field: 'The field to paint.',
       paletteIn: 'A palette to paint with. Replaces the Palette choice.',
+      low: 'The field value that takes the first colour.',
+      high: 'The field value that takes the last colour.',
     },
     outputs: {
       frame: 'The painted frame.',
@@ -267,6 +273,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   FrameToField: {
     overview: [
       'Frame → Field takes any frame and turns its brightness into a field, so a pattern can be reshaped with field tools — levels, blur, warp, symmetry — and recoloured.',
+      'Conversion chooses how a colour becomes one number. Average adds the three channels, so a saturated red or blue reads only a third. Max takes the brightest channel, so every fully lit colour reads 1; use it on rainbow and saturated patterns. Luma weighs the channels as the eye does.',
     ],
     inputs: {
       frame: 'The frame to read.',
@@ -292,11 +299,12 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   FieldMath: {
     overview: [
       'Field Math combines two fields pixel by pixel: add, subtract, multiply, min, max, difference, or mix by T.',
-      'Multiply masks one field with another; max merges shapes; difference lights where they disagree; mix crossfades. An unwired side counts as 0. On the canvas it takes the name of its operation.',
+      'Multiply masks one field with another; max merges shapes; difference lights where they disagree; mix crossfades. An unwired A counts as 0. An unwired B reads B Value, so wiring a level there (the bass, a knob, a sensor) scales, raises or thresholds a field by it in one node. On the canvas it takes the name of its operation.',
     ],
     inputs: {
       a: 'The first field.',
-      b: 'The second field.',
+      b: 'The second field. Unwired, B Value stands in for it.',
+      value: 'The number B reads while the B field is unwired, 0 to 1.',
       t: 'Mix only: 0 is all A, 1 is all B.',
     },
     outputs: { field: FIELD_OUT },
@@ -305,8 +313,8 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       title: 'Where two rings cross',
       nodes: {
         drift: ['Wave', { frequency: 0.15, amplitude: 0.25, offset: 0.5 }],
-        still: ['ShapeField', { shape: 'circle', fieldMode: 'distance', size: 0.3, range: 0.25 }],
-        moving: ['ShapeField', { shape: 'circle', fieldMode: 'distance', size: 0.3, range: 0.25 }],
+        still: ['ShapeField', { shape: 'ellipse', fieldMode: 'distance', size: 0.3, range: 0.25 }],
+        moving: ['ShapeField', { shape: 'ellipse', fieldMode: 'distance', size: 0.3, range: 0.25 }],
         cross: ['FieldMath', { fieldOp: 'difference' }],
         paint: ['FieldToFrame', { palette: 'opal' }],
       },
@@ -341,7 +349,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
 
   GradientField: {
     overview: [
-      'Gradient Field is a ramp as a field: linear along an angle, radial from a centre, or angular like a pinwheel.',
+      'Gradient Field is a ramp as a field: linear along an angle, radial from a centre, or angular like a pinwheel. It measures in pixels, so rings stay round and the angle is true on a wide or tall panel, and a linear ramp runs edge to edge at 0 and 90 degrees and corner to corner on a diagonal.',
       'Repeat makes it wrap several times across the canvas, turning it into stripes, rings or spokes. Offset slides the ramp; wire a ramp into it to scroll them.',
     ],
     outputs: { field: FIELD_OUT },
@@ -357,32 +365,6 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       output: MATRIX(8, 24),
       explanation: 'Gradient Field makes a diagonal ramp repeated four times, so it becomes stripes. A sawtooth on Offset slides them steadily, and on a tall, narrow panel they read as a turning barber’s pole.',
       preview: 'The {output} shows diagonal pastel stripes climbing steadily.',
-    }),
-  },
-
-  FloatToField: {
-    overview: [
-      'Float → Field fills a whole field with one number, so a level — the bass, a knob, a sensor — can join the field chain.',
-      'Combine it with Field Math to raise, scale or mask a field by that level.',
-    ],
-    inputs: {
-      value: 'The number every pixel takes, 0 to 1.',
-    },
-    outputs: { field: FIELD_OUT },
-    example: example({
-      featured: 'FloatToField',
-      title: 'A glow whose size follows the bass',
-      nodes: {
-        mic: ['MicInput'],
-        fft: ['FFTAnalyzer', { smoothing: 0.6 }],
-        level: ['FloatToField'],
-        glow: ['GradientField', { gradientType: 'radial' }],
-        cutoff: ['FieldMath', { fieldOp: 'subtract' }],
-        paint: ['FieldToFrame', { palette: 'lava' }],
-      },
-      wires: ['mic.audio > fft.audio', 'fft.bass > level.value', 'level.field > cutoff.a', 'glow.field > cutoff.b', 'cutoff.field > paint.field'],
-      explanation: 'Float → Field turns the bass level into a flat field. Field Math subtracts a radial ramp from it, so only the pixels closer to the centre than the bass is loud stay lit — the glow grows and shrinks with the kick.',
-      preview: 'Play music near the microphone. The {output} shows a red-orange disc that swells outward on each bass hit.',
     }),
   },
 
@@ -411,7 +393,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
 
   ShapeField: {
     overview: [
-      'Shape Field draws a circle, rectangle or polygon as a field. Fill gives 1 inside and 0 outside with a soft edge; Distance peaks on the outline and falls away either side; Falloff is 0 on the shape and rises to 1 at Range.',
+      'Shape Field draws an ellipse (a circle at Aspect 1), rectangle or polygon as a field, the same shapes as Shape. Fill gives 1 inside and 0 outside with a soft edge; Distance peaks on the outline and falls away either side; Falloff is 0 on the shape and rises to 1 at Range.',
       'A tiny circle in Falloff mode is the distance from a point — the building block of spotlights, glows and ripples.',
     ],
     outputs: { field: FIELD_OUT },
@@ -421,7 +403,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       nodes: {
         across: ['Wave', { frequency: 0.13, amplitude: 0.35, offset: 0.5 }],
         down: ['Wave', { frequency: 0.21, amplitude: 0.3, offset: 0.5 }],
-        spot: ['ShapeField', { shape: 'circle', fieldMode: 'fill', size: 0.2, softness: 0.25 }],
+        spot: ['ShapeField', { shape: 'ellipse', fieldMode: 'fill', size: 0.2, softness: 0.25 }],
         paint: ['FieldToFrame', { palette: 'heat' }],
       },
       wires: ['across.result > spot.cx', 'down.result > spot.cy', 'spot.field > paint.field'],
@@ -433,7 +415,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   FieldWarp: {
     overview: [
       'Field Warp moves each pixel of a field by two other fields: dX pushes sideways, dY up and down, with 0.5 meaning no push. Strength sets how far, in pixels.',
-      'Warping by smooth noise makes anything look liquid — stripes ripple like a flag, rings wobble like jelly.',
+      'Warping by smooth noise makes anything look liquid — stripes ripple like a flag, rings wobble like jelly. Sampling blends between pixels by default so the motion is smooth; Nearest keeps hard steps.',
     ],
     inputs: {
       field: FIELD_IN,

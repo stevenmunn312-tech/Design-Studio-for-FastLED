@@ -154,19 +154,26 @@ describe('the field helpers', () => {
     expect(cpp).toContain('atan2f(_dy,_dx)')
   })
 
-  it('Float → Field fills with the clamped value and Field Blur averages neighbours', () => {
-    const fill = outputsOf([node('v', 'FloatToField', { value: 0.25 })], []).get('v')!.field as Float32Array
-    expect(Array.from(fill).every((x) => Math.abs(x - 0.25) < 1e-6)).toBe(true)
-    const wired = outputsOf([node('k', 'Constant', { value: 3 }), node('v', 'FloatToField')], [edge('k', 'value', 'v', 'value')]).get('v')!.field as Float32Array
-    expect(wired[0]).toBe(1)
+  it('Field Math reads its clamped B value while B is unwired, and Field Blur averages neighbours', () => {
     const ramp = node('g', 'GradientField')
+    const scaled = outputsOf([ramp, node('m', 'FieldMath', { fieldOp: 'multiply', value: 0.5 })], [edge('g', 'field', 'm', 'a')]).get('m')!.field as Float32Array
+    expect(scaled[7]).toBeCloseTo(0.5, 6)
+    expect(scaled[0]).toBeCloseTo(0, 6)
+    const wired = outputsOf([ramp, node('k', 'Constant', { value: 3 }), node('m', 'FieldMath', { fieldOp: 'add' })],
+      [edge('g', 'field', 'm', 'a'), edge('k', 'value', 'm', 'value')]).get('m')!.field as Float32Array
+    expect(wired[0]).toBe(1)
+    const plain = outputsOf([ramp, node('m', 'FieldMath', { fieldOp: 'add' })], [edge('g', 'field', 'm', 'a')]).get('m')!.field as Float32Array
+    expect(plain[3]).toBeCloseTo(3 / 7, 6)
     const blur = node('b', 'FieldBlur', { radius: 2 })
     const blurred = outputsOf([ramp, blur], [edge('g', 'field', 'b', 'field')]).get('b')!.field as Float32Array
     expect(blurred[0]).toBeGreaterThan(0)
     expect(blurred[3]).toBeCloseTo(3 / 7, 6)
-    const cpp = generateCpp([ramp, blur, node('f', 'FloatToField')], [edge('g', 'field', 'b', 'field')])
+    const cpp = generateCpp([ramp, blur, node('m', 'FieldMath', { fieldOp: 'multiply', value: 0.5 })], [edge('g', 'field', 'b', 'field'), edge('g', 'field', 'm', 'a')], {}, { deferPruning: true })
     expect(cpp).toContain('_fbT_b[')
-    expect(cpp).toContain('for(int _i=0;_i<NUM_LEDS;_i++) field_f[_i]=_fv;')
+    expect(cpp).toContain('float _bv=constrain(0.5,0.0f,1.0f);')
+    expect(cpp).toContain('float _a=field_g[_i], _b=_bv;')
+    const withB = generateCpp([ramp, node('m', 'FieldMath', { fieldOp: 'multiply' })], [edge('g', 'field', 'm', 'a'), edge('g', 'field', 'm', 'b')], {}, { deferPruning: true })
+    expect(withB).not.toContain('_bv')
   })
 })
 

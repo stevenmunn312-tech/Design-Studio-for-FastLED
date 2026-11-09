@@ -148,10 +148,12 @@ export function sampleImageToFrame(
     const hg = color.r * hueMatrix[3] + color.g * hueMatrix[4] + color.b * hueMatrix[5]
     const hb = color.r * hueMatrix[6] + color.g * hueMatrix[7] + color.b * hueMatrix[8]
     const lum = hr * .2126 + hg * .7152 + hb * .0722
+    // Brightness comes last, after contrast and gamma, so 0 is black at any
+    // contrast; applied first, a low contrast lifted it to a grey veil.
     const adjusted = [hr, hg, hb].map((channel) => {
       const saturated = lum + (channel - lum) * saturation
       const contrasted = (saturated - 127.5) * contrast + 127.5
-      return Math.pow(Math.max(0, Math.min(255, contrasted)) / 255, gamma) * 255
+      return Math.pow(Math.max(0, Math.min(255, contrasted)) / 255, gamma) * 255 * brightness
     })
     let threshold = 0.5
     if (dithering === 'ordered2x2') threshold = (bayer2[(y & 1) * 2 + (x & 1)] + 0.5) / 4
@@ -206,9 +208,9 @@ export function sampleImageToFrame(
     return { r: img.pixels[i] * a, g: img.pixels[i + 1] * a, b: img.pixels[i + 2] * a, a }
   }
   const composite = (pixel: PremultipliedPixel, x: number, y: number): RGB => finishColor({
-    r: (pixel.r + background.r * (1 - pixel.a)) * brightness,
-    g: (pixel.g + background.g * (1 - pixel.a)) * brightness,
-    b: (pixel.b + background.b * (1 - pixel.a)) * brightness,
+    r: pixel.r + background.r * (1 - pixel.a),
+    g: pixel.g + background.g * (1 - pixel.a),
+    b: pixel.b + background.b * (1 - pixel.a),
   }, x, y)
 
   const frame: Frame = []
@@ -218,7 +220,7 @@ export function sampleImageToFrame(
       let u = (x + 0.5 - offsetX) / drawW
       let v = (y + 0.5 - offsetY) / drawH
       if (u < 0 || u >= 1 || v < 0 || v >= 1) {
-        row.push(finishColor({ r: background.r * brightness, g: background.g * brightness, b: background.b * brightness }, x, y))
+        row.push(finishColor({ r: background.r, g: background.g, b: background.b }, x, y))
         continue
       }
       const view = 1 / zoom

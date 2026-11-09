@@ -1,5 +1,4 @@
 import {
-  asFont,
   textBlockLayout,
   textAlignMode,
   TEXT_LINE_GAP,
@@ -12,6 +11,7 @@ import { asAnimatedImage, asImage } from '../shared/image'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { rateCpp, SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { trailFadeCpp } from '../shared/trailFadeCpp'
 import { POLAR_PIXEL_CPP, polarFrameCpp, wireframeEdgeCpp } from '../shared/integerPatterns'
 import {
   resolveWireframeMesh,
@@ -20,17 +20,17 @@ import {
   WIREFRAME_CAM_NEAR,
   WIREFRAME_FIT_MARGIN,
 } from './wireframeModel'
-import { customPathTable } from './customPath'
+import { pathTable } from './customPath'
 import { gradientMixMode } from '../../state/palettes/hueMix'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
 import { hexCrgbCpp } from '../../codegen/colorControlCpp'
 import {
   FOURIER_SCALE_MIN, FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
-  fourierOutline, fourierTable, fourierTableQ,
+  fourierOutline, fourierTable, fourierTableQ, fourierTableSize,
 } from './fourierOutline'
 
-// Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
+// Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel
 // counts against a 16x16 matrix (graphEvaluator.ts's DEFAULT_W/DEFAULT_H).
 // scaleWithMatrix (opt-in per node) scales that radius proportionally by the
 // target matrix's shorter side, using the WIDTH/HEIGHT *macro names* (not
@@ -217,19 +217,17 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const colorE = channelColor('color', 0, 200, 255)
     const x1 = f('x1', 'x1', 0), y1 = f('y1', 'y1', 0)
     const x2 = f('x2', 'x2', 0), y2 = f('y2', 'y2', 0)
+    // drawLineSegment's sum: each pixel once, by its distance to the segment.
     ln(`  { ${seedFrom('base')}`)
-    ln(`    float _x0 = ${x1}, _y0 = ${y1}, _x1 = ${x2}, _y1 = ${y2};`)
-    ln(`    float _len = sqrtf((_x1 - _x0) * (_x1 - _x0) + (_y1 - _y0) * (_y1 - _y0));`)
-    ln(`    int _steps = max(1, (int)ceilf(_len * 2.0f));`)
-    ln(`    for (int _i = 0; _i <= _steps; _i++) {`)
-    ln(`      float _u = _i / (float)_steps;`)
-    ln(`      float _sx = _x0 + (_x1 - _x0) * _u, _sy = _y0 + (_y1 - _y0) * _u, _rad = 0.5f;`)
-    ln(`      int _xmin = max(0, (int)floorf(_sx - _rad - 1.0f)), _xmax = min(WIDTH - 1, (int)ceilf(_sx + _rad + 1.0f));`)
-    ln(`      int _ymin = max(0, (int)floorf(_sy - _rad - 1.0f)), _ymax = min(HEIGHT - 1, (int)ceilf(_sy + _rad + 1.0f));`)
-    ln(`      for (int _y = _ymin; _y <= _ymax; _y++) for (int _x = _xmin; _x <= _xmax; _x++) {`)
-    ln(`        float _dx = (_x + 0.5f) - _sx, _dy = (_y + 0.5f) - _sy;`)
-    ln(`        float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);`)
-    ln(`        if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } } }`)
+    ln(`    float _x0 = ${x1}, _y0 = ${y1}, _x1 = ${x2}, _y1 = ${y2}, _hw = fmaxf(0.5f, ${f('thickness', 'thickness', 1)}) * 0.5f;`)
+    ln(`    float _vx = _x1 - _x0, _vy = _y1 - _y0, _l2 = _vx * _vx + _vy * _vy, _re = _hw + 1.0f;`)
+    ln(`    int _xa = max(0, (int)floorf(fminf(_x0, _x1) - _re)), _xb = min(WIDTH - 1, (int)ceilf(fmaxf(_x0, _x1) + _re));`)
+    ln(`    int _ya = max(0, (int)floorf(fminf(_y0, _y1) - _re)), _yb = min(HEIGHT - 1, (int)ceilf(fmaxf(_y0, _y1) + _re));`)
+    ln(`    for (int _y = _ya; _y <= _yb; _y++) for (int _x = _xa; _x <= _xb; _x++) {`)
+    ln(`      float _u = _l2 > 0.0f ? constrain(((_x - _x0) * _vx + (_y - _y0) * _vy) / _l2, 0.0f, 1.0f) : 0.0f;`)
+    ln(`      float _dx = _x - (_x0 + _vx * _u), _dy = _y - (_y0 + _vy * _u);`)
+    ln(`      float _cov = constrain(_hw + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);`)
+    ln(`      if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } }`)
   },
   // Bundled shape: rect / ellipse / regular polygon, filled (fill colour)
   // and/or outlined (edge colour, thickness), over-composited with AA.
@@ -264,7 +262,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`${indent}  CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); }`)
     }
     ln(`  { ${seedFrom('base')}`)
-    ln(`    float _size=max(0.5f,${f('size', 'size', size)}),_aspect=max(0.01f,${f('aspect', 'aspect', aspect)}),_ra=-(${f('rotation', 'rotation', rot)})*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+    ln(`    float _size=${withMatrixScale(`max(0.5f,${f('size', 'size', size)})`, p)},_aspect=max(0.01f,${f('aspect', 'aspect', aspect)}),_ra=-(${f('rotation', 'rotation', rot)})*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
     ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
     ln(`    float _th=max(0.0f,${f('thickness', 'thickness', thick)});`)
     if (shape === 'polygon') {
@@ -290,8 +288,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     }
     ln(`  }`)
   },
-  Path({ id, p, ln, f, channelColor, ownBuf, seedFrom }) {
+  Path({ node, id, p, ln, f, channelColor, ownBuf, seedFrom, edges, needsT }) {
     const ob = ownBuf()
+    const wired = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port)
     const colorE = channelColor('color', 255, 220, 80)
     const shape = String(p.pathShape ?? 'circle')
     const scale = Number(p.scale ?? 0.8)
@@ -305,11 +304,20 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     } else if (shape === 'rose') {
       pathExpr = `float _pr = cosf(_ang * 4.0f); float _px = _pr * cosf(_ang), _py = _pr * sinf(_ang);`
     }
-    // A custom outline is baked as a resampled polyline and walked with the
-    // same linear interpolation as customPathPoint; invalid text is the circle.
-    const table = shape === 'custom' ? customPathTable(p.customPoints) : null
+    // A custom, star, square or infinity outline is baked as a resampled
+    // polyline and walked with the same linear interpolation as
+    // customPathPoint; invalid custom text is the circle.
+    const table = pathTable(shape, p.customPoints)
     ln(`  { ${seedFrom('base')}`)
-    ln(`    float _tt = constrain(${tExpr}, 0.0f, 1.0f);`)
+    // T wraps (a turn fraction); unwired, Speed moves the point on from it,
+    // and a Speed fixed at 0 ships no clock.
+    let turn = tExpr
+    if (!wired('t') && (wired('speed') || Number(p.speed ?? 0.25) !== 0)) {
+      needsT.v = true
+      ln(`    float _spd = ${f('speed', 'speed', 0.25)};`)
+      turn = `${tExpr} + ${speedPhaseCpp(ln, phaseTag(id), '_spd')}`
+    }
+    ln(`    float _tt = ${turn}; _tt -= floorf(_tt);`)
     if (table) {
       const T = `_pp_${id}`
       const rows = table.map((pt) => `{${floatLit(pt.x, 6)},${floatLit(pt.y, 6)}}`)
@@ -334,12 +342,14 @@ export const SHAPES_EMITTERS: NodeEmitters = {
   },
   // The coefficient table is computed in TypeScript and baked as numbers;
   // the per-frame sum and the drawing order are evalFourierEpicycles'.
-  FourierEpicycles({ id, p, ln, f, channelColor, ownBuf, seedFrom, needsT, needsFourier }) {
+  FourierEpicycles({ node, id, p, ln, f, channelColor, ownBuf, seedFrom, needsT, needsFourier, edges }) {
     needsT.v = true
     needsFourier.v = true
     const ob = ownBuf()
     const outline = fourierOutline(p.outline)
-    const table = fourierTableQ(fourierTable(outline, p.customPoints, p.maxHarmonics))
+    const harmonicsWired = edges.some((e) => e.target === node.id && e.targetHandle === 'harmonics')
+    const size = fourierTableSize(p.maxHarmonics ?? 32, Number(p.harmonics ?? 32), harmonicsWired)
+    const table = fourierTableQ(fourierTable(outline, p.customPoints, size))
     const A = `_fe_${id}`
     const rows = table.map((term) => `{${term.frequency & 0xffff},${term.amplitude},${term.phase}}`)
     ln(`  { /* Fourier Epicycles: ${outline}, ${table.length} terms */`)
@@ -357,7 +367,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    float _turnF=${ph}; _turnF-=floorf(_turnF); uint16_t _turn=(uint16_t)(int32_t)(_turnF*65536.0f);`)
     ln(`    int32_t _penX, _penY;`)
     ln(`    _fePen(${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,${p.showCircles !== false ? ob : '0'},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
-    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${f('persistence', 'persistence', 0.995)},${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,_penX,_penY,_rad8,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
+    // Persistence is a half-life (trailFadeCpp), the evaluator's trailFadeAmount.
+    trailFadeCpp(ln, phaseTag(id), f('persistence', 'persistence', 1), `${A}trail`)
+    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,_penX,_penY,_rad8,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]+=${A}trail[_i];`)
     if (p.showPen !== false) ln(`    _feDisc(${ob},WIDTH,HEIGHT,_penX,_penY,_rad8+128,_col,false);`)
     ln(`  }`)
@@ -425,7 +437,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     for (const line of wireframeEdgeCpp(ob, `_edg_${id}`, edgeCount, depthShade)) ln(`    ${line}`)
     ln(`  }`)
   },
-  Text({ node, id, p, ln, f, channelColor, ownBuf, incoming, needsT, globalLines }) {
+  Text({ node, id, p, ln, f, channelColor, ownBuf, incoming, needsT, globalLines, seedFrom }) {
     const ob = ownBuf()
     const letterSpacing = Math.max(0, Math.round(Number(p.letterSpacing ?? 1)))
     const hAlign = textAlignMode(p.hAlign ?? 'center', 'left', 'right')
@@ -442,7 +454,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
       ln(`  { // Text (wired)`)
       ln(`    const char* _ts = n_${safeId(textUp.srcId)}_${safeId(textUp.srcPort)}; int _tl = 0; while (_ts[_tl] && _tl < ${WIRED_TEXT_MAX}) _tl++; int _tn = _tl * ${stride};`)
-      ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+      ln(`    ${seedFrom('base')}`)
       if (dynamic) {
         needsT.v = true
         ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)
@@ -474,7 +486,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       return
     }
     const text = String(p.text ?? 'HELLO')
-    const font = asFont(p.font)
+    const font = DEFAULT_FONT
     const layout = textBlockLayout(text, font, letterSpacing)
     const renderableLines = layout.lines
       .map((line, index) => ({ ...line, index }))
@@ -486,7 +498,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    static const uint8_t _txt_${id}_${line.index}[] = {${line.cols.join(',')}};`)
       ln(`    const int _tn_${id}_${line.index} = ${line.cols.length};`)
     }
-    ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+    ln(`    ${seedFrom('base')}`)
     if (dynamic) {
       needsT.v = true
       ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)
@@ -687,16 +699,18 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     }
     ln(`  }`)
   },
-  GradientFrame({ node, id, p, ln, channelColor, gradientChannel, ownBuf, incoming, boolExpr, needsHueMix }) {
+  GradientFrame({ id, p, ln, f, channelColor, gradientChannel, ownBuf, needsHueMix }) {
     const ob = ownBuf()
     // Both ends are hoisted to locals so a wired Color A/B is honoured:
     // the evaluator has always followed those wires and this baked the
     // fields instead, which is the parity break the port registry forbids.
     const cA = `_gfA_${id}`, cB = `_gfB_${id}`
-    const vert = incoming.get(`${node.id}:vertical`) ? null : Boolean(p.vertical)
     ln(`  { CRGB ${cA}=${channelColor('colorA', 0, 200, 255, ['rA', 'gA', 'bA'])},${cB}=${channelColor('colorB', 255, 0, 255, ['rB', 'gB', 'bB'])};`)
+    // The evaluator's linearRamp: corner to corner along Angle, never 0/0.
+    ln(`    float _a=${f('angle', 'angle', 0)}*0.01745329f,_co=cosf(_a),_si=sinf(_a);`)
+    ln(`    float _pmin=(_co<0?(WIDTH-1)*_co:0)+(_si<0?(HEIGHT-1)*_si:0),_pmax=(_co>0?(WIDTH-1)*_co:0)+(_si>0?(HEIGHT-1)*_si:0),_rng=fmaxf(1e-6f,_pmax-_pmin);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`    float _t=${vert === null ? `((${boolExpr(node.id, 'vertical')}) ? _y/(HEIGHT-1.0f) : _x/(WIDTH-1.0f))` : vert ? '_y/(HEIGHT-1.0f)' : '_x/(WIDTH-1.0f)'};`)
+    ln(`    float _t=(_x*_co+_y*_si-_pmin)/_rng;`)
     const mode = gradientMixMode(p.mixMode)
     if (mode === 'rgb') {
       ln(`    ${ob}[_y*WIDTH+_x]=CRGB(${gradientChannel(cA, cB, 'r', '_t')},${gradientChannel(cA, cB, 'g', '_t')},${gradientChannel(cA, cB, 'b', '_t')});}}`)
@@ -810,7 +824,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     else ln(`      float _a=1.0f;`)
     ln(`      return {(float)pgm_read_byte(&_img_${id}[_pi])*_a,(float)pgm_read_byte(&_img_${id}[_pi+1])*_a,(float)pgm_read_byte(&_img_${id}[_pi+2])*_a,_a};};`)
     ln(`    auto _imgcolor=[&](_ImgPx _p,int _x,int _y)->CRGB{`)
-    ln(`      float _r=(_p.r+${fl(background.r)}*(1-_p.a))*_ibr, _g=(_p.g+${fl(background.g)}*(1-_p.a))*_ibr, _b=(_p.b+${fl(background.b)}*(1-_p.a))*_ibr;`)
+    ln(`      float _r=_p.r+${fl(background.r)}*(1-_p.a), _g=_p.g+${fl(background.g)}*(1-_p.a), _b=_p.b+${fl(background.b)}*(1-_p.a);`)
     ln(`      float _h=max(-180.0f,min(180.0f,${f('hueShift', 'hueShift', 0)}))*0.01745329f,_hc=cosf(_h),_hs=sinf(_h);`)
     ln(`      float _hr=_r*(.213f+.787f*_hc-.213f*_hs)+_g*(.715f-.715f*_hc-.715f*_hs)+_b*(.072f-.072f*_hc+.928f*_hs);`)
     ln(`      float _hg=_r*(.213f-.213f*_hc+.143f*_hs)+_g*(.715f+.285f*_hc+.140f*_hs)+_b*(.072f-.072f*_hc-.283f*_hs);`)
@@ -818,6 +832,8 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`      float _sat=${p.monochrome ? '0.0f' : `max(0.0f,min(2.0f,${f('saturation', 'saturation', saturation)}))`}, _con=max(0.0f,min(2.0f,${f('contrast', 'contrast', contrast)}));`)
     ln(`      float _lum=_hr*0.2126f+_hg*0.7152f+_hb*0.0722f; _r=(_lum+(_hr-_lum)*_sat-127.5f)*_con+127.5f; _g=(_lum+(_hg-_lum)*_sat-127.5f)*_con+127.5f; _b=(_lum+(_hb-_lum)*_sat-127.5f)*_con+127.5f;`)
     ln(`      float _gamma=max(1.0f,min(3.5f,${f('gamma', 'gamma', gamma)})); if(fabsf(_gamma-1.0f)>0.0001f){ _r=powf(constrain(_r,0.0f,255.0f)/255.0f,_gamma)*255.0f; _g=powf(constrain(_g,0.0f,255.0f)/255.0f,_gamma)*255.0f; _b=powf(constrain(_b,0.0f,255.0f)/255.0f,_gamma)*255.0f; } else { _r=constrain(_r,0.0f,255.0f); _g=constrain(_g,0.0f,255.0f); _b=constrain(_b,0.0f,255.0f); }`)
+    // Brightness last, as the preview applies it (shared/image.ts).
+    ln(`      _r*=_ibr; _g*=_ibr; _b*=_ibr;`)
     if (paletteLevels) {
       if (dithering === 'ordered2x2') ln(`      float _dt=(pgm_read_byte(&_idither[(_y&1)*2+(_x&1)])+0.5f)/4.0f;`)
       else if (dithering === 'ordered4x4') ln(`      float _dt=(pgm_read_byte(&_idither[(_y&3)*4+(_x&3)])+0.5f)/16.0f;`)

@@ -269,7 +269,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
         pitch: ['PitchDetect'],
         wheel: ['Expression', { formula: 'a * 30' }],
         hue: ['HSVToRGB', { s: 0.9, v: 1 }],
-        swatch: ['GradientFrame', { rB: 0, gB: 0, bB: 0, vertical: true }],
+        swatch: ['GradientFrame', { rB: 0, gB: 0, bB: 0, angle: 90 }],
       },
       wires: [
         'mic.audio > pitch.audio',

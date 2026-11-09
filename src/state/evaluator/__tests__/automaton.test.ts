@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateGraph, evaluateGraphFull } from '../../graphEvaluator'
 import { NODE_LIBRARY } from '../../nodeLibrary'
-import { automatonInterval, sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand } from '../automaton'
+import { automatonStepDue, sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand } from '../automaton'
 import type { StudioNode, StudioEdge } from '../../graphStore'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
@@ -83,11 +83,28 @@ describe('other automata', () => {
     c[4] = 1
     expect(sandJammed(c, 10)).toBe(true)
   })
-  it('steps at the requested rate', () => {
-    expect(automatonInterval(60)).toBe(1)
-    expect(automatonInterval(6)).toBe(10)
-    expect(automatonInterval(0)).toBe(60)
-    expect(automatonInterval(1000)).toBe(1)
+  it('steps at the requested rate, fractions carried on the clock', () => {
+    const steps = (speed: number, seconds = 10) => {
+      const clock = { owed: 1, last: 0 }
+      let n = 0
+      for (let tick = 0; tick <= seconds * 60; tick++) if (automatonStepDue(clock, speed, tick / 60)) n++
+      return n
+    }
+    // One on the first frame, then `speed` a second; whole-frame intervals ran
+    // every speed from 31 to 40 at 30.
+    expect(steps(60)).toBe(601)
+    expect(steps(35)).toBe(351)
+    expect(steps(31)).toBe(311)
+    expect(steps(6)).toBe(61)
+    expect(steps(0)).toBe(11)       // clamped to 1 a second
+    expect(steps(1000)).toBe(601)   // clamped to 60, never more than a step a frame
+  })
+
+  it('owes one step, not a backlog, after a pause', () => {
+    const clock = { owed: 0, last: 0 }
+    expect(automatonStepDue(clock, 8, 10)).toBe(true)
+    expect(automatonStepDue(clock, 8, 10 + 1 / 60)).toBe(true)
+    expect(automatonStepDue(clock, 8, 10 + 2 / 60)).toBe(false)
   })
 })
 

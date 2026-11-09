@@ -3,6 +3,10 @@
  * Distances are negative inside and positive outside, in the caller's units.
  */
 
+/** The shapes Shape and Shape Field both offer, under one set of names. An
+ *  ellipse is a circle at aspect 1. */
+export const SHAPE_KINDS = ['rect', 'ellipse', 'polygon'] as const
+
 export function rectSd(lx: number, ly: number, halfWidth: number, halfHeight: number): number {
   const qx = Math.abs(lx) - halfWidth
   const qy = Math.abs(ly) - halfHeight

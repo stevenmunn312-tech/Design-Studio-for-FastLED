@@ -27,11 +27,27 @@ export function automatonStates(type: AutomatonType, cyclic: number): number {
   return type === 'cyclic' ? cyclic : type === 'brianBrain' ? BRAIN_STATES : 2
 }
 
-/** Steps between frames: `speed` steps a second at 60 frames a second. */
-export function automatonInterval(speed: number): number {
-  const s = Number.isFinite(speed) ? speed : 8
-  return Math.max(1, Math.round(60 / Math.max(AUTOMATON_SPEED_MIN, Math.min(AUTOMATON_SPEED_MAX, s))))
+/**
+ * The steps owed, carried between frames. `speed` steps a second accumulate on
+ * the clock and a frame takes at most one, so 35 a second is 35 a second
+ * rather than the 30 that whole-frame intervals gave. A pause leaves one step
+ * owed, not a backlog. It starts owing one, so the first frame steps. The
+ * sketch keeps the same pair as statics.
+ */
+export interface AutomatonClock { owed: number; last: number }
+
+/** Whether this frame takes a step; `now` is in seconds. */
+export function automatonStepDue(clock: AutomatonClock, speed: number, now: number): boolean {
+  const s = Number.isFinite(speed) ? Math.max(AUTOMATON_SPEED_MIN, Math.min(AUTOMATON_SPEED_MAX, speed)) : 8
+  clock.owed += s * Math.max(0, now - clock.last)
+  clock.last = now
+  if (clock.owed < AUTOMATON_STEP_DUE) return false
+  clock.owed = Math.min(1, clock.owed - 1)
+  return true
 }
+
+/** A step is due a hair below 1, so float rounding never skips a frame's step. */
+export const AUTOMATON_STEP_DUE = 0.999999
 
 /** A single live cell in the middle of the top row: rule 90 grows Sierpinski's triangle from it. */
 export function seedElementary(cells: Uint8Array, W: number, H: number, random: (() => number) | null): void {

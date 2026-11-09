@@ -398,13 +398,6 @@ freeze, or drop them.
 
 #### Fields and shapes
 
-- [ ] **Category: Make Field Formula x/y 0-1 like Custom Formula (High, S).**
-  Field Formula passes integer pixel `x, y`, but Custom Formula (same variable
-  list and tooltip) passes 0-1, and Field Formula's Help says "0 to 1". Moving
-  a formula between the two, or following the Help, gives the wrong picture.
-  Make `x, y` 0-1 and add `px, py` for pixels, then update the 3 bundled
-  patterns that use it. At minimum, correct the Help.
-  `src/nodes/field/evaluate.ts:172`, `src/components/HelpModal/reference/field.ts:10`.
 - [ ] **Category: Fix centred fields on a 1-row strip (Med, M).** Strips,
   rings and corkscrews are `height: 1`, where `centeredY(0, 1)` is -1, so
   every centred field samples only the bottom of its circle. Formula Shapes'
@@ -413,6 +406,12 @@ freeze, or drop them.
   cannot move (reach is 0). Centre on pixel centres, `(y+0.5-H/2)/(H/2)`, and
   use the long side when one dimension is 1. Same for the rose kernel.
   `src/state/evaluator/formula.ts:28`, `src/nodes/shared/integerPatterns.ts:1232`.
+  Gradient Field is done (it measures in pixels from its pivot, so its radial
+  centre sits on a strip's row). Still to do: `centeredX/Y` is shared with
+  Custom Formula and every emitter's `cx/cy` line; the rose kernel is an
+  integer kernel with a C++ twin; Shape Field, Path, Fourier and Shape's new
+  Scale with matrix (`matrixSizeScale`) all size by the short side, which is
+  1 on a strip.
 - [ ] **Category: Merge Field Warp, Field Rotate and Field Tile into one
   transform node (Med, M).** They duplicate Frame Warp, which has offset
   fields, strength, zoom, rotate, edge mode and bilinear sampling. Build one
@@ -421,13 +420,9 @@ freeze, or drop them.
   opposite edge into the corners) and Field Tile dropping detail by skipping
   pixels. Migrate the bundled patterns that use the three (Fibonacci Spiral
   Drive, Golden Ratio Cathedral, Lissajous Lattice, audio release sets).
-  `src/nodes/field/evaluate.ts:575`, `:590`.
-- [ ] **Category: Give Shape and Shape Field one size unit and one name list
-  (Med, S).** Shape `size` is pixels (default 6 overflows 8x8, tiny on
-  64x64); Shape Field `size` is a fraction of the short side. Shape says
-  `ellipse` where Shape Field says `circle`. Use a fraction (or Clock
-  Display's `scaleWithMatrix`) and one shape-name list for both.
-  `src/state/nodeLibrary.ts:1378`.
+  `src/nodes/field/evaluate.ts:575`, `:590`. Field Warp already has
+  strength 2 and bilinear sampling (`sampleFieldBilinear` and its emitted
+  twin), which the merged node can reuse for rotate and tile.
 - [ ] **Category: Give Formula Shapes placement or fold it into Shape Field
   (Med, M).** Rose and superformula are shape outlines but always centred at a
   fixed scale, with no cx/cy/size and no fill/distance mode. Either add them
@@ -441,155 +436,43 @@ freeze, or drop them.
   compatibility break. `src/nodes/shapes/evaluate.ts:47`.
 - [ ] **Category: Rename the FormulaField type to FormulaShapes (Low, M).**
   `FieldFormula` and `FormulaField` are easy to swap in docs and code.
-  Pre-v1, rename the type cleanly if the node stays.
+  Pre-v1, rename the type cleanly if the node stays. Needs a decision: the
+  node-review pass kept node type ids on renames (the label already reads
+  Formula Shapes), and the id is in three bundled patterns, the node cards'
+  file names and saved projects.
 - [ ] **Category: Grow field nodes so pattern/field twins are not subsets
   (Low, M).** Noise has 9 algorithms vs Field Noise's fBm only; Game of Life
   has no Automaton equivalent; Reaction Diffusion/Turing Field, Custom
   Formula/Field Formula and the gradient patterns repeat likewise. Add
   `noiseType` to Field Noise and a Conway `life` type to Automaton so field
   chains are not stuck with the subset.
-- [ ] **Category: Unify spin/rotation units and names (Low, S).** `spin` is
-  deg/s on Field Rotate, Slice Tiling and Field Symmetry, turns/s on Polar
-  Gradient (unlabelled), and a static angle on Fractal Field. Name the static
-  ones `rotation` and put units in labels, as Wireframe3D's "spin X (deg/s)"
-  does. `src/state/nodeLibrary.ts:1056`, `src/nodes/field/codegen.ts:344`.
-- [ ] **Category: Make port labels match row labels (Low, S).** Formula
-  Shapes' port reads "Symmetry" but its row "lobes"; Fluid's ports read
-  "Inject / Inject X / Inject Y" but its rows "dye / source X / source Y".
-  `src/nodes/field/definitions.ts:117`, `:190`.
-- [ ] **Field Formula: Add a/b sliders (Med, S).** `a` and `b` are bare ports
-  with no property, so tuning a constant needs a wired node. Declare
-  `propertyInputs: { a, b }` with default 0, as Custom Formula does.
-  `src/nodes/field/definitions.ts:16`, `src/nodes/code/definitions.ts:19`.
-- [ ] **Field Noise: Add contrast/normalise to fBm (Med, S).** fBm is a
-  weighted average of octaves, so values cluster near 0.5 and the palette ends
-  (including black) are rarely reached. Add a contrast or normalise option
-  here, or handle it in Field -> Frame. `src/nodes/shared/integerPatterns.ts:1159`.
-- [ ] **Wave Sim: Add wireable splashX/splashY (Med, S).** A splash always
-  lands on a fixed cycle of five points. Add inputs like Fluid's
-  `injectX/injectY` so touch, joystick or beat position can kick the water.
-  `src/nodes/field/evaluate.ts:310`, `src/nodes/field/codegen.ts:291`.
-- [ ] **Wave Sim: Make Wrap X cover both axes (Low, S).** Y always wraps while
-  X wrap is a toggle, so with Wrap X off edges reflect left/right but wrap
-  top/bottom. Let the toggle cover both, or rename it "Wrap edges".
-  `src/nodes/field/evaluate.ts:337`.
-- [ ] **Fluid: Rename `speed` to `quality` (Med, S).** It is solver passes
-  (4-20) and raising it slows the flow ("More is smoother and slower"), the
-  opposite of what a Speed slider implies. Rename to `quality` or
-  `solverPasses`; pre-v1 drop the old name. `src/state/nodeLibrary.ts:1825`,
-  `src/state/evaluator/fluid.ts:24`.
-- [ ] **Fractal Field: Rename `spin` to `rotation` (Med, S).** `spin` is a
-  fixed view angle in degrees, while everywhere else `spin` is a rate.
-  Rename to `rotation`; optionally add a real `spin`.
-  `src/nodes/field/codegen.ts:344`, `src/state/nodeLibrary.ts:1835`.
-- [ ] **Fractal Field: Make zoom exponential (Med, M).** Linear 0.25-64 means
-  1x to 2x is about 1.6% of the travel, so flying into the Mandelbrot is
-  impractical. Expose zoom as an exponent (zoom = 2^z, z 0-6) or add a log
-  slider kind; `PropertyControl` has none. `src/state/nodeLibrary.ts:1506`, `:410`.
-- [ ] **Automaton: Accumulate fractional steps in preview (Low, S).** Preview
-  quantises speed to whole 60-tick intervals (31-40 all run 30 steps/s) while
-  firmware uses `1000/speed` ms. Accumulate fractional steps on the clock.
-  `src/state/evaluator/automaton.ts:31`, `src/nodes/field/codegen.ts:392`.
-- [ ] **Field -> Frame: Add input range or auto-normalise (Med, S).** Fields
-  rarely reach the palette's black point or top (Field Noise averages near
-  0.5, Frame -> Field red is 0.33, Fractal/Automaton sit low), so painting
-  uses the middle of the palette and every chain needs a Field Levels node.
-  Add `low`/`high` (Field Levels semantics) or an auto-normalise toggle.
-  `src/nodes/field/evaluate.ts:836`, `src/state/evaluator/frames.ts:189`.
 - [ ] **Field -> Frame: Add a wireable palette offset (Low, S).** Colour
   cycling today needs a Palette plus Palette Transform into `paletteIn`.
-- [ ] **Frame -> Field: Add a conversion mode select (Med, S).** Plain
-  `(r+g+b)/3` makes saturated red or blue a 0.33 field and a rainbow
-  0.33-0.67. Add modes: average (today), max (HSV value) and luma.
-  `src/nodes/field/evaluate.ts:853`, `src/nodes/field/codegen.ts:440`.
-- [ ] **Field Math: Let unwired B be a wireable constant (Med, S).** An
-  unwired side is a zero field, so scaling or offsetting by a knob or audio
-  level needs Float -> Field. Add a `value` (0-1) for B alongside Mix, so
-  "multiply by bass" is one node and Float -> Field can retire.
-  `src/nodes/field/evaluate.ts:452`.
-- [ ] **Gradient Field: Use aspect-correct coordinates (Med, S).** Coordinates
-  are normalised per axis, so the radial ramp is an ellipse on non-square
-  panels and Angle is not a true angle. Use short-side units as Shape Field
-  does. `src/nodes/field/evaluate.ts:893`.
-- [ ] **Gradient Field: Gate Angle and fix cx/cy description (Low, S).**
-  `angular` ignores Angle: use it to turn the pinwheel or gate it to `linear`
-  in `isPropertyEnabled`. Also `cx/cy` are described as radial/angular only
-  but pivot the linear ramp too. `src/nodes/field/evaluate.ts:899`,
-  `src/state/nodeLibrary.ts:2171`.
-- [ ] **Float -> Field: Retire the node (Med, S).** Its only job is feeding
-  Field Math; no bundled pattern uses it besides its own Help example. Remove
-  it once Field Math's unwired B reads a constant.
-- [ ] **Field Warp: Raise default strength and add bilinear sampling (Med,
-  S).** Default strength 1 is only +-1 px, barely visible (its Help example
-  uses 3, Frame Warp defaults to 2), and nearest-only sampling steps visibly.
-  Raise the default and add bilinear sampling. If merged into the transform
-  node, apply there. `src/nodes/field/definitions.ts:399`,
-  `src/nodes/field/evaluate.ts:555`.
-- [ ] **Text: Add a `base` input (Med, S).** Every other drawing node draws
-  over a base; Text alone renders on black (`fill_solid(...Black)`), so its
-  Help example needs a Blend in screen mode, which cannot draw opaque text.
-  Add `base`. `src/nodes/shapes/definitions.ts:69`,
-  `src/nodes/shapes/codegen.ts:475`.
+  Needs a decision first: Field -> Frame reads a field as an amount (1 is the
+  last colour, `LINEARBLEND_NOWRAP`), while a cycling offset must wrap, so
+  somewhere in the field a 1 takes the colour of a 0 and the jump moves with
+  the offset. Low/High now exist on the node; an offset would apply after
+  them.
 - [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
   32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
   shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
-- [ ] **Text: Expose or remove `props.font` (Low, S).** Both sides read it but
-  nothing writes it (hidden in `src/components/Canvas/studioNodeChrome.ts:145`). Expose a font
-  choice or delete the dead property. `src/nodes/shapes/evaluate.ts:558`,
-  `src/nodes/shapes/codegen.ts:463`.
-- [ ] **Clock Display: Gate `scaleWithMatrix` with radius (Low, S).** It only
-  affects the analogue radius but is always shown. Gate it with `radius` in
-  `isPropertyEnabled`. `src/state/nodeLibrary.ts:5194`,
-  `src/nodes/shapes/evaluate.ts:597`.
+  Touches `textBlockLayout` widths and heights, `renderTextInto` and the
+  scroll totals in the preview, and both sketch paths (the baked column
+  arrays and the wired `_fontCol` loop, each with wrap and scroll), plus
+  Clock Display's `blitText` and its clock glyph table.
 - [ ] **Clock Display: Split Stopwatch/Timer into a signal node (Low, M).**
   A transport lives inside a drawing node; anyone wanting only `done` still
   draws digits. Consider a small Timer signal node with Clock Display drawing
   a wired `seconds`.
-- [ ] **Line: Stop over-brightening (Low, S).** Additive 0.5 px discs splatted
-  every 0.5 px sum to about 2x on-line coverage; (0,100,128) shows near
-  (0,200,255) and anti-aliasing is lost. Splat with max (lighten) or compute
-  distance to the segment once. `src/nodes/shapes/evaluate.ts:717`,
-  `src/nodes/shapes/codegen.ts:209`.
-- [ ] **Line: Add thickness and align units (Low, S).** Path and Shape have
-  thickness, Line does not; Line alone uses pixel coordinates while siblings
-  are normalised. Add thickness and a units select or a 0-1 default.
-- [ ] **Shape: Fix the default size overflow on small panels (Med, S).** The
-  fixed default of 6 px overflows an 8x8 panel. Besides the shared size-unit
-  change (category), make the default a fraction of the short side or add
-  `scaleWithMatrix`. `src/state/nodeLibrary.ts:1378`.
-- [ ] **Path: Wrap T and add `speed` (Med, S).** With defaults it is one
-  frozen dot. T is clamped to 0-1 though `pathPoint` already wraps, so a Time
-  node stalls at 1. Wrap T and add a `speed` (turns/s) used while T is
-  unwired, as Fourier Epicycles has. `src/nodes/shapes/evaluate.ts:761`,
-  `src/nodes/shapes/codegen.ts:298`.
-- [ ] **Path: Match Fourier's shape list (Low, S).** Path offers 5 shapes
-  against Fourier's 8 though its comment says they draw the same curves. Add
-  `star`, `square`, `infinity`, or treat Path as Fourier with circles off and
-  a T input. `src/state/nodeLibrary.ts:439`, `src/nodes/shapes/fourierOutline.ts:14`.
-- [ ] **Fourier Epicycles: Move persistence to half-life trail fade (Med,
-  M).** `persistence` is a per-frame share on a 0-1 slider with default 0.995,
-  so useful values sit in the top 5% of travel and trail length follows frame
-  rate. Move it to `trailFadeAmount` (see `docs/development/patterns/graph-and-nodes.md` ~291-302), with
-  a firmware twin. `src/nodes/shapes/evaluate.ts:184`,
-  `src/nodes/shared/trailFade.ts:42`.
-- [ ] **Fourier Epicycles: Fix the Harmonics slider range (Low, S).** The
-  slider runs to 64 but `maxHarmonics` defaults to 32, so the top half does
-  nothing. Bake `ceil(harmonics)` when unwired and show `maxHarmonics` only
-  when wired. `src/state/nodeLibrary.ts:1434`.
-- [ ] **Gradient Frame: Replace `vertical` with `angle` or fold into Palette
-  Gradient (Med, S).** It is horizontal/vertical only beside Palette
-  Gradient's free angle. Add `angle`, or add an A/B colour mode to Palette
-  Gradient and retire this node. `src/nodes/shapes/evaluate.ts:480`.
-- [ ] **Gradient Frame: Guard vertical on strips (Low, S).** With H=1,
-  `_y/(HEIGHT-1.0f)` is 0/0 = NaN, and NaN cast to a byte is undefined
-  behaviour on the board. Guard with `max(1, H-1)` as Palette Gradient does.
-  `src/nodes/shapes/codegen.ts:685`.
-- [ ] **Image: Apply brightness after contrast (Low, S).** Brightness runs
-  before contrast, so with contrast 0.5, Brightness 0 leaves a 25% grey veil
-  and fading by wiring Brightness fails. Apply brightness last, on both sides.
-  `src/nodes/shared/image.ts:209`, `src/nodes/shared/image.ts:153`.
-- [ ] **Image: Move `sampling` to the Transform group (Low, S).** It sits in
-  "Playback". `src/state/nodeLibrary.ts:4135`.
+- [ ] **Line: Align units with its siblings (Low, S).** Thickness is done.
+  Line alone takes pixel coordinates (now pixel centres: 0 is the first
+  pixel, `max_x` the last, matching the `center_x`/`max_x` expressions) while
+  Shape, Text and Clock Display take 0-1. A units select or a 0-1 default
+  is a product choice, and a 0-1 default would move every saved Line and
+  the Help examples that use pixel expressions.
+
+
+
 
 #### Generative and simulations
 

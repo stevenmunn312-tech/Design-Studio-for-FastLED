@@ -323,7 +323,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - A trail is one knob, `trail`, with one meaning: 0 leaves none and 1 the
   longest. It is a half-life on a log scale, applied by the time that has
   passed, not a share taken off each frame. Confetti, Juggle, Scanner, Flow
-  Field, Ripple, String Particles, Game of Life and Formula Points read it;
+  Field, Ripple, String Particles, Game of Life and Formula Points read it,
+  as does Fourier Epicycles' `persistence`;
   before, the same slider was a half-life on two of them, a per-frame share
   kept on five (1 never faded) and a glow length on Scanner, so a hand that
   learned one node did the opposite on the next. A per-frame share put every

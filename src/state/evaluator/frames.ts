@@ -181,17 +181,66 @@ export function heatColor(temperature: number): RGB {
 }
 
 /**
+ * How Frame → Field turns a colour into one number. `average` is (r+g+b)/3,
+ * the convention Mask uses, so a pure red reads 0.33; `max` is the HSV value,
+ * so every fully lit colour reads 1; `luma` weighs the channels by how bright
+ * they look (Rec. 601), so green reads brighter than blue.
+ */
+export const FRAME_TO_FIELD_CONVERSIONS = ['average', 'max', 'luma'] as const
+export type FrameToFieldConversion = typeof FRAME_TO_FIELD_CONVERSIONS[number]
+
+export function frameToFieldConversion(value: unknown): FrameToFieldConversion {
+  return (FRAME_TO_FIELD_CONVERSIONS as readonly unknown[]).includes(value) ? value as FrameToFieldConversion : 'average'
+}
+
+const LUMA_R = 0.299, LUMA_G = 0.587, LUMA_B = 0.114
+
+export function pixelToField(px: RGB, conversion: FrameToFieldConversion): number {
+  if (conversion === 'max') return Math.max(px.r, px.g, px.b) / 255
+  if (conversion === 'luma') return (LUMA_R * px.r + LUMA_G * px.g + LUMA_B * px.b) / 255
+  return (px.r + px.g + px.b) / 3 / 255
+}
+
+/** `pixelToField` as a C++ expression over a `CRGB` lvalue. */
+export function pixelToFieldCpp(px: string, conversion: FrameToFieldConversion): string {
+  if (conversion === 'max') return `max(${px}.r,max(${px}.g,${px}.b))/255.0f`
+  if (conversion === 'luma') return `(${LUMA_R}f*${px}.r+${LUMA_G}f*${px}.g+${LUMA_B}f*${px}.b)/255.0f`
+  return `(${px}.r+${px}.g+${px}.b)/3.0f/255.0f`
+}
+
+/**
+ * Field Levels' remap, shared by Field → Frame's Low and High: `low` maps to
+ * 0 and `high` to 1, clamped, and Low at or above High is a hard threshold.
+ * Firmware: `fieldRangeCpp`.
+ */
+export function fieldRange(value: number, low: number, high: number): number {
+  return high <= low ? (value >= low ? 1 : 0) : Math.max(0, Math.min(1, (value - low) / Math.max(1e-4, high - low)))
+}
+
+/** `fieldRange` as a C++ expression over `v`, `lo` and `hi`. */
+export function fieldRangeCpp(v: string, lo: string, hi: string): string {
+  return `(${hi}<=${lo}?(${v}>=${lo}?1.0f:0.0f):constrain((${v}-${lo})/fmaxf(1e-4f,${hi}-${lo}),0.0f,1.0f))`
+}
+
+/**
  * A field's value is an amount, so 1 is the palette's last colour. A wrapping
  * lookup turned every full-scale pixel (a solid Slice Tiling slice, a filled
  * Shape Field, anything above Field Levels' High) into the first colour, the
- * same as 0. Firmware pairs this with `LINEARBLEND_NOWRAP`.
+ * same as 0. Firmware pairs this with `LINEARBLEND_NOWRAP`. `low` and `high`
+ * stretch the part of the field that is used across the whole palette, so a
+ * field that stays mid-range (noise, a frame's brightness) still reaches its
+ * ends; the default 0 and 1 change nothing.
  */
-export function evalFieldToFrame(field: Field | null, palette: Palette, brightness: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+export function evalFieldToFrame(
+  field: Field | null, palette: Palette, brightness: number, W = DEFAULT_W, H = DEFAULT_H, low = 0, high = 1,
+): Frame {
   const bv = Math.max(0, Math.min(1, brightness))
   const b8 = (v: number) => Math.max(0, Math.min(255, Math.round(v * bv)))
+  const ranged = low !== 0 || high !== 1
   return buildFrame(W, H, (x, y) => {
       if (!field) return { r: 0, g: 0, b: 0 }
-      const c = samplePaletteClamped(palette, field[y * W + x])
+      const v = field[y * W + x]
+      const c = samplePaletteClamped(palette, ranged ? fieldRange(v, low, high) : v)
       return { r: b8(c.r), g: b8(c.g), b: b8(c.b) }
     })
 }

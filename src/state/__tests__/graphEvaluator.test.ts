@@ -1607,8 +1607,23 @@ describe('evaluateGraph', () => {
     expect(frame![0][3]).toEqual({ r: 0, g: 0, b: 0 })     // off the diagonal
   })
 
+  it('Line lights each pixel on it once, at its own colour', () => {
+    const l = node('l', 'Line', 'pattern', { x1: 0, y1: 2, x2: 7, y2: 2, r: 0, g: 100, b: 128 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 8, 5)!
+    // Splatted discs used to sum to about twice the colour on the line.
+    expect(frame[2].every((p) => p.g === 100 && p.b === 128)).toBe(true)
+    expect(frame[1].every((p) => p.g === 0)).toBe(true)
+    const thick = node('t', 'Line', 'pattern', { x1: 0, y1: 2, x2: 7, y2: 2, thickness: 3, r: 0, g: 100, b: 128 })
+    const wide = evaluateGraph([thick, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 5)!
+    expect(wide[1][3].g).toBe(100)
+    expect(wide[3][3].g).toBe(100)
+    expect(wide[0][3].g).toBe(0)
+  })
+
   it('Line splats fractional coverage across adjacent pixels', () => {
-    const l = node('l', 'Line', 'pattern', { x1: 1, y1: 0, x2: 1, y2: 3, r: 0, g: 255, b: 0 })
+    // Coordinates are pixel centres, so x = 0.5 lies between columns 0 and 1.
+    const l = node('l', 'Line', 'pattern', { x1: 0.5, y1: 0, x2: 0.5, y2: 3, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 4, 4)
     expect(frame![1][0].g).toBeGreaterThan(0)
@@ -1692,13 +1707,13 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
-  it('Text uses a custom font from props.font', () => {
-    const font = { w: 1, h: 1, glyphs: { X: [1] } }   // a single lit pixel
-    const txt = node('t', 'Text', 'pattern', { text: 'X', x: 0.5, y: 0.5, scroll: 0, r: 255, g: 0, b: 0, font })
+  it('Text draws its letters over a wired base frame', () => {
+    const base = node('bg', 'SolidColor', 'pattern', { r: 0, g: 0, b: 90 })
+    const txt = node('t', 'Text', 'pattern', { text: 'I', x: 0.5, y: 0.5, scroll: 0, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
-    const frame = evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 8)
-    expect(frame![3][3]).toEqual({ r: 255, g: 0, b: 0 })   // the glyph pixel
-    expect(frame![3][4]).toEqual({ r: 0, g: 0, b: 0 })     // trailing spacing column
+    const frame = evaluateGraph([base, txt, out], [edge('b', 'bg', 'frame', 't', 'base'), edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 8)
+    expect(frame![1][2]).toEqual({ r: 0, g: 255, b: 0 })   // a letter pixel, opaque
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 90 })    // the base shows round it
   })
 
   it('Text renders multiline blocks with vertical spacing', () => {
@@ -3895,11 +3910,20 @@ describe('Float Field pipeline', () => {
     expect([...fieldOf('prev + 0.25', {}, 2)].every((v) => Math.abs(v - 0.25) < 1e-6)).toBe(true)
   })
 
-  it('FieldFormula exposes integer pixel x,y', () => {
-    // value = x/(W-1) → first column 0, last column 1
-    const fld = fieldOf('x/(W-1)')
-    expect(fld[0]).toBeCloseTo(0)          // x=0
-    expect(fld[W - 1]).toBeCloseTo(1)      // x=W-1
+  it('FieldFormula exposes x,y from 0 to 1, as Custom Formula does', () => {
+    const fld = fieldOf('x')
+    expect(fld[0]).toBeCloseTo(0)          // first column
+    expect(fld[W - 1]).toBeCloseTo(1)      // last column
+    const down = fieldOf('y')
+    expect(down[(H - 1) * W]).toBeCloseTo(1)
+  })
+
+  it('FieldFormula exposes integer pixel px,py', () => {
+    const fld = fieldOf('px/(W-1)')
+    expect(fld[0]).toBeCloseTo(0)
+    expect(fld[1]).toBeCloseTo(1 / (W - 1))
+    expect(fld[W - 1]).toBeCloseTo(1)
+    expect(fieldOf('py/(H-1)')[(H - 1) * W]).toBeCloseTo(1)
   })
 
   it('FieldFormula exposes FastLED shims (sin8)', () => {
@@ -4108,7 +4132,7 @@ describe('Wave Sim options', () => {
   }
 
   it('keeps the old behaviour by default', () => {
-    expect(waves({ wrapX: true, halfDuplex: false }, 10, 16, 16)).toEqual(waves({}, 10, 16, 16))
+    expect(waves({ wrapEdges: true, halfDuplex: false }, 10, 16, 16)).toEqual(waves({}, 10, 16, 16))
   })
 
   it('half duplex never exceeds the two-sided field and darkens the troughs', () => {
@@ -4125,15 +4149,36 @@ describe('Wave Sim options', () => {
     expect(darker).toBeGreaterThan(0)
   })
 
-  it('reflects at the left and right edges when wrapX is off', () => {
-    const wrapped = waves({ wrapX: true }, 40, 24, 8)
-    const walled = waves({ wrapX: false }, 40, 24, 8)
+  it('reflects at every edge when wrapEdges is off', () => {
+    const wrapped = waves({ wrapEdges: true }, 40, 24, 8)
+    const walled = waves({ wrapEdges: false }, 40, 24, 8)
     expect(walled).not.toEqual(wrapped)
     expect(walled.flat().every((v) => Number.isFinite(v) && v >= 0 && v <= 1)).toBe(true)
+    // The top and bottom edges follow the same switch.
+    const tallWrapped = waves({ wrapEdges: true }, 40, 8, 24)
+    const tallWalled = waves({ wrapEdges: false }, 40, 8, 24)
+    expect(tallWalled).not.toEqual(tallWrapped)
+  })
+
+  it('lands each splash where wired Splash X and Y place it', () => {
+    const id = `ws-run-${run++}`
+    const ws = node(id, 'WaveSim', 'field', { speed: 1, damping: 0.985, impulse: 1 })
+    const px = node('px', 'Math', 'math', { mathOp: 'add', a: 0, b: 0 })
+    const py = node('py', 'Math', 'math', { mathOp: 'add', a: 1, b: 0 })
+    const f2f = node('f2f', 'FieldToFrame', 'field', {})
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const field = evaluateGraphFull([px, py, ws, f2f, out], [
+      edge('ex', 'px', 'result', id, 'splashX'), edge('ey', 'py', 'result', id, 'splashY'),
+      edge('e1', id, 'field', 'f2f', 'field'), edge('e2', 'f2f', 'frame', 'out', 'frame'),
+    ], 0, 16, 16).outputs.get(id)!.field as Float32Array
+    // The opening splash sits on the bottom-left corner, not the centre.
+    const corner = field[15 * 16 + 0] + field[14 * 16 + 1], centre = field[8 * 16 + 8]
+    expect(corner).toBeGreaterThan(0.1)
+    expect(centre).toBeLessThan(1e-6)
   })
 
   it('is a one-dimensional wave on a one-row canvas', () => {
-    const frames = waves({ wrapX: false }, 30, 25, 1)
+    const frames = waves({ wrapEdges: false }, 30, 25, 1)
     const last = frames[frames.length - 1]
     expect(last.every((v) => Number.isFinite(v) && v >= 0 && v <= 1)).toBe(true)
     // The splash spreads sideways along the one row it has.
@@ -4159,7 +4204,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
   }
 
   it('a point-sized ShapeField falloff is 0 at the point and grows outward', () => {
-    const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'circle', size: 0.01, cx: 0, cy: 0, range: 1 })
+    const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'ellipse', size: 0.01, cx: 0, cy: 0, range: 1 })
     const g = withFieldTail('df', [df], [])
     const fld = fieldOut('df', g.nodes, g.edges)
     expect(fld[0]).toBeCloseTo(0)                 // pixel (0,0) is the point
@@ -4168,7 +4213,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
 
   it('ShapeField falloff range sets the ramp length (a shorter range reaches 1 sooner)', () => {
     const mk = (range: number) => {
-      const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'circle', size: 0.01, cx: 0, cy: 0, range })
+      const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'ellipse', size: 0.01, cx: 0, cy: 0, range })
       const g = withFieldTail('df', [df], [])
       return fieldOut('df', g.nodes, g.edges)[H * W - 1]
     }
@@ -4201,7 +4246,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
   })
 
   it('FieldWarp with no offset returns the source field unchanged', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const fw = node('fw', 'FieldWarp', 'composite', { strength: 2 })
     const g = withFieldTail('fw', [src, fw], [edge('e1', 'src', 'field', 'fw', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
@@ -4211,7 +4256,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
 
   it('FieldWarp shifts the sample when an offset field is wired', () => {
     // x-ramp source; a constant 1.0 dx field pushes the sample +strength px in x.
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const dx = node('dx', 'FieldFormula', 'pattern', { formula: '1' })  // → +strength
     const fw = node('fw', 'FieldWarp', 'composite', { strength: 1 })
     const g = withFieldTail('fw', [src, dx, fw], [
@@ -4223,11 +4268,26 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
     // At x=0 the warped value samples x=1 of the source (one column to the right).
     expect(warped[0]).toBeCloseTo(ref[1])
   })
+
+  it('FieldWarp blends between pixels by default and steps with nearest sampling', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
+    const dx = node('dx', 'FieldFormula', 'pattern', { formula: '0.75' })  // → +strength/2
+    const render = (props: Record<string, unknown>) => {
+      const fw = node('fw', 'FieldWarp', 'composite', { strength: 1, ...props })
+      const g = withFieldTail('fw', [src, dx, fw], [edge('e1', 'src', 'field', 'fw', 'field'), edge('e2', 'dx', 'field', 'fw', 'dx')])
+      return { warped: fieldOut('fw', g.nodes, g.edges), ref: fieldOut('src', g.nodes, g.edges) }
+    }
+    // Half a pixel to the right: bilinear lands halfway between columns 0 and 1.
+    const smooth = render({})
+    expect(smooth.warped[0]).toBeCloseTo((smooth.ref[0] + smooth.ref[1]) / 2, 6)
+    const stepped = render({ sampling: 'nearest' })
+    expect(stepped.warped[0]).toBeCloseTo(stepped.ref[1], 6)
+  })
 })
 
 describe('Pattern node expansion — Phase 2 Frame Warp', () => {
   const source = () => node('warp-source', 'GradientFrame', 'pattern', {
-    rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0, vertical: false,
+    rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0,
   })
   const output = () => node('warp-output', 'MatrixOutput', 'output', {})
 
@@ -4274,7 +4334,7 @@ describe('Pattern node expansion — Phase 2 Frame Warp', () => {
 
 describe('Pattern node expansion - Phase 3 Symmetry', () => {
   function renderField(properties: Record<string, unknown>, t = 0, width = 16, height = 16) {
-    const src = node('sym-field-src', 'FieldFormula', 'field', { formula: '(x+2*y)/(3*(W-1))' })
+    const src = node('sym-field-src', 'FieldFormula', 'field', { formula: '(px+2*py)/(3*(W-1))' })
     const symmetry = node('field-symmetry', 'FieldSymmetry', 'field', properties)
     const map = node('sym-field-map', 'FieldToFrame', 'field', {})
     const out = node('sym-field-out', 'MatrixOutput', 'output', {})
@@ -4323,7 +4383,7 @@ describe('Pattern node expansion - Phase 3 Symmetry', () => {
     }
 
     const src = node('sym-frame-src', 'GradientFrame', 'pattern', {
-      rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0, vertical: false,
+      rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0,
     })
     const symmetry = node('symmetry', 'Symmetry', 'composite', identity)
     const out = node('sym-frame-out', 'MatrixOutput', 'output', {})
@@ -4466,7 +4526,7 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
   }
 
   it('Field Levels remaps, quantises, thresholds, and inverts', () => {
-    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'px/(W-1)' })
     const levels = node('levels', 'FieldLevels', 'field', { low: 0.25, high: 0.75, steps: 3, invert: false })
     const graph = withFieldTail('levels', [src, levels], [edge('levels-in', src.id, 'field', levels.id, 'field')])
     expect([...fieldOut('levels', graph.nodes, graph.edges).slice(0, W)]).toEqual([0, 0, 1, 1])
@@ -4491,7 +4551,7 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
 
   it('Shape Field emits bounded fill and signed-distance modes', () => {
     const shape = node('shape-field', 'ShapeField', 'field', {
-      shape: 'circle', fieldMode: 'fill', cx: 0.5, cy: 0.5,
+      shape: 'ellipse', fieldMode: 'fill', cx: 0.5, cy: 0.5,
       size: 0.3, rotation: 0, sides: 5, aspect: 1, softness: 0.1, range: 0.5,
     })
     const graph = withFieldTail(shape.id, [shape], [])
@@ -4507,7 +4567,7 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
 
   it('thresholding a circle-to-square distance lerp keeps one closed region', () => {
     const circle = node('morph-circle', 'ShapeField', 'field', {
-      shape: 'circle', fieldMode: 'distance', cx: 0.5, cy: 0.5,
+      shape: 'ellipse', fieldMode: 'distance', cx: 0.5, cy: 0.5,
       size: 0.3, rotation: 0, sides: 5, aspect: 1, softness: 0.1, range: 0.5,
     })
     const square = node('morph-square', 'ShapeField', 'field', {
@@ -4643,7 +4703,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   }
 
   it('FieldRotate by 0° returns the source unchanged', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 0 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
@@ -4654,7 +4714,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   it('FieldRotate by 90° turns an x-ramp into a y-ramp', () => {
     // x-ramp: value depends only on column. After a 90° rotation it should vary
     // by row instead — i.e. each row becomes (near) constant across columns.
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const fr = node('fr', 'FieldRotate', 'composite', { angle: 90, spin: 0 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const rot = fieldOut('fr', g.nodes, g.edges)
@@ -4665,7 +4725,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   })
 
   it('FieldRotate spin advances with time', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 90 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const at0 = fieldOut('fr', g.nodes, g.edges, 0)
@@ -4674,7 +4734,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   })
 
   it('FieldTile 2×1 repeats the field horizontally', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const ft = node('ft', 'FieldTile', 'composite', { tilesX: 2, tilesY: 1 })
     const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
@@ -4686,7 +4746,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   })
 
   it('FieldTile clamps tile counts to ≥1', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const ft = node('ft', 'FieldTile', 'composite', { tilesX: 0, tilesY: 0 })
     const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)

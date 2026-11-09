@@ -26,7 +26,7 @@ const edge = (id: string, s: string, sh: string, t: string, th: string): StudioE
 
 const output = () => node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4, serpentine: false })
 /** Properties that make an invariant type draw without the time. */
-const STILL: Record<string, Record<string, unknown>> = { FieldFormula: { formula: 'x / W' } }
+const STILL: Record<string, Record<string, unknown>> = { FieldFormula: { formula: 'x / W' }, Path: { speed: 0 } }
 
 /** The type wired from invariant sources and shown through the output. */
 function graphFor(nodeType: string): { nodes: StudioNode[]; edges: StudioEdge[] } {

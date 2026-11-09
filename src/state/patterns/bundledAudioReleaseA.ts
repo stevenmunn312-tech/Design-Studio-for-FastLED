@@ -82,7 +82,7 @@ function chromafluidCathedral(): AudioReleaseSeed {
   b.wire('dyeSum', 'result', 'dyeLimit', 'value')
   b.wire('dyeLimit', 'result', 'fluid', 'inject')
   b.wire('stereoSource', 'result', 'fluid', 'injectX')
-  b.wire('fluidMotion', 'result', 'fluid', 'speed')
+  b.wire('fluidMotion', 'result', 'fluid', 'quality')
   b.wire('forceX', 'field', 'fluid', 'forceX')
   b.wire('forceY', 'field', 'fluid', 'forceY')
   b.wire('song', 'drop', 'fluid', 'trigger')
@@ -149,10 +149,11 @@ function abyssalJuliaBloom(): AudioReleaseSeed {
   const b = new AudioReleaseBuilder('Abyssal Julia Bloom', ['matrix'], ['#020c21', '#35b8b0', '#ff987b'])
   b.node('reef', 'FractalField', { fractalType: 'julia', cRe: -0.745, cIm: 0.19, iterations: 28, smooth: true })
   b.map('vocalIslands', 'features', 'vocals', 0.14, 0.225)
-  b.map('dive', 'buildup', 'result', 1.05, 2.75)
-  // The drop pulls the dive back toward 0.78: Out Min follows the dive, and
-  // the drop envelope is how far along the way to Out Max the zoom sits.
-  b.node('pullback', 'MapRange', { outMax: 0.78 })
+  // Depth is doublings: 1.05x to 2.75x as the build-up rises. The drop pulls
+  // the dive back toward 0.78x (-0.36 doublings): Out Min follows the dive,
+  // and the drop envelope is how far along the way to Out Max the depth sits.
+  b.map('dive', 'buildup', 'result', 0.07, 1.46)
+  b.node('pullback', 'MapRange', { outMax: -0.36 })
   b.node('turn', 'FieldRotate')
   b.map('current', 'energy', 'result', 1.2, 14)
   b.node('colour', 'PaletteTransform')
@@ -161,7 +162,7 @@ function abyssalJuliaBloom(): AudioReleaseSeed {
   b.wire('vocalIslands', 'result', 'reef', 'cIm')
   b.wire('dive', 'result', 'pullback', 'outMin')
   b.wire('dropEnvelope', 'result', 'pullback', 'value')
-  b.wire('pullback', 'result', 'reef', 'zoom')
+  b.wire('pullback', 'result', 'reef', 'depth')
   b.wire('reef', 'field', 'turn', 'field')
   b.wire('current', 'result', 'turn', 'spin')
   b.wire('palette', 'palette', 'colour', 'paletteIn')
@@ -173,7 +174,7 @@ function abyssalJuliaBloom(): AudioReleaseSeed {
 
 function opalResonanceBasin(): AudioReleaseSeed {
   const b = new AudioReleaseBuilder('Opal Resonance Basin', ['matrix'], ['#040c21', '#628cda', '#bbfff0'])
-  b.node('water', 'WaveSim', { wrapX: true, halfDuplex: false })
+  b.node('water', 'WaveSim', { wrapEdges: true, halfDuplex: false })
   b.node('splashTrigger', 'Logic', { logicOp: 'or' })
   b.node('impact', 'Math', { mathOp: 'max' })
   b.map('splash', 'impact', 'result', 0.22, 1)

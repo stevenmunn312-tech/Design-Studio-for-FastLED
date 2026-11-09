@@ -5,7 +5,7 @@ import { speedPhase } from '../shared/speedClock'
 import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
-import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
+import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame, fieldRange, frameToFieldConversion, pixelToField } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
 import { noiseShape, shapeNoise } from '../../state/evaluator/noiseShape'
@@ -15,7 +15,7 @@ import {
 import { fractalSampler, fractalType } from '../../state/evaluator/fractal'
 import { normalizedSeed, seededRandom, seededRngState, seedOffset } from '../../state/evaluator/random'
 import {
-  SAND_SPAWN_RATE, automatonInterval, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
+  SAND_SPAWN_RATE, automatonStepDue, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
   sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand, type AutomatonType,
 } from '../../state/evaluator/automaton'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
@@ -27,7 +27,7 @@ import {
   turingStep, turingStepSize,
 } from '../../state/evaluator/turing'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from './sliceTiling'
-import { BLUR_RADIUS, GRADIENT_REPEAT, RADIAL_REACH, blurRadius, gradientRepeat, gradientType, gradientWraps } from './gradientField'
+import { BLUR_RADIUS, GRADIENT_REPEAT, blurRadius, gradientLinearSpan, gradientRadialSpan, gradientRepeat, gradientType, gradientWraps } from './gradientField'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
@@ -171,8 +171,8 @@ function evalFieldFormula(key: string, formula: string, a: number, b: number, fi
       // write-in-place is exact; the sketch does the same.
       const prev = persists ? out[i] : 0
       let v = 0
-      // FieldFormula uses integer pixel coords for x,y (ANIMartRIX convention).
-      try { v = fn(xi, yi, cx, cy, r, angle, t, W, H, a, b, fin, prev, ...sv) } catch { v = 0 }
+      // x,y are 0 to 1, as in Custom Formula; px,py are the pixel's column and row.
+      try { v = fn(xi / (W - 1 || 1), yi / (H - 1 || 1), cx, cy, r, angle, t, W, H, a, b, fin, prev, xi, yi, ...sv) } catch { v = 0 }
       out[i] = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0
     }
   }
@@ -317,8 +317,14 @@ const WAVE_SIM_POINTS: ReadonlyArray<readonly [number, number]> = [
   [0.7, 0.7],
 ]
 
-function injectWaveSimRipple(field: Float32Array, pulse: number, impulse: number, W: number, H: number): void {
+// Where splash `pulse` lands, 0–1: a wired Splash X or Y wins on its axis,
+// else the fixed five-point cycle.
+function waveSimSplashAt(pulse: number, splashX: number | null, splashY: number | null): [number, number] {
   const [px, py] = WAVE_SIM_POINTS[pulse % WAVE_SIM_POINTS.length]
+  return [splashX === null ? px : clamp01(splashX), splashY === null ? py : clamp01(splashY)]
+}
+
+function injectWaveSimRipple(field: Float32Array, [px, py]: [number, number], impulse: number, W: number, H: number): void {
   const cx = px * (W - 1), cy = py * (H - 1)
   const radius = Math.max(1.5, Math.min(W, H) * 0.12)
   const x0 = Math.max(0, Math.floor(cx - radius - 1))
@@ -336,12 +342,16 @@ function injectWaveSimRipple(field: Float32Array, pulse: number, impulse: number
   }
 }
 
-// `wrapX` lets a wave leave one side and re-enter the other; off, the left and
-// right edges reflect (the neighbour past the edge is the edge pixel itself).
-// `halfDuplex` shows only the positive half of the wave, so a crest reads as
-// raised water and the troughs stay dark, where the default shows the size of
-// the displacement either way. Y always wraps, as it always has.
-function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: number, impulse: number, wrapX: boolean, halfDuplex: boolean, W = DEFAULT_W, H = DEFAULT_H): Field {
+// `wrapEdges` lets a wave leave one side and re-enter the opposite one, on
+// both axes; off, every edge reflects (the neighbour past the edge is the edge
+// pixel itself). `halfDuplex` shows only the positive half of the wave, so a
+// crest reads as raised water and the troughs stay dark, where the default
+// shows the size of the displacement either way. `splashX`/`splashY` are the
+// wired splash position, or null for the cycle.
+function evalWaveSim(
+  nodeId: string, trigger: boolean, speed: number, damping: number, impulse: number, wrapEdges: boolean, halfDuplex: boolean,
+  splashX: number | null, splashY: number | null, W = DEFAULT_W, H = DEFAULT_H,
+): Field {
   const N = W * H
   let s = waveSimState.get(nodeId)
   if (!s || s.w !== W || s.h !== H) {
@@ -354,12 +364,12 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
       prevTrigger: false,
       pulse: 1,
     }
-    injectWaveSimRipple(s.cur, 0, impulse, W, H)
+    injectWaveSimRipple(s.cur, waveSimSplashAt(0, splashX, splashY), impulse, W, H)
     waveSimState.set(nodeId, s)
   }
 
   if (trigger && !s.prevTrigger) {
-    injectWaveSimRipple(s.cur, s.pulse, impulse, W, H)
+    injectWaveSimRipple(s.cur, waveSimSplashAt(s.pulse, splashX, splashY), impulse, W, H)
     s.pulse++
   }
   s.prevTrigger = trigger
@@ -368,9 +378,9 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
   const damp = Math.max(0.8, Math.min(0.999, damping))
   for (let it = 0; it < iters; it++) {
     for (let y = 0; y < H; y++) {
-      const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
+      const ym = (wrapEdges ? (y - 1 + H) % H : Math.max(y - 1, 0)) * W, yp = (wrapEdges ? (y + 1) % H : Math.min(y + 1, H - 1)) * W, yr = y * W
       for (let x = 0; x < W; x++) {
-        const xm = wrapX ? (x - 1 + W) % W : Math.max(x - 1, 0), xp = wrapX ? (x + 1) % W : Math.min(x + 1, W - 1), i = yr + x
+        const xm = wrapEdges ? (x - 1 + W) % W : Math.max(x - 1, 0), xp = wrapEdges ? (x + 1) % W : Math.min(x + 1, W - 1), i = yr + x
         const neighbourAvg = (s.cur[ym + x] + s.cur[yp + x] + s.cur[yr + xm] + s.cur[yr + xp]) * 0.5
         s.next[i] = Math.max(-1, Math.min(1, (neighbourAvg - s.prev[i]) * damp))
       }
@@ -384,7 +394,7 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
   let peak = 0
   for (let i = 0; i < N; i++) peak = Math.max(peak, Math.abs(s.cur[i]))
   if (peak < 0.002) {
-    injectWaveSimRipple(s.cur, s.pulse, impulse * 0.6, W, H)
+    injectWaveSimRipple(s.cur, waveSimSplashAt(s.pulse, splashX, splashY), impulse * 0.6, W, H)
     s.pulse++
   }
 
@@ -397,14 +407,14 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
 // One byte per cell; the steps live in state/evaluator/automaton.ts.
 interface AutomatonState {
   cells: Uint8Array; next: Uint8Array; w: number; h: number; type: string; seed: number
-  lastStep: number; prevReset: boolean; stepCount: number
+  clock: { owed: number; last: number }; prevReset: boolean; stepCount: number
 }
 const fluidState = instanceState('fluidState', new Map<string, FluidState>())
 const automatonState = instanceState('automatonState', new Map<string, AutomatonState>())
 
 function evalAutomaton(
   nodeId: string, type: AutomatonType, rule: number, states: number, threshold: number, spawn: number, speed: number,
-  reset: boolean, tick: number, seed: number, W = DEFAULT_W, H = DEFAULT_H,
+  reset: boolean, now: number, seed: number, W = DEFAULT_W, H = DEFAULT_H,
 ): Field {
   const N = W * H
   const key = `${nodeId}:auto`
@@ -419,14 +429,13 @@ function evalAutomaton(
   let s = automatonState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.type !== type || s.seed !== seed) {
     seededRngState.delete(key)
-    s = { cells: new Uint8Array(N), next: new Uint8Array(N), w: W, h: H, type, seed, lastStep: -1e9, prevReset: reset, stepCount: 0 }
+    s = { cells: new Uint8Array(N), next: new Uint8Array(N), w: W, h: H, type, seed, clock: { owed: 1, last: now }, prevReset: reset, stepCount: 0 }
     fill(s)
     automatonState.set(nodeId, s)
   } else if (reset && !s.prevReset) fill(s)
   s.prevReset = reset
 
-  if (tick - s.lastStep >= automatonInterval(speed)) {
-    s.lastStep = tick
+  if (automatonStepDue(s.clock, speed, now)) {
     s.stepCount++
     if (type === 'elementary') stepElementary(s.cells, W, H, rule)
     else if (type === 'cyclic') { stepCyclic(s.cells, s.next, W, H, states, threshold); [s.cells, s.next] = [s.next, s.cells] }
@@ -444,14 +453,15 @@ function evalAutomaton(
   return out
 }
 
-// Combine two fields pixel-by-pixel. An unwired input is a zero field, so unary
-// ops (e.g. `subtract` from 0 to negate, clamped) still behave sensibly. `t`
-// is the mix op's A→B crossfade.
-function evalFieldMath(a: Field | null, b: Field | null, op: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+// Combine two fields pixel-by-pixel. An unwired A is a zero field; an unwired
+// B reads `bValue`, 0 to 1, so scaling or offsetting a field by a level is one
+// node. `t` is the mix op's A→B crossfade.
+function evalFieldMath(a: Field | null, b: Field | null, op: string, t: number, bValue: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   const out = allocField(W * H)
   const mix = clamp01(t)
+  const bConst = clamp01(bValue)
   for (let i = 0; i < W * H; i++) {
-    const x = a ? a[i] : 0, y = b ? b[i] : 0
+    const x = a ? a[i] : 0, y = b ? b[i] : bConst
     let v: number
     switch (op) {
       case 'subtract':   v = x - y; break
@@ -481,9 +491,7 @@ function evalFieldLevels(
   const count = Math.max(1, Math.min(16, Math.round(steps)))
   for (let i = 0; i < W * H; i++) {
     const source = field ? field[i] : 0
-    let value = high <= low
-      ? (source >= low ? 1 : 0)
-      : clamp01((source - low) / Math.max(1e-4, high - low))
+    let value = fieldRange(source, low, high)
     if (count >= 2) value = Math.round(value * (count - 1)) / (count - 1)
     out[i] = invert ? 1 - value : value
   }
@@ -546,16 +554,37 @@ function evalShapeField(
   return out
 }
 
+/**
+ * A field read between pixels, edges clamped: the four neighbours blended by
+ * how close the point is to each. The Field Warp emitter writes the same sum
+ * in the same order.
+ */
+export function sampleFieldBilinear(field: Field, sx: number, sy: number, W: number, H: number): number {
+  const fx = Math.max(0, Math.min(W - 1, sx)), fy = Math.max(0, Math.min(H - 1, sy))
+  const x0 = Math.floor(fx), y0 = Math.floor(fy)
+  const x1 = Math.min(x0 + 1, W - 1), y1 = Math.min(y0 + 1, H - 1)
+  const ax = fx - x0, ay = fy - y0
+  const top = field[y0 * W + x0] * (1 - ax) + field[y0 * W + x1] * ax
+  const bottom = field[y1 * W + x0] * (1 - ax) + field[y1 * W + x1] * ax
+  return top * (1 - ay) + bottom * ay
+}
+
 // Sample `field` at coordinates pushed by the dx/dy offset fields. Offsets map
-// 0–1 → −strength…+strength pixels (an unwired offset field = no push). Sample
-// is nearest-neighbour, clamped to the matrix edges.
-function evalFieldWarp(field: Field | null, dx: Field | null, dy: Field | null, strength: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+// 0–1 → −strength…+strength pixels (an unwired offset field = no push), and
+// the sample is bilinear or nearest, clamped to the matrix edges.
+function evalFieldWarp(
+  field: Field | null, dx: Field | null, dy: Field | null, strength: number, bilinear: boolean, W = DEFAULT_W, H = DEFAULT_H,
+): Field {
   const out = allocField(W * H)
   if (!field) return out
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const ox = dx ? (2 * dx[y * W + x] - 1) * strength : 0
       const oy = dy ? (2 * dy[y * W + x] - 1) * strength : 0
+      if (bilinear) {
+        out[y * W + x] = sampleFieldBilinear(field, x + ox, y + oy, W, H)
+        continue
+      }
       const sx = Math.max(0, Math.min(W - 1, Math.round(x + ox)))
       const sy = Math.max(0, Math.min(H - 1, Math.round(y + oy)))
       out[y * W + x] = field[sy * W + sx]
@@ -790,7 +819,8 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const speed = num(id, 'speed', props, 'speed', 4)
     const damping = num(id, 'damping', props, 'damping', 0.985)
     const impulse = Math.max(0.1, Math.min(1, num(id, 'impulse', props, 'impulse', 1)))
-    return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapX !== false, props.halfDuplex === true, W, H) }
+    const at = (port: string) => { const v = input(id, port, null); return typeof v === 'number' ? v : null }
+    return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapEdges !== false, props.halfDuplex === true, at('splashX'), at('splashY'), W, H) }
   },
   FluidSim({ input, num, W, H, stateKey }, id, props) {
     const key = stateKey(id)
@@ -803,7 +833,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     s.prevTrigger = trigger
     const fx = input(id, 'forceX', null), fy = input(id, 'forceY', null)
     fluidForces(s, fx instanceof Float32Array ? fx : null, fy instanceof Float32Array ? fy : null, Number(props.buoyancy ?? 0.5))
-    fluidStep(s, fluidIterations(num(id, 'speed', props, 'speed', 8)), num(id, 'viscosity', props, 'viscosity', 0), num(id, 'diffusion', props, 'diffusion', 0), num(id, 'dissipation', props, 'dissipation', 0.02))
+    fluidStep(s, fluidIterations(num(id, 'quality', props, 'quality', 8)), num(id, 'viscosity', props, 'viscosity', 0), num(id, 'diffusion', props, 'diffusion', 0), num(id, 'dissipation', props, 'dissipation', 0.02))
     const n = W * H, dye = allocField(n), vx = allocField(n), vy = allocField(n)
     for (let i = 0; i < n; i++) {
       dye[i] = Math.max(0, Math.min(1, s.d[i]))
@@ -816,21 +846,21 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const sample = fractalSampler({
       type: fractalType(props.fractalType),
       cRe: num(id, 'cRe', props, 'cRe', -0.8), cIm: num(id, 'cIm', props, 'cIm', 0.156),
-      zoom: num(id, 'zoom', props, 'zoom', 1),
+      depth: num(id, 'depth', props, 'depth', 0),
       centerX: num(id, 'centerX', props, 'centerX', 0), centerY: num(id, 'centerY', props, 'centerY', 0),
-      spin: num(id, 'spin', props, 'spin', 0),
+      rotation: num(id, 'rotation', props, 'rotation', 0),
       iterations: num(id, 'iterations', props, 'iterations', 32), smooth: props.smooth !== false,
     }, W, H)
     const out = allocField(W * H)
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = sample(x, y)
     return { field: out }
   },
-  Automaton({ input, num, elapsedTick: tick, W, H, stateKey }, id, props) {
+  Automaton({ input, num, elapsedTick, W, H, stateKey }, id, props) {
     const type = automatonType(props.automatonType)
     return {
       field: evalAutomaton(
         stateKey(id), type, elementaryRule(num(id, 'rule', props, 'rule', 90)), cyclicStates(props.states), cyclicThreshold(props.threshold),
-        num(id, 'spawn', props, 'spawn', 0.5), num(id, 'speed', props, 'speed', 8), Boolean(input(id, 'reset', false)), tick,
+        num(id, 'spawn', props, 'spawn', 0.5), num(id, 'speed', props, 'speed', 8), Boolean(input(id, 'reset', false)), elapsedTick / 60,
         normalizedSeed(props.seed), W, H,
       ),
     }
@@ -840,20 +870,18 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const field = fv instanceof Float32Array ? fv : null
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     const brightness = num(id, 'brightness', props, 'brightness', 1)
-    return { frame: evalFieldToFrame(field, palette, brightness, W, H) }
+    const low = num(id, 'low', props, 'low', 0), high = num(id, 'high', props, 'high', 1)
+    return { frame: evalFieldToFrame(field, palette, brightness, W, H, low, high) }
   },
   // The inverse of FieldToFrame: a 0–1 brightness field from a rendered
-  // frame (average of r,g,b — the same convention Mask uses for a mask
-  // frame's opacity).
-  FrameToField({ input, W, H }, id) {
+  // frame, by the chosen conversion (`pixelToField`, shared with the sketch).
+  FrameToField({ input, W, H }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
+    const conversion = frameToFieldConversion(props.conversion)
     const out2 = allocField(W * H)
     if (src) {
       for (let y = 0; y < H; y++) {
-        for (let x = 0; x < W; x++) {
-          const px = src[y][x]
-          out2[y * W + x] = (px.r + px.g + px.b) / 3 / 255
-        }
+        for (let x = 0; x < W; x++) out2[y * W + x] = pixelToField(src[y][x], conversion)
       }
     }
     return { field: out2 }
@@ -865,7 +893,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     return { field: evalFieldMath(
       av instanceof Float32Array ? av : null,
       bv instanceof Float32Array ? bv : null,
-      op, num(id, 't', props, 't', 0.5), W, H,
+      op, num(id, 't', props, 't', 0.5), num(id, 'value', props, 'value', 0), W, H,
     ) }
   },
   FieldLevels({ input, num, W, H }, id, props) {
@@ -890,25 +918,20 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const offset = num(id, 'offset', props, 'offset', 0)
     const wraps = gradientWraps(type, repeat)
     const ca = Math.cos(angle), sa = Math.sin(angle)
+    const span = type === 'radial' ? gradientRadialSpan(W, H) : gradientLinearSpan(ca, sa, W, H)
+    const px = cx * (W - 1), py = cy * (H - 1)
     const out = allocField(W * H)
     for (let y = 0; y < H; y++) {
-      const ny = H > 1 ? y / (H - 1) : 0
       for (let x = 0; x < W; x++) {
-        const nx = W > 1 ? x / (W - 1) : 0
-        const dx = nx - cx, dy = ny - cy
+        const dx = x - px, dy = y - py
         let d: number
-        if (type === 'radial') d = Math.sqrt(dx * dx + dy * dy) / RADIAL_REACH
-        else if (type === 'angular') d = Math.atan2(dy, dx) / (Math.PI * 2) + 0.5
-        else d = dx * ca + dy * sa + 0.5
+        if (type === 'radial') d = Math.sqrt(dx * dx + dy * dy) / span
+        else if (type === 'angular') d = (Math.atan2(dy, dx) - angle) / (Math.PI * 2) + 0.5
+        else d = (dx * ca + dy * sa) / span + 0.5
         const v = (d + offset) * repeat
         out[y * W + x] = wraps ? ((v % 1) + 1) % 1 : clamp01(v)
       }
     }
-    return { field: out }
-  },
-  FloatToField({ num, W, H }, id, props) {
-    const out = allocField(W * H)
-    out.fill(clamp01(num(id, 'value', props, 'value', 0.5)))
     return { field: out }
   },
   // Keep in lockstep with the `FieldBlur` emitter: a separable box blur,
@@ -939,7 +962,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
   },
   ShapeField({ num, W, H }, id, props) {
     return { field: evalShapeField(
-      String(props.shape ?? 'circle'),
+      String(props.shape ?? 'ellipse'),
       String(props.fieldMode ?? 'fill'),
       num(id, 'cx', props, 'cx', 0.5),
       num(id, 'cy', props, 'cy', 0.5),
@@ -956,12 +979,12 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const fv = input(id, 'field', null)
     const dxv = input(id, 'dx', null)
     const dyv = input(id, 'dy', null)
-    const strength = num(id, 'strength', props, 'strength', 1)
+    const strength = num(id, 'strength', props, 'strength', 2)
     return { field: evalFieldWarp(
       fv instanceof Float32Array ? fv : null,
       dxv instanceof Float32Array ? dxv : null,
       dyv instanceof Float32Array ? dyv : null,
-      strength, W, H,
+      strength, props.sampling !== 'nearest', W, H,
     ) }
   },
   FieldRotate({ input, num, t, W, H, stateKey }, id, props) {

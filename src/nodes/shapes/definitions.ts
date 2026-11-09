@@ -58,14 +58,15 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { speed: 1, loop: true },
   },
   {
-    // Renders text with the built-in 3×5 font; scroll > 0 scrolls it left.
-    // X/Y are normalised 0..1 around the text's visual centre; `wrap` tiles it
-    // across the opposite edges.
+    // Renders text with the built-in 3×5 font over an optional base frame;
+    // scroll > 0 scrolls it left. X/Y are normalised 0..1 around the text's
+    // visual centre; `wrap` tiles it across the opposite edges.
     type: 'Text',
     label: 'Text',
     category: 'pattern',
     subcategory: 'Shapes & Text',
     inputs: [
+      { id: 'base',   label: 'Base',   dataType: 'frame' },
       // A wired string (Text Value, Format Number, Format Date/Time) replaces
       // the typed text and is drawn at run time in the built-in font.
       { id: 'text',   label: 'Text',   dataType: 'string' },
@@ -101,7 +102,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'run', label: 'Run', dataType: 'bool' },
       { id: 'reset', label: 'Reset', dataType: 'bool' },
-      { id: 'durationSec', label: 'Duration', dataType: 'float' },
+      { id: 'durationSec', label: 'Duration (s)', dataType: 'float' },
       { id: 'x', label: 'X', dataType: 'float' },
       { id: 'y', label: 'Y', dataType: 'float' },
       { id: 'radius', label: 'Radius', dataType: 'float' },
@@ -139,7 +140,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Draws a line between two points over an optional base frame.
+    // Draws a line between two pixel positions over an optional base frame.
     type: 'Line',
     label: 'Line',
     category: 'pattern',
@@ -151,13 +152,14 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'y1',    label: 'Y1', dataType: 'float' },
       { id: 'x2',    label: 'X2', dataType: 'float' },
       { id: 'y2',    label: 'Y2', dataType: 'float' },
+      { id: 'thickness', label: 'Thickness', dataType: 'float' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
-    propertyInputs: { x1: 'x1', y1: 'y1', x2: 'x2', y2: 'y2', r: 'r', g: 'g', b: 'b' },
+    propertyInputs: { x1: 'x1', y1: 'y1', x2: 'x2', y2: 'y2', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { x1: 0, y1: 0, x2: 'max_x', y2: 'max_y', r: 0, g: 200, b: 255 },
+    defaultProperties: { x1: 0, y1: 0, x2: 'max_x', y2: 'max_y', thickness: 1, r: 0, g: 200, b: 255 },
   },
   {
     // Bundled shape generator: draws a rect / ellipse / regular polygon at
@@ -192,6 +194,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       cx: 0.5,
       cy: 0.5,
       size: 6,
+      scaleWithMatrix: true,
       aspect: 1,
       sides: 5,
       rotation: 0,
@@ -203,8 +206,9 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Traces a point around a parametric curve. Feed a 0–1 `t` signal into it
-    // and stack it into Trails for a persistent orbit/heart/rose drawing.
+    // Traces a point around a parametric curve. `t` is a turn fraction and
+    // wraps; unwired, `speed` (turns a second) moves the point on its own.
+    // Stack it into Trails for a persistent orbit/heart/rose drawing.
     type: 'Path',
     label: 'Path',
     category: 'pattern',
@@ -213,15 +217,16 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'base',  label: 'Base', dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 't',     label: 'T (0–1)', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
-    propertyInputs: { t: 't', scale: 'scale', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
+    propertyInputs: { t: 't', speed: 'speed', scale: 'scale', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { pathShape: 'circle', customPoints: '', t: 0, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
+    defaultProperties: { pathShape: 'circle', customPoints: '', t: 0, speed: 0.25, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
   },
   {
     // An outline redrawn by nested rotating circles: its discrete Fourier
@@ -252,7 +257,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       outline: 'heart', customPoints: '', maxHarmonics: 32, harmonics: 32, speed: 0.2,
-      scale: 0.8, thickness: 1.25, persistence: 0.995, showCircles: true, showPen: true,
+      scale: 0.8, thickness: 1.25, persistence: 1, showCircles: true, showPen: true,
       r: 255, g: 220, b: 80,
     },
   },
@@ -273,9 +278,9 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
-      { id: 'spinX', label: 'Spin X', dataType: 'float' },
-      { id: 'spinY', label: 'Spin Y', dataType: 'float' },
-      { id: 'spinZ', label: 'Spin Z', dataType: 'float' },
+      { id: 'spinX', label: 'Spin X (°/s)', dataType: 'float' },
+      { id: 'spinY', label: 'Spin Y (°/s)', dataType: 'float' },
+      { id: 'spinZ', label: 'Spin Z (°/s)', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'perspectiveStrength', label: 'Perspective', dataType: 'float' },
     ],
@@ -305,7 +310,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'colorA', label: 'Color A', dataType: 'color' },
       { id: 'colorB', label: 'Color B', dataType: 'color' },
-      { id: 'vertical', label: 'Vertical', dataType: 'bool' },
+      { id: 'angle', label: 'Angle', dataType: 'float' },
       { id: 'rA', label: 'R (A)', dataType: 'float' },
       { id: 'gA', label: 'G (A)', dataType: 'float' },
       { id: 'bA', label: 'B (A)', dataType: 'float' },
@@ -314,11 +319,11 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'bB', label: 'B (B)', dataType: 'float' },
     ],
     propertyInputs: {
-      vertical: 'vertical',
+      angle: 'angle',
       rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, vertical: false, mixMode: 'rgb' },
+    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, angle: 0, mixMode: 'rgb' },
   },
   {
     // Angled palette gradient across the matrix.
@@ -346,8 +351,8 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Shapes & Text',
     inputs: [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-      { id: 'angleOffset', label: 'Angle', dataType: 'float' },
-      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'angleOffset', label: 'Angle (°)', dataType: 'float' },
+      { id: 'spin', label: 'Spin (turns/s)', dataType: 'float' },
       { id: 'repeat', label: 'Repeat', dataType: 'float' },
       { id: 'radialMix', label: 'Radial Mix', dataType: 'float' },
       { id: 'radialScroll', label: 'Radial Scroll', dataType: 'float' },
@@ -367,8 +372,8 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     category: 'pattern',
     subcategory: 'Media',
     inputs: [
-      { id: 'positionX', label: 'Pos X', dataType: 'float' },
-      { id: 'positionY', label: 'Pos Y', dataType: 'float' },
+      { id: 'positionX', label: 'Position X', dataType: 'float' },
+      { id: 'positionY', label: 'Position Y', dataType: 'float' },
       { id: 'rotation', label: 'Rotation', dataType: 'float' },
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
       { id: 'zoom', label: 'Zoom', dataType: 'float' },
@@ -376,8 +381,8 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'cropY', label: 'Crop Y', dataType: 'float' },
       { id: 'saturation', label: 'Saturation', dataType: 'float' },
       { id: 'contrast', label: 'Contrast', dataType: 'float' },
-      { id: 'hueShift', label: 'Hue', dataType: 'float' },
-      { id: 'playbackRate', label: 'Playback', dataType: 'float' },
+      { id: 'hueShift', label: 'Hue Shift (°)', dataType: 'float' },
+      { id: 'playbackRate', label: 'Playback Rate', dataType: 'float' },
       { id: 'gamma', label: 'Gamma', dataType: 'float' },
     ],
     propertyInputs: {
@@ -430,7 +435,7 @@ export const SHAPES_DESCRIPTIONS: Record<string, string> = {
   Path: 'Traces a parametric curve point with subpixel splatting.',
   FourierEpicycles: 'Redraws an outline with nested rotating circles, from its Fourier series.',
   Wireframe3D: 'Rotating 3D wireframe model, auto-scaled to fit the matrix.',
-  GradientFrame: 'Two-color linear gradient fill.',
+  GradientFrame: 'Two-color linear gradient fill at any angle.',
   PaletteGradient: 'Palette gradient across the matrix at any angle.',
   PolarGradient: 'Palette swept around the centre by angle, radius or a spiral of both.',
   Image: 'Still or animated (GIF/APNG/WebP) image with fit, crop, colour controls.',

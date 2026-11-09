@@ -9,8 +9,14 @@ export const fractalType = (v: unknown): FractalType =>
 
 export const FRACTAL_ITERATIONS_MIN = 8
 export const FRACTAL_ITERATIONS_MAX = 64
-export const FRACTAL_ZOOM_MIN = 0.25
-export const FRACTAL_ZOOM_MAX = 64
+/**
+ * Depth is zoom in doublings: magnification is 2^depth, from a quarter (-2)
+ * to 64 times (6). A linear zoom put 1x to 2x in the bottom 1.6% of its
+ * slider, and a steady ramp slowed as it flew in; each step of depth looks
+ * the same.
+ */
+export const FRACTAL_DEPTH_MIN = -2
+export const FRACTAL_DEPTH_MAX = 6
 /** Half the shorter canvas side spans this many units of the complex plane at zoom 1. */
 export const FRACTAL_VIEW = 1.5
 /** An orbit has escaped once |z|² passes this. */
@@ -29,18 +35,20 @@ export const FRACTAL_ORIGIN: Record<FractalType, readonly [number, number]> = {
 
 export const fractalIterations = (v: unknown) =>
   Math.max(FRACTAL_ITERATIONS_MIN, Math.min(FRACTAL_ITERATIONS_MAX, Math.floor(Number(v) || FRACTAL_ITERATIONS_MIN)))
-export const fractalZoom = (v: number) =>
-  Math.max(FRACTAL_ZOOM_MIN, Math.min(FRACTAL_ZOOM_MAX, Number.isFinite(v) ? v : 1))
+/** The magnification for a depth: 2^depth, depth clamped. */
+export const fractalZoom = (depth: number) =>
+  Math.pow(2, Math.max(FRACTAL_DEPTH_MIN, Math.min(FRACTAL_DEPTH_MAX, Number.isFinite(depth) ? depth : 0)))
 
 export interface FractalParams {
   type: FractalType
   cRe: number
   cIm: number
-  zoom: number
+  /** Doublings of magnification; see FRACTAL_DEPTH_MIN. */
+  depth: number
   centerX: number
   centerY: number
-  /** Degrees. */
-  spin: number
+  /** View angle, degrees. */
+  rotation: number
   iterations: number
   smooth: boolean
 }
@@ -48,8 +56,8 @@ export interface FractalParams {
 /** Value 0–1 for pixel (x, y) of a W×H canvas; 0 is inside the set. */
 export function fractalSampler(p: FractalParams, W: number, H: number): (x: number, y: number) => number {
   const half = Math.min(W, H) / 2
-  const scale = FRACTAL_VIEW / fractalZoom(p.zoom) / half
-  const a = (p.spin * Math.PI) / 180, co = Math.cos(a), si = Math.sin(a)
+  const scale = FRACTAL_VIEW / fractalZoom(p.depth) / half
+  const a = (p.rotation * Math.PI) / 180, co = Math.cos(a), si = Math.sin(a)
   const [ox, oy] = FRACTAL_ORIGIN[p.type]
   const cx = ox + p.centerX, cy = oy + p.centerY
   const iters = fractalIterations(p.iterations)

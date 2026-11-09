@@ -454,14 +454,17 @@ export function nodeFormulaError(source: string): string | null {
 
 // ── The Field Formula contract ────────────────────────────────────────────
 //
-// Field Formula sees everything Formula Pattern sees plus `prev`: this node's
-// own field value at (x, y) from the previous frame, 0 on the first frame and
-// after a Restart entry. Reading it makes the node's field buffer persistent
-// in the preview and in the sketch (the "writable buffer": the formula writes
-// the field it will read back next frame), so decay, diffusion-by-feedback
-// and accumulation are one line each. The argument is appended after the
-// shared positional list and before the shims.
-export const FIELD_FORMULA_VARIABLES = [...NODE_FORMULA_VARIABLES, 'prev'] as const
+// Field Formula sees everything Formula Pattern sees, with `x` and `y` 0 to 1
+// as there, plus three of its own. `prev` is this node's own field value at
+// the pixel from the previous frame, 0 on the first frame and after a Restart
+// entry. Reading it makes the node's field buffer persistent in the preview
+// and in the sketch (the "writable buffer": the formula writes the field it
+// will read back next frame), so decay, diffusion-by-feedback and
+// accumulation are one line each. `px` and `py` are the pixel's column and
+// row, 0-based, for formulas written in pixels (the ANIMartRIX convention).
+// The arguments are appended after the shared positional list and before the
+// shims.
+export const FIELD_FORMULA_VARIABLES = [...NODE_FORMULA_VARIABLES, 'prev', 'px', 'py'] as const
 
 /** Compile a FieldFormula source string; `null` when invalid. */
 export function compileFieldFormula(source: string): FormulaFn | null {

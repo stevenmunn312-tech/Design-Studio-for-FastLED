@@ -26,7 +26,7 @@ rings and cylinders. Each frame runs, in this order, on both sides:
 2. Velocity: optional diffusion by `viscosity`, project, advect, project.
 3. Dye: optional diffusion by `diffusion`, advect, then decay by `dissipation`.
 
-`speed` is the number of Gauss-Seidel passes per solve (4 to 20). Velocity is
+`quality` is the number of Gauss-Seidel passes per solve (4 to 20). Velocity is
 clamped to four cells a frame and dye to four, so a hard drive stays finite.
 The outputs are dye clamped to 0..1 and two velocity fields at
 `0.5 + v * 0.25`, so 0.5 is still air and Frame Warp can be steered by them.
@@ -59,7 +59,7 @@ which root the pixel settled on.
   the range and faster convergence is brighter within it.
 - Zoom 1 spans 1.5 units from the centre to the edge of the shorter side. Each
   set has its own origin (`FRACTAL_ORIGIN`) so 0, 0 shows the interesting part.
-- `cRe`, `cIm`, `zoom`, `centerX`, `centerY` and `spin` are property inputs, so
+- `cRe`, `cIm`, `depth`, `centerX`, `centerY` and `rotation` are property inputs, so
   an LFO can morph a Julia set. Iterations are clamped to 8 to 64.
 
 The capacity verdict prices RAM only. There is no per-frame time model, so it
@@ -77,8 +77,10 @@ keeps two buffers (`Automaton: 2`).
 | `brianBrain` | Off becomes on with exactly two on neighbours, on becomes dying, dying becomes off. Encoded 0, 1, 2 for off, dying, on. |
 | `sand` | Grains fall, slide down a diagonal chosen by the parity of `x + y + step`, and pile. Half a full top row clears it. |
 
-The output is `state / (states − 1)`. It steps at `speed` a second. The preview
-counts frames and the sketch counts `millis()`, the way Game of Life does. A
+The output is `state / (states − 1)`. It steps at `speed` a second: the steps
+owed accumulate on the clock (`automatonStepDue`, frames in the preview,
+`millis()` in the sketch) and a frame takes at most one, so 35 a second is 35
+rather than the 30 that whole-frame intervals gave. A
 rising `reset` restarts it, and so does a change of canvas size.
 
 ## Digital Rain, Gauge and the classics (pattern)

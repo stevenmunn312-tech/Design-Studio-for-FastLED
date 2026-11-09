@@ -32,7 +32,7 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 }
 
 const phase0Nodes = [
-  node('circle', 'ShapeField', { shape: 'circle', fieldMode: 'distance', size: 0.3, range: 0.35 }),
+  node('circle', 'ShapeField', { shape: 'ellipse', fieldMode: 'distance', size: 0.3, range: 0.35 }),
   node('square', 'ShapeField', { shape: 'polygon', fieldMode: 'distance', size: 0.3, sides: 4, rotation: 45, range: 0.35 }),
   node('morph', 'FieldMath', { fieldOp: 'mix', t: 0.5 }),
   node('levels', 'FieldLevels', { low: 0.5, high: 0.5, steps: 1 }),
@@ -116,7 +116,7 @@ if ((phase2.match(/static inline CRGB _sampleFrame\(/g)?.length ?? 0) !== 1) {
 }
 
 const phase3Nodes = [
-  node('source', 'FieldFormula', { formula: '(x+2*y)/(3*(W-1))' }),
+  node('source', 'FieldFormula', { formula: '(px+2*py)/(3*(W-1))' }),
   node('field-symmetry', 'FieldSymmetry', {
     group: 'p4m', cells: 2.4, rotation: 12, spin: 18, offsetX: 0.15, offsetY: -0.2,
   }),
@@ -569,7 +569,7 @@ const phase9Ring = (() => {
 const phase9Matrix = (() => {
   const nodes = [
     node('noise', 'FieldNoise', { wrapX: true, noiseShape: 'ridged', octaves: 3 }),
-    node('wave', 'WaveSim', { halfDuplex: true, wrapX: false }),
+    node('wave', 'WaveSim', { halfDuplex: true, wrapEdges: false }),
     node('tick', 'Interval', { interval: 0.7 }),
     node('mix', 'FieldMath', { fieldOp: 'add' }),
     node('color', 'FieldToFrame', { palette: 'ocean', brightness: 1 }),

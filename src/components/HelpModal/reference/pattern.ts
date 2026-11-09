@@ -81,9 +81,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Text draws words in a bitmap font, still or scrolling. Type the text on the node, or wire text in from Text Value, Format Number or Format Date/Time.',
       'X and Y place it, with the alignment choosing which part of the text sits there. Scroll moves it in pixels per second along either axis, and Wrap repeats it across the opposite edge so a scrolling line never leaves a gap.',
-      'A new line in the typed text starts a second row. Wired text is drawn at run time in the built-in font.',
+      'A new line in the typed text starts a second row. Wired text is drawn at run time in the built-in font. Base draws the text over another frame; unwired, the background is black.',
     ],
     inputs: {
+      base: 'A frame to draw the text over. The letters cover it in solid colour.',
       text: 'Text to draw. Replaces the typed text.',
       color: 'Text colour. Replaces the R, G and B fields.',
     },
@@ -91,13 +92,12 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Text',
       title: 'A birthday banner',
       nodes: {
-        banner: ['Text', { text: 'HAPPY BIRTHDAY SAM!', scroll: 9, wrap: true, r: 255, g: 120, b: 210, letterSpacing: 1 }],
         confetti: ['Confetti', { palette: 'party', speed: 0.3, density: 0.19, trail: 0.3 }],
-        layer: ['Blend', { blendMode: 'screen', amount: 0.6 }],
+        banner: ['Text', { text: 'HAPPY BIRTHDAY SAM!', scroll: 9, wrap: true, r: 255, g: 120, b: 210, letterSpacing: 1 }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },
-      wires: ['banner.frame > layer.a', 'confetti.frame > layer.b'],
-      explanation: 'Text scrolls the greeting in pink, wrapping so it loops without a gap, and Blend screens a light shower of Confetti over it.',
+      wires: ['confetti.frame > banner.base'],
+      explanation: 'Confetti falls in the background, and Text draws the greeting over it in solid pink, scrolling and wrapping so it loops without a gap.',
       preview: 'The {output} scrolls HAPPY BIRTHDAY SAM! across a long, thin matrix, sprinkled with confetti.',
     }),
   },
@@ -134,7 +134,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Line: {
     overview: [
-      'Line draws a straight anti-aliased line between two points. Coordinates are in pixels from the top left, and accept expressions such as W/2 or max_x so a line can follow the matrix size.',
+      'Line draws a straight anti-aliased line between two points. Coordinates are pixels from the top left, 0 the first pixel and max_x the last, and accept expressions such as center_x or max_x so a line can follow the matrix size. Thickness sets its width in pixels.',
       'Wire signals into the ends to move it: sines for a sweeping arm, sensors for a pointer.',
     ],
     inputs: {
@@ -147,7 +147,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         armX: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5 }],
         armY: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5, phase: 0.25 }],
-        arm: ['Line', { x1: 'W/2', y1: 'H/2', r: 60, g: 255, b: 90 }],
+        arm: ['Line', { x1: 'center_x', y1: 'center_y', r: 60, g: 255, b: 90 }],
         afterglow: ['Trails', { decay: 0.3 }],
       },
       wires: ['armX.result > arm.x2', 'armY.result > arm.y2', 'arm.frame > afterglow.frame'],
@@ -160,7 +160,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Shape draws a rectangle, an ellipse or a regular polygon, filled or as an outline, with separate fill and edge colours.',
       'Sides accepts fractions and morphs smoothly between counts, so a triangle can grow into an octagon. Size, aspect, rotation and position can all be wired, and Wrap tiles a shape that crosses an edge.',
-      'Position values from 0 to 1 are fractions of the matrix; values above 1 are pixels.',
+      'Position values from 0 to 1 are fractions of the matrix; values above 1 are pixels. Size is in pixels, and with Scale with matrix on (the default) it is pixels on a 16-pixel matrix, so a shape keeps its proportion on a small or a large panel.',
     ],
     inputs: {
       base: BASE_INPUT,
@@ -181,12 +181,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Path: {
     overview: [
-      'Path traces a point along a curve — a circle, heart, Lissajous figure, rose, or your own closed spline. T is where on the curve the point sits, 0 to 1 for once round.',
+      'Path traces a point along a curve — a circle, heart, Lissajous figure, rose, star, square, infinity sign, or your own closed spline. T is where on the curve the point sits, 0 to 1 for once round, and it wraps. With nothing wired into T, Speed sends the point round on its own.',
       'The point is splatted with sub-pixel accuracy, so it glides smoothly even on a small matrix. Follow it with Trails to draw the curve as it moves.',
     ],
     inputs: {
       base: BASE_INPUT,
       color: 'Point colour. Replaces the R, G and B fields.',
+      t: 'Where the point is round the curve, as a fraction of a turn. It wraps, so a rising ramp keeps it going round. Wired, it replaces Speed.',
+      speed: 'Turns a second while T is unwired, so the point moves without any other node.',
     },
     example: example({
       featured: 'Path',
@@ -205,7 +207,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   FourierEpicycles: {
     overview: [
       'Fourier Epicycles redraws an outline with a chain of rotating circles, each turning at a different speed — the way a Fourier series builds any shape from circles.',
-      'Harmonics sets how many circles are in use, largest first. With a few the outline is a rough blob; with all of them it is exact. Fractions fade the next circle in, so animating Harmonics grows the shape before your eyes.',
+      'Harmonics sets how many circles are in use, largest first. With a few the outline is a rough blob; with all of them it is exact. Fractions fade the next circle in, so animating Harmonics grows the shape before your eyes. While Harmonics is wired, Max harmonics caps how many circles it can reach.',
       'Show Circles draws the circles as dim guides and Show Pen marks where the drawing happens. Custom outlines take your own points.',
     ],
     inputs: {
@@ -217,7 +219,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       title: 'Watch circles learn to draw a star',
       nodes: {
         learn: ['Wave', { frequency: 0.05, amplitude: 31, offset: 1, unipolar: true, waveform: 'triangle' }],
-        draw: ['FourierEpicycles', { outline: 'star', speed: 0.25, persistence: 0.99, showCircles: true, r: 255, g: 210, b: 90 }],
+        draw: ['FourierEpicycles', { outline: 'star', speed: 0.25, persistence: 0.91, showCircles: true, r: 255, g: 210, b: 90 }],
       },
       wires: ['learn.result > draw.harmonics'],
       output: MATRIX(24, 24),
@@ -252,7 +254,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   GradientFrame: {
     overview: [
-      'Gradient Frame fills the matrix with a smooth blend from Color A to Color B, left to right or top to bottom.',
+      'Gradient Frame fills the matrix with a smooth blend from Color A to Color B along any angle: 0 runs left to right, 90 top to bottom. It reaches from corner to corner, as Palette Gradient does.',
       'Mix chooses the path between the two colours: straight through RGB, or round the hue wheel the short or long way. The long way turns any two colours into a rainbow.',
     ],
     inputs: {
@@ -263,7 +265,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'GradientFrame',
       title: 'A dusk sky in two colours',
       nodes: {
-        sky: ['GradientFrame', { rA: 30, gA: 10, bA: 90, rB: 255, gB: 120, bB: 30, vertical: true, mixMode: 'hsvShort' }],
+        sky: ['GradientFrame', { rA: 30, gA: 10, bA: 90, rB: 255, gB: 120, bB: 30, angle: 90, mixMode: 'hsvShort' }],
         stars: ['Glitter', { density: 0.06, glitterMode: 'add', r: 255, g: 255, b: 255 }],
       },
       wires: ['sky.frame > stars.frame'],

@@ -217,6 +217,16 @@ export function fourierTable(outlineValue: unknown, customPoints: unknown, maxHa
   return terms
 }
 
+/**
+ * How many terms the table keeps. While Harmonics is a fixed number, every
+ * circle it uses and no more: `ceil(harmonics)`, so the whole 1–64 slider
+ * reaches. A wire can change it at run time, so a wired Harmonics is bounded
+ * by Max harmonics instead, which sizes the table baked into the sketch.
+ */
+export function fourierTableSize(maxHarmonics: unknown, harmonics: number, harmonicsWired: boolean): number {
+  return harmonicsWired ? fourierMaxHarmonics(maxHarmonics) : fourierMaxHarmonics(Math.ceil(harmonics))
+}
+
 /** `harmonics` clamped to the table: whole terms, plus a fraction of the next. */
 export function fourierHarmonicWeight(harmonics: number, index: number, count: number): number {
   const h = Math.max(1, Math.min(count, harmonics))

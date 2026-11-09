@@ -46,6 +46,7 @@ import { RAINBOW_AXES, SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
 import { BOID_COLOR_MODES, BOID_PALETTE_MODES, BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
+import { PATH_SHAPES } from '../nodes/shapes/customPath'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
@@ -79,8 +80,10 @@ import {
   AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_TYPES, CYCLIC_STATES_MAX, CYCLIC_STATES_MIN, CYCLIC_THRESHOLD_MAX, CYCLIC_THRESHOLD_MIN,
 } from './evaluator/automaton'
 import { FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN } from './evaluator/fluid'
+import { FRAME_TO_FIELD_CONVERSIONS } from './evaluator/frames'
+import { SHAPE_KINDS } from './evaluator/sdf'
 import {
-  FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
+  FRACTAL_DEPTH_MAX, FRACTAL_DEPTH_MIN, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES,
 } from './evaluator/fractal'
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { SDV_MAX_SPEED } from './evaluator/sdVideo'
@@ -239,7 +242,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FloatToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -441,7 +444,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
-  pathShape:  { control: 'select', options: ['circle', 'heart', 'lissajous', 'rose', 'custom'] },
+  pathShape:  { control: 'select', options: [...PATH_SHAPES] },
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
@@ -1384,6 +1387,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edgeMode: { control: 'select', options: ['clamp', 'wrap', 'black'] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
+  FieldWarp: {
+    sampling: { control: 'select', options: ['bilinear', 'nearest'] },
+  },
   FieldSymmetry: {
     group: { control: 'select', options: [...WALLPAPER_GROUPS] },
     cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
@@ -1403,9 +1409,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Shape: {
     cx:        N01,
     cy:        N01,
-    // Half-height in pixels (circumradius for a polygon).
+    // Half-height in pixels on a 16-pixel matrix (circumradius for a
+    // polygon); Scale with matrix grows it with the matrix.
     size:      { control: 'slider', min: 0.5, max: 32, step: 0.5 },
-    shape:     { control: 'select', options: ['rect', 'ellipse', 'polygon'] },
+    shape:     { control: 'select', options: [...SHAPE_KINDS] },
     aspect:    { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     // Fractional sides morph the polygon between vertex counts.
     sides:     { control: 'slider', min: 3, max: 10, step: 0.1 },
@@ -1417,6 +1424,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     high: N01,
     steps: { control: 'slider', min: 1, max: 16, step: 1 },
   },
+  FieldToFrame: {
+    low: N01,
+    high: N01,
+  },
+  FrameToField: {
+    conversion: { control: 'select', options: [...FRAME_TO_FIELD_CONVERSIONS] },
+  },
   GradientField: {
     gradientType: { control: 'select', options: [...GRADIENT_TYPES] },
     cx: N01,
@@ -1424,10 +1438,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     offset: { control: 'slider', min: -1, max: 1, step: 0.01 },
     repeat: { control: 'slider', min: GRADIENT_REPEAT.min, max: GRADIENT_REPEAT.max, step: 1 },
   },
-  FloatToField: { value: N01 },
   FieldBlur: { radius: { control: 'slider', min: BLUR_RADIUS.min, max: BLUR_RADIUS.max, step: 1 } },
   ShapeField: {
-    shape: { control: 'select', options: ['circle', 'rect', 'polygon'] },
+    shape: { control: 'select', options: [...SHAPE_KINDS] },
     fieldMode: { control: 'select', options: ['fill', 'distance', 'falloff'] },
     cx: N01,
     cy: N01,
@@ -1451,8 +1464,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edge: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
+  Line: { thickness: { control: 'slider', min: 0.5, max: 6, step: 0.1 } },
   // A fraction of half the shorter side: past 1 the point leaves the canvas.
-  Path: { scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 } },
+  Path: {
+    scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    speed: { control: 'slider', min: -FOURIER_SPEED_MAX, max: FOURIER_SPEED_MAX, step: 0.01 },
+  },
   FourierEpicycles: {
     outline: { control: 'select', options: [...FOURIER_OUTLINES] },
     maxHarmonics: { control: 'slider', min: FOURIER_MAX_HARMONICS_MIN, max: FOURIER_MAX_HARMONICS_MAX, step: 1 },
@@ -1460,7 +1477,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: { control: 'slider', min: -FOURIER_SPEED_MAX, max: FOURIER_SPEED_MAX, step: 0.01 },
     scale: { control: 'slider', min: FOURIER_SCALE_MIN, max: 1, step: 0.01 },
     thickness: { control: 'slider', min: FOURIER_THICKNESS_MIN, max: FOURIER_THICKNESS_MAX, step: 0.05 },
-    persistence: { control: 'slider', min: 0, max: 1, step: 0.005 },
+    persistence: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   PaletteBank: {
     blend: { control: 'slider', min: 0, max: PALETTE_BANK_BLEND_MAX, step: 1 },
@@ -1528,16 +1545,16 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   FluidSim: {
     inject: N01, injectX: N01, injectY: N01, viscosity: N01, diffusion: N01, buoyancy: N01,
     dissipation: { control: 'slider', min: 0, max: 0.2, step: 0.001 },
-    speed: { control: 'slider', min: FLUID_ITERATIONS_MIN, max: FLUID_ITERATIONS_MAX, step: 1 },
+    quality: { control: 'slider', min: FLUID_ITERATIONS_MIN, max: FLUID_ITERATIONS_MAX, step: 1 },
   },
   FractalField: {
     fractalType: { control: 'select', options: [...FRACTAL_TYPES] },
     cRe: { control: 'slider', min: -2, max: 2, step: 0.001 },
     cIm: { control: 'slider', min: -2, max: 2, step: 0.001 },
-    zoom: { control: 'slider', min: FRACTAL_ZOOM_MIN, max: FRACTAL_ZOOM_MAX, step: 0.01 },
+    depth: { control: 'slider', min: FRACTAL_DEPTH_MIN, max: FRACTAL_DEPTH_MAX, step: 0.01 },
     centerX: { control: 'slider', min: -2, max: 2, step: 0.001 },
     centerY: { control: 'slider', min: -2, max: 2, step: 0.001 },
-    spin: { control: 'slider', min: -180, max: 180, step: 1 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
     iterations: { control: 'slider', min: FRACTAL_ITERATIONS_MIN, max: FRACTAL_ITERATIONS_MAX, step: 1 },
   },
   SDVideo: {
@@ -1929,17 +1946,17 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     viscosity: 'How much the flow resists changes, spreading motion sideways.',
     diffusion: 'How fast the dye spreads by itself.',
     dissipation: 'Share of the dye that fades each frame.',
-    speed: 'Solver passes each frame. More is smoother and slower.',
+    quality: 'Solver passes each frame, 4 to 20. More gives smoother, more even swirls and costs more time per frame; the flow itself moves a little slower.',
     buoyancy: 'How strongly dye rises. 0 lets it hang.',
   },
   FractalField: {
     fractalType: 'Julia: one fixed c, every pixel a starting point. Mandelbrot: every pixel is its own c. Newton: which cube root of 1 the pixel settles on. Burning Ship: Mandelbrot with the parts folded positive.',
     cRe: 'Real part of the Julia constant. Wire an LFO here to morph the set.',
     cIm: 'Imaginary part of the Julia constant.',
-    zoom: 'Magnification. 1 shows the whole set.',
+    depth: 'How far in, in doublings: 0 shows the whole set, each 1 more is twice as close, 6 is 64 times. Wire a steady ramp here to fly in at an even pace.',
     centerX: 'Slide the view left or right, in units of the complex plane.',
     centerY: 'Slide the view up or down.',
-    spin: 'Rotate the view, in degrees.',
+    rotation: 'Turns the view, in degrees. Wire a ramp here to keep it turning.',
     iterations: 'Most steps tried before a pixel counts as inside the set. More detail costs more time per frame.',
     smooth: 'Blend the escape count into a smooth gradient instead of bands.',
   },
@@ -1969,7 +1986,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   WaveSim: {
     halfDuplex: 'Show only the positive half of the wave, so crests read as raised water and troughs stay dark.',
-    wrapX: 'Let waves leave one side and re-enter the other. Off, the left and right edges reflect them.',
+    wrapEdges: 'Let waves leave one edge and come back in at the opposite one, on both axes. Off, every edge reflects them.',
     speed: 'Simulation steps per frame. More makes ripples travel faster and costs more CPU.',
     damping: 'How much energy each step keeps. 0.999 rings for ages; 0.8 dies almost at once.',
     impulse: 'Strength of each new splash, 0.1 to 1.',
@@ -2265,7 +2282,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Palette the formula result (0–1, wrapping) is looked up in; a wired Palette overrides it.',
   },
   FieldFormula: {
-    formula: `${FORMULA_LANG_HELP} Field Formula also provides fieldIn and prev, its own value here last frame (0 at first). Reading prev keeps the field between frames.`,
+    formula: `${FORMULA_LANG_HELP} x and y run 0 to 1. Field Formula also provides px and py, the pixel's column and row from 0, fieldIn, and prev, its own value here last frame (0 at first). Reading prev keeps the field between frames.`,
+    a: 'Free number available in the formula as a; wire a control to animate it.',
+    b: 'Free number available in the formula as b.',
   },
   FieldLevels: {
     low: 'Input values at or below this point map to 0. When Low meets or exceeds High, this becomes the hard threshold.',
@@ -2275,14 +2294,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   GradientField: {
     gradientType: 'Linear runs along Angle, radial grows from the centre, angular sweeps round it like a pinwheel.',
-    angle: 'Direction of a linear ramp in degrees: 0 left to right, 90 top to bottom.',
-    cx: 'Centre of a radial or angular ramp, left to right (0 to 1).',
-    cy: 'Centre of a radial or angular ramp, top to bottom (0 to 1).',
+    angle: 'Direction of a linear ramp in degrees: 0 left to right, 90 top to bottom. Turns an angular ramp\'s start the same way.',
+    cx: 'The ramp\'s pivot, left to right (0 to 1): the centre of a radial or angular ramp, and the point a linear ramp passes 0.5 and turns round.',
+    cy: 'The ramp\'s pivot, top to bottom (0 to 1): the centre of a radial or angular ramp, and the point a linear ramp passes 0.5 and turns round.',
     offset: 'Slides the ramp along itself; wire a signal to scroll stripes or spin a pinwheel.',
     repeat: 'How many times the ramp repeats across the matrix. Above 1 the ramp wraps instead of clamping.',
-  },
-  FloatToField: {
-    value: 'The level every pixel of the field takes, 0 to 1, when nothing is wired into Value.',
   },
   FieldBlur: {
     radius: 'Pixels each way the blur reaches, 1 to 4. Edges are clamped, not wrapped.',
@@ -2291,7 +2307,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
     softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
     range: 'As a fraction of the matrix’s shorter side. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
-    shape: 'Circle, rectangle or polygon. Polygon uses Sides; the others use Aspect.',
+    shape: 'Rectangle, ellipse (a circle at aspect 1) or polygon, the same choices as Shape. Polygon uses Sides; the others use Aspect.',
     fieldMode: 'Fill is 1 inside and 0 outside with a soft edge; distance ramps across the outline; falloff is 0 on the shape and rises to 1 at Range beyond it, so a tiny circle gives the distance from a point.',
     cx: 'Centre of the shape, left to right (0 to 1).',
     cy: 'Centre of the shape, top to bottom (0 to 1).',
@@ -2383,27 +2399,28 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Colour by trail brightness, from the palette start to its end.',
   },
   Path: {
-    pathShape: 'Curve the point traces. Custom runs a smooth spline through the Custom points text.',
+    pathShape: 'Curve the point traces. Star, square and infinity are the outlines Fourier Epicycles draws; custom runs a smooth spline through the Custom points text.',
     customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined by a smooth closed curve through every one. Anything else draws the circle.',
-    t: 'How far round the curve the point is, 0 to 1. Wire a ramp or Sin here to move it.',
+    t: 'How far round the curve the point is, as a fraction of a turn: 0 and 1 are the start. It wraps, so a steadily rising signal goes round and round.',
+    speed: 'Turns of the curve per second while T is unwired, starting from T. Negative runs backwards; 0 holds the point at T.',
     scale: 'Size of the curve as a fraction of half the shorter side of the matrix.',
     thickness: 'Diameter of the moving point in pixels.',
   },
   FourierEpicycles: {
     outline: 'Shape the circles redraw. Custom uses the Custom points text.',
     customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined into a closed outline. Anything else draws the circle.',
-    maxHarmonics: 'Most circles kept: the largest terms of the outline\'s Fourier series. Sizes the table baked into the sketch.',
+    maxHarmonics: 'Most circles a wired Harmonics can use: the largest terms of the outline\'s Fourier series, sizing the table baked into the sketch. Unwired, Harmonics sizes the table itself.',
     harmonics: 'Circles in use, largest first. Fractions fade the next one in, so animating it grows a circle into the outline.',
     speed: 'Turns of the outline per second. Negative runs backwards.',
     scale: 'Size as a fraction of half the shorter side of the canvas.',
     thickness: 'Pen width in pixels.',
-    persistence: 'How much of the trail survives each frame. 1 never fades.',
+    persistence: 'How long the trail lasts: 1 halves it every 2 seconds, 0 leaves none. Each step along the slider shortens it by the same ratio, whatever the frame rate.',
     showCircles: 'Draw the rotating circles as dim guides.',
     showPen: 'Draw a brighter dot where the pen is.',
   },
   GradientFrame: {
     mixMode: 'How the ends blend: straight through RGB, or round the hue wheel the short or long way.',
-    vertical: 'Run the gradient top to bottom instead of left to right.',
+    angle: 'Direction of the blend in degrees: 0 runs Color A to Color B left to right, 90 top to bottom.',
     rA: 'Red of Color A, 0 to 255. Ignored while the Color A port is wired.',
     gA: 'Green of Color A, 0 to 255. Ignored while the Color A port is wired.',
     bA: 'Blue of Color A, 0 to 255. Ignored while the Color A port is wired.',
@@ -2852,16 +2869,18 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     letterSpacing: 'Blank columns between letters, in pixels.',
   },
   Line: {
-    x1: 'Start X in pixels from the left. Accepts expressions such as W/2.',
-    y1: 'Start Y in pixels from the top. Accepts expressions such as H-1.',
-    x2: 'End X in pixels from the left. Accepts expressions such as W-1.',
-    y2: 'End Y in pixels from the top. Accepts expressions such as H-1.',
+    x1: 'Start X in pixels from the left: 0 is the first column, W-1 the last. Accepts expressions such as W/2.',
+    y1: 'Start Y in pixels from the top: 0 is the first row, H-1 the last. Accepts expressions such as H-1.',
+    x2: 'End X in pixels from the left: 0 is the first column, W-1 the last. Accepts expressions such as W-1.',
+    y2: 'End Y in pixels from the top: 0 is the first row, H-1 the last. Accepts expressions such as H-1.',
+    thickness: 'Width of the line in pixels, 0.5 to 6. Edges are anti-aliased.',
   },
   Shape: {
     shape: 'Rectangle, ellipse (a circle at aspect 1), or a regular polygon whose corner count is Sides.',
     cx: 'Centre X, 0 (just off the left edge) to 1 (just off the right). Values above 1 are pixels.',
     cy: 'Centre Y, 0 (just off the top) to 1 (just off the bottom). Values above 1 are pixels.',
-    size: 'Half-height in pixels; for a polygon, the distance from centre to a corner.',
+    size: 'Half-height in pixels; for a polygon, the distance from centre to a corner. With Scale with matrix on, it is pixels on a 16-pixel matrix and grows or shrinks with the matrix.',
+    scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
     aspect: 'Width as a multiple of height for rectangles and ellipses. 1 is square.',
     sides: 'Corners on the polygon. Fractions morph smoothly, so 3.5 is halfway to a square.',
     rotation: 'Turn the shape, in degrees.',
@@ -3070,15 +3089,22 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     thickness: 'Width of the glowing curve as a fraction of the canvas.',
   },
   FieldToFrame: {
-    palette: 'Colours the field is painted with: 0 is the first colour, 1 the last.',
+    palette: 'Colours the field is painted with: Low takes the first colour, High the last.',
     brightness: 'Scales the painted colours, 0 to 1. Wire a VU level here to pulse the whole field.',
+    low: 'Field value that takes the palette\'s first colour; anything below it does too. Raise it for a field that never reaches 0, such as noise.',
+    high: 'Field value that takes the palette\'s last colour; anything above it does too. Lower it for a field that never reaches 1. At or below Low it is a hard threshold.',
+  },
+  FrameToField: {
+    conversion: 'How a colour becomes one number. Average: (R+G+B)/3, so pure red is 0.33. Max: the brightest channel (HSV value), so any fully lit colour is 1. Luma: brightness as the eye sees it, green brighter than blue.',
   },
   FieldMath: {
-    fieldOp: 'How the two fields combine per pixel. An unwired side counts as 0.',
+    fieldOp: 'How the two fields combine per pixel. An unwired A counts as 0; an unwired B reads B value.',
+    value: 'What B reads while the B field is unwired, 0 to 1. Wire a level here to scale, raise or threshold A by it.',
     t: 'Mix only: crossfade between A and B. 0 shows only A, 1 only B. Wire a signal to animate it.',
   },
   FieldWarp: {
     strength: 'How far the dX and dY fields can push each pixel, in pixels. A field value of 0.5 is no push.',
+    sampling: 'Bilinear blends the pixels between, so a warp flows smoothly; nearest keeps hard steps, for a field that must stay crisp.',
   },
   FieldRotate: {
     angle: 'Fixed turn of the field about the centre, in degrees. Pixels wrap round at the edges.',
@@ -3528,7 +3554,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   WaveSim: {
     halfDuplex: 'crests only',
-    wrapX: 'wrap X',
+    wrapEdges: 'wrap edges',
   },
   FluidSim: {
     inject: 'dye',
@@ -3547,6 +3573,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   FieldMath: {
     fieldOp: 'operation',
+    value: 'B value',
+    t: 'mix',
   },
   FieldTile: {
     tilesX: 'tiles X',
@@ -3555,6 +3583,10 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   FieldSymmetry: {
     offsetX: 'offset X',
     offsetY: 'offset Y',
+    spin: 'spin (°/s)',
+  },
+  FieldRotate: {
+    spin: 'spin (°/s)',
   },
   Blend: {
     blendMode: 'mode',
@@ -3647,6 +3679,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   PolarGradient: {
     angleOffset: 'angle (°)',
+    spin: 'spin (turns/s)',
     radialMix: 'radial mix',
     radialScroll: 'radial scroll',
   },
@@ -3664,6 +3697,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Shape: {
     cx: 'center X',
     cy: 'center Y',
+    scaleWithMatrix: 'scale with matrix',
   },
   Noise: {
     noiseType: 'type',
@@ -3802,6 +3836,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   SliceTiling: {
     bits: 'pattern A',
     bitsB: 'pattern B',
+    spin: 'spin (°/s)',
   },
   Truchet: {
     lineWidth: 'line width',
@@ -4271,12 +4306,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'power', label: 'Power', keys: ['brightness', 'enabled'] },
   ],
   Image: [
-    { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },
+    { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY', 'sampling'] },
     { key: 'color', label: 'Color', keys: ['brightness', 'saturation', 'contrast', 'hueShift', 'gamma', 'monochrome', 'paletteLevels', 'dithering'] },
-    { key: 'playback', label: 'Playback', keys: ['sampling', 'loop', 'playbackRate'] },
+    { key: 'playback', label: 'Playback', keys: ['loop', 'playbackRate'] },
   ],
   Shape: [
-    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation'] },
+    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'scaleWithMatrix', 'aspect', 'rotation'] },
     { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'thickness', 'wrap', 'filled'] },
     { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
   ],
@@ -4517,11 +4552,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   FluidSim: [
     { key: 'source', label: 'Source', keys: ['inject', 'injectX', 'injectY'] },
     { key: 'flow', label: 'Flow', keys: ['viscosity', 'diffusion', 'dissipation', 'buoyancy'] },
-    { key: 'solver', label: 'Solver', keys: ['speed'] },
+    { key: 'solver', label: 'Solver', keys: ['quality'] },
   ],
   FractalField: [
     { key: 'set', label: 'Set', keys: ['fractalType', 'cRe', 'cIm', 'iterations', 'smooth'] },
-    { key: 'view', label: 'View', keys: ['zoom', 'centerX', 'centerY', 'spin'] },
+    { key: 'view', label: 'View', keys: ['depth', 'centerX', 'centerY', 'rotation'] },
   ],
   Automaton: [
     { key: 'rule', label: 'Rule', keys: ['automatonType', 'rule', 'states', 'threshold', 'spawn'] },
@@ -4787,7 +4822,10 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   },
   Path: {
     prop: 'pathShape',
-    labels: { circle: 'Path · Circle', heart: 'Path · Heart', lissajous: 'Path · Lissajous', rose: 'Path · Rose', custom: 'Path · Custom' },
+    labels: {
+      circle: 'Path · Circle', heart: 'Path · Heart', lissajous: 'Path · Lissajous', rose: 'Path · Rose',
+      star: 'Path · Star', square: 'Path · Square', infinity: 'Path · Infinity', custom: 'Path · Custom',
+    },
   },
   FourierEpicycles: {
     prop: 'outline',
@@ -5246,6 +5284,10 @@ export function isPropertyEnabled(
   if (nodeType === 'FourierEpicycles' && key === 'customPoints') {
     return properties.outline === 'custom'
   }
+  // Max harmonics bounds a wired Harmonics; a fixed one sizes the table itself.
+  if (nodeType === 'FourierEpicycles' && key === 'maxHarmonics') {
+    return !wiredInputs || wiredInputs.has('harmonics')
+  }
   if (nodeType === 'Transform' && key === 'angle') {
     return (properties.transform ?? 'rotate') === 'translate'
   }
@@ -5266,6 +5308,9 @@ export function isPropertyEnabled(
   }
   if (nodeType === 'FieldMath' && key === 't') {
     return properties.fieldOp === 'mix'
+  }
+  if (nodeType === 'GradientField' && key === 'angle') {
+    return properties.gradientType !== 'radial'
   }
   if (nodeType === 'FractalField' && (key === 'cRe' || key === 'cIm')) {
     return properties.fractalType === undefined || properties.fractalType === 'julia'
@@ -5330,7 +5375,7 @@ export function isPropertyEnabled(
     if (key === 'fill')   return properties.filled === true
   }
   if (nodeType === 'ShapeField') {
-    const shape = String(properties.shape ?? 'circle')
+    const shape = String(properties.shape ?? 'ellipse')
     const mode = String(properties.fieldMode ?? 'fill')
     if (key === 'sides') return shape === 'polygon'
     if (key === 'aspect') return shape === 'circle' || shape === 'rect'
@@ -5347,7 +5392,8 @@ export function isPropertyEnabled(
     const mode = String(properties.displayMode ?? 'Digital HH:MM')
     const analog = mode === 'Analog' || mode === 'Analog + Date'
     const transport = mode === 'Stopwatch' || mode === 'Timer'
-    if (key === 'radius') return analog
+    // Scale with matrix sizes the analogue face, so it goes with Radius.
+    if (key === 'radius' || key === 'scaleWithMatrix') return analog
     if (key === 'hAlign' || key === 'vAlign') return !analog
     if (key === 'durationSec') return mode === 'Timer'
     if (key === 'run' || key === 'reset') return transport

@@ -774,23 +774,23 @@
       "viscosity": 0,
       "diffusion": 0.015,
       "dissipation": 0.04,
-      "speed": 10,
+      "quality": 10,
       "buoyancy": 0.3
      },
      "inputs": [
       {
        "id": "inject",
-       "label": "Inject",
+       "label": "Dye",
        "dataType": "float"
       },
       {
        "id": "injectX",
-       "label": "Inject X",
+       "label": "Source X",
        "dataType": "float"
       },
       {
        "id": "injectY",
-       "label": "Inject Y",
+       "label": "Source Y",
        "dataType": "float"
       },
       {
@@ -824,8 +824,8 @@
        "dataType": "float"
       },
       {
-       "id": "speed",
-       "label": "Speed",
+       "id": "quality",
+       "label": "Quality",
        "dataType": "float"
       }
      ],
