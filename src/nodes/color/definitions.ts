@@ -280,10 +280,14 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     label: 'Palette Bank',
     category: 'color',
     subcategory: 'Palettes',
+    // `select` (Index) picks a position directly whenever it changes, wrapping
+    // round the bank; Next and Previous step on from wherever it left the bank.
     inputs: [
       { id: 'next', label: 'Next', dataType: 'bool' },
       { id: 'previous', label: 'Previous', dataType: 'bool' },
+      { id: 'select', label: 'Index', dataType: 'float' },
     ],
+    propertyInputs: { select: 'select' },
     // A press, not a value — so a touch control minted on one of these is a
     // momentary Button rather than a latch. Declaring them here is what makes
     // the Touch node's add-control socket able to land on them at all;
@@ -300,7 +304,7 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     ],
     // `blend` eases a change of palette in with FastLED's
     // nblendPaletteTowardPalette; 0 cuts straight across.
-    defaultProperties: { palettes: [...PALETTE_BANK_DEFAULT_PALETTES], blend: PALETTE_BANK_BLEND_DEFAULT },
+    defaultProperties: { palettes: [...PALETTE_BANK_DEFAULT_PALETTES], select: 0, blend: PALETTE_BANK_BLEND_DEFAULT },
   },
 ]
 

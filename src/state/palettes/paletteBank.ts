@@ -49,6 +49,22 @@ export function paletteBankEntries(properties: Record<string, unknown>): string[
   return [...seen]
 }
 
+/**
+ * The Index input as the whole number both sides act on: rounded half up, as
+ * `Math.round` and the sketch's `floorf(x + 0.5f)` both round, and 0 for a
+ * wire carrying anything that is not a number. A change of it selects that
+ * position directly, wrapping round the bank like Next and Previous.
+ */
+export function paletteBankChoice(value: number): number {
+  // `|| 0` folds Math.round's -0 into the 0 a C++ long holds.
+  return Number.isFinite(value) ? Math.round(value) || 0 : 0
+}
+
+/** The Index input's C++: the same whole number from a float expression. */
+export function paletteBankChoiceCpp(value: string): string {
+  return `{ float _sv = ${value}; _s = isfinite(_sv) ? (long)floorf(_sv + 0.5f) : 0L; }`
+}
+
 /** The palette a bank at `index` reports, and what an empty one falls back to. */
 export function paletteBankSelection(entries: readonly string[], index: number): string {
   return entries[clampPaletteBankIndex(index, entries.length)] ?? PALETTE_BANK_FALLBACK

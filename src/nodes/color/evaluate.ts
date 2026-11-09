@@ -15,6 +15,7 @@ import {
   paletteBankBlendTicks,
   paletteBankTable,
   nblendPaletteBytes,
+  paletteBankChoice,
 } from '../../state/palettes/paletteBank'
 import { displayString } from '../../state/displays/displayText'
 import { gradientMixMode, hueUnits, mixGradientColors } from '../../state/palettes/hueMix'
@@ -37,6 +38,8 @@ import { instanceState } from '../../state/evaluator/memory'
 const paletteBankState = instanceState('paletteBankState', new Map<string, {
   lastT: number
   index: number
+  /** The Index value last acted on, rounded; a change selects. */
+  chosen?: number
   buttons: Record<string, ButtonEdgeState>
   /** The working palette a change blends through, as the sketch's 48 bytes. */
   current?: Uint8Array
@@ -127,7 +130,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     // a loop runs round, so it wraps (LINEARBLEND).
     return { color: motion === 'loop' ? samplePalette(palette, position) : samplePaletteClamped(palette, position) }
   },
-  PaletteBank({ inputSourceType, input, elapsedT: t, stateKey, incoming, nodeMap }, id, props) {
+  PaletteBank({ inputSourceType, input, num, elapsedT: t, stateKey, incoming, nodeMap }, id, props) {
     const entries = paletteBankEntries(props)
     const key = stateKey(id)
     const nowMs = t * 1000
@@ -152,9 +155,17 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
       const settings = pressEdgeSettings(edgeSettings, inputSourceType(id, port))
       return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, true, settings)
     }
+    // Index selects directly whenever its value changes (and on the first
+    // pass, so an unwired Index is where the bank starts); Next and Previous
+    // then step on from there, so whichever moved last wins.
+    const chosen = paletteBankChoice(num(id, 'select', props, 'select', 0))
+    let held = clampPaletteBankIndex(state.index, entries.length)
+    if (state.chosen !== chosen) {
+      state.chosen = chosen
+      held = stepPaletteBankIndex(0, entries.length, chosen)
+    }
     // Pressed together they cancel, the way +step and -step in one frame net
     // to nothing — no precedence rule needed.
-    const held = clampPaletteBankIndex(state.index, entries.length)
     const delta = (press('next') ? 1 : 0) - (press('previous') ? 1 : 0)
     const index = delta === 0 ? held : stepPaletteBankIndex(held, entries.length, delta)
     state.index = index

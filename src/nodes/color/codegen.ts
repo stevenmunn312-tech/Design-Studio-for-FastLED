@@ -7,7 +7,7 @@ import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
 import {
   paletteBankEntries, PALETTE_BANK_FALLBACK, paletteBankLabel, paletteBankBlend,
-  PALETTE_BANK_BLEND_TICK_MS, PALETTE_BANK_BLEND_MAX_TICKS,
+  PALETTE_BANK_BLEND_TICK_MS, PALETTE_BANK_BLEND_MAX_TICKS, paletteBankChoice, paletteBankChoiceCpp,
 } from '../../state/palettes/paletteBank'
 import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRgb } from '../../state/palettes/customPalette'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -188,7 +188,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`      CRGB _a = _band[_hb[_i]], _b = _band[_hb[_i] + 1]; float _m = _hm[_i], _d = ${usesShade ? '1.0f - _shade * (1.0f - fabsf(2.0f * _m - 1.0f))' : '1.0f'};`)
     ln(`      pal_${id}[_i] = CRGB((uint8_t)floorf((_a.r + (_b.r - _a.r) * _m) * _d + 0.5f), (uint8_t)floorf((_a.g + (_b.g - _a.g) * _m) * _d + 0.5f), (uint8_t)floorf((_a.b + (_b.b - _a.b) * _m) * _d + 0.5f)); } }`)
   },
-  PaletteBank({ node, id, p, ln, v, boolExpr, fastledPalette, incoming, nodeMap }) {
+  PaletteBank({ node, id, p, ln, v, f, boolExpr, fastledPalette, incoming, nodeMap }) {
     // Only the presets the author ticked are named here, so `usedPalettes`
     // records exactly those and `customPaletteDeclarationsCpp` declares
     // exactly those — the bank costs 48 bytes of RAM per palette it holds
@@ -214,6 +214,13 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  static const CRGBPalette16* const _pbPal_${id}[] = {${refs.map((ref) => `&${ref}`).join(', ')}};`)
     ln(`  static const char* const _pbName_${id}[] = {${entries.map((entry) => cppStringLiteral(paletteBankLabel(entry))).join(', ')}};`)
     ln(`  static uint8_t _pbIdx_${id} = 0;`)
+    // Index selects directly on a change (and on the first pass, so a set
+    // Index is where the bank starts), as the preview's paletteBankChoice
+    // does; at rest on 0 it changes nothing, so nothing is emitted for it.
+    if (incoming.has(`${node.id}:select`) || paletteBankChoice(Number(p.select ?? 0)) !== 0) {
+      ln(`  { static long _pbSel_${id} = 0; static bool _pbSelI_${id} = false; long _s = 0; ${paletteBankChoiceCpp(f('select', 'select', 0))}`)
+      ln(`    if (!_pbSelI_${id} || _s != _pbSel_${id}) { _pbSel_${id} = _s; _pbSelI_${id} = true; long _m = _s % ${count}; _pbIdx_${id} = (uint8_t)(_m < 0 ? _m + ${count} : _m); } }`)
+    }
     // Two buttons, one debounce rule, the numbers read from
     // state/player/transportBridge.ts so a press means here what it means in the
     // preview. Held together they cancel, as they do there.

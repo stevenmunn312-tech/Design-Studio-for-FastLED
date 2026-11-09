@@ -370,6 +370,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (`state/palettes/paletteBank.ts`), a copy `paletteBlendNative.test.ts` holds to
   FastLED's own function. While blending, the preview outputs the 16-entry
   table rather than the palette name; `blend: 0` keeps the name and the cut.
+  Its Index (`select`) jumps to a position whenever its rounded value
+  changes, and on the first pass, so a set Index is where the bank starts;
+  Next and Previous step on from there, so whichever moved last wins. Both
+  sides round with `paletteBankChoice`, and the sketch emits nothing for an
+  Index left unwired at 0.
 - Floating-point frame reads share `sampleFrame` in `evaluator/frames.ts` and
   `_sampleFrame` from `frameSampleHelperCpp.ts`; add edge policies or rounding
   changes there rather than inside a node. Frame Warp uses the pair directly.

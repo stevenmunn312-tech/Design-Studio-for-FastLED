@@ -452,11 +452,12 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
     overview: [
       'Palette Bank holds an ordered list of palettes and steps through it on Next and Previous, blending into each new palette over a short fade. It wraps at both ends.',
       'A new bank starts with four contrasting presets — party, ocean, lava and forest — so the first press shows a change. Tick the palettes you want in its body; only those are built into the sketch. Name and Index say which palette is current, for a display or another node.',
-      'Wire buttons, remote keys, beats or a timer into Next and Previous.',
+      'Wire buttons, remote keys, beats or a timer into Next and Previous. To pick a palette directly, wire a number into Index — a Step Value, an encoder, a DMX channel or a Touch slider: whenever it changes the bank jumps to that position, counted from 0, and Next and Previous step on from there.',
     ],
     inputs: {
       next: 'Each press moves to the next palette.',
       previous: 'Each press moves to the previous palette.',
+      select: 'A position in the bank, from 0; each change jumps there, wrapping past the end.',
     },
     outputs: {
       palette: 'The current palette, blending toward the newly selected one after each step.',

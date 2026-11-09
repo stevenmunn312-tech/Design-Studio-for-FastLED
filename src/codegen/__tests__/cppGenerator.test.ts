@@ -1985,6 +1985,23 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_pbPal_pb[] = {&paldef_ocean, &paldef_lava, &paldef_forest}')
     expect(cpp).toContain('CRGBPalette16 pal_pb = _pbCur_pb;')
     expect(cpp).toContain('ColorFromPalette(pal_pb,')
+    // Index unwired and at 0 changes nothing, so nothing is emitted for it.
+    expect(cpp).not.toContain('_pbSel_pb')
+  })
+
+  it('selects a Palette Bank position from a wired Index on each change', () => {
+    const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava', 'forest'] })
+    const knob = node('k', 'PotInput', 'input', {})
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([pb, knob, sx, outputNode], [
+      edge('e0', 'k', 'pb', 'value', 'select'),
+      edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toMatch(/float _sv = [^;]*n_k_value[^;]*; _s = isfinite\(_sv\) \? \(long\)floorf\(_sv \+ 0\.5f\) : 0L;/)
+    expect(cpp).toContain('if (!_pbSelI_pb || _s != _pbSel_pb) { _pbSel_pb = _s; _pbSelI_pb = true; long _m = _s % 3; _pbIdx_pb = (uint8_t)(_m < 0 ? _m + 3 : _m); } }')
+    // The selection lands before Next and Previous step on from it.
+    expect(cpp.indexOf('_pbSel_pb = _s')).toBeLessThan(cpp.indexOf('const bool _in[2]'))
   })
 
   it('eases a Palette Bank change with FastLED\'s palette blend on a 10 ms clock', () => {

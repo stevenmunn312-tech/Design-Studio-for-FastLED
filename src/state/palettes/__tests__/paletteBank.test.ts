@@ -11,6 +11,7 @@ import {
   movePaletteBankEntry,
   stepPaletteBankIndex,
   PALETTE_BANK_DEFAULT_PALETTES,
+  paletteBankChoice,
 } from '../paletteBank'
 import { libraryDefaults } from '../../nodeLibrary'
 import { evaluateGraphFull, evaluateScalarSeries } from '../../graphEvaluator'
@@ -203,6 +204,29 @@ describe('PaletteBank in the evaluator', () => {
     expect(index[60]).toBe(2)
     expect(index[90]).toBe(0)
     expect(index[120]).toBe(1)
+  })
+
+  it('jumps to a wired Index whenever it changes, and steps on from there', () => {
+    const nodes = [
+      node('bank', 'PaletteBank', { palettes: ['ocean', 'lava', 'forest', 'party'] }),
+      node('pick', 'Math', { mathOp: 'add', a: 2, b: 0 }),
+      node('tick', 'Interval', { interval: 0.5 }),
+    ]
+    const edges = [edge('e1', 'pick', 'bank', 'result', 'select'), edge('e2', 'tick', 'bank', 'pulse', 'next')]
+    // Frame 0 takes Index 2; Interval's pulse at frame 30 steps on to 3.
+    const index = evaluateScalarSeries(nodes, edges, 'bank', 'index', [0, 10, 29, 30, 40])
+    expect(index).toEqual([2, 2, 2, 3, 3])
+    // Past the end it wraps; a held value does not undo a later Next.
+    nodes[1].data.properties.a = 5
+    expect(evaluateScalarSeries(nodes, edges, 'bank', 'index', [0])).toEqual([1])
+  })
+
+  it('starts at a set Index with nothing wired', () => {
+    const nodes = [node('bank', 'PaletteBank', { palettes: ['ocean', 'lava', 'forest'], select: 2 })]
+    expect(evaluateScalarSeries(nodes, [], 'bank', 'index', [0, 60])).toEqual([2, 2])
+    expect(paletteBankChoice(1.5)).toBe(2)
+    expect(paletteBankChoice(-0.5)).toBe(0)
+    expect(paletteBankChoice(Number.NaN)).toBe(0)
   })
 
   it('leaves the cursor alone with nothing wired to it', () => {

@@ -1456,6 +1456,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PaletteBank: {
     blend: { control: 'slider', min: 0, max: PALETTE_BANK_BLEND_MAX, step: 1 },
+    // A position in the bank; past the end it wraps, as Next does.
+    select: { control: 'slider', min: 0, max: 15, step: 1 },
   },
   Truchet: {
     lattice: { control: 'select', options: [...TRUCHET_LATTICES] },
@@ -2314,6 +2316,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   PaletteBank: {
     blend: 'How fast a new palette fades in: colour steps per 10 ms, FastLED\'s nblendPaletteTowardPalette. 0 switches instantly.',
     palettes: 'The ordered palettes Next and Previous step through, edited in the body.',
+    select: 'Picks a palette by its position in the bank, from 0, whenever this changes; past the end it wraps round. Set here it is where the bank starts; wired, a Step Value, encoder, DMX channel or Touch slider chooses directly. Next and Previous step on from there.',
   },
   Lightning: {
     rate: 'Strikes per minute, on average. Each gap is half to one and a half times the average.',
@@ -3622,6 +3625,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   HueCycle: { s: 'saturation', v: 'brightness' },
   HarmonyPalette: { hue: 'hue (°)', value: 'brightness' },
   PaletteTransform: { paletteIn: 'palette', blackPoint: 'black point' },
+  PaletteBank: { select: 'index' },
   PaletteGradient: {
     speed: 'scroll',
   },

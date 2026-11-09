@@ -477,10 +477,6 @@ freeze, or drop them.
   help example is that chain). Add a colour node with hue offset, saturation
   scale and brightness scale, built on the existing `_rgbHue`/`_hsv` helpers.
   Evidence `src/components/HelpModal/reference/color.ts`.
-- [ ] **Palette Bank: Add an Index input (Med, M).** Next/Previous are the only
-  way in, so Step Value, an encoder, DMX or a Touch slider cannot pick a
-  palette directly, though the node already outputs Index. Add an Index input
-  that selects directly.
 - [ ] **Palette Bank: Accept wired palettes (Low, L).** Only catalogue presets
   can join a bank; Custom, Poline, Image and Harmony palettes cannot. Add
   wired palette slots to make it the general palette switcher. Evidence
