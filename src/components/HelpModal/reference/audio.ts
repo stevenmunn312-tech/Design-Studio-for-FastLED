@@ -124,9 +124,9 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       vocals: 'How voice-like the midrange is, 0 to 1. A heuristic, not a singer detector.',
       energy: 'How busy the sound is relative to the last few seconds, 0 to 1, smoothed.',
       loudness: 'How loud the sound is, 0 to 1, from its level rather than its shape. Not smoothed; add a Smooth node to ease it.',
-      silence: 'True while the energy is below the Silence Gate.',
+      silence: 'True while the loudness, eased by Smoothing, is below the Silence Gate.',
     },
-    propertyNote: 'Raise Silence Gate if room noise keeps the patch awake between songs.',
+    propertyNote: 'Silence follows the same absolute loudness as the Loudness output, so a quiet verse never counts as silence just because the chorus before it was loud. The Audio node’s gain sets how loud the sound reads.',
     example: example({
       featured: 'AudioFeatures',
       title: 'Settle into a calm breath between songs',
@@ -381,7 +381,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
   BeatPhase: {
     overview: [
       'Beat Phase turns beats into smooth motion. Phase is a saw that rises from 0 to 1 across each beat and snaps back to 0 on the next one, so anything it drives moves in step with the music between hits.',
-      'Wire Beat Detect’s Beat into Beat to keep it in sync with the song; between beats, or with nothing wired, it runs at its own BPM. Bar rises 0 to 1 over a whole bar and Count numbers the beats.',
+      'Wire Beat Detect’s Beat into Beat to keep it in sync with the song. After two beats it runs at the tempo they set and waits at 1 for the next one, so Count steps once a beat whatever BPM says. Until then, or with nothing wired, it runs at its own BPM; if the beats stop it carries on at the last tempo. Bar rises 0 to 1 over a whole bar and Count numbers the beats.',
       'Phase is ideal for anything that should travel once per beat: a dot round a ring, a palette scroll, a sweep.',
     ],
     inputs: {
@@ -398,12 +398,12 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         beat: ['BeatDetect', { threshold: 0.45 }],
-        phase: ['BeatPhase', { bpm: 100, beatsPerBar: 4 }],
+        phase: ['BeatPhase', { beatsPerBar: 4 }],
         fill: ['Gauge', { gaugeStyle: 'ring', ringLeds: 24, arcStart: 0, palette: 'synthwave' }],
       },
-      wires: ['mic.audio > beat.audio', 'beat.beat > phase.beat', 'phase.bar > fill.value'],
+      wires: ['mic.audio > beat.audio', 'beat.beat > phase.beat', 'beat.bpm > phase.bpm', 'phase.bar > fill.value'],
       output: RING(24),
-      explanation: 'Beat Detect resyncs Beat Phase on every beat, and Bar rises from 0 to 1 over four of them. Gauge in ring style fills the LED ring with it, so the ring fills exactly once per bar and empties on the downbeat.',
+      explanation: 'Beat Detect resyncs Beat Phase on every beat and hands it its tempo estimate for the first two, and Bar rises from 0 to 1 over four beats. Gauge in ring style fills the LED ring with it, so the ring fills exactly once per bar and empties on the downbeat.',
       preview: 'Play music with a steady beat. The {output} fills clockwise from the top over each bar and starts again on the next.',
     }),
   },

@@ -739,10 +739,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     durationSec: { control: 'slider', min: 0, max: CLOCK_TIMER_MAX_SEC, step: 1, entry: 'number' },
   },
   BeatFlash: {
-    // 'none' (default) uses the r/g/b color below; any other preset sweeps
-    // the flash through that palette as it decays.
-    palette:   { control: 'select', options: ['none', ...PALETTES] },
-    blendMode: { control: 'select', options: ['screen', 'add'] },
+    flashMode:   { control: 'select', options: ['lighten', 'add', 'replace'] },
+    colorSource: { control: 'select', options: ['solid', 'palette'] },
   },
   DanceFlash: {
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -2118,9 +2116,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     decay: 'Baseline relax speed for a baked show envelope (0–1). Live audio uses FastLED\'s own beat.',
   },
   AudioFeatures: {
-    gate: 'Silence-detection threshold — how much energy is required before `silence` flips false.',
+    gate: 'How loud the sound must be before Silence turns off, on the Loudness scale (0–1). Raise it if room noise keeps the patch awake between songs. It also trims weak vocal readings.',
     sensitivity: 'Scales the energy and vocal estimates (0–1). Raise it on quiet sources.',
-    smoothing: 'How much of last frame is kept (0–0.95). Higher gives calmer vocals/energy, slower response.',
+    smoothing: 'How much of last frame is kept (0–0.95). Higher gives calmer vocals, energy and silence, slower response.',
   },
   Vibe: {
     gain: 'Scales the three relative levels and their smoothed copies. Spikes compare the two, so gain never changes them.',
@@ -2478,7 +2476,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     smoothing: 'How much of the previous frame carries over, 0 instant to 0.95 very slow.',
   },
   BeatPhase: {
-    bpm: 'Tempo the phase free-runs at between beats, or always when nothing is wired into Beat.',
+    bpm: 'Tempo the phase runs at until two beats have arrived, or always when nothing is wired into Beat. After that it follows the measured beat.',
     beatsPerBar: 'Beats in one bar; the Bar output runs 0 to 1 over that many beats.',
   },
   SpectrumVisualizer: {
@@ -2501,11 +2499,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   BeatFlash: {
     attack: 'Rise time as a share of 1.5 s (0 = instant flash, 1 = 1.5 s ramp to full).',
-    decay: 'Share of the flash kept each frame (0–1). 0.85 fades in ~¼ s; 0.95 lingers; 1 never fades.',
-    intensity: 'Flash brightness multiplier (0–2); 1 is the normal flash, above 1 overdrives toward white.',
-    blendMode: 'Screen lifts the base toward the flash colour; Add sums them and clips sooner.',
-    preserveBase: 'On, the base pattern shows through the flash; off, the frame is replaced by the flash colour.',
-    palette: "'none' flashes the solid colour below; any palette sweeps through it as the flash fades.",
+    decay: 'Share of the flash kept every 60th of a second (0–1), at any frame rate. 0.85 fades in ~¼ s; 0.95 lingers; 1 never fades.',
+    intensity: 'How far the flash goes toward its colour (0–2). 0.45 is a restrained lift; 1 reaches the colour; above 1 overdrives toward white.',
+    flashMode: 'Lighten lifts the base toward the flash colour and never darkens it; Add sums them and clips sooner; Replace shows only the flash while it is lit.',
+    colorSource: 'Solid flashes the R, G, B colour; Palette sweeps through the palette as the flash fades. A wired palette always sweeps.',
+    palette: 'Palette the flash sweeps through as it fades, when Color is Palette.',
   },
   KickShock: {
     speed: 'Ring travel rate (0–1); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
@@ -3570,8 +3568,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     flowMode: 'flow',
   },
   BeatFlash: {
-    blendMode: 'mode',
-    preserveBase: 'keep base',
+    flashMode: 'mode',
+    colorSource: 'color',
   },
   // On the pool patterns decay, thickness and size are multipliers of a
   // ring's or blob's lifetime, width and radius, not rates.
@@ -4335,8 +4333,8 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   BeatFlash: [
     { key: 'envelope', label: 'Envelope', keys: ['attack', 'decay', 'intensity'] },
-    { key: 'blend', label: 'Blend', keys: ['blendMode', 'preserveBase'] },
-    { key: 'color', label: 'Color', keys: ['palette', 'r', 'g', 'b'] },
+    { key: 'blend', label: 'Blend', keys: ['flashMode'] },
+    { key: 'color', label: 'Color', keys: ['colorSource', 'palette', 'r', 'g', 'b'] },
   ],
   KickShock: [
     { key: 'drums', label: 'Drums', keys: ['kick', 'snare', 'hihat'] },
@@ -5311,6 +5309,12 @@ export function isPropertyEnabled(
       case 'count':     return tt === 'blinds'
       case 'turns':     return tt === 'spiral'
     }
+  }
+  // Beat Flash reads its R, G, B or its palette, as Color chooses.
+  if (nodeType === 'BeatFlash') {
+    const palette = properties.colorSource === 'palette'
+    if (key === 'palette') return palette
+    if (key === 'r' || key === 'g' || key === 'b') return !palette
   }
   if (nodeType === 'SpectrumVisualizer') {
     const style = String(properties.style ?? 'Bars')

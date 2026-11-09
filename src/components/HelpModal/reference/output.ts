@@ -281,7 +281,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       nodes: {
         bell: ['ButtonInput'],
         chime: ['DFPlayerOutput', { uartRxPin: 16, uartTxPin: 17, busyPin: 27, track: 1, volume: 0.8, audioOutput: 'Speaker' }],
-        flash: ['BeatFlash', { decay: 0.9, intensity: 1, palette: 'sunset' }],
+        flash: ['BeatFlash', { decay: 0.9, intensity: 1, colorSource: 'palette', palette: 'sunset' }],
         hall: ['Breathe', { palette: 'amethyst', bpm: 8 }],
       },
       wires: ['bell.pressed > chime.play', 'bell.pressed > flash.beat', 'hall.frame > flash.frame'],

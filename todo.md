@@ -267,14 +267,6 @@ freeze, or drop them.
 
 #### Audio and audio-reactive
 
-- [ ] **Category: Expose band and drum sockets on audio patterns (High, S).**
-  Only Audio → Hue and Level Meter declare `defaultExposedInputs`, so the
-  other 23 audio patterns draw no Bass, Mids, Treble, Kick or Vocals socket
-  until a wire lands on the row. Add `defaultExposedInputs` for the band and
-  drum ports on every audio pattern, as graph-and-nodes.md already advises
-  for nodes whose ports are their purpose. Evidence
-  `src/nodes/audioReactive/definitions.ts:118`,
-  `src/state/propertyInputs.ts:162`.
 - [ ] **Category: Use frame-rate-independent envelopes (Med, M).** FFT
   Analyzer, Percussion Detect, Audio Features and Frequency Band smoothing,
   Beat Flash decay/attack, Beat Kaleidoscope punch and Ember Pulse burst
@@ -311,13 +303,6 @@ freeze, or drop them.
   input with the same fallback so a first patch is one wire; keep FFT
   Analyzer for gain, smoothing and tilt. Evidence
   `src/nodes/audioReactive/evaluate.ts:1158`.
-- [ ] **Category: Edge-detect the beat input in every pattern (Low, S).**
-  Beat Flash, Beat Kaleidoscope and Ember Pulse re-trigger on every frame
-  the input is true, though their help says "each rising edge". A Kick
-  envelope or Vibe Spike that stays true for several frames pins the flash
-  at full. Detect the rising edge as Kick Shock, Percussion Blobs, Rain
-  Ripples, Prism Storm and Dance Flash already do. Evidence
-  `src/nodes/audioReactive/evaluate.ts:507`.
 - [ ] **Category: Standardise colour inputs on Palette plus optional Color
   (Low, M).** Gravity Well uses a Color port plus R/G/B and no palette,
   Beat Flash uses a `'none'` palette sentinel plus R/G/B, Dance Flash is
@@ -340,11 +325,6 @@ freeze, or drop them.
   wires any of the five diagnostic outputs. Move them into the
   BeatDetectBody readout or behind an advanced-outputs toggle. Evidence
   `src/nodes/audio/evaluate.ts:162`.
-- [ ] **Audio Features: Derive Silence from Loudness (High, S).** Silence is
-  `energy < 0.015 + gate×0.35`, and Energy is peak-relative, so what counts
-  as quiet floats with the last few seconds' peak. Gate the absolute
-  Loudness instead and drop the Silence Gate workaround from the help.
-  Evidence `src/nodes/audio/evaluate.ts:315`.
 - [ ] **Audio Features: Apply Sensitivity and smoothing to Loudness (Med,
   S).** Loudness is the raw meter and real music sits at 0.02–0.2 of its
   scale, so wired into a 0–1 input it barely moves and the help tells users
@@ -380,62 +360,20 @@ freeze, or drop them.
 - [ ] **Frequency Band: Fix the "hi-hat air band" wording (Low, S).** The
   definition comment and help mention a hi-hat air band but the spectrum
   stops at 5.1 kHz; say so. Evidence `src/nodes/audio/definitions.ts:208`.
-- [ ] **Beat Phase: Stop free-running at the BPM field once beats arrive
-  (High, S).** With Beat wired, the phase keeps running at the BPM field and
-  wraps (adding to Count) before the real beat resets it. If BPM is faster
-  than the song, Count and Bar double-step and Phase saws twice per beat; if
-  slower, Phase jumps from about 0.8 to 0. After two beats, run at the
-  measured interval or hold phase at 1 until the next beat, and wire Beat
-  Detect's BPM into the help example. Evidence
-  `src/nodes/audio/evaluate.ts:430`.
-- [ ] **Spectrum Visualizer: Show only the controls the style uses (Med,
-  S).** Waterfall Speed applies to Waterfall only; Peak Hold and Peak
-  Gravity don't apply to Waterfall or Three Band; Reactivity, Speed and
-  Mirror apply to Three Band only. Add a SpectrumVisualizer case to
-  `isPropertyEnabled` to gate them, as the Music Player's radio group does.
-  Evidence `src/state/nodeLibrary.ts:5018`.
 - [ ] **Spectrum Visualizer: Smooth Three Band or split it out (Med, S).**
   Three Band ignores the Smoothing and Tilt rows it shows; unwired bands
   are raw spectrum thirds × gain, so bars jitter next to every other style.
   Apply the smoothing, or make Three Band its own node. Evidence
   `src/nodes/audioReactive/evaluate.ts:1158`.
-- [ ] **Bass Pulse: Default bass to 0.5 (Med, S).** It defaults to
-  `bass: 0` so it drops black, while every sibling uses 0.5. Change the
-  default to 0.5. Evidence `src/nodes/audioReactive/definitions.ts:103`.
-- [ ] **Beat Flash: Make "Screen" match on preview and firmware (High, S).**
-  The preview lerps each channel toward the flash colour and can darken,
-  while the firmware only adds `max(0, colour − base)`. A base brighter
-  than the flash colour is pulled down in preview but untouched on the
-  device, and the sunset-over-Life help example shows different colours. Use
-  the firmware's "lighten toward" behaviour in both and rename the mode.
-  Evidence `src/nodes/audioReactive/evaluate.ts:546`.
-- [ ] **Beat Flash: Soften the default intensity (Med, S).** Defaults give
-  a full-white, full-intensity flash on every beat. Default Intensity to
-  about 0.4–0.5. Evidence `src/nodes/audioReactive/definitions.ts:252`.
-- [ ] **Beat Flash: Merge Keep Base and Blend into one Mode select (Low,
-  S).** Blend does nothing when Keep Base is off. Replace both with a Mode
-  select (Lighten / Add / Replace), and gate R/G/B off when a palette is
-  chosen via `isPropertyEnabled`, removing the `'none'` palette sentinel.
-  Evidence `src/state/nodeLibrary.ts:740`.
 - [ ] **Dance Flash: Add a Gap select (Med, S).** The 2–5 minute gap
   between flashes is hard-coded. Add a Gap select (for example 30 s, 1–2
   min, 2–5 min); keep the first flash at 2.5–6 s. Evidence
   `src/nodes/audioReactive/danceFlash.ts:14`.
-- [ ] **Kick Shock: Default drums to nonzero and demo-fire when unwired
-  (Med, S).** Kick, Snare and Hi-Hat default to 0, so it drops near-black
-  (idle floor about 5/255). Default the drums to a visible value, or fire a
-  slow demo kick while the ports are unwired so the rings show. Evidence
-  `src/nodes/audioReactive/definitions.ts:308`.
 - [ ] **Vocal Aurora: Stop wiring Energy into Reactivity in the help
   example (Med, S).** The example uses Audio Features Energy, so curtains
   stay fully reactive through a quiet verse. Wire Loudness (or nothing) and
   update the text. Evidence
   `src/components/HelpModal/reference/pattern.ts:1179`.
-- [ ] **Percussion Blobs: Default drums to nonzero and demo-spawn when
-  unwired (Med, S).** Kick, Snare and Hi-Hat default to 0, so it drops
-  black. Use the same fix as Kick Shock: visible defaults, or spawn demo
-  blobs while the drum ports are unwired. Evidence
-  `src/nodes/audioReactive/definitions.ts:396`.
 - [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
   the only band pattern with no palette; a Color port overrides three R/G/B
   float ports. Swap the R/G/B ports for a palette and keep the optional

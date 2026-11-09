@@ -4247,7 +4247,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('// SpectrumBars')
   })
 
-  it('keeps unwired audio-only patterns silent in firmware like the preview', () => {
+  it('reads an unwired audio-only pattern the same way in firmware as in the preview', () => {
     const bars = node('silentBars', 'SpectrumVisualizer', 'pattern', { style: 'Three Band' })
     const pulse = node('silentPulse', 'BassPulse', 'pattern', {})
     const barsCpp = generateCpp([bars, out], [edge('bars-out', 'silentBars', 'out', 'frame', 'frame')])
@@ -4259,7 +4259,8 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(barsCpp).toContain('float _b = min(1.0f, max(0.0f, constrain((_svBands[0]')
     expect(barsCpp).toContain('_m = min(1.0f, max(0.0f, constrain((_svBands[')
     expect(barsCpp).toContain('_t = min(1.0f, max(0.0f, constrain((_svBands[')
-    expect(pulseCpp).toContain('float _lv = constrain(0, 0.0f, 1.0f)')
+    // Bass Pulse's unwired Bass is its 0.5 field, as the preview reads it.
+    expect(pulseCpp).toContain('float _lv = constrain(0.5, 0.0f, 1.0f)')
   })
 
   it('emits Audio to Hue in the documented 0-360 degree range', () => {
@@ -5810,49 +5811,39 @@ describe('bypassed nodes (codegen)', () => {
 describe('generateCpp — BeatFlash', () => {
   const beat = node('beat', 'ButtonInput', 'input', {})
   const base = node('base', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 })
+  const flash = (id: string, props: Record<string, unknown>) => generateCpp([beat, base, node(id, 'BeatFlash', 'pattern', props)], [
+    edge('e1', 'beat', id, 'pressed', 'beat'),
+    edge('e2', 'base', id, 'frame', 'frame'),
+  ])
 
-  it('defaults to a solid CRGB flash color, screen-blended, with an attack ramp', () => {
-    const bf = node('bf', 'BeatFlash', 'pattern', {})
-    const cpp = generateCpp([beat, base, bf], [
-      edge('e1', 'beat', 'bf', 'pressed', 'beat'),
-      edge('e2', 'base', 'bf', 'frame', 'frame'),
-    ])
+  it('defaults to a solid CRGB flash colour, lightened, fired on a rising edge and timed by the clock', () => {
+    const cpp = flash('bf', {})
     expect(cpp).toContain('CRGB(255, 255, 255)')
-    expect(cpp).toContain('_fAtkStep_bf')
-    // Above 1 the flash would grow instead of fading and never let go.
-    expect(cpp).toContain('else _flash_bf *= constrain(0.85,0.0f,1.0f);')
+    expect(cpp).toContain('if (_fBeat_bf && !_flashPrev_bf) _flashRise_bf = true;')
+    // Above 1 the flash would grow instead of fading and never let go; the
+    // share is kept per 60th of a second, whatever the loop rate.
+    expect(cpp).toContain('else _flash_bf *= powf(constrain(0.85,0.0f,1.0f), _flashbfDt * 60.0f);')
+    expect(cpp).toContain('_flash_bf * 0.45')
     expect(cpp).not.toContain('ColorFromPalette(paldef_rainbow')
-    // Screen blend subtracts the base pixel from the flash color.
-    expect(cpp).toMatch(/_fc_bf\.r - .*\[_i\]\.r/)
+    // Lighten adds only the part of the flash colour above the base pixel.
+    expect(cpp).toContain('qadd8(buf_bf[_i].r, (uint8_t)constrain(((float)_fc_bf.r - buf_bf[_i].r) * _feff_bf, 0.0f, 255.0f))')
   })
 
-  it('samples a palette instead of the solid color when one is selected', () => {
-    const bf = node('bf2', 'BeatFlash', 'pattern', { palette: 'ocean' })
-    const cpp = generateCpp([beat, base, bf], [
-      edge('e1', 'beat', 'bf2', 'pressed', 'beat'),
-      edge('e2', 'base', 'bf2', 'frame', 'frame'),
-    ])
+  it('samples a palette instead of the solid colour when Color is Palette', () => {
+    const cpp = flash('bf2', { colorSource: 'palette', palette: 'ocean' })
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
     expect(cpp).not.toContain('CRGB(255, 255, 255)')
+    expect(flash('bf2s', { colorSource: 'solid', palette: 'ocean' })).not.toContain('ColorFromPalette(paldef_ocean')
   })
 
-  it('preserveBase=false overwrites the pixel outright instead of blending', () => {
-    const bf = node('bf3', 'BeatFlash', 'pattern', { preserveBase: false, r: 0, g: 255, b: 0 })
-    const cpp = generateCpp([beat, base, bf], [
-      edge('e1', 'beat', 'bf3', 'pressed', 'beat'),
-      edge('e2', 'base', 'bf3', 'frame', 'frame'),
-    ])
+  it('Replace overwrites the pixel outright instead of blending', () => {
+    const cpp = flash('bf3', { flashMode: 'replace', r: 0, g: 255, b: 0 })
     expect(cpp).toContain('CRGB(0, 255, 0)')
     expect(cpp).toMatch(/buf_bf3\[_i\] = CRGB\(/)
   })
 
-  it('blendMode "add" adds the flash color without subtracting the base', () => {
-    const bf = node('bf4', 'BeatFlash', 'pattern', { blendMode: 'add' })
-    const cpp = generateCpp([beat, base, bf], [
-      edge('e1', 'beat', 'bf4', 'pressed', 'beat'),
-      edge('e2', 'base', 'bf4', 'frame', 'frame'),
-    ])
-    expect(cpp).toMatch(/qadd8\(buf_bf4\[_i\]\.r, \(uint8_t\)min\(255\.0f, _fc_bf4\.r \* _feff_bf4\)\)/)
+  it('Add adds the flash colour without subtracting the base', () => {
+    expect(flash('bf4', { flashMode: 'add' })).toContain('qadd8(buf_bf4[_i].r, (uint8_t)constrain(_fc_bf4.r * _feff_bf4, 0.0f, 255.0f))')
   })
 })
 

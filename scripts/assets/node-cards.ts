@@ -344,12 +344,12 @@ function buildPropRows(
 ): PropRow[] {
   const hasRGB = hasRgbProperties(props)
   // showRGB in StudioNode.tsx: Mirror's r/g/b is only the glow tint, Boids
-  // only uses it in 'solid' mode, BeatFlash's solid colour is unused once a
-  // palette is selected.
+  // only uses it in 'solid' mode, BeatFlash's solid colour is unused while
+  // its Color is Palette.
   const showRGB = hasRGB
     && (def.type !== 'Mirror' || props.glow === true)
     && (def.type !== 'Boids' || props.colorMode === 'solid')
-    && (def.type !== 'BeatFlash' || String(props.palette ?? 'none') === 'none')
+    && (def.type !== 'BeatFlash' || props.colorSource !== 'palette')
   const isGroupInput = def.type === 'GroupInput'
   const isMatrixOutput = def.type === 'MatrixOutput'
   const entries = editableProperties(def.type, props, exposedKeys)

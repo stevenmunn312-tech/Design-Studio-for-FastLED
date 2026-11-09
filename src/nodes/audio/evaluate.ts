@@ -13,7 +13,7 @@ import { isAudioSignal, resampleSpectrumBins } from '../../state/evaluator/signa
 import { instanceState } from '../../state/evaluator/memory'
 import { bandLevel, clampBandHz } from '../../audio/frequencyBand'
 import { audioLoudness, resolveStereoLevels } from '../../audio/stereoLevels'
-import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
+import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar, beatPhaseStep, type BeatPhaseState } from '../../audio/beatPhase'
 
 const fftLevels   = instanceState('fftLevels', new Map<string, { bass: number; mids: number; treble: number }>())
 const beatLevels  = instanceState('beatLevels', new Map<string, ReturnType<typeof createBeatDetectorState>>())
@@ -26,12 +26,28 @@ type AudioFeatureState = {
   hihat: number
   vocals: number
   energy: number
+  /** Loudness eased by the node's Smoothing, which Silence compares. */
+  quiet: number
   silence: boolean
+}
+
+/**
+ * Silence compares the absolute loudness, eased by Smoothing, with the Gate.
+ * It used to compare Energy, which FastLED normalises to the last few
+ * seconds' peak, so how quiet counted as silence floated with the music
+ * before it. On the loudness scale (audio/stereoLevels.ts) music heard by a
+ * laptop microphone in a room sits near 0.02 at its quietest tenth, so the
+ * default Gate of 0.12 puts the line at about 0.014. Shared with the C++
+ * generator.
+ */
+export const AUDIO_SILENCE = { floor: 0.004, span: 0.08 } as const
+export function audioSilenceThreshold(gate: number): number {
+  return AUDIO_SILENCE.floor + gate * AUDIO_SILENCE.span
 }
 const percussionLevels = instanceState('percussionLevels', new Map<string, AudioFeatureState>())
 const audioFeatureLevels = instanceState('audioFeatureLevels', new Map<string, AudioFeatureState>())
 const bandLevels = instanceState('bandLevels', new Map<string, number>())
-const beatPhaseState = instanceState('beatPhaseState', new Map<string, { phase: number; count: number; lastT: number; prevBeat: boolean }>())
+const beatPhaseState = instanceState('beatPhaseState', new Map<string, BeatPhaseState>())
 
 function avgRange(values: readonly number[], start: number, end: number): number {
   const from = Math.max(0, Math.floor(start))
@@ -230,6 +246,7 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
         hihat: 0,
         vocals: 0,
         energy: 0,
+        quiet: 0,
         silence: false,
       }
       const low = avgRange(spectrum, 0, 4)
@@ -301,6 +318,7 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
         hihat: 0,
         vocals: 0,
         energy: 0,
+        quiet: loudness,
         silence: false,
       }
       const low = avgRange(spectrum, 0, 5)
@@ -312,9 +330,9 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       const vocalsTarget = clamp01((presence * 1.35 + presenceFlux * 2.1 - low * 0.3 - air * 0.12) * (0.75 + sensitivity * 0.7) - gate * 0.35)
       const energy = prev.energy * smoothing + energyTarget * (1 - smoothing)
       const vocals = prev.vocals * smoothing + vocalsTarget * (1 - smoothing)
-      const silenceThreshold = 0.015 + gate * 0.35
-      const silence = energy < silenceThreshold
-      const next = { ...prev, prevSpectrum: spectrum, vocals, energy, silence }
+      const quiet = prev.quiet * smoothing + loudness * (1 - smoothing)
+      const silence = quiet < audioSilenceThreshold(gate)
+      const next = { ...prev, prevSpectrum: spectrum, vocals, energy, quiet, silence }
       audioFeatureLevels.set(key, next)
       out = { vocals, energy, loudness, silence }
     } else if (useUiStore.getState().testSignal) {
@@ -418,20 +436,17 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     const total = left + right
     return { left, right, balance: total > 0 ? right / total : 0.5 }
   },
-  // Keep in lockstep with the `BeatPhase` emitter: a saw that free-runs at
-  // `bpm` on the wall clock and snaps to 0 on each rising Beat edge.
+  // Keep in lockstep with the `BeatPhase` emitter: a saw on the wall clock
+  // that snaps to 0 on each rising Beat edge and follows the measured beat
+  // (beatPhaseStep in audio/beatPhase.ts).
   BeatPhase({ input, num, elapsedT, stateKey }, id, props) {
     const bpm = Math.max(BEAT_PHASE_BPM.min, Math.min(BEAT_PHASE_BPM.max, num(id, 'bpm', props, 'bpm', BEAT_PHASE_BPM.default)))
     const beatsPerBar = beatPhaseBeatsPerBar(Number(props.beatsPerBar ?? BEAT_PHASE_BAR.default))
     const beat = Boolean(input(id, 'beat', false))
     const key = stateKey(id)
-    const state = beatPhaseState.get(key) ?? { phase: 0, count: 0, lastT: elapsedT, prevBeat: false }
-    const dt = Math.max(0, elapsedT - state.lastT)
-    let phase = state.phase + dt * bpm / 60
-    let count = state.count
-    if (phase >= 1) { count += Math.floor(phase); phase -= Math.floor(phase) }
-    if (beat && !state.prevBeat) { phase = 0; count = state.count + 1 }
-    beatPhaseState.set(key, { phase, count, lastT: elapsedT, prevBeat: beat })
+    const next = beatPhaseStep(beatPhaseState.get(key), elapsedT, bpm, beat)
+    beatPhaseState.set(key, next)
+    const { phase, count } = next
     return { phase, bar: ((count % beatsPerBar) + phase) / beatsPerBar, count }
   },
   AudioHue({ num }, id, props) {

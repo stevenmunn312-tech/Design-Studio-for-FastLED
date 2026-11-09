@@ -96,11 +96,12 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { bass: 'bass', palette: 'paletteIn' },
+    defaultExposedInputs: ['bass'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
-      bass: 0,
+      bass: 0.5,
       palette: 'lava',
     },
   },
@@ -116,6 +117,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { bass: 'bass', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['bass'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -136,6 +138,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { mids: 'mids', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['mids'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -156,6 +159,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { mids: 'mids', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['mids'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -175,6 +179,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { treble: 'treble', density: 'density', palette: 'paletteIn' },
+    defaultExposedInputs: ['treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -195,6 +200,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -217,6 +223,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -236,8 +243,8 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'attack', label: 'Attack', dataType: 'float' },
       { id: 'decay', label: 'Decay', dataType: 'float' },
       { id: 'intensity', label: 'Intensity', dataType: 'float' },
-      // Wire a palette to sweep the flash through it as it decays; leave
-      // `palette` at 'none' (default) to use the solid r/g/b color instead.
+      // Wire a palette, or set Color to Palette, to sweep the flash through it
+      // as it decays; Color's Solid (the default) flashes the r/g/b colour.
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
@@ -252,10 +259,11 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       decay: 0.85,
       attack: 0,
-      intensity: 1,
-      blendMode: 'screen',
-      preserveBase: true,
-      palette: 'none',
+      // Partway toward the flash colour: one restrained response per beat.
+      intensity: 0.45,
+      flashMode: 'lighten',
+      colorSource: 'solid',
+      palette: 'rainbow',
       r: 255, g: 255, b: 255,
     },
   },
@@ -301,6 +309,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'spawnSpread', label: 'Spawn Spread', dataType: 'float' },
     ],
     propertyInputs: { decay: 'decay', thickness: 'thickness', spawnSpread: 'spawnSpread', hihat: 'hihat', kick: 'kick', snare: 'snare', energy: 'energy', speed: 'speed', tiles: 'tiles', palette: 'paletteIn' },
+    defaultExposedInputs: ['hihat', 'kick', 'snare'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -324,6 +333,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { vocals: 'vocals', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['vocals'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -365,6 +375,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'tiles', label: 'Tiles', dataType: 'float' },
     ],
     propertyInputs: { tiles: 'tiles', bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -389,6 +400,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'spawnSpread', label: 'Spawn Spread', dataType: 'float' },
     ],
     propertyInputs: { size: 'size', decay: 'decay', spawnSpread: 'spawnSpread', hihat: 'hihat', kick: 'kick', snare: 'snare', palette: 'paletteIn' },
+    defaultExposedInputs: ['hihat', 'kick', 'snare'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -413,6 +425,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
     ],
     propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed' },
+    defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -436,6 +449,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -460,6 +474,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'b', label: 'B', dataType: 'float' },
     ],
     propertyInputs: { bass: 'bass', energy: 'energy', speed: 'speed', r: 'r', g: 'g', b: 'b' },
+    defaultExposedInputs: ['bass'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -505,6 +520,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { hihat: 'hihat', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    defaultExposedInputs: ['hihat', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -528,6 +544,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', speed: 'speed', scale: 'scale', palette: 'paletteIn' },
+    defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -563,6 +580,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'persistence', label: 'Persistence', dataType: 'float' },
     ],
     propertyInputs: { xSpeed: 'xSpeed', xAmplitude: 'xAmplitude', xFrequency: 'xFrequency', ySpeed: 'ySpeed', yAmplitude: 'yAmplitude', yFrequency: 'yFrequency', displacement: 'displacement', endpointSpeed: 'endpointSpeed', colorSpeed: 'colorSpeed', persistence: 'persistence', bass: 'bass', mids: 'mids', treble: 'treble', palette: 'paletteIn' },
+    defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -594,6 +612,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'audioAmount', label: 'Audio Amount', dataType: 'float' },
     ],
     propertyInputs: { audioAmount: 'audioAmount', bass: 'bass', hihat: 'hihat', kick: 'kick', mids: 'mids', snare: 'snare', treble: 'treble', speed: 'speed' },
+    defaultExposedInputs: ['bass', 'hihat', 'kick', 'mids', 'snare', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -615,7 +634,7 @@ export const AUDIO_REACTIVE_DESCRIPTIONS: Record<string, string> = {
   TrebleSparks: 'Glittering treble sparks coloured from a palette.',
   TreblePrism: 'Sharp diagonal prisms that shimmer with treble energy.',
   AudioCascade: 'Full-spectrum ribbons with bass glow, mids flow, and treble shimmer.',
-  BeatFlash: 'Flashes toward a color/palette on each beat — attack, decay, intensity, blend.',
+  BeatFlash: 'Flashes toward a colour or palette on each beat, then fades.',
   DanceFlash: 'Briefly flashes a DJ or dancer silhouette over the frame.',
   KickShock: 'Expanding shockwave rings triggered by kick and snare, with hi-hat grain.',
   VocalAurora: 'Vertical aurora curtains shaped by vocals; dims to black on silence.',

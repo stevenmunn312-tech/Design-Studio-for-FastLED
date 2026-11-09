@@ -238,8 +238,9 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // A tempo clock: a 0–1 sawtooth per beat that a Beat input re-syncs,
-    // free-running at `bpm` between beats or with nothing wired, plus a
-    // slower saw over a bar of `beatsPerBar` beats and a running beat count.
+    // plus a slower saw over a bar of `beatsPerBar` beats and a running beat
+    // count. It runs at `bpm` until two beats arrive, then at the measured
+    // beat, holding at 1 until the next one (audio/beatPhase.ts).
     // Wall-clock, like the music it follows — Master Speed does not scale it.
     type: 'BeatPhase',
     label: 'Beat Phase',

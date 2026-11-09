@@ -36,6 +36,7 @@ import { fadeFrameToBlackBy } from '../shared/trailFade'
 import {
   danceFlashAdvance, danceFlashStart, stampDanceFlash, type DanceFlashClock,
 } from './danceFlash'
+import { demoDrums, demoDrumsActive } from './demoDrums'
 
 const levelMeterPeaks = instanceState('levelMeterPeaks', new Map<string, { peak: number; since: number; lastT: number }>())
 const danceClocks = instanceState('danceFlash', new Map<string, { seed: number; clock: DanceFlashClock; lastT: number }>())
@@ -49,7 +50,7 @@ onInstanceDisposed(disposeAnimartrixState)
 export const VOCAL_AURORA_MIN_INPUT_GAIN = 0.5
 export const VOCAL_AURORA_MAX_INPUT_GAIN = 0.7
 
-const flashLevel  = instanceState('flashLevel', new Map<string, { level: number; rising: boolean }>())
+const flashLevel  = instanceState('flashLevel', new Map<string, { level: number; rising: boolean; prevBeat: boolean; lastT: number | undefined }>())
 
 interface ColorTrailsState {
   frame: Frame
@@ -82,14 +83,17 @@ const waveformState = instanceState('waveformState', new Map<string, WaveformSta
 interface ShockRing { born: number; kind: 0 | 1; x: number; y: number }
 interface KickShockState { rings: (ShockRing | null)[]; next: number; prevKick: boolean; prevSnare: boolean }
 const kickShockState = instanceState('kickShockState', new Map<string, KickShockState>())
+// A beat envelope: its level, the beat it last saw (for the rising edge) and
+// when, in seconds of the wall clock.
+interface BeatEnvelope { level: number; prevBeat: boolean; lastT: number }
 // BeatKaleidoscope — a decaying "punch" level, same shape as BeatFlash's flashLevel.
-const kaleidoPunch = instanceState('kaleidoPunch', new Map<string, number>())
+const kaleidoPunch = instanceState('kaleidoPunch', new Map<string, BeatEnvelope>())
 // PercussionBlobs — pool of metaball blobs, spawned on kick/snare/hihat edges.
 interface Blob { x: number; y: number; born: number; kind: 0 | 1 | 2 }
 interface PercussionBlobsState { blobs: (Blob | null)[]; next: number; prevKick: boolean; prevSnare: boolean; prevHihat: boolean }
 const percussionBlobsState = instanceState('percussionBlobsState', new Map<string, PercussionBlobsState>())
 // EmberPulse — a decaying beat-triggered "ember burst" level.
-const emberBurst = instanceState('emberBurst', new Map<string, number>())
+const emberBurst = instanceState('emberBurst', new Map<string, BeatEnvelope>())
 // RainRipples — pool of expanding ripples, spawned on a trigger rising edge.
 interface Ripple { x: number; y: number; born: number }
 interface RainRipplesState { ripples: (Ripple | null)[]; next: number; prevTrig: boolean }
@@ -494,58 +498,70 @@ function evalAudioCascade(key: string, bass: number, mids: number, treble: numbe
 }
 
 // Attack ramps the flash level to 1 over `attack` seconds instead of snapping
-// immediately (attack = 0, the default, reproduces the original instant-flash
-// behaviour); once at peak, decay multiplies the level down each tick as before.
+// immediately (attack = 0, the default, flashes at once); once at peak, decay
+// keeps its share of the level every 60th of a second, so the flash lasts as
+// long at any frame rate. Only a rising Beat edge fires: a level held true for
+// several frames (a Kick envelope, a Vibe spike) is one flash, not a strobe.
 export const BEAT_FLASH_ATTACK_MAX_SEC = 1.5
+export const BEAT_FLASH_MODES = ['lighten', 'add', 'replace'] as const
+export type BeatFlashMode = typeof BEAT_FLASH_MODES[number]
 
-function updateBeatFlashLevel(key: string, beat: boolean, attack: number, decay: number): number {
-  const state = flashLevel.get(key) ?? { level: 0, rising: false }
+export function beatFlashMode(value: unknown): BeatFlashMode {
+  return (BEAT_FLASH_MODES as readonly unknown[]).includes(value) ? value as BeatFlashMode : 'lighten'
+}
+
+/** Whether the flash colour sweeps a palette: a wired palette, or Color set to Palette. */
+export function beatFlashUsesPalette(props: Record<string, unknown>, paletteWired: boolean): boolean {
+  return paletteWired || props.colorSource === 'palette'
+}
+
+/** Seconds since a beat envelope's previous pass, bounded so a stalled tab
+ *  does not snap it shut, as the sketch bounds it. The first pass counts as
+ *  one 60 fps frame. */
+export const ENVELOPE_MAX_DT = 0.1
+function envelopeDt(lastT: number | undefined, now: number): number {
+  return lastT === undefined ? 1 / 60 : Math.max(0, Math.min(ENVELOPE_MAX_DT, now - lastT))
+}
+
+function updateBeatFlashLevel(key: string, beat: boolean, attack: number, decay: number, now: number): number {
+  const state = flashLevel.get(key) ?? { level: 0, rising: false, prevBeat: false, lastT: undefined }
+  const dt = envelopeDt(state.lastT, now)
   const attackSec = Math.max(0, attack) * BEAT_FLASH_ATTACK_MAX_SEC
-  const attackStep = attackSec > 0 ? Math.min(1, 1 / (attackSec * 60)) : 1
-  if (beat) state.rising = true
+  if (beat && !state.prevBeat) state.rising = true
   if (state.rising) {
-    state.level = Math.min(1, state.level + attackStep)
+    state.level = attackSec > 0 ? Math.min(1, state.level + dt / attackSec) : 1
     if (state.level >= 1) state.rising = false
   } else {
-    state.level *= decay
+    state.level *= Math.pow(decay, dt * 60)
   }
+  state.prevBeat = beat
+  state.lastT = now
   flashLevel.set(key, state)
   return state.level
 }
 
-// Blend a beat-triggered flash of `color` onto `base` at `level` (0–1).
-// `preserveBase` toggles whether the underlying frame shows through the flash
-// (screen/add toward color) or is fully replaced by the flash color while lit.
+// Blend a beat-triggered flash of `color` onto `base` at `level` (0–1), with
+// the sketch's byte arithmetic: Lighten lifts each channel toward the flash
+// colour and never darkens one already brighter, Add sums and clips, and
+// Replace shows only the flash colour while it is lit.
 function blendBeatFlash(
   base: Frame | null, level: number, color: RGB, intensity: number,
-  blendMode: 'screen' | 'add', preserveBase: boolean, W = DEFAULT_W, H = DEFAULT_H,
+  mode: BeatFlashMode, W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const src = base ?? blankFrame(W, H)
   if (level < 0.003) return src
 
   const effective = Math.max(0, level * intensity)
+  const scaled = (channel: number) => Math.trunc(Math.max(0, Math.min(255, channel * effective)))
+  const lighten = (px: number, channel: number) => Math.min(255, px + Math.trunc(Math.max(0, Math.min(255, (channel - px) * effective))))
   const { r: cr, g: cg, b: cb } = color
   return src.map(row =>
     row.map(px => {
-      if (!preserveBase) {
-        return {
-          r: Math.max(0, Math.min(255, Math.round(cr * effective))),
-          g: Math.max(0, Math.min(255, Math.round(cg * effective))),
-          b: Math.max(0, Math.min(255, Math.round(cb * effective))),
-        }
+      if (mode === 'replace') return { r: scaled(cr), g: scaled(cg), b: scaled(cb) }
+      if (mode === 'add') {
+        return { r: Math.min(255, px.r + scaled(cr)), g: Math.min(255, px.g + scaled(cg)), b: Math.min(255, px.b + scaled(cb)) }
       }
-      if (blendMode === 'add') {
-        return {
-          r: Math.min(255, Math.round(px.r + cr * effective)),
-          g: Math.min(255, Math.round(px.g + cg * effective)),
-          b: Math.min(255, Math.round(px.b + cb * effective)),
-        }
-      }
-      return {
-        r: Math.max(0, Math.min(255, Math.round(px.r + (cr - px.r) * effective))),
-        g: Math.max(0, Math.min(255, Math.round(px.g + (cg - px.g) * effective))),
-        b: Math.max(0, Math.min(255, Math.round(px.b + (cb - px.b) * effective))),
-      }
+      return { r: lighten(px.r, cr), g: lighten(px.g, cg), b: lighten(px.b, cb) }
     })
   )
 }
@@ -636,16 +652,15 @@ function evalVocalAurora(
   })
 }
 
-// Wedge-mirrored plasma that punches wider and spins harder on every beat
-// (beat is already a one-frame pulse, so no separate edge tracking is needed —
-// the punch level decays the same way BeatFlash's flashLevel does).
+// Wedge-mirrored plasma that punches wider and spins harder on each rising
+// beat edge; the punch keeps 0.85 of itself every 60th of a second.
 function evalBeatKaleidoscope(
   key: string, beat: boolean, hue: number, energy: number, speed: number, t: number,
-  palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+  palette: Palette, W = DEFAULT_W, H = DEFAULT_H, now = t,
 ): Frame {
-  let punch = kaleidoPunch.get(key) ?? 0
-  punch = beat ? 1 : punch * 0.85
-  kaleidoPunch.set(key, punch)
+  const held = kaleidoPunch.get(key)
+  const punch = beat && !held?.prevBeat ? 1 : (held?.level ?? 0) * Math.pow(0.85, envelopeDt(held?.lastT, now) * 60)
+  kaleidoPunch.set(key, { level: punch, prevBeat: beat, lastT: now })
 
   const strength = clamp01(energy)
   const wedges = 6 + Math.round(punch * 6)
@@ -747,11 +762,14 @@ function evalPercussionBlobs(
 // treble shape which columns run hot, with a beat-triggered ember burst.
 function evalEmberPulse(
   key: string, bass: number, mids: number, treble: number, beat: boolean, energy: number,
-  speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H,
+  speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H, now = t,
 ): Frame {
-  let burst = emberBurst.get(key) ?? 0
-  burst = beat ? Math.min(1, burst + 0.6) : burst * 0.90
-  emberBurst.set(key, burst)
+  // A rising beat edge adds a burst; it keeps 0.9 of itself every 60th of a second.
+  const held = emberBurst.get(key)
+  const burst = beat && !held?.prevBeat
+    ? Math.min(1, (held?.level ?? 0) + 0.6)
+    : (held?.level ?? 0) * Math.pow(0.9, envelopeDt(held?.lastT, now) * 60)
+  emberBurst.set(key, { level: burst, prevBeat: beat, lastT: now })
 
   const strength = clamp01(energy)
   const flicker = speedPhase(key, t, speed) * 3.0
@@ -1202,7 +1220,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     return { frame }
   },
   BassPulse({ num, pal, W, H }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0)
+    const bass = num(id, 'bass', props, 'bass', 0.5)
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
     return { frame: evalBassPulse(bass, palette, W, H) }
   },
@@ -1249,26 +1267,25 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalAudioCascade(stateKey(id), bass, mids, treble, energy, speed, t, palette, W, H) }
   },
-  BeatFlash({ input, num, pal, W, H, stateKey, incoming }, id, props) {
-    const beatVal = input(id, 'beat', false) as boolean
+  BeatFlash({ input, num, pal, W, H, stateKey, incoming, elapsedT }, id, props) {
+    const beatVal = input(id, 'beat', false) === true
     const baseFrame = input(id, 'frame', null) as Frame | null
     // 0–1 like its slider, as the sketch bounds it: above 1 the flash grows
     // instead of fading and holds on for good.
     const decay = clamp01(num(id, 'decay', props, 'decay', 0.85))
     const attack = num(id, 'attack', props, 'attack', 0)
-    const intensity = num(id, 'intensity', props, 'intensity', 1)
-    const blendMode = String(props.blendMode ?? 'screen') === 'add' ? 'add' : 'screen'
-    const preserveBase = props.preserveBase !== false
-    const level = updateBeatFlashLevel(stateKey(id), beatVal, attack, decay)
-    const paletteWired = incoming.has(`${id}:paletteIn`)
-    const color = (paletteWired || String(props.palette ?? 'none') !== 'none')
+    const intensity = num(id, 'intensity', props, 'intensity', 0.45)
+    const level = updateBeatFlashLevel(stateKey(id), beatVal, attack, decay, elapsedT)
+    // A wired palette always sweeps; otherwise Color chooses the solid colour
+    // or the palette.
+    const color = beatFlashUsesPalette(props, incoming.has(`${id}:paletteIn`))
       ? samplePalette(pal(id, 'paletteIn', props, 'palette', 'rainbow'), 1 - level)
       : {
         r: byte(num(id, 'r', props, 'r', 255) / 255),
         g: byte(num(id, 'g', props, 'g', 255) / 255),
         b: byte(num(id, 'b', props, 'b', 255) / 255),
       }
-    return { frame: blendBeatFlash(baseFrame, level, color, intensity, blendMode, preserveBase, W, H) }
+    return { frame: blendBeatFlash(baseFrame, level, color, intensity, beatFlashMode(props.flashMode), W, H) }
   },
   // Keep in lockstep with the `DanceFlash` emitter: same 16×16 art, same
   // centred square fit, same millisecond schedule (danceFlash.ts).
@@ -1293,9 +1310,11 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     }
     return { frame: stampDanceFlash(base, W, H, slot.clock.figure, slot.clock.mirror, color) }
   },
-  KickShock({ num, pal, t, W, H, stateKey }, id, props) {
-    const kick = num(id, 'kick', props, 'kick', 0)
-    const snare = num(id, 'snare', props, 'snare', 0)
+  KickShock({ num, pal, t, W, H, stateKey, incoming }, id, props) {
+    // With no drum wired, a slow demo kit fires the rings (demoDrums.ts).
+    const demo = demoDrumsActive(incoming, id) ? demoDrums(t) : null
+    const kick = demo?.kick ? 1 : num(id, 'kick', props, 'kick', 0)
+    const snare = demo?.snare ? 1 : num(id, 'snare', props, 'snare', 0)
     const hihat = num(id, 'hihat', props, 'hihat', 0)
     const energy = num(id, 'energy', props, 'energy', 0.7)
     // 0–1 like its slider, as the sketch bounds it.
@@ -1319,13 +1338,13 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'aurora')
     return { frame: evalVocalAurora(stateKey(id), vocals, energy, silence, speed, t, palette, W, H) }
   },
-  BeatKaleidoscope({ input, num, pal, t, W, H, stateKey }, id, props) {
+  BeatKaleidoscope({ input, num, pal, t, W, H, stateKey, elapsedT }, id, props) {
     const beatVal = input(id, 'beat', false) as boolean
     const hue = num(id, 'hue', props, 'hue', 0)
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ultraviolet')
-    return { frame: evalBeatKaleidoscope(stateKey(id), beatVal, hue, energy, speed, t, palette, W, H) }
+    return { frame: evalBeatKaleidoscope(stateKey(id), beatVal, hue, energy, speed, t, palette, W, H, elapsedT) }
   },
   SpectraMosaic({ num, pal, t, W, H, stateKey }, id, props) {
     const bass = num(id, 'bass', props, 'bass', 0.5)
@@ -1337,9 +1356,11 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'peacock')
     return { frame: evalSpectraMosaic(stateKey(id), bass, mids, treble, energy, speed, tiles, t, palette, W, H) }
   },
-  PercussionBlobs({ num, pal, t, W, H, stateKey }, id, props) {
-    const kick = num(id, 'kick', props, 'kick', 0)
-    const snare = num(id, 'snare', props, 'snare', 0)
+  PercussionBlobs({ num, pal, t, W, H, stateKey, incoming }, id, props) {
+    // With no drum wired, a slow demo kit spawns the blobs (demoDrums.ts).
+    const demo = demoDrumsActive(incoming, id) ? demoDrums(t) : null
+    const kick = demo?.kick ? 1 : num(id, 'kick', props, 'kick', 0)
+    const snare = demo?.snare ? 1 : num(id, 'snare', props, 'snare', 0)
     const hihat = num(id, 'hihat', props, 'hihat', 0)
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
     // `count` sizes the firmware's static blob pool, so it stays a
@@ -1351,14 +1372,14 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const blendMode = String(props.blendMode ?? 'add') === 'max' ? 'max' : 'add'
     return { frame: evalPercussionBlobs(stateKey(id), kick, snare, hihat, t, palette, W, H, count, size, decay, spawnSpread, blendMode) }
   },
-  EmberPulse({ input, num, t, W, H, stateKey }, id, props) {
+  EmberPulse({ input, num, t, W, H, stateKey, elapsedT }, id, props) {
     const bass = num(id, 'bass', props, 'bass', 0.5)
     const mids = num(id, 'mids', props, 'mids', 0.5)
     const treble = num(id, 'treble', props, 'treble', 0.5)
     const beatVal = input(id, 'beat', false) as boolean
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
-    return { frame: evalEmberPulse(stateKey(id), bass, mids, treble, beatVal, energy, speed, t, W, H) }
+    return { frame: evalEmberPulse(stateKey(id), bass, mids, treble, beatVal, energy, speed, t, W, H, elapsedT) }
   },
   TurbulentBloom({ num, pal, t, W, H, stateKey }, id, props) {
     const bass = num(id, 'bass', props, 'bass', 0.5)

@@ -13,14 +13,30 @@ import {
   WAVE_GAIN_MAX, WAVE_GAIN_MIN, WAVE_PALETTE_BASE, WAVE_PALETTE_SPAN, WAVE_RING_BASE, WAVE_RING_SLACK, WAVE_RING_SPAN,
   WAVE_SAMPLES, WAVE_SMOOTHING_MAX, WAVE_STYLES, WAVE_THICKNESS_MAX, WAVE_THICKNESS_MIN,
 } from '../../state/evaluator/waveform'
-import { BEAT_FLASH_ATTACK_MAX_SEC, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN } from './evaluate'
+import {
+  BEAT_FLASH_ATTACK_MAX_SEC, ENVELOPE_MAX_DT, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN,
+  beatFlashMode, beatFlashUsesPalette,
+} from './evaluate'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterOrigin } from './levelMeter'
 import { trebleSparksFadeByCpp } from './trebleSparks'
+import { demoDrumsCpp } from './demoDrums'
 import {
   DANCE_FIGURE_COUNT, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_FIRST_MIN_MS, DANCE_FLASH_FIRST_SPAN_MS,
   DANCE_FLASH_GAP_MIN_MS, DANCE_FLASH_GAP_SPAN_MS, DANCE_FLASH_HOLD_MS, DANCE_LCG_A, DANCE_LCG_C,
   DANCE_SIZE, danceRowsLiteral,
 } from './danceFlash'
+
+/**
+ * `${prefix}Dt`: seconds since this beat envelope's previous pass on
+ * `millis()`, bounded like the preview's `envelopeDt` (the first pass is one
+ * 60 fps frame), so a flash or punch lasts as long at any frame rate.
+ */
+export function envelopeDtCpp(prefix: string): string[] {
+  return [
+    `static uint32_t ${prefix}T=0; static bool ${prefix}I=false; uint32_t ${prefix}Now=millis();`,
+    `float ${prefix}Dt=${prefix}I?constrain((${prefix}Now-${prefix}T)/1000.0f,0.0f,${floatLit(ENVELOPE_MAX_DT)}):(1.0f/60.0f); ${prefix}T=${prefix}Now; ${prefix}I=true;`,
+  ]
+}
 
 /**
  * Spectrum Visualizer's Three Band style. A wired band wins; an unwired one
@@ -207,7 +223,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
   BassPulse({ node, p, ln, f, ownBuf, paletteExpr }) {
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    const bass = f('bass', 'bass', 0)
+    const bass = f('bass', 'bass', 0.5)
     ln(`  { float _lv = constrain(${bass}, 0.0f, 1.0f); float _v = sqrtf(_lv);`)
     ln(`    CRGB _c = ColorFromPalette(${pal}, (uint8_t)(_lv * 255)); _c.nscale8((uint8_t)(_v * 255));`)
     ln(`    fill_solid(${ob}, NUM_LEDS, _c); }`)
@@ -361,40 +377,38 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
+  // Keep in lockstep with the `BeatFlash` evaluator: a rising Beat edge, an
+  // envelope on the wall clock, and the same byte arithmetic for each mode.
   BeatFlash({ node, id, p, ln, f, channelColor, ownBuf, seedFrom, incoming, boolExpr, paletteExpr }) {
     const ob = ownBuf()
     const beat = boolExpr(node.id, 'beat')
     const attack = f('attack', 'attack', 0)
     const decay = `constrain(${f('decay', 'decay', 0.85)},0.0f,1.0f)`
-    const intensity = f('intensity', 'intensity', 1)
-    const blendMode = String(p.blendMode ?? 'screen') === 'add' ? 'add' : 'screen'
-    const preserveBase = p.preserveBase !== false
-    const paletteWired = incoming.has(`${node.id}:paletteIn`)
-    const usePalette = paletteWired || String(p.palette ?? 'none') !== 'none'
-    const flashPal = usePalette ? paletteExpr(node.id, 'paletteIn', p) : null
+    const intensity = f('intensity', 'intensity', 0.45)
+    const mode = beatFlashMode(p.flashMode)
+    const flashPal = beatFlashUsesPalette(p, incoming.has(`${node.id}:paletteIn`)) ? paletteExpr(node.id, 'paletteIn', p) : null
     const flashColor = channelColor(null, 255, 255, 255)
+    const level = `_flash_${id}`
+    const scaled = (ch: 'r' | 'g' | 'b') => `(uint8_t)constrain(_fc_${id}.${ch} * _feff_${id}, 0.0f, 255.0f)`
+    const lighten = (ch: 'r' | 'g' | 'b') => `(uint8_t)constrain(((float)_fc_${id}.${ch} - ${ob}[_i].${ch}) * _feff_${id}, 0.0f, 255.0f)`
     ln(`  {`)
     ln(`    ${seedFrom('frame')}`)
-    ln(`    static float _flash_${id} = 0; static bool _flashRise_${id} = false;`)
+    ln(`    static float ${level} = 0; static bool _flashRise_${id} = false, _flashPrev_${id} = false;`)
+    for (const line of envelopeDtCpp(`_flash${id}`)) ln(`    ${line}`)
     ln(`    float _fAtkSec_${id} = max(0.0f, ${attack}) * ${BEAT_FLASH_ATTACK_MAX_SEC}f;`)
-    ln(`    float _fAtkStep_${id} = _fAtkSec_${id} > 0 ? min(1.0f, 1.0f / (_fAtkSec_${id} * 60.0f)) : 1.0f;`)
-    ln(`    if (${beat}) _flashRise_${id} = true;`)
-    ln(`    if (_flashRise_${id}) { _flash_${id} = min(1.0f, _flash_${id} + _fAtkStep_${id}); if (_flash_${id} >= 1.0f) _flashRise_${id} = false; }`)
-    ln(`    else _flash_${id} *= ${decay};`)
-    ln(`    if (_flash_${id} >= 0.003f) {`)
-    ln(`      float _feff_${id} = max(0.0f, _flash_${id} * ${intensity});`)
-    ln(`      CRGB _fc_${id} = ${flashPal ? `ColorFromPalette(${flashPal}, (uint8_t)((1.0f - _flash_${id}) * 255))` : flashColor};`)
+    ln(`    bool _fBeat_${id} = (${beat}); if (_fBeat_${id} && !_flashPrev_${id}) _flashRise_${id} = true; _flashPrev_${id} = _fBeat_${id};`)
+    ln(`    if (_flashRise_${id}) { ${level} = _fAtkSec_${id} > 0.0f ? min(1.0f, ${level} + _flash${id}Dt / _fAtkSec_${id}) : 1.0f; if (${level} >= 1.0f) _flashRise_${id} = false; }`)
+    ln(`    else ${level} *= powf(${decay}, _flash${id}Dt * 60.0f);`)
+    ln(`    if (${level} >= 0.003f) {`)
+    ln(`      float _feff_${id} = max(0.0f, ${level} * ${intensity});`)
+    ln(`      CRGB _fc_${id} = ${flashPal ? `ColorFromPalette(${flashPal}, (uint8_t)((1.0f - ${level}) * 255))` : flashColor};`)
     ln(`      for (int _i = 0; _i < NUM_LEDS; _i++) {`)
-    if (!preserveBase) {
-      ln(`        ${ob}[_i] = CRGB((uint8_t)min(255.0f, _fc_${id}.r * _feff_${id}), (uint8_t)min(255.0f, _fc_${id}.g * _feff_${id}), (uint8_t)min(255.0f, _fc_${id}.b * _feff_${id}));`)
-    } else if (blendMode === 'add') {
-      ln(`        ${ob}[_i].r = qadd8(${ob}[_i].r, (uint8_t)min(255.0f, _fc_${id}.r * _feff_${id}));`)
-      ln(`        ${ob}[_i].g = qadd8(${ob}[_i].g, (uint8_t)min(255.0f, _fc_${id}.g * _feff_${id}));`)
-      ln(`        ${ob}[_i].b = qadd8(${ob}[_i].b, (uint8_t)min(255.0f, _fc_${id}.b * _feff_${id}));`)
+    if (mode === 'replace') {
+      ln(`        ${ob}[_i] = CRGB(${scaled('r')}, ${scaled('g')}, ${scaled('b')});`)
     } else {
-      ln(`        ${ob}[_i].r = qadd8(${ob}[_i].r, (uint8_t)max(0.0f, ((float)_fc_${id}.r - ${ob}[_i].r) * _feff_${id}));`)
-      ln(`        ${ob}[_i].g = qadd8(${ob}[_i].g, (uint8_t)max(0.0f, ((float)_fc_${id}.g - ${ob}[_i].g) * _feff_${id}));`)
-      ln(`        ${ob}[_i].b = qadd8(${ob}[_i].b, (uint8_t)max(0.0f, ((float)_fc_${id}.b - ${ob}[_i].b) * _feff_${id}));`)
+      for (const ch of ['r', 'g', 'b'] as const) {
+        ln(`        ${ob}[_i].${ch} = qadd8(${ob}[_i].${ch}, ${mode === 'add' ? scaled(ch) : lighten(ch)});`)
+      }
     }
     ln(`      }`)
     ln(`    }`)
@@ -460,8 +474,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  KickShock({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  KickShock({ node, id, p, ln, f, ownBuf, paletteExpr, needsT, incoming }) {
     needsT.v = true
+    // With no drum wired, the slow demo kit fires the rings (demoDrums.ts).
+    const demo = demoDrumsCpp({ node, incoming }, '_ksDemo')
     const ob = ownBuf()
     const kick = f('kick', 'kick', 0)
     const snare = f('snare', 'snare', 0)
@@ -484,7 +500,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _ksBand=fmaxf(0.05f, ${f('thickness', 'thickness', 1)});`)
     ln(`    if(!_ksInit_${id}){ for(int _i=0;_i<${CAP};_i++) _ksAlive_${id}[_i]=false; _ksInit_${id}=true; }`)
     ln(`    float _spd=constrain(${speed},0.0f,1.0f),_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat})); int _tiles=max(1,min(8,(int)roundf(${tiles})));`)
-    ln(`    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f;`)
+    for (const line of demo) ln(`    ${line}`)
+    ln(demo.length
+      ? `    bool _kickHit=_ksDemoKick||(${kick})>0.5f, _snareHit=_ksDemoSnare||(${snare})>0.5f;`
+      : `    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f;`)
     ln(`    float _tileW=WIDTH/(float)_tiles,_tileH=HEIGHT/(float)_tiles,_ksCx=(_tileW-1)/2.0f,_ksCy=(_tileH-1)/2.0f;`)
     ln(`    if(_kickHit && !_ksPrevKick_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*_tileW-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*_tileH-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=0; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
     ln(`    if(_snareHit && !_ksPrevSnare_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*_tileW-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*_tileH-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=1; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
@@ -552,8 +571,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // BeatKaleidoscope`)
-    ln(`    static float _bkPunch_${id}=0;`)
-    ln(`    _bkPunch_${id}=(${beat})?1.0f:_bkPunch_${id}*0.85f;`)
+    // A rising beat edge punches; the punch keeps 0.85 every 60th of a second.
+    ln(`    static float _bkPunch_${id}=0; static bool _bkPrev_${id}=false;`)
+    for (const line of envelopeDtCpp(`_bk${id}`)) ln(`    ${line}`)
+    ln(`    bool _bkBeat_${id}=(${beat}); _bkPunch_${id}=_bkBeat_${id}&&!_bkPrev_${id}?1.0f:_bkPunch_${id}*powf(0.85f,_bk${id}Dt*60.0f); _bkPrev_${id}=_bkBeat_${id};`)
     ln(`    float _strength=min(1.0f,max(0.0f,${energy}));`)
     ln(`    int _wedges=6+(int)roundf(_bkPunch_${id}*6.0f);`)
     // Integrated rotation phase — mirrors evalBeatKaleidoscope: the rate
@@ -609,8 +630,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  PercussionBlobs({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  PercussionBlobs({ node, id, p, ln, f, ownBuf, paletteExpr, needsT, incoming }) {
     needsT.v = true
+    // With no drum wired, the slow demo kit spawns the blobs (demoDrums.ts).
+    const demo = demoDrumsCpp({ node, incoming }, '_pbDemo')
     const ob = ownBuf()
     const kick = f('kick', 'kick', 0)
     const snare = f('snare', 'snare', 0)
@@ -629,7 +652,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _pbSize=fmaxf(0.1f, ${f('size', 'size', 1)});`)
     ln(`    float _pbLife=fmaxf(0.05f, ${f('decay', 'decay', 1)});`)
     ln(`    if(!_pbInit_${id}){ for(int _i=0;_i<${CAP};_i++) _pbAlive_${id}[_i]=false; _pbInit_${id}=true; }`)
-    ln(`    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f, _hihatHit=(${hihat})>0.55f;`)
+    for (const line of demo) ln(`    ${line}`)
+    ln(demo.length
+      ? `    bool _kickHit=_pbDemoKick||(${kick})>0.5f, _snareHit=_pbDemoSnare||(${snare})>0.5f, _hihatHit=(${hihat})>0.55f;`
+      : `    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f, _hihatHit=(${hihat})>0.55f;`)
     ln(`    float _pbCx=WIDTH/2.0f,_pbCy=HEIGHT/2.0f;`)
     ln(`    if(_kickHit && !_pbPrevKick_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spreadF}; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spreadF}; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=0; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
     ln(`    if(_snareHit && !_pbPrevSnare_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spreadF}; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spreadF}; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=1; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
@@ -665,8 +691,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     ln(`  { // EmberPulse`)
-    ln(`    static float _epBurst_${id}=0;`)
-    ln(`    _epBurst_${id}=(${beat})?min(1.0f,_epBurst_${id}+0.6f):_epBurst_${id}*0.90f;`)
+    // A rising beat edge adds a burst; it keeps 0.9 every 60th of a second.
+    ln(`    static float _epBurst_${id}=0; static bool _epPrev_${id}=false;`)
+    for (const line of envelopeDtCpp(`_ep${id}`)) ln(`    ${line}`)
+    ln(`    bool _epBeat_${id}=(${beat}); _epBurst_${id}=_epBeat_${id}&&!_epPrev_${id}?min(1.0f,_epBurst_${id}+0.6f):_epBurst_${id}*powf(0.9f,_ep${id}Dt*60.0f); _epPrev_${id}=_epBeat_${id};`)
     ln(`    float _b=${bass},_m=${mids},_tr=${treble},_strength=min(1.0f,max(0.0f,${energy}));`)
     const ph = speedPhaseCpp(ln, phaseTag(id), speed)
     ln(`    float _flicker=${ph}*3.0f;`)

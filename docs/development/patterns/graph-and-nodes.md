@@ -37,7 +37,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   stage's ranges are sized to a laptop microphone at gain 1 hearing music in
   the room (median frame near 0.09, peaks near 0.34), which is far below the
   meter's line-level full scale, so a line input or the player just holds
-  the stage open. Keep
+  the stage open. Audio Features' Silence reads the same loudness, eased by
+  its Smoothing, against a Gate on that scale (`AUDIO_SILENCE`), and the
+  release builder's silence gate rides on it; a test payload without channel
+  meters therefore reads as silence, so rating and release fixtures carry
+  `leftLevel`/`rightLevel`. Keep
   the response one short Smooth node: a per-frame smoother stacked on it
   once put the swell about 0.6 s behind the music. A pattern that already
   dims itself gets a higher rest brightness in `AUDIO_LIGHT_FLOORS`.
@@ -288,6 +292,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `speedPhase`. Time's `dt`
   is the time since that node's previous pass (0 on its first), measured on
   both sides, where it was a fixed 1/60.
+- A pattern's Beat input fires on its rising edge, never on every frame it
+  reads true: a Kick envelope or a Vibe spike held high for a few frames is
+  one flash, not a strobe. Beat Flash, Beat Kaleidoscope and Ember Pulse keep
+  the beat they last saw, as Kick Shock and Rain Ripples always did. Their
+  envelopes decay by the clock, keeping their share per 60th of a second
+  (`envelopeDt` in `audioReactive/evaluate.ts`, `envelopeDtCpp` in its
+  codegen, both on the wall clock), so a 30 fps Board flashes as long as a
+  60 fps one. A drum pattern whose drums are triggers (Kick Shock,
+  Percussion Blobs) plays the slow demo kit in `demoDrums.ts` while none of
+  its drum ports is wired, so it shows on drop instead of resting black; a
+  pattern whose band ports are levels shows on drop through 0.5 band
+  defaults. Band and drum ports are `defaultExposedInputs`: they are what
+  an audio pattern is for.
 - A trail fade is a half-life on a log scale, applied by the time that has
   passed, not a share taken off each frame. Juggle and Confetti use it. Their
   old `1 - fade` per frame put

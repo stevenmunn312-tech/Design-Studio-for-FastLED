@@ -1094,9 +1094,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   BeatFlash: {
     overview: [
-      'Beat Flash flashes a frame toward a colour on each beat and lets it fade away. Attack sets how fast the flash rises, Decay how long it lingers, and Intensity how bright it gets.',
-      'Keep Base shows the pattern through the flash; turn it off and the frame is replaced by the flash colour. Give it a palette and the flash sweeps through the palette as it fades.',
-      'Any true/false pulse can fire it: a beat, a button, a clock.',
+      'Beat Flash flashes a frame toward a colour on each beat and lets it fade away. Attack sets how fast the flash rises, Decay how long it lingers, and Intensity how far toward the colour it goes.',
+      'Mode chooses how the flash meets the frame: Lighten lifts the pattern toward the flash colour and never darkens a brighter pixel, Add sums the two, and Replace shows only the flash while it is lit. Set Color to Palette, or wire a palette, and the flash sweeps through it as it fades.',
+      'Only a rising edge fires it, so a signal held true for a few frames is still one flash. Any true/false pulse works: a beat, a button, a clock.',
     ],
     inputs: {
       beat: 'Each rising edge fires a flash.',
@@ -1109,7 +1109,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         mic: ['MicInput'],
         beat: ['BeatDetect', { threshold: 0.45 }],
         life: ['GameOfLife', { palette: 'deepsea', speed: 8 }],
-        flash: ['BeatFlash', { palette: 'sunset', decay: 0.85, intensity: 0.9, blendMode: 'screen' }],
+        flash: ['BeatFlash', { colorSource: 'palette', palette: 'sunset', decay: 0.85, intensity: 0.6 }],
       },
       wires: ['mic.audio > beat.audio', 'beat.beat > flash.beat', 'life.frame > flash.frame'],
       explanation: 'Beat Detect fires Beat Flash on every beat. The flash lights the Game of Life colonies with a burst that sweeps through the sunset palette as it fades, keeping the cells visible underneath.',
@@ -1145,6 +1145,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Kick Shock fires expanding shockwave rings on drum hits: slow wide rings for the kick, fast thin ones for the snare, and fine grain from the hi-hat.',
       'Tiles repeats the shockwave in a grid of cells, Spread lets rings start anywhere, and Max blend keeps overlapping rings from blowing out.',
+      'With nothing wired into Kick, Snare or Hi-Hat it plays a slow demo beat, a kick and then a snare every two seconds, so the rings show as soon as it is dropped. The demo stops the moment a drum is wired.',
     ],
     example: example({
       featured: 'KickShock',
@@ -1238,6 +1239,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Percussion Blobs spawns metaball blobs on drum hits: big ones for the kick, medium for the snare and tiny ones for the hi-hat. They merge into one field and fade.',
       'Spread chooses where blobs appear, Size scales them, and Max blend keeps them separate instead of merging.',
+      'With nothing wired into Kick, Snare or Hi-Hat it plays a slow demo beat, a kick and then a snare every two seconds, so blobs show as soon as it is dropped. The demo stops the moment a drum is wired.',
     ],
     example: example({
       featured: 'PercussionBlobs',

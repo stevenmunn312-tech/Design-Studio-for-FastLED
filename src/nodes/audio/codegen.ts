@@ -3,9 +3,54 @@ import { nativeBeatGateCpp } from '../../codegen/audio/nativeBeatGateCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
-import { audioHueWeight } from './evaluate'
+import { AUDIO_SILENCE, audioHueWeight } from './evaluate'
 import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS } from '../../audio/frequencyBand'
-import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
+import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, BEAT_PHASE_SYNC, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
+
+/**
+ * Beat Phase's block, the firmware twin of `beatPhaseStep`: the measured
+ * interval takes over from the BPM field after two beats, and Phase holds at
+ * 1 until the next beat while they keep coming (BEAT_PHASE_SYNC).
+ */
+export function beatPhaseLines(
+  id: string, bpm: string, beat: string | null, beatsPerBar: number,
+  out: { phase: string; bar: string; count: string },
+): string[] {
+  const s = (name: string) => `_bp${name}_${id}`
+  const { follow, holdBeats, shortest } = BEAT_PHASE_SYNC
+  const tail = [
+    `    ${out.phase}=_ph; ${out.bar}=((float)(_cnt%${beatsPerBar}u)+_ph)/${beatsPerBar}.0f; ${out.count}=(float)_cnt; }`,
+  ]
+  // With nothing on Beat it only free-runs at the BPM field.
+  if (beat === null) {
+    return [
+      `  { static float ${s('P')}=0.0f; static uint32_t ${s('C')}=0, ${s('T')}=0; static bool ${s('I')}=false;`,
+      `    float _bpm=${bpm}; uint32_t _now=millis();`,
+      `    float _dt=${s('I')}?(float)(_now-${s('T')})/1000.0f:0.0f; ${s('T')}=_now; ${s('I')}=true;`,
+      `    float _ph=${s('P')}+_dt*_bpm/60.0f; uint32_t _cnt=${s('C')}; if(_ph>=1.0f){ _cnt+=(uint32_t)floorf(_ph); _ph-=floorf(_ph); }`,
+      `    ${s('P')}=_ph; ${s('C')}=_cnt;`,
+      ...tail,
+    ]
+  }
+  return [
+    `  { static float ${s('P')}=0.0f, ${s('Iv')}=0.0f; static uint32_t ${s('C')}=0, ${s('T')}=0, ${s('L')}=0; static bool ${s('I')}=false, ${s('V')}=false, ${s('H')}=false;`,
+    `    float _bpm=${bpm}; uint32_t _now=millis(); bool _bt=(${beat});`,
+    `    float _dt=${s('I')}?(float)(_now-${s('T')})/1000.0f:0.0f; ${s('T')}=_now; ${s('I')}=true;`,
+    `    float _ph=${s('P')}; uint32_t _cnt=${s('C')};`,
+    `    if(_bt&&!${s('V')}){`,
+    `      if(${s('H')}){ float _gap=(float)(_now-${s('L')})/1000.0f;`,
+    `        if(${s('Iv')}>0.0f) _gap=_gap<${s('Iv')}*${floatLit(shortest)}?-1.0f:_gap/fmaxf(1.0f,roundf(_gap/${s('Iv')}));`,
+    `        if(_gap>=${floatLit(60 / BEAT_PHASE_BPM.max)}&&_gap<=${floatLit(60 / BEAT_PHASE_BPM.min)}) ${s('Iv')}=${s('Iv')}>0.0f?${s('Iv')}+(_gap-${s('Iv')})*${floatLit(follow)}:_gap; }`,
+    `      ${s('L')}=_now; ${s('H')}=true; _ph=0.0f; _cnt=${s('C')}+1;`,
+    `    } else {`,
+    `      _ph+=_dt*(${s('Iv')}>0.0f?1.0f/${s('Iv')}:_bpm/60.0f);`,
+    `      if(${s('Iv')}>0.0f&&(float)(_now-${s('L')})/1000.0f<${s('Iv')}*${floatLit(holdBeats)}) _ph=fminf(_ph,1.0f);`,
+    `      else if(_ph>=1.0f){ _cnt+=(uint32_t)floorf(_ph); _ph-=floorf(_ph); }`,
+    `    }`,
+    `    ${s('V')}=_bt; ${s('P')}=_ph; ${s('C')}=_cnt;`,
+    ...tail,
+  ]
+}
 
 export const AUDIO_EMITTERS: NodeEmitters = {
   FFTAnalyzer({ node, id, p, ln, v, f, hasExplicitAudioInput }) {
@@ -169,7 +214,7 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`  float ${v('kick')} = 0.0f, ${v('snare')} = 0.0f, ${v('hihat')} = 0.0f;`)
     }
   },
-  AudioFeatures({ node, id, ln, v, f, hasExplicitAudioInput }) {
+  AudioFeatures({ node, id, ln, v, f, edges, hasExplicitAudioInput }) {
     const sensitivity = `_afSens_${id}`
     const gate = `_afGate_${id}`
     const smoothing = `_afSm_${id}`
@@ -183,9 +228,17 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     const audioConnected = hasExplicitAudioInput(node.id)
     if (audioConnected) {
       const prefix = v('feat')
-      const silenceThreshold = `(0.015f+${gate}*0.35f)`
+      const quiet = `${prefix}_quiet`
+      // Silence eases the loudness for itself, so the smoother runs only while
+      // something reads Silence: no dead state in the sketch.
+      const silenceRead = edges.some((edge) => edge.source === node.id && edge.sourceHandle === 'silence')
+      const silenceThreshold = `(${floatLit(AUDIO_SILENCE.floor)}+${gate}*${floatLit(AUDIO_SILENCE.span)})`
       ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
       ln(`  static float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f;`)
+      if (silenceRead) ln(`  static float ${quiet} = -1.0f;`)
+      // The host's absolute channel meter (audioEngineCpp / the player sketch),
+      // mirroring audioLoudness() in audio/stereoLevels.ts.
+      ln(`  float ${v('loudness')} = constrain(_audioLoudness, 0.0f, 1.0f);`)
       ln(afGateDecl)
       ln(`  {`)
       for (const line of afKnobs) ln(line)
@@ -205,12 +258,11 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`    float _vocalsTarget = constrain((_presence * 1.35f + _presenceFlux * 2.1f - _low * 0.3f - _air * 0.12f) * (0.75f+${sensitivity}*0.7f) - (${gate}*0.35f), 0.0f, 1.0f);`)
       ln(`    ${v('energy')} = ${v('energy')} * ${smoothing} + _energyTarget * (1.0f-${smoothing});`)
       ln(`    ${v('vocals')} = ${v('vocals')} * ${smoothing} + _vocalsTarget * (1.0f-${smoothing});`)
+      // Silence reads the absolute loudness, eased by Smoothing (AUDIO_SILENCE).
+      if (silenceRead) ln(`    ${quiet} = ${quiet} < 0.0f ? ${v('loudness')} : ${quiet} * ${smoothing} + ${v('loudness')} * (1.0f-${smoothing});`)
       ln(`    ${prefix}_ready = true;`)
       ln(`  }`)
-      ln(`  bool ${v('silence')} = ${v('energy')} < ${silenceThreshold};`)
-      // The host's absolute channel meter (audioEngineCpp / the player sketch),
-      // mirroring audioLoudness() in audio/stereoLevels.ts.
-      ln(`  float ${v('loudness')} = constrain(_audioLoudness, 0.0f, 1.0f);`)
+      if (silenceRead) ln(`  bool ${v('silence')} = ${quiet} < ${silenceThreshold};`)
     } else {
       ln(`  // AudioFeatures — connect an Audio source for on-device audio feature extraction`)
       ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f, ${v('loudness')} = 0.0f; bool ${v('silence')} = true;`)
@@ -279,17 +331,15 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`  float ${v('left')}=${connected ? 'constrain(_audioLeftLevel,0.0f,1.0f)' : '0.0f'}, ${v('right')}=${connected ? 'constrain(_audioRightLevel,0.0f,1.0f)' : '0.0f'};`)
     ln(`  float ${v('balance')}=(${v('left')}+${v('right')})>0.0f?${v('right')}/(${v('left')}+${v('right')}):0.5f;`)
   },
-  // Keep in lockstep with the `BeatPhase` evaluator: a wall-clock saw at
-  // `bpm`, snapped to 0 by a rising Beat edge, with a bar saw and a count.
-  BeatPhase({ node, id, p, ln, v, f, boolExpr }) {
+  // Keep in lockstep with the `BeatPhase` evaluator (beatPhaseStep in
+  // audio/beatPhase.ts): a wall-clock saw snapped to 0 by a rising Beat edge
+  // that follows the measured beat, with a bar saw and a count.
+  BeatPhase({ node, id, p, ln, v, f, boolExpr, incoming }) {
     const bar = beatPhaseBeatsPerBar(Number(p.beatsPerBar ?? BEAT_PHASE_BAR.default))
     ln(`  float ${v('phase')}, ${v('bar')}, ${v('count')};`)
-    ln(`  { static float _bpP_${id}=0.0f; static uint32_t _bpC_${id}=0, _bpT_${id}=0; static bool _bpI_${id}=false, _bpV_${id}=false;`)
-    ln(`    float _bpm=constrain(${f('bpm', 'bpm', BEAT_PHASE_BPM.default)},${BEAT_PHASE_BPM.min}.0f,${BEAT_PHASE_BPM.max}.0f); uint32_t _now=millis(); bool _bt=(${boolExpr(node.id, 'beat')});`)
-    ln(`    float _dt=_bpI_${id}?(float)(_now-_bpT_${id})/1000.0f:0.0f; _bpT_${id}=_now; _bpI_${id}=true;`)
-    ln(`    float _ph=_bpP_${id}+_dt*_bpm/60.0f; uint32_t _cnt=_bpC_${id}; if(_ph>=1.0f){ _cnt+=(uint32_t)floorf(_ph); _ph-=floorf(_ph); }`)
-    ln(`    if(_bt&&!_bpV_${id}){ _ph=0.0f; _cnt=_bpC_${id}+1; } _bpV_${id}=_bt; _bpP_${id}=_ph; _bpC_${id}=_cnt;`)
-    ln(`    ${v('phase')}=_ph; ${v('bar')}=((float)(_cnt%${bar}u)+_ph)/${bar}.0f; ${v('count')}=(float)_cnt; }`)
+    const bpm = `constrain(${f('bpm', 'bpm', BEAT_PHASE_BPM.default)},${BEAT_PHASE_BPM.min}.0f,${BEAT_PHASE_BPM.max}.0f)`
+    const beat = incoming.has(`${node.id}:beat`) ? boolExpr(node.id, 'beat') : null
+    for (const line of beatPhaseLines(id, bpm, beat, bar, { phase: v('phase'), bar: v('bar'), count: v('count') })) ln(line)
   },
   AudioHue({ node, p, ln, v, f, incoming }) {
     const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
