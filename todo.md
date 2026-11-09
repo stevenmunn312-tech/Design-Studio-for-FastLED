@@ -246,20 +246,6 @@ Music Player seed.
 
 #### Effects and signals
 
-- [ ] **Category: Merge the overlapping frame-transform nodes (Med, M).**
-  Frame Transform, Transform, Frame Warp, Array, Frame Feedback and Tile
-  Symmetry each own part of offset/rotate/scale, "Rotate" means three
-  different things, and "Transform" vs "Frame Transform" are near-identical
-  names for opposite behaviours. Before v1, make one Frame Transform with
-  any-angle rotate, scale and offset, each with an optional per-second rate.
-  Keep Frame Warp for field-driven displacement only. Needs a product call
-  before code: whether the merged node keeps Frame Transform's whole-pixel
-  wrap and quarter turns (exact, no resampling) beside a resampled any-angle
-  path, and whether Frame Warp's own zoom/rotate go. Transform's Scale now
-  breathes between half and double size (`transformZoom.ts`), the rule a
-  per-second zoom rate would reuse. Moves: Transform in 4 bundled JSON
-  patterns and 5 help examples; Frame Transform in the Blend and Frame
-  Transform help examples. Evidence `src/nodes/composite/definitions.ts`.
 - [ ] **Category: Fold Kaleidoscope into Mirror (Med, M).** Mirror,
   Kaleidoscope and Tile Symmetry all fold a frame (Symmetry is now labelled
   Tile Symmetry). Add a "Radial" axis to Mirror with a Segments control
@@ -304,17 +290,6 @@ Music Player seed.
   integer kernel with a C++ twin; Shape Field, Path, Fourier and Shape's new
   Scale with matrix (`matrixSizeScale`) all size by the short side, which is
   1 on a strip.
-- [ ] **Category: Merge Field Warp, Field Rotate and Field Tile into one
-  transform node (Med, M).** They duplicate Frame Warp, which has offset
-  fields, strength, zoom, rotate, edge mode and bilinear sampling. Build one
-  Field Transform/Warp mirroring Frame Warp, adding spin and tiles X/Y. This
-  also fixes Field Rotate always wrapping (a ramp or edge shape pulls the
-  opposite edge into the corners) and Field Tile dropping detail by skipping
-  pixels. Migrate the bundled patterns that use the three (Fibonacci Spiral
-  Drive, Golden Ratio Cathedral, Lissajous Lattice, audio release sets).
-  `src/nodes/field/evaluate.ts:575`, `:590`. Field Warp already has
-  strength 2 and bilinear sampling (`sampleFieldBilinear` and its emitted
-  twin), which the merged node can reuse for rotate and tile.
 - [ ] **Category: Give Formula Shapes placement or fold it into Shape Field
   (Med, M).** Rose and superformula are shape outlines but always centred at a
   fixed scale, with no cx/cy/size and no fill/distance mode. Either add them
