@@ -16,10 +16,13 @@ import { ARRAY_COPIES } from './limits'
 import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from './blendModes'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
+  // Rounded (+0.5f) as the preview's Math.round: truncating turned a level-1
+  // pixel at half brightness to 0 on the board while the preview kept it.
   BrightnessMod({ ln, f, ownBuf, seedFrom }) {
     const ob = ownBuf()
     const br = f('brightness', 'brightness', 1)
-    ln(`  { ${seedFrom('frame')} float _br = fmaxf(0.0f, ${br}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CRGB((uint8_t)fminf(255.0f, ${ob}[_i].r * _br), (uint8_t)fminf(255.0f, ${ob}[_i].g * _br), (uint8_t)fminf(255.0f, ${ob}[_i].b * _br)); }`)
+    const ch = (c: string) => `(uint8_t)(fminf(255.0f, ${ob}[_i].${c} * _br) + 0.5f)`
+    ln(`  { ${seedFrom('frame')} float _br = fmaxf(0.0f, ${br}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CRGB(${ch('r')}, ${ch('g')}, ${ch('b')}); }`)
   },
   // Manual A/B frame selector; copies the wired side when the other is
   // empty (matching the evaluator's fallback). An unwired Select is the

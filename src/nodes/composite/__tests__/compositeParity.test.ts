@@ -101,6 +101,29 @@ function runPixelLoop(nodeType: string, properties: Record<string, unknown>, pix
   return leds
 }
 
+describe('Brightness', () => {
+  it('rounds on the board as the preview does', () => {
+    const pixels = [{ r: 1, g: 3, b: 5 }, { r: 255, g: 128, b: 77 }, { r: 0, g: 254, b: 9 }]
+    for (const brightness of [0.5, 0.3, 1, 1.7, 3]) {
+      const cpp = generateCpp([node('src', 'Code', 'code'), node('fx', 'BrightnessMod', 'composite', { brightness }),
+        node('out', 'MatrixOutput', 'output', { width: pixels.length, height: 1 })], [
+        edge('e1', 'src', 'fx', 'frame', 'frame'), edge('e2', 'fx', 'out', 'frame', 'frame'),
+      ])
+      const line = cpp.split('\n').find((l) => l.includes('float _br ='))!
+      const statement = line.slice(line.indexOf('float _br =')).replace(/ \}$/, '')
+      const buffer = statement.match(/(\w+)\[_i\] = CRGB/)![1]
+      const leds = pixels.map((px) => ({ ...px }))
+      compileCppSnippet([statement], ['NUM_LEDS', buffer, 'CRGB'], [])(0, {
+        NUM_LEDS: leds.length, [buffer]: leds as never, CRGB: ((r: number, g: number, b: number) => ({ r, g, b })) as never,
+      })
+      const preview = COMPOSITE_EVALUATORS.BrightnessMod!({
+        input: () => [pixels], num: () => brightness,
+      } as unknown as EvalContext, 'fx', {}, studio, 'BrightnessMod').frame as RGB[][]
+      expect(leds, `brightness ${brightness}`).toEqual(preview[0])
+    }
+  })
+})
+
 describe('Saturation', () => {
   const preview = (properties: Record<string, unknown>, pixels: RGB[]) => COMPOSITE_EVALUATORS.Saturation!({
     input: () => [pixels], num: (_id: string, _port: string, props: Record<string, unknown>) => Number(props.amount),

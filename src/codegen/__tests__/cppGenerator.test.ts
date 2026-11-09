@@ -735,7 +735,7 @@ describe('generateCpp', () => {
     )
 
     expect(cpp).toContain('float _br = fmaxf(0.0f, 2.5)')
-    expect(cpp).toContain('fminf(255.0f, buf_bm[_i].r * _br)')
+    expect(cpp).toContain('(uint8_t)(fminf(255.0f, buf_bm[_i].r * _br) + 0.5f)')
     expect(cpp).not.toContain('constrain(2.5, 0, 1)')
     expect(cpp).not.toContain('nscale8(_br)')
   })

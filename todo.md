@@ -652,11 +652,6 @@ freeze, or drop them.
 - [ ] **Category: Add a scope to Noise LFO and Envelope (Low, M).** Only
   Wave has an on-node scope, but these two are the nodes whose shape is the
   whole point. Evidence `src/components/Canvas/StudioNode.tsx:1315`.
-- [ ] **Brightness: Match preview and firmware rounding (Low, S).** Preview
-  rounds, firmware truncates `(uint8_t)fminf(...)`, so at 0.5 a level-1
-  pixel stays 1 in preview but is 0 on the board. Add `+0.5f` in firmware
-  or use the byte kernel on both sides. Evidence
-  `src/nodes/composite/evaluate.ts:256`, `src/nodes/composite/codegen.ts:17`.
 - [ ] **Gamma: Offer a Gamma setting on the LED output (Low, M).** Help says
   to put Gamma last, just before the LED output; a setting on the output
   would remove a node from most finished graphs. Evidence
