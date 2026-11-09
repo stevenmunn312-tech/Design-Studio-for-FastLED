@@ -4164,9 +4164,9 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'power', label: 'Power', keys: ['brightness', 'powerLimit', 'milliamps', 'enabled'] },
   ],
   Image: [
-    { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },
+    { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY', 'sampling'] },
     { key: 'color', label: 'Color', keys: ['brightness', 'saturation', 'contrast', 'hueShift', 'gamma', 'monochrome', 'paletteLevels', 'dithering'] },
-    { key: 'playback', label: 'Playback', keys: ['sampling', 'loop', 'playbackRate'] },
+    { key: 'playback', label: 'Playback', keys: ['loop', 'playbackRate'] },
   ],
   Shape: [
     { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'scaleWithMatrix', 'aspect', 'rotation'] },
@@ -5235,7 +5235,8 @@ export function isPropertyEnabled(
     const mode = String(properties.displayMode ?? 'Digital HH:MM')
     const analog = mode === 'Analog' || mode === 'Analog + Date'
     const transport = mode === 'Stopwatch' || mode === 'Timer'
-    if (key === 'radius') return analog
+    // Scale with matrix sizes the analogue face, so it goes with Radius.
+    if (key === 'radius' || key === 'scaleWithMatrix') return analog
     if (key === 'hAlign' || key === 'vAlign') return !analog
     if (key === 'durationSec') return mode === 'Timer'
     if (key === 'run' || key === 'reset') return transport

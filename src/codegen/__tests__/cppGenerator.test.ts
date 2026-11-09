@@ -2456,6 +2456,8 @@ describe('generateCpp', () => {
     })
     const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
     expect(cpp).toContain('const float _ibr=max(0.0f,min(1.0f,0.5))')
+    // Brightness is the last colour step, after contrast and gamma.
+    expect(cpp.indexOf('_r*=_ibr; _g*=_ibr; _b*=_ibr;')).toBeGreaterThan(cpp.indexOf('float _gamma='))
     expect(cpp).toContain('_imgcolor({16.0f,32.0f,48.0f,1.0f},_x,_y); continue;')
     expect(cpp).toContain('floorf(_fx)')
     expect(cpp).toContain('_ImgPx _c00=_imgpx(')

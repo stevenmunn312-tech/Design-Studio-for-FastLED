@@ -851,10 +851,6 @@ freeze, or drop them.
 - [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
   32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
   shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
-- [ ] **Clock Display: Gate `scaleWithMatrix` with radius (Low, S).** It only
-  affects the analogue radius but is always shown. Gate it with `radius` in
-  `isPropertyEnabled`. `src/state/nodeLibrary.ts:5194`,
-  `src/nodes/shapes/evaluate.ts:597`.
 - [ ] **Clock Display: Split Stopwatch/Timer into a signal node (Low, M).**
   A transport lives inside a drawing node; anyone wanting only `done` still
   draws digits. Consider a small Timer signal node with Clock Display drawing
@@ -877,12 +873,7 @@ freeze, or drop them.
   slider runs to 64 but `maxHarmonics` defaults to 32, so the top half does
   nothing. Bake `ceil(harmonics)` when unwired and show `maxHarmonics` only
   when wired. `src/state/nodeLibrary.ts:1434`.
-- [ ] **Image: Apply brightness after contrast (Low, S).** Brightness runs
-  before contrast, so with contrast 0.5, Brightness 0 leaves a 25% grey veil
-  and fading by wiring Brightness fails. Apply brightness last, on both sides.
-  `src/nodes/shared/image.ts:209`, `src/nodes/shared/image.ts:153`.
-- [ ] **Image: Move `sampling` to the Transform group (Low, S).** It sits in
-  "Playback". `src/state/nodeLibrary.ts:4135`.
+
 
 #### Generative and simulations
 

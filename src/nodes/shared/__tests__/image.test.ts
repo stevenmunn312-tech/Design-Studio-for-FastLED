@@ -113,6 +113,15 @@ describe('sampleImageToFrame', () => {
     expect(frame[1]).toEqual([{ r: 10, g: 20, b: 30 }, { r: 10, g: 20, b: 30 }])
   })
 
+  it('applies brightness after contrast, so 0 is black at any contrast', () => {
+    const img = { w: 1, h: 1, pixels: [200, 100, 0] }
+    // Contrast 0.5 pulls towards mid-grey; brightness 0 still turns it off.
+    expect(sampleImageToFrame(img, 1, 1, { contrast: 0.5, brightness: 0 })[0][0]).toEqual({ r: 0, g: 0, b: 0 })
+    const full = sampleImageToFrame(img, 1, 1, { contrast: 0.5 })[0][0]
+    const half = sampleImageToFrame(img, 1, 1, { contrast: 0.5, brightness: 0.5 })[0][0]
+    expect(half.r).toBe(Math.round(full.r / 2))
+  })
+
   it('zooms into the source and steers the crop window', () => {
     const img = { w: 4, h: 1, pixels: [10, 0, 0, 20, 0, 0, 30, 0, 0, 40, 0, 0] }
     const left = sampleImageToFrame(img, 2, 1, { zoom: 2, cropX: 0 })
