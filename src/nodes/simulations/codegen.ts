@@ -2,6 +2,7 @@ import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { trailFadeCpp, trailKeepCpp } from '../shared/trailFadeCpp'
+import { passFramesCpp } from '../shared/passClockCpp'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_DEPTH, FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, INOISE_UNIT, fireStyle,
@@ -505,6 +506,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`    float _spd=${speed},_sc=${scale},_z=t*0.1f;`)
     const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.53))
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${keep};`)
+    const pf = passFramesCpp(ln, phaseTag(id))
     ln(`    for(int _i=0;_i<_count;_i++){`)
     ln(`      float _nx=${px}[_i]*_sc+_z,_ny=${py}[_i]*_sc;`)
     if (p.flowMode === 'curl') {
@@ -516,8 +518,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       ln(`      float _a=_snoise2(_nx,_ny)*12.566371f;`)
       ln(`      float _dx=cosf(_a),_dy=sinf(_a);`)
     }
-    ln(`      ${px}[_i]=fmodf(${px}[_i]+_dx*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+_dy*_spd*0.6f+HEIGHT,HEIGHT);`)
-    ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f); } }`)
+    ln(`      ${px}[_i]=fmodf(fmodf(${px}[_i]+_dx*_spd*0.6f*${pf},WIDTH)+WIDTH,WIDTH); ${py}[_i]=fmodf(fmodf(${py}[_i]+_dy*_spd*0.6f*${pf},HEIGHT)+HEIGHT,HEIGHT);`)
+    ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f*${pf}); } }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${tr}[_i]*255)); }`)
   },
   // Ripple: the turning rule runs here once per (edge, end) and is baked as
@@ -663,7 +665,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     }
     ln(`      ${ob}[${at}]=CRGB(_r,_g,_bl); } }`)
   },
-  Starfield({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }) {
+  Starfield({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
+    needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.Starfield)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -674,8 +677,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`    ${pool.count} static float ${sx}[${pool.size}], ${sy}[${pool.size}], ${sz}[${pool.size}]; static bool _sfi_${id}=false;`)
     if (seed) ln(`    static bool _sfs_${id}=false; if(!_sfs_${id}){ random16_set_seed(${seed}u); _sfs_${id}=true; }`)
     ln(`    if(!_sfi_${id}){ for(int _i=0;_i<${pool.size};_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
+    const pf = passFramesCpp(ln, phaseTag(id))
     ln(`    float _spd=${speed}; fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-    ln(`    for(int _i=0;_i<_count;_i++){ ${sz}[_i]-=_spd*0.015f;`)
+    ln(`    for(int _i=0;_i<_count;_i++){ ${sz}[_i]-=_spd*0.015f*${pf};`)
     ln(`      if(${sz}[_i]<=0.02f){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=1; }`)
     ln(`      int _px=(int)(WIDTH/2.0f+(${sx}[_i]/${sz}[_i])*WIDTH*0.35f), _py=(int)(HEIGHT/2.0f+(${sy}[_i]/${sz}[_i])*HEIGHT*0.35f);`)
     ln(`      if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT){ float _db=min(1.0f,1-${sz}[_i]); ${ob}[_py*WIDTH+_px]=ColorFromPalette(${pal},(uint8_t)(_db*255)); ${ob}[_py*WIDTH+_px].nscale8((uint8_t)(_db*255)); } } }`)

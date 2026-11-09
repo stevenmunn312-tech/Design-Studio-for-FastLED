@@ -6,6 +6,7 @@ import {
 } from './classics1d'
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
+import { passFrames } from '../shared/passClock'
 import { fadeFrameToBlackBy, trailFadeAmount } from '../shared/trailFade'
 import {
   burstFrame, burstPixel, pacificaFrame, sineFieldFrame, sineFieldSum, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
@@ -676,10 +677,12 @@ function evalDigitalRain(
   }
   const rnd = () => seededRandom(`${nodeId}:rain`, seed)
   const dens = clamp01(density), fl = clamp01(flicker), tl = Math.max(2, tail)
+  // Spawns and steps are per 60th of a second, so the rain keeps its pace at any frame rate.
+  const frames = passFrames(nodeId, t)
   for (let l = 0; l < lanes; l++) {
     if (s.head[l] >= along + s.len[l]) {
-      if (rnd() < dens * RAIN_SPAWN) { s.head[l] = 0; s.spd[l] = 0.25 + rnd() * 0.75; s.len[l] = Math.max(2, tl * (0.5 + rnd() * 0.5)) }
-    } else s.head[l] += s.spd[l] * Math.max(0, speed) * RAIN_STEP
+      if (rnd() < Math.min(1, dens * RAIN_SPAWN * frames)) { s.head[l] = 0; s.spd[l] = 0.25 + rnd() * 0.75; s.len[l] = Math.max(2, tl * (0.5 + rnd() * 0.5)) }
+    } else s.head[l] += s.spd[l] * Math.max(0, speed) * RAIN_STEP * frames
   }
   const frame = blankFrame(W, H)
   const bucket = Math.floor(t * RAIN_FLICKER_HZ)

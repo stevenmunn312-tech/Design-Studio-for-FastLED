@@ -1767,6 +1767,9 @@ describe('generateCpp', () => {
   it('emits Digital Rain lanes and cell mapping per direction', () => {
     const rain = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'DigitalRain', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     const down = rain()
+    // Spawns and steps are per 60th of a second, not per frame.
+    expect(down).toContain('_rnd()<fminf(1.0f,_dn*0.08f*_pf_n)')
+    expect(down).toContain('_dr_nh[_l]+=_dr_ns[_l]*_sp*0.5f*_pf_n;')
     expect(down).toContain('static float _dr_nh[WIDTH]')
     expect(down).toContain('[_ps*WIDTH+_l]=CRGB(')
     expect(rain({ direction: 'up' })).toContain('[(HEIGHT-1-_ps)*WIDTH+_l]=CRGB(')
@@ -2208,6 +2211,8 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _a=_snoise2(_nx,_ny)*12.566371f;')
     expect(cpp).not.toContain('inoise8(')
     expect(cpp).toContain('_ftr_ff[_i]*=_tkeep_ff;')
+    expect(cpp).toContain('_fpx_ff[_i]+_dx*_spd*0.6f*_pf_ff')
+    expect(cpp).toContain('_ftr_ff[_id]=min(1.0f,_ftr_ff[_id]+0.5f*_pf_ff);')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
 
     const curl = generateCpp([node('ff', 'FlowField', 'pattern', { flowMode: 'curl' }), outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
@@ -2225,6 +2230,8 @@ describe('generateCpp', () => {
     const sf = node('sf', 'Starfield', 'pattern', { speed: 2, count: 80, r: 255, g: 255, b: 255 })
     const cpp = generateCpp([sf, outputNode], [edge('e', 'sf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('const int _count=80; static float _sfx_sf[80], _sfy_sf[80], _sfz_sf[80]')
+    // Depth falls per 60th of a second, so the warp holds at any frame rate.
+    expect(cpp).toContain('_sfz_sf[_i]-=_spd*0.015f*_pf_sf;')
     const lfo = node('lfo', 'LFO', 'input', {})
     const wired = generateCpp([lfo, sf, outputNode], [edge('e', 'sf', 'out', 'frame', 'frame'), edge('c', 'lfo', 'sf', 'value', 'count')])
     expect(wired).toContain('static float _sfx_sf[300], _sfy_sf[300], _sfz_sf[300]')

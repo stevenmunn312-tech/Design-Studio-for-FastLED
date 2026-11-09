@@ -991,18 +991,19 @@ freeze, or drop them.
 
 #### Generative and simulations
 
-- [ ] **Category: Move simulation motion onto the clock (Med, M).** Trails
-  are done: every trail now fades by elapsed time through the shared `trail`
-  knob. Motion still advances per pass, against "never per pass" in
-  `docs/development/patterns/graph-and-nodes.md:285`: Flow Field particle
-  steps and deposits, String Particles moves and life, Formula Points' logistic
-  map and attractor iterations, Digital Rain heads, Starfield depth and every
-  Particles mode (`rate` is a per-frame chance, `decay` a per-frame share of
-  life). A heavy graph on an ESP8266 or C3 that drops to 30 fps halves these
-  speeds. Each node needs a measured `dt` on both sides (a per-node static
-  last `t` in firmware, as `timedFadeCpp` keeps) and its per-frame constants
-  rescaled to per-second ones, with bundled values checked by eye. Evidence
-  `src/nodes/simulations/evaluate.ts:587`, `:824`.
+- [ ] **Category: Move the rest of simulation motion onto the clock (Med, M).**
+  Done: every trail fades by elapsed time through the shared `trail` knob,
+  and Starfield, Digital Rain and Flow Field scale their per-frame steps by
+  `passFrames` (`src/nodes/shared/passClock.ts`, firmware `passFramesCpp`).
+  Still per pass, against "never per pass" in
+  `docs/development/patterns/graph-and-nodes.md:285`: String Particles moves
+  and life, Formula Points' logistic map and attractor iterations (a count a
+  frame), and every Particles mode (`rate` is a per-frame chance, `decay` a
+  per-frame share of life, and twenty bodies of per-frame velocities and
+  drag). The same `passFrames` scaling fits each; drag and decay need
+  `Math.pow(k, frames)` rather than a multiply, and each mode wants checking
+  by eye. Evidence `src/nodes/simulations/evaluate.ts` (evalParticles,
+  evalStringParticles, evalFormulaPoints).
 - [ ] **Category: Merge the overlapping Noise types and fold the sine family
   into Plasma (Med, M).** Noise has four near-duplicate cloud types (simplex,
   noise3d, fbm, plasma) and the sine family is spread over Plasma and Noise

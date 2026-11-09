@@ -288,7 +288,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Master Speed; its ramp is now Wave's unipolar sawtooth, integrated through
   `speedPhase`. Time's `dt`
   is the time since that node's previous pass (0 on its first), measured on
-  both sides, where it was a fixed 1/60.
+  both sides, where it was a fixed 1/60. A simulation written as a step per
+  frame multiplies each step by `passFrames` (`src/nodes/shared/passClock.ts`,
+  firmware twin `passFramesCpp`), the 60ths of a second since its previous
+  pass: 1 on the first, so a 60 fps run is unchanged, and at most a quarter
+  second after a stall. Starfield, Digital Rain and Flow Field move this way.
 - A string renders on a canvas one row tall, so a pattern that rises, falls
   or sizes itself by the shorter side has nothing to work with there. Fire
   and Digital Rain default to an `auto` direction that runs along a string

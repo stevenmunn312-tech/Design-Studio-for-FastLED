@@ -3,6 +3,7 @@ import { particleMode, particlePoolSize } from './particleModes'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
 import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeAmount, trailKeep } from '../shared/trailFade'
+import { passFrames } from '../shared/passClock'
 import { particleRadius } from './particleScale'
 import { fireDirection, type FireDirection } from './fireDirection'
 import { curlFlow } from '../../state/evaluator/curl'
@@ -564,6 +565,9 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
   const { px, py, trail } = s
   const keep = trailKeep(nodeId, t, trailLen)
   for (let i = 0; i < N; i++) trail[i] *= keep
+  // Steps and deposits are per 60th of a second, so the flow keeps its pace
+  // whatever the frame rate.
+  const frames = passFrames(nodeId, t)
   const z = t * 0.1
   for (let i = 0; i < pc; i++) {
     let dx: number, dy: number
@@ -575,10 +579,10 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
       const a = _snoise2(px[i] * scale + z, py[i] * scale) * Math.PI * 4
       dx = Math.cos(a); dy = Math.sin(a)
     }
-    px[i] = ((px[i] + dx * speed * 0.6) % W + W) % W
-    py[i] = ((py[i] + dy * speed * 0.6) % H + H) % H
+    px[i] = ((px[i] + dx * speed * 0.6 * frames) % W + W) % W
+    py[i] = ((py[i] + dy * speed * 0.6 * frames) % H + H) % H
     const idx = Math.floor(py[i]) * W + Math.floor(px[i])
-    trail[idx] = Math.min(1, trail[idx] + 0.5)
+    trail[idx] = Math.min(1, trail[idx] + 0.5 * frames)
   }
   return buildFrame(W, H, (x, y) => samplePalette(palette, trail[y * W + x]))
 }
@@ -781,7 +785,8 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
 }
 
 // Warp starfield: stars fly outward from the centre; nearer stars are brighter.
-function evalStarfield(nodeId: string, speed: number, count: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+// Depth falls per 60th of a second, so warp speed holds at any frame rate.
+function evalStarfield(nodeId: string, speed: number, count: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const pc = Math.max(STARFIELD_COUNT.min, Math.min(STARFIELD_COUNT.max, Math.floor(count)))
   let s = starState.get(nodeId)
   const rnd = () => seededRandom(`${nodeId}:star`, seed)
@@ -792,9 +797,10 @@ function evalStarfield(nodeId: string, speed: number, count: number, palette: Pa
     s = { x, y, z, w: W, h: H, seed }; starState.set(nodeId, s)
   }
   const { x, y, z } = s
+  const frames = passFrames(nodeId, t)
   const frame = blankFrame(W, H)
   for (let i = 0; i < pc; i++) {
-    z[i] -= speed * 0.015
+    z[i] -= speed * 0.015 * frames
     if (z[i] <= 0.02) { x[i] = rnd() * 2 - 1; y[i] = rnd() * 2 - 1; z[i] = 1 }
     const px = Math.round(W / 2 + (x[i] / z[i]) * W * 0.35), py = Math.round(H / 2 + (y[i] / z[i]) * H * 0.35)
     if (px >= 0 && px < W && py >= 0 && py < H) {
@@ -1139,11 +1145,11 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalRipple(stateKey(id), props, Boolean(input(id, 'trigger', false)), speed, rate, trail, t, palette, W, H, normalizedSeed(props.seed)) }
   },
-  Starfield({ num, pal, W, H, stateKey }, id, props) {
+  Starfield({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.Starfield)
     const count = num(id, 'count', props, 'count', 60)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ice')
-    return { frame: evalStarfield(stateKey(id), speed, count, palette, W, H, normalizedSeed(props.seed)) }
+    return { frame: evalStarfield(stateKey(id), speed, count, t, palette, W, H, normalizedSeed(props.seed)) }
   },
   Boids({ input, num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Boids)

@@ -2213,6 +2213,19 @@ describe('evaluateGraph', () => {
     expect(at('pride-lava-a', { palette: 'lava' })).not.toBe(at('pride-ocean', { palette: 'ocean' }))
   })
 
+  it('Starfield flies at the same pace at 30 fps as at 60 fps', () => {
+    // Depth falls per 60th of a second: half a second in, the stars stand
+    // where they do at 60 fps, where they used to travel half as far at 30.
+    // Slow enough that no star reaches the viewer and respawns in that time.
+    const lit = (id: string, fps: number, seconds: number) => {
+      const { nodes, edges } = withOutput(node(id, 'Starfield', 'pattern', { speed: 0.05, count: 8, seed: 3 }))
+      let frame = evaluateGraph(nodes, edges, 0, 32, 32)!
+      for (let i = 1; i <= fps * seconds; i++) frame = evaluateGraph(nodes, edges, (i * 60) / fps, 32, 32)!
+      return frame.flat().map((px) => px.r + px.g + px.b > 0)
+    }
+    expect(lit('sf-30', 30, 0.5)).toEqual(lit('sf-60', 60, 0.5))
+  })
+
   it('Plasma holds still at speed 0 and changes its band size with Scale', () => {
     const run = (id: string, props: Record<string, unknown>, ticks: number[]) => {
       const { nodes, edges } = withOutput(node(id, 'Plasma', 'pattern', props))

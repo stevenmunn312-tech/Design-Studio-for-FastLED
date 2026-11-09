@@ -6,6 +6,7 @@ import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurv
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { trailFadeCpp } from '../shared/trailFadeCpp'
+import { passFramesCpp } from '../shared/passClockCpp'
 import {
   BURST_PIXEL_CPP, PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, SPIRAL_PIXEL_CPP, TWINKLE_PIXEL_CPP,
   SINE_FIELD_VALUE_CPP, burstFrameCpp, pacificaFrameCpp, sineFieldFrameCpp, spiralFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
@@ -548,9 +549,10 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`    auto _rnd=[]()->float{ return random16()/65535.0f; };`)
     ln(`    float _dn=constrain(${f('density', 'density', 0.5)},0.0f,1.0f),_fk=constrain(${f('flicker', 'flicker', 0.3)},0.0f,1.0f),_tl=fmaxf(2.0f,${f('tailLength', 'tailLength', 8)});`)
     ln(`    float _sp=fmaxf(0.0f,${rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.DigitalRain)});`)
+    const pf = passFramesCpp(ln, phaseTag(id))
     ln(`    for(int _l=0;_l<${lanes};_l++){`)
-    ln(`      if(${A}h[_l]>=${along}+${A}l[_l]){ if(_rnd()<_dn*${lit(RAIN_SPAWN)}){ ${A}h[_l]=0.0f; ${A}s[_l]=0.25f+_rnd()*0.75f; ${A}l[_l]=fmaxf(2.0f,_tl*(0.5f+_rnd()*0.5f)); } }`)
-    ln(`      else ${A}h[_l]+=${A}s[_l]*_sp*${lit(RAIN_STEP)}; }`)
+    ln(`      if(${A}h[_l]>=${along}+${A}l[_l]){ if(_rnd()<fminf(1.0f,_dn*${lit(RAIN_SPAWN)}*${pf})){ ${A}h[_l]=0.0f; ${A}s[_l]=0.25f+_rnd()*0.75f; ${A}l[_l]=fmaxf(2.0f,_tl*(0.5f+_rnd()*0.5f)); } }`)
+    ln(`      else ${A}h[_l]+=${A}s[_l]*_sp*${lit(RAIN_STEP)}*${pf}; }`)
     ln(`    fill_solid(${ob},NUM_LEDS,CRGB::Black);`)
     ln(`    uint32_t _bk=(uint32_t)floorf(t*${lit(RAIN_FLICKER_HZ)});`)
     ln(`    for(int _l=0;_l<${lanes};_l++){ if(${A}h[_l]>=${along}+${A}l[_l]) continue;`)
