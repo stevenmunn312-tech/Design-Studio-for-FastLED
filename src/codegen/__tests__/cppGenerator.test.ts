@@ -5302,7 +5302,10 @@ describe('FrameFeedback (bounded delay feedback)', () => {
     ])
     expect(cpp).toContain('CRGB _fb_fb[3][NUM_LEDS];')
     expect(cpp).toContain('uint8_t _fb_read_fb=(_fb_idx_fb+_fb_cap_fb-2)%_fb_cap_fb;')
-    expect(cpp).toContain('float _fb_fade_fb=1.0f-constrain(0.1,0.0f,1.0f);')
+    // The fade is spent by elapsed time, carried per ring slot.
+    expect(cpp).toContain('static float _fbOwed_fb[3]={0},_fbT_fb=-1.0f;')
+    expect(cpp).toContain('float _fbKeep=powf(1.0f-constrain(0.1,0.0f,1.0f),_fbDt*60.0f);')
+    expect(cpp).toContain('uint8_t _fbF8=255-_fbBy,')
     expect(cpp).toContain('CRGB _fb=_fbSrc<0?CRGB(CRGB::Black):_fb_fb[_fb_read_fb][_fbSrc];')
     expect(cpp).toContain('::memmove(_fb_fb[_fb_idx_fb], buf_fb, sizeof(CRGB) * NUM_LEDS);')
   })

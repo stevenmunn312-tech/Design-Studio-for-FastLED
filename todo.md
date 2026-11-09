@@ -674,10 +674,6 @@ freeze, or drop them.
   + Turn", or apply all four values like Array; `feedbackFrame` already
   computes cos/sin and inverse scale together. Evidence
   `src/state/nodeLibrary.ts:5322`, `src/nodes/shared/integerPatterns.ts:1330`.
-- [ ] **Frame Feedback: Use a time-based fade like Trails (Low, S).** Its
-  `fade` is linear and per frame, so the look depends on frame rate. Move
-  it to the shared half-life fade and use the same semantics as Trails,
-  which it generalises. Evidence `src/state/nodeLibrary.ts:3482`.
 - [ ] **Math Switch: Add a Select property (Med, S).** Frame Switch gained a
   `select` switch as its `sel` port's property input; Math `Switch` has the
   same gap (unwired it always passes A). Left to the Colour and maths list's

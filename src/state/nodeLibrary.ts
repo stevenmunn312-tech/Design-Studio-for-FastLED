@@ -3033,7 +3033,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FrameFeedback: {
     delayFrames: 'How many frames back the echo comes from. More memory per frame on the board.',
-    fade: 'How much the echo dims each pass, 0 to 1. Small values keep it ringing.',
+    fade: 'How much the echo dims each 60th of a second, 0 to 1, so it rings as long at any frame rate. Small values keep it ringing.',
     blendMode: 'How the echo is laid over the live frame.',
     amount: 'Opacity of the echo over the live frame. 0 turns feedback off.',
     feedbackTransform: 'What happens to the echo each pass: slide, turn, or zoom. None keeps it in place.',

@@ -19,7 +19,7 @@ import { glitterBudget, glitterMode } from './glitter'
 import { frameOffset, frameQuarterTurns } from './frameTransform'
 import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
-import { fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
+import { TRAIL_MIN_STEP, fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import { evalKaleidoscope } from './kaleidoscope'
 import { gammaVideoTable } from './gamma'
@@ -35,7 +35,10 @@ import { scale8 } from '../shared/lib8tion'
 
 // Trails node — the persisted, fading accumulator frame.
 const trailState = instanceState('trailState', new Map<string, Frame>())
-interface FrameFeedbackState { frames: Frame[]; index: number; w: number; h: number; capacity: number }
+/** The ring of past outputs, each slot's unspent fade, and the previous pass's time. */
+interface FrameFeedbackState {
+  frames: Frame[]; owed: number[]; index: number; w: number; h: number; capacity: number; lastT: number | null
+}
 const frameFeedbackState = instanceState('frameFeedbackState', new Map<string, FrameFeedbackState>())
 
 // Animated geometric transform of a frame, resampled nearest-neighbour about
@@ -73,7 +76,7 @@ function evalTransform(key: string, src: Frame, mode: string, rate: number, angl
 }
 
 function evalFrameFeedback(
-  key: string, src: Frame, delayFrames: number, fade: number, amount: number,
+  key: string, t: number, src: Frame, delayFrames: number, fade: number, amount: number,
   blendMode: string, transformMode: string, offsetX: number, offsetY: number,
   angle: number, scale: number, W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
@@ -83,13 +86,32 @@ function evalFrameFeedback(
   if (!state || state.w !== W || state.h !== H || state.capacity !== capacity) {
     state = {
       frames: Array.from({ length: capacity }, () => rawBlankFrame(W, H)),
+      owed: new Array<number>(capacity).fill(0),
       index: 0,
       w: W,
       h: H,
       capacity,
+      lastT: null,
     }
     frameFeedbackState.set(key, state)
   }
+  // 1 - fade survives each 60th of a second, spent by the time since the
+  // previous pass, as Trails spends its decay, so the echo dies at the same
+  // speed at any frame rate. Like the shared trail clock it saves a slow fade
+  // up into whole fadeToBlackBy bytes, TRAIL_MIN_STEP at a time, but per ring
+  // slot: an echo chain is `delay` passes long, and one shared carry spent on
+  // alternate frames would fade one chain twice and the other never.
+  const dt = state.lastT === null ? 0 : Math.max(0, t - state.lastT)
+  state.lastT = t
+  let keep = Math.pow(1 - clamp01(fade), dt * TRAILS_REFERENCE_FPS)
+  if (!(keep >= 0)) keep = 1
+  let owed = state.owed[(state.index - delay + capacity) % capacity] + (1 - keep) * 256
+  let fadeBy = 0
+  if (owed >= TRAIL_MIN_STEP) {
+    fadeBy = Math.min(255, Math.floor(owed))
+    owed = fadeBy === 255 ? 0 : owed - fadeBy
+  }
+  state.owed[state.index] = owed
 
   // The sketch's integer kernel (shared/integerPatterns.ts): the delayed
   // frame read through the transform, faded and blended in bytes, normal
@@ -97,7 +119,8 @@ function evalFrameFeedback(
   const delayed = state.frames[(state.index - delay + capacity) % capacity]
   const frame = feedbackFrame(offsetX, offsetY, angle, scale)
   const mode = ['translate', 'rotate', 'scale'].includes(transformMode) ? transformMode : 'none'
-  const retain8 = Math.trunc((1 - clamp01(fade)) * 255)
+  // fadeToBlackBy(fadeBy) is scale8 by 255 - fadeBy.
+  const retain8 = 255 - fadeBy
   const op8 = Math.trunc(clamp01(amount) * 255)
   const integerMode = FEEDBACK_BLEND_MODES.includes(blendMode) ? blendMode : 'screen'
   const out = state.frames[state.index]
@@ -374,11 +397,12 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   // ring buffer, then composites a delayed, faded/transformed copy over the
   // current input on the next ticks. That gives video-synth feedback without
   // permitting graph cycles.
-  FrameFeedback({ input, num, W, H, stateKey }, id, props) {
+  FrameFeedback({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) { return { frame: null } }
     return { frame: evalFrameFeedback(
       stateKey(id),
+      t,
       src,
       Number(props.delayFrames ?? 2),
       num(id, 'fade', props, 'fade', 0.08),

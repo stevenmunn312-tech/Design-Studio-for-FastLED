@@ -5,6 +5,7 @@ import { GLITTER_PER_LED, glitterMode } from './glitter'
 import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { timedFadeCpp } from '../shared/trailFadeCpp'
+import { TRAIL_MIN_STEP } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import {
   ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
@@ -120,10 +121,11 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     for (const line of sampleFrameQ8Cpp(src)) ln(`      ${line}`)
     ln(`      ${ob}[_y*WIDTH+_x]=_wpC; } }`)
   },
-  FrameFeedback({ id, p, ln, f, ownBuf, srcBuf, feedbackHistoryBufs }) {
+  FrameFeedback({ id, p, ln, f, ownBuf, srcBuf, feedbackHistoryBufs, needsT }) {
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`); return }
+    needsT.v = true
     const delay = Math.max(1, Math.min(32, Math.round(Number(p.delayFrames ?? 2))))
     const capacity = delay + 1
     feedbackHistoryBufs.set(id, capacity)
@@ -140,10 +142,17 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`    static uint8_t _fb_idx_${id}=0;`)
     ln(`    const uint8_t _fb_cap_${id}=${capacity};`)
     ln(`    uint8_t _fb_read_${id}=(_fb_idx_${id}+_fb_cap_${id}-${delay})%_fb_cap_${id};`)
-    ln(`    float _fb_fade_${id}=1.0f-constrain(${fade},0.0f,1.0f);`)
+    // 1 - fade survives each 60th of a second, spent by elapsed time and
+    // saved up per ring slot into whole fadeToBlackBy bytes, as the preview does.
+    ln(`    static float _fbOwed_${id}[${capacity}]={0},_fbT_${id}=-1.0f;`)
+    ln(`    float _fbDt=_fbT_${id}<0.0f?0.0f:fmaxf(0.0f,t-_fbT_${id}); _fbT_${id}=t;`)
+    ln(`    float _fbKeep=powf(1.0f-constrain(${fade},0.0f,1.0f),_fbDt*${floatLit(TRAILS_REFERENCE_FPS)}); if(!(_fbKeep>=0.0f)) _fbKeep=1.0f;`)
+    ln(`    float _fbOwe=_fbOwed_${id}[_fb_read_${id}]+(1.0f-_fbKeep)*256.0f; uint8_t _fbBy=0;`)
+    ln(`    if(_fbOwe>=${floatLit(TRAIL_MIN_STEP)}){ _fbBy=_fbOwe>=255.0f?255:(uint8_t)_fbOwe; _fbOwe=_fbBy==255?0.0f:_fbOwe-_fbBy; }`)
+    ln(`    _fbOwed_${id}[_fb_idx_${id}]=_fbOwe;`)
     ln(`    float _fb_amt_${id}=constrain(${amount},0.0f,1.0f);`)
     // Integer kernel (shared/integerPatterns.ts): source lookup and blend in bytes.
-    ln(`    uint8_t _fbF8=(uint8_t)(_fb_fade_${id}*255.0f),_fbA8=(uint8_t)(_fb_amt_${id}*255.0f);`)
+    ln(`    uint8_t _fbF8=255-_fbBy,_fbA8=(uint8_t)(_fb_amt_${id}*255.0f);`)
     if (transformMode !== 'none') {
       for (const line of feedbackFrameCpp(id, offX, offY, angle, scale)) ln(`    ${line}`)
     }

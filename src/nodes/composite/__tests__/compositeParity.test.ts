@@ -101,6 +101,42 @@ function runPixelLoop(nodeType: string, properties: Record<string, unknown>, pix
   return leds
 }
 
+describe('Frame Feedback', () => {
+  // One lit pixel for two frames, one on each echo chain of a two-frame delay,
+  // then black: the echo is all that remains.
+  const echo = (fps: number, seconds: number, delayFrames: number, fade: number, key: string) => {
+    let out: RGB[][] = []
+    for (let k = 0; k <= fps * seconds; k++) {
+      const lit = k < 2 ? 200 : 0
+      const frame: RGB[][] = [[{ r: lit, g: lit, b: lit }, { r: 0, g: 0, b: 0 }]]
+      out = COMPOSITE_EVALUATORS.FrameFeedback!({
+        input: () => frame, num: (_i: string, _p: string, p: Record<string, unknown>, k2: string, d: number) => Number(p[k2] ?? d),
+        t: k / fps, W: 2, H: 1, stateKey: () => key,
+      } as unknown as EvalContext, 'fb', { delayFrames, fade, amount: 1, blendMode: 'lighten', feedbackTransform: 'none' },
+      studio, 'FrameFeedback').frame as RGB[][]
+      out = out.map((row) => row.map((px) => ({ ...px })))
+    }
+    return out[0][0].r
+  }
+
+  it('fades its echo by time, so the frame rate does not change how long it rings', () => {
+    // Per frame, 0.05 a pass at 30 fps had the echo ring twice as long as at 60.
+    const at60 = echo(60, 0.5, 1, 0.05, 'fb-60')
+    const at30 = echo(30, 0.5, 1, 0.05, 'fb-30')
+    expect(at60).toBeGreaterThan(0)
+    // FastLED's flooring fadeToBlackBy takes about half a level per spend and
+    // 60 fps spends twice as often, so allow a quarter; per frame it was 92 to 43.
+    expect(Math.abs(at60 - at30)).toBeLessThanOrEqual(Math.max(8, at60 * 0.25))
+  })
+
+  it('fades every echo chain when the delay is longer than one frame', () => {
+    // A slow fade saved up and spent on alternate frames would land on one
+    // chain only, and the other's echo would never fade.
+    expect(echo(60, 4, 2, 0.02, 'fb-chain')).toBeGreaterThan(0)
+    expect(echo(60, 12, 2, 0.02, 'fb-chain-late')).toBe(0)
+  })
+})
+
 describe('Mirror', () => {
   const frameOf = (W: number, H: number) => Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => ({ r: (x * 37 + y * 11) % 256, g: (x * 5 + y * 71) % 256, b: (x * y * 13 + 7) % 256 })))
