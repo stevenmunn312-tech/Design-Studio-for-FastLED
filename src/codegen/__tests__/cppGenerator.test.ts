@@ -5458,7 +5458,9 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     })
     const cpp = generateCpp([bc], [])
     expect(cpp).toContain('CRGB _gsA_bc=CRGB(10, 20, 30),_gsB_bc=CRGB(110, 220, 130);')
-    expect(cpp).toContain('CRGB n_bc_color = CRGB((uint8_t)(_gsA_bc.r*(1-(0.25))+_gsB_bc.r*(0.25)+0.5f),(uint8_t)(_gsA_bc.g*(1-(0.25))+_gsB_bc.g*(0.25)+0.5f),(uint8_t)(_gsA_bc.b*(1-(0.25))+_gsB_bc.b*(0.25)+0.5f));')
+    // T is clamped as the preview clamps it, so a wired 1.5 cannot wrap a channel.
+    expect(cpp).toContain('float _gsT_bc = constrain(0.25, 0.0f, 1.0f);')
+    expect(cpp).toContain('CRGB n_bc_color = CRGB((uint8_t)(_gsA_bc.r*(1-_gsT_bc)+_gsB_bc.r*_gsT_bc+0.5f),(uint8_t)(_gsA_bc.g*(1-_gsT_bc)+_gsB_bc.g*_gsT_bc+0.5f),(uint8_t)(_gsA_bc.b*(1-_gsT_bc)+_gsB_bc.b*_gsT_bc+0.5f));')
   })
 
   /*

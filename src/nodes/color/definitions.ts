@@ -6,6 +6,10 @@ import { PALETTE_BANK_BLEND_DEFAULT } from '../../state/palettes/paletteBank'
 
 export const COLOR_DEFINITIONS: NodeDefinition[] = [
   {
+    // Each end is one colour: the node draws rA/gA/bA and rB/gB/bB as two
+    // swatches (`rgbSwatches`), and the Color A/B ports replace them while
+    // wired, which keeps both ends Touch-controllable through those channels.
+    // T is clamped to 0–1 in every mix mode, on both sides.
     type: 'GradientSampler',
     label: 'Gradient Sampler',
     category: 'color',
@@ -14,16 +18,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 't', label: 'T (0–1)', dataType: 'float' },
       { id: 'colorA', label: 'Color A', dataType: 'color' },
       { id: 'colorB', label: 'Color B', dataType: 'color' },
-      { id: 'rA', label: 'R (A)', dataType: 'float' },
-      { id: 'gA', label: 'G (A)', dataType: 'float' },
-      { id: 'bA', label: 'B (A)', dataType: 'float' },
-      { id: 'rB', label: 'R (B)', dataType: 'float' },
-      { id: 'gB', label: 'G (B)', dataType: 'float' },
-      { id: 'bB', label: 'B (B)', dataType: 'float' },
     ],
-    propertyInputs: {
-      t: 't', rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
-    },
+    propertyInputs: { t: 't' },
     defaultExposedInputs: ['t'],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, mixMode: 'rgb' },

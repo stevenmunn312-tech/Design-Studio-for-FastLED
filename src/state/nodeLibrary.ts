@@ -2382,7 +2382,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   GradientSampler: {
     mixMode: 'How the ends blend: straight through RGB, or round the hue wheel the short or long way.',
-    t: 'Where to sample between Color A (0) and Color B (1). Wire a signal here to animate the mix.',
+    t: 'Where to sample between Color A (0) and Color B (1); a wired value outside 0–1 holds at the nearer end. Wire a signal here to animate the mix.',
     rA: 'Red of Color A, 0 to 255. Ignored while the Color A port is wired.',
     gA: 'Green of Color A, 0 to 255. Ignored while the Color A port is wired.',
     bA: 'Blue of Color A, 0 to 255. Ignored while the Color A port is wired.',
@@ -4366,11 +4366,6 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'text', label: 'Text', keys: ['text', 'letterSpacing', 'wrap'] },
     { key: 'position', label: 'Position', keys: ['x', 'y', 'hAlign', 'vAlign'] },
     { key: 'scroll', label: 'Scroll', keys: ['scroll', 'scrollAxis'] },
-  ],
-  GradientSampler: [
-    { key: 'mix', label: 'Mix', keys: ['t', 'mixMode'] },
-    { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
-    { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
   ],
   Wave: [
     { key: 'shape', label: 'Shape', keys: ['waveform', 'unipolar'] },

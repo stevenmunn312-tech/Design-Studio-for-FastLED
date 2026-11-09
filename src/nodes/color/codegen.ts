@@ -51,9 +51,12 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  CRGB ${v('color')} = HeatColor((uint8_t)(constrain(${f('heat', 'heat', 0.5)}, 0.0f, 1.0f) * 255));`)
   },
   GradientSampler({ id, p, ln, v, f, channelColor, gradientChannel, needsHueMix }) {
-    const tt = `(${f('t', 't', 0)})`
+    // Clamped as the evaluator clamps it: a wired T past 1 cast a channel
+    // past 255 and wrapped the colour. colorControlCpp emits the same lines.
+    const tt = `_gsT_${id}`
     const cA = `_gsA_${id}`, cB = `_gsB_${id}`
     ln(`  CRGB ${cA}=${channelColor('colorA', 0, 200, 255, ['rA', 'gA', 'bA'])},${cB}=${channelColor('colorB', 255, 0, 255, ['rB', 'gB', 'bB'])};`)
+    ln(`  float ${tt} = constrain(${f('t', 't', 0)}, 0.0f, 1.0f);`)
     const mode = gradientMixMode(p.mixMode)
     if (mode === 'rgb') {
       ln(`  CRGB ${v('color')} = CRGB(${gradientChannel(cA, cB, 'r', tt)},${gradientChannel(cA, cB, 'g', tt)},${gradientChannel(cA, cB, 'b', tt)});`)

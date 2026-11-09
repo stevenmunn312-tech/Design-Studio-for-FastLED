@@ -5467,6 +5467,19 @@ describe('Saturation and RGBToHSV', () => {
     expect(outputs.get('bc')!.color).toEqual({ r: 35, g: 70, b: 55 })
   })
 
+  it('GradientSampler holds a wired T outside 0–1 at the nearer end in every mix mode', () => {
+    for (const mixMode of ['rgb', 'hsvShort', 'hsvLong']) {
+      const at = (t: number) => {
+        const source = node('src', 'Math', 'math', { mathOp: 'add', a: t, b: 0 })
+        const grad = node('gs', 'GradientSampler', 'color', { rA: 10, gA: 20, bA: 30, rB: 200, gB: 100, bB: 50, mixMode })
+        return evaluateGraphFull([source, grad], [edge('e', 'src', 'result', 'gs', 't')], 0, W, H).outputs.get('gs')!.color
+      }
+      // A bipolar wave once extrapolated here while the board wrapped the byte.
+      expect(at(1.6), mixMode).toEqual(at(1))
+      expect(at(-0.7), mixMode).toEqual(at(0))
+    }
+  })
+
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {
     const c = node('rgbsrc', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 0, s: 1, v: 1 })   // pure red
     const rh = node('rh', 'RGBToHSV', 'color', {})

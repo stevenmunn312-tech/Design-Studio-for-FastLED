@@ -122,17 +122,12 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     return { color: heatColor(heat * 255) }
   },
   GradientSampler({ input, num }, id, props) {
-    const tt = num(id, 't', props, 't', 0)
-    const cA = (input(id, 'colorA', null) as RGB | null) ?? {
-      r: byte(num(id, 'rA', props, 'rA', 0) / 255),
-      g: byte(num(id, 'gA', props, 'gA', 200) / 255),
-      b: byte(num(id, 'bA', props, 'bA', 255) / 255),
-    }
-    const cB = (input(id, 'colorB', null) as RGB | null) ?? {
-      r: byte(num(id, 'rB', props, 'rB', 255) / 255),
-      g: byte(num(id, 'gB', props, 'gB', 0) / 255),
-      b: byte(num(id, 'bB', props, 'bB', 255) / 255),
-    }
+    // Clamped in every mode, as the firmware's `constrain` is: unclamped, a
+    // bipolar wave on T extrapolated here and wrapped the colour on the board.
+    const tt = Math.max(0, Math.min(1, num(id, 't', props, 't', 0)))
+    const channel = (key: string, fallback: number) => byte(Number(props[key] ?? fallback) / 255)
+    const cA = (input(id, 'colorA', null) as RGB | null) ?? { r: channel('rA', 0), g: channel('gA', 200), b: channel('bA', 255) }
+    const cB = (input(id, 'colorB', null) as RGB | null) ?? { r: channel('rB', 255), g: channel('gB', 0), b: channel('bB', 255) }
     return { color: mixGradientColors(cA, cB, tt, gradientMixMode(props.mixMode)) }
   },
   PaletteSampler({ num, pal }, id, props) {

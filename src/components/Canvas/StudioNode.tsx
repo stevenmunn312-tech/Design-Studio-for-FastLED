@@ -83,7 +83,7 @@ import styles from './StudioNode.module.css'
 import { Icon } from '../icons/Icon'
 import {
   CATEGORY_TAG, HARDWARE_INPUT_WIDGET_TYPES, NODE_WIDTH_OVERRIDES, PREVIEW_NOTES,
-  editableProperties, hasRgbProperties,
+  editableProperties, hasRgbProperties, rgbSwatches, type RgbSwatch,
 } from './studioNodeChrome'
 import { portHandleStyle } from './nodeHandleStyle'
 import {
@@ -305,7 +305,8 @@ interface LivePropertyControlsProps {
   uiEffectsEnabled: boolean
   locked: boolean
   editable: [string, unknown][]
-  hasRGB: boolean
+  /** The colour swatches standing in for r/g/b (and rA…bB) triples. */
+  swatches: readonly RgbSwatch[]
   isGroupInput: boolean
   showClamp: boolean
   showBypass: boolean
@@ -332,7 +333,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   uiEffectsEnabled,
   locked,
   editable,
-  hasRGB,
+  swatches,
   isGroupInput,
   showClamp,
   showBypass,
@@ -494,7 +495,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
     })
   }
 
-  if (!(hasRGB || editable.length > 0 || showClamp || showBypass || isGroupInput || showSetDefault || isMatrixOutput)) return null
+  if (!(swatches.length > 0 || editable.length > 0 || showClamp || showBypass || isGroupInput || showSetDefault || isMatrixOutput)) return null
 
   return (
     <div ref={propertyAreaRef} className={styles.props}>
@@ -545,42 +546,43 @@ const LivePropertyControls = memo(function LivePropertyControls({
           </div>
         )
       })()}
-      {hasRGB && (() => {
-        const wired = drivenBy('color')
-        const live = wired ? liveFor('color') : undefined
+      {swatches.map(({ keys: [rKey, gKey, bKey], port, label }) => {
+        const wired = sourceMap.has(port)
+        const live = wired ? liveValues[port] : undefined
         const swatch = isRGB(live)
           ? toHex(live.r, live.g, live.b)
-          : toHex(props.r as number, props.g as number, props.b as number)
+          : toHex(props[rKey] as number, props[gKey] as number, props[bKey] as number)
         // A Colour Picker driving the swatch is a control with a remote here,
         // as a slider driving a number row is: picking moves the picker to
         // that hue and keeps the colour as the disconnect restore.
-        const touchSource = wired ? sourceMap.get('color') : undefined
+        const touchSource = wired ? sourceMap.get(port) : undefined
         const drivenByTouchWidget = Boolean(touchSource && isControlDriverPort(touchSource.srcPort))
         return (
           <div
+            key={port}
             className={`${styles.propRow}${wired ? ` ${styles.wired}` : ''}`}
             title={wired
               ? drivenByTouchWidget
-                ? `Driven by ${describeSource('color')}. Pick here to move it to that hue; disconnect to restore the saved colour.`
+                ? `Driven by ${describeSource(port)}. Pick here to move it to that hue; disconnect to restore the saved colour.`
                 : 'Driven by connection'
               : undefined}
           >
-            <span className={styles.propKey}>color</span>
+            <span className={styles.propKey}>{label}</span>
             <input
               className={`nodrag ${styles.colorInput}`}
               type="color"
               disabled={(wired && !drivenByTouchWidget) || locked}
               value={swatch}
-              aria-label={`${nodeLabel} color`}
+              aria-label={`${nodeLabel} ${label}`}
               onChange={(e) => {
                 const rgb = hexToRgb(e.target.value)
                 if (drivenByTouchWidget) writeControlDriverValue(touchSource, useGraphStore.getState().nodes, rgb)
-                updateNodeProperties(nodeId, rgb)
+                updateNodeProperties(nodeId, { [rKey]: rgb.r, [gKey]: rgb.g, [bKey]: rgb.b })
               }}
             />
           </div>
         )
-      })()}
+      })}
       {(() => {
         const renderPropRow = ([key, val]: [string, unknown]) => {
         const propertyInput = propertyInputs.find((port) => port.propertyKey === key)
@@ -1277,6 +1279,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     && (d.nodeType !== 'Mirror' || props.glow === true)
     && (d.nodeType !== 'Boids' || props.colorMode === 'solid')
     && (d.nodeType !== 'BeatFlash' || String(props.palette ?? 'none') === 'none')
+  // A gradient's A and B colours get a swatch each alongside, whatever showRGB says.
+  const swatches = useMemo(
+    () => rgbSwatches(d.nodeType, props).filter((swatch) => swatch.keys[0] !== 'r' || showRGB),
+    [d.nodeType, props, showRGB],
+  )
   // A GroupInput's `paramId` is edited via a dedicated role dropdown (below), not
   // the generic text field. `patternSections` is an object rendered by the
   // PatternCollection body's section chips.
@@ -1938,7 +1945,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           uiEffectsEnabled={uiEffectsEnabled}
           locked={bakeLocked || micUnavailable}
           editable={editable}
-          hasRGB={showRGB}
+          swatches={swatches}
           isGroupInput={isGroupInput}
           showClamp={showClamp}
           showBypass={showBypass}

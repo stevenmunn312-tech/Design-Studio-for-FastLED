@@ -6,14 +6,14 @@ const PALETTE_OUT = 'A palette for any node with a Palette input. It replaces th
 export const COLOR_REFERENCE: NodeReferenceMap = {
   GradientSampler: {
     overview: [
-      'Gradient Sampler picks one colour from a two-colour gradient. T of 0 gives Color A, 1 gives Color B, and anything between is a mix.',
+      'Gradient Sampler picks one colour from a two-colour gradient. T of 0 gives Color A, 1 gives Color B, and anything between is a mix. Pick the two colours from their swatches on the node.',
       'Mix decides how the in-between colours are made: straight through RGB, which can pass through grey, or round the hue wheel the short or long way, which stays vivid.',
       'Wire a level into T and a colour follows it: cool to hot, calm to alarm, low to high.',
     ],
     inputs: {
-      t: 'Where to sample, 0 (Color A) to 1 (Color B).',
-      colorA: 'The colour at T = 0. Replaces the A fields.',
-      colorB: 'The colour at T = 1. Replaces the B fields.',
+      t: 'Where to sample, 0 (Color A) to 1 (Color B). Values outside hold at the nearer end.',
+      colorA: 'The colour at T = 0. Replaces the Color A swatch.',
+      colorB: 'The colour at T = 1. Replaces the Color B swatch.',
     },
     outputs: {
       color: 'The colour at T.',

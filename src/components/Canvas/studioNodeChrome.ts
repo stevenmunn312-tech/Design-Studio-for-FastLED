@@ -8,7 +8,7 @@
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../build/pins/pinRetarget'
 import { isHardwareNodeType } from '../../build/hardware'
 import { isHardwarePartField } from '../../build/parts/partFields'
-import { isGpioPinProperty, isInternalProperty, isPropertyEnabled, RADIO_GROUP_KEYS, showsDisabledProperties } from '../../state/nodeLibrary'
+import { isGpioPinProperty, isInternalProperty, isPropertyEnabled, NODE_LIBRARY, RADIO_GROUP_KEYS, showsDisabledProperties } from '../../state/nodeLibrary'
 
 export const CATEGORY_TAG: Record<string, string> = {
   input: 'IN',
@@ -119,6 +119,40 @@ export function hasRgbProperties(props: Record<string, unknown>): boolean {
   return ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
 }
 
+/** One colour swatch standing in for a red, green and blue property triple. */
+export interface RgbSwatch {
+  /** The red, green and blue properties the swatch shows and writes. */
+  keys: readonly [string, string, string]
+  /** The colour port that replaces the triple while wired. */
+  port: string
+  label: string
+}
+
+const RGB_TRIPLES = [
+  { keys: ['r', 'g', 'b'], suffix: '' },
+  { keys: ['rA', 'gA', 'bA'], suffix: 'A' },
+  { keys: ['rB', 'gB', 'bB'], suffix: 'B' },
+] as const
+
+/**
+ * The colour swatches a node draws: one for every complete numeric r/g/b,
+ * rA/gA/bA or rB/gB/bB triple in its properties, so a gradient's two colours
+ * are two swatches rather than six sliders. Each names the colour port that
+ * overrides it (`color`/`rgb`, `colorA`/`a`, `colorB`/`b`), matched the way
+ * `propertyInputs.ts`'s `colorChannels` matches a port to its channels.
+ */
+export function rgbSwatches(nodeType: string, props: Record<string, unknown>): RgbSwatch[] {
+  const colorPorts = (NODE_LIBRARY.find((definition) => definition.type === nodeType)?.inputs ?? [])
+    .filter((port) => port.dataType === 'color')
+  return RGB_TRIPLES.flatMap(({ keys, suffix }): RgbSwatch[] => {
+    if (!keys.every((key) => typeof props[key] === 'number')) return []
+    const port = colorPorts.find((candidate) => suffix
+      ? new RegExp(`^(?:colou?r)?${suffix}$`, 'i').test(candidate.id)
+      : candidate.id === 'color' || candidate.id === 'rgb')?.id ?? `color${suffix}`
+    return [{ keys, port, label: suffix ? `color ${suffix}` : 'color' }]
+  })
+}
+
 const NO_KEYS: ReadonlySet<string> = new Set()
 
 /**
@@ -135,6 +169,9 @@ export function editableProperties(
   nodeType: string, props: Record<string, unknown>, exposedKeys: ReadonlySet<string> = NO_KEYS,
 ): Array<[string, unknown]> {
   const hasRGB = hasRgbProperties(props)
+  // A gradient's A and B colours are swatches too (`rgbSwatches`); a channel
+  // whose own socket is exposed or wired keeps its row, so the wire keeps a handle.
+  const pairChannels = new Set(rgbSwatches(nodeType, props).flatMap((swatch) => (swatch.keys[0] === 'r' ? [] : swatch.keys)))
   const isGroupInput = nodeType === 'GroupInput'
   const isComment = nodeType === 'Comment'
   return Object.entries(props).filter(
@@ -185,6 +222,7 @@ export function editableProperties(
         && (isGpioPinProperty(nodeType, k) || isHardwarePartField(nodeType, k)))
       && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
+      && !(pairChannels.has(k) && !exposedKeys.has(k))
       // A property the current mode does not use is hidden, not shown
       // disabled. Disabled rows read as context on a five-property node like
       // Transition, but the LED output has forty-six, so a string was showing

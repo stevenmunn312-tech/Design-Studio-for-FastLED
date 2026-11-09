@@ -111,10 +111,11 @@ export function colorControlCpp(
       needsHsv = true
       break
     case 'GradientSampler': {
-      const tt = `(${floats.t})`
+      // T clamped to 0–1 in every mode, line for line as the normal sketch.
+      const tt = `_gsT_${id}`
       const cA = `_gsA_${id}`, cB = `_gsB_${id}`
       const mode = gradientMixMode(props.mixMode)
-      loop = [`  CRGB ${cA}=${colors.colorA},${cB}=${colors.colorB};`]
+      loop = [`  CRGB ${cA}=${colors.colorA},${cB}=${colors.colorB};`, `  float ${tt} = constrain(${floats.t}, 0.0f, 1.0f);`]
       if (mode === 'rgb') {
         const channel = (name: string) => `(uint8_t)(${cA}.${name}*(1-${tt})+${cB}.${name}*${tt}+0.5f)`
         loop.push(`  CRGB ${color} = CRGB(${channel('r')},${channel('g')},${channel('b')});`)

@@ -205,7 +205,8 @@ describe('typed control graph', () => {
     for (const line of emitted.loop) expect(normal, line).toContain(line)
     expect(emitted.helpers).toContain(KELVIN_TO_RGB_CPP)
     expect(emitted.helpers.filter((helper) => helper === KELVIN_TO_RGB_CPP)).toHaveLength(1)
-    expect(emitted.loop.join('\n')).toContain('_hueMix(_gsA_grad, _gsB_grad, (0), true)')
+    expect(emitted.loop.join('\n')).toContain('_hueMix(_gsA_grad, _gsB_grad, _gsT_grad, true)')
+    expect(emitted.loop.join('\n')).toContain('float _gsT_grad = constrain(0, 0.0f, 1.0f);')
     const kelvinLines = normal.split('\n')
     const start = kelvinLines.findIndex((line) => line.startsWith('CRGB kelvinToRGB('))
     let end = start

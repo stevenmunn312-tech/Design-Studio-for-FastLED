@@ -482,21 +482,6 @@ freeze, or drop them.
   Cycle and Harmony Palette, and `H (0–360)`/`S`/`V` on RGB to HSV. Pick one
   pattern, e.g. "Hue (°)", "Saturation (0–1)", "Brightness (0–1)"; "Value" is
   jargon. Evidence `src/nodes/color/definitions.ts`.
-- [ ] **Gradient Sampler: Replace the six RGB sliders with two swatches (High,
-  S).** Red/green/blue A and B are six sliders standing in for two colours.
-  Give each `rA/gA/bA` and `rB/gB/bB` triple one swatch, as `hasRgbProperties`
-  does for `r/g/b`; keeping the property names keeps the Color A/B ports
-  Touch-controllable. Gradient Frame benefits too. Evidence
-  `src/state/nodeLibrary.ts:3306`, `src/components/Canvas/studioNodeChrome.ts:118`.
-- [ ] **Gradient Sampler: Clamp T in rgb mode (Med, S).** With T wired outside
-  0–1, the preview extrapolates, the canvas clamps, and firmware casts with no
-  `constrain`, so a bipolar Wave wraps the colour on hardware. Clamp T in
-  `rgb` mode as the hue modes already do. Evidence `src/state/palettes/hueMix.ts:35`,
-  `src/codegen/cppGenerator.ts:969`.
-- [ ] **Gradient Sampler: Hide the six float sockets (Low, S).** Once swatches
-  exist, drop the `rA`…`bB` ports from the inspector's exposable list; they
-  are rarely wired and make the node look complex. Evidence
-  `src/state/nodeLibrary.ts:4295`.
 - [ ] **Palette Sampler: Add a wrap/hold-ends option (Med, S).** T = 1 wraps to
   the first colour, so a full-scale sensor on `heat` reads black, and for T in
   0.945–1 firmware blends toward entry 0 while the preview shows the last

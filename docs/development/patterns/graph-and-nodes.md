@@ -501,7 +501,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rather than listing node types, and the literal-fallback parity check parses
   `channelColor(...)`/`f(...)` calls out of the generator source, so a helper
   that hides a channel's default from that parse would silently drop it from the
-  comparison. See
+  comparison. The canvas draws every complete triple as one colour swatch
+  (`rgbSwatches` in `studioNodeChrome.ts`), so a gradient's two ends are two
+  swatches rather than six sliders; a channel row comes back only while its
+  own socket is exposed or wired. Gradient Sampler declares no channel ports
+  at all: its Color A and Color B ports are its only colour wires, and stay
+  Touch-controllable through `colorChannels`. See
   [direct controls and LED output status](../../design/direct-controls-and-output-status.md).
 - A property input's `defaultProperties` entry must hold not just *a* default
   but the exact literal the code already falls back to:

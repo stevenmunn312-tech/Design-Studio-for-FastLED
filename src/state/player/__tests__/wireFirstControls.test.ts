@@ -810,6 +810,12 @@ describe('colour channels are wireable', () => {
       const defaults = definition.defaultProperties ?? {}
       for (const triple of TRIPLES) {
         if (!triple.every((key) => key in defaults)) continue
+        // A triple drawn only as a swatch (Gradient Sampler's two ends) has no
+        // channel sockets; its colour port still reaches all three channels.
+        if (!triple.some((key) => definition.inputs.some((port) => port.id === key))) {
+          expect(controllableInputsFor(definition.type).some((entry) => entry.channels?.join() === triple.join()), `${definition.type} ${triple.join()}`).toBe(true)
+          continue
+        }
         for (const key of triple) {
           seen += 1
           // The port has to exist and be declared as the property's own input,

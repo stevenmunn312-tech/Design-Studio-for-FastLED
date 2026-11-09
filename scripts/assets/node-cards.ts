@@ -32,7 +32,7 @@ import {
 } from '../../src/state/nodeLibrary'
 import {
   CATEGORY_TAG, HARDWARE_INPUT_WIDGET_TYPES, NODE_WIDTH_OVERRIDES, PREVIEW_NOTES,
-  editableProperties, hasRgbProperties,
+  editableProperties, hasRgbProperties, rgbSwatches,
 } from '../../src/components/Canvas/studioNodeChrome'
 import { isPinnableProperty } from '../../src/state/player/performanceDeck'
 import { evaluateGraphFull, evaluateScalarSeries, resetEvaluatorState } from '../../src/state/graphEvaluator'
@@ -311,7 +311,7 @@ function partImageHref(src: string): string | null {
 type PropRow =
   | { kind: 'expose' }
   | { kind: 'role'; value: string }
-  | { kind: 'swatch'; rgb: [number, number, number] }
+  | { kind: 'swatch'; label: string; rgb: [number, number, number] }
   | { kind: 'group'; label: string; open: boolean; rows: PropRow[] }
   // `key` identifies the property (meta, exposed sockets); `label` is what the
   // canvas prints for it, which is not always the raw key.
@@ -356,12 +356,16 @@ function buildPropRows(
   const showClamp = hasClampableInputs(def.type, ports.inputs)
   const showBypass = bypassPort(ports.outputs, ports.inputs) != null
   const showSetDefault = def.type === 'MicInput' || def.type === 'MatrixOutput'
-  if (!(showRGB || entries.length > 0 || showClamp || showBypass || isGroupInput || showSetDefault || isMatrixOutput)) return []
+  // A gradient's A and B colours are swatches as well (rgbSwatches).
+  const swatches = rgbSwatches(def.type, props).filter((swatch) => swatch.keys[0] !== 'r' || showRGB)
+  if (!(swatches.length > 0 || entries.length > 0 || showClamp || showBypass || isGroupInput || showSetDefault || isMatrixOutput)) return []
 
   const rows: PropRow[] = []
   if (exposableInputsFor(def.type).length > 0) rows.push({ kind: 'expose' })
   if (isGroupInput) rows.push({ kind: 'role', value: String(props.paramId ?? '') || '— input —' })
-  if (showRGB) rows.push({ kind: 'swatch', rgb: [Number(props.r), Number(props.g), Number(props.b)] })
+  for (const { keys, label } of swatches) {
+    rows.push({ kind: 'swatch', label, rgb: [Number(props[keys[0]]), Number(props[keys[1]]), Number(props[keys[2]])] })
+  }
 
   const entryRow = ([key, val]: [string, unknown]): PropRow => {
     const isWired = wired.has(key)
@@ -859,7 +863,7 @@ function propRowSvg(row: PropRow, x: number, y: number, w: number): string {
     return parts.join('\n')
   }
 
-  const label = row.kind === 'role' ? 'role' : row.kind === 'swatch' ? 'color' : row.label
+  const label = row.kind === 'role' ? 'role' : row.label
   const disabled = 'disabled' in row && row.disabled
   const pin = 'pin' in row && row.pin
   const controlW = PROP_CONTROL_W

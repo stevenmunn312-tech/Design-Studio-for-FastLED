@@ -1,6 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { editableProperties, NODE_WIDTH_OVERRIDES } from '../studioNodeChrome'
+import { editableProperties, NODE_WIDTH_OVERRIDES, rgbSwatches } from '../studioNodeChrome'
 import { isPropertyEnabled, libraryDefaults } from '../../../state/nodeLibrary'
+
+describe('colour swatches', () => {
+  it('draws a gradient\'s two colours as two swatches rather than six sliders', () => {
+    const props = libraryDefaults('GradientSampler')
+    expect(rgbSwatches('GradientSampler', props)).toEqual([
+      { keys: ['rA', 'gA', 'bA'], port: 'colorA', label: 'color A' },
+      { keys: ['rB', 'gB', 'bB'], port: 'colorB', label: 'color B' },
+    ])
+    expect(editableProperties('GradientSampler', props).map(([key]) => key)).toEqual(['t', 'mixMode'])
+  })
+
+  it('gives Gradient Frame the same swatches, keeping a channel row whose socket is exposed', () => {
+    const props = libraryDefaults('GradientFrame')
+    expect(rgbSwatches('GradientFrame', props).map((swatch) => swatch.port)).toEqual(['colorA', 'colorB'])
+    expect(editableProperties('GradientFrame', props).map(([key]) => key)).not.toContain('rA')
+    expect(editableProperties('GradientFrame', props, new Set(['rA'])).map(([key]) => key)).toContain('rA')
+  })
+
+  it('names the port that overrides an r/g/b swatch', () => {
+    expect(rgbSwatches('SolidColor', libraryDefaults('SolidColor'))).toEqual([{ keys: ['r', 'g', 'b'], port: 'color', label: 'color' }])
+    expect(rgbSwatches('RGBToHSV', libraryDefaults('RGBToHSV'))[0].port).toBe('rgb')
+  })
+})
 
 describe('editableProperties', () => {
   it('hides a row the current mode does not use, and its empty group with it', () => {
