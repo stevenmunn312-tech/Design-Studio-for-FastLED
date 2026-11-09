@@ -47,7 +47,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'cells', label: 'Cells', dataType: 'float' },
       { id: 'rotation', label: 'Rotation', dataType: 'float' },
-      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'spin', label: 'Spin (°/s)', dataType: 'float' },
       { id: 'warp', label: 'Warp', dataType: 'float' },
       { id: 'morph', label: 'Morph', dataType: 'float' },
       { id: 'edge', label: 'Edge', dataType: 'float' },
@@ -166,12 +166,16 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Damped ripple simulation on a scalar field. A rising-edge trigger injects
-    // a new splash, so BeatDetect or a button can kick the water.
+    // a new splash, so BeatDetect or a button can kick the water. Splash X and
+    // Y have no setting behind them: wired, they place the splash (a touch, a
+    // joystick, a beat's position); unwired, splashes cycle round five points.
     type: 'WaveSim',
     label: 'Wave Sim',
     category: 'field',
     inputs: [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'splashX', label: 'Splash X', dataType: 'float' },
+      { id: 'splashY', label: 'Splash Y', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'damping', label: 'Damping', dataType: 'float' },
       { id: 'impulse', label: 'Impulse', dataType: 'float' },
@@ -179,7 +183,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     propertyInputs: { speed: 'speed', damping: 'damping', impulse: 'impulse' },
     defaultExposedInputs: ['speed', 'damping', 'impulse'],
-    defaultProperties: { speed: 4, damping: 0.985, impulse: 1, halfDuplex: false, wrapX: true },
+    defaultProperties: { speed: 4, damping: 0.985, impulse: 1, halfDuplex: false, wrapEdges: true },
   },
   {
     // Stam's stable fluids at LED resolution. Dye comes out as the field, and
@@ -211,7 +215,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { inject: 0.6, injectX: 0.5, injectY: 0.85, viscosity: 0, diffusion: 0, dissipation: 0.02, quality: 8, buoyancy: 0.5 },
   },
   {
-    // Escape-time and Newton fractals as a field. c, zoom, centre and spin are
+    // Escape-time and Newton fractals as a field. c, zoom, centre and rotation are
     // ports, so an LFO can morph a Julia set or fly into a Mandelbrot one.
     type: 'FractalField',
     label: 'Fractal Field',
@@ -222,11 +226,11 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'zoom', label: 'Zoom', dataType: 'float' },
       { id: 'centerX', label: 'Center X', dataType: 'float' },
       { id: 'centerY', label: 'Center Y', dataType: 'float' },
-      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'rotation', label: 'Rotation', dataType: 'float' },
     ],
-    propertyInputs: { cRe: 'cRe', cIm: 'cIm', zoom: 'zoom', centerX: 'centerX', centerY: 'centerY', spin: 'spin' },
+    propertyInputs: { cRe: 'cRe', cIm: 'cIm', zoom: 'zoom', centerX: 'centerX', centerY: 'centerY', rotation: 'rotation' },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { fractalType: 'julia', cRe: -0.8, cIm: 0.156, zoom: 1, centerX: 0, centerY: 0, spin: 0, iterations: 32, smooth: true },
+    defaultProperties: { fractalType: 'julia', cRe: -0.8, cIm: 0.156, zoom: 1, centerX: 0, centerY: 0, rotation: 0, iterations: 32, smooth: true },
   },
   {
     // Cellular automata as a field: scrolling elementary rows, cyclic spirals,
@@ -407,7 +411,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'field', label: 'Field', dataType: 'field' },
       { id: 'angle', label: 'Angle', dataType: 'float' },
-      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'spin', label: 'Spin (°/s)', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     propertyInputs: { angle: 'angle', spin: 'spin' },
@@ -439,7 +443,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'field', label: 'Field', dataType: 'field' },
       { id: 'cells', label: 'Cells', dataType: 'float' },
       { id: 'rotation', label: 'Rotation', dataType: 'float' },
-      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'spin', label: 'Spin (°/s)', dataType: 'float' },
       { id: 'offsetX', label: 'Offset X', dataType: 'float' },
       { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
     ],

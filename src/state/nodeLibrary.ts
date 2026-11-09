@@ -1507,7 +1507,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     zoom: { control: 'slider', min: FRACTAL_ZOOM_MIN, max: FRACTAL_ZOOM_MAX, step: 0.01 },
     centerX: { control: 'slider', min: -2, max: 2, step: 0.001 },
     centerY: { control: 'slider', min: -2, max: 2, step: 0.001 },
-    spin: { control: 'slider', min: -180, max: 180, step: 1 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
     iterations: { control: 'slider', min: FRACTAL_ITERATIONS_MIN, max: FRACTAL_ITERATIONS_MAX, step: 1 },
   },
   SDVideo: {
@@ -1833,7 +1833,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     zoom: 'Magnification. 1 shows the whole set.',
     centerX: 'Slide the view left or right, in units of the complex plane.',
     centerY: 'Slide the view up or down.',
-    spin: 'Rotate the view, in degrees.',
+    rotation: 'Turns the view, in degrees. Wire a ramp here to keep it turning.',
     iterations: 'Most steps tried before a pixel counts as inside the set. More detail costs more time per frame.',
     smooth: 'Blend the escape count into a smooth gradient instead of bands.',
   },
@@ -1863,7 +1863,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   WaveSim: {
     halfDuplex: 'Show only the positive half of the wave, so crests read as raised water and troughs stay dark.',
-    wrapX: 'Let waves leave one side and re-enter the other. Off, the left and right edges reflect them.',
+    wrapEdges: 'Let waves leave one edge and come back in at the opposite one, on both axes. Off, every edge reflects them.',
     speed: 'Simulation steps per frame. More makes ripples travel faster and costs more CPU.',
     damping: 'How much energy each step keeps. 0.999 rings for ages; 0.8 dies almost at once.',
     impulse: 'Strength of each new splash, 0.1 to 1.',
@@ -3415,7 +3415,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   WaveSim: {
     halfDuplex: 'crests only',
-    wrapX: 'wrap X',
+    wrapEdges: 'wrap edges',
   },
   FluidSim: {
     inject: 'dye',
@@ -3443,6 +3443,10 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   FieldSymmetry: {
     offsetX: 'offset X',
     offsetY: 'offset Y',
+    spin: 'spin (°/s)',
+  },
+  FieldRotate: {
+    spin: 'spin (°/s)',
   },
   Blend: {
     blendMode: 'mode',
@@ -3526,6 +3530,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   PolarGradient: {
     angleOffset: 'angle (°)',
+    spin: 'spin (turns/s)',
     radialMix: 'radial mix',
     radialScroll: 'radial scroll',
   },
@@ -3669,6 +3674,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   SliceTiling: {
     bits: 'pattern A',
     bitsB: 'pattern B',
+    spin: 'spin (°/s)',
   },
   Truchet: {
     lineWidth: 'line width',
@@ -4383,7 +4389,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   FractalField: [
     { key: 'set', label: 'Set', keys: ['fractalType', 'cRe', 'cIm', 'iterations', 'smooth'] },
-    { key: 'view', label: 'View', keys: ['zoom', 'centerX', 'centerY', 'spin'] },
+    { key: 'view', label: 'View', keys: ['zoom', 'centerX', 'centerY', 'rotation'] },
   ],
   Automaton: [
     { key: 'rule', label: 'Rule', keys: ['automatonType', 'rule', 'states', 'threshold', 'spawn'] },

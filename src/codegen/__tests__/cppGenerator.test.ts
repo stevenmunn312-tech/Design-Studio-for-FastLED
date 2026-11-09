@@ -3054,17 +3054,42 @@ describe('Wave Sim option codegen', () => {
     return generateCpp([ws, f2f, outputNode], [edge('e2', 'ws', 'f2f', 'field', 'field'), edge('e3', 'f2f', 'out', 'frame', 'frame')])
   }
 
-  it('wraps X and shows the magnitude by default', () => {
+  it('wraps both edges and shows the magnitude by default', () => {
     const cpp = emit({})
     expect(cpp).toContain('_xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH')
+    expect(cpp).toContain('_ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH')
     expect(cpp).toContain('constrain(fabsf(_ws_wsc[_i])*1.5f,0.0f,1.0f)')
   })
 
-  it('reflects at the edges when wrapX is off and drops the negative half for halfDuplex', () => {
-    const cpp = emit({ wrapX: false, halfDuplex: true })
+  it('reflects at every edge when wrapEdges is off and drops the negative half for halfDuplex', () => {
+    const cpp = emit({ wrapEdges: false, halfDuplex: true })
     expect(cpp).toContain('_xm=max(_x-1,0),_xp=min(_x+1,WIDTH-1)')
+    expect(cpp).toContain('_ym=max(_y-1,0)*WIDTH,_yp=min(_y+1,HEIGHT-1)*WIDTH')
     expect(cpp).toContain('constrain(_ws_wsc[_i]*1.5f,0.0f,1.0f)')
     expect(cpp).not.toContain('(_x-1+WIDTH)%WIDTH')
+    expect(cpp).not.toContain('%HEIGHT')
+  })
+
+  it('cycles splashes round five points until Splash X and Y are wired', () => {
+    const cycle = emit({})
+    expect(cycle).toContain('static uint8_t _ws_wspulse=1;')
+    expect(cycle).toContain('_ws_wspx[_ws_wspulse%5],_ws_wspy[_ws_wspulse%5]')
+    const placed = (ports: string[]) => {
+      const ws = node('ws', 'WaveSim', 'field', {})
+      const pos = node('pos', 'Math', 'math', { mathOp: 'add', a: 0.2, b: 0 })
+      const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+      return generateCpp([pos, ws, f2f, outputNode], [
+        ...ports.map((port) => edge(`p-${port}`, 'pos', 'ws', 'result', port)),
+        edge('e2', 'ws', 'f2f', 'field', 'field'), edge('e3', 'f2f', 'out', 'frame', 'frame'),
+      ])
+    }
+    const xOnly = placed(['splashX'])
+    expect(xOnly).toContain('float _wsSx=constrain(n_pos_result,0.0f,1.0f);')
+    expect(xOnly).toContain('_wsSx,_ws_wspy[_ws_wspulse%5]')
+    expect(xOnly).not.toContain('_ws_wspx[')
+    const both = placed(['splashX', 'splashY'])
+    expect(both).toContain('_wsInject_ws(_wsSx,_wsSy,')
+    expect(both).not.toContain('_ws_wspulse')
   })
 })
 

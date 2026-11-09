@@ -44,7 +44,7 @@
             "zoom": 1,
             "centerX": 0,
             "centerY": 0,
-            "spin": -156,
+            "rotation": -156,
             "iterations": 24,
             "smooth": false
           },
@@ -75,8 +75,8 @@
               "dataType": "float"
             },
             {
-              "id": "spin",
-              "label": "Spin",
+              "id": "rotation",
+              "label": "Rotation",
               "dataType": "float"
             }
           ],
@@ -93,7 +93,7 @@
             "zoom",
             "centerX",
             "centerY",
-            "spin"
+            "rotation"
           ]
         },
         "selected": false,
@@ -1592,7 +1592,7 @@
         "source": "Math-1790685884675",
         "sourceHandle": "result",
         "target": "FractalField-1790679567402",
-        "targetHandle": "spin",
+        "targetHandle": "rotation",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

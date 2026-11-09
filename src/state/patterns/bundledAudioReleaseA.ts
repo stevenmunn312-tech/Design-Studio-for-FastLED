@@ -171,7 +171,7 @@ function abyssalJuliaBloom(): AudioReleaseSeed {
 
 function opalResonanceBasin(): AudioReleaseSeed {
   const b = new AudioReleaseBuilder('Opal Resonance Basin', ['matrix'], ['#040c21', '#628cda', '#bbfff0'])
-  b.node('water', 'WaveSim', { wrapX: true, halfDuplex: false })
+  b.node('water', 'WaveSim', { wrapEdges: true, halfDuplex: false })
   b.node('splashTrigger', 'Logic', { logicOp: 'or' })
   b.node('impact', 'Math', { mathOp: 'max' })
   b.map('splash', 'impact', 'result', 0.22, 1)

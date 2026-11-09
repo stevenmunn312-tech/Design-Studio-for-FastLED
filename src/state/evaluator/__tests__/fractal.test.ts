@@ -21,7 +21,7 @@ function field(props: Record<string, unknown>, W = 16, H = 16): Float32Array {
   const edges = [edge('a', id, 'field', 'f', 'field'), edge('b', 'f', 'frame', 'out', 'frame')]
   return evaluateGraphFull(nodes, edges, 0, W, H).outputs.get(id)!.field as Float32Array
 }
-const base: FractalParams = { type: 'julia', cRe: -0.8, cIm: 0.156, zoom: 1, centerX: 0, centerY: 0, spin: 0, iterations: 32, smooth: true }
+const base: FractalParams = { type: 'julia', cRe: -0.8, cIm: 0.156, zoom: 1, centerX: 0, centerY: 0, rotation: 0, iterations: 32, smooth: true }
 const grid = (p: FractalParams, W = 24, H = 24) => {
   const s = fractalSampler(p, W, H)
   return Array.from({ length: W * H }, (_, i) => s(i % W, Math.floor(i / W)))
@@ -53,9 +53,9 @@ describe('fractal sampler', () => {
     const g = fractalSampler({ ...base, type: 'mandelbrot', centerX: 0.5, centerY: 0 }, 1, 1)
     expect(g(0, 0)).toBe(0)
   })
-  it('spin by 180 degrees mirrors the Julia set through its centre', () => {
+  it('rotation by 180 degrees mirrors the Julia set through its centre', () => {
     const W = 15, H = 15
-    const a = fractalSampler(base, W, H), b = fractalSampler({ ...base, spin: 180 }, W, H)
+    const a = fractalSampler(base, W, H), b = fractalSampler({ ...base, rotation: 180 }, W, H)
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) expect(b(x, y)).toBeCloseTo(a(W - 1 - x, H - 1 - y), 6)
   })
   it('zoom, centre and c each change the picture', () => {
@@ -63,7 +63,7 @@ describe('fractal sampler', () => {
     expect(same(ref, grid({ ...base, zoom: 4 }))).toBe(false)
     expect(same(ref, grid({ ...base, centerX: 0.3 }))).toBe(false)
     expect(same(ref, grid({ ...base, cRe: 0.3, cIm: 0.5 }))).toBe(false)
-    expect(same(ref, grid({ ...base, spin: 33 }))).toBe(false)
+    expect(same(ref, grid({ ...base, rotation: 33 }))).toBe(false)
   })
   it('smooth removes the banding: more distinct values than the plain escape count', () => {
     const smooth = new Set(grid({ ...base, smooth: true }, 40, 40)).size

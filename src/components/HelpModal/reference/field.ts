@@ -121,10 +121,12 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   WaveSim: {
     overview: [
       'Wave Sim simulates the surface of water: each Trigger drops a splash, and ripples spread, reflect and interfere before they die away.',
-      'Damping sets how long the water keeps ringing and Speed how fast the ripples travel. Crests Only shows only the raised half of each wave. Wrap X lets waves leave one side and come back on the other.',
+      'Damping sets how long the water keeps ringing and Speed how fast the ripples travel. Crests Only shows only the raised half of each wave. Wrap Edges lets waves leave one edge and come back on the opposite one; off, every edge reflects them.',
     ],
     inputs: {
-      trigger: 'Each rising edge drops a splash. Successive splashes land in different places.',
+      trigger: 'Each rising edge drops a splash. Successive splashes land in different places, unless Splash X and Y place them.',
+      splashX: 'Where splashes land, left to right (0 to 1). Unwired, they cycle round five points.',
+      splashY: 'Where splashes land, top to bottom (0 to 1). Unwired, they cycle round five points.',
     },
     outputs: { field: FIELD_OUT },
     example: example({
@@ -174,7 +176,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   FractalField: {
     overview: [
       'Fractal Field draws a Julia set, the Mandelbrot set, a Newton fractal or the Burning Ship as a field.',
-      'For a Julia set, C sets the shape: small changes to C morph it dramatically, so a slow LFO on C Real or C Imag makes a living fractal. Zoom, centre and spin move the view; Iterations trades detail for speed.',
+      'For a Julia set, C sets the shape: small changes to C morph it dramatically, so a slow LFO on C Real or C Imag makes a living fractal. Zoom, centre and rotation move the view; Iterations trades detail for speed.',
     ],
     outputs: { field: FIELD_OUT },
     example: example({

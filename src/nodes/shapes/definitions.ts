@@ -347,7 +347,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'angleOffset', label: 'Angle (°)', dataType: 'float' },
-      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'spin', label: 'Spin (turns/s)', dataType: 'float' },
       { id: 'repeat', label: 'Repeat', dataType: 'float' },
       { id: 'radialMix', label: 'Radial Mix', dataType: 'float' },
       { id: 'radialScroll', label: 'Radial Scroll', dataType: 'float' },

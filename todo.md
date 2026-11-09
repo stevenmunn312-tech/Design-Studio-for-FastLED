@@ -839,27 +839,10 @@ freeze, or drop them.
   Formula/Field Formula and the gradient patterns repeat likewise. Add
   `noiseType` to Field Noise and a Conway `life` type to Automaton so field
   chains are not stuck with the subset.
-- [ ] **Category: Unify spin/rotation units and names (Low, S).** `spin` is
-  deg/s on Field Rotate, Slice Tiling and Field Symmetry, turns/s on Polar
-  Gradient (unlabelled), and a static angle on Fractal Field. Name the static
-  ones `rotation` and put units in labels, as Wireframe3D's "spin X (deg/s)"
-  does. `src/state/nodeLibrary.ts:1056`, `src/nodes/field/codegen.ts:344`.
 - [ ] **Field Noise: Add contrast/normalise to fBm (Med, S).** fBm is a
   weighted average of octaves, so values cluster near 0.5 and the palette ends
   (including black) are rarely reached. Add a contrast or normalise option
   here, or handle it in Field -> Frame. `src/nodes/shared/integerPatterns.ts:1159`.
-- [ ] **Wave Sim: Add wireable splashX/splashY (Med, S).** A splash always
-  lands on a fixed cycle of five points. Add inputs like Fluid's
-  `injectX/injectY` so touch, joystick or beat position can kick the water.
-  `src/nodes/field/evaluate.ts:310`, `src/nodes/field/codegen.ts:291`.
-- [ ] **Wave Sim: Make Wrap X cover both axes (Low, S).** Y always wraps while
-  X wrap is a toggle, so with Wrap X off edges reflect left/right but wrap
-  top/bottom. Let the toggle cover both, or rename it "Wrap edges".
-  `src/nodes/field/evaluate.ts:337`.
-- [ ] **Fractal Field: Rename `spin` to `rotation` (Med, S).** `spin` is a
-  fixed view angle in degrees, while everywhere else `spin` is a rate.
-  Rename to `rotation`; optionally add a real `spin`.
-  `src/nodes/field/codegen.ts:344`, `src/state/nodeLibrary.ts:1835`.
 - [ ] **Fractal Field: Make zoom exponential (Med, M).** Linear 0.25-64 means
   1x to 2x is about 1.6% of the travel, so flying into the Mandelbrot is
   impractical. Expose zoom as an exponent (zoom = 2^z, z 0-6) or add a log

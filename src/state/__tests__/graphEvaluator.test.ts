@@ -3923,7 +3923,7 @@ describe('Wave Sim options', () => {
   }
 
   it('keeps the old behaviour by default', () => {
-    expect(waves({ wrapX: true, halfDuplex: false }, 10, 16, 16)).toEqual(waves({}, 10, 16, 16))
+    expect(waves({ wrapEdges: true, halfDuplex: false }, 10, 16, 16)).toEqual(waves({}, 10, 16, 16))
   })
 
   it('half duplex never exceeds the two-sided field and darkens the troughs', () => {
@@ -3940,15 +3940,36 @@ describe('Wave Sim options', () => {
     expect(darker).toBeGreaterThan(0)
   })
 
-  it('reflects at the left and right edges when wrapX is off', () => {
-    const wrapped = waves({ wrapX: true }, 40, 24, 8)
-    const walled = waves({ wrapX: false }, 40, 24, 8)
+  it('reflects at every edge when wrapEdges is off', () => {
+    const wrapped = waves({ wrapEdges: true }, 40, 24, 8)
+    const walled = waves({ wrapEdges: false }, 40, 24, 8)
     expect(walled).not.toEqual(wrapped)
     expect(walled.flat().every((v) => Number.isFinite(v) && v >= 0 && v <= 1)).toBe(true)
+    // The top and bottom edges follow the same switch.
+    const tallWrapped = waves({ wrapEdges: true }, 40, 8, 24)
+    const tallWalled = waves({ wrapEdges: false }, 40, 8, 24)
+    expect(tallWalled).not.toEqual(tallWrapped)
+  })
+
+  it('lands each splash where wired Splash X and Y place it', () => {
+    const id = `ws-run-${run++}`
+    const ws = node(id, 'WaveSim', 'field', { speed: 1, damping: 0.985, impulse: 1 })
+    const px = node('px', 'Math', 'math', { mathOp: 'add', a: 0, b: 0 })
+    const py = node('py', 'Math', 'math', { mathOp: 'add', a: 1, b: 0 })
+    const f2f = node('f2f', 'FieldToFrame', 'field', {})
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const field = evaluateGraphFull([px, py, ws, f2f, out], [
+      edge('ex', 'px', 'result', id, 'splashX'), edge('ey', 'py', 'result', id, 'splashY'),
+      edge('e1', id, 'field', 'f2f', 'field'), edge('e2', 'f2f', 'frame', 'out', 'frame'),
+    ], 0, 16, 16).outputs.get(id)!.field as Float32Array
+    // The opening splash sits on the bottom-left corner, not the centre.
+    const corner = field[15 * 16 + 0] + field[14 * 16 + 1], centre = field[8 * 16 + 8]
+    expect(corner).toBeGreaterThan(0.1)
+    expect(centre).toBeLessThan(1e-6)
   })
 
   it('is a one-dimensional wave on a one-row canvas', () => {
-    const frames = waves({ wrapX: false }, 30, 25, 1)
+    const frames = waves({ wrapEdges: false }, 30, 25, 1)
     const last = frames[frames.length - 1]
     expect(last.every((v) => Number.isFinite(v) && v >= 0 && v <= 1)).toBe(true)
     // The splash spreads sideways along the one row it has.

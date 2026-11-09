@@ -317,8 +317,14 @@ const WAVE_SIM_POINTS: ReadonlyArray<readonly [number, number]> = [
   [0.7, 0.7],
 ]
 
-function injectWaveSimRipple(field: Float32Array, pulse: number, impulse: number, W: number, H: number): void {
+// Where splash `pulse` lands, 0–1: a wired Splash X or Y wins on its axis,
+// else the fixed five-point cycle.
+function waveSimSplashAt(pulse: number, splashX: number | null, splashY: number | null): [number, number] {
   const [px, py] = WAVE_SIM_POINTS[pulse % WAVE_SIM_POINTS.length]
+  return [splashX === null ? px : clamp01(splashX), splashY === null ? py : clamp01(splashY)]
+}
+
+function injectWaveSimRipple(field: Float32Array, [px, py]: [number, number], impulse: number, W: number, H: number): void {
   const cx = px * (W - 1), cy = py * (H - 1)
   const radius = Math.max(1.5, Math.min(W, H) * 0.12)
   const x0 = Math.max(0, Math.floor(cx - radius - 1))
@@ -336,12 +342,16 @@ function injectWaveSimRipple(field: Float32Array, pulse: number, impulse: number
   }
 }
 
-// `wrapX` lets a wave leave one side and re-enter the other; off, the left and
-// right edges reflect (the neighbour past the edge is the edge pixel itself).
-// `halfDuplex` shows only the positive half of the wave, so a crest reads as
-// raised water and the troughs stay dark, where the default shows the size of
-// the displacement either way. Y always wraps, as it always has.
-function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: number, impulse: number, wrapX: boolean, halfDuplex: boolean, W = DEFAULT_W, H = DEFAULT_H): Field {
+// `wrapEdges` lets a wave leave one side and re-enter the opposite one, on
+// both axes; off, every edge reflects (the neighbour past the edge is the edge
+// pixel itself). `halfDuplex` shows only the positive half of the wave, so a
+// crest reads as raised water and the troughs stay dark, where the default
+// shows the size of the displacement either way. `splashX`/`splashY` are the
+// wired splash position, or null for the cycle.
+function evalWaveSim(
+  nodeId: string, trigger: boolean, speed: number, damping: number, impulse: number, wrapEdges: boolean, halfDuplex: boolean,
+  splashX: number | null, splashY: number | null, W = DEFAULT_W, H = DEFAULT_H,
+): Field {
   const N = W * H
   let s = waveSimState.get(nodeId)
   if (!s || s.w !== W || s.h !== H) {
@@ -354,12 +364,12 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
       prevTrigger: false,
       pulse: 1,
     }
-    injectWaveSimRipple(s.cur, 0, impulse, W, H)
+    injectWaveSimRipple(s.cur, waveSimSplashAt(0, splashX, splashY), impulse, W, H)
     waveSimState.set(nodeId, s)
   }
 
   if (trigger && !s.prevTrigger) {
-    injectWaveSimRipple(s.cur, s.pulse, impulse, W, H)
+    injectWaveSimRipple(s.cur, waveSimSplashAt(s.pulse, splashX, splashY), impulse, W, H)
     s.pulse++
   }
   s.prevTrigger = trigger
@@ -368,9 +378,9 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
   const damp = Math.max(0.8, Math.min(0.999, damping))
   for (let it = 0; it < iters; it++) {
     for (let y = 0; y < H; y++) {
-      const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
+      const ym = (wrapEdges ? (y - 1 + H) % H : Math.max(y - 1, 0)) * W, yp = (wrapEdges ? (y + 1) % H : Math.min(y + 1, H - 1)) * W, yr = y * W
       for (let x = 0; x < W; x++) {
-        const xm = wrapX ? (x - 1 + W) % W : Math.max(x - 1, 0), xp = wrapX ? (x + 1) % W : Math.min(x + 1, W - 1), i = yr + x
+        const xm = wrapEdges ? (x - 1 + W) % W : Math.max(x - 1, 0), xp = wrapEdges ? (x + 1) % W : Math.min(x + 1, W - 1), i = yr + x
         const neighbourAvg = (s.cur[ym + x] + s.cur[yp + x] + s.cur[yr + xm] + s.cur[yr + xp]) * 0.5
         s.next[i] = Math.max(-1, Math.min(1, (neighbourAvg - s.prev[i]) * damp))
       }
@@ -384,7 +394,7 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
   let peak = 0
   for (let i = 0; i < N; i++) peak = Math.max(peak, Math.abs(s.cur[i]))
   if (peak < 0.002) {
-    injectWaveSimRipple(s.cur, s.pulse, impulse * 0.6, W, H)
+    injectWaveSimRipple(s.cur, waveSimSplashAt(s.pulse, splashX, splashY), impulse * 0.6, W, H)
     s.pulse++
   }
 
@@ -790,7 +800,8 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const speed = num(id, 'speed', props, 'speed', 4)
     const damping = num(id, 'damping', props, 'damping', 0.985)
     const impulse = Math.max(0.1, Math.min(1, num(id, 'impulse', props, 'impulse', 1)))
-    return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapX !== false, props.halfDuplex === true, W, H) }
+    const at = (port: string) => { const v = input(id, port, null); return typeof v === 'number' ? v : null }
+    return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapEdges !== false, props.halfDuplex === true, at('splashX'), at('splashY'), W, H) }
   },
   FluidSim({ input, num, W, H, stateKey }, id, props) {
     const key = stateKey(id)
@@ -818,7 +829,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       cRe: num(id, 'cRe', props, 'cRe', -0.8), cIm: num(id, 'cIm', props, 'cIm', 0.156),
       zoom: num(id, 'zoom', props, 'zoom', 1),
       centerX: num(id, 'centerX', props, 'centerX', 0), centerY: num(id, 'centerY', props, 'centerY', 0),
-      spin: num(id, 'spin', props, 'spin', 0),
+      rotation: num(id, 'rotation', props, 'rotation', 0),
       iterations: num(id, 'iterations', props, 'iterations', 32), smooth: props.smooth !== false,
     }, W, H)
     const out = allocField(W * H)

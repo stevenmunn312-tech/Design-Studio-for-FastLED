@@ -569,7 +569,7 @@ const phase9Ring = (() => {
 const phase9Matrix = (() => {
   const nodes = [
     node('noise', 'FieldNoise', { wrapX: true, noiseShape: 'ridged', octaves: 3 }),
-    node('wave', 'WaveSim', { halfDuplex: true, wrapX: false }),
+    node('wave', 'WaveSim', { halfDuplex: true, wrapEdges: false }),
     node('tick', 'Interval', { interval: 0.7 }),
     node('mix', 'FieldMath', { fieldOp: 'add' }),
     node('color', 'FieldToFrame', { palette: 'ocean', brightness: 1 }),

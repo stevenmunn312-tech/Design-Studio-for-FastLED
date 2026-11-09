@@ -39,8 +39,8 @@ export interface FractalParams {
   zoom: number
   centerX: number
   centerY: number
-  /** Degrees. */
-  spin: number
+  /** View angle, degrees. */
+  rotation: number
   iterations: number
   smooth: boolean
 }
@@ -49,7 +49,7 @@ export interface FractalParams {
 export function fractalSampler(p: FractalParams, W: number, H: number): (x: number, y: number) => number {
   const half = Math.min(W, H) / 2
   const scale = FRACTAL_VIEW / fractalZoom(p.zoom) / half
-  const a = (p.spin * Math.PI) / 180, co = Math.cos(a), si = Math.sin(a)
+  const a = (p.rotation * Math.PI) / 180, co = Math.cos(a), si = Math.sin(a)
   const [ox, oy] = FRACTAL_ORIGIN[p.type]
   const cx = ox + p.centerX, cy = oy + p.centerY
   const iters = fractalIterations(p.iterations)

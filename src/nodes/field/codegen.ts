@@ -278,28 +278,37 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    for(int _it=0;_it<_iters;_it++) _turingStep(${A}a,${A}p,WIDTH,HEIGHT,${A}r,${radii.length},_step);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain((${A}a[_i]+1.0f)*0.5f,0.0f,1.0f); }`)
   },
-  WaveSim({ node, id, p, ln, f, ownField, boolExpr }) {
-    const wrapX = p.wrapX !== false, halfDuplex = p.halfDuplex === true
+  WaveSim({ node, id, p, ln, f, ownField, boolExpr, edges, floatExpr }) {
+    const wrapEdges = p.wrapEdges !== false, halfDuplex = p.halfDuplex === true
     const of = ownField()
     const trig = boolExpr(node.id, 'trigger')
     const speed = `max(1,min(12,(int)floorf(${f('speed', 'speed', 4)})))`
     const dampL = `max(0.8f,min(0.999f,${f('damping', 'damping', 0.985)}))`
     const impulseL = `max(0.1f,min(1.0f,${f('impulse', 'impulse', 1)}))`
     const A = `_ws_${id}`
+    // A wired Splash X or Y places every splash on that axis; an unwired one
+    // keeps the five-point cycle, whose table and counter ship only while read.
+    const wired = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port)
+    const sx = wired('splashX'), sy = wired('splashY'), cycles = !sx || !sy
+    const at = (pulse: string) => `${sx ? '_wsSx' : `${A}px[${pulse}%5]`},${sy ? '_wsSy' : `${A}py[${pulse}%5]`}`
     ln(`  { // WaveSim`)
-    ln(`    static float ${A}p[NUM_LEDS], ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}prev=false, ${A}init=false; static uint8_t ${A}pulse=1;`)
-    ln(`    static const float ${A}px[5]={0.5f,0.26f,0.74f,0.34f,0.7f}, ${A}py[5]={0.5f,0.34f,0.4f,0.76f,0.7f};`)
-    ln(`    auto _wsInject_${id}=[&](uint8_t _pulse,float _amp){ float _cx=${A}px[_pulse%5]*(WIDTH-1),_cy=${A}py[_pulse%5]*(HEIGHT-1),_rad=max(1.5f,min(WIDTH,HEIGHT)*0.12f);`)
+    ln(`    static float ${A}p[NUM_LEDS], ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}prev=false, ${A}init=false;${cycles ? ` static uint8_t ${A}pulse=1;` : ''}`)
+    if (!sx) ln(`    static const float ${A}px[5]={0.5f,0.26f,0.74f,0.34f,0.7f};`)
+    if (!sy) ln(`    static const float ${A}py[5]={0.5f,0.34f,0.4f,0.76f,0.7f};`)
+    if (sx) ln(`    float _wsSx=constrain(${floatExpr(node.id, 'splashX', p, 'splashX', 0.5)},0.0f,1.0f);`)
+    if (sy) ln(`    float _wsSy=constrain(${floatExpr(node.id, 'splashY', p, 'splashY', 0.5)},0.0f,1.0f);`)
+    ln(`    auto _wsInject_${id}=[&](float _sx,float _sy,float _amp){ float _cx=_sx*(WIDTH-1),_cy=_sy*(HEIGHT-1),_rad=max(1.5f,min(WIDTH,HEIGHT)*0.12f);`)
     ln(`      int _x0=max(0,(int)floorf(_cx-_rad-1.0f)),_x1=min(WIDTH-1,(int)ceilf(_cx+_rad+1.0f)); int _y0=max(0,(int)floorf(_cy-_rad-1.0f)),_y1=min(HEIGHT-1,(int)ceilf(_cy+_rad+1.0f));`)
     ln(`      for(int _y=_y0;_y<=_y1;_y++) for(int _x=_x0;_x<=_x1;_x++){ float _d=sqrtf((_x-_cx)*(_x-_cx)+(_y-_cy)*(_y-_cy)); float _f=max(0.0f,1.0f-_d/_rad); if(_f<=0.0f) continue; int _i=_y*WIDTH+_x; ${A}c[_i]=constrain(${A}c[_i]+_amp*_f*_f,-1.0f,1.0f); } };`)
-    ln(`    if(!${A}init){ for(int _i=0;_i<NUM_LEDS;_i++){ ${A}p[_i]=0; ${A}c[_i]=0; ${A}n[_i]=0; } _wsInject_${id}(0,${impulseL}); ${A}init=true; }`)
-    ln(`    bool _tr=(${trig}); if(_tr&&!${A}prev){ _wsInject_${id}(${A}pulse,${impulseL}); ${A}pulse++; } ${A}prev=_tr;`)
+    const next = cycles ? ` ${A}pulse++;` : ''
+    ln(`    if(!${A}init){ for(int _i=0;_i<NUM_LEDS;_i++){ ${A}p[_i]=0; ${A}c[_i]=0; ${A}n[_i]=0; } _wsInject_${id}(${at('0')},${impulseL}); ${A}init=true; }`)
+    ln(`    bool _tr=(${trig}); if(_tr&&!${A}prev){ _wsInject_${id}(${at(`${A}pulse`)},${impulseL});${next} } ${A}prev=_tr;`)
     ln(`    for(int _it=0;_it<${speed};_it++){`)
-    ln(`      for(int _y=0;_y<HEIGHT;_y++){ int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
-    ln(`        for(int _x=0;_x<WIDTH;_x++){ int _xm=${wrapX ? '(_x-1+WIDTH)%WIDTH' : 'max(_x-1,0)'},_xp=${wrapX ? '(_x+1)%WIDTH' : 'min(_x+1,WIDTH-1)'},_i=_yr+_x; float _avg=(${A}c[_ym+_x]+${A}c[_yp+_x]+${A}c[_yr+_xm]+${A}c[_yr+_xp])*0.5f; ${A}n[_i]=constrain((_avg-${A}p[_i])*${dampL},-1.0f,1.0f); } }`)
+    ln(`      for(int _y=0;_y<HEIGHT;_y++){ int _ym=${wrapEdges ? '((_y-1+HEIGHT)%HEIGHT)' : 'max(_y-1,0)'}*WIDTH,_yp=${wrapEdges ? '((_y+1)%HEIGHT)' : 'min(_y+1,HEIGHT-1)'}*WIDTH,_yr=_y*WIDTH;`)
+    ln(`        for(int _x=0;_x<WIDTH;_x++){ int _xm=${wrapEdges ? '(_x-1+WIDTH)%WIDTH' : 'max(_x-1,0)'},_xp=${wrapEdges ? '(_x+1)%WIDTH' : 'min(_x+1,WIDTH-1)'},_i=_yr+_x; float _avg=(${A}c[_ym+_x]+${A}c[_yp+_x]+${A}c[_yr+_xm]+${A}c[_yr+_xp])*0.5f; ${A}n[_i]=constrain((_avg-${A}p[_i])*${dampL},-1.0f,1.0f); } }`)
     ln(`      ::memcpy(${A}p,${A}c,sizeof(${A}p)); ::memcpy(${A}c,${A}n,sizeof(${A}c)); }`)
     ln(`    float _peak=0.0f; for(int _i=0;_i<NUM_LEDS;_i++) _peak=max(_peak,fabsf(${A}c[_i]));`)
-    ln(`    if(_peak<0.002f){ _wsInject_${id}(${A}pulse,${impulseL}*0.6f); ${A}pulse++; }`)
+    ln(`    if(_peak<0.002f){ _wsInject_${id}(${at(`${A}pulse`)},${impulseL}*0.6f);${next} }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(${halfDuplex ? `${A}c[_i]` : `fabsf(${A}c[_i])`}*1.5f,0.0f,1.0f); }`)
   },
   FluidSim({ node, id, p, ln, f, ownField, srcField, boolExpr, edges, needsFluid }) {
@@ -341,7 +350,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`  { // Fractal (${type})`)
     ln(`    int _it=constrain((int)floorf(${f('iterations', 'iterations', 32)}),${FRACTAL_ITERATIONS_MIN},${FRACTAL_ITERATIONS_MAX});`)
     ln(`    float _zm=constrain(${f('zoom', 'zoom', 1)},${floatLit(FRACTAL_ZOOM_MIN)},${floatLit(FRACTAL_ZOOM_MAX)}),_sc=${floatLit(FRACTAL_VIEW)}/_zm/(fminf((float)WIDTH,(float)HEIGHT)*0.5f);`)
-    ln(`    float _a=${f('spin', 'spin', 0)}*0.017453293f,_co=cosf(_a),_si=sinf(_a);`)
+    ln(`    float _a=${f('rotation', 'rotation', 0)}*0.017453293f,_co=cosf(_a),_si=sinf(_a);`)
     ln(`    float _cx=${floatLit(ox)}+${f('centerX', 'centerX', 0)},_cy=${floatLit(oy)}+${f('centerY', 'centerY', 0)};`)
     if (type === 'julia') ln(`    float _jr=${f('cRe', 'cRe', -0.8)},_ji=${f('cIm', 'cIm', 0.156)};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
