@@ -336,12 +336,6 @@ Music Player seed.
   but an angular glow over the whole matrix (cos of petals × angle, dimmed
   with the radius), so a Shape Field rose in Distance mode is the nearest
   look; no bundled pattern uses it.
-- [ ] **Category: Decide whether to drop "x/y above 1 means pixels" (Low, S).**
-  Design question: `normalizedCenterAxis` reads any value above 1 as a pixel
-  coordinate for Shape, Text and Clock Display, so a wired LFO overshooting to
-  1.05 jumps from the right edge to pixel 1. Decide whether to drop the rule
-  and keep x/y normalised everywhere (or add a unit select), accepting the
-  compatibility break. `src/nodes/shapes/evaluate.ts:47`.
 - [ ] **Category: Rename the FormulaField type to FormulaShapes (Low, M).**
   `FieldFormula` and `FormulaField` are easy to swap in docs and code.
   Pre-v1, rename the type cleanly if the node stays. Needs a decision: the
@@ -373,12 +367,6 @@ Music Player seed.
   A transport lives inside a drawing node; anyone wanting only `done` still
   draws digits. Consider a small Timer signal node with Clock Display drawing
   a wired `seconds`.
-- [ ] **Line: Align units with its siblings (Low, S).** Thickness is done.
-  Line alone takes pixel coordinates (now pixel centres: 0 is the first
-  pixel, `max_x` the last, matching the `center_x`/`max_x` expressions) while
-  Shape, Text and Clock Display take 0-1. A units select or a 0-1 default
-  is a product choice, and a 0-1 default would move every saved Line and
-  the Help examples that use pixel expressions.
 
 
 

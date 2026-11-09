@@ -259,12 +259,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   takes the library default. A node may therefore size an array or a
   `const int` from `Number(p.count)` without its own NaN check. That holds only
   for a key with a numeric library default, so a new numeric property needs
-  one. A default may instead be a matrix-relative expression (Line's end point
-  is `max_x`, `max_y`, so a fresh Line spans whatever matrix it lands on); a
-  string default counts only when its value changes with the matrix, because a
-  bit pattern such as Slice Tiling's `bitsB` also parses and must stay text.
-  `scalarExpression.test.ts` lists every expression default, so a new one is a
-  deliberate addition. `num()` and `floatExpr` keep a finiteness fallback for a
+  one. A default may instead be a matrix-relative expression, though none is
+  now: Line's ends were `max_x`, `max_y` until its 0–1 Units made 1 the last
+  pixel, which fits any matrix as a plain number. A string default counts only
+  when its value changes with the matrix, because a bit pattern such as Slice
+  Tiling's `bitsB` also parses and must stay text. `scalarExpression.test.ts`
+  lists every expression default, so a new one is a deliberate addition. `num()` and `floatExpr` keep a finiteness fallback for a
   key without one. A wired signal is not sanitised: firmware cannot intercept a NaN on a
   wire, so the preview passes it through too, and Format Number shows it as
   "no reading". The stored properties stay untouched for the editors and
@@ -432,6 +432,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   therefore cannot assign different meanings to the same saved group name.
   Tests cover both the geometry (idempotence and group generators) and every
   name-to-id emission, while show codegen must lift the complete shared helper.
+- A unit is a property, never read off the value. Shape, Text and Clock
+  Display once took any position above 1 as a pixel, so a wired LFO
+  overshooting to 1.05 jumped from the right edge to pixel 1. Their Units
+  select, and Line's, is 0–1 or Pixels (`nodes/shapes/positionUnits.ts`,
+  which holds each rule beside its C++). Pixels are pixel centres on all
+  four, the convention of `center_x` and `max_x`, and since Units is never
+  wired each sketch resolves it at generation time. `propertyMetaFor` draws a
+  position as a 0–1 slider or, in pixels, a free number (Line's then takes an
+  expression).
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
   `ownField(port)`. `srcField` resolves a wire by the port it leaves, where it

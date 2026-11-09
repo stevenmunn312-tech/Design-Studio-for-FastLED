@@ -63,6 +63,12 @@ other's rendering model.
 
 ## `FormulaField` (category: `field`) — implemented
 
+**Being folded into Shape Field (2026-11-10).** Rose and superformula are now
+Shape Field kinds, with its position, size, fill, distance and falloff and a
+Spin; see the [float field note](animartrix-float-field.md#shapefield-category-field).
+The node is to go once its spiral, golden tiling and Lissajous variants have
+a home, which `todo.md`'s Formula Shapes entry leaves open.
+
 Per-pixel closed-form expression selected by a curated dropdown instead of
 free text, output as a `field` (0–1) so it composes with the rest of the
 float-field pipeline — chain a `FieldToFrame` for palette mapping, or feed

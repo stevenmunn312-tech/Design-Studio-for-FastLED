@@ -172,16 +172,28 @@ operation is `a * (1 - t) + b * t`.
 
 ### `ShapeField` (category: `field`)
 
-Produces a circle, rectangle, or continuously morphing regular polygon. Fill
-mode emits antialiased coverage; distance mode maps the outline to 0.5, the
-interior toward 1, and the exterior toward 0. The signed-distance primitives
-are shared with the frame-producing `Shape` node and its firmware helper.
+Produces an ellipse, rectangle, continuously morphing regular polygon, rose
+or superformula. Fill mode emits antialiased coverage; distance mode maps the
+outline to 0.5, the interior toward 1, and the exterior toward 0. The
+signed-distance primitives are shared with the frame-producing `Shape` node
+and its firmware helper.
 
-- Property inputs are `cx`, `cy`, `size`, `rotation`, `sides`, and `aspect`.
-  Centres are normalised 0–1; size is a fraction of the shorter matrix side;
-  rotation is degrees; fractional sides morph like the frame Shape node.
-- `shape` is Circle / Rect / Polygon. `fieldMode` is Fill / Distance;
-  `softness` defaults to 0.1 and `range` to 0.5.
+- Property inputs are `cx`, `cy`, `size`, `rotation`, `spin`, `sides`,
+  `aspect`, the rose's `petals` and the superformula's `symmetry` (Lobes),
+  `n1`–`n3`, `a` and `b`. Centres are normalised 0–1; size is a fraction of
+  the shorter matrix side; rotation is degrees and spin degrees a second on
+  the clock (`speedPhase`, emitted only while it can move); fractional sides
+  morph like the frame Shape node. Only the chosen kind's knobs are read.
+- `shape` is one of `SHAPE_FIELD_KINDS`: Shape's `SHAPE_KINDS` (rect,
+  ellipse, polygon) plus rose and superformula. `fieldMode` is Fill /
+  Distance / Falloff; `softness` defaults to 0.1 and `range` to 0.5.
+- The rose (`petals` petals, each 180/petals degrees wide) and the
+  superformula (a lobe reaches `size` at a = b = 1) measure distance along
+  the radius from the centre, not to the nearest outline point. A field's
+  fill and glow tolerate that; Shape's stroke would not (it would thin to
+  nothing along a petal's sides), and Shape's 0–1 placement margin needs a
+  bounding reach the superformula has no closed form for, so Shape keeps
+  three kinds.
 - Distance mode maps the outline to 0.5, the interior toward 1, and the
   exterior toward 0 over `range`. Lerp two distance Shape Fields, then put
   Field Levels at `low = high = 0.5`, for a closed-region SDF morph.
