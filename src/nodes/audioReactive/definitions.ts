@@ -509,8 +509,10 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Oriented Gabor-noise shards that snap to a new angle on each hihat hit.
+    // Labelled for the hi-hat snap so it does not read as Treble Prism; the
+    // type id keeps its old name.
     type: 'PrismStorm',
-    label: 'Prism Storm',
+    label: 'Hi-Hat Shards',
     category: 'pattern',
     subcategory: 'Audio-Reactive',
     inputs: [
@@ -532,7 +534,8 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Audio-reactive flowing noise field (bass/mids/treble drive it).
+    // Flowing noise field: mids set how fast it flows, bass its brightness,
+    // and treble shifts its colour and vertical drift.
     type: 'AudioFlow',
     label: 'Audio Flow',
     category: 'pattern',
@@ -648,7 +651,7 @@ export const AUDIO_REACTIVE_DESCRIPTIONS: Record<string, string> = {
   GravityWell: 'Gravitational-lensing rings that bunch up as they near the drifting well.',
   RainRipples: 'A pool of expanding, fading ripples — one born on each trigger pulse.',
   PrismStorm: 'Oriented shard noise that snaps to a new angle on every hi-hat hit.',
-  AudioFlow: 'Audio-reactive flowing noise field.',
+  AudioFlow: 'Noise field that mids push along and bass brightens; treble shifts it.',
   ColorTrails: 'Fluid palette trails adapted from a Stefan Petrick prototype.',
   Animartrix: 'AnimARTrix by Stefan Petrick, rebuilt for deep musical control.',
 }

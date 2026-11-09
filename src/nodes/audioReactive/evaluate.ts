@@ -18,7 +18,7 @@ import {
   heatColor,
   byte,
 } from '../../state/evaluator/frames'
-import { _snoise2, normalizedSeed } from '../../state/evaluator/random'
+import { normalizedSeed } from '../../state/evaluator/random'
 import { resampleSpectrumBins, isAudioSignal, spectrumThirdBounds } from '../../state/evaluator/signals'
 import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
@@ -28,7 +28,7 @@ import {
   auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, emberFrame, emberPixel, kaleidoFrame, kaleidoPixel, mosaicCell,
   trailColumnPass, trailFade15, trailRowPass, trailShift8, wavesFrame, wavesPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
   turbulentFrame, turbulentPixel, wellFrame, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
-import { scale8 } from '../shared/lib8tion'
+import { inoise8, scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
 import { trebleSparksFadeBy } from './trebleSparks'
@@ -1105,22 +1105,31 @@ function evalColorTrails(
   return s.frame
 }
 
-// Audio-reactive flow: a simplex band field scrolling at a speed set by mids,
-// brightness pulsed by bass, hue nudged by treble.
+// Audio-reactive flow: a noise field scrolling at a speed set by mids,
+// brightness pulsed by bass, hue nudged by treble. FastLED's inoise8 on the
+// sketch's own 8.8 coordinates (audioFlowNoiseCoord), so the texture and the
+// palette it covers match the device, where the preview used to sample simplex.
+/** A noise coordinate in FastLED's 8.8 fixed point, as the sketch's
+ *  `(uint16_t)(uint32_t)(v*256)` takes it: wrapping, never undefined. */
+export function audioFlowNoiseCoord(value: number): number {
+  return (Math.trunc(value * 256) >>> 0) & 0xffff
+}
+
 function evalAudioFlow(key: string, bass: number, mids: number, treble: number, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const flow = advanceDrift(key, t, speed * (0.2 + mids * 1.5)).a
   // Random vertical drift: a slow noise wander (random up/down direction) whose
   // reach grows with treble/bass, so the field bobs vertically in time with the
   // music while `flow` scrolls it horizontally.
   const vAmp = 0.2 + treble * 0.7 + bass * 0.3
-  const vflow = _snoise2(speedPhase(key, t, speed, 'vflow') * 4 + 50, 17.3) * vAmp
+  const vflow = (inoise8(audioFlowNoiseCoord(speedPhase(key, t, speed, 'vflow') * 4 + 50), 4429) / 128 - 1) * vAmp
   // Preserve the old useful low-level lift, but do not flatten FastLED's
   // normalized bass range above 0.7 into one constant brightness.
-  const bright = 0.25 + Math.sqrt(clamp01(bass)) * 0.75
+  const bright = Math.trunc((0.25 + Math.sqrt(clamp01(bass)) * 0.75) * 255)
   return buildFrame(W, H, (x, y) => {
-      const v = _snoise2(x * scale + flow, y * scale * 0.6 + vflow) * 0.5 + 0.5
-      const c = samplePalette(palette, (((v + treble * 0.3) % 1) + 1) % 1)
-      return { r: Math.round(c.r * bright), g: Math.round(c.g * bright), b: Math.round(c.b * bright) }
+      const v = inoise8(audioFlowNoiseCoord(x * scale + flow), audioFlowNoiseCoord(y * scale * 0.6 + vflow + 8))
+      // (uint8_t)(int): the treble offset wraps round the palette.
+      const c = samplePalette(palette, (Math.trunc(v + treble * 80) & 0xff) / 256)
+      return { r: scale8(c.r, bright), g: scale8(c.g, bright), b: scale8(c.b, bright) }
     })
 }
 
@@ -1424,7 +1433,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const treble = num(id, 'treble', props, 'treble', 0.3)
     const speed = denormalizeAudioFlowParam('speed', num(id, 'speed', props, 'speed', 0.5))
     const scale = denormalizeAudioFlowParam('scale', num(id, 'scale', props, 'scale', 0.5))
-    const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+    // The library default, which the sketch also falls back to.
+    const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalAudioFlow(stateKey(id), bass, mids, treble, speed, scale, t, palette, W, H) }
   },
   ColorTrails({ input, num, pal, t, W, H, stateKey }, id, props) {

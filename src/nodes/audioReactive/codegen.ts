@@ -845,10 +845,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _flow=_afPhase_${id}; uint8_t _bright=(uint8_t)((0.25f+sqrtf(constrain(_b,0.0f,1.0f))*0.75f)*255);`)
     ln(`    float _vamp=0.2f+_tr*0.7f+_b*0.3f;`)
     const ph = speedPhaseCpp(ln, phaseTag(id, 'vflow'), '_spd')
-    ln(`    float _vflow=((float)inoise8((uint16_t)((${ph}*4.0f+50)*256),4429)/128.0f-1.0f)*_vamp;`)
+    // audioFlowNoiseCoord: 8.8 coordinates through uint32_t, so a long-running
+    // flow wraps instead of overflowing a float-to-uint16 cast.
+    ln(`    float _vflow=((float)inoise8((uint16_t)(uint32_t)((${ph}*4.0f+50)*256),4429)/128.0f-1.0f)*_vamp;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      uint8_t _v=inoise8((uint16_t)((_x*_sc+_flow)*256),(uint16_t)((_y*_sc*0.6f+_vflow+8.0f)*256));`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_v+_tr*80)); ${ob}[_y*WIDTH+_x].nscale8(_bright);}}`)
+    ln(`      uint8_t _v=inoise8((uint16_t)(uint32_t)((_x*_sc+_flow)*256),(uint16_t)(uint32_t)((_y*_sc*0.6f+_vflow+8.0f)*256));`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(int)(_v+_tr*80)); ${ob}[_y*WIDTH+_x].nscale8(_bright);}}`)
   },
   ColorTrails({ node, id, p, ln, f, ownBuf, boolExpr, paletteExpr, needsT, frameBufs }) {
     needsT.v = true

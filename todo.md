@@ -319,30 +319,12 @@ freeze, or drop them.
   Ripples is Kick Shock's kick lane with a bool trigger, sharing count,
   decay, thickness, spread and blend. Fold it in as a Trigger input plus a
   preset, or leave as is. Evidence `src/state/nodeLibrary.ts:962`.
-- [ ] **Prism Storm: Rename to separate it from Treble Prism (Low, S).**
-  "Prism Storm" and "Treble Prism" sit in the same subcategory and read as
-  one effect. Rename one, for example "Hi-Hat Shards" for Prism Storm, since
-  the hi-hat snap is what sets it apart.
-- [ ] **Audio Flow: Share one noise kernel between preview and firmware
-  (Med, M).** The preview samples simplex `_snoise2`, the firmware samples
-  `inoise8` with a +8 y-offset, so texture and palette coverage differ on
-  the device. Move it to a shared integer kernel like its siblings.
-  Evidence `src/nodes/audioReactive/evaluate.ts:1107`.
-- [ ] **Audio Flow: Align palette fallback and description (Low, S).** The
-  preview falls back to `'party'` but the default property is `'rainbow'`,
-  and the description doesn't say mids drive the flow and bass drives the
-  brightness. Match the fallback to the default and fix the text. Evidence
-  `src/nodes/audioReactive/evaluate.ts:1415`.
 - [ ] **Color Trails: Cut the tuning knobs (Med, M).** Twelve knobs over 15
   inputs, with separate X and Y speed, amplitude and frequency, and a
   Persistence slider (0.9–0.9999, step 0.0001) the help explains in
   minutes. Link X and Y by default (one Flow speed, strength and scale plus
   an "independent axes" toggle), and replace Persistence with a Trail
   length in seconds. Evidence `src/state/nodeLibrary.ts:899`.
-- [ ] **Color Trails: Reconcile the Seed 0 behaviour (Low, S).** Its Seed
-  says 0 is a fixed seed, against the global rule that 0 runs free. Align
-  it with the rule, or label it differently. Evidence
-  `src/state/nodeLibrary.ts:2555`.
 
 #### Colour and maths
 

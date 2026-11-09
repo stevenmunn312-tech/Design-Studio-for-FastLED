@@ -1342,7 +1342,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   PrismStorm: {
     overview: [
-      'Prism Storm draws noise shards with a direction, which snap to a new angle on every hi-hat hit. Mids speed the drift and treble sharpens the grain.',
+      'Hi-Hat Shards draws noise shards with a direction, which snap to a new angle on every hi-hat hit. Mids speed the drift and treble sharpens the grain.',
     ],
     example: example({
       featured: 'PrismStorm',
@@ -1354,14 +1354,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         storm: ['PrismStorm', { palette: 'amethyst' }],
       },
       wires: ['mic.audio > fft.audio', 'mic.audio > drums.audio', 'fft.mids > storm.mids', 'fft.treble > storm.treble', 'drums.hihat > storm.hihat'],
-      explanation: 'FFT Analyzer’s mids and treble set how fast and how fine Prism Storm’s shards are, and Percussion Detect’s hi-hat lane snaps them to a new angle on each tick.',
+      explanation: 'FFT Analyzer’s mids and treble set how fast and how fine the Hi-Hat Shards are, and Percussion Detect’s hi-hat lane snaps them to a new angle on each tick.',
       preview: 'Play music near the microphone. The {output} shows purple shards streaming one way, then snapping to a new angle on each hi-hat.',
     }),
   },
 
   AudioFlow: {
     overview: [
-      'Audio Flow scrolls a noise field sideways and lets the music move it: mids speed it up, bass and treble change its texture.',
+      'Audio Flow scrolls a noise field sideways and lets the music move it: mids set how fast it flows, bass how bright it glows, and treble shifts its colours and how far it bobs up and down.',
       'Scale sets how broad the shapes are.',
     ],
     example: example({

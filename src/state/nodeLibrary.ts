@@ -2565,7 +2565,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     endpointSpeed: 'How fast the line endpoints wander (0–2); mids speed them up.',
     colorSpeed: 'How fast the palette sweeps along the line (0–1); treble speeds it up.',
     persistence: 'Share of the trail kept per frame (0.9–0.9999); 0.999 fades in seconds, 0.9999 in minutes.',
-    seed: 'Picks the noise profiles. Any value is repeatable; 0 is a fixed seed here, not random.',
+    seed: 'Picks the noise profiles the trails follow. Every value, 0 included, gives the same flow on every run: it chooses a profile rather than seeding randomness.',
     bass: 'Bass level (0–1) when unwired; raises displacement up to 2.5×.',
     mids: 'Mids level (0–1) when unwired; speeds the endpoints up to 2.5×.',
     treble: 'Treble level (0–1) when unwired; speeds the colour sweep up to 3×.',
@@ -3621,6 +3621,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     yFrequency: 'Y frequency',
     endpointSpeed: 'endpoint speed',
     colorSpeed: 'color speed',
+    // Not a random seed: 0 is a profile like any other (see its tooltip).
+    seed: 'profile',
   },
   FormatNumber: {
     padWidth: 'pad to',
