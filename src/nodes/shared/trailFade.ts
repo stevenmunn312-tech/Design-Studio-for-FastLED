@@ -40,6 +40,16 @@ const trailClocks = instanceState('trailFade', new Map<string, TrailClock>())
  * saved up, once that reaches `TRAIL_MIN_STEP`; 0 until then.
  */
 export function trailFadeAmount(key: string, t: number, fade: number): number {
+  const halfLife = trailHalfLife(fade)
+  return timedFadeAmount(key, t, (dt) => Math.pow(2, -dt / halfLife))
+}
+
+/**
+ * The same saved-up `fadeToBlackBy` byte for a node whose own slider sets
+ * `keepOver(dt)`, the share of light that survives `dt` seconds. The
+ * firmware twin is `timedFadeCpp`.
+ */
+export function timedFadeAmount(key: string, t: number, keepOver: (dt: number) => number): number {
   const clock = trailClocks.get(key)
   if (!clock) {
     trailClocks.set(key, { lastT: t, owed: 0 })
@@ -47,7 +57,7 @@ export function trailFadeAmount(key: string, t: number, fade: number): number {
   }
   const dt = Math.max(0, t - clock.lastT)
   clock.lastT = t
-  let keep = Math.pow(2, -dt / trailHalfLife(fade))
+  let keep = keepOver(dt)
   if (!(keep >= 0)) keep = 1
   clock.owed += (1 - keep) * 256
   if (clock.owed < TRAIL_MIN_STEP) return 0

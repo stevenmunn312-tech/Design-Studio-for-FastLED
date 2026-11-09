@@ -17,7 +17,7 @@ import { particleRadius } from './particleScale'
 import { particleMode, particlePoolSize } from './particleModes'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
-import { reactionDiffusionRates } from './reactionDiffusionPresets'
+import { REACTION_DIFFUSION_RATES, reactionDiffusionRates } from './reactionDiffusionPresets'
 import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integerPatterns'
 
 // Fire's styles share these direction/turbulence/paletteMix/mirror/seed
@@ -734,8 +734,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     // A named preset bakes its pair and ignores wires, as the preview does.
     const rates = reactionDiffusionRates(p.rdPreset)
-    const feed = rates ? floatLit(rates.feed, 6) : f('feed', 'feed', 0.055)
-    const kill = rates ? floatLit(rates.kill, 6) : f('kill', 'kill', 0.062)
+    const feed = rates ? floatLit(rates.feed, 6) : f('feed', 'feed', REACTION_DIFFUSION_RATES.coral.feed)
+    const kill = rates ? floatLit(rates.kill, 6) : f('kill', 'kill', REACTION_DIFFUSION_RATES.coral.kill)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     // The starting patch hashes each pixel with the seed as the hash's third
     // input, as `reactionDiffusionSeedV` does in the preview; seed 0 included.

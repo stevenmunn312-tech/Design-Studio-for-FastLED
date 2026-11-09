@@ -127,7 +127,8 @@ function StopHandle({
         onPointerDown={(e) => e.stopPropagation()}
         onChange={(e) => onColor(e.target.value)}
       />
-      <div className={styles.stopTools}>
+      {/* Kept off the stop's drag, which would otherwise move it to the click. */}
+      <div className={styles.stopTools} onPointerDown={(e) => e.stopPropagation()}>
         <button type="button" onClick={(e) => { e.stopPropagation(); onNudge(-1) }} title="Move left">‹</button>
         <button type="button" onClick={(e) => { e.stopPropagation(); onNudge(1) }} title="Move right">›</button>
         <button type="button" disabled={wired} onClick={(e) => { e.stopPropagation(); onRemove() }} title="Remove">×</button>
@@ -155,14 +156,14 @@ export function CustomPaletteEditorBody({ nodeId, topPlacement }: { nodeId: stri
     if (local.colors.length <= 2) return
     save(local.colors.filter((_, i) => i !== index), local.positions.filter((_, i) => i !== index))
   }
+  // Moves a colour to its neighbour's stop; the positions stay where they are.
+  // Swapping positions too was undone by the re-sort by position on save.
   const nudge = (index: number, direction: -1 | 1) => {
     const other = index + direction
     if (other < 0 || other >= local.colors.length) return
     const colors = [...local.colors]
-    const positions = [...local.positions]
     ;[colors[index], colors[other]] = [colors[other], colors[index]]
-    ;[positions[index], positions[other]] = [positions[other], positions[index]]
-    save(colors, positions)
+    save(colors, local.positions)
   }
   // The palette as a library bundle entry, so it can travel as a file or a
   // link and come back as a Custom Palette node (docs/design/library-sharing.md).

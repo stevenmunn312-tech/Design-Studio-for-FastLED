@@ -78,6 +78,28 @@ describe('palette and transition node bodies', () => {
     expect(props.positions).toHaveLength(3)
   })
 
+  it('moves a CustomPalette colour to its neighbour stop', () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'cp',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: nodeData('CustomPalette', {
+          colors: ['#ff0000', '#00ff00', '#0000ff'],
+          positions: [0, 0.3, 1],
+        }),
+      }],
+    })
+
+    const { getAllByTitle } = render(<CustomPaletteEditorBody nodeId="cp" />)
+    // Swapping positions too was undone by the re-sort on save.
+    fireEvent.click(getAllByTitle('Move right')[0])
+
+    const props = useGraphStore.getState().nodes[0].data.properties
+    expect(props.colors).toEqual(['#00ff00', '#ff0000', '#0000ff'])
+    expect(props.positions).toEqual([0, 0.3, 1])
+  })
+
   it('exports a CustomPalette as a palette file', () => {
     const clicks: string[] = []
     const spy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {

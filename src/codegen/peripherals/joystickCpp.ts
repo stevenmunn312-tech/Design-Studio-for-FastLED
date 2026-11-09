@@ -1,16 +1,18 @@
 import { sanitizePin } from '../hardwarePins'
 import { joystickDeadzone } from '../../state/peripherals/joystick'
+import { ANALOG_FULL_SCALE, ANALOG_FULL_SCALE_CPP } from '../helpers/analogReadCpp'
 
 /**
- * Two potentiometer axes and a push switch. Each axis is read as a 12-bit ADC
- * count, like PotInput, centred on half scale so 0 is the stick at rest, with
+ * Two potentiometer axes and a push switch. Each axis is read as an ADC
+ * count against the board's full scale, like PotInput, centred on half scale so 0 is the stick at rest, with
  * the dead zone taken out and the rest rescaled to reach -1 and 1. The switch
  * pulls SW to ground, so it reads LOW when pressed.
  */
 export const JOYSTICK_HELPER_CPP: readonly string[] = [
+  ...ANALOG_FULL_SCALE_CPP,
   '// Joystick axis: ADC count to -1..1 with a dead zone around the centre.',
   'static float _joyAxis(int raw, float dead) {',
-  '  float v = (float)raw / 4095.0f * 2.0f - 1.0f;',
+  `  float v = (float)raw / ${ANALOG_FULL_SCALE} * 2.0f - 1.0f;`,
   '  float a = fabsf(v);',
   '  if (a <= dead) return 0.0f;',
   '  float s = (a - dead) / (1.0f - dead);',

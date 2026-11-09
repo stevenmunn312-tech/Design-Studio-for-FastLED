@@ -31,6 +31,8 @@ import {
 import { scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
+import { trebleSparksFadeBy } from './trebleSparks'
+import { fadeFrameToBlackBy } from '../shared/trailFade'
 import {
   danceFlashAdvance, danceFlashStart, stampDanceFlash, type DanceFlashClock,
 } from './danceFlash'
@@ -418,14 +420,10 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, palet
   }
 
   const frame = state.frame
-  const fade = 0.58 + (1 - level) * 0.16
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const px = frame[y][x]
-      const faded = scaleRgb(px, fade)
-      px.r = faded.r; px.g = faded.g; px.b = faded.b
-    }
-  }
+  // Quiet treble lets the sparks linger (keeps ~0.74 a frame); loud treble
+  // keeps ~0.58 so a busy hi-hat stays crisp. FastLED's fadeToBlackBy byte,
+  // as the firmware applies it, so a dim spark also reaches black.
+  fadeFrameToBlackBy(frame, trebleSparksFadeBy(level))
 
   const spawnChance = 0.2 + level * 0.8
   let spawnCount = Math.round(W * H * amount * (0.03 + level * 0.12))

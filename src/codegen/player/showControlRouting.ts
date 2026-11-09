@@ -9,6 +9,7 @@ import { beatDetectThreshold } from '../../audio/beatDetection'
 import { nativeBeatGateCpp } from '../audio/nativeBeatGateCpp'
 import { controlReferenceCpp, type ControlReference } from '../controlGraph'
 import { floatLit } from '../cppLiterals'
+import { playerParticleControlInputs, playerParticleLiveInputs } from './playerParticlesConfig'
 export { controlBundleVariable, showControlOutputIds, showControlTargets } from '../displays/templateControlRouting'
 
 /**
@@ -97,6 +98,8 @@ export function showControlRouting(
         ]
         : []),
       ...(postChain?.inputs ?? []),
+      // Player Particles' wired ports, read live as the preview reads them.
+      ...playerParticleControlInputs(nodes, edges, targets.engineId),
     ],
     sourceExpressions: SHOW_SOURCE_EXPRESSIONS,
     ledStatus: { drivenIds: targets.outputIds, latch: true },
@@ -138,6 +141,8 @@ export function showControlRouting(
     timingInputs: Object.fromEntries([...SHOW_TIMING_PORTS, 'beat'].map((port) =>
       [port, targets.engineId ? routing.scalarInputs.get(`${targets.engineId}:${port}`) : undefined])) as
       Partial<Record<ShowTimingPort, string>>,
+    /** Wired Player Particles ports, by port; absent ports use the node's field. */
+    particleInputs: playerParticleLiveInputs(nodes, edges, targets.engineId, routing.scalarInputs),
   }
 }
 

@@ -773,7 +773,10 @@ describe('generateCpp', () => {
       { id: 'e2', source: 'ldr', target: 'dim', sourceHandle: 'level', targetHandle: 'brightness' },
       { id: 'e3', source: 'dim', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
     ] as never)
-    expect(cpp).toContain('analogRead(4) / 4095.0f')
+    expect(cpp).toContain('analogRead(4) / DS_ANALOG_FULL_SCALE')
+    // 12-bit on the ESP32 family, 10-bit elsewhere: a 4095 divisor everywhere
+    // left an ESP8266 sensor topping out at a quarter.
+    expect(cpp).toContain('#if defined(ESP32)\n#define DS_ANALOG_FULL_SCALE 4095.0f  // 12-bit analogRead\n#else\n#define DS_ANALOG_FULL_SCALE 1023.0f  // 10-bit analogRead')
   })
 
   it('renders a wired PerformanceGenerator as black rather than as broken C++', () => {
@@ -1496,6 +1499,9 @@ describe('generateCpp', () => {
     expect(cpp).toContain('fmodf(fmodf(_phase_ps, 1.0f)')
     expect(cpp).toContain('powf(-2.0f * _psPos_ps + 2.0f, 3.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
+    // The sweep turns at the palette's last colour; the wrapping blend faded
+    // the end of each leg back toward the first colour.
+    expect(cpp).toContain('(uint8_t)(_psPos_ps * 255.0f), 255, LINEARBLEND_NOWRAP);')
   })
 
   it('inlines a group’s pattern code into the sketch', () => {
@@ -5239,8 +5245,9 @@ describe('Trails (feedback/persistence)', () => {
     // Persistent, so never `leds`: the output dims that in place every frame.
     expect(cpp).toContain('CRGB buf_tr[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('::memmove(leds, buf_tr, sizeof(CRGB) * NUM_LEDS);')
-    expect(cpp).toContain('float _decay = constrain(0.4,0.0f,1.0f); float _keep = 1.0f - _decay*_decay*_decay;')
-    expect(cpp).toContain('buf_tr[_i]=CRGB((uint8_t)(buf_tr[_i].r*_keep+0.5f),')
+    expect(cpp).toContain('float _decay = constrain(0.4,0.0f,1.0f); float _keep60 = 1.0f - _decay*_decay*_decay;')
+    expect(cpp).toContain('float _keep = powf(_keep60, _dt * 60.0f);')
+    expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, _by);')
     expect(cpp).toContain('if(buf_sc[_i].r>buf_tr[_i].r)buf_tr[_i].r=buf_sc[_i].r;')
     // No memmove/fill_solid seeding buf_tr from buf_sc — it must persist across frames.
     expect(cpp).not.toContain('::memmove(buf_tr')

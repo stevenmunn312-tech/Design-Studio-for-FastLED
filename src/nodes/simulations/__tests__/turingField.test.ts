@@ -78,8 +78,8 @@ describe('Turing Field evaluator', () => {
 })
 
 describe('Reaction Diffusion presets', () => {
-  it('defaults to Custom with the original feed and kill', () => {
-    expect(libraryDefaults('ReactionDiffusion')).toMatchObject({ rdPreset: 'custom', feed: 0.055, kill: 0.062 })
+  it('defaults to Custom with the coral feed and kill, which grow on this solver', () => {
+    expect(libraryDefaults('ReactionDiffusion')).toMatchObject({ rdPreset: 'custom', feed: 0.04, kill: 0.0625 })
   })
 
   it('dims Feed and Kill while a named preset fixes them', () => {

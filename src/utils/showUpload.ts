@@ -27,6 +27,7 @@ import type { MusicEntry } from '../state/player/musicStore'
 import { bakeBrowserThumbnails } from './browserThumbnails'
 import { collectionPatternNames } from './patternNames'
 import { generatePlayerSketch, playerConfigFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
+import { playerParticlesActive } from '../codegen/player/playerParticlesConfig'
 import { playerDisplaysFromGraph } from '../codegen/player/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
 import {
@@ -185,7 +186,7 @@ export function buildShowPlayer(
   const order = asSlideshowOrder(pgProps.order)
   const ramps = (opts.shows ?? []).some((show) => show.events.some((event) => Number(event.params.rampMs ?? 0) > 0))
   const decoderTap = patternRenderersUseAudio(renderers)
-    || particleFx?.enabled === true
+    || playerParticlesActive(particleFx, controlGraph.particleInputs)
     || stereoVuMeters.length > 0
     || (opts.genericPlayer === true && (pgProps.beatTransitions === true || pgProps.energyPacing === true || hasEnergyTags))
     || controlGraph.usesDecoderBeat

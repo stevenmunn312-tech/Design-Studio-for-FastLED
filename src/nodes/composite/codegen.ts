@@ -4,6 +4,8 @@ import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/sym
 import { GLITTER_PER_LED, glitterMode } from './glitter'
 import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { timedFadeCpp } from '../shared/trailFadeCpp'
+import { TRAILS_REFERENCE_FPS } from './trails'
 import {
   ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
   sampleFrameQ8Cpp, wallpaperFrameCpp,
@@ -51,17 +53,18 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
   // not seeded from the input each frame (see the Code node comment above);
   // it fades in place, then re-lightens per-channel wherever the input is
   // brighter. Mirrors the evaluator's Trails case.
-  Trails({ ln, f, ownBuf, srcBuf }) {
+  Trails({ id, ln, f, ownBuf, srcBuf, needsT }) {
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ownBuf()}, NUM_LEDS, CRGB::Black);`); return }
+    needsT.v = true
     const ob = ownBuf({ persists: true })
     const decay = f('decay', 'decay', 0.15)
-    // Each channel keeps round(c*(1-decay^3)), as the preview does. A byte
-    // fadeToBlackBy truncated any decay under ~0.16 to no fade at all.
-    ln(`  { // Trails: keep 1-decay^3 of each channel, then re-lighten from the input (per-channel max)`)
-    ln(`    float _decay = constrain(${decay},0.0f,1.0f); float _keep = 1.0f - _decay*_decay*_decay;`)
+    // 1 - decay^3 survives each 60th of a second, spent by elapsed time and
+    // saved up into whole fadeToBlackBy bytes, as the preview does.
+    ln(`  { // Trails: keep 1-decay^3 per 60th of a second, then re-lighten from the input (per-channel max)`)
+    ln(`    float _decay = constrain(${decay},0.0f,1.0f); float _keep60 = 1.0f - _decay*_decay*_decay;`)
+    timedFadeCpp(ln, phaseTag(id), `powf(_keep60, _dt * ${floatLit(TRAILS_REFERENCE_FPS)})`, ob)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
-    ln(`      ${ob}[_i]=CRGB((uint8_t)(${ob}[_i].r*_keep+0.5f),(uint8_t)(${ob}[_i].g*_keep+0.5f),(uint8_t)(${ob}[_i].b*_keep+0.5f));`)
     ln(`      if(${src}[_i].r>${ob}[_i].r)${ob}[_i].r=${src}[_i].r;`)
     ln(`      if(${src}[_i].g>${ob}[_i].g)${ob}[_i].g=${src}[_i].g;`)
     ln(`      if(${src}[_i].b>${ob}[_i].b)${ob}[_i].b=${src}[_i].b;}`)

@@ -301,7 +301,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `fadeToBlackBy` takes about half a level extra on every call: spent a byte
   per frame, a 2 s trail lost a quarter of its length and dim tails died in a
   few frames. Moving a node onto it changes the meaning of its saved values,
-  so convert bundled and help values to the same half-life at 60 fps.
+  so convert bundled and help values to the same half-life at 60 fps. A node
+  whose slider already meant a share per frame can keep it instead: Trails
+  spends its cubed `1 - decay³` per 60th of a second through `timedFadeAmount`
+  and `timedFadeCpp`, the same clock and byte carry, so its saved values keep
+  their look and still reach black (rounding per frame had stalled them).
 - Two node-authoring facts are derived rather than listed, and were each written
   down twice before. A **palette producer** is a *builder* (emits its own
   `pal_<id>` CRGBPalette16) or a *selector* (resolves to a shared

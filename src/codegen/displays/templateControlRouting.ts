@@ -64,8 +64,9 @@ export interface TemplateControlContext {
   sampledSources?: readonly ControlReference[]
   /** The destinations that are LED outputs, and so also carry Enabled/Brightness. */
   scalarOutputIds?: ReadonlySet<string>
-  /** Additional typed destination inputs this template evaluates directly. */
-  scalarInputs?: readonly { nodeId: string; port: string; type: 'bool' | 'float' }[]
+  /** Additional typed destination inputs this template evaluates directly; a
+   *  colour input reads as a CRGB. */
+  scalarInputs?: readonly { nodeId: string; port: string; type: 'bool' | 'float' | 'color' }[]
   /**
    * What this template can answer for a widget bound to the panel's source.
    *
@@ -119,7 +120,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     + 'Use supported scalar nodes with buttons, potentiometers, encoders, an IR receiver or custom touch widgets, or build a normal sketch for other control logic.',
   )
 
-  const sourceExpr = (target: StudioNode, port: string, type: 'bool' | 'float'): string | null => {
+  const sourceExpr = (target: StudioNode, port: string, type: 'bool' | 'float' | 'color'): string | null => {
     const edge = incoming.get(`${target.id}:${port}`)
     if (!edge) return null
     const reference = graph.input(target.id, port, type)

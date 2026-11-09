@@ -179,6 +179,7 @@ import { type EmittedNodeBlock, firstFrameOnlyCpp, frameInvariantNodeIds, frozen
 import { shareScratchBuffers } from './scratchSharing'
 import { finishCpp } from './cppCleanup'
 import { boardCppFacts, specializeCpp } from './cppSpecialize'
+import { withBootEntropy } from './bootEntropyCpp'
 import { SHOW_PIPELINE_NOTES } from '../nodes/show/codegen'
 import { SERIAL_DEBUG_INPUT_TYPES } from './controlInputCpp'
 export { PSRAM_ALLOC_CPP, psramBufferDecl, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './output/ledHardwareCpp'
@@ -1757,10 +1758,13 @@ export function generateCpp(
   const source = specializeCpp(withoutUnusedFastLed(withTelemetryGlobals(lines)).join('\n'), boardCppFacts(capabilityNodes))
   if (opts.deferPruning) return source
   const hasTerminal = nodes.some((node) => TERMINAL_NODE_TYPES.has(node.data.nodeType))
+  const finished = hasTerminal ? withoutUnusedFastLed(finishCpp(source).split('\n')).join('\n') : source
+  // Seeded after pruning, so only a random call that survived it earns one.
+  const seeded = withBootEntropy(finished)
   // Last, on the finished text, so the Board's LED driver meets every output's
   // `addLeds` line the way the show and player generators' passes do.
   return withLedDriver(
-    withLoopPacing(hasTerminal ? withoutUnusedFastLed(finishCpp(source).split('\n')).join('\n') : source),
+    withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, boardCppFacts(capabilityNodes))),
     selectedLedDriver(capabilityNodes),
   )
 }

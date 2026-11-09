@@ -146,7 +146,9 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const pingPong = phase < 0.5 ? phase * 2 : (1 - phase) * 2
     const position = applySweepEase(String(props.easing ?? 'sine'), pingPong)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { color: samplePalette(palette, position) }
+    // The sweep turns at each end of the palette, so its ends are held, never
+    // wrapped back to the first colour (LINEARBLEND_NOWRAP in firmware).
+    return { color: samplePaletteClamped(palette, position) }
   },
   PaletteBank({ inputSourceType, input, elapsedT: t, stateKey, incoming, nodeMap }, id, props) {
     const entries = paletteBankEntries(props)

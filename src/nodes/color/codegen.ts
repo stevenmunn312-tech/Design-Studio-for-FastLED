@@ -84,7 +84,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     } else if (easing !== 'linear') {
       ln(`  _psPos_${id} = (1.0f - cosf(3.14159265f * _psPos_${id})) * 0.5f;`)
     }
-    ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_psPos_${id} * 255.0f));`)
+    ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_psPos_${id} * 255.0f), 255, LINEARBLEND_NOWRAP);`)
   },
   PaletteSelector({ p, ln }) {
     // Named rather than by its table, which is only emitted when a node reads it.

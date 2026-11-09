@@ -2,6 +2,7 @@
 // placement and Help descriptions. src/state/nodeLibrary.ts merges every
 // category's definitions into NODE_LIBRARY in sidebar order.
 import type { NodeDefinition } from '../../types'
+import { REACTION_DIFFUSION_RATES } from './reactionDiffusionPresets'
 
 export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
   {
@@ -250,7 +251,9 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
   {
     // Gray-Scott reaction-diffusion — organic spots/stripes that evolve. A
     // named `rdPreset` fixes feed and kill; `custom` reads the two knobs. The
-    // Field output is the V concentration the frame is coloured from.
+    // Field output is the V concentration the frame is coloured from. The
+    // knobs start on the coral pair: the textbook 0.055/0.062 only holds its
+    // starting square on this solver, so a fresh node showed a still blob.
     type: 'ReactionDiffusion',
     label: 'Reaction Diffusion',
     category: 'pattern',
@@ -266,7 +269,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
-    defaultProperties: { rdPreset: 'custom', feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean', seed: 0 },
+    defaultProperties: { rdPreset: 'custom', ...REACTION_DIFFUSION_RATES.coral, speed: 8, palette: 'ocean', seed: 0 },
   },
   {
     // Conway's Game of Life with fading trails; reseeds when it stagnates.

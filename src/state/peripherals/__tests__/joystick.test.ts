@@ -91,7 +91,7 @@ describe('joystick firmware', () => {
     expect(sketch).not.toContain('analogRead(33)')
     expect(sketch).toContain('bool n_stick_pressed = digitalRead(25) == LOW;')
     expect(sketch).toContain('pinMode(25, INPUT_PULLUP);')
-    expect(sketch).toContain('float v = (float)raw / 4095.0f * 2.0f - 1.0f;')
+    expect(sketch).toContain('float v = (float)raw / DS_ANALOG_FULL_SCALE * 2.0f - 1.0f;')
   })
 
   it('keeps a sketch without a joystick free of the helper', () => {

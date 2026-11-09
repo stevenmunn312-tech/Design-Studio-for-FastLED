@@ -178,7 +178,7 @@ describe('showGenerator', () => {
       groups,
     )
 
-    expect(cpp).toContain('float n_pot_value = analogRead(4) / 4095.0f;')
+    expect(cpp).toContain('float n_pot_value = analogRead(4) / DS_ANALOG_FULL_SCALE;')
     expect(cpp).toContain('static float _showAnimSpeed = 0.5000f;')
     expect(cpp).toContain('_showAnimSpeed = constrain(n_pot_value, 0.0f, 4.0f);  // for the next pass')
     expect(cpp.indexOf('_showAnimMs += _whole;')).toBeLessThan(cpp.indexOf('_showAnimSpeed = constrain'))
@@ -660,7 +660,7 @@ describe('showGenerator', () => {
       edge('w-fade', 'pot', 'value', 'pm', 'transitionSec'),
     ])
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
-    expect(cpp).toContain('float n_pot_value = analogRead(4) / 4095.0f;')
+    expect(cpp).toContain('float n_pot_value = analogRead(4) / DS_ANALOG_FULL_SCALE;')
     expect(cpp).toMatch(/const float minHold = max\(1\.0f, constrain\(\S*n_pot_value\S*, 0\.0f, 86400\.0f\)\);/)
     expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
     // A wired Transition opens the fade a property of zero would have cut.
@@ -763,6 +763,40 @@ describe('showGenerator', () => {
     expect(off).not.toContain('particleOverlay')
     const unwiredAudio = generateShowSketch(withMic, [...edges, edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx')], groups)
     expect(unwiredAudio).not.toContain('particleOverlay')
+  })
+
+  it('reads wired Player Particles Enabled, Intensity, Color and Random Style live', () => {
+    // The preview reads these wires; the sketch once baked the node's fields,
+    // so Help's "a button enables the sparks" did nothing on the board.
+    const particleFx = node('pfx', 'PlayerParticles', { enabled: false, style: 3, intensity: 0.5 })
+    const sparks = node('sparks', 'ButtonInput', { pin: 12 })
+    const roll = node('roll', 'ButtonInput', { pin: 13 })
+    const knob = node('knob', 'PotInput', { pin: 4 })
+    const gold = node('gold', 'Color', { color: '#ffb020' })
+    const cpp = generateShowSketch(
+      [...nodes, particleFx, sparks, roll, knob, gold, micBoard,
+        ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })],
+      [...edges,
+        edge('ea', 'mic', 'audio', 'pm', 'audio'),
+        edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx'),
+        edge('een', 'sparks', 'pressed', 'pfx', 'enabled'),
+        edge('ers', 'roll', 'pressed', 'pfx', 'randomStyle'),
+        edge('ein', 'knob', 'value', 'pfx', 'intensity'),
+        edge('eco', 'gold', 'color', 'pfx', 'color')],
+      groups,
+    )
+
+    // Enabled off on the node, but wired: the overlay ships and the button gates it.
+    expect(cpp).toContain('void particleOverlay(')
+    expect(cpp).toContain('if (_audioBeat && (n_sparks_pressed)) {')
+    expect(cpp).toContain('if (n_sparks_pressed) particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);')
+    // Intensity follows the knob while sparks draw.
+    expect(cpp).toContain('burstIntensity = constrain(n_knob_value, 0.0f, 1.0f);')
+    expect(cpp).toContain('  if (burstStart != 0) burstIntensity = constrain(n_knob_value, 0.0f, 1.0f);')
+    // Colour and style roll when a burst starts.
+    expect(cpp).toContain('burstColor = n_gold_color;')
+    expect(cpp).toContain('burstStyle = ((n_roll_pressed) ? random8(17) : 3);')
+    expect(cpp).toContain('switch (burstStyle)')
   })
 
   describe('buildPatternRenderers — group-input roles', () => {

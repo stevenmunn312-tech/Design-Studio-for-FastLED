@@ -13,7 +13,7 @@ import {
   FLUID_VEL_OUT, fluidForces, fluidInject, fluidIterations, fluidPuff, fluidStep, makeFluid, type FluidState,
 } from '../../state/evaluator/fluid'
 import { fractalSampler, fractalType } from '../../state/evaluator/fractal'
-import { normalizedSeed, seededRandom, seededRngState } from '../../state/evaluator/random'
+import { normalizedSeed, seededRandom, seededRngState, seedOffset } from '../../state/evaluator/random'
 import {
   SAND_SPAWN_RATE, automatonInterval, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
   sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand, type AutomatonType,
@@ -125,9 +125,11 @@ export function evalTuringField(
 
 // The noise-driven Field source, alongside FieldFormula's hand-written
 // expressions: fBm of FastLED's 3-D inoise8, the sketch's integer kernel
-// (shared/integerPatterns.ts). A seed offsets the noise's time axis.
+// (shared/integerPatterns.ts). A seed moves the noise along its time axis by
+// a hashed offset, whatever the speed: scaled by speed, nearby seeds gave
+// nearly the same field and every seed the same one at speed 0.
 function evalFieldNoise(key: string, speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, xo = 0): Field {
-  const phase = speedPhase(key, t, speed) + (seed ? seed * 0.013 * speed : 0)
+  const phase = speedPhase(key, t, speed) + seedOffset(seed, 0)
   const frame = noiseFieldFrame(scale, phase, octaves)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {

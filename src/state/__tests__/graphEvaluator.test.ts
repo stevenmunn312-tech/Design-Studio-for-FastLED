@@ -5118,6 +5118,17 @@ describe('FieldNoise and FrameToField', () => {
     for (const v of fld) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1) }
   })
 
+  it('FieldNoise seeds give different fields, even at speed 0', () => {
+    // The seed was scaled by speed: seeds 3 and 7 came out nearly the same,
+    // and at speed 0 every seed was the unseeded field.
+    const at = (id: string, seed: number) =>
+      fieldOut(id, [node(id, 'FieldNoise', 'pattern', { speed: 0, scale: 0.5, octaves: 3, seed })], [], 0)
+    const unseeded = at('fns0', 0), three = at('fns3', 3), seven = at('fns7', 7)
+    const meanDiff = (a: Float32Array, b: Float32Array) => a.reduce((sum, v, i) => sum + Math.abs(v - b[i]), 0) / a.length
+    expect(meanDiff(three, unseeded)).toBeGreaterThan(0.03)
+    expect(meanDiff(three, seven)).toBeGreaterThan(0.03)
+  })
+
   it('FieldNoise varies over time (not a frozen field)', () => {
     const fn = node('fn2', 'FieldNoise', 'pattern', { speed: 0.5, scale: 0.5, octaves: 3 })
     const a = fieldOut('fn2', [fn], [], 0)
@@ -5426,7 +5437,11 @@ describe('Saturation and RGBToHSV', () => {
     expect(colorAt(0)).toEqual(colorAt(60))
     expect(colorAt(15)).toEqual(colorAt(45))
     expect(colorAt(15)).not.toEqual(colorAt(0))
-    expect(colorAt(30)).toEqual(colorAt(0))
+    // Half way round it turns at the palette's last colour (heat's near-white),
+    // not wrapped back to the first.
+    expect(colorAt(30)).not.toEqual(colorAt(0))
+    expect(colorAt(30).r).toBe(255)
+    expect(colorAt(30).b).toBeGreaterThan(100)
   })
 
   it('PaletteSweep easing shapes each leg while preserving its endpoints', () => {

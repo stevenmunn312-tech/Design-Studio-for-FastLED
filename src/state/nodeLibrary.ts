@@ -524,8 +524,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // whatever range its target reads (0–255 for a byte), and both take
   // matrix expressions as BeatSin's low and high did.
   phase:       { control: 'slider', min: 0, max: 1, step: 0.01 },
-  feed:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
-  kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
+  // Gray-Scott regimes sit half a thousandth apart (coral's kill is 0.0625).
+  feed:     { control: 'slider', min: 0, max: 0.1, step: 0.0005 },
+  kill:     { control: 'slider', min: 0, max: 0.1, step: 0.0005 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
   // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough).
   response: { control: 'slider', min: 0, max: 2, step: 0.01 },

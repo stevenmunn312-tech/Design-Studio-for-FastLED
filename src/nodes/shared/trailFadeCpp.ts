@@ -11,13 +11,23 @@ import { TRAIL_HALF_LIFE, TRAIL_MIN_STEP } from './trailFade'
 export function trailFadeCpp(
   ln: (line: string) => void, tag: string, fadeExpr: string, buf: string, indent = '    ',
 ): void {
-  const v = `_trail_${tag}`
   const longest = floatLit(TRAIL_HALF_LIFE.longest, 6)
   const ratio = floatLit(TRAIL_HALF_LIFE.shortest / TRAIL_HALF_LIFE.longest, 8)
+  timedFadeCpp(ln, tag, `exp2f(-_dt / (${longest} * powf(${ratio}, constrain((${fadeExpr}), 0.0f, 1.0f))))`, buf, indent)
+}
+
+/**
+ * Firmware twin of `timedFadeAmount`: `keepExpr` is the share of light that
+ * survives `_dt` seconds, which the emitted block declares before reading it.
+ */
+export function timedFadeCpp(
+  ln: (line: string) => void, tag: string, keepExpr: string, buf: string, indent = '    ',
+): void {
+  const v = `_trail_${tag}`
   ln(`${indent}static float ${v}T = -1.0f, ${v}Owed = 0.0f;`)
   ln(`${indent}{`)
   ln(`${indent}  float _dt = ${v}T < 0.0f ? 0.0f : fmaxf(0.0f, t - ${v}T); ${v}T = t;`)
-  ln(`${indent}  float _keep = exp2f(-_dt / (${longest} * powf(${ratio}, constrain((${fadeExpr}), 0.0f, 1.0f))));`)
+  ln(`${indent}  float _keep = ${keepExpr};`)
   ln(`${indent}  if (!(_keep >= 0.0f)) _keep = 1.0f;`)
   ln(`${indent}  ${v}Owed += (1.0f - _keep) * 256.0f;`)
   ln(`${indent}  if (${v}Owed >= ${floatLit(TRAIL_MIN_STEP)}) {`)

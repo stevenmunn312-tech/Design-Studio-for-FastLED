@@ -30,7 +30,7 @@ import {
   byte,
 } from '../../state/evaluator/frames'
 import { allocField, allocFrame, instanceState } from '../../state/evaluator/memory'
-import { reactionDiffusionRates } from './reactionDiffusionPresets'
+import { REACTION_DIFFUSION_RATES, reactionDiffusionRates } from './reactionDiffusionPresets'
 import {
   seededRngState,
   seededRandom,
@@ -1183,8 +1183,8 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
   ReactionDiffusion({ num, pal, W, H, stateKey }, id, props) {
     // A named preset fixes feed and kill, wires included; `custom` reads both.
     const rates = reactionDiffusionRates(props.rdPreset)
-    const feed  = rates?.feed ?? num(id, 'feed', props, 'feed', 0.055)
-    const kill  = rates?.kill ?? num(id, 'kill', props, 'kill', 0.062)
+    const feed  = rates?.feed ?? num(id, 'feed', props, 'feed', REACTION_DIFFUSION_RATES.coral.feed)
+    const kill  = rates?.kill ?? num(id, 'kill', props, 'kill', REACTION_DIFFUSION_RATES.coral.kill)
     const iters = Math.max(1, Math.min(REACTION_DIFFUSION_MAX_STEPS, Math.floor(num(id, 'speed', props, 'speed', 8))))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed))

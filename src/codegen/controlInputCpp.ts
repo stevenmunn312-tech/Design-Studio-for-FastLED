@@ -17,6 +17,7 @@ import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './periph
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorIncludes, distanceSensorLoopCpp, distanceSensorSetupCpp } from './peripherals/distanceSensorCpp'
 import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
 import { encoderCountScale, encoderLevelSpan, encoderLevelStartCount, encoderUsesPullup } from '../state/peripherals/encoder'
+import { ANALOG_FULL_SCALE_CPP, analogLevelCpp } from './helpers/analogReadCpp'
 
 export interface ControlInputEmission {
   setup: string[]
@@ -86,7 +87,7 @@ export function controlInputCpp(
       }
       break
     case 'PotInput':
-      loop.push(`  float ${v('value')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
+      loop.push(...ANALOG_FULL_SCALE_CPP, `  float ${v('value')} = ${analogLevelCpp(sanitizePin(p.pin, 4))};`)
       outputs.value = 'float'
       break
     case 'EncoderInput': {

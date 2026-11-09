@@ -6,6 +6,7 @@ import {
   BH1750_DEFAULT_ADDRESS,
 } from '../../state/peripherals/lightSensor'
 import { sanitizePin } from '../hardwarePins'
+import { ANALOG_FULL_SCALE_CPP, analogLevelCpp } from '../helpers/analogReadCpp'
 
 /**
  * BH1750 support uses the chip's small command protocol directly. Continuous
@@ -42,7 +43,8 @@ export function lightSensorLoopCpp(
 ): string[] {
   if (lightSensorTransport(props.partId) !== 'i2c') {
     return [
-      `  float ${local('level')} = analogRead(${sanitizePin(props.pin, 4)}) / 4095.0f;`,
+      ...ANALOG_FULL_SCALE_CPP,
+      `  float ${local('level')} = ${analogLevelCpp(sanitizePin(props.pin, 4))};`,
       `  float ${local('lux')} = 0.0f;`,
     ]
   }

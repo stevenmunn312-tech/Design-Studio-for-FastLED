@@ -91,6 +91,38 @@ describe('buildShowPlayer', () => {
     }
   })
 
+  it('reads a wired Player Particles Enabled and Color live on the SD player', () => {
+    // The preview's "a button enables the sparks"; the sketch once baked the
+    // node's Enabled off and shipped no overlay at all.
+    const nodes = [
+      node('player', 'PatternMaster'),
+      node('fx', 'PlayerParticles', { enabled: false, style: 4, intensity: 0.85 }),
+      node('sparks', 'ButtonInput', { pin: 12 }),
+      node('gold', 'Color', { color: '#ffb020' }),
+      node('sd', 'SDCard'), node('amp', 'Amplifier'),
+      node('led', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    const edges = [
+      { id: 'leds', source: 'player', sourceHandle: 'frame', target: 'led', targetHandle: 'frame' },
+      { id: 'fx', source: 'fx', sourceHandle: 'particleFx', target: 'player', targetHandle: 'particleFx' },
+      { id: 'en', source: 'sparks', sourceHandle: 'pressed', target: 'fx', targetHandle: 'enabled' },
+      { id: 'co', source: 'gold', sourceHandle: 'color', target: 'fx', targetHandle: 'color' },
+    ] as Edge[]
+    const groups = Object.fromEntries(['a', 'b'].map((id) => [id, {
+      nodes: [node('color', 'SolidColor'), node('out', 'GroupOutput')],
+      edges: [{ id: 'out', source: 'color', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }],
+    }])) as GroupRegistry
+    const sketch = buildShowPlayer(nodes, edges, groups, {
+      patternSet: ['a', 'b'], bakedAudio: false, preferredTrack: '', genericPlayer: true,
+    })
+    expect(sketch).toContain('if (_audioBeat && (n_sparks_pressed)) {')
+    expect(sketch).toContain('burstColor = n_gold_color;')
+    expect(sketch).toContain('if ((n_sparks_pressed) && burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS) {')
+    // The button and colour are read before the burst that uses them.
+    expect(sketch.indexOf('n_sparks_pressed =')).toBeGreaterThan(-1)
+    expect(sketch.indexOf('n_sparks_pressed =')).toBeLessThan(sketch.indexOf('if (_audioBeat && (n_sparks_pressed)) {'))
+  })
+
   it('generates from the selected engine in a mixed graph, not the first engine in node order', () => {
     const nodes = [
       node('disconnected-music', 'PatternMaster'),

@@ -31,7 +31,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (seek, new track) starts a fresh volley on both. `energyGate` (Min Energy)
   holds back beats whose mean band energy is below it before the volley sees
   them (`particleEnergyPasses`), so a quiet beat spends no burst; the sketch
-  emits that comparison only when the gate is above 0. `musicPlayerTiming`
+  emits that comparison only when the gate is above 0. A wired Enabled,
+  Intensity, Color, Random Style or Random Color is read live through the
+  show's or player's control graph (`playerParticleBurstCpp` in
+  `src/codegen/player/playerParticlesConfig.ts`), as the preview reads it:
+  Enabled gates new bursts and the drawn sparks, Intensity is read while they
+  draw, and colour and style are rolled when a burst starts. The rest bake. `musicPlayerTiming`
   normalizes stored timing; SD control routing also resolves wired timing and
   Beat inputs.
 - **Hold pacing is one module on both sides.** `src/state/player/patternPacing.ts`

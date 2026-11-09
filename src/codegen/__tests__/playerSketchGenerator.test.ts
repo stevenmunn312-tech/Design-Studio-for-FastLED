@@ -374,7 +374,7 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('repeatAt = now + 140')
       expect(sketch).toContain('audio.pauseResume()')
       expect(sketch).toContain('changePlayerTrack(1);')
-      expect(sketch).toContain('analogRead(4) / 4095.0f')
+      expect(sketch).toContain('analogRead(4) / DS_ANALOG_FULL_SCALE')
       expect(sketch).toContain('static const uint8_t PLAYER_MAX_VOLUME = 17;')
       expect(sketch).toContain('playerVolume * PLAYER_MAX_VOLUME')
       expect(sketch).toContain('playerBrightness * showBrightness')

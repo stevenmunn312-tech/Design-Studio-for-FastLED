@@ -7,6 +7,7 @@ import { usesShims } from '../shared/fastledShims'
 import { fieldFormulaCpp, fieldFormulaReadsPrev } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
+import { seedOffset } from '../../state/evaluator/random'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
 import { noiseShape, noiseShapeCpp } from '../../state/evaluator/noiseShape'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
@@ -68,13 +69,12 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FieldNoise)
     const scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FieldNoise)
     const seed = seedProp(p)
-    const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
     ln(`  { // Field noise (fBm via inoise8)`)
-    ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+    ln(`    float _spd=${speed},_sc=${scale};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
     const octaves = `(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f)`
-    for (const line of noiseFieldFrameCpp('_sc', `${ph}${seed ? '+(_t-t)*_spd' : ''}`, octaves)) ln(`    ${line}`)
+    for (const line of noiseFieldFrameCpp('_sc', seed ? `${ph}+${floatLit(seedOffset(seed, 0), 6)}` : ph, octaves)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     for (const line of NOISE_FIELD_PIXEL_CPP) ln(`      ${line}`)
     ln(`      ${of}[_y*WIDTH+_x]=_fv*_fnInv;}}`)

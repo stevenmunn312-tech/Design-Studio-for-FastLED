@@ -34,29 +34,50 @@ describe('Blur2D', () => {
 })
 
 describe('Trails', () => {
-  it('fades on the board as in the preview, even at the default decay', () => {
+  const fadeToBlackBy = (leds: RGB[], n: number, by: number) => {
+    for (let i = 0; i < n; i++) {
+      leds[i].r = (leds[i].r * (256 - by)) >> 8
+      leds[i].g = (leds[i].g * (256 - by)) >> 8
+      leds[i].b = (leds[i].b * (256 - by)) >> 8
+    }
+  }
+  const simulate = (decay: number, frames: number, lit: (k: number) => boolean) => {
     const W = 4, H = 1
-    const input = (k: number): RGB[][] => [Array.from({ length: W }, (_, x) => (x === k % W ? { r: 250, g: 120, b: 9 } : { r: 0, g: 0, b: 0 }))]
-    const cpp = generateCpp([node('src', 'Code', 'code'), node('tr', 'Trails', 'composite', { decay: 0.15 }), node('out', 'MatrixOutput', 'output', { width: W, height: H })], [
+    const input = (k: number): RGB[][] => [Array.from({ length: W }, (_, x) => (lit(k) && x === k % W ? { r: 250, g: 120, b: 9 } : { r: 0, g: 0, b: 0 }))]
+    const cpp = generateCpp([node('src', 'Code', 'code'), node('tr', 'Trails', 'composite', { decay }), node('out', 'MatrixOutput', 'output', { width: W, height: H })], [
       edge('e1', 'src', 'tr', 'frame', 'frame'), edge('e2', 'tr', 'out', 'frame', 'frame'),
     ])
     const lines = cpp.split('\n')
     const start = lines.findIndex((line) => line.includes('// Trails:'))
     const end = lines.findIndex((line, i) => i > start && line === '  }')
     const block = lines.slice(start, end + 1).map((line) => line.replace(/buf_src\b/g, 'src_in'))
-    const step = compileCppSnippet(block, ['NUM_LEDS', 'buf_tr', 'src_in', 'CRGB'], [])
+    const step = compileCppSnippet(block, ['NUM_LEDS', 'buf_tr', 'src_in', 'CRGB', 't', 'fadeToBlackBy'], [])
     const board: RGB[] = Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 }))
     const key = `trails-${run++}`
-    for (let k = 0; k < 12; k++) {
+    for (let k = 0; k < frames; k++) {
       const frame = input(k)
-      step(k * 16, { NUM_LEDS: W, buf_tr: board as never, src_in: frame[0] as never, CRGB: ((r: number, g: number, b: number) => ({ r, g, b })) as never })
+      const t = k / 60
+      step(k * 16, { NUM_LEDS: W, buf_tr: board as never, src_in: frame[0] as never, CRGB: ((r: number, g: number, b: number) => ({ r, g, b })) as never, t, fadeToBlackBy: fadeToBlackBy as never })
       const preview = COMPOSITE_EVALUATORS.Trails!({
-        input: () => frame, num: () => 0.15, W, H, stateKey: () => key,
+        input: () => frame, num: () => decay, t, W, H, stateKey: () => key,
       } as unknown as EvalContext, 'tr', {}, studio, 'Trails').frame as RGB[][]
       expect(board).toEqual(preview[0])
     }
+    return board
+  }
+
+  it('fades on the board as in the preview, even at the default decay', () => {
+    const board = simulate(0.15, 12, () => true)
     // And it does fade: the first lit pixel has decayed from 250.
     expect(board[0].r).toBeLessThan(250)
+  })
+
+  it('fades all the way to black at the default decay', () => {
+    // Rounded per frame, a channel under ~148 lost less than half a level a
+    // frame at 0.15 and stayed lit for ever. Its 3.4 s half-life runs a
+    // full-scale channel out within 25 s, on both sides.
+    const board = simulate(0.15, 1500, (k) => k < 4)
+    expect(board.every((px) => px.r === 0 && px.g === 0 && px.b === 0)).toBe(true)
   })
 })
 

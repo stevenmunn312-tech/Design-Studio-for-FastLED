@@ -355,7 +355,8 @@ three GPIOs. The axes publish -1 to 1 with 0 at rest (not 0-1 like `PotInput`),
 because a stick's centre means something, and a `deadzone` property removes the
 resting play and rescales the rest so full travel still reaches 1. `joystickAxis`
 in `state/peripherals/joystick.ts` and the firmware's `_joyAxis` compute the same thing, from a
-slider position and from a 12-bit ADC count. `pressed` reads LOW through
+slider position and from an ADC count against the board's full scale (12-bit on
+the ESP32 family, 10-bit elsewhere; `codegen/helpers/analogReadCpp.ts`). `pressed` reads LOW through
 `INPUT_PULLUP`. The module is marked +5V, but it is only two potentiometers and a
 switch, so the Build Diagram powers it from 3V3 to keep both axes inside the ADC
 range; the catalogue `joystick` block records the pot value and the switch sense.

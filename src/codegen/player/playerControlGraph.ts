@@ -14,6 +14,7 @@ import { beatDetectThreshold } from '../../audio/beatDetection'
 import { nativeBeatGateCpp } from '../audio/nativeBeatGateCpp'
 import { floatLit, safeId } from '../cppLiterals'
 import { enginePostChain, routePostChain } from '../enginePostChain'
+import { playerParticleControlInputs, playerParticleLiveInputs } from './playerParticlesConfig'
 
 /**
  * One player, one cursor, one collection.
@@ -99,6 +100,8 @@ export function playerControlGraph(
     scalarInputs: master?.data.nodeType === 'PatternMaster' ? [
       ...(master.data.properties.beatTransitions === true ? [{ nodeId: master.id, port: 'beat', type: 'bool' as const }] : []),
       ...['minTime', 'maxTime', 'transitionSec'].map((port) => ({ nodeId: master.id, port, type: 'float' as const })),
+      // Player Particles' wired ports, read live as the preview reads them.
+      ...playerParticleControlInputs(nodes, edges, master.id),
       ...(postChain?.inputs ?? []),
       ...outputScalars,
     ] : [...(postChain?.inputs ?? []), ...outputScalars],
@@ -155,6 +158,9 @@ export function playerControlGraph(
     usesDecoderBeat: usedDecoderBeats.length > 0,
     timingInputs: Object.fromEntries(['beat', 'minTime', 'maxTime', 'transitionSec'].map((port) =>
       [port, routing.scalarInputs.get(`${master?.id}:${port}`)])),
+    /** Wired Player Particles ports, by port; absent ports use the node's field. */
+    particleInputs: master?.data.nodeType === 'PatternMaster'
+      ? playerParticleLiveInputs(nodes, edges, master.id, routing.scalarInputs) : {},
   }
 }
 

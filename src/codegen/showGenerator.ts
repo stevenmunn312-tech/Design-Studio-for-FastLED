@@ -22,7 +22,8 @@ import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { transitionStyleIds } from './performanceGenerator'
 import { isAudioReactiveSubgraph } from '../state/patterns/audioReactiveSubgraph'
 import { PARTICLE_HASH_CPP, PARTICLE_OVERLAY_CPP, TRANSITION_3D_HELPERS_CPP, transitionHelperCpp, transitionSupportCpp } from './helpers/transitionHelperCpp'
-import { playerParticlesWiredTo, type PlayerParticlesConfig } from './player/playerParticlesConfig'
+import { playerParticleBurstCpp, playerParticlesActive, playerParticlesWiredTo, type PlayerParticlesConfig } from './player/playerParticlesConfig'
+import { bootEntropySetupCpp, ESP_RANDOM_INCLUDE_CPP } from './bootEntropyCpp'
 import { SDF_HELPER_CPP } from './helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import { TRUCHET_HELPER_CPP } from './helpers/truchetHelperCpp'
@@ -1074,8 +1075,9 @@ export function generateShowSketch(
   const pacingOptions = { energyPacing: info.energyPacing && timingAudio, dwellsAndBursts: info.dwellsAndBursts }
   // Player Particles bursts on the same beat, with Audio Reactive on or off:
   // wiring an enabled bundle is itself the ask. The preview reads the same
-  // wires the same way.
-  const particleFx = beatExpr && info.particleFx?.enabled ? info.particleFx : null
+  // wires the same way, and a wired Enabled can switch the overlay on.
+  const particleFx = beatExpr && playerParticlesActive(info.particleFx, controls.particleInputs) ? info.particleFx : null
+  const burst = particleFx ? playerParticleBurstCpp(particleFx, controls.particleInputs) : null
   // Frame nodes between the slideshow and its LEDs, run on the finished canvas.
   const postFrame = controls.post
     ? buildPostFrame(controls.post.chain, controls.post.nodes, controls.post.edges, {}, controls.post.args, !!audio, !!audio)
@@ -1282,7 +1284,7 @@ export function generateShowSketch(
     L.push(`CRGB     burstColor = CRGB(${particleFx.color.r}, ${particleFx.color.g}, ${particleFx.color.b});`)
     L.push(`uint8_t  burstStyle = ${particleFx.style};        // particle motion style`)
     L.push(PARTICLE_HASH_CPP)
-    L.push(particleFx.randomStyle ? PARTICLE_OVERLAY_CPP : specializeSwitch(PARTICLE_OVERLAY_CPP, 'burstStyle', particleFx.style))
+    L.push(burst!.styleVaries ? PARTICLE_OVERLAY_CPP : specializeSwitch(PARTICLE_OVERLAY_CPP, 'burstStyle', particleFx.style))
   }
 
   if (multiOutput) {
@@ -1485,7 +1487,7 @@ export function generateShowSketch(
       L.push(`  // Min Energy: a beat quieter than ${particleFx.energyGate.toFixed(2)} mean band energy spends no burst.`)
     }
     L.push('  static uint8_t burstVolleyLeft = 0;')
-    L.push(`  if (${beatExpr}${energyGated
+    L.push(`  if (${beatExpr}${burst!.enabled ? ` && ${burst!.enabled}` : ''}${energyGated
       ? ` && (_audioBass + _audioMids + _audioTreble) / 3.0f >= ${particleFx.energyGate.toFixed(3)}f`
       : ''}) {`)
     L.push('    if (burstVolleyLeft == 0 && (burstStart == 0 || now - burstStart >= PARTICLE_REST_MS)) {')
@@ -1494,11 +1496,12 @@ export function generateShowSketch(
     L.push('    if (burstVolleyLeft > 0) {')
     L.push('      burstVolleyLeft--;')
     L.push('      burstStart = now;')
-    L.push(`      burstIntensity = ${particleFx.intensity.toFixed(3)}f;`)
-    if (particleFx.randomStyle) L.push('      burstStyle = random8(17);')
-    if (particleFx.randomColor) L.push('      burstColor = CHSV(random8(), 255, 255);')
+    L.push(`      burstIntensity = ${burst!.intensity};`)
+    if (burst!.styleVaries) L.push(`      burstStyle = ${burst!.style};`)
+    if (burst!.colorVaries) L.push(`      burstColor = ${burst!.color};`)
     L.push('    }')
     L.push('  }')
+    L.push(...burst!.liveIntensity)
   }
   if (beatGated) {
     // Without a live beat to wait for, the current pattern keeps playing,
@@ -1679,7 +1682,7 @@ export function generateShowSketch(
   // Sparks go on before the silence fade, so they fade with the pattern as
   // the preview's do.
   if (particleFx) {
-    L.push('  particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);')
+    L.push(`  ${burst!.enabled ? `if ${burst!.enabled} ` : ''}particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);`)
     L.push('')
   }
   // Audio Reactive with nothing to hear is a graph error, so the fade is
@@ -1759,25 +1762,13 @@ export function generateShowSketch(
   L.push(loopPacingCpp(controller.frameRate))
   L.push('}')
 
-  // The show draws from FastLED's random8, which randomSeed() does not touch;
-  // a collected pattern may call Arduino's random(), which only it seeds. Each
-  // generator is seeded only when something calls it. ESP32 seeds from its
-  // hardware RNG: A0 is a real GPIO there (GPIO 1 on the S3, the default LED
-  // data pin), so reading it samples the pin's own output. Spliced before the
-  // palettes, whose marker sits above this one.
+  // The show draws from FastLED's random8; a collected pattern may call
+  // Arduino's random(). A show seed replaces the boot entropy
+  // (bootEntropyCpp.ts) for a repeatable show. Spliced before the palettes,
+  // whose marker sits above this one.
   const body = L.join('\n')
   const usesFastLedRandom = /\brandom(?:8|16)\(/.test(body)
-  const seedLines = (call: string) => [
-    '#if defined(ESP32)',
-    `  ${call}(esp_random());`,
-    '#else',
-    `  ${call}(analogRead(A0));`,
-    '#endif',
-  ]
-  const entropySeeds = info.seed ? [] : [
-    ...(usesFastLedRandom ? seedLines('random16_add_entropy') : []),
-    ...(/\brandom\(/.test(body) ? seedLines('randomSeed') : []),
-  ]
+  const entropySeeds = info.seed ? [] : bootEntropySetupCpp(body)
   L.splice(seedMarker, 1, ...(info.seed
     ? usesFastLedRandom ? [`  random16_set_seed(${info.seed}u);`] : []
     : entropySeeds))
@@ -1789,9 +1780,8 @@ export function generateShowSketch(
     const symbol = /^CRGBPalette16 (paldef_[A-Za-z0-9_]+)\(/.exec(decl)?.[1]
     return symbol ? new RegExp(`\\b${symbol}\\b`).test(withoutPalettes) : true
   }))
-  // Neither Arduino.h nor FastLED.h declares esp_random() on core 3.x. Last,
-  // because every marker above sits below the include.
-  if (entropySeeds.length) L.splice(fastLedIncludeAt, 0, '#if defined(ESP32)', '#include <esp_random.h>', '#endif')
+  // Last, because every marker above sits below the include.
+  if (entropySeeds.length) L.splice(fastLedIncludeAt, 0, ...ESP_RANDOM_INCLUDE_CPP)
 
   return withLedDriver(
     withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes)))),

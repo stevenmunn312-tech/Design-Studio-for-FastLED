@@ -19,6 +19,8 @@ import { glitterBudget, glitterMode } from './glitter'
 import { frameOffset, frameQuarterTurns } from './frameTransform'
 import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
+import { fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
+import { TRAILS_REFERENCE_FPS } from './trails'
 import { evalKaleidoscope } from './kaleidoscope'
 import {
   arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
@@ -329,14 +331,17 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   // each tick, then re-lightens per-channel wherever the incoming frame is
   // brighter (fadeToBlackBy()-and-accumulate, generalised to any upstream
   // pattern). Left untouched while unwired so it resumes cleanly.
-  Trails({ input, num, W, H, stateKey }, id, props) {
+  Trails({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) { return { frame: null } }
-    const decaySlider = Math.max(0, Math.min(1, num(id, 'decay', props, 'decay', 0.15)))
-    // Cubed so the fade-per-tick ramps up gently — applied linearly, almost
-    // the whole visible range collapses into roughly the bottom 5% of the
-    // slider (0.3 already reads as "gone"). Mirrored in cppGenerator.ts.
-    const decay = decaySlider * decaySlider * decaySlider
+    const decay = Math.max(0, Math.min(1, num(id, 'decay', props, 'decay', 0.15)))
+    // Cubed so the fade ramps up gently: applied linearly, almost the whole
+    // visible range collapses into the bottom 5% of the slider. 1 - decay³ is
+    // what survives a 60th of a second, spent by the time that has passed
+    // through the shared trail clock, which saves a slow fade up into whole
+    // bytes. Rounding each frame instead stalled the fade: at 0.15 a channel
+    // under ~148 lost less than half a level per frame and never went out.
+    const keep60 = 1 - decay * decay * decay
     const key = stateKey(id)
     const prev = trailState.get(key)
     // Persistent buffer, faded + re-lightened in place each pass — never
@@ -344,14 +349,14 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const buf = prev && prev.length === H && prev[0]?.length === W
       ? prev
       : rawBlankFrame(W, H)
-    const s = 1 - decay
+    fadeFrameToBlackBy(buf, timedFadeAmount(key, t, (dt) => Math.pow(keep60, dt * TRAILS_REFERENCE_FPS)))
     for (let y = 0; y < H; y++) {
       const row = buf[y], srcRow = src[y]
       for (let x = 0; x < W; x++) {
         const px = row[x], inpx = srcRow[x]
-        px.r = Math.max(Math.round(px.r * s), inpx.r)
-        px.g = Math.max(Math.round(px.g * s), inpx.g)
-        px.b = Math.max(Math.round(px.b * s), inpx.b)
+        if (inpx.r > px.r) px.r = inpx.r
+        if (inpx.g > px.g) px.g = inpx.g
+        if (inpx.b > px.b) px.b = inpx.b
       }
     }
     trailState.set(key, buf)

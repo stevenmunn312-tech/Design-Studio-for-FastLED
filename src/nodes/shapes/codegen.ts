@@ -55,7 +55,21 @@ const CLOCK_GLYPH_CHARS = '0123456789:.-AMP'
 // the (integer) length for 'end', not inside it, since hAlign/vAlign/wrap are
 // static node properties (never wired), so the branch is resolved here at
 // generation time rather than emitted as C++ conditionals.
+//
+// A value above 1 is a pixel position, as normalizedCenterAxis reads it (and
+// as Shape and the analog clock already do in firmware). A literal resolves
+// here; a wired value carries the test into the sketch.
 function textAxisStartExpr(valueExpr: string, sizeVar: string, lengthExpr: string, align: 'start' | 'center' | 'end', wrap: boolean): string {
+  const fraction = textAxisFractionExpr(valueExpr, sizeVar, lengthExpr, align, wrap)
+  const pixel = align === 'center'
+    ? `floorf((${valueExpr}) - (${lengthExpr}) * 0.5f)`
+    : align === 'end' ? `(floorf(${valueExpr})) - (${lengthExpr})` : `floorf(${valueExpr})`
+  const literal = Number(valueExpr.replace(/f$/, ''))
+  if (valueExpr.trim() !== '' && Number.isFinite(literal)) return literal > 1 ? pixel : fraction
+  return `((${valueExpr}) > 1.0f ? ${pixel} : ${fraction})`
+}
+
+function textAxisFractionExpr(valueExpr: string, sizeVar: string, lengthExpr: string, align: 'start' | 'center' | 'end', wrap: boolean): string {
   if (align === 'center') {
     const half = `(${lengthExpr}) * 0.5f`
     if (wrap) {

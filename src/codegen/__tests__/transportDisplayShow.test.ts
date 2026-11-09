@@ -91,7 +91,7 @@ describe('fixed touch routing in generative shows', () => {
     for (const [cpp, bundle] of [[normal, 'n_panel_touch_controls'], [generated, 'n_touch_panel_controls']] as const) {
       expect(cpp).toContain(`n_first_controls = ${bundle};`)
       expect(cpp).toContain('n_last_controls = n_first_controls;')
-      expect(cpp).toContain('float n_knob_value = analogRead(33) / 4095.0f;')
+      expect(cpp).toContain('float n_knob_value = analogRead(33) / DS_ANALOG_FULL_SCALE;')
       expect(cpp).toContain('pinMode(32, INPUT_PULLUP);')
       expect(cpp).toContain(`.update(n_button_pressed, _pcNow_last, true, ${debounceMs}u, ${repeatDelayMs}u, ${repeatIntervalMs}u)`)
       expect(cpp).toContain('n_last_controls.brightnessDelta -= 0.125f;')

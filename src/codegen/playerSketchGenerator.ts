@@ -2,6 +2,7 @@ import { controlGraphCpp } from './controlGraph'
 import { cppCode } from './cppReachability'
 import { finishCpp } from './cppCleanup'
 import { specializeCpp, specializeSwitch } from './cppSpecialize'
+import { withBootEntropy } from './bootEntropyCpp'
 
 function reactivePatterns(renderers?: PatternRenderers): boolean {
   return renderers?.audioReactive?.some(Boolean) ?? !!renderers
@@ -81,7 +82,7 @@ import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
 import { boardLinkFirmware } from './peripherals/espNowLinkCpp'
 import { getBoardLinkKey } from '../state/peripherals/boardLinkKey'
 import { PARTICLE_HASH_CPP, transitionHelperCpp, transitionSupportCpp } from './helpers/transitionHelperCpp'
-import { playerParticlesWiredTo, type PlayerParticlesConfig } from './player/playerParticlesConfig'
+import { playerParticleBurstCpp, playerParticlesActive, playerParticlesWiredTo, type PlayerParticlesConfig } from './player/playerParticlesConfig'
 export type { PlayerParticlesConfig } from './player/playerParticlesConfig'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/patternSelectionCpp'
 import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './displays/tftTouchCpp'
@@ -117,6 +118,7 @@ import { withLedDriver } from './output/ledDriverCpp'
 import { selectedLedDriver } from '../build/ledDriverSelection'
 import type { SelectableLedDriver } from '../build/ledDrivers'
 import { encoderCountScale, encoderUsesPullup } from '../state/peripherals/encoder'
+import { ANALOG_FULL_SCALE_CPP, analogLevelCpp } from './helpers/analogReadCpp'
 
 export interface PlayerConfig {
   /** False when the player's only physical pixels are standalone VU rails. */
@@ -570,7 +572,9 @@ export function generatePlayerSketch(
     : transitionIds.length > 0
   const drawsFrame = c.hasPrimaryLedOutput || collection
   const fadesAudio = genericCollection && reactivePatterns(renderers)
-  const particles = !genericPlayer || (genericCollection && !!opts.particleFx?.enabled)
+  // A wired Enabled can switch the overlay on, as in the preview.
+  const particleLive = opts.controlGraph?.particleInputs ?? {}
+  const particles = !genericPlayer || (genericCollection && playerParticlesActive(opts.particleFx, particleLive))
   // Emitted once, above the pattern renderers, so a Frame Warp or Symmetry
   // pattern that brings the same sampler does not define it a second time.
   const transitionSupport = transitionSupportCpp(transitionIds)
@@ -657,7 +661,8 @@ export function generatePlayerSketch(
       ? displayTextCppHelperBlocks({ number: false, dateTime: false, copy: true })
       : [])])
   const controls = (graphRouting ? undefined : opts.controls) ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
-  const particleFx = opts.particleFx?.enabled ? opts.particleFx : null
+  const particleFx = playerParticlesActive(opts.particleFx, particleLive) ? opts.particleFx! : null
+  const burst = particleFx ? playerParticleBurstCpp(particleFx, particleLive) : null
   const displays = opts.displays ?? { info: [], segment: [], tft: [], unresolved: [] }
   const touchEmits: TftTouchEmit[] = displays.tft
     .filter((display) => display.touch !== null)
@@ -748,7 +753,7 @@ export function generatePlayerSketch(
     if ((action === 'volume' || action === 'brightness') && source.kind === 'pot') {
       const target = action === 'volume' ? 'playerVolume' : 'playerBrightness'
       const apply = action === 'volume' ? 'applyPlayerVolume();' : 'applyPlayerBrightness();'
-      return [`  { float value = constrain(analogRead(${source.pin}) / 4095.0f, 0.0f, 1.0f); if (fabsf(value - ${target}) >= 0.01f) { ${target} = value; ${apply} } }`]
+      return [...ANALOG_FULL_SCALE_CPP, `  { float value = constrain(${analogLevelCpp(source.pin)}, 0.0f, 1.0f); if (fabsf(value - ${target}) >= 0.01f) { ${target} = value; ${apply} } }`]
     }
     if ((action === 'volume' || action === 'brightness') && source.kind === 'encoderPosition') {
       const target = action === 'volume' ? 'playerVolume' : 'playerBrightness'
@@ -1491,12 +1496,16 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
     // else the live ones.
     if (patternCount === 1) narrowed = narrowed.replace(/renderPattern\((?:prevPatternId|patternId), t((?:, \w+)*)\);/g,
       (_call, roles: string) => `render_p0((uint32_t)(t * 1000.0f)${roles || argList});`)
-    if (genericPlayer && particleFx && !particleFx.randomStyle) narrowed = specializeSwitch(narrowed, 'burstStyle', particleFx.style)
+    if (genericPlayer && particleFx && !burst!.styleVaries) narrowed = specializeSwitch(narrowed, 'burstStyle', particleFx.style)
     const withoutReadyWrites = narrowed.replace(/\bplaybackReady\s*=\s*startPlayback\(\);/g, 'startPlayback();')
       .replace(/bool playbackReady = false;/, '')
     if (!/\bplaybackReady\b/.test(cppCode(withoutReadyWrites))) narrowed = withoutReadyWrites
+    const facts = { ESP32: true, ESP8266: false }
+    const finished = finishCpp(specializeCpp(opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed, facts))
+    // Random transitions and particle styles differ after each power-up.
+    const seeded = withBootEntropy(finished)
     return withLedDriver(
-      withLoopPacing(finishCpp(specializeCpp(opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed, { ESP32: true, ESP8266: false }))),
+      withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, facts)),
       c.ledDriver,
     )
   }
@@ -2786,7 +2795,7 @@ ${particleFx && genericCollection && decoderTap ? `  // Player Particles turns t
   // burst (particleEnergyPasses).` : ''}
   static uint8_t burstVolleyLeft = 0;
   bool burstDue = false;
-  if (_audioBeat${particleFx.energyGate > 0
+  if (_audioBeat${burst!.enabled ? ` && ${burst!.enabled}` : ''}${particleFx.energyGate > 0
     ? ` && (_audioBass + _audioMids + _audioTreble) / 3.0f >= ${particleFx.energyGate.toFixed(3)}f`
     : ''}) {
     if (posMs < burstStart) { burstVolleyLeft = 0; burstStart = 0; }
@@ -2797,13 +2806,11 @@ ${particleFx && genericCollection && decoderTap ? `  // Player Particles turns t
   }
   if (burstDue) {
     burstStart = posMs;
-    burstIntensity = ${particleFx.intensity.toFixed(3)}f;
-    burstStyle = ${particleFx.randomStyle ? 'random8(17)' : particleFx.style};
-    burstColor = ${particleFx.randomColor
-      ? 'CHSV(random8(), 255, 255)'
-      : `CRGB(${particleFx.color.r}, ${particleFx.color.g}, ${particleFx.color.b})`};
+    burstIntensity = ${burst!.intensity};
+    burstStyle = ${burst!.style};
+    burstColor = ${burst!.color};
   }
-` : ''}
+${burst!.liveIntensity.map((line) => `${line}\n`).join('')}` : ''}
 ${sequenceWalker}${rotates ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
   // collected patterns in ${sequentialPatterns ? 'collection order' : 'random order without immediate repeats'}.
   // Their own audio nodes react to the live decoder signal.
@@ -2903,7 +2910,7 @@ ${patternDraw}${!genericPlayer ? `  // Beat flash overlay
   // styles) added on top of the frame — FastLED's brightness then scales them,
   // so they fade with a silence fade-to-black. Keep the switch in sync with
   // particleOverlayAt() in showPreview.ts.
-  if (burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS) {
+  if (${burst?.enabled ? `${burst.enabled} && ` : ''}burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS) {
     float ageSec = (posMs - burstStart) / 1000.0f;
     float f = (float)(posMs - burstStart) / PARTICLE_LIFE_MS;
     CRGB base = burstColor;

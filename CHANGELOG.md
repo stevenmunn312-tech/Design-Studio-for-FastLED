@@ -602,6 +602,37 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Trails now fades all the way to black. Below a channel level of about 148
+  at the default Decay, each frame's rounding took nothing off, so old light
+  hung on for ever, in the preview and on the LEDs. Decay keeps its meaning,
+  now spent by elapsed time like Juggle's and Confetti's fades.
+- Treble Sparks fade the same way on the LEDs as in the preview: they linger
+  when the treble is quiet and stay crisp when it is loud. The board had it
+  the other way round.
+- Palette Sweep turns at the palette's last colour on the board. FastLED's
+  wrapping blend faded the end of each leg back toward the first colour.
+- Text and the digital Clock Display read a wired X or Y above 1 as a pixel
+  position on the board, as the preview, Shape and the analog clock do. The
+  board treated it as a fraction and drew the text off-screen.
+- A pot, light sensor or joystick reaches full scale on every board. Every
+  sketch divided by the ESP32's 12-bit range, so on an ESP8266 a pot topped
+  out at a quarter and a centred joystick read -0.75.
+- Patterns that run free (Seed 0) and random show transitions differ after
+  each power-up. Normal and SD player sketches never seeded the random
+  generator, so Confetti, Fire and the rest replayed the same sequence every
+  boot. A fixed seed is still repeatable.
+- A new Reaction Diffusion grows coral at once. Its starting Feed and Kill
+  only held the starting square on this node's solver.
+- Field Noise's Seed gives a different field, even at Speed 0. It was scaled
+  by speed, so nearby seeds looked alike and every seed was the same at rest.
+- Custom Palette's move-left and move-right buttons move the colour. Saving
+  re-sorted the stops and undid the move, and pressing a button also dragged
+  the stop to the pointer.
+- Player Particles' wired Enabled, Intensity, Color, Random Style and Random
+  Color work on the board, in a Pattern Slideshow and on the SD player. The
+  sketch baked the node's own fields, so a button that enabled the sparks in
+  the preview did nothing on the LEDs.
+
 - Fullscreen Stage in the Windows desktop app fills the screen again. The
   WebView2 window kept its title bar and the taskbar, because the page's
   fullscreen only filled the web view; the window now goes borderless over
