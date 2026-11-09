@@ -3,7 +3,7 @@ import { nativeBeatGateCpp } from '../../codegen/audio/nativeBeatGateCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
-import { AUDIO_HUE, AUDIO_SILENCE, audioHueMode, audioHueSpan, audioHueStart, audioHueWeight } from './evaluate'
+import { AUDIO_HUE, AUDIO_SILENCE, FFT_ANALYSIS_BANDS, audioHueMode, audioHueSpan, audioHueStart, audioHueWeight } from './evaluate'
 import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
 import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS, bandPresetRange } from '../../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, BEAT_PHASE_SYNC, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
@@ -54,7 +54,7 @@ export function beatPhaseLines(
 }
 
 export const AUDIO_EMITTERS: NodeEmitters = {
-  FFTAnalyzer({ node, id, p, ln, v, f, hasExplicitAudioInput }) {
+  FFTAnalyzer({ node, id, ln, v, f, hasExplicitAudioInput }) {
     const audioConnected = hasExplicitAudioInput(node.id)
     const gain = `_fftGain_${id}`
     const smoothing = `_fftSm_${id}`
@@ -66,13 +66,11 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       `    float ${smoothing}=constrain(${f('smoothing', 'smoothing', 0.72)},0.0f,0.95f);`,
       `    float ${tilt}=constrain(${f('tilt', 'tilt', 0)},0.0f,1.0f);`,
     ]
-    // `bands` genuinely drives analysis resolution here — mirrors
-    // graphEvaluator.ts's FFTAnalyzer case exactly: resample the raw
-    // 32-bin spectrum to `bands` bins (same technique as
-    // SpectrumVisualizer's `_svBands`), then average contiguous thirds
-    // into bass/mids/treble. `bands` is baked in at generation time, so
-    // the group boundaries are plain compile-time constants.
-    const bands = Math.max(8, Math.min(32, Math.round(Number(p.bands ?? 24))))
+    // Mirrors the FFTAnalyzer evaluator exactly: resample the raw 32-bin
+    // spectrum to FFT_ANALYSIS_BANDS bins (same technique as
+    // SpectrumVisualizer's `_svBands`), then average contiguous thirds into
+    // bass/mids/treble. Bands sizes only the editor's meter.
+    const bands = FFT_ANALYSIS_BANDS
     const [[bassFrom, bassTo], [midsFrom, midsTo], [trebleFrom, trebleTo]] = spectrumThirdBounds(bands)
     const bandsVar = `_fftBands_${id}`
     const groupExpr = (from: number, to: number) =>

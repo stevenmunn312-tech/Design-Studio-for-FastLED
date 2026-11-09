@@ -294,12 +294,6 @@ freeze, or drop them.
   R/G/B only, and Ember Pulse is a fixed HeatColor ramp. Move all four to a
   Palette port plus an optional Color port. Evidence
   `src/state/nodeLibrary.ts:740`.
-- [ ] **FFT Analyzer: Replace Bands with crossover controls (Med, S).** The
-  32 slots are 16 EQ bins duplicated, so Bands only nudges the crossover by
-  a slot, and at counts not divisible by 3 the thirds overlap
-  (`spectrumThirdBounds(8)` gives bass [0,3) and mids [2,6)). Replace it
-  with two crossover controls in Hz (about 300 and 1500), or make it a
-  meter-only display setting. Evidence `src/nodes/audio/evaluate.ts:101`.
 - [ ] **Audio Features: Apply Sensitivity and smoothing to Loudness (Med,
   S).** Loudness is the raw meter and real music sits at 0.02–0.2 of its
   scale, so wired into a 0–1 input it barely moves and the help tells users

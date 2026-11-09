@@ -2111,7 +2111,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     energyGate: 'How loud the track must be (the mean of bass, mids and treble, 0–1) for a beat to burst. Quieter beats are skipped and spend no burst; 0 lets every beat through.',
   },
   FFTAnalyzer: {
-    bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
+    bands: 'How many columns the live meter on the node draws (8–32). Display only: the bass, mids and treble split is fixed.',
     gain: 'Multiplies all three bands before smoothing; above 1 lifts a quiet mic, each band still caps at 1.',
     smoothing: 'Share of the level kept every 60th of a second (0–0.95), at any frame rate. Higher steadies jitter but lags fast hits.',
     tilt: 'Boosts mids a little and treble a lot (0–1) so quiet highs read as strongly as the bass.',

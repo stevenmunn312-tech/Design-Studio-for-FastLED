@@ -11,7 +11,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     overview: [
       'FFT Analyzer splits sound into three levels — bass, mids and treble — each from 0 to 1. It is the usual first step after an Audio node when a patch should move with the music.',
       'Give each band its own job: bass for size and weight, mids for body and colour, treble for sparkle and fine detail. Three separate wires make it easy to try a band on a different input.',
-      'Bands sets how finely the spectrum is cut before it is averaged into the three outputs. Gain lifts a quiet source, Smoothing steadies jitter at the cost of slower hits, and Tilt lifts the highs so cymbals register as strongly as the kick.',
+      'Bands sets how many columns the meter on the node draws; the split into bass, mids and treble is fixed. Gain lifts a quiet source, Smoothing steadies jitter at the cost of slower hits, and Tilt lifts the highs so cymbals register as strongly as the kick.',
     ],
     inputs: {
       audio: 'The sound to analyse, from an Audio node.',

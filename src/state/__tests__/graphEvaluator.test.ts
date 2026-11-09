@@ -891,13 +891,11 @@ describe('evaluateGraph', () => {
     mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
-  it("FFTAnalyzer's bands control genuinely changes analysis resolution", () => {
+  it("FFTAnalyzer splits at 24 bands whatever its meter's Bands says", () => {
     mockAudio.active = true
-    // A single hot raw bin (index 7) gets grouped into the resampled "bass"
-    // bucket differently depending on how many bins the raw 32-bin spectrum
-    // is resampled into first — proof `bands` isn't a no-op. (32 bands = no
-    // resampling, bass = raw bins [0,11) → 1/11; 24 bands resamples
-    // unevenly, landing bin 7 alone in resampled bin 5 of 8 → 0.5/8.)
+    // A single hot raw bin (index 7). The analysis always resamples the
+    // 32-bin spectrum to 24 bins and averages thirds of eight, landing bin 7
+    // alone in resampled bin 5 of 8 → 0.5/8; Bands sizes only the meter.
     mockAudio.detectorSpectrum = Array.from({ length: 32 }, (_, i) => (i === 7 ? 1 : 0))
     const mic = node('mic-bands', 'MicInput', 'input', {})
     const runWithBands = (bands: number) => {
@@ -909,8 +907,9 @@ describe('evaluateGraph', () => {
       )
       return outputs.get('fft-bands')!
     }
-    expect(runWithBands(32).bass as number).toBeCloseTo(1 / 11, 5)
     expect(runWithBands(24).bass as number).toBeCloseTo(0.0625, 5)
+    expect(runWithBands(32).bass as number).toBeCloseTo(0.0625, 5)
+    expect(runWithBands(8).bass as number).toBeCloseTo(0.0625, 5)
     mockAudio.active = false
     mockAudio.detectorSpectrum = Array(32).fill(0)
   })

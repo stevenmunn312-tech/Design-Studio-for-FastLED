@@ -16,6 +16,15 @@ import { bandLevel, bandPresetRange, clampBandHz } from '../../audio/frequencyBa
 import { audioLoudness, resolveStereoLevels } from '../../audio/stereoLevels'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar, beatPhaseStep, type BeatPhaseState } from '../../audio/beatPhase'
 
+/**
+ * FFT Analyzer's split: the spectrum resampled to 24 bins and cut into thirds
+ * of eight. Bands used to set this count, but the 32 slots are 16 EQ bins
+ * duplicated, so it only nudged the crossover by a slot, and at a count not
+ * divisible by three the thirds overlapped. It is fixed at the split every
+ * bundled pattern was tuned on, and Bands now sizes the meter alone.
+ */
+export const FFT_ANALYSIS_BANDS = 24
+
 const fftLevels   = instanceState('fftLevels', new Map<string, { bass: number; mids: number; treble: number; lastT: number }>())
 const beatLevels  = instanceState('beatLevels', new Map<string, ReturnType<typeof createBeatDetectorState>>())
 /** Per node: when the native-beat gate last let a beat through (ms). */
@@ -157,12 +166,10 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     // It's off by default so unwired/grouped patterns aren't driven into
     // "hyperdrive" and stay tunable.
     const hasLiveAudio = Boolean(audio && (audio.active || audio.micActive))
-    // `bands` genuinely drives analysis resolution: the raw 32-bin
-    // spectrum is resampled to this many bins (resampleSpectrumBins(),
-    // shared with SpectrumVisualizer), then split into three contiguous
-    // groups. More bands means a sharper bass/mids/treble split; fewer
-    // means a blurrier one — instead of a slider with zero effect.
-    const bands = Math.max(8, Math.min(32, Math.round(Number(props.bands ?? 24))))
+    // The raw 32-slot spectrum (16 EQ bins, each twice) is resampled to
+    // FFT_ANALYSIS_BANDS bins and split into three contiguous thirds. The
+    // node's Bands setting sizes only its live meter (FFTAnalyzerBody).
+    const bands = FFT_ANALYSIS_BANDS
     const raw = hasLiveAudio
       ? (() => {
           const sampled = resampleSpectrumBins(audio!.detectorSpectrum ?? audio!.spectrum ?? [], bands)

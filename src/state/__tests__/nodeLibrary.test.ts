@@ -371,8 +371,9 @@ describe('nodeLibrary', () => {
     expect(propertyLabel('AudioHue', 'trebleWeight')).toBe('treble weight')
   })
 
-  it("FFTAnalyzer's bands tooltip explains its resample resolution", () => {
-    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/resample|resolution/i)
+  it("FFTAnalyzer's bands tooltip says it only sizes the meter", () => {
+    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/meter/i)
+    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/display only/i)
   })
 
   it('MicInput exposes FastLED processor gain without obsolete custom gate controls', () => {

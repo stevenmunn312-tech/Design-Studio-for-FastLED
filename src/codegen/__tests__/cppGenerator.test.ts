@@ -4216,7 +4216,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('constrain(0.75,0.0f,0.95f)')
   })
 
-  it("FFTAnalyzer's bands property changes the generated resample resolution", () => {
+  it("FFTAnalyzer analyses at 24 bins whatever its meter's Bands says", () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', { bands: 12 })
     const bp = node('bp', 'BassPulse', 'pattern', {})
@@ -4225,8 +4225,9 @@ describe('generateCpp — INMP441 audio engine', () => {
       edge('e2', 'fft', 'bp', 'bass', 'bass'),
       edge('e3', 'bp', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('float _fftBands_fft[12];')
-    expect(cpp).toContain('for (int _b = 0; _b < 12; _b++)')
+    expect(cpp).toContain('float _fftBands_fft[24];')
+    expect(cpp).toContain('for (int _b = 0; _b < 24; _b++)')
+    expect(cpp).not.toContain('float _fftBands_fft[12];')
   })
 
   it('emits Spectrum Visualizer Three Band as a palette-driven on-device equalizer', () => {
