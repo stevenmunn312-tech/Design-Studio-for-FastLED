@@ -1488,7 +1488,7 @@ describe('generateCpp', () => {
   })
 
   it('generates a self-contained eased palette sweep', () => {
-    const sweep = node('ps', 'PaletteSweep', 'color', { palette: 'ocean', rate: 0.5, easing: 'cubic' })
+    const sweep = node('ps', 'PaletteSweep', 'color', { palette: 'ocean', rate: 0.5, easing: 'inOutCubic' })
     const solid = node('solid', 'SolidColor', 'pattern')
     const cpp = generateCpp([sweep, solid, outputNode], [
       edge('e1', 'ps', 'solid', 'color', 'color'),
@@ -1497,11 +1497,29 @@ describe('generateCpp', () => {
 
     expect(cpp).toContain('t * (fmaxf(0.0f, (0.5')
     expect(cpp).toContain('fmodf(fmodf(_phase_ps, 1.0f)')
-    expect(cpp).toContain('powf(-2.0f * _psPos_ps + 2.0f, 3.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
-    // The sweep turns at the palette's last colour; the wrapping blend faded
-    // the end of each leg back toward the first colour.
-    expect(cpp).toContain('(uint8_t)(_psPos_ps * 255.0f), 255, LINEARBLEND_NOWRAP);')
+    // Ease's own byte curve gives the palette index; the sweep turns at the
+    // palette's last colour, where the wrapping blend faded each leg back
+    // toward the first.
+    expect(cpp).toContain('ease8InOutCubic((uint8_t)(constrain(_psPos_ps, 0.0f, 1.0f) * 255)), 255, LINEARBLEND_NOWRAP);')
+  })
+
+  it('loops a palette sweep one way with the wrapping blend', () => {
+    const sweep = node('ps', 'PaletteSweep', 'color', { palette: 'ocean', rate: 0.5, motion: 'loop', easing: 'linear' })
+    const solid = node('solid', 'SolidColor', 'pattern')
+    const cpp = generateCpp([sweep, solid, outputNode], [
+      edge('e1', 'ps', 'solid', 'color', 'color'),
+      edge('e2', 'solid', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('float _psPos_ps = _psPhase_ps;')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean, (uint8_t)(constrain(_psPos_ps, 0.0f, 1.0f) * 255), 255, LINEARBLEND);')
+  })
+
+  it('holds a Palette Sampler\'s ends when asked', () => {
+    const ps = node('ps', 'PaletteSampler', 'color', { t: 1.25, palette: 'heat', ends: 'hold' })
+    const sc = node('sc', 'SolidColor', 'pattern')
+    const cpp = generateCpp([ps, sc, outputNode], [edge('e1', 'ps', 'sc', 'color', 'color'), edge('e2', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('{ float _ps=constrain(1.25, 0.0f, 1.0f); n_ps_color = ColorFromPalette(paldef_heat, (uint8_t)(_ps*255), 255, LINEARBLEND_NOWRAP); }')
   })
 
   it('inlines a group’s pattern code into the sketch', () => {

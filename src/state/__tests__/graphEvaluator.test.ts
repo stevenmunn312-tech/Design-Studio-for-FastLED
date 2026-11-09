@@ -5452,9 +5452,36 @@ describe('Saturation and RGBToHSV', () => {
       return evaluateGraphFull([sweep], [], tick, W, H).outputs.get(sweep.id)?.color as RGB
     }
 
-    expect(colorAt('quad', 0)).toEqual(colorAt('linear', 0))
-    expect(colorAt('quad', 15)).toEqual(colorAt('linear', 15))
-    expect(colorAt('quad', 3.75)).not.toEqual(colorAt('linear', 3.75))
+    // Ease's sine and linear are both FastLED byte curves, so they meet
+    // exactly at the ends and the middle of a leg.
+    expect(colorAt('inOutSine', 0)).toEqual(colorAt('linear', 0))
+    expect(colorAt('inOutSine', 15)).toEqual(colorAt('linear', 15))
+    expect(colorAt('inOutSine', 3.75)).not.toEqual(colorAt('linear', 3.75))
+    expect(colorAt('inOutQuad', 3.75)).not.toEqual(colorAt('linear', 3.75))
+  })
+
+  it('PaletteSweep in Loop runs one way and joins the end back to the start', () => {
+    const colorAt = (motion: string, tick: number) => {
+      const sweep = node(`palette-sweep-${motion}`, 'PaletteSweep', 'color', { palette: 'heat', rate: 1, easing: 'linear', motion })
+      return evaluateGraphFull([sweep], [], tick, W, H).outputs.get(sweep.id)?.color as RGB
+    }
+    // Ping-pong passes a colour twice a cycle, going and coming back.
+    expect(colorAt('pingPong', 15)).toEqual(colorAt('pingPong', 45))
+    // Loop passes it once: a quarter of the way along, then three quarters.
+    expect(colorAt('loop', 15)).not.toEqual(colorAt('loop', 45))
+    expect(colorAt('loop', 15)).toEqual(colorAt('pingPong', 7.5))
+    expect(colorAt('loop', 0)).toEqual(colorAt('loop', 60))
+  })
+
+  it('PaletteSampler holds its ends when asked, and wraps otherwise', () => {
+    const at = (t: number, ends: string) => evaluateGraphFull([node('ps', 'PaletteSampler', 'color', { palette: 'heat', t, ends })], [], 0, W, H)
+      .outputs.get('ps')?.color as RGB
+    // heat starts black and ends near white: a full-scale level read black when wrapped.
+    expect(at(1, 'wrap')).toEqual(at(0, 'wrap'))
+    expect(at(1, 'hold').r).toBe(255)
+    expect(at(1.4, 'hold')).toEqual(at(1, 'hold'))
+    expect(at(-0.3, 'hold')).toEqual(at(0, 'hold'))
+    expect(at(0.5, 'hold')).toEqual(at(0.5, 'wrap'))
   })
 
   it('GradientSampler uses editable fallback swatches when color inputs are unwired', () => {

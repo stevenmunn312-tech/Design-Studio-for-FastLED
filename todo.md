@@ -482,20 +482,6 @@ freeze, or drop them.
   Cycle and Harmony Palette, and `H (0–360)`/`S`/`V` on RGB to HSV. Pick one
   pattern, e.g. "Hue (°)", "Saturation (0–1)", "Brightness (0–1)"; "Value" is
   jargon. Evidence `src/nodes/color/definitions.ts`.
-- [ ] **Palette Sampler: Add a wrap/hold-ends option (Med, S).** T = 1 wraps to
-  the first colour, so a full-scale sensor on `heat` reads black, and for T in
-  0.945–1 firmware blends toward entry 0 while the preview shows the last
-  stop. Add "Wrap" / "Hold ends" using `samplePaletteClamped` and
-  `LINEARBLEND_NOWRAP`. Evidence `src/nodes/color/evaluate.ts:141`,
-  `src/nodes/color/codegen.ts:70`.
-- [ ] **Palette Sweep: Add a Loop motion option (Med, S).** The node only
-  ping-pongs, so a cyclic palette cannot scroll one way without Palette
-  Sampler plus a sawtooth Wave. Add a Motion select, "Ping-pong" / "Loop".
-  Evidence `src/nodes/color/evaluate.ts:147`.
-- [ ] **Palette Sweep: Reuse Ease's easing table (Low, S).** The node has its
-  own list and `applySweepEase`; its "cubic" is `4t³` while Ease's in-out
-  "cubic" is smoothstep, so one name gives two curves. Reuse `applyEase` and
-  the `EASE_TYPES` subset. Evidence `src/nodes/color/evaluate.ts:66`.
 - [ ] **Color Temperature: Fix the inverted Warmth property (Med, S).** 0 is
   candle (warmest) and 1 is blue sky, so raising Warmth cools the light.
   Rename it "Coolness" or, better, flip the mapping so 1 = warm. Evidence

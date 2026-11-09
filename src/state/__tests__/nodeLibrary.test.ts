@@ -3,7 +3,7 @@ import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty, BUNDLED_TITLES, selectOptionLabel, propertyMetaFor } from '../nodeLibrary'
 import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
-import { EASE_TYPES } from '../../nodes/math/easing'
+import { EASE_TYPES, SWEEP_EASE_TYPES } from '../../nodes/math/easing'
 import { STEP_VALUE_ABS_LIMIT } from '../../nodes/shared/stepValue'
 import { SPIRAL_ARMS } from '../../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../../nodes/composite/kaleidoscope'
@@ -305,11 +305,14 @@ describe('nodeLibrary', () => {
     expect(sweep?.category).toBe('color')
     expect(sweep?.inputs.map((port) => port.id)).toEqual(['paletteIn', 'rate'])
     expect(sweep?.outputs).toEqual([{ id: 'color', label: 'Color', dataType: 'color' }])
-    expect(sweep?.defaultProperties).toEqual({ palette: 'rainbow', rate: 0.1, easing: 'sine' })
+    expect(sweep?.defaultProperties).toEqual({ palette: 'rainbow', rate: 0.1, motion: 'pingPong', easing: 'inOutSine' })
     expect(propertyMeta('PaletteSweep', 'rate')).toMatchObject({ control: 'slider', min: 0, max: 4, step: 0.01 })
+    expect(propertyMeta('PaletteSweep', 'motion')).toEqual({ control: 'select', options: ['pingPong', 'loop'] })
+    // Ease's own curves, so one name is one curve on both nodes.
     expect(propertyMeta('PaletteSweep', 'easing')).toEqual({
-      control: 'select', options: ['linear', 'sine', 'quad', 'cubic'],
+      control: 'select', options: ['linear', 'inOutSine', 'inOutQuad', 'inOutCubic'],
     })
+    for (const easing of SWEEP_EASE_TYPES) expect(EASE_TYPES).toContain(easing)
   })
 
   it('BeatDetect sliders use a narrow, beat-friendly range', () => {

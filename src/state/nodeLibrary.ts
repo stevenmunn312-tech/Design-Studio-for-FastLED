@@ -23,7 +23,8 @@ import { MIC_MAX_GAIN, MIC_MAX_NOISE_GATE } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boardGpio'
 import { CLOCKED_DATA_RATES_MHZ, dataRateOptionsMhz } from '../build/ledDrivers'
-import { EASE_PICKER_TYPES } from '../nodes/math/easing'
+import { EASE_PICKER_TYPES, SWEEP_EASE_TYPES } from '../nodes/math/easing'
+import { PALETTE_ENDS, SWEEP_MOTIONS } from '../nodes/color/paletteMotion'
 import { STEP_VALUE_ABS_LIMIT } from '../nodes/shared/stepValue'
 import { COMPARE_LABELS, COMPARE_OPS } from '../nodes/math/compare'
 import { WAVE_RATE_UNITS } from '../nodes/signal/wave'
@@ -456,7 +457,6 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: EASE_PICKER_TYPES },
-  easing:         { control: 'select', options: ['linear', 'sine', 'quad', 'cubic'] },
   triggerOp:      { control: 'select', options: ['debounce', 'changed', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
   feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
   delayFrames:    { control: 'slider', min: 1, max: 32, step: 1 },
@@ -729,6 +729,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PaletteSweep: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
+    motion: { control: 'select', options: SWEEP_MOTIONS },
+    easing: { control: 'select', options: SWEEP_EASE_TYPES },
+  },
+  PaletteSampler: {
+    ends: { control: 'select', options: PALETTE_ENDS },
   },
   BrightnessMod: {
     brightness: { control: 'slider', min: 0, max: 3, step: 0.01 },
@@ -1742,6 +1747,13 @@ const SELECT_OPTION_LABELS: Record<string, Record<string, Record<string, string>
   HSVToRGB: {
     hueUnits: { degrees: 'Degrees (0–360)', bytes: '0–255 wheel' },
   },
+  PaletteSampler: {
+    ends: { wrap: 'Wrap', hold: 'Hold ends' },
+  },
+  PaletteSweep: {
+    motion: { pingPong: 'Ping-pong', loop: 'Loop' },
+    easing: { linear: 'Linear', inOutSine: 'Sine in/out', inOutQuad: 'Quad in/out', inOutCubic: 'Cubic in/out' },
+  },
 }
 
 /** Select choices that depend on another property of the same node. */
@@ -2741,12 +2753,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PaletteSampler: {
     palette: 'Preset palette to read from. A wired Palette input replaces it.',
-    t: 'Position along the palette, 0 to 1. Past 1 it wraps round to the start again.',
+    t: 'Position along the palette, 0 to 1. Past 1 it wraps round to the start again, unless Ends holds them.',
+    ends: 'Wrap reads T as a position round the palette, so 1 is the first colour again: for a scrolling index. Hold ends reads it as an amount, so 1 is the last colour and anything past either end stays there: for a level or a sensor.',
   },
   PaletteSweep: {
     palette: 'Preset palette to sweep through. A wired Palette input replaces it.',
-    rate: 'Full start-to-end-and-back trips per second. 0.1 is one trip every 10 seconds.',
-    easing: 'How each leg slows at the ends: linear is constant speed, sine and cubic ease in and out.',
+    rate: 'Full cycles per second: start to end and back for Ping-pong, start to end once for Loop. 0.1 is one cycle every 10 seconds.',
+    motion: 'Ping-pong runs to the end of the palette and back. Loop runs to the end and starts again, joining the last colour to the first, for a palette that cycles.',
+    easing: 'How each leg slows at the ends, on the same curves as Ease: linear is constant speed, sine, quad and cubic ease in and out.',
   },
   HueCycle: {
     rate: 'Trips round the hue wheel per second. 0.1 takes 10 seconds for a full rainbow.',

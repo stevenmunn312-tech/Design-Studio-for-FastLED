@@ -15,6 +15,8 @@ import { cppStringLiteral } from '../../codegen/cppLiterals'
 import { POLINE_HELPER_CPP, polinePositionId } from '../../codegen/helpers/polineHelperCpp'
 import { hexCrgbCpp, hsvColorCpp } from '../../codegen/colorControlCpp'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { easeByteCpp } from '../math/easing'
+import { paletteEnds, sweepMotion } from './paletteMotion'
 
 export const COLOR_EMITTERS: NodeEmitters = {
   HueCycle({ id, ln, v, f, needsT, needsHsv }) {
@@ -67,27 +69,30 @@ export const COLOR_EMITTERS: NodeEmitters = {
   },
   PaletteSampler({ node, p, ln, v, f, paletteExpr }) {
     const tt = f('t', 't', 0), pal = paletteExpr(node.id, 'paletteIn', p)
+    ln(`  CRGB ${v('color')};`)
+    if (paletteEnds(p.ends) === 'hold') {
+      // An amount: clamped, and the last entry held rather than blended back to the first.
+      ln(`  { float _ps=constrain(${tt}, 0.0f, 1.0f); ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_ps*255), 255, LINEARBLEND_NOWRAP); }`)
+      return
+    }
     // Wrapped round the palette before the byte cast, as samplePalette wraps;
     // casting an out-of-range float to uint8_t is undefined behaviour.
-    ln(`  CRGB ${v('color')};`)
     ln(`  { float _ps=${tt}; ${v('color')} = ColorFromPalette(${pal}, (uint8_t)((_ps-floorf(_ps))*255)); }`)
   },
+  // Each leg is shaped by Ease's own FastLED byte curve (math/easing.ts),
+  // which hands back the palette index directly.
   PaletteSweep({ node, id, p, ln, v, f, paletteExpr, needsT }) {
     needsT.v = true
     const rate = f('rate', 'rate', 0.1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    const easing = String(p.easing ?? 'sine')
+    const motion = sweepMotion(p.motion)
     const ph = speedPhaseCpp(ln, phaseTag(id), `fmaxf(0.0f, (${rate}))`, '  ')
     ln(`  float _psPhase_${id} = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f);`)
-    ln(`  float _psPos_${id} = _psPhase_${id} < 0.5f ? _psPhase_${id} * 2.0f : (1.0f - _psPhase_${id}) * 2.0f;`)
-    if (easing === 'quad') {
-      ln(`  _psPos_${id} = _psPos_${id} < 0.5f ? 2.0f * _psPos_${id} * _psPos_${id} : 1.0f - powf(-2.0f * _psPos_${id} + 2.0f, 2.0f) / 2.0f;`)
-    } else if (easing === 'cubic') {
-      ln(`  _psPos_${id} = _psPos_${id} < 0.5f ? 4.0f * _psPos_${id} * _psPos_${id} * _psPos_${id} : 1.0f - powf(-2.0f * _psPos_${id} + 2.0f, 3.0f) / 2.0f;`)
-    } else if (easing !== 'linear') {
-      ln(`  _psPos_${id} = (1.0f - cosf(3.14159265f * _psPos_${id})) * 0.5f;`)
-    }
-    ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_psPos_${id} * 255.0f), 255, LINEARBLEND_NOWRAP);`)
+    ln(motion === 'loop'
+      ? `  float _psPos_${id} = _psPhase_${id};`
+      : `  float _psPos_${id} = _psPhase_${id} < 0.5f ? _psPhase_${id} * 2.0f : (1.0f - _psPhase_${id}) * 2.0f;`)
+    const index = easeByteCpp(String(p.easing ?? 'inOutSine'), `(uint8_t)(constrain(_psPos_${id}, 0.0f, 1.0f) * 255)`)
+    ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, ${index}, 255, ${motion === 'loop' ? 'LINEARBLEND' : 'LINEARBLEND_NOWRAP'});`)
   },
   PaletteSelector({ p, ln }) {
     // Named rather than by its table, which is only emitted when a node reads it.

@@ -34,13 +34,13 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   PaletteSampler: {
     overview: [
-      'Palette Sampler picks one colour from a palette at position T. T runs from 0 at the palette’s start to 1 at its end, and wraps round past 1.',
+      'Palette Sampler picks one colour from a palette at position T. T runs from 0 at the palette’s start to 1 at its end.',
       'It turns any palette into a single colour you can wire wherever one colour is wanted: a shape’s fill, text, sparkles, a flock.',
-      'Feed T from a moving signal and the colour travels through the palette.',
+      'Ends decides what T means at the top. Wrap treats it as a position round the palette, so 1 is the first colour again and a rising ramp keeps cycling. Hold ends treats it as an amount, so 1 is the last colour: choose it when a level or a sensor drives T, or a full-scale reading on the heat palette comes out black.',
     ],
     inputs: {
       paletteIn: 'A palette to sample. Replaces the Palette choice.',
-      t: 'Position along the palette, 0 to 1, wrapping past 1.',
+      t: 'Position along the palette, 0 to 1: wrapping past 1, or held at the ends with Hold ends.',
     },
     outputs: {
       color: 'The colour at T.',
@@ -62,13 +62,13 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   PaletteSweep: {
     overview: [
-      'Palette Sweep travels back and forth through a palette by itself, giving out one colour at a time. Rate is how many full trips there and back it makes each second.',
-      'Easing shapes each leg: linear moves evenly, sine, quad and cubic slow at the ends so the end colours linger.',
+      'Palette Sweep travels through a palette by itself, giving out one colour at a time. Ping-pong runs to the end and back; Loop runs to the end and starts again, which suits a palette whose last colour leads back into its first. Rate is how many full cycles it makes each second.',
+      'Easing shapes each leg with the same curves as Ease: linear moves evenly, sine, quad and cubic slow at the ends so the end colours linger.',
       'It is Palette Sampler with its own motion built in — the quick way to a colour that is always gently changing.',
     ],
     inputs: {
       paletteIn: 'A palette to sweep. Replaces the Palette choice.',
-      rate: 'Trips per second.',
+      rate: 'Cycles per second.',
     },
     outputs: {
       color: 'The current colour.',
@@ -77,7 +77,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       featured: 'PaletteSweep',
       title: 'Lettering that glows through a synthwave palette',
       nodes: {
-        sweep: ['PaletteSweep', { palette: 'synthwave', rate: 0.15, easing: 'sine' }],
+        sweep: ['PaletteSweep', { palette: 'synthwave', rate: 0.15, motion: 'pingPong', easing: 'inOutSine' }],
         word: ['Text', { text: 'SYNTH' }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },

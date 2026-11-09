@@ -25,6 +25,8 @@ import { normalizeCustomPalette, hexToRgb as customHexToRgb, customPaletteStops1
 import { type RGB, hsv, samplePalette, samplePaletteClamped } from '../../state/palettes/ledColor'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { speedPhase } from '../shared/speedClock'
+import { applyEase } from '../math/easing'
+import { paletteEnds, sweepLeg, sweepMotion } from './paletteMotion'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
@@ -59,22 +61,6 @@ function kelvinToRgb(kelvin: number): RGB {
   else if (t <= 19) b = 0
   else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307
   return { r: clamp(r), g: clamp(g), b: clamp(b) }
-}
-
-/** Shape one 0→1 leg of a PaletteSweep. The ping-pong timing itself is
- * handled by the node so every easing retains the requested round-trip rate. */
-function applySweepEase(type: string, x: number): number {
-  const t = Math.max(0, Math.min(1, x))
-  switch (type) {
-    case 'linear': return t
-    case 'quad':
-      return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2
-    case 'cubic':
-      return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2
-    case 'sine':
-    default:
-      return (1 - Math.cos(Math.PI * t)) / 2
-  }
 }
 
 export const COLOR_EVALUATORS: NodeEvaluators = {
@@ -133,17 +119,19 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
   PaletteSampler({ num, pal }, id, props) {
     const tt = num(id, 't', props, 't', 0)
     const palName = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { color: samplePalette(palName, tt) }
+    // Hold ends reads T as an amount: 1 is the last colour, never the first again.
+    return { color: paletteEnds(props.ends) === 'hold' ? samplePaletteClamped(palName, tt) : samplePalette(palName, tt) }
   },
   PaletteSweep({ num, pal, t, stateKey }, id, props) {
     const rate = Math.max(0, num(id, 'rate', props, 'rate', 0.1))
     const phase = (speedPhase(stateKey(id), t, rate) % 1 + 1) % 1
-    const pingPong = phase < 0.5 ? phase * 2 : (1 - phase) * 2
-    const position = applySweepEase(String(props.easing ?? 'sine'), pingPong)
+    const motion = sweepMotion(props.motion)
+    const position = applyEase(String(props.easing ?? 'inOutSine'), sweepLeg(phase, motion))
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    // The sweep turns at each end of the palette, so its ends are held, never
-    // wrapped back to the first colour (LINEARBLEND_NOWRAP in firmware).
-    return { color: samplePaletteClamped(palette, position) }
+    // A ping-pong turns at each end of the palette, so its ends are held,
+    // never wrapped back to the first colour (LINEARBLEND_NOWRAP in firmware);
+    // a loop runs round, so it wraps (LINEARBLEND).
+    return { color: motion === 'loop' ? samplePalette(palette, position) : samplePaletteClamped(palette, position) }
   },
   PaletteBank({ inputSourceType, input, elapsedT: t, stateKey, incoming, nodeMap }, id, props) {
     const entries = paletteBankEntries(props)

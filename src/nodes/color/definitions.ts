@@ -36,11 +36,14 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { t: 't' },
     defaultExposedInputs: ['t'],
-    defaultProperties: { palette: 'rainbow', t: 0 },
+    // `ends` wraps T round the palette or holds its ends (paletteMotion.ts).
+    defaultProperties: { palette: 'rainbow', t: 0, ends: 'wrap' },
   },
   {
-    // Self-contained palette oscillator. `rate` is a complete start→end→start
-    // round trip per second; easing shapes each half without changing its period.
+    // Self-contained palette oscillator. `rate` is one complete cycle per
+    // second: start→end→start for `pingPong`, start→end and round again for
+    // `loop`. `easing` is one of Ease's curves and shapes each leg without
+    // changing its period.
     type: 'PaletteSweep',
     label: 'Palette Sweep',
     category: 'color',
@@ -52,7 +55,7 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { rate: 'rate' },
     defaultExposedInputs: ['rate'],
-    defaultProperties: { palette: 'rainbow', rate: 0.1, easing: 'sine' },
+    defaultProperties: { palette: 'rainbow', rate: 0.1, motion: 'pingPong', easing: 'inOutSine' },
   },
 
   // ── Color ──────────────────────────────────────────────────────────────
@@ -290,7 +293,7 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
 export const COLOR_DESCRIPTIONS: Record<string, string> = {
   GradientSampler: 'Samples a two-color gradient at t.',
   PaletteSampler: 'Samples a palette at t to a color.',
-  PaletteSweep: 'Sweeps back and forth through a palette at a set rate and easing.',
+  PaletteSweep: 'Sweeps back and forth, or loops, through a palette at a set rate.',
   // color
   Color: 'A picked colour as a wireable Color output.',
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',

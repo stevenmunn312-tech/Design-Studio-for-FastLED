@@ -5,6 +5,7 @@ import { safeId } from '../../codegen/cppLiterals'
 import { logicCpp } from './logic'
 import { usesShims } from '../shared/fastledShims'
 import { scalarFormulaCpp } from '../shared/formulaLang'
+import { easeByteCpp } from './easing'
 
 export const MATH_EMITTERS: NodeEmitters = {
   Constant({ ln, v, f }) {
@@ -34,22 +35,8 @@ export const MATH_EMITTERS: NodeEmitters = {
   // fl::ease* functions. Existing ids keep their historical calls.
   Ease({ p, ln, v, f }) {
     const type = String(p.easeType ?? 'inOutCubic')
-    const fn = type === 'inOutQuad' ? 'ease8InOutQuad'
-      : type === 'linear' ? ''
-      : type === 'inOutApprox' ? 'ease8InOutApprox'
-      : type === 'inQuad' ? 'fl::easeInQuad8'
-      : type === 'outQuad' ? 'fl::easeOutQuad8'
-      : type === 'inCubic' ? 'fl::easeInCubic8'
-      : type === 'outCubic' ? 'fl::easeOutCubic8'
-      : type === 'inSine' ? 'fl::easeInSine8'
-      : type === 'outSine' ? 'fl::easeOutSine8'
-      : type === 'inOutSine' ? 'fl::easeInOutSine8'
-      : type === 'triwave' ? 'triwave8'
-      : type === 'quadwave' ? 'quadwave8'
-      : type === 'cubicwave' ? 'cubicwave8'
-      : 'ease8InOutCubic'
     const input = `(uint8_t)(constrain(${f('t', 't', 0)}, 0.0f, 1.0f) * 255)`
-    ln(`  float ${v('result')} = ${fn ? `${fn}(${input})` : input} / 255.0f;`)
+    ln(`  float ${v('result')} = ${easeByteCpp(type, input)} / 255.0f;`)
   },
   // Low-pass smoothing — millis()-based EMA with time constant `response`
   // seconds (or `fall` while the value drops, when Fall is above 0), seeded

@@ -335,7 +335,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   went dark on hardware while the preview, which samples the stops
   continuously and wraps only at exactly 1, looked right. `sampleStops` in
   `paletteCatalog.ts` therefore clamps, and a caller that wants a cycle wraps
-  first, as `samplePalette` does. Palette Blend reads its two `CRGBPalette16`s
+  first, as `samplePalette` does. A node whose position can mean either lets
+  the author choose (`nodes/color/paletteMotion.ts`): Palette Sampler's Ends
+  is Wrap or Hold ends, and Palette Sweep's Motion is Ping-pong (held) or
+  Loop (wrapped). Palette Blend reads its two `CRGBPalette16`s
   entry by entry (`a[_i]`), because `ColorFromPalette(a, i*17)` smeared each
   entry into the next and wrapped entry 15 round to entry 0. A field's value
   is an amount too: `evalFieldToFrame` clamps and Field → Frame emits
