@@ -1749,6 +1749,12 @@ describe('generateCpp', () => {
     expect(beat).toContain('_phase_n')
     const timed = gen('Sunrise')
     expect(timed).toContain('(t-0)/fmaxf(0.001f,30)')
+    // Unwired, there is nothing to restart the ramp, so no restart is emitted.
+    expect(timed).not.toContain('_srO_n')
+    const restarting = gen('Sunrise', {}, true)
+    expect(restarting).toContain('if(_tr&&!_srP_n) _srO_n=t; _srP_n=_tr;')
+    expect(restarting).toContain('float _p=(t-_srO_n-0)/fmaxf(0.001f,30);')
+    expect(gen('Sunrise', { mode: 'manual' }, true)).not.toContain('_srO_n')
     expect(timed).toContain('powf(_p,1.6f)')
     expect(gen('Sunrise', { mode: 'manual', progress: 0.5 })).not.toContain('(t-')
     const tv = gen('TVSimulator')

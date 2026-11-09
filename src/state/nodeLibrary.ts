@@ -2225,9 +2225,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     color: 'Colour of the flash; pale blue-white by default.',
   },
   Sunrise: {
-    mode: 'Timed: the ramp starts Start seconds after power-on and runs for Duration. Manual: Progress sets the point on the ramp.',
+    mode: 'Timed: the ramp starts Start seconds after power-on, or after each rising Trigger, and runs for Duration. Manual: Progress sets the point on the ramp.',
     duration: 'Seconds the ramp takes from night to full light, 1 to 3600. Master Speed scales it like every animation.',
-    start: 'Seconds after power-on (in the preview, after the preview starts) at which the ramp begins, 0 to 3600.',
+    start: 'Seconds after power-on or the last Trigger (in the preview, after the preview starts) at which the ramp begins, 0 to 3600.',
     progress: 'Point on the ramp in Manual mode, 0 night to 1 full daylight.',
   },
   DigitalRain: {
@@ -5151,7 +5151,7 @@ export function isPropertyEnabled(
   }
   if (nodeType === 'Sunrise') {
     if (key === 'progress') return properties.mode === 'manual'
-    if (key === 'duration' || key === 'start') return properties.mode !== 'manual'
+    if (key === 'duration' || key === 'start' || key === 'trigger') return properties.mode !== 'manual'
   }
   if (nodeType === 'StringParticles') {
     if (key === 'ringLeds') return properties.track === 'ring'

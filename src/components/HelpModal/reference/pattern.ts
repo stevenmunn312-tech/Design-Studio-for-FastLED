@@ -571,8 +571,11 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Sunrise: {
     overview: [
       'Sunrise ramps from night blue through dawn colours to warm daylight. In timed mode it starts Start seconds after power-on and takes Duration seconds; in manual mode Progress sets the point on the ramp.',
-      'A thirty-minute timed sunrise makes a wake-up light. Master Speed scales its timing like every other animation.',
+      'A thirty-minute timed sunrise makes a wake-up light. Wire Schedule Trigger into Trigger and each rising edge starts the ramp again, so it can wake you at the same time every day. Master Speed scales its timing like every other animation.',
     ],
+    inputs: {
+      trigger: 'In timed mode, each rising edge restarts the ramp from night.',
+    },
     example: example({
       featured: 'Sunrise',
       title: 'A wake-up light, sped up to watch',

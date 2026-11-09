@@ -81,6 +81,24 @@ describe('Sunrise', () => {
     expect(b).toBeGreaterThan(a)
     expect(total(frame('Sunrise', { mode: 'manual', progress: 0 }, 50))).toBe(0)
   })
+  it('restarts the timed ramp on a rising Trigger', () => {
+    const sun = node('sun', 'Sunrise', 'pattern', { duration: 10 })
+    const gate = node('gate', 'Constant', 'math', { value: 0 })
+    const nodes = [sun, gate, node('out', 'MatrixOutput', 'output', {})]
+    const edges = [edge('e', 'sun', 'frame', 'out', 'frame'), edge('t', 'gate', 'value', 'sun', 'trigger')]
+    const at = (seconds: number, high: boolean) => {
+      gate.data.properties = { value: high ? 1 : 0 }
+      return total(evaluateGraph(nodes, edges, seconds * 60, 8, 4)!)
+    }
+    const full = at(20, false)
+    expect(full).toBeGreaterThan(0)
+    // The rising edge at 20 s starts night again; held high it does not restart.
+    expect(at(20, true)).toBe(0)
+    const later = at(25, true)
+    expect(later).toBeGreaterThan(0)
+    expect(later).toBeLessThan(full)
+    expect(at(30, false)).toBe(full)
+  })
 })
 
 describe('Lightning', () => {

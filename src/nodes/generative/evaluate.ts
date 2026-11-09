@@ -658,6 +658,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
 
 // ── Classics: Candle, Lightning, Sunrise, TV Simulator ─────────────────────────
 const lightningState = instanceState('lightningState', new Map<string, LightningState>())
+const sunriseState = instanceState('sunriseState', new Map<string, { origin: number; prev: boolean }>())
 interface RainState { w: number; h: number; dir: string; seed: number; head: Float32Array; spd: Float32Array; len: Float32Array }
 const rainState = instanceState('rainState', new Map<string, RainState>())
 
@@ -718,9 +719,16 @@ const CLASSIC_EVALUATORS: NodeEvaluators = {
     const c = scaled(hexToRgb(String(props.color ?? '#cfe0ff')), v)
     return { frame: buildFrame(W, H, () => c) }
   },
-  Sunrise({ num, t, W, H }, id, props) {
+  Sunrise({ input, num, t, W, H, stateKey }, id, props) {
     const mode = sunriseMode(props.mode)
-    const p = sunriseProgress(mode, t, num(id, 'start', props, 'start', 0), num(id, 'duration', props, 'duration', 30), num(id, 'progress', props, 'progress', 0))
+    // A rising Trigger restarts the timed ramp: it counts from that moment.
+    const key = stateKey(id)
+    const s = sunriseState.get(key) ?? { origin: 0, prev: false }
+    const trigger = Boolean(input(id, 'trigger', false))
+    if (trigger && !s.prev) s.origin = t
+    s.prev = trigger
+    sunriseState.set(key, s)
+    const p = sunriseProgress(mode, t - s.origin, num(id, 'start', props, 'start', 0), num(id, 'duration', props, 'duration', 30), num(id, 'progress', props, 'progress', 0))
     const c = sunriseColor(p)
     return { frame: buildFrame(W, H, () => c) }
   },

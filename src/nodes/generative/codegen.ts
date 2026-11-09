@@ -505,17 +505,23 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`    float _v=constrain(${f('intensity', 'intensity', 1)},0.0f,1.0f)*_lvl; CRGB _c=${hexCrgb(p.color, 0xcfe0ff)};`)
     ln(`    _c.r=(uint8_t)(_c.r*_v); _c.g=(uint8_t)(_c.g*_v); _c.b=(uint8_t)(_c.b*_v); fill_solid(${ob},NUM_LEDS,_c); }`)
   },
-  Sunrise({ p, ln, f, ownBuf, needsT }) {
+  Sunrise({ node, id, p, ln, f, ownBuf, incoming, boolExpr, needsT }) {
     const ob = ownBuf()
     const manual = sunriseMode(p.mode) === 'manual'
     if (!manual) needsT.v = true
+    // Only a timed ramp with a Trigger wired can restart; otherwise it counts from power-on.
+    const restarts = !manual && incoming.has(`${node.id}:trigger`)
     const stops = (i: 1 | 2 | 3) => SUNRISE_STOPS.map((s) => lit(s[i])).join(',')
     const at = SUNRISE_STOPS.map((s) => lit(s[0])).join(',')
     ln(`  { // Sunrise`)
     ln(`    static const float _sa[${SUNRISE_STOPS.length}]={${at}},_sr[${SUNRISE_STOPS.length}]={${stops(1)}},_sg[${SUNRISE_STOPS.length}]={${stops(2)}},_sb[${SUNRISE_STOPS.length}]={${stops(3)}};`)
+    if (restarts) {
+      ln(`    static float _srO_${id}=0.0f; static bool _srP_${id}=false; bool _tr=(${boolExpr(node.id, 'trigger')});`)
+      ln(`    if(_tr&&!_srP_${id}) _srO_${id}=t; _srP_${id}=_tr;`)
+    }
     ln(manual
       ? `    float _p=${f('progress', 'progress', 0)};`
-      : `    float _p=(t-${f('start', 'start', 0)})/fmaxf(0.001f,${f('duration', 'duration', 30)});`)
+      : `    float _p=(t-${restarts ? `_srO_${id}-` : ''}${f('start', 'start', 0)})/fmaxf(0.001f,${f('duration', 'duration', 30)});`)
     ln(`    _p=isfinite(_p)?constrain(_p,0.0f,1.0f):0.0f;`)
     ln(`    int _k=0; while(_k<${SUNRISE_STOPS.length - 2}&&_p>_sa[_k+1]) _k++;`)
     ln(`    float _u=constrain((_p-_sa[_k])/(_sa[_k+1]-_sa[_k]),0.0f,1.0f),_v=powf(_p,${lit(SUNRISE_GAMMA)});`)

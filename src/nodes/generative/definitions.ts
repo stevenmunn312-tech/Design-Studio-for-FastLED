@@ -236,7 +236,8 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { rate: 6, intensity: 1, color: '#cfe0ff' },
   },
   {
-    // Sunrise — night blue to warm white, on a timer or from a 0–1 progress input.
+    // Sunrise — night blue to warm white, on a timer or from a 0–1 progress
+    // input. A rising `trigger` restarts the timer, so a schedule wires in.
     type: 'Sunrise',
     label: 'Sunrise',
     category: 'pattern',
@@ -245,6 +246,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'progress', label: 'Progress', dataType: 'float' },
       { id: 'duration', label: 'Duration', dataType: 'float' },
       { id: 'start', label: 'Start', dataType: 'float' },
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
     ],
     propertyInputs: { progress: 'progress', duration: 'duration', start: 'start' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],

@@ -1026,11 +1026,6 @@ freeze, or drop them.
   Help example uses 4. For String Particles, a ring form gives the ring track
   and LED count and a strip form gives row. Evidence `src/state/nodeLibrary.ts:2244`,
   `:2261`.
-- [ ] **Sunrise: Add a `trigger` input that restarts the timed ramp (Med, S).**
-  Timed mode only counts from power-on, so a real wake-up light needs
-  Progress fed from a schedule through several nodes. A rising edge on
-  `trigger` would let ScheduleTrigger or RTC wire in directly. Evidence
-  `src/state/nodeLibrary.ts:2228`.
 - [ ] **Particles: Prune overlapping modes (Med, M).** `confetti` duplicates
   the Confetti node; `rain` and `sparkle` overlap Digital Rain; `orbit` and
   `vortex` are both rotation about the centre. The clashing names are fixed
