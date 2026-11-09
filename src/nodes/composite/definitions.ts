@@ -8,6 +8,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Blur2D',
     label: 'Blur 2D',
     category: 'composite',
+    subcategory: 'Trails & Blur',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'amount', label: 'Amount', dataType: 'float' },
@@ -24,6 +25,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Blend',
     label: 'Blend',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'a',      label: 'A',       dataType: 'frame' },
       { id: 'b',      label: 'B',       dataType: 'frame' },
@@ -45,6 +47,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Mask',
     label: 'Mask',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'mask',  label: 'Mask',  dataType: 'frame' },
@@ -60,6 +63,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Glitter',
     label: 'Glitter',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'density', label: 'Density', dataType: 'float' },
@@ -79,6 +83,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'FrameTransform',
     label: 'Frame Transform',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'offsetX', label: 'Offset X', dataType: 'float' },
@@ -89,11 +94,11 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { rotate: '0', flipX: false, flipY: false, offsetX: 0, offsetY: 0 },
   },
 
-  // ── Compositing ────────────────────────────────────────────────────────
   {
     type: 'BrightnessMod',
     label: 'Brightness',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
@@ -106,6 +111,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'HueShift',
     label: 'Hue Shift',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shift', label: 'Shift', dataType: 'float' },
@@ -120,6 +126,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Gamma',
     label: 'Gamma',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'gamma', label: 'Gamma', dataType: 'float' },
@@ -134,6 +141,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Saturation',
     label: 'Saturation',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'amount', label: 'Amount', dataType: 'float' },
@@ -149,6 +157,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'ColorBoost',
     label: 'Color Boost',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'boost', label: 'Boost', dataType: 'float' },
@@ -162,6 +171,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Transform',
     label: 'Transform',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'rate', label: 'Rate', dataType: 'float' },
@@ -180,6 +190,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Array',
     label: 'Array',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       // Wire a signal here to animate the array — e.g. a Counter/Sin into `angle`
@@ -210,6 +221,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Invert',
     label: 'Invert',
     category: 'composite',
+    subcategory: 'Color',
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {},
@@ -226,6 +238,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Mirror',
     label: 'Mirror',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'color', label: 'Tint', dataType: 'color' },
@@ -244,6 +257,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Kaleidoscope',
     label: 'Kaleidoscope',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'segments', label: 'Segments', dataType: 'float' },
@@ -260,6 +274,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Trails',
     label: 'Trails',
     category: 'composite',
+    subcategory: 'Trails & Blur',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'decay', label: 'Decay', dataType: 'float' },
@@ -275,6 +290,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'FrameWarp',
     label: 'Frame Warp',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'dx', label: 'Offset X', dataType: 'field' },
@@ -299,6 +315,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Symmetry',
     label: 'Symmetry',
     category: 'composite',
+    subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'cells', label: 'Cells', dataType: 'float' },
@@ -323,6 +340,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'FrameFeedback',
     label: 'Frame Feedback',
     category: 'composite',
+    subcategory: 'Trails & Blur',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'amount', label: 'Amount', dataType: 'float' },
@@ -356,6 +374,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'FrameSwitch',
     label: 'Frame Switch',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'a', label: 'Frame A', dataType: 'frame' },
       { id: 'b', label: 'Frame B', dataType: 'frame' },
@@ -374,6 +393,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     type: 'Zones',
     label: 'Zones',
     category: 'composite',
+    subcategory: 'Layer',
     inputs: [
       { id: 'base', label: 'Base', dataType: 'frame' },
       { id: 'a', label: 'Zone A', dataType: 'frame' },

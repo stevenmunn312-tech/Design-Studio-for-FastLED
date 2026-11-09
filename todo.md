@@ -635,13 +635,6 @@ freeze, or drop them.
 
 #### Effects and signals
 
-- [ ] **Category: Split the flat Effects list into subcategories (Med, S).**
-  Effects has 21 nodes in one mixed list; `SUBCATEGORY_ORDER` has no
-  `composite` entry. Add one with Layer (Blend, Mask, Frame Switch, Zones,
-  Glitter), Colour (Brightness, Hue Shift, Saturation, Color Boost, Gamma,
-  Invert), Geometry (Frame Transform, Transform, Mirror, Kaleidoscope,
-  Symmetry, Array, Frame Warp) and Time (Trails, Frame Feedback, Blur 2D).
-  Evidence `src/state/nodeLibrary.ts:224`.
 - [ ] **Category: Merge the overlapping frame-transform nodes (Med, M).**
   Frame Transform, Transform, Frame Warp, Array, Frame Feedback and Symmetry
   each own part of offset/rotate/scale, "Rotate" means three different

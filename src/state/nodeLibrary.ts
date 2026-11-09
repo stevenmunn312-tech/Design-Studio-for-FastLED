@@ -225,6 +225,9 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
   math:    ['Math', 'Logic', 'Text'],
   color:   ['Colors', 'Palettes'],
   pattern: ['Shapes & Text', 'Media', 'Generative', 'Simulations', 'Audio-Reactive', 'Code'],
+  // Effects by what they change: how layers combine, colour, where pixels
+  // land, and what carries over from frame to frame (plus Blur 2D).
+  composite: ['Layer', 'Color', 'Geometry', 'Trails & Blur'],
 }
 
 // Explicit workflow ordering for categories where the pipeline sequence
