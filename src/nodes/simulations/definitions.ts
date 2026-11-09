@@ -7,11 +7,10 @@ import { REACTION_DIFFUSION_RATES } from './reactionDiffusionPresets'
 export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
   {
     // `direction` rotates which edge sparks (the flame base) and which way heat
-    // rises; `turbulence` widens the sideways diffusion kernel (1 = the
-    // original 3-wide average); `paletteMix` blends the palette colour with
-    // plain heat-brightness grayscale (1 = full colour, 0 = grayscale);
-    // `mirror` folds the flame symmetric across its width; `seed` (0 = free-
-    // running) switches cooling/sparking to a deterministic per-instance PRNG
+    // rises, and `auto` rises up a matrix and burns along a string;
+    // `turbulence` widens the sideways diffusion kernel in whole steps (1 = the
+    // original 3-wide average); `mirror` folds the flame symmetric across its
+    // width; `seed` (0 = free-running) switches cooling/sparking to a deterministic per-instance PRNG
     // so the same seed reproduces the same flame. See PROPERTY_META overrides
     // and the Fire cases in evaluate.ts/codegen.ts. `fireStyle` picks the heat
     // algorithm: classic, smoke (classic dimmed by a drifting noise layer) or
@@ -26,16 +25,15 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'sparking', label: 'Sparking', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'turbulence', label: 'Turbulence', dataType: 'float' },
-      { id: 'paletteMix', label: 'Palette Mix', dataType: 'float' },
     ],
-    propertyInputs: { intensity: 'intensity', cooling: 'cooling', sparking: 'sparking', palette: 'paletteIn', turbulence: 'turbulence', paletteMix: 'paletteMix' },
+    propertyInputs: { intensity: 'intensity', cooling: 'cooling', sparking: 'sparking', palette: 'paletteIn', turbulence: 'turbulence' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       intensity: 0.7,
       cooling: 55, sparking: 120, palette: 'fire',
-      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0, fireStyle: 'classic',
+      direction: 'auto', turbulence: 1, mirror: false, seed: 0, fireStyle: 'classic',
     },
   },
   {
@@ -107,7 +105,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'dotSize', label: 'Dot Size', dataType: 'float' },
       { id: 'count', label: 'Count', dataType: 'float' },
-      { id: 'persistence', label: 'Persistence', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
       { id: 'freqA', label: 'Freq A', dataType: 'float' },
       { id: 'freqB', label: 'Freq B', dataType: 'float' },
       { id: 'petals', label: 'Petals', dataType: 'float' },
@@ -118,7 +116,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       speed: 'speed',
       dotSize: 'dotSize',
       count: 'count',
-      persistence: 'persistence',
+      trail: 'trail',
       freqA: 'freqA',
       freqB: 'freqB',
       petals: 'petals',
@@ -133,7 +131,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       // phyllotaxis / logisticMap / attractor
       count: 60,
       // lissajousPath / rosePath / attractor
-      persistence: 0.85,
+      trail: 0.46,
       // lissajousPath
       freqA: 3,
       freqB: 2,
@@ -155,15 +153,15 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'count', label: 'Count', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: {
       speed: 'speed', scale: 'scale', count: 'count',
-      fade: 'fade', palette: 'paletteIn',
+      trail: 'trail', palette: 'paletteIn',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean', seed: 0, flowMode: 'angle' },
+    defaultProperties: { speed: 0.67, scale: 0.32, count: 80, trail: 0.53, palette: 'ocean', seed: 0, flowMode: 'angle' },
   },
   {
     // String Particles — a 1-D particle pool drawn along a row, column or ring track.
@@ -175,38 +173,39 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'spawn', label: 'Spawn', dataType: 'float' },
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { spawn: 'spawn', speed: 'speed', fade: 'fade', palette: 'paletteIn' },
+    propertyInputs: { spawn: 'spawn', speed: 'speed', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { track: 'row', mode: 'drift', count: 12, ringLeds: 60, bed: 0.3, spawn: 0.5, speed: 0.5, fade: 0.85, palette: 'rainbow', seed: 0 },
+    defaultProperties: { track: 'row', mode: 'drift', count: 12, ringLeds: 60, bed: 0.3, spawn: 0.5, speed: 0.5, trail: 0.46, palette: 'rainbow', seed: 0 },
   },
   {
     // Ripples travelling the edges of a segment network, choosing a turn at
     // every node: the Chromancer model (docs/design/segment-networks.md).
     // Repeats the LED output's network by property, as String Particles
-    // repeats a ring's LED count.
+    // repeats a ring's LED count. Labelled Network Ripple: it draws only on a
+    // segment network, apart from Radial Burst's and Rain Ripples' rings.
     type: 'Ripple',
-    label: 'Ripple',
+    label: 'Network Ripple',
     category: 'pattern',
     subcategory: 'Simulations',
     inputs: [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'rate', label: 'Rate', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', rate: 'rate', fade: 'fade', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', rate: 'rate', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       networkPreset: 'hexagons', network: '', ledsPerEdge: 14, behaviour: 'straight', startNode: -1,
-      speed: 0.4, rate: 1, lifetime: 3, width: 3, fade: 0.85, palette: 'rainbow', seed: 0,
+      speed: 0.4, rate: 1, lifetime: 3, width: 3, trail: 0.46, palette: 'rainbow', seed: 0,
     },
   },
   {
-    // Warp starfield — stars streak outward from the centre.
+    // Warp starfield — single-pixel stars fly outward from the centre.
     type: 'Starfield',
     label: 'Starfield',
     category: 'pattern',
@@ -261,15 +260,15 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'feed', label: 'Feed', dataType: 'float' },
       { id: 'kill', label: 'Kill', dataType: 'float' },
-      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'steps', label: 'Steps', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { feed: 'feed', kill: 'kill', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { feed: 'feed', kill: 'kill', steps: 'steps', palette: 'paletteIn' },
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
-    defaultProperties: { rdPreset: 'custom', ...REACTION_DIFFUSION_RATES.coral, speed: 8, palette: 'ocean', seed: 0 },
+    defaultProperties: { rdPreset: 'custom', ...REACTION_DIFFUSION_RATES.coral, steps: 8, palette: 'ocean', seed: 0 },
   },
   {
     // Conway's Game of Life with fading trails; reseeds when it stagnates.
@@ -280,22 +279,22 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', fade: 'fade', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 8, fade: 0.75, palette: 'mojito', seed: 0 },
+    defaultProperties: { speed: 8, trail: 0.37, palette: 'mojito', seed: 0 },
   },
 ]
 
 export const SIMULATIONS_DESCRIPTIONS: Record<string, string> = {
   Fire: 'Rising fire: the classic flame, a smoky one, or FastLED Fire2012.',
   Particles: 'Twenty particle displays: weather, fireworks, trails, orbits, and more.',
-  FormulaPoints: 'Curated point generator: phyllotaxis, Lissajous/rose, logistic map, attractor.',
+  FormulaPoints: 'Points by formula: phyllotaxis, Lissajous/rose, logistic map, de Jong attractor.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   StringParticles: 'Particles on one line: a string, a column or an LED ring.',
   Ripple: 'Ripples that travel the edges of a segment network, turning at each node.',
-  Starfield: 'Warp starfield — stars streak outward from the centre.',
+  Starfield: 'Warp starfield — stars fly outward from the centre, brightening as they near.',
   Boids: 'Flocking swarm — agents steer by separation, alignment and cohesion.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes, with named presets.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',

@@ -42,9 +42,9 @@ import {
   type TftController,
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
-import { SPIRAL_ARMS } from '../nodes/generative/limits'
+import { RAINBOW_AXES, SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
-import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
+import { BOID_COLOR_MODES, BOID_PALETTE_MODES, BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
@@ -72,8 +72,9 @@ import { HARMONY_KINDS } from './palettes/harmonyPalette'
 import { GRADIENT_MIX_MODES, HUE_UNITS, hueUnits } from './palettes/hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
-import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
+import { CANDLE_MODES, SUNRISE_MODES } from './evaluator/classics'
 import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
+import { FIRE_DIRECTIONS } from '../nodes/simulations/fireDirection'
 import {
   AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_TYPES, CYCLIC_STATES_MAX, CYCLIC_STATES_MIN, CYCLIC_THRESHOLD_MAX, CYCLIC_THRESHOLD_MIN,
 } from './evaluator/automaton'
@@ -84,7 +85,7 @@ import {
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { SDV_MAX_SPEED } from './evaluator/sdVideo'
 import { FIRE_STYLES } from './evaluator/fireSmoke'
-import { PARTICLE_MODES } from '../nodes/simulations/particleModes'
+import { PARTICLE_MODES, particleModeUsesDecay, particleModeUsesRate } from '../nodes/simulations/particleModes'
 import { FUNCTION_OPS } from '../nodes/math/mathIdentity'
 import { LOGIC_OPS } from '../nodes/math/logic'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
@@ -445,7 +446,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
-  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine', 'fbm', 'gabor'] },
+  noiseType:      { control: 'select', options: ['fbm', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine', 'field', 'gabor'] },
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'average', 'min', 'max'] },
   fn:             { control: 'select', options: [...FUNCTION_OPS] },
   logicOp:        { control: 'select', options: [...LOGIC_OPS] },
@@ -500,6 +501,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   speed:    { control: 'slider', min: 0, max: 5, step: 0.1 },
   scale:    { control: 'slider', min: 0, max: 2, step: 0.01 },
   fade:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // Trail length on the shared half-life scale (nodes/shared/trailFade.ts).
+  trail:    { control: 'slider', min: 0, max: 1, step: 0.01 },
   thickness:{ control: 'slider', min: 0.5, max: 4, step: 0.05 },
   // Opacity / mix amount, normalised 0–1 (scaled to FastLED's 0–255 in the
   // evaluator + codegen). Shared by Blend / Blur2D / PaletteBlend.
@@ -1030,9 +1033,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     noiseShape: { control: 'select', options: [...NOISE_SHAPES] },
     worleyMode: { control: 'select', options: [...WORLEY_MODES] },
   },
-  Plasma:          { speed: N01 },
-  Rainbow:         { speed: N01 },
-  RadialBurst:     { speed: N01, arms: { control: 'slider', min: 1, max: 32, step: 1 } },
+  Plasma:          { speed: N01, scale: N01 },
+  Rainbow:         { speed: N01, axis: { control: 'select', options: [...RAINBOW_AXES] } },
+  RadialBurst:     { speed: N01, rings: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01, arms: { control: 'slider', min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max, step: 1 } },
   Kaleidoscope:    { segments: { control: 'slider', min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max, step: 1 } },
   Starfield:       {
@@ -1041,7 +1044,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     count: { control: 'slider', min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max, step: 1 },
   },
   Ripple: {
-    speed: N01, fade: N01,
+    speed: N01, trail: N01,
     rate:      { control: 'slider', min: 0, max: 10, step: 0.1 },
     lifetime:  { control: 'slider', min: RIPPLE_LIFETIME_SEC.min, max: RIPPLE_LIFETIME_SEC.max, step: 0.1 },
     width:     { control: 'slider', min: RIPPLE_WIDTH.min, max: RIPPLE_WIDTH.max, step: 1 },
@@ -1052,7 +1055,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     ledsPerEdge: { control: 'slider', min: NETWORK_LEDS_PER_EDGE.min, max: NETWORK_LEDS_PER_EDGE.max, step: 1 },
   },
   StringParticles: {
-    speed: N01, spawn: N01, fade: N01, bed: N01,
+    speed: N01, spawn: N01, trail: N01, bed: N01,
     seed:     { control: 'slider', min: 0, max: 9999, step: 1 },
     count:    { control: 'slider', min: 1, max: MAX_STRING_PARTICLES, step: 1 },
     ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
@@ -1067,7 +1070,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     alignment:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     cohesion:    { control: 'slider', min: 0, max: 1, step: 0.01 },
     visualRange: { control: 'slider', min: BOIDS_VISUAL_RANGE.min, max: BOIDS_VISUAL_RANGE.max, step: 0.5 },
-    colorMode:   { control: 'select', options: ['solid', 'palette', 'heading', 'spectrum', 'density', 'position', 'cycle', 'radial'] },
+    colorMode:   { control: 'select', options: [...BOID_COLOR_MODES] },
   },
   GradientFrame: { mixMode: { control: 'select', options: [...GRADIENT_MIX_MODES] } },
   GradientSampler: { mixMode: { control: 'select', options: [...GRADIENT_MIX_MODES] } },
@@ -1087,13 +1090,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     radialMix: N01,
     radialScroll: { control: 'slider', min: -1, max: 1, step: 0.01 },
   },
-  Blobs:           { speed: N01, scale: N01, count: { control: 'slider', min: 1, max: 6, step: 1 } },
+  Blobs:           { speed: N01, size: N01, count: { control: 'slider', min: 1, max: 6, step: 1 } },
   FlowField: {
     speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     flowMode: { control: 'select', options: ['angle', 'curl'] },
     count: { control: 'slider', min: FLOW_FIELD_COUNT.min, max: FLOW_FIELD_COUNT.max, step: 1 },
   },
-  Pride2015:       { speed: N01, scale: N01 },
+  Pride2015:       { speed: N01, scale: N01, palette: { control: 'select', options: ['none', ...PALETTES] } },
   Pacifica:        { speed: N01, scale: N01 },
   TwinkleFox:      { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Scanner:         {
@@ -1123,7 +1126,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   Candle:          { flicker: N01, warmth: N01, mode: { control: 'select', options: [...CANDLE_MODES] } },
   Lightning:       { rate: { control: 'slider', min: 0.5, max: 60, step: 0.5 }, intensity: N01 },
-  Heartbeat:       { bpm: { control: 'slider', min: HEARTBEAT_BPM_MIN, max: HEARTBEAT_BPM_MAX, step: 1 }, strength: N01 },
   Sunrise:         {
     mode: { control: 'select', options: [...SUNRISE_MODES] },
     progress: N01,
@@ -1164,7 +1166,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // phyllotaxis / logisticMap / attractor
     count: { control: 'slider', min: 8, max: 300, step: 1 },
     // lissajousPath / rosePath / attractor
-    persistence: N01,
+    trail: N01,
     // lissajousPath
     freqA: { control: 'slider', min: 1, max: 8, step: 1 },
     freqB: { control: 'slider', min: 1, max: 8, step: 1 },
@@ -1487,7 +1489,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   ReactionDiffusion: {
     rdPreset: { control: 'select', options: [...REACTION_DIFFUSION_PRESETS] },
-    speed: { control: 'slider', min: 1, max: REACTION_DIFFUSION_MAX_STEPS, step: 1 },
+    steps: { control: 'slider', min: 1, max: REACTION_DIFFUSION_MAX_STEPS, step: 1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   // The Music Player and the Pattern Slideshow share their timing controls
@@ -1627,11 +1629,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     subdivision: { control: 'slider', min: 1, max: 8, step: 1 },
   },
   Fire: {
-    direction:   { control: 'select', options: ['up', 'down', 'left', 'right'] },
+    direction:   { control: 'select', options: [...FIRE_DIRECTIONS] },
     fireStyle:   { control: 'select', options: [...FIRE_STYLES] },
     intensity:   N01,
-    turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
-    paletteMix:  { control: 'slider', min: 0, max: 1, step: 0.01 },
+    // Whole steps: the kernel is 1, 3 or 5 cells wide on both sides.
+    turbulence:  { control: 'slider', min: 0, max: 2, step: 1 },
     seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   Zones: {
@@ -1978,7 +1980,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
     worleyMode: 'What Worley draws: the distance to the nearest point (f1), the gap to the second nearest (f2f1), or thin bright lines on the cell borders (edges).',
     wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
-    noiseType: 'Which noise algorithm draws the field. fbm sums octaves into clouds; gabor draws oriented bands. Noise 4D and fbm use FastLED inoise on the controller.',
+    noiseType: 'Which noise algorithm draws the field. fbm, the default, sums octaves into clouds; field is a grid of two crossed sine waves; gabor draws oriented bands. The controller draws the same noise as the preview.',
     octaves: 'Noise layers summed by fbm, 1 smooth to 6 detailed. More costs CPU on the controller.',
     frequency: 'Gabor only: stripes per cell inside each kernel; higher gives finer bands.',
     orientation: 'Gabor only: direction of the bands in degrees, 0 horizontal to 360.',
@@ -2173,10 +2175,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     count: 'Number of representative colour anchors extracted before interpolation to 16 FastLED stops.',
   },
   Fire: {
-    direction: 'Which way the flame rises.',
+    direction: 'Which way the flame rises. Auto rises up a matrix or ring and burns along a string from its first LED.',
     fireStyle: 'Classic: the flame as it always was. Smoke: a second noise layer drifts up through the flame and dims it, as in FastLED\'s Fire2023. Fire2012: FastLED\'s own Fire2012 heat simulation; Intensity has no effect on it.',
-    turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
-    paletteMix: 'Blends the palette colour toward plain heat-brightness grayscale.',
+    turbulence: 'Sideways heat spread: 0 narrow, 1 normal (the original kernel), 2 wide.',
     mirror: 'Folds the rendered frame symmetric across its width (up/down) or height (left/right).',
     intensity: 'Overall flame height, 0 embers to 1 full blaze. Scales the spark chance. Not used by the Fire2012 style.',
     cooling: 'How fast heat fades as it rises, 0 to 255. Higher gives shorter flames.',
@@ -2319,7 +2320,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rdPreset: 'A named feed/kill pair. Custom uses the Feed and Kill knobs; any other preset ignores them and their wires.',
     feed: 'Rate chemical U is replenished. Used only by the Custom preset.',
     kill: 'Rate chemical V is removed. Used only by the Custom preset.',
-    speed: 'Simulation steps per frame, 1 to 20. Higher evolves faster but costs CPU on big panels.',
+    steps: 'Simulation steps per frame, 1 to 20. More evolves faster but costs CPU on big panels.',
     palette: 'Colour by chemical V: empty cells take the palette start, full cells its end.',
   },
   PaletteBank: {
@@ -2333,13 +2334,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     color: 'Colour of the flash; pale blue-white by default.',
   },
   Sunrise: {
-    mode: 'Timed: the ramp starts Start seconds after power-on and runs for Duration. Manual: Progress sets the point on the ramp.',
+    mode: 'Timed: the ramp starts Start seconds after power-on, or after each rising Trigger, and runs for Duration. Manual: Progress sets the point on the ramp.',
     duration: 'Seconds the ramp takes from night to full light, 1 to 3600. Master Speed scales it like every animation.',
-    start: 'Seconds after power-on (in the preview, after the preview starts) at which the ramp begins, 0 to 3600.',
+    start: 'Seconds after power-on or the last Trigger (in the preview, after the preview starts) at which the ramp begins, 0 to 3600.',
     progress: 'Point on the ramp in Manual mode, 0 night to 1 full daylight.',
   },
   DigitalRain: {
-    direction: 'Which way the streams fall. On a string, left and right run them along its length.',
+    direction: 'Which way the streams fall. Auto runs them down a matrix and along a string.',
     density: 'How readily idle lanes start a new stream.',
     tailLength: 'Longest tail, in LEDs. Each stream draws between half and all of this.',
     speed: 'How fast the streams fall, 0 still to 1 fastest.',
@@ -2360,7 +2361,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rate: 'Ripples started on their own each second. A rising Trigger starts one more.',
     lifetime: 'Seconds a ripple lives before it fades out.',
     width: 'LEDs lit behind each ripple\'s head.',
-    fade: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Each ripple takes the next colour along the palette.',
     seed: 'Seed for random start nodes and the Random behaviour. 0 varies every run.',
   },
@@ -2372,7 +2373,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bed: 'Brightness of the noise bed under the meteors.',
     spawn: 'How readily new particles appear: 0 none, 1 as soon as a slot is free.',
     speed: 'How fast drift particles move, 0 still to 1 fastest.',
-    fade: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Colour each particle is born with; it whitens as it dies.',
   },
   FlowField: {
@@ -2380,7 +2381,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     speed: 'How fast particles move along the flow, 0 still to 1 fastest.',
     scale: 'Size of the flow swirls; low is broad currents, high is tight eddies.',
     count: 'Particles leaving trails, 8 to 400.',
-    fade: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Colour by trail brightness, from the palette start to its end.',
   },
   Path: {
@@ -2920,16 +2921,19 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     loop: 'Start the animation again after its last frame. Off holds the last frame.',
   },
   Plasma: {
-    speed: 'How fast the interference bands move, 0 frozen to 1 fastest.',
+    speed: 'How fast the interference bands move and the colours scroll, 0 frozen to 1 fastest.',
+    scale: 'Size of the bands: low gives broad slow swirls, high fine ripples. 0.5 is the classic plasma.',
     palette: 'Colour sweep applied to the plasma; rainbow gives the classic look.',
   },
   Rainbow: {
     speed: 'How fast the hues scroll along the LEDs, 0 still to 1 fastest.',
     deltaHue: 'Hue step per LED, 0 to 32. Small spreads one rainbow over the strip; large repeats it.',
+    axis: 'String follows the LEDs in order, as FastLED fill_rainbow does. Horizontal and vertical step the hue once per column or row, for a straight gradient on a matrix.',
   },
   Pride2015: {
     speed: 'How fast the rainbow and brightness wave travel, 0 still to 1 fastest.',
     scale: 'How many colour bands fit along the LEDs; higher packs them tighter.',
+    palette: 'None draws the rainbow. A palette here or on the Palette input makes it colorwaves: the same waves in the palette\'s colours.',
   },
   Pacifica: {
     speed: 'How fast the wave layers scroll, 0 still to 1 fastest.',
@@ -2944,9 +2948,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Scanner: {
     speed: 'Sweeps per second across the axis, 0 still to 1 fastest.',
     width: 'Width of the bright core in LEDs.',
-    fade: 'Length of the trailing glow, 0 none to 1 about a third of the span.',
+    trail: 'How long the tail behind the beam lasts: 0 none, 1 halving about every 2 s, each step lengthening it by the same ratio.',
     axis: 'Sweep left-right along rows or up-down along columns.',
-    palette: 'Colour of the beam, read from the palette at the beam position.',
+    palette: 'Colour of the beam, from the bright upper part of the palette at one end of the sweep to its end colour at the other.',
   },
   TheaterChase: {
     speed: 'Chase steps per second, 0 still to 1 twelve steps a second.',
@@ -2962,15 +2966,15 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Each wipe takes the next colour a fifth of the way round this palette.',
   },
   Breathe: {
-    bpm: 'Breaths per minute, 1 to 120. 12 is a resting adult.',
+    bpm: 'Breaths or beats per minute, 1 to 240. 12 is a resting adult\'s breath, 60 to 80 a resting heart.',
     minLevel: 'Brightness at the bottom of each breath, 0 fully dark to 1 never dimming.',
-    curve: 'Natural is the exponential breathing curve, sine is symmetric, triangle is linear.',
+    curve: 'Natural is the exponential breathing curve, sine is symmetric, triangle is linear, heartbeat is a heart\'s lub-dub double pulse.',
     palette: 'Colour across the breath: the palette start when empty, its end at the peak.',
   },
   Confetti: {
-    speed: 'How many speckles appear per frame, 0 none to 1 most.',
-    density: 'Extra speckles per frame; multiplies Speed.',
-    fade: 'How quickly old speckles go: 0 halves them in about 2 s, 1 clears them at once, and each step along the slider shortens them by the same ratio.',
+    speed: 'How fast the speckles\' colours drift through the palette, 0 fixed to 1 fastest.',
+    density: 'How many speckles appear each frame, 0 none to 1 most.',
+    trail: 'How long old speckles linger: 0 clears them at once, 1 halves them about every 2 s, and each step along the slider lengthens them by the same ratio.',
     palette: 'Colours the speckles are drawn from, drifting with time.',
   },
   Candle: {
@@ -2978,20 +2982,15 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     flicker: 'How much the brightness wavers, 0 steady to 1 guttering.',
     warmth: 'Flame colour, 0 deep orange to 1 pale yellow.',
   },
-  Heartbeat: {
-    bpm: 'Beats per minute, 20 to 240.',
-    strength: 'How far the lights dim between beats, 0 none to 1 fully dark.',
-    palette: 'Colour across the beat: the palette start at rest, its end at the peak.',
-  },
   Juggle: {
     speed: 'How fast the dots sweep back and forth, 0 still to 1 fastest.',
     count: 'Number of dots, 1 (Sinelon) to 8, each in its own row.',
-    fade: 'How short the trails are: 0 halves them in about 2 s, 1 leaves none, and each step along the slider shortens them by the same ratio.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Colours the dots cycle through as they move.',
   },
   RadialBurst: {
     speed: 'How fast the rings expand from the centre, 0 still to 1 fastest.',
-    arms: 'Number of rings across the radius, 1 to 32.',
+    rings: 'Number of rings across the radius, 1 to 32.',
     palette: 'Colour by distance from the centre.',
   },
   Spiral: {
@@ -3004,14 +3003,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Blobs: {
     speed: 'How fast the blobs wander, 0 still to 1 fastest.',
-    scale: 'Blob size as a share of the shorter side; larger blobs merge sooner.',
+    size: 'Blob size as a share of the shorter side, or of the length on a string; larger blobs merge sooner.',
     count: 'Number of blobs, 1 to 6.',
     palette: 'Colour by field strength: palette start outside, palette end inside a blob.',
   },
   Particles: {
-    particleType: 'Which particle display to run. Fixed-count displays ignore Rate.',
-    rate: 'Chance of a new particle each frame, 0 none to 1 constant. Ignored by fixed-count displays.',
-    decay: 'Life kept each frame, 0 vanishes at once to 1 never fades.',
+    particleType: 'Which particle display to run. These move in two dimensions; on a one-row string, String Particles fits better.',
+    rate: 'Chance of a new particle each frame, 0 none to 1 every frame. Only the spawning displays read it.',
+    decay: 'Life kept each frame, 0 vanishes at once to 1 never fades. Snow, bubbles and the fixed-count displays do not fade.',
     palette: 'Colour by age: new particles take the palette end, fading ones its start.',
     size: 'Dot size multiplier, 0.25 to 3. Dots also grow with the panel.',
     count: 'Particles alive for fixed-count displays, 2 to 80. Fixed when the effect starts.',
@@ -3020,12 +3019,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bounce: 'Energy kept when hitting the floor, 0 dead stop to 1.5 bouncing higher.',
   },
   FormulaPoints: {
-    formulaType: 'Which formula places the dots. Only the knobs that formula uses are enabled.',
+    formulaType: 'Which formula places the dots; attractor is the de Jong strange attractor. Only the knobs that formula uses are enabled.',
     speed: 'Rotation or path speed, 0 still to 1 fastest.',
     dotSize: 'Dot size multiplier, 0.25 to 3.',
     palette: 'Colour by dot index or by position along the path.',
     count: 'Dots drawn each frame, 8 to 300.',
-    persistence: 'How much of the trail survives each frame, 0 none to 1 never fades.',
+    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     freqA: 'Horizontal oscillations per cycle, 1 to 8.',
     freqB: 'Vertical oscillations per cycle, 1 to 8.',
     petals: 'Petals on the rose curve, 1 to 12.',
@@ -3034,7 +3033,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Starfield: {
     speed: 'Warp speed toward the viewer, 0 still to 1 fastest.',
-    count: 'Stars in flight, 8 to 300.',
+    count: 'Stars in flight, 8 to 300. Each is a single pixel.',
     palette: 'Colour by depth: far stars take the palette start, near stars its end.',
   },
   Boids: {
@@ -3044,12 +3043,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     alignment: 'How strongly boids match their neighbours heading, 0 none to 1 strong.',
     cohesion: 'How strongly boids drift toward the local group, 0 none to 1 strong.',
     visualRange: 'How far a boid sees neighbours, in LEDs.',
-    colorMode: 'What colours each boid: one colour, the palette, heading, density, position, time or radius.',
-    palette: 'Used by the palette colour mode: each boid takes a fixed palette position.',
+    colorMode: 'What colours each boid: one colour (solid), or a place on the palette set by its index (palette), heading, crowding (density), position, distance from the centre (radial) or time (cycle).',
+    palette: 'The colours every mode but solid reads from.',
   },
   GameOfLife: {
     speed: 'Generations per second, 1 to 30.',
-    fade: 'How slowly dead cells dim, 0 instantly to 1 never.',
+    trail: 'How long dead cells glow as they cool: 0 they go out at once, 1 they halve about every 2 s.',
     palette: 'Live cells take the palette end; fading cells cool toward its start.',
   },
   FormulaField: {
@@ -3677,12 +3676,20 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   Fire: {
     fireStyle: 'style',
-    paletteMix: 'palette mix',
   },
   Particles: {
     particleType: 'type',
-    rate: 'spawn',
+    rate: 'spawn/frame',
     size: 'dot size',
+  },
+  Lightning: {
+    rate: 'strikes/min',
+  },
+  Confetti: {
+    speed: 'color drift',
+  },
+  GameOfLife: {
+    speed: 'generations/s',
   },
   FormulaPoints: {
     formulaType: 'formula',
@@ -3808,6 +3815,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     ledsPerEdge: 'LEDs per edge',
     startNode: 'start node',
     lifetime: 'lifetime (s)',
+    rate: 'ripples/s',
   },
   StringParticles: {
     ringLeds: 'ring LEDs',
@@ -4351,12 +4359,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   Ripple: [
     { key: 'network', label: 'Network', keys: ['networkPreset', 'network', 'ledsPerEdge'] },
-    { key: 'ripples', label: 'Ripples', keys: ['behaviour', 'startNode', 'speed', 'rate', 'lifetime', 'width', 'fade', 'seed'] },
+    { key: 'ripples', label: 'Ripples', keys: ['behaviour', 'startNode', 'speed', 'rate', 'lifetime', 'width', 'trail', 'seed'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   StringParticles: [
     { key: 'track', label: 'Track', keys: ['track', 'ringLeds'] },
-    { key: 'particles', label: 'Particles', keys: ['mode', 'count', 'spawn', 'speed', 'fade', 'bed'] },
+    { key: 'particles', label: 'Particles', keys: ['mode', 'count', 'spawn', 'speed', 'trail', 'bed'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Boids: [
@@ -4441,7 +4449,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   Fire: [
     { key: 'flame', label: 'Flame', keys: ['fireStyle', 'intensity', 'cooling', 'sparking', 'turbulence'] },
     { key: 'shape', label: 'Shape', keys: ['direction', 'mirror'] },
-    { key: 'color', label: 'Color', keys: ['palette', 'paletteMix'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Particles: [
     { key: 'mode', label: 'Mode', keys: ['particleType', 'rate', 'decay', 'count'] },
@@ -4451,7 +4459,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   FormulaPoints: [
     { key: 'formula', label: 'Formula', keys: ['formulaType', 'preset', 'count', 'speed'] },
     { key: 'shape', label: 'Shape', keys: ['freqA', 'freqB', 'petals', 'chaos'] },
-    { key: 'trail', label: 'Trail', keys: ['persistence', 'dotSize'] },
+    { key: 'trail', label: 'Trail', keys: ['trail', 'dotSize'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   DigitalRain: [
@@ -4460,7 +4468,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   FlowField: [
     { key: 'flow', label: 'Flow', keys: ['flowMode', 'speed', 'scale'] },
-    { key: 'particles', label: 'Particles', keys: ['count', 'fade'] },
+    { key: 'particles', label: 'Particles', keys: ['count', 'trail'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   // Live audio fires on FastLED's beat, gated by Threshold alone, so Attack
@@ -4778,7 +4786,7 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   },
   Noise: {
     prop: 'noiseType',
-    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D', fbm: 'Fractal Noise', gabor: 'Gabor Noise' },
+    labels: { field: 'Sine Grid', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D', fbm: 'Fractal Noise', gabor: 'Gabor Noise' },
   },
   Path: {
     prop: 'pathShape',
@@ -4852,11 +4860,11 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   Particles: {
     prop: 'particleType',
     labels: {
-      fountain: 'Fountain', gravity: 'Gravity', fireworks: 'Fireworks', sparkle: 'Sparkle Rain',
+      fountain: 'Fountain', drops: 'Drops', fireworks: 'Fireworks', sparkle: 'Sparkle Rain',
       comet: 'Comet', snow: 'Snow', rain: 'Rain', embers: 'Embers',
       bubbles: 'Bubbles', vortex: 'Vortex', orbit: 'Orbit', confetti: 'Confetti',
       fireflies: 'Fireflies', meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
-      bounce: 'Bounce', attractor: 'Attractor', waterfall: 'Waterfall', luminova: 'Luminova',
+      bounce: 'Bounce', chase: 'Chase', waterfall: 'Waterfall', luminova: 'Luminova',
     },
   },
   FormulaPoints: {
@@ -4866,7 +4874,7 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
       lissajousPath: 'Formula · Lissajous Path',
       rosePath: 'Formula · Rose Path',
       logisticMap: 'Formula · Logistic Map',
-      attractor: 'Formula · Attractor',
+      attractor: 'Formula · de Jong Attractor',
     },
   },
   Ease: {
@@ -4907,9 +4915,9 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
 // bodies in graphEvaluator.ts's evalParticles and cppGenerator.ts's `Particles`
 // case, which are the ones that actually read each property.
 const PARTICLE_COUNT_MODES = new Set(['orbit', 'bounce', 'fireflies', 'luminova'])
-const PARTICLE_SPREAD_MODES = new Set(['fountain', 'gravity', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
-const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'gravity', 'fireworks', 'waterfall'])
-const PARTICLE_BOUNCE_MODES = new Set(['gravity', 'waterfall'])
+const PARTICLE_SPREAD_MODES = new Set(['fountain', 'drops', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
+const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'drops', 'fireworks', 'waterfall'])
+const PARTICLE_BOUNCE_MODES = new Set(['drops', 'waterfall'])
 
 /** Whether a node's inline property editor should be enabled. A property may be
  *  inapplicable to the current variant (e.g. Transition `direction` only applies
@@ -5254,7 +5262,7 @@ export function isPropertyEnabled(
     return properties.noiseType === 'worley'
   }
   if (nodeType === 'Noise' && key === 'octaves') {
-    return properties.noiseType === 'fbm'
+    return (properties.noiseType ?? 'fbm') === 'fbm'
   }
   if (nodeType === 'Noise' && (key === 'frequency' || key === 'orientation')) {
     return properties.noiseType === 'gabor'
@@ -5280,12 +5288,22 @@ export function isPropertyEnabled(
   }
   if (nodeType === 'Sunrise') {
     if (key === 'progress') return properties.mode === 'manual'
-    if (key === 'duration' || key === 'start') return properties.mode !== 'manual'
+    if (key === 'duration' || key === 'start' || key === 'trigger') return properties.mode !== 'manual'
   }
   if (nodeType === 'StringParticles') {
     if (key === 'ringLeds') return properties.track === 'ring'
     if (key === 'bed') return properties.mode === 'meteors'
     if (key === 'trigger') return properties.mode === 'meteors'
+  }
+  // Solid takes the colour; every other colour mode reads the palette.
+  if (nodeType === 'Boids') {
+    const palette = BOID_PALETTE_MODES.has(String(properties.colorMode ?? 'solid'))
+    if (key === 'palette' || key === 'paletteIn') return palette
+    if (key === 'color' || key === 'r' || key === 'g' || key === 'b') return !palette
+  }
+  // As on the LED output, the network JSON is read only by the custom preset.
+  if (nodeType === 'Ripple' && key === 'network') {
+    return properties.networkPreset === 'custom'
   }
   if (nodeType === 'Path' && key === 'customPoints') {
     return properties.pathShape === 'custom'
@@ -5493,6 +5511,10 @@ export function isPropertyEnabled(
       case 'gravity': return PARTICLE_GRAVITY_MODES.has(pt)
       // Modes with a floor-bounce restitution constant.
       case 'bounce':  return PARTICLE_BOUNCE_MODES.has(pt)
+      // Spawning modes; comet, meteor and the fixed-count ones never read it.
+      case 'rate':    return particleModeUsesRate(pt)
+      // Modes whose particles fade; snow, bubbles and the steady ones do not.
+      case 'decay':   return particleModeUsesDecay(pt)
     }
   }
   if (nodeType === 'FormulaPoints') {
@@ -5506,7 +5528,7 @@ export function isPropertyEnabled(
       case 'count':
         return ft === 'phyllotaxis' || ft === 'logisticMap' || ft === 'attractor'
       // Trail/accumulate variants (own a persistent, fading render buffer).
-      case 'persistence':
+      case 'trail':
         return ft === 'lissajousPath' || ft === 'rosePath' || ft === 'attractor'
       case 'freqA':
       case 'freqB':

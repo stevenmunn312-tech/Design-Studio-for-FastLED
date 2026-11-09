@@ -9,6 +9,7 @@ import { worleyHash, seedOffset } from '../../state/evaluator/random'
 import { floatLit } from '../cppLiterals'
 import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
+import { particleModeUsesRate } from '../../nodes/simulations/particleModes'
 import { fourierTable, fourierTableQ } from '../../nodes/shapes/fourierOutline'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { harmonyStopPlace } from '../../state/palettes/harmonyPalette'
@@ -151,7 +152,10 @@ describe('generateCpp', () => {
     expect(cpp.split('\n')).not.toContain('template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT>')
     expect(cpp).toContain('renderOutputPass<0, 60, 1>')
     expect(cpp).toContain('renderOutputPass<1, 16, 16>')
-    expect(cpp).toContain('static uint8_t _fireHeat_fire[RENDER_HEIGHT][RENDER_WIDTH]')
+    // Fire's `auto` direction is decided by each pass's own shape: it burns
+    // along the 60x1 string and up the 16x16 matrix.
+    const along = '(RENDER_WIDTH>RENDER_HEIGHT&&RENDER_HEIGHT<=2)'
+    expect(cpp).toContain(`static uint8_t _fireHeat_fire[(${along}?RENDER_WIDTH:RENDER_HEIGHT)][(${along}?RENDER_HEIGHT:RENDER_WIDTH)]`)
     expect(cpp).toContain('if constexpr (RENDER_PASS == 0)')
     expect(cpp).toContain('if constexpr (RENDER_PASS == 1)')
     expect(cpp.match(/\/\/ Fire pattern/g)).toHaveLength(1)
@@ -829,6 +833,22 @@ describe('generateCpp', () => {
     expect(cpp).toContain('* 2.000f)')
   })
 
+  it('scales Plasma by its Scale knob and scrolls its colours on the phase', () => {
+    const plasma = node('p', 'Plasma', 'pattern', { scale: 0.25 })
+    const cpp = generateCpp([plasma, outputNode], [edge('e1', 'p', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_sc = (constrain((0.25), 0.0f, 1.0f) * 2.000f);')
+    expect(cpp).toContain('int32_t _pk3=(int32_t)(3477.0f*(_sc)),_pk5=(int32_t)(2086.0f*(_sc)),_pkr=(int32_t)(27814.0f*(_sc));')
+    // The palette scroll follows the integrated phase, so speed 0 holds still.
+    expect(cpp).toContain('uint8_t _pt8=(uint8_t)(int32_t)fmodf(_phase_p*20.0f,256.0f);')
+    expect(cpp).not.toContain('fmodf(t*20.0f')
+  })
+
+  it('draws fBm by default from Noise', () => {
+    const cpp = generateCpp([node('n', 'Noise', 'pattern', {}), outputNode], [edge('e1', 'n', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('// Fractal noise (fBm of simplex octaves)')
+    expect(cpp).not.toContain('SINE_FIELD')
+  })
+
   it('emits a Boids flocking block with count-sized state and the wired colour', () => {
     const boids = node('bd', 'Boids', 'pattern', { count: 200, speed: 1, r: 10, g: 20, b: 30 })
     const cpp = generateCpp([boids, outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
@@ -850,26 +870,33 @@ describe('generateCpp', () => {
     expect(cpp).toContain('constrain(n_rg_value,1.0f,8.0f)')
   })
 
-  it('emits CHSV per-boid colouring for the heading and spectrum colour modes', () => {
+  it('reads every Boids colour mode but solid through the palette', () => {
     const mk = (colorMode: string) =>
-      generateCpp([node('bd', 'Boids', 'pattern', { colorMode, count: 10 }), outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
-    expect(mk('heading')).toContain('atan2f(_diry,_dirx)')
-    expect(mk('spectrum')).toContain('_i/(float)_count*255.0f')
+      generateCpp([node('bd', 'Boids', 'pattern', { colorMode, count: 10, palette: 'ocean' }), outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
+    for (const mode of ['palette', 'heading', 'density', 'position', 'radial', 'cycle']) {
+      expect(mk(mode)).toContain('CRGB _bc=ColorFromPalette(paldef_ocean,(uint8_t)(')
+      // The preview's hsv() wheel and FastLED's CHSV wheel disagree; no mode uses either.
+      expect(mk(mode)).not.toContain('CHSV(')
+      expect(mk(mode)).not.toContain('_bc0')
+    }
+    expect(mk('heading')).toContain('(atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f')
+    expect(mk('palette')).toContain('(uint8_t)(_i/(float)_count*255.0f)')
     // Density colours by neighbour count — only this mode allocates the _nn array.
     expect(mk('density')).toContain('_bnn_bd[_i]/8.0f')
     expect(mk('density')).toContain('int _bnn_bd[80];')
-    expect(mk('spectrum')).not.toContain('_bnn_bd[80]')
+    expect(mk('palette')).not.toContain('_bnn_bd[80]')
     // Position colours by matrix coordinate.
     expect(mk('position')).toContain('_bx_bd[_i]/WIDTH+_by_bd[_i]/HEIGHT')
-    // Cycle is time-driven, so it pulls in the `t` clock; radial builds a
-    // centre-distance ramp with pre-loop centre/max-radius constants.
-    expect(mk('cycle')).toContain('t*0.1f*255.0f')
+    // Cycle is time-driven, so it pulls in the `t` clock, wrapped before the
+    // byte cast; radial builds a centre-distance ramp with pre-loop constants.
+    expect(mk('cycle')).toContain('fmodf(t*0.1f,1.0f)*255.0f')
     expect(mk('cycle')).toContain('float t = millis()')
     expect(mk('radial')).toContain('float _bcx=WIDTH/2.0f,_bcy=HEIGHT/2.0f')
-    expect(mk('radial')).toContain('/_bmr*255.0f')
-    // Solid keeps the single base-colour path (no per-boid hue maths).
+    expect(mk('radial')).toContain('/_bmr)*255.0f')
+    // Solid keeps the single base-colour path and reads no palette.
     expect(mk('solid')).toContain('_bc=_bc0')
     expect(mk('solid')).not.toContain('atan2f')
+    expect(mk('solid')).not.toContain('paldef_ocean')
   })
 
   it('scales Noise speed per noiseType variant', () => {
@@ -1318,7 +1345,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('Fire2012')
     expect(cpp).toContain('_heat_f')
     // The 'heat' palette reproduces the classic HeatColors fire ramp.
-    expect(cpp).toContain('ColorFromPalette(paldef_heat, _h)')
+    expect(cpp).toContain('ColorFromPalette(paldef_heat, _heat_f[_p][_s])')
   })
 
   it('cools and sparks the classic Fire over the preview heat range, scaled to 0-255', () => {
@@ -1357,24 +1384,10 @@ describe('generateCpp', () => {
       }
     })
 
-    it('blends at runtime only once palette mix can move', () => {
-      // Wiring the knob means the generator can no longer pick between the two
-      // blocks, so the mix arm is emitted with a live factor. Left unwired at
-      // its default it still emits the plain assignment and costs nothing.
-      const plain = generateCpp([fireNode()], [])
-      expect(plain).not.toContain('_pmix')
-      const lfo = node('lfo', 'LFO', 'input', {})
-      const wired = generateCpp(
-        [lfo, fireNode()],
-        [edge('e', 'lfo', 'f', 'value', 'paletteMix')],
-      )
-      expect(wired).toContain('float _pmix=constrain(n_lfo_value,0.0f,1.0f)')
-      expect(wired).toContain('_h*_pkeep+_c.r*_pmix')
-    })
-
-    it('paletteMix<1 blends the palette colour with heat-brightness grayscale', () => {
-      const cpp = generateCpp([fireNode({ paletteMix: 0.25 })], [])
-      expect(cpp).toContain('_h*0.75f+_c.r*0.25f')
+    it('writes the palette colour straight through, with no grayscale blend', () => {
+      const cpp = generateCpp([fireNode()], [])
+      expect(cpp).not.toContain('_pmix')
+      expect(cpp).not.toContain('_pkeep')
     })
 
     it('mirror folds the rendered buffer symmetric across its width', () => {
@@ -1697,12 +1710,12 @@ describe('generateCpp', () => {
       .toContain('field_n[_i]=(1.0f-fabsf(2.0f*constrain(field_n[_i],0.0f,1.0f)-1.0f));')
 
     const flow = (props: Record<string, unknown>) => generateCpp([node('n', 'FlowField', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
-    expect(flow({})).toContain('float _dx=cos(_a),_dy=sin(_a);')
-    expect(flow({})).not.toContain('inoise16')
+    expect(flow({})).toContain('float _dx=cosf(_a),_dy=sinf(_a);')
+    expect(flow({})).not.toContain('_gx=')
     const curl = flow({ flowMode: 'curl' })
-    expect(curl).toContain('inoise16(_cx+3277u,_cy,_cz)-(float)inoise16(_cx-3277u,_cy,_cz)')
+    expect(curl).toContain('(_snoise2(_nx+0.05f,_ny)-_snoise2(_nx-0.05f,_ny))*5.0f')
     expect(curl).toContain('float _dx=_gy*1.5f,_dy=-_gx*1.5f;')
-    expect(curl).not.toContain('inoise8')
+    expect(curl).not.toContain('float _a=')
   })
 
   it('emits String Particles on each track and in each mode', () => {
@@ -1730,7 +1743,8 @@ describe('generateCpp', () => {
     expect(sp({ track: 'row', mode: 'meteors' })).not.toContain('_sp_nprev')
     expect(meteors).toContain('inoise8((uint16_t)(_k*90)')
     expect(sp({ mode: 'meteors', bed: 0 })).not.toContain('inoise8((uint16_t)(_k*90)')
-    expect(row).toContain('scale8(_sp_ntr[_k].r,_fq)')
+    // The trail fades on the shared trail clock, over the track's own length.
+    expect(row).toContain('fadeToBlackBy(_sp_ntr, _len, _by);')
     expect(row).toContain('qadd8(')
   })
 
@@ -1749,22 +1763,34 @@ describe('generateCpp', () => {
     expect(bolt).toContain('CRGB(16, 32, 48)')
     expect(bolt).not.toContain('_lt_npv')
     expect(gen('Lightning', {}, true)).toContain('(_tr&&!_lt_npv)')
-    const beat = gen('Heartbeat')
-    expect(beat).toContain('constrain(72,20.0f,240.0f)')
-    expect(beat).toContain('expf(-_lb*_lb)+0.7f*expf(-_db*_db)')
+    // Heartbeat is Breathe's lub-dub curve, on Breathe's integrated phase.
+    const beat = gen('Breathe', { curve: 'heartbeat', bpm: 72 })
+    expect(beat).toContain('constrain(72,1.0f,240.0f)/60.0f')
+    expect(beat).toContain('min(1.0f,expf(-(((_p)-0.05f)/0.04f)*(((_p)-0.05f)/0.04f))+0.7f*expf(-(((_p)-0.3f)/0.05f)*(((_p)-0.3f)/0.05f)))')
+    expect(beat).toContain('_phase_n')
     const timed = gen('Sunrise')
     expect(timed).toContain('(t-0)/fmaxf(0.001f,30)')
+    // Unwired, there is nothing to restart the ramp, so no restart is emitted.
+    expect(timed).not.toContain('_srO_n')
+    const restarting = gen('Sunrise', {}, true)
+    expect(restarting).toContain('if(_tr&&!_srP_n) _srO_n=t; _srP_n=_tr;')
+    expect(restarting).toContain('float _p=(t-_srO_n-0)/fmaxf(0.001f,30);')
+    expect(gen('Sunrise', { mode: 'manual' }, true)).not.toContain('_srO_n')
     expect(timed).toContain('powf(_p,1.6f)')
     expect(gen('Sunrise', { mode: 'manual', progress: 0.5 })).not.toContain('(t-')
     const tv = gen('TVSimulator')
-    expect(tv).toContain('(uint32_t)floorf(t*_cr)')
+    // Cuts count on an integrated phase, so a live Cut Rate never jumps.
+    expect(tv).toContain('uint32_t _sl=(uint32_t)floorf(_phase_n);')
     expect(tv).toContain('sinf(t*0.8f+(float)_sl)')
-    expect(gen('Heartbeat')).not.toContain(hash)
+    expect(gen('Breathe', { curve: 'heartbeat' })).not.toContain(hash)
   })
 
   it('emits Digital Rain lanes and cell mapping per direction', () => {
     const rain = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'DigitalRain', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     const down = rain()
+    // Spawns and steps are per 60th of a second, not per frame.
+    expect(down).toContain('_rnd()<fminf(1.0f,_dn*0.08f*_pf_n)')
+    expect(down).toContain('_dr_nh[_l]+=_dr_ns[_l]*_sp*0.5f*_pf_n;')
     expect(down).toContain('static float _dr_nh[WIDTH]')
     expect(down).toContain('[_ps*WIDTH+_l]=CRGB(')
     expect(rain({ direction: 'up' })).toContain('[(HEIGHT-1-_ps)*WIDTH+_l]=CRGB(')
@@ -1875,7 +1901,19 @@ describe('generateCpp', () => {
     expect(generateCpp([outputNode], [])).not.toContain('_fluidVelocity')
   })
 
-  it('emits Pride 2015 colorwaves only when a palette is wired', () => {
+  it('emits Rainbow as fill_rainbow along the string, or one hue step per column or row', () => {
+    const rb = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'Rainbow', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const string = rb()
+    // A whole byte, wrapped before the cast: a float past 255 is undefined to convert.
+    expect(string).toContain('uint8_t _h0=(uint8_t)fmodf(_phase_n,256.0f), _dh=(uint8_t)constrain(6,0.0f,255.0f);')
+    expect(string).toContain('fill_rainbow(buf_n, NUM_LEDS, _h0, _dh); }')
+    const horizontal = rb({ axis: 'horizontal' })
+    expect(horizontal).toContain('buf_n[_y*WIDTH+_x]=CHSV((uint8_t)(_h0+_x*_dh),240,255); }')
+    expect(horizontal).not.toContain('fill_rainbow(')
+    expect(rb({ axis: 'vertical' })).toContain('CHSV((uint8_t)(_h0+_y*_dh),240,255)')
+  })
+
+  it('emits Pride 2015 colorwaves only when a palette is wired or picked', () => {
     const plain = generateCpp([node('n', 'Pride2015', 'pattern', {}), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     expect(plain).toContain('CHSV(_hue,230,_bri)')
     expect(plain).not.toContain('ColorFromPalette')
@@ -1886,6 +1924,26 @@ describe('generateCpp', () => {
     expect(wave).toContain('CRGB _pc=ColorFromPalette(')
     expect(wave).toContain('_pc.nscale8(_bri)')
     expect(wave).not.toContain('CHSV(_hue,230,_bri)')
+    const picked = generateCpp([node('n', 'Pride2015', 'pattern', { palette: 'lava' }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    expect(picked).toContain('CRGB _pc=ColorFromPalette(paldef_lava,_hue);')
+    expect(picked).not.toContain('CHSV(')
+  })
+
+  it('burns Fire and Digital Rain along a string and up or down a matrix by default', () => {
+    const strip = node('out', 'MatrixOutput', 'output', { form: 'strip', ledCount: 60, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' })
+    const on = (type: string, out: StudioNode, props: Record<string, unknown> = {}) =>
+      generateCpp([node('n', type, 'pattern', props), out], [edge('e', 'n', 'out', 'frame', 'frame')])
+    // On the one string the sketch renders, auto resolves at generation time.
+    const fireStrip = on('Fire', strip)
+    expect(fireStrip).toContain('static uint8_t _fireHeat_n[WIDTH][HEIGHT];')
+    expect(fireStrip).toContain('buf_n[(_s)*WIDTH+(_p)] = _c;')
+    expect(fireStrip).not.toContain('HEIGHT<=2')
+    expect(on('Fire', outputNode)).toContain('static uint8_t _fireHeat_n[HEIGHT][WIDTH];')
+    expect(on('Fire', strip, { direction: 'up' })).toContain('static uint8_t _fireHeat_n[HEIGHT][WIDTH];')
+    const rainStrip = on('DigitalRain', strip)
+    expect(rainStrip).toContain('static float _dr_nh[HEIGHT]')
+    expect(rainStrip).toContain('[_l*WIDTH+_ps]=CRGB(')
+    expect(on('DigitalRain', outputNode)).toContain('static float _dr_nh[WIDTH]')
   })
 
   it('emits the Fire smoke layer only in the smoke style', () => {
@@ -2155,24 +2213,27 @@ describe('generateCpp', () => {
   })
 
   it('emits a Game of Life simulation with millis-based stepping', () => {
-    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, palette: 'mojito' })
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, trail: 0.37, palette: 'mojito' })
     const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
     expect(cpp).toContain('static uint8_t _gc_g[NUM_LEDS], _gn_g[NUM_LEDS]')
     expect(cpp).toContain('millis() - _gt_g')
     expect(cpp).toContain('ColorFromPalette(paldef_mojito,(uint8_t)(_gb_g[_i]*255))')
-    expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*constrain(0.75,0.0f,1.0f)')
+    // Dead cells dim on the shared trail clock, as the preview's trailKeep does.
+    expect(cpp).toContain('static float _tkeep_gT = -1.0f;')
+    expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*_tkeep_g;')
   })
 
-  it('reseeds Game of Life after four empty or frozen steps, as the preview does', () => {
-    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, palette: 'mojito' })
+  it('reseeds Game of Life after four empty, frozen or period-2 steps, as the preview does', () => {
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, trail: 0.37, palette: 'mojito' })
     const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('if(_gn_g[_i]!=_gc_g[_i]) _chg=true;')
-    expect(cpp).toContain('_gst_g=(_pop==0||!_chg)?_gst_g+1:0;')
+    expect(cpp).toContain('if(_gn_g[_i]!=_gc_g[_i]) _chg=true; if(_gn_g[_i]!=_gp_g[_i]) _chg2=true;')
+    expect(cpp).toContain('::memcpy(_gp_g,_gc_g,sizeof(_gc_g)); ::memcpy(_gc_g,_gn_g,sizeof(_gc_g));')
+    expect(cpp).toContain('_gst_g=(_pop==0||!_chg||!_chg2)?_gst_g+1:0;')
     expect(cpp).toContain('if (_gst_g>3) {')
   })
 
   it('emits a Gray-Scott reaction-diffusion simulation', () => {
-    const rd = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
+    const rd = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, steps: 8, palette: 'ocean' })
     const cpp = generateCpp([rd, outputNode], [edge('e', 'rd', 'out', 'frame', 'frame')])
     expect(cpp).toContain('static float _u_rd[NUM_LEDS]')
     expect(cpp).toContain('::memcpy(_u_rd,_un_rd,sizeof(_u_rd))')
@@ -2180,38 +2241,51 @@ describe('generateCpp', () => {
   })
 
   it('emits a Blobs metaball field', () => {
-    const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.22, count: 3, palette: 'lava' })
+    const b = node('b', 'Blobs', 'pattern', { speed: 0.6, size: 0.22, count: 3, palette: 'lava' })
     const cpp = generateCpp([b, outputNode], [edge('e', 'b', 'out', 'frame', 'frame')])
+    // Sized by the shorter side, or by the length of a string (blobSpan).
+    expect(cpp).toContain('_r=(constrain((0.22), 0.0f, 1.0f) * 0.500f)*(min(WIDTH,HEIGHT)>2?min(WIDTH,HEIGHT):max(WIDTH,HEIGHT))')
     expect(cpp).toContain('int _count=max(1,min(6,(int)floorf(3)))')
     expect(cpp).toContain('float _bx[6], _by[6]')
     expect(cpp).toContain('_f/(_f+1.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_lava')
   })
 
-  it('emits a stateful FlowField with particle buffers', () => {
-    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.08, count: 50, fade: 0.9, palette: 'ocean' })
+  it('emits a stateful FlowField with particle buffers, steering by the preview\'s noise', () => {
+    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.32, count: 50, trail: 0.53, palette: 'ocean' })
     const cpp = generateCpp([ff, outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('const int _count=max(8,min(400,(int)floorf(50)))')
-    expect(cpp).toContain('static float _fpx_ff[400], _fpy_ff[400], _ftr_ff[NUM_LEDS]')
-    expect(cpp).toContain('inoise8(')
-    // The noise z axis wraps at its integer width before the cast; `t*100`
-    // passes 65535 eleven minutes in, and a float past a type's range is
-    // undefined to convert.
-    expect(cpp).toContain('uint16_t _z=(uint16_t)fmodf(t*100.0f,65536.0f);')
-    expect(cpp).not.toContain('(uint16_t)(t*100)')
-    expect(cpp).toContain('_ftr_ff[_i]*=constrain(0.9,0.0f,1.0f)')
+    // Unwired, the count is fixed, so the pool is that size and no bigger.
+    expect(cpp).toContain('const int _count=50; static float _fpx_ff[50], _fpy_ff[50], _ftr_ff[NUM_LEDS]')
+    // The same _snoise2 field, translating in x, and the same ±4π angle as the preview.
+    expect(cpp).toContain('float _spd=(constrain((1), 0.0f, 1.0f) * 1.500f),_sc=(constrain((0.32), 0.0f, 1.0f) * 0.250f),_z=t*0.1f;')
+    expect(cpp).toContain('float _nx=_fpx_ff[_i]*_sc+_z,_ny=_fpy_ff[_i]*_sc;')
+    expect(cpp).toContain('float _a=_snoise2(_nx,_ny)*12.566371f;')
+    expect(cpp).not.toContain('inoise8(')
+    expect(cpp).toContain('_ftr_ff[_i]*=_tkeep_ff;')
+    expect(cpp).toContain('_fpx_ff[_i]+_dx*_spd*0.6f*_pf_ff')
+    expect(cpp).toContain('_ftr_ff[_id]=min(1.0f,_ftr_ff[_id]+0.5f*_pf_ff);')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
 
     const curl = generateCpp([node('ff', 'FlowField', 'pattern', { flowMode: 'curl' }), outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
-    expect(curl).toContain('_cz=(uint32_t)fmodf(t*0.1f*65536.0f,4294967296.0f);')
-    expect(curl).not.toContain('_cz=(uint32_t)(t*0.1f*65536.0f)')
+    expect(curl).toContain('float _gx=(_snoise2(_nx+0.05f,_ny)-_snoise2(_nx-0.05f,_ny))*5.0f,_gy=(_snoise2(_nx,_ny+0.05f)-_snoise2(_nx,_ny-0.05f))*5.0f;')
+    expect(curl).toContain('float _dx=_gy*1.5f,_dy=-_gx*1.5f;')
+    expect(curl).not.toContain('inoise16(')
+
+    // A wired count can reach the maximum, so the pool is the maximum.
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const wired = generateCpp([lfo, ff, outputNode], [edge('e', 'ff', 'out', 'frame', 'frame'), edge('c', 'lfo', 'ff', 'value', 'count')])
+    expect(wired).toContain('const int _count=max(8,min(400,(int)floorf(n_lfo_value))); static float _fpx_ff[400]')
   })
 
   it('emits a stateful Starfield with star buffers and projection', () => {
     const sf = node('sf', 'Starfield', 'pattern', { speed: 2, count: 80, r: 255, g: 255, b: 255 })
     const cpp = generateCpp([sf, outputNode], [edge('e', 'sf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('const int _count=max(8,min(300,(int)floorf(80)))')
-    expect(cpp).toContain('static float _sfx_sf[300], _sfy_sf[300], _sfz_sf[300]')
+    expect(cpp).toContain('const int _count=80; static float _sfx_sf[80], _sfy_sf[80], _sfz_sf[80]')
+    // Depth falls per 60th of a second, so the warp holds at any frame rate.
+    expect(cpp).toContain('_sfz_sf[_i]-=_spd*0.015f*_pf_sf;')
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const wired = generateCpp([lfo, sf, outputNode], [edge('e', 'sf', 'out', 'frame', 'frame'), edge('c', 'lfo', 'sf', 'value', 'count')])
+    expect(wired).toContain('static float _sfx_sf[300], _sfy_sf[300], _sfz_sf[300]')
     expect(cpp).toContain('fill_solid(buf_sf, NUM_LEDS, CRGB::Black)')
     expect(cpp).toContain('.nscale8(')
   })
@@ -3761,11 +3835,11 @@ describe('Formula Field codegen', () => {
 })
 
 describe('generateCpp — RadialBurst', () => {
-  it('uses the compatible arms port as live ring density', () => {
+  it('uses the Rings port as live ring density', () => {
     const density = node('density', 'Random', 'signal', { min: 2, max: 12 })
     const radial = node('radial', 'RadialBurst', 'pattern', {})
     const cpp = generateCpp([density, radial, outputNode], [
-      edge('densityEdge', 'density', 'radial', 'value', 'arms'),
+      edge('densityEdge', 'density', 'radial', 'value', 'rings'),
       edge('outEdge', 'radial', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('_rings=max(1.0f,min(32.0f,n_density_value))')
@@ -3835,14 +3909,19 @@ describe('generateCpp — Particles modes', () => {
   }
 
   for (const m of [
-    'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow',
+    'fountain', 'drops', 'fireworks', 'sparkle', 'comet', 'snow',
     'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
-    'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
+    'meteor', 'tornado', 'pinwheel', 'bounce', 'chase', 'waterfall',
   ]) {
     it(`emits a real fixed-pool engine for "${m}"`, () => {
       const cpp = gen(m)
       expect(cpp).toContain(`// Particles: ${m}`)
       expect(cpp).toContain('_PN=')
+      // Colour comes from life at render time; the pool keeps none.
+      expect(cpp).not.toContain('_pa_ppr[')
+      expect(cpp).not.toContain('_pc=')
+      // Rate is declared only where a spawn reads it.
+      expect(cpp.includes('float _rate='), m).toBe(particleModeUsesRate(m))
       // additive render of every live particle at its life brightness
       expect(cpp).toContain('float _k=min(1.0f,_pa_ppl[i]), _sx=_pa_ppx[i], _sy=_pa_ppy[i];')
       expect(cpp).toContain('float _cov=constrain(')
@@ -3864,8 +3943,10 @@ describe('generateCpp — Particles modes', () => {
     expect(cpp).toContain('float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy;')
   })
 
-  it('fireworks bursts with a random hue', () => {
-    expect(gen('fireworks')).toContain('CHSV(_hue')
+  it('fireworks bursts without a per-particle colour', () => {
+    // A burst once drew a random CHSV hue per particle that nothing read.
+    expect(gen('fireworks')).not.toContain('CHSV(')
+    expect(gen('fireworks')).toContain('int _n=14+random8()/32;')
   })
 
   it('comet is time-driven (needs t)', () => {
@@ -3875,7 +3956,7 @@ describe('generateCpp — Particles modes', () => {
   })
 
   it('time-driven displays emit the shared animation clock', () => {
-    for (const mode of ['embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor']) {
+    for (const mode of ['embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'chase']) {
       expect(gen(mode)).toContain('float t = millis()')
     }
   })
@@ -3898,7 +3979,7 @@ describe('generateCpp — Particles modes', () => {
   })
 
   it("gravity and bounce scale a mode's built-in accel/restitution constants", () => {
-    const cpp = gen('gravity', { gravity: 2, bounce: 0.5 })
+    const cpp = gen('drops', { gravity: 2, bounce: 0.5 })
     expect(cpp).toContain('float _paGrav=constrain(2,0.0f,3.0f)')
     expect(cpp).toContain('float _paBounce=constrain(0.5,0.0f,1.5f)')
     expect(cpp).toContain('0.045f*_paGrav')
@@ -3921,7 +4002,7 @@ describe('generateCpp — Particles modes', () => {
   it('keeps a wired Particles knob inside its declared domain', () => {
     const lfo = node('lfo', 'LFO', 'input', {})
     const cpp = generateCpp(
-      [lfo, node('pp', 'Particles', 'pattern', { particleType: 'gravity' }), out],
+      [lfo, node('pp', 'Particles', 'pattern', { particleType: 'drops' }), out],
       [
         edge('e-g', 'lfo', 'pp', 'value', 'gravity'),
         edge('e-s', 'lfo', 'pp', 'value', 'size'),
@@ -3996,10 +4077,13 @@ describe('Formula Points codegen', () => {
     expect(web).toContain('sinf(-0.827f*_fp_fpay)-cosf(-1.637f*_fp_fpax)')
   })
 
-  it('attractor and the trail variants fade the persistent buffer by (1 - persistence)', () => {
-    const cpp = gen('attractor', { persistence: 0.9 })
-    expect(cpp).toContain('float _fp_fpP=constrain(0.9, 0.0f, 1.0f);')
-    expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, (uint8_t)((1.0f-_fp_fpP)*255.0f));')
+  it('attractor and the trail variants fade the persistent buffer on the trail clock', () => {
+    const cpp = gen('attractor', { trail: 0.53 })
+    expect(cpp).toContain('float _fp_fpT=0.53;')
+    expect(cpp).toContain('static float _trail_fpT = -1.0f, _trail_fpOwed = 0.0f;')
+    expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, _by);')
+    // The fade needs the clock even where nothing else in the variant does.
+    expect(cpp).toMatch(/float t = /)
   })
 
   it('lissajousPath reads both frequencies through their ports and cycles hue with phase', () => {
@@ -4053,7 +4137,7 @@ describe('Formula Points codegen', () => {
       ],
     )
     expect(wired('speed')).toContain('float _fp_fpS=constrain(n_w_value, 0.0f, 1.0f);')
-    expect(wired('persistence')).toContain('float _fp_fpP=constrain(n_w_value, 0.0f, 1.0f);')
+    expect(wired('trail')).toContain('float _fp_fpT=n_w_value;')
     expect(wired('freqA')).toContain('sinf(fmaxf(1.0f, n_w_value)*_phase)')
     expect(wired('dotSize')).toContain('fmaxf(0.1f, n_w_value)')
   })
@@ -5422,37 +5506,43 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).not.toMatch(/sinf|powf/)
   })
 
-  it('Scanner emits a ping-pong palette beam along the selected axis', () => {
-    const sc = node('sc', 'Scanner', 'pattern', { speed: 0.45, width: 2, fade: 0.6, axis: 'vertical', palette: 'lava' })
+  it('Scanner emits a ping-pong palette beam along the selected axis, with a tail behind it', () => {
+    const sc = node('sc', 'Scanner', 'pattern', { speed: 0.45, width: 2, trail: 0.55, axis: 'vertical', palette: 'lava' })
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB* const buf_sc = leds;')
+    // The tail is the buffer fading on the trail clock, so it persists.
+    expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];   // keeps its pixels between frames')
+    expect(cpp).toContain('static float _trail_scT = -1.0f, _trail_scOwed = 0.0f;')
+    expect(cpp).toContain('fadeToBlackBy(buf_sc, NUM_LEDS, _by);')
     expect(cpp).toContain('float _travel=_ph<=1.0f?_ph:2.0f-_ph;')
-    expect(cpp).toContain('ColorFromPalette(paldef_lava,(uint8_t)(_travel*255.0f))')
-    expect(cpp).toContain('float _coord=(float)_y;')
-    expect(cpp).toContain('_px.nscale8_video((uint8_t)(_v*255.0f));')
+    // The beam lights the whole span it crossed since the last frame.
+    expect(cpp).toContain('static float _scPrev_sc=-1.0f;')
+    // Read from the bright upper part of the palette, held at its end.
+    expect(cpp).toContain('ColorFromPalette(paldef_lava,(uint8_t)((0.3f+0.7f*_travel)*255.0f),255,LINEARBLEND_NOWRAP)')
+    expect(cpp).toContain('const int _span=HEIGHT, _across=WIDTH;')
+    expect(cpp).toContain('for(int _o=0;_o<_across;_o++) buf_sc[_c*WIDTH+_o]|=_px;')
   })
 
   it('Confetti emits persistent fade-and-sprinkle palette logic', () => {
-    const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, fade: 0.65, palette: 'party' })
+    const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, trail: 0.35, palette: 'party' })
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];   // keeps its pixels between frames')
-    expect(cpp).toContain('_fd=0.65;')
+    expect(cpp).toContain('_tr=0.35;')
     expect(cpp).toContain('static float _trail_cfT = -1.0f, _trail_cfOwed = 0.0f;')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, _by);')
-    // The preview's own coefficients on the already-denormalised rate: a spawn
-    // term of 0.3 per unit of speed and a hue drift of 0.08 turns (20.4 of 255),
-    // rounded as Math.round is. Pre-dividing by SPEED_MAX here halved both.
-    expect(cpp).toContain('int _spawns=(int)roundf(_den * (0.08f + _spd * 0.3f) * sqrtf((float)NUM_LEDS));')
+    // Density alone sets the spawn count; the denormalised Speed is the hue
+    // drift of 0.08 turns (20.4 of 255), rounded as Math.round is.
+    expect(cpp).toContain('int _spawns=(int)roundf(_den * 0.5f * sqrtf((float)NUM_LEDS));')
+    expect(cpp).toContain('if(_spawns<1 && _den > 0.08f) _spawns=1;')
     expect(cpp).toContain('uint8_t _drift=(uint8_t)(_phase_cf * 20.4f);')
     expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(paldef_party, random8() + _drift);')
   })
 
   it('Juggle emits fading multi-dot palette motion and supports the Sinelon count=1 case', () => {
-    const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, fade: 0.61, palette: 'rainbow' })
+    const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, trail: 0.39, palette: 'rainbow' })
     const cpp = generateCpp([jg, outputNode], [edge('e1', 'jg', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('const int _dots=1;')
-    expect(cpp).toContain('_fd=0.61;')
+    expect(cpp).toContain('_tr=0.39;')
     expect(cpp).toContain('static float _trail_jgT = -1.0f, _trail_jgOwed = 0.0f;')
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, _by);')
     expect(cpp).toContain('float _phase=0.0f;')
@@ -5460,22 +5550,22 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
   })
 
-  it('Juggle reads live Count, Speed and Fade wires instead of baking their saved values', () => {
-    const jg = node('jg', 'Juggle', 'pattern', { speed: 0, count: 1, fade: 0 })
+  it('Juggle reads live Count, Speed and Trail wires instead of baking their saved values', () => {
+    const jg = node('jg', 'Juggle', 'pattern', { speed: 0, count: 1, trail: 1 })
     const count = node('count', 'Math', 'math', { a: 3.6, b: 0 })
     const speed = node('speed', 'Math', 'math', { a: 0.7, b: 0 })
-    const fade = node('fade', 'Math', 'math', { a: 0.9, b: 0 })
-    const cpp = generateCpp([jg, count, speed, fade, outputNode], [
+    const trail = node('trail', 'Math', 'math', { a: 0.1, b: 0 })
+    const cpp = generateCpp([jg, count, speed, trail, outputNode], [
       edge('frame', 'jg', 'out', 'frame', 'frame'),
       edge('count-wire', 'count', 'jg', 'result', 'count'),
       edge('speed-wire', 'speed', 'jg', 'result', 'speed'),
-      edge('fade-wire', 'fade', 'jg', 'result', 'fade'),
+      edge('trail-wire', 'trail', 'jg', 'result', 'trail'),
     ])
     expect(cpp).toContain('const float _count=n_count_result;')
     expect(cpp).toContain('isfinite(_count) ? (int)roundf(constrain(_count,1.0f,8.0f)) : 4')
     expect(cpp).toContain('n_speed_result')
-    expect(cpp).toContain('_fd=n_fade_result;')
-    expect(cpp).toContain('constrain((_fd), 0.0f, 1.0f)')
+    expect(cpp).toContain('_tr=n_trail_result;')
+    expect(cpp).toContain('constrain((_tr), 0.0f, 1.0f)')
     expect(cpp.indexOf('float n_count_result')).toBeLessThan(cpp.indexOf('const float _count='))
     expect(cpp).not.toContain('const int _dots=1;')
   })

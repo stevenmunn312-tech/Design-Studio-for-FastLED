@@ -213,7 +213,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
       studioNode('scan', 'Scanner', -460, 40, {
         speed: 0.1,
         width: 3,
-        fade: 0.82,
+        trail: 0.83,
         axis: 'vertical',
       }),
       studioNode('array', 'Array', -120, 40, {
@@ -369,9 +369,9 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
       }),
       studioNode('flow', 'FlowField', -460, 40, {
         speed: 0.11,
-        scale: 0.09,
+        scale: 0.36,
         count: 30,
-        fade: 0.95,
+        trail: 0.65,
         seed: 244,
       }),
       studioNode('feedback', 'FrameFeedback', -140, 40, {
@@ -432,7 +432,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
       studioNode('react', 'ReactionDiffusion', -460, 40, {
         feed: 0.05,
         kill: 0.061,
-        speed: 4,
+        steps: 4,
         seed: 111,
       }),
       studioNode('blur', 'Blur2D', -140, 40, { amount: 0.06 }),

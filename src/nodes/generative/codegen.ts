@@ -1,20 +1,23 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { SPIRAL_ARMS } from './limits'
+import { CONFETTI_SPAWN, PRIDE_SAT, SCANNER_PALETTE_FLOOR, SPIRAL_ARMS, rainbowAxis } from './limits'
+import { FILL_RAINBOW_SAT } from '../shared/hsvRainbow'
+import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { trailFadeCpp } from '../shared/trailFadeCpp'
+import { passFramesCpp } from '../shared/passClockCpp'
 import {
   BURST_PIXEL_CPP, PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, SPIRAL_PIXEL_CPP, TWINKLE_PIXEL_CPP,
   SINE_FIELD_VALUE_CPP, burstFrameCpp, pacificaFrameCpp, sineFieldFrameCpp, spiralFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
 } from '../shared/integerPatterns'
 import type { NodeEmitters } from '../../codegen/emitContext'
-import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
+import { RAIN_ALONG_CPP, RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainDirectionChoice, rainIndexCpp } from '../../state/evaluator/digitalRain'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { seedOffset } from '../../state/evaluator/random'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
 import {
-  CLASSIC_HASH_CPP, CLASSIC_VALUE_NOISE_CPP, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, LIGHTNING_AFTERGLOW, LIGHTNING_AFTERGLOW_TAU,
+  CLASSIC_HASH_CPP, CLASSIC_VALUE_NOISE_CPP, LIGHTNING_AFTERGLOW, LIGHTNING_AFTERGLOW_TAU,
   LIGHTNING_FLASH_LEN, SUNRISE_GAMMA, SUNRISE_STOPS, candleMode, sunriseMode,
 } from '../../state/evaluator/classics'
 import { noiseShape, noiseShapeCpp, worleyMode, worleyValueCpp } from '../../state/evaluator/noiseShape'
@@ -32,7 +35,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const ln = (line: string) => { block.push(line) }
     const ob = ownBuf()
     const of = ownField()
-    const noiseType = String(p.noiseType ?? 'field')
+    const noiseType = String(p.noiseType ?? 'fbm')
     const wMode = worleyMode(p.worleyMode)
     const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
@@ -123,7 +126,20 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
         break
       }
-      case 'fbm': {
+      case 'field': {
+        ln(`  {`)
+        ln(`    float _spd = ${speed}, _scl = ${scale};`)
+        const tp = phase()
+        // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+        for (const line of sineFieldFrameCpp('_scl', tp)) ln(`    ${line}`)
+        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+        ln(`      ${of}[_y * WIDTH + _x] = ${SINE_FIELD_VALUE_CPP};`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+      case 'fbm':
+      default: {
         ln(`  { // Fractal noise (fBm of simplex octaves)`)
         ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
@@ -153,19 +169,6 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`      ${of}[_y*WIDTH+_x]=constrain(_v*0.5f+0.5f,0.0f,1.0f);}}`)
         break
       }
-      case 'field':
-      default: {
-        ln(`  {`)
-        ln(`    float _spd = ${speed}, _scl = ${scale};`)
-        const tp = phase()
-        // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
-        for (const line of sineFieldFrameCpp('_scl', tp)) ln(`    ${line}`)
-        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-        ln(`      ${of}[_y * WIDTH + _x] = ${SINE_FIELD_VALUE_CPP};`)
-        ln(`    }`)
-        ln(`  }`)
-        break
-      }
     }
     if (p.wrapX === true) {
       needsWrapX.v = true
@@ -183,36 +186,47 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Plasma)
+    const scale = rateCpp(f('scale', 'scale', 0.5), SCALE_MAX.Plasma)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
-    ln(`    float _spd = ${speed};`)
+    ln(`    float _spd = ${speed}, _sc = ${scale};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
-    for (const line of plasmaFrameCpp(ph)) ln(`    ${line}`)
+    for (const line of plasmaFrameCpp(ph, '_sc')) ln(`    ${line}`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
     for (const line of PLASMA_PIXEL_CPP) ln(`      ${line}`)
     ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, _idx);`)
     ln(`    }`)
     ln(`  }`)
   },
-  Rainbow({ id, ln, f, ownBuf, needsT }) {
+  // fill_rainbow along the string, or one hue step per column or row; either
+  // way through FastLED's rainbow wheel at fill_rainbow's saturation, which
+  // the preview's hsv2rgbRainbow reproduces byte for byte.
+  Rainbow({ id, p, ln, f, ownBuf, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const deltaHue = `(uint8_t)constrain(${f('deltaHue', 'deltaHue', 6)},0.0f,255.0f)`
     const rate = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Rainbow)
+    const axis = rainbowAxis(p.axis)
     ln(`  { float _spd=${rate};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    ln(`    fill_rainbow(${ob}, NUM_LEDS, (uint8_t)(${ph}), ${deltaHue}); }`)
+    ln(`    uint8_t _h0=(uint8_t)fmodf(${ph},256.0f), _dh=${deltaHue};`)
+    if (axis === 'string') ln(`    fill_rainbow(${ob}, NUM_LEDS, _h0, _dh); }`)
+    else {
+      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+      ln(`      ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)(_h0+${axis === 'horizontal' ? '_x' : '_y'}*_dh),${FILL_RAINBOW_SAT},255); }`)
+    }
   },
   // Homage to Pride2015 (see the evaluator's evalPride2015 comment) —
-  // identical formula on both sides, mapped through CHSV like Plasma.
+  // identical formula on both sides, its rainbow through FastLED's CHSV wheel,
+  // which the preview's hsv2rgbRainbow reproduces.
   Pride2015({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.Pride2015)
     const scale = rateCpp(f('scale', 'scale', 0.4), SCALE_MAX.Pride2015)
-    // Wired to a palette it becomes colorwaves; unwired it is the rainbow it always was.
-    const wired = incoming.has(`${node.id}:paletteIn`)
+    // With a palette, set or wired, it becomes colorwaves; 'none' is the rainbow.
+    const wired = incoming.has(`${node.id}:paletteIn`) || String(p.palette ?? 'none') !== 'none'
     const pal = wired ? paletteExpr(node.id, 'paletteIn', p) : ''
     ln(`  { float _spd=${speed},_sc=${scale}; int _i=0;`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
@@ -220,7 +234,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     for (const line of PRIDE_PIXEL_CPP) ln(`      ${line}`)
     if (wired) ln(`      CRGB _pc=ColorFromPalette(${pal},_hue); _pc.nscale8(_bri); ${ob}[_y*WIDTH+_x]=_pc;`)
-    else ln(`      ${ob}[_y*WIDTH+_x]=CHSV(_hue,230,_bri);`)
+    else ln(`      ${ob}[_y*WIDTH+_x]=CHSV(_hue,${PRIDE_SAT},_bri);`)
     ln(`      _i++; } }`)
   },
   // Homage to the FastLED "Pacifica" ocean-wave demo (see the evaluator's
@@ -261,28 +275,30 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`      _px.nscale8_video(_tb);`)
     ln(`      ${ob}[_y*WIDTH+_x]=_px; _i++; } }`)
   },
+  // The beam lights the span it crossed since last frame into a persistent
+  // buffer that fades by `trail`, so the tail lies behind it (evalScanner).
   Scanner({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
-    const ob = ownBuf()
+    const ob = ownBuf({ persists: true })
     const speed = rateCpp(f('speed', 'speed', 0.45), SPEED_MAX.Scanner)
     const width = `fmaxf(1.0f,${f('width', 'width', 2)})`
-    const fade = `constrain((${f('fade', 'fade', 0.6)}),0.0f,1.0f)`
     const horizontal = String(p.axis ?? 'horizontal') !== 'vertical'
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  { float _spd=${speed},_w=${width},_fd=${fade};`)
+    const floor = floatLit(SCANNER_PALETTE_FLOOR)
+    ln(`  { float _spd=${speed},_w=${width},_tr=${f('trail', 'trail', 0.55)};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    ln(`    float _span=${horizontal ? 'WIDTH' : 'HEIGHT'};`)
+    trailFadeCpp(ln, phaseTag(id), '_tr', ob)
+    ln(`    const int _span=${horizontal ? 'WIDTH' : 'HEIGHT'}, _across=${horizontal ? 'HEIGHT' : 'WIDTH'};`)
     ln(`    float _ph=fmodf(${ph},2.0f); if(_ph<0)_ph+=2.0f;`)
     ln(`    float _travel=_ph<=1.0f?_ph:2.0f-_ph;`)
     ln(`    float _pos=_travel*max(0.0f,_span-1.0f);`)
-    ln(`    float _core=max(0.5f,_w*0.5f),_tail=_core+_fd*max(1.0f,_span*0.35f),_den=max(0.001f,_tail-_core);`)
-    ln(`    CRGB _base=ColorFromPalette(${pal},(uint8_t)(_travel*255.0f));`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _coord=${horizontal ? '(float)_x' : '(float)_y'};`)
-    ln(`      float _dist=fabsf(_coord-_pos);`)
-    ln(`      float _v=_dist<=_core?1.0f:max(0.0f,1.0f-(_dist-_core)/_den);`)
-    ln(`      _v*=_v; CRGB _px=_base; _px.nscale8_video((uint8_t)(_v*255.0f));`)
-    ln(`      ${ob}[_y*WIDTH+_x]=_px; } }`)
+    ln(`    static float _scPrev_${id}=-1.0f; float _from=_scPrev_${id}<0.0f?_pos:_scPrev_${id}; _scPrev_${id}=_pos;`)
+    ln(`    float _lo=min(_from,_pos),_hi=max(_from,_pos),_core=max(0.5f,_w*0.5f);`)
+    ln(`    CRGB _base=ColorFromPalette(${pal},(uint8_t)((${floor}+${floatLit(1 - SCANNER_PALETTE_FLOOR)}*_travel)*255.0f),255,LINEARBLEND_NOWRAP);`)
+    ln(`    for(int _c=0;_c<_span;_c++){`)
+    ln(`      float _d=_c<_lo?_lo-_c:(_c>_hi?_c-_hi:0.0f), _v=min(1.0f,_core+0.5f-_d); if(_v<=0.0f) continue;`)
+    ln(`      CRGB _px=_base; _px.nscale8_video((uint8_t)(_v*255.0f));`)
+    ln(`      for(int _o=0;_o<_across;_o++) ${ob}[${horizontal ? '_o*WIDTH+_c' : '_c*WIDTH+_o'}]|=_px; } }`)
   },
   TheaterChase({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
@@ -344,14 +360,14 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     if (seed) ln(`    static uint32_t _rng_${id}=${seed}u; auto _rnd8_${id}=[&](){ _rng_${id}=_rng_${id}*1664525u+1013904223u; return (uint8_t)(_rng_${id}>>24); };`)
-    ln(`    float _spd=${speed}, _den=${density}, _fd=${f('fade', 'fade', 0.65)};`)
+    ln(`    float _spd=${speed}, _den=${density}, _tr=${f('trail', 'trail', 0.35)};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    trailFadeCpp(ln, phaseTag(id), '_fd', ob)
-    // `_spd` is already the denormalised rate (rateCpp), so the spawn and hue
-    // drift coefficients are the preview's own: 0.3 per unit of speed, and a
-    // hue drift of 0.08 turns per phase unit, which is 20.4 palette steps.
-    ln(`    int _spawns=(int)roundf(_den * (0.08f + _spd * 0.3f) * sqrtf((float)NUM_LEDS));`)
-    ln(`    if(_spawns<1 && _den * _spd > 0.08f) _spawns=1;`)
+    trailFadeCpp(ln, phaseTag(id), '_tr', ob)
+    // Density alone sets the spawn count (CONFETTI_SPAWN a frame per unit, by
+    // the square root of the LEDs); `_spd`, the denormalised colour drift,
+    // turns the hue 0.08 a phase unit, which is 20.4 palette steps.
+    ln(`    int _spawns=(int)roundf(_den * ${floatLit(CONFETTI_SPAWN)} * sqrtf((float)NUM_LEDS));`)
+    ln(`    if(_spawns<1 && _den > 0.08f) _spawns=1;`)
     ln(`    uint8_t _drift=(uint8_t)(${ph} * 20.4f);`)
     ln(`    for(int _s=0; _s<_spawns; _s++){`)
     ln(`      int _i=${rnd16}%NUM_LEDS;`)
@@ -367,7 +383,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const seed = seedProp(p)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
-    ln(`    float _spd=${speed}, _fd=${f('fade', 'fade', 0.61)};`)
+    ln(`    float _spd=${speed}, _tr=${f('trail', 'trail', 0.39)};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     if (incoming.has(`${node.id}:count`)) {
       ln(`    const float _count=${f('count', 'count', JUGGLE_COUNT.default)};`)
@@ -375,7 +391,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     } else {
       ln(`    const int _dots=${dots};`)
     }
-    trailFadeCpp(ln, phaseTag(id), '_fd', ob)
+    trailFadeCpp(ln, phaseTag(id), '_tr', ob)
     // The preview's per-dot phase, seedOffset(seed, d), reduced a turn at a
     // time: it only feeds sines, and float holds the remainder exactly enough.
     if (seed) {
@@ -402,7 +418,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.RadialBurst)
-    const rings = f('arms', 'arms', 8)
+    const rings = f('rings', 'rings', 8)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { float _spd=${speed},_rings=max(1.0f,min(32.0f,${rings}));`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
@@ -429,10 +445,11 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   Blobs({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
-    const speed = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Blobs), scale = rateCpp(f('scale', 'scale', 0.44), SCALE_MAX.Blobs)
+    const speed = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Blobs), scale = rateCpp(f('size', 'size', 0.44), SCALE_MAX.Blobs)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // Blobs (metaballs)`)
-    ln(`    float _spd=${speed}, _r=${scale}*min(WIDTH,HEIGHT), _r2=_r*_r;`)
+    // blobSpan: the shorter side, or the length of a string.
+    ln(`    float _spd=${speed}, _r=${scale}*(min(WIDTH,HEIGHT)>${STRING_MAX_ROWS}?min(WIDTH,HEIGHT):max(WIDTH,HEIGHT)), _r2=_r*_r;`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     ln(`    int _count=max(1,min(6,(int)floorf(${f('count', 'count', 3)}))); float _bx[6], _by[6];`)
     ln(`    for(int _i=0;_i<_count;_i++){ _bx[_i]=WIDTH*(0.5f+0.4f*sin(${ph}*(0.7f+_i*0.13f)+_i*1.7f)); _by[_i]=HEIGHT*(0.5f+0.4f*cos(${ph}*(0.6f+_i*0.17f)+_i*2.3f)); }`)
@@ -449,7 +466,7 @@ const hexCrgb = (hex: unknown, def: number) => {
   return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
 
-// Candle, Lightning, Heartbeat, Sunrise and TV Simulator: the C++ twins of
+// Candle, Lightning, Sunrise and TV Simulator: the C++ twins of
 // GENERATIVE classics in state/evaluator/classics.ts. Same integer hash, same
 // constants, so the preview and the sketch flicker together.
 const CLASSIC_EMITTERS: NodeEmitters = {
@@ -489,39 +506,38 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`    float _v=constrain(${f('intensity', 'intensity', 1)},0.0f,1.0f)*_lvl; CRGB _c=${hexCrgb(p.color, 0xcfe0ff)};`)
     ln(`    _c.r=(uint8_t)(_c.r*_v); _c.g=(uint8_t)(_c.g*_v); _c.b=(uint8_t)(_c.b*_v); fill_solid(${ob},NUM_LEDS,_c); }`)
   },
-  Heartbeat({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
-    needsT.v = true
-    const ob = ownBuf()
-    const pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  { // Heartbeat`)
-    ln(`    float _b=constrain(${f('bpm', 'bpm', 72)},${lit(HEARTBEAT_BPM_MIN)},${lit(HEARTBEAT_BPM_MAX)}),_pd=60.0f/_b,_ph=fmodf(t,_pd); if(_ph<0) _ph+=_pd; _ph/=_pd;`)
-    ln(`    float _lb=(_ph-0.05f)/0.04f,_db=(_ph-0.3f)/0.05f,_env=min(1.0f,expf(-_lb*_lb)+0.7f*expf(-_db*_db));`)
-    ln(`    float _st=constrain(${f('strength', 'strength', 0.8)},0.0f,1.0f),_v=1.0f-_st*(1.0f-_env);`)
-    ln(`    CRGB _c=ColorFromPalette(${pal},(uint8_t)(_env*255.0f)); _c.r=(uint8_t)(_c.r*_v); _c.g=(uint8_t)(_c.g*_v); _c.b=(uint8_t)(_c.b*_v);`)
-    ln(`    fill_solid(${ob},NUM_LEDS,_c); }`)
-  },
-  Sunrise({ p, ln, f, ownBuf, needsT }) {
+  Sunrise({ node, id, p, ln, f, ownBuf, incoming, boolExpr, needsT }) {
     const ob = ownBuf()
     const manual = sunriseMode(p.mode) === 'manual'
     if (!manual) needsT.v = true
+    // Only a timed ramp with a Trigger wired can restart; otherwise it counts from power-on.
+    const restarts = !manual && incoming.has(`${node.id}:trigger`)
     const stops = (i: 1 | 2 | 3) => SUNRISE_STOPS.map((s) => lit(s[i])).join(',')
     const at = SUNRISE_STOPS.map((s) => lit(s[0])).join(',')
     ln(`  { // Sunrise`)
     ln(`    static const float _sa[${SUNRISE_STOPS.length}]={${at}},_sr[${SUNRISE_STOPS.length}]={${stops(1)}},_sg[${SUNRISE_STOPS.length}]={${stops(2)}},_sb[${SUNRISE_STOPS.length}]={${stops(3)}};`)
+    if (restarts) {
+      ln(`    static float _srO_${id}=0.0f; static bool _srP_${id}=false; bool _tr=(${boolExpr(node.id, 'trigger')});`)
+      ln(`    if(_tr&&!_srP_${id}) _srO_${id}=t; _srP_${id}=_tr;`)
+    }
     ln(manual
       ? `    float _p=${f('progress', 'progress', 0)};`
-      : `    float _p=(t-${f('start', 'start', 0)})/fmaxf(0.001f,${f('duration', 'duration', 30)});`)
+      : `    float _p=(t-${restarts ? `_srO_${id}-` : ''}${f('start', 'start', 0)})/fmaxf(0.001f,${f('duration', 'duration', 30)});`)
     ln(`    _p=isfinite(_p)?constrain(_p,0.0f,1.0f):0.0f;`)
     ln(`    int _k=0; while(_k<${SUNRISE_STOPS.length - 2}&&_p>_sa[_k+1]) _k++;`)
     ln(`    float _u=constrain((_p-_sa[_k])/(_sa[_k+1]-_sa[_k]),0.0f,1.0f),_v=powf(_p,${lit(SUNRISE_GAMMA)});`)
     ln(`    fill_solid(${ob},NUM_LEDS,CRGB((uint8_t)((_sr[_k]+(_sr[_k+1]-_sr[_k])*_u)*_v),(uint8_t)((_sg[_k]+(_sg[_k+1]-_sg[_k])*_u)*_v),(uint8_t)((_sb[_k]+(_sb[_k+1]-_sb[_k])*_u)*_v))); }`)
   },
-  DigitalRain({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  DigitalRain({ node, id, p, ln, f, ownBuf, paletteExpr, needsT, nativeMultiRender, width, height }) {
     needsT.v = true
     const ob = ownBuf()
-    const dir = rainDirection(p.direction)
+    // `auto` resolves on the one canvas the sketch renders, as the preview
+    // does on its own; each render pass of its own decides from its size.
+    const choice = rainDirectionChoice(p.direction)
+    const dir = choice === 'auto' && nativeMultiRender ? 'auto' : rainDirection(choice, width, height)
     const vertical = dir === 'down' || dir === 'up'
-    const lanes = vertical ? 'WIDTH' : 'HEIGHT', along = vertical ? 'HEIGHT' : 'WIDTH'
+    const lanes = dir === 'auto' ? `(${RAIN_ALONG_CPP}?HEIGHT:WIDTH)` : vertical ? 'WIDTH' : 'HEIGHT'
+    const along = dir === 'auto' ? `(${RAIN_ALONG_CPP}?WIDTH:HEIGHT)` : vertical ? 'HEIGHT' : 'WIDTH'
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const A = `_dr_${id}`
@@ -533,9 +549,10 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`    auto _rnd=[]()->float{ return random16()/65535.0f; };`)
     ln(`    float _dn=constrain(${f('density', 'density', 0.5)},0.0f,1.0f),_fk=constrain(${f('flicker', 'flicker', 0.3)},0.0f,1.0f),_tl=fmaxf(2.0f,${f('tailLength', 'tailLength', 8)});`)
     ln(`    float _sp=fmaxf(0.0f,${rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.DigitalRain)});`)
+    const pf = passFramesCpp(ln, phaseTag(id))
     ln(`    for(int _l=0;_l<${lanes};_l++){`)
-    ln(`      if(${A}h[_l]>=${along}+${A}l[_l]){ if(_rnd()<_dn*${lit(RAIN_SPAWN)}){ ${A}h[_l]=0.0f; ${A}s[_l]=0.25f+_rnd()*0.75f; ${A}l[_l]=fmaxf(2.0f,_tl*(0.5f+_rnd()*0.5f)); } }`)
-    ln(`      else ${A}h[_l]+=${A}s[_l]*_sp*${lit(RAIN_STEP)}; }`)
+    ln(`      if(${A}h[_l]>=${along}+${A}l[_l]){ if(_rnd()<fminf(1.0f,_dn*${lit(RAIN_SPAWN)}*${pf})){ ${A}h[_l]=0.0f; ${A}s[_l]=0.25f+_rnd()*0.75f; ${A}l[_l]=fmaxf(2.0f,_tl*(0.5f+_rnd()*0.5f)); } }`)
+    ln(`      else ${A}h[_l]+=${A}s[_l]*_sp*${lit(RAIN_STEP)}*${pf}; }`)
     ln(`    fill_solid(${ob},NUM_LEDS,CRGB::Black);`)
     ln(`    uint32_t _bk=(uint32_t)floorf(t*${lit(RAIN_FLICKER_HZ)});`)
     ln(`    for(int _l=0;_l<${lanes};_l++){ if(${A}h[_l]>=${along}+${A}l[_l]) continue;`)
@@ -543,13 +560,14 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`        float _b=1.0f-_d/${A}l[_l],_v=_b*(1.0f-_fk*_h((uint32_t)(_l*131+_ps*17)+_bk*7U));`)
     ln(`        CRGB _c=ColorFromPalette(${pal},(uint8_t)(_b*255.0f)); ${ob}[${rainIndexCpp(dir, '_l', '_ps')}]=CRGB((uint8_t)(_c.r*_v),(uint8_t)(_c.g*_v),(uint8_t)(_c.b*_v)); } } }`)
   },
-  TVSimulator({ ln, f, ownBuf, needsT }) {
+  TVSimulator({ id, ln, f, ownBuf, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     ln(`  { // TV Simulator`)
     ln(`    ${CLASSIC_HASH_CPP}`)
     ln(`    float _cr=fmaxf(0.05f,${f('cutRate', 'cutRate', 0.5)}),_br=constrain(${f('brightness', 'brightness', 0.8)},0.0f,1.0f);`)
-    ln(`    uint32_t _sl=(uint32_t)floorf(t*_cr);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_cr')
+    ln(`    uint32_t _sl=(uint32_t)floorf(${ph});`)
     ln(`    int _co=1+(int)floorf(_h(_sl*131U+1U)*3.0f),_ro=1+(int)floorf(_h(_sl*131U+2U)*2.0f);`)
     ln(`    float _dr=0.92f+0.08f*sinf(t*0.8f+(float)_sl);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)

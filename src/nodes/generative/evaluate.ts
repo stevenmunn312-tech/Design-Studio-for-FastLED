@@ -1,16 +1,19 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { SPIRAL_ARMS } from './limits'
+import { CONFETTI_SPAWN, PRIDE_SAT, SCANNER_PALETTE_FLOOR, SPIRAL_ARMS, rainbowAxis, type RainbowAxis } from './limits'
+import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import {
   BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, breatheCurve, breatheEnvelope, chaseSpacing, wipePalettePosition, wipeReversed,
 } from './classics1d'
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
+import { passFrames } from '../shared/passClock'
 import { fadeFrameToBlackBy, trailFadeAmount } from '../shared/trailFade'
 import {
   burstFrame, burstPixel, pacificaFrame, sineFieldFrame, sineFieldSum, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
 } from '../shared/integerPatterns'
 import { scale8, scale8Video } from '../shared/lib8tion'
-import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
+import { FILL_RAINBOW_SAT, hsv2rgbRainbow } from '../shared/hsvRainbow'
+import { type Frame, type Palette, samplePalette, samplePaletteClamped, type RGB } from '../../state/palettes/ledColor'
 import {
   DEFAULT_W,
   DEFAULT_H,
@@ -27,7 +30,7 @@ import { allocField, instanceState } from '../../state/evaluator/memory'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainGeometry, rainIndex } from '../../state/evaluator/digitalRain'
 import { hexToRgb } from '../../state/palettes/customPalette'
 import {
-  candleColor, candleMode, classicHash, heartbeatEnvelope, heartbeatPhase, stepLightning, sunriseColor, sunriseMode, sunriseProgress,
+  candleColor, candleMode, classicHash, stepLightning, sunriseColor, sunriseMode, sunriseProgress,
   tvColor, tvLayout, type LightningState,
 } from '../../state/evaluator/classics'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
@@ -42,21 +45,25 @@ import {
 } from '../../state/evaluator/random'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
-// FastLED fill_rainbow: a scrolling hue sweep across the strip (hue in 0–255
-// units, +deltaHue per LED, animated by `start`). Index order matches the
-// buffer's [y*W+x] layout so the preview lines up with the firmware.
-function evalRainbow(start: number, deltaHue: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+// FastLED fill_rainbow: a scrolling hue sweep (hue in 0–255 units, +deltaHue
+// per LED from a whole-byte `start`), through FastLED's own rainbow wheel at
+// fill_rainbow's saturation, so the preview's bytes are the sketch's. The
+// `string` axis follows the buffer's [y*W+x] order, as fill_rainbow does;
+// `horizontal` and `vertical` step once per column or row.
+export function evalRainbow(phase: number, deltaHue: number, axis: RainbowAxis, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const start = Math.floor(((phase % 256) + 256) % 256)
+  const step = Math.trunc(deltaHue)
   return buildFrame(W, H, (x, y) => {
-      const hue = start + (y * W + x) * deltaHue
-      return hsv((((hue % 256) + 256) % 256) / 256 * 360, 1, 1)
+      const i = axis === 'horizontal' ? x : axis === 'vertical' ? y : y * W + x
+      return hsv2rgbRainbow(start + i * step, FILL_RAINBOW_SAT, 255)
     })
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
-function evalPlasma(key: string, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalPlasma(key: string, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   // The sketch's integer kernel (shared/integerPatterns.ts): four summed
-  // sin16 waves to a palette index v*45 + t*20, wrapping as a uint8_t does.
-  const frame = plasmaFrame(speedPhase(key, t, speed), t)
+  // sin16 waves to a palette index v*45 + phase*20, wrapping as a uint8_t does.
+  const frame = plasmaFrame(speedPhase(key, t, speed), scale)
   return buildFrame(W, H, (x, y) => samplePalette(palette, plasmaIndex(x, y, W, H, frame) / 256))
 }
 
@@ -77,7 +84,7 @@ function evalPride2015(key: string, speed: number, scale: number, t: number, W =
       if (palette) {
         const c = samplePalette(palette, hue / 256)
         row.push({ r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) })
-      } else row.push(hsv(hue / 256 * 360, 0.9, bri / 255))
+      } else row.push(hsv2rgbRainbow(hue, PRIDE_SAT, bri))
       i++
     }
     out.push(row)
@@ -120,35 +127,55 @@ function evalTwinkleFox(key: string, speed: number, density: number, t: number, 
   return out
 }
 
+interface ScannerState { frame: Frame; w: number; h: number; prev: number }
+const scannerState = instanceState('scannerState', new Map<string, ScannerState>())
+
+/*
+ * The beam is drawn into a persistent buffer that fades by `trail`, so its
+ * tail lies behind it along the way it travels, as on a Larson scanner. Each
+ * pass lights the whole span the beam crossed since the last, so a fast beam
+ * leaves no gaps, and keeps the brighter of the old and new light. Its colour
+ * comes from the bright part of the palette, `SCANNER_PALETTE_FLOOR` to the
+ * end, held at the ends: palettes such as lava start almost black.
+ */
 function evalScanner(
-  key: string, speed: number, width: number, fade: number, axis: string, t: number, palette: Palette,
+  key: string, speed: number, width: number, trail: number, axis: string, t: number, palette: Palette,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const horizontal = axis !== 'vertical'
   const span = Math.max(1, horizontal ? W : H)
+  let s = scannerState.get(key)
+  if (!s || s.w !== W || s.h !== H) {
+    s = { frame: rawBlankFrame(W, H), w: W, h: H, prev: -1 }
+    scannerState.set(key, s)
+  }
+  const frame = s.frame
+  fadeFrameToBlackBy(frame, trailFadeAmount(key, t, trail))
   const phase = (speedPhase(key, t, speed) % 2 + 2) % 2
   const travel = phase <= 1 ? phase : 2 - phase
   const pos = travel * Math.max(0, span - 1)
+  const from = s.prev < 0 ? pos : s.prev
+  s.prev = pos
+  const lo = Math.min(from, pos), hi = Math.max(from, pos)
   const core = Math.max(0.5, Number.isFinite(width) ? width * 0.5 : 1)
-  const tail = core + clamp01(fade) * Math.max(1, span * 0.35)
-  const tailDen = Math.max(1e-6, tail - core)
-  const base = samplePalette(palette, travel)
-
-  return buildFrame(W, H, (x, y) => {
-    const coord = horizontal ? x : y
-    const dist = Math.abs(coord - pos)
-    let v = dist <= core ? 1 : Math.max(0, 1 - (dist - core) / tailDen)
-    v *= v
-    return {
-      r: Math.round(base.r * v),
-      g: Math.round(base.g * v),
-      b: Math.round(base.b * v),
+  const base = samplePaletteClamped(palette, SCANNER_PALETTE_FLOOR + (1 - SCANNER_PALETTE_FLOOR) * travel)
+  const across = horizontal ? H : W
+  for (let c = 0; c < span; c++) {
+    const dist = c < lo ? lo - c : c > hi ? c - hi : 0
+    const v = Math.min(1, core + 0.5 - dist)
+    if (v <= 0) continue
+    const q = Math.floor(v * 255)
+    const r = scale8Video(base.r, q), g = scale8Video(base.g, q), b = scale8Video(base.b, q)
+    for (let o = 0; o < across; o++) {
+      const px = horizontal ? frame[o][c] : frame[c][o]
+      px.r = Math.max(px.r, r); px.g = Math.max(px.g, g); px.b = Math.max(px.b, b)
     }
-  })
+  }
+  return frame
 }
 
 function evalConfetti(
-  nodeId: string, speed: number, density: number, fade: number, t: number, palette: Palette, seed = 0,
+  nodeId: string, speed: number, density: number, trail: number, t: number, palette: Palette, seed = 0,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   let state = sparkState.get(nodeId)
@@ -158,14 +185,14 @@ function evalConfetti(
   }
 
   const frame = state.frame
-  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, fade))
+  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, trail))
 
   const area = W * H
   const amount = clamp01(density)
-  const motion = Math.max(0, speed)
-  let spawnCount = Math.round(amount * (0.08 + motion * 0.3) * Math.max(1, Math.sqrt(area)))
-  if (spawnCount < 1 && amount * motion > 0.08) spawnCount = 1
-  const hueDrift = speedPhase(nodeId, t, motion) * 0.08
+  let spawnCount = Math.round(amount * CONFETTI_SPAWN * Math.max(1, Math.sqrt(area)))
+  if (spawnCount < 1 && amount > 0.08) spawnCount = 1
+  // Speed is the colour drift: how fast the speckles' colours wander the palette.
+  const hueDrift = speedPhase(nodeId, t, Math.max(0, speed)) * 0.08
 
   const rnd = () => seededRandom(`${nodeId}:confetti`, seed)
   for (let i = 0; i < spawnCount; i++) {
@@ -182,7 +209,7 @@ function evalConfetti(
 }
 
 function evalJuggle(
-  nodeId: string, speed: number, count: number, fade: number, t: number, palette: Palette, seed = 0,
+  nodeId: string, speed: number, count: number, trail: number, t: number, palette: Palette, seed = 0,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   let state = sparkState.get(nodeId)
@@ -192,7 +219,7 @@ function evalJuggle(
   }
 
   const frame = state.frame
-  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, fade))
+  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, trail))
 
   const dots = juggleDotCount(count)
   const laneY = (i: number) =>
@@ -282,7 +309,6 @@ function evalNoiseFieldByType(key: string, noiseType: string, speed: number, sca
 function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, opts: NoiseVariantOpts): Field {
   const ts = t + seedOffset(seed, 0)
   switch (noiseType) {
-    case 'fbm':     return evalFbmField(key, speed, scale, opts.octaves, ts, W, H, xo)
     // Gabor's seed reshuffles its cells rather than shifting time.
     case 'gabor':   return evalGaborField(key, speed, scale, opts.frequency, opts.orientation, t, W, H, seed, xo)
     case 'simplex': return evalSimplex2DField(key, speed, scale, ts, W, H, xo)
@@ -291,8 +317,9 @@ function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, sc
     case 'worley':  return evalWorleyField(key, speed, scale, ts, W, H, xo, opts.worley)
     case 'plasma':  return evalPlasmaFractalField(key, speed, scale, ts, W, H, xo)
     case 'sine':    return evalSineField(key, speed, scale, ts, W, H, xo)
-    case 'field':
-    default:        return evalNoiseFieldRaw(key, speed, scale, ts, W, H, xo)
+    case 'field':   return evalNoiseFieldRaw(key, speed, scale, ts, W, H, xo)
+    case 'fbm':
+    default:        return evalFbmField(key, speed, scale, opts.octaves, ts, W, H, xo)
   }
 }
 
@@ -451,11 +478,19 @@ function evalFbmField(key: string, speed: number, scale: number, octaves: number
   return out
 }
 
+/**
+ * The side Blobs sizes its blobs by: the shorter one, except on a string,
+ * where that is a single LED and the blobs shrank to a dim speck.
+ */
+export function blobSpan(W: number, H: number): number {
+  return Math.min(W, H) > STRING_MAX_ROWS ? Math.min(W, H) : Math.max(W, H)
+}
+
 // Metaballs: several moving charges; each pixel's field is the summed inverse-
 // square influence, mapped smoothly to a palette (lava-lamp blobs).
 function evalBlobs(key: string, speed: number, scale: number, count: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const n = Math.max(1, Math.min(6, Math.floor(count)))
-  const r2 = (scale * Math.min(W, H)) ** 2
+  const r2 = (scale * blobSpan(W, H)) ** 2
   const ph = speedPhase(key, t, speed)
   const bx: number[] = [], by: number[] = []
   for (let i = 0; i < n; i++) {
@@ -492,7 +527,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   // to its normal `frame` output. Keep in sync with PROPERTY_META.noiseType
   // and the `Noise` case in cppGenerator.ts.
   Noise({ num, pal, t, W, H, stateKey }, id, props) {
-    const noiseType = String(props.noiseType ?? 'field')
+    const noiseType = String(props.noiseType ?? 'fbm')
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
@@ -508,19 +543,21 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   },
   Plasma({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Plasma)
+    const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), SCALE_MAX.Plasma)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalPlasma(stateKey(id), speed, t, palette, W, H) }
+    return { frame: evalPlasma(stateKey(id), speed, scale, t, palette, W, H) }
   },
   Rainbow({ num, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Rainbow)
     const deltaHue = Math.max(0, Math.min(255, num(id, 'deltaHue', props, 'deltaHue', 6)))
-    return { frame: evalRainbow(speedPhase(stateKey(id), t, speed), deltaHue, W, H) }
+    return { frame: evalRainbow(speedPhase(stateKey(id), t, speed), deltaHue, rainbowAxis(props.axis), W, H) }
   },
-  Pride2015({ input, num, t, W, H, stateKey }, id, props) {
+  Pride2015({ incoming, num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Pride2015)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.4), SCALE_MAX.Pride2015)
-    const wired = input(id, 'paletteIn', null)
-    const palette = Array.isArray(wired) ? wired as RGB[] : typeof wired === 'string' ? wired : null
+    // 'none' is the rainbow; a palette, set or wired, makes it colorwaves.
+    const palette = incoming.has(`${id}:paletteIn`) || String(props.palette ?? 'none') !== 'none'
+      ? pal(id, 'paletteIn', props, 'palette', 'rainbow') : null
     return { frame: evalPride2015(stateKey(id), speed, scale, t, W, H, palette) }
   },
   Pacifica({ num, pal, t, W, H, stateKey }, id, props) {
@@ -538,10 +575,10 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   Scanner({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Scanner)
     const width = Math.max(1, num(id, 'width', props, 'width', 2))
-    const fade = num(id, 'fade', props, 'fade', 0.6)
+    const trail = num(id, 'trail', props, 'trail', 0.55)
     const axis = String(props.axis ?? 'horizontal')
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
-    return { frame: evalScanner(stateKey(id), speed, width, fade, axis, t, palette, W, H) }
+    return { frame: evalScanner(stateKey(id), speed, width, trail, axis, t, palette, W, H) }
   },
   TheaterChase({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.TheaterChase)
@@ -588,20 +625,20 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   Confetti({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Confetti)
     const density = num(id, 'density', props, 'density', 0.45)
-    const fade = num(id, 'fade', props, 'fade', 0.65)
+    const trail = num(id, 'trail', props, 'trail', 0.35)
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-    return { frame: evalConfetti(stateKey(id), speed, density, fade, t, palette, normalizedSeed(props.seed), W, H) }
+    return { frame: evalConfetti(stateKey(id), speed, density, trail, t, palette, normalizedSeed(props.seed), W, H) }
   },
   Juggle({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Juggle)
     const count = num(id, 'count', props, 'count', JUGGLE_COUNT.default)
-    const fade = num(id, 'fade', props, 'fade', 0.61)
+    const trail = num(id, 'trail', props, 'trail', 0.39)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalJuggle(stateKey(id), speed, count, fade, t, palette, normalizedSeed(props.seed), W, H) }
+    return { frame: evalJuggle(stateKey(id), speed, count, trail, t, palette, normalizedSeed(props.seed), W, H) }
   },
   RadialBurst({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)
-    const rings = num(id, 'arms', props, 'arms', 8)
+    const rings = num(id, 'rings', props, 'rings', 8)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return { frame: evalRadialBurst(stateKey(id), speed, rings, palette, t, W, H) }
   },
@@ -613,15 +650,16 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   },
   Blobs({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Blobs)
-    const scale = denormRate(num(id, 'scale', props, 'scale', 0.44), SCALE_MAX.Blobs)
+    const scale = denormRate(num(id, 'size', props, 'size', 0.44), SCALE_MAX.Blobs)
     const count = num(id, 'count', props, 'count', 3)
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
     return { frame: evalBlobs(stateKey(id), speed, scale, count, t, palette, W, H) }
   },
 }
 
-// ── Classics: Candle, Lightning, Heartbeat, Sunrise, TV Simulator ─────────────
+// ── Classics: Candle, Lightning, Sunrise, TV Simulator ─────────────────────────
 const lightningState = instanceState('lightningState', new Map<string, LightningState>())
+const sunriseState = instanceState('sunriseState', new Map<string, { origin: number; prev: boolean }>())
 interface RainState { w: number; h: number; dir: string; seed: number; head: Float32Array; spd: Float32Array; len: Float32Array }
 const rainState = instanceState('rainState', new Map<string, RainState>())
 
@@ -639,10 +677,12 @@ function evalDigitalRain(
   }
   const rnd = () => seededRandom(`${nodeId}:rain`, seed)
   const dens = clamp01(density), fl = clamp01(flicker), tl = Math.max(2, tail)
+  // Spawns and steps are per 60th of a second, so the rain keeps its pace at any frame rate.
+  const frames = passFrames(nodeId, t)
   for (let l = 0; l < lanes; l++) {
     if (s.head[l] >= along + s.len[l]) {
-      if (rnd() < dens * RAIN_SPAWN) { s.head[l] = 0; s.spd[l] = 0.25 + rnd() * 0.75; s.len[l] = Math.max(2, tl * (0.5 + rnd() * 0.5)) }
-    } else s.head[l] += s.spd[l] * Math.max(0, speed) * RAIN_STEP
+      if (rnd() < Math.min(1, dens * RAIN_SPAWN * frames)) { s.head[l] = 0; s.spd[l] = 0.25 + rnd() * 0.75; s.len[l] = Math.max(2, tl * (0.5 + rnd() * 0.5)) }
+    } else s.head[l] += s.spd[l] * Math.max(0, speed) * RAIN_STEP * frames
   }
   const frame = blankFrame(W, H)
   const bucket = Math.floor(t * RAIN_FLICKER_HZ)
@@ -682,31 +722,33 @@ const CLASSIC_EVALUATORS: NodeEvaluators = {
     const c = scaled(hexToRgb(String(props.color ?? '#cfe0ff')), v)
     return { frame: buildFrame(W, H, () => c) }
   },
-  Heartbeat({ num, pal, t, W, H }, id, props) {
-    const env = heartbeatEnvelope(heartbeatPhase(t, num(id, 'bpm', props, 'bpm', 72)))
-    const strength = Math.max(0, Math.min(1, num(id, 'strength', props, 'strength', 0.8)))
-    const c = scaled(samplePalette(pal(id, 'paletteIn', props, 'palette', 'lava'), env), 1 - strength * (1 - env))
-    return { frame: buildFrame(W, H, () => c) }
-  },
-  Sunrise({ num, t, W, H }, id, props) {
+  Sunrise({ input, num, t, W, H, stateKey }, id, props) {
     const mode = sunriseMode(props.mode)
-    const p = sunriseProgress(mode, t, num(id, 'start', props, 'start', 0), num(id, 'duration', props, 'duration', 30), num(id, 'progress', props, 'progress', 0))
+    // A rising Trigger restarts the timed ramp: it counts from that moment.
+    const key = stateKey(id)
+    const s = sunriseState.get(key) ?? { origin: 0, prev: false }
+    const trigger = Boolean(input(id, 'trigger', false))
+    if (trigger && !s.prev) s.origin = t
+    s.prev = trigger
+    sunriseState.set(key, s)
+    const p = sunriseProgress(mode, t - s.origin, num(id, 'start', props, 'start', 0), num(id, 'duration', props, 'duration', 30), num(id, 'progress', props, 'progress', 0))
     const c = sunriseColor(p)
     return { frame: buildFrame(W, H, () => c) }
   },
   DigitalRain({ num, pal, t, W, H, stateKey }, id, props) {
     return {
       frame: evalDigitalRain(
-        stateKey(id), rainDirection(props.direction), num(id, 'density', props, 'density', 0.5),
+        stateKey(id), rainDirection(props.direction, W, H), num(id, 'density', props, 'density', 0.5),
         denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.DigitalRain), num(id, 'tailLength', props, 'tailLength', 8),
         num(id, 'flicker', props, 'flicker', 0.3), t, pal(id, 'paletteIn', props, 'palette', 'forest'), W, H, normalizedSeed(props.seed),
       ),
     }
   },
-  TVSimulator({ num, t, W, H }, id, props) {
+  TVSimulator({ num, t, W, H, stateKey }, id, props) {
     const cutRate = Math.max(0.05, num(id, 'cutRate', props, 'cutRate', 0.5))
     const brightness = num(id, 'brightness', props, 'brightness', 0.8)
-    const slot = Math.floor(t * cutRate)
+    // Integrated, so a live Cut Rate moves the next cut rather than jumping scenes.
+    const slot = Math.floor(speedPhase(stateKey(id), t, cutRate))
     const { cols, rows } = tvLayout(slot)
     return {
       frame: buildFrame(W, H, (x, y) => {

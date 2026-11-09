@@ -84,7 +84,7 @@ describe('string track helper', () => {
 
 describe('String Particles node', () => {
   it('lights only the middle row on the row track', () => {
-    const step = rig({ track: 'row', count: 8, spawn: 1, speed: 0.5, fade: 0.9 })
+    const step = rig({ track: 'row', count: 8, spawn: 1, speed: 0.5, trail: 0.53 })
     const row = new Set(trackIndices('row', W, H, 60))
     let any = false
     for (let i = 0; i < 60; i++) {
@@ -97,7 +97,7 @@ describe('String Particles node', () => {
 
   it('lands particles on ringSampleMap indices on the ring track', () => {
     for (const mode of ['drift', 'meteors'] as const) {
-      const step = rig({ track: 'ring', ringLeds: 40, mode, count: 10, spawn: 1, speed: 0.6, fade: 0.9 })
+      const step = rig({ track: 'ring', ringLeds: 40, mode, count: 10, spawn: 1, speed: 0.6, trail: 0.53 })
       const ring = new Set(ringSampleMap(40, 0, 'cw', W, H))
       let any = false
       for (let i = 0; i < 80; i++) {
@@ -113,7 +113,7 @@ describe('String Particles node', () => {
     // No trail and no bed, so what is lit is what is alive: two cells a particle.
     for (const mode of ['drift', 'meteors'] as const) {
       for (const count of [1, 5, MAX_STRING_PARTICLES]) {
-        const step = rig({ track: 'ring', ringLeds: 300, mode, count, spawn: 1, speed: 0.5, fade: 0, bed: 0 })
+        const step = rig({ track: 'ring', ringLeds: 300, mode, count, spawn: 1, speed: 0.5, trail: 0, bed: 0 })
         let peak = 0
         for (let i = 0; i < 200; i++) peak = Math.max(peak, lit(step(i % 6 < 3)).length)
         expect(peak).toBeLessThanOrEqual(2 * count)
@@ -122,7 +122,7 @@ describe('String Particles node', () => {
   })
 
   it('draws no meteor until the trigger rises, then one with debris', () => {
-    const step = rig({ track: 'row', mode: 'meteors', count: 12, spawn: 0, fade: 0, bed: 0 })
+    const step = rig({ track: 'row', mode: 'meteors', count: 12, spawn: 0, trail: 0, bed: 0 })
     for (let i = 0; i < 5; i++) expect(lit(step(false))).toHaveLength(0)
     expect(lit(step(true)).length).toBeGreaterThan(0)
     // Held high, it does not fire again: the pool empties as the meteor dies.
@@ -143,7 +143,7 @@ describe('String Particles node', () => {
   })
 
   it('lets drift particles cross the seam: a long run still lights both ends of the track', () => {
-    const step = rig({ track: 'row', mode: 'drift', count: 12, spawn: 1, speed: 1, fade: 0 })
+    const step = rig({ track: 'row', mode: 'drift', count: 12, spawn: 1, speed: 1, trail: 0 })
     const row = trackIndices('row', W, H, 60)
     const seen = new Set<number>()
     for (let i = 0; i < 400; i++) lit(step()).forEach((c) => seen.add(c))

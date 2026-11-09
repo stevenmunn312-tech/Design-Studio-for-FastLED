@@ -3,7 +3,8 @@
  * flow it steers has no sources or sinks and particles swirl instead of
  * piling up. Taken by central differences of the same noise the angle mode
  * reads, `CURL_EPS` apart in noise space. The C++ twin in
- * `nodes/simulations/codegen.ts` writes this arithmetic with `inoise16`.
+ * `nodes/simulations/codegen.ts` writes this arithmetic with the `_snoise2`
+ * twin, as the preview samples it.
  */
 export const CURL_EPS = 0.05
 export const CURL_GAIN = 1.5

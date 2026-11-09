@@ -281,7 +281,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   constant they each import, such as `SPIRAL_ARMS` in
   `src/nodes/generative/limits.ts` or `FLOW_FIELD_COUNT` in
   `src/nodes/simulations/limits.ts`, whose `max` also sizes the sketch's
-  static pool. Three literals drift: Reaction Diffusion's slider ran to 30
+  static pool when `count` is wired; unwired, the count is fixed at
+  generation time and the pool is that size. Three literals drift: Reaction Diffusion's slider ran to 30
   steps a frame while both sides stopped at 20. A wireable 0–1 level that
   becomes a byte goes through `levelByteCpp` and its siblings in
   `colorControlCpp.ts`, because `(uint8_t)(x * 255)` wraps a wired 1.1 round
@@ -291,7 +292,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Master Speed; its ramp is now Wave's unipolar sawtooth, integrated through
   `speedPhase`. Time's `dt`
   is the time since that node's previous pass (0 on its first), measured on
-  both sides, where it was a fixed 1/60.
+  both sides, where it was a fixed 1/60. A simulation written as a step per
+  frame multiplies each step by `passFrames` (`src/nodes/shared/passClock.ts`,
+  firmware twin `passFramesCpp`), the 60ths of a second since its previous
+  pass: 1 on the first, so a 60 fps run is unchanged, and at most a quarter
+  second after a stall. Starfield, Digital Rain and Flow Field move this way.
 - A pattern's Beat input fires on its rising edge, never on every frame it
   reads true: a Kick envelope or a Vibe spike held high for a few frames is
   one flash, not a strobe. Beat Flash, Beat Kaleidoscope and Ember Pulse keep
@@ -307,20 +312,37 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   pattern whose band ports are levels shows on drop through 0.5 band
   defaults. Band and drum ports are `defaultExposedInputs`: they are what
   an audio pattern is for.
-- A trail fade is a half-life on a log scale, applied by the time that has
-  passed, not a share taken off each frame. Juggle and Confetti use it. Their
-  old `1 - fade` per frame put
-  every visible difference below 0.1 (at 60 fps, 0.1 already halved a trail in
-  a tenth of a second), and the trail length moved with the frame rate.
-  `trailFadeAmount` and `fadeFrameToBlackBy` (`src/nodes/shared/trailFade.ts`)
-  and their firmware twin `trailFadeCpp` map 0 to a 2 s half-life and 1 to
-  none, with each step along the slider shortening the trail by the same
-  ratio. They carry the unspent fade between frames and spend it at least
+- A string renders on a canvas one row tall, so a pattern that rises, falls
+  or sizes itself by the shorter side has nothing to work with there. Fire
+  and Digital Rain default to an `auto` direction that runs along a string
+  and keeps a matrix's usual orientation, and Blobs sizes by a string's
+  length; all three ask `isRowString` (`src/nodes/shared/stringCanvas.ts`).
+  The sketch resolves `auto` at generation time from the one canvas it
+  renders, and from each pass's own `WIDTH`/`HEIGHT` (`IS_ROW_STRING_CPP`,
+  folded per template instance) when outputs render on canvases of their own.
+- A trail is one knob, `trail`, with one meaning: 0 leaves none and 1 the
+  longest. It is a half-life on a log scale, applied by the time that has
+  passed, not a share taken off each frame. Confetti, Juggle, Scanner, Flow
+  Field, Ripple, String Particles, Game of Life and Formula Points read it;
+  before, the same slider was a half-life on two of them, a per-frame share
+  kept on five (1 never faded) and a glow length on Scanner, so a hand that
+  learned one node did the opposite on the next. A per-frame share put every
+  visible difference at one end (at 60 fps, keeping 0.9 already halved a
+  trail in a tenth of a second), and the trail length moved with the frame
+  rate. `trailFadeAmount` and `fadeFrameToBlackBy` (`src/nodes/shared/trailFade.ts`)
+  and their firmware twin `trailFadeCpp` map 1 to a 2 s half-life and 0 to
+  none at all, with each step along the slider lengthening the trail by the
+  same ratio. They carry the unspent fade between frames and spend it at least
   `TRAIL_MIN_STEP` bytes at a time, because FastLED's flooring
   `fadeToBlackBy` takes about half a level extra on every call: spent a byte
   per frame, a 2 s trail lost a quarter of its length and dim tails died in a
-  few frames. Moving a node onto it changes the meaning of its saved values,
-  so convert bundled and help values to the same half-life at 60 fps. A node
+  few frames. A trail held as floats (Flow Field, Game of Life) has nothing to
+  floor and multiplies by `trailKeep`/`trailKeepCpp` instead; a byte trail
+  shorter than the canvas (String Particles' track) passes its length as
+  `count`. Moving a node onto it changes the meaning of its saved values,
+  so convert bundled and help values to the same half-life at 60 fps
+  (`trailFromRetention` does it for a per-frame share). Particles `decay` is
+  still a per-frame share of each particle's life, not a trail. A node
   whose slider already meant a share per frame can keep it instead: Trails
   spends its cubed `1 - decay³` per 60th of a second through `timedFadeAmount`
   and `timedFadeCpp`, the same clock and byte carry, so its saved values keep

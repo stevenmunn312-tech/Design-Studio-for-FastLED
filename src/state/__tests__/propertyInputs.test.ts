@@ -37,7 +37,7 @@ describe('property input exposure', () => {
     expect(propertyInputsFor('Board')).toEqual([])
     expect(propertyInputsFor('Blend').map((port) => port.propertyKey)).toEqual(['amount'])
     expect(normalizeExposedInputs('Blend', undefined)).toEqual([])
-    expect(propertyInputsFor('Juggle').map((port) => port.propertyKey)).toEqual(['speed', 'count', 'fade', 'palette'])
+    expect(propertyInputsFor('Juggle').map((port) => port.propertyKey)).toEqual(['speed', 'count', 'trail', 'palette'])
     expect(normalizeExposedInputs('Juggle', undefined)).toEqual([])
     expect(normalizeExposedInputs('TransportDisplay', undefined)).toEqual(['enabled'])
     expect(propertyInputsFor('PatternMaster').map((port) => port.propertyKey))
@@ -79,8 +79,8 @@ describe('property input exposure', () => {
   })
 
   it('bounds imported visibility data and reveals wired ports without mutating the graph', () => {
-    expect(normalizeExposedInputs('Juggle', ['frame', 'speed', 'speed', 'seed', {}, 'fade']))
-      .toEqual(['speed', 'fade'])
+    expect(normalizeExposedInputs('Juggle', ['frame', 'speed', 'speed', 'seed', {}, 'trail']))
+      .toEqual(['speed', 'trail'])
     expect(exposedPropertyInputs('Juggle', [], new Set(['paletteIn', 'count'])).map((port) => port.id))
       .toEqual(['count', 'paletteIn'])
   })
@@ -116,10 +116,10 @@ describe('property input exposure', () => {
   it('pulls one wire without touching the node’s saved value or its other inputs', () => {
     useGraphStore.setState({ edges: [
       { id: 'count-wire', source: 'src', sourceHandle: 'out', target: 'juggle', targetHandle: 'count' },
-      { id: 'fade-wire', source: 'src', sourceHandle: 'out', target: 'juggle', targetHandle: 'fade' },
+      { id: 'trail-wire', source: 'src', sourceHandle: 'out', target: 'juggle', targetHandle: 'trail' },
     ] })
     useGraphStore.getState().disconnectInput('juggle', 'count')
-    expect(useGraphStore.getState().edges.map((edge) => edge.id)).toEqual(['fade-wire'])
+    expect(useGraphStore.getState().edges.map((edge) => edge.id)).toEqual(['trail-wire'])
     expect(useGraphStore.getState().nodes[0].data.properties.count).toBe(4)
     const before = useGraphStore.getState()
     useGraphStore.getState().disconnectInput('juggle', 'count')
@@ -127,15 +127,15 @@ describe('property input exposure', () => {
   })
 
   it('keeps exposure through workspace serialization, load and undo/redo', () => {
-    useGraphStore.getState().setNodeInputExposed('juggle', 'fade', true)
+    useGraphStore.getState().setNodeInputExposed('juggle', 'trail', true)
     vi.advanceTimersByTime(500)
     useGraphStore.temporal.getState().undo()
     expect(useGraphStore.getState().nodes[0].data.exposedInputs).toBeUndefined()
     useGraphStore.temporal.getState().redo()
-    expect(useGraphStore.getState().nodes[0].data.exposedInputs).toEqual(['fade'])
+    expect(useGraphStore.getState().nodes[0].data.exposedInputs).toEqual(['trail'])
     const saved = JSON.parse(JSON.stringify(captureWorkspace(useGraphStore.getState())))
     useGraphStore.getState().loadGraph(saved.nodes, saved.edges, saved)
-    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'juggle')?.data.exposedInputs).toEqual(['fade'])
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'juggle')?.data.exposedInputs).toEqual(['trail'])
   })
 
   it('edits root-owned display exposure from inside a group without changing the group', () => {
@@ -153,7 +153,7 @@ describe('property input exposure', () => {
     useGraphStore.getState().pasteNode({ x: 250, y: 0 })
     const copy = useGraphStore.getState().nodes.find((entry) => entry.id !== 'juggle')!
     expect(copy.data.exposedInputs).toEqual(['count'])
-    useGraphStore.getState().setNodeInputExposed(copy.id, 'fade', true)
+    useGraphStore.getState().setNodeInputExposed(copy.id, 'trail', true)
     expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'juggle')?.data.exposedInputs).toEqual(['count'])
   })
 })

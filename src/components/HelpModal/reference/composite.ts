@@ -300,7 +300,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       featured: 'Mirror',
       title: 'A living Rorschach inkblot',
       nodes: {
-        ink: ['Blobs', { palette: 'noir', count: 4, scale: 0.38, speed: 0.25 }],
+        ink: ['Blobs', { palette: 'noir', count: 4, size: 0.38, speed: 0.25 }],
         fold: ['Mirror', { mirrorMode: 'horizontal' }],
       },
       wires: ['ink.frame > fold.frame'],
@@ -467,7 +467,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       nodes: {
         spring: ['Blobs', { palette: 'meadow', count: 3 }],
         summer: ['Fire', { fireStyle: 'classic', palette: 'fire' }],
-        autumn: ['Confetti', { palette: 'emberglow', speed: 0.4 }],
+        autumn: ['Confetti', { palette: 'emberglow', speed: 0.4, density: 0.22 }],
         winter: ['Particles', { particleType: 'snow', rate: 0.4, palette: 'arctic' }],
         quarters: ['Zones'],
       },

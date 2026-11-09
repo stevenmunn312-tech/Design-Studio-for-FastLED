@@ -42,8 +42,9 @@ const lit = (f: Frame) => f.flat().filter((p) => p.r || p.g || p.b).length
 
 describe('variant defaults are unchanged', () => {
   it('Pride 2015 without a palette wire', () => {
-    // Retaken when Pride 2015 moved to its integer kernel (HW-32 step 11).
-    expect(hash(after('gold-pride', 'Pride2015', {}, 20))).toBe('1d4cc68b')
+    // Retaken when Pride 2015's preview moved onto FastLED's CHSV rainbow wheel,
+    // the one the sketch converts through (nodes/shared/hsvRainbow.ts).
+    expect(hash(after('gold-pride', 'Pride2015', {}, 20))).toBe('23bc425')
   })
   it('Fire in its default style, and with the style named', () => {
     expect(hash(after('gold-fire', 'Fire', { seed: 7 }, 25))).toBe('e8f544')

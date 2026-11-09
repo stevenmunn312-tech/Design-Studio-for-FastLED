@@ -1,6 +1,8 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { trailFadeCpp, trailKeepCpp } from '../shared/trailFadeCpp'
+import { passFramesCpp } from '../shared/passClockCpp'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_DEPTH, FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, INOISE_UNIT, fireStyle,
@@ -14,13 +16,15 @@ import {
   RIPPLE_LIFETIME_SEC, RIPPLE_MAX_RIPPLES, RIPPLE_WIDTH, arrivalEnd, buildRippleTables, rippleBehaviour, rippleShape,
 } from '../shared/rippleNetwork'
 import { particleRadius } from './particleScale'
+import { FIRE_ALONG_CPP, fireDirection, fireDirectionChoice } from './fireDirection'
 import { particleMode, particlePoolSize } from './particleModes'
+import { BOID_PALETTE_MODES } from './limits'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { REACTION_DIFFUSION_RATES, reactionDiffusionRates } from './reactionDiffusionPresets'
 import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integerPatterns'
 
-// Fire's styles share these direction/turbulence/paletteMix/mirror/seed
+// Fire's styles share these direction/turbulence/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
 // fireToXY. The heat simulation always runs in a canonical [P][S] grid (P =
 // distance from the flame base where sparks land, S = position across the
@@ -29,12 +33,24 @@ import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integ
 // macros actually expand to — including the supersampled render resolution,
 // which the raw `width`/`height` JS constants don't reflect. The mapping back
 // to real (x, y) only happens once, in the final palette-sampling loop.
+//
+// `auto` is resolved here from the one canvas the sketch renders, as the
+// preview resolves it on its own. When each output renders a canvas of its
+// own, every pass decides from its own WIDTH and HEIGHT instead, which the
+// compiler folds to one arm per pass.
+function fireDirectionCpp({ p, nativeMultiRender, width, height }: EmitContext): string {
+  const choice = fireDirectionChoice(p.direction)
+  if (choice !== 'auto' || nativeMultiRender) return choice
+  return fireDirection(choice, width, height)
+}
 function fireGrid(direction: string): { P: string; S: string } {
+  if (direction === 'auto') return { P: `(${FIRE_ALONG_CPP}?WIDTH:HEIGHT)`, S: `(${FIRE_ALONG_CPP}?HEIGHT:WIDTH)` }
   const vertical = direction !== 'left' && direction !== 'right'
   return { P: vertical ? 'HEIGHT' : 'WIDTH', S: vertical ? 'WIDTH' : 'HEIGHT' }
 }
 function fireXYExpr(direction: string, pExpr: string, sExpr: string): { x: string; y: string } {
   switch (direction) {
+    case 'auto':  return { x: `(${FIRE_ALONG_CPP}?(${pExpr}):(${sExpr}))`, y: `(${FIRE_ALONG_CPP}?(${sExpr}):(HEIGHT-1-(${pExpr})))` }
     case 'down':  return { x: sExpr, y: pExpr }
     case 'left':  return { x: `(WIDTH-1-(${pExpr}))`, y: sExpr }
     case 'right': return { x: pExpr, y: sExpr }
@@ -43,21 +59,42 @@ function fireXYExpr(direction: string, pExpr: string, sExpr: string): { x: strin
   }
 }
 
+/**
+ * Folds the rendered buffer symmetric across the flame's width — up/down
+ * mirror columns, left/right mirror rows. Mirrors fireMirror.
+ */
+function fireMirrorCpp(ln: (line: string) => void, direction: string, ob: string): void {
+  const rows = `for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`
+  const columns = `for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`
+  if (direction === 'auto') ln(`    if (${FIRE_ALONG_CPP}) { ${rows} } else { ${columns} }`)
+  else ln(`    ${direction === 'left' || direction === 'right' ? rows : columns}`)
+}
+
+/**
+ * A particle pool's `_count` declaration and static size. Unwired, the count
+ * is fixed at generation time, so the pool is that size; wired, it can reach
+ * the maximum, so the pool is the maximum and `_count` follows the wire.
+ */
+function poolCpp(
+  wired: boolean, countExpr: string, saved: unknown, fallback: number, bounds: { min: number; max: number },
+): { count: string; size: number } {
+  if (wired) return { count: `const int _count=max(${bounds.min},min(${bounds.max},(int)floorf(${countExpr})));`, size: bounds.max }
+  const n = Number(saved ?? fallback)
+  const size = Math.max(bounds.min, Math.min(bounds.max, Math.floor(Number.isFinite(n) ? n : fallback)))
+  return { count: `const int _count=${size};`, size }
+}
+
 /** Fire's `fire2012` style: FastLED's Fire2012 heat algorithm. */
-function fire2012Cpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }: EmitContext): void {
+function fire2012Cpp(ctx: EmitContext): void {
+  const { node, id, p, ln, f, ownBuf, paletteExpr } = ctx
   const ob = ownBuf()
   const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
   const pal = paletteExpr(node.id, 'paletteIn', p)
-  const direction = String(p.direction ?? 'up')
+  const direction = fireDirectionCpp(ctx)
   // The diffusion window is a loop bound and a divisor, not an array
   // size, so both become runtime reads of one local.
   const spread = `_fireSpread_${id}`
   const spreadDecl = `    int ${spread}=(int)roundf(constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f));`
-  // The palette blend picks between two emitted blocks, so the mix arm is
-  // emitted whenever the knob can move — wired, or already below 1.
-  const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
-  const paletteMixWired = incoming.has(`${node.id}:paletteMix`)
-  const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
   const mirrorP = Boolean(p.mirror)
   const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
   const { P, S } = fireGrid(direction)
@@ -81,48 +118,28 @@ function fire2012Cpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }: Emit
   ln(`    for(int _s=0;_s<${S};_s++) if(${rnd01}*255 < ${sparking}) ${HB}[0][_s]=qadd8(${HB}[0][_s],(uint8_t)(${rnd01}*95+160));`)
   ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
   const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
-  ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
-  if (paletteMixP >= 1 && !paletteMixWired) {
-    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
-  } else if (paletteMixWired) {
-    ln(`      float _pmix=${paletteMixE}, _pkeep=1.0f-_pmix;`)
-    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*_pkeep+_c.r*_pmix),(uint8_t)(_h*_pkeep+_c.g*_pmix),(uint8_t)(_h*_pkeep+_c.b*_pmix));`)
-  } else {
-    const keep = floatLit(1 - paletteMixP)
-    const mix = floatLit(paletteMixP)
-    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
-  }
+  ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = ColorFromPalette(${pal}, ${HB}[_p][_s]);`)
   ln(`    }`)
-  if (mirrorP) {
-    if (direction === 'left' || direction === 'right')
-      ln(`    for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`)
-    else
-      ln(`    for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`)
-  }
+  if (mirrorP) fireMirrorCpp(ln, direction, ob)
   ln(`  }`)
 }
 
 export const SIMULATIONS_EMITTERS: NodeEmitters = {
   Fire(ctx) {
     if (fireStyle(ctx.p.fireStyle) === 'fire2012') { fire2012Cpp(ctx); return }
-    const { node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT } = ctx
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
     const ob = ownBuf()
     const intensity = f('intensity', 'intensity', 0.7)
     const cooling = f('cooling', 'cooling', 55)
     const sparking = f('sparking', 'sparking', 120)
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    const direction = String(p.direction ?? 'up')
+    const direction = fireDirectionCpp(ctx)
     const smoke = fireStyle(p.fireStyle) === 'smoke'
     if (smoke) needsT.v = true
     // The diffusion window is a loop bound and a divisor, not an array
     // size, so both become runtime reads of one local.
     const spread = `_fireSpread_${id}`
     const spreadDecl = `    int ${spread}=(int)roundf(constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f));`
-    // The palette blend picks between two emitted blocks, so the mix arm is
-    // emitted whenever the knob can move — wired, or already below 1.
-    const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
-    const paletteMixWired = incoming.has(`${node.id}:paletteMix`)
-    const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
     const mirrorP = Boolean(p.mirror)
     const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
     const { P, S } = fireGrid(direction)
@@ -158,31 +175,15 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       ln(`      _h=(uint8_t)(_h*(1.0f-${floatLit(FIRE_SMOKE_DEPTH)}*(inoise8((uint16_t)(_s*${u(FIRE_SMOKE_SCALE_ACROSS)}),(uint16_t)((${P}-1-_p)*${u(FIRE_SMOKE_SCALE_ALONG)}+t*${floatLit(u(FIRE_SMOKE_SPEED))}))/255.0f)));`)
       ln(`      CRGB _c=ColorFromPalette(${pal}, _h);`)
     } else ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
-    if (paletteMixP >= 1 && !paletteMixWired) {
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
-    } else if (paletteMixWired) {
-      ln(`      float _pmix=${paletteMixE}, _pkeep=1.0f-_pmix;`)
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*_pkeep+_c.r*_pmix),(uint8_t)(_h*_pkeep+_c.g*_pmix),(uint8_t)(_h*_pkeep+_c.b*_pmix));`)
-    } else {
-      const keep = floatLit(1 - paletteMixP)
-      const mix = floatLit(paletteMixP)
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
-    }
+    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
     ln(`    }`)
-    if (mirrorP) {
-      // Fold the rendered buffer symmetric across the flame's width —
-      // up/down mirror columns, left/right mirror rows. Mirrors fireMirror.
-      if (direction === 'left' || direction === 'right')
-        ln(`    for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`)
-      else
-        ln(`    for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`)
-    }
+    if (mirrorP) fireMirrorCpp(ln, direction, ob)
     ln(`  }`)
   },
   Particles({ node, id, p, ln, f, ownBuf, width, height, paletteExpr, needsT }) {
     const ob = ownBuf()
     const mode = particleMode(p.particleType)
-    if (['comet', 'snow', 'embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor', 'luminova'].includes(mode)) needsT.v = true
+    if (['comet', 'snow', 'embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'chase', 'luminova'].includes(mode)) needsT.v = true
     // Both are 0–1 sliders and both are wireable; bounded here as in the
     // preview, since a rate over 1 wraps the uint8_t spawn test round to 0 and
     // a decay over 1 lets particles live forever.
@@ -203,11 +204,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const A = `_pa_${id}`
     ln(`  { // Particles: ${mode}`)
     ln(`    const int _PN=${cap};`)
-    ln(`    static float ${A}x[_PN], ${A}y[_PN], ${A}vx[_PN], ${A}vy[_PN], ${A}l[_PN], ${A}s[_PN]; static uint8_t ${A}r[_PN], ${A}g[_PN], ${A}b[_PN]; static bool ${A}init=false;`)
+    // Every particle is coloured by its life when drawn, so the pool holds no colour.
+    ln(`    static float ${A}x[_PN], ${A}y[_PN], ${A}vx[_PN], ${A}vy[_PN], ${A}l[_PN], ${A}s[_PN]; static bool ${A}init=false;`)
     if (seed) ln(`    static bool ${A}seeded=false; if(!${A}seeded){ random16_set_seed(${seed}u); ${A}seeded=true; }`)
-    // Spawn colour is a fixed palette sample kept only so the (unused-at-render)
-    // per-particle colour slots stay well-formed; render colours by life below.
-    ln(`    float _rate=${rate}; CRGB _pc=ColorFromPalette(${pal},180);`)
 
     /*
      * The spawn/update variants read different knobs — one mode scales its
@@ -233,18 +232,18 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       const bounceF = '_paBounce'
       const spawnX = `(WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*${spreadF})`
       if (mode === 'fountain')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadF}; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
-      else if (mode === 'gravity')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f*${spreadF}; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadF}; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; break; } }`)
+      else if (mode === 'drops')
+        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f*${spreadF}; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=1; break; } }`)
       else if (mode === 'fireworks') {
-        ln(`    if(random8()<(uint8_t)(_rate*0.12f*255)){ uint8_t _hue=random8(); int _n=14+random8()/32; float _cx=random8()/255.0f*WIDTH, _cy=random8()/255.0f*HEIGHT*0.5f+HEIGHT*0.1f;`)
-        ln(`      for(int k=0;k<_n;k++) for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=(k/(float)_n)*6.2831f+random8()/255.0f*0.3f, _sp=random8()/255.0f*0.5f+0.35f; ${A}x[i]=_cx; ${A}y[i]=_cy; ${A}vx[i]=cos(_a)*_sp; ${A}vy[i]=sin(_a)*_sp; ${A}l[i]=1; CRGB _fc=CHSV(_hue+(random8()%30)-15,255,255); ${A}r[i]=_fc.r; ${A}g[i]=_fc.g; ${A}b[i]=_fc.b; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_rate*0.12f*255)){ int _n=14+random8()/32; float _cx=random8()/255.0f*WIDTH, _cy=random8()/255.0f*HEIGHT*0.5f+HEIGHT*0.1f;`)
+        ln(`      for(int k=0;k<_n;k++) for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=(k/(float)_n)*6.2831f+random8()/255.0f*0.3f, _sp=random8()/255.0f*0.5f+0.35f; ${A}x[i]=_cx; ${A}y[i]=_cy; ${A}vx[i]=cos(_a)*_sp; ${A}vy[i]=sin(_a)*_sp; ${A}l[i]=1; break; } }`)
       } else if (mode === 'sparkle')
-        ln(`    { int _sp=max(1,(int)floorf(_rate*WIDTH*0.8f+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=random8()/255.0f*HEIGHT*0.3f; ${A}vx[i]=0; ${A}vy[i]=random8()/255.0f*0.25f+0.05f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } } }`)
+        ln(`    { int _sp=max(1,(int)floorf(_rate*WIDTH*0.8f+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=random8()/255.0f*HEIGHT*0.3f; ${A}vx[i]=0; ${A}vy[i]=random8()/255.0f*0.25f+0.05f; ${A}l[i]=1; break; } } }`)
       else if (mode === 'comet')
-        ln(`    { float _hx=(WIDTH-1)*(0.5f+0.45f*sin(t*0.9f)), _hy=(HEIGHT-1)*(0.5f+0.45f*sin(t*0.6f+1.3f)); for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=_hx; ${A}y[i]=_hy; ${A}vx[i]=0; ${A}vy[i]=0; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+        ln(`    { float _hx=(WIDTH-1)*(0.5f+0.45f*sin(t*0.9f)), _hy=(HEIGHT-1)*(0.5f+0.45f*sin(t*0.6f+1.3f)); for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=_hx; ${A}y[i]=_hy; ${A}vx[i]=0; ${A}vy[i]=0; ${A}l[i]=1; break; } }`)
       else if (mode === 'snow')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vy[i]=random8()/255.0f*0.12f+0.05f; ${A}l[i]=0.7f+random8()/255.0f*0.3f; ${A}s[i]=random8()/255.0f*6.28f; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vy[i]=random8()/255.0f*0.12f+0.05f; ${A}l[i]=0.7f+random8()/255.0f*0.3f; ${A}s[i]=random8()/255.0f*6.28f; break; } }`)
       else if (mode === 'rain')
         ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.18f; ${A}vy[i]=random8()/255.0f*0.45f+0.35f; ${A}l[i]=1; break; } }`)
       else if (mode === 'embers')
@@ -276,7 +275,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=random8()/255.0f*6.2831f; ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT/2.0f; ${A}vx[i]=cos(_a)*0.18f; ${A}vy[i]=sin(_a)*0.18f; ${A}l[i]=1; break; } }`)
       else if (mode === 'bounce')
         ln(`    { int _target=${countP}; for(int i=0;i<_target;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.5f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.5f; ${A}l[i]=1; } for(int i=_target;i<_PN;i++) ${A}l[i]=0; }`)
-      else if (mode === 'attractor')
+      else if (mode === 'chase')
         ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.1f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.1f; ${A}l[i]=1; break; } }`)
       else if (mode === 'waterfall')
         ln(`    { int _sp=max(1,(int)floorf(_rate*3+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH*0.5f+(random8()/255.0f-0.5f)*0.3f*WIDTH*${spreadF}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.08f; ${A}vy[i]=random8()/255.0f*0.2f+0.12f; ${A}l[i]=1; break; } } }`)
@@ -285,7 +284,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue;`)
       if (mode === 'fountain')
         ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}vy[i]+=0.02f*${gravityF}; ${A}l[i]*=${decayL}; if(${A}y[i]<0) ${A}l[i]=0; }`)
-      else if (mode === 'gravity')
+      else if (mode === 'drops')
         ln(`      ${A}vy[i]+=0.045f*${gravityF}; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.55f*${bounceF}; ${A}vx[i]*=0.8f; ${A}l[i]*=0.9f; } ${A}l[i]*=${decayL}; }`)
       else if (mode === 'fireworks')
         ln(`      ${A}vy[i]=(${A}vy[i]+0.022f*${gravityF})*0.965f; ${A}vx[i]*=0.965f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.985f; }`)
@@ -319,13 +318,14 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         ln(`      { float vx=${A}vx[i]-${A}vy[i]*0.035f,vy=${A}vy[i]+${A}vx[i]*0.035f; ${A}vx[i]=vx; ${A}vy[i]=vy; ${A}x[i]+=vx; ${A}y[i]+=vy; ${A}l[i]*=${decayL}*0.99f; if(${A}x[i]<0||${A}x[i]>=WIDTH||${A}y[i]<0||${A}y[i]>=HEIGHT) ${A}l[i]=0; } }`)
       else if (mode === 'bounce')
         ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}x[i]<=0||${A}x[i]>=WIDTH-1){ ${A}x[i]=max(0.0f,min(WIDTH-1.0f,${A}x[i])); ${A}vx[i]*=-1; } if(${A}y[i]<=0||${A}y[i]>=HEIGHT-1){ ${A}y[i]=max(0.0f,min(HEIGHT-1.0f,${A}y[i])); ${A}vy[i]*=-1; } ${A}l[i]=1; }`)
-      else if (mode === 'attractor')
+      else if (mode === 'chase')
         ln(`      { float ax=(WIDTH-1)*(0.5f+0.35f*sin(t*0.7f)),ay=(HEIGHT-1)*(0.5f+0.35f*cos(t*0.9f)),dx=ax-${A}x[i],dy=ay-${A}y[i],d=max(1.0f,sqrtf(dx*dx+dy*dy)); ${A}vx[i]=${A}vx[i]*0.97f+dx/d*0.025f; ${A}vy[i]=${A}vy[i]*0.97f+dy/d*0.025f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.998f; } }`)
       else if (mode === 'waterfall')
         ln(`      ${A}vy[i]+=0.025f*${gravityF}; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.3f*${bounceF}; ${A}vx[i]+=(random8()/255.0f-0.5f)*0.35f; ${A}l[i]*=0.7f; } ${A}l[i]*=${decayL}*0.995f; }`)
     }
 
     for (const [name, expr] of [
+      ['_rate', rate],
       ['_paSpread', `constrain(${f('spread', 'spread', 1)},0.0f,2.0f)`],
       ['_paGrav', `constrain(${f('gravity', 'gravity', 1)},0.0f,3.0f)`],
       ['_paBounce', `constrain(${f('bounce', 'bounce', 1)},0.0f,1.5f)`],
@@ -380,21 +380,21 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const Rf = `${A}R`
     const count = `${A}N`
     const speedVar = `${A}S`
-    const persistVar = `${A}P`
+    const trailVar = `${A}T`
     // Only what this variant reads: an unused local is a warning per
     // sketch, and every knob here belongs to some variants and not others.
     const usesCount = formulaType === 'phyllotaxis' || formulaType === 'logisticMap'
       || formulaType === 'attractor' || !['lissajousPath', 'rosePath'].includes(formulaType)
     const usesSpeed = ['phyllotaxis', 'lissajousPath', 'rosePath'].includes(formulaType)
       || !['logisticMap', 'attractor'].includes(formulaType)
-    const usesPersist = ['attractor', 'lissajousPath', 'rosePath'].includes(formulaType)
-    // The persistence variants fade last frame's dots rather than clearing.
-    const ob = ownBuf({ persists: usesPersist })
+    const usesTrail = ['attractor', 'lissajousPath', 'rosePath'].includes(formulaType)
+    // The trail variants fade last frame's dots rather than clearing.
+    const ob = ownBuf({ persists: usesTrail })
     ln(`  int32_t ${Rf}=(int32_t)(fmaxf(0.5f, ${baseR}*fmaxf(0.1f, ${f('dotSize', 'dotSize', 1)}))*256.0f);`)
     if (usesCount) ln(`  int ${count}=(int)constrain(${f('count', 'count', 60)}, 1.0f, 300.0f);`)
     if (usesSpeed) ln(`  float ${speedVar}=constrain(${f('speed', 'speed', 0.3)}, 0.0f, 1.0f);`)
-    if (usesPersist) ln(`  float ${persistVar}=constrain(${f('persistence', 'persistence', 0.85)}, 0.0f, 1.0f);`)
-    if (formulaType === 'phyllotaxis' || formulaType === 'lissajousPath' || formulaType === 'rosePath') needsT.v = true
+    if (usesTrail) ln(`  float ${trailVar}=${f('trail', 'trail', 0.46)};`)
+    if (usesTrail || formulaType === 'phyllotaxis') needsT.v = true
 
     // Splats one soft disc of `colorExpr` at (xExpr, yExpr), float pixels,
     // into `buf`: the integer splat in shared/integerPatterns.ts. Its own
@@ -433,7 +433,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         const [pa, pb, pc, pd] = presets[presetName]
         ln(`  { // Formula Points: attractor (de Jong, ${presetName})`)
         ln(`    static float ${A}ax=0.1f, ${A}ay=0.1f;`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
+        trailFadeCpp(ln, phaseTag(id), trailVar, ob)
         ln(`    for(int _i=0;_i<${count};_i++){`)
         ln(`      float _nx=sinf(${floatLit(pa)}*${A}ay)-cosf(${floatLit(pb)}*${A}ax);`)
         ln(`      float _ny=sinf(${floatLit(pc)}*${A}ax)-cosf(${floatLit(pd)}*${A}ay);`)
@@ -448,7 +448,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         const freqA = `fmaxf(1.0f, ${f('freqA', 'freqA', 3)})`
         const freqB = `fmaxf(1.0f, ${f('freqB', 'freqB', 2)})`
         ln(`  { // Formula Points: lissajousPath`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
+        trailFadeCpp(ln, phaseTag(id), trailVar, ob)
         // FORMULA_POINTS_SPEED_MAX.lissajousPath
         ln(`    float _phase=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*2.0f;`)
         ln(`    float _cx=sinf(${freqA}*_phase), _cy=sinf(${freqB}*_phase);`)
@@ -460,7 +460,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
 
       case 'rosePath': {
         ln(`  { // Formula Points: rosePath`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
+        trailFadeCpp(ln, phaseTag(id), trailVar, ob)
         // FORMULA_POINTS_SPEED_MAX.rosePath
         ln(`    float _phase=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*2.0f;`)
         ln(`    float _rr=cosf(fmaxf(1.0f, ${f('petals', 'petals', 5)})*_phase);`)
@@ -487,37 +487,39 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       }
     }
   },
-  FlowField({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  // The flow is the preview's own: the `_snoise2` twin at (x*scale + t*0.1,
+  // y*scale), an angle of ±4π, or its curl by the same central differences.
+  FlowField({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT, needsSimplex }) {
     needsT.v = true
+    needsSimplex.v = true
     const ob = ownBuf()
-    const speed = rateCpp(f('speed', 'speed', 0.67), SPEED_MAX.FlowField), scale = rateCpp(f('scale', 'scale', 0.08), SCALE_MAX.FlowField)
-    const fadeL = f('fade', 'fade', 0.9)
+    const speed = rateCpp(f('speed', 'speed', 0.67), SPEED_MAX.FlowField), scale = rateCpp(f('scale', 'scale', 0.32), SCALE_MAX.FlowField)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const px = `_fpx_${id}`, py = `_fpy_${id}`, tr = `_ftr_${id}`
     ln(`  { // Flow field`)
-    const { min: flowMin, max: flowMax } = FLOW_FIELD_COUNT
-    ln(`    const int _count=max(${flowMin},min(${flowMax},(int)floorf(${f('count', 'count', 80)}))); static float ${px}[${flowMax}], ${py}[${flowMax}], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
+    // A wired count can reach the maximum, so only then is the pool that size.
+    const pool = poolCpp(incoming.has(`${node.id}:count`), f('count', 'count', 80), p.count, 80, FLOW_FIELD_COUNT)
+    ln(`    ${pool.count} static float ${px}[${pool.size}], ${py}[${pool.size}], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
     if (seed) ln(`    static bool _fs_${id}=false; if(!_fs_${id}){ random16_set_seed(${seed}u); _fs_${id}=true; }`)
-    ln(`    if(!_fi_${id}){ for(int _i=0;_i<${flowMax};_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
-    // Noise axes wrap at their integer width before the cast: a float past the
-    // type's range is undefined to convert, and `t*100` passes 65535 in 11 minutes.
-    ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)fmodf(t*100.0f,65536.0f);`)
-    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=constrain(${fadeL},0.0f,1.0f);`)
+    ln(`    if(!_fi_${id}){ for(int _i=0;_i<${pool.size};_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
+    ln(`    float _spd=${speed},_sc=${scale},_z=t*0.1f;`)
+    const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.53))
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${keep};`)
+    const pf = passFramesCpp(ln, phaseTag(id))
     ln(`    for(int _i=0;_i<_count;_i++){`)
+    ln(`      float _nx=${px}[_i]*_sc+_z,_ny=${py}[_i]*_sc;`)
     if (p.flowMode === 'curl') {
-      // Central differences of inoise16 a CURL_EPS apart (in cells), turned a quarter turn.
-      const eps = Math.round(CURL_EPS * 65536)
-      ln(`      uint32_t _cx=(uint32_t)(${px}[_i]*_sc*65536.0f),_cy=(uint32_t)(${py}[_i]*_sc*65536.0f),_cz=(uint32_t)fmodf(t*0.1f*65536.0f,4294967296.0f);`)
-      ln(`      float _gx=((float)inoise16(_cx+${eps}u,_cy,_cz)-(float)inoise16(_cx-${eps}u,_cy,_cz))/(65535.0f*${2 * CURL_EPS}f);`)
-      ln(`      float _gy=((float)inoise16(_cx,_cy+${eps}u,_cz)-(float)inoise16(_cx,_cy-${eps}u,_cz))/(65535.0f*${2 * CURL_EPS}f);`)
-      ln(`      float _dx=_gy*${CURL_GAIN}f,_dy=-_gx*${CURL_GAIN}f;`)
+      // curlFlow over n = _snoise2*0.5+0.5: central differences CURL_EPS apart, turned a quarter turn.
+      const e = floatLit(CURL_EPS), d = floatLit(0.5 / (2 * CURL_EPS))
+      ln(`      float _gx=(_snoise2(_nx+${e},_ny)-_snoise2(_nx-${e},_ny))*${d},_gy=(_snoise2(_nx,_ny+${e})-_snoise2(_nx,_ny-${e}))*${d};`)
+      ln(`      float _dx=_gy*${floatLit(CURL_GAIN)},_dy=-_gx*${floatLit(CURL_GAIN)};`)
     } else {
-      ln(`      float _a=(inoise8((uint16_t)(${px}[_i]*_sc*256),(uint16_t)(${py}[_i]*_sc*256),_z)/255.0f)*6.2831f*2;`)
-      ln(`      float _dx=cos(_a),_dy=sin(_a);`)
+      ln(`      float _a=_snoise2(_nx,_ny)*12.566371f;`)
+      ln(`      float _dx=cosf(_a),_dy=sinf(_a);`)
     }
-    ln(`      ${px}[_i]=fmodf(${px}[_i]+_dx*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+_dy*_spd*0.6f+HEIGHT,HEIGHT);`)
-    ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f); } }`)
+    ln(`      ${px}[_i]=fmodf(fmodf(${px}[_i]+_dx*_spd*0.6f*${pf},WIDTH)+WIDTH,WIDTH); ${py}[_i]=fmodf(fmodf(${py}[_i]+_dy*_spd*0.6f*${pf},HEIGHT)+HEIGHT,HEIGHT);`)
+    ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f*${pf}); } }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${tr}[_i]*255)); }`)
   },
   // Ripple: the turning rule runs here once per (edge, end) and is baked as
@@ -573,7 +575,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`        for(int _i=0;_i<${N};_i++){ float _u=(_i+0.5f)/${N}; int _x=constrain((int)lroundf(_ax+(_bx-_ax)*_u-0.5f),0,WIDTH-1),_y=constrain((int)lroundf(_ay+(_by-_ay)*_u-0.5f),0,HEIGHT-1); ${A}px[_ei*${N}+_i]=_y*WIDTH+_x; } }`)
     ln(`      for(int _i=0;_i<${M};_i++) ${A}l[_i]=false; fill_solid(${ob}, NUM_LEDS, CRGB::Black); ${A}t=t; ${A}prev=_tr; ${A}init=true; }`)
     ln(`    float _dt=constrain(t-${A}t,0.0f,0.25f); ${A}t=t;`)
-    ln(`    float _spd=${speed},_rate=max(0.0f,${f('rate', 'rate', 1)}),_life=${floatLit(lifetime)}; uint8_t _fq=(uint8_t)(constrain(${f('fade', 'fade', 0.85)},0.0f,1.0f)*255.0f);`)
+    ln(`    float _spd=${speed},_rate=max(0.0f,${f('rate', 'rate', 1)}),_life=${floatLit(lifetime)},_tl=${f('trail', 'trail', 0.46)};`)
     ln(`    ${A}acc+=_rate*_dt; int _sp=(int)floorf(${A}acc); ${A}acc-=_sp; if(_tr&&!${A}prev) _sp++; ${A}prev=_tr;`)
     ln(`    for(int _s=0;_s<_sp;_s++){ int _slot=-1; for(int _i=0;_i<${M};_i++) if(!${A}l[_i]){ _slot=_i; break; } if(_slot<0) break;`)
     ln(`      int _n=${startNode >= 0 && startNode < nodes ? String(startNode) : `random16(${nodes})`}; int _ei=-1; uint8_t _dd=1;`)
@@ -592,7 +594,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     }
     ln(`        _ei=_v>>1; _dd=_v&1; _of=_carry; }`)
     ln(`      ${A}e[_i]=_ei; ${A}d[_i]=_dd; ${A}o[_i]=_of; }`)
-    ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ ${ob}[_i].r=scale8(${ob}[_i].r,_fq); ${ob}[_i].g=scale8(${ob}[_i].g,_fq); ${ob}[_i].b=scale8(${ob}[_i].b,_fq); }`)
+    trailFadeCpp(ln, phaseTag(id), '_tl', ob)
     ln(`    for(int _i=0;_i<${M};_i++){ if(!${A}l[_i]) continue; float _lf=1.0f-${A}a[_i]/_life; CRGB _c=ColorFromPalette(${pal},(uint8_t)(${A}h[_i]*255.0f));`)
     ln(`      for(int _k=0;_k<${width};_k++){ float _of=${A}o[_i]-_k; if(_of<0) break; int _li=constrain((int)floorf(_of),0,${N}-1); if(!${A}d[_i]) _li=${N}-1-_li;`)
     ln(`        uint16_t _p=${A}px[${A}e[_i]*${N}+_li]; uint8_t _q=(uint8_t)(constrain(_lf*(1.0f-(float)_k/${width}),0.0f,1.0f)*255.0f);`)
@@ -604,7 +606,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const track = stringTrack(p.track), meteors = p.mode === 'meteors'
     const ringLeds = ringTrackLeds(p.ringLeds)
-    if (meteors) needsT.v = true
+    needsT.v = true
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.StringParticles)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
@@ -631,8 +633,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     }
     ln(`      ${A}init=true; }`)
     ln(`    float _step=max(0.0f,${speed})*0.6f,_sp=constrain(${f('spawn', 'spawn', 0.5)},0.0f,1.0f);`)
-    ln(`    uint8_t _fq=(uint8_t)(constrain(${f('fade', 'fade', 0.85)},0.0f,1.0f)*255.0f);`)
-    ln(`    for(int _k=0;_k<_len;_k++){ ${A}tr[_k].r=scale8(${A}tr[_k].r,_fq); ${A}tr[_k].g=scale8(${A}tr[_k].g,_fq); ${A}tr[_k].b=scale8(${A}tr[_k].b,_fq); }`)
+    ln(`    float _tl=${f('trail', 'trail', 0.46)};`)
+    trailFadeCpp(ln, phaseTag(id), '_tl', `${A}tr`, '    ', '_len')
     ln(`    auto _rnd=[]()->float{ return random16()/65535.0f; };`)
     ln(`    auto _dir=[&]()->float{ return _rnd()<0.5f?-1.0f:1.0f; };`)
     ln(`    auto _free=[&]()->int{ for(int _i=0;_i<_n;_i++) if(${A}l[_i]<=0) return _i; return -1; };`)
@@ -663,19 +665,21 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     }
     ln(`      ${ob}[${at}]=CRGB(_r,_g,_bl); } }`)
   },
-  Starfield({ node, id, p, ln, f, ownBuf, paletteExpr }) {
+  Starfield({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
+    needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.Starfield)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const sx = `_sfx_${id}`, sy = `_sfy_${id}`, sz = `_sfz_${id}`
     ln(`  { // Starfield`)
-    const { min: starMin, max: starMax } = STARFIELD_COUNT
-    ln(`    const int _count=max(${starMin},min(${starMax},(int)floorf(${f('count', 'count', 60)}))); static float ${sx}[${starMax}], ${sy}[${starMax}], ${sz}[${starMax}]; static bool _sfi_${id}=false;`)
+    const pool = poolCpp(incoming.has(`${node.id}:count`), f('count', 'count', 60), p.count, 60, STARFIELD_COUNT)
+    ln(`    ${pool.count} static float ${sx}[${pool.size}], ${sy}[${pool.size}], ${sz}[${pool.size}]; static bool _sfi_${id}=false;`)
     if (seed) ln(`    static bool _sfs_${id}=false; if(!_sfs_${id}){ random16_set_seed(${seed}u); _sfs_${id}=true; }`)
-    ln(`    if(!_sfi_${id}){ for(int _i=0;_i<${starMax};_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
+    ln(`    if(!_sfi_${id}){ for(int _i=0;_i<${pool.size};_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
+    const pf = passFramesCpp(ln, phaseTag(id))
     ln(`    float _spd=${speed}; fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-    ln(`    for(int _i=0;_i<_count;_i++){ ${sz}[_i]-=_spd*0.015f;`)
+    ln(`    for(int _i=0;_i<_count;_i++){ ${sz}[_i]-=_spd*0.015f*${pf};`)
     ln(`      if(${sz}[_i]<=0.02f){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=1; }`)
     ln(`      int _px=(int)(WIDTH/2.0f+(${sx}[_i]/${sz}[_i])*WIDTH*0.35f), _py=(int)(HEIGHT/2.0f+(${sy}[_i]/${sz}[_i])*HEIGHT*0.35f);`)
     ln(`      if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT){ float _db=min(1.0f,1-${sz}[_i]); ${ob}[_py*WIDTH+_px]=ColorFromPalette(${pal},(uint8_t)(_db*255)); ${ob}[_py*WIDTH+_px].nscale8((uint8_t)(_db*255)); } } }`)
@@ -689,8 +693,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const range = `constrain(${f('visualRange', 'visualRange', 4)},${BOIDS_VISUAL_RANGE.min}.0f,${BOIDS_VISUAL_RANGE.max}.0f)`
     const colorMode = String(p.colorMode ?? 'solid')
     if (colorMode === 'cycle') needsT.v = true  // time-cycling hue needs `t`
-    const colorE = channelColor('color', 120, 200, 255)
-    const pal = paletteExpr(node.id, 'paletteIn', p)
+    const solid = !BOID_PALETTE_MODES.has(colorMode)
+    const colorE = solid ? channelColor('color', 120, 200, 255) : ''
+    const pal = solid ? '' : paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const bx = `_bx_${id}`, by = `_by_${id}`, bvx = `_bvx_${id}`, bvy = `_bvy_${id}`
     const nvx = `_bnx_${id}`, nvy = `_bny_${id}`, nn = `_bnn_${id}`
@@ -710,17 +715,19 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      if(_sc>0){ _stx+=_sx*(${sep})*0.05f; _sty+=_sy*(${sep})*0.05f; }`)
     ln(`      ${nvx}[_i]=${bvx}[_i]+_stx; ${nvy}[_i]=${bvy}[_i]+_sty;${needNN ? ` ${nn}[_i]=_near;` : ''} }`)
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-    if (colorMode === 'solid') ln(`    CRGB _bc0=${colorE};`)
+    if (solid) ln(`    CRGB _bc0=${colorE};`)
     else if (colorMode === 'radial') ln(`    float _bcx=WIDTH/2.0f,_bcy=HEIGHT/2.0f,_bmr=sqrtf(_bcx*_bcx+_bcy*_bcy); if(_bmr<=0)_bmr=1;`)
-    const boidColor =
-      colorMode === 'palette' ? `CRGB _bc=ColorFromPalette(${pal},(uint8_t)(_i/(float)_count*255.0f));`
-      : colorMode === 'heading' ? `CRGB _bc=CHSV((uint8_t)((atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f),255,255);`
-      : colorMode === 'spectrum' ? `CRGB _bc=CHSV((uint8_t)(_i/(float)_count*255.0f),255,255);`
-      : colorMode === 'density' ? `CRGB _bc=CHSV((uint8_t)((1.0f-min(1.0f,${nn}[_i]/8.0f))*0.7f*255.0f),255,255);`
-      : colorMode === 'position' ? `CRGB _bc=CHSV((uint8_t)((${bx}[_i]/WIDTH+${by}[_i]/HEIGHT)*0.5f*255.0f),255,255);`
-      : colorMode === 'cycle' ? `CRGB _bc=CHSV((uint8_t)(t*0.1f*255.0f),255,255);`
-      : colorMode === 'radial' ? `CRGB _bc=CHSV((uint8_t)(sqrtf((${bx}[_i]-_bcx)*(${bx}[_i]-_bcx)+(${by}[_i]-_bcy)*(${by}[_i]-_bcy))/_bmr*255.0f),255,255);`
-      : `CRGB _bc=_bc0;`
+    // Every mode but solid reads the palette at boidPalettePosition. A
+    // position that can pass 1 wraps once round, as samplePalette does.
+    const at =
+      colorMode === 'palette' ? `_i/(float)_count`
+      : colorMode === 'heading' ? `(atan2f(_diry,_dirx)/6.2831853f+0.5f)`
+      : colorMode === 'density' ? `((1.0f-min(1.0f,${nn}[_i]/8.0f))*0.7f)`
+      : colorMode === 'position' ? `((${bx}[_i]/WIDTH+${by}[_i]/HEIGHT)*0.5f)`
+      : colorMode === 'cycle' ? `fmodf(t*0.1f,1.0f)`
+      : colorMode === 'radial' ? `(sqrtf((${bx}[_i]-_bcx)*(${bx}[_i]-_bcx)+(${by}[_i]-_bcy)*(${by}[_i]-_bcy))/_bmr)`
+      : null
+    const boidColor = at === null ? `CRGB _bc=_bc0;` : `CRGB _bc=ColorFromPalette(${pal},(uint8_t)(${at}*255.0f));`
     ln(`    for(int _i=0;_i<_count;_i++){`)
     ln(`      float _sp=sqrtf(${nvx}[_i]*${nvx}[_i]+${nvy}[_i]*${nvy}[_i]); if(_sp<=0)_sp=1; float _dirx=${nvx}[_i]/_sp,_diry=${nvy}[_i]/_sp;`)
     ln(`      ${bvx}[_i]=_dirx*_ms; ${bvy}[_i]=_diry*_ms;`)
@@ -753,7 +760,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      for (int _y = HEIGHT/2-2; _y <= HEIGHT/2+1; _y++) for (int _x = WIDTH/2-2; _x <= WIDTH/2+1; _x++)`)
     ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=0.25f+_worleyHash(_x,_y,${seed}u)*0.5f; } _rd_${id}=true; }`)
     ln(`    float _f=${feed}, _k=${kill};`)
-    ln(`    for (int _it=0, _iters=max(1,min(${REACTION_DIFFUSION_MAX_STEPS},(int)floorf(${f('speed', 'speed', 8)}))); _it<_iters; _it++) {`)
+    ln(`    for (int _it=0, _iters=max(1,min(${REACTION_DIFFUSION_MAX_STEPS},(int)floorf(${f('steps', 'steps', 8)}))); _it<_iters; _it++) {`)
     ln(`      for (int _y=0; _y<HEIGHT; _y++) { int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
     ln(`        for (int _x=0; _x<WIDTH; _x++) { int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
     ln(`          float _lu=(${u}[_ym+_x]+${u}[_yp+_x]+${u}[_yr+_xm]+${u}[_yr+_xp])*0.2f+(${u}[_ym+_xm]+${u}[_ym+_xp]+${u}[_yp+_xm]+${u}[_yp+_xp])*0.05f-${u}[_i];`)
@@ -764,29 +771,30 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      ::memcpy(${u},${un},sizeof(${u})); ::memcpy(${v},${vn},NUM_LEDS*sizeof(float)); }`)
     ln(`    for (int _i=0; _i<NUM_LEDS; _i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${v}[_i]*255)); }`)
   },
-  GameOfLife({ node, id, p, ln, f, ownBuf, paletteExpr }) {
+  GameOfLife({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+    needsT.v = true
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const speed = f('speed', 'speed', 8)
-    const fadeL = `constrain(${f('fade', 'fade', 0.75)},0.0f,1.0f)`
     const seed = seedProp(p)
-    const c = `_gc_${id}`, nx = `_gn_${id}`, br = `_gb_${id}`
+    const c = `_gc_${id}`, nx = `_gn_${id}`, pv = `_gp_${id}`, br = `_gb_${id}`
     ln(`  { // Game of Life`)
-    ln(`    static uint8_t ${c}[NUM_LEDS], ${nx}[NUM_LEDS]; static float ${br}[NUM_LEDS]; static bool _gi_${id}=false; static uint32_t _gt_${id}=0; static uint8_t _gst_${id}=0;`)
+    ln(`    static uint8_t ${c}[NUM_LEDS], ${nx}[NUM_LEDS], ${pv}[NUM_LEDS]; static float ${br}[NUM_LEDS]; static bool _gi_${id}=false; static uint32_t _gt_${id}=0; static uint8_t _gst_${id}=0;`)
     if (seed) ln(`    static bool _gs_${id}=false; if(!_gs_${id}){ random16_set_seed(${seed}u); _gs_${id}=true; }`)
     ln(`    if (!_gi_${id}) { for (int _i=0;_i<NUM_LEDS;_i++){${c}[_i]=random8()<77?1:0;${br}[_i]=0;} _gi_${id}=true; }`)
     ln(`    if (millis() - _gt_${id} >= (uint32_t)(1000.0f / max(1.0f, (float)(${speed})))) {`)
-    ln(`      int _pop=0; bool _chg=false;`)
+    ln(`      int _pop=0; bool _chg=false, _chg2=false;`)
     ln(`      for (int _y=0;_y<HEIGHT;_y++){ int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
     ln(`        for (int _x=0;_x<WIDTH;_x++){ int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
     ln(`          int _n=${c}[_ym+_xm]+${c}[_ym+_x]+${c}[_ym+_xp]+${c}[_yr+_xm]+${c}[_yr+_xp]+${c}[_yp+_xm]+${c}[_yp+_x]+${c}[_yp+_xp];`)
-    ln(`          ${nx}[_i]=${c}[_i]?((_n==2||_n==3)?1:0):(_n==3?1:0); _pop+=${nx}[_i]; if(${nx}[_i]!=${c}[_i]) _chg=true; } }`)
-    ln(`      ::memcpy(${c},${nx},sizeof(${c}));`)
-    // Reseeds once the board has been empty or frozen for four steps, as the
-    // preview does, so a field of still lifes doesn't hold forever.
-    ln(`      _gst_${id}=(_pop==0||!_chg)?_gst_${id}+1:0;`)
+    ln(`          ${nx}[_i]=${c}[_i]?((_n==2||_n==3)?1:0):(_n==3?1:0); _pop+=${nx}[_i]; if(${nx}[_i]!=${c}[_i]) _chg=true; if(${nx}[_i]!=${pv}[_i]) _chg2=true; } }`)
+    ln(`      ::memcpy(${pv},${c},sizeof(${c})); ::memcpy(${c},${nx},sizeof(${c}));`)
+    // Reseeds once the board has been empty, frozen, or flipping between two
+    // states (blinkers among still lifes) for four steps, as the preview does.
+    ln(`      _gst_${id}=(_pop==0||!_chg||!_chg2)?_gst_${id}+1:0;`)
     ln(`      if (_gst_${id}>3) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; _gst_${id}=0; }`)
     ln(`      _gt_${id}=millis(); }`)
-    ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${fadeL}; ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${br}[_i]*255)); ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
+    const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.37))
+    ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${keep}; ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${br}[_i]*255)); ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
   },
 }

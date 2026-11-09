@@ -347,7 +347,7 @@
      "properties": {
       "feed": 0.045,
       "kill": 0.062,
-      "speed": 12,
+      "steps": 12,
       "palette": "peacock",
       "seed": 3
      },
@@ -363,8 +363,8 @@
        "dataType": "float"
       },
       {
-       "id": "speed",
-       "label": "Speed",
+       "id": "steps",
+       "label": "Steps",
        "dataType": "float"
       },
       {
@@ -626,7 +626,7 @@
     "source": "iter",
     "sourceHandle": "result",
     "target": "rd",
-    "targetHandle": "speed",
+    "targetHandle": "steps",
     "type": "glowEdge",
     "reconnectable": "target"
    },

@@ -277,7 +277,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
           ],
         }],
         step: ['StepValue', { initial: 0.5, minimum: 0.05, maximum: 1, step: 0.05, wrap: false }],
-        pattern: ['Juggle', { palette: 'rainbow', count: 6, fade: 0.61 }],
+        pattern: ['Juggle', { palette: 'rainbow', count: 6, trail: 0.39 }],
       },
       wires: [
         `remote.${irRemoteButtonHandle('up')} > step.increase`,
@@ -635,7 +635,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       nodes: {
         ranger: ['DistanceInput', { trigPin: 27, echoPin: 26 }],
         urgency: ['MapRange', { inMin: 100, inMax: 1500, outMin: 1, outMax: 0.1 }],
-        burst: ['RadialBurst', { palette: 'ultraviolet', arms: 6 }],
+        burst: ['RadialBurst', { palette: 'ultraviolet', rings: 6 }],
       },
       wires: ['ranger.distance > urgency.value', 'urgency.result > burst.speed'],
       explanation: 'Distance Sensor reports millimetres. Map Range turns 1.5 m into a lazy speed of 0.1 and 10 cm into full speed, so Radial Burst’s rings ripple outward faster the closer a hand comes.',

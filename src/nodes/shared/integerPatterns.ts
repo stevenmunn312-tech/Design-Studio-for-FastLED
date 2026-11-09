@@ -33,27 +33,38 @@ export function powTableCpp(name: string, table: number[]): string {
 
 // ── Plasma ────────────────────────────────────────────────────────────────────
 // sin(x/3+ph) + sin(y/3+0.8ph) + sin((x+y)/5+0.6ph) + sin(r/3+0.5ph), index
-// v*45 + t*20. The radius comes from an integer square root of the squared
-// distance in half pixels, scaled by 256, so it keeps 1/32-pixel steps.
+// v*45 + ph*20, every spatial frequency multiplied by `scale` (1 is the
+// classic size). The radius comes from an integer square root of the squared
+// distance in half pixels, scaled by 256, so it keeps 1/32-pixel steps. The
+// palette scrolls on the phase, so speed 0 holds the picture still.
 
 const PLASMA_THIRD = step16(1 / 3)
 const PLASMA_FIFTH = step16(1 / 5)
 // 32 radius units a pixel, a third of a radian each pixel: 10430.378/96, in 1/256ths.
 const PLASMA_RADIAL = Math.round(A16_PER_RADIAN / 96 * 256)
 
-export interface PlasmaFrame { a1: number; a2: number; a3: number; a4: number; t8: number }
+export interface PlasmaFrame {
+  a1: number; a2: number; a3: number; a4: number; t8: number
+  /** Per-pixel angle steps for x and y, x+y and the radius, at this scale. */
+  k3: number; k5: number; kr: number
+}
 
-export function plasmaFrame(phase: number, t: number): PlasmaFrame {
+export function plasmaFrame(phase: number, scale = 1): PlasmaFrame {
+  // The sketch multiplies each step by the float scale and truncates.
+  const s = Math.fround(scale)
+  const step = (unit: number) => Math.trunc(Math.fround(unit * s))
   return {
     a1: angle16(phase), a2: angle16(phase * 0.8), a3: angle16(phase * 0.6), a4: angle16(phase * 0.5),
-    t8: Math.trunc((t * 20) % 256) & 0xff,
+    t8: Math.trunc((phase * 20) % 256) & 0xff,
+    k3: step(PLASMA_THIRD), k5: step(PLASMA_FIFTH), kr: step(PLASMA_RADIAL),
   }
 }
 
-export function plasmaFrameCpp(phase: string): string[] {
+export function plasmaFrameCpp(phase: string, scale = '1.0f'): string[] {
   return [
     `int32_t _pa1=${angle16Cpp(phase)},_pa2=${angle16Cpp(`${phase}*0.8f`)},_pa3=${angle16Cpp(`${phase}*0.6f`)},_pa4=${angle16Cpp(`${phase}*0.5f`)};`,
-    `uint8_t _pt8=(uint8_t)(int32_t)fmodf(t*20.0f,256.0f);`,
+    `uint8_t _pt8=(uint8_t)(int32_t)fmodf(${phase}*20.0f,256.0f);`,
+    `int32_t _pk3=(int32_t)(${PLASMA_THIRD}.0f*(${scale})),_pk5=(int32_t)(${PLASMA_FIFTH}.0f*(${scale})),_pkr=(int32_t)(${PLASMA_RADIAL}.0f*(${scale}));`,
   ]
 }
 
@@ -62,15 +73,15 @@ export const PLASMA_PIXEL_CPP = [
   `int32_t _dx=2*_x-WIDTH,_dy=2*_y-HEIGHT; uint32_t _dv=(uint32_t)(_dx*_dx+_dy*_dy)<<8,_dq=0,_db=1UL<<30;`,
   `while(_db>_dv) _db>>=2;`,
   `while(_db){ if(_dv>=_dq+_db){ _dv-=_dq+_db; _dq=(_dq>>1)+_db; } else { _dq>>=1; } _db>>=2; }`,
-  `int32_t _s=(int32_t)sin16(_x*${PLASMA_THIRD}+_pa1)+sin16(_y*${PLASMA_THIRD}+_pa2)+sin16((_x+_y)*${PLASMA_FIFTH}+_pa3)+sin16((int32_t)((_dq*${PLASMA_RADIAL})>>8)+_pa4);`,
+  `int32_t _s=(int32_t)sin16(_x*_pk3+_pa1)+sin16(_y*_pk3+_pa2)+sin16((_x+_y)*_pk5+_pa3)+sin16((int32_t)((_dq*(uint32_t)_pkr)>>8)+_pa4);`,
   `uint8_t _idx=(uint8_t)(((_s*45)>>15)+_pt8);`,
 ]
 
 export function plasmaIndex(x: number, y: number, W: number, H: number, f: PlasmaFrame): number {
   const dx = 2 * x - W, dy = 2 * y - H
   const dq = isqrt32((dx * dx + dy * dy) * 256)
-  const s = sin16(x * PLASMA_THIRD + f.a1) + sin16(y * PLASMA_THIRD + f.a2)
-    + sin16((x + y) * PLASMA_FIFTH + f.a3) + sin16(Math.floor(dq * PLASMA_RADIAL / 256) + f.a4)
+  const s = sin16(x * f.k3 + f.a1) + sin16(y * f.k3 + f.a2)
+    + sin16((x + y) * f.k5 + f.a3) + sin16(Math.floor(dq * f.kr / 256) + f.a4)
   return (((s * 45) >> 15) + f.t8) & 0xff
 }
 

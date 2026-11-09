@@ -157,9 +157,9 @@ describe('nodeLibrary', () => {
   it('makes RadialBurst ring density and KickShock tiling functional controls', () => {
     const radial = NODE_LIBRARY.find((n) => n.type === 'RadialBurst')
     const shock = NODE_LIBRARY.find((n) => n.type === 'KickShock')
-    expect(radial?.inputs.find((port) => port.id === 'arms')?.label).toBe('Rings')
-    expect(radial?.defaultProperties).toMatchObject({ arms: 8 })
-    expect(propertyMeta('RadialBurst', 'arms')).toMatchObject({ control: 'slider', min: 1, max: 32 })
+    expect(radial?.inputs.find((port) => port.id === 'rings')?.label).toBe('Rings')
+    expect(radial?.defaultProperties).toMatchObject({ rings: 8 })
+    expect(propertyMeta('RadialBurst', 'rings')).toMatchObject({ control: 'slider', min: 1, max: 32 })
     expect(shock?.defaultProperties).toMatchObject({ tiles: 1 })
     expect(propertyMeta('KickShock', 'tiles')).toMatchObject({ control: 'slider', min: 1, max: 8 })
   })
@@ -240,7 +240,7 @@ describe('nodeLibrary', () => {
   })
 
   it('propertyDescription prefers a per-node override over the generic description', () => {
-    expect(propertyDescription('Fire', 'direction')).toBe('Which way the flame rises.')
+    expect(propertyDescription('Fire', 'direction')).toMatch(/^Which way the flame rises. Auto/)
     expect(propertyDescription('Transition', 'direction')).toBe('Slide direction for the Wipe / Push styles.')
     expect(propertyDescription('SDCard', 'audioOutput')).toBe(PROPERTY_DESCRIPTIONS.audioOutput)
     expect(propertyDescription('DFPlayerOutput', 'audioOutput')).toMatch(/^Speaker uses/)
@@ -256,7 +256,7 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('Kaleidoscope', 'segments')).toMatchObject({ min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max })
     expect(propertyMeta('FlowField', 'count')).toMatchObject({ min: FLOW_FIELD_COUNT.min, max: FLOW_FIELD_COUNT.max })
     expect(propertyMeta('Starfield', 'count')).toMatchObject({ min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max })
-    expect(propertyMeta('ReactionDiffusion', 'speed')).toMatchObject({ min: 1, max: REACTION_DIFFUSION_MAX_STEPS })
+    expect(propertyMeta('ReactionDiffusion', 'steps')).toMatchObject({ min: 1, max: REACTION_DIFFUSION_MAX_STEPS })
     expect(propertyMeta('ClockDisplay', 'durationSec')).toMatchObject({ min: 0, max: CLOCK_TIMER_MAX_SEC })
     // xyLayout.ts divides a panel layout into at most 16 tiles each way.
     expect(propertyMeta('MatrixOutput', 'tilesX')).toMatchObject({ min: 1, max: 16 })
@@ -550,15 +550,15 @@ describe('nodeLibrary', () => {
 
   it('Confetti exposes normalized speed, palette input, and fading speckle defaults', () => {
     const cf = NODE_LIBRARY.find((n) => n.type === 'Confetti')
-    expect(cf?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'density', 'fade'])
-    expect(cf?.defaultProperties).toMatchObject({ speed: 0.45, density: 0.45, fade: 0.65, palette: 'party' })
+    expect(cf?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'density', 'trail'])
+    expect(cf?.defaultProperties).toMatchObject({ speed: 0.45, density: 0.25, trail: 0.35, palette: 'party' })
     expect(propertyMeta('Confetti', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
   it('Juggle exposes normalized speed, palette input, and a bounded dot count', () => {
     const jg = NODE_LIBRARY.find((n) => n.type === 'Juggle')
-    expect(jg?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'count', 'fade'])
-    expect(jg?.defaultProperties).toMatchObject({ speed: 0.5, count: 4, fade: 0.61, palette: 'rainbow' })
+    expect(jg?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'count', 'trail'])
+    expect(jg?.defaultProperties).toMatchObject({ speed: 0.5, count: 4, trail: 0.39, palette: 'rainbow' })
     expect(propertyMeta('Juggle', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('Juggle', 'count')).toMatchObject({ control: 'slider', min: 1, max: 8 })
   })
@@ -760,24 +760,35 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('Particles', 'spread', { particleType: 'fountain' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'spread', { particleType: 'comet' })).toBe(false)
 
-    expect(isPropertyEnabled('Particles', 'gravity', { particleType: 'gravity' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'gravity', { particleType: 'drops' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'gravity', { particleType: 'snow' })).toBe(false)
 
-    expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'gravity' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'drops' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'fountain' })).toBe(false)
+
+    // Rate drives the spawning displays only; Decay only the ones that fade.
+    expect(isPropertyEnabled('Particles', 'rate', { particleType: 'fountain' })).toBe(true)
+    for (const mode of ['orbit', 'bounce', 'fireflies', 'luminova', 'comet', 'meteor']) {
+      expect(isPropertyEnabled('Particles', 'rate', { particleType: mode }), mode).toBe(false)
+    }
+    expect(isPropertyEnabled('Particles', 'decay', { particleType: 'luminova' })).toBe(true)
+    for (const mode of ['snow', 'bubbles', 'orbit', 'fireflies', 'bounce']) {
+      expect(isPropertyEnabled('Particles', 'decay', { particleType: mode }), mode).toBe(false)
+    }
   })
 
-  it('Fire keeps the direction/turbulence/paletteMix/mirror/seed controls for every style', () => {
+  it('Fire keeps the direction/turbulence/mirror/seed controls for every style', () => {
     const n = NODE_LIBRARY.find((nd) => nd.type === 'Fire')
     expect(n?.defaultProperties).toMatchObject({
-      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
+      direction: 'auto', turbulence: 1, mirror: false, seed: 0,
     })
+    expect(n?.defaultProperties).not.toHaveProperty('paletteMix')
     expect(propertyMeta('Fire', 'direction')).toMatchObject({ control: 'select' })
     expect((propertyMeta('Fire', 'direction') as { options?: string[] }).options)
-      .toEqual(['up', 'down', 'left', 'right'])
-    expect(propertyMeta('Fire', 'turbulence')).toMatchObject({ control: 'slider', min: 0, max: 2 })
-    expect(propertyMeta('Fire', 'paletteMix')).toMatchObject({ control: 'slider', min: 0, max: 1 })
-    for (const key of ['direction', 'turbulence', 'paletteMix', 'mirror', 'seed']) {
+      .toEqual(['auto', 'up', 'down', 'left', 'right'])
+    // Both sides round turbulence to a whole kernel width, so the slider steps by one.
+    expect(propertyMeta('Fire', 'turbulence')).toMatchObject({ control: 'slider', min: 0, max: 2, step: 1 })
+    for (const key of ['direction', 'turbulence', 'mirror', 'seed']) {
       expect(isPropertyEnabled('Fire', key, { fireStyle: 'fire2012' }), key).toBe(true)
     }
     // The classic Fire2012 style runs on cooling/sparking, not intensity.

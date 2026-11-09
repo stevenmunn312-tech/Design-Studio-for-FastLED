@@ -32,7 +32,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
     defaultProperties: {
-      noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false, noiseShape: 'plain', worleyMode: 'f1',
+      noiseType: 'fbm', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false, noiseShape: 'plain', worleyMode: 'f1',
       octaves: 4, frequency: 1.2, orientation: 45,
     },
   },
@@ -43,14 +43,17 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, palette: 'rainbow' },
+    defaultProperties: { speed: 0.5, scale: 0.5, palette: 'rainbow' },
   },
   {
-    // FastLED fill_rainbow — a scrolling hue sweep; `deltaHue` sets the spread per LED.
+    // FastLED fill_rainbow — a scrolling hue sweep; `deltaHue` sets the spread
+    // per LED. `axis` runs it along the string's own order (fill_rainbow
+    // itself), or across the columns or rows of a matrix.
     type: 'Rainbow',
     label: 'Rainbow',
     category: 'pattern',
@@ -61,13 +64,15 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { speed: 'speed', deltaHue: 'deltaHue' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.3, deltaHue: 6 },
+    defaultProperties: { speed: 0.3, deltaHue: 6, axis: 'string' },
   },
   {
     // Homage to Mark Kriegsman's Pride2015 — a shifting full-spectrum rainbow
     // with a breathing brightness wave along the strip. Same evocative-formula
     // approach as Plasma (identical trig on both the preview and firmware
     // side), not a literal port of the original's 16-bit fixed-point math.
+    // `palette` 'none' is the rainbow; a palette, set or wired, makes it
+    // Kriegsman's colorwaves.
     type: 'Pride2015',
     label: 'Pride 2015',
     category: 'pattern',
@@ -77,9 +82,9 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', scale: 'scale' },
+    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.4, scale: 0.4 },
+    defaultProperties: { speed: 0.4, scale: 0.4, palette: 'none' },
   },
   {
     // Homage to the FastLED "Pacifica" ocean-wave demo — layered scrolling
@@ -118,7 +123,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Palette-driven Larson scanner / Cylon eye — a bar that sweeps back and
-    // forth across one axis, with a soft trail controlled by `fade`.
+    // forth across one axis, leaving a tail behind it whose length is `trail`.
     type: 'Scanner',
     label: 'Scanner',
     category: 'pattern',
@@ -127,11 +132,11 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'width', label: 'Width', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', palette: 'paletteIn', width: 'width', fade: 'fade' },
+    propertyInputs: { speed: 'speed', palette: 'paletteIn', width: 'width', trail: 'trail' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' },
+    defaultProperties: { speed: 0.45, width: 2, trail: 0.55, axis: 'horizontal', palette: 'lava' },
   },
   {
     // Theater chase / marquee — every `spacing`th LED lit along `axis`, the
@@ -168,7 +173,8 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Breathe — one colour swelling and fading at a breaths-per-minute rate,
-    // on a natural (exponential) or sine curve, never below `minLevel`.
+    // on a natural (exponential), sine, triangle or heartbeat (lub-dub)
+    // curve, never below `minLevel`.
     type: 'Breathe',
     label: 'Breathe',
     category: 'pattern',
@@ -184,20 +190,21 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // FastLED DemoReel-style confetti — random palette speckles sprinkled onto
-    // a persistent buffer that fades toward black each frame.
+    // a persistent buffer that fades toward black each frame. Density sets how
+    // many; `speed` is the colour drift through the palette.
     type: 'Confetti',
     label: 'Confetti',
     category: 'pattern',
     subcategory: 'Generative',
     inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'speed', label: 'Color Drift', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'density', label: 'Density', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { density: 'density', fade: 'fade', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { density: 'density', trail: 'trail', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.45, density: 0.45, fade: 0.65, palette: 'party', seed: 0 },
+    defaultProperties: { speed: 0.45, density: 0.25, trail: 0.35, palette: 'party', seed: 0 },
   },
   {
     // Candle — warm flame flicker on one shared value or on every pixel.
@@ -229,22 +236,8 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { rate: 6, intensity: 1, color: '#cfe0ff' },
   },
   {
-    // Heartbeat — the lub-dub double pulse as a brightness and palette envelope.
-    type: 'Heartbeat',
-    label: 'Heartbeat',
-    category: 'pattern',
-    subcategory: 'Generative',
-    inputs: [
-      { id: 'bpm', label: 'BPM', dataType: 'float' },
-      { id: 'strength', label: 'Strength', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-    ],
-    propertyInputs: { bpm: 'bpm', strength: 'strength', palette: 'paletteIn' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { bpm: 72, strength: 0.8, palette: 'lava' },
-  },
-  {
-    // Sunrise — night blue to warm white, on a timer or from a 0–1 progress input.
+    // Sunrise — night blue to warm white, on a timer or from a 0–1 progress
+    // input. A rising `trigger` restarts the timer, so a schedule wires in.
     type: 'Sunrise',
     label: 'Sunrise',
     category: 'pattern',
@@ -253,6 +246,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'progress', label: 'Progress', dataType: 'float' },
       { id: 'duration', label: 'Duration', dataType: 'float' },
       { id: 'start', label: 'Start', dataType: 'float' },
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
     ],
     propertyInputs: { progress: 'progress', duration: 'duration', start: 'start' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
@@ -273,7 +267,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { density: 'density', speed: 'speed', tailLength: 'tailLength', flicker: 'flicker', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { direction: 'down', density: 0.5, speed: 0.5, tailLength: 8, flicker: 0.3, palette: 'forest', seed: 0 },
+    defaultProperties: { direction: 'auto', density: 0.5, speed: 0.5, tailLength: 8, flicker: 0.3, palette: 'forest', seed: 0 },
   },
   {
     // TV Simulator — seeded scene cuts between coloured blocks, with a slow drift.
@@ -300,11 +294,11 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'count', label: 'Count', dataType: 'float' },
-      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', count: 'count', fade: 'fade', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', count: 'count', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, fade: 0.61, palette: 'rainbow', seed: 0 },
+    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, trail: 0.39, palette: 'rainbow', seed: 0 },
   },
 
   // ── More pattern nodes ─────────────────────────────────────────────────
@@ -315,14 +309,12 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      // Keep the persisted `arms` port id for saved-graph compatibility; the
-      // pattern is radial rings, so the user-facing name describes its effect.
-      { id: 'arms', label: 'Rings', dataType: 'float' },
+      { id: 'rings', label: 'Rings', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', arms: 'arms', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', rings: 'rings', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, arms: 8, palette: 'ocean' },
+    defaultProperties: { speed: 0.5, rings: 8, palette: 'ocean' },
   },
   {
     type: 'Spiral',
@@ -347,31 +339,30 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Size', dataType: 'float' },
+      { id: 'size', label: 'Size', dataType: 'float' },
       { id: 'count', label: 'Count', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', scale: 'scale', count: 'count', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', size: 'size', count: 'count', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.3, scale: 0.44, count: 3, palette: 'lava' },
+    defaultProperties: { speed: 0.3, size: 0.44, count: 3, palette: 'lava' },
   },
 ]
 
 export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
-  Noise: 'Noise from smooth fields to fBm clouds and Gabor bands, as frame and field.',
+  Noise: 'Noise from fBm clouds to Worley cells and Gabor bands, as frame and field.',
   Plasma: 'Animated plasma interference pattern through a palette.',
   Rainbow: 'FastLED fill_rainbow — a scrolling hue sweep across the matrix.',
   Pride2015: 'Shifting rainbow with a breathing brightness wave.',
   Pacifica: 'Layered ocean waves through a palette, with whitecap sparkle.',
   TwinkleFox: 'Palette-driven lights that twinkle on independent schedules.',
-  Scanner: 'Larson scanner / Cylon eye — a palette beam with adjustable width and fade.',
+  Scanner: 'Larson scanner / Cylon eye — a palette beam sweeping back and forth with a tail.',
   TheaterChase: 'Marquee chase — every Nth LED lit, stepping along the strip in palette colours.',
   ColorWipe: 'The next palette colour sweeps in from one end, wipe after wipe.',
-  Breathe: 'One colour swelling and fading at a breaths-per-minute rate.',
+  Breathe: 'One colour swelling and fading at a set rate: a breath, or a heart\'s lub-dub.',
   Confetti: 'Random fading palette speckles on a persistent frame buffer.',
   Candle: 'Warm flame flicker, one flame or one per pixel.',
   Lightning: 'Storm flashes: random strikes of two to five flickers, or one on each trigger.',
-  Heartbeat: 'A lub-dub double pulse at a set heart rate.',
   Sunrise: 'A dawn ramp from night blue to warm white, on a timer or a progress input.',
   DigitalRain: 'Falling streams of light with bright heads and fading tails, in any direction.',
   TVSimulator: 'Flickering television light: quick scene cuts between coloured blocks.',

@@ -103,7 +103,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
         rings: ['MapRange', { inMin: -1, inMax: 1, outMin: 2, outMax: 14 }],
         burst: ['RadialBurst', { palette: 'opal', speed: 0.45 }],
       },
-      wires: ['swing.result > rings.value', 'rings.result > burst.arms'],
+      wires: ['swing.result > rings.value', 'rings.result > burst.rings'],
       output: RING(24),
       explanation: 'Wave swings between −1 and +1, which means nothing to a ring count. Map Range converts that span into 2 to 14 rings, so Radial Burst gathers and loosens its rings across each eight-second cycle.',
       preview: 'The {output} shows opal rings flowing outward, slowly growing denser and then sparser.',
@@ -130,7 +130,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       nodes: {
         clock: ['Clock', { bpm: 100, beatsPerBar: 4 }],
         jugglers: ['StepValue', { initial: 1, minimum: 1, maximum: 8, step: 1, wrap: true }],
-        juggle: ['Juggle', { palette: 'party', fade: 0.59, speed: 0.55 }],
+        juggle: ['Juggle', { palette: 'party', trail: 0.41, speed: 0.55 }],
       },
       wires: ['clock.bar > jugglers.increase', 'jugglers.value > juggle.count'],
       explanation: 'Clock pulses Bar every four beats, and each pulse adds one to Step Value. Juggle gets that many dots — one, two, up to eight — and with Wrap on the count starts again at one after the eighth bar.',

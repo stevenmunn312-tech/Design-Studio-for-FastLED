@@ -647,7 +647,7 @@ const PALETTE_BUILDER_TYPES = PALETTE_BUILDER_NODE_TYPES
 // with materially large fixed per-LED overhead.
 const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   Fire: 1,                // uint8 heat[HEIGHT][WIDTH], every style
-  GameOfLife: 6,          // uint8 cells + uint8 next + float bright
+  GameOfLife: 7,          // uint8 cells + next + two-back, float bright
   ReactionDiffusion: 12,  // 3 float arrays (u, un, vn); v is its own field buffer
   FluidSim: 24,           // six float arrays (u, v, u0, v0, d, d0); the outputs are their own field buffers
   Automaton: 2,           // uint8 cells + uint8 next
@@ -656,8 +656,9 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   FourierEpicycles: 3,    // CRGB trail, kept apart from the output it is added to
 }
 // Particles uses a fixed-size pool independent of matrix size (see the
-// `Particles` case in cppGenerator.ts): 6 floats + 3 uint8 per slot.
-const PARTICLE_BYTES_PER_SLOT = 27
+// `Particles` case in cppGenerator.ts): 6 floats per slot; particles are
+// coloured by life when drawn, so the pool keeps no colour.
+const PARTICLE_BYTES_PER_SLOT = 24
 // One float history per rail plus the aligned StereoVuState emitted by
 // stereoVuMeterCpp.ts. The two CRGB rail arrays are counted as physical LED
 // storage below, not as state.

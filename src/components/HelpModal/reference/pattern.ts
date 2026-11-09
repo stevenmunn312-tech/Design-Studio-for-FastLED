@@ -92,7 +92,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       title: 'A birthday banner',
       nodes: {
         banner: ['Text', { text: 'HAPPY BIRTHDAY SAM!', scroll: 9, wrap: true, r: 255, g: 120, b: 210, letterSpacing: 1 }],
-        confetti: ['Confetti', { palette: 'party', speed: 0.3, fade: 0.7 }],
+        confetti: ['Confetti', { palette: 'party', speed: 0.3, density: 0.19, trail: 0.3 }],
         layer: ['Blend', { blendMode: 'screen', amount: 0.6 }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },
@@ -332,7 +332,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Noise: {
     overview: [
-      'Noise draws natural-looking texture from many noise algorithms: smooth fields, simplex, 3D and 4D noise, Worley cells, plasma fractals, fractal clouds (fBm) and Gabor bands.',
+      'Noise draws natural-looking texture from many noise algorithms: fractal clouds (fBm, the default), simplex, 3D and 4D noise, Worley cells, plasma fractals, Gabor bands, and a Sine Grid of two crossed waves.',
       'Shape folds the noise for sharp ridges or soft billows. Worley can draw distance, cell gaps or cell edges, and Gabor draws oriented bands. Wrap X joins the edges seamlessly for a ring or a corkscrew.',
       'Noise also outputs a Field, so the same texture can feed field nodes. On the canvas it takes the name of the algorithm chosen.',
     ],
@@ -354,7 +354,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Plasma: {
     overview: [
       'Plasma is the classic demo-scene effect: several sine waves interfere to make flowing, organic bands of colour.',
-      'It is calm, endlessly varied and cheap to compute, which makes it a favourite base for other effects. Speed sets how fast the bands move.',
+      'It is calm, endlessly varied and cheap to compute, which makes it a favourite base for other effects. Speed sets how fast the bands move and Scale how large they are, so a big panel can show a few broad swirls rather than many small cells.',
     ],
     example: example({
       featured: 'Plasma',
@@ -372,6 +372,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Rainbow is FastLED’s fill_rainbow: a full hue sweep across the LEDs that scrolls along them.',
       'Delta Hue is the hue step from one LED to the next. Small values spread a single rainbow over the whole build; larger values repeat it many times.',
+      'Axis String runs the hue along the LEDs in order, exactly as fill_rainbow does. On a matrix that makes each row start further round the wheel, a skewed band; Horizontal and Vertical step it once per column or row for a straight gradient.',
     ],
     example: example({
       featured: 'Rainbow',
@@ -390,10 +391,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Pride2015: {
     overview: [
       'Pride 2015 is Mark Kriegsman’s FastLED classic: a shifting rainbow with a slow, breathing brightness wave rolling through it. It never quite repeats.',
-      'Speed sets how fast it moves and Scale how many colour bands fit along the LEDs. Wire a palette to replace the rainbow.',
+      'Speed sets how fast it moves and Scale how many colour bands fit along the LEDs. Pick a palette, or wire one in, to replace the rainbow: that is Kriegsman’s colorwaves.',
     ],
     inputs: {
-      paletteIn: 'A palette to use instead of the rainbow.',
+      paletteIn: 'A palette to use instead of the rainbow; replaces the Palette field.',
     },
     example: example({
       featured: 'Pride2015',
@@ -443,13 +444,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Scanner: {
     overview: [
       'Scanner is the Larson scanner — the Cylon eye, or KITT’s nose: a bright beam sweeping back and forth with a fading tail.',
-      'Width sets the bright core and Fade the length of the tail. On a matrix it can sweep along rows or columns.',
+      'Width sets the bright core and Trail how long the tail behind it lasts. On a matrix it can sweep along rows or columns.',
     ],
     example: example({
       featured: 'Scanner',
       title: 'KITT’s scanner',
       nodes: {
-        eye: ['Scanner', { palette: 'lava', width: 3, fade: 0.7, speed: 0.55 }],
+        eye: ['Scanner', { palette: 'lava', width: 3, trail: 0.53, speed: 0.55 }],
       },
       output: STRIP(30),
       explanation: 'Scanner on a short string, in the lava palette: a red beam sweeps from end to end with a glowing tail, just like the car.',
@@ -494,7 +495,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Breathe: {
     overview: [
       'Breathe swells one colour up and down at a rate given in breaths per minute — 12 is a resting adult, 6 is a sleepy calm.',
-      'The natural curve copies how breathing actually feels, with a quick rise and a long, relaxed fall; sine and triangle are more mechanical. Min Level stops it going fully dark.',
+      'The natural curve copies how breathing actually feels, with a quick rise and a long, relaxed fall; sine and triangle are more mechanical. The heartbeat curve is a heart’s lub-dub double pulse: at 60 to 80 BPM it is a resting heart, and BPM runs to 240. Min Level stops it going fully dark.',
       'The colour moves along the palette with each breath, from its start when empty to its end at the peak.',
     ],
     example: example({
@@ -511,14 +512,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Confetti: {
     overview: [
-      'Confetti scatters random coloured speckles that fade away, from FastLED’s DemoReel100. Speed and Density set how many appear, Fade how quickly they go.',
-      'The colours drift through the palette over time, so a long-running confetti changes mood slowly.',
+      'Confetti scatters random coloured speckles that fade away, from FastLED’s DemoReel100. Density sets how many appear, Trail how long they linger.',
+      'The colours drift through the palette over time at the Color Drift rate, so a long-running confetti changes mood slowly.',
     ],
     example: example({
       featured: 'Confetti',
       title: 'Confetti in a mirror',
       nodes: {
-        speckles: ['Confetti', { palette: 'cottoncandy', speed: 0.5, density: 0.5, fade: 0.63 }],
+        speckles: ['Confetti', { palette: 'cottoncandy', speed: 0.5, density: 0.29, trail: 0.37 }],
         mirror: ['Mirror', { mirrorMode: 'quad' }],
       },
       wires: ['speckles.frame > mirror.frame'],
@@ -567,28 +568,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Heartbeat: {
-    overview: [
-      'Heartbeat pulses with the lub-dub double beat of a heart. BPM sets the heart rate and Strength how far the light dims between beats.',
-      'The colour follows the palette: its start at rest, its end at the peak of each beat.',
-    ],
-    example: example({
-      featured: 'Heartbeat',
-      title: 'A resting heart on a ring',
-      nodes: {
-        heart: ['Heartbeat', { bpm: 60, strength: 0.35, palette: 'party' }],
-      },
-      output: RING(16),
-      explanation: 'Heartbeat at a resting 60 beats a minute on a small LED ring, glowing pink at rest and flushing gold on each beat with the party palette.',
-      preview: 'The {output} glows pink and pulses gold twice in quick succession every second.',
-    }),
-  },
-
   Sunrise: {
     overview: [
       'Sunrise ramps from night blue through dawn colours to warm daylight. In timed mode it starts Start seconds after power-on and takes Duration seconds; in manual mode Progress sets the point on the ramp.',
-      'A thirty-minute timed sunrise makes a wake-up light. Master Speed scales its timing like every other animation.',
+      'A thirty-minute timed sunrise makes a wake-up light. Wire Schedule Trigger into Trigger and each rising edge starts the ramp again, so it can wake you at the same time every day. Master Speed scales its timing like every other animation.',
     ],
+    inputs: {
+      trigger: 'In timed mode, each rising edge restarts the ramp from night.',
+    },
     example: example({
       featured: 'Sunrise',
       title: 'A wake-up light, sped up to watch',
@@ -604,7 +591,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   DigitalRain: {
     overview: [
       'Digital Rain sends streams of light falling down the matrix, each with a bright head and a fading tail — the screen from The Matrix.',
-      'Density sets how often streams start, Tail Length how long they are, and Flicker how much they sparkle. Direction makes them fall any way, including along a string.',
+      'Density sets how often streams start, Tail Length how long they are, and Flicker how much they sparkle. They fall down a matrix and run along a string; Direction makes them fall any other way.',
     ],
     example: example({
       featured: 'DigitalRain',
@@ -638,13 +625,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Juggle: {
     overview: [
       'Juggle sends dots swinging back and forth on sine waves, each with a fading trail. With Count at 1 it is FastLED’s Sinelon: one dot gliding along a string.',
-      'Each dot moves at a slightly different rate, so with several the pattern keeps changing. Fade sets how long the trails are.',
+      'Each dot moves at a slightly different rate, so with several the pattern keeps changing. Trail sets how long the trails are.',
     ],
     example: example({
       featured: 'Juggle',
       title: 'Sinelon: one dot gliding along a string',
       nodes: {
-        sinelon: ['Juggle', { count: 1, fade: 0.5, speed: 0.6, palette: 'ultraviolet' }],
+        sinelon: ['Juggle', { count: 1, trail: 0.5, speed: 0.6, palette: 'ultraviolet' }],
       },
       output: STRIP(60),
       explanation: 'Juggle with a single dot is the classic Sinelon. It glides back and forth along the string, slowing at each end like a pendulum, and its colour drifts through the ultraviolet palette.',
@@ -661,7 +648,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'RadialBurst',
       title: 'Ripples spreading on a still pond',
       nodes: {
-        ripples: ['RadialBurst', { palette: 'ocean', arms: 5, speed: 0.35 }],
+        ripples: ['RadialBurst', { palette: 'ocean', rings: 5, speed: 0.35 }],
       },
       explanation: 'Radial Burst alone, with five rings in the ocean palette moving slowly: ripples spreading from a stone dropped in the middle of a pond.',
       preview: 'The {output} shows blue rings expanding steadily from the centre.',
@@ -693,7 +680,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Blobs',
       title: 'A lava lamp',
       nodes: {
-        lamp: ['Blobs', { count: 5, scale: 0.4, speed: 0.25, palette: 'lava' }],
+        lamp: ['Blobs', { count: 5, size: 0.4, speed: 0.25, palette: 'lava' }],
       },
       output: MATRIX(12, 20),
       explanation: 'Blobs with five metaballs in the lava palette, on a tall matrix shaped like a lamp: blobs drift, merge and separate slowly.',
@@ -703,7 +690,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Fire: {
     overview: [
-      'Fire burns upward from the bottom edge, or from any side. Classic is a flame with turbulence; Smoke adds a drifting smoke layer, as in FastLED’s Fire2023; Fire2012 is FastLED’s original heat simulation.',
+      'Fire rises up a matrix from its bottom edge, and burns along a string from its first LED. Direction can turn it to burn from any side. Classic is a flame with turbulence; Smoke adds a drifting smoke layer, as in FastLED’s Fire2023; Fire2012 is FastLED’s original heat simulation.',
       'Cooling shortens the flames and Sparking makes the base busier. Turbulence widens the heat’s sideways spread. Mirror folds the fire symmetrically, which suits a fire on both ends of a string.',
       'The heat palette reproduces FastLED’s HeatColors; any other palette makes fire in that colour.',
     ],
@@ -711,7 +698,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Fire',
       title: 'Fire2012 on a string, the way it started',
       nodes: {
-        flame: ['Fire', { fireStyle: 'fire2012', palette: 'heat', cooling: 55, sparking: 120, direction: 'right' }],
+        flame: ['Fire', { fireStyle: 'fire2012', palette: 'heat', cooling: 55, sparking: 120 }],
       },
       output: STRIP(60),
       explanation: 'Fire in Fire2012 style is Mark Kriegsman’s original FastLED fire, written for a single string: heat rises from the first LED and cools as it travels along.',
@@ -722,7 +709,8 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Particles: {
     overview: [
       'Particles runs one of twenty particle displays: fountains, fireworks, snow, rain, embers, bubbles, comets, fireflies, a tornado, a waterfall and more.',
-      'Rate is how often new particles appear in the spawning displays; fixed-count displays such as orbit and fireflies use Count instead. Gravity, Bounce and Spread shape the displays that fall and fly. Colour comes from the palette by age.',
+      'Rate is how often new particles appear in the spawning displays; fixed-count displays such as orbit and fireflies use Count instead, and comet and meteor lay a dot every frame. The preview holds as many particles as the controller’s pool, 120 (240 for luminova), so trails match on hardware. Gravity, Bounce and Spread shape the displays that fall and fly. Colour comes from the palette by age.',
+      'Its displays rise, fall and spread in two dimensions, so on a one-row string most of them have nowhere to go. String Particles is made for strings and rings.',
       'On the canvas the node takes the name of the display chosen.',
     ],
     example: example({
@@ -732,21 +720,21 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         ribbons: ['Particles', { particleType: 'luminova', count: 6, decay: 0.985, palette: 'ultraviolet', size: 1.5 }],
       },
       output: MATRIX(24, 24),
-      explanation: 'Particles in Luminova mode sends five emitters spiralling over the matrix, each steered by noise and dropping a glowing dot every frame. The overlapping trails blur into soft ribbons of ultraviolet light.',
+      explanation: 'Particles in Luminova mode sends six emitters spiralling over the matrix, each steered by noise and dropping a glowing dot every frame. The overlapping trails blur into soft ribbons of ultraviolet light.',
       preview: 'The {output} shows soft violet ribbons curling and looping across a dark background.',
     }),
   },
 
   FormulaPoints: {
     overview: [
-      'Formula Points places dots with a mathematical formula: phyllotaxis (the sunflower spiral), Lissajous and rose paths, the logistic map, or a de Jong strange attractor.',
-      'Only the knobs the chosen formula uses are enabled. Persistence leaves trails, and colour comes from the palette by dot or by position.',
+      'Formula Points places dots with a mathematical formula: phyllotaxis (the sunflower spiral), Lissajous and rose paths, the logistic map, or a de Jong strange attractor (its Attractor formula, a different thing from the Particles display).',
+      'Only the knobs the chosen formula uses are enabled. Trail sets how long the paths and the attractor linger, and colour comes from the palette by dot or by position.',
     ],
     example: example({
       featured: 'FormulaPoints',
       title: 'Seeds in a sunflower head',
       nodes: {
-        seeds: ['FormulaPoints', { formulaType: 'phyllotaxis', count: 120, speed: 0.15, persistence: 0.6, palette: 'honeycomb' }],
+        seeds: ['FormulaPoints', { formulaType: 'phyllotaxis', count: 120, speed: 0.15, palette: 'honeycomb' }],
       },
       output: MATRIX(24, 24),
       explanation: 'Formula Points in phyllotaxis mode places each dot 137.5° round from the last — the golden angle — the same rule sunflowers use to pack their seeds. The honeycomb palette colours them from the centre out.',
@@ -757,13 +745,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   FlowField: {
     overview: [
       'Flow Field releases particles that drift along invisible currents made by noise, leaving trails behind them.',
-      'In angle mode the noise sets each particle’s heading; curl mode follows the noise’s curl, which swirls without particles piling up. Scale sets the size of the currents and Fade the length of the trails.',
+      'In angle mode the noise sets each particle’s heading; curl mode follows the noise’s curl, which swirls without particles piling up. Scale sets the size of the currents and Trail the length of the trails.',
     ],
     example: example({
       featured: 'FlowField',
       title: 'Smoke curling through the air',
       nodes: {
-        smoke: ['FlowField', { flowMode: 'curl', count: 300, scale: 0.1, fade: 0.93, palette: 'opal', speed: 0.55 }],
+        smoke: ['FlowField', { flowMode: 'curl', count: 300, scale: 0.4, trail: 0.59, palette: 'opal', speed: 0.55 }],
       },
       explanation: 'Flow Field in curl mode keeps its 300 particles circulating in smooth eddies, and long trails turn their paths into wisps like smoke, tinted by the opal palette.',
       preview: 'The {output} shows pale teal wisps curling and swirling across the matrix.',
@@ -783,7 +771,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'StringParticles',
       title: 'Fireflies circling a ring',
       nodes: {
-        fireflies: ['StringParticles', { track: 'ring', ringLeds: 24, mode: 'drift', count: 6, palette: 'meadow', fade: 0.8, speed: 0.4 }],
+        fireflies: ['StringParticles', { track: 'ring', ringLeds: 24, mode: 'drift', count: 6, palette: 'meadow', trail: 0.41, speed: 0.4 }],
       },
       output: RING(24),
       explanation: 'String Particles on the ring track drifts six particles round the LED ring, each born green-gold and whitening as it fades, like fireflies on a summer night.',
@@ -793,9 +781,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Ripple: {
     overview: [
-      'Ripple sends points of light along the edges of a segment network, a string laid out as a small graph of hexagons or triangles. At every node a ripple decides where to go next: straight on, always left or right, the sharpest turn, down every edge at once, or at random.',
+      'Network Ripple sends points of light along the edges of a segment network, a string laid out as a small graph of hexagons or triangles. At every node a ripple decides where to go next: straight on, always left or right, the sharpest turn, down every edge at once, or at random.',
       'It is made for an LED output whose string layout is Network. Give the node the same network and LEDs per edge as the output, so each ripple lands on the LEDs that form the edge.',
-      'Ripples start on their own at the Rate, and one more on each rising Trigger. Width lights a short tail behind each head, Fade keeps a trail on the whole network, and Lifetime fades each ripple out.',
+      'Ripples start on their own at the Rate, and one more on each rising Trigger. Width lights a short tail behind each head, Trail keeps a trail on the whole network, and Lifetime fades each ripple out.',
     ],
     inputs: {
       trigger: 'Each rising edge starts one ripple at the start node.',
@@ -804,17 +792,17 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Ripple',
       title: 'Light racing round the honeycomb',
       nodes: {
-        ripples: ['Ripple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, fade: 0.8 }],
+        ripples: ['Ripple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, trail: 0.41 }],
       },
       output: { form: 'strip', stripLayout: 'network', networkPreset: 'hexagons', ledsPerEdge: 4, positionsWidth: 24, positionsHeight: 12 },
-      explanation: 'Ripple starts a new point of light about every second, and each one runs along the honeycomb keeping as straight a line as the hexagons allow, so the lights weave through the cells and cross one another, each trailing its own colour.',
+      explanation: 'Network Ripple starts a new point of light about every second, and each one runs along the honeycomb keeping as straight a line as the hexagons allow, so the lights weave through the cells and cross one another, each trailing its own colour.',
       preview: 'The {output} shows coloured points of light running along the honeycomb\'s edges, turning at the corners and leaving short trails.',
     }),
   },
 
   Starfield: {
     overview: [
-      'Starfield flies through space: stars stream outward from the centre, faster and brighter as they come close. Speed sets the warp, Count the number of stars.',
+      'Starfield flies through space: single-pixel stars fly outward from the centre, faster and brighter as they come close. Speed sets the warp, Count the number of stars. For streaks, follow it with Trails.',
       'Colour comes from the palette by depth: distant stars take its start, near stars its end.',
     ],
     example: example({
@@ -825,14 +813,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       },
       output: MATRIX(24, 16),
       explanation: 'Starfield at warp speed with 140 stars in the arctic palette, on a wide panel like a cockpit window.',
-      preview: 'The {output} shows white-blue stars streaking outward from the centre.',
+      preview: 'The {output} shows white-blue stars flying outward from the centre.',
     }),
   },
 
   Boids: {
     overview: [
       'Boids is a flocking simulation: each agent steers away from neighbours that are too close, matches the heading of nearby ones, and drifts toward the group. Together they flock like starlings.',
-      'Separation, Alignment and Cohesion weight those three rules, and Range is how far each one sees. Colour Mode colours them by a fixed colour, the palette, their heading, crowding, position, time or distance from the centre.',
+      'Separation, Alignment and Cohesion weight those three rules, and Range is how far each one sees. Colour Mode gives them one fixed colour, or a place on the palette chosen by each bird’s index, heading, crowding, position, distance from the centre or the time.',
       'Cost grows with the square of Count, so keep the flock modest on small boards.',
     ],
     inputs: {
@@ -853,7 +841,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   ReactionDiffusion: {
     overview: [
       'Reaction Diffusion simulates two chemicals reacting and spreading — the Gray-Scott model — growing organic spots, stripes, worms, coral and dividing cells.',
-      'The presets set the feed and kill rates that produce each look; Custom uses the Feed and Kill knobs, where tiny changes give very different patterns. Speed runs more steps per frame.',
+      'The presets set the feed and kill rates that produce each look; Custom uses the Feed and Kill knobs, where tiny changes give very different patterns. Steps runs more simulation steps per frame.',
       'Its Field output carries the chemical concentration for field nodes.',
     ],
     outputs: {
@@ -864,7 +852,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'ReactionDiffusion',
       title: 'Coral growing across the reef',
       nodes: {
-        coral: ['ReactionDiffusion', { rdPreset: 'coral', speed: 10, palette: 'coralreef' }],
+        coral: ['ReactionDiffusion', { rdPreset: 'coral', steps: 10, palette: 'coralreef' }],
       },
       output: MATRIX(24, 24),
       explanation: 'Reaction Diffusion with the coral preset grows branching structures that spread and settle, coloured by the coral-reef palette.',
@@ -875,16 +863,16 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   GameOfLife: {
     overview: [
       'Game of Life is Conway’s cellular automaton: live cells with two or three neighbours survive, dead cells with exactly three are born, and everything else dies. Simple rules, endless behaviour.',
-      'Speed is generations per second, and Fade lets dead cells cool through the palette instead of vanishing.',
+      'Speed is generations per second, and Trail lets dead cells cool through the palette instead of vanishing.',
     ],
     example: example({
       featured: 'GameOfLife',
       title: 'Life, with ghosts',
       nodes: {
-        life: ['GameOfLife', { speed: 6, fade: 0.85, palette: 'mojito' }],
+        life: ['GameOfLife', { speed: 6, trail: 0.46, palette: 'mojito' }],
       },
       output: MATRIX(24, 24),
-      explanation: 'Game of Life at six generations a second. A high Fade leaves dying cells glowing as they cool through the mojito palette, so each colony trails ghosts of its previous shapes.',
+      explanation: 'Game of Life at six generations a second. A long Trail leaves dying cells glowing as they cool through the mojito palette, so each colony trails ghosts of its previous shapes.',
       preview: 'The {output} shows bright green colonies changing shape, each surrounded by dimmer fading cells.',
     }),
   },

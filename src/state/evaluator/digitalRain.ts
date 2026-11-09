@@ -1,10 +1,25 @@
 // Digital Rain: streams of light falling along one axis. Shared by the preview
 // and the sketch so both index the canvas the same way in all four directions.
+import { IS_ROW_STRING_CPP, isRowString } from '../../nodes/shared/stringCanvas'
 
-export const RAIN_DIRECTIONS = ['down', 'up', 'left', 'right'] as const
-export type RainDirection = typeof RAIN_DIRECTIONS[number]
-export const rainDirection = (v: unknown): RainDirection =>
-  (RAIN_DIRECTIONS as readonly string[]).includes(String(v)) ? (v as RainDirection) : 'down'
+// `auto`, the default, falls down a matrix and runs along a string, where
+// `down` made every LED a lane one cell long. The sketch resolves it at
+// generation time, or per render pass from that pass's WIDTH and HEIGHT
+// (`RAIN_ALONG_CPP`).
+export const RAIN_DIRECTIONS = ['auto', 'down', 'up', 'left', 'right'] as const
+export type RainDirectionChoice = typeof RAIN_DIRECTIONS[number]
+export type RainDirection = Exclude<RainDirectionChoice, 'auto'>
+export const rainDirectionChoice = (v: unknown): RainDirectionChoice =>
+  (RAIN_DIRECTIONS as readonly string[]).includes(String(v)) ? (v as RainDirectionChoice) : 'auto'
+
+/** The direction streams fall on a W x H canvas. */
+export function rainDirection(v: unknown, W: number, H: number): RainDirection {
+  const choice = rainDirectionChoice(v)
+  return choice === 'auto' ? (isRowString(W, H) ? 'right' : 'down') : choice
+}
+
+/** True on a canvas where `auto` runs the streams along the rows; a C++ constant expression. */
+export const RAIN_ALONG_CPP = IS_ROW_STRING_CPP
 
 export const isVerticalRain = (d: RainDirection) => d === 'down' || d === 'up'
 
@@ -24,8 +39,9 @@ export function rainIndex(d: RainDirection, W: number, H: number, lane: number, 
 }
 
 /** The same mapping as a C++ expression over `lane` and `pos` variable names. */
-export function rainIndexCpp(d: RainDirection, lane: string, pos: string): string {
+export function rainIndexCpp(d: RainDirection | 'auto', lane: string, pos: string): string {
   switch (d) {
+    case 'auto': return `(${RAIN_ALONG_CPP}?(${lane}*WIDTH+${pos}):(${pos}*WIDTH+${lane}))`
     case 'down': return `${pos}*WIDTH+${lane}`
     case 'up': return `(HEIGHT-1-${pos})*WIDTH+${lane}`
     case 'right': return `${lane}*WIDTH+${pos}`

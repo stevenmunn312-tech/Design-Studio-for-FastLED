@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { evaluateGraph } from '../../graphEvaluator'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import {
-  candleColor, classicHash, heartbeatEnvelope, heartbeatPhase, lightningLevel, stepLightning, sunriseColor, sunriseProgress,
+  candleColor, classicHash, lightningLevel, stepLightning, sunriseColor, sunriseProgress,
   tvLayout, type LightningState,
 } from '../classics'
 import type { StudioNode, StudioEdge } from '../../graphStore'
+import { breatheEnvelope } from '../../../nodes/generative/classics1d'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)
@@ -50,18 +51,18 @@ describe('Candle', () => {
   })
 })
 
-describe('Heartbeat', () => {
-  it('peaks at the lub, dips between beats, and follows the rate', () => {
-    expect(heartbeatEnvelope(0.05)).toBeGreaterThan(0.95)
-    expect(heartbeatEnvelope(0.3)).toBeGreaterThan(0.6)
-    expect(heartbeatEnvelope(0.7)).toBeLessThan(0.01)
-    expect(heartbeatPhase(1, 60)).toBeCloseTo(0, 9)
-    expect(heartbeatPhase(0.5, 120)).toBeCloseTo(0, 9)
+describe('Breathe heartbeat curve', () => {
+  it('peaks at the lub, dips between beats', () => {
+    expect(breatheEnvelope('heartbeat', 0.05)).toBeGreaterThan(0.95)
+    expect(breatheEnvelope('heartbeat', 0.3)).toBeGreaterThan(0.6)
+    expect(breatheEnvelope('heartbeat', 0.7)).toBeLessThan(0.01)
+    expect(breatheEnvelope('heartbeat', 1.05)).toBeCloseTo(breatheEnvelope('heartbeat', 0.05), 9)
   })
-  it('strength 0 keeps the level flat; strength 1 goes dark between beats', () => {
+  it('min level 1 keeps the level flat; min level 0 goes dark between beats', () => {
     const period = 60 / 60
-    expect(total(frame('Heartbeat', { bpm: 60, strength: 1 }, 0.7 * period))).toBeLessThan(total(frame('Heartbeat', { bpm: 60, strength: 1 }, 0.05 * period)))
-    expect(total(frame('Heartbeat', { bpm: 60, strength: 1 }, 0.7 * period))).toBe(0)
+    const beat = (minLevel: number, at: number) => total(frame('Breathe', { curve: 'heartbeat', bpm: 60, minLevel }, at * period))
+    expect(beat(0, 0.7)).toBeLessThan(beat(0, 0.05))
+    expect(beat(0, 0.7)).toBe(0)
   })
 })
 
@@ -79,6 +80,24 @@ describe('Sunrise', () => {
     const a = total(frame('Sunrise', { duration: 10 }, 2)), b = total(frame('Sunrise', { duration: 10 }, 8))
     expect(b).toBeGreaterThan(a)
     expect(total(frame('Sunrise', { mode: 'manual', progress: 0 }, 50))).toBe(0)
+  })
+  it('restarts the timed ramp on a rising Trigger', () => {
+    const sun = node('sun', 'Sunrise', 'pattern', { duration: 10 })
+    const gate = node('gate', 'Constant', 'math', { value: 0 })
+    const nodes = [sun, gate, node('out', 'MatrixOutput', 'output', {})]
+    const edges = [edge('e', 'sun', 'frame', 'out', 'frame'), edge('t', 'gate', 'value', 'sun', 'trigger')]
+    const at = (seconds: number, high: boolean) => {
+      gate.data.properties = { value: high ? 1 : 0 }
+      return total(evaluateGraph(nodes, edges, seconds * 60, 8, 4)!)
+    }
+    const full = at(20, false)
+    expect(full).toBeGreaterThan(0)
+    // The rising edge at 20 s starts night again; held high it does not restart.
+    expect(at(20, true)).toBe(0)
+    const later = at(25, true)
+    expect(later).toBeGreaterThan(0)
+    expect(later).toBeLessThan(full)
+    expect(at(30, false)).toBe(full)
   })
 })
 
@@ -152,6 +171,16 @@ describe('Digital Rain', () => {
     return f
   }
   const litCells = (f: { r: number; g: number; b: number }[][]) => f.flatMap((row, y) => row.map((p, x) => (p.r || p.g || p.b ? [x, y] : null)).filter(Boolean) as number[][])
+
+  it('runs along a string and down a matrix by default', () => {
+    const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+    expect(same(rain({}, 40, 30, 1), rain({ direction: 'right' }, 40, 30, 1))).toBe(true)
+    expect(same(rain({}, 40), rain({ direction: 'down' }, 40))).toBe(true)
+    // Along the string a stream is a run of cells with a tail, not one LED.
+    let longest = 0
+    for (let ticks = 20; ticks <= 60; ticks += 10) longest = Math.max(longest, litCells(rain({ tailLength: 8 }, ticks, 30, 1)).length)
+    expect(longest).toBeGreaterThan(2)
+  })
 
   it('lights something in every direction and stays inside the canvas', () => {
     for (const direction of ['down', 'up', 'left', 'right']) {

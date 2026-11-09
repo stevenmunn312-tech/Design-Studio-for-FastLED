@@ -12,7 +12,7 @@ import { INOISE8_3D_HOST_CPP, INOISE8_HOST_CPP, LIB8TION_HOST_CPP, inoise8, inoi
 import {
   PACIFICA_PIXEL_CPP, PLASMA_PIXEL_CPP, PRIDE_PIXEL_CPP, PRISM_FLASH_TABLE, PRISM_SHARD_TABLE,
   SHOCK_GAUSS_TABLE, SHOCK_ISQRT_CPP, TWINKLE_PIXEL_CPP, auroraFrameCpp, auroraPixel, auroraPixelCpp,
-  auroraRow, cascadeFrame, cascadeFrameCpp, cascadePixel, cascadePixelCpp, pacificaPixel, plasmaIndex,
+  auroraRow, cascadeFrame, cascadeFrameCpp, cascadePixel, cascadePixelCpp, pacificaPixel, plasmaFrame, plasmaIndex,
   powTableCpp, pridePixel, prismPixel, prismPixelCpp, shockFrame, shockPixel, shockPixelCpp, stormFrameCpp,
   stormPixel, stormPixelCpp, twinklePixel,
   BLOOM_CRISP_TABLE, RINGS_CRISP_TABLE, TURBULENT_CRISP_TABLE, WELL_CRISP_TABLE, bloomFrame, bloomPixel, bloomPixelCpp,
@@ -71,9 +71,14 @@ const SIZES = [[16, 16], [17, 5], [64, 1]] as const
 
 describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
   it.each(SIZES)('Plasma matches on %ix%i', (W, H) => {
-    for (const f of [{ a1: 0, a2: 0, a3: 0, a4: 0, t8: 0 }, { a1: -40211, a2: 61234, a3: -7, a4: 30001, t8: 201 }]) {
+    // The classic size and a scaled one: Scale multiplies each per-pixel step.
+    const steps = [plasmaFrame(0, 1), plasmaFrame(0, 1.37)]
+    for (const f of [
+      { ...steps[0], a1: 0, a2: 0, a3: 0, a4: 0, t8: 0 },
+      { ...steps[1], a1: -40211, a2: 61234, a3: -7, a4: 30001, t8: 201 },
+    ]) {
       const native = runNative(W, H,
-        [`int32_t _pa1=${f.a1},_pa2=${f.a2},_pa3=${f.a3},_pa4=${f.a4}; uint8_t _pt8=${f.t8};`],
+        [`int32_t _pa1=${f.a1},_pa2=${f.a2},_pa3=${f.a3},_pa4=${f.a4},_pk3=${f.k3},_pk5=${f.k5},_pkr=${f.kr}; uint8_t _pt8=${f.t8};`],
         PLASMA_PIXEL_CPP, '"%u ",_idx')
       expect(grid(W, H, (x, y) => [plasmaIndex(x, y, W, H, f)])).toEqual(native)
     }

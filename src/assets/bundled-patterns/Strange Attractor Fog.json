@@ -276,7 +276,7 @@
       "dotSize": 1,
       "palette": "rainbow",
       "count": 85,
-      "persistence": 0.8,
+      "trail": 0.41,
       "freqA": 3,
       "freqB": 2,
       "petals": 5,

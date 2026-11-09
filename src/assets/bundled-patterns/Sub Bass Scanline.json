@@ -141,7 +141,7 @@
      "properties": {
       "speed": 0.4,
       "width": 4,
-      "fade": 0.72,
+      "trail": 0.58,
       "axis": "horizontal",
       "palette": "volcano"
      },

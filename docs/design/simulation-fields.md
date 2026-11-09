@@ -97,20 +97,22 @@ seconds, then falls a full range a second. Coverage becomes a byte with a
 0.001 lift so a full gauge is 255, not 254: dividing by a cell's span leaves
 coverage a hair under 1 and truncating that would dim it.
 
-**Candle, Lightning, Heartbeat, Sunrise and TV Simulator** share
+**Candle, Lightning, Sunrise and TV Simulator** share
 `evaluator/classics.ts`. All randomness is one integer hash
 (`classicHash`), which is exact in float32 and float64, so the preview and the
-sketch draw the same random numbers. Candle, Heartbeat, Sunrise and TV Simulator
-are pure functions of time. Lightning keeps a strike schedule: a strike is two
+sketch draw the same random numbers. Candle and Sunrise are pure functions of
+time; TV Simulator counts its cuts on an integrated phase, so a wired Cut Rate
+moves the next cut rather than jumping scenes. The heartbeat's lub-dub is a
+Breathe curve (`classics1d.ts`), on Breathe's integrated phase. Lightning keeps a strike schedule: a strike is two
 to five flashes and a dim afterglow, the next one is half to one and a half
 intervals away, and a rising `trigger` fires one now.
 
 ## Variants
 
-- **Pride 2015 `paletteIn`.** With no wire it is the rainbow it always was. With a
-  palette wired it is Kriegsman's colorwaves: the same hue sweep and brightness
-  wave, read through the palette. The port has no palette property on purpose, so
-  wired-or-not is the whole switch.
+- **Pride 2015 `palette`.** At `none` it is the rainbow, through FastLED's CHSV
+  wheel on both sides (`nodes/shared/hsvRainbow.ts`). With a palette picked or
+  wired it is Kriegsman's colorwaves: the same hue sweep and brightness wave,
+  read through the palette.
 - **Fire `fireStyle: smoke`.** A second noise layer drifts toward the tip and
   multiplies the heat by `1 − 0.65 n` before it reaches the palette
   (`evaluator/fireSmoke.ts`).
@@ -128,6 +130,8 @@ Noise is the one place the two sides use different functions. The preview
 samples `_snoise2` and the sketch samples FastLED's `inoise8`, one noise unit
 being 256 in `inoise8`'s fixed point. Fire smoke, Luminova and String Particles'
 meteor bed all carry the same documented approximation gap as Field Noise.
+Flow Field does not: both sides steer by the `_snoise2` twin, its angle and its
+curl alike.
 Random draws in Digital Rain, Automaton and Luminova come from
 the seeded LCG in the preview and `random8`/`random16` in the sketch, so a seed
 gives the same statistics, not the same picture. The classics avoid this by

@@ -713,42 +713,19 @@ freeze, or drop them.
 
 #### Generative and simulations
 
-- [ ] **Category: Give `fade` one meaning on every node (High, M).** Confetti
-  and Juggle use the half-life scale (0 longest trail, 1 none); Flow Field,
-  Ripple, String Particles, Game of Life, Formula Points `persistence` and
-  Particles `decay` use per-frame retention (1 never fades); Scanner `fade` is
-  glow length (1 longest). A slider learned on one node does the opposite on
-  the next. Pre-v1, rename all of them to one key (for example `trail`: 0
-  none, 1 longest), route them through `trailFadeAmount`/`trailFadeCpp`, and
-  convert bundled and help values. Evidence `src/nodes/shared/trailFade.ts:26`,
-  `docs/development/patterns/graph-and-nodes.md:291`.
-- [ ] **Category: Make Fire, Digital Rain, Blobs and Particles work on a
-  one-row strip (High, S).** Strips (60x1, 10x1, 65x1) are supported forms and
-  these defaults break on them. Fire `direction: 'up'` gives a one-row heat
-  grid, so no propagation runs and the strip shows random flicker. Digital
-  Rain `direction: 'down'` makes every LED a one-cell lane. Blobs sizes by
-  `min(W,H)`, so the radius is about 0.2 px and the strip stays near black.
-  Particles spawn and die on y. Add an `auto` direction (along the longer
-  axis) as the default for Fire and Digital Rain, size Blobs from the longer
-  side when one side is 1, and point Particles users to String Particles on a
-  one-row canvas. Evidence `src/nodes/simulations/evaluate.ts:123`,
-  `src/nodes/generative/evaluate.ts:458`.
-- [ ] **Category: Move simulation motion and trails onto the clock (Med, M).**
-  Most simulations advance per pass, against "never per pass" in
-  `docs/development/patterns/graph-and-nodes.md:285`: Flow Field, Ripple trails, String Particles, Game
-  of Life, Formula Points, Digital Rain, Starfield and every Particles mode
-  (`rate` is a per-frame chance). A heavy graph on an ESP8266 or C3 that
-  drops to 30 fps halves speeds and doubles trails. Do the trail part inside
-  the `fade` rework above, then move motion onto `dt` node by node. Evidence
-  `src/nodes/simulations/evaluate.ts:587`, `:824`.
-- [ ] **Category: Fix HSV wheel parity for Rainbow, Pride 2015 and Boids
-  (Med, S).** FastLED `CHSV`/`fill_rainbow` is the rainbow wheel and the
-  preview `hsv()` is the spectrum wheel, so yellows and oranges differ on
-  hardware. Rainbow (`src/nodes/generative/codegen.ts:205`), Pride 2015 (`:223`, when
-  unwired) and Boids' hue colour modes (`src/nodes/simulations/codegen.ts:717`) still
-  emit `CHSV`. Use `_hsv`/`hsv2rgb_spectrum`, or for Rainbow make the preview
-  emulate `hsv2rgb_rainbow`, since FastLED's look is the intent. Evidence
-  `src/codegen/helpers/hsvHelperCpp.ts:4`.
+- [ ] **Category: Move the rest of simulation motion onto the clock (Med, M).**
+  Done: every trail fades by elapsed time through the shared `trail` knob,
+  and Starfield, Digital Rain and Flow Field scale their per-frame steps by
+  `passFrames` (`src/nodes/shared/passClock.ts`, firmware `passFramesCpp`).
+  Still per pass, against "never per pass" in
+  `docs/development/patterns/graph-and-nodes.md:285`: String Particles moves
+  and life, Formula Points' logistic map and attractor iterations (a count a
+  frame), and every Particles mode (`rate` is a per-frame chance, `decay` a
+  per-frame share of life, and twenty bodies of per-frame velocities and
+  drag). The same `passFrames` scaling fits each; drag and decay need
+  `Math.pow(k, frames)` rather than a multiply, and each mode wants checking
+  by eye. Evidence `src/nodes/simulations/evaluate.ts` (evalParticles,
+  evalStringParticles, evalFormulaPoints).
 - [ ] **Category: Merge the overlapping Noise types and fold the sine family
   into Plasma (Med, M).** Noise has four near-duplicate cloud types (simplex,
   noise3d, fbm, plasma) and the sine family is spread over Plasma and Noise
@@ -756,14 +733,13 @@ freeze, or drop them.
   gabor and plasma-fractal in Noise; make simplex and noise3d fbm presets; fold
   `field` and `sine` into Plasma, which gains `scale`. Each type also has its
   own speed and scale range, so nine types means nine slider calibrations.
-  Evidence `src/nodes/generative/evaluate.ts:299`,
-  `src/nodes/shared/speedRange.ts:52`.
-- [ ] **Category: Fold Heartbeat into Breathe (Med, S).** Both sample the
-  palette at an envelope and dim by the same formula (Heartbeat
-  `1 - strength*(1-env)` equals Breathe with `minLevel = 1 - strength`). Add
-  `curve: 'heartbeat'` to Breathe (or call the merged node Pulse), widen the
-  BPM range to 1-240, and remove Heartbeat. Evidence
-  `src/nodes/generative/evaluate.ts:584`, `:688`.
+  Done so far: Noise defaults to fbm, `field` reads "Sine Grid", and Plasma
+  has `scale` (0.5 is the classic size). Left: the merge itself, which moves
+  saved `field`/`sine`/`simplex`/`noise3d` graphs onto other nodes or presets
+  and needs a choice of preset values by eye. While there, simplex, noise3d,
+  noise4d and plasma-fractal still wrap their value (`wrap01`), cutting seams
+  through non-cyclic palettes such as lava; fbm clamps. Evidence
+  `src/nodes/generative/evaluate.ts:299`, `src/nodes/shared/speedRange.ts:52`.
 - [ ] **Category: Default Ripple and String Particles to the LED output's
   network (Med, M).** Ripple needs the output's network preset, JSON and LEDs
   per edge, and String Particles needs the ring LED count, all copied by hand
@@ -771,147 +747,20 @@ freeze, or drop them.
   from the root graph's MatrixOutput, with the current fields as an override.
   The Ripple default `ledsPerEdge: 14` rarely matches a real build and the
   Help example uses 4. For String Particles, a ring form gives the ring track
-  and LED count and a strip form gives row. Evidence `src/state/nodeLibrary.ts:2244`,
-  `:2261`.
-- [ ] **Category: Make `speed` mean one thing (Low, S).** `speed` is a 0-1 rate
-  almost everywhere, but steps per frame on Reaction Diffusion and
-  generations per second on Game of Life. Rename Reaction Diffusion `speed`
-  to `steps` (`src/state/nodeLibrary.ts:1460`) and put the unit in Game of Life's row
-  label.
-- [ ] **Category: Put units in `rate` row labels (Low, S).** `rate` is strikes
-  per minute (Lightning), chance per frame (Particles) and ripples per second
-  (Ripple). Label each with its unit, as Ripple's `lifetime (s)` already does.
-  Evidence `src/state/nodeLibrary.ts:2891`.
-- [ ] **Category: Size Starfield and Flow Field pools to the property when
-  `count` is unwired (Low, S).** Both always declare the maximum pool (300 x
-  12 B = 3.6 KB; 400 x 8 B = 3.2 KB) because `count` is wireable. Evidence
-  `src/nodes/simulations/codegen.ts:674`, `:500`.
-- [ ] **Category: Integrate Heartbeat `bpm` and TV Simulator `cutRate` phase
-  (Low, S).** Both are wireable but take phase from raw `t`, so a live BPM
-  (a pulse sensor) makes the phase jump. Use `speedPhase`. Evidence
-  `src/state/evaluator/classics.ts:59`, `src/nodes/generative/evaluate.ts:709`.
-- [ ] **Noise: Default `noiseType` to `fbm` (Med, S).** The default `field` is
-  `sin16(x)+sin16(y)`, a moving plaid labelled "Noise Field". Default to
-  `fbm`, and rename `field` to "Sine Grid" if it stays. Simplex, noise3d,
-  noise4d and plasma also wrap their value, cutting hard seams through
-  non-cyclic palettes such as lava and heat; fbm clamps instead. Evidence
-  `src/nodes/generative/definitions.ts:35`, `src/nodes/generative/evaluate.ts:319`.
-- [ ] **Noise: Fix stale help text (Low, S).** `src/state/nodeLibrary.ts:1874` says "Noise
-  4D and fbm use FastLED inoise on the controller", but both emit the
-  `_snoise2` twin. Reword it. Evidence `src/nodes/generative/codegen.ts:76`.
-- [ ] **Plasma: Add a `scale` property (Med, S).** Spatial frequencies are
-  fixed per pixel, so a 64x64 panel shows many small cells and an 8x8 panel
-  one blob. Noise and Pacifica already expose scale. Evidence
-  `src/nodes/shared/integerPatterns.ts:72`.
-- [ ] **Plasma: Make speed 0 actually still (Low, S).** The palette scrolls on
-  bare `t`, but the tooltip says "0 frozen". Scale the scroll by speed or
-  reword the tooltip. Evidence `src/nodes/shared/integerPatterns.ts:49`, `src/state/nodeLibrary.ts:2801`.
-- [ ] **Rainbow: Add an `axis` option (Low, S).** On a matrix the hue runs in
-  row-major order, so each row restarts further round the wheel and the result
-  is a skewed band, not a 2-D gradient. Offer along string, horizontal and
-  vertical. Evidence `src/nodes/generative/evaluate.ts:50`.
-- [ ] **Pride 2015: Add a `palette` select with a `none` option (Low, S).**
-  The colorwaves variant currently needs a separate Palette node wired in,
-  because `propertyInputs` has no `palette`. Follow the pattern at
-  `src/state/nodeLibrary.ts:743`. Evidence `src/nodes/generative/definitions.ts:80`.
-- [ ] **Scanner: Make the glow trail one-sided (Med, S).** The glow uses
-  `Math.abs(coord - pos)`, so it spreads equally ahead of and behind the beam,
-  while the tooltip and Help promise a tail. Make it one-sided along travel,
-  or reuse the trail-fade buffer Juggle uses. Evidence
-  `src/nodes/generative/evaluate.ts:139`, `src/nodes/generative/codegen.ts:282`.
-- [ ] **Scanner: Stop the beam vanishing at one end of the default palette
-  (Med, S).** Colour is sampled at beam position and default `lava` starts at
-  `#140000`, so the beam is nearly black at the left end; the Help example has
-  the same problem. Sample a bright range (for example `0.3 + 0.7*travel`) or
-  change the default palette. Evidence `src/nodes/generative/evaluate.ts:135`,
-  `src/state/palettes/paletteCatalog.ts:29`.
-- [ ] **Confetti: Rename Speed to "Colour drift" (Med, S).** Speed and Density
-  both set spawn count (`density*(0.08+speed*0.3)*sqrt(area)`), and the
-  Density tooltip admits it multiplies Speed. Keep Density for amount and
-  rename Speed after its only other effect. Evidence
-  `src/nodes/generative/evaluate.ts:166`, `:168`.
-- [ ] **Sunrise: Add a `trigger` input that restarts the timed ramp (Med, S).**
-  Timed mode only counts from power-on, so a real wake-up light needs
-  Progress fed from a schedule through several nodes. A rising edge on
-  `trigger` would let ScheduleTrigger or RTC wire in directly. Evidence
-  `src/state/nodeLibrary.ts:2228`.
-- [ ] **Radial Burst: Rename the `arms` key and port to `rings` (Low, S).** The
-  row reads "arms" while the port says "Rings" and the tooltip says "Number of
-  rings", with no PROPERTY_LABELS entry. Pre-v1, rename rather than keep the
-  old key for saved-graph compatibility. Evidence
-  `src/nodes/generative/definitions.ts:320`.
-- [ ] **Blobs: Rename the `scale` key to `size` (Low, S).** The row shows
-  "scale" while the port reads "Size". Evidence
-  `src/nodes/generative/definitions.ts:350`.
-- [ ] **Fire: Make Turbulence a three-option select (Low, S).** The 0-2 slider
-  has step 0.1, but both preview and firmware round it to 0, 1 or 2. Use a
-  select (narrow, normal, wide) or an integer slider. Evidence
-  `src/state/nodeLibrary.ts:1603`, `src/nodes/simulations/evaluate.ts:131`.
-- [ ] **Fire: Consider dropping `paletteMix` (Low, S).** It is a grayscale blend
-  a downstream saturation node already covers, and removing it removes an
-  emitted branch and a port. Evidence `src/nodes/simulations/codegen.ts:120`.
-- [ ] **Particles: Prune overlapping modes and rename clashing ones (Med, M).**
-  `confetti` duplicates the Confetti node; `rain` and `sparkle` overlap Digital
-  Rain; `orbit` and `vortex` are both rotation about the centre. `attractor`
-  clashes with Formula Points' de Jong `attractor` (rename to "chase"), and
-  the `gravity` type shares its name with the `gravity` multiplier (rename to
-  "drops"). Evidence `src/state/nodeLibrary.ts:2891`.
-- [ ] **Particles: Gate `rate` and `decay` per mode (Med, S).** `rate` is unused
-  by orbit, bounce, fireflies, luminova, comet and meteor; `decay` is unused by
-  snow, bubbles, orbit, fireflies and bounce. `count`, `spread`, `gravity` and
-  `bounce` are already gated that way. Evidence `src/state/nodeLibrary.ts:5334`,
-  `src/nodes/simulations/evaluate.ts:250`.
-- [ ] **Particles: Cap the preview pool to the firmware pool (Med, S).**
-  Preview caps at 600 particles, firmware at 120 (240 for luminova), so the
-  featured luminova example (count 6, decay 0.985) shows about 330 dots in
-  preview but about 39 per emitter on hardware, and trails look shorter on the
-  controller. Cap the preview at `particlePoolSize(mode)`, and fix the Help
-  text that says "five emitters" with count 6. Evidence
-  `src/nodes/simulations/particleModes.ts:20`, `src/components/HelpModal/reference/pattern.ts:735`.
-- [ ] **Particles: Remove unused per-particle colour in firmware (Med, S).**
-  `${A}r/g/b` (360 B) and `_pc` are written but rendering colours by life, and
-  the preview's fireworks `hsv` is discarded too. This breaks the "no dead
-  code in firmware" rule. Remove it, or use it as a per-burst palette offset
-  so fireworks bursts differ in colour. Evidence
-  `src/nodes/simulations/codegen.ts:206`, `:352`.
-- [ ] **Formula Points: Label the `attractor` variant "de Jong attractor"
-  (Low, S).** It shares a name with Particles' `attractor`, which is a
-  different effect. Evidence `src/nodes/simulations/evaluate.ts:461`.
-- [ ] **Flow Field: Make preview and firmware draw the same flow (Med, S).** The
-  preview steers by `_snoise2(...)*4π` (angle ±4π, field translating in x);
-  firmware uses `inoise8(...,t*100)/255*4π` (angle 0..4π, field evolving in z).
-  Curl mode likewise uses `inoise16` against `_snoise2`. Use the shipped
-  `_snoise2` twin in firmware. Evidence `src/nodes/simulations/evaluate.ts:588`, `src/nodes/simulations/codegen.ts:505`.
-- [ ] **Flow Field: Cut `SCALE_MAX` to about 0.25 (Med, S).** Default 0.08 on a
-  0-1 slider means most of the slider is unusable; past about 0.3 every pixel
-  has an eddy. Evidence `src/nodes/generative/definitions.ts:165`,
-  `src/nodes/shared/speedRange.ts:46`.
-- [ ] **Ripple: Rename to "Network Ripple" (Med, S).** It only works on a
-  segment network and draws hexagons, while Radial Burst's Help example is
-  already titled "Ripples spreading on a still pond", and RainRipples and the
-  "Ripple Wipe" transition exist. Evidence `src/components/HelpModal/reference/pattern.ts:662`.
-- [ ] **Ripple: Gate the `network` JSON row to `networkPreset === 'custom'`
-  (Low, S).** MatrixOutput gates it, but `isPropertyEnabled` has no Ripple
-  clause. Evidence `src/state/nodeLibrary.ts:5251`.
-- [ ] **Starfield: Fix the "streak outward" description or add a warp trail
-  (Low, S).** Each star is a single pixel with no streak. Add an optional
-  trail through `trailFade`, or reword. Evidence
-  `src/nodes/simulations/definitions.ts:295`, `src/nodes/simulations/evaluate.ts:830`.
-- [ ] **Boids: Read every hue colour mode through the palette (Med, S).**
-  Heading, spectrum, density, position, cycle and radial read the HSV wheel,
-  leaving the always-visible palette socket useless in them. Route all through
-  the palette, which also removes the `CHSV` parity gap and makes `spectrum`
-  redundant (drop it). Modes become solid, palette position, heading, density,
-  position, radial, cycle. Evidence `src/nodes/simulations/codegen.ts:717`.
-- [ ] **Boids: Gate property rows by colour mode (Low, S).** `palette` only
-  matters in palette mode, `color`/R/G/B only in solid, and `isPropertyEnabled`
-  has no Boids clause. Evidence `src/state/nodeLibrary.ts:2926`.
-- [ ] **Game of Life: Reseed when only period-2 oscillators remain (Med, S).**
-  Stale detection counts only an empty or unchanged board, so a 16x16 torus
-  ending in blocks plus blinkers loops forever, against the reseed promise.
-  Also compare against the board two generations back, or reseed when
-  population is unchanged for N generations. Evidence
-  `src/nodes/simulations/evaluate.ts:997`, `src/nodes/simulations/codegen.ts:787`.
+  and LED count and a strip form gives row. Open questions before building
+  it: which output to match when a board drives several (the multi-board
+  partition model feeds consumers the active board's partition), what the
+  preview does inside a group or pattern where no LED output is reachable,
+  and how a "match" value is saved so a later output change follows it.
+  Evidence `src/state/nodeLibrary.ts:2244`, `:2261`.
+- [ ] **Particles: Prune overlapping modes (Med, M).** `confetti` duplicates
+  the Confetti node; `rain` and `sparkle` overlap Digital Rain; `orbit` and
+  `vortex` are both rotation about the centre. The clashing names are fixed
+  (`attractor` is now `chase`, `gravity` is now `drops`). Which modes to drop
+  is a product call: each removal moves saved graphs (Mainstage Confetti
+  Singularity uses `fireworks`, Help uses `snow` and `luminova`) and drops a
+  look someone may use, so decide the list before cutting. Evidence
+  `src/nodes/simulations/particleModes.ts:5`.
 
 #### Outputs and shows
 
