@@ -657,8 +657,9 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   FourierEpicycles: 3,    // CRGB trail, kept apart from the output it is added to
 }
 // Particles uses a fixed-size pool independent of matrix size (see the
-// `Particles` case in cppGenerator.ts): 6 floats + 3 uint8 per slot.
-const PARTICLE_BYTES_PER_SLOT = 27
+// `Particles` case in cppGenerator.ts): 6 floats per slot; particles are
+// coloured by life when drawn, so the pool keeps no colour.
+const PARTICLE_BYTES_PER_SLOT = 24
 // One float history per rail plus the aligned StereoVuState emitted by
 // stereoVuMeterCpp.ts. The two CRGB rail arrays are counted as physical LED
 // storage below, not as state.

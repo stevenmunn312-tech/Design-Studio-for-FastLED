@@ -66,6 +66,7 @@ import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample } from '../../nodes/signal/wave'
 import { blobSpan } from '../../nodes/generative/evaluate'
 import { plasmaFrame } from '../../nodes/shared/integerPatterns'
+import { particlePoolSize } from '../../nodes/simulations/particleModes'
 import { boidPalettePosition } from '../../nodes/simulations/evaluate'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
@@ -1236,9 +1237,9 @@ describe('evaluateGraph', () => {
 
   describe('Particles modes', () => {
     const modes = [
-      'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow',
+      'fountain', 'drops', 'fireworks', 'sparkle', 'comet', 'snow',
       'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
-      'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
+      'meteor', 'tornado', 'pinwheel', 'bounce', 'chase', 'waterfall',
     ]
     for (const m of modes) {
       it(`"${m}" lights at least one pixel`, () => {
@@ -1273,6 +1274,21 @@ describe('evaluateGraph', () => {
       } finally {
         spy.mockRestore()
       }
+    })
+
+    it('holds no more particles than the controller\'s pool', () => {
+      // Luminova at count 6 and a slow decay leaves far more trail dots than
+      // the sketch's 240 slots; the preview stops at the same number.
+      const { nodes, edges } = withOutput(node('ppPool', 'Particles', 'pattern', { particleType: 'luminova', count: 6, decay: 0.999, seed: 3 }))
+      let lit = 0
+      for (let f = 0; f < 400; f++) {
+        const frame = evaluateGraph(nodes, edges, f, 64, 64)!
+        lit = frame.flat().filter((px) => px.r + px.g + px.b > 0).length
+      }
+      expect(particlePoolSize('luminova')).toBe(240)
+      // Each dot lights a small disc, so the lit area is bounded by the pool, not by 400 frames of dots.
+      expect(lit).toBeLessThan(240 * 6)
+      expect(lit).toBeGreaterThan(0)
     })
 
     it('defaults to the fountain behaviour when particleType is absent', () => {

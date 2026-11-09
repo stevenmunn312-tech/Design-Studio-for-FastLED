@@ -9,6 +9,7 @@ import { worleyHash, seedOffset } from '../../state/evaluator/random'
 import { floatLit } from '../cppLiterals'
 import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
+import { particleModeUsesRate } from '../../nodes/simulations/particleModes'
 import { fourierTable, fourierTableQ } from '../../nodes/shapes/fourierOutline'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 
@@ -3835,14 +3836,19 @@ describe('generateCpp — Particles modes', () => {
   }
 
   for (const m of [
-    'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow',
+    'fountain', 'drops', 'fireworks', 'sparkle', 'comet', 'snow',
     'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
-    'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
+    'meteor', 'tornado', 'pinwheel', 'bounce', 'chase', 'waterfall',
   ]) {
     it(`emits a real fixed-pool engine for "${m}"`, () => {
       const cpp = gen(m)
       expect(cpp).toContain(`// Particles: ${m}`)
       expect(cpp).toContain('_PN=')
+      // Colour comes from life at render time; the pool keeps none.
+      expect(cpp).not.toContain('_pa_ppr[')
+      expect(cpp).not.toContain('_pc=')
+      // Rate is declared only where a spawn reads it.
+      expect(cpp.includes('float _rate='), m).toBe(particleModeUsesRate(m))
       // additive render of every live particle at its life brightness
       expect(cpp).toContain('float _k=min(1.0f,_pa_ppl[i]), _sx=_pa_ppx[i], _sy=_pa_ppy[i];')
       expect(cpp).toContain('float _cov=constrain(')
@@ -3864,8 +3870,10 @@ describe('generateCpp — Particles modes', () => {
     expect(cpp).toContain('float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy;')
   })
 
-  it('fireworks bursts with a random hue', () => {
-    expect(gen('fireworks')).toContain('CHSV(_hue')
+  it('fireworks bursts without a per-particle colour', () => {
+    // A burst once drew a random CHSV hue per particle that nothing read.
+    expect(gen('fireworks')).not.toContain('CHSV(')
+    expect(gen('fireworks')).toContain('int _n=14+random8()/32;')
   })
 
   it('comet is time-driven (needs t)', () => {
@@ -3875,7 +3883,7 @@ describe('generateCpp — Particles modes', () => {
   })
 
   it('time-driven displays emit the shared animation clock', () => {
-    for (const mode of ['embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor']) {
+    for (const mode of ['embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'chase']) {
       expect(gen(mode)).toContain('float t = millis()')
     }
   })
@@ -3898,7 +3906,7 @@ describe('generateCpp — Particles modes', () => {
   })
 
   it("gravity and bounce scale a mode's built-in accel/restitution constants", () => {
-    const cpp = gen('gravity', { gravity: 2, bounce: 0.5 })
+    const cpp = gen('drops', { gravity: 2, bounce: 0.5 })
     expect(cpp).toContain('float _paGrav=constrain(2,0.0f,3.0f)')
     expect(cpp).toContain('float _paBounce=constrain(0.5,0.0f,1.5f)')
     expect(cpp).toContain('0.045f*_paGrav')
@@ -3921,7 +3929,7 @@ describe('generateCpp — Particles modes', () => {
   it('keeps a wired Particles knob inside its declared domain', () => {
     const lfo = node('lfo', 'LFO', 'input', {})
     const cpp = generateCpp(
-      [lfo, node('pp', 'Particles', 'pattern', { particleType: 'gravity' }), out],
+      [lfo, node('pp', 'Particles', 'pattern', { particleType: 'drops' }), out],
       [
         edge('e-g', 'lfo', 'pp', 'value', 'gravity'),
         edge('e-s', 'lfo', 'pp', 'value', 'size'),

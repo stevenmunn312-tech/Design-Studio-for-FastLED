@@ -706,7 +706,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Particles: {
     overview: [
       'Particles runs one of twenty particle displays: fountains, fireworks, snow, rain, embers, bubbles, comets, fireflies, a tornado, a waterfall and more.',
-      'Rate is how often new particles appear in the spawning displays; fixed-count displays such as orbit and fireflies use Count instead. Gravity, Bounce and Spread shape the displays that fall and fly. Colour comes from the palette by age.',
+      'Rate is how often new particles appear in the spawning displays; fixed-count displays such as orbit and fireflies use Count instead, and comet and meteor lay a dot every frame. The preview holds as many particles as the controller’s pool, 120 (240 for luminova), so trails match on hardware. Gravity, Bounce and Spread shape the displays that fall and fly. Colour comes from the palette by age.',
       'Its displays rise, fall and spread in two dimensions, so on a one-row string most of them have nowhere to go. String Particles is made for strings and rings.',
       'On the canvas the node takes the name of the display chosen.',
     ],
@@ -717,7 +717,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         ribbons: ['Particles', { particleType: 'luminova', count: 6, decay: 0.985, palette: 'ultraviolet', size: 1.5 }],
       },
       output: MATRIX(24, 24),
-      explanation: 'Particles in Luminova mode sends five emitters spiralling over the matrix, each steered by noise and dropping a glowing dot every frame. The overlapping trails blur into soft ribbons of ultraviolet light.',
+      explanation: 'Particles in Luminova mode sends six emitters spiralling over the matrix, each steered by noise and dropping a glowing dot every frame. The overlapping trails blur into soft ribbons of ultraviolet light.',
       preview: 'The {output} shows soft violet ribbons curling and looping across a dark background.',
     }),
   },

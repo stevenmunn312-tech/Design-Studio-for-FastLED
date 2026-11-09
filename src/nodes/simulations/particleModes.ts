@@ -2,10 +2,12 @@
 // the RAM estimate. A mode outside the list (a save from before `swarm` was
 // removed, say) runs as fountain on every side: the emitter's update loop is
 // closed only by a known mode's branch, so an unknown one cannot reach it.
+// `drops` was `gravity`, a name it shared with the Gravity knob; `chase` was
+// `attractor`, a name it shared with Formula Points' de Jong attractor.
 export const PARTICLE_MODES = [
-  'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow',
+  'fountain', 'drops', 'fireworks', 'sparkle', 'comet', 'snow',
   'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
-  'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall', 'luminova',
+  'meteor', 'tornado', 'pinwheel', 'bounce', 'chase', 'waterfall', 'luminova',
 ] as const
 export type ParticleMode = typeof PARTICLE_MODES[number]
 
@@ -19,4 +21,19 @@ export function particleMode(value: unknown): ParticleMode {
  */
 export function particlePoolSize(mode: string): number {
   return mode === 'luminova' ? 240 : 120
+}
+
+/** Modes that hold a fixed population from Count and never read Rate. */
+const FIXED_COUNT_MODES = new Set(['orbit', 'bounce', 'fireflies', 'luminova'])
+/** Modes whose particles keep a set brightness or live until they leave, so never read Decay. */
+const UNDECAYING_MODES = new Set(['snow', 'bubbles', 'orbit', 'fireflies', 'bounce'])
+
+/** Whether a mode reads Rate: comet and meteor lay one trail dot a frame, the fixed-count ones spawn none. */
+export function particleModeUsesRate(mode: string): boolean {
+  return !FIXED_COUNT_MODES.has(mode) && mode !== 'comet' && mode !== 'meteor'
+}
+
+/** Whether a mode reads Decay. */
+export function particleModeUsesDecay(mode: string): boolean {
+  return !UNDECAYING_MODES.has(mode)
 }

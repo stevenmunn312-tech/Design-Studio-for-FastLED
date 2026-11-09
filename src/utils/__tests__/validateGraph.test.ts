@@ -1587,7 +1587,7 @@ describe('validateGraph', () => {
       const nodes = [node('p', 'Particles', { particleType: 'fountain' }), node('out', 'MatrixOutput', { width: 4, height: 4 })]
       const edges = [edge('e1', 'p', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
-      expect(ram.statefulBytes).toBe(120 * 27)
+      expect(ram.statefulBytes).toBe(120 * 24)   // six floats a slot, no colour
     })
 
     it('counts FrameFeedback history as internal state even with a normal frame buffer', () => {

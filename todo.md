@@ -1040,30 +1040,14 @@ freeze, or drop them.
   Progress fed from a schedule through several nodes. A rising edge on
   `trigger` would let ScheduleTrigger or RTC wire in directly. Evidence
   `src/state/nodeLibrary.ts:2228`.
-- [ ] **Particles: Prune overlapping modes and rename clashing ones (Med, M).**
-  `confetti` duplicates the Confetti node; `rain` and `sparkle` overlap Digital
-  Rain; `orbit` and `vortex` are both rotation about the centre. `attractor`
-  clashes with Formula Points' de Jong `attractor` (rename to "chase"), and
-  the `gravity` type shares its name with the `gravity` multiplier (rename to
-  "drops"). Evidence `src/state/nodeLibrary.ts:2891`.
-- [ ] **Particles: Gate `rate` and `decay` per mode (Med, S).** `rate` is unused
-  by orbit, bounce, fireflies, luminova, comet and meteor; `decay` is unused by
-  snow, bubbles, orbit, fireflies and bounce. `count`, `spread`, `gravity` and
-  `bounce` are already gated that way. Evidence `src/state/nodeLibrary.ts:5334`,
-  `src/nodes/simulations/evaluate.ts:250`.
-- [ ] **Particles: Cap the preview pool to the firmware pool (Med, S).**
-  Preview caps at 600 particles, firmware at 120 (240 for luminova), so the
-  featured luminova example (count 6, decay 0.985) shows about 330 dots in
-  preview but about 39 per emitter on hardware, and trails look shorter on the
-  controller. Cap the preview at `particlePoolSize(mode)`, and fix the Help
-  text that says "five emitters" with count 6. Evidence
-  `src/nodes/simulations/particleModes.ts:20`, `src/components/HelpModal/reference/pattern.ts:735`.
-- [ ] **Particles: Remove unused per-particle colour in firmware (Med, S).**
-  `${A}r/g/b` (360 B) and `_pc` are written but rendering colours by life, and
-  the preview's fireworks `hsv` is discarded too. This breaks the "no dead
-  code in firmware" rule. Remove it, or use it as a per-burst palette offset
-  so fireworks bursts differ in colour. Evidence
-  `src/nodes/simulations/codegen.ts:206`, `:352`.
+- [ ] **Particles: Prune overlapping modes (Med, M).** `confetti` duplicates
+  the Confetti node; `rain` and `sparkle` overlap Digital Rain; `orbit` and
+  `vortex` are both rotation about the centre. The clashing names are fixed
+  (`attractor` is now `chase`, `gravity` is now `drops`). Which modes to drop
+  is a product call: each removal moves saved graphs (Mainstage Confetti
+  Singularity uses `fireworks`, Help uses `snow` and `luminova`) and drops a
+  look someone may use, so decide the list before cutting. Evidence
+  `src/nodes/simulations/particleModes.ts:5`.
 - [ ] **Flow Field: Make preview and firmware draw the same flow (Med, S).** The
   preview steers by `_snoise2(...)*4π` (angle ±4π, field translating in x);
   firmware uses `inoise8(...,t*100)/255*4π` (angle 0..4π, field evolving in z).

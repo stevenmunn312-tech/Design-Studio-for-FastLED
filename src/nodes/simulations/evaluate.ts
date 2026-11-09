@@ -1,5 +1,5 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
-import { particleMode } from './particleModes'
+import { particleMode, particlePoolSize } from './particleModes'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
 import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeAmount, trailKeep } from '../shared/trailFade'
@@ -18,7 +18,7 @@ import {
   RIPPLE_LIFETIME_SEC, RIPPLE_MAX_RIPPLES, RIPPLE_WIDTH, advanceRipple, buildRippleTables, rippleBehaviour, ripplePoint,
   rippleShape, type Ripple, type RippleTables,
 } from '../shared/rippleNetwork'
-import { type Frame, type Palette, samplePalette, hsv, type RGB } from '../../state/palettes/ledColor'
+import { type Frame, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 import {
   buildFrame,
@@ -50,7 +50,7 @@ const fireHeat    = instanceState('fireHeat', new Map<string, number[][]>())
 // unchanged from before this control existed).
 const fireRngState = instanceState('fireRngState', new Map<string, { seed: number; lcg: number }>())
 
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number; seed?: number; emitter?: boolean }
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; seed?: number; emitter?: boolean }
 const particleState = instanceState('particleState', new Map<string, Particle[]>())
 const particleSeedState = instanceState('particleSeedState', new Map<string, string>())
 
@@ -165,8 +165,6 @@ function evalFire(
   return mirror ? fireMirror(frame, direction, W, H) : frame
 }
 
-const MAX_PARTICLES = 600
-
 // Extra variant-specific Particles controls (see PROPERTY_META.Particles /
 // isPropertyEnabled in nodeLibrary.ts, gated to the modes that use them):
 // `count` sets the pool size directly for the fixed-population modes,
@@ -191,15 +189,17 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
   let particles = particleState.get(nodeId)!
   const rnd = () => seededRandom(`${nodeId}:particles`, seed)
   const { size, count, spread, gravity, bounce } = opts
-  // Spawn colour is a representative palette sample kept only so the pool objects
-  // stay well-formed; every particle is actually rendered by its life (age)
-  // through the palette below, so a palette change applies to live particles too.
-  const color = samplePalette(palette, 0.8)
+  // The sketch's pool has `particlePoolSize` slots and a spawn that finds none
+  // free is dropped, so the preview refuses a spawn the same way rather than
+  // showing trails the controller cannot hold. Every particle is coloured by
+  // its life through the palette when it is drawn, so it carries no colour.
+  const cap = particlePoolSize(mode)
+  const add = (p: Particle) => { if (particles.length < cap) particles.push(p) }
 
   switch (mode) {
-    case 'gravity': {
+    case 'drops': {
       // Drops fall from the top and bounce off the floor, losing energy.
-      if (rnd() < rate) particles.push({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.4 * spread, vy: rnd() * 0.2, life: 1, r: color.r, g: color.g, b: color.b })
+      if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.4 * spread, vy: rnd() * 0.2, life: 1 })
       for (const p of particles) {
         p.vy += 0.045 * gravity; p.x += p.vx; p.y += p.vy
         if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.55 * bounce; p.vx *= 0.8; p.life *= 0.9 }
@@ -212,12 +212,11 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       // Occasional radial burst from a random point; gravity + drag pull it apart.
       if (rnd() < rate * 0.12) {
         const cx = rnd() * W, cy = rnd() * H * 0.5 + H * 0.1
-        const hue = rnd() * 360, n = 14 + Math.floor(rnd() * 8)
+        const n = 14 + Math.floor(rnd() * 8)
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2 + rnd() * 0.3
           const spd = rnd() * 0.5 + 0.35
-          const c = hsv(hue + (rnd() - 0.5) * 30, 1, 1)
-          particles.push({ x: cx, y: cy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1, r: c.r, g: c.g, b: c.b })
+          add({ x: cx, y: cy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1 })
         }
       }
       for (const p of particles) { p.vy += 0.022 * gravity; p.vx *= 0.965; p.vy *= 0.965; p.x += p.vx; p.y += p.vy; p.life *= decay * 0.985 }
@@ -227,7 +226,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'sparkle': {
       // Sparkle rain — random twinkles drizzle down and fade.
       const spawn = Math.max(1, Math.round(rate * W * 0.8))
-      for (let i = 0; i < spawn; i++) if (rnd() < rate) particles.push({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H * 0.3, vx: 0, vy: rnd() * 0.25 + 0.05, life: 1, r: color.r, g: color.g, b: color.b })
+      for (let i = 0; i < spawn; i++) if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H * 0.3, vx: 0, vy: rnd() * 0.25 + 0.05, life: 1 })
       for (const p of particles) { p.y += p.vy; p.life *= decay * 0.9 }
       particles = particles.filter(p => p.life > 0.05 && p.y < H)
       break
@@ -236,42 +235,42 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       // A head traces a Lissajous path; each frame drops a fading trail dot.
       const hx = (W - 1) * (0.5 + 0.45 * Math.sin(t * 0.9))
       const hy = (H - 1) * (0.5 + 0.45 * Math.sin(t * 0.6 + 1.3))
-      particles.push({ x: hx, y: hy, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b })
+      add({ x: hx, y: hy, vx: 0, vy: 0, life: 1 })
       for (const p of particles) p.life *= decay
       particles = particles.filter(p => p.life > 0.04)
       break
     }
     case 'snow': {
       // Snow drifts down with a gentle horizontal sway; recycles at the floor.
-      if (rnd() < rate) particles.push({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: 0, vy: rnd() * 0.12 + 0.05, life: 0.7 + rnd() * 0.3, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: 0, vy: rnd() * 0.12 + 0.05, life: 0.7 + rnd() * 0.3, seed: rnd() * 6.28 })
       for (const p of particles) { p.y += p.vy; p.x += Math.sin(t * 1.5 + (p.seed ?? 0)) * 0.12 }
       particles = particles.filter(p => p.y < H)
       break
     }
     case 'rain': {
       // Fast wind-blown streaks from the top.
-      if (rnd() < rate) particles.push({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.18, vy: rnd() * 0.45 + 0.35, life: 1, r: color.r, g: color.g, b: color.b })
+      if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.18, vy: rnd() * 0.45 + 0.35, life: 1 })
       for (const p of particles) { p.x += p.vx; p.y += p.vy; p.life *= decay * 0.995 }
       particles = particles.filter(p => p.y < H && p.life > 0.05)
       break
     }
     case 'embers': {
       // Warm motes lift from the floor and wander as they cool.
-      if (rnd() < rate) particles.push({ x: rnd() * W, y: H - 1, vx: (rnd() - 0.5) * 0.12, vy: -(rnd() * 0.18 + 0.04), life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      if (rnd() < rate) add({ x: rnd() * W, y: H - 1, vx: (rnd() - 0.5) * 0.12, vy: -(rnd() * 0.18 + 0.04), life: 1, seed: rnd() * 6.28 })
       for (const p of particles) { p.x += p.vx + Math.sin(t * 2 + (p.seed ?? 0)) * 0.05; p.y += p.vy; p.life *= decay * 0.985 }
       particles = particles.filter(p => p.y >= 0 && p.life > 0.05)
       break
     }
     case 'bubbles': {
       // Buoyant dots rise from below with a broad side-to-side wobble.
-      if (rnd() < rate) particles.push({ x: rnd() * W, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      if (rnd() < rate) add({ x: rnd() * W, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 })
       for (const p of particles) { p.x += Math.sin(t * 3 + (p.seed ?? 0)) * 0.1; p.y += p.vy }
       particles = particles.filter(p => p.y >= 0)
       break
     }
     case 'vortex': {
       // Particles spiral around the centre while being pulled slowly inward.
-      if (rnd() < rate) particles.push({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b })
+      if (rnd() < rate) add({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1 })
       const cx = (W - 1) / 2, cy = (H - 1) / 2
       for (const p of particles) {
         const dx = p.x - cx, dy = p.y - cy, d = Math.max(0.5, Math.hypot(dx, dy))
@@ -283,7 +282,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'orbit': {
       // A stable constellation of dots circles the matrix centre.
       const N = Math.max(2, Math.min(80, Math.round(count)))
-      while (particles.length < N) particles.push({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 0.08 + 0.025 })
+      while (particles.length < N) add({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, seed: rnd() * 0.08 + 0.025 })
       if (particles.length > N) particles = particles.slice(0, N)
       const cx = (W - 1) / 2, cy = (H - 1) / 2
       for (const p of particles) {
@@ -301,7 +300,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
         particles = particles.filter((q) => !q.emitter || emitters.includes(q))
       }
       while (emitters.length < N) {
-        const q: Particle = { x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28, emitter: true }
+        const q: Particle = { x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, seed: rnd() * 6.28, emitter: true }
         emitters.push(q); particles.push(q)
       }
       emitters.forEach((q, i) => {
@@ -310,7 +309,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
         q.x = (((q.x + Math.cos(q.seed) * LUMINOVA_STEP) % W) + W) % W
         q.y = (((q.y + Math.sin(q.seed) * LUMINOVA_STEP) % H) + H) % H
         q.life = 1
-        particles.push({ x: q.x, y: q.y, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b })
+        add({ x: q.x, y: q.y, vx: 0, vy: 0, life: 1 })
       })
       for (const q of particles) if (!q.emitter) q.life *= decay * LUMINOVA_TRAIL_DECAY
       particles = particles.filter((q) => q.emitter || q.life > 0.05)
@@ -319,7 +318,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'confetti': {
       // Short-lived flecks appear throughout the matrix and drift downward.
       const spawn = Math.max(1, Math.round(rate * 4))
-      for (let i = 0; i < spawn; i++) if (rnd() < rate) particles.push({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H, vx: (rnd() - 0.5) * 0.16, vy: rnd() * 0.08 + 0.02, life: 1, r: color.r, g: color.g, b: color.b })
+      for (let i = 0; i < spawn; i++) if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H, vx: (rnd() - 0.5) * 0.16, vy: rnd() * 0.08 + 0.02, life: 1 })
       for (const p of particles) { p.x += p.vx; p.y += p.vy; p.life *= decay * 0.94 }
       particles = particles.filter(p => p.life > 0.05 && p.y < H)
       break
@@ -327,7 +326,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'fireflies': {
       // A persistent cloud meanders in smoothly changing directions.
       const N = Math.max(2, Math.min(80, Math.round(count)))
-      while (particles.length < N) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.12, vy: (rnd() - 0.5) * 0.12, life: 0.45 + rnd() * 0.55, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      while (particles.length < N) add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.12, vy: (rnd() - 0.5) * 0.12, life: 0.45 + rnd() * 0.55, seed: rnd() * 6.28 })
       if (particles.length > N) particles = particles.slice(0, N)
       const spanX = Math.max(1, W - 1), spanY = Math.max(1, H - 1)
       for (const p of particles) { p.x = (p.x + p.vx + Math.sin(t + (p.seed ?? 0)) * 0.035 + spanX) % spanX; p.y = (p.y + p.vy + Math.cos(t * 0.8 + (p.seed ?? 0)) * 0.035 + spanY) % spanY; p.life = 0.65 + Math.sin(t * 3 + (p.seed ?? 0)) * 0.35 }
@@ -336,14 +335,14 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'meteor': {
       // A bright diagonal head continuously lays down a fading tail.
       const span = Math.max(1, Math.max(W, H) - 1), phase = (t * Math.max(2, W * 0.45)) % span
-      particles.push({ x: phase * (W - 1) / span, y: phase * (H - 1) / span, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b })
+      add({ x: phase * (W - 1) / span, y: phase * (H - 1) / span, vx: 0, vy: 0, life: 1 })
       for (const p of particles) p.life *= decay * 0.96
       particles = particles.filter(p => p.life > 0.04)
       break
     }
     case 'tornado': {
       // Rising motes tighten into a rotating funnel.
-      if (rnd() < rate) particles.push({ x: W / 2, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      if (rnd() < rate) add({ x: W / 2, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 })
       for (const p of particles) { p.y += p.vy; const h = Math.max(0, Math.min(1, 1 - p.y / H)); p.x = W / 2 + Math.sin(t * 5 + (p.seed ?? 0) + p.y * 0.7) * (0.5 + h * W * 0.35); p.life *= decay * 0.995 }
       particles = particles.filter(p => p.y >= 0 && p.life > 0.05)
       break
@@ -352,7 +351,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       // Curved spokes stream out from the centre.
       if (rnd() < rate) {
         const a = rnd() * Math.PI * 2
-        particles.push({ x: W / 2, y: H / 2, vx: Math.cos(a) * 0.18, vy: Math.sin(a) * 0.18, life: 1, r: color.r, g: color.g, b: color.b })
+        add({ x: W / 2, y: H / 2, vx: Math.cos(a) * 0.18, vy: Math.sin(a) * 0.18, life: 1 })
       }
       for (const p of particles) { const vx = p.vx - p.vy * 0.035, vy = p.vy + p.vx * 0.035; p.vx = vx; p.vy = vy; p.x += vx; p.y += vy; p.life *= decay * 0.99 }
       particles = particles.filter(p => p.life > 0.05 && p.x >= 0 && p.x < W && p.y >= 0 && p.y < H)
@@ -361,14 +360,14 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'bounce': {
       // A rate-controlled set of particles ricochets around the panel.
       const N = Math.max(2, Math.min(80, Math.round(count)))
-      while (particles.length < N) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.5, vy: (rnd() - 0.5) * 0.5, life: 1, r: color.r, g: color.g, b: color.b })
+      while (particles.length < N) add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.5, vy: (rnd() - 0.5) * 0.5, life: 1 })
       if (particles.length > N) particles = particles.slice(0, N)
       for (const p of particles) { p.x += p.vx; p.y += p.vy; if (p.x <= 0 || p.x >= W - 1) { p.x = Math.max(0, Math.min(W - 1, p.x)); p.vx *= -1 } if (p.y <= 0 || p.y >= H - 1) { p.y = Math.max(0, Math.min(H - 1, p.y)); p.vy *= -1 } p.life = 1 }
       break
     }
-    case 'attractor': {
-      // Particles chase a moving attractor, overshooting into loose loops.
-      if (rnd() < rate) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.1, vy: (rnd() - 0.5) * 0.1, life: 1, r: color.r, g: color.g, b: color.b })
+    case 'chase': {
+      // Particles chase a moving point, overshooting into loose loops.
+      if (rnd() < rate) add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.1, vy: (rnd() - 0.5) * 0.1, life: 1 })
       const ax = (W - 1) * (0.5 + 0.35 * Math.sin(t * 0.7)), ay = (H - 1) * (0.5 + 0.35 * Math.cos(t * 0.9))
       for (const p of particles) { const dx = ax - p.x, dy = ay - p.y, d = Math.max(1, Math.hypot(dx, dy)); p.vx = p.vx * 0.97 + dx / d * 0.025; p.vy = p.vy * 0.97 + dy / d * 0.025; p.x += p.vx; p.y += p.vy; p.life *= decay * 0.998 }
       particles = particles.filter(p => p.life > 0.05)
@@ -377,7 +376,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'waterfall': {
       // Dense drops accelerate down a narrow central stream and splash outward.
       const spawn = Math.max(1, Math.round(rate * 3))
-      for (let i = 0; i < spawn; i++) if (rnd() < rate) particles.push({ x: W * 0.5 + (rnd() - 0.5) * 0.3 * W * spread, y: 0, vx: (rnd() - 0.5) * 0.08, vy: rnd() * 0.2 + 0.12, life: 1, r: color.r, g: color.g, b: color.b })
+      for (let i = 0; i < spawn; i++) if (rnd() < rate) add({ x: W * 0.5 + (rnd() - 0.5) * 0.3 * W * spread, y: 0, vx: (rnd() - 0.5) * 0.08, vy: rnd() * 0.2 + 0.12, life: 1 })
       for (const p of particles) { p.vy += 0.025 * gravity; p.x += p.vx; p.y += p.vy; if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.3 * bounce; p.vx += (rnd() - 0.5) * 0.35; p.life *= 0.7 } p.life *= decay * 0.995 }
       particles = particles.filter(p => p.life > 0.05 && p.y < H)
       break
@@ -385,14 +384,13 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'fountain':
     default: {
       // Sparks rise from the bottom, arc under gravity, and fade.
-      if (rnd() < rate) particles.push({ x: W / 2 + (rnd() - 0.5) * W * spread, y: H - 1, vx: (rnd() - 0.5) * 0.6 * spread, vy: -(rnd() * 0.5 + 0.1), life: 1, r: color.r, g: color.g, b: color.b })
+      if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: H - 1, vx: (rnd() - 0.5) * 0.6 * spread, vy: -(rnd() * 0.5 + 0.1), life: 1 })
       for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.02 * gravity; p.life *= decay }
       particles = particles.filter(p => p.life > 0.04 && p.y >= 0)
       break
     }
   }
 
-  if (particles.length > MAX_PARTICLES) particles = particles.slice(particles.length - MAX_PARTICLES)
   particleState.set(nodeId, particles)
 
   const frame = blankFrame(W, H)

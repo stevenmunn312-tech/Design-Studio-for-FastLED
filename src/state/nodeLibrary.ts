@@ -79,7 +79,7 @@ import {
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { SDV_MAX_SPEED } from './evaluator/sdVideo'
 import { FIRE_STYLES } from './evaluator/fireSmoke'
-import { PARTICLE_MODES } from '../nodes/simulations/particleModes'
+import { PARTICLE_MODES, particleModeUsesDecay, particleModeUsesRate } from '../nodes/simulations/particleModes'
 import { FUNCTION_OPS } from '../nodes/math/mathIdentity'
 import { LOGIC_OPS } from '../nodes/math/logic'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
@@ -2887,9 +2887,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Colour by field strength: palette start outside, palette end inside a blob.',
   },
   Particles: {
-    particleType: 'Which particle display to run. Fixed-count displays ignore Rate. These move in two dimensions; on a one-row string, String Particles fits better.',
+    particleType: 'Which particle display to run. These move in two dimensions; on a one-row string, String Particles fits better.',
     rate: 'Chance of a new particle each frame, 0 none to 1 every frame. Only the spawning displays read it.',
-    decay: 'Life kept each frame, 0 vanishes at once to 1 never fades.',
+    decay: 'Life kept each frame, 0 vanishes at once to 1 never fades. Snow, bubbles and the fixed-count displays do not fade.',
     palette: 'Colour by age: new particles take the palette end, fading ones its start.',
     size: 'Dot size multiplier, 0.25 to 3. Dots also grow with the panel.',
     count: 'Particles alive for fixed-count displays, 2 to 80. Fixed when the effect starts.',
@@ -4720,11 +4720,11 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   Particles: {
     prop: 'particleType',
     labels: {
-      fountain: 'Fountain', gravity: 'Gravity', fireworks: 'Fireworks', sparkle: 'Sparkle Rain',
+      fountain: 'Fountain', drops: 'Drops', fireworks: 'Fireworks', sparkle: 'Sparkle Rain',
       comet: 'Comet', snow: 'Snow', rain: 'Rain', embers: 'Embers',
       bubbles: 'Bubbles', vortex: 'Vortex', orbit: 'Orbit', confetti: 'Confetti',
       fireflies: 'Fireflies', meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
-      bounce: 'Bounce', attractor: 'Attractor', waterfall: 'Waterfall', luminova: 'Luminova',
+      bounce: 'Bounce', chase: 'Chase', waterfall: 'Waterfall', luminova: 'Luminova',
     },
   },
   FormulaPoints: {
@@ -4775,9 +4775,9 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
 // bodies in graphEvaluator.ts's evalParticles and cppGenerator.ts's `Particles`
 // case, which are the ones that actually read each property.
 const PARTICLE_COUNT_MODES = new Set(['orbit', 'bounce', 'fireflies', 'luminova'])
-const PARTICLE_SPREAD_MODES = new Set(['fountain', 'gravity', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
-const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'gravity', 'fireworks', 'waterfall'])
-const PARTICLE_BOUNCE_MODES = new Set(['gravity', 'waterfall'])
+const PARTICLE_SPREAD_MODES = new Set(['fountain', 'drops', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
+const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'drops', 'fireworks', 'waterfall'])
+const PARTICLE_BOUNCE_MODES = new Set(['drops', 'waterfall'])
 
 /** Whether a node's inline property editor should be enabled. A property may be
  *  inapplicable to the current variant (e.g. Transition `direction` only applies
@@ -5359,6 +5359,10 @@ export function isPropertyEnabled(
       case 'gravity': return PARTICLE_GRAVITY_MODES.has(pt)
       // Modes with a floor-bounce restitution constant.
       case 'bounce':  return PARTICLE_BOUNCE_MODES.has(pt)
+      // Spawning modes; comet, meteor and the fixed-count ones never read it.
+      case 'rate':    return particleModeUsesRate(pt)
+      // Modes whose particles fade; snow, bubbles and the steady ones do not.
+      case 'decay':   return particleModeUsesDecay(pt)
     }
   }
   if (nodeType === 'FormulaPoints') {

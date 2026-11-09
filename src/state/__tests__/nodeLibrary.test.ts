@@ -750,11 +750,21 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('Particles', 'spread', { particleType: 'fountain' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'spread', { particleType: 'comet' })).toBe(false)
 
-    expect(isPropertyEnabled('Particles', 'gravity', { particleType: 'gravity' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'gravity', { particleType: 'drops' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'gravity', { particleType: 'snow' })).toBe(false)
 
-    expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'gravity' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'drops' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'fountain' })).toBe(false)
+
+    // Rate drives the spawning displays only; Decay only the ones that fade.
+    expect(isPropertyEnabled('Particles', 'rate', { particleType: 'fountain' })).toBe(true)
+    for (const mode of ['orbit', 'bounce', 'fireflies', 'luminova', 'comet', 'meteor']) {
+      expect(isPropertyEnabled('Particles', 'rate', { particleType: mode }), mode).toBe(false)
+    }
+    expect(isPropertyEnabled('Particles', 'decay', { particleType: 'luminova' })).toBe(true)
+    for (const mode of ['snow', 'bubbles', 'orbit', 'fireflies', 'bounce']) {
+      expect(isPropertyEnabled('Particles', 'decay', { particleType: mode }), mode).toBe(false)
+    }
   })
 
   it('Fire keeps the direction/turbulence/mirror/seed controls for every style', () => {
