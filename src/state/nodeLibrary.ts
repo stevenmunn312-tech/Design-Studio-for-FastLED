@@ -104,7 +104,7 @@ import { GLITTER_MODES } from '../nodes/composite/glitter'
 import { FRAME_OFFSET, FRAME_ROTATIONS } from '../nodes/composite/frameTransform'
 import { BLUR_RADIUS, GRADIENT_REPEAT, GRADIENT_TYPES } from '../nodes/field/gradientField'
 import { METER_ORIGINS, METER_PEAK_HOLD } from '../nodes/audioReactive/levelMeter'
-import { BAND_HZ } from '../audio/frequencyBand'
+import { BAND_HZ, BAND_PRESETS } from '../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
 import { FRAME_RATE } from '../build/controllerSettings'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
@@ -914,6 +914,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     peakHold: { control: 'slider', min: METER_PEAK_HOLD.min, max: METER_PEAK_HOLD.max, step: 0.1 },
   },
   FrequencyBand: {
+    band: { control: 'select', options: Object.keys(BAND_PRESETS) },
     lowHz: { control: 'slider', min: BAND_HZ.min, max: BAND_HZ.max, step: 1, entry: 'number' },
     highHz: { control: 'slider', min: BAND_HZ.min, max: BAND_HZ.max, step: 1, entry: 'number' },
     gain: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
@@ -2125,6 +2126,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Vibe: {
     gain: 'Scales the three relative levels and their smoothed copies. Spikes compare the two, so gain never changes them.',
+    unitRange: 'Halve the levels and clamp them to 0–1, so the song average reads 0.5 and twice it reads 1: ready for a 0–1 input without Map Range.',
   },
   AudioHue: {
     mode: 'Balance: where the sound sits between bass and treble, whatever its loudness. Weighted Sum: the weighted bands added up and scaled to 0–360°, which follows loudness too.',
@@ -2476,8 +2478,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Colour along the bar from its origin to full scale; the peak marker takes the palette end.',
   },
   FrequencyBand: {
-    lowHz: 'Bottom of the band in hertz. The spectrum spans about 90 Hz to 5 kHz in 16 log-spaced bins.',
-    highHz: 'Top of the band in hertz. A band narrower than one bin reads the nearest bin.',
+    band: 'A named range: Kick 90–130 Hz, Bass 90–250, Low mids 250–600, Vocals 300–3000, Snare snap 1.5–4 kHz, Top 3–5.1 kHz. Custom uses Low and High.',
+    lowHz: 'Custom: bottom of the band in hertz. The spectrum spans 90 Hz to 5.1 kHz in 16 log-spaced bins.',
+    highHz: 'Custom: top of the band in hertz. A band narrower than one bin reads the nearest bin.',
     gain: 'Multiplies the band level before it is clamped to 1.',
     smoothing: 'Share of the level kept every 60th of a second, 0 instant to 0.95 very slow.',
   },
@@ -3884,6 +3887,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   AudioFeatures: {
     gate: 'Silence Gate',
+  },
+  Vibe: {
+    unitRange: '0–1 output',
   },
   AudioHue: {
     hueStart: 'hue start',
@@ -5317,6 +5323,10 @@ export function isPropertyEnabled(
       case 'count':     return tt === 'blinds'
       case 'turns':     return tt === 'spiral'
     }
+  }
+  // Frequency Band reads Low and High only on its Custom band.
+  if (nodeType === 'FrequencyBand' && (key === 'lowHz' || key === 'highHz')) {
+    return properties.band === undefined || properties.band === 'Custom'
   }
   // Audio → Hue reads Hue Start and Span on Balance, the weights on Weighted Sum.
   if (nodeType === 'AudioHue') {

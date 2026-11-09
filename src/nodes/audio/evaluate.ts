@@ -12,7 +12,7 @@ import { clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, resampleSpectrumBins } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
 import { envelopeDt, keepOver } from '../shared/envelopeClock'
-import { bandLevel, clampBandHz } from '../../audio/frequencyBand'
+import { bandLevel, bandPresetRange, clampBandHz } from '../../audio/frequencyBand'
 import { audioLoudness, resolveStereoLevels } from '../../audio/stereoLevels'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar, beatPhaseStep, type BeatPhaseState } from '../../audio/beatPhase'
 
@@ -119,6 +119,13 @@ export function audioHueWeight(value: unknown, fallback: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
 }
 
+/** One Vibe level: the detector's song-relative value times Gain, or with
+ *  0–1 Output on, half of that clamped to 0–1, so the song's average sits
+ *  mid-range and twice it fills the range. Shared with the C++ generator. */
+export function vibeLevel(value: number, gain: number, unitRange: boolean): number {
+  return unitRange ? clamp01(value * gain * 0.5) : value * gain
+}
+
 const VIBE_INACTIVE: Record<string, PortValue> = {
   bass: 0, mid: 0, treble: 0, volume: 0,
   bassAtt: 0, midAtt: 0, trebleAtt: 0,
@@ -130,8 +137,15 @@ const STRUCTURE_INACTIVE: Record<string, PortValue> = {
   drop: false, dropImpact: 0, tempoStable: false, valence: 0, arousal: 0,
 }
 
+/** A MIDI note's place in the octave, 0 (C) to 11 (B); 0 with no note.
+ *  Shared with the C++ generator's `%12`. */
+export function pitchClassOf(note: number): number {
+  const n = Math.round(Number(note))
+  return Number.isFinite(n) && n > 0 ? n % 12 : 0
+}
+
 const PITCH_INACTIVE: Record<string, PortValue> = {
-  hz: 0, note: 0, noteOn: false, velocity: 0, confidence: 0, keyRoot: 0, keyMinor: false, keyConfidence: 0,
+  hz: 0, note: 0, pitchClass: 0, noteOn: false, velocity: 0, confidence: 0, keyRoot: 0, keyMinor: false, keyConfidence: 0,
 }
 
 export const AUDIO_EVALUATORS: NodeEvaluators = {
@@ -413,14 +427,15 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     // A payload from before the detector existed has no `vibe`: inactive.
     if (!vibe) return { ...VIBE_INACTIVE }
     const gain = Math.max(0.25, Math.min(4, num(id, 'gain', props, 'gain', 1)))
+    const unit = props.unitRange === true
     return {
-      bass: vibe.bass * gain,
-      mid: vibe.mid * gain,
-      treble: vibe.treble * gain,
-      volume: vibe.volume * gain,
-      bassAtt: vibe.bassAtt * gain,
-      midAtt: vibe.midAtt * gain,
-      trebleAtt: vibe.trebleAtt * gain,
+      bass: vibeLevel(vibe.bass, gain, unit),
+      mid: vibeLevel(vibe.mid, gain, unit),
+      treble: vibeLevel(vibe.treble, gain, unit),
+      volume: vibeLevel(vibe.volume, gain, unit),
+      bassAtt: vibeLevel(vibe.bassAtt, gain, unit),
+      midAtt: vibeLevel(vibe.midAtt, gain, unit),
+      trebleAtt: vibeLevel(vibe.trebleAtt, gain, unit),
       bassSpike: vibe.bassSpike,
       midSpike: vibe.midSpike,
       trebleSpike: vibe.trebleSpike,
@@ -452,15 +467,17 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     const pitch = audio?.active ? audio.pitch : undefined
     // A payload from before the detector existed has no `pitch`: inactive.
     if (!pitch) return { ...PITCH_INACTIVE }
-    return { ...pitch }
+    return { ...pitch, pitchClass: pitchClassOf(pitch.note) }
   },
   // Keep in lockstep with the `FrequencyBand` emitter: the same slot rule
   // (src/audio/frequencyBand.ts), gain, clamp and smoothing.
   FrequencyBand({ input, num, t, elapsedT, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
     const audio = isAudioSignal(audioValue) ? audioValue : null
-    const low = clampBandHz(num(id, 'lowHz', props, 'lowHz', 60), 60)
-    const high = clampBandHz(num(id, 'highHz', props, 'highHz', 250), 250)
+    // A Band preset names the range; Custom reads Low and High.
+    const preset = bandPresetRange(props.band)
+    const low = preset ? preset[0] : clampBandHz(num(id, 'lowHz', props, 'lowHz', 90), 90)
+    const high = preset ? preset[1] : clampBandHz(num(id, 'highHz', props, 'highHz', 250), 250)
     const gain = Math.max(0.25, Math.min(4, num(id, 'gain', props, 'gain', 1)))
     const smoothing = Math.max(0, Math.min(0.95, num(id, 'smoothing', props, 'smoothing', 0.6)))
     const live = Boolean(audio && (audio.active || audio.micActive))

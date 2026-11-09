@@ -315,28 +315,6 @@ freeze, or drop them.
   scale, so wired into a 0–1 input it barely moves and the help tells users
   to add a Smooth node. Apply Sensitivity as a gain plus about 0.15 s of
   smoothing. Evidence `src/nodes/audio/evaluate.ts:294`.
-- [ ] **Vibe: Make the Spike outputs one-frame hits (Med, S).** A spike is
-  true whenever the instantaneous value exceeds the smoothed one, so it
-  stays true for several frames, and the help example wiring Bass Spike →
-  Beat Flash stacks flashes. Add a one-frame `bassHit` pulse (threshold on
-  imm/avg plus cooldown), or point the example at Beat Detect. Evidence
-  `src/audio/fastledReactive.ts:502`.
-- [ ] **Vibe: Add a 0–1 output toggle (Low, S).** Level / 2, clamped, would
-  remove the Map Range the help says every 0–1 use needs. Evidence
-  `src/components/HelpModal/reference/audio.ts:155`.
-- [ ] **Pitch Detect: Add a pitch-class or note-hue output (Low, S).** Add
-  `pitchClass` (0–11) or `noteHue` (0–360); the help example needs an
-  Expression node to get there. Evidence
-  `src/components/HelpModal/reference/audio.ts:267`.
-- [ ] **Frequency Band: Add band presets and narrow the Hz sliders (Med,
-  M).** The sliders are linear from 20 to 8000 Hz, so the bass range sits
-  in the first 3% of travel, and anything below 90 Hz or above 5.12 kHz
-  only re-reads the edge bins. Add a preset select (Kick, Bass, Low mids,
-  Vocals, Snare snap, Top) that fills Low and High, and limit the sliders to
-  the EQ range. Evidence `src/state/nodeLibrary.ts:915`.
-- [ ] **Frequency Band: Fix the "hi-hat air band" wording (Low, S).** The
-  definition comment and help mention a hi-hat air band but the spectrum
-  stops at 5.1 kHz; say so. Evidence `src/nodes/audio/definitions.ts:208`.
 - [ ] **Spectrum Visualizer: Smooth Three Band or split it out (Med, S).**
   Three Band ignores the Smoothing and Tilt rows it shows; unwired bands
   are raw spectrum thirds × gain, so bars jitter next to every other style.

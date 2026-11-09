@@ -5,7 +5,7 @@ import { floatLit } from '../../codegen/cppLiterals'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { AUDIO_HUE, AUDIO_SILENCE, audioHueMode, audioHueSpan, audioHueStart, audioHueWeight } from './evaluate'
 import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
-import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS } from '../../audio/frequencyBand'
+import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS, bandPresetRange } from '../../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, BEAT_PHASE_SYNC, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
 
 /**
@@ -279,7 +279,8 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f, ${v('loudness')} = 0.0f; bool ${v('silence')} = true;`)
     }
   },
-  Vibe({ node, id, ln, v, f, nativeFastLedAudio, hasExplicitAudioInput }) {
+  // Keep in lockstep with the `Vibe` evaluator (vibeLevel).
+  Vibe({ node, id, p, ln, v, f, nativeFastLedAudio, hasExplicitAudioInput }) {
     const levels = ['bass', 'mid', 'treble', 'volume', 'bassAtt', 'midAtt', 'trebleAtt']
     const spikes = ['bassSpike', 'midSpike', 'trebleSpike']
     // Only the live FastLED processor carries the detector; a baked show or an
@@ -296,7 +297,10 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       bass: '_audioVibeBass', mid: '_audioVibeMid', treble: '_audioVibeTreble', volume: '_audioVibeVolume',
       bassAtt: '_audioVibeBassAtt', midAtt: '_audioVibeMidAtt', trebleAtt: '_audioVibeTrebleAtt',
     }
-    ln(`  float ${levels.map((port) => `${v(port)} = ${source[port]} * ${gain}`).join(', ')};`)
+    const level = (port: string) => p.unitRange === true
+      ? `constrain(${source[port]} * ${gain} * 0.5f, 0.0f, 1.0f)`
+      : `${source[port]} * ${gain}`
+    ln(`  float ${levels.map((port) => `${v(port)} = ${level(port)}`).join(', ')};`)
     ln(`  bool ${v('bassSpike')} = _audioVibeBassSpike, ${v('midSpike')} = _audioVibeMidSpike, ${v('trebleSpike')} = _audioVibeTrebleSpike;`)
   },
   SongStructure({ node, ln, v, nativeFastLedAudio, hasExplicitAudioInput }) {
@@ -314,22 +318,28 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     if (!(hasExplicitAudioInput(node.id) && nativeFastLedAudio)) {
       ln(`  // Pitch Detect — connect a live Audio source for pitch, note and key`)
       ln(`  bool ${v('noteOn')} = false, ${v('keyMinor')} = false;`)
-      ln(`  float ${['hz', 'note', 'velocity', 'confidence', 'keyRoot', 'keyConfidence'].map((port) => `${v(port)} = 0.0f`).join(', ')};`)
+      ln(`  float ${['hz', 'note', 'pitchClass', 'velocity', 'confidence', 'keyRoot', 'keyConfidence'].map((port) => `${v(port)} = 0.0f`).join(', ')};`)
       return
     }
     ln(`  float ${v('hz')} = _audioPitchHz, ${v('note')} = (float)_audioPitchNote, ${v('velocity')} = _audioPitchVelocity, ${v('confidence')} = _audioPitchConf;`)
+    // pitchClassOf in evaluate.ts.
+    ln(`  float ${v('pitchClass')} = _audioPitchNote > 0 ? (float)(_audioPitchNote % 12) : 0.0f;`)
     ln(`  bool ${v('noteOn')} = _audioPitchNoteOn, ${v('keyMinor')} = _audioKeyConf > 0.0f && _audioKeyMinor;`)
     ln(`  float ${v('keyRoot')} = _audioKeyConf > 0.0f ? (float)_audioKeyRoot : 0.0f, ${v('keyConfidence')} = _audioKeyConf;`)
   },
   // Keep in lockstep with the `FrequencyBand` evaluator: the same slot rule
   // (src/audio/frequencyBand.ts) over the 32-slot spectrum, gain and smoothing.
-  FrequencyBand({ node, id, ln, v, f, hasExplicitAudioInput }) {
+  FrequencyBand({ node, id, p, ln, v, f, hasExplicitAudioInput }) {
     const spec = hasExplicitAudioInput(node.id) ? '_audioSpectrum' : null
     const slot = (i: string) => (spec ? `constrain(${spec}[${i}],0.0f,1.0f)` : '0.0f')
     if (!spec) ln(`  // FrequencyBand — connect an Audio source to drive this band`)
     ln(`  static const float _fbC_${id}[${EQ_BIN_CENTRES_HZ.length}]={${EQ_BIN_CENTRES_HZ.map((hz) => floatLit(hz, 2)).join(',')}};`)
     ln(`  float ${v('level')};`)
-    ln(`  { float _lo=constrain(${f('lowHz', 'lowHz', 60)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f),_hi=constrain(${f('highHz', 'highHz', 250)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f); if(_lo>_hi){ float _t=_lo; _lo=_hi; _hi=_t; }`)
+    // A Band preset names the range as literals; Custom reads Low and High.
+    const preset = bandPresetRange(p.band)
+    ln(preset
+      ? `  { float _lo=${floatLit(preset[0])},_hi=${floatLit(preset[1])};`
+      : `  { float _lo=constrain(${f('lowHz', 'lowHz', 90)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f),_hi=constrain(${f('highHz', 'highHz', 250)},${BAND_HZ.min}.0f,${BAND_HZ.max}.0f); if(_lo>_hi){ float _t=_lo; _lo=_hi; _hi=_t; }`)
     ln(`    float _sum=0.0f; int _n=0; for(int _i=0;_i<${SPECTRUM_SLOTS};_i++){ float _c=_fbC_${id}[_i>>1]; if(_c>=_lo&&_c<=_hi){ _sum+=${slot('_i')}; _n++; } }`)
     ln(`    if(_n==0){ float _mid=sqrtf(_lo*_hi); int _near=0; float _best=1e9f; for(int _i=0;_i<${SPECTRUM_SLOTS};_i+=2){ float _d=fabsf(logf(_fbC_${id}[_i>>1]/_mid)); if(_d<_best){ _best=_d; _near=_i; } } _sum=${slot('_near')}+${slot('_near+1')}; _n=2; }`)
     ln(`    float _g=constrain(${f('gain', 'gain', 1)},0.25f,4.0f),_sm=constrain(${f('smoothing', 'smoothing', 0.6)},0.0f,0.95f),_tg=fminf(1.0f,(_sum/_n)*_g);`)

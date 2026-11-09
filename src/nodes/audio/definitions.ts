@@ -104,7 +104,8 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
     // FastLED's Vibe detector: MilkDrop's self-normalising bass/mid/treble
     // model, which reports each band relative to the song's own running
     // average. Levels are about 1.0 on average and unbounded above, so this
-    // is deliberately not in NORMALIZED_OUTPUTS.
+    // is deliberately not in NORMALIZED_OUTPUTS; `unitRange` halves and
+    // clamps them to 0–1 for a 0–1 input (vibeLevel in evaluate.ts).
     type: 'Vibe',
     label: 'Vibe',
     category: 'audio',
@@ -125,7 +126,7 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
       { id: 'midSpike', label: 'Mid spike', dataType: 'bool' },
       { id: 'trebleSpike', label: 'Treble spike', dataType: 'bool' },
     ],
-    defaultProperties: { gain: 1 },
+    defaultProperties: { gain: 1, unitRange: false },
   },
   {
     // FastLED's downbeat, buildup, drop, mood and tempo detectors. `downbeat`
@@ -163,6 +164,8 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
     outputs: [
       { id: 'hz', label: 'Hz', dataType: 'float' },
       { id: 'note', label: 'Note', dataType: 'float' },
+      // The note's place in the octave, 0 (C) to 11 (B): Note mod 12.
+      { id: 'pitchClass', label: 'Pitch class', dataType: 'float' },
       { id: 'noteOn', label: 'Note on', dataType: 'bool' },
       { id: 'velocity', label: 'Velocity', dataType: 'float' },
       { id: 'confidence', label: 'Confidence', dataType: 'float' },
@@ -206,10 +209,11 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // One 0–1 level from a chosen frequency range, for a kick (60–120 Hz), a
-    // vocal presence band or a hi-hat air band that the three fixed FFT
-    // groups cut across. Reads the spectrum slots whose centre falls inside
-    // the range (src/audio/frequencyBand.ts).
+    // One 0–1 level from a chosen frequency range, for a kick, a vocal
+    // presence band or a snare's snap that the three fixed FFT groups cut
+    // across. The spectrum stops at about 5.1 kHz, so it has no hi-hat air
+    // band. Reads the spectrum slots whose centre falls inside the range,
+    // named by a Band preset or set by Low and High (src/audio/frequencyBand.ts).
     type: 'FrequencyBand',
     label: 'Frequency Band',
     category: 'audio',
@@ -222,7 +226,7 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { lowHz: 'lowHz', highHz: 'highHz', gain: 'gain', smoothing: 'smoothing' },
     outputs: [{ id: 'level', label: 'Level', dataType: 'float' }],
-    defaultProperties: { lowHz: 60, highHz: 250, gain: 1, smoothing: 0.6 },
+    defaultProperties: { band: 'Custom', lowHz: 90, highHz: 250, gain: 1, smoothing: 0.6 },
   },
   {
     // The channel levels the Stereo VU Meter already measures, as signals:

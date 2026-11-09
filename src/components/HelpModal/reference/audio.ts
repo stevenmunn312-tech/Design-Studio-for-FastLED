@@ -156,7 +156,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
   Vibe: {
     overview: [
       'Vibe is the MilkDrop music model, ported from FastLED. Each band is divided by its own slow running average, so a level of 1.0 means “average for this song” and 2.0 means twice as loud as usual. A quiet track and a loud one drive a patch the same way.',
-      'The levels are not limited to 0–1, so send them through Map Range before a 0–1 input. Each band also has a smoothed copy, and a Spike output that is true while the immediate level is above the smoothed one — a hit in progress.',
+      'The levels are not limited to 0–1: turn on 0–1 Output to halve and clamp them, so 1.0 sits mid-range and twice the average fills the range, or send them through Map Range for a range of your own. Each band also has a smoothed copy, and a Spike output that is true while the immediate level is above the smoothed one — a hit in progress, often several frames long and often several times a beat. For one flash per beat use Beat Detect instead.',
       LIVE_ONLY,
       WHICH_LEVEL,
     ],
@@ -171,11 +171,11 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       bassAtt: 'A smoothed copy of Bass.',
       midAtt: 'A smoothed copy of Mid.',
       trebleAtt: 'A smoothed copy of Treble.',
-      bassSpike: 'True while Bass is above its smoothed copy.',
+      bassSpike: 'True while Bass is above its smoothed copy: a level for gating, not a one-frame hit.',
       midSpike: 'True while Mid is above its smoothed copy.',
       trebleSpike: 'True while Treble is above its smoothed copy.',
     },
-    propertyNote: 'Gain scales the levels and their smoothed copies. Spikes compare the two, so Gain never changes them.',
+    propertyNote: 'Gain scales the levels and their smoothed copies, before 0–1 Output halves them. Spikes compare the two, so neither changes them.',
     example: example({
       featured: 'Vibe',
       title: 'Jump to warp speed on the cymbals',
@@ -184,6 +184,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
         vibe: ['Vibe', { gain: 1 }],
         warp: ['MapRange', { inMin: 0.5, inMax: 2, outMin: 0.1, outMax: 1 }],
         stars: ['Starfield', { palette: 'ice', count: 90 }],
+        beat: ['BeatDetect', { threshold: 0.45 }],
         kick: ['BeatFlash', { intensity: 0.6, decay: 0.8, r: 120, g: 160, b: 255 }],
       },
       wires: [
@@ -191,10 +192,11 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
         'vibe.treble > warp.value',
         'warp.result > stars.speed',
         'stars.frame > kick.frame',
-        'vibe.bassSpike > kick.beat',
+        'mic.audio > beat.audio',
+        'beat.beat > kick.beat',
       ],
-      explanation: 'Vibe’s Treble is about 1.0 at this song’s average, so Map Range turns half-average into a gentle drift and double into full warp. Bass Spike fires Beat Flash whenever the bass jumps above its own smoothed level, lighting the starfield blue on each hit.',
-      preview: 'Play music near the microphone. The {output} shows stars streaming outward, racing during bright passages and flashing on bass hits, at any volume.',
+      explanation: 'Vibe’s Treble is about 1.0 at this song’s average, so Map Range turns half-average into a gentle drift and double into full warp. Beat Detect fires Beat Flash once a beat, lighting the starfield blue on each kick; Bass Spike would fire on every bass bump and stack the flashes.',
+      preview: 'Play music near the microphone. The {output} shows stars streaming outward, racing during bright passages and flashing on the beat, at any volume.',
     }),
   },
 
@@ -256,6 +258,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     outputs: {
       hz: 'Frequency of the current note in hertz. 0 when nothing is pitched.',
       note: 'MIDI note number: 60 is middle C, 69 is A4.',
+      pitchClass: 'The note’s place in the octave, 0 (C) to 11 (B), the same for every octave. 0 when nothing is pitched.',
       noteOn: 'True for one frame when a note starts or moves by a semitone.',
       velocity: 'How strongly the note sounds while it is held, 0 to 1.',
       confidence: 'How clearly pitched the sound is, 0 to 1.',
@@ -269,17 +272,17 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         pitch: ['PitchDetect'],
-        wheel: ['Expression', { formula: '(a - 12*floor(a/12)) * 30' }],
+        wheel: ['Expression', { formula: 'a * 30' }],
         hue: ['HSVToRGB', { s: 0.9, v: 1 }],
         swatch: ['GradientFrame', { rB: 0, gB: 0, bB: 0, vertical: true }],
       },
       wires: [
         'mic.audio > pitch.audio',
-        'pitch.note > wheel.a',
+        'pitch.pitchClass > wheel.a',
         'wheel.result > hue.h',
         'hue.color > swatch.colorA',
       ],
-      explanation: 'Pitch Detect reports the MIDI note being sung. Expression keeps only the note’s place in the octave and multiplies it by 30°, so C is red, E is green, G# is blue, and every octave of the same note shares its colour. HSV → RGB makes the colour and Gradient Frame fades it to black down the matrix.',
+      explanation: 'Pitch Detect reports the note being sung as its place in the octave, and Expression multiplies it by 30°, so C is red, E is green, G# is blue, and every octave of the same note shares its colour. HSV → RGB makes the colour and Gradient Frame fades it to black down the matrix.',
       preview: 'Sing or whistle steady notes near the microphone. The {output} turns a new colour with each note of the scale and returns to red when you stop.',
     }),
   },
@@ -324,8 +327,8 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
 
   FrequencyBand: {
     overview: [
-      'Frequency Band gives one 0–1 level from a range of the spectrum you choose in hertz. Where FFT Analyzer splits sound into three fixed bands, this picks out exactly the part you care about: a kick at 60–120 Hz, a voice at 300–3000 Hz, a snare’s snap.',
-      'The spectrum covers about 90 Hz to 5 kHz in sixteen bins, spaced logarithmically. A range narrower than one bin reads the nearest bin.',
+      'Frequency Band gives one 0–1 level from a range of the spectrum you choose in hertz. Where FFT Analyzer splits sound into three fixed bands, this picks out exactly the part you care about: a kick at 90–130 Hz, a voice at 300–3000 Hz, a snare’s snap.',
+      'Band picks a named range: Kick, Bass, Low mids, Vocals, Snare snap or Top. Custom uses Low and High instead. The spectrum covers 90 Hz to about 5.1 kHz in sixteen bins, spaced logarithmically, so there is no hi-hat air band above it; Top is its highest part. A range narrower than one bin reads the nearest bin.',
       'Use several Frequency Band nodes on one Audio node to build your own set of bands.',
     ],
     inputs: {
@@ -339,7 +342,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
       title: 'Twinkles that open up when the singer comes in',
       nodes: {
         mic: ['MicInput'],
-        voice: ['FrequencyBand', { lowHz: 300, highHz: 3000, gain: 1.6, smoothing: 0.75 }],
+        voice: ['FrequencyBand', { band: 'Vocals', gain: 1.6, smoothing: 0.75 }],
         stars: ['TwinkleFox', { palette: 'rosegold', speed: 0.45 }],
       },
       wires: ['mic.audio > voice.audio', 'voice.level > stars.density'],
