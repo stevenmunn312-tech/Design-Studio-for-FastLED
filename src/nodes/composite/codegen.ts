@@ -14,6 +14,7 @@ import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
 import { transformZoomCpp } from './transformZoom'
 import { ARRAY_COPIES } from './limits'
 import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from './blendModes'
+import { diagonalFoldCpp } from './mirror'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
   // Rounded (+0.5f) as the preview's Math.round: truncating turned a level-1
@@ -355,16 +356,17 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`    int _sx=_x,_sy=_y;`)
     if (mode === 'horizontal' || mode === 'quad') ln(`    _sx=min(_x,WIDTH-1-_x);`)
     if (mode === 'vertical' || mode === 'quad') ln(`    _sy=min(_y,HEIGHT-1-_y);`)
-    if (mode === 'diagonal') ln(`    _sx=min(min(_x,_y),WIDTH-1);_sy=min(max(_x,_y),HEIGHT-1);`)
+    // Diagonal folds across the corner-to-corner line (./mirror.ts), and
+    // declares the glow's partner itself.
+    if (mode === 'diagonal') for (const line of diagonalFoldCpp(glow)) ln(`    ${line}`)
     if (glow) {
       // additive bloom: base + glowAmount× the discarded partner, tinted
       // per-channel by the `color` input (white neutral). scale8 chain = g/255.
       const g = f('glowAmount', 'glowAmount', 0.35)
       const tintE = channelColor('color', 255, 255, 255)
-      ln(`    int _ax=_x,_ay=_y;`)
+      if (mode !== 'diagonal') ln(`    int _ax=_x,_ay=_y;`)
       if (mode === 'horizontal' || mode === 'quad') ln(`    _ax=max(_x,WIDTH-1-_x);`)
       if (mode === 'vertical' || mode === 'quad') ln(`    _ay=max(_y,HEIGHT-1-_y);`)
-      if (mode === 'diagonal') ln(`    _ax=min(max(_x,_y),WIDTH-1);_ay=min(min(_x,_y),HEIGHT-1);`)
       ln(`    CRGB _b=${src}[_sy*WIDTH+_sx], _a=${src}[_ay*WIDTH+_ax], _t=${tintE};`)
       ln(`    ${ob}[_y*WIDTH+_x]=CRGB(qadd8(_b.r,scale8(scale8(_a.r,_t.r),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))),qadd8(_b.g,scale8(scale8(_a.g,_t.g),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))),qadd8(_b.b,scale8(scale8(_a.b,_t.b),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))));}}`)
       return

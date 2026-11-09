@@ -101,6 +101,58 @@ function runPixelLoop(nodeType: string, properties: Record<string, unknown>, pix
   return leds
 }
 
+describe('Mirror', () => {
+  const frameOf = (W: number, H: number) => Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => ({ r: (x * 37 + y * 11) % 256, g: (x * 5 + y * 71) % 256, b: (x * y * 13 + 7) % 256 })))
+  const board = (properties: Record<string, unknown>, src: RGB[][]): RGB[] => {
+    const W = src[0].length, H = src.length
+    const cpp = generateCpp([node('src', 'Code', 'code'), node('fx', 'Mirror', 'composite', properties),
+      node('out', 'MatrixOutput', 'output', { width: W, height: H })], [
+      edge('e1', 'src', 'fx', 'frame', 'frame'), edge('e2', 'fx', 'out', 'frame', 'frame'),
+    ])
+    const lines = cpp.split('\n')
+    const start = lines.findIndex((line) => line.startsWith('  { for(int _y=0;_y<HEIGHT;_y++)'))
+    const end = lines.findIndex((line, i) => i > start && line.trimEnd().endsWith(';}}'))
+    const block = lines.slice(start, end + 1).map((line) => line.replace('  { for(', '  for(').replace(/CRGB (_b|_x)=/, 'let $1=').replace(/;\}\}$/, ';}'))
+    const [, input] = block.join('\n').match(/=(\w+)\[_sy\*WIDTH\+_sx\]/)!
+    const [, output] = block.join('\n').match(/(\w+)\[_y\*WIDTH\+_x\]=/)!
+    const out: RGB[] = Array.from({ length: W * H }, () => ({ r: 0, g: 0, b: 0 }))
+    compileCppSnippet(block, ['WIDTH', 'HEIGHT', input, output, 'CRGB', 'scale8', 'qadd8'], [])(0, {
+      WIDTH: W, HEIGHT: H, [input]: src.flat() as never, [output]: out as never,
+      CRGB: ((r: number, g: number, b: number) => ({ r, g, b })) as never,
+      scale8: ((v: number, s: number) => (v * (s + 1)) >> 8) as never,
+      qadd8: ((a: number, b: number) => Math.min(255, a + b)) as never,
+    })
+    return out
+  }
+  const preview = (properties: Record<string, unknown>, src: RGB[][]) => COMPOSITE_EVALUATORS.Mirror!({
+    input: (_id: string, port: string) => (port === 'frame' ? src : null),
+    num: (_id: string, _port: string, p: Record<string, unknown>, key: string, def: number) => Number(p[key] ?? def),
+    W: src[0].length, H: src.length,
+  } as unknown as EvalContext, 'fx', properties, studio, 'Mirror').frame as RGB[][]
+
+  it.each([[4, 4], [8, 3], [3, 7]])('folds and glows in whole bytes the same way on a %ix%i matrix', (W, H) => {
+    const src = frameOf(W, H)
+    for (const mirrorMode of ['horizontal', 'vertical', 'quad', 'diagonal']) {
+      for (const glow of [false, true]) {
+        const properties = { mirrorMode, glow, glowAmount: 0.6, r: 255, g: 200, b: 90 }
+        expect(board(properties, src), `${mirrorMode} glow ${glow}`).toEqual(preview(properties, src).flat())
+      }
+    }
+  })
+
+  it('folds a wide panel across its own corner-to-corner diagonal', () => {
+    const src = frameOf(8, 3)
+    const out = preview({ mirrorMode: 'diagonal', glow: false }, src)
+    // The bottom row lies below the diagonal and keeps its own pixels;
+    // clamping min(x, y) had copied pixel (2, 2) across every column past 2.
+    expect(out[2]).toEqual(src[2])
+    // Above the diagonal, the top row mirrors the first column.
+    expect(out[0][7]).toEqual(src[2][0])
+    expect(out[0][0]).toEqual(src[0][0])
+  })
+})
+
 describe('Brightness', () => {
   it('rounds on the board as the preview does', () => {
     const pixels = [{ r: 1, g: 3, b: 5 }, { r: 255, g: 128, b: 77 }, { r: 0, g: 254, b: 9 }]

@@ -656,15 +656,6 @@ freeze, or drop them.
   to put Gamma last, just before the LED output; a setting on the output
   would remove a node from most finished graphs. Evidence
   `src/components/HelpModal/reference/composite.ts:171`.
-- [ ] **Mirror: Handle Diagonal on non-square matrices (Low, S).** Diagonal
-  assumes square; on a wide panel `bx`/`by` clamping smears every column
-  past H into strips. Disable Diagonal when W differs from H, or say so in
-  its tooltip. Evidence `src/nodes/composite/evaluate.ts:587`.
-- [ ] **Mirror: Match glow rounding to firmware (Low, S).** Preview adds an
-  unrounded float (and passes non-integer channels downstream); firmware
-  chains two truncating `scale8` calls. Round the same way in the preview.
-  Evidence `src/nodes/composite/evaluate.ts:581`,
-  `src/nodes/composite/codegen.ts:368`.
 - [ ] **Frame Warp: Add a built-in displacement source (Med, M).** With
   defaults it does nothing visible (zoom 1, rotate 0, unwired fields read
   0.5, meaning no push); seeing an effect needs two hand-written Field

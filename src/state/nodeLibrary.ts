@@ -3021,7 +3021,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     blendMode: 'How copies stack: lighten keeps the brighter, add sums light (a full frame soon turns white), over paints the first on top.',
   },
   Mirror: {
-    mirrorMode: 'Which half is copied where: left to right, top to bottom, both, or across the diagonal.',
+    mirrorMode: 'Which half is copied where: left to right, top to bottom, both, or across the diagonal from corner to corner, which follows a wide panel too.',
     glow: 'Blends the hidden half in as a bloom instead of discarding it.',
     glowAmount: 'How strongly the hidden half shows through. 0 is a clean mirror.',
     r: 'Red of the glow tint, 0 to 255. White (255,255,255) leaves the glow uncoloured.',

@@ -270,7 +270,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   Mirror: {
     overview: [
-      'Mirror copies one half of a frame onto the other: left to right, top to bottom, both at once, or across the diagonal.',
+      'Mirror copies one half of a frame onto the other: left to right, top to bottom, both at once, or across the diagonal from corner to corner, which on a wide panel is its own long diagonal.',
       'Glow blends the hidden half back in as a soft bloom, tinted by the Tint colour, instead of discarding it.',
     ],
     inputs: {

@@ -26,6 +26,7 @@ import { gammaVideoTable } from './gamma'
 import { transformZoom } from './transformZoom'
 import { ARRAY_COPIES } from './limits'
 import { FEEDBACK_BLEND_MODES } from './blendModes'
+import { diagonalFold } from './mirror'
 import {
   arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
   wallpaperSourceQ8,
@@ -539,28 +540,25 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     // Additive bloom: the plain mirror (base) plus a `glowAmount` fraction of
     // the discarded partner, tinted per-channel by the `color` input (white =
     // neutral). 0 = clean mirror, 1 = full add. Both coords are symmetric under
-    // the reflection. Kept in lockstep with cppGenerator.
-    const glowAmt = Math.max(0, Math.min(1, num(id, 'glowAmount', props, 'glowAmount', 0.35)))
+    // the reflection. In bytes as the sketch runs it: two FastLED scale8
+    // calls and a saturating add, so every channel stays a whole level.
+    const glow8 = Math.trunc(Math.max(0, Math.min(1, num(id, 'glowAmount', props, 'glowAmount', 0.35))) * 255)
     const tint = (input(id, 'color', null) as RGB | null)
       ?? {
         r: byte(num(id, 'r', props, 'r', 255) / 255),
         g: byte(num(id, 'g', props, 'g', 255) / 255),
         b: byte(num(id, 'b', props, 'b', 255) / 255),
       }
-    const gCh = (base: number, add: number, tintCh: number) => Math.min(255, base + add * (tintCh / 255) * glowAmt)
+    const gCh = (base: number, add: number, tintCh: number) => Math.min(255, base + scale8(scale8(add, tintCh), glow8))
     return { frame: buildFrame(W, H, (x, y) => {
-      // base = the mirrored source pixel (min-side of the reflection)
-      let bx = x, by = y
-      if (mode === 'horizontal' || mode === 'quad') bx = Math.min(x, W - 1 - x)
-      if (mode === 'vertical' || mode === 'quad') by = Math.min(y, H - 1 - y)
-      if (mode === 'diagonal') { bx = Math.min(Math.min(x, y), W - 1); by = Math.min(Math.max(x, y), H - 1) }
+      // base = the mirrored source pixel (min-side of the reflection),
+      // add = the opposite (discarded) partner (max-side of the reflection)
+      let bx = x, by = y, ax = x, ay = y
+      if (mode === 'horizontal' || mode === 'quad') { bx = Math.min(x, W - 1 - x); ax = Math.max(x, W - 1 - x) }
+      if (mode === 'vertical' || mode === 'quad') { by = Math.min(y, H - 1 - y); ay = Math.max(y, H - 1 - y) }
+      if (mode === 'diagonal') ({ bx, by, ax, ay } = diagonalFold(x, y, W, H))
       const b = src[by][bx]
       if (!glow) return { r: b.r, g: b.g, b: b.b }
-      // add = the opposite (discarded) partner (max-side of the reflection)
-      let ax = x, ay = y
-      if (mode === 'horizontal' || mode === 'quad') ax = Math.max(x, W - 1 - x)
-      if (mode === 'vertical' || mode === 'quad') ay = Math.max(y, H - 1 - y)
-      if (mode === 'diagonal') { ax = Math.min(Math.max(x, y), W - 1); ay = Math.min(Math.min(x, y), H - 1) }
       const a = src[ay][ax]
       return { r: gCh(b.r, a.r, tint.r), g: gCh(b.g, a.g, tint.g), b: gCh(b.b, a.b, tint.b) }
     }) }
