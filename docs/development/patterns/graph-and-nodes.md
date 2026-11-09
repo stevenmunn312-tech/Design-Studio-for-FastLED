@@ -101,8 +101,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   normalized group references so freshly registered ids do not look stale.
 - Hardware belongs to the root graph and must be queried through root-graph
   selectors, not the currently open pattern group.
-- Persisted project and pattern formats are compatibility-sensitive on the
-  public-beta line.
+- Persisted project and pattern formats become compatibility-sensitive at the
+  v1.0.0 release; before it, remove superseded shapes cleanly.
 
 ## Evaluation
 

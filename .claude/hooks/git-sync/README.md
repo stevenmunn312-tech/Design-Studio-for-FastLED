@@ -1,7 +1,7 @@
 # Git sync
 
 Keeps Claude Code sessions on the latest commit of their branch. Another
-session can push to `Hardware` after this one's checkout was made. Without
+session can push to `main` after this one's checkout was made. Without
 this hook the session keeps working on the old commit until someone runs
 `git pull`.
 
@@ -33,7 +33,7 @@ Hooks are read when a session starts, so a pulled change to
 
 A cloud session does not start from a fresh clone. The environment restores a
 cached clone, which can be days old. At start-up it fetches the branch but then
-checks out the cached local `Hardware`, so Claude starts on the old commit. If
+checks out the cached local `main`, so Claude starts on the old commit. If
 that commit predates this hook, `.claude/` or the caveman skills, none of them
 load. Nothing committed to the repo can fix that, because the cached tree never
 contains it.
@@ -46,7 +46,7 @@ exits 0.
 ```bash
 #!/bin/bash
 repo=/home/user/Design-Studio-for-FastLED
-branch=Hardware
+branch=main
 if [ -d "$repo/.git" ] && git -C "$repo" fetch -q origin "$branch" \
    && git -C "$repo" merge-base --is-ancestor "refs/heads/$branch" FETCH_HEAD; then
   if [ "$(git -C "$repo" symbolic-ref -q --short HEAD)" = "$branch" ]; then
@@ -58,5 +58,5 @@ fi
 exit 0
 ```
 
-To check a session, run `git rev-list --count HEAD..origin/Hardware` after
-`git fetch origin Hardware`. It should print `0`.
+To check a session, run `git rev-list --count HEAD..origin/main` after
+`git fetch origin main`. It should print `0`.

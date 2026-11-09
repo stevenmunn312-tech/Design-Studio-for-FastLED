@@ -1,6 +1,6 @@
-# Hardware → v1.0.0 implementation backlog
+# v1.0.0 implementation backlog
 
-Single active checklist for `Hardware`; `main` stays frozen. Restructured
+Single active checklist for `main`. Restructured
 2026-09-24 and reconciled against every document under `docs/` on 2026-10-07.
 The full history of every item up to 2026-09-24, with its evidence narrative,
 is in [the archived backlog](docs/archive/hardware-todo-to-2026-09-24.md); item
@@ -418,7 +418,6 @@ chooses the supported combinations from whatever is on record at release.
   on the candidate build, because the recorded pass (2026-07-26) predates the
   workspace tabs and shelves. Follow the
   [release checklist](docs/release/versioning-and-releases.md#release-checklist).
-  Never merge `main` and `Hardware`.
 
 ## 6. Deferred until after v1
 

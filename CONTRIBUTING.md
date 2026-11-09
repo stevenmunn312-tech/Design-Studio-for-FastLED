@@ -51,16 +51,15 @@ PRs are welcome during the beta with two caveats:
    wasted work.
 2. **Keep PRs small and focused.** One fix or one feature per PR.
 
-`Hardware` is the active development line. Start contributor branches from
-`Hardware` and target pull requests there. Repository maintainers and authorized
-agents work directly on `Hardware` by default; use a focused branch when one is
+`main` is the active development line. Start contributor branches from
+`main` and target pull requests there. Repository maintainers and authorized
+agents work directly on `main` by default; use a focused branch when one is
 requested. Automated Codex branches use the `codex/` prefix.
 
-`main` is the frozen public-beta line. Change it only for an explicitly requested
-beta hotfix, using a focused branch and pull request unless the maintainer
-requests another hotfix workflow. Never merge `main` and `Hardware` in either
-direction. Update a contribution from its own target line without force-pushing
-or rewriting shared history. Open a draft PR while work is still in progress.
+The former `Hardware` development line became `main` on 2026-11-09 and is
+retired. The last public-beta state is the `beta-final` tag. Update a
+contribution from `main` without force-pushing or rewriting shared history.
+Open a draft PR while work is still in progress.
 
 Before submitting, all three gates must pass locally:
 

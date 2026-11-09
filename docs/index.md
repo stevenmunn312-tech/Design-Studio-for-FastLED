@@ -1,8 +1,8 @@
 # Documentation index
 
-This checkout documents the active `Hardware` development line. The frozen
-public-beta line is `main`; see [versioning and releases](release/versioning-and-releases.md)
-for the distinction. [README](../README.md) introduces the product and
+This checkout documents `main`, the active development line toward v1.0.0.
+The last public beta is the `beta-final` tag; see
+[versioning and releases](release/versioning-and-releases.md) for the history. [README](../README.md) introduces the product and
 [CONTRIBUTING](../CONTRIBUTING.md) explains the contribution workflow.
 
 ## Getting started

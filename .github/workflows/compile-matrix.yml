@@ -5,14 +5,14 @@ name: Compile matrix
 # one record. Started
 # by hand: Actions > Compile matrix > Run workflow, or
 #   gh workflow run compile-matrix.yml -f only="ir/normal@stm32 display/player"
-# GitHub lists the workflow from the default branch, so main carries a copy of
-# this file; it builds `ref` (Hardware unless told otherwise). Keep the two equal.
+# GitHub lists the workflow from the default branch, main; it builds `ref`
+# (main unless told otherwise).
 on:
   workflow_dispatch:
     inputs:
       ref:
         description: Branch, tag or commit to build
-        default: Hardware
+        default: main
       engine:
         description: fbuild, arduino-cli or all
         default: all

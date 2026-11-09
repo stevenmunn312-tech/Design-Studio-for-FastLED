@@ -59,10 +59,8 @@ Detailed contracts and traps live under `docs/development/patterns/`. Read the m
 ## Git Workflow
 
 - Use plain `git`.
-- `main` is the frozen public-beta line. Do not change it unless the user explicitly requests a beta hotfix.
-- `Hardware` is the active breaking-development line and is authoritative. Never merge `main` and `Hardware` in either direction.
-- Work directly on `Hardware` by default. Use a focused `codex/` branch only when the user explicitly requests one.
-- On `main`, use a focused `codex/` branch and draft pull request unless the user explicitly requests a beta hotfix workflow.
+- `main` is the single active line. Work directly on `main` by default. Use a focused `codex/` branch only when the user explicitly requests one.
+- `Hardware` is retired: `main` was pointed at it on 2026-11-09. Do not commit to it, and do not delete it without explicit approval. The last public-beta state is the `beta-final` tag.
 - Routine pull, branch, stage, commit, push, and draft-PR operations are pre-approved.
 - A session hook fast-forwards the checked-out branch from its upstream at start and on each prompt, and reports instead when tracked files are modified or the branch has diverged; see [git sync](.claude/hooks/git-sync/README.md).
 - Do not force-push, rewrite shared history, delete branches, hard-reset, or discard user work without explicit approval.
@@ -84,7 +82,7 @@ Detailed contracts and traps live under `docs/development/patterns/`. Read the m
 <!-- MANUAL -->
 ## Project-Specific Invariants
 
-- Saves: on `main`, public-beta node types, property names, port ids, and workspace shapes require compatibility or an explicit migration and release note. On `Hardware`, remove superseded pre-1.0 shapes cleanly unless compatibility is requested; v1.0.0 becomes the baseline after release.
+- Saves: before v1.0.0, remove superseded pre-1.0 node types, property names, port ids, and workspace shapes cleanly unless compatibility is requested. The released v1.0.0 format becomes the baseline; after it, those shapes require compatibility or an explicit migration and release note.
 - User copy: call `MatrixOutput` the **LED output** or its concrete form label; keep `MatrixOutput` only as the code identifier.
 - New nodes normally need a definition and description in `src/nodes/<category>/definitions.ts`, preview and firmware handlers, focused tests, README module/count, and a help entry with its live example in `HelpModal/reference/<category>.ts`; preserve preview/firmware parity. Input-only/no-output nodes are sinks: verify the derived `HOT_NODE_TYPES` and `TERMINAL_NODE_TYPES` include them or evaluation/codegen prunes them. See [graph and nodes](docs/development/patterns/graph-and-nodes.md).
 - Preserve trust through evaluator and recursive group/pattern paths. Validate user text before C++ interpolation; gate mount-time I/O on workspace trust.

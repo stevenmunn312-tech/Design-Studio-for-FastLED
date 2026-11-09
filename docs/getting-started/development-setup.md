@@ -1,6 +1,6 @@
 # Development setup
 
-Scope: the active `Hardware` development line. For the frozen public beta,
+Scope: `main`, the active development line. For the last public beta,
 use its published release and [release policy](../release/versioning-and-releases.md).
 
 ## Prerequisites
@@ -31,8 +31,7 @@ authoring. If using a Python virtual environment, activate it in the shell
 that starts Vite so the child helper uses that interpreter.
 
 For an existing checkout, inspect local changes before switching branches.
-Follow [the contribution workflow](../../CONTRIBUTING.md#pull-requests);
-never merge `main` and `Hardware`.
+Follow [the contribution workflow](../../CONTRIBUTING.md#pull-requests).
 
 The included launchers are another way to start the app:
 `Start Design Studio for FastLED.bat` on Windows,

@@ -60,7 +60,7 @@ The portable package is designed to include the Studio, local upload helper, `fb
 ### Run from source
 
 Follow [development setup](docs/getting-started/development-setup.md) for the
-active `Hardware` checkout, Node.js requirements and platform launchers.
+source checkout, Node.js requirements and platform launchers.
 Use [upload-helper setup](docs/getting-started/upload-helper.md) for Python,
 build engines and USB upload.
 
