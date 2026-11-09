@@ -569,7 +569,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // A Tidy swap is remembered as the saved port order. The list above is
     // still which ports exist; ports added by a newer library append at the end.
     const inputs = orderPorts(
-      partDerivedInputs(nodeType, properties.partId)
+      partDerivedInputs(nodeType, properties.partId, properties)
         ?? def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
       Array.isArray(data.inputs) ? data.inputs : undefined,
     )
@@ -755,7 +755,7 @@ function withAdoptedDisplayControl(
  * the store — a load, a paste, or a test writing state directly.
  */
 function effectiveInputs(node: StudioNode): Array<{ id: string; label: string }> {
-  const derived = partDerivedInputs(node.data.nodeType, node.data.properties.partId)
+  const derived = partDerivedInputs(node.data.nodeType, node.data.properties.partId, node.data.properties)
   if (derived) return derived.map(({ id, label }) => ({ id, label }))
   return (node.data.inputs ?? []) as Array<{ id: string; label: string }>
 }

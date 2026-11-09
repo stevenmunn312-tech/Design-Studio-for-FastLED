@@ -4,6 +4,7 @@ import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/peripher
 import { BUTTON_BANK_ADD_HANDLE, buttonBankOutputs } from '../../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
 import { exposableInputsFor } from '../../../state/propertyInputs'
+import { partDerivedInputs } from '../../../build/parts/partPorts'
 import {
   exampleUsesMicrophone,
   liveExampleForNode,
@@ -47,7 +48,10 @@ describe('node-reference live examples', () => {
               ? webRemoteOutputs((source.properties as Record<string, unknown>).controls, false)
               : sourceDefinition?.outputs
         const sourcePort = sourceOutputs?.find((port) => port.id === edge.sourceHandle)
-        const targetInputs = targetDefinition?.inputs
+        // A part-backed node draws the ports its board and load give it (a
+        // four-channel switch's Level 4, an RGB strip's Color), as the canvas does.
+        const targetProperties = { ...libraryDefaults(target?.type ?? ''), ...(target?.properties ?? {}) }
+        const targetInputs = partDerivedInputs(target?.type ?? '', targetProperties.partId, targetProperties) ?? targetDefinition?.inputs
         const targetPort = targetInputs?.find((port) => port.id === edge.targetHandle)
         expect(source, `${featured.type}: missing ${edge.source}`).toBeTruthy()
         expect(target, `${featured.type}: missing ${edge.target}`).toBeTruthy()

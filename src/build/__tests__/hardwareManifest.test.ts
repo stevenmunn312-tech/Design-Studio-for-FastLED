@@ -6,7 +6,6 @@ import {
   peripheralSignalPadIndex,
 } from '../../components/BuildDiagram/physicalDiagramLayout'
 import { buildHardwareManifest, collectPinUses } from '../hardwareManifest'
-import { NODE_LIBRARY } from '../../state/nodeLibrary'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -463,30 +462,26 @@ describe('hardwareManifest', () => {
     expect(manifest.unsupportedItems.map((item) => item.facts.chipset)).toEqual(['APA102', 'HUB75'])
   })
 
-  // The strip is a library node, not a bench part, but its three GPIOs drive
-  // MOSFET gates the build has to wire; it used to fall out of the diagram
-  // entirely while its help said to wire each pin to a gate.
-  it('draws an Analog RGB Strip as a three-channel MOSFET item on its three pins', () => {
+  // An RGB strip on a four-channel board hangs off its output terminals,
+  // which no controller wire reaches, so the item names where each colour
+  // lead lands and says the first three channels carry PWM.
+  it('draws an RGB strip load on a YYNMOS-4\'s first three channels', () => {
     const manifest = buildHardwareManifest([
-      node('strip', 'AnalogStripOutput', { rPin: 25, gPin: 26, bPin: 27, pwmHz: 2000, commonAnode: true }),
-    ], [], 'esp32:esp32:esp32s3')
+      node('yy', 'PowerSwitchOutput', {
+        partId: 'yynmos-4-lr7843-mosfet-module', loadType: 'rgb',
+        signalPin: 16, signal2Pin: 17, signal3Pin: 18, signal4Pin: 19,
+      }),
+    ], [], 'esp32:esp32:esp32')
 
     const [item] = manifest.primaryItems
-    expect(item.kind).toBe('analog-strip-output')
+    expect(item.kind).toBe('power-switch-output')
     expect(item.supported).toBe(true)
-    expect(item.pins.map((pin) => pin.propertyKey)).toEqual(['rPin', 'gPin', 'bPin'])
-    expect(item.facts).toMatchObject({ channels: 3, drive: 'PWM 2000 Hz', polarity: 'common anode (inverted PWM)' })
-  })
-
-  // Nothing reassigns a library node's pins on add, so its defaults must not
-  // land on the Amplifier's: a music build that added a strip used to open
-  // with a conflict on GPIO 25 and 26.
-  it('defaults an Analog RGB Strip to pins clear of the Amplifier', () => {
-    const library = (type: string) => NODE_LIBRARY.find((entry) => entry.type === type)!.defaultProperties ?? {}
-    const pins = (type: string) => collectPinUses([node(type, type, library(type))])
-      .map((use) => use.pin)
-    const amplifier = new Set(pins('Amplifier'))
-    expect(pins('AnalogStripOutput').filter((pin) => amplifier.has(pin))).toEqual([])
+    expect(item.facts).toMatchObject({
+      drive: '1 (R) PWM 500 Hz, 2 (G) PWM 500 Hz, 3 (B) PWM 500 Hz, 4 on/off',
+      load: 'RGB strip on channels 1, 2, 3',
+      stripLeads: 'R → OUT1- · G → OUT2- · B → OUT3-',
+    })
+    expect(String(item.facts.stripCommon)).toContain('load supply +')
   })
 })
 

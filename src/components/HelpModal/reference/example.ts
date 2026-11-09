@@ -15,6 +15,7 @@ import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../../state/outpu
 import { irRemoteOutputs } from '../../../state/peripherals/irRemote'
 import { buttonBankOutputs } from '../../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
+import { partDerivedInputs } from '../../../build/parts/partPorts'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
   /** Compact topology shown beside the Try it live button. */
@@ -81,16 +82,17 @@ function graphPath(nodes: LiveExampleNodeSpec[]): string {
  * inputs that are not hidden property inputs — the same list the canvas Tidy
  * reads, so an example's feeds stack in the order of the sockets they land on.
  */
-function canvasPorts(type: string, side: 'inputs' | 'outputs'): readonly { id: string }[] {
+function canvasPorts(type: string, side: 'inputs' | 'outputs', properties?: Record<string, unknown>): readonly { id: string }[] {
   const node = definition(type)
   if (side === 'outputs') return node.outputs
   const hidden = new Set(exposableInputsFor(type).map((port) => port.id))
-  return node.inputs.filter((port) => !hidden.has(port.id))
+  return inputsOf(type, properties).filter((port) => !hidden.has(port.id))
 }
 
 /** Apply the app's Tidy Graph layout and centre the example on the insertion origin. */
 function tidy(nodes: LiveExampleNodeSpec[], edges: LiveExampleSpec['edges']): LiveExampleNodeSpec[] {
   const typeByKey = new Map(nodes.map((node) => [node.key, node.type]))
+  const propertiesByKey = new Map(nodes.map((node) => [node.key, node.properties]))
   const initial = nodes.map((node, order) => ({
     id: node.key,
     x: 0,
@@ -104,7 +106,7 @@ function tidy(nodes: LiveExampleNodeSpec[], edges: LiveExampleSpec['edges']): Li
       source: edge.source,
       target: edge.target,
       sourcePort: portFraction(canvasPorts(typeByKey.get(edge.source)!, 'outputs'), edge.sourceHandle),
-      targetPort: portFraction(canvasPorts(typeByKey.get(edge.target)!, 'inputs'), edge.targetHandle),
+      targetPort: portFraction(canvasPorts(typeByKey.get(edge.target)!, 'inputs', propertiesByKey.get(edge.target)), edge.targetHandle),
     })),
     { gapX: 100, gapY: 60, grid: 20 },
   )
@@ -136,6 +138,12 @@ function tidy(nodes: LiveExampleNodeSpec[], edges: LiveExampleSpec['edges']): Li
  * the library definition declares only the trailing "add one" socket — an
  * invitation rather than a signal, which an example must never wire.
  */
+/** A node's inputs as the canvas draws them: a part-backed node's follow its board and load. */
+function inputsOf(type: string, properties: Record<string, unknown> | undefined) {
+  const merged = { ...libraryDefaults(type), ...properties }
+  return partDerivedInputs(type, merged.partId, merged) ?? definition(type).inputs
+}
+
 function outputsOf(type: string, properties: Record<string, unknown> | undefined) {
   if (type === 'IRRemoteInput') return irRemoteOutputs(properties?.buttons)
   if (type === 'ButtonBank') return buttonBankOutputs(properties?.buttons, false)
@@ -204,7 +212,7 @@ export function example(spec: ExampleSpec): ReferenceLiveExample {
     if (!outputsOf(sourceNode.type, sourceNode.properties).some((port) => port.id === source.handle)) {
       throw new Error(`${spec.featured}: ${sourceNode.type}.${source.handle} is not an output`)
     }
-    if (!definition(targetNode.type).inputs.some((port) => port.id === target.handle)) {
+    if (!inputsOf(targetNode.type, targetNode.properties).some((port) => port.id === target.handle)) {
       throw new Error(`${spec.featured}: ${targetNode.type}.${target.handle} is not an input`)
     }
     return { source: source.key, sourceHandle: source.handle, target: target.key, targetHandle: target.handle }

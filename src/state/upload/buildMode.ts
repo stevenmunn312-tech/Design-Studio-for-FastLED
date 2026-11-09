@@ -5,6 +5,10 @@
  * and code generation all need the answer, and none of those layers should
  * have to import another one merely to repeat its predicates.
  */
+import { POWER_SWITCH_RGB_SIGNAL_PORTS, powerSwitchRgb } from '../peripherals/powerSwitch'
+
+/** A Power Switch RGB strip's inputs whose wire lets it light. */
+const STRIP_LIGHTING_PORTS: ReadonlySet<string> = new Set(['on', ...POWER_SWITCH_RGB_SIGNAL_PORTS])
 
 export interface BuildModeNode {
   id: string
@@ -62,7 +66,7 @@ export type BuildEngineKind = 'graph' | 'pattern-slideshow' | 'music-player' | '
 export interface BuildCapabilities {
   /** At least one real MatrixOutput has a frame producer. */
   frameOutput: boolean
-  /** An Analog RGB Strip: one colour on three PWM pins, no frame. */
+  /** A Power Switch's RGB strip with a wire that can light it: one colour on three PWM channels, no frame. */
   analogOutput: boolean
   /** A Frame Stream with a frame wired: the picture leaves the board by DDP or Adalight. */
   streamOutput: boolean
@@ -286,11 +290,15 @@ export function resolveBuildMode<T extends BuildModeNode>(
   const hasStandaloneVu = standaloneVuOutput(nodes)
   const hasStandaloneDisplay = standaloneDisplayOutput(nodes, edges)
   const sendsOverLink = nodes.some((node) => node.data.nodeType === BUILD_MODE_LINK_OUT_TYPE)
-  // The two graph-side sinks that make a sketch worth building on their own:
-  // an analog strip always has a colour (its fields), a stream only its frame.
+  // The two sinks besides LEDs that make a sketch worth building on their
+  // own: a Power Switch's RGB strip once a wire can light it (On, Color or
+  // Brightness, the inputs its gate reads), and a stream only with its frame.
+  const strips = new Set(nodes
+    .filter((node) => node.data.nodeType === 'PowerSwitchOutput' && powerSwitchRgb(node.data.properties))
+    .map((node) => node.id))
   const streams = new Set(nodes.filter((node) => node.data.nodeType === 'StreamOutput').map((node) => node.id))
   const sinks = {
-    analogOutput: nodes.some((node) => node.data.nodeType === 'AnalogStripOutput'),
+    analogOutput: edges.some((edge) => strips.has(edge.target) && STRIP_LIGHTING_PORTS.has(edge.targetHandle ?? '')),
     streamOutput: edges.some((edge) => (edge.targetHandle ?? '') === 'frame' && streams.has(edge.target)),
   }
 

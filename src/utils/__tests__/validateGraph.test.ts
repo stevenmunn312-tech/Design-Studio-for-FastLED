@@ -237,8 +237,10 @@ describe('validateGraph', () => {
     }))
   })
 
-  it('accepts an Analog RGB Strip, or a Frame Stream with a frame, as the output', () => {
-    expect(validateGraph([node('strip', 'AnalogStripOutput')], []).errors).not.toContain('LED output is missing')
+  it('accepts a lit RGB strip load, or a Frame Stream with a frame, as the output', () => {
+    const strip = [node('hue', 'HueCycle'), node('strip', 'PowerSwitchOutput', { partId: 'yynmos-4-lr7843-mosfet-module', loadType: 'rgb' })]
+    expect(validateGraph(strip, [edge('hue-strip', 'hue', 'strip', 'color')]).errors).not.toContain('LED output is missing')
+    expect(validateGraph(strip, []).errors).toContain('LED output is missing')
 
     const stream = [node('fire', 'Fire'), node('send', 'StreamOutput')]
     expect(validateGraph(stream, [edge('fire-send', 'fire', 'send', 'frame')]).errors).not.toContain('LED output is missing')

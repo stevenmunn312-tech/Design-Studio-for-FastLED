@@ -117,7 +117,6 @@ const TransportDisplayNodeBody = lazy(() => import('./bodies/TransportDisplayNod
 const InfoDisplayNodeBody = lazy(() => import('./bodies/InfoDisplayNodeBody'))
 const SegmentDisplayNodeBody = lazy(() => import('./bodies/SegmentDisplayNodeBody'))
 const PowerSwitchNodeBody = lazy(() => import('./bodies/PowerSwitchNodeBody'))
-const AnalogStripNodeBody = lazy(() => import('./bodies/AnalogStripNodeBody'))
 const StereoVuMeterNodeBody = lazy(() => import('./bodies/StereoVuMeterNodeBody'))
 const TouchCalibrationBody = lazy(() => import('./bodies/TouchCalibrationBody'))
 
@@ -1167,7 +1166,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const declaredInputs = orderPorts(
     (hasDerivedDisplayPorts(d.nodeType)
       ? d.inputs ?? def?.inputs ?? []
-      : partDerivedInputs(d.nodeType, rawProps.partId) ?? def?.inputs ?? d.inputs ?? []) as PortDef[],
+      : partDerivedInputs(d.nodeType, rawProps.partId, rawProps) ?? def?.inputs ?? d.inputs ?? []) as PortDef[],
     savedInputs,
   )
   // A template control the Touch node's Controls wire already carries is not
@@ -1899,8 +1898,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'TransportDisplay' && <TransportDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'InfoDisplay' && <InfoDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'SegmentDisplay' && <SegmentDisplayNodeBody nodeId={id} />}
-          {d.nodeType === 'PowerSwitchOutput' && <PowerSwitchNodeBody nodeId={id} partId={rawProps.partId} />}
-          {d.nodeType === 'AnalogStripOutput' && <AnalogStripNodeBody nodeId={id} />}
+          {d.nodeType === 'PowerSwitchOutput' && <PowerSwitchNodeBody nodeId={id} partId={rawProps.partId} loadType={rawProps.loadType} />}
           {d.nodeType === 'StereoVuMeter' && <StereoVuMeterNodeBody nodeId={id} />}
           {d.nodeType === 'TouchInput' && <TouchCalibrationBody nodeId={id} />}
 

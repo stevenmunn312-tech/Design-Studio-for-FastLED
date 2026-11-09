@@ -35,3 +35,11 @@
   min-width: 30px;
   text-align: right;
 }
+
+/* An RGB strip load: one colour end to end, lit the way a diffused channel reads. */
+.strip {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+}

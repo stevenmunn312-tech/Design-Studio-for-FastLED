@@ -33,11 +33,13 @@ import { resolvePartIdentity } from './parts/partOptions'
 import { boardHasInternalDac, hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '../state/audio/audioOutput'
 import { micModuleFor } from '../state/peripherals/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
-import { analogStripPwmHz } from '../nodes/output/frameStream'
 import { LANE_PIN_KEY_PREFIX, claimedLanePins, dataLanePlan } from '../state/output/dataLanes'
 import { normalizeButtonBankEntries } from '../state/player/buttonBank'
 import { relayLoadLabel, relayPinKeys } from '../state/peripherals/relayModule'
-import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/peripherals/powerSwitch'
+import {
+  DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_RGB_COMPONENTS, powerSwitchChannelDims, powerSwitchChannelInStrip,
+  powerSwitchChannels, powerSwitchPwmHz, powerSwitchRgb, powerSwitchRgbLeads,
+} from '../state/peripherals/powerSwitch'
 import { BUZZER_PART_ID, BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerPitchHz, buzzerSpec } from '../state/peripherals/buzzer'
 import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddress, pwmDriverHz, pwmDriverSpec,
@@ -135,7 +137,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'analog-strip-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'midi-input' | 'ethernet' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'midi-input' | 'ethernet' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -211,7 +213,6 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'InfoDisplay',
   'TransportDisplay',
   'TouchInput',
-  'AnalogStripOutput',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -361,11 +362,6 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       case 'MidiInput':
         if (!midiUsesUart(props)) break
         push(node, `${baseLabel} RX pin`, 'midiRxPin', props.midiRxPin)
-        break
-      case 'AnalogStripOutput':
-        push(node, `${baseLabel} red pin`, 'rPin', props.rPin)
-        push(node, `${baseLabel} green pin`, 'gPin', props.gPin)
-        push(node, `${baseLabel} blue pin`, 'bPin', props.bPin)
         break
       case 'MatrixOutput':
         if (outputForm(props) === 'hub75') {
@@ -889,9 +885,6 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     if (nodeType === 'Board') return false
     if (nodeType === 'DMXInput') return dmxUsesTransceiver(node.data.properties as Record<string, unknown>)
     if (nodeType === 'MidiInput') return midiUsesUart(node.data.properties as Record<string, unknown>)
-    // A graph-side output too: it lives in the node library rather than on the
-    // bench, but its three GPIOs drive MOSFET gates the build has to wire.
-    if (nodeType === 'AnalogStripOutput') return true
     if (!isHardwareNodeType(nodeType)) return false
     if (nodeType === 'RTCInput') {
       return String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'DS3231'
@@ -1273,24 +1266,6 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           reasons: reasons.length > 0 ? reasons : undefined,
         }
       }
-      case 'AnalogStripOutput': {
-        // Three GPIOs, one per colour, each to a MOSFET gate; the strip and
-        // its 12 V supply hang off the MOSFET board, which is whatever the
-        // bench has, so the item is the gate wiring and the PWM it carries.
-        const props = node.data.properties as Record<string, unknown>
-        const wired = ['rPin', 'gPin', 'bPin'].every((key) => pins.some((pin) => pin.propertyKey === key))
-        return {
-          ...buildPeripheralItem(node, 'analog-strip-output', '3-channel MOSFET driver for a 12 V RGB strip', pins),
-          supported: wired,
-          facts: {
-            channels: 3,
-            drive: `PWM ${analogStripPwmHz(props)} Hz`,
-            polarity: props.commonAnode === true ? 'common anode (inverted PWM)' : 'common cathode',
-            stripSupply: '12 V, from its own supply; grounds joined',
-          },
-          reasons: wired ? undefined : ['This strip needs its red, green and blue pins configured.'],
-        }
-      }
       case 'PowerSwitchOutput': {
         // The GPIO side is ordinary wiring; the load side is not, so its
         // limits travel as facts from the catalogued module rather than as
@@ -1305,11 +1280,22 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         // A dimmed channel's pin carries PWM, which a wiring review needs to
         // know: the load sees the frequency, not only the on/off state.
         const pwmHz = powerSwitchPwmHz(partId)
+        const wiredPort = (port: string) => edges.some((edge) => edge.target === node.id && edge.targetHandle === port)
+        const nodeProps = { ...props, partId }
         const drives = channels.map((channel) => {
-          const levelWired = edges.some((edge) => edge.target === node.id && edge.targetHandle === channel.level)
-          const drive = pwmHz !== null && powerSwitchDims(partId, props[channel.level], levelWired) ? `PWM ${pwmHz} Hz` : 'on/off'
-          return channel.label === null ? drive : `${channel.label} ${drive}`
+          const drive = pwmHz !== null && powerSwitchChannelDims(nodeProps, channel, wiredPort) ? `PWM ${pwmHz} Hz` : 'on/off'
+          const name = powerSwitchChannelInStrip(nodeProps, channel)
+            ? `${channel.label} (${POWER_SWITCH_RGB_COMPONENTS[channel.index].toUpperCase()})`
+            : channel.label
+          return name === null ? drive : `${name} ${drive}`
         })
+        // An RGB strip's common positive goes to the load supply, and its
+        // colour leads to the first three channels' switched outputs, which
+        // the sheet names on the part since no controller wire shows them.
+        const rgb = powerSwitchRgb(nodeProps)
+        const stripLeads = rgb
+          ? powerSwitchRgbLeads(partId).map((terminal, index) => `${POWER_SWITCH_RGB_COMPONENTS[index].toUpperCase()} → ${terminal}`).join(' · ')
+          : undefined
         return {
           ...buildPeripheralItem(node, 'power-switch-output', entry?.label ?? 'DC MOSFET switch', pins),
           title: entry?.label ?? nodeLabel(node),
@@ -1326,6 +1312,11 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             continuousCurrent: spec?.continuousCurrent ?? '',
             flybackDiode: spec?.flybackDiode ?? false,
             loadTerminals: (spec?.loadTerminals ?? []).join(' / '),
+            ...(stripLeads === undefined ? {} : {
+              load: `RGB strip on channels ${channels.slice(0, POWER_SWITCH_RGB_COMPONENTS.length).map((channel) => channel.label).join(', ')}`,
+              stripLeads,
+              stripCommon: 'strip + (common anode) to the load supply +; a common-cathode strip cannot be switched low-side',
+            }),
           },
           reasons: wired
             ? undefined

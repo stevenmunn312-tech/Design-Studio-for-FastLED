@@ -135,12 +135,21 @@ describe('build mode resolution', () => {
     })
   })
 
-  // Two graph-side sinks that build on their own: a 12 V strip on PWM pins
-  // always has a colour, and a Frame Stream only its wired frame. Both used
-  // to be refused with the generic missing-output error.
-  it('builds an Analog RGB Strip or a fed Frame Stream with no LED output', () => {
-    const strip = resolveBuildMode([node('strip', 'AnalogStripOutput')], [])
-    expect(strip.capabilities).toMatchObject({ frameOutput: false, analogOutput: true, buildable: true })
+  // Two sinks besides LEDs that build on their own: a Power Switch's RGB
+  // strip once a wire can light it, and a Frame Stream only with its wired
+  // frame. Both used to be refused with the generic missing-output error.
+  it('builds a lit RGB strip load or a fed Frame Stream with no LED output', () => {
+    const rgb = { partId: 'yynmos-4-lr7843-mosfet-module', loadType: 'rgb' }
+    const strip = [node('hue', 'HueCycle'), node('strip', 'PowerSwitchOutput', rgb)]
+    for (const port of ['color', 'on', 'brightness']) {
+      expect(resolveBuildMode(strip, [edge('hue', 'strip', 'color', port)]).capabilities, port)
+        .toMatchObject({ frameOutput: false, analogOutput: true, buildable: true })
+    }
+    // Nothing that can light it, a separate channel, or a board that cannot carry a strip.
+    expect(resolveBuildMode(strip, []).capabilities).toMatchObject({ analogOutput: false, buildable: false })
+    expect(resolveBuildMode(strip, [edge('hue', 'strip', 'value', 'level4')]).capabilities.analogOutput).toBe(false)
+    const lr7843 = [node('hue', 'HueCycle'), node('strip', 'PowerSwitchOutput', { partId: 'lr7843-mosfet-module', loadType: 'rgb' })]
+    expect(resolveBuildMode(lr7843, [edge('hue', 'strip', 'color', 'on')]).capabilities.analogOutput).toBe(false)
 
     const stream = [node('fire', 'Fire'), node('send', 'StreamOutput')]
     expect(resolveBuildMode(stream, [edge('fire', 'send')]).capabilities)
