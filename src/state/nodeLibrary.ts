@@ -41,6 +41,7 @@ import { SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
+import { PATH_SHAPES } from '../nodes/shapes/customPath'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
@@ -437,7 +438,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
-  pathShape:  { control: 'select', options: ['circle', 'heart', 'lissajous', 'rose', 'custom'] },
+  pathShape:  { control: 'select', options: [...PATH_SHAPES] },
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
@@ -1431,7 +1432,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   // A fraction of half the shorter side: past 1 the point leaves the canvas.
-  Path: { scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 } },
+  Path: {
+    scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    speed: { control: 'slider', min: -FOURIER_SPEED_MAX, max: FOURIER_SPEED_MAX, step: 0.01 },
+  },
   FourierEpicycles: {
     outline: { control: 'select', options: [...FOURIER_OUTLINES] },
     maxHarmonics: { control: 'slider', min: FOURIER_MAX_HARMONICS_MIN, max: FOURIER_MAX_HARMONICS_MAX, step: 1 },
@@ -2281,9 +2285,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Colour by trail brightness, from the palette start to its end.',
   },
   Path: {
-    pathShape: 'Curve the point traces. Custom runs a smooth spline through the Custom points text.',
+    pathShape: 'Curve the point traces. Star, square and infinity are the outlines Fourier Epicycles draws; custom runs a smooth spline through the Custom points text.',
     customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined by a smooth closed curve through every one. Anything else draws the circle.',
-    t: 'How far round the curve the point is, 0 to 1. Wire a ramp or Sin here to move it.',
+    t: 'How far round the curve the point is, as a fraction of a turn: 0 and 1 are the start. It wraps, so a steadily rising signal goes round and round.',
+    speed: 'Turns of the curve per second while T is unwired, starting from T. Negative runs backwards; 0 holds the point at T.',
     scale: 'Size of the curve as a fraction of half the shorter side of the matrix.',
     thickness: 'Diameter of the moving point in pixels.',
   },
@@ -4666,7 +4671,10 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   },
   Path: {
     prop: 'pathShape',
-    labels: { circle: 'Path · Circle', heart: 'Path · Heart', lissajous: 'Path · Lissajous', rose: 'Path · Rose', custom: 'Path · Custom' },
+    labels: {
+      circle: 'Path · Circle', heart: 'Path · Heart', lissajous: 'Path · Lissajous', rose: 'Path · Rose',
+      star: 'Path · Star', square: 'Path · Square', infinity: 'Path · Infinity', custom: 'Path · Custom',
+    },
   },
   FourierEpicycles: {
     prop: 'outline',

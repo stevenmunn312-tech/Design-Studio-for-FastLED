@@ -204,8 +204,9 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Traces a point around a parametric curve. Feed a 0–1 `t` signal into it
-    // and stack it into Trails for a persistent orbit/heart/rose drawing.
+    // Traces a point around a parametric curve. `t` is a turn fraction and
+    // wraps; unwired, `speed` (turns a second) moves the point on its own.
+    // Stack it into Trails for a persistent orbit/heart/rose drawing.
     type: 'Path',
     label: 'Path',
     category: 'pattern',
@@ -214,15 +215,16 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'base',  label: 'Base', dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 't',     label: 'T (0–1)', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
-    propertyInputs: { t: 't', scale: 'scale', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
+    propertyInputs: { t: 't', speed: 'speed', scale: 'scale', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { pathShape: 'circle', customPoints: '', t: 0, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
+    defaultProperties: { pathShape: 'circle', customPoints: '', t: 0, speed: 0.25, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
   },
   {
     // An outline redrawn by nested rotating circles: its discrete Fourier

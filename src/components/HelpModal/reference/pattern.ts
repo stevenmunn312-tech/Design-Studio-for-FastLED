@@ -181,12 +181,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Path: {
     overview: [
-      'Path traces a point along a curve — a circle, heart, Lissajous figure, rose, or your own closed spline. T is where on the curve the point sits, 0 to 1 for once round.',
+      'Path traces a point along a curve — a circle, heart, Lissajous figure, rose, star, square, infinity sign, or your own closed spline. T is where on the curve the point sits, 0 to 1 for once round, and it wraps. With nothing wired into T, Speed sends the point round on its own.',
       'The point is splatted with sub-pixel accuracy, so it glides smoothly even on a small matrix. Follow it with Trails to draw the curve as it moves.',
     ],
     inputs: {
       base: BASE_INPUT,
       color: 'Point colour. Replaces the R, G and B fields.',
+      t: 'Where the point is round the curve, as a fraction of a turn. It wraps, so a rising ramp keeps it going round. Wired, it replaces Speed.',
+      speed: 'Turns a second while T is unwired, so the point moves without any other node.',
     },
     example: example({
       featured: 'Path',

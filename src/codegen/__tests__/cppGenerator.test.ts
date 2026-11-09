@@ -2657,7 +2657,8 @@ describe('generateCpp', () => {
       edge('e1', 'tv', 'p', 'result', 't'),
       edge('e2', 'p', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('float _tt = constrain(n_tv_result, 0.0f, 1.0f);')
+    expect(cpp).toContain('float _tt = n_tv_result; _tt -= floorf(_tt);')
+    expect(cpp).not.toContain('_spd')
     expect(cpp).toContain('float _pr = cosf(_ang * 4.0f);')
   })
 

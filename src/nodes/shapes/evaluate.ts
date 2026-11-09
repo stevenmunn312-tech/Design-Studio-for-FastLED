@@ -8,7 +8,7 @@ import { speedPhase } from '../shared/speedClock'
 import { type Frame, type RGB, type Palette, samplePalette } from '../../state/palettes/ledColor'
 import { resolveWireframeMesh, projectWireframeVertices } from './wireframeModel'
 import { pathPoint } from './pathShapes'
-import { customPathTable, customPathPoint } from './customPath'
+import { customPathPoint, pathTable } from './customPath'
 import {
   FOURIER_RING_HALF_Q8, FOURIER_RING_LEVEL_8, FOURIER_RING_MIN_Q8, FOURIER_SCALE_MIN,
   FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN, FOURIER_TRAIL_JUMP_A16,
@@ -758,7 +758,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     )
     return { frame }
   },
-  Path({ input, num, W, H }, id, props) {
+  Path({ input, num, t, W, H, stateKey }, id, props) {
     const baseIn = input(id, 'base', null) as Frame | null
     const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
     const colorIn = input(id, 'color', null) as RGB | null
@@ -767,12 +767,18 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 220)  / 255),
       b: byte(num(id, 'b', props, 'b', 80)   / 255),
     }
-    const tt = clamp01(num(id, 't', props, 't', 0))
+    // T is a turn fraction and wraps, so a steadily rising signal goes round
+    // and round. Unwired, Speed (turns a second) moves the point on from T.
+    const turn = input(id, 't', null) !== null
+      ? num(id, 't', props, 't', 0)
+      : num(id, 't', props, 't', 0) + speedPhase(stateKey(id), t, num(id, 'speed', props, 'speed', 0.25))
+    const tt = turn - Math.floor(turn)
     const scale = Math.max(0, num(id, 'scale', props, 'scale', 0.8))
     const thickness = Math.max(0.5, num(id, 'thickness', props, 'thickness', 1.25))
     const shape = String(props.pathShape ?? 'circle')
-    // Custom follows the author's points; text that is not a valid outline is the circle.
-    const table = shape === 'custom' ? customPathTable(props.customPoints) : null
+    // Custom follows the author's points (text that is not a valid outline is
+    // the circle); star, square and infinity walk Fourier Epicycles' outlines.
+    const table = pathTable(shape, props.customPoints)
     const p = table ? customPathPoint(table, tt) : pathPoint(shape, tt)
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const radius = thickness * 0.5

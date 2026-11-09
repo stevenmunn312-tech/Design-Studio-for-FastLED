@@ -1,4 +1,4 @@
-import { parseFourierPoints, resampleClosed } from './fourierOutline'
+import { FOURIER_OUTLINES, fourierOutlineSamples, parseFourierPoints, resampleClosed } from './fourierOutline'
 
 /** Points in the baked polyline a custom Path walks: the spline through the
  *  author's points, resampled evenly by length. 128 x,y pairs of floats cost 1 KB of
@@ -31,6 +31,22 @@ export function customPathTable(text: unknown): Point[] | null {
     }
   }
   return resampleClosed(dense, CUSTOM_PATH_SAMPLES)
+}
+
+/** Path's shapes in menu order: the four closed-form curves `pathPoint`
+ *  draws, then the outlines walked as a baked table. */
+export const PATH_SHAPES = FOURIER_OUTLINES
+
+/** Path shapes walked as a table rather than a formula: Fourier Epicycles'
+ *  own star, square and infinity outlines, so the two nodes draw the same
+ *  curves. */
+const OUTLINE_PATH_SHAPES: ReadonlySet<string> = new Set(['star', 'square', 'infinity'])
+
+/** The baked polyline a Path shape walks, or `null` for a curve drawn from its
+ *  formula (and for custom text that is not a valid outline: the circle). */
+export function pathTable(shape: string, customPoints: unknown): Point[] | null {
+  if (shape === 'custom') return customPathTable(customPoints)
+  return OUTLINE_PATH_SHAPES.has(shape) ? fourierOutlineSamples(shape) : null
 }
 
 /** The point at turn fraction `t` (0..1, 1 being the start again) along a table,

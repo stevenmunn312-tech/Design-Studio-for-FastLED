@@ -19,7 +19,7 @@ import {
   WIREFRAME_CAM_NEAR,
   WIREFRAME_FIT_MARGIN,
 } from './wireframeModel'
-import { customPathTable } from './customPath'
+import { pathTable } from './customPath'
 import { gradientMixMode } from '../../state/palettes/hueMix'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
@@ -289,8 +289,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     }
     ln(`  }`)
   },
-  Path({ id, p, ln, f, channelColor, ownBuf, seedFrom }) {
+  Path({ node, id, p, ln, f, channelColor, ownBuf, seedFrom, edges, needsT }) {
     const ob = ownBuf()
+    const wired = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port)
     const colorE = channelColor('color', 255, 220, 80)
     const shape = String(p.pathShape ?? 'circle')
     const scale = Number(p.scale ?? 0.8)
@@ -304,11 +305,20 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     } else if (shape === 'rose') {
       pathExpr = `float _pr = cosf(_ang * 4.0f); float _px = _pr * cosf(_ang), _py = _pr * sinf(_ang);`
     }
-    // A custom outline is baked as a resampled polyline and walked with the
-    // same linear interpolation as customPathPoint; invalid text is the circle.
-    const table = shape === 'custom' ? customPathTable(p.customPoints) : null
+    // A custom, star, square or infinity outline is baked as a resampled
+    // polyline and walked with the same linear interpolation as
+    // customPathPoint; invalid custom text is the circle.
+    const table = pathTable(shape, p.customPoints)
     ln(`  { ${seedFrom('base')}`)
-    ln(`    float _tt = constrain(${tExpr}, 0.0f, 1.0f);`)
+    // T wraps (a turn fraction); unwired, Speed moves the point on from it,
+    // and a Speed fixed at 0 ships no clock.
+    let turn = tExpr
+    if (!wired('t') && (wired('speed') || Number(p.speed ?? 0.25) !== 0)) {
+      needsT.v = true
+      ln(`    float _spd = ${f('speed', 'speed', 0.25)};`)
+      turn = `${tExpr} + ${speedPhaseCpp(ln, phaseTag(id), '_spd')}`
+    }
+    ln(`    float _tt = ${turn}; _tt -= floorf(_tt);`)
     if (table) {
       const T = `_pp_${id}`
       const rows = table.map((pt) => `{${floatLit(pt.x, 6)},${floatLit(pt.y, 6)}}`)

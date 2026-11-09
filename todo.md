@@ -883,15 +883,6 @@ freeze, or drop them.
   fixed default of 6 px overflows an 8x8 panel. Besides the shared size-unit
   change (category), make the default a fraction of the short side or add
   `scaleWithMatrix`. `src/state/nodeLibrary.ts:1378`.
-- [ ] **Path: Wrap T and add `speed` (Med, S).** With defaults it is one
-  frozen dot. T is clamped to 0-1 though `pathPoint` already wraps, so a Time
-  node stalls at 1. Wrap T and add a `speed` (turns/s) used while T is
-  unwired, as Fourier Epicycles has. `src/nodes/shapes/evaluate.ts:761`,
-  `src/nodes/shapes/codegen.ts:298`.
-- [ ] **Path: Match Fourier's shape list (Low, S).** Path offers 5 shapes
-  against Fourier's 8 though its comment says they draw the same curves. Add
-  `star`, `square`, `infinity`, or treat Path as Fourier with circles off and
-  a T input. `src/state/nodeLibrary.ts:439`, `src/nodes/shapes/fourierOutline.ts:14`.
 - [ ] **Fourier Epicycles: Move persistence to half-life trail fade (Med,
   M).** `persistence` is a per-frame share on a 0-1 slider with default 0.995,
   so useful values sit in the top 5% of travel and trail length follows frame
