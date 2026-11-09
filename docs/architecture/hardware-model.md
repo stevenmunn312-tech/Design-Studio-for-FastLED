@@ -87,10 +87,14 @@ is a string from that list (a select), read by `pdTriggerVoltage`, which returns
 for a value the module cannot request. The manifest item is kind `pd-trigger` with the
 requested voltage as a fact. The bench draws no run from the board to it, since nothing
 on it reaches the board, and the Build Diagram leaves it out of the peripheral rows as
-it does the converters. `pdTriggerWarnings` in `electricalPlan.ts` treats it as the one
-upstream source the converters share and warns, never blocks, because a trigger may feed
-something the plan cannot see: a converter set to a different voltage, more than one
-trigger, and a converter input current above the trigger's rating.
+it does the converters. One valid trigger with no Battery Pack is the converters' source:
+`converterSourceFor` (`state/peripherals/pdTrigger.ts`) gives the manifest's converter
+items its requested voltage in place of their typed Source V, and the converter's
+settings show it rather than asking, so the voltage is entered once and cannot
+disagree. `pdTriggerWarnings` in `electricalPlan.ts` treats the trigger as the one
+upstream source the converters share and warns, never blocks, because a trigger may
+feed something the plan cannot see: more than one trigger (each converter then keeps
+its typed voltage), and a converter input current above the trigger's rating.
 
 `DarlingtonDriverOutput` is the ULN2803A: eight boolean `channel1` to `channel8` inputs
 on eight GPIOs (`drive1Pin` to `drive8Pin`), the relay's shape with an active-high

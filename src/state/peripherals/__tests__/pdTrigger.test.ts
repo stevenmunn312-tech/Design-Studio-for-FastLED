@@ -5,7 +5,7 @@ import { ensureBuildProfile } from '../../../build/buildProfile'
 import { calculateElectricalPlan } from '../../../build/power/electricalPlan'
 import { buildHardwareManifest } from '../../../build/hardwareManifest'
 import { FIXTURE_PARTS } from '../../../components/Hardware/hardwarePartCatalog'
-import { PD_TRIGGER_PART_ID, pdTriggerSpec, pdTriggerVoltage } from '../pdTrigger'
+import { PD_TRIGGER_PART_ID, converterSourceFor, pdTriggerSpec, pdTriggerVoltage } from '../pdTrigger'
 import type { StudioNode } from '../../graphStore'
 import { libraryDefaults, NODE_LIBRARY } from '../../nodeLibrary'
 import { partById } from '../../../build/parts/partCatalogue'
@@ -73,22 +73,26 @@ describe('the PD trigger in the manifest', () => {
   })
 })
 
+describe('the PD trigger as the converter source', () => {
+  // The voltage is entered once, on the trigger; the converter takes it.
+  it('gives the converter its requested voltage, so they cannot disagree', () => {
+    const { manifest, plan } = planFor([output(), railConverter(12), trigger('20')])
+    const converter = manifest.primaryItems.find((entry) => entry.kind === 'power-converter')!
+    expect(converter.facts).toMatchObject({ sourceVoltage: 20, source: '20 V from the USB-C PD trigger' })
+    expect(plan.warnings.map((warning) => warning.id)).not.toContain('pd-trigger-source-voltage')
+  })
+
+  it('leaves the typed voltage alone without exactly one valid trigger, or with a battery', () => {
+    expect(converterSourceFor([railConverter(12)])).toEqual({ kind: 'typed' })
+    expect(converterSourceFor([railConverter(12), trigger('13')])).toEqual({ kind: 'typed' })
+    expect(converterSourceFor([railConverter(12), trigger('12', 'a'), trigger('20', 'b')])).toEqual({ kind: 'typed' })
+    expect(converterSourceFor([trigger('20'), node('pack', 'BatteryPack')])).toEqual({ kind: 'battery' })
+    const typed = planFor([output(), railConverter(12)]).manifest.primaryItems.find((entry) => entry.kind === 'power-converter')!
+    expect(typed.facts).toMatchObject({ sourceVoltage: 12, source: '12 V DC source' })
+  })
+})
+
 describe('the PD trigger in the electrical plan', () => {
-  it('is quiet when the converter is set to the voltage it requests', () => {
-    expect(warningIds([output(), railConverter(12), trigger('12')])).not.toContain('pd-trigger-source-voltage')
-  })
-
-  it('warns when the converter is set to a different voltage', () => {
-    const { plan } = planFor([output(), railConverter(12), trigger('20')])
-    const warning = plan.warnings.find((entry) => entry.id === 'pd-trigger-source-voltage')
-    expect(warning?.detail).toContain('request 20 V')
-    expect(warning?.detail).toContain('LED rail converter is set to 12 V')
-  })
-
-  it('does nothing without a converter, and without a trigger', () => {
-    expect(warningIds([output(), trigger('20')])).not.toContain('pd-trigger-source-voltage')
-    expect(warningIds([output(), railConverter(12)])).not.toContain('pd-trigger-source-voltage')
-  })
 
   it('warns when more than one trigger is on the bench', () => {
     expect(warningIds([output(), railConverter(12), trigger('12', 'pd1'), trigger('12', 'pd2')])).toContain('pd-trigger-count')

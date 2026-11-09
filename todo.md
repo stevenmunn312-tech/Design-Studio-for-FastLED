@@ -121,12 +121,6 @@ freeze, or drop them.
   for half the year in DST regions. Offer a region/time-zone picker that
   emits a POSIX TZ string (`configTzTime` on ESP32). Evidence
   `src/state/peripherals/rtc.ts`, `src/codegen/peripherals/rtcInputCpp.ts`.
-- [ ] **DC-DC Converter: Derive Source V from upstream (Med, M).** Source V is
-  typed even when decided elsewhere: a Battery Pack ignores it, and with a PD
-  trigger the user enters the voltage twice and is warned if they differ.
-  Derive the source from the upstream battery or trigger when on the bench
-  and show it read-only, which removes the PD-mismatch warning. Evidence
-  `src/build/power/electricalPlan.ts:549`, `src/build/power/electricalPlan.ts:461`.
 #### Audio and audio-reactive
 
 - [ ] **Category: Expose band and drum sockets on audio patterns (High, S).**

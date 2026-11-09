@@ -43,7 +43,7 @@ import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddress, pwmDriverHz, pwmDriverSpec,
 } from '../state/peripherals/pwmDriver'
 import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/peripherals/darlingtonDriver'
-import { PD_TRIGGER_PART_ID, pdTriggerSpec, pdTriggerVoltage } from '../state/peripherals/pdTrigger'
+import { PD_TRIGGER_PART_ID, converterSourceFor, pdTriggerSpec, pdTriggerVoltage } from '../state/peripherals/pdTrigger'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/peripherals/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/peripherals/dmxTransceiver'
 import { MIDI_BAUD, MIDI_DIN_PART_ID, midiUsesUart } from '../state/peripherals/midiSource'
@@ -847,6 +847,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const settings = controllerSettings(nodes)
   const hasBatteryPack = nodes.some((node) => node.data.nodeType === 'BatteryPack')
+  const converterSource = converterSourceFor(nodes)
   const totalPixels = matrixOutputs.reduce((sum, node) => {
     const props = node.data.properties as Record<string, unknown>
     return sum + outputLedTotal(props)
@@ -957,7 +958,11 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       case 'PowerConverter': {
         const props = node.data.properties as Record<string, unknown>
         const module = powerConverterModuleFor(props.partId)
-        const sourceVoltage = Number(props.sourceVoltage ?? DEFAULT_SOURCE_VOLTAGE)
+        // A single PD trigger decides the source voltage; the typed one stands
+        // only when nothing upstream does (converterSourceFor).
+        const sourceVoltage = converterSource.kind === 'pd-trigger'
+          ? converterSource.voltage
+          : Number(props.sourceVoltage ?? DEFAULT_SOURCE_VOLTAGE)
         return {
           ...buildPeripheralItem(node, 'power-converter', `${hasBatteryPack ? 'Battery pack' : `${sourceVoltage} V`} to ${module?.spec.outputSetV ?? 5} V ${module?.spec.topology ?? 'converter'}`, pins),
           title: module?.label ?? nodeLabel(node),
@@ -966,7 +971,9 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             partId: module?.partId ?? String(props.partId ?? ''),
             role: module?.spec.role ?? 'controller',
             sourceVoltage,
-            source: hasBatteryPack ? 'battery pack' : `${sourceVoltage} V DC source`,
+            source: hasBatteryPack ? 'battery pack'
+              : converterSource.kind === 'pd-trigger' ? `${sourceVoltage} V from the USB-C PD trigger`
+                : `${sourceVoltage} V DC source`,
             terminals: module?.spec.terminals ?? [],
             isolated: module?.spec.isolated ?? false,
           },

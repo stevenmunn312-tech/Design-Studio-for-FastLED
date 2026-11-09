@@ -1805,7 +1805,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     seed: 'Controls random pattern, hold-time, transition, and particle choices in preview. Zero runs freely; a nonzero value makes the random sequence repeatable for the same inputs. The SD player uses its own random sequence.',
   },
   PdTriggerSource: {
-    requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. Set the same value on the converter it feeds, because the plan checks they agree.',
+    requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. The converters it feeds take this as their source voltage.',
   },
   BatteryPack: {
     series: 'Cells in series set pack voltage. Every protection, balance and charger board must match this count.',
