@@ -38,7 +38,7 @@ export default function DdpInputBody({ nodeId }: { nodeId: string }) {
   // The root composition's size: the pixel count the helper is asked for.
   const width = useGraphStore((s) => compositionDims(rootGraphNodes(s)).w)
   const height = useGraphStore((s) => compositionDims(rootGraphNodes(s)).h)
-  const listenPort = Math.max(1, Math.min(65535, Math.round(Number(props.previewPort ?? DDP_DEFAULT_PORT) || DDP_DEFAULT_PORT)))
+  const listenPort = Math.max(1, Math.min(65535, Math.round(Number(props.udpPort ?? DDP_DEFAULT_PORT) || DDP_DEFAULT_PORT)))
 
   useEffect(() => {
     if (!trusted) return

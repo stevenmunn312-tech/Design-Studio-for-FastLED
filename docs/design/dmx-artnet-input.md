@@ -37,14 +37,19 @@ Rejected: fanning the source node out into scalar outputs. Sixteen ports would
 be arbitrary, 512 unusable, and either choice bakes a channel layout into the
 node library instead of leaving it to the patch.
 
-The diagnostic fields (`packetRate`, `lastPacketAt`, `source`, `live`) exist for
-the node body's status readout. **They are deliberately not graph outputs** — a
-patch that wants "is the desk alive" uses `DMXChannel.active` on a known channel.
+The diagnostic fields (`packetRate`, `lastPacketAt`, `source`) exist for the
+node body's status readout and are not graph outputs. `live` is the exception:
+`DMXInput` publishes it as a bool so a patch can fall back to its own show when
+the desk goes quiet. The sketch keeps only what that output reads
+(`_dmxLive_<id>` and the last packet's time); it once also computed a validity
+flag and a packet rate that nothing read.
 
 ### Source node + decoder node
 
-- **`DMXInput`** (input category) — no inputs, one `dmx` output. Owns the
-  transport choice (`inputMode`: `Art-Net` or `DMX512`) and its configuration.
+- **`DMXInput`** (input category) — no inputs, a `dmx` output and a `live`
+  bool. Owns the transport choice (`inputMode`: `Art-Net`, `sACN` or
+  `DMX512`) and its configuration, including `udpPort`, the one UDP port the
+  helper and the sketch both listen on.
 - **`DMXChannel`** (signal category) — one `dmx` input, four outputs: `value`
   (0–1), `byte` (0–255), `active` (`byte >= activeThreshold`), and `changed`
   (this frame's byte differs from last frame's).
@@ -87,7 +92,10 @@ What preview and firmware **must** agree on, and where the tests live:
   threshold comparison, and `changed`'s first-frame suppression.
 - Universe filtering: a packet for a different universe is ignored, and a
   `DMXInput` whose universe doesn't match the live snapshot reads **blank**
-  (all zeros, `valid: false`) rather than the wrong desk's data.
+  (all zeros, `valid: false`) rather than the wrong desk's data. The universe
+  both sides listen to is `dmxListenUniverse`: sACN numbers universes from 1,
+  so the Art-Net default of 0 reads as 1 in sACN mode. Left at 0, the sketch
+  joined universe 1's multicast group and then kept only universe 0's packets.
 - Art-Net parsing: the `Art-Net\0` magic, opcode `0x5000`, the big-endian slot
   count at bytes 16–17, and the ≤512 clamp are implemented twice (Python and
   C++) against the same field offsets.
@@ -182,13 +190,6 @@ Wi-Fi settings are warnings. Each has a repair line in the Graph Health drawer.
   other `DMXInput` previews blank. Two Art-Net nodes on the same UDP port will
   also collide in firmware. Single-source is the supported v1 shape.
 - **A helper-side DMX dongle** for previewing real DMX512 without a board.
-
-## Known warts
-
-- `previewPort` is a misleading name: the Art-Net firmware branch binds its
-  `WiFiUDP` socket to the same property, so it is the UDP port for both preview
-  and firmware. Renaming it means a property migration for saved projects —
-  worth doing, but not silently.
 
 ## Follow-ups
 

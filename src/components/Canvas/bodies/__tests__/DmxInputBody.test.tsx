@@ -32,7 +32,7 @@ function reset(trusted: boolean) {
   // so forget the listener a trusted run may already have remembered.
   if (!trusted) clearPatternContentTrustForTests()
   useGraphStore.setState({
-    nodes: [dmxNode('dmx', { inputMode: 'Art-Net', previewPort: 6454, universe: 0 })],
+    nodes: [dmxNode('dmx', { inputMode: 'Art-Net', udpPort: 6454, universe: 0 })],
     edges: [], selectedNodeId: null, activeGraphId: ROOT_GRAPH_ID, trusted,
   } as never)
   useDmxStore.setState({ configure, stop } as never)
@@ -64,7 +64,7 @@ describe('DmxInputBody Art-Net trust gate', () => {
   it('does not open a listener on an attacker-chosen port from an untrusted graph', () => {
     reset(false)
     useGraphStore.setState({
-      nodes: [dmxNode('dmx', { inputMode: 'Art-Net', previewPort: 22, universe: 0 })],
+      nodes: [dmxNode('dmx', { inputMode: 'Art-Net', udpPort: 22, universe: 0 })],
     } as never)
     render(<DmxInputBody nodeId="dmx" />)
     expect(configure).not.toHaveBeenCalled()

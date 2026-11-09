@@ -15,7 +15,10 @@ import { meterDistance, meterFill } from '../audioReactive/levelMeter'
 import { isNormalizedOutput } from '../shared/signalRange'
 import { loopPacingCpp, loopPacingUs } from '../../codegen/loopPacing'
 import { controllerSettings } from '../../build/controllerSettings'
-import { dmxNetworkProtocol, dmxUsesNetwork, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
+import { dmxListenUniverse, dmxNetworkProtocol, dmxUsesNetwork, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
+import { useDmxStore } from '../../state/peripherals/dmxStore'
+import { useDdpStore } from '../../state/peripherals/ddpStore'
+import { blankDmxSnapshot } from '../../state/peripherals/dmx'
 import { workspaceTrustHolds } from '../../state/patterns/patternTrust'
 import { usesNetwork } from '../../codegen/peripherals/networkCpp'
 import { midiUsesUart } from '../../state/peripherals/midiSource'
@@ -224,6 +227,35 @@ describe('sACN on the DMX input', () => {
     expect(cpp).toContain('_sacnUni_d == 3')
     expect(cpp).toContain('_dmxData_d[0]')
   })
+
+  // sACN senders never send universe 0, so the Art-Net default reads as 1:
+  // the group joined and the universe filtered are the same one.
+  it('listens to universe 1 when sACN is left on the Art-Net default of 0', () => {
+    expect(dmxListenUniverse({ inputMode: 'sACN', universe: 0 })).toBe(1)
+    expect(dmxListenUniverse({ inputMode: 'Art-Net', universe: 0 })).toBe(0)
+    expect(dmxListenUniverse({ inputMode: 'sACN', universe: 7 })).toBe(7)
+    const cpp = generateCpp([node('d', 'DMXInput', { inputMode: 'sACN', universe: 0 })], [])
+    expect(cpp).toContain('_sacnUdp_d.beginMulticast(IPAddress(239, 255, 0, 1), 5568);')
+    expect(cpp).toContain('_sacnUni_d == 1')
+    expect(cpp).not.toContain('_sacnUni_d == 0')
+  })
+
+  it('publishes Live on both sides, and keeps no unread packet state', () => {
+    for (const inputMode of ['Art-Net', 'sACN', 'DMX512']) {
+      const cpp = generateCpp([node('d', 'DMXInput', { inputMode })], [])
+      expect(cpp).toContain('bool _dmxLive_d = false;')
+      expect(cpp).toMatch(/bool \w+ = _dmxLive_d;/)
+      expect(cpp).not.toContain('_dmxValid_')
+      expect(cpp).not.toContain('_dmxPacketRate_')
+    }
+    const dmx = node('d', 'DMXInput', { inputMode: 'Art-Net', universe: 2 })
+    useDmxStore.setState({ snapshot: { ...blankDmxSnapshot(2), live: true } })
+    expect(outputsOf([dmx], []).get('d')?.live).toBe(true)
+    // A live desk on another universe is not this node's.
+    useDmxStore.setState({ snapshot: { ...blankDmxSnapshot(5), live: true } })
+    expect(outputsOf([dmx], []).get('d')?.live).toBe(false)
+    useDmxStore.setState({ snapshot: blankDmxSnapshot(0) })
+  })
 })
 
 describe('DDP Input', () => {
@@ -238,6 +270,18 @@ describe('DDP Input', () => {
     expect(cpp).toContain('_ddpUdp_d.begin(4048);')
     expect(cpp).toContain('(_ddpBuf_d[0] & 0xC0) == 0x40')
     expect(cpp).toContain('memcpy(((uint8_t*)buf_d) + _ddpOff_d')
+  })
+
+  it('reports Live while frames arrive, on both sides', () => {
+    const ddp = node('d', 'DdpInput')
+    expect(outputsOf([ddp], []).get('d')?.live).toBe(false)
+    useDdpStore.setState({ live: true })
+    expect(outputsOf([ddp], []).get('d')?.live).toBe(true)
+    useDdpStore.setState({ live: false })
+    const cpp = generateCpp([ddp], [])
+    expect(cpp).toContain('uint32_t _ddpLastMs_d = 0;')
+    expect(cpp).toContain('_ddpLastMs_d = millis();')
+    expect(cpp).toMatch(/bool \w+ = _ddpLastMs_d != 0 && millis\(\) - _ddpLastMs_d <= 2000u;/)
   })
 })
 

@@ -274,7 +274,7 @@ describe('nodeLibrary', () => {
 
   it('types wide-range settings into a bounded number field rather than a slider', () => {
     for (const [nodeType, key] of [
-      ['DMXInput', 'universe'], ['DMXInput', 'previewPort'], ['LightInput', 'maxLux'],
+      ['DMXInput', 'universe'], ['DMXInput', 'udpPort'], ['LightInput', 'maxLux'],
       ['ClockDisplay', 'durationSec'], ['RTCInput', 'startYear'], ['Amplifier', 'maxVolume'],
       ['Sunrise', 'duration'], ['Sunrise', 'start'],
     ]) {

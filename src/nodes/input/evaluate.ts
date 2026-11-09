@@ -34,6 +34,7 @@ import {
 } from '../../state/displays/displayRegistry'
 import { useMidiStore } from '../../state/midiStore'
 import { blankDmxSnapshot } from '../../state/peripherals/dmx'
+import { dmxListenUniverse } from '../../state/peripherals/dmxTransceiver'
 import {
   type IrPreviewMemory,
   normalizeIrRemoteButtons,
@@ -484,19 +485,24 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   // sender that addresses the matrix the same way (xLights' default) lands
   // where it expects. Bytes beyond what has arrived read black.
   DdpInput({ W, H }) {
-    const pixels = useDdpStore.getState().pixels
-    return { frame: buildDdpFrame(W, H, (x, y) => {
-      const i = (y * W + x) * 3
-      return i + 2 < pixels.length ? { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] } : { r: 0, g: 0, b: 0 }
-    }) }
-  },
-  DMXInput(_c, _id, props) {
-    const universe = Math.max(0, Math.min(32767, Math.round(Number(props.universe ?? 0))))
-    const snapshot = useDmxStore.getState().snapshot
+    const { pixels, live } = useDdpStore.getState()
     return {
-      dmx: snapshot.universe === universe
-        ? snapshot
-        : blankDmxSnapshot(universe),
+      frame: buildDdpFrame(W, H, (x, y) => {
+        const i = (y * W + x) * 3
+        return i + 2 < pixels.length ? { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] } : { r: 0, g: 0, b: 0 }
+      }),
+      live,
+    }
+  },
+  // Live is the helper hearing this universe; it goes false 2 s after the
+  // last packet, as the sketch's does.
+  DMXInput(_c, _id, props) {
+    const universe = dmxListenUniverse(props)
+    const snapshot = useDmxStore.getState().snapshot
+    const heard = snapshot.universe === universe
+    return {
+      dmx: heard ? snapshot : blankDmxSnapshot(universe),
+      live: heard && snapshot.live,
     }
   },
   RTCInput({ t, stateKey }, id, props) {

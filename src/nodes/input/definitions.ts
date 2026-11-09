@@ -427,11 +427,14 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     label: 'DMX / Art-Net',
     category: 'input',
     inputs: [],
-    outputs: [{ id: 'dmx', label: 'DMX', dataType: 'dmx' }],
+    outputs: [
+      { id: 'dmx', label: 'DMX', dataType: 'dmx' },
+      { id: 'live', label: 'Live', dataType: 'bool' },
+    ],
     defaultProperties: {
       inputMode: 'Art-Net',
       universe: 0,
-      previewPort: 6454,
+      udpPort: 6454,
       wifiHostname: 'fastled-dmx',
       useDhcp: true,
       staticIp: '',
@@ -543,9 +546,12 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     label: 'DDP Input',
     category: 'input',
     inputs: [],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'live', label: 'Live', dataType: 'bool' },
+    ],
     defaultProperties: {
-      previewPort: 4048,
+      udpPort: 4048,
       wifiHostname: 'fastled-ddp',
       useDhcp: true,
       staticIp: '',

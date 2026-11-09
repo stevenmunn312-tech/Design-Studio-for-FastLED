@@ -699,13 +699,14 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     ],
     outputs: {
       dmx: 'The latest universe of 512 channel values. Feed it to DMX Channel nodes.',
+      live: 'True while the desk is sending, and false once it has been quiet for a moment (one second on a DMX512 line, two on the network). Wire it to a Frame Switch to fall back to your own show when the desk goes quiet.',
     },
-    propertyNote: 'Universe and port must match the sender. The network fields apply to Art-Net and sACN; the UART pins apply to DMX512.',
+    propertyNote: 'Universe and port must match the sender. sACN numbers its universes from 1, so universe 0 listens to universe 1 in sACN mode. The network fields apply to Art-Net and sACN; the UART pins apply to DMX512.',
     example: example({
       featured: 'DMXInput',
       title: 'Patch the matrix as a two-channel fixture',
       nodes: {
-        dmx: ['DMXInput', { inputMode: 'Art-Net', universe: 0, previewPort: 6454 }],
+        dmx: ['DMXInput', { inputMode: 'Art-Net', universe: 0, udpPort: 6454 }],
         dimmer: ['DMXChannel', { channel: 1 }],
         colour: ['DMXChannel', { channel: 2 }],
         wheel: ['PaletteSampler', { palette: 'rainbow' }],
@@ -850,19 +851,21 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'In the sender, add a DDP output aimed at the board’s address on port 4048, sized to your matrix.',
     ],
     outputs: {
-      frame: 'The most recent frame the sender delivered.',
+      frame: 'The most recent frame the sender delivered. It holds the last picture when the stream stops.',
+      live: 'True while frames are arriving, and false two seconds after the last one. Use it to switch to your own pattern between songs.',
     },
     propertyNote: 'The port must match the sender’s; 4048 is DDP’s standard port.',
     example: example({
       featured: 'DdpInput',
-      title: 'Sparkle over a streamed sequence',
+      title: 'Your own pattern between songs',
       nodes: {
-        ddp: ['DdpInput', { previewPort: 4048 }],
-        glitter: ['Glitter', { density: 0.18, glitterMode: 'add', r: 255, g: 240, b: 200 }],
+        ddp: ['DdpInput', { udpPort: 4048 }],
+        idle: ['Pacifica'],
+        choose: ['FrameSwitch'],
       },
-      wires: ['ddp.frame > glitter.frame'],
-      explanation: 'DDP Input brings in frames from xLights or LedFx, and Glitter adds the board’s own sparkle on top. The sequence and the local effect mix on the controller, so the sparkle keeps going even between songs.',
-      preview: 'With nothing streaming, the {output} shows only scattered warm sparkles. Start a DDP stream aimed at this computer and the sequence appears beneath them.',
+      wires: ['idle.frame > choose.a', 'ddp.frame > choose.b', 'ddp.live > choose.sel'],
+      explanation: 'DDP Input brings in frames from xLights or LedFx. Its Live output goes true while frames arrive, so Frame Switch shows the stream then and Pacifica the rest of the time. When the sender stops between songs, the board goes back to its own pattern two seconds later instead of freezing on the last frame.',
+      preview: 'With nothing streaming, the {output} shows Pacifica’s ocean. Start a DDP stream aimed at this computer and the sequence takes over; stop it and Pacifica returns.',
     }),
   },
 }

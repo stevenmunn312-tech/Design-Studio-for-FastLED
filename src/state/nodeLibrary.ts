@@ -674,7 +674,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   DMXInput: {
     inputMode: { control: 'select', options: [...DMX_INPUT_MODES] },
     universe: { control: 'slider', min: 0, max: 32767, step: 1, entry: 'number' },
-    previewPort: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
+    udpPort: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
     dmxPort: { control: 'slider', min: 1, max: 2, step: 1 },
     dmxTxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     dmxRxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -685,7 +685,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     activeThreshold: { control: 'slider', min: 0, max: 255, step: 1 },
   },
   DdpInput: {
-    previewPort: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
+    udpPort: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
   },
   RTCInput: {
     timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
@@ -1705,7 +1705,6 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
   energy: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
   timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
-  previewPort: 'UDP port the local helper listens on for preview-side Art-Net packets.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream RTC Clock reports a real NTP sync.',
   dateTimeFormat: 'Which part of the clock reading the text shows. An invalid clock shows dashes, never a plausible time.',
@@ -2407,8 +2406,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   DMXInput: {
     inputMode: 'Art-Net or sACN (E1.31) receives over the network; DMX512 reads a wired DMX line through an RS-485 transceiver.',
-    universe: 'Universe this node listens to, 0 to 32767 (sACN starts at 1). Must match the sender; sACN also joins the universe\'s multicast group.',
-    previewPort: 'UDP port the local helper and the firmware listen on. Switching protocol moves it to that protocol\'s port (6454 Art-Net, 5568 sACN) unless you set another.',
+    universe: 'Universe this node listens to, 0 to 32767. Must match the sender. sACN numbers universes from 1, so 0 listens to 1 there, and joins the universe\'s multicast group.',
+    udpPort: 'UDP port the local helper and the firmware listen on. Switching protocol moves it to that protocol\'s port (6454 Art-Net, 5568 sACN) unless you set another.',
     wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
     useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
     staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
@@ -2430,7 +2429,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     staticDns: 'Name server address; leave empty to use the gateway.',
   },
   DdpInput: {
-    previewPort: 'UDP port the local helper and the firmware listen on for DDP packets. 4048 is the protocol\'s port.',
+    udpPort: 'UDP port the local helper and the firmware listen on for DDP packets. 4048 is the protocol\'s port.',
     wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
     useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
     staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
@@ -3763,7 +3762,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   DMXInput: {
     inputMode: 'firmware source',
-    previewPort: 'preview UDP port',
+    udpPort: 'UDP port',
     wifiHostname: 'hostname',
     useDhcp: 'use DHCP',
     staticIp: 'static IP',
@@ -3785,7 +3784,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     staticDns: 'DNS',
   },
   DdpInput: {
-    previewPort: 'UDP port',
+    udpPort: 'UDP port',
     wifiHostname: 'hostname',
     useDhcp: 'use DHCP',
     staticIp: 'static IP',
@@ -4058,12 +4057,12 @@ export interface PropertyGroup {
  */
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   DMXInput: [
-    { key: 'source', label: 'Firmware Source', keys: ['inputMode', 'universe', 'previewPort'] },
+    { key: 'source', label: 'Firmware Source', keys: ['inputMode', 'universe', 'udpPort'] },
     { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'dmx512', label: 'DMX512 Wiring', keys: ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] },
   ],
   DdpInput: [
-    { key: 'source', label: 'Listener', keys: ['previewPort'] },
+    { key: 'source', label: 'Listener', keys: ['udpPort'] },
     { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
   ],
   WebRemoteInput: [
@@ -5073,7 +5072,7 @@ export function isPropertyEnabled(
     if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
       return network && properties.useDhcp === false
     }
-    if (key === 'wifiHostname' || key === 'useDhcp' || key === 'previewPort') {
+    if (key === 'wifiHostname' || key === 'useDhcp' || key === 'udpPort') {
       return network
     }
     if (key === 'dmxPort' || key === 'dmxTxPin' || key === 'dmxRxPin' || key === 'dmxEnablePin') {

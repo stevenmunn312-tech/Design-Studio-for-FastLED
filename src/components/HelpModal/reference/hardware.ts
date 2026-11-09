@@ -20,7 +20,7 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
       title: 'Receive Art-Net over a cable',
       nodes: {
         ethernet: ['EthernetModule'],
-        dmx: ['DMXInput', { inputMode: 'Art-Net', universe: 0, previewPort: 6454 }],
+        dmx: ['DMXInput', { inputMode: 'Art-Net', universe: 0, udpPort: 6454 }],
         channel: ['DMXChannel', { channel: 1 }],
         base: ['Pacifica', { palette: 'ocean' }],
         level: ['BrightnessMod'],

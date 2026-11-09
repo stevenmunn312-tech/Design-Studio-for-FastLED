@@ -174,20 +174,6 @@ freeze, or drop them.
   clicks). Count in clicks before v1.0 (Level already does), or at least fix
   the example text. Evidence `src/state/peripherals/encoder.ts:40`,
   `src/components/HelpModal/reference/input.ts:708`.
-- [ ] **DMX / Art-Net: Fix sACN with default universe 0 (Med, S).** The
-  sketch joins universe 1's multicast group (clamped to 1) but filters for
-  universe 0, and sACN senders never send universe 0, so nothing is ever
-  received. Bump 0 to 1 when sACN is chosen, or raise a diagnostic with that
-  fix. Evidence `src/state/peripherals/dmxTransceiver.ts:59`, `src/nodes/input/codegen.ts:101`.
-- [ ] **DMX / Art-Net: Expose a Live output (Med, S).** Firmware computes
-  `_dmxValid_`, `_dmxLive_` and `_dmxPacketRate_` but nothing reads them, so
-  they are dead firmware state. Publish `live` as a bool output ("desk went
-  quiet, fall back to my own show"), which also makes the code reachable.
-  Evidence `src/nodes/input/codegen.ts:103`.
-- [ ] **DMX / Art-Net: Rename previewPort to udpPort (Low, S).** The property
-  is labelled "preview UDP port" but is also the firmware listen port. Rename
-  the key to `udpPort` and the label to "UDP port". Evidence
-  `src/state/nodeLibrary.ts:3769`, `src/state/peripherals/dmxTransceiver.ts:49`.
 - [ ] **RTC Clock: Allow a Clock node without a DS3231 (High, M).** RTCInput
   is hidden from the library and the only shelf entries are two DS3231
   modules, yet Compile Time, Manual and NTP need no part (and the Help
@@ -217,14 +203,6 @@ freeze, or drop them.
   only input with no stand-in; the body is a read-only readout. Add a small
   note pad and CC slider so users can design without a controller. Evidence
   `src/components/Canvas/bodies/MidiInputBody.tsx:19`.
-- [ ] **DDP Input: Add a Live output (Med, S).** The core use is "show the
-  xLights/LedFx stream while it plays, otherwise run my own pattern", but
-  nothing tells the graph the stream stopped (Help's "between songs" example
-  claims otherwise). Emit a last-packet timestamp in firmware and publish a
-  `live` bool; the preview store already tracks `live`. Evidence
-  `src/components/Canvas/bodies/DdpInputBody.tsx:21`, `src/components/HelpModal/reference/input.ts:888`.
-- [ ] **DDP Input: Rename previewPort to udpPort (Low, S).** It is the
-  firmware port too. Evidence `src/nodes/input/codegen.ts:248`.
 - [ ] **Ethernet: Update the "Art-Net and NTP" copy (Low, S).** The network
   layer serves Art-Net, sACN, DDP, Web Remote, Stream Output, internet radio
   and clock sync, but the description, shelf hint, part note, Help text,

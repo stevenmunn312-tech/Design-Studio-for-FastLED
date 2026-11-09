@@ -15,7 +15,7 @@ import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { rtcInputLoopCpp } from '../../codegen/peripherals/rtcInputCpp'
 import { webRemoteFirmware } from '../../codegen/peripherals/webRemoteCpp'
 import { networkSourceIn } from '../../codegen/peripherals/networkCpp'
-import { dmxListenPort, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
+import { dmxListenPort, dmxListenUniverse, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
 import { MIDI_BAUD, midiChannel, midiUsesUart } from '../../state/peripherals/midiSource'
 
 const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines, edges }) => {
@@ -96,12 +96,13 @@ export const INPUT_EMITTERS: NodeEmitters = {
   PresenceInput({ ln, v }) {
     for (const line of presenceSensorLoopCpp(v)) ln(line)
   },
-  DMXInput({ id, p, ln, intProp, setupLines, globalLines }) {
+  // `_dmxLive_` is the Live output: true from a packet until the source goes
+  // quiet (1 s on the wire; 2 s on the network, the helper's window).
+  DMXInput({ id, p, ln, v, intProp, setupLines, globalLines }) {
     const inputMode = String(p.inputMode ?? 'Art-Net')
-    const universe = intProp(p.universe, 0, 0, 32767)
+    const universe = dmxListenUniverse(p)
     globalLines.push(`uint8_t _dmxData_${id}[512] = {0};`)
-    globalLines.push(`bool _dmxValid_${id} = false, _dmxLive_${id} = false;`)
-    globalLines.push(`float _dmxPacketRate_${id} = 0.0f;`)
+    globalLines.push(`bool _dmxLive_${id} = false;`)
     globalLines.push(`uint32_t _dmxLastPacketMs_${id} = 0;`)
 
     if (inputMode === 'DMX512') {
@@ -127,19 +128,14 @@ export const INPUT_EMITTERS: NodeEmitters = {
       ln(`      uint16_t _dmxSlots_${id} = (uint16_t)min<int>(max(0, (int)_dmxPacket_${id}.size - 1), 512);`)
       ln(`      memset(_dmxData_${id}, 0, 512);`)
       ln(`      if (_dmxSlots_${id} > 0) memcpy(_dmxData_${id}, _dmxRaw_${id} + 1, _dmxSlots_${id});`)
-      ln(`      uint32_t _dmxNow_${id} = millis();`)
-      ln(`      if (_dmxLastPacketMs_${id}) _dmxPacketRate_${id} = 1000.0f / max(1u, _dmxNow_${id} - _dmxLastPacketMs_${id});`)
-      ln(`      _dmxLastPacketMs_${id} = _dmxNow_${id};`)
-      ln(`      _dmxValid_${id} = true;`)
+      ln(`      _dmxLastPacketMs_${id} = millis();`)
       ln(`      _dmxLive_${id} = true;`)
       ln(`    }`)
       ln(`  } else if (_dmxLastPacketMs_${id} && millis() - _dmxLastPacketMs_${id} > 1000u) {`)
       ln(`    _dmxLive_${id} = false;`)
       ln(`  }`)
       ln(`#else`)
-      ln(`  _dmxValid_${id} = false;`)
       ln(`  _dmxLive_${id} = false;`)
-      ln(`  _dmxPacketRate_${id} = 0.0f;`)
       ln(`#endif`)
     } else if (inputMode === 'sACN') {
       // E1.31 data packets: ACN root (vector 4), framing (vector 2) with the
@@ -173,10 +169,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
       ln(`          if (126 + (int)_sacnSlots_${id} <= _sacnLen_${id}) {`)
       ln(`            memset(_dmxData_${id}, 0, 512);`)
       ln(`            memcpy(_dmxData_${id}, _sacnBuf_${id} + 126, _sacnSlots_${id});`)
-      ln(`            uint32_t _sacnNow_${id} = millis();`)
-      ln(`            if (_dmxLastPacketMs_${id}) _dmxPacketRate_${id} = 1000.0f / max(1u, _sacnNow_${id} - _dmxLastPacketMs_${id});`)
-      ln(`            _dmxLastPacketMs_${id} = _sacnNow_${id};`)
-      ln(`            _dmxValid_${id} = true;`)
+      ln(`            _dmxLastPacketMs_${id} = millis();`)
       ln(`            _dmxLive_${id} = true;`)
       ln(`          }`)
       ln(`        }`)
@@ -186,9 +179,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
       ln(`  }`)
       ln(`  if (_dmxLastPacketMs_${id} && millis() - _dmxLastPacketMs_${id} > 2000u) _dmxLive_${id} = false;`)
       ln(`#else`)
-      ln(`  _dmxValid_${id} = false;`)
       ln(`  _dmxLive_${id} = false;`)
-      ln(`  _dmxPacketRate_${id} = 0.0f;`)
       ln(`#endif`)
     } else {
       const port = dmxListenPort(p)
@@ -214,10 +205,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
       ln(`          if (18 + (int)_artSlots_${id} <= _artLen_${id}) {`)
       ln(`            memset(_dmxData_${id}, 0, 512);`)
       ln(`            memcpy(_dmxData_${id}, _artBuf_${id} + 18, _artSlots_${id});`)
-      ln(`            uint32_t _artNow_${id} = millis();`)
-      ln(`            if (_dmxLastPacketMs_${id}) _dmxPacketRate_${id} = 1000.0f / max(1u, _artNow_${id} - _dmxLastPacketMs_${id});`)
-      ln(`            _dmxLastPacketMs_${id} = _artNow_${id};`)
-      ln(`            _dmxValid_${id} = true;`)
+      ln(`            _dmxLastPacketMs_${id} = millis();`)
       ln(`            _dmxLive_${id} = true;`)
       ln(`          }`)
       ln(`        }`)
@@ -227,11 +215,10 @@ export const INPUT_EMITTERS: NodeEmitters = {
       ln(`  }`)
       ln(`  if (_dmxLastPacketMs_${id} && millis() - _dmxLastPacketMs_${id} > 2000u) _dmxLive_${id} = false;`)
       ln(`#else`)
-      ln(`  _dmxValid_${id} = false;`)
       ln(`  _dmxLive_${id} = false;`)
-      ln(`  _dmxPacketRate_${id} = 0.0f;`)
       ln(`#endif`)
     }
+    ln(`  bool ${v('live')} = _dmxLive_${id};`)
   },
   RTCInput({ id, p, ln, v }) {
     rtcInputLoopCpp(id, p, v).forEach(ln)
@@ -243,9 +230,12 @@ export const INPUT_EMITTERS: NodeEmitters = {
   // place and the last complete picture holds until the next one. With
   // several output shapes the first pass drains the socket, so the passes
   // share the one global buffer rather than each keeping its own.
-  DdpInput({ id, p, ln, ownBuf, intProp, setupLines, globalLines, nativeMultiRender }) {
+  // Live holds for 2 s after a packet, the helper's window, so a graph can fall
+  // back to its own pattern when the stream stops.
+  DdpInput({ id, p, ln, v, ownBuf, intProp, setupLines, globalLines, nativeMultiRender }) {
     const ob = ownBuf({ persists: !nativeMultiRender })
-    const port = intProp(p.previewPort, 4048, 1, 65535)
+    const port = intProp(p.udpPort, 4048, 1, 65535)
+    globalLines.push(`uint32_t _ddpLastMs_${id} = 0;`)
     globalLines.push(`#if FLS_NET_SUPPORTED`)
     globalLines.push(`WiFiUDP _ddpUdp_${id};`)
     globalLines.push(`#endif`)
@@ -266,6 +256,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
     ln(`        if (_ddpHdr_${id} + _ddpN_${id} <= _ddpLen_${id} && _ddpOff_${id} < (uint32_t)NUM_LEDS * 3u) {`)
     ln(`          uint32_t _ddpEnd_${id} = min<uint32_t>(_ddpOff_${id} + (uint32_t)_ddpN_${id}, (uint32_t)NUM_LEDS * 3u);`)
     ln(`          memcpy(((uint8_t*)${ob}) + _ddpOff_${id}, _ddpBuf_${id} + _ddpHdr_${id}, _ddpEnd_${id} - _ddpOff_${id});`)
+    ln(`          _ddpLastMs_${id} = millis();`)
     ln(`        }`)
     ln(`      }`)
     ln(`      _ddpPkt_${id} = _ddpUdp_${id}.parsePacket();`)
@@ -274,6 +265,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
     ln(`#else`)
     ln(`  (void)${ob};`)
     ln(`#endif`)
+    ln(`  bool ${v('live')} = _ddpLastMs_${id} != 0 && millis() - _ddpLastMs_${id} <= 2000u;`)
   },
   // Web MIDI never deploys: the outputs rest at their idle defaults. A DIN
   // jack is a UART at 31250 baud, parsed byte by byte with running status:
