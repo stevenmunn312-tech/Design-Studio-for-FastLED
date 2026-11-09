@@ -248,7 +248,8 @@ with no calibration. The inspector lists each part's own addresses through
 strapped to.
 
 `PresenceInput` reads one HLK-LD2410C radar module at 256000 baud and publishes
-`presence`, `moving`, `still`, and detection `distance` in metres. The module
+`presence`, `moving`, `still`, detection `distance` in millimetres (the
+Distance Sensor's unit) and `connected`, a report within the last second. The module
 streams without a command, so the board needs only one receive GPIO: sensor TX
 to the node's RX pin; sensor RX and OUT remain unwired. Firmware validates all
 four header bytes, follows the frame's little-endian length, accepts both basic

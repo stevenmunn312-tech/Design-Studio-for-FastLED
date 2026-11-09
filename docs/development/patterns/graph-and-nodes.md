@@ -503,6 +503,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   that hides a channel's default from that parse would silently drop it from the
   comparison. See
   [direct controls and LED output status](../../design/direct-controls-and-output-status.md).
+- Output folding is the output side of the exposure list. A definition's
+  `defaultExposedOutputs` folds every other output it has: a folded output is
+  drawn while something is wired to it, or while the node shows all of them
+  (`StudioNodeData.showAllOutputs`, toggled by the "N more outputs" button).
+  `drawnOutputs` (`state/outputFolding.ts`) is the one rule, read by
+  `StudioNode`, the canvas's accessible output count and the node cards.
+  It is presentation only: the evaluator publishes every output, and an
+  emitter decides what it computes. A per-item output that costs a line
+  each (Touch Pad's Pad N, Keypad's Key N and Digit) is emitted only when
+  wired, from the node's outgoing edges in the normal sketch and from the
+  control graph's `ports`; with no port set, the control compiler gets all of
+  them. Folding a tall node is how a sensor offers "pad 3 pressed" as one
+  wire without a grow-a-port socket to configure.
 - A property input's `defaultProperties` entry must hold not just *a* default
   but the exact literal the code already falls back to:
   `src/state/__tests__/propertyInputFallbacks.test.ts` reads

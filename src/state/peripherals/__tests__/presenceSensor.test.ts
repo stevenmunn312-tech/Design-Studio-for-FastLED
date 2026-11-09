@@ -15,6 +15,7 @@ import { partById } from '../../../build/parts/partCatalogue'
 import {
   presencePreviewKey, presencePreviewReading, presenceSensorSpec,
 } from '../presenceSensor'
+import { unpluggedPreviewKey } from '../sensorPreview'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -40,7 +41,7 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 function presenceGraph(sensorProps: Record<string, unknown> = {}) {
   const nodes = [
     node('radar', 'PresenceInput', sensorProps),
-    node('map', 'MapRange', { inMin: 0, inMax: 6, outMin: 1, outMax: 0 }),
+    node('map', 'MapRange', { inMin: 0, inMax: 6000, outMin: 1, outMax: 0 }),
     node('fill', 'SolidColor', { r: 255, g: 90, b: 0 }),
     node('fade', 'BrightnessMod'),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
@@ -65,12 +66,13 @@ describe('the catalogued HLK-LD2410C', () => {
 })
 
 describe('preview', () => {
+  // Millimetres, the Distance Sensor's unit.
   it('combines moving and still targets and suppresses distance when nobody is present', () => {
     expect(presencePreviewReading('hlk-ld2410c-presence-sensor', false, false, 0.5))
       .toEqual({ presence: false, moving: false, still: false, distance: 0 })
     expect(presencePreviewReading('hlk-ld2410c-presence-sensor', true, false, 0.5))
-      .toEqual({ presence: true, moving: true, still: false, distance: 3 })
-    expect(presencePreviewReading('hlk-ld2410c-presence-sensor', false, true, 2).distance).toBe(6)
+      .toEqual({ presence: true, moving: true, still: false, distance: 3000 })
+    expect(presencePreviewReading('hlk-ld2410c-presence-sensor', false, true, 2).distance).toBe(6000)
   })
 
   it('publishes the widget state through the graph evaluator', () => {
@@ -80,7 +82,19 @@ describe('preview', () => {
     store.setButton(presencePreviewKey(sensor.id, 'still'), false)
     store.setPot(presencePreviewKey(sensor.id, 'distance'), 0.25)
     const reading = evaluateGraphFull([sensor], [], 0).outputs.get(sensor.id)
-    expect(reading).toEqual({ presence: true, moving: true, still: false, distance: 1.5 })
+    expect(reading).toEqual({ presence: true, moving: true, still: false, distance: 1500, connected: true })
+  })
+
+  // An unplugged radar sends no frames: nobody there, and Connected false, so
+  // a graph can tell it from an empty room.
+  it('reads as unplugged from the stand-in toggle', () => {
+    const sensor = node('radar-unplugged', 'PresenceInput')
+    const store = useHardwareInputStore.getState()
+    store.setButton(presencePreviewKey(sensor.id, 'moving'), true)
+    store.setButton(unpluggedPreviewKey(sensor.id), true)
+    const reading = evaluateGraphFull([sensor], [], 0).outputs.get(sensor.id)
+    expect(reading).toMatchObject({ presence: false, moving: false, distance: 0, connected: false })
+    store.setButton(unpluggedPreviewKey(sensor.id), false)
   })
 })
 
@@ -92,8 +106,9 @@ describe('firmware', () => {
     expect(sketch).toContain('static const uint8_t _LD_HEAD[4] = {0xF4, 0xF3, 0xF2, 0xF1};')
     expect(sketch).toContain('if (_ldLen < 13 || _ldLen + 10 > sizeof(_ldFrame))')
     expect(sketch).toContain('if (_ldFrame[7] != 0xAA || _ldFrame[_ldLen + 4] != 0x55')
-    expect(sketch).toContain('float n_radar_distance = n_radar_presence ? _ldDistanceCm / 100.0f : 0.0f;')
-    expect(sketch).toContain('millis() - _ldLastFrameMs < 1000u')
+    expect(sketch).toContain('float n_radar_distance = n_radar_presence ? _ldDistanceCm * 10.0f : 0.0f;')
+    expect(sketch).toContain('bool n_radar_connected = _ldLastFrameMs != 0 && millis() - _ldLastFrameMs < 1000u;')
+    expect(sketch).toContain('uint8_t n_radar_presence_state = n_radar_connected ? _ldState : 0;')
   })
 
   it('emits one shared parser and rejects a second sensor before deployment', () => {

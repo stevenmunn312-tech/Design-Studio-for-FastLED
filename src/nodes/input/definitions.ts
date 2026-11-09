@@ -9,7 +9,7 @@ import { BME280_DEFAULT_ADDRESS, BME280_PART_ID, formatEnvironmentAddress } from
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
 import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE, TOUCH_CONTROL_ADD_LABEL } from '../../state/displays/displayRegistry'
 import { JOYSTICK_DEFAULT_DEADZONE, KY023_PART_ID } from '../../state/peripherals/joystick'
-import { KEYPAD_PART_ID } from '../../state/peripherals/keypad'
+import { KEYPAD_KEY_COUNT, KEYPAD_LEGENDS, KEYPAD_PART_ID, keypadKeyPort } from '../../state/peripherals/keypad'
 import { ENCODER_LEVEL_DEFAULTS } from '../../state/peripherals/encoder'
 import { BH1750_DEFAULT_ADDRESS, DEFAULT_LIGHT_SENSOR_PART_ID, LIGHT_SENSOR_DEFAULT_MAX_LUX, formatLightSensorAddress } from '../../state/peripherals/lightSensor'
 import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorSpec } from '../../state/peripherals/motionVector'
@@ -17,7 +17,7 @@ import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, format
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from '../../state/peripherals/presenceSensor'
 import { DS18B20_PART_ID } from '../../state/peripherals/temperatureSensor'
 import { DEFAULT_TOUCH_BUTTON_PART_ID } from '../../state/peripherals/touchButton'
-import { MPR121_PART_ID, formatTouchPadAddress, touchPadSpec } from '../../state/peripherals/touchPad'
+import { MPR121_PART_ID, TOUCH_PAD_PAD_COUNT, formatTouchPadAddress, touchPadPadPort, touchPadSpec } from '../../state/peripherals/touchPad'
 
 export const INPUT_DEFINITIONS: NodeDefinition[] = [
   {
@@ -225,7 +225,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'presence', label: 'Presence', dataType: 'bool' },
       { id: 'moving', label: 'Moving', dataType: 'bool' },
       { id: 'still', label: 'Still', dataType: 'bool' },
-      { id: 'distance', label: 'Distance (m)', dataType: 'float' },
+      { id: 'distance', label: 'Distance (mm)', dataType: 'float' },
+      { id: 'connected', label: 'Connected', dataType: 'bool' },
     ],
     defaultProperties: { partId: DEFAULT_PRESENCE_PART_ID, [PRESENCE_RX_PIN_KEY]: 18 },
   },
@@ -288,7 +289,9 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
   {
     // A six-axis inertial sensor. Acceleration is in g and rotation rate in
     // degrees per second, so the values keep their physical units and Map Range
-    // is the explicit bridge to a control, like the environment sensor.
+    // is the explicit bridge to a control, like the environment sensor. Shake
+    // is the acceleration's distance from 1 g (motionVectorShake). The gyro
+    // axes fold until asked for.
     type: 'MotionVectorInput',
     label: 'Accel & Gyro',
     category: 'input',
@@ -300,8 +303,10 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'gyroX', label: 'Gyro X (°/s)', dataType: 'float' },
       { id: 'gyroY', label: 'Gyro Y (°/s)', dataType: 'float' },
       { id: 'gyroZ', label: 'Gyro Z (°/s)', dataType: 'float' },
+      { id: 'shake', label: 'Shake (g)', dataType: 'float' },
       { id: 'connected', label: 'Connected', dataType: 'bool' },
     ],
+    defaultExposedOutputs: ['accelX', 'accelY', 'accelZ', 'shake', 'connected'],
     defaultProperties: {
       partId: MPU6050_PART_ID,
       sdaPin: 21,
@@ -310,10 +315,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // A twelve-electrode capacitive-touch controller. Twelve boolean ports would make a
-    // node taller than the canvas is wide, so it publishes the lowest electrode touched
-    // as an index (0 to 11, held after release), how many are down and whether any is.
-    // Compare or Map Range turns the index into a scene, a preset or a level.
+    // A twelve-electrode capacitive-touch controller. It publishes the lowest
+    // electrode touched as an index (0 to 11, held after release), how many are
+    // down and whether any is; Compare or Map Range turns the index into a scene,
+    // a preset or a level. A Pad output per electrode is folded until asked for,
+    // so "pad 3 pressed" is one wire rather than Compare and And.
     type: 'TouchPadInput',
     label: 'Touch Pad',
     category: 'input',
@@ -323,7 +329,10 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'touched', label: 'Touched', dataType: 'bool' },
       { id: 'count', label: 'Count', dataType: 'float' },
       { id: 'connected', label: 'Connected', dataType: 'bool' },
+      ...Array.from({ length: TOUCH_PAD_PAD_COUNT }, (_, electrode) => (
+        { id: touchPadPadPort(electrode), label: `Pad ${electrode}`, dataType: 'bool' })),
     ],
+    defaultExposedOutputs: ['electrode', 'touched', 'count', 'connected'],
     defaultProperties: {
       partId: MPR121_PART_ID,
       sdaPin: 21,
@@ -334,10 +343,10 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // A 4x4 matrix keypad on eight GPIOs. Sixteen boolean ports would make a node
-    // taller than the canvas is wide, so it publishes the last key pressed as an
-    // index (0 to 15, row by row) and whether any key is down. That is what a
-    // scene or preset picker wants, and Map Range or Compare turns it into more.
+    // A 4x4 matrix keypad on eight GPIOs. It publishes the last key pressed as an
+    // index (0 to 15, row by row), whether any key is down, and the last number
+    // key pressed as a Digit, which is what a preset picker wants. A Key output
+    // per key is folded until asked for, so "key A pressed" is one wire.
     type: 'KeypadInput',
     label: 'Keypad',
     category: 'input',
@@ -345,7 +354,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     outputs: [
       { id: 'key', label: 'Key (0-15)', dataType: 'float' },
       { id: 'pressed', label: 'Pressed', dataType: 'bool' },
+      { id: 'digit', label: 'Digit (0-9)', dataType: 'float' },
+      ...Array.from({ length: KEYPAD_KEY_COUNT }, (_, key) => (
+        { id: keypadKeyPort(key), label: `Key ${KEYPAD_LEGENDS[key]}`, dataType: 'bool' })),
     ],
+    defaultExposedOutputs: ['key', 'pressed', 'digit'],
     defaultProperties: {
       partId: KEYPAD_PART_ID,
       row1Pin: 13, row2Pin: 14, row3Pin: 27, row4Pin: 26,
@@ -498,6 +511,9 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
       { id: 'weekend', label: 'Weekend', dataType: 'bool' },
     ],
+    // Fourteen outputs would make the clock the tallest node on the canvas;
+    // the rest are a click away, and a wired one is always drawn.
+    defaultExposedOutputs: ['display', 'dateTime', 'valid', 'hour', 'minute'],
     defaultProperties: {
       timeSource: 'Compile Time',
       sdaPin: 21,

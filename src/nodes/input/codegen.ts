@@ -7,9 +7,9 @@ import { temperatureSensorLoopCpp } from '../../codegen/peripherals/temperatureS
 import { distanceSensorLoopCpp, distanceSensorXshutSetupCpp } from '../../codegen/peripherals/distanceSensorCpp'
 import { distanceSensorTransport } from '../../state/peripherals/distanceSensor'
 import { joystickLoopCpp, joystickSetupCpp } from '../../codegen/peripherals/joystickCpp'
-import { keypadLoopCpp, keypadSetupCpp } from '../../codegen/peripherals/keypadCpp'
+import { keypadKeysRead, keypadLoopCpp, keypadSetupCpp } from '../../codegen/peripherals/keypadCpp'
 import { motionVectorLoopCpp } from '../../codegen/peripherals/motionVectorCpp'
-import { touchPadLoopCpp } from '../../codegen/peripherals/touchPadCpp'
+import { touchPadLoopCpp, touchPadPadsRead } from '../../codegen/peripherals/touchPadCpp'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { rtcInputLoopCpp } from '../../codegen/peripherals/rtcInputCpp'
@@ -18,8 +18,12 @@ import { networkSourceIn } from '../../codegen/peripherals/networkCpp'
 import { dmxListenPort, dmxListenUniverse, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
 import { MIDI_BAUD, midiChannel, midiUartPort, midiUsesUart } from '../../state/peripherals/midiSource'
 
+/** The outputs of this node something reads. */
+const wiredPorts = (nodeId: string, edges: readonly { source: string; sourceHandle?: string | null }[]): Set<string> =>
+  new Set(edges.filter((edge) => edge.source === nodeId).map((edge) => edge.sourceHandle ?? ''))
+
 const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines, edges }) => {
-  const ports = new Set(edges.filter((edge) => edge.source === node.id).map((edge) => edge.sourceHandle ?? ''))
+  const ports = wiredPorts(node.id, edges)
   const emit = controlInputCpp(node.data.nodeType, id, p, ports)!
   for (const line of emit.setup) pinSetupLines.add(line)
   for (const line of emit.loop) ln(line)
@@ -67,12 +71,14 @@ export const INPUT_EMITTERS: NodeEmitters = {
   MotionVectorInput({ id, p, ln, v }) {
     for (const line of motionVectorLoopCpp(p, id, v)) ln(line)
   },
-  TouchPadInput({ id, p, ln, v }) {
-    for (const line of touchPadLoopCpp(p, id, v)) ln(line)
+  // A per-pad or per-key output, and Digit, are computed only when read.
+  TouchPadInput({ node, id, p, ln, v, edges }) {
+    for (const line of touchPadLoopCpp(p, id, v, touchPadPadsRead(wiredPorts(node.id, edges)))) ln(line)
   },
-  KeypadInput({ id, p, ln, v, pinSetupLines }) {
+  KeypadInput({ node, id, p, ln, v, pinSetupLines, edges }) {
+    const ports = wiredPorts(node.id, edges)
     for (const line of keypadSetupCpp(p)) pinSetupLines.add(line)
-    for (const line of keypadLoopCpp(p, id, v)) ln(line)
+    for (const line of keypadLoopCpp(p, id, v, keypadKeysRead(ports), ports.has('digit'))) ln(line)
   },
   JoystickInput({ p, ln, v, pinSetupLines }) {
     for (const line of joystickSetupCpp(p)) pinSetupLines.add(line)

@@ -476,6 +476,23 @@
   height: 24px;
 }
 
+/* Reveals or folds a tall node's less common outputs (outputFolding.ts). */
+.outputFold {
+  align-self: flex-end;
+  margin: var(--space-0) calc(var(--space-0) * 2.5) 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.outputFold:hover {
+  color: var(--text-primary);
+}
+
 .portLabel {
   font-size: var(--fs-caption);
   color: var(--text-secondary);

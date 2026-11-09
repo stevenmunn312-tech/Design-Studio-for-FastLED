@@ -98,23 +98,6 @@ freeze, or drop them.
   transceiver and MIDI wing, UART allocated automatically, and drop
   `dmxPort`/`midiUart`. Evidence `src/nodes/input/definitions.ts:451`,
   `src/build/hardwareManifest.ts:1502`.
-- [ ] **Category: Fold tall output lists on sensor nodes (Med, M).**
-  RTCInput has 14 outputs, MotionVectorInput 7, PowerMonitorInput 5, and
-  `NodeDefinition` has no output equivalent of `defaultExposedInputs`. Add an
-  "exposed outputs" list: show the common ones, reveal the rest on demand,
-  always show wired ones. Evidence `src/types/index.ts:41`.
-- [ ] **Category: Per-pad/per-key output sockets (Med, S).** ButtonBank,
-  IRRemoteInput and WebRemoteInput grow a named output per item from a
-  trailing socket, but TouchPadInput and KeypadInput only publish an index,
-  so "pad 3 pressed" needs Compare + And. Offer the same grow-a-port socket
-  on both nodes.
-- [ ] **Category: Let preview test the disconnected branch (Low, S).** Every
-  sensor with a Connected output returns `connected: true` in preview, so the
-  fallback a graph builds can't be exercised. Add an "unplug" toggle to the
-  stand-in widget. Evidence `src/nodes/input/evaluate.ts:384`.
-- [ ] **Category: Use one distance unit (Low, S).** PresenceInput reports
-  Distance in metres, DistanceInput in millimetres. Pick one and rename
-  ports (pre-1.0 allows it). Evidence `src/codegen/peripherals/presenceSensorCpp.ts:90`.
 - [ ] **Category: Optionally merge TouchButton and Motion into Button
   (Low, M).** ButtonInput, TouchButtonInput and MotionInput are all one
   digital line, and TouchButton already derives active level from `partId`.
@@ -135,23 +118,6 @@ freeze, or drop them.
   receiver kits ship the same 17/21-key NEC remote. Add a one-click preset
   with named keys so users can wire Up/Down/OK before hardware exists.
   Evidence `src/components/Canvas/bodies/IRRemoteBody.tsx:107`.
-- [ ] **Presence Sensor: Add a Connected output (Low, S).** Firmware reports
-  "nobody" when no frame arrived within 1 s, so an unplugged radar looks like
-  an empty room. Add `connected` like the other bus sensors. Evidence
-  `src/codegen/peripherals/presenceSensorCpp.ts:90`.
-- [ ] **Accel & Gyro: Add a shake output (Med, S).** "Shake to change
-  pattern" currently needs Expression (sqrt(x^2+y^2+z^2)-1) plus Compare.
-  Add a `shake` float or thresholded bool output. The gyro ports are
-  candidates for output folding.
-- [ ] **Touch Pad: Add per-electrode outputs (Med, S).** "Pad N pressed"
-  needs Compare(Electrode = N) And Touched. Offer per-electrode outputs on
-  demand through the grow-a-port socket (see Category).
-- [ ] **Keypad: Add per-key outputs (Med, S).** Same per-key socket as Touch
-  Pad, so "key A pressed" needs no Compare + And.
-- [ ] **Keypad: Add a label or digit output (Low, S).** Key is an index into
-  the 4x4 layout, so the key printed "0" is 13. Add a `label` string output,
-  or a `digit` output reading 0-9 for number keys, so presets can be picked
-  by number. Evidence `src/components/HelpModal/reference/input.ts:557`.
 - [ ] **RTC Clock: Allow a Clock node without a DS3231 (High, M).** RTCInput
   is hidden from the library and the only shelf entries are two DS3231
   modules, yet Compile Time, Manual and NTP need no part (and the Help
@@ -164,9 +130,6 @@ freeze, or drop them.
   for half the year in DST regions. Offer a region/time-zone picker that
   emits a POSIX TZ string (`configTzTime` on ESP32). Evidence
   `src/state/peripherals/rtc.ts`, `src/codegen/peripherals/rtcInputCpp.ts`.
-- [ ] **RTC Clock: Fold its 14 outputs (Med, M).** Show DateTime, Display,
-  Hour, Minute and Valid by default and reveal the rest on demand, using the
-  output folding in Category.
 - [ ] **Ethernet: Update the "Art-Net and NTP" copy (Low, S).** The network
   layer serves Art-Net, sACN, DDP, Web Remote, Stream Output, internet radio
   and clock sync, but the description, shelf hint, part note, Help text,

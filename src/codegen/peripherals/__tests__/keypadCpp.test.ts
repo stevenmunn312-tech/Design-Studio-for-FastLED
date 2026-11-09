@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { keypadLoopCpp, keypadSetupCpp } from '../keypadCpp'
+import { keypadKeysRead, keypadLoopCpp, keypadSetupCpp } from '../keypadCpp'
 import { libraryDefaults } from '../../../state/nodeLibrary'
 import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../../state/peripherals/keypad'
 
-const local = (port: 'key' | 'pressed') => `n_pad_${port}`
+const local = (port: string) => `n_pad_${port}`
 
 describe('keypad firmware pins', () => {
   it('falls back to the node defaults, never to one shared run of GPIOs', () => {
@@ -29,5 +29,27 @@ describe('keypad firmware pins', () => {
     const loop = keypadLoopCpp(props, 'pad', local)
     expect(loop).toContain('  static const uint8_t _kpRows_pad[4] = {1, 2, 3, 4};')
     expect(loop).toContain('  static const uint8_t _kpCols_pad[4] = {5, 6, 7, 8};')
+  })
+})
+
+describe('keypad per-key outputs and Digit', () => {
+  // Only what a wire reads is computed; an unknown set (the control graph's
+  // "everything") publishes all sixteen.
+  it('publishes the wired keys, each true while the scan holds it', () => {
+    expect(keypadKeysRead(new Set(['key', 'key13', 'key3', 'pressed']))).toEqual([3, 13])
+    expect(keypadKeysRead()).toHaveLength(16)
+    const loop = keypadLoopCpp({}, 'pad', local, [3, 13]).join('\n')
+    expect(loop).toContain('bool n_pad_key3 = _kpKey_pad == 3;')
+    expect(loop).toContain('bool n_pad_key13 = _kpKey_pad == 13;')
+    expect(loop).not.toContain('n_pad_key0 ')
+    expect(loop).not.toContain('_kpDigit_pad')
+  })
+
+  // The key printed "0" is index 13; Digit reads 0 for it and ignores A-D, * and #.
+  it('holds the last number key as Digit', () => {
+    const loop = keypadLoopCpp({}, 'pad', local, [], true).join('\n')
+    expect(loop).toContain('static const int8_t _kpDigits_pad[16] = {1, 2, 3, -1, 4, 5, 6, -1, 7, 8, 9, -1, -1, 0, -1, -1};')
+    expect(loop).toContain('if (_kpKey_pad >= 0 && _kpDigits_pad[_kpKey_pad] >= 0) _kpDigit_pad = (float)_kpDigits_pad[_kpKey_pad];')
+    expect(loop).toContain('float n_pad_digit = _kpDigit_pad;')
   })
 })

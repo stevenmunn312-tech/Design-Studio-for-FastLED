@@ -28,6 +28,12 @@
   gap: calc(var(--space-0) * 0.75);
 }
 
+/* A full-width row inside the pad grid, for the unplug toggle. */
+.keypadWide {
+  grid-column: 1 / -1;
+  display: flex;
+}
+
 .keypadKey {
   padding: var(--space-0) 0;
   border-radius: 5px;

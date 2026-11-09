@@ -1,10 +1,23 @@
 import { irRemoteButtonHandle } from '../../../state/peripherals/irRemote'
+import { KEYPAD_LEGENDS, keypadKeyPort } from '../../../state/peripherals/keypad'
+import { TOUCH_PAD_PAD_COUNT, touchPadPadPort } from '../../../state/peripherals/touchPad'
 import { buttonBankHandle } from '../../../state/player/buttonBank'
 import { webRemotePortId } from '../../../state/peripherals/webRemote'
 import { example, RING, STRIP } from './example'
 import type { NodeReferenceMap } from './types'
 
 const PREVIEW_STAND_IN = 'The browser has no sensor attached, so the node body carries controls that stand in for the readings while you design. The uploaded sketch reads the real part instead.'
+
+// For the sensors with a Connected output.
+const UNPLUG_STAND_IN = 'Its Unplug toggle pulls the sensor out in the preview only: Connected goes false and the readings do what the board’s do with the module missing, so you can try the fallback your graph builds for it.'
+
+// Many outputs, one sentence each, built rather than typed sixteen times.
+const PAD_OUTPUTS = Object.fromEntries(Array.from({ length: TOUCH_PAD_PAD_COUNT }, (_, electrode) => [
+  touchPadPadPort(electrode), `True while pad ${electrode} is touched.`,
+]))
+const KEY_OUTPUTS = Object.fromEntries(KEYPAD_LEGENDS.map((legend, key) => [
+  keypadKeyPort(key), `True while the ${legend} key is held.`,
+]))
 
 export const INPUT_REFERENCE: NodeReferenceMap = {
   Audio: {
@@ -337,8 +350,10 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   PresenceInput: {
     overview: [
       'Presence Sensor reads an HLK-LD2410C millimetre-wave radar. Unlike a PIR it sees people who are sitting still, so Presence stays true while someone reads in a chair.',
-      'Moving and Still report the two kinds of target separately, and Distance gives the detected range in metres, from 0 to 6. The sketch only listens to the radar’s serial stream, so one RX pin is the whole connection.',
+      'Moving and Still report the two kinds of target separately, and Distance gives the detected range in millimetres, from 0 to 6000, the same unit as Distance Sensor. The sketch only listens to the radar’s serial stream, so one RX pin is the whole connection.',
+      'Connected is false when no report has arrived for a second, which is what an unplugged radar looks like; Presence then reads false too, so use Connected to tell that from an empty room.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the radar module from the Hardware tab.',
@@ -348,7 +363,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       presence: 'True while anyone is detected, moving or still.',
       moving: 'True while a moving target is detected.',
       still: 'True while a stationary target is detected.',
-      distance: 'Distance to the detected target in metres, 0 to 6. It reads 0 with nobody there.',
+      distance: 'Distance to the detected target in millimetres, 0 to 6000. It reads 0 with nobody there.',
+      connected: 'True while the radar is sending reports. False when nothing has arrived for a second.',
     },
     propertyNote: 'The radar talks at its own fixed baud, so the receive pin is the only setting.',
     example: example({
@@ -356,11 +372,11 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       title: 'Breathe faster as someone comes closer',
       nodes: {
         radar: ['PresenceInput', { rxPin: 18 }],
-        closeness: ['MapRange', { inMin: 0, inMax: 6, outMin: 40, outMax: 8 }],
+        closeness: ['MapRange', { inMin: 0, inMax: 6000, outMin: 40, outMax: 8 }],
         breathe: ['Breathe', { palette: 'sunset', minLevel: 0.1, curve: 'natural' }],
       },
       wires: ['radar.distance > closeness.value', 'closeness.result > breathe.bpm'],
-      explanation: 'Presence Sensor reports the target’s distance in metres. Map Range turns six metres into a slow 8 breaths a minute and arm’s length into a quick 40, so Breathe quickens as someone approaches.',
+      explanation: 'Presence Sensor reports the target’s distance in millimetres. Map Range turns six metres into a slow 8 breaths a minute and arm’s length into a quick 40, so Breathe quickens as someone approaches.',
       preview: 'The {output} breathes in sunset colours. Toggle Moving on the radar node and drag its distance slider: far away the breathing is slow and calm, up close it races.',
     }),
   },
@@ -432,6 +448,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'Temperature Probe reads a waterproof DS18B20 in degrees Celsius over a single data wire. It suits liquids and places a board cannot go: an aquarium, a hot tub, a fermenter, a cold frame.',
       'Connected is false while the probe does not answer, so a graph can hold a safe look instead of following a stale reading. The data line needs a 4.7 kΩ pull-up to 3.3 V, which the Build Diagram draws.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the probe from the Hardware tab.',
@@ -461,8 +478,10 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Accel & Gyro reads an MPU-6050: acceleration on three axes in g, and rotation rate on three axes in degrees per second.',
       'Lying flat, gravity reads about +1 g on Z and 0 on X and Y, so tilting the board swings X and Y between −1 and +1. Rotation rates are 0 while the board is still and jump while it turns. The values keep their units, so a Map Range usually sits between this node and a control.',
+      'Shake is how far the acceleration is from the 1 g of gravity at rest, so it reads 0 lying still in any position and rises as the board is shaken or knocked. Wired straight into a switch input such as Trigger it reads true from 0.5 g, a firm shake. The three gyro outputs are folded; choose more outputs on the node to wire them.',
       'The sensor shares the I2C bus. Its address is 0x68, the same as a DS3231 clock, so tie AD0 high and pick 0x69 when both are fitted. Connected goes false if the chip stops answering.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the MPU-6050 board from the Hardware tab.',
@@ -476,6 +495,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       gyroX: 'Rotation rate about X in degrees per second.',
       gyroY: 'Rotation rate about Y in degrees per second.',
       gyroZ: 'Rotation rate about Z in degrees per second.',
+      shake: 'How hard the board is being shaken, in g: the acceleration’s distance from 1 g. 0 at rest.',
       connected: 'True while the sensor answers on the bus.',
     },
     propertyNote: 'SDA and SCL are shared with every other I2C part. Use 0x69 when a DS3231 clock is on the same bus.',
@@ -497,9 +517,10 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   TouchPadInput: {
     overview: [
       'Touch Pad reads an MPR121: twelve capacitive electrodes on one I2C chip. Wire foil, copper tape or conductive paint to the electrodes and anything can become a touch key.',
-      'Electrode is the lowest pad currently touched, numbered 0 to 11, and it holds that number after release. Touched is true while any pad is down, and Count says how many are.',
+      'Electrode is the lowest pad currently touched, numbered 0 to 11, and it holds that number after release. Touched is true while any pad is down, and Count says how many are. For one pad on its own, choose more outputs on the node: Pad 0 to Pad 11 are true while that pad is touched, one wire each.',
       'Touch Threshold sets how far a pad’s reading must fall to count as a touch; Release Threshold how far it must recover. Lower the touch threshold for thin pads behind glass, and raise it if a pad triggers by itself.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the MPR121 from the Hardware tab.',
@@ -511,6 +532,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       touched: 'True while any pad is touched.',
       count: 'How many pads are touched at once.',
       connected: 'True while the chip answers on the bus.',
+      ...PAD_OUTPUTS,
     },
     propertyNote: 'Address is set by the ADDR pin. The two thresholds are the chip’s own registers, written by the sketch at start-up.',
     example: example({
@@ -531,7 +553,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   KeypadInput: {
     overview: [
       'Keypad reads a 4×4 membrane keypad over eight GPIOs: four rows and four columns. Key is the last key pressed, numbered 0 to 15 row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and Pressed is true while any key is down.',
-      'Key holds its value after release, so it works as a selector: pick a pattern, a palette or a level by number. The keypad is passive — no power, no ground — and rows use the internal pull-up, so avoid input-only pins for them.',
+      'Key holds its value after release, so it works as a selector: pick a pattern, a palette or a level by number. Digit is the last number key pressed, read as the number printed on it, so the key marked 0 is 0 rather than 13 and the letter keys leave it alone. For one key on its own, choose more outputs on the node: each key has an output that is true while it is held.',
+      'The keypad is passive — no power, no ground — and rows use the internal pull-up, so avoid input-only pins for them.',
       'In the preview, click the keys drawn on the node.',
     ],
     steps: [
@@ -541,6 +564,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     outputs: {
       key: 'The last key pressed, 0 to 15, row by row from the top left. Held after release.',
       pressed: 'True while any key is held.',
+      digit: 'The last number key pressed, 0 to 9, as printed on it. Held after release; the letter keys, * and # leave it alone.',
+      ...KEY_OUTPUTS,
     },
     propertyNote: 'Rows need pull-up capable pins; columns must be able to drive an output.',
     example: example({
@@ -595,6 +620,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'The ultrasonic module uses Trig and Echo pins, and its 5 V Echo needs the divider the Build Diagram draws. The laser sensors share the I2C bus; to fit two, give each its own SHDN pin and an address from 0x30 to 0x33.',
       'When nothing is in range, Distance holds the last thing it measured rather than jumping, so a mapped output does not flick on a missed reading. The two kinds of module report that moment differently. A laser sensor stays Connected, since it still answers on the bus. An HC-SR04 cannot tell an empty room from a missing module, because both return no echo, so Connected goes false in either case.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the distance module from the Hardware tab.',

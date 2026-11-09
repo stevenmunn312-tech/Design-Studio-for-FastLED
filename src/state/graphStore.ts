@@ -169,6 +169,8 @@ export interface StudioNodeData extends Record<string, unknown> {
   minimized?: boolean
   /** Canvas property sockets; wired inputs remain visible regardless of this list. */
   exposedInputs?: string[]
+  /** Canvas-only: draw every output of a node that folds some (`outputFolding.ts`). */
+  showAllOutputs?: boolean
 }
 
 export type StudioNode = Node<StudioNodeData>
@@ -333,6 +335,8 @@ interface GraphState {
    */
   applyCustomBoard: (id: string, definition: CustomBoardDefinition) => { ok: true } | { ok: false; issues: CustomBoardIssue[] }
   setNodeMinimized: (id: string, minimized: boolean) => void
+  /** Draw all of a folding node's outputs, or only its defaults and wired ones. */
+  setNodeOutputsShown: (id: string, shown: boolean) => void
   setNodeInputExposed: (id: string, portId: string, exposed: boolean) => void
   /** Pull whatever drives one input, leaving the node's own field in charge. */
   disconnectInput: (id: string, portId: string) => void
@@ -2653,6 +2657,13 @@ export const useGraphStore = create<GraphState>()(
           ? { ...entry, data: { ...entry.data, exposedInputs: next } } : entry)
         return active ? { nodes: updated } : withRootNodes(s, updated)
       }),
+
+      setNodeOutputsShown: (id, shown) =>
+        set((s) => ({
+          nodes: s.nodes.map((node) => node.id === id
+            ? { ...node, data: { ...node.data, showAllOutputs: shown || undefined } }
+            : node),
+        })),
 
       setNodeMinimized: (id, minimized) =>
         set((s) => ({

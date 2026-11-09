@@ -1613,6 +1613,30 @@ describe('StudioNode', () => {
     }
   })
 
+  // Fourteen outputs fold to the common five; a wire keeps a folded one drawn.
+  it('folds the RTC Clock to its common outputs until all are asked for', () => {
+    const node = { ...makeNode('RTCInput', {}), id: 'rtc-fold' }
+    const view = renderNode(node)
+    const sockets = () => [...view.container.querySelectorAll('[data-handle^="source:"]')]
+      .map((handle) => handle.getAttribute('data-handle'))
+    expect(sockets()).toEqual(['source:display', 'source:dateTime', 'source:valid', 'source:hour', 'source:minute'])
+    fireEvent.click(view.getByRole('button', { name: '9 more outputs' }))
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'rtc-fold')?.data.showAllOutputs).toBe(true)
+    view.unmount()
+
+    const shown = renderNode({ ...node, data: { ...node.data, showAllOutputs: true } })
+    expect(shown.container.querySelectorAll('[data-handle^="source:"]')).toHaveLength(14)
+    expect(shown.getByRole('button', { name: 'Fewer outputs' }).getAttribute('aria-expanded')).toBe('true')
+    shown.unmount()
+
+    const wired = renderNode(node)
+    act(() => useGraphStore.setState({ edges: [{ id: 'e-wk', source: 'rtc-fold', sourceHandle: 'weekend', target: 'x', targetHandle: 'value' }] }))
+    expect([...wired.container.querySelectorAll('[data-handle^="source:"]')].map((handle) => handle.getAttribute('data-handle')))
+      .toContain('source:weekend')
+    expect(wired.getByRole('button', { name: '8 more outputs' })).toBeTruthy()
+    act(() => useGraphStore.setState({ edges: [] }))
+  })
+
   // The readout follows the node's configured source, so an unusable Manual
   // seed reads as broken here rather than only after a flash.
   it('shows a Manual RTC seed as invalid when it is not a real date', () => {

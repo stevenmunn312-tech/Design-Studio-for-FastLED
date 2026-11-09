@@ -50,3 +50,16 @@ export const touchPadLastElectrode = (nodeId: string) => `${nodeId}:touchpad:las
 export function touchPadElectrodeCount(partId: unknown): number {
   return touchPadSpec(partId).electrodes
 }
+
+/** How many electrodes the node's per-pad outputs cover: the MPR121's twelve. */
+export const TOUCH_PAD_PAD_COUNT = 12
+
+/** The per-electrode output for electrode `n`: true while that pad is touched. */
+export const touchPadPadPort = (electrode: number) => `pad${electrode}`
+
+/** Which electrode a per-pad output reads, or null for any other port. */
+export function touchPadPadIndex(port: string): number | null {
+  const match = /^pad(\d+)$/.exec(port)
+  const electrode = match ? Number(match[1]) : NaN
+  return Number.isInteger(electrode) && electrode < TOUCH_PAD_PAD_COUNT ? electrode : null
+}

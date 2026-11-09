@@ -10,8 +10,8 @@ import type { PartPresenceSensorSpec } from '../../build/parts/partCatalogue'
  */
 export const DEFAULT_PRESENCE_PART_ID = 'hlk-ld2410c-presence-sensor'
 
-/** The four readings, in the order the node's outputs declare them. */
-export const PRESENCE_OUTPUTS = ['presence', 'moving', 'still', 'distance'] as const
+/** The readings, in the order the node's outputs declare them. */
+export const PRESENCE_OUTPUTS = ['presence', 'moving', 'still', 'distance', 'connected'] as const
 
 /** The board pin wired to the sensor's TX, the one line Studio needs. */
 export const PRESENCE_RX_PIN_KEY = 'rxPin'
@@ -44,7 +44,7 @@ export interface PresenceReading {
   presence: boolean
   moving: boolean
   still: boolean
-  /** Metres to the target; 0 when nobody is there, as the module reports it. */
+  /** Millimetres to the target, like the Distance Sensor; 0 when nobody is there. */
   distance: number
 }
 
@@ -63,7 +63,7 @@ export function presencePreviewReading(
   const spec = presenceSensorSpec(partId)
   const presence = moving || still
   const fraction = Number.isFinite(distanceFraction) ? Math.max(0, Math.min(1, distanceFraction)) : 0
-  return { presence, moving, still, distance: presence ? fraction * spec.maxRangeMeters : 0 }
+  return { presence, moving, still, distance: presence ? Math.round(fraction * spec.maxRangeMeters * 1000) : 0 }
 }
 
 /** Preview run-state keys: two latches and one slider per node. */

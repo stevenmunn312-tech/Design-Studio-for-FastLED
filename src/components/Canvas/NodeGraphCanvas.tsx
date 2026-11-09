@@ -37,6 +37,7 @@ import { useUiStore, visibleLiveTouchScreen } from '../../state/uiStore'
 import { usePatternLibrary, withRegisteredGroups } from '../../state/patterns/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible, spliceTargetPorts } from '../../state/nodeLibrary'
 import { exposableInputsFor, exposedNodeInputs } from '../../state/propertyInputs'
+import { drawnOutputs } from '../../state/outputFolding'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
@@ -1159,6 +1160,17 @@ function NodeGraphCanvasInner() {
     }
     return wired
   }, [edges])
+  // The same for outputs, so a folded output a wire uses counts as drawn.
+  const wiredOutputs = useMemo(() => {
+    const wired = new Map<string, Set<string>>()
+    for (const edge of edges) {
+      if (!edge.source || !edge.sourceHandle) continue
+      const ports = wired.get(edge.source) ?? new Set<string>()
+      ports.add(edge.sourceHandle)
+      wired.set(edge.source, ports)
+    }
+    return wired
+  }, [edges])
   const accessibleNodes = useMemo(() => nodes.map((node) => {
     const data = node.data as {
       label?: string
@@ -1167,6 +1179,7 @@ function NodeGraphCanvasInner() {
       inputs?: AccessiblePort[]
       outputs?: AccessiblePort[]
       exposedInputs?: string[]
+      showAllOutputs?: boolean
     }
     const label = nodeDisplayLabel(data.nodeType ?? '', data.properties ?? {}, data.label ?? data.nodeType ?? 'Untitled')
     // Count the sockets actually drawn, not the ports the library declares: a
@@ -1179,7 +1192,8 @@ function NodeGraphCanvasInner() {
       : declared.filter((port) => !exposableInputs.some((exposable) => exposable.id === port.id)).length
         + exposedNodeInputs(data.nodeType ?? '', data.exposedInputs,
           wiredInputs.get(node.id) ?? EMPTY_HANDLES).length
-    const outputs = data.outputs?.length ?? 0
+    const outputs = drawnOutputs(data.nodeType ?? '', data.outputs ?? [],
+      wiredOutputs.get(node.id) ?? EMPTY_HANDLES, data.showAllOutputs === true).length
     return {
       ...node,
       ariaLabel: `${label} node${node.id === selectedNodeId ? ', selected' : ''}. ${inputs} input${inputs === 1 ? '' : 's'}, ${outputs} output${outputs === 1 ? '' : 's'}.`,
@@ -1196,7 +1210,7 @@ function NodeGraphCanvasInner() {
       // something the moment the pulse ends undoes the thing you asked for.
       zIndex: node.id === selectedNodeId ? 1000 : undefined,
     }
-  }), [nodes, selectedNodeId, wiredInputs])
+  }), [nodes, selectedNodeId, wiredInputs, wiredOutputs])
   const accessibleNodeInfo = useMemo(() => new Map(nodes.map((node) => {
     const data = node.data as {
       label?: string
