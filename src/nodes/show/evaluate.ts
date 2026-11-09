@@ -13,6 +13,9 @@ import {
   asSlideshowOrder,
   slideshowSettings,
   advanceSlideshowSilenceFade,
+  SLIDESHOW_DEFAULT_MAX_TIME,
+  SLIDESHOW_DEFAULT_MIN_TIME,
+  SLIDESHOW_DEFAULT_TRANSITION_SEC,
 } from '../../state/patterns/patternSlideshow'
 import {
   classicFormula, collectionProfiles, energyBandFromIntensity, nextPatternIndex, pickEntries,
@@ -1576,14 +1579,13 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // `evalPatternShow`, one selection contract, the player's timing. What
     // differs is only audio the patterns ignore unless asked.
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
-    const wired = (port: 'interval' | 'minTime' | 'maxTime' | 'transitionSec', fallback: number) =>
+    const wired = (port: 'minTime' | 'maxTime' | 'transitionSec', fallback: number) =>
       incoming.has(`${id}:${port}`) ? num(id, port, props, port, fallback) : null
     const beatWired = incoming.has(`${id}:beat`)
     const settings = slideshowSettings(props, {
-      interval: wired('interval', 20),
-      minTime: wired('minTime', 20),
-      maxTime: wired('maxTime', 20),
-      transitionSec: wired('transitionSec', 1.5),
+      minTime: wired('minTime', SLIDESHOW_DEFAULT_MIN_TIME),
+      maxTime: wired('maxTime', SLIDESHOW_DEFAULT_MAX_TIME),
+      transitionSec: wired('transitionSec', SLIDESHOW_DEFAULT_TRANSITION_SEC),
       // Beat Transitions has something to wait for: the Beat wire, or the
       // Audio wire's own detector. With neither it is off, as the node's
       // disabled row says, and the slideshow runs on its timer.

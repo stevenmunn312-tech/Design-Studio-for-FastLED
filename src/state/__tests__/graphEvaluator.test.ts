@@ -3010,7 +3010,7 @@ describe('evaluateGraph', () => {
       enabled: true, style: 'explode', color: '#ff0000', intensity: 1,
     })
     // Audio Reactive stays off: wiring an enabled bundle is the ask.
-    const slideshow = node('sfx_show', 'PatternSlideshow', 'show', { interval: 999, transitionSec: 1 })
+    const slideshow = node('sfx_show', 'PatternSlideshow', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
     const output = node('sfx_output', 'MatrixOutput', 'output', {})
     const black = node('sfx_black', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
     const groupOut = node('sfx_group_out', 'GroupOutput', 'output', {})

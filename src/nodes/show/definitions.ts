@@ -240,13 +240,12 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       // The player's explicit trigger, in the player's place: wired, it
       // overrides the Audio wire's beat for Beat Transitions and the sparks.
       { id: 'beat',        label: 'Beat',        dataType: 'bool' },
-      { id: 'interval',    label: 'Interval',    dataType: 'float' },
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
       ...playerControlActionPortsFor('engine'),
     ],
-    propertyInputs: { interval: 'interval', minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
+    propertyInputs: { minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
     actionInputs: playerControlActionPortsFor('engine').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
@@ -257,14 +256,13 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       order: 'Random',
       audioReactive: false,
       // Timing rows draw in the Music Player's order, so the two nodes read
-      // alike: Interval, then Beat Transitions and the hold it gates, the
-      // transitions switch and fade, then the pacing. Audio Reactive decides
-      // which half is live.
-      interval: 20,
+      // alike: Beat Transitions and the hold it gates, the transition, then
+      // the pacing. The hold is always Min to Max Time (equal is fixed);
+      // Audio Reactive turns on only the rows that listen. An unequal default
+      // gives Energy Pacing a range to lean within. Transition 0 is a cut.
       beatTransitions: false,
-      minTime: 20,
-      maxTime: 20,
-      transitionsEnabled: true,
+      minTime: 8,
+      maxTime: 30,
       transitionSec: 1.5,
       energyPacing: false,
       dwellsAndBursts: false,

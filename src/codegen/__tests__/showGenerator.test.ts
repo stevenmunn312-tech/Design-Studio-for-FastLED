@@ -36,7 +36,7 @@ describe('showGenerator', () => {
   }
   const nodes = [
     node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
+    node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
   ]
   const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
@@ -264,7 +264,7 @@ describe('showGenerator', () => {
   it('emits a fixed controller seed when the Show Engine seed is nonzero', () => {
     const seeded = [
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, seed: 77 }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1, seed: 77 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ]
     const cpp = generateShowSketch(seeded, edges, groups)
@@ -276,7 +276,7 @@ describe('showGenerator', () => {
     const show = (profileId: string) => generateShowSketch([
       node('board', 'Board', { profileId }),
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, order: 'Random' }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1, order: 'Random' }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 1, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ], edges, groups)
     // A0 is GPIO 1 on the S3, here the LED data pin.
@@ -337,7 +337,7 @@ describe('showGenerator', () => {
     }
     const tempNodes = [
       node('pc', 'PatternCollection', { patternIds: ['gt'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
     ]
     const tempEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
@@ -540,7 +540,7 @@ describe('showGenerator', () => {
   const withSlideshow = (properties: Record<string, unknown>, extraNodes: StudioNode[] = [], extraEdges: StudioEdge[] = []) => ({
     nodes: [
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, ...properties }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1, ...properties }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
       ...extraNodes,
     ],
@@ -580,9 +580,17 @@ describe('showGenerator', () => {
       [edge('ea', 'mic', 'audio', 'pm', 'audio')],
     )
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
+    // The hold is still Min to Max Time; only the timing that listens is out.
+    expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
+    expect(cpp).not.toContain('_audioBass + _audioMids + _audioTreble')
+    expect(cpp).not.toContain('burstLeft')
+    expect(cpp).not.toContain('beatEdge')
+  })
+
+  it('holds a fixed time when Min and Max Time are equal', () => {
+    const cpp = generateShowSketch(withSlideshow({}).nodes, withSlideshow({}).edges, groups)
     expect(cpp).toContain('if (now - phaseStart >= 8000) {')
     expect(cpp).not.toContain('paceHoldMs')
-    expect(cpp).not.toContain('beatEdge')
   })
 
   it('takes a wired Beat over the Audio wire\'s beat, as the Music Player does', () => {
@@ -640,15 +648,17 @@ describe('showGenerator', () => {
     expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
   })
 
-  it('reads a wired Interval live, and Min and Max Time only with Audio Reactive', () => {
+  // Interval was a second name for an equal Min and Max Time. The hold is Min
+  // to Max Time with or without Audio Reactive, so a wired Min Time is live
+  // on a slideshow that does not listen.
+  it('reads a wired Min Time live without Audio Reactive', () => {
     const pot = node('pot', 'PotInput', { pin: 4 })
     const timed = withSlideshow({}, [pot], [
-      edge('w-int', 'pot', 'value', 'pm', 'interval'),
       edge('w-min', 'pot', 'value', 'pm', 'minTime'),
     ])
     const cpp = generateShowSketch(timed.nodes, timed.edges, groups)
     expect(cpp).toMatch(/const float minHold = max\(1\.0f, constrain\(\S*n_pot_value\S*, 0\.0f, 86400\.0f\)\);/)
-    expect(cpp).toMatch(/const float maxHold = max\(minHold, constrain\(\S*n_pot_value\S*, 0\.0f, 86400\.0f\)\);/)
+    expect(cpp).toMatch(/const float maxHold = max\(minHold, constrain\(8\.0000f, 0\.0f, 86400\.0f\)\);/)
     expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
   })
 
@@ -688,7 +698,7 @@ describe('showGenerator', () => {
   it('walks the collection in order when the slideshow says sequential', () => {
     const ordered = [
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, order: 'Sequential' }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1, order: 'Sequential' }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ]
     const cpp = generateShowSketch(ordered, edges, groups)
@@ -704,10 +714,10 @@ describe('showGenerator', () => {
     expect(random).toContain('nxt = (cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT;')
   })
 
-  it('cuts rather than fades when transitions are switched off', () => {
+  it('cuts rather than fades when Transition is 0', () => {
     const cut = [
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionsEnabled: false, transitionSec: 1.5 }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 0 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ]
     // A cut has no transition to run, so none of the apparatus ships.
@@ -901,7 +911,7 @@ describe('showGenerator', () => {
     } as unknown as GroupRegistry
     const showNodes = (withMic: boolean) => [
       node('pc', 'PatternCollection', { patternIds: ['ga'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
       ...(withMic ? [micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })] : []),
     ]
@@ -1238,7 +1248,7 @@ describe('displays in a show controller', () => {
   } as unknown as GroupRegistry
   const base = [
     node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
+    node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
   ]
   const baseEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
@@ -1525,7 +1535,7 @@ describe('pattern code lifted into a show', () => {
     const groups = { p: { nodes: [...nodes, node('go', 'GroupOutput')], edges: [...edges, edge('go', frame[0], frame[1], 'go', 'frame')] } }
     const show = generateShowSketch([
       node('pc', 'PatternCollection', { patternIds: ['p'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 0 }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 0 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ], [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')], groups as unknown as GroupRegistry)
     const render = show.slice(show.indexOf('void render_p0('), show.indexOf('\n}', show.indexOf('void render_p0(')) + 2)

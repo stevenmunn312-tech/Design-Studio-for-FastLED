@@ -242,7 +242,7 @@ describe('Pattern Slideshow preview clocks', () => {
         ],
       },
     }
-    const show = node('show', 'PatternSlideshow', { interval: 999 })
+    const show = node('show', 'PatternSlideshow', { minTime: 999, maxTime: 999 })
     const collection = node('coll', 'PatternCollection', { patternIds: ['animated'] })
     const nodes = [show, collection, output, node('spd', 'MasterSpeed', { speed: 0 })]
     const edges = [
@@ -265,7 +265,7 @@ describe('Pattern Slideshow preview clocks', () => {
   it('advances dwell on real elapsed time even when animation time is frozen', () => {
     resetEvaluatorState()
     const show = node('show', 'PatternSlideshow', {
-      order: 'Sequential', interval: 1, transitionsEnabled: false,
+      order: 'Sequential', minTime: 1, maxTime: 1, transitionSec: 0,
     })
     const collection = node('coll', 'PatternCollection', { patternIds: ['a', 'b'] })
     const knob = node('spd', 'MasterSpeed', { speed: 0 })

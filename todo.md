@@ -1258,16 +1258,6 @@ freeze, or drop them.
   the definition comment names only Performance Generator, but Pattern
   Slideshow takes it too. Update both. Evidence
   `src/nodes/show/definitions.ts:381`, `src/nodes/show/definitions.ts:194`.
-- [ ] **Pattern Slideshow: Merge Interval into Min/Max Time (Med, M).** Without
-  Audio Reactive the resolver sets `minTime = maxTime = interval`; with it,
-  Interval is hidden and Min/Max default to 20/20, so Energy Pacing visibly
-  changes nothing. Drop `interval` and its port, always show Min/Max (equal
-  means fixed), gate only Beat Transitions, Energy Pacing and Dwells & Bursts on
-  Audio Reactive, and default to an unequal pair such as 8-30 s. Evidence
-  `src/state/patterns/patternSlideshow.ts:107`, `src/nodes/show/definitions.ts:263`.
-- [ ] **Pattern Slideshow: Remove the Transitions switch (Low, S).**
-  `transitionsEnabled: false` and Transition 0 s both give a hard cut. Keep
-  only the duration field. Evidence `src/state/patterns/patternSlideshow.ts:118`.
 - [ ] **Performance Generator: Show in the main preview by default (Low, S).**
   `showInMainPreview` defaults off, so a generator wired to an LED output plays
   only in its small body canvas while that output's main preview stays black.

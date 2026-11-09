@@ -248,26 +248,28 @@ music-free case. Nobody would find that, so nobody did.
 
 **What is different from Music Player**, and why:
 
-- **One interval, or the Music Player's timing.** Without Audio Reactive a
-  pattern holds for a fixed Interval, because a slideshow with nothing to
-  listen to has no beat to feel metronomic against. Audio Reactive swaps the
-  Interval for the player's set: Min/Max Time, Beat Transitions, Energy
-  Pacing and Dwells & Bursts mean what they mean on the player. The fade and
-  the Transitions switch apply either way. The preview and `showGenerator.ts`
-  both read this through `slideshowSettings`, which resolves the Interval to
-  Min equal to Max, so a fixed hold still compiles to one constant. The
-  inline editor disables whichever half does not apply.
-- **Transitions are optional, with a fade built in.** Off means a cut. On with
-  nothing wired means a fade, rather than requiring a `TransitionSet` to get the
-  one transition everybody wants first.
+- **The Music Player's hold, with the listening switched off.** A pattern
+  holds for a random time between Min Time and Max Time with or without Audio
+  Reactive; equal Min and Max is a fixed hold, and still compiles to one
+  constant. Audio Reactive turns on only the timing that listens: Beat
+  Transitions, Energy Pacing and Dwells & Bursts mean what they mean on the
+  player. The defaults are an unequal 8 to 30 s, so pacing has a range to lean
+  within. An Interval field used to stand in for an equal pair without Audio
+  Reactive and hide Min and Max; it was removed, since it was the same setting
+  shown twice and left Energy Pacing nothing to vary. The preview and
+  `showGenerator.ts` both read this through `slideshowSettings`. The inline
+  editor disables the listening rows without Audio Reactive.
+- **Transitions with a fade built in.** Transition 0 means a cut. Above it,
+  with nothing wired, a fade, rather than requiring a `TransitionSet` to get
+  the one transition everybody wants first. A separate Transitions switch gave
+  the same cut as 0 and was removed.
 - **Audio is live-only and off by default.** A music-free player has no decoder
   to tap, so its `audio` accepts a microphone or a line input and nothing else.
   Reactivity is an explicit switch because the whole point of the mode is slow
   relaxing patterns, which should not twitch at room noise unless asked.
 - **The ports and rows are the player's.** The slideshow declares the player's
   `beat` input in the player's place, and its Timing rows draw in the player's
-  order with Interval and the Transitions switch slotted in, so a hand that
-  knows one node knows the other. A wired Beat overrides the Audio wire's
+  order, so a hand that knows one node knows the other. A wired Beat overrides the Audio wire's
   detector for Beat Transitions and the particle overlay, in preview and in
   `showGenerator.ts`, where `showControlRouting` reads it as a bool control and
   forwards a Beat Detect fed by the show's Audio node from the hosted engine's
