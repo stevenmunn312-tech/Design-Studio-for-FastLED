@@ -71,7 +71,7 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     return { value: Number(props.value ?? 1) }
   },
   // One scalar from the sandboxed formula language; blank (0) until the
-  // workspace is trusted, like Custom Formula, and 0 when the formula fails.
+  // workspace is trusted, like Formula Pattern, and 0 when the formula fails.
   Expression({ num, t, W, H, trusted }, id, props) {
     if (!trusted) return { result: 0 }
     const fn = compileFormula(String(props.formula ?? ''), scalarFormulaCache, compileScalarFormula)

@@ -5,10 +5,13 @@ import type { NodeDefinition } from '../../types'
 
 export const CODE_DEFINITIONS: NodeDefinition[] = [
 
-  // ── Custom Formula ────────────────────────────────────────────────────
+  // ── Formula Pattern ───────────────────────────────────────────────────
+  // Type id `CustomFormula`; labelled Formula Pattern because it outputs a
+  // frame, beside Expression (a number), Field Formula (a field) and Formula
+  // Shapes, which share its formula language.
   {
     type: 'CustomFormula',
-    label: 'Custom Formula',
+    label: 'Formula Pattern',
     category: 'pattern',
     subcategory: 'Code',
     inputs: [
@@ -17,6 +20,9 @@ export const CODE_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { a: 'a', b: 'b', palette: 'paletteIn' },
+    // A and B are how a control reaches the formula, so their sockets are
+    // drawn from the start, as on Expression.
+    defaultExposedInputs: ['a', 'b'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', a: 0, b: 0, palette: 'rainbow' },
   },

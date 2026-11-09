@@ -1428,8 +1428,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   CustomFormula: {
     overview: [
-      'Custom Formula colours every pixel from a formula you write. It knows x and y (0 to 1), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, the usual maths, and FastLED’s helpers such as sin8 and beatsin8.',
-      'The formula’s result, 0 to 1 and wrapping, is looked up in the palette. One line can make ripples, spirals, interference patterns and checkerboards.',
+      'Formula Pattern colours every pixel from a formula you write. It knows x and y (0 to 1), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, the usual maths, and FastLED’s helpers such as sin8 and beatsin8.',
+      'The formula’s result, 0 to 1 and wrapping, is looked up in the palette. One line can make ripples, spirals, interference patterns and checkerboards. Wire a pot, a Web Remote slider or an audio level into A or B to steer it.',
+      'It is one of four nodes that share this formula language: Expression makes a number, Field Formula a field and Formula Shapes a shape. To combine a formula with other fields before it is coloured, build it as a Field Formula and finish with Field → Frame.',
       'Formulas run only once you have answered Run it on the bar above the canvas; until then a project from another computer shows black.',
     ],
     example: example({
@@ -1438,7 +1439,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         ripple: ['CustomFormula', { formula: 'sin(r*18 - t*4)*0.5 + 0.5', palette: 'ocean' }],
       },
-      explanation: 'Custom Formula draws sin(r·18 − t·4): r is distance from the centre, so the formula makes rings, and subtracting time moves them outward. The ocean palette colours the result.',
+      explanation: 'Formula Pattern draws sin(r·18 − t·4): r is distance from the centre, so the formula makes rings, and subtracting time moves them outward. The ocean palette colours the result.',
       preview: 'The {output} shows blue rings rippling outward from the centre.',
     }),
   },

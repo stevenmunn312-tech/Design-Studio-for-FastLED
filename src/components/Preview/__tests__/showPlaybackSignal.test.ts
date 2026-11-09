@@ -76,7 +76,7 @@ describe('applyShowPlaybackSignal', () => {
           {
             id: 'formula', type: 'studioNode', position: { x: 0, y: 0 },
             data: {
-              label: 'Custom Formula', nodeType: 'CustomFormula', category: 'pattern',
+              label: 'Formula Pattern', nodeType: 'CustomFormula', category: 'pattern',
               properties: { formula: '1', palette: 'rainbow' }, inputs: [],
               outputs: [{ id: 'frame', dataType: 'frame' }],
             },

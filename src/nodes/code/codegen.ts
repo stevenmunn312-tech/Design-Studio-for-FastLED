@@ -26,7 +26,7 @@ export const CODE_EMITTERS: NodeEmitters = {
     ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
     ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
     ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
-    // Custom Formula has no field input; the name reads 0, as in the preview.
+    // Formula Pattern has no field input; the name reads 0, as in the preview.
     ln(`      float fieldIn=0.0f; (void)fieldIn;`)
     ln(`      float _v=${formula};`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)

@@ -296,7 +296,7 @@ export function evaluateScalar(
   tick: number,
   gridW = DEFAULT_W,
   gridH = DEFAULT_H,
-  // Whether gated nodes (Expression, Custom Formula, Code) may run their
+  // Whether gated nodes (Expression, Formula Pattern, Code) may run their
   // preview logic; a probe over an untrusted workspace must read them as 0,
   // exactly as the live render does.
   trusted = true,

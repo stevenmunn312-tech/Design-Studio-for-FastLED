@@ -131,7 +131,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // One scalar from a formula over a, b, t, W and H on the same sandboxed
-    // language as Custom Formula (formulaLang's SCALAR_FORMULA_VARIABLES).
+    // language as Formula Pattern (formulaLang's SCALAR_FORMULA_VARIABLES).
     // Trust-gated like the other formula nodes: it outputs 0 until trusted.
     type: 'Expression',
     label: 'Expression',

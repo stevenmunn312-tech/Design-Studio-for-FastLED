@@ -159,7 +159,7 @@ export function editableProperties(
       // Comment's `text` gets its own multi-line editor in the body, not the
       // generic single-line field list.
       && !(isComment && k === 'text')
-      // Custom Formula's and Expression's `formula` get the Code node's editor
+      // Formula Pattern's and Expression's `formula` get the Code node's editor
       // in the body, with its parse error beneath it.
       && !((nodeType === 'CustomFormula' || nodeType === 'Expression') && k === 'formula')
       // PSRAM controls render in the upload tab — their visibility depends

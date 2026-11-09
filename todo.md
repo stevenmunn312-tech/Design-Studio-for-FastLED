@@ -127,14 +127,6 @@ freeze, or drop them.
   Derive the source from the upstream battery or trigger when on the bench
   and show it read-only, which removes the PD-mismatch warning. Evidence
   `src/build/power/electricalPlan.ts:549`, `src/build/power/electricalPlan.ts:461`.
-- [ ] **Custom Formula: Expose A and B by default (Low, S).** A, B and
-  Palette are property inputs with no `defaultExposedInputs`, so the node
-  shows no input ports until exposed, unlike Expression. Expose A and B by
-  default. Evidence `src/nodes/code/definitions.ts:19`, `src/nodes/math/definitions.ts:146`.
-- [ ] **Custom Formula: Rename to Formula Pattern (Low, S).** Four formula
-  nodes share one language under unrelated names (Expression, Custom
-  Formula, Field Formula, Formula Shapes). "Formula Pattern" says it outputs
-  a frame; also point Help to Field Formula, Field, Frame for composition.
 - [ ] **Code: Add float A/B inputs (Med, M).** The only input is an optional
   seed Frame, so a pasted FastLED effect can't follow a pot, Web Remote
   slider or audio level without editing the code. Add Custom Formula's float

@@ -1461,7 +1461,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const musicLibraryAnalyzing = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   // The Code node embeds a multi-line C++ editor, so it needs a wider frame.
   const isCode = d.nodeType === 'Code'
-  // Custom Formula and Expression embed the Code node's editor with their
+  // Formula Pattern and Expression embed the Code node's editor with their
   // parse error beneath it; Expression's vocabulary is the scalar one.
   const isFormulaNode = d.nodeType === 'CustomFormula' || d.nodeType === 'Expression'
   const formulaError = d.nodeType === 'CustomFormula' ? nodeFormulaError(String(props.formula ?? ''))

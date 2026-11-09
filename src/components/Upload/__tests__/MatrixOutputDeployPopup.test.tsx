@@ -803,7 +803,7 @@ describe('MatrixOutputDeployPopup', () => {
     // back to a blank render), so an invalid formula must block export rather
     // than quietly shipping a sketch that does something else.
     vi.mocked(findDeployBlockingErrors).mockReturnValue([
-      'Custom Formula has an invalid formula: 0.0f; digitalWrite(2, HIGH); float _x = 0',
+      'Formula Pattern has an invalid formula: 0.0f; digitalWrite(2, HIGH); float _x = 0',
     ])
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
