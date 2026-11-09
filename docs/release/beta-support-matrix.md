@@ -203,18 +203,18 @@ Not yet recorded as a supported row: the ESP32-2432S028 ("CYD") integrated
 touch TFT board — see the note under "Recorded validations that are not yet
 full support rows" below.
 
-### ESP32 upload-engine recommendation
+### Upload engine default
 
-For new ESP32 uploads, Studio defaults to and recommends `arduino-cli`. fbuild 2.5.21
-has a confirmed unresolved ESP32 no-op delay: on the recorded Windows/ESP32-S3 bench,
-an unchanged build spent 181.5 seconds deciding that no compilation was needed, making
-the full re-upload 3m 40s versus 26.8s with arduino-cli. fbuild remains available in
-Board & Port as an explicit **experimental workflow choice** because it manages its own
-toolchains and may still suit users who accept that latency. See the
+Studio defaults to `fbuild` whenever it is installed, and falls back to `arduino-cli`
+when it is not. A saved choice in Board & Port still wins. From 2026-09-03 to
+2026-11-09 the default was `arduino-cli`, because fbuild 2.5.21 spent about three
+minutes deciding that an unchanged ESP32 build needed no work. That delay was fixed
+upstream in 2.5.22 and re-measured on 2.5.26; see the
 [fbuild workaround report](../runbooks/fbuild-workarounds.md#9-a-build-with-nothing-to-do-still-takes-three-minutes).
 
-This recommendation does not retroactively invalidate the fbuild hardware rows above,
-and it does not promote unrecorded arduino-cli/board combinations to supported status.
+The default does not retroactively invalidate the hardware rows above, which name
+their engine, and it does not promote unrecorded fbuild/board combinations to
+supported status.
 The rows remain evidence for exactly the engine, board, host, browser, layout, and action
 they name.
 

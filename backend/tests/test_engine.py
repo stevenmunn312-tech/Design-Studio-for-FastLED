@@ -9,11 +9,11 @@ import toolchain
 import app
 
 
-def test_active_engine_prefers_arduino_cli_when_no_saved_preference(monkeypatch):
+def test_active_engine_prefers_fbuild_when_no_saved_preference(monkeypatch):
     monkeypatch.setattr(toolchain, "_load_config", lambda: {})
     monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
-    assert toolchain._active_engine() == "arduino-cli"
+    assert toolchain._active_engine() == "fbuild"
 
 
 def test_active_engine_falls_back_to_arduino_cli_when_fbuild_missing(monkeypatch):
@@ -45,12 +45,12 @@ def test_active_engine_honours_explicit_fbuild_choice_when_available(monkeypatch
 
 
 def test_active_engine_ignores_saved_preference_when_unavailable(monkeypatch):
-    # Saved "fbuild" but fbuild isn't actually installed -> falls through to
-    # the default logic rather than reporting an engine that can't run.
-    monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "fbuild"})
-    monkeypatch.setattr(toolchain, "_FBUILD_BIN", None)
-    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
-    assert toolchain._active_engine() == "arduino-cli"
+    # Saved "arduino-cli" but arduino-cli isn't actually installed -> falls
+    # through to the default rather than reporting an engine that can't run.
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "arduino-cli"})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
+    assert toolchain._active_engine() == "fbuild"
 
 
 def test_active_engine_returns_arduino_cli_when_neither_installed(monkeypatch):

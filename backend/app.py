@@ -4,10 +4,10 @@ A tiny FastAPI service the browser app talks to so it can compile and upload
 sketches to a board over USB — the browser can't launch a local CLI itself.
 Mirrors the proven setup from the Matrix Studio backend.
 
-Two build engines are supported: `arduino-cli` (the default when installed)
-and `fbuild` (FastLED's own PlatformIO-compatible build tool, available as an
-explicit experimental choice). `toolchain._active_engine()` picks one; `/api/engine`
-lets the UI query or override the choice.
+Two build engines are supported: `fbuild` (FastLED's own PlatformIO-compatible
+build tool, the default when installed) and `arduino-cli` (the fallback, and an
+explicit choice). `toolchain._active_engine()` picks one; `/api/engine` lets the
+UI query or override the choice.
 
 Run (from the repo root):
 

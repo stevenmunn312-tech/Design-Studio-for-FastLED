@@ -146,9 +146,9 @@ _refresh_cli()
 # own PlatformIO-compatible build tool. It removes most of arduino-cli's
 # lifecycle management (per-board core install, FastLED lib install) — a board
 # just needs one `[env:X]` section in `platformio.ini` and fbuild downloads its
-# own toolchain/framework on first use. It remains available as an explicit
-# experimental choice, but arduino-cli is the default while fbuild's confirmed
-# ESP32 no-op delay is unresolved (see `_active_engine`).
+# own toolchain/framework on first use. It is the default engine whenever it is
+# installed (see `_active_engine`); arduino-cli stays available as an explicit
+# choice and is the fallback when fbuild is missing.
 _FBUILD_BIN: str | None = None
 _ESPTOOL_BIN: str | None = None
 
@@ -203,14 +203,15 @@ _refresh_fbuild()
 
 def _active_engine() -> str:
     """Which build engine to use. A saved `engine` preference wins if that
-    engine is actually available; otherwise prefer arduino-cli. fbuild remains
-    the automatic fallback when it is the only installed engine."""
+    engine is actually available; otherwise prefer fbuild. arduino-cli is the
+    automatic fallback when fbuild is not installed, and the answer when
+    neither is, so the UI can offer to set arduino-cli up."""
     saved = _load_config().get("engine")
     if saved == "fbuild" and _FBUILD_BIN:
         return "fbuild"
     if saved == "arduino-cli" and _ARDUINO_CLI:
         return "arduino-cli"
-    return "arduino-cli" if _ARDUINO_CLI else ("fbuild" if _FBUILD_BIN else "arduino-cli")
+    return "fbuild" if _FBUILD_BIN else "arduino-cli"
 
 
 # ── fbuild project scaffold ───────────────────────────────────────────────────

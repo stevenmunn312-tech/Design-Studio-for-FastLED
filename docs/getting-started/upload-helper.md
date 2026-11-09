@@ -42,17 +42,18 @@ for updates, tests and packaging dependencies.
 ## Choose a build engine
 
 The helper uses a saved engine preference while that engine is available;
-otherwise it prefers `arduino-cli`, falling back to `fbuild`. The Upload tab
+otherwise it prefers `fbuild`, falling back to `arduino-cli`. The Upload tab
 shows the active engine.
 
-- **Arduino CLI** is the recommended ESP32 path. Install it on `PATH`, set
+- **fbuild** is the default, installed with the Python requirements. It
+  downloads toolchains on first use and builds in a persistent scaffold. The
+  helper vendors required libraries and hides unused optional libraries for
+  unrelated builds.
+- **Arduino CLI** is an explicit choice. Install it on `PATH`, set
   `ARDUINO_CLI` to its executable, or use the detected Arduino IDE installation.
   Install the matching board core and FastLED library. Custom-screen builds
   arrange the pinned LVGL library and generated `lv_conf.h` through the helper.
-- **fbuild** is an experimental ESP32 choice installed with the Python
-  requirements. It downloads toolchains on first use and builds in a persistent
-  scaffold. The helper vendors required libraries and hides unused optional
-  libraries for unrelated builds.
+  Adding a custom board by URL and checking for core updates need it.
 
 The old ESP32 no-op delay was fixed upstream and was re-measured on fbuild
 2.5.26 in the [workaround record](../runbooks/fbuild-workarounds.md).

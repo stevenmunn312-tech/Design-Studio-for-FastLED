@@ -625,13 +625,13 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>3</div>
             <div className={styles.tipText}>
-              <strong>Let the compiler prepare.</strong> Studio recommends <strong>arduino-cli</strong> for ESP32 targets while fbuild's confirmed no-op delay remains unresolved.
+              <strong>Let the compiler prepare.</strong> Studio builds with <strong>fbuild</strong> by default. It downloads each board's toolchain on that board's first build, which takes a few minutes; later builds are fast.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>4</div>
             <div className={styles.tipText}>
-              <strong>For arduino-cli,</strong> install the board support package and FastLED library. The build tools can locate or download <code>arduino-cli</code>, but its libraries and board support are managed separately. <strong>fbuild</strong> remains available under Build tools &amp; port ▸ Advanced as an explicit experimental choice and downloads its own board support.
+              <strong>arduino-cli</strong> remains available under Build tools &amp; port ▸ Advanced. If you choose it, install the board support package and FastLED library: the build tools can locate or download <code>arduino-cli</code>, but its libraries and board support are managed separately.
             </div>
           </div>
         </div>

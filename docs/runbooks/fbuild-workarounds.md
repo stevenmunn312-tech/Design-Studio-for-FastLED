@@ -551,6 +551,10 @@ available and falls back to fbuild only when it is the sole installed engine. Th
 workflow recommendation, not a rewrite of the dated hardware evidence: the exact fbuild
 combinations recorded in the beta support matrix remain valid observations.
 
+**Superseded 2026-11-09.** With the delay fixed upstream, fbuild is the default engine
+again whenever it is installed, and arduino-cli is the fallback. A saved choice still
+wins.
+
 **Not the cause.** Two candidates were eliminated first, both by the same build-tree
 timestamps:
 

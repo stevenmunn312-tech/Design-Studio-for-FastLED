@@ -16,8 +16,8 @@ export interface BackendHealth {
   arduinoCli: boolean
   version?: string | null
   /** Which build engine the helper will actually use for the next compile.
-   *  The helper defaults to `arduino-cli`; `fbuild` is an explicit
-   *  experimental choice and the fallback when it is the only engine. */
+   *  The helper defaults to `fbuild`; `arduino-cli` is an explicit choice
+   *  and the fallback when fbuild is not installed. */
   engine?: 'fbuild' | 'arduino-cli'
   fbuild?: boolean
   fbuildVersion?: string | null

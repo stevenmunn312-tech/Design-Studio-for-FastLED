@@ -38,7 +38,6 @@ export default function BoardPopup() {
   const [showAddForm, setShowAddForm] = useState(false)
 
   const usingFbuild = helper?.engine === 'fbuild'
-  const esp32Target = selectedFqbn.startsWith('esp32:')
   const ready = engineReady(helper)
   const boards = allBoards()
   const board = boardByFqbn(selectedFqbn)
@@ -118,9 +117,9 @@ export default function BoardPopup() {
           <button className={styles.closeBtn} onClick={closeBoardPopup} title="Close">×</button>
         </div>
 
-        {/* Compiler switcher. arduino-cli is the ESP32 default while the
-            measured fbuild no-op delay remains unresolved; fbuild stays
-            available as a persisted, explicit experimental choice. */}
+        {/* Compiler switcher. fbuild is the default whenever it is
+            installed; arduino-cli stays available as a persisted, explicit
+            choice. */}
         {helper && (
           <>
             <div className={styles.sectionTitle}>Compiler (advanced)</div>
@@ -130,20 +129,20 @@ export default function BoardPopup() {
                 disabled={busy || !helper.fbuild}
                 onClick={() => setEngine('fbuild')}
                 title={helper.fbuild
-                  ? (esp32Target ? 'Experimental for ESP32 — manages its own toolchain, but unchanged builds can still take about three minutes' : 'fbuild — manages its own per-board toolchains automatically')
+                  ? 'fbuild — manages its own per-board toolchains automatically'
                   : 'fbuild is not installed on this machine'}
               >
-                fbuild{esp32Target ? ' (experimental)' : ''}
+                fbuild
               </button>
               <button
                 className={!usingFbuild ? styles.consoleTabActive : styles.consoleTab}
                 disabled={busy || !helper.arduinoCli}
                 onClick={() => setEngine('arduino-cli')}
                 title={helper.arduinoCli
-                  ? (esp32Target ? 'Recommended for ESP32 while fbuild\'s no-op delay remains unresolved' : 'arduino-cli — supports custom boards by URL and core update checks')
+                  ? 'arduino-cli — supports custom boards by URL and core update checks'
                   : 'arduino-cli is not installed — see "Set it up…" below'}
               >
-                arduino-cli{esp32Target ? ' (recommended)' : ''}
+                arduino-cli
               </button>
             </div>
           </>
@@ -158,17 +157,9 @@ export default function BoardPopup() {
           <div className={`${styles.note} ${styles.noteWarn}`}>
             The arduino-cli compiler was not found. <button className={styles.linkBtn} onClick={openCliPopup}>Set it up…</button>
           </div>
-        ) : usingFbuild && esp32Target ? (
-          <div className={`${styles.note} ${styles.noteWarn}`}>
-            fbuild is an experimental ESP32 choice. It manages its own toolchain, but a confirmed no-op build can still spend about three minutes checking unchanged artifacts. Use arduino-cli for the recommended upload path until that upstream delay is resolved.
-          </div>
         ) : usingFbuild ? (
           <div className={styles.note}>
             Using fbuild — the first build for a new board downloads its board support package (a few minutes); after that, builds are fast.
-          </div>
-        ) : esp32Target ? (
-          <div className={styles.note}>
-            Using arduino-cli — recommended for ESP32 while fbuild's confirmed no-op delay remains unresolved.
           </div>
         ) : null}
 

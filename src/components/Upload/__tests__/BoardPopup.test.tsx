@@ -29,14 +29,14 @@ describe('BoardPopup build-engine guidance', () => {
     })
   })
 
-  it('marks arduino-cli as recommended and keeps fbuild as an explicit experimental choice for ESP32', () => {
-    const { getByRole, getByText } = render(<BoardPopup />)
+  it('offers both engines as plain choices for ESP32, with no experimental warning', () => {
+    const { getByRole, queryByText } = render(<BoardPopup />)
 
-    expect(getByRole('button', { name: 'arduino-cli (recommended)' })).toBeTruthy()
-    expect(getByRole('button', { name: 'fbuild (experimental)' })).toBeTruthy()
-    expect(getByText(/recommended for ESP32 while fbuild's confirmed no-op delay remains unresolved/i)).toBeTruthy()
+    expect(getByRole('button', { name: 'arduino-cli' })).toBeTruthy()
+    expect(getByRole('button', { name: 'fbuild' })).toBeTruthy()
+    expect(queryByText(/experimental|recommended/i)).toBeNull()
 
-    fireEvent.click(getByRole('button', { name: 'fbuild (experimental)' }))
+    fireEvent.click(getByRole('button', { name: 'fbuild' }))
     expect(useUploadStore.getState().setEngine).toHaveBeenCalledWith('fbuild')
   })
 
@@ -54,16 +54,16 @@ describe('BoardPopup build-engine guidance', () => {
     expect(useUiStore.getState().hardwareBoardMenuRequested).toBe(true)
   })
 
-  it('explains the measured latency when fbuild is explicitly selected for ESP32', () => {
+  it('explains the first-build download when fbuild is the engine for ESP32', () => {
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: true },
       installedCores: [],
     })
 
-    const { getByText } = render(<BoardPopup />)
+    const { getByText, queryByText } = render(<BoardPopup />)
 
-    expect(getByText(/confirmed no-op build can still spend about three minutes/i)).toBeTruthy()
-    expect(getByText(/Use arduino-cli for the recommended upload path/i)).toBeTruthy()
+    expect(getByText(/Using fbuild — the first build for a new board downloads/i)).toBeTruthy()
+    expect(queryByText(/three minutes/i)).toBeNull()
   })
 
   it('reports the memory of the board being chosen for, not the whole bench', () => {

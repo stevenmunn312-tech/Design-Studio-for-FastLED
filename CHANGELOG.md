@@ -183,6 +183,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- **fbuild is the default build engine again.** The helper builds with fbuild
+  whenever it is installed and falls back to arduino-cli when it is not. The
+  three-minute wait on an unchanged ESP32 build that made arduino-cli the
+  default was fixed in fbuild 2.5.22, so Board & Port no longer marks fbuild
+  as experimental. A choice you saved there still wins.
+
 - **The Windows desktop app opens in its own window.** It no longer opens a
   browser tab and a console window. The Studio appears in a native window
   drawn by the Microsoft Edge WebView2 Runtime that is part of Windows, and
