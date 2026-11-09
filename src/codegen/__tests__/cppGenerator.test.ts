@@ -1452,17 +1452,21 @@ describe('generateCpp', () => {
     const shape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 0.25, cy: 0.5, size: 2, aspect: 1, wrap: true, filled: true })
     const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _cxv=0.25,_cyv=0.5;')
-    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);')
+    expect(cpp).toContain('float _cx=(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);')
     expect(cpp).toContain('float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};')
     expect(cpp).toContain('float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];')
     expect((cpp.match(/\{/g) ?? []).length).toBe((cpp.match(/\}/g) ?? []).length) // balanced braces
   })
 
-  it('emits Shape pixel-space center compatibility', () => {
-    const shape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 4, cy: 4, size: 2, aspect: 1 })
-    const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
+  it('emits a Shape centred on a pixel in Pixels units, with no off-edge margin', () => {
+    const shape = node('sh', 'Shape', 'pattern', { shape: 'rect', units: 'pixels', cx: 4, cy: 4, size: 2, aspect: 1 })
+    const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')], {}, { deferPruning: true })
     expect(cpp).toContain('float _cxv=4,_cyv=4;')
-    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
+    expect(cpp).toContain('float _cx=_cxv+0.5f,_cy=_cyv+0.5f;')
+    expect(cpp).not.toMatch(/_extentX|_mx/)
+    // A value above 1 at 0–1 is a fraction like any other: no runtime test.
+    const fraction = generateCpp([node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 4, cy: 4 }), outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
+    expect(fraction).not.toContain('>1.0f?')
   })
 
   it('Shape count/sides can be driven by a wired signal', () => {
@@ -2720,7 +2724,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _size=max(0.5f,3),_aspect=max(0.01f,1),')
     expect(cpp).toContain('float _th=max(0.0f,2);')
     expect(cpp).toContain('float _cxv=0.5,_cyv=0.5;')
-    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
+    expect(cpp).toContain('float _cx=(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
     expect(cpp).toContain('_sd=_sdfEllipse(_lx,_ly,_size*_aspect,_size);')
     expect(cpp).toContain('float _fc=0.0f;')                                        // unfilled: no fill coverage
     expect(cpp).toContain('float _ec=_th>0.0f?constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f):0.0f;')
@@ -2740,23 +2744,27 @@ describe('generateCpp', () => {
     const c = node('c', 'Shape', 'pattern', { shape: 'ellipse', cx: 0, cy: 0.5, size: 3, wrap: true, edge: '#ff0000' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _cxv=0,_cyv=0.5;')
-    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);')
+    expect(cpp).toContain('float _cx=(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);')
     expect(cpp).toContain('float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};')
     expect(cpp).toContain('float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};')
     expect(cpp).toContain('float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];')
   })
 
-  it('emits ellipse Shape pixel-space center compatibility', () => {
-    const c = node('c', 'Shape', 'pattern', { shape: 'ellipse', cx: 8, cy: 8, size: 3 })
+  it('emits a wrapped ellipse Shape on a pixel in Pixels units', () => {
+    const c = node('c', 'Shape', 'pattern', { shape: 'ellipse', units: 'pixels', cx: 8, cy: 8, size: 3, wrap: true })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _cxv=8,_cyv=8;')
-    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
+    expect(cpp).toContain('float _cx=_cxv+0.5f,_cy=_cyv+0.5f;')
   })
 
   it('emits a Line as one distance-to-segment pass', () => {
-    const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 7, y2: 7, r: 0, g: 200, b: 255 })
+    const l = node('l', 'Line', 'pattern', { units: 'pixels', x1: 0, y1: 0, x2: 7, y2: 7, r: 0, g: 200, b: 255 })
     const cpp = generateCpp([l, outputNode], [edge('e', 'l', 'out', 'frame', 'frame')])
     expect(cpp).toContain('_hw = fmaxf(0.5f, 1) * 0.5f;')
+    expect(cpp).toContain('float _x0 = 0, _y0 = 0, _x1 = 7, _y1 = 7,')
+    // 0–1 scales each end onto the matrix, the first pixel to the last.
+    const unit = generateCpp([node('l', 'Line', 'pattern', { x1: 0, y1: 0.5, x2: 1, y2: 0.5 }), outputNode], [edge('e', 'l', 'out', 'frame', 'frame')])
+    expect(unit).toContain('float _x0 = (0)*(WIDTH-1.0f), _y0 = (0.5)*(HEIGHT-1.0f), _x1 = (1)*(WIDTH-1.0f), _y1 = (0.5)*(HEIGHT-1.0f),')
     expect(cpp).toContain('float _u = _l2 > 0.0f ? constrain(((_x - _x0) * _vx + (_y - _y0) * _vy) / _l2, 0.0f, 1.0f) : 0.0f;')
     expect(cpp).toContain('float _cov = constrain(_hw + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);')
     expect(cpp).not.toContain('_steps')

@@ -86,6 +86,7 @@ import {
 import { FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN } from './evaluator/fluid'
 import { FRAME_TO_FIELD_CONVERSIONS } from './evaluator/frames'
 import { SHAPE_FIELD_KINDS, SHAPE_KINDS } from './evaluator/sdf'
+import { POSITION_UNITS, POSITION_UNIT_LABELS, isPositionUnitKey, positionUnits } from '../nodes/shapes/positionUnits'
 import {
   FRACTAL_DEPTH_MAX, FRACTAL_DEPTH_MIN, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES,
 } from './evaluator/fractal'
@@ -606,6 +607,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
 // speedRange.ts), so the slider is uniform even where the underlying range
 // differs.
 const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
+// Shape, Text, Clock Display and Line: positions as 0–1 or pixels (positionUnits.ts).
+const POSITION_UNITS_META: PropertyControl = { control: 'select', options: POSITION_UNITS, labels: POSITION_UNIT_LABELS }
 const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
   touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
   touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
@@ -762,12 +765,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     brightness: { control: 'slider', min: 0, max: 3, step: 0.01 },
   },
   Text: {
+    units: POSITION_UNITS_META,
     x: N01,
     y: N01,
     // Cells a second; negative scrolls the other way.
     scroll: { control: 'slider', min: -20, max: 20, step: 0.5 },
   },
   ClockDisplay: {
+    units: POSITION_UNITS_META,
     x: N01,
     y: N01,
     radius: { control: 'slider', min: 2, max: 16, step: 0.5 },
@@ -1420,6 +1425,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     offsetY: { control: 'slider', min: -8, max: 8, step: 0.1 },
   },
   Shape: {
+    units:     POSITION_UNITS_META,
     cx:        N01,
     cy:        N01,
     // Half-height in pixels on a 16-pixel matrix (circumradius for a
@@ -1485,7 +1491,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edge: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
-  Line: { thickness: { control: 'slider', min: 0.5, max: 6, step: 0.1 } },
+  // No slider for the ends, so Pixels take an expression such as max_x;
+  // `propertyMetaFor` draws 0–1 as a slider.
+  Line: { units: POSITION_UNITS_META, thickness: { control: 'slider', min: 0.5, max: 6, step: 0.1 } },
   // A fraction of half the shorter side: past 1 the point leaves the canvas.
   Path: {
     scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
@@ -1754,6 +1762,9 @@ export function propertyMetaFor(
   if (nodeType === 'HSVToRGB' && key === 'h' && meta?.control === 'slider' && hueUnits(properties.hueUnits) === 'bytes') {
     return { ...meta, max: 255 }
   }
+  // A position is a 0–1 slider, or a free number in pixels: Line's ends, which
+  // have no slider of their own, then also take an expression such as max_x.
+  if (isPositionUnitKey(nodeType, key)) return positionUnits(properties.units) === 'pixels' ? undefined : N01
   return meta
 }
 
@@ -2517,8 +2528,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     run: 'Runs or pauses the stopwatch/timer. Clock/date modes ignore it.',
     reset: 'Rising-edge reset for the stopwatch/timer; toggle it off and on again to retrigger manually.',
     radius: 'Analog face radius. Only used by the analog display modes.',
-    x: 'Horizontal position of the clock, 0 (left) to 1 (right).',
-    y: 'Vertical position of the clock, 0 (top) to 1 (bottom).',
+    units: 'How X and Y are read: 0–1, from just off the left (or top) edge to just off the right (or bottom), or Pixels, where 0 is the first pixel and max_x the last.',
+    x: 'Horizontal position of the clock: 0 (just off the left) to 1 (just off the right), or a pixel column when Units is Pixels.',
+    y: 'Vertical position of the clock: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     hAlign: 'Which part of the digits sits at X: left edge, centre or right edge. Digital modes only.',
     vAlign: 'Which part of the digits sits at Y: top, middle or bottom. Digital modes only.',
   },
@@ -2889,8 +2901,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Text: {
     text: 'What to show. Letters, digits and basic punctuation; a new line starts a second row. A wired Text input replaces it, drawn at run time in the built-in font.',
-    x: 'Horizontal position, 0 (just off the left edge) to 1 (just off the right edge).',
-    y: 'Vertical position, 0 (just off the top) to 1 (just off the bottom).',
+    units: 'How X and Y are read: 0–1, from just off one edge to just off the other, or Pixels, where 0 is the first pixel and max_x the last.',
+    x: 'Horizontal position: 0 (just off the left edge) to 1 (just off the right edge), or a pixel column when Units is Pixels.',
+    y: 'Vertical position: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     scroll: 'Scroll speed in pixels per second. 0 holds still; negative runs the other way.',
     wrap: 'Repeat the text across the opposite edge so it tiles instead of leaving a gap.',
     hAlign: 'Which part of the text sits at X: its left edge, centre or right edge.',
@@ -2899,16 +2912,18 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     letterSpacing: 'Blank columns between letters, in pixels.',
   },
   Line: {
-    x1: 'Start X in pixels from the left: 0 is the first column, W-1 the last. Accepts expressions such as W/2.',
-    y1: 'Start Y in pixels from the top: 0 is the first row, H-1 the last. Accepts expressions such as H-1.',
-    x2: 'End X in pixels from the left: 0 is the first column, W-1 the last. Accepts expressions such as W-1.',
-    y2: 'End Y in pixels from the top: 0 is the first row, H-1 the last. Accepts expressions such as H-1.',
+    units: 'How the ends are read: 0–1, where 0 is the first pixel and 1 the last, or Pixels, which take expressions such as center_x or max_x.',
+    x1: 'Start X from the left: 0 is the first column; 1 is the last at 0–1, max_x in pixels.',
+    y1: 'Start Y from the top: 0 is the first row; 1 is the last at 0–1, max_y in pixels.',
+    x2: 'End X from the left: 0 is the first column; 1 is the last at 0–1, max_x in pixels.',
+    y2: 'End Y from the top: 0 is the first row; 1 is the last at 0–1, max_y in pixels.',
     thickness: 'Width of the line in pixels, 0.5 to 6. Edges are anti-aliased.',
   },
   Shape: {
     shape: 'Rectangle, ellipse (a circle at aspect 1), or a regular polygon whose corner count is Sides.',
-    cx: 'Centre X, 0 (just off the left edge) to 1 (just off the right). Values above 1 are pixels.',
-    cy: 'Centre Y, 0 (just off the top) to 1 (just off the bottom). Values above 1 are pixels.',
+    units: 'How Center X and Y are read: 0–1, from just off one edge to just off the other, or Pixels, where 0 is the first pixel and max_x the last.',
+    cx: 'Centre X: 0 (just off the left edge) to 1 (just off the right), or a pixel column when Units is Pixels.',
+    cy: 'Centre Y: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     size: 'Half-height in pixels; for a polygon, the distance from centre to a corner. With Scale with matrix on, it is pixels on a 16-pixel matrix and grows or shrinks with the matrix.',
     scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
     aspect: 'Width as a multiple of height for rectangles and ellipses. 1 is square.',
@@ -4183,8 +4198,9 @@ export function isPortlessNodeType(nodeType: string): boolean {
   return definition ? definition.inputs.length === 0 && definition.outputs.length === 0 : false
 }
 
-// A default may itself be an expression (Line's end point is `max_x`, `max_y`)
-// so a fresh node fits whatever matrix it lands on. Only one whose value
+// A default may itself be an expression, so a fresh node fits whatever matrix
+// it lands on (none does now: Line's ends were `max_x`, `max_y` until its 0–1
+// Units made 1 the last pixel). Only one whose value
 // follows the matrix counts: a bit pattern such as Slice Tiling's '0110' also
 // parses, and must stay text. Memoised per property: the per-frame resolver
 // asks about every string property, and compiling each colour or option string
@@ -4353,7 +4369,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'playback', label: 'Playback', keys: ['loop', 'playbackRate'] },
   ],
   Shape: [
-    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'scaleWithMatrix', 'aspect', 'rotation'] },
+    { key: 'position', label: 'Position', keys: ['units', 'cx', 'cy', 'size', 'scaleWithMatrix', 'aspect', 'rotation'] },
     { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'thickness', 'wrap', 'filled'] },
     { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
   ],
@@ -4414,7 +4430,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'threeBand', label: 'Three Band', keys: ['energy', 'speed', 'mirror'] },
   ],
   ClockDisplay: [
-    { key: 'display', label: 'Display', keys: ['displayMode', 'x', 'y', 'hAlign', 'vAlign', 'radius', 'scaleWithMatrix'] },
+    { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'radius', 'scaleWithMatrix'] },
     { key: 'transport', label: 'Transport', keys: ['run', 'reset', 'durationSec'] },
   ],
   ColorTrails: [
@@ -4512,7 +4528,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   Text: [
     { key: 'text', label: 'Text', keys: ['text', 'letterSpacing', 'wrap'] },
-    { key: 'position', label: 'Position', keys: ['x', 'y', 'hAlign', 'vAlign'] },
+    { key: 'position', label: 'Position', keys: ['units', 'x', 'y', 'hAlign', 'vAlign'] },
     { key: 'scroll', label: 'Scroll', keys: ['scroll', 'scrollAxis'] },
   ],
   Wave: [

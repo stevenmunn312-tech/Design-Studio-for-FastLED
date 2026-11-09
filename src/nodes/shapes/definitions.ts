@@ -59,8 +59,8 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Renders text with the built-in 3×5 font over an optional base frame;
-    // scroll > 0 scrolls it left. X/Y are normalised 0..1 around the text's
-    // visual centre; `wrap` tiles it across the opposite edges.
+    // scroll > 0 scrolls it left. X/Y are 0–1 or pixels by Units
+    // (positionUnits.ts); `wrap` tiles it across the opposite edges.
     type: 'Text',
     label: 'Text',
     category: 'pattern',
@@ -81,7 +81,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     propertyInputs: { x: 'x', y: 'y', scroll: 'scroll', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      text: 'HELLO', x: 0.5, y: 0.5, scroll: 0, wrap: false, r: 0, g: 255, b: 255,
+      text: 'HELLO', units: 'normalized', x: 0.5, y: 0.5, scroll: 0, wrap: false, r: 0, g: 255, b: 255,
       hAlign: 'center', vAlign: 'middle', scrollAxis: 'horizontal', letterSpacing: 1,
     },
   },
@@ -125,6 +125,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     ],
     defaultProperties: {
       displayMode: 'Digital HH:MM',
+      units: 'normalized',
       x: 0.5,
       y: 0.5,
       radius: 6,
@@ -140,7 +141,8 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Draws a line between two pixel positions over an optional base frame.
+    // Draws a line between two points over an optional base frame. Units is
+    // 0–1 (0 the first pixel, 1 the last) or pixel centres (positionUnits.ts).
     type: 'Line',
     label: 'Line',
     category: 'pattern',
@@ -159,7 +161,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { x1: 'x1', y1: 'y1', x2: 'x2', y2: 'y2', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { x1: 0, y1: 0, x2: 'max_x', y2: 'max_y', thickness: 1, r: 0, g: 200, b: 255 },
+    defaultProperties: { units: 'normalized', x1: 0, y1: 0, x2: 1, y2: 1, thickness: 1, r: 0, g: 200, b: 255 },
   },
   {
     // Bundled shape generator: draws a rect / ellipse / regular polygon at
@@ -191,6 +193,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       shape: 'polygon',
+      units: 'normalized',
       cx: 0.5,
       cy: 0.5,
       size: 6,

@@ -45,13 +45,7 @@ import { polarFrame, polarPixel, wireVertexQ8, wireframeEdgeQ8 } from '../shared
 import { isqrt32 } from '../shared/lib8tion'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
-
-function normalizedCenterAxis(value: number, size: number, extent: number, wrap: boolean): number {
-  if (value > 1) return value
-  if (wrap) return size * 0.5 - size + value * (size * 2)
-  const margin = extent + 1
-  return 0.5 - margin + value * (Math.max(0, size - 1) + 2 * margin)
-}
+import { type PositionUnits, centerAxis, clockCenterAxis, lineAxis, positionUnits, textAxisStart } from './positionUnits'
 
 // Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel counts
 // against a 16x16 matrix (this module's own DEFAULT_W/DEFAULT_H).
@@ -428,11 +422,13 @@ function blitText(
   vAlign: 'start' | 'center' | 'end',
   wrap = false,
   letterSpacing = 0,
+  xUnits: PositionUnits = 'normalized',
+  yUnits: PositionUnits = xUnits,
 ): void {
   const layout = textBlockLayout(text, font, letterSpacing)
   if (layout.lines.length === 0) return
-  const sx = layout.lines.map((line) => textAlignedStart(x, W, line.cols.length, hAlign, wrap))
-  const sy = textAlignedStart(y, H, layout.height, vAlign, wrap)
+  const sx = layout.lines.map((line) => textAxisStart(x, xUnits, W, line.cols.length, hAlign, wrap))
+  const sy = textAxisStart(y, yUnits, H, layout.height, vAlign, wrap)
   const xOffsets = wrap ? [-W, 0, W] : [0]
   const yOffsets = wrap ? [-H, 0, H] : [0]
   for (const ox of xOffsets) {
@@ -490,20 +486,6 @@ function shapeExtents(shape: string, size: number, aspect: number, rotation: num
     x: ax * cosR + ay * sinR + edge,
     y: ax * sinR + ay * cosR + edge,
   }
-}
-
-function textStartPosition(value: number, size: number, extent: number, wrap: boolean): number {
-  return Math.floor(normalizedCenterAxis(value, size, extent, wrap) - extent)
-}
-
-// Alignment-aware version: 'center' keeps the text centred on `value` (the
-// original behavior); 'start'/'end' anchor the text's leading/trailing edge
-// to `value` instead, reusing normalizedCenterAxis at zero extent (a point)
-// so the same off-screen travel range applies.
-function textAlignedStart(value: number, size: number, lengthPx: number, align: 'start' | 'center' | 'end', wrap: boolean): number {
-  if (align === 'center') return textStartPosition(value, size, lengthPx * 0.5, wrap)
-  const edge = Math.floor(normalizedCenterAxis(value, size, 0, wrap))
-  return align === 'end' ? edge - lengthPx : edge
 }
 
 // A pixel's place, 0–1, along a direction `angle` degrees across the matrix:
@@ -607,8 +589,9 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     }
     const x = num(id, 'x', props, 'x', 0.5)
     const y = num(id, 'y', props, 'y', 0.5)
-    const sx = layout.lines.map((line) => textAlignedStart(x, W, line.cols.length, hAlign, wrap))
-    const sy = textAlignedStart(y, H, layout.height, vAlign, wrap)
+    const units = positionUnits(props.units)
+    const sx = layout.lines.map((line) => textAxisStart(x, units, W, line.cols.length, hAlign, wrap))
+    const sy = textAxisStart(y, units, H, layout.height, vAlign, wrap)
     const scroll = num(id, 'scroll', props, 'scroll', 0)
     const base = input(id, 'base', null) as Frame | null
     return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing, base) }
@@ -632,6 +615,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const month = Number(dateTime?.month ?? 1)
     const x = num(id, 'x', props, 'x', 0.5)
     const y = num(id, 'y', props, 'y', 0.5)
+    const units = positionUnits(props.units)
     const radiusScale = props.scaleWithMatrix ? matrixSizeScale(W, H) : 1
     const radius = Math.max(2, num(id, 'radius', props, 'radius', 6) * radiusScale)
     const baseIn = input(id, 'base', null) as Frame | null
@@ -682,6 +666,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
         textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom'),
         false,
         0,
+        units,
       )
       // A Timer reads "done" the instant it reaches zero; a Stopwatch has
       // no end, so it never fires.
@@ -697,11 +682,13 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const clockOut = { seconds: valid ? secondsOfDay : 0, done: false }
 
     if (CLOCK_ANALOG_MODES.has(mode)) {
-      const cx = normalizedCenterAxis(x, W, radius, false)
-      const cy = normalizedCenterAxis(y, H, radius, false)
+      const cx = clockCenterAxis(x, units, W, radius)
+      const cy = clockCenterAxis(y, units, H, radius)
       renderAnalogClock(frame, valid ? secondsOfDay : 0, color, cx, cy, radius, W, H)
       if (mode === 'Analog + Date') {
-        blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 1, DEFAULT_FONT, W, H, 'center', 'start', false, 0)
+        // The date starts on the row below the face, floor(cy + radius + 1),
+        // as the sketch draws it: a pixel row whatever the units.
+        blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 0.5, DEFAULT_FONT, W, H, 'center', 'start', false, 0, units, 'pixels')
       }
       return { frame, ...clockOut }
     }
@@ -738,6 +725,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom'),
       false,
       0,
+      units,
     )
     return { frame, ...clockOut }
   },
@@ -750,8 +738,9 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 200)  / 255),
       b: byte(num(id, 'b', props, 'b', 255)  / 255),
     }
-    const x0 = num(id, 'x1', props, 'x1', 0), y0 = num(id, 'y1', props, 'y1', 0)
-    const x1 = num(id, 'x2', props, 'x2', 0), y1 = num(id, 'y2', props, 'y2', 0)
+    const units = positionUnits(props.units)
+    const x0 = lineAxis(num(id, 'x1', props, 'x1', 0), units, W), y0 = lineAxis(num(id, 'y1', props, 'y1', 0), units, H)
+    const x1 = lineAxis(num(id, 'x2', props, 'x2', 1), units, W), y1 = lineAxis(num(id, 'y2', props, 'y2', 1), units, H)
     const thickness = Math.max(0.5, num(id, 'thickness', props, 'thickness', 1))
     drawLineSegment(frame, x0, y0, x1, y1, thickness * 0.5, color)
     return { frame }
@@ -767,11 +756,12 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff3080'))
     const edge = (input(id, 'edge', null) as RGB | null) ?? hexToRgb(String(props.edge ?? '#00e0ff'))
     const extent = shapeExtents(shape, size, aspect, num(id, 'rotation', props, 'rotation', 0), thickness)
+    const units = positionUnits(props.units)
     evalWrappedShape(
       frame,
       shape,
-      normalizedCenterAxis(num(id, 'cx', props, 'cx', 0.5), W, extent.x, wrap),
-      normalizedCenterAxis(num(id, 'cy', props, 'cy', 0.5), H, extent.y, wrap),
+      centerAxis(num(id, 'cx', props, 'cx', 0.5), units, W, extent.x, wrap),
+      centerAxis(num(id, 'cy', props, 'cy', 0.5), units, H, extent.y, wrap),
       size,
       aspect,
       num(id, 'sides', props, 'sides', 5),

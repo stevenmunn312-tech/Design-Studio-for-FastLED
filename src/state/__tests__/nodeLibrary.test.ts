@@ -148,9 +148,9 @@ describe('nodeLibrary', () => {
     expect(propertyLabel('PaletteFromImage', 'count')).toBe('Colors')
   })
 
-  it('ships matrix-relative Line defaults', () => {
+  it('ships a Line that spans the matrix at 0–1 Units', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Line')?.defaultProperties).toMatchObject({
-      x1: 0, y1: 0, x2: 'max_x', y2: 'max_y',
+      units: 'normalized', x1: 0, y1: 0, x2: 1, y2: 1,
     })
   })
 

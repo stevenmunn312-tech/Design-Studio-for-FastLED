@@ -888,12 +888,17 @@ describe('StudioNode', () => {
   })
 
   it('editing a plain number field updates the node property in the store', () => {
-    // Line's end points are free numeric/expression inputs.
-    const { container } = renderNode(makeNode('Line', { x1: 0, y1: 0, x2: 7, y2: 7 }))
+    // Line's end points in pixels are free numeric/expression inputs.
+    const { container } = renderNode(makeNode('Line', { units: 'pixels', x1: 0, y1: 0, x2: 7, y2: 7 }))
     const num = container.querySelector('input[aria-label="x1 value or expression"]') as HTMLInputElement
     expect(num).toBeTruthy()
     fireEvent.change(num, { target: { value: '5' } })
     expect(useGraphStore.getState().nodes[0].data.properties.x1).toBe(5)
+  })
+
+  it('draws Line ends as 0–1 sliders until Units is Pixels', () => {
+    const { container } = renderNode(makeNode('Line', { units: 'normalized', x1: 0, y1: 0, x2: 1, y2: 1 }))
+    expect(container.querySelector('input[aria-label="x1 value or expression"]')).toBeNull()
   })
 
   it('stores dimension expressions and marks invalid source without erasing it', () => {

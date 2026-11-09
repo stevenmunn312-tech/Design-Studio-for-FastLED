@@ -156,7 +156,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       nodes: {
         walk: ['Wave', { frequency: 0.1, amplitude: 360, unipolar: true, waveform: 'sawtooth' }],
         colour: ['HSVToRGB', { s: 1, v: 1 }],
-        beam: ['Line', { x1: 0, y1: 'max_y', x2: 'max_x', y2: 0 }],
+        beam: ['Line', { x1: 0, y1: 1, x2: 1, y2: 0 }],
         spin: ['Transform', { transform: 'rotate', rate: 70 }],
         trails: ['Trails', { decay: 0.35 }],
       },
