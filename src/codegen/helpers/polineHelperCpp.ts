@@ -13,9 +13,12 @@ export function polinePositionId(position: unknown): number {
  * out: each HSL anchor becomes a point in a cylinder (hue the angle, lightness
  * the radius, saturation the height), each pair of neighbours is joined by
  * `points + 2` samples whose spacing the position function sets per axis, the
- * second segment running its easing in reverse, and the joined list is picked
- * at 16 evenly spaced indices. `polineFirmware.test.ts` holds a line-for-line
- * copy of it to the library. The position ids follow `POLINE_POSITIONS`.
+ * second segment running its easing in reverse, and the joined list is
+ * sampled at 16 evenly spaced points, each blended between the two colours
+ * either side of it. The point's index and weight come from integer
+ * arithmetic, as in the preview, so both pick the same pair.
+ * `polineFirmware.test.ts` holds a line-for-line copy of it to the library.
+ * The position ids follow `POLINE_POSITIONS`.
  */
 export const POLINE_HELPER_CPP = String.raw`static float _polPos(float t, bool rev, uint8_t fn) {
   switch (fn) {
@@ -52,13 +55,18 @@ static CRGB _polColor(const float* p) {
   else if (h < 240) { g = x; b = c; } else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
   return CRGB((uint8_t)floorf((r + m) * 255.0f + 0.5f), (uint8_t)floorf((g + m) * 255.0f + 0.5f), (uint8_t)floorf((b + m) * 255.0f + 0.5f));
 }
+static CRGB _polAt(float anchors[][3], int n, int k, uint8_t fn) {
+  int seg = k < n ? 0 : 1, j = seg == 0 ? k : k - n + 1;
+  float t = j / (float)(n - 1), e = _polPos(t, seg == 1, fn), p[3];
+  for (int ax = 0; ax < 3; ax++) p[ax] = (1.0f - e) * anchors[seg][ax] + e * anchors[seg + 1][ax];
+  return _polColor(p);
+}
 static void _polineStops16(CRGBPalette16& pal, CRGB a, CRGB b, CRGB c, int points, uint8_t fn) {
   float anchors[3][3]; _polPoint(a, anchors[0]); _polPoint(b, anchors[1]); _polPoint(c, anchors[2]);
-  const int n = constrain(points, 1, 16) + 2, len = 2 * n - 1;
+  const int n = constrain(points, 1, 16) + 2, span = 2 * n - 2;
   for (int i = 0; i < 16; i++) {
-    int k = (int)floorf(i / 15.0f * (len - 1) + 0.5f), seg = k < n ? 0 : 1, j = seg == 0 ? k : k - n + 1;
-    float t = j / (float)(n - 1), e = _polPos(t, seg == 1, fn), p[3];
-    for (int ax = 0; ax < 3; ax++) p[ax] = (1.0f - e) * anchors[seg][ax] + e * anchors[seg + 1][ax];
-    pal[i] = _polColor(p);
+    int k = i * span / 15; float f = (i * span % 15) / 15.0f;
+    CRGB c0 = _polAt(anchors, n, k, fn), c1 = _polAt(anchors, n, min(k + 1, span), fn);
+    pal[i] = CRGB((uint8_t)floorf(c0.r + (c1.r - c0.r) * f + 0.5f), (uint8_t)floorf(c0.g + (c1.g - c0.g) * f + 0.5f), (uint8_t)floorf(c0.b + (c1.b - c0.b) * f + 0.5f));
   }
 }`

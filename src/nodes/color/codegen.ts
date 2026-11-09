@@ -1,13 +1,13 @@
 import { asAnimatedImage, asImage } from '../shared/image'
 import { imagePaletteStops16 } from '../../state/palettes/imagePalette'
 import { gradientMixMode } from '../../state/palettes/hueMix'
-import { HARMONY_OFFSETS, harmonyKind } from '../../state/palettes/harmonyPalette'
+import { HARMONY_OFFSETS, harmonyKind, harmonyStopPlace } from '../../state/palettes/harmonyPalette'
 import { hexToRgb, polineStops16 } from '../../state/palettes/polinePalette'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
 import {
   paletteBankEntries, PALETTE_BANK_FALLBACK, paletteBankLabel, paletteBankBlend,
-  PALETTE_BANK_BLEND_TICK_MS, PALETTE_BANK_BLEND_MAX_TICKS,
+  PALETTE_BANK_BLEND_TICK_MS, PALETTE_BANK_BLEND_MAX_TICKS, paletteBankChoice, paletteBankChoiceCpp,
 } from '../../state/palettes/paletteBank'
 import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRgb } from '../../state/palettes/customPalette'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -15,6 +15,11 @@ import { cppStringLiteral } from '../../codegen/cppLiterals'
 import { POLINE_HELPER_CPP, polinePositionId } from '../../codegen/helpers/polineHelperCpp'
 import { hexCrgbCpp, hsvColorCpp } from '../../codegen/colorControlCpp'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { easeByteCpp } from '../math/easing'
+import { paletteEnds, sweepMotion } from './paletteMotion'
+import { colorTemperatureCpp } from './colorTemperature'
+import { BLACK_POINT_LAMBDA_CPP, blackPointByteCpp } from './paletteBlackPoint'
+import { ADJUST_COLOR_DEFAULT, adjustColorCpp } from './adjustColor'
 
 export const COLOR_EMITTERS: NodeEmitters = {
   HueCycle({ id, ln, v, f, needsT, needsHsv }) {
@@ -42,18 +47,27 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  float ${v('s')} = _rgbSat(_hsv_${id});`)
     ln(`  float ${v('v')} = _rgbVal(_hsv_${id});`)
   },
-  Temperature({ ln, v, f, needsMapFloat, needsKelvin }) {
+  // The same lines the control graph emits (adjustColorCpp).
+  AdjustColor({ id, ln, v, f, channelColor, needsHsv }) {
+    needsHsv.v = true
+    const { r, g, b } = ADJUST_COLOR_DEFAULT
+    for (const line of adjustColorCpp(id, v('color'), channelColor('color', r, g, b),
+      f('hueShift', 'hueShift', 0), f('saturation', 'saturation', 1), f('brightness', 'brightness', 1))) ln(line)
+  },
+  Temperature({ ln, v, f, needsKelvin }) {
     needsKelvin.v = true
-    needsMapFloat[0] = true
-    ln(`  CRGB ${v('color')} = kelvinToRGB(mapFloat(constrain(${f('warmth', 'warmth', 0.27)}, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));`)
+    ln(`  CRGB ${v('color')} = ${colorTemperatureCpp(f('kelvin', 'kelvin', 4000))};`)
   },
   HeatColor({ ln, v, f }) {
     ln(`  CRGB ${v('color')} = HeatColor((uint8_t)(constrain(${f('heat', 'heat', 0.5)}, 0.0f, 1.0f) * 255));`)
   },
   GradientSampler({ id, p, ln, v, f, channelColor, gradientChannel, needsHueMix }) {
-    const tt = `(${f('t', 't', 0)})`
+    // Clamped as the evaluator clamps it: a wired T past 1 cast a channel
+    // past 255 and wrapped the colour. colorControlCpp emits the same lines.
+    const tt = `_gsT_${id}`
     const cA = `_gsA_${id}`, cB = `_gsB_${id}`
     ln(`  CRGB ${cA}=${channelColor('colorA', 0, 200, 255, ['rA', 'gA', 'bA'])},${cB}=${channelColor('colorB', 255, 0, 255, ['rB', 'gB', 'bB'])};`)
+    ln(`  float ${tt} = constrain(${f('t', 't', 0)}, 0.0f, 1.0f);`)
     const mode = gradientMixMode(p.mixMode)
     if (mode === 'rgb') {
       ln(`  CRGB ${v('color')} = CRGB(${gradientChannel(cA, cB, 'r', tt)},${gradientChannel(cA, cB, 'g', tt)},${gradientChannel(cA, cB, 'b', tt)});`)
@@ -64,27 +78,30 @@ export const COLOR_EMITTERS: NodeEmitters = {
   },
   PaletteSampler({ node, p, ln, v, f, paletteExpr }) {
     const tt = f('t', 't', 0), pal = paletteExpr(node.id, 'paletteIn', p)
+    ln(`  CRGB ${v('color')};`)
+    if (paletteEnds(p.ends) === 'hold') {
+      // An amount: clamped, and the last entry held rather than blended back to the first.
+      ln(`  { float _ps=constrain(${tt}, 0.0f, 1.0f); ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_ps*255), 255, LINEARBLEND_NOWRAP); }`)
+      return
+    }
     // Wrapped round the palette before the byte cast, as samplePalette wraps;
     // casting an out-of-range float to uint8_t is undefined behaviour.
-    ln(`  CRGB ${v('color')};`)
     ln(`  { float _ps=${tt}; ${v('color')} = ColorFromPalette(${pal}, (uint8_t)((_ps-floorf(_ps))*255)); }`)
   },
+  // Each leg is shaped by Ease's own FastLED byte curve (math/easing.ts),
+  // which hands back the palette index directly.
   PaletteSweep({ node, id, p, ln, v, f, paletteExpr, needsT }) {
     needsT.v = true
     const rate = f('rate', 'rate', 0.1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    const easing = String(p.easing ?? 'sine')
+    const motion = sweepMotion(p.motion)
     const ph = speedPhaseCpp(ln, phaseTag(id), `fmaxf(0.0f, (${rate}))`, '  ')
     ln(`  float _psPhase_${id} = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f);`)
-    ln(`  float _psPos_${id} = _psPhase_${id} < 0.5f ? _psPhase_${id} * 2.0f : (1.0f - _psPhase_${id}) * 2.0f;`)
-    if (easing === 'quad') {
-      ln(`  _psPos_${id} = _psPos_${id} < 0.5f ? 2.0f * _psPos_${id} * _psPos_${id} : 1.0f - powf(-2.0f * _psPos_${id} + 2.0f, 2.0f) / 2.0f;`)
-    } else if (easing === 'cubic') {
-      ln(`  _psPos_${id} = _psPos_${id} < 0.5f ? 4.0f * _psPos_${id} * _psPos_${id} * _psPos_${id} : 1.0f - powf(-2.0f * _psPos_${id} + 2.0f, 3.0f) / 2.0f;`)
-    } else if (easing !== 'linear') {
-      ln(`  _psPos_${id} = (1.0f - cosf(3.14159265f * _psPos_${id})) * 0.5f;`)
-    }
-    ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_psPos_${id} * 255.0f), 255, LINEARBLEND_NOWRAP);`)
+    ln(motion === 'loop'
+      ? `  float _psPos_${id} = _psPhase_${id};`
+      : `  float _psPos_${id} = _psPhase_${id} < 0.5f ? _psPhase_${id} * 2.0f : (1.0f - _psPhase_${id}) * 2.0f;`)
+    const index = easeByteCpp(String(p.easing ?? 'inOutSine'), `(uint8_t)(constrain(_psPos_${id}, 0.0f, 1.0f) * 255)`)
+    ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, ${index}, 255, ${motion === 'loop' ? 'LINEARBLEND' : 'LINEARBLEND_NOWRAP'});`)
   },
   PaletteSelector({ p, ln }) {
     // Named rather than by its table, which is only emitted when a node reads it.
@@ -155,24 +172,31 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  CRGBPalette16 pal_${id};`)
     ln(`  _polineStops16(pal_${id}, ${anchor('colorA', a)}, ${anchor('colorB', b)}, ${anchor('colorC', c)}, ${Math.floor(Number.isFinite(points) ? points : 4)}, ${polinePositionId(position)});`)
   },
-  // Runs harmonyStopHue's loop on the device so a wired hue keeps the palette
-  // live. CHSV goes through hsv2rgb_spectrum, the plain HSV wheel the
-  // preview's `hsv` draws, so both sides agree to a count or two.
-  HarmonyPalette({ id, p, ln, f }) {
+  // Runs harmonyStops16 on the device so a wired hue keeps the palette live.
+  // Each harmony hue is a band drawn through `_hsv`, the preview's own wheel;
+  // where each stop sits between bands depends only on the harmony, so it is
+  // baked as two tables (harmonyStopPlace). Shade's dip is emitted only while
+  // it can be above 0.
+  HarmonyPalette({ node, id, p, ln, f, incoming, needsHsv }) {
+    needsHsv.v = true
     const offsets = HARMONY_OFFSETS[harmonyKind(p.harmony)]
-    const last = offsets.length - 1
+    const places = Array.from({ length: 16 }, (_, i) => harmonyStopPlace(offsets.length, i))
+    const usesShade = incoming.has(`${node.id}:shade`) || Number(p.shade ?? 0) > 0
+    const float = (x: number) => `${Number.isInteger(x) ? x.toFixed(1) : String(Number(x.toPrecision(7)))}f`
     ln(`  CRGBPalette16 pal_${id};`)
-    ln(`  { static const float _off[${offsets.length}] = {${offsets.map((o) => `${o}.0f`).join(', ')}};`)
+    ln(`  { static const float _off[${offsets.length}] = {${offsets.map(float).join(', ')}};`)
+    ln(`    static const uint8_t _hb[16] = {${places.map((place) => place.band).join(', ')}};`)
+    ln(`    static const float _hm[16] = {${places.map((place) => float(place.mix)).join(', ')}};`)
     ln(`    float _hue = ${f('hue', 'hue', 200)}, _spread = constrain(${f('spread', 'spread', 1)}, 0.0f, 1.0f);`)
-    ln(`    uint8_t _sat = (uint8_t)(constrain(${f('saturation', 'saturation', 1)}, 0.0f, 1.0f) * 255.0f + 0.5f);`)
-    ln(`    uint8_t _val = (uint8_t)(constrain(${f('value', 'value', 1)}, 0.0f, 1.0f) * 255.0f + 0.5f);`)
+    ln(`    float _sat = constrain(${f('saturation', 'saturation', 1)}, 0.0f, 1.0f), _val = constrain(${f('value', 'value', 1)}, 0.0f, 1.0f);`)
+    if (usesShade) ln(`    float _shade = constrain(${f('shade', 'shade', 0)}, 0.0f, 1.0f);`)
+    ln(`    CRGB _band[${offsets.length}];`)
+    ln(`    for (int _j = 0; _j < ${offsets.length}; _j++) _band[_j] = _hsv(_hue + _off[_j] * _spread, _sat, _val);`)
     ln(`    for (int _i = 0; _i < 16; _i++) {`)
-    ln(`      float _pos = _i / 15.0f * ${last}.0f; int _j = min((int)_pos, ${last - 1});`)
-    ln(`      float _h = fmodf(_hue + (_off[_j] + (_off[_j + 1] - _off[_j]) * (_pos - _j)) * _spread, 360.0f);`)
-    ln(`      if (_h < 0.0f) _h += 360.0f;`)
-    ln(`      CRGB _c; hsv2rgb_spectrum(CHSV((uint8_t)(_h * 255.0f / 360.0f + 0.5f), _sat, _val), _c); pal_${id}[_i] = _c; } }`)
+    ln(`      CRGB _a = _band[_hb[_i]], _b = _band[_hb[_i] + 1]; float _m = _hm[_i], _d = ${usesShade ? '1.0f - _shade * (1.0f - fabsf(2.0f * _m - 1.0f))' : '1.0f'};`)
+    ln(`      pal_${id}[_i] = CRGB((uint8_t)floorf((_a.r + (_b.r - _a.r) * _m) * _d + 0.5f), (uint8_t)floorf((_a.g + (_b.g - _a.g) * _m) * _d + 0.5f), (uint8_t)floorf((_a.b + (_b.b - _a.b) * _m) * _d + 0.5f)); } }`)
   },
-  PaletteBank({ node, id, p, ln, v, boolExpr, fastledPalette, incoming, nodeMap }) {
+  PaletteBank({ node, id, p, ln, v, f, boolExpr, fastledPalette, incoming, nodeMap }) {
     // Only the presets the author ticked are named here, so `usedPalettes`
     // records exactly those and `customPaletteDeclarationsCpp` declares
     // exactly those — the bank costs 48 bytes of RAM per palette it holds
@@ -198,6 +222,13 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  static const CRGBPalette16* const _pbPal_${id}[] = {${refs.map((ref) => `&${ref}`).join(', ')}};`)
     ln(`  static const char* const _pbName_${id}[] = {${entries.map((entry) => cppStringLiteral(paletteBankLabel(entry))).join(', ')}};`)
     ln(`  static uint8_t _pbIdx_${id} = 0;`)
+    // Index selects directly on a change (and on the first pass, so a set
+    // Index is where the bank starts), as the preview's paletteBankChoice
+    // does; at rest on 0 it changes nothing, so nothing is emitted for it.
+    if (incoming.has(`${node.id}:select`) || paletteBankChoice(Number(p.select ?? 0)) !== 0) {
+      ln(`  { static long _pbSel_${id} = 0; static bool _pbSelI_${id} = false; long _s = 0; ${paletteBankChoiceCpp(f('select', 'select', 0))}`)
+      ln(`    if (!_pbSelI_${id} || _s != _pbSel_${id}) { _pbSel_${id} = _s; _pbSelI_${id} = true; long _m = _s % ${count}; _pbIdx_${id} = (uint8_t)(_m < 0 ? _m + ${count} : _m); } }`)
+    }
     // Two buttons, one debounce rule, the numbers read from
     // state/player/transportBridge.ts so a press means here what it means in the
     // preview. Held together they cancel, as they do there.
@@ -236,13 +267,21 @@ export const COLOR_EMITTERS: NodeEmitters = {
   },
   // Keep in lockstep with the `PaletteTransform` evaluator: entry by entry
   // at rest (an index lookup smears entry 15 round to 0 — see PaletteBlend),
-  // a wrapping ColorFromPalette once Offset rotates it, then nscale8.
-  PaletteTransform({ node, id, p, ln, f, paletteExpr }) {
-    const src = paletteExpr(node.id, 'paletteIn', { palette: 'rainbow' })
+  // a wrapping ColorFromPalette once Offset rotates it, the black point
+  // (paletteBlackPoint.ts), then nscale8. The source is the node's own preset
+  // until a palette is wired in.
+  PaletteTransform({ node, id, p, ln, f, paletteExpr, incoming }) {
+    const src = paletteExpr(node.id, 'paletteIn', { palette: p.paletteIn ?? 'rainbow' })
     const reverse = Boolean(p.reverse)
+    // A floor of 0 changes nothing, so it costs nothing until it can move.
+    const usesBlackPoint = incoming.has(`${node.id}:blackPoint`) || Number(p.blackPoint ?? 0) > 0
     ln(`  CRGBPalette16 pal_${id};`)
     ln(`  { float _off=fmodf(${f('offset', 'offset', 0)},1.0f); if(_off<0.0f)_off+=1.0f; uint8_t _br=(uint8_t)(constrain(${f('brightness', 'brightness', 1)},0.0f,1.0f)*255.0f);`)
+    if (usesBlackPoint) {
+      ln(`    const uint8_t _bp=${blackPointByteCpp(f('blackPoint', 'blackPoint', 0))}; ${BLACK_POINT_LAMBDA_CPP}`)
+    }
     ln(`    for(int _i=0;_i<16;_i++){ int _k=${reverse ? '15-_i' : '_i'}; CRGB _c=_off>0.0f?ColorFromPalette(${src},(uint8_t)(fmodf(_k/15.0f+_off,1.0f)*255.0f),255,LINEARBLEND):${src}[_k];`)
+    if (usesBlackPoint) ln(`      _c=CRGB(_lv(_c.r),_lv(_c.g),_lv(_c.b));`)
     ln(`      _c.nscale8(_br); pal_${id}[_i]=_c; } }`)
   },
   PaletteBlend({ node, id, p, ln, f, paletteExpr }) {

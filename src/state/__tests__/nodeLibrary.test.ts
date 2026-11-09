@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty, BUNDLED_TITLES } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty, BUNDLED_TITLES, selectOptionLabel, propertyMetaFor } from '../nodeLibrary'
 import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
-import { EASE_TYPES } from '../../nodes/math/easing'
+import { EASE_TYPES, SWEEP_EASE_TYPES } from '../../nodes/math/easing'
+import { STEP_VALUE_ABS_LIMIT } from '../../nodes/shared/stepValue'
 import { SPIRAL_ARMS } from '../../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../../nodes/composite/kaleidoscope'
 import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../../nodes/simulations/limits'
@@ -304,11 +305,14 @@ describe('nodeLibrary', () => {
     expect(sweep?.category).toBe('color')
     expect(sweep?.inputs.map((port) => port.id)).toEqual(['paletteIn', 'rate'])
     expect(sweep?.outputs).toEqual([{ id: 'color', label: 'Color', dataType: 'color' }])
-    expect(sweep?.defaultProperties).toEqual({ palette: 'rainbow', rate: 0.1, easing: 'sine' })
+    expect(sweep?.defaultProperties).toEqual({ palette: 'rainbow', rate: 0.1, motion: 'pingPong', easing: 'inOutSine' })
     expect(propertyMeta('PaletteSweep', 'rate')).toMatchObject({ control: 'slider', min: 0, max: 4, step: 0.01 })
+    expect(propertyMeta('PaletteSweep', 'motion')).toEqual({ control: 'select', options: ['pingPong', 'loop'] })
+    // Ease's own curves, so one name is one curve on both nodes.
     expect(propertyMeta('PaletteSweep', 'easing')).toEqual({
-      control: 'select', options: ['linear', 'sine', 'quad', 'cubic'],
+      control: 'select', options: ['linear', 'inOutSine', 'inOutQuad', 'inOutCubic'],
     })
+    for (const easing of SWEEP_EASE_TYPES) expect(EASE_TYPES).toContain(easing)
   })
 
   it('BeatDetect sliders use a narrow, beat-friendly range', () => {
@@ -925,28 +929,69 @@ describe('nodeLibrary', () => {
     const defaults = (type: string) => NODE_LIBRARY.find((n) => n.type === type)?.defaultProperties ?? {}
     expect(defaults('Math')).toEqual({ mathOp: 'add', a: 0, b: 0 })
     expect(defaults('Clamp')).toMatchObject({ value: 0, min: 0, max: 1 })
-    expect(defaults('MapRange')).toMatchObject({ value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
+    expect(defaults('MapRange')).toMatchObject({ value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1, clampOutput: false })
     expect(NODE_LIBRARY.find((n) => n.type === 'MapRange')?.inputs.map((port) => port.id)).toEqual([
       'value', 'inMin', 'inMax', 'outMin', 'outMax',
     ])
-    expect(defaults('Lerp')).toMatchObject({ a: 0, b: 1, t: 0.5 })
+    // The ranges are nearly always typed: only Value is drawn until asked for.
+    expect(NODE_LIBRARY.find((n) => n.type === 'MapRange')?.defaultExposedInputs).toEqual(['value'])
+    expect(NODE_LIBRARY.find((n) => n.type === 'Clamp')?.defaultExposedInputs).toEqual(['value'])
     expect(defaults('Ease')).toMatchObject({ easeType: 'inOutCubic', t: 0 })
     expect(defaults('Function')).toEqual({ fn: 'sin', x: 0 })
-    expect(defaults('Gate')).toMatchObject({ value: 0, fallback: 0 })
     expect(defaults('Smooth')).toMatchObject({ value: 0, response: 0.25 })
     expect(defaults('SampleHold')).toMatchObject({ value: 0 })
     expect(defaults('Compare')).toMatchObject({ a: 0, b: 0.5 })
   })
 
+  it('lets Step Value be typed across the range its normaliser accepts', () => {
+    // A 0–255 brightness or a 60–180 BPM counter once could not be set: the
+    // ±100 sliders refused anything outside them.
+    for (const key of ['initial', 'minimum', 'maximum']) {
+      expect(propertyMeta('StepValue', key), key).toMatchObject({ min: -STEP_VALUE_ABS_LIMIT, max: STEP_VALUE_ABS_LIMIT, entry: 'number' })
+    }
+    expect(propertyMeta('StepValue', 'step')).toMatchObject({ max: STEP_VALUE_ABS_LIMIT, entry: 'number' })
+  })
+
   it('exposes every Ease variant with a descriptive bundled title', () => {
+    // Fast Approx is a CPU detail with no visible difference: not offered,
+    // but a node saved with it still shows and runs it.
     expect(propertyMeta('Ease', 'easeType')).toEqual({
       control: 'select',
-      options: [...EASE_TYPES],
+      options: EASE_TYPES.filter((type) => type !== 'inOutApprox'),
     })
+    expect(propertyOptions('Ease', 'easeType', {})).not.toContain('inOutApprox')
+    expect(propertyOptions('Ease', 'easeType', { easeType: 'inOutApprox' })).toContain('inOutApprox')
     for (const easeType of EASE_TYPES) {
       expect(nodeDisplayLabel('Ease', { easeType }, 'Ease'), easeType).not.toBe('Ease')
     }
+    // Every two-ended curve says so in the same words.
+    for (const easeType of EASE_TYPES.filter((type) => type.startsWith('inOut'))) {
+      expect(nodeDisplayLabel('Ease', { easeType }, 'Ease'), easeType).toMatch(/^Ease In\/Out · /)
+    }
     expect(nodeDisplayLabel('Ease', { easeType: 'unknown' }, 'Ease')).toBe('Ease')
+  })
+
+  it('names select options in their dropdowns rather than showing raw ids', () => {
+    // A bundled variant select reads as the header it gives the node...
+    expect(selectOptionLabel('Trigger', 'triggerOp', 'pulseDivider')).toBe('Pulse Divider')
+    expect(selectOptionLabel('Ease', 'easeType', 'inQuad')).toBe('Ease In · Quad')
+    // ...less the "Name · " every one of its titles shares.
+    expect(selectOptionLabel('Path', 'pathShape', 'circle')).toBe('Circle')
+    expect(selectOptionLabel('SpectrumVisualizer', 'style', 'Centre Mirror')).toBe('Mirror')
+    // Written labels for ids that are not words, on every node that has them.
+    expect(selectOptionLabel('GradientSampler', 'mixMode', 'hsvShort')).toBe('Hue, short way')
+    expect(selectOptionLabel('GradientFrame', 'mixMode', 'hsvLong')).toBe('Hue, long way')
+    expect(selectOptionLabel('HarmonyPalette', 'harmony', 'splitComplementary')).toBe('Split complementary')
+    expect(selectOptionLabel('Poline', 'position', 'smoothStep')).toBe('Smooth step')
+    expect(selectOptionLabel('HSVToRGB', 'hueUnits', 'bytes')).toBe('0–255 wheel')
+    // Anything else reads as itself.
+    expect(selectOptionLabel('Noise', 'palette', 'ocean')).toBe('ocean')
+  })
+
+  it('narrows HSV → RGB Hue to 255 on the 0–255 wheel', () => {
+    expect(propertyMetaFor('HSVToRGB', 'h', { hueUnits: 'degrees' })).toMatchObject({ max: 360 })
+    expect(propertyMetaFor('HSVToRGB', 'h', { hueUnits: 'bytes' })).toMatchObject({ max: 255 })
+    expect(propertyMetaFor('HSVToRGB', 's', { hueUnits: 'bytes' })).toEqual(propertyMeta('HSVToRGB', 's'))
   })
 
   // Derived from the title table, so a variant added to a select without a

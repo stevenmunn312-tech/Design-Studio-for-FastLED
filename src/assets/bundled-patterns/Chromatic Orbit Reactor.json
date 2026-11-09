@@ -190,7 +190,7 @@
           "properties": {
             "palette": "peacock",
             "rate": 0.085,
-            "easing": "cubic"
+            "easing": "inOutCubic"
           },
           "inputs": [
             {

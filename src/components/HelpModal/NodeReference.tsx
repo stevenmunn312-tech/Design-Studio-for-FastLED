@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useRef } from 'react'
 import type { NodeCategory, NodeDefinition, NodePort } from '../../types'
-import { CATEGORIES, CATEGORY_COLOR, HARDWARE_CATEGORY, isInternalProperty, NODE_DESCRIPTIONS, NODE_LIBRARY, PROPERTY_DESCRIPTIONS_OVERRIDES, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor } from '../../state/nodeLibrary'
+import { CATEGORIES, CATEGORY_COLOR, HARDWARE_CATEGORY, isInternalProperty, NODE_DESCRIPTIONS, NODE_LIBRARY, PROPERTY_DESCRIPTIONS_OVERRIDES, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor, selectOptionLabel } from '../../state/nodeLibrary'
 import { exposableInputsFor } from '../../state/propertyInputs'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
@@ -194,7 +194,7 @@ function describeProperty(node: NodeDefinition, key: string): string {
   const meta = propertyMeta(node.type, key)
   const name = displayPropertyLabel(node.type, key)
   if (meta?.control === 'slider') return `${name}, from ${formatNumber(meta.min)} to ${formatNumber(meta.max)}.`
-  if (meta?.control === 'select') return `${name}: ${meta.options.join(', ')}.`
+  if (meta?.control === 'select') return `${name}: ${meta.options.map((option) => selectOptionLabel(node.type, key, option)).join(', ')}.`
   return `${name}.`
 }
 

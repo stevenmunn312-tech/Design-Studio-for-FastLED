@@ -408,11 +408,11 @@ describe('evaluateGraph', () => {
   })
 
   it('reads a float wired into a bool port as true from 0.5', () => {
-    const gate = node('gate-bool', 'Gate', 'math', { value: 1, fallback: 0 })
+    const gate = node('gate-bool', 'Switch', 'math', { a: 0, b: 1 })
     for (const [level, open] of [[0.3, false], [0.5, true], [0.9, true]] as const) {
       const source = node(`level-${level}`, 'Math', 'math', { mathOp: 'add', a: level, b: 0 })
       const outputs = evaluateGraphFull([source, gate], [
-        edge('bool-gate', source.id, 'result', 'gate-bool', 'gate'),
+        edge('bool-gate', source.id, 'result', 'gate-bool', 'sel'),
       ], 0, W, H).outputs.get('gate-bool')!
       expect(outputs.result).toBe(open ? 1 : 0)
     }
@@ -2319,6 +2319,40 @@ describe('evaluateGraph', () => {
       expect(harmony({ hue: 90 })).not.toEqual(harmony({ hue: 0 }))
       expect(harmony({ harmony: 'nonsense' })).toEqual(harmony({ harmony: 'triadic' }))
     })
+
+    it('holds each harmony hue as a band instead of sweeping the hues between', () => {
+      const hueOf = ({ r, g, b }: { r: number; g: number; b: number }) => {
+        const max = Math.max(r, g, b), d = max - Math.min(r, g, b)
+        if (d === 0) return null
+        const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+        return h * 60
+      }
+      // Complementary red and cyan once swept orange, yellow and green between.
+      const stops = harmony({ hue: 0, harmony: 'complementary', saturation: 1, value: 1, spread: 1 })
+      for (const stop of stops) {
+        const h = hueOf(stop)
+        if (h !== null) expect(h === 0 || h === 180, JSON.stringify(stop)).toBe(true)
+      }
+      // Each hue is a band: the first and last stops of each end are exact.
+      expect(stops.slice(0, 4).every((c) => c.r === 255 && c.g === 0 && c.b === 0)).toBe(true)
+      expect(stops.slice(12).every((c) => c.r === 0 && c.g === 255 && c.b === 255)).toBe(true)
+      // Triadic holds three bands, the middle one at +120°.
+      const triad = harmony({ hue: 0, harmony: 'triadic', saturation: 1, value: 1, spread: 1 })
+      expect(triad.filter((c) => c.r === 0 && c.g === 255 && c.b === 0).length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('dips the blends between bands toward black with Shade, and leaves the bands alone', () => {
+      const flat = harmony({ hue: 0, harmony: 'complementary', shade: 0 })
+      const shaded = harmony({ hue: 0, harmony: 'complementary', shade: 1 })
+      const sum = (c: { r: number; g: number; b: number }) => c.r + c.g + c.b
+      expect(shaded[0]).toEqual(flat[0])
+      expect(shaded[15]).toEqual(flat[15])
+      // Shade 1 reaches black half way between the bands; the stops nearest
+      // that point keep under a fifth of their light.
+      const darkest = shaded.reduce((best, c, i) => (sum(c) < sum(shaded[best]) ? i : best), 0)
+      expect(sum(shaded[darkest])).toBeLessThan(sum(flat[darkest]) / 5)
+      expect(shaded.every((c, i) => sum(c) <= sum(flat[i]))).toBe(true)
+    })
   })
 
   it('Image samples an uploaded picture to the matrix', () => {
@@ -2518,8 +2552,8 @@ describe('evaluateGraph', () => {
   })
 
   it('Temperature yields warm vs cool white points', () => {
-    const colorAt = (temperature: number) => {
-      const t = node('t', 'Temperature', 'color', { warmth: temperature })
+    const colorAt = (kelvin: number) => {
+      const t = node('t', 'Temperature', 'color', { kelvin })
       const sc = node('sc', 'SolidColor', 'pattern', {})
       const out = node('out', 'MatrixOutput', 'output', {})
       const f = evaluateGraph([t, sc, out], [
@@ -2528,11 +2562,15 @@ describe('evaluateGraph', () => {
       ], 0, 2, 2)!
       return f[0][0]
     }
-    const warm = colorAt((2000 - 1000) / 11000)
-    const cool = colorAt((10000 - 1000) / 11000)
+    const warm = colorAt(2000)
+    const cool = colorAt(9000)
     expect(warm.r).toBeGreaterThan(warm.b)        // warm → red-leaning
     expect(cool.b).toBeGreaterThan(cool.r)        // cool → blue-leaning
-    expect(colorAt((6600 - 1000) / 11000).r).toBeGreaterThan(240)  // near-neutral white
+    expect(colorAt(6600).r).toBeGreaterThan(240)  // near-neutral white
+    // Lower is warmer, and a value past either end holds there, as on the board.
+    expect(colorAt(2700).b).toBeLessThan(colorAt(5000).b)
+    expect(colorAt(500)).toEqual(colorAt(1800))
+    expect(colorAt(20000)).toEqual(colorAt(9000))
   })
 
   it('a CustomPalette drives a pattern node differently than a preset', () => {
@@ -5452,9 +5490,36 @@ describe('Saturation and RGBToHSV', () => {
       return evaluateGraphFull([sweep], [], tick, W, H).outputs.get(sweep.id)?.color as RGB
     }
 
-    expect(colorAt('quad', 0)).toEqual(colorAt('linear', 0))
-    expect(colorAt('quad', 15)).toEqual(colorAt('linear', 15))
-    expect(colorAt('quad', 3.75)).not.toEqual(colorAt('linear', 3.75))
+    // Ease's sine and linear are both FastLED byte curves, so they meet
+    // exactly at the ends and the middle of a leg.
+    expect(colorAt('inOutSine', 0)).toEqual(colorAt('linear', 0))
+    expect(colorAt('inOutSine', 15)).toEqual(colorAt('linear', 15))
+    expect(colorAt('inOutSine', 3.75)).not.toEqual(colorAt('linear', 3.75))
+    expect(colorAt('inOutQuad', 3.75)).not.toEqual(colorAt('linear', 3.75))
+  })
+
+  it('PaletteSweep in Loop runs one way and joins the end back to the start', () => {
+    const colorAt = (motion: string, tick: number) => {
+      const sweep = node(`palette-sweep-${motion}`, 'PaletteSweep', 'color', { palette: 'heat', rate: 1, easing: 'linear', motion })
+      return evaluateGraphFull([sweep], [], tick, W, H).outputs.get(sweep.id)?.color as RGB
+    }
+    // Ping-pong passes a colour twice a cycle, going and coming back.
+    expect(colorAt('pingPong', 15)).toEqual(colorAt('pingPong', 45))
+    // Loop passes it once: a quarter of the way along, then three quarters.
+    expect(colorAt('loop', 15)).not.toEqual(colorAt('loop', 45))
+    expect(colorAt('loop', 15)).toEqual(colorAt('pingPong', 7.5))
+    expect(colorAt('loop', 0)).toEqual(colorAt('loop', 60))
+  })
+
+  it('PaletteSampler holds its ends when asked, and wraps otherwise', () => {
+    const at = (t: number, ends: string) => evaluateGraphFull([node('ps', 'PaletteSampler', 'color', { palette: 'heat', t, ends })], [], 0, W, H)
+      .outputs.get('ps')?.color as RGB
+    // heat starts black and ends near white: a full-scale level read black when wrapped.
+    expect(at(1, 'wrap')).toEqual(at(0, 'wrap'))
+    expect(at(1, 'hold').r).toBe(255)
+    expect(at(1.4, 'hold')).toEqual(at(1, 'hold'))
+    expect(at(-0.3, 'hold')).toEqual(at(0, 'hold'))
+    expect(at(0.5, 'hold')).toEqual(at(0.5, 'wrap'))
   })
 
   it('GradientSampler uses editable fallback swatches when color inputs are unwired', () => {
@@ -5465,6 +5530,19 @@ describe('Saturation and RGBToHSV', () => {
     })
     const { outputs } = evaluateGraphFull([blend], [], 0, W, H)
     expect(outputs.get('bc')!.color).toEqual({ r: 35, g: 70, b: 55 })
+  })
+
+  it('GradientSampler holds a wired T outside 0–1 at the nearer end in every mix mode', () => {
+    for (const mixMode of ['rgb', 'hsvShort', 'hsvLong']) {
+      const at = (t: number) => {
+        const source = node('src', 'Math', 'math', { mathOp: 'add', a: t, b: 0 })
+        const grad = node('gs', 'GradientSampler', 'color', { rA: 10, gA: 20, bA: 30, rB: 200, gB: 100, bB: 50, mixMode })
+        return evaluateGraphFull([source, grad], [edge('e', 'src', 'result', 'gs', 't')], 0, W, H).outputs.get('gs')!.color
+      }
+      // A bipolar wave once extrapolated here while the board wrapped the byte.
+      expect(at(1.6), mixMode).toEqual(at(1))
+      expect(at(-0.7), mixMode).toEqual(at(0))
+    }
   })
 
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {

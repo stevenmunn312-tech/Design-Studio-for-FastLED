@@ -109,7 +109,7 @@ describe('typed control graph', () => {
     expect(emitted.join('\n')).toContain('if (_svNext_step > 1.0f) n_step_value = 0.0f;')
   })
 
-  it('retains operation identities, zero-span mapping and interpolation defaults', () => {
+  it('retains operation identities, zero-span mapping and a clamped remap', () => {
     // A save without A/B falls back to the operation's identity.
     const withoutOperands = (entry: StudioNode, ...keys: string[]) => {
       for (const key of keys) delete (entry.data.properties as Record<string, unknown>)[key]
@@ -119,21 +119,21 @@ describe('typed control graph', () => {
       withoutOperands(node('multiply', 'Math', { mathOp: 'multiply' }), 'a', 'b'),
       withoutOperands(node('divide', 'Math', { mathOp: 'divide', b: 0 }), 'a'),
       node('map', 'MapRange', { value: 6, inMin: 3, inMax: 3, outMin: 7 }),
-      node('lerp', 'Lerp'), node('out', 'MatrixOutput', { width: 16, height: 16 })]
+      node('held', 'MapRange', { value: 2, clampOutput: true }), node('out', 'MatrixOutput', { width: 16, height: 16 })]
     const graph = createControlGraph(nodes, [])
-    for (const id of ['multiply', 'divide', 'map', 'lerp']) graph.resolve(id, 'result', 'float')
+    for (const id of ['multiply', 'divide', 'map', 'held']) graph.resolve(id, 'result', 'float')
     const cpp = controlGraphCpp(graph)
     expect(cpp.loop.join('\n')).toContain('float n_multiply_result = (1) * (1);')
     expect(cpp.loop.join('\n')).toContain('((0) == 0.0f ? 0.0f : (float)(1) / (0))')
     expect(cpp.helpers.join('\n')).toContain('if (inMax == inMin) return outMin;')
-    const lerp = graph.instructions.find((instruction) => instruction.nodeId === 'lerp')!
-    expect(lerp.kind === 'scalar' && lerp.inputs.t).toEqual({ kind: 'literal', value: 0.5 })
+    // Clamp output holds the remap between Out Min and Out Max on the board too.
+    expect(cpp.loop.join('\n')).toContain('fmaxf(fminf(0, 1), fminf(fmaxf(0, 1), mapFloat(2, 0, 1, 0, 1)))')
     // Browser values are the same edge cases the shared C++ operations encode.
     const { outputs } = evaluateGraphFull(nodes, [], 0, 16, 16)
     expect(outputs.get('multiply')?.result).toBe(1)
     expect(outputs.get('divide')?.result).toBe(0)
     expect(outputs.get('map')?.result).toBe(7)
-    expect(outputs.get('lerp')?.result).toBe(0.5)
+    expect(outputs.get('held')?.result).toBe(1)
   })
 
   it('rejects wrong types, missing sources, unknown handles and unsupported nodes', () => {
@@ -150,9 +150,9 @@ describe('typed control graph', () => {
   })
 
   it('applies the existing wired-input clamp without clamping property fallbacks', () => {
-    const graph = createControlGraph([node('source', 'Math', { a: 2 }), node('lerp', 'Lerp', { clampInputs: true })],
-      [edge('source', 'result', 'lerp', 't')])
-    graph.resolve('lerp', 'result', 'float')
+    const graph = createControlGraph([node('source', 'Math', { a: 2 }), node('wave', 'Wave', { clampInputs: true })],
+      [edge('source', 'result', 'wave', 'phase')])
+    graph.resolve('wave', 'result', 'float')
     expect(controlGraphCpp(graph).loop.join('\n')).toContain('constrain(n_source_result, 0, 1)')
   })
 
@@ -205,7 +205,8 @@ describe('typed control graph', () => {
     for (const line of emitted.loop) expect(normal, line).toContain(line)
     expect(emitted.helpers).toContain(KELVIN_TO_RGB_CPP)
     expect(emitted.helpers.filter((helper) => helper === KELVIN_TO_RGB_CPP)).toHaveLength(1)
-    expect(emitted.loop.join('\n')).toContain('_hueMix(_gsA_grad, _gsB_grad, (0), true)')
+    expect(emitted.loop.join('\n')).toContain('_hueMix(_gsA_grad, _gsB_grad, _gsT_grad, true)')
+    expect(emitted.loop.join('\n')).toContain('float _gsT_grad = constrain(0, 0.0f, 1.0f);')
     const kelvinLines = normal.split('\n')
     const start = kelvinLines.findIndex((line) => line.startsWith('CRGB kelvinToRGB('))
     let end = start

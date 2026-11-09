@@ -48,10 +48,13 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     propertyInputs: { value: 'value', min: 'min', max: 'max' },
-    defaultExposedInputs: ['value', 'min', 'max'],
+    // The bounds are nearly always typed; their hidden sockets stay drop targets.
+    defaultExposedInputs: ['value'],
     defaultProperties: { value: 0, min: 0, max: 1 },
   },
   {
+    // `clampOutput` holds the result between Out Min and Out Max, so an input
+    // past In Min or In Max no longer extrapolates (shared `mapRangeValue`).
     type: 'MapRange',
     label: 'Map Range',
     category: 'math',
@@ -65,8 +68,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     propertyInputs: { value: 'value', inMin: 'inMin', inMax: 'inMax', outMin: 'outMin', outMax: 'outMax' },
-    defaultExposedInputs: ['value', 'inMin', 'inMax', 'outMin', 'outMax'],
-    defaultProperties: { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 },
+    defaultExposedInputs: ['value'],
+    defaultProperties: { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1, clampOutput: false },
   },
   {
     // Event-to-value adapter for buttons, touch actions and (later) IR keys.
@@ -81,23 +84,13 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'decrease', label: 'Decrease', dataType: 'bool' },
       { id: 'reset', label: 'Reset', dataType: 'bool' },
     ],
+    // Presses, not values, as on the Palette Bank: declaring them is what lets
+    // a Touch control's add-control socket mint a momentary Button on one.
+    // Exposed by default, so the node draws all three sockets as it always did.
+    actionInputs: ['increase', 'decrease', 'reset'],
+    defaultExposedInputs: ['increase', 'decrease', 'reset'],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     defaultProperties: { ...STEP_VALUE_DEFAULTS },
-  },
-  {
-    type: 'Lerp',
-    label: 'Lerp',
-    category: 'math',
-    subcategory: 'Math',
-    inputs: [
-      { id: 'a', label: 'A', dataType: 'float' },
-      { id: 'b', label: 'B', dataType: 'float' },
-      { id: 't', label: 'T', dataType: 'float' },
-    ],
-    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    propertyInputs: { a: 'a', b: 'b', t: 't' },
-    defaultExposedInputs: ['a', 'b', 't'],
-    defaultProperties: { a: 0, b: 1, t: 0.5 },
   },
   {
     // Easing curve on a 0–1 value — legacy lib8tion shapes plus FastLED's
@@ -147,37 +140,26 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { formula: 'sin(t)*0.5+0.5', a: 0, b: 0 },
   },
   {
-    type: 'Gate',
-    label: 'Gate',
-    category: 'math',
-    subcategory: 'Logic',
-    inputs: [
-      { id: 'value', label: 'Value', dataType: 'float' },
-      { id: 'gate', label: 'Gate', dataType: 'bool' },
-    ],
-    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    propertyInputs: { value: 'value' },
-    defaultExposedInputs: ['value'],
-    defaultProperties: { value: 0, fallback: 0 },
-  },
-  {
     // Low-pass smoothing — eases a jittery value (FFT bands, PotInput) toward
     // the input over a `response` time constant (seconds to ~63% of a step).
-    // Fills the gap left by Lerp, which can't self-feed (the cycle guard
-    // breaks feedback loops by design).
+    // A graph cannot feed a node its own output (the cycle guard breaks
+    // feedback loops by design), so the state lives in the node.
     type: 'Smooth',
     label: 'Smooth',
     category: 'math',
     subcategory: 'Math',
+    // `fall`, when above 0, is the time constant for a falling value, so a level
+    // can jump up fast and sink back slowly (VU-style); 0 uses Response both ways.
     inputs: [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'response', label: 'Response', dataType: 'float' },
+      { id: 'fall', label: 'Fall', dataType: 'float' },
     ],
-    propertyInputs: { value: 'value', response: 'response' },
+    propertyInputs: { value: 'value', response: 'response', fall: 'fall' },
     defaultExposedInputs: ['value'],
 
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { value: 0, response: 0.25 },
+    defaultProperties: { value: 0, response: 0.25, fall: 0 },
   },
   {
     // Sample & hold — latches `value` on each rising edge of `trigger`
@@ -197,8 +179,9 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { value: 0 },
   },
   {
-    // A/B selector — outputs A when `sel` is false, B when true (unlike Gate,
-    // both branches are live signals). FrameSwitch is the frame counterpart.
+    // A/B selector — outputs A when `sel` is false, B when true; both branches
+    // are live signals, so A doubles as a gate's fallback. FrameSwitch is the
+    // frame counterpart.
     type: 'Switch',
     label: 'Switch',
     category: 'math',
@@ -238,6 +221,9 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { logicOp: 'and' },
   },
   {
+    // `compareOp` picks >, <, ≥ or ≤ and the header names it; `hysteresis`
+    // is a Schmitt band round B (math/compare.ts), so a level hovering at the
+    // threshold holds its answer instead of flickering.
     type: 'Compare',
     label: 'Compare',
     category: 'math',
@@ -246,10 +232,10 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
-    outputs: [{ id: 'result', label: 'A > B', dataType: 'bool' }],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'bool' }],
     propertyInputs: { a: 'a', b: 'b' },
     defaultExposedInputs: ['a', 'b'],
-    defaultProperties: { a: 0, b: 0.5 },
+    defaultProperties: { compareOp: 'greater', a: 0, b: 0.5, hysteresis: 0 },
   },
   {
     // Bundled trigger/edge utility — `triggerOp` selects Debounce, Changed,
@@ -339,15 +325,13 @@ export const MATH_DESCRIPTIONS: Record<string, string> = {
   Clamp: 'Constrains a value between min and max.',
   MapRange: 'Remaps a value from one range to another.',
   StepValue: 'Turns Increase, Decrease and Reset event pulses into a bounded numeric value.',
-  Lerp: 'Linear interpolation between a and b by t.',
   Ease: 'Shapes 0–1 with FastLED linear, quad, cubic, sine, or wave curves.',
   Function: 'One-input function of X: sin, cos, abs, sqrt, square, floor or round.',
-  Gate: 'Passes a value when a boolean is true, else a fallback.',
-  Smooth: 'Low-pass — eases a jittery value in over a response time.',
+  Smooth: 'Low-pass — eases a jittery value in over a response time; Fall can differ.',
   SampleHold: 'Latches the value each time the trigger pulses true.',
   Switch: 'Outputs A or B, selected by a boolean.',
   Not: 'Logical NOT of a boolean.',
-  Compare: 'True when a > b.',
+  Compare: 'True when A is greater or less than B, with optional hysteresis against flicker.',
   Trigger: 'Debounces, detects changes, toggles, delays, or divides boolean pulses.',
   TextValue: 'A fixed line of text for a display to show.',
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',

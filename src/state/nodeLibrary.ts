@@ -23,7 +23,12 @@ import { MIC_MAX_GAIN, MIC_MAX_NOISE_GATE } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boardGpio'
 import { CLOCKED_DATA_RATES_MHZ, dataRateOptionsMhz } from '../build/ledDrivers'
-import { EASE_TYPES } from '../nodes/math/easing'
+import { EASE_PICKER_TYPES, SWEEP_EASE_TYPES } from '../nodes/math/easing'
+import { PALETTE_ENDS, SWEEP_MOTIONS } from '../nodes/color/paletteMotion'
+import { COLOR_TEMPERATURE_K } from '../nodes/color/colorTemperature'
+import { PALETTE_BLACK_POINT_MAX } from '../nodes/color/paletteBlackPoint'
+import { STEP_VALUE_ABS_LIMIT } from '../nodes/shared/stepValue'
+import { COMPARE_LABELS, COMPARE_OPS } from '../nodes/math/compare'
 import { WAVE_RATE_UNITS } from '../nodes/signal/wave'
 import { DATE_TIME_TEXT_MODES } from './displays/displayText'
 import { CUSTOM_DESIGN_LAYOUT, TRANSPORT_DISPLAY_LAYOUTS } from './displays/transportDisplay'
@@ -63,7 +68,7 @@ import { PCA9685_PART_ID, pwmDriverAddressOptions, pwmDriverSpec } from './perip
 import { DEFAULT_POWER_MONITOR_PART_ID, powerMonitorAddressOptions } from './peripherals/powerMonitor'
 import { SLICE_PRESET_NAMES } from '../nodes/field/sliceTiling'
 import { HARMONY_KINDS } from './palettes/harmonyPalette'
-import { GRADIENT_MIX_MODES, HUE_UNITS } from './palettes/hueMix'
+import { GRADIENT_MIX_MODES, HUE_UNITS, hueUnits } from './palettes/hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
@@ -444,6 +449,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'average', 'min', 'max'] },
   fn:             { control: 'select', options: [...FUNCTION_OPS] },
   logicOp:        { control: 'select', options: [...LOGIC_OPS] },
+  compareOp:      { control: 'select', options: COMPARE_OPS },
   transitionType: { control: 'select', options: [
     'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
     'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
@@ -452,8 +458,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
-  easeType:       { control: 'select', options: [...EASE_TYPES] },
-  easing:         { control: 'select', options: ['linear', 'sine', 'quad', 'cubic'] },
+  easeType:       { control: 'select', options: EASE_PICKER_TYPES },
   triggerOp:      { control: 'select', options: ['debounce', 'changed', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
   feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
   delayFrames:    { control: 'slider', min: 1, max: 32, step: 1 },
@@ -528,8 +533,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   feed:     { control: 'slider', min: 0, max: 0.1, step: 0.0005 },
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.0005 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
-  // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough).
+  // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough), and
+  // its optional separate one for a falling value (0 = the same as Response).
   response: { control: 'slider', min: 0, max: 2, step: 0.01 },
+  fall:     { control: 'slider', min: 0, max: 2, step: 0.01 },
   warmth:   { control: 'slider', min: 0, max: 1, step: 0.01 },
   // HeatColor input, Rainbow spread, Gamma exponent, and the power cap.
   heat:     { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -624,11 +631,13 @@ const DERIVED_COLOR_CHANNEL_META: Record<string, Record<string, PropertyControl>
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  // Typed rather than dragged, over the whole range the normaliser accepts, so
+  // a 0–255 brightness or a 60–180 BPM counter can be set.
   StepValue: {
-    initial: { control: 'slider', min: -100, max: 100, step: 0.01 },
-    minimum: { control: 'slider', min: -100, max: 100, step: 0.01 },
-    maximum: { control: 'slider', min: -100, max: 100, step: 0.01 },
-    step: { control: 'slider', min: 0.01, max: 100, step: 0.01 },
+    initial: { control: 'slider', min: -STEP_VALUE_ABS_LIMIT, max: STEP_VALUE_ABS_LIMIT, step: 0.01, entry: 'number' },
+    minimum: { control: 'slider', min: -STEP_VALUE_ABS_LIMIT, max: STEP_VALUE_ABS_LIMIT, step: 0.01, entry: 'number' },
+    maximum: { control: 'slider', min: -STEP_VALUE_ABS_LIMIT, max: STEP_VALUE_ABS_LIMIT, step: 0.01, entry: 'number' },
+    step: { control: 'slider', min: 0.01, max: STEP_VALUE_ABS_LIMIT, step: 0.01, entry: 'number' },
   },
   TransportDisplay: {
     // The canvas narrows this to what the wired source can show
@@ -713,6 +722,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PaletteFromImage: {
     count: { control: 'slider', min: 2, max: 8, step: 1 },
   },
+  Temperature: {
+    kelvin: { control: 'slider', min: COLOR_TEMPERATURE_K.min, max: COLOR_TEMPERATURE_K.max, step: 50 },
+  },
+  AdjustColor: {
+    hueShift: { control: 'slider', min: -180, max: 180, step: 1 },
+    saturation: { control: 'slider', min: 0, max: 2, step: 0.01 },
+    brightness: { control: 'slider', min: 0, max: 2, step: 0.01 },
+  },
   HueCycle: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
   },
@@ -722,6 +739,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PaletteSweep: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
+    motion: { control: 'select', options: SWEEP_MOTIONS },
+    easing: { control: 'select', options: SWEEP_EASE_TYPES },
+  },
+  PaletteSampler: {
+    ends: { control: 'select', options: PALETTE_ENDS },
   },
   BrightnessMod: {
     brightness: { control: 'slider', min: 0, max: 3, step: 0.01 },
@@ -923,7 +945,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     beatsPerBar: { control: 'slider', min: BEAT_PHASE_BAR.min, max: BEAT_PHASE_BAR.max, step: 1 },
   },
   PaletteTransform: {
+    paletteIn: { control: 'select', options: PALETTES },
     offset: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    blackPoint: { control: 'slider', min: 0, max: PALETTE_BLACK_POINT_MAX, step: 0.01 },
     brightness: N01,
   },
   SpectrumVisualizer: {
@@ -1051,6 +1075,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     saturation: N01,
     value: N01,
     spread: N01,
+    shade: N01,
   },
   PolarGradient: {
     angleOffset: { control: 'slider', min: 0, max: 360, step: 1 },
@@ -1436,6 +1461,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PaletteBank: {
     blend: { control: 'slider', min: 0, max: PALETTE_BANK_BLEND_MAX, step: 1 },
+    // A position in the bank; past the end it wraps, as Next does.
+    select: { control: 'slider', min: 0, max: 15, step: 1 },
   },
   Truchet: {
     lattice: { control: 'select', options: [...TRUCHET_LATTICES] },
@@ -1671,6 +1698,79 @@ export function propertyMeta(nodeType: string, key: string): PropertyControl | u
     ?? (isGpioPinProperty(nodeType, key) ? GPIO_PIN_CONTROL : undefined)
 }
 
+/**
+ * The control a property row draws on this particular node: `propertyMeta`,
+ * with a slider's range narrowed where another property of the same node
+ * changes what the number means (as `propertyOptions` narrows a select).
+ * HSV → RGB's Hue runs to 255 when it is read on the 0–255 wheel.
+ */
+export function propertyMetaFor(
+  nodeType: string,
+  key: string,
+  properties: Record<string, unknown>,
+): PropertyControl | undefined {
+  const meta = propertyMeta(nodeType, key)
+  if (nodeType === 'HSVToRGB' && key === 'h' && meta?.control === 'slider' && hueUnits(properties.hueUnits) === 'bytes') {
+    return { ...meta, max: 255 }
+  }
+  return meta
+}
+
+/**
+ * What a select option reads as in its dropdown. A bundled node's variant
+ * select takes the header that variant gives the node (`BUNDLED_TITLES`),
+ * less a "Name · " prefix every variant shares; other camelCase or
+ * abbreviated ids take a written label. Anything else reads as itself.
+ */
+export function selectOptionLabel(nodeType: string, key: string, option: string): string {
+  const bundled = BUNDLED_TITLES[nodeType]
+  if (bundled?.prop === key && bundled.labels[option]) {
+    const prefix = sharedTitlePrefix(nodeType)
+    const label = bundled.labels[option]
+    return prefix && label.startsWith(prefix) ? label.slice(prefix.length) : label
+  }
+  return SELECT_OPTION_LABELS[nodeType]?.[key]?.[option] ?? SELECT_OPTION_LABELS['*'][key]?.[option] ?? option
+}
+
+/** The "Name · " every one of a bundled node's titles starts with, if any. */
+function sharedTitlePrefix(nodeType: string): string {
+  const labels = Object.values(BUNDLED_TITLES[nodeType]?.labels ?? {})
+  const first = /^[^·]+ · /.exec(labels[0] ?? '')?.[0]
+  return first && labels.every((label) => label.startsWith(first)) ? first : ''
+}
+
+/**
+ * Written labels for select options whose ids are not words, by node type,
+ * with '*' for a key that reads the same on every node carrying it.
+ */
+const SELECT_OPTION_LABELS: Record<string, Record<string, Record<string, string>>> = {
+  '*': {
+    mixMode: { rgb: 'RGB', hsvShort: 'Hue, short way', hsvLong: 'Hue, long way' },
+  },
+  HarmonyPalette: {
+    harmony: {
+      complementary: 'Complementary', analogous: 'Analogous', triadic: 'Triadic',
+      splitComplementary: 'Split complementary', tetradic: 'Tetradic',
+    },
+  },
+  Poline: {
+    position: {
+      linear: 'Linear', sinusoidal: 'Sinusoidal', quadratic: 'Quadratic', cubic: 'Cubic',
+      arc: 'Arc', smoothStep: 'Smooth step', exponential: 'Exponential',
+    },
+  },
+  HSVToRGB: {
+    hueUnits: { degrees: 'Degrees (0–360)', bytes: '0–255 wheel' },
+  },
+  PaletteSampler: {
+    ends: { wrap: 'Wrap', hold: 'Hold ends' },
+  },
+  PaletteSweep: {
+    motion: { pingPong: 'Ping-pong', loop: 'Loop' },
+    easing: { linear: 'Linear', inOutSine: 'Sine in/out', inOutQuad: 'Quad in/out', inOutCubic: 'Cubic in/out' },
+  },
+}
+
 /** Select choices that depend on another property of the same node. */
 export function propertyOptions(
   nodeType: string,
@@ -1689,6 +1789,10 @@ export function propertyOptions(
     return properties.lattice === 'hex'
       ? ['hexArcs']
       : meta.options.filter((option) => option !== 'hexArcs')
+  }
+  // A curve the picker no longer offers still shows on a node saved with it.
+  if (nodeType === 'Ease' && key === 'easeType' && properties.easeType === 'inOutApprox') {
+    return [...meta.options, 'inOutApprox']
   }
   return meta.options
 }
@@ -2217,6 +2321,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   PaletteBank: {
     blend: 'How fast a new palette fades in: colour steps per 10 ms, FastLED\'s nblendPaletteTowardPalette. 0 switches instantly.',
     palettes: 'The ordered palettes Next and Previous step through, edited in the body.',
+    select: 'Picks a palette by its position in the bank, from 0, whenever this changes; past the end it wraps round. Set here it is where the bank starts; wired, a Step Value, encoder, DMX channel or Touch slider chooses directly. Next and Previous step on from there.',
   },
   Lightning: {
     rate: 'Strikes per minute, on average. Each gap is half to one and a half times the average.',
@@ -2305,7 +2410,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   GradientSampler: {
     mixMode: 'How the ends blend: straight through RGB, or round the hue wheel the short or long way.',
-    t: 'Where to sample between Color A (0) and Color B (1). Wire a signal here to animate the mix.',
+    t: 'Where to sample between Color A (0) and Color B (1); a wired value outside 0–1 holds at the nearer end. Wire a signal here to animate the mix.',
     rA: 'Red of Color A, 0 to 255. Ignored while the Color A port is wired.',
     gA: 'Green of Color A, 0 to 255. Ignored while the Color A port is wired.',
     bA: 'Blue of Color A, 0 to 255. Ignored while the Color A port is wired.',
@@ -2631,33 +2736,28 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     value: 'Number to remap when nothing is wired into Value.',
     inMin: 'Input value that becomes Out Min.',
     inMax: 'Input value that becomes Out Max.',
-    outMin: 'Output when the input equals In Min. Values beyond the range keep extrapolating.',
+    outMin: 'Output when the input equals In Min. Values beyond the range keep extrapolating unless Clamp output is on.',
     outMax: 'Output when the input equals In Max.',
-  },
-  Lerp: {
-    a: 'Value when T is 0.',
-    b: 'Value when T is 1.',
-    t: 'Blend position 0–1 between A and B.',
+    clampOutput: 'Holds the result between Out Min and Out Max, so an input past the In range stops at the end instead of running on.',
   },
   Ease: {
     easeType: 'Curve shape applied to T. In/Out curves slow one end; Wave shapes rise and fall.',
     t: 'Position 0–1 along the curve when nothing is wired into T.',
   },
-  Gate: {
-    value: 'Number passed through while Gate is true, when nothing is wired into Value.',
-    fallback: 'Number output while Gate is false.',
-  },
   Smooth: {
     value: 'Number to smooth when nothing is wired into Value.',
-    response: 'Seconds to catch up most of the way (63%) to a change. 0 passes the value straight through.',
+    response: 'Seconds to catch up most of the way (63%) to a change, and to a fall too while Fall is 0. 0 passes the value straight through.',
+    fall: 'Seconds to sink most of the way (63%) when the value drops. Set it above Response for a level that jumps up and falls back slowly, like a VU meter. 0 uses Response.',
   },
   Switch: {
     a: 'Output while Select is false.',
     b: 'Output while Select is true.',
   },
   Compare: {
+    compareOp: 'The test: A greater than B, less than B, at least B or at most B.',
     a: 'Left side of the comparison when nothing is wired into A.',
-    b: 'Right side; the output is true while A is greater than B.',
+    b: 'Right side, the threshold A is tested against, when nothing is wired into B.',
+    hysteresis: 'A band round B, in the same units, that a level must cross to change the answer: on past B plus this, off past B minus this. Stops a level hovering at B from flickering. 0 is a plain comparison.',
   },
   Trigger: {
     triggerOp: 'What to do with the pulse: clean it, detect change, toggle, stretch, count, or delay it.',
@@ -2669,12 +2769,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PaletteSampler: {
     palette: 'Preset palette to read from. A wired Palette input replaces it.',
-    t: 'Position along the palette, 0 to 1. Past 1 it wraps round to the start again.',
+    t: 'Position along the palette, 0 to 1. Past 1 it wraps round to the start again, unless Ends holds them.',
+    ends: 'Wrap reads T as a position round the palette, so 1 is the first colour again: for a scrolling index. Hold ends reads it as an amount, so 1 is the last colour and anything past either end stays there: for a level or a sensor.',
   },
   PaletteSweep: {
     palette: 'Preset palette to sweep through. A wired Palette input replaces it.',
-    rate: 'Full start-to-end-and-back trips per second. 0.1 is one trip every 10 seconds.',
-    easing: 'How each leg slows at the ends: linear is constant speed, sine and cubic ease in and out.',
+    rate: 'Full cycles per second: start to end and back for Ping-pong, start to end once for Loop. 0.1 is one cycle every 10 seconds.',
+    motion: 'Ping-pong runs to the end of the palette and back. Loop runs to the end and starts again, joining the last colour to the first, for a palette that cycles.',
+    easing: 'How each leg slows at the ends, on the same curves as Ease: linear is constant speed, sine, quad and cubic ease in and out.',
   },
   HueCycle: {
     rate: 'Trips round the hue wheel per second. 0.1 takes 10 seconds for a full rainbow.',
@@ -2682,13 +2784,21 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     v: 'Brightness, 0 (off) to 1 (full).',
   },
   HSVToRGB: {
-    hueUnits: 'How Hue is read: degrees round the wheel (0 red, 120 green, 240 blue) or a FastLED byte (0 red, 96 green, 160 blue, 255 back to red).',
-    h: 'Hue when nothing is wired into Hue, in the units above. Values past the end wrap round the wheel.',
+    hueUnits: 'How Hue is read: degrees round the wheel (0 red, 120 green, 240 blue), or the same wheel in 0–255 steps (0 red, 85 green, 170 blue, 255 back to red). It is the plain HSV wheel, not FastLED’s CHSV rainbow wheel.',
+    h: 'Hue when nothing is wired into Hue, in the units above: 0–360, or 0–255 on the 0–255 wheel. Values past the end wrap round the wheel.',
     s: 'Colour strength, 0 (white) to 1 (pure hue).',
     v: 'Brightness, 0 (off) to 1 (full).',
   },
+  AdjustColor: {
+    r: 'Red of the colour to adjust, 0 to 255, drawn as a swatch with Green and Blue. Ignored while the Color port is wired.',
+    g: 'Green of the colour to adjust, 0 to 255. Ignored while the Color port is wired.',
+    b: 'Blue of the colour to adjust, 0 to 255. Ignored while the Color port is wired.',
+    hueShift: 'Degrees to turn the hue round the colour wheel: 180 gives the complement, ±30 a neighbour. Wire a signal to make the colour drift.',
+    saturation: 'Multiplies the colour strength: 0 is grey, 1 unchanged, above 1 richer, up to pure colour.',
+    brightness: 'Multiplies the brightness: 0 is off, 1 unchanged, above 1 brighter, up to full.',
+  },
   Temperature: {
-    warmth: 'Warmth of the white, 0 (candle, 1000 K) to 1 (blue sky, 12000 K). 0.27 is about 4000 K.',
+    kelvin: 'Colour temperature of the white in kelvin, as LEDs are sold: lower is warmer. 1800 K is candlelight, 2700 K a warm-white bulb, 4000 K neutral, 6500 K daylight and 9000 K blue sky. A wired value is held to the same range.',
   },
   HeatColor: {
     heat: 'Temperature of the glow, 0 (black) through red and yellow to 1 (white).',
@@ -2705,10 +2815,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   HarmonyPalette: {
     hue: 'Base hue in degrees; the harmony is built around it.',
-    harmony: 'Which colour-wheel rule picks the other hues: complementary, analogous, triadic and so on.',
+    harmony: 'Which colour-wheel rule picks the other hues: complementary, analogous, triadic and so on. Each hue is held as a band, blended briefly into the next.',
     saturation: 'Colour strength of every stop, 0 (grey) to 1 (pure).',
     value: 'Brightness of every stop, 0 (off) to 1 (full).',
     spread: 'How far the other hues sit from the base: 0 is one hue, 1 is the full harmony.',
+    shade: 'How far the blends between the hue bands dip toward black: 0 keeps every stop at full Brightness, 1 puts a black trough between the hues, which gives a pattern that fills the frame its contrast.',
   },
   PaletteBlend: {
     paletteA: 'First palette. A wired Palette A input replaces it.',
@@ -2716,8 +2827,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     amount: 'Mix between the two: 0 is all A, 1 is all B.',
   },
   PaletteTransform: {
+    paletteIn: 'Preset palette to transform. A wired Palette input replaces it.',
     reverse: 'Runs the palette backwards, so its last colour comes first.',
     offset: 'Rotates the colours round the palette, 0 to 1 being one full turn. Wire a signal to scroll them.',
+    blackPoint: 'Pulls the palette\'s dark end down to black and stretches the rest back to full, like a levels control: any colour channel at or below this level becomes 0. Catalogue palettes bottom out at a dark colour, not black, so a full-frame pattern washes out; 0.2 to 0.4 gives them real contrast. 0 changes nothing.',
     brightness: 'Scales every entry, 0 dark to 1 unchanged.',
   },
   Text: {
@@ -3518,6 +3631,15 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     ...COLOR_PAIR_LABELS,
     mixMode: 'mix',
   },
+  Temperature: { kelvin: 'temperature (K)' },
+  AdjustColor: { hueShift: 'hue shift (°)', saturation: 'saturation (×)', brightness: 'brightness (×)' },
+  // Hue, saturation and brightness read the same on every HSV node; "value"
+  // and single letters are jargon.
+  HSVToRGB: { hueUnits: 'hue units', h: 'hue', s: 'saturation', v: 'brightness' },
+  HueCycle: { s: 'saturation', v: 'brightness' },
+  HarmonyPalette: { hue: 'hue (°)', value: 'brightness' },
+  PaletteTransform: { paletteIn: 'palette', blackPoint: 'black point' },
+  PaletteBank: { select: 'index' },
   PaletteGradient: {
     speed: 'scroll',
   },
@@ -3640,11 +3762,13 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Math: { mathOp: 'operation' },
   Function: { fn: 'function' },
   Logic: { logicOp: 'operation' },
+  Compare: { compareOp: 'operation' },
   MapRange: {
     inMin: 'in min',
     inMax: 'in max',
     outMin: 'out min',
     outMax: 'out max',
+    clampOutput: 'clamp output',
   },
   Ease: { easeType: 'curve' },
   Trigger: {
@@ -4293,11 +4417,6 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'position', label: 'Position', keys: ['x', 'y', 'hAlign', 'vAlign'] },
     { key: 'scroll', label: 'Scroll', keys: ['scroll', 'scrollAxis'] },
   ],
-  GradientSampler: [
-    { key: 'mix', label: 'Mix', keys: ['t', 'mixMode'] },
-    { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
-    { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
-  ],
   Wave: [
     { key: 'shape', label: 'Shape', keys: ['waveform', 'unipolar'] },
     { key: 'rate', label: 'Rate', keys: ['rateUnit', 'frequency', 'bpm', 'phase'] },
@@ -4668,6 +4787,7 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
     prop: 'logicOp',
     labels: { and: 'And', or: 'Or', xor: 'Xor', nand: 'Nand', nor: 'Nor' },
   },
+  Compare: { prop: 'compareOp', labels: COMPARE_LABELS },
   Transition: {
     prop: 'transitionType',
     labels: {
@@ -4735,10 +4855,10 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   Ease: {
     prop: 'easeType',
     labels: {
-      inOutCubic: 'Ease · Cubic',
-      inOutQuad: 'Ease · Quad',
+      inOutCubic: 'Ease In/Out · Cubic',
+      inOutQuad: 'Ease In/Out · Quad',
       linear: 'Linear',
-      inOutApprox: 'Ease · Fast Approx',
+      inOutApprox: 'Ease In/Out · Fast Approx',
       inQuad: 'Ease In · Quad',
       outQuad: 'Ease Out · Quad',
       inCubic: 'Ease In · Cubic',

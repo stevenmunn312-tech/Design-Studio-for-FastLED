@@ -13,6 +13,7 @@ import { frameQuarterTurns } from '../composite/frameTransform'
 import { glitterBudget } from '../composite/glitter'
 import { meterDistance, meterFill } from '../audioReactive/levelMeter'
 import { isNormalizedOutput } from '../shared/signalRange'
+import { applyBlackPoint, blackPointByte } from '../color/paletteBlackPoint'
 import { loopPacingCpp, loopPacingUs } from '../../codegen/loopPacing'
 import { controllerSettings } from '../../build/controllerSettings'
 import { dmxNetworkProtocol, dmxUsesNetwork, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
@@ -347,5 +348,50 @@ describe('Text with a wired string and Palette Transform', () => {
     const cpp = generateCpp([node('r', 'PaletteTransform', { reverse: true })], [])
     expect(cpp).toContain('CRGBPalette16 pal_r;')
     expect(cpp).toContain('int _k=15-_i;')
+    // No black point: nothing about one in the sketch.
+    expect(cpp).not.toContain('_lv(')
+  })
+
+  it('transforms its own preset until a palette is wired in', () => {
+    type Stops = { r: number; g: number; b: number }[]
+    const own = outputsOf([node('t', 'PaletteTransform', { paletteIn: 'ocean' })], []).get('t')!.palette as Stops
+    const selected = outputsOf([node('s', 'PaletteSelector', { palette: 'ocean' }), node('t', 'PaletteTransform', { paletteIn: 'lava' })],
+      [edge('s', 'palette', 't', 'paletteIn')]).get('t')!.palette as Stops
+    expect(own).toEqual(selected)
+    const cpp = generateCpp([node('t', 'PaletteTransform', { paletteIn: 'ocean' })], [])
+    expect(cpp).toContain('paldef_ocean[_k]')
+    expect(PALETTE_BUILDER_NODE_TYPES.has('PaletteTransform')).toBe(true)
+  })
+
+  it('pulls a palette\'s dark end to black with its black point, as the sketch does', () => {
+    type Stops = { r: number; g: number; b: number }[]
+    const plain = outputsOf([node('p', 'PaletteTransform', { paletteIn: 'ocean' })], []).get('p')!.palette as Stops
+    const deep = outputsOf([node('d', 'PaletteTransform', { paletteIn: 'ocean', blackPoint: 0.3 })], []).get('d')!.palette as Stops
+    const floor = blackPointByte(0.3)
+    plain.forEach((c, i) => {
+      for (const ch of ['r', 'g', 'b'] as const) {
+        expect(deep[i][ch]).toBe(applyBlackPoint(c[ch], floor))
+        // Hue order is kept: a channel only ever moves toward its own end.
+        if (c[ch] <= floor) expect(deep[i][ch]).toBe(0)
+      }
+    })
+    expect(deep.some((c, i) => c.r + c.g + c.b < plain[i].r + plain[i].g + plain[i].b)).toBe(true)
+    const cpp = generateCpp([node('d', 'PaletteTransform', { paletteIn: 'ocean', blackPoint: 0.3 })], [])
+    expect(cpp).toContain('const uint8_t _bp=(uint8_t)(constrain(0.3, 0.0f, 0.9f) * 255.0f + 0.5f);')
+    expect(cpp).toContain('_c=CRGB(_lv(_c.r),_lv(_c.g),_lv(_c.b));')
+  })
+
+  it('computes the black point in the same whole-byte steps as the C++ lambda', () => {
+    // The lambda's arithmetic, in unsigned integers.
+    const lambda = (ch: number, bp: number) => (ch <= bp ? 0 : Math.trunc(((ch - bp) * 255 + Math.trunc((255 - bp) / 2)) / (255 - bp)))
+    for (const level of [0, 0.05, 0.2, 0.37, 0.5, 0.9, 1.4, -1]) {
+      const bp = blackPointByte(level)
+      expect(bp).toBeLessThanOrEqual(Math.round(0.9 * 255))
+      for (let ch = 0; ch <= 255; ch++) {
+        const expected = bp === 0 ? ch : lambda(ch, bp)
+        expect(applyBlackPoint(ch, bp), `${level} ${ch}`).toBe(expected)
+      }
+      expect(applyBlackPoint(255, bp)).toBe(255)
+    }
   })
 })

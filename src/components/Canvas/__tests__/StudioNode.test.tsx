@@ -342,8 +342,9 @@ describe('StudioNode', () => {
     for (const key of ['symmetry', 'freqA', 'thickness']) {
       expect(view.container.querySelector(`[data-property-input="${n.id}|${key}"]`), key).toBeNull()
     }
-    expect(view.queryByText('Superformula')).toBeNull()
-    expect(view.queryByText('Lissajous')).toBeNull()
+    // No group header for another formula (the formula picker names them all).
+    expect(view.queryByRole('button', { name: /Superformula/ })).toBeNull()
+    expect(view.queryByRole('button', { name: /Lissajous/ })).toBeNull()
     view.unmount()
 
     // Exposing the socket keeps its row, disabled, so a wire has a handle.
@@ -495,6 +496,38 @@ describe('StudioNode', () => {
       // Still a landing spot for the Touch node's add-control socket.
       expect(row.getAttribute('data-property-input')).toBe(`n1|${port}`)
     }
+  })
+
+  it('shows select options by name rather than by their stored ids', () => {
+    const trigger = renderNode(makeNode('Trigger', { triggerOp: 'oneShot' }))
+    const operation = trigger.getByLabelText('operation value') as HTMLSelectElement
+    expect(operation.value).toBe('oneShot')
+    expect(operation.selectedOptions[0].textContent).toBe('One Shot')
+    expect([...operation.options].map((option) => option.textContent)).toContain('Pulse Divider')
+    trigger.unmount()
+
+    const harmony = renderNode(makeNode('HarmonyPalette', { harmony: 'splitComplementary' }))
+    expect((harmony.getByLabelText('harmony value') as HTMLSelectElement).selectedOptions[0].textContent).toBe('Split complementary')
+  })
+
+  it('draws a Gradient Sampler\'s two colours as swatches that write their channel triples', () => {
+    const view = renderNode(makeNode('GradientSampler', { t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, mixMode: 'rgb' }))
+    const keys = [...view.container.querySelectorAll('[class*="propKey"]')].map((key) => key.textContent ?? '')
+    expect(keys).toEqual(expect.arrayContaining(['color A', 'color B']))
+    for (const raw of ['red A', 'green A', 'blue B']) expect(keys).not.toContain(raw)
+    const colorB = view.getByLabelText('Gradient Sampler color B') as HTMLInputElement
+    expect(colorB.value).toBe('#ff00ff')
+    fireEvent.change(colorB, { target: { value: '#102030' } })
+    expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({ rB: 16, gB: 32, bB: 48, rA: 0, gA: 200, bA: 255 })
+  })
+
+  it('runs the HSV → RGB Hue slider to 255 on the 0–255 wheel', () => {
+    const degrees = renderNode(makeNode('HSVToRGB', { hueUnits: 'degrees', h: 200 }))
+    expect((degrees.getByLabelText('hue value') as HTMLInputElement).max).toBe('360')
+    degrees.unmount()
+    const bytes = renderNode(makeNode('HSVToRGB', { hueUnits: 'bytes', h: 200 }))
+    expect((bytes.getByLabelText('hue value') as HTMLInputElement).max).toBe('255')
+    expect((bytes.getByLabelText('hue units value') as HTMLSelectElement).selectedOptions[0].textContent).toBe('0–255 wheel')
   })
 
   it('keeps the Palette Bank palette list off the generic property rows', () => {
@@ -1639,8 +1672,9 @@ describe('StudioNode', () => {
   })
 
   it('a bundled node header reflects the selected variant', () => {
-    const { getByText } = renderNode(makeNode('Math', { mathOp: 'multiply', a: 1, b: 2 }))
-    expect(getByText('Multiply')).toBeTruthy()   // not the generic "Math"
+    const { getAllByText } = renderNode(makeNode('Math', { mathOp: 'multiply', a: 1, b: 2 }))
+    // Not the generic "Math"; the operation picker names it too.
+    expect(getAllByText('Multiply').some((element) => element.tagName !== 'OPTION')).toBe(true)
   })
 
   // The Transition's `direction` only applies to a wipe or push, so its row

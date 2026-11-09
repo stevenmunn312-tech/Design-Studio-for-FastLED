@@ -6,14 +6,14 @@ const PALETTE_OUT = 'A palette for any node with a Palette input. It replaces th
 export const COLOR_REFERENCE: NodeReferenceMap = {
   GradientSampler: {
     overview: [
-      'Gradient Sampler picks one colour from a two-colour gradient. T of 0 gives Color A, 1 gives Color B, and anything between is a mix.',
+      'Gradient Sampler picks one colour from a two-colour gradient. T of 0 gives Color A, 1 gives Color B, and anything between is a mix. Pick the two colours from their swatches on the node.',
       'Mix decides how the in-between colours are made: straight through RGB, which can pass through grey, or round the hue wheel the short or long way, which stays vivid.',
       'Wire a level into T and a colour follows it: cool to hot, calm to alarm, low to high.',
     ],
     inputs: {
-      t: 'Where to sample, 0 (Color A) to 1 (Color B).',
-      colorA: 'The colour at T = 0. Replaces the A fields.',
-      colorB: 'The colour at T = 1. Replaces the B fields.',
+      t: 'Where to sample, 0 (Color A) to 1 (Color B). Values outside hold at the nearer end.',
+      colorA: 'The colour at T = 0. Replaces the Color A swatch.',
+      colorB: 'The colour at T = 1. Replaces the Color B swatch.',
     },
     outputs: {
       color: 'The colour at T.',
@@ -34,13 +34,13 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   PaletteSampler: {
     overview: [
-      'Palette Sampler picks one colour from a palette at position T. T runs from 0 at the palette’s start to 1 at its end, and wraps round past 1.',
+      'Palette Sampler picks one colour from a palette at position T. T runs from 0 at the palette’s start to 1 at its end.',
       'It turns any palette into a single colour you can wire wherever one colour is wanted: a shape’s fill, text, sparkles, a flock.',
-      'Feed T from a moving signal and the colour travels through the palette.',
+      'Ends decides what T means at the top. Wrap treats it as a position round the palette, so 1 is the first colour again and a rising ramp keeps cycling. Hold ends treats it as an amount, so 1 is the last colour: choose it when a level or a sensor drives T, or a full-scale reading on the heat palette comes out black.',
     ],
     inputs: {
       paletteIn: 'A palette to sample. Replaces the Palette choice.',
-      t: 'Position along the palette, 0 to 1, wrapping past 1.',
+      t: 'Position along the palette, 0 to 1: wrapping past 1, or held at the ends with Hold ends.',
     },
     outputs: {
       color: 'The colour at T.',
@@ -62,13 +62,13 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   PaletteSweep: {
     overview: [
-      'Palette Sweep travels back and forth through a palette by itself, giving out one colour at a time. Rate is how many full trips there and back it makes each second.',
-      'Easing shapes each leg: linear moves evenly, sine, quad and cubic slow at the ends so the end colours linger.',
+      'Palette Sweep travels through a palette by itself, giving out one colour at a time. Ping-pong runs to the end and back; Loop runs to the end and starts again, which suits a palette whose last colour leads back into its first. Rate is how many full cycles it makes each second.',
+      'Easing shapes each leg with the same curves as Ease: linear moves evenly, sine, quad and cubic slow at the ends so the end colours linger.',
       'It is Palette Sampler with its own motion built in — the quick way to a colour that is always gently changing.',
     ],
     inputs: {
       paletteIn: 'A palette to sweep. Replaces the Palette choice.',
-      rate: 'Trips per second.',
+      rate: 'Cycles per second.',
     },
     outputs: {
       color: 'The current colour.',
@@ -77,7 +77,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       featured: 'PaletteSweep',
       title: 'Lettering that glows through a synthwave palette',
       nodes: {
-        sweep: ['PaletteSweep', { palette: 'synthwave', rate: 0.15, easing: 'sine' }],
+        sweep: ['PaletteSweep', { palette: 'synthwave', rate: 0.15, motion: 'pingPong', easing: 'inOutSine' }],
         word: ['Text', { text: 'SYNTH' }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },
@@ -111,11 +111,11 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
   HueCycle: {
     overview: [
       'Hue Cycle travels round the colour wheel by itself. Rate is how many full turns it makes each second: 0.1 takes ten seconds for a rainbow.',
-      'Saturation and Value set how strong and how bright the colours are; turn Saturation down for pastels.',
+      'Saturation and Brightness set how strong and how bright the colours are; turn Saturation down for pastels.',
     ],
     inputs: {
       rate: 'Turns per second.',
-      s: 'Colour strength, 0 (white) to 1 (pure).',
+      s: 'Saturation: colour strength, 0 (white) to 1 (pure).',
       v: 'Brightness, 0 to 1.',
     },
     outputs: {
@@ -137,14 +137,15 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   HSVToRGB: {
     overview: [
-      'HSV → RGB builds a colour from hue, saturation and value. Hue is the colour’s place on the wheel; saturation how pure it is; value how bright.',
-      'Hue can be read in degrees (0 red, 120 green, 240 blue) or as a FastLED byte (0 red, 96 green, 160 blue, 255 back to red). Values past the end wrap round the wheel, so a rising number keeps cycling.',
+      'HSV → RGB builds a colour from hue, saturation and brightness (the V of HSV). Hue is the colour’s place on the wheel; saturation how pure it is; brightness how bright.',
+      'Hue can be read in degrees (0 red, 120 green, 240 blue) or as the same wheel in 0–255 steps (0 red, 85 green, 170 blue, 255 back to red). Values past the end wrap round the wheel, so a rising number keeps cycling.',
+      'The wheel is the plain HSV one, with its three primaries evenly spaced. FastLED’s CHSV uses its rainbow wheel, which widens yellow, so a CHSV hue ported here lands close to, but not exactly on, the same colour.',
       'It is the usual way to turn a number — an audio hue, a counter, a sensor — into a colour.',
     ],
     inputs: {
-      h: 'Hue, in degrees or FastLED bytes depending on Hue Units.',
+      h: 'Hue, in degrees or 0–255 steps depending on Hue Units.',
       s: 'Saturation, 0 (white) to 1 (pure).',
-      v: 'Value, 0 (off) to 1 (full).',
+      v: 'Brightness, 0 (off) to 1 (full).',
     },
     outputs: {
       color: 'The colour.',
@@ -167,8 +168,8 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   RGBToHSV: {
     overview: [
-      'RGB → HSV takes a colour apart into hue (0 to 360), saturation (0 to 1) and value (0 to 1).',
-      'Once a colour is in parts you can change one without the others: rotate the hue to find a complement, lower saturation for a pastel, scale value to dim it, then rebuild it with HSV → RGB.',
+      'RGB → HSV takes a colour apart into hue (0 to 360), saturation (0 to 1) and brightness (0 to 1, the V of HSV).',
+      'Once a colour is in parts you can change one without the others: rotate the hue to find a complement, lower saturation for a pastel, scale brightness to dim it, then rebuild it with HSV → RGB. For those everyday changes to one colour, Adjust Color does it in a single node.',
     ],
     inputs: {
       rgb: 'The colour to take apart. Replaces the R, G and B fields.',
@@ -176,7 +177,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
     outputs: {
       h: 'Hue in degrees, 0 to 360.',
       s: 'Saturation, 0 to 1.',
-      v: 'Value (brightness), 0 to 1.',
+      v: 'Brightness, 0 to 1.',
     },
     example: example({
       featured: 'RGBToHSV',
@@ -197,34 +198,67 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
         'base.color > fade.colorA',
         'rebuild.color > fade.colorB',
       ],
-      explanation: 'RGB → HSV splits the pink into hue, saturation and value. Math adds 180° to the hue only, and HSV → RGB rebuilds the colour with the original saturation and value — its exact complement. Gradient Frame fades from one to the other.',
+      explanation: 'RGB → HSV splits the pink into hue, saturation and brightness. Math adds 180° to the hue only, and HSV → RGB rebuilds the colour with the original saturation and brightness — its exact complement. Gradient Frame fades from one to the other.',
       preview: 'The {output} shows a gradient from hot pink on the left to its complementary green on the right.',
+    }),
+  },
+
+  AdjustColor: {
+    overview: [
+      'Adjust Color changes one colour without taking it apart: Hue Shift turns it round the colour wheel, Saturation scales how strong it is, and Brightness scales how bright.',
+      'It is the quick way to a darker, paler or neighbouring version of a colour — a dimmed accent, a complement at 180°, a hue that drifts with a wire — where it once took RGB → HSV, Math and HSV → RGB.',
+      'Wire a colour into Color, or pick one on the node’s swatch. Saturation and Brightness are multipliers: 1 leaves the colour alone, and the result never goes past pure colour or full brightness.',
+    ],
+    inputs: {
+      color: 'The colour to adjust. Replaces the swatch.',
+      hueShift: 'Degrees to turn the hue; 180 is the complement.',
+      saturation: 'Multiplier for colour strength; 0 is grey, 1 unchanged.',
+      brightness: 'Multiplier for brightness; 0 is off, 1 unchanged.',
+    },
+    outputs: {
+      color: 'The adjusted colour.',
+    },
+    example: example({
+      featured: 'AdjustColor',
+      title: 'An orange that sways toward red and gold',
+      nodes: {
+        base: ['Color', { color: '#ff7a1a' }],
+        sway: ['Wave', { frequency: 0.15, amplitude: 25 }],
+        tint: ['AdjustColor', { saturation: 0.9, brightness: 0.8 }],
+        lamp: ['SolidColor'],
+        output: ['MatrixOutput', STRIP(60)],
+      },
+      wires: ['base.color > tint.color', 'sway.result > tint.hueShift', 'tint.color > lamp.color'],
+      explanation: 'Color holds one orange. A slow Wave swings Adjust Color’s Hue Shift 25° each way, so the colour leans toward red and then toward gold, a little softer and dimmer than the original. Solid Color fills the string with it.',
+      preview: 'The {output} glows orange, drifting slowly between a deep red-orange and a warm gold.',
     }),
   },
 
   Temperature: {
     overview: [
-      'Color Temperature gives a white from a single Warmth control: 0 is candlelight at about 1000 K, 1 is clear blue sky at about 12000 K, and the default 0.27 is about 4000 K.',
+      'Color Temperature gives a white from a colour temperature in kelvin, the number LED strips and bulbs are sold by. Lower is warmer: 1800 K is candlelight, 2700 K a warm-white bulb, 4000 K (the default) neutral, 6500 K daylight and 9000 K clear blue sky.',
       'It is the natural way to make tunable white — warm for evenings, cool for working — or to tint a scene toward firelight or daylight.',
+      'A wired value is in kelvin too. To drive it from a 0–1 level, put a Map Range in front with Out Min and Out Max set to the two whites you want.',
     ],
     inputs: {
-      warmth: 'From 0 (candle) to 1 (blue sky).',
+      kelvin: 'Colour temperature in kelvin, 1800 (candle) to 9000 (blue sky).',
     },
     outputs: {
-      color: 'The white for that warmth.',
+      color: 'The white for that temperature.',
     },
     example: example({
       featured: 'Temperature',
       title: 'A knob from candlelight to daylight',
       nodes: {
         knob: ['PotInput'],
+        range: ['MapRange', { inMin: 0, inMax: 1, outMin: 1800, outMax: 6500, clampOutput: true }],
         white: ['Temperature'],
         lamp: ['SolidColor'],
         output: ['MatrixOutput', STRIP(60)],
       },
-      wires: ['knob.value > white.warmth', 'white.color > lamp.color'],
-      explanation: 'The Potentiometer’s 0–1 is exactly what Warmth expects, so the knob sets Color Temperature directly and Solid Color fills the string with that white: candle-orange at one end of the knob, cool daylight at the other.',
-      preview: 'The {output} glows a neutral white. Drag the Potentiometer slider down for warm candlelight or up for cool blue daylight.',
+      wires: ['knob.value > range.value', 'range.result > white.kelvin', 'white.color > lamp.color'],
+      explanation: 'Map Range turns the Potentiometer’s 0–1 into 1800 to 6500 K, so the knob sets Color Temperature and Solid Color fills the string with that white: candle-orange at one end of the knob, cool daylight at the other.',
+      preview: 'The {output} glows a warm white. Drag the Potentiometer slider down for candlelight or up for cool daylight.',
     }),
   },
 
@@ -276,14 +310,14 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   CustomPalette: {
     overview: [
-      'Custom Palette builds a palette from up to four colours, spaced evenly from start to end and blended between.',
-      'Wire Color nodes in for fixed colours — team colours, a brand, a holiday — or any colour signal for a palette that changes.',
+      'Custom Palette builds a palette from two to eight colour stops on a strip in its body, blended between. Drag a stop to move it, click its swatch to recolour it, add a stop with add, and pick a ready-made set from the presets below the strip. Export and link share the palette.',
+      'Wire Color nodes into Color 1–4 for colours that come from elsewhere — team colours, a brand, a holiday — or any colour signal for a palette that changes. Each input replaces one of the first four stops counted from the left, and the strip numbers the stops they drive; drag a stop past a neighbour and the numbers follow the new order.',
     ],
     inputs: {
-      color0: 'The first colour, at the palette’s start.',
-      color1: 'The second colour.',
-      color2: 'The third colour.',
-      color3: 'The fourth colour, at the palette’s end.',
+      color0: 'Replaces the colour of the leftmost stop, numbered 1 on the strip.',
+      color1: 'Replaces the colour of stop 2.',
+      color2: 'Replaces the colour of stop 3.',
+      color3: 'Replaces the colour of stop 4.',
     },
     outputs: {
       palette: PALETTE_OUT,
@@ -333,8 +367,9 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   Poline: {
     overview: [
-      'Poline Palette draws a smooth curve through up to three anchor colours and samples a palette along it, using the poline colour library. The in-between colours stay rich rather than passing through grey.',
+      'Poline Palette draws a smooth curve through three anchor colours and samples a palette along it, using the poline colour library. The in-between colours stay rich rather than passing through grey.',
       'Points sets how many colours are made between each pair of anchors; Position spaces them along the curve. Wire Color nodes into the anchors, or pick them on the node.',
+      'For contrast, put a deep, tinted colour on the middle anchor (the trough preset does): a pattern then always shows a dark band between the two bright hues instead of washing out.',
     ],
     inputs: {
       colorA: 'First anchor. Replaces Anchor A.',
@@ -360,14 +395,16 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   HarmonyPalette: {
     overview: [
-      'Harmony Palette builds a palette from colour-wheel rules around one base hue: complementary, analogous, triadic, split-complementary or tetradic.',
+      'Harmony Palette builds a palette from colour-wheel rules around one base hue: complementary, analogous, triadic, split-complementary or tetradic. Each hue the rule picks is held as a band, with a short blend into the next that never passes through the hues in between.',
       'Change the base hue and the whole palette moves with it while staying in harmony, which makes it ideal for colours that drift without ever clashing. Spread pulls the extra hues in toward the base.',
+      'Every band has the same brightness, so a pattern that fills the frame can look flat. Shade dips the blends between the bands toward black, giving dark troughs between the hues.',
     ],
     inputs: {
       hue: 'Base hue in degrees.',
       saturation: 'Colour strength of every colour.',
       value: 'Brightness of every colour.',
       spread: 'How far the other hues sit from the base, 0 to 1.',
+      shade: 'How far the blends between the hues dip toward black, 0 to 1.',
     },
     outputs: {
       palette: PALETTE_OUT,
@@ -377,7 +414,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       title: 'Colours that drift but never clash',
       nodes: {
         wander: ['NoiseSignal', { speed: 0.15, min: 0, max: 360 }],
-        harmony: ['HarmonyPalette', { harmony: 'splitComplementary', saturation: 0.9 }],
+        harmony: ['HarmonyPalette', { harmony: 'splitComplementary', saturation: 0.9, shade: 0.5 }],
         lava: ['Blobs', { count: 4, speed: 0.3 }],
       },
       wires: ['wander.value > harmony.hue', 'harmony.palette > lava.paletteIn'],
@@ -415,13 +452,15 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   PaletteTransform: {
     overview: [
-      'Palette Transform changes a palette on its way to a pattern: Reverse runs it backwards, Offset rotates its colours round, and Brightness dims every colour.',
+      'Palette Transform changes a palette on its way to a pattern: Reverse runs it backwards, Offset rotates its colours round, Black point pulls its dark end down to black, and Brightness dims every colour. Pick a preset on the node, or wire any palette into it.',
       'Offset is the useful one to animate. Wire a ramp into it and the colours flow through a pattern that otherwise stands still.',
+      'Black point is the contrast control. Built-in palettes bottom out at a dark colour rather than black, so a pattern that fills the frame can look washed out; a black point of 0.2 to 0.4 gives it deep shadows while keeping the order of its colours.',
     ],
     inputs: {
-      paletteIn: 'The palette to transform.',
+      paletteIn: 'The palette to transform. Replaces the Palette choice.',
       offset: 'Rotation round the palette, 0 to 1 for a full turn.',
       brightness: 'Scale for every colour, 0 to 1.',
+      blackPoint: 'The level pulled down to black, 0 (none) to 0.9.',
     },
     outputs: {
       palette: PALETTE_OUT,
@@ -430,26 +469,26 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       featured: 'PaletteTransform',
       title: 'Colours flowing through still stripes',
       nodes: {
-        party: ['PaletteSelector', { palette: 'party' }],
         flow: ['Wave', { frequency: 0.2, amplitude: 1, unipolar: true, waveform: 'sawtooth' }],
-        shift: ['PaletteTransform'],
+        shift: ['PaletteTransform', { paletteIn: 'party', blackPoint: 0.25 }],
         stripes: ['PaletteGradient', { angle: 30, repeat: 2, speed: 0 }],
       },
-      wires: ['party.palette > shift.paletteIn', 'flow.result > shift.offset', 'shift.palette > stripes.paletteIn'],
-      explanation: 'Palette Gradient draws fixed diagonal stripes with its scroll at 0. Palette Transform rotates the party palette’s colours with a sawtooth ramp, so the stripes stay put while the colours stream through them.',
-      preview: 'The {output} shows diagonal bands whose colours flow steadily along them.',
+      wires: ['flow.result > shift.offset', 'shift.palette > stripes.paletteIn'],
+      explanation: 'Palette Gradient draws fixed diagonal stripes with its scroll at 0. Palette Transform takes the party preset, deepens its darker colours with a black point of 0.25, and rotates it with a sawtooth ramp, so the stripes stay put while the colours stream through them with dark gaps between.',
+      preview: 'The {output} shows diagonal bands whose colours flow steadily along them, separated by deep shadows.',
     }),
   },
 
   PaletteBank: {
     overview: [
       'Palette Bank holds an ordered list of palettes and steps through it on Next and Previous, blending into each new palette over a short fade. It wraps at both ends.',
-      'Tick the palettes you want in its body; only those are built into the sketch. Name and Index say which palette is current, for a display or another node.',
-      'Wire buttons, remote keys, beats or a timer into Next and Previous.',
+      'A new bank starts with four contrasting presets — party, ocean, lava and forest — so the first press shows a change. Tick the palettes you want in its body; only those are built into the sketch. Name and Index say which palette is current, for a display or another node.',
+      'Wire buttons, remote keys, beats or a timer into Next and Previous. To pick a palette directly, wire a number into Index — a Step Value, an encoder, a DMX channel or a Touch slider: whenever it changes the bank jumps to that position, counted from 0, and Next and Previous step on from there.',
     ],
     inputs: {
       next: 'Each press moves to the next palette.',
       previous: 'Each press moves to the previous palette.',
+      select: 'A position in the bank, from 0; each change jumps there, wrapping past the end.',
     },
     outputs: {
       palette: 'The current palette, blending toward the newly selected one after each step.',

@@ -15,16 +15,22 @@ import {
   paletteBankBlendTicks,
   paletteBankTable,
   nblendPaletteBytes,
+  paletteBankChoice,
 } from '../../state/palettes/paletteBank'
 import { displayString } from '../../state/displays/displayText'
 import { gradientMixMode, hueUnits, mixGradientColors } from '../../state/palettes/hueMix'
 import { harmonyKind, harmonyStops16 } from '../../state/palettes/harmonyPalette'
 import { imagePaletteStops16 } from '../../state/palettes/imagePalette'
-import { hexToRgb, polinePalette } from '../../state/palettes/polinePalette'
+import { hexToRgb, polineStops16 } from '../../state/palettes/polinePalette'
 import { normalizeCustomPalette, hexToRgb as customHexToRgb, customPaletteStops16 } from '../../state/palettes/customPalette'
 import { type RGB, hsv, samplePalette, samplePaletteClamped } from '../../state/palettes/ledColor'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { speedPhase } from '../shared/speedClock'
+import { applyEase } from '../math/easing'
+import { paletteEnds, sweepLeg, sweepMotion } from './paletteMotion'
+import { clampColorTemperature } from './colorTemperature'
+import { applyBlackPoint, blackPointByte } from './paletteBlackPoint'
+import { ADJUST_COLOR_DEFAULT, adjustColor } from './adjustColor'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
@@ -33,19 +39,13 @@ import { instanceState } from '../../state/evaluator/memory'
 const paletteBankState = instanceState('paletteBankState', new Map<string, {
   lastT: number
   index: number
+  /** The Index value last acted on, rounded; a change selects. */
+  chosen?: number
   buttons: Record<string, ButtonEdgeState>
   /** The working palette a change blends through, as the sketch's 48 bytes. */
   current?: Uint8Array
   blendMs?: number
 }>())
-
-const TEMPERATURE_MIN_K = 1000
-const TEMPERATURE_MAX_K = 12000
-
-function normalizedTemperatureToKelvin(value: number): number {
-  const t = Math.max(0, Math.min(1, value))
-  return TEMPERATURE_MIN_K + t * (TEMPERATURE_MAX_K - TEMPERATURE_MIN_K)
-}
 
 // Approximate black-body white point for a colour temperature in Kelvin
 // (Tanner Helland's approximation): ~1900K candle → ~6500K daylight → blue.
@@ -59,22 +59,6 @@ function kelvinToRgb(kelvin: number): RGB {
   else if (t <= 19) b = 0
   else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307
   return { r: clamp(r), g: clamp(g), b: clamp(b) }
-}
-
-/** Shape one 0→1 leg of a PaletteSweep. The ping-pong timing itself is
- * handled by the node so every easing retains the requested round-trip rate. */
-function applySweepEase(type: string, x: number): number {
-  const t = Math.max(0, Math.min(1, x))
-  switch (type) {
-    case 'linear': return t
-    case 'quad':
-      return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2
-    case 'cubic':
-      return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2
-    case 'sine':
-    default:
-      return (1 - Math.cos(Math.PI * t)) / 2
-  }
 }
 
 export const COLOR_EVALUATORS: NodeEvaluators = {
@@ -112,8 +96,17 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const s = max > 0 ? d / max : 0
     return { h: (h + 360) % 360, s, v: max }
   },
+  AdjustColor({ input, num }, id, props) {
+    const channel = (key: string, fallback: number) => byte(Number(props[key] ?? fallback) / 255)
+    const source = (input(id, 'color', null) as RGB | null)
+      ?? { r: channel('r', ADJUST_COLOR_DEFAULT.r), g: channel('g', ADJUST_COLOR_DEFAULT.g), b: channel('b', ADJUST_COLOR_DEFAULT.b) }
+    return { color: adjustColor(source,
+      num(id, 'hueShift', props, 'hueShift', 0),
+      num(id, 'saturation', props, 'saturation', 1),
+      num(id, 'brightness', props, 'brightness', 1)) }
+  },
   Temperature({ num }, id, props) {
-    return { color: kelvinToRgb(normalizedTemperatureToKelvin(num(id, 'warmth', props, 'warmth', 0.27))) }
+    return { color: kelvinToRgb(clampColorTemperature(num(id, 'kelvin', props, 'kelvin', 4000))) }
   },
   HeatColor({ num }, id, props) {
     // heatColor() takes a 0–255 temperature (shared with Fire2012); the node
@@ -122,35 +115,32 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     return { color: heatColor(heat * 255) }
   },
   GradientSampler({ input, num }, id, props) {
-    const tt = num(id, 't', props, 't', 0)
-    const cA = (input(id, 'colorA', null) as RGB | null) ?? {
-      r: byte(num(id, 'rA', props, 'rA', 0) / 255),
-      g: byte(num(id, 'gA', props, 'gA', 200) / 255),
-      b: byte(num(id, 'bA', props, 'bA', 255) / 255),
-    }
-    const cB = (input(id, 'colorB', null) as RGB | null) ?? {
-      r: byte(num(id, 'rB', props, 'rB', 255) / 255),
-      g: byte(num(id, 'gB', props, 'gB', 0) / 255),
-      b: byte(num(id, 'bB', props, 'bB', 255) / 255),
-    }
+    // Clamped in every mode, as the firmware's `constrain` is: unclamped, a
+    // bipolar wave on T extrapolated here and wrapped the colour on the board.
+    const tt = Math.max(0, Math.min(1, num(id, 't', props, 't', 0)))
+    const channel = (key: string, fallback: number) => byte(Number(props[key] ?? fallback) / 255)
+    const cA = (input(id, 'colorA', null) as RGB | null) ?? { r: channel('rA', 0), g: channel('gA', 200), b: channel('bA', 255) }
+    const cB = (input(id, 'colorB', null) as RGB | null) ?? { r: channel('rB', 255), g: channel('gB', 0), b: channel('bB', 255) }
     return { color: mixGradientColors(cA, cB, tt, gradientMixMode(props.mixMode)) }
   },
   PaletteSampler({ num, pal }, id, props) {
     const tt = num(id, 't', props, 't', 0)
     const palName = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { color: samplePalette(palName, tt) }
+    // Hold ends reads T as an amount: 1 is the last colour, never the first again.
+    return { color: paletteEnds(props.ends) === 'hold' ? samplePaletteClamped(palName, tt) : samplePalette(palName, tt) }
   },
   PaletteSweep({ num, pal, t, stateKey }, id, props) {
     const rate = Math.max(0, num(id, 'rate', props, 'rate', 0.1))
     const phase = (speedPhase(stateKey(id), t, rate) % 1 + 1) % 1
-    const pingPong = phase < 0.5 ? phase * 2 : (1 - phase) * 2
-    const position = applySweepEase(String(props.easing ?? 'sine'), pingPong)
+    const motion = sweepMotion(props.motion)
+    const position = applyEase(String(props.easing ?? 'inOutSine'), sweepLeg(phase, motion))
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    // The sweep turns at each end of the palette, so its ends are held, never
-    // wrapped back to the first colour (LINEARBLEND_NOWRAP in firmware).
-    return { color: samplePaletteClamped(palette, position) }
+    // A ping-pong turns at each end of the palette, so its ends are held,
+    // never wrapped back to the first colour (LINEARBLEND_NOWRAP in firmware);
+    // a loop runs round, so it wraps (LINEARBLEND).
+    return { color: motion === 'loop' ? samplePalette(palette, position) : samplePaletteClamped(palette, position) }
   },
-  PaletteBank({ inputSourceType, input, elapsedT: t, stateKey, incoming, nodeMap }, id, props) {
+  PaletteBank({ inputSourceType, input, num, elapsedT: t, stateKey, incoming, nodeMap }, id, props) {
     const entries = paletteBankEntries(props)
     const key = stateKey(id)
     const nowMs = t * 1000
@@ -175,9 +165,17 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
       const settings = pressEdgeSettings(edgeSettings, inputSourceType(id, port))
       return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, true, settings)
     }
+    // Index selects directly whenever its value changes (and on the first
+    // pass, so an unwired Index is where the bank starts); Next and Previous
+    // then step on from there, so whichever moved last wins.
+    const chosen = paletteBankChoice(num(id, 'select', props, 'select', 0))
+    let held = clampPaletteBankIndex(state.index, entries.length)
+    if (state.chosen !== chosen) {
+      state.chosen = chosen
+      held = stepPaletteBankIndex(0, entries.length, chosen)
+    }
     // Pressed together they cancel, the way +step and -step in one frame net
     // to nothing — no precedence rule needed.
-    const held = clampPaletteBankIndex(state.index, entries.length)
     const delta = (press('next') ? 1 : 0) - (press('previous') ? 1 : 0)
     const index = delta === 0 ? held : stepPaletteBankIndex(held, entries.length, delta)
     state.index = index
@@ -220,14 +218,15 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     return { palette: imagePaletteStops16(source, Number(props.count ?? 6)) }
   },
   Poline({ input }, id, props) {
-    // Polar-interpolated palette between up to three anchor colours
-    // (poline). Wired colours override the per-anchor hex defaults.
+    // Polar-interpolated palette through its three anchor colours (poline).
+    // Wired colours override the per-anchor hex defaults. The 16-entry table
+    // is the one the sketch bakes or builds, so preview and board agree.
     const a = (input(id, 'colorA', null) as RGB | null) ?? hexToRgb(String(props.anchorA ?? '#1020ff'))
     const b = (input(id, 'colorB', null) as RGB | null) ?? hexToRgb(String(props.anchorB ?? '#ff20a0'))
     const c = (input(id, 'colorC', null) as RGB | null) ?? hexToRgb(String(props.anchorC ?? '#20ffd0'))
     const points = Number(props.points ?? 4)
     const position = String(props.position ?? 'sinusoidal')
-    return { palette: polinePalette([a, b, c], points, position) }
+    return { palette: polineStops16([a, b, c], points, position) }
   },
   HarmonyPalette({ num }, id, props) {
     return { palette: harmonyStops16(
@@ -236,24 +235,27 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
       num(id, 'saturation', props, 'saturation', 1),
       num(id, 'value', props, 'value', 1),
       num(id, 'spread', props, 'spread', 1),
+      num(id, 'shade', props, 'shade', 0),
     ) }
   },
   // Keep in lockstep with the `PaletteTransform` emitter: entry by entry
-  // (clamped) at rest, a wrapping sample once Offset rotates it, then scaled.
+  // (clamped) at rest, a wrapping sample once Offset rotates it, then the
+  // black point, then scaled. With nothing wired it transforms its own preset.
   PaletteTransform({ num, pal }, id, props) {
-    const src = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    const src = pal(id, 'paletteIn', props, 'paletteIn', 'rainbow')
     const reverse = Boolean(props.reverse)
     const rawOffset = num(id, 'offset', props, 'offset', 0)
     const offset = ((rawOffset % 1) + 1) % 1
     const brightness = Math.max(0, Math.min(1, num(id, 'brightness', props, 'brightness', 1)))
+    const floor = blackPointByte(num(id, 'blackPoint', props, 'blackPoint', 0))
     const stops: RGB[] = []
     for (let i = 0; i < 16; i++) {
       const u = reverse ? 1 - i / 15 : i / 15
       const c = offset > 0 ? samplePalette(src, ((u + offset) % 1 + 1) % 1) : samplePaletteClamped(src, u)
       stops.push({
-        r: Math.round(c.r * brightness),
-        g: Math.round(c.g * brightness),
-        b: Math.round(c.b * brightness),
+        r: Math.round(applyBlackPoint(c.r, floor) * brightness),
+        g: Math.round(applyBlackPoint(c.g, floor) * brightness),
+        b: Math.round(applyBlackPoint(c.b, floor) * brightness),
       })
     }
     return { palette: stops }

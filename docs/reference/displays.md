@@ -398,7 +398,7 @@ connected panel and sizes the document from its mounted glass.
 
 Normal, generative-show, and SD-player builds generate custom LVGL widgets.
 Show and SD-player control paths accept float, boolean, and string bindings
-from supported sources and scalar operations: Math, Lerp, Clamp, Map Range,
+from supported sources and scalar operations: Math, Clamp, Map Range,
 Sin, Cos, Compare, Trigger, Step Value, Interval, Time, Wave, Text Value, and
 Format Number. Supported GPIO buttons,
 button banks, potentiometers, and encoders can participate; SD-player displays

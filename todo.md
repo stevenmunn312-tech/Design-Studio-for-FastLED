@@ -472,166 +472,18 @@ freeze, or drop them.
 
 #### Colour and maths
 
-- [ ] **Category: Show friendly names in Select dropdowns (Med, S).** Dropdowns
-  render raw ids (`inOutApprox`, `oneShot`, `pulseDivider`, `hsvShort`,
-  `splitComplementary`, `smoothStep`, `bytes`). Route option text through the
-  `BUNDLED_TITLES` table and add a small label map for `mixMode`, `harmony`,
-  `position` and `hueUnits`. Evidence `src/components/Canvas/StudioNode.tsx:703`,
-  `src/state/nodeLibrary.ts:4625`.
-- [ ] **Category: Add an Adjust Color node (Med, M).** Dimming, hue-rotating or
-  desaturating one colour takes RGB to HSV, Math, HSV to RGB (the RGB to HSV
-  help example is that chain). Add a colour node with hue offset, saturation
-  scale and brightness scale, built on the existing `_rgbHue`/`_hsv` helpers.
-  Evidence `src/components/HelpModal/reference/color.ts`.
-- [ ] **Category: Unify HSV port naming (Low, S).** Ports read `Hue`/`Sat
-  (0–1)`/`Val (0–1)` on HSV to RGB, `Saturation`/`Value` with no range on Hue
-  Cycle and Harmony Palette, and `H (0–360)`/`S`/`V` on RGB to HSV. Pick one
-  pattern, e.g. "Hue (°)", "Saturation (0–1)", "Brightness (0–1)"; "Value" is
-  jargon. Evidence `src/nodes/color/definitions.ts`.
-- [ ] **Gradient Sampler: Replace the six RGB sliders with two swatches (High,
-  S).** Red/green/blue A and B are six sliders standing in for two colours.
-  Give each `rA/gA/bA` and `rB/gB/bB` triple one swatch, as `hasRgbProperties`
-  does for `r/g/b`; keeping the property names keeps the Color A/B ports
-  Touch-controllable. Gradient Frame benefits too. Evidence
-  `src/state/nodeLibrary.ts:3306`, `src/components/Canvas/studioNodeChrome.ts:118`.
-- [ ] **Gradient Sampler: Clamp T in rgb mode (Med, S).** With T wired outside
-  0–1, the preview extrapolates, the canvas clamps, and firmware casts with no
-  `constrain`, so a bipolar Wave wraps the colour on hardware. Clamp T in
-  `rgb` mode as the hue modes already do. Evidence `src/state/palettes/hueMix.ts:35`,
-  `src/codegen/cppGenerator.ts:969`.
-- [ ] **Gradient Sampler: Hide the six float sockets (Low, S).** Once swatches
-  exist, drop the `rA`…`bB` ports from the inspector's exposable list; they
-  are rarely wired and make the node look complex. Evidence
-  `src/state/nodeLibrary.ts:4295`.
-- [ ] **Palette Sampler: Add a wrap/hold-ends option (Med, S).** T = 1 wraps to
-  the first colour, so a full-scale sensor on `heat` reads black, and for T in
-  0.945–1 firmware blends toward entry 0 while the preview shows the last
-  stop. Add "Wrap" / "Hold ends" using `samplePaletteClamped` and
-  `LINEARBLEND_NOWRAP`. Evidence `src/nodes/color/evaluate.ts:141`,
-  `src/nodes/color/codegen.ts:70`.
-- [ ] **Palette Sweep: Add a Loop motion option (Med, S).** The node only
-  ping-pongs, so a cyclic palette cannot scroll one way without Palette
-  Sampler plus a sawtooth Wave. Add a Motion select, "Ping-pong" / "Loop".
-  Evidence `src/nodes/color/evaluate.ts:147`.
-- [ ] **Palette Sweep: Reuse Ease's easing table (Low, S).** The node has its
-  own list and `applySweepEase`; its "cubic" is `4t³` while Ease's in-out
-  "cubic" is smoothstep, so one name gives two curves. Reuse `applyEase` and
-  the `EASE_TYPES` subset. Evidence `src/nodes/color/evaluate.ts:66`.
-- [ ] **HSV → RGB: Fix the "FastLED byte" hue units (Med, S).** `bytes` is a
-  rescaled spectrum wheel (`h/255*360`), not FastLED's CHSV rainbow wheel, so
-  "96 green, 160 blue" is only approximate. Either make `bytes` the rainbow
-  wheel on both sides, or relabel it "0–255 wheel" and correct the anchors to
-  85/170. Evidence `src/nodes/color/evaluate.ts:94`, `src/codegen/colorControlCpp.ts:14`.
-- [ ] **HSV → RGB: Make the Hue slider max follow the units (Low, S).** The
-  slider stays 0–360 in bytes mode. Make its max depend on `hueUnits`, as
-  `propertyOptions` does for dependent selects. Evidence
-  `src/state/nodeLibrary.ts:720`.
-- [ ] **Color Temperature: Fix the inverted Warmth property (Med, S).** 0 is
-  candle (warmest) and 1 is blue sky, so raising Warmth cools the light.
-  Rename it "Coolness" or, better, flip the mapping so 1 = warm. Evidence
-  `src/nodes/color/evaluate.ts:45`, `src/state/nodeLibrary.ts:2689`.
-- [ ] **Color Temperature: Offer a Kelvin control (Low, S).** The linear
-  1000–12000 K map puts the useful whites (2700–6500 K) in only 0.15–0.5 of
-  the slider. Use roughly 1800–9000 K in Kelvin. Evidence
-  `src/nodes/color/evaluate.ts:45`.
-- [ ] **Custom Palette: Correct the stale "four colours" text (Med, S).**
-  Description, definition comment and Help say "up to four colours, spaced
-  evenly", but the body supports 2–8 draggable, positioned stops with presets
-  and export. Update the text. Evidence `src/nodes/color/definitions.ts:165`,
-  `src/components/HelpModal/reference/color.ts:279`.
-- [ ] **Custom Palette: Bind ports to stable stop ids (Low, M).** Wires bind to
-  the sorted stop index, so dragging a wired stop past a neighbour moves its
-  wire onto the other stop, and only 4 of up to 8 stops can be wired. Bind
-  each port to a stop id, or show in the body which stop each port drives.
-  Evidence `src/nodes/color/evaluate.ts:211`.
-- [ ] **Poline Palette: Make preview and firmware use the same table (Med,
-  S).** The preview interpolates the raw poline array (2·points+3 colours)
-  while firmware resamples to 16 by nearest index, duplicating entries; at
-  `points: 1` it posterises on hardware. Resample with interpolation on both
-  sides and have the evaluator return `polineStops16`. Evidence
-  `src/nodes/color/evaluate.ts:228`, `src/state/palettes/polinePalette.ts:86`, `src/codegen/helpers/polineHelperCpp.ts:59`.
-- [ ] **Poline Palette: Fix the anchor count wording (Low, S).** Text says "up
-  to three anchors" / "two or three", but all three are always used. Say
-  "three", or add an anchor count of 2/3. Evidence `src/nodes/color/evaluate.ts:223`.
-- [ ] **Poline Palette: Add a dark-middle preset (Low, S).** Add a
-  `POLINE_PRESETS` entry with a deep tinted middle anchor (e.g. `#14063c`) so
-  the high-contrast recipe is one click away.
-- [ ] **Harmony Palette: Make harmonies hold their hues (High, M).** Hue is
-  interpolated linearly between anchor offsets, so complementary sweeps red,
-  orange, yellow, green, cyan and the other kinds are 210–270° rainbow
-  segments; "never clash" is false. Hold each harmony hue as a band with short
-  blends between, in the preview helper and the C++ loop. Evidence
-  `src/state/palettes/harmonyPalette.ts:26`, `src/nodes/color/codegen.ts:161`.
-- [ ] **Harmony Palette: Add a Shade control for a black point (Med, S).**
-  Every stop has the same Value, so full-frame patterns wash out. Add a
-  0–1 "Shade" that dips Value between the hue bands. Evidence
-  `src/state/palettes/harmonyPalette.ts:33`.
-- [ ] **Palette Transform: Add a Black point control (High, M).** Add a 0–1
-  levels-style floor, per entry `c' = max(0, c − f)/(1 − f)`, in the same
-  loop on both sides, so any catalogue palette gets real contrast without a
-  hand-built Poline. Evidence `src/nodes/color/evaluate.ts:247`,
-  `src/nodes/color/codegen.ts:244`.
-- [ ] **Palette Transform: Add its own preset select (Med, S).** With nothing
-  wired it silently transforms `rainbow`, so reversing or dimming a preset
-  needs Palette Selector first. Use a key other than `palette` (as Palette
-  Blend does with `paletteA`) so it stays a builder under
-  `PALETTE_BUILDER_NODE_TYPES`. Evidence `src/nodes/color/evaluate.ts:242`,
-  `src/nodes/color/codegen.ts:241`.
-- [ ] **Palette Bank: Seed default palettes (Med, S).** A fresh node has
-  `palettes: []`, outputs the fallback and raises a validation warning. Seed
-  3–4 contrasting presets so the first Next does something visible. Evidence
-  `src/nodes/color/definitions.ts:289`.
-- [ ] **Palette Bank: Add an Index input (Med, M).** Next/Previous are the only
-  way in, so Step Value, an encoder, DMX or a Touch slider cannot pick a
-  palette directly, though the node already outputs Index. Add an Index input
-  that selects directly.
 - [ ] **Palette Bank: Accept wired palettes (Low, L).** Only catalogue presets
   can join a bank; Custom, Poline, Image and Harmony palettes cannot. Add
   wired palette slots to make it the general palette switcher. Evidence
-  `src/nodes/color/codegen.ts:181`.
-- [ ] **Map Range: Add a Clamp output toggle (High, S).** Help tells users to
-  follow Map Range with Clamp, and it is the standard normaliser for
-  un-normalised inputs. One checkbox removes a node from the commonest chain
-  and stops extrapolated values from breaking effects. Evidence
-  `src/components/HelpModal/reference/math.ts:89`.
-- [ ] **Map Range: Expose only Value by default (Low, S).** All five sockets
-  are exposed, but the ranges are nearly always typed. Expose only Value
-  (hidden sockets stay drop targets); do the same for Clamp's Min/Max.
-  Evidence `src/nodes/math/definitions.ts:68`.
-- [ ] **Step Value: Lift the ±100 slider caps (Med, S).** Initial/Min/Max/Step
-  are capped at ±100 and `EditableRange` rejects typed values outside it, so a
-  0–255 brightness or 60–180 BPM counter cannot be set, though the normaliser
-  allows ±1,000,000. Switch to `entry: 'number'`. Evidence
-  `src/state/nodeLibrary.ts:626`, `src/nodes/shared/stepValue.ts:30`.
-- [ ] **Step Value: Declare action inputs for Touch (Med, S).** Increase,
-  Decrease and Reset are not `actionInputs`, so Touch controls cannot be
-  minted on them, which is the use its comment names. Declare them as Palette
-  Bank does. Evidence `src/state/propertyInputs.ts:35`, `src/nodes/color/definitions.ts:273`.
-- [ ] **Lerp: Remove it in favour of Map Range (Med, S).** Same maths as Map
-  Range with In 0–1, and "Lerp" is jargon. Remove it (one bundled use) now
-  that Map Range gains a clamp, or at minimum rename it "Mix Numbers" and
-  label T "(0–1)". Evidence `src/nodes/math/evaluate.ts:93`.
-- [ ] **Ease: Clean up the dropdown (Med, S).** Fourteen camelCase options are
-  shown. Drop `inOutApprox` ("Fast Approx") from the picker, as it is a CPU
-  detail with no visible difference, but keep the id for saved graphs.
-  Evidence `src/state/nodeLibrary.ts` `BUNDLED_TITLES.Ease`.
-- [ ] **Ease: Make header labels consistent (Low, S).** In-out curves read
-  `Ease · Cubic`/`Ease · Quad` while others read `Ease In/Out · Sine`. Use
-  "Ease In/Out · Cubic" etc. Evidence `src/state/nodeLibrary.ts` `BUNDLED_TITLES.Ease`.
-- [ ] **Gate: Remove it in favour of Switch (Med, S).** Gate is exactly Switch
-  with A = fallback, and Switch can also wire the fallback. It has no bundled
-  uses; remove it and move its "roam only while held" Help example to Switch.
-  Evidence `src/nodes/math/evaluate.ts:124`.
-- [ ] **Smooth: Add a separate Fall time (Med, S).** Fast attack with slow
-  release is the standard way to tame audio levels and VU readouts, and
-  neither Smooth nor Envelope can do it. Add an optional Fall time (rise =
-  Response): one extra `alpha` branch on each side. Evidence
-  `src/nodes/math/evaluate.ts:139`, `src/nodes/math/codegen.ts:72`.
-- [ ] **Compare: Add an operation select and hysteresis (Med, S).** Only
-  `A > B` exists. Add >, <, ≥, ≤ and a Hysteresis amount (on above B + h, off
-  below B − h), so flicker near a threshold is fixed in the level domain
-  rather than with a following Trigger/Debounce. Evidence
-  `src/components/HelpModal/reference/math.ts:423`.
+  `src/nodes/color/codegen.ts:181`. Needs a decision on the port shape first:
+  the node has no variable-count ports, so slots mean either a fixed set
+  (say Palette 1–4) or a new dynamic-port mechanism. A builder's `pal_<id>`
+  is a `loop()` local, so the sketch cannot keep `&pal_<id>` in the static
+  `_pbPal_<id>[]` table; it would copy the selected slot into the working
+  palette each frame, and the preview's entries become `Palette` values
+  (name or 16 stops) rather than names. The bank body, `paletteBankLabel`
+  and the Name output also assume catalogue names. The Index input (now
+  added) already lets any number source pick a slot.
 
 #### Effects and signals
 

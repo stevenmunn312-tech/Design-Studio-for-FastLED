@@ -314,7 +314,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   selector names a preset, a builder makes one from its inputs — and
   `cppGenerator.ts`'s `paletteExpr` and `validateGraph.ts`'s RAM estimate both
   read it, having previously held two hand-written copies that a fifth palette
-  node could join only one of. The browser's `Palette = string | RGB[]` union
+  node could join only one of. A builder may still offer a preset of its own
+  under the name of the port that replaces it (Palette Blend's `paletteA`
+  and `paletteB`, Palette Transform's `paletteIn`), which the generator and
+  the RAM estimate read while that port is unwired. Palette Transform's Black
+  point (`paletteBlackPoint.ts`) is the contrast tool for any palette: a
+  levels floor in whole-byte steps on both sides, emitted only while it can
+  be above 0. The browser's `Palette = string | RGB[]` union
   (`ledColor.ts`) is resolved from the *value* at evaluation time; firmware has
   no runtime union at all, deciding from the source node at generation time. **Splice
   targets** follow declaration order — `spliceTargetPorts` in `nodeLibrary.ts`,
@@ -335,13 +341,28 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   went dark on hardware while the preview, which samples the stops
   continuously and wraps only at exactly 1, looked right. `sampleStops` in
   `paletteCatalog.ts` therefore clamps, and a caller that wants a cycle wraps
-  first, as `samplePalette` does. Palette Blend reads its two `CRGBPalette16`s
+  first, as `samplePalette` does. A node whose position can mean either lets
+  the author choose (`nodes/color/paletteMotion.ts`): Palette Sampler's Ends
+  is Wrap or Hold ends, and Palette Sweep's Motion is Ping-pong (held) or
+  Loop (wrapped). Palette Blend reads its two `CRGBPalette16`s
   entry by entry (`a[_i]`), because `ColorFromPalette(a, i*17)` smeared each
   entry into the next and wrapped entry 15 round to entry 0. A field's value
   is an amount too: `evalFieldToFrame` clamps and Field → Frame emits
   `LINEARBLEND_NOWRAP`, as does Noise's frame output, which shares that
   evaluator. Wrapping there gave a hard-edged field's 1 the colour of its 0,
   so a solid Slice Tiling slice vanished into the space around it.
+- A palette builder's preview hands downstream the 16-entry table its sketch
+  bakes or builds, not its raw colours. Poline once passed on its
+  2·points+3 poline colours while both firmware paths picked 16 of them by
+  nearest index, so the board posterised (four-entry plateaus at `points: 1`)
+  what the preview blended. `polineStops16` and `_polineStops16` now blend
+  the two neighbours of each sample point, found by integer arithmetic so
+  both pick the same pair and weight. Harmony Palette holds each harmony
+  hue as a band with a short RGB blend into the next, never interpolating the
+  hue (which turned complementary into a rainbow segment); where each stop
+  sits depends only on the harmony, so the sketch bakes `harmonyStopPlace`
+  as two tables and computes only the band colours, through `_hsv`, at run
+  time.
 - A Palette Bank change blends through a working palette: the sketch keeps a
   static `CRGBPalette16` and calls FastLED's `nblendPaletteTowardPalette`
   with `blend` as `maxChanges`, once per 10 ms of `millis()`, at most 32 steps
@@ -349,6 +370,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (`state/palettes/paletteBank.ts`), a copy `paletteBlendNative.test.ts` holds to
   FastLED's own function. While blending, the preview outputs the 16-entry
   table rather than the palette name; `blend: 0` keeps the name and the cut.
+  Its Index (`select`) jumps to a position whenever its rounded value
+  changes, and on the first pass, so a set Index is where the bank starts;
+  Next and Previous step on from there, so whichever moved last wins. Both
+  sides round with `paletteBankChoice`, and the sketch emits nothing for an
+  Index left unwired at 0.
 - Floating-point frame reads share `sampleFrame` in `evaluator/frames.ts` and
   `_sampleFrame` from `frameSampleHelperCpp.ts`; add edge policies or rounding
   changes there rather than inside a node. Frame Warp uses the pair directly.
@@ -501,7 +527,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rather than listing node types, and the literal-fallback parity check parses
   `channelColor(...)`/`f(...)` calls out of the generator source, so a helper
   that hides a channel's default from that parse would silently drop it from the
-  comparison. See
+  comparison. The canvas draws every complete triple as one colour swatch
+  (`rgbSwatches` in `studioNodeChrome.ts`), so a gradient's two ends are two
+  swatches rather than six sliders; a channel row comes back only while its
+  own socket is exposed or wired. Gradient Sampler declares no channel ports
+  at all: its Color A and Color B ports are its only colour wires, and stay
+  Touch-controllable through `colorChannels`. See
   [direct controls and LED output status](../../design/direct-controls-and-output-status.md).
 - A property input's `defaultProperties` entry must hold not just *a* default
   but the exact literal the code already falls back to:
@@ -583,7 +614,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and an emitter whose value needs a different block delegates to its own
   function (`fire2012Cpp`, `threeBandCpp`) before destructuring the context.
   Bundled content is converted, not migrated: pre-1.0, a save holding a
-  removed type shows it as unknown.
+  removed type shows it as unknown. A node that another already computes
+  exactly is removed rather than merged: Lerp was Map Range with In 0–1 (its
+  one bundled use now wires the old A into Out Min and T into Value), and
+  Gate was Switch with A as the fallback.
+- An operation set or remap both sides run lives beside its C++ in one
+  module, as Function's and Logic's do: Map Range's optional output clamp in
+  `math/mapRange.ts`, Compare's operations and hysteresis in
+  `math/compare.ts`. Compare's hysteresis is a Schmitt band in the level
+  domain; at 0 it is the plain stateless test, so a node that never sets it
+  emits no state at all. Adjust Color's steps live in `color/adjustColor.ts`,
+  whose `adjustColorCpp` both the normal sketch and the control graph
+  (`colorControlCpp.ts`) emit, so the two print identical lines.
 - Loop pacing is one helper, `loopPacingCpp` (`codegen/loopPacing.ts`),
   fed by the Board's `frameRate` through `controllerSettings`: the normal
   sketch, the show controller and the player all end their loop with it, and

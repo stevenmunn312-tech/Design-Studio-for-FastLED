@@ -1,4 +1,4 @@
-import { example, RING, STRIP } from './example'
+import { example, RING } from './example'
 import type { NodeReferenceMap } from './types'
 
 export const MATH_REFERENCE: NodeReferenceMap = {
@@ -86,13 +86,14 @@ export const MATH_REFERENCE: NodeReferenceMap = {
     overview: [
       'Map Range converts a number from one range to another. Whatever arrives at In Min comes out as Out Min, In Max as Out Max, and everything between lands proportionally.',
       'It is the translator between nodes that speak different units: a sensor’s millimetres into a 0–1 brightness, a 0–1 level into degrees, MIDI notes into a speed. Swap Out Min and Out Max to reverse a control.',
-      'Values outside the input range keep extrapolating rather than stopping at the ends. Follow it with Clamp when the target must not go past its limits.',
+      'With In Min 0 and In Max 1 it is a crossfader: a 0–1 level picks a point between Out Min and Out Max, and either end can be a wire of its own.',
+      'Values outside the input range keep extrapolating rather than stopping at the ends. Tick Clamp output when the target must not go past its limits: the result then stays between Out Min and Out Max.',
     ],
     inputs: {
       value: 'The number to convert.',
     },
     outputs: {
-      result: 'Value moved from the input range to the output range.',
+      result: 'Value moved from the input range to the output range, held inside it when Clamp output is on.',
     },
     example: example({
       featured: 'MapRange',
@@ -134,33 +135,6 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       wires: ['clock.bar > jugglers.increase', 'jugglers.value > juggle.count'],
       explanation: 'Clock pulses Bar every four beats, and each pulse adds one to Step Value. Juggle gets that many dots — one, two, up to eight — and with Wrap on the count starts again at one after the eighth bar.',
       preview: 'The {output} shows a growing number of juggled dots, one more every bar, until the act resets.',
-    }),
-  },
-
-  Lerp: {
-    overview: [
-      'Lerp blends between two numbers. T of 0 gives A, T of 1 gives B, and anything between lands proportionally on the way.',
-      'Wire a level into T and Lerp becomes a crossfader between two settings — calm and frantic, near and far — with A and B as the two ends. Wire signals into A and B too and you blend between two moving values.',
-    ],
-    inputs: {
-      a: 'The value when T is 0.',
-      b: 'The value when T is 1.',
-      t: 'How far from A toward B, 0 to 1.',
-    },
-    outputs: {
-      result: 'The point T of the way from A to B.',
-    },
-    example: example({
-      featured: 'Lerp',
-      title: 'A heart that drifts between calm and panic',
-      nodes: {
-        nerves: ['NoiseSignal', { speed: 0.2, min: 0, max: 1 }],
-        rate: ['Lerp', { a: 50, b: 160 }],
-        heart: ['Heartbeat', { palette: 'cottoncandy', strength: 0.5 }],
-      },
-      wires: ['nerves.value > rate.t', 'rate.result > heart.bpm'],
-      explanation: 'Lerp holds two heart rates: a resting 50 and a racing 160. Noise LFO wanders between 0 and 1 and picks a point between them, so the Heartbeat slowly speeds up and calms down on its own.',
-      preview: 'The {output} pulses lub-dub from sky blue to pink, sometimes slow and relaxed, sometimes quick and anxious.',
     }),
   },
 
@@ -244,45 +218,17 @@ export const MATH_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Gate: {
-    overview: [
-      'Gate passes a number through while its Gate input is true. While it is false it outputs Fallback instead.',
-      'It is how to let a signal act only some of the time: colours that wander only while a button is held, a level that only counts during the chorus, a sensor that only matters when someone is there.',
-    ],
-    inputs: {
-      value: 'The number to pass while Gate is true.',
-      gate: 'True lets Value through; false outputs Fallback.',
-    },
-    outputs: {
-      result: 'Value while Gate is true, otherwise Fallback.',
-    },
-    example: example({
-      featured: 'Gate',
-      title: 'Colours that roam only while you hold the button',
-      nodes: {
-        roam: ['NoiseSignal', { speed: 0.5, min: 0, max: 1 }],
-        hold: ['ButtonInput'],
-        gate: ['Gate', { fallback: 0 }],
-        lamp: ['Rainbow', { speed: 0.2, deltaHue: 3 }],
-        tint: ['HueShift'],
-      },
-      wires: ['roam.value > gate.value', 'hold.pressed > gate.gate', 'gate.result > tint.shift', 'lamp.frame > tint.frame'],
-      explanation: 'Noise LFO wanders round the colour wheel, but Gate lets it reach Hue Shift only while the Button is held; otherwise it sends the Fallback of 0. Let go and the rainbow snaps back to its own colours.',
-      preview: 'The {output} shows a gentle rainbow. Hold the press control on the Button node and the colours start drifting; release it and they return.',
-    }),
-  },
-
   Smooth: {
     overview: [
       'Smooth follows a number gently instead of jumping. Response is how many seconds it takes to cover most of a change; 0 passes values straight through.',
       'Use it to take the jitter out of a sensor, to soften a switch into a fade, or to turn stepped values into glides.',
-      'It is a simple low-pass filter: fast flicker is averaged away and slow changes come through.',
+      'It is a simple low-pass filter: fast flicker is averaged away and slow changes come through. Set Fall above Response for a fast attack and a slow release: a level jumps up with the music and sinks back gently, the way a VU meter reads. Fall at 0 uses Response both ways.',
     ],
     inputs: {
       value: 'The number to follow.',
     },
     outputs: {
-      result: 'Value, eased in over the Response time.',
+      result: 'Value, eased in over the Response time (the Fall time on the way down, when it is set).',
     },
     example: example({
       featured: 'Smooth',
@@ -330,6 +276,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
     overview: [
       'Switch outputs A while Select is false and B while it is true. It is a two-position selector for numbers.',
       'Give a true/false signal two meanings in a number: a slow speed and a fast one, a dim level and a bright one, a weekday mode and a weekend mode.',
+      'It is also a gate: wire a signal into B and leave A as the fallback, and the signal acts only while Select is true — colours that wander only while a button is held, a level that only counts during the chorus.',
       'To switch between two whole pictures, use Frame Switch instead.',
     ],
     inputs: {
@@ -342,16 +289,17 @@ export const MATH_REFERENCE: NodeReferenceMap = {
     },
     example: example({
       featured: 'Switch',
-      title: 'Calm on weekdays, lively at the weekend',
+      title: 'Colours that roam only while you hold the button',
       nodes: {
-        clock: ['RTCInput', { timeSource: 'DS3231' }],
-        mood: ['Switch', { a: 0.2, b: 0.85 }],
-        confetti: ['Confetti', { palette: 'citrus', fade: 0.67 }],
+        roam: ['NoiseSignal', { speed: 0.5, min: 0, max: 1 }],
+        hold: ['ButtonInput'],
+        gate: ['Switch', { a: 0 }],
+        lamp: ['Rainbow', { speed: 0.2, deltaHue: 3 }],
+        tint: ['HueShift'],
       },
-      wires: ['clock.weekend > mood.sel', 'mood.result > confetti.speed'],
-      output: STRIP(60),
-      explanation: 'RTC Clock’s Weekend output selects between two speeds in Switch: a sparse 0.2 on weekdays and a busy 0.85 on Saturday and Sunday. Confetti uses whichever is current.',
-      preview: 'The reference time is a Friday, so the {output} shows sparse citrus speckles. At the weekend they come thick and fast.',
+      wires: ['roam.value > gate.b', 'hold.pressed > gate.sel', 'gate.result > tint.shift', 'lamp.frame > tint.frame'],
+      explanation: 'Noise LFO wanders round the colour wheel, but Switch passes it to Hue Shift only while the Button is held; otherwise it sends A, a fallback of 0. Let go and the rainbow snaps back to its own colours.',
+      preview: 'The {output} shows a gentle rainbow. Hold the press control on the Button node and the colours start drifting; release it and they return.',
     }),
   },
 
@@ -419,15 +367,16 @@ export const MATH_REFERENCE: NodeReferenceMap = {
 
   Compare: {
     overview: [
-      'Compare is true while A is greater than B. It turns a level into a decision: loud enough, close enough, warm enough.',
-      'Leave B unwired to compare against a fixed threshold, or wire both to compare two signals. Put a Trigger set to Debounce after it if a level near the threshold makes it flicker.',
+      'Compare tests A against B: greater than, less than, at least or at most. It turns a level into a decision: loud enough, close enough, warm enough. The node takes the name of its test, such as A > B.',
+      'Leave B unwired to compare against a fixed threshold, or wire both to compare two signals.',
+      'A level hovering near the threshold makes the answer flicker. Hysteresis fixes that in the level itself: the output turns on only once A is clearly past B, by the Hysteresis amount, and turns off only once it is clearly back. 0 is a plain comparison.',
     ],
     inputs: {
       a: 'The value being tested.',
       b: 'The threshold, or a second value to compare against.',
     },
     outputs: {
-      result: 'True while A is greater than B.',
+      result: 'True while the test holds.',
     },
     example: example({
       featured: 'Compare',
@@ -435,7 +384,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.8 }],
-        loud: ['Compare', { b: 0.6 }],
+        loud: ['Compare', { compareOp: 'greater', b: 0.6, hysteresis: 0.05 }],
         sea: ['Pacifica', { palette: 'ocean' }],
         fire: ['Fire', { fireStyle: 'classic', palette: 'fire' }],
         choose: ['FrameSwitch'],
@@ -447,7 +396,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
         'sea.frame > choose.a',
         'fire.frame > choose.b',
       ],
-      explanation: 'Compare is true while FFT Analyzer’s bass level is above 0.6. Frame Switch shows calm Pacifica waves until the bass crosses that line, then Fire for as long as it stays there.',
+      explanation: 'Compare is true while FFT Analyzer’s bass level is above 0.6. Frame Switch shows calm Pacifica waves until the bass crosses that line, then Fire for as long as it stays there. A Hysteresis of 0.05 means the bass must reach 0.65 to start the fire and drop below 0.55 to put it out, so a level sitting on 0.6 does not flick between the two.',
       preview: 'Play music near the microphone. Quiet passages show the {output} as ocean waves; heavy bass sections turn it to fire.',
     }),
   },

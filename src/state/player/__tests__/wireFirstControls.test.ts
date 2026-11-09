@@ -147,6 +147,20 @@ describe('which inputs can take a wired control', () => {
     }
   })
 
+  it('mints a momentary Button on each Step Value event input', () => {
+    // Increase, Decrease and Reset have no property behind them; declaring
+    // them as action inputs is what lets a Touch control land on them.
+    for (const port of ['increase', 'decrease', 'reset']) {
+      expect(controllableInputsFor('StepValue').find((entry) => entry.id === port)?.kind).toBe('action')
+      const plan = touchControlPlan('StepValue', port, {})
+      expect(plan.ok, port).toBe(true)
+      if (!plan.ok) continue
+      expect(plan.spec.type).toBe('Button')
+    }
+    // Still drawn by default, as before they were declared.
+    expect(normalizeExposedInputs('StepValue', undefined)).toEqual(['increase', 'decrease', 'reset'])
+  })
+
   it('still refuses a port with no value of its own behind it', () => {
     // A frame arrives from another node; there is no property to set.
     const plan = touchControlPlan('FieldToFrame', 'field', {})
@@ -796,6 +810,12 @@ describe('colour channels are wireable', () => {
       const defaults = definition.defaultProperties ?? {}
       for (const triple of TRIPLES) {
         if (!triple.every((key) => key in defaults)) continue
+        // A triple drawn only as a swatch (Gradient Sampler's two ends) has no
+        // channel sockets; its colour port still reaches all three channels.
+        if (!triple.some((key) => definition.inputs.some((port) => port.id === key))) {
+          expect(controllableInputsFor(definition.type).some((entry) => entry.channels?.join() === triple.join()), `${definition.type} ${triple.join()}`).toBe(true)
+          continue
+        }
         for (const key of triple) {
           seen += 1
           // The port has to exist and be declared as the property's own input,

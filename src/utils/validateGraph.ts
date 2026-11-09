@@ -788,7 +788,10 @@ function graphAllocations(
       // A builder upstream resolves to its own `pal_<id>`, already counted above.
       if (src && PALETTE_BUILDER_TYPES.has(src.data.nodeType)) continue
       const props = ((src ?? n).data.properties ?? {}) as Record<string, unknown>
-      namedPalettes.add(String(props.palette ?? 'rainbow').toLowerCase())
+      // An unwired port named after its own preset property (Palette Blend's
+      // paletteA, Palette Transform's paletteIn) reads that preset, as codegen does.
+      const preset = src ? props.palette : (props[port] ?? props.palette)
+      namedPalettes.add(String(preset ?? 'rainbow').toLowerCase())
     }
   }
   return { frameBufferBytes, persistentFrameBytes, fieldBufferBytes, persistentFieldBytes, statefulBytes, feedbackBytes, namedPalettes, builderPalettes }

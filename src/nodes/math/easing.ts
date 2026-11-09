@@ -21,6 +21,48 @@ export const EASE_TYPES = [
 
 export type EaseType = typeof EASE_TYPES[number]
 
+/**
+ * The curves the Ease picker offers. `inOutApprox` is FastLED's cheaper
+ * stand-in for the in-out cubic, a CPU detail with no visible difference, so
+ * it is not offered; a saved graph that names it still runs it, and the
+ * picker shows it on that node alone (`propertyOptions`).
+ */
+export const EASE_PICKER_TYPES: readonly EaseType[] = EASE_TYPES.filter((type) => type !== 'inOutApprox')
+
+/**
+ * The curves Palette Sweep shapes each leg with: Ease's own, so one name is
+ * one curve wherever it appears. Its old private table called smoothstep
+ * "cubic" here and `4t³` there.
+ */
+export const SWEEP_EASE_TYPES = ['linear', 'inOutSine', 'inOutQuad', 'inOutCubic'] as const satisfies readonly EaseType[]
+
+/** FastLED's byte-in, byte-out function for an Ease curve; '' for linear. */
+export function easeCppFunction(type: string): string {
+  switch (type) {
+    case 'inOutQuad': return 'ease8InOutQuad'
+    case 'linear': return ''
+    case 'inOutApprox': return 'ease8InOutApprox'
+    case 'inQuad': return 'fl::easeInQuad8'
+    case 'outQuad': return 'fl::easeOutQuad8'
+    case 'inCubic': return 'fl::easeInCubic8'
+    case 'outCubic': return 'fl::easeOutCubic8'
+    case 'inSine': return 'fl::easeInSine8'
+    case 'outSine': return 'fl::easeOutSine8'
+    case 'inOutSine': return 'fl::easeInOutSine8'
+    case 'triwave': return 'triwave8'
+    case 'quadwave': return 'quadwave8'
+    case 'cubicwave': return 'cubicwave8'
+    case 'inOutCubic':
+    default: return 'ease8InOutCubic'
+  }
+}
+
+/** An Ease curve applied to a uint8_t expression, as a uint8_t expression. */
+export function easeByteCpp(type: string, byte: string): string {
+  const fn = easeCppFunction(type)
+  return fn ? `${fn}(${byte})` : byte
+}
+
 function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x))
 }

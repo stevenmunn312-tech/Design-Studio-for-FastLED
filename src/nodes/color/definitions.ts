@@ -2,10 +2,14 @@
 // placement and Help descriptions. src/state/nodeLibrary.ts merges every
 // category's definitions into NODE_LIBRARY in sidebar order.
 import type { NodeDefinition } from '../../types'
-import { PALETTE_BANK_BLEND_DEFAULT } from '../../state/palettes/paletteBank'
+import { PALETTE_BANK_BLEND_DEFAULT, PALETTE_BANK_DEFAULT_PALETTES } from '../../state/palettes/paletteBank'
 
 export const COLOR_DEFINITIONS: NodeDefinition[] = [
   {
+    // Each end is one colour: the node draws rA/gA/bA and rB/gB/bB as two
+    // swatches (`rgbSwatches`), and the Color A/B ports replace them while
+    // wired, which keeps both ends Touch-controllable through those channels.
+    // T is clamped to 0–1 in every mix mode, on both sides.
     type: 'GradientSampler',
     label: 'Gradient Sampler',
     category: 'color',
@@ -14,16 +18,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 't', label: 'T (0–1)', dataType: 'float' },
       { id: 'colorA', label: 'Color A', dataType: 'color' },
       { id: 'colorB', label: 'Color B', dataType: 'color' },
-      { id: 'rA', label: 'R (A)', dataType: 'float' },
-      { id: 'gA', label: 'G (A)', dataType: 'float' },
-      { id: 'bA', label: 'B (A)', dataType: 'float' },
-      { id: 'rB', label: 'R (B)', dataType: 'float' },
-      { id: 'gB', label: 'G (B)', dataType: 'float' },
-      { id: 'bB', label: 'B (B)', dataType: 'float' },
     ],
-    propertyInputs: {
-      t: 't', rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
-    },
+    propertyInputs: { t: 't' },
     defaultExposedInputs: ['t'],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, mixMode: 'rgb' },
@@ -40,11 +36,14 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { t: 't' },
     defaultExposedInputs: ['t'],
-    defaultProperties: { palette: 'rainbow', t: 0 },
+    // `ends` wraps T round the palette or holds its ends (paletteMotion.ts).
+    defaultProperties: { palette: 'rainbow', t: 0, ends: 'wrap' },
   },
   {
-    // Self-contained palette oscillator. `rate` is a complete start→end→start
-    // round trip per second; easing shapes each half without changing its period.
+    // Self-contained palette oscillator. `rate` is one complete cycle per
+    // second: start→end→start for `pingPong`, start→end and round again for
+    // `loop`. `easing` is one of Ease's curves and shapes each leg without
+    // changing its period.
     type: 'PaletteSweep',
     label: 'Palette Sweep',
     category: 'color',
@@ -56,7 +55,7 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { rate: 'rate' },
     defaultExposedInputs: ['rate'],
-    defaultProperties: { palette: 'rainbow', rate: 0.1, easing: 'sine' },
+    defaultProperties: { palette: 'rainbow', rate: 0.1, motion: 'pingPong', easing: 'inOutSine' },
   },
 
   // ── Color ──────────────────────────────────────────────────────────────
@@ -80,8 +79,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Colors',
     inputs: [
       { id: 'rate', label: 'Rate (cycles/s)', dataType: 'float' },
-      { id: 's', label: 'Saturation', dataType: 'float' },
-      { id: 'v', label: 'Value', dataType: 'float' },
+      { id: 's', label: 'Saturation (0–1)', dataType: 'float' },
+      { id: 'v', label: 'Brightness (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { rate: 'rate', s: 's', v: 'v' },
@@ -93,12 +92,15 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     label: 'HSV → RGB',
     category: 'color',
     subcategory: 'Colors',
-    // `hueUnits` reads Hue as degrees (0–360) or as a FastLED byte (0–255),
-    // which is what CHSV took before it folded in here. Sat and Val are 0–1.
+    // `hueUnits` reads Hue as degrees (0–360) or as the same plain HSV wheel
+    // in 0–255 steps (`bytes`, 85 green, 170 blue), the range CHSV took before
+    // it folded in here; it is not CHSV's rainbow wheel. Sat and Val are 0–1.
+    // Ports read Hue / Saturation (0–1) / Brightness (0–1) on every HSV
+    // node; Hue carries no unit here because Hue Units chooses it.
     inputs: [
       { id: 'h', label: 'Hue', dataType: 'float' },
-      { id: 's', label: 'Sat (0–1)', dataType: 'float' },
-      { id: 'v', label: 'Val (0–1)', dataType: 'float' },
+      { id: 's', label: 'Saturation (0–1)', dataType: 'float' },
+      { id: 'v', label: 'Brightness (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     propertyInputs: { h: 'h', s: 's', v: 'v' },
@@ -122,23 +124,44 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       r: 'r', g: 'g', b: 'b',
     },
     outputs: [
-      { id: 'h', label: 'H (0–360)', dataType: 'float' },
-      { id: 's', label: 'S (0–1)', dataType: 'float' },
-      { id: 'v', label: 'V (0–1)', dataType: 'float' },
+      { id: 'h', label: 'Hue (°)', dataType: 'float' },
+      { id: 's', label: 'Saturation (0–1)', dataType: 'float' },
+      { id: 'v', label: 'Brightness (0–1)', dataType: 'float' },
     ],
     defaultProperties: { r: 0, g: 0, b: 0 },
   },
   {
-    // Black-body white point from a normalized warm→cool temperature control.
+    // One colour with its hue turned and its saturation and brightness
+    // scaled (adjustColor.ts): the RGB → HSV, Math, HSV → RGB chain in one
+    // node. r/g/b are the colour it adjusts while Color is unwired, drawn as
+    // a swatch; the three knobs are wireable.
+    type: 'AdjustColor',
+    label: 'Adjust Color',
+    category: 'color',
+    subcategory: 'Colors',
+    inputs: [
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'hueShift', label: 'Hue Shift (°)', dataType: 'float' },
+      { id: 'saturation', label: 'Saturation (×)', dataType: 'float' },
+      { id: 'brightness', label: 'Brightness (×)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    propertyInputs: { hueShift: 'hueShift', saturation: 'saturation', brightness: 'brightness' },
+    defaultExposedInputs: ['hueShift', 'saturation', 'brightness'],
+    defaultProperties: { r: 255, g: 48, b: 128, hueShift: 0, saturation: 1, brightness: 1 },
+  },
+  {
+    // Black-body white point from a colour temperature in Kelvin, 1800–9000
+    // (COLOR_TEMPERATURE_K): lower is warmer, as on a bulb's box.
     type: 'Temperature',
     label: 'Color Temperature',
     category: 'color',
     subcategory: 'Colors',
-    inputs: [{ id: 'warmth', label: 'Warmth', dataType: 'float' }],
+    inputs: [{ id: 'kelvin', label: 'Kelvin (K)', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    propertyInputs: { warmth: 'warmth' },
-    defaultExposedInputs: ['warmth'],
-    defaultProperties: { warmth: 0.27 },
+    propertyInputs: { kelvin: 'kelvin' },
+    defaultExposedInputs: ['kelvin'],
+    defaultProperties: { kelvin: 4000 },
   },
   {
     // FastLED HeatColor — a 0–1 heat value → black-body ramp (black→red→yellow→white).
@@ -162,7 +185,9 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { palette: 'rainbow' },
   },
   {
-    // Builds a palette from up to four connected colors (in order).
+    // Builds a palette from 2–8 positioned colour stops edited in its body
+    // (`colors`/`positions`). A wired Color 1–4 replaces the colour of the
+    // first four stops counted from the left, which the body numbers.
     type: 'CustomPalette',
     label: 'Custom Palette',
     category: 'color',
@@ -189,7 +214,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { count: 6 },
   },
   {
-    // Polar-interpolated palette between two or three anchor colours (poline).
+    // Polar-interpolated palette through three anchor colours (poline), as
+    // the 16-entry table both the preview and the sketch use (polineStops16).
     type: 'Poline',
     label: 'Poline Palette',
     category: 'color',
@@ -203,21 +229,25 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { anchorA: '#1020ff', anchorB: '#ff20a0', anchorC: '#20ffd0', points: 4, position: 'sinusoidal' },
   },
   {
-    // A palette built from a colour-wheel harmony around a base hue. A builder,
-    // like Poline: it names no preset, so it carries no `palette` property.
+    // A palette built from a colour-wheel harmony around a base hue: each
+    // harmony hue held as a band, with short RGB blends between that never
+    // pass through the hues in between, and Shade dipping the blends toward
+    // black (harmonyPalette.ts). A builder, like Poline: it names no preset,
+    // so it carries no `palette` property.
     type: 'HarmonyPalette',
     label: 'Harmony Palette',
     category: 'color',
     subcategory: 'Palettes',
     inputs: [
-      { id: 'hue', label: 'Hue', dataType: 'float' },
-      { id: 'saturation', label: 'Saturation', dataType: 'float' },
-      { id: 'value', label: 'Value', dataType: 'float' },
-      { id: 'spread', label: 'Spread', dataType: 'float' },
+      { id: 'hue', label: 'Hue (°)', dataType: 'float' },
+      { id: 'saturation', label: 'Saturation (0–1)', dataType: 'float' },
+      { id: 'value', label: 'Brightness (0–1)', dataType: 'float' },
+      { id: 'spread', label: 'Spread (0–1)', dataType: 'float' },
+      { id: 'shade', label: 'Shade (0–1)', dataType: 'float' },
     ],
-    propertyInputs: { hue: 'hue', saturation: 'saturation', value: 'value', spread: 'spread' },
+    propertyInputs: { hue: 'hue', saturation: 'saturation', value: 'value', spread: 'spread', shade: 'shade' },
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
-    defaultProperties: { hue: 200, harmony: 'triadic', saturation: 1, value: 1, spread: 1 },
+    defaultProperties: { hue: 200, harmony: 'triadic', saturation: 1, value: 1, spread: 1, shade: 0 },
   },
   {
     type: 'PaletteBlend',
@@ -235,9 +265,12 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 0.5 },
   },
   {
-    // Reverse, rotate or dim any palette on its way to a pattern: a wired
-    // Offset scrolls the colours round, Brightness scales every entry. A
-    // builder (no `palette` property), so it emits its own CRGBPalette16.
+    // Reverse, rotate, deepen or dim any palette on its way to a pattern: a
+    // wired Offset scrolls the colours round, Black point pulls the dark end
+    // to black (paletteBlackPoint.ts), Brightness scales every entry. Its
+    // own preset is `paletteIn`, named for the port that replaces it (as
+    // Palette Blend's `paletteA`), so it carries no `palette` property and
+    // stays a builder that emits its own CRGBPalette16.
     type: 'PaletteTransform',
     label: 'Palette Transform',
     category: 'color',
@@ -246,11 +279,12 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'offset', label: 'Offset', dataType: 'float' },
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
+      { id: 'blackPoint', label: 'Black Point', dataType: 'float' },
     ],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
-    propertyInputs: { offset: 'offset', brightness: 'brightness' },
+    propertyInputs: { offset: 'offset', brightness: 'brightness', blackPoint: 'blackPoint' },
     defaultExposedInputs: ['offset'],
-    defaultProperties: { reverse: false, offset: 0, brightness: 1 },
+    defaultProperties: { paletteIn: 'rainbow', reverse: false, offset: 0, blackPoint: 0, brightness: 1 },
   },
   {
     // An ordered bank of presets the author ships, stepped by Next/Previous and
@@ -266,10 +300,14 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     label: 'Palette Bank',
     category: 'color',
     subcategory: 'Palettes',
+    // `select` (Index) picks a position directly whenever it changes, wrapping
+    // round the bank; Next and Previous step on from wherever it left the bank.
     inputs: [
       { id: 'next', label: 'Next', dataType: 'bool' },
       { id: 'previous', label: 'Previous', dataType: 'bool' },
+      { id: 'select', label: 'Index', dataType: 'float' },
     ],
+    propertyInputs: { select: 'select' },
     // A press, not a value — so a touch control minted on one of these is a
     // momentary Button rather than a latch. Declaring them here is what makes
     // the Touch node's add-control socket able to land on them at all;
@@ -286,27 +324,28 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     ],
     // `blend` eases a change of palette in with FastLED's
     // nblendPaletteTowardPalette; 0 cuts straight across.
-    defaultProperties: { palettes: [], blend: PALETTE_BANK_BLEND_DEFAULT },
+    defaultProperties: { palettes: [...PALETTE_BANK_DEFAULT_PALETTES], select: 0, blend: PALETTE_BANK_BLEND_DEFAULT },
   },
 ]
 
 export const COLOR_DESCRIPTIONS: Record<string, string> = {
   GradientSampler: 'Samples a two-color gradient at t.',
   PaletteSampler: 'Samples a palette at t to a color.',
-  PaletteSweep: 'Sweeps back and forth through a palette at a set rate and easing.',
+  PaletteSweep: 'Sweeps back and forth, or loops, through a palette at a set rate.',
   // color
   Color: 'A picked colour as a wireable Color output.',
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
-  HSVToRGB: 'Converts hue/sat/val to an RGB color; hue in degrees or as a FastLED 0–255 byte.',
-  RGBToHSV: 'Converts an RGB color to hue/sat/val.',
-  Temperature: 'White point from a 0–1 warmth control: candle at 0, blue sky at 1.',
+  HSVToRGB: 'Builds a colour from hue, saturation and brightness; hue in ° or 0–255.',
+  RGBToHSV: 'Splits a colour into hue, saturation and brightness.',
+  AdjustColor: 'Turns the hue of one colour and scales its saturation and brightness.',
+  Temperature: 'White point from a colour temperature: 1800 K candle to 9000 K sky.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',
-  CustomPalette: 'Builds a palette from up to four colors.',
+  CustomPalette: 'Builds a palette from 2–8 colour stops you place along a strip.',
   PaletteFromImage: 'Extracts dominant colours from an uploaded Image into a 16-stop palette.',
-  Poline: 'Smooth poline palette between up to three anchor colours.',
+  Poline: 'Smooth poline palette through three anchor colours.',
   HarmonyPalette: 'Palette of colour-wheel harmony hues around a base hue.',
   PaletteBlend: 'Interpolates between two palettes.',
-  PaletteTransform: 'Reverses, rotates or dims a palette on its way to a pattern.',
+  PaletteTransform: 'Reverses, rotates, deepens or dims a palette on its way to a pattern.',
   PaletteBank: 'An ordered bank of palettes Next/Previous steps through, blending between them.',
 }

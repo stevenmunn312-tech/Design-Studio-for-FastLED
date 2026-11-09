@@ -3,7 +3,8 @@ import { type RGB, hsv } from './ledColor'
 /** How a two-colour gradient travels between its ends: straight through RGB,
  *  or round the hue wheel the short or the long way, FastLED's
  *  `SHORTEST_HUES` and `LONGEST_HUES`. `rgb` is the historical mix. */
-/** How HSV → RGB reads its Hue: degrees round the wheel, or a FastLED byte. */
+/** How HSV → RGB reads its Hue: degrees round the wheel, or the same plain
+ *  HSV wheel in 0–255 steps (`bytes`: 85 green, 170 blue). Not CHSV's rainbow wheel. */
 export const HUE_UNITS = ['degrees', 'bytes'] as const
 export type HueUnits = typeof HUE_UNITS[number]
 export const hueUnits = (value: unknown): HueUnits => (value === 'bytes' ? 'bytes' : 'degrees')
@@ -27,8 +28,9 @@ function rgbToHsv(c: RGB): { h: number; s: number; v: number } {
   return { h: h * 60, s: max === 0 ? 0 : d / max, v: max }
 }
 
-/** Mix `a` to `b` at `t`. `rgb` rounds per channel and leaves `t` unclamped,
- *  exactly as both gradient nodes always did; the hue modes clamp `t` to 0–1.
+/** Mix `a` to `b` at `t`. `rgb` rounds per channel and leaves `t` unclamped
+ *  (Gradient Sampler clamps its T before calling, as its firmware does); the
+ *  hue modes clamp `t` to 0–1.
  *  The sketch mirrors the hue modes with `blend(CHSV, CHSV, amount, dir)`
  *  (see `codegen/helpers/hueMixHelperCpp.ts`), so the two agree to a count or two. */
 export function mixGradientColors(a: RGB, b: RGB, t: number, mode: GradientMixMode): RGB {

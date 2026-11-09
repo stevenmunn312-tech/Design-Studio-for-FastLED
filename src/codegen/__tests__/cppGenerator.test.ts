@@ -11,6 +11,7 @@ import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
 import { fourierTable, fourierTableQ } from '../../nodes/shapes/fourierOutline'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
+import { harmonyStopPlace } from '../../state/palettes/harmonyPalette'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -979,7 +980,7 @@ describe('generateCpp', () => {
     expect(emit('round')).toContain('float n_fn_result = floorf((0.25) + 0.5f);')
   })
 
-  it('emits an HSV To RGB node in FastLED byte hue units', () => {
+  it('emits an HSV To RGB node on the 0–255 hue wheel', () => {
     const hsv = node('c', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 128, s: 1, v: 0.8 })
     const cpp = generateCpp([hsv], [])
     // The 0–255 hue becomes degrees on the preview's wheel, which _hsv wraps.
@@ -1488,7 +1489,7 @@ describe('generateCpp', () => {
   })
 
   it('generates a self-contained eased palette sweep', () => {
-    const sweep = node('ps', 'PaletteSweep', 'color', { palette: 'ocean', rate: 0.5, easing: 'cubic' })
+    const sweep = node('ps', 'PaletteSweep', 'color', { palette: 'ocean', rate: 0.5, easing: 'inOutCubic' })
     const solid = node('solid', 'SolidColor', 'pattern')
     const cpp = generateCpp([sweep, solid, outputNode], [
       edge('e1', 'ps', 'solid', 'color', 'color'),
@@ -1497,11 +1498,29 @@ describe('generateCpp', () => {
 
     expect(cpp).toContain('t * (fmaxf(0.0f, (0.5')
     expect(cpp).toContain('fmodf(fmodf(_phase_ps, 1.0f)')
-    expect(cpp).toContain('powf(-2.0f * _psPos_ps + 2.0f, 3.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
-    // The sweep turns at the palette's last colour; the wrapping blend faded
-    // the end of each leg back toward the first colour.
-    expect(cpp).toContain('(uint8_t)(_psPos_ps * 255.0f), 255, LINEARBLEND_NOWRAP);')
+    // Ease's own byte curve gives the palette index; the sweep turns at the
+    // palette's last colour, where the wrapping blend faded each leg back
+    // toward the first.
+    expect(cpp).toContain('ease8InOutCubic((uint8_t)(constrain(_psPos_ps, 0.0f, 1.0f) * 255)), 255, LINEARBLEND_NOWRAP);')
+  })
+
+  it('loops a palette sweep one way with the wrapping blend', () => {
+    const sweep = node('ps', 'PaletteSweep', 'color', { palette: 'ocean', rate: 0.5, motion: 'loop', easing: 'linear' })
+    const solid = node('solid', 'SolidColor', 'pattern')
+    const cpp = generateCpp([sweep, solid, outputNode], [
+      edge('e1', 'ps', 'solid', 'color', 'color'),
+      edge('e2', 'solid', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('float _psPos_ps = _psPhase_ps;')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean, (uint8_t)(constrain(_psPos_ps, 0.0f, 1.0f) * 255), 255, LINEARBLEND);')
+  })
+
+  it('holds a Palette Sampler\'s ends when asked', () => {
+    const ps = node('ps', 'PaletteSampler', 'color', { t: 1.25, palette: 'heat', ends: 'hold' })
+    const sc = node('sc', 'SolidColor', 'pattern')
+    const cpp = generateCpp([ps, sc, outputNode], [edge('e1', 'ps', 'sc', 'color', 'color'), edge('e2', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('{ float _ps=constrain(1.25, 0.0f, 1.0f); n_ps_color = ColorFromPalette(paldef_heat, (uint8_t)(_ps*255), 255, LINEARBLEND_NOWRAP); }')
   })
 
   it('inlines a group’s pattern code into the sketch', () => {
@@ -1904,7 +1923,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(paldef_ocean,_pgIdx)')
   })
 
-  it('emits Harmony Palette as a runtime CHSV loop over the harmony offsets', () => {
+  it('emits Harmony Palette as runtime hue bands with baked band tables', () => {
     const hp = node('hp', 'HarmonyPalette', 'color', { hue: 40, harmony: 'analogous' })
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
     const cpp = generateCpp([hp, sx, outputNode], [
@@ -1913,8 +1932,21 @@ describe('generateCpp', () => {
     ])
     expect(cpp).toContain('CRGBPalette16 pal_hp;')
     expect(cpp).toContain('static const float _off[3] = {-30.0f, 0.0f, 30.0f};')
-    expect(cpp).toContain('hsv2rgb_spectrum(CHSV(')
+    // Where each stop sits depends only on the harmony, so it is baked.
+    const places = Array.from({ length: 16 }, (_, i) => harmonyStopPlace(3, i))
+    expect(cpp).toContain(`static const uint8_t _hb[16] = {${places.map((place) => place.band).join(', ')}};`)
+    // The bands are the preview's own wheel, not CHSV's.
+    expect(cpp).toContain('_band[_j] = _hsv(_hue + _off[_j] * _spread, _sat, _val);')
+    expect(cpp).not.toContain('hsv2rgb_spectrum')
     expect(cpp).toContain('ColorFromPalette(pal_hp,')
+    // No Shade: no dip emitted.
+    expect(cpp).not.toContain('_shade')
+    const shaded = generateCpp([node('hp', 'HarmonyPalette', 'color', { shade: 0.6 }), sx, outputNode], [
+      edge('e1', 'hp', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(shaded).toContain('float _shade = constrain(0.6, 0.0f, 1.0f);')
+    expect(shaded).toContain('_d = 1.0f - _shade * (1.0f - fabsf(2.0f * _m - 1.0f));')
   })
 
   it('clamps a wired blend amount the way the evaluator does', () => {
@@ -1953,6 +1985,23 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_pbPal_pb[] = {&paldef_ocean, &paldef_lava, &paldef_forest}')
     expect(cpp).toContain('CRGBPalette16 pal_pb = _pbCur_pb;')
     expect(cpp).toContain('ColorFromPalette(pal_pb,')
+    // Index unwired and at 0 changes nothing, so nothing is emitted for it.
+    expect(cpp).not.toContain('_pbSel_pb')
+  })
+
+  it('selects a Palette Bank position from a wired Index on each change', () => {
+    const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava', 'forest'] })
+    const knob = node('k', 'PotInput', 'input', {})
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([pb, knob, sx, outputNode], [
+      edge('e0', 'k', 'pb', 'value', 'select'),
+      edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toMatch(/float _sv = [^;]*n_k_value[^;]*; _s = isfinite\(_sv\) \? \(long\)floorf\(_sv \+ 0\.5f\) : 0L;/)
+    expect(cpp).toContain('if (!_pbSelI_pb || _s != _pbSel_pb) { _pbSel_pb = _s; _pbSelI_pb = true; long _m = _s % 3; _pbIdx_pb = (uint8_t)(_m < 0 ? _m + 3 : _m); } }')
+    // The selection lands before Next and Previous step on from it.
+    expect(cpp.indexOf('_pbSel_pb = _s')).toBeLessThan(cpp.indexOf('const bool _in[2]'))
   })
 
   it('eases a Palette Bank change with FastLED\'s palette blend on a 10 ms clock', () => {
@@ -2568,14 +2617,15 @@ describe('generateCpp', () => {
   })
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
-    const t = node('t', 'Temperature', 'color', { warmth: (3000 - 1000) / 11000 })
+    const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
     const sp = node('sp', 'Shape', 'pattern', { shape: 'ellipse', cx: 2, cy: 2, size: 2 })
     const cpp = generateCpp([t, sp, outputNode], [
       edge('e1', 't', 'sp', 'color', 'edge'),
       edge('e2', 'sp', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB kelvinToRGB(float kelvin)')
-    expect(cpp).toContain('n_t_color = kelvinToRGB(mapFloat(constrain(0.18181818181818182, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f))')
+    // Kelvin straight through, held to the slider's range as the preview holds it.
+    expect(cpp).toContain('n_t_color = kelvinToRGB(constrain(3000, 1800.0f, 9000.0f))')
   })
 
   it('emits an ellipse Shape SDF coverage loop with thickness', () => {
@@ -4376,9 +4426,9 @@ describe('generateCpp — INMP441 audio engine', () => {
       return { ...entry, data: { ...entry.data, inputs: definition.inputs, outputs: definition.outputs } } as StudioNode
     }
     const level = withPorts(node('lvl', 'Math', 'math', { mathOp: 'add', a: 0.3, b: 0 }))
-    const gate = withPorts(node('gt', 'Gate', 'math', { value: 1, fallback: 0 }))
-    const cpp = generateCpp([level, gate], [edge('e1', 'lvl', 'gt', 'result', 'gate')])
-    expect(cpp).toContain('float n_gt_result = ((n_lvl_result >= 0.5f)) ? (1) : 0;')
+    const gate = withPorts(node('gt', 'Switch', 'math', { a: 0, b: 1 }))
+    const cpp = generateCpp([level, gate], [edge('e1', 'lvl', 'gt', 'result', 'sel')])
+    expect(cpp).toContain('float n_gt_result = ((n_lvl_result >= 0.5f)) ? (1) : (0);')
   })
 
   it('keeps the tunable BeatDetect envelope for external baked SD audio', () => {
@@ -5034,10 +5084,21 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     const cpp = generateCpp([node('sm', 'Smooth', 'math', { value: 0.5, response: 0.25 }), ...t.nodes], t.edges)
     expect(cpp).toContain('static float n_sm_result')
     expect(cpp).toContain('expf(')
-    expect(cpp).toContain('float _smResp = fmaxf(0.0001f, fmaxf(0.0f,0.25));')
+    expect(cpp).toContain('float _smResp = fmaxf(0.0f, 0.25);')
     // The EMA step is the seeding branch's `else`; anything emitted between
     // them orphans it and the sketch stops compiling.
-    expect(cpp).toMatch(/if \(!_smI_sm\) \{[^\n]*\}\n\s*else n_sm_result \+=/)
+    expect(cpp).toMatch(/if \(!_smI_sm\) \{[^\n]*\}\n\s*else if \(_smResp > 0\.01f\) n_sm_result \+=/)
+    // No Fall set: nothing about one is emitted.
+    expect(cpp).not.toContain('_smFall')
+  })
+
+  it('Smooth with a Fall time eases a falling value on its own time constant', () => {
+    const t = tail('sm', 'result')
+    const cpp = generateCpp([node('sm', 'Smooth', 'math', { value: 0.5, response: 0, fall: 0.8 }), ...t.nodes], t.edges)
+    // A Response of 0 alone would be a passthrough; Fall keeps the state.
+    expect(cpp).toContain('static float n_sm_result')
+    expect(cpp).toContain('float _smFall = fmaxf(0.0f, 0.8);')
+    expect(cpp).toContain('if (_smI_sm && _in < n_sm_result && _smFall > 0.0f) _smResp = _smFall;')
   })
 
   it('Smooth with ~0 response is a passthrough', () => {
@@ -5447,7 +5508,9 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     })
     const cpp = generateCpp([bc], [])
     expect(cpp).toContain('CRGB _gsA_bc=CRGB(10, 20, 30),_gsB_bc=CRGB(110, 220, 130);')
-    expect(cpp).toContain('CRGB n_bc_color = CRGB((uint8_t)(_gsA_bc.r*(1-(0.25))+_gsB_bc.r*(0.25)+0.5f),(uint8_t)(_gsA_bc.g*(1-(0.25))+_gsB_bc.g*(0.25)+0.5f),(uint8_t)(_gsA_bc.b*(1-(0.25))+_gsB_bc.b*(0.25)+0.5f));')
+    // T is clamped as the preview clamps it, so a wired 1.5 cannot wrap a channel.
+    expect(cpp).toContain('float _gsT_bc = constrain(0.25, 0.0f, 1.0f);')
+    expect(cpp).toContain('CRGB n_bc_color = CRGB((uint8_t)(_gsA_bc.r*(1-_gsT_bc)+_gsB_bc.r*_gsT_bc+0.5f),(uint8_t)(_gsA_bc.g*(1-_gsT_bc)+_gsB_bc.g*_gsT_bc+0.5f),(uint8_t)(_gsA_bc.b*(1-_gsT_bc)+_gsB_bc.b*_gsT_bc+0.5f));')
   })
 
   /*

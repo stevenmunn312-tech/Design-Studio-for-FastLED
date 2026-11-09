@@ -21,6 +21,13 @@ import { isStudioPalette, PALETTE_DEFS, paletteStops16, resolvePaletteId } from 
 export const PALETTE_BANK_FALLBACK = resolvePaletteId('')
 
 /**
+ * What a freshly placed bank holds: four presets far enough apart that the
+ * first Next visibly changes the picture. An empty bank only output the
+ * fallback and raised Graph Health's empty-bank warning until it was filled.
+ */
+export const PALETTE_BANK_DEFAULT_PALETTES: readonly string[] = ['party', 'ocean', 'lava', 'forest']
+
+/**
  * The presets this bank ships, in order.
  *
  * Resolved against the catalogue rather than trusted: these ids become C++
@@ -40,6 +47,22 @@ export function paletteBankEntries(properties: Record<string, unknown>): string[
     seen.add(id)
   }
   return [...seen]
+}
+
+/**
+ * The Index input as the whole number both sides act on: rounded half up, as
+ * `Math.round` and the sketch's `floorf(x + 0.5f)` both round, and 0 for a
+ * wire carrying anything that is not a number. A change of it selects that
+ * position directly, wrapping round the bank like Next and Previous.
+ */
+export function paletteBankChoice(value: number): number {
+  // `|| 0` folds Math.round's -0 into the 0 a C++ long holds.
+  return Number.isFinite(value) ? Math.round(value) || 0 : 0
+}
+
+/** The Index input's C++: the same whole number from a float expression. */
+export function paletteBankChoiceCpp(value: string): string {
+  return `{ float _sv = ${value}; _s = isfinite(_sv) ? (long)floorf(_sv + 0.5f) : 0L; }`
 }
 
 /** The palette a bank at `index` reports, and what an empty one falls back to. */
