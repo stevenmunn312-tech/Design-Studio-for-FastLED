@@ -264,6 +264,33 @@ describe('Blend', () => {
   })
 })
 
+describe('Zones', () => {
+  const W = 9, H = 5
+  const source: RGB[][] = Array.from({ length: H }, (_, y) => Array.from({ length: W }, (_, x) => ({ r: x * 20, g: y * 40, b: 7 })))
+
+  it('fits a whole frame into a zone the same way on the board', () => {
+    const properties = { aX: 0.2, aY: 0.1, aW: 0.5, aH: 0.7, aFit: true, bEnabled: false, cEnabled: false, dEnabled: false }
+    const cpp = generateCpp([node('z', 'Zones', 'composite', properties), node('a', 'Code', 'code'),
+      node('out', 'MatrixOutput', 'output', { width: W, height: H })], [edge('e1', 'a', 'z', 'frame', 'a'), edge('e2', 'z', 'out', 'frame', 'frame')])
+    const lines = cpp.split('\n')
+    const start = lines.findIndex((line) => line.includes('int _zx0='))
+    const block = lines.slice(start, start + 4)
+    const [, out, zone] = block[3].match(/(\w+)\[_y\*WIDTH\+_x\] = (\w+)\[_sy\*WIDTH\+_sx\]/)!
+    const board: RGB[] = Array.from({ length: W * H }, () => ({ r: 0, g: 0, b: 0 }))
+    compileCppSnippet(block, ['WIDTH', 'HEIGHT', out, zone], [])(0, {
+      WIDTH: W, HEIGHT: H, [out]: board as never, [zone]: source.flat() as never,
+    })
+    const preview = COMPOSITE_EVALUATORS.Zones!({
+      input: (_id: string, port: string) => (port === 'a' ? source : null), W, H,
+    } as unknown as EvalContext, 'z', properties, studio, 'Zones').frame as RGB[][]
+    expect(board).toEqual(preview.flat())
+    // The zone is columns 2-5 and rows 1-3; each pixel reads the source under
+    // its centre, so its corners reach the source's first and last row.
+    expect(preview[1][2]).toEqual(source[0][1])
+    expect(preview[3][5]).toEqual(source[H - 1][7])
+  })
+})
+
 describe('Zones and Blend', () => {
   it('rounds zone edges as the preview does', () => {
     const cpp = generateCpp([

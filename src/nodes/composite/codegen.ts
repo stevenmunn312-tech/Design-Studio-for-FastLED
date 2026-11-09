@@ -55,6 +55,15 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
       const zh = Math.max(0, Math.min(1, Number(p[`${key}H`] ?? 1)))
       // Edges round like the preview's Math.round; truncating moved a zone a column.
       const edge = (frac: number, dim: string) => `(int)floorf(${floatLit(frac, 6)}*${dim}+0.5f)`
+      if (p[`${key}Fit`] === true) {
+        // Fit: each zone pixel reads the source under its centre, scaled
+        // from the zone's size to the whole frame, in integers as the preview.
+        ln(`  { int _zx0=${edge(zx, 'WIDTH')},_zx1=min(${edge(zx + zw, 'WIDTH')},WIDTH),_zy0=${edge(zy, 'HEIGHT')},_zy1=min(${edge(zy + zh, 'HEIGHT')},HEIGHT);`)
+        ln(`    for (int _y=_zy0; _y<_zy1; _y++) for (int _x=_zx0; _x<_zx1; _x++) {`)
+        ln(`      int _sx=(int)((2*(int32_t)(_x-_zx0)+1)*WIDTH/(2*(int32_t)(_zx1-_zx0))),_sy=(int)((2*(int32_t)(_y-_zy0)+1)*HEIGHT/(2*(int32_t)(_zy1-_zy0)));`)
+        ln(`      ${ob}[_y*WIDTH+_x] = ${zbuf}[_sy*WIDTH+_sx]; } }`)
+        continue
+      }
       ln(`  for (int _y=${edge(zy, 'HEIGHT')}; _y<${edge(zy + zh, 'HEIGHT')} && _y<HEIGHT; _y++)`)
       ln(`    for (int _x=${edge(zx, 'WIDTH')}; _x<${edge(zx + zw, 'WIDTH')} && _x<WIDTH; _x++)`)
       ln(`      ${ob}[_y*WIDTH+_x] = ${zbuf}[_y*WIDTH+_x];`)

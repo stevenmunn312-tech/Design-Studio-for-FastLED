@@ -434,6 +434,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   Zones: {
     overview: [
       'Zones places up to four frames in their own rectangles of the matrix, over a Base frame. Each zone has a position, a size and an on/off switch, all as fractions of the matrix.',
+      'A zone shows the part of its frame that falls inside its rectangle, which suits text or shapes already placed there. Turn on Fit to squeeze the whole frame into the zone instead, so a full-matrix pattern appears complete in its corner.',
       'Use it for a dashboard of different patterns, a status strip along one edge, or before-and-after comparisons.',
     ],
     inputs: {
@@ -452,10 +453,10 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
         summer: ['Fire', { fireStyle: 'classic', palette: 'fire' }],
         autumn: ['Confetti', { palette: 'emberglow', speed: 0.4 }],
         winter: ['Particles', { particleType: 'snow', rate: 0.4, palette: 'arctic' }],
-        quarters: ['Zones'],
+        quarters: ['Zones', { aFit: true, bFit: true, cFit: true, dFit: true }],
       },
       wires: ['spring.frame > quarters.a', 'summer.frame > quarters.b', 'autumn.frame > quarters.c', 'winter.frame > quarters.d'],
-      explanation: 'Zones’ four default rectangles split the matrix into quarters: green blobs for spring, fire for summer, falling ember speckles for autumn, and snow for winter.',
+      explanation: 'Zones’ four default rectangles split the matrix into quarters, and Fit squeezes each whole pattern into its quarter: green blobs for spring, fire for summer, falling ember speckles for autumn, and snow for winter.',
       preview: 'The {output} shows four different patterns, one in each quarter of the matrix.',
     }),
   },

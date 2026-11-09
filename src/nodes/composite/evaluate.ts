@@ -304,12 +304,15 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       // Rounded edges, as the sketch rounds them (floorf(v+0.5f)).
       const x0 = Math.round(zx * W), x1 = Math.min(W, Math.round((zx + zw) * W))
       const y0 = Math.round(zy * H), y1 = Math.min(H, Math.round((zy + zh) * H))
+      // Fit samples the source under each zone pixel's centre, in integers
+      // as the sketch does; otherwise the zone shows the source in place.
+      const fit = props[`${key}Fit`] === true
       for (let y = y0; y < y1; y++) {
-        const srcRow = src[y]
+        const srcRow = src[fit ? Math.floor(((2 * (y - y0) + 1) * H) / (2 * (y1 - y0))) : y]
         const dstRow = result[y]
         if (!srcRow || !dstRow) continue
         for (let x = x0; x < x1; x++) {
-          const s = srcRow[x]
+          const s = srcRow[fit ? Math.floor(((2 * (x - x0) + 1) * W) / (2 * (x1 - x0))) : x]
           if (!s) continue
           const d = dstRow[x]
           d.r = s.r; d.g = s.g; d.b = s.b

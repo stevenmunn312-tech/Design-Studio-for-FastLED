@@ -383,6 +383,8 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     // over earlier ones where they overlap. An unwired or disabled zone
     // leaves its rectangle showing whatever `base` (or an earlier zone)
     // already put there, so partially wiring the node is non-destructive.
+    // A zone shows the part of its frame that lies inside the rectangle;
+    // with Fit on it squeezes the whole frame into it (nearest neighbour).
     type: 'Zones',
     label: 'Zones',
     category: 'composite',
@@ -396,10 +398,10 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      aEnabled: true, aX: 0,   aY: 0,   aW: 0.5, aH: 0.5,
-      bEnabled: true, bX: 0.5, bY: 0,   bW: 0.5, bH: 0.5,
-      cEnabled: true, cX: 0,   cY: 0.5, cW: 0.5, cH: 0.5,
-      dEnabled: true, dX: 0.5, dY: 0.5, dW: 0.5, dH: 0.5,
+      aEnabled: true, aX: 0,   aY: 0,   aW: 0.5, aH: 0.5, aFit: false,
+      bEnabled: true, bX: 0.5, bY: 0,   bW: 0.5, bH: 0.5, bFit: false,
+      cEnabled: true, cX: 0,   cY: 0.5, cW: 0.5, cH: 0.5, cFit: false,
+      dEnabled: true, dX: 0.5, dY: 0.5, dW: 0.5, dH: 0.5, dFit: false,
     },
   },
 ]

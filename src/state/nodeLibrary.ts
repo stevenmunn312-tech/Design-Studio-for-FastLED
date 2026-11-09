@@ -3058,21 +3058,25 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     aY: 'Top edge of the zone as a fraction of the matrix height.',
     aW: 'Width of the zone as a fraction of the matrix width.',
     aH: 'Height of the zone as a fraction of the matrix height.',
+    aFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
     bEnabled: 'Turns this zone off without unwiring it; its rectangle then shows Base.',
     bX: 'Left edge of the zone as a fraction of the matrix width.',
     bY: 'Top edge of the zone as a fraction of the matrix height.',
     bW: 'Width of the zone as a fraction of the matrix width.',
     bH: 'Height of the zone as a fraction of the matrix height.',
+    bFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
     cEnabled: 'Turns this zone off without unwiring it; its rectangle then shows Base.',
     cX: 'Left edge of the zone as a fraction of the matrix width.',
     cY: 'Top edge of the zone as a fraction of the matrix height.',
     cW: 'Width of the zone as a fraction of the matrix width.',
     cH: 'Height of the zone as a fraction of the matrix height.',
+    cFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
     dEnabled: 'Turns this zone off without unwiring it; its rectangle then shows Base.',
     dX: 'Left edge of the zone as a fraction of the matrix width.',
     dY: 'Top edge of the zone as a fraction of the matrix height.',
     dW: 'Width of the zone as a fraction of the matrix width.',
     dH: 'Height of the zone as a fraction of the matrix height.',
+    dFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
   },
   Sequencer: {
     interval: 'Seconds each connected input is held before moving to the next. Unconnected inputs are skipped.',
@@ -3471,6 +3475,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Transform: {
     transform: 'mode',
   },
+  Saturation: {
+    keepBrightness: 'keep brightness',
+  },
   Array: {
     blendMode: 'combine',
     offsetX: 'step X',
@@ -3495,7 +3502,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   // The group header names the zone, so its rows carry the bare field.
   Zones: Object.fromEntries(['a', 'b', 'c', 'd'].flatMap((zone) => [
-    [`${zone}Enabled`, 'enabled'], [`${zone}X`, 'x'], [`${zone}Y`, 'y'], [`${zone}W`, 'width'], [`${zone}H`, 'height'],
+    [`${zone}Enabled`, 'enabled'], [`${zone}X`, 'x'], [`${zone}Y`, 'y'], [`${zone}W`, 'width'], [`${zone}H`, 'height'], [`${zone}Fit`, 'fit'],
   ])),
   Gauge: {
     gaugeStyle: 'style',
@@ -4399,10 +4406,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'timing', label: 'Timing', keys: ['speed', 'seed'] },
   ],
   Zones: [
-    { key: 'zoneA', label: 'Zone A', keys: ['aEnabled', 'aX', 'aY', 'aW', 'aH'] },
-    { key: 'zoneB', label: 'Zone B', keys: ['bEnabled', 'bX', 'bY', 'bW', 'bH'] },
-    { key: 'zoneC', label: 'Zone C', keys: ['cEnabled', 'cX', 'cY', 'cW', 'cH'] },
-    { key: 'zoneD', label: 'Zone D', keys: ['dEnabled', 'dX', 'dY', 'dW', 'dH'] },
+    { key: 'zoneA', label: 'Zone A', keys: ['aEnabled', 'aX', 'aY', 'aW', 'aH', 'aFit'] },
+    { key: 'zoneB', label: 'Zone B', keys: ['bEnabled', 'bX', 'bY', 'bW', 'bH', 'bFit'] },
+    { key: 'zoneC', label: 'Zone C', keys: ['cEnabled', 'cX', 'cY', 'cW', 'cH', 'cFit'] },
+    { key: 'zoneD', label: 'Zone D', keys: ['dEnabled', 'dX', 'dY', 'dW', 'dH', 'dFit'] },
   ],
 }
 

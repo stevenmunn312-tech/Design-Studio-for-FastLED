@@ -673,12 +673,6 @@ freeze, or drop them.
   same gap (unwired it always passes A). Left to the Colour and maths list's
   owner, which is also folding Gate into Switch. Evidence
   `src/nodes/composite/definitions.ts:365`.
-- [ ] **Zones: Add a per-zone Fit option (Med, M).** Zones crop rather than
-  place: each copies `src[y][x]` at the same coordinates, so in the "Four
-  seasons" help example Fire in zone B shows only a quarter of a
-  full-matrix fire. Add nearest-neighbour downscale into the rectangle.
-  Evidence `src/nodes/composite/evaluate.ts:314`,
-  `src/nodes/composite/codegen.ts:47`.
 
 #### Fields and shapes
 
