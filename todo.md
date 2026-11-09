@@ -1193,11 +1193,6 @@ freeze, or drop them.
 
 #### Outputs and shows
 
-- [ ] **Category: Test that every live player/show input reaches firmware
-  (Med, M).** `LIVE_PLAYER_SHOW_PROPERTIES` declares ports as verified live
-  inputs, but nothing checks the generated sketch. Add a test that walks the
-  list and confirms each port changes the generated sketch in the show and SD
-  player generators. Evidence `src/state/player/runtimeControlScope.ts:34`.
 - [ ] **Category: Rename display nodes after the hardware (Low, S).** Info
   Display, Display Panel and Segment Display stay separate nodes. Relabel them
   with the parts people buy ("OLED Display", "TFT Display", "7-Segment

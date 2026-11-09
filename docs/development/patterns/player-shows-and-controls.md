@@ -41,7 +41,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   list, and a name's position is the id the preview's `renderParticleBurst`,
   both firmware `particleOverlay` switches and a show's PARTICLE_BURST
   dispatch on, so it is append-only (`particleStyles.test.ts` reads the three
-  switches' case comments against it). `musicPlayerTiming`
+  switches' case comments against it). Every port
+  `LIVE_PLAYER_SHOW_PROPERTIES` (`src/state/player/runtimeControlScope.ts`)
+  calls live must be read by the firmware too:
+  `src/state/player/__tests__/liveInputsReachFirmware.test.ts` wires each one
+  from a button or a knob and fails unless the show sketch or SD player that
+  engine builds reads that control. Add a port to the list only once both
+  generators read it. `musicPlayerTiming`
   normalizes stored timing; SD control routing also resolves wired timing and
   Beat inputs.
 - **Hold pacing is one module on both sides.** `src/state/player/patternPacing.ts`
