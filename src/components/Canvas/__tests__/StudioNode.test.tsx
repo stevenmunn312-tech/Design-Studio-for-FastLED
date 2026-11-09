@@ -1537,6 +1537,19 @@ describe('StudioNode', () => {
       .getByText('0')).toBeTruthy()
   })
 
+  // A PIR holds its line high for seconds, so its stand-in latches.
+  it('latches the Motion Sensor stand-in on and off with single clicks', () => {
+    const motion = makeNode('MotionInput', { pin: 5 })
+    const { getByRole } = renderNode(motion)
+    const toggle = getByRole('button', { name: 'motion' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(toggle)
+    expect(useHardwareInputStore.getState().button.get(motion.id)).toBe(true)
+    expect(getByRole('button', { name: 'MOTION' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(getByRole('button', { name: 'MOTION' }))
+    expect(useHardwareInputStore.getState().button.get(motion.id)).toBe(false)
+  })
+
   it('keeps hardware-input widgets visible when UI FX are off', () => {
     useUiStore.setState({ uiEffectsEnabled: false })
 

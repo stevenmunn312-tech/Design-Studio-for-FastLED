@@ -50,6 +50,26 @@ function ButtonInputWidget({ nodeId, idleLabel = 'press', activeLabel = 'PRESSED
   )
 }
 
+/**
+ * A latching toggle, for a sensor whose line holds its state for seconds: a
+ * PIR stays high well past the movement, so a press-and-hold button was the
+ * wrong stand-in. Click once for motion, again for none.
+ */
+function ToggleInputWidget({ nodeId, label }: { nodeId: string; label: string }) {
+  const on = useHardwareInputStore((s) => s.button.get(nodeId) ?? false)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+  return (
+    <button
+      type="button"
+      className={`nodrag ${styles.button} ${on ? styles.buttonPressed : ''}`}
+      aria-pressed={on}
+      onClick={() => setButton(nodeId, !on)}
+    >
+      {on ? label.toUpperCase() : label}
+    </button>
+  )
+}
+
 function PotInputWidget({ nodeId, storeKey = nodeId, initial = 0.5, readout }: {
   nodeId: string
   /** Run-state key; a node with several sliders gives each its own. */
@@ -335,7 +355,7 @@ export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = fal
   if (nodeType === 'TouchButtonInput') return <ButtonInputWidget nodeId={nodeId} idleLabel="touch" activeLabel="TOUCHED" />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
   // Same two widgets, same two run-state maps — see the evaluator's note.
-  if (nodeType === 'MotionInput') return <ButtonInputWidget nodeId={nodeId} />
+  if (nodeType === 'MotionInput') return <ToggleInputWidget nodeId={nodeId} label="motion" />
   if (nodeType === 'LightInput') return <LightInputWidget nodeId={nodeId} partId={partId} maxLux={maxLux} />
   if (nodeType === 'EncoderInput') return <EncoderInputWidget nodeId={nodeId} resetOnPress={resetOnPress} />
   return null

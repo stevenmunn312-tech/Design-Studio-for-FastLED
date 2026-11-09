@@ -135,11 +135,6 @@ freeze, or drop them.
   receiver kits ship the same 17/21-key NEC remote. Add a one-click preset
   with named keys so users can wire Up/Down/OK before hardware exists.
   Evidence `src/components/Canvas/bodies/IRRemoteBody.tsx:107`.
-- [ ] **Motion Sensor: Use a latching toggle in the preview (Med, S).** The
-  stand-in is a momentary press widget labelled "press"/"PRESSED", but Help
-  says "Toggle Motion" and a PIR holds high for seconds. Use a latching
-  motion toggle like PresenceInput's moving/still. Evidence
-  `src/components/Canvas/bodies/HardwareInputBody.tsx:338`, `src/components/HelpModal/reference/input.ts:357`.
 - [ ] **Presence Sensor: Add a Connected output (Low, S).** Firmware reports
   "nobody" when no frame arrived within 1 s, so an unplugged radar looks like
   an empty room. Add `connected` like the other bus sensors. Evidence
@@ -157,17 +152,6 @@ freeze, or drop them.
   the 4x4 layout, so the key printed "0" is 13. Add a `label` string output,
   or a `digit` output reading 0-9 for number keys, so presets can be picked
   by number. Evidence `src/components/HelpModal/reference/input.ts:557`.
-- [ ] **Distance Sensor: Fix the Connected claim or out-of-range handling
-  (Med, S).** Help says Connected tells an empty room from an unplugged
-  sensor, but for the HC-SR04 a no-echo timeout and a missing module both set
-  Connected false and Distance holds the last good reading, so the Help
-  example rings keep racing at the near value. Report out-of-range as maximum
-  distance with a separate `inRange` flag, or correct the copy and document
-  the hold. Evidence `src/codegen/peripherals/distanceSensorCpp.ts:29`, `src/components/HelpModal/reference/input.ts:620`.
-- [ ] **Potentiometer: Fix stale default-board comment (Low, S).** A comment
-  says the app default board is an S3, but `DEFAULT_BOARD_PROFILE_ID` is a
-  classic ESP32. Harmless, correct the comment. Evidence
-  `src/nodes/input/definitions.ts:409`, `src/build/hardware.ts:3`.
 - [ ] **Encoder: Count Position in clicks, not quarter steps (Med, S).**
   Position counts four per detent, so every Map Range must divide by four,
   and the Help example is wrong ("24 clicks one half turn" with +/-24 is 6

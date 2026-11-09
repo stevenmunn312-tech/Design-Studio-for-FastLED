@@ -309,7 +309,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Motion Sensor reads a motion module and reports Motion as true while it sees movement. Pick the module on the bench: an HC-SR501 PIR, which sees a warm body move, or an RCWL-0516 microwave sensor, which senses movement even through a plastic case.',
       'Both hold their output high for a moment after the last movement — the HC-SR501 for as long as its time trimmer is set, the RCWL-0516 for about two seconds. Neither sees a person sitting still; use Presence Sensor when stillness matters.',
-      'In the preview, the motion control on the node stands in for the sensor.',
+      'In the preview, the Motion toggle on the node stands in for the sensor: click it once for movement and again when it has passed, the way the module’s line holds high.',
     ],
     steps: [
       'Add the motion module from the Hardware tab.',
@@ -593,7 +593,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Distance Sensor measures how far away something is, in millimetres. Pick the module on the bench: an HC-SR04 ultrasonic ranger (about 2 cm to 4 m), or a VL53L0X or VL53L1X laser time-of-flight sensor for tighter, quicker readings.',
       'The ultrasonic module uses Trig and Echo pins, and its 5 V Echo needs the divider the Build Diagram draws. The laser sensors share the I2C bus; to fit two, give each its own SHDN pin and an address from 0x30 to 0x33.',
-      'Connected is false when no echo or reading comes back, so a graph can tell an empty room from an unplugged sensor.',
+      'When nothing is in range, Distance holds the last thing it measured rather than jumping, so a mapped output does not flick on a missed reading. The two kinds of module report that moment differently. A laser sensor stays Connected, since it still answers on the bus. An HC-SR04 cannot tell an empty room from a missing module, because both return no echo, so Connected goes false in either case.',
       PREVIEW_STAND_IN,
     ],
     steps: [
@@ -601,8 +601,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'For the HC-SR04, wire VCC to 5 V, Trig directly, and Echo through the 1 kΩ / 2 kΩ divider. For a laser sensor, wire VIN, GND, SDA and SCL.',
     ],
     outputs: {
-      distance: 'Distance to the nearest object in millimetres.',
-      connected: 'True while the sensor is returning readings.',
+      distance: 'Distance to the nearest object in millimetres. It holds the last reading while nothing is in range.',
+      connected: 'True while the sensor answers. A laser sensor is Connected whether or not anything is in range; an HC-SR04 is Connected only while an echo comes back.',
     },
     propertyNote: 'Trig and Echo serve the ultrasonic module; SDA, SCL, address and SHDN serve the laser modules. Only the fields for the chosen module are used.',
     example: example({

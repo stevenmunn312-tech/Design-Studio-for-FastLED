@@ -241,8 +241,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'level', label: 'Level', dataType: 'float' },
       { id: 'lux', label: 'Lux', dataType: 'float' },
     ],
-    // GPIO4 is ADC1 on the app's default board — see PotInput below for why
-    // that matters and why a classic-ESP32 default would be wrong here.
+    // A fallback only: adding the part plans an analog pin for the selected
+    // board (see PotInput below).
     defaultProperties: {
       partId: DEFAULT_LIGHT_SENSOR_PART_ID,
       pin: 4,
@@ -396,10 +396,12 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
-    // GPIO4 is ADC1 on the app's default board (ESP32-S3, ADC1 = GPIO1-10) —
-    // the old default of 34 was an ADC1 pin on the *classic* ESP32 (ADC1 =
-    // GPIO32-39) but has no ADC capability at all on the S3, so a fresh node
-    // silently read garbage on the app's own default board.
+    // A fallback only: adding the part asks the board's pin plan for an
+    // analog-capable pin (pinRetarget.ts), so the value here rarely survives.
+    // GPIO4 is ADC1 on the ESP32-S3 (ADC1 = GPIO1-10); the old default of 34
+    // had no ADC at all on the S3. On the classic ESP32, the app's default
+    // board (`DEFAULT_BOARD_PROFILE_ID`), GPIO4 is an ADC2 pin, which Wi-Fi
+    // blocks, so this fallback is not a recommendation there.
     defaultProperties: { pin: 4 },
   },
   {
