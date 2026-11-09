@@ -12,7 +12,7 @@ import { isPinnableProperty } from '../../state/player/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/upload/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../nodes/shared/scalarExpression'
 import { nodeFormulaError, scalarFormulaError } from '../../nodes/shared/formulaLang'
-import { waveHz, waveNodeSamples } from '../../nodes/signal/wave'
+import { signalScopeSamples } from '../../nodes/signal/scope'
 import { formatScheduleTime, parseScheduleTime } from '../../nodes/signal/schedule'
 import WaveScope from './WaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
@@ -1321,10 +1321,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     ? selectedFqbn in s.micOverridesByFqbn
     : d.nodeType in s.overrides)
 
-  // The Wave node shows a scope of its configured shape at the top of the
-  // body; this shifts the port handles below it down by the scope height +
-  // the body's flex gap.
-  const isWave = d.nodeType === 'Wave'
+  // Wave, Noise LFO and Envelope show a scope of their configured shape at
+  // the top of the body; this shifts the port handles below it down by the
+  // scope height + the body's flex gap.
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = HARDWARE_INPUT_WIDGET_TYPES.has(d.nodeType)
@@ -1338,18 +1337,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
    * way. The hardware view is where it is drawn at a size worth studying.
    */
   const partRender = partRenderForNodeType(d.nodeType, props)
-  const waveSamples = isWave
-    ? waveNodeSamples(
-      String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1),
-      waveHz(props.rateUnit, Number(props.frequency ?? 1), Number(props.bpm ?? 60)), Number(props.phase ?? 0),
-      { unipolar: props.unipolar === true, offset: Number(props.offset ?? 0) },
-    )
-    : null
+  const scopeSamples = signalScopeSamples(d.nodeType, props)
   // Frame / palette / colour nodes show a live preview of their primary output,
   // driven from the shared evaluation pass (previewStore).
   const outPort = outputs[0]
   const previewKind: PreviewKind | null =
-    !isWave && outPort
+    !scopeSamples && outPort
       ? outPort.dataType === 'frame' ? 'frame'
       : outPort.dataType === 'palette' ? 'palette'
       : outPort.dataType === 'color' ? 'color'
@@ -1658,7 +1651,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             onChange={(e) => updateNodeProperty(id, 'text', e.target.value)}
           />
         )}
-        {showLiveNodeVisuals && isWave && waveSamples && <WaveScope samples={waveSamples} />}
+        {showLiveNodeVisuals && scopeSamples && <WaveScope samples={scopeSamples} />}
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
         {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
         {d.nodeType === 'Audio' && <AudioCapabilityBody nodeId={id} sourceId={props.sourceId} />}

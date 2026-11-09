@@ -1,7 +1,8 @@
 import { blankDmxSnapshot, type DmxSnapshot, clampDmxChannel, clampDmxByte } from '../../state/peripherals/dmx'
 import { waveAt, waveHz } from './wave'
 import type { NodeEvaluators } from '../../state/evaluator/types'
-import { normalizedSeed, seededRandom, seedOffset, _snoise2 } from '../../state/evaluator/random'
+import { normalizedSeed, seededRandom, seedOffset } from '../../state/evaluator/random'
+import { envelopeLevel, noiseLfoLevel, noiseLfoOctaves } from './scope'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import { instanceState } from '../../state/evaluator/memory'
@@ -96,16 +97,10 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.NoiseSignal)
     const lo = num(id, 'min', props, 'min', 0)
     const hi = num(id, 'max', props, 'max', 1)
-    const octaves = Math.max(1, Math.min(3, Math.floor(Number(props.octaves ?? 1)) || 1))
     const seed = normalizedSeed(props.seed)
     const z = speedPhase(stateKey(id), t, speed) + seedOffset(seed, 0)
-    const y = seedOffset(seed, 1)
-    let v = 0, amp = 0.5, freq = 1, norm = 0
-    for (let o = 0; o < octaves; o++) {
-      v += amp * _snoise2(z * freq, y + o * 17)
-      norm += amp; amp *= 0.5; freq *= 2
-    }
-    const n = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
+    // The fBm the on-node scope draws too (./scope.ts).
+    const n = noiseLfoLevel(z, seedOffset(seed, 1), noiseLfoOctaves(props.octaves))
     return { value: lo + n * (hi - lo) }
   },
   // Trigger envelope — optional linear attack to 1 on a rising edge, then
@@ -122,11 +117,7 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     let fire = prev && prev.fire <= t ? prev.fire : -Infinity
     if (trig && !prev?.prev) fire = t
     envState.set(key, { fire, prev: trig })
-    const age = t - fire
-    const value = age < attack && attack > 0
-      ? age / attack
-      : 1 - (age - attack) / decay
-    return { result: Math.max(0, Math.min(1, value)) }
+    return { result: Math.max(0, Math.min(1, envelopeLevel(t - fire, attack, decay))) }
   },
   // One DateTime wire carries the whole reading: health, time of day, weekday
   // and the calendar date Trigger mode keys its once-a-day pulse on. Unwired,

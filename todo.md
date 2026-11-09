@@ -656,9 +656,6 @@ freeze, or drop them.
   Math and Inputs help examples; the turn needs a rotation term in
   `KALEIDO_SOURCE_CPP`, which the native parity test covers. Evidence
   `src/state/nodeLibrary.ts:5253`.
-- [ ] **Category: Add a scope to Noise LFO and Envelope (Low, M).** Only
-  Wave has an on-node scope, but these two are the nodes whose shape is the
-  whole point. Evidence `src/components/Canvas/StudioNode.tsx:1315`.
 - [ ] **Gamma: Offer a Gamma setting on the LED output (Low, M).** Help says
   to put Gamma last, just before the LED output; a setting on the output
   would remove a node from most finished graphs. Evidence

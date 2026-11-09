@@ -1162,6 +1162,16 @@ describe('StudioNode', () => {
     expect(poly.getAttribute('points')!.trim().split(/\s+/).length).toBe(64)
   })
 
+  it('renders shape scopes for Noise LFO and Envelope too', () => {
+    for (const [type, props] of [['NoiseSignal', { speed: 0.4, min: 0, max: 1, octaves: 2, seed: 3 }], ['Envelope', { attack: 0.3, decay: 1 }]] as const) {
+      const { container, unmount } = renderNode(makeNode(type, props))
+      const poly = container.querySelector('svg polyline') as SVGPolylineElement
+      expect(poly, type).toBeTruthy()
+      expect(poly.getAttribute('points')!.trim().split(/\s+/).length, type).toBe(64)
+      unmount()
+    }
+  })
+
   it('renders live band meters and bounded controls for an FFT Analyzer', () => {
     const { container, getByText } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72, tilt: 0 }))
     expect(getByText('LOW')).toBeTruthy()
