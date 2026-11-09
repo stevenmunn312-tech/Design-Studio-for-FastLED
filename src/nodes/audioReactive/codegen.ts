@@ -14,29 +14,18 @@ import {
   WAVE_SAMPLES, WAVE_SMOOTHING_MAX, WAVE_STYLES, WAVE_THICKNESS_MAX, WAVE_THICKNESS_MIN,
 } from '../../state/evaluator/waveform'
 import {
-  BEAT_FLASH_ATTACK_MAX_SEC, ENVELOPE_MAX_DT, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN,
+  BEAT_FLASH_ATTACK_MAX_SEC, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN,
   beatFlashMode, beatFlashUsesPalette,
 } from './evaluate'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterOrigin } from './levelMeter'
 import { trebleSparksFadeByCpp } from './trebleSparks'
 import { demoDrumsCpp } from './demoDrums'
+import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
 import {
   DANCE_FIGURE_COUNT, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_FIRST_MIN_MS, DANCE_FLASH_FIRST_SPAN_MS,
   DANCE_FLASH_GAP_MIN_MS, DANCE_FLASH_GAP_SPAN_MS, DANCE_FLASH_HOLD_MS, DANCE_LCG_A, DANCE_LCG_C,
   DANCE_SIZE, danceRowsLiteral,
 } from './danceFlash'
-
-/**
- * `${prefix}Dt`: seconds since this beat envelope's previous pass on
- * `millis()`, bounded like the preview's `envelopeDt` (the first pass is one
- * 60 fps frame), so a flash or punch lasts as long at any frame rate.
- */
-export function envelopeDtCpp(prefix: string): string[] {
-  return [
-    `static uint32_t ${prefix}T=0; static bool ${prefix}I=false; uint32_t ${prefix}Now=millis();`,
-    `float ${prefix}Dt=${prefix}I?constrain((${prefix}Now-${prefix}T)/1000.0f,0.0f,${floatLit(ENVELOPE_MAX_DT)}):(1.0f/60.0f); ${prefix}T=${prefix}Now; ${prefix}I=true;`,
-  ]
-}
 
 /**
  * Spectrum Visualizer's Three Band style. A wired band wins; an unwired one
@@ -395,10 +384,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    ${seedFrom('frame')}`)
     ln(`    static float ${level} = 0; static bool _flashRise_${id} = false, _flashPrev_${id} = false;`)
     for (const line of envelopeDtCpp(`_flash${id}`)) ln(`    ${line}`)
-    ln(`    float _fAtkSec_${id} = max(0.0f, ${attack}) * ${BEAT_FLASH_ATTACK_MAX_SEC}f;`)
+    ln(`    float _fAtkSec_${id} = max(0.0f, ${attack}) * ${BEAT_FLASH_ATTACK_MAX_SEC}f, _fDecay_${id} = ${decay};`)
     ln(`    bool _fBeat_${id} = (${beat}); if (_fBeat_${id} && !_flashPrev_${id}) _flashRise_${id} = true; _flashPrev_${id} = _fBeat_${id};`)
     ln(`    if (_flashRise_${id}) { ${level} = _fAtkSec_${id} > 0.0f ? min(1.0f, ${level} + _flash${id}Dt / _fAtkSec_${id}) : 1.0f; if (${level} >= 1.0f) _flashRise_${id} = false; }`)
-    ln(`    else ${level} *= powf(${decay}, _flash${id}Dt * 60.0f);`)
+    ln(`    else ${level} *= ${keepOverCpp(`_fDecay_${id}`, `_flash${id}Dt`)};`)
     ln(`    if (${level} >= 0.003f) {`)
     ln(`      float _feff_${id} = max(0.0f, ${level} * ${intensity});`)
     ln(`      CRGB _fc_${id} = ${flashPal ? `ColorFromPalette(${flashPal}, (uint8_t)((1.0f - ${level}) * 255))` : flashColor};`)

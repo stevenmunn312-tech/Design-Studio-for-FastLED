@@ -660,7 +660,7 @@ describe('evaluateGraph', () => {
     expect(connected.energy as number).toBeGreaterThan(0.15)
 
     mockAudio.active = false
-    const afterDisconnect = evaluateGraphFull([mic, features], edges, 30, W, H).outputs.get('af-decay')!
+    const afterDisconnect = evaluateGraphFull([mic, features], edges, 31, W, H).outputs.get('af-decay')!
     expect(afterDisconnect.energy as number).toBeGreaterThan(0)
     expect(afterDisconnect.energy as number).toBeLessThan(connected.energy as number)
 

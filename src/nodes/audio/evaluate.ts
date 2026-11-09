@@ -11,11 +11,12 @@ import type { NodeEvaluators, PortValue } from '../../state/evaluator/types'
 import { clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, resampleSpectrumBins } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
+import { envelopeDt, keepOver } from '../shared/envelopeClock'
 import { bandLevel, clampBandHz } from '../../audio/frequencyBand'
 import { audioLoudness, resolveStereoLevels } from '../../audio/stereoLevels'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar, beatPhaseStep, type BeatPhaseState } from '../../audio/beatPhase'
 
-const fftLevels   = instanceState('fftLevels', new Map<string, { bass: number; mids: number; treble: number }>())
+const fftLevels   = instanceState('fftLevels', new Map<string, { bass: number; mids: number; treble: number; lastT: number }>())
 const beatLevels  = instanceState('beatLevels', new Map<string, ReturnType<typeof createBeatDetectorState>>())
 /** Per node: when the native-beat gate last let a beat through (ms). */
 const nativeBeatGates = instanceState('nativeBeatGates', new Map<string, number>())
@@ -26,6 +27,8 @@ type AudioFeatureState = {
   hihat: number
   vocals: number
   energy: number
+  /** Wall-clock seconds at the previous pass (envelopeClock.ts). */
+  lastT?: number
   /** Loudness eased by the node's Smoothing, which Silence compares. */
   quiet: number
   silence: boolean
@@ -46,7 +49,7 @@ export function audioSilenceThreshold(gate: number): number {
 }
 const percussionLevels = instanceState('percussionLevels', new Map<string, AudioFeatureState>())
 const audioFeatureLevels = instanceState('audioFeatureLevels', new Map<string, AudioFeatureState>())
-const bandLevels = instanceState('bandLevels', new Map<string, number>())
+const bandLevels = instanceState('bandLevels', new Map<string, { level: number; lastT: number }>())
 const beatPhaseState = instanceState('beatPhaseState', new Map<string, BeatPhaseState>())
 
 function avgRange(values: readonly number[], start: number, end: number): number {
@@ -101,7 +104,7 @@ const PITCH_INACTIVE: Record<string, PortValue> = {
 }
 
 export const AUDIO_EVALUATORS: NodeEvaluators = {
-  FFTAnalyzer({ input, num, t, stateKey }, id, props) {
+  FFTAnalyzer({ input, num, t, elapsedT, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
     const audio = isAudioSignal(audioValue) ? audioValue : null
     // No live audio source → no signal, unless the Test Signal toggle is on
@@ -146,13 +149,16 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       treble: Math.min(1, raw.treble * gain * (1 + tilt * 1.8)),
     }
     const key = stateKey(id)
-    const prev = fftLevels.get(key) ?? target
+    const held = fftLevels.get(key)
+    const prev = held ?? target
+    // Smoothing is the share kept per 60th of a second (envelopeClock.ts).
+    const keep = keepOver(smoothing, envelopeDt(held?.lastT, elapsedT))
     const levels = {
-      bass: prev.bass * smoothing + target.bass * (1 - smoothing),
-      mids: prev.mids * smoothing + target.mids * (1 - smoothing),
-      treble: prev.treble * smoothing + target.treble * (1 - smoothing),
+      bass: prev.bass * keep + target.bass * (1 - keep),
+      mids: prev.mids * keep + target.mids * (1 - keep),
+      treble: prev.treble * keep + target.treble * (1 - keep),
     }
-    fftLevels.set(key, levels)
+    fftLevels.set(key, { ...levels, lastT: elapsedT })
     return levels
   },
   BeatDetect({ input, num, elapsedT, stateKey }, id, props) {
@@ -229,7 +235,7 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     }
     return out
   },
-  PercussionDetect({ input, num, t, stateKey }, id, props) {
+  PercussionDetect({ input, num, t, elapsedT, stateKey }, id, props) {
     let out: Record<string, PortValue> = {}
     const key = stateKey(id)
     const sensitivity = Math.max(0, Math.min(1, num(id, 'sensitivity', props, 'sensitivity', 0.55)))
@@ -239,7 +245,8 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     const audio = isAudioSignal(audioValue) ? audioValue : null
     if (audio?.active) {
       const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
-      const prev = percussionLevels.get(key) ?? {
+      const held = percussionLevels.get(key)
+      const prev = held ?? {
         prevSpectrum: spectrum,
         kick: 0,
         snare: 0,
@@ -260,12 +267,15 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       const kickTarget = clamp01(lowFlux * 3.1 + low * 0.9 - lowMid * (0.3 + separation * 0.45) - threshold)
       const snareTarget = clamp01(midFlux * 2.6 + mids * 0.55 - low * (0.18 + separation * 0.22) - highs * 0.08 - threshold * 0.8)
       const hihatTarget = clamp01(highFlux * 3.2 + highs * 0.45 - mids * (0.08 + separation * 0.18) - threshold * 0.65)
+      // Decay is the share kept per 60th of a second (envelopeClock.ts).
+      const keep = keepOver(decay, envelopeDt(held?.lastT, elapsedT))
       const next = {
         ...prev,
         prevSpectrum: spectrum,
-        kick: followLevel(prev.kick, kickTarget, decay),
-        snare: followLevel(prev.snare, snareTarget, decay),
-        hihat: followLevel(prev.hihat, hihatTarget, decay),
+        lastT: elapsedT,
+        kick: followLevel(prev.kick, kickTarget, keep),
+        snare: followLevel(prev.snare, snareTarget, keep),
+        hihat: followLevel(prev.hihat, hihatTarget, keep),
       }
       percussionLevels.set(key, next)
       out = { kick: next.kick, snare: next.snare, hihat: next.hihat }
@@ -282,14 +292,15 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       // hiccup fades rather than cuts. Self-clears once imperceptible.
       const prev = percussionLevels.get(key)
       if (prev) {
-        const kick = followLevel(prev.kick, 0, decay)
-        const snare = followLevel(prev.snare, 0, decay)
-        const hihat = followLevel(prev.hihat, 0, decay)
+        const keep = keepOver(decay, envelopeDt(prev.lastT, elapsedT))
+        const kick = followLevel(prev.kick, 0, keep)
+        const snare = followLevel(prev.snare, 0, keep)
+        const hihat = followLevel(prev.hihat, 0, keep)
         if (kick < 0.002 && snare < 0.002 && hihat < 0.002) {
           percussionLevels.delete(key)
           out = { kick: 0, snare: 0, hihat: 0 }
         } else {
-          percussionLevels.set(key, { ...prev, kick, snare, hihat })
+          percussionLevels.set(key, { ...prev, lastT: elapsedT, kick, snare, hihat })
           out = { kick, snare, hihat }
         }
       } else {
@@ -298,7 +309,7 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     }
     return out
   },
-  AudioFeatures({ input, num, t, stateKey }, id, props) {
+  AudioFeatures({ input, num, t, elapsedT, stateKey }, id, props) {
     let out: Record<string, PortValue> = {}
     const key = stateKey(id)
     const sensitivity = Math.max(0, Math.min(1, num(id, 'sensitivity', props, 'sensitivity', 0.5)))
@@ -311,7 +322,8 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     const loudness = audio?.active || audio?.micActive ? audioLoudness(audio) : 0
     if (audio?.active) {
       const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
-      const prev = audioFeatureLevels.get(key) ?? {
+      const held = audioFeatureLevels.get(key)
+      const prev = held ?? {
         prevSpectrum: spectrum,
         kick: 0,
         snare: 0,
@@ -328,11 +340,13 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       const total = avgRange(spectrum, 0, spectrum.length)
       const energyTarget = clamp01((total * 0.7 + low * 0.2 + presence * 0.1) * (0.8 + sensitivity * 0.6))
       const vocalsTarget = clamp01((presence * 1.35 + presenceFlux * 2.1 - low * 0.3 - air * 0.12) * (0.75 + sensitivity * 0.7) - gate * 0.35)
-      const energy = prev.energy * smoothing + energyTarget * (1 - smoothing)
-      const vocals = prev.vocals * smoothing + vocalsTarget * (1 - smoothing)
-      const quiet = prev.quiet * smoothing + loudness * (1 - smoothing)
+      // Smoothing is the share kept per 60th of a second (envelopeClock.ts).
+      const keep = keepOver(smoothing, envelopeDt(held?.lastT, elapsedT))
+      const energy = prev.energy * keep + energyTarget * (1 - keep)
+      const vocals = prev.vocals * keep + vocalsTarget * (1 - keep)
+      const quiet = prev.quiet * keep + loudness * (1 - keep)
       const silence = quiet < audioSilenceThreshold(gate)
-      const next = { ...prev, prevSpectrum: spectrum, vocals, energy, quiet, silence }
+      const next = { ...prev, prevSpectrum: spectrum, lastT: elapsedT, vocals, energy, quiet, silence }
       audioFeatureLevels.set(key, next)
       out = { vocals, energy, loudness, silence }
     } else if (useUiStore.getState().testSignal) {
@@ -345,13 +359,14 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       // hiccup fades rather than cuts. Self-clears once imperceptible.
       const prev = audioFeatureLevels.get(key)
       if (prev) {
-        const vocals = prev.vocals * smoothing
-        const energy = prev.energy * smoothing
+        const keep = keepOver(smoothing, envelopeDt(prev.lastT, elapsedT))
+        const vocals = prev.vocals * keep
+        const energy = prev.energy * keep
         if (vocals < 0.002 && energy < 0.002) {
           audioFeatureLevels.delete(key)
           out = { vocals: 0, energy: 0, loudness: 0, silence: true }
         } else {
-          audioFeatureLevels.set(key, { ...prev, vocals, energy, silence: true })
+          audioFeatureLevels.set(key, { ...prev, lastT: elapsedT, vocals, energy, silence: true })
           out = { vocals, energy, loudness, silence: true }
         }
       } else {
@@ -410,7 +425,7 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
   },
   // Keep in lockstep with the `FrequencyBand` emitter: the same slot rule
   // (src/audio/frequencyBand.ts), gain, clamp and smoothing.
-  FrequencyBand({ input, num, t, stateKey }, id, props) {
+  FrequencyBand({ input, num, t, elapsedT, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
     const audio = isAudioSignal(audioValue) ? audioValue : null
     const low = clampBandHz(num(id, 'lowHz', props, 'lowHz', 60), 60)
@@ -424,8 +439,10 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     const target = Math.min(1, raw * gain)
     const key = stateKey(id)
     const prev = bandLevels.get(key)
-    const level = prev === undefined ? target : prev * smoothing + target * (1 - smoothing)
-    bandLevels.set(key, level)
+    // Smoothing is the share kept per 60th of a second (envelopeClock.ts).
+    const keep = keepOver(smoothing, envelopeDt(prev?.lastT, elapsedT))
+    const level = prev === undefined ? target : prev.level * keep + target * (1 - keep)
+    bandLevels.set(key, { level, lastT: elapsedT })
     return { level }
   },
   StereoLevels({ input }, id) {

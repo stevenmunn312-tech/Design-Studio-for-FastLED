@@ -267,15 +267,6 @@ freeze, or drop them.
 
 #### Audio and audio-reactive
 
-- [ ] **Category: Use frame-rate-independent envelopes (Med, M).** FFT
-  Analyzer, Percussion Detect, Audio Features and Frequency Band smoothing,
-  Beat Flash decay/attack, Beat Kaleidoscope punch and Ember Pulse burst
-  count frames, while Spectrum Visualizer, Waveform, Color Trails and Beat
-  Detect scale by dt. Preview and device agree only at 60 fps, so a Board
-  frame rate other than 60 changes flash length and response time. Use
-  `pow(k, dt*60)` everywhere, as Spectrum Visualizer does. Evidence
-  `src/nodes/audioReactive/evaluate.ts:506`,
-  `src/nodes/audio/evaluate.ts:229`.
 - [ ] **Category: Rename the `energy` property and port to `reactivity`
   (Med, M).** Every audio pattern relabels `energy` as "reactivity"
   (`src/state/nodeLibrary.ts:3301`), so the stored id matches Audio

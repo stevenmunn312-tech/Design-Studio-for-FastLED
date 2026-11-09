@@ -37,6 +37,7 @@ import {
   danceFlashAdvance, danceFlashStart, stampDanceFlash, type DanceFlashClock,
 } from './danceFlash'
 import { demoDrums, demoDrumsActive } from './demoDrums'
+import { envelopeDt, keepOver } from '../shared/envelopeClock'
 
 const levelMeterPeaks = instanceState('levelMeterPeaks', new Map<string, { peak: number; since: number; lastT: number }>())
 const danceClocks = instanceState('danceFlash', new Map<string, { seed: number; clock: DanceFlashClock; lastT: number }>())
@@ -515,14 +516,6 @@ export function beatFlashUsesPalette(props: Record<string, unknown>, paletteWire
   return paletteWired || props.colorSource === 'palette'
 }
 
-/** Seconds since a beat envelope's previous pass, bounded so a stalled tab
- *  does not snap it shut, as the sketch bounds it. The first pass counts as
- *  one 60 fps frame. */
-export const ENVELOPE_MAX_DT = 0.1
-function envelopeDt(lastT: number | undefined, now: number): number {
-  return lastT === undefined ? 1 / 60 : Math.max(0, Math.min(ENVELOPE_MAX_DT, now - lastT))
-}
-
 function updateBeatFlashLevel(key: string, beat: boolean, attack: number, decay: number, now: number): number {
   const state = flashLevel.get(key) ?? { level: 0, rising: false, prevBeat: false, lastT: undefined }
   const dt = envelopeDt(state.lastT, now)
@@ -532,7 +525,7 @@ function updateBeatFlashLevel(key: string, beat: boolean, attack: number, decay:
     state.level = attackSec > 0 ? Math.min(1, state.level + dt / attackSec) : 1
     if (state.level >= 1) state.rising = false
   } else {
-    state.level *= Math.pow(decay, dt * 60)
+    state.level *= keepOver(decay, dt)
   }
   state.prevBeat = beat
   state.lastT = now
@@ -659,7 +652,7 @@ function evalBeatKaleidoscope(
   palette: Palette, W = DEFAULT_W, H = DEFAULT_H, now = t,
 ): Frame {
   const held = kaleidoPunch.get(key)
-  const punch = beat && !held?.prevBeat ? 1 : (held?.level ?? 0) * Math.pow(0.85, envelopeDt(held?.lastT, now) * 60)
+  const punch = beat && !held?.prevBeat ? 1 : (held?.level ?? 0) * keepOver(0.85, envelopeDt(held?.lastT, now))
   kaleidoPunch.set(key, { level: punch, prevBeat: beat, lastT: now })
 
   const strength = clamp01(energy)
@@ -768,7 +761,7 @@ function evalEmberPulse(
   const held = emberBurst.get(key)
   const burst = beat && !held?.prevBeat
     ? Math.min(1, (held?.level ?? 0) + 0.6)
-    : (held?.level ?? 0) * Math.pow(0.9, envelopeDt(held?.lastT, now) * 60)
+    : (held?.level ?? 0) * keepOver(0.9, envelopeDt(held?.lastT, now))
   emberBurst.set(key, { level: burst, prevBeat: beat, lastT: now })
 
   const strength = clamp01(energy)

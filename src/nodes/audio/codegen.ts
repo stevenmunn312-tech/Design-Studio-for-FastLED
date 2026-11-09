@@ -4,6 +4,7 @@ import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { AUDIO_SILENCE, audioHueWeight } from './evaluate'
+import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
 import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS } from '../../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, BEAT_PHASE_SYNC, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
 
@@ -92,6 +93,10 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`    ${rawTreble} = ${groupExpr(trebleFrom, trebleTo)};`)
     ln(`  }`)
     for (const line of fftKnobs) ln(line)
+    // Smoothing is the share kept per 60th of a second (envelopeClock.ts):
+    // the local becomes this pass's share.
+    for (const line of envelopeDtCpp(`_fft${id}`)) ln(`  ${line}`)
+    ln(`  ${smoothing}=${keepOverCpp(smoothing, `_fft${id}Dt`)};`)
     ln(`  float ${v('bass')}_target = constrain(${rawBass} * ${gain}, 0.0f, 1.0f), ${v('mids')}_target = constrain(${rawMids} * ${midsGain}, 0.0f, 1.0f), ${v('treble')}_target = constrain(${rawTreble} * ${trebleGain}, 0.0f, 1.0f);`)
     ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
     ln(`  ${v('bass')}_smooth = ${v('bass')}_smooth < 0 ? ${v('bass')}_target : ${v('bass')}_smooth * ${smoothing} + ${v('bass')}_target * (1.0f-${smoothing});`)
@@ -185,6 +190,9 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`  static float ${v('kick')} = 0.0f, ${v('snare')} = 0.0f, ${v('hihat')} = 0.0f;`)
       ln(`  {`)
       for (const line of pdKnobs) ln(line)
+      // Decay is the share kept per 60th of a second (envelopeClock.ts).
+      for (const line of envelopeDtCpp(`_pd${id}`)) ln(`    ${line}`)
+      ln(`    ${decay}=${keepOverCpp(decay, `_pd${id}Dt`)};`)
       ln(`    float _low = 0.0f, _lowMid = 0.0f, _mids = 0.0f, _highs = 0.0f, _lowFlux = 0.0f, _midFlux = 0.0f, _highFlux = 0.0f;`)
       ln(`    for (int _i = 0; _i < 32; _i++) {`)
       ln(`      float _cur = _audioSpectrum[_i];`)
@@ -242,6 +250,9 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(afGateDecl)
       ln(`  {`)
       for (const line of afKnobs) ln(line)
+      // Smoothing is the share kept per 60th of a second (envelopeClock.ts).
+      for (const line of envelopeDtCpp(`_af${id}`)) ln(`    ${line}`)
+      ln(`    ${smoothing}=${keepOverCpp(smoothing, `_af${id}Dt`)};`)
       ln(`    float _low = 0.0f, _presence = 0.0f, _air = 0.0f, _presenceFlux = 0.0f, _total = 0.0f;`)
       ln(`    for (int _i = 0; _i < 32; _i++) {`)
       ln(`      float _cur = _audioSpectrum[_i];`)
@@ -322,6 +333,9 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`    float _sum=0.0f; int _n=0; for(int _i=0;_i<${SPECTRUM_SLOTS};_i++){ float _c=_fbC_${id}[_i>>1]; if(_c>=_lo&&_c<=_hi){ _sum+=${slot('_i')}; _n++; } }`)
     ln(`    if(_n==0){ float _mid=sqrtf(_lo*_hi); int _near=0; float _best=1e9f; for(int _i=0;_i<${SPECTRUM_SLOTS};_i+=2){ float _d=fabsf(logf(_fbC_${id}[_i>>1]/_mid)); if(_d<_best){ _best=_d; _near=_i; } } _sum=${slot('_near')}+${slot('_near+1')}; _n=2; }`)
     ln(`    float _g=constrain(${f('gain', 'gain', 1)},0.25f,4.0f),_sm=constrain(${f('smoothing', 'smoothing', 0.6)},0.0f,0.95f),_tg=fminf(1.0f,(_sum/_n)*_g);`)
+    // Smoothing is the share kept per 60th of a second (envelopeClock.ts).
+    for (const line of envelopeDtCpp(`_fb${id}`)) ln(`    ${line}`)
+    ln(`    _sm=${keepOverCpp('_sm', `_fb${id}Dt`)};`)
     ln(`    static float _fbS_${id}=-1.0f;`)
     ln(`    _fbS_${id}=_fbS_${id}<0.0f?_tg:_fbS_${id}*_sm+_tg*(1.0f-_sm); ${v('level')}=_fbS_${id}; }`)
   },

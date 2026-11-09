@@ -2107,7 +2107,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   FFTAnalyzer: {
     bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
     gain: 'Multiplies all three bands before smoothing; above 1 lifts a quiet mic, each band still caps at 1.',
-    smoothing: 'How much of last frame is kept (0–0.95). Higher steadies jitter but lags fast hits.',
+    smoothing: 'Share of the level kept every 60th of a second (0–0.95), at any frame rate. Higher steadies jitter but lags fast hits.',
     tilt: 'Boosts mids a little and treble a lot (0–1) so quiet highs read as strongly as the bass.',
   },
   BeatDetect: {
@@ -2118,7 +2118,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   AudioFeatures: {
     gate: 'How loud the sound must be before Silence turns off, on the Loudness scale (0–1). Raise it if room noise keeps the patch awake between songs. It also trims weak vocal readings.',
     sensitivity: 'Scales the energy and vocal estimates (0–1). Raise it on quiet sources.',
-    smoothing: 'How much of last frame is kept (0–0.95). Higher gives calmer vocals, energy and silence, slower response.',
+    smoothing: 'Share kept every 60th of a second (0–0.95), at any frame rate. Higher gives calmer vocals, energy and silence, slower response.',
   },
   Vibe: {
     gain: 'Scales the three relative levels and their smoothed copies. Spikes compare the two, so gain never changes them.',
@@ -2459,7 +2459,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PercussionDetect: {
     sensitivity: 'Lowers the hit threshold for all three lanes (0–1). Raise it on quiet sources.',
-    decay: 'How long each envelope rings after a hit, 0 to 1 of the level kept per frame.',
+    decay: 'How long each envelope rings after a hit, 0 to 1 of the level kept every 60th of a second.',
     separation: 'How hard kick, snare and hi-hat suppress each other (0–1) so one drum does not light all three.',
   },
   LevelMeter: {
@@ -2473,7 +2473,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     lowHz: 'Bottom of the band in hertz. The spectrum spans about 90 Hz to 5 kHz in 16 log-spaced bins.',
     highHz: 'Top of the band in hertz. A band narrower than one bin reads the nearest bin.',
     gain: 'Multiplies the band level before it is clamped to 1.',
-    smoothing: 'How much of the previous frame carries over, 0 instant to 0.95 very slow.',
+    smoothing: 'Share of the level kept every 60th of a second, 0 instant to 0.95 very slow.',
   },
   BeatPhase: {
     bpm: 'Tempo the phase runs at until two beats have arrived, or always when nothing is wired into Beat. After that it follows the measured beat.',

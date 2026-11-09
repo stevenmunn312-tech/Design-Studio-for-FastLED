@@ -5822,7 +5822,8 @@ describe('generateCpp — BeatFlash', () => {
     expect(cpp).toContain('if (_fBeat_bf && !_flashPrev_bf) _flashRise_bf = true;')
     // Above 1 the flash would grow instead of fading and never let go; the
     // share is kept per 60th of a second, whatever the loop rate.
-    expect(cpp).toContain('else _flash_bf *= powf(constrain(0.85,0.0f,1.0f), _flashbfDt * 60.0f);')
+    expect(cpp).toContain('_fDecay_bf = constrain(0.85,0.0f,1.0f);')
+    expect(cpp).toContain('else _flash_bf *= (_fDecay_bf>0.0f?powf(_fDecay_bf,_flashbfDt*60.0f):0.0f);')
     expect(cpp).toContain('_flash_bf * 0.45')
     expect(cpp).not.toContain('ColorFromPalette(paldef_rainbow')
     // Lighten adds only the part of the flash colour above the base pixel.

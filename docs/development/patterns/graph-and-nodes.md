@@ -296,10 +296,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   reads true: a Kick envelope or a Vibe spike held high for a few frames is
   one flash, not a strobe. Beat Flash, Beat Kaleidoscope and Ember Pulse keep
   the beat they last saw, as Kick Shock and Rain Ripples always did. Their
-  envelopes decay by the clock, keeping their share per 60th of a second
-  (`envelopeDt` in `audioReactive/evaluate.ts`, `envelopeDtCpp` in its
-  codegen, both on the wall clock), so a 30 fps Board flashes as long as a
-  60 fps one. A drum pattern whose drums are triggers (Kick Shock,
+  envelopes, and the FFT Analyzer, Percussion Detect, Audio Features and
+  Frequency Band smoothers, keep their share per 60th of a second on the
+  wall clock (`src/nodes/shared/envelopeClock.ts`: `envelopeDt`/`keepOver`
+  and their C++ twins), so a 30 fps Board responds as fast as a 60 fps one
+  and 60 fps reproduces the per-frame values the sliders were tuned at. A
+  share of 0 still follows at once when no time has passed. A drum pattern whose drums are triggers (Kick Shock,
   Percussion Blobs) plays the slow demo kit in `demoDrums.ts` while none of
   its drum ports is wired, so it shows on drop instead of resting black; a
   pattern whose band ports are levels shows on drop through 0.5 band
