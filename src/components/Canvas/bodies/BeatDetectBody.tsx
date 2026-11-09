@@ -23,11 +23,18 @@ export default function BeatDetectBody({ nodeId }: { nodeId: string }) {
   const bpm = Math.max(0, Math.round(Number(output?.bpm ?? 120)))
   const intensity = beat ? 1 : clamp01((bpm - 60) / 120)
   const live = Boolean(audio && (audio.active || audio.micActive))
+  // The tuning diagnostics are not ports; the evaluator reports them here.
+  // Live audio is FastLED's beat behind a threshold and a cooldown; a baked
+  // show runs the spectral-flux detector.
+  const num = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0)
+  const diagnostics = audio?.nativeFastLed === true
+    ? `gate ${num(output?.threshold).toFixed(2)} · hold ${Math.round(num(output?.cooldownMs))} ms`
+    : `flux ${num(output?.flux).toFixed(2)} · onset ${num(output?.onset).toFixed(2)} · ×${num(output?.contrast).toFixed(1)}`
 
   return (
     <div className={styles.wrap} aria-label="Beat detector status">
       <div className={styles.topLine}>
-        <span className={styles.label}>Beat Detect</span>
+        <span className={styles.label} title="Beat detector tuning: threshold and cooldown on live audio; flux, onset and contrast for a baked show">{live ? diagnostics : 'Beat Detect'}</span>
         <span className={styles.mode} data-live={live}>
           {live ? 'LIVE' : 'PREVIEW'}
         </span>

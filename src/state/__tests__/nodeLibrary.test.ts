@@ -322,10 +322,10 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('BeatDetect', 'decay')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('BeatDetect exposes its internal tuning diagnostics as outputs', () => {
+  it('BeatDetect outputs only Beat and BPM; its readout shows the tuning diagnostics', () => {
     const bd = NODE_LIBRARY.find((n) => n.type === 'BeatDetect')
     expect(bd?.outputs.map((p) => p.id)).toEqual([
-      'beat', 'bpm', 'flux', 'onset', 'contrast', 'threshold', 'cooldownMs',
+      'beat', 'bpm',
     ])
   })
 

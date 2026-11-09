@@ -4362,9 +4362,9 @@ describe('generateCpp — INMP441 audio engine', () => {
       edge('e1', 'mic', 'bd', 'audio', 'audio'),
       edge('e2', 'bd', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('const float n_bd_threshold = constrain(0.08,0.0f,1.0f);')
-    expect(cpp).toContain('const float n_bd_cooldownMs = constrain(60000.0f / (_audioBpm > 0.0f ? _audioBpm : 120.0f) * 0.6f, 250.0f, 600.0f);')
-    expect(cpp).toContain('bool n_bd_beat = _audioBeat && _audioBeatConfidence >= n_bd_threshold && (n_bd_gate_lastBeat == 0 || millis() - n_bd_gate_lastBeat >= (uint32_t)n_bd_cooldownMs);')
+    expect(cpp).toContain('const float n_bd_gate_thr = constrain(0.08,0.0f,1.0f);')
+    expect(cpp).toContain('const float n_bd_gate_cool = constrain(60000.0f / (_audioBpm > 0.0f ? _audioBpm : 120.0f) * 0.6f, 250.0f, 600.0f);')
+    expect(cpp).toContain('bool n_bd_beat = _audioBeat && _audioBeatConfidence >= n_bd_gate_thr && (n_bd_gate_lastBeat == 0 || millis() - n_bd_gate_lastBeat >= (uint32_t)n_bd_gate_cool);')
     expect(cpp).toContain('_audioBeatConfidence = _audioProcessor->getBeatConfidence();')
     // Nothing reads the BPM port, so it is not emitted.
     expect(cpp).not.toContain('n_bd_bpm')

@@ -109,9 +109,10 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     if (audioConnected && nativeFastLedAudio) {
       // FastLED already found the beat; Threshold and the cooldown gate it.
       const threshold = `constrain(${f('threshold', 'threshold', BEAT_DETECT_DEFAULT_THRESHOLD)},0.0f,1.0f)`
-      nativeBeatGateCpp({ beat: v('beat'), threshold: v('threshold'), cooldownMs: v('cooldownMs'), state: v('gate') }, threshold).forEach(ln)
+      // The gate's threshold and cooldown are its own locals: Beat Detect's
+      // outputs are Beat and BPM, and the node's readout shows the rest.
+      nativeBeatGateCpp({ beat: v('beat'), threshold: `${v('gate')}_thr`, cooldownMs: `${v('gate')}_cool`, state: v('gate') }, threshold).forEach(ln)
       ln(`  float ${v('bpm')} = _audioBpm;`)
-      ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f;`)
     } else if (audioConnected) {
       /*
        * The three knobs are 0-1 on the node and map linearly onto their
@@ -136,8 +137,6 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       for (const line of beatKnobs) ln(line)
       ln(`  bool ${v('beat')} = false;`)
       ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f;`)
-      ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
-      ln(`  const float ${v('threshold')} = ${threshold};`)
       ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0, ${prefix}_lastMs = 0;`)
       ln(`  if (${prefix}_ready) {`)
       ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
@@ -164,13 +163,11 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`      ${v('bpm')} = ${v('bpm')} * 0.65f + _instant * 0.35f;`)
       ln(`    } } ${prefix}_lastBeat = _now; }`)
       ln(`    ${prefix}_prevFlux = _flux;`)
-      ln(`    ${v('flux')} = _flux; ${v('onset')} = _onset; ${v('contrast')} = _onset / _baseline; ${v('cooldownMs')} = _gap;`)
       ln(`  }`)
       ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)
     } else {
       ln(`  // BeatDetect — connect an Audio source for on-device beat detection`)
       ln(`  bool ${v('beat')} = false; float ${v('bpm')} = 120.0f;`)
-      ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
     }
   },
   PercussionDetect({ node, id, ln, v, f, hasExplicitAudioInput }) {

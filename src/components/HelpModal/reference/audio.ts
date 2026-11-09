@@ -48,7 +48,7 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     overview: [
       'Beat Detect listens for the beat. Beat is true for one frame on each hit, and BPM estimates the tempo — enough to flash, step, or change something exactly on the music.',
       'On live audio the beat comes from FastLED’s own detector. Threshold is how sure it must be before it fires: raise it if every snare counts, lower it if obvious kicks are missed. After a beat it waits a little over half a beat before it can fire again, so a flam fires once.',
-      'The other outputs are tuning diagnostics. On live audio Threshold and Cooldown report the gate FastLED’s beat passes through; Flux, Onset and Contrast come from the spectral-flux detector a baked show envelope runs, and read 0 on live audio. Attack and Decay shape only that baked envelope.',
+      'The readout on the node shows the tuning: on live audio the gate FastLED’s beat passes through and how long it holds off after a beat; on a baked show the spectral-flux detector’s flux, onset and contrast. Attack and Decay, folded under Baked show, shape only that baked envelope.',
     ],
     inputs: {
       audio: 'The sound to listen to, from an Audio node.',
@@ -56,13 +56,8 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     outputs: {
       beat: 'True for one frame on each detected beat.',
       bpm: 'Estimated tempo in beats per minute.',
-      flux: 'Spectral flux from a baked show’s detector: how fast the spectrum is changing. 0 on live audio.',
-      onset: 'Onset strength from a baked show’s detector. 0 on live audio.',
-      contrast: 'How far the onset stands above its baseline, from a baked show’s detector. 0 on live audio.',
-      threshold: 'The threshold the beat is currently gated by.',
-      cooldownMs: 'How long after a beat the next one is held off, in milliseconds.',
     },
-    propertyNote: 'Threshold is the setting to tune. Attack and Decay shape only a baked show envelope; live audio uses FastLED’s detector.',
+    propertyNote: 'Threshold is the setting to tune. Attack and Decay, folded under Baked show, shape only a baked show envelope; live audio uses FastLED’s detector.',
     example: example({
       featured: 'BeatDetect',
       title: 'A raindrop falls into the pond on every beat',

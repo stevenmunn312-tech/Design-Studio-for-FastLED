@@ -300,16 +300,6 @@ freeze, or drop them.
   (`spectrumThirdBounds(8)` gives bass [0,3) and mids [2,6)). Replace it
   with two crossover controls in Hz (about 300 and 1500), or make it a
   meter-only display setting. Evidence `src/nodes/audio/evaluate.ts:101`.
-- [ ] **Beat Detect: Hide Attack and Decay behind a "Baked show" group (Med,
-  S).** Live audio uses FastLED's beat gated by Threshold only, so both
-  controls do nothing in the common case. Collapse them into a "Baked show"
-  group so Threshold is the one visible knob. Evidence
-  `src/nodes/audio/evaluate.ts:147`.
-- [ ] **Beat Detect: Tuck away the diagnostic outputs (Low, M).** Flux,
-  Onset and Contrast are always 0 on live audio and no bundled pattern
-  wires any of the five diagnostic outputs. Move them into the
-  BeatDetectBody readout or behind an advanced-outputs toggle. Evidence
-  `src/nodes/audio/evaluate.ts:162`.
 - [ ] **Audio Features: Apply Sensitivity and smoothing to Loudness (Med,
   S).** Loudness is the raw meter and real music sits at 0.02–0.2 of its
   scale, so wired into a 0–1 input it barely moves and the help tells users

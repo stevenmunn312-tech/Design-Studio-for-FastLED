@@ -4345,6 +4345,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'particles', label: 'Particles', keys: ['count', 'fade'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
+  // Live audio fires on FastLED's beat, gated by Threshold alone, so Attack
+  // and Decay, which shape only a baked show's envelope, start folded away
+  // and Threshold renders on its own after them.
+  BeatDetect: [
+    { key: 'baked', label: 'Baked show', keys: ['attack', 'decay'] },
+  ],
   BeatFlash: [
     { key: 'envelope', label: 'Envelope', keys: ['attack', 'decay', 'intensity'] },
     { key: 'blend', label: 'Blend', keys: ['flashMode'] },
