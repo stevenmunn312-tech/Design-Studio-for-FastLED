@@ -8,7 +8,7 @@ import { timedFadeCpp } from '../shared/trailFadeCpp'
 import { TRAIL_MIN_STEP } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import {
-  ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
+  ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, FEEDBACK_TRANSFORMS, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
   sampleFrameQ8Cpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
@@ -146,7 +146,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const angle = f('angle', 'angle', 0)
     const scale = f('scale', 'scale', 1)
     const mode = String(p.blendMode ?? 'screen')
-    const transformMode = String(p.feedbackTransform ?? 'none')
+    const transformMode = (FEEDBACK_TRANSFORMS as readonly string[]).includes(String(p.feedbackTransform)) ? String(p.feedbackTransform) : 'none'
     ln(`  { // FrameFeedback: ${delay}-frame recursive ring buffer`)
     ln(`    static uint8_t _fb_idx_${id}=0;`)
     ln(`    const uint8_t _fb_cap_${id}=${capacity};`)

@@ -41,6 +41,7 @@ import { SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
 import { ARRAY_COPIES } from '../nodes/composite/limits'
 import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from '../nodes/composite/blendModes'
+import { FEEDBACK_TRANSFORMS } from '../nodes/shared/integerPatterns'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
@@ -465,7 +466,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   easeType:       { control: 'select', options: [...EASE_TYPES] },
   easing:         { control: 'select', options: ['linear', 'sine', 'quad', 'cubic'] },
   triggerOp:      { control: 'select', options: ['debounce', 'changed', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
-  feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
+  feedbackTransform: { control: 'select', options: FEEDBACK_TRANSFORMS, labels: { zoomTurn: 'zoom + turn' } },
   delayFrames:    { control: 'slider', min: 1, max: 32, step: 1 },
   stableTime:     { control: 'slider', min: 0.01, max: 1, step: 0.01 },
   holdTime:       { control: 'slider', min: 0.02, max: 3, step: 0.02 },
@@ -3043,11 +3044,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     fade: 'How much the echo dims each 60th of a second, 0 to 1, so it rings as long at any frame rate. Small values keep it ringing.',
     blendMode: 'How the echo is laid over the live frame.',
     amount: 'Opacity of the echo over the live frame. 0 turns feedback off.',
-    feedbackTransform: 'What happens to the echo each pass: slide, turn, or zoom. None keeps it in place.',
+    feedbackTransform: 'What happens to the echo each pass: slide, turn, zoom, or zoom + turn for a turning tunnel. None keeps it in place.',
     offsetX: 'Horizontal slide per pass, in pixels (translate only).',
     offsetY: 'Vertical slide per pass, in pixels (translate only).',
-    angle: 'Turn per pass, in degrees (rotate only). Keep it small for a spiral.',
-    scale: 'Zoom per pass (scale only). Below 1 pulls the echo inward; above 1 pushes it out.',
+    angle: 'Turn per pass, in degrees (rotate and zoom + turn). Keep it small for a spiral.',
+    scale: 'Zoom per pass (scale and zoom + turn). Below 1 pulls the echo inward; above 1 pushes it out.',
   },
   FrameSwitch: {
     select: 'On shows Frame B, off shows Frame A. A wire into Select overrides this.',
@@ -5344,9 +5345,9 @@ export function isPropertyEnabled(
       case 'offsetY':
         return mode === 'translate'
       case 'angle':
-        return mode === 'rotate'
+        return mode === 'rotate' || mode === 'zoomTurn'
       case 'scale':
-        return mode === 'scale'
+        return mode === 'scale' || mode === 'zoomTurn'
     }
   }
   if (nodeType === 'Particles') {

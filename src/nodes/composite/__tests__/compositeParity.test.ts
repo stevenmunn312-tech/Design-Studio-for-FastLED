@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { COMPOSITE_EVALUATORS } from '../evaluate'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { compileCppSnippet } from '../../../test-utils/cppSnippet'
+import { feedbackFrame, feedbackSource } from '../../shared/integerPatterns'
 import type { RGB } from '../../../state/palettes/ledColor'
 import type { EvalContext } from '../../../state/evaluator/types'
 import type { StudioNode, StudioEdge } from '../../../state/graphStore'
@@ -127,6 +128,27 @@ describe('Frame Feedback', () => {
     // FastLED's flooring fadeToBlackBy takes about half a level per spend and
     // 60 fps spends twice as often, so allow a quarter; per frame it was 92 to 43.
     expect(Math.abs(at60 - at30)).toBeLessThanOrEqual(Math.max(8, at60 * 0.25))
+  })
+
+  it('turns and zooms the echo together in Zoom + Turn', () => {
+    // The kernel's source point is within a pixel of the exact turn-then-zoom.
+    const W = 16, H = 12, angle = 7, scale = 0.85
+    const frame = feedbackFrame(0, 0, angle, scale)
+    const a = angle * Math.PI / 180, cx = (W - 1) / 2, cy = (H - 1) / 2
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const at = feedbackSource('zoomTurn', x, y, W, H, frame)
+        const rx = (x - cx) * Math.cos(a) + (y - cy) * Math.sin(a), ry = (y - cy) * Math.cos(a) - (x - cx) * Math.sin(a)
+        const ex = cx + rx / scale, ey = cy + ry / scale
+        // Off the canvas only where the exact point is at or past an edge.
+        if (at < 0) { expect(ex < 0.5 || ex > W - 1.5 || ey < 0.5 || ey > H - 1.5, `,${y}`).toBe(true); continue }
+        expect(Math.abs(at % W - ex), `${x},${y}`).toBeLessThanOrEqual(1)
+        expect(Math.abs(Math.trunc(at / W) - ey), `${x},${y}`).toBeLessThanOrEqual(1)
+      }
+    }
+    const cpp = generateCpp([node('src', 'Code', 'code'), node('fb', 'FrameFeedback', 'composite', { feedbackTransform: 'zoomTurn', angle, scale }),
+      node('out', 'MatrixOutput', 'output', { width: W, height: H })], [edge('e1', 'src', 'fb', 'frame', 'frame'), edge('e2', 'fb', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('int32_t _frx=(_fpx*_fbCo+_fpy*_fbSi)>>15,_fry=(_fpy*_fbCo-_fpx*_fbSi)>>15;')
   })
 
   it('fades every echo chain when the delay is longer than one frame', () => {

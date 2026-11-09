@@ -385,7 +385,7 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
   }, 120_000)
 
   it.each(SIZES)('FrameFeedback finds the same source pixel on %ix%i', (W, H) => {
-    for (const mode of ['translate', 'rotate', 'scale', 'none']) {
+    for (const mode of ['translate', 'rotate', 'scale', 'zoomTurn', 'none']) {
       for (const f of [feedbackFrame(0.6, -1.3, 7, 1.05), feedbackFrame(-17.2, 3.9, -135, 0.3)]) {
         const native = runNative(W, H, [`int32_t _fbDx=${f.dx},_fbDy=${f.dy},_fbCo=${f.cos},_fbSi=${f.sin},_fbInv=${f.inv};`], feedbackSourceCpp(mode), '"%d ",_fbSrc')
         expect(grid(W, H, (x, y) => [feedbackSource(mode, x, y, W, H, f)])).toEqual(native)

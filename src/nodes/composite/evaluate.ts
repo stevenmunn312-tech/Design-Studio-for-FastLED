@@ -28,7 +28,7 @@ import { ARRAY_COPIES } from './limits'
 import { FEEDBACK_BLEND_MODES } from './blendModes'
 import { diagonalFold } from './mirror'
 import {
-  arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
+  FEEDBACK_TRANSFORMS, arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
   wallpaperSourceQ8,
 } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
@@ -118,7 +118,7 @@ function evalFrameFeedback(
   // included. Modes the sketch has no case for blend as screen, as it does.
   const delayed = state.frames[(state.index - delay + capacity) % capacity]
   const frame = feedbackFrame(offsetX, offsetY, angle, scale)
-  const mode = ['translate', 'rotate', 'scale'].includes(transformMode) ? transformMode : 'none'
+  const mode = (FEEDBACK_TRANSFORMS as readonly string[]).includes(transformMode) ? transformMode : 'none'
   // fadeToBlackBy(fadeBy) is scale8 by 255 - fadeBy.
   const retain8 = 255 - fadeBy
   const op8 = Math.trunc(clamp01(amount) * 255)

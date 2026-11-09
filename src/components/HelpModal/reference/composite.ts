@@ -384,8 +384,8 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   FrameFeedback: {
     overview: [
-      'Frame Feedback lays a delayed, faded copy of its own output back over the live frame — a video-feedback loop. Each pass can slide, turn or zoom the echo.',
-      'Small turns make spirals; a zoom below 1 makes an endless tunnel; a slide makes motion streak. Fade sets how quickly echoes die and Opacity how strong they are. Delay uses more memory on the board for every frame of history.',
+      'Frame Feedback lays a delayed, faded copy of its own output back over the live frame — a video-feedback loop. Each pass can slide, turn or zoom the echo, or zoom and turn it at once.',
+      'Small turns make spirals; a zoom below 1 makes an endless tunnel, and Zoom + Turn twists it; a slide makes motion streak. Fade sets how quickly echoes die and Opacity how strong they are. Delay uses more memory on the board for every frame of history.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: 'The live frame with its echoes.' },
@@ -394,11 +394,10 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       title: 'An endless tunnel',
       nodes: {
         ring: ['Shape', { shape: 'polygon', sides: 4, size: 7.5, filled: false, edge: '#40e0ff', thickness: 1 }],
-        turn: ['Transform', { transform: 'rotate', rate: 40 }],
-        tunnel: ['FrameFeedback', { delayFrames: 2, fade: 0.06, amount: 0.85, blendMode: 'screen', feedbackTransform: 'scale', scale: 0.9 }],
+        tunnel: ['FrameFeedback', { delayFrames: 2, fade: 0.06, amount: 0.85, blendMode: 'screen', feedbackTransform: 'zoomTurn', scale: 0.9, angle: 6 }],
       },
-      wires: ['ring.frame > turn.frame', 'turn.frame > tunnel.frame'],
-      explanation: 'Shape draws a square outline and Transform turns it. Frame Feedback shrinks its echo by 10% each pass and lays it back on top, so every past position falls away toward the centre in a twisting tunnel.',
+      wires: ['ring.frame > tunnel.frame'],
+      explanation: 'Shape draws a square outline. Frame Feedback in Zoom + Turn shrinks its echo by 10% and turns it 6° each pass, then lays it back on top, so every echo falls away toward the centre in a twisting tunnel.',
       preview: 'The {output} shows nested, twisting squares receding into the centre like a tunnel.',
     }),
   },

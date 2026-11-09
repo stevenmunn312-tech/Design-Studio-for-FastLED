@@ -662,12 +662,6 @@ freeze, or drop them.
   Formula nodes. Add a Swirl / Ripple / Turbulence select with a speed,
   used when dx/dy are unwired. Evidence
   `src/nodes/composite/evaluate.ts:378`.
-- [ ] **Frame Feedback: Allow rotate and zoom together (Med, M).**
-  Translate, Rotate and Scale are mutually exclusive, so the classic
-  turning tunnel needs a separate Transform in front. Add a combined "Zoom
-  + Turn", or apply all four values like Array; `feedbackFrame` already
-  computes cos/sin and inverse scale together. Evidence
-  `src/state/nodeLibrary.ts:5322`, `src/nodes/shared/integerPatterns.ts:1330`.
 - [ ] **Math Switch: Add a Select property (Med, S).** Frame Switch gained a
   `select` switch as its `sel` port's property input; Math `Switch` has the
   same gap (unwired it always passes A). Left to the Colour and maths list's
