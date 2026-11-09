@@ -65,9 +65,9 @@ date comes from the same `_rtcCivilFromDays` helper the software clock uses.
 
 NTP is available in every firmware output. The normal sketch, the generative
 show and the SD player all take their network from
-`src/codegen/peripherals/networkCpp.ts`: the first Art-Net or NTP node's
-hostname and addressing, Wi-Fi credentials from the browser-local store, or the
-wired link when the board or bench has one. In a show or player the RTC's
+`src/codegen/peripherals/networkCpp.ts`: the Board's hostname and addressing,
+its Wi-Fi credentials from the browser-local store, or the wired link when the
+board or bench has one. In a show or player the RTC's
 control-graph emission carries those blocks, so an LED Clock Display, a screen
 or a schedule in those builds keeps real time (D-03).
 
@@ -206,14 +206,15 @@ render `--:--`; there is no implicit browser-clock fallback.
 `validateGraph.ts` blocks NTP on boards without a Wi-Fi radio (the ESP cores
 except the H2 and P4, and the Arduino UNO R4 WiFi, have one; a wired link
 also lifts the gate), requires an NTP server
-and an SSID when NTP is selected, warns when network-enabled DMX/RTC nodes
-disagree on Wi-Fi settings (one sketch has one connection — see the
-[DMX/Art-Net note](dmx-artnet-input.md)), flags incomplete schedule setups, and
+when NTP is selected and asks the Board for its Wi-Fi name (one board has one
+network identity — see the [DMX/Art-Net note](dmx-artnet-input.md)), flags
+incomplete schedule setups, and
 warns about a `ClockDisplay` with no time source wired. Each has a repair line
 in the Graph Health drawer.
 
-Wi-Fi credentials for NTP live in the same browser-local store as the Art-Net
-ones and never travel with the graph — see the DMX note for the full rationale.
+The Wi-Fi credentials NTP joins with are the Board's, kept in the browser-local
+store under its node id, and never travel with the graph — see the DMX note for
+the full rationale.
 
 ## Deliberately out of scope
 

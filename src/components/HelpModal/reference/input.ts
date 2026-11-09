@@ -287,14 +287,14 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     ],
     steps: [
       'Add a control for each thing you want to change from the phone.',
-      'Enter the Wi-Fi network in the body and upload to an ESP32 or ESP8266.',
+      'Enter the Wi-Fi network in the Board’s Network settings (Network settings in the body opens them) and upload to an ESP32 or ESP8266.',
       'On a phone on the same network, open the address shown at the top of the node, or the board’s IP address.',
       'With several boards, choose the board that serves the page in Runs on; its controls reach the other boards over a link.',
     ],
     outputs: {
       'add-control': 'Drag from here onto a property row to make a control for that property, already wired to it.',
     },
-    propertyNote: 'Each control’s name, type and range are edited in the body; every control becomes an output port. The page title, hostname and addressing are the node’s own settings, and the Wi-Fi name and password stay in this browser.',
+    propertyNote: 'Each control’s name, type and range are edited in the body; every control becomes an output port. The page title is the node’s own; the page is at the board’s hostname, which with the addressing and Wi-Fi is set once in the Board’s Network settings.',
     example: example({
       featured: 'WebRemoteInput',
       title: 'A phone that sets colour and brightness',
@@ -721,7 +721,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     ],
     steps: [
       'Choose Art-Net, sACN or DMX512 as the firmware source and set the universe your desk sends.',
-      'For network modes, set the hostname and either DHCP or a fixed address. For DMX512, add an RS-485 transceiver and wire its RO, DI and DE/RE pins.',
+      'For network modes, enter the Wi-Fi in the Board’s Network settings, where the hostname and DHCP or a fixed address are set too. For DMX512, add an RS-485 transceiver and wire its RO, DI and DE/RE pins.',
       'Add a DMX Channel node for each channel you want to use.',
     ],
     outputs: {
@@ -875,7 +875,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'In the preview, the local build tools listen on the same UDP port; point your sender at this computer. On the board, the sketch joins Wi-Fi and listens on that port.',
     ],
     steps: [
-      'Set the network: hostname, and DHCP or a fixed address.',
+      'Set the network in the Board’s Network settings: Wi-Fi, hostname, and DHCP or a fixed address.',
       'In the sender, add a DDP output aimed at the board’s address on port 4048, sized to your matrix.',
     ],
     outputs: {

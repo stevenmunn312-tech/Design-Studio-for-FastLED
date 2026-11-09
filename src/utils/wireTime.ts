@@ -40,7 +40,7 @@ import {
   suggestParallelLedDriver, type LedDriverFacts, type SelectableLedDriver,
 } from '../build/ledDrivers'
 import { selectedLedDriver } from '../build/ledDriverSelection'
-import { networkSourceIn } from '../codegen/peripherals/networkCpp'
+import { networkUsedIn } from '../codegen/peripherals/networkCpp'
 import { musicPlayerSource } from '../state/upload/buildMode'
 import { IR_RMT_RX_FAMILIES, IR_RMT_RX_SYMBOLS } from '../codegen/peripherals/irRmtReceiverCpp'
 import type { GraphDiagnostic, GraphDiagnosticFix } from './validateGraph'
@@ -167,7 +167,7 @@ export function wireOutputs(nodes: StudioNode[], edges: readonly StudioEdge[]): 
  * any of the three is up, and a Bluetooth Music Player keeps its radio up.
  */
 export function sketchUsesNetwork(nodes: readonly StudioNode[]): boolean {
-  return networkSourceIn(nodes) !== null
+  return networkUsedIn(nodes)
     || nodes.some((node) => node.data.nodeType === 'PatternMaster' && musicPlayerSource(node) === 'Bluetooth')
 }
 

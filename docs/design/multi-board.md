@@ -100,13 +100,15 @@ and kept consistent by one store action, `setBoardClockSync(enabled)`: the
 primary becomes the leader and every other board a follower; a board added
 while sync is on starts as a follower. The Board node counts as a network user
 when its sync is on, so its board needs Wi-Fi (or a wired link) and Wi-Fi
-credentials, entered in the Hardware pane's board options and kept in the
-same browser-local store as the Art-Net and NTP ones, keyed by the Board node
-id. The Board is the connection's source (hostname, default `fastled-board`,
-addressing and credentials) only when nothing else on that board uses the
-network; an Art-Net, DDP, Frame Stream, NTP or Web Remote node that already
-owns the connection keeps its settings and credentials, and the sync rides
-that link. The firmware side is `src/codegen/peripherals/boardSyncCpp.ts`.
+credentials. Those are the board's one network identity, which every network
+user on it shares: the Board's Network group in the Hardware pane's board
+options (hostname, default `fastled-board` for the primary and
+`fastled-board-<n>` from the id of the others, DHCP or a static address), with
+the Wi-Fi name and password kept in the browser-local store under the Board
+node's id (`state/peripherals/boardNetwork.ts`). Each board's partition holds
+its own Board, so each board joins as itself; the sync rides the same
+connection as any Art-Net, DDP, Frame Stream, NTP or Web Remote node on that
+board. The firmware side is `src/codegen/peripherals/boardSyncCpp.ts`.
 
 ## Validation
 

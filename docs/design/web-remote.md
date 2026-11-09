@@ -116,8 +116,9 @@ messages only from that frame.
   JSON array with one number per control, a POST to `/set` one control's new
   value. The page polls `/s` every second, so two phones converge.
 - **Network.** The Web Remote is a `usesNetwork` user, so the sketch has one
-  connection, one hostname and the credentials stored by node id, exactly as
-  for Art-Net or NTP. The server and mDNS (`<hostname>.local`, sanitised by
+  connection and joins as the Board: its hostname and addressing, and the
+  credentials stored under its id, exactly as for Art-Net or NTP. The server
+  and mDNS (`<hostname>.local` at the Board's hostname, sanitised by
   `webRemoteMdnsName`) start the first time `_netConnected()` is true; a wired
   Ethernet link on an ESP32 serves the page too.
 - **Never blocking.** `handleClient()` once per pass serves at most one waiting
@@ -169,8 +170,8 @@ already shows the board's state.
   on the bench. `fqbnHasWifi` answers it.
 - Two Web Remotes are an error: the sketch has one server on port 80.
 - A remote with no controls is a warning: the build is correct, the page empty.
-- The Wi-Fi name and disagreeing network settings are the existing network
-  warnings, now asked of `usesNetwork` rather than a copied predicate.
+- The Wi-Fi name and addressing are the Board's network warnings, raised when
+  `usesNetwork` finds any user on the board.
 
 ## Security
 

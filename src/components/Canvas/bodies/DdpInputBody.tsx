@@ -1,11 +1,9 @@
 import { useEffect } from 'react'
 import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state/graphStore'
 import { useDdpStore, DDP_DEFAULT_PORT } from '../../../state/peripherals/ddpStore'
-import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
-import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
 import { compositionDims } from '../../../state/output/outputRouting'
 import styles from './DmxInputBody.module.css'
-import WifiPasswordInput from '../WifiPasswordInput'
+import BoardNetworkNote from './BoardNetworkNote'
 
 function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, error: string): string {
   if (!helperOnline) return 'HELPER OFFLINE'
@@ -29,12 +27,6 @@ export default function DdpInputBody({ nodeId }: { nodeId: string }) {
   const configure = useDdpStore((s) => s.configure)
   const stop = useDdpStore((s) => s.stop)
   const trusted = useGraphStore((s) => s.trusted)
-  const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
-  const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
-  const wired = useGraphStore((s) => {
-    const network = wiredNetworkIn(rootGraphNodes(s))
-    return network ? wiredNetworkPhrase(network) : null
-  })
   // The root composition's size: the pixel count the helper is asked for.
   const width = useGraphStore((s) => compositionDims(rootGraphNodes(s)).w)
   const height = useGraphStore((s) => compositionDims(rootGraphNodes(s)).h)
@@ -66,35 +58,7 @@ export default function DdpInputBody({ nodeId }: { nodeId: string }) {
           This listener came with a project made on another computer, so it stays closed until you say so. Choose <strong>Run it</strong> in the bar above the canvas to start receiving DDP.
         </div>
       )}
-      {wired && (
-        <div className={styles.note}>Firmware reaches the network through {wired}, so no Wi-Fi credentials are needed.</div>
-      )}
-      {!wired && (
-        <>
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor={`${nodeId}-ddp-ssid`}>Wi-Fi SSID</label>
-            <input
-              id={`${nodeId}-ddp-ssid`}
-              className={`nodrag ${styles.fieldInput}`}
-              type="text"
-              autoComplete="off"
-              value={credentials.ssid}
-              onChange={(e) => setCredentials(nodeId, { ssid: e.target.value })}
-              placeholder="network name"
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor={`${nodeId}-ddp-password`}>Wi-Fi password</label>
-            <WifiPasswordInput
-              id={`${nodeId}-ddp-password`}
-              className={`nodrag ${styles.fieldInput}`}
-              value={credentials.password}
-              onChange={(password) => setCredentials(nodeId, { password })}
-            />
-          </div>
-          <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
-        </>
-      )}
+      <BoardNetworkNote nodeId={nodeId} />
     </div>
   )
 }

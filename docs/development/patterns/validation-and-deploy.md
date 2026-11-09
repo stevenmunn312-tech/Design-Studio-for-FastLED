@@ -79,8 +79,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   an 18 A strip.
 - A cable is read through `wiredNetworkIn` (the board's own Ethernet port or
   the bench's module) wherever it stands in for a radio — the Art-Net/NTP
-  board gate, the NTP SSID check, the Web Remote and the sync gate alike —
+  board gate, the Board's SSID check, the Web Remote and the sync gate alike —
   never `ethernetModuleIn`, which a board with onboard Ethernet does not have.
+- A board has one network identity, the Board's (`state/peripherals/boardNetwork.ts`):
+  `findNetworkConfigWarnings` asks it once, when anything in the partition
+  uses the network, for its Wi-Fi name (unless wired), a hostname the network
+  can carry (`boardHostnameProblem`) and a complete static address. Its
+  `network-config-*` cards carry the Board's id and `open-board-settings`,
+  which the drawer opens on that board. There is no per-node network setting
+  left to disagree, so there is no "disagree" warning.
 - Several boards: the root graph is validated one board at a time, never as a
   whole. `src/utils/multiBoardValidation.ts` runs `validateGraph` /
   `buildGraphDiagnostics` on each board's partition
@@ -107,17 +114,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   with `clockSync` on, `board-sync-network-<boardId>` (error: no Wi-Fi and no
   wired link — the Board is a network user while sync is on, so this is the
   Art-Net/NTP board gate said of it), `board-sync-credentials-<boardId>`
-  (error: no wired link and the SSID empty on the partition's network owner,
-  `networkSourceIn(partition.nodes) ?? board` — the same node the sketch
-  reads, so credentials on an Art-Net or NTP node count and the card names
-  that node when it is not the Board; not raised alongside the network error) and `board-sync-collection-<boardId>`
+  (error: no wired link and the Board's own SSID empty, the credentials every
+  network user on that board joins with; action `open-board-settings`; not
+  raised alongside the network error) and `board-sync-collection-<boardId>`
   (warning: a follower's first Pattern Collection in a different `patternIds`
   order from the leader's). Because `usesNetwork` counts a syncing Board, the
-  one-board validators already refuse it a radio-less board and ask it for an
-  SSID in the Art-Net node's words; `saidOfSyncingBoard` drops those from a
-  syncing board's run (`<boardId>-board-network`, the "Board is missing its
-  Wi-Fi SSID" warning, and the generic gate message only when the Board is
-  the partition's sole network user) so each fault is said once, by name. The
+  one-board validators already refuse it a radio-less board and ask the Board
+  for an SSID; `saidOfSyncingBoard` drops those from a syncing board's run
+  (`<boardId>-board-network`, the `boardMissingSsidMessage` warning always,
+  and the generic gate message only when the Board is the partition's sole
+  network user) so each fault is said once, by name. The
   `network-config-*` card ids are keyed by message, not index, so two boards'
   different warnings do not collide in the merge. **A cross-board error belongs to both boards'
   deploy gates**: `findDeployBlockingErrorsForBoard(nodes, edges, boardId,
@@ -132,8 +138,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   receives a slot. Errors: `board-link-radio-<boardId>` (its FQBN fails
   `fqbnHasEspNow`, which unlike `fqbnHasWifi` excludes the UNO R4 WiFi;
   skipped while the FQBN is unknown, so another board's gate never guesses),
-  `board-link-network-<boardId>` (two linked boards on Wi-Fi whose network
-  owners' SSIDs differ; a board on wired Ethernet alone is off Wi-Fi; never a
+  `board-link-network-<boardId>` (two linked boards on Wi-Fi whose Boards'
+  SSIDs differ; a board on wired Ethernet alone is off Wi-Fi; never a
   password), `board-link-slots-` / `board-link-text-<boardId>` (more than 64
   slots or 8 text slots sent; the sender's gate only) and `board-link-key`
   (no `linkId` on the primary or no key on this machine; every linked board's
@@ -289,7 +295,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   on the first free channel. On RMT chips the slots are every channel that fits
   single-buffered with no network (FastLED drops to one block a channel under
   memory pressure rather than refuse one), and `rmtOutputsThatFit` at the
-  network rate, at least one, once `networkSourceIn` finds a Wi-Fi or Ethernet
+  network rate, at least one, once `networkUsedIn` finds a Wi-Fi or Ethernet
   user (FastLED's network channel reduction). The IR receiver's RX symbols
   (`IR_RMT_RX_SYMBOLS`) come out of that pool only where it captures through
   RMT and RX shares TX memory; today the capture runs only on the S3, whose RX

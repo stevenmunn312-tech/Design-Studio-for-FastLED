@@ -16,7 +16,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import { SYNC_DATAGRAM_BYTES, SYNC_VERSION, clockSyncRoleIn } from '../peripherals/boardSyncCpp'
-import { networkSourceIn, usesNetwork } from '../peripherals/networkCpp'
+import { networkUsedIn, usesNetwork } from '../peripherals/networkCpp'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -109,16 +109,15 @@ describe('board clock sync', () => {
   beforeAll(() => useNetworkCredentialsStore.getState().setCredentials('board', { ssid: 'studio', password: 'secret' }))
   afterAll(() => useNetworkCredentialsStore.getState().removeCredentials('board'))
 
-  it('makes a syncing Board a network user, last in line for the connection settings', () => {
+  it('makes a syncing Board a network user', () => {
     expect(usesNetwork(board())).toBe(false)
     expect(usesNetwork(board('off'))).toBe(false)
     expect(usesNetwork(board('leader'))).toBe(true)
     expect(usesNetwork(board('follower'))).toBe(true)
     expect(clockSyncRoleIn([board('follower')])).toBe('follower')
     expect(clockSyncRoleIn([board('off')])).toBeNull()
-    const rtc = node('rtc', 'RTCInput', { timeSource: 'NTP', wifiHostname: 'led-clock' })
-    expect(networkSourceIn([board('leader'), rtc])?.id).toBe('rtc')
-    expect(networkSourceIn([board('leader')])?.id).toBe('board')
+    expect(networkUsedIn([board('leader')])).toBe(true)
+    expect(networkUsedIn([board('off')])).toBe(false)
   })
 
   it('leaves a sketch byte for byte unchanged when sync is off', () => {
@@ -304,13 +303,14 @@ describe('board clock sync', () => {
   })
 
   it('emits one connection when the show already has a network user', () => {
-    useNetworkCredentialsStore.getState().setCredentials('rtc', { ssid: 'studio', password: 'secret' })
+    const leader = board('leader')
+    leader.data.properties.wifiHostname = 'led-clock'
     const nodes = [
-      board('leader'),
+      leader,
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
       node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
-      node('rtc', 'RTCInput', { timeSource: 'NTP', wifiHostname: 'led-clock' }),
+      node('rtc', 'RTCInput', { timeSource: 'NTP' }),
       node('status', 'InfoDisplay', { partId: 'ssd1306-oled-128x64', sdaPin: 8, sclPin: 9 }),
     ]
     const edges = [
@@ -318,11 +318,11 @@ describe('board clock sync', () => {
       edge('rtc', 'display', 'status', 'display'),
     ]
     const cpp = generateShowSketch(nodes, edges, groups)
-    useNetworkCredentialsStore.getState().removeCredentials('rtc')
     expect(lines(cpp, 'void _netEnsureConnected()')).toHaveLength(1)
     expect(lines(cpp, '#include <WiFi.h>')).toHaveLength(1)
-    // The clock owns the connection's settings; the Board only rides it.
+    // The clock and the sync share one connection, as the Board.
     expect(cpp).toContain('WiFi.setHostname("led-clock");')
+    expect(cpp).toContain('WiFi.begin("studio", "secret");')
     expect(cpp).toContain('void _syncService(')
   })
 

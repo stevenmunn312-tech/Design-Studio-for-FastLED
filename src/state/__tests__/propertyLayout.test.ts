@@ -52,7 +52,6 @@ describe('property labels', () => {
     }
     expect(propertyLabel('PatternMaster', 'maxTime')).toBe('Max Time (s)')
     expect(propertyLabel('PatternSlideshow', 'maxTime')).toBe('Max Time (s)')
-    expect(propertyLabel('PatternMaster', 'wifiHostname')).toBe('Hostname')
   })
 
   it('names each zone\'s rows after the field, since the group names the zone', () => {

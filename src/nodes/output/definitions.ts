@@ -9,6 +9,7 @@ import {
 } from '../../state/peripherals/buzzer'
 import { DARLINGTON_PART_ID, DARLINGTON_PIN_FALLBACKS, darlingtonInputs, darlingtonPinKeys } from '../../state/peripherals/darlingtonDriver'
 import { DIRECT_PIXEL_DATA_LINK } from '../../state/peripherals/pixelDataExtender'
+import { BOARD_NETWORK_DEFAULTS } from '../../state/peripherals/boardNetwork'
 import { ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_LEVEL_DEFAULT, POWER_SWITCH_PIN_FALLBACKS, POWER_SWITCH_VARIANT_INPUTS, powerSwitchInputs } from '../../state/peripherals/powerSwitch'
 import { PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverInputs, pwmDriverSpec } from '../../state/peripherals/pwmDriver'
 import { DEFAULT_RELAY_PART_ID, relayInputs } from '../../state/peripherals/relayModule'
@@ -80,6 +81,12 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       // 'follower' adopts it. Kept consistent across every Board node by one
       // store action, never set per board — see docs/design/multi-board.md.
       clockSync: 'off',
+      // The board's one network identity, which every network user on it
+      // shares (state/peripherals/boardNetwork.ts): the name it announces
+      // (empty is `fastled-board`, or `fastled-board-2` and so on) and how it
+      // gets an address. Its Wi-Fi name and password are kept on this machine
+      // under the Board's id (networkCredentials.ts), never in the project.
+      ...BOARD_NETWORK_DEFAULTS,
     },
   },
   {
@@ -662,12 +669,6 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       host: '192.168.1.50',
       port: 4048,
       baud: 115200,
-      wifiHostname: 'fastled-stream',
-      useDhcp: true,
-      staticIp: '',
-      staticGateway: '',
-      staticSubnet: '255.255.255.0',
-      staticDns: '',
     },
   },
   {

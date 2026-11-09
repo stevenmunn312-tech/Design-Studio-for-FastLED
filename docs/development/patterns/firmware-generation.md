@@ -332,8 +332,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   so every generator starts the same link. Keep the header block a single
   string: the control graph dedupes includes by element, and a per-line block
   would lose its second `#endif` against another block's. Every NTP clock in a
-  graph emits identical blocks (settings from `networkSourceIn`), which is what
-  lets that dedupe leave exactly one bootstrap. The Web Remote's
+  graph emits identical blocks (the Board's identity, never a node's: hostname
+  and addressing from the Board's properties, credentials under the Board's
+  id, all through `state/peripherals/boardNetwork.ts`), which is what lets that
+  dedupe leave exactly one bootstrap. Whether to bring the link up at all is
+  `networkUsedIn(reachable nodes)`; what it comes up as is asked of the whole
+  partition, since neither the Board nor a cable has ports to sort by. The Web Remote's
   server (`webRemoteCpp.ts`) is the same shape: the normal sketch pushes its
   include and globals itself, and `webRemoteControlEmission` hands the control
   graph the network blocks plus its own, so a show or player starts the same
@@ -589,11 +593,10 @@ sketch still carries only what the graph reaches.
 
 - A Board whose `clockSync` is `leader` or `follower` is a network user
   (`usesNetwork`), so the one shared connection (`networkCpp.ts`) comes up
-  from the Board alone, under its `wifiHostname` (default `fastled-board`)
-  and the credentials keyed by its node id. It is the connection's source
-  only when nothing else uses the network: an Art-Net or NTP node that
-  already owns the hostname, addressing and credentials keeps them, and the
-  sync rides that link. `peripherals/boardSyncCpp.ts` emits the protocol
+  from the Board alone, as the Board (hostname default `fastled-board`, or
+  `fastled-board-<n>` from the id of another board) with the credentials
+  keyed by its node id: the same identity every other network user on that
+  board joins with, so the sync rides one link. `peripherals/boardSyncCpp.ts` emits the protocol
   (port 6464, `FLSY`, little-endian fields written byte by byte) once per
   sketch, no node-id suffixes, and only what the role can reach: a leader has
   no offset or lock, a follower no broadcast, and the show mirrors and

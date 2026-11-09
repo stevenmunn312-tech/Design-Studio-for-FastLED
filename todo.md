@@ -91,21 +91,6 @@ Music Player seed.
 
 #### Inputs, hardware, graph and code
 
-- [ ] **Category: One network identity per board (High, M).** Hostname,
-  DHCP/static fields (6 properties) and Wi-Fi SSID/password are repeated on
-  DMXInput, DdpInput, WebRemoteInput, RTCInput (plus StreamOutput and Music
-  Player). Firmware uses only the first network user's settings, so the rest
-  are dead input, and the deploy check reads only the owner's SSID. Move
-  SSID/password/hostname/addressing to the Board (or a Wi-Fi entry in the
-  bench Network shelf) and drop the fields from every network node, which
-  also removes the "nodes disagree" warning. Evidence
-  `src/codegen/peripherals/networkCpp.ts:67`, `src/utils/validateGraph.ts:325`.
-  Still open after the 2026-11-10 pass: it touches six node types and their
-  bodies, `networkCredentials.ts` (keyed by node id), `networkSourceIn`,
-  `multiBoardValidation.ts`'s SSID check, the Board's clock-sync fields and
-  every bundled project with a network node, and needs the product call of
-  Board versus a bench Wi-Fi entry. The copy now says "network nodes"
-  rather than "DMX / RTC nodes".
 - [ ] **Category: Move DMX512 and DIN MIDI hardware to bench parts (Med, M).**
   Every other physical input is a bench part with auto-assigned pins, but
   DMX512 and DIN MIDI keep raw pin sliders and a user-picked UART on library

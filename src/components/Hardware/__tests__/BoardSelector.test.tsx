@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import BoardSelector from '../BoardSelector'
-import { boardOrdinalLabel, boardProfileLabel, defaultBoardHostname, resolveActiveBoardId } from '../boardSelection'
+import { boardOrdinalLabel, boardProfileLabel, resolveActiveBoardId } from '../boardSelection'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../build/hardware'
@@ -94,6 +94,5 @@ describe('BoardSelector', () => {
     expect(boardProfileLabel(boards[2])).toBe('No board chosen')
     expect(resolveActiveBoardId(boards, 'board-3')).toBe('board-3')
     expect(resolveActiveBoardId(boards, 'board-9')).toBe(ROOT_BOARD_NODE_ID)
-    expect(defaultBoardHostname(1)).toBe('fastled-board-2')
   })
 })

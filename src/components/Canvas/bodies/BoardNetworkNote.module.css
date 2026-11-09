@@ -1,0 +1,31 @@
+/* The line a network node shows about the Board network it joins. */
+.note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.note span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.button {
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--line));
+  background: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-output) 10%);
+  color: var(--text-primary);
+  border-radius: var(--radius-control);
+  padding: 0.1rem 0.45rem;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover {
+  border-color: color-mix(in srgb, var(--accent-output) 65%, var(--line));
+}

@@ -179,8 +179,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
      * Control, Choice Strip, Colour Picker, Text Entry) and keeps that
      * widget's meaning,
      * so dragging the socket onto a property row mints the same control a
-     * Touch node would. It is a network user like Art-Net, so it carries the
-     * same hostname and addressing fields and shares the one connection.
+     * Touch node would. It is a network user like Art-Net, so it joins the
+     * Board's network and shares the one connection.
      * See docs/design/web-remote.md.
      */
     type: 'WebRemoteInput',
@@ -191,12 +191,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       controls: [],
       title: 'LED Remote',
-      wifiHostname: 'fastled-remote',
-      useDhcp: true,
-      staticIp: '',
-      staticGateway: '',
-      staticSubnet: '255.255.255.0',
-      staticDns: '',
     },
   },
   {
@@ -450,12 +444,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       inputMode: 'Art-Net',
       universe: 0,
       udpPort: 6454,
-      wifiHostname: 'fastled-dmx',
-      useDhcp: true,
-      staticIp: '',
-      staticGateway: '',
-      staticSubnet: '255.255.255.0',
-      staticDns: '',
       dmxPort: 1,
       dmxTxPin: 17,
       dmxRxPin: 16,
@@ -520,12 +508,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       sclPin: 22,
       ntpServer: 'pool.ntp.org',
       timezoneOffsetMinutes: 0,
-      wifiHostname: 'fastled-clock',
-      useDhcp: true,
-      staticIp: '',
-      staticGateway: '',
-      staticSubnet: '255.255.255.0',
-      staticDns: '',
       startYear: 2026,
       startMonth: 1,
       startDay: 1,
@@ -559,8 +541,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     // Pixels from the network: DDP (Distributed Display Protocol, UDP 4048),
     // the frame feed xLights, LedFx and WLED speak. The preview reads the
     // local helper's listener; firmware listens on the board. A network
-    // user like Art-Net, so it carries the same Wi-Fi fields and is held
-    // until the workspace is trusted.
+    // user like Art-Net, so it joins the Board's network and is held until
+    // the workspace is trusted.
     type: 'DdpInput',
     label: 'DDP Input',
     category: 'input',
@@ -571,12 +553,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     ],
     defaultProperties: {
       udpPort: 4048,
-      wifiHostname: 'fastled-ddp',
-      useDhcp: true,
-      staticIp: '',
-      staticGateway: '',
-      staticSubnet: '255.255.255.0',
-      staticDns: '',
     },
   },
 ]

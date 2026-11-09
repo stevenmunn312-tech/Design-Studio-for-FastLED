@@ -8,9 +8,9 @@ import { selectedPhysicalBoardProfile, type BoardOnboardEthernet } from '../../b
  * Wi-Fi.
  *
  * It carries no signal of its own, so it is a hardware-only part like the SD
- * card: what it changes is how Art-Net receive and NTP time sync reach the
- * network, not what any node outputs. Those two keep their own settings
- * (hostname, DHCP or a static address); the module only replaces the radio.
+ * card: what it changes is how the network users reach the network, not what
+ * any node outputs. The board keeps its own identity (the Board's hostname,
+ * DHCP or a static address); the module only replaces the radio.
  */
 export const ETHERNET_NODE_TYPE = 'EthernetModule'
 export const DEFAULT_ETHERNET_PART_ID = 'wiz850io-ethernet-module'

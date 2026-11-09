@@ -96,7 +96,10 @@ import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
-import { networkSourceIn, usesNetwork } from '../codegen/peripherals/networkCpp'
+import { networkUsedIn, usesNetwork } from '../codegen/peripherals/networkCpp'
+import {
+  boardHostnameProblem, boardNetworkCredentialsIn, boardNetworkIdentity, networkBoardIn,
+} from '../state/peripherals/boardNetwork'
 import { bluetoothNameProblem } from '../state/player/bluetoothSink'
 import {
   invalidRadioStations, normalizeRadioStations, radioAccessCodeProblem,
@@ -262,9 +265,10 @@ function findRtcWarnings(nodes: StudioNode[]): string[] {
       })
       return valid ? [] : [`${String(node.data.label ?? node.data.nodeType)} has an invalid manual RTC start date/time`]
     }
-    if (source === 'NTP') {
-      if (!String(props.ntpServer ?? '').trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
-      if (!wiredNetworkIn(nodes) && !getNetworkCredentials(node.id).ssid.trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
+    // The Wi-Fi name NTP joins with is the Board's, asked once by the
+    // network warnings below for every network user.
+    if (source === 'NTP' && !String(props.ntpServer ?? '').trim()) {
+      return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
     }
     return []
   })
@@ -282,47 +286,34 @@ function isIpv4(value: unknown): boolean {
   })
 }
 
+/**
+ * The board's one network identity, asked once whatever uses it: the sketch
+ * joins as the Board (state/peripherals/boardNetwork.ts), so a graph with
+ * three network nodes has one Wi-Fi name to supply, not three.
+ */
 function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
+  if (networkUsers(nodes).length === 0) return []
   const warnings: string[] = []
-  const users = networkUsers(nodes)
-  if (users.length === 0) return warnings
-  // With a cable there are no Wi-Fi credentials to supply or to disagree on;
-  // the addressing settings still apply to the wired interface.
-  const wired = wiredNetworkIn(nodes) !== null
-
-  const signatures = new Set(users.map((node) => {
-    const props = node.data.properties as Record<string, unknown>
-    const credentials = wired ? { ssid: '', password: '' } : getNetworkCredentials(node.id)
-    return JSON.stringify({
-      wifiSsid: credentials.ssid.trim(),
-      wifiPassword: credentials.password,
-      wifiHostname: String(props.wifiHostname ?? '').trim(),
-      useDhcp: props.useDhcp !== false,
-      staticIp: String(props.staticIp ?? '').trim(),
-      staticGateway: String(props.staticGateway ?? '').trim(),
-      staticSubnet: String(props.staticSubnet ?? '').trim(),
-      staticDns: String(props.staticDns ?? '').trim(),
-    })
-  }))
-  if (signatures.size > 1) {
-    warnings.push(wired
-      ? 'Network nodes disagree on network settings — generated firmware shares one Ethernet connection'
-      : 'Network nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
-  }
-
-  for (const node of users) {
-    const props = node.data.properties as Record<string, unknown>
-    const label = String(node.data.label ?? node.data.nodeType)
-    if (!wired && !getNetworkCredentials(node.id).ssid.trim()) warnings.push(`${label} is missing its Wi-Fi SSID`)
-    if (props.useDhcp === false) {
-      if (!isIpv4(props.staticIp)) warnings.push(`${label} has an invalid static IP address`)
-      if (!isIpv4(props.staticGateway)) warnings.push(`${label} has an invalid gateway address`)
-      if (!isIpv4(props.staticSubnet)) warnings.push(`${label} has an invalid subnet mask`)
-      const dns = String(props.staticDns ?? '').trim()
-      if (dns && !isIpv4(dns)) warnings.push(`${label} has an invalid DNS address`)
-    }
+  const board = networkBoardIn(nodes)
+  const label = board ? nodeLabel(board) : 'Board'
+  const identity = boardNetworkIdentity(board)
+  // With a cable there are no Wi-Fi credentials to supply; the addressing
+  // settings still apply to the wired interface.
+  if (!wiredNetworkIn(nodes) && !boardNetworkCredentialsIn(nodes).ssid.trim()) warnings.push(boardMissingSsidMessage(label))
+  const hostnameProblem = boardHostnameProblem(identity.hostname)
+  if (hostnameProblem) warnings.push(`${label}'s hostname ${hostnameProblem}`)
+  if (!identity.useDhcp) {
+    if (!isIpv4(identity.staticIp)) warnings.push(`${label} has an invalid static IP address`)
+    if (!isIpv4(identity.staticGateway)) warnings.push(`${label} has an invalid gateway address`)
+    if (!isIpv4(identity.staticSubnet)) warnings.push(`${label} has an invalid subnet mask`)
+    if (identity.staticDns && !isIpv4(identity.staticDns)) warnings.push(`${label} has an invalid DNS address`)
   }
   return warnings
+}
+
+/** The Board's "no Wi-Fi name" warning, which a syncing board's own error replaces (multiBoardValidation). */
+export function boardMissingSsidMessage(boardLabel: string): string {
+  return `${boardLabel} is missing its Wi-Fi SSID`
 }
 
 /** Schedule problems, each attributed to the node that owns it so the Graph
@@ -2593,7 +2584,7 @@ function bluetoothPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[
       nodeIds: [player.id], nodeLabel: label,
     })
   }
-  if (networkSourceIn(nodes)) {
+  if (networkUsedIn(nodes)) {
     issues.push({
       id: `${player.id}-bluetooth-radio`, severity: 'warning', category: 'board',
       title: 'Wi-Fi and Bluetooth music share one radio',
@@ -2610,7 +2601,7 @@ function bluetoothPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[
  * A Music Player set to Internet Radio streams over the shared network with
  * ESP32-audioI2S, so it needs an ESP32 with Wi-Fi (or a cable), an I2S stage
  * to play through, and at least one place its stations can come from. The
- * Wi-Fi name and disagreeing network settings are the shared network warnings.
+ * Wi-Fi name and addressing are the Board's, said by the network warnings.
  */
 function radioPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn: string): GraphDiagnostic[] {
   const player = relevantMusicPlayer(nodes, edges)
@@ -4401,15 +4392,18 @@ export function buildGraphDiagnostics(
 
   // Keyed by the message, not its index, so two boards' different warnings
   // keep their own cards when the per-board lists are merged by id.
+  const networkBoard = networkBoardIn(nodes)
   findNetworkConfigWarnings(nodes).forEach((message) => {
     diagnostics.push({
       id: `network-config-${message.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       severity: 'warning',
       category: 'board',
-      title: 'Network configuration needs attention',
+      title: 'Network settings need attention',
       message,
-      fix: 'Use one shared Wi-Fi setup across the network nodes, and complete every required address field.',
-      nodeIds: [],
+      fix: 'Open the Board’s network settings and enter the Wi-Fi name, or correct the name or address.',
+      // The Board: its network settings are where every one of these is set.
+      nodeIds: networkBoard ? [networkBoard.id] : [],
+      action: 'open-board-settings',
     })
   })
 

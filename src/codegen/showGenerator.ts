@@ -113,7 +113,7 @@ import {
 } from './player/showControlRouting'
 import { controlGraphCpp } from './controlGraph'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
-import { networkSketchCpp, networkSourceIn } from './peripherals/networkCpp'
+import { networkSketchCpp } from './peripherals/networkCpp'
 import {
   SYNC_NOW_MS, boardSyncFollowerAdoptCpp, boardSyncFollowerAdoptSequenceCpp, boardSyncGlobalsCpp,
   boardSyncServiceCallCpp, clockSyncRoleIn,
@@ -1082,12 +1082,11 @@ export function generateShowSketch(
   const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
   const controlGraph = controlGraphCpp(controls.graph, `${speedNode ? 'animNow' : 'now'} / 1000.0f`)
   // Clock sync: the Board is a network user, so the connection comes up even
-  // when no control in the graph asks for it. The same source and text as an
-  // NTP clock or Web Remote in the control graph would emit, so the include,
-  // bootstrap and setup sets below dedupe to one connection.
+  // when no control in the graph asks for it. The same Board identity and text
+  // as an NTP clock or Web Remote in the control graph would emit, so the
+  // include, bootstrap and setup sets below dedupe to one connection.
   const clockSync = clockSyncRoleIn(nodes)
-  const syncSource = clockSync ? networkSourceIn(nodes) : null
-  const syncNetwork = syncSource ? networkSketchCpp(nodes, syncSource) : null
+  const syncNetwork = clockSync ? networkSketchCpp(nodes) : null
   const syncIncludes = syncNetwork ? [syncNetwork.include] : []
   const syncHelpers = syncNetwork ? [syncNetwork.bootstrap] : []
   const syncSetup = syncNetwork ? syncNetwork.setup.filter((line) => !controlGraph.setup.includes(line)) : []

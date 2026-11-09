@@ -14,7 +14,7 @@ import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { rtcInputLoopCpp } from '../../codegen/peripherals/rtcInputCpp'
 import { webRemoteFirmware } from '../../codegen/peripherals/webRemoteCpp'
-import { networkSourceIn } from '../../codegen/peripherals/networkCpp'
+import { boardNetworkIdentity, networkBoardIn } from '../../state/peripherals/boardNetwork'
 import { dmxListenPort, dmxListenUniverse, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
 import { MIDI_BAUD, midiChannel, midiUartPort, midiUsesUart } from '../../state/peripherals/midiSource'
 
@@ -44,8 +44,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
   // The phone page, its state and the server. The shared network itself is
   // emitted once by generateCpp, since this node is one of its users.
   WebRemoteInput({ id, p, ln, nodes, setupLines, globalLines }) {
-    const source = networkSourceIn(nodes)
-    const firmware = webRemoteFirmware(id, p, (source?.data.properties as Record<string, unknown> | undefined)?.wifiHostname)
+    const firmware = webRemoteFirmware(id, p, boardNetworkIdentity(networkBoardIn(nodes)).hostname)
     globalLines.push(firmware.include, firmware.globals)
     setupLines.push(...firmware.setup)
     firmware.loop.forEach(ln)

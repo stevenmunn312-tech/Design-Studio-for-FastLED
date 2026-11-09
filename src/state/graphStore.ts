@@ -22,7 +22,6 @@ import type { SavedPattern } from './patterns/patternLibrary'
 import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patterns/patternTrust'
 import { withoutPatternProfiles } from './patterns/patternPick'
 import { dropConnections } from './dropAutoConnect'
-import { useNetworkCredentialsStore } from './peripherals/networkCredentials'
 import { boardLinkSettings, newBoardLinkId, useBoardLinkKeyStore } from './peripherals/boardLinkKey'
 import { retargetedMicPins } from '../build/pins/micPinDefaults'
 import { retargetDefaultI2c, retargetHardwarePins as retargetHardwarePinsFor } from '../build/pins/pinRetarget'
@@ -542,17 +541,12 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const category: NodeCategory = def?.category ?? data.category
     const label = def?.label ?? data.label
     const properties = { ...data.properties }
-    // Wi-Fi SSID/password used to be ordinary node properties (persisted into
-    // project files and share links). They now live browser-local only in
-    // networkCredentials.ts — migrate any already-saved values across, then
-    // strip them so they never round-trip through storage again.
-    if (nodeType === 'DMXInput' || nodeType === 'RTCInput') {
-      const ssid = typeof properties.wifiSsid === 'string' ? properties.wifiSsid : ''
-      const password = typeof properties.wifiPassword === 'string' ? properties.wifiPassword : ''
-      if (ssid || password) useNetworkCredentialsStore.getState().setCredentials(n.id, { ssid, password })
-      delete properties.wifiSsid
-      delete properties.wifiPassword
-    }
+    // A network node's own copy of the network settings, from before the
+    // Board held the one identity every network user shares
+    // (peripherals/boardNetwork.ts). Nothing reads them, so they are dropped
+    // rather than drawn as rows that do nothing; pre-1.0, not migrated.
+    const retired = RETIRED_NETWORK_PROPERTY_KEYS[nodeType]
+    if (retired) for (const key of retired) delete properties[key]
     // An IR receiver mints one output per learned key, so a damaged or
     // truncated `buttons` list would take live wires down with it. The handles
     // its edges already leave from are passed in as required, which is what
@@ -600,6 +594,17 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     nodes: syncAutomaticStereoVuLedCounts(normalizedNodes),
     edges: edges.filter((e) => !RETIRED_TARGET_HANDLES.has(e.targetHandle ?? '')).map((e) => ({ ...e })),
   }
+}
+
+/** The network settings each network node carried before they moved to the Board. */
+const NODE_NETWORK_KEYS = ['wifiSsid', 'wifiPassword', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns']
+const RETIRED_NETWORK_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>> = {
+  DMXInput: NODE_NETWORK_KEYS,
+  DdpInput: NODE_NETWORK_KEYS,
+  WebRemoteInput: NODE_NETWORK_KEYS,
+  RTCInput: NODE_NETWORK_KEYS,
+  StreamOutput: NODE_NETWORK_KEYS,
+  PatternMaster: ['wifiHostname'],
 }
 
 /**

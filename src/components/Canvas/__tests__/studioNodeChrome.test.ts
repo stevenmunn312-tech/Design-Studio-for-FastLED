@@ -111,11 +111,12 @@ describe('editableProperties', () => {
   // The Internet Radio group is drawn by its body, whatever the source.
   it('leaves the Music Player radio settings to the Internet Radio group body', () => {
     const sd = libraryDefaults('PatternMaster')
-    expect(sd).toMatchObject({ stations: [], wifiHostname: 'fastled-radio', stationPage: false })
+    expect(sd).toMatchObject({ stations: [], stationPage: false })
+    // The board's name is the Board's, not the player's.
+    expect(sd).not.toHaveProperty('wifiHostname')
     const keys = (props: Record<string, unknown>) => editableProperties('PatternMaster', props).map(([key]) => key)
     for (const props of [sd, { ...sd, musicSource: 'Internet Radio' }]) {
       expect(keys(props)).not.toEqual(expect.arrayContaining(['stations']))
-      expect(keys(props)).not.toContain('wifiHostname')
       expect(keys(props)).not.toContain('stationPage')
     }
     expect(isPropertyEnabled('PatternMaster', 'stations', sd)).toBe(false)

@@ -622,8 +622,6 @@ describe('nodeLibrary', () => {
       sclPin: 22,
       ntpServer: 'pool.ntp.org',
       timezoneOffsetMinutes: 0,
-      wifiHostname: 'fastled-clock',
-      useDhcp: true,
       startYear: 2026,
       startMonth: 1,
       startDay: 1,

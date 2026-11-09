@@ -118,16 +118,17 @@ describe('board link validation', () => {
     const dmx = (id: string, boardId?: string) =>
       node(id, 'DMXInput', { inputMode: 'Art-Net', universe: 0, ...(boardId ? { boardId } : {}) })
     const { nodes, edges } = linked({ nodes: [dmx('dmx1'), dmx('dmx2', 'board-2')] })
-    useNetworkCredentialsStore.getState().setCredentials('dmx1', { ssid: 'home', password: 'secret-one' })
-    useNetworkCredentialsStore.getState().setCredentials('dmx2', { ssid: 'studio', password: 'secret-two' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'home', password: 'secret-one' })
+    useNetworkCredentialsStore.getState().setCredentials('board-2', { ssid: 'studio', password: 'secret-two' })
 
     const diagnostics = buildBoardDiagnostics(nodes, edges, { targets })
     const card = diagnostics.find((issue) => issue.id === 'board-link-network-board-2')
     expect(card).toMatchObject({
       severity: 'error', category: 'board',
       title: 'Board 1 and Board 2 are on different Wi-Fi networks',
-      fix: 'Enter the same Wi-Fi network for Board 2 as for Board 1.',
-      nodeIds: ['dmx2', 'dmx1'],
+      // The Wi-Fi is each Board's, whatever node uses it.
+      fix: "Enter the same Wi-Fi network in Board 2's network settings as in Board 1's.",
+      nodeIds: ['board-2', 'board-root'],
     })
     expect(card?.message).toContain('Board 1 joins "home" and Board 2 joins "studio"')
     // Never a password.
@@ -140,7 +141,7 @@ describe('board link validation', () => {
         .toContainEqual(expect.stringContaining('different Wi-Fi networks'))
     }
 
-    useNetworkCredentialsStore.getState().setCredentials('dmx2', { ssid: 'home', password: 'secret-two' })
+    useNetworkCredentialsStore.getState().setCredentials('board-2', { ssid: 'home', password: 'secret-two' })
     expect(ids(buildBoardDiagnostics(nodes, edges, { targets }))).toEqual([])
   })
 
@@ -149,8 +150,8 @@ describe('board link validation', () => {
     const dmx1 = node('dmx1', 'DMXInput', { inputMode: 'Art-Net', universe: 0 })
     const eth = node('eth', 'EthernetModule', on2)
     const { nodes, edges } = linked({ nodes: [dmx1, dmx2, eth], root: { linkChannel: 6 } })
-    useNetworkCredentialsStore.getState().setCredentials('dmx1', { ssid: 'home', password: 'x' })
-    useNetworkCredentialsStore.getState().setCredentials('dmx2', { ssid: 'studio', password: 'x' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'home', password: 'x' })
+    useNetworkCredentialsStore.getState().setCredentials('board-2', { ssid: 'studio', password: 'x' })
 
     const diagnostics = buildBoardDiagnostics(nodes, edges, { targets })
     expect(ids(diagnostics)).not.toContain('board-link-network-board-2')

@@ -11,6 +11,7 @@ import { NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForPro
 import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../build/hardware'
 import { CUSTOM_BOARD_PROFILE_ID } from '../../../build/boards/customBoard'
 import { MIC_MODULES } from '../../../state/peripherals/micModules'
+import { useNetworkCredentialsStore } from '../../../state/peripherals/networkCredentials'
 import { boardI2cDefault } from '../../../build/boards/boardI2cDefaults'
 import { boardProfileById } from '../../../build/boards/boardProfiles'
 
@@ -990,6 +991,8 @@ describe('HardwarePane', () => {
       expect(await within(document.body).findByRole('button', { name: 'Add another controller' })).toBeTruthy()
       expect(within(document.body).queryByRole('button', { name: 'Remove this controller' })).toBeNull()
       expect(within(document.body).queryByLabelText('Keep boards in time')).toBeNull()
+      // One board still has its one network identity.
+      expect(within(document.body).getByRole('region', { name: 'Board network' })).toBeTruthy()
       fireEvent.keyDown(document.body, { key: 'Escape' })
 
       twoBoards()
@@ -999,10 +1002,16 @@ describe('HardwarePane', () => {
 
       const boards = rootGraphNodes(useGraphStore.getState()).filter((entry) => entry.data.nodeType === 'Board')
       expect(boards.map((entry) => entry.data.properties.clockSync)).toEqual(['leader', 'follower'])
-      expect(boards.map((entry) => entry.data.properties.wifiHostname)).toEqual(['fastled-board-1', 'fastled-board-2'])
-      // The primary has no wired link, so it asks for Wi-Fi credentials.
+      // Each board announces a name of its own without one being stamped on.
+      expect(boards.map((entry) => entry.data.properties.wifiHostname)).toEqual([undefined, undefined])
+      // The primary has no wired link, so its Network settings ask for Wi-Fi.
       expect(within(document.body).getByLabelText('Wi-Fi SSID')).toBeTruthy()
-      expect((within(document.body).getByLabelText('Hostname') as HTMLInputElement).value).toBe('fastled-board-1')
+      const hostname = within(document.body).getByLabelText('Hostname') as HTMLInputElement
+      expect(hostname.value).toBe('')
+      expect(hostname.placeholder).toBe('fastled-board')
+      fireEvent.change(within(document.body).getByLabelText('Wi-Fi SSID'), { target: { value: 'bench' } })
+      expect(useNetworkCredentialsStore.getState().byNodeId[ROOT_BOARD_NODE_ID]?.ssid).toBe('bench')
+      useNetworkCredentialsStore.getState().removeCredentials(ROOT_BOARD_NODE_ID)
     })
   })
 })

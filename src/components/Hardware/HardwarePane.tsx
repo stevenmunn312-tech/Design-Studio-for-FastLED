@@ -44,6 +44,7 @@ import HardwareLink from './HardwareLink'
 import FloatingMenu from './FloatingMenu'
 import BoardSelector from './BoardSelector'
 import BoardFleetControls from './BoardFleetControls'
+import BoardNetworkSettings from './BoardNetworkSettings'
 import HardwarePartsShelf, { HARDWARE_SHELF_HOST_ID } from './HardwarePartsShelf'
 import { hardwareShelfCategories } from './hardwareShelfModel'
 import { useBenchParts } from './useBenchParts'
@@ -1156,6 +1157,7 @@ export default function HardwarePane() {
           <Suspense fallback={<div className={styles.lazyPanelStatus} role="status">Loading board settings…</div>}>
             <BoardNodeBody nodeId={boardNodeId} />
           </Suspense>
+          <BoardNetworkSettings boardNodeId={boardNodeId} />
           <BoardFleetControls boardNodeId={boardNodeId} onClose={() => setBoardMenu(null)} />
         </FloatingMenu>
       )}

@@ -4,7 +4,8 @@ import { withWiredWebRemoteStarts } from '../state/peripherals/webRemoteWiredSta
 import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { boardLinkSettings } from '../state/peripherals/boardLinkKey'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
-import { networkSourceIn } from '../codegen/peripherals/networkCpp'
+import { networkUsedIn } from '../codegen/peripherals/networkCpp'
+import { boardNetworkCredentialsKey } from '../state/peripherals/boardNetwork'
 import { displayKindOfSource, displaySlotFields, receiverDisplayFields } from './boardLinkDisplay'
 import { isLinkedControlsSource, touchControlsFields } from './boardLinkControls'
 import {
@@ -489,13 +490,13 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
   const hash = slots.length ? boardLinkSchemaHash(slots, boardOrder) : 0
   const settings = boardLinkSettings(boards[0]?.data.properties as Record<string, unknown> | undefined)
   // The same test validation applies: a board's network user brings up Wi-Fi
-  // unless the board is on a cable.
+  // unless the board is on a cable, and it joins with the Board's own
+  // credentials, kept under the Board's id.
   const wifiByBoard: Record<string, string> = {}
   for (const boardId of boardOrder) {
     const members = byBoard.get(boardId)!
     const own = nodes.filter((node) => members.has(node.id))
-    const source = wiredNetworkIn(own) ? null : networkSourceIn(own)
-    if (source) wifiByBoard[boardId] = source.id
+    if (!wiredNetworkIn(own) && networkUsedIn(own)) wifiByBoard[boardId] = boardNetworkCredentialsKey(byId.get(boardId))
   }
   const context: BoardLinkContext = {
     hash, linkId: settings.linkId, channel: settings.channel, boardOrder, frames, wifiByBoard,

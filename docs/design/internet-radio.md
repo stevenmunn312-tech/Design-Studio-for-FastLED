@@ -95,11 +95,11 @@ and rewound by a station change, as a new track rewinds the card player's.
 
 ## Phone station page
 
-The group shows the board's own name and Wi-Fi fields only when the Music
-Player holds the board's one network connection (`networkSourceIn`). When a
-Web Remote or another network node comes first, it shows `network: via <node>`
-and the page address uses that node's name, because that is what the board
-announces.
+The player streams over the board's one network identity, the Board's: the
+group names the network it joins (`BoardNetworkNote`) with a button to the
+Board's Network settings, where the Wi-Fi, hostname and addressing are set.
+The page address uses the Board's hostname, because that is what the board
+announces. Only the access code is the player's own.
 
 `stationPage` serves a page for choosing a station from a phone on the same
 network, on port 80, or 8080 when a Web Remote already serves port 80. It

@@ -3,15 +3,13 @@ import {
   formatRtcDate, formatRtcTime, rtcPreviewSnapshot, rtcTimeSource,
   type RtcPreview,
 } from '../../../state/peripherals/rtc'
-import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
+import { useGraphStore } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
-import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
-import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useStreamStore } from '../../../state/output/streamStore'
 import { setRtcDateTime } from '../../../utils/backendClient'
 import styles from './RtcInputBody.module.css'
-import WifiPasswordInput from '../WifiPasswordInput'
+import BoardNetworkNote from './BoardNetworkNote'
 
 const REFRESH_MS = 250
 
@@ -55,14 +53,6 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
   const publishedPorts = usePreviewStore((s) => s.outputs.get(nodeId))
   const live = useMemo(() => publishedSnapshot(publishedPorts), [publishedPorts])
   const snapshot = live ?? fallback
-  const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
-  const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
-  // A cable carries the network instead of Wi-Fi: the board's own Ethernet
-  // port, or an Ethernet module on the bench.
-  const wired = useGraphStore((s) => {
-    const network = wiredNetworkIn(rootGraphNodes(s))
-    return network ? wiredNetworkPhrase(network) : null
-  })
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const helperReady = useUploadStore((s) => s.helper?.ok === true)
   const uploadBusy = useUploadStore((s) => s.busy)
@@ -145,35 +135,7 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
           </div>
         </>
       )}
-      {String(timeSource ?? 'Compile Time') === 'NTP' && wired && (
-        <div className={styles.note}>Firmware reaches the network through {wired}, so no Wi-Fi credentials are needed.</div>
-      )}
-      {String(timeSource ?? 'Compile Time') === 'NTP' && !wired && (
-        <>
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor={`${nodeId}-rtc-ssid`}>Wi-Fi SSID</label>
-            <input
-              id={`${nodeId}-rtc-ssid`}
-              className={`nodrag ${styles.fieldInput}`}
-              type="text"
-              autoComplete="off"
-              value={credentials.ssid}
-              onChange={(e) => setCredentials(nodeId, { ssid: e.target.value })}
-              placeholder="network name"
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor={`${nodeId}-rtc-password`}>Wi-Fi password</label>
-            <WifiPasswordInput
-              id={`${nodeId}-rtc-password`}
-              className={`nodrag ${styles.fieldInput}`}
-              value={credentials.password}
-              onChange={(password) => setCredentials(nodeId, { password })}
-            />
-          </div>
-          <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
-        </>
-      )}
+      {timeSource === 'NTP' && <BoardNetworkNote nodeId={nodeId} />}
     </div>
   )
 }

@@ -103,11 +103,12 @@ describe('time-dependent control sources', () => {
   })
 
   it('carries the Wi-Fi bootstrap with an NTP clock, once for two clocks', () => {
-    useNetworkCredentialsStore.getState().setCredentials('rtc', { ssid: 'studio', password: 'secret' })
-    const rtc = node('rtc', 'RTCInput', { timeSource: 'NTP', wifiHostname: 'led-clock' })
+    useNetworkCredentialsStore.getState().setCredentials('board', { ssid: 'studio', password: 'secret' })
+    const board = node('board', 'Board', { wifiHostname: 'led-clock' })
+    const rtc = node('rtc', 'RTCInput', { timeSource: 'NTP' })
     const second = node('second', 'RTCInput', { timeSource: 'NTP', ntpServer: 'time.nist.gov' })
     const math = node('math', 'Math')
-    const graph = createControlGraph([rtc, second, math], [edge('rtc', 'hour', 'math', 'a'), edge('second', 'minute', 'math', 'b')])
+    const graph = createControlGraph([board, rtc, second, math], [edge('rtc', 'hour', 'math', 'a'), edge('second', 'minute', 'math', 'b')])
     expect(graph.resolve('math', 'result', 'float')).not.toBeNull()
     expect([...graph.errors]).toEqual([])
     const compiled = controlGraphCpp(graph)
@@ -122,7 +123,7 @@ describe('time-dependent control sources', () => {
     expect(loop).toContain('_rtcNtpUdp_second.beginPacket("time.nist.gov", 123);')
     expect(loop).toContain('_rtcNtpEpoch_second = _rtcNtpSeconds1900_second - 2208988800UL;')
     expect(loop).toContain('_rtcCivilFromDays(_rtcNtpDays_rtc, _rtcNtpYear_rtc, _rtcNtpMonth_rtc, _rtcNtpDay_rtc);')
-    // The first network user's settings win, and the block is emitted once.
+    // Both clocks join as the Board, and the block is emitted once.
     const bootstraps = compiled.helpers.filter((block) => block.includes('void _netEnsureConnected()'))
     expect(bootstraps).toHaveLength(1)
     expect(bootstraps[0]).toContain('WiFi.setHostname("led-clock");')
@@ -131,9 +132,9 @@ describe('time-dependent control sources', () => {
     expect(compiled.includes.join('\n')).toContain('#define FLS_NET_SUPPORTED 1')
     expect(compiled.includes.join('\n')).not.toContain('ETH.h')
     expect(compiled.setup).toEqual([])
-    const normal = generateCpp([rtc, second, math], [edge('rtc', 'hour', 'math', 'a'), edge('second', 'minute', 'math', 'b')])
+    const normal = generateCpp([board, rtc, second, math], [edge('rtc', 'hour', 'math', 'a'), edge('second', 'minute', 'math', 'b')])
     expect(normal).toContain(bootstraps[0])
-    useNetworkCredentialsStore.getState().removeCredentials('rtc')
+    useNetworkCredentialsStore.getState().removeCredentials('board')
   })
 
   it('starts a wired link in setup when the bench has an Ethernet module', () => {

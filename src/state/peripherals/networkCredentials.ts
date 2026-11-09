@@ -1,10 +1,14 @@
-// Wi-Fi SSID/password for DMXInput (Art-Net) and RTCInput (NTP) nodes.
+// A board's Wi-Fi SSID/password, keyed by the Board node's id (see
+// boardNetwork.ts: every network user on a board joins with these), and an
+// internet radio Music Player's access code, keyed by the player's id.
 // Deliberately kept OUT of node `properties` — unlike ordinary node
 // properties, these never travel with the graph: not in project files, not
 // in share links, not in the helper-backed Projects/ JSON mirror. They live
-// browser-local only, like a saved Wi-Fi password on a phone. Generated
-// firmware still embeds the plaintext credential (there's no other way for
-// it to join Wi-Fi), but it no longer round-trips through project storage.
+// browser-local only, like a saved Wi-Fi password on a phone, so a primary
+// Board (always `board-root`) offers the same network in every project on
+// this machine. Generated firmware still embeds the plaintext credential
+// (there's no other way for it to join Wi-Fi), but it never round-trips
+// through project storage.
 import { create } from 'zustand'
 
 export interface NetworkCredentials {

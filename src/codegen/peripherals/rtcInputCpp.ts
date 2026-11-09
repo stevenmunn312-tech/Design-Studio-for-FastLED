@@ -8,7 +8,7 @@ import { sanitizePin } from '../hardwarePins'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { rtcI2cPinsForProfile } from '../../build/pins/rtcPins'
 import { ds3231HelperCpp, rtcHelperCpp } from './rtcCpp'
-import { networkSketchCpp, networkSourceIn } from './networkCpp'
+import { networkSketchCpp } from './networkCpp'
 import type { ControlInputEmission } from '../controlInputCpp'
 
 export const RTC_CONTROL_OUTPUTS: Record<string, 'bool' | 'float'> = {
@@ -220,8 +220,8 @@ export function rtcInputLoopCpp(id: string, p: Record<string, unknown>, v: (port
  *
  * An NTP clock carries the sketch's network with it: the same headers,
  * bootstrap and setup line the normal sketch emits, built from the whole graph
- * so a wired link on the bench is found, and from the first network user's
- * settings so two NTP clocks share one connection. The caller dedupes those
+ * so a wired link on the bench is found, and from the Board's network
+ * identity so two NTP clocks share one connection. The caller dedupes those
  * blocks, which is why every NTP clock in a graph emits identical ones.
  */
 export function rtcControlEmission(
@@ -238,10 +238,9 @@ export function rtcControlEmission(
   const setup: string[] = []
   const includes: string[] = []
   const helpers = [rtcHelperCpp().join('\n'), ...(ds3231 ? [ds3231HelperCpp().join('\n')] : [])]
-  // This clock is itself a network user, so the source is never missing.
-  const networkSource = source === 'NTP' ? networkSourceIn(nodes) : null
-  if (networkSource) {
-    const network = networkSketchCpp(nodes, networkSource)
+  // This clock is itself a network user; the connection is the Board's.
+  if (source === 'NTP') {
+    const network = networkSketchCpp(nodes)
     includes.push(network.include)
     helpers.push(network.bootstrap)
     setup.push(...network.setup)

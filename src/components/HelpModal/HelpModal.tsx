@@ -750,7 +750,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              <strong>Art-Net</strong> needs a Wi-Fi-capable board (ESP32 or ESP8266). Enter the SSID and password on the node, choose DHCP or a static address, and match the universe and UDP port your controller sends on. Credentials stay in this browser and are never written into the project, share links, or synced project files — but they are embedded in plain text in the generated sketch, so treat an exported network-enabled <code>.ino</code> as a secret.
+              <strong>Art-Net</strong> needs a Wi-Fi-capable board (ESP32 or ESP8266). Enter the SSID and password in the Board&apos;s <strong>Network</strong> settings on the Hardware tab, where the hostname and DHCP or a static address are set too, and match the universe and UDP port your controller sends on. Every network node on a board shares those settings. Credentials stay in this browser and are never written into the project, share links, or synced project files — but they are embedded in plain text in the generated sketch, so treat an exported network-enabled <code>.ino</code> as a secret.
             </div>
           </div>
           <div className={styles.tip}>
@@ -785,7 +785,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              Pick a <strong>time source</strong> on the RTC Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network, but are marked unsynced/stale because they cannot retain trustworthy time across power cycles. Manual remains useful for rehearsing schedules. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266) plus an SSID, password, and NTP server. <strong>DS3231</strong> reads a battery-backed module at I²C address <code>0x68</code> through the board&apos;s default SDA/SCL pins and needs no extra Arduino library.
+              Pick a <strong>time source</strong> on the RTC Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network, but are marked unsynced/stale because they cannot retain trustworthy time across power cycles. Manual remains useful for rehearsing schedules. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266), an NTP server, and the Wi-Fi name and password in the Board&apos;s Network settings. <strong>DS3231</strong> reads a battery-backed module at I²C address <code>0x68</code> through the board&apos;s default SDA/SCL pins and needs no extra Arduino library.
             </div>
           </div>
           <div className={styles.tip}>

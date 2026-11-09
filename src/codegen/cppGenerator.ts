@@ -12,7 +12,7 @@ import {
   SEGMENT_DISPLAY_CPP_HELPERS,
   segmentDisplayGlobalCpp,
 } from './displays/segmentDisplayCpp'
-import { networkSketchCpp, networkSourceIn } from './peripherals/networkCpp'
+import { networkSketchCpp, networkUsedIn } from './peripherals/networkCpp'
 import { boardSyncGlobalsCpp, boardSyncServiceCallCpp, clockSyncRoleIn } from './peripherals/boardSyncCpp'
 import { boardLinkFirmware, boardLinkPlan, boardLinkSends } from './peripherals/espNowLinkCpp'
 import { boardLinkControlsSendExpr } from './peripherals/boardLinkControlsCpp'
@@ -656,11 +656,10 @@ export function generateCpp(
   }
   const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
   const needsDmx512 = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
-  // The first network user in topological order owns the connection's
-  // settings. The link itself is found in the whole graph, not `sorted`: a
-  // cable is a hardware-only part with no ports to sort by.
-  const networkSource = networkSourceIn(sorted)
-  const network = networkSource ? networkSketchCpp(nodes, networkSource) : null
+  // A reachable network user brings the connection up. Its settings are the
+  // Board's and the link is found in the whole graph, not `sorted`: neither
+  // the Board nor a cable has ports to sort by.
+  const network = networkUsedIn(sorted) ? networkSketchCpp(nodes) : null
   // A syncing Board is itself a network user, so `network` is never null
   // when `clockSync` is set. A normal sketch has no show state to carry.
   const clockSync = clockSyncRoleIn(nodes)

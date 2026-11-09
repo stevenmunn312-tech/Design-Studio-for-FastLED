@@ -42,17 +42,20 @@ describe('GraphHealthDrawer', () => {
 
   // Wi-Fi names live outside the graph. Typed in after the last graph edit,
   // a name has to clear its warning there and then, not at the next edit.
-  it('rechecks the network when a Wi-Fi name is entered', () => {
-    useNetworkCredentialsStore.getState().removeCredentials('remote')
+  it('rechecks the network when a Wi-Fi name is entered on the Board', () => {
+    useNetworkCredentialsStore.getState().removeCredentials('board-root')
     useGraphStore.getState().loadGraph([
       node('board-root', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
-      node('remote', 'WebRemoteInput', { controls: [], title: 'LED Remote', wifiHostname: 'fastled-remote', useDhcp: true }),
+      node('remote', 'WebRemoteInput', { controls: [], title: 'LED Remote' }),
     ], [])
-    const { queryAllByText } = render(<GraphHealthDrawer />)
+    const { queryAllByText, getAllByRole } = render(<GraphHealthDrawer />)
     expect(queryAllByText(/missing its Wi-Fi SSID/).length).toBeGreaterThan(0)
-    act(() => useNetworkCredentialsStore.getState().setCredentials('remote', { ssid: 'bench', password: 'x' }))
+    // The card's fix opens the Board's settings, where the network is set.
+    fireEvent.click(getAllByRole('button', { name: 'Open Board settings' })[0])
+    expect(useUiStore.getState().hardwareBoardMenuRequested).toBe(true)
+    act(() => useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'bench', password: 'x' }))
     expect(queryAllByText(/missing its Wi-Fi SSID/)).toHaveLength(0)
-    useNetworkCredentialsStore.getState().removeCredentials('remote')
+    useNetworkCredentialsStore.getState().removeCredentials('board-root')
   })
 
   it('opens each affected hardware inspector and repairs a split I2C bus', () => {

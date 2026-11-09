@@ -43,12 +43,14 @@ const CONTROLS = [
 ]
 
 function remoteGraph(controls: unknown[] = CONTROLS) {
-  const remote = node('r', 'WebRemoteInput', { title: 'Shelf "lights"', wifiHostname: 'Shelf Lights', controls })
+  const remote = node('r', 'WebRemoteInput', { title: 'Shelf "lights"', controls })
   const fill = node('fill', 'SolidColor')
   const dim = node('dim', 'BrightnessMod')
   const out = node('out', 'MatrixOutput', { width: 8, height: 1 })
+  // The page answers to the board's name, which is the Board's to set.
+  const board = node('board', 'Board', { wifiHostname: 'Shelf Lights' })
   return {
-    nodes: [remote, fill, dim, out],
+    nodes: [remote, fill, dim, out, board],
     edges: [
       edge('r', 'remote:tint', 'fill', 'color'),
       edge('fill', 'frame', 'dim', 'frame'),
@@ -112,8 +114,8 @@ describe('normal sketch', () => {
     expect(cpp).toContain('if (MDNS.begin("shelf-lights")) MDNS.addService("http", "tcp", 80);')
   })
 
-  it('joins the shared Wi-Fi with the node\'s own credentials and starts the server once it is up', () => {
-    useNetworkCredentialsStore.getState().setCredentials('r', { ssid: 'Home "net"', password: 'p\\w' })
+  it('joins the shared Wi-Fi with the Board\'s credentials and starts the server once it is up', () => {
+    useNetworkCredentialsStore.getState().setCredentials('board', { ssid: 'Home "net"', password: 'p\\w' })
     try {
       const { nodes, edges } = remoteGraph()
       const cpp = generateCpp(nodes, edges)
@@ -128,7 +130,7 @@ describe('normal sketch', () => {
       expect(bootstrap).toContain('    if (WiFi.status() == WL_DISCONNECTED) return;')
       expect(specializeCpp(cpp, { ESP32: true, ESP8266: false })).not.toContain('WL_DISCONNECTED')
     } finally {
-      useNetworkCredentialsStore.getState().removeCredentials('r')
+      useNetworkCredentialsStore.getState().removeCredentials('board')
     }
   })
 

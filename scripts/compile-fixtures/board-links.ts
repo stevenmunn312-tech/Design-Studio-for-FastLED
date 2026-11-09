@@ -41,9 +41,10 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
 const LINK_ID = '0d13b0a7'
 useBoardLinkKeyStore.getState().createKey(LINK_ID)
 const on2 = { boardId: 'board-2' }
-// Every Web Remote here joins the bench network, so a board that joins none
-// scans for its channel. The name reaches the follower; the password does not.
-for (const id of ['remote', 'remote4', 'remote5']) {
+// Every board with a Web Remote here joins the bench network, with its
+// Board's credentials, so a board that joins none scans for its channel. The
+// name reaches the follower; the password does not.
+for (const id of ['board-root', 'board-2']) {
   useNetworkCredentialsStore.getState().setCredentials(id, { ssid: 'bench-network', password: 'fixture-only' })
 }
 

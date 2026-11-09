@@ -8,9 +8,9 @@ import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 
 export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
   {
-    // Wired Ethernet for the sketch's network. It carries no signal: Art-Net
-    // receive and NTP time sync keep their own settings and simply reach the
-    // network through this module instead of Wi-Fi when it is on the bench.
+    // Wired Ethernet for the sketch's network. It carries no signal: every
+    // network user reaches the network through this module instead of Wi-Fi
+    // when it is on the bench, still as the Board (its hostname and address).
     // See state/peripherals/ethernetModule.ts.
     //
     // Config only, like SD Card: no ports, no evaluation, found by scanning.

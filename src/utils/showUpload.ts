@@ -48,8 +48,9 @@ import { musicPlayerSource, resolveBuildMode } from '../state/upload/buildMode'
 import { bluetoothDeviceName } from '../state/player/bluetoothSink'
 import { DEMO_TRACK_FILE } from '../state/player/demoTrack'
 import { normalizeRadioStations, radioAccessCodeProblem, radioStationPagePort } from '../state/player/radioStations'
-import { networkSketchCpp, networkSourceIn } from '../codegen/peripherals/networkCpp'
+import { networkSketchCpp } from '../codegen/peripherals/networkCpp'
 import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
+import { boardNetworkIdentity, networkBoardIn } from '../state/peripherals/boardNetwork'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { webRemoteMdnsName } from '../state/peripherals/webRemote'
 import { asSlideshowOrder } from '../state/patterns/patternSlideshow'
@@ -262,7 +263,8 @@ export function buildShowPlayer(
  */
 function internetRadioFromGraph(nodes: StudioNode[], player: StudioNode) {
   const props = player.data.properties as Record<string, unknown>
-  const source = networkSourceIn(nodes) ?? player
+  // The board's own name: the page answers where the board does.
+  const hostname = boardNetworkIdentity(networkBoardIn(nodes)).hostname
   const hasWebRemote = nodes.some((node) => nodeType(node) === 'WebRemoteInput')
   const code = getNetworkCredentials(player.id).accessCode ?? ''
   return {
@@ -272,13 +274,13 @@ function internetRadioFromGraph(nodes: StudioNode[], player: StudioNode) {
       ? {
           port: radioStationPagePort(hasWebRemote),
           // A Web Remote announces the board already; a second MDNS.begin would fight it.
-          mdnsName: hasWebRemote ? null : webRemoteMdnsName((source.data.properties as Record<string, unknown>).wifiHostname),
-          hostName: webRemoteMdnsName((source.data.properties as Record<string, unknown>).wifiHostname),
+          mdnsName: hasWebRemote ? null : webRemoteMdnsName(hostname),
+          hostName: webRemoteMdnsName(hostname),
           wired: wiredNetworkIn(nodes) !== null,
           accessCode: radioAccessCodeProblem(code) === null ? code : '',
         }
       : null,
-    network: networkSketchCpp(nodes, source),
+    network: networkSketchCpp(nodes),
   }
 }
 

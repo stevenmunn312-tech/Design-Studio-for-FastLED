@@ -77,7 +77,7 @@ function withLocalClock<T extends { nodes: StudioNode[]; edges: StudioEdge[] }>(
       // free (the player's SD card and amplifier sit on 10-16).
       ...(ethernet ? [node('eth', 'EthernetModule', { sckPin: 12, mosiPin: 11, misoPin: 13, csPin: 10, intPin: 14, resetPin: 15 })] : []),
       node('rtc', 'RTCInput', timeSource === 'NTP'
-        ? { timeSource, ntpServer: 'pool.ntp.org', wifiHostname: 'studio-clock', timezoneOffsetMinutes: 60 }
+        ? { timeSource, ntpServer: 'pool.ntp.org', timezoneOffsetMinutes: 60 }
         : { timeSource }),
       node('clk', 'Clock'),
       node('sched', 'ScheduleTrigger'),
@@ -96,8 +96,9 @@ mkdirSync(outputDir, { recursive: true })
 const manifest: Record<string, { bytes: number; sha256: string }> = {}
 // D-03: an NTP clock in the show and player sketches, over Wi-Fi and, in the
 // show, over a W5500 on the bench. Credentials come from the browser-local
-// store, as they do in the app; the fixture seeds it the way a user would.
-useNetworkCredentialsStore.getState().setCredentials('rtc', { ssid: 'studio-bench', password: 'studio-bench-key' })
+// store under the Board's id, as they do in the app; the fixture seeds it the
+// way a user would in the Board's network settings.
+useNetworkCredentialsStore.getState().setCredentials('board', { ssid: 'studio-bench', password: 'studio-bench-key' })
 const variants = [
   { file: 'normal', mode: 'normal', clock: 'Compile Time', ethernet: false },
   { file: 'show', mode: 'show', clock: 'Compile Time', ethernet: false },
