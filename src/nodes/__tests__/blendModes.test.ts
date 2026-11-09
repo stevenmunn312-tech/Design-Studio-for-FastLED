@@ -18,7 +18,8 @@ function node(id: string, nodeType: string, properties: Record<string, unknown>)
 describe('Blend mode options', () => {
   it('offers every supported channel blend without changing Array modes', () => {
     expect(propertyOptions('Blend', 'blendMode', {})).toEqual(['normal', ...BLEND_MODES])
-    expect(propertyOptions('Array', 'blendMode', {})).toEqual(['add', 'lighten', 'over'])
+    // Array's own three, its default first.
+    expect(propertyOptions('Array', 'blendMode', {})).toEqual(['lighten', 'add', 'over'])
   })
 
   it('keeps the brighter channel for Lighten in preview and generated firmware', () => {

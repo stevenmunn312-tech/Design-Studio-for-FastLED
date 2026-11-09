@@ -127,7 +127,9 @@ describe('Frame Transform and the Blend mask', () => {
     expect(lit(row[0])).toBe(true)
     expect(lit(row[7])).toBe(false)
     const cpp = generateCpp([base, mask, blend], edges)
-    expect(cpp).toContain('nblend(buf_x[_i], buf_b[_i],')
+    // Normal runs the integer kernel like every mode; the mask scales its opacity byte.
+    expect(cpp).toContain('CRGB _a=buf_x[_i], _b=buf_b[_i];')
+    expect(cpp).toContain('uint8_t _op8=(uint8_t)((((uint32_t)_opAll*((buf_m[_i].r+buf_m[_i].g+buf_m[_i].b)/3))+1)*257>>16);')
     expect(cpp).toContain('buf_m[_i].r+buf_m[_i].g+buf_m[_i].b')
     expect(propertyDescription('Blend', 'mask')).toBeTruthy()
   })
