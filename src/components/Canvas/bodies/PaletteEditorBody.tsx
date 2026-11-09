@@ -10,7 +10,7 @@ import {
   sampleCustomPalette,
   type RGB,
 } from '../../../state/palettes/customPalette'
-import { polinePalette } from '../../../state/palettes/polinePalette'
+import { polineStops16 } from '../../../state/palettes/polinePalette'
 import { useUiStore } from '../../../state/uiStore'
 import { buildLibraryBundle, sharedPaletteFromNode } from '../../../state/library/libraryBundle'
 import { copyLibraryLink, downloadLibraryFile, libraryFileName } from '../../../utils/libraryShare'
@@ -26,6 +26,11 @@ const POLINE_PRESETS = [
   { name: 'arc', colors: ['#1020ff', '#ff20a0', '#20ffd0'] },
   { name: 'solar', colors: ['#3d0752', '#ff6b35', '#ffe66d'] },
   { name: 'mineral', colors: ['#1b998b', '#2d3047', '#fffd82'] },
+  // Two bright hues either side of a deep tinted trough: a radial or
+  // full-frame pattern always holds a dark band and both hues, so it keeps
+  // its contrast instead of washing out. Tinted, not black, so the dim
+  // phase still reads as colour.
+  { name: 'trough', colors: ['#ff3d7f', '#14063c', '#33e0ff'] },
 ]
 
 const INPUT_PORTS = ['color0', 'color1', 'color2', 'color3']
@@ -85,6 +90,7 @@ function StopHandle({
   color,
   position,
   wired,
+  port,
   onMove,
   onColor,
   onRemove,
@@ -94,11 +100,16 @@ function StopHandle({
   color: string
   position: number
   wired: boolean
+  /** The Color input (1–4) that drives this stop, counted from the left, if any. */
+  port?: number
   onMove: (position: number) => void
   onColor: (color: string) => void
   onRemove: () => void
   onNudge: (direction: -1 | 1) => void
 }) {
+  const portTitle = port === undefined
+    ? undefined
+    : wired ? `The Color ${port} input drives this stop` : `Wire the Color ${port} input to drive this stop`
   const railRef = useRef<HTMLDivElement | null>(null)
   const moveFromClient = (clientX: number) => {
     const rect = railRef.current?.parentElement?.getBoundingClientRect()
@@ -122,11 +133,17 @@ function StopHandle({
         className={styles.stopColor}
         type="color"
         aria-label={`Stop ${index + 1} color`}
+        title={portTitle}
         disabled={wired}
         value={color}
         onPointerDown={(e) => e.stopPropagation()}
         onChange={(e) => onColor(e.target.value)}
       />
+      {/* Which input drives the stop: a wire follows the stop's place from the
+          left, so the number moves when a stop is dragged past a neighbour. */}
+      {port !== undefined && (
+        <span className={`${styles.stopPort}${wired ? ` ${styles.stopPortWired}` : ''}`} data-testid={`stop-port-${index}`} aria-hidden="true">{port}</span>
+      )}
       {/* Kept off the stop's drag, which would otherwise move it to the click. */}
       <div className={styles.stopTools} onPointerDown={(e) => e.stopPropagation()}>
         <button type="button" onClick={(e) => { e.stopPropagation(); onNudge(-1) }} title="Move left">‹</button>
@@ -223,6 +240,7 @@ export function CustomPaletteEditorBody({ nodeId, topPlacement }: { nodeId: stri
             color={displayColors[i]}
             position={local.positions[i]}
             wired={Boolean(wired[i]?.wired)}
+            port={i < INPUT_PORTS.length ? i + 1 : undefined}
             onMove={(position) => setPosition(i, position)}
             onColor={(next) => setColor(i, next)}
             onRemove={() => remove(i)}
@@ -255,7 +273,7 @@ export function PolineEditorBody({ nodeId, topPlacement }: { nodeId: string; top
     const prop = props[key]
     return live ? rgbToHex(live) : isHexColor(prop) ? prop : POLINE_PRESETS[0].colors[i]
   })
-  const stops = polinePalette(anchors.map(hexToRgb), Number(props.points ?? 4), String(props.position ?? 'sinusoidal'))
+  const stops = polineStops16(anchors.map(hexToRgb), Number(props.points ?? 4), String(props.position ?? 'sinusoidal'))
   const gradientCss = gradient(stops.length ? stops : anchors.map(hexToRgb))
 
   return (
@@ -283,7 +301,7 @@ export function PolineEditorBody({ nodeId, topPlacement }: { nodeId: string; top
             type="button"
             className={styles.preset}
             title={preset.name}
-            style={{ background: gradient(polinePalette(preset.colors.map(hexToRgb), Number(props.points ?? 4), String(props.position ?? 'sinusoidal'))) }}
+            style={{ background: gradient(polineStops16(preset.colors.map(hexToRgb), Number(props.points ?? 4), String(props.position ?? 'sinusoidal'))) }}
             onClick={() => updateNodeProperties(nodeId, {
               anchorA: preset.colors[0],
               anchorB: preset.colors[1],

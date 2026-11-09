@@ -482,28 +482,6 @@ freeze, or drop them.
   Cycle and Harmony Palette, and `H (0–360)`/`S`/`V` on RGB to HSV. Pick one
   pattern, e.g. "Hue (°)", "Saturation (0–1)", "Brightness (0–1)"; "Value" is
   jargon. Evidence `src/nodes/color/definitions.ts`.
-- [ ] **Custom Palette: Correct the stale "four colours" text (Med, S).**
-  Description, definition comment and Help say "up to four colours, spaced
-  evenly", but the body supports 2–8 draggable, positioned stops with presets
-  and export. Update the text. Evidence `src/nodes/color/definitions.ts:165`,
-  `src/components/HelpModal/reference/color.ts:279`.
-- [ ] **Custom Palette: Bind ports to stable stop ids (Low, M).** Wires bind to
-  the sorted stop index, so dragging a wired stop past a neighbour moves its
-  wire onto the other stop, and only 4 of up to 8 stops can be wired. Bind
-  each port to a stop id, or show in the body which stop each port drives.
-  Evidence `src/nodes/color/evaluate.ts:211`.
-- [ ] **Poline Palette: Make preview and firmware use the same table (Med,
-  S).** The preview interpolates the raw poline array (2·points+3 colours)
-  while firmware resamples to 16 by nearest index, duplicating entries; at
-  `points: 1` it posterises on hardware. Resample with interpolation on both
-  sides and have the evaluator return `polineStops16`. Evidence
-  `src/nodes/color/evaluate.ts:228`, `src/state/palettes/polinePalette.ts:86`, `src/codegen/helpers/polineHelperCpp.ts:59`.
-- [ ] **Poline Palette: Fix the anchor count wording (Low, S).** Text says "up
-  to three anchors" / "two or three", but all three are always used. Say
-  "three", or add an anchor count of 2/3. Evidence `src/nodes/color/evaluate.ts:223`.
-- [ ] **Poline Palette: Add a dark-middle preset (Low, S).** Add a
-  `POLINE_PRESETS` entry with a deep tinted middle anchor (e.g. `#14063c`) so
-  the high-contrast recipe is one click away.
 - [ ] **Harmony Palette: Make harmonies hold their hues (High, M).** Hue is
   interpolated linearly between anchor offsets, so complementary sweeps red,
   orange, yellow, green, cyan and the other kinds are 210–270° rainbow

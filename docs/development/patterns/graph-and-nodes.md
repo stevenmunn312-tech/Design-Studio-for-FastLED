@@ -345,6 +345,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `LINEARBLEND_NOWRAP`, as does Noise's frame output, which shares that
   evaluator. Wrapping there gave a hard-edged field's 1 the colour of its 0,
   so a solid Slice Tiling slice vanished into the space around it.
+- A palette builder's preview hands downstream the 16-entry table its sketch
+  bakes or builds, not its raw colours. Poline once passed on its
+  2·points+3 poline colours while both firmware paths picked 16 of them by
+  nearest index, so the board posterised (four-entry plateaus at `points: 1`)
+  what the preview blended. `polineStops16` and `_polineStops16` now blend
+  the two neighbours of each sample point, found by integer arithmetic so
+  both pick the same pair and weight.
 - A Palette Bank change blends through a working palette: the sketch keeps a
   static `CRGBPalette16` and calls FastLED's `nblendPaletteTowardPalette`
   with `blend` as `maxChanges`, once per 10 ms of `millis()`, at most 32 steps

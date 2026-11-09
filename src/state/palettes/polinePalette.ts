@@ -77,14 +77,31 @@ export function polinePalette(anchors: RGB[], points: number, position: string):
   return poline.colors.map(([h, s, l]) => hslToRgb(h, s, l))
 }
 
-/** Resample a poline palette to exactly 16 stops for a FastLED CRGBPalette16. */
+/**
+ * Resample a poline palette to exactly 16 stops for a FastLED CRGBPalette16,
+ * blending the two colours either side of each sample point. This table is
+ * the palette on both sides: the evaluator hands it downstream and the
+ * sketch bakes it, or builds it with `_polineStops16`
+ * (`codegen/helpers/polineHelperCpp.ts`), which runs the same integer-exact
+ * sample positions. Picking the nearest colour instead doubled entries and,
+ * at `points: 1`, posterised the palette into four-entry plateaus on the
+ * board while the preview blended the raw colours smoothly.
+ */
 export function polineStops16(anchors: RGB[], points: number, position: string): RGB[] {
   const pal = polinePalette(anchors, points, position)
   if (pal.length === 0) return Array.from({ length: 16 }, () => ({ r: 0, g: 0, b: 0 }))
   const out: RGB[] = []
+  const span = pal.length - 1
   for (let i = 0; i < 16; i++) {
-    const idx = Math.round((i / 15) * (pal.length - 1))
-    out.push(pal[idx])
+    // i/15 of the way along, split into a whole index and a fraction without
+    // rounding, so the C++ twin lands on exactly the same pair and weight.
+    const k = Math.floor((i * span) / 15), f = ((i * span) % 15) / 15
+    const a = pal[k], b = pal[Math.min(span, k + 1)]
+    out.push({
+      r: Math.round(a.r + (b.r - a.r) * f),
+      g: Math.round(a.g + (b.g - a.g) * f),
+      b: Math.round(a.b + (b.b - a.b) * f),
+    })
   }
   return out
 }

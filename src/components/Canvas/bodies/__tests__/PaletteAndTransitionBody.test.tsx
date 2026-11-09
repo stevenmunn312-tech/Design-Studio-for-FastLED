@@ -78,6 +78,21 @@ describe('palette and transition node bodies', () => {
     expect(props.positions).toHaveLength(3)
   })
 
+  it('numbers the CustomPalette stops its Color 1–4 inputs drive', () => {
+    const colors = ['#000000', '#222222', '#444444', '#666666', '#888888', '#ffffff']
+    useGraphStore.setState({
+      nodes: [{
+        id: 'cp', type: 'studioNode', position: { x: 0, y: 0 },
+        data: nodeData('CustomPalette', { colors, positions: [0, 0.2, 0.4, 0.6, 0.8, 1] }),
+      }],
+    })
+    const { queryByTestId, getByLabelText } = render(<CustomPaletteEditorBody nodeId="cp" />)
+    // A wire binds to a stop's place from the left, so the body says which.
+    for (let i = 0; i < 4; i++) expect(queryByTestId(`stop-port-${i}`)?.textContent).toBe(String(i + 1))
+    expect(queryByTestId('stop-port-4')).toBeNull()
+    expect(getByLabelText('Stop 2 color').getAttribute('title')).toBe('Wire the Color 2 input to drive this stop')
+  })
+
   it('moves a CustomPalette colour to its neighbour stop', () => {
     useGraphStore.setState({
       nodes: [{

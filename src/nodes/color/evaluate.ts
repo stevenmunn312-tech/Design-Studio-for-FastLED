@@ -20,7 +20,7 @@ import { displayString } from '../../state/displays/displayText'
 import { gradientMixMode, hueUnits, mixGradientColors } from '../../state/palettes/hueMix'
 import { harmonyKind, harmonyStops16 } from '../../state/palettes/harmonyPalette'
 import { imagePaletteStops16 } from '../../state/palettes/imagePalette'
-import { hexToRgb, polinePalette } from '../../state/palettes/polinePalette'
+import { hexToRgb, polineStops16 } from '../../state/palettes/polinePalette'
 import { normalizeCustomPalette, hexToRgb as customHexToRgb, customPaletteStops16 } from '../../state/palettes/customPalette'
 import { type RGB, hsv, samplePalette, samplePaletteClamped } from '../../state/palettes/ledColor'
 import type { NodeEvaluators } from '../../state/evaluator/types'
@@ -196,14 +196,15 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     return { palette: imagePaletteStops16(source, Number(props.count ?? 6)) }
   },
   Poline({ input }, id, props) {
-    // Polar-interpolated palette between up to three anchor colours
-    // (poline). Wired colours override the per-anchor hex defaults.
+    // Polar-interpolated palette through its three anchor colours (poline).
+    // Wired colours override the per-anchor hex defaults. The 16-entry table
+    // is the one the sketch bakes or builds, so preview and board agree.
     const a = (input(id, 'colorA', null) as RGB | null) ?? hexToRgb(String(props.anchorA ?? '#1020ff'))
     const b = (input(id, 'colorB', null) as RGB | null) ?? hexToRgb(String(props.anchorB ?? '#ff20a0'))
     const c = (input(id, 'colorC', null) as RGB | null) ?? hexToRgb(String(props.anchorC ?? '#20ffd0'))
     const points = Number(props.points ?? 4)
     const position = String(props.position ?? 'sinusoidal')
-    return { palette: polinePalette([a, b, c], points, position) }
+    return { palette: polineStops16([a, b, c], points, position) }
   },
   HarmonyPalette({ num }, id, props) {
     return { palette: harmonyStops16(

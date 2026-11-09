@@ -5,7 +5,7 @@
  * `polineStops16` holds the sketch to the library: change one, change both.
  */
 import { describe, expect, it } from 'vitest'
-import { POLINE_POSITIONS, polineStops16, type RGB } from '../polinePalette'
+import { POLINE_POSITIONS, polinePalette, polineStops16, type RGB } from '../polinePalette'
 import { polinePositionId } from '../../../codegen/helpers/polineHelperCpp'
 
 function polPos(t: number, rev: boolean, fn: number): number {
@@ -48,14 +48,22 @@ function polColor(p: number[]): RGB {
   return { r: byte(r + m), g: byte(g + m), b: byte(b + m) }
 }
 
+function polAt(anchors: number[][], n: number, k: number, fn: number): RGB {
+  const seg = k < n ? 0 : 1, j = seg === 0 ? k : k - n + 1
+  const e = polPos(j / (n - 1), seg === 1, fn)
+  return polColor([0, 1, 2].map((ax) => (1 - e) * anchors[seg][ax] + e * anchors[seg + 1][ax]))
+}
+
 function firmwareStops16(a: RGB, b: RGB, c: RGB, points: number, fn: number): RGB[] {
   const anchors = [polPoint(a), polPoint(b), polPoint(c)]
-  const n = Math.max(1, Math.min(16, points)) + 2, len = 2 * n - 1
+  const n = Math.max(1, Math.min(16, points)) + 2, span = 2 * n - 2
   const out: RGB[] = []
   for (let i = 0; i < 16; i++) {
-    const k = Math.floor(i / 15 * (len - 1) + 0.5), seg = k < n ? 0 : 1, j = seg === 0 ? k : k - n + 1
-    const e = polPos(j / (n - 1), seg === 1, fn)
-    out.push(polColor([0, 1, 2].map((ax) => (1 - e) * anchors[seg][ax] + e * anchors[seg + 1][ax])))
+    // C++ integer division and remainder.
+    const k = Math.trunc(i * span / 15), f = (i * span % 15) / 15
+    const c0 = polAt(anchors, n, k, fn), c1 = polAt(anchors, n, Math.min(k + 1, span), fn)
+    const byte = (lo: number, hi: number) => Math.floor(lo + (hi - lo) * f + 0.5)
+    out.push({ r: byte(c0.r, c1.r), g: byte(c0.g, c1.g), b: byte(c0.b, c1.b) })
   }
   return out
 }
@@ -86,6 +94,18 @@ describe('firmware Poline palette', () => {
       }
     }
     expect(compared).toBe(POLINE_POSITIONS.length * ANCHOR_SETS.length * 6)
+  })
+
+  it('blends between the poline colours rather than repeating the nearest one', () => {
+    // At points 1 there are five raw colours; nearest-index picking made four
+    // copies of each, a posterised palette on the board.
+    const anchors: [RGB, RGB, RGB] = [{ r: 255, g: 0, b: 0 }, { r: 0, g: 0, b: 255 }, { r: 0, g: 255, b: 0 }]
+    const stops = polineStops16(anchors, 1, 'linear')
+    const raw = polinePalette(anchors, 1, 'linear')
+    const distinct = new Set(stops.map((s) => `${s.r},${s.g},${s.b}`))
+    expect(distinct.size).toBe(16)
+    expect(stops[0]).toEqual(raw[0])
+    expect(stops[15]).toEqual(raw[raw.length - 1])
   })
 
   it('numbers the position functions by their place in the shared list', () => {

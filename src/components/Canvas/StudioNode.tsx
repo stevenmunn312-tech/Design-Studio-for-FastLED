@@ -71,7 +71,7 @@ import { signalPathFor } from '../../utils/signalPath'
 import { stopWheelWhileFocused } from './wheelBehavior'
 import EditableRange from '../EditableRange/EditableRange'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, rgbToHex } from '../../state/palettes/customPalette'
-import { polinePalette, hexToRgb as polineHexToRgb } from '../../state/palettes/polinePalette'
+import { polineStops16, hexToRgb as polineHexToRgb } from '../../state/palettes/polinePalette'
 import type { Palette } from '../../state/palettes/ledColor'
 import { DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from '../../state/displays/displaySignal'
 import { CUSTOM_DESIGN_LAYOUT,
@@ -1261,7 +1261,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       const a = paletteEditorLive.colorA ? rgbToHex(paletteEditorLive.colorA) : String(palettePreviewProps.anchorA ?? '#1020ff')
       const b = paletteEditorLive.colorB ? rgbToHex(paletteEditorLive.colorB) : String(palettePreviewProps.anchorB ?? '#ff20a0')
       const c = paletteEditorLive.colorC ? rgbToHex(paletteEditorLive.colorC) : String(palettePreviewProps.anchorC ?? '#20ffd0')
-      return polinePalette(
+      return polineStops16(
         [polineHexToRgb(a), polineHexToRgb(b), polineHexToRgb(c)],
         Number(palettePreviewProps.points ?? 4),
         String(palettePreviewProps.position ?? 'sinusoidal'),

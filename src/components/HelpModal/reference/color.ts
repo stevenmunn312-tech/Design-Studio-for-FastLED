@@ -279,14 +279,14 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   CustomPalette: {
     overview: [
-      'Custom Palette builds a palette from up to four colours, spaced evenly from start to end and blended between.',
-      'Wire Color nodes in for fixed colours — team colours, a brand, a holiday — or any colour signal for a palette that changes.',
+      'Custom Palette builds a palette from two to eight colour stops on a strip in its body, blended between. Drag a stop to move it, click its swatch to recolour it, add a stop with add, and pick a ready-made set from the presets below the strip. Export and link share the palette.',
+      'Wire Color nodes into Color 1–4 for colours that come from elsewhere — team colours, a brand, a holiday — or any colour signal for a palette that changes. Each input replaces one of the first four stops counted from the left, and the strip numbers the stops they drive; drag a stop past a neighbour and the numbers follow the new order.',
     ],
     inputs: {
-      color0: 'The first colour, at the palette’s start.',
-      color1: 'The second colour.',
-      color2: 'The third colour.',
-      color3: 'The fourth colour, at the palette’s end.',
+      color0: 'Replaces the colour of the leftmost stop, numbered 1 on the strip.',
+      color1: 'Replaces the colour of stop 2.',
+      color2: 'Replaces the colour of stop 3.',
+      color3: 'Replaces the colour of stop 4.',
     },
     outputs: {
       palette: PALETTE_OUT,
@@ -336,8 +336,9 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   Poline: {
     overview: [
-      'Poline Palette draws a smooth curve through up to three anchor colours and samples a palette along it, using the poline colour library. The in-between colours stay rich rather than passing through grey.',
+      'Poline Palette draws a smooth curve through three anchor colours and samples a palette along it, using the poline colour library. The in-between colours stay rich rather than passing through grey.',
       'Points sets how many colours are made between each pair of anchors; Position spaces them along the curve. Wire Color nodes into the anchors, or pick them on the node.',
+      'For contrast, put a deep, tinted colour on the middle anchor (the trough preset does): a pattern then always shows a dark band between the two bright hues instead of washing out.',
     ],
     inputs: {
       colorA: 'First anchor. Replaces Anchor A.',

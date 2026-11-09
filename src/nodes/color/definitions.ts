@@ -163,7 +163,9 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { palette: 'rainbow' },
   },
   {
-    // Builds a palette from up to four connected colors (in order).
+    // Builds a palette from 2–8 positioned colour stops edited in its body
+    // (`colors`/`positions`). A wired Color 1–4 replaces the colour of the
+    // first four stops counted from the left, which the body numbers.
     type: 'CustomPalette',
     label: 'Custom Palette',
     category: 'color',
@@ -190,7 +192,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { count: 6 },
   },
   {
-    // Polar-interpolated palette between two or three anchor colours (poline).
+    // Polar-interpolated palette through three anchor colours (poline), as
+    // the 16-entry table both the preview and the sketch use (polineStops16).
     type: 'Poline',
     label: 'Poline Palette',
     category: 'color',
@@ -303,9 +306,9 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   Temperature: 'White point from a colour temperature: 1800 K candle to 9000 K sky.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',
-  CustomPalette: 'Builds a palette from up to four colors.',
+  CustomPalette: 'Builds a palette from 2–8 colour stops you place along a strip.',
   PaletteFromImage: 'Extracts dominant colours from an uploaded Image into a 16-stop palette.',
-  Poline: 'Smooth poline palette between up to three anchor colours.',
+  Poline: 'Smooth poline palette through three anchor colours.',
   HarmonyPalette: 'Palette of colour-wheel harmony hues around a base hue.',
   PaletteBlend: 'Interpolates between two palettes.',
   PaletteTransform: 'Reverses, rotates or dims a palette on its way to a pattern.',
